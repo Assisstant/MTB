@@ -1,0 +1,1113 @@
+<!DOCTYPE html>
+<html lang="mk">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>Табела со Докази - Hybrid</title>
+    <style>
+        :root {
+            --bg: #f5f5f5;
+            --bg2: #ffffff;
+            --text: #333333;
+            --muted: #666666;
+            --border: #d2d2d7;
+            --primary: #1877f2;
+            --primary-lt: #e7f3ff;
+            --danger: #ff4444;
+            --success: #22c55e;
+            --gdrive: #4285f4;
+            --cloud: #34a853;
+        }
+
+        .dark {
+            --bg: #1a1a2e;
+            --bg2: #16213e;
+            --text: #f5f5f7;
+            --muted: #98989d;
+            --border: #3a3a5a;
+            --primary: #4dabf7;
+            --primary-lt: #1e3a5f;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        html, body {
+            background: var(--bg);
+            color: var(--text);
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+        }
+
+        body { padding: 20px; min-height: 100vh; }
+
+        /* Format Bar */
+        .format-bar {
+            display: none;
+            position: absolute;
+            background: var(--bg2);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 6px;
+            gap: 4px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            z-index: 100;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+        .format-bar.visible { display: flex; }
+        .format-bar button {
+            width: 32px; height: 32px; border: none; border-radius: 6px;
+            background: var(--bg); color: var(--text); cursor: pointer;
+            font-size: 14px; font-weight: bold;
+        }
+        .format-bar button:hover { background: var(--primary); color: white; }
+        .format-bar select {
+            padding: 6px; border-radius: 6px; border: 1px solid var(--border);
+            background: var(--bg); color: var(--text);
+        }
+
+        .editable {
+            background: transparent;
+            border: 2px dashed transparent;
+            border-radius: 8px;
+            padding: 10px 14px;
+            color: var(--text);
+            font-family: inherit;
+            min-height: 40px;
+            transition: all 0.2s;
+            outline: none;
+        }
+        .editable:hover { border-color: var(--border); background: var(--bg2); }
+        .editable:focus { border-color: var(--primary); background: var(--bg2); border-style: solid; }
+        div.editable { white-space: pre-wrap; word-wrap: break-word; }
+
+        .main-title {
+            font-size: 2rem; font-weight: bold; min-height: 50px;
+            margin-bottom: 8px; text-align: center; display: block; width: 100%;
+        }
+        .subtitle {
+            font-size: 1rem; color: var(--muted); min-height: 30px;
+            margin-bottom: 20px; text-align: center; display: block; width: 100%;
+        }
+
+        .controls {
+            display: flex; gap: 12px; flex-wrap: wrap; align-items: center;
+            margin-bottom: 20px; padding: 16px; background: var(--bg2);
+            border-radius: 12px; box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+        .btn {
+            padding: 10px 18px; border-radius: 100px; border: none;
+            background: var(--bg2); color: var(--text); cursor: pointer;
+            font-size: 14px; font-weight: 500; transition: all 0.3s;
+            display: inline-flex; align-items: center; gap: 6px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        }
+        .btn:hover { transform: translateY(-2px); box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15); }
+        .btn-primary { background: var(--primary); color: white; }
+        .btn-success { background: var(--success); color: white; }
+        .btn-danger { background: var(--danger); color: white; }
+        .btn-gdrive { background: var(--gdrive); color: white; }
+        .btn-sm { padding: 6px 12px; font-size: 12px; }
+        .btn.active { background: var(--primary); color: white; }
+        .spacer { flex: 1; }
+
+        .toggle-group {
+            display: flex; gap: 4px; background: var(--bg); padding: 4px; border-radius: 100px;
+        }
+        .toggle-btn {
+            padding: 8px 14px; border: none; border-radius: 100px;
+            background: transparent; color: var(--muted); cursor: pointer; font-size: 13px;
+        }
+        .toggle-btn.active { background: var(--primary); color: white; }
+
+        /* Tabs */
+        .tabs-container { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 20px; }
+        .tab {
+            padding: 12px 20px; border-radius: 12px; background: var(--bg2);
+            color: var(--text); cursor: pointer; font-size: 14px;
+            display: flex; align-items: center; gap: 10px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1); transition: all 0.3s;
+        }
+        .tab:hover { transform: translateY(-2px); }
+        .tab.active { background: var(--primary); color: white; }
+        .tab input { background: transparent; border: none; color: inherit; font: inherit; width: 100px; padding: 2px 4px; }
+        .tab input:focus { outline: none; }
+        .tab .close-btn {
+            width: 20px; height: 20px; border-radius: 50%; border: none;
+            background: rgba(255, 255, 255, 0.2); color: inherit; cursor: pointer; font-size: 14px;
+        }
+        .tab .close-btn:hover { background: var(--danger); }
+        .add-tab {
+            padding: 12px 20px; border: 2px dashed var(--border); border-radius: 12px;
+            background: transparent; color: var(--muted); cursor: pointer; font-size: 14px;
+        }
+        .add-tab:hover { border-color: var(--primary); color: var(--primary); }
+
+        .page { display: none; }
+        .page.active { display: block; }
+
+        /* Table */
+        .table-wrap {
+            overflow-x: auto; border-radius: 12px; background: var(--bg2);
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+        table { width: 100%; border-collapse: collapse; min-width: 900px; table-layout: fixed; }
+        th, td {
+            border: 1px solid var(--border); padding: 0; vertical-align: top;
+            overflow: hidden; word-wrap: break-word; overflow-wrap: break-word;
+        }
+        th { background: var(--bg); font-weight: 600; }
+        th .editable { font-weight: 600; text-align: center; }
+        td .editable { min-height: 80px; width: 100%; word-wrap: break-word; overflow-wrap: break-word; }
+        .col-sm { width: 22%; }
+        .col-lg { width: 56%; }
+
+        /* Attachment Cell */
+        .att-cell { padding: 15px; }
+        .att-bar {
+            display: flex; gap: 8px; flex-wrap: wrap; align-items: center;
+            padding: 12px; background: var(--bg); border-radius: 12px;
+            margin-bottom: 15px; border: 2px dashed var(--border);
+        }
+        .att-bar-title { width: 100%; font-size: 12px; color: var(--muted); margin-bottom: 8px; }
+        .att-bar input[type="text"] {
+            flex: 1; min-width: 150px; padding: 10px 14px; border: 1px solid var(--border);
+            border-radius: 100px; background: var(--bg2); color: var(--text); font-size: 14px;
+        }
+        .att-bar input[type="text"]:focus { outline: none; border-color: var(--primary); }
+        .att-bar input[type="file"] { display: none; }
+
+        /* Storage Mode Selector */
+        .storage-mode {
+            display: flex; gap: 4px; background: var(--bg2); padding: 3px;
+            border-radius: 8px; border: 1px solid var(--border);
+        }
+        .storage-mode button {
+            padding: 6px 10px; border: none; border-radius: 6px;
+            background: transparent; color: var(--muted); cursor: pointer; font-size: 11px;
+        }
+        .storage-mode button.active { background: var(--primary); color: white; }
+        .storage-mode button.gdrive.active { background: var(--gdrive); }
+
+        /* Attachment List */
+        .att-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; }
+        .att-item {
+            background: var(--bg2); border-radius: 12px; overflow: hidden;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1); transition: all 0.3s;
+            position: relative;
+        }
+        .att-item:hover { transform: translateY(-4px); box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15); }
+
+        /* Storage Badge */
+        .storage-badge {
+            position: absolute; top: 8px; right: 8px; z-index: 5;
+            padding: 3px 8px; border-radius: 12px; font-size: 10px; font-weight: 600;
+            color: white; text-transform: uppercase;
+        }
+        .storage-badge.local { background: var(--success); }
+        .storage-badge.cloud { background: var(--gdrive); }
+
+        .thumb-box {
+            position: relative; width: 100%; padding-top: 56.25%;
+            background: #1a1a2e; overflow: hidden; cursor: pointer;
+        }
+        .thumb-box:hover .thumb-hover { opacity: 1; }
+        .thumb-content {
+            position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+        }
+        .thumb-img { width: 100%; height: 100%; object-fit: cover; }
+
+        .thumb-icon-wrap {
+            width: 100%; height: 100%; display: flex; flex-direction: column;
+            align-items: center; justify-content: center; color: white; font-size: 48px;
+        }
+        .thumb-icon-wrap.pdf { background: linear-gradient(135deg, #e53935 0%, #b71c1c 100%); }
+        .thumb-icon-wrap.doc { background: linear-gradient(135deg, #1976d2 0%, #0d47a1 100%); }
+        .thumb-icon-wrap.xls { background: linear-gradient(135deg, #2e7d32 0%, #1b5e20 100%); }
+        .thumb-icon-wrap.ppt { background: linear-gradient(135deg, #d84315 0%, #bf360c 100%); }
+        .thumb-icon-wrap.video { background: linear-gradient(135deg, #7b1fa2 0%, #4a148c 100%); }
+        .thumb-icon-wrap.link { background: linear-gradient(135deg, #1877f2 0%, #0d47a1 100%); }
+        .thumb-icon-wrap.file { background: linear-gradient(135deg, #546e7a 0%, #37474f 100%); }
+        .thumb-icon-wrap.gdrive { background: linear-gradient(135deg, #4285f4 0%, #1a73e8 100%); }
+        .thumb-icon-text { font-size: 12px; font-weight: 600; margin-top: 8px; text-transform: uppercase; letter-spacing: 1px; }
+
+        .yt-play {
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            width: 60px; height: 42px; background: rgba(255, 0, 0, 0.9);
+            border-radius: 10px; display: flex; align-items: center; justify-content: center;
+            transition: all 0.2s; z-index: 2;
+        }
+        .thumb-box:hover .yt-play { background: #ff0000; transform: translate(-50%, -50%) scale(1.1); }
+        .yt-play::after {
+            content: ''; border-style: solid; border-width: 8px 0 8px 14px;
+            border-color: transparent transparent transparent white; margin-left: 3px;
+        }
+
+        .thumb-hover {
+            position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0, 0, 0, 0.6); display: flex; align-items: center;
+            justify-content: center; opacity: 0; transition: opacity 0.2s; z-index: 3;
+        }
+        .thumb-hover-text {
+            background: white; color: #333; padding: 8px 16px;
+            border-radius: 100px; font-size: 12px; font-weight: 600;
+        }
+
+        .att-info { padding: 10px 12px; background: var(--bg); }
+        .att-name {
+            font-size: 12px; font-weight: 600; white-space: nowrap;
+            overflow: hidden; text-overflow: ellipsis; margin-bottom: 6px;
+        }
+        .att-desc {
+            width: 100%; padding: 8px; margin-top: 6px; border: 1px solid var(--border);
+            border-radius: 6px; background: var(--bg2); color: var(--text);
+            font-size: 11px; resize: vertical; min-height: 40px; font-family: inherit;
+        }
+        .att-desc:focus { outline: none; border-color: var(--primary); }
+        .att-meta { display: flex; justify-content: space-between; align-items: center; margin-top: 6px; }
+        .att-size { font-size: 10px; color: var(--muted); }
+        .att-btns { display: flex; gap: 4px; }
+        .att-btns button {
+            padding: 4px 8px; font-size: 11px; border-radius: 6px; border: none;
+            background: var(--bg2); color: var(--text); cursor: pointer; transition: all 0.2s;
+        }
+        .att-btns button:hover { background: var(--primary); color: white; }
+        .att-btns button.del:hover { background: var(--danger); }
+
+        .empty {
+            grid-column: 1 / -1; text-align: center; padding: 40px;
+            color: var(--muted); font-style: italic; background: var(--bg); border-radius: 12px;
+        }
+
+        /* Modal */
+        .modal-overlay {
+            position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0, 0, 0, 0.9); display: none; z-index: 9999;
+        }
+        .modal-overlay.active { display: flex; align-items: center; justify-content: center; }
+        .modal-box {
+            background: var(--bg2); border-radius: 12px; overflow: hidden;
+            display: flex; flex-direction: column; box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+            resize: both; min-width: 400px; min-height: 300px;
+            max-width: calc(100vw - 40px); max-height: calc(100vh - 40px);
+        }
+        .modal-head {
+            display: flex; align-items: center; padding: 12px 16px;
+            background: var(--bg); border-bottom: 1px solid var(--border);
+            cursor: move; user-select: none; flex-shrink: 0;
+        }
+        .modal-title {
+            font-weight: 600; font-size: 14px; flex: 1;
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-right: 12px;
+        }
+        .modal-sizes { display: flex; gap: 4px; margin-right: 12px; }
+        .modal-size-btn {
+            padding: 4px 10px; border: none; border-radius: 6px;
+            background: var(--bg2); color: var(--text); font-size: 11px;
+            cursor: pointer; transition: all 0.2s;
+        }
+        .modal-size-btn:hover, .modal-size-btn.active { background: var(--primary); color: white; }
+        .modal-link {
+            color: var(--primary); text-decoration: none; font-size: 12px;
+            margin-right: 12px; white-space: nowrap;
+        }
+        .modal-link:hover { text-decoration: underline; }
+        .modal-close {
+            width: 28px; height: 28px; border-radius: 50%; border: none;
+            background: var(--danger); color: white; font-size: 16px;
+            cursor: pointer; display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+        }
+        .modal-close:hover { background: #cc0000; }
+        .modal-body {
+            flex: 1; overflow: hidden; display: flex;
+            align-items: center; justify-content: center; background: #000;
+        }
+        .modal-body iframe { width: 100%; height: 100%; border: none; }
+        .modal-body img { max-width: 100%; max-height: 100%; object-fit: contain; }
+        .modal-body video { max-width: 100%; max-height: 100%; }
+        .modal-box::after {
+            content: '⤡'; position: absolute; bottom: 4px; right: 8px;
+            font-size: 12px; color: rgba(255, 255, 255, 0.5); pointer-events: none;
+        }
+
+        /* Google Drive Help Panel */
+        .gdrive-help {
+            background: var(--primary-lt); border: 1px solid var(--gdrive);
+            border-radius: 12px; padding: 16px; margin-bottom: 20px;
+        }
+        .gdrive-help h4 { color: var(--gdrive); margin-bottom: 10px; display: flex; align-items: center; gap: 8px; }
+        .gdrive-help p { font-size: 13px; color: var(--text); margin-bottom: 8px; }
+        .gdrive-help code { background: var(--bg2); padding: 2px 6px; border-radius: 4px; font-size: 12px; }
+        .gdrive-help .close-help {
+            float: right; background: none; border: none; color: var(--muted);
+            cursor: pointer; font-size: 18px;
+        }
+
+        @media print {
+            body { padding: 10mm; background: white !important; color: black !important; }
+            .controls, .tabs-container, .att-bar, .att-btns, .btn, .toggle-group, .add-tab,
+            .close-btn, .modal-overlay, .storage-badge, .gdrive-help, .format-bar { display: none !important; }
+            .page { display: none !important; }
+            .page.printing { display: block !important; }
+            .editable { border: none !important; padding: 4px !important; background: transparent !important; }
+            .table-wrap { box-shadow: none; }
+            .att-list { display: block; }
+            .att-item { margin-bottom: 10px; page-break-inside: avoid; box-shadow: none; }
+            .thumb-hover, .yt-play { display: none !important; }
+        }
+    </style>
+</head>
+
+<body>
+    <!-- Google Drive Help -->
+    <div class="gdrive-help" id="gdriveHelp" style="display:none;">
+        <button class="close-help" onclick="this.parentElement.style.display='none'">×</button>
+        <h4>☁️ Како да користиш Google Drive линкови</h4>
+        <p><strong>1.</strong> Качи го фајлот на Google Drive</p>
+        <p><strong>2.</strong> Десен клик → "Get link" → "Anyone with the link"</p>
+        <p><strong>3.</strong> Копирај го линкот и залепи го тука</p>
+        <p><strong>Пример:</strong> <code>https://drive.google.com/file/d/ABC123/view</code></p>
+        <p>💡 <strong>Совет:</strong> За слики, користи "Direct link" за подобар преглед</p>
+    </div>
+
+    <!-- Format Bar -->
+    <div class="format-bar" id="formatBar">
+        <button onclick="formatText('bold')" title="Bold"><b>B</b></button>
+        <button onclick="formatText('italic')" title="Italic"><i>I</i></button>
+        <button onclick="formatText('underline')" title="Underline"><u>U</u></button>
+        <select onchange="formatBlock(this.value); this.selectedIndex=0;">
+            <option value="">Стил</option>
+            <option value="h1">H1</option>
+            <option value="h2">H2</option>
+            <option value="h3">H3</option>
+            <option value="p">Параграф</option>
+        </select>
+        <select onchange="changeFontSize(this.value); this.selectedIndex=0;">
+            <option value="">Големина</option>
+            <option value="1">Мала</option>
+            <option value="3">Нормална</option>
+            <option value="5">Голема</option>
+            <option value="7">Огромна</option>
+        </select>
+        <input type="color" onchange="changeColor(this.value)" title="Боја" style="width:32px;height:32px;border:none;cursor:pointer;">
+        <button onclick="formatText('justifyLeft')" title="Лево">⬅</button>
+        <button onclick="formatText('justifyCenter')" title="Центар">⬛</button>
+        <button onclick="formatText('justifyRight')" title="Десно">➡</button>
+    </div>
+
+    <div contenteditable="true" class="editable main-title" id="mainTitle">Табела со Докази</div>
+    <div contenteditable="true" class="editable subtitle" id="subtitle">Хибридна верзија - поддржува локални фајлови И Google Drive линкови</div>
+
+    <div class="controls">
+        <div class="toggle-group">
+            <button class="toggle-btn active" data-lang="mk">MK</button>
+            <button class="toggle-btn" data-lang="en">EN</button>
+        </div>
+        <div class="toggle-group">
+            <button class="toggle-btn active" data-theme="light">☀️</button>
+            <button class="toggle-btn" data-theme="dark">🌙</button>
+        </div>
+        <button class="btn btn-gdrive" id="helpBtn">❓ Помош за Drive</button>
+        <div class="spacer"></div>
+        <button class="btn btn-success" id="printBtn">🖨️ Печати</button>
+        <button class="btn" id="exportHtmlBtn">📄 HTML</button>
+        <button class="btn" id="exportJsonBtn">💾 JSON</button>
+        <button class="btn" id="importJsonBtn">📂 Внеси</button>
+        <input type="file" id="importFile" accept=".json" hidden>
+    </div>
+
+    <div class="tabs-container" id="tabs"></div>
+    <div id="pages"></div>
+
+    <!-- Modal -->
+    <div class="modal-overlay" id="modal">
+        <div class="modal-box" id="modalBox" style="width:800px;height:500px;">
+            <div class="modal-head" id="modalHead">
+                <span class="modal-title" id="modalTitle">Preview</span>
+                <div class="modal-sizes">
+                    <button class="modal-size-btn" data-w="500" data-h="350">S</button>
+                    <button class="modal-size-btn active" data-w="800" data-h="500">M</button>
+                    <button class="modal-size-btn" data-w="1100" data-h="700">L</button>
+                    <button class="modal-size-btn" data-w="full" data-h="full">⛶</button>
+                </div>
+                <a href="#" target="_blank" class="modal-link" id="modalLink">↗ Отвори</a>
+                <button class="modal-close" id="modalClose">×</button>
+            </div>
+            <div class="modal-body" id="modalBody"></div>
+        </div>
+    </div>
+
+    <script type="application/json" id="embeddedState"></script>
+
+    <script>
+        (function () {
+            "use strict";
+
+            var LANG = {
+                mk: {
+                    addPage: "+ Страница", addRow: "+ Ред", 
+                    addFileLocal: "📎 Локален", addFileCloud: "☁️ Drive линк",
+                    addLink: "🔗 Линк", deleteRow: "🗑️",
+                    col1: "Колона 1", col2: "Колона 2", col3: "Прилози",
+                    urlPlaceholder: "Залепи URL или Google Drive линк...",
+                    noAtt: "Нема прилози. Додај локален фајл или Drive линк.",
+                    confirmDel: "Избриши?", newPage: "Страница",
+                    clickToOpen: "Кликни за преглед",
+                    addMore: "➕ Додај фајлови (локални или од Drive)",
+                    descPlaceholder: "Опис...",
+                    local: "Локален", cloud: "Cloud",
+                    storageLocal: "📎 Вгради", storageDrive: "☁️ Линк"
+                },
+                en: {
+                    addPage: "+ Page", addRow: "+ Row",
+                    addFileLocal: "📎 Local", addFileCloud: "☁️ Drive Link",
+                    addLink: "🔗 Link", deleteRow: "🗑️",
+                    col1: "Column 1", col2: "Column 2", col3: "Attachments",
+                    urlPlaceholder: "Paste URL or Google Drive link...",
+                    noAtt: "No attachments. Add local file or Drive link.",
+                    confirmDel: "Delete?", newPage: "Page",
+                    clickToOpen: "Click to preview",
+                    addMore: "➕ Add files (local or from Drive)",
+                    descPlaceholder: "Description...",
+                    local: "Local", cloud: "Cloud",
+                    storageLocal: "📎 Embed", storageDrive: "☁️ Link"
+                }
+            };
+
+            var STORAGE_KEY = "table_hybrid_v1";
+            var state = {
+                lang: "mk", theme: "light",
+                mainTitle: "Табела со Докази",
+                subtitle: "Хибридна верзија",
+                currentPage: 0, pages: []
+            };
+
+            function $(s) { return document.querySelector(s); }
+            function $$(s) { return document.querySelectorAll(s); }
+            function t(k) { return LANG[state.lang][k] || k; }
+            function esc(s) { var d = document.createElement("div"); d.textContent = s || ""; return d.innerHTML; }
+            function fmtSize(b) {
+                b = Number(b) || 0;
+                if (b < 1024) return b + " B";
+                if (b < 1048576) return (b / 1024).toFixed(1) + " KB";
+                if (b < 1073741824) return (b / 1048576).toFixed(1) + " MB";
+                return (b / 1073741824).toFixed(2) + " GB";
+            }
+
+            // Format bar functions
+            window.formatText = function(cmd) { document.execCommand(cmd, false, null); };
+            window.formatBlock = function(tag) { if (tag) document.execCommand('formatBlock', false, '<' + tag + '>'); };
+            window.changeFontSize = function(size) { if (size) document.execCommand('fontSize', false, size); };
+            window.changeColor = function(color) { document.execCommand('foreColor', false, color); };
+
+            function showFormatBar(el) {
+                var bar = $("#formatBar");
+                var rect = el.getBoundingClientRect();
+                bar.style.top = (rect.top + window.scrollY - 50) + "px";
+                bar.style.left = rect.left + "px";
+                bar.classList.add("visible");
+            }
+
+            document.addEventListener("click", function (e) {
+                if (!e.target.closest(".editable") && !e.target.closest(".format-bar")) {
+                    $("#formatBar").classList.remove("visible");
+                }
+            });
+
+            // Google Drive URL parsing
+            function parseGoogleDriveUrl(url) {
+                // Handle various Google Drive URL formats
+                var patterns = [
+                    /drive\.google\.com\/file\/d\/([a-zA-Z0-9_-]+)/,
+                    /drive\.google\.com\/open\?id=([a-zA-Z0-9_-]+)/,
+                    /docs\.google\.com\/document\/d\/([a-zA-Z0-9_-]+)/,
+                    /docs\.google\.com\/spreadsheets\/d\/([a-zA-Z0-9_-]+)/,
+                    /docs\.google\.com\/presentation\/d\/([a-zA-Z0-9_-]+)/
+                ];
+                
+                for (var i = 0; i < patterns.length; i++) {
+                    var match = url.match(patterns[i]);
+                    if (match) return { id: match[1], type: getGDriveType(url) };
+                }
+                return null;
+            }
+
+            function getGDriveType(url) {
+                if (url.includes('docs.google.com/document')) return 'doc';
+                if (url.includes('docs.google.com/spreadsheets')) return 'xls';
+                if (url.includes('docs.google.com/presentation')) return 'ppt';
+                return 'file';
+            }
+
+            function getGDrivePreviewUrl(fileId, type) {
+                if (type === 'doc') return 'https://docs.google.com/document/d/' + fileId + '/preview';
+                if (type === 'xls') return 'https://docs.google.com/spreadsheets/d/' + fileId + '/preview';
+                if (type === 'ppt') return 'https://docs.google.com/presentation/d/' + fileId + '/preview';
+                return 'https://drive.google.com/file/d/' + fileId + '/preview';
+            }
+
+            function getGDriveThumbnailUrl(fileId) {
+                return 'https://drive.google.com/thumbnail?id=' + fileId + '&sz=w400';
+            }
+
+            function getGDriveDirectUrl(fileId) {
+                return 'https://drive.google.com/uc?export=view&id=' + fileId;
+            }
+
+            function isGoogleDriveUrl(url) {
+                return url.includes('drive.google.com') || url.includes('docs.google.com');
+            }
+
+            // YouTube
+            function ytId(url) {
+                try {
+                    var u = new URL(url);
+                    if (u.hostname.indexOf("youtu.be") !== -1) return u.pathname.slice(1).split(/[?#]/)[0];
+                    if (u.hostname.indexOf("youtube.com") !== -1) {
+                        if (u.searchParams.get("v")) return u.searchParams.get("v");
+                        var m = u.pathname.match(/\/(embed|shorts|v)\/([^/?#]+)/);
+                        if (m) return m[2];
+                    }
+                } catch (e) { }
+                return null;
+            }
+
+            function fileExt(n) { return (n || "").split(".").pop().toLowerCase(); }
+            function fileCat(f) {
+                var type = f.type || "", ext = fileExt(f.name);
+                if (type.indexOf("image/") === 0) return "image";
+                if (type.indexOf("video/") === 0) return "video";
+                if (type === "application/pdf" || ext === "pdf") return "pdf";
+                if (["doc", "docx"].includes(ext)) return "doc";
+                if (["xls", "xlsx"].includes(ext)) return "xls";
+                if (["ppt", "pptx"].includes(ext)) return "ppt";
+                return "file";
+            }
+            function isImgUrl(u) { return /\.(jpg|jpeg|png|gif|webp|bmp|svg)(\?|$)/i.test(u); }
+            function isPdfUrl(u) { return /\.pdf(\?|$)/i.test(u); }
+
+            // Modal
+            function openModal(title, html, extUrl) {
+                $("#modalTitle").textContent = title;
+                $("#modalBody").innerHTML = html;
+                var link = $("#modalLink");
+                if (extUrl) { link.href = extUrl; link.style.display = "inline"; }
+                else { link.style.display = "none"; }
+                setModalSize(800, 500);
+                $$(".modal-size-btn").forEach(function (b) { b.classList.toggle("active", b.dataset.w === "800"); });
+                $("#modal").classList.add("active");
+                document.body.style.overflow = "hidden";
+            }
+            function closeModal() {
+                $("#modal").classList.remove("active");
+                document.body.style.overflow = "";
+                setTimeout(function () { $("#modalBody").innerHTML = ""; }, 200);
+            }
+            function setModalSize(w, h) {
+                var box = $("#modalBox");
+                if (w === "full") {
+                    box.style.width = (window.innerWidth - 40) + "px";
+                    box.style.height = (window.innerHeight - 40) + "px";
+                } else {
+                    box.style.width = w + "px";
+                    box.style.height = h + "px";
+                }
+            }
+
+            // Storage
+            function load() {
+                var emb = $("#embeddedState");
+                if (emb && emb.textContent.trim()) {
+                    try {
+                        var d = JSON.parse(emb.textContent);
+                        if (d.pages) { state = d; emb.textContent = ""; save(); return; }
+                    } catch (e) { }
+                }
+                try {
+                    var r = localStorage.getItem(STORAGE_KEY);
+                    if (r) {
+                        var p = JSON.parse(r);
+                        for (var k in p) if (p.hasOwnProperty(k)) state[k] = p[k];
+                    }
+                } catch (e) { }
+                if (!state.pages || !state.pages.length) {
+                    state.pages = [{
+                        id: Date.now(),
+                        name: t("newPage") + " 1",
+                        cols: [t("col1"), t("col2"), t("col3")],
+                        rows: []
+                    }];
+                }
+            }
+            function save() {
+                state.mainTitle = $("#mainTitle").innerHTML;
+                state.subtitle = $("#subtitle").innerHTML;
+                try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch (e) { }
+            }
+
+            // Render
+            function render() {
+                document.body.classList.toggle("dark", state.theme === "dark");
+                $$("[data-theme]").forEach(function (b) { b.classList.toggle("active", b.dataset.theme === state.theme); });
+                $$("[data-lang]").forEach(function (b) { b.classList.toggle("active", b.dataset.lang === state.lang); });
+                renderTabs();
+                renderPages();
+            }
+
+            function renderTabs() {
+                var c = $("#tabs"); c.innerHTML = "";
+                state.pages.forEach(function (p, i) {
+                    var tab = document.createElement("div");
+                    tab.className = "tab" + (i === state.currentPage ? " active" : "");
+                    var inp = document.createElement("input");
+                    inp.type = "text"; inp.value = p.name;
+                    inp.addEventListener("input", function () { state.pages[i].name = inp.value; save(); });
+                    inp.addEventListener("click", function (e) { e.stopPropagation(); });
+                    tab.appendChild(inp);
+                    if (state.pages.length > 1) {
+                        var cb = document.createElement("button"); cb.className = "close-btn"; cb.textContent = "×";
+                        cb.addEventListener("click", function (e) {
+                            e.stopPropagation();
+                            if (confirm(t("confirmDel"))) {
+                                state.pages.splice(i, 1);
+                                if (state.currentPage >= state.pages.length) state.currentPage = state.pages.length - 1;
+                                save(); render();
+                            }
+                        });
+                        tab.appendChild(cb);
+                    }
+                    tab.addEventListener("click", function () { state.currentPage = i; save(); render(); });
+                    c.appendChild(tab);
+                });
+                var addB = document.createElement("button");
+                addB.className = "add-tab"; addB.textContent = t("addPage");
+                addB.addEventListener("click", function () {
+                    state.pages.push({
+                        id: Date.now(),
+                        name: t("newPage") + " " + (state.pages.length + 1),
+                        cols: [t("col1"), t("col2"), t("col3")],
+                        rows: []
+                    });
+                    state.currentPage = state.pages.length - 1;
+                    save(); render();
+                });
+                c.appendChild(addB);
+            }
+
+            function renderPages() {
+                var c = $("#pages"); c.innerHTML = "";
+                state.pages.forEach(function (p, pi) {
+                    var div = document.createElement("div");
+                    div.className = "page" + (pi === state.currentPage ? " active" : "");
+                    var tw = document.createElement("div"); tw.className = "table-wrap";
+                    var tbl = document.createElement("table");
+                    var thead = document.createElement("thead");
+                    var hr = document.createElement("tr");
+                    p.cols.forEach(function (ct, ci) {
+                        var th = document.createElement("th");
+                        th.className = ci < 2 ? "col-sm" : "col-lg";
+                        var ed = document.createElement("div");
+                        ed.className = "editable"; ed.contentEditable = "true"; ed.innerHTML = ct;
+                        ed.addEventListener("focus", function () { showFormatBar(this); });
+                        ed.addEventListener("input", function () { state.pages[pi].cols[ci] = ed.innerHTML; save(); });
+                        th.appendChild(ed); hr.appendChild(th);
+                    });
+                    thead.appendChild(hr); tbl.appendChild(thead);
+                    var tbody = document.createElement("tbody");
+                    renderRows(tbody, pi);
+                    tbl.appendChild(tbody);
+                    tw.appendChild(tbl); div.appendChild(tw);
+                    var addDiv = document.createElement("div"); addDiv.style.marginTop = "16px";
+                    var addBtn = document.createElement("button");
+                    addBtn.className = "btn btn-primary"; addBtn.textContent = t("addRow");
+                    addBtn.addEventListener("click", function () { addRow(pi); });
+                    addDiv.appendChild(addBtn);
+                    div.appendChild(addDiv);
+                    c.appendChild(div);
+                });
+            }
+
+            function renderRows(tbody, pi) {
+                var p = state.pages[pi]; tbody.innerHTML = "";
+                if (!p.rows || !p.rows.length) { addRow(pi); return; }
+                p.rows.forEach(function (row, ri) {
+                    var tr = document.createElement("tr");
+                    // Col 1
+                    var td1 = document.createElement("td");
+                    var ed1 = document.createElement("div");
+                    ed1.className = "editable"; ed1.contentEditable = "true"; ed1.innerHTML = row.col1 || "";
+                    ed1.addEventListener("focus", function () { showFormatBar(this); });
+                    ed1.addEventListener("input", function () { state.pages[pi].rows[ri].col1 = ed1.innerHTML; save(); });
+                    td1.appendChild(ed1); tr.appendChild(td1);
+                    // Col 2
+                    var td2 = document.createElement("td");
+                    var ed2 = document.createElement("div");
+                    ed2.className = "editable"; ed2.contentEditable = "true"; ed2.innerHTML = row.col2 || "";
+                    ed2.addEventListener("focus", function () { showFormatBar(this); });
+                    ed2.addEventListener("input", function () { state.pages[pi].rows[ri].col2 = ed2.innerHTML; save(); });
+                    td2.appendChild(ed2); tr.appendChild(td2);
+                    // Col 3 - Attachments
+                    var td3 = document.createElement("td");
+                    renderAttCell(td3, pi, ri);
+                    tr.appendChild(td3);
+                    tbody.appendChild(tr);
+                });
+            }
+
+            function renderAttCell(td, pi, ri) {
+                var fid = "file-" + pi + "-" + ri;
+                var html = '<div class="att-cell">' +
+                    '<div class="att-bar">' +
+                    '<div class="att-bar-title">' + esc(t("addMore")) + '</div>' +
+                    '<input type="file" id="' + fid + '" multiple>' +
+                    '<button class="btn btn-sm btn-success file-btn">' + esc(t("addFileLocal")) + '</button>' +
+                    '<input type="text" class="url-input" placeholder="' + esc(t("urlPlaceholder")) + '">' +
+                    '<button class="btn btn-sm btn-gdrive link-btn">' + esc(t("addLink")) + '</button>' +
+                    '<button class="btn btn-sm btn-danger row-del">' + esc(t("deleteRow")) + '</button>' +
+                    '</div>' +
+                    '<div class="att-list"></div>' +
+                    '</div>';
+                td.innerHTML = html;
+
+                var fi = td.querySelector("#" + fid);
+                td.querySelector(".file-btn").addEventListener("click", function () { fi.click(); });
+                fi.addEventListener("change", function (e) {
+                    for (var i = 0; i < e.target.files.length; i++) addFile(pi, ri, e.target.files[i]);
+                    e.target.value = "";
+                });
+                var ui = td.querySelector(".url-input");
+                td.querySelector(".link-btn").addEventListener("click", function () {
+                    if (ui.value.trim()) { addLink(pi, ri, ui.value.trim()); ui.value = ""; }
+                });
+                ui.addEventListener("keydown", function (e) {
+                    if (e.key === "Enter" && ui.value.trim()) { addLink(pi, ri, ui.value.trim()); ui.value = ""; }
+                });
+                td.querySelector(".row-del").addEventListener("click", function () {
+                    if (confirm(t("confirmDel"))) { state.pages[pi].rows.splice(ri, 1); save(); render(); }
+                });
+                renderAtts(td.querySelector(".att-list"), pi, ri);
+            }
+
+            function renderAtts(c, pi, ri) {
+                var atts = state.pages[pi].rows[ri].atts || [];
+                c.innerHTML = "";
+                if (!atts.length) { c.innerHTML = '<div class="empty">' + esc(t("noAtt")) + '</div>'; return; }
+
+                atts.forEach(function (att, ai) {
+                    var item = document.createElement("div");
+                    item.className = "att-item";
+                    var thumbHtml = "", name = att.name || att.title || "File", size = att.size ? fmtSize(att.size) : "";
+                    var storageBadge = att.storage === "cloud" ? '<span class="storage-badge cloud">☁️</span>' : (att.data ? '<span class="storage-badge local">📎</span>' : '');
+
+                    if (att.kind === "youtube") {
+                        var thumb = "https://i.ytimg.com/vi/" + att.vid + "/hqdefault.jpg";
+                        thumbHtml = storageBadge + '<div class="thumb-box"><div class="thumb-content"><img class="thumb-img" src="' + esc(thumb) + '" alt=""></div><div class="yt-play"></div><div class="thumb-hover"><span class="thumb-hover-text">' + esc(t("clickToOpen")) + '</span></div></div>';
+                        name = att.title || "YouTube";
+                    } else if (att.kind === "gdrive") {
+                        // Google Drive file
+                        var gType = att.gtype || 'file';
+                        var iconClass = gType === 'doc' ? 'doc' : gType === 'xls' ? 'xls' : gType === 'ppt' ? 'ppt' : 'gdrive';
+                        var iconEmoji = gType === 'doc' ? '📝' : gType === 'xls' ? '📊' : gType === 'ppt' ? '📽' : '☁️';
+                        
+                        // Try to show thumbnail for images
+                        if (att.isImage) {
+                            thumbHtml = storageBadge + '<div class="thumb-box"><div class="thumb-content"><img class="thumb-img" src="' + esc(getGDriveDirectUrl(att.gid)) + '" alt="" onerror="this.parentElement.innerHTML=\'<div class=thumb-icon-wrap gdrive>☁️<span class=thumb-icon-text>DRIVE</span></div>\'"></div><div class="thumb-hover"><span class="thumb-hover-text">' + esc(t("clickToOpen")) + '</span></div></div>';
+                        } else {
+                            thumbHtml = storageBadge + '<div class="thumb-box"><div class="thumb-content"><div class="thumb-icon-wrap ' + iconClass + '">' + iconEmoji + '<span class="thumb-icon-text">' + gType.toUpperCase() + '</span></div></div><div class="thumb-hover"><span class="thumb-hover-text">' + esc(t("clickToOpen")) + '</span></div></div>';
+                        }
+                        name = att.title || "Google Drive";
+                    } else if (att.kind === "file") {
+                        var cat = att.ftype || "file";
+                        if (cat === "image" && att.data) {
+                            thumbHtml = storageBadge + '<div class="thumb-box"><div class="thumb-content"><img class="thumb-img" src="' + att.data + '" alt=""></div><div class="thumb-hover"><span class="thumb-hover-text">' + esc(t("clickToOpen")) + '</span></div></div>';
+                        } else if (cat === "video") {
+                            thumbHtml = storageBadge + '<div class="thumb-box"><div class="thumb-content"><div class="thumb-icon-wrap video">🎬<span class="thumb-icon-text">VIDEO</span></div></div><div class="thumb-hover"><span class="thumb-hover-text">' + esc(t("clickToOpen")) + '</span></div></div>';
+                        } else if (cat === "pdf") {
+                            thumbHtml = storageBadge + '<div class="thumb-box"><div class="thumb-content"><div class="thumb-icon-wrap pdf">📄<span class="thumb-icon-text">PDF</span></div></div><div class="thumb-hover"><span class="thumb-hover-text">' + esc(t("clickToOpen")) + '</span></div></div>';
+                        } else if (cat === "doc") {
+                            thumbHtml = storageBadge + '<div class="thumb-box"><div class="thumb-content"><div class="thumb-icon-wrap doc">📝<span class="thumb-icon-text">DOC</span></div></div></div>';
+                        } else if (cat === "xls") {
+                            thumbHtml = storageBadge + '<div class="thumb-box"><div class="thumb-content"><div class="thumb-icon-wrap xls">📊<span class="thumb-icon-text">XLS</span></div></div></div>';
+                        } else if (cat === "ppt") {
+                            thumbHtml = storageBadge + '<div class="thumb-box"><div class="thumb-content"><div class="thumb-icon-wrap ppt">📽<span class="thumb-icon-text">PPT</span></div></div></div>';
+                        } else {
+                            var ext = fileExt(att.name).toUpperCase() || "FILE";
+                            thumbHtml = storageBadge + '<div class="thumb-box"><div class="thumb-content"><div class="thumb-icon-wrap file">📁<span class="thumb-icon-text">' + esc(ext) + '</span></div></div></div>';
+                        }
+                        name = att.name;
+                    } else if (att.kind === "link") {
+                        if (isImgUrl(att.url)) {
+                            thumbHtml = storageBadge + '<div class="thumb-box"><div class="thumb-content"><img class="thumb-img" src="' + esc(att.url) + '" alt="" onerror="this.style.display=\'none\'"></div><div class="thumb-hover"><span class="thumb-hover-text">' + esc(t("clickToOpen")) + '</span></div></div>';
+                        } else if (isPdfUrl(att.url)) {
+                            thumbHtml = storageBadge + '<div class="thumb-box"><div class="thumb-content"><div class="thumb-icon-wrap pdf">📄<span class="thumb-icon-text">PDF</span></div></div><div class="thumb-hover"><span class="thumb-hover-text">' + esc(t("clickToOpen")) + '</span></div></div>';
+                        } else {
+                            thumbHtml = storageBadge + '<div class="thumb-box"><div class="thumb-content"><div class="thumb-icon-wrap link">🔗<span class="thumb-icon-text">LINK</span></div></div></div>';
+                        }
+                        name = att.title || att.url;
+                    }
+
+                    item.innerHTML = thumbHtml +
+                        '<div class="att-info">' +
+                        '<div class="att-name" title="' + esc(name) + '">' + esc(name) + '</div>' +
+                        '<textarea class="att-desc" placeholder="' + esc(t("descPlaceholder")) + '">' + esc(att.description || "") + '</textarea>' +
+                        '<div class="att-meta">' +
+                        '<span class="att-size">' + size + (att.storage === "cloud" ? " ☁️" : "") + '</span>' +
+                        '<div class="att-btns">' +
+                        (att.data ? '<button class="dl">⬇</button>' : '') +
+                        (att.url ? '<button class="open">↗</button>' : '') +
+                        '<button class="del">✕</button>' +
+                        '</div></div></div>';
+
+                    // Description event
+                    item.querySelector(".att-desc").addEventListener("input", function (e) {
+                        state.pages[pi].rows[ri].atts[ai].description = e.target.value; save();
+                    });
+
+                    // Thumb click events
+                    var thumbBox = item.querySelector(".thumb-box");
+                    if (thumbBox) {
+                        thumbBox.addEventListener("click", function () {
+                            if (att.kind === "youtube") {
+                                openModal(name, '<iframe src="https://www.youtube.com/embed/' + att.vid + '?autoplay=1&rel=0" allow="autoplay; encrypted-media" allowfullscreen></iframe>', att.url);
+                            } else if (att.kind === "gdrive") {
+                                var previewUrl = getGDrivePreviewUrl(att.gid, att.gtype);
+                                if (att.isImage) {
+                                    openModal(att.title, '<img src="' + getGDriveDirectUrl(att.gid) + '" alt="">', att.url);
+                                } else {
+                                    openModal(att.title || "Google Drive", '<iframe src="' + previewUrl + '"></iframe>', att.url);
+                                }
+                            } else if (att.kind === "file" && att.ftype === "image" && att.data) {
+                                openModal(att.name, '<img src="' + att.data + '" alt="">', att.data);
+                            } else if (att.kind === "file" && att.ftype === "video" && att.data) {
+                                openModal(att.name, '<video controls autoplay src="' + att.data + '"></video>', null);
+                            } else if (att.kind === "file" && att.ftype === "pdf" && att.data) {
+                                openModal(att.name, '<iframe src="' + att.data + '"></iframe>', att.data);
+                            } else if (att.kind === "link") {
+                                if (isImgUrl(att.url)) openModal(att.title || "Image", '<img src="' + esc(att.url) + '" alt="">', att.url);
+                                else if (isPdfUrl(att.url)) openModal(att.title || "PDF", '<iframe src="' + esc(att.url) + '"></iframe>', att.url);
+                                else window.open(att.url, "_blank");
+                            }
+                        });
+                    }
+
+                    // Download button
+                    var dlB = item.querySelector(".dl");
+                    if (dlB) dlB.addEventListener("click", function (e) {
+                        e.stopPropagation();
+                        var a = document.createElement("a"); a.href = att.data; a.download = att.name; a.click();
+                    });
+
+                    // Open external
+                    var openB = item.querySelector(".open");
+                    if (openB) openB.addEventListener("click", function (e) {
+                        e.stopPropagation();
+                        window.open(att.url, "_blank");
+                    });
+
+                    // Delete button
+                    item.querySelector(".del").addEventListener("click", function (e) {
+                        e.stopPropagation();
+                        state.pages[pi].rows[ri].atts.splice(ai, 1); save(); render();
+                    });
+
+                    c.appendChild(item);
+                });
+            }
+
+            function addRow(pi) {
+                state.pages[pi].rows.push({ col1: "", col2: "", atts: [] });
+                save(); render();
+            }
+
+            function addFile(pi, ri, file) {
+                var reader = new FileReader();
+                reader.onload = function () {
+                    if (!state.pages[pi].rows[ri].atts) state.pages[pi].rows[ri].atts = [];
+                    state.pages[pi].rows[ri].atts.push({
+                        kind: "file",
+                        name: file.name,
+                        type: file.type,
+                        size: file.size,
+                        ftype: fileCat(file),
+                        data: reader.result,
+                        storage: "local",
+                        description: ""
+                    });
+                    save(); render();
+                };
+                reader.readAsDataURL(file);
+            }
+
+            function addLink(pi, ri, url) {
+                if (!/^https?:\/\//i.test(url)) url = "https://" + url;
+                if (!state.pages[pi].rows[ri].atts) state.pages[pi].rows[ri].atts = [];
+
+                // Check if YouTube
+                var vid = ytId(url);
+                if (vid) {
+                    state.pages[pi].rows[ri].atts.push({
+                        kind: "youtube", url: url, vid: vid,
+                        title: "YouTube Video", storage: "cloud", description: ""
+                    });
+                    save(); render();
+                    return;
+                }
+
+                // Check if Google Drive
+                var gd = parseGoogleDriveUrl(url);
+                if (gd) {
+                    var isImage = /\.(jpg|jpeg|png|gif|webp)$/i.test(url);
+                    state.pages[pi].rows[ri].atts.push({
+                        kind: "gdrive",
+                        url: url,
+                        gid: gd.id,
+                        gtype: gd.type,
+                        isImage: isImage,
+                        title: "Google Drive",
+                        storage: "cloud",
+                        description: ""
+                    });
+                    save(); render();
+                    return;
+                }
+
+                // Regular link
+                var domain = "";
+                try { domain = new URL(url).hostname; } catch (e) { }
+                var title = domain;
+                if (isPdfUrl(url)) title = "PDF";
+                else if (isImgUrl(url)) title = "Image";
+
+                state.pages[pi].rows[ri].atts.push({
+                    kind: "link", url: url, title: title || url,
+                    storage: "cloud", description: ""
+                });
+                save(); render();
+            }
+
+            // Export/Import
+            function exportJson() {
+                save();
+                var b = new Blob([JSON.stringify(state, null, 2)], { type: "application/json" });
+                dl(b, "tabela.json");
+            }
+
+            function exportHtml() {
+                save();
+                var h = document.documentElement.outerHTML;
+                var s = JSON.stringify(state)
+                    .replace(/</g, "\\u003c")
+                    .replace(/>/g, "\\u003e")
+                    .replace(/&/g, "\\u0026");
+                h = h.replace(
+                    /<script type="application\/json" id="embeddedState"><\/script>/,
+                    '<script type="application/json" id="embeddedState">' + s + '<\/script>'
+                );
+                var b = new Blob([h], { type: "text/html;charset=utf-8" });
+                var filename = (state.mainTitle || "tabela").replace(/<[^>]*>/g, "").replace(/[^a-zA-Z0-9\u0400-\u04FF\s-]/g, "").replace(/\s+/g, "_") + ".html";
+                dl(b, filename);
+            }
+
+            function dl(blob, name) {
+                var u = URL.createObjectURL(blob);
+                var a = document.createElement("a"); a.href = u; a.download = name; a.click();
+                setTimeout(function () { URL.revokeObjectURL(u); }, 100);
+            }
+
+            function importJson(e) {
+                var f = e.target.files && e.target.files[0];
+                if (!f) return;
+                var r = new FileReader();
+                r.onload = function () {
+                    try {
+                        var d = JSON.parse(r.result);
+                        if (d.pages) {
+                            for (var k in d) if (d.hasOwnProperty(k)) state[k] = d[k];
+                            save();
+                            $("#mainTitle").innerHTML = state.mainTitle;
+                            $("#subtitle").innerHTML = state.subtitle;
+                            render();
+                        }
+                    } catch (err) { alert("Error: " + err.message); }
+                };
+                r.readAsText(f);
+                e.target.value = "";
+            }
+
+            function printPage() {
+                save();
+                $$(".page").forEach(function (p, i) { p.classList.toggle("printing", i === state.currentPage); });
+                window.print();
+                setTimeout(function () { $$(".page").forEach(function (p) { p.classList.remove("printing"); }); }, 1000);
+            }
+
+            // Setup
+            function setup() {
+                $$("[data-theme]").forEach(function (b) {
+                    b.addEventListener("click", function () { state.theme = b.dataset.theme; save(); render(); });
+                });
+                $$("[data-lang]").forEach(function (b) {
+                    b.addEventListener("click", function () { state.lang = b.dataset.lang; save(); render(); });
+                });
+
+                $("#mainTitle").addEventListener("focus", function () { showFormatBar(this); });
+                $("#mainTitle").addEventListener("input", save);
+                $("#subtitle").addEventListener("focus", function () { showFormatBar(this); });
+                $("#subtitle").addEventListener("input", save);
+
+                $("#helpBtn").addEventListener("click", function () {
+                    var h = $("#gdriveHelp");
+                    h.style.display = h.style.display === "none" ? "block" : "none";
+                });
+
+                $("#printBtn").addEventListener("click", printPage);
+                $("#exportHtmlBtn").addEventListener("click", exportHtml);
+                $("#exportJsonBtn").addEventListener("click", exportJson);
+                $("#importJsonBtn").addEventListener("click", function () { $("#importFile").click(); });
+                $("#importFile").addEventListener("change", importJson);
+
+                // Modal
+                $("#modalClose").addEventListener("click", closeModal);
+                $("#modal").addEventListener("click", function (e) { if (e.target === this) closeModal(); });
+                document.addEventListener("keydown", function (e) { if (e.key === "Escape") closeModal(); });
+
+                $$(".modal-size-btn").forEach(function (b) {
+                    b.addEventListener("click", function () {
+                        $$(".modal-size-btn").forEach(function (x) { x.classList.remove("active"); });
+                        b.classList.add("active");
+                        setModalSize(b.dataset.w, b.dataset.h);
+                    });
+                });
+
+                // Modal drag
+                var head = $("#modalHead"), box = $("#modalBox"), dragging = false, sx, sy, sl, st;
+                head.addEventListener("mousedown", function (e) {
+                    if (e.target.tagName === "BUTTON" || e.target.tagName === "A") return;
+                    dragging = true; sx = e.clientX; sy = e.clientY;
+                    var r = box.getBoundingClientRect(); sl = r.left; st = r.top;
+                    box.style.position = "fixed"; box.style.margin = "0";
+                });
+                document.addEventListener("mousemove", function (e) {
+                    if (!dragging) return;
+                    box.style.left = (sl + e.clientX - sx) + "px";
+                    box.style.top = (st + e.clientY - sy) + "px";
+                });
+                document.addEventListener("mouseup", function () { dragging = false; });
+            }
+
+            function init() {
+                load();
+                $("#mainTitle").innerHTML = state.mainTitle;
+                $("#subtitle").innerHTML = state.subtitle;
+                setup();
+                render();
+            }
+
+            init();
+        })();
+    </script>
+</body>
+
+</html>
