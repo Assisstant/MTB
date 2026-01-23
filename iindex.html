@@ -1,0 +1,1230 @@
+<!DOCTYPE html>
+<html lang="mk">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>App Toolbox</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🧰</text></svg>">
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    :root {
+      --bg: #f5f5f5;
+      --surface: #ffffff;
+      --text: #333333;
+      --muted: #888888;
+      --border: #e0e0e0;
+      --accent: #4a9f4a;
+      --accent-light: #e8f5e8;
+      --hover: #fafafa;
+      --shadow: 0 1px 3px rgba(0,0,0,0.08);
+    }
+
+    [data-theme="dark"] {
+      --bg: #1a1a1a;
+      --surface: #2d2d2d;
+      --text: #e0e0e0;
+      --muted: #888888;
+      --border: #404040;
+      --accent: #5cb85c;
+      --accent-light: rgba(92, 184, 92, 0.15);
+      --hover: #333333;
+    }
+
+    body {
+      font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      line-height: 1.4;
+    }
+
+    /* Top Navigation */
+    .top-nav {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 8px 16px;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+
+    .nav-btn {
+      width: 36px;
+      height: 36px;
+      border: none;
+      background: transparent;
+      color: var(--muted);
+      border-radius: 6px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      transition: all 0.15s;
+    }
+
+    .nav-btn:hover {
+      background: var(--hover);
+      color: var(--text);
+    }
+
+    .nav-btn.active {
+      color: var(--accent);
+    }
+
+    .nav-separator {
+      width: 1px;
+      height: 24px;
+      background: var(--border);
+      margin: 0 8px;
+    }
+
+    /* Header */
+    .header {
+      text-align: center;
+      padding: 40px 20px 30px;
+    }
+
+    .header-logo {
+      font-size: 48px;
+      margin-bottom: 12px;
+    }
+
+    .header-title {
+      font-size: 28px;
+      font-weight: 600;
+      margin-bottom: 8px;
+      color: var(--text);
+    }
+
+    .header-subtitle {
+      color: var(--muted);
+      font-size: 15px;
+    }
+
+    /* Search & Filters */
+    .search-bar {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      padding: 0 20px 30px;
+      flex-wrap: wrap;
+    }
+
+    .search-input {
+      width: 280px;
+      padding: 10px 16px;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      font-size: 14px;
+      background: var(--surface);
+      color: var(--text);
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    .search-input:focus {
+      border-color: var(--accent);
+    }
+
+    .search-input::placeholder {
+      color: var(--muted);
+    }
+
+    .filter-tabs {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 14px;
+    }
+
+    .filter-separator {
+      color: var(--border);
+    }
+
+    .filter-tab {
+      background: none;
+      border: none;
+      color: var(--muted);
+      cursor: pointer;
+      padding: 4px 8px;
+      font-size: 14px;
+      border-radius: 4px;
+      transition: all 0.15s;
+    }
+
+    .filter-tab:hover {
+      color: var(--text);
+    }
+
+    .filter-tab.active {
+      color: var(--accent);
+      font-weight: 600;
+    }
+
+    /* Main Grid */
+    .main {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 0 20px 40px;
+    }
+
+    .category-section {
+      margin-bottom: 32px;
+    }
+
+    .category-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 16px;
+      padding-left: 4px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .category-count {
+      background: var(--border);
+      padding: 2px 8px;
+      border-radius: 10px;
+      font-size: 11px;
+    }
+
+    .app-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+      gap: 12px;
+    }
+
+    /* App Card - PDF24 Style */
+    .app-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 16px 12px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-decoration: none;
+      color: var(--text);
+      position: relative;
+      transition: all 0.15s;
+      cursor: pointer;
+      min-height: 100px;
+    }
+
+    .app-card:hover {
+      border-color: var(--accent);
+      background: var(--accent-light);
+    }
+
+    .app-card.highlighted {
+      border-color: var(--accent);
+      border-width: 2px;
+    }
+
+    .app-card.add-card {
+      border-style: dashed;
+      background: transparent;
+    }
+
+    .app-card.add-card:hover {
+      background: var(--accent-light);
+      border-style: solid;
+    }
+
+    /* Star/Favorite button */
+    .star-btn {
+      position: absolute;
+      top: 6px;
+      right: 6px;
+      width: 24px;
+      height: 24px;
+      background: none;
+      border: none;
+      cursor: pointer;
+      font-size: 14px;
+      opacity: 0.3;
+      transition: all 0.15s;
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .app-card:hover .star-btn {
+      opacity: 0.6;
+    }
+
+    .star-btn:hover {
+      opacity: 1 !important;
+      background: var(--hover);
+    }
+
+    .star-btn.active {
+      opacity: 1;
+      color: #f5a623;
+    }
+
+    /* App Icon */
+    .app-icon {
+      width: 48px;
+      height: 48px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 32px;
+      margin-bottom: 10px;
+      border-radius: 8px;
+      background: var(--bg);
+      flex-shrink: 0;
+    }
+
+    .app-card:hover .app-icon {
+      background: var(--surface);
+    }
+
+    /* App Name */
+    .app-name {
+      font-size: 13px;
+      font-weight: 500;
+      text-align: center;
+      line-height: 1.3;
+      word-break: break-word;
+    }
+
+    /* Edit/Delete buttons on hover */
+    .card-actions {
+      position: absolute;
+      bottom: 6px;
+      right: 6px;
+      display: flex;
+      gap: 2px;
+      opacity: 0;
+      transition: opacity 0.15s;
+    }
+
+    .app-card:hover .card-actions {
+      opacity: 1;
+    }
+
+    .action-btn {
+      width: 22px;
+      height: 22px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.15s;
+    }
+
+    .action-btn:hover {
+      background: var(--accent);
+      color: white;
+      border-color: var(--accent);
+    }
+
+    .action-btn.delete:hover {
+      background: #dc3545;
+      border-color: #dc3545;
+    }
+
+    /* Bottom bar with quick apps */
+    .bottom-bar {
+      background: var(--surface);
+      border-top: 1px solid var(--border);
+      padding: 16px 20px;
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+    }
+
+    .bottom-grid {
+      display: flex;
+      gap: 12px;
+      max-width: 1200px;
+      margin: 0 auto;
+      overflow-x: auto;
+      padding-bottom: 4px;
+    }
+
+    .bottom-card {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 10px 16px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      text-decoration: none;
+      color: var(--text);
+      white-space: nowrap;
+      transition: all 0.15s;
+      flex-shrink: 0;
+    }
+
+    .bottom-card:hover {
+      border-color: var(--accent);
+      background: var(--accent-light);
+    }
+
+    .bottom-card .icon {
+      font-size: 20px;
+    }
+
+    .bottom-card .name {
+      font-size: 13px;
+      font-weight: 500;
+    }
+
+    /* Modal */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.4);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+      padding: 20px;
+    }
+
+    .modal-overlay.show {
+      display: flex;
+    }
+
+    .modal {
+      background: var(--surface);
+      border-radius: 8px;
+      width: 100%;
+      max-width: 420px;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+    }
+
+    .modal-head {
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .modal-head h2 {
+      font-size: 16px;
+      font-weight: 600;
+    }
+
+    .modal-close {
+      background: none;
+      border: none;
+      font-size: 18px;
+      cursor: pointer;
+      color: var(--muted);
+      padding: 4px;
+    }
+
+    .modal-close:hover {
+      color: var(--text);
+    }
+
+    .modal-body {
+      padding: 20px;
+    }
+
+    .modal-foot {
+      padding: 16px 20px;
+      border-top: 1px solid var(--border);
+      display: flex;
+      gap: 8px;
+      justify-content: flex-end;
+    }
+
+    .form-group {
+      margin-bottom: 16px;
+    }
+
+    .form-group label {
+      display: block;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--muted);
+      margin-bottom: 6px;
+    }
+
+    .form-group input,
+    .form-group select {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      font-size: 14px;
+      background: var(--surface);
+      color: var(--text);
+      outline: none;
+    }
+
+    .form-group input:focus {
+      border-color: var(--accent);
+    }
+
+    .form-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+
+    .btn {
+      padding: 10px 20px;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.15s;
+      background: var(--surface);
+      color: var(--text);
+    }
+
+    .btn:hover {
+      background: var(--hover);
+    }
+
+    .btn.primary {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: white;
+    }
+
+    .btn.primary:hover {
+      filter: brightness(1.1);
+    }
+
+    .btn.danger {
+      color: #dc3545;
+      border-color: #dc3545;
+    }
+
+    .btn.danger:hover {
+      background: #dc3545;
+      color: white;
+    }
+
+    /* Icon Picker */
+    .icon-grid {
+      display: grid;
+      grid-template-columns: repeat(8, 1fr);
+      gap: 6px;
+      max-height: 180px;
+      overflow-y: auto;
+      padding: 4px;
+      background: var(--bg);
+      border-radius: 4px;
+    }
+
+    .icon-option {
+      width: 100%;
+      aspect-ratio: 1;
+      border: 2px solid transparent;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--surface);
+      transition: all 0.15s;
+    }
+
+    .icon-option:hover {
+      border-color: var(--border);
+    }
+
+    .icon-option.selected {
+      border-color: var(--accent);
+      background: var(--accent-light);
+    }
+
+    /* Toast */
+    .toast {
+      position: fixed;
+      bottom: 80px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--surface);
+      border: 1px solid var(--accent);
+      padding: 12px 20px;
+      border-radius: 6px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+      font-size: 14px;
+      display: none;
+      z-index: 9999;
+    }
+
+    .toast.show {
+      display: block;
+    }
+
+    /* Empty State */
+    .empty-state {
+      text-align: center;
+      padding: 60px 20px;
+      color: var(--muted);
+    }
+
+    .empty-state .icon {
+      font-size: 64px;
+      margin-bottom: 16px;
+      opacity: 0.5;
+    }
+
+    .empty-state h3 {
+      color: var(--text);
+      margin-bottom: 8px;
+    }
+
+    /* Stats */
+    .stats-info {
+      position: absolute;
+      right: 16px;
+      top: 50%;
+      transform: translateY(-50%);
+      font-size: 12px;
+      color: var(--muted);
+      display: flex;
+      gap: 16px;
+    }
+
+    @media (max-width: 768px) {
+      .app-grid {
+        grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+        gap: 10px;
+      }
+
+      .header {
+        padding: 30px 16px 20px;
+      }
+
+      .header-title {
+        font-size: 22px;
+      }
+
+      .bottom-bar {
+        display: none;
+      }
+
+      .main {
+        padding-bottom: 20px;
+      }
+
+      .stats-info {
+        display: none;
+      }
+
+      .icon-grid {
+        grid-template-columns: repeat(6, 1fr);
+      }
+
+      .form-row {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <!-- Top Navigation -->
+  <nav class="top-nav">
+    <button class="nav-btn" title="Почетна" onclick="resetView()">🏠</button>
+    <button class="nav-btn" title="Назад" onclick="history.back()">←</button>
+    <button class="nav-btn" title="Напред" onclick="history.forward()">→</button>
+    <div class="nav-separator"></div>
+    <button class="nav-btn" id="themeBtn" title="Тема">🌙</button>
+    <button class="nav-btn" title="Увези" onclick="openImport()">📥</button>
+    <button class="nav-btn" title="Извези" onclick="exportData()">📤</button>
+    
+    <div class="stats-info">
+      <span>📱 <strong id="totalApps">0</strong> апликации</span>
+      <span>⭐ <strong id="totalFavs">0</strong> омилени</span>
+    </div>
+  </nav>
+
+  <!-- Header -->
+  <header class="header">
+    <div class="header-logo">🧰</div>
+    <h1 class="header-title">App Toolbox</h1>
+    <p class="header-subtitle">Што сакаш да отвориш?</p>
+  </header>
+
+  <!-- Search & Filters -->
+  <div class="search-bar">
+    <input type="text" class="search-input" id="searchInput" placeholder="Пребарај...">
+    <div class="filter-tabs">
+      <span class="filter-separator">|</span>
+      <button class="filter-tab active" data-filter="all">Сите</button>
+      <span class="filter-separator">|</span>
+      <button class="filter-tab" data-filter="favorites">⭐ Омилени</button>
+      <span class="filter-separator">|</span>
+      <button class="filter-tab" data-filter="recent">Последни</button>
+    </div>
+  </div>
+
+  <!-- Main Content -->
+  <main class="main" id="main">
+    <!-- Apps will be rendered here -->
+  </main>
+
+  <!-- Bottom Quick Access Bar -->
+  <div class="bottom-bar" id="bottomBar">
+    <div class="bottom-grid" id="bottomGrid">
+      <!-- Quick access apps -->
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div class="toast" id="toast"></div>
+
+  <!-- App Modal -->
+  <div class="modal-overlay" id="appModal">
+    <div class="modal">
+      <div class="modal-head">
+        <h2 id="modalTitle">Додај апликација</h2>
+        <button class="modal-close" onclick="closeModal()">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label>Име *</label>
+          <input type="text" id="appName" placeholder="пр. Канбан Табла">
+        </div>
+        <div class="form-group">
+          <label>URL / Фајл *</label>
+          <input type="text" id="appUrl" placeholder="пр. kanban.html или https://...">
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Категорија</label>
+            <input type="text" id="appCategory" placeholder="пр. Алатки" list="categories">
+            <datalist id="categories"></datalist>
+          </div>
+          <div class="form-group">
+            <label>Приоритет</label>
+            <input type="number" id="appPriority" value="0" min="0">
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Икона</label>
+          <div class="icon-grid" id="iconPicker"></div>
+        </div>
+      </div>
+      <div class="modal-foot">
+        <button class="btn danger" id="deleteBtn" style="display:none;" onclick="deleteApp()">Избриши</button>
+        <div style="flex:1;"></div>
+        <button class="btn" onclick="closeModal()">Откажи</button>
+        <button class="btn primary" onclick="saveApp()">Зачувај</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Import Modal -->
+  <div class="modal-overlay" id="importModal">
+    <div class="modal">
+      <div class="modal-head">
+        <h2>📥 Увези</h2>
+        <button class="modal-close" onclick="closeImport()">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label>JSON податоци</label>
+          <textarea id="importData" rows="8" style="width:100%; padding:10px; border:1px solid var(--border); border-radius:4px; font-family:monospace; font-size:12px; background:var(--bg); color:var(--text); resize:vertical;"></textarea>
+        </div>
+      </div>
+      <div class="modal-foot">
+        <button class="btn" onclick="closeImport()">Откажи</button>
+        <button class="btn primary" onclick="doImport()">Увези</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // =====================
+    // Icons
+    // =====================
+    const ICONS = [
+      '📋', '📊', '📈', '📉', '📅', '🗓️', '⏰', '🕐',
+      '✏️', '📝', '📄', '📁', '🗂️', '💼', '🎯', '⭐',
+      '🔧', '⚙️', '🛠️', '🔨', '🔩', '💡', '🔌', '🔋',
+      '🎨', '🖼️', '🎬', '🎵', '🎮', '🎲', '🎭', '🎪',
+      '📱', '💻', '🖥️', '⌨️', '🖱️', '🔊', '📹', '📷',
+      '🌐', '🔗', '📡', '💾', '📀', '🗃️', '📦', '🗄️',
+      '👤', '👥', '🏠', '🏫', '🏢', '🏥', '🏪', '🏭',
+      '📚', '📖', '📕', '📗', '📘', '📙', '📓', '📒',
+      '💰', '💳', '🧮', '📐', '📏', '🔢', '🔤', '✅',
+      '🚀', '🎉', '🎁', '🏆', '💎', '🔥', '⚡', '🧰'
+    ];
+
+    // =====================
+    // State
+    // =====================
+    const STORE_KEY = 'app-toolbox-v1';
+
+    function defaultState() {
+      return {
+        apps: [],
+        theme: 'light',
+        recentlyUsed: []
+      };
+    }
+
+    let state = loadState();
+    let editingId = null;
+    let selectedIcon = '📋';
+    let currentFilter = 'all';
+
+    function loadState() {
+      try {
+        const raw = localStorage.getItem(STORE_KEY);
+        if (!raw) return defaultState();
+        return JSON.parse(raw);
+      } catch {
+        return defaultState();
+      }
+    }
+
+    function save() {
+      localStorage.setItem(STORE_KEY, JSON.stringify(state));
+      updateStats();
+    }
+
+    // =====================
+    // Helpers
+    // =====================
+    const $ = s => document.querySelector(s);
+    const $$ = s => document.querySelectorAll(s);
+    const esc = s => String(s || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    const rid = () => Date.now().toString(36) + Math.random().toString(36).slice(2);
+
+    function toast(msg) {
+      const el = $('#toast');
+      el.textContent = '✓ ' + msg;
+      el.classList.add('show');
+      clearTimeout(el._t);
+      el._t = setTimeout(() => el.classList.remove('show'), 2500);
+    }
+
+    function updateStats() {
+      $('#totalApps').textContent = state.apps.length;
+      $('#totalFavs').textContent = state.apps.filter(a => a.favorite).length;
+    }
+
+    // =====================
+    // Theme
+    // =====================
+    function setTheme(theme) {
+      state.theme = theme;
+      document.documentElement.dataset.theme = theme;
+      $('#themeBtn').textContent = theme === 'dark' ? '☀️' : '🌙';
+      save();
+    }
+
+    $('#themeBtn').onclick = () => setTheme(state.theme === 'dark' ? 'light' : 'dark');
+    setTheme(state.theme || 'light');
+
+    // =====================
+    // Filters
+    // =====================
+    $$('.filter-tab').forEach(tab => {
+      tab.onclick = () => {
+        $$('.filter-tab').forEach(t => t.classList.remove('active'));
+        tab.classList.add('active');
+        currentFilter = tab.dataset.filter;
+        render();
+      };
+    });
+
+    // =====================
+    // Render
+    // =====================
+    function render() {
+      const main = $('#main');
+      const search = $('#searchInput').value.toLowerCase().trim();
+
+      // Filter apps
+      let apps = state.apps.filter(a => {
+        // Search filter
+        if (search) {
+          const match = (a.name || '').toLowerCase().includes(search) ||
+                       (a.url || '').toLowerCase().includes(search) ||
+                       (a.category || '').toLowerCase().includes(search);
+          if (!match) return false;
+        }
+        // Tab filter
+        if (currentFilter === 'favorites' && !a.favorite) return false;
+        if (currentFilter === 'recent' && !state.recentlyUsed.includes(a.id)) return false;
+        return true;
+      });
+
+      // Sort by recently used if that filter is active
+      if (currentFilter === 'recent') {
+        apps.sort((a, b) => {
+          return state.recentlyUsed.indexOf(a.id) - state.recentlyUsed.indexOf(b.id);
+        });
+      }
+
+      // Group by category
+      const groups = {};
+      apps.forEach(app => {
+        const cat = app.category || 'Останато';
+        if (!groups[cat]) groups[cat] = [];
+        groups[cat].push(app);
+      });
+
+      // Sort apps within groups
+      for (const cat in groups) {
+        groups[cat].sort((a, b) => {
+          if ((a.priority || 0) !== (b.priority || 0)) return (b.priority || 0) - (a.priority || 0);
+          return (a.name || '').localeCompare(b.name || '');
+        });
+      }
+
+      // Sort categories
+      const sortedCats = Object.keys(groups).sort((a, b) => {
+        if (a === 'Останато') return 1;
+        if (b === 'Останато') return -1;
+        return a.localeCompare(b);
+      });
+
+      // Build HTML
+      let html = '';
+
+      if (state.apps.length === 0) {
+        html = `
+          <div class="empty-state">
+            <div class="icon">🧰</div>
+            <h3>Нема апликации</h3>
+            <p>Додај ја твојата прва апликација!</p>
+            <br>
+            <button class="btn primary" onclick="openModal()">+ Додај апликација</button>
+          </div>
+        `;
+      } else if (apps.length === 0) {
+        html = `
+          <div class="empty-state">
+            <div class="icon">🔍</div>
+            <h3>Нема резултати</h3>
+            <p>Пробај со друг термин.</p>
+          </div>
+        `;
+      } else {
+        for (const cat of sortedCats) {
+          html += `
+            <div class="category-section">
+              <div class="category-title">
+                ${esc(cat)}
+                <span class="category-count">${groups[cat].length}</span>
+              </div>
+              <div class="app-grid">
+          `;
+
+          for (const app of groups[cat]) {
+            const isExternal = (app.url || '').startsWith('http');
+            html += `
+              <a class="app-card ${app.highlighted ? 'highlighted' : ''}" 
+                 href="${esc(app.url)}" 
+                 ${isExternal ? 'target="_blank"' : ''}
+                 onclick="trackUsage('${app.id}')"
+                 data-id="${app.id}">
+                <button class="star-btn ${app.favorite ? 'active' : ''}" 
+                        onclick="event.preventDefault(); event.stopPropagation(); toggleFavorite('${app.id}')">
+                  ${app.favorite ? '★' : '☆'}
+                </button>
+                <div class="app-icon">${app.icon || '📋'}</div>
+                <div class="app-name">${esc(app.name)}</div>
+                <div class="card-actions">
+                  <button class="action-btn" onclick="event.preventDefault(); event.stopPropagation(); editApp('${app.id}')" title="Уреди">✏️</button>
+                  <button class="action-btn delete" onclick="event.preventDefault(); event.stopPropagation(); confirmDelete('${app.id}')" title="Избриши">🗑️</button>
+                </div>
+              </a>
+            `;
+          }
+
+          html += `
+              </div>
+            </div>
+          `;
+        }
+
+        // Add button
+        html += `
+          <div class="category-section">
+            <div class="app-grid">
+              <div class="app-card add-card" onclick="openModal()">
+                <div class="app-icon" style="background:transparent;">➕</div>
+                <div class="app-name">Додај нова</div>
+              </div>
+            </div>
+          </div>
+        `;
+      }
+
+      main.innerHTML = html;
+      updateStats();
+      updateCategoriesList();
+      renderBottomBar();
+    }
+
+    function renderBottomBar() {
+      const favorites = state.apps.filter(a => a.favorite).slice(0, 6);
+      const grid = $('#bottomGrid');
+      
+      if (favorites.length === 0) {
+        $('#bottomBar').style.display = 'none';
+        return;
+      }
+
+      $('#bottomBar').style.display = 'block';
+      grid.innerHTML = favorites.map(app => {
+        const isExternal = (app.url || '').startsWith('http');
+        return `
+          <a class="bottom-card" href="${esc(app.url)}" ${isExternal ? 'target="_blank"' : ''} onclick="trackUsage('${app.id}')">
+            <span class="icon">${app.icon || '📋'}</span>
+            <span class="name">${esc(app.name)}</span>
+          </a>
+        `;
+      }).join('');
+    }
+
+    function updateCategoriesList() {
+      const cats = [...new Set(state.apps.map(a => a.category).filter(Boolean))];
+      $('#categories').innerHTML = cats.map(c => `<option value="${esc(c)}">`).join('');
+    }
+
+    // =====================
+    // App Actions
+    // =====================
+    window.toggleFavorite = function(id) {
+      const app = state.apps.find(a => a.id === id);
+      if (app) {
+        app.favorite = !app.favorite;
+        save();
+        render();
+      }
+    };
+
+    window.trackUsage = function(id) {
+      // Add to recently used (max 20)
+      state.recentlyUsed = state.recentlyUsed.filter(x => x !== id);
+      state.recentlyUsed.unshift(id);
+      if (state.recentlyUsed.length > 20) state.recentlyUsed = state.recentlyUsed.slice(0, 20);
+      save();
+    };
+
+    window.editApp = function(id) {
+      const app = state.apps.find(a => a.id === id);
+      if (app) openModal(app);
+    };
+
+    window.confirmDelete = function(id) {
+      if (confirm('Избриши ја оваа апликација?')) {
+        state.apps = state.apps.filter(a => a.id !== id);
+        state.recentlyUsed = state.recentlyUsed.filter(x => x !== id);
+        save();
+        render();
+        toast('Избришано');
+      }
+    };
+
+    window.resetView = function() {
+      $('#searchInput').value = '';
+      $$('.filter-tab').forEach(t => t.classList.remove('active'));
+      $$('.filter-tab')[0].classList.add('active');
+      currentFilter = 'all';
+      render();
+    };
+
+    // =====================
+    // Modal
+    // =====================
+    window.openModal = function(app = null) {
+      editingId = app?.id || null;
+      $('#modalTitle').textContent = app ? 'Уреди апликација' : 'Додај апликација';
+      $('#appName').value = app?.name || '';
+      $('#appUrl').value = app?.url || '';
+      $('#appCategory').value = app?.category || '';
+      $('#appPriority').value = app?.priority || 0;
+      $('#deleteBtn').style.display = app ? 'inline-block' : 'none';
+      
+      selectedIcon = app?.icon || '📋';
+      renderIconPicker();
+      
+      $('#appModal').classList.add('show');
+      setTimeout(() => $('#appName').focus(), 100);
+    };
+
+    window.closeModal = function() {
+      $('#appModal').classList.remove('show');
+      editingId = null;
+    };
+
+    function renderIconPicker() {
+      $('#iconPicker').innerHTML = ICONS.map(icon => `
+        <div class="icon-option ${icon === selectedIcon ? 'selected' : ''}" onclick="selectIcon(this, '${icon}')">${icon}</div>
+      `).join('');
+    }
+
+    window.selectIcon = function(el, icon) {
+      selectedIcon = icon;
+      $$('.icon-option').forEach(e => e.classList.remove('selected'));
+      el.classList.add('selected');
+    };
+
+    window.saveApp = function() {
+      const name = $('#appName').value.trim();
+      const url = $('#appUrl').value.trim();
+      const category = $('#appCategory').value.trim();
+      const priority = parseInt($('#appPriority').value) || 0;
+
+      if (!name || !url) {
+        alert('Внеси име и URL!');
+        return;
+      }
+
+      if (editingId) {
+        const app = state.apps.find(a => a.id === editingId);
+        if (app) {
+          app.name = name;
+          app.url = url;
+          app.icon = selectedIcon;
+          app.category = category;
+          app.priority = priority;
+        }
+        toast('Ажурирано');
+      } else {
+        state.apps.push({
+          id: rid(),
+          name,
+          url,
+          icon: selectedIcon,
+          category,
+          priority,
+          favorite: false
+        });
+        toast('Додадено');
+      }
+
+      save();
+      render();
+      closeModal();
+    };
+
+    window.deleteApp = function() {
+      if (!editingId) return;
+      if (confirm('Избриши?')) {
+        state.apps = state.apps.filter(a => a.id !== editingId);
+        save();
+        render();
+        closeModal();
+        toast('Избришано');
+      }
+    };
+
+    // =====================
+    // Import/Export
+    // =====================
+    window.openImport = function() {
+      $('#importData').value = '';
+      $('#importModal').classList.add('show');
+    };
+
+    window.closeImport = function() {
+      $('#importModal').classList.remove('show');
+    };
+
+    window.doImport = function() {
+      try {
+        const data = JSON.parse($('#importData').value);
+        if (data.apps) {
+          for (const app of data.apps) {
+            if (!state.apps.some(a => a.id === app.id)) {
+              state.apps.push({ ...app, id: app.id || rid() });
+            }
+          }
+        }
+        save();
+        render();
+        closeImport();
+        toast('Увезено');
+      } catch {
+        alert('Невалиден JSON');
+      }
+    };
+
+    window.exportData = function() {
+      const data = JSON.stringify(state, null, 2);
+      const blob = new Blob([data], { type: 'application/json' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `app-toolbox-${new Date().toISOString().slice(0,10)}.json`;
+      a.click();
+      toast('Извезено');
+    };
+
+    // =====================
+    // Search
+    // =====================
+    let searchTimeout;
+    $('#searchInput').oninput = () => {
+      clearTimeout(searchTimeout);
+      searchTimeout = setTimeout(render, 150);
+    };
+
+    // =====================
+    // Keyboard
+    // =====================
+    document.onkeydown = e => {
+      if (e.key === 'Escape') {
+        closeModal();
+        closeImport();
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+        e.preventDefault();
+        $('#searchInput').focus();
+      }
+    };
+
+    // Close modals on overlay click
+    $('#appModal').onclick = e => { if (e.target === $('#appModal')) closeModal(); };
+    $('#importModal').onclick = e => { if (e.target === $('#importModal')) closeImport(); };
+
+    // =====================
+    // Init
+    // =====================
+    if (state.apps.length === 0) {
+      state.apps = [
+        { id: rid(), name: 'Канбан Табла', url: 'kanban.html', icon: '📋', category: 'Алатки', priority: 10, favorite: true },
+        { id: rid(), name: 'Табела со Докази', url: 'tabela.html', icon: '📊', category: 'Документи', priority: 5, favorite: true },
+        { id: rid(), name: 'Распоред', url: 'raspored.html', icon: '📅', category: 'Алатки', priority: 5, favorite: false },
+        { id: rid(), name: 'Whiteboard', url: 'whiteboard.html', icon: '✏️', category: 'Алатки', priority: 0, favorite: false },
+        { id: rid(), name: 'YouTube', url: 'https://youtube.com', icon: '🎬', category: 'Медиа', priority: 0, favorite: false, highlighted: true }
+      ];
+      save();
+    }
+
+    render();
+  </script>
+</body>
+</html>
