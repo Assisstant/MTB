@@ -1,0 +1,3715 @@
+<!DOCTYPE html>
+<html lang="mk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Електронски распоред и дневник</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 0;
+        }
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 15px 20px;
+        }
+        .header h1 { font-size: 1.3em; margin-bottom: 5px; }
+        .header p { font-size: 0.85em; opacity: 0.95; }
+        .tabs {
+            display: flex;
+            justify-content: center;
+            background: linear-gradient(to bottom, #1a1a2e 0%, #16213e 100%);
+            border-bottom: 3px solid #0f3460;
+            padding: 0 10px;
+            gap: 5px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+        }
+        .tab {
+            padding: 12px 30px;
+            border: none;
+            background: linear-gradient(to bottom, #2d3748 0%, #1a202c 100%);
+            cursor: pointer;
+            transition: all 0.3s;
+            font-size: 15px;
+            color: #a0aec0;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            position: relative;
+            clip-path: polygon(10px 0, 100% 0, calc(100% - 10px) 100%, 0 100%);
+            margin-top: 5px;
+            border-top: 2px solid #4a5568;
+        }
+        .tab::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, #667eea, transparent);
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+        .tab:hover {
+            background: linear-gradient(to bottom, #4a5568 0%, #2d3748 100%);
+            color: #e2e8f0;
+        }
+        .tab:hover::before {
+            opacity: 1;
+        }
+        .tab.active {
+            background: linear-gradient(to bottom, #667eea 0%, #5568d3 100%);
+            color: #ffffff;
+            font-weight: bold;
+            margin-top: 0;
+            padding-top: 17px;
+            border-top: 3px solid #818cf8;
+            box-shadow: 0 0 20px rgba(102, 126, 234, 0.5);
+        }
+        .tab.active::before {
+            opacity: 1;
+            background: linear-gradient(90deg, transparent, #ffffff, transparent);
+        }
+        .content { 
+            padding: 20px;
+            background: white;
+            min-height: calc(100vh - 150px);
+        }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+        .btn {
+            padding: 12px 25px;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            margin: 5px;
+            transition: all 0.3s;
+        }
+        .btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+        }
+        .btn-primary { background: #667eea; color: white; }
+        .btn-primary:hover { background: #5568d3; }
+        .btn-success { background: #48bb78; color: white; }
+        .btn-success:hover { background: #38a169; }
+        .btn-danger { background: #e53e3e; color: white; }
+        .btn-danger:hover { background: #c53030; }
+        body.dark-mode .btn-primary { background: #818cf8; }
+        body.dark-mode .btn-primary:hover { background: #6366f1; }
+        body.dark-mode .btn-danger { background: #f56565; }
+        body.dark-mode .btn-danger:hover { background: #e53e3e; }
+        .btn-full {
+            width: 100%;
+            padding: 15px;
+            font-size: 15px;
+        }
+        .section-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 12px 20px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+            text-align: center;
+            font-weight: 600;
+        }
+        .stats-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        .stat-box {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 25px;
+            border-radius: 8px;
+            text-align: center;
+        }
+        .stat-box h2 { font-size: 2.5em; margin-bottom: 5px; }
+        .stat-box p { font-size: 0.9em; opacity: 0.95; }
+        
+        .capacity-box {
+            background: white;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        .capacity-box h3 {
+            margin-bottom: 15px;
+            color: #2d3748;
+            font-size: 1.1em;
+        }
+        .capacity-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin: 10px 0;
+            font-size: 14px;
+        }
+        .capacity-item .icon {
+            font-size: 18px;
+        }
+        .progress-bar-container {
+            width: 100%;
+            height: 30px;
+            background: #e2e8f0;
+            border-radius: 15px;
+            overflow: hidden;
+            margin: 15px 0;
+            position: relative;
+        }
+        .progress-bar-fill {
+            height: 100%;
+            transition: width 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: 600;
+            font-size: 13px;
+        }
+        .progress-bar-fill.green { background: linear-gradient(90deg, #48bb78 0%, #38a169 100%); }
+        .progress-bar-fill.yellow { background: linear-gradient(90deg, #ecc94b 0%, #d69e2e 100%); }
+        .progress-bar-fill.red { background: linear-gradient(90deg, #f56565 0%, #e53e3e 100%); }
+        
+        body.dark-mode .capacity-box { background: #2d3748; border-color: #4a5568; }
+        body.dark-mode .capacity-box h3 { color: #e2e8f0; }
+        body.dark-mode .capacity-item { color: #e2e8f0; }
+        body.dark-mode #sessionSummary { border-top-color: #4a5568; }
+        body.dark-mode #sessionSummary strong { color: #e2e8f0; }
+        body.dark-mode #sessionSummary .capacity-item span { color: #e2e8f0 !important; }
+        .student-list-simple {
+            background: white;
+        }
+        .student-item {
+            padding: 15px;
+            border-bottom: 1px solid #e2e8f0;
+            transition: background 0.2s;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 15px;
+        }
+        .student-item:hover {
+            background: #f7fafc;
+        }
+        .student-item-info {
+            flex: 1;
+        }
+        .student-item h4 {
+            font-size: 15px;
+            margin-bottom: 3px;
+        }
+        .student-item p {
+            font-size: 13px;
+            color: #718096;
+        }
+        .student-item-actions {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+        .student-item-arrows {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+        .arrow-btn {
+            width: 32px;
+            height: 32px;
+            border: none;
+            background: #4a5568;
+            color: white;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 14px;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .arrow-btn:hover:not(:disabled) {
+            background: #667eea;
+            transform: scale(1.05);
+        }
+        .arrow-btn:disabled {
+            opacity: 0.3;
+            cursor: not-allowed;
+        }
+        body.dark-mode .arrow-btn {
+            background: #2d3748;
+        }
+        body.dark-mode .arrow-btn:hover:not(:disabled) {
+            background: #818cf8;
+        }
+        .form-group { margin-bottom: 20px; }
+        .form-group label { 
+            display: block; 
+            margin-bottom: 8px; 
+            font-weight: 600;
+            font-size: 14px;
+        }
+        .form-group select, .form-group input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e2e8f0;
+            border-radius: 6px;
+            font-size: 14px;
+        }
+        .progress-list {
+            margin-top: 20px;
+        }
+        .progress-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            padding: 12px;
+            margin: 8px 0;
+            background: #f7fafc;
+            border-radius: 6px;
+            border-left: 3px solid #cbd5e0;
+        }
+        .progress-item.completed {
+            background: #e6fffa;
+            border-left-color: #48bb78;
+        }
+        .progress-item input[type="checkbox"] {
+            width: 20px;
+            height: 20px;
+            margin-top: 2px;
+        }
+        .progress-item-content {
+            flex: 1;
+        }
+        .progress-item-text {
+            font-size: 14px;
+            margin-bottom: 3px;
+        }
+        .progress-item-date {
+            font-size: 12px;
+            color: #718096;
+        }
+        .time-selector {
+            margin-top: 8px;
+        }
+        .time-selector select {
+            padding: 8px;
+            border: 1px solid #e2e8f0;
+            border-radius: 4px;
+            font-size: 13px;
+        }
+        .attendance-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+            font-size: 13px;
+        }
+        .attendance-table th {
+            background: #667eea;
+            color: white;
+            padding: 10px;
+            text-align: left;
+            font-weight: 600;
+        }
+        .attendance-table td {
+            padding: 10px;
+            border: 1px solid #f1f5f9;
+        }
+        .attendance-table tr:nth-child(even) {
+            background: #f8fafc;
+        }
+        .date-cell {
+            background: #e6fffa;
+            text-align: center;
+            font-size: 12px;
+        }
+        .schedule-grid {
+            display: grid;
+            grid-template-columns: 80px repeat(5, 1fr);
+            gap: 1px;
+            background: #f1f5f9; /* Grid line color */
+            border-radius: 8px;
+            overflow: hidden;
+            margin-top: 15px;
+            border: 1px solid #f1f5f9;
+            min-width: 100%;
+            width: max-content;
+        }
+        .schedule-cell-split {
+            display: flex;
+            flex-direction: column;
+            background: #f1f5f9;
+            gap: 1px;
+            width: 100%;
+        }
+        .schedule-cell-half {
+            background: white;
+            padding: 8px 4px;
+            min-height: 80px;
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: stretch;
+            cursor: pointer;
+        }
+        .schedule-cell-half:hover {
+            background: #edf2f7;
+        }
+        .schedule-cell-half.odd-row {
+            background: #f8fafc;
+        }
+        .schedule-header {
+            background: #667eea;
+            color: white;
+            padding: 12px 5px;
+            font-weight: 600;
+            text-align: center;
+            font-size: 12px;
+        }
+        .schedule-time {
+            background: #2d3748;
+            color: white;
+            padding: 15px 8px;
+            text-align: center;
+            font-size: 17px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            line-height: 1.5;
+        }
+        .schedule-cell {
+            background: white;
+            padding: 8px 4px;
+            min-height: 80px;
+            cursor: pointer;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+        .schedule-cell.merged {
+            padding: 8px 4px;
+            align-items: flex-start;
+            justify-content: flex-start;
+            cursor: pointer;
+        }
+        .schedule-cell.merged:hover {
+            background: #edf2f7;
+        }
+        .schedule-cell.merged .student-slot {
+            margin: 3px 0;
+            border-radius: 4px;
+            width: 100%;
+        }
+        /* Merged cells inside split container should center and be double height */
+        .schedule-cell-split .schedule-cell.merged {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 8px 4px;
+            flex: 1 1 auto;
+            position: relative;
+            z-index: 10;
+        }
+        .schedule-cell-split .schedule-cell.merged .student-slot {
+            width: 100%;
+            margin: 0;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+            position: relative;
+        }
+        /* Student slots in half-cells should be full width */
+        .schedule-cell-half .student-slot {
+            width: 100%;
+            max-width: none;
+        }
+        /* Add visual separator through merged cell */
+        .schedule-cell-split .schedule-cell.merged::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            right: 0;
+            top: 50%;
+            height: 1px;
+            background: #f1f5f9;
+            z-index: -1;
+        }
+        .schedule-cell.odd-row {
+            background: #f8fafc;
+        }
+        .schedule-cell:hover { background: #edf2f7; }
+        .student-slot {
+            background: #e6fffa;
+            padding: 6px;
+            border-radius: 4px;
+            margin: 3px 0;
+            font-size: 17px;
+            font-weight: bold;
+            border-left: 3px solid #38b2ac;
+            cursor: default;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            text-align: center;
+            min-height: 30px;
+            position: relative;
+            min-width: 0;
+        }
+        .attendance-indicator {
+            width: 32px;
+            height: 24px;
+            border-radius: 4px;
+            background: #cbd5e0;
+            cursor: pointer;
+            transition: all 0.2s;
+            flex-shrink: 0;
+            margin-right: 8px;
+            border: 2px solid #a0aec0;
+            position: relative;
+            z-index: 10;
+            font-size: 10px;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #2d3748;
+        }
+        .attendance-indicator:hover {
+            transform: scale(1.1);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+        .attendance-indicator.present {
+            background: #48bb78;
+            border-color: #38a169;
+            color: white;
+        }
+        .attendance-indicator.absent {
+            background: #f56565;
+            border-color: #e53e3e;
+            color: white;
+        }
+        .student-slot-name {
+            flex: 1;
+            text-align: center;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            min-width: 0;
+            display: block;
+        }
+        .student-slot-order {
+            position: absolute;
+            left: 40px;
+            font-size: 11px;
+            background: rgba(0,0,0,0.1);
+            padding: 2px 5px;
+            border-radius: 3px;
+            z-index: 1;
+        }
+        .student-slot.linked-first {
+            border-bottom: 2px dashed #38b2ac;
+            border-bottom-left-radius: 0;
+            border-bottom-right-radius: 0;
+            margin-bottom: 0;
+        }
+        .student-slot.linked-second {
+            border-top: none;
+            border-top-left-radius: 0;
+            border-top-right-radius: 0;
+            margin-top: 0;
+        }
+        .student-slot.linked-first::after {
+            content: ' ↓';
+            margin-left: 5px;
+            font-size: 14px;
+        }
+        .student-slot.linked-second::before {
+            content: '↑ ';
+            margin-right: 5px;
+            font-size: 14px;
+        }
+        .student-slot.present { 
+            background: rgba(72, 187, 120, 0.3); 
+            border-left-color: #48bb78;
+        }
+        .student-slot.absent { 
+            background: rgba(245, 101, 101, 0.3);
+            border-left-color: #f56565;
+        }
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+        .modal.active { display: flex; }
+        .modal-content {
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            max-width: 500px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+        .checkbox-list {
+            max-height: 300px;
+            overflow-y: auto;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 10px;
+        }
+        .checkbox-item {
+            padding: 10px;
+            margin: 5px 0;
+            background: #f7fafc;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .week-nav {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: #f7fafc;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        .credit-watermark {
+            position: fixed;
+            bottom: 10px;
+            right: 15px;
+            font-size: 10px;
+            color: rgba(102, 126, 234, 0.4);
+            font-weight: 500;
+            z-index: 10;
+            pointer-events: none;
+            user-select: none;
+        }
+        body.dark-mode .credit-watermark {
+            color: rgba(129, 140, 248, 0.3);
+        }
+         /* Dark Mode Toggle */
+        .theme-switch-wrapper {
+            display: flex;
+            align-items: center;
+            position: absolute;
+            top: 20px;
+            right: 20px;
+        }
+        .theme-switch {
+            display: inline-block;
+            height: 24px;
+            position: relative;
+            width: 50px;
+        }
+        .theme-switch input { display:none; }
+        .slider {
+            background-color: #ccc;
+            bottom: 0;
+            cursor: pointer;
+            left: 0;
+            position: absolute;
+            right: 0;
+            top: 0;
+            transition: .4s;
+            border-radius: 24px;
+        }
+        .slider:before {
+            background-color: #fff;
+            bottom: 4px;
+            content: "";
+            height: 16px;
+            left: 4px;
+            position: absolute;
+            transition: .4s;
+            width: 16px;
+            border-radius: 50%;
+        }
+        input:checked + .slider {
+            background-color: #667eea;
+        }
+        input:checked + .slider:before {
+            transform: translateX(26px);
+        }
+
+        /* Dark Mode Styles */
+        body.dark-mode {
+            background: linear-gradient(135deg, #2d3748 0%, #1a202c 100%);
+            color: #e2e8f0;
+        }
+        body.dark-mode .header,
+        body.dark-mode .stat-box,
+        body.dark-mode .section-header {
+            background: linear-gradient(135deg, #4c51bf 0%, #2d3748 100%);
+        }
+        body.dark-mode .tabs { background: #2d3748; border-bottom-color: #4a5568; }
+        body.dark-mode .tab { 
+            background: linear-gradient(to bottom, #1a202c 0%, #0f1419 100%); 
+            color: #718096;
+            border-top-color: #2d3748;
+        }
+        body.dark-mode .tab:hover {
+            background: linear-gradient(to bottom, #2d3748 0%, #1a202c 100%);
+            color: #cbd5e0;
+        }
+        body.dark-mode .tab.active { 
+            background: linear-gradient(to bottom, #818cf8 0%, #6366f1 100%);
+            color: #ffffff;
+            border-top-color: #a5b4fc;
+        }
+        body.dark-mode .content, body.dark-mode .student-list-simple { background: #1a202c; }
+        body.dark-mode .student-item { border-bottom-color: #4a5568; }
+        body.dark-mode .student-item:hover { background: #2d3748; }
+        body.dark-mode .student-item h4 { color: #e2e8f0; }
+        body.dark-mode .student-list-simple h3 { color: #e2e8f0; border-bottom-color: #818cf8; }
+        body.dark-mode .student-item p { color: #a0aec0; }
+        body.dark-mode .form-group select, body.dark-mode .form-group input, body.dark-mode .form-group textarea { background: #2d3748; border-color: #4a5568; color: #e2e8f0; }
+        body.dark-mode .progress-item { background: #2d3748; border-left-color: #718096; }
+        body.dark-mode .progress-item.completed { background: #2c5282; border-left-color: #63b3ed; }
+        body.dark-mode .month-header { color: #e2e8f0 !important; }
+        body.dark-mode .attendance-table th { background: #4c51bf; }
+        body.dark-mode .attendance-table td { border-color: #334155; }
+        body.dark-mode .attendance-table tr:nth-child(even) { background: #1e293b; }
+        body.dark-mode .date-cell { background: #2c5282; }
+        body.dark-mode .schedule-grid { background: #334155; border-color: #334155; } /* Grid line color */
+        body.dark-mode .schedule-header { background: #4c51bf; }
+        body.dark-mode .schedule-cell { background: #0f172a; }
+        body.dark-mode .schedule-cell.odd-row { background: #1e293b; }
+        body.dark-mode .schedule-cell:hover { background: #4a5568; }
+        body.dark-mode .schedule-cell.merged:hover { background: #4a5568; }
+        body.dark-mode .schedule-cell-half { background: #0f172a; }
+        body.dark-mode .schedule-cell-half.odd-row { background: #1e293b; }
+        body.dark-mode .schedule-cell-half:hover { background: #4a5568; }
+        body.dark-mode .schedule-cell-split { background: #334155; }
+        body.dark-mode .schedule-cell-split .schedule-cell.merged { background: #0f172a; }
+        body.dark-mode .schedule-cell-split .schedule-cell.merged:hover { background: #4a5568; }
+        body.dark-mode .schedule-cell-split .schedule-cell.merged::before { background: #334155; }
+        body.dark-mode .schedule-cell-split .schedule-cell.merged .student-slot { box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3); }
+        body.dark-mode .student-slot { background: #2c5282; border-left-color: #63b3ed; color: #e2e8f0; }
+        body.dark-mode .attendance-indicator { background: #4a5568; border-color: #718096; }
+        body.dark-mode .attendance-indicator.present { background: #48bb78; border-color: #38a169; }
+        body.dark-mode .attendance-indicator.absent { background: #f56565; border-color: #e53e3e; }
+        body.dark-mode .student-slot.linked-first { border-bottom-color: #63b3ed; }
+        body.dark-mode .student-slot.present { background: rgba(72, 187, 120, 0.4); border-left-color: #48bb78; }
+        body.dark-mode .student-slot.absent { background: rgba(245, 101, 101, 0.4); border-left-color: #f56565; }
+        body.dark-mode .student-slot-order { background: rgba(255,255,255,0.15); }
+        body.dark-mode .modal-content { background: #2d3748; }
+        body.dark-mode .checkbox-list { border-color: #4a5568; }
+        body.dark-mode .checkbox-item { background: #1a202c; }
+        body.dark-mode .week-nav { background: #2d3748; }
+        body.dark-mode div[style*="background: #f7fafc"] { background: #2d3748 !important; }
+
+        .scrollable-container {
+            width: 100%;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        @media (max-width: 768px) {
+            .header h1 { font-size: 1.1em; }
+            .header h2 { font-size: 0.8em; }
+            .header h4 { font-size: 0.7em; }
+
+            .tabs {
+                flex-direction: column;
+            }
+            .tab {
+                border-bottom: 1px solid #dee2e6;
+            }
+            .tab.active {
+                border-bottom: 3px solid #667eea;
+            }
+            body.dark-mode .tab {
+                border-bottom-color: #4a5568;
+            }
+            body.dark-mode .tab.active {
+                border-bottom-color: #818cf8;
+            }
+
+            .stats-row {
+                grid-template-columns: 1fr;
+            }
+
+            div[style*="grid-template-columns: 1fr 1fr"] {
+                grid-template-columns: 1fr !important;
+            }
+
+            .scrollable-container {
+                overflow-x: auto;
+            }
+
+            .schedule-grid {
+                min-width: 630px;
+            }
+            
+            .attendance-table, .trijazen-table {
+                min-width: 800px;
+            }
+
+            .modal-content {
+                width: 95%;
+                padding: 15px;
+            }
+            
+            .student-item {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+            
+            .student-item-arrows {
+                flex-direction: row;
+                order: -1;
+                width: 100%;
+                justify-content: center;
+            }
+            
+            .student-item-info {
+                width: 100%;
+                order: 0;
+            }
+            
+            .student-item-actions {
+                width: 100%;
+                order: 1;
+                justify-content: space-between;
+            }
+            
+            .student-item-actions .btn {
+                flex: 1;
+                padding: 10px 15px;
+            }
+            
+            .info-row {
+                grid-template-columns: 1fr !important;
+            }
+        }
+        
+        /* Trijazen Test Styles */
+        .test-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 4px 10px;
+            background: #48bb78;
+            color: white;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 600;
+            margin-left: 8px;
+        }
+        
+        .trijazen-info {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 25px;
+        }
+        
+        body.dark-mode .trijazen-info {
+            background: linear-gradient(135deg, #4a5568 0%, #2d3748 100%);
+        }
+        
+        .trijazen-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 10px;
+            background: white;
+            border-radius: 6px;
+            overflow: hidden;
+            table-layout: fixed;
+        }
+        
+        body.dark-mode .trijazen-table {
+            background: #1a202c;
+        }
+        
+        .trijazen-table th:nth-child(1),
+        .trijazen-table td:nth-child(1) {
+            width: 10%;
+        }
+        
+        .trijazen-table th:nth-child(2),
+        .trijazen-table td:nth-child(2) {
+            width: 30%;
+        }
+        
+        .trijazen-table th:nth-child(3),
+        .trijazen-table td:nth-child(3) {
+            width: 60%;
+        }
+        
+        .trijazen-table th,
+        .trijazen-table td {
+            border: 1px solid #e2e8f0;
+            padding: 12px;
+            text-align: left;
+        }
+        
+        body.dark-mode .trijazen-table th,
+        body.dark-mode .trijazen-table td {
+            border-color: #4a5568;
+            color: #e2e8f0;
+        }
+        
+        .trijazen-table th {
+            background: #f7fafc;
+            font-weight: 600;
+            color: #2d3748;
+        }
+        
+        body.dark-mode .trijazen-table th {
+            background: #2d3748;
+            color: #e2e8f0;
+        }
+        
+        .radio-group {
+            display: flex;
+            justify-content: space-around;
+            gap: 10px;
+        }
+        
+        .radio-option {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        
+        .radio-option input[type="radio"] {
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+        }
+        
+        .radio-option label {
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 15px;
+        }
+        
+        .info-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+        
+        .info-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 600;
+            font-size: 0.9em;
+            opacity: 0.9;
+        }
+        
+        .info-group select,
+        .info-group input {
+            width: 100%;
+            padding: 10px;
+            border: 2px solid rgba(255,255,255,0.3);
+            border-radius: 6px;
+            font-size: 14px;
+            background: rgba(255,255,255,0.2);
+            color: white;
+        }
+        
+        .info-group select option {
+            color: #333;
+        }
+        
+        /* Trijazen Toggle Buttons */
+        .trijazen-toggle {
+            width: 50px;
+            height: 35px;
+            border-radius: 6px;
+            background: #cbd5e0;
+            cursor: pointer;
+            transition: all 0.2s;
+            flex-shrink: 0;
+            border: 2px solid #a0aec0;
+            font-size: 16px;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #2d3748;
+            user-select: none;
+        }
+        
+        .trijazen-toggle:hover {
+            transform: scale(1.05);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+        
+        .trijazen-toggle.plus {
+            background: #48bb78;
+            border-color: #38a169;
+            color: white;
+        }
+        
+        .trijazen-toggle.plusminus {
+            background: #f6ad55;
+            border-color: #dd6b20;
+            color: white;
+        }
+        
+        .trijazen-toggle.minus {
+            background: #fc8181;
+            border-color: #e53e3e;
+            color: white;
+        }
+        
+        body.dark-mode .trijazen-toggle {
+            background: #4a5568;
+            border-color: #718096;
+        }
+        
+        body.dark-mode .trijazen-toggle.plus {
+            background: #48bb78;
+            border-color: #38a169;
+        }
+        
+        body.dark-mode .trijazen-toggle.plusminus {
+            background: #f6ad55;
+            border-color: #dd6b20;
+        }
+        
+        body.dark-mode .trijazen-toggle.minus {
+            background: #fc8181;
+            border-color: #e53e3e;
+        }
+        
+        .trijazen-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 3px;
+            padding: 3px 8px;
+            background: #805ad5;
+            color: white;
+            border-radius: 10px;
+            font-size: 11px;
+            font-weight: 600;
+            margin-left: 8px;
+        }
+        
+        body.dark-mode .student-item label span {
+            color: #cbd5e0 !important;
+        }
+   </style>
+</head>
+<body>
+    <div class="header">
+        <div class="theme-switch-wrapper">
+            <label class="theme-switch" for="checkbox">
+                <input type="checkbox" id="checkbox" />
+                <div class="slider round"></div>
+            </label>
+        </div>
+        <div style="text-align: center;">
+            <h1 style="font-size: 2.8em; margin: 10px 0; text-shadow: 0 4px 8px rgba(0,0,0,0.3); letter-spacing: 2px; font-weight: 700;">
+                📚 ЕЛЕКТРОНСКИ ДНЕВНИК
+            </h1>
+            <h2 style="font-size: 1.1em; margin: 8px 0; opacity: 0.95;">Кабинет за слух, говор, глас, алтернатива и аугментативна комуникација</h2>
+            <h4 style="font-size: 0.85em; margin: 8px 0; opacity: 0.85;">Систем за управување ученици со неделен распоред на третмани и напредокот во оперативниот план</h4>
+        </div>
+    </div>
+    
+    <div class="tabs">
+        <button class="tab" onclick="switchTab('students')">Ученици</button>
+        <button class="tab active" onclick="switchTab('schedule')">Распоред</button>
+        <button class="tab" onclick="switchTab('progress')">Напредок</button>
+        <button class="tab" onclick="switchTab('plans')">Планови</button>
+        <button class="tab" onclick="switchTab('trijazen')">Тријажни тестови</button>
+        <button class="tab" onclick="switchTab('data')">Податоци</button>
+        <a href="StudentRecords.html" class="tab" target="_blank">📂 Досие</a>
+        <a href="audiogram.html" class="tab" target="_blank">Аудиограми</a>
+    </div>
+    
+    <div class="content">
+        <!-- Students Tab -->
+        <div id="students" class="tab-content">
+            <button class="btn btn-primary btn-full" onclick="showAddStudentModal()">+ Додади Ученик</button>
+            
+            <div id="studentListSimple" class="student-list-simple"></div>
+            
+            <div class="capacity-box">
+                <h3>📋 Искористеност на распоредот</h3>
+                <div class="capacity-item">
+                    <span class="icon">👤</span>
+                    <span id="capacityUsage">0/1000 мин | 0% искористено</span>
+                </div>
+                <div class="progress-bar-container">
+                    <div id="capacityProgressBar" class="progress-bar-fill green" style="width: 0%;">0%</div>
+                </div>
+                <div id="capacityAlert"></div>
+                <div id="sessionSummary" style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #e2e8f0;"></div>
+            </div>
+        </div>
+        
+        <!-- Schedule Tab -->
+        <div id="schedule" class="tab-content active">
+            <div class="week-nav">
+                <button class="btn btn-primary" onclick="changeWeek(-1)">← Претходна</button>
+                <div id="weekDisplay" style="text-align: center;"></div>
+                <button class="btn btn-primary" onclick="changeWeek(1)">Следна →</button>
+            </div>
+            <div style="display: flex; gap: 10px; margin-bottom: 15px; align-items: center;">
+                <button class="btn btn-success" onclick="manualSave()">Зачувај</button>
+                <button id="undoBtn" class="btn" style="background: #718096; color: white;" onclick="undoLastChange()" disabled>↶ Undo</button>
+                <button id="redoBtn" class="btn" style="background: #718096; color: white;" onclick="redoLastChange()" disabled>↷ Redo</button>
+                <button id="lockToggleBtn" class="btn" style="background: #e53e3e; color: white; margin-left: auto;" onclick="togglePastWeekLock()">
+                    🔒 Измината седмица е заклучена
+                </button>
+            </div>
+            <div class="scrollable-container">
+                <div id="scheduleGrid"></div>
+            </div>
+        </div>
+        
+        <!-- Progress Tab -->
+        <div id="progress" class="tab-content">
+            <div class="section-header">Следење на Напредок</div>
+            
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 20px;">
+                <button class="btn btn-primary btn-full" onclick="switchProgressView('student')">Реализација на оперативен план</button>
+                <button class="btn btn-success btn-full" onclick="switchProgressView('monthly')">Присутност по месец</button>
+            </div>
+            
+            <div id="studentProgressView">
+                <div class="form-group">
+                    <label>Избери Ученик:</label>
+                    <select id="progressStudentSelect" onchange="loadStudentProgress()">
+                        <option value="">-- Избери ученик --</option>
+                    </select>
+                </div>
+                <div id="progressActivitiesList" class="progress-list"></div>
+            </div>
+            
+            <div id="monthlyProgressView" style="display: none;">
+                <div class="form-group">
+                    <label>Избери месец:</label>
+                    <input type="month" id="monthSelector" onchange="generateMonthlyAttendance()">
+                </div>
+                <div class="scrollable-container">
+                    <div id="monthlyAttendanceTable"></div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Plans Tab -->
+        <div id="plans" class="tab-content">
+            <button class="btn btn-primary btn-full" onclick="showAddPlanModal()">+ Креирај План</button>
+            <div id="plansList" style="margin-top: 20px;"></div>
+            
+            <!-- Useful Links Section -->
+            <div style="margin-top: 30px; padding-top: 20px; border-top: 2px solid #e2e8f0;">
+                <button class="btn btn-success btn-full" onclick="showAddLinkModal()">+ Додади Линк</button>
+                <div id="linksList" style="margin-top: 20px;"></div>
+            </div>
+        </div>
+        
+        <!-- Trijazen Test Tab -->
+        <div id="trijazen" class="tab-content">
+            <div class="trijazen-info">
+                <h2>🎯 Фонетска процена - Тријажен тест</h2>
+                <div class="info-row">
+                    <div class="info-group">
+                        <label>Избери ученик:</label>
+                        <select id="trijazenStudentSelect" onchange="updateTrijazenStudent()">
+                            <option value="">-- Избери ученик --</option>
+                        </select>
+                    </div>
+                    <div class="info-group">
+                        <label>Датум на процена:</label>
+                        <input type="date" id="trijazenDate">
+                    </div>
+                    <div class="info-group">
+                        <label>Проценувач:</label>
+                        <input type="text" id="trijazenAssessor" placeholder="Внеси име...">
+                    </div>
+                </div>
+                <div style="background: rgba(255,255,255,0.2); padding: 10px; border-radius: 6px; margin-top: 10px;">
+                    <strong>Одделение:</strong> <span id="trijazenGrade">Изберете ученик</span>
+                </div>
+                <div style="margin-top: 15px; text-align: right;">
+                    <button class="btn btn-primary" onclick="exportTrijazenToJpeg()">📸 Експорт во JPEG</button>
+                </div>
+            </div>
+            
+            <div id="trijazenFormContainer">
+                <!-- Phonemes will be generated dynamically -->
+            </div>
+        </div>
+
+        <!-- Data Tab -->
+        <div id="data" class="tab-content">
+            <div class="section-header">Експорт / Импорт</div>
+            <button class="btn btn-success btn-full" onclick="exportData()">Експортирај Сè (JSON)</button>
+            <button class="btn btn-primary btn-full" onclick="document.getElementById('importFile').click()">Импортирај JSON</button>
+            <input type="file" id="importFile" accept=".json" style="display: none;" onchange="importData(event)">
+            
+            <div class="section-header" style="margin-top: 30px;">Поправка на податоци</div>
+            <button class="btn btn-full" style="background: #f59e0b; color: white;" onclick="rebuildAllProgress()">🔄 Реконструирај Напредок</button>
+            <p style="text-align: center; color: #718096; font-size: 13px; margin-top: 10px;">
+                Ова ќе ги синхронизира податоците за напредок со присутноста. Користете го ако видите несовпаѓање помеѓу бројот на сесии и чекирани активности.
+            </p>
+        </div>
+    </div>
+    
+    <!-- Add Student Modal -->
+    <div id="addStudentModal" class="modal">
+        <div class="modal-content">
+            <h2 style="margin-bottom: 15px;">Додади Ученик</h2>
+            <div class="form-group">
+                <label>Име и Презиме</label>
+                <input type="text" id="studentName" placeholder="пр. Марија Чадамова">
+            </div>
+            <div class="form-group">
+                <label>Одделение</label>
+                <input type="text" id="studentGrade" placeholder="пр. IV-а">
+            </div>
+            <div class="form-group">
+                <label>План</label>
+                <select id="studentPlan"></select>
+            </div>
+            <div class="form-group">
+                <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+                    <input type="checkbox" id="studentNeedsTrijazen" style="width: 20px; height: 20px; cursor: pointer;">
+                    <span>Потребен тријажен тест</span>
+                </label>
+            </div>
+            <div style="display: flex; gap: 10px;">
+                <button class="btn btn-success" style="flex: 1;" onclick="saveStudent()">Зачувај</button>
+                <button class="btn" style="flex: 1; background: #718096; color: white;" onclick="closeModal('addStudentModal')">Откажи</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Add Plan Modal -->
+    <div id="addPlanModal" class="modal">
+        <div class="modal-content">
+            <h2 style="margin-bottom: 15px;">Креирај План</h2>
+            <div class="form-group">
+                <label>Име на План</label>
+                <input type="text" id="planName" placeholder="пр. План 1">
+            </div>
+            <div class="form-group">
+                <label>Активности (една по ред)</label>
+                <textarea id="planActivities" rows="10" style="width: 100%; padding: 10px; border: 2px solid #e2e8f0; border-radius: 6px;"></textarea>
+            </div>
+            <div style="display: flex; gap: 10px;">
+                <button class="btn btn-success" style="flex: 1;" onclick="savePlan()">Зачувај</button>
+                <button class="btn" style="flex: 1; background: #718096; color: white;" onclick="closeModal('addPlanModal')">Откажи</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Add Link Modal -->
+    <div id="addLinkModal" class="modal">
+        <div class="modal-content">
+            <h2 style="margin-bottom: 15px;">Додади Линк</h2>
+            <div class="form-group">
+                <label>Име на Линк</label>
+                <input type="text" id="linkName" placeholder="пр. Документи">
+            </div>
+            <div class="form-group">
+                <label>URL Адреса</label>
+                <input type="text" id="linkUrl" placeholder="пр. https://example.com">
+            </div>
+            <div style="display: flex; gap: 10px;">
+                <button class="btn btn-success" style="flex: 1;" onclick="saveLink()">Зачувај</button>
+                <button class="btn" style="flex: 1; background: #718096; color: white;" onclick="closeModal('addLinkModal')">Откажи</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Assign Modal -->
+    <div id="assignModal" class="modal">
+        <div class="modal-content">
+            <h2 style="margin-bottom: 15px;">Доделете Ученици</h2>
+            <div id="checkboxList" class="checkbox-list"></div>
+            <div style="margin-top: 20px; display: flex; gap: 10px;">
+                <button class="btn btn-success" style="flex: 1;" onclick="assignStudents()">Зачувај</button>
+                <button class="btn" style="flex: 1; background: #718096; color: white;" onclick="closeModal('assignModal')">Откажи</button>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        var students = [];
+        var schedule = {
+            monday: [[], [], [], [], []],
+            tuesday: [[], [], [], [], []],
+            wednesday: [[], [], [], [], []],
+            thursday: [[], [], [], [], []],
+            friday: [[], [], [], [], []]
+        };
+        var attendance = {};
+        var plans = [];
+        var links = [];
+        var studentProgress = {};
+        var scheduleHistory = {}; // Historical schedule snapshots
+        
+        var currentWeek = 0;
+        var editingStudent = null;
+        var editingPlan = null;
+        var editingLink = null;
+        var currentSlot = null;
+        var isDataDirty = false;
+        var checkOrder = [];
+        var pastWeeksUnlocked = false;
+        var undoStack = [];
+        var redoStack = [];
+        
+        var days = ['Пон', 'Вто', 'Сре', 'Чет', 'Пет'];
+        var daysEng = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'];
+        var timeSlots = [
+            { label: 'I', time: '08:00-08:40', half1: '08:00 - 08:20', half2: '08:20 - 08:40' },
+            { label: 'II', time: '08:45-09:25', half1: '08:45 - 09:05', half2: '09:05 - 09:25' },
+            { label: 'III', time: '09:40-10:20', half1: '09:40 - 10:00', half2: '10:00 - 10:20' },
+            { label: 'IV', time: '10:25-11:05', half1: '10:25 - 10:45', half2: '10:45 - 11:05' },
+            { label: 'V', time: '11:10-11:50', half1: '11:10 - 11:30', half2: '11:30 - 11:50' }
+        ];
+        
+        function switchTab(tab) {
+            // Hide all tab contents
+            var tabContents = document.getElementsByClassName('tab-content');
+            for (var i = 0; i < tabContents.length; i++) {
+                tabContents[i].classList.remove('active');
+            }
+            
+            // Remove active class from all tabs
+            var tabs = document.getElementsByClassName('tab');
+            for (var i = 0; i < tabs.length; i++) {
+                tabs[i].classList.remove('active');
+            }
+            
+            // Show the selected tab content and mark tab as active
+            document.getElementById(tab).classList.add('active');
+            event.target.classList.add('active');
+            
+            // Update any necessary data when switching tabs
+            if (tab === 'students') updateStats();
+            if (tab === 'schedule') renderSchedule();
+            if (tab === 'progress') updateProgressStudentList();
+            if (tab === 'plans') { renderPlansList(); renderLinksList(); }
+            if (tab === 'trijazen') initTrijazenTab();
+        }
+        
+        function showAddStudentModal() {
+            editingStudent = null;
+            updatePlanDropdown();
+            document.getElementById('studentName').value = '';
+            document.getElementById('studentGrade').value = '';
+            document.getElementById('studentNeedsTrijazen').checked = false;
+            document.getElementById('addStudentModal').classList.add('active');
+        }
+        
+        function showAddPlanModal() {
+            editingPlan = null;
+            document.getElementById('planName').value = '';
+            document.getElementById('planActivities').value = '';
+            document.getElementById('addPlanModal').querySelector('h2').textContent = 'Креирај План';
+            document.getElementById('addPlanModal').classList.add('active');
+        }
+        
+        function editPlan(idx) {
+            editingPlan = idx;
+            var plan = plans[idx];
+            document.getElementById('planName').value = plan.name;
+            document.getElementById('planActivities').value = plan.activities.join('\n');
+            document.getElementById('addPlanModal').querySelector('h2').textContent = 'Измени План';
+            document.getElementById('addPlanModal').classList.add('active');
+        }
+        
+        function closeModal(id) {
+            document.getElementById(id).classList.remove('active');
+        }
+        
+        function updatePlanDropdown() {
+            var select = document.getElementById('studentPlan');
+            select.innerHTML = '';
+            
+            if (plans.length === 0) {
+                var opt = document.createElement('option');
+                opt.value = '';
+                opt.textContent = 'Нема планови - креирајте план прво';
+                select.appendChild(opt);
+            } else {
+                for (var i = 0; i < plans.length; i++) {
+                    var opt = document.createElement('option');
+                    opt.value = plans[i].id;
+                    opt.textContent = plans[i].name;
+                    select.appendChild(opt);
+                }
+            }
+        }
+        
+        function saveStudent() {
+            var name = document.getElementById('studentName').value.trim();
+            var grade = document.getElementById('studentGrade').value.trim();
+            var planId = parseInt(document.getElementById('studentPlan').value);
+            var needsTrijazen = document.getElementById('studentNeedsTrijazen').checked;
+
+            if (!name || !grade || !planId) {
+                alert('Пополнете ги сите полиња');
+                return;
+            }
+
+            if (editingStudent !== null) {
+                // Editing existing student
+                students[editingStudent].name = name;
+                students[editingStudent].grade = grade;
+                students[editingStudent].planId = planId;
+                students[editingStudent].needsTrijazen = needsTrijazen;
+                editingStudent = null;
+            } else {
+                // Adding new student
+                var newStudent = { id: Date.now(), name: name, grade: grade, planId: planId, needsTrijazen: needsTrijazen };
+                students.push(newStudent);
+                studentProgress[newStudent.id] = {};
+                studentProgress[newStudent.id][planId] = [];
+            }
+            
+            saveData();
+            renderStudentListSimple();
+            updateStats();
+            updateProgressStudentList();
+            closeModal('addStudentModal');
+        }
+        
+        function savePlan() {
+            var name = document.getElementById('planName').value.trim();
+            var activitiesText = document.getElementById('planActivities').value.trim();
+            
+            if (!name || !activitiesText) {
+                alert('Пополнете ги сите полиња');
+                return;
+            }
+            
+            var activities = activitiesText.split('\n').map(function(a) { return a.trim(); }).filter(function(a) { return a.length > 0; });
+            
+            if (editingPlan !== null) {
+                // Editing existing plan
+                plans[editingPlan].name = name;
+                plans[editingPlan].activities = activities;
+                editingPlan = null;
+            } else {
+                // Adding new plan
+                plans.push({ id: Date.now(), name: name, activities: activities });
+            }
+            
+            saveData();
+            renderPlansList();
+            updatePlanDropdown();
+            closeModal('addPlanModal');
+        }
+        
+        function renderStudentListSimple() {
+            var list = document.getElementById('studentListSimple');
+            list.innerHTML = '';
+            
+            // Add header with student count
+            if (students.length > 0) {
+                var header = document.createElement('h3');
+                header.style.cssText = 'margin: 20px 0 15px 0; padding-bottom: 10px; border-bottom: 2px solid #667eea; color: #2d3748; font-size: 18px;';
+                header.textContent = '📚 Ученици (' + students.length + ')';
+                list.appendChild(header);
+            }
+            
+            for (var i = 0; i < students.length; i++) {
+                var s = students[i];
+                var plan = getPlanById(s.planId);
+                var completed = (studentProgress[s.id] && studentProgress[s.id][s.planId]) ? studentProgress[s.id][s.planId].length : 0;
+                var total = plan ? plan.activities.length : 0;
+                
+                // Count weekly sessions - two consecutive slots = one 40-min session
+                var sessions40min = 0;
+                var sessions20min = 0;
+                
+                for (var day in schedule) {
+                    var processedSlots = [];
+                    for (var t = 0; t < schedule[day].length; t++) {
+                        if (processedSlots.indexOf(t) !== -1) continue; // Already counted
+                        
+                        if (schedule[day][t].indexOf(s.id) !== -1) {
+                            // Check if student is also in the next consecutive slot
+                            var isInNextSlot = (t + 1 < schedule[day].length && 
+                                schedule[day][t + 1].indexOf(s.id) !== -1);
+                            
+                            // Check if previous slot was already processed (we're the second half)
+                            var isPreviousProcessed = processedSlots.indexOf(t - 1) !== -1;
+                            
+                            if (isInNextSlot && !isPreviousProcessed) {
+                                // Two consecutive slots = 1 session of 40 min (2x20 or 1x40)
+                                sessions40min++;
+                                processedSlots.push(t, t + 1); // Mark both as processed
+                            } else if (!isPreviousProcessed) {
+                                // Single slot
+                                var numStudentsInSlot = schedule[day][t].length;
+                                if (numStudentsInSlot === 1) {
+                                    // Alone = 40 min
+                                    sessions40min++;
+                                } else {
+                                    // With others = 20 min
+                                    sessions20min++;
+                                }
+                                processedSlots.push(t);
+                            }
+                            // If isPreviousProcessed is true, do nothing (already counted)
+                        }
+                    }
+                }
+
+                // Calculate total sessions for display
+                var totalSessions = sessions40min + sessions20min;
+                var sessionDisplay = totalSessions > 0 ? totalSessions + ' сесии неделно' : 'Нема сесии';
+                
+                var item = document.createElement('div');
+                item.className = 'student-item';
+                
+                // Create up/down arrows
+                var upDisabled = i === 0 ? ' disabled' : '';
+                var downDisabled = i === students.length - 1 ? ' disabled' : '';
+                
+                var arrowsHTML = '<div class="student-item-arrows">' +
+                    '<button class="arrow-btn" onclick="moveStudent(' + i + ', -1)" title="Помести нагоре"' + upDisabled + '>↑</button>' +
+                    '<button class="arrow-btn" onclick="moveStudent(' + i + ', 1)" title="Помести надолу"' + downDisabled + '>↓</button>' +
+                    '</div>';
+                
+                item.innerHTML = arrowsHTML +
+                    '<div class="student-item-info">' +
+                    '<h4><span style="color: #667eea; font-weight: bold; margin-right: 8px;">' + (i + 1) + '.</span>' + 
+                    s.grade + ' - ' + s.name + '</h4>' +
+                    '<p>План: ' + (plan ? plan.name : 'N/A') + ' | ' + sessionDisplay + '</p>' +
+                    '</div>' +
+                    '<div class="student-item-actions">' +
+                    '<button class="btn btn-primary" style="padding: 10px 20px; margin: 0;" onclick="editStudent(' + i + ')">Измени</button>' +
+                    '<button class="btn btn-danger" style="padding: 10px 20px; margin: 0;" onclick="deleteStudent(' + i + ')">Избриши</button>' +
+                    '</div>';
+                list.appendChild(item);
+            }
+        }
+        
+        function moveStudent(idx, direction) {
+            var newIdx = idx + direction;
+            
+            // Validate bounds
+            if (newIdx < 0 || newIdx >= students.length) return;
+            
+            // Swap students in array
+            var temp = students[idx];
+            students[idx] = students[newIdx];
+            students[newIdx] = temp;
+            
+            saveData();
+            renderStudentListSimple();
+            updateStats();
+            updateProgressStudentList();
+        }
+        
+        function toggleStudentTrijazen(idx) {
+            students[idx].needsTrijazen = !students[idx].needsTrijazen;
+            saveData();
+            renderStudentListSimple();
+            updateTrijazenStudentList(); // Update dropdown in trijazen tab
+        }
+        
+        function editStudent(idx) {
+            editingStudent = idx;
+            var s = students[idx];
+            updatePlanDropdown();
+            document.getElementById('studentName').value = s.name;
+            document.getElementById('studentGrade').value = s.grade;
+            document.getElementById('studentPlan').value = s.planId;
+            document.getElementById('studentNeedsTrijazen').checked = s.needsTrijazen || false;
+            document.getElementById('addStudentModal').classList.add('active');
+        }
+        
+        function deleteStudent(idx) {
+            if (!confirm('Избриши го ученикот?')) return;
+            
+            var studentId = students[idx].id;
+            students.splice(idx, 1);
+            
+            // Remove from schedule
+            for (var day in schedule) {
+                for (var i = 0; i < schedule[day].length; i++) {
+                    schedule[day][i] = schedule[day][i].filter(function(sid) { return sid !== studentId; });
+                }
+            }
+            
+            // Remove progress
+            delete studentProgress[studentId];
+            
+            saveData();
+            renderStudentListSimple();
+            updateStats();
+            updateProgressStudentList();
+        }
+        
+        function updateStats() {
+            var totalSlotsUsed = 0; // Count occupied hours (each hour = 2 slots)
+            
+            // Count occupied hours: if ANY student is in that hour, it's occupied = 2 slots
+            for (var day in schedule) {
+                for (var i = 0; i < schedule[day].length; i++) {
+                    if (schedule[day][i].length > 0) {
+                        // This hour is occupied (regardless of number of students)
+                        totalSlotsUsed += 2;
+                    }
+                }
+            }
+            
+            // Calculate capacity in 20-min slots: 5 days × 5 hours × 2 halves = 50 slots
+            var maxSlots = 50;
+            var totalMinutesUsed = totalSlotsUsed * 20;
+            var maxCapacity = maxSlots * 20; // 1000 minutes
+            var percentUsed = maxCapacity > 0 ? (totalMinutesUsed / maxCapacity * 100).toFixed(1) : 0;
+            var availableMinutes = maxCapacity - totalMinutesUsed;
+            
+            // Update capacity display
+            document.getElementById('capacityUsage').textContent = 
+                totalMinutesUsed + '/' + maxCapacity + ' мин | ' + percentUsed + '% искористено';
+            
+            // Update progress bar
+            var progressBar = document.getElementById('capacityProgressBar');
+            progressBar.style.width = percentUsed + '%';
+            progressBar.textContent = percentUsed + '%';
+            
+            // Set color based on usage
+            progressBar.className = 'progress-bar-fill';
+            if (percentUsed >= 100) {
+                progressBar.classList.add('red');
+            } else if (percentUsed >= 80) {
+                progressBar.classList.add('yellow');
+            } else {
+                progressBar.classList.add('green');
+            }
+            
+            // Update alert message and find free slots
+            var alertDiv = document.getElementById('capacityAlert');
+            alertDiv.innerHTML = '';
+            
+            // Find free time slots
+            var freeSlots = [];
+            for (var day in schedule) {
+                for (var i = 0; i < schedule[day].length; i++) {
+                    if (schedule[day][i].length === 0) {
+                        var dayName = days[daysEng.indexOf(day)];
+                        var timeLabel = timeSlots[i].label + ' (' + timeSlots[i].time + ')';
+                        freeSlots.push(dayName + ' - Час ' + timeLabel);
+                    }
+                }
+            }
+            
+            if (percentUsed >= 100) {
+                var item = document.createElement('div');
+                item.className = 'capacity-item';
+                item.style.color = '#e53e3e';
+                item.innerHTML = '<span class="icon">⚠️</span><span><strong>Нема слободни термини!</strong></span>';
+                alertDiv.appendChild(item);
+            } else if (percentUsed >= 80) {
+                var available40 = Math.floor(availableMinutes / 40);
+                var available20 = Math.floor(availableMinutes / 20);
+                var item = document.createElement('div');
+                item.className = 'capacity-item';
+                item.style.color = '#d69e2e';
+                item.innerHTML = '<span class="icon">🧡</span><span>' + availableMinutes + ' мин слободни (' + 
+                    available20 + ' слота)</span>';
+                alertDiv.appendChild(item);
+                
+                // Show free slots
+                if (freeSlots.length > 0) {
+                    var freeItem = document.createElement('div');
+                    freeItem.style.cssText = 'margin-top: 10px; padding: 10px; background: rgba(237, 137, 54, 0.1); border-radius: 5px; font-size: 13px;';
+                    freeItem.innerHTML = '<strong>📅 Слободни термини:</strong><br>' + freeSlots.join('<br>');
+                    alertDiv.appendChild(freeItem);
+                }
+            } else {
+                var available40 = Math.floor(availableMinutes / 40);
+                var available20 = Math.floor(availableMinutes / 20);
+                var item = document.createElement('div');
+                item.className = 'capacity-item';
+                item.style.color = '#38a169';
+                item.innerHTML = '<span class="icon">💚</span><span>' + availableMinutes + ' мин слободни (' + 
+                    available20 + ' слота)</span>';
+                alertDiv.appendChild(item);
+                
+                // Show free slots
+                if (freeSlots.length > 0) {
+                    var freeItem = document.createElement('div');
+                    freeItem.style.cssText = 'margin-top: 10px; padding: 10px; background: rgba(72, 187, 120, 0.1); border-radius: 5px; font-size: 13px;';
+                    freeItem.innerHTML = '<strong>📅 Слободни термини:</strong><br>' + freeSlots.join('<br>');
+                    alertDiv.appendChild(freeItem);
+                }
+            }
+            
+            // Generate session summary for all students
+            var sessionStats = {}; // Format: "2x40" -> {count: N, students: [names]}
+            
+            for (var i = 0; i < students.length; i++) {
+                var s = students[i];
+                var sessions40 = 0;
+                var sessions20 = 0;
+                
+                // Count sessions for this student (same logic as renderStudentListSimple)
+                for (var day in schedule) {
+                    var processedSlots = [];
+                    for (var t = 0; t < schedule[day].length; t++) {
+                        if (processedSlots.indexOf(t) !== -1) continue;
+                        
+                        if (schedule[day][t].indexOf(s.id) !== -1) {
+                            var isInNextSlot = (t + 1 < schedule[day].length && 
+                                schedule[day][t + 1].indexOf(s.id) !== -1);
+                            var isPreviousProcessed = processedSlots.indexOf(t - 1) !== -1;
+                            
+                            if (isInNextSlot && !isPreviousProcessed) {
+                                sessions40++;
+                                processedSlots.push(t, t + 1);
+                            } else if (!isPreviousProcessed) {
+                                var numStudentsInSlot = schedule[day][t].length;
+                                if (numStudentsInSlot === 1) {
+                                    sessions40++;
+                                } else {
+                                    sessions20++;
+                                }
+                                processedSlots.push(t);
+                            }
+                        }
+                    }
+                }
+                
+                // Create key like "2x40+1x20" or "2x40" or "1x20"
+                var key = '';
+                if (sessions40 > 0) key += sessions40 + 'x40';
+                if (sessions20 > 0) {
+                    if (key.length > 0) key += '+';
+                    key += sessions20 + 'x20';
+                }
+                if (key.length === 0) key = '0';
+                
+                if (!sessionStats[key]) {
+                    sessionStats[key] = {count: 0, students: []};
+                }
+                sessionStats[key].count++;
+                sessionStats[key].students.push(s.name);
+            }
+            
+            // Display session summary
+            var summaryDiv = document.getElementById('sessionSummary');
+            summaryDiv.innerHTML = '<strong style="font-size: 14px; display: block; margin-bottom: 10px;">📊 Распределба на сесии:</strong>';
+            
+            var sortedKeys = Object.keys(sessionStats).sort();
+            for (var i = 0; i < sortedKeys.length; i++) {
+                var key = sortedKeys[i];
+                var data = sessionStats[key];
+                var count = data.count;
+                var studentNames = data.students;
+                
+                if (key === '0') {
+                    summaryDiv.innerHTML += '<div class="capacity-item" style="margin: 5px 0; font-size: 13px;">' +
+                        '<span style="color: #718096;">• ' + count + ' ученици без распоред: ' + studentNames.join(', ') + '</span></div>';
+                } else {
+                    // Format key nicely: "2x40+1x20" -> "2 сесии по 40 мин + 1 сесија по 20 мин"
+                    var formatted = key.replace(/(\d+)x40/g, function(match, num) {
+                        return num + (num == 1 ? ' сесија' : ' сесии') + ' по 40 мин';
+                    }).replace(/(\d+)x20/g, function(match, num) {
+                        return num + (num == 1 ? ' сесија' : ' сесии') + ' по 20 мин';
+                    }).replace('+', ' + ');
+                    
+                    var studentWord = count == 1 ? 'ученик' : 'ученици';
+                    summaryDiv.innerHTML += '<div class="capacity-item" style="margin: 5px 0; font-size: 13px;">' +
+                        '<span style="color: #2d3748;"><strong>• ' + count + ' ' + studentWord + ' со ' + formatted + ':</strong><br>' +
+                        '<span style="font-size: 12px; color: #4a5568; margin-left: 12px;">' + studentNames.join(', ') + '</span></span></div>';
+                }
+            }
+        }
+        
+        function updateProgressStudentList() {
+            var select = document.getElementById('progressStudentSelect');
+            select.innerHTML = '<option value="">-- Избери ученик --</option>';
+            
+            for (var i = 0; i < students.length; i++) {
+                var opt = document.createElement('option');
+                opt.value = students[i].id;
+                opt.textContent = students[i].grade + ' - ' + students[i].name;
+                select.appendChild(opt);
+            }
+        }
+        
+        function loadStudentProgress() {
+            var studentId = parseInt(document.getElementById('progressStudentSelect').value);
+            var container = document.getElementById('progressActivitiesList');
+            container.innerHTML = '';
+            
+            if (!studentId) return;
+            
+            var student = getStudentById(studentId);
+            if (!student) return;
+            
+            var plan = getPlanById(student.planId);
+            if (!plan) {
+                container.innerHTML = '<p>Ученикот нема доделен план</p>';
+                return;
+            }
+            
+            var completed = (studentProgress[studentId] && studentProgress[studentId][student.planId]) ? studentProgress[studentId][student.planId] : [];
+
+            completed.sort(function(a, b) {
+                var dateA = new Date(a.date + 'T' + a.time.split('-')[0] + ':00');
+                var dateB = new Date(b.date + 'T' + b.time.split('-')[0] + ':00');
+                return dateA - dateB;
+            });
+            
+            var completedIndices = new Set(completed.map(function(c) { return c.index; }));
+
+            // Render completed items first, in chronological order
+            completed.forEach(function(activityData) {
+                var i = activityData.index;
+                var item = document.createElement('div');
+                item.className = 'progress-item completed';
+                
+                var dateParts = activityData.date.split('-');
+                var formattedDate = dateParts[2] + '.' + dateParts[1] + '.' + dateParts[0];
+                var timestampText = 'Завршено на: ' + formattedDate + ' ' + activityData.time;
+
+                item.innerHTML = '<input type="checkbox" checked disabled>' +
+                    '<div class="progress-item-content">' +
+                    '<div class="progress-item-text">' + (i + 1) + '. ' + plan.activities[i] + '</div>' +
+                    '<div class="progress-item-date">' + timestampText + '</div>' +
+                    '</div>';
+                container.appendChild(item);
+            });
+
+            // Render uncompleted items
+            for (var i = 0; i < plan.activities.length; i++) {
+                if (!completedIndices.has(i)) {
+                    var item = document.createElement('div');
+                    item.className = 'progress-item';
+                    var timestampText = 'Не е завршено';
+
+                    item.innerHTML = '<input type="checkbox" disabled>' +
+                        '<div class="progress-item-content">' +
+                        '<div class="progress-item-text">' + (i + 1) + '. ' + plan.activities[i] + '</div>' +
+                        '<div class="progress-item-date">' + timestampText + '</div>' +
+                        '</div>';
+                    container.appendChild(item);
+                }
+            }
+        }
+        
+        function getActivityDate(studentId, activityIndex) {
+            var student = getStudentById(studentId);
+            if (!student) return 'N/A';
+            
+            var completed = (studentProgress[studentId] && studentProgress[studentId][student.planId]) ? studentProgress[studentId][student.planId] : [];
+            
+            for (var i = 0; i < completed.length; i++) {
+                if (completed[i].index === activityIndex) {
+                    if (completed[i].date && completed[i].time) {
+                        var dateParts = completed[i].date.split('-');
+                        return dateParts[2] + '.' + dateParts[1] + '.' + dateParts[0] + ' ' + completed[i].time;
+                    }
+                    return 'Завршено';
+                }
+            }
+            
+            return 'N/A';
+        }
+        
+        function switchProgressView(view) {
+            if (view === 'student') {
+                document.getElementById('studentProgressView').style.display = 'block';
+                document.getElementById('monthlyProgressView').style.display = 'none';
+            } else {
+                document.getElementById('studentProgressView').style.display = 'none';
+                document.getElementById('monthlyProgressView').style.display = 'block';
+                setCurrentMonth();
+            }
+        }
+        
+        function setCurrentMonth() {
+            var now = new Date();
+            document.getElementById('monthSelector').value = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
+            generateMonthlyAttendance();
+        }
+        
+        function generateMonthlyAttendance() {
+            var monthValue = document.getElementById('monthSelector').value;
+            if (!monthValue) return;
+            
+            var parts = monthValue.split('-');
+            var year = parseInt(parts[0]);
+            var month = parseInt(parts[1]);
+            
+            var monthNames = ['Јануари', 'Февруари', 'Март', 'Април', 'Мај', 'Јуни', 
+                             'Јули', 'Август', 'Септември', 'Октомври', 'Ноември', 'Декември'];
+            var monthName = monthNames[month - 1];
+            
+            var dayNames = ['нед.', 'пон.', 'вто.', 'сре.', 'чет.', 'пет.', 'саб.'];
+            
+            var container = document.getElementById('monthlyAttendanceTable');
+            var html = '<h3 class="month-header" style="text-align: center; margin-bottom: 15px; color: #2d3748;">' + monthName + ' ' + year + '</h3>';
+            html += '<table class="attendance-table">';
+            html += '<tr><th>Ученик</th>';
+            
+            // Get all dates in month
+            var lastDay = new Date(year, month, 0).getDate();
+            for (var day = 1; day <= lastDay; day++) {
+                html += '<th>' + day + '</th>';
+            }
+            html += '</tr>';
+            
+            // Add day names row
+            html += '<tr><th></th>';
+            for (var day = 1; day <= lastDay; day++) {
+                var date = new Date(year, month - 1, day);
+                var dayOfWeek = date.getDay();
+                html += '<th style="font-size: 11px; font-weight: normal;">' + dayNames[dayOfWeek] + '</th>';
+            }
+            html += '</tr>';
+            
+            // For each student
+            for (var i = 0; i < students.length; i++) {
+                var s = students[i];
+                html += '<tr><td>' + s.grade + ' - ' + s.name + '</td>';
+                
+                for (var day = 1; day <= lastDay; day++) {
+                    var dateStr = year + '-' + String(month).padStart(2, '0') + '-' + String(day).padStart(2, '0');
+                    var hasAttendance = checkAttendanceForDate(s.id, dateStr);
+                    html += '<td class="' + (hasAttendance ? 'date-cell' : '') + '">' + (hasAttendance ? '✓' : '') + '</td>';
+                }
+                html += '</tr>';
+            }
+            
+            html += '</table>';
+            container.innerHTML = html;
+        }
+        
+        function checkAttendanceForDate(studentId, dateStr) {
+            if (!attendance[dateStr]) return false;
+            if (!attendance[dateStr][studentId]) return false;
+            
+            for (var key in attendance[dateStr][studentId]) {
+                if (attendance[dateStr][studentId][key].status === 'present') return true;
+            }
+            return false;
+        }
+        
+        function renderPlansList() {
+            var container = document.getElementById('plansList');
+            container.innerHTML = '';
+            
+            if (plans.length === 0) {
+                container.innerHTML = '<p style="text-align: center; color: #a0aec0; padding: 20px;">Нема планови. Креирајте нови планови.</p>';
+                return;
+            }
+            
+            for (var i = 0; i < plans.length; i++) {
+                var p = plans[i];
+                var div = document.createElement('div');
+                div.style.cssText = 'background: linear-gradient(135deg, #1a202c 0%, #2d3748 100%); padding: 18px; margin: 10px 0; border-radius: 8px; border-left: 4px solid #667eea; box-shadow: 0 4px 6px rgba(0,0,0,0.3);';
+                div.innerHTML = '<h4 style="margin-bottom: 12px; color: #e2e8f0; font-size: 16px;">' + p.name + ' <span style="color: #a0aec0; font-size: 14px;">(' + p.activities.length + ' активности)</span></h4>' +
+                    '<div style="display: flex; gap: 10px;">' +
+                    '<button class="btn btn-primary" onclick="editPlan(' + i + ')">Измени</button>' +
+                    '<button class="btn" style="background: #f56565; color: white;" onclick="deletePlan(' + i + ')">Избриши</button>' +
+                    '</div>';
+                container.appendChild(div);
+            }
+        }
+        
+        function renderLinksList() {
+            var container = document.getElementById('linksList');
+            container.innerHTML = '';
+            
+            if (links.length === 0) {
+                container.innerHTML = '<p style="text-align: center; color: #a0aec0; padding: 20px;">Нема линкови. Додадете нови линкови.</p>';
+                return;
+            }
+            
+            for (var i = 0; i < links.length; i++) {
+                var link = links[i];
+                var div = document.createElement('div');
+                div.style.cssText = 'background: linear-gradient(135deg, #1a202c 0%, #2d3748 100%); padding: 18px; margin: 10px 0; border-radius: 8px; border-left: 4px solid #48bb78; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 4px 6px rgba(0,0,0,0.3);';
+                div.innerHTML = '<div style="flex: 1;">' +
+                    '<h4 style="margin-bottom: 8px; color: #e2e8f0; font-size: 16px;">' + link.name + '</h4>' +
+                    '<a href="' + link.url + '" target="_blank" rel="noopener noreferrer" style="color: #818cf8; font-size: 13px; word-break: break-all; text-decoration: none;">' + link.url + '</a>' +
+                    '</div>' +
+                    '<div style="display: flex; gap: 10px; margin-left: 15px; flex-shrink: 0;">' +
+                    '<a href="' + link.url + '" target="_blank" rel="noopener noreferrer" class="btn btn-success" style="text-decoration: none;">Отвори</a>' +
+                    '<button class="btn btn-primary" onclick="editLink(' + i + ')">Измени</button>' +
+                    '<button class="btn" style="background: #f56565; color: white;" onclick="deleteLink(' + i + ')">Избриши</button>' +
+                    '</div>';
+                container.appendChild(div);
+            }
+        }
+        
+        function deletePlan(idx) {
+            if (!confirm('Избриши го планот?')) return;
+            plans.splice(idx, 1);
+            saveData();
+            renderPlansList();
+        }
+        
+        function showAddLinkModal() {
+            editingLink = null;
+            document.getElementById('linkName').value = '';
+            document.getElementById('linkUrl').value = '';
+            document.getElementById('addLinkModal').querySelector('h2').textContent = 'Додади Линк';
+            document.getElementById('addLinkModal').classList.add('active');
+        }
+        
+        function editLink(idx) {
+            editingLink = idx;
+            var link = links[idx];
+            document.getElementById('linkName').value = link.name;
+            document.getElementById('linkUrl').value = link.url;
+            document.getElementById('addLinkModal').querySelector('h2').textContent = 'Измени Линк';
+            document.getElementById('addLinkModal').classList.add('active');
+        }
+        
+        function saveLink() {
+            var name = document.getElementById('linkName').value.trim();
+            var url = document.getElementById('linkUrl').value.trim();
+            
+            if (!name || !url) {
+                alert('Пополнете ги сите полиња');
+                return;
+            }
+            
+            // Add https:// if no protocol specified
+            if (!url.match(/^https?:\/\//i)) {
+                url = 'https://' + url;
+            }
+            
+            if (editingLink !== null) {
+                // Editing existing link
+                links[editingLink].name = name;
+                links[editingLink].url = url;
+                editingLink = null;
+            } else {
+                // Adding new link
+                links.push({ id: Date.now(), name: name, url: url });
+            }
+            
+            saveData();
+            renderLinksList();
+            closeModal('addLinkModal');
+        }
+        
+        function deleteLink(idx) {
+            if (!confirm('Избриши го линкот?')) return;
+            links.splice(idx, 1);
+            saveData();
+            renderLinksList();
+        }
+        
+        function getStudentById(id) {
+            for (var i = 0; i < students.length; i++) {
+                if (students[i].id === id) return students[i];
+            }
+            return null;
+        }
+        
+        function getPlanById(id) {
+            for (var i = 0; i < plans.length; i++) {
+                if (plans[i].id === id) return plans[i];
+            }
+            return null;
+        }
+        
+        function changeWeek(dir) {
+            // Save snapshot of current week before leaving (if it's current or future)
+            var oldWeekKey = getWeekKey();
+            var now = new Date();
+            var todayStart = new Date();
+            todayStart.setHours(0, 0, 0, 0);
+            var currentMondayStart = new Date(todayStart);
+            currentMondayStart.setDate(todayStart.getDate() - todayStart.getDay() + 1);
+            var oldWeekDate = new Date(oldWeekKey);
+            
+            // Only save snapshot if we're leaving current or future week
+            if (oldWeekDate >= currentMondayStart) {
+                if (!scheduleHistory[oldWeekKey]) {
+                    scheduleHistory[oldWeekKey] = JSON.parse(JSON.stringify(schedule));
+                    saveData();
+                }
+            }
+            
+            currentWeek += dir;
+            
+            // Auto-lock when switching weeks (safety feature)
+            pastWeeksUnlocked = false;
+            
+            // Clear undo/redo stacks when switching weeks
+            undoStack = [];
+            redoStack = [];
+            
+            renderSchedule();
+            updateWeekDisplay();
+            updateUndoRedoButtons();
+        }
+        
+        function getWeekKey() {
+            var now = new Date();
+            now.setDate(now.getDate() + (currentWeek * 7));
+            var monday = new Date(now);
+            var day = monday.getDay();
+            // Handle Sunday (day = 0) - go back 6 days to previous Monday
+            var daysToMonday = day === 0 ? -6 : (1 - day);
+            monday.setDate(monday.getDate() + daysToMonday);
+            // Use local date format to avoid timezone issues
+            var year = monday.getFullYear();
+            var month = String(monday.getMonth() + 1).padStart(2, '0');
+            var date = String(monday.getDate()).padStart(2, '0');
+            return year + '-' + month + '-' + date;
+        }
+        
+        function getScheduleForWeek(weekKey) {
+            // Calculate if this week is in the past
+            var now = new Date();
+            var todayStart = new Date();
+            todayStart.setHours(0, 0, 0, 0);
+            var currentMondayStart = new Date(todayStart);
+            var day = currentMondayStart.getDay();
+            var daysToMonday = day === 0 ? -6 : (1 - day);
+            currentMondayStart.setDate(currentMondayStart.getDate() + daysToMonday);
+            
+            var weekDate = new Date(weekKey);
+            
+            // For current and future weeks, ALWAYS use the live schedule (editable)
+            if (weekDate >= currentMondayStart) {
+                return schedule; // Live template - editable
+            }
+            
+            // For past weeks, use historical snapshot if exists, otherwise reconstruct from attendance
+            if (scheduleHistory[weekKey]) {
+                return scheduleHistory[weekKey];
+            }
+            
+            // If no snapshot exists, reconstruct from attendance records
+            return reconstructScheduleFromAttendance(weekKey);
+        }
+        
+        function reconstructScheduleFromAttendance(weekStartDate) {
+            // Create empty schedule
+            var reconstructed = {
+                monday: [[], [], [], [], []],
+                tuesday: [[], [], [], [], []],
+                wednesday: [[], [], [], [], []],
+                thursday: [[], [], [], [], []],
+                friday: [[], [], [], [], []]
+            };
+            
+            // Parse the week dates
+            var weekStart = new Date(weekStartDate);
+            
+            // Go through each day of that week
+            for (var d = 0; d < 5; d++) {
+                var dayDate = new Date(weekStart);
+                dayDate.setDate(weekStart.getDate() + d);
+                // Use local date format to avoid timezone issues
+                var year = dayDate.getFullYear();
+                var month = String(dayDate.getMonth() + 1).padStart(2, '0');
+                var dayNum = String(dayDate.getDate()).padStart(2, '0');
+                var dateStr = year + '-' + month + '-' + dayNum;
+                
+                var dayName = daysEng[d];
+                
+                // Check attendance for this date
+                if (attendance[dateStr]) {
+                    // For each time slot
+                    for (var t = 0; t < 5; t++) {
+                        var studentsInSlot = [];
+                        
+                        // Check each student
+                        for (var studentId in attendance[dateStr]) {
+                            var key = dayName + '-' + t;
+                            var attRecord = attendance[dateStr][studentId][key];
+                            
+                            if (attRecord) {
+                                // Check status (handle both old string and new object format)
+                                var status = typeof attRecord === 'string' ? attRecord : attRecord.status;
+                                
+                                if (status === 'present' || status === 'absent') {
+                                    // This student had a scheduled session here
+                                    var studentIdInt = parseInt(studentId);
+                                    if (studentsInSlot.indexOf(studentIdInt) === -1) {
+                                        studentsInSlot.push(studentIdInt);
+                                    }
+                                }
+                            }
+                        }
+                        
+                        reconstructed[dayName][t] = studentsInSlot;
+                    }
+                }
+            }
+            
+            return reconstructed;
+        }
+        
+        function getWeekNumber(date) {
+            var d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+            var dayNum = d.getUTCDay() || 7;
+            d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+            var yearStart = new Date(Date.UTC(d.getUTCFullYear(),0,1));
+            return Math.ceil((((d - yearStart) / 86400000) + 1)/7);
+        }
+        
+        function getSchoolWeekInfo(date) {
+            // School year 2025/2026 starts on September 2, 2025
+            var schoolYearStart = new Date(2025, 8, 2); // September 2, 2025 (month is 0-indexed)
+            var firstHalfEnd = new Date(2026, 0, 30); // January 30, 2026 (end of 18th week)
+            var schoolYearEnd = new Date(2026, 5, 12); // June 12, 2026 (end of school year)
+            
+            // Holidays (weeks to skip)
+            var holidays = [
+                { start: new Date(2026, 0, 1), end: new Date(2026, 0, 21) }, // Winter break (Jan 1-21)
+                { start: new Date(2026, 1, 1), end: new Date(2026, 1, 8) }, // February break
+                { start: new Date(2026, 2, 30), end: new Date(2026, 3, 5) }, // Easter break
+            ];
+            
+            var monday = new Date(date);
+            monday.setDate(date.getDate() - date.getDay() + 1);
+            
+            // Check if in holiday
+            var isHoliday = false;
+            for (var i = 0; i < holidays.length; i++) {
+                if (monday >= holidays[i].start && monday <= holidays[i].end) {
+                    isHoliday = true;
+                    break;
+                }
+            }
+            
+            // Calculate week number
+            var weekNumber = 0;
+            var currentDate = new Date(schoolYearStart);
+            
+            while (currentDate <= monday) {
+                var inHoliday = false;
+                for (var i = 0; i < holidays.length; i++) {
+                    if (currentDate >= holidays[i].start && currentDate <= holidays[i].end) {
+                        inHoliday = true;
+                        break;
+                    }
+                }
+                if (!inHoliday && currentDate < schoolYearEnd) {
+                    weekNumber++;
+                }
+                currentDate.setDate(currentDate.getDate() + 7);
+            }
+            
+            // Determine which half
+            var half = weekNumber <= 18 ? 'I' : 'II';
+            var totalWeeks = 39;
+            var weeksRemaining = totalWeeks - weekNumber;
+            var halfWeeksTotal = half === 'I' ? 18 : 21;
+            var halfWeekNumber = half === 'I' ? weekNumber : (weekNumber - 18);
+            
+            return {
+                week: weekNumber,
+                half: half,
+                halfWeek: halfWeekNumber,
+                halfTotal: halfWeeksTotal,
+                remaining: weeksRemaining,
+                total: totalWeeks,
+                isHoliday: isHoliday,
+                inSchoolYear: monday >= schoolYearStart && monday < schoolYearEnd
+            };
+        }
+        
+        function updateWeekDisplay() {
+            var now = new Date();
+            now.setDate(now.getDate() + (currentWeek * 7));
+            var monday = new Date(now);
+            monday.setDate(monday.getDate() - monday.getDay() + 1);
+            var friday = new Date(monday);
+            friday.setDate(monday.getDate() + 4);
+            
+            var schoolWeek = getSchoolWeekInfo(monday);
+            
+            var weekInfo = '';
+            if (!schoolWeek.inSchoolYear) {
+                weekInfo = 'Извон учебна година';
+            } else if (schoolWeek.isHoliday) {
+                weekInfo = 'Распуст';
+            } else {
+                weekInfo = 'Седмица ' + schoolWeek.week + ' од ' + schoolWeek.total + 
+                    ' (' + schoolWeek.half + ' полугодие: ' + schoolWeek.halfWeek + ' од ' + schoolWeek.halfTotal + ')';
+            }
+            
+            var dateRange = String(monday.getDate()).padStart(2, '0') + '.' + String(monday.getMonth()+1).padStart(2, '0') + '.' + monday.getFullYear() + ' - ' + 
+                String(friday.getDate()).padStart(2, '0') + '.' + String(friday.getMonth()+1).padStart(2, '0') + '.' + friday.getFullYear();
+            
+            document.getElementById('weekDisplay').innerHTML = 
+                '<div style="font-size: 18px; font-weight: bold; margin-bottom: 5px;">' + dateRange + '</div>' +
+                '<div style="font-size: 13px; font-weight: bold; color: #667eea;">' + weekInfo + '</div>';
+            
+            // Show/hide lock button and undo/redo buttons based on whether viewing a past week
+            var todayStart = new Date();
+            todayStart.setHours(0, 0, 0, 0);
+            var currentMondayStart = new Date(todayStart);
+            currentMondayStart.setDate(todayStart.getDate() - todayStart.getDay() + 1);
+            var lockBtn = document.getElementById('lockToggleBtn');
+            var undoBtn = document.getElementById('undoBtn');
+            var redoBtn = document.getElementById('redoBtn');
+            
+            if (monday < currentMondayStart) {
+                // Viewing past week - show lock button
+                lockBtn.style.display = 'block';
+                updateLockButtonAppearance();
+                
+                // Show undo/redo buttons only when unlocked
+                if (pastWeeksUnlocked) {
+                    undoBtn.style.display = 'block';
+                    redoBtn.style.display = 'block';
+                } else {
+                    undoBtn.style.display = 'none';
+                    redoBtn.style.display = 'none';
+                }
+            } else {
+                // Viewing current or future week - hide lock button and undo/redo
+                lockBtn.style.display = 'none';
+                undoBtn.style.display = 'none';
+                redoBtn.style.display = 'none';
+            }
+        }
+        
+        function togglePastWeekLock() {
+            pastWeeksUnlocked = !pastWeeksUnlocked;
+            updateLockButtonAppearance();
+            updateWeekDisplay(); // Refresh to show/hide undo/redo buttons
+            
+            if (pastWeeksUnlocked) {
+                alert('🔓 Измината седмица е отклучена!\n\nСега можете да ги менувате податоците за минатите недели.\n\n⚠️ Внимание: Промените на историски податоци може да влијаат на точноста на записите.');
+            }
+        }
+        
+        function updateLockButtonAppearance() {
+            var lockBtn = document.getElementById('lockToggleBtn');
+            if (pastWeeksUnlocked) {
+                lockBtn.style.background = '#48bb78';
+                lockBtn.innerHTML = '🔓 Измината седмица е отклучена';
+            } else {
+                lockBtn.style.background = '#e53e3e';
+                lockBtn.innerHTML = '🔒 Измината седмица е заклучена';
+            }
+        }
+        
+        function createStudentSlot(sid, day, timeIdx, position, totalStudents, dateStr, isMerged) {
+            var student = getStudentById(sid);
+            if (!student) {
+                console.error('Student not found:', sid);
+                return document.createElement('div');
+            }
+            
+            var slot = document.createElement('div');
+            slot.className = 'student-slot';
+            slot.dataset.sid = String(sid);
+            slot.dataset.day = day; // This should already be a string
+            slot.dataset.time = String(timeIdx); // Ensure this is always a string
+            slot.dataset.position = String(position);
+            slot.dataset.merged = isMerged ? 'true' : 'false';
+            
+            // Debug log for problematic student
+            if (student.grade === 'VI' && student.name.includes('Емин')) {
+                console.log('Creating slot for Емин Етемов:', {
+                    sid: sid,
+                    day: day, 
+                    timeIdx: timeIdx,
+                    dateStr: dateStr,
+                    isMerged: isMerged
+                });
+            }
+            
+            var key = day + '-' + timeIdx;
+            var status = null;
+            
+            if (attendance[dateStr] && attendance[dateStr][sid] && attendance[dateStr][sid][key]) {
+                var attData = attendance[dateStr][sid][key];
+                // Handle both old string format and new object format
+                if (typeof attData === 'string') {
+                    status = attData; // Old format: "present" or "absent"
+                } else if (attData.status) {
+                    status = attData.status; // New format: {status: "present", ...}
+                }
+            }
+            
+            // For merged cells, also check the second slot's status
+            if (isMerged && timeIdx + 1 < timeSlots.length) {
+                var key2 = day + '-' + (timeIdx + 1);
+                if (attendance[dateStr] && attendance[dateStr][sid] && attendance[dateStr][sid][key2]) {
+                    var attData2 = attendance[dateStr][sid][key2];
+                    var status2 = null;
+                    // Handle both formats for second slot too
+                    if (typeof attData2 === 'string') {
+                        status2 = attData2;
+                    } else if (attData2.status) {
+                        status2 = attData2.status;
+                    }
+                    
+                    if (status2 === 'present' || status === 'present') {
+                        status = 'present';
+                    } else if (status2 === 'absent' || status === 'absent') {
+                        status = 'absent';
+                    }
+                }
+            }
+            
+            if (status === 'present') slot.classList.add('present');
+            if (status === 'absent') slot.classList.add('absent');
+            
+            // Build slot content with attendance indicator and order label
+            var orderText = '';
+            if (totalStudents > 1 && !isMerged) {
+                orderText = (position + 1) + '/' + totalStudents;
+            }
+            
+            // Create attendance indicator
+            var indicatorClass = 'attendance-indicator';
+            if (status === 'present') indicatorClass += ' present';
+            if (status === 'absent') indicatorClass += ' absent';
+            
+            var fullName = student.grade + ' - ' + student.name;
+            slot.innerHTML = 
+                '<div class="' + indicatorClass + '" data-sid="' + sid + '" data-day="' + day + '" data-time="' + timeIdx + '" data-merged="' + (isMerged ? 'true' : 'false') + '">' + orderText + '</div>' +
+                '<span class="student-slot-name" title="' + fullName + '">' + fullName + '</span>';
+            return slot;
+        }
+        
+        function renderSchedule() {
+            // Detect if viewing past week
+    var now = new Date();
+    var viewingWeekStart = new Date(now);
+    viewingWeekStart.setDate(now.getDate() + (currentWeek * 7) - now.getDay() + 1);
+    viewingWeekStart.setHours(0, 0, 0, 0);
+    
+    var todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+    
+    var currentMondayStart = new Date(todayStart);
+    currentMondayStart.setDate(todayStart.getDate() - todayStart.getDay() + 1);
+    
+    var isPastWeek = viewingWeekStart < currentMondayStart;
+    
+    // Show/hide past week notice
+    var scheduleContainer = document.getElementById('schedule');
+    var existingNotice = document.getElementById('pastWeekNotice');
+    
+    if (isPastWeek) {
+        if (!existingNotice) {
+            var notice = document.createElement('div');
+            notice.id = 'pastWeekNotice';
+            notice.className = 'past-week-notice';
+            notice.innerHTML = '<span class="icon">🔒</span>' +
+                '<span><strong>Гледате историска недела.</strong> ' +
+                'Податоците се заштитени и не можат да се менуваат. ' +
+                'Распоредот е реконструиран од записите за присутност.</span>';
+            var weekNav = scheduleContainer.querySelector('.week-nav');
+            scheduleContainer.insertBefore(notice, weekNav);
+        }
+    } else {
+        if (existingNotice) {
+            existingNotice.remove();
+        }
+    }
+    
+    // Get the schedule for the week we're viewing
+    var weekKey = getWeekKey();
+    var weekSchedule = getScheduleForWeek(weekKey);
+    
+            var grid = document.getElementById('scheduleGrid');
+            grid.innerHTML = '';
+            grid.className = 'schedule-grid';
+            
+            // Calculate the actual week dates
+            var now = new Date();
+            now.setDate(now.getDate() + (currentWeek * 7));
+            var monday = new Date(now);
+            monday.setDate(monday.getDate() - monday.getDay() + 1);
+            
+            var headerTime = document.createElement('div');
+            headerTime.className = 'schedule-header';
+            headerTime.textContent = 'Час';
+            grid.appendChild(headerTime);
+            
+            for (var i = 0; i < days.length; i++) {
+                var headerDay = document.createElement('div');
+                headerDay.className = 'schedule-header';
+                
+                // Calculate date for this day
+                var dayDate = new Date(monday);
+                dayDate.setDate(monday.getDate() + i);
+                var dayNum = String(dayDate.getDate()).padStart(2, '0');
+                var monthNum = String(dayDate.getMonth() + 1).padStart(2, '0');
+                var yearNum = dayDate.getFullYear();
+                
+                headerDay.innerHTML = '<div style="font-size: 14px; font-weight: bold;">' + days[i] + '</div>' +
+                    '<div style="font-size: 11px; margin-top: 3px;">' + dayNum + '. ' + monthNum + '. ' + yearNum + '</div>';
+                grid.appendChild(headerDay);
+            }
+            
+            // Track which cells should be skipped (because they're merged)
+            var mergedCells = {};
+            
+            for (var t = 0; t < timeSlots.length; t++) {
+                var time = timeSlots[t];
+                var timeCell = document.createElement('div');
+                timeCell.className = 'schedule-time';
+                timeCell.innerHTML = '<div style="font-size: 20px; font-weight: bold; margin-bottom: 5px;">' + time.label + '</div>' +
+                    '<div style="font-size: 11px; line-height: 1.6; white-space: nowrap;">' + time.half1 + '</div>' +
+                    '<div style="font-size: 11px; line-height: 1.6; white-space: nowrap;">' + time.half2 + '</div>';
+                grid.appendChild(timeCell);
+                
+                for (var d = 0; d < daysEng.length; d++) {
+                    var day = daysEng[d];
+                    var cellKey = day + '-' + t;
+                    
+                    // Skip this cell if it's been merged with the previous one
+                    if (mergedCells[cellKey]) {
+                        continue;
+                    }
+                    
+                    // Calculate actual date for this cell
+                    var cellDate = new Date(monday);
+                    cellDate.setDate(monday.getDate() + d);
+                    // Use local date format to avoid timezone issues
+                    var year = cellDate.getFullYear();
+                    var month = String(cellDate.getMonth() + 1).padStart(2, '0');
+                    var dayNum = String(cellDate.getDate()).padStart(2, '0');
+                    var dateStr = year + '-' + month + '-' + dayNum;
+                    
+                    var studentIds = weekSchedule[day][t];
+                    var nextSlotStudents = t + 1 < timeSlots.length ? weekSchedule[day][t + 1] : [];
+                    
+                    // Check for cross-slot merge: last student of current slot is first student of next slot
+                    var crossSlotMerge = false;
+                    var mergeStudentId = null;
+                    if (studentIds.length > 1 && nextSlotStudents.length > 1 && t + 1 < timeSlots.length) {
+                        var lastStudentCurrent = studentIds[studentIds.length - 1];
+                        var firstStudentNext = nextSlotStudents[0];
+                        if (lastStudentCurrent === firstStudentNext) {
+                            crossSlotMerge = true;
+                            mergeStudentId = lastStudentCurrent;
+                        }
+                    }
+                    
+                    // Check if this should be a simple merged cell (single student in consecutive slots)
+                    var shouldMerge = false;
+                    if (studentIds.length === 1 && nextSlotStudents.length === 1 && studentIds[0] === nextSlotStudents[0]) {
+                        shouldMerge = true;
+                        mergedCells[day + '-' + (t + 1)] = true;
+                    }
+                    
+                    var cell = document.createElement('div');
+                    
+                    if (crossSlotMerge) {
+                        // Create split cell with 3 sections
+                        cell.className = 'schedule-cell-split';
+                        cell.style.gridRow = 'span 2';
+                        mergedCells[day + '-' + (t + 1)] = true;
+                        
+                        // Top half - students from current slot except the last one
+                        var topHalf = document.createElement('div');
+                        topHalf.className = 'schedule-cell-half';
+                        if (t % 2 === 0) topHalf.classList.add('odd-row');
+                        topHalf.dataset.day = day;
+                        topHalf.dataset.time = t;
+                        for (var s = 0; s < studentIds.length - 1; s++) {
+                            topHalf.appendChild(createStudentSlot(studentIds[s], day, t, s, studentIds.length, dateStr, false));
+                        }
+                        cell.appendChild(topHalf);
+                        
+                        // Middle merged - the student that spans both
+                        var middle = document.createElement('div');
+                        middle.className = 'schedule-cell';
+                        middle.classList.add('merged');
+                        middle.dataset.day = day;
+                        middle.dataset.time = t;
+                        // Pass day and time explicitly - the createStudentSlot function will set attributes correctly
+                        middle.appendChild(createStudentSlot(mergeStudentId, day, t, studentIds.length - 1, 1, dateStr, true));
+                        cell.appendChild(middle);
+                        
+                        // Bottom half - students from next slot except the first one
+                        var bottomHalf = document.createElement('div');
+                        bottomHalf.className = 'schedule-cell-half';
+                        if ((t + 1) % 2 === 0) bottomHalf.classList.add('odd-row');
+                        bottomHalf.dataset.day = day;
+                        bottomHalf.dataset.time = t + 1;
+                        for (var s = 1; s < nextSlotStudents.length; s++) {
+                            bottomHalf.appendChild(createStudentSlot(nextSlotStudents[s], day, t + 1, s, nextSlotStudents.length, dateStr, false));
+                        }
+                        cell.appendChild(bottomHalf);
+                        
+                    } else {
+                        // Regular cell or simple merge
+                        cell.className = 'schedule-cell';
+                        if (t % 2 === 0) cell.classList.add('odd-row');
+                        cell.dataset.day = day;
+                        cell.dataset.time = t;
+                        
+                        if (shouldMerge) {
+                            cell.style.gridRow = 'span 2';
+                            cell.classList.add('merged');
+                        }
+                        
+                        for (var s = 0; s < studentIds.length; s++) {
+                            cell.appendChild(createStudentSlot(studentIds[s], day, t, s, studentIds.length, dateStr, shouldMerge));
+                        }
+                    }
+                    
+                    grid.appendChild(cell);
+                }
+            }
+            
+            setTimeout(function() {
+                // Select ALL attendance indicators
+                var indicators = document.querySelectorAll('.attendance-indicator');
+                console.log('Found ' + indicators.length + ' attendance indicators to attach handlers');
+                
+                for (var i = 0; i < indicators.length; i++) {
+                    indicators[i].addEventListener('click', function(e) {
+                        e.stopPropagation();
+                        e.preventDefault();
+                        
+                        var sid = parseInt(this.dataset.sid);
+                        var day = this.dataset.day;
+                        var timeIdx = parseInt(this.dataset.time);
+                        var isMerged = this.dataset.merged === 'true';
+                        
+                        // Debug logging
+                        console.log('Clicked slot:', {
+                            sid: sid,
+                            day: day,
+                            timeIdx: timeIdx,
+                            isMerged: isMerged,
+                            dataset: this.dataset,
+                            student: getStudentById(sid)
+                        });
+                        
+                        // Check if required data is present
+                        if (!sid || !day || isNaN(timeIdx)) {
+                            console.error('Missing data for slot click:', {sid: sid, day: day, timeIdx: timeIdx});
+                            alert('Error: Missing data for this slot. Please refresh the page.');
+                            return;
+                        }
+                        
+                        if (isMerged && timeIdx + 1 < timeSlots.length) {
+                            // For merged cells, sync both slots to same state
+                            // Calculate the actual week dates
+                            var now = new Date();
+                            now.setDate(now.getDate() + (currentWeek * 7));
+                            var monday = new Date(now);
+                            var dayOfWeek = monday.getDay();
+                            var daysToMonday = dayOfWeek === 0 ? -6 : (1 - dayOfWeek);
+                            monday.setDate(monday.getDate() + daysToMonday);
+                            var dayIndex = daysEng.indexOf(day);
+                            var actualDate = new Date(monday);
+                            actualDate.setDate(monday.getDate() + dayIndex);
+                            var year = actualDate.getFullYear();
+                            var month = String(actualDate.getMonth() + 1).padStart(2, '0');
+                            var dayNum = String(actualDate.getDate()).padStart(2, '0');
+                            var dateStr = year + '-' + month + '-' + dayNum;
+                            
+                            if (!attendance[dateStr]) attendance[dateStr] = {};
+                            if (!attendance[dateStr][sid]) attendance[dateStr][sid] = {};
+                            
+                            var key1 = day + '-' + timeIdx;
+                            var key2 = day + '-' + (timeIdx + 1);
+                            var current1 = attendance[dateStr][sid][key1];
+                            
+                            var timeSlot1 = timeSlots[timeIdx].time;
+                            var timeSlot2 = timeSlots[timeIdx + 1].time;
+                            
+                            if (!current1) {
+                                // Unaddressed -> Present (1 session = 1 activity, regardless of duration)
+                                attendance[dateStr][sid][key1] = { status: 'present', date: dateStr, time: timeSlot1 + ' + ' + timeSlot2 };
+                                attendance[dateStr][sid][key2] = { status: 'present', date: dateStr, time: timeSlot1 + ' + ' + timeSlot2 };
+                                checkNextActivity(sid, dateStr, timeSlot1 + ' + ' + timeSlot2);
+                            } else if (current1.status === 'present') {
+                                // Present -> Absent
+                                attendance[dateStr][sid][key1] = { status: 'absent', date: dateStr, time: timeSlot1 + ' + ' + timeSlot2 };
+                                attendance[dateStr][sid][key2] = { status: 'absent', date: dateStr, time: timeSlot1 + ' + ' + timeSlot2 };
+                                uncheckLastActivity(sid, dateStr, timeSlot1 + ' + ' + timeSlot2);
+                            } else if (current1.status === 'absent') {
+                                // Absent -> Unaddressed (reset)
+                                delete attendance[dateStr][sid][key1];
+                                delete attendance[dateStr][sid][key2];
+                            }
+                            
+                            saveData();
+                            renderSchedule();
+                        } else {
+                            // Regular cell - normal toggle
+                            toggleAttendance(sid, day, timeIdx);
+                        }
+                    });
+                }
+                
+                // Add click handlers for regular cells (excluding merged cells to avoid conflicts)
+                var cells = document.querySelectorAll('.schedule-cell:not(.merged)');
+                for (var i = 0; i < cells.length; i++) {
+                    cells[i].addEventListener('click', function(e) {
+                        // Check if click is on a student slot or any of its children
+                        var clickedElement = e.target;
+                        var isStudentSlotClick = false;
+                        
+                        // Walk up the DOM tree to see if we're inside a student-slot
+                        while (clickedElement && clickedElement !== this) {
+                            if (clickedElement.classList && clickedElement.classList.contains('student-slot')) {
+                                isStudentSlotClick = true;
+                                break;
+                            }
+                            clickedElement = clickedElement.parentElement;
+                        }
+                        
+                        // Only open modal if NOT clicking on a student slot
+                        if (!isStudentSlotClick) {
+                            var day = this.dataset.day;
+                            var timeIdx = parseInt(this.dataset.time);
+                            openAssignModal(day, timeIdx);
+                        }
+                    });
+                }
+                
+                // Add click handlers for merged cells too
+                var mergedCells = document.querySelectorAll('.schedule-cell.merged');
+                for (var i = 0; i < mergedCells.length; i++) {
+                    mergedCells[i].addEventListener('click', function(e) {
+                        // Check if click is on a student slot or any of its children
+                        var clickedElement = e.target;
+                        var isStudentSlotClick = false;
+                        
+                        // Walk up the DOM tree to see if we're inside a student-slot
+                        while (clickedElement && clickedElement !== this) {
+                            if (clickedElement.classList && clickedElement.classList.contains('student-slot')) {
+                                isStudentSlotClick = true;
+                                break;
+                            }
+                            clickedElement = clickedElement.parentElement;
+                        }
+                        
+                        // Only open modal if NOT clicking on a student slot
+                        if (!isStudentSlotClick) {
+                            var day = this.dataset.day;
+                            var timeIdx = parseInt(this.dataset.time);
+                            openAssignModal(day, timeIdx);
+                        }
+                    });
+                }
+                
+                // Add click handlers for half cells
+                var halfCells = document.querySelectorAll('.schedule-cell-half');
+                for (var i = 0; i < halfCells.length; i++) {
+                    halfCells[i].addEventListener('click', function(e) {
+                        // Check if click is on a student slot or any of its children
+                        var clickedElement = e.target;
+                        var isStudentSlotClick = false;
+                        
+                        // Walk up the DOM tree to see if we're inside a student-slot
+                        while (clickedElement && clickedElement !== this) {
+                            if (clickedElement.classList && clickedElement.classList.contains('student-slot')) {
+                                isStudentSlotClick = true;
+                                break;
+                            }
+                            clickedElement = clickedElement.parentElement;
+                        }
+                        
+                        // Only open modal if NOT clicking on a student slot
+                        if (!isStudentSlotClick) {
+                            var day = this.dataset.day;
+                            var timeIdx = parseInt(this.dataset.time);
+                            openAssignModal(day, timeIdx);
+                        }
+                    });
+                }
+            }, 0);
+        }
+        
+        function openAssignModal(day, timeIdx) {
+            currentSlot = { day: day, timeIdx: timeIdx };
+            var list = document.getElementById('checkboxList');
+            list.innerHTML = '';
+            
+            // Determine which schedule to read from
+            var weekKey = getWeekKey();
+            var now = new Date();
+            var todayStart = new Date();
+            todayStart.setHours(0, 0, 0, 0);
+            var currentMondayStart = new Date(todayStart);
+            currentMondayStart.setDate(todayStart.getDate() - todayStart.getDay() + 1);
+            
+            var viewingWeekStart = new Date(now);
+            viewingWeekStart.setDate(now.getDate() + (currentWeek * 7) - now.getDay() + 1);
+            viewingWeekStart.setHours(0, 0, 0, 0);
+            
+            var isPastWeek = viewingWeekStart < currentMondayStart;
+            var sourceSchedule = isPastWeek && scheduleHistory[weekKey] ? scheduleHistory[weekKey] : schedule;
+            
+            var current = sourceSchedule[day][timeIdx];
+            checkOrder = current.slice(); // Copy current order
+            
+            for (var i = 0; i < students.length; i++) {
+                var s = students[i];
+                var item = document.createElement('div');
+                item.className = 'checkbox-item';
+                var checked = current.indexOf(s.id) !== -1 ? 'checked' : '';
+                item.innerHTML = '<input type="checkbox" id="cb-' + s.id + '" value="' + s.id + '" ' + checked + '>' +
+                    '<label for="cb-' + s.id + '">' + s.grade + ' - ' + s.name + '</label>';
+                list.appendChild(item);
+            }
+            
+            // Add event listeners to track check order
+            setTimeout(function() {
+                var checkboxes = document.querySelectorAll('#checkboxList input[type="checkbox"]');
+                for (var i = 0; i < checkboxes.length; i++) {
+                    checkboxes[i].addEventListener('change', function() {
+                        var id = parseInt(this.value);
+                        if (this.checked) {
+                            // Add to order if not already there
+                            if (checkOrder.indexOf(id) === -1) {
+                                checkOrder.push(id);
+                            }
+                        } else {
+                            // Remove from order
+                            var idx = checkOrder.indexOf(id);
+                            if (idx !== -1) {
+                                checkOrder.splice(idx, 1);
+                            }
+                        }
+                    });
+                }
+            }, 0);
+            
+            document.getElementById('assignModal').classList.add('active');
+        }
+        
+       function assignStudents() {
+    if (!currentSlot) return;
+    
+    // CHECK IF EDITING PAST WEEK
+    var now = new Date();
+    var viewingWeekStart = new Date(now);
+    viewingWeekStart.setDate(now.getDate() + (currentWeek * 7) - now.getDay() + 1);
+    viewingWeekStart.setHours(0, 0, 0, 0);
+    
+    var todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+    
+    // Monday of current real week
+    var currentMondayStart = new Date(todayStart);
+    currentMondayStart.setDate(todayStart.getDate() - todayStart.getDay() + 1);
+    
+    if (viewingWeekStart < currentMondayStart && !pastWeeksUnlocked) {
+        alert('⚠️ Не можете да менувате распоред на минати недели!\n\n' +
+              'Измината седмица е заштитена за да се зачуваат точните записи.\n\n' +
+              'Промените можат да се прават само за тековната и идните недели.\n\n' +
+              'Кликнете на "🔒 Измината седмица е заклучена" за да ја отклучите.');
+        closeModal('assignModal');
+        return;
+    }
+    
+    var weekKey = getWeekKey();
+    var isPastWeek = viewingWeekStart < currentMondayStart;
+    
+    // Determine which schedule to modify
+    var targetSchedule;
+    if (isPastWeek) {
+        // Editing past week - modify historical schedule
+        if (!scheduleHistory[weekKey]) {
+            scheduleHistory[weekKey] = JSON.parse(JSON.stringify(schedule));
+        }
+        targetSchedule = scheduleHistory[weekKey];
+    } else {
+        // Editing current/future week - modify live schedule
+        targetSchedule = schedule;
+        
+        // Save snapshot before making changes
+        if (!scheduleHistory[weekKey]) {
+            scheduleHistory[weekKey] = JSON.parse(JSON.stringify(schedule));
+        }
+    }
+    
+    // Save state for undo
+    saveUndoState({
+        type: 'scheduleChange',
+        weekKey: weekKey,
+        day: currentSlot.day,
+        timeIdx: currentSlot.timeIdx,
+        oldValue: targetSchedule[currentSlot.day][currentSlot.timeIdx].slice(),
+        newValue: checkOrder.slice(),
+        isPastWeek: isPastWeek
+    });
+    
+    // Apply the change
+    targetSchedule[currentSlot.day][currentSlot.timeIdx] = checkOrder.slice();
+    
+    // If editing live schedule, ensure it's reflected
+    if (!isPastWeek) {
+        schedule[currentSlot.day][currentSlot.timeIdx] = checkOrder.slice();
+    }
+    
+    saveData();
+    renderSchedule();
+    renderStudentListSimple();
+    updateStats();
+    closeModal('assignModal');
+}
+        
+        function saveUndoState(action) {
+            // Save current state to undo stack
+            undoStack.push(action);
+            
+            // Limit undo stack to last 10 changes
+            if (undoStack.length > 10) {
+                undoStack.shift();
+            }
+            
+            // Clear redo stack when new action is performed
+            redoStack = [];
+            
+            updateUndoRedoButtons();
+        }
+        
+        function undoLastChange() {
+            if (undoStack.length === 0) return;
+            
+            var action = undoStack.pop();
+            
+            if (action.type === 'scheduleChange') {
+                // Determine which schedule to modify
+                var targetSchedule;
+                if (action.isPastWeek) {
+                    targetSchedule = scheduleHistory[action.weekKey];
+                } else {
+                    targetSchedule = schedule;
+                }
+                
+                // Save current state to redo stack
+                redoStack.push(action);
+                
+                // Restore old value
+                targetSchedule[action.day][action.timeIdx] = action.oldValue.slice();
+                
+                // If live schedule, update it
+                if (!action.isPastWeek) {
+                    schedule[action.day][action.timeIdx] = action.oldValue.slice();
+                }
+                
+                saveData();
+                renderSchedule();
+                renderStudentListSimple();
+                updateStats();
+            }
+            
+            updateUndoRedoButtons();
+        }
+        
+        function redoLastChange() {
+            if (redoStack.length === 0) return;
+            
+            var action = redoStack.pop();
+            
+            if (action.type === 'scheduleChange') {
+                // Determine which schedule to modify
+                var targetSchedule;
+                if (action.isPastWeek) {
+                    targetSchedule = scheduleHistory[action.weekKey];
+                } else {
+                    targetSchedule = schedule;
+                }
+                
+                // Save back to undo stack
+                undoStack.push(action);
+                
+                // Reapply new value
+                targetSchedule[action.day][action.timeIdx] = action.newValue.slice();
+                
+                // If live schedule, update it
+                if (!action.isPastWeek) {
+                    schedule[action.day][action.timeIdx] = action.newValue.slice();
+                }
+                
+                saveData();
+                renderSchedule();
+                renderStudentListSimple();
+                updateStats();
+            }
+            
+            updateUndoRedoButtons();
+        }
+        
+        function updateUndoRedoButtons() {
+            var undoBtn = document.getElementById('undoBtn');
+            var redoBtn = document.getElementById('redoBtn');
+            
+            if (undoBtn) {
+                undoBtn.disabled = undoStack.length === 0;
+                undoBtn.style.opacity = undoStack.length === 0 ? '0.5' : '1';
+                undoBtn.style.cursor = undoStack.length === 0 ? 'not-allowed' : 'pointer';
+            }
+            
+            if (redoBtn) {
+                redoBtn.disabled = redoStack.length === 0;
+                redoBtn.style.opacity = redoStack.length === 0 ? '0.5' : '1';
+                redoBtn.style.cursor = redoStack.length === 0 ? 'not-allowed' : 'pointer';
+            }
+        }
+        
+        function toggleAttendance(sid, day, timeIdx) {
+            // Calculate the actual date for this day in the current week
+            var now = new Date();
+            now.setDate(now.getDate() + (currentWeek * 7));
+            var monday = new Date(now);
+            var dayOfWeek = monday.getDay();
+            var daysToMonday = dayOfWeek === 0 ? -6 : (1 - dayOfWeek);
+            monday.setDate(monday.getDate() + daysToMonday);
+            
+            var dayIndex = daysEng.indexOf(day);
+            var actualDate = new Date(monday);
+            actualDate.setDate(monday.getDate() + dayIndex);
+            var year = actualDate.getFullYear();
+            var month = String(actualDate.getMonth() + 1).padStart(2, '0');
+            var dayNum = String(actualDate.getDate()).padStart(2, '0');
+            var dateStr = year + '-' + month + '-' + dayNum;
+            
+            if (!attendance[dateStr]) attendance[dateStr] = {};
+            if (!attendance[dateStr][sid]) attendance[dateStr][sid] = {};
+            
+            var key = day + '-' + timeIdx;
+            var current = attendance[dateStr][sid][key];
+            var timeSlot = timeSlots[timeIdx].time;
+            
+            // Handle both old string format ("present"/"absent") and new object format ({status: "present"})
+            var currentStatus = null;
+            if (current) {
+                if (typeof current === 'string') {
+                    currentStatus = current; // Old format
+                } else if (current.status) {
+                    currentStatus = current.status; // New format
+                }
+            }
+
+            if (!currentStatus) {
+                // Unaddressed -> Present
+                attendance[dateStr][sid][key] = { status: 'present', date: dateStr, time: timeSlot };
+                checkNextActivity(sid, dateStr, timeSlot);
+            } else if (currentStatus === 'present') {
+                // Present -> Absent
+                attendance[dateStr][sid][key] = { status: 'absent', date: dateStr, time: timeSlot };
+                uncheckLastActivity(sid, dateStr, timeSlot);
+            } else if (currentStatus === 'absent') {
+                // Absent -> Unaddressed (reset)
+                delete attendance[dateStr][sid][key];
+            }
+            
+            saveData();
+            renderSchedule();
+        }
+        
+        function uncheckLastActivity(studentId, dateStr, timeSlot) {
+            var student = getStudentById(studentId);
+            if (!student) return;
+
+            var completed = (studentProgress[studentId] && studentProgress[studentId][student.planId]) ? studentProgress[studentId][student.planId] : [];
+            if (completed.length === 0) return;
+
+            // Find the specific activity completed on this date and time to remove it
+            let activityToRemoveIndex = -1;
+            for (let i = completed.length - 1; i >= 0; i--) {
+                if (completed[i].date === dateStr && completed[i].time === timeSlot) {
+                    activityToRemoveIndex = i;
+                    break;
+                }
+            }
+
+            if (activityToRemoveIndex > -1) {
+                completed.splice(activityToRemoveIndex, 1);
+            }
+        }
+
+        function checkNextActivity(studentId, dateStr, timeSlot) {
+            var student = getStudentById(studentId);
+            if (!student) return;
+            
+            var plan = getPlanById(student.planId);
+            if (!plan || !plan.activities || plan.activities.length === 0) return;
+            
+            if (!studentProgress[studentId]) {
+                studentProgress[studentId] = {};
+            }
+            if (!studentProgress[studentId][student.planId]) {
+                studentProgress[studentId][student.planId] = [];
+            }
+            
+            var completed = studentProgress[studentId][student.planId];
+            
+            for (var i = 0; i < plan.activities.length; i++) {
+                var alreadyCompleted = false;
+                for (var j = 0; j < completed.length; j++) {
+                    if (completed[j].index === i) {
+                        alreadyCompleted = true;
+                        break;
+                    }
+                }
+                
+                if (!alreadyCompleted) {
+                    completed.push({
+                        index: i,
+                        date: dateStr,
+                        time: timeSlot
+                    });
+                    break;
+                }
+            }
+            
+            saveData();
+        }
+        
+        function rebuildStudentProgress(studentId) {
+            var student = getStudentById(studentId);
+            if (!student) return;
+            
+            var plan = getPlanById(student.planId);
+            if (!plan || !plan.activities || plan.activities.length === 0) return;
+            
+            // Clear existing progress for this student's current plan
+            if (!studentProgress[studentId]) studentProgress[studentId] = {};
+            studentProgress[studentId][student.planId] = [];
+            
+            // Collect all attendance records for this student
+            var attendanceRecords = [];
+            for (var dateStr in attendance) {
+                if (attendance[dateStr][studentId]) {
+                    for (var key in attendance[dateStr][studentId]) {
+                        var attData = attendance[dateStr][studentId][key];
+                        if (attData.status === 'present') {
+                            attendanceRecords.push({
+                                date: dateStr,
+                                time: attData.time,
+                                key: key
+                            });
+                        }
+                    }
+                }
+            }
+            
+            // Sort by date and time
+            attendanceRecords.sort(function(a, b) {
+                var dateCompare = a.date.localeCompare(b.date);
+                if (dateCompare !== 0) return dateCompare;
+                return a.time.localeCompare(b.time);
+            });
+            
+            // Remove duplicates for merged sessions (same date+time)
+            var uniqueRecords = [];
+            var seen = new Set();
+            for (var i = 0; i < attendanceRecords.length; i++) {
+                var record = attendanceRecords[i];
+                var recordKey = record.date + '|' + record.time;
+                if (!seen.has(recordKey)) {
+                    seen.add(recordKey);
+                    uniqueRecords.push(record);
+                }
+            }
+            
+            // Check activities in order based on attendance
+            var completed = studentProgress[studentId][student.planId];
+            for (var i = 0; i < uniqueRecords.length && i < plan.activities.length; i++) {
+                completed.push({
+                    index: i,
+                    date: uniqueRecords[i].date,
+                    time: uniqueRecords[i].time
+                });
+            }
+            
+            saveData();
+        }
+        
+        function rebuildAllProgress() {
+            if (!confirm('Ова ќе ги реконструира сите податоци за напредок врз база на присутноста. Дали сте сигурни?')) return;
+            
+            for (var i = 0; i < students.length; i++) {
+                rebuildStudentProgress(students[i].id);
+            }
+            
+            renderAll();
+            alert('Напредокот е успешно реконструиран за сите ученици!');
+        }
+        
+        function saveData() {
+            var data = { 
+                students: students, 
+                schedule: schedule, 
+                scheduleHistory: scheduleHistory, 
+                attendance: attendance, 
+                plans: plans, 
+                links: links, 
+                studentProgress: studentProgress,
+                trijazenTestovi: window.trijazenTestovi || []
+            };
+            localStorage.setItem('electronicDiary', JSON.stringify(data));
+            isDataDirty = true;
+        }
+        
+        function loadData() {
+            var saved = localStorage.getItem('electronicDiary');
+            if (saved) {
+                var data = JSON.parse(saved);
+                if (data.students) students = data.students;
+                if (data.schedule) schedule = data.schedule;
+                if (data.attendance) attendance = data.attendance;
+                if (data.plans) plans = data.plans;
+                if (data.links) links = data.links;
+                if (data.studentProgress) studentProgress = data.studentProgress;
+                if (data.scheduleHistory) scheduleHistory = data.scheduleHistory;
+                if (data.trijazenTestovi) window.trijazenTestovi = data.trijazenTestovi;
+            }
+            // Always ensure these exist
+            if (!scheduleHistory) scheduleHistory = {};
+            if (!window.trijazenTestovi) window.trijazenTestovi = [];
+            isDataDirty = false;
+        }
+        
+        function exportData() {
+            var data = { 
+                students: students, 
+                schedule: schedule, 
+                scheduleHistory: scheduleHistory,
+                attendance: attendance, 
+                plans: plans, 
+                links: links, 
+                studentProgress: studentProgress,
+                trijazenTestovi: window.trijazenTestovi || []
+            };
+            var blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+            var url = URL.createObjectURL(blob);
+            var a = document.createElement('a');
+            a.href = url;
+            a.download = 'diary_export_' + new Date().toISOString().split('T')[0] + '.json';
+            a.click();
+            isDataDirty = false; // Data is now considered 'saved'
+            alert('Експортирано!');
+        }
+        
+        function importData(e) {
+            var file = e.target.files[0];
+            if (!file) return;
+            
+            var reader = new FileReader();
+            reader.onload = function(event) {
+                try {
+                    var data = JSON.parse(event.target.result);
+                    if (data.students) students = data.students;
+                    if (data.schedule) schedule = data.schedule;
+                    if (data.scheduleHistory) scheduleHistory = data.scheduleHistory;
+                    // Initialize empty scheduleHistory if not present in old backups
+                    if (!scheduleHistory) scheduleHistory = {};
+                    if (data.attendance) attendance = data.attendance;
+                    if (data.plans) plans = data.plans;
+                    if (data.links) links = data.links;
+                    if (data.studentProgress) studentProgress = data.studentProgress;
+                    if (data.trijazenTestovi) window.trijazenTestovi = data.trijazenTestovi;
+                    // Initialize empty trijazenTestovi if not present in old backups
+                    if (!window.trijazenTestovi) window.trijazenTestovi = [];
+                    
+                    saveData();
+                    renderAll();
+                    alert('Импортирано успешно!');
+                } catch (err) {
+                    alert('Грешка при вчитување: ' + err.message);
+                }
+            };
+            reader.readAsText(file);
+            e.target.value = '';
+        }
+        
+        function renderAll() {
+            renderStudentListSimple();
+            renderSchedule();
+            updateWeekDisplay();
+            renderPlansList();
+            renderLinksList();
+            updateStats();
+            updateProgressStudentList();
+            updateUndoRedoButtons();
+        }
+        
+        function manualSave() {
+            saveData();
+            alert('Зачувано!');
+        }
+        
+        // Initialize
+        loadData();
+        renderAll(); // Ensure UI is rendered after loading data
+        
+        // Initialize trijazenTestovi if it doesn't exist
+        if (!window.trijazenTestovi) {
+            window.trijazenTestovi = [];
+        }
+        
+        // Save snapshot of current week on load (to preserve current schedule)
+        saveUndoState('Initial load');
+        
+        // Set up event listeners for undo/redo
+        document.addEventListener('keydown', function(e) {
+            // Ctrl+Z for undo
+            if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
+                e.preventDefault();
+                undoLastChange();
+            }
+            // Ctrl+Shift+Z or Ctrl+Y for redo
+            if (((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'Z') || 
+                ((e.ctrlKey || e.metaKey) && e.key === 'y')) {
+                e.preventDefault();
+                redoLastChange();
+            }
+        });
+        
+        // Set up auto-save interval (every 30 seconds)
+        setInterval(function() {
+            if (isDataDirty) {
+                saveData();
+                isDataDirty = false;
+            }
+        }, 30000);
+        
+        // Initialize trijazen tab when it's shown
+        document.addEventListener('DOMContentLoaded', function() {
+            // Generate the form
+            generateTrijazenForm();
+            
+            // Initialize date picker with today's date
+            var today = new Date();
+            var dateStr = today.toISOString().split('T')[0];
+            var dateEl = document.getElementById('trijazenDate');
+            if (dateEl) dateEl.value = dateStr;
+            
+            // Set up student dropdown
+            updateTrijazenStudentList();
+        });
+        
+        // Trijazen Test Functions
+        var phonemeData = [
+            { section: 'Самогласки', phonemes: [
+                { letter: 'и', examples: 'има, Мими свири' },
+                { letter: 'е', examples: 'еве, бебе' },
+                { letter: 'а', examples: 'Ана, мама' },
+                { letter: 'о', examples: 'опа, вода, око' },
+                { letter: 'у', examples: 'ура, туба, туту' }
+            ]},
+            { section: 'Плозивни согласки', phonemes: [
+                { letter: 'п', examples: 'пет, папа, топ' },
+                { letter: 'б', examples: 'баба, роб' },
+                { letter: 'т', examples: 'тато, саат' },
+                { letter: 'д', examples: 'дедо, мед' },
+                { letter: 'к', examples: 'коса, око, сок' },
+                { letter: 'г', examples: 'гума, нога, рог' }
+            ]},
+            { section: 'Африкати', phonemes: [
+                { letter: 'ц', examples: 'цуцла, сонце, месец' },
+                { letter: 'ќ', examples: 'ќебе, свеќа, ноќ' },
+                { letter: 'ѓ', examples: 'ѓеврек, веѓи' },
+                { letter: 'ч', examples: 'чорапи, учи, меч' },
+                { letter: 'џ', examples: 'џуџе, џеб, беџ' },
+                { letter: 'ѕ', examples: 'ѕид' }
+            ]},
+            { section: 'Фрикативи', phonemes: [
+                { letter: 'ф', examples: 'фустан, кафе, штоф' },
+                { letter: 'в', examples: 'вода, глава, лав' },
+                { letter: 'с', examples: 'стол, писмо, час' },
+                { letter: 'з', examples: 'зима, вазна, воз' },
+                { letter: 'ш', examples: 'шума, уши, лош' },
+                { letter: 'ж', examples: 'жаба, кожа, маж' },
+                { letter: 'х', examples: 'храна, Михо, шах' },
+                { letter: 'ј', examples: 'јаде, Маја, мај' },
+                { letter: 'р', examples: 'риба, Вера, бор' },
+                { letter: 'м', examples: 'мама, месо, сам' },
+                { letter: 'н', examples: 'нане, нос, чекан' },
+                { letter: 'њ', examples: 'коњ, свиња' },
+                { letter: 'л', examples: 'лопа, глава, сол' },
+                { letter: 'љ', examples: 'љубов, прилеп, земја' }
+            ]}
+        ];
+        
+        function generateTrijazenForm() {
+            var container = document.getElementById('trijazenFormContainer');
+            var html = '';
+            
+            for (var i = 0; i < phonemeData.length; i++) {
+                var section = phonemeData[i];
+                html += '<div class="section-header">' + section.section + '</div>';
+                html += '<table class="trijazen-table"><thead><tr>';
+                html += '<th>Глас</th><th>Примери</th><th>Оценка</th>';
+                html += '</tr></thead><tbody>';
+                
+                for (var j = 0; j < section.phonemes.length; j++) {
+                    var phoneme = section.phonemes[j];
+                    var phonemeId = phoneme.letter;
+                    html += '<tr>';
+                    html += '<td><strong>' + phoneme.letter + '</strong></td>';
+                    html += '<td>' + phoneme.examples + '</td>';
+                    html += '<td><div class="trijazen-toggle" onclick="autoSaveTrijazen(this, \'' + phonemeId + '\')" data-phoneme="' + phonemeId + '"></div></td>';
+                    html += '</tr>';
+                }
+                
+                html += '</tbody></table>';
+            }
+            
+            container.innerHTML = html;
+        }
+        
+        function initTrijazenTab() {
+            generateTrijazenForm();
+            updateTrijazenStudentList();
+            var today = new Date();
+            var dateStr = today.toISOString().split('T')[0];
+            document.getElementById('trijazenDate').value = dateStr;
+            
+            // Add event listeners for auto-save on date/assessor change
+            var dateInput = document.getElementById('trijazenDate');
+            var assessorInput = document.getElementById('trijazenAssessor');
+            
+            if (dateInput) {
+                dateInput.addEventListener('change', function() {
+                    saveCurrentTrijazenTest();
+                });
+            }
+            
+            if (assessorInput) {
+                assessorInput.addEventListener('blur', function() {
+                    saveCurrentTrijazenTest();
+                });
+            }
+        }
+        
+        function updateTrijazenStudentList() {
+            var select = document.getElementById('trijazenStudentSelect');
+            if (!select) return;
+            
+            // Save current selection
+            var currentValue = select.value;
+            
+            // Clear existing options except the first one
+            select.innerHTML = '<option value="">-- Избери ученик --</option>';
+            
+            // Show ALL students (not just those with needsTrijazen flag)
+            if (students.length === 0) {
+                var noOption = document.createElement('option');
+                noOption.value = '';
+                noOption.textContent = '-- Нема ученици --';
+                noOption.disabled = true;
+                select.appendChild(noOption);
+            } else {
+                students.forEach(function(student) {
+                    var option = document.createElement('option');
+                    option.value = student.id;
+                    option.textContent = student.name + (student.grade ? ' (' + student.grade + ')' : '');
+                    select.appendChild(option);
+                });
+            }
+            
+            // Restore selection if possible
+            if (currentValue) {
+                select.value = currentValue;
+                updateTrijazenStudent();
+            }
+        }
+        
+        function updateTrijazenStudent() {
+            var select = document.getElementById('trijazenStudentSelect');
+            var gradeSpan = document.getElementById('trijazenGrade');
+            
+            if (!select || !gradeSpan) return;
+            
+            var studentId = parseInt(select.value);
+            if (isNaN(studentId)) {
+                gradeSpan.textContent = 'Изберете ученик';
+                // Reset form when no student is selected
+                resetTrijazenToggles();
+                document.getElementById('trijazenDate').value = new Date().toISOString().split('T')[0];
+                document.getElementById('trijazenAssessor').value = '';
+                return;
+            }
+            
+            var student = students.find(function(s) { return s.id === studentId; });
+            if (student) {
+                gradeSpan.textContent = student.grade || 'Нема податоци';
+                // Reset form first
+                resetTrijazenToggles();
+                document.getElementById('trijazenDate').value = new Date().toISOString().split('T')[0];
+                document.getElementById('trijazenAssessor').value = '';
+                // Then load existing test data for this student if any
+                loadTrijazenData(studentId);
+            } else {
+                gradeSpan.textContent = 'Изберете ученик';
+                resetTrijazenToggles();
+                document.getElementById('trijazenDate').value = new Date().toISOString().split('T')[0];
+                document.getElementById('trijazenAssessor').value = '';
+            }
+        }
+        
+        function loadTrijazenData(studentId) {
+            // Find the latest test for this student
+            var latestTest = window.trijazenTestovi
+                .filter(function(test) { return test.studentId === studentId; })
+                .sort(function(a, b) { return new Date(b.timestamp) - new Date(a.timestamp); })[0];
+                
+            if (!latestTest) return;
+            
+            // Set the form values
+            document.getElementById('trijazenDate').value = latestTest.date || '';
+            document.getElementById('trijazenAssessor').value = latestTest.assessor || '';
+            
+            // Set toggle buttons
+            var assessments = latestTest.assessments || {};
+            var toggles = document.querySelectorAll('.trijazen-toggle');
+            toggles.forEach(function(toggle) {
+                var phoneme = toggle.getAttribute('data-phoneme');
+                if (phoneme && assessments[phoneme]) {
+                    var value = assessments[phoneme];
+                    toggle.setAttribute('data-value', value);
+                    
+                    if (value === '+') {
+                        toggle.className = 'trijazen-toggle plus';
+                        toggle.textContent = '+';
+                    } else if (value === '+-') {
+                        toggle.className = 'trijazen-toggle plusminus';
+                        toggle.textContent = '+-';
+                    } else if (value === '-') {
+                        toggle.className = 'trijazen-toggle minus';
+                        toggle.textContent = '-';
+                    }
+                }
+            });
+        }
+        
+        // Auto-save trijazen on toggle click
+        function autoSaveTrijazen(element, phonemeName) {
+            var currentState = element.getAttribute('data-value') || '';
+            var newState = '';
+            
+            // Cycle through states: '' → '+' → '+-' → '-' → ''
+            if (currentState === '') {
+                newState = '+';
+                element.className = 'trijazen-toggle plus';
+                element.textContent = '+';
+            } else if (currentState === '+') {
+                newState = '+-';
+                element.className = 'trijazen-toggle plusminus';
+                element.textContent = '+-';
+            } else if (currentState === '+-') {
+                newState = '-';
+                element.className = 'trijazen-toggle minus';
+                element.textContent = '-';
+            } else {
+                newState = '';
+                element.className = 'trijazen-toggle';
+                element.textContent = '';
+            }
+            
+            element.setAttribute('data-value', newState);
+            element.setAttribute('data-phoneme', phonemeName);
+            
+            // Auto-save immediately
+            saveCurrentTrijazenTest();
+        }
+        
+        // Save current trijazen test to localStorage
+        function saveCurrentTrijazenTest() {
+            var studentId = parseInt(document.getElementById('trijazenStudentSelect').value);
+            if (isNaN(studentId)) return; // No student selected
+            
+            var date = document.getElementById('trijazenDate').value;
+            var assessor = document.getElementById('trijazenAssessor').value.trim();
+            
+            if (!date) return; // Date is required, but assessor is optional
+            
+            var student = students.find(function(s) { return s.id === studentId; });
+            if (!student) return;
+            
+            // Collect all toggle values
+            var assessments = {};
+            var toggles = document.querySelectorAll('.trijazen-toggle');
+            toggles.forEach(function(toggle) {
+                var phoneme = toggle.getAttribute('data-phoneme');
+                var value = toggle.getAttribute('data-value') || '';
+                if (phoneme && value) {
+                    assessments[phoneme] = value;
+                }
+            });
+            
+            // Find existing test for this student and date (assessor may change)
+            var existingTestIndex = -1;
+            for (var i = 0; i < window.trijazenTestovi.length; i++) {
+                if (window.trijazenTestovi[i].studentId === studentId && 
+                    window.trijazenTestovi[i].date === date) {
+                    existingTestIndex = i;
+                    break;
+                }
+            }
+            
+            var testData = {
+                id: existingTestIndex >= 0 ? window.trijazenTestovi[existingTestIndex].id : Date.now(),
+                studentId: studentId,
+                studentName: student.name,
+                grade: student.grade || '',
+                date: date,
+                assessor: assessor,
+                timestamp: new Date().toISOString(),
+                assessments: assessments
+            };
+            
+            if (existingTestIndex >= 0) {
+                // Update existing test
+                window.trijazenTestovi[existingTestIndex] = testData;
+            } else {
+                // Add new test
+                window.trijazenTestovi.push(testData);
+            }
+            
+            saveData();
+            renderStudentListSimple(); // Update badge
+        }
+        
+        
+        // Reset all toggle buttons to neutral state
+        function resetTrijazenToggles() {
+            var toggles = document.querySelectorAll('.trijazen-toggle');
+            toggles.forEach(function(toggle) {
+                toggle.className = 'trijazen-toggle';
+                toggle.textContent = '';
+                toggle.setAttribute('data-value', '');
+            });
+        }
+
+        function exportTrijazenToJpeg() {
+            var element = document.getElementById('trijazen');
+            var originalBtn = element.querySelector('button[onclick="exportTrijazenToJpeg()"]');
+            
+            // Hide button for capture
+            if(originalBtn) originalBtn.style.display = 'none';
+
+            // Create a clone to modify for export
+            var clone = element.cloneNode(true);
+            clone.style.width = '1000px'; // Fixed width for A4-like ratio
+            clone.style.padding = '20px';
+            clone.style.background = '#1a202c'; // Ensure background is dark
+            clone.style.color = 'white';
+            
+            // Remove the export button from clone
+            var btn = clone.querySelector('button[onclick="exportTrijazenToJpeg()"]');
+            if(btn) btn.remove();
+
+            // Modify clone for "One Page" and "Default Values"
+            var toggles = clone.querySelectorAll('.trijazen-toggle');
+            toggles.forEach(function(toggle) {
+                var val = toggle.getAttribute('data-value');
+                if (!val) {
+                    toggle.textContent = '+-';
+                    toggle.className = 'trijazen-toggle plusminus'; // Apply yellow style
+                    // Optional: Add a visual indicator that this is a default value? 
+                    // User just said "default valie +-", so making it look like a real +- is probably what they want.
+                }
+            });
+
+            // Compact styles for the clone
+            var style = document.createElement('style');
+            style.innerHTML = `
+                .trijazen-table { font-size: 12px; margin-bottom: 10px; }
+                .trijazen-table th, .trijazen-table td { padding: 4px 8px; }
+                .section-header { font-size: 14px; margin-top: 10px; padding: 5px; }
+                .trijazen-info { margin-bottom: 10px; padding: 10px; }
+                .info-group { margin-bottom: 5px; }
+                h2 { font-size: 18px; margin-bottom: 10px; }
+            `;
+            clone.appendChild(style);
+
+            // Append clone to body temporarily to render
+            clone.style.position = 'absolute';
+            clone.style.top = '-9999px';
+            clone.style.left = '-9999px';
+            document.body.appendChild(clone);
+
+            html2canvas(clone, {
+                backgroundColor: '#1a202c',
+                scale: 2 // High resolution
+            }).then(canvas => {
+                // Remove clone
+                document.body.removeChild(clone);
+                if(originalBtn) originalBtn.style.display = 'inline-block';
+
+                // Download
+                var link = document.createElement('a');
+                var studentName = document.getElementById('trijazenStudentSelect').options[document.getElementById('trijazenStudentSelect').selectedIndex].text;
+                var date = document.getElementById('trijazenDate').value;
+                link.download = 'Trijazen_Test_' + studentName + '_' + date + '.jpg';
+                link.href = canvas.toDataURL('image/jpeg', 0.9);
+                link.click();
+            }).catch(err => {
+                console.error(err);
+                alert('Грешка при експорт: ' + err.message);
+                document.body.removeChild(clone);
+                if(originalBtn) originalBtn.style.display = 'inline-block';
+            });
+        }
+        
+        // Dark Mode Logic
+        const toggleSwitch = document.querySelector('.theme-switch input[type="checkbox"]');
+        const currentTheme = localStorage.getItem('theme');
+
+        if (currentTheme) {
+            document.body.classList.add(currentTheme);
+        
+            if (currentTheme === 'dark-mode') {
+                toggleSwitch.checked = true;
+            }
+        }
+
+        function switchTheme(e) {
+            if (e.target.checked) {
+                document.body.classList.add('dark-mode');
+                localStorage.setItem('theme', 'dark-mode');
+            } else {
+                document.body.classList.remove('dark-mode');
+                localStorage.setItem('theme', 'light-mode');
+            }
+        }
+
+        toggleSwitch.addEventListener('change', switchTheme, false);
+
+        // Warn user about unsaved changes
+        window.addEventListener('beforeunload', function (e) {
+            if (isDataDirty) {
+                e.preventDefault();
+                e.returnValue = '';
+            }
+        });
+    </script>
+    
+    <div class="credit-watermark">Created by Blagoj Nasev</div>
+    <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
+</body>
+</html>

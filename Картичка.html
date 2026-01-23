@@ -1,0 +1,2124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Креирај картичка - AAC Card Creator</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;800&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <style>
+        :root {
+            --primary-color: #667eea;
+            --primary-gradient: linear-gradient(90deg, #4c51bf 0%, #667eea 100%);
+            --bg-color: #1a202c;
+            --card-bg: #2d3748;
+            --text-main: #f7fafc;
+            --text-muted: #a0aec0;
+            --border-color: #4a5568;
+            --input-bg: #1a202c;
+            --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.3), 0 4px 6px -2px rgba(0, 0, 0, 0.2);
+            --radius-lg: 16px;
+            --font-family: 'Outfit', sans-serif;
+        }
+
+        /* Light Theme */
+        body.light-mode {
+            --bg-color: #f0f4f8;
+            --card-bg: #ffffff;
+            --text-main: #1a202c;
+            --text-muted: #4a5568;
+            --border-color: #e2e8f0;
+            --input-bg: #f7fafc;
+            --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        }
+
+        /* Header controls */
+        .header-controls {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 0.75rem;
+        }
+
+        .control-btn {
+            background: var(--input-bg);
+            border: 2px solid var(--border-color);
+            border-radius: 8px;
+            padding: 0.5rem 0.75rem;
+            font-size: 1rem;
+            font-weight: 700;
+            font-family: inherit;
+            color: var(--text-main);
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .control-btn:hover {
+            border-color: var(--primary-color);
+            transform: scale(1.05);
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: var(--font-family);
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            display: flex;
+            justify-content: center;
+            min-height: 100vh;
+            padding: 2rem;
+        }
+
+        .app-container {
+            display: grid;
+            grid-template-columns: 350px 1fr;
+            gap: 3rem;
+            max-width: 1000px;
+            width: 100%;
+            align-items: start;
+        }
+
+        @media (max-width: 800px) {
+            .app-container { grid-template-columns: 1fr; }
+        }
+
+        .panel {
+            background: var(--card-bg);
+            border-radius: var(--radius-lg);
+            padding: 2rem;
+            box-shadow: var(--shadow-lg);
+            border: 1px solid var(--border-color);
+        }
+
+        .panel-header h1 {
+            font-size: 1.8rem;
+            font-style: italic;
+            color: #fff;
+            margin-bottom: 0.5rem;
+            background: var(--primary-gradient);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .panel-header p {
+            color: var(--text-muted);
+            margin-bottom: 2rem;
+        }
+
+        /* Tabs */
+        .tabs {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .tab-btn {
+            flex: 1;
+            padding: 0.75rem 1rem;
+            background: transparent;
+            border: 2px solid var(--border-color);
+            border-radius: 8px;
+            color: var(--text-muted);
+            font-family: inherit;
+            font-size: 0.95rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .tab-btn:hover {
+            border-color: var(--primary-color);
+            color: var(--text-main);
+        }
+
+        .tab-btn.active {
+            background: var(--primary-gradient);
+            border-color: transparent;
+            color: white;
+        }
+
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+
+        /* Form */
+        .form-group { margin-bottom: 1.5rem; }
+
+        label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+            color: var(--text-main);
+        }
+
+        input[type="text"], textarea {
+            width: 100%;
+            padding: 0.75rem;
+            border: 2px solid var(--border-color);
+            border-radius: 8px;
+            font-family: inherit;
+            font-size: 1rem;
+            background: var(--input-bg);
+            color: var(--text-main);
+        }
+
+        textarea {
+            min-height: 80px;
+            resize: vertical;
+        }
+
+        input:focus, textarea:focus {
+            outline: none;
+            border-color: var(--primary-color);
+        }
+
+        small {
+            display: block;
+            margin-top: 0.5rem;
+            color: var(--text-muted);
+            font-size: 0.85rem;
+        }
+
+        /* Buttons */
+        .btn-primary {
+            background: var(--primary-gradient);
+            color: white;
+            padding: 1rem;
+            border-radius: 8px;
+            width: 100%;
+            font-family: inherit;
+            font-size: 1.1rem;
+            font-weight: 700;
+            border: none;
+            cursor: pointer;
+            transition: opacity 0.2s;
+        }
+
+        .btn-primary:hover { opacity: 0.9; }
+        .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        .btn-secondary {
+            background-color: var(--border-color);
+            color: white;
+            padding: 1rem 2rem;
+            border-radius: 8px;
+            font-family: inherit;
+            font-size: 1.1rem;
+            font-weight: 700;
+            border: none;
+            cursor: pointer;
+            margin-top: 2rem;
+        }
+
+        .btn-secondary:hover { opacity: 0.9; }
+
+        .btn-stop {
+            background: #e53e3e;
+            color: white;
+            padding: 0.75rem;
+            border-radius: 8px;
+            width: 100%;
+            font-family: inherit;
+            font-size: 1rem;
+            font-weight: 700;
+            border: none;
+            cursor: pointer;
+            margin-top: 0.5rem;
+        }
+
+        /* Emoji Grid */
+        .emoji-grid {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 8px;
+            max-height: 220px;
+            overflow-y: auto;
+            padding: 10px;
+            background: var(--input-bg);
+            border: 2px solid var(--border-color);
+            border-radius: 8px;
+            margin-bottom: 1rem;
+            min-height: 120px;
+        }
+
+        .emoji-item {
+            aspect-ratio: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2rem;
+            background: transparent;
+            border: 2px solid transparent;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+
+        .emoji-item:hover {
+            background: var(--card-bg);
+            transform: scale(1.1);
+        }
+
+        .emoji-item.selected {
+            background: rgba(102, 126, 234, 0.3);
+            border-color: var(--primary-color);
+        }
+
+        .emoji-message {
+            grid-column: 1 / -1;
+            text-align: center;
+            padding: 1.5rem;
+            color: var(--text-muted);
+        }
+
+        /* Card Display */
+        .display-panel {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background: transparent;
+            box-shadow: none;
+            padding: 0;
+            border: none;
+        }
+
+        .aac-card {
+            background: white;
+            width: 400px;
+            height: 400px;
+            border: 8px solid #a8d4ff;
+            border-radius: 32px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            box-shadow: var(--shadow-lg);
+            padding: 1.5rem;
+            box-sizing: border-box;
+            overflow: hidden;
+        }
+
+        @media (max-width: 500px) {
+            .aac-card {
+                width: 320px;
+                height: 320px;
+            }
+        }
+
+        .card-content {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            width: 100%;
+            gap: 0.5rem;
+        }
+
+        .symbol-display {
+            font-size: 9rem;
+            line-height: 1;
+            flex-shrink: 0;
+        }
+
+        .image-display {
+            width: 220px;
+            height: 220px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+
+        .image-display img {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+            border-radius: 8px;
+        }
+
+        .placeholder-icon {
+            font-size: 6rem;
+            opacity: 0.2;
+        }
+
+        .large-label {
+            font-size: 3rem;
+            font-weight: 800;
+            color: #1a1a2e;
+            line-height: 1.2;
+            word-break: break-word;
+            text-align: center;
+            max-width: 100%;
+            padding: 0 0.5rem;
+        }
+
+        /* Spinner */
+        .spinner {
+            width: 60px;
+            height: 60px;
+            border: 5px solid rgba(102, 126, 234, 0.2);
+            border-top-color: var(--primary-color);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .loading-info { text-align: center; }
+
+        .timer {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--primary-color);
+            margin-top: 0.5rem;
+        }
+
+        /* Color controls */
+        .color-controls {
+            margin: 1rem 0;
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+
+        .color-row {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .color-label {
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--text-muted);
+            min-width: 50px;
+        }
+
+        .color-picker {
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+        }
+
+        .color-swatch {
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            border: 2px solid transparent;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+
+        .color-swatch:hover { transform: scale(1.15); }
+        .color-swatch.active {
+            border-color: white;
+            box-shadow: 0 0 0 2px var(--primary-color);
+        }
+
+        .sync-checkbox {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            cursor: pointer;
+            margin-top: 0.25rem;
+        }
+
+        .sync-checkbox input {
+            cursor: pointer;
+        }
+
+        .credit-watermark {
+            position: fixed;
+            bottom: 10px;
+            right: 15px;
+            font-size: 10px;
+            color: rgba(102, 126, 234, 0.4);
+            font-weight: 500;
+            pointer-events: none;
+        }
+
+        body.light-mode .credit-watermark {
+            color: rgba(102, 126, 234, 0.6);
+        }
+    </style>
+</head>
+<body>
+    <main class="app-container">
+        <!-- INPUT SECTION -->
+        <section class="panel input-panel">
+            <header class="panel-header">
+                <div class="header-controls">
+                    <button id="theme-toggle" class="control-btn" title="Toggle theme">🌙</button>
+                    <button id="lang-toggle" class="control-btn" title="Change language">EN</button>
+                </div>
+                <h1 data-i18n="title">Креирај картичка</h1>
+                <p data-i18n="subtitle">Создавај визуелни помагала за комуникација</p>
+            </header>
+
+            <!-- TABS -->
+            <div class="tabs">
+                <button class="tab-btn active" data-tab="emoji" data-i18n="tab_emoji">Емоџи Пребарување</button>
+                <button class="tab-btn" data-tab="ai" data-i18n="tab_ai">AI Генератор</button>
+            </div>
+
+            <!-- TAB: EMOJI -->
+            <div id="tab-emoji" class="tab-content active">
+                <div class="form-group">
+                    <label data-i18n="search_symbol">Барај Симбол</label>
+                    <input type="text" id="emoji-search" data-i18n-placeholder="search_placeholder" placeholder="Напиши за пребарување (пр. 'happy', 'dog')..." autocomplete="off">
+                </div>
+
+                <div id="emoji-grid" class="emoji-grid">
+                    <p class="emoji-message" data-i18n="search_hint">Почни да пишуваш за пребарување...</p>
+                </div>
+
+                <div class="form-group">
+                    <label data-i18n="label_text">Текст за Етикета</label>
+                    <input type="text" id="emoji-label" data-i18n-placeholder="label_placeholder" placeholder="пр. Куче">
+                </div>
+
+                <button class="btn-primary" id="emoji-update-btn" data-i18n="update_card">Ажурирај Картичка</button>
+            </div>
+
+            <!-- TAB: AI -->
+            <div id="tab-ai" class="tab-content">
+                <div class="form-group">
+                    <label data-i18n="image_desc">Опис на Слика</label>
+                    <textarea id="ai-prompt" data-i18n-placeholder="ai_placeholder" placeholder="пр. Среќно куче што си игра со топка"></textarea>
+                    <small data-i18n="ai_hint">Опиши што сакаш да видиш (стилот е автоматски)</small>
+                </div>
+
+                <div class="form-group">
+                    <label data-i18n="label_text">Текст за Етикета</label>
+                    <input type="text" id="ai-label" data-i18n-placeholder="ai_label_placeholder" placeholder="пр. Игра">
+                </div>
+
+                <button class="btn-primary" id="ai-generate-btn" data-i18n="generate">Генерирај Слика ✨</button>
+                <button class="btn-stop" id="ai-stop-btn" style="display:none;" data-i18n="stop">🛑 Стоп</button>
+            </div>
+        </section>
+
+        <!-- DISPLAY SECTION -->
+        <section class="display-panel">
+            <div id="aac-card" class="aac-card">
+                <div class="card-content">
+                    <div id="card-visual" class="symbol-display">👋</div>
+                    <div id="card-label" class="large-label">Здраво</div>
+                </div>
+            </div>
+
+            <div class="color-controls">
+                <div class="color-row">
+                    <span class="color-label" data-i18n="border">Рамка:</span>
+                    <div class="color-picker" id="border-color-picker">
+                        <button class="color-swatch active" data-color="#a8d4ff" style="background:#a8d4ff"></button>
+                        <button class="color-swatch" data-color="#000000" style="background:#000"></button>
+                        <button class="color-swatch" data-color="#2563eb" style="background:#2563eb"></button>
+                        <button class="color-swatch" data-color="#16a34a" style="background:#16a34a"></button>
+                        <button class="color-swatch" data-color="#dc2626" style="background:#dc2626"></button>
+                        <button class="color-swatch" data-color="#9333ea" style="background:#9333ea"></button>
+                        <button class="color-swatch" data-color="#f59e0b" style="background:#f59e0b"></button>
+                        <button class="color-swatch" data-color="#ec4899" style="background:#ec4899"></button>
+                    </div>
+                </div>
+                <div class="color-row">
+                    <span class="color-label" data-i18n="text">Текст:</span>
+                    <div class="color-picker" id="font-color-picker">
+                        <button class="color-swatch active" data-color="#1a1a2e" style="background:#1a1a2e"></button>
+                        <button class="color-swatch" data-color="#000000" style="background:#000"></button>
+                        <button class="color-swatch" data-color="#2563eb" style="background:#2563eb"></button>
+                        <button class="color-swatch" data-color="#16a34a" style="background:#16a34a"></button>
+                        <button class="color-swatch" data-color="#dc2626" style="background:#dc2626"></button>
+                        <button class="color-swatch" data-color="#9333ea" style="background:#9333ea"></button>
+                        <button class="color-swatch" data-color="#f59e0b" style="background:#f59e0b"></button>
+                        <button class="color-swatch" data-color="#ec4899" style="background:#ec4899"></button>
+                    </div>
+                </div>
+                <label class="sync-checkbox">
+                    <input type="checkbox" id="sync-colors"> <span data-i18n="sync_colors">Синхронизирај бои</span>
+                </label>
+            </div>
+
+            <button id="download-btn" class="btn-secondary" data-i18n="save">Зачувај Картичка 📸</button>
+        </section>
+    </main>
+
+    <div class="credit-watermark">Created by Blagoj Nasev</div>
+
+    <script>
+    // ============ LANGUAGE STRINGS ============
+    var LANG = {
+        mk: {
+            title: "Креирај картичка",
+            subtitle: "Создавај визуелни помагала за комуникација",
+            tab_emoji: "Емоџи Пребарување",
+            tab_ai: "AI Генератор",
+            search_symbol: "Барај Симбол",
+            search_placeholder: "Напиши за пребарување (пр. 'happy', 'dog')...",
+            search_hint: "Почни да пишуваш за пребарување...",
+            search_min: "Напиши барем 2 букви...",
+            searching: "🔍 Барам...",
+            no_results: "Нема резултати",
+            label_text: "Текст за Етикета",
+            label_placeholder: "пр. Куче",
+            update_card: "Ажурирај Картичка",
+            image_desc: "Опис на Слика",
+            ai_placeholder: "пр. Среќно куче што си игра со топка",
+            ai_hint: "Опиши што сакаш да видиш (стилот е автоматски)",
+            ai_label_placeholder: "пр. Игра",
+            generate: "Генерирај Слика ✨",
+            generating: "⏳ Генерирам...",
+            stop: "🛑 Стоп",
+            border: "Рамка:",
+            text: "Текст:",
+            sync_colors: "Синхронизирај бои",
+            save: "Зачувај Картичка 📸",
+            saving: "⏳ Зачувувам...",
+            alert_enter_desc: "Внеси опис на слика",
+            alert_timeout: "Истече времето - обиди се повторно",
+            alert_error: "Грешка - обиди се повторно",
+            alert_save_error: "Грешка при зачувување - обиди се повторно"
+        },
+        en: {
+            title: "Create Card",
+            subtitle: "Create visual aids for communication",
+            tab_emoji: "Emoji Search",
+            tab_ai: "AI Generator",
+            search_symbol: "Search Symbol",
+            search_placeholder: "Type to search (e.g., 'happy', 'dog')...",
+            search_hint: "Start typing to search...",
+            search_min: "Type at least 2 characters...",
+            searching: "🔍 Searching...",
+            no_results: "No results found",
+            label_text: "Label Text",
+            label_placeholder: "e.g., Dog",
+            update_card: "Update Card",
+            image_desc: "Image Description",
+            ai_placeholder: "e.g., A happy dog playing with a ball",
+            ai_hint: "Describe what you want to see (style is automatic)",
+            ai_label_placeholder: "e.g., Play Time",
+            generate: "Generate Image ✨",
+            generating: "⏳ Generating...",
+            stop: "🛑 Stop",
+            border: "Border:",
+            text: "Text:",
+            sync_colors: "Sync colors",
+            save: "Save Card 📸",
+            saving: "⏳ Saving...",
+            alert_enter_desc: "Please enter an image description",
+            alert_timeout: "Timeout - please try again",
+            alert_error: "Error - please try again",
+            alert_save_error: "Error saving - please try again"
+        }
+    };
+
+    var currentLang = 'mk';
+    var isDarkMode = true;
+
+    // Apply language to all elements
+    function applyLanguage(lang) {
+        currentLang = lang;
+        var strings = LANG[lang];
+        
+        // Update text content
+        document.querySelectorAll('[data-i18n]').forEach(function(el) {
+            var key = el.getAttribute('data-i18n');
+            if (strings[key]) {
+                el.textContent = strings[key];
+            }
+        });
+        
+        // Update placeholders
+        document.querySelectorAll('[data-i18n-placeholder]').forEach(function(el) {
+            var key = el.getAttribute('data-i18n-placeholder');
+            if (strings[key]) {
+                el.placeholder = strings[key];
+            }
+        });
+        
+        // Update language toggle button
+        document.getElementById('lang-toggle').textContent = lang === 'mk' ? 'EN' : 'MK';
+        
+        // Save preference
+        localStorage.setItem('aac-lang', lang);
+    }
+
+    // Toggle theme
+    function toggleTheme() {
+        isDarkMode = !isDarkMode;
+        document.body.classList.toggle('light-mode', !isDarkMode);
+        document.getElementById('theme-toggle').textContent = isDarkMode ? '☀️' : '🌙';
+        localStorage.setItem('aac-theme', isDarkMode ? 'dark' : 'light');
+    }
+
+    // Load saved preferences
+    function loadPreferences() {
+        var savedLang = localStorage.getItem('aac-lang');
+        var savedTheme = localStorage.getItem('aac-theme');
+        
+        if (savedLang) {
+            applyLanguage(savedLang);
+        }
+        
+        if (savedTheme === 'light') {
+            isDarkMode = false;
+            document.body.classList.add('light-mode');
+            document.getElementById('theme-toggle').textContent = '🌙';
+        }
+    }
+
+    // Get translated string
+    function t(key) {
+        return LANG[currentLang][key] || key;
+    }
+
+    // ============ BUILT-IN EMOJI DATABASE ============
+    var EMOJI_DATA = [
+        // Smileys & Emotion
+        {e:"😀",n:"happy grinning smile"},
+        {e:"😃",n:"happy smile excited"},
+        {e:"😄",n:"happy laugh smile"},
+        {e:"😁",n:"happy grin teeth"},
+        {e:"😆",n:"laugh happy squint"},
+        {e:"😅",n:"sweat smile nervous"},
+        {e:"🤣",n:"rofl laugh rolling"},
+        {e:"😂",n:"joy tears laugh cry"},
+        {e:"🙂",n:"smile slight happy"},
+        {e:"😊",n:"blush smile happy shy"},
+        {e:"😇",n:"angel innocent halo"},
+        {e:"🥰",n:"love hearts smile"},
+        {e:"😍",n:"love heart eyes"},
+        {e:"😘",n:"kiss love blow"},
+        {e:"😗",n:"kiss whistling"},
+        {e:"😚",n:"kiss blush"},
+        {e:"😋",n:"yum delicious tasty food"},
+        {e:"😛",n:"tongue playful"},
+        {e:"😜",n:"wink tongue crazy"},
+        {e:"🤪",n:"crazy zany wild"},
+        {e:"😝",n:"tongue squint"},
+        {e:"🤗",n:"hug hands open"},
+        {e:"🤔",n:"think hmm wonder"},
+        {e:"🤫",n:"quiet shush secret"},
+        {e:"🤭",n:"giggle oops cover"},
+        {e:"🤐",n:"quiet zip mouth"},
+        {e:"😐",n:"neutral face blank"},
+        {e:"😑",n:"expressionless blank"},
+        {e:"😶",n:"no mouth silent"},
+        {e:"😏",n:"smirk sly"},
+        {e:"😒",n:"unamused annoyed"},
+        {e:"🙄",n:"eye roll annoyed"},
+        {e:"😬",n:"grimace awkward"},
+        {e:"😮‍💨",n:"exhale relief sigh"},
+        {e:"🤥",n:"lie pinocchio"},
+        {e:"😌",n:"relieved peaceful calm"},
+        {e:"😔",n:"sad pensive down"},
+        {e:"😪",n:"sleepy tired"},
+        {e:"🤤",n:"drool hungry"},
+        {e:"😴",n:"sleep zzz tired"},
+        {e:"😷",n:"sick mask ill"},
+        {e:"🤒",n:"sick fever ill thermometer"},
+        {e:"🤕",n:"hurt bandage injured"},
+        {e:"🤢",n:"sick nausea green"},
+        {e:"🤮",n:"vomit throw up sick"},
+        {e:"🤧",n:"sneeze sick tissue"},
+        {e:"🥵",n:"hot warm sweat"},
+        {e:"🥶",n:"cold freezing"},
+        {e:"😵",n:"dizzy spiral"},
+        {e:"🤯",n:"mind blown explode"},
+        {e:"🥳",n:"party celebrate birthday"},
+        {e:"🥸",n:"disguise glasses"},
+        {e:"😎",n:"cool sunglasses"},
+        {e:"🤓",n:"nerd glasses smart"},
+        {e:"😕",n:"confused unsure"},
+        {e:"😟",n:"worried nervous"},
+        {e:"🙁",n:"sad frown"},
+        {e:"☹️",n:"sad frown unhappy"},
+        {e:"😮",n:"surprised wow open mouth"},
+        {e:"😯",n:"surprised hushed"},
+        {e:"😲",n:"astonished shocked"},
+        {e:"😳",n:"flushed embarrassed"},
+        {e:"🥺",n:"pleading eyes puppy"},
+        {e:"😦",n:"frown open mouth"},
+        {e:"😧",n:"anguished"},
+        {e:"😨",n:"fearful scared afraid"},
+        {e:"😰",n:"anxious sweat worried"},
+        {e:"😥",n:"sad relieved"},
+        {e:"😢",n:"cry tear sad"},
+        {e:"😭",n:"cry sob tears"},
+        {e:"😱",n:"scream fear"},
+        {e:"😖",n:"confounded"},
+        {e:"😣",n:"persevere"},
+        {e:"😞",n:"disappointed sad"},
+        {e:"😓",n:"downcast sweat"},
+        {e:"😩",n:"weary tired"},
+        {e:"😫",n:"tired exhausted"},
+        {e:"🥱",n:"yawn tired sleepy"},
+        {e:"😤",n:"triumph huff angry"},
+        {e:"😡",n:"angry mad rage"},
+        {e:"😠",n:"angry"},
+        {e:"🤬",n:"curse angry swear"},
+        {e:"😈",n:"devil smile evil"},
+        {e:"👿",n:"devil angry evil"},
+        {e:"💀",n:"skull death dead"},
+        {e:"☠️",n:"skull crossbones death"},
+        {e:"💩",n:"poop poo"},
+        {e:"🤡",n:"clown"},
+        {e:"👹",n:"ogre monster"},
+        {e:"👺",n:"goblin monster"},
+        {e:"👻",n:"ghost"},
+        {e:"👽",n:"alien"},
+        {e:"👾",n:"alien monster game"},
+        {e:"🤖",n:"robot"},
+        {e:"😺",n:"cat happy smile"},
+        {e:"😸",n:"cat grin smile"},
+        {e:"😹",n:"cat joy tears"},
+        {e:"😻",n:"cat heart love"},
+        {e:"😼",n:"cat smirk"},
+        {e:"😽",n:"cat kiss"},
+        {e:"🙀",n:"cat weary scared"},
+        {e:"😿",n:"cat cry sad"},
+        {e:"😾",n:"cat angry pout"},
+        // Gestures & Body
+        {e:"👋",n:"wave hand hello hi bye"},
+        {e:"🤚",n:"raised hand stop"},
+        {e:"🖐️",n:"hand fingers spread"},
+        {e:"✋",n:"hand raised stop"},
+        {e:"🖖",n:"vulcan hand"},
+        {e:"👌",n:"ok okay hand"},
+        {e:"🤌",n:"pinched fingers"},
+        {e:"🤏",n:"pinch small"},
+        {e:"✌️",n:"peace victory hand"},
+        {e:"🤞",n:"fingers crossed luck"},
+        {e:"🤟",n:"love you hand"},
+        {e:"🤘",n:"rock on hand"},
+        {e:"🤙",n:"call me hand phone"},
+        {e:"👈",n:"point left"},
+        {e:"👉",n:"point right"},
+        {e:"👆",n:"point up"},
+        {e:"🖕",n:"middle finger"},
+        {e:"👇",n:"point down"},
+        {e:"☝️",n:"point up one"},
+        {e:"👍",n:"thumbs up good yes like"},
+        {e:"👎",n:"thumbs down bad no dislike"},
+        {e:"✊",n:"fist raised"},
+        {e:"👊",n:"fist bump punch"},
+        {e:"🤛",n:"fist left"},
+        {e:"🤜",n:"fist right"},
+        {e:"👏",n:"clap hands applause"},
+        {e:"🙌",n:"hands raised celebration"},
+        {e:"👐",n:"open hands"},
+        {e:"🤲",n:"palms up"},
+        {e:"🤝",n:"handshake deal"},
+        {e:"🙏",n:"pray thanks please"},
+        {e:"✍️",n:"write hand writing"},
+        {e:"💅",n:"nail polish"},
+        {e:"🤳",n:"selfie"},
+        {e:"💪",n:"muscle strong flex"},
+        {e:"🦾",n:"robot arm"},
+        {e:"🦿",n:"robot leg"},
+        {e:"🦵",n:"leg"},
+        {e:"🦶",n:"foot"},
+        {e:"👂",n:"ear listen hear"},
+        {e:"🦻",n:"ear hearing aid"},
+        {e:"👃",n:"nose smell"},
+        {e:"🧠",n:"brain think"},
+        {e:"🫀",n:"heart organ"},
+        {e:"🫁",n:"lungs breathe"},
+        {e:"🦷",n:"tooth teeth"},
+        {e:"🦴",n:"bone"},
+        {e:"👀",n:"eyes look see"},
+        {e:"👁️",n:"eye"},
+        {e:"👅",n:"tongue taste"},
+        {e:"👄",n:"mouth lips"},
+        // People
+        {e:"👶",n:"baby infant"},
+        {e:"🧒",n:"child kid"},
+        {e:"👦",n:"boy"},
+        {e:"👧",n:"girl"},
+        {e:"🧑",n:"person adult"},
+        {e:"👱",n:"blonde person"},
+        {e:"👨",n:"man"},
+        {e:"🧔",n:"beard man"},
+        {e:"👩",n:"woman"},
+        {e:"🧓",n:"older person elderly"},
+        {e:"👴",n:"old man grandfather grandpa"},
+        {e:"👵",n:"old woman grandmother grandma"},
+        {e:"👮",n:"police officer cop"},
+        {e:"👷",n:"construction worker"},
+        {e:"💂",n:"guard"},
+        {e:"🕵️",n:"detective spy"},
+        {e:"👩‍⚕️",n:"doctor health nurse"},
+        {e:"👨‍⚕️",n:"doctor man health"},
+        {e:"👩‍🌾",n:"farmer woman"},
+        {e:"👨‍🌾",n:"farmer man"},
+        {e:"👩‍🍳",n:"cook chef woman"},
+        {e:"👨‍🍳",n:"cook chef man"},
+        {e:"👩‍🎓",n:"student graduate woman"},
+        {e:"👨‍🎓",n:"student graduate man"},
+        {e:"👩‍🏫",n:"teacher woman"},
+        {e:"👨‍🏫",n:"teacher man"},
+        {e:"👩‍💻",n:"technologist woman computer"},
+        {e:"👨‍💻",n:"technologist man computer"},
+        {e:"🧑‍🦯",n:"blind person cane"},
+        {e:"🧑‍🦼",n:"wheelchair motorized"},
+        {e:"🧑‍🦽",n:"wheelchair manual"},
+        {e:"🚶",n:"walk person walking"},
+        {e:"🧍",n:"stand person standing"},
+        {e:"🧎",n:"kneel person kneeling"},
+        {e:"🏃",n:"run person running"},
+        {e:"💃",n:"dance woman dancing"},
+        {e:"🕺",n:"dance man dancing"},
+        {e:"👯",n:"dance bunny ears"},
+        {e:"🧖",n:"sauna steam person"},
+        {e:"🧗",n:"climb climbing person"},
+        {e:"🤺",n:"fencing"},
+        {e:"🏇",n:"horse racing"},
+        {e:"⛷️",n:"ski skiing"},
+        {e:"🏂",n:"snowboard"},
+        {e:"🏋️",n:"weight lift gym"},
+        {e:"🤼",n:"wrestle wrestling"},
+        {e:"🤸",n:"cartwheel gymnastics"},
+        {e:"⛹️",n:"basketball ball"},
+        {e:"🤾",n:"handball"},
+        {e:"🏌️",n:"golf"},
+        {e:"🏄",n:"surf surfing"},
+        {e:"🏊",n:"swim swimming"},
+        {e:"🤽",n:"water polo"},
+        {e:"🚣",n:"row boat rowing"},
+        {e:"🧘",n:"yoga meditation"},
+        {e:"🛀",n:"bath bathtub"},
+        {e:"🛌",n:"sleep bed"},
+        {e:"👭",n:"women holding hands"},
+        {e:"👫",n:"couple man woman"},
+        {e:"👬",n:"men holding hands"},
+        {e:"💏",n:"kiss couple"},
+        {e:"💑",n:"couple heart love"},
+        {e:"👪",n:"family"},
+        // Animals
+        {e:"🐶",n:"dog face puppy"},
+        {e:"🐕",n:"dog"},
+        {e:"🦮",n:"guide dog"},
+        {e:"🐕‍🦺",n:"service dog"},
+        {e:"🐩",n:"poodle dog"},
+        {e:"🐺",n:"wolf"},
+        {e:"🦊",n:"fox"},
+        {e:"🦝",n:"raccoon"},
+        {e:"🐱",n:"cat face kitten"},
+        {e:"🐈",n:"cat"},
+        {e:"🐈‍⬛",n:"black cat"},
+        {e:"🦁",n:"lion"},
+        {e:"🐯",n:"tiger face"},
+        {e:"🐅",n:"tiger"},
+        {e:"🐆",n:"leopard"},
+        {e:"🐴",n:"horse face"},
+        {e:"🐎",n:"horse racing"},
+        {e:"🦄",n:"unicorn"},
+        {e:"🦓",n:"zebra"},
+        {e:"🦌",n:"deer"},
+        {e:"🦬",n:"bison"},
+        {e:"🐮",n:"cow face"},
+        {e:"🐂",n:"ox"},
+        {e:"🐃",n:"water buffalo"},
+        {e:"🐄",n:"cow"},
+        {e:"🐷",n:"pig face"},
+        {e:"🐖",n:"pig"},
+        {e:"🐗",n:"boar"},
+        {e:"🐽",n:"pig nose"},
+        {e:"🐏",n:"ram sheep"},
+        {e:"🐑",n:"sheep ewe"},
+        {e:"🐐",n:"goat"},
+        {e:"🐪",n:"camel one hump"},
+        {e:"🐫",n:"camel two humps"},
+        {e:"🦙",n:"llama"},
+        {e:"🦒",n:"giraffe"},
+        {e:"🐘",n:"elephant"},
+        {e:"🦣",n:"mammoth"},
+        {e:"🦏",n:"rhinoceros rhino"},
+        {e:"🦛",n:"hippopotamus hippo"},
+        {e:"🐭",n:"mouse face"},
+        {e:"🐁",n:"mouse"},
+        {e:"🐀",n:"rat"},
+        {e:"🐹",n:"hamster"},
+        {e:"🐰",n:"rabbit bunny face"},
+        {e:"🐇",n:"rabbit bunny"},
+        {e:"🐿️",n:"chipmunk squirrel"},
+        {e:"🦫",n:"beaver"},
+        {e:"🦔",n:"hedgehog"},
+        {e:"🦇",n:"bat"},
+        {e:"🐻",n:"bear"},
+        {e:"🐻‍❄️",n:"polar bear"},
+        {e:"🐨",n:"koala"},
+        {e:"🐼",n:"panda"},
+        {e:"🦥",n:"sloth"},
+        {e:"🦦",n:"otter"},
+        {e:"🦨",n:"skunk"},
+        {e:"🦘",n:"kangaroo"},
+        {e:"🦡",n:"badger"},
+        {e:"🐾",n:"paw prints"},
+        {e:"🦃",n:"turkey"},
+        {e:"🐔",n:"chicken"},
+        {e:"🐓",n:"rooster"},
+        {e:"🐣",n:"hatching chick"},
+        {e:"🐤",n:"baby chick"},
+        {e:"🐥",n:"chick front"},
+        {e:"🐦",n:"bird"},
+        {e:"🐧",n:"penguin"},
+        {e:"🕊️",n:"dove peace"},
+        {e:"🦅",n:"eagle"},
+        {e:"🦆",n:"duck"},
+        {e:"🦢",n:"swan"},
+        {e:"🦉",n:"owl"},
+        {e:"🦤",n:"dodo"},
+        {e:"🪶",n:"feather"},
+        {e:"🦩",n:"flamingo"},
+        {e:"🦚",n:"peacock"},
+        {e:"🦜",n:"parrot"},
+        {e:"🐸",n:"frog"},
+        {e:"🐊",n:"crocodile"},
+        {e:"🐢",n:"turtle"},
+        {e:"🦎",n:"lizard"},
+        {e:"🐍",n:"snake"},
+        {e:"🐲",n:"dragon face"},
+        {e:"🐉",n:"dragon"},
+        {e:"🦕",n:"dinosaur sauropod"},
+        {e:"🦖",n:"dinosaur t-rex"},
+        {e:"🐳",n:"whale spouting"},
+        {e:"🐋",n:"whale"},
+        {e:"🐬",n:"dolphin"},
+        {e:"🦭",n:"seal"},
+        {e:"🐟",n:"fish"},
+        {e:"🐠",n:"tropical fish"},
+        {e:"🐡",n:"blowfish"},
+        {e:"🦈",n:"shark"},
+        {e:"🐙",n:"octopus"},
+        {e:"🐚",n:"shell"},
+        {e:"🐌",n:"snail"},
+        {e:"🦋",n:"butterfly"},
+        {e:"🐛",n:"bug caterpillar"},
+        {e:"🐜",n:"ant"},
+        {e:"🐝",n:"bee honeybee"},
+        {e:"🪲",n:"beetle"},
+        {e:"🐞",n:"ladybug ladybird"},
+        {e:"🦗",n:"cricket"},
+        {e:"🪳",n:"cockroach"},
+        {e:"🕷️",n:"spider"},
+        {e:"🕸️",n:"spider web"},
+        {e:"🦂",n:"scorpion"},
+        {e:"🦟",n:"mosquito"},
+        {e:"🪰",n:"fly"},
+        {e:"🪱",n:"worm"},
+        {e:"🦠",n:"microbe germ bacteria virus"},
+        // Food & Drink
+        {e:"🍇",n:"grapes"},
+        {e:"🍈",n:"melon"},
+        {e:"🍉",n:"watermelon"},
+        {e:"🍊",n:"orange tangerine"},
+        {e:"🍋",n:"lemon"},
+        {e:"🍌",n:"banana"},
+        {e:"🍍",n:"pineapple"},
+        {e:"🥭",n:"mango"},
+        {e:"🍎",n:"apple red"},
+        {e:"🍏",n:"apple green"},
+        {e:"🍐",n:"pear"},
+        {e:"🍑",n:"peach"},
+        {e:"🍒",n:"cherries cherry"},
+        {e:"🍓",n:"strawberry"},
+        {e:"🫐",n:"blueberries"},
+        {e:"🥝",n:"kiwi fruit"},
+        {e:"🍅",n:"tomato"},
+        {e:"🫒",n:"olive"},
+        {e:"🥥",n:"coconut"},
+        {e:"🥑",n:"avocado"},
+        {e:"🍆",n:"eggplant"},
+        {e:"🥔",n:"potato"},
+        {e:"🥕",n:"carrot"},
+        {e:"🌽",n:"corn"},
+        {e:"🌶️",n:"hot pepper chili"},
+        {e:"🫑",n:"bell pepper"},
+        {e:"🥒",n:"cucumber"},
+        {e:"🥬",n:"leafy green"},
+        {e:"🥦",n:"broccoli"},
+        {e:"🧄",n:"garlic"},
+        {e:"🧅",n:"onion"},
+        {e:"🍄",n:"mushroom"},
+        {e:"🥜",n:"peanuts"},
+        {e:"🌰",n:"chestnut"},
+        {e:"🍞",n:"bread"},
+        {e:"🥐",n:"croissant"},
+        {e:"🥖",n:"baguette bread"},
+        {e:"🫓",n:"flatbread"},
+        {e:"🥨",n:"pretzel"},
+        {e:"🥯",n:"bagel"},
+        {e:"🥞",n:"pancakes"},
+        {e:"🧇",n:"waffle"},
+        {e:"🧀",n:"cheese"},
+        {e:"🍖",n:"meat bone"},
+        {e:"🍗",n:"chicken leg poultry"},
+        {e:"🥩",n:"steak meat"},
+        {e:"🥓",n:"bacon"},
+        {e:"🍔",n:"hamburger burger"},
+        {e:"🍟",n:"fries french fries"},
+        {e:"🍕",n:"pizza"},
+        {e:"🌭",n:"hot dog"},
+        {e:"🥪",n:"sandwich"},
+        {e:"🌮",n:"taco"},
+        {e:"🌯",n:"burrito"},
+        {e:"🫔",n:"tamale"},
+        {e:"🥙",n:"pita"},
+        {e:"🧆",n:"falafel"},
+        {e:"🥚",n:"egg"},
+        {e:"🍳",n:"cooking egg fried"},
+        {e:"🥘",n:"pot food"},
+        {e:"🍲",n:"pot stew"},
+        {e:"🫕",n:"fondue"},
+        {e:"🥣",n:"bowl spoon cereal"},
+        {e:"🥗",n:"salad green"},
+        {e:"🍿",n:"popcorn"},
+        {e:"🧈",n:"butter"},
+        {e:"🧂",n:"salt"},
+        {e:"🥫",n:"canned food"},
+        {e:"🍱",n:"bento box"},
+        {e:"🍘",n:"rice cracker"},
+        {e:"🍙",n:"rice ball"},
+        {e:"🍚",n:"rice cooked"},
+        {e:"🍛",n:"curry rice"},
+        {e:"🍜",n:"noodles ramen"},
+        {e:"🍝",n:"spaghetti pasta"},
+        {e:"🍠",n:"sweet potato"},
+        {e:"🍢",n:"oden"},
+        {e:"🍣",n:"sushi"},
+        {e:"🍤",n:"shrimp fried"},
+        {e:"🍥",n:"fish cake"},
+        {e:"🥮",n:"moon cake"},
+        {e:"🍡",n:"dango"},
+        {e:"🥟",n:"dumpling"},
+        {e:"🥠",n:"fortune cookie"},
+        {e:"🥡",n:"takeout box"},
+        {e:"🦀",n:"crab"},
+        {e:"🦞",n:"lobster"},
+        {e:"🦐",n:"shrimp"},
+        {e:"🦑",n:"squid"},
+        {e:"🦪",n:"oyster"},
+        {e:"🍦",n:"ice cream soft serve"},
+        {e:"🍧",n:"shaved ice"},
+        {e:"🍨",n:"ice cream"},
+        {e:"🍩",n:"doughnut donut"},
+        {e:"🍪",n:"cookie"},
+        {e:"🎂",n:"birthday cake"},
+        {e:"🍰",n:"cake slice shortcake"},
+        {e:"🧁",n:"cupcake"},
+        {e:"🥧",n:"pie"},
+        {e:"🍫",n:"chocolate bar"},
+        {e:"🍬",n:"candy"},
+        {e:"🍭",n:"lollipop"},
+        {e:"🍮",n:"custard pudding"},
+        {e:"🍯",n:"honey pot"},
+        {e:"🍼",n:"baby bottle milk"},
+        {e:"🥛",n:"milk glass"},
+        {e:"☕",n:"coffee hot"},
+        {e:"🫖",n:"teapot"},
+        {e:"🍵",n:"tea cup"},
+        {e:"🍶",n:"sake"},
+        {e:"🍾",n:"champagne bottle"},
+        {e:"🍷",n:"wine glass"},
+        {e:"🍸",n:"cocktail glass"},
+        {e:"🍹",n:"tropical drink"},
+        {e:"🍺",n:"beer mug"},
+        {e:"🍻",n:"beer mugs cheers"},
+        {e:"🥂",n:"clinking glasses champagne"},
+        {e:"🥃",n:"whiskey tumbler"},
+        {e:"🥤",n:"cup straw"},
+        {e:"🧋",n:"bubble tea"},
+        {e:"🧃",n:"juice box"},
+        {e:"🧉",n:"mate"},
+        {e:"🧊",n:"ice cube"},
+        {e:"🥢",n:"chopsticks"},
+        {e:"🍽️",n:"plate fork knife"},
+        {e:"🍴",n:"fork knife"},
+        {e:"🥄",n:"spoon"},
+        // Activities & Objects
+        {e:"⚽",n:"soccer ball football"},
+        {e:"🏀",n:"basketball"},
+        {e:"🏈",n:"american football"},
+        {e:"⚾",n:"baseball"},
+        {e:"🥎",n:"softball"},
+        {e:"🎾",n:"tennis"},
+        {e:"🏐",n:"volleyball"},
+        {e:"🏉",n:"rugby"},
+        {e:"🥏",n:"frisbee disc"},
+        {e:"🎱",n:"pool billiard 8ball"},
+        {e:"🪀",n:"yo-yo"},
+        {e:"🏓",n:"ping pong table tennis"},
+        {e:"🏸",n:"badminton"},
+        {e:"🏒",n:"ice hockey"},
+        {e:"🏑",n:"field hockey"},
+        {e:"🥍",n:"lacrosse"},
+        {e:"🏏",n:"cricket bat"},
+        {e:"🪃",n:"boomerang"},
+        {e:"🥅",n:"goal net"},
+        {e:"⛳",n:"golf flag"},
+        {e:"🪁",n:"kite"},
+        {e:"🏹",n:"bow arrow"},
+        {e:"🎣",n:"fishing pole"},
+        {e:"🤿",n:"diving mask"},
+        {e:"🥊",n:"boxing glove"},
+        {e:"🥋",n:"martial arts"},
+        {e:"🎽",n:"running shirt"},
+        {e:"🛹",n:"skateboard"},
+        {e:"🛼",n:"roller skate"},
+        {e:"🛷",n:"sled"},
+        {e:"⛸️",n:"ice skate"},
+        {e:"🥌",n:"curling stone"},
+        {e:"🎿",n:"skis"},
+        {e:"⛷️",n:"skier"},
+        {e:"🎯",n:"target dart"},
+        {e:"🪀",n:"yo-yo"},
+        {e:"🪁",n:"kite"},
+        {e:"🎮",n:"video game controller"},
+        {e:"🕹️",n:"joystick game"},
+        {e:"🎰",n:"slot machine"},
+        {e:"🎲",n:"dice game"},
+        {e:"🧩",n:"puzzle piece"},
+        {e:"🧸",n:"teddy bear"},
+        {e:"🪆",n:"nesting dolls"},
+        {e:"♠️",n:"spade card"},
+        {e:"♥️",n:"heart card"},
+        {e:"♦️",n:"diamond card"},
+        {e:"♣️",n:"club card"},
+        {e:"♟️",n:"chess pawn"},
+        {e:"🃏",n:"joker card"},
+        {e:"🀄",n:"mahjong"},
+        {e:"🎴",n:"flower cards"},
+        {e:"🎭",n:"theater masks drama"},
+        {e:"🖼️",n:"picture frame"},
+        {e:"🎨",n:"art palette paint"},
+        {e:"🧵",n:"thread"},
+        {e:"🪡",n:"sewing needle"},
+        {e:"🧶",n:"yarn ball"},
+        {e:"🪢",n:"knot"},
+        // Travel & Places
+        {e:"🚗",n:"car automobile"},
+        {e:"🚕",n:"taxi cab"},
+        {e:"🚙",n:"suv car"},
+        {e:"🚌",n:"bus"},
+        {e:"🚎",n:"trolleybus"},
+        {e:"🏎️",n:"racing car"},
+        {e:"🚓",n:"police car"},
+        {e:"🚑",n:"ambulance"},
+        {e:"🚒",n:"fire truck engine"},
+        {e:"🚐",n:"minibus van"},
+        {e:"🛻",n:"pickup truck"},
+        {e:"🚚",n:"truck delivery"},
+        {e:"🚛",n:"truck semi"},
+        {e:"🚜",n:"tractor"},
+        {e:"🏍️",n:"motorcycle"},
+        {e:"🛵",n:"scooter motor"},
+        {e:"🚲",n:"bicycle bike"},
+        {e:"🛴",n:"scooter kick"},
+        {e:"🛺",n:"auto rickshaw"},
+        {e:"🚂",n:"locomotive train"},
+        {e:"🚃",n:"railway car"},
+        {e:"🚄",n:"high speed train"},
+        {e:"🚅",n:"bullet train"},
+        {e:"🚆",n:"train"},
+        {e:"🚇",n:"metro subway"},
+        {e:"🚈",n:"light rail"},
+        {e:"🚉",n:"station"},
+        {e:"🚊",n:"tram"},
+        {e:"🚝",n:"monorail"},
+        {e:"🚞",n:"mountain railway"},
+        {e:"🚋",n:"tram car"},
+        {e:"🚍",n:"bus front"},
+        {e:"🚔",n:"police car oncoming"},
+        {e:"🚘",n:"car oncoming"},
+        {e:"🚖",n:"taxi oncoming"},
+        {e:"🛞",n:"wheel tire"},
+        {e:"⛽",n:"fuel pump gas"},
+        {e:"🛣️",n:"highway road"},
+        {e:"🛤️",n:"railway track"},
+        {e:"🛢️",n:"oil drum"},
+        {e:"⚓",n:"anchor"},
+        {e:"⛵",n:"sailboat"},
+        {e:"🛶",n:"canoe"},
+        {e:"🚤",n:"speedboat"},
+        {e:"🛳️",n:"passenger ship"},
+        {e:"⛴️",n:"ferry"},
+        {e:"🛥️",n:"motor boat"},
+        {e:"🚢",n:"ship"},
+        {e:"✈️",n:"airplane"},
+        {e:"🛩️",n:"small airplane"},
+        {e:"🛫",n:"airplane departure"},
+        {e:"🛬",n:"airplane arrival"},
+        {e:"🪂",n:"parachute"},
+        {e:"💺",n:"seat"},
+        {e:"🚁",n:"helicopter"},
+        {e:"🚟",n:"suspension railway"},
+        {e:"🚠",n:"cable car mountain"},
+        {e:"🚡",n:"aerial tramway"},
+        {e:"🛰️",n:"satellite"},
+        {e:"🚀",n:"rocket"},
+        {e:"🛸",n:"ufo flying saucer"},
+        {e:"🏠",n:"house home"},
+        {e:"🏡",n:"house garden"},
+        {e:"🏘️",n:"houses"},
+        {e:"🏚️",n:"derelict house"},
+        {e:"🏢",n:"office building"},
+        {e:"🏣",n:"japanese post office"},
+        {e:"🏤",n:"post office"},
+        {e:"🏥",n:"hospital"},
+        {e:"🏦",n:"bank"},
+        {e:"🏨",n:"hotel"},
+        {e:"🏩",n:"love hotel"},
+        {e:"🏪",n:"convenience store"},
+        {e:"🏫",n:"school"},
+        {e:"🏬",n:"department store"},
+        {e:"🏭",n:"factory"},
+        {e:"🏯",n:"japanese castle"},
+        {e:"🏰",n:"castle"},
+        {e:"💒",n:"wedding church"},
+        {e:"🗼",n:"tokyo tower"},
+        {e:"🗽",n:"statue liberty"},
+        {e:"⛪",n:"church"},
+        {e:"🕌",n:"mosque"},
+        {e:"🛕",n:"hindu temple"},
+        {e:"🕍",n:"synagogue"},
+        {e:"⛩️",n:"shinto shrine"},
+        {e:"🕋",n:"kaaba"},
+        {e:"⛲",n:"fountain"},
+        {e:"⛺",n:"tent camping"},
+        {e:"🌁",n:"foggy"},
+        {e:"🌃",n:"night stars"},
+        {e:"🏙️",n:"cityscape"},
+        {e:"🌄",n:"sunrise mountains"},
+        {e:"🌅",n:"sunrise"},
+        {e:"🌆",n:"cityscape dusk"},
+        {e:"🌇",n:"sunset"},
+        {e:"🌉",n:"bridge night"},
+        {e:"🎠",n:"carousel horse"},
+        {e:"🎡",n:"ferris wheel"},
+        {e:"🎢",n:"roller coaster"},
+        {e:"🚏",n:"bus stop"},
+        // Objects
+        {e:"⌚",n:"watch"},
+        {e:"📱",n:"mobile phone smartphone"},
+        {e:"📲",n:"phone arrow"},
+        {e:"💻",n:"laptop computer"},
+        {e:"⌨️",n:"keyboard"},
+        {e:"🖥️",n:"desktop computer"},
+        {e:"🖨️",n:"printer"},
+        {e:"🖱️",n:"computer mouse"},
+        {e:"💽",n:"computer disk"},
+        {e:"💾",n:"floppy disk save"},
+        {e:"💿",n:"optical disk cd"},
+        {e:"📀",n:"dvd"},
+        {e:"🧮",n:"abacus"},
+        {e:"🎥",n:"movie camera"},
+        {e:"🎞️",n:"film frames"},
+        {e:"📽️",n:"film projector"},
+        {e:"🎬",n:"clapper board movie"},
+        {e:"📺",n:"television tv"},
+        {e:"📷",n:"camera"},
+        {e:"📸",n:"camera flash"},
+        {e:"📹",n:"video camera"},
+        {e:"📼",n:"videocassette vhs"},
+        {e:"🔍",n:"magnifying glass search"},
+        {e:"🔎",n:"magnifying glass right"},
+        {e:"🕯️",n:"candle"},
+        {e:"💡",n:"light bulb idea"},
+        {e:"🔦",n:"flashlight"},
+        {e:"🏮",n:"red paper lantern"},
+        {e:"🪔",n:"diya lamp"},
+        {e:"📔",n:"notebook decorative"},
+        {e:"📕",n:"closed book"},
+        {e:"📖",n:"open book"},
+        {e:"📗",n:"green book"},
+        {e:"📘",n:"blue book"},
+        {e:"📙",n:"orange book"},
+        {e:"📚",n:"books"},
+        {e:"📓",n:"notebook"},
+        {e:"📒",n:"ledger"},
+        {e:"📃",n:"page curl"},
+        {e:"📜",n:"scroll"},
+        {e:"📄",n:"page facing up"},
+        {e:"📰",n:"newspaper"},
+        {e:"🗞️",n:"rolled newspaper"},
+        {e:"📑",n:"bookmark tabs"},
+        {e:"🔖",n:"bookmark"},
+        {e:"🏷️",n:"label tag"},
+        {e:"💰",n:"money bag"},
+        {e:"🪙",n:"coin"},
+        {e:"💴",n:"yen"},
+        {e:"💵",n:"dollar"},
+        {e:"💶",n:"euro"},
+        {e:"💷",n:"pound"},
+        {e:"💸",n:"money wings"},
+        {e:"💳",n:"credit card"},
+        {e:"🧾",n:"receipt"},
+        {e:"💹",n:"chart"},
+        {e:"✉️",n:"envelope email"},
+        {e:"📧",n:"e-mail"},
+        {e:"📨",n:"incoming envelope"},
+        {e:"📩",n:"envelope arrow"},
+        {e:"📤",n:"outbox tray"},
+        {e:"📥",n:"inbox tray"},
+        {e:"📦",n:"package box"},
+        {e:"📫",n:"mailbox"},
+        {e:"📪",n:"mailbox empty"},
+        {e:"📬",n:"mailbox mail"},
+        {e:"📭",n:"mailbox no mail"},
+        {e:"📮",n:"postbox"},
+        {e:"🗳️",n:"ballot box"},
+        {e:"✏️",n:"pencil"},
+        {e:"✒️",n:"black nib"},
+        {e:"🖋️",n:"fountain pen"},
+        {e:"🖊️",n:"pen"},
+        {e:"🖌️",n:"paintbrush"},
+        {e:"🖍️",n:"crayon"},
+        {e:"📝",n:"memo pencil"},
+        {e:"💼",n:"briefcase"},
+        {e:"📁",n:"folder"},
+        {e:"📂",n:"open folder"},
+        {e:"🗂️",n:"card dividers"},
+        {e:"📅",n:"calendar"},
+        {e:"📆",n:"tear off calendar"},
+        {e:"🗒️",n:"spiral notepad"},
+        {e:"🗓️",n:"spiral calendar"},
+        {e:"📇",n:"card index"},
+        {e:"📈",n:"chart increasing"},
+        {e:"📉",n:"chart decreasing"},
+        {e:"📊",n:"bar chart"},
+        {e:"📋",n:"clipboard"},
+        {e:"📌",n:"pushpin"},
+        {e:"📍",n:"pin location"},
+        {e:"📎",n:"paperclip"},
+        {e:"🖇️",n:"linked paperclips"},
+        {e:"📏",n:"ruler straight"},
+        {e:"📐",n:"ruler triangular"},
+        {e:"✂️",n:"scissors cut"},
+        {e:"🗃️",n:"card file box"},
+        {e:"🗄️",n:"file cabinet"},
+        {e:"🗑️",n:"trash wastebasket"},
+        {e:"🔒",n:"lock locked"},
+        {e:"🔓",n:"unlock open"},
+        {e:"🔏",n:"lock pen"},
+        {e:"🔐",n:"lock key"},
+        {e:"🔑",n:"key"},
+        {e:"🗝️",n:"old key"},
+        {e:"🔨",n:"hammer"},
+        {e:"🪓",n:"axe"},
+        {e:"⛏️",n:"pick"},
+        {e:"⚒️",n:"hammer pick"},
+        {e:"🛠️",n:"hammer wrench tools"},
+        {e:"🗡️",n:"dagger"},
+        {e:"⚔️",n:"crossed swords"},
+        {e:"🔫",n:"water pistol gun"},
+        {e:"🪃",n:"boomerang"},
+        {e:"🏹",n:"bow arrow"},
+        {e:"🛡️",n:"shield"},
+        {e:"🪚",n:"saw"},
+        {e:"🔧",n:"wrench"},
+        {e:"🪛",n:"screwdriver"},
+        {e:"🔩",n:"nut bolt"},
+        {e:"⚙️",n:"gear"},
+        {e:"🗜️",n:"clamp"},
+        {e:"⚖️",n:"balance scale"},
+        {e:"🦯",n:"probing cane"},
+        {e:"🔗",n:"link"},
+        {e:"⛓️",n:"chains"},
+        {e:"🪝",n:"hook"},
+        {e:"🧰",n:"toolbox"},
+        {e:"🧲",n:"magnet"},
+        {e:"🪜",n:"ladder"},
+        {e:"⚗️",n:"alembic"},
+        {e:"🧪",n:"test tube"},
+        {e:"🧫",n:"petri dish"},
+        {e:"🧬",n:"dna"},
+        {e:"🔬",n:"microscope"},
+        {e:"🔭",n:"telescope"},
+        {e:"📡",n:"satellite antenna"},
+        {e:"💉",n:"syringe"},
+        {e:"🩸",n:"blood drop"},
+        {e:"💊",n:"pill medicine"},
+        {e:"🩹",n:"bandage"},
+        {e:"🩼",n:"crutch"},
+        {e:"🩺",n:"stethoscope"},
+        {e:"🚪",n:"door"},
+        {e:"🛗",n:"elevator"},
+        {e:"🪞",n:"mirror"},
+        {e:"🪟",n:"window"},
+        {e:"🛏️",n:"bed"},
+        {e:"🛋️",n:"couch sofa"},
+        {e:"🪑",n:"chair"},
+        {e:"🚽",n:"toilet"},
+        {e:"🪠",n:"plunger"},
+        {e:"🚿",n:"shower"},
+        {e:"🛁",n:"bathtub"},
+        {e:"🪤",n:"mouse trap"},
+        {e:"🪒",n:"razor"},
+        {e:"🧴",n:"lotion bottle"},
+        {e:"🧷",n:"safety pin"},
+        {e:"🧹",n:"broom"},
+        {e:"🧺",n:"basket"},
+        {e:"🧻",n:"toilet paper roll"},
+        {e:"🪣",n:"bucket"},
+        {e:"🧼",n:"soap"},
+        {e:"🫧",n:"bubbles"},
+        {e:"🪥",n:"toothbrush"},
+        {e:"🧽",n:"sponge"},
+        {e:"🧯",n:"fire extinguisher"},
+        {e:"🛒",n:"shopping cart"},
+        {e:"🚬",n:"cigarette smoking"},
+        {e:"⚰️",n:"coffin"},
+        {e:"🪦",n:"headstone"},
+        {e:"⚱️",n:"funeral urn"},
+        {e:"🗿",n:"moai statue"},
+        {e:"🪧",n:"placard"},
+        {e:"🏧",n:"atm sign"},
+        // Symbols
+        {e:"❤️",n:"red heart love"},
+        {e:"🧡",n:"orange heart"},
+        {e:"💛",n:"yellow heart"},
+        {e:"💚",n:"green heart"},
+        {e:"💙",n:"blue heart"},
+        {e:"💜",n:"purple heart"},
+        {e:"🖤",n:"black heart"},
+        {e:"🤍",n:"white heart"},
+        {e:"🤎",n:"brown heart"},
+        {e:"💔",n:"broken heart"},
+        {e:"❤️‍🔥",n:"heart fire"},
+        {e:"❤️‍🩹",n:"mending heart"},
+        {e:"❣️",n:"heart exclamation"},
+        {e:"💕",n:"two hearts"},
+        {e:"💞",n:"revolving hearts"},
+        {e:"💓",n:"beating heart"},
+        {e:"💗",n:"growing heart"},
+        {e:"💖",n:"sparkling heart"},
+        {e:"💘",n:"heart arrow cupid"},
+        {e:"💝",n:"heart ribbon gift"},
+        {e:"💟",n:"heart decoration"},
+        {e:"☮️",n:"peace symbol"},
+        {e:"✝️",n:"cross latin"},
+        {e:"☪️",n:"star crescent"},
+        {e:"🕉️",n:"om"},
+        {e:"☸️",n:"wheel dharma"},
+        {e:"✡️",n:"star david"},
+        {e:"🔯",n:"six pointed star"},
+        {e:"🕎",n:"menorah"},
+        {e:"☯️",n:"yin yang"},
+        {e:"☦️",n:"orthodox cross"},
+        {e:"🛐",n:"place worship"},
+        {e:"⛎",n:"ophiuchus"},
+        {e:"♈",n:"aries"},
+        {e:"♉",n:"taurus"},
+        {e:"♊",n:"gemini"},
+        {e:"♋",n:"cancer"},
+        {e:"♌",n:"leo"},
+        {e:"♍",n:"virgo"},
+        {e:"♎",n:"libra"},
+        {e:"♏",n:"scorpio"},
+        {e:"♐",n:"sagittarius"},
+        {e:"♑",n:"capricorn"},
+        {e:"♒",n:"aquarius"},
+        {e:"♓",n:"pisces"},
+        {e:"🆔",n:"id"},
+        {e:"⚛️",n:"atom"},
+        {e:"🉑",n:"accept"},
+        {e:"☢️",n:"radioactive"},
+        {e:"☣️",n:"biohazard"},
+        {e:"📴",n:"mobile phone off"},
+        {e:"📳",n:"vibration mode"},
+        {e:"🈶",n:"japanese have"},
+        {e:"🈚",n:"japanese free"},
+        {e:"🈸",n:"japanese application"},
+        {e:"🈺",n:"japanese open"},
+        {e:"🈷️",n:"japanese monthly"},
+        {e:"✴️",n:"eight pointed star"},
+        {e:"🆚",n:"vs"},
+        {e:"💮",n:"white flower"},
+        {e:"🉐",n:"japanese bargain"},
+        {e:"㊙️",n:"japanese secret"},
+        {e:"㊗️",n:"japanese congratulations"},
+        {e:"🈴",n:"japanese passing"},
+        {e:"🈵",n:"japanese no vacancy"},
+        {e:"🈹",n:"japanese discount"},
+        {e:"🈲",n:"japanese prohibited"},
+        {e:"🅰️",n:"a blood"},
+        {e:"🅱️",n:"b blood"},
+        {e:"🆎",n:"ab blood"},
+        {e:"🆑",n:"cl"},
+        {e:"🅾️",n:"o blood"},
+        {e:"🆘",n:"sos help"},
+        {e:"❌",n:"cross mark x no"},
+        {e:"⭕",n:"circle hollow"},
+        {e:"🛑",n:"stop sign"},
+        {e:"⛔",n:"no entry prohibited"},
+        {e:"📛",n:"name badge"},
+        {e:"🚫",n:"prohibited"},
+        {e:"💯",n:"hundred 100"},
+        {e:"💢",n:"anger symbol"},
+        {e:"♨️",n:"hot springs"},
+        {e:"🚷",n:"no pedestrians"},
+        {e:"🚯",n:"no littering"},
+        {e:"🚳",n:"no bicycles"},
+        {e:"🚱",n:"non potable water"},
+        {e:"🔞",n:"no one under 18"},
+        {e:"📵",n:"no mobile phones"},
+        {e:"🚭",n:"no smoking"},
+        {e:"❗",n:"exclamation mark"},
+        {e:"❕",n:"white exclamation"},
+        {e:"❓",n:"question mark"},
+        {e:"❔",n:"white question"},
+        {e:"‼️",n:"double exclamation"},
+        {e:"⁉️",n:"exclamation question"},
+        {e:"🔅",n:"dim low brightness"},
+        {e:"🔆",n:"bright high brightness"},
+        {e:"〽️",n:"part alternation mark"},
+        {e:"⚠️",n:"warning"},
+        {e:"🚸",n:"children crossing"},
+        {e:"🔱",n:"trident emblem"},
+        {e:"⚜️",n:"fleur de lis"},
+        {e:"🔰",n:"japanese beginner"},
+        {e:"♻️",n:"recycling symbol"},
+        {e:"✅",n:"check mark yes"},
+        {e:"🈯",n:"japanese reserved"},
+        {e:"💹",n:"chart increasing yen"},
+        {e:"❇️",n:"sparkle"},
+        {e:"✳️",n:"eight spoked asterisk"},
+        {e:"❎",n:"cross mark button"},
+        {e:"🌐",n:"globe meridians"},
+        {e:"💠",n:"diamond dot"},
+        {e:"Ⓜ️",n:"m circled"},
+        {e:"🌀",n:"cyclone"},
+        {e:"💤",n:"zzz sleep"},
+        {e:"🏳️",n:"white flag"},
+        {e:"🏴",n:"black flag"},
+        {e:"🏁",n:"checkered flag"},
+        {e:"🚩",n:"triangular flag"},
+        {e:"🏳️‍🌈",n:"rainbow flag"},
+        {e:"🏳️‍⚧️",n:"transgender flag"},
+        {e:"🏴‍☠️",n:"pirate flag"},
+        // Numbers
+        {e:"0️⃣",n:"zero 0"},
+        {e:"1️⃣",n:"one 1"},
+        {e:"2️⃣",n:"two 2"},
+        {e:"3️⃣",n:"three 3"},
+        {e:"4️⃣",n:"four 4"},
+        {e:"5️⃣",n:"five 5"},
+        {e:"6️⃣",n:"six 6"},
+        {e:"7️⃣",n:"seven 7"},
+        {e:"8️⃣",n:"eight 8"},
+        {e:"9️⃣",n:"nine 9"},
+        {e:"🔟",n:"ten 10"},
+        {e:"#️⃣",n:"hash pound"},
+        {e:"*️⃣",n:"asterisk star"},
+        {e:"▶️",n:"play button"},
+        {e:"⏸️",n:"pause button"},
+        {e:"⏯️",n:"play pause"},
+        {e:"⏹️",n:"stop button"},
+        {e:"⏺️",n:"record button"},
+        {e:"⏭️",n:"next track"},
+        {e:"⏮️",n:"previous track"},
+        {e:"⏩",n:"fast forward"},
+        {e:"⏪",n:"rewind"},
+        {e:"⏫",n:"fast up"},
+        {e:"⏬",n:"fast down"},
+        {e:"◀️",n:"reverse button"},
+        {e:"🔼",n:"up button"},
+        {e:"🔽",n:"down button"},
+        {e:"➡️",n:"right arrow"},
+        {e:"⬅️",n:"left arrow"},
+        {e:"⬆️",n:"up arrow"},
+        {e:"⬇️",n:"down arrow"},
+        {e:"↗️",n:"up right arrow"},
+        {e:"↘️",n:"down right arrow"},
+        {e:"↙️",n:"down left arrow"},
+        {e:"↖️",n:"up left arrow"},
+        {e:"↕️",n:"up down arrow"},
+        {e:"↔️",n:"left right arrow"},
+        {e:"↩️",n:"right arrow curving left"},
+        {e:"↪️",n:"left arrow curving right"},
+        {e:"⤴️",n:"right arrow curving up"},
+        {e:"⤵️",n:"right arrow curving down"},
+        {e:"🔀",n:"shuffle"},
+        {e:"🔁",n:"repeat"},
+        {e:"🔂",n:"repeat single"},
+        {e:"🔄",n:"counterclockwise arrows"},
+        {e:"🔃",n:"clockwise arrows"},
+        {e:"🎵",n:"musical note music"},
+        {e:"🎶",n:"musical notes music"},
+        {e:"➕",n:"plus add"},
+        {e:"➖",n:"minus"},
+        {e:"➗",n:"divide"},
+        {e:"✖️",n:"multiply x"},
+        {e:"♾️",n:"infinity"},
+        {e:"💲",n:"dollar sign"},
+        {e:"💱",n:"currency exchange"},
+        {e:"™️",n:"trade mark"},
+        {e:"©️",n:"copyright"},
+        {e:"®️",n:"registered"},
+        {e:"🔚",n:"end arrow"},
+        {e:"🔙",n:"back arrow"},
+        {e:"🔛",n:"on arrow"},
+        {e:"🔝",n:"top arrow"},
+        {e:"🔜",n:"soon arrow"},
+        {e:"〰️",n:"wavy dash"},
+        {e:"➰",n:"curly loop"},
+        {e:"➿",n:"double curly loop"},
+        {e:"✔️",n:"check mark"},
+        {e:"☑️",n:"check box"},
+        {e:"🔘",n:"radio button"},
+        {e:"🔴",n:"red circle"},
+        {e:"🟠",n:"orange circle"},
+        {e:"🟡",n:"yellow circle"},
+        {e:"🟢",n:"green circle"},
+        {e:"🔵",n:"blue circle"},
+        {e:"🟣",n:"purple circle"},
+        {e:"🟤",n:"brown circle"},
+        {e:"⚫",n:"black circle"},
+        {e:"⚪",n:"white circle"},
+        {e:"🟥",n:"red square"},
+        {e:"🟧",n:"orange square"},
+        {e:"🟨",n:"yellow square"},
+        {e:"🟩",n:"green square"},
+        {e:"🟦",n:"blue square"},
+        {e:"🟪",n:"purple square"},
+        {e:"🟫",n:"brown square"},
+        {e:"⬛",n:"black square large"},
+        {e:"⬜",n:"white square large"},
+        {e:"◼️",n:"black square medium"},
+        {e:"◻️",n:"white square medium"},
+        {e:"◾",n:"black square medium small"},
+        {e:"◽",n:"white square medium small"},
+        {e:"▪️",n:"black square small"},
+        {e:"▫️",n:"white square small"},
+        {e:"🔶",n:"large orange diamond"},
+        {e:"🔷",n:"large blue diamond"},
+        {e:"🔸",n:"small orange diamond"},
+        {e:"🔹",n:"small blue diamond"},
+        {e:"🔺",n:"red triangle up"},
+        {e:"🔻",n:"red triangle down"},
+        {e:"💎",n:"gem stone diamond"},
+        {e:"🔲",n:"black square button"},
+        {e:"🔳",n:"white square button"},
+        {e:"🔈",n:"speaker low"},
+        {e:"🔉",n:"speaker medium"},
+        {e:"🔊",n:"speaker high loud"},
+        {e:"🔇",n:"muted speaker"},
+        {e:"📢",n:"loudspeaker"},
+        {e:"📣",n:"megaphone"},
+        {e:"📯",n:"postal horn"},
+        {e:"🔔",n:"bell"},
+        {e:"🔕",n:"bell slash"},
+        // Weather & Nature
+        {e:"☀️",n:"sun sunny"},
+        {e:"🌤️",n:"sun small cloud"},
+        {e:"⛅",n:"sun behind cloud"},
+        {e:"🌥️",n:"sun large cloud"},
+        {e:"☁️",n:"cloud"},
+        {e:"🌦️",n:"sun rain cloud"},
+        {e:"🌧️",n:"rain cloud"},
+        {e:"⛈️",n:"thunder cloud rain"},
+        {e:"🌩️",n:"lightning cloud"},
+        {e:"🌨️",n:"snow cloud"},
+        {e:"❄️",n:"snowflake"},
+        {e:"☃️",n:"snowman"},
+        {e:"⛄",n:"snowman no snow"},
+        {e:"🌬️",n:"wind face"},
+        {e:"💨",n:"dash wind"},
+        {e:"🌪️",n:"tornado"},
+        {e:"🌫️",n:"fog"},
+        {e:"🌊",n:"wave water ocean"},
+        {e:"💧",n:"droplet water"},
+        {e:"💦",n:"sweat droplets water"},
+        {e:"🌈",n:"rainbow"},
+        {e:"🌙",n:"crescent moon"},
+        {e:"🌛",n:"first quarter moon face"},
+        {e:"🌜",n:"last quarter moon face"},
+        {e:"🌝",n:"full moon face"},
+        {e:"🌞",n:"sun face"},
+        {e:"⭐",n:"star"},
+        {e:"🌟",n:"glowing star"},
+        {e:"✨",n:"sparkles"},
+        {e:"🌠",n:"shooting star"},
+        {e:"🔥",n:"fire flame hot"},
+        {e:"💥",n:"collision explosion"},
+        {e:"⚡",n:"lightning high voltage"},
+        {e:"🌸",n:"cherry blossom flower"},
+        {e:"💮",n:"white flower"},
+        {e:"🏵️",n:"rosette"},
+        {e:"🌹",n:"rose flower"},
+        {e:"🥀",n:"wilted flower"},
+        {e:"🌺",n:"hibiscus flower"},
+        {e:"🌻",n:"sunflower"},
+        {e:"🌼",n:"blossom flower"},
+        {e:"🌷",n:"tulip flower"},
+        {e:"🌱",n:"seedling plant"},
+        {e:"🪴",n:"potted plant"},
+        {e:"🌲",n:"evergreen tree"},
+        {e:"🌳",n:"deciduous tree"},
+        {e:"🌴",n:"palm tree"},
+        {e:"🌵",n:"cactus"},
+        {e:"🌾",n:"sheaf rice"},
+        {e:"🌿",n:"herb"},
+        {e:"☘️",n:"shamrock"},
+        {e:"🍀",n:"four leaf clover luck"},
+        {e:"🍁",n:"maple leaf fall"},
+        {e:"🍂",n:"fallen leaf autumn"},
+        {e:"🍃",n:"leaf fluttering wind"},
+        {e:"🪹",n:"empty nest"},
+        {e:"🪺",n:"nest eggs"},
+        {e:"🍄",n:"mushroom"},
+        {e:"🌍",n:"globe europe africa earth"},
+        {e:"🌎",n:"globe americas earth"},
+        {e:"🌏",n:"globe asia australia earth"},
+        {e:"🪨",n:"rock"},
+        {e:"🪵",n:"wood log"},
+        // Clothing
+        {e:"👓",n:"glasses"},
+        {e:"🕶️",n:"sunglasses"},
+        {e:"🥽",n:"goggles"},
+        {e:"🥼",n:"lab coat"},
+        {e:"🦺",n:"safety vest"},
+        {e:"👔",n:"necktie"},
+        {e:"👕",n:"t-shirt"},
+        {e:"👖",n:"jeans pants"},
+        {e:"🧣",n:"scarf"},
+        {e:"🧤",n:"gloves"},
+        {e:"🧥",n:"coat"},
+        {e:"🧦",n:"socks"},
+        {e:"👗",n:"dress"},
+        {e:"👘",n:"kimono"},
+        {e:"🥻",n:"sari"},
+        {e:"🩱",n:"one piece swimsuit"},
+        {e:"🩲",n:"briefs"},
+        {e:"🩳",n:"shorts"},
+        {e:"👙",n:"bikini"},
+        {e:"👚",n:"woman clothes"},
+        {e:"👛",n:"purse"},
+        {e:"👜",n:"handbag"},
+        {e:"👝",n:"clutch bag"},
+        {e:"🛍️",n:"shopping bags"},
+        {e:"🎒",n:"backpack school bag"},
+        {e:"🩴",n:"thong sandal"},
+        {e:"👞",n:"man shoe"},
+        {e:"👟",n:"running shoe sneaker"},
+        {e:"🥾",n:"hiking boot"},
+        {e:"🥿",n:"flat shoe"},
+        {e:"👠",n:"high heel shoe"},
+        {e:"👡",n:"woman sandal"},
+        {e:"🩰",n:"ballet shoes"},
+        {e:"👢",n:"woman boot"},
+        {e:"👑",n:"crown"},
+        {e:"👒",n:"woman hat"},
+        {e:"🎩",n:"top hat"},
+        {e:"🎓",n:"graduation cap"},
+        {e:"🧢",n:"cap billed"},
+        {e:"🪖",n:"military helmet"},
+        {e:"⛑️",n:"rescue helmet"},
+        {e:"📿",n:"prayer beads"},
+        {e:"💄",n:"lipstick"},
+        {e:"💍",n:"ring"},
+        {e:"💎",n:"gem stone diamond"},
+        {e:"🎀",n:"ribbon bow"},
+        {e:"🎁",n:"gift wrapped present"}
+    ];
+
+    document.addEventListener('DOMContentLoaded', function() {
+        // Load saved preferences first
+        loadPreferences();
+        
+        // Theme toggle
+        document.getElementById('theme-toggle').addEventListener('click', toggleTheme);
+        
+        // Language toggle
+        document.getElementById('lang-toggle').addEventListener('click', function() {
+            applyLanguage(currentLang === 'mk' ? 'en' : 'mk');
+        });
+        
+        // Elements
+        var tabBtns = document.querySelectorAll('.tab-btn');
+        var emojiSearch = document.getElementById('emoji-search');
+        var emojiGrid = document.getElementById('emoji-grid');
+        var emojiLabel = document.getElementById('emoji-label');
+        var emojiUpdateBtn = document.getElementById('emoji-update-btn');
+        var aiPrompt = document.getElementById('ai-prompt');
+        var aiLabel = document.getElementById('ai-label');
+        var aiGenerateBtn = document.getElementById('ai-generate-btn');
+        var aiStopBtn = document.getElementById('ai-stop-btn');
+        var cardVisual = document.getElementById('card-visual');
+        var cardLabel = document.getElementById('card-label');
+        var aacCard = document.getElementById('aac-card');
+        var downloadBtn = document.getElementById('download-btn');
+
+        var selectedEmoji = '👋';
+        var isGenerating = false;
+        var timerInterval = null;
+
+        // Style for AI images
+        var STYLE_PROMPT = ", simple flat vector illustration, solid white background, cute cartoon style, bold black outline, bright colors, single centered object, emoji style, clipart, child-friendly, no shadows, no gradients";
+
+        // Auto-resize label text to fit
+        function autoResizeLabel() {
+            var label = cardLabel;
+            var text = label.textContent;
+            var len = text.length;
+            
+            // Calculate font size based on text length
+            var fontSize;
+            if (len <= 6) {
+                fontSize = 3; // rem
+            } else if (len <= 10) {
+                fontSize = 2.5;
+            } else if (len <= 15) {
+                fontSize = 2;
+            } else if (len <= 20) {
+                fontSize = 1.6;
+            } else {
+                fontSize = 1.3;
+            }
+            
+            label.style.fontSize = fontSize + 'rem';
+        }
+
+        // Update label with auto-resize
+        function setLabel(text) {
+            cardLabel.textContent = text || 'Label';
+            autoResizeLabel();
+        }
+
+        // Tab switching
+        tabBtns.forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                tabBtns.forEach(function(b) { b.classList.remove('active'); });
+                document.querySelectorAll('.tab-content').forEach(function(c) { c.classList.remove('active'); });
+                btn.classList.add('active');
+                document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
+            });
+        });
+
+        // Border Color Picker
+        var borderColorPicker = document.getElementById('border-color-picker');
+        var fontColorPicker = document.getElementById('font-color-picker');
+        var syncColors = document.getElementById('sync-colors');
+
+        borderColorPicker.addEventListener('click', function(e) {
+            if (e.target.classList.contains('color-swatch')) {
+                borderColorPicker.querySelectorAll('.color-swatch').forEach(function(s) {
+                    s.classList.remove('active');
+                });
+                e.target.classList.add('active');
+                var color = e.target.dataset.color;
+                aacCard.style.borderColor = color;
+                
+                // Sync if checkbox checked
+                if (syncColors.checked) {
+                    fontColorPicker.querySelectorAll('.color-swatch').forEach(function(s) {
+                        s.classList.remove('active');
+                        if (s.dataset.color === color) s.classList.add('active');
+                    });
+                    cardLabel.style.color = color;
+                }
+            }
+        });
+
+        fontColorPicker.addEventListener('click', function(e) {
+            if (e.target.classList.contains('color-swatch')) {
+                fontColorPicker.querySelectorAll('.color-swatch').forEach(function(s) {
+                    s.classList.remove('active');
+                });
+                e.target.classList.add('active');
+                var color = e.target.dataset.color;
+                cardLabel.style.color = color;
+                
+                // Sync if checkbox checked
+                if (syncColors.checked) {
+                    borderColorPicker.querySelectorAll('.color-swatch').forEach(function(s) {
+                        s.classList.remove('active');
+                        if (s.dataset.color === color) s.classList.add('active');
+                    });
+                    aacCard.style.borderColor = color;
+                }
+            }
+        });
+
+        // Emoji Search (LOCAL - no API needed)
+        emojiSearch.addEventListener('input', function() {
+            var query = emojiSearch.value.trim().toLowerCase();
+            
+            if (query.length < 2) {
+                emojiGrid.innerHTML = '<p class="emoji-message">' + t('search_min') + '</p>';
+                return;
+            }
+
+            emojiGrid.innerHTML = '<p class="emoji-message">' + t('searching') + '</p>';
+
+            // Search in local database
+            var results = EMOJI_DATA.filter(function(item) {
+                return item.n.toLowerCase().indexOf(query) !== -1;
+            });
+
+            emojiGrid.innerHTML = '';
+
+            if (results.length > 0) {
+                results.slice(0, 25).forEach(function(item) {
+                    var btn = document.createElement('button');
+                    btn.type = 'button';
+                    btn.className = 'emoji-item';
+                    btn.textContent = item.e;
+                    btn.title = item.n;
+                    
+                    btn.addEventListener('click', function() {
+                        document.querySelectorAll('.emoji-item').forEach(function(i) {
+                            i.classList.remove('selected');
+                        });
+                        btn.classList.add('selected');
+                        selectedEmoji = item.e;
+                        emojiLabel.value = item.n.split(' ')[0];
+                        
+                        // Update card immediately
+                        cardVisual.className = 'symbol-display';
+                        cardVisual.textContent = item.e;
+                        setLabel(emojiLabel.value);
+                    });
+                    
+                    emojiGrid.appendChild(btn);
+                });
+            } else {
+                emojiGrid.innerHTML = '<p class="emoji-message">' + t('no_results') + '</p>';
+            }
+        });
+
+        // Emoji Update Button
+        emojiUpdateBtn.addEventListener('click', function() {
+            cardVisual.className = 'symbol-display';
+            cardVisual.textContent = selectedEmoji;
+            setLabel(emojiLabel.value);
+        });
+
+        // AI Generation
+        aiGenerateBtn.addEventListener('click', function() {
+            var prompt = aiPrompt.value.trim();
+            var label = aiLabel.value.trim() || prompt.split(',')[0] || 'label';
+
+            if (!prompt) {
+                alert(t('alert_enter_desc'));
+                return;
+            }
+
+            isGenerating = true;
+            aiGenerateBtn.disabled = true;
+            aiGenerateBtn.textContent = t('generating');
+            aiStopBtn.style.display = 'block';
+
+            // Show loading
+            var seconds = 0;
+            cardVisual.className = 'image-display';
+            cardVisual.innerHTML = '<div class="loading-info"><div class="spinner"></div><div class="timer" id="timer">0s</div></div>';
+            setLabel(label);
+
+            timerInterval = setInterval(function() {
+                seconds++;
+                var timer = document.getElementById('timer');
+                if (timer) timer.textContent = seconds + 's';
+            }, 1000);
+
+            // Generate with Pollinations
+            var seed = Math.floor(Math.random() * 100000);
+            var fullPrompt = prompt + STYLE_PROMPT;
+            var imageUrl = 'https://image.pollinations.ai/prompt/' + encodeURIComponent(fullPrompt) + '?width=512&height=512&nologo=true&seed=' + seed;
+
+            var img = new Image();
+            img.crossOrigin = 'Anonymous';
+
+            var timeout = setTimeout(function() {
+                if (isGenerating) {
+                    stopGeneration();
+                    cardVisual.innerHTML = '<span class="placeholder-icon">❌</span>';
+                    alert(t('alert_timeout'));
+                }
+            }, 60000);
+
+            img.onload = function() {
+                clearTimeout(timeout);
+                clearInterval(timerInterval);
+                if (!isGenerating) return;
+
+                cardVisual.innerHTML = '';
+                img.style.maxWidth = '100%';
+                img.style.maxHeight = '100%';
+                cardVisual.appendChild(img);
+
+                isGenerating = false;
+                aiGenerateBtn.disabled = false;
+                aiGenerateBtn.textContent = t('generate');
+                aiStopBtn.style.display = 'none';
+            };
+
+            img.onerror = function() {
+                clearTimeout(timeout);
+                clearInterval(timerInterval);
+                if (!isGenerating) return;
+
+                cardVisual.innerHTML = '<span class="placeholder-icon">❌</span>';
+                isGenerating = false;
+                aiGenerateBtn.disabled = false;
+                aiGenerateBtn.textContent = t('generate');
+                aiStopBtn.style.display = 'none';
+                alert(t('alert_error'));
+            };
+
+            img.src = imageUrl;
+        });
+
+        function stopGeneration() {
+            isGenerating = false;
+            clearInterval(timerInterval);
+            aiGenerateBtn.disabled = false;
+            aiGenerateBtn.textContent = t('generate');
+            aiStopBtn.style.display = 'none';
+        }
+
+        aiStopBtn.addEventListener('click', function() {
+            stopGeneration();
+            cardVisual.className = 'symbol-display';
+            cardVisual.textContent = '🎨';
+        });
+
+        // Download
+        downloadBtn.addEventListener('click', function() {
+            var originalText = downloadBtn.textContent;
+            downloadBtn.textContent = t('saving');
+            downloadBtn.disabled = true;
+
+            html2canvas(aacCard, {
+                scale: 3,
+                useCORS: true,
+                allowTaint: true,
+                backgroundColor: '#ffffff'
+            }).then(function(canvas) {
+                var link = document.createElement('a');
+                var filename = cardLabel.textContent.replace(/[^a-zA-Zа-яА-Яа-шА-Ш0-9]/g, '_') || 'symbol';
+                link.download = 'aac_' + filename + '.png';
+                link.href = canvas.toDataURL('image/png');
+                link.click();
+
+                downloadBtn.textContent = t('save');
+                downloadBtn.disabled = false;
+            }).catch(function(err) {
+                console.error('Save error:', err);
+                alert(t('alert_save_error'));
+                downloadBtn.textContent = t('save');
+                downloadBtn.disabled = false;
+            });
+        });
+
+        // Initialize
+        autoResizeLabel();
+    });
+    </script>
+</body>
+</html>
