@@ -1,0 +1,1710 @@
+<!DOCTYPE html>
+<html lang="mk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cyrillic Whiteboard - Интерактивна Кирилска Табла</title>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        html, body, #root {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+        }
+        .cursor-grab { cursor: grab; }
+        .cursor-grabbing { cursor: grabbing; }
+        .cursor-crosshair { cursor: crosshair; }
+        .cursor-ew-resize { cursor: ew-resize; }
+        .cursor-nwse-resize { cursor: nwse-resize; }
+        .cursor-text { cursor: text; }
+        
+        /* Canvas grid background */
+        .canvas-grid {
+            background-image: 
+                linear-gradient(rgba(100, 116, 139, 0.1) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(100, 116, 139, 0.1) 1px, transparent 1px);
+            background-size: 50px 50px;
+        }
+        
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: #3b82f6;
+            cursor: pointer;
+        }
+        input[type="range"]::-moz-range-thumb {
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: #3b82f6;
+            cursor: pointer;
+            border: none;
+        }
+        
+        /* Scrollbar styling */
+        ::-webkit-scrollbar {
+            width: 12px;
+            height: 12px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #1e293b;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #475569;
+            border-radius: 6px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #64748b;
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useCallback, useRef } = React;
+
+        // Types (using JSDoc comments for documentation)
+        // BaseElement: { id, x, y }
+        // LetterElement: { type: 'letter', content, fontSize, originalFontSize, width, color }
+        // ImageElement: { type: 'image', content, width, height }
+        // LineElement: { type: 'line', x, y, width, color }
+
+        const MAX_HISTORY_STEPS = 4;
+        const SNAP_THRESHOLD = 15;
+
+        // Icons
+        const TrashIcon = () => (
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm4 0a1 1 0 012 0v6a1 1 0 11-2 0V8z" clipRule="evenodd" />
+            </svg>
+        );
+
+        const SaveIcon = () => (
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                <path d="M7.707 10.293a1 1 0 10-1.414 1.414l3 3a1 1 0 001.414 0l3-3a1 1 0 00-1.414-1.414L11 11.586V6a1 1 0 10-2 0v5.586L7.707 10.293zM5 3a2 2 0 012-2h6a2 2 0 012 2v2a1 1 0 11-2 0V4H7v1a1 1 0 11-2 0V3z" />
+                <path d="M3 8a2 2 0 012-2h10a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V8zm2 0v8h10V8H5z" />
+            </svg>
+        );
+
+        const KeyboardIcon = () => (
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M18 8a2 2 0 00-2-2H4a2 2 0 00-2 2v4a2 2 0 002 2h12a2 2 0 002-2V8zM5 10a1 1 0 100-2 1 1 0 000 2zm3 0a1 1 0 100-2 1 1 0 000 2zm3 0a1 1 0 100-2 1 1 0 000 2zm3 0a1 1 0 100-2 1 1 0 000 2zM5 12a1 1 0 11-2 0 1 1 0 012 0zm3 0a1 1 0 11-2 0 1 1 0 012 0zm3 0a1 1 0 11-2 0 1 1 0 012 0zm3 0a1 1 0 11-2 0 1 1 0 012 0z" clipRule="evenodd" />
+            </svg>
+        );
+
+        const LineIcon = () => (
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4 12h16" />
+            </svg>
+        );
+
+        const PaintBrushIcon = () => (
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                <path d="M17.414 2.586a2 2 0 00-2.828 0L7 10.172V13h2.828l7.586-7.586a2 2 0 000-2.828z" />
+                <path fillRule="evenodd" d="M2 6a2 2 0 012-2h4a1 1 0 010 2H4v10h10v-4a1 1 0 112 0v4a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" clipRule="evenodd" />
+            </svg>
+        );
+
+        const LockClosedIcon = () => (
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
+            </svg>
+        );
+
+        const LockOpenIcon = () => (
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                <path d="M10 2a5 5 0 00-5 5v2a2 2 0 00-2 2v5a2 2 0 002 2h10a2 2 0 002-2v-5a2 2 0 00-2-2V7a5 5 0 00-5-5zm0 3a3 3 0 013 3v2H7V7a3 3 0 013-3z" />
+            </svg>
+        );
+
+        const AlignIcon = () => (
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M3 5a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM3 10a1 1 0 011-1h6a1 1 0 110 2H4a1 1 0 01-1-1z" clipRule="evenodd" />
+            </svg>
+        );
+
+        const UndoIcon = () => (
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+            </svg>
+        );
+
+        const RedoIcon = () => (
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3" />
+            </svg>
+        );
+
+        const TypeIcon = () => (
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+            </svg>
+        );
+
+        const MinusIcon = () => (
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M3 10a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z" clipRule="evenodd" />
+            </svg>
+        );
+
+        const PlusIcon = () => (
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" />
+            </svg>
+        );
+
+        // History Hook
+        const useHistory = (initialState) => {
+            const [state, setState] = useState({
+                past: [],
+                present: initialState,
+                future: [],
+            });
+
+            const canUndo = state.past.length > 0;
+            const canRedo = state.future.length > 0;
+
+            const undo = useCallback(() => {
+                if (!canUndo) return;
+                const newFuture = [state.present, ...state.future];
+                const newPresent = state.past[state.past.length - 1];
+                const newPast = state.past.slice(0, state.past.length - 1);
+                setState({ past: newPast, present: newPresent, future: newFuture });
+            }, [canUndo, state.present, state.future, state.past]);
+
+            const redo = useCallback(() => {
+                if (!canRedo) return;
+                const newPast = [...state.past, state.present];
+                const newPresent = state.future[0];
+                const newFuture = state.future.slice(1);
+                setState({ past: newPast, present: newPresent, future: newFuture });
+            }, [canRedo, state.present, state.future, state.past]);
+
+            const set = useCallback((newState) => {
+                if (JSON.stringify(newState) === JSON.stringify(state.present)) return;
+                const newPast = [...state.past, state.present].slice(-MAX_HISTORY_STEPS);
+                setState({
+                    past: newPast,
+                    present: newState,
+                    future: [],
+                });
+            }, [state.present]);
+
+            return { state: state.present, set, undo, redo, canUndo, canRedo };
+        };
+
+        // DraggableItem Component
+        const DraggableItem = ({ element, onUpdateElement, onUpdateMultipleElements, onSelectElement, isSelected, allElements, isPaintingActive, letterSpacing, selectedElementIds }) => {
+            const [isDragging, setIsDragging] = useState(false);
+            const [isResizing, setIsResizing] = useState(false);
+            const itemRef = useRef(null);
+            const offsetRef = useRef({ x: 0, y: 0 });
+            const initialPosRef = useRef({ x: 0, y: 0 });
+            const initialSizeRef = useRef({ width: 0, height: 0 });
+            const initialMousePosRef = useRef({ x: 0, y: 0 });
+            const initialGroupPositionsRef = useRef(new Map());
+
+            useEffect(() => {
+                if (itemRef.current && element.type === 'letter' && element.content !== ' ') {
+                    const actualWidth = itemRef.current.getBoundingClientRect().width;
+                    if (Math.abs(actualWidth - element.width) > 0.5) {
+                        onUpdateElement(element.id, { width: actualWidth });
+                    }
+                }
+            }, [element.fontSize, element.content, element.id, element.type, element.width, onUpdateElement]);
+
+            const handleMouseDown = (e) => {
+                e.stopPropagation();
+                if (isPaintingActive && element.type === 'letter') {
+                    onUpdateElement(element.id, { color: '#ef4444' });
+                    return;
+                }
+                onSelectElement(element.id, e.shiftKey);
+                if (!itemRef.current) return;
+                setIsDragging(true);
+                const rect = itemRef.current.getBoundingClientRect();
+                offsetRef.current = {
+                    x: e.clientX - rect.left,
+                    y: e.clientY - rect.top,
+                };
+                document.body.style.cursor = 'grabbing';
+                initialMousePosRef.current = { x: e.clientX, y: e.clientY };
+                const isDragOnSelectedGroup = isSelected && selectedElementIds.length > 1;
+                const idsToDrag = isDragOnSelectedGroup ? selectedElementIds : [element.id];
+                const initialPositions = new Map();
+                allElements.forEach(el => {
+                    if (idsToDrag.includes(el.id)) {
+                        initialPositions.set(el.id, { x: el.x, y: el.y });
+                    }
+                });
+                initialGroupPositionsRef.current = initialPositions;
+            };
+
+            const handleResizeMouseDown = (e) => {
+                e.stopPropagation();
+                onSelectElement(element.id, e.shiftKey);
+                setIsResizing(true);
+                initialPosRef.current = { x: e.clientX, y: e.clientY };
+                if (element.type === 'image') {
+                    initialSizeRef.current = { width: element.width, height: element.height };
+                }
+                document.body.style.cursor = 'nwse-resize';
+            };
+
+            useEffect(() => {
+                const handleMouseMove = (e) => {
+                    if (isDragging && itemRef.current) {
+                        const selectedCount = initialGroupPositionsRef.current.size;
+                        if (selectedCount > 1 && selectedElementIds.includes(element.id)) {
+                            const dx = e.clientX - initialMousePosRef.current.x;
+                            const dy = e.clientY - initialMousePosRef.current.y;
+                            const updates = Array.from(initialGroupPositionsRef.current.entries()).map(([id, initialPos]) => ({
+                                id,
+                                updates: {
+                                    x: initialPos.x + dx,
+                                    y: initialPos.y + dy
+                                }
+                            }));
+                            onUpdateMultipleElements(updates);
+                        } else {
+                            const parentRect = itemRef.current.parentElement.getBoundingClientRect();
+                            let newX = e.clientX - parentRect.left - offsetRef.current.x;
+                            let newY = e.clientY - parentRect.top - offsetRef.current.y;
+                            onUpdateElement(element.id, { x: newX, y: newY });
+                        }
+                    }
+                    if (isResizing && element.type === 'image') {
+                        const dx = e.clientX - initialPosRef.current.x;
+                        const dy = e.clientY - initialPosRef.current.y;
+                        const newWidth = Math.max(50, initialSizeRef.current.width + dx);
+                        const newHeight = Math.max(50, initialSizeRef.current.height + dy);
+                        onUpdateElement(element.id, { width: newWidth, height: newHeight });
+                    }
+                };
+
+                const handleMouseUp = () => {
+                    if (isDragging && itemRef.current) {
+                        const lines = allElements.filter(el => el.type === 'line');
+                        const letters = allElements.filter(el => el.type === 'letter' && el.id !== element.id);
+                        const draggedElementCurrentState = allElements.find(el => el.id === element.id);
+                        if (!draggedElementCurrentState || (draggedElementCurrentState.type !== 'letter' && draggedElementCurrentState.type !== 'image')) return;
+
+                        const nonSnappedX = draggedElementCurrentState.x;
+                        const nonSnappedY = draggedElementCurrentState.y;
+                        let finalX = nonSnappedX;
+                        let finalY = nonSnappedY;
+                        const elementWidth = itemRef.current.offsetWidth;
+                        const elementHeight = itemRef.current.offsetHeight;
+                        let closestLineDistY = Infinity;
+                        let snapY = finalY;
+                        let baselinePositionInBox = elementHeight;
+                        
+                        if (draggedElementCurrentState.type === 'letter') {
+                            const descenderChars = new Set(['ј', 'р', 'у', 'ф', 'ц', 'ш', 'ѕ', 'ѓ', 'ќ']);
+                            const hasDescender = descenderChars.has(draggedElementCurrentState.content.toLowerCase());
+                            const baselineRatio = hasDescender ? 0.8 : 1.0;
+                            baselinePositionInBox = elementHeight * baselineRatio;
+                        }
+
+                        for (const line of lines) {
+                            const isHorizontallyInRange = nonSnappedX + elementWidth > line.x && nonSnappedX < line.x + line.width;
+                            if (isHorizontallyInRange) {
+                                const elementBaselineY = nonSnappedY + baselinePositionInBox;
+                                const dist = Math.abs(elementBaselineY - line.y);
+                                if (dist < SNAP_THRESHOLD && dist < closestLineDistY) {
+                                    closestLineDistY = dist;
+                                    snapY = line.y - baselinePositionInBox;
+                                }
+                            }
+                        }
+                        finalY = snapY;
+
+                        if (draggedElementCurrentState.type === 'letter') {
+                            let closestLetterDistX = Infinity;
+                            let snapX = finalX;
+                            for (const other of letters) {
+                                const otherRightEdge = other.x + other.width;
+                                const dist = Math.abs(nonSnappedX - (otherRightEdge + letterSpacing));
+                                if (dist < SNAP_THRESHOLD && dist < closestLetterDistX) {
+                                    closestLetterDistX = dist;
+                                    snapX = otherRightEdge + letterSpacing;
+                                }
+                            }
+                            finalX = snapX;
+                        }
+
+                        const snapDeltaX = finalX - nonSnappedX;
+                        const snapDeltaY = finalY - nonSnappedY;
+
+                        if (selectedElementIds.length > 1 && selectedElementIds.includes(element.id)) {
+                            const updates = selectedElementIds.map(id => {
+                                const elToUpdate = allElements.find(e => e.id === id);
+                                if (!elToUpdate || (elToUpdate.type !== 'letter' && elToUpdate.type !== 'image')) return null;
+                                return {
+                                    id,
+                                    updates: {
+                                        x: elToUpdate.x + snapDeltaX,
+                                        y: elToUpdate.y + snapDeltaY
+                                    }
+                                };
+                            }).filter(Boolean);
+                            onUpdateMultipleElements(updates);
+                        } else {
+                            onUpdateElement(element.id, { x: finalX, y: finalY });
+                        }
+                    }
+                    setIsDragging(false);
+                    setIsResizing(false);
+                    initialGroupPositionsRef.current.clear();
+                    document.body.style.cursor = 'default';
+                };
+
+                if (isDragging || isResizing) {
+                    document.addEventListener('mousemove', handleMouseMove);
+                    document.addEventListener('mouseup', handleMouseUp, { once: true });
+                }
+
+                return () => {
+                    document.removeEventListener('mousemove', handleMouseMove);
+                    document.removeEventListener('mouseup', handleMouseUp);
+                };
+            }, [isDragging, isResizing, onUpdateElement, onUpdateMultipleElements, element, allElements, letterSpacing, selectedElementIds]);
+
+            const style = {
+                transform: `translate(${element.x}px, ${element.y}px)`,
+                width: element.type === 'image' ? `${element.width}px` : undefined,
+                height: element.type === 'image' ? `${element.height}px` : undefined,
+            };
+
+            const borderClass = isSelected ? 'border-2 border-blue-500' : 'border-2 border-transparent';
+            const getCursorClass = () => {
+                if (isPaintingActive && element.type === 'letter') return 'cursor-pointer';
+                return 'cursor-grab active:cursor-grabbing';
+            };
+
+            if (element.type === 'letter') {
+                return (
+                    <div
+                        ref={itemRef}
+                        className={`absolute select-none flex items-center justify-center p-1 ${borderClass} rounded ${getCursorClass()}`}
+                        style={{ ...style, fontSize: `${element.fontSize}px`, color: element.color || '#1e293b', fontFamily: element.fontFamily || 'system-ui, -apple-system, "Segoe UI", Roboto, Arial' }}
+                        onMouseDown={handleMouseDown}
+                    >
+                        {element.content === ' ' ? <div style={{ width: element.width }}></div> : element.content}
+                    </div>
+                );
+            }
+
+            if (element.type === 'image') {
+                return (
+                    <div
+                        ref={itemRef}
+                        className={`absolute p-1 ${borderClass} bg-white rounded shadow-lg ${getCursorClass()}`}
+                        style={style}
+                        onMouseDown={handleMouseDown}
+                    >
+                        <img src={element.content} alt="user content" className="w-full h-full object-contain pointer-events-none" />
+                        {isSelected && (
+                            <div
+                                className="absolute -bottom-1 -right-1 w-4 h-4 bg-blue-500 border-2 border-white rounded-full cursor-nwse-resize"
+                                onMouseDown={handleResizeMouseDown}
+                            />
+                        )}
+                    </div>
+                );
+            }
+            return null;
+        };
+
+        // Keyboard Component
+        const Keyboard = () => {
+            const [isCaps, setIsCaps] = useState(false);
+            const [isLocked, setIsLocked] = useState(true);
+            const [position, setPosition] = useState({ x: 0, y: 0 });
+            const [keyboardSize, setKeyboardSize] = useState('medium'); // 'small', 'medium', 'large'
+            const dragRef = useRef(null);
+            const offsetRef = useRef({ x: 0, y: 0 });
+            const isDraggingRef = useRef(false);
+
+            useEffect(() => {
+                const keyboard = dragRef.current;
+                if (keyboard) {
+                    const rect = keyboard.getBoundingClientRect();
+                    setPosition({
+                        x: (window.innerWidth - rect.width) / 2,
+                        y: window.innerHeight - rect.height - 20,
+                    });
+                }
+            }, []);
+
+            const handleDragStart = (e, letter, width, fontSize) => {
+                const data = JSON.stringify({ letter, width, fontSize });
+                e.dataTransfer.setData('text/plain', data);
+            };
+
+            const onMouseDown = (e) => {
+                if (isLocked || !dragRef.current) return;
+                isDraggingRef.current = true;
+                const rect = dragRef.current.getBoundingClientRect();
+                offsetRef.current = {
+                    x: e.clientX - rect.left,
+                    y: e.clientY - rect.top
+                };
+                e.currentTarget.style.cursor = 'grabbing';
+            };
+
+            const onMouseMove = (e) => {
+                if (!isDraggingRef.current || isLocked) return;
+                setPosition({
+                    x: e.clientX - offsetRef.current.x,
+                    y: e.clientY - offsetRef.current.y
+                });
+            };
+
+            const onMouseUp = () => {
+                isDraggingRef.current = false;
+                if (dragRef.current) {
+                    dragRef.current.style.cursor = isLocked ? 'default' : 'grab';
+                }
+            };
+
+            useEffect(() => {
+                window.addEventListener('mousemove', onMouseMove);
+                window.addEventListener('mouseup', onMouseUp);
+                return () => {
+                    window.removeEventListener('mousemove', onMouseMove);
+                    window.removeEventListener('mouseup', onMouseUp);
+                };
+            }, [isLocked]);
+
+            // Size configurations
+            const sizeConfigs = {
+                small: { fontSize: 20, showExtras: false },
+                medium: { fontSize: 28, showExtras: true },
+                large: { fontSize: 36, showExtras: true }
+            };
+
+            const currentConfig = sizeConfigs[keyboardSize];
+            const currentFontSize = currentConfig.fontSize;
+            const currentSpaceWidth = currentFontSize * 0.8 * 8;
+            const currentCapsWidth = currentFontSize * 0.8 * 2.5;
+
+            const handleSizeChange = (newSize) => {
+                setKeyboardSize(newSize);
+            };
+
+            const Key = ({ char, width = currentFontSize * 0.8, special = false }) => {
+                const displayChar = isCaps && !special && /[а-яљњѓќа-я]/i.test(char) ? char.toUpperCase() : char;
+                return (
+                    <div
+                        draggable
+                        onDragStart={(e) => handleDragStart(e, displayChar, width, currentFontSize)}
+                        className="flex items-center justify-center bg-slate-600 hover:bg-slate-500 rounded-md cursor-grab active:cursor-grabbing text-white transition-colors select-none"
+                        style={{ width: `${width}px`, height: `${currentFontSize * 1.2}px`, fontSize: `${currentFontSize * 0.7}px` }}
+                    >
+                        {displayChar}
+                    </div>
+                );
+            };
+
+            // Define all rows
+            const allRows = [
+                { id: 'numbers', chars: ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0'], showWhen: 'extras' },
+                { id: 'row1', chars: ['љ', 'њ', 'е', 'р', 'т', 'с', 'у', 'и', 'о', 'п', 'ш', 'ѓ'], showWhen: 'always' },
+                { id: 'row2', chars: ['а', 'с', 'д', 'ф', 'г', 'х', 'ј', 'к', 'л', 'ч', 'ќ'], showWhen: 'always' },
+                { id: 'row3', chars: ['з', 'џ', 'ц', 'в', 'б', 'н', 'м'], showWhen: 'always' },
+                { id: 'punctuation', chars: [',', '.', '?', '!', '„', '"', ';', ':', '-', '(', ')'], showWhen: 'extras' }
+            ];
+
+            const visibleRows = allRows.filter(row => {
+                if (row.showWhen === 'always') return true;
+                if (row.showWhen === 'extras') return currentConfig.showExtras;
+                return true;
+            });
+
+            return (
+                <div
+                    ref={dragRef}
+                    className="absolute bg-slate-800/90 backdrop-blur-sm p-3 rounded-xl shadow-2xl select-none transition-all"
+                    style={{ top: position.y, left: position.x, cursor: isLocked ? 'default' : 'grab' }}
+                >
+                    <div
+                        className="w-full flex justify-between items-center mb-2 pb-2 border-b border-slate-600"
+                        onMouseDown={onMouseDown}
+                    >
+                        <span className="font-bold text-slate-300">🇲🇰 Macedonian Keyboard</span>
+                        <div className="flex items-center space-x-2">
+                            <div className="flex items-center space-x-1 bg-slate-700 rounded px-1">
+                                <button
+                                    onClick={() => handleSizeChange('small')}
+                                    disabled={keyboardSize === 'small'}
+                                    className={`p-1 rounded transition-colors ${keyboardSize === 'small' ? 'bg-blue-600 text-white' : 'hover:bg-slate-600 text-slate-400'}`}
+                                    title="Small keyboard (letters only)"
+                                >
+                                    <MinusIcon />
+                                </button>
+                                <button
+                                    onClick={() => handleSizeChange('medium')}
+                                    disabled={keyboardSize === 'medium'}
+                                    className={`px-2 py-1 rounded text-xs transition-colors ${keyboardSize === 'medium' ? 'bg-blue-600 text-white' : 'hover:bg-slate-600 text-slate-400'}`}
+                                    title="Medium keyboard"
+                                >
+                                    M
+                                </button>
+                                <button
+                                    onClick={() => handleSizeChange('large')}
+                                    disabled={keyboardSize === 'large'}
+                                    className={`p-1 rounded transition-colors ${keyboardSize === 'large' ? 'bg-blue-600 text-white' : 'hover:bg-slate-600 text-slate-400'}`}
+                                    title="Large keyboard"
+                                >
+                                    <PlusIcon />
+                                </button>
+                            </div>
+                            <button
+                                onClick={() => setIsLocked(!isLocked)}
+                                className={`flex items-center space-x-1 text-xs px-2 py-1 rounded ${isLocked ? 'bg-orange-600' : 'bg-blue-600'}`}
+                            >
+                                {isLocked ? <LockClosedIcon /> : <LockOpenIcon />}
+                                <span>{isLocked ? 'Locked' : 'Unlocked'}</span>
+                            </button>
+                        </div>
+                    </div>
+                    <div className="flex flex-col space-y-2">
+                        {visibleRows.map((row) => (
+                            <div key={row.id} className="flex justify-center space-x-2">
+                                {row.chars.map(char => <Key key={char} char={char} />)}
+                            </div>
+                        ))}
+                        <div className="flex justify-center space-x-2">
+                            <div
+                                onClick={() => setIsCaps(!isCaps)}
+                                className={`flex items-center justify-center hover:bg-slate-500 rounded-md cursor-pointer transition-colors ${isCaps ? 'bg-blue-600' : 'bg-slate-600'}`}
+                                style={{ width: `${currentCapsWidth}px`, height: `${currentFontSize * 1.2}px`, fontSize: `${currentFontSize * 0.6}px` }}
+                            >
+                                Caps
+                            </div>
+                            <Key char=" " width={currentSpaceWidth} special={true} />
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        // Whiteboard Component
+        const Whiteboard = ({ elements, isDrawingLine, isPaintingActive, onAddElement, onUpdateElement, onUpdateMultipleElements, onSelectElement, onSetSelectedElements, onClearSelection, selectedElementIds, setIsDrawingLine, letterSpacing, isTypingMode, typingCursor, onSetTypingCursor, fontFamily }) => {
+            const whiteboardRef = useRef(null);
+            const containerRef = useRef(null);
+            const [drawingLine, setDrawingLine] = useState(null);
+            const [selectionBox, setSelectionBox] = useState(null);
+            const [resizingLine, setResizingLine] = useState(null);
+            
+            // Large canvas size - much bigger than viewport
+            const CANVAS_WIDTH = 4000;
+            const CANVAS_HEIGHT = 3000;
+
+            const handleDragOver = (e) => {
+                e.preventDefault();
+            };
+
+            const handleDrop = (e) => {
+                e.preventDefault();
+                if (!whiteboardRef.current || !containerRef.current) return;
+
+                const rect = whiteboardRef.current.getBoundingClientRect();
+                const containerRect = containerRef.current.getBoundingClientRect();
+                const scrollLeft = containerRef.current.scrollLeft;
+                const scrollTop = containerRef.current.scrollTop;
+                
+                const dropX = e.clientX - rect.left + scrollLeft;
+                const dropY = e.clientY - rect.top + scrollTop;
+
+                const letterData = e.dataTransfer.getData('text/plain');
+                if (letterData) {
+                    const parsedData = JSON.parse(letterData);
+                    const letter = parsedData.letter;
+                    let fontSize = parsedData.fontSize;
+
+                    if (selectedElementIds.length > 0) {
+                        const firstSelectedLetter = elements.find(
+                            (el) => el.type === 'letter' && selectedElementIds.includes(el.id)
+                        );
+                        if (firstSelectedLetter) fontSize = firstSelectedLetter.fontSize;
+                    }
+
+                    const initialWidth = fontSize * 0.7;
+                    let finalX = dropX - initialWidth / 2;
+                    let finalY = dropY - fontSize / 2;
+                    let didSnapY = false;
+                    const linesOnBoard = elements.filter((el) => el.type === 'line');
+
+                    if (linesOnBoard.length > 0) {
+                        const estimatedHeight = fontSize * 1.2;
+                        const descenderChars = new Set(['ј', 'р', 'у', 'ф', 'ц', 'ш', 'ѕ', 'ѓ', 'ќ']);
+                        const hasDescender = descenderChars.has(letter.toLowerCase());
+                        const baselineRatio = hasDescender ? 0.8 : 1.0;
+                        const baselinePositionInBox = estimatedHeight * baselineRatio;
+
+                        let closestLineDistY = Infinity;
+                        let snapY = finalY;
+
+                        for (const line of linesOnBoard) {
+                            const isHorizontallyInRange = finalX + initialWidth > line.x && finalX < line.x + line.width;
+                            if (isHorizontallyInRange) {
+                                const elementBaselineY = finalY + baselinePositionInBox;
+                                const dist = Math.abs(elementBaselineY - line.y);
+                                if (dist < SNAP_THRESHOLD && dist < closestLineDistY) {
+                                    closestLineDistY = dist;
+                                    snapY = line.y - baselinePositionInBox;
+                                    didSnapY = true;
+                                }
+                            }
+                        }
+                        finalY = snapY;
+                    }
+
+                    const SNAP_RADIUS = 75;
+                    let minDistance = Infinity;
+                    let snapTarget = null;
+                    const lettersOnBoard = elements.filter((el) => el.type === 'letter');
+
+                    for (const otherLetter of lettersOnBoard) {
+                        const potentialSnapX = otherLetter.x + otherLetter.width + letterSpacing;
+                        const potentialSnapY = otherLetter.y;
+                        const distance = Math.sqrt(Math.pow(dropX - (potentialSnapX + initialWidth / 2), 2) + Math.pow(dropY - (potentialSnapY + fontSize / 2), 2));
+                        if (distance < SNAP_RADIUS && distance < minDistance) {
+                            minDistance = distance;
+                            snapTarget = { x: potentialSnapX, y: potentialSnapY };
+                        }
+                    }
+
+                    if (snapTarget) {
+                        finalX = snapTarget.x;
+                        if (!didSnapY) finalY = snapTarget.y;
+                    }
+
+                    onAddElement({
+                        type: 'letter',
+                        content: letter,
+                        x: finalX,
+                        y: finalY,
+                        fontSize,
+                        originalFontSize: fontSize,
+                        width: initialWidth,
+                        color: '#1e293b',
+                        fontFamily: fontFamily,
+                    });
+                    return;
+                }
+
+                const file = e.dataTransfer.files[0];
+                if (file && file.type.startsWith('image/')) {
+                    const reader = new FileReader();
+                    reader.onload = (event) => {
+                        const content = event.target?.result;
+                        if (content) {
+                            const img = new Image();
+                            img.onload = () => {
+                                const aspectRatio = img.width / img.height;
+                                let newWidth = img.width > 300 ? 300 : img.width;
+                                let newHeight = newWidth / aspectRatio;
+                                onAddElement({
+                                    type: 'image',
+                                    content,
+                                    x: dropX - newWidth / 2,
+                                    y: dropY - newHeight / 2,
+                                    width: newWidth,
+                                    height: newHeight
+                                });
+                            };
+                            img.src = content;
+                        }
+                    };
+                    reader.readAsDataURL(file);
+                }
+            };
+
+            const handleMouseDown = (e) => {
+                if (e.target !== whiteboardRef.current) return;
+                
+                if (!containerRef.current || !whiteboardRef.current) return;
+                
+                const rect = whiteboardRef.current.getBoundingClientRect();
+                const scrollLeft = containerRef.current.scrollLeft;
+                const scrollTop = containerRef.current.scrollTop;
+                
+                if (isTypingMode && whiteboardRef.current) {
+                    // Set cursor position when clicking in typing mode
+                    const clickX = e.clientX - rect.left + scrollLeft;
+                    const clickY = e.clientY - rect.top + scrollTop;
+                    onSetTypingCursor(prev => ({ ...prev, x: clickX, y: clickY }));
+                    return;
+                }
+                
+                if (isDrawingLine && whiteboardRef.current) {
+                    const startX = e.clientX - rect.left + scrollLeft;
+                    const startY = e.clientY - rect.top + scrollTop;
+                    setDrawingLine({ x: startX, y: startY, width: 0 });
+                } else if (!isPaintingActive) {
+                    const startX = e.clientX - rect.left + scrollLeft;
+                    const startY = e.clientY - rect.top + scrollTop;
+                    setSelectionBox({ startX, startY, currentX: startX, currentY: startY });
+                    onClearSelection();
+                }
+            };
+
+            const handleMouseMove = (e) => {
+                if (!containerRef.current || !whiteboardRef.current) return;
+                
+                const rect = whiteboardRef.current.getBoundingClientRect();
+                const scrollLeft = containerRef.current.scrollLeft;
+                const scrollTop = containerRef.current.scrollTop;
+                
+                if (isDrawingLine && drawingLine) {
+                    const currentX = e.clientX - rect.left + scrollLeft;
+                    const newWidth = Math.abs(currentX - drawingLine.x);
+                    const newX = Math.min(currentX, drawingLine.x);
+                    setDrawingLine(prev => prev ? { ...prev, x: newX, width: newWidth } : { x: newX, y: prev.y, width: newWidth });
+                } else if (selectionBox) {
+                    const currentX = e.clientX - rect.left + scrollLeft;
+                    const currentY = e.clientY - rect.top + scrollTop;
+                    setSelectionBox(prev => prev ? { ...prev, currentX, currentY } : null);
+                } else if (resizingLine) {
+                    const currentX = e.clientX - rect.left + scrollLeft;
+                    const dx = currentX - resizingLine.mouseStartX;
+
+                    if (resizingLine.handle === 'right') {
+                        const newWidth = Math.max(10, resizingLine.initialWidth + dx);
+                        onUpdateElement(resizingLine.id, { width: newWidth });
+                    } else {
+                        const newWidth = Math.max(10, resizingLine.initialWidth - dx);
+                        const newX = resizingLine.initialX + dx;
+                        onUpdateElement(resizingLine.id, { x: newX, width: newWidth });
+                    }
+                }
+            };
+
+            const handleMouseUp = () => {
+                if (isDrawingLine && drawingLine) {
+                    if (drawingLine.width > 5) {
+                        onAddElement({ type: 'line', ...drawingLine, color: '#1e293b' });
+                    }
+                    setDrawingLine(null);
+                    setIsDrawingLine(false);
+                }
+                if (resizingLine) {
+                    setResizingLine(null);
+                }
+                if (selectionBox) {
+                    const { startX, startY, currentX, currentY } = selectionBox;
+                    const selX1 = Math.min(startX, currentX);
+                    const selX2 = Math.max(startX, currentX);
+                    const selY1 = Math.min(startY, currentY);
+                    const selY2 = Math.max(startY, currentY);
+                    if (selX2 - selX1 > 5 || selY2 - selY1 > 5) {
+                        const selectedIds = elements.filter(el => {
+                            if (el.type === 'line') {
+                                const lineY = el.y;
+                                const lineX1 = el.x;
+                                const lineX2 = el.x + el.width;
+                                return lineY >= selY1 && lineY <= selY2 && lineX1 <= selX2 && lineX2 >= selX1;
+                            }
+                            const elWidth = el.type === 'letter' ? el.width : el.width;
+                            const elHeight = el.type === 'letter' ? el.fontSize * 1.2 : el.height;
+                            const elX1 = el.x;
+                            const elX2 = el.x + elWidth;
+                            const elY1 = el.y;
+                            const elY2 = el.y + elHeight;
+                            return elX1 < selX2 && elX2 > selX1 && elY1 < selY2 && elY2 > selY1;
+                        }).map(el => el.id);
+                        if (selectedIds.length > 0) onSetSelectedElements(selectedIds);
+                    }
+                    setSelectionBox(null);
+                }
+            };
+
+            const handleLineResizeStart = (e, line, handle) => {
+                e.stopPropagation();
+                onSelectElement(line.id, e.shiftKey);
+                if (!whiteboardRef.current || !containerRef.current) return;
+                const rect = whiteboardRef.current.getBoundingClientRect();
+                const scrollLeft = containerRef.current.scrollLeft;
+                setResizingLine({
+                    id: line.id,
+                    handle,
+                    initialX: line.x,
+                    initialWidth: line.width,
+                    mouseStartX: e.clientX - rect.left + scrollLeft,
+                });
+            };
+
+            const getCursor = () => {
+                if (isTypingMode) return 'cursor-text';
+                if (isDrawingLine) return 'cursor-crosshair';
+                if (isPaintingActive) return 'cursor-pointer';
+                if (resizingLine) return 'cursor-ew-resize';
+                return 'cursor-default';
+            };
+
+            const renderSelectionBox = () => {
+                if (!selectionBox) return null;
+                const { startX, startY, currentX, currentY } = selectionBox;
+                const x = Math.min(startX, currentX);
+                const y = Math.min(startY, currentY);
+                const width = Math.abs(startX - currentX);
+                const height = Math.abs(startY - currentY);
+                return (<div className="absolute border-2 border-blue-500 bg-blue-500/20 pointer-events-none z-50" style={{ left: x, top: y, width, height }} />);
+            };
+
+            return (
+                <div 
+                    ref={containerRef}
+                    className="w-full h-full overflow-auto bg-slate-300"
+                >
+                    <div
+                        ref={whiteboardRef}
+                        className={`canvas-grid bg-slate-200 relative ${getCursor()}`}
+                        style={{ width: `${CANVAS_WIDTH}px`, height: `${CANVAS_HEIGHT}px`, minWidth: '100%', minHeight: '100%' }}
+                        onDragOver={handleDragOver}
+                        onDrop={handleDrop}
+                        onMouseDown={handleMouseDown}
+                        onMouseMove={handleMouseMove}
+                        onMouseUp={handleMouseUp}
+                        onMouseLeave={handleMouseUp}
+                    >
+                    {elements.map((element) => {
+                        if (element.type === 'line') {
+                            const isSelected = selectedElementIds.includes(element.id);
+                            return (
+                                <div
+                                    key={element.id}
+                                    className="absolute group"
+                                    style={{ top: `${element.y - 4}px`, left: `${element.x}px`, width: `${element.width}px`, height: '9px' }}
+                                    onMouseDown={(e) => {
+                                        e.stopPropagation();
+                                        onSelectElement(element.id, e.shiftKey);
+                                    }}
+                                >
+                                    <div
+                                        className={`absolute w-full top-1/2 -translate-y-1/2 h-0.5 transition-all ${isSelected ? 'h-1' : 'group-hover:h-1'}`}
+                                        style={{ backgroundColor: element.color || '#3b82f6' }}
+                                    />
+                                    {isSelected && (
+                                        <>
+                                            <div className="absolute -left-1.5 top-1/2 -translate-y-1/2 w-3 h-3 bg-white border-2 border-blue-600 rounded-full cursor-ew-resize" onMouseDown={(e) => handleLineResizeStart(e, element, 'left')} />
+                                            <div className="absolute -right-1.5 top-1/2 -translate-y-1/2 w-3 h-3 bg-white border-2 border-blue-600 rounded-full cursor-ew-resize" onMouseDown={(e) => handleLineResizeStart(e, element, 'right')} />
+                                        </>
+                                    )}
+                                </div>
+                            );
+                        }
+                        return (
+                            <DraggableItem
+                                key={element.id}
+                                element={element}
+                                onUpdateElement={onUpdateElement}
+                                onUpdateMultipleElements={onUpdateMultipleElements}
+                                onSelectElement={onSelectElement}
+                                isSelected={selectedElementIds.includes(element.id)}
+                                allElements={elements}
+                                isPaintingActive={isPaintingActive}
+                                letterSpacing={letterSpacing}
+                                selectedElementIds={selectedElementIds}
+                            />
+                        );
+                    })}
+                    {drawingLine && <div className="absolute h-0.5 bg-blue-600 opacity-90" style={{ top: `${drawingLine.y}px`, left: `${drawingLine.x}px`, width: `${drawingLine.width}px` }} />}
+                    {renderSelectionBox()}
+                    {isTypingMode && (
+                        <div 
+                            className="absolute w-0.5 bg-blue-600 animate-pulse pointer-events-none"
+                            style={{ 
+                                left: `${typingCursor.x}px`, 
+                                top: `${typingCursor.y}px`, 
+                                height: `${typingCursor.fontSize * 1.2}px` 
+                            }}
+                        />
+                    )}
+                </div>
+            </div>
+            );
+        };
+
+        // ColorPalette Component
+        const ColorPalette = ({ onColorChange }) => {
+            const colors = ['#1e293b', '#ef4444', '#3b82f6', '#22c55e', '#eab308', '#a855f7', '#ec4899'];
+            return (
+                <div className="flex items-center space-x-2 bg-slate-700 px-3 py-1.5 rounded-lg">
+                    {colors.map(color => (
+                        <button
+                            key={color}
+                            onClick={() => onColorChange(color)}
+                            className="w-6 h-6 rounded-full transition-transform hover:scale-110 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-900 focus:ring-white"
+                            style={{ backgroundColor: color }}
+                            title={`Color ${color}`}
+                        />
+                    ))}
+                </div>
+            );
+        };
+
+        // Toolbar Component
+        const Toolbar = ({ 
+            elements, selectedElementIds, onClearAll, onSaveTemplate, isKeyboardVisible, 
+            onToggleKeyboard, isDrawingLine, onToggleDrawingLine, isPaintingActive, 
+            onTogglePainting, letterSpacing, onLetterSpacingChange, onAlignSelected, 
+            onAlignLeft, onAlignCenter, onAlignRight, onDistributeHorizontal,
+            resizeScale, onResizeChange, onDeleteSelected, onColorChange, undo, redo, 
+            canUndo, canRedo, isTypingMode, onToggleTypingMode, spacingMode, onToggleSpacingMode,
+            autoSnap, onToggleAutoSnap, fontFamily, onFontChange
+        }) => {
+            const selectedLetters = elements.filter(el => selectedElementIds.includes(el.id) && el.type === 'letter');
+            const isAlignDisabled = selectedLetters.length < 2;
+            const isDistributeDisabled = selectedLetters.length < 3;
+            const isResizeDisabled = selectedLetters.length === 0;
+            const isSelectionActive = selectedElementIds.length > 0;
+
+            return (
+                <header className="bg-slate-900 shadow-md p-2 flex items-center justify-between z-30">
+                    <div className="flex items-center space-x-3">
+                        <h1 className="text-lg font-bold text-slate-300">Cyrillic Whiteboard</h1>
+                        <span className="text-xs text-slate-500 bg-slate-800 px-2 py-1 rounded">Canvas: 4000×3000px</span>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                        <button onClick={undo} disabled={!canUndo} className="p-2 rounded-lg bg-slate-700 hover:bg-slate-600 disabled:bg-slate-800 disabled:text-slate-500 disabled:cursor-not-allowed" title="Undo"><UndoIcon /></button>
+                        <button onClick={redo} disabled={!canRedo} className="p-2 rounded-lg bg-slate-700 hover:bg-slate-600 disabled:bg-slate-800 disabled:text-slate-500 disabled:cursor-not-allowed" title="Redo"><RedoIcon /></button>
+                        <div className="w-px h-8 bg-slate-700"></div>
+
+                        {isSelectionActive && (
+                            <>
+                                <ColorPalette onColorChange={onColorChange} />
+                                <button
+                                    onClick={onDeleteSelected}
+                                    className="flex items-center space-x-1 bg-red-600 hover:bg-red-700 text-white font-semibold py-2 px-3 rounded-lg transition-colors"
+                                    title="Delete Selected"
+                                >
+                                    <TrashIcon />
+                                </button>
+                                <div className="w-px h-8 bg-slate-700"></div>
+                            </>
+                        )}
+
+                        <button
+                            onClick={onTogglePainting}
+                            className={`flex items-center space-x-2 text-white font-semibold py-2 px-4 rounded-lg transition-colors ${isPaintingActive ? 'bg-rose-600' : 'bg-slate-700 hover:bg-slate-600'}`}
+                            title={isPaintingActive ? "Disable Painting" : "Enable Painting"}
+                        >
+                            <PaintBrushIcon />
+                        </button>
+                        <button
+                            onClick={onToggleTypingMode}
+                            className={`flex items-center space-x-2 text-white font-semibold py-2 px-4 rounded-lg transition-colors ${isTypingMode ? 'bg-green-600' : 'bg-slate-700 hover:bg-slate-600'}`}
+                            title={isTypingMode ? "Disable Typing Mode" : "Enable Typing Mode"}
+                        >
+                            <TypeIcon />
+                        </button>
+                        <button
+                            onClick={onToggleDrawingLine}
+                            className={`flex items-center space-x-2 text-white font-semibold py-2 px-4 rounded-lg transition-colors ${isDrawingLine ? 'bg-blue-600' : 'bg-slate-700 hover:bg-slate-600'}`}
+                            title={isDrawingLine ? "Disable Line Drawing" : "Enable Line Drawing"}
+                        >
+                            <LineIcon />
+                        </button>
+                        
+                        <div className="w-px h-8 bg-slate-700"></div>
+                        
+                        {/* Font Selection */}
+                        <select 
+                            value={fontFamily}
+                            onChange={(e) => onFontChange(e.target.value)}
+                            className="bg-slate-700 text-white px-3 py-2 rounded-lg hover:bg-slate-600 cursor-pointer text-sm"
+                            title="Font Family"
+                        >
+                            <option value='system-ui, -apple-system, "Segoe UI", Roboto, Arial'>Sans (System)</option>
+                            <option value='Georgia, "Times New Roman", Times, serif'>Serif</option>
+                            <option value='"Segoe Script", "Bradley Hand", "Comic Sans MS", cursive'>Handwriting</option>
+                            <option value='"OpenDyslexic", "Arial", sans-serif'>OpenDyslexic</option>
+                        </select>
+
+                        {/* Spacing Mode Toggle */}
+                        <button
+                            onClick={onToggleSpacingMode}
+                            className="bg-slate-700 hover:bg-slate-600 text-white font-semibold py-2 px-3 rounded-lg transition-colors text-sm"
+                            title={`Spacing Mode: ${spacingMode === 'physical' ? 'Physical (Move X)' : 'CSS (letter-spacing)'}`}
+                        >
+                            {spacingMode === 'physical' ? 'Physical' : 'CSS'}
+                        </button>
+
+                        {/* Auto-Snap Toggle */}
+                        <button
+                            onClick={onToggleAutoSnap}
+                            className={`text-white font-semibold py-2 px-3 rounded-lg transition-colors text-sm ${autoSnap ? 'bg-green-600 hover:bg-green-700' : 'bg-slate-700 hover:bg-slate-600'}`}
+                            title={`Auto-snap: ${autoSnap ? 'ON' : 'OFF'}`}
+                        >
+                            Snap: {autoSnap ? 'ON' : 'OFF'}
+                        </button>
+
+                        <div className="w-px h-8 bg-slate-700"></div>
+
+                        {/* Alignment Buttons */}
+                        <div className="flex items-center space-x-1 bg-slate-700 px-2 py-1 rounded-lg">
+                            <button
+                                onClick={onAlignLeft}
+                                disabled={isAlignDisabled}
+                                className="px-2 py-1 rounded transition-colors hover:bg-slate-600 disabled:opacity-50 disabled:cursor-not-allowed text-white text-xs font-semibold"
+                                title="Align Left"
+                            >
+                                L
+                            </button>
+                            <button
+                                onClick={onAlignCenter}
+                                disabled={isAlignDisabled}
+                                className="px-2 py-1 rounded transition-colors hover:bg-slate-600 disabled:opacity-50 disabled:cursor-not-allowed text-white text-xs font-semibold"
+                                title="Align Center"
+                            >
+                                C
+                            </button>
+                            <button
+                                onClick={onAlignRight}
+                                disabled={isAlignDisabled}
+                                className="px-2 py-1 rounded transition-colors hover:bg-slate-600 disabled:opacity-50 disabled:cursor-not-allowed text-white text-xs font-semibold"
+                                title="Align Right"
+                            >
+                                R
+                            </button>
+                            <button
+                                onClick={onDistributeHorizontal}
+                                disabled={isDistributeDisabled}
+                                className="px-2 py-1 rounded transition-colors hover:bg-slate-600 disabled:opacity-50 disabled:cursor-not-allowed text-white text-xs font-semibold"
+                                title="Distribute Horizontally"
+                            >
+                                D
+                            </button>
+                        </div>
+                        
+                        <button
+                            onClick={onAlignSelected}
+                            disabled={isAlignDisabled}
+                            className="flex items-center space-x-2 text-white font-semibold py-2 px-3 rounded-lg transition-colors bg-slate-700 hover:bg-slate-600 disabled:bg-slate-800 disabled:text-slate-500 disabled:cursor-not-allowed text-xs"
+                            title="Align & Space Selected"
+                        >
+                            <AlignIcon />
+                        </button>
+                        <div className="flex items-center space-x-2 bg-slate-700 px-3 py-1.5 rounded-lg">
+                            <label htmlFor="letter-spacing" className="font-semibold text-sm whitespace-nowrap">Spacing</label>
+                            <input
+                                id="letter-spacing"
+                                type="range"
+                                min="-50"
+                                max="50"
+                                value={letterSpacing}
+                                onChange={e => onLetterSpacingChange(Number(e.target.value))}
+                                className="w-24 h-2 bg-slate-500 rounded-lg appearance-none cursor-pointer"
+                                title="Letter Spacing"
+                            />
+                        </div>
+                        <div className={`flex items-center space-x-3 bg-slate-700 px-3 py-1.5 rounded-lg ${isResizeDisabled ? 'opacity-50' : ''}`} title="Resize Letters">
+                            <span className="text-md font-semibold select-none" aria-hidden="true">A</span>
+                            <input
+                                id="letter-size"
+                                type="range"
+                                min="100"
+                                max="200"
+                                value={resizeScale}
+                                disabled={isResizeDisabled}
+                                onChange={e => onResizeChange(Number(e.target.value))}
+                                className="w-28 h-2 bg-slate-500 rounded-lg appearance-none cursor-pointer disabled:cursor-not-allowed"
+                                aria-label="Resize selected letters"
+                            />
+                            <span className="text-xl font-semibold select-none" aria-hidden="true">A</span>
+                            <span className="text-sm font-mono w-14 text-center bg-slate-800/50 rounded px-1 py-0.5 select-none">{Math.round(resizeScale)}%</span>
+                        </div>
+                        <div className="w-px h-8 bg-slate-700"></div>
+                        <button
+                            onClick={onSaveTemplate}
+                            className="flex items-center space-x-1 bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-3 rounded-lg transition-colors"
+                            title="Save Template"
+                        >
+                            <SaveIcon />
+                        </button>
+                        <button
+                            onClick={onToggleKeyboard}
+                            className="flex items-center space-x-2 bg-purple-600 hover:bg-purple-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors"
+                            title={isKeyboardVisible ? "Hide Keyboard" : "Show Keyboard"}
+                        >
+                            <KeyboardIcon />
+                            <span>{isKeyboardVisible ? 'Hide' : 'Show'}</span>
+                        </button>
+                    </div>
+                </header>
+            );
+        };
+
+        // Main App Component
+        const App = () => {
+            const { state: elements, set: setElements, undo, redo, canUndo, canRedo } = useHistory([]);
+            const [isKeyboardVisible, setIsKeyboardVisible] = useState(true);
+            const [isDrawingLine, setIsDrawingLine] = useState(false);
+            const [isPaintingActive, setIsPaintingActive] = useState(false);
+            const [selectedElementIds, setSelectedElementIds] = useState([]);
+            const [letterSpacing, setLetterSpacing] = useState(1);
+            const [resizeScale, setResizeScale] = useState(100);
+            const [isTypingMode, setIsTypingMode] = useState(false);
+            const [typingCursor, setTypingCursor] = useState({ x: 100, y: 100, fontSize: 48 });
+            const [spacingMode, setSpacingMode] = useState('physical'); // 'physical' or 'css'
+            const [autoSnap, setAutoSnap] = useState(true);
+            const [fontFamily, setFontFamily] = useState('system-ui, -apple-system, "Segoe UI", Roboto, Arial');
+
+            useEffect(() => {
+                const savedElements = localStorage.getItem('whiteboard-template');
+                if (savedElements) {
+                    setElements(JSON.parse(savedElements));
+                }
+            }, []);
+
+            useEffect(() => {
+                if (selectedElementIds.length > 0) {
+                    const firstSelectedId = selectedElementIds[0];
+                    const firstSelectedElement = elements.find(el => el.id === firstSelectedId);
+                    if (firstSelectedElement && firstSelectedElement.type === 'letter') {
+                        // Calculate scale based on current fontSize relative to base size of 48
+                        const baseFontSize = 48;
+                        const scalePercentage = (firstSelectedElement.fontSize / baseFontSize) * 100;
+                        setResizeScale(scalePercentage);
+                    }
+                } else {
+                    setResizeScale(100);
+                }
+            }, [selectedElementIds, elements]);
+
+            const saveTemplate = useCallback(() => {
+                localStorage.setItem('whiteboard-template', JSON.stringify(elements));
+                alert('Template saved!');
+            }, [elements]);
+
+            const clearAll = () => {
+                if (window.confirm('Are you sure you want to clear everything?')) {
+                    setElements([]);
+                    localStorage.removeItem('whiteboard-template');
+                }
+            };
+
+            const addElement = (element) => {
+                const newElement = { ...element, id: `${Date.now()}-${Math.random()}` };
+                setElements([...elements, newElement]);
+            };
+
+            const updateElement = (id, updates) => {
+                setElements(
+                    elements.map(el => (el.id === id ? { ...el, ...updates } : el))
+                );
+            };
+
+            const updateMultipleElements = (updates) => {
+                const updatesMap = new Map();
+                updates.forEach(u => updatesMap.set(u.id, u.updates));
+                setElements(
+                    elements.map(el => {
+                        if (updatesMap.has(el.id)) {
+                            return { ...el, ...updatesMap.get(el.id) };
+                        }
+                        return el;
+                    })
+                );
+            };
+
+            const removeElements = (ids) => {
+                setElements(elements.filter(el => !ids.includes(el.id)));
+            };
+
+            const handleDeleteSelected = () => {
+                if (selectedElementIds.length > 0) {
+                    removeElements(selectedElementIds);
+                    setSelectedElementIds([]);
+                }
+            };
+
+            const handleKeyDown = useCallback((e) => {
+                if ((e.key === 'Backspace' || e.key === 'Delete') && selectedElementIds.length > 0) {
+                    handleDeleteSelected();
+                }
+            }, [selectedElementIds, elements]);
+
+            useEffect(() => {
+                window.addEventListener('keydown', handleKeyDown);
+                return () => window.removeEventListener('keydown', handleKeyDown);
+            }, [handleKeyDown]);
+
+            // Keyboard to Cyrillic mapping (Macedonian layout)
+            const qwertyToCyrillic = {
+                'q': 'љ', 'w': 'њ', 'e': 'е', 'r': 'р', 't': 'т', 'y': 'ѕ', 'u': 'у', 'i': 'и', 'o': 'о', 'p': 'п',
+                'a': 'а', 's': 'с', 'd': 'д', 'f': 'ф', 'g': 'г', 'h': 'х', 'j': 'ј', 'k': 'к', 'l': 'л',
+                'z': 'з', 'x': 'џ', 'c': 'ц', 'v': 'в', 'b': 'б', 'n': 'н', 'm': 'м',
+                '[': 'ш', ']': 'ѓ', ';': 'ч', "'": 'ќ',
+                'Q': 'Љ', 'W': 'Њ', 'E': 'Е', 'R': 'Р', 'T': 'Т', 'Y': 'Ѕ', 'U': 'У', 'I': 'И', 'O': 'О', 'P': 'П',
+                'A': 'А', 'S': 'С', 'D': 'Д', 'F': 'Ф', 'G': 'Г', 'H': 'Х', 'J': 'Ј', 'K': 'К', 'L': 'Л',
+                'Z': 'З', 'X': 'Џ', 'C': 'Ц', 'V': 'В', 'B': 'Б', 'N': 'Н', 'M': 'М',
+                '{': 'Ш', '}': 'Ѓ', ':': 'Ч', '"': 'Ќ',
+                // Numbers and punctuation
+                '1': '1', '2': '2', '3': '3', '4': '4', '5': '5', '6': '6', '7': '7', '8': '8', '9': '9', '0': '0',
+                ',': ',', '.': '.', '?': '?', '!': '!', '-': '-', '(': '(', ')': ')'
+            };
+
+            // Typing mode keyboard handler
+            useEffect(() => {
+                const handleTyping = (e) => {
+                    if (!isTypingMode) return;
+                    
+                    // Don't interfere with shortcuts
+                    if (e.ctrlKey || e.metaKey || e.altKey) return;
+
+                    // Handle special keys
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        // Move cursor to new line
+                        setTypingCursor(prev => ({
+                            ...prev,
+                            x: 100,
+                            y: prev.y + prev.fontSize * 1.5
+                        }));
+                        return;
+                    }
+
+                    if (e.key === 'Backspace') {
+                        e.preventDefault();
+                        // Find and remove the last letter near cursor
+                        const lettersNearCursor = elements
+                            .filter(el => el.type === 'letter')
+                            .sort((a, b) => {
+                                const distA = Math.abs(a.x - typingCursor.x) + Math.abs(a.y - typingCursor.y);
+                                const distB = Math.abs(b.x - typingCursor.x) + Math.abs(b.y - typingCursor.y);
+                                return distA - distB;
+                            });
+                        
+                        if (lettersNearCursor.length > 0 && lettersNearCursor[0].x < typingCursor.x) {
+                            const lastLetter = lettersNearCursor[0];
+                            removeElements([lastLetter.id]);
+                            setTypingCursor(prev => ({
+                                ...prev,
+                                x: lastLetter.x
+                            }));
+                        }
+                        return;
+                    }
+
+                    if (e.key === 'Tab') {
+                        e.preventDefault();
+                        // Add space
+                        const spaceWidth = typingCursor.fontSize * 0.4;
+                        setTypingCursor(prev => ({
+                            ...prev,
+                            x: prev.x + spaceWidth
+                        }));
+                        return;
+                    }
+
+                    // Get the character to type
+                    let char = e.key;
+                    
+                    // Map QWERTY to Cyrillic if not already Cyrillic
+                    if (qwertyToCyrillic[char]) {
+                        char = qwertyToCyrillic[char];
+                    } else if (char === ' ') {
+                        char = ' ';
+                    } else if (char.length !== 1) {
+                        // Ignore special keys like Shift, Control, etc.
+                        return;
+                    }
+
+                    e.preventDefault();
+
+                    // Check if character is Cyrillic, number, punctuation, or space
+                    const isCyrillic = /[\u0400-\u04FF]/.test(char);
+                    const isNumberOrPunctuation = /[0-9,.\?!;:\-\(\)„"]/.test(char);
+                    if (!isCyrillic && !isNumberOrPunctuation && char !== ' ') {
+                        // If not valid character, ignore
+                        return;
+                    }
+
+                    // Create letter element at cursor position
+                    const initialWidth = typingCursor.fontSize * 0.7;
+                    let finalX = typingCursor.x;
+                    let finalY = typingCursor.y;
+
+                    // Snap to baseline if available
+                    const linesOnBoard = elements.filter((el) => el.type === 'line');
+                    if (linesOnBoard.length > 0) {
+                        const estimatedHeight = typingCursor.fontSize * 1.2;
+                        const descenderChars = new Set(['ј', 'р', 'у', 'ф', 'ц', 'ш', 'ѕ', 'ѓ', 'ќ']);
+                        const hasDescender = descenderChars.has(char.toLowerCase());
+                        const baselineRatio = hasDescender ? 0.8 : 1.0;
+                        const baselinePositionInBox = estimatedHeight * baselineRatio;
+
+                        let closestLineDistY = Infinity;
+                        let snapY = finalY;
+
+                        for (const line of linesOnBoard) {
+                            const isHorizontallyInRange = finalX + initialWidth > line.x && finalX < line.x + line.width;
+                            if (isHorizontallyInRange) {
+                                const elementBaselineY = finalY + baselinePositionInBox;
+                                const dist = Math.abs(elementBaselineY - line.y);
+                                if (dist < SNAP_THRESHOLD && dist < closestLineDistY) {
+                                    closestLineDistY = dist;
+                                    snapY = line.y - baselinePositionInBox;
+                                }
+                            }
+                        }
+                        finalY = snapY;
+                    }
+
+                    addElement({
+                        type: 'letter',
+                        content: char,
+                        x: finalX,
+                        y: finalY,
+                        fontSize: typingCursor.fontSize,
+                        originalFontSize: typingCursor.fontSize,
+                        width: initialWidth,
+                        color: '#1e293b',
+                        fontFamily: fontFamily,
+                    });
+
+                    // Move cursor forward
+                    setTypingCursor(prev => ({
+                        ...prev,
+                        x: prev.x + initialWidth + letterSpacing,
+                        y: finalY
+                    }));
+                };
+
+                if (isTypingMode) {
+                    window.addEventListener('keydown', handleTyping);
+                    return () => window.removeEventListener('keydown', handleTyping);
+                }
+            }, [isTypingMode, typingCursor, elements, letterSpacing]);
+
+            const toggleTypingMode = () => {
+                setIsTypingMode(prev => {
+                    const newIsTyping = !prev;
+                    if (newIsTyping) {
+                        setIsDrawingLine(false);
+                        setIsPaintingActive(false);
+                        setSelectedElementIds([]);
+                    }
+                    return newIsTyping;
+                });
+            };
+
+            useEffect(() => {
+                const handlePaste = (event) => {
+                    const items = event.clipboardData?.items;
+                    if (!items) return;
+                    for (let i = 0; i < items.length; i++) {
+                        if (items[i].type.includes('image')) {
+                            const file = items[i].getAsFile();
+                            if (file) {
+                                const reader = new FileReader();
+                                reader.onload = (e) => {
+                                    const content = e.target?.result;
+                                    if (content) {
+                                        const img = new Image();
+                                        img.onload = () => {
+                                            addElement({
+                                                type: 'image',
+                                                content,
+                                                x: 100,
+                                                y: 100,
+                                                width: img.width > 400 ? 400 : img.width,
+                                                height: img.height > 400 ? (400 / img.width) * img.height : img.height
+                                            });
+                                        };
+                                        img.src = content;
+                                    }
+                                };
+                                reader.readAsDataURL(file);
+                            }
+                            event.preventDefault();
+                        }
+                    }
+                };
+
+                window.addEventListener('paste', handlePaste);
+                return () => {
+                    window.removeEventListener('paste', handlePaste);
+                };
+            }, [elements]);
+
+            const togglePainting = () => {
+                setIsPaintingActive(prev => {
+                    const newIsPainting = !prev;
+                    if (newIsPainting) {
+                        setIsDrawingLine(false);
+                        setSelectedElementIds([]);
+                    }
+                    return newIsPainting;
+                });
+            };
+
+            const toggleDrawingLine = () => {
+                setIsDrawingLine(prev => {
+                    const newIsDrawing = !prev;
+                    if (newIsDrawing) {
+                        setIsPaintingActive(false);
+                        setSelectedElementIds([]);
+                    }
+                    return newIsDrawing;
+                });
+            };
+
+            const handleSelectElement = (id, isShiftPressed) => {
+                setSelectedElementIds(prev => {
+                    if (isShiftPressed) {
+                        if (prev.includes(id)) {
+                            return prev.filter(selectedId => selectedId !== id);
+                        } else {
+                            return [...prev, id];
+                        }
+                    } else {
+                        if (!prev.includes(id)) {
+                            return [id];
+                        }
+                        return prev;
+                    }
+                });
+            };
+
+            const handleClearSelection = () => {
+                setSelectedElementIds([]);
+            };
+
+            const handleLetterSpacingChange = (spacing) => {
+                setLetterSpacing(spacing);
+                const selectedLetters = elements.filter(
+                    (el) => el.type === 'letter' && selectedElementIds.includes(el.id)
+                );
+
+                if (selectedLetters.length > 1) {
+                    const sorted = [...selectedLetters].sort((a, b) => a.x - b.x);
+                    const firstLetter = sorted[0];
+                    const lastLetter = sorted[sorted.length - 1];
+                    const oldWidth = (lastLetter.x + lastLetter.width) - firstLetter.x;
+                    const oldCenterX = firstLetter.x + oldWidth / 2;
+                    let newWidth = 0;
+                    for (let i = 0; i < sorted.length; i++) {
+                        newWidth += sorted[i].width;
+                        if (i < sorted.length - 1) {
+                            newWidth += spacing;
+                        }
+                    }
+                    const newStartX = oldCenterX - newWidth / 2;
+                    const updates = [];
+                    let currentX = newStartX;
+                    for (let i = 0; i < sorted.length; i++) {
+                        updates.push({ id: sorted[i].id, updates: { x: currentX } });
+                        currentX += sorted[i].width + spacing;
+                    }
+                    if (updates.length > 0) updateMultipleElements(updates);
+                }
+            };
+
+            const handleAlignSelected = () => {
+                const selectedLetters = elements.filter((el) => el.type === 'letter' && selectedElementIds.includes(el.id));
+                if (selectedLetters.length < 2) return;
+                
+                const sorted = [...selectedLetters].sort((a, b) => a.x - b.x);
+                const anchor = sorted[0];
+                
+                // Set all letters to the same size as the anchor
+                const targetFontSize = anchor.fontSize;
+                
+                const updates = [];
+                let currentX = anchor.x;
+                
+                for (let i = 0; i < sorted.length; i++) {
+                    const letter = sorted[i];
+                    const updateData = { 
+                        y: anchor.y,
+                        fontSize: targetFontSize,
+                        originalFontSize: targetFontSize
+                    };
+                    
+                    if (i === 0) {
+                        // First letter stays at its x position
+                        updates.push({ id: letter.id, updates: updateData });
+                    } else {
+                        // Calculate new x position based on previous letter's width
+                        const prevLetter = sorted[i - 1];
+                        const prevLetterInState = elements.find(el => el.id === prevLetter.id);
+                        if (prevLetterInState && prevLetterInState.type === 'letter') {
+                            currentX = currentX + prevLetterInState.width + letterSpacing;
+                            updateData.x = currentX;
+                            updates.push({ id: letter.id, updates: updateData });
+                        }
+                    }
+                }
+                
+                if (updates.length > 0) updateMultipleElements(updates);
+            };
+
+            const handleAlignLeft = () => {
+                const selectedLetters = elements.filter((el) => el.type === 'letter' && selectedElementIds.includes(el.id));
+                if (selectedLetters.length < 2) return;
+                const minX = Math.min(...selectedLetters.map(l => l.x));
+                const updates = selectedLetters.map(l => ({ id: l.id, updates: { x: minX } }));
+                updateMultipleElements(updates);
+            };
+
+            const handleAlignCenter = () => {
+                const selectedLetters = elements.filter((el) => el.type === 'letter' && selectedElementIds.includes(el.id));
+                if (selectedLetters.length < 2) return;
+                const centers = selectedLetters.map(l => l.x + l.width / 2);
+                const avgCenter = centers.reduce((a, b) => a + b, 0) / centers.length;
+                const updates = selectedLetters.map(l => ({ 
+                    id: l.id, 
+                    updates: { x: avgCenter - l.width / 2 } 
+                }));
+                updateMultipleElements(updates);
+            };
+
+            const handleAlignRight = () => {
+                const selectedLetters = elements.filter((el) => el.type === 'letter' && selectedElementIds.includes(el.id));
+                if (selectedLetters.length < 2) return;
+                const maxRight = Math.max(...selectedLetters.map(l => l.x + l.width));
+                const updates = selectedLetters.map(l => ({ 
+                    id: l.id, 
+                    updates: { x: maxRight - l.width } 
+                }));
+                updateMultipleElements(updates);
+            };
+
+            const handleDistributeHorizontal = () => {
+                const selectedLetters = elements.filter((el) => el.type === 'letter' && selectedElementIds.includes(el.id));
+                if (selectedLetters.length < 3) return;
+                const sorted = [...selectedLetters].sort((a, b) => a.x - b.x);
+                const leftMost = sorted[0].x;
+                const rightMost = sorted[sorted.length - 1].x;
+                const totalGap = rightMost - leftMost;
+                const step = totalGap / (sorted.length - 1);
+                const updates = sorted.map((letter, i) => ({ 
+                    id: letter.id, 
+                    updates: { x: leftMost + step * i } 
+                }));
+                updateMultipleElements(updates);
+            };
+
+            const handleResizeChange = (newScaleValue) => {
+                setResizeScale(newScaleValue);
+                
+                // Base font size - all letters will be set to this size based on the scale
+                const baseFontSize = 48;
+                const targetFontSize = baseFontSize * (newScaleValue / 100);
+                
+                const updates = [];
+                const selectedLetters = elements.filter(
+                    (el) => el.type === 'letter' && selectedElementIds.includes(el.id)
+                );
+                
+                selectedLetters.forEach(letter => {
+                    updates.push({
+                        id: letter.id,
+                        updates: { 
+                            fontSize: targetFontSize,
+                            originalFontSize: targetFontSize
+                        }
+                    });
+                });
+                
+                if (updates.length > 0) {
+                    updateMultipleElements(updates);
+                }
+            };
+
+            const handleColorChange = (color) => {
+                const updates = selectedElementIds.map(id => ({
+                    id,
+                    updates: { color }
+                }));
+                if (updates.length > 0) {
+                    updateMultipleElements(updates);
+                }
+            };
+
+            return (
+                <div className="flex flex-col h-screen font-sans bg-slate-800 text-white">
+                    <Toolbar
+                        elements={elements}
+                        selectedElementIds={selectedElementIds}
+                        onClearAll={clearAll}
+                        onSaveTemplate={saveTemplate}
+                        isKeyboardVisible={isKeyboardVisible}
+                        onToggleKeyboard={() => setIsKeyboardVisible(!isKeyboardVisible)}
+                        isDrawingLine={isDrawingLine}
+                        onToggleDrawingLine={toggleDrawingLine}
+                        isPaintingActive={isPaintingActive}
+                        onTogglePainting={togglePainting}
+                        isTypingMode={isTypingMode}
+                        onToggleTypingMode={toggleTypingMode}
+                        letterSpacing={letterSpacing}
+                        onLetterSpacingChange={handleLetterSpacingChange}
+                        onAlignSelected={handleAlignSelected}
+                        onAlignLeft={handleAlignLeft}
+                        onAlignCenter={handleAlignCenter}
+                        onAlignRight={handleAlignRight}
+                        onDistributeHorizontal={handleDistributeHorizontal}
+                        resizeScale={resizeScale}
+                        onResizeChange={handleResizeChange}
+                        onDeleteSelected={handleDeleteSelected}
+                        onColorChange={handleColorChange}
+                        spacingMode={spacingMode}
+                        onToggleSpacingMode={() => setSpacingMode(spacingMode === 'physical' ? 'css' : 'physical')}
+                        autoSnap={autoSnap}
+                        onToggleAutoSnap={() => setAutoSnap(!autoSnap)}
+                        fontFamily={fontFamily}
+                        onFontChange={setFontFamily}
+                        undo={undo}
+                        redo={redo}
+                        canUndo={canUndo}
+                        canRedo={canRedo}
+                    />
+                    <main className="flex-grow relative overflow-hidden">
+                        <Whiteboard
+                            elements={elements}
+                            isDrawingLine={isDrawingLine}
+                            isPaintingActive={isPaintingActive}
+                            onAddElement={addElement}
+                            onUpdateElement={updateElement}
+                            onUpdateMultipleElements={updateMultipleElements}
+                            onSelectElement={handleSelectElement}
+                            onSetSelectedElements={setSelectedElementIds}
+                            onClearSelection={handleClearSelection}
+                            selectedElementIds={selectedElementIds}
+                            setIsDrawingLine={setIsDrawingLine}
+                            letterSpacing={letterSpacing}
+                            isTypingMode={isTypingMode}
+                            typingCursor={typingCursor}
+                            onSetTypingCursor={setTypingCursor}
+                            fontFamily={fontFamily}
+                        />
+                        {isKeyboardVisible && <Keyboard />}
+                    </main>
+                </div>
+            );
+        };
+
+        // Render the app
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
