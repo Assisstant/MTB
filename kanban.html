@@ -1,0 +1,2036 @@
+<!doctype html>
+<html lang="mk">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Канбан Обележувачи / Kanban Bookmarks</title>
+  <style>
+    :root{
+      /* Light Theme */
+      --bg:#f5f7fa;
+      --surface:#ffffff;
+      --text:#1a1d26;
+      --muted:#64748b;
+      --line:#e2e8f0;
+      --brand:#6366f1;
+      --brand-light:#e0e7ff;
+      --brand2:#0d9488;
+      --brand2-light:#ccfbf1;
+      --danger:#ef4444;
+      --danger-light:#fee2e2;
+      --success:#22c55e;
+      --shadow: 0 4px 20px rgba(0,0,0,.08);
+      --radius:16px;
+      --font: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji","Segoe UI Emoji";
+    }
+    
+    [data-theme="dark"]{
+      --bg:#0f1117;
+      --surface:#1a1d26;
+      --text:#e9eef6;
+      --muted:#9aa6b2;
+      --line:#2d3344;
+      --brand:#818cf8;
+      --brand-light:rgba(129,140,248,.15);
+      --brand2:#2dd4bf;
+      --brand2-light:rgba(45,212,191,.15);
+      --danger:#f87171;
+      --danger-light:rgba(248,113,113,.15);
+      --success:#4ade80;
+      --shadow: 0 4px 20px rgba(0,0,0,.3);
+    }
+
+    *{ box-sizing:border-box; }
+    html,body{ height:100%; }
+    body{
+      margin:0;
+      background: var(--bg);
+      color:var(--text);
+      font-family:var(--font);
+      line-height:1.4;
+      transition: background .3s ease, color .3s ease;
+    }
+
+    .app{
+      max-width: 1600px;
+      margin: 0 auto;
+      padding: 16px;
+      display:flex;
+      flex-direction:column;
+      gap:14px;
+      height: 100vh;
+    }
+
+    header{
+      display:flex;
+      gap:12px;
+      align-items:flex-start;
+      justify-content:space-between;
+      flex-wrap:wrap;
+      flex-shrink: 0;
+    }
+    h1{
+      margin:0;
+      font-size:20px;
+      letter-spacing:-.2px;
+      display:flex;
+      align-items:center;
+      gap:10px;
+      color: var(--text);
+    }
+    .pill{
+      font-size:11px;
+      color:var(--muted);
+      background: var(--surface);
+      border:1px solid var(--line);
+      padding:4px 10px;
+      border-radius:999px;
+      font-weight:500;
+    }
+    .sub{ margin:4px 0 0; color:var(--muted); font-size:12px; }
+
+    .toolbar{
+      display:flex;
+      gap:8px;
+      align-items:center;
+      flex-wrap:wrap;
+      justify-content:flex-end;
+    }
+
+    .btn{
+      appearance:none;
+      border:1px solid var(--line);
+      background: var(--surface);
+      color:var(--text);
+      padding:9px 12px;
+      border-radius:10px;
+      cursor:pointer;
+      font-weight:600;
+      font-size:12px;
+      transition: all .15s ease;
+      user-select:none;
+      display:inline-flex;
+      align-items:center;
+      gap:6px;
+      white-space:nowrap;
+    }
+    .btn:hover{ 
+      background: var(--bg); 
+      border-color: var(--brand);
+    }
+    .btn:active{ transform: translateY(1px); }
+    .btn.primary{
+      background: var(--brand);
+      border-color: var(--brand);
+      color: white;
+    }
+    .btn.primary:hover{
+      filter: brightness(1.1);
+    }
+    .btn.danger{
+      background: var(--danger-light);
+      border-color: var(--danger);
+      color: var(--danger);
+    }
+    .btn.mini{
+      padding:6px 9px;
+      border-radius:8px;
+      font-size:11px;
+    }
+    .btn.icon{
+      padding: 8px;
+      font-size: 16px;
+    }
+
+    /* Settings Toggle */
+    .settings-toggle{
+      display: flex;
+      gap: 6px;
+      align-items: center;
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 4px;
+    }
+    .settings-toggle .toggle-btn{
+      padding: 6px 10px;
+      border: none;
+      background: transparent;
+      color: var(--muted);
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 12px;
+      font-weight: 600;
+      transition: all .15s ease;
+    }
+    .settings-toggle .toggle-btn.active{
+      background: var(--brand);
+      color: white;
+    }
+    .settings-toggle .toggle-btn:hover:not(.active){
+      background: var(--bg);
+    }
+
+    .panel{
+      background: var(--surface);
+      border:1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      overflow:hidden;
+      transition: background .3s ease, border-color .3s ease;
+    }
+
+    .layout{
+      display:grid;
+      grid-template-columns: 220px 1fr;
+      gap:14px;
+      flex: 1;
+      min-height: 0;
+      overflow: hidden;
+    }
+    @media (max-width: 900px){
+      .layout{ grid-template-columns: 1fr; }
+      .side{ display: none; }
+    }
+
+    .side{
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .panelHead{
+      padding:12px 14px;
+      border-bottom:1px solid var(--line);
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+      background: var(--bg);
+      flex-shrink: 0;
+    }
+    .panelHead h2{
+      margin:0;
+      font-size:12px;
+      color: var(--muted);
+      letter-spacing:.3px;
+      text-transform: uppercase;
+      font-weight:700;
+    }
+
+    .list{
+      padding:8px;
+      display:flex;
+      flex-direction:column;
+      gap:4px;
+      overflow-y: auto;
+      flex: 1;
+    }
+    .itemBtn{
+      width:100%;
+      text-align:left;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:8px;
+      padding:9px 10px;
+      border-radius: 8px;
+      background: transparent;
+      border: 1px solid transparent;
+      color: var(--text);
+      cursor:pointer;
+      font-size:12px;
+      font-weight:500;
+      transition: all .15s ease;
+    }
+    .itemBtn:hover{ 
+      background: var(--bg);
+    }
+    .itemBtn.active{
+      background: var(--brand-light);
+      border-color: var(--brand);
+      color: var(--brand);
+    }
+    .count{
+      font-size:10px;
+      color: var(--muted);
+      background: var(--bg);
+      padding:2px 6px;
+      border-radius:999px;
+      font-weight:600;
+    }
+
+    .filters{
+      padding:10px 14px;
+      display:flex;
+      gap:10px;
+      align-items:center;
+      background: var(--bg);
+      border-bottom: 1px solid var(--line);
+      flex-wrap: wrap;
+      flex-shrink: 0;
+    }
+    .filters .field{
+      flex: 1;
+      min-width: 150px;
+    }
+
+    .field{
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 8px 10px;
+      color: var(--text);
+      font-size: 12px;
+      outline: none;
+      transition: border-color .2s ease, box-shadow .2s ease;
+    }
+    .field:focus{
+      border-color: var(--brand);
+      box-shadow: 0 0 0 2px var(--brand-light);
+    }
+    .field::placeholder{
+      color: var(--muted);
+    }
+    .select{
+      appearance:none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+      background-position: calc(100% - 8px) center;
+      background-repeat: no-repeat;
+      padding-right: 28px;
+      cursor:pointer;
+    }
+    .hint{ color: var(--muted); font-size:11px; }
+
+    /* Board */
+    .main-panel{
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .boardTop{
+      padding:12px 14px;
+      border-bottom:1px solid var(--line);
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+      flex-wrap:wrap;
+      flex-shrink: 0;
+    }
+    .boardTitle{
+      display:flex;
+      align-items:center;
+      gap:8px;
+    }
+    .boardTitle h3{
+      margin:0;
+      font-size:15px;
+      font-weight:700;
+    }
+
+    .boardWrap{
+      padding: 14px;
+      overflow-x: auto;
+      overflow-y: hidden;
+      flex: 1;
+      background: var(--bg);
+      scroll-behavior: smooth;
+    }
+    .board{
+      display:flex;
+      gap:14px;
+      height: 100%;
+      min-height: 400px;
+    }
+
+    /* Columns - 2 visible at a time */
+    .col{
+      flex: 0 0 calc(50% - 7px);
+      min-width: 280px;
+      max-width: 400px;
+      background: var(--surface);
+      border:1px solid var(--line);
+      border-radius: 14px;
+      display:flex;
+      flex-direction:column;
+      box-shadow: 0 2px 8px rgba(0,0,0,.04);
+      transition: border-color .2s ease, box-shadow .15s ease, opacity .2s ease;
+    }
+    .col.dragOver{
+      border-color: var(--brand2);
+      box-shadow: 0 4px 16px rgba(13,148,136,.2);
+    }
+    .col.dragging{
+      opacity: 0.5;
+    }
+    .colHead{
+      padding:10px 12px;
+      border-bottom:1px solid var(--line);
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:8px;
+      cursor: grab;
+      background: linear-gradient(to bottom, var(--surface), var(--bg));
+      flex-shrink: 0;
+    }
+    .colHead:active{ cursor: grabbing; }
+    .colTitle{
+      margin:0;
+      font-size:12px;
+      display:flex;
+      align-items:center;
+      gap:6px;
+    }
+    .colTitle .dragHandle{
+      color: var(--muted);
+      font-size: 12px;
+      letter-spacing: -2px;
+      opacity: .5;
+    }
+    .colTitle span.name{
+      font-weight:700;
+      max-width: 120px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .colBody{
+      padding:8px;
+      display:flex;
+      flex-direction:column;
+      gap:8px;
+      flex:1;
+      overflow-y: auto;
+      background: var(--bg);
+    }
+    .quickAdd{
+      display: flex;
+      gap: 6px;
+      flex-shrink: 0;
+    }
+    .quickAdd input{
+      flex: 1;
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 6px 8px;
+      color: var(--text);
+      font-size: 11px;
+      outline: none;
+    }
+    .quickAdd input:focus{
+      border-color: var(--brand);
+    }
+    .dropZone{
+      flex:1;
+      border-radius: 10px;
+      padding:4px;
+      transition: background .15s ease, outline-color .15s ease;
+      outline: 2px dashed transparent;
+      outline-offset: -2px;
+      min-height: 80px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .dropZone.over{
+      background: var(--brand-light);
+      outline-color: var(--brand);
+    }
+    .dropZone.fileOver{
+      background: var(--brand2-light);
+      outline-color: var(--brand2);
+    }
+    .dropHelp{
+      padding: 16px;
+      text-align: center;
+      color: var(--muted);
+      font-size: 11px;
+    }
+
+    /* Card */
+    .card{
+      background: var(--surface);
+      border:1px solid var(--line);
+      border-radius: 10px;
+      overflow:hidden;
+      cursor:grab;
+      user-select:none;
+      transition: all .15s ease;
+    }
+    .card:hover{
+      box-shadow: 0 4px 12px rgba(0,0,0,.1);
+    }
+    .card:active{ cursor:grabbing; }
+    .card.dragging{
+      opacity:.5;
+      outline:2px dashed var(--brand);
+      transform: rotate(2deg);
+    }
+    .card.playing{
+      border-color: var(--danger);
+    }
+    .thumb{
+      height: 90px;
+      background: linear-gradient(135deg, var(--bg), var(--line));
+      position:relative;
+      overflow:hidden;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+    }
+    .thumb img{
+      width:100%;
+      height:100%;
+      object-fit:cover;
+    }
+    .thumb .fallback{
+      width:48px; height:48px;
+      border-radius:12px;
+      background: var(--surface);
+      border:1px solid var(--line);
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      color: var(--muted);
+      font-weight:800;
+      font-size: 16px;
+    }
+    .thumb .fileIcon{
+      width:48px; height:48px;
+      border-radius:12px;
+      background: var(--brand2-light);
+      border:1px solid var(--brand2);
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      font-size: 22px;
+    }
+    .thumb .play-overlay{
+      position: absolute;
+      inset: 0;
+      background: rgba(0,0,0,.4);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      transition: opacity .2s ease;
+      cursor: pointer;
+    }
+    .thumb:hover .play-overlay{
+      opacity: 1;
+    }
+    .play-overlay .play-btn{
+      width: 50px;
+      height: 50px;
+      background: var(--danger);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-size: 20px;
+      box-shadow: 0 4px 20px rgba(0,0,0,.3);
+      transition: transform .15s ease;
+    }
+    .play-overlay:hover .play-btn{
+      transform: scale(1.1);
+    }
+    
+    /* YouTube Embed */
+    .youtube-embed{
+      position: relative;
+      width: 100%;
+      padding-top: 56.25%;
+      background: #000;
+    }
+    .youtube-embed iframe{
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      border: none;
+    }
+    .youtube-embed .close-video{
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      width: 28px;
+      height: 28px;
+      background: rgba(0,0,0,.7);
+      border: none;
+      border-radius: 50%;
+      color: white;
+      font-size: 14px;
+      cursor: pointer;
+      z-index: 10;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .youtube-embed .close-video:hover{
+      background: var(--danger);
+    }
+
+    .cardBody{
+      padding:8px 10px 10px;
+      display:flex;
+      flex-direction:column;
+      gap:4px;
+    }
+    .title{
+      margin:0;
+      font-weight:700;
+      font-size:12px;
+      overflow:hidden;
+      display:-webkit-box;
+      -webkit-line-clamp:2;
+      -webkit-box-orient:vertical;
+    }
+    .url{
+      color: var(--muted);
+      font-size:10px;
+      overflow:hidden;
+      text-overflow:ellipsis;
+      white-space:nowrap;
+    }
+    .badges{ display:flex; gap:4px; flex-wrap:wrap; margin-top:2px; }
+    .badge{
+      font-size:9px;
+      padding:2px 6px;
+      border-radius:999px;
+      border:1px solid var(--line);
+      background: var(--bg);
+      color: var(--muted);
+      font-weight:500;
+    }
+    .badge.pin{ 
+      border-color: var(--brand); 
+      background: var(--brand-light); 
+      color: var(--brand); 
+    }
+    .badge.file{ 
+      border-color: var(--brand2); 
+      background: var(--brand2-light); 
+      color: var(--brand2); 
+    }
+    .badge.yt{
+      border-color: var(--danger);
+      background: var(--danger-light);
+      color: var(--danger);
+    }
+    .actions{
+      display:flex;
+      gap:4px;
+      align-items:center;
+      justify-content:space-between;
+      margin-top:4px;
+    }
+
+    /* Modal */
+    dialog{
+      border:none;
+      border-radius: 14px;
+      padding:0;
+      background: var(--surface);
+      color: var(--text);
+      width: min(600px, calc(100% - 32px));
+      box-shadow: 0 25px 60px rgba(0,0,0,.25);
+    }
+    dialog::backdrop{
+      background: rgba(0,0,0,.5);
+      backdrop-filter: blur(4px);
+    }
+    .modalHead{
+      padding:14px 16px;
+      border-bottom:1px solid var(--line);
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+      background: var(--bg);
+    }
+    .modalHead h3{ margin:0; font-size:14px; font-weight:700; }
+    .modalBody{ padding:16px; display:flex; flex-direction:column; gap:12px; }
+    .modalFoot{
+      padding:12px 16px;
+      border-top:1px solid var(--line);
+      display:flex;
+      gap:8px;
+      justify-content:flex-end;
+      flex-wrap:wrap;
+      background: var(--bg);
+    }
+    .split{
+      display:grid;
+      grid-template-columns: 1fr 1fr;
+      gap:12px;
+    }
+    @media (max-width: 500px){ .split{ grid-template-columns: 1fr; } }
+
+    label.hint{
+      display: block;
+      margin-bottom: 4px;
+      font-weight: 500;
+    }
+
+    .toast{
+      position:fixed;
+      left:50%;
+      bottom:16px;
+      transform:translateX(-50%);
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding:10px 14px;
+      color: var(--text);
+      font-size:12px;
+      font-weight:500;
+      display:none;
+      align-items:center;
+      gap:8px;
+      box-shadow: 0 10px 30px rgba(0,0,0,.2);
+      z-index: 9999;
+    }
+    .toast.show{ display:flex; }
+    .toast.error{ 
+      border-color: var(--danger); 
+      background: var(--danger-light);
+      color: var(--danger);
+    }
+    .toast.success{ 
+      border-color: var(--success); 
+      background: rgba(34,197,94,.1);
+      color: var(--success);
+    }
+
+    /* Scroll indicator */
+    .scroll-hint{
+      display: none;
+      position: absolute;
+      right: 10px;
+      top: 50%;
+      transform: translateY(-50%);
+      background: var(--brand);
+      color: white;
+      padding: 8px;
+      border-radius: 50%;
+      cursor: pointer;
+      animation: pulse 2s infinite;
+      z-index: 10;
+    }
+    @keyframes pulse{
+      0%, 100%{ opacity: 1; }
+      50%{ opacity: .5; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header>
+      <div>
+        <h1>📋 <span data-t="title">Канбан Обележувачи</span></h1>
+        <p class="sub" data-t="subtitle">Влечете картички меѓу колони. Пуштете датотеки за додавање.</p>
+      </div>
+      <div class="toolbar">
+        <!-- Theme Toggle -->
+        <div class="settings-toggle">
+          <button class="toggle-btn active" data-theme-btn="light" title="Light">☀️</button>
+          <button class="toggle-btn" data-theme-btn="dark" title="Dark">🌙</button>
+        </div>
+        <!-- Language Toggle -->
+        <div class="settings-toggle">
+          <button class="toggle-btn active" data-lang-btn="mk">MK</button>
+          <button class="toggle-btn" data-lang-btn="en">EN</button>
+        </div>
+        
+        <button class="btn primary" id="addCardBtn"><span data-t="addCard">+ Картичка</span></button>
+        <button class="btn" id="addColBtn"><span data-t="addCol">+ Колона</span></button>
+        <button class="btn" id="addBoardBtn"><span data-t="addBoard">+ Табла</span></button>
+        <button class="btn" id="exportBtn">📤</button>
+        <button class="btn" id="importBtn">📥</button>
+        <button class="btn danger" id="wipeBtn">🗑️</button>
+      </div>
+    </header>
+
+    <div class="layout">
+      <aside class="panel side">
+        <div class="panelHead">
+          <h2 data-t="boards">Табли</h2>
+          <button class="btn mini" id="addBoardBtn2">+</button>
+        </div>
+        <div class="list" id="boardsList"></div>
+      </aside>
+
+      <main class="panel main-panel">
+        <div class="boardTop">
+          <div class="boardTitle">
+            <h3 id="activeBoardName">Табла</h3>
+            <span class="count" id="activeBoardCount">0</span>
+          </div>
+          <div style="display:flex; gap:6px;">
+            <button class="btn mini" id="renameBoardBtn">✏️</button>
+            <button class="btn mini danger" id="deleteBoardBtn">🗑️</button>
+          </div>
+        </div>
+
+        <div class="filters">
+          <input id="search" class="field" data-t-placeholder="searchPlaceholder" placeholder="Пребарај…" autocomplete="off" />
+          <select id="colFilter" class="field select" style="min-width:120px;">
+            <option value="" data-t="allCols">Сите колони</option>
+          </select>
+          <span class="hint" data-t="dragHint" style="white-space:nowrap;">&#8592; Лизгај за повеќе колони &#8594;</span>
+        </div>
+
+        <div class="boardWrap">
+          <div class="board" id="board"></div>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <!-- Card Modal -->
+  <dialog id="cardModal">
+    <div class="modalHead">
+      <h3 id="cardModalTitle" data-t="addCardTitle">Додај картичка</h3>
+      <button class="btn mini" id="closeCardModal">✕</button>
+    </div>
+    <div class="modalBody">
+      <div class="split">
+        <div>
+          <label class="hint" data-t="urlLabel">URL адреса</label>
+          <input class="field" id="cUrl" placeholder="https://..." style="width:100%;" />
+        </div>
+        <div>
+          <label class="hint" data-t="titleLabel">Наслов</label>
+          <input class="field" id="cTitle" data-t-placeholder="titlePlaceholder" placeholder="Опционално" style="width:100%;" />
+        </div>
+      </div>
+
+      <div class="split">
+        <div>
+          <label class="hint" data-t="boardLabel">Табла</label>
+          <select class="field select" id="cBoard" style="width:100%;"></select>
+        </div>
+        <div>
+          <label class="hint" data-t="columnLabel">Колона</label>
+          <select class="field select" id="cColumn" style="width:100%;"></select>
+        </div>
+      </div>
+
+      <div>
+        <label class="hint" data-t="tagsLabel">Тагови (со запирка)</label>
+        <input class="field" id="cTags" placeholder="видео, работа, туторијал" style="width:100%;" />
+      </div>
+
+      <div class="split">
+        <div>
+          <label class="hint" data-t="notesLabel">Забелешки</label>
+          <input class="field" id="cNotes" style="width:100%;" />
+        </div>
+        <div style="display:flex; align-items:flex-end;">
+          <label class="btn mini">
+            <input type="checkbox" id="cPinned" style="accent-color: var(--brand);" />
+            📌 <span data-t="pin">Закачи</span>
+          </label>
+        </div>
+      </div>
+    </div>
+    <div class="modalFoot">
+      <button class="btn danger" id="deleteCardBtn" style="display:none;">🗑️</button>
+      <div style="flex:1;"></div>
+      <button class="btn" id="cancelCardBtn" data-t="cancel">Откажи</button>
+      <button class="btn primary" id="saveCardBtn">💾 <span data-t="save">Зачувај</span></button>
+    </div>
+  </dialog>
+
+  <!-- Board Modal -->
+  <dialog id="boardModal">
+    <div class="modalHead">
+      <h3 id="boardModalTitle" data-t="addBoardTitle">Додај табла</h3>
+      <button class="btn mini" id="closeBoardModal">✕</button>
+    </div>
+    <div class="modalBody">
+      <label class="hint" data-t="boardNameLabel">Име на табла</label>
+      <input class="field" id="boardName" style="width:100%;" />
+    </div>
+    <div class="modalFoot">
+      <button class="btn" id="cancelBoardModalBtn" data-t="cancel">Откажи</button>
+      <button class="btn primary" id="saveBoardModalBtn">💾 <span data-t="save">Зачувај</span></button>
+    </div>
+  </dialog>
+
+  <!-- Column Modal -->
+  <dialog id="colModal">
+    <div class="modalHead">
+      <h3 id="colModalTitle" data-t="addColTitle">Додај колона</h3>
+      <button class="btn mini" id="closeColModal">✕</button>
+    </div>
+    <div class="modalBody">
+      <label class="hint" data-t="colNameLabel">Име на колона</label>
+      <input class="field" id="colName" style="width:100%;" />
+      <p class="hint" id="colHint"></p>
+    </div>
+    <div class="modalFoot">
+      <button class="btn danger" id="deleteColBtn" style="display:none;">🗑️</button>
+      <div style="flex:1;"></div>
+      <button class="btn" id="cancelColBtn" data-t="cancel">Откажи</button>
+      <button class="btn primary" id="saveColBtn">💾 <span data-t="save">Зачувај</span></button>
+    </div>
+  </dialog>
+
+  <!-- Import Modal -->
+  <dialog id="importModal">
+    <div class="modalHead">
+      <h3 data-t="importTitle">📥 Увези JSON</h3>
+      <button class="btn mini" id="closeImportModal">✕</button>
+    </div>
+    <div class="modalBody">
+      <label class="hint" data-t="importHint">Залепете JSON:</label>
+      <textarea class="field" id="importText" rows="6" style="width:100%; resize:vertical; font-family:monospace;"></textarea>
+    </div>
+    <div class="modalFoot">
+      <button class="btn" id="cancelImportBtn" data-t="cancel">Откажи</button>
+      <button class="btn primary" id="doImportBtn">📥 <span data-t="import">Увези</span></button>
+    </div>
+  </dialog>
+
+  <!-- YouTube Play Modal -->
+  <dialog id="ytModal">
+    <div class="modalHead">
+      <h3 id="ytModalTitle">▶️ YouTube</h3>
+      <button class="btn mini" id="closeYtModal">✕</button>
+    </div>
+    <div class="modalBody" style="padding:0;">
+      <div class="youtube-embed" id="ytEmbed"></div>
+      <div style="padding:12px; background:var(--bg); border-top:1px solid var(--line);">
+        <p class="hint" style="margin:0 0 8px 0; text-align:center;" data-t="ytLocalHint">⚠️ Ако видеото не се вчита, отворете го во нов таб</p>
+      </div>
+    </div>
+    <div class="modalFoot">
+      <button class="btn primary" id="ytNewTab">🔗 <span data-t="openNewTab">Отвори во нов таб</span></button>
+      <button class="btn" id="closeYtModalBtn" data-t="close">Затвори</button>
+    </div>
+  </dialog>
+
+  <div class="toast" id="toast"></div>
+
+  <script>
+    // =====================
+    // TRANSLATIONS
+    // =====================
+    const TRANSLATIONS = {
+      mk: {
+        title: 'Канбан Обележувачи',
+        subtitle: 'Влечете картички меѓу колони. Пуштете датотеки за додавање.',
+        addCard: '+ Картичка',
+        addCol: '+ Колона',
+        addBoard: '+ Табла',
+        boards: 'Табли',
+        allCols: 'Сите колони',
+        searchPlaceholder: 'Пребарај наслов, URL, тагови…',
+        dragHint: '\u2190 Лизгај за повеќе колони \u2192',
+        addCardTitle: 'Додај картичка',
+        editCardTitle: 'Уреди картичка',
+        urlLabel: 'URL адреса',
+        titleLabel: 'Наслов',
+        titlePlaceholder: 'Опционално',
+        boardLabel: 'Табла',
+        columnLabel: 'Колона',
+        tagsLabel: 'Тагови (со запирка)',
+        notesLabel: 'Забелешки',
+        pin: 'Закачи',
+        unpin: 'Откачи',
+        cancel: 'Откажи',
+        save: 'Зачувај',
+        close: 'Затвори',
+        addBoardTitle: 'Додај табла',
+        renameBoardTitle: 'Преименувај табла',
+        boardNameLabel: 'Име на табла',
+        addColTitle: 'Додај колона',
+        editColTitle: 'Уреди колона',
+        colNameLabel: 'Име на колона',
+        importTitle: '📥 Увези JSON',
+        importHint: 'Залепете JSON:',
+        import: 'Увези',
+        openNewTab: 'Отвори во нов таб',
+        playHere: 'Пушти тука',
+        dropHelp: 'Пуштете картички или датотеки…',
+        quickPlaceholder: 'Залепете URL…',
+        pinned: 'Закачено',
+        file: 'Датотека',
+        youtube: 'YouTube',
+        open: 'Отвори',
+        edit: 'Уреди',
+        moved: 'Преместено',
+        added: 'Додадено',
+        saved: 'Зачувано',
+        deleted: 'Избришано',
+        exported: 'Извезено',
+        imported: 'Увезено',
+        wiped: 'Избришано сè',
+        invalidUrl: 'Невалиден URL',
+        invalidJson: 'Невалиден JSON',
+        pasteFirst: 'Прво залепете JSON',
+        enterName: 'Внесете име',
+        cantDeleteLast: 'Не може да се избрише последната',
+        boardAdded: 'Табла додадена',
+        renamed: 'Преименувано',
+        boardDeleted: 'Табла избришана',
+        colAdded: 'Колона додадена',
+        colDeleted: 'Колона избришана',
+        colsReordered: 'Колони преместени',
+        filesAdded: 'датотека/и додадени',
+        fileNotFound: 'Датотеката не е пронајдена',
+        confirmDelete: 'Избриши ја оваа картичка?',
+        confirmDeleteBoard: 'Избриши ја таблата и картичките?',
+        confirmDeleteCol: 'Избриши ја колоната?',
+        confirmWipe: 'Избриши ги СИТЕ податоци?',
+        ytLocalHint: '⚠️ Ако видеото не се вчита, отворете го во нов таб',
+        defaultBoard: 'Општо',
+        defaultCols: ['Нови', 'Во тек', 'Завршени'],
+        board2: 'Програмирање',
+        board2Cols: ['Чека', 'Работам', 'Готово']
+      },
+      en: {
+        title: 'Kanban Bookmarks',
+        subtitle: 'Drag cards between columns. Drop files to add them.',
+        addCard: '+ Card',
+        addCol: '+ Column',
+        addBoard: '+ Board',
+        boards: 'Boards',
+        allCols: 'All columns',
+        searchPlaceholder: 'Search title, URL, tags…',
+        dragHint: '\u2190 Scroll for more columns \u2192',
+        addCardTitle: 'Add card',
+        editCardTitle: 'Edit card',
+        urlLabel: 'URL',
+        titleLabel: 'Title',
+        titlePlaceholder: 'Optional',
+        boardLabel: 'Board',
+        columnLabel: 'Column',
+        tagsLabel: 'Tags (comma separated)',
+        notesLabel: 'Notes',
+        pin: 'Pin',
+        unpin: 'Unpin',
+        cancel: 'Cancel',
+        save: 'Save',
+        close: 'Close',
+        addBoardTitle: 'Add board',
+        renameBoardTitle: 'Rename board',
+        boardNameLabel: 'Board name',
+        addColTitle: 'Add column',
+        editColTitle: 'Edit column',
+        colNameLabel: 'Column name',
+        importTitle: '📥 Import JSON',
+        importHint: 'Paste JSON:',
+        import: 'Import',
+        openNewTab: 'Open in new tab',
+        playHere: 'Play here',
+        dropHelp: 'Drop cards or files…',
+        quickPlaceholder: 'Paste URL…',
+        pinned: 'Pinned',
+        file: 'File',
+        youtube: 'YouTube',
+        open: 'Open',
+        edit: 'Edit',
+        moved: 'Moved',
+        added: 'Added',
+        saved: 'Saved',
+        deleted: 'Deleted',
+        exported: 'Exported',
+        imported: 'Imported',
+        wiped: 'All data wiped',
+        invalidUrl: 'Invalid URL',
+        invalidJson: 'Invalid JSON',
+        pasteFirst: 'Paste JSON first',
+        enterName: 'Enter a name',
+        cantDeleteLast: "Can't delete the last",
+        boardAdded: 'Board added',
+        renamed: 'Renamed',
+        boardDeleted: 'Board deleted',
+        colAdded: 'Column added',
+        colDeleted: 'Column deleted',
+        colsReordered: 'Columns reordered',
+        filesAdded: 'file(s) added',
+        fileNotFound: 'File not found',
+        confirmDelete: 'Delete this card?',
+        confirmDeleteBoard: 'Delete this board and all cards?',
+        confirmDeleteCol: 'Delete this column?',
+        confirmWipe: 'Delete ALL data?',
+        ytLocalHint: "⚠️ If video doesn't load, open in new tab",
+        defaultBoard: 'General',
+        defaultCols: ['Inbox', 'In Progress', 'Done'],
+        board2: 'Coding',
+        board2Cols: ['Backlog', 'Building', 'Shipped']
+      }
+    };
+
+    let currentLang = localStorage.getItem('kanban-lang') || 'mk';
+    let currentTheme = localStorage.getItem('kanban-theme') || 'light';
+
+    function t(key){ return TRANSLATIONS[currentLang][key] || key; }
+
+    function applyTranslations(){
+      document.querySelectorAll('[data-t]').forEach(el => {
+        const key = el.dataset.t;
+        if(TRANSLATIONS[currentLang][key]){
+          el.textContent = TRANSLATIONS[currentLang][key];
+        }
+      });
+      document.querySelectorAll('[data-t-placeholder]').forEach(el => {
+        const key = el.dataset.tPlaceholder;
+        if(TRANSLATIONS[currentLang][key]){
+          el.placeholder = TRANSLATIONS[currentLang][key];
+        }
+      });
+      document.documentElement.lang = currentLang;
+    }
+
+    function setTheme(theme){
+      currentTheme = theme;
+      document.documentElement.dataset.theme = theme;
+      localStorage.setItem('kanban-theme', theme);
+      document.querySelectorAll('[data-theme-btn]').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.themeBtn === theme);
+      });
+    }
+
+    function setLang(lang){
+      currentLang = lang;
+      localStorage.setItem('kanban-lang', lang);
+      document.querySelectorAll('[data-lang-btn]').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.langBtn === lang);
+      });
+      applyTranslations();
+      renderAll();
+    }
+
+    // Theme/Lang toggle events
+    document.querySelectorAll('[data-theme-btn]').forEach(btn => {
+      btn.addEventListener('click', () => setTheme(btn.dataset.themeBtn));
+    });
+    document.querySelectorAll('[data-lang-btn]').forEach(btn => {
+      btn.addEventListener('click', () => setLang(btn.dataset.langBtn));
+    });
+
+    // Initialize theme
+    setTheme(currentTheme);
+    applyTranslations();
+
+    // =====================
+    // IndexedDB
+    // =====================
+    const DB_NAME = 'kanban-files-db';
+    const DB_VERSION = 1;
+    const STORE_NAME = 'files';
+
+    function openDB() {
+      return new Promise((resolve, reject) => {
+        const req = indexedDB.open(DB_NAME, DB_VERSION);
+        req.onerror = () => reject(req.error);
+        req.onsuccess = () => resolve(req.result);
+        req.onupgradeneeded = (e) => {
+          const db = e.target.result;
+          if (!db.objectStoreNames.contains(STORE_NAME)) {
+            db.createObjectStore(STORE_NAME, { keyPath: 'id' });
+          }
+        };
+      });
+    }
+
+    async function idbPutFile(file) {
+      const db = await openDB();
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction(STORE_NAME, 'readwrite');
+        tx.objectStore(STORE_NAME).put(file);
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => reject(tx.error);
+      });
+    }
+
+    async function idbGetFile(id) {
+      const db = await openDB();
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction(STORE_NAME, 'readonly');
+        const req = tx.objectStore(STORE_NAME).get(id);
+        req.onsuccess = () => resolve(req.result || null);
+        req.onerror = () => reject(req.error);
+      });
+    }
+
+    async function idbDeleteFile(id) {
+      const db = await openDB();
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction(STORE_NAME, 'readwrite');
+        tx.objectStore(STORE_NAME).delete(id);
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => reject(tx.error);
+      });
+    }
+
+    // =====================
+    // State
+    // =====================
+    const STORE_KEY = 'kanban-bookmarks-v3';
+
+    function defaultState(){
+      const now = Date.now();
+      const boardId = rid();
+      const cols = t('defaultCols');
+      return {
+        boards: [{ id: boardId, name: t('defaultBoard'), order: now }],
+        columnsByBoard: {
+          [boardId]: cols.map((name, i) => ({ id: rid(), name, order: now + i }))
+        },
+        cards: [],
+        ui: { activeBoardId: boardId, search: '', colFilter: '' }
+      };
+    }
+
+    let state = loadState();
+
+    function loadState(){
+      try{
+        const raw = localStorage.getItem(STORE_KEY);
+        if(!raw) return defaultState();
+        const s = JSON.parse(raw);
+        if(!s || typeof s !== 'object') return defaultState();
+        if(!Array.isArray(s.boards) || !s.boards.length) return defaultState();
+        if(!s.columnsByBoard) s.columnsByBoard = {};
+        if(!Array.isArray(s.cards)) s.cards = [];
+        if(!s.ui) s.ui = {};
+
+        s.boards = s.boards.map((b,i)=>({
+          id: String(b.id || rid()),
+          name: String(b.name || `Board ${i+1}`),
+          order: Number.isFinite(b.order) ? b.order : i
+        })).sort((a,b)=>a.order-b.order);
+
+        for(const b of s.boards){
+          if(!Array.isArray(s.columnsByBoard[b.id]) || !s.columnsByBoard[b.id].length){
+            const cols = t('defaultCols');
+            s.columnsByBoard[b.id] = cols.map((name, i) => ({ id: rid(), name, order: i }));
+          }else{
+            s.columnsByBoard[b.id] = s.columnsByBoard[b.id].map((c,i)=>({
+              id: String(c.id || rid()),
+              name: String(c.name || `Col ${i+1}`),
+              order: Number.isFinite(c.order) ? c.order : i
+            })).sort((a,b)=>a.order-b.order);
+          }
+        }
+
+        const active = String(s.ui.activeBoardId || s.boards[0].id);
+        s.ui.activeBoardId = s.boards.some(b=>b.id===active) ? active : s.boards[0].id;
+        s.ui.search = String(s.ui.search || '');
+        s.ui.colFilter = String(s.ui.colFilter || '');
+
+        const boardIds = new Set(s.boards.map(b=>b.id));
+        const firstBoard = s.boards[0].id;
+
+        s.cards = s.cards.map((c,i)=>({
+          id: String(c.id || rid()),
+          kind: c.kind === 'file' ? 'file' : 'link',
+          url: normalizeUrl(c.url || ''),
+          title: String(c.title || ''),
+          boardId: String(c.boardId || firstBoard),
+          columnId: String(c.columnId || ''),
+          tags: Array.isArray(c.tags) ? uniq(c.tags.map(x=>String(x).trim()).filter(Boolean)) : [],
+          notes: String(c.notes || ''),
+          pinned: !!c.pinned,
+          order: Number.isFinite(c.order) ? c.order : i,
+          createdAt: Number(c.createdAt || Date.now()),
+          updatedAt: Number(c.updatedAt || Date.now()),
+          fileId: c.fileId ? String(c.fileId) : null,
+          fileName: c.fileName ? String(c.fileName) : null,
+          fileType: c.fileType ? String(c.fileType) : null,
+          fileSize: Number.isFinite(c.fileSize) ? c.fileSize : null
+        }));
+
+        for(const card of s.cards){
+          if(!boardIds.has(card.boardId)) card.boardId = firstBoard;
+          const cols = s.columnsByBoard[card.boardId] || [];
+          const colIds = new Set(cols.map(c=>c.id));
+          if(!colIds.has(card.columnId)) card.columnId = cols[0]?.id || '';
+        }
+
+        return s;
+      }catch{
+        return defaultState();
+      }
+    }
+
+    function saveState(){ localStorage.setItem(STORE_KEY, JSON.stringify(state)); }
+
+    // =====================
+    // Helpers
+    // =====================
+    const $ = sel => document.querySelector(sel);
+    function rid(){
+      if(crypto?.getRandomValues){
+        const a = new Uint32Array(4);
+        crypto.getRandomValues(a);
+        return [...a].map(n=>n.toString(16).padStart(8,'0')).join('');
+      }
+      return Math.random().toString(36).slice(2) + Date.now();
+    }
+    function uniq(arr){
+      const seen = new Set(), out = [];
+      for(const s of arr){
+        const k = String(s).toLowerCase();
+        if(!seen.has(k)){ seen.add(k); out.push(String(s)); }
+      }
+      return out;
+    }
+    function escapeHtml(s){ return String(s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+    function normalizeUrl(s){
+      let url = String(s||'').trim();
+      if(!url) return '';
+      if(!/^[a-z][a-z0-9+.-]*:/i.test(url)) url = 'https://' + url;
+      return url;
+    }
+    function tryParseUrl(u){ try{ return new URL(u); }catch{ return null; } }
+    function hostnameOf(u){ return tryParseUrl(u)?.hostname || ''; }
+    function firstLetter(s){ return (s||'').trim().charAt(0).toUpperCase() || '?'; }
+    function humanBytes(n){
+      if(!Number.isFinite(n)) return '';
+      const units = ['B','KB','MB','GB'];
+      let i=0, x=n;
+      while(x>=1024 && i<units.length-1){ x/=1024; i++; }
+      return `${x.toFixed(i?1:0)} ${units[i]}`;
+    }
+    function getFileIcon(type){
+      if(!type) return '📄';
+      if(type.startsWith('image/')) return '🖼️';
+      if(type.startsWith('video/')) return '🎬';
+      if(type.startsWith('audio/')) return '🎵';
+      if(type.includes('pdf')) return '📕';
+      if(type.includes('zip')) return '📦';
+      return '📄';
+    }
+
+    function getYouTubeId(url){
+      const parsed = tryParseUrl(url);
+      if(!parsed) return null;
+      const host = parsed.hostname;
+      if(host.includes('youtube.com')) return parsed.searchParams.get('v');
+      if(host === 'youtu.be') return parsed.pathname.slice(1);
+      return null;
+    }
+    function isYouTube(url){ return !!getYouTubeId(url); }
+    function getThumbUrl(card){
+      if(card.kind === 'file') return null;
+      const vid = getYouTubeId(card.url);
+      return vid ? `https://img.youtube.com/vi/${vid}/mqdefault.jpg` : null;
+    }
+
+    function getActiveBoard(){ return state.boards.find(b=>b.id===state.ui.activeBoardId) || state.boards[0]; }
+    function getColumns(boardId){ return (state.columnsByBoard[boardId] || []).slice().sort((a,b)=>a.order-b.order); }
+    function cardCount(boardId){ return state.cards.filter(c=>c.boardId===boardId).length; }
+    function visibleCards(boardId, colId){
+      const search = (state.ui.search||'').toLowerCase().trim();
+      return state.cards
+        .filter(c => c.boardId === boardId && c.columnId === colId)
+        .filter(c => {
+          if(!search) return true;
+          return [c.title, c.url, (c.tags||[]).join(' '), c.notes, c.fileName||'']
+            .some(f => (f||'').toLowerCase().includes(search));
+        })
+        .sort((a,b) => (a.pinned !== b.pinned) ? (a.pinned ? -1 : 1) : a.order - b.order);
+    }
+
+    function toast(msg, err=false){
+      const el = $('#toast');
+      el.textContent = msg;
+      el.className = 'toast show ' + (err ? 'error' : 'success');
+      clearTimeout(el._t);
+      el._t = setTimeout(()=> el.classList.remove('show'), 2000);
+    }
+
+    // =====================
+    // DOM
+    // =====================
+    const boardsListEl = $('#boardsList');
+    const boardEl = $('#board');
+    const searchEl = $('#search');
+    const colFilterEl = $('#colFilter');
+
+    const cardModal = $('#cardModal');
+    const cUrl = $('#cUrl'), cTitle = $('#cTitle'), cBoard = $('#cBoard'), cColumn = $('#cColumn');
+    const cTags = $('#cTags'), cNotes = $('#cNotes'), cPinned = $('#cPinned');
+    let editingCardId = null;
+
+    const boardModal = $('#boardModal');
+    const boardName = $('#boardName');
+    let boardModalMode = 'add';
+
+    const colModal = $('#colModal');
+    const colName = $('#colName');
+    let editingColId = null;
+
+    const importModal = $('#importModal');
+    const importText = $('#importText');
+
+    const ytModal = $('#ytModal');
+    const ytEmbed = $('#ytEmbed');
+    let currentYtUrl = '';
+
+    let dragCardId = null;
+    let reorderDrag = { type: null, id: null };
+
+    // =====================
+    // Render
+    // =====================
+    function renderAll(){
+      renderBoardsList();
+      renderBoardHeader();
+      renderFilters();
+      renderKanban();
+      saveState();
+    }
+
+    function renderBoardsList(){
+      boardsListEl.innerHTML = '';
+      for(const b of state.boards){
+        const btn = document.createElement('button');
+        btn.className = 'itemBtn' + (b.id === state.ui.activeBoardId ? ' active' : '');
+        btn.innerHTML = `<span>${escapeHtml(b.name)}</span><span class="count">${cardCount(b.id)}</span>`;
+        btn.onclick = () => { state.ui.activeBoardId = b.id; state.ui.colFilter = ''; renderAll(); };
+        boardsListEl.appendChild(btn);
+      }
+    }
+
+    function renderBoardHeader(){
+      const b = getActiveBoard();
+      $('#activeBoardName').textContent = b.name;
+      $('#activeBoardCount').textContent = cardCount(b.id);
+    }
+
+    function renderFilters(){
+      searchEl.value = state.ui.search || '';
+      const cols = getColumns(getActiveBoard().id);
+      colFilterEl.innerHTML = `<option value="">${t('allCols')}</option>` +
+        cols.map(c => `<option value="${c.id}">${escapeHtml(c.name)}</option>`).join('');
+      if(state.ui.colFilter && !cols.some(c=>c.id===state.ui.colFilter)) state.ui.colFilter = '';
+      colFilterEl.value = state.ui.colFilter || '';
+    }
+
+    function renderKanban(){
+      const board = getActiveBoard();
+      const cols = getColumns(board.id);
+      boardEl.innerHTML = '';
+
+      for(const col of cols){
+        const colEl = document.createElement('div');
+        colEl.className = 'col';
+        colEl.dataset.colId = col.id;
+        colEl.draggable = true;
+
+        const list = visibleCards(board.id, col.id);
+
+        colEl.innerHTML = `
+          <div class="colHead" title="${t('dragHint')}">
+            <p class="colTitle">
+              <span class="dragHandle">&#8942;&#8942;</span>
+              <span class="name">${escapeHtml(col.name)}</span>
+              <span class="count">${list.length}</span>
+            </p>
+            <button class="btn mini" data-action="editCol">✏️</button>
+          </div>
+          <div class="colBody">
+            <div class="quickAdd">
+              <input type="text" placeholder="${t('quickPlaceholder')}" data-quick="1" />
+              <button class="btn mini" data-action="quickAdd">+</button>
+            </div>
+            <div class="dropZone"></div>
+          </div>
+        `;
+
+        // Column drag
+        colEl.ondragstart = e => {
+          if(e.target.classList.contains('card')) return;
+          reorderDrag = { type:'col', id: col.id };
+          e.dataTransfer.effectAllowed = 'move';
+          setTimeout(()=> colEl.classList.add('dragging'), 0);
+        };
+        colEl.ondragover = e => {
+          if(reorderDrag.type !== 'col') return;
+          e.preventDefault();
+          colEl.classList.add('dragOver');
+        };
+        colEl.ondragleave = () => colEl.classList.remove('dragOver');
+        colEl.ondrop = e => {
+          if(reorderDrag.type !== 'col') return;
+          e.preventDefault();
+          colEl.classList.remove('dragOver');
+          reorderColumns(board.id, reorderDrag.id, col.id);
+        };
+        colEl.ondragend = () => {
+          colEl.classList.remove('dragging', 'dragOver');
+          reorderDrag = { type:null, id:null };
+        };
+
+        colEl.querySelector('[data-action="editCol"]').onclick = () => openColModal(col.id);
+
+        // Quick add
+        const quickInput = colEl.querySelector('[data-quick="1"]');
+        const doQuick = () => {
+          const url = normalizeUrl(quickInput.value);
+          if(!tryParseUrl(url)){ toast(t('invalidUrl'), true); return; }
+          quickAddCard(board.id, col.id, url);
+          quickInput.value = '';
+        };
+        colEl.querySelector('[data-action="quickAdd"]').onclick = doQuick;
+        quickInput.onkeydown = e => { if(e.key === 'Enter'){ e.preventDefault(); doQuick(); } };
+
+        // Dropzone
+        const dz = colEl.querySelector('.dropZone');
+        if(!list.length){
+          dz.innerHTML = `<div class="dropHelp">${t('dropHelp')}</div>`;
+        }else{
+          for(const card of list) dz.appendChild(renderCard(card));
+        }
+
+        dz.ondragover = e => onDzDragOver(e, board.id, col.id);
+        dz.ondragleave = e => onDzDragLeave(e);
+        dz.ondrop = e => onDzDrop(e, board.id, col.id);
+
+        boardEl.appendChild(colEl);
+      }
+    }
+
+    function renderCard(card){
+      const el = document.createElement('div');
+      el.className = 'card';
+      el.dataset.id = card.id;
+      el.draggable = true;
+
+      const thumb = getThumbUrl(card);
+      const title = card.title || (card.kind === 'file' ? card.fileName : hostnameOf(card.url)) || 'Untitled';
+      const isYT = isYouTube(card.url);
+
+      const badges = [];
+      if(card.pinned) badges.push(`<span class="badge pin">📌</span>`);
+      if(card.kind === 'file') badges.push(`<span class="badge file">📎</span>`);
+      if(isYT) badges.push(`<span class="badge yt">▶️ YT</span>`);
+      for(const tag of (card.tags||[]).slice(0,2)) badges.push(`<span class="badge">#${escapeHtml(tag)}</span>`);
+
+      const urlLine = card.kind === 'file' 
+        ? `${card.fileName} • ${humanBytes(card.fileSize)}`
+        : card.url;
+
+      const thumbHtml = card.kind === 'file'
+        ? `<div class="fileIcon">${getFileIcon(card.fileType)}</div>`
+        : thumb 
+          ? `<img src="${thumb}" alt="" loading="lazy" />${isYT ? `<div class="play-overlay" data-action="playYT"><div class="play-btn">▶</div></div>` : ''}`
+          : `<div class="fallback">${firstLetter(title)}</div>`;
+
+      el.innerHTML = `
+        <div class="thumb">${thumbHtml}</div>
+        <div class="cardBody">
+          <p class="title">${escapeHtml(title)}</p>
+          <div class="url">${escapeHtml(urlLine)}</div>
+          <div class="badges">${badges.join('')}</div>
+          <div class="actions">
+            <button class="btn mini" data-action="open">🔗</button>
+            <div style="display:flex;gap:3px;">
+              ${isYT ? `<button class="btn mini" data-action="playYT">▶️</button>` : ''}
+              <button class="btn mini" data-action="pin">${card.pinned ? '📌' : '📍'}</button>
+              <button class="btn mini" data-action="edit">✏️</button>
+            </div>
+          </div>
+        </div>
+      `;
+
+      el.ondragstart = e => { e.stopPropagation(); dragCardId = card.id; el.classList.add('dragging'); };
+      el.ondragend = () => { el.classList.remove('dragging'); dragCardId = null; };
+
+      el.querySelector('[data-action="edit"]').onclick = () => openCardModal(card.id);
+      el.querySelector('[data-action="pin"]').onclick = () => {
+        card.pinned = !card.pinned;
+        card.updatedAt = Date.now();
+        saveState();
+        renderKanban();
+      };
+      el.querySelector('[data-action="open"]').onclick = async () => {
+        if(card.kind === 'file') await openFile(card);
+        else window.open(card.url, '_blank');
+      };
+
+      const playBtns = el.querySelectorAll('[data-action="playYT"]');
+      playBtns.forEach(btn => btn.onclick = e => { e.stopPropagation(); openYouTube(card.url); });
+
+      const img = el.querySelector('img');
+      if(img) img.onerror = () => img.replaceWith(Object.assign(document.createElement('div'), { className:'fallback', textContent: firstLetter(title) }));
+
+      return el;
+    }
+
+    // =====================
+    // Drag & Drop
+    // =====================
+    function onDzDragOver(e, boardId, colId){
+      if(reorderDrag.type === 'col') return;
+      e.preventDefault();
+      const dz = e.currentTarget;
+      const hasFiles = e.dataTransfer.types.includes('Files');
+      dz.classList.toggle('fileOver', hasFiles);
+      dz.classList.toggle('over', !hasFiles);
+
+      if(!hasFiles){
+        const dragging = document.querySelector('.card.dragging');
+        if(dragging){
+          const after = getAfterCard(dz, e.clientY);
+          after ? dz.insertBefore(dragging, after) : dz.appendChild(dragging);
+        }
+      }
+    }
+
+    function onDzDragLeave(e){
+      const dz = e.currentTarget;
+      if(!dz.contains(e.relatedTarget)) dz.classList.remove('over', 'fileOver');
+    }
+
+    async function onDzDrop(e, boardId, colId){
+      if(reorderDrag.type === 'col') return;
+      e.preventDefault();
+      const dz = e.currentTarget;
+      dz.classList.remove('over', 'fileOver');
+
+      const files = Array.from(e.dataTransfer?.files || []);
+      if(files.length){
+        for(const f of files) await addFileCard(boardId, colId, f);
+        saveState(); renderAll();
+        toast(`${files.length} ${t('filesAdded')}`);
+        return;
+      }
+
+      const id = dragCardId;
+      if(!id) return;
+      const card = state.cards.find(c=>c.id===id);
+      if(!card) return;
+
+      card.boardId = boardId;
+      card.columnId = colId;
+      card.updatedAt = Date.now();
+
+      const ids = [...dz.querySelectorAll('.card')].map(el=>el.dataset.id);
+      const base = Date.now();
+      ids.forEach((cid,i) => {
+        const c = state.cards.find(x=>x.id===cid);
+        if(c && c.boardId===boardId && c.columnId===colId) c.order = base + i;
+      });
+
+      saveState(); renderAll();
+      toast(t('moved'));
+    }
+
+    function getAfterCard(container, y){
+      const items = [...container.querySelectorAll('.card:not(.dragging)')];
+      return items.reduce((closest, child) => {
+        const box = child.getBoundingClientRect();
+        const offset = y - box.top - box.height/2;
+        return (offset < 0 && offset > closest.offset) ? { offset, element: child } : closest;
+      }, { offset: -Infinity, element: null }).element;
+    }
+
+    function reorderColumns(boardId, dragId, targetId){
+      if(dragId === targetId) return;
+      const cols = getColumns(boardId);
+      const dragged = cols.find(c=>c.id===dragId);
+      if(!dragged) return;
+      const rest = cols.filter(c=>c.id!==dragId);
+      const idx = rest.findIndex(c=>c.id===targetId);
+      rest.splice(idx, 0, dragged);
+      state.columnsByBoard[boardId] = rest.map((c,i)=>({...c, order:i}));
+      saveState(); renderAll();
+      toast(t('colsReordered'));
+    }
+
+    // =====================
+    // File Cards
+    // =====================
+    async function addFileCard(boardId, colId, file){
+      const now = Date.now();
+      const fileId = rid();
+      const buffer = await file.arrayBuffer();
+      await idbPutFile({ id: fileId, name: file.name, type: file.type, size: file.size, data: buffer });
+      state.cards.push({
+        id: rid(), kind:'file', url:'', title: file.name.replace(/\.[^/.]+$/,''),
+        boardId, columnId: colId, tags:[], notes:'', pinned:false, order:now,
+        createdAt:now, updatedAt:now, fileId, fileName:file.name, fileType:file.type, fileSize:file.size
+      });
+    }
+
+    async function openFile(card){
+      if(!card.fileId){ toast(t('fileNotFound'), true); return; }
+      const stored = await idbGetFile(card.fileId);
+      if(!stored?.data){ toast(t('fileNotFound'), true); return; }
+      const blob = new Blob([stored.data], { type: stored.type });
+      const url = URL.createObjectURL(blob);
+      const a = Object.assign(document.createElement('a'), { href:url, download:stored.name, target:'_blank' });
+      a.click();
+      setTimeout(()=>URL.revokeObjectURL(url), 100);
+    }
+
+    function quickAddCard(boardId, colId, url){
+      const now = Date.now();
+      state.cards.push({
+        id: rid(), kind:'link', url, title:'', boardId, columnId:colId,
+        tags:[], notes:'', pinned:false, order:now, createdAt:now, updatedAt:now,
+        fileId:null, fileName:null, fileType:null, fileSize:null
+      });
+      saveState(); renderAll();
+      toast(t('added'));
+    }
+
+    // =====================
+    // YouTube Modal
+    // =====================
+    function openYouTube(url){
+      currentYtUrl = url;
+      const vid = getYouTubeId(url);
+      if(!vid) return;
+      
+      // Use youtube-nocookie.com for better privacy and compatibility
+      // Add origin parameter for local file support
+      const embedUrl = `https://www.youtube-nocookie.com/embed/${vid}?autoplay=1&rel=0&modestbranding=1&enablejsapi=1`;
+      
+      ytEmbed.innerHTML = `
+        <iframe 
+          src="${embedUrl}" 
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" 
+          allowfullscreen
+          referrerpolicy="strict-origin-when-cross-origin"
+        ></iframe>
+        <div class="yt-fallback" style="display:none; position:absolute; inset:0; background:#000; color:#fff; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:12px; padding:20px; text-align:center;">
+          <div style="font-size:48px;">▶️</div>
+          <p style="margin:0;">Embed не работи локално</p>
+          <button class="btn primary" onclick="window.open('${currentYtUrl}', '_blank')">${t('openNewTab')}</button>
+        </div>
+      `;
+      
+      // Check if iframe loads properly
+      const iframe = ytEmbed.querySelector('iframe');
+      const fallback = ytEmbed.querySelector('.yt-fallback');
+      
+      iframe.onerror = () => {
+        iframe.style.display = 'none';
+        fallback.style.display = 'flex';
+      };
+      
+      $('#ytModalTitle').textContent = '▶️ YouTube';
+      ytModal.showModal();
+    }
+
+    function closeYouTube(){
+      ytEmbed.innerHTML = '';
+      ytModal.close();
+    }
+
+    $('#closeYtModal').onclick = closeYouTube;
+    $('#closeYtModalBtn').onclick = closeYouTube;
+    $('#ytNewTab').onclick = () => { window.open(currentYtUrl, '_blank'); closeYouTube(); };
+
+    // =====================
+    // Card Modal
+    // =====================
+    function openCardModal(cardId=null, forceBoardId=null, forceColId=null){
+      editingCardId = cardId;
+      cBoard.innerHTML = state.boards.map(b=>`<option value="${b.id}">${escapeHtml(b.name)}</option>`).join('');
+
+      if(cardId){
+        const card = state.cards.find(c=>c.id===cardId);
+        if(!card) return;
+        $('#cardModalTitle').textContent = t('editCardTitle');
+        $('#deleteCardBtn').style.display = 'inline-flex';
+        cUrl.value = card.url;
+        cUrl.disabled = card.kind === 'file';
+        cTitle.value = card.title;
+        cBoard.value = card.boardId;
+        fillColSelect(card.boardId, card.columnId);
+        cTags.value = (card.tags||[]).join(', ');
+        cNotes.value = card.notes;
+        cPinned.checked = card.pinned;
+      }else{
+        $('#cardModalTitle').textContent = t('addCardTitle');
+        $('#deleteCardBtn').style.display = 'none';
+        cUrl.value = ''; cUrl.disabled = false;
+        cTitle.value = '';
+        const bid = forceBoardId || getActiveBoard().id;
+        cBoard.value = bid;
+        fillColSelect(bid, forceColId);
+        cTags.value = ''; cNotes.value = ''; cPinned.checked = false;
+      }
+      cardModal.showModal();
+      setTimeout(()=>cUrl.focus(), 0);
+    }
+
+    function fillColSelect(boardId, selId=''){
+      const cols = getColumns(boardId);
+      cColumn.innerHTML = cols.map(c=>`<option value="${c.id}">${escapeHtml(c.name)}</option>`).join('');
+      if(selId && cols.some(c=>c.id===selId)) cColumn.value = selId;
+      else if(cols.length) cColumn.value = cols[0].id;
+    }
+
+    cBoard.onchange = () => fillColSelect(cBoard.value);
+
+    function closeCardModal(){ cardModal.close(); }
+
+    function saveCard(){
+      const url = normalizeUrl(cUrl.value);
+      const title = cTitle.value.trim();
+      const tags = cTags.value.split(',').map(s=>s.trim()).filter(Boolean);
+      const notes = cNotes.value.trim();
+      const pinned = cPinned.checked;
+      const boardId = cBoard.value;
+      const columnId = cColumn.value;
+
+      if(editingCardId){
+        const card = state.cards.find(c=>c.id===editingCardId);
+        if(!card) return;
+        if(card.kind !== 'file') card.url = url;
+        Object.assign(card, { title, tags: uniq(tags), notes, pinned, boardId, columnId, updatedAt: Date.now() });
+      }else{
+        if(!url || !tryParseUrl(url)){ toast(t('invalidUrl'), true); cUrl.focus(); return; }
+        const now = Date.now();
+        state.cards.push({
+          id: rid(), kind:'link', url, title, boardId, columnId, tags: uniq(tags),
+          notes, pinned, order:now, createdAt:now, updatedAt:now,
+          fileId:null, fileName:null, fileType:null, fileSize:null
+        });
+      }
+      saveState(); renderAll(); closeCardModal();
+      toast(editingCardId ? t('saved') : t('added'));
+    }
+
+    async function deleteCard(){
+      if(!editingCardId) return;
+      if(!confirm(t('confirmDelete'))) return;
+      const card = state.cards.find(c=>c.id===editingCardId);
+      if(card?.fileId) try{ await idbDeleteFile(card.fileId); }catch{}
+      state.cards = state.cards.filter(c=>c.id!==editingCardId);
+      saveState(); renderAll(); closeCardModal();
+      toast(t('deleted'));
+    }
+
+    $('#closeCardModal').onclick = closeCardModal;
+    $('#cancelCardBtn').onclick = closeCardModal;
+    $('#saveCardBtn').onclick = saveCard;
+    $('#deleteCardBtn').onclick = deleteCard;
+
+    // =====================
+    // Board Modal
+    // =====================
+    function openBoardModal(mode='add'){
+      boardModalMode = mode;
+      $('#boardModalTitle').textContent = mode === 'add' ? t('addBoardTitle') : t('renameBoardTitle');
+      boardName.value = mode === 'add' ? '' : getActiveBoard().name;
+      boardModal.showModal();
+      setTimeout(()=>boardName.focus(), 0);
+    }
+
+    function closeBoardModal(){ boardModal.close(); }
+
+    function saveBoardModal(){
+      const name = boardName.value.trim();
+      if(!name){ toast(t('enterName'), true); boardName.focus(); return; }
+      if(boardModalMode === 'add'){
+        const now = Date.now();
+        const id = rid();
+        const cols = t('defaultCols');
+        state.boards.push({ id, name, order: now });
+        state.columnsByBoard[id] = cols.map((n,i)=>({ id: rid(), name: n, order: now+i }));
+        state.ui.activeBoardId = id;
+        state.ui.colFilter = '';
+      }else{
+        getActiveBoard().name = name;
+      }
+      saveState(); renderAll(); closeBoardModal();
+      toast(boardModalMode === 'add' ? t('boardAdded') : t('renamed'));
+    }
+
+    function deleteBoard(){
+      if(state.boards.length <= 1){ toast(t('cantDeleteLast') + ' board', true); return; }
+      if(!confirm(t('confirmDeleteBoard'))) return;
+      const bid = state.ui.activeBoardId;
+      state.cards.filter(c=>c.boardId===bid).forEach(c=>{ if(c.fileId) try{idbDeleteFile(c.fileId);}catch{} });
+      state.boards = state.boards.filter(b=>b.id!==bid);
+      delete state.columnsByBoard[bid];
+      state.cards = state.cards.filter(c=>c.boardId!==bid);
+      state.ui.activeBoardId = state.boards[0].id;
+      saveState(); renderAll();
+      toast(t('boardDeleted'));
+    }
+
+    $('#closeBoardModal').onclick = closeBoardModal;
+    $('#cancelBoardModalBtn').onclick = closeBoardModal;
+    $('#saveBoardModalBtn').onclick = saveBoardModal;
+
+    // =====================
+    // Column Modal
+    // =====================
+    function openColModal(colId=null){
+      editingColId = colId;
+      const cols = getColumns(getActiveBoard().id);
+      if(colId){
+        const col = cols.find(c=>c.id===colId);
+        if(!col) return;
+        $('#colModalTitle').textContent = t('editColTitle');
+        colName.value = col.name;
+        $('#deleteColBtn').style.display = cols.length > 1 ? 'inline-flex' : 'none';
+        $('#colHint').textContent = cols.length <= 1 ? t('cantDeleteLast') + ' column' : '';
+      }else{
+        $('#colModalTitle').textContent = t('addColTitle');
+        colName.value = '';
+        $('#deleteColBtn').style.display = 'none';
+        $('#colHint').textContent = '';
+      }
+      colModal.showModal();
+      setTimeout(()=>colName.focus(), 0);
+    }
+
+    function closeColModal(){ colModal.close(); }
+
+    function saveColumn(){
+      const name = colName.value.trim();
+      if(!name){ toast(t('enterName'), true); colName.focus(); return; }
+      const board = getActiveBoard();
+      if(editingColId){
+        const col = getColumns(board.id).find(c=>c.id===editingColId);
+        if(col) col.name = name;
+      }else{
+        state.columnsByBoard[board.id].push({ id: rid(), name, order: Date.now() });
+      }
+      saveState(); renderAll(); closeColModal();
+      toast(editingColId ? t('saved') : t('colAdded'));
+    }
+
+    function deleteColumn(){
+      if(!editingColId) return;
+      const board = getActiveBoard();
+      const cols = getColumns(board.id);
+      if(cols.length <= 1){ toast(t('cantDeleteLast') + ' column', true); return; }
+      if(!confirm(t('confirmDeleteCol'))) return;
+      const other = cols.find(c=>c.id!==editingColId);
+      state.cards.filter(c=>c.boardId===board.id && c.columnId===editingColId).forEach(c=>c.columnId=other.id);
+      state.columnsByBoard[board.id] = cols.filter(c=>c.id!==editingColId);
+      saveState(); renderAll(); closeColModal();
+      toast(t('colDeleted'));
+    }
+
+    $('#closeColModal').onclick = closeColModal;
+    $('#cancelColBtn').onclick = closeColModal;
+    $('#saveColBtn').onclick = saveColumn;
+    $('#deleteColBtn').onclick = deleteColumn;
+
+    // =====================
+    // Import/Export
+    // =====================
+    function exportJson(){
+      const blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' });
+      const a = Object.assign(document.createElement('a'), {
+        href: URL.createObjectURL(blob),
+        download: `kanban-${new Date().toISOString().slice(0,10)}.json`
+      });
+      a.click();
+      toast(t('exported'));
+    }
+
+    function openImportModal(){
+      importText.value = '';
+      importModal.showModal();
+      setTimeout(()=>importText.focus(), 0);
+    }
+
+    function doImport(){
+      const raw = importText.value.trim();
+      if(!raw){ toast(t('pasteFirst'), true); return; }
+      let data;
+      try{ data = JSON.parse(raw); }catch{ toast(t('invalidJson'), true); return; }
+      
+      // Merge logic (simplified)
+      if(Array.isArray(data.boards)){
+        for(const b of data.boards){
+          if(!state.boards.some(x=>x.id===b.id)){
+            state.boards.push({ id: b.id, name: b.name, order: b.order || Date.now() });
+            state.columnsByBoard[b.id] = data.columnsByBoard?.[b.id] || t('defaultCols').map((n,i)=>({id:rid(),name:n,order:i}));
+          }
+        }
+      }
+      if(Array.isArray(data.cards)){
+        for(const c of data.cards){
+          if(!state.cards.some(x=>x.id===c.id)) state.cards.push(c);
+        }
+      }
+      
+      saveState(); renderAll(); importModal.close();
+      toast(t('imported'));
+    }
+
+    function wipeAll(){
+      if(!confirm(t('confirmWipe'))) return;
+      state = defaultState();
+      saveState();
+      indexedDB.deleteDatabase(DB_NAME);
+      renderAll();
+      toast(t('wiped'));
+    }
+
+    $('#exportBtn').onclick = exportJson;
+    $('#importBtn').onclick = openImportModal;
+    $('#closeImportModal').onclick = () => importModal.close();
+    $('#cancelImportBtn').onclick = () => importModal.close();
+    $('#doImportBtn').onclick = doImport;
+    $('#wipeBtn').onclick = wipeAll;
+
+    // =====================
+    // Events
+    // =====================
+    $('#addCardBtn').onclick = () => openCardModal();
+    $('#addColBtn').onclick = () => openColModal();
+    $('#addBoardBtn').onclick = () => openBoardModal('add');
+    $('#addBoardBtn2').onclick = () => openBoardModal('add');
+    $('#renameBoardBtn').onclick = () => openBoardModal('rename');
+    $('#deleteBoardBtn').onclick = deleteBoard;
+
+    searchEl.oninput = () => { state.ui.search = searchEl.value; renderAll(); };
+    colFilterEl.onchange = () => { state.ui.colFilter = colFilterEl.value; renderAll(); };
+
+    document.onkeydown = e => {
+      if((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k'){ e.preventDefault(); searchEl.focus(); return; }
+      if(e.key === 'a' && !['INPUT','TEXTAREA','SELECT'].includes(document.activeElement?.tagName) && 
+         !cardModal.open && !boardModal.open && !colModal.open && !importModal.open && !ytModal.open){
+        openCardModal();
+      }
+      if(e.key === 'Escape'){
+        if(cardModal.open) closeCardModal();
+        if(boardModal.open) closeBoardModal();
+        if(colModal.open) closeColModal();
+        if(importModal.open) importModal.close();
+        if(ytModal.open) closeYouTube();
+      }
+    };
+
+    // Seed demo data
+    function maybeSeed(){
+      if(state.cards.length) return;
+      const b = getActiveBoard();
+      const cols = getColumns(b.id);
+      const now = Date.now();
+      state.cards.push(
+        { id:rid(), kind:'link', url:'https://www.youtube.com/watch?v=dQw4w9WgXcQ', title:'YouTube Demo (drag me!)', boardId:b.id, columnId:cols[0]?.id, tags:['video'], notes:'Click ▶️ to play embedded', pinned:true, order:now, createdAt:now, updatedAt:now, fileId:null, fileName:null, fileType:null, fileSize:null },
+        { id:rid(), kind:'link', url:'https://developer.mozilla.org/', title:'MDN Web Docs', boardId:b.id, columnId:cols[1]?.id||cols[0]?.id, tags:['docs','web'], notes:'', pinned:false, order:now+1, createdAt:now+1, updatedAt:now+1, fileId:null, fileName:null, fileType:null, fileSize:null }
+      );
+      saveState();
+    }
+
+    maybeSeed();
+    renderAll();
+  </script>
+  <script src="home-button.js"></script>
+</body>
+</html>
