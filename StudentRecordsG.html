@@ -663,10 +663,11 @@ function normalizeImageLink(url){
   // Examples:
   // https://drive.google.com/file/d/FILE_ID/view?usp=sharing
   // -> https://drive.google.com/uc?export=download&id=FILE_ID
-  const m = u.match(/drive\.google\.com\/file\/d\/([^\/\?]+)/i);
-  if (m && m[1]) {
-    u = `https://drive.google.com/uc?export=download&id=${m[1]}`;
-  }
+ const m = u.match(/drive\.google\.com\/file\/d\/([^\/\?]+)/i);
+if (m && m[1]) {
+  u = `https://drive.google.com/uc?export=view&id=${m[1]}`;
+}
+
 
   return u;
 }
@@ -1021,3 +1022,4 @@ window.addEventListener("db-ready", async () => {
 </script>
 </body>
 </html>
+
