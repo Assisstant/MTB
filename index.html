@@ -3,10 +3,9 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>App Toolbox | Електронски Дневник</title>
+  <title>App Toolbox</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🧰</text></svg>">
   <style>
-    /* --- DESIGN SYSTEM --- */
     :root {
       --bg: #f5f7fa;
       --surface: #ffffff;
@@ -56,7 +55,7 @@
     .top-nav {
       background: var(--surface);
       border-bottom: 1px solid var(--border);
-      padding: 12px 20px;
+      padding: 10px 20px;
       display: flex;
       align-items: center;
       gap: 8px;
@@ -64,12 +63,11 @@
       top: 0;
       z-index: 100;
       box-shadow: var(--shadow-sm);
-      flex-wrap: wrap;
     }
 
     .nav-btn {
-      width: 38px;
-      height: 38px;
+      width: 36px;
+      height: 36px;
       border: 1px solid var(--border);
       background: var(--surface-light);
       color: var(--text);
@@ -78,7 +76,7 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 16px;
+      font-size: 15px;
       transition: all 0.2s;
     }
 
@@ -86,102 +84,133 @@
       background: var(--accent); 
       color: white; 
       border-color: var(--accent);
-      transform: translateY(-1px);
     }
 
-    .nav-btn.danger:hover {
-      background: var(--danger);
-      border-color: var(--danger);
-    }
+    .nav-btn.danger:hover { background: var(--danger); border-color: var(--danger); }
+    .nav-btn.success:hover { background: var(--success); border-color: var(--success); }
 
-    .nav-btn.success:hover {
-      background: var(--success);
-      border-color: var(--success);
-    }
+    .nav-separator { width: 1px; height: 24px; background: var(--border); margin: 0 6px; }
 
-    .nav-separator { 
-      width: 1px; 
-      height: 24px; 
-      background: var(--border); 
-      margin: 0 8px; 
+    .nav-title {
+      font-size: 18px;
+      font-weight: 700;
+      margin-right: auto;
+      display: flex;
+      align-items: center;
+      gap: 8px;
     }
 
     .nav-stats {
-      margin-left: auto;
       display: flex;
-      gap: 16px;
-      font-size: 13px;
+      gap: 12px;
+      font-size: 12px;
       color: var(--text-secondary);
-      font-weight: 500;
     }
 
-    .nav-stats span {
-      display: flex;
-      align-items: center;
-      gap: 4px;
-    }
-
-    .lang-toggle {
+    .lang-btn {
+      padding: 5px 10px;
       background: var(--accent-light);
       color: var(--accent);
       border: 1px solid var(--accent);
-      padding: 6px 12px;
-      border-radius: 20px;
-      font-size: 12px;
+      border-radius: 15px;
+      font-size: 11px;
       font-weight: 700;
       cursor: pointer;
+    }
+
+    .lang-btn:hover { background: var(--accent); color: white; }
+
+    /* --- TABS --- */
+    .tabs-container {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 0 20px;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      overflow-x: auto;
+    }
+
+    .tabs-container::-webkit-scrollbar { height: 3px; }
+    .tabs-container::-webkit-scrollbar-thumb { background: var(--accent); border-radius: 3px; }
+
+    .tab {
+      padding: 12px 18px;
+      background: none;
+      border: none;
+      color: var(--text-secondary);
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      border-bottom: 3px solid transparent;
+      transition: all 0.2s;
+      white-space: nowrap;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .tab:hover { color: var(--text); background: var(--surface-light); }
+    .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+    .tab .tab-count {
+      background: var(--surface-light);
+      padding: 2px 6px;
+      border-radius: 10px;
+      font-size: 10px;
+    }
+
+    .tab.active .tab-count { background: var(--accent-light); }
+
+    .tab-close {
+      margin-left: 4px;
+      opacity: 0;
+      font-size: 12px;
+      transition: opacity 0.2s;
+    }
+
+    .tab:hover .tab-close { opacity: 0.6; }
+    .tab-close:hover { opacity: 1; color: var(--danger); }
+
+    .add-tab-btn {
+      padding: 8px 12px;
+      background: none;
+      border: 1px dashed var(--border);
+      color: var(--text-secondary);
+      border-radius: var(--radius-sm);
+      font-size: 12px;
+      cursor: pointer;
+      margin-left: 8px;
       transition: all 0.2s;
     }
 
-    .lang-toggle:hover {
-      background: var(--accent);
-      color: white;
-    }
-
-    /* --- HEADER --- */
-    .header {
-      text-align: center;
-      padding: 50px 20px 30px;
-      background: linear-gradient(135deg, var(--accent-light) 0%, transparent 100%);
-    }
-
-    .header-logo { 
-      font-size: 60px; 
-      margin-bottom: 12px; 
-      filter: drop-shadow(0 4px 8px rgba(99, 102, 241, 0.3));
-      animation: float 3s ease-in-out infinite;
-    }
-
-    @keyframes float {
-      0%, 100% { transform: translateY(0); }
-      50% { transform: translateY(-8px); }
-    }
-    
-    .header-title {
-      font-size: 32px;
-      font-weight: 800;
-      letter-spacing: 1px;
-      color: var(--text);
-      margin-bottom: 8px;
-    }
-
-    .header-subtitle {
+    .add-tab-btn:hover {
+      border-color: var(--accent);
       color: var(--accent);
-      font-size: 14px;
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 2px;
+      background: var(--accent-light);
     }
 
-    /* --- SEARCH & FILTERS --- */
-    .controls {
+    /* --- SEARCH --- */
+    .search-bar {
+      padding: 16px 20px;
       display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 20px;
-      padding: 20px;
-      margin-bottom: 10px;
+      justify-content: center;
     }
+
+    .search-input {
+      width: 100%;
+      max-width: 400px;
+      padding: 12px 18px 12px 42px;
+      border: 2px solid var(--border);
+      border-radius: 25px;
+      font-size: 14px;
+      background: var(--surface);
+      color: var(--text);
+      outline: none;
+      transition: all 0.2s;
+    }
+
+    .search-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-light); }
 
     .search-wrapper {
       position: relative;
@@ -189,114 +218,33 @@
       max-width: 400px;
     }
 
-    .search-icon {
+    .search-wrapper::before {
+      content: '🔍';
       position: absolute;
-      left: 16px;
+      left: 14px;
       top: 50%;
       transform: translateY(-50%);
-      color: var(--text-secondary);
-      font-size: 16px;
-    }
-
-    .search-input {
-      width: 100%;
-      padding: 14px 20px 14px 44px;
-      border: 2px solid var(--border);
-      border-radius: 30px;
-      font-size: 15px;
-      background: var(--surface);
-      color: var(--text);
-      outline: none;
-      transition: all 0.3s;
-    }
-
-    .search-input:focus { 
-      border-color: var(--accent); 
-      box-shadow: 0 0 0 4px var(--accent-light); 
-    }
-
-    .search-input::placeholder { color: var(--text-secondary); }
-
-    .filter-tabs {
-      display: flex;
-      background: var(--surface);
-      border-radius: var(--radius);
-      overflow: hidden;
-      box-shadow: var(--shadow);
-      border: 1px solid var(--border);
-    }
-
-    .filter-tab {
-      background: none;
-      border: none;
-      color: var(--text-secondary);
-      cursor: pointer;
-      padding: 12px 24px;
-      font-size: 13px;
-      font-weight: 600;
-      transition: all 0.2s;
-      border-right: 1px solid var(--border);
-    }
-
-    .filter-tab:last-child { border-right: none; }
-    .filter-tab:hover { background: var(--surface-light); color: var(--text); }
-    .filter-tab.active { background: var(--accent); color: white; }
-
-    /* --- MAIN CONTENT --- */
-    .main { 
-      max-width: 1200px; 
-      margin: 0 auto; 
-      padding: 0 20px 120px; 
-    }
-
-    .category-section {
-      margin-bottom: 30px;
-    }
-
-    .category-header {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      margin-bottom: 15px;
-      padding-bottom: 10px;
-      border-bottom: 2px solid var(--border);
-    }
-
-    .category-title {
       font-size: 14px;
-      font-weight: 700;
-      color: var(--text-secondary);
-      text-transform: uppercase;
-      letter-spacing: 1px;
     }
 
-    .category-count {
-      background: var(--accent-light);
-      color: var(--accent);
-      padding: 2px 10px;
-      border-radius: 20px;
-      font-size: 12px;
-      font-weight: 700;
+    /* --- MAIN GRID --- */
+    .main {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 10px 20px 100px;
     }
 
     .app-grid {
       display: grid;
       grid-template-columns: repeat(5, 1fr);
-      gap: 16px;
+      gap: 14px;
     }
 
-    @media (max-width: 1200px) {
-      .app-grid { grid-template-columns: repeat(4, 1fr); }
-    }
-    
-    @media (max-width: 900px) {
-      .app-grid { grid-template-columns: repeat(3, 1fr); }
-    }
-    
-    @media (max-width: 600px) {
-      .app-grid { grid-template-columns: repeat(2, 1fr); }
-    }
+    @media (max-width: 1200px) { .app-grid { grid-template-columns: repeat(4, 1fr); } }
+    @media (max-width: 900px) { .app-grid { grid-template-columns: repeat(3, 1fr); } }
+    @media (max-width: 600px) { .app-grid { grid-template-columns: repeat(2, 1fr); } }
 
+    /* --- APP CARDS --- */
     .app-card {
       background: var(--surface);
       border-radius: var(--radius);
@@ -307,34 +255,29 @@
       text-decoration: none;
       color: var(--text);
       position: relative;
-      transition: all 0.25s;
+      transition: all 0.2s;
       border: 1px solid var(--border);
-      box-shadow: var(--shadow-sm);
-      overflow: hidden;
+      cursor: grab;
+      user-select: none;
     }
-
-    .app-card::before {
-      content: '';
-      position: absolute;
-      left: 0;
-      top: 0;
-      bottom: 0;
-      width: 4px;
-      background: var(--accent);
-      transition: width 0.2s;
-    }
-
-    .app-card[data-priority="1"]::before { background: var(--success); }
-    .app-card[data-priority="2"]::before { background: var(--warning); }
-    .app-card[data-priority="3"]::before { background: var(--danger); }
 
     .app-card:hover {
-      transform: translateY(-4px);
+      transform: translateY(-3px);
       box-shadow: var(--shadow-lg);
       border-color: var(--accent);
     }
 
-    .app-card:hover::before { width: 6px; }
+    .app-card.dragging {
+      opacity: 0.5;
+      transform: scale(1.02);
+      box-shadow: var(--shadow-lg);
+    }
+
+    .app-card.drag-over {
+      border-color: var(--accent);
+      border-style: dashed;
+      background: var(--accent-light);
+    }
 
     .app-icon {
       width: 42px;
@@ -348,76 +291,60 @@
       flex-shrink: 0;
     }
 
-    .app-info { flex: 1; min-width: 0; }
-
-    .app-name { 
-      font-weight: 600; 
-      font-size: 14px;
+    .app-name {
+      font-weight: 600;
+      font-size: 13px;
+      flex: 1;
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
     }
 
-    /* --- Card Actions --- */
-    .star-btn {
+    .app-actions {
       position: absolute;
-      top: 8px;
-      right: 8px;
-      background: none; 
-      border: none;
-      color: var(--text-secondary);
-      cursor: pointer;
-      font-size: 18px;
-      padding: 4px;
-      transition: all 0.2s;
-      opacity: 0.6;
-    }
-
-    .star-btn:hover { transform: scale(1.2); opacity: 1; }
-    .star-btn.active { color: #f59e0b; opacity: 1; }
-
-    .card-actions {
-      position: absolute;
-      bottom: 8px;
-      right: 8px;
+      top: 6px;
+      right: 6px;
       display: flex;
-      gap: 6px;
+      gap: 4px;
       opacity: 0;
       transition: opacity 0.2s;
     }
 
-    .app-card:hover .card-actions { opacity: 1; }
+    .app-card:hover .app-actions { opacity: 1; }
 
-    .action-btn {
+    .app-action {
+      width: 24px;
+      height: 24px;
+      border: none;
       background: var(--surface-light);
-      border: 1px solid var(--border);
-      color: var(--text);
-      width: 28px;
-      height: 28px;
-      border-radius: 6px;
+      color: var(--text-secondary);
+      border-radius: 4px;
       cursor: pointer;
-      font-size: 12px;
+      font-size: 11px;
       display: flex;
       align-items: center;
       justify-content: center;
       transition: all 0.2s;
     }
 
-    .action-btn:hover { background: var(--accent); color: white; border-color: var(--accent); }
-    .action-btn.delete:hover { background: var(--danger); border-color: var(--danger); }
+    .app-action:hover { background: var(--accent); color: white; }
+    .app-action.delete:hover { background: var(--danger); }
+    .app-action.star { color: var(--text-secondary); }
+    .app-action.star.active { color: #f59e0b; background: rgba(245, 158, 11, 0.1); }
 
-    /* --- Add Card --- */
+    /* --- ADD CARD --- */
     .add-card {
       background: var(--surface);
       border: 2px dashed var(--border);
       border-radius: var(--radius);
-      padding: 18px;
+      padding: 14px;
       display: flex;
       align-items: center;
       justify-content: center;
-      gap: 10px;
+      gap: 8px;
       cursor: pointer;
       color: var(--text-secondary);
+      font-size: 13px;
       font-weight: 600;
       transition: all 0.2s;
     }
@@ -428,59 +355,12 @@
       background: var(--accent-light);
     }
 
-    /* --- BOTTOM BAR --- */
-    .bottom-bar {
-      background: var(--surface);
-      border-top: 2px solid var(--accent);
-      padding: 14px 20px;
-      position: fixed;
-      bottom: 0; 
-      left: 0; 
-      right: 0;
-      z-index: 90;
-      box-shadow: 0 -4px 12px rgba(0,0,0,0.1);
-    }
-
-    .bottom-grid {
-      display: flex;
-      gap: 10px;
-      max-width: 1200px;
-      margin: 0 auto;
-      overflow-x: auto;
-      padding-bottom: 4px;
-    }
-
-    .bottom-grid::-webkit-scrollbar { height: 4px; }
-    .bottom-grid::-webkit-scrollbar-thumb { background: var(--accent); border-radius: 4px; }
-
-    .bottom-card {
-      background: var(--accent-light);
-      padding: 10px 16px;
-      border-radius: var(--radius-sm);
-      color: var(--accent);
-      text-decoration: none;
-      font-size: 13px;
-      font-weight: 600;
-      white-space: nowrap;
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      transition: all 0.2s;
-      border: 1px solid transparent;
-    }
-
-    .bottom-card:hover {
-      background: var(--accent);
-      color: white;
-      transform: translateY(-2px);
-    }
-
     /* --- MODALS --- */
     .modal-overlay {
       position: fixed;
       inset: 0;
       background: rgba(0, 0, 0, 0.6);
-      backdrop-filter: blur(8px);
+      backdrop-filter: blur(6px);
       display: none;
       align-items: center;
       justify-content: center;
@@ -493,11 +373,11 @@
     .modal {
       background: var(--surface);
       width: 100%;
-      max-width: 500px;
+      max-width: 480px;
       border-radius: var(--radius);
-      padding: 28px;
+      padding: 24px;
       box-shadow: var(--shadow-lg);
-      max-height: 90vh;
+      max-height: 85vh;
       overflow-y: auto;
     }
 
@@ -505,320 +385,191 @@
       display: flex;
       align-items: center;
       justify-content: space-between;
-      margin-bottom: 24px;
+      margin-bottom: 20px;
     }
 
     .modal-title {
-      font-size: 20px;
+      font-size: 18px;
       font-weight: 700;
       display: flex;
       align-items: center;
-      gap: 10px;
+      gap: 8px;
     }
 
     .modal-close {
+      width: 30px;
+      height: 30px;
       background: var(--surface-light);
       border: none;
-      width: 32px;
-      height: 32px;
       border-radius: 50%;
       cursor: pointer;
-      font-size: 16px;
+      font-size: 14px;
       color: var(--text-secondary);
-      transition: all 0.2s;
     }
 
     .modal-close:hover { background: var(--danger); color: white; }
 
-    .form-group {
-      margin-bottom: 16px;
-    }
+    .form-group { margin-bottom: 16px; }
 
     .form-label {
       display: block;
-      font-size: 13px;
+      font-size: 12px;
       font-weight: 600;
       color: var(--text-secondary);
       margin-bottom: 6px;
       text-transform: uppercase;
-      letter-spacing: 0.5px;
     }
 
     .form-input, .form-select {
       width: 100%;
-      padding: 12px 14px;
+      padding: 11px 14px;
       background: var(--bg);
       border: 2px solid var(--border);
       color: var(--text);
       border-radius: var(--radius-sm);
       font-size: 14px;
-      transition: all 0.2s;
     }
 
     .form-input:focus, .form-select:focus {
       outline: none;
       border-color: var(--accent);
-      box-shadow: 0 0 0 3px var(--accent-light);
     }
 
-    .form-select { cursor: pointer; }
-
-    .icon-picker {
+    .icon-grid {
       display: grid;
-      grid-template-columns: repeat(6, 1fr);
-      gap: 8px;
+      grid-template-columns: repeat(8, 1fr);
+      gap: 6px;
       background: var(--bg);
-      padding: 12px;
+      padding: 10px;
       border-radius: var(--radius-sm);
       border: 2px solid var(--border);
     }
 
     .icon-option {
-      width: 100%;
       aspect-ratio: 1;
       border: 2px solid transparent;
       background: var(--surface);
-      border-radius: 8px;
+      border-radius: 6px;
       cursor: pointer;
-      font-size: 20px;
+      font-size: 18px;
       display: flex;
       align-items: center;
       justify-content: center;
-      transition: all 0.2s;
+      transition: all 0.15s;
     }
 
     .icon-option:hover { border-color: var(--accent); transform: scale(1.1); }
     .icon-option.active { border-color: var(--accent); background: var(--accent-light); }
 
     .btn {
-      padding: 14px 24px;
+      padding: 12px 20px;
       border-radius: var(--radius-sm);
       border: none;
       cursor: pointer;
       font-weight: 700;
-      font-size: 14px;
+      font-size: 13px;
       transition: all 0.2s;
       display: flex;
       align-items: center;
       justify-content: center;
       gap: 8px;
-    }
-
-    .btn-primary { 
-      background: var(--accent); 
-      color: white; 
-      width: 100%; 
-    }
-
-    .btn-primary:hover { 
-      background: var(--accent-hover); 
-      transform: translateY(-2px);
-      box-shadow: 0 4px 12px rgba(99, 102, 241, 0.4);
-    }
-
-    .btn-danger {
-      background: var(--danger);
-      color: white;
       width: 100%;
     }
 
-    .btn-danger:hover {
-      background: #dc2626;
-      transform: translateY(-2px);
-    }
+    .btn-primary { background: var(--accent); color: white; }
+    .btn-primary:hover { background: var(--accent-hover); }
+    .btn-danger { background: var(--danger); color: white; }
+    .btn-secondary { background: var(--surface-light); color: var(--text-secondary); margin-top: 8px; }
 
-    .btn-secondary {
-      background: var(--surface-light);
-      color: var(--text-secondary);
-      width: 100%;
-      margin-top: 10px;
-    }
-
-    .btn-secondary:hover { color: var(--text); }
-
-    /* --- CLEAN EXIT MODAL --- */
-    .storage-list {
-      max-height: 300px;
+    /* --- APP SELECTOR (for tabs) --- */
+    .app-selector {
+      max-height: 250px;
       overflow-y: auto;
-      margin: 16px 0;
+      border: 2px solid var(--border);
+      border-radius: var(--radius-sm);
+      background: var(--bg);
     }
+
+    .app-selector-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 12px;
+      cursor: pointer;
+      border-bottom: 1px solid var(--border);
+      transition: background 0.15s;
+    }
+
+    .app-selector-item:last-child { border-bottom: none; }
+    .app-selector-item:hover { background: var(--surface-light); }
+
+    .app-selector-item input { width: 18px; height: 18px; accent-color: var(--accent); }
+    .app-selector-item .icon { font-size: 20px; }
+    .app-selector-item .name { font-weight: 500; font-size: 13px; }
+
+    /* --- STORAGE LIST --- */
+    .storage-list { max-height: 280px; overflow-y: auto; }
 
     .storage-item {
       display: flex;
       align-items: center;
-      gap: 12px;
-      padding: 12px;
+      gap: 10px;
+      padding: 10px;
       background: var(--bg);
       border-radius: var(--radius-sm);
-      margin-bottom: 8px;
+      margin-bottom: 6px;
       border: 1px solid var(--border);
     }
 
-    .storage-item:hover {
-      border-color: var(--accent);
-    }
+    .storage-item input { width: 18px; height: 18px; accent-color: var(--accent); }
+    .storage-key { font-weight: 600; font-size: 13px; }
+    .storage-size { font-size: 11px; color: var(--text-secondary); }
 
-    .storage-checkbox {
-      width: 20px;
-      height: 20px;
-      cursor: pointer;
-      accent-color: var(--accent);
-    }
-
-    .storage-info {
-      flex: 1;
-    }
-
-    .storage-key {
-      font-weight: 600;
-      font-size: 14px;
-      margin-bottom: 2px;
-    }
-
-    .storage-size {
-      font-size: 12px;
-      color: var(--text-secondary);
-    }
-
-    .storage-total {
-      display: flex;
-      justify-content: space-between;
-      padding: 12px;
-      background: var(--accent-light);
-      border-radius: var(--radius-sm);
-      font-weight: 600;
-      margin-bottom: 16px;
-    }
-
-    .select-all-row {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      padding: 10px;
-      background: var(--surface-light);
-      border-radius: var(--radius-sm);
-      margin-bottom: 12px;
-      cursor: pointer;
-    }
-
-    .select-all-row:hover {
-      background: var(--accent-light);
-    }
-
-    .warning-text {
+    .warning-box {
       background: rgba(239, 68, 68, 0.1);
       border: 1px solid var(--danger);
       border-radius: var(--radius-sm);
       padding: 12px;
-      font-size: 13px;
+      font-size: 12px;
       color: var(--danger);
       margin-bottom: 16px;
-      display: flex;
-      align-items: center;
-      gap: 10px;
     }
 
-    /* --- IMPORT MODAL --- */
-    .import-options {
-      display: flex;
-      flex-direction: column;
-      gap: 16px;
-    }
-
+    /* --- FILE DROP --- */
     .file-drop {
       border: 2px dashed var(--border);
       border-radius: var(--radius);
-      padding: 30px 20px;
+      padding: 24px;
       text-align: center;
       cursor: pointer;
       transition: all 0.2s;
-      background: var(--bg);
+      margin-bottom: 12px;
     }
 
-    .file-drop:hover, .file-drop.dragover {
-      border-color: var(--accent);
-      background: var(--accent-light);
-    }
-
-    .file-drop-icon { font-size: 40px; margin-bottom: 10px; }
-    .file-drop-text { color: var(--text-secondary); font-size: 14px; }
-    .file-drop-text strong { color: var(--accent); }
-
-    .file-input { display: none; }
-
-    .divider {
-      display: flex;
-      align-items: center;
-      gap: 16px;
-      color: var(--text-secondary);
-      font-size: 12px;
-      text-transform: uppercase;
-      letter-spacing: 1px;
-    }
-
-    .divider::before, .divider::after {
-      content: '';
-      flex: 1;
-      height: 1px;
-      background: var(--border);
-    }
-
-    .import-textarea {
-      width: 100%;
-      min-height: 120px;
-      padding: 12px;
-      background: var(--bg);
-      border: 2px solid var(--border);
-      color: var(--text);
-      border-radius: var(--radius-sm);
-      font-family: 'Consolas', monospace;
-      font-size: 12px;
-      resize: vertical;
-    }
-
-    .import-textarea:focus {
-      outline: none;
-      border-color: var(--accent);
-    }
-
-    .file-selected {
-      background: var(--success);
-      color: white;
-      padding: 10px 16px;
-      border-radius: var(--radius-sm);
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      margin-top: 10px;
-    }
+    .file-drop:hover { border-color: var(--accent); background: var(--accent-light); }
+    .file-drop-icon { font-size: 32px; margin-bottom: 8px; }
+    .file-drop-text { color: var(--text-secondary); font-size: 13px; }
 
     /* --- TOAST --- */
     .toast {
       position: fixed;
-      bottom: 100px;
+      bottom: 30px;
       left: 50%;
       transform: translateX(-50%) translateY(100px);
       background: var(--surface);
       color: var(--text);
-      padding: 14px 24px;
-      border-radius: 30px;
+      padding: 12px 24px;
+      border-radius: 25px;
       box-shadow: var(--shadow-lg);
-      display: flex;
-      align-items: center;
-      gap: 10px;
       font-weight: 600;
+      font-size: 13px;
       z-index: 9999;
       opacity: 0;
       transition: all 0.3s;
       border: 2px solid var(--accent);
     }
 
-    .toast.show {
-      opacity: 1;
-      transform: translateX(-50%) translateY(0);
-    }
-
-    .toast.success { border-color: var(--success); }
+    .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
     .toast.error { border-color: var(--danger); }
 
     /* --- EMPTY STATE --- */
@@ -828,117 +579,95 @@
       color: var(--text-secondary);
     }
 
-    .empty-state-icon { font-size: 60px; margin-bottom: 16px; opacity: 0.5; }
-    .empty-state-text { font-size: 16px; }
+    .empty-state-icon { font-size: 50px; margin-bottom: 12px; opacity: 0.5; }
 
-    /* --- RESPONSIVE --- */
     @media (max-width: 600px) {
-      .header-title { font-size: 24px; }
+      .nav-title span { display: none; }
       .nav-stats { display: none; }
-      .filter-tab { padding: 10px 14px; font-size: 11px; }
-      .app-card { padding: 12px; gap: 10px; }
-      .app-icon { width: 36px; height: 36px; font-size: 18px; }
-      .app-name { font-size: 13px; }
+      .tab { padding: 10px 14px; font-size: 12px; }
     }
   </style>
 </head>
 <body>
 
-  <!-- TOP NAVIGATION -->
+  <!-- TOP NAV -->
   <nav class="top-nav">
-    <button class="nav-btn" onclick="resetView()" title="Почетна">🏠</button>
-    <div class="nav-separator"></div>
+    <div class="nav-title">🧰 <span>App Toolbox</span></div>
     <button class="nav-btn" id="themeBtn" title="Тема">🌙</button>
     <button class="nav-btn" onclick="openImportModal()" title="Увези">📥</button>
     <button class="nav-btn" onclick="exportData()" title="Извези">📤</button>
     <div class="nav-separator"></div>
-    <button class="nav-btn success" onclick="scanGitHub()" title="🔄 Sync GitHub">🔄</button>
-    <button class="nav-btn danger" onclick="openCleanExitModal()" title="Чист излез">🚪</button>
+    <button class="nav-btn success" onclick="scanGitHub()" title="Sync GitHub">🔄</button>
+    <button class="nav-btn danger" onclick="openCleanModal()" title="Чист излез">🚪</button>
     <div class="nav-separator"></div>
-    <button class="lang-toggle" id="langBtn" onclick="toggleLang()">EN</button>
-    
+    <button class="lang-btn" id="langBtn" onclick="toggleLang()">EN</button>
     <div class="nav-stats">
       <span>📱 <strong id="totalApps">0</strong></span>
-      <span>⭐ <strong id="totalFavs">0</strong></span>
-      <span>🔗 <strong id="totalGithub">0</strong></span>
     </div>
   </nav>
 
+  <!-- TABS -->
+  <div class="tabs-container" id="tabsContainer">
+    <!-- Tabs render here -->
+  </div>
 
-
-  <!-- HEADER -->
-  <header class="header">
-    <div class="header-logo">🧰</div>
-    <h1 class="header-title" data-i18n="title">App Toolbox</h1>
-    <p class="header-subtitle" data-i18n="subtitle">Електронски систем за ресурси</p>
-  </header>
-
-  <!-- SEARCH & FILTERS -->
-  <div class="controls">
+  <!-- SEARCH -->
+  <div class="search-bar">
     <div class="search-wrapper">
-      <span class="search-icon">🔍</span>
-      <input type="text" class="search-input" id="searchInput" data-i18n-placeholder="searchPlaceholder" placeholder="Пребарај апликација...">
-    </div>
-    <div class="filter-tabs">
-      <button class="filter-tab active" data-filter="all" data-i18n="filterAll">Сите</button>
-      <button class="filter-tab" data-filter="favorites" data-i18n="filterFavorites">⭐ Омилени</button>
-      <button class="filter-tab" data-filter="recent" data-i18n="filterRecent">🕐 Последни</button>
-      <button class="filter-tab" data-filter="github" data-i18n="filterGithub">🔗 GitHub</button>
-      <button class="filter-tab" data-filter="manual" data-i18n="filterManual">✏️ Рачни</button>
+      <input type="text" class="search-input" id="searchInput" placeholder="Пребарај...">
     </div>
   </div>
 
-  <!-- MAIN CONTENT -->
-  <main class="main" id="main"></main>
-
-  <!-- BOTTOM BAR -->
-  <div class="bottom-bar" id="bottomBar">
-    <div class="bottom-grid" id="bottomGrid"></div>
-  </div>
+  <!-- MAIN -->
+  <main class="main">
+    <div class="app-grid" id="appGrid"></div>
+  </main>
 
   <!-- APP MODAL -->
   <div class="modal-overlay" id="appModal">
     <div class="modal">
       <div class="modal-header">
-        <h2 class="modal-title" id="modalTitle">➕ <span data-i18n="addApp">Додај апликација</span></h2>
+        <h2 class="modal-title" id="appModalTitle">➕ Додај</h2>
         <button class="modal-close" onclick="closeAppModal()">✕</button>
       </div>
-      
       <div class="form-group">
-        <label class="form-label" data-i18n="labelName">Име</label>
-        <input type="text" class="form-input" id="appName" placeholder="Внеси име...">
+        <label class="form-label">Име</label>
+        <input type="text" class="form-input" id="appName" placeholder="Име на апликација">
       </div>
-      
       <div class="form-group">
-        <label class="form-label" data-i18n="labelUrl">URL Линк</label>
+        <label class="form-label">URL</label>
         <input type="text" class="form-input" id="appUrl" placeholder="https://...">
       </div>
-      
       <div class="form-group">
-        <label class="form-label" data-i18n="labelCategory">Категорија</label>
-        <input type="text" class="form-input" id="appCategory" list="categories" placeholder="Избери или внеси...">
-        <datalist id="categories"></datalist>
+        <label class="form-label">Икона</label>
+        <div class="icon-grid" id="iconGrid"></div>
       </div>
-      
-      <div class="form-group">
-        <label class="form-label" data-i18n="labelPriority">Приоритет / Статус</label>
-        <select class="form-select" id="appPriority">
-          <option value="0">Стандардно (Виолетова)</option>
-          <option value="1">Завршено (Зелена)</option>
-          <option value="2">Важно (Портокалова)</option>
-          <option value="3">Итно (Црвена)</option>
-        </select>
-      </div>
-      
-      <div class="form-group">
-        <label class="form-label" data-i18n="labelIcon">Икона</label>
-        <div class="icon-picker" id="iconPicker"></div>
-      </div>
-      
-      <button class="btn btn-primary" onclick="saveApp()">
-        💾 <span data-i18n="btnSave">Зачувај</span>
-      </button>
+      <button class="btn btn-primary" onclick="saveApp()">💾 Зачувај</button>
       <button class="btn btn-secondary" onclick="closeAppModal()">Откажи</button>
+    </div>
+  </div>
+
+  <!-- TAB MODAL -->
+  <div class="modal-overlay" id="tabModal">
+    <div class="modal">
+      <div class="modal-header">
+        <h2 class="modal-title">📁 Нова колекција</h2>
+        <button class="modal-close" onclick="closeTabModal()">✕</button>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Име на колекција</label>
+        <input type="text" class="form-input" id="tabName" placeholder="пр. Работа, Дома...">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Икона</label>
+        <div class="icon-grid" id="tabIconGrid"></div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Избери апликации</label>
+        <div class="app-selector" id="appSelector"></div>
+      </div>
+      <button class="btn btn-primary" onclick="saveTab()">💾 Зачувај</button>
+      <button class="btn btn-secondary" onclick="closeTabModal()">Откажи</button>
     </div>
   </div>
 
@@ -946,60 +675,29 @@
   <div class="modal-overlay" id="importModal">
     <div class="modal">
       <div class="modal-header">
-        <h2 class="modal-title">📥 <span data-i18n="importTitle">Увези податоци</span></h2>
+        <h2 class="modal-title">📥 Увези</h2>
         <button class="modal-close" onclick="closeImportModal()">✕</button>
       </div>
-      
-      <div class="import-options">
-        <div class="file-drop" id="fileDrop" onclick="document.getElementById('fileInput').click()">
-          <div class="file-drop-icon">📁</div>
-          <div class="file-drop-text">
-            Влечи и пушти JSON датотека<br>или <strong>кликни за избор</strong>
-          </div>
-        </div>
-        <input type="file" class="file-input" id="fileInput" accept=".json" onchange="handleFileSelect(event)">
-        <div id="fileInfo"></div>
-        
-        <div class="divider">или залепи</div>
-        
-        <textarea class="import-textarea" id="importData" placeholder='{"apps": [...], "theme": "dark"}...'></textarea>
+      <div class="file-drop" onclick="document.getElementById('fileInput').click()">
+        <div class="file-drop-icon">📁</div>
+        <div class="file-drop-text">Кликни или влечи JSON датотека</div>
       </div>
-      
-      <button class="btn btn-primary" onclick="doImport()" style="margin-top: 20px">
-        🚀 <span data-i18n="btnImport">Почни увоз</span>
-      </button>
-      <button class="btn btn-secondary" onclick="closeImportModal()">Откажи</button>
+      <input type="file" id="fileInput" accept=".json" style="display:none" onchange="handleFile(event)">
+      <textarea class="form-input" id="importText" rows="4" placeholder="или залепи JSON..."></textarea>
+      <button class="btn btn-primary" onclick="doImport()" style="margin-top:12px">🚀 Увези</button>
     </div>
   </div>
 
   <!-- CLEAN EXIT MODAL -->
-  <div class="modal-overlay" id="cleanExitModal">
+  <div class="modal-overlay" id="cleanModal">
     <div class="modal">
       <div class="modal-header">
-        <h2 class="modal-title">🚪 <span data-i18n="cleanExitTitle">Чист излез</span></h2>
-        <button class="modal-close" onclick="closeCleanExitModal()">✕</button>
+        <h2 class="modal-title">🚪 Чист излез</h2>
+        <button class="modal-close" onclick="closeCleanModal()">✕</button>
       </div>
-      
-      <div class="warning-text">
-        ⚠️ <span data-i18n="cleanExitWarning">Ова ќе ги избрише избраните податоци од овој уред. Оваа акција е неповратна!</span>
-      </div>
-      
-      <div class="storage-total">
-        <span data-i18n="totalStorage">Вкупно localStorage:</span>
-        <span id="totalStorageSize">0 KB</span>
-      </div>
-      
-      <div class="select-all-row" onclick="toggleSelectAll()">
-        <input type="checkbox" class="storage-checkbox" id="selectAllCheckbox">
-        <label style="cursor: pointer; font-weight: 600;" data-i18n="selectAll">Избери сите</label>
-      </div>
-      
+      <div class="warning-box">⚠️ Ова ќе ги избрише избраните податоци неповратно!</div>
       <div class="storage-list" id="storageList"></div>
-      
-      <button class="btn btn-danger" onclick="performCleanExit()" id="cleanExitBtn">
-        🗑️ <span data-i18n="btnCleanExit">Избриши избрано и излези</span>
-      </button>
-      <button class="btn btn-secondary" onclick="closeCleanExitModal()">Откажи</button>
+      <button class="btn btn-danger" onclick="performClean()" style="margin-top:12px">🗑️ Избриши</button>
     </div>
   </div>
 
@@ -1007,686 +705,484 @@
   <div class="toast" id="toast"></div>
 
   <script>
-    /* ===== CONSTANTS ===== */
-    const ICONS = ['📋', '📊', '📈', '📅', '📝', '📁', '🔧', '⚙️', '🎨', '📱', '💻', '🌐', '📚', '💰', '🚀', '🔥', '⚡', '🧰', '🎯', '📦', '🗂️', '✅', '🔔', '💡', '🎓', '👥', '📞', '🏠'];
-    const STORE_KEY = 'app-toolbox-v3';
+    const ICONS = ['📋', '📊', '📈', '📅', '📝', '📁', '🔧', '⚙️', '🎨', '📱', '💻', '🌐', '📚', '💰', '🚀', '🔥', '⚡', '🧰', '🎯', '📦', '✅', '🔔', '💡', '🎓', '👥', '🏠', '💼', '🎮', '🎵', '📷', '✏️', '👂'];
+    const STORE_KEY = 'app-toolbox-v4';
     
-    // Map filenames to friendly names and icons
     const FILE_MAPPINGS = {
-      'index.html': { name: 'Почетна', icon: '🏠', category: 'Систем', skip: true },
-      'iiindex.html': { name: 'Стар Index', icon: '📄', category: 'Систем', skip: true },
-      'StudentRecords.html': { name: 'Студентски Досиеа', icon: '📋', category: 'Ученици' },
-      'S_M_U_R_O_P.html': { name: 'СМУРОП Дневник', icon: '📅', category: 'Распоред' },
-      'audiogram.html': { name: 'Аудиограм', icon: '👂', category: 'Тестови' },
-      'kanban.html': { name: 'Канбан Табла', icon: '📌', category: 'Организација' },
-      'Kanban-Bookmark - Enhanced-v2.html': { name: 'Канбан Обележувачи', icon: '🔖', category: 'Организација' },
-      'cyrillic-whiteboard-enhanced.html': { name: 'Кирилична Табла', icon: '✏️', category: 'Алатки' },
-      'TabelaSoDokazi.html': { name: 'Табела со Докази', icon: '📑', category: 'Документи' },
-      'Картичка.html': { name: 'ААК Картички', icon: '🎴', category: 'AAC' }
+      'StudentRecords.html': { name: 'Студентски Досиеа', icon: '📋' },
+      'S_M_U_R_O_P.html': { name: 'СМУРОП Дневник', icon: '📅' },
+      'audiogram.html': { name: 'Аудиограм', icon: '👂' },
+      'kanban.html': { name: 'Канбан Табла', icon: '📌' },
+      'Kanban-Bookmark - Enhanced-v2.html': { name: 'Канбан Обележувачи', icon: '🔖' },
+      'cyrillic-whiteboard-enhanced.html': { name: 'Кирилична Табла', icon: '✏️' },
+      'TabelaSoDokazi.html': { name: 'Табела со Докази', icon: '📑' },
+      'Картичка.html': { name: 'ААК Картички', icon: '🎴' }
     };
 
-    /* ===== TRANSLATIONS ===== */
     const i18n = {
-      mk: {
-        title: 'App Toolbox',
-        subtitle: 'Електронски систем за ресурси',
-        searchPlaceholder: 'Пребарај апликација...',
-        filterAll: 'Сите',
-        filterFavorites: '⭐ Омилени',
-        filterRecent: '🕐 Последни',
-        filterGithub: '🔗 GitHub',
-        filterManual: '✏️ Рачни',
-        scanRepo: 'Скенирај',
-        scanning: 'Скенирање...',
-        scanSuccess: 'Најдени {count} HTML датотеки',
-        scanError: 'Грешка при скенирање',
-        addApp: 'Додај апликација',
-        editApp: 'Уреди апликација',
-        labelName: 'Име',
-        labelUrl: 'URL Линк',
-        labelCategory: 'Категорија',
-        labelPriority: 'Приоритет',
-        labelIcon: 'Икона',
-        btnSave: 'Зачувај',
-        btnCancel: 'Откажи',
-        btnImport: 'Почни увоз',
-        importTitle: 'Увези податоци',
-        addNew: '➕ Додај нов ресурс',
-        noApps: 'Нема најдено апликации',
-        confirmDelete: 'Избриши?',
-        exportSuccess: '📤 Успешно извезено!',
-        importSuccess: '✅ Успешно увезено!',
-        importError: '❌ Грешен формат!',
-        fillAll: 'Пополни сите полиња!',
-        other: 'Останато',
-        cleanExitTitle: 'Чист излез',
-        cleanExitWarning: 'Ова ќе ги избрише избраните податоци од овој уред. Оваа акција е неповратна!',
-        totalStorage: 'Вкупно localStorage:',
-        selectAll: 'Избери сите',
-        btnCleanExit: 'Избриши избрано и излези',
-        cleanExitSuccess: '🧹 Податоците се избришани!',
-        cleanExitNone: 'Нема избрано ништо',
-        goodbye: 'Довидување! 👋'
-      },
-      en: {
-        title: 'App Toolbox',
-        subtitle: 'Electronic Resource System',
-        searchPlaceholder: 'Search applications...',
-        filterAll: 'All',
-        filterFavorites: '⭐ Favorites',
-        filterRecent: '🕐 Recent',
-        filterGithub: '🔗 GitHub',
-        filterManual: '✏️ Manual',
-        scanRepo: 'Scan',
-        scanning: 'Scanning...',
-        scanSuccess: 'Found {count} HTML files',
-        scanError: 'Scan error',
-        addApp: 'Add Application',
-        editApp: 'Edit Application',
-        labelName: 'Name',
-        labelUrl: 'URL Link',
-        labelCategory: 'Category',
-        labelPriority: 'Priority',
-        labelIcon: 'Icon',
-        btnSave: 'Save',
-        btnCancel: 'Cancel',
-        btnImport: 'Start Import',
-        importTitle: 'Import Data',
-        addNew: '➕ Add new resource',
-        noApps: 'No applications found',
-        confirmDelete: 'Delete?',
-        exportSuccess: '📤 Exported successfully!',
-        importSuccess: '✅ Imported successfully!',
-        importError: '❌ Invalid format!',
-        fillAll: 'Fill all fields!',
-        other: 'Other',
-        cleanExitTitle: 'Clean Exit',
-        cleanExitWarning: 'This will delete selected data from this device. This action is irreversible!',
-        totalStorage: 'Total localStorage:',
-        selectAll: 'Select all',
-        btnCleanExit: 'Delete selected and exit',
-        cleanExitSuccess: '🧹 Data deleted!',
-        cleanExitNone: 'Nothing selected',
-        goodbye: 'Goodbye! 👋'
-      }
+      mk: { all: 'Сите', favorites: '⭐ Омилени', search: 'Пребарај...', newCollection: '+ Колекција', noApps: 'Нема апликации', addNew: '➕ Додај', goodbye: 'Довидување! 👋' },
+      en: { all: 'All', favorites: '⭐ Favorites', search: 'Search...', newCollection: '+ Collection', noApps: 'No apps', addNew: '➕ Add', goodbye: 'Goodbye! 👋' }
     };
 
-    /* ===== STATE ===== */
-    let state = JSON.parse(localStorage.getItem(STORE_KEY)) || { 
-      apps: [], 
-      githubApps: [],
-      theme: 'light', 
+    let state = JSON.parse(localStorage.getItem(STORE_KEY)) || {
+      apps: [],
+      tabs: [],
+      order: [],
+      theme: 'dark',
       lang: 'mk',
-      recentlyUsed: [],
-      repoUrl: ''
+      repoUrl: 'Assisstant/MTB',
+      activeTab: 'all'
     };
-    let editingId = null;
-    let selectedIcon = '📋';
-    let currentFilter = 'all';
-    let selectedFile = null;
 
-    /* ===== HELPERS ===== */
+    let editingAppId = null;
+    let editingTabId = null;
+    let selectedIcon = '📋';
+    let selectedTabIcon = '📁';
+    let draggedCard = null;
+
     const $ = s => document.querySelector(s);
     const $$ = s => document.querySelectorAll(s);
-    const rid = () => Date.now().toString(36) + Math.random().toString(36).slice(2);
-    const t = key => i18n[state.lang]?.[key] || i18n.mk[key] || key;
+    const t = k => i18n[state.lang]?.[k] || k;
 
-    function formatBytes(bytes) {
-      if (bytes < 1024) return bytes + ' B';
-      if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
-      return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
-    }
-
-    /* ===== CORE FUNCTIONS ===== */
-    function save() { 
-      localStorage.setItem(STORE_KEY, JSON.stringify(state)); 
-      render(); 
-    }
-
-    function applyTranslations() {
-      $$('[data-i18n]').forEach(el => {
-        const key = el.dataset.i18n;
-        if (i18n[state.lang]?.[key]) {
-          el.innerHTML = i18n[state.lang][key];
-        }
-      });
-      $$('[data-i18n-placeholder]').forEach(el => {
-        const key = el.dataset.i18nPlaceholder;
-        if (i18n[state.lang]?.[key]) {
-          el.placeholder = i18n[state.lang][key];
-        }
-      });
-      $('#langBtn').textContent = state.lang === 'mk' ? 'EN' : 'MK';
-      $('#themeBtn').textContent = state.theme === 'dark' ? '☀️' : '🌙';
-    }
-
-    function getAllApps() {
-      // Combine manual apps and github apps
-      const manual = state.apps.map(a => ({ ...a, source: 'manual' }));
-      const github = state.githubApps.map(a => ({ ...a, source: 'github' }));
-      return [...manual, ...github];
+    function save() {
+      localStorage.setItem(STORE_KEY, JSON.stringify(state));
+      render();
     }
 
     function render() {
-      const main = $('#main');
-      const search = $('#searchInput').value.toLowerCase().trim();
+      renderTabs();
+      renderApps();
+      $('#totalApps').textContent = state.apps.length;
+      $('#langBtn').textContent = state.lang === 'mk' ? 'EN' : 'MK';
+      $('#themeBtn').textContent = state.theme === 'dark' ? '☀️' : '🌙';
+      $('#searchInput').placeholder = t('search');
+    }
+
+    function renderTabs() {
+      const container = $('#tabsContainer');
+      const favCount = state.apps.filter(a => a.favorite).length;
       
-      let allApps = getAllApps();
-      
-      let apps = allApps.filter(a => {
-        const matches = a.name.toLowerCase().includes(search) || 
-                       (a.category || '').toLowerCase().includes(search) ||
-                       (a.url || '').toLowerCase().includes(search);
-        
-        if (currentFilter === 'favorites') return matches && a.favorite;
-        if (currentFilter === 'recent') return matches && state.recentlyUsed.includes(a.id);
-        if (currentFilter === 'github') return matches && a.source === 'github';
-        if (currentFilter === 'manual') return matches && a.source === 'manual';
-        return matches;
+      let html = `
+        <button class="tab ${state.activeTab === 'all' ? 'active' : ''}" onclick="setTab('all')">
+          🏠 ${t('all')} <span class="tab-count">${state.apps.length}</span>
+        </button>
+        <button class="tab ${state.activeTab === 'favorites' ? 'active' : ''}" onclick="setTab('favorites')">
+          ${t('favorites')} <span class="tab-count">${favCount}</span>
+        </button>
+      `;
+
+      state.tabs.forEach(tab => {
+        const count = state.apps.filter(a => a.tabs?.includes(tab.id)).length;
+        html += `
+          <button class="tab ${state.activeTab === tab.id ? 'active' : ''}" onclick="setTab('${tab.id}')">
+            ${tab.icon} ${tab.name} <span class="tab-count">${count}</span>
+            <span class="tab-close" onclick="event.stopPropagation(); deleteTab('${tab.id}')">✕</span>
+          </button>
+        `;
       });
 
-      // Group by category
-      const groups = apps.reduce((acc, a) => {
-        const c = a.category || t('other');
-        if (!acc[c]) acc[c] = [];
-        acc[c].push(a);
-        return acc;
-      }, {});
+      html += `<button class="add-tab-btn" onclick="openTabModal()">${t('newCollection')}</button>`;
+      container.innerHTML = html;
+    }
 
-      let html = '';
+    function renderApps() {
+      const grid = $('#appGrid');
+      const search = $('#searchInput').value.toLowerCase();
       
-      if (Object.keys(groups).length === 0) {
-        html = `
-          <div class="empty-state">
+      let apps = [...state.apps];
+
+      // Filter by tab
+      if (state.activeTab === 'favorites') {
+        apps = apps.filter(a => a.favorite);
+      } else if (state.activeTab !== 'all') {
+        apps = apps.filter(a => a.tabs?.includes(state.activeTab));
+      }
+
+      // Filter by search
+      if (search) {
+        apps = apps.filter(a => a.name.toLowerCase().includes(search));
+      }
+
+      // Sort by order
+      if (state.order.length) {
+        apps.sort((a, b) => {
+          const ia = state.order.indexOf(a.id);
+          const ib = state.order.indexOf(b.id);
+          if (ia === -1) return 1;
+          if (ib === -1) return -1;
+          return ia - ib;
+        });
+      }
+
+      if (apps.length === 0 && !search) {
+        grid.innerHTML = `
+          <div class="empty-state" style="grid-column: 1/-1;">
             <div class="empty-state-icon">📭</div>
-            <div class="empty-state-text">${t('noApps')}</div>
+            <div>${t('noApps')}</div>
           </div>
         `;
-      } else {
-        Object.keys(groups).sort().forEach(cat => {
-          html += `
-            <div class="category-section">
-              <div class="category-header">
-                <span class="category-title">${cat}</span>
-                <span class="category-count">${groups[cat].length}</span>
-              </div>
-              <div class="app-grid">
-          `;
-          
-          groups[cat].forEach(app => {
-            html += `
-              <a class="app-card" href="${app.url}" target="_blank" data-priority="${app.priority || 0}" data-source="${app.source}" onclick="trackUsage('${app.id}')">
-                <button class="star-btn ${app.favorite ? 'active' : ''}" onclick="event.preventDefault(); event.stopPropagation(); toggleFav('${app.id}', '${app.source}')">★</button>
-                <div class="app-icon">${app.icon || '📋'}</div>
-                <div class="app-info">
-                  <div class="app-name">${app.name}</div>
-                </div>
-                <div class="card-actions">
-                  <button class="action-btn" onclick="event.preventDefault(); event.stopPropagation(); editApp('${app.id}', '${app.source}')" title="Уреди">✏️</button>
-                  ${app.source !== 'github' ? `<button class="action-btn delete" onclick="event.preventDefault(); event.stopPropagation(); delApp('${app.id}')" title="Избриши">🗑️</button>` : ''}
-                </div>
-              </a>
-            `;
-          });
-          
-          html += `</div></div>`;
-        });
+        return;
       }
-      
-      // Add card
-      html += `
-        <div class="app-grid" style="margin-top: 24px">
-          <div class="add-card" onclick="openAppModal()">
-            ${t('addNew')}
+
+      let html = apps.map(app => `
+        <div class="app-card" draggable="true" data-id="${app.id}" onclick="openApp('${app.url}')">
+          <div class="app-actions">
+            <button class="app-action star ${app.favorite ? 'active' : ''}" onclick="event.stopPropagation(); toggleFav('${app.id}')" title="Омилено">★</button>
+            <button class="app-action" onclick="event.stopPropagation(); editApp('${app.id}')" title="Уреди">✏️</button>
+            <button class="app-action delete" onclick="event.stopPropagation(); deleteApp('${app.id}')" title="Избриши">🗑️</button>
           </div>
+          <div class="app-icon">${app.icon || '📄'}</div>
+          <div class="app-name">${app.name}</div>
         </div>
-      `;
-      
-      main.innerHTML = html;
-      
-      // Update stats
-      $('#totalApps').textContent = allApps.length;
-      $('#totalFavs').textContent = allApps.filter(a => a.favorite).length;
-      $('#totalGithub').textContent = state.githubApps.length;
-      
-      // Update categories datalist
-      const cats = [...new Set(allApps.map(a => a.category).filter(Boolean))];
-      $('#categories').innerHTML = cats.map(c => `<option value="${c}">`).join('');
-      
-      renderBottom();
-      applyTranslations();
+      `).join('');
+
+      html += `<div class="add-card" onclick="openAppModal()">${t('addNew')}</div>`;
+      grid.innerHTML = html;
+
+      // Add drag events
+      $$('.app-card[draggable]').forEach(card => {
+        card.addEventListener('dragstart', handleDragStart);
+        card.addEventListener('dragend', handleDragEnd);
+        card.addEventListener('dragover', handleDragOver);
+        card.addEventListener('drop', handleDrop);
+        card.addEventListener('dragleave', handleDragLeave);
+      });
     }
 
-    function renderBottom() {
-      const allApps = getAllApps();
-      const favs = allApps.filter(a => a.favorite).slice(0, 10);
-      $('#bottomBar').style.display = favs.length ? 'block' : 'none';
-      $('#bottomGrid').innerHTML = favs.map(a => 
-        `<a href="${a.url}" target="_blank" class="bottom-card" onclick="trackUsage('${a.id}')">${a.icon || '📋'} ${a.name}</a>`
+    // Drag & Drop
+    function handleDragStart(e) {
+      draggedCard = this;
+      this.classList.add('dragging');
+      e.dataTransfer.effectAllowed = 'move';
+    }
+
+    function handleDragEnd() {
+      this.classList.remove('dragging');
+      $$('.app-card').forEach(c => c.classList.remove('drag-over'));
+      draggedCard = null;
+    }
+
+    function handleDragOver(e) {
+      e.preventDefault();
+      if (this !== draggedCard) {
+        this.classList.add('drag-over');
+      }
+    }
+
+    function handleDragLeave() {
+      this.classList.remove('drag-over');
+    }
+
+    function handleDrop(e) {
+      e.preventDefault();
+      this.classList.remove('drag-over');
+      
+      if (this === draggedCard) return;
+
+      const fromId = draggedCard.dataset.id;
+      const toId = this.dataset.id;
+
+      // Update order
+      let order = state.order.length ? [...state.order] : state.apps.map(a => a.id);
+      const fromIdx = order.indexOf(fromId);
+      const toIdx = order.indexOf(toId);
+
+      if (fromIdx > -1) order.splice(fromIdx, 1);
+      order.splice(toIdx, 0, fromId);
+
+      state.order = order;
+      save();
+    }
+
+    // Tab functions
+    window.setTab = (tabId) => {
+      state.activeTab = tabId;
+      save();
+    };
+
+    window.openTabModal = (tab = null) => {
+      editingTabId = tab ? tab.id : null;
+      $('#tabModal').classList.add('show');
+      $('#tabName').value = tab ? tab.name : '';
+      selectedTabIcon = tab ? tab.icon : '📁';
+      renderTabIconGrid();
+      renderAppSelector(tab);
+    };
+
+    window.closeTabModal = () => {
+      $('#tabModal').classList.remove('show');
+      editingTabId = null;
+    };
+
+    function renderTabIconGrid() {
+      $('#tabIconGrid').innerHTML = ICONS.slice(0, 24).map(icon =>
+        `<div class="icon-option ${selectedTabIcon === icon ? 'active' : ''}" onclick="selectedTabIcon='${icon}'; renderTabIconGrid()">${icon}</div>`
       ).join('');
     }
 
-    function renderIconPicker() {
-      $('#iconPicker').innerHTML = ICONS.map(icon => 
-        `<div class="icon-option ${selectedIcon === icon ? 'active' : ''}" onclick="selectIcon('${icon}')">${icon}</div>`
-      ).join('');
+    function renderAppSelector(tab = null) {
+      const selected = tab ? state.apps.filter(a => a.tabs?.includes(tab.id)).map(a => a.id) : [];
+      $('#appSelector').innerHTML = state.apps.map(app => `
+        <label class="app-selector-item">
+          <input type="checkbox" value="${app.id}" ${selected.includes(app.id) ? 'checked' : ''}>
+          <span class="icon">${app.icon || '📄'}</span>
+          <span class="name">${app.name}</span>
+        </label>
+      `).join('') || '<div style="padding:20px;text-align:center;color:var(--text-secondary)">Нема апликации</div>';
     }
 
-    /* ===== GITHUB SCANNING ===== */
-    window.scanGitHub = async () => {
-      // Prompt for repo name (secure - not stored in visible input)
-      const savedRepo = state.repoUrl || 'Assisstant/MTB';
-      const repoUrl = prompt(
-        state.lang === 'mk' 
-          ? '📂 Внеси GitHub репозиториум (username/repo):' 
-          : '📂 Enter GitHub repository (username/repo):',
-        savedRepo
-      );
-      
-      if (!repoUrl || !repoUrl.trim()) return;
-      
-      // Save repo URL
-      state.repoUrl = repoUrl.trim();
-      
-      showToast(state.lang === 'mk' ? '🔄 Скенирање...' : '🔄 Scanning...', 'success');
-      
-      try {
-        // GitHub API to get repo contents
-        const apiUrl = `https://api.github.com/repos/${repoUrl}/contents`;
-        const response = await fetch(apiUrl);
-        
-        if (!response.ok) throw new Error('Repo not found');
-        
-        const files = await response.json();
-        
-        // Filter HTML files, skip those marked with skip:true in mappings
-        const htmlFiles = files.filter(f => {
-          if (!f.name.endsWith('.html') || f.type !== 'file') return false;
-          const mapping = FILE_MAPPINGS[f.name];
-          if (mapping && mapping.skip) return false;
-          return true;
-        });
-        
-        // Convert to app objects
-        const baseUrl = `https://${repoUrl.split('/')[0]}.github.io/${repoUrl.split('/')[1]}/`;
-        
-        state.githubApps = htmlFiles.map(file => {
-          const mapping = FILE_MAPPINGS[file.name] || {};
-          const cleanName = file.name.replace('.html', '').replace(/-/g, ' ').replace(/_/g, ' ');
-          
-          return {
-            id: 'gh_' + file.sha.slice(0, 8),
-            name: mapping.name || cleanName,
-            url: file.name, // Relative URL works if hosted on same domain
-            fullUrl: baseUrl + file.name,
-            icon: mapping.icon || '📄',
-            category: mapping.category || 'GitHub Apps',
-            priority: '0',
-            favorite: false,
-            fileName: file.name,
-            size: file.size
-          };
-        });
-        
-        // Preserve favorites from previous scan
-        const oldFavs = new Set(
-          (JSON.parse(localStorage.getItem(STORE_KEY))?.githubApps || [])
-            .filter(a => a.favorite)
-            .map(a => a.fileName)
-        );
-        
-        state.githubApps.forEach(app => {
-          if (oldFavs.has(app.fileName)) app.favorite = true;
-        });
-        
-        save();
-        
-        const msg = state.lang === 'mk' 
-          ? `✅ Најдени ${htmlFiles.length} апликации` 
-          : `✅ Found ${htmlFiles.length} applications`;
-        showToast(msg, 'success');
-        
-      } catch (err) {
-        console.error(err);
-        const msg = state.lang === 'mk' 
-          ? '❌ Грешка: ' + err.message 
-          : '❌ Error: ' + err.message;
-        showToast(msg, 'error');
-      }
-    };
+    window.saveTab = () => {
+      const name = $('#tabName').value.trim();
+      if (!name) return showToast('Внеси име!', 'error');
 
-    /* ===== APP ACTIONS ===== */
-    window.toggleFav = (id, source) => { 
-      if (source === 'github') {
-        const app = state.githubApps.find(x => x.id === id);
-        if (app) app.favorite = !app.favorite;
+      const selectedApps = [...$$('#appSelector input:checked')].map(i => i.value);
+
+      if (editingTabId) {
+        const tab = state.tabs.find(t => t.id === editingTabId);
+        if (tab) {
+          tab.name = name;
+          tab.icon = selectedTabIcon;
+        }
+        // Update app assignments
+        state.apps.forEach(app => {
+          app.tabs = app.tabs?.filter(t => t !== editingTabId) || [];
+          if (selectedApps.includes(app.id)) {
+            app.tabs.push(editingTabId);
+          }
+        });
       } else {
-        const app = state.apps.find(x => x.id === id);
-        if (app) app.favorite = !app.favorite;
+        const newTab = { id: 'tab_' + Date.now(), name, icon: selectedTabIcon };
+        state.tabs.push(newTab);
+        // Assign apps
+        state.apps.forEach(app => {
+          if (selectedApps.includes(app.id)) {
+            app.tabs = app.tabs || [];
+            app.tabs.push(newTab.id);
+          }
+        });
       }
-      save(); 
+
+      save();
+      closeTabModal();
     };
 
-    window.trackUsage = id => { 
-      state.recentlyUsed = [id, ...state.recentlyUsed.filter(x => x !== id)].slice(0, 20); 
-      save(); 
+    window.deleteTab = (tabId) => {
+      if (!confirm('Избриши колекција?')) return;
+      state.tabs = state.tabs.filter(t => t.id !== tabId);
+      state.apps.forEach(app => {
+        app.tabs = app.tabs?.filter(t => t !== tabId) || [];
+      });
+      if (state.activeTab === tabId) state.activeTab = 'all';
+      save();
     };
 
-    window.delApp = id => { 
-      if (confirm(t('confirmDelete'))) { 
-        state.apps = state.apps.filter(x => x.id !== id); 
-        save(); 
-      }
+    // App functions
+    window.openApp = (url) => {
+      window.open(url, '_blank');
     };
 
-    window.editApp = (id, source) => { 
-      if (source === 'github') {
-        const app = state.githubApps.find(x => x.id === id);
-        editingId = { id, source: 'github' };
-        openAppModal(app);
-      } else {
-        const app = state.apps.find(x => x.id === id);
-        editingId = { id, source: 'manual' };
-        openAppModal(app);
-      }
+    window.toggleFav = (id) => {
+      const app = state.apps.find(a => a.id === id);
+      if (app) app.favorite = !app.favorite;
+      save();
     };
 
-    window.selectIcon = icon => {
-      selectedIcon = icon;
-      renderIconPicker();
-    };
-
-    /* ===== MODAL FUNCTIONS ===== */
     window.openAppModal = (app = null) => {
+      editingAppId = app ? app.id : null;
       $('#appModal').classList.add('show');
-      $('#modalTitle').innerHTML = app ? `✏️ <span>${t('editApp')}</span>` : `➕ <span>${t('addApp')}</span>`;
+      $('#appModalTitle').textContent = app ? '✏️ Уреди' : '➕ Додај';
       $('#appName').value = app ? app.name : '';
       $('#appUrl').value = app ? app.url : '';
-      $('#appCategory').value = app ? (app.category || '') : '';
-      $('#appPriority').value = app ? (app.priority || 0) : 0;
-      selectedIcon = app ? (app.icon || '📋') : '📋';
-      renderIconPicker();
-      applyTranslations();
+      selectedIcon = app ? app.icon : '📋';
+      renderIconGrid();
     };
 
     window.closeAppModal = () => {
       $('#appModal').classList.remove('show');
-      editingId = null;
+      editingAppId = null;
     };
+
+    function renderIconGrid() {
+      $('#iconGrid').innerHTML = ICONS.map(icon =>
+        `<div class="icon-option ${selectedIcon === icon ? 'active' : ''}" onclick="selectedIcon='${icon}'; renderIconGrid()">${icon}</div>`
+      ).join('');
+    }
 
     window.saveApp = () => {
       const name = $('#appName').value.trim();
       const url = $('#appUrl').value.trim();
-      
-      if (!name || !url) {
-        showToast(t('fillAll'), 'error');
-        return;
-      }
-      
-      if (editingId) {
-        if (editingId.source === 'github') {
-          const app = state.githubApps.find(x => x.id === editingId.id);
-          Object.assign(app, { 
-            name, 
-            category: $('#appCategory').value.trim(), 
-            priority: $('#appPriority').value, 
-            icon: selectedIcon 
-          });
-        } else {
-          const app = state.apps.find(x => x.id === editingId.id);
-          Object.assign(app, { 
-            name, 
-            url, 
-            category: $('#appCategory').value.trim(), 
-            priority: $('#appPriority').value, 
-            icon: selectedIcon 
-          });
+      if (!name || !url) return showToast('Пополни сè!', 'error');
+
+      if (editingAppId) {
+        const app = state.apps.find(a => a.id === editingAppId);
+        if (app) {
+          app.name = name;
+          app.url = url;
+          app.icon = selectedIcon;
         }
-        editingId = null;
       } else {
-        state.apps.push({ 
-          id: rid(), 
-          name, 
-          url, 
-          category: $('#appCategory').value.trim(), 
-          priority: $('#appPriority').value, 
-          icon: selectedIcon, 
-          favorite: false 
+        state.apps.push({
+          id: 'app_' + Date.now(),
+          name, url,
+          icon: selectedIcon,
+          favorite: false,
+          tabs: []
         });
       }
-      
-      save(); 
+
+      save();
       closeAppModal();
     };
 
-    /* ===== CLEAN EXIT ===== */
-    window.openCleanExitModal = () => {
-      $('#cleanExitModal').classList.add('show');
-      renderStorageList();
+    window.editApp = (id) => {
+      const app = state.apps.find(a => a.id === id);
+      if (app) openAppModal(app);
     };
 
-    window.closeCleanExitModal = () => {
-      $('#cleanExitModal').classList.remove('show');
+    window.deleteApp = (id) => {
+      if (!confirm('Избриши?')) return;
+      state.apps = state.apps.filter(a => a.id !== id);
+      state.order = state.order.filter(o => o !== id);
+      save();
     };
 
-    function renderStorageList() {
-      const listEl = $('#storageList');
-      let totalSize = 0;
-      let html = '';
-      
-      // Get all localStorage keys
-      for (let i = 0; i < localStorage.length; i++) {
-        const key = localStorage.key(i);
-        const value = localStorage.getItem(key);
-        const size = new Blob([value]).size;
-        totalSize += size;
-        
-        // Try to identify the app
-        let appName = key;
-        let appIcon = '📦';
-        
-        if (key.includes('toolbox')) { appName = 'App Toolbox'; appIcon = '🧰'; }
-        else if (key.includes('student') || key.includes('Student')) { appName = 'Студентски Досиеа'; appIcon = '📋'; }
-        else if (key.includes('smurop') || key.includes('diary')) { appName = 'СМУРОП Дневник'; appIcon = '📅'; }
-        else if (key.includes('audiogram')) { appName = 'Аудиограм'; appIcon = '👂'; }
-        else if (key.includes('kanban')) { appName = 'Канбан'; appIcon = '📌'; }
-        else if (key.includes('whiteboard')) { appName = 'Табла'; appIcon = '✏️'; }
-        
-        html += `
-          <div class="storage-item">
-            <input type="checkbox" class="storage-checkbox" data-key="${key}" id="chk_${i}">
-            <div class="storage-info">
-              <div class="storage-key">${appIcon} ${appName}</div>
-              <div class="storage-size">${key} • ${formatBytes(size)}</div>
-            </div>
-          </div>
-        `;
+    // GitHub scan
+    window.scanGitHub = async () => {
+      const repo = prompt('📂 GitHub repo:', state.repoUrl || 'Assisstant/MTB');
+      if (!repo) return;
+      state.repoUrl = repo;
+
+      showToast('🔄 Скенирање...');
+      try {
+        const res = await fetch(`https://api.github.com/repos/${repo}/contents`);
+        if (!res.ok) throw new Error('Not found');
+        const files = await res.json();
+
+        const htmlFiles = files.filter(f => 
+          f.name.endsWith('.html') && 
+          f.type === 'file' && 
+          !['index.html', 'iiindex.html'].includes(f.name.toLowerCase())
+        );
+
+        let added = 0;
+        htmlFiles.forEach(file => {
+          if (state.apps.some(a => a.url === file.name)) return;
+          const map = FILE_MAPPINGS[file.name] || {};
+          state.apps.push({
+            id: 'gh_' + file.sha.slice(0, 8),
+            name: map.name || file.name.replace('.html', '').replace(/[-_]/g, ' '),
+            url: file.name,
+            icon: map.icon || '📄',
+            favorite: false,
+            tabs: []
+          });
+          added++;
+        });
+
+        save();
+        showToast(`✅ Додадени ${added} апликации`);
+      } catch (e) {
+        showToast('❌ Грешка: ' + e.message, 'error');
       }
-      
-      listEl.innerHTML = html || '<p style="text-align:center; color: var(--text-secondary)">localStorage е празен</p>';
-      $('#totalStorageSize').textContent = formatBytes(totalSize);
-      $('#selectAllCheckbox').checked = false;
-    }
-
-    window.toggleSelectAll = () => {
-      const selectAll = $('#selectAllCheckbox');
-      selectAll.checked = !selectAll.checked;
-      $$('.storage-checkbox[data-key]').forEach(cb => {
-        cb.checked = selectAll.checked;
-      });
     };
 
-    window.performCleanExit = () => {
-      const checkboxes = $$('.storage-checkbox[data-key]:checked');
-      
-      if (checkboxes.length === 0) {
-        showToast(t('cleanExitNone'), 'error');
-        return;
-      }
-      
-      // Delete selected keys
-      checkboxes.forEach(cb => {
-        const key = cb.dataset.key;
-        localStorage.removeItem(key);
-      });
-      
-      showToast(t('cleanExitSuccess'), 'success');
-      
-      // Close modal and show goodbye
-      closeCleanExitModal();
-      
-      setTimeout(() => {
-        document.body.innerHTML = `
-          <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; background: var(--bg); color: var(--text); text-align: center; padding: 20px;">
-            <div style="font-size: 80px; margin-bottom: 20px;">👋</div>
-            <h1 style="font-size: 32px; margin-bottom: 10px;">${t('goodbye')}</h1>
-            <p style="color: var(--text-secondary); margin-bottom: 30px;">
-              ${state.lang === 'mk' ? 'Податоците се избришани од овој уред.' : 'Data has been deleted from this device.'}
-            </p>
-            <p style="font-size: 14px; color: var(--text-secondary);">
-              ${state.lang === 'mk' ? 'Можете безбедно да го затворите прозорецот.' : 'You can safely close this window.'}
-            </p>
-          </div>
-        `;
-      }, 1000);
-    };
+    // Import/Export
+    window.openImportModal = () => $('#importModal').classList.add('show');
+    window.closeImportModal = () => $('#importModal').classList.remove('show');
 
-    /* ===== IMPORT/EXPORT ===== */
-    window.openImportModal = () => {
-      $('#importModal').classList.add('show');
-      $('#importData').value = '';
-      $('#fileInfo').innerHTML = '';
-      selectedFile = null;
-    };
-
-    window.closeImportModal = () => {
-      $('#importModal').classList.remove('show');
-      selectedFile = null;
-    };
-
-    window.handleFileSelect = (event) => {
-      const file = event.target.files[0];
+    window.handleFile = (e) => {
+      const file = e.target.files[0];
       if (file) {
-        selectedFile = file;
-        $('#fileInfo').innerHTML = `
-          <div class="file-selected">
-            📄 ${file.name} (${formatBytes(file.size)})
-          </div>
-        `;
-        
         const reader = new FileReader();
-        reader.onload = (e) => {
-          $('#importData').value = e.target.result;
-        };
+        reader.onload = (ev) => { $('#importText').value = ev.target.result; };
         reader.readAsText(file);
       }
     };
 
-    // Drag and drop
-    const fileDrop = document.getElementById('fileDrop');
-    fileDrop.addEventListener('dragover', (e) => {
-      e.preventDefault();
-      fileDrop.classList.add('dragover');
-    });
-    fileDrop.addEventListener('dragleave', () => {
-      fileDrop.classList.remove('dragover');
-    });
-    fileDrop.addEventListener('drop', (e) => {
-      e.preventDefault();
-      fileDrop.classList.remove('dragover');
-      const file = e.dataTransfer.files[0];
-      if (file) {
-        handleFileSelect({ target: { files: [file] } });
-      }
-    });
-
     window.doImport = () => {
       try {
-        const data = JSON.parse($('#importData').value);
-        
-        if (data.apps && Array.isArray(data.apps)) state.apps = data.apps;
-        if (data.githubApps && Array.isArray(data.githubApps)) state.githubApps = data.githubApps;
-        if (data.theme) {
-          state.theme = data.theme;
-          document.documentElement.dataset.theme = state.theme;
-        }
+        const data = JSON.parse($('#importText').value);
+        if (data.apps) state.apps = data.apps;
+        if (data.tabs) state.tabs = data.tabs;
+        if (data.order) state.order = data.order;
+        if (data.theme) { state.theme = data.theme; document.documentElement.dataset.theme = data.theme; }
         if (data.lang) state.lang = data.lang;
-        if (data.recentlyUsed && Array.isArray(data.recentlyUsed)) state.recentlyUsed = data.recentlyUsed;
-        if (data.repoUrl) state.repoUrl = data.repoUrl;
-        
         save();
         closeImportModal();
-        showToast(t('importSuccess'), 'success');
+        showToast('✅ Увезено!');
       } catch (e) {
-        showToast(t('importError') + ' ' + e.message, 'error');
+        showToast('❌ Грешка!', 'error');
       }
     };
 
     window.exportData = () => {
-      const exportState = {
-        apps: state.apps,
-        githubApps: state.githubApps,
-        theme: state.theme,
-        lang: state.lang,
-        recentlyUsed: state.recentlyUsed,
-        repoUrl: state.repoUrl,
-        exportDate: new Date().toISOString(),
-        version: '3.0'
-      };
-      
-      const blob = new Blob([JSON.stringify(exportState, null, 2)], { type: 'application/json' });
+      const blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' });
       const a = document.createElement('a');
       a.href = URL.createObjectURL(blob);
-      a.download = `toolbox-backup-${new Date().toISOString().split('T')[0]}.json`;
+      a.download = `toolbox-${new Date().toISOString().split('T')[0]}.json`;
       a.click();
-      
-      showToast(t('exportSuccess'), 'success');
+      showToast('📤 Извезено!');
     };
 
-    /* ===== THEME & LANGUAGE ===== */
-    window.toggleLang = () => {
-      state.lang = state.lang === 'mk' ? 'en' : 'mk';
-      save();
+    // Clean exit
+    window.openCleanModal = () => {
+      $('#cleanModal').classList.add('show');
+      let html = '';
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        const size = (localStorage.getItem(key).length / 1024).toFixed(1);
+        html += `
+          <div class="storage-item">
+            <input type="checkbox" data-key="${key}">
+            <div><div class="storage-key">${key}</div><div class="storage-size">${size} KB</div></div>
+          </div>
+        `;
+      }
+      $('#storageList').innerHTML = html || '<div style="padding:20px;text-align:center">Празно</div>';
     };
 
+    window.closeCleanModal = () => $('#cleanModal').classList.remove('show');
+
+    window.performClean = () => {
+      const checked = [...$$('#storageList input:checked')];
+      if (!checked.length) return showToast('Избери нешто', 'error');
+      checked.forEach(cb => localStorage.removeItem(cb.dataset.key));
+      showToast('🧹 Избришано!');
+      closeCleanModal();
+      setTimeout(() => {
+        document.body.innerHTML = `
+          <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;background:var(--bg);color:var(--text);text-align:center">
+            <div style="font-size:60px;margin-bottom:16px">👋</div>
+            <h1>${t('goodbye')}</h1>
+          </div>
+        `;
+      }, 800);
+    };
+
+    // Theme & Lang
     $('#themeBtn').onclick = () => {
       state.theme = state.theme === 'dark' ? 'light' : 'dark';
       document.documentElement.dataset.theme = state.theme;
       save();
     };
 
-    /* ===== FILTERS ===== */
-    $$('.filter-tab').forEach(btn => {
-      btn.onclick = () => {
-        $$('.filter-tab').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-        currentFilter = btn.dataset.filter;
-        render();
-      };
-    });
-
-    window.resetView = () => { 
-      $('#searchInput').value = ''; 
-      currentFilter = 'all';
-      $$('.filter-tab').forEach(b => b.classList.remove('active'));
-      $('.filter-tab[data-filter="all"]').classList.add('active');
-      render(); 
+    window.toggleLang = () => {
+      state.lang = state.lang === 'mk' ? 'en' : 'mk';
+      save();
     };
 
-    /* ===== TOAST ===== */
-    function showToast(message, type = 'success') {
+    // Search
+    $('#searchInput').oninput = () => renderApps();
+
+    // Toast
+    function showToast(msg, type = 'success') {
       const toast = $('#toast');
-      toast.textContent = message;
+      toast.textContent = msg;
       toast.className = 'toast show ' + type;
-      setTimeout(() => {
-        toast.classList.remove('show');
-      }, 3000);
+      setTimeout(() => toast.classList.remove('show'), 2500);
     }
 
-    /* ===== SEARCH ===== */
-    $('#searchInput').oninput = render;
-
-    /* ===== INIT ===== */
+    // Init
     document.documentElement.dataset.theme = state.theme;
     render();
   </script>
