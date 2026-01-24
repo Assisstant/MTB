@@ -281,17 +281,29 @@
 
     .app-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+      grid-template-columns: repeat(5, 1fr);
       gap: 16px;
+    }
+
+    @media (max-width: 1200px) {
+      .app-grid { grid-template-columns: repeat(4, 1fr); }
+    }
+    
+    @media (max-width: 900px) {
+      .app-grid { grid-template-columns: repeat(3, 1fr); }
+    }
+    
+    @media (max-width: 600px) {
+      .app-grid { grid-template-columns: repeat(2, 1fr); }
     }
 
     .app-card {
       background: var(--surface);
       border-radius: var(--radius);
-      padding: 18px;
+      padding: 14px;
       display: flex;
       align-items: center;
-      gap: 14px;
+      gap: 12px;
       text-decoration: none;
       color: var(--text);
       position: relative;
@@ -315,15 +327,6 @@
     .app-card[data-priority="1"]::before { background: var(--success); }
     .app-card[data-priority="2"]::before { background: var(--warning); }
     .app-card[data-priority="3"]::before { background: var(--danger); }
-    
-    .app-card[data-source="github"]::after {
-      content: '🔗';
-      position: absolute;
-      bottom: 8px;
-      left: 12px;
-      font-size: 10px;
-      opacity: 0.5;
-    }
 
     .app-card:hover {
       transform: translateY(-4px);
@@ -334,14 +337,14 @@
     .app-card:hover::before { width: 6px; }
 
     .app-icon {
-      width: 50px;
-      height: 50px;
+      width: 42px;
+      height: 42px;
       background: var(--accent-light);
       border-radius: var(--radius-sm);
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 26px;
+      font-size: 22px;
       flex-shrink: 0;
     }
 
@@ -349,32 +352,10 @@
 
     .app-name { 
       font-weight: 600; 
-      font-size: 15px;
-      margin-bottom: 2px;
+      font-size: 14px;
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
-    }
-
-    .app-url {
-      font-size: 12px;
-      color: var(--text-secondary);
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-
-    .app-badge {
-      position: absolute;
-      top: 8px;
-      left: 12px;
-      font-size: 9px;
-      padding: 2px 6px;
-      border-radius: 4px;
-      background: var(--accent-light);
-      color: var(--accent);
-      font-weight: 700;
-      text-transform: uppercase;
     }
 
     /* --- Card Actions --- */
@@ -854,10 +835,10 @@
     @media (max-width: 600px) {
       .header-title { font-size: 24px; }
       .nav-stats { display: none; }
-      .filter-tab { padding: 10px 16px; font-size: 12px; }
-      .app-grid { grid-template-columns: 1fr; }
-      .repo-bar { flex-direction: column; }
-      .repo-input { width: 100%; }
+      .filter-tab { padding: 10px 14px; font-size: 11px; }
+      .app-card { padding: 12px; gap: 10px; }
+      .app-icon { width: 36px; height: 36px; font-size: 18px; }
+      .app-name { font-size: 13px; }
     }
   </style>
 </head>
@@ -1233,19 +1214,16 @@
           `;
           
           groups[cat].forEach(app => {
-            const isGithub = app.source === 'github';
             html += `
               <a class="app-card" href="${app.url}" target="_blank" data-priority="${app.priority || 0}" data-source="${app.source}" onclick="trackUsage('${app.id}')">
                 <button class="star-btn ${app.favorite ? 'active' : ''}" onclick="event.preventDefault(); event.stopPropagation(); toggleFav('${app.id}', '${app.source}')">★</button>
-                ${isGithub ? '<span class="app-badge">GitHub</span>' : ''}
                 <div class="app-icon">${app.icon || '📋'}</div>
                 <div class="app-info">
                   <div class="app-name">${app.name}</div>
-                  <div class="app-url">${app.url}</div>
                 </div>
                 <div class="card-actions">
-                  <button class="action-btn" onclick="event.preventDefault(); event.stopPropagation(); editApp('${app.id}', '${app.source}')">✏️</button>
-                  ${!isGithub ? `<button class="action-btn delete" onclick="event.preventDefault(); event.stopPropagation(); delApp('${app.id}')">🗑️</button>` : ''}
+                  <button class="action-btn" onclick="event.preventDefault(); event.stopPropagation(); editApp('${app.id}', '${app.source}')" title="Уреди">✏️</button>
+                  ${app.source !== 'github' ? `<button class="action-btn delete" onclick="event.preventDefault(); event.stopPropagation(); delApp('${app.id}')" title="Избриши">🗑️</button>` : ''}
                 </div>
               </a>
             `;
