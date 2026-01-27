@@ -1,0 +1,1267 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Креирај картичка - AAC Card Creator</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;800&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <style>
+        :root {
+            --primary-color: #667eea;
+            --primary-gradient: linear-gradient(90deg, #4c51bf 0%, #667eea 100%);
+            --bg-color: #1a202c;
+            --card-bg: #2d3748;
+            --text-main: #f7fafc;
+            --text-muted: #a0aec0;
+            --border-color: #4a5568;
+            --input-bg: #1a202c;
+            --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.3), 0 4px 6px -2px rgba(0, 0, 0, 0.2);
+            --radius-lg: 16px;
+            --font-family: 'Outfit', sans-serif;
+        }
+
+        body.light-mode {
+            --bg-color: #f0f4f8;
+            --card-bg: #ffffff;
+            --text-main: #1a202c;
+            --text-muted: #4a5568;
+            --border-color: #e2e8f0;
+            --input-bg: #f7fafc;
+            --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: var(--font-family);
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            display: flex;
+            justify-content: center;
+            min-height: 100vh;
+            padding: 2rem;
+        }
+
+        .app-container {
+            display: grid;
+            grid-template-columns: 380px 1fr;
+            gap: 3rem;
+            max-width: 1050px;
+            width: 100%;
+            align-items: start;
+        }
+
+        @media (max-width: 850px) {
+            .app-container { grid-template-columns: 1fr; }
+        }
+
+        .panel {
+            background: var(--card-bg);
+            border-radius: var(--radius-lg);
+            padding: 2rem;
+            box-shadow: var(--shadow-lg);
+            border: 1px solid var(--border-color);
+        }
+
+        .header-controls {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 0.75rem;
+        }
+
+        .control-btn {
+            background: var(--input-bg);
+            border: 2px solid var(--border-color);
+            border-radius: 8px;
+            padding: 0.5rem 0.75rem;
+            font-size: 1rem;
+            font-weight: 700;
+            font-family: inherit;
+            color: var(--text-main);
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .control-btn:hover {
+            border-color: var(--primary-color);
+            transform: scale(1.05);
+        }
+
+        .panel-header h1 {
+            font-size: 1.8rem;
+            font-style: italic;
+            margin-bottom: 0.5rem;
+            background: var(--primary-gradient);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .panel-header p {
+            color: var(--text-muted);
+            margin-bottom: 1.5rem;
+        }
+
+        /* Tabs */
+        .tabs {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .tab-btn {
+            flex: 1;
+            padding: 0.75rem 0.5rem;
+            background: transparent;
+            border: 2px solid var(--border-color);
+            border-radius: 8px;
+            color: var(--text-muted);
+            font-family: inherit;
+            font-size: 0.85rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .tab-btn:hover {
+            border-color: var(--primary-color);
+            color: var(--text-main);
+        }
+
+        .tab-btn.active {
+            background: var(--primary-gradient);
+            border-color: transparent;
+            color: white;
+        }
+
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+
+        /* Form */
+        .form-group { margin-bottom: 1.25rem; }
+
+        label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+            color: var(--text-main);
+        }
+
+        input[type="text"], textarea, select {
+            width: 100%;
+            padding: 0.75rem;
+            border: 2px solid var(--border-color);
+            border-radius: 8px;
+            font-family: inherit;
+            font-size: 1rem;
+            background: var(--input-bg);
+            color: var(--text-main);
+        }
+
+        select {
+            cursor: pointer;
+        }
+
+        textarea {
+            min-height: 70px;
+            resize: vertical;
+        }
+
+        input:focus, textarea:focus, select:focus {
+            outline: none;
+            border-color: var(--primary-color);
+        }
+
+        small {
+            display: block;
+            margin-top: 0.5rem;
+            color: var(--text-muted);
+            font-size: 0.85rem;
+        }
+
+        /* Buttons */
+        .btn-primary {
+            background: var(--primary-gradient);
+            color: white;
+            padding: 1rem;
+            border-radius: 8px;
+            width: 100%;
+            font-family: inherit;
+            font-size: 1.1rem;
+            font-weight: 700;
+            border: none;
+            cursor: pointer;
+            transition: opacity 0.2s;
+        }
+
+        .btn-primary:hover { opacity: 0.9; }
+        .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        .btn-secondary {
+            background-color: var(--border-color);
+            color: white;
+            padding: 1rem 2rem;
+            border-radius: 8px;
+            font-family: inherit;
+            font-size: 1.1rem;
+            font-weight: 700;
+            border: none;
+            cursor: pointer;
+            margin-top: 1.5rem;
+        }
+
+        .btn-stop {
+            background: #e53e3e;
+            color: white;
+            padding: 0.75rem;
+            border-radius: 8px;
+            width: 100%;
+            font-family: inherit;
+            font-size: 1rem;
+            font-weight: 700;
+            border: none;
+            cursor: pointer;
+            margin-top: 0.5rem;
+        }
+
+        /* Drop Zone */
+        .drop-zone {
+            border: 3px dashed var(--border-color);
+            border-radius: 12px;
+            padding: 2rem 1rem;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+            background: var(--input-bg);
+            margin-bottom: 1rem;
+        }
+
+        .drop-zone:hover, .drop-zone.drag-over {
+            border-color: var(--primary-color);
+            background: rgba(102, 126, 234, 0.1);
+        }
+
+        .drop-zone-icon {
+            font-size: 3rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .drop-zone-text {
+            color: var(--text-muted);
+            font-size: 0.95rem;
+        }
+
+        .drop-zone-text strong {
+            color: var(--primary-color);
+        }
+
+        .drop-zone input[type="file"] {
+            display: none;
+        }
+
+        /* Image Editor */
+        .image-editor {
+            display: none;
+            margin-top: 1rem;
+        }
+
+        .image-editor.active {
+            display: block;
+        }
+
+        .crop-container {
+            position: relative;
+            width: 100%;
+            height: 250px;
+            background: #000;
+            border-radius: 12px;
+            overflow: hidden;
+            cursor: move;
+        }
+
+        .crop-container img {
+            position: absolute;
+            max-width: none;
+            user-select: none;
+            -webkit-user-drag: none;
+        }
+
+        .crop-overlay {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 200px;
+            height: 200px;
+            border: 3px solid white;
+            border-radius: 12px;
+            box-shadow: 0 0 0 9999px rgba(0,0,0,0.5);
+            pointer-events: none;
+        }
+
+        .zoom-controls {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+
+        .zoom-controls label {
+            margin: 0;
+            font-size: 0.9rem;
+            min-width: 50px;
+        }
+
+        .zoom-slider {
+            flex: 1;
+            height: 6px;
+            -webkit-appearance: none;
+            background: var(--border-color);
+            border-radius: 3px;
+            cursor: pointer;
+        }
+
+        .zoom-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 20px;
+            height: 20px;
+            background: var(--primary-color);
+            border-radius: 50%;
+            cursor: pointer;
+        }
+
+        .editor-buttons {
+            display: flex;
+            gap: 0.5rem;
+            margin-top: 1rem;
+        }
+
+        .editor-buttons button {
+            flex: 1;
+            padding: 0.75rem;
+            border-radius: 8px;
+            font-family: inherit;
+            font-weight: 600;
+            cursor: pointer;
+            border: none;
+        }
+
+        .btn-apply {
+            background: var(--primary-gradient);
+            color: white;
+        }
+
+        .btn-cancel {
+            background: var(--border-color);
+            color: white;
+        }
+
+        /* Emoji Grid */
+        .emoji-grid {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 8px;
+            max-height: 200px;
+            overflow-y: auto;
+            padding: 10px;
+            background: var(--input-bg);
+            border: 2px solid var(--border-color);
+            border-radius: 8px;
+            margin-bottom: 1rem;
+            min-height: 100px;
+        }
+
+        .emoji-item {
+            aspect-ratio: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.8rem;
+            background: transparent;
+            border: 2px solid transparent;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+
+        .emoji-item:hover {
+            background: var(--card-bg);
+            transform: scale(1.1);
+        }
+
+        .emoji-item.selected {
+            background: rgba(102, 126, 234, 0.3);
+            border-color: var(--primary-color);
+        }
+
+        .emoji-message {
+            grid-column: 1 / -1;
+            text-align: center;
+            padding: 1rem;
+            color: var(--text-muted);
+            font-size: 0.9rem;
+        }
+
+        /* Card Display */
+        .display-panel {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background: transparent;
+            box-shadow: none;
+            padding: 0;
+            border: none;
+        }
+
+        .aac-card {
+            background: white;
+            width: 400px;
+            height: 400px;
+            border: 8px solid #a8d4ff;
+            border-radius: 32px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            box-shadow: var(--shadow-lg);
+            padding: 1.5rem;
+            box-sizing: border-box;
+            overflow: hidden;
+        }
+
+        @media (max-width: 500px) {
+            .aac-card { width: 320px; height: 320px; }
+        }
+
+        .card-content {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            width: 100%;
+            gap: 0.5rem;
+        }
+
+        .symbol-display {
+            font-size: 9rem;
+            line-height: 1;
+            flex-shrink: 0;
+        }
+
+        .image-display {
+            width: 220px;
+            height: 220px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            overflow: hidden;
+            border-radius: 12px;
+        }
+
+        .image-display img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            border-radius: 8px;
+        }
+
+        .placeholder-icon {
+            font-size: 6rem;
+            opacity: 0.2;
+        }
+
+        .large-label {
+            font-size: 3rem;
+            font-weight: 800;
+            color: #1a1a2e;
+            line-height: 1.2;
+            word-break: break-word;
+            text-align: center;
+            max-width: 100%;
+            padding: 0 0.5rem;
+        }
+
+        /* Spinner */
+        .spinner {
+            width: 60px;
+            height: 60px;
+            border: 5px solid rgba(102, 126, 234, 0.2);
+            border-top-color: var(--primary-color);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .loading-info { text-align: center; }
+
+        .timer {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--primary-color);
+            margin-top: 0.5rem;
+        }
+
+        /* Color controls */
+        .color-controls {
+            margin: 1rem 0;
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+
+        .color-row {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .color-label {
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--text-muted);
+            min-width: 50px;
+        }
+
+        .color-picker {
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+        }
+
+        .color-swatch {
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            border: 2px solid transparent;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+
+        .color-swatch:hover { transform: scale(1.15); }
+        .color-swatch.active {
+            border-color: white;
+            box-shadow: 0 0 0 2px var(--primary-color);
+        }
+
+        .sync-checkbox {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            cursor: pointer;
+        }
+
+        .credit-watermark {
+            position: fixed;
+            bottom: 10px;
+            right: 15px;
+            font-size: 10px;
+            color: rgba(102, 126, 234, 0.4);
+            font-weight: 500;
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body>
+    <main class="app-container">
+        <section class="panel input-panel">
+            <header class="panel-header">
+                <div class="header-controls">
+                    <button id="theme-toggle" class="control-btn" title="Toggle theme">🌙</button>
+                    <button id="lang-toggle" class="control-btn" title="Change language">EN</button>
+                </div>
+                <h1 data-i18n="title">Креирај картичка</h1>
+                <p data-i18n="subtitle">Создавај визуелни помагала за комуникација</p>
+            </header>
+
+            <div class="tabs">
+                <button class="tab-btn active" data-tab="emoji">😀 Емоџи</button>
+                <button class="tab-btn" data-tab="upload">📷 Слика</button>
+                <button class="tab-btn" data-tab="ai">✨ AI</button>
+            </div>
+
+            <!-- TAB: EMOJI -->
+            <div id="tab-emoji" class="tab-content active">
+                <div class="form-group">
+                    <label data-i18n="search_symbol">Барај Симбол</label>
+                    <input type="text" id="emoji-search" placeholder="Напиши за пребарување (пр. 'happy', 'dog')..." autocomplete="off">
+                </div>
+
+                <div id="emoji-grid" class="emoji-grid">
+                    <p class="emoji-message">Почни да пишуваш за пребарување...</p>
+                </div>
+
+                <div class="form-group">
+                    <label data-i18n="label_text">Текст за Етикета</label>
+                    <input type="text" id="emoji-label" placeholder="пр. Куче">
+                </div>
+
+                <button class="btn-primary" id="emoji-update-btn">Ажурирај Картичка</button>
+            </div>
+
+            <!-- TAB: UPLOAD / DRAG & DROP -->
+            <div id="tab-upload" class="tab-content">
+                <div class="drop-zone" id="drop-zone">
+                    <div class="drop-zone-icon">📷</div>
+                    <div class="drop-zone-text">
+                        <strong>Повлечи слика тука</strong><br>
+                        или кликни за избери
+                    </div>
+                    <input type="file" id="file-input" accept="image/*">
+                </div>
+
+                <div class="image-editor" id="image-editor">
+                    <div class="crop-container" id="crop-container">
+                        <img id="crop-image" src="" alt="Crop preview">
+                        <div class="crop-overlay"></div>
+                    </div>
+                    <div class="zoom-controls">
+                        <label>🔍 Зум:</label>
+                        <input type="range" class="zoom-slider" id="zoom-slider" min="100" max="300" value="100">
+                    </div>
+                    <div class="editor-buttons">
+                        <button class="btn-cancel" id="cancel-crop">✕ Откажи</button>
+                        <button class="btn-apply" id="apply-crop">✓ Примени</button>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label data-i18n="label_text">Текст за Етикета</label>
+                    <input type="text" id="upload-label" placeholder="пр. Куче">
+                </div>
+
+                <button class="btn-primary" id="upload-update-btn">Ажурирај Картичка</button>
+            </div>
+
+            <!-- TAB: AI -->
+            <div id="tab-ai" class="tab-content">
+                <div class="form-group">
+                    <label>API Провајдер</label>
+                    <select id="api-selector">
+                        <option value="pollinations">🎨 Pollinations (AI генератор)</option>
+                        <option value="picsum">📷 Picsum (Реални фото)</option>
+                    </select>
+                    <small id="api-info">AI генерирање по опис. Може да биде бавно.</small>
+                </div>
+
+                <div class="form-group">
+                    <label>Опис на Слика</label>
+                    <textarea id="ai-prompt" placeholder="пр. Среќно куче што си игра со топка"></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label data-i18n="label_text">Текст за Етикета</label>
+                    <input type="text" id="ai-label" placeholder="пр. Игра">
+                </div>
+
+                <button class="btn-primary" id="ai-generate-btn">Генерирај Слика ✨</button>
+                <button class="btn-stop" id="ai-stop-btn" style="display:none;">🛑 Стоп</button>
+            </div>
+        </section>
+
+        <section class="display-panel">
+            <div id="aac-card" class="aac-card">
+                <div class="card-content">
+                    <div id="card-visual" class="symbol-display">👋</div>
+                    <div id="card-label" class="large-label">Здраво</div>
+                </div>
+            </div>
+
+            <div class="color-controls">
+                <div class="color-row">
+                    <span class="color-label">Рамка:</span>
+                    <div class="color-picker" id="border-color-picker">
+                        <button class="color-swatch active" data-color="#a8d4ff" style="background:#a8d4ff"></button>
+                        <button class="color-swatch" data-color="#000000" style="background:#000"></button>
+                        <button class="color-swatch" data-color="#2563eb" style="background:#2563eb"></button>
+                        <button class="color-swatch" data-color="#16a34a" style="background:#16a34a"></button>
+                        <button class="color-swatch" data-color="#dc2626" style="background:#dc2626"></button>
+                        <button class="color-swatch" data-color="#9333ea" style="background:#9333ea"></button>
+                        <button class="color-swatch" data-color="#f59e0b" style="background:#f59e0b"></button>
+                        <button class="color-swatch" data-color="#ec4899" style="background:#ec4899"></button>
+                    </div>
+                </div>
+                <div class="color-row">
+                    <span class="color-label">Текст:</span>
+                    <div class="color-picker" id="font-color-picker">
+                        <button class="color-swatch active" data-color="#1a1a2e" style="background:#1a1a2e"></button>
+                        <button class="color-swatch" data-color="#000000" style="background:#000"></button>
+                        <button class="color-swatch" data-color="#2563eb" style="background:#2563eb"></button>
+                        <button class="color-swatch" data-color="#16a34a" style="background:#16a34a"></button>
+                        <button class="color-swatch" data-color="#dc2626" style="background:#dc2626"></button>
+                        <button class="color-swatch" data-color="#9333ea" style="background:#9333ea"></button>
+                        <button class="color-swatch" data-color="#f59e0b" style="background:#f59e0b"></button>
+                        <button class="color-swatch" data-color="#ec4899" style="background:#ec4899"></button>
+                    </div>
+                </div>
+                <label class="sync-checkbox">
+                    <input type="checkbox" id="sync-colors"> Синхронизирај бои
+                </label>
+            </div>
+
+            <button id="download-btn" class="btn-secondary">Зачувај Картичка 📸</button>
+        </section>
+    </main>
+
+    <div class="credit-watermark">Created by Blagoj Nasev</div>
+
+    <script>
+    // ============ EMOJI DATABASE ============
+    var EMOJI_DATA = [
+        {e:"😀",n:"happy grinning smile"},{e:"😃",n:"happy smile excited"},{e:"😄",n:"happy laugh smile"},
+        {e:"😁",n:"happy grin teeth"},{e:"😆",n:"laugh happy squint"},{e:"😅",n:"sweat smile nervous"},
+        {e:"🤣",n:"rofl laugh rolling"},{e:"😂",n:"joy tears laugh cry"},{e:"🙂",n:"smile slight happy"},
+        {e:"😊",n:"blush smile happy shy"},{e:"😇",n:"angel innocent halo"},{e:"🥰",n:"love hearts smile"},
+        {e:"😍",n:"love heart eyes"},{e:"😘",n:"kiss love blow"},{e:"😋",n:"yum delicious tasty food"},
+        {e:"😛",n:"tongue playful"},{e:"😜",n:"wink tongue crazy"},{e:"🤪",n:"crazy zany wild"},
+        {e:"🤗",n:"hug hands open"},{e:"🤔",n:"think hmm wonder"},{e:"🤫",n:"quiet shush secret"},
+        {e:"😐",n:"neutral face blank"},{e:"😏",n:"smirk sly"},{e:"😒",n:"unamused annoyed"},
+        {e:"🙄",n:"eye roll annoyed"},{e:"😌",n:"relieved peaceful calm"},{e:"😔",n:"sad pensive down"},
+        {e:"😪",n:"sleepy tired"},{e:"🤤",n:"drool hungry"},{e:"😴",n:"sleep zzz tired"},
+        {e:"😷",n:"sick mask ill"},{e:"🤒",n:"sick fever ill"},{e:"🤕",n:"hurt bandage injured"},
+        {e:"🤢",n:"sick nausea green"},{e:"🤮",n:"vomit throw up sick"},{e:"🤧",n:"sneeze sick tissue"},
+        {e:"🥵",n:"hot warm sweat"},{e:"🥶",n:"cold freezing"},{e:"😵",n:"dizzy spiral"},
+        {e:"🤯",n:"mind blown explode"},{e:"🥳",n:"party celebrate birthday"},{e:"😎",n:"cool sunglasses"},
+        {e:"🤓",n:"nerd glasses smart"},{e:"😕",n:"confused unsure"},{e:"😟",n:"worried nervous"},
+        {e:"🙁",n:"sad frown"},{e:"😮",n:"surprised wow open mouth"},{e:"😲",n:"astonished shocked"},
+        {e:"😳",n:"flushed embarrassed"},{e:"🥺",n:"pleading eyes puppy"},{e:"😨",n:"fearful scared afraid"},
+        {e:"😰",n:"anxious sweat worried"},{e:"😢",n:"cry tear sad"},{e:"😭",n:"cry sob tears"},
+        {e:"😱",n:"scream fear"},{e:"😞",n:"disappointed sad"},{e:"😩",n:"weary tired"},
+        {e:"😫",n:"tired exhausted"},{e:"🥱",n:"yawn tired sleepy"},{e:"😤",n:"triumph huff angry"},
+        {e:"😡",n:"angry mad rage"},{e:"😠",n:"angry"},{e:"🤬",n:"curse angry swear"},
+        {e:"👋",n:"wave hand hello hi bye"},{e:"🤚",n:"raised hand stop"},{e:"✋",n:"hand raised stop"},
+        {e:"👌",n:"ok okay hand"},{e:"✌️",n:"peace victory hand"},{e:"🤞",n:"fingers crossed luck"},
+        {e:"🤟",n:"love you hand"},{e:"🤘",n:"rock on hand"},{e:"👈",n:"point left"},
+        {e:"👉",n:"point right"},{e:"👆",n:"point up"},{e:"👇",n:"point down"},
+        {e:"👍",n:"thumbs up good yes like"},{e:"👎",n:"thumbs down bad no dislike"},{e:"👏",n:"clap hands applause"},
+        {e:"🙌",n:"hands raised celebration"},{e:"🤝",n:"handshake deal"},{e:"🙏",n:"pray thanks please"},
+        {e:"💪",n:"muscle strong flex"},{e:"👂",n:"ear listen hear"},{e:"👃",n:"nose smell"},
+        {e:"🧠",n:"brain think"},{e:"👀",n:"eyes look see"},{e:"👅",n:"tongue taste"},
+        {e:"👄",n:"mouth lips"},{e:"👶",n:"baby infant"},{e:"🧒",n:"child kid"},
+        {e:"👦",n:"boy"},{e:"👧",n:"girl"},{e:"👨",n:"man"},{e:"👩",n:"woman"},
+        {e:"👴",n:"old man grandfather grandpa"},{e:"👵",n:"old woman grandmother grandma"},
+        {e:"👮",n:"police officer cop"},{e:"👷",n:"construction worker"},{e:"👩‍⚕️",n:"doctor health nurse"},
+        {e:"👩‍🍳",n:"cook chef"},{e:"👩‍🎓",n:"student graduate"},{e:"👩‍🏫",n:"teacher"},
+        {e:"🚶",n:"walk person walking"},{e:"🏃",n:"run person running"},{e:"💃",n:"dance woman dancing"},
+        {e:"🧘",n:"yoga meditation"},{e:"🛀",n:"bath bathtub"},{e:"🛌",n:"sleep bed"},
+        {e:"👪",n:"family"},{e:"🐶",n:"dog puppy"},{e:"🐕",n:"dog"},{e:"🐩",n:"poodle dog"},
+        {e:"🐺",n:"wolf"},{e:"🦊",n:"fox"},{e:"🐱",n:"cat kitten"},{e:"🐈",n:"cat"},
+        {e:"🦁",n:"lion"},{e:"🐯",n:"tiger"},{e:"🐴",n:"horse"},{e:"🦄",n:"unicorn"},
+        {e:"🐮",n:"cow"},{e:"🐷",n:"pig"},{e:"🐑",n:"sheep"},{e:"🐐",n:"goat"},
+        {e:"🐘",n:"elephant"},{e:"🐭",n:"mouse"},{e:"🐰",n:"rabbit bunny"},{e:"🐻",n:"bear"},
+        {e:"🐼",n:"panda"},{e:"🐨",n:"koala"},{e:"🐔",n:"chicken"},{e:"🐧",n:"penguin"},
+        {e:"🐦",n:"bird"},{e:"🦅",n:"eagle"},{e:"🦆",n:"duck"},{e:"🦉",n:"owl"},
+        {e:"🐸",n:"frog"},{e:"🐢",n:"turtle"},{e:"🐍",n:"snake"},{e:"🐳",n:"whale"},
+        {e:"🐬",n:"dolphin"},{e:"🐟",n:"fish"},{e:"🦈",n:"shark"},{e:"🐙",n:"octopus"},
+        {e:"🦋",n:"butterfly"},{e:"🐛",n:"bug caterpillar"},{e:"🐜",n:"ant"},{e:"🐝",n:"bee honeybee"},
+        {e:"🐞",n:"ladybug"},{e:"🍎",n:"apple red"},{e:"🍏",n:"apple green"},{e:"🍊",n:"orange"},
+        {e:"🍋",n:"lemon"},{e:"🍌",n:"banana"},{e:"🍉",n:"watermelon"},{e:"🍇",n:"grapes"},
+        {e:"🍓",n:"strawberry"},{e:"🍒",n:"cherries"},{e:"🍑",n:"peach"},{e:"🥭",n:"mango"},
+        {e:"🍍",n:"pineapple"},{e:"🥝",n:"kiwi"},{e:"🍅",n:"tomato"},{e:"🥑",n:"avocado"},
+        {e:"🥦",n:"broccoli"},{e:"🥕",n:"carrot"},{e:"🌽",n:"corn"},{e:"🥔",n:"potato"},
+        {e:"🍞",n:"bread"},{e:"🧀",n:"cheese"},{e:"🥚",n:"egg"},{e:"🍳",n:"cooking egg"},
+        {e:"🥞",n:"pancakes"},{e:"🥓",n:"bacon"},{e:"🍗",n:"chicken leg"},{e:"🍖",n:"meat bone"},
+        {e:"🌭",n:"hot dog"},{e:"🍔",n:"hamburger burger"},{e:"🍟",n:"fries french fries"},
+        {e:"🍕",n:"pizza"},{e:"🥪",n:"sandwich"},{e:"🌮",n:"taco"},{e:"🌯",n:"burrito"},
+        {e:"🍝",n:"spaghetti pasta"},{e:"🍜",n:"noodles ramen"},{e:"🍲",n:"pot stew"},
+        {e:"🍣",n:"sushi"},{e:"🍤",n:"shrimp"},{e:"🍚",n:"rice"},{e:"🍧",n:"shaved ice"},
+        {e:"🍨",n:"ice cream"},{e:"🍦",n:"ice cream cone"},{e:"🎂",n:"birthday cake"},
+        {e:"🍰",n:"cake"},{e:"🍭",n:"lollipop candy"},{e:"🍬",n:"candy"},{e:"🍫",n:"chocolate"},
+        {e:"🍿",n:"popcorn"},{e:"🍩",n:"doughnut donut"},{e:"🍪",n:"cookie"},{e:"🥛",n:"milk glass"},
+        {e:"🍼",n:"baby bottle"},{e:"☕",n:"coffee hot"},{e:"🍵",n:"tea"},{e:"🧃",n:"juice box"},
+        {e:"🥤",n:"cup straw"},{e:"🍺",n:"beer"},{e:"🍷",n:"wine"},{e:"⚽",n:"soccer football"},
+        {e:"🏀",n:"basketball"},{e:"🏈",n:"american football"},{e:"⚾",n:"baseball"},
+        {e:"🎾",n:"tennis"},{e:"🏐",n:"volleyball"},{e:"🎱",n:"pool billiards"},
+        {e:"🏓",n:"ping pong"},{e:"🎯",n:"target bullseye"},{e:"🎮",n:"video game controller"},
+        {e:"🧩",n:"puzzle piece"},{e:"🧸",n:"teddy bear"},{e:"🎨",n:"art palette paint"},
+        {e:"🎵",n:"musical note"},{e:"🎶",n:"musical notes"},{e:"🎤",n:"microphone"},
+        {e:"🎧",n:"headphone"},{e:"🎹",n:"piano keyboard"},{e:"🎸",n:"guitar"},
+        {e:"🥁",n:"drum"},{e:"📱",n:"mobile phone"},{e:"💻",n:"laptop computer"},
+        {e:"📺",n:"television tv"},{e:"📷",n:"camera"},{e:"📚",n:"books reading"},
+        {e:"📖",n:"open book read"},{e:"📝",n:"memo write note"},{e:"✏️",n:"pencil write"},
+        {e:"🎒",n:"backpack school bag"},{e:"🏠",n:"house"},{e:"🏫",n:"school building"},
+        {e:"🏥",n:"hospital"},{e:"🚗",n:"car automobile"},{e:"🚌",n:"bus"},{e:"🚲",n:"bicycle bike"},
+        {e:"✈️",n:"airplane"},{e:"🚀",n:"rocket"},{e:"⭐",n:"star"},{e:"🌟",n:"glowing star"},
+        {e:"✨",n:"sparkles"},{e:"🔥",n:"fire flame hot"},{e:"🌈",n:"rainbow"},
+        {e:"☀️",n:"sun sunny"},{e:"🌙",n:"moon"},{e:"☁️",n:"cloud"},{e:"🌧️",n:"rain"},
+        {e:"❄️",n:"snowflake"},{e:"💧",n:"water droplet"},{e:"🌊",n:"wave water ocean"},
+        {e:"❤️",n:"red heart love"},{e:"🧡",n:"orange heart"},{e:"💛",n:"yellow heart"},
+        {e:"💚",n:"green heart"},{e:"💙",n:"blue heart"},{e:"💜",n:"purple heart"},
+        {e:"💔",n:"broken heart"},{e:"💕",n:"two hearts"},{e:"💯",n:"hundred points"},
+        {e:"✅",n:"check mark"},{e:"❌",n:"cross mark wrong"},{e:"❓",n:"question mark"},
+        {e:"❗",n:"exclamation mark"},{e:"🎉",n:"party popper"},{e:"🎊",n:"confetti"},
+        {e:"🎁",n:"gift present"},{e:"🎈",n:"balloon"},{e:"🎄",n:"christmas tree"},
+        {e:"🎃",n:"pumpkin halloween"},{e:"🔔",n:"bell notification"},{e:"⏰",n:"alarm clock time"}
+    ];
+
+    var STYLE_PROMPT = ', simple flat illustration style, centered composition, minimal background, child-friendly, educational visual, AAC communication symbol style, high contrast, clean lines, no text';
+
+    // ============ MAIN APP ============
+    document.addEventListener('DOMContentLoaded', function() {
+        var themeToggle = document.getElementById('theme-toggle');
+        var langToggle = document.getElementById('lang-toggle');
+        var tabBtns = document.querySelectorAll('.tab-btn');
+        var emojiSearch = document.getElementById('emoji-search');
+        var emojiGrid = document.getElementById('emoji-grid');
+        var emojiLabel = document.getElementById('emoji-label');
+        var emojiUpdateBtn = document.getElementById('emoji-update-btn');
+        var uploadLabel = document.getElementById('upload-label');
+        var uploadUpdateBtn = document.getElementById('upload-update-btn');
+        var aiPrompt = document.getElementById('ai-prompt');
+        var aiLabel = document.getElementById('ai-label');
+        var aiGenerateBtn = document.getElementById('ai-generate-btn');
+        var aiStopBtn = document.getElementById('ai-stop-btn');
+        var apiSelector = document.getElementById('api-selector');
+        var apiInfo = document.getElementById('api-info');
+        var aacCard = document.getElementById('aac-card');
+        var cardVisual = document.getElementById('card-visual');
+        var cardLabel = document.getElementById('card-label');
+        var downloadBtn = document.getElementById('download-btn');
+
+        // Drop zone elements
+        var dropZone = document.getElementById('drop-zone');
+        var fileInput = document.getElementById('file-input');
+        var imageEditor = document.getElementById('image-editor');
+        var cropContainer = document.getElementById('crop-container');
+        var cropImage = document.getElementById('crop-image');
+        var zoomSlider = document.getElementById('zoom-slider');
+        var cancelCrop = document.getElementById('cancel-crop');
+        var applyCrop = document.getElementById('apply-crop');
+
+        var selectedEmoji = '👋';
+        var isGenerating = false;
+        var timerInterval = null;
+        var isDarkMode = true;
+        var currentLang = 'mk';
+
+        // Image cropper state
+        var cropState = {
+            img: null,
+            scale: 1,
+            x: 0,
+            y: 0,
+            isDragging: false,
+            startX: 0,
+            startY: 0
+        };
+
+        // Theme toggle
+        themeToggle.addEventListener('click', function() {
+            isDarkMode = !isDarkMode;
+            document.body.classList.toggle('light-mode', !isDarkMode);
+            themeToggle.textContent = isDarkMode ? '☀️' : '🌙';
+        });
+
+        // Language toggle (simplified)
+        langToggle.addEventListener('click', function() {
+            currentLang = currentLang === 'mk' ? 'en' : 'mk';
+            langToggle.textContent = currentLang === 'mk' ? 'EN' : 'MK';
+        });
+
+        // Set label function
+        function setLabel(text) {
+            cardLabel.textContent = text || 'Етикета';
+            autoResizeLabel();
+        }
+
+        function autoResizeLabel() {
+            var len = cardLabel.textContent.length;
+            var fontSize = 3;
+            if (len > 20) fontSize = 1.8;
+            else if (len > 15) fontSize = 2.2;
+            else if (len > 10) fontSize = 2.5;
+            else if (len > 5) fontSize = 2.8;
+            cardLabel.style.fontSize = fontSize + 'rem';
+        }
+
+        // Tab switching
+        tabBtns.forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                tabBtns.forEach(function(b) { b.classList.remove('active'); });
+                document.querySelectorAll('.tab-content').forEach(function(c) { c.classList.remove('active'); });
+                btn.classList.add('active');
+                document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
+            });
+        });
+
+        // Color pickers
+        var borderColorPicker = document.getElementById('border-color-picker');
+        var fontColorPicker = document.getElementById('font-color-picker');
+        var syncColors = document.getElementById('sync-colors');
+
+        borderColorPicker.addEventListener('click', function(e) {
+            if (e.target.classList.contains('color-swatch')) {
+                borderColorPicker.querySelectorAll('.color-swatch').forEach(function(s) { s.classList.remove('active'); });
+                e.target.classList.add('active');
+                aacCard.style.borderColor = e.target.dataset.color;
+                if (syncColors.checked) {
+                    fontColorPicker.querySelectorAll('.color-swatch').forEach(function(s) {
+                        s.classList.remove('active');
+                        if (s.dataset.color === e.target.dataset.color) s.classList.add('active');
+                    });
+                    cardLabel.style.color = e.target.dataset.color;
+                }
+            }
+        });
+
+        fontColorPicker.addEventListener('click', function(e) {
+            if (e.target.classList.contains('color-swatch')) {
+                fontColorPicker.querySelectorAll('.color-swatch').forEach(function(s) { s.classList.remove('active'); });
+                e.target.classList.add('active');
+                cardLabel.style.color = e.target.dataset.color;
+                if (syncColors.checked) {
+                    borderColorPicker.querySelectorAll('.color-swatch').forEach(function(s) {
+                        s.classList.remove('active');
+                        if (s.dataset.color === e.target.dataset.color) s.classList.add('active');
+                    });
+                    aacCard.style.borderColor = e.target.dataset.color;
+                }
+            }
+        });
+
+        // ============ EMOJI SEARCH ============
+        emojiSearch.addEventListener('input', function() {
+            var query = emojiSearch.value.trim().toLowerCase();
+            if (query.length < 2) {
+                emojiGrid.innerHTML = '<p class="emoji-message">Напиши барем 2 букви...</p>';
+                return;
+            }
+
+            var results = EMOJI_DATA.filter(function(item) {
+                return item.n.toLowerCase().indexOf(query) !== -1;
+            });
+
+            emojiGrid.innerHTML = '';
+            if (results.length > 0) {
+                results.slice(0, 25).forEach(function(item) {
+                    var btn = document.createElement('button');
+                    btn.type = 'button';
+                    btn.className = 'emoji-item';
+                    btn.textContent = item.e;
+                    btn.title = item.n;
+                    btn.addEventListener('click', function() {
+                        document.querySelectorAll('.emoji-item').forEach(function(i) { i.classList.remove('selected'); });
+                        btn.classList.add('selected');
+                        selectedEmoji = item.e;
+                        emojiLabel.value = item.n.split(' ')[0];
+                        cardVisual.className = 'symbol-display';
+                        cardVisual.textContent = item.e;
+                        setLabel(emojiLabel.value);
+                    });
+                    emojiGrid.appendChild(btn);
+                });
+            } else {
+                emojiGrid.innerHTML = '<p class="emoji-message">Нема резултати</p>';
+            }
+        });
+
+        emojiUpdateBtn.addEventListener('click', function() {
+            cardVisual.className = 'symbol-display';
+            cardVisual.textContent = selectedEmoji;
+            setLabel(emojiLabel.value);
+        });
+
+        // ============ DRAG & DROP / UPLOAD ============
+        dropZone.addEventListener('click', function() {
+            fileInput.click();
+        });
+
+        dropZone.addEventListener('dragover', function(e) {
+            e.preventDefault();
+            dropZone.classList.add('drag-over');
+        });
+
+        dropZone.addEventListener('dragleave', function() {
+            dropZone.classList.remove('drag-over');
+        });
+
+        dropZone.addEventListener('drop', function(e) {
+            e.preventDefault();
+            dropZone.classList.remove('drag-over');
+            var files = e.dataTransfer.files;
+            if (files.length > 0 && files[0].type.startsWith('image/')) {
+                loadImageForCrop(files[0]);
+            }
+        });
+
+        fileInput.addEventListener('change', function() {
+            if (fileInput.files.length > 0) {
+                loadImageForCrop(fileInput.files[0]);
+            }
+        });
+
+        function loadImageForCrop(file) {
+            var reader = new FileReader();
+            reader.onload = function(e) {
+                cropImage.src = e.target.result;
+                cropImage.onload = function() {
+                    imageEditor.classList.add('active');
+                    dropZone.style.display = 'none';
+                    initCropper();
+                };
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function initCropper() {
+            cropState.scale = 1;
+            cropState.x = 0;
+            cropState.y = 0;
+            zoomSlider.value = 100;
+            updateCropImage();
+        }
+
+        function updateCropImage() {
+            var containerWidth = cropContainer.offsetWidth;
+            var containerHeight = cropContainer.offsetHeight;
+            var imgWidth = cropImage.naturalWidth;
+            var imgHeight = cropImage.naturalHeight;
+
+            // Calculate base scale to fit container
+            var baseScale = Math.max(200 / imgWidth, 200 / imgHeight);
+            var scale = baseScale * cropState.scale;
+
+            var scaledWidth = imgWidth * scale;
+            var scaledHeight = imgHeight * scale;
+
+            cropImage.style.width = scaledWidth + 'px';
+            cropImage.style.height = scaledHeight + 'px';
+
+            // Center initially
+            var centerX = (containerWidth - scaledWidth) / 2 + cropState.x;
+            var centerY = (containerHeight - scaledHeight) / 2 + cropState.y;
+
+            cropImage.style.left = centerX + 'px';
+            cropImage.style.top = centerY + 'px';
+        }
+
+        zoomSlider.addEventListener('input', function() {
+            cropState.scale = zoomSlider.value / 100;
+            updateCropImage();
+        });
+
+        // Drag to position
+        cropContainer.addEventListener('mousedown', function(e) {
+            cropState.isDragging = true;
+            cropState.startX = e.clientX - cropState.x;
+            cropState.startY = e.clientY - cropState.y;
+        });
+
+        document.addEventListener('mousemove', function(e) {
+            if (cropState.isDragging) {
+                cropState.x = e.clientX - cropState.startX;
+                cropState.y = e.clientY - cropState.startY;
+                updateCropImage();
+            }
+        });
+
+        document.addEventListener('mouseup', function() {
+            cropState.isDragging = false;
+        });
+
+        // Touch support
+        cropContainer.addEventListener('touchstart', function(e) {
+            var touch = e.touches[0];
+            cropState.isDragging = true;
+            cropState.startX = touch.clientX - cropState.x;
+            cropState.startY = touch.clientY - cropState.y;
+        });
+
+        document.addEventListener('touchmove', function(e) {
+            if (cropState.isDragging) {
+                var touch = e.touches[0];
+                cropState.x = touch.clientX - cropState.startX;
+                cropState.y = touch.clientY - cropState.startY;
+                updateCropImage();
+            }
+        });
+
+        document.addEventListener('touchend', function() {
+            cropState.isDragging = false;
+        });
+
+        cancelCrop.addEventListener('click', function() {
+            imageEditor.classList.remove('active');
+            dropZone.style.display = 'block';
+            fileInput.value = '';
+        });
+
+        applyCrop.addEventListener('click', function() {
+            // Create cropped image
+            var canvas = document.createElement('canvas');
+            canvas.width = 220;
+            canvas.height = 220;
+            var ctx = canvas.getContext('2d');
+
+            var containerRect = cropContainer.getBoundingClientRect();
+            var overlaySize = 200;
+            var overlayX = (containerRect.width - overlaySize) / 2;
+            var overlayY = (containerRect.height - overlaySize) / 2;
+
+            var imgRect = cropImage.getBoundingClientRect();
+            var scaleX = cropImage.naturalWidth / imgRect.width;
+            var scaleY = cropImage.naturalHeight / imgRect.height;
+
+            var srcX = (overlayX - (imgRect.left - containerRect.left)) * scaleX;
+            var srcY = (overlayY - (imgRect.top - containerRect.top)) * scaleY;
+            var srcW = overlaySize * scaleX;
+            var srcH = overlaySize * scaleY;
+
+            ctx.drawImage(cropImage, srcX, srcY, srcW, srcH, 0, 0, 220, 220);
+
+            var croppedDataUrl = canvas.toDataURL('image/png');
+
+            // Apply to card
+            cardVisual.className = 'image-display';
+            cardVisual.innerHTML = '<img src="' + croppedDataUrl + '" alt="Custom image">';
+            setLabel(uploadLabel.value);
+
+            // Reset editor
+            imageEditor.classList.remove('active');
+            dropZone.style.display = 'block';
+            fileInput.value = '';
+        });
+
+        uploadUpdateBtn.addEventListener('click', function() {
+            setLabel(uploadLabel.value);
+        });
+
+        // ============ AI GENERATION ============
+        apiSelector.addEventListener('change', function() {
+            if (apiSelector.value === 'pollinations') {
+                apiInfo.textContent = 'AI генерирање по опис. Може да биде бавно.';
+            } else {
+                apiInfo.textContent = 'Реални фотографии. Брзо и сигурно!';
+            }
+        });
+
+        aiGenerateBtn.addEventListener('click', function() {
+            var prompt = aiPrompt.value.trim();
+            var label = aiLabel.value.trim() || prompt.split(',')[0] || 'Слика';
+
+            if (!prompt && apiSelector.value === 'pollinations') {
+                alert('Внеси опис на слика');
+                return;
+            }
+
+            isGenerating = true;
+            aiGenerateBtn.disabled = true;
+            aiGenerateBtn.textContent = '⏳ Генерирам...';
+            aiStopBtn.style.display = 'block';
+
+            var seconds = 0;
+            cardVisual.className = 'image-display';
+            cardVisual.innerHTML = '<div class="loading-info"><div class="spinner"></div><div class="timer" id="timer">0s</div></div>';
+            setLabel(label);
+
+            timerInterval = setInterval(function() {
+                seconds++;
+                var timer = document.getElementById('timer');
+                if (timer) timer.textContent = seconds + 's';
+            }, 1000);
+
+            var seed = Math.floor(Math.random() * 100000);
+            var imageUrl;
+
+            if (apiSelector.value === 'pollinations') {
+                var fullPrompt = prompt + STYLE_PROMPT;
+                imageUrl = 'https://image.pollinations.ai/prompt/' + encodeURIComponent(fullPrompt) + '?width=512&height=512&nologo=true&seed=' + seed;
+            } else {
+                imageUrl = 'https://picsum.photos/512/512?random=' + seed;
+            }
+
+            var img = new Image();
+            img.crossOrigin = 'Anonymous';
+
+            var timeout = setTimeout(function() {
+                if (isGenerating) {
+                    stopGeneration();
+                    cardVisual.innerHTML = '<span class="placeholder-icon">❌</span>';
+                    alert('Истече времето - пробај повторно или користи Picsum');
+                }
+            }, 60000);
+
+            img.onload = function() {
+                clearTimeout(timeout);
+                clearInterval(timerInterval);
+                if (!isGenerating) return;
+
+                cardVisual.innerHTML = '';
+                img.style.width = '100%';
+                img.style.height = '100%';
+                img.style.objectFit = 'cover';
+                cardVisual.appendChild(img);
+
+                isGenerating = false;
+                aiGenerateBtn.disabled = false;
+                aiGenerateBtn.textContent = 'Генерирај Слика ✨';
+                aiStopBtn.style.display = 'none';
+            };
+
+            img.onerror = function() {
+                clearTimeout(timeout);
+                clearInterval(timerInterval);
+                if (!isGenerating) return;
+
+                cardVisual.innerHTML = '<span class="placeholder-icon">❌</span>';
+                isGenerating = false;
+                aiGenerateBtn.disabled = false;
+                aiGenerateBtn.textContent = 'Генерирај Слика ✨';
+                aiStopBtn.style.display = 'none';
+                alert('Грешка - пробај повторно или користи Picsum');
+            };
+
+            img.src = imageUrl;
+        });
+
+        function stopGeneration() {
+            isGenerating = false;
+            clearInterval(timerInterval);
+            aiGenerateBtn.disabled = false;
+            aiGenerateBtn.textContent = 'Генерирај Слика ✨';
+            aiStopBtn.style.display = 'none';
+        }
+
+        aiStopBtn.addEventListener('click', function() {
+            stopGeneration();
+            cardVisual.className = 'symbol-display';
+            cardVisual.textContent = '🎨';
+        });
+
+        // ============ DOWNLOAD ============
+        downloadBtn.addEventListener('click', function() {
+            downloadBtn.textContent = '⏳ Зачувувам...';
+            downloadBtn.disabled = true;
+
+            html2canvas(aacCard, {
+                scale: 3,
+                useCORS: true,
+                allowTaint: true,
+                backgroundColor: '#ffffff'
+            }).then(function(canvas) {
+                var link = document.createElement('a');
+                var filename = cardLabel.textContent.replace(/[^a-zA-Zа-яА-Яа-шА-Ш0-9]/g, '_') || 'symbol';
+                link.download = 'aac_' + filename + '.png';
+                link.href = canvas.toDataURL('image/png');
+                link.click();
+                downloadBtn.textContent = 'Зачувај Картичка 📸';
+                downloadBtn.disabled = false;
+            }).catch(function(err) {
+                console.error('Save error:', err);
+                alert('Грешка при зачувување');
+                downloadBtn.textContent = 'Зачувај Картичка 📸';
+                downloadBtn.disabled = false;
+            });
+        });
+
+        autoResizeLabel();
+    });
+    </script>
+</body>
+</html>
