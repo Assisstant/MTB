@@ -132,6 +132,11 @@
       border-color: var(--danger);
       color: var(--danger);
     }
+    .btn.success{
+      background: rgba(34,197,94,.15);
+      border-color: var(--success);
+      color: var(--success);
+    }
     .btn.mini{
       padding:6px 9px;
       border-radius:8px;
@@ -538,42 +543,6 @@
     .play-overlay:hover .play-btn{
       transform: scale(1.1);
     }
-    
-    /* YouTube Embed */
-    .youtube-embed{
-      position: relative;
-      width: 100%;
-      padding-top: 56.25%;
-      background: #000;
-    }
-    .youtube-embed iframe{
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      border: none;
-    }
-    .youtube-embed .close-video{
-      position: absolute;
-      top: 8px;
-      right: 8px;
-      width: 28px;
-      height: 28px;
-      background: rgba(0,0,0,.7);
-      border: none;
-      border-radius: 50%;
-      color: white;
-      font-size: 14px;
-      cursor: pointer;
-      z-index: 10;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-    .youtube-embed .close-video:hover{
-      background: var(--danger);
-    }
 
     .cardBody{
       padding:8px 10px 10px;
@@ -629,8 +598,153 @@
       justify-content:space-between;
       margin-top:4px;
     }
+    .actions-left{
+      display:flex;
+      gap:3px;
+    }
+    .actions-right{
+      display:flex;
+      gap:3px;
+    }
 
-    /* Modal */
+    /* Improved Modal - Like Tabela */
+    .modal-overlay{
+      position:fixed;
+      top:0; left:0; right:0; bottom:0;
+      background: rgba(0,0,0,0.85);
+      display:none;
+      z-index: 9999;
+      backdrop-filter: blur(4px);
+    }
+    .modal-overlay.active{
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .modal-box{
+      background: var(--surface);
+      border-radius: 14px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 25px 60px rgba(0,0,0,.5);
+      resize: both;
+      min-width: 400px;
+      min-height: 300px;
+      max-width: calc(100vw - 40px);
+      max-height: calc(100vh - 40px);
+      position: relative;
+    }
+    .modal-head{
+      display: flex;
+      align-items: center;
+      padding: 12px 16px;
+      background: var(--bg);
+      border-bottom: 1px solid var(--line);
+      cursor: move;
+      user-select: none;
+      flex-shrink: 0;
+      gap: 12px;
+    }
+    .modal-title{
+      font-weight: 600;
+      font-size: 14px;
+      flex: 1;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .modal-sizes{
+      display: flex;
+      gap: 4px;
+    }
+    .modal-size-btn{
+      padding: 4px 10px;
+      border: none;
+      border-radius: 6px;
+      background: var(--surface);
+      color: var(--text);
+      font-size: 11px;
+      cursor: pointer;
+      transition: all .2s ease;
+    }
+    .modal-size-btn:hover,
+    .modal-size-btn.active{
+      background: var(--brand);
+      color: white;
+    }
+    .modal-link{
+      color: var(--brand);
+      text-decoration: none;
+      font-size: 12px;
+      white-space: nowrap;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .modal-link:hover{
+      text-decoration: underline;
+    }
+    .modal-close{
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      border: none;
+      background: var(--danger);
+      color: white;
+      font-size: 16px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      transition: background .2s ease;
+    }
+    .modal-close:hover{
+      background: #cc0000;
+    }
+    .modal-body{
+      flex: 1;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #000;
+    }
+    .modal-body iframe{
+      width: 100%;
+      height: 100%;
+      border: none;
+    }
+    .modal-body img{
+      max-width: 100%;
+      max-height: 100%;
+      object-fit: contain;
+    }
+    .modal-body video{
+      max-width: 100%;
+      max-height: 100%;
+    }
+    .modal-box::after{
+      content: '⤡';
+      position: absolute;
+      bottom: 4px;
+      right: 8px;
+      font-size: 12px;
+      color: rgba(255,255,255,.3);
+      pointer-events: none;
+    }
+    .modal-fallback{
+      color: white;
+      text-align: center;
+      padding: 40px;
+    }
+    .modal-fallback p{
+      margin: 10px 0;
+      color: var(--muted);
+    }
+
+    /* Old dialogs - keep for forms */
     dialog{
       border:none;
       border-radius: 14px;
@@ -792,6 +906,24 @@
     </div>
   </div>
 
+  <!-- Improved Modal for Media Preview -->
+  <div class="modal-overlay" id="mediaModal">
+    <div class="modal-box" id="modalBox" style="width:800px;height:500px;">
+      <div class="modal-head" id="modalHead">
+        <span class="modal-title" id="modalTitle">Preview</span>
+        <div class="modal-sizes">
+          <button class="modal-size-btn" data-w="500" data-h="350">S</button>
+          <button class="modal-size-btn active" data-w="800" data-h="500">M</button>
+          <button class="modal-size-btn" data-w="1100" data-h="700">L</button>
+          <button class="modal-size-btn" data-w="full" data-h="full">⛶</button>
+        </div>
+        <a href="#" target="_blank" class="modal-link" id="modalLink">↗ Отвори</a>
+        <button class="modal-close" id="modalClose">×</button>
+      </div>
+      <div class="modal-body" id="modalBody"></div>
+    </div>
+  </div>
+
   <!-- Card Modal -->
   <dialog id="cardModal">
     <div class="modalHead">
@@ -898,24 +1030,6 @@
     </div>
   </dialog>
 
-  <!-- YouTube Play Modal -->
-  <dialog id="ytModal">
-    <div class="modalHead">
-      <h3 id="ytModalTitle">▶️ YouTube</h3>
-      <button class="btn mini" id="closeYtModal">✕</button>
-    </div>
-    <div class="modalBody" style="padding:0;">
-      <div class="youtube-embed" id="ytEmbed"></div>
-      <div style="padding:12px; background:var(--bg); border-top:1px solid var(--line);">
-        <p class="hint" style="margin:0 0 8px 0; text-align:center;" data-t="ytLocalHint">⚠️ Ако видеото не се вчита, отворете го во нов таб</p>
-      </div>
-    </div>
-    <div class="modalFoot">
-      <button class="btn primary" id="ytNewTab">🔗 <span data-t="openNewTab">Отвори во нов таб</span></button>
-      <button class="btn" id="closeYtModalBtn" data-t="close">Затвори</button>
-    </div>
-  </dialog>
-
   <div class="toast" id="toast"></div>
 
   <script>
@@ -993,7 +1107,9 @@
         defaultBoard: 'Општо',
         defaultCols: ['Нови', 'Во тек', 'Завршени'],
         board2: 'Програмирање',
-        board2Cols: ['Чека', 'Работам', 'Готово']
+        board2Cols: ['Чека', 'Работам', 'Готово'],
+        copied: 'Копирано!',
+        copyLink: 'Копирај линк'
       },
       en: {
         title: 'Kanban Bookmarks',
@@ -1065,7 +1181,9 @@
         defaultBoard: 'General',
         defaultCols: ['Inbox', 'In Progress', 'Done'],
         board2: 'Coding',
-        board2Cols: ['Backlog', 'Building', 'Shipped']
+        board2Cols: ['Backlog', 'Building', 'Shipped'],
+        copied: 'Copied!',
+        copyLink: 'Copy link'
       }
     };
 
@@ -1318,6 +1436,9 @@
       const host = parsed.hostname;
       if(host.includes('youtube.com')) return parsed.searchParams.get('v');
       if(host === 'youtu.be') return parsed.pathname.slice(1);
+      // Handle shorts and embed
+      const match = parsed.pathname.match(/\/(embed|shorts|v)\/([^/?#]+)/);
+      if(match) return match[2];
       return null;
     }
     function isYouTube(url){ return !!getYouTubeId(url); }
@@ -1351,6 +1472,124 @@
     }
 
     // =====================
+    // Copy to Clipboard
+    // =====================
+    async function copyToClipboard(text) {
+      try {
+        await navigator.clipboard.writeText(text);
+        toast(t('copied'));
+      } catch (err) {
+        // Fallback for older browsers
+        const textarea = document.createElement('textarea');
+        textarea.value = text;
+        textarea.style.position = 'fixed';
+        textarea.style.opacity = '0';
+        document.body.appendChild(textarea);
+        textarea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textarea);
+        toast(t('copied'));
+      }
+    }
+
+    // =====================
+    // Improved Media Modal (like Tabela)
+    // =====================
+    let currentMediaUrl = '';
+
+    function openMediaModal(title, html, extUrl) {
+      $('#modalTitle').textContent = title;
+      $('#modalBody').innerHTML = html;
+      const link = $('#modalLink');
+      if (extUrl) {
+        link.href = extUrl;
+        link.style.display = 'flex';
+        currentMediaUrl = extUrl;
+      } else {
+        link.style.display = 'none';
+        currentMediaUrl = '';
+      }
+      setModalSize(800, 500);
+      document.querySelectorAll('.modal-size-btn').forEach(b => {
+        b.classList.toggle('active', b.dataset.w === '800');
+      });
+      $('#mediaModal').classList.add('active');
+      document.body.style.overflow = 'hidden';
+    }
+
+    function closeMediaModal() {
+      $('#mediaModal').classList.remove('active');
+      document.body.style.overflow = '';
+      setTimeout(() => { $('#modalBody').innerHTML = ''; }, 200);
+    }
+
+    function setModalSize(w, h) {
+      const box = $('#modalBox');
+      if (w === 'full') {
+        box.style.width = (window.innerWidth - 40) + 'px';
+        box.style.height = (window.innerHeight - 40) + 'px';
+      } else {
+        box.style.width = w + 'px';
+        box.style.height = h + 'px';
+      }
+    }
+
+    // Modal event listeners
+    $('#modalClose').addEventListener('click', closeMediaModal);
+    $('#mediaModal').addEventListener('click', e => {
+      if (e.target === $('#mediaModal')) closeMediaModal();
+    });
+
+    // Size buttons
+    document.querySelectorAll('.modal-size-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.modal-size-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        setModalSize(btn.dataset.w, btn.dataset.h);
+      });
+    });
+
+    // Modal drag functionality
+    let modalDragging = false, modalSx, modalSy, modalSl, modalSt;
+    const modalHead = $('#modalHead');
+    const modalBox = $('#modalBox');
+
+    modalHead.addEventListener('mousedown', e => {
+      if (e.target.tagName === 'BUTTON' || e.target.tagName === 'A') return;
+      modalDragging = true;
+      modalSx = e.clientX;
+      modalSy = e.clientY;
+      const rect = modalBox.getBoundingClientRect();
+      modalSl = rect.left;
+      modalSt = rect.top;
+      modalBox.style.position = 'fixed';
+      modalBox.style.margin = '0';
+    });
+
+    document.addEventListener('mousemove', e => {
+      if (!modalDragging) return;
+      modalBox.style.left = (modalSl + e.clientX - modalSx) + 'px';
+      modalBox.style.top = (modalSt + e.clientY - modalSy) + 'px';
+    });
+
+    document.addEventListener('mouseup', () => {
+      modalDragging = false;
+    });
+
+    // =====================
+    // YouTube Player (improved like Tabela)
+    // =====================
+    function openYouTube(url) {
+      const vid = getYouTubeId(url);
+      if (!vid) return;
+      
+      const embedUrl = `https://www.youtube.com/embed/${vid}?autoplay=1&rel=0&modestbranding=1`;
+      const html = `<iframe src="${embedUrl}" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>`;
+      
+      openMediaModal('▶️ YouTube', html, url);
+    }
+
+    // =====================
     // DOM
     // =====================
     const boardsListEl = $('#boardsList');
@@ -1373,10 +1612,6 @@
 
     const importModal = $('#importModal');
     const importText = $('#importText');
-
-    const ytModal = $('#ytModal');
-    const ytEmbed = $('#ytEmbed');
-    let currentYtUrl = '';
 
     let dragCardId = null;
     let reorderDrag = { type: null, id: null };
@@ -1528,6 +1763,7 @@
           ? `<img src="${thumb}" alt="" loading="lazy" />${isYT ? `<div class="play-overlay" data-action="playYT"><div class="play-btn">▶</div></div>` : ''}`
           : `<div class="fallback">${firstLetter(title)}</div>`;
 
+      // Updated actions with copy button
       el.innerHTML = `
         <div class="thumb">${thumbHtml}</div>
         <div class="cardBody">
@@ -1535,11 +1771,14 @@
           <div class="url">${escapeHtml(urlLine)}</div>
           <div class="badges">${badges.join('')}</div>
           <div class="actions">
-            <button class="btn mini" data-action="open">🔗</button>
-            <div style="display:flex;gap:3px;">
-              ${isYT ? `<button class="btn mini" data-action="playYT">▶️</button>` : ''}
+            <div class="actions-left">
+              <button class="btn mini" data-action="open" title="${t('open')}">🔗</button>
+              ${card.kind !== 'file' ? `<button class="btn mini success" data-action="copy" title="${t('copyLink')}">📋</button>` : ''}
+            </div>
+            <div class="actions-right">
+              ${isYT ? `<button class="btn mini" data-action="playYT" title="${t('playHere')}">▶️</button>` : ''}
               <button class="btn mini" data-action="pin">${card.pinned ? '📌' : '📍'}</button>
-              <button class="btn mini" data-action="edit">✏️</button>
+              <button class="btn mini" data-action="edit" title="${t('edit')}">✏️</button>
             </div>
           </div>
         </div>
@@ -1559,6 +1798,15 @@
         if(card.kind === 'file') await openFile(card);
         else window.open(card.url, '_blank');
       };
+
+      // Copy button handler
+      const copyBtn = el.querySelector('[data-action="copy"]');
+      if (copyBtn) {
+        copyBtn.onclick = e => {
+          e.stopPropagation();
+          copyToClipboard(card.url);
+        };
+      }
 
       const playBtns = el.querySelectorAll('[data-action="playYT"]');
       playBtns.forEach(btn => btn.onclick = e => { e.stopPropagation(); openYouTube(card.url); });
@@ -1686,54 +1934,6 @@
       saveState(); renderAll();
       toast(t('added'));
     }
-
-    // =====================
-    // YouTube Modal
-    // =====================
-    function openYouTube(url){
-      currentYtUrl = url;
-      const vid = getYouTubeId(url);
-      if(!vid) return;
-      
-      // Use youtube-nocookie.com for better privacy and compatibility
-      // Add origin parameter for local file support
-      const embedUrl = `https://www.youtube-nocookie.com/embed/${vid}?autoplay=1&rel=0&modestbranding=1&enablejsapi=1`;
-      
-      ytEmbed.innerHTML = `
-        <iframe 
-          src="${embedUrl}" 
-          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" 
-          allowfullscreen
-          referrerpolicy="strict-origin-when-cross-origin"
-        ></iframe>
-        <div class="yt-fallback" style="display:none; position:absolute; inset:0; background:#000; color:#fff; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:12px; padding:20px; text-align:center;">
-          <div style="font-size:48px;">▶️</div>
-          <p style="margin:0;">Embed не работи локално</p>
-          <button class="btn primary" onclick="window.open('${currentYtUrl}', '_blank')">${t('openNewTab')}</button>
-        </div>
-      `;
-      
-      // Check if iframe loads properly
-      const iframe = ytEmbed.querySelector('iframe');
-      const fallback = ytEmbed.querySelector('.yt-fallback');
-      
-      iframe.onerror = () => {
-        iframe.style.display = 'none';
-        fallback.style.display = 'flex';
-      };
-      
-      $('#ytModalTitle').textContent = '▶️ YouTube';
-      ytModal.showModal();
-    }
-
-    function closeYouTube(){
-      ytEmbed.innerHTML = '';
-      ytModal.close();
-    }
-
-    $('#closeYtModal').onclick = closeYouTube;
-    $('#closeYtModalBtn').onclick = closeYouTube;
-    $('#ytNewTab').onclick = () => { window.open(currentYtUrl, '_blank'); closeYouTube(); };
 
     // =====================
     // Card Modal
@@ -2003,7 +2203,7 @@
     document.onkeydown = e => {
       if((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k'){ e.preventDefault(); searchEl.focus(); return; }
       if(e.key === 'a' && !['INPUT','TEXTAREA','SELECT'].includes(document.activeElement?.tagName) && 
-         !cardModal.open && !boardModal.open && !colModal.open && !importModal.open && !ytModal.open){
+         !cardModal.open && !boardModal.open && !colModal.open && !importModal.open && !$('#mediaModal').classList.contains('active')){
         openCardModal();
       }
       if(e.key === 'Escape'){
@@ -2011,7 +2211,7 @@
         if(boardModal.open) closeBoardModal();
         if(colModal.open) closeColModal();
         if(importModal.open) importModal.close();
-        if(ytModal.open) closeYouTube();
+        if($('#mediaModal').classList.contains('active')) closeMediaModal();
       }
     };
 
