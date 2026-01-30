@@ -30,16 +30,24 @@
             --primary-lt: #1e3a5f;
         }
 
-        * { box-sizing: border-box; margin: 0; padding: 0; }
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
 
-        html, body {
+        html,
+        body {
             background: var(--bg);
             color: var(--text);
             font-family: Arial, sans-serif;
             line-height: 1.6;
         }
 
-        body { padding: 20px; min-height: 100vh; }
+        body {
+            padding: 20px;
+            min-height: 100vh;
+        }
 
         /* Format Bar */
         .format-bar {
@@ -55,16 +63,34 @@
             flex-wrap: wrap;
             align-items: center;
         }
-        .format-bar.visible { display: flex; }
-        .format-bar button {
-            width: 32px; height: 32px; border: none; border-radius: 6px;
-            background: var(--bg); color: var(--text); cursor: pointer;
-            font-size: 14px; font-weight: bold;
+
+        .format-bar.visible {
+            display: flex;
         }
-        .format-bar button:hover { background: var(--primary); color: white; }
+
+        .format-bar button {
+            width: 32px;
+            height: 32px;
+            border: none;
+            border-radius: 6px;
+            background: var(--bg);
+            color: var(--text);
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: bold;
+        }
+
+        .format-bar button:hover {
+            background: var(--primary);
+            color: white;
+        }
+
         .format-bar select {
-            padding: 6px; border-radius: 6px; border: 1px solid var(--border);
-            background: var(--bg); color: var(--text);
+            padding: 6px;
+            border-radius: 6px;
+            border: 1px solid var(--border);
+            background: var(--bg);
+            color: var(--text);
         }
 
         .editable {
@@ -78,284 +104,833 @@
             transition: all 0.2s;
             outline: none;
         }
-        .editable:hover { border-color: var(--border); background: var(--bg2); }
-        .editable:focus { border-color: var(--primary); background: var(--bg2); border-style: solid; }
-        div.editable { white-space: pre-wrap; word-wrap: break-word; }
+
+        .editable:hover {
+            border-color: var(--border);
+            background: var(--bg2);
+        }
+
+        .editable:focus {
+            border-color: var(--primary);
+            background: var(--bg2);
+            border-style: solid;
+        }
+
+        div.editable {
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
 
         .main-title {
-            font-size: 2rem; font-weight: bold; min-height: 50px;
-            margin-bottom: 8px; text-align: center; display: block; width: 100%;
+            font-size: 2rem;
+            font-weight: bold;
+            min-height: 50px;
+            margin-bottom: 8px;
+            text-align: center;
+            display: block;
+            width: 100%;
         }
+
         .subtitle {
-            font-size: 1rem; color: var(--muted); min-height: 30px;
-            margin-bottom: 20px; text-align: center; display: block; width: 100%;
+            font-size: 1rem;
+            color: var(--muted);
+            min-height: 30px;
+            margin-bottom: 20px;
+            text-align: center;
+            display: block;
+            width: 100%;
         }
 
         .controls {
-            display: flex; gap: 12px; flex-wrap: wrap; align-items: center;
-            margin-bottom: 20px; padding: 16px; background: var(--bg2);
-            border-radius: 12px; box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+            align-items: center;
+            margin-bottom: 20px;
+            padding: 16px;
+            background: var(--bg2);
+            border-radius: 12px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
         }
+
         .btn {
-            padding: 10px 18px; border-radius: 100px; border: none;
-            background: var(--bg2); color: var(--text); cursor: pointer;
-            font-size: 14px; font-weight: 500; transition: all 0.3s;
-            display: inline-flex; align-items: center; gap: 6px;
+            padding: 10px 18px;
+            border-radius: 100px;
+            border: none;
+            background: var(--bg2);
+            color: var(--text);
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.3s;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
             box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
         }
-        .btn:hover { transform: translateY(-2px); box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15); }
-        .btn-primary { background: var(--primary); color: white; }
-        .btn-success { background: var(--success); color: white; }
-        .btn-danger { background: var(--danger); color: white; }
-        .btn-gdrive { background: var(--gdrive); color: white; }
-        .btn-sm { padding: 6px 12px; font-size: 12px; }
-        .btn.active { background: var(--primary); color: white; }
-        .spacer { flex: 1; }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+        }
+
+        .btn-primary {
+            background: var(--primary);
+            color: white;
+        }
+
+        .btn-success {
+            background: var(--success);
+            color: white;
+        }
+
+        .btn-danger {
+            background: var(--danger);
+            color: white;
+        }
+
+        .btn-gdrive {
+            background: var(--gdrive);
+            color: white;
+        }
+
+        .btn-sm {
+            padding: 6px 12px;
+            font-size: 12px;
+        }
+
+        .btn.active {
+            background: var(--primary);
+            color: white;
+        }
+
+        .spacer {
+            flex: 1;
+        }
 
         .toggle-group {
-            display: flex; gap: 4px; background: var(--bg); padding: 4px; border-radius: 100px;
+            display: flex;
+            gap: 4px;
+            background: var(--bg);
+            padding: 4px;
+            border-radius: 100px;
         }
+
         .toggle-btn {
-            padding: 8px 14px; border: none; border-radius: 100px;
-            background: transparent; color: var(--muted); cursor: pointer; font-size: 13px;
+            padding: 8px 14px;
+            border: none;
+            border-radius: 100px;
+            background: transparent;
+            color: var(--muted);
+            cursor: pointer;
+            font-size: 13px;
         }
-        .toggle-btn.active { background: var(--primary); color: white; }
+
+        .toggle-btn.active {
+            background: var(--primary);
+            color: white;
+        }
 
         /* Tabs */
-        .tabs-container { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 20px; }
-        .tab {
-            padding: 12px 20px; border-radius: 12px; background: var(--bg2);
-            color: var(--text); cursor: pointer; font-size: 14px;
-            display: flex; align-items: center; gap: 10px;
-            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1); transition: all 0.3s;
+        .tabs-container {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            flex-wrap: wrap;
+            margin-bottom: 20px;
         }
-        .tab:hover { transform: translateY(-2px); }
-        .tab.active { background: var(--primary); color: white; }
-        .tab input { background: transparent; border: none; color: inherit; font: inherit; width: 100px; padding: 2px 4px; }
-        .tab input:focus { outline: none; }
-        .tab .close-btn {
-            width: 20px; height: 20px; border-radius: 50%; border: none;
-            background: rgba(255, 255, 255, 0.2); color: inherit; cursor: pointer; font-size: 14px;
-        }
-        .tab .close-btn:hover { background: var(--danger); }
-        .add-tab {
-            padding: 12px 20px; border: 2px dashed var(--border); border-radius: 12px;
-            background: transparent; color: var(--muted); cursor: pointer; font-size: 14px;
-        }
-        .add-tab:hover { border-color: var(--primary); color: var(--primary); }
 
-        .page { display: none; }
-        .page.active { display: block; }
+        .tab {
+            padding: 12px 20px;
+            border-radius: 12px;
+            background: var(--bg2);
+            color: var(--text);
+            cursor: pointer;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+            transition: all 0.3s;
+        }
+
+        .tab:hover {
+            transform: translateY(-2px);
+        }
+
+        .tab.active {
+            background: var(--primary);
+            color: white;
+        }
+
+        .tab input {
+            background: transparent;
+            border: none;
+            color: inherit;
+            font: inherit;
+            width: 100px;
+            padding: 2px 4px;
+        }
+
+        .tab input:focus {
+            outline: none;
+        }
+
+        .tab .close-btn {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            border: none;
+            background: rgba(255, 255, 255, 0.2);
+            color: inherit;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        .tab .close-btn:hover {
+            background: var(--danger);
+        }
+
+        .add-tab {
+            padding: 12px 20px;
+            border: 2px dashed var(--border);
+            border-radius: 12px;
+            background: transparent;
+            color: var(--muted);
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        .add-tab:hover {
+            border-color: var(--primary);
+            color: var(--primary);
+        }
+
+        .page {
+            display: none;
+        }
+
+        .page.active {
+            display: block;
+        }
 
         /* Table */
         .table-wrap {
-            overflow-x: auto; border-radius: 12px; background: var(--bg2);
+            overflow-x: auto;
+            border-radius: 12px;
+            background: var(--bg2);
             box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
         }
-        table { width: 100%; border-collapse: collapse; min-width: 900px; table-layout: fixed; }
-        th, td {
-            border: 1px solid var(--border); padding: 0; vertical-align: top;
-            overflow: hidden; word-wrap: break-word; overflow-wrap: break-word;
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            min-width: 900px;
+            table-layout: fixed;
         }
-        th { background: var(--bg); font-weight: 600; }
-        th .editable { font-weight: 600; text-align: center; }
-        td .editable { min-height: 80px; width: 100%; word-wrap: break-word; overflow-wrap: break-word; }
-        .col-sm { width: 22%; }
-        .col-lg { width: 56%; }
+
+        th,
+        td {
+            border: 1px solid var(--border);
+            padding: 0;
+            vertical-align: top;
+            overflow: hidden;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+        }
+
+        th {
+            background: var(--bg);
+            font-weight: 600;
+        }
+
+        th .editable {
+            font-weight: 600;
+            text-align: center;
+        }
+
+        td .editable {
+            min-height: 80px;
+            width: 100%;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+        }
+
+        .col-sm {
+            width: 22%;
+        }
+
+        .col-lg {
+            width: 56%;
+        }
 
         /* Attachment Cell */
-        .att-cell { padding: 15px; }
+        .att-cell {
+            padding: 15px;
+        }
+
         .att-bar {
-            display: flex; gap: 8px; flex-wrap: wrap; align-items: center;
-            padding: 12px; background: var(--bg); border-radius: 12px;
-            margin-bottom: 15px; border: 2px dashed var(--border);
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            align-items: center;
+            padding: 12px;
+            background: var(--bg);
+            border-radius: 12px;
+            margin-bottom: 15px;
+            border: 2px dashed var(--border);
         }
-        .att-bar-title { width: 100%; font-size: 12px; color: var(--muted); margin-bottom: 8px; }
+
+        .att-bar-title {
+            width: 100%;
+            font-size: 12px;
+            color: var(--muted);
+            margin-bottom: 8px;
+        }
+
         .att-bar input[type="text"] {
-            flex: 1; min-width: 150px; padding: 10px 14px; border: 1px solid var(--border);
-            border-radius: 100px; background: var(--bg2); color: var(--text); font-size: 14px;
+            flex: 1;
+            min-width: 150px;
+            padding: 10px 14px;
+            border: 1px solid var(--border);
+            border-radius: 100px;
+            background: var(--bg2);
+            color: var(--text);
+            font-size: 14px;
         }
-        .att-bar input[type="text"]:focus { outline: none; border-color: var(--primary); }
-        .att-bar input[type="file"] { display: none; }
+
+        .att-bar input[type="text"]:focus {
+            outline: none;
+            border-color: var(--primary);
+        }
+
+        .att-bar input[type="file"] {
+            display: none;
+        }
 
         /* Storage Mode Selector */
         .storage-mode {
-            display: flex; gap: 4px; background: var(--bg2); padding: 3px;
-            border-radius: 8px; border: 1px solid var(--border);
+            display: flex;
+            gap: 4px;
+            background: var(--bg2);
+            padding: 3px;
+            border-radius: 8px;
+            border: 1px solid var(--border);
         }
+
         .storage-mode button {
-            padding: 6px 10px; border: none; border-radius: 6px;
-            background: transparent; color: var(--muted); cursor: pointer; font-size: 11px;
+            padding: 6px 10px;
+            border: none;
+            border-radius: 6px;
+            background: transparent;
+            color: var(--muted);
+            cursor: pointer;
+            font-size: 11px;
         }
-        .storage-mode button.active { background: var(--primary); color: white; }
-        .storage-mode button.gdrive.active { background: var(--gdrive); }
+
+        .storage-mode button.active {
+            background: var(--primary);
+            color: white;
+        }
+
+        .storage-mode button.gdrive.active {
+            background: var(--gdrive);
+        }
 
         /* Attachment List */
-        .att-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; }
+        .att-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 12px;
+        }
+
         .att-item {
-            background: var(--bg2); border-radius: 12px; overflow: hidden;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1); transition: all 0.3s;
+            background: var(--bg2);
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            transition: all 0.3s;
             position: relative;
         }
-        .att-item:hover { transform: translateY(-4px); box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15); }
+
+        .att-item:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
+        }
 
         /* Storage Badge */
         .storage-badge {
-            position: absolute; top: 8px; right: 8px; z-index: 5;
-            padding: 3px 8px; border-radius: 12px; font-size: 10px; font-weight: 600;
-            color: white; text-transform: uppercase;
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            z-index: 5;
+            padding: 3px 8px;
+            border-radius: 12px;
+            font-size: 10px;
+            font-weight: 600;
+            color: white;
+            text-transform: uppercase;
         }
-        .storage-badge.local { background: var(--success); }
-        .storage-badge.cloud { background: var(--gdrive); }
+
+        .storage-badge.local {
+            background: var(--success);
+        }
+
+        .storage-badge.cloud {
+            background: var(--gdrive);
+        }
 
         .thumb-box {
-            position: relative; width: 100%; padding-top: 56.25%;
-            background: #1a1a2e; overflow: hidden; cursor: pointer;
+            position: relative;
+            width: 100%;
+            padding-top: 56.25%;
+            background: #1a1a2e;
+            overflow: hidden;
+            cursor: pointer;
         }
-        .thumb-box:hover .thumb-hover { opacity: 1; }
+
+        .thumb-box:hover .thumb-hover {
+            opacity: 1;
+        }
+
         .thumb-content {
-            position: absolute; top: 0; left: 0; right: 0; bottom: 0;
-            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
         }
-        .thumb-img { width: 100%; height: 100%; object-fit: cover; }
+
+        .thumb-img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
 
         .thumb-icon-wrap {
-            width: 100%; height: 100%; display: flex; flex-direction: column;
-            align-items: center; justify-content: center; color: white; font-size: 48px;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 48px;
         }
-        .thumb-icon-wrap.pdf { background: linear-gradient(135deg, #e53935 0%, #b71c1c 100%); }
-        .thumb-icon-wrap.doc { background: linear-gradient(135deg, #1976d2 0%, #0d47a1 100%); }
-        .thumb-icon-wrap.xls { background: linear-gradient(135deg, #2e7d32 0%, #1b5e20 100%); }
-        .thumb-icon-wrap.ppt { background: linear-gradient(135deg, #d84315 0%, #bf360c 100%); }
-        .thumb-icon-wrap.video { background: linear-gradient(135deg, #7b1fa2 0%, #4a148c 100%); }
-        .thumb-icon-wrap.link { background: linear-gradient(135deg, #1877f2 0%, #0d47a1 100%); }
-        .thumb-icon-wrap.file { background: linear-gradient(135deg, #546e7a 0%, #37474f 100%); }
-        .thumb-icon-wrap.gdrive { background: linear-gradient(135deg, #4285f4 0%, #1a73e8 100%); }
-        .thumb-icon-text { font-size: 12px; font-weight: 600; margin-top: 8px; text-transform: uppercase; letter-spacing: 1px; }
+
+        .thumb-icon-wrap.pdf {
+            background: linear-gradient(135deg, #e53935 0%, #b71c1c 100%);
+        }
+
+        .thumb-icon-wrap.doc {
+            background: linear-gradient(135deg, #1976d2 0%, #0d47a1 100%);
+        }
+
+        .thumb-icon-wrap.xls {
+            background: linear-gradient(135deg, #2e7d32 0%, #1b5e20 100%);
+        }
+
+        .thumb-icon-wrap.ppt {
+            background: linear-gradient(135deg, #d84315 0%, #bf360c 100%);
+        }
+
+        .thumb-icon-wrap.video {
+            background: linear-gradient(135deg, #7b1fa2 0%, #4a148c 100%);
+        }
+
+        .thumb-icon-wrap.link {
+            background: linear-gradient(135deg, #1877f2 0%, #0d47a1 100%);
+        }
+
+        .thumb-icon-wrap.file {
+            background: linear-gradient(135deg, #546e7a 0%, #37474f 100%);
+        }
+
+        .thumb-icon-wrap.gdrive {
+            background: linear-gradient(135deg, #4285f4 0%, #1a73e8 100%);
+        }
+
+        .thumb-icon-text {
+            font-size: 12px;
+            font-weight: 600;
+            margin-top: 8px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
 
         .yt-play {
-            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-            width: 60px; height: 42px; background: rgba(255, 0, 0, 0.9);
-            border-radius: 10px; display: flex; align-items: center; justify-content: center;
-            transition: all 0.2s; z-index: 2;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 60px;
+            height: 42px;
+            background: rgba(255, 0, 0, 0.9);
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+            z-index: 2;
         }
-        .thumb-box:hover .yt-play { background: #ff0000; transform: translate(-50%, -50%) scale(1.1); }
+
+        .thumb-box:hover .yt-play {
+            background: #ff0000;
+            transform: translate(-50%, -50%) scale(1.1);
+        }
+
         .yt-play::after {
-            content: ''; border-style: solid; border-width: 8px 0 8px 14px;
-            border-color: transparent transparent transparent white; margin-left: 3px;
+            content: '';
+            border-style: solid;
+            border-width: 8px 0 8px 14px;
+            border-color: transparent transparent transparent white;
+            margin-left: 3px;
         }
 
         .thumb-hover {
-            position: absolute; top: 0; left: 0; right: 0; bottom: 0;
-            background: rgba(0, 0, 0, 0.6); display: flex; align-items: center;
-            justify-content: center; opacity: 0; transition: opacity 0.2s; z-index: 3;
-        }
-        .thumb-hover-text {
-            background: white; color: #333; padding: 8px 16px;
-            border-radius: 100px; font-size: 12px; font-weight: 600;
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.6);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            transition: opacity 0.2s;
+            z-index: 3;
         }
 
-        .att-info { padding: 10px 12px; background: var(--bg); }
+        .thumb-hover-text {
+            background: white;
+            color: #333;
+            padding: 8px 16px;
+            border-radius: 100px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .att-info {
+            padding: 10px 12px;
+            background: var(--bg);
+        }
+
         .att-name {
-            font-size: 12px; font-weight: 600; white-space: nowrap;
-            overflow: hidden; text-overflow: ellipsis; margin-bottom: 6px;
+            font-size: 12px;
+            font-weight: 600;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            margin-bottom: 6px;
         }
+
         .att-desc {
-            width: 100%; padding: 8px; margin-top: 6px; border: 1px solid var(--border);
-            border-radius: 6px; background: var(--bg2); color: var(--text);
-            font-size: 11px; resize: vertical; min-height: 40px; font-family: inherit;
+            width: 100%;
+            padding: 8px;
+            margin-top: 6px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            background: var(--bg2);
+            color: var(--text);
+            font-size: 11px;
+            resize: vertical;
+            min-height: 40px;
+            font-family: inherit;
         }
-        .att-desc:focus { outline: none; border-color: var(--primary); }
-        .att-meta { display: flex; justify-content: space-between; align-items: center; margin-top: 6px; }
-        .att-size { font-size: 10px; color: var(--muted); }
-        .att-btns { display: flex; gap: 4px; }
+
+        .att-desc:focus {
+            outline: none;
+            border-color: var(--primary);
+        }
+
+        .att-meta {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 6px;
+        }
+
+        .att-size {
+            font-size: 10px;
+            color: var(--muted);
+        }
+
+        .att-btns {
+            display: flex;
+            gap: 4px;
+        }
+
         .att-btns button {
-            padding: 4px 8px; font-size: 11px; border-radius: 6px; border: none;
-            background: var(--bg2); color: var(--text); cursor: pointer; transition: all 0.2s;
+            padding: 4px 8px;
+            font-size: 11px;
+            border-radius: 6px;
+            border: none;
+            background: var(--bg2);
+            color: var(--text);
+            cursor: pointer;
+            transition: all 0.2s;
         }
-        .att-btns button:hover { background: var(--primary); color: white; }
-        .att-btns button.del:hover { background: var(--danger); }
+
+        .att-btns button:hover {
+            background: var(--primary);
+            color: white;
+        }
+
+        .att-btns button.del:hover {
+            background: var(--danger);
+        }
 
         .empty {
-            grid-column: 1 / -1; text-align: center; padding: 40px;
-            color: var(--muted); font-style: italic; background: var(--bg); border-radius: 12px;
+            grid-column: 1 / -1;
+            text-align: center;
+            padding: 40px;
+            color: var(--muted);
+            font-style: italic;
+            background: var(--bg);
+            border-radius: 12px;
         }
 
         /* Modal */
         .modal-overlay {
-            position: fixed; top: 0; left: 0; right: 0; bottom: 0;
-            background: rgba(0, 0, 0, 0.9); display: none; z-index: 9999;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.9);
+            display: none;
+            z-index: 9999;
         }
-        .modal-overlay.active { display: flex; align-items: center; justify-content: center; }
+
+        .modal-overlay.active {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
         .modal-box {
-            background: var(--bg2); border-radius: 12px; overflow: hidden;
-            display: flex; flex-direction: column; box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
-            resize: both; min-width: 400px; min-height: 300px;
-            max-width: calc(100vw - 40px); max-height: calc(100vh - 40px);
+            background: var(--bg2);
+            border-radius: 12px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+            resize: both;
+            min-width: 400px;
+            min-height: 300px;
+            max-width: calc(100vw - 40px);
+            max-height: calc(100vh - 40px);
         }
+
         .modal-head {
-            display: flex; align-items: center; padding: 12px 16px;
-            background: var(--bg); border-bottom: 1px solid var(--border);
-            cursor: move; user-select: none; flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            padding: 12px 16px;
+            background: var(--bg);
+            border-bottom: 1px solid var(--border);
+            cursor: move;
+            user-select: none;
+            flex-shrink: 0;
         }
+
         .modal-title {
-            font-weight: 600; font-size: 14px; flex: 1;
-            white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-right: 12px;
+            font-weight: 600;
+            font-size: 14px;
+            flex: 1;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            margin-right: 12px;
         }
-        .modal-sizes { display: flex; gap: 4px; margin-right: 12px; }
+
+        .modal-sizes {
+            display: flex;
+            gap: 4px;
+            margin-right: 12px;
+        }
+
         .modal-size-btn {
-            padding: 4px 10px; border: none; border-radius: 6px;
-            background: var(--bg2); color: var(--text); font-size: 11px;
-            cursor: pointer; transition: all 0.2s;
+            padding: 4px 10px;
+            border: none;
+            border-radius: 6px;
+            background: var(--bg2);
+            color: var(--text);
+            font-size: 11px;
+            cursor: pointer;
+            transition: all 0.2s;
         }
-        .modal-size-btn:hover, .modal-size-btn.active { background: var(--primary); color: white; }
+
+        .modal-size-btn:hover,
+        .modal-size-btn.active {
+            background: var(--primary);
+            color: white;
+        }
+
         .modal-link {
-            color: var(--primary); text-decoration: none; font-size: 12px;
-            margin-right: 12px; white-space: nowrap;
+            color: var(--primary);
+            text-decoration: none;
+            font-size: 12px;
+            margin-right: 12px;
+            white-space: nowrap;
         }
-        .modal-link:hover { text-decoration: underline; }
+
+        .modal-link:hover {
+            text-decoration: underline;
+        }
+
         .modal-close {
-            width: 28px; height: 28px; border-radius: 50%; border: none;
-            background: var(--danger); color: white; font-size: 16px;
-            cursor: pointer; display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            border: none;
+            background: var(--danger);
+            color: white;
+            font-size: 16px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
         }
-        .modal-close:hover { background: #cc0000; }
+
+        .modal-close:hover {
+            background: #cc0000;
+        }
+
         .modal-body {
-            flex: 1; overflow: hidden; display: flex;
-            align-items: center; justify-content: center; background: #000;
+            flex: 1;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #000;
         }
-        .modal-body iframe { width: 100%; height: 100%; border: none; }
-        .modal-body img { max-width: 100%; max-height: 100%; object-fit: contain; }
-        .modal-body video { max-width: 100%; max-height: 100%; }
+
+        .modal-body iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+        }
+
+        .modal-body img {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+        }
+
+        .modal-body video {
+            max-width: 100%;
+            max-height: 100%;
+        }
+
         .modal-box::after {
-            content: '⤡'; position: absolute; bottom: 4px; right: 8px;
-            font-size: 12px; color: rgba(255, 255, 255, 0.5); pointer-events: none;
+            content: '⤡';
+            position: absolute;
+            bottom: 4px;
+            right: 8px;
+            font-size: 12px;
+            color: rgba(255, 255, 255, 0.5);
+            pointer-events: none;
         }
 
         /* Google Drive Help Panel */
         .gdrive-help {
-            background: var(--primary-lt); border: 1px solid var(--gdrive);
-            border-radius: 12px; padding: 16px; margin-bottom: 20px;
+            background: var(--primary-lt);
+            border: 1px solid var(--gdrive);
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 20px;
         }
-        .gdrive-help h4 { color: var(--gdrive); margin-bottom: 10px; display: flex; align-items: center; gap: 8px; }
-        .gdrive-help p { font-size: 13px; color: var(--text); margin-bottom: 8px; }
-        .gdrive-help code { background: var(--bg2); padding: 2px 6px; border-radius: 4px; font-size: 12px; }
+
+        .gdrive-help h4 {
+            color: var(--gdrive);
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .gdrive-help p {
+            font-size: 13px;
+            color: var(--text);
+            margin-bottom: 8px;
+        }
+
+        .gdrive-help code {
+            background: var(--bg2);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 12px;
+        }
+
         .gdrive-help .close-help {
-            float: right; background: none; border: none; color: var(--muted);
-            cursor: pointer; font-size: 18px;
+            float: right;
+            background: none;
+            border: none;
+            color: var(--muted);
+            cursor: pointer;
+            font-size: 18px;
         }
 
         @media print {
-            body { padding: 10mm; background: white !important; color: black !important; }
-            .controls, .tabs-container, .att-bar, .att-btns, .btn, .toggle-group, .add-tab,
-            .close-btn, .modal-overlay, .storage-badge, .gdrive-help, .format-bar { display: none !important; }
-            .page { display: none !important; }
-            .page.printing { display: block !important; }
-            .editable { border: none !important; padding: 4px !important; background: transparent !important; }
-            .table-wrap { box-shadow: none; }
-            .att-list { display: block; }
-            .att-item { margin-bottom: 10px; page-break-inside: avoid; box-shadow: none; }
-            .thumb-hover, .yt-play { display: none !important; }
+            body {
+                padding: 10mm;
+                background: white !important;
+                color: black !important;
+            }
+
+            .controls,
+            .tabs-container,
+            .att-bar,
+            .att-btns,
+            .btn,
+            .toggle-group,
+            .add-tab,
+            .close-btn,
+            .modal-overlay,
+            .storage-badge,
+            .gdrive-help,
+            .format-bar {
+                display: none !important;
+            }
+
+            .page {
+                display: none !important;
+            }
+
+            .page.printing {
+                display: block !important;
+            }
+
+            .editable {
+                border: none !important;
+                padding: 4px !important;
+                background: transparent !important;
+            }
+
+            .table-wrap {
+                box-shadow: none;
+            }
+
+            .att-list {
+                display: block;
+            }
+
+            .att-item {
+                margin-bottom: 10px;
+                page-break-inside: avoid;
+                box-shadow: none;
+            }
+
+            .thumb-hover,
+            .yt-play {
+                display: none !important;
+            }
         }
     </style>
 </head>
@@ -391,14 +966,16 @@
             <option value="5">Голема</option>
             <option value="7">Огромна</option>
         </select>
-        <input type="color" onchange="changeColor(this.value)" title="Боја" style="width:32px;height:32px;border:none;cursor:pointer;">
+        <input type="color" onchange="changeColor(this.value)" title="Боја"
+            style="width:32px;height:32px;border:none;cursor:pointer;">
         <button onclick="formatText('justifyLeft')" title="Лево">⬅</button>
         <button onclick="formatText('justifyCenter')" title="Центар">⬛</button>
         <button onclick="formatText('justifyRight')" title="Десно">➡</button>
     </div>
 
     <div contenteditable="true" class="editable main-title" id="mainTitle">Табела со Докази</div>
-    <div contenteditable="true" class="editable subtitle" id="subtitle">Хибридна верзија - поддржува локални фајлови И Google Drive линкови</div>
+    <div contenteditable="true" class="editable subtitle" id="subtitle">Хибридна верзија - поддржува локални фајлови И
+        Google Drive линкови</div>
 
     <div class="controls">
         <div class="toggle-group">
@@ -447,7 +1024,7 @@
 
             var LANG = {
                 mk: {
-                    addPage: "+ Страница", addRow: "+ Ред", 
+                    addPage: "+ Страница", addRow: "+ Ред",
                     addFileLocal: "📎 Локален", addFileCloud: "☁️ Drive линк",
                     addLink: "🔗 Линк", deleteRow: "🗑️",
                     col1: "Колона 1", col2: "Колона 2", col3: "Прилози",
@@ -497,10 +1074,10 @@
             }
 
             // Format bar functions
-            window.formatText = function(cmd) { document.execCommand(cmd, false, null); };
-            window.formatBlock = function(tag) { if (tag) document.execCommand('formatBlock', false, '<' + tag + '>'); };
-            window.changeFontSize = function(size) { if (size) document.execCommand('fontSize', false, size); };
-            window.changeColor = function(color) { document.execCommand('foreColor', false, color); };
+            window.formatText = function (cmd) { document.execCommand(cmd, false, null); };
+            window.formatBlock = function (tag) { if (tag) document.execCommand('formatBlock', false, '<' + tag + '>'); };
+            window.changeFontSize = function (size) { if (size) document.execCommand('fontSize', false, size); };
+            window.changeColor = function (color) { document.execCommand('foreColor', false, color); };
 
             function showFormatBar(el) {
                 var bar = $("#formatBar");
@@ -526,7 +1103,7 @@
                     /docs\.google\.com\/spreadsheets\/d\/([a-zA-Z0-9_-]+)/,
                     /docs\.google\.com\/presentation\/d\/([a-zA-Z0-9_-]+)/
                 ];
-                
+
                 for (var i = 0; i < patterns.length; i++) {
                     var match = url.match(patterns[i]);
                     if (match) return { id: match[1], type: getGDriveType(url) };
@@ -558,6 +1135,65 @@
 
             function isGoogleDriveUrl(url) {
                 return url.includes('drive.google.com') || url.includes('docs.google.com');
+            }
+
+            // PDF Cloud Services Detection
+            function isPCloudUrl(url) {
+                return url.includes('pcloud.com') || url.includes('e.pcloud.com') || url.includes('filelink.pcloud.com');
+            }
+
+            function isDropboxUrl(url) {
+                return url.includes('dropbox.com') || url.includes('dl.dropboxusercontent.com');
+            }
+
+            function isOneDriveUrl(url) {
+                return url.includes('onedrive.live.com') || url.includes('1drv.ms') || url.includes('sharepoint.com');
+            }
+
+            function getDropboxDirectUrl(url) {
+                // Convert Dropbox share link to direct download
+                if (url.includes('dropbox.com')) {
+                    return url.replace('www.dropbox.com', 'dl.dropboxusercontent.com').replace('?dl=0', '').replace('?dl=1', '');
+                }
+                return url;
+            }
+
+            function getPCloudEmbedUrl(url) {
+                // pCloud public links can be embedded directly
+                if (url.includes('e.pcloud.com') || url.includes('filelink.pcloud.com')) {
+                    return url;
+                }
+                // For pcloud.com/publink URLs, they can be viewed directly
+                return url;
+            }
+
+            function isCloudPdfUrl(url) {
+                // Check if URL is a PDF from any cloud service
+                if (isPdfUrl(url)) return true;
+
+                // Check for cloud service PDF indicators
+                var lowerUrl = url.toLowerCase();
+                if (isPCloudUrl(url) && (lowerUrl.includes('.pdf') || lowerUrl.includes('pdf'))) return true;
+                if (isDropboxUrl(url) && lowerUrl.includes('.pdf')) return true;
+                if (isOneDriveUrl(url) && lowerUrl.includes('.pdf')) return true;
+
+                return false;
+            }
+
+            function getCloudPdfViewerUrl(url) {
+                // Return appropriate viewer URL for cloud PDFs
+                if (isDropboxUrl(url)) {
+                    return getDropboxDirectUrl(url);
+                }
+                if (isPCloudUrl(url)) {
+                    return getPCloudEmbedUrl(url);
+                }
+                // For other URLs, try Google Docs viewer for better compatibility
+                if (url.includes('.pdf')) {
+                    // Use Google Docs Viewer for external PDFs
+                    return 'https://docs.google.com/viewer?url=' + encodeURIComponent(url) + '&embedded=true';
+                }
+                return url;
             }
 
             // YouTube
@@ -810,7 +1446,7 @@
                         var gType = att.gtype || 'file';
                         var iconClass = gType === 'doc' ? 'doc' : gType === 'xls' ? 'xls' : gType === 'ppt' ? 'ppt' : 'gdrive';
                         var iconEmoji = gType === 'doc' ? '📝' : gType === 'xls' ? '📊' : gType === 'ppt' ? '📽' : '☁️';
-                        
+
                         // Try to show thumbnail for images
                         if (att.isImage) {
                             thumbHtml = storageBadge + '<div class="thumb-box"><div class="thumb-content"><img class="thumb-img" src="' + esc(getGDriveDirectUrl(att.gid)) + '" alt="" onerror="this.parentElement.innerHTML=\'<div class=thumb-icon-wrap gdrive>☁️<span class=thumb-icon-text>DRIVE</span></div>\'"></div><div class="thumb-hover"><span class="thumb-hover-text">' + esc(t("clickToOpen")) + '</span></div></div>';
@@ -837,6 +1473,16 @@
                             thumbHtml = storageBadge + '<div class="thumb-box"><div class="thumb-content"><div class="thumb-icon-wrap file">📁<span class="thumb-icon-text">' + esc(ext) + '</span></div></div></div>';
                         }
                         name = att.name;
+                    } else if (att.kind === "cloudpdf") {
+                        // Cloud PDF from pCloud, Dropbox, OneDrive, or direct PDF links
+                        var cloudIcon = "📄";
+                        var cloudLabel = "PDF";
+                        if (isPCloudUrl(att.url)) cloudLabel = "pCloud";
+                        else if (isDropboxUrl(att.url)) cloudLabel = "Dropbox";
+                        else if (isOneDriveUrl(att.url)) cloudLabel = "OneDrive";
+
+                        thumbHtml = storageBadge + '<div class="thumb-box"><div class="thumb-content"><div class="thumb-icon-wrap pdf">' + cloudIcon + '<span class="thumb-icon-text">' + cloudLabel + '</span></div></div><div class="thumb-hover"><span class="thumb-hover-text">' + esc(t("clickToOpen")) + '</span></div></div>';
+                        name = att.title || "PDF";
                     } else if (att.kind === "link") {
                         if (isImgUrl(att.url)) {
                             thumbHtml = storageBadge + '<div class="thumb-box"><div class="thumb-content"><img class="thumb-img" src="' + esc(att.url) + '" alt="" onerror="this.style.display=\'none\'"></div><div class="thumb-hover"><span class="thumb-hover-text">' + esc(t("clickToOpen")) + '</span></div></div>';
@@ -884,9 +1530,16 @@
                                 openModal(att.name, '<video controls autoplay src="' + att.data + '"></video>', null);
                             } else if (att.kind === "file" && att.ftype === "pdf" && att.data) {
                                 openModal(att.name, '<iframe src="' + att.data + '"></iframe>', att.data);
+                            } else if (att.kind === "cloudpdf") {
+                                // Cloud PDF from pCloud, Dropbox, OneDrive, or direct links
+                                var pdfViewerUrl = getCloudPdfViewerUrl(att.url);
+                                openModal(att.title || "PDF", '<iframe src="' + esc(pdfViewerUrl) + '"></iframe>', att.url);
                             } else if (att.kind === "link") {
                                 if (isImgUrl(att.url)) openModal(att.title || "Image", '<img src="' + esc(att.url) + '" alt="">', att.url);
-                                else if (isPdfUrl(att.url)) openModal(att.title || "PDF", '<iframe src="' + esc(att.url) + '"></iframe>', att.url);
+                                else if (isCloudPdfUrl(att.url)) {
+                                    var viewerUrl = getCloudPdfViewerUrl(att.url);
+                                    openModal(att.title || "PDF", '<iframe src="' + esc(viewerUrl) + '"></iframe>', att.url);
+                                }
                                 else window.open(att.url, "_blank");
                             }
                         });
@@ -973,12 +1626,29 @@
                     return;
                 }
 
+                // Check if cloud PDF (pCloud, Dropbox, OneDrive, or direct PDF link)
+                if (isCloudPdfUrl(url)) {
+                    var pdfTitle = "PDF";
+                    if (isPCloudUrl(url)) pdfTitle = "PDF (pCloud)";
+                    else if (isDropboxUrl(url)) pdfTitle = "PDF (Dropbox)";
+                    else if (isOneDriveUrl(url)) pdfTitle = "PDF (OneDrive)";
+
+                    state.pages[pi].rows[ri].atts.push({
+                        kind: "cloudpdf",
+                        url: url,
+                        title: pdfTitle,
+                        storage: "cloud",
+                        description: ""
+                    });
+                    save(); render();
+                    return;
+                }
+
                 // Regular link
                 var domain = "";
                 try { domain = new URL(url).hostname; } catch (e) { }
                 var title = domain;
-                if (isPdfUrl(url)) title = "PDF";
-                else if (isImgUrl(url)) title = "Image";
+                if (isImgUrl(url)) title = "Image";
 
                 state.pages[pi].rows[ri].atts.push({
                     kind: "link", url: url, title: title || url,
