@@ -1085,6 +1085,40 @@
             .thumb-icon-wrap.gdrive {
                 background: #4285f4 !important;
             }
+
+            .section-divider {
+                background: #e0e0e0;
+                padding: 10px;
+                font-weight: bold;
+                font-size: 1.2rem;
+                margin-top: 20px;
+                margin-bottom: 10px;
+                border-radius: 8px;
+                border: 1px solid #ccc;
+                page-break-before: always;
+                /* Force page break on print */
+            }
+
+            .section-controls {
+                display: flex;
+                justify-content: flex-end;
+                gap: 8px;
+                margin-top: 4px;
+            }
+
+            @media print {
+                .section-divider {
+                    background: transparent !important;
+                    border: none !important;
+                    border-bottom: 2px solid #000 !important;
+                    color: black !important;
+                    margin-top: 30px !important;
+                }
+
+                .section-controls {
+                    display: none !important;
+                }
+            }
         }
     </style>
 </head>
@@ -1189,6 +1223,7 @@
                     confirmDel: "Избриши?", newPage: "Страница",
                     clickToOpen: "Кликни за преглед",
                     addMore: "➕ Додај фајлови (локални или од Drive)",
+                    addSection: "+ Секција",
                     descPlaceholder: "Опис...",
                     local: "Локален", cloud: "Cloud",
                     storageLocal: "📎 Вгради", storageDrive: "☁️ Линк"
@@ -1205,6 +1240,7 @@
                     confirmDel: "Delete?", newPage: "Page",
                     clickToOpen: "Click to preview",
                     addMore: "➕ Add files (local or from Drive)",
+                    addSection: "+ Section",
                     descPlaceholder: "Description...",
                     local: "Local", cloud: "Cloud",
                     storageLocal: "📎 Embed", storageDrive: "☁️ Link"
@@ -1514,38 +1550,120 @@
                 state.pages.forEach(function (p, pi) {
                     var div = document.createElement("div");
                     div.className = "page" + (pi === state.currentPage ? " active" : "");
-                    var tw = document.createElement("div"); tw.className = "table-wrap";
-                    var tbl = document.createElement("table");
-                    var thead = document.createElement("thead");
-                    var hr = document.createElement("tr");
-                    p.cols.forEach(function (ct, ci) {
-                        var th = document.createElement("th");
-                        th.className = ci < 2 ? "col-sm" : "col-lg";
-                        var ed = document.createElement("div");
-                        ed.className = "editable"; ed.contentEditable = "true"; ed.innerHTML = ct;
-                        ed.addEventListener("focus", function () { showFormatBar(this); });
-                        ed.addEventListener("input", function () { state.pages[pi].cols[ci] = ed.innerHTML; save(); });
-                        th.appendChild(ed); hr.appendChild(th);
+
+                    // Render rows in chunks separated by sections
+                    var currentRows = [];
+                    // Start first table container
+                    var container = document.createElement("div");
+                    div.appendChild(container);
+
+                    if (!p.rows) p.rows = [];
+                    if (p.rows.length === 0) {
+                        // Ensure at least one row exists if empty
+                        // p.rows.push({ col1: "", col2: "", atts: [] });
+                    }
+
+                    // Loop through all rows to render sections and tables
+                    var tableRows = [];
+
+                    // Helper to flush current tableRows into a table
+                    function flushTable() {
+                        if (tableRows.length === 0) return;
+                        var tw = document.createElement("div"); tw.className = "table-wrap";
+                        var tbl = document.createElement("table");
+
+                        // Header
+                        var thead = document.createElement("thead");
+                        var hr = document.createElement("tr");
+                        p.cols.forEach(function (ct, ci) {
+                            var th = document.createElement("th");
+                            th.className = ci < 2 ? "col-sm" : "col-lg";
+                            var ed = document.createElement("div");
+                            ed.className = "editable"; ed.contentEditable = "true"; ed.innerHTML = ct;
+                            ed.addEventListener("focus", function () { showFormatBar(this); });
+                            ed.addEventListener("input", function () { state.pages[pi].cols[ci] = ed.innerHTML; save(); });
+                            th.appendChild(ed); hr.appendChild(th);
+                        });
+                        thead.appendChild(hr); tbl.appendChild(thead);
+
+                        // Body
+                        var tbody = document.createElement("tbody");
+                        renderRowChunk(tbody, pi, tableRows); // Render collected rows
+                        tbl.appendChild(tbody);
+                        tw.appendChild(tbl);
+                        container.appendChild(tw);
+
+                        tableRows = []; // Clear buffer
+                    }
+
+                    p.rows.forEach(function (row, ri) {
+                        if (row.isSection) {
+                            flushTable(); // Close previous table
+
+                            // Render Section Divider
+                            var secDiv = document.createElement("div");
+                            secDiv.className = "section-divider";
+
+                            var secTitle = document.createElement("div");
+                            secTitle.className = "editable";
+                            secTitle.contentEditable = "true";
+                            secTitle.innerHTML = row.title || "Section";
+                            secTitle.addEventListener("focus", function () { showFormatBar(this); });
+                            secTitle.addEventListener("input", function () {
+                                state.pages[pi].rows[ri].title = secTitle.innerHTML;
+                                save();
+                            });
+
+                            secDiv.appendChild(secTitle);
+
+                            // Delete button for section
+                            var ctrlDiv = document.createElement("div");
+                            ctrlDiv.className = "section-controls";
+                            var delBtn = document.createElement("button");
+                            delBtn.className = "btn btn-sm btn-danger";
+                            delBtn.innerHTML = t("deleteRow"); // Reuse delete icon
+                            delBtn.addEventListener("click", function () {
+                                if (confirm(t("confirmDel"))) {
+                                    state.pages[pi].rows.splice(ri, 1);
+                                    save(); render();
+                                }
+                            });
+                            ctrlDiv.appendChild(delBtn);
+                            secDiv.appendChild(ctrlDiv);
+
+                            container.appendChild(secDiv);
+                        } else {
+                            // It's a normal row, map original index `ri` to it so events work
+                            tableRows.push({ row: row, index: ri });
+                        }
                     });
-                    thead.appendChild(hr); tbl.appendChild(thead);
-                    var tbody = document.createElement("tbody");
-                    renderRows(tbody, pi);
-                    tbl.appendChild(tbody);
-                    tw.appendChild(tbl); div.appendChild(tw);
-                    var addDiv = document.createElement("div"); addDiv.style.marginTop = "16px";
+
+                    flushTable(); // Flush remaining rows
+
+                    var addDiv = document.createElement("div"); addDiv.style.marginTop = "16px"; addDiv.style.display = "flex"; addDiv.style.gap = "10px";
+
                     var addBtn = document.createElement("button");
                     addBtn.className = "btn btn-primary"; addBtn.textContent = t("addRow");
                     addBtn.addEventListener("click", function () { addRow(pi); });
+
+                    var addSecBtn = document.createElement("button");
+                    addSecBtn.className = "btn btn-success"; addSecBtn.textContent = t("addSection");
+                    addSecBtn.addEventListener("click", function () { addSection(pi); });
+
                     addDiv.appendChild(addBtn);
+                    addDiv.appendChild(addSecBtn);
+
                     div.appendChild(addDiv);
                     c.appendChild(div);
                 });
             }
 
-            function renderRows(tbody, pi) {
-                var p = state.pages[pi]; tbody.innerHTML = "";
-                if (!p.rows || !p.rows.length) { addRow(pi); return; }
-                p.rows.forEach(function (row, ri) {
+            // New helper to render a specific chunk of rows
+            function renderRowChunk(tbody, pi, rowItems) {
+                rowItems.forEach(function (item) {
+                    var row = item.row;
+                    var ri = item.index; // Original index
+
                     var tr = document.createElement("tr");
                     // Col 1
                     var td1 = document.createElement("td");
@@ -1561,12 +1679,20 @@
                     ed2.addEventListener("focus", function () { showFormatBar(this); });
                     ed2.addEventListener("input", function () { state.pages[pi].rows[ri].col2 = ed2.innerHTML; save(); });
                     td2.appendChild(ed2); tr.appendChild(td2);
-                    // Col 3 - Attachments
+                    // Col 3
                     var td3 = document.createElement("td");
                     renderAttCell(td3, pi, ri);
                     tr.appendChild(td3);
                     tbody.appendChild(tr);
                 });
+            }
+
+            // Replaces old renderRows
+            function addSection(pi) {
+                state.pages[pi].rows.push({ isSection: true, title: "New Section" });
+                // Automatically add a row after a section for convenience
+                state.pages[pi].rows.push({ col1: "", col2: "", atts: [] });
+                save(); render();
             }
 
             function renderAttCell(td, pi, ri) {
