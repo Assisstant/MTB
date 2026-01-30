@@ -1027,8 +1027,10 @@
                     addPage: "+ Страница", addRow: "+ Ред",
                     addFileLocal: "📎 Локален", addFileCloud: "☁️ Drive линк",
                     addLink: "🔗 Линк", deleteRow: "🗑️",
+                    addLocalVideo: "🎬 Видео (патека)",
                     col1: "Колона 1", col2: "Колона 2", col3: "Прилози",
                     urlPlaceholder: "Залепи URL или Google Drive линк...",
+                    localVideoPlaceholder: "videos/video.mp4",
                     noAtt: "Нема прилози. Додај локален фајл или Drive линк.",
                     confirmDel: "Избриши?", newPage: "Страница",
                     clickToOpen: "Кликни за преглед",
@@ -1041,8 +1043,10 @@
                     addPage: "+ Page", addRow: "+ Row",
                     addFileLocal: "📎 Local", addFileCloud: "☁️ Drive Link",
                     addLink: "🔗 Link", deleteRow: "🗑️",
+                    addLocalVideo: "🎬 Video (path)",
                     col1: "Column 1", col2: "Column 2", col3: "Attachments",
                     urlPlaceholder: "Paste URL or Google Drive link...",
+                    localVideoPlaceholder: "videos/video.mp4",
                     noAtt: "No attachments. Add local file or Drive link.",
                     confirmDel: "Delete?", newPage: "Page",
                     clickToOpen: "Click to preview",
@@ -1224,6 +1228,25 @@
             function isImgUrl(u) { return /\.(jpg|jpeg|png|gif|webp|bmp|svg)(\?|$)/i.test(u); }
             function isPdfUrl(u) { return /\.pdf(\?|$)/i.test(u); }
 
+            // Local relative path detection (for USB/portable use)
+            function isLocalVideoPath(path) {
+                // Check if it's a relative path to a video file (not http/https)
+                if (!path || /^https?:\/\//i.test(path)) return false;
+                return /\.(mp4|webm|mov|avi|mkv|m4v|ogv)$/i.test(path);
+            }
+
+            function isLocalPdfPath(path) {
+                // Check if it's a relative path to a PDF file (not http/https)
+                if (!path || /^https?:\/\//i.test(path)) return false;
+                return /\.pdf$/i.test(path);
+            }
+
+            function getVideoNameFromPath(path) {
+                // Extract filename from path
+                var parts = path.replace(/\\/g, '/').split('/');
+                return parts[parts.length - 1] || path;
+            }
+
             // Modal
             function openModal(title, html, extUrl) {
                 $("#modalTitle").textContent = title;
@@ -1401,6 +1424,8 @@
                     '<button class="btn btn-sm btn-success file-btn">' + esc(t("addFileLocal")) + '</button>' +
                     '<input type="text" class="url-input" placeholder="' + esc(t("urlPlaceholder")) + '">' +
                     '<button class="btn btn-sm btn-gdrive link-btn">' + esc(t("addLink")) + '</button>' +
+                    '<input type="text" class="video-path-input" placeholder="' + esc(t("localVideoPlaceholder")) + '" style="min-width:120px;">' +
+                    '<button class="btn btn-sm video-path-btn" style="background:var(--primary);color:white;">' + esc(t("addLocalVideo")) + '</button>' +
                     '<button class="btn btn-sm btn-danger row-del">' + esc(t("deleteRow")) + '</button>' +
                     '</div>' +
                     '<div class="att-list"></div>' +
@@ -1420,6 +1445,16 @@
                 ui.addEventListener("keydown", function (e) {
                     if (e.key === "Enter" && ui.value.trim()) { addLink(pi, ri, ui.value.trim()); ui.value = ""; }
                 });
+
+                // Local video path handling (for USB/portable use)
+                var vpi = td.querySelector(".video-path-input");
+                td.querySelector(".video-path-btn").addEventListener("click", function () {
+                    if (vpi.value.trim()) { addLocalPath(pi, ri, vpi.value.trim()); vpi.value = ""; }
+                });
+                vpi.addEventListener("keydown", function (e) {
+                    if (e.key === "Enter" && vpi.value.trim()) { addLocalPath(pi, ri, vpi.value.trim()); vpi.value = ""; }
+                });
+
                 td.querySelector(".row-del").addEventListener("click", function () {
                     if (confirm(t("confirmDel"))) { state.pages[pi].rows.splice(ri, 1); save(); render(); }
                 });
@@ -1483,6 +1518,19 @@
 
                         thumbHtml = storageBadge + '<div class="thumb-box"><div class="thumb-content"><div class="thumb-icon-wrap pdf">' + cloudIcon + '<span class="thumb-icon-text">' + cloudLabel + '</span></div></div><div class="thumb-hover"><span class="thumb-hover-text">' + esc(t("clickToOpen")) + '</span></div></div>';
                         name = att.title || "PDF";
+                    } else if (att.kind === "localvideo") {
+                        // Local video via relative path (portable USB)
+                        thumbHtml = '<span class="storage-badge local">📁</span><div class="thumb-box"><div class="thumb-content"><div class="thumb-icon-wrap video">🎬<span class="thumb-icon-text">VIDEO</span></div></div><div class="thumb-hover"><span class="thumb-hover-text">' + esc(t("clickToOpen")) + '</span></div></div>';
+                        name = att.title || att.name || "Video";
+                    } else if (att.kind === "localpdf") {
+                        // Local PDF via relative path (portable USB)
+                        thumbHtml = '<span class="storage-badge local">📁</span><div class="thumb-box"><div class="thumb-content"><div class="thumb-icon-wrap pdf">📄<span class="thumb-icon-text">PDF</span></div></div><div class="thumb-hover"><span class="thumb-hover-text">' + esc(t("clickToOpen")) + '</span></div></div>';
+                        name = att.title || att.name || "PDF";
+                    } else if (att.kind === "localfile") {
+                        // Local file via relative path (portable USB)
+                        var localExt = fileExt(att.name).toUpperCase() || "FILE";
+                        thumbHtml = '<span class="storage-badge local">📁</span><div class="thumb-box"><div class="thumb-content"><div class="thumb-icon-wrap file">📁<span class="thumb-icon-text">' + esc(localExt) + '</span></div></div><div class="thumb-hover"><span class="thumb-hover-text">' + esc(t("clickToOpen")) + '</span></div></div>';
+                        name = att.title || att.name || "File";
                     } else if (att.kind === "link") {
                         if (isImgUrl(att.url)) {
                             thumbHtml = storageBadge + '<div class="thumb-box"><div class="thumb-content"><img class="thumb-img" src="' + esc(att.url) + '" alt="" onerror="this.style.display=\'none\'"></div><div class="thumb-hover"><span class="thumb-hover-text">' + esc(t("clickToOpen")) + '</span></div></div>';
@@ -1534,6 +1582,15 @@
                                 // Cloud PDF from pCloud, Dropbox, OneDrive, or direct links
                                 var pdfViewerUrl = getCloudPdfViewerUrl(att.url);
                                 openModal(att.title || "PDF", '<iframe src="' + esc(pdfViewerUrl) + '"></iframe>', att.url);
+                            } else if (att.kind === "localvideo") {
+                                // Local video via relative path (portable USB)
+                                openModal(att.title || att.name, '<video controls autoplay src="' + esc(att.path) + '"></video>', null);
+                            } else if (att.kind === "localpdf") {
+                                // Local PDF via relative path (portable USB)
+                                openModal(att.title || att.name, '<iframe src="' + esc(att.path) + '"></iframe>', null);
+                            } else if (att.kind === "localfile") {
+                                // Local file via relative path - just open in new tab
+                                window.open(att.path, "_blank");
                             } else if (att.kind === "link") {
                                 if (isImgUrl(att.url)) openModal(att.title || "Image", '<img src="' + esc(att.url) + '" alt="">', att.url);
                                 else if (isCloudPdfUrl(att.url)) {
@@ -1653,6 +1710,56 @@
                 state.pages[pi].rows[ri].atts.push({
                     kind: "link", url: url, title: title || url,
                     storage: "cloud", description: ""
+                });
+                save(); render();
+            }
+
+            // Add local relative path (for USB/portable videos and PDFs)
+            function addLocalPath(pi, ri, path) {
+                if (!state.pages[pi].rows[ri].atts) state.pages[pi].rows[ri].atts = [];
+
+                // Normalize path separators (use forward slashes)
+                path = path.replace(/\\/g, '/');
+
+                // Check if it's a local video path
+                if (isLocalVideoPath(path)) {
+                    var videoName = getVideoNameFromPath(path);
+                    state.pages[pi].rows[ri].atts.push({
+                        kind: "localvideo",
+                        path: path,
+                        name: videoName,
+                        title: videoName,
+                        storage: "local",
+                        description: ""
+                    });
+                    save(); render();
+                    return;
+                }
+
+                // Check if it's a local PDF path
+                if (isLocalPdfPath(path)) {
+                    var pdfName = getVideoNameFromPath(path);
+                    state.pages[pi].rows[ri].atts.push({
+                        kind: "localpdf",
+                        path: path,
+                        name: pdfName,
+                        title: pdfName,
+                        storage: "local",
+                        description: ""
+                    });
+                    save(); render();
+                    return;
+                }
+
+                // Unknown file type - add as generic local file
+                var fileName = getVideoNameFromPath(path);
+                state.pages[pi].rows[ri].atts.push({
+                    kind: "localfile",
+                    path: path,
+                    name: fileName,
+                    title: fileName,
+                    storage: "local",
+                    description: ""
                 });
                 save(); render();
             }
