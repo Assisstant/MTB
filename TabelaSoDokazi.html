@@ -877,25 +877,31 @@
             font-size: 18px;
         }
 
+        .print-link {
+            display: none;
+        }
+
         @media print {
             body {
                 padding: 10mm;
                 background: white !important;
                 color: black !important;
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
             }
 
             .controls,
             .tabs-container,
             .att-bar,
-            .att-btns,
             .btn,
             .toggle-group,
             .add-tab,
             .close-btn,
             .modal-overlay,
-            .storage-badge,
             .gdrive-help,
-            .format-bar {
+            .format-bar,
+            .video-path-input,
+            .video-path-btn {
                 display: none !important;
             }
 
@@ -907,29 +913,177 @@
                 display: block !important;
             }
 
+            .main-title,
+            .subtitle {
+                color: black !important;
+            }
+
             .editable {
                 border: none !important;
                 padding: 4px !important;
                 background: transparent !important;
+                color: black !important;
             }
 
             .table-wrap {
                 box-shadow: none;
+                overflow: visible;
+            }
+
+            table {
+                min-width: 100% !important;
+                border-collapse: collapse;
+            }
+
+            th,
+            td {
+                border: 2px solid #333 !important;
+                padding: 8px !important;
+                vertical-align: top;
+            }
+
+            th {
+                background: #e0e0e0 !important;
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+            }
+
+            .att-cell {
+                padding: 10px !important;
             }
 
             .att-list {
-                display: block;
+                display: block !important;
             }
 
             .att-item {
-                margin-bottom: 10px;
+                display: block !important;
+                margin-bottom: 15px;
                 page-break-inside: avoid;
                 box-shadow: none;
+                border: 1px solid #ccc;
+                border-radius: 8px;
+                padding: 10px;
+                background: #f9f9f9 !important;
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+            }
+
+            .thumb-box {
+                display: inline-block !important;
+                width: 60px !important;
+                height: 45px !important;
+                padding-top: 0 !important;
+                vertical-align: middle;
+                margin-right: 10px;
+            }
+
+            .thumb-content {
+                position: relative !important;
+                width: 60px !important;
+                height: 45px !important;
+            }
+
+            .thumb-icon-wrap {
+                font-size: 24px !important;
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
             }
 
             .thumb-hover,
-            .yt-play {
+            .yt-play,
+            .storage-badge,
+            .att-btns {
                 display: none !important;
+            }
+
+            .att-info {
+                display: block !important;
+                background: transparent !important;
+                padding: 5px 0 !important;
+            }
+
+            .att-name {
+                font-size: 11px !important;
+                font-weight: bold !important;
+                color: black !important;
+                white-space: normal !important;
+                overflow: visible !important;
+            }
+
+            .att-desc {
+                display: block !important;
+                border: 1px solid #ccc !important;
+                background: white !important;
+                color: black !important;
+                font-size: 10px !important;
+                min-height: 30px !important;
+                padding: 5px !important;
+                overflow: visible !important;
+            }
+
+            .att-meta {
+                display: none !important;
+            }
+
+            /* Show clickable link URLs after attachment items */
+            .att-item::after {
+                content: "";
+                /* Disable pseudo-element as we use real element now */
+                display: none;
+            }
+
+            /* Print link for attachments */
+            .print-link {
+                display: block !important;
+                font-size: 10px !important;
+                color: #0000EE !important;
+                word-break: break-all;
+                margin-top: 5px;
+                text-decoration: underline !important;
+                cursor: pointer;
+            }
+
+            .att-item {
+                overflow: visible !important;
+            }
+
+            a {
+                color: #0000EE !important;
+                text-decoration: underline !important;
+            }
+
+            /* Ensure colors print */
+            .thumb-icon-wrap.pdf {
+                background: #e53935 !important;
+            }
+
+            .thumb-icon-wrap.video {
+                background: #7b1fa2 !important;
+            }
+
+            .thumb-icon-wrap.doc {
+                background: #1976d2 !important;
+            }
+
+            .thumb-icon-wrap.xls {
+                background: #2e7d32 !important;
+            }
+
+            .thumb-icon-wrap.ppt {
+                background: #d84315 !important;
+            }
+
+            .thumb-icon-wrap.link {
+                background: #1877f2 !important;
+            }
+
+            .thumb-icon-wrap.file {
+                background: #546e7a !important;
+            }
+
+            .thumb-icon-wrap.gdrive {
+                background: #4285f4 !important;
             }
         }
     </style>
@@ -1552,7 +1706,10 @@
                         (att.data ? '<button class="dl">⬇</button>' : '') +
                         (att.url ? '<button class="open">↗</button>' : '') +
                         '<button class="del">✕</button>' +
-                        '</div></div></div>';
+                        '</div></div>' +
+                        (att.url ? '<a class="print-link" href="' + esc(att.url) + '" target="_blank">' + esc(att.url) + '</a>' : '') +
+                        (att.path ? '<a class="print-link" href="' + esc(att.path) + '" target="_blank">' + esc(att.path) + '</a>' : '') +
+                        '</div>';
 
                     // Description event
                     item.querySelector(".att-desc").addEventListener("input", function (e) {
