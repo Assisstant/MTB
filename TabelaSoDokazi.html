@@ -1124,15 +1124,40 @@
 </head>
 
 <body>
-    <!-- Google Drive Help -->
-    <div class="gdrive-help" id="gdriveHelp" style="display:none;">
+    <!-- Help Panel -->
+    <div class="gdrive-help" id="gdriveHelp" style="display:none; max-width:600px;">
         <button class="close-help" onclick="this.parentElement.style.display='none'">×</button>
-        <h4>☁️ Како да користиш Google Drive линкови</h4>
-        <p><strong>1.</strong> Качи го фајлот на Google Drive</p>
-        <p><strong>2.</strong> Десен клик → "Get link" → "Anyone with the link"</p>
-        <p><strong>3.</strong> Копирај го линкот и залепи го тука</p>
-        <p><strong>Пример:</strong> <code>https://drive.google.com/file/d/ABC123/view</code></p>
-        <p>💡 <strong>Совет:</strong> За слики, користи "Direct link" за подобар преглед</p>
+        <h4 style="margin-bottom:15px; border-bottom:1px solid var(--border); padding-bottom:10px;">❓ Упатство за
+            користење</h4>
+
+        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:20px;">
+            <div>
+                <h5 style="color:var(--primary); margin-bottom:8px;">📎 Додавање Прилози</h5>
+                <p><strong>1. Smart Input поле:</strong></p>
+                <ul style="padding-left:20px; font-size:13px; margin-bottom:10px; color:var(--text);">
+                    <li><strong>Линкови:</strong> Залепи URL (YouTube, Drive, Web) и притисни Enter.</li>
+                    <li><strong>Фолдери:</strong> Залепи патека (пр. <code>documents/</code>) за линк до фолдер.</li>
+                    <li><strong>Локални видеа:</strong> Залепи патека (пр. <code>videos/video.mp4</code>).</li>
+                </ul>
+                <p><strong>2. Локални Фајлови:</strong></p>
+                <p>Кликни на копчето 📂 за да избереш фајл од твојот компјутер.</p>
+            </div>
+
+            <div>
+                <h5 style="color:var(--gdrive); margin-bottom:8px;">☁️ Google Drive</h5>
+                <p><strong>Како да споделиш фајл:</strong></p>
+                <ol style="padding-left:20px; font-size:13px; color:var(--text);">
+                    <li>Десен клик на фајлот во Drive</li>
+                    <li>Одбери <strong>"Share"</strong> → <strong>"Copy Link"</strong></li>
+                    <li>Провери дали е <strong>"Anyone with the link"</strong></li>
+                    <li>Залепи го линкот во Smart полето</li>
+                </ol>
+            </div>
+        </div>
+        <div style="margin-top:15px; background:var(--bg2); padding:10px; border-radius:8px; font-size:12px;">
+            💡 <strong>Совет за USB:</strong> Чувај ги видеата во фолдер до HTML фајлот (пр. <code>videos/</code>) за да
+            работат на било кој компјутер со релативна патека.
+        </div>
     </div>
 
     <!-- Format Bar -->
@@ -1174,7 +1199,7 @@
             <button class="toggle-btn active" data-theme="light">☀️</button>
             <button class="toggle-btn" data-theme="dark">🌙</button>
         </div>
-        <button class="btn btn-gdrive" id="helpBtn">❓ Помош за Drive</button>
+        <button class="btn btn-primary" id="helpBtn">❓ Помош</button>
         <div class="spacer"></div>
         <button class="btn btn-success" id="printBtn">🖨️ Печати</button>
         <button class="btn" id="exportHtmlBtn">📄 HTML</button>
@@ -1217,12 +1242,12 @@
                     addLink: "🔗 Линк", deleteRow: "🗑️",
                     addLocalVideo: "🎬 Видео (патека)",
                     col1: "Колона 1", col2: "Колона 2", col3: "Прилози",
-                    urlPlaceholder: "Залепи URL или Google Drive линк...",
+                    urlPlaceholder: "Залепи URL, патека или фолдер...",
                     localVideoPlaceholder: "videos/video.mp4",
-                    noAtt: "Нема прилози. Додај локален фајл или Drive линк.",
+                    noAtt: "Нема прилози. Додај фајл, линк или патека.",
                     confirmDel: "Избриши?", newPage: "Страница",
                     clickToOpen: "Кликни за преглед",
-                    addMore: "➕ Додај фајлови (локални или од Drive)",
+                    addMore: "➕ Додај прилози",
                     addSection: "+ Секција",
                     descPlaceholder: "Опис...",
                     local: "Локален", cloud: "Cloud",
@@ -1234,12 +1259,12 @@
                     addLink: "🔗 Link", deleteRow: "🗑️",
                     addLocalVideo: "🎬 Video (path)",
                     col1: "Column 1", col2: "Column 2", col3: "Attachments",
-                    urlPlaceholder: "Paste URL or Google Drive link...",
+                    urlPlaceholder: "Paste URL, path or folder...",
                     localVideoPlaceholder: "videos/video.mp4",
-                    noAtt: "No attachments. Add local file or Drive link.",
+                    noAtt: "No attachments. Add file, link or path.",
                     confirmDel: "Delete?", newPage: "Page",
                     clickToOpen: "Click to preview",
-                    addMore: "➕ Add files (local or from Drive)",
+                    addMore: "➕ Add attachments",
                     addSection: "+ Section",
                     descPlaceholder: "Description...",
                     local: "Local", cloud: "Cloud",
@@ -1700,45 +1725,66 @@
                 var html = '<div class="att-cell">' +
                     '<div class="att-bar">' +
                     '<div class="att-bar-title">' + esc(t("addMore")) + '</div>' +
-                    '<input type="file" id="' + fid + '" multiple>' +
-                    '<button class="btn btn-sm btn-success file-btn">' + esc(t("addFileLocal")) + '</button>' +
-                    '<input type="text" class="url-input" placeholder="' + esc(t("urlPlaceholder")) + '">' +
-                    '<button class="btn btn-sm btn-gdrive link-btn">' + esc(t("addLink")) + '</button>' +
-                    '<input type="text" class="video-path-input" placeholder="' + esc(t("localVideoPlaceholder")) + '" style="min-width:120px;">' +
-                    '<button class="btn btn-sm video-path-btn" style="background:var(--primary);color:white;">' + esc(t("addLocalVideo")) + '</button>' +
-                    '<button class="btn btn-sm btn-danger row-del">' + esc(t("deleteRow")) + '</button>' +
+                    '<input type="file" id="' + fid + '" multiple hidden>' +
+                    '<div style="display:flex;gap:4px;width:100%;align-items:center;">' +
+                    '<input type="text" class="smart-input" placeholder="' + esc(t("urlPlaceholder")) + '" style="flex:1;">' +
+                    '<button class="add-smart-btn" style="padding:6px 12px;border:none;border-radius:6px;background:var(--primary);color:white;cursor:pointer;">➕</button>' +
+                    '<button class="file-btn" style="padding:6px 12px;border:none;border-radius:6px;background:var(--success);color:white;cursor:pointer;">📂</button>' +
+                    '<button class="row-del" style="padding:6px 12px;border:none;border-radius:6px;background:var(--danger);color:white;cursor:pointer;">🗑️</button>' +
+                    '</div>' +
                     '</div>' +
                     '<div class="att-list"></div>' +
                     '</div>';
                 td.innerHTML = html;
 
                 var fi = td.querySelector("#" + fid);
+                var smartInput = td.querySelector(".smart-input");
+
+                // File Upload
                 td.querySelector(".file-btn").addEventListener("click", function () { fi.click(); });
                 fi.addEventListener("change", function (e) {
                     for (var i = 0; i < e.target.files.length; i++) addFile(pi, ri, e.target.files[i]);
                     e.target.value = "";
                 });
-                var ui = td.querySelector(".url-input");
-                td.querySelector(".link-btn").addEventListener("click", function () {
-                    if (ui.value.trim()) { addLink(pi, ri, ui.value.trim()); ui.value = ""; }
-                });
-                ui.addEventListener("keydown", function (e) {
-                    if (e.key === "Enter" && ui.value.trim()) { addLink(pi, ri, ui.value.trim()); ui.value = ""; }
-                });
 
-                // Local video path handling (for USB/portable use)
-                var vpi = td.querySelector(".video-path-input");
-                td.querySelector(".video-path-btn").addEventListener("click", function () {
-                    if (vpi.value.trim()) { addLocalPath(pi, ri, vpi.value.trim()); vpi.value = ""; }
-                });
-                vpi.addEventListener("keydown", function (e) {
-                    if (e.key === "Enter" && vpi.value.trim()) { addLocalPath(pi, ri, vpi.value.trim()); vpi.value = ""; }
+                // Smart Add Input
+                function triggerSmartAdd() {
+                    var val = smartInput.value.trim();
+                    if (val) {
+                        smartHandle(pi, ri, val);
+                        smartInput.value = "";
+                    }
+                }
+
+                td.querySelector(".add-smart-btn").addEventListener("click", triggerSmartAdd);
+                smartInput.addEventListener("keydown", function (e) {
+                    if (e.key === "Enter") triggerSmartAdd();
                 });
 
                 td.querySelector(".row-del").addEventListener("click", function () {
                     if (confirm(t("confirmDel"))) { state.pages[pi].rows.splice(ri, 1); save(); render(); }
                 });
                 renderAtts(td.querySelector(".att-list"), pi, ri);
+            }
+
+            function smartHandle(pi, ri, val) {
+                // Check if URL
+                if (/^https?:\/\//i.test(val) || /^www\./i.test(val)) {
+                    // Add protocol if missing
+                    if (/^www\./i.test(val)) val = "https://" + val;
+                    addLink(pi, ri, val);
+                    return;
+                }
+
+                // Check if likely a URL but missing protocol (e.g. drive.google.com)
+                if ((val.includes("drive.google.com") || val.includes("docs.google.com") || val.includes("youtube.com")) && !val.includes(" ")) {
+                    if (!/^https?:\/\//i.test(val)) val = "https://" + val;
+                    addLink(pi, ri, val);
+                    return;
+                }
+
+                // Treat as local path (Video, PDF, or Folder)
+                addLocalPath(pi, ri, val);
             }
 
             function renderAtts(c, pi, ri) {
@@ -1806,6 +1852,10 @@
                         // Local PDF via relative path (portable USB)
                         thumbHtml = '<span class="storage-badge local">📁</span><div class="thumb-box"><div class="thumb-content"><div class="thumb-icon-wrap pdf">📄<span class="thumb-icon-text">PDF</span></div></div><div class="thumb-hover"><span class="thumb-hover-text">' + esc(t("clickToOpen")) + '</span></div></div>';
                         name = att.title || att.name || "PDF";
+                    } else if (att.kind === "localfolder") {
+                        // Local Folder Path
+                        thumbHtml = '<span class="storage-badge local">📂</span><div class="thumb-box"><div class="thumb-content"><div class="thumb-icon-wrap file">📂<span class="thumb-icon-text">DIR</span></div></div><div class="thumb-hover"><span class="thumb-hover-text">' + esc(t("clickToOpen")) + '</span></div></div>';
+                        name = att.name || "Folder";
                     } else if (att.kind === "localfile") {
                         // Local file via relative path (portable USB)
                         var localExt = fileExt(att.name).toUpperCase() || "FILE";
@@ -1871,6 +1921,9 @@
                             } else if (att.kind === "localpdf") {
                                 // Local PDF via relative path (portable USB)
                                 openModal(att.title || att.name, '<iframe src="' + esc(att.path) + '"></iframe>', null);
+                            } else if (att.kind === "localfolder") {
+                                // Local folder - open in new tab (browser behavior varies)
+                                window.open(att.path, "_blank");
                             } else if (att.kind === "localfile") {
                                 // Local file via relative path - just open in new tab
                                 window.open(att.path, "_blank");
@@ -2003,47 +2056,40 @@
 
                 // Normalize path separators (use forward slashes)
                 path = path.replace(/\\/g, '/');
+                var name = getVideoNameFromPath(path);
 
                 // Check if it's a local video path
                 if (isLocalVideoPath(path)) {
-                    var videoName = getVideoNameFromPath(path);
                     state.pages[pi].rows[ri].atts.push({
-                        kind: "localvideo",
-                        path: path,
-                        name: videoName,
-                        title: videoName,
-                        storage: "local",
-                        description: ""
+                        kind: "localvideo", path: path, name: name, title: name,
+                        storage: "local", description: ""
                     });
-                    save(); render();
-                    return;
                 }
-
                 // Check if it's a local PDF path
-                if (isLocalPdfPath(path)) {
-                    var pdfName = getVideoNameFromPath(path);
+                else if (isLocalPdfPath(path)) {
                     state.pages[pi].rows[ri].atts.push({
-                        kind: "localpdf",
+                        kind: "localpdf", path: path, name: name, title: name,
+                        storage: "local", description: ""
+                    });
+                }
+                // Check if it's a folder (no extension or ends with slash)
+                else if (path.indexOf(".") === -1 || path.endsWith("/")) {
+                    state.pages[pi].rows[ri].atts.push({
+                        kind: "localfolder", path: path, name: name || path, title: name || path,
+                        storage: "local", description: ""
+                    });
+                }
+                // Unknown file type - add as generic local file
+                else {
+                    state.pages[pi].rows[ri].atts.push({
+                        kind: "localfile",
                         path: path,
-                        name: pdfName,
-                        title: pdfName,
+                        name: name,
+                        title: name,
                         storage: "local",
                         description: ""
                     });
-                    save(); render();
-                    return;
                 }
-
-                // Unknown file type - add as generic local file
-                var fileName = getVideoNameFromPath(path);
-                state.pages[pi].rows[ri].atts.push({
-                    kind: "localfile",
-                    path: path,
-                    name: fileName,
-                    title: fileName,
-                    storage: "local",
-                    description: ""
-                });
                 save(); render();
             }
 
