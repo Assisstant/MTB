@@ -1,0 +1,1731 @@
+<!DOCTYPE html>
+<html lang="mk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Родителски средби и состаноци</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 20px;
+            min-height: 100vh;
+        }
+        
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            font-size: 28px;
+            margin-bottom: 10px;
+        }
+        
+        .header p {
+            font-size: 16px;
+            opacity: 0.9;
+        }
+        
+        .tabs {
+            display: flex;
+            background: #f8f9fa;
+            border-bottom: 2px solid #e0e0e0;
+        }
+        
+        .tab {
+            flex: 1;
+            padding: 20px;
+            text-align: center;
+            cursor: pointer;
+            font-weight: 600;
+            color: #666;
+            transition: all 0.3s;
+            border-bottom: 3px solid transparent;
+        }
+        
+        .tab:hover {
+            background: #e9ecef;
+        }
+        
+        .tab.active {
+            color: #667eea;
+            background: white;
+            border-bottom-color: #667eea;
+        }
+        
+        .tab-content {
+            display: none;
+            padding: 30px;
+        }
+        
+        .tab-content.active {
+            display: block;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: #333;
+            font-size: 14px;
+        }
+        
+        input[type="text"],
+        input[type="date"],
+        textarea {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: all 0.3s;
+            font-family: inherit;
+        }
+        
+        input[type="text"]:focus,
+        input[type="date"]:focus,
+        textarea:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+        
+        textarea {
+            resize: vertical;
+            min-height: 100px;
+        }
+        
+        .checkbox-group {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+        
+        .checkbox-group label {
+            display: flex;
+            align-items: center;
+            font-weight: normal;
+            margin-bottom: 10px;
+            cursor: pointer;
+        }
+        
+        .checkbox-group input[type="checkbox"] {
+            width: 20px;
+            height: 20px;
+            margin-right: 10px;
+            cursor: pointer;
+            flex-shrink: 0;
+        }
+        
+        .meeting-entry .checkbox-group,
+        .sostanok-entry .checkbox-group {
+            background: #e3f2fd;
+            border-left: 4px solid #2196F3;
+            padding: 10px;
+            margin-bottom: 15px;
+        }
+        
+        .meeting-entry .checkbox-group label,
+        .sostanok-entry .checkbox-group label {
+            margin-bottom: 5px;
+            font-size: 13px;
+        }
+        
+        .meeting-entry, .sostanok-entry {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 15px;
+            border: 2px solid #e0e0e0;
+            transition: all 0.3s;
+        }
+        
+        .meeting-entry:hover, .sostanok-entry:hover {
+            border-color: #667eea;
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.1);
+        }
+        
+        .meeting-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        
+        .meeting-number {
+            background: #667eea;
+            color: white;
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-weight: 600;
+            font-size: 14px;
+        }
+        
+        .remove-btn {
+            background: #dc3545;
+            color: white;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.3s;
+        }
+        
+        .remove-btn:hover {
+            background: #c82333;
+            transform: scale(1.05);
+        }
+        
+        .btn {
+            padding: 12px 30px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin: 5px;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(102, 126, 234, 0.3);
+        }
+        
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+        
+        .btn-secondary:hover {
+            background: #5a6268;
+            transform: translateY(-2px);
+        }
+        
+        .btn-success {
+            background: #28a745;
+            color: white;
+        }
+        
+        .btn-success:hover {
+            background: #218838;
+            transform: translateY(-2px);
+        }
+        
+        .button-group {
+            text-align: center;
+            padding: 20px;
+            background: #f8f9fa;
+            border-top: 2px solid #e0e0e0;
+        }
+        
+        .row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        
+        .agenda-list {
+            list-style: none;
+            padding: 0;
+        }
+        
+        .agenda-item {
+            display: flex;
+            margin-bottom: 10px;
+        }
+        
+        .agenda-item span {
+            font-weight: 600;
+            margin-right: 10px;
+            color: #667eea;
+        }
+        
+        .agenda-item input {
+            flex: 1;
+        }
+        
+        @media (max-width: 768px) {
+            .row {
+                grid-template-columns: 1fr;
+            }
+            
+            .header h1 {
+                font-size: 22px;
+            }
+            
+            .tab-content {
+                padding: 20px;
+            }
+        }
+        
+        .success-message {
+            background: #d4edda;
+            border: 2px solid #c3e6cb;
+            color: #155724;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            display: none;
+            text-align: center;
+            font-weight: 600;
+        }
+        
+        .success-message.show {
+            display: block;
+            animation: slideDown 0.3s ease;
+        }
+        
+        @keyframes slideDown {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* PDF Preview Styles */
+        #pdfPreview {
+            display: none;
+            position: fixed;
+            left: -9999px;
+            background: white;
+            width: 210mm;
+            padding: 15mm;
+            font-family: 'Times New Roman', serif;
+        }
+
+        #pdfPreview .pdf-header {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        #pdfPreview .pdf-title {
+            font-size: 16px;
+            font-weight: bold;
+            margin: 5px 0;
+        }
+
+        #pdfPreview .pdf-subtitle {
+            font-size: 12px;
+            text-decoration: underline;
+            font-weight: bold;
+        }
+
+        #pdfPreview .pdf-year {
+            font-size: 11px;
+            font-weight: bold;
+        }
+
+        #pdfPreview .pdf-info {
+            font-size: 11px;
+            font-weight: bold;
+            margin: 10px 0;
+        }
+
+        #pdfPreview .pdf-meeting-box {
+            border: 1px solid #000;
+            padding: 10px;
+            margin-bottom: 10px;
+            min-height: 80px;
+        }
+
+        #pdfPreview .pdf-meeting-header {
+            font-size: 11px;
+            font-weight: bold;
+            margin-bottom: 8px;
+        }
+
+        #pdfPreview .pdf-meeting-topic {
+            font-size: 11px;
+            margin-top: 5px;
+        }
+
+        #pdfPreview .pdf-sostanok-box {
+            border: 1px solid #000;
+            padding: 15px;
+            margin-bottom: 15px;
+            page-break-inside: avoid;
+        }
+
+        #pdfPreview .pdf-sostanok-header {
+            font-size: 12px;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+
+        #pdfPreview .pdf-agenda {
+            font-size: 11px;
+            margin: 10px 0;
+        }
+
+        #pdfPreview .pdf-agenda-item {
+            margin-bottom: 5px;
+        }
+
+        #pdfPreview .pdf-signature {
+            margin-top: 30px;
+            font-size: 11px;
+            font-weight: bold;
+            text-align: right;
+            padding-right: 20px;
+        }
+
+        .info-box {
+            background: #e7f3ff;
+            border-left: 4px solid #2196F3;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 5px;
+        }
+
+        .info-box strong {
+            color: #1976D2;
+        }
+        
+        .parent-signatures-container {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        
+        .parent-signature-entry {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 8px;
+            background: #f8f9fa;
+            border-radius: 5px;
+        }
+        
+        .parent-signature-entry span {
+            font-weight: bold;
+            min-width: 25px;
+            color: #495057;
+        }
+        
+        .parent-signature-name {
+            flex: 1;
+            padding: 8px 12px;
+            border: 1px solid #ced4da;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        
+        .footer {
+            text-align: center;
+            margin-top: 50px;
+            padding: 20px;
+            color: #bbb;
+            font-size: 12px;
+            font-style: italic;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📋 Родителски средби и состаноци</h1>
+            <p>ОУРЦ "Кочо Рацин" Битола • Учебна 2025/2026</p>
+        </div>
+        
+        <!-- Template Management Section -->
+        <div style="background: #fff3cd; padding: 20px; border-radius: 8px; margin-bottom: 20px; border-left: 4px solid #ffc107;">
+            <h3 style="margin-top: 0; color: #856404;">💾 Темплејти (Шаблони)</h3>
+            <p style="color: #856404; margin-bottom: 10px; font-size: 14px;">Зачувајте ги пополнетите податоци како темплејт за идна употреба.</p>
+            <p style="color: #856404; margin-bottom: 15px; font-size: 13px; font-style: italic;">
+                <strong>📌 Важно:</strong> "Зачувај темплејт" ги зачувува податоците во вашиот browser (localStorage). Податоците остануваат само на вашиот компјутер и се достапни само во овој browser. За да ги зачувате трајно или да ги пренесете на друг компјутер, користете "Download (.json)".
+            </p>
+            <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                <button onclick="saveTemplate()" style="background: #28a745; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; font-size: 14px; font-weight: 500;">
+                    💾 Зачувај темплејт
+                </button>
+                <button onclick="loadTemplate()" style="background: #007bff; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; font-size: 14px; font-weight: 500;">
+                    📂 Вчитај темплејт
+                </button>
+                <button onclick="downloadTemplate()" style="background: #17a2b8; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; font-size: 14px; font-weight: 500;">
+                    📥 Download (.json)
+                </button>
+                <input type="file" id="templateFileInput" accept=".json" style="display: none;" onchange="uploadTemplate(event)">
+                <button onclick="document.getElementById('templateFileInput').click()" style="background: #6c757d; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; font-size: 14px; font-weight: 500;">
+                    📤 Upload (.json)
+                </button>
+                <button onclick="clearTemplate()" style="background: #dc3545; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; font-size: 14px; font-weight: 500;">
+                    🗑️ Избриши темплејт
+                </button>
+            </div>
+            <div id="templateStatus" style="margin-top: 15px; padding: 10px; border-radius: 5px; display: none; font-weight: 500;"></div>
+        </div>
+        
+        <div class="tabs">
+            <div class="tab active" onclick="switchTab('sredbi')">
+                Средби со родители
+            </div>
+            <div class="tab" onclick="switchTab('sostanoci')">
+                Родителски состаноци
+            </div>
+        </div>
+
+        <!-- TAB 1: Individual Parent Meetings -->
+        <div id="sredbi-tab" class="tab-content active">
+            <div class="success-message" id="successMessage1">
+                ✓ PDF успешно генериран!
+            </div>
+
+            <div class="info-box">
+                <strong>💡 Совет:</strong> Секоја средба има свои независни опции за контрола на PDF-от.<br><br>
+                <strong>Опции:</strong><br>
+                • <strong>Вклучи во PDF</strong> - Дали средбата да се појави во документот<br>
+                • <strong>На посебна страница</strong> - Секоја средба на нова PDF страница СО ОУРЦ наслов<br>
+                • <strong>Со потпис</strong> - Потпис на одделенски раководител после оваа средба (независно од другите опции)<br><br>
+                <strong>ОУРЦ наслов:</strong> Ако е штиклирано "На посебна страница", секоја средба добива ОУРЦ наслов. Ако НЕ е штиклирано, само првата страница има ОУРЦ наслов.<br><br>
+                <strong>Автоматско делење:</strong> Ако текстот е предолг за една страница, автоматски се дели на повеќе страници. Лимитот се прилагодува според избраната големина на фонт.
+            </div>
+            
+            <div class="row" style="margin-bottom: 20px; background: #f8f9fa; padding: 15px; border-radius: 8px;">
+                <div class="form-group">
+                    <label for="organization1">Организација:</label>
+                    <input type="text" id="organization1" placeholder="ОУРЦ „Кочо Рацин" Битола" value="ОУРЦ „Кочо Рацин" Битола">
+                </div>
+                <div class="form-group">
+                    <label for="schoolYear1">Учебна година:</label>
+                    <input type="text" id="schoolYear1" placeholder="2025/2026" value="2025/2026">
+                </div>
+            </div>
+            
+            <div class="row">
+                <div class="form-group">
+                    <label for="class1">Одделение:</label>
+                    <input type="text" id="class1" placeholder="Внесете одделение">
+                </div>
+                
+                <div class="form-group">
+                    <label for="teacher1">Одделенски раководител:</label>
+                    <input type="text" id="teacher1" placeholder="Внесете име на одделенски раководител">
+                </div>
+            </div>
+            
+            <div class="form-group">
+                <label for="student1">Ученик/чка:</label>
+                <input type="text" id="student1" placeholder="Внесете име на ученик/чка">
+            </div>
+
+            <div class="row" style="margin-top: 20px; background: #e8f4fd; padding: 15px; border-radius: 8px; border-left: 4px solid #2196F3;">
+                <div class="form-group" style="margin-bottom: 0;">
+                    <label for="fontSize1">🔤 Големина на фонт во PDF:</label>
+                    <select id="fontSize1" style="padding: 10px; border: 2px solid #e0e0e0; border-radius: 8px; font-size: 14px; min-width: 150px;">
+                        <option value="9">9pt (најмал - повеќе текст)</option>
+                        <option value="10">10pt (мал)</option>
+                        <option value="11" selected>11pt (стандард)</option>
+                        <option value="12">12pt (среден)</option>
+                        <option value="14">14pt (голем)</option>
+                    </select>
+                </div>
+            </div>
+
+            
+            <h3 style="margin: 30px 0 20px 0; color: #333;">Средби</h3>
+            
+            <div id="meetingsContainer"></div>
+            
+            <button class="btn btn-secondary" onclick="addMeeting()">+ Додади средба</button>
+            
+            <div class="button-group">
+                <button class="btn btn-success" onclick="generateMeetingsPDF()">📄 Генерирај PDF</button>
+                <button class="btn btn-secondary" onclick="clearMeetingsForm()">🗑️ Исчисти форма</button>
+            </div>
+        </div>
+
+        <!-- TAB 2: Group Parent Assemblies -->
+        <div id="sostanoci-tab" class="tab-content">
+            <div class="success-message" id="successMessage2">
+                ✓ PDF успешно генериран!
+            </div>
+
+            <div class="info-box">
+                <strong>💡 За родителски состаноци:</strong><br>
+                Родителските состаноци се за целото одделение. На состанокот присутните родители го потпишуваат документот како потврда за нивното присуство.<br><br>
+                <strong>Опции:</strong><br>
+                • <strong>Вклучи во PDF</strong> - Дали состанокот да се појави во документот<br>
+                • <strong>На посебна страница</strong> - Секој состанок на нова PDF страница СО ОУРЦ наслов<br>
+                • <strong>Со потпис</strong> - Потпис на одделенски раководител после овој состанок (независно од другите опции)<br>
+                • <strong>Додај родител</strong> - Додајте ред за потпис за секој присутен родител<br><br>
+                <strong>ОУРЦ наслов:</strong> Ако е штиклирано "На посебна страница", секој состанок добива ОУРЦ наслов. Ако НЕ е штиклирано, само првата страница има ОУРЦ наслов.<br><br>
+                <strong>Автоматско делење:</strong> Ако содржината е предолга (~1150 зборови или 5800 карактери), автоматски се дели на повеќе страници.
+            </div>
+            
+            <div class="row" style="margin-bottom: 20px; background: #f8f9fa; padding: 15px; border-radius: 8px;">
+                <div class="form-group">
+                    <label for="organization2">Организација:</label>
+                    <input type="text" id="organization2" placeholder="ОУРЦ „Кочо Рацин" Битола" value="ОУРЦ „Кочо Рацин" Битола">
+                </div>
+                <div class="form-group">
+                    <label for="schoolYear2">Учебна година:</label>
+                    <input type="text" id="schoolYear2" placeholder="2025/2026" value="2025/2026">
+                </div>
+            </div>
+            
+            <div class="row">
+                <div class="form-group">
+                    <label for="class2">Одделение:</label>
+                    <input type="text" id="class2" placeholder="Внесете одделение">
+                </div>
+                
+                <div class="form-group">
+                    <label for="teacher2">Одделенски раководител:</label>
+                    <input type="text" id="teacher2" placeholder="Внесете име на одделенски раководител">
+                </div>
+            </div>
+
+            <div class="row" style="margin-top: 20px; background: #e8f4fd; padding: 15px; border-radius: 8px; border-left: 4px solid #2196F3;">
+                <div class="form-group" style="margin-bottom: 0;">
+                    <label for="fontSize2">🔤 Големина на фонт во PDF:</label>
+                    <select id="fontSize2" style="padding: 10px; border: 2px solid #e0e0e0; border-radius: 8px; font-size: 14px; min-width: 150px;">
+                        <option value="9">9pt (најмал - повеќе текст)</option>
+                        <option value="10">10pt (мал)</option>
+                        <option value="11" selected>11pt (стандард)</option>
+                        <option value="12">12pt (среден)</option>
+                        <option value="14">14pt (голем)</option>
+                    </select>
+                </div>
+            </div>
+
+            
+            <h3 style="margin: 30px 0 20px 0; color: #333;">Родителски состаноци</h3>
+            
+            <div id="sostanociContainer"></div>
+            
+            <button class="btn btn-secondary" onclick="addSostanok()">+ Додади состанок</button>
+
+            <h3 style="margin: 30px 0 20px 0; color: #333;">Дополнителни забелешки</h3>
+            <div class="form-group">
+                <textarea id="additionalNotes" placeholder="Дополнителни забелешки..." rows="8"></textarea>
+            </div>
+            
+            <div class="button-group">
+                <button class="btn btn-success" onclick="generateSostanociPDF()">📄 Генерирај PDF</button>
+                <button class="btn btn-secondary" onclick="clearSostanociForm()">🗑️ Исчисти форма</button>
+            </div>
+        </div>
+    </div>
+    
+    <div class="footer">
+        Created by Blagoj Nasev
+    </div>
+
+    <!-- Hidden PDF Preview -->
+    <div id="pdfPreview"></div>
+
+    <script>
+        let meetingCount = 0;
+        let sostanokCount = 0;
+
+        // Initialize
+        window.onload = function() {
+            for(let i = 0; i < 6; i++) {
+                addMeeting();
+            }
+            for(let i = 0; i < 5; i++) {
+                addSostanok();
+            }
+        };
+
+        function switchTab(tabName) {
+            // Hide all tabs
+            document.querySelectorAll('.tab-content').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            document.querySelectorAll('.tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            
+            // Show selected tab
+            if(tabName === 'sredbi') {
+                document.getElementById('sredbi-tab').classList.add('active');
+                document.querySelectorAll('.tab')[0].classList.add('active');
+            } else {
+                document.getElementById('sostanoci-tab').classList.add('active');
+                document.querySelectorAll('.tab')[1].classList.add('active');
+            }
+        }
+
+        // MEETINGS FUNCTIONS
+        function addMeeting() {
+            meetingCount++;
+            const container = document.getElementById('meetingsContainer');
+            const meetingDiv = document.createElement('div');
+            meetingDiv.className = 'meeting-entry';
+            meetingDiv.id = 'meeting-' + meetingCount;
+            
+            meetingDiv.innerHTML = `
+                <div class="meeting-header">
+                    <span class="meeting-number">Средба ${meetingCount}</span>
+                    <button class="remove-btn" onclick="removeMeeting(${meetingCount})">✕ Отстрани</button>
+                </div>
+                <div class="checkbox-group" style="padding: 10px; margin-bottom: 15px;">
+                    <label style="margin-bottom: 5px;">
+                        <input type="checkbox" class="meeting-include" data-id="${meetingCount}" checked>
+                        Вклучи во PDF
+                    </label>
+                    <label style="margin-bottom: 5px;">
+                        <input type="checkbox" class="meeting-separate-page" data-id="${meetingCount}">
+                        На посебна страница (со ОУРЦ наслов)
+                    </label>
+                    <label style="margin-bottom: 5px;">
+                        <input type="checkbox" class="meeting-signature" data-id="${meetingCount}" checked>
+                        Со потпис на одделенски раководител
+                    </label>
+                </div>
+                <div class="row">
+                    <div class="form-group">
+                        <label>Дата:</label>
+                        <input type="date" class="meeting-date" data-id="${meetingCount}">
+                    </div>
+                    <div class="form-group">
+                        <label>Родител:</label>
+                        <input type="text" class="meeting-parent" data-id="${meetingCount}" placeholder="Име на родител">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Тема:</label>
+                    <textarea class="meeting-topic" data-id="${meetingCount}" placeholder="Опис на темата на средбата"></textarea>
+                </div>
+            `;
+            
+            container.appendChild(meetingDiv);
+        }
+
+        function removeMeeting(id) {
+            const meeting = document.getElementById('meeting-' + id);
+            if(meeting) {
+                meeting.remove();
+                updateMeetingNumbers();
+            }
+        }
+
+        function updateMeetingNumbers() {
+            const meetings = document.querySelectorAll('.meeting-entry');
+            meetings.forEach((meeting, index) => {
+                const numberSpan = meeting.querySelector('.meeting-number');
+                if(numberSpan) {
+                    numberSpan.textContent = 'Средба ' + (index + 1);
+                }
+            });
+        }
+
+        function clearMeetingsForm() {
+            if(confirm('Дали сте сигурни дека сакате да ја исчистите формата?')) {
+                document.getElementById('organization1').value = 'ОУРЦ „Кочо Рацин" Битола';
+                document.getElementById('schoolYear1').value = '2025/2026';
+                document.getElementById('class1').value = '';
+                document.getElementById('teacher1').value = '';
+                document.getElementById('student1').value = '';
+                
+                document.getElementById('meetingsContainer').innerHTML = '';
+                meetingCount = 0;
+                
+                for(let i = 0; i < 6; i++) {
+                    addMeeting();
+                }
+            }
+        }
+
+        // SOSTANOCI FUNCTIONS
+        function addSostanok() {
+            sostanokCount++;
+            const sostanokId = sostanokCount;
+            const container = document.getElementById('sostanociContainer');
+            const sostanokDiv = document.createElement('div');
+            sostanokDiv.className = 'sostanok-entry';
+            sostanokDiv.id = 'sostanok-' + sostanokCount;
+            
+            sostanokDiv.innerHTML = `
+                <div class="meeting-header">
+                    <span class="meeting-number">${sostanokCount}. Родителски состанок</span>
+                    <button class="remove-btn" onclick="removeSostanok(${sostanokCount})">✕ Отстрани</button>
+                </div>
+                <div class="checkbox-group" style="padding: 10px; margin-bottom: 15px;">
+                    <label style="margin-bottom: 5px;">
+                        <input type="checkbox" class="sostanok-include" data-id="${sostanokCount}" checked>
+                        Вклучи во PDF
+                    </label>
+                    <label style="margin-bottom: 5px;">
+                        <input type="checkbox" class="sostanok-separate-page" data-id="${sostanokCount}">
+                        На посебна страница (со ОУРЦ наслов)
+                    </label>
+                    <label style="margin-bottom: 5px;">
+                        <input type="checkbox" class="sostanok-signature" data-id="${sostanokCount}" checked>
+                        Со потпис на одделенски раководител
+                    </label>
+                </div>
+                <div class="form-group">
+                    <label>Дата:</label>
+                    <input type="date" class="sostanok-date" data-id="${sostanokCount}">
+                </div>
+                <div class="form-group">
+                    <label>Дневен ред:</label>
+                    <div class="agenda-list">
+                        <div class="agenda-item"><span>1.</span><input type="text" class="agenda-item-1" data-id="${sostanokCount}"></div>
+                        <div class="agenda-item"><span>2.</span><input type="text" class="agenda-item-2" data-id="${sostanokCount}"></div>
+                        <div class="agenda-item"><span>3.</span><input type="text" class="agenda-item-3" data-id="${sostanokCount}"></div>
+                        <div class="agenda-item"><span>4.</span><input type="text" class="agenda-item-4" data-id="${sostanokCount}"></div>
+                        <div class="agenda-item"><span>5.</span><input type="text" class="agenda-item-5" data-id="${sostanokCount}"></div>
+                        <div class="agenda-item"><span>6.</span><input type="text" class="agenda-item-6" data-id="${sostanokCount}"></div>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Забелешки:</label>
+                    <textarea class="sostanok-notes" data-id="${sostanokCount}" placeholder="Забелешки од состанокот" rows="3"></textarea>
+                </div>
+                <div class="form-group">
+                    <label>Потписи на родители:</label>
+                    <div class="parent-signatures-container" data-sostanok-id="${sostanokId}">
+                        <div class="parent-signature-entry">
+                            <span>1.</span>
+                            <input type="text" class="parent-signature-name" placeholder="Име и презиме на родител" style="flex: 1;">
+                        </div>
+                    </div>
+                    <button type="button" onclick="addParentSignature(${sostanokId})" style="margin-top: 10px; padding: 8px 15px; background: #28a745; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 13px;">
+                        + Додај родител
+                    </button>
+                </div>
+            `;
+            
+            container.appendChild(sostanokDiv);
+        }
+        
+        function addParentSignature(sostanokId) {
+            const container = document.querySelector(`.parent-signatures-container[data-sostanok-id="${sostanokId}"]`);
+            const currentCount = container.querySelectorAll('.parent-signature-entry').length;
+            
+            const newEntry = document.createElement('div');
+            newEntry.className = 'parent-signature-entry';
+            newEntry.innerHTML = `
+                <span>${currentCount + 1}.</span>
+                <input type="text" class="parent-signature-name" placeholder="Име и презиме на родител" style="flex: 1;">
+                <button type="button" onclick="removeParentSignature(this)" style="padding: 5px 10px; background: #dc3545; color: white; border: none; border-radius: 3px; cursor: pointer; font-size: 12px; margin-left: 5px;">✕</button>
+            `;
+            container.appendChild(newEntry);
+            
+            updateParentSignatureNumbers(sostanokId);
+        }
+        
+        function removeParentSignature(button) {
+            const entry = button.parentElement;
+            const container = entry.parentElement;
+            const sostanokId = container.getAttribute('data-sostanok-id');
+            
+            entry.remove();
+            updateParentSignatureNumbers(sostanokId);
+        }
+        
+        function updateParentSignatureNumbers(sostanokId) {
+            const container = document.querySelector(`.parent-signatures-container[data-sostanok-id="${sostanokId}"]`);
+            const entries = container.querySelectorAll('.parent-signature-entry');
+            
+            entries.forEach((entry, index) => {
+                const span = entry.querySelector('span');
+                if (span) {
+                    span.textContent = (index + 1) + '.';
+                }
+            });
+        }
+
+        function removeSostanok(id) {
+            const sostanok = document.getElementById('sostanok-' + id);
+            if(sostanok) {
+                sostanok.remove();
+                updateSostanokNumbers();
+            }
+        }
+
+        function updateSostanokNumbers() {
+            const sostanoci = document.querySelectorAll('.sostanok-entry');
+            sostanoci.forEach((sostanok, index) => {
+                const numberSpan = sostanok.querySelector('.meeting-number');
+                if(numberSpan) {
+                    numberSpan.textContent = (index + 1) + '. Родителски состанок';
+                }
+            });
+        }
+
+        function clearSostanociForm() {
+            if(confirm('Дали сте сигурни дека сакате да ја исчистите формата?')) {
+                document.getElementById('organization2').value = 'ОУРЦ „Кочо Рацин" Битола';
+                document.getElementById('schoolYear2').value = '2025/2026';
+                document.getElementById('class2').value = '';
+                document.getElementById('teacher2').value = '';
+                document.getElementById('additionalNotes').value = '';
+                
+                document.getElementById('sostanociContainer').innerHTML = '';
+                sostanokCount = 0;
+                
+                for(let i = 0; i < 5; i++) {
+                    addSostanok();
+                }
+            }
+        }
+
+        // Helper function to chunk sostanoci by page size
+        function chunkSostanociByPageSize(sostanoci, maxCharsPerPage = 4500) {
+            const chunks = [];
+            let currentChunk = [];
+            let currentCharCount = 0;
+            
+            sostanoci.forEach(sostanok => {
+                // Estimate character count for this sostanok
+                let sostanokCharCount = 200; // Base count for headers and labels
+                sostanok.agendaItems.forEach(item => {
+                    if (item && item.trim()) sostanokCharCount += item.length;
+                });
+                if (sostanok.notes) sostanokCharCount += sostanok.notes.length;
+                sostanokCharCount += (sostanok.parentSignatures?.length || 0) * 30;
+                
+                // If this single sostanok is too long, handle separately
+                if (sostanokCharCount > maxCharsPerPage) {
+                    // Save current chunk if it has content
+                    if (currentChunk.length > 0) {
+                        chunks.push(currentChunk);
+                        currentChunk = [];
+                        currentCharCount = 0;
+                    }
+                    
+                    // This sostanok gets its own page(s)
+                    chunks.push([sostanok]);
+                } else {
+                    // Check if adding this sostanok exceeds page limit
+                    if (currentCharCount + sostanokCharCount > maxCharsPerPage && currentChunk.length > 0) {
+                        // Start new page
+                        chunks.push(currentChunk);
+                        currentChunk = [];
+                        currentCharCount = 0;
+                    }
+                    
+                    currentChunk.push(sostanok);
+                    currentCharCount += sostanokCharCount;
+                }
+            });
+            
+            // Add remaining chunk
+            if (currentChunk.length > 0) {
+                chunks.push(currentChunk);
+            }
+            
+            return chunks;
+        }
+        
+        // Helper function to chunk long text into page-sized pieces
+        function chunkMeetingsByPageSize(meetings, maxCharsPerPage = 4500) {
+            const chunks = [];
+            let currentChunk = [];
+            let currentCharCount = 0;
+            
+            meetings.forEach(meeting => {
+                // Estimate character count for this meeting
+                const meetingCharCount = meeting.topic.length + meeting.parent.length + 100; // +100 for labels and formatting
+                
+                // If this single meeting is too long, split it
+                if (meetingCharCount > maxCharsPerPage) {
+                    // Save current chunk if it has content
+                    if (currentChunk.length > 0) {
+                        chunks.push(currentChunk);
+                        currentChunk = [];
+                        currentCharCount = 0;
+                    }
+                    
+                    // Split long topic into smaller parts
+                    const topicChunks = splitLongText(meeting.topic, maxCharsPerPage - 400);
+                    topicChunks.forEach((topicChunk, idx) => {
+                        chunks.push([{
+                            ...meeting,
+                            topic: topicChunk,
+                            isContinuation: idx > 0,
+                            hasMorePages: idx < topicChunks.length - 1
+                        }]);
+                    });
+                } else {
+                    // Check if adding this meeting exceeds page limit
+                    if (currentCharCount + meetingCharCount > maxCharsPerPage && currentChunk.length > 0) {
+                        // Start new page
+                        chunks.push(currentChunk);
+                        currentChunk = [];
+                        currentCharCount = 0;
+                    }
+                    
+                    currentChunk.push(meeting);
+                    currentCharCount += meetingCharCount;
+                }
+            });
+            
+            // Add remaining chunk
+            if (currentChunk.length > 0) {
+                chunks.push(currentChunk);
+            }
+            
+            return chunks;
+        }
+        
+        // Helper function to split long text into chunks
+        function splitLongText(text, maxLength) {
+            if (text.length <= maxLength) return [text];
+            
+            const chunks = [];
+            let remainingText = text;
+            
+            while (remainingText.length > 0) {
+                if (remainingText.length <= maxLength) {
+                    chunks.push(remainingText);
+                    break;
+                }
+                
+                // Try to break at sentence end
+                let breakPoint = maxLength;
+                const sentenceEnd = remainingText.lastIndexOf('.', maxLength);
+                if (sentenceEnd > maxLength * 0.7) {
+                    breakPoint = sentenceEnd + 1;
+                } else {
+                    // Try to break at word boundary
+                    const spacePos = remainingText.lastIndexOf(' ', maxLength);
+                    if (spacePos > maxLength * 0.8) {
+                        breakPoint = spacePos;
+                    }
+                }
+                
+                chunks.push(remainingText.substring(0, breakPoint).trim());
+                remainingText = remainingText.substring(breakPoint).trim();
+            }
+            
+            return chunks;
+        }
+        async function generateMeetingsPDF() {
+            const organization = document.getElementById('organization1').value || 'ОУРЦ „Кочо Рацин" Битола';
+            const schoolYear = document.getElementById('schoolYear1').value || '2025/2026';
+            const className = document.getElementById('class1').value || '____________';
+            const teacher = document.getElementById('teacher1').value || '________________________________';
+            const student = document.getElementById('student1').value || '________________________________';
+            const fontSize = document.getElementById('fontSize1').value || '11';
+            
+            // Adjust max chars based on font size
+            const fontSizeNum = parseInt(fontSize);
+            const maxCharsPerPage = Math.round(4500 * (11 / fontSizeNum));
+            
+            const meetingElements = document.querySelectorAll('.meeting-entry');
+            const pages = [];
+            let currentPageMeetings = [];
+            
+            meetingElements.forEach((meeting, index) => {
+                // Check if this meeting should be included
+                const includeCheckbox = meeting.querySelector('.meeting-include');
+                if (!includeCheckbox || !includeCheckbox.checked) {
+                    return;
+                }
+                
+                const dateValue = meeting.querySelector('.meeting-date').value;
+                const parentValue = meeting.querySelector('.meeting-parent').value.trim();
+                const topicValue = meeting.querySelector('.meeting-topic').value.trim();
+                const separatePageCheckbox = meeting.querySelector('.meeting-separate-page');
+                const separatePage = separatePageCheckbox ? separatePageCheckbox.checked : false;
+                const signatureCheckbox = meeting.querySelector('.meeting-signature');
+                const includeSignature = signatureCheckbox ? signatureCheckbox.checked : true;
+                
+                if (dateValue || parentValue || topicValue) {
+                    const date = dateValue || '____________';
+                    const parent = parentValue || '____________';
+                    const topic = topicValue || '';
+                    
+                    const meetingData = {
+                        date: date,
+                        parent: parent,
+                        topic: topic,
+                        separatePage: separatePage,
+                        includeSignature: includeSignature
+                    };
+                    
+                    if (separatePage) {
+                        // Save current page if it has content
+                        if (currentPageMeetings.length > 0) {
+                            const chunks = chunkMeetingsByPageSize(currentPageMeetings, maxCharsPerPage);
+                            chunks.forEach((chunk, idx) => {
+                                // First chunk gets header, rest don't
+                                pages.push(createPageElement(organization, schoolYear, className, teacher, student, chunk, idx === 0, fontSize));
+                            });
+                            currentPageMeetings = [];
+                        }
+                        
+                        // Create separate page for this meeting WITH header (with auto-chunking if too long)
+                        const chunks = chunkMeetingsByPageSize([meetingData], maxCharsPerPage);
+                        chunks.forEach((chunk, idx) => {
+                            // Each separate page gets its own header on first chunk
+                            pages.push(createPageElement(organization, schoolYear, className, teacher, student, chunk, idx === 0, fontSize));
+                        });
+                    } else {
+                        // Add to current page
+                        currentPageMeetings.push(meetingData);
+                    }
+                }
+            });
+            
+            // Add remaining meetings with chunking
+            if (currentPageMeetings.length > 0) {
+                const chunks = chunkMeetingsByPageSize(currentPageMeetings, maxCharsPerPage);
+                chunks.forEach((chunk, idx) => {
+                    // First chunk gets header, rest don't
+                    pages.push(createPageElement(organization, schoolYear, className, teacher, student, chunk, idx === 0, fontSize));
+                });
+            }
+            
+            if (pages.length === 0) {
+                alert('Ве молиме означете и пополнете барем една средба.');
+                return;
+            }
+            
+            await generatePDFFromPages(pages, 'Родителски-средби-' + student + '.pdf', 'successMessage1');
+            
+            // Clean up page elements
+            pages.forEach(page => page.remove());
+        }
+        
+        function createPageElement(organization, schoolYear, className, teacher, student, meetings, showHeader = true, fontSize = '11') {
+            const pageDiv = document.createElement('div');
+            pageDiv.style.cssText = 'position: fixed; left: -9999px; top: 0; width: 210mm; min-height: 297mm; background: white; padding: 25mm 25mm 25mm 25mm; box-sizing: border-box; display: none; font-family: "Times New Roman", serif;';
+            
+            const headerFontSize = parseInt(fontSize) + 5;
+            const subHeaderFontSize = parseInt(fontSize) + 3;
+            const normalFontSize = fontSize;
+            
+            let html = `<div style="max-width: 100%; overflow: hidden;">`;
+            
+            // Show header ONLY if showHeader is true
+            if (showHeader) {
+                html += `
+                <div style="text-align: center; margin-bottom: 20px;">
+                    <div style="font-size: ${headerFontSize}px; font-weight: bold;">${organization}</div>
+                    <div style="font-size: ${subHeaderFontSize}px; font-weight: bold; margin-top: 5px;">СРЕДБИ СО РОДИТЕЛИ</div>
+                    <div style="font-size: ${normalFontSize}px; margin-top: 5px;">учебната ${schoolYear}</div>
+                </div>
+                <div style="font-size: ${normalFontSize}px; margin-bottom: 15px;">
+                    <div>Одделение: ${className} &nbsp;&nbsp;&nbsp; Одделенски раководител: ${teacher}</div>
+                    <div>Ученик/чка: ${student}</div>
+                </div>
+                `;
+            }
+            
+            meetings.forEach(meeting => {
+                html += `
+                    <div style="border: 1px solid #333; padding: 12px; margin-bottom: 12px; page-break-inside: avoid; word-wrap: break-word; overflow-wrap: break-word; overflow: hidden;">
+                `;
+                
+                // Show continuation indicator
+                if (meeting.isContinuation) {
+                    html += `<div style="font-size: ${parseInt(normalFontSize) - 1}px; font-style: italic; margin-bottom: 8px; color: #666;">(продолжение од претходна страница)</div>`;
+                }
+                
+                html += `
+                        <div style="font-size: ${normalFontSize}px; margin-bottom: 8px;">
+                            Дата: ${meeting.date} &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Родител: ${meeting.parent}
+                        </div>
+                        <div style="font-size: ${normalFontSize}px;">
+                            <strong>Тема:</strong><br>
+                            <div style="margin-top: 5px; word-wrap: break-word; overflow-wrap: break-word; max-width: 100%;">${meeting.topic}</div>
+                        </div>
+                `;
+                
+                // Show "continues" indicator
+                if (meeting.hasMorePages) {
+                    html += `<div style="font-size: ${parseInt(normalFontSize) - 1}px; font-style: italic; margin-top: 8px; color: #666;">(продолжува на следна страница...)</div>`;
+                }
+                
+                // Add signature ONLY if this meeting has signature checked and it's the last chunk
+                if (meeting.includeSignature && !meeting.hasMorePages) {
+                    html += `
+                        <div style="margin-top: 20px; text-align: right; padding-right: 10px;">
+                            <div style="font-size: ${normalFontSize}px; font-weight: bold;">Одделенски раководител:</div>
+                            <div style="margin-top: 5px; font-size: ${normalFontSize}px;">_______________________</div>
+                        </div>
+                    `;
+                }
+                
+                html += `</div>`;
+            });
+            
+            html += `</div>`;
+            
+            pageDiv.innerHTML = html;
+            document.body.appendChild(pageDiv);
+            
+            return pageDiv;
+        }
+
+        // PDF GENERATION FOR SOSTANOCI - CREATES SEPARATE PAGES
+        async function generateSostanociPDF() {
+            const organization = document.getElementById('organization2').value || 'ОУРЦ „Кочо Рацин" Битола';
+            const schoolYear = document.getElementById('schoolYear2').value || '2025/2026';
+            const className = document.getElementById('class2').value || '____________';
+            const teacher = document.getElementById('teacher2').value || '________________________________';
+            const additionalNotes = document.getElementById('additionalNotes').value.trim();
+            const fontSize = document.getElementById('fontSize2').value || '11';
+            
+            // Adjust max chars based on font size
+            const fontSizeNum = parseInt(fontSize);
+            const maxCharsPerPage = Math.round(4500 * (11 / fontSizeNum));
+            
+            const sostanokElements = document.querySelectorAll('.sostanok-entry');
+            const pages = [];
+            let currentPageSostanoci = [];
+            let globalSostanokNumber = 1;
+            
+            sostanokElements.forEach((sostanok, index) => {
+                const includeCheckbox = sostanok.querySelector('.sostanok-include');
+                if (!includeCheckbox || !includeCheckbox.checked) {
+                    return;
+                }
+                
+                const dateValue = sostanok.querySelector('.sostanok-date').value;
+                const notesValue = sostanok.querySelector('.sostanok-notes').value.trim();
+                const separatePageCheckbox = sostanok.querySelector('.sostanok-separate-page');
+                const separatePage = separatePageCheckbox ? separatePageCheckbox.checked : false;
+                const signatureCheckbox = sostanok.querySelector('.sostanok-signature');
+                const includeSignature = signatureCheckbox ? signatureCheckbox.checked : true;
+                
+                let agendaItems = [];
+                for(let i = 1; i <= 6; i++) {
+                    const agendaItem = sostanok.querySelector(`.agenda-item-${i}`).value.trim();
+                    agendaItems.push(agendaItem);
+                }
+                
+                // Collect parent signatures
+                const signatureContainer = sostanok.querySelector('.parent-signatures-container');
+                let parentSignatures = [];
+                if (signatureContainer) {
+                    const signatureInputs = signatureContainer.querySelectorAll('.parent-signature-name');
+                    signatureInputs.forEach(input => {
+                        const name = input.value.trim();
+                        if (name) {
+                            parentSignatures.push(name);
+                        }
+                    });
+                }
+                
+                const hasContent = dateValue || agendaItems.some(item => item) || notesValue;
+                
+                if (hasContent) {
+                    const date = dateValue || '____________';
+                    
+                    const sostanokData = {
+                        number: globalSostanokNumber++,
+                        date: date,
+                        agendaItems: agendaItems,
+                        notes: notesValue,
+                        parentSignatures: parentSignatures,
+                        separatePage: separatePage,
+                        includeSignature: includeSignature
+                    };
+                    
+                    if (separatePage) {
+                        // Save current page if it has content
+                        if (currentPageSostanoci.length > 0) {
+                            const chunks = chunkSostanociByPageSize(currentPageSostanoci, maxCharsPerPage);
+                            chunks.forEach((chunk, idx) => {
+                                // First chunk gets header, rest don't
+                                pages.push(createSostanokPageElement(organization, schoolYear, className, teacher, chunk, '', idx === 0, fontSize));
+                            });
+                            currentPageSostanoci = [];
+                        }
+                        
+                        // Create separate page for this sostanok WITH header (with auto-chunking if needed)
+                        const chunks = chunkSostanociByPageSize([sostanokData], maxCharsPerPage);
+                        chunks.forEach((chunk, idx) => {
+                            // Each separate page gets its own header on first chunk
+                            pages.push(createSostanokPageElement(organization, schoolYear, className, teacher, chunk, '', idx === 0, fontSize));
+                        });
+                    } else {
+                        // Add to current page
+                        currentPageSostanoci.push(sostanokData);
+                    }
+                }
+            });
+            
+            // Add remaining sostanoci with chunking
+            if (currentPageSostanoci.length > 0) {
+                const chunks = chunkSostanociByPageSize(currentPageSostanoci, maxCharsPerPage);
+                chunks.forEach((chunk, idx) => {
+                    // Add notes only to the last chunk, header only on first chunk
+                    const notes = (idx === chunks.length - 1) ? additionalNotes : '';
+                    pages.push(createSostanokPageElement(organization, schoolYear, className, teacher, chunk, notes, idx === 0, fontSize));
+                });
+            } else if (pages.length > 0 && additionalNotes) {
+                // If all sostanoci were on separate pages, add additional notes to last page
+                const lastPage = pages[pages.length - 1];
+                const notesDiv = document.createElement('div');
+                notesDiv.style.cssText = `margin-top: 30px; font-size: ${fontSize}px; font-family: "Times New Roman", serif;`;
+                notesDiv.innerHTML = `
+                    <div style="font-weight: bold;">Дополнителни забелешки:</div>
+                    <div style="margin-top: 10px; white-space: pre-wrap;">${additionalNotes}</div>
+                `;
+                lastPage.appendChild(notesDiv);
+            }
+            
+            if (pages.length === 0) {
+                alert('Ве молиме означете и пополнете барем еден состанок.');
+                return;
+            }
+            
+            await generatePDFFromPages(pages, 'Родителски-состаноци-' + className + '.pdf', 'successMessage2');
+            
+            // Clean up page elements
+            pages.forEach(page => page.remove());
+        }
+        
+        function createSostanokPageElement(organization, schoolYear, className, teacher, sostanoci, additionalNotes, showHeader = true, fontSize = '11') {
+            const pageDiv = document.createElement('div');
+            pageDiv.style.cssText = 'position: fixed; left: -9999px; top: 0; width: 210mm; min-height: 297mm; background: white; padding: 25mm 25mm 25mm 25mm; box-sizing: border-box; display: none; font-family: "Times New Roman", serif;';
+            
+            const headerFontSize = parseInt(fontSize) + 5;
+            const subHeaderFontSize = parseInt(fontSize) + 3;
+            const normalFontSize = fontSize;
+            
+            let html = `<div style="max-width: 100%; overflow: hidden;">`;
+            
+            // Show header ONLY if showHeader is true
+            if (showHeader) {
+                html += `
+                <div style="text-align: center; margin-bottom: 20px;">
+                    <div style="font-size: ${headerFontSize}px; font-weight: bold;">${organization}</div>
+                    <div style="font-size: ${subHeaderFontSize}px; font-weight: bold; margin-top: 5px;">РОДИТЕЛСКИ СОСТАНОЦИ</div>
+                    <div style="font-size: ${normalFontSize}px; margin-top: 5px;">${schoolYear}</div>
+                </div>
+                <div style="font-size: ${normalFontSize}px; margin-bottom: 15px;">
+                    <div>Одделение: ${className} &nbsp;&nbsp;&nbsp; Одделенски раководител: ${teacher}</div>
+                </div>
+                `;
+            }
+            
+            sostanoci.forEach((sostanok) => {
+                html += `
+                    <div style="border: 1px solid #333; padding: 12px; margin-bottom: 12px; page-break-inside: avoid; word-wrap: break-word; overflow-wrap: break-word; overflow: hidden;">
+                        <div style="font-size: ${normalFontSize}px; font-weight: bold; margin-bottom: 8px;">
+                            ${sostanok.number}. РОДИТЕЛСКИ СОСТАНОК &nbsp;&nbsp; Дата: ${sostanok.date}
+                        </div>
+                        <div style="font-size: ${normalFontSize}px; margin-bottom: 8px;">
+                            <strong>Дневен ред:</strong><br>
+                `;
+                
+                // Only show non-empty agenda items
+                let itemNumber = 1;
+                sostanok.agendaItems.forEach((item) => {
+                    if (item && item.trim()) {
+                        html += `<div style="margin-left: 15px; margin-top: 3px; word-wrap: break-word;">${itemNumber}. ${item}</div>`;
+                        itemNumber++;
+                    }
+                });
+                
+                html += `</div>`;
+                
+                // Add parent signatures section
+                if (sostanok.parentSignatures && sostanok.parentSignatures.length > 0) {
+                    html += `
+                        <div style="font-size: ${normalFontSize}px; margin-top: 10px;">
+                            <strong>Потписи на родители:</strong><br>
+                    `;
+                    sostanok.parentSignatures.forEach((parentName, idx) => {
+                        html += `<div style="margin-left: 15px; margin-top: 5px;">${idx + 1}. ${parentName}: __________________</div>`;
+                    });
+                    html += `</div>`;
+                } else {
+                    html += `
+                        <div style="font-size: ${normalFontSize}px; margin-top: 10px;">
+                            <strong>Потпис на родител:</strong> __________________
+                        </div>
+                    `;
+                }
+                
+                if (sostanok.notes) {
+                    html += `
+                        <div style="font-size: ${normalFontSize}px; margin-top: 10px;">
+                            <strong>Забелешки:</strong><br>
+                            <div style="margin-top: 5px; word-wrap: break-word; overflow-wrap: break-word;">${sostanok.notes}</div>
+                        </div>
+                    `;
+                }
+                
+                // Add signature ONLY if this sostanok has signature checked
+                if (sostanok.includeSignature) {
+                    html += `
+                        <div style="margin-top: 20px; text-align: right; padding-right: 10px;">
+                            <div style="font-size: ${normalFontSize}px; font-weight: bold;">Одделенски раководител:</div>
+                            <div style="margin-top: 5px; font-size: ${normalFontSize}px;">_______________________</div>
+                        </div>
+                    `;
+                }
+                
+                html += `</div>`;
+            });
+            
+            if (additionalNotes) {
+                html += `
+                    <div style="margin-top: 20px; font-size: ${normalFontSize}px; border-top: 1px solid #ccc; padding-top: 15px;">
+                        <div style="font-weight: bold;">Дополнителни забелешки:</div>
+                        <div style="margin-top: 8px; white-space: pre-wrap; word-wrap: break-word; overflow-wrap: break-word;">${additionalNotes}</div>
+                    </div>
+                `;
+            }
+            
+            html += `</div>`;
+            
+            pageDiv.innerHTML = html;
+            document.body.appendChild(pageDiv);
+            
+            return pageDiv;
+        }
+
+        // COMMON PDF GENERATION FUNCTION - NEW APPROACH FOR SEPARATE PAGES
+        async function generatePDFFromPages(pages, filename, messageId) {
+            const { jsPDF } = window.jspdf;
+            const pdf = new jsPDF('p', 'mm', 'a4');
+            
+            try {
+                for (let i = 0; i < pages.length; i++) {
+                    const pageElement = pages[i];
+                    
+                    // Make element visible for rendering
+                    pageElement.style.display = 'block';
+                    pageElement.style.position = 'static';
+                    
+                    await new Promise(resolve => setTimeout(resolve, 100));
+                    
+                    const canvas = await html2canvas(pageElement, {
+                        scale: 1.2,
+                        logging: false,
+                        backgroundColor: '#ffffff',
+                        imageTimeout: 0
+                    });
+                    
+                    const imgData = canvas.toDataURL('image/jpeg', 0.85);
+                    
+                    // A4 dimensions
+                    const pageWidth = 210;  // mm
+                    const pageHeight = 297; // mm
+                    
+                    // Calculate image dimensions to fit in A4
+                    const imgWidth = pageWidth;
+                    const imgHeight = canvas.height * imgWidth / canvas.width;
+                    
+                    // If not first page, add a new page
+                    if (i > 0) {
+                        pdf.addPage();
+                    }
+                    
+                    // Simple approach: just add the image
+                    // If it's too tall, it will be cut off (but we've already chunked it to fit)
+                    pdf.addImage(imgData, 'JPEG', 0, 0, imgWidth, Math.min(imgHeight, pageHeight));
+                    
+                    // Clean up
+                    pageElement.style.display = 'none';
+                }
+                
+                pdf.save(filename);
+                
+                const successMsg = document.getElementById(messageId);
+                successMsg.classList.add('show');
+                setTimeout(() => {
+                    successMsg.classList.remove('show');
+                }, 3000);
+                
+            } catch (error) {
+                alert('Грешка при генерирање на PDF: ' + error.message);
+            }
+        }
+    </script>
+
+    <!-- Template Management Functions -->
+    <script>
+        // SAVE TEMPLATE TO LOCALSTORAGE
+        function saveTemplate() {
+            const templateData = {
+                tab1: {
+                    organization: document.getElementById('organization1').value,
+                    schoolYear: document.getElementById('schoolYear1').value,
+                    class: document.getElementById('class1').value,
+                    teacher: document.getElementById('teacher1').value,
+                    student: document.getElementById('student1').value,
+                    meetings: []
+                },
+                tab2: {
+                    organization: document.getElementById('organization2').value,
+                    schoolYear: document.getElementById('schoolYear2').value,
+                    class: document.getElementById('class2').value,
+                    teacher: document.getElementById('teacher2').value,
+                    additionalNotes: document.getElementById('additionalNotes').value,
+                    sostanoci: []
+                },
+                timestamp: new Date().toISOString()
+            };
+            
+            // Collect meetings data
+            document.querySelectorAll('.meeting-entry').forEach((meeting) => {
+                const meetingData = {
+                    date: meeting.querySelector('.meeting-date').value,
+                    parent: meeting.querySelector('.meeting-parent').value,
+                    topic: meeting.querySelector('.meeting-topic').value,
+                    include: meeting.querySelector('.meeting-include').checked,
+                    separatePage: meeting.querySelector('.meeting-separate-page').checked,
+                    signature: meeting.querySelector('.meeting-signature').checked
+                };
+                templateData.tab1.meetings.push(meetingData);
+            });
+            
+            // Collect sostanoci data
+            document.querySelectorAll('.sostanok-entry').forEach((sostanok) => {
+                const sostanokData = {
+                    date: sostanok.querySelector('.sostanok-date').value,
+                    notes: sostanok.querySelector('.sostanok-notes').value,
+                    include: sostanok.querySelector('.sostanok-include').checked,
+                    separatePage: sostanok.querySelector('.sostanok-separate-page').checked,
+                    signature: sostanok.querySelector('.sostanok-signature').checked,
+                    agenda: [],
+                    parentSignatures: []
+                };
+                
+                for(let i = 1; i <= 6; i++) {
+                    sostanokData.agenda.push(sostanok.querySelector(`.agenda-item-${i}`).value);
+                }
+                
+                // Collect parent signatures
+                const signatureContainer = sostanok.querySelector('.parent-signatures-container');
+                if (signatureContainer) {
+                    const signatureInputs = signatureContainer.querySelectorAll('.parent-signature-name');
+                    signatureInputs.forEach(input => {
+                        sostanokData.parentSignatures.push(input.value);
+                    });
+                }
+                
+                templateData.tab2.sostanoci.push(sostanokData);
+            });
+            
+            localStorage.setItem('roditelskoSredbiTemplate', JSON.stringify(templateData));
+            
+            showTemplateStatus('✓ Темплејтот е успешно зачуван!', 'success');
+        }
+        
+        // LOAD TEMPLATE FROM LOCALSTORAGE
+        function loadTemplate(skipConfirm = false) {
+            const savedTemplate = localStorage.getItem('roditelskoSredbiTemplate');
+            
+            if (!savedTemplate) {
+                showTemplateStatus('⚠️ Нема зачуван темплејт. Прво зачувајте темплејт.', 'warning');
+                return;
+            }
+            
+            if (!skipConfirm && !confirm('Дали сакате да ги вчитате зачуваните податоци? Тековните податоци ќе бидат заменети.')) {
+                return;
+            }
+            
+            const templateData = JSON.parse(savedTemplate);
+            
+            // Load Tab 1 data
+            document.getElementById('organization1').value = templateData.tab1.organization || 'ОУРЦ „Кочо Рацин" Битола';
+            document.getElementById('schoolYear1').value = templateData.tab1.schoolYear || '2025/2026';
+            document.getElementById('class1').value = templateData.tab1.class || '';
+            document.getElementById('teacher1').value = templateData.tab1.teacher || '';
+            document.getElementById('student1').value = templateData.tab1.student || '';
+            
+            // Clear existing meetings and add from template
+            document.getElementById('meetingsContainer').innerHTML = '';
+            meetingCount = 0;
+            
+            if (templateData.tab1.meetings.length === 0) {
+                for(let i = 0; i < 6; i++) addMeeting();
+            } else {
+                templateData.tab1.meetings.forEach((meetingData) => {
+                    addMeeting();
+                    const meeting = document.querySelector(`.meeting-entry:last-child`);
+                    meeting.querySelector('.meeting-date').value = meetingData.date || '';
+                    meeting.querySelector('.meeting-parent').value = meetingData.parent || '';
+                    meeting.querySelector('.meeting-topic').value = meetingData.topic || '';
+                    meeting.querySelector('.meeting-include').checked = meetingData.include !== false;
+                    meeting.querySelector('.meeting-separate-page').checked = meetingData.separatePage || false;
+                    meeting.querySelector('.meeting-signature').checked = meetingData.signature !== false;
+                });
+            }
+            
+            // Load Tab 2 data
+            document.getElementById('organization2').value = templateData.tab2.organization || 'ОУРЦ „Кочо Рацин" Битола';
+            document.getElementById('schoolYear2').value = templateData.tab2.schoolYear || '2025/2026';
+            document.getElementById('class2').value = templateData.tab2.class || '';
+            document.getElementById('teacher2').value = templateData.tab2.teacher || '';
+            document.getElementById('additionalNotes').value = templateData.tab2.additionalNotes || '';
+            
+            // Clear existing sostanoci and add from template
+            document.getElementById('sostanociContainer').innerHTML = '';
+            sostanokCount = 0;
+            
+            if (templateData.tab2.sostanoci.length === 0) {
+                for(let i = 0; i < 4; i++) addSostanok();
+            } else {
+                templateData.tab2.sostanoci.forEach((sostanokData, idx) => {
+                    addSostanok();
+                    const sostanok = document.querySelector(`.sostanok-entry:last-child`);
+                    const sostanokIdFromData = sostanok.querySelector('.parent-signatures-container').getAttribute('data-sostanok-id');
+                    
+                    sostanok.querySelector('.sostanok-date').value = sostanokData.date || '';
+                    sostanok.querySelector('.sostanok-notes').value = sostanokData.notes || '';
+                    sostanok.querySelector('.sostanok-include').checked = sostanokData.include !== false;
+                    sostanok.querySelector('.sostanok-separate-page').checked = sostanokData.separatePage || false;
+                    sostanok.querySelector('.sostanok-signature').checked = sostanokData.signature !== false;
+                    
+                    for(let i = 1; i <= 6; i++) {
+                        sostanok.querySelector(`.agenda-item-${i}`).value = sostanokData.agenda[i-1] || '';
+                    }
+                    
+                    // Load parent signatures
+                    if (sostanokData.parentSignatures && sostanokData.parentSignatures.length > 0) {
+                        const signatureContainer = sostanok.querySelector('.parent-signatures-container');
+                        // Clear existing signature
+                        signatureContainer.innerHTML = '';
+                        
+                        // Add all signatures from template
+                        sostanokData.parentSignatures.forEach((parentName, sigIdx) => {
+                            const newEntry = document.createElement('div');
+                            newEntry.className = 'parent-signature-entry';
+                            if (sigIdx === 0) {
+                                newEntry.innerHTML = `
+                                    <span>${sigIdx + 1}.</span>
+                                    <input type="text" class="parent-signature-name" placeholder="Име и презиме на родител" style="flex: 1;" value="${parentName || ''}">
+                                `;
+                            } else {
+                                newEntry.innerHTML = `
+                                    <span>${sigIdx + 1}.</span>
+                                    <input type="text" class="parent-signature-name" placeholder="Име и презиме на родител" style="flex: 1;" value="${parentName || ''}">
+                                    <button type="button" onclick="removeParentSignature(this)" style="padding: 5px 10px; background: #dc3545; color: white; border: none; border-radius: 3px; cursor: pointer; font-size: 12px; margin-left: 5px;">✕</button>
+                                `;
+                            }
+                            signatureContainer.appendChild(newEntry);
+                        });
+                    }
+                });
+            }
+            
+            showTemplateStatus('✓ Темплејтот е успешно вчитан!', 'success');
+        }
+        
+        // DOWNLOAD TEMPLATE AS JSON FILE
+        function downloadTemplate() {
+            const savedTemplate = localStorage.getItem('roditelskoSredbiTemplate');
+            
+            if (!savedTemplate) {
+                showTemplateStatus('⚠️ Нема зачуван темплејт. Прво зачувајте темплејт.', 'warning');
+                return;
+            }
+            
+            const blob = new Blob([savedTemplate], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'родителски-средби-темплејт.json';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            
+            showTemplateStatus('✓ Темплејтот е download-иран!', 'success');
+        }
+        
+        // UPLOAD TEMPLATE FROM JSON FILE
+        function uploadTemplate(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const templateData = JSON.parse(e.target.result);
+                    localStorage.setItem('roditelskoSredbiTemplate', e.target.result);
+                    showTemplateStatus('✓ Темплејтот е успешно upload-иран! Автоматски се вчитува...', 'success');
+                    
+                    // Automatically load the template after successful upload
+                    setTimeout(() => {
+                        loadTemplate(true); // Skip confirmation dialog
+                    }, 1000);
+                } catch (error) {
+                    showTemplateStatus('❌ Грешка при читање на фајлот. Проверете дали е валиден JSON фајл.', 'error');
+                }
+            };
+            reader.readAsText(file);
+            
+            // Reset file input
+            event.target.value = '';
+        }
+        
+        // CLEAR SAVED TEMPLATE
+        function clearTemplate() {
+            if (!confirm('Дали сте сигурни дека сакате да го избришете зачуваниот темплејт?')) {
+                return;
+            }
+            
+            localStorage.removeItem('roditelskoSredbiTemplate');
+            showTemplateStatus('✓ Темплејтот е избришан.', 'success');
+        }
+        
+        // SHOW TEMPLATE STATUS MESSAGE
+        function showTemplateStatus(message, type) {
+            const statusDiv = document.getElementById('templateStatus');
+            statusDiv.textContent = message;
+            statusDiv.style.display = 'block';
+            
+            // Color based on type
+            if (type === 'success') {
+                statusDiv.style.background = '#d4edda';
+                statusDiv.style.color = '#155724';
+                statusDiv.style.border = '1px solid #c3e6cb';
+            } else if (type === 'warning') {
+                statusDiv.style.background = '#fff3cd';
+                statusDiv.style.color = '#856404';
+                statusDiv.style.border = '1px solid #ffeaa7';
+            } else if (type === 'error') {
+                statusDiv.style.background = '#f8d7da';
+                statusDiv.style.color = '#721c24';
+                statusDiv.style.border = '1px solid #f5c6cb';
+            }
+            
+            // Auto-hide after 5 seconds
+            setTimeout(() => {
+                statusDiv.style.display = 'none';
+            }, 5000);
+        }
+    </script>
+</body>
+</html>
