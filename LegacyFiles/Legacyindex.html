@@ -51,180 +51,143 @@
       transition: background 0.3s, color 0.3s;
     }
 
-        /* --- TOP NAVIGATION --- */
+    /* --- TOP NAVIGATION --- */
     .top-nav {
-      background: linear-gradient(180deg, #3c4ea3 0%, #2d377c 100%);
-      border-bottom: 1px solid rgba(255,255,255,0.12);
-      padding: 12px 18px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 10px 20px;
       display: flex;
       align-items: center;
-      gap: 10px;
+      gap: 8px;
       position: sticky;
       top: 0;
       z-index: 100;
-      box-shadow: 0 6px 18px rgba(0,0,0,0.18);
+      box-shadow: var(--shadow-sm);
     }
-
-    .nav-title {
-      font-size: 20px;
-      font-weight: 900;
-      letter-spacing: 0.6px;
-      text-transform: uppercase;
-      margin-right: auto;
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      color: #fff;
-      text-shadow: 0 2px 0 rgba(0,0,0,0.25);
-    }
-
-    .nav-title span { font-weight: 800; }
 
     .nav-btn {
-      height: 40px;
-      min-width: 52px;
-      padding: 0 14px;
-      border: 1px solid rgba(255,255,255,0.18);
-      background: linear-gradient(180deg, rgba(255,255,255,0.12), rgba(0,0,0,0.10));
-      color: #fff;
+      width: 36px;
+      height: 36px;
+      border: 1px solid var(--border);
+      background: var(--surface-light);
+      color: var(--text);
+      border-radius: var(--radius-sm);
       cursor: pointer;
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 16px;
-      transition: transform 0.15s, background 0.15s, border-color 0.15s;
-      clip-path: polygon(12px 0, 100% 0, calc(100% - 12px) 100%, 0 100%);
+      font-size: 15px;
+      transition: all 0.2s;
     }
 
     .nav-btn:hover { 
-      transform: translateY(-1px);
-      background: linear-gradient(180deg, rgba(255,255,255,0.22), rgba(0,0,0,0.06));
-      border-color: rgba(255,255,255,0.28);
+      background: var(--accent); 
+      color: white; 
+      border-color: var(--accent);
     }
 
-    .nav-btn.danger:hover { 
-      background: linear-gradient(180deg, rgba(239, 68, 68, 0.35), rgba(0,0,0,0.05)); 
-      border-color: rgba(239, 68, 68, 0.55); 
-    }
-    .nav-btn.success:hover { 
-      background: linear-gradient(180deg, rgba(16, 185, 129, 0.35), rgba(0,0,0,0.05)); 
-      border-color: rgba(16, 185, 129, 0.55); 
-    }
+    .nav-btn.danger:hover { background: var(--danger); border-color: var(--danger); }
+    .nav-btn.success:hover { background: var(--success); border-color: var(--success); }
 
-    .nav-separator { width: 1px; height: 26px; background: rgba(255,255,255,0.18); margin: 0 4px; }
+    .nav-separator { width: 1px; height: 24px; background: var(--border); margin: 0 6px; }
+
+    .nav-title {
+      font-size: 18px;
+      font-weight: 700;
+      margin-right: auto;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
 
     .nav-stats {
       display: flex;
       gap: 12px;
       font-size: 12px;
-      color: rgba(255,255,255,0.8);
+      color: var(--text-secondary);
     }
 
     .lang-btn {
-      height: 40px;
-      padding: 0 14px;
-      background: linear-gradient(180deg, rgba(255,255,255,0.10), rgba(0,0,0,0.10));
-      color: #fff;
-      border: 1px solid rgba(255,255,255,0.18);
-      border-radius: 999px;
-      font-size: 12px;
-      font-weight: 900;
-      letter-spacing: 0.6px;
+      padding: 5px 10px;
+      background: var(--accent-light);
+      color: var(--accent);
+      border: 1px solid var(--accent);
+      border-radius: 15px;
+      font-size: 11px;
+      font-weight: 700;
       cursor: pointer;
-      transition: transform 0.15s, background 0.15s, border-color 0.15s;
     }
 
-    .lang-btn:hover { 
-      transform: translateY(-1px);
-      background: linear-gradient(180deg, rgba(255,255,255,0.18), rgba(0,0,0,0.06)); 
-      border-color: rgba(255,255,255,0.28); 
-    }
+    .lang-btn:hover { background: var(--accent); color: white; }
 
     /* --- TABS --- */
     .tabs-container {
-      background: linear-gradient(180deg, rgba(0,0,0,0.10), rgba(0,0,0,0.18)), #2a2f60;
-      border-bottom: 1px solid rgba(0,0,0,0.15);
-      padding: 8px 18px 0;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 0 20px;
       display: flex;
-      align-items: flex-end;
-      gap: 6px;
+      align-items: center;
+      gap: 4px;
       overflow-x: auto;
-      box-shadow: inset 0 -1px 0 rgba(255,255,255,0.06);
     }
 
-    .tabs-container::-webkit-scrollbar { height: 6px; }
-    .tabs-container::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.18); border-radius: 999px; }
+    .tabs-container::-webkit-scrollbar { height: 3px; }
+    .tabs-container::-webkit-scrollbar-thumb { background: var(--accent); border-radius: 3px; }
 
     .tab {
-      height: 44px;
-      padding: 0 26px;
-      background: linear-gradient(180deg, rgba(255,255,255,0.08), rgba(0,0,0,0.12));
-      border: 1px solid rgba(255,255,255,0.14);
-      border-bottom: none;
-      color: rgba(255,255,255,0.78);
+      padding: 12px 18px;
+      background: none;
+      border: none;
+      color: var(--text-secondary);
       font-size: 13px;
-      font-weight: 900;
-      letter-spacing: 0.7px;
-      text-transform: uppercase;
+      font-weight: 600;
       cursor: pointer;
+      border-bottom: 3px solid transparent;
+      transition: all 0.2s;
       white-space: nowrap;
       display: flex;
       align-items: center;
-      gap: 10px;
-      transition: transform 0.12s, background 0.15s, color 0.15s;
-      clip-path: polygon(14px 0, 100% 0, calc(100% - 14px) 100%, 0 100%);
-      margin-bottom: -1px;
+      gap: 6px;
     }
 
-    .tab:hover { 
-      transform: translateY(-1px);
-      color: #fff; 
-      background: linear-gradient(180deg, rgba(255,255,255,0.14), rgba(0,0,0,0.08)); 
-    }
-    .tab.active { 
-      color: #fff; 
-      background: linear-gradient(180deg, #5568ff 0%, #2a49ff 100%); 
-      border-color: rgba(255,255,255,0.18);
-      box-shadow: 0 -2px 0 rgba(255,255,255,0.20) inset;
-    }
+    .tab:hover { color: var(--text); background: var(--surface-light); }
+    .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
 
     .tab .tab-count {
-      background: rgba(0,0,0,0.22);
-      padding: 3px 9px;
-      border-radius: 999px;
-      font-size: 11px;
-      font-weight: 900;
-      letter-spacing: 0.2px;
-      border: 1px solid rgba(255,255,255,0.10);
+      background: var(--surface-light);
+      padding: 2px 6px;
+      border-radius: 10px;
+      font-size: 10px;
     }
 
-    .tab.active .tab-count { background: rgba(255,255,255,0.18); border-color: rgba(255,255,255,0.18); }
+    .tab.active .tab-count { background: var(--accent-light); }
 
-    .tab-close { margin-left: 2px; opacity: 0; font-size: 13px; transition: opacity 0.2s; }
-    .tab:hover .tab-close { opacity: 0.65; }
-    .tab-close:hover { opacity: 1; color: #ffb4b4; }
+    .tab-close {
+      margin-left: 4px;
+      opacity: 0;
+      font-size: 12px;
+      transition: opacity 0.2s;
+    }
+
+    .tab:hover .tab-close { opacity: 0.6; }
+    .tab-close:hover { opacity: 1; color: var(--danger); }
 
     .add-tab-btn {
-      height: 40px;
-      padding: 0 18px;
-      background: linear-gradient(180deg, rgba(255,255,255,0.06), rgba(0,0,0,0.12));
-      border: 1px dashed rgba(255,255,255,0.22);
-      color: rgba(255,255,255,0.80);
-      border-radius: 10px;
+      padding: 8px 12px;
+      background: none;
+      border: 1px dashed var(--border);
+      color: var(--text-secondary);
+      border-radius: var(--radius-sm);
       font-size: 12px;
-      font-weight: 900;
-      letter-spacing: 0.6px;
       cursor: pointer;
-      margin-left: 10px;
-      transition: transform 0.12s, background 0.15s, border-color 0.15s;
-      text-transform: uppercase;
+      margin-left: 8px;
+      transition: all 0.2s;
     }
 
     .add-tab-btn:hover {
-      transform: translateY(-1px);
-      border-color: rgba(255,255,255,0.36);
-      background: linear-gradient(180deg, rgba(255,255,255,0.12), rgba(0,0,0,0.08));
-      color: #fff;
+      border-color: var(--accent);
+      color: var(--accent);
+      background: var(--accent-light);
     }
 
     /* --- SEARCH --- */
@@ -621,7 +584,7 @@
     @media (max-width: 600px) {
       .nav-title span { display: none; }
       .nav-stats { display: none; }
-      .tab { height: 40px; padding: 0 18px; font-size: 12px; }
+      .tab { padding: 10px 14px; font-size: 12px; }
     }
   </style>
 </head>
@@ -635,7 +598,6 @@
     <button class="nav-btn" onclick="exportData()" title="Извези">📤</button>
     <div class="nav-separator"></div>
     <button class="nav-btn success" onclick="scanGitHub()" title="Sync GitHub">🔄</button>
-    <button class="nav-btn" onclick="setScanFolder()" title="Папка за GitHub scan">📁</button>
     <button class="nav-btn danger" onclick="openCleanModal()" title="Чист излез">🚪</button>
     <div class="nav-separator"></div>
     <button class="lang-btn" id="langBtn" onclick="toggleLang()">EN</button>
@@ -769,12 +731,8 @@
       theme: 'dark',
       lang: 'mk',
       repoUrl: 'Assisstant/MTB',
-      activeTab: 'all',
-      scanPath: null
+      activeTab: 'all'
     };
-
-    // Backfill new settings for older stored states
-    if (!('scanPath' in state)) state.scanPath = null;
 
     let editingAppId = null;
     let editingTabId = null;
@@ -1088,83 +1046,32 @@
       save();
     };
 
-        // GitHub scan folder override
-    window.setScanFolder = () => {
-      const current = (state.scanPath === null || state.scanPath === undefined)
-        ? 'AUTO'
-        : (state.scanPath || 'root');
-
-      const v = prompt('📁 Папка за скенирање (AUTO / празно = root):', current);
-      if (v === null) return;
-
-      const val = v.trim();
-      if (!val) {
-        state.scanPath = '';
-      } else if (val.toUpperCase() === 'AUTO') {
-        state.scanPath = null; // automatic from URL
-      } else {
-        state.scanPath = val.replace(/^\/+|\/+$/g, '');
-      }
-      save();
-      showToast(`📁 Папка: ${state.scanPath === null ? 'AUTO' : (state.scanPath || 'root')}`);
-    };
-
-    // GitHub scan (folder where this index.html lives)
+    // GitHub scan
     window.scanGitHub = async () => {
-      const repo = prompt('📂 GitHub repo (owner/repo):', state.repoUrl || 'Assisstant/MTB');
+      const repo = prompt('📂 GitHub repo:', state.repoUrl || 'Assisstant/MTB');
       if (!repo) return;
-      state.repoUrl = repo.trim();
+      state.repoUrl = repo;
 
-      const getAutoScanPath = () => {
-        // Heuristic:
-        // - GitHub Pages "project site": URL starts with /<repo>/ but files live in repo root -> scanPath = ''
-        // - Monorepo folder site: URL starts with /<folder>/ and repo name is different -> scanPath = <folder>
-        const repoName = (state.repoUrl.split('/')[1] || '').toLowerCase();
-        const firstSegment = (location.pathname.split('/').filter(Boolean)[0] || '').toLowerCase();
-        if (firstSegment && repoName && firstSegment !== repoName) return firstSegment;
-        return '';
-      };
-
-      const contentPath = (state.scanPath === null || state.scanPath === undefined)
-        ? getAutoScanPath()
-        : String(state.scanPath).trim().replace(/^\/+|\/+$/g, '');
-
-      showToast(`🔄 Скенирање (${contentPath || 'root'})...`);
-
+      showToast('🔄 Скенирање...');
       try {
-        // Root of selected folder only (no recursion)
-        const apiUrl = contentPath
-          ? `https://api.github.com/repos/${state.repoUrl}/contents/${encodeURIComponent(contentPath)}`
-          : `https://api.github.com/repos/${state.repoUrl}/contents/`;
-
-        const res = await fetch(apiUrl);
+        const res = await fetch(`https://api.github.com/repos/${repo}/contents`);
         if (!res.ok) throw new Error('Not found');
-
         const files = await res.json();
-        if (!Array.isArray(files)) throw new Error('Unexpected response');
 
-        // Avoid adding the page you're currently viewing (and the usual indexes)
-        const currentFile = (location.pathname.split('/').pop() || 'index.html').toLowerCase();
-        const ignore = new Set(['index.html', 'iiindex.html', currentFile]);
-
-        const htmlFiles = files.filter(f =>
-          f &&
-          f.type === 'file' &&
-          typeof f.name === 'string' &&
-          f.name.toLowerCase().endsWith('.html') &&
-          !ignore.has(f.name.toLowerCase())
+        const htmlFiles = files.filter(f => 
+          f.name.endsWith('.html') && 
+          f.type === 'file' && 
+          !['index.html', 'iiindex.html'].includes(f.name.toLowerCase())
         );
 
         let added = 0;
         htmlFiles.forEach(file => {
-          const relUrl = file.name; // same folder as this index.html
-          if (state.apps.some(a => a.url === relUrl)) return;
-
+          if (state.apps.some(a => a.url === file.name)) return;
           const map = FILE_MAPPINGS[file.name] || {};
           state.apps.push({
-            id: 'gh_' + (file.sha ? file.sha.slice(0, 8) : (Date.now() + '_' + Math.random().toString(16).slice(2, 6))),
-            name: map.name || file.name.replace(/\.html$/i, '').replace(/[-_]/g, ' '),
-            url: relUrl,
+            id: 'gh_' + file.sha.slice(0, 8),
+            name: map.name || file.name.replace('.html', '').replace(/[-_]/g, ' '),
+            url: file.name,
             icon: map.icon || '📄',
             favorite: false,
             tabs: []
@@ -1175,7 +1082,7 @@
         save();
         showToast(`✅ Додадени ${added} апликации`);
       } catch (e) {
-        showToast('❌ Грешка: ' + (e?.message || e), 'error');
+        showToast('❌ Грешка: ' + e.message, 'error');
       }
     };
 
