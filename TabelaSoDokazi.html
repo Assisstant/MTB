@@ -1028,14 +1028,14 @@
         /* Attachment List (default: Tiles M) */
         .att-list {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-            gap: 12px;
+            grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+            gap: 8px;
         }
 
         /* Tiles: S / M / L (Explorer-like sizes) */
-        .att-list[data-view="tiles"][data-size="s"] { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
-        .att-list[data-view="tiles"][data-size="m"] { grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); }
-        .att-list[data-view="tiles"][data-size="l"] { grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); }
+        .att-list[data-view="tiles"][data-size="s"] { grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); }
+        .att-list[data-view="tiles"][data-size="m"] { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); }
+        .att-list[data-view="tiles"][data-size="l"] { grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); }
 
         .att-list[data-view="tiles"][data-size="s"] .thumb-box { padding-top: 40%; }
         .att-list[data-view="tiles"][data-size="s"] .thumb-icon-wrap { font-size: 28px; }
@@ -1055,11 +1055,11 @@
         }
 
         .att-list[data-view="list"] .thumb-box {
-            width: 84px;
-            height: 63px;
+            width: 64px;
+            height: 48px;
             padding-top: 0;
             flex: 0 0 auto;
-            border-radius: 12px;
+            border-radius: 8px;
         }
 
         .att-list[data-view="list"] .thumb-content {
@@ -1116,29 +1116,31 @@
         /* Storage Badge */
         .storage-badge {
             position: absolute;
-            top: 8px;
-            right: 8px;
+            top: 4px;
+            right: 4px;
             z-index: 5;
-            padding: 3px 8px;
-            border-radius: 12px;
-            font-size: 10px;
-            font-weight: 600;
+            padding: 1px 5px;
+            border-radius: 4px;
+            font-size: 8px;
+            font-weight: 700;
             color: white;
             text-transform: uppercase;
+            letter-spacing: 0.5px;
+            line-height: 1.4;
         }
 
         .storage-badge.local {
-            background: var(--success);
+            background: rgba(34,197,94,0.85);
         }
 
         .storage-badge.cloud {
-            background: var(--gdrive);
+            background: rgba(66,133,244,0.85);
         }
 
         .thumb-box {
             position: relative;
             width: 100%;
-            padding-top: 56.25%;
+            padding-top: 45%;
             background: #1a1a2e;
             overflow: hidden;
             cursor: pointer;
@@ -1271,30 +1273,30 @@
         }
 
         .att-info {
-            padding: 10px 12px;
+            padding: 6px 8px;
             background: var(--bg);
         }
 
         .att-name {
-            font-size: 12px;
+            font-size: 11px;
             font-weight: 600;
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
-            margin-bottom: 6px;
+            margin-bottom: 3px;
         }
 
         .att-desc {
             width: 100%;
-            padding: 8px;
-            margin-top: 6px;
+            padding: 5px 6px;
+            margin-top: 3px;
             border: 1px solid var(--border);
-            border-radius: 6px;
+            border-radius: 4px;
             background: var(--bg2);
             color: var(--text);
-            font-size: 11px;
-            min-height: 40px;
-            max-height: 80px;
+            font-size: 10px;
+            min-height: 28px;
+            max-height: 60px;
             overflow-y: auto;
             scrollbar-width: thin;
             font-family: inherit;
@@ -1334,28 +1336,29 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-top: 6px;
+            margin-top: 4px;
         }
 
         .att-size {
-            font-size: 10px;
+            font-size: 9px;
             color: var(--muted);
         }
 
         .att-btns {
             display: flex;
-            gap: 4px;
+            gap: 3px;
         }
 
         .att-btns button {
-            padding: 4px 8px;
-            font-size: 11px;
-            border-radius: 6px;
+            padding: 3px 6px;
+            font-size: 10px;
+            border-radius: 4px;
             border: none;
-            background: var(--bg2);
+            background: var(--bg);
             color: var(--text);
             cursor: pointer;
-            transition: all 0.2s;
+            transition: all 0.15s;
+            line-height: 1.2;
         }
 
         .att-btns button:hover {
@@ -1365,6 +1368,16 @@
 
         .att-btns button.del:hover {
             background: var(--danger);
+        }
+
+        .att-btns button.drive-up {
+            background: #4285f4;
+            color: white;
+            font-weight: 600;
+        }
+
+        .att-btns button.drive-up:hover {
+            background: #1a73e8;
         }
 
         .empty {
@@ -1572,11 +1585,11 @@
         /* Discreet paperclip button */
         .att-toggle {
             position: absolute;
-            top: 6px;
-            right: 6px;
-            width: 22px;
-            height: 22px;
-            border-radius: 8px;
+            top: 4px;
+            right: 4px;
+            width: 18px;
+            height: 18px;
+            border-radius: 6px;
             border: 1px solid transparent;
             background: transparent;
             color: var(--muted);
@@ -1585,15 +1598,16 @@
             align-items: center;
             justify-content: center;
             user-select: none;
-            opacity: 0.55;
+            opacity: 0.4;
             transition: opacity 120ms ease, background 120ms ease, border-color 120ms ease, color 120ms ease;
             z-index: 30;
+            font-size: 11px;
         }
 
         .att-cell:hover .att-toggle,
         .att-cell.att-open .att-toggle,
         .att-cell:focus-within .att-toggle {
-            opacity: 0.95;
+            opacity: 0.9;
         }
 
         .att-toggle:hover {
@@ -1604,8 +1618,8 @@
 
         
         /* Toggle icon parts (paperclip + lock when pinned/open) */
-        .att-toggle-clip { line-height: 1; }
-        .att-toggle-lock { display: none; margin-left: 2px; font-size: 12px; line-height: 1; }
+        .att-toggle-clip { line-height: 1; font-size: 11px; }
+        .att-toggle-lock { display: none; margin-left: 1px; font-size: 8px; line-height: 1; }
 
         .att-cell.att-open .att-toggle-lock { display: inline; }
 
@@ -1615,11 +1629,11 @@
             background: var(--primary);
             border-color: var(--primary);
             color: #fff;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.12);
+            box-shadow: 0 1px 4px rgba(0,0,0,0.1);
         }
 
         .att-cell.att-open .att-toggle:hover {
-            filter: brightness(1.03);
+            filter: brightness(1.05);
         }
 /* Overlay add-attachments bar (appears upward over the text box area) */
         .att-cell .att-bar {
@@ -3663,7 +3677,7 @@
                     var item = document.createElement("div");
                     item.className = "att-item";
                     var thumbHtml = "", name = att.name || att.title || "File", size = att.size ? fmtSize(att.size) : "";
-                    var storageBadge = att.storage === "cloud" ? '<span class="storage-badge cloud">☁️</span>' : (att.data ? '<span class="storage-badge local">📎</span>' : '');
+                    var storageBadge = att.storage === "cloud" ? '<span class="storage-badge cloud">cloud</span>' : (att.data ? '<span class="storage-badge local">local</span>' : '');
 
                     if (att.kind === "youtube") {
                         var thumb = "https://i.ytimg.com/vi/" + att.vid + "/hqdefault.jpg";
@@ -3713,20 +3727,20 @@
                         name = att.title || "PDF";
                     } else if (att.kind === "localvideo") {
                         // Local video via relative path (portable USB)
-                        thumbHtml = '<span class="storage-badge local">📁</span><div class="thumb-box"><div class="thumb-content"><div class="thumb-icon-wrap video">🎬<span class="thumb-icon-text">VIDEO</span></div></div><div class="thumb-hover"><span class="thumb-hover-text">' + esc(t("clickToOpen")) + '</span></div></div>';
+                        thumbHtml = '<span class="storage-badge local">path</span><div class="thumb-box"><div class="thumb-content"><div class="thumb-icon-wrap video">🎬<span class="thumb-icon-text">VIDEO</span></div></div><div class="thumb-hover"><span class="thumb-hover-text">' + esc(t("clickToOpen")) + '</span></div></div>';
                         name = att.title || att.name || "Video";
                     } else if (att.kind === "localpdf") {
                         // Local PDF via relative path (portable USB)
-                        thumbHtml = '<span class="storage-badge local">📁</span><div class="thumb-box"><div class="thumb-content"><div class="thumb-icon-wrap pdf">📄<span class="thumb-icon-text">PDF</span></div></div><div class="thumb-hover"><span class="thumb-hover-text">' + esc(t("clickToOpen")) + '</span></div></div>';
+                        thumbHtml = '<span class="storage-badge local">path</span><div class="thumb-box"><div class="thumb-content"><div class="thumb-icon-wrap pdf">📄<span class="thumb-icon-text">PDF</span></div></div><div class="thumb-hover"><span class="thumb-hover-text">' + esc(t("clickToOpen")) + '</span></div></div>';
                         name = att.title || att.name || "PDF";
                     } else if (att.kind === "localfolder") {
                         // Local Folder Path
-                        thumbHtml = '<span class="storage-badge local">📂</span><div class="thumb-box"><div class="thumb-content"><div class="thumb-icon-wrap file">📂<span class="thumb-icon-text">DIR</span></div></div><div class="thumb-hover"><span class="thumb-hover-text">' + esc(t("clickToOpen")) + '</span></div></div>';
+                        thumbHtml = '<span class="storage-badge local">dir</span><div class="thumb-box"><div class="thumb-content"><div class="thumb-icon-wrap file">📂<span class="thumb-icon-text">DIR</span></div></div><div class="thumb-hover"><span class="thumb-hover-text">' + esc(t("clickToOpen")) + '</span></div></div>';
                         name = att.name || "Folder";
                     } else if (att.kind === "localfile") {
                         // Local file via relative path (portable USB)
                         var localExt = fileExt(att.name).toUpperCase() || "FILE";
-                        thumbHtml = '<span class="storage-badge local">📁</span><div class="thumb-box"><div class="thumb-content"><div class="thumb-icon-wrap file">📁<span class="thumb-icon-text">' + esc(localExt) + '</span></div></div><div class="thumb-hover"><span class="thumb-hover-text">' + esc(t("clickToOpen")) + '</span></div></div>';
+                        thumbHtml = '<span class="storage-badge local">path</span><div class="thumb-box"><div class="thumb-content"><div class="thumb-icon-wrap file">📁<span class="thumb-icon-text">' + esc(localExt) + '</span></div></div><div class="thumb-hover"><span class="thumb-hover-text">' + esc(t("clickToOpen")) + '</span></div></div>';
                         name = att.title || att.name || "File";
                     } else if (att.kind === "link") {
                         if (isImgUrl(att.url)) {
@@ -3744,11 +3758,12 @@
                         '<div class="att-name" title="' + esc(name) + '">' + esc(name) + '</div>' +
                         '<div class="att-desc editable" contenteditable="true" data-placeholder="' + esc(t("descPlaceholder")) + '"></div>' +
                         '<div class="att-meta">' +
-                        '<span class="att-size">' + size + (att.storage === "cloud" ? " ☁️" : "") + '</span>' +
+                        '<span class="att-size">' + size + '</span>' +
                         '<div class="att-btns">' +
-                        (att.data ? '<button class="dl">⬇</button>' : '') +
-                        (att.url ? '<button class="open">↗</button>' : '') +
-                        '<button class="del">✕</button>' +
+                        '<button class="drive-up" title="↑ Google Drive">↑</button>' +
+                        (att.data ? '<button class="dl" title="Преземи">⬇</button>' : '') +
+                        (att.url ? '<button class="open" title="Отвори">↗</button>' : '') +
+                        '<button class="del" title="Избриши">✕</button>' +
                         '</div></div>' +
                         (att.url ? '<a class="print-link" href="' + esc(att.url) + '" target="_blank">' + esc(att.url) + '</a>' : '') +
                         (att.path ? '<a class="print-link" href="' + esc(att.path) + '" target="_blank">' + esc(att.path) + '</a>' : '') +
@@ -3807,6 +3822,31 @@
                             }
                         });
                     }
+
+                    // Drive upload button
+                    var driveB = item.querySelector(".drive-up");
+                    if (driveB) driveB.addEventListener("click", function (e) {
+                        e.stopPropagation();
+                        // If file has base64 data, download it first with correct name
+                        if (att.data) {
+                            var a = document.createElement("a");
+                            a.href = att.data;
+                            a.download = att.name || "file";
+                            document.body.appendChild(a);
+                            a.click();
+                            document.body.removeChild(a);
+                        }
+                        // Open Google Drive after short delay
+                        setTimeout(function () {
+                            window.open("https://drive.google.com/drive/my-drive", "_blank");
+                        }, att.data ? 600 : 0);
+                        // Toast
+                        var toast = document.createElement("div");
+                        toast.style.cssText = "position:fixed;bottom:16px;left:50%;transform:translateX(-50%);background:#333;color:white;padding:10px 18px;border-radius:8px;z-index:99999;font-size:12px;max-width:360px;text-align:center;box-shadow:0 4px 16px rgba(0,0,0,0.25);";
+                        toast.innerHTML = (att.data ? "⬇ <strong>" + (att.name||"file") + "</strong> преземен → " : "") + "↑ Drive се отвора";
+                        document.body.appendChild(toast);
+                        setTimeout(function () { toast.remove(); }, 4000);
+                    });
 
                     // Download button
                     var dlB = item.querySelector(".dl");
