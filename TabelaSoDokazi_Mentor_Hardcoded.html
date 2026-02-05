@@ -1,0 +1,2339 @@
+<!DOCTYPE html>
+<html lang="mk">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>Табела со докази - Стручен соработник ментор</title>
+    <style>
+        :root {
+            --bg: #f5f5f5;
+            --bg2: #ffffff;
+            --text: #333333;
+            --muted: #666666;
+            --border: #d2d2d7;
+            --primary: #1877f2;
+            --primary-lt: #e7f3ff;
+            --danger: #ff4444;
+            --success: #22c55e;
+            --gdrive: #4285f4;
+            --cloud: #34a853;
+        }
+
+        .dark {
+            --bg: #1a1a2e;
+            --bg2: #16213e;
+            --text: #f5f5f7;
+            --muted: #98989d;
+            --border: #3a3a5a;
+            --primary: #4dabf7;
+            --primary-lt: #1e3a5f;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        html,
+        body {
+            background: var(--bg);
+            color: var(--text);
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+        }
+
+        body {
+            padding: 20px;
+            min-height: 100vh;
+        }
+
+        /* Format Bar */
+        .format-bar {
+            display: none;
+            position: absolute;
+            background: var(--bg2);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 6px;
+            gap: 4px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            z-index: 100;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        .format-bar.visible {
+            display: flex;
+        }
+
+        .format-bar button {
+            width: 32px;
+            height: 32px;
+            border: none;
+            border-radius: 6px;
+            background: var(--bg);
+            color: var(--text);
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: bold;
+        }
+
+        .format-bar button:hover {
+            background: var(--primary);
+            color: white;
+        }
+
+        .format-bar select {
+            padding: 6px;
+            border-radius: 6px;
+            border: 1px solid var(--border);
+            background: var(--bg);
+            color: var(--text);
+        }
+
+        .editable {
+            background: transparent;
+            border: 2px dashed transparent;
+            border-radius: 8px;
+            padding: 10px 14px;
+            color: var(--text);
+            font-family: inherit;
+            min-height: 40px;
+            max-height: 72px;
+            overflow-y: auto;
+            transition: all 0.2s;
+            outline: none;
+        }
+
+        .cell-text {
+            min-height: auto !important;
+            max-height: none !important;
+            overflow: visible !important;
+        }
+
+        .empty {
+            display: none !important;
+        }
+
+        .att-desc {
+            max-height: none !important;
+            overflow: visible !important;
+        }
+
+        .att-desc[contenteditable="true"]:empty:before {
+            content: "" !important;
+        }
+
+        .att-list.clamp2 {
+            max-height: none !important;
+            height: auto !important;
+            overflow: visible !important;
+        }
+
+        .editable:hover {
+            border-color: var(--border);
+            background: var(--bg2);
+        }
+
+        .editable:focus {
+            border-color: var(--primary);
+            background: var(--bg2);
+            border-style: solid;
+        }
+
+        div.editable {
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+
+        .main-title {
+            font-size: 2rem;
+            font-weight: bold;
+            min-height: 50px;
+            margin-bottom: 8px;
+            text-align: center;
+            display: block;
+            width: 100%;
+        }
+
+        .subtitle {
+            font-size: 1rem;
+            color: var(--muted);
+            min-height: 30px;
+            margin-bottom: 20px;
+            text-align: center;
+            display: block;
+            width: 100%;
+        }
+
+        .controls {
+            display: flex;
+            position: relative;
+            gap: 12px;
+            flex-wrap: wrap;
+            align-items: center;
+            margin-bottom: 20px;
+            padding: 16px;
+            background: var(--bg2);
+            border-radius: 12px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .btn {
+            padding: 10px 18px;
+            border-radius: 100px;
+            border: none;
+            background: var(--bg2);
+            color: var(--text);
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.3s;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+        }
+
+        .btn-primary {
+            background: var(--primary);
+            color: white;
+        }
+
+        .btn-success {
+            background: var(--success);
+            color: white;
+        }
+
+        .btn-danger {
+            background: var(--danger);
+            color: white;
+        }
+
+        .btn-gdrive {
+            background: var(--gdrive);
+            color: white;
+        }
+
+        .btn-icon {
+            padding: 10px 14px;
+        }
+
+        .btn-icon.active,
+        .btn-icon.locked {
+            background: var(--primary);
+            color: white;
+        }
+
+        .toggle-group {
+            display: flex;
+            background: var(--bg);
+            border-radius: 100px;
+            padding: 4px;
+        }
+
+        .toggle-btn {
+            padding: 8px 14px;
+            border: none;
+            border-radius: 100px;
+            background: transparent;
+            color: var(--text);
+            cursor: pointer;
+            font-size: 13px;
+            transition: all 0.3s;
+        }
+
+        .toggle-btn.active {
+            background: var(--primary);
+            color: white;
+        }
+
+        .spacer {
+            flex-grow: 1;
+        }
+
+        /* Tabs */
+        .tabs-bar {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        .tab {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 10px 16px;
+            background: var(--bg2);
+            border-radius: 12px 12px 0 0;
+            cursor: pointer;
+            transition: all 0.3s;
+            border: 1px solid var(--border);
+            border-bottom: none;
+        }
+
+        .tab.active {
+            background: var(--primary);
+            color: white;
+        }
+
+        .tab input {
+            background: transparent;
+            border: none;
+            color: inherit;
+            width: 100px;
+            font-size: 14px;
+            outline: none;
+        }
+
+        .tab .close-btn {
+            background: none;
+            border: none;
+            color: inherit;
+            cursor: pointer;
+            font-size: 16px;
+            opacity: 0.7;
+        }
+
+        .tab .close-btn:hover {
+            opacity: 1;
+        }
+
+        .add-tab {
+            padding: 10px 16px;
+            background: var(--success);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        /* Table */
+        .table-wrap {
+            overflow-x: auto;
+            margin-bottom: 20px;
+            background: var(--bg2);
+            border-radius: 12px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th,
+        td {
+            border: 1px solid var(--border);
+            padding: 12px;
+            vertical-align: top;
+        }
+
+        th {
+            background: var(--bg);
+            font-weight: 600;
+        }
+
+        .col-idx {
+            width: 60px;
+            text-align: center;
+        }
+
+        .col-sm {
+            width: 25%;
+        }
+
+        .col-lg {
+            width: 50%;
+        }
+
+        .page {
+            display: none;
+        }
+
+        .page.active {
+            display: block;
+        }
+
+        /* Section Divider */
+        .section-divider {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 15px 20px;
+            font-weight: bold;
+            font-size: 1.1rem;
+            margin: 25px 0 15px 0;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .section-divider .editable {
+            color: white;
+            padding: 5px 10px;
+        }
+
+        .sec-head {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .sec-badge {
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 8px;
+            padding: 4px 8px;
+        }
+
+        .sec-no {
+            background: transparent;
+            border: none;
+            color: white;
+            width: 40px;
+            font-size: 14px;
+            font-weight: bold;
+            text-align: center;
+        }
+
+        .section-controls {
+            display: flex;
+            justify-content: flex-end;
+            gap: 8px;
+            margin-top: 8px;
+        }
+
+        .section-controls .btn {
+            padding: 6px 12px;
+            font-size: 12px;
+        }
+
+        /* Row controls */
+        .row-num-wrap {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .row-num {
+            background: transparent;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            width: 50px;
+            text-align: center;
+            padding: 4px;
+            font-size: 13px;
+            color: var(--text);
+        }
+
+        .row-arrows {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+
+        .row-arrows button {
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            width: 24px;
+            height: 20px;
+            cursor: pointer;
+            font-size: 10px;
+            color: var(--text);
+        }
+
+        .row-arrows button:hover {
+            background: var(--primary);
+            color: white;
+        }
+
+        /* Cell text */
+        .cell-text {
+            min-height: 60px;
+            padding: 8px;
+            border: 1px dashed transparent;
+            border-radius: 6px;
+            transition: all 0.2s;
+        }
+
+        .cell-text:hover {
+            border-color: var(--border);
+            background: var(--bg);
+        }
+
+        .cell-text:focus {
+            border-color: var(--primary);
+            border-style: solid;
+            background: var(--bg);
+            outline: none;
+        }
+
+        /* Attachments */
+        .att-cell {
+            padding: 12px;
+        }
+
+        .att-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            min-height: 80px;
+        }
+
+        .att-list[data-view="list"] {
+            flex-direction: column;
+        }
+
+        .att-list[data-view="tiles"][data-size="s"] .att-item {
+            width: 100px;
+        }
+
+        .att-list[data-view="tiles"][data-size="m"] .att-item {
+            width: 140px;
+        }
+
+        .att-list[data-view="tiles"][data-size="l"] .att-item {
+            width: 180px;
+        }
+
+        .att-list[data-view="list"] .att-item {
+            width: 100%;
+            flex-direction: row;
+            align-items: center;
+        }
+
+        .att-item {
+            background: var(--bg);
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            transition: all 0.3s;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+        }
+
+        .att-item:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
+        }
+
+        .thumb-box {
+            width: 100%;
+            padding-top: 75%;
+            position: relative;
+            background: var(--bg2);
+            cursor: pointer;
+        }
+
+        .att-list[data-view="list"] .thumb-box {
+            width: 60px;
+            height: 45px;
+            padding-top: 0;
+            flex-shrink: 0;
+        }
+
+        .thumb-content {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .thumb-content img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .thumb-icon-wrap {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 32px;
+            color: white;
+        }
+
+        .thumb-icon-wrap.pdf {
+            background: #e53935;
+        }
+
+        .thumb-icon-wrap.video {
+            background: #7b1fa2;
+        }
+
+        .thumb-icon-wrap.doc {
+            background: #1976d2;
+        }
+
+        .thumb-icon-wrap.xls {
+            background: #2e7d32;
+        }
+
+        .thumb-icon-wrap.ppt {
+            background: #d84315;
+        }
+
+        .thumb-icon-wrap.link {
+            background: #1877f2;
+        }
+
+        .thumb-icon-wrap.file {
+            background: #546e7a;
+        }
+
+        .thumb-icon-wrap.gdrive {
+            background: #4285f4;
+        }
+
+        .thumb-icon-wrap.folder {
+            background: #ffa000;
+        }
+
+        .thumb-hover {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+
+        .thumb-box:hover .thumb-hover {
+            opacity: 1;
+        }
+
+        .thumb-hover span {
+            color: white;
+            font-size: 12px;
+            text-align: center;
+            padding: 8px;
+        }
+
+        .yt-play {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 50px;
+            height: 35px;
+            background: red;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .yt-play::after {
+            content: "";
+            border-left: 15px solid white;
+            border-top: 10px solid transparent;
+            border-bottom: 10px solid transparent;
+        }
+
+        .storage-badge {
+            position: absolute;
+            top: 6px;
+            right: 6px;
+            background: rgba(0, 0, 0, 0.6);
+            color: white;
+            font-size: 10px;
+            padding: 3px 6px;
+            border-radius: 4px;
+        }
+
+        .att-info {
+            padding: 10px;
+            background: var(--bg2);
+        }
+
+        .att-list[data-view="list"] .att-info {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .att-name {
+            font-size: 12px;
+            font-weight: 500;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            margin-bottom: 4px;
+        }
+
+        .att-list[data-view="list"] .att-name {
+            margin-bottom: 0;
+            min-width: 150px;
+        }
+
+        .att-desc {
+            font-size: 11px;
+            color: var(--muted);
+            border: 1px dashed transparent;
+            border-radius: 4px;
+            padding: 4px;
+            min-height: 30px;
+            max-height: 60px;
+            overflow-y: auto;
+        }
+
+        .att-desc:hover {
+            border-color: var(--border);
+        }
+
+        .att-desc:focus {
+            border-color: var(--primary);
+            border-style: solid;
+            outline: none;
+        }
+
+        .att-desc:empty:before {
+            content: attr(data-placeholder);
+            color: var(--muted);
+            opacity: 0.6;
+        }
+
+        .att-list[data-view="list"] .att-desc {
+            flex: 1;
+            min-height: 20px;
+            max-height: none;
+        }
+
+        .att-meta {
+            font-size: 10px;
+            color: var(--muted);
+            margin-top: 4px;
+        }
+
+        .att-btns {
+            display: flex;
+            gap: 4px;
+            margin-top: 6px;
+        }
+
+        .att-list[data-view="list"] .att-btns {
+            margin-top: 0;
+        }
+
+        .att-btns button {
+            padding: 4px 8px;
+            font-size: 11px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            background: var(--bg);
+            color: var(--text);
+        }
+
+        .att-btns button:hover {
+            background: var(--primary);
+            color: white;
+        }
+
+        .att-btns .del-btn:hover {
+            background: var(--danger);
+        }
+
+        /* Add attachment area */
+        .add-att-area {
+            margin-top: 12px;
+            padding-top: 12px;
+            border-top: 1px dashed var(--border);
+        }
+
+        .smart-input-wrap {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 8px;
+        }
+
+        .smart-input {
+            flex: 1;
+            padding: 10px 14px;
+            border: 2px solid var(--border);
+            border-radius: 8px;
+            background: var(--bg);
+            color: var(--text);
+            font-size: 13px;
+        }
+
+        .smart-input:focus {
+            border-color: var(--primary);
+            outline: none;
+        }
+
+        .att-buttons {
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+        }
+
+        .att-buttons button {
+            padding: 8px 12px;
+            font-size: 12px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            background: var(--bg);
+            color: var(--text);
+            transition: all 0.2s;
+        }
+
+        .att-buttons button:hover {
+            background: var(--primary);
+            color: white;
+        }
+
+        .empty-att {
+            color: var(--muted);
+            font-size: 13px;
+            padding: 20px;
+            text-align: center;
+            background: var(--bg);
+            border-radius: 8px;
+            border: 2px dashed var(--border);
+        }
+
+        /* Modal */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.7);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal.active {
+            display: flex;
+        }
+
+        .modal-box {
+            background: var(--bg2);
+            border-radius: 16px;
+            width: 800px;
+            height: 500px;
+            max-width: 95vw;
+            max-height: 90vh;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        }
+
+        .modal-head {
+            display: flex;
+            align-items: center;
+            padding: 16px 20px;
+            border-bottom: 1px solid var(--border);
+            gap: 12px;
+            cursor: move;
+        }
+
+        .modal-title {
+            flex: 1;
+            font-weight: 600;
+            font-size: 16px;
+        }
+
+        .modal-size-btn {
+            padding: 6px 10px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            background: var(--bg);
+            color: var(--text);
+            cursor: pointer;
+            font-size: 12px;
+        }
+
+        .modal-size-btn.active {
+            background: var(--primary);
+            color: white;
+            border-color: var(--primary);
+        }
+
+        .modal-link {
+            color: var(--primary);
+            text-decoration: none;
+            font-size: 13px;
+        }
+
+        .modal-close {
+            width: 32px;
+            height: 32px;
+            border: none;
+            border-radius: 50%;
+            background: var(--bg);
+            color: var(--text);
+            font-size: 20px;
+            cursor: pointer;
+        }
+
+        .modal-close:hover {
+            background: var(--danger);
+            color: white;
+        }
+
+        .modal-body {
+            flex: 1;
+            overflow: auto;
+            padding: 0;
+        }
+
+        .modal-body iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+        }
+
+        .modal-body video {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            background: black;
+        }
+
+        .modal-body img {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+        }
+
+        /* Help panel */
+        .gdrive-help {
+            position: fixed;
+            top: 100px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--bg2);
+            padding: 20px;
+            border-radius: 16px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+            z-index: 500;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+
+        .close-help {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: var(--text);
+        }
+
+        /* Attachment view popover */
+        .att-view-pop {
+            display: none;
+            position: absolute;
+            top: 100%;
+            left: 0;
+            background: var(--bg2);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 12px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+            z-index: 200;
+            min-width: 200px;
+        }
+
+        .att-view-pop.open {
+            display: block;
+        }
+
+        .att-view-pop .row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 10px;
+        }
+
+        .att-view-pop .lbl {
+            font-size: 12px;
+            color: var(--muted);
+            min-width: 60px;
+        }
+
+        .av-btn,
+        .pv-btn {
+            padding: 6px 10px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            background: var(--bg);
+            color: var(--text);
+            cursor: pointer;
+            font-size: 12px;
+        }
+
+        .av-btn.active,
+        .pv-btn.active {
+            background: var(--primary);
+            color: white;
+            border-color: var(--primary);
+        }
+
+        /* Row add/delete buttons */
+        .row-actions {
+            display: flex;
+            gap: 8px;
+            justify-content: center;
+            margin-top: 8px;
+        }
+
+        /* Print Link */
+        .print-link {
+            display: none;
+        }
+
+        /* Print Styles */
+        @media print {
+            body {
+                padding: 0;
+                background: white !important;
+                color: black !important;
+            }
+
+            .controls,
+            .tabs-bar,
+            .add-tab,
+            .row-arrows,
+            .att-btns,
+            .add-att-area,
+            .modal,
+            .format-bar,
+            .gdrive-help,
+            .att-view-pop,
+            .section-controls,
+            .btn,
+            #helpBtn,
+            #uiLockBtn,
+            #toggleOrderBtn,
+            #attViewBtn {
+                display: none !important;
+            }
+
+            .page {
+                display: block !important;
+            }
+
+            .page:not(.printing) {
+                display: none !important;
+            }
+
+            .table-wrap {
+                box-shadow: none;
+                border: 1px solid #ccc;
+            }
+
+            .editable {
+                border: none !important;
+                padding: 5px !important;
+            }
+
+            td,
+            th {
+                padding: 8px !important;
+                border: 1px solid #999 !important;
+            }
+
+            th {
+                background: #e0e0e0 !important;
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+            }
+
+            .section-divider {
+                background: #667eea !important;
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+                margin-top: 30px !important;
+            }
+
+            .att-item {
+                page-break-inside: avoid;
+            }
+
+            .print-link {
+                display: block !important;
+                font-size: 10px !important;
+                color: #0000EE !important;
+                word-break: break-all;
+                margin-top: 5px;
+            }
+        }
+
+        /* UI Lock */
+        .ui-locked .row-arrows,
+        .ui-locked .section-controls,
+        .ui-locked .att-btns .del-btn,
+        .ui-locked .add-att-area {
+            display: none !important;
+        }
+    </style>
+</head>
+
+<body>
+    <!-- Help Panel -->
+    <div class="gdrive-help" id="gdriveHelp" style="display:none; max-width:600px;">
+        <button class="close-help" onclick="this.parentElement.style.display='none'">×</button>
+        <h4 style="margin-bottom:15px; border-bottom:1px solid var(--border); padding-bottom:10px;">❓ Упатство за
+            користење</h4>
+        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:20px;">
+            <div>
+                <h5 style="color:var(--primary); margin-bottom:8px;">📎 Додавање Прилози</h5>
+                <p><strong>1. Smart Input поле:</strong></p>
+                <ul style="padding-left:20px; font-size:13px; margin-bottom:10px; color:var(--text);">
+                    <li><strong>Линкови:</strong> Залепи URL (YouTube, Drive, Web) и притисни Enter.</li>
+                    <li><strong>Фолдери:</strong> Залепи патека (пр. <code>documents/</code>) за линк до фолдер.</li>
+                    <li><strong>Локални видеа:</strong> Залепи патека (пр. <code>videos/video.mp4</code>).</li>
+                </ul>
+            </div>
+            <div>
+                <h5 style="color:var(--gdrive); margin-bottom:8px;">☁️ Google Drive</h5>
+                <p><strong>Како да споделиш фајл:</strong></p>
+                <ol style="padding-left:20px; font-size:13px; color:var(--text);">
+                    <li>Десен клик на фајлот во Drive</li>
+                    <li>Одбери <strong>"Share"</strong> → <strong>"Copy Link"</strong></li>
+                    <li>Провери дали е <strong>"Anyone with the link"</strong></li>
+                    <li>Залепи го линкот во Smart полето</li>
+                </ol>
+            </div>
+        </div>
+    </div>
+
+    <!-- Format Bar -->
+    <div class="format-bar" id="formatBar">
+        <button onclick="formatText('bold')" title="Bold"><b>B</b></button>
+        <button onclick="formatText('italic')" title="Italic"><i>I</i></button>
+        <button onclick="formatText('underline')" title="Underline"><u>U</u></button>
+        <select onchange="formatBlock(this.value); this.selectedIndex=0;">
+            <option value="">Стил</option>
+            <option value="h1">H1</option>
+            <option value="h2">H2</option>
+            <option value="h3">H3</option>
+            <option value="p">Параграф</option>
+        </select>
+        <select onchange="changeFontSize(this.value); this.selectedIndex=0;">
+            <option value="">Големина</option>
+            <option value="1">Мала</option>
+            <option value="3">Нормална</option>
+            <option value="5">Голема</option>
+            <option value="7">Огромна</option>
+        </select>
+        <input type="color" onchange="changeColor(this.value)" title="Боја"
+            style="width:32px;height:32px;border:none;cursor:pointer;">
+    </div>
+
+    <div contenteditable="true" class="editable main-title" id="mainTitle">Табела со докази</div>
+    <div contenteditable="true" class="editable subtitle" id="subtitle">Оценка за исполнетоста на професионалните стандарди за стручен соработник - ментор</div>
+
+    <div class="controls">
+        <div class="toggle-group">
+            <button class="toggle-btn active" data-lang="mk">MK</button>
+            <button class="toggle-btn" data-lang="en">EN</button>
+        </div>
+        <div class="toggle-group">
+            <button class="toggle-btn active" data-theme="light">☀️</button>
+            <button class="toggle-btn" data-theme="dark">🌙</button>
+        </div>
+        <button class="btn btn-primary" id="helpBtn">❓ Помош</button>
+        <button class="btn btn-icon" id="uiLockBtn" title="Заклучи/Отклучи">🔓</button>
+        <button class="btn btn-icon" id="toggleOrderBtn" title="Нумерација">№</button>
+        <button class="btn btn-icon" id="attViewBtn" title="Приказ на прилози">▦</button>
+        <div class="spacer"></div>
+        <button class="btn btn-success" id="printBtn">🖨️ Печати</button>
+        <button class="btn" id="exportHtmlBtn">📄 HTML</button>
+        <button class="btn" id="exportJsonBtn">💾 JSON</button>
+        <button class="btn" id="importJsonBtn">📂 Внеси</button>
+        <input type="file" id="importFile" accept=".json" hidden>
+    </div>
+
+    <div class="att-view-pop" id="attViewPop" aria-hidden="true">
+        <div class="row">
+            <span class="lbl">Прилози</span>
+            <button type="button" class="av-btn" data-view="tiles" data-size="s" title="Tiles S">S</button>
+            <button type="button" class="av-btn" data-view="tiles" data-size="m" title="Tiles M">M</button>
+            <button type="button" class="av-btn" data-view="tiles" data-size="l" title="Tiles L">L</button>
+            <button type="button" class="av-btn" data-view="list" title="List">≡</button>
+        </div>
+        <div class="row">
+            <span class="lbl">Печатење</span>
+            <button type="button" class="pv-btn" data-print="full" title="Full">Целосно</button>
+            <button type="button" class="pv-btn" data-print="compact" title="Compact">Компакт</button>
+            <button type="button" class="pv-btn" data-print="text" title="Text">Текст</button>
+        </div>
+    </div>
+
+    <div class="tabs-bar" id="tabs"></div>
+    <div id="pages"></div>
+
+    <!-- Modal -->
+    <div class="modal" id="modal">
+        <div class="modal-box" id="modalBox">
+            <div class="modal-head" id="modalHead">
+                <span class="modal-title" id="modalTitle">Preview</span>
+                <button class="modal-size-btn" data-w="800" data-h="500">M</button>
+                <button class="modal-size-btn" data-w="1200" data-h="700">L</button>
+                <button class="modal-size-btn" data-w="full" data-h="full">⛶</button>
+                <a class="modal-link" id="modalLink" href="#" target="_blank">Отвори</a>
+                <button class="modal-close" id="modalClose">×</button>
+            </div>
+            <div class="modal-body" id="modalBody"></div>
+        </div>
+    </div>
+
+    <script type="application/json" id="embeddedState"></script>
+
+    <script>
+        (function () {
+            var LANG = {
+                mk: {
+                    addPage: "+ Страница", addRow: "+ Ред",
+                    col1: "Докази", col2: "Компетенција", col3: "ОБЈАСНУВАЊЕ/ОБРАЗЛОЖЕНИЕ",
+                    urlPlaceholder: "Залепи URL, патека или фолдер...",
+                    noAtt: "Нема прилози. Додај фајл, линк или патека.",
+                    confirmDel: "Избриши?", newPage: "Страница",
+                    clickToOpen: "Кликни за преглед",
+                    addMore: "➕ Додај прилози",
+                    addSection: "+ Секција",
+                    descPlaceholder: "Опис..."
+                },
+                en: {
+                    addPage: "+ Page", addRow: "+ Row",
+                    col1: "Evidence", col2: "Competency", col3: "EXPLANATION",
+                    urlPlaceholder: "Paste URL, path or folder...",
+                    noAtt: "No attachments. Add file, link or path.",
+                    confirmDel: "Delete?", newPage: "Page",
+                    clickToOpen: "Click to preview",
+                    addMore: "➕ Add attachments",
+                    addSection: "+ Section",
+                    descPlaceholder: "Description..."
+                }
+            };
+
+            var STORAGE_KEY = "tabela_mentor_v1";
+            
+            // HARDCODED STATE WITH ALL COMPETENCIES
+            var state = {
+                lang: "mk",
+                theme: "light",
+                showOrder: true,
+                uiLocked: false,
+                attView: "tiles",
+                attSize: "m",
+                printAtt: "text",
+                mainTitle: "Табела со докази",
+                subtitle: "Оценка за исполнетоста на професионалните стандарди за стручен соработник - ментор",
+                currentPage: 0,
+                pages: [
+                    {
+                        id: 1,
+                        name: "Страница 1",
+                        cols: ["Докази", "Компетенција", "ОБЈАСНУВАЊЕ/ОБРАЗЛОЖЕНИЕ"],
+                        rows: [
+                            // ============ ПОДРАЧЈЕ 1: РАБОТА СО УЧЕНИЦИ ============
+                            { isSection: true, title: "Подрачје 1: РАБОТА СО УЧЕНИЦИ", secNo: "1" },
+                            
+                            // 1.1. ПОДДРШКА НА УЧЕНИЦИТЕ ВО УЧЕЊЕТО
+                            { isSection: true, title: "1.1. ПОДДРШКА НА УЧЕНИЦИТЕ ВО УЧЕЊЕТО (вкупно 7 бодови)", secNo: "1.1" },
+                            
+                            { col1: "", col2: "Ја проценува подготвеноста на учениците за вклучување и напредување во образовниот систем. (1 бод)", col3: "", atts: [], atts1: [], atts2: [] },
+                            
+                            { col1: "", col2: "Умее да ги идентификува различните образовни потреби на учениците и користи различни пристапи во помагањето на учениците во користење на соодветната стратегија и техника во учењето. (1 бод)", col3: "", atts: [], atts1: [], atts2: [] },
+                            
+                            { col1: "", col2: "Има познавање за користење асистивна технологија при работа со ученици со посебни образовни потреби. (1 бод)", col3: "", atts: [], atts1: [], atts2: [] },
+                            
+                            { col1: "", col2: "Обезбедува сите ученици да имаат еднакви можности за успех користејќи приоди за подобрување на учењето базирани на најновите научни сознанија. (2 бода)", col3: "", atts: [], atts1: [], atts2: [] },
+                            
+                            { col1: "", col2: "Познава различни концепти и модели за развој на инклузивно образование и ги користи за градење на инклузивно училиште. (2 бода)", col3: "", atts: [], atts1: [], atts2: [] },
+                            
+                            // 1.2. СЛЕДЕЊЕ И ПОДДРШКА НА РАЗВОЈОТ НА УЧЕНИЦИТЕ
+                            { isSection: true, title: "1.2. СЛЕДЕЊЕ И ПОДДРШКА НА РАЗВОЈОТ НА УЧЕНИЦИТЕ (вкупно 5 бодови)", secNo: "1.2" },
+                            
+                            { col1: "", col2: "Применува индивидуална и групна форма на работа со учениците прилагодувајќи ги на создадената ситуацијата и видот на проблемот. (2 бода)", col3: "", atts: [], atts1: [], atts2: [] },
+                            
+                            { col1: "", col2: "Идентификува и соодветно реагира на кризни состојби на учениците. (1 бод)", col3: "", atts: [], atts1: [], atts2: [] },
+                            
+                            { col1: "", col2: "Развива стратегија за поддршка на развојот на учениците, прилагодена на специфичните можности, потреби и интереси на ученици и спецификите на самото училиштето. (2 бода)", col3: "", atts: [], atts1: [], atts2: [] },
+                            
+                            // 1.3. КАРИЕРНО СОВЕТУВАЊЕ НА УЧЕНИЦИТЕ
+                            { isSection: true, title: "1.3. КАРИЕРНО СОВЕТУВАЊЕ НА УЧЕНИЦИТЕ (вкупно 4 бодови)", secNo: "1.3" },
+                            
+                            { col1: "", col2: "Избира и користи соодветни методи и инструменти за професионална ориентација и советување за кариерно насочување на ученици. (1 бод)", col3: "", atts: [], atts1: [], atts2: [] },
+                            
+                            { col1: "", col2: "Професионалното и кариерно советување на учениците го базира на утврдените интереси, способности и општествени можности. (1 бод)", col3: "", atts: [], atts1: [], atts2: [] },
+                            
+                            { col1: "", col2: "Го унапредува процесот на професионална ориентација и кариерно насочување во училиштето. (2 бода)", col3: "", atts: [], atts1: [], atts2: [] },
+                            
+                            // ============ ПОДРАЧЈЕ 2: РАБОТА СО НАСТАВНИЦИ ============
+                            { isSection: true, title: "Подрачје 2: РАБОТА СО НАСТАВНИЦИ", secNo: "2" },
+                            
+                            // 2.1. ПОДДРШКА НА НАСТАВНИЦИТЕ ЗА ПЛАНИРАЊЕ И РЕАЛИЗИРАЊЕ
+                            { isSection: true, title: "2.1. ПОДДРШКА НА НАСТАВНИЦИТЕ ЗА ПЛАНИРАЊЕ И РЕАЛИЗИРАЊЕ НА ВОСПИТНО-ОБРАЗОВНИОТ ПРОЦЕС И САМОЕВАЛУАЦИЈАТА (вкупно 6 бодови)", secNo: "2.1" },
+                            
+                            { col1: "", col2: "Дава стручна поддршка во планирање на наставата/изготвување на индивидуален образовен план. (1 бод)", col3: "", atts: [], atts1: [], atts2: [] },
+                            
+                            { col1: "", col2: "Дава насоки на наставниците како да ги користи резултатите од оценувањето за подобрување на планирањето, поучувањето, вреднувањето и учењето. (1 бод)", col3: "", atts: [], atts1: [], atts2: [] },
+                            
+                            { col1: "", col2: "Дава поддршка во спроведување на проектни активности и воннаставни активности со кои се подобрува квалитетот на наставата. (1 бод)", col3: "", atts: [], atts1: [], atts2: [] },
+                            
+                            { col1: "", col2: "Им помага на наставниците да избираат и изготвуваат инструменти за вреднување и самовреднување на постигањата на учениците и соодветно да ги користат или им помага на наставниците при планирањето да водат грижа за социјалните и културните карактеристики на средината и семејствата на учениците. (1 бод)", col3: "", atts: [], atts1: [], atts2: [] },
+                            
+                            { col1: "", col2: "Промовира современи и иновативни приоди во реализацијата на воспитно-образовна работа. (2 бода)", col3: "", atts: [], atts1: [], atts2: [] },
+                            
+                            // 2.2. ПОДДРШКА НА НАСТАВНИЦИТЕ ЗА РАБОТА СО УЧЕНИЦИТЕ И РОДИТЕЛИТЕ
+                            { isSection: true, title: "2.2. ПОДДРШКА НА НАСТАВНИЦИТЕ ЗА РАБОТА СО УЧЕНИЦИТЕ И РОДИТЕЛИТЕ (вкупно 9 бодови)", secNo: "2.2" },
+                            
+                            { col1: "", col2: "Им помага на наставниците во изборот на соодветни методи, активности и содржини за соработка со родителите. (1 бод)", col3: "", atts: [], atts1: [], atts2: [] },
+                            
+                            { col1: "", col2: "Дава поддршка на наставниците за користење на индивидуализација и диференцијација во наставата, во додатната и дополнителната настава и воннаставните активности. (1 бод)", col3: "", atts: [], atts1: [], atts2: [] },
+                            
+                            { col1: "", col2: "Дава помош на наставникот во справување со непочитувањето на правилата за и разрешување на проблеми со однесувањето на учениците. (1 бод)", col3: "", atts: [], atts1: [], atts2: [] },
+                            
+                            { col1: "", col2: "Им помага на наставниците во препознавање и работа со различни ученици според можностите, потребите и интересите. (2 бода)", col3: "", atts: [], atts1: [], atts2: [] },
+                            
+                            { col1: "", col2: "Придонесува за создавање стимулативна и поттикнувачка средина за учениците во училиштето. (2 бода)", col3: "", atts: [], atts1: [], atts2: [] },
+                            
+                            { col1: "", col2: "Создава клима на прифаќање на различностите и конструктивно справување со кризни состојби. (2 бода)", col3: "", atts: [], atts1: [], atts2: [] },
+                            
+                            // ============ ПОДРАЧЈЕ 3: РАБОТА СО РОДИТЕЛИ ============
+                            { isSection: true, title: "Подрачје 3: РАБОТА СО РОДИТЕЛИ", secNo: "3" },
+                            
+                            // 3.1. ИНДИВИДУАЛНИ И ГРУПНИ СОВЕТУВАЊА
+                            { isSection: true, title: "3.1. ИНДИВИДУАЛНИ И ГРУПНИ СОВЕТУВАЊА, КОНСУЛТАЦИИ И ЕДУКАЦИЈА СО РОДИТЕЛИТЕ (вкупно 7 бодови)", secNo: "3.1" },
+                            
+                            { col1: "", col2: "Ги идентификува потенцијалните кризни ситуации во семејствата што го засегаат развојот и учењето на учениците и дава соодветна поддршка на семејството. (1 бод)", col3: "", atts: [], atts1: [], atts2: [] },
+                            
+                            { col1: "", col2: "На родителите на децата со посебни образовни потреби им помага да ја разберат и прифатат состојбата на нивните деца и да им ја дадат потребната помош и поддршка. (1 бод)", col3: "", atts: [], atts1: [], atts2: [] },
+                            
+                            { col1: "", col2: "Им помага на родителите да развијат вештини поквалитетно да го поттикнат развојот и учењето на своето дете почитувајќи ги современите трендови за родителство. (1 бод)", col3: "", atts: [], atts1: [], atts2: [] },
+                            
+                            { col1: "", col2: "Соодветно реагира на конфликтни ситуации на релација родител - училиште. (2 бода)", col3: "", atts: [], atts1: [], atts2: [] },
+                            
+                            { col1: "", col2: "Го подобрува информирањето на родителите од страна на училиштето. (2 бода)", col3: "", atts: [], atts1: [], atts2: [] },
+                            
+                            // 3.2. ВКЛУЧУВАЊЕ НА РОДИТЕЛИТЕ ВО ЖИВОТОТ И РАБОТАТА НА УЧИЛИШТЕТО
+                            { isSection: true, title: "3.2. ВКЛУЧУВАЊЕ НА РОДИТЕЛИТЕ ВО ЖИВОТОТ И РАБОТАТА НА УЧИЛИШТЕТО (вкупно 2 бодови)", secNo: "3.2" },
+                            
+                            { col1: "", col2: "Систематично ја подобрува соработката на училиштето со семејството. (2 бода)", col3: "", atts: [], atts1: [], atts2: [] },
+                            
+                            // ============ ПОДРАЧЈЕ 4: СОРАБОТКА СО ЗАЕДНИЦАТА ============
+                            { isSection: true, title: "Подрачје 4: СОРАБОТКА СО ЗАЕДНИЦАТА", secNo: "4" },
+                            
+                            // 4.1. СОРАБОТКА СО ЛОКАЛНАТА ЗАЕДНИЦА
+                            { isSection: true, title: "4.1. СОРАБОТКА СО ЛОКАЛНАТА ЗАЕДНИЦА И СТРУЧНИТЕ ИНСТИТУЦИИ И ОРГАНИЗАЦИИ (вкупно 3 бодови)", secNo: "4.1" },
+                            
+                            { col1: "", col2: "Придонесува вредностите на културите во заедницата да се рефлектираат во сите аспекти на работата на училиштето. (1 бод)", col3: "", atts: [], atts1: [], atts2: [] },
+                            
+                            { col1: "", col2: "Иницира и развива партнерска соработка со заедницата за прашања релевантни за образованието во заедницата. (2 бода)", col3: "", atts: [], atts1: [], atts2: [] },
+                            
+                            // ============ ПОДРАЧЈЕ 5: ПРОФЕСИОНАЛЕН РАЗВОЈ ============
+                            { isSection: true, title: "Подрачје 5: ПРОФЕСИОНАЛЕН РАЗВОЈ И ПРОФЕСИОНАЛНА СОРАБОТКА", secNo: "5" },
+                            
+                            // 5.1. ЛИЧЕН ПРОФЕСИОНАЛЕН РАЗВОЈ
+                            { isSection: true, title: "5.1. ЛИЧЕН ПРОФЕСИОНАЛЕН РАЗВОЈ (вкупно 6 бодови)", secNo: "5.1" },
+                            
+                            { col1: "", col2: "Соработува со стручните соработници и со професионални здруженија во и надвор од училиштето. (1 бод)", col3: "", atts: [], atts1: [], atts2: [] },
+                            
+                            { col1: "", col2: "Ги идентификува потребите за личен професионален развој користејќи ги стандардите и резултатите од саморефлексија на сопствената работа. (1 бод)", col3: "", atts: [], atts1: [], atts2: [] },
+                            
+                            { col1: "", col2: "Стекнатите знаења преку стручно усовршување (формалното, неформалното и информалното образование и учење) ги користи за унапредување на сопствената пракса. (2 бода)", col3: "", atts: [], atts1: [], atts2: [] },
+                            
+                            { col1: "", col2: "Изготвува инструменти за рефлексија и самоевалуација и ги споделува искуствата од сопствениот професионален развој и професионална практика. (2 бода)", col3: "", atts: [], atts1: [], atts2: [] },
+                            
+                            // 5.2. ПОДДРШКА НА ПРОФЕСИОНАЛНИОТ РАЗВОЈ И СОРАБОТКАТА ВО УЧИЛИШТЕТО
+                            { isSection: true, title: "5.2. ПОДДРШКА НА ПРОФЕСИОНАЛНИОТ РАЗВОЈ И СОРАБОТКАТА ВО УЧИЛИШТЕТО (вкупно 6 бодови)", secNo: "5.2" },
+                            
+                            { col1: "", col2: "Планирањето на професионалниот развој го поврзува со потребните компетенции на наставниците и стручните соработници и промовира доживотно учење. (2 бода)", col3: "", atts: [], atts1: [], atts2: [] },
+                            
+                            { col1: "", col2: "Придонесува за професионалниот развој на воспитно-образовниот кадар во училиштето преку реализирање разни форми на обуки и поддршка. (2 бода)", col3: "", atts: [], atts1: [], atts2: [] },
+                            
+                            { col1: "", col2: "Воспоставува систем на професионален развој на воспитно-образовниот кадар во училиштето. (2 бода)", col3: "", atts: [], atts1: [], atts2: [] },
+                            
+                            // ============ ПОДРАЧЈЕ 6: АНАЛИТИЧКО ИСТРАЖУВАЧКА РАБОТА ============
+                            { isSection: true, title: "Подрачје 6: АНАЛИТИЧКО ИСТРАЖУВАЧКА РАБОТА", secNo: "6" },
+                            
+                            // 6.1. АНАЛИЗА И ПРОЦЕНКА НА ВОСПИТНО ОБРАЗОВНАТА РАБОТА
+                            { isSection: true, title: "6.1. АНАЛИЗА И ПРОЦЕНКА НА ВОСПИТНО ОБРАЗОВНАТА РАБОТА (вкупно 4 бодови)", secNo: "6.1" },
+                            
+                            { col1: "", col2: "Поврзува, обработува и анализира различни податоци за воспитно образовната работа и извлекува заклучоци од анализите. (1 бод)", col3: "", atts: [], atts1: [], atts2: [] },
+                            
+                            { col1: "", col2: "Придонесува да се воспостави систем за редовни анализи на одделни воспитно-образовни прашања во училиштето. (1 бод)", col3: "", atts: [], atts1: [], atts2: [] },
+                            
+                            { col1: "", col2: "Ги интерпретира резултатите од анализите и известува за нив. (1 бод)", col3: "", atts: [], atts1: [], atts2: [] },
+                            
+                            { col1: "", col2: "Се залага резултатите од анализите да се користат за унапредување воспитно-образовниот процес. (1 бод)", col3: "", atts: [], atts1: [], atts2: [] },
+                            
+                            // 6.2. ИСТРАЖУВАЊЕ НА ВОСПИТНО-ОБРАЗОВНАТА РАБОТА
+                            { isSection: true, title: "6.2. ИСТРАЖУВАЊЕ НА ВОСПИТНО-ОБРАЗОВНАТА РАБОТА (вкупно 4 бодови)", secNo: "6.2" },
+                            
+                            { col1: "", col2: "Ги почитува методолошките стандарди при избор и изработка на мерни инструменти и правилата за користење на истите. (1 бод)", col3: "", atts: [], atts1: [], atts2: [] },
+                            
+                            { col1: "", col2: "Спроведува истражувања/акциски истражувања на прашања актуелни за училиштето, процесот на учење и за учениците. (1 бод)", col3: "", atts: [], atts1: [], atts2: [] },
+                            
+                            { col1: "", col2: "Ги користи резултатите од истражувањата во сопствената практика. (2 бода)", col3: "", atts: [], atts1: [], atts2: [] },
+                            
+                            // ============ ПОДРАЧЈЕ 7: УЧИЛИШНА ОРГАНИЗАЦИЈА, СТРУКТУРА И КЛИМА ============
+                            { isSection: true, title: "Подрачје 7: УЧИЛИШНА ОРГАНИЗАЦИЈА, СТРУКТУРА И КЛИМА", secNo: "7" },
+                            
+                            // 7.1. УЧИЛИШНА СТРУКТУРА И ОРГАНИЗАЦИЈА
+                            { isSection: true, title: "7.1. УЧИЛИШНА СТРУКТУРА И ОРГАНИЗАЦИЈА (вкупно 6 бодови)", secNo: "7.1" },
+                            
+                            { col1: "", col2: "Го следи воспитно-образовниот процес и предлага мерки за унапредување. (1 бод)", col3: "", atts: [], atts1: [], atts2: [] },
+                            
+                            { col1: "", col2: "Користи инструменти за следење и ги интерпретира добиените сознанија за следениот час; развива стратегии за подобрување на наставата; или учествува во процесот на опфаќање на училишните обврзници и формирање на паралелките. (1 бод)", col3: "", atts: [], atts1: [], atts2: [] },
+                            
+                            { col1: "", col2: "Ги следи и анализира промените во образованието и ги користи при градење на образовни политики во училиштето. (2 бода)", col3: "", atts: [], atts1: [], atts2: [] },
+                            
+                            { col1: "", col2: "Резултатите од евалуацијата на работата на училиштето ги користи за подигање на квалитетот на воспитно-образовниот процес. (2 бода)", col3: "", atts: [], atts1: [], atts2: [] },
+                            
+                            // 7.2. УЧИЛИШНА КЛИМА, БЕЗБЕДНА СРЕДИНА И ДЕМОКРАТСКО УЧЕСТВО
+                            { isSection: true, title: "7.2. УЧИЛИШНА КЛИМА, БЕЗБЕДНА СРЕДИНА И ДЕМОКРАТСКО УЧЕСТВО (вкупно 11 бодови)", secNo: "7.2" },
+                            
+                            { col1: "", col2: "Придонесува за инклузивната клима во училиштето. (1 бод)", col3: "", atts: [], atts1: [], atts2: [] },
+                            
+                            { col1: "", col2: "Развива стратегии за мултикултурализам, интеркултурализам и меѓуетничка интеграција и соработка и демократско учество на учениците во училиштето. (2 бода)", col3: "", atts: [], atts1: [], atts2: [] },
+                            
+                            { col1: "", col2: "Ги идентификува можните закани по безбедноста кои се специфични за училиштето и за конкретната популација во училиштето. (1 бод)", col3: "", atts: [], atts1: [], atts2: [] },
+                            
+                            { col1: "", col2: "Создава позитивна и недискриминаторска училишна клима и комуникација. (2 бода)", col3: "", atts: [], atts1: [], atts2: [] },
+                            
+                            { col1: "", col2: "Практикува различни начини за справување со кризни ситуации во училиштето или се грижи за вклученоста на учениците со девијантно однесување во активностите во и надвор од училиштето, или работи на обезбедување целосен опфат на учениците од семејства со социјален ризик или се грижи за соодветна вклученоста на учениците со посебни образовни потреби во активностите на ученичките заедници. (1 бод)", col3: "", atts: [], atts1: [], atts2: [] },
+                            
+                            { col1: "", col2: "Развива стратегии за создавање безбедна и стимулативна средина за учење. (2 бода)", col3: "", atts: [], atts1: [], atts2: [] },
+                            
+                            { col1: "", col2: "Го осмислува процесот на кризна интервенција во училиштето. (2 бода)", col3: "", atts: [], atts1: [], atts2: [] }
+                        ]
+                    }
+                ]
+            };
+
+            function $(s) { return document.querySelector(s); }
+            function $$(s) { return document.querySelectorAll(s); }
+            function t(k) { return LANG[state.lang][k] || k; }
+            function esc(s) { var d = document.createElement("div"); d.textContent = s || ""; return d.innerHTML; }
+
+            // Format bar functions
+            window.formatText = function (cmd) { document.execCommand(cmd, false, null); };
+            window.formatBlock = function (tag) { if (tag) document.execCommand('formatBlock', false, '<' + tag + '>'); };
+            window.changeFontSize = function (size) { if (size) document.execCommand('fontSize', false, size); };
+            window.changeColor = function (color) { document.execCommand('foreColor', false, color); };
+
+            function showFormatBar(el) {
+                var bar = $("#formatBar");
+                var rect = el.getBoundingClientRect();
+                bar.style.top = (rect.top + window.scrollY - 50) + "px";
+                bar.style.left = rect.left + "px";
+                bar.classList.add("visible");
+            }
+
+            document.addEventListener("click", function (e) {
+                if (!e.target.closest(".editable") && !e.target.closest(".format-bar")) {
+                    $("#formatBar").classList.remove("visible");
+                }
+            });
+
+            // Normalize
+            function normalizeRow(row) {
+                if (!row || row.isSection) return;
+                if (row.col1 === undefined) row.col1 = "";
+                if (row.col2 === undefined) row.col2 = "";
+                if (row.col3 === undefined) row.col3 = "";
+                if (!Array.isArray(row.atts)) row.atts = [];
+                if (!Array.isArray(row.atts1)) row.atts1 = [];
+                if (!Array.isArray(row.atts2)) row.atts2 = [];
+            }
+
+            function normalizeState() {
+                if (state.showOrder === undefined) state.showOrder = true;
+                if (!state.attView) state.attView = "tiles";
+                if (!state.attSize) state.attSize = "m";
+                if (!state.printAtt) state.printAtt = "text";
+                if (!state.pages) state.pages = [];
+                state.pages.forEach(function (p) {
+                    if (!p.rows) p.rows = [];
+                    p.rows.forEach(function (r) { normalizeRow(r); });
+                });
+            }
+
+            function load() {
+                var fromEmbed = false;
+                var emb = $("#embeddedState");
+                if (emb && emb.textContent.trim()) {
+                    try {
+                        var d = JSON.parse(emb.textContent);
+                        if (d.pages) { state = d; emb.textContent = ""; fromEmbed = true; }
+                    } catch (e) { }
+                }
+                if (!fromEmbed) {
+                    try {
+                        var r = localStorage.getItem(STORAGE_KEY);
+                        if (r) {
+                            var p = JSON.parse(r);
+                            for (var k in p) if (p.hasOwnProperty(k)) state[k] = p[k];
+                        }
+                    } catch (e) { }
+                }
+                normalizeState();
+                if (fromEmbed) save();
+            }
+
+            function save() {
+                state.mainTitle = $("#mainTitle").innerHTML;
+                state.subtitle = $("#subtitle").innerHTML;
+                try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch (e) { }
+            }
+
+            // Modal
+            function openModal(title, html, extUrl) {
+                $("#modalTitle").textContent = title;
+                $("#modalBody").innerHTML = html;
+                var link = $("#modalLink");
+                if (extUrl) { link.href = extUrl; link.style.display = "inline"; }
+                else { link.style.display = "none"; }
+                setModalSize(800, 500);
+                $$(".modal-size-btn").forEach(function (b) { b.classList.toggle("active", b.dataset.w === "800"); });
+                $("#modal").classList.add("active");
+                document.body.style.overflow = "hidden";
+            }
+
+            function closeModal() {
+                $("#modal").classList.remove("active");
+                document.body.style.overflow = "";
+                setTimeout(function () { $("#modalBody").innerHTML = ""; }, 200);
+            }
+
+            function setModalSize(w, h) {
+                var box = $("#modalBox");
+                if (w === "full") {
+                    box.style.width = (window.innerWidth - 40) + "px";
+                    box.style.height = (window.innerHeight - 40) + "px";
+                } else {
+                    box.style.width = w + "px";
+                    box.style.height = h + "px";
+                }
+            }
+
+            // Render
+            function applyAttViewAll() {
+                document.body.setAttribute("data-print-att", state.printAtt || "compact");
+                $$(".att-list").forEach(function (c) {
+                    c.dataset.view = state.attView || "tiles";
+                    c.dataset.size = state.attSize || "m";
+                });
+            }
+
+            function render() {
+                document.body.classList.toggle("dark", state.theme === "dark");
+                document.body.classList.toggle("ui-locked", !!state.uiLocked);
+                var lb = $("#uiLockBtn");
+                if (lb) {
+                    lb.textContent = state.uiLocked ? "🔒" : "🔓";
+                    lb.classList.toggle("locked", !!state.uiLocked);
+                }
+                $$("[data-theme]").forEach(function (b) { b.classList.toggle("active", b.dataset.theme === state.theme); });
+                $$("[data-lang]").forEach(function (b) { b.classList.toggle("active", b.dataset.lang === state.lang); });
+                var ob = $("#toggleOrderBtn");
+                if (ob) ob.classList.toggle("active", !!state.showOrder);
+                renderTabs();
+                renderPages();
+                applyAttViewAll();
+            }
+
+            function renderTabs() {
+                var c = $("#tabs"); c.innerHTML = "";
+                state.pages.forEach(function (p, i) {
+                    var tab = document.createElement("div");
+                    tab.className = "tab" + (i === state.currentPage ? " active" : "");
+                    var inp = document.createElement("input");
+                    inp.type = "text"; inp.value = p.name;
+                    inp.addEventListener("input", function () { state.pages[i].name = inp.value; save(); });
+                    inp.addEventListener("click", function (e) { e.stopPropagation(); });
+                    tab.appendChild(inp);
+                    if (state.pages.length > 1) {
+                        var cb = document.createElement("button"); cb.className = "close-btn"; cb.textContent = "×";
+                        cb.addEventListener("click", function (e) {
+                            e.stopPropagation();
+                            if (confirm(t("confirmDel"))) {
+                                state.pages.splice(i, 1);
+                                if (state.currentPage >= state.pages.length) state.currentPage = state.pages.length - 1;
+                                save(); render();
+                            }
+                        });
+                        tab.appendChild(cb);
+                    }
+                    tab.addEventListener("click", function () { state.currentPage = i; save(); render(); });
+                    c.appendChild(tab);
+                });
+                var addB = document.createElement("button");
+                addB.className = "add-tab"; addB.textContent = t("addPage");
+                addB.addEventListener("click", function () {
+                    state.pages.push({
+                        id: Date.now(),
+                        name: t("newPage") + " " + (state.pages.length + 1),
+                        cols: [t("col1"), t("col2"), t("col3")],
+                        rows: []
+                    });
+                    state.currentPage = state.pages.length - 1;
+                    save(); render();
+                });
+                c.appendChild(addB);
+            }
+
+            function renderPages() {
+                var c = $("#pages"); c.innerHTML = "";
+                state.pages.forEach(function (p, pi) {
+                    var div = document.createElement("div");
+                    div.className = "page" + (pi === state.currentPage ? " active" : "");
+                    var container = document.createElement("div");
+                    div.appendChild(container);
+                    if (!p.rows) p.rows = [];
+
+                    var tableRows = [];
+
+                    function flushTable() {
+                        if (tableRows.length === 0) return;
+                        var tw = document.createElement("div"); tw.className = "table-wrap";
+                        var tbl = document.createElement("table");
+
+                        var thead = document.createElement("thead");
+                        var hr = document.createElement("tr");
+
+                        if (state.showOrder) {
+                            var th0 = document.createElement("th");
+                            th0.className = "col-idx";
+                            th0.textContent = "#";
+                            hr.appendChild(th0);
+                        }
+
+                        p.cols.forEach(function (ct, ci) {
+                            var th = document.createElement("th");
+                            th.className = ci < 2 ? "col-sm" : "col-lg";
+                            var ed = document.createElement("div");
+                            ed.className = "editable"; ed.contentEditable = "true"; ed.innerHTML = ct;
+                            ed.addEventListener("focus", function () { showFormatBar(this); });
+                            ed.addEventListener("input", function () { state.pages[pi].cols[ci] = ed.innerHTML; save(); });
+                            th.appendChild(ed); hr.appendChild(th);
+                        });
+                        thead.appendChild(hr); tbl.appendChild(thead);
+
+                        var tbody = document.createElement("tbody");
+                        tableRows.forEach(function (item) {
+                            renderRow(tbody, pi, item.ri, item.rowNum);
+                        });
+                        tbl.appendChild(tbody);
+                        tw.appendChild(tbl);
+                        container.appendChild(tw);
+
+                        tableRows = [];
+                    }
+
+                    var secCounter = 0, rowNum = 0;
+
+                    p.rows.forEach(function (row, ri) {
+                        if (row.isSection) {
+                            flushTable();
+                            secCounter += 1;
+
+                            var secDiv = document.createElement("div");
+                            secDiv.className = "section-divider";
+
+                            var headWrap = document.createElement("div");
+                            headWrap.className = "sec-head";
+
+                            if (state.showOrder) {
+                                var badge = document.createElement("div");
+                                badge.className = "sec-badge";
+                                var secInput = document.createElement("input");
+                                secInput.type = "text";
+                                secInput.className = "sec-no";
+                                secInput.value = row.secNo || String(secCounter);
+                                secInput.addEventListener("input", function () {
+                                    state.pages[pi].rows[ri].secNo = secInput.value.trim() || undefined;
+                                    save();
+                                });
+                                badge.appendChild(secInput);
+                                headWrap.appendChild(badge);
+                            }
+
+                            var secTitle = document.createElement("div");
+                            secTitle.className = "editable";
+                            secTitle.contentEditable = "true";
+                            secTitle.innerHTML = row.title || "Section";
+                            secTitle.addEventListener("focus", function () { showFormatBar(this); });
+                            secTitle.addEventListener("input", function () {
+                                state.pages[pi].rows[ri].title = secTitle.innerHTML;
+                                save();
+                            });
+                            headWrap.appendChild(secTitle);
+                            secDiv.appendChild(headWrap);
+
+                            if (!state.uiLocked) {
+                                var secCtrl = document.createElement("div");
+                                secCtrl.className = "section-controls";
+                                var delSecBtn = document.createElement("button");
+                                delSecBtn.className = "btn btn-danger";
+                                delSecBtn.textContent = "🗑️";
+                                delSecBtn.addEventListener("click", function () {
+                                    if (confirm(t("confirmDel"))) {
+                                        state.pages[pi].rows.splice(ri, 1);
+                                        save(); render();
+                                    }
+                                });
+                                secCtrl.appendChild(delSecBtn);
+                                secDiv.appendChild(secCtrl);
+                            }
+
+                            container.appendChild(secDiv);
+                            rowNum = 0;
+                        } else {
+                            rowNum++;
+                            tableRows.push({ ri: ri, rowNum: rowNum });
+                        }
+                    });
+
+                    flushTable();
+
+                    // Add row/section buttons
+                    if (!state.uiLocked) {
+                        var addBtns = document.createElement("div");
+                        addBtns.style.cssText = "margin-top:15px; display:flex; gap:10px;";
+
+                        var addRowBtn = document.createElement("button");
+                        addRowBtn.className = "btn btn-success";
+                        addRowBtn.textContent = t("addRow");
+                        addRowBtn.addEventListener("click", function () {
+                            state.pages[pi].rows.push({ col1: "", col2: "", col3: "", atts: [], atts1: [], atts2: [] });
+                            save(); render();
+                        });
+
+                        var addSecBtn = document.createElement("button");
+                        addSecBtn.className = "btn btn-primary";
+                        addSecBtn.textContent = t("addSection");
+                        addSecBtn.addEventListener("click", function () {
+                            state.pages[pi].rows.push({ isSection: true, title: "New Section" });
+                            save(); render();
+                        });
+
+                        addBtns.appendChild(addRowBtn);
+                        addBtns.appendChild(addSecBtn);
+                        container.appendChild(addBtns);
+                    }
+
+                    c.appendChild(div);
+                });
+            }
+
+            function renderRow(tbody, pi, ri, rowNum) {
+                var row = state.pages[pi].rows[ri];
+                normalizeRow(row);
+
+                var tr = document.createElement("tr");
+
+                if (state.showOrder) {
+                    var tdNum = document.createElement("td");
+                    tdNum.className = "col-idx";
+                    var numWrap = document.createElement("div");
+                    numWrap.className = "row-num-wrap";
+
+                    var numInput = document.createElement("input");
+                    numInput.type = "text";
+                    numInput.className = "row-num";
+                    numInput.value = row.rowNo || rowNum;
+                    numInput.addEventListener("input", function () {
+                        state.pages[pi].rows[ri].rowNo = numInput.value.trim() || undefined;
+                        save();
+                    });
+                    numWrap.appendChild(numInput);
+
+                    if (!state.uiLocked) {
+                        var arrows = document.createElement("div");
+                        arrows.className = "row-arrows";
+                        var upBtn = document.createElement("button");
+                        upBtn.textContent = "▲";
+                        upBtn.addEventListener("click", function () { moveRow(pi, ri, -1); });
+                        var downBtn = document.createElement("button");
+                        downBtn.textContent = "▼";
+                        downBtn.addEventListener("click", function () { moveRow(pi, ri, 1); });
+                        arrows.appendChild(upBtn);
+                        arrows.appendChild(downBtn);
+                        numWrap.appendChild(arrows);
+                    }
+
+                    tdNum.appendChild(numWrap);
+                    tr.appendChild(tdNum);
+                }
+
+                // Col 1 - Dokazi
+                var td1 = document.createElement("td");
+                td1.className = "att-cell";
+                renderAttCell(td1, pi, ri, "atts");
+                tr.appendChild(td1);
+
+                // Col 2 - Kompetencija
+                var td2 = document.createElement("td");
+                var txt2 = document.createElement("div");
+                txt2.className = "cell-text";
+                txt2.contentEditable = "true";
+                txt2.innerHTML = row.col2 || "";
+                txt2.addEventListener("focus", function () { showFormatBar(this); });
+                txt2.addEventListener("input", function () { state.pages[pi].rows[ri].col2 = txt2.innerHTML; save(); });
+                td2.appendChild(txt2);
+                tr.appendChild(td2);
+
+                // Col 3 - Objasuvanje
+                var td3 = document.createElement("td");
+                td3.className = "att-cell";
+                renderAttCell(td3, pi, ri, "atts2");
+                tr.appendChild(td3);
+
+                // Delete row button
+                if (!state.uiLocked) {
+                    var tdDel = document.createElement("td");
+                    tdDel.style.width = "50px";
+                    tdDel.style.textAlign = "center";
+                    var delBtn = document.createElement("button");
+                    delBtn.className = "btn btn-danger";
+                    delBtn.textContent = "🗑️";
+                    delBtn.style.padding = "6px 10px";
+                    delBtn.addEventListener("click", function () {
+                        if (confirm(t("confirmDel"))) {
+                            state.pages[pi].rows.splice(ri, 1);
+                            save(); render();
+                        }
+                    });
+                    tdDel.appendChild(delBtn);
+                    tr.appendChild(tdDel);
+                }
+
+                tbody.appendChild(tr);
+            }
+
+            function renderAttCell(cell, pi, ri, attsKey) {
+                var atts = state.pages[pi].rows[ri][attsKey] || [];
+
+                var list = document.createElement("div");
+                list.className = "att-list";
+                list.dataset.view = state.attView;
+                list.dataset.size = state.attSize;
+
+                if (atts.length === 0) {
+                    var empty = document.createElement("div");
+                    empty.className = "empty-att";
+                    empty.textContent = t("noAtt");
+                    list.appendChild(empty);
+                } else {
+                    atts.forEach(function (att, ai) {
+                        list.appendChild(renderAttItem(att, pi, ri, ai, attsKey));
+                    });
+                }
+
+                cell.appendChild(list);
+
+                // Add attachment area
+                if (!state.uiLocked) {
+                    var addArea = document.createElement("div");
+                    addArea.className = "add-att-area";
+
+                    var inputWrap = document.createElement("div");
+                    inputWrap.className = "smart-input-wrap";
+
+                    var input = document.createElement("input");
+                    input.type = "text";
+                    input.className = "smart-input";
+                    input.placeholder = t("urlPlaceholder");
+                    input.addEventListener("keydown", function (e) {
+                        if (e.key === "Enter") {
+                            addFromInput(input.value.trim(), pi, ri, attsKey);
+                            input.value = "";
+                        }
+                    });
+                    inputWrap.appendChild(input);
+
+                    var fileInput = document.createElement("input");
+                    fileInput.type = "file";
+                    fileInput.style.display = "none";
+                    fileInput.multiple = true;
+                    fileInput.addEventListener("change", function () {
+                        handleFiles(fileInput.files, pi, ri, attsKey);
+                        fileInput.value = "";
+                    });
+
+                    var btns = document.createElement("div");
+                    btns.className = "att-buttons";
+
+                    var localBtn = document.createElement("button");
+                    localBtn.textContent = "📎 Фајл";
+                    localBtn.addEventListener("click", function () { fileInput.click(); });
+                    btns.appendChild(localBtn);
+
+                    addArea.appendChild(inputWrap);
+                    addArea.appendChild(fileInput);
+                    addArea.appendChild(btns);
+                    cell.appendChild(addArea);
+                }
+            }
+
+            function renderAttItem(att, pi, ri, ai, attsKey) {
+                var item = document.createElement("div");
+                item.className = "att-item";
+
+                var thumb = document.createElement("div");
+                thumb.className = "thumb-box";
+                thumb.addEventListener("click", function () { openAttachment(att); });
+
+                var content = document.createElement("div");
+                content.className = "thumb-content";
+
+                var iconClass = att.kind || "file";
+                if (["image", "youtube", "gdrive-image"].includes(att.kind)) {
+                    var img = document.createElement("img");
+                    img.src = att.thumb || att.url || att.path || "";
+                    img.alt = att.name || "";
+                    content.appendChild(img);
+                } else {
+                    var iconWrap = document.createElement("div");
+                    iconWrap.className = "thumb-icon-wrap " + iconClass;
+                    iconWrap.textContent = getIcon(att.kind);
+                    content.appendChild(iconWrap);
+                }
+
+                var hover = document.createElement("div");
+                hover.className = "thumb-hover";
+                hover.innerHTML = "<span>" + t("clickToOpen") + "</span>";
+                content.appendChild(hover);
+
+                thumb.appendChild(content);
+                item.appendChild(thumb);
+
+                var info = document.createElement("div");
+                info.className = "att-info";
+
+                var name = document.createElement("div");
+                name.className = "att-name";
+                name.textContent = att.name || att.title || "Attachment";
+                name.title = att.name || att.title || "";
+                info.appendChild(name);
+
+                var desc = document.createElement("div");
+                desc.className = "att-desc";
+                desc.contentEditable = "true";
+                desc.dataset.placeholder = t("descPlaceholder");
+                desc.innerHTML = att.description || "";
+                desc.addEventListener("input", function () {
+                    state.pages[pi].rows[ri][attsKey][ai].description = desc.innerHTML;
+                    save();
+                });
+                info.appendChild(desc);
+
+                if (!state.uiLocked) {
+                    var btns = document.createElement("div");
+                    btns.className = "att-btns";
+                    var delBtn = document.createElement("button");
+                    delBtn.className = "del-btn";
+                    delBtn.textContent = "🗑️";
+                    delBtn.addEventListener("click", function () {
+                        state.pages[pi].rows[ri][attsKey].splice(ai, 1);
+                        save(); render();
+                    });
+                    btns.appendChild(delBtn);
+                    info.appendChild(btns);
+                }
+
+                item.appendChild(info);
+
+                // Print link
+                var printLink = document.createElement("a");
+                printLink.className = "print-link";
+                printLink.href = att.url || att.path || "#";
+                printLink.textContent = att.url || att.path || "";
+                item.appendChild(printLink);
+
+                return item;
+            }
+
+            function getIcon(kind) {
+                var icons = {
+                    pdf: "📄", video: "🎬", image: "🖼️", doc: "📝", xls: "📊", ppt: "📽️",
+                    youtube: "▶️", gdrive: "☁️", link: "🔗", file: "📎", folder: "📁",
+                    localvideo: "🎬", localpdf: "📄", localfolder: "📁"
+                };
+                return icons[kind] || "📎";
+            }
+
+            function openAttachment(att) {
+                var kind = att.kind || "file";
+                var url = att.url || att.path || "";
+                var name = att.name || att.title || "Preview";
+
+                if (kind === "youtube") {
+                    var vid = att.videoId || ytId(url);
+                    if (vid) {
+                        openModal(name, '<iframe src="https://www.youtube.com/embed/' + vid + '?autoplay=1" allowfullscreen></iframe>', url);
+                    }
+                } else if (kind === "image" || kind === "gdrive-image") {
+                    openModal(name, '<img src="' + esc(url) + '" style="width:100%;height:100%;object-fit:contain;">', url);
+                } else if (kind === "localvideo" || kind === "video") {
+                    openModal(name, '<video src="' + esc(att.path || url) + '" controls autoplay style="width:100%;height:100%;"></video>', att.path || url);
+                } else if (kind === "pdf" || kind === "localpdf") {
+                    openModal(name, '<iframe src="' + esc(att.path || url) + '"></iframe>', att.path || url);
+                } else if (kind === "gdrive") {
+                    var gid = att.fileId;
+                    if (gid) {
+                        openModal(name, '<iframe src="https://drive.google.com/file/d/' + gid + '/preview"></iframe>', url);
+                    }
+                } else if (url) {
+                    window.open(url, "_blank");
+                }
+            }
+
+            function ytId(url) {
+                try {
+                    var u = new URL(url);
+                    if (u.hostname.indexOf("youtu.be") !== -1) return u.pathname.slice(1).split(/[?#]/)[0];
+                    if (u.hostname.indexOf("youtube.com") !== -1) {
+                        if (u.searchParams.get("v")) return u.searchParams.get("v");
+                        var m = u.pathname.match(/\/(embed|shorts|v)\/([^/?#]+)/);
+                        if (m) return m[2];
+                    }
+                } catch (e) { }
+                return null;
+            }
+
+            function addFromInput(val, pi, ri, attsKey) {
+                if (!val) return;
+                var atts = state.pages[pi].rows[ri][attsKey];
+                if (!atts) { state.pages[pi].rows[ri][attsKey] = []; atts = state.pages[pi].rows[ri][attsKey]; }
+
+                // YouTube
+                var vid = ytId(val);
+                if (vid) {
+                    atts.push({
+                        kind: "youtube", url: val, videoId: vid,
+                        name: "YouTube Video", thumb: "https://img.youtube.com/vi/" + vid + "/mqdefault.jpg",
+                        description: ""
+                    });
+                    save(); render(); return;
+                }
+
+                // Google Drive
+                if (val.includes("drive.google.com") || val.includes("docs.google.com")) {
+                    var match = val.match(/\/d\/([a-zA-Z0-9_-]+)/);
+                    if (match) {
+                        atts.push({
+                            kind: "gdrive", url: val, fileId: match[1],
+                            name: "Google Drive File",
+                            thumb: "https://drive.google.com/thumbnail?id=" + match[1] + "&sz=w400",
+                            description: ""
+                        });
+                        save(); render(); return;
+                    }
+                }
+
+                // Local video path
+                if (/\.(mp4|webm|mov|avi|mkv|m4v|ogv)$/i.test(val) && !val.startsWith("http")) {
+                    var parts = val.replace(/\\/g, "/").split("/");
+                    atts.push({
+                        kind: "localvideo", path: val, name: parts[parts.length - 1],
+                        description: ""
+                    });
+                    save(); render(); return;
+                }
+
+                // Local PDF path
+                if (/\.pdf$/i.test(val) && !val.startsWith("http")) {
+                    var parts = val.replace(/\\/g, "/").split("/");
+                    atts.push({
+                        kind: "localpdf", path: val, name: parts[parts.length - 1],
+                        description: ""
+                    });
+                    save(); render(); return;
+                }
+
+                // Folder
+                if (!val.includes(".") || val.endsWith("/")) {
+                    atts.push({
+                        kind: "localfolder", path: val, name: val,
+                        description: ""
+                    });
+                    save(); render(); return;
+                }
+
+                // Regular URL/link
+                if (val.startsWith("http")) {
+                    atts.push({
+                        kind: "link", url: val, name: val,
+                        description: ""
+                    });
+                    save(); render(); return;
+                }
+
+                // Default - local file path
+                var parts = val.replace(/\\/g, "/").split("/");
+                atts.push({
+                    kind: "localfile", path: val, name: parts[parts.length - 1],
+                    description: ""
+                });
+                save(); render();
+            }
+
+            function handleFiles(files, pi, ri, attsKey) {
+                var atts = state.pages[pi].rows[ri][attsKey];
+                if (!atts) { state.pages[pi].rows[ri][attsKey] = []; atts = state.pages[pi].rows[ri][attsKey]; }
+
+                Array.from(files).forEach(function (f) {
+                    var reader = new FileReader();
+                    var type = f.type || "";
+                    var ext = f.name.split(".").pop().toLowerCase();
+                    var kind = "file";
+
+                    if (type.startsWith("image/")) kind = "image";
+                    else if (type.startsWith("video/")) kind = "video";
+                    else if (type === "application/pdf" || ext === "pdf") kind = "pdf";
+                    else if (["doc", "docx"].includes(ext)) kind = "doc";
+                    else if (["xls", "xlsx"].includes(ext)) kind = "xls";
+                    else if (["ppt", "pptx"].includes(ext)) kind = "ppt";
+
+                    if (kind === "image") {
+                        reader.onload = function () {
+                            atts.push({
+                                kind: "image", name: f.name, url: reader.result, thumb: reader.result,
+                                size: f.size, storage: "local", description: ""
+                            });
+                            save(); render();
+                        };
+                        reader.readAsDataURL(f);
+                    } else {
+                        atts.push({
+                            kind: kind, name: f.name, path: f.name,
+                            size: f.size, storage: "local", description: ""
+                        });
+                        save(); render();
+                    }
+                });
+            }
+
+            function moveRow(pi, ri, dir) {
+                var rows = state.pages[pi].rows;
+                var ni = ri + dir;
+                if (ni < 0 || ni >= rows.length) return;
+                var temp = rows[ri];
+                rows[ri] = rows[ni];
+                rows[ni] = temp;
+                save(); render();
+            }
+
+            // Export/Import
+            function exportJson() {
+                save();
+                var b = new Blob([JSON.stringify(state, null, 2)], { type: "application/json" });
+                dl(b, "tabela_mentor.json");
+            }
+
+            function exportHtml() {
+                save();
+                var h = document.documentElement.outerHTML;
+                var s = JSON.stringify(state)
+                    .replace(/</g, "\\u003c")
+                    .replace(/>/g, "\\u003e")
+                    .replace(/&/g, "\\u0026");
+                h = h.replace(
+                    /<script type="application\/json" id="embeddedState"><\/script>/,
+                    '<script type="application/json" id="embeddedState">' + s + '<\/script>'
+                );
+                var b = new Blob([h], { type: "text/html;charset=utf-8" });
+                var filename = (state.mainTitle || "tabela").replace(/<[^>]*>/g, "").replace(/[^a-zA-Z0-9\u0400-\u04FF\s-]/g, "").replace(/\s+/g, "_") + ".html";
+                dl(b, filename);
+            }
+
+            function dl(blob, name) {
+                var u = URL.createObjectURL(blob);
+                var a = document.createElement("a"); a.href = u; a.download = name; a.click();
+                setTimeout(function () { URL.revokeObjectURL(u); }, 100);
+            }
+
+            function importJson(e) {
+                var f = e.target.files && e.target.files[0];
+                if (!f) return;
+                var r = new FileReader();
+                r.onload = function () {
+                    try {
+                        var d = JSON.parse(r.result);
+                        if (d.pages) {
+                            for (var k in d) if (d.hasOwnProperty(k)) state[k] = d[k];
+                            normalizeState();
+                            save();
+                            $("#mainTitle").innerHTML = state.mainTitle;
+                            $("#subtitle").innerHTML = state.subtitle;
+                            render();
+                        }
+                    } catch (err) { alert("Error: " + err.message); }
+                };
+                r.readAsText(f);
+                e.target.value = "";
+            }
+
+            function printPage() {
+                save();
+                $$(".page").forEach(function (p, i) { p.classList.toggle("printing", i === state.currentPage); });
+                window.print();
+                setTimeout(function () { $$(".page").forEach(function (p) { p.classList.remove("printing"); }); }, 1000);
+            }
+
+            // Setup
+            function setup() {
+                $$("[data-theme]").forEach(function (b) {
+                    b.addEventListener("click", function () { state.theme = b.dataset.theme; save(); render(); });
+                });
+                $$("[data-lang]").forEach(function (b) {
+                    b.addEventListener("click", function () { state.lang = b.dataset.lang; save(); render(); });
+                });
+
+                $("#mainTitle").addEventListener("focus", function () { showFormatBar(this); });
+                $("#mainTitle").addEventListener("input", save);
+                $("#subtitle").addEventListener("focus", function () { showFormatBar(this); });
+                $("#subtitle").addEventListener("input", save);
+
+                $("#helpBtn").addEventListener("click", function () {
+                    var h = $("#gdriveHelp");
+                    if (!h) return;
+                    h.style.display = (h.style.display === "none" || !h.style.display) ? "block" : "none";
+                });
+
+                var ob = $("#toggleOrderBtn");
+                if (ob) ob.addEventListener("click", function () {
+                    state.showOrder = !state.showOrder;
+                    save(); render();
+                });
+
+                var lb = $("#uiLockBtn");
+                if (lb) lb.addEventListener("click", function (e) {
+                    e.preventDefault();
+                    state.uiLocked = !state.uiLocked;
+                    save(); render();
+                });
+
+                // Attachment view popover
+                var vb = $("#attViewBtn");
+                var pop = $("#attViewPop");
+
+                function syncViewButtons() {
+                    if (!pop) return;
+                    pop.querySelectorAll(".av-btn").forEach(function (b) {
+                        var v = b.dataset.view;
+                        var s = b.dataset.size;
+                        var active = (v === (state.attView || "tiles")) && (v === "list" || s === (state.attSize || "m"));
+                        b.classList.toggle("active", !!active);
+                    });
+                    pop.querySelectorAll(".pv-btn").forEach(function (b) {
+                        b.classList.toggle("active", b.dataset.print === (state.printAtt || "compact"));
+                    });
+                }
+
+                if (vb && pop) {
+                    vb.addEventListener("click", function (e) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        pop.classList.toggle("open");
+                        syncViewButtons();
+                    });
+
+                    pop.addEventListener("click", function (e) { e.stopPropagation(); });
+                    document.addEventListener("click", function () { pop.classList.remove("open"); });
+
+                    pop.querySelectorAll(".av-btn").forEach(function (b) {
+                        b.addEventListener("click", function () {
+                            state.attView = b.dataset.view || "tiles";
+                            if (state.attView === "tiles") state.attSize = b.dataset.size || state.attSize || "m";
+                            save(); applyAttViewAll(); syncViewButtons();
+                        });
+                    });
+
+                    pop.querySelectorAll(".pv-btn").forEach(function (b) {
+                        b.addEventListener("click", function () {
+                            state.printAtt = b.dataset.print || "compact";
+                            save(); applyAttViewAll(); syncViewButtons();
+                        });
+                    });
+
+                    syncViewButtons();
+                }
+
+                $("#printBtn").addEventListener("click", printPage);
+                $("#exportHtmlBtn").addEventListener("click", exportHtml);
+                $("#exportJsonBtn").addEventListener("click", exportJson);
+                $("#importJsonBtn").addEventListener("click", function () { $("#importFile").click(); });
+                $("#importFile").addEventListener("change", importJson);
+
+                // Modal
+                $("#modalClose").addEventListener("click", closeModal);
+                $("#modal").addEventListener("click", function (e) { if (e.target === this) closeModal(); });
+                document.addEventListener("keydown", function (e) { if (e.key === "Escape") closeModal(); });
+
+                $$(".modal-size-btn").forEach(function (b) {
+                    b.addEventListener("click", function () {
+                        $$(".modal-size-btn").forEach(function (x) { x.classList.remove("active"); });
+                        b.classList.add("active");
+                        setModalSize(b.dataset.w, b.dataset.h);
+                    });
+                });
+
+                // Modal drag
+                var head = $("#modalHead"), box = $("#modalBox"), dragging = false, sx, sy, sl, st;
+                head.addEventListener("mousedown", function (e) {
+                    if (e.target.tagName === "BUTTON" || e.target.tagName === "A") return;
+                    dragging = true; sx = e.clientX; sy = e.clientY;
+                    var r = box.getBoundingClientRect(); sl = r.left; st = r.top;
+                    box.style.position = "fixed"; box.style.margin = "0";
+                });
+                document.addEventListener("mousemove", function (e) {
+                    if (!dragging) return;
+                    box.style.left = (sl + e.clientX - sx) + "px";
+                    box.style.top = (st + e.clientY - sy) + "px";
+                });
+                document.addEventListener("mouseup", function () { dragging = false; });
+            }
+
+            function init() {
+                load();
+                $("#mainTitle").innerHTML = state.mainTitle;
+                $("#subtitle").innerHTML = state.subtitle;
+                setup();
+                render();
+            }
+
+            init();
+        })();
+    </script>
+</body>
+
+</html>
