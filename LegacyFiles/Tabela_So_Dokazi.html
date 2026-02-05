@@ -637,41 +637,6 @@
             overflow: hidden;
             color: var(--text);
         }
-        .folder-item-actions {
-            display: flex;
-            gap: 3px;
-            margin-top: 3px;
-            opacity: 0;
-            transition: opacity 0.15s;
-        }
-        .folder-item:hover .folder-item-actions {
-            opacity: 1;
-        }
-        .folder-item-actions button {
-            padding: 2px 6px;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 9px;
-            font-weight: 600;
-            transition: all 0.1s;
-            line-height: 1.3;
-        }
-        .folder-item-actions .fi-drive {
-            background: #4285f4;
-            color: white;
-        }
-        .folder-item-actions .fi-drive:hover {
-            background: #1a73e8;
-        }
-        .folder-item-actions .fi-save {
-            background: var(--bg);
-            color: var(--text);
-            border: 1px solid var(--border) !important;
-        }
-        .folder-item-actions .fi-save:hover {
-            background: var(--primary-lt);
-        }
         .folder-empty {
             text-align: center;
             padding: 30px;
@@ -2272,65 +2237,16 @@
                     } else if (["mp3","wav","ogg"].indexOf(ext) >= 0) {
                         modalBody.innerHTML = '<div style="padding:40px;text-align:center;"><p style="font-size:48px;margin-bottom:20px;">🎵</p><audio controls src="' + url + '"></audio></div>';
                     } else {
+                        // For other files, just offer download
                         modalBody.innerHTML = '<div style="padding:40px;text-align:center;"><p style="font-size:48px;margin-bottom:20px;">' + getFileIcon(file.name).icon + '</p><p>' + file.name + '</p><p style="color:var(--muted)">' + formatSize(file.size) + '</p><br><a href="' + url + '" download="' + file.name + '" style="padding:10px 20px;background:var(--primary);color:white;border-radius:8px;text-decoration:none;">⬇ Преземи</a></div>';
                     }
 
+                    // Close folder modal, show preview modal
                     document.getElementById("folderModal").classList.remove("active");
                     modal.classList.add("active");
                 } catch (e) {
                     console.error("Open file error:", e);
                     alert("Не може да се отвори: " + e.message);
-                }
-            }
-
-            // Download file with correct name to Chrome's default download folder
-            async function downloadFileFromHandle(handle, e) {
-                if (e) { e.preventDefault(); e.stopPropagation(); }
-                try {
-                    var file = await handle.getFile();
-                    var url = URL.createObjectURL(file);
-                    var a = document.createElement("a");
-                    a.href = url;
-                    a.download = file.name; // Correct filename!
-                    document.body.appendChild(a);
-                    a.click();
-                    document.body.removeChild(a);
-                    setTimeout(function () { URL.revokeObjectURL(url); }, 5000);
-                } catch (err) {
-                    console.error("Download error:", err);
-                    alert("Грешка при преземање: " + err.message);
-                }
-            }
-
-            // Upload to Google Drive: download first, then open Drive upload page
-            async function uploadToDriveFromHandle(handle, e) {
-                if (e) { e.preventDefault(); e.stopPropagation(); }
-                try {
-                    // First download the file so it's in Chrome's Downloads folder
-                    var file = await handle.getFile();
-                    var url = URL.createObjectURL(file);
-                    var a = document.createElement("a");
-                    a.href = url;
-                    a.download = file.name;
-                    document.body.appendChild(a);
-                    a.click();
-                    document.body.removeChild(a);
-                    setTimeout(function () { URL.revokeObjectURL(url); }, 5000);
-
-                    // Then open Google Drive upload page after a short delay
-                    setTimeout(function () {
-                        window.open("https://drive.google.com/drive/my-drive", "_blank");
-                    }, 800);
-
-                    // Show instructions
-                    var toast = document.createElement("div");
-                    toast.style.cssText = "position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#333;color:white;padding:12px 20px;border-radius:10px;z-index:99999;font-size:13px;max-width:400px;text-align:center;box-shadow:0 4px 20px rgba(0,0,0,0.3);";
-                    toast.innerHTML = "⬇ <strong>" + file.name + "</strong> преземен<br>↑ Drive се отвора — качи го фајлот од Downloads";
-                    document.body.appendChild(toast);
-                    setTimeout(function () { toast.remove(); }, 5000);
-                } catch (err) {
-                    console.error("Drive upload error:", err);
-                    alert("Грешка: " + err.message);
                 }
             }
 
@@ -2365,38 +2281,10 @@
                     nameDiv.className = "folder-item-name";
                     nameDiv.textContent = f.name;
 
-                    // Action buttons (visible on hover)
-                    var actDiv = document.createElement("div");
-                    actDiv.className = "folder-item-actions";
-
-                    var driveBtn = document.createElement("button");
-                    driveBtn.className = "fi-drive";
-                    driveBtn.textContent = "↑Drive";
-                    driveBtn.title = "Преземи и качи на Google Drive";
-                    driveBtn.addEventListener("click", function (e) {
-                        uploadToDriveFromHandle(f.handle, e);
-                    });
-
-                    var saveBtn = document.createElement("button");
-                    saveBtn.className = "fi-save";
-                    saveBtn.textContent = "⬇";
-                    saveBtn.title = "Преземи (" + f.name + ")";
-                    saveBtn.addEventListener("click", function (e) {
-                        downloadFileFromHandle(f.handle, e);
-                    });
-
-                    actDiv.appendChild(driveBtn);
-                    actDiv.appendChild(saveBtn);
-
                     item.appendChild(iconDiv);
                     item.appendChild(nameDiv);
-                    item.appendChild(actDiv);
 
-                    // Click thumbnail = preview
-                    iconDiv.addEventListener("click", function () {
-                        openFileFromHandle(f.handle);
-                    });
-                    nameDiv.addEventListener("click", function () {
+                    item.addEventListener("click", function () {
                         openFileFromHandle(f.handle);
                     });
 
