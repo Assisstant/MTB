@@ -101,9 +101,40 @@
             color: var(--text);
             font-family: inherit;
             min-height: 40px;
+            max-height: 72px;
+            overflow-y: auto;
             transition: all 0.2s;
             outline: none;
         }
+
+            /* Ensure full cell text prints (no clipping from on-screen scroll limits) */
+            .cell-text {
+                min-height: auto !important;
+                max-height: none !important;
+                overflow: visible !important;
+            }
+
+            /* Hide 'no attachments' placeholders in print (keeps cells clean) */
+            .empty {
+                display: none !important;
+            }
+
+            /* Attachment description should expand fully in print */
+            .att-desc {
+                max-height: none !important;
+                overflow: visible !important;
+            }
+
+            .att-desc[contenteditable="true"]:empty:before {
+                content: "" !important;
+            }
+
+            /* If attachments list is clamped on screen, disable clamping in print */
+            .att-list.clamp2 {
+                max-height: none !important;
+                height: auto !important;
+                overflow: visible !important;
+            }
 
         .editable:hover {
             border-color: var(--border);
@@ -648,44 +679,14 @@
         }
 
         .cell-text {
-            /* Scrollable text area - shows ~5-6 lines, rest is scrollable */
-            min-height: 8em;
-            max-height: 10em;
+            /* Fixed height (~4 lines). More text becomes scrollable (slider). */
+            min-height: 7.8em !important;
+            max-height: 7.8em !important;
             overflow-y: auto;
             overflow-x: hidden;
-            scrollbar-width: thin;
             scrollbar-gutter: stable;
-            padding-right: 4px;
         }
-
-        /* Better scrollbar styling for cell-text */
-        .cell-text::-webkit-scrollbar {
-            width: 8px;
-        }
-
-        .cell-text::-webkit-scrollbar-track {
-            background: var(--bg);
-            border-radius: 4px;
-        }
-
-        .cell-text::-webkit-scrollbar-thumb {
-            background: var(--border);
-            border-radius: 4px;
-        }
-
-        .cell-text::-webkit-scrollbar-thumb:hover {
-            background: var(--primary);
-        }
-
-        .dark .cell-text::-webkit-scrollbar-thumb {
-            background: rgba(255, 255, 255, 0.25);
-        }
-
-        .dark .cell-text::-webkit-scrollbar-thumb:hover {
-            background: var(--primary);
-        }
-
-        .att-bar {
+.att-bar {
             display: flex;
             gap: 8px;
             flex-wrap: wrap;
@@ -1022,30 +1023,11 @@
             color: var(--text);
             font-size: 11px;
             min-height: 40px;
-            max-height: 80px;
+            max-height: 72px;
             overflow-y: auto;
             scrollbar-width: thin;
             font-family: inherit;
             white-space: pre-wrap;
-            word-wrap: break-word;
-        }
-
-        /* Scrollbar for att-desc */
-        .att-desc::-webkit-scrollbar {
-            width: 6px;
-        }
-
-        .att-desc::-webkit-scrollbar-track {
-            background: transparent;
-        }
-
-        .att-desc::-webkit-scrollbar-thumb {
-            background: var(--border);
-            border-radius: 3px;
-        }
-
-        .att-desc::-webkit-scrollbar-thumb:hover {
-            background: var(--primary);
         }
 
         .att-desc[contenteditable="true"]:empty:before {
