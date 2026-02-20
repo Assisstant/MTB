@@ -2410,8 +2410,8 @@
                         <svg class="icon" viewBox="0 0 24 24"><path d="M4 11h16v2H4z"/></svg>
                     </button>
                     <button class="btn btn-default" id="arrowToggleBtn" title="Стрелка">↗️</button>
-                    <button class="btn btn-default" id="pptBtn" title="Docs од линк">📄 Docs</button>
-                    <button class="btn btn-default" id="pptToggleBtn" title="Покажи/Сокриј Viewer">🪟 Viewer</button>
+                    <button class="btn btn-default" id="pptBtn" title="PPT од линк">📊 PPT</button>
+                    <button class="btn btn-default" id="pptToggleBtn" title="Покажи/Сокриј PPT">🪟 PPT</button>
                 </div>
 
                 <div class="toolbar-divider"></div>
@@ -2486,20 +2486,20 @@
 
             <div class="ppt-viewer hidden" id="pptViewer">
                 <div class="ppt-viewer-header" id="pptViewerHeader">
-                    <span class="ppt-viewer-title">Document Viewer</span>
+                    <span class="ppt-viewer-title">Presentation Viewer</span>
                     <div class="ppt-viewer-header-actions">
                         <button class="btn btn-default" id="pptViewerHideBtn" title="Сокриј">Сокриј</button>
                         <button class="btn btn-danger" id="pptViewerCloseBtn" title="Затвори">✕</button>
                     </div>
                 </div>
                 <div class="ppt-viewer-controls">
-                    <input type="text" id="pptLinkInput" placeholder="Public link: PPT/PPTX/DOC/DOCX/PDF/Google Docs/Slides">
+                    <input type="text" id="pptLinkInput" placeholder="Public Dropbox / PPT / PPTX / Google Slides link">
                     <button class="btn btn-default" id="pptLoadBtn">Вчитај</button>
-                    <button class="btn btn-success" id="pptCaptureBtn">📸 Screen → Tabла</button>
+                    <button class="btn btn-success" id="pptCaptureBtn">📸 Slide → Tabла</button>
                     <label class="ppt-auto-hide"><input type="checkbox" id="pptAutoHide" checked>Скриј по capture</label>
                 </div>
-                <iframe id="pptViewerFrame" class="ppt-viewer-frame" title="Document Viewer"></iframe>
-                <div class="ppt-viewer-tip">Отвори документ/слајд, кликни capture, направи screenshot (Win+Shift+S), потоа Ctrl+V во таблата.</div>
+                <iframe id="pptViewerFrame" class="ppt-viewer-frame" title="Presentation Viewer"></iframe>
+                <div class="ppt-viewer-tip">Навигирај до слајд, кликни capture, направи screenshot (Win+Shift+S), потоа Ctrl+V во таблата.</div>
                 <div class="ppt-viewer-resize" id="pptViewerResize"></div>
             </div>
         </div>
@@ -2920,7 +2920,7 @@
                     const slot = document.createElement('div');
                     slot.className = 'image-slot-placeholder';
                     slot.textContent = el.slotType === 'ppt-capture'
-                        ? 'Doc Screenshot Slot\nWin+Shift+S, then Ctrl+V'
+                        ? 'PPT Screenshot Slot\nWin+Shift+S, then Ctrl+V'
                         : 'Image Slot\nDrop or paste image';
                     div.appendChild(slot);
                 }
@@ -2989,7 +2989,7 @@
 
                 const title = document.createElement('span');
                 title.className = 'embed-title';
-                title.textContent = el.title || 'Document';
+                title.textContent = el.title || 'Presentation';
                 header.appendChild(title);
 
                 const openBtn = document.createElement('button');
@@ -3004,7 +3004,7 @@
 
                 const placeholder = document.createElement('div');
                 placeholder.className = 'embed-placeholder';
-                placeholder.innerHTML = '<strong>Document Preview</strong><span>Use the floating viewer window for navigation and capture.</span>';
+                placeholder.innerHTML = '<strong>PPT Preview</strong><span>Use the floating PPT window for navigation and capture.</span>';
 
                 div.appendChild(header);
                 div.appendChild(placeholder);
@@ -3899,26 +3899,10 @@
         }
 
         function buildPresentationEmbedUrl(sourceUrl) {
-            const normalized = (sourceUrl || '').trim();
-            const lower = normalized.toLowerCase();
-
-            if (/docs\.google\.com\/presentation/i.test(lower)) {
-                return normalized.replace('/edit', '/preview');
+            if (/docs\.google\.com\/presentation/i.test(sourceUrl)) {
+                return sourceUrl.replace('/edit', '/preview');
             }
-
-            if (/docs\.google\.com\/document/i.test(lower)) {
-                return normalized.replace('/edit', '/preview');
-            }
-
-            if (/docs\.google\.com\/spreadsheets/i.test(lower)) {
-                return normalized.replace('/edit', '/preview');
-            }
-
-            if (/\.pdf($|[?#])/i.test(lower)) {
-                return normalized;
-            }
-
-            return 'https://view.officeapps.live.com/op/embed.aspx?src=' + encodeURIComponent(normalized);
+            return 'https://view.officeapps.live.com/op/embed.aspx?src=' + encodeURIComponent(sourceUrl);
         }
 
         function ensurePptViewerVisible() {
@@ -3967,7 +3951,7 @@
         function loadPresentationIntoViewer(rawUrl) {
             const sourceUrl = normalizePresentationSource(rawUrl);
             if (!sourceUrl) {
-                showToast('Invalid document link');
+                showToast('Invalid presentation link');
                 return;
             }
 
@@ -3980,23 +3964,23 @@
             if (pptLinkInput) pptLinkInput.value = sourceUrl;
             if (pptViewerFrame) pptViewerFrame.src = embedUrl;
             showPptViewer();
-            showToast('Document loaded');
+            showToast('Presentation loaded');
         }
 
         function armPresentationCapture() {
             if (!pptSession.sourceUrl) {
-                showToast('Load document first');
+                showToast('Load presentation first');
                 return;
             }
             ensurePresentationCaptureSlot();
             pptSession.captureArmed = true;
             if (pptAutoHide && pptAutoHide.checked) hidePptViewer();
-            showToast('Slot ready: screenshot page, then Ctrl+V');
+            showToast('Slot ready: screenshot slide, then Ctrl+V');
         }
 
         document.getElementById('pptBtn').addEventListener('click', () => {
             const suggested = (pptLinkInput && pptLinkInput.value.trim()) || pptSession.sourceUrl || '';
-            const link = window.prompt('Paste public Dropbox / DOC / PPT / PDF link', suggested);
+            const link = window.prompt('Paste public Dropbox / PPT / PPTX link', suggested);
             if (!link) {
                 if (pptSession.sourceUrl) showPptViewer();
                 return;
@@ -4007,7 +3991,7 @@
         document.getElementById('pptToggleBtn').addEventListener('click', () => {
             if (pptViewer.classList.contains('hidden')) {
                 if (!pptSession.sourceUrl) {
-                    showToast('Use Docs button to load link first');
+                    showToast('Use PPT button to load link first');
                     return;
                 }
                 showPptViewer();
