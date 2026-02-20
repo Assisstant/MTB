@@ -1541,6 +1541,43 @@
             white-space: nowrap;
         }
 
+        .toolbar-tabs {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            flex-shrink: 0;
+            padding: 0 6px;
+            border-left: 1px solid var(--bg-light);
+            border-right: 1px solid var(--bg-light);
+        }
+
+        .toolbar-tab {
+            border: 1px solid var(--bg-light);
+            background: #111827;
+            color: var(--text-muted);
+            border-radius: 6px;
+            font-size: 11px;
+            font-weight: 700;
+            padding: 6px 10px;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+
+        .toolbar-tab:hover {
+            color: var(--text-light);
+            border-color: var(--bg-lighter);
+        }
+
+        .toolbar-tab.active {
+            background: var(--primary);
+            border-color: var(--primary);
+            color: white;
+        }
+
+        .toolbar-hidden-by-tab {
+            display: none !important;
+        }
+
         .toolbar-scroll {
             display: flex;
             align-items: center;
@@ -2014,17 +2051,16 @@
         }
 
         .element-line {
-            height: 8px;
-            cursor: pointer;
+            cursor: move;
+            overflow: visible;
         }
 
         .element-line .line-bar {
             position: absolute;
-            top: 50%;
-            transform: translateY(-50%);
-            width: 100%;
-            height: 2px;
+            height: 3px;
+            border-radius: 999px;
             background: var(--bg-dark);
+            transform-origin: 0 50%;
             transition: height 0.1s;
         }
 
@@ -2035,27 +2071,22 @@
 
         .line-arrowhead {
             position: absolute;
-            right: -1px;
-            top: 50%;
-            transform: translateY(-50%);
             width: 0;
             height: 0;
             border-top: 6px solid transparent;
             border-bottom: 6px solid transparent;
             border-left: 10px solid currentColor;
             pointer-events: none;
+            transform-origin: center center;
         }
 
         .line-handle {
             position: absolute;
-            top: 50%;
-            transform: translateY(-50%);
-            width: 10px;
-            height: 10px;
+            width: 12px;
+            height: 12px;
             background: white;
             border: 2px solid var(--primary);
             border-radius: 50%;
-            cursor: ew-resize;
             display: none;
         }
 
@@ -2063,12 +2094,10 @@
             display: block;
         }
 
-        .line-handle-left {
-            left: -5px;
-        }
-
-        .line-handle-right {
-            right: -5px;
+        .line-handle-start,
+        .line-handle-end {
+            cursor: grab;
+            transform: translate(-50%, -50%);
         }
 
         /* Selection box */
@@ -2083,10 +2112,28 @@
         /* Drawing line preview */
         .drawing-line-preview {
             position: absolute;
+            pointer-events: none;
+            overflow: visible;
+        }
+
+        .drawing-line-preview-bar {
+            position: absolute;
             height: 2px;
             background: var(--primary);
-            opacity: 0.8;
-            pointer-events: none;
+            border-radius: 999px;
+            opacity: 0.85;
+            transform-origin: 0 50%;
+        }
+
+        .drawing-line-preview-arrow {
+            position: absolute;
+            width: 0;
+            height: 0;
+            border-top: 5px solid transparent;
+            border-bottom: 5px solid transparent;
+            border-left: 9px solid var(--primary);
+            opacity: 0.9;
+            transform-origin: center center;
         }
 
         /* Typing cursor */
@@ -2377,9 +2424,16 @@
                 <span class="toolbar-title" data-i18n="title">Кирилична Табла</span>
                 <button class="btn btn-default btn-icon" id="langToggle">EN</button>
             </div>
+
+            <div class="toolbar-tabs" id="toolbarTabs">
+                <button class="toolbar-tab active" type="button" data-toolbar-tab="home">Home</button>
+                <button class="toolbar-tab" type="button" data-toolbar-tab="draw">Draw</button>
+                <button class="toolbar-tab" type="button" data-toolbar-tab="text">Text</button>
+                <button class="toolbar-tab" type="button" data-toolbar-tab="insert">Insert</button>
+            </div>
             
             <div class="toolbar-scroll">
-                <div class="toolbar-group">
+                <div class="toolbar-group" data-toolbar-group="home">
                     <button class="btn btn-default btn-icon" id="undoBtn" disabled title="Врати">
                         <svg class="icon" viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>
                     </button>
@@ -2388,18 +2442,18 @@
                     </button>
                 </div>
 
-                <div class="toolbar-divider"></div>
+                <div class="toolbar-divider" data-toolbar-group="home"></div>
 
-                <div class="toolbar-group" id="selectionTools" style="display:none;">
+                <div class="toolbar-group" id="selectionTools" style="display:none;" data-toolbar-group="home">
                     <div class="color-palette" id="colorPalette"></div>
                     <button class="btn btn-danger btn-icon" id="deleteBtn" title="Избриши">
                         <svg class="icon" viewBox="0 0 24 24"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
                     </button>
                     <button class="btn btn-default" id="makeCardBtn" title="Стандардна етикета" disabled>🏷 Картичка</button>
-                    <div class="toolbar-divider"></div>
+                    <div class="toolbar-divider" data-toolbar-group="home"></div>
                 </div>
 
-                <div class="toolbar-group">
+                <div class="toolbar-group" data-toolbar-group="draw">
                     <button class="btn btn-default btn-icon" id="paintBtn" title="Боење">
                         <svg class="icon" viewBox="0 0 24 24"><path d="M7 14c-1.66 0-3 1.34-3 3 0 1.31-1.16 2-2 2 .92 1.22 2.49 2 4 2 2.21 0 4-1.79 4-4 0-1.66-1.34-3-3-3zm13.71-9.37l-1.34-1.34a.996.996 0 00-1.41 0L9 12.25 11.75 15l8.96-8.96a.996.996 0 000-1.41z"/></svg>
                     </button>
@@ -2410,53 +2464,56 @@
                         <svg class="icon" viewBox="0 0 24 24"><path d="M4 11h16v2H4z"/></svg>
                     </button>
                     <button class="btn btn-default" id="arrowToggleBtn" title="Стрелка">↗️</button>
-                    <button class="btn btn-default" id="pptBtn" title="Docs од линк">📄 Docs</button>
+                </div>
+
+                <div class="toolbar-group" data-toolbar-group="insert">
+                    <button class="btn btn-default" id="pptBtn" title="Вчитување датотека од линк">📎 Files</button>
                     <button class="btn btn-default" id="pptToggleBtn" title="Покажи/Сокриј Viewer">🪟 Viewer</button>
                 </div>
 
-                <div class="toolbar-divider"></div>
+                <div class="toolbar-divider" data-toolbar-group="home"></div>
 
-                <button class="btn btn-default" id="snapBtn">
+                <button class="btn btn-default" id="snapBtn" data-toolbar-group="home">
                     <span data-i18n="snap">Лепење</span>: <span id="snapStatus" data-i18n="on">ВКЛ</span>
                 </button>
 
-                <div class="slider-control">
+                <div class="slider-control" data-toolbar-group="home">
                     <label data-i18n="spacing">Растојание</label>
                     <input type="range" id="spacingSlider" min="0" max="80" value="3">
                 </div>
 
-                <button class="btn btn-default btn-icon" id="alignBtn" disabled title="Порамни">
+                <button class="btn btn-default btn-icon" id="alignBtn" data-toolbar-group="home" disabled title="Порамни">
                     <svg class="icon" viewBox="0 0 24 24"><path d="M3 21h18v-2H3v2zm0-4h18v-2H3v2zm0-4h18v-2H3v2zm0-4h18V7H3v2zm0-6v2h18V3H3z"/></svg>
                 </button>
-                <button class="btn btn-default" id="alignDefaultBtn" disabled title="Порамни ред + default">↔️ Default</button>
+                <button class="btn btn-default" id="alignDefaultBtn" data-toolbar-group="home" disabled title="Порамни ред + default">↔️ Default</button>
 
-                <div class="slider-control" id="sizeControl">
+                <div class="slider-control" id="sizeControl" data-toolbar-group="home">
                     <span style="font-size:12px">A</span>
                     <input type="range" id="sizeSlider" min="50" max="200" value="100" disabled>
                     <span style="font-size:18px">A</span>
                 </div>
 
-                <div class="slider-control" id="textBoxBgControl">
+                <div class="slider-control" id="textBoxBgControl" data-toolbar-group="text">
                     <label>ТБ Боја</label>
                     <input type="color" id="textBoxBgColor" value="#ffffff">
                 </div>
 
-                <div class="slider-control" id="textBoxOpacityControl">
+                <div class="slider-control" id="textBoxOpacityControl" data-toolbar-group="text">
                     <label>ТБ %</label>
                     <input type="range" id="textBoxOpacity" min="10" max="100" value="98">
                 </div>
 
-                <div class="slider-control" id="textBoxOutlineControl">
+                <div class="slider-control" id="textBoxOutlineControl" data-toolbar-group="text">
                     <label>ТБ Рамка</label>
                     <input type="checkbox" id="textBoxOutline" checked>
                 </div>
 
-                <div class="toolbar-divider"></div>
+                <div class="toolbar-divider" data-toolbar-group="home"></div>
 
-                <button class="btn btn-success btn-icon" id="saveBtn" title="Зачувај">
+                <button class="btn btn-success btn-icon" id="saveBtn" data-toolbar-group="home" title="Зачувај">
                     <svg class="icon" viewBox="0 0 24 24"><path d="M17 3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V7l-4-4zm-5 16c-1.66 0-3-1.34-3-3s1.34-3 3-3 3 1.34 3 3-1.34 3-3 3zm3-10H5V5h10v4z"/></svg>
                 </button>
-                <button class="btn btn-purple" id="keyboardToggle">
+                <button class="btn btn-purple" id="keyboardToggle" data-toolbar-group="insert">
                     <svg class="icon" viewBox="0 0 24 24"><path d="M20 5H4c-1.1 0-1.99.9-1.99 2L2 17c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm-9 3h2v2h-2V8zm0 3h2v2h-2v-2zM8 8h2v2H8V8zm0 3h2v2H8v-2zm-1 2H5v-2h2v2zm0-3H5V8h2v2zm9 7H8v-2h8v2zm0-4h-2v-2h2v2zm0-3h-2V8h2v2zm3 3h-2v-2h2v2zm0-3h-2V8h2v2z"/></svg>
                     <span id="keyboardToggleText" data-i18n="hide">Сокриј</span>
                 </button>
@@ -2648,6 +2705,103 @@
             }
         }
 
+        function ensureLineShape(line) {
+            if (!line || line.type !== 'line') return line;
+            if (Number.isFinite(line.x1) && Number.isFinite(line.y1) && Number.isFinite(line.x2) && Number.isFinite(line.y2)) {
+                return line;
+            }
+
+            const safeX = Number.isFinite(line.x) ? line.x : 0;
+            const safeY = Number.isFinite(line.y) ? line.y : 0;
+            const safeWidth = Number.isFinite(line.width) ? line.width : 60;
+            line.x1 = safeX;
+            line.y1 = safeY;
+            line.x2 = safeX + safeWidth;
+            line.y2 = safeY;
+            return line;
+        }
+
+        function getLinePoints(line) {
+            ensureLineShape(line);
+            return {
+                x1: line.x1,
+                y1: line.y1,
+                x2: line.x2,
+                y2: line.y2
+            };
+        }
+
+        function getLineBounds(line, padding = 0) {
+            const { x1, y1, x2, y2 } = getLinePoints(line);
+            const minX = Math.min(x1, x2) - padding;
+            const minY = Math.min(y1, y2) - padding;
+            const maxX = Math.max(x1, x2) + padding;
+            const maxY = Math.max(y1, y2) + padding;
+            return {
+                x: minX,
+                y: minY,
+                width: Math.max(1, maxX - minX),
+                height: Math.max(1, maxY - minY),
+                minX,
+                minY,
+                maxX,
+                maxY
+            };
+        }
+
+        function getHorizontalLineBaseline(line) {
+            const { x1, y1, x2, y2 } = getLinePoints(line);
+            const dx = x2 - x1;
+            const dy = y2 - y1;
+            if (Math.abs(dx) < 20) return null;
+            if (Math.abs(dy) > Math.max(6, Math.abs(dx) * 0.12)) return null;
+            return {
+                x1: Math.min(x1, x2),
+                x2: Math.max(x1, x2),
+                y: (y1 + y2) / 2
+            };
+        }
+
+        function renderDrawingLinePreview(startX, startY, endX, endY, arrowEnd) {
+            canvas.querySelectorAll('.drawing-line-preview').forEach(el => el.remove());
+
+            const dx = endX - startX;
+            const dy = endY - startY;
+            const length = Math.hypot(dx, dy);
+            if (length < 1) return;
+
+            const angle = Math.atan2(dy, dx) * (180 / Math.PI);
+            const padding = 10;
+            const minX = Math.min(startX, endX);
+            const minY = Math.min(startY, endY);
+
+            const preview = document.createElement('div');
+            preview.className = 'drawing-line-preview';
+            preview.style.left = (minX - padding) + 'px';
+            preview.style.top = (minY - padding) + 'px';
+            preview.style.width = (Math.abs(dx) + padding * 2) + 'px';
+            preview.style.height = (Math.abs(dy) + padding * 2) + 'px';
+
+            const lineBar = document.createElement('div');
+            lineBar.className = 'drawing-line-preview-bar';
+            lineBar.style.left = (padding + startX - minX) + 'px';
+            lineBar.style.top = (padding + startY - minY) + 'px';
+            lineBar.style.width = Math.max(2, length - (arrowEnd ? 10 : 0)) + 'px';
+            lineBar.style.transform = `translateY(-50%) rotate(${angle}deg)`;
+            preview.appendChild(lineBar);
+
+            if (arrowEnd) {
+                const arrow = document.createElement('div');
+                arrow.className = 'drawing-line-preview-arrow';
+                arrow.style.left = (padding + endX - minX) + 'px';
+                arrow.style.top = (padding + endY - minY) + 'px';
+                arrow.style.transform = `translate(-50%, -50%) rotate(${angle}deg)`;
+                preview.appendChild(arrow);
+            }
+
+            canvas.appendChild(preview);
+        }
+
         // ============ DOM ELEMENTS ============
         const canvas = document.getElementById('canvas');
         const canvasContainer = document.getElementById('canvasContainer');
@@ -2665,6 +2819,9 @@
         const pptViewerResize = document.getElementById('pptViewerResize');
         const pptLinkInput = document.getElementById('pptLinkInput');
         const pptAutoHide = document.getElementById('pptAutoHide');
+        const toolbarTabs = Array.from(document.querySelectorAll('[data-toolbar-tab]'));
+        const toolbarTabGroups = Array.from(document.querySelectorAll('[data-toolbar-group]'));
+        let activeToolbarTab = 'home';
 
         // ============ UTILITY FUNCTIONS ============
         function generateId() {
@@ -2734,6 +2891,23 @@
             lockBtn.classList.toggle('active-rose', locked);
             lockBtn.classList.toggle('active-green', !locked);
             keyboardHeader.classList.toggle('draggable', !locked);
+        }
+
+        function applyToolbarTab(target) {
+            const safeTarget = (target || 'home').toLowerCase();
+            activeToolbarTab = safeTarget;
+
+            toolbarTabs.forEach(btn => {
+                const btnTarget = (btn.dataset.toolbarTab || '').toLowerCase();
+                btn.classList.toggle('active', btnTarget === safeTarget);
+            });
+
+            toolbarTabGroups.forEach(control => {
+                const group = (control.dataset.toolbarGroup || 'home').toLowerCase();
+                control.classList.toggle('toolbar-hidden-by-tab', group !== safeTarget);
+            });
+
+            updateSelectionTools();
         }
 
         function updateSelectionTools() {
@@ -2872,34 +3046,54 @@
             }
 
             if (el.type === 'line') {
+                ensureLineShape(el);
+                const { x1, y1, x2, y2 } = getLinePoints(el);
+                const bounds = getLineBounds(el, 10);
+                const dx = x2 - x1;
+                const dy = y2 - y1;
+                const length = Math.max(1, Math.hypot(dx, dy));
+                const angle = Math.atan2(dy, dx) * (180 / Math.PI);
+
                 const div = document.createElement('div');
                 div.className = 'element element-line' + (state.selectedIds.includes(el.id) ? ' selected' : '');
                 div.dataset.id = el.id;
-                div.style.left = el.x + 'px';
-                div.style.top = (el.y - 4) + 'px';
-                div.style.width = el.width + 'px';
+                div.style.left = bounds.x + 'px';
+                div.style.top = bounds.y + 'px';
+                div.style.width = bounds.width + 'px';
+                div.style.height = bounds.height + 'px';
                 
                 const bar = document.createElement('div');
                 bar.className = 'line-bar';
                 bar.style.backgroundColor = el.color || '#1e293b';
+                bar.style.left = (x1 - bounds.x) + 'px';
+                bar.style.top = (y1 - bounds.y) + 'px';
+                bar.style.width = Math.max(2, length - (el.arrowEnd ? 10 : 0)) + 'px';
+                bar.style.transform = `translateY(-50%) rotate(${angle}deg)`;
                 div.appendChild(bar);
 
                 if (el.arrowEnd) {
                     const arrowHead = document.createElement('div');
                     arrowHead.className = 'line-arrowhead';
                     arrowHead.style.color = el.color || '#1e293b';
+                    arrowHead.style.left = (x2 - bounds.x) + 'px';
+                    arrowHead.style.top = (y2 - bounds.y) + 'px';
+                    arrowHead.style.transform = `translate(-50%, -50%) rotate(${angle}deg)`;
                     div.appendChild(arrowHead);
                 }
 
-                const leftHandle = document.createElement('div');
-                leftHandle.className = 'line-handle line-handle-left';
-                div.appendChild(leftHandle);
+                const startHandle = document.createElement('div');
+                startHandle.className = 'line-handle line-handle-start';
+                startHandle.style.left = (x1 - bounds.x) + 'px';
+                startHandle.style.top = (y1 - bounds.y) + 'px';
+                div.appendChild(startHandle);
 
-                const rightHandle = document.createElement('div');
-                rightHandle.className = 'line-handle line-handle-right';
-                div.appendChild(rightHandle);
+                const endHandle = document.createElement('div');
+                endHandle.className = 'line-handle line-handle-end';
+                endHandle.style.left = (x2 - bounds.x) + 'px';
+                endHandle.style.top = (y2 - bounds.y) + 'px';
+                div.appendChild(endHandle);
 
-                setupLineDrag(div, el, leftHandle, rightHandle);
+                setupLineDrag(div, el, startHandle, endHandle);
                 return div;
             }
 
@@ -3127,10 +3321,13 @@
             const baselinePos = height * baselineRatio;
 
             for (const line of lines) {
-                if (el.x + el.width > line.x && el.x < line.x + line.width) {
+                const baseline = getHorizontalLineBaseline(line);
+                if (!baseline) continue;
+
+                if (el.x + el.width > baseline.x1 && el.x < baseline.x2) {
                     const elBaseline = el.y + baselinePos;
-                    if (Math.abs(elBaseline - line.y) < SNAP_THRESHOLD) {
-                        el.y = line.y - baselinePos;
+                    if (Math.abs(elBaseline - baseline.y) < SNAP_THRESHOLD) {
+                        el.y = baseline.y - baselinePos;
                         break;
                     }
                 }
@@ -3147,12 +3344,9 @@
             }
         }
 
-        function setupLineDrag(dom, el, leftHandle, rightHandle) {
-            dom.addEventListener('mousedown', (e) => {
-                if (state.mode === 'drawing') return;
-                if (e.target === leftHandle || e.target === rightHandle) return;
-                e.stopPropagation();
-
+        function setupLineDrag(dom, el, startHandle, endHandle) {
+            const beginSelect = (e) => {
+                if (state.mode === 'drawing') return false;
                 if (e.shiftKey) {
                     if (state.selectedIds.includes(el.id)) {
                         state.selectedIds = state.selectedIds.filter(id => id !== el.id);
@@ -3164,29 +3358,72 @@
                 }
                 updateSelectionTools();
                 renderElements();
+                return true;
+            };
+
+            dom.addEventListener('mousedown', (e) => {
+                if (state.mode === 'drawing') return;
+                if (e.target === startHandle || e.target === endHandle) return;
+                e.stopPropagation();
+                if (!beginSelect(e)) return;
+
+                ensureLineShape(el);
+                const initial = getLinePoints(el);
+                const startX = e.clientX;
+                const startY = e.clientY;
+                let moved = false;
+
+                const onMove = (moveEvent) => {
+                    const dx = moveEvent.clientX - startX;
+                    const dy = moveEvent.clientY - startY;
+                    moved = moved || Math.abs(dx) > 1 || Math.abs(dy) > 1;
+                    el.x1 = initial.x1 + dx;
+                    el.y1 = initial.y1 + dy;
+                    el.x2 = initial.x2 + dx;
+                    el.y2 = initial.y2 + dy;
+                    renderElements();
+                };
+
+                const onUp = () => {
+                    if (moved) saveToHistory();
+                    document.removeEventListener('mousemove', onMove);
+                    document.removeEventListener('mouseup', onUp);
+                };
+
+                document.addEventListener('mousemove', onMove);
+                document.addEventListener('mouseup', onUp);
             });
 
-            // Resize handles
-            const setupResize = (handle, isLeft) => {
+            const setupEndpointDrag = (handle, pointKey) => {
                 handle.addEventListener('mousedown', (e) => {
                     e.stopPropagation();
-                    const startX = e.clientX;
-                    const origX = el.x;
-                    const origWidth = el.width;
+                    if (!state.selectedIds.includes(el.id)) {
+                        state.selectedIds = [el.id];
+                        updateSelectionTools();
+                    }
 
-                    const onMove = (e) => {
-                        const dx = e.clientX - startX;
-                        if (isLeft) {
-                            el.x = origX + dx;
-                            el.width = Math.max(20, origWidth - dx);
+                    ensureLineShape(el);
+                    const startX = e.clientX;
+                    const startY = e.clientY;
+                    const orig = getLinePoints(el);
+                    let moved = false;
+
+                    const onMove = (moveEvent) => {
+                        const dx = moveEvent.clientX - startX;
+                        const dy = moveEvent.clientY - startY;
+                        moved = moved || Math.abs(dx) > 0 || Math.abs(dy) > 0;
+                        if (pointKey === 'start') {
+                            el.x1 = orig.x1 + dx;
+                            el.y1 = orig.y1 + dy;
                         } else {
-                            el.width = Math.max(20, origWidth + dx);
+                            el.x2 = orig.x2 + dx;
+                            el.y2 = orig.y2 + dy;
                         }
                         renderElements();
                     };
 
                     const onUp = () => {
-                        saveToHistory();
+                        if (moved) saveToHistory();
                         document.removeEventListener('mousemove', onMove);
                         document.removeEventListener('mouseup', onUp);
                     };
@@ -3196,8 +3433,8 @@
                 });
             };
 
-            setupResize(leftHandle, true);
-            setupResize(rightHandle, false);
+            setupEndpointDrag(startHandle, 'start');
+            setupEndpointDrag(endHandle, 'end');
         }
 
         function setupImageDrag(dom, el) {
@@ -3365,7 +3602,7 @@
             }
 
             if (state.mode === 'drawing') {
-                drawingLine = { x, y, width: 0 };
+                drawingLine = { x1: x, y1: y, x2: x, y2: y };
                 return;
             }
 
@@ -3389,15 +3626,9 @@
             const y = e.clientY - rect.top + canvasContainer.scrollTop;
 
             if (drawingLine) {
-                canvas.querySelectorAll('.drawing-line-preview').forEach(el => el.remove());
-                const preview = document.createElement('div');
-                preview.className = 'drawing-line-preview';
-                const startX = Math.min(drawingLine.x, x);
-                const width = Math.abs(x - drawingLine.x);
-                preview.style.left = startX + 'px';
-                preview.style.top = drawingLine.y + 'px';
-                preview.style.width = width + 'px';
-                canvas.appendChild(preview);
+                drawingLine.x2 = x;
+                drawingLine.y2 = y;
+                renderDrawingLinePreview(drawingLine.x1, drawingLine.y1, drawingLine.x2, drawingLine.y2, !!state.drawArrow);
             }
 
             if (selectionStart) {
@@ -3418,21 +3649,24 @@
             const y = e.clientY - rect.top + canvasContainer.scrollTop;
 
             if (drawingLine) {
-                const startX = Math.min(drawingLine.x, x);
-                const width = Math.abs(x - drawingLine.x);
-                if (width > 10) {
+                drawingLine.x2 = x;
+                drawingLine.y2 = y;
+                const length = Math.hypot(drawingLine.x2 - drawingLine.x1, drawingLine.y2 - drawingLine.y1);
+                if (length > 10) {
                     saveToHistory();
                     state.elements.push({
                         id: generateId(),
                         type: 'line',
-                        x: startX,
-                        y: drawingLine.y,
-                        width,
+                        x1: drawingLine.x1,
+                        y1: drawingLine.y1,
+                        x2: drawingLine.x2,
+                        y2: drawingLine.y2,
                         color: '#1e293b',
                         arrowEnd: !!state.drawArrow
                     });
                 }
                 drawingLine = null;
+                canvas.querySelectorAll('.drawing-line-preview').forEach(el => el.remove());
                 setMode(null);
                 renderElements();
             }
@@ -3446,7 +3680,9 @@
                 if (x2 - x1 > 5 || y2 - y1 > 5) {
                     state.selectedIds = state.elements.filter(el => {
                         if (el.type === 'line') {
-                            return el.y >= y1 && el.y <= y2 && el.x < x2 && el.x + el.width > x1;
+                            const bounds = getLineBounds(el, 4);
+                            return bounds.x < x2 && bounds.x + bounds.width > x1 &&
+                                bounds.y < y2 && bounds.y + bounds.height > y1;
                         }
                         const elW = el.width || 50;
                         const elH = el.type === 'letter' ? el.fontSize * 1.2 : el.height;
@@ -3632,10 +3868,13 @@
                         const baselinePos = height * baselineRatio;
 
                         for (const line of lines) {
-                            if (finalX + width > line.x && finalX < line.x + line.width) {
+                            const baseline = getHorizontalLineBaseline(line);
+                            if (!baseline) continue;
+
+                            if (finalX + width > baseline.x1 && finalX < baseline.x2) {
                                 const elBaseline = finalY + baselinePos;
-                                if (Math.abs(elBaseline - line.y) < SNAP_THRESHOLD * 3) {
-                                    finalY = line.y - baselinePos;
+                                if (Math.abs(elBaseline - baseline.y) < SNAP_THRESHOLD * 3) {
+                                    finalY = baseline.y - baselinePos;
                                     break;
                                 }
                             }
@@ -3841,6 +4080,12 @@
         });
 
         // ============ TOOLBAR BUTTONS ============
+        toolbarTabs.forEach(btn => {
+            btn.addEventListener('click', () => {
+                applyToolbarTab(btn.dataset.toolbarTab || 'home');
+            });
+        });
+
         function setMode(mode) {
             state.mode = mode;
             canvas.classList.remove('mode-drawing', 'mode-painting', 'mode-typing');
@@ -3996,7 +4241,7 @@
 
         document.getElementById('pptBtn').addEventListener('click', () => {
             const suggested = (pptLinkInput && pptLinkInput.value.trim()) || pptSession.sourceUrl || '';
-            const link = window.prompt('Paste public Dropbox / DOC / PPT / PDF link', suggested);
+            const link = window.prompt('Paste public file link (PPT/DOC/PDF/Google Docs)', suggested);
             if (!link) {
                 if (pptSession.sourceUrl) showPptViewer();
                 return;
@@ -4007,7 +4252,7 @@
         document.getElementById('pptToggleBtn').addEventListener('click', () => {
             if (pptViewer.classList.contains('hidden')) {
                 if (!pptSession.sourceUrl) {
-                    showToast('Use Docs button to load link first');
+                    showToast('Use Files button to load link first');
                     return;
                 }
                 showPptViewer();
@@ -4407,6 +4652,11 @@
             updateLanguage();
             initKeyboard();
             document.getElementById('spacingSlider').value = state.letterSpacing;
+            const initialTabBtn = toolbarTabs.find(btn => btn.classList.contains('active'));
+            if (initialTabBtn) {
+                activeToolbarTab = (initialTabBtn.dataset.toolbarTab || 'home').toLowerCase();
+            }
+            applyToolbarTab(activeToolbarTab);
             renderElements();
             updateSelectionTools();
         }
@@ -4442,7 +4692,8 @@
             const wbCanvas = document.getElementById('canvas');
             const wbCanvasContainer = document.getElementById('canvasContainer');
             const typeBtn = document.getElementById('typeBtn');
-            const toolbarGroup = typeBtn ? typeBtn.parentElement : null;
+            const textControlsGroup = document.querySelector('.toolbar-group[data-toolbar-group="text"]');
+            const toolbarGroup = textControlsGroup || (typeBtn ? typeBtn.parentElement : null);
             const textBoxBgColorInput = document.getElementById('textBoxBgColor');
             const textBoxOpacityInput = document.getElementById('textBoxOpacity');
             const textBoxOutlineInput = document.getElementById('textBoxOutline');
@@ -4614,7 +4865,15 @@
                 textBoxBtn.id = 'textBoxModeBtn';
                 textBoxBtn.textContent = '📝 Text Box';
                 textBoxBtn.title = 'Draw.io style text box';
-                toolbarGroup.insertBefore(textBoxBtn, typeBtn.nextSibling);
+                textBoxBtn.setAttribute('data-toolbar-group', 'text');
+
+                if (textControlsGroup) {
+                    toolbarGroup.insertBefore(textBoxBtn, toolbarGroup.firstChild);
+                } else if (typeBtn && typeBtn.parentElement === toolbarGroup) {
+                    toolbarGroup.insertBefore(textBoxBtn, typeBtn.nextSibling);
+                } else {
+                    toolbarGroup.appendChild(textBoxBtn);
+                }
 
                 textBoxBtn.addEventListener('click', () => {
                     textBoxMode = !textBoxMode;
