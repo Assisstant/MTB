@@ -1279,7 +1279,10 @@
             'cyrillic-whiteboard-enhanced.html': { name: 'Кирилична Табла', icon: '✏️' },
             'TabelaSoDokazi.html': { name: 'Табела со Докази', icon: '📑' },
             'Картичка.html': { name: 'ААК Картички', icon: '🎴' },
-            'index.html': { name: 'Стар Почетна', icon: '🏠' }
+            'index.html': { name: 'Стар Почетна', icon: '🏠' },
+            'ACC.html': { name: 'ACC', icon: '📱' },
+            'S-Dnevnik.html': { name: 'S-Dnevnik', icon: '📚' },
+            'BookmarksPlus.html': { name: 'BookmarksPlus', icon: '🔖' }
         };
 
         const i18n = {
@@ -1599,8 +1602,7 @@
 
         // App functions
         window.openApp = (url) => {
-            const encodedUrl = url.split('/').map(segment => encodeURIComponent(segment)).join('/');
-            window.open(encodedUrl, '_blank');
+            window.open(url, '_blank');
         };
 
         window.toggleFav = (id) => {
