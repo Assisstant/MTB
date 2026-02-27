@@ -1,0 +1,527 @@
+<!doctype html>
+<html lang="mk">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>SMUROP – Форма за недостасувачки податоци</title>
+<style>
+body{font-family:system-ui,Segoe UI,Arial; margin:20px;}
+h1{margin:0 0 8px 0; font-size:20px;}
+p{margin:6px 0 10px 0; color:#333;}
+.toolbar{display:flex; gap:8px; flex-wrap:wrap; margin:10px 0 12px 0;}
+.toolbar button{padding:8px 10px; cursor:pointer;}
+input[type="search"]{padding:8px; min-width:260px;}
+.status{margin:0 0 10px 0; padding:8px 10px; border:1px solid #bfd6ff; background:#eef5ff; color:#0f2f64; border-radius:6px; font-size:13px;}
+.status.error{border-color:#f8c2c2; background:#fff0f0; color:#7a1515;}
+.table-wrap{overflow:auto; max-height:74vh; border:1px solid #ddd;}
+table{border-collapse:collapse; width:100%; min-width:1700px;}
+th,td{border:1px solid #ddd; padding:6px; vertical-align:top;}
+th{position:sticky; top:0; background:#f4f4f4; z-index:1;}
+td .small{font-size:12px; color:#666;}
+textarea{width:100%; min-height:64px; resize:vertical;}
+input[type="text"], input[type="date"]{width:100%; box-sizing:border-box; padding:6px;}
+input[type="file"]{width:100%; font-size:12px;}
+.bad{background:#fff2f2;}
+.stack{display:flex; flex-direction:column; gap:4px;}
+.attachment-tools{display:flex; gap:6px; margin-top:6px; align-items:center;}
+.small-btn{font-size:12px; padding:4px 6px; cursor:pointer;}
+.danger{background:#ffe5e5; border:1px solid #f0aaaa;}
+.note{font-size:12px; color:#5f5f5f; margin:8px 0 12px 0;}
+</style>
+</head>
+<body>
+<h1>SMUROP – Форма за недостасувачки податоци (по ученик)</h1>
+<p>Оваа форма работи со <code>student_db_backup*.json</code> и <code>student_records_patch.json</code>. Може да внесувате/менувате податоци, да додавате ученици, да увезувате JSON и да извезувате компатибилен JSON.</p>
+
+<div class="toolbar">
+  <input id="q" type="search" placeholder="Пребарај ученик (име/презиме/одделение)..." />
+  <button onclick="pickJsonFiles()">Вчитај JSON</button>
+  <button onclick="addStudent()">Додај ученик</button>
+  <button onclick="downloadPatch()">Сними student_records_patch.json</button>
+  <button onclick="downloadCompatBackup()">Сними компатибилен student_db_backup.json</button>
+  <button onclick="downloadUpdated()">Сними student_records_updated.json</button>
+</div>
+
+<div id="status" class="status"></div>
+<div class="note">Прилози: полето <code>attachmentLinks</code> е компатибилно со backup/patch. За слики може да внесете линк или да изберете локална слика (се снима како data URL во JSON).</div>
+
+<input id="jsonFileInput" type="file" accept=".json,application/json" multiple style="display:none" />
+
+<div class="table-wrap">
+  <table id="tbl">
+    <thead>
+      <tr>
+        <th style="width:210px;">Ученик</th>
+        <th style="width:90px;">Одд.</th>
+        <th style="width:120px;">Дата на раѓање</th>
+        <th style="width:140px;">Татко</th>
+        <th style="width:140px;">Мајка</th>
+        <th style="width:130px;">Контакт</th>
+        <th style="width:180px;">Адреса</th>
+        <th style="width:130px;">Живеалиште</th>
+        <th style="width:260px;">Прилози (attachmentLinks)</th>
+        <th style="width:260px;">Дијагноза/Наод</th>
+        <th style="width:260px;">Мислење</th>
+        <th style="width:72px;">Акции</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+</div>
+
+<script>
+const DATA = [{"id": 1759384447857, "firstName": "Мирем", "lastName": "Османова", "grade": "IV-а", "birthDate": "2016-03-10", "fatherName": "Џенгис Османов", "motherName": "Пембуш Османова", "contact": "", "address": " ул.Козјак бр. 74а", "residence": "Битола", "findings": "Наод и мислење oд надлежна комисија за категоризација: \nКОМБИИРАНИ ПРЕЧКИ: Пречки во слухот – Наглуво лице со тешко оштетување на слухот на десно уво 60db на лево уво 70db. Dg. Hypacusis senzoneuroalis bill. Пречки во гласот, говорот и јазикот – Лице со потполно отсуство на говорот. Dg. Alalia", "opinion": "сурдоаудиолошка дијагноза Dg. Hypacusis senzoneuroalis bill.\nаудиограм /\nиндивидуални слушни апарати поседува и користи редовно 2 \nнаод и мислење на аудиорехабилитатор: Има контакт и повратна информација за сушни дразби.\n"}, {"id": 1759384496127, "firstName": "Леарта", "lastName": "Зулами", "grade": "V-а", "birthDate": "2015-10-20", "fatherName": " Арбен Зулали", "motherName": "Севинч Зулали", "contact": "", "address": " ул.Нико Фундали бр.16-а/9", "residence": " Битола", "findings": "Наод и мислење oд надлежна комисија за категоризација: Лице со аутизам – детски аутизам.\n\t\n", "opinion": "сурдоаудиолошка дијагноза Dg.Autism\nаудиограм /\nнаод и мислење на аудиорехабилитатор: има контакт и повратна информација за сушни дразби.\n"}, {"id": 1759384514431, "firstName": "Мартин", "lastName": "Ѓуровски", "grade": "V-б", "birthDate": "2015-05-15", "fatherName": "Драган Ѓуровски", "motherName": "Снежа Ѓуровска", "contact": "", "address": "ул. Климент Охридски бр. 23/9", "residence": "Битола", "findings": "Наод и мислење oд надлежна комисија за категоризација: Лице со најтешко пореметување\nна психомоторика.", "opinion": "сурдоаудиолошка дијагноза\nаудиограм \n наод и мислење на аудиорехабилитатор: Мартин соработува.\n"}, {"id": 1759384531343, "firstName": "Иван", "lastName": "Цветановски", "grade": "V-б", "birthDate": "2015-07-06", "fatherName": "Горанче Цветановски", "motherName": "Андријана Цветановска", "contact": "", "address": "Демир Хисар", "residence": "Утово", "findings": "Наод и мислење oд надлежна комисија за категоризација: Способен за упис во I одделение", "opinion": "сурдоаудиолошка дијагноза /\nаудиограм /\n наод и мислење на аудиорехабилитатор: Иван соработува."}, {"id": 1759384547455, "firstName": "Марија", "lastName": "Чадамова", "grade": "VI-а", "birthDate": "2013-10-24", "fatherName": "Ице Чадамов ", "motherName": "Тања Чадамова", "contact": "", "address": "", "residence": "Прилеп ", "findings": "Dg. Hypacusis senzoneuralis bill \nиндивидуални слушни апарати поседува и користи редовно 2 \nнаод и мислење на аудиорехабилитатор:Има соодветен контакт и повратна информација за сушни дразби.\n", "opinion": "ГОВОР ,ГЛАС и КОМУНИКАЦИЈА-деф.сурдолог\n\nвербално комуницира(користи говор)\nневербално комуницира(користи гест)\nвербално и невербално комуницира(користи говор и гест)\nтријажен тест(состојба на гласовите) во прилог\n"}, {"id": 1759384565063, "firstName": "Емин", "lastName": "Етемов", "grade": "VI", "birthDate": "", "fatherName": "", "motherName": "", "contact": "", "address": "", "residence": "", "findings": "", "opinion": ""}, {"id": 1759384580351, "firstName": "Димитар", "lastName": "Трајчевски", "grade": "VII-а", "birthDate": "", "fatherName": "", "motherName": "", "contact": "", "address": "", "residence": "", "findings": "", "opinion": ""}, {"id": 1759384595134, "firstName": "Максилда", "lastName": "Селимова", "grade": "VII-б", "birthDate": "", "fatherName": "", "motherName": "", "contact": "", "address": "", "residence": "", "findings": "", "opinion": ""}, {"id": 1759384610343, "firstName": "Давид", "lastName": "Петровски", "grade": "VII-б", "birthDate": "", "fatherName": "", "motherName": "", "contact": "", "address": "", "residence": "", "findings": "", "opinion": ""}, {"id": 1759384625367, "firstName": "Енес", "lastName": "Алиу", "grade": "(над.)", "birthDate": null, "fatherName": null, "motherName": null, "contact": null, "address": null, "residence": null, "findings": null, "opinion": null}, {"id": 1759384642270, "firstName": "Габриела", "lastName": "Конеска", "grade": "VIII-а", "birthDate": null, "fatherName": null, "motherName": null, "contact": null, "address": null, "residence": null, "findings": null, "opinion": null}, {"id": 1759384666199, "firstName": "Сејхан", "lastName": "Неџипов", "grade": "VIII-а", "birthDate": "", "fatherName": "", "motherName": "", "contact": "", "address": "", "residence": "", "findings": "", "opinion": ""}, {"id": 1759384680910, "firstName": "Кристијан", "lastName": "Тодороски", "grade": "VIII-б", "birthDate": null, "fatherName": null, "motherName": null, "contact": null, "address": null, "residence": null, "findings": null, "opinion": null}, {"id": 1759384696342, "firstName": "Сарди", "lastName": "Муареми", "grade": "(над.)", "birthDate": "", "fatherName": "", "motherName": "", "contact": "", "address": "", "residence": "", "findings": "", "opinion": ""}, {"id": 1759384710134, "firstName": "Теодора", "lastName": "Богатинова", "grade": "(над.)", "birthDate": null, "fatherName": null, "motherName": null, "contact": null, "address": null, "residence": null, "findings": null, "opinion": null}, {"id": 1759384723398, "firstName": "Стефан", "lastName": "Маринковиќ", "grade": "(над.)", "birthDate": null, "fatherName": null, "motherName": null, "contact": null, "address": null, "residence": null, "findings": null, "opinion": null}];
+
+function isMissing(v){
+  if (Array.isArray(v)) return v.length === 0;
+  return v===null || v===undefined || (typeof v==="string" && v.trim()==="");
+}
+
+function deepClone(x){
+  return JSON.parse(JSON.stringify(x));
+}
+
+function normalizeAttachmentLinks(v){
+  if (Array.isArray(v)) {
+    return [...new Set(v.filter(x => typeof x === "string").map(x => x.trim()).filter(Boolean))];
+  }
+  if (typeof v === "string") {
+    return [...new Set(v.split(/\r?\n/).map(x => x.trim()).filter(Boolean))];
+  }
+  return [];
+}
+
+function normalizeStudent(rec){
+  const out = {...(rec || {})};
+  const fallbackId = Date.now() + Math.floor(Math.random() * 1000);
+  const idNum = Number(out.id);
+  out.id = Number.isFinite(idNum) ? idNum : fallbackId;
+  out.firstName = typeof out.firstName === "string" ? out.firstName : "";
+  out.lastName = typeof out.lastName === "string" ? out.lastName : "";
+  out.grade = typeof out.grade === "string" ? out.grade : "";
+  out.birthDate = typeof out.birthDate === "string" ? out.birthDate : "";
+  out.fatherName = typeof out.fatherName === "string" ? out.fatherName : "";
+  out.motherName = typeof out.motherName === "string" ? out.motherName : "";
+  out.contact = typeof out.contact === "string" ? out.contact : "";
+  out.address = typeof out.address === "string" ? out.address : "";
+  out.residence = typeof out.residence === "string" ? out.residence : "";
+  out.findings = typeof out.findings === "string" ? out.findings : "";
+  out.opinion = typeof out.opinion === "string" ? out.opinion : "";
+  out.attachmentLinks = normalizeAttachmentLinks(out.attachmentLinks);
+  return out;
+}
+
+function makeCellInput(type, value, onChange, placeholder = ""){
+  const el = document.createElement("input");
+  el.type = type;
+  el.value = value || "";
+  if (placeholder) el.placeholder = placeholder;
+  el.addEventListener("input", e => onChange(e.target.value));
+  return el;
+}
+
+function makeCellTextarea(value, onChange, placeholder = ""){
+  const el = document.createElement("textarea");
+  el.value = value || "";
+  if (placeholder) el.placeholder = placeholder;
+  el.addEventListener("input", e => onChange(e.target.value));
+  return el;
+}
+
+function linksToText(links){
+  return (Array.isArray(links) ? links : []).join("\n");
+}
+
+function linksFromText(text){
+  return normalizeAttachmentLinks(text || "");
+}
+
+function readFileAsDataUrl(file){
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ""));
+    reader.onerror = () => reject(reader.error || new Error("Неуспешно читање фајл."));
+    reader.readAsDataURL(file);
+  });
+}
+
+let state = {
+  students: DATA.map(normalizeStudent),
+  sourceBackup: null
+};
+
+const PATCH_FIELDS = ["birthDate","fatherName","motherName","contact","address","residence","findings","opinion","attachmentLinks"];
+
+function setStatus(msg, isError = false){
+  const el = document.getElementById("status");
+  el.textContent = msg;
+  el.className = isError ? "status error" : "status";
+}
+
+function updateStatus(){
+  const source = state.sourceBackup ? "извор: student_db_backup" : "извор: вградени/рачно внесени податоци";
+  setStatus(`Ученици: ${state.students.length} | ${source}`);
+}
+
+function makeAttachmentEditor(s, idx, td){
+  const wrap = document.createElement("div");
+  wrap.className = "stack";
+
+  const ta = makeCellTextarea(linksToText(s.attachmentLinks), v => {
+    state.students[idx].attachmentLinks = linksFromText(v);
+    count.textContent = `${state.students[idx].attachmentLinks.length} линк(ови)`;
+    td.className = isMissing(state.students[idx].attachmentLinks) ? "bad" : "";
+  }, "Еден линк по ред");
+  wrap.appendChild(ta);
+
+  const tools = document.createElement("div");
+  tools.className = "attachment-tools";
+  const count = document.createElement("span");
+  count.className = "small";
+  count.textContent = `${(s.attachmentLinks || []).length} линк(ови)`;
+
+  const fileInput = document.createElement("input");
+  fileInput.type = "file";
+  fileInput.accept = "image/*";
+  fileInput.multiple = true;
+  fileInput.addEventListener("change", async (e) => {
+    const files = Array.from(e.target.files || []);
+    if (!files.length) return;
+    try{
+      const encoded = await Promise.all(files.map(readFileAsDataUrl));
+      const merged = normalizeAttachmentLinks([...(state.students[idx].attachmentLinks || []), ...encoded]);
+      state.students[idx].attachmentLinks = merged;
+      ta.value = linksToText(merged);
+      count.textContent = `${merged.length} линк(ови)`;
+      td.className = isMissing(merged) ? "bad" : "";
+    } catch (err){
+      setStatus(`Грешка при читање слики: ${err && err.message ? err.message : err}`, true);
+    } finally {
+      e.target.value = "";
+    }
+  });
+
+  const clearBtn = document.createElement("button");
+  clearBtn.className = "small-btn";
+  clearBtn.type = "button";
+  clearBtn.textContent = "Исчисти";
+  clearBtn.addEventListener("click", () => {
+    state.students[idx].attachmentLinks = [];
+    ta.value = "";
+    count.textContent = "0 линк(ови)";
+    td.className = "bad";
+  });
+
+  tools.appendChild(fileInput);
+  tools.appendChild(clearBtn);
+  tools.appendChild(count);
+  wrap.appendChild(tools);
+
+  return wrap;
+}
+
+function render(){
+  const q = document.getElementById("q").value.trim().toLowerCase();
+  const tbody = document.querySelector("#tbl tbody");
+  tbody.innerHTML = "";
+
+  state.students.forEach((s, idx) => {
+    const key = `${(s.firstName||"")} ${(s.lastName||"")} ${(s.grade||"")}`.toLowerCase();
+    if(q && !key.includes(q)) return;
+
+    const tr = document.createElement("tr");
+
+    const nameTd = document.createElement("td");
+    const nameWrap = document.createElement("div");
+    nameWrap.className = "stack";
+    const fn = makeCellInput("text", s.firstName, v => state.students[idx].firstName = v, "Име");
+    const ln = makeCellInput("text", s.lastName, v => state.students[idx].lastName = v, "Презиме");
+    const sid = document.createElement("div");
+    sid.className = "small";
+    sid.textContent = `id: ${s.id}`;
+    nameWrap.appendChild(fn);
+    nameWrap.appendChild(ln);
+    nameWrap.appendChild(sid);
+    nameTd.appendChild(nameWrap);
+    tr.appendChild(nameTd);
+
+    const gradeTd = document.createElement("td");
+    gradeTd.appendChild(makeCellInput("text", s.grade, v => state.students[idx].grade = v, "Одд."));
+    tr.appendChild(gradeTd);
+
+    // birthDate
+    const birthTd = document.createElement("td");
+    birthTd.className = isMissing(s.birthDate) ? "bad" : "";
+    birthTd.appendChild(makeCellInput("date", s.birthDate, v => {
+      state.students[idx].birthDate = v;
+      birthTd.className = isMissing(v) ? "bad" : "";
+    }));
+    tr.appendChild(birthTd);
+
+    const fatherTd = document.createElement("td");
+    fatherTd.className = isMissing(s.fatherName) ? "bad" : "";
+    fatherTd.appendChild(makeCellInput("text", s.fatherName, v => {
+      state.students[idx].fatherName = v;
+      fatherTd.className = isMissing(v) ? "bad" : "";
+    }));
+    tr.appendChild(fatherTd);
+
+    const motherTd = document.createElement("td");
+    motherTd.className = isMissing(s.motherName) ? "bad" : "";
+    motherTd.appendChild(makeCellInput("text", s.motherName, v => {
+      state.students[idx].motherName = v;
+      motherTd.className = isMissing(v) ? "bad" : "";
+    }));
+    tr.appendChild(motherTd);
+
+    const contactTd = document.createElement("td");
+    contactTd.className = isMissing(s.contact) ? "bad" : "";
+    contactTd.appendChild(makeCellInput("text", s.contact, v => {
+      state.students[idx].contact = v;
+      contactTd.className = isMissing(v) ? "bad" : "";
+    }));
+    tr.appendChild(contactTd);
+
+    const addrTd = document.createElement("td");
+    addrTd.className = isMissing(s.address) ? "bad" : "";
+    addrTd.appendChild(makeCellInput("text", s.address, v => {
+      state.students[idx].address = v;
+      addrTd.className = isMissing(v) ? "bad" : "";
+    }));
+    tr.appendChild(addrTd);
+
+    const resTd = document.createElement("td");
+    resTd.className = isMissing(s.residence) ? "bad" : "";
+    resTd.appendChild(makeCellInput("text", s.residence, v => {
+      state.students[idx].residence = v;
+      resTd.className = isMissing(v) ? "bad" : "";
+    }));
+    tr.appendChild(resTd);
+
+    const attachmentTd = document.createElement("td");
+    attachmentTd.className = isMissing(s.attachmentLinks) ? "bad" : "";
+    attachmentTd.appendChild(makeAttachmentEditor(s, idx, attachmentTd));
+    tr.appendChild(attachmentTd);
+
+    const findingsTd = document.createElement("td");
+    findingsTd.className = isMissing(s.findings) ? "bad" : "";
+    findingsTd.appendChild(makeCellTextarea(s.findings, v => {
+      state.students[idx].findings = v;
+      findingsTd.className = isMissing(v) ? "bad" : "";
+    }));
+    tr.appendChild(findingsTd);
+
+    const opinionTd = document.createElement("td");
+    opinionTd.className = isMissing(s.opinion) ? "bad" : "";
+    opinionTd.appendChild(makeCellTextarea(s.opinion, v => {
+      state.students[idx].opinion = v;
+      opinionTd.className = isMissing(v) ? "bad" : "";
+    }));
+    tr.appendChild(opinionTd);
+
+    const actionTd = document.createElement("td");
+    const delBtn = document.createElement("button");
+    delBtn.type = "button";
+    delBtn.className = "small-btn danger";
+    delBtn.textContent = "Избриши";
+    delBtn.addEventListener("click", () => {
+      if (!confirm("Да се избрише ученикот?")) return;
+      state.students.splice(idx, 1);
+      render();
+      updateStatus();
+    });
+    actionTd.appendChild(delBtn);
+    tr.appendChild(actionTd);
+
+    tbody.appendChild(tr);
+  });
+}
+
+document.getElementById("q").addEventListener("input", render);
+document.getElementById("jsonFileInput").addEventListener("change", async (e) => {
+  const files = Array.from(e.target.files || []);
+  await loadJsonFiles(files);
+  e.target.value = "";
+});
+
+function download(filename, text){
+  const a = document.createElement("a");
+  const url = URL.createObjectURL(new Blob([text], {type:"application/json;charset=utf-8"}));
+  a.href = url;
+  a.download = filename;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+function pickJsonFiles(){
+  document.getElementById("jsonFileInput").click();
+}
+
+function detectJsonType(obj){
+  if (obj && obj.meta && obj.data && Array.isArray(obj.data.student_records)) return "student_db_backup";
+  if (Array.isArray(obj)) return "student_records_array";
+  if (obj && Array.isArray(obj.student_records)) return "student_records_object";
+  if (obj && obj.student_records_patch && typeof obj.student_records_patch === "object") return "student_patch";
+  if (obj && typeof obj === "object" && !Array.isArray(obj)) {
+    const keys = Object.keys(obj).filter(k => k !== "meta");
+    if (keys.length && keys.every(k => !Number.isNaN(Number(k)))) return "student_patch";
+  }
+  return null;
+}
+
+function applyPatchToStudents(patchObj){
+  if (!patchObj || typeof patchObj !== "object") return 0;
+  const patch = patchObj.student_records_patch && typeof patchObj.student_records_patch === "object"
+    ? patchObj.student_records_patch
+    : patchObj;
+  const byId = new Map(state.students.map((s, i) => [String(s.id), i]));
+  let applied = 0;
+  Object.entries(patch).forEach(([sid, changes]) => {
+    if (sid === "meta") return;
+    if (!changes || typeof changes !== "object" || Array.isArray(changes)) return;
+    const idx = byId.get(String(sid));
+    if (idx === undefined) return;
+    const st = state.students[idx];
+    Object.entries(changes).forEach(([k, v]) => {
+      if (k === "attachmentLinks") {
+        st.attachmentLinks = normalizeAttachmentLinks(v);
+        return;
+      }
+      st[k] = typeof v === "string" ? v : (v == null ? "" : String(v));
+    });
+    applied += 1;
+  });
+  return applied;
+}
+
+async function loadJsonFiles(files){
+  if (!files.length) return;
+  let imported = 0;
+  const patchQueue = [];
+  let unsupported = 0;
+  let invalid = 0;
+  for (const file of files){
+    let parsed;
+    try{
+      parsed = JSON.parse(await file.text());
+    } catch (err){
+      invalid += 1;
+      continue;
+    }
+    const t = detectJsonType(parsed);
+    if (t === "student_db_backup"){
+      state.sourceBackup = deepClone(parsed);
+      state.students = (parsed.data.student_records || []).map(normalizeStudent);
+      imported += 1;
+      continue;
+    }
+    if (t === "student_records_array"){
+      state.sourceBackup = null;
+      state.students = parsed.map(normalizeStudent);
+      imported += 1;
+      continue;
+    }
+    if (t === "student_records_object"){
+      state.sourceBackup = null;
+      state.students = (parsed.student_records || []).map(normalizeStudent);
+      imported += 1;
+      continue;
+    }
+    if (t === "student_patch"){
+      patchQueue.push(parsed);
+      imported += 1;
+      continue;
+    }
+    unsupported += 1;
+  }
+  let patched = 0;
+  patchQueue.forEach(p => {
+    patched += applyPatchToStudents(p);
+  });
+  render();
+  updateStatus();
+  if (invalid || unsupported){
+    setStatus(`Вчитани: ${imported} | patch ажурирани записи: ${patched} | неважечки: ${invalid} | неподдржани: ${unsupported}`, true);
+    return;
+  }
+  if (imported) setStatus(`Успешно вчитани JSON фајлови: ${imported} | patch ажурирани записи: ${patched}`);
+}
+
+function addStudent(){
+  state.students.unshift(normalizeStudent({
+    id: Date.now(),
+    firstName: "",
+    lastName: "",
+    grade: "",
+    birthDate: "",
+    fatherName: "",
+    motherName: "",
+    contact: "",
+    address: "",
+    residence: "",
+    findings: "",
+    opinion: "",
+    attachmentLinks: []
+  }));
+  render();
+  updateStatus();
+}
+
+function downloadPatch(){
+  const patch = {};
+  state.students.forEach(s => {
+    const p = {};
+    PATCH_FIELDS.forEach(f => {
+      if (f === "attachmentLinks") {
+        const links = normalizeAttachmentLinks(s.attachmentLinks);
+        if (links.length) p.attachmentLinks = links;
+        return;
+      }
+      if(!isMissing(s[f])) p[f] = s[f];
+    });
+    if (Object.keys(p).length) patch[String(s.id)] = p;
+  });
+  download("student_records_patch.json", JSON.stringify(patch, null, 2));
+}
+
+function buildCompatibleBackup(){
+  const now = new Date().toISOString();
+  const out = state.sourceBackup ? deepClone(state.sourceBackup) : {
+    meta: {
+      version: 2,
+      date: now,
+      appName: "Студентско Досие (GitHub Friendly)"
+    },
+    data: {
+      student_records: [],
+      triage: [],
+      attendance: [],
+      plans: []
+    }
+  };
+  out.meta = out.meta || {};
+  out.data = out.data || {};
+  out.meta.patchedAt = now;
+  out.meta.patchedBy = "missing_data_form_2025-2026";
+  if (!Array.isArray(out.data.triage)) out.data.triage = [];
+  if (!Array.isArray(out.data.attendance)) out.data.attendance = [];
+  if (!Array.isArray(out.data.plans)) out.data.plans = [];
+  out.data.student_records = deepClone(state.students);
+  return out;
+}
+
+function downloadCompatBackup(){
+  const d = new Date().toISOString().slice(0, 10);
+  const backup = buildCompatibleBackup();
+  download(`student_db_backup_PATCHED_${d}.json`, JSON.stringify(backup, null, 2));
+}
+
+function downloadUpdated(){
+  download("student_records_updated.json", JSON.stringify(state.students, null, 2));
+}
+
+render();
+updateStatus();
+</script>
+</body>
+</html>
