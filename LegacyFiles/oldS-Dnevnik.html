@@ -1015,176 +1015,6 @@
             color: #cbd5e0 !important;
         }
 
-        /* ── Досие Panel View ── */
-        .dosie-layout {
-            display: flex;
-            gap: 0;
-            min-height: calc(100vh - 260px);
-            border-radius: 8px;
-            overflow: hidden;
-            border: 1px solid #e2e8f0;
-        }
-        .dosie-sidebar {
-            width: 280px;
-            min-width: 280px;
-            background: #1a1a2e;
-            color: #e2e8f0;
-            display: flex;
-            flex-direction: column;
-            overflow: hidden;
-        }
-        .dosie-sidebar-search {
-            padding: 12px;
-            border-bottom: 1px solid #2d3748;
-        }
-        .dosie-sidebar-search input {
-            width: 100%;
-            padding: 10px 14px;
-            border: 1px solid #4a5568;
-            border-radius: 20px;
-            background: #2d3748;
-            color: #e2e8f0;
-            font-size: 13px;
-            outline: none;
-        }
-        .dosie-sidebar-search input::placeholder { color: #718096; }
-        .dosie-sidebar-search input:focus { border-color: #667eea; }
-        .dosie-sidebar-list {
-            flex: 1;
-            overflow-y: auto;
-        }
-        .dosie-sidebar-item {
-            padding: 14px 16px;
-            cursor: pointer;
-            border-bottom: 1px solid rgba(255,255,255,0.06);
-            transition: background 0.15s;
-        }
-        .dosie-sidebar-item:hover { background: rgba(102, 126, 234, 0.15); }
-        .dosie-sidebar-item.active {
-            background: rgba(102, 126, 234, 0.25);
-            border-left: 3px solid #667eea;
-        }
-        .dosie-sidebar-item h4 {
-            font-size: 14px;
-            font-weight: 600;
-            margin-bottom: 2px;
-            color: #e2e8f0;
-        }
-        .dosie-sidebar-item p {
-            font-size: 12px;
-            color: #a0aec0;
-        }
-        .dosie-detail {
-            flex: 1;
-            background: #16213e;
-            color: #e2e8f0;
-            overflow-y: auto;
-            padding: 30px;
-        }
-        .dosie-detail-title {
-            font-size: 1.5em;
-            font-weight: 700;
-            color: #818cf8;
-            margin-bottom: 5px;
-        }
-        .dosie-detail-subtitle {
-            font-size: 1.1em;
-            margin-bottom: 25px;
-            color: #cbd5e0;
-        }
-        .dosie-detail-table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-bottom: 30px;
-        }
-        .dosie-detail-table td {
-            padding: 12px 16px;
-            border-bottom: 1px solid rgba(255,255,255,0.08);
-            vertical-align: top;
-        }
-        .dosie-detail-table td:first-child {
-            color: #818cf8;
-            font-weight: 600;
-            width: 240px;
-            white-space: nowrap;
-        }
-        .dosie-detail-table td:last-child {
-            color: #e2e8f0;
-        }
-        .dosie-detail-section {
-            margin-top: 25px;
-        }
-        .dosie-detail-section h3 {
-            font-size: 1.1em;
-            font-weight: 700;
-            margin-bottom: 10px;
-            color: #e2e8f0;
-        }
-        .dosie-detail-text {
-            background: rgba(255,255,255,0.05);
-            border-radius: 8px;
-            padding: 16px;
-            line-height: 1.7;
-            white-space: pre-wrap;
-            color: #cbd5e0;
-        }
-        .dosie-attachments {
-            margin-top: 25px;
-        }
-        .dosie-attachments h3 {
-            font-size: 1.1em;
-            font-weight: 700;
-            margin-bottom: 12px;
-        }
-        .dosie-attach-link {
-            display: block;
-            color: #818cf8;
-            font-size: 13px;
-            padding: 8px 0;
-            word-break: break-all;
-            text-decoration: underline;
-        }
-        .dosie-attach-link:hover { color: #a5b4fc; }
-        .dosie-thumb-grid {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 8px;
-            margin-top: 8px;
-        }
-        .dosie-thumb-grid img {
-            width: 80px;
-            height: 80px;
-            object-fit: cover;
-            border-radius: 6px;
-            border: 2px solid #4a5568;
-            cursor: pointer;
-            transition: transform 0.15s;
-        }
-        .dosie-thumb-grid img:hover { transform: scale(1.1); }
-        .dosie-empty {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: #718096;
-            font-size: 16px;
-            height: 100%;
-        }
-        .dosie-actions-bar {
-            display: flex;
-            gap: 8px;
-            margin-bottom: 15px;
-            flex-wrap: wrap;
-        }
-        /* Light mode overrides for dosie */
-        body:not(.dark-mode) .dosie-sidebar { background: #1a1a2e; }
-        body:not(.dark-mode) .dosie-detail { background: #16213e; }
-
-        @media (max-width: 768px) {
-            .dosie-layout { flex-direction: column; }
-            .dosie-sidebar { width: 100%; min-width: auto; max-height: 300px; }
-            .dosie-detail { min-height: 400px; }
-        }
-
         /* ── Generator Tab Styles ── */
         .gen-container { max-width: 900px; margin: 0 auto; }
         .gen-card {
@@ -1534,25 +1364,7 @@
         <!-- Dosie Tab (Embedded Single-File) -->
         <div id="dosie" class="tab-content">
             <div class="section-header">📂 Досие</div>
-            <div class="dosie-actions-bar">
-                <button class="btn btn-success" onclick="dosieAddNew()">+ Нов Ученик</button>
-                <button class="btn btn-primary" onclick="dosieToggleEdit()">✏️ Уредувај</button>
-                <button class="btn" style="background:#4a5568;color:white;" onclick="dosieExportRecords()">⬇ Backup</button>
-                <button class="btn" style="background:#4a5568;color:white;" onclick="document.getElementById('dosieImportFile').click()">⬆ Import</button>
-                <input type="file" id="dosieImportFile" accept=".json" style="display:none;" onchange="dosieImportRecords(event)">
-                <button class="btn" style="background:linear-gradient(135deg,#667eea,#764ba2);color:white;" onclick="dosieGenerateDocx()">📄 Генерирај DOCX</button>
-            </div>
-            <div class="dosie-layout" id="dosieLayout">
-                <div class="dosie-sidebar">
-                    <div class="dosie-sidebar-search">
-                        <input type="text" id="dosieSearch" placeholder="🔍 Пребарај ученик..." oninput="dosieRenderSidebar()">
-                    </div>
-                    <div class="dosie-sidebar-list" id="dosieSidebarList"></div>
-                </div>
-                <div class="dosie-detail" id="dosieDetail">
-                    <div class="dosie-empty">Изберете ученик од листата</div>
-                </div>
-            </div>
+            <iframe id="dosieFrame" style="width: 100%; min-height: calc(100vh - 260px); border: none; border-radius: 8px; background: white;"></iframe>
         </div>
 
         <!-- Audiograms Tab (Embedded Single-File) -->
@@ -1578,7 +1390,7 @@
                             <div style="background:#667eea;color:#fff;border-radius:50%;width:32px;height:32px;display:flex;align-items:center;justify-content:center;font-weight:700;">1</div>
                             <div><strong>Подгответе ги податоците</strong><br>
                                 <span style="color:#4a5568;">Внесете ученици и податоци во табот <em>Ученици</em>, или импортирајте JSON во табот <em>Податоци</em>.<br>
-                                ⤷ Кликнете <strong>📥 Експорт JSON</strong> (долу) за да го зачувате JSON (именувањето е автоматско: <code style="background:#e2e8f0;padding:2px 6px;border-radius:4px;">SDnevnik_gen_data_YYYY-MM-DD.json</code>)</span>
+                                ⤷ Кликнете <strong>📥 Експорт JSON</strong> (долу) за да го зачувате како <code style="background:#e2e8f0;padding:2px 6px;border-radius:4px;">e_dnevnik_unified_state_v7.json</code></span>
                             </div>
 
                             <div style="background:#667eea;color:#fff;border-radius:50%;width:32px;height:32px;display:flex;align-items:center;justify-content:center;font-weight:700;">2</div>
@@ -1598,7 +1410,7 @@
                                 ├── document_factory_v7.py<br>
                                 ├── run_config.py &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;← (го чита gen_config.json)<br>
                                 ├── LAUNCHER.bat &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;← (двоен-клик, веќе одблокиран)<br>
-                                ├── e_dnevnik_unified_state_v7.json &nbsp;← (или SDnevnik_gen_data_*.json од чекор 1)<br>
+                                ├── e_dnevnik_unified_state_v7.json &nbsp;← (од чекор 1)<br>
                                 ├── gen_config.json &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;← (од "Зачувај конфиг" копчето)<br>
                                 ├── template.docx &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;← (опционално, за compact_factory)<br>
                                 └── OUT/ &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;← (ќе се креира автоматски)
@@ -1820,7 +1632,7 @@
         <!-- Data Tab -->
         <div id="data" class="tab-content">
             <div class="section-header">Експорт / Импорт</div>
-            <button class="btn btn-success btn-full" onclick="exportData()">⬇ Експортирај Backup (JSON)</button>
+            <button class="btn btn-success btn-full" onclick="exportData()">Експортирај Сè (JSON)</button>
             <button class="btn btn-primary btn-full" onclick="document.getElementById('importFile').click()">Импортирај JSON</button>
             <input type="file" id="importFile" accept=".json" style="display: none;" onchange="importData(event)">
             
@@ -1981,13 +1793,19 @@
         }
 
         function pullEmbeddedDataToUnified() {
-            // studentRecords are now managed natively (no iframe)
-            // Just ensure the array exists
-            if (!Array.isArray(window.studentRecords)) {
-                var persistedDosie = readDosieFromStorage();
-                if (persistedDosie.length > 0) {
-                    window.studentRecords = persistedDosie;
-                }
+            var dosieFrame = document.getElementById('dosieFrame');
+            if (dosieFrame && dosieFrame.dataset.loaded === '1') {
+                try {
+                    var dosieWin = dosieFrame.contentWindow;
+                    if (dosieWin && dosieWin.app && Array.isArray(dosieWin.app.students)) {
+                        window.studentRecords = deepCloneJson(dosieWin.app.students, window.studentRecords || []);
+                    }
+                } catch (e) {}
+            }
+
+            var persistedDosie = readDosieFromStorage();
+            if (persistedDosie.length > 0 || !Array.isArray(window.studentRecords) || window.studentRecords.length === 0) {
+                window.studentRecords = persistedDosie;
             }
 
             var audiogramFrame = document.getElementById('audiogramFrame');
@@ -2014,10 +1832,17 @@
                 localStorage.setItem('student_db_temp', JSON.stringify(records));
             } catch (e) {}
 
-            // Render native dosie panel if visible
-            if (forceRender !== false) {
-                dosieRenderSidebar();
-            }
+            var frame = document.getElementById('dosieFrame');
+            if (!frame || frame.dataset.loaded !== '1') return;
+
+            try {
+                var frameWin = frame.contentWindow;
+                if (!frameWin || !frameWin.app) return;
+
+                frameWin.app.students = deepCloneJson(records, []);
+                if (typeof frameWin.app.save === 'function') frameWin.app.save();
+                if (forceRender !== false && typeof frameWin.app.render === 'function') frameWin.app.render();
+            } catch (e) {}
         }
 
         function syncAudiogramDataToEmbedded(forceRender) {
@@ -2062,7 +1887,9 @@
             if (!frame) return;
             if (frame.dataset.hooked !== '1') {
                 frame.addEventListener('load', function() {
-                    if (frameId === 'audiogramFrame') {
+                    if (frameId === 'dosieFrame') {
+                        syncDosieDataToEmbedded(true);
+                    } else if (frameId === 'audiogramFrame') {
                         syncAudiogramDataToEmbedded(true);
                     }
                 });
@@ -2100,7 +1927,8 @@
             if (tab === 'plans') { renderPlansList(); renderLinksList(); }
             if (tab === 'trijazen') initTrijazenTab();
             if (tab === 'dosie') {
-                dosieRenderSidebar();
+                ensureEmbeddedAppLoaded('dosieFrame', embeddedDosieHtmlB64);
+                syncDosieDataToEmbedded(true);
             }
             if (tab === 'audiogramsApp') {
                 ensureEmbeddedAppLoaded('audiogramFrame', embeddedAudiogramHtmlB64);
@@ -4310,14 +4138,10 @@
             var url = URL.createObjectURL(blob);
             var a = document.createElement('a');
             a.href = url;
-            var now = new Date();
-            var dateStr = now.toISOString().slice(0, 10);
-            var timeStr = now.toTimeString().slice(0, 5).replace(':', '');
-            var numStudents = Array.isArray(students) ? students.length : 0;
-            a.download = 'SDnevnik_backup_' + numStudents + 'uchenici_' + dateStr + '_' + timeStr + '.json';
+            a.download = 'e_dnevnik_unified_state_v7.json';
             a.click();
             isDataDirty = false;
-            alert('Експортирано!\n\nФајл: ' + a.download);
+            alert('Експортирано!');
         }
 
         function importData(e) {
@@ -5048,21 +4872,6 @@
             return el ? el.value : '';
         }
 
-        // Sanitize string for safe use in PowerShell/CMD command arguments
-        // Replaces Macedonian „ " (U+201E, U+201C), „ " (U+201E, U+201D), and em-dash with ASCII equivalents
-        function psEscape(str) {
-            if (!str) return str;
-            return str
-                .replace(/\u201E/g, "'")   // „ → '
-                .replace(/\u201C/g, "'")   // " → '
-                .replace(/\u201D/g, "'")   // " → '
-                .replace(/\u2018/g, "'")   // ' → '
-                .replace(/\u2019/g, "'")   // ' → '
-                .replace(/\u2013/g, '-')   // – → -
-                .replace(/\u2014/g, '-')   // — → -
-                .replace(/`/g, '``');       // backtick escape for PowerShell
-        }
-
         function genBuildCommand() {
             var types = genConfig.docTypes;
             if (types.length === 0) {
@@ -5111,12 +4920,11 @@
                 if (val === null) {
                     displayLines.push('  <span class="cmd-flag">' + flag + '</span>');
                 } else {
-                    displayLines.push('  <span class="cmd-flag">' + flag + '</span> <span class="cmd-value">"' + psEscape(val) + '"</span>');
+                    displayLines.push('  <span class="cmd-flag">' + flag + '</span> <span class="cmd-value">"' + val + '"</span>');
                 }
             }
 
             // Copy: SINGLE LINE — works in CMD, PowerShell, and bash
-            // psEscape replaces Macedonian „ " and em-dash with ASCII equivalents
             var singleLine = 'python document_factory_v7.py';
             for (var i = 0; i < args.length; i++) {
                 var flag = args[i][0];
@@ -5124,7 +4932,7 @@
                 if (val === null) {
                     singleLine += ' ' + flag;
                 } else {
-                    singleLine += ' ' + flag + ' "' + psEscape(val) + '"';
+                    singleLine += ' ' + flag + ' "' + val + '"';
                 }
             }
 
@@ -5151,13 +4959,13 @@
             displayLines.push('<span class="cmd-comment"># Копирајте и залепете во CMD или PowerShell</span>');
             displayLines.push('python compact_factory.py gen-template');
             for (var i = 0; i < args.length; i++) {
-                displayLines.push('  <span class="cmd-flag">' + args[i][0] + '</span> <span class="cmd-value">"' + psEscape(args[i][1]) + '"</span>');
+                displayLines.push('  <span class="cmd-flag">' + args[i][0] + '</span> <span class="cmd-value">"' + args[i][1] + '"</span>');
             }
 
             // Copy: SINGLE LINE
             var singleLine = 'python compact_factory.py gen-template';
             for (var i = 0; i < args.length; i++) {
-                singleLine += ' ' + args[i][0] + ' "' + psEscape(args[i][1]) + '"';
+                singleLine += ' ' + args[i][0] + ' "' + args[i][1] + '"';
             }
 
             document.getElementById('genCommandBox').innerHTML = displayLines.join('\n');
@@ -5219,7 +5027,7 @@
                 fontSize: parseInt(genGetVal('genFontSize')) || 12,
                 therapistName: genGetVal('genTherapistName') || '',
                 therapistTitle: genGetVal('genTherapistTitle') || '',
-                institution: psEscape(genGetVal('genInstitution') || ''),
+                institution: genGetVal('genInstitution') || '',
                 periodLabel: genGetVal('genPeriodLabel') || '',
                 templatePath: genGetVal('genTemplatePath') || 'template.docx',
                 selectedStudent: isSingle ? genConfig.selectedStudent : null,
@@ -5248,7 +5056,7 @@
             var url = URL.createObjectURL(blob);
             var a = document.createElement('a');
             a.href = url;
-            a.download = 'SDnevnik_gen_data_' + new Date().toISOString().slice(0, 10) + '.json';
+            a.download = 'e_dnevnik_unified_state_v7.json';
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);
@@ -5276,361 +5084,6 @@
             }, 3000);
         }
 
-
-        // ═══════════════════════════════════════════════════════
-        // NATIVE DOSIE PANEL (replaces iframe-based dosie)
-        // ═══════════════════════════════════════════════════════
-        var dosieSelectedId = null;
-        var dosieEditMode = false;
-
-        function dosieGetRecords() {
-            return Array.isArray(window.studentRecords) ? window.studentRecords : [];
-        }
-
-        function dosieSaveRecords() {
-            try { localStorage.setItem('student_db_temp', JSON.stringify(dosieGetRecords())); } catch(e) {}
-            saveData();
-        }
-
-        function dosieRenderSidebar() {
-            var list = document.getElementById('dosieSidebarList');
-            if (!list) return;
-            var records = dosieGetRecords();
-            var query = (document.getElementById('dosieSearch') || {}).value || '';
-            query = query.toLowerCase().trim();
-
-            var filtered = records.filter(function(r) {
-                if (!query) return true;
-                var haystack = [(r.firstName||''), (r.lastName||''), (r.grade||''), (r.findings||''), (r.opinion||'')].join(' ').toLowerCase();
-                return haystack.indexOf(query) !== -1;
-            });
-
-            if (filtered.length === 0) {
-                list.innerHTML = '<div style="padding:20px;text-align:center;color:#718096;">Нема записи</div>';
-                return;
-            }
-
-            var html = '';
-            for (var i = 0; i < filtered.length; i++) {
-                var r = filtered[i];
-                var fullName = ((r.firstName || '') + ' ' + (r.lastName || '')).trim() || 'Без име';
-                var activeClass = (r.id == dosieSelectedId) ? ' active' : '';
-                html += '<div class="dosie-sidebar-item' + activeClass + '" onclick="dosieSelectRecord(' + r.id + ')">' +
-                    '<h4>' + escHtml(fullName) + '</h4>' +
-                    '<p>' + escHtml(r.grade || '—') + '</p></div>';
-            }
-            list.innerHTML = html;
-        }
-
-        function dosieSelectRecord(id) {
-            dosieSelectedId = id;
-            dosieRenderSidebar();
-            dosieRenderDetail();
-        }
-
-        function dosieRenderDetail() {
-            var detail = document.getElementById('dosieDetail');
-            if (!detail) return;
-            var records = dosieGetRecords();
-            var rec = null;
-            for (var i = 0; i < records.length; i++) {
-                if (records[i].id == dosieSelectedId) { rec = records[i]; break; }
-            }
-            if (!rec) {
-                detail.innerHTML = '<div class="dosie-empty">Изберете ученик од листата</div>';
-                return;
-            }
-
-            var fullName = ((rec.firstName || '') + ' ' + (rec.lastName || '')).trim() || 'Без име';
-
-            if (dosieEditMode) {
-                detail.innerHTML = dosieEditHtml(rec);
-                return;
-            }
-
-            var fields = [
-                ['Име', rec.firstName],
-                ['Презиме', rec.lastName],
-                ['Датум на раѓање', rec.birthDate],
-                ['Одделение', rec.grade],
-                ['Контакт детали', rec.contact || '/'],
-                ['Име и презиме на таткото', rec.fatherName],
-                ['Име и презиме на мајката', rec.motherName],
-                ['Адреса', rec.address],
-                ['Место на живеење', rec.residence]
-            ];
-
-            var tableHtml = '<table class="dosie-detail-table">';
-            for (var i = 0; i < fields.length; i++) {
-                tableHtml += '<tr><td>' + escHtml(fields[i][0]) + '</td><td>' + escHtml(fields[i][1] || '') + '</td></tr>';
-            }
-            tableHtml += '</table>';
-
-            var findingsHtml = '';
-            if (rec.findings) {
-                findingsHtml = '<div class="dosie-detail-section"><h3>Наод</h3><div class="dosie-detail-text">' + escHtml(rec.findings) + '</div></div>';
-            }
-
-            var opinionHtml = '';
-            if (rec.opinion) {
-                opinionHtml = '<div class="dosie-detail-section"><h3>Мислење</h3><div class="dosie-detail-text">' + escHtml(rec.opinion) + '</div></div>';
-            }
-
-            var attachHtml = '';
-            var links = Array.isArray(rec.attachmentLinks) ? rec.attachmentLinks : [];
-            var images = Array.isArray(rec.attachments) ? rec.attachments : [];
-            if (links.length > 0 || images.length > 0) {
-                attachHtml = '<div class="dosie-attachments"><h3>Прилози (линкови + thumbnails)</h3>';
-                for (var j = 0; j < links.length; j++) {
-                    attachHtml += '<a class="dosie-attach-link" href="' + escHtml(links[j]) + '" target="_blank">' + escHtml(links[j]) + '</a>';
-                }
-                if (images.length > 0) {
-                    attachHtml += '<div class="dosie-thumb-grid">';
-                    for (var k = 0; k < images.length; k++) {
-                        attachHtml += '<img src="' + images[k] + '" onclick="window.open(this.src)">';
-                    }
-                    attachHtml += '</div>';
-                }
-                attachHtml += '</div>';
-            }
-
-            detail.innerHTML = '<div class="dosie-detail-title">Ученичко досие</div>' +
-                '<div class="dosie-detail-subtitle">' + escHtml(fullName) + '</div>' +
-                tableHtml + findingsHtml + opinionHtml + attachHtml;
-        }
-
-        function dosieEditHtml(rec) {
-            function field(label, key, type) {
-                var val = escHtml(rec[key] || '');
-                if (type === 'textarea') {
-                    return '<div style="margin-bottom:14px;"><label style="display:block;color:#818cf8;font-weight:600;margin-bottom:4px;font-size:13px;">' + label + '</label>' +
-                        '<textarea style="width:100%;min-height:100px;padding:10px;border:1px solid #4a5568;border-radius:6px;background:#2d3748;color:#e2e8f0;font-size:14px;resize:vertical;" data-key="' + key + '" oninput="dosieOnEdit(this)">' + val + '</textarea></div>';
-                }
-                return '<div style="margin-bottom:14px;"><label style="display:block;color:#818cf8;font-weight:600;margin-bottom:4px;font-size:13px;">' + label + '</label>' +
-                    '<input type="' + (type||'text') + '" style="width:100%;padding:10px;border:1px solid #4a5568;border-radius:6px;background:#2d3748;color:#e2e8f0;font-size:14px;" value="' + val + '" data-key="' + key + '" oninput="dosieOnEdit(this)"></div>';
-            }
-
-            return '<div class="dosie-detail-title">✏️ Уредување</div>' +
-                '<div style="display:grid;grid-template-columns:1fr 1fr;gap:0 20px;">' +
-                field('Име', 'firstName') + field('Презиме', 'lastName') +
-                field('Одделение', 'grade') + field('Датум на раѓање', 'birthDate', 'date') +
-                field('Име на таткото', 'fatherName') + field('Име на мајката', 'motherName') +
-                field('Адреса', 'address') + field('Место на живеење', 'residence') +
-                field('Контакт', 'contact') +
-                '</div>' +
-                field('Наод', 'findings', 'textarea') +
-                field('Мислење', 'opinion', 'textarea') +
-                '<div style="margin-top:10px;"><label style="display:block;color:#818cf8;font-weight:600;margin-bottom:4px;font-size:13px;">Прилози (линкови, еден по ред)</label>' +
-                '<textarea style="width:100%;min-height:60px;padding:10px;border:1px solid #4a5568;border-radius:6px;background:#2d3748;color:#e2e8f0;font-size:13px;resize:vertical;" data-key="attachmentLinks" oninput="dosieOnEditLinks(this)">' +
-                escHtml((Array.isArray(rec.attachmentLinks) ? rec.attachmentLinks : []).join('\n')) + '</textarea></div>' +
-                '<div style="display:flex;gap:10px;margin-top:20px;">' +
-                '<button class="btn btn-danger" onclick="dosieDeleteCurrent()">🗑 Избриши</button></div>';
-        }
-
-        function dosieOnEdit(el) {
-            var key = el.getAttribute('data-key');
-            var records = dosieGetRecords();
-            for (var i = 0; i < records.length; i++) {
-                if (records[i].id == dosieSelectedId) {
-                    records[i][key] = el.value;
-                    break;
-                }
-            }
-            dosieSaveRecords();
-        }
-
-        function dosieOnEditLinks(el) {
-            var records = dosieGetRecords();
-            for (var i = 0; i < records.length; i++) {
-                if (records[i].id == dosieSelectedId) {
-                    records[i].attachmentLinks = el.value.split('\n').map(function(l){ return l.trim(); }).filter(Boolean);
-                    break;
-                }
-            }
-            dosieSaveRecords();
-        }
-
-        function dosieToggleEdit() {
-            dosieEditMode = !dosieEditMode;
-            dosieRenderDetail();
-        }
-
-        function dosieAddNew() {
-            var records = dosieGetRecords();
-            var newRec = {
-                id: Date.now(),
-                firstName: '',
-                lastName: '',
-                grade: '',
-                birthDate: '',
-                contact: '',
-                fatherName: '',
-                motherName: '',
-                address: '',
-                residence: '',
-                findings: '',
-                opinion: '',
-                attachmentLinks: [],
-                attachments: []
-            };
-            records.unshift(newRec);
-            window.studentRecords = records;
-            dosieSelectedId = newRec.id;
-            dosieEditMode = true;
-            dosieSaveRecords();
-            dosieRenderSidebar();
-            dosieRenderDetail();
-        }
-
-        function dosieDeleteCurrent() {
-            if (!confirm('Избриши го овој запис?')) return;
-            var records = dosieGetRecords();
-            window.studentRecords = records.filter(function(r) { return r.id != dosieSelectedId; });
-            dosieSelectedId = null;
-            dosieEditMode = false;
-            dosieSaveRecords();
-            dosieRenderSidebar();
-            dosieRenderDetail();
-        }
-
-        function dosieExportRecords() {
-            var records = dosieGetRecords();
-            var blob = new Blob([JSON.stringify(records, null, 2)], { type: 'application/json' });
-            var url = URL.createObjectURL(blob);
-            var a = document.createElement('a');
-            a.href = url;
-            var dateStr = new Date().toISOString().slice(0, 10);
-            a.download = 'Dosie_backup_' + records.length + '_uchenici_' + dateStr + '.json';
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
-        }
-
-        function dosieImportRecords(e) {
-            var file = e.target.files[0];
-            if (!file) return;
-            var reader = new FileReader();
-            reader.onload = function(ev) {
-                try {
-                    var json = JSON.parse(ev.target.result);
-                    var imported = [];
-                    if (Array.isArray(json)) {
-                        imported = json;
-                    } else if (json.data && Array.isArray(json.data.student_records)) {
-                        imported = json.data.student_records;
-                    } else if (Array.isArray(json.student_records)) {
-                        imported = json.student_records;
-                    }
-                    if (imported.length === 0) throw new Error('Нема записи');
-                    window.studentRecords = imported;
-                    dosieSaveRecords();
-                    dosieRenderSidebar();
-                    dosieRenderDetail();
-                    alert('Увезено ' + imported.length + ' записи!');
-                } catch (err) {
-                    alert('Грешка: ' + err.message);
-                }
-            };
-            reader.readAsText(file);
-            e.target.value = '';
-        }
-
-        function dosieGenerateDocx() {
-            // In-browser DOCX generation for a single student record
-            // Styled to match the official OУРЦ format (image 3 reference)
-            var records = dosieGetRecords();
-            var rec = null;
-            for (var i = 0; i < records.length; i++) {
-                if (records[i].id == dosieSelectedId) { rec = records[i]; break; }
-            }
-            if (!rec) {
-                alert('Прво изберете ученик од листата!');
-                return;
-            }
-
-            var fullName = ((rec.firstName || '') + ' ' + (rec.lastName || '')).trim();
-
-            // Get school year and institution from generator config if available
-            var schoolYear = (document.getElementById('genSchoolYear') || {}).value || '2025-2026';
-            var institution = (document.getElementById('genInstitution') || {}).value || '\u0417\u0430\u0432\u043E\u0434 \u0437\u0430 \u0440\u0435\u0445\u0430\u0431\u0438\u043B\u0438\u0442\u0430\u0446\u0438\u0458\u0430 \u043D\u0430 \u0434\u0435\u0446\u0430 \u0441\u043E \u043E\u0448\u0442\u0435\u0442\u0435\u043D \u0441\u043B\u0443\u0445, \u0433\u043E\u0432\u043E\u0440, \u0433\u043B\u0430\u0441 \u0438 \u0434\u0440\u0443\u0433\u0438 \u043F\u0440\u043E\u0431\u043B\u0435\u043C\u0438 \u0432\u043E \u0440\u0430\u0437\u0432\u043E\u0458\u043E\u0442';
-            var shortInst = 'ОУРЦ \u201EКочо Рацин\u201C - Битола';
-
-            var docHtml = '<!DOCTYPE html><html><head><meta charset="UTF-8"><style>' +
-                'body{font-family:"Times New Roman",serif;font-size:13px;margin:30px 50px;color:#222;line-height:1.5;}' +
-                '.header-line{text-align:center;font-size:11px;color:#888;border-bottom:1px solid #ccc;padding-bottom:6px;margin-bottom:4px;}' +
-                'h1{color:#4a5aaf;font-size:20px;margin:10px 0 2px 0;font-weight:bold;border:none;}' +
-                '.student-name{font-size:16px;margin:0 0 16px 0;font-weight:normal;color:#333;}' +
-                'table{width:100%;border-collapse:collapse;margin:10px 0 20px 0;}' +
-                'td{padding:6px 10px;border:1px solid #ccc;vertical-align:top;font-size:13px;}' +
-                'td.label{color:#4a5aaf;font-weight:bold;width:200px;white-space:nowrap;font-size:13px;}' +
-                'td.value{color:#222;}' +
-                'h2{font-size:15px;font-weight:bold;color:#222;margin:18px 0 6px 0;border:none;}' +
-                '.text-block{font-size:13px;line-height:1.7;white-space:pre-wrap;margin-bottom:12px;}' +
-                '.attachments{margin-top:20px;padding-top:12px;border-top:2px solid #333;}' +
-                '.attachments h3{font-size:14px;font-weight:bold;margin:0 0 8px 0;}' +
-                '.attachments a{color:#4a5aaf;font-size:12px;display:block;margin:3px 0;word-break:break-all;}' +
-                '</style></head><body>';
-
-            // Header line (like image 3)
-            docHtml += '<div class="header-line">' + escHtml(shortInst) + '  |  Сурдолошки досиеа ' + escHtml(schoolYear) + '</div>';
-
-            docHtml += '<h1>Ученичко Досие</h1>';
-            docHtml += '<div class="student-name">' + escHtml(fullName) + '</div>';
-
-            // Compact info table matching image 3 style
-            docHtml += '<table>';
-            var rows = [
-                ['Име', rec.firstName],
-                ['Презиме', rec.lastName],
-                ['Датум на раѓање', rec.birthDate],
-                ['Одделение', rec.grade],
-                ['Контакт детали', rec.contact || '/'],
-                ['Име и презиме на таткото', rec.fatherName],
-                ['Име и презиме на мајката', rec.motherName],
-                ['Адреса', rec.address],
-                ['Место на живеење', rec.residence]
-            ];
-            for (var j = 0; j < rows.length; j++) {
-                docHtml += '<tr><td class="label">' + escHtml(rows[j][0]) + '</td><td class="value">' + escHtml(rows[j][1] || '') + '</td></tr>';
-            }
-
-            // Add Наод and Мислење inline in table if they exist (like image 3)
-            if (rec.findings) {
-                docHtml += '<tr><td class="label" style="vertical-align:top;">Наод</td><td class="value" style="white-space:pre-wrap;line-height:1.7;">' + escHtml(rec.findings) + '</td></tr>';
-            }
-            if (rec.opinion) {
-                docHtml += '<tr><td class="label" style="vertical-align:top;">Мислење</td><td class="value" style="white-space:pre-wrap;line-height:1.7;">' + escHtml(rec.opinion) + '</td></tr>';
-            }
-            docHtml += '</table>';
-
-            // Attachments section (like image 3 bottom section)
-            var links = Array.isArray(rec.attachmentLinks) ? rec.attachmentLinks.filter(Boolean) : [];
-            if (links.length > 0) {
-                docHtml += '<div class="attachments"><h3>Прилози (линкови + thumbnails)</h3>';
-                for (var k = 0; k < links.length; k++) {
-                    docHtml += '<a href="' + escHtml(links[k]) + '">' + escHtml(links[k]) + '</a>';
-                }
-                docHtml += '</div>';
-            }
-            docHtml += '</body></html>';
-
-            // Save as .doc (Word-compatible HTML)
-            var blob = new Blob(['\ufeff' + docHtml], { type: 'application/msword' });
-            var url = URL.createObjectURL(blob);
-            var a = document.createElement('a');
-            a.href = url;
-            a.download = 'ДОСИЕ_' + (fullName || 'ученик').replace(/\s+/g, '_') + '.doc';
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
-        }
-
-        function escHtml(str) {
-            if (!str) return '';
-            return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-        }
 
         // Warn user about unsaved changes
         window.addEventListener('beforeunload', function (e) {
