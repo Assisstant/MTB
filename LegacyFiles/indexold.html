@@ -498,44 +498,6 @@
             position: relative;
         }
 
-        .app-card.stale {
-            opacity: 0.5;
-            border: 2px dashed var(--danger);
-        }
-        .app-card.stale .app-card-cover {
-            background: linear-gradient(135deg, #9ca3af, #6b7280) !important;
-        }
-        .stale-badge {
-            position: absolute;
-            top: 6px;
-            right: 6px;
-            background: var(--danger);
-            color: white;
-            font-size: 9px;
-            font-weight: 700;
-            padding: 2px 8px;
-            border-radius: 999px;
-            z-index: 2;
-            letter-spacing: 0.5px;
-        }
-        .nav-btn.has-stale {
-            position: relative;
-        }
-        .stale-dot {
-            position: absolute;
-            top: 4px;
-            right: 4px;
-            width: 8px;
-            height: 8px;
-            background: var(--danger);
-            border-radius: 50%;
-            animation: pulse-dot 1.5s infinite;
-        }
-        @keyframes pulse-dot {
-            0%, 100% { transform: scale(1); opacity: 1; }
-            50% { transform: scale(1.4); opacity: 0.6; }
-        }
-
         .app-card-content {
             padding: 20px;
             display: flex;
@@ -1175,10 +1137,9 @@
             <button class="nav-btn" onclick="openImportModal()" title="Import">📥</button>
             <button class="nav-btn" onclick="exportData()" title="Export">📤</button>
             <div class="nav-separator"></div>
-            <button class="nav-btn" style="color: var(--success);" onclick="smartScan()"
+            <button class="nav-btn" style="color: var(--success);" onclick="scanGitHub()"
                 title="Sync GitHub">🔄</button>
             <button class="nav-btn" onclick="setScanFolder()" title="Set GitHub Folder">📁</button>
-            <button class="nav-btn has-stale" id="removeStaleBtn" style="display:none;" onclick="removeStaleApps()" title="Remove stale apps">🧹</button>
             <div class="nav-separator"></div>
             <button class="nav-btn" style="color: var(--danger);" onclick="openCleanModal()"
                 title="Hard Reset">🗑️</button>
@@ -1407,14 +1368,6 @@
             $('#searchInput').placeholder = t('search');
             $('#greetingText').textContent = t('greeting');
 
-            // Show/hide stale remove button
-            const staleCount = state.apps.filter(a => a.stale).length;
-            const staleBtn = $('#removeStaleBtn');
-            if (staleBtn) {
-                staleBtn.style.display = staleCount > 0 ? 'flex' : 'none';
-                staleBtn.title = `Remove ${staleCount} stale apps`;
-            }
-
             const tl = state.lang === 'mk';
             $$('.modal-title').forEach(el => {
                 if (el.textContent.includes('Додај') || el.textContent.includes('Add')) el.textContent = t('addAppTitle');
@@ -1490,10 +1443,8 @@
         `;
             } else {
                 let html = apps.map((app, i) => `
-          <div class="app-card ${app.stale ? 'stale' : ''}" draggable="true" data-id="${app.id}" onclick="openApp('${app.url}')">
-            <div class="app-card-cover" style="--hue: ${(i * 45) % 360}deg">
-              ${app.stale ? '<span class="stale-badge">REMOVED</span>' : ''}
-            </div>
+          <div class="app-card" draggable="true" data-id="${app.id}" onclick="openApp('${app.url}')">
+            <div class="app-card-cover" style="--hue: ${(i * 45) % 360}deg"></div>
             <div class="app-card-content">
               <div class="app-actions">
                 <button class="app-action star ${app.favorite ? 'active' : ''}" onclick="event.stopPropagation(); toggleFav('${app.id}')" title="Омилено">★</button>
@@ -1737,13 +1688,10 @@
             showToast(`📁 Folder: ${state.scanPath === null ? 'AUTO' : (state.scanPath || 'root')} `);
         };
 
-        window.smartScan = async () => {
-            // First time: prompt for repo. After that: use saved.
-            if (!state.repoUrl) {
-                const repo = prompt('📂 GitHub repo (owner/repo):', 'Assisstant/MTB');
-                if (!repo) return;
-                state.repoUrl = repo.trim();
-            }
+        window.scanGitHub = async () => {
+            const repo = prompt('📂 GitHub repo (owner/repo):', state.repoUrl || 'Assisstant/MTB');
+            if (!repo) return;
+            state.repoUrl = repo.trim();
 
             const getAutoScanPath = () => {
                 if (location.protocol === 'file:') return '';
@@ -1756,7 +1704,7 @@
             const contentPath = (state.scanPath === null || state.scanPath === undefined)
                 ? getAutoScanPath() : String(state.scanPath).trim().replace(/^\/+|\/+$/g, '');
 
-            showToast(`🔄 Scanning ${state.repoUrl}/${contentPath || 'root'}...`);
+            showToast(`🔄 Scanning(${contentPath || 'root'})...`);
 
             try {
                 const apiUrl = contentPath
@@ -1777,29 +1725,10 @@
                     f.name.toLowerCase().endsWith('.html') && !ignore.has(f.name.toLowerCase())
                 );
 
-                const remoteUrls = new Set(htmlFiles.map(f => f.name));
-
-                // 1. Mark stale: scanned apps whose URL is no longer on GitHub
-                let staleCount = 0;
-                state.apps.forEach(app => {
-                    if (app.id && app.id.startsWith('gh_') && !remoteUrls.has(app.url)) {
-                        if (!app.stale) { app.stale = true; staleCount++; }
-                    } else if (app.stale && remoteUrls.has(app.url)) {
-                        // Un-stale if file came back
-                        delete app.stale;
-                    }
-                });
-
-                // 2. Add new files
                 let added = 0;
                 htmlFiles.forEach(file => {
                     const relUrl = file.name;
-                    const existing = state.apps.find(a => a.url === relUrl);
-                    if (existing) {
-                        // Un-stale if it exists and matches
-                        if (existing.stale) delete existing.stale;
-                        return;
-                    }
+                    if (state.apps.some(a => a.url === relUrl)) return;
 
                     const map = FILE_MAPPINGS[file.name] || {};
                     state.apps.push({
@@ -1814,28 +1743,10 @@
                 });
 
                 save();
-
-                // 3. Summary
-                const totalStale = state.apps.filter(a => a.stale).length;
-                let msg = `✅ Scan done: +${added} new`;
-                if (staleCount > 0) msg += `, ${staleCount} newly stale`;
-                if (totalStale > 0) msg += ` (${totalStale} total stale)`;
-                if (added === 0 && staleCount === 0) msg = '✅ Everything up to date!';
-                showToast(msg);
+                showToast(`✅ Added ${added} apps`);
             } catch (e) {
                 showToast('❌ Error: ' + (e?.message || e), 'error');
             }
-        };
-
-        window.removeStaleApps = () => {
-            const stale = state.apps.filter(a => a.stale);
-            if (stale.length === 0) { showToast('No stale apps to remove'); return; }
-            if (!confirm(`Remove ${stale.length} stale app(s)?\n\n${stale.map(a => '• ' + a.name).join('\n')}`)) return;
-            const staleIds = new Set(stale.map(a => a.id));
-            state.apps = state.apps.filter(a => !a.stale);
-            state.order = state.order.filter(o => !staleIds.has(o));
-            save();
-            showToast(`🧹 Removed ${stale.length} stale apps`);
         };
 
         // Import/Export
