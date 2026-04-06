@@ -3170,7 +3170,6 @@
         });
 
         // ============ FIND NEAREST LETTER PROPERTIES ============
-        function findNearestLetterProps(x, y) {
             const letters = state.elements.filter(el => el.type === 'letter');
             if (letters.length === 0) {
                 const fallbackSize = state.typingCursor.fontSize || 48;
