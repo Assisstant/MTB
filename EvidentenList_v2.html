@@ -1,0 +1,913 @@
+<!DOCTYPE html>
+<html lang="mk">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Евидентен Лист v2</title>
+<style>
+:root{
+  --bg:#f0f2f5;--card:#fff;--text:#1a1a2e;--sub:#6b7280;--accent:#4f46e5;--accent2:#7c3aed;
+  --border:#e5e7eb;--hover:#f3f4f6;--green:#10b981;--red:#ef4444;--yellow:#f59e0b;--blue:#3b82f6;
+  --radius:8px;--shadow:0 1px 3px rgba(0,0,0,.1);
+  --font:'Segoe UI',system-ui,-apple-system,sans-serif;
+}
+.dark{
+  --bg:#111827;--card:#1f2937;--text:#f3f4f6;--sub:#9ca3af;--border:#374151;--hover:#374151;
+  --shadow:0 1px 3px rgba(0,0,0,.4);
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:var(--font);background:var(--bg);color:var(--text);font-size:14px;line-height:1.5;transition:background .3s,color .3s;}
+
+/* Header */
+.hdr{background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;padding:10px 16px;display:flex;align-items:center;gap:10px;position:sticky;top:0;z-index:100;}
+.hdr h1{font-size:16px;flex:1;font-weight:700;}
+.hdr-btn{background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.2);color:#fff;padding:5px 10px;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600;}
+.hdr-btn:hover{background:rgba(255,255,255,.3);}
+
+/* User badge */
+.user-badge{background:rgba(255,255,255,.2);padding:3px 8px;border-radius:12px;font-size:11px;font-weight:700;letter-spacing:1px;}
+
+/* Student bar */
+.sbar{background:var(--card);border-bottom:1px solid var(--border);padding:8px 12px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
+.sbar select,.sbar input{font-size:13px;padding:6px 10px;border-radius:6px;border:1px solid var(--border);background:var(--card);color:var(--text);font-family:var(--font);}
+.sbar select{flex:1;min-width:140px;}
+.sbtn{padding:6px 12px;border-radius:6px;border:none;cursor:pointer;font-size:12px;font-weight:600;color:#fff;}
+.sbtn-add{background:var(--accent);}
+.sbtn-del{background:var(--red);}
+.sbtn-dup{background:var(--accent2);}
+.sbtn:hover{opacity:.85;}
+
+/* Tabs */
+.tabs{display:flex;overflow-x:auto;background:var(--card);border-bottom:2px solid var(--border);scrollbar-width:none;}
+.tabs::-webkit-scrollbar{display:none;}
+.tab{padding:8px 14px;cursor:pointer;font-size:11px;font-weight:600;color:var(--sub);border-bottom:3px solid transparent;white-space:nowrap;transition:.2s;}
+.tab:hover{color:var(--text);background:var(--hover);}
+.tab.active{color:var(--accent);border-bottom-color:var(--accent);}
+
+/* Content */
+.tc{display:none;padding:12px;max-width:960px;margin:0 auto;}
+.tc.active{display:block;}
+.card{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);padding:14px;margin-bottom:12px;}
+.card h3{font-size:13px;font-weight:700;margin-bottom:8px;color:var(--accent);display:flex;align-items:center;gap:6px;}
+.card h3 .edit-info{font-size:10px;color:var(--sub);font-weight:400;margin-left:auto;}
+
+/* Fields */
+.fl{margin-bottom:8px;}
+.fl label{display:block;font-size:11px;font-weight:600;color:var(--sub);margin-bottom:2px;}
+.fl input,.fl textarea,.fl select{width:100%;padding:7px 10px;border:1px solid var(--border);border-radius:6px;font-size:13px;background:var(--card);color:var(--text);font-family:var(--font);}
+.fl textarea{min-height:50px;resize:vertical;}
+.rw{display:grid;gap:8px;}
+.r2{grid-template-columns:1fr 1fr;}
+.r3{grid-template-columns:1fr 1fr 1fr;}
+.r4{grid-template-columns:1fr 1fr 1fr 1fr;}
+
+/* Tables */
+.at{width:100%;border-collapse:collapse;margin:6px 0;font-size:12px;}
+.at th,.at td{border:1px solid var(--border);padding:4px 6px;text-align:center;}
+.at th{background:var(--hover);font-weight:700;font-size:10px;text-transform:uppercase;letter-spacing:.3px;}
+.at td:first-child{text-align:left;font-weight:500;}
+.at .gh{background:linear-gradient(135deg,rgba(79,70,229,.08),rgba(124,58,237,.08));font-weight:700;text-align:left !important;}
+.at .gh td{text-align:left !important;color:var(--accent);font-size:12px;}
+.at .ev{background:linear-gradient(135deg,rgba(79,70,229,.05),rgba(124,58,237,.05));}
+.at .ev td{font-size:11px;color:var(--accent);font-weight:600;}
+.ss{width:48px;padding:2px !important;text-align:center;border:1px solid var(--border);border-radius:4px;font-size:13px;font-weight:700;background:var(--card);color:var(--text);font-family:var(--font);}
+
+/* Contacts table */
+.ct input{width:100%;padding:3px 6px;border:1px solid var(--border);border-radius:4px;font-size:12px;background:var(--card);color:var(--text);font-family:var(--font);}
+
+/* Toggle */
+.tgl{display:flex;align-items:center;gap:8px;margin-bottom:10px;cursor:pointer;}
+.tgl input[type=checkbox]{width:18px;height:18px;accent-color:var(--accent);}
+.tgl span{font-size:13px;font-weight:700;}
+
+/* Buttons */
+.btn{display:inline-flex;align-items:center;gap:5px;padding:8px 16px;border:none;border-radius:var(--radius);cursor:pointer;font-size:13px;font-weight:600;transition:.2s;font-family:var(--font);}
+.btn:hover{opacity:.85;transform:translateY(-1px);}
+.btn-p{background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;}
+.btn-g{background:var(--green);color:#fff;}
+.btn-r{background:var(--red);color:#fff;}
+.btn-b{background:var(--blue);color:#fff;}
+.btn-o{background:var(--yellow);color:#fff;}
+.btn-w{background:var(--card);color:var(--text);border:1px solid var(--border);}
+
+/* Merge UI */
+.merge-item{background:var(--hover);border-radius:6px;padding:8px;margin:4px 0;font-size:12px;}
+.merge-item .diff{color:var(--red);font-weight:600;}
+.merge-item .new{color:var(--green);font-weight:600;}
+
+/* Toast */
+.toast{position:fixed;bottom:16px;right:16px;background:#1f2937;color:#fff;padding:10px 18px;border-radius:8px;font-size:12px;z-index:9999;opacity:0;transition:.3s;pointer-events:none;max-width:300px;}
+.toast.show{opacity:1;}
+
+/* Status bar */
+.status{background:var(--card);border-top:1px solid var(--border);padding:4px 12px;font-size:10px;color:var(--sub);display:flex;justify-content:space-between;position:fixed;bottom:0;left:0;right:0;z-index:50;}
+
+/* Setup modal */
+.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;z-index:200;}
+.modal{background:var(--card);border-radius:12px;padding:24px;max-width:360px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,.3);}
+.modal h2{font-size:18px;margin-bottom:12px;text-align:center;}
+
+@media(max-width:640px){
+  .r2,.r3,.r4{grid-template-columns:1fr;}
+  .tab{padding:7px 10px;font-size:10px;}
+  .at td:first-child{min-width:100px;font-size:11px;}
+  .hdr h1{font-size:14px;}
+}
+</style>
+</head>
+<body>
+
+<!-- SETUP MODAL -->
+<div class="modal-bg" id="setupModal" style="display:none;">
+  <div class="modal">
+    <h2>👋 Добредојде</h2>
+    <p style="color:var(--sub);font-size:13px;margin-bottom:14px;text-align:center;">Внеси ги твоите иницијали за следење на промени.</p>
+    <div class="fl"><label>Иницијали (пр. БН, ВД, МЛ)</label><input id="setupInitials" maxlength="5" style="font-size:18px;text-align:center;font-weight:700;letter-spacing:2px;text-transform:uppercase;"></div>
+    <div class="fl"><label>Име (опционално)</label><input id="setupName"></div>
+    <button class="btn btn-p" style="width:100%;justify-content:center;margin-top:8px;" onclick="saveSetup()">Продолжи →</button>
+  </div>
+</div>
+
+<!-- HEADER -->
+<div class="hdr">
+  <h1>📋 Евидентен Лист</h1>
+  <span class="user-badge" id="userBadge"></span>
+  <button class="hdr-btn" onclick="toggleTheme()">🌓</button>
+</div>
+
+<!-- STUDENT BAR -->
+<div class="sbar">
+  <select id="sSel" onchange="loadStudent(this.value)"><option value="">-- Ученик --</option></select>
+  <button class="sbtn sbtn-add" onclick="addStudent()">+ Нов</button>
+  <button class="sbtn sbtn-dup" onclick="dupStudent()">📋</button>
+  <button class="sbtn sbtn-del" onclick="delStudent()">🗑</button>
+</div>
+
+<!-- TABS -->
+<div class="tabs" id="mainTabs">
+  <div class="tab active" data-t="t0">👤 Профил</div>
+  <div class="tab" data-t="t1">📊 I-V</div>
+  <div class="tab" data-t="t2">🎭 VI</div>
+  <div class="tab" data-t="t3">💭 VII-VIII</div>
+  <div class="tab" data-t="t4">🏠 IX-X</div>
+  <div class="tab" data-t="t5">👁 Вид</div>
+  <div class="tab" data-t="t6">👂 Слух/Говор</div>
+  <div class="tab" data-t="t7">🧪 Биофидбек/XI</div>
+  <div class="tab" data-t="t8">👥 Стручни</div>
+  <div class="tab" data-t="t9">💾 Фајлови</div>
+</div>
+
+<!-- TAB 0: Profile -->
+<div class="tc active" id="t0">
+  <div class="card"><h3>🏫 Институција</h3>
+    <div class="fl"><label>Име на посебното училиште</label><input id="f_institution" oninput="au()"></div>
+    <div class="rw r2">
+      <div class="fl"><label>Место</label><input id="f_place" oninput="au()"></div>
+      <div class="fl"><label>Општина</label><input id="f_municipality" oninput="au()"></div>
+    </div>
+  </div>
+  <div class="card"><h3>👤 Ученик</h3>
+    <div class="fl"><label>Име и презиме</label><input id="f_fullName" oninput="au()" style="font-weight:700;font-size:15px;"></div>
+    <div class="rw r4">
+      <div class="fl"><label>Тип</label><select id="f_schoolType" onchange="au();togSec()"><option value="primary">Основно</option><option value="secondary">Средно</option></select></div>
+      <div class="fl"><label>Одд./Год.</label><input id="f_grade" oninput="au()"></div>
+      <div class="fl"><label>Паралелка</label><input id="f_classSection" oninput="au()"></div>
+      <div class="fl"><label>Учебна година</label>
+        <div style="display:flex;gap:4px;align-items:center;">
+          <input id="f_yearStart" type="number" style="width:70px;" oninput="au()"><span>/</span>
+          <input id="f_yearEnd" type="number" style="width:70px;" oninput="au()">
+        </div>
+      </div>
+    </div>
+    <div id="secFields" style="display:none;" class="rw r2">
+      <div class="fl"><label>Струка</label><input id="f_vocation" oninput="au()"></div>
+      <div class="fl"><label>Занимање</label><input id="f_occupation" oninput="au()"></div>
+    </div>
+    <div class="rw r2">
+      <div class="fl"><label>Датум на раѓање</label><input id="f_dob" oninput="au()"></div>
+      <div class="fl"><label>Место на раѓање</label><input id="f_pob" oninput="au()"></div>
+    </div>
+    <div class="fl"><label>Дијагноза (Наод и мислење)</label><textarea id="f_diagnosis" oninput="au()"></textarea></div>
+  </div>
+</div>
+
+<!-- TAB 1: Sections I-V (built by JS) -->
+<div class="tc" id="t1"></div>
+
+<!-- TAB 2: Section VI Behavior (built by JS) -->
+<div class="tc" id="t2"></div>
+
+<!-- TAB 3: Sections VII + VIII (built by JS) -->
+<div class="tc" id="t3"></div>
+
+<!-- TAB 4: Sections IX + X + XI (built by JS) -->
+<div class="tc" id="t4"></div>
+
+<!-- TAB 5: Vision -->
+<div class="tc" id="t5">
+  <div class="card">
+    <div class="tgl"><input type="checkbox" id="v_enabled" onchange="au();togV()"><span>ПРОЦЕНКА НА ФУНКЦИОНАЛЕН ВИД *За ученици со оштетен вид</span></div>
+    <div id="vBox" style="display:none;">
+      <div class="fl"><label>Датум на тестирање</label><input id="v_testDate" oninput="au()"></div>
+      <div class="card" style="background:var(--hover);">
+        <h3>1-2. Visual Acuity (Видна оштрина)</h3>
+        <p style="font-size:11px;color:var(--sub);margin-bottom:6px;">На далеку (Distance)</p>
+        <div class="rw r3">
+          <div class="fl"><label>VOD sc/cc</label><input id="v_vod_d" oninput="au()"></div>
+          <div class="fl"><label>VOS sc/cc</label><input id="v_vos_d" oninput="au()"></div>
+          <div class="fl"><label>VODS sc/cc</label><input id="v_vods_d" oninput="au()"></div>
+        </div>
+        <p style="font-size:11px;color:var(--sub);margin:6px 0;">На блиску (Near)</p>
+        <div class="rw r2">
+          <div class="fl"><label>VODS sc/cc at 40cm</label><input id="v_vods_n40" oninput="au()"></div>
+          <div class="fl"><label>VODS sc/cc at __ cm</label><input id="v_vods_ncm" oninput="au()"></div>
+        </div>
+      </div>
+      <div class="rw r2">
+        <div class="card" style="background:var(--hover);">
+          <h3>3. Contrast Sensitivity</h3>
+          <div class="rw r2">
+            <div class="fl"><label>At _m _%</label><input id="v_contr1" oninput="au()"></div>
+            <div class="fl"><label>At _m _%</label><input id="v_contr2" oninput="au()"></div>
+          </div>
+          <div class="fl"><label>Conclusion</label><input id="v_contrConc" oninput="au()"></div>
+        </div>
+        <div class="card" style="background:var(--hover);">
+          <h3>4-5. Color / Stereo Vision</h3>
+          <div class="fl"><label>Color Vision</label><select id="v_color" onchange="au()"><option>normal</option><option>false</option><option>questionable</option></select></div>
+          <div class="fl"><label>Stereoscopic Vision</label><select id="v_stereo" onchange="au()"><option>normal</option><option>false</option><option>questionable</option></select></div>
+        </div>
+      </div>
+      <div class="rw r2">
+        <div class="fl"><label>6. Visual field</label><input id="v_field" oninput="au()"></div>
+        <div class="fl"><label>Observation/Опсервација</label><input id="v_obs" oninput="au()"></div>
+      </div>
+      <div class="fl"><label>Тифлолог- испитувач</label><input id="v_tiflologist" oninput="au()"></div>
+      <hr style="margin:12px 0;border-color:var(--border);">
+      <h3 style="font-size:13px;color:var(--accent);margin-bottom:8px;">ВИД — дефектолог-тифлолог</h3>
+      <div class="fl"><label>Тифлолог</label><input id="v_tifName" oninput="au()"></div>
+      <div class="rw r2">
+        <div class="fl"><label>Дијагноза</label><input id="v_diag" oninput="au()"></div>
+        <div class="fl"><label>Корекција на видот</label><input id="v_correction" oninput="au()"></div>
+      </div>
+      <div class="rw r2">
+        <div class="fl"><label>Оштрина на видот</label><input id="v_acuity" oninput="au()"></div>
+        <div class="fl"><label>Рехабилитациски третман</label><input id="v_rehab" oninput="au()"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- TAB 6: Hearing + Speech -->
+<div class="tc" id="t6">
+  <div class="card">
+    <div class="tgl"><input type="checkbox" id="h_enabled" onchange="au();togH()"><span>СЛУХ *За ученици со оштетен слух</span></div>
+    <div id="hBox" style="display:none;">
+      <div class="fl"><label>Дефектолог-сурдолог</label><input id="h_surdologist" oninput="au()"></div>
+      <div class="fl"><label>Сурдоаудиолошка дијагноза</label><textarea id="h_surdoDiag" oninput="au()"></textarea></div>
+      <div class="fl"><label>Аудиограм</label><textarea id="h_audiogram" oninput="au()"></textarea></div>
+      <div class="fl"><label>Индивидуални слушни апарати</label><textarea id="h_aids" oninput="au()"></textarea></div>
+      <div class="fl"><label>Наод и мислење на аудиорехабилитатор</label><textarea id="h_opinion" oninput="au()"></textarea></div>
+    </div>
+  </div>
+  <div class="card">
+    <h3>🗣 ГОВОР, ГЛАС И КОМУНИКАЦИЈА</h3>
+    <div class="fl"><label>Деф.сурдолог, логопед</label><input id="sp_logoped" oninput="au()"></div>
+    <div class="fl"><label>Вербално комуницира (користи говор)</label><textarea id="sp_verbal" oninput="au()"></textarea></div>
+    <div class="fl"><label>Невербално комуницира (користи гест)</label><textarea id="sp_nonverbal" oninput="au()"></textarea></div>
+    <div class="fl"><label>Вербално и невербално комуницира (говор и гест)</label><textarea id="sp_both" oninput="au()"></textarea></div>
+    <div class="fl"><label>Тријажен тест (состојба на гласовите)</label><textarea id="sp_triage" oninput="au()"></textarea></div>
+  </div>
+  <div class="card">
+    <h3>📝 НАОД И МИСЛЕЊЕ</h3>
+    <div class="fl"><label>Дефектолог-логопед</label><input id="sp_logName" oninput="au()"></div>
+    <div class="fl"><label>Дијагноза</label><textarea id="sp_diag" oninput="au()"></textarea></div>
+    <div class="fl"><label>Артикулативен тест</label><textarea id="sp_artic" oninput="au()"></textarea></div>
+    <div class="fl"><label>Тестови за читање и пишување</label><textarea id="sp_readWrite" oninput="au()"></textarea></div>
+    <div class="fl"><label>Тест за орофацијална праксија</label><textarea id="sp_orofacial" oninput="au()"></textarea></div>
+  </div>
+</div>
+
+<!-- TAB 7: Biofeedback + XI -->
+<div class="tc" id="t7">
+  <div class="card">
+    <div class="tgl"><input type="checkbox" id="bf_enabled" onchange="au();togBf()"><span>БИОФИДБЕК ТЕРАПИЈА</span></div>
+    <div id="bfBox" style="display:none;">
+      <div class="fl"><label>Дефектолог биофидбек терапевт</label><input id="bf_therapist" oninput="au()"></div>
+      <div class="rw r2">
+        <div class="fl"><label>Тип тренинг</label><select id="bf_type" onchange="au()"><option value="classic">1. Класичен тренинг</option><option value="specialized">2. Специјализиран тренинг</option></select></div>
+        <div class="fl"><label>Соработка</label><select id="bf_coop" onchange="au()"><option value="independent">самостоен (соработува)</option><option value="withHelp">работи со помош</option><option value="refuses">не сака да соработува</option><option value="notAdapted">се уште не е адаптиран</option></select></div>
+      </div>
+    </div>
+  </div>
+  <div class="card" id="s11card" style="display:none;">
+    <h3>*(Средни стручни) XI. ОДНОС КОН ПРАКТИЧНАТА НАСТАВА</h3>
+    <div id="s11body"></div>
+  </div>
+</div>
+
+<!-- TAB 8: Contacts -->
+<div class="tc" id="t8">
+  <div class="card">
+    <h3>👥 Референтни стручни лица</h3>
+    <div style="overflow-x:auto;">
+      <table class="at" id="ctTable">
+        <thead><tr><th>#</th><th>Име и презиме</th><th>Занимање</th><th>Телефон</th><th>Е-пошта</th></tr></thead>
+        <tbody id="ctBody"></tbody>
+      </table>
+    </div>
+    <div class="fl" style="margin-top:10px;"><label>Место и датум</label><input id="f_placeDate" oninput="au()"></div>
+  </div>
+  <div class="card">
+    <h3>📋 Испитувачи по секции</h3>
+    <div id="examinersBody"></div>
+  </div>
+</div>
+
+<!-- TAB 9: Files -->
+<div class="tc" id="t9">
+  <div class="card">
+    <h3>💾 JSON — Зачувај / Вчитај</h3>
+    <p style="font-size:12px;color:var(--sub);margin-bottom:10px;">Извези го целиот документ. Именувањето е автоматско: датум + иницијали.</p>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;">
+      <button class="btn btn-p" onclick="exportJSON()">📤 Извези JSON</button>
+      <button class="btn btn-b" onclick="document.getElementById('jsonIn').click()">📥 Вчитај JSON</button>
+      <input type="file" id="jsonIn" accept=".json" style="display:none" onchange="importJSON(event)">
+    </div>
+    <div class="fl"><label>Режим на вчитување</label>
+      <select id="importMode">
+        <option value="merge">🔀 Спои (поново по секција победува)</option>
+        <option value="replace">♻️ Замени сè</option>
+        <option value="addNew">➕ Додај само нови ученици</option>
+      </select>
+    </div>
+  </div>
+  <div class="card">
+    <h3>📄 DOCX Експорт</h3>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+      <button class="btn btn-g" onclick="genDocx()">📄 Тековен ученик</button>
+      <button class="btn btn-o" onclick="genDocxAll()">📦 Сите ученици</button>
+    </div>
+  </div>
+  <div class="card">
+    <h3>📊 Историја на промени</h3>
+    <div id="editLog" style="max-height:200px;overflow-y:auto;font-size:11px;color:var(--sub);"></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+<div class="status"><span id="statusLeft"></span><span id="statusRight"></span></div>
+
+<script>
+// ═══════════════════════════════════════
+// DATA DEFINITIONS
+// ═══════════════════════════════════════
+var SEC = [
+  {id:'s1',t:'I. ОРГАНИЗИРАНОСТ НА ПСИХОМОТОРИКА',ex:[{id:'ex_s1',l:'дефектолог испитувач'}],
+   f:['ПСИХОМОТОРИКА НА ДОЛНИТЕ ЕКСТРЕМИТЕТИ','ПСИХОМОТОРИКА НА ГОРНИТЕ ЕКСТРЕМИТЕТИ','КОНТРОЛА НА МОТОРИКАТА НА ТЕЛОТО ВО ЦЕЛОСТ','МОЖНОСТ ЗА ОДРЖУВАЊЕ НА РАМНОТЕЖА НА ТЕЛОТО','КООРДИНАЦИЈА НА ДВИЖЕЊА']},
+  {id:'s2',t:'II. ПРАКСИЧКА ОРГАНИЗИРАНОСТ',ex:[{id:'ex_s2',l:'дефектолог испитувач'}],
+   f:['МЕЛОКИНЕТИЧКА ПРАКСИЈА','ОРГАНИЗИРАНОСТ НА ИДЕОМОТОРНА ПРАКСИЈА','ОРГАНИЗИРАНОСТ НА КОНСТРУКТИВНА ПРАКСИЈА','КВАЛИТЕТ НА ЛИНЕАЦИЈА']},
+  {id:'s3',t:'III. ГНОСТИЧКА ОРГАНИЗИРАНОСТ',ex:[{id:'ex_s3',l:'дефектолог испитувач'}],
+   f:['ПОЗНАВАЊЕ НА ДЕЛОВИТЕ НА ТЕЛОТО','ПОЗНАВАЊЕ ЛАТЕРАЛИЗАЦИЈА НА СЕБЕ','ПОЗНАВАЊЕ ЛАТЕРАЛИЗАЦИЈА НА ДРУГ','ДОЖИВУВАЊЕ НА ТЕЛОТО ВО ПРОСТОРОТ','ЗАПАЗУВАЊЕ НА ОДНОСИТЕ ВО ПРОСТОРОТ И ПРЕТСТАВНИОТ ПРОСТОР','РЕПРОДУКЦИЈА НА МОДЕЛ','ДОЖИВУВАЊЕ И ЗАПАЗУВАЊЕ НА ВРЕМЕ','СНАОЃАЊЕ ВО МИКРО ПРОСТОР','СНАОЃАЊЕ ВО МАКРО ПРОСТОР']},
+  {id:'s4',t:'IV. ГОВОРНО - ЈАЗИЧНО ПОДРАЧЈЕ',ex:[{id:'ex_s4d',l:'дефектолог- испитувач'},{id:'ex_s4l',l:'логопед- испитувач'}],
+   f:['КВАЛИТЕТ НА ГЛАСОТ','РИТАМ И ТЕМПО НА ГОВОРОТ','АРТИКУЛАЦИЈА И УПОТРЕБА НА ГЛАСОВИТЕ','ПАСИВЕН ГОВОР','АКТИВЕН ГОВОР','ЛЕКСИЧКИ СПОСОБНОСТИ','ПРАВОПИСНО НИВО НА РАКОПИС -ДИСОРТОГРАФИЈА','РАЗВИЕНОСТ НА СЕМАНТИЧКО НИВО НА ГОВОР','КОГНИТИВЕН И ЈАЗИЧКИ РАЗВОЈ']},
+  {id:'s5',t:'V. СЕНЗОРНО ПОДРАЧЈЕ',ex:[{id:'ex_s5',l:'дефектолог- испитувач'}],
+   f:['АУДИТИВНО ПРОЦЕСУИРАЊЕ','ВЕСТИБУЛАРНО ПРОЦЕСУИРАЊЕ','ТАКТИЛНО ПРОЦЕСУИРАЊЕ','ГУСТАТИВНО ПРОЦЕСУИРАЊЕ','ОЛФАКТОРНО ПРОЦЕСУИРАЊЕ','ВИЗУЕЛНО ПРОЦЕСУИРАЊЕ','ПРОПРИОЦЕПТИВНО ПРОЦЕСУИРАЊЕ']}
+];
+var S6 = {id:'s6',t:'VI. ОДНЕСУВАЊЕ',ex:[{id:'ex_s6',l:'дефектолог-испитувач'}],
+  g:[{l:'1. ОДНЕСУВАЊЕ НА ЧАС',f:['на местото каде седи','во однос кон соседните ученици','внимание','расположение']},
+     {l:'2. ОДНЕСУВАЊЕ НА ОДМОР',f:['во училишниот двор','во однос на игра','во однос на група ученици','расположение']},
+     {l:'3. ОДНЕСУВАЊЕ КОН АВТОРИТЕТ',f:['се обраќа на наставникот','однесување кон налозите на наставникот','пофалби','опомени']}]};
+var S7 = {id:'s7',t:'VII. ПСИХОЛОШКО ПОДРАЧЈЕ',ex:[{id:'ex_s7',l:'психолог – испитувач'}],
+  g:[{l:'1. ПОМНЕЊЕ',f:['механичко помнење','логичко помнење','краткотрајно','долготрајно']},
+     {l:'2. ВНИМАНИЕ',f:['концентрирано','површно (дистрактибилно) внимание','дистрибуирано','флуктуирачко']},
+     {l:'3. МИСЛЕЊЕ',f:['сензомоторно','предоперационално','конкретно','формално']},
+     {l:'4. ИДЕНТИТЕТ',f:['високо мислење за себе','добро мислење за себе','ниско мислење за себе']},
+     {l:'5. САМОКОНТРОЛА',f:[]},
+     {l:'6. МОРАЛЕН РАЗВОЈ',f:['нема поим за моралност','хетерономна моралност','автономна моралност']}]};
+var S8 = {id:'s8',t:'VIII. ЕМОЦИОНАЛНО ПОДРАЧЈЕ',ex:[{id:'ex_s8',l:'психолог – испитувач'}],
+  f:['ПРИОЃА И РАЗГОВАРА СО ДРУГИТЕ','ПОКАЖУВА СПОСОБНОСТ ЗА СОРАБОТКА','ПОСТОЈАНО Е СО РОДИТЕЛ','СЕ СРАМИ','СЛОБОДНО КОМУНИЦИРА','ПАНИЧЕН СТРАВ','АВТОАГРЕСИЈА','ИСПАДИ НА БЕС','ПОСТОЈАНО ПРОЈАВУВА ГНЕВ','НЕКОНТРОЛИРАНО СМЕЕЊЕ','ПОСТОЈАНО ТАЖЕН']};
+var S9 = {id:'s9',t:'IX. ПОДРАЧЈЕ НА ЖИВОТНИ ВЕШТИНИ',ex:[{id:'ex_s9',l:'дефектолог/одделенски/ класен/ воспитувач'}],
+  g:[{l:'ЛИЧНИ:',f:['ОДРЖУВА ЛИЧНА ХИГИЕНА','КОРИСТИ ТОАЛЕТ','САМОСТОЈНО СЕ ОБЛЕКУВА','УПОТРЕБУВА ПРИБОР ЗА ЈАДЕЊЕ','ОДГОВОРНОСТ ВО ЗАШТИТА НА ЖИВОТНАТА СРЕДИНА','ПРИЛАГОДУВА ОДНЕСУВАЊЕ ЗАРАДИ ЛИЧНА БЕЗБЕДНОСТ']},
+     {l:'СОЦИЈАЛНИ:',f:['УПОТРЕБУВА ПАРИ','УПОТРЕБУВА ЧАСОВНИК','УПОТРЕБУВА ТЕЛЕФОН','КОРИСТИ ЈАВЕН ПРЕВОЗ','ПРИФАЌА ОДРЕДЕНИ ПРАВИЛА','БАРА ПОМОШ']}]};
+var S10 = {id:'s10',t:'X. УЧЕЊЕ',ex:[{id:'ex_s10',l:'дефектолог/одделенски/ класен/'}],
+  f:['РАЗБИРА ОСНОВНИ НАЛОЗИ ЗА УЧЕЊЕ','ИЗВРШУВА НАЛОЗИ ЗА УЧЕЊЕ','УЧИ НЕВЕРБАЛНО','УЧИ ВЕРБАЛНО','УЧИ МЕХАНИЧКИ','УЧИ СО РАЗБИРАЊЕ','УЧИ СО ИНТЕРЕС','УЧИ САМОСТОЈНО','ИСТРАЈНОСТ ВО УЧЕЊЕТО']};
+var S11 = {id:'s11',t:'XI. ОДНОС НА УЧЕНИКОТ КОН ПРАКТИЧНАТА НАСТАВА',ex:[{id:'ex_s11',l:'занимање на испитувачот'}],
+  f:['ОДНОС КОН СТРУКАТА-ЗАНИМАЊЕТО','ОДНОС КОН СРЕДСТАВАТА ЗА РАБОТА','ОДНОС КОН НАСТАВНИКОТ ПО ПРАКТИЧНА НАСТАВА','РАБОТНА ДИСЦИПЛИНА','УРЕДНОСТ ВО РАБОТАТА','ТЕМПО НА РАБОТА','КВАНТИТЕТ НА РАБОТА','СМИСЛА ЗА ОРГАНИЗАЦИЈА И СОРАБОТКА','КОМУНИКАЦИЈА СО ОКОЛИНАТА','СНАОДЛИВОСТ ВО РАБОТАТА','ВООЧУВАЊЕ ГРЕШКИ','ОТСТРАНУВАЊЕ НА ГРЕШКИ','ЈА ВРШИ РАБОТАТА САМОСТОЈНО','КВАЛИТЕТ ВО РАБОТАТА','ИСТРАЈНОСТ ВО РАБОТАТА']};
+
+// ═══════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════
+var DB_KEY='el2_db', USR_KEY='el2_user';
+var allRec=[], curId=null, userInfo=null, saveT=null;
+
+function getDB(){try{return JSON.parse(localStorage.getItem(DB_KEY))||[];}catch(e){return[];}}
+function putDB(){localStorage.setItem(DB_KEY,JSON.stringify(allRec));}
+function gid(){return 'r'+Date.now()+'_'+Math.random().toString(36).substr(2,4);}
+function toast(m){var t=$('toast');t.textContent=m;t.classList.add('show');setTimeout(function(){t.classList.remove('show');},2500);}
+function $(id){return document.getElementById(id);}
+function esc(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+
+// ═══════════════════════════════════════
+// USER IDENTITY
+// ═══════════════════════════════════════
+function checkUser(){
+  var u=localStorage.getItem(USR_KEY);
+  if(u){userInfo=JSON.parse(u);$('userBadge').textContent=userInfo.initials;$('setupModal').style.display='none';}
+  else{$('setupModal').style.display='flex';}
+}
+function saveSetup(){
+  var ini=$('setupInitials').value.trim().toUpperCase();
+  if(!ini){alert('Внеси иницијали');return;}
+  userInfo={initials:ini,name:$('setupName').value.trim()};
+  localStorage.setItem(USR_KEY,JSON.stringify(userInfo));
+  $('userBadge').textContent=ini;
+  $('setupModal').style.display='none';
+  toast('Добредојде, '+ini+'!');
+}
+
+// ═══════════════════════════════════════
+// RECORD STRUCTURE
+// ═══════════════════════════════════════
+function newRec(){
+  return {
+    id:gid(), profile:{institution:'ОУРЦ „Кочо Рацин" - Битола',place:'Битола',municipality:'Битола',
+      fullName:'',schoolType:'primary',grade:'',classSection:'',yearStart:new Date().getFullYear(),yearEnd:new Date().getFullYear()+1,
+      vocation:'',occupation:'',dob:'',pob:'',diagnosis:''},
+    scores:{},examiners:{},
+    vision:{enabled:false,testDate:'',vod_d:'',vos_d:'',vods_d:'',vods_n40:'',vods_ncm:'',contr1:'',contr2:'',contrConc:'',
+      color:'normal',stereo:'normal',field:'',obs:'',tiflologist:'',tifName:'',diag:'',correction:'',acuity:'',rehab:''},
+    hearing:{enabled:false,surdologist:'',surdoDiag:'',audiogram:'',aids:'',opinion:''},
+    speech:{logoped:'',verbal:'',nonverbal:'',both:'',triage:'',logName:'',diag:'',artic:'',readWrite:'',orofacial:''},
+    biofeedback:{enabled:false,therapist:'',type:'classic',coop:'independent'},
+    contacts:Array.from({length:8},function(){return{name:'',profession:'',phone:'',email:''};}),
+    placeDate:'',
+    editLog:[],
+    _meta:{createdAt:new Date().toISOString(),createdBy:userInfo?userInfo.initials:''}
+  };
+}
+
+// ═══════════════════════════════════════
+// STUDENT CRUD
+// ═══════════════════════════════════════
+function refreshList(){
+  var s=$('sSel');s.innerHTML='<option value="">-- Ученик ('+allRec.length+') --</option>';
+  allRec.forEach(function(r){var o=document.createElement('option');o.value=r.id;o.textContent=(r.profile.fullName||'?')+' ('+r.profile.yearStart+'/'+r.profile.yearEnd+')';s.appendChild(o);});
+  if(curId)s.value=curId;
+  $('statusLeft').textContent=allRec.length+' записи';
+}
+function getRec(id){return allRec.find(function(r){return r.id===id;});}
+function addStudent(){
+  var n=prompt('Име и презиме:');if(!n)return;
+  var r=newRec();r.profile.fullName=n;allRec.push(r);curId=r.id;putDB();refreshList();loadStudent(r.id);toast('✓ '+n);
+}
+function dupStudent(){
+  if(!curId)return toast('Избери ученик');var s=getRec(curId);if(!s)return;
+  var r=JSON.parse(JSON.stringify(s));r.id=gid();r.profile.fullName+=' (копија)';r._meta={createdAt:new Date().toISOString(),createdBy:userInfo?userInfo.initials:''};
+  allRec.push(r);curId=r.id;putDB();refreshList();loadStudent(r.id);toast('Копија');
+}
+function delStudent(){
+  if(!curId)return;if(!confirm('Избриши?'))return;
+  allRec=allRec.filter(function(r){return r.id!==curId;});curId=null;putDB();refreshList();clearForm();toast('Избришан');
+}
+
+// ═══════════════════════════════════════
+// SCORE SELECT HTML
+// ═══════════════════════════════════════
+function ssel(id){return '<select id="'+id+'" class="ss" onchange="au()"><option value=""></option><option value="1">1</option><option value="2">2</option><option value="3">3</option></select>';}
+function cbsel(id){return '<select id="'+id+'" class="ss" onchange="au()"><option value=""></option><option value="√">√</option><option value="X">X</option></select>';}
+
+// ═══════════════════════════════════════
+// BUILD UI
+// ═══════════════════════════════════════
+function buildAll(){
+  buildScored();buildBehavior();buildPsych();buildLifeLearn();buildS11();buildContacts();buildExaminers();
+}
+
+function buildScored(){
+  var c=$('t1');var h='';
+  SEC.forEach(function(s){
+    h+='<div class="card"><h3>'+s.t+'</h3><table class="at"><thead><tr><th style="text-align:left;">Ставка</th><th>Почеток</th><th>I полуг.</th><th>Крај</th></tr></thead><tbody>';
+    s.f.forEach(function(f,i){var k=s.id+'_'+i;
+      h+='<tr><td>'+(i+1)+'. '+f+'</td><td>'+ssel(k+'_s')+'</td><td>'+ssel(k+'_m')+'</td><td>'+ssel(k+'_e')+'</td></tr>';
+    });
+    h+='<tr class="ev"><td><strong>ОПШТА ПРОЦЕНКА</strong></td><td id="'+s.id+'_evS"></td><td id="'+s.id+'_evM"></td><td id="'+s.id+'_evE"></td></tr>';
+    h+='</tbody></table></div>';
+  });
+  c.innerHTML=h;
+}
+
+function buildBehavior(){
+  var c=$('t2');var h='<div class="card"><h3>'+S6.t+'</h3><table class="at"><thead><tr><th style="text-align:left;">Ставка</th><th>Почеток</th><th>I полуг.</th><th>Крај</th></tr></thead><tbody>';
+  var fi=0;
+  S6.g.forEach(function(g){
+    h+='<tr class="gh"><td colspan="4">'+g.l+'</td></tr>';
+    g.f.forEach(function(f){var k='s6_'+fi;
+      h+='<tr><td style="padding-left:16px;">- '+f+'</td><td>'+ssel(k+'_s')+'</td><td>'+ssel(k+'_m')+'</td><td>'+ssel(k+'_e')+'</td></tr>';
+      fi++;
+    });
+  });
+  h+='<tr class="ev"><td><strong>ОПШТА ПРОЦЕНКА</strong></td><td id="s6_evS"></td><td id="s6_evM"></td><td id="s6_evE"></td></tr>';
+  h+='</tbody></table></div>';
+  c.innerHTML=h;
+}
+
+function buildPsych(){
+  var c=$('t3');var h='<div class="card"><h3>'+S7.t+'</h3><table class="at"><thead><tr><th style="text-align:left;">Ставка</th><th>Почеток</th><th>I полуг.</th><th>Крај</th></tr></thead><tbody>';
+  var fi=0;
+  S7.g.forEach(function(g){
+    h+='<tr class="gh"><td colspan="4">'+g.l+'</td></tr>';
+    if(g.f.length===0){var k='s7_'+fi;h+='<tr><td>'+g.l+'</td><td>'+cbsel(k+'_s')+'</td><td>'+cbsel(k+'_m')+'</td><td>'+cbsel(k+'_e')+'</td></tr>';fi++;}
+    else g.f.forEach(function(f){var k='s7_'+fi;h+='<tr><td style="padding-left:16px;">- '+f+'</td><td>'+cbsel(k+'_s')+'</td><td>'+cbsel(k+'_m')+'</td><td>'+cbsel(k+'_e')+'</td></tr>';fi++;});
+  });
+  h+='</tbody></table></div>';
+  // VIII
+  h+='<div class="card"><h3>'+S8.t+'</h3><table class="at"><thead><tr><th style="text-align:left;">Ставка</th><th>Почеток</th><th>I полуг.</th><th>Крај</th></tr></thead><tbody>';
+  S8.f.forEach(function(f,i){var k='s8_'+i;
+    h+='<tr><td>'+(i+1)+'. '+f+'</td><td>'+cbsel(k+'_s')+'</td><td>'+cbsel(k+'_m')+'</td><td>'+cbsel(k+'_e')+'</td></tr>';
+  });
+  h+='</tbody></table></div>';
+  c.innerHTML=h;
+}
+
+function buildLifeLearn(){
+  var c=$('t4');var h='';
+  // IX
+  h+='<div class="card"><h3>'+S9.t+'</h3><table class="at"><thead><tr><th style="text-align:left;">Ставка</th><th>Почеток</th><th>I полуг.</th><th>Крај</th></tr></thead><tbody>';
+  var fi=0;
+  S9.g.forEach(function(g){
+    h+='<tr class="gh"><td colspan="4">'+g.l+'</td></tr>';
+    g.f.forEach(function(f){var k='s9_'+fi;
+      h+='<tr><td>'+f+'</td><td>'+ssel(k+'_s')+'</td><td>'+ssel(k+'_m')+'</td><td>'+ssel(k+'_e')+'</td></tr>';fi++;});
+  });
+  h+='<tr class="ev"><td><strong>ОПШТА ПРОЦЕНКА</strong></td><td id="s9_evS"></td><td id="s9_evM"></td><td id="s9_evE"></td></tr></tbody></table></div>';
+  // X
+  h+='<div class="card"><h3>'+S10.t+'</h3><table class="at"><thead><tr><th style="text-align:left;">Ставка</th><th>Почеток</th><th>I полуг.</th><th>Крај</th></tr></thead><tbody>';
+  S10.f.forEach(function(f,i){var k='s10_'+i;
+    h+='<tr><td>'+(i+1)+'. '+f+'</td><td>'+ssel(k+'_s')+'</td><td>'+ssel(k+'_m')+'</td><td>'+ssel(k+'_e')+'</td></tr>';
+  });
+  h+='<tr class="ev"><td><strong>ОПШТА ПРОЦЕНКА</strong></td><td id="s10_evS"></td><td id="s10_evM"></td><td id="s10_evE"></td></tr></tbody></table></div>';
+  c.innerHTML=h;
+}
+
+function buildS11(){
+  var b=$('s11body');var h='<table class="at"><thead><tr><th style="text-align:left;">Ставка</th><th>Почеток</th><th>I полуг.</th><th>Крај</th></tr></thead><tbody>';
+  S11.f.forEach(function(f,i){var k='s11_'+i;
+    h+='<tr><td>'+(i+1)+'. '+f+'</td><td>'+ssel(k+'_s')+'</td><td>'+ssel(k+'_m')+'</td><td>'+ssel(k+'_e')+'</td></tr>';
+  });
+  h+='<tr class="ev"><td><strong>ОПШТА ПРОЦЕНКА</strong></td><td id="s11_evS"></td><td id="s11_evM"></td><td id="s11_evE"></td></tr></tbody></table>';
+  b.innerHTML=h;
+}
+
+function buildContacts(){
+  var b=$('ctBody');var h='';
+  for(var i=0;i<8;i++){
+    h+='<tr><td style="text-align:center;">'+(i+1)+'</td>';
+    ['name','profession','phone','email'].forEach(function(f){h+='<td><input class="ct" id="ct_'+i+'_'+f+'" oninput="au()"></td>';});
+    h+='</tr>';
+  }
+  b.innerHTML=h;
+}
+
+function buildExaminers(){
+  var b=$('examinersBody');var h='';
+  var allEx=[];
+  SEC.forEach(function(s){s.ex.forEach(function(e){allEx.push(e);});});
+  S6.ex.forEach(function(e){allEx.push(e);});
+  S7.ex.forEach(function(e){allEx.push(e);});
+  S8.ex.forEach(function(e){allEx.push(e);});
+  S9.ex.forEach(function(e){allEx.push(e);});
+  S10.ex.forEach(function(e){allEx.push(e);});
+  S11.ex.forEach(function(e){allEx.push(e);});
+  allEx.forEach(function(e){
+    h+='<div class="fl"><label>'+e.l+'</label><input id="'+e.id+'" oninput="au()"></div>';
+  });
+  b.innerHTML=h;
+}
+
+// ═══════════════════════════════════════
+// LOAD / SAVE
+// ═══════════════════════════════════════
+var PROF=['institution','place','municipality','fullName','schoolType','grade','classSection','yearStart','yearEnd','vocation','occupation','dob','pob','diagnosis'];
+var VIS=['enabled','testDate','vod_d','vos_d','vods_d','vods_n40','vods_ncm','contr1','contr2','contrConc','color','stereo','field','obs','tiflologist','tifName','diag','correction','acuity','rehab'];
+var HEA=['enabled','surdologist','surdoDiag','audiogram','aids','opinion'];
+var SPE=['logoped','verbal','nonverbal','both','triage','logName','diag','artic','readWrite','orofacial'];
+var BIO=['enabled','therapist','type','coop'];
+
+function getAllScoreIds(){
+  var ids=[];
+  SEC.forEach(function(s){s.f.forEach(function(f,i){var k=s.id+'_'+i;['_s','_m','_e'].forEach(function(p){ids.push(k+p);});});});
+  var fi=0;S6.g.forEach(function(g){g.f.forEach(function(){['_s','_m','_e'].forEach(function(p){ids.push('s6_'+fi+p);});fi++;});});
+  fi=0;S7.g.forEach(function(g){if(g.f.length===0){['_s','_m','_e'].forEach(function(p){ids.push('s7_'+fi+p);});fi++;}
+    else g.f.forEach(function(){['_s','_m','_e'].forEach(function(p){ids.push('s7_'+fi+p);});fi++;});});
+  S8.f.forEach(function(f,i){['_s','_m','_e'].forEach(function(p){ids.push('s8_'+i+p);});});
+  fi=0;S9.g.forEach(function(g){g.f.forEach(function(){['_s','_m','_e'].forEach(function(p){ids.push('s9_'+fi+p);});fi++;});});
+  S10.f.forEach(function(f,i){['_s','_m','_e'].forEach(function(p){ids.push('s10_'+i+p);});});
+  S11.f.forEach(function(f,i){['_s','_m','_e'].forEach(function(p){ids.push('s11_'+i+p);});});
+  return ids;
+}
+var SCORE_IDS=null;
+
+function loadStudent(id){
+  curId=id;$('sSel').value=id;var r=getRec(id);if(!r){clearForm();return;}
+  PROF.forEach(function(f){var el=$('f_'+f);if(el)el.value=r.profile[f]||'';});
+  togSec();
+  if(!SCORE_IDS)SCORE_IDS=getAllScoreIds();
+  SCORE_IDS.forEach(function(k){var el=$(k);if(el)el.value=r.scores[k]||'';});
+  // Vision
+  VIS.forEach(function(f){var el=$('v_'+f);if(el){if(el.type==='checkbox')el.checked=r.vision[f];else el.value=r.vision[f]||'';}});togV();
+  // Hearing
+  HEA.forEach(function(f){var el=$('h_'+f);if(el){if(el.type==='checkbox')el.checked=r.hearing[f];else el.value=r.hearing[f]||'';}});togH();
+  // Speech
+  SPE.forEach(function(f){var el=$('sp_'+f);if(el)el.value=r.speech[f]||'';});
+  // Biofeedback
+  BIO.forEach(function(f){var el=$('bf_'+f);if(el){if(el.type==='checkbox')el.checked=r.biofeedback[f];else el.value=r.biofeedback[f]||'';}});togBf();
+  // Examiners
+  if(r.examiners)Object.keys(r.examiners).forEach(function(k){var el=$(k);if(el)el.value=r.examiners[k]||'';});
+  // Contacts
+  r.contacts.forEach(function(c,i){['name','profession','phone','email'].forEach(function(f){var el=$('ct_'+i+'_'+f);if(el)el.value=c[f]||'';});});
+  $('f_placeDate').value=r.placeDate||'';
+  recalc();
+  showLog(r);
+}
+
+function clearForm(){
+  document.querySelectorAll('.tc input,.tc textarea,.tc select').forEach(function(el){
+    if(el.id==='sSel'||el.id==='importMode')return;
+    if(el.type==='checkbox')el.checked=false;else el.value='';
+  });
+}
+
+function au(){
+  if(!curId)return;var r=getRec(curId);if(!r)return;
+  PROF.forEach(function(f){var el=$('f_'+f);if(el)r.profile[f]=el.value;});
+  if(!SCORE_IDS)SCORE_IDS=getAllScoreIds();
+  SCORE_IDS.forEach(function(k){var el=$(k);if(el)r.scores[k]=el.value;});
+  VIS.forEach(function(f){var el=$('v_'+f);if(el)r.vision[f]=el.type==='checkbox'?el.checked:el.value;});
+  HEA.forEach(function(f){var el=$('h_'+f);if(el)r.hearing[f]=el.type==='checkbox'?el.checked:el.value;});
+  SPE.forEach(function(f){var el=$('sp_'+f);if(el)r.speech[f]=el.value;});
+  BIO.forEach(function(f){var el=$('bf_'+f);if(el)r.biofeedback[f]=el.type==='checkbox'?el.checked:el.value;});
+  // Examiners - collect all
+  if(!r.examiners)r.examiners={};
+  document.querySelectorAll('[id^="ex_"]').forEach(function(el){r.examiners[el.id]=el.value;});
+  r.contacts.forEach(function(c,i){['name','profession','phone','email'].forEach(function(f){var el=$('ct_'+i+'_'+f);if(el)c[f]=el.value;});});
+  r.placeDate=$('f_placeDate').value;
+  // Edit tracking
+  var ini=userInfo?userInfo.initials:'?';
+  r._meta=r._meta||{};r._meta.lastEditedAt=new Date().toISOString();r._meta.lastEditedBy=ini;
+  // Debounced save
+  if(saveT)clearTimeout(saveT);
+  saveT=setTimeout(function(){putDB();refreshList();$('statusRight').textContent='💾 '+new Date().toLocaleTimeString();},500);
+  recalc();
+}
+
+// ═══════════════════════════════════════
+// TOGGLES
+// ═══════════════════════════════════════
+function togSec(){$('secFields').style.display=$('f_schoolType').value==='secondary'?'':'none';$('s11card').style.display=$('f_schoolType').value==='secondary'?'':'none';}
+function togV(){$('vBox').style.display=$('v_enabled').checked?'':'none';}
+function togH(){$('hBox').style.display=$('h_enabled').checked?'':'none';}
+function togBf(){$('bfBox').style.display=$('bf_enabled').checked?'':'none';}
+function toggleTheme(){document.body.classList.toggle('dark');localStorage.setItem('el2_theme',document.body.classList.contains('dark')?'d':'l');}
+
+// ═══════════════════════════════════════
+// CALCULATIONS
+// ═══════════════════════════════════════
+function calcEv(sum,n){if(!n)return '';var p=sum/(n*3)*100;if(p>90)return 'целосно ('+Math.round(p)+'%)';if(p>=50)return 'добро ('+Math.round(p)+'%)';return 'недоволно ('+Math.round(p)+'%)';}
+
+function recalc(){
+  SEC.forEach(function(s){['s','m','e'].forEach(function(p,pi){var sum=0,n=0;s.f.forEach(function(f,i){var el=$(s.id+'_'+i+'_'+p);if(el&&el.value){sum+=+el.value;n++;}});var c=$(s.id+'_ev'+['S','M','E'][pi]);if(c)c.textContent=calcEv(sum,n);});});
+  // S6
+  ['s','m','e'].forEach(function(p,pi){var sum=0,n=0,fi=0;S6.g.forEach(function(g){g.f.forEach(function(){var el=$('s6_'+fi+'_'+p);if(el&&el.value){sum+=+el.value;n++;}fi++;});});var c=$('s6_ev'+['S','M','E'][pi]);if(c)c.textContent=calcEv(sum,n);});
+  // S9
+  ['s','m','e'].forEach(function(p,pi){var sum=0,n=0,fi=0;S9.g.forEach(function(g){g.f.forEach(function(){var el=$('s9_'+fi+'_'+p);if(el&&el.value){sum+=+el.value;n++;}fi++;});});var c=$('s9_ev'+['S','M','E'][pi]);if(c)c.textContent=calcEv(sum,n);});
+  // S10
+  ['s','m','e'].forEach(function(p,pi){var sum=0,n=0;S10.f.forEach(function(f,i){var el=$('s10_'+i+'_'+p);if(el&&el.value){sum+=+el.value;n++;}});var c=$('s10_ev'+['S','M','E'][pi]);if(c)c.textContent=calcEv(sum,n);});
+  // S11
+  ['s','m','e'].forEach(function(p,pi){var sum=0,n=0;S11.f.forEach(function(f,i){var el=$('s11_'+i+'_'+p);if(el&&el.value){sum+=+el.value;n++;}});var c=$('s11_ev'+['S','M','E'][pi]);if(c)c.textContent=calcEv(sum,n);});
+}
+
+// ═══════════════════════════════════════
+// EDIT LOG
+// ═══════════════════════════════════════
+function showLog(r){
+  var el=$('editLog');if(!el)return;
+  var m=r._meta||{};
+  el.innerHTML='<p>Креиран: '+(m.createdAt||'?').substring(0,16)+' од '+(m.createdBy||'?')+'</p>'+
+    '<p>Последна промена: '+(m.lastEditedAt||'?').substring(0,16)+' од '+(m.lastEditedBy||'?')+'</p>';
+}
+
+// ═══════════════════════════════════════
+// JSON IMPORT / EXPORT
+// ═══════════════════════════════════════
+function exportJSON(){
+  var ini=userInfo?userInfo.initials:'XX';
+  var fn='ЕвЛист_'+new Date().toISOString().slice(0,10)+'_'+new Date().toTimeString().slice(0,5).replace(':','')+' _'+ini+'.json';
+  var blob=new Blob([JSON.stringify(allRec,null,2)],{type:'application/json'});
+  var a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=fn;a.click();
+  toast('📤 Извезено: '+allRec.length+' записи');
+}
+
+function importJSON(ev){
+  var file=ev.target.files[0];if(!file)return;
+  var mode=$('importMode').value;
+  var reader=new FileReader();
+  reader.onload=function(e){
+    try{
+      var data=JSON.parse(e.target.result);
+      if(!Array.isArray(data))data=[data];
+      if(mode==='replace'){allRec=data;toast('♻️ Заменети: '+data.length);
+      } else if(mode==='addNew'){
+        var added=0;data.forEach(function(r){if(!getRec(r.id)){allRec.push(r);added++;}});toast('➕ Додадени: '+added);
+      } else { // merge
+        var merged=0,added=0;
+        data.forEach(function(incoming){
+          var existing=getRec(incoming.id);
+          if(!existing){allRec.push(incoming);added++;}
+          else{
+            // Per-section merge: newer _meta.lastEditedAt wins
+            var iTime=new Date(incoming._meta&&incoming._meta.lastEditedAt||0).getTime();
+            var eTime=new Date(existing._meta&&existing._meta.lastEditedAt||0).getTime();
+            if(iTime>eTime){
+              // Replace with incoming but keep local contacts if newer
+              var idx=allRec.indexOf(existing);allRec[idx]=incoming;merged++;
+            }
+          }
+        });
+        toast('🔀 Споени: '+merged+' ажурирани, '+added+' нови');
+      }
+      curId=null;putDB();refreshList();clearForm();
+    }catch(err){toast('❌ '+err.message);}
+  };
+  reader.readAsText(file);
+  ev.target.value='';
+}
+
+// ═══════════════════════════════════════
+// DOCX GENERATION
+// ═══════════════════════════════════════
+var DCS='@page{size:A4 portrait;margin:15mm 20mm;}body{font-family:"Times New Roman",serif;font-size:12pt;color:#000;padding:15mm 20mm;line-height:1.4;}.c{text-align:center;}.b{font-weight:bold;}.u{text-decoration:underline;}.sm{font-size:9pt;color:#666;}table{width:100%;border-collapse:collapse;margin:6px 0;}th,td{border:1px solid #000;padding:4px 6px;font-size:11pt;vertical-align:top;}th{background:#eee;font-weight:bold;text-align:center;}td:first-child{text-align:left;}.pb{page-break-before:always;}.ev{font-size:9pt;}h2{font-size:13pt;margin:12px 0 6px;text-align:center;}ul{margin:4px 0;padding-left:18px;}';
+
+function evtx(sum,n){if(!n)return '';var p=sum/(n*3)*100;
+  return [{l:'недоволно ниво 1',a:p<50},{l:'добро ниво 2',a:p>=50&&p<=90},{l:'целосно ниво 3',a:p>90}].map(function(x){return (x.a?'<b>- ':' - ')+x.l+(x.a?'</b>':'');}).join('<br>');}
+
+function buildDocx(r){
+  var p=r.profile,h='';
+  h+='<div class="c"><p class="sm">РЕПУБЛИКА МАКЕДОНИЈА</p><p class="u">'+esc(p.institution)+'</p><p class="sm">(име на посебното училиште)</p>';
+  h+='<p>'+esc(p.place)+'</p><p class="sm">(место)</p><p>'+esc(p.municipality)+'</p><p class="sm">(општина)</p></div>';
+  h+='<h2>ЕВИДЕНТЕН ЛИСТ ЗА СЛЕДЕЊЕ НА РАЗВОЈОТ И ПОСТИГНУВАЊАТА НА УЧЕНИКОТ</h2>';
+  h+='<p class="c b" style="font-size:14pt;">'+esc(p.fullName)+'</p>';
+  h+='<table><tr><td style="width:25%;"><b>За основно училиште</b></td><td>'+(p.schoolType==='primary'?'Одделение <u>'+esc(p.grade)+'</u> паралелка <u>'+esc(p.classSection)+'</u> учебна '+p.yearStart+'/'+p.yearEnd+' година':'')+'</td></tr>';
+  h+='<tr><td><b>За средно училиште</b></td><td>'+(p.schoolType==='secondary'?'Година <u>'+esc(p.grade)+'</u> паралелка <u>'+esc(p.classSection)+'</u> учебна '+p.yearStart+'/'+p.yearEnd+' година<br>Струка <u>'+esc(p.vocation||'')+'</u> занимање <u>'+esc(p.occupation||'')+'</u>':'')+'</td></tr></table>';
+  h+='<p>Датум и место на раѓање: <u>'+esc(p.dob)+'</u> во <u>'+esc(p.pob)+'</u></p>';
+  h+='<p>Дијагноза според Наод и мислење:</p><p>'+esc(p.diagnosis)+'</p>';
+
+  // Sections I-V
+  SEC.forEach(function(s){
+    h+='<div class="pb"></div><h2>'+s.t+'</h2>';
+    h+='<table><tr><th style="text-align:left;width:40%;">&nbsp;</th><th>Почеток на учебна година</th><th>Прво полугодие</th><th>Крај на учебна година</th></tr>';
+    var sm={s:0,m:0,e:0},cn={s:0,m:0,e:0};
+    s.f.forEach(function(f,i){var k=s.id+'_'+i;h+='<tr><td>'+(i+1)+'. '+f+'</td>';
+      ['s','m','e'].forEach(function(pp){var v=r.scores[k+'_'+pp]||'';h+='<td style="text-align:center;">'+v+'</td>';if(v){sm[pp]+=+v;cn[pp]++;}});h+='</tr>';});
+    h+='<tr><td><b>ОПШТА ПРОЦЕНКА НА СОСТОЈБАТА</b></td>';['s','m','e'].forEach(function(pp){h+='<td class="ev">'+evtx(sm[pp],cn[pp])+'</td>';});h+='</tr></table>';
+    s.ex.forEach(function(e){h+='<p>Име и презиме, '+e.l+': '+(r.examiners&&r.examiners[e.id]||'')+'</p>';});
+  });
+
+  // Vision
+  if(r.vision.enabled){
+    h+='<div class="pb"></div><p class="b">*За ученици со оштетен вид</p><h2>ПРОЦЕНКА НА ФУНКЦИОНАЛЕН ВИД</h2>';
+    h+='<p>Датум: '+esc(r.vision.testDate)+'</p>';
+    h+='<table><tr><td>VOD sc/cc: '+esc(r.vision.vod_d)+'</td><td>VODS at 40cm: '+esc(r.vision.vods_n40)+'</td></tr>';
+    h+='<tr><td>VOS sc/cc: '+esc(r.vision.vos_d)+'</td><td>VODS at cm: '+esc(r.vision.vods_ncm)+'</td></tr></table>';
+    h+='<p>Color: '+esc(r.vision.color)+' | Stereo: '+esc(r.vision.stereo)+'</p>';
+    h+='<p>Тифлолог: '+esc(r.vision.tiflologist)+'</p>';
+    h+='<table><tr><td>Дијагноза: <u>'+esc(r.vision.diag)+'</u></td></tr><tr><td>Корекција: <u>'+esc(r.vision.correction)+'</u></td></tr>';
+    h+='<tr><td>Оштрина: <u>'+esc(r.vision.acuity)+'</u></td></tr><tr><td>Рехабилитација: <u>'+esc(r.vision.rehab)+'</u></td></tr></table>';
+  }
+
+  // Hearing
+  if(r.hearing.enabled){
+    h+='<div class="pb"></div><p class="b">*За ученици со оштетен слух</p>';
+    h+='<table><tr><td><b>СЛУХ</b></td><td><b>Сурдолог:</b> '+esc(r.hearing.surdologist)+'</td></tr>';
+    h+='<tr><td colspan="2"><ul><li>Дијагноза: '+esc(r.hearing.surdoDiag)+'</li><li>Аудиограм: '+esc(r.hearing.audiogram)+'</li>';
+    h+='<li>Апарати: '+esc(r.hearing.aids)+'</li><li>Наод: '+esc(r.hearing.opinion)+'</li></ul></td></tr></table>';
+  }
+
+  // Speech
+  h+='<div class="pb"></div><table><tr><td><b>ГОВОР, ГЛАС И КОМУНИКАЦИЈА</b></td><td><b>Логопед:</b> '+esc(r.speech.logoped)+'</td></tr>';
+  h+='<tr><td colspan="2"><ul>';
+  if(r.speech.verbal)h+='<li>Вербално: '+esc(r.speech.verbal)+'</li>';
+  if(r.speech.nonverbal)h+='<li>Невербално: '+esc(r.speech.nonverbal)+'</li>';
+  if(r.speech.both)h+='<li>Вербално и невербално: '+esc(r.speech.both)+'</li>';
+  if(r.speech.triage)h+='<li>Тријажен тест: '+esc(r.speech.triage)+'</li>';
+  h+='</ul></td></tr></table>';
+  h+='<table><tr><td><b>НАОД И МИСЛЕЊЕ</b></td><td>'+esc(r.speech.logName)+'</td></tr><tr><td colspan="2"><ul>';
+  if(r.speech.diag)h+='<li>Дијагноза: '+esc(r.speech.diag)+'</li>';
+  if(r.speech.artic)h+='<li>Артикулативен тест: '+esc(r.speech.artic)+'</li>';
+  if(r.speech.readWrite)h+='<li>Читање/пишување: '+esc(r.speech.readWrite)+'</li>';
+  if(r.speech.orofacial)h+='<li>Орофацијална праксија: '+esc(r.speech.orofacial)+'</li>';
+  h+='</ul></td></tr></table>';
+
+  // VI Behavior
+  h+='<div class="pb"></div><h2>'+S6.t+'</h2><table><tr><th style="text-align:left;width:40%;">&nbsp;</th><th>Почеток</th><th>I полуг.</th><th>Крај</th></tr>';
+  var sm6={s:0,m:0,e:0},cn6={s:0,m:0,e:0},fi6=0;
+  S6.g.forEach(function(g){h+='<tr style="background:#eee;"><td colspan="4"><b>'+g.l+'</b></td></tr>';
+    g.f.forEach(function(f){var k='s6_'+fi6;h+='<tr><td style="padding-left:16px;">- '+f+'</td>';
+      ['s','m','e'].forEach(function(pp){var v=r.scores[k+'_'+pp]||'';h+='<td style="text-align:center;">'+v+'</td>';if(v){sm6[pp]+=+v;cn6[pp]++;}});h+='</tr>';fi6++;});});
+  h+='<tr><td><b>ОПШТА ПРОЦЕНКА</b></td>';['s','m','e'].forEach(function(pp){h+='<td class="ev">'+evtx(sm6[pp],cn6[pp])+'</td>';});h+='</tr></table>';
+  S6.ex.forEach(function(e){h+='<p>'+e.l+': '+(r.examiners&&r.examiners[e.id]||'')+'</p>';});
+
+  // VII Psych
+  h+='<div class="pb"></div><h2>'+S7.t+'</h2><table><tr><th style="text-align:left;width:40%;">&nbsp;</th><th>Почеток</th><th>I полуг.</th><th>Крај</th></tr>';
+  var fi7=0;S7.g.forEach(function(g){h+='<tr style="background:#eee;"><td colspan="4"><b>'+g.l+'</b></td></tr>';
+    if(g.f.length===0){var k='s7_'+fi7;h+='<tr><td>'+g.l+'</td>';['s','m','e'].forEach(function(pp){h+='<td style="text-align:center;">'+(r.scores[k+'_'+pp]||'□')+'</td>';});h+='</tr>';fi7++;}
+    else g.f.forEach(function(f){var k='s7_'+fi7;h+='<tr><td style="padding-left:16px;">- '+f+'</td>';
+      ['s','m','e'].forEach(function(pp){h+='<td style="text-align:center;">'+(r.scores[k+'_'+pp]||'□')+'</td>';});h+='</tr>';fi7++;});});
+  h+='</table>';S7.ex.forEach(function(e){h+='<p>'+e.l+': '+(r.examiners&&r.examiners[e.id]||'')+'</p>';});
+
+  // VIII Emotional
+  h+='<h2>'+S8.t+'</h2><table><tr><th style="text-align:left;width:40%;">&nbsp;</th><th>Почеток</th><th>I полуг.</th><th>Крај</th></tr>';
+  S8.f.forEach(function(f,i){var k='s8_'+i;h+='<tr><td>'+(i+1)+'. '+f+'</td>';['s','m','e'].forEach(function(pp){h+='<td style="text-align:center;">'+(r.scores[k+'_'+pp]||'□')+'</td>';});h+='</tr>';});
+  h+='</table>';S8.ex.forEach(function(e){h+='<p>'+e.l+': '+(r.examiners&&r.examiners[e.id]||'')+'</p>';});
+
+  // IX, X (scored)
+  [S9,S10].forEach(function(sec){
+    h+='<div class="pb"></div><h2>'+sec.t+'</h2><table><tr><th style="text-align:left;width:40%;">&nbsp;</th><th>Почеток</th><th>I полуг.</th><th>Крај</th></tr>';
+    var sm={s:0,m:0,e:0},cn={s:0,m:0,e:0};
+    if(sec.g){var fi=0;sec.g.forEach(function(g){h+='<tr style="background:#eee;"><td colspan="4"><b>'+g.l+'</b></td></tr>';
+      g.f.forEach(function(f){var k=sec.id+'_'+fi;h+='<tr><td>'+f+'</td>';['s','m','e'].forEach(function(pp){var v=r.scores[k+'_'+pp]||'';h+='<td style="text-align:center;">'+v+'</td>';if(v){sm[pp]+=+v;cn[pp]++;}});h+='</tr>';fi++;});});
+    }else{sec.f.forEach(function(f,i){var k=sec.id+'_'+i;h+='<tr><td>'+(i+1)+'. '+f+'</td>';['s','m','e'].forEach(function(pp){var v=r.scores[k+'_'+pp]||'';h+='<td style="text-align:center;">'+v+'</td>';if(v){sm[pp]+=+v;cn[pp]++;}});h+='</tr>';});}
+    h+='<tr><td><b>ОПШТА ПРОЦЕНКА</b></td>';['s','m','e'].forEach(function(pp){h+='<td class="ev">'+evtx(sm[pp],cn[pp])+'</td>';});h+='</tr></table>';
+    sec.ex.forEach(function(e){h+='<p>'+e.l+': '+(r.examiners&&r.examiners[e.id]||'')+'</p>';});
+  });
+
+  // XI (secondary only)
+  if(p.schoolType==='secondary'){
+    h+='<div class="pb"></div><p class="b">*(Само за средните стручни училишта)</p><h2>'+S11.t+'</h2>';
+    h+='<table><tr><th style="text-align:left;width:40%;">&nbsp;</th><th>Почеток</th><th>I полуг.</th><th>Крај</th></tr>';
+    var sm11={s:0,m:0,e:0},cn11={s:0,m:0,e:0};
+    S11.f.forEach(function(f,i){var k='s11_'+i;h+='<tr><td>'+(i+1)+'. '+f+'</td>';['s','m','e'].forEach(function(pp){var v=r.scores[k+'_'+pp]||'';h+='<td style="text-align:center;">'+v+'</td>';if(v){sm11[pp]+=+v;cn11[pp]++;}});h+='</tr>';});
+    h+='<tr><td><b>ОПШТА ПРОЦЕНКА</b></td>';['s','m','e'].forEach(function(pp){h+='<td class="ev">'+evtx(sm11[pp],cn11[pp])+'</td>';});h+='</tr></table>';
+    S11.ex.forEach(function(e){h+='<p>'+e.l+': '+(r.examiners&&r.examiners[e.id]||'')+'</p>';});
+  }
+
+  // Biofeedback
+  if(r.biofeedback.enabled){
+    h+='<p class="b">БИОФИДБЕК ТЕРАПИЈА — '+esc(r.biofeedback.therapist)+'</p>';
+    h+='<p>'+(r.biofeedback.type==='classic'?'<u>1.Класичен тренинг</u>':'1.Класичен тренинг')+'</p>';
+    h+='<p>'+(r.biofeedback.type==='specialized'?'<u>2.Специјализиран тренинг</u>':'2.Специјализиран тренинг')+'</p>';
+    var cm={independent:'самостоен (соработува)',withHelp:'работи со помош',refuses:'не сака да соработува',notAdapted:'се уште не е адаптиран'};
+    h+='<p>- <u>'+(cm[r.biofeedback.coop]||'')+'</u></p>';
+  }
+
+  // Contacts
+  if(r.contacts.some(function(c){return c.name;})){
+    h+='<div class="pb"></div><p class="b">Референтни стручни лица:</p>';
+    h+='<table><tr><th>#</th><th>Име и презиме</th><th>занимање</th><th>телефон</th><th>е-пошта</th></tr>';
+    r.contacts.forEach(function(c,i){h+='<tr><td>'+(i+1)+'</td><td>'+esc(c.name)+'</td><td>'+esc(c.profession)+'</td><td>'+esc(c.phone)+'</td><td>'+esc(c.email)+'</td></tr>';});
+    h+='</table><p>Место и датум: '+esc(r.placeDate||'')+'</p>';
+  }
+  return h;
+}
+
+function genDocx(){
+  if(!curId)return toast('Избери ученик');var r=getRec(curId);if(!r)return;
+  var doc='<!DOCTYPE html><html><head><meta charset="UTF-8"><style>'+DCS+'</style></head><body>'+buildDocx(r)+'</body></html>';
+  var blob=new Blob(['\ufeff'+doc],{type:'application/msword'});var a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);a.download='ЕвЛист_'+(r.profile.fullName||'X').replace(/\s+/g,'_')+'_'+r.profile.yearStart+'.doc';a.click();toast('📄 DOCX!');
+}
+function genDocxAll(){
+  if(!allRec.length)return toast('Нема записи');
+  var all='';allRec.forEach(function(r,i){if(i)all+='<div class="pb"></div>';all+=buildDocx(r);});
+  var doc='<!DOCTYPE html><html><head><meta charset="UTF-8"><style>'+DCS+'</style></head><body>'+all+'</body></html>';
+  var blob=new Blob(['\ufeff'+doc],{type:'application/msword'});var a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);a.download='ЕвЛист_СИТЕ_'+new Date().toISOString().slice(0,10)+'.doc';a.click();toast('📦 Сите!');
+}
+
+// ═══════════════════════════════════════
+// TABS
+// ═══════════════════════════════════════
+function initTabs(){
+  document.querySelectorAll('.tab').forEach(function(tab){
+    tab.addEventListener('click',function(){
+      document.querySelectorAll('.tab').forEach(function(t){t.classList.remove('active');});
+      document.querySelectorAll('.tc').forEach(function(c){c.classList.remove('active');});
+      tab.classList.add('active');$(tab.dataset.t).classList.add('active');
+    });
+  });
+}
+
+// ═══════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════
+(function(){
+  if(localStorage.getItem('el2_theme')==='d')document.body.classList.add('dark');
+  checkUser();
+  buildAll();
+  initTabs();
+  allRec=getDB();
+  refreshList();
+})();
+</script>
+</body>
+</html>
