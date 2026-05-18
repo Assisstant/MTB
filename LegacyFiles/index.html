@@ -486,10 +486,9 @@
             align-items: center;
             text-align: center;
             backdrop-filter: blur(12px);
-            overflow: visible; /* keep the action buttons from being clipped */
+            overflow: hidden;
             padding: 0;
             gap: 0;
-            min-height: 172px;
         }
 
         .app-card-cover {
@@ -497,8 +496,6 @@
             height: 80px;
             background: linear-gradient(135deg, hsl(var(--hue) 80% 60%), hsl(calc(var(--hue) + 40) 80% 60%));
             position: relative;
-            border-radius: var(--radius-md) var(--radius-md) 0 0;
-            overflow: hidden;
         }
 
         .app-card.stale {
@@ -546,7 +543,7 @@
             align-items: center;
             gap: 16px;
             width: 100%;
-            position: static; /* actions are positioned against the full card, not this inner block */
+            position: relative;
         }
 
         .app-card:hover {
@@ -602,15 +599,14 @@
 
         .app-actions {
             position: absolute;
-            top: 8px;
-            right: 8px;
+            top: 10px;
+            right: 10px;
             display: flex;
             flex-direction: column;
             gap: 6px;
             opacity: 0;
-            transform: translateX(6px);
+            transform: translateX(10px);
             transition: all 0.2s ease;
-            z-index: 20;
         }
 
         .app-card:hover .app-actions {
@@ -655,18 +651,16 @@
             border-color: rgba(245, 158, 11, 0.2);
         }
 
-        /* Keep action buttons in one stable column. The active star keeps its styling without changing layout. */
+        /* Make star always visible if active */
         .app-card .app-actions .star.active {
-            color: #f59e0b;
-            background: rgba(245, 158, 11, 0.14);
-            border-color: rgba(245, 158, 11, 0.3);
+            opacity: 1;
+            position: absolute;
+            top: 0;
+            right: 0;
         }
 
-        @media (hover: none), (pointer: coarse) {
-            .app-actions {
-                opacity: 1;
-                transform: none;
-            }
+        .app-card:hover .app-actions .star.active {
+            position: relative;
         }
 
         /* --- ADD CARD --- */
