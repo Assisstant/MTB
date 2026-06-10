@@ -1968,15 +1968,12 @@
 
         <!-- Data Tab -->
         <div id="data" class="tab-content">
-            <div class="section-header">Експорт / Импорт</div>
-            <button class="btn btn-success btn-full" onclick="exportData()">⬇ Експортирај Backup (JSON)</button>
-            <button class="btn btn-primary btn-full" onclick="document.getElementById('importFile').click()">Импортирај JSON</button>
+            <div class="section-header">Бекап во фајл (JSON)</div>
+            <button class="btn btn-success btn-full" onclick="exportData()">⬇ Преземи бекап (JSON фајл — чувај во pCloud)</button>
+            <button class="btn btn-primary btn-full" onclick="document.getElementById('importFile').click()">⬆ Вчитај бекап (JSON фајл)</button>
             <input type="file" id="importFile" accept=".json" style="display: none;" onchange="importData(event)">
-            
-            <div class="section-header" style="margin-top: 30px;">Поправка на податоци</div>
-            <button class="btn btn-full" style="background: #f59e0b; color: white;" onclick="rebuildAllProgress()">🔄 Реконструирај Напредок</button>
             <p style="text-align: center; color: #718096; font-size: 13px; margin-top: 10px;">
-                Ова ќе ги синхронизира податоците за напредок со присутноста. Користете го ако видите несовпаѓање помеѓу бројот на сесии и чекирани активности.
+                Напредокот автоматски се усогласува со присуството по секое вчитување/враќање — нема потреба од рачна поправка.
             </p>
         </div>
     </div>
@@ -7930,10 +7927,10 @@
             getBackups().then(function (backups) {
                 var options = backups.length ? backups.map(function (b, i) {
                     return '<option value="' + i + '">' + safeText(String(b.createdAt).replace('T',' ').slice(0,19)) + ' — ' + safeText(b.reason) + ' — ' + formatBytes(b.sizeBytes) + '</option>';
-                }).join('') : '<option value="">Нема IndexedDB backup копии</option>';
+                }).join('') : '<option value="">Нема внатрешни бекапи</option>';
                 panel.innerHTML =
-                    '<h3 style="margin:0 0 8px 0;">✅ S-Dnevnik v3 storage fix</h3>' +
-                    '<p style="margin:0 0 10px 0;font-size:13px;line-height:1.45;">Оваа верзија ги чува големите податоци во IndexedDB, затоа импортот со поголеми досиеја/слики не треба да паѓа на localStorage quota.</p>' +
+                    '<h3 style="margin:0 0 8px 0;">🛡 Внатрешни бекапи (во прелистувачот)</h3>' +
+                    '<p style="margin:0 0 10px 0;font-size:13px;line-height:1.45;">Брзи копии зачувани САМО на овој компјутер. За траен бекап користи „Преземи бекап (JSON)" или „Авто-бекап во папка" подолу.</p>' +
                     '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:8px;margin:10px 0;">' +
                         '<div><strong>Големина:</strong><br>' + formatBytes(size) + '</div>' +
                         '<div><strong>Ученици:</strong><br>' + asArray(data && data.students).length + '</div>' +
@@ -7941,15 +7938,13 @@
                         '<div><strong>Backup-и:</strong><br>' + backups.length + '</div>' +
                     '</div>' +
                     '<div style="display:flex;gap:8px;flex-wrap:wrap;margin:10px 0;">' +
-                        '<button class="btn btn-success" onclick="SdnV3.createBackup(\'manual\')">+ IndexedDB backup</button>' +
-                        '<button class="btn btn-primary" onclick="SdnV3.exportNow()">⬇ Export full JSON</button>' +
-                        '<button class="btn" style="background:#805ad5;color:white;" onclick="SdnV3.forceSave()">💾 Force save</button>' +
-                        '<button class="btn btn-danger" onclick="SdnV3.clearBackups()">Исчисти v3 backup-и</button>' +
+                        '<button class="btn btn-success" onclick="SdnV3.createBackup(\'manual\')">🛡 Направи внатрешен бекап</button>' +
+                        '<button class="btn btn-danger" onclick="SdnV3.clearBackups()">🗑 Избриши ги внатрешните</button>' +
                     '</div>' +
                     '<select id="sdnV3BackupSelect" style="width:100%;padding:10px;border-radius:6px;margin:8px 0;">' + options + '</select>' +
                     '<div style="display:flex;gap:8px;flex-wrap:wrap;">' +
-                        '<button class="btn" onclick="SdnV3.downloadBackup()">⬇ Преземи избран backup</button>' +
-                        '<button class="btn btn-danger" onclick="SdnV3.restoreBackup()">↩ Врати избран backup</button>' +
+                        '<button class="btn" onclick="SdnV3.downloadBackup()">⬇ Преземи избран</button>' +
+                        '<button class="btn btn-danger" onclick="SdnV3.restoreBackup()">↩ Врати избран</button>' +
                     '</div>';
             });
         });
@@ -8683,6 +8678,34 @@
     else setTimeout(init, 400);
 })();
 
+</script>
+<script>
+/* ===== v4.2: автоматска синхронизација на напредокот (без рачно копче) ===== */
+(function(){
+  function silentRebuild(){
+    try{
+      if (typeof rebuildStudentProgress !== 'function') return;
+      var st = (typeof students !== 'undefined' && Array.isArray(students)) ? students : [];
+      for (var i=0;i<st.length;i++) rebuildStudentProgress(st[i].id);
+      if (typeof renderAll === 'function') renderAll();
+      console.log('[v4.2] Напредокот е автоматски усогласен со присуството ('+st.length+' ученици).');
+    }catch(e){ console.warn('[v4.2] auto-rebuild skip:', e); }
+  }
+  var TRIGGERS = /^(after_import|after_restore|archive_view|new_year)/;
+  function hook(){
+    var S = window.SdnV3;
+    if (!S || S.__autoRebuildHooked){ return; }
+    var orig = S.saveFullPayload;
+    S.saveFullPayload = function(data, reason){
+      var p = orig.apply(this, arguments);
+      if (TRIGGERS.test(String(reason||''))) setTimeout(silentRebuild, 250);
+      return p;
+    };
+    S.__autoRebuildHooked = true;
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', function(){ setTimeout(hook, 700); });
+  else setTimeout(hook, 700);
+})();
 </script>
 </body>
 </html>

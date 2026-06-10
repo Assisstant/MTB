@@ -238,6 +238,21 @@
             transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
+        .nav-lbl {
+            margin-left: 7px;
+            font-size: 13px;
+            font-weight: 600;
+            font-family: 'Inter', sans-serif;
+            letter-spacing: 0.2px;
+        }
+
+        @media (max-width: 860px) {
+            .nav-lbl { display: none; }
+        }
+
+        .nav-btn.scanning { animation: navspin 1s linear infinite; }
+        @keyframes navspin { to { filter: hue-rotate(360deg); } }
+
         .nav-btn:hover {
             transform: translateY(-2px);
             background: var(--surface-solid);
@@ -1176,18 +1191,18 @@
                 <div class="nav-icon-bg">🎓</div>
                 <span>EduHub Platform</span>
             </div>
-            <button class="nav-btn" id="themeBtn" title="Theme">🌙</button>
+            <button class="nav-btn" id="themeBtn" title="Светла/темна тема">🌙</button>
             <div class="nav-separator"></div>
-            <button class="nav-btn" onclick="openImportModal()" title="Import">📥</button>
-            <button class="nav-btn" onclick="exportData()" title="Export">📤</button>
+            <button class="nav-btn" onclick="openImportModal()" title="Вчитај листа на апликации од JSON">📥<span class="nav-lbl">Увези</span></button>
+            <button class="nav-btn" onclick="exportData()" title="Зачувај ја листата како JSON">📤<span class="nav-lbl">Извези</span></button>
             <div class="nav-separator"></div>
             <button class="nav-btn" style="color: var(--success);" onclick="smartScan()"
-                title="Sync GitHub">🔄</button>
-            <button class="nav-btn" onclick="setScanFolder()" title="Set GitHub Folder">📁</button>
-            <button class="nav-btn has-stale" id="removeStaleBtn" style="display:none;" onclick="removeStaleApps()" title="Remove stale apps">🧹</button>
+                title="Освежи апликации од GitHub (се случува и автоматски при отворање)">🔄<span class="nav-lbl">Освежи</span></button>
+            <button class="nav-btn" onclick="setScanFolder()" title="Постави GitHub repo/папка за скенирање">📁<span class="nav-lbl">Папка</span></button>
+            <button class="nav-btn has-stale" id="removeStaleBtn" style="display:none;" onclick="removeStaleApps()" title="Отстрани апликации што ги нема веќе на GitHub">🧹<span class="nav-lbl">Исчисти</span></button>
             <div class="nav-separator"></div>
             <button class="nav-btn" style="color: var(--danger);" onclick="openCleanModal()"
-                title="Hard Reset">🗑️</button>
+                title="Целосно ресетирање на лаунчерот">🗑️</button>
             <div class="nav-separator"></div>
             <button class="nav-btn lang-btn" id="langBtn" onclick="toggleLang()">EN</button>
             <div class="nav-stats" title="Total Applications">
@@ -1359,7 +1374,7 @@
             }
         };
 
-        let state = JSON.parse(localStorage.getItem(STORE_KEY)) || {
+        const __defaults = {
             apps: [],
             tabs: [],
             order: [],
@@ -1369,6 +1384,12 @@
             activeTab: 'all',
             scanPath: null
         };
+        let state;
+        try { state = Object.assign({}, __defaults, JSON.parse(localStorage.getItem(STORE_KEY)) || {}); }
+        catch (e) { state = Object.assign({}, __defaults); }
+        if (!Array.isArray(state.apps)) state.apps = [];
+        if (!Array.isArray(state.tabs)) state.tabs = [];
+        if (!Array.isArray(state.order)) state.order = [];
 
         if (!('scanPath' in state)) state.scanPath = null;
 
@@ -1743,9 +1764,10 @@
             showToast(`📁 Folder: ${state.scanPath === null ? 'AUTO' : (state.scanPath || 'root')} `);
         };
 
-        window.smartScan = async () => {
+        window.smartScan = async (silent = false) => {
             // First time: prompt for repo. After that: use saved.
             if (!state.repoUrl) {
+                if (silent) return; // auto-scan never prompts
                 const repo = prompt('📂 GitHub repo (owner/repo):', 'Assisstant/MTB');
                 if (!repo) return;
                 state.repoUrl = repo.trim();
@@ -1762,7 +1784,7 @@
             const contentPath = (state.scanPath === null || state.scanPath === undefined)
                 ? getAutoScanPath() : String(state.scanPath).trim().replace(/^\/+|\/+$/g, '');
 
-            showToast(`🔄 Scanning ${state.repoUrl}/${contentPath || 'root'}...`);
+            if (!silent) showToast(`🔄 Scanning ${state.repoUrl}/${contentPath || 'root'}...`);
 
             try {
                 const apiUrl = contentPath
@@ -1823,13 +1845,13 @@
 
                 // 3. Summary
                 const totalStale = state.apps.filter(a => a.stale).length;
-                let msg = `✅ Scan done: +${added} new`;
-                if (staleCount > 0) msg += `, ${staleCount} newly stale`;
-                if (totalStale > 0) msg += ` (${totalStale} total stale)`;
-                if (added === 0 && staleCount === 0) msg = '✅ Everything up to date!';
-                showToast(msg);
+                let msg = `✅ Освежено: +${added} нови`;
+                if (staleCount > 0) msg += `, ${staleCount} ги нема веќе`;
+                if (totalStale > 0) msg += ` (${totalStale} вкупно за чистење)`;
+                if (added === 0 && staleCount === 0) msg = '✅ Сè е ажурно!';
+                if (!silent || added > 0 || staleCount > 0) showToast(msg);
             } catch (e) {
-                showToast('❌ Error: ' + (e?.message || e), 'error');
+                if (!silent) showToast('❌ Грешка: ' + (e?.message || e), 'error');
             }
         };
 
@@ -2022,7 +2044,18 @@
         document.documentElement.dataset.theme = state.theme;
         render();
         applyParallax();
-    </script>
+    
+        // ===== АВТО-ОСВЕЖУВАЊЕ од GitHub папката (нема потреба од рачно 🔄) =====
+        let __lastAutoScan = 0;
+        async function autoScan() {
+            if (!state.repoUrl) return;                       // прв пат: рачно 🔄 за да се постави repo
+            if (Date.now() - __lastAutoScan < 60000) return;  // најмногу еднаш во минута
+            __lastAutoScan = Date.now();
+            try { await smartScan(true); } catch (e) { /* тивко */ }
+        }
+        setTimeout(autoScan, 700);                                          // при отворање
+        document.addEventListener('visibilitychange', () => { if (!document.hidden) autoScan(); });
+</script>
 </body>
 
 </html>
