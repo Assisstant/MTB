@@ -32,18 +32,6 @@
             --accent-light: rgba(59, 130, 246, 0.15);
             --accent-glow: rgba(59, 130, 246, 0.22);
 
-            /* Glass & gloss */
-            --glass-grad: linear-gradient(180deg, rgba(255, 255, 255, 0.85), rgba(255, 255, 255, 0.55));
-            --glass-hover: linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(255, 255, 255, 0.72));
-            --glass-edge: rgba(255, 255, 255, 0.65);
-            --gloss-inset: inset 0 1px 0 rgba(255, 255, 255, 0.9), inset 0 -1px 0 rgba(0, 0, 0, 0.04);
-            --accent-grad: linear-gradient(180deg, #5e9bf8, #2f74ec);
-
-            /* Cursor spotlight (посилен во светла тема за да се гледа на бело) */
-            --spot-core: rgba(37, 99, 235, 0.17);
-            --spot-mid: rgba(59, 130, 246, 0.07);
-            --dot-glow-opacity: 1;
-
             --success: #10b981;
             --warning: #f59e0b;
             --danger: #ef4444;
@@ -79,16 +67,6 @@
             --accent-hover: #3b82f6;
             --accent-light: rgba(96, 165, 250, 0.15);
             --accent-glow: rgba(96, 165, 250, 0.28);
-
-            --glass-grad: linear-gradient(180deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.03));
-            --glass-hover: linear-gradient(180deg, rgba(255, 255, 255, 0.20), rgba(255, 255, 255, 0.07));
-            --glass-edge: rgba(255, 255, 255, 0.16);
-            --gloss-inset: inset 0 1px 0 rgba(255, 255, 255, 0.22), inset 0 -1px 0 rgba(0, 0, 0, 0.25);
-            --accent-grad: linear-gradient(180deg, #79b1fb, #3f86f3);
-
-            --spot-core: rgba(96, 165, 250, 0.20);
-            --spot-mid: rgba(96, 165, 250, 0.08);
-            --dot-glow-opacity: 0.85;
 
             --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.3);
             --shadow-lg: 0 12px 24px rgba(0, 0, 0, 0.4);
@@ -202,7 +180,7 @@
             pointer-events: none;
             background-image: radial-gradient(var(--accent-primary) 1.2px, transparent 1.2px);
             background-size: 40px 40px;
-            opacity: var(--dot-glow-opacity, 0.85);
+            opacity: 0.85;
             mask-image: radial-gradient(220px circle at var(--mx, -999px) var(--my, -999px), black 0%, transparent 100%);
             -webkit-mask-image: radial-gradient(220px circle at var(--mx, -999px) var(--my, -999px), black 0%, transparent 100%);
         }
@@ -213,7 +191,7 @@
             inset: 0;
             z-index: -1;
             pointer-events: none;
-            background: radial-gradient(460px circle at var(--mx, -999px) var(--my, -999px), var(--spot-core), var(--spot-mid) 45%, transparent 72%);
+            background: radial-gradient(480px circle at var(--mx, -999px) var(--my, -999px), var(--accent-light), transparent 70%);
         }
 
         @media (prefers-reduced-motion: reduce) {
@@ -276,10 +254,8 @@
             height: 40px;
             min-width: 40px;
             padding: 0 12px;
-            border: 1px solid var(--glass-edge);
-            background: var(--glass-grad);
-            backdrop-filter: blur(8px) saturate(1.35);
-            -webkit-backdrop-filter: blur(8px) saturate(1.35);
+            border: 1px solid var(--border);
+            background: var(--surface-hover);
             color: var(--text-main);
             border-radius: var(--radius-sm);
             cursor: pointer;
@@ -288,7 +264,6 @@
             justify-content: center;
             font-size: 16px;
             font-weight: 600;
-            box-shadow: var(--gloss-inset);
             transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
@@ -309,9 +284,9 @@
 
         .nav-btn:hover {
             transform: translateY(-2px);
-            background: var(--glass-hover);
-            box-shadow: var(--gloss-inset), 0 6px 16px -6px var(--accent-glow);
-            border-color: var(--accent-primary);
+            background: var(--surface-solid);
+            box-shadow: var(--shadow-sm);
+            border-color: var(--accent-light);
         }
 
         .nav-separator {
@@ -405,8 +380,8 @@
 
         .search-input:focus {
             border-color: var(--accent-primary);
-            box-shadow: var(--gloss-inset), 0 0 0 4px var(--accent-light), var(--shadow-lg);
-            background: var(--glass-hover);
+            box-shadow: 0 0 0 4px var(--accent-light), var(--shadow-lg);
+            background: var(--surface-solid);
         }
 
         .search-input::placeholder {
@@ -467,16 +442,15 @@
         .tab:hover {
             transform: translateY(-2px);
             color: var(--text-main);
-            background: var(--glass-hover);
-            border-color: var(--glass-edge);
-            box-shadow: var(--gloss-inset), var(--shadow-sm);
+            background: var(--surface-hover);
+            box-shadow: var(--shadow-sm);
         }
 
         .tab.active {
             color: white;
-            background: var(--accent-grad);
-            border-color: rgba(255, 255, 255, 0.25);
-            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35), inset 0 -1px 0 rgba(0, 0, 0, 0.15), 0 4px 14px var(--accent-glow);
+            background: var(--accent-primary);
+            border-color: var(--accent-primary);
+            box-shadow: 0 4px 12px var(--accent-light);
         }
 
         .tab .tab-count {
@@ -694,16 +668,6 @@
 
         .app-card:hover .app-icon {
             transform: scale(1.1) rotate(5deg);
-        }
-
-        /* стаклен сјај врз иконата */
-        .app-icon::after {
-            content: '';
-            position: absolute;
-            inset: 1px;
-            border-radius: inherit;
-            background: linear-gradient(180deg, rgba(255, 255, 255, 0.28), transparent 48%);
-            pointer-events: none;
         }
 
         .app-name {
@@ -1011,16 +975,15 @@
         }
 
         .btn-primary {
-            background: var(--accent-grad);
+            background: var(--accent-primary);
             color: white;
-            border: 1px solid rgba(255, 255, 255, 0.22);
-            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35), inset 0 -1px 0 rgba(0, 0, 0, 0.15), 0 4px 12px var(--accent-glow);
+            box-shadow: 0 4px 12px var(--accent-light);
         }
 
         .btn-primary:hover {
-            filter: brightness(1.07);
+            background: var(--accent-hover);
             transform: translateY(-2px);
-            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.4), inset 0 -1px 0 rgba(0, 0, 0, 0.15), 0 8px 20px var(--accent-glow);
+            box-shadow: 0 6px 16px var(--accent-light);
         }
 
         .btn-danger {

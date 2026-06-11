@@ -67,8 +67,7 @@
     width: ${TAB_W}px;
     height: ${TAB_H}px;
     border-radius: 14px;
-    background: linear-gradient(180deg, rgba(62,62,80,0.62), rgba(24,24,34,0.55));
-    border: 1px solid rgba(255,255,255,0.14);
+    background: rgba(35, 35, 45, 0.55);
     backdrop-filter: blur(6px);
     -webkit-backdrop-filter: blur(6px);
     color: rgba(255,255,255,0.9);
@@ -76,7 +75,7 @@
     align-items: center;
     justify-content: center;
     cursor: ${state.locked ? "default" : "grab"};
-    box-shadow: inset 0 1px 0 rgba(255,255,255,0.2), 0 4px 14px rgba(0,0,0,0.18);
+    box-shadow: 0 4px 14px rgba(0,0,0,0.18);
     opacity: ${state.opacity};
     transition: opacity 180ms ease;
     touch-action: none;                       /* v2: дозволи drag без скрол */
@@ -93,11 +92,10 @@
     gap: 8px;
     padding: ${state.hidden ? "8px 0" : "8px 10px"};
     border-radius: 16px;
-    background: linear-gradient(180deg, rgba(38,38,50,0.6), rgba(16,16,24,0.55));
-    border: 1px solid rgba(255,255,255,0.12);
+    background: rgba(20, 20, 26, 0.55);
     backdrop-filter: blur(8px);
     -webkit-backdrop-filter: blur(8px);
-    box-shadow: inset 0 1px 0 rgba(255,255,255,0.16), 0 8px 22px rgba(0,0,0,0.22);
+    box-shadow: 0 8px 22px rgba(0,0,0,0.22);
     max-width: ${state.hidden ? "0" : "420px"};
     opacity: ${state.hidden ? "0" : "1"};
     pointer-events: ${state.hidden ? "none" : "auto"};
@@ -122,8 +120,7 @@
     justify-content: center;
     font-size: ${coarse ? 24 : 22}px;
     text-decoration: none;
-    border: 1px solid rgba(255,255,255,0.28);
-    box-shadow: inset 0 2px 3px rgba(255,255,255,0.45), inset 0 -8px 14px rgba(0,0,0,0.25), 0 4px 14px rgba(102, 126, 234, 0.35);
+    box-shadow: 0 4px 14px rgba(102, 126, 234, 0.35);
     transition: transform 180ms ease, box-shadow 180ms ease;
     -webkit-tap-highlight-color: transparent;
     flex-shrink: 0;
@@ -137,9 +134,8 @@
     width: ${BTN}px;
     height: ${BTN}px;
     border-radius: 12px;
-    border: 1px solid rgba(255,255,255,0.16);
-    background: linear-gradient(180deg, rgba(255,255,255,0.22), rgba(255,255,255,0.07));
-    box-shadow: inset 0 1px 0 rgba(255,255,255,0.25);
+    border: 0;
+    background: rgba(255,255,255,0.12);
     color: white;
     cursor: pointer;
     font-size: 16px;
@@ -240,13 +236,13 @@
     tab.style.opacity = "1";
     if (!state.hidden) {
       home.style.transform = "scale(1.06)";
-      home.style.boxShadow = "inset 0 2px 3px rgba(255,255,255,0.45), inset 0 -8px 14px rgba(0,0,0,0.25), 0 6px 18px rgba(102, 126, 234, 0.55)";
+      home.style.boxShadow = "0 6px 18px rgba(102, 126, 234, 0.55)";
     }
   });
   dock.addEventListener("mouseleave", () => {
     setIdleOpacity();
     home.style.transform = "scale(1)";
-    home.style.boxShadow = "inset 0 2px 3px rgba(255,255,255,0.45), inset 0 -8px 14px rgba(0,0,0,0.25), 0 4px 14px rgba(102, 126, 234, 0.35)";
+    home.style.boxShadow = "0 4px 14px rgba(102, 126, 234, 0.35)";
   });
 
   let touchFadeTimer = null;
