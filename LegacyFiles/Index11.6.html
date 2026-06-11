@@ -30,7 +30,6 @@
             /* Trusty blue */
             --accent-hover: #2563eb;
             --accent-light: rgba(59, 130, 246, 0.15);
-            --accent-glow: rgba(59, 130, 246, 0.22);
 
             --success: #10b981;
             --warning: #f59e0b;
@@ -66,7 +65,6 @@
             --accent-primary: #60a5fa;
             --accent-hover: #3b82f6;
             --accent-light: rgba(96, 165, 250, 0.15);
-            --accent-glow: rgba(96, 165, 250, 0.28);
 
             --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.3);
             --shadow-lg: 0 12px 24px rgba(0, 0, 0, 0.4);
@@ -170,33 +168,6 @@
             background-size: 40px 40px;
             mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 0.8) 0%, transparent 100%);
             -webkit-mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 0.8) 0%, transparent 100%);
-        }
-
-        /* ── Interactive background: dots that light up near the cursor ── */
-        .bg-pattern-glow {
-            position: fixed;
-            inset: 0;
-            z-index: -1;
-            pointer-events: none;
-            background-image: radial-gradient(var(--accent-primary) 1.2px, transparent 1.2px);
-            background-size: 40px 40px;
-            opacity: 0.85;
-            mask-image: radial-gradient(220px circle at var(--mx, -999px) var(--my, -999px), black 0%, transparent 100%);
-            -webkit-mask-image: radial-gradient(220px circle at var(--mx, -999px) var(--my, -999px), black 0%, transparent 100%);
-        }
-
-        /* ── Interactive background: soft spotlight that follows the cursor ── */
-        .bg-spotlight {
-            position: fixed;
-            inset: 0;
-            z-index: -1;
-            pointer-events: none;
-            background: radial-gradient(480px circle at var(--mx, -999px) var(--my, -999px), var(--accent-light), transparent 70%);
-        }
-
-        @media (prefers-reduced-motion: reduce) {
-            .bg-pattern-glow, .bg-spotlight { display: none; }
-            .blob { animation: none; }
         }
 
         /* --- GLASSMORPHISM UTILS --- */
@@ -334,21 +305,9 @@
             font-size: 36px;
             font-weight: 800;
             margin-bottom: 24px;
-            background: linear-gradient(120deg, var(--text-main) 0%, var(--accent-primary) 50%, var(--text-main) 100%);
-            background-size: 220% auto;
+            background: linear-gradient(135deg, var(--text-main), var(--accent-primary));
             -webkit-background-clip: text;
-            background-clip: text;
             -webkit-text-fill-color: transparent;
-            animation: heroShift 9s ease-in-out infinite;
-        }
-
-        @keyframes heroShift {
-            0%, 100% { background-position: 0% center; }
-            50% { background-position: 100% center; }
-        }
-
-        @media (prefers-reduced-motion: reduce) {
-            .hero-title { animation: none; }
         }
 
         .search-wrapper {
@@ -607,34 +566,10 @@
 
         .app-card:hover {
             transform: translateY(-6px);
-            box-shadow: var(--shadow-lg), 0 14px 34px -14px var(--accent-glow);
+            box-shadow: var(--shadow-lg);
             background: var(--surface-hover);
             border-color: var(--accent-light);
         }
-
-        /* сјај што поминува преку капакот при hover */
-        .app-card-cover::after {
-            content: '';
-            position: absolute;
-            inset: 0;
-            background: linear-gradient(105deg, transparent 40%, rgba(255, 255, 255, 0.35) 50%, transparent 60%);
-            transform: translateX(-130%);
-            transition: transform 0.55s ease;
-            pointer-events: none;
-        }
-
-        .app-card:hover .app-card-cover::after {
-            transform: translateX(130%);
-        }
-
-        /* при 3D tilt: transform го следи покажувачот без bounce-доцнење */
-        .app-card.tilting {
-            transition: box-shadow 0.3s ease, background 0.3s ease, border-color 0.3s ease;
-        }
-
-        /* притисок-фидбек за допир */
-        .app-card:active { transform: translateY(-2px) scale(0.985); }
-        .nav-btn:active, .add-tab-btn:active { transform: scale(0.94); }
 
         .app-card.dragging {
             opacity: 0.5;
@@ -1208,17 +1143,6 @@
             margin-bottom: 8px;
         }
 
-        /* ── Тематски scrollbar ── */
-        ::-webkit-scrollbar { width: 10px; height: 10px; }
-        ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb {
-            background: var(--border-solid);
-            border-radius: 999px;
-            border: 2px solid transparent;
-            background-clip: content-box;
-        }
-        ::-webkit-scrollbar-thumb:hover { background-color: var(--text-muted); }
-
         @media (max-width: 768px) {
             .nav-title span {
                 display: none;
@@ -1259,8 +1183,6 @@
         <div class="blob blob-3"></div>
     </div>
     <div class="bg-pattern"></div>
-    <div class="bg-pattern-glow"></div>
-    <div class="bg-spotlight"></div>
 
     <!-- TOP NAV -->
     <div class="nav-container">
@@ -1481,6 +1403,21 @@
         const $$ = s => document.querySelectorAll(s);
         const t = k => i18n[state.lang]?.[k] || k;
 
+        // Background Interaction Effect
+        document.addEventListener('mousemove', (e) => {
+            const x = e.clientX / window.innerWidth;
+            const y = e.clientY / window.innerHeight;
+
+            const blob1 = $('.blob-1');
+            const blob2 = $('.blob-2');
+            const blob3 = $('.blob-3');
+
+            if (blob1 && blob2 && blob3) {
+                blob1.style.transform = `translate(${x * 30}px, ${y * 30}px)`;
+                blob2.style.transform = `translate(${-x * 40}px, ${-y * 40}px)`;
+                blob3.style.transform = `translate(${(x - 0.5) * 50}px, ${(y - 0.5) * 50}px)`;
+            }
+        });
 
         function save() {
             localStorage.setItem(STORE_KEY, JSON.stringify(state));
@@ -2085,81 +2022,21 @@
             }
         });
 
-        // ── Interactive background engine ──
-        // Blobs use the separate `translate` property so the CSS float animation
-        // (which animates `transform`) keeps running underneath the parallax.
-        // Desktop: follows the cursor. Touch: follows device tilt (gyro).
+        // Subtly animate blobs with mouse move
         const applyParallax = () => {
-            if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+            let rafId;
+            document.addEventListener('mousemove', (e) => {
+                if (rafId) cancelAnimationFrame(rafId);
+                rafId = requestAnimationFrame(() => {
+                    const x = (e.clientX / window.innerWidth - 0.5) * 40;
+                    const y = (e.clientY / window.innerHeight - 0.5) * 40;
 
-            const root = document.documentElement;
-            const b1 = $('.blob-1'), b2 = $('.blob-2'), b3 = $('.blob-3');
-            let tx = innerWidth / 2, ty = innerHeight * 0.35;  // target
-            let cx = tx, cy = ty;                              // smoothed
-            let active = false;
+                    const b1 = document.querySelector('.blob-1');
+                    const b2 = document.querySelector('.blob-2');
 
-            const finePointer = window.matchMedia('(hover: hover) and (pointer: fine)').matches;
-
-            if (finePointer) {
-                document.addEventListener('mousemove', (e) => {
-                    tx = e.clientX; ty = e.clientY; active = true;
-                }, { passive: true });
-            } else {
-                // Tilt parallax on phones/tablets
-                const onTilt = (e) => {
-                    if (e.gamma == null || e.beta == null) return;
-                    tx = innerWidth / 2 + (e.gamma / 45) * innerWidth * 0.5;
-                    ty = innerHeight / 2 + ((e.beta - 45) / 45) * innerHeight * 0.5;
-                    active = true;
-                };
-                const attach = () => window.addEventListener('deviceorientation', onTilt, { passive: true });
-                if (typeof DeviceOrientationEvent !== 'undefined' &&
-                    typeof DeviceOrientationEvent.requestPermission === 'function') {
-                    // iOS бара дозвола во рамки на user gesture — првиот допир
-                    document.addEventListener('touchend', () => {
-                        DeviceOrientationEvent.requestPermission()
-                            .then(p => { if (p === 'granted') attach(); })
-                            .catch(() => {});
-                    }, { once: true });
-                } else {
-                    attach();
-                }
-            }
-
-            (function loop() {
-                cx += (tx - cx) * 0.08;
-                cy += (ty - cy) * 0.08;
-                if (active) {
-                    root.style.setProperty('--mx', cx + 'px');
-                    root.style.setProperty('--my', cy + 'px');
-                    const nx = cx / innerWidth - 0.5, ny = cy / innerHeight - 0.5;
-                    if (b1) b1.style.translate = (nx * 46) + 'px ' + (ny * 46) + 'px';
-                    if (b2) b2.style.translate = (-nx * 60) + 'px ' + (-ny * 60) + 'px';
-                    if (b3) b3.style.translate = (nx * 80) + 'px ' + (ny * 30) + 'px';
-                }
-                requestAnimationFrame(loop);
-            })();
-        };
-
-        // ── 3D tilt на картичките (само мауc/прецизен покажувач) ──
-        const applyCardTilt = () => {
-            if (!window.matchMedia('(hover: hover) and (pointer: fine)').matches) return;
-            if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-            const grid = $('#appGrid');
-            if (!grid) return;
-            grid.addEventListener('pointermove', (e) => {
-                const card = e.target.closest('.app-card');
-                if (!card || card.classList.contains('dragging')) return;
-                const r = card.getBoundingClientRect();
-                const px = (e.clientX - r.left) / r.width - 0.5;
-                const py = (e.clientY - r.top) / r.height - 0.5;
-                card.classList.add('tilting');
-                card.style.transform =
-                    'translateY(-6px) perspective(800px) rotateX(' + (-py * 6).toFixed(2) + 'deg) rotateY(' + (px * 6).toFixed(2) + 'deg)';
-            });
-            grid.addEventListener('pointerout', (e) => {
-                const card = e.target.closest('.app-card');
-                if (card && !card.contains(e.relatedTarget)) { card.style.transform = ''; card.classList.remove('tilting'); }
+                    if (b1) b1.style.transform = `translate(${x}px, ${y}px) scale(1)`;
+                    if (b2) b2.style.transform = `translate(${-x}px, ${-y}px) scale(1)`;
+                });
             });
         };
 
@@ -2167,7 +2044,6 @@
         document.documentElement.dataset.theme = state.theme;
         render();
         applyParallax();
-        applyCardTilt();
     
         // ===== АВТО-ОСВЕЖУВАЊЕ од GitHub папката (нема потреба од рачно 🔄) =====
         let __lastAutoScan = 0;
