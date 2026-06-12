@@ -239,8 +239,8 @@
   dock.addEventListener("mouseenter", () => {
     tab.style.opacity = "1";
     if (!state.hidden) {
-      home.style.transform = "scale(1.06)";
-      home.style.boxShadow = "inset 0 2px 3px rgba(255,255,255,0.45), inset 0 -8px 14px rgba(0,0,0,0.25), 0 6px 18px rgba(102, 126, 234, 0.55)";
+      home.style.transform = "scale(1.03)";
+      home.style.boxShadow = "inset 0 2px 3px rgba(255,255,255,0.45), inset 0 -8px 14px rgba(0,0,0,0.25), 0 8px 20px rgba(0, 0, 0, 0.3), 0 4px 14px rgba(102, 126, 234, 0.4)";
     }
   });
   dock.addEventListener("mouseleave", () => {

@@ -308,9 +308,10 @@
         @keyframes navspin { to { filter: hue-rotate(360deg); } }
 
         .nav-btn:hover {
-            transform: translateY(-1px);
-            border-color: var(--accent-light);
-            box-shadow: var(--gloss-inset), 0 8px 18px -8px rgba(0, 0, 0, 0.30), 0 2px 8px -2px var(--accent-glow);
+            transform: translateY(-2px);
+            background: var(--glass-hover);
+            box-shadow: var(--gloss-inset), 0 6px 16px -6px var(--accent-glow);
+            border-color: var(--accent-primary);
         }
 
         .nav-separator {
@@ -405,6 +406,7 @@
         .search-input:focus {
             border-color: var(--accent-primary);
             box-shadow: var(--gloss-inset), 0 0 0 4px var(--accent-light), var(--shadow-lg);
+            background: var(--glass-hover);
         }
 
         .search-input::placeholder {
@@ -463,10 +465,11 @@
         }
 
         .tab:hover {
-            transform: translateY(-1px);
+            transform: translateY(-2px);
             color: var(--text-main);
+            background: var(--glass-hover);
             border-color: var(--glass-edge);
-            box-shadow: var(--gloss-inset), 0 6px 14px -6px rgba(0, 0, 0, 0.25);
+            box-shadow: var(--gloss-inset), var(--shadow-sm);
         }
 
         .tab.active {
@@ -633,6 +636,21 @@
             box-shadow: var(--shadow-lg), 0 14px 34px -14px var(--accent-glow);
             background: var(--surface-hover);
             border-color: var(--accent-light);
+        }
+
+        /* сјај што поминува преку капакот при hover */
+        .app-card-cover::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(105deg, transparent 40%, rgba(255, 255, 255, 0.35) 50%, transparent 60%);
+            transform: translateX(-130%);
+            transition: transform 0.55s ease;
+            pointer-events: none;
+        }
+
+        .app-card:hover .app-card-cover::after {
+            transform: translateX(130%);
         }
 
         /* при 3D tilt: transform го следи покажувачот без bounce-доцнење */
@@ -1000,8 +1018,8 @@
         }
 
         .btn-primary:hover {
-            filter: brightness(1.03);
-            transform: translateY(-1px);
+            filter: brightness(1.07);
+            transform: translateY(-2px);
             box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.4), inset 0 -1px 0 rgba(0, 0, 0, 0.15), 0 8px 20px var(--accent-glow);
         }
 
