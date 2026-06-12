@@ -1,0 +1,3871 @@
+<!DOCTYPE html>
+<html lang="mk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+    <meta name="theme-color" content="#5b6fd8">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📅</text></svg>">
+    <title>Распоред на Терапевти - Електронски Дневник v2</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --primary: #5b6fd8;
+            --primary-dark: #4a5bc7;
+            --secondary: #3dd598;
+            --danger: #e74c3c;
+            --warning: #f39c12;
+            --success: #27ae60;
+            --bg-main: #f5f7fa;
+            --bg-card: #ffffff;
+            --bg-header: #5b6fd8;
+            --text-primary: #2c3e50;
+            --text-secondary: #7f8c8d;
+            --border: #e1e8ed;
+            --shadow: rgba(0,0,0,0.1);
+            --conflict-bg: #ff6b6b;
+
+            /* Day-specific colors (Light theme) */
+            --day-1-accent: #1976d2;  /* понеделник - blue */
+            --day-1-bg: #e3f2fd;
+            --day-1-row: #f6fbff;
+            --day-2-accent: #2e7d32;  /* вторник - green */
+            --day-2-bg: #e8f5e9;
+            --day-2-row: #f7fcf8;
+            --day-3-accent: #7b1fa2;  /* среда - purple */
+            --day-3-bg: #f3e5f5;
+            --day-3-row: #fcf7fd;
+            --day-4-accent: #e65100;  /* четврток - amber */
+            --day-4-bg: #fff3e0;
+            --day-4-row: #fffaf2;
+            --day-5-accent: #c2185b;  /* петок - pink */
+            --day-5-bg: #fce4ec;
+            --day-5-row: #fdf6f9;
+
+            /* Cell state colors */
+            --cell-filled-bg: #f0f9f4;
+            --cell-filled-border: #4caf50;
+            --cell-filled-text: #1b5e20;
+            --cell-empty-text: #b0b0b0;
+
+            --conflict-bg-soft: #ffebee;
+            --conflict-border: #c62828;
+            --conflict-text: #b71c1c;
+
+            --glass-nav: rgba(255, 255, 255, 0.78);
+        }
+
+        [data-theme="dark"] {
+            --primary: #5b6fd8;
+            --primary-dark: #7082e8;
+            --secondary: #3dd598;
+            --danger: #e74c3c;
+            --warning: #f39c12;
+            --success: #27ae60;
+            --bg-main: #1a1d2e;
+            --bg-card: #252943;
+            --bg-header: #3a4070;
+            --text-primary: #e8eaf0;
+            --text-secondary: #9ca3af;
+            --border: #3a4070;
+            --shadow: rgba(0,0,0,0.3);
+            --conflict-bg: #ff4757;
+
+            /* Day-specific colors (Dark theme) */
+            --day-1-accent: #64b5f6;
+            --day-1-bg: rgba(25, 118, 210, 0.22);
+            --day-1-row: rgba(25, 118, 210, 0.07);
+            --day-2-accent: #81c784;
+            --day-2-bg: rgba(46, 125, 50, 0.22);
+            --day-2-row: rgba(46, 125, 50, 0.07);
+            --day-3-accent: #ce93d8;
+            --day-3-bg: rgba(123, 31, 162, 0.22);
+            --day-3-row: rgba(123, 31, 162, 0.07);
+            --day-4-accent: #ffb74d;
+            --day-4-bg: rgba(230, 81, 0, 0.22);
+            --day-4-row: rgba(230, 81, 0, 0.07);
+            --day-5-accent: #f06292;
+            --day-5-bg: rgba(194, 24, 91, 0.22);
+            --day-5-row: rgba(194, 24, 91, 0.07);
+
+            --cell-filled-bg: rgba(76, 175, 80, 0.18);
+            --cell-filled-border: #66bb6a;
+            --cell-filled-text: #a5d6a7;
+            --cell-empty-text: #5c6377;
+
+            --conflict-bg-soft: rgba(198, 40, 40, 0.25);
+            --conflict-border: #ef5350;
+            --conflict-text: #ffcdd2;
+
+            --glass-nav: rgba(37, 41, 67, 0.72);
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: var(--bg-main);
+            color: var(--text-primary);
+            transition: all 0.3s ease;
+            line-height: 1.6;
+        }
+
+        .header {
+            background: linear-gradient(160deg, color-mix(in srgb, var(--bg-header) 88%, white), color-mix(in srgb, var(--bg-header) 86%, black));
+            padding: 20px 30px;
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.14), inset 0 -1px 0 rgba(0, 0, 0, 0.12), 0 2px 10px var(--shadow);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .header-content {
+            max-width: 1800px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+
+        .header-title {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            color: white;
+        }
+
+        .header-title h1 {
+            font-size: 24px;
+            font-weight: 600;
+        }
+
+        .header-subtitle {
+            color: rgba(255,255,255,0.8);
+            font-size: 14px;
+            margin-top: 5px;
+        }
+
+        .theme-toggle {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: white;
+        }
+
+        .toggle-switch {
+            position: relative;
+            width: 50px;
+            height: 26px;
+            background: rgba(255,255,255,0.2);
+            border-radius: 13px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .toggle-switch.active {
+            background: var(--secondary);
+        }
+
+        .toggle-slider {
+            position: absolute;
+            top: 3px;
+            left: 3px;
+            width: 20px;
+            height: 20px;
+            background: linear-gradient(180deg, #ffffff, #e8eaf2);
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9), 0 1px 3px rgba(0, 0, 0, 0.25);
+            border-radius: 50%;
+            transition: all 0.3s;
+        }
+
+        .toggle-switch.active .toggle-slider {
+            left: 27px;
+        }
+
+        .container {
+            max-width: 1800px;
+            margin: 20px auto;
+            padding: 0 20px;
+        }
+
+        .controls-section {
+            background: var(--bg-card);
+            padding: 20px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 8px var(--shadow);
+        }
+
+        .quick-add-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+            padding: 15px;
+            background: var(--bg-main);
+            border-radius: 8px;
+            border: 1px solid var(--border);
+        }
+
+        .quick-add-box h4 {
+            font-size: 14px;
+            color: var(--primary);
+            margin-bottom: 8px;
+        }
+
+        .quick-add-inputs {
+            display: flex;
+            gap: 8px;
+        }
+
+        .quick-add-inputs input, .quick-add-inputs select {
+            flex: 1;
+            padding: 8px 12px;
+            border: 1.5px solid var(--border);
+            border-radius: 6px;
+            background: var(--bg-card);
+            color: var(--text-primary);
+            font-size: 13px;
+        }
+
+        .quick-add-inputs button {
+            padding: 8px 14px;
+            background: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 13px;
+        }
+
+        .quick-add-inputs button:hover {
+            background: var(--primary-dark);
+        }
+
+        .therapist-students-manager {
+            grid-column: 1 / -1;
+            background: var(--bg-card);
+            padding: 12px;
+            border-radius: 6px;
+            border: 1px solid var(--border);
+            margin-top: 5px;
+        }
+
+        .ts-list-container {
+            max-height: 150px;
+            overflow-y: auto;
+            margin-top: 8px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 5px;
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+            gap: 8px;
+            background: var(--bg-main);
+        }
+
+        .ts-student-checkbox {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 8px;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            font-size: 12px;
+            cursor: pointer;
+        }
+
+        .stats-bar {
+            display: flex;
+            gap: 15px;
+            padding: 15px;
+            background: var(--bg-main);
+            border-radius: 8px;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+        }
+
+        .stat-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-weight: 600;
+        }
+
+        .stat-value {
+            background: var(--primary);
+            color: white;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 14px;
+        }
+
+        .filter-section {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .filter-group {
+            background: var(--bg-main);
+            padding: 15px;
+            border-radius: 8px;
+            border: 2px solid var(--border);
+        }
+
+        .filter-group h3 {
+            color: var(--primary);
+            margin-bottom: 15px;
+            font-size: 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .checkbox-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 10px;
+        }
+
+        .checkbox-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 8px 12px;
+            background: var(--bg-card);
+            border: 2px solid var(--border);
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .checkbox-item:hover {
+            border-color: var(--primary);
+            background: rgba(91, 111, 216, 0.05);
+        }
+
+        .checkbox-item.checked {
+            border-color: var(--primary);
+            background: rgba(91, 111, 216, 0.1);
+        }
+
+        .checkbox-item input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+            accent-color: var(--primary);
+        }
+
+        .checkbox-item label {
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            flex: 1;
+        }
+
+        .button-group {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        .btn {
+            padding: 12px 20px;
+            border: 1px solid transparent;
+            border-radius: 10px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            white-space: nowrap;
+        }
+
+        .btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 8px 16px -8px rgba(0, 0, 0, 0.35);
+        }
+
+        /* стаклени копчиња: вертикален градиент + inset highlight одозгора */
+        .btn-primary {
+            background: linear-gradient(180deg, color-mix(in srgb, var(--primary) 80%, white), color-mix(in srgb, var(--primary) 84%, black));
+            border-color: rgba(255, 255, 255, 0.22);
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.3), inset 0 -1px 0 rgba(0, 0, 0, 0.12);
+            color: white;
+        }
+
+        .btn-success {
+            background: linear-gradient(180deg, color-mix(in srgb, var(--success) 80%, white), color-mix(in srgb, var(--success) 84%, black));
+            border-color: rgba(255, 255, 255, 0.22);
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.3), inset 0 -1px 0 rgba(0, 0, 0, 0.12);
+            color: white;
+        }
+
+        .btn-danger {
+            background: linear-gradient(180deg, color-mix(in srgb, var(--danger) 80%, white), color-mix(in srgb, var(--danger) 84%, black));
+            border-color: rgba(255, 255, 255, 0.2);
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.28), inset 0 -1px 0 rgba(0, 0, 0, 0.12);
+            color: white;
+        }
+
+        .btn-primary:hover, .btn-success:hover, .btn-danger:hover {
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.3), inset 0 -1px 0 rgba(0, 0, 0, 0.12), 0 8px 16px -8px rgba(0, 0, 0, 0.4);
+        }
+
+        .schedule-card {
+            background: var(--bg-card);
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 2px 8px var(--shadow);
+            height: 55vh;
+            min-height: 360px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .schedule-wrapper {
+            flex: 1;
+            overflow: auto;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+        }
+
+        .schedule-table {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0;
+            font-size: 11px;
+        }
+
+        .schedule-table thead {
+            background: var(--primary);
+            color: white;
+        }
+
+        .schedule-table th {
+            padding: 8px 6px;
+            text-align: left;
+            font-weight: 600;
+            font-size: 10px;
+            white-space: nowrap;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            background: var(--primary);
+            border-right: 1px solid rgba(255,255,255,0.1);
+            min-width: 120px;
+            max-width: 120px;
+        }
+
+        .schedule-table th:first-child {
+            position: sticky;
+            left: 0;
+            z-index: 20;
+        }
+
+        .schedule-table td {
+            padding: 5px;
+            border-bottom: 1px solid var(--border);
+            border-right: 1px solid var(--border);
+            min-width: 120px;
+            max-width: 120px;
+            position: relative;
+        }
+
+        /* Per-day row backgrounds */
+        .schedule-table tbody tr[data-day="понеделник"] { background: var(--day-1-row); }
+        .schedule-table tbody tr[data-day="вторник"]    { background: var(--day-2-row); }
+        .schedule-table tbody tr[data-day="среда"]      { background: var(--day-3-row); }
+        .schedule-table tbody tr[data-day="четврток"]   { background: var(--day-4-row); }
+        .schedule-table tbody tr[data-day="петок"]      { background: var(--day-5-row); }
+
+        .schedule-table tbody tr.alt-row[data-day="понеделник"] { background: color-mix(in srgb, var(--day-1-row) 70%, var(--bg-card)); }
+        .schedule-table tbody tr.alt-row[data-day="вторник"]    { background: color-mix(in srgb, var(--day-2-row) 70%, var(--bg-card)); }
+        .schedule-table tbody tr.alt-row[data-day="среда"]      { background: color-mix(in srgb, var(--day-3-row) 70%, var(--bg-card)); }
+        .schedule-table tbody tr.alt-row[data-day="четврток"]   { background: color-mix(in srgb, var(--day-4-row) 70%, var(--bg-card)); }
+        .schedule-table tbody tr.alt-row[data-day="петок"]      { background: color-mix(in srgb, var(--day-5-row) 70%, var(--bg-card)); }
+
+        /* ── [v3.4] Per-day sticky header лента ── */
+        .schedule-table tr.day-head th {
+            background: var(--bg-card);
+            color: var(--text-primary);
+            text-align: left;
+            font-size: 10px;
+            font-weight: 700;
+            padding: 7px 6px;
+            border-bottom: 2px solid var(--dh-accent, var(--primary));
+            border-right: 1px solid var(--border);
+            box-shadow: 0 2px 5px var(--shadow);
+        }
+        .schedule-table tr.day-head th.dh-corner {
+            background: var(--dh-accent, var(--primary));
+            color: #fff;
+            font-size: 11px;
+            letter-spacing: 0.5px;
+        }
+        /* директно под header-от не треба втора дебела линија */
+        .schedule-table tr.day-head + tr.first-of-day td { border-top: none; padding-top: 5px; }
+
+        .schedule-table tbody tr.first-of-day td { border-top: 3px solid var(--border); padding-top: 8px; }
+        .schedule-table tbody tr.first-of-day[data-day="понеделник"] td { border-top-color: var(--day-1-accent); }
+        .schedule-table tbody tr.first-of-day[data-day="вторник"] td    { border-top-color: var(--day-2-accent); }
+        .schedule-table tbody tr.first-of-day[data-day="среда"] td      { border-top-color: var(--day-3-accent); }
+        .schedule-table tbody tr.first-of-day[data-day="четврток"] td   { border-top-color: var(--day-4-accent); }
+        .schedule-table tbody tr.first-of-day[data-day="петок"] td      { border-top-color: var(--day-5-accent); }
+
+        .time-cell {
+            font-weight: 700;
+            font-size: 10px;
+            position: sticky;
+            left: 0;
+            z-index: 5;
+            box-shadow: 2px 0 4px var(--shadow);
+            min-width: 100px !important;
+            max-width: 100px !important;
+            border-left: 4px solid transparent;
+        }
+
+        .time-cell .day-label { display: block; font-size: 11px; font-weight: 700; margin-bottom: 2px; }
+        .time-cell .time-label { display: block; font-size: 11px; font-weight: 700; opacity: 1; }
+
+        tr[data-day="понеделник"] .time-cell { background: var(--day-1-bg) !important; color: var(--day-1-accent); border-left-color: var(--day-1-accent); }
+        tr[data-day="вторник"] .time-cell    { background: var(--day-2-bg) !important; color: var(--day-2-accent); border-left-color: var(--day-2-accent); }
+        tr[data-day="среда"] .time-cell       { background: var(--day-3-bg) !important; color: var(--day-3-accent); border-left-color: var(--day-3-accent); }
+        tr[data-day="четврток"] .time-cell   { background: var(--day-4-bg) !important; color: var(--day-4-accent); border-left-color: var(--day-4-accent); }
+        tr[data-day="петок"] .time-cell       { background: var(--day-5-bg) !important; color: var(--day-5-accent); border-left-color: var(--day-5-accent); }
+
+        .student-select {
+            width: 100%;
+            padding: 5px 6px;
+            border: 1.5px solid var(--border);
+            border-radius: 5px;
+            background: var(--bg-card);
+            color: var(--cell-empty-text);
+            font-size: 10px;
+            font-style: italic;
+            cursor: pointer;
+        }
+
+        .schedule-table td.cell-filled { background: var(--cell-filled-bg); }
+        .schedule-table td.cell-filled::before {
+            content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--cell-filled-border); z-index: 1;
+        }
+        .schedule-table td.cell-filled select { background: transparent; color: var(--cell-filled-text); font-style: normal; font-weight: 600; border-color: var(--cell-filled-border); }
+
+        .schedule-table td.conflict, .conflict { background: var(--conflict-bg-soft) !important; animation: conflictPulse 1.6s ease-in-out infinite; }
+        .schedule-table td.conflict::before, .conflict::before {
+            content: "⚠️"; position: absolute; top: 2px; right: 5px; color: var(--conflict-border); font-size: 11px; font-weight: 900; z-index: 2;
+        }
+        .schedule-table td.conflict select, .conflict select { background: transparent !important; color: var(--conflict-text) !important; border: 1.5px solid var(--conflict-border) !important; font-weight: 700 !important; font-style: normal !important; }
+
+        @keyframes conflictPulse {
+            0%, 100% { box-shadow: inset 0 0 0 1px var(--conflict-border); }
+            50% { box-shadow: inset 0 0 0 2px var(--conflict-border), 0 0 8px rgba(198, 40, 40, 0.35); }
+        }
+
+        .schedule-legend { display: flex; flex-wrap: wrap; gap: 8px 18px; padding: 10px 14px; margin-bottom: 12px; background: var(--bg-main); border-radius: 8px; border: 1px solid var(--border); font-size: 12px; align-items: center; }
+        .legend-section { display: flex; align-items: center; gap: 8px; }
+        .legend-divider { width: 1px; height: 18px; background: var(--border); }
+        .legend-label { font-weight: 600; color: var(--text-secondary); }
+        .legend-chip { display: inline-flex; align-items: center; gap: 5px; padding: 2px 8px; border-radius: 10px; font-weight: 600; font-size: 11px; }
+        .legend-dot { width: 12px; height: 12px; border-radius: 3px; border: 1.5px solid; }
+        .legend-dot.day-1 { background: var(--day-1-bg); border-color: var(--day-1-accent); }
+        .legend-dot.day-2 { background: var(--day-2-bg); border-color: var(--day-2-accent); }
+        .legend-dot.day-3 { background: var(--day-3-bg); border-color: var(--day-3-accent); }
+        .legend-dot.day-4 { background: var(--day-4-bg); border-color: var(--day-4-accent); }
+        .legend-dot.day-5 { background: var(--day-5-bg); border-color: var(--day-5-accent); }
+        .legend-dot.empty { background: var(--bg-card); border-color: var(--border); }
+        .legend-dot.filled { background: var(--cell-filled-bg); border-color: var(--cell-filled-border); }
+        .legend-dot.conflict { background: var(--conflict-bg-soft); border-color: var(--conflict-border); }
+
+        /* СЕКЦИЈА ПО ТЕРАПЕВТ СО ДВЕ КОЛОНИ */
+        .per-therapist-card {
+            background: var(--bg-card);
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 2px 8px var(--shadow);
+            margin-top: 20px;
+        }
+
+        .per-therapist-header {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin-bottom: 16px;
+            flex-wrap: wrap;
+            padding-bottom: 16px;
+            border-bottom: 2px solid var(--border);
+        }
+
+        .per-therapist-header h3 { color: var(--primary); font-size: 18px; display: flex; align-items: center; gap: 8px; }
+        #perTherapistSelector { padding: 10px 16px; border: 2px solid var(--border); border-radius: 8px; background: var(--bg-card); color: var(--text-primary); font-size: 14px; font-weight: 600; cursor: pointer; min-width: 250px; }
+
+        .pt-layout-grid {
+            display: grid;
+            grid-template-columns: 78% 20%;
+            gap: 2%;
+            align-items: start;
+        }
+
+        @media (max-width: 1024px) {
+            .pt-layout-grid { grid-template-columns: 1fr; gap: 20px; }
+        }
+
+        .pt-table-container { overflow-x: auto; }
+
+        /* СТРАНИЧНА КАРТИЧКА ЗА ЧЕКИРАНИ УЧЕНИЦИ */
+        .pt-assigned-students-sidebar {
+            background: var(--bg-main);
+            border: 2px solid var(--border);
+            border-radius: 10px;
+            padding: 15px;
+        }
+
+        .pt-assigned-students-sidebar h4 {
+            font-size: 13px;
+            color: var(--primary);
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 8px;
+            margin-bottom: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .sidebar-student-list {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            max-height: 480px;
+            overflow-y: auto;
+        }
+
+        .sidebar-student-item {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 8px 10px;
+            font-size: 12px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: var(--text-primary);
+        }
+
+        .sidebar-student-item::before {
+            content: "👤";
+            font-size: 11px;
+        }
+
+        .sidebar-student-empty {
+            font-size: 11px;
+            color: var(--text-secondary);
+            font-style: italic;
+            text-align: center;
+            padding: 15px 0;
+        }
+
+        .per-therapist-table { width: 100%; border-collapse: separate; border-spacing: 5px; table-layout: fixed; }
+        .per-therapist-table th { color: white; padding: 12px 6px; border-radius: 8px; font-size: 13px; font-weight: 700; text-align: center; }
+        .per-therapist-table th.period-header { width: 90px; background: var(--bg-main); color: var(--text-secondary); font-size: 11px; }
+        .per-therapist-table th.day-1 { background: var(--day-1-accent); }
+        .per-therapist-table th.day-2 { background: var(--day-2-accent); }
+        .per-therapist-table th.day-3 { background: var(--day-3-accent); }
+        .per-therapist-table th.day-4 { background: var(--day-4-accent); }
+        .per-therapist-table th.day-5 { background: var(--day-5-accent); }
+
+        .per-therapist-table .period-cell { text-align: center; background: var(--bg-main); border-radius: 8px; padding: 10px 6px; font-weight: 700; color: var(--text-secondary); }
+        .per-therapist-table .period-cell .period-roman { font-size: 22px; font-weight: 900; color: var(--primary); }
+        .per-therapist-table .period-cell .period-time { font-size: 9px; opacity: 0.7; }
+
+        .pt-cell { padding: 0; vertical-align: top; min-width: 130px; }
+        .pt-subslot {
+            background: var(--bg-main); border: 1.5px solid var(--border); border-radius: 8px; padding: 8px 10px; margin-bottom: 3px; cursor: pointer; transition: all 0.15s ease; display: flex; align-items: center; gap: 6px; min-height: 40px; font-size: 11px; font-weight: 600;
+        }
+        .pt-subslot:last-child { margin-bottom: 0; }
+        .pt-subslot:hover { border-color: var(--primary); transform: translateY(-1px); box-shadow: 0 2px 6px var(--shadow); }
+        .pt-subslot.empty { color: var(--text-secondary); font-style: italic; font-weight: 500; justify-content: center; border-style: dashed; opacity: 0.6; }
+        .pt-subslot.filled { background: var(--cell-filled-bg); border-color: var(--cell-filled-border); color: var(--cell-filled-text); }
+        .pt-subslot.conflict { background: var(--conflict-bg-soft) !important; border-color: var(--conflict-border) !important; color: var(--conflict-text) !important; animation: conflictPulse 1.6s ease-in-out infinite; }
+
+        .pt-subslot.full-period { min-height: 83px; justify-content: center; text-align: center; }
+        .pt-cell.split .pt-subslot { min-height: 38px; }
+
+        .conflict-report { display: none; background: var(--bg-card); padding: 20px; border-radius: 12px; margin-top: 20px; box-shadow: 0 2px 8px var(--shadow); }
+        .conflict-report.show { display: block; }
+        .conflict-report h3 { color: var(--danger); margin-bottom: 15px; display: flex; align-items: center; gap: 10px; }
+        .conflict-item { padding: 12px; margin: 8px 0; background: #fff3cd; border-left: 4px solid var(--warning); border-radius: 6px; color: #856404; }
+        [data-theme="dark"] .conflict-item { background: rgba(243, 156, 18, 0.2); color: #f39c12; }
+
+/* ============== ПОЛИРАН СЛОЈ v2.7: професионален изглед + работни алатки ============== */
+:root {
+    --surface-elevated: rgba(255,255,255,0.82);
+    --ring: rgba(91,111,216,0.22);
+    --info: #0ea5e9;
+    --muted-chip: rgba(44, 62, 80, 0.06);
+    --radius-lg: 18px;
+    --radius-md: 12px;
+}
+[data-theme="dark"] {
+    --surface-elevated: rgba(37,41,67,0.84);
+    --ring: rgba(112,130,232,0.28);
+    --muted-chip: rgba(255,255,255,0.08);
+    --info: #38bdf8;
+}
+
+body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    background:
+        radial-gradient(circle at 10% 5%, rgba(91,111,216,0.16), transparent 34%),
+        radial-gradient(circle at 92% 12%, rgba(61,213,152,0.14), transparent 28%),
+        linear-gradient(180deg, rgba(255,255,255,0.32), transparent 260px);
+    z-index: -1;
+}
+
+.header {
+    background:
+        linear-gradient(135deg, rgba(69,83,190,0.96), rgba(91,111,216,0.92)),
+        var(--bg-header);
+    backdrop-filter: blur(10px);
+}
+
+.header-content {
+    align-items: center;
+}
+
+.header-title h1 {
+    letter-spacing: -0.02em;
+}
+
+.header-subtitle {
+    padding: 3px 10px;
+    border-radius: 999px;
+    background: rgba(255,255,255,0.16);
+    display: inline-block;
+}
+
+.controls-section,
+.filter-group,
+.schedule-card,
+.per-therapist-card,
+.conflict-report {
+    border: 1px solid rgba(255,255,255,0.58);
+    box-shadow: 0 16px 40px rgba(30,41,59,0.08);
+}
+
+[data-theme="dark"] .controls-section,
+[data-theme="dark"] .filter-group,
+[data-theme="dark"] .schedule-card,
+[data-theme="dark"] .per-therapist-card,
+[data-theme="dark"] .conflict-report {
+    border-color: rgba(255,255,255,0.08);
+    box-shadow: 0 16px 40px rgba(0,0,0,0.28);
+}
+
+.controls-section {
+    border-radius: var(--radius-lg);
+}
+
+.quick-add-grid {
+    border-radius: var(--radius-md);
+    background:
+        linear-gradient(180deg, var(--surface-elevated), var(--bg-main));
+}
+
+.quick-add-box h4,
+.filter-group h3,
+.per-therapist-header h3 {
+    letter-spacing: -0.01em;
+}
+
+.quick-add-inputs input:focus,
+.quick-add-inputs select:focus,
+#perTherapistSelector:focus,
+.student-select:focus,
+.smart-toolbar input:focus,
+.smart-toolbar select:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 4px var(--ring);
+}
+
+.btn-secondary {
+    background: linear-gradient(180deg, color-mix(in srgb, var(--info) 80%, white), color-mix(in srgb, var(--info) 84%, black));
+    border-color: rgba(255, 255, 255, 0.22);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.3), inset 0 -1px 0 rgba(0, 0, 0, 0.12);
+    color: white;
+}
+
+.btn-soft {
+    background: var(--muted-chip);
+    color: var(--text-primary);
+    border: 1px solid var(--border);
+}
+
+.btn-soft:hover {
+    border-color: var(--primary);
+    color: var(--primary);
+}
+
+.btn-compact {
+    padding: 9px 13px;
+    font-size: 13px;
+}
+
+.smart-toolbar {
+    display: grid;
+    grid-template-columns: minmax(240px, 1.35fr) repeat(3, minmax(160px, 0.65fr));
+    gap: 10px;
+    align-items: center;
+    padding: 14px;
+    margin: 0 0 15px;
+    background: var(--bg-main);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+}
+
+.smart-toolbar label {
+    font-size: 11px;
+    color: var(--text-secondary);
+    display: block;
+    margin-bottom: 4px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+}
+
+.smart-toolbar input,
+.smart-toolbar select {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1.5px solid var(--border);
+    background: var(--bg-card);
+    color: var(--text-primary);
+    border-radius: 9px;
+    font-size: 13px;
+}
+
+.toolbar-actions {
+    display: flex;
+    gap: 8px;
+    align-items: end;
+    flex-wrap: wrap;
+}
+
+.status-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 10px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 700;
+    background: var(--muted-chip);
+    color: var(--text-secondary);
+}
+
+.status-pill.ok { color: var(--success); }
+.status-pill.warn { color: var(--warning); }
+.status-pill.bad { color: var(--danger); }
+
+.quality-panel {
+    display: none;
+    margin: 0 0 18px;
+    padding: 14px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-left: 5px solid var(--info);
+    border-radius: 12px;
+    box-shadow: 0 6px 16px var(--shadow);
+}
+
+.quality-panel.show {
+    display: block;
+}
+
+.quality-panel h3 {
+    margin-bottom: 10px;
+    color: var(--primary);
+    font-size: 16px;
+}
+
+.quality-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 10px;
+}
+
+.quality-card {
+    background: var(--bg-main);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px;
+    font-size: 13px;
+}
+
+.quality-card strong {
+    display: block;
+    margin-bottom: 6px;
+    color: var(--text-primary);
+}
+
+.quality-list {
+    margin-top: 8px;
+    padding-left: 18px;
+    color: var(--text-secondary);
+}
+
+.schedule-table td.cell-search-hit {
+    outline: 3px solid rgba(14,165,233,0.45);
+    outline-offset: -3px;
+    background: rgba(14,165,233,0.12) !important;
+}
+
+.schedule-table tr.is-hidden-by-search {
+    display: none;
+}
+
+body.density-compact .schedule-table th,
+body.density-compact .schedule-table td {
+    padding: 3px 4px;
+}
+
+body.density-compact .student-select {
+    padding: 3px 4px;
+    font-size: 9px;
+}
+
+body.density-comfortable .schedule-table th,
+body.density-comfortable .schedule-table td {
+    padding: 8px 7px;
+}
+
+body.density-comfortable .student-select {
+    padding: 7px 8px;
+    font-size: 11px;
+}
+
+.toast-container {
+    position: fixed;
+    right: 18px;
+    bottom: 18px;
+    z-index: 9999;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.toast {
+    min-width: 230px;
+    max-width: 380px;
+    padding: 11px 13px;
+    border-radius: 12px;
+    color: white;
+    font-size: 13px;
+    box-shadow: 0 12px 30px rgba(0,0,0,0.18);
+    animation: toastIn .18s ease-out;
+}
+
+.toast.info { background: #2563eb; }
+.toast.ok { background: #16a34a; }
+.toast.warn { background: #d97706; }
+.toast.bad { background: #dc2626; }
+
+@keyframes toastIn {
+    from { transform: translateY(8px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+}
+
+
+
+
+
+/* People CRUD manager: direct rename/delete for pupils and therapists */
+.people-crud-panel {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+    margin: 14px 0 18px;
+    padding: 14px;
+    background: var(--bg-main);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+}
+
+.people-crud-section {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 14px;
+    min-width: 0;
+}
+
+.people-crud-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 12px;
+}
+
+.people-crud-header h4 {
+    color: var(--primary);
+    font-size: 15px;
+    margin: 0;
+}
+
+.people-crud-subtitle {
+    color: var(--text-secondary);
+    font-size: 11px;
+    margin-top: 3px;
+}
+
+.people-crud-count {
+    flex: 0 0 auto;
+    background: var(--muted-chip);
+    color: var(--text-primary);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    padding: 3px 9px;
+    font-size: 11px;
+    font-weight: 700;
+}
+
+.people-crud-search {
+    width: 100%;
+    padding: 9px 11px;
+    border: 1.5px solid var(--border);
+    border-radius: 9px;
+    background: var(--bg-main);
+    color: var(--text-primary);
+    margin-bottom: 10px;
+    font-size: 13px;
+}
+
+.people-crud-search:focus,
+.person-name-input:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 4px var(--ring);
+}
+
+.grade-select {
+    width: 100%;
+    padding: 8px 10px;
+    border: 1.5px solid var(--border);
+    border-radius: 8px;
+    background: var(--bg-card);
+    color: var(--text-primary);
+    font-size: 13px;
+    font-weight: 650;
+}
+
+.grade-select:focus,
+.person-grade-input:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 4px var(--ring);
+}
+
+.therapist-create-row {
+    display: grid;
+    grid-template-columns: minmax(180px, 1fr) auto;
+    gap: 8px;
+    margin-bottom: 10px;
+    padding: 9px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--bg-main);
+}
+
+.therapist-create-row .btn {
+    padding: 8px 13px;
+    border-radius: 8px;
+}
+
+
+.quick-add-student-grid {
+    display: grid;
+    grid-template-columns: minmax(180px, 1fr) 150px auto;
+    align-items: center;
+}
+
+.crud-filter-row {
+    display: grid;
+    grid-template-columns: minmax(160px, 240px) auto;
+    gap: 8px;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.people-crud-search.compact {
+    margin-bottom: 0;
+    padding: 8px 10px;
+}
+
+.crud-check {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    color: var(--text-secondary);
+    font-size: 12px;
+    user-select: none;
+}
+
+.person-edit-grid {
+    display: grid;
+    grid-template-columns: minmax(170px, 1fr) 120px;
+    gap: 8px;
+}
+
+.person-grade-input {
+    width: 100%;
+    padding: 8px 9px;
+    border: 1.5px solid var(--border);
+    border-radius: 8px;
+    background: var(--bg-card);
+    color: var(--text-primary);
+    font-size: 13px;
+    font-weight: 650;
+}
+
+.person-grade-input:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 4px var(--ring);
+}
+
+.student-grade-chip {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 38px;
+    padding: 1px 7px;
+    border-radius: 999px;
+    border: 1px solid rgba(91,111,216,0.35);
+    background: rgba(91,111,216,0.12);
+    color: var(--primary-dark);
+    font-size: 10px;
+    font-weight: 800;
+    line-height: 1.55;
+}
+
+.grade-group {
+    display: grid;
+    gap: 8px;
+}
+
+.grade-group-title {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 7px 10px;
+    margin-top: 2px;
+    border-radius: 9px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    color: var(--primary);
+    font-size: 12px;
+    font-weight: 800;
+    box-shadow: 0 1px 4px var(--shadow);
+}
+
+.grade-group-count {
+    color: var(--text-secondary);
+    font-size: 11px;
+    font-weight: 700;
+}
+
+.ts-student-checkbox .student-grade-chip,
+.sidebar-student-item .student-grade-chip {
+    margin-left: auto;
+    flex: 0 0 auto;
+}
+
+@media (max-width: 720px) {
+    .quick-add-student-grid,
+    .crud-filter-row,
+    .person-edit-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+.people-crud-list {
+    display: grid;
+    gap: 8px;
+    max-height: 310px;
+    overflow: auto;
+    padding-right: 2px;
+}
+
+.person-row {
+    display: grid;
+    grid-template-columns: minmax(180px, 1fr) auto;
+    gap: 8px;
+    align-items: center;
+    padding: 9px;
+    background: var(--bg-main);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+}
+
+.person-row:hover {
+    border-color: rgba(91,111,216,0.5);
+}
+
+.person-name-input {
+    width: 100%;
+    padding: 8px 9px;
+    border: 1.5px solid var(--border);
+    border-radius: 8px;
+    background: var(--bg-card);
+    color: var(--text-primary);
+    font-size: 13px;
+    font-weight: 650;
+}
+
+.person-meta {
+    margin-top: 5px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+}
+
+.person-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    padding: 2px 7px;
+    border-radius: 999px;
+    background: var(--muted-chip);
+    border: 1px solid var(--border);
+    color: var(--text-secondary);
+    font-size: 10px;
+    font-weight: 700;
+}
+
+.person-chip.warn {
+    color: var(--warning);
+    border-color: rgba(243,156,18,.35);
+}
+
+/* ── [v3.5] Менаџер на одделенија ── */
+.grade-manager {
+    background: var(--bg-main);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px;
+    margin-bottom: 15px;
+}
+.grade-create-row {
+    display: flex;
+    gap: 8px;
+    margin: 10px 0 12px;
+    flex-wrap: wrap;
+}
+.grade-create-row input {
+    flex: 1 1 160px;
+    min-width: 140px;
+    padding: 9px 10px;
+    border: 1.5px solid var(--border);
+    border-radius: 8px;
+    background: var(--bg-card);
+    color: var(--text-primary);
+    font-size: 13px;
+    font-weight: 650;
+}
+.grade-create-row input:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 4px var(--ring);
+}
+.grade-chip-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+.grade-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 8px 5px 11px;
+    border-radius: 999px;
+    background: var(--bg-card);
+    border: 1.5px solid var(--primary);
+    color: var(--primary);
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: 0.3px;
+}
+.grade-pill small {
+    background: var(--primary);
+    color: #fff;
+    border-radius: 999px;
+    padding: 1px 6px;
+    font-size: 10px;
+    font-weight: 700;
+}
+.grade-pill button {
+    border: none;
+    background: transparent;
+    color: var(--text-secondary);
+    cursor: pointer;
+    font-size: 12px;
+    padding: 2px 4px;
+    border-radius: 50%;
+    line-height: 1;
+}
+.grade-pill button:hover { color: var(--danger); }
+.grade-chips-empty {
+    font-size: 12px;
+    color: var(--text-secondary);
+    font-style: italic;
+}
+
+.person-chip.danger {
+    color: var(--danger);
+    border-color: rgba(231,76,60,.35);
+}
+
+.person-actions {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+}
+
+.person-actions .btn {
+    padding: 8px 10px;
+    font-size: 12px;
+    border-radius: 8px;
+}
+
+.people-empty-state {
+    padding: 18px;
+    border: 1px dashed var(--border);
+    border-radius: 10px;
+    color: var(--text-secondary);
+    text-align: center;
+    font-size: 12px;
+    background: var(--bg-main);
+}
+
+@media (max-width: 1100px) {
+    .people-crud-panel {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 620px) {
+    .person-row {
+        grid-template-columns: 1fr;
+    }
+    .person-actions {
+        justify-content: flex-end;
+    }
+    .therapist-create-row {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* Candidate selector modal: replaces the browser prompt in per-therapist view */
+.candidate-modal-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 9998;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 18px;
+    background: rgba(6, 12, 30, 0.58);
+    backdrop-filter: blur(6px);
+}
+
+.candidate-modal-backdrop.show {
+    display: flex;
+}
+
+.candidate-modal {
+    width: min(540px, 100%);
+    background: var(--bg-card);
+    color: var(--text-primary);
+    border: 1px solid var(--border);
+    border-radius: 18px;
+    box-shadow: 0 24px 70px rgba(0,0,0,0.32);
+    overflow: hidden;
+}
+
+.candidate-modal-header {
+    padding: 18px 20px 14px;
+    border-bottom: 1px solid var(--border);
+    background: linear-gradient(135deg, rgba(91,111,216,0.16), rgba(61,213,152,0.08));
+}
+
+.candidate-modal-header h3 {
+    font-size: 18px;
+    margin-bottom: 4px;
+    color: var(--text-primary);
+}
+
+.candidate-modal-subtitle {
+    font-size: 12px;
+    color: var(--text-secondary);
+    font-weight: 600;
+}
+
+.candidate-modal-body {
+    padding: 18px 20px 8px;
+}
+
+.candidate-field-label {
+    display: block;
+    font-size: 12px;
+    color: var(--text-secondary);
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    margin-bottom: 8px;
+}
+
+.candidate-select {
+    width: 100%;
+    min-height: 46px;
+    padding: 10px 12px;
+    border-radius: 12px;
+    border: 2px solid var(--border);
+    background: var(--bg-card);
+    color: var(--text-primary);
+    font-size: 15px;
+    font-weight: 700;
+    outline: none;
+}
+
+.candidate-select:focus {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 4px rgba(91,111,216,.16);
+}
+
+.candidate-meta {
+    margin-top: 10px;
+    font-size: 12px;
+    color: var(--text-secondary);
+}
+
+.candidate-warning {
+    display: none;
+    margin-top: 12px;
+    padding: 10px 12px;
+    border-radius: 12px;
+    background: var(--conflict-bg-soft);
+    border: 1px solid var(--conflict-border);
+    color: var(--conflict-text);
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.candidate-warning.show {
+    display: block;
+}
+
+.candidate-fill-row {
+    display: none;
+    align-items: center;
+    gap: 8px;
+    margin-top: 14px;
+    padding: 10px 12px;
+    border-radius: 12px;
+    background: var(--bg-main);
+    border: 1px solid var(--border);
+    font-size: 13px;
+    color: var(--text-primary);
+    cursor: pointer;
+}
+
+.candidate-fill-row.show {
+    display: flex;
+}
+
+.candidate-fill-row input {
+    width: 16px;
+    height: 16px;
+    accent-color: var(--primary);
+}
+
+.candidate-modal-actions {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 16px 20px 20px;
+}
+
+.candidate-modal-actions .right-actions {
+    display: flex;
+    gap: 10px;
+}
+
+.candidate-modal-actions .btn {
+    margin-top: 0;
+}
+
+@media (max-width: 520px) {
+    .candidate-modal-actions,
+    .candidate-modal-actions .right-actions {
+        flex-direction: column;
+    }
+    .candidate-modal-actions .btn {
+        width: 100%;
+        justify-content: center;
+    }
+}
+
+@media (max-width: 1100px) {
+    .smart-toolbar {
+        grid-template-columns: 1fr 1fr;
+    }
+}
+
+@media (max-width: 720px) {
+    .header {
+        padding: 16px;
+    }
+    .header-title h1 {
+        font-size: 19px;
+    }
+    .container {
+        padding: 0 12px;
+    }
+    .quick-add-grid,
+    .filter-section,
+    .smart-toolbar {
+        grid-template-columns: 1fr;
+    }
+    .button-group .btn {
+        width: 100%;
+        justify-content: center;
+    }
+}
+
+@media print {
+    body {
+        background: white !important;
+        color: #111 !important;
+        font-family: "Times New Roman", serif !important;
+    }
+    body::before,
+    .header,
+    .controls-section,
+    .filter-section,
+    .conflict-report,
+    .per-therapist-card,
+    .toast-container,
+    .candidate-modal-backdrop,
+    .quality-panel {
+        display: none !important;
+    }
+    .container {
+        max-width: none;
+        margin: 0;
+        padding: 0;
+    }
+    .schedule-card {
+        box-shadow: none !important;
+        border: none !important;
+        padding: 0;
+    }
+    .schedule-wrapper {
+        overflow: visible;
+        border: none;
+    }
+    .schedule-table {
+        font-size: 9px;
+        border-collapse: collapse;
+    }
+    .schedule-table th,
+    .schedule-table td {
+        border: 1px solid #444 !important;
+        position: static !important;
+        min-width: auto !important;
+        max-width: none !important;
+        color: #111 !important;
+        background: white !important;
+        box-shadow: none !important;
+    }
+    .student-select {
+        border: none !important;
+        color: #111 !important;
+        background: transparent !important;
+        appearance: none;
+        font-family: "Times New Roman", serif !important;
+    }
+    .schedule-legend {
+        display: none !important;
+    }
+}
+
+        /* ============== TAB NAVIGATION (v3) ============== */
+        .tab-nav {
+            position: sticky;
+            top: 76px; /* sits below header */
+            z-index: 90;
+            background: var(--glass-nav);
+            backdrop-filter: blur(10px) saturate(1.3);
+            -webkit-backdrop-filter: blur(10px) saturate(1.3);
+            border-bottom: 1px solid var(--border);
+            box-shadow: 0 2px 6px var(--shadow);
+            padding: 0;
+        }
+
+        .tab-nav-inner {
+            max-width: 1800px;
+            margin: 0 auto;
+            display: flex;
+            gap: 4px;
+            padding: 8px 20px 0 20px;
+            overflow-x: auto;
+            scrollbar-width: thin;
+        }
+
+        .tab-btn {
+            position: relative;
+            border: none;
+            background: transparent;
+            color: var(--text-secondary);
+            padding: 12px 18px 14px 18px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            border-radius: 8px 8px 0 0;
+            white-space: nowrap;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            transition: color .18s ease, background .18s ease, transform .18s ease;
+            font-family: inherit;
+        }
+
+        .tab-btn .tab-icon {
+            font-size: 18px;
+            line-height: 1;
+        }
+
+        .tab-btn .tab-badge {
+            background: var(--border);
+            color: var(--text-primary);
+            font-size: 11px;
+            font-weight: 700;
+            padding: 2px 8px;
+            border-radius: 10px;
+            min-width: 22px;
+            text-align: center;
+        }
+
+        .tab-btn .tab-badge.danger {
+            background: var(--danger);
+            color: #fff;
+        }
+
+        .tab-btn:hover:not(.active) {
+            color: var(--text-primary);
+            background: var(--bg-main);
+        }
+
+        .tab-btn.active {
+            color: var(--primary);
+            background: var(--bg-main);
+        }
+
+        .tab-btn.active::after {
+            content: "";
+            position: absolute;
+            left: 10%;
+            right: 10%;
+            bottom: -1px;
+            height: 3px;
+            background: var(--primary);
+            border-radius: 3px 3px 0 0;
+        }
+
+        /* Per-tab accent colors (reuse existing day-accent palette) */
+        .tab-btn[data-tab="schedule"].active        { color: var(--day-1-accent); }
+        .tab-btn[data-tab="schedule"].active::after  { background: var(--day-1-accent); }
+        .tab-btn[data-tab="students"].active        { color: var(--day-2-accent); }
+        .tab-btn[data-tab="students"].active::after  { background: var(--day-2-accent); }
+        .tab-btn[data-tab="therapists"].active      { color: var(--day-3-accent); }
+        .tab-btn[data-tab="therapists"].active::after{ background: var(--day-3-accent); }
+        .tab-btn[data-tab="per-therapist"].active   { color: var(--day-4-accent); }
+        .tab-btn[data-tab="per-therapist"].active::after{ background: var(--day-4-accent); }
+        .tab-btn[data-tab="tools"].active           { color: var(--day-5-accent); }
+        .tab-btn[data-tab="tools"].active::after     { background: var(--day-5-accent); }
+
+        /* Tab panels: visible only when active */
+        .tab-panel {
+            display: none;
+            animation: tabFadeIn .22s ease;
+        }
+        .tab-panel.active {
+            display: block;
+        }
+
+        @keyframes tabFadeIn {
+            from { opacity: 0; transform: translateY(4px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Panel header (small breadcrumb-style title inside each tab) */
+        .panel-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 14px;
+            padding: 0 4px;
+        }
+        .panel-header h2 {
+            font-size: 18px;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+        .panel-header .panel-hint {
+            font-size: 12px;
+            color: var(--text-secondary);
+            margin-left: auto;
+        }
+
+        /* Overview tab specific: shortcut cards grid */
+        .shortcut-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 14px;
+            margin-top: 18px;
+        }
+        .shortcut-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-left: 4px solid var(--primary);
+            border-radius: 10px;
+            padding: 16px 18px;
+            cursor: pointer;
+            transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease;
+            text-align: left;
+            font-family: inherit;
+            color: var(--text-primary);
+        }
+        .shortcut-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 18px var(--shadow);
+        }
+        .shortcut-card .sc-icon {
+            font-size: 24px;
+            margin-bottom: 6px;
+        }
+        .shortcut-card .sc-title {
+            font-size: 15px;
+            font-weight: 700;
+            margin-bottom: 4px;
+        }
+        .shortcut-card .sc-desc {
+            font-size: 12px;
+            color: var(--text-secondary);
+            line-height: 1.4;
+        }
+        .shortcut-card[data-tab="schedule"]     { border-left-color: var(--day-1-accent); }
+        .shortcut-card[data-tab="students"]     { border-left-color: var(--day-2-accent); }
+        .shortcut-card[data-tab="therapists"]   { border-left-color: var(--day-3-accent); }
+        .shortcut-card[data-tab="per-therapist"]{ border-left-color: var(--day-4-accent); }
+        .shortcut-card[data-tab="tools"]        { border-left-color: var(--day-5-accent); }
+
+        /* On the Students/Therapists tabs make CRUD panel single-column wider */
+        .tab-panel#panel-students .people-crud-panel,
+        .tab-panel#panel-therapists .people-crud-panel {
+            grid-template-columns: 1fr;
+        }
+
+        /* Danger zone styling for Tools tab */
+        .danger-zone {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-left: 4px solid var(--danger);
+            border-radius: 10px;
+            padding: 16px 18px;
+            margin-top: 18px;
+        }
+        .danger-zone h4 {
+            color: var(--danger);
+            font-size: 14px;
+            margin-bottom: 4px;
+        }
+        .danger-zone .dz-desc {
+            font-size: 12px;
+            color: var(--text-secondary);
+            margin-bottom: 12px;
+        }
+
+        /* Mobile responsiveness */
+        /* ── [v3.2] Touch ергономија ── */
+        button, .btn, .tab-btn, .toggle-switch, .shortcut-card, .checkbox-item, .student-select {
+            -webkit-tap-highlight-color: transparent;
+            touch-action: manipulation;
+        }
+
+        @media (hover: none) {
+            .btn:hover { transform: none; }
+            .tab-btn:hover:not(.active) { background: transparent; }
+        }
+
+        @media (max-width: 768px) {
+            .tab-nav {
+                top: 0;
+            }
+            .tab-nav-inner {
+                padding: 6px 10px 0 10px;
+                scrollbar-width: none;
+            }
+            .tab-nav-inner::-webkit-scrollbar { display: none; }
+            .tab-btn {
+                padding: 10px 12px 12px 12px;
+                font-size: 13px;
+            }
+            .tab-btn .tab-icon {
+                font-size: 16px;
+            }
+            /* [v3.2] поголеми мети за прст во мрежата и формите */
+            .student-select {
+                padding: 8px 6px;
+                font-size: 12px;
+            }
+            .btn-compact {
+                min-height: 40px;
+            }
+            .checkbox-item input[type="checkbox"] {
+                width: 22px;
+                height: 22px;
+            }
+        }
+
+        /* Print: show everything regardless of active tab */
+        @media print {
+            .tab-nav { display: none !important; }
+            .tab-panel { display: block !important; }
+            .tab-panel:not(#panel-schedule):not(#panel-per-therapist) { display: none !important; }
+        }
+
+    </style>
+</head>
+<body>
+    <input type="file" id="jsonFileInput" accept=".json" onchange="handleJSONImport(event)" style="display:none;">
+    <datalist id="gradeOptionsList"></datalist>
+    
+    <div class="header">
+        <div class="header-content">
+            <div class="header-title">
+                <h1>📅 Распоред на Терапевти</h1>
+                <span class="header-subtitle">Електронски Дневник v3.1 — приказ по табови</span>
+            </div>
+            <div class="theme-toggle">
+                <span>Темна тема</span>
+                <div class="toggle-switch" id="themeToggleSwitch" onclick="toggleTheme()">
+                    <div class="toggle-slider"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============== TAB NAVIGATION ============== -->
+    <nav class="tab-nav" aria-label="Главна навигација">
+        <div class="tab-nav-inner" role="tablist">
+            <button class="tab-btn active" data-tab="overview" role="tab" aria-selected="true" aria-controls="panel-overview" onclick="switchTab('overview')">
+                <span class="tab-icon">🏠</span><span>Преглед</span>
+            </button>
+            <button class="tab-btn" data-tab="schedule" role="tab" aria-selected="false" aria-controls="panel-schedule" onclick="switchTab('schedule')">
+                <span class="tab-icon">📅</span><span>Распоред</span>
+                <span class="tab-badge danger" id="tabBadgeConflicts" style="display:none;">0</span>
+            </button>
+            <button class="tab-btn" data-tab="students" role="tab" aria-selected="false" aria-controls="panel-students" onclick="switchTab('students')">
+                <span class="tab-icon">👶</span><span>Ученици</span>
+                <span class="tab-badge" id="tabBadgeStudents">0</span>
+            </button>
+            <button class="tab-btn" data-tab="therapists" role="tab" aria-selected="false" aria-controls="panel-therapists" onclick="switchTab('therapists')">
+                <span class="tab-icon">👤</span><span>Терапевти</span>
+                <span class="tab-badge" id="tabBadgeTherapists">0</span>
+            </button>
+            <button class="tab-btn" data-tab="per-therapist" role="tab" aria-selected="false" aria-controls="panel-per-therapist" onclick="switchTab('per-therapist')">
+                <span class="tab-icon">🔍</span><span>По Терапевт</span>
+            </button>
+            <button class="tab-btn" data-tab="tools" role="tab" aria-selected="false" aria-controls="panel-tools" onclick="switchTab('tools')">
+                <span class="tab-icon">🧭</span><span>Алатки</span>
+            </button>
+        </div>
+    </nav>
+
+    <div class="container">
+
+        <!-- ============== TAB 1: ПРЕГЛЕД (Landing) ============== -->
+        <section class="tab-panel active" id="panel-overview" role="tabpanel" aria-labelledby="tab-overview">
+            <div class="panel-header">
+                <h2>🏠 Преглед</h2>
+                <span class="panel-hint">Брз преглед на состојбата и главните дејства</span>
+            </div>
+
+            <div class="stats-bar">
+                <div class="stat-item">Вкупно ученици: <span class="stat-value" id="studentCount">0</span></div>
+                <div class="stat-item">Одделенија: <span class="stat-value" id="gradeCount">0</span></div>
+                <div class="stat-item">Вкупно терапевти: <span class="stat-value" id="therapistCount">0</span></div>
+                <div class="stat-item">Пронајдени Конфликти: <span class="stat-value" id="conflictCount" style="background:var(--danger)">0</span></div>
+            </div>
+
+            <div class="button-group" style="margin-top: 18px;">
+                <button class="btn btn-primary" onclick="document.getElementById('jsonFileInput').click()">📥 Вчитај JSON</button>
+                <button class="btn btn-success" onclick="exportData()">📊 Извези CSV</button>
+                <button class="btn btn-secondary" onclick="exportJSONBackup()">💾 Извези JSON</button>
+                <button class="btn btn-soft" onclick="printSchedule()">🖨️ Печати</button>
+            </div>
+
+            <div class="shortcut-grid">
+                <button type="button" class="shortcut-card" data-tab="schedule" onclick="switchTab('schedule')">
+                    <div class="sc-icon">📅</div>
+                    <div class="sc-title">Распоред</div>
+                    <div class="sc-desc">Главната неделна табела со ученици, термини и конфликти.</div>
+                </button>
+                <button type="button" class="shortcut-card" data-tab="students" onclick="switchTab('students')">
+                    <div class="sc-icon">👶</div>
+                    <div class="sc-title">Ученици</div>
+                    <div class="sc-desc">Додавање, преименување, одделение и бришење на ученици.</div>
+                </button>
+                <button type="button" class="shortcut-card" data-tab="therapists" onclick="switchTab('therapists')">
+                    <div class="sc-icon">👤</div>
+                    <div class="sc-title">Терапевти</div>
+                    <div class="sc-desc">Управување со терапевти и нивните ученици.</div>
+                </button>
+                <button type="button" class="shortcut-card" data-tab="per-therapist" onclick="switchTab('per-therapist')">
+                    <div class="sc-icon">🔍</div>
+                    <div class="sc-title">По Терапевт</div>
+                    <div class="sc-desc">Фокусиран преглед на распоредот за еден терапевт.</div>
+                </button>
+                <button type="button" class="shortcut-card" data-tab="tools" onclick="switchTab('tools')">
+                    <div class="sc-icon">🧭</div>
+                    <div class="sc-title">Алатки</div>
+                    <div class="sc-desc">Квалитет, исчистување и бришење на податоци.</div>
+                </button>
+            </div>
+        </section>
+
+        <!-- ============== TAB 2: РАСПОРЕД (Main work view) ============== -->
+        <section class="tab-panel" id="panel-schedule" role="tabpanel" aria-labelledby="tab-schedule">
+            <div class="panel-header">
+                <h2>📅 Распоред</h2>
+                <span class="panel-hint">Главната неделна табела</span>
+            </div>
+
+            <div class="smart-toolbar" id="smartToolbar">
+                <div>
+                    <label for="scheduleSearch">Брзо пребарување</label>
+                    <input type="search" id="scheduleSearch" placeholder="Пребарај ученик во распоредот..." oninput="applyScheduleSearch()">
+                </div>
+                <div>
+                    <label for="jumpDaySelect">Скок до ден</label>
+                    <select id="jumpDaySelect" onchange="jumpToDay(this.value)">
+                        <option value="">— Избери ден —</option>
+                        <option value="понеделник">Понеделник</option>
+                        <option value="вторник">Вторник</option>
+                        <option value="среда">Среда</option>
+                        <option value="четврток">Четврток</option>
+                        <option value="петок">Петок</option>
+                    </select>
+                </div>
+                <div>
+                    <label for="densitySelect">Густина на табела</label>
+                    <select id="densitySelect" onchange="setScheduleDensity(this.value)">
+                        <option value="normal">Нормална</option>
+                        <option value="compact">Компактна</option>
+                        <option value="comfortable">Пространа</option>
+                    </select>
+                </div>
+                <div class="toolbar-actions">
+                    <button class="btn btn-soft btn-compact" onclick="sortNames()">↕️ Сортирај</button>
+                    <button class="btn btn-soft btn-compact" onclick="runQualityAudit()">🧭 Провери</button>
+                </div>
+            </div>
+
+            <div class="filter-section">
+                <div class="filter-group">
+                    <h3>📅 Филтрирај Денови</h3>
+                    <div class="checkbox-grid" id="dayCheckboxes"></div>
+                </div>
+                <div class="filter-group">
+                    <h3>👥 Филтрирај Терапевти</h3>
+                    <div class="checkbox-grid" id="therapistCheckboxes"></div>
+                </div>
+            </div>
+
+            <div id="conflictReport" class="conflict-report"></div>
+
+            <div class="schedule-card" style="height: auto; min-height: 400px; margin-bottom: 20px;">
+                <div class="schedule-legend" id="scheduleLegend" style="display:none;">
+                    <div class="legend-section">
+                        <span class="legend-label">Денови:</span>
+                        <span class="legend-chip"><span class="legend-dot day-1"></span>Понеделник</span>
+                        <span class="legend-chip"><span class="legend-dot day-2"></span>Вторник</span>
+                        <span class="legend-chip"><span class="legend-dot day-3"></span>Среда</span>
+                        <span class="legend-chip"><span class="legend-dot day-4"></span>Четврток</span>
+                        <span class="legend-chip"><span class="legend-dot day-5"></span>Петок</span>
+                    </div>
+                    <span class="legend-divider"></span>
+                    <div class="legend-section">
+                        <span class="legend-label">Статус:</span>
+                        <span class="legend-chip"><span class="legend-dot empty"></span>Празно</span>
+                        <span class="legend-chip"><span class="legend-dot filled"></span>Закажано</span>
+                        <span class="legend-chip"><span class="legend-dot conflict"></span>Конфликт ⚠️</span>
+                    </div>
+                </div>
+                <div id="scheduleContainer"></div>
+            </div>
+        </section>
+
+        <!-- ============== TAB 3: УЧЕНИЦИ (Students) ============== -->
+        <section class="tab-panel" id="panel-students" role="tabpanel" aria-labelledby="tab-students">
+            <div class="panel-header">
+                <h2>👶 Ученици</h2>
+                <span class="panel-hint">Додавање, преименување, одделение, бришење</span>
+            </div>
+
+            <div class="controls-section">
+                <div class="quick-add-grid">
+                    <div class="quick-add-box">
+                        <h4>👶 Додај нов Ученик</h4>
+                        <div class="quick-add-inputs quick-add-student-grid">
+                            <input type="text" id="quickStudentName" placeholder="Име на ученик (пр. Марко или II-а - Марко)">
+                            <select id="quickStudentGrade" class="grade-select" aria-label="Одделение на ученик"></select>
+                            <button onclick="quickAddStudent()">Додај</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="grade-manager">
+                    <div class="people-crud-header">
+                        <div>
+                            <h4>🏷️ Одделенија</h4>
+                            <div class="people-crud-subtitle">Креирај ги одделенијата од твоето училиште — само римски број (I) ако има една паралелка, или со буква (I-а, I-б...) ако има повеќе. Овие се нудат во паѓачките листи кај учениците.</div>
+                        </div>
+                    </div>
+                    <div class="grade-create-row">
+                        <input type="text" id="newGradeInput" placeholder="пр. I  или  I-а" list="gradeOptionsList" onkeydown="if(event.key==='Enter'){event.preventDefault();addCustomGrade();}">
+                        <button type="button" class="btn btn-primary btn-compact" onclick="addCustomGrade()">➕ Додај</button>
+                        <button type="button" class="btn btn-soft btn-compact" onclick="seedBareRomans()" title="Брзо додај ги I, II, III ... IX како единечни одделенија">I–IX по едно</button>
+                    </div>
+                    <div class="grade-chip-list" id="customGradeChips"></div>
+                </div>
+
+                <div class="people-crud-panel">
+                    <div class="people-crud-section">
+                        <div class="people-crud-header">
+                            <div>
+                                <h4>👶 CRUD за ученици</h4>
+                                <div class="people-crud-subtitle">Преименување, одделение, бришење и приказ групиран по одделенија.</div>
+                            </div>
+                            <span class="people-crud-count" id="studentCrudCount">0</span>
+                        </div>
+                        <input class="people-crud-search" id="studentCrudSearch" type="search" placeholder="Пребарај ученик..." oninput="renderPeopleCrudPanel()">
+                        <div class="crud-filter-row">
+                            <select id="studentGradeFilter" class="people-crud-search compact" onchange="renderPeopleCrudPanel()">
+                                <option value="">Сите одделенија</option>
+                            </select>
+                            <label class="crud-check"><input type="checkbox" id="studentGroupByGrade" checked onchange="renderPeopleCrudPanel()"> групирај по одделение</label>
+                        </div>
+                        <div class="people-crud-list" id="studentCrudList"></div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ============== TAB 4: ТЕРАПЕВТИ (Therapists) ============== -->
+        <section class="tab-panel" id="panel-therapists" role="tabpanel" aria-labelledby="tab-therapists">
+            <div class="panel-header">
+                <h2>👤 Терапевти</h2>
+                <span class="panel-hint">Терапевти и нивните ученици</span>
+            </div>
+
+            <div class="controls-section">
+                <div class="people-crud-panel">
+                    <div class="people-crud-section">
+                        <div class="people-crud-header">
+                            <div>
+                                <h4>👤 CRUD за терапевти</h4>
+                                <div class="people-crud-subtitle">Додавање, преименување и бришење терапевт во еден панел.</div>
+                            </div>
+                            <span class="people-crud-count" id="therapistCrudCount">0</span>
+                        </div>
+                        <div class="therapist-create-row">
+                            <input class="people-crud-search compact" id="crudNewTherapistName" type="text" placeholder="Нов терапевт..." onkeydown="if(event.key==='Enter') quickAddTherapistFromCrud()">
+                            <button class="btn btn-primary" type="button" onclick="quickAddTherapistFromCrud()">Додај</button>
+                        </div>
+                        <input class="people-crud-search" id="therapistCrudSearch" type="search" placeholder="Пребарај терапевт..." oninput="renderPeopleCrudPanel()">
+                        <div class="people-crud-list" id="therapistCrudList"></div>
+                    </div>
+                </div>
+
+                <div class="quick-add-grid" style="margin-top: 18px;">
+                    <div class="quick-add-box therapist-students-manager" style="grid-column: 1 / -1;">
+                        <h4>🔗 Кои ученици припаѓаат на кој терапевт?</h4>
+                        <div class="quick-add-inputs" style="margin-bottom: 8px;">
+                            <select id="quickTherapistSelect" onchange="loadTherapistStudentsCheckboxes()">
+                                <option value="">— Избери Терапевт —</option>
+                            </select>
+                            <span style="font-size: 12px; align-self: center; color: var(--text-secondary);">Штиклирајте ги учениците кои ги презема овој терапевт:</span>
+                        </div>
+                        <div class="ts-list-container" id="tsStudentsCheckboxesContainer">
+                            <div style="color: var(--text-secondary); font-size: 12px; padding: 10px; text-align: center; grid-column: 1/-1;">
+                                Изберете терапевт погоре за да ги поврзете учениците.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ============== TAB 5: ПО ТЕРАПЕВТ (Per Therapist) ============== -->
+        <section class="tab-panel" id="panel-per-therapist" role="tabpanel" aria-labelledby="tab-per-therapist">
+            <div class="panel-header">
+                <h2>🔍 По Терапевт</h2>
+                <span class="panel-hint">Фокусиран преглед за еден терапевт</span>
+            </div>
+
+            <div id="perTherapistEmptyHint" style="display:none; padding: 24px; text-align: center; color: var(--text-secondary); background: var(--bg-card); border: 1px dashed var(--border); border-radius: 10px;">
+                Сè уште нема додадени терапевти. Прво додајте терапевт во табот <strong>👤 Терапевти</strong>.
+            </div>
+
+            <div id="perTherapistCard" class="per-therapist-card" style="display: none;">
+                <div class="per-therapist-header">
+                    <h3>👤 Распоред по Терапевт</h3>
+                    <select id="perTherapistSelector" onchange="renderPerTherapistView()"></select>
+                </div>
+
+                <div class="pt-layout-grid">
+                    <div class="pt-table-container" id="perTherapistContainer"></div>
+
+                    <div class="pt-assigned-students-sidebar">
+                        <h4>📋 Чекирани Ученици</h4>
+                        <div class="sidebar-student-list" id="sidebarStudentListContainer">
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ============== TAB 6: АЛАТКИ (Tools) ============== -->
+        <section class="tab-panel" id="panel-tools" role="tabpanel" aria-labelledby="tab-tools">
+            <div class="panel-header">
+                <h2>🧭 Алатки</h2>
+                <span class="panel-hint">Проверка на квалитет и управување со податоци</span>
+            </div>
+
+            <div class="controls-section">
+                <h4 style="font-size: 14px; color: var(--primary); margin-bottom: 10px;">🔎 Проверка на квалитет</h4>
+                <div style="font-size: 12px; color: var(--text-secondary); margin-bottom: 12px;">
+                    Пребарува конфликти, недоделени ученици и проблеми во распоредот.
+                </div>
+                <div class="button-group">
+                    <button class="btn btn-primary" onclick="runQualityAudit()">🧭 Провери сега</button>
+                </div>
+                <div id="qualityPanel" class="quality-panel" style="margin-top: 14px;"></div>
+            </div>
+
+            <div class="controls-section">
+                <h4 style="font-size: 14px; color: var(--primary); margin-bottom: 10px;">💾 Внес и извоз</h4>
+                <div style="font-size: 12px; color: var(--text-secondary); margin-bottom: 12px;">
+                    Вчитајте JSON архива или извезете ги моменталните податоци.
+                </div>
+                <div class="button-group">
+                    <button class="btn btn-primary" onclick="document.getElementById('jsonFileInput').click()">📥 Вчитај JSON</button>
+                    <button class="btn btn-success" onclick="exportData()">📊 Извези CSV</button>
+                    <button class="btn btn-secondary" onclick="exportJSONBackup()">💾 Извези JSON</button>
+                    <button class="btn btn-soft" onclick="printSchedule()">🖨️ Печати</button>
+                </div>
+            </div>
+
+            <div class="danger-zone">
+                <h4>⚠️ Опасна зона</h4>
+                <div class="dz-desc">
+                    Овие дејства не може да се вратат. Се препорачува претходно да направите JSON архива.
+                </div>
+                <div class="button-group">
+                    <button class="btn btn-soft" onclick="clearOnlyAssignments()">🧽 Исчисти само распоред</button>
+                    <button class="btn btn-danger" onclick="clearSchedule()">🗑️ Избриши сите податоци</button>
+                </div>
+            </div>
+        </section>
+
+    </div>
+
+
+    <div id="candidateModalBackdrop" class="candidate-modal-backdrop" onclick="handleCandidateBackdropClick(event)">
+        <div class="candidate-modal" role="dialog" aria-modal="true" aria-labelledby="candidateModalTitle">
+            <div class="candidate-modal-header">
+                <h3 id="candidateModalTitle">Избери ученик</h3>
+                <div class="candidate-modal-subtitle" id="candidateModalSubtitle"></div>
+            </div>
+            <div class="candidate-modal-body">
+                <label class="candidate-field-label" for="candidateStudentSelect">Можни кандидати за овој терапевт</label>
+                <select id="candidateStudentSelect" class="candidate-select" onchange="updateCandidateModalWarning()"></select>
+                <div id="candidateMeta" class="candidate-meta"></div>
+                <div id="candidateWarning" class="candidate-warning"></div>
+                <label id="candidateFillRow" class="candidate-fill-row">
+                    <input type="checkbox" id="candidateFillBoth" checked>
+                    <span>Пополни ги/исчисти ги двете половини од часот.</span>
+                </label>
+            </div>
+            <div class="candidate-modal-actions">
+                <button type="button" class="btn btn-danger" onclick="deleteCandidateSelection()">Избриши термин</button>
+                <div class="right-actions">
+                    <button type="button" class="btn btn-soft" onclick="closeCandidateModal()">Откажи</button>
+                    <button type="button" class="btn btn-primary" onclick="saveCandidateSelection()">Зачувај</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="toast-container" id="toastContainer" aria-live="polite"></div>
+
+    <script>
+        // ============== ГЛОБАЛНА СОСТОЈБА ==============
+        let students = ['Избери Ученик'];
+        let therapists = [];
+        let therapistStudents = {};
+        let studentMeta = {};
+        let scheduleData = null;
+        let currentPerTherapist = null;
+
+        const LOCAL_STORAGE_KEY = 'therapistScheduleData_v2';
+        const days = ['понеделник', 'вторник', 'среда', 'четврток', 'петок'];
+        const times = [
+            '08:00-08:20', '08:20-08:40', '08:45-09:05', '09:05-09:25',
+            '09:40-10:00', '10:00-10:20', '10:25-10:45', '10:45-11:05',
+            '11:10-11:30', '11:30-11:50', '11:55-12:15', '12:15-12:35'
+        ];
+
+        const PERIODS = [
+            { label: 'I', slots: ['08:00-08:20', '08:20-08:40'], time: '08:00-08:40' },
+            { label: 'II', slots: ['08:45-09:05', '09:05-09:25'], time: '08:45-09:25' },
+            { label: 'III', slots: ['09:40-10:00', '10:00-10:20'], time: '09:40-10:20' },
+            { label: 'IV', slots: ['10:25-10:45', '10:45-11:05'], time: '10:25-11:05' },
+            { label: 'V', slots: ['11:10-11:30', '11:30-11:50'], time: '11:10-11:50' },
+            { label: 'VI', slots: ['11:55-12:15', '12:15-12:35'], time: '11:55-12:35' }
+        ];
+
+        let customGrades = [];   // [v3.5] кориснички дефинирани одделенија (I, I-а, ...)
+
+        let selectedDays = new Set(days);
+        let selectedTherapistsFilter = new Set();
+        let pendingCandidateEdit = null;
+
+        const COMMON_GRADE_ROMANS = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX'];
+        // [v3.5] Хардкодираните I-а...IX-б комбинации се заменети со кориснички
+        // менаџер на одделенија (customGrades) — види ја картичката во табот Ученици.
+
+        const ROMAN_GRADE_ORDER = { I: 1, II: 2, III: 3, IV: 4, V: 5, VI: 6, VII: 7, VIII: 8, IX: 9, X: 10 };
+        const SECTION_ORDER = { 'а': 1, 'б': 2, 'в': 3, 'г': 4, 'д': 5 };
+
+        function normalizeGrade(value) {
+            let grade = String(value || '').trim();
+            if (!grade) return '';
+            const latinToCyr = { a: 'а', b: 'б', v: 'в', g: 'г', d: 'д' };
+            grade = grade.replace(/[–—]/g, '-').replace(/\s+/g, '');
+
+            // 1) Peel off the Roman numeral prefix. Order alternatives longest-first
+            //    so that "II" matches as II (not as I + stray "I" matching the section class).
+            const romanMatch = grade.match(/^(VIII|VII|VI|IX|IV|III|II|X|V|I)/i);
+            if (!romanMatch) return grade;
+            const roman = romanMatch[1].toUpperCase();
+            const rest = grade.slice(romanMatch[1].length);
+
+            // 2) Bare Roman (no section) is a valid grade — return as-is.
+            if (!rest) return roman;
+
+            // 3) Optional dash, then exactly one VALID section letter.
+            //    Restricted set [абвгд / abvgd] — never I/V/X — so Roman letters
+            //    cannot accidentally be reinterpreted as a section.
+            const sectionMatch = rest.match(/^-?([abvgdабвгд])$/i);
+            if (!sectionMatch) {
+                // Garbage after Roman (e.g. legacy bug data like "I-i") — drop it, keep the Roman only.
+                return roman;
+            }
+            const sectionRaw = sectionMatch[1].toLowerCase();
+            const section = latinToCyr[sectionRaw] || sectionRaw;
+            return `${roman}-${section}`;
+        }
+
+        function inferGradeFromStudentName(name) {
+            const m = String(name || '').trim().match(/^((?:I|II|III|IV|V|VI|VII|VIII|IX|X)\s*[-\s]?\s*[A-Za-zА-Яа-я])\s*[-–—]\s+/i);
+            return m ? normalizeGrade(m[1]) : '';
+        }
+
+        function ensureStudentMeta() {
+            if (!studentMeta || typeof studentMeta !== 'object' || Array.isArray(studentMeta)) studentMeta = {};
+            const next = {};
+            students.filter(s => s && s !== 'Избери Ученик').forEach(student => {
+                const existing = studentMeta[student];
+                let grade = '';
+                if (typeof existing === 'string') grade = existing;
+                else if (existing && typeof existing === 'object') grade = existing.grade || existing.class || existing['одделение'] || existing.oddelenie || existing.oddel || '';
+                grade = normalizeGrade(grade || inferGradeFromStudentName(student));
+                next[student] = { grade };
+            });
+            studentMeta = next;
+            if (scheduleData) scheduleData.studentMeta = studentMeta;
+        }
+
+        function getStudentGrade(student) {
+            ensureStudentMeta();
+            return normalizeGrade(studentMeta[student]?.grade || '');
+        }
+
+        function setStudentGrade(student, grade) {
+            ensureStudentMeta();
+            if (!student || student === 'Избери Ученик') return;
+            studentMeta[student] = { ...(studentMeta[student] || {}), grade: normalizeGrade(grade) };
+        }
+
+        function gradeRank(grade) {
+            const g = normalizeGrade(grade);
+            if (!g) return [999, 999, ''];
+            // [v3.3] Најдолгите римски броеви прво (како во normalizeGrade) —
+            // стариот шаблон ги распарчуваше IV/VI/VII/VIII/IX и сортирањето беше погрешно.
+            const m = g.match(/^(VIII|VII|VI|IX|IV|III|II|X|V|I)(?:-([абвгд]))?$/i);
+            if (!m) return [500, 500, g];
+            const roman = m[1].toUpperCase();
+            const section = (m[2] || '').toLowerCase();
+            return [ROMAN_GRADE_ORDER[roman] || 500, section ? (SECTION_ORDER[section] || 500) : 0, g];
+        }
+
+        function compareGrades(a, b) {
+            const ra = gradeRank(a);
+            const rb = gradeRank(b);
+            for (let i = 0; i < 3; i++) {
+                if (ra[i] < rb[i]) return -1;
+                if (ra[i] > rb[i]) return 1;
+            }
+            return normalizeGrade(a).localeCompare(normalizeGrade(b), 'mk');
+        }
+
+        // [v3.5] Достапни одделенија = креираните + оние што веќе се во употреба
+        function getGradePool() {
+            return Array.from(new Set([...customGrades, ...getUsedGrades()].filter(Boolean))).sort(compareGrades);
+        }
+
+        function countStudentsWithGrade(grade) {
+            const g = normalizeGrade(grade);
+            return students.filter(s => s !== 'Избери Ученик' && getStudentGrade(s) === g).length;
+        }
+
+        function addCustomGrade() {
+            const input = document.getElementById('newGradeInput');
+            if (!input) return;
+            const g = normalizeGrade(input.value);
+            if (!g) return notify('Внеси одделение, пр. I или I-а.', 'warn');
+            if (customGrades.includes(g)) return notify(`Одделението ${g} веќе постои во листата.`, 'info');
+            customGrades.push(g);
+            customGrades.sort(compareGrades);
+            input.value = '';
+            saveScheduleToLocal();
+            renderGradeManager();
+            renderGradeDatalist();
+            renderStudentGradeFilterOptions();
+            renderPeopleCrudPanel();
+            notify(`Одделението ${g} е додадено.`, 'ok');
+        }
+
+        function removeCustomGrade(grade) {
+            const g = normalizeGrade(grade);
+            const used = countStudentsWithGrade(g);
+            const msg = used > 0
+                ? `Одделението ${g} се користи кај ${used} ученик(а). Ќе се тргне од креираните, но останува видливо во листите додека се користи. Продолжи?`
+                : `Да се избрише одделението ${g} од листата?`;
+            if (!confirm(msg)) return;
+            customGrades = customGrades.filter(x => x !== g);
+            saveScheduleToLocal();
+            renderGradeManager();
+            renderGradeDatalist();
+            renderStudentGradeFilterOptions();
+            renderPeopleCrudPanel();
+            notify(`Одделението ${g} е отстрането од листата.`, 'ok');
+        }
+
+        function seedBareRomans() {
+            let added = 0;
+            COMMON_GRADE_ROMANS.forEach(r => {
+                if (!customGrades.includes(r)) { customGrades.push(r); added++; }
+            });
+            if (!added) return notify('Сите од I до IX веќе се во листата.', 'info');
+            customGrades.sort(compareGrades);
+            saveScheduleToLocal();
+            renderGradeManager();
+            renderGradeDatalist();
+            renderStudentGradeFilterOptions();
+            renderPeopleCrudPanel();
+            notify(`Додадени ${added} одделенија (I–IX, по едно).`, 'ok');
+        }
+
+        function renderGradeManager() {
+            const box = document.getElementById('customGradeChips');
+            if (!box) return;
+            if (!customGrades.length) {
+                box.innerHTML = '<div class="grade-chips-empty">Нема креирани одделенија — додај ги оние што постојат во училиштето.</div>';
+                return;
+            }
+            box.innerHTML = customGrades.map(g => {
+                const used = countStudentsWithGrade(g);
+                return `<span class="grade-pill">${escapeHtml(g)}${used ? `<small>${used}</small>` : ''}<button type="button" title="Отстрани" data-grade="${escapeAttr(g)}" onclick="removeCustomGrade(this.dataset.grade)">✕</button></span>`;
+            }).join('');
+        }
+
+        function getUsedGrades() {
+            ensureStudentMeta();
+            return Array.from(new Set(students
+                .filter(s => s && s !== 'Избери Ученик')
+                .map(s => getStudentGrade(s))
+                .filter(Boolean)))
+                .sort(compareGrades);
+        }
+
+        function gradeOptionsHtml(selected = '', includeEmpty = true) {
+            const selectedGrade = normalizeGrade(selected);
+            const grades = Array.from(new Set([...getGradePool(), selectedGrade].filter(Boolean))).sort(compareGrades);
+            const empty = includeEmpty ? `<option value="">— Одделение —</option>` : '';
+            return empty + grades.map(g => `<option value="${escapeAttr(g)}"${g === selectedGrade ? ' selected' : ''}>${escapeHtml(g)}</option>`).join('');
+        }
+
+        function renderGradeDatalist() {
+            const grades = getGradePool();
+            const list = document.getElementById('gradeOptionsList');
+            if (list) list.innerHTML = grades.map(g => `<option value="${escapeAttr(g)}"></option>`).join('');
+            const quickGrade = document.getElementById('quickStudentGrade');
+            if (quickGrade && quickGrade.tagName === 'SELECT') {
+                const previous = normalizeGrade(quickGrade.value);
+                quickGrade.innerHTML = gradeOptionsHtml(previous, true);
+                quickGrade.value = grades.includes(previous) ? previous : '';
+            }
+        }
+
+        function renderStudentGradeFilterOptions() {
+            const select = document.getElementById('studentGradeFilter');
+            if (!select) return;
+            const previous = select.value;
+            const grades = getGradePool();
+            let html = '<option value="">Сите одделенија</option><option value="__none__">Без одделение</option>';
+            grades.forEach(g => html += `<option value="${escapeAttr(g)}">${escapeHtml(g)}</option>`);
+            select.innerHTML = html;
+            if ([...select.options].some(o => o.value === previous)) select.value = previous;
+        }
+
+        function studentGradeChipHtml(student) {
+            const grade = getStudentGrade(student);
+            return grade ? `<span class="student-grade-chip">${escapeHtml(grade)}</span>` : '';
+        }
+
+        function formatStudentOptionLabel(student) {
+            if (!student || student === 'Избери Ученик') return student || '';
+            const grade = getStudentGrade(student);
+            const inferred = normalizeGrade(inferGradeFromStudentName(student));
+            return grade && grade !== inferred ? `${student} · ${grade}` : student;
+        }
+
+        // ============== ТЕМА (DARK MODE) ==============
+        function toggleTheme() {
+            const current = document.documentElement.getAttribute('data-theme');
+            const target = current === 'dark' ? 'light' : 'dark';
+            document.documentElement.setAttribute('data-theme', target);
+            const sw = document.getElementById('themeToggleSwitch');
+            if (target === 'dark') sw.classList.add('active'); else sw.classList.remove('active');
+            localStorage.setItem('theme_preference', target);
+        }
+
+        function loadTheme() {
+            const saved = localStorage.getItem('theme_preference') || 'light';
+            document.documentElement.setAttribute('data-theme', saved);
+            const sw = document.getElementById('themeToggleSwitch');
+            if (sw) {
+                if (saved === 'dark') sw.classList.add('active'); else sw.classList.remove('active');
+            }
+        }
+
+        // ============== СИНХРОНИЗАЦИЈА И ЛОКАЛНО ЗАЧУВУВАЊЕ ==============
+        function saveScheduleToLocal() {
+            ensureStudentMeta();
+            if (!scheduleData) {
+                scheduleData = { students: students, therapists: therapists, therapistStudents: therapistStudents, studentMeta: studentMeta, schedule: [] };
+            }
+            scheduleData.students = students;
+            scheduleData.therapists = therapists;
+            scheduleData.therapistStudents = therapistStudents;
+            scheduleData.studentMeta = studentMeta;
+            scheduleData.customGrades = customGrades;   // [v3.5]
+            localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(scheduleData));
+        }
+
+        function loadScheduleFromLocal() {
+            loadTheme();
+            const savedData = localStorage.getItem(LOCAL_STORAGE_KEY);
+            if (savedData) {
+                try {
+                    const data = JSON.parse(savedData);
+                    if (data.students) students = data.students;
+                    if (data.therapists) therapists = data.therapists;
+                    if (data.therapistStudents) therapistStudents = data.therapistStudents;
+                    if (data.studentMeta) studentMeta = data.studentMeta;
+                    else if (data.studentGrades) studentMeta = data.studentGrades;
+                    // [v3.5] миграција: ако нема креирани, тргни од оние во употреба
+                    customGrades = Array.isArray(data.customGrades) ? data.customGrades.map(normalizeGrade).filter(Boolean) : [];
+                    if (data.schedule) scheduleData = data;
+                } catch(e) {
+                    console.error("Грешка при десеријализација", e);
+                }
+            }
+            if (!students.includes('Избери Ученик')) students.unshift('Избери Ученик');
+            ensureStudentMeta();
+            if (!customGrades.length) customGrades = getUsedGrades();   // [v3.5] еднократна миграција
+            renderGradeManager();
+            renderGradeDatalist();
+            renderStudentGradeFilterOptions();
+            selectedTherapistsFilter = new Set(therapists);
+            updateStats();
+            updateQuickTherapistSelect();
+            generateCheckboxes();
+            generateSchedule();
+            refreshPerTherapistSelector();
+            renderPeopleCrudPanel();
+        }
+
+        function updateStats() {
+            ensureStudentMeta();
+            const studentCountEl = document.getElementById('studentCount');
+            const therapistCountEl = document.getElementById('therapistCount');
+            const gradeCountEl = document.getElementById('gradeCount');
+            if (studentCountEl) studentCountEl.textContent = students.filter(s => s !== 'Избери Ученик').length;
+            if (therapistCountEl) therapistCountEl.textContent = therapists.length;
+            if (gradeCountEl) gradeCountEl.textContent = getUsedGrades().length;
+        }
+
+        // ============== МЕНАЏМЕНТ СО УЧЕНИЦИ И ТЕРАПЕВТИ ==============
+        function quickAddStudent() {
+            const input = document.getElementById('quickStudentName');
+            const gradeInput = document.getElementById('quickStudentGrade');
+            const name = normalizeName(input.value);
+            const grade = normalizeGrade(gradeInput?.value || inferGradeFromStudentName(name));
+            if (!name) return alert('Внесете име на ученик!');
+            if (name === 'Избери Ученик') return alert('Ова име е резервирано за празен избор.');
+            if (students.includes(name)) return alert('Ученикот веќе постои!');
+
+            students.push(name);
+            setStudentGrade(name, grade);
+            input.value = '';
+            if (gradeInput) gradeInput.value = '';
+            saveScheduleToLocal();
+            updateStats();
+            loadTherapistStudentsCheckboxes();
+            generateSchedule();
+            renderGradeManager();
+            renderGradeDatalist();
+            renderStudentGradeFilterOptions();
+            renderPeopleCrudPanel();
+            notify('Ученикот е додаден.', 'ok');
+            
+            // Ако сме долу на истиот преглед, освежи ја листата веднаш
+            if (currentPerTherapist) renderSidebarStudents(currentPerTherapist);
+        }
+
+        function quickAddTherapist(inputId = 'quickTherapistName') {
+            const input = document.getElementById(inputId) || document.getElementById('quickTherapistName') || document.getElementById('crudNewTherapistName');
+            if (!input) return;
+            const name = normalizeName(input.value);
+            if (!name) return notify('Внесете име на терапевт.', 'warn');
+            if (therapists.includes(name)) return notify('Терапевтот веќе постои.', 'warn');
+
+            therapists.push(name);
+            therapistStudents[name] = [];
+            input.value = '';
+            
+            selectedTherapistsFilter.add(name);
+            saveScheduleToLocal();
+            updateStats();
+            updateQuickTherapistSelect();
+            generateCheckboxes();
+            generateSchedule();
+            refreshPerTherapistSelector();
+            renderPeopleCrudPanel();
+            notify('Терапевтот е додаден.', 'ok');
+        }
+
+        function quickAddTherapistFromCrud() {
+            quickAddTherapist('crudNewTherapistName');
+        }
+
+        function updateQuickTherapistSelect() {
+            const select = document.getElementById('quickTherapistSelect');
+            const currentSelected = select.value;
+            select.innerHTML = '<option value="">— Избери Терапевт —</option>';
+            therapists.forEach(t => {
+                const opt = document.createElement('option');
+                opt.value = t; opt.textContent = t;
+                if (t === currentSelected) opt.selected = true;
+                select.appendChild(opt);
+            });
+        }
+
+        function loadTherapistStudentsCheckboxes() {
+            const therapist = document.getElementById('quickTherapistSelect').value;
+            const container = document.getElementById('tsStudentsCheckboxesContainer');
+            if (!therapist) {
+                container.innerHTML = `<div style="color: var(--text-secondary); font-size: 12px; padding: 10px; text-align: center; grid-column: 1/-1;">Изберете терапевт погоре за да ги поврзете учениците.</div>`;
+                return;
+            }
+
+            if (!therapistStudents[therapist]) therapistStudents[therapist] = [];
+            const assigned = therapistStudents[therapist];
+            const pureStudents = students.filter(s => s !== 'Избери Ученик');
+
+            if (pureStudents.length === 0) {
+                container.innerHTML = `<div style="color: var(--text-secondary); font-size: 12px; padding: 10px; text-align: center; grid-column: 1/-1;">Нема додадено ученици.</div>`;
+                return;
+            }
+
+            container.innerHTML = pureStudents.map(s => {
+                const isChecked = assigned.includes(s) ? 'checked' : '';
+                return `
+                    <label class="ts-student-checkbox">
+                        <input type="checkbox" data-student="${escapeAttr(s)}" data-therapist="${escapeAttr(therapist)}" ${isChecked} onchange="toggleStudentTherapistRelation(this)">
+                        <span>${escapeHtml(s)}</span>${studentGradeChipHtml(s)}
+                    </label>
+                `;
+            }).join('');
+        }
+
+        function toggleStudentTherapistRelation(checkbox) {
+            // [v3.3] Терапевтот доаѓа преку data-атрибут — inline JS-стринг се кршеше
+            // ако името содржи апостроф/наводник (escapeAttr не штити во JS контекст).
+            const therapist = checkbox.dataset.therapist;
+            const student = checkbox.dataset.student;
+            if (!therapist) return;
+            if (!therapistStudents[therapist]) therapistStudents[therapist] = [];
+
+            if (checkbox.checked) {
+                if (!therapistStudents[therapist].includes(student)) therapistStudents[therapist].push(student);
+            } else {
+                therapistStudents[therapist] = therapistStudents[therapist].filter(s => s !== student);
+                if (scheduleData && scheduleData.schedule) {
+                    scheduleData.schedule.forEach(slot => {
+                        // [v3.3] guard: увезени slots без assignments фрлаа TypeError
+                        if (slot.assignments && slot.assignments[therapist] === student) delete slot.assignments[therapist];
+                    });
+                }
+            }
+            saveScheduleToLocal();
+            generateSchedule();
+            
+            // КЛУЧНО: Веднаш прекалкулирај ја и страничната лента ако се работи за активниот терапевт
+            if (currentPerTherapist === therapist) {
+                renderPerTherapistView();
+            }
+        }
+
+
+        // ============== CRUD ЗА УЧЕНИЦИ И ТЕРАПЕВТИ ==============
+        function getPureStudents() {
+            return students.filter(s => s && s !== 'Избери Ученик');
+        }
+
+        function normalizeName(value) {
+            return String(value || '').replace(/\s+/g, ' ').trim();
+        }
+
+        function getStudentScheduleCount(student) {
+            if (!scheduleData || !Array.isArray(scheduleData.schedule)) return 0;
+            return scheduleData.schedule.reduce((count, slot) => {
+                const assignments = slot.assignments || {};
+                return count + Object.values(assignments).filter(v => v === student).length;
+            }, 0);
+        }
+
+        function getTherapistScheduleCount(therapist) {
+            if (!scheduleData || !Array.isArray(scheduleData.schedule)) return 0;
+            return scheduleData.schedule.reduce((count, slot) => {
+                const assignments = slot.assignments || {};
+                return count + (assignments[therapist] ? 1 : 0);
+            }, 0);
+        }
+
+        function getStudentRelationCount(student) {
+            return Object.values(therapistStudents || {}).reduce((count, list) => {
+                return count + (Array.isArray(list) && list.includes(student) ? 1 : 0);
+            }, 0);
+        }
+
+        function getTherapistStudentCount(therapist) {
+            const list = therapistStudents[therapist] || [];
+            return Array.isArray(list) ? list.length : 0;
+        }
+
+        function buildStudentCrudRow(student) {
+            const termCount = getStudentScheduleCount(student);
+            const relationCount = getStudentRelationCount(student);
+            const grade = getStudentGrade(student);
+            const dangerClass = termCount > 0 ? 'danger' : relationCount > 0 ? 'warn' : '';
+            return `
+                <div class="person-row" data-name="${escapeAttr(student)}">
+                    <div>
+                        <div class="person-edit-grid">
+                            <input class="person-name-input" value="${escapeAttr(student)}" aria-label="Име на ученик">
+                            <select class="person-grade-input" aria-label="Одделение на ученик">${gradeOptionsHtml(grade, true)}</select>
+                        </div>
+                        <div class="person-meta">
+                            <span class="person-chip ${dangerClass}">${termCount} термини</span>
+                            <span class="person-chip">${relationCount} терапевти</span>
+                            <span class="person-chip">${grade ? escapeHtml(grade) : 'без одделение'}</span>
+                        </div>
+                    </div>
+                    <div class="person-actions">
+                        <button class="btn btn-soft" type="button" onclick="saveStudentEdit(this)">Зачувај</button>
+                        <button class="btn btn-danger" type="button" onclick="deleteStudentFromManager(this)">Избриши</button>
+                    </div>
+                </div>`;
+        }
+
+        function renderPeopleCrudPanel() {
+            ensureStudentMeta();
+            renderGradeDatalist();
+            renderStudentGradeFilterOptions();
+            const studentList = document.getElementById('studentCrudList');
+            const therapistList = document.getElementById('therapistCrudList');
+            if (!studentList || !therapistList) return;
+
+            const studentSearch = normalizeName(document.getElementById('studentCrudSearch')?.value || '').toLocaleLowerCase('mk-MK');
+            const therapistSearch = normalizeName(document.getElementById('therapistCrudSearch')?.value || '').toLocaleLowerCase('mk-MK');
+            const gradeFilter = document.getElementById('studentGradeFilter')?.value || '';
+            const groupByGrade = document.getElementById('studentGroupByGrade')?.checked !== false;
+
+            const pureStudents = getPureStudents();
+            const filteredStudents = pureStudents.filter(s => {
+                const matchesSearch = s.toLocaleLowerCase('mk-MK').includes(studentSearch);
+                const grade = getStudentGrade(s);
+                const matchesGrade = !gradeFilter || (gradeFilter === '__none__' ? !grade : grade === gradeFilter);
+                return matchesSearch && matchesGrade;
+            }).sort((a, b) => {
+                const ga = getStudentGrade(a);
+                const gb = getStudentGrade(b);
+                const cmp = compareGrades(ga, gb);
+                return cmp || a.localeCompare(b, 'mk');
+            });
+
+            const filteredTherapists = therapists.filter(t => t.toLocaleLowerCase('mk-MK').includes(therapistSearch));
+
+            const studentCount = document.getElementById('studentCrudCount');
+            const therapistCount = document.getElementById('therapistCrudCount');
+            if (studentCount) studentCount.textContent = `${filteredStudents.length}/${pureStudents.length}`;
+            if (therapistCount) therapistCount.textContent = `${filteredTherapists.length}/${therapists.length}`;
+
+            if (filteredStudents.length === 0) {
+                studentList.innerHTML = `<div class="people-empty-state">Нема ученици за прикажување.</div>`;
+            } else if (groupByGrade) {
+                const groups = new Map();
+                filteredStudents.forEach(student => {
+                    const grade = getStudentGrade(student) || 'Без одделение';
+                    if (!groups.has(grade)) groups.set(grade, []);
+                    groups.get(grade).push(student);
+                });
+                studentList.innerHTML = Array.from(groups.entries()).map(([grade, list]) => `
+                    <div class="grade-group">
+                        <div class="grade-group-title"><span>${escapeHtml(grade)}</span><span class="grade-group-count">${list.length} ученици</span></div>
+                        ${list.map(buildStudentCrudRow).join('')}
+                    </div>
+                `).join('');
+            } else {
+                studentList.innerHTML = filteredStudents.map(buildStudentCrudRow).join('');
+            }
+
+            if (filteredTherapists.length === 0) {
+                therapistList.innerHTML = `<div class="people-empty-state">Нема терапевти за прикажување.</div>`;
+            } else {
+                therapistList.innerHTML = filteredTherapists.map(therapist => {
+                    const termCount = getTherapistScheduleCount(therapist);
+                    const assignedCount = getTherapistStudentCount(therapist);
+                    const dangerClass = termCount > 0 ? 'danger' : assignedCount > 0 ? 'warn' : '';
+                    return `
+                        <div class="person-row" data-name="${escapeAttr(therapist)}">
+                            <div>
+                                <input class="person-name-input" value="${escapeAttr(therapist)}" aria-label="Име на терапевт">
+                                <div class="person-meta">
+                                    <span class="person-chip ${dangerClass}">${termCount} термини</span>
+                                    <span class="person-chip">${assignedCount} ученици</span>
+                                </div>
+                            </div>
+                            <div class="person-actions">
+                                <button class="btn btn-soft" type="button" onclick="saveTherapistRename(this)">Зачувај</button>
+                                <button class="btn btn-danger" type="button" onclick="deleteTherapistFromManager(this)">Избриши</button>
+                            </div>
+                        </div>`;
+                }).join('');
+            }
+        }
+
+        function refreshAfterPeopleCrud(message) {
+            saveScheduleToLocal();
+            updateStats();
+            updateQuickTherapistSelect();
+            generateCheckboxes();
+            generateSchedule();
+            refreshPerTherapistSelector();
+            loadTherapistStudentsCheckboxes();
+            renderGradeManager();
+            renderGradeDatalist();
+            renderStudentGradeFilterOptions();
+            renderPeopleCrudPanel();
+            if (message) notify(message, 'ok');
+        }
+
+        function getRowName(button) {
+            const row = button.closest('.person-row');
+            return row ? row.dataset.name : '';
+        }
+
+        function getRowInputValue(button) {
+            const row = button.closest('.person-row');
+            const input = row ? row.querySelector('.person-name-input') : null;
+            return normalizeName(input ? input.value : '');
+        }
+
+        function getRowGradeValue(button) {
+            const row = button.closest('.person-row');
+            const input = row ? row.querySelector('.person-grade-input') : null;
+            return normalizeGrade(input ? input.value : '');
+        }
+
+        function saveStudentEdit(button) {
+            const oldName = getRowName(button);
+            const newName = getRowInputValue(button);
+            const grade = getRowGradeValue(button);
+            if (!oldName) return;
+            if (!newName) return notify('Името на ученик не смее да биде празно.', 'warn');
+            if (newName === 'Избери Ученик') return notify('Ова име е резервирано за празен избор.', 'warn');
+            if (oldName !== newName && students.includes(newName)) return notify('Веќе постои ученик со тоа име.', 'warn');
+
+            if (oldName !== newName) {
+                students = students.map(s => s === oldName ? newName : s);
+                Object.keys(therapistStudents || {}).forEach(therapist => {
+                    therapistStudents[therapist] = (therapistStudents[therapist] || []).map(s => s === oldName ? newName : s);
+                });
+                if (scheduleData && Array.isArray(scheduleData.schedule)) {
+                    scheduleData.schedule.forEach(slot => {
+                        Object.keys(slot.assignments || {}).forEach(therapist => {
+                            if (slot.assignments[therapist] === oldName) slot.assignments[therapist] = newName;
+                        });
+                    });
+                }
+                delete studentMeta[oldName];
+                setStudentGrade(newName, grade);
+                refreshAfterPeopleCrud('Ученикот е преименуван и одделението е зачувано.');
+            } else {
+                setStudentGrade(oldName, grade);
+                refreshAfterPeopleCrud('Одделението на ученикот е зачувано.');
+            }
+        }
+
+        function saveStudentRename(button) {
+            saveStudentEdit(button);
+        }
+
+        function deleteStudentFromManager(button) {
+            const name = getRowName(button);
+            if (!name) return;
+            const termCount = getStudentScheduleCount(name);
+            const relationCount = getStudentRelationCount(name);
+            const message = `Да се избрише ученикот „${name}“?\n\nЌе се отстрани од ${relationCount} врски со терапевти и од ${termCount} термини во распоредот. Ова не може да се врати освен преку претходен JSON backup.`;
+            if (!confirm(message)) return;
+
+            students = students.filter(s => s !== name);
+            if (!students.includes('Избери Ученик')) students.unshift('Избери Ученик');
+            delete studentMeta[name];
+            Object.keys(therapistStudents || {}).forEach(therapist => {
+                therapistStudents[therapist] = (therapistStudents[therapist] || []).filter(s => s !== name);
+            });
+            if (scheduleData && Array.isArray(scheduleData.schedule)) {
+                scheduleData.schedule.forEach(slot => {
+                    Object.keys(slot.assignments || {}).forEach(therapist => {
+                        if (slot.assignments[therapist] === name) delete slot.assignments[therapist];
+                    });
+                });
+            }
+            refreshAfterPeopleCrud('Ученикот е избришан и распоредот е исчистен.');
+        }
+
+        function saveTherapistRename(button) {
+            const oldName = getRowName(button);
+            const newName = getRowInputValue(button);
+            if (!oldName) return;
+            if (!newName) return notify('Името на терапевт не смее да биде празно.', 'warn');
+            if (oldName === newName) return notify('Нема промена за зачувување.', 'info');
+            if (therapists.includes(newName)) return notify('Веќе постои терапевт со тоа име.', 'warn');
+
+            therapists = therapists.map(t => t === oldName ? newName : t);
+            therapistStudents[newName] = therapistStudents[oldName] || [];
+            delete therapistStudents[oldName];
+            if (selectedTherapistsFilter.has(oldName)) {
+                selectedTherapistsFilter.delete(oldName);
+                selectedTherapistsFilter.add(newName);
+            }
+            if (currentPerTherapist === oldName) currentPerTherapist = newName;
+            const quickSelect = document.getElementById('quickTherapistSelect');
+            const wasSelected = quickSelect && quickSelect.value === oldName;
+
+            if (scheduleData && Array.isArray(scheduleData.schedule)) {
+                scheduleData.schedule.forEach(slot => {
+                    if (slot.assignments && Object.prototype.hasOwnProperty.call(slot.assignments, oldName)) {
+                        slot.assignments[newName] = slot.assignments[oldName];
+                        delete slot.assignments[oldName];
+                    }
+                });
+            }
+
+            refreshAfterPeopleCrud('Терапевтот е преименуван.');
+            if (wasSelected && quickSelect) {
+                quickSelect.value = newName;
+                loadTherapistStudentsCheckboxes();
+            }
+        }
+
+        function deleteTherapistFromManager(button) {
+            const name = getRowName(button);
+            if (!name) return;
+            const termCount = getTherapistScheduleCount(name);
+            const assignedCount = getTherapistStudentCount(name);
+            const message = `Да се избрише терапевтот „${name}“?\n\nЌе се отстрани колоната на терапевтот, ${assignedCount} врски со ученици и ${termCount} внесени термини. Ова не може да се врати освен преку претходен JSON backup.`;
+            if (!confirm(message)) return;
+
+            therapists = therapists.filter(t => t !== name);
+            selectedTherapistsFilter.delete(name);
+            delete therapistStudents[name];
+            if (currentPerTherapist === name) currentPerTherapist = therapists[0] || null;
+            if (scheduleData && Array.isArray(scheduleData.schedule)) {
+                scheduleData.schedule.forEach(slot => {
+                    if (slot.assignments) delete slot.assignments[name];
+                });
+            }
+            refreshAfterPeopleCrud('Терапевтот е избришан и распоредот е исчистен.');
+        }
+
+        // ============== ГЕНЕРИРАЊЕ НА ГЛАВНАТА ТАБЕЛА ==============
+        function generateSchedule() {
+            const container = document.getElementById('scheduleContainer');
+            const legend = document.getElementById('scheduleLegend');
+
+            if (therapists.length === 0) {
+                legend.style.display = 'none';
+                container.innerHTML = `<div style="text-align:center; padding:30px; color:var(--text-secondary);">Вчитајте JSON или додајте податоци преку контролната табла горе.</div>`;
+                return;
+            }
+
+            const displayDays = Array.from(selectedDays);
+            const displayTherapists = Array.from(selectedTherapistsFilter);
+
+            if (displayDays.length === 0 || displayTherapists.length === 0) {
+                legend.style.display = 'none';
+                container.innerHTML = `<div style="text-align:center; padding:30px; color:var(--text-secondary);">Изберете барем еден ден и еден терапевт во филтрите.</div>`;
+                return;
+            }
+
+            legend.style.display = 'flex';
+            let html = '<div class="schedule-wrapper"><table class="schedule-table"><tbody>';
+
+            days.forEach(day => {
+                if (!selectedDays.has(day)) return;
+                // [v3.4] Секој ден добива своја sticky header-лента (ден + терапевти).
+                // Додека скролаш низ денот таа стои залепена горе; следниот ден ја заменува.
+                const dayIdx = days.indexOf(day) + 1;
+                html += `<tr class="day-head" data-day="${day}" style="--dh-accent: var(--day-${dayIdx}-accent); --dh-bg: var(--day-${dayIdx}-bg);">`;
+                html += `<th class="dh-corner">${day.toUpperCase()}</th>`;
+                displayTherapists.forEach(t => { html += `<th>${escapeHtml(t)}</th>`; });
+                html += '</tr>';
+
+                times.forEach((time, timeIdx) => {
+                    const isFirst = timeIdx === 0;
+                    const isAlt = timeIdx % 2 === 1;
+                    let cls = '';
+                    if (isFirst && isAlt) cls = 'class="first-of-day alt-row"';
+                    else if (isFirst) cls = 'class="first-of-day"';
+                    else if (isAlt) cls = 'class="alt-row"';
+
+                    html += `<tr data-day="${day}" ${cls}>`;
+                    html += `<td class="time-cell"><span class="time-label">${time}</span></td>`;
+
+                    displayTherapists.forEach(therapist => {
+                        const therapistIndex = therapists.indexOf(therapist);
+                        const cellId = `${day}-${time}-T${therapistIndex}`;
+                        const currentVal = getAssignment(day, time, therapist) || 'Избери Ученик';
+
+                        // Динамичен филтер за Dropdown-от
+                        const allowedStudents = therapistStudents[therapist] || [];
+                        const dropdownOptions = ['Избери Ученик', ...allowedStudents];
+                        if (currentVal !== 'Избери Ученик' && !dropdownOptions.includes(currentVal)) {
+                            dropdownOptions.push(currentVal);
+                        }
+
+                        let tdClass = '';
+                        if (currentVal !== 'Избери Ученик' && currentVal !== '') tdClass = ' class="cell-filled"';
+
+                        html += `<td id="cell-${cellId}"${tdClass}>`;
+                        html += `<select class="student-select" id="${cellId}" data-day="${day}" data-time="${time}" data-therapist="${escapeAttr(therapist)}" onchange="handleIndividualCellChange(this)">`;
+                        
+                        dropdownOptions.forEach(s => {
+                            const selected = s === currentVal ? ' selected' : '';
+                            html += `<option value="${escapeAttr(s)}"${selected}>${escapeHtml(formatStudentOptionLabel(s))}</option>`;
+                        });
+
+                        html += `</select></td>`;
+                    });
+                    html += '</tr>';
+                });
+            });
+
+            html += '</tbody></table></div>';
+            container.innerHTML = html;
+            checkConflicts();
+        }
+
+        function getAssignment(day, time, therapist) {
+            if (!scheduleData || !scheduleData.schedule) return '';
+            const slot = scheduleData.schedule.find(s => s.day === day && s.time === time);
+            return slot ? slot.assignments[therapist] || '' : '';
+        }
+
+        function applyAssignment(day, time, therapist, value) {
+            if (!scheduleData) scheduleData = { students: students, therapists: therapists, therapistStudents: therapistStudents, studentMeta: studentMeta, schedule: [] };
+            if (!scheduleData.schedule) scheduleData.schedule = [];
+
+            let slot = scheduleData.schedule.find(s => s.day === day && s.time === time);
+            if (!slot) {
+                slot = { day, time, assignments: {} };
+                scheduleData.schedule.push(slot);
+            }
+
+            if (value === 'Избери Ученик' || value === '') {
+                delete slot.assignments[therapist];
+            } else {
+                slot.assignments[therapist] = value;
+            }
+        }
+
+        function handleIndividualCellChange(select) {
+            const day = select.dataset.day;
+            const time = select.dataset.time;
+            const therapist = select.dataset.therapist;
+            const val = select.value;
+
+            applyAssignment(day, time, therapist, val);
+            saveScheduleToLocal();
+            
+            const cell = select.parentElement;
+            if (val !== 'Избери Ученик' && val !== '') {
+                cell.className = 'cell-filled';
+            } else {
+                cell.className = '';
+            }
+
+            checkConflicts();
+            if (currentPerTherapist === therapist) renderPerTherapistView();
+        }
+
+        // ============== КОНФЛИКТИ ==============
+        function checkConflicts() {
+            document.querySelectorAll('.conflict').forEach(el => el.classList.remove('conflict'));
+            const conflicts = [];
+
+            days.forEach(day => {
+                times.forEach(time => {
+                    const studentMap = {};
+                    therapists.forEach((therapist, i) => {
+                        const sel = document.getElementById(`${day}-${time}-T${i}`);
+                        const val = sel ? sel.value : getAssignment(day, time, therapist);
+
+                        if (val && val !== 'Избери Ученик' && val !== '') {
+                            if (!studentMap[val]) studentMap[val] = [];
+                            studentMap[val].push({ index: i, name: therapist });
+                        }
+                    });
+
+                    Object.keys(studentMap).forEach(student => {
+                        if (studentMap[student].length > 1) {
+                            conflicts.push({ day, time, student, therapists: studentMap[student] });
+                            studentMap[student].forEach(info => {
+                                const cell = document.getElementById(`cell-${day}-${time}-T${info.index}`);
+                                if (cell) cell.classList.add('conflict');
+                            });
+                        }
+                    });
+                });
+            });
+
+            const reportDiv = document.getElementById('conflictReport');
+            document.getElementById('conflictCount').textContent = conflicts.length;
+
+            if (conflicts.length > 0) {
+                reportDiv.className = 'conflict-report show';
+                reportDiv.innerHTML = `<h3>⚠️ Извештај за Конфликти (${conflicts.length})</h3>` + conflicts.map(c => `
+                    <div class="conflict-item">
+                        <strong>${escapeHtml(c.student)}</strong> е ставен во ист термин (<strong>${c.day.toUpperCase()} во ${c.time}</strong>) кај повеќе терапевти одеднаш: 
+                        ${c.therapists.map(t => escapeHtml(t.name)).join(', ')}
+                    </div>
+                `).join('');
+            } else {
+                reportDiv.className = 'conflict-report';
+            }
+        }
+
+        // ============== ФИЛТРИ (CHECKBOXES) ==============
+        function generateCheckboxes() {
+            const dayContainer = document.getElementById('dayCheckboxes');
+            dayContainer.innerHTML = '';
+            days.forEach(day => {
+                const div = document.createElement('div');
+                div.className = selectedDays.has(day) ? 'checkbox-item checked' : 'checkbox-item';
+                div.innerHTML = `<input type="checkbox" ${selectedDays.has(day)?'checked':''}> <label>${day}</label>`;
+                div.querySelector('input').onchange = (e) => {
+                    if (e.target.checked) selectedDays.add(day); else selectedDays.delete(day);
+                    div.className = e.target.checked ? 'checkbox-item checked' : 'checkbox-item';
+                    generateSchedule();
+                };
+                dayContainer.appendChild(div);
+            });
+
+            const thContainer = document.getElementById('therapistCheckboxes');
+            thContainer.innerHTML = '';
+            therapists.forEach(t => {
+                const div = document.createElement('div');
+                const isSel = selectedTherapistsFilter.has(t);
+                div.className = isSel ? 'checkbox-item checked' : 'checkbox-item';
+                div.innerHTML = `<input type="checkbox" ${isSel?'checked':''}> <label>${t}</label>`;
+                div.querySelector('input').onchange = (e) => {
+                    if (e.target.checked) selectedTherapistsFilter.add(t); else selectedTherapistsFilter.delete(t);
+                    div.className = e.target.checked ? 'checkbox-item checked' : 'checkbox-item';
+                    generateSchedule();
+                };
+                thContainer.appendChild(div);
+            });
+        }
+
+        // ============== ПРИКАЗ ПО ТЕРАПЕВТ + СТРАНИЧНА ЛИСТА ==============
+        function refreshPerTherapistSelector() {
+            const card = document.getElementById('perTherapistCard');
+            const select = document.getElementById('perTherapistSelector');
+            if (!card || !select) return;
+            const previous = currentPerTherapist || select.value;
+            if (therapists.length === 0) {
+                card.style.display = 'none';
+                currentPerTherapist = null;
+                const side = document.getElementById('sidebarStudentListContainer');
+                if (side) side.innerHTML = '';
+                return;
+            }
+            
+            card.style.display = 'block';
+            select.innerHTML = '';
+            therapists.forEach(t => {
+                const opt = document.createElement('option');
+                opt.value = t; opt.textContent = t;
+                select.appendChild(opt);
+            });
+            select.value = therapists.includes(previous) ? previous : therapists[0];
+            currentPerTherapist = select.value;
+            renderPerTherapistView();
+        }
+
+        function renderSidebarStudents(therapist) {
+            const container = document.getElementById('sidebarStudentListContainer');
+            const assigned = therapistStudents[therapist] || [];
+
+            if (assigned.length === 0) {
+                container.innerHTML = `<div class="sidebar-student-empty">Нема штиклирано ученици за овој терапевт.</div>`;
+                return;
+            }
+
+            container.innerHTML = assigned.map(s => `
+                <div class="sidebar-student-item">
+                    <span>${escapeHtml(s)}</span>${studentGradeChipHtml(s)}
+                </div>
+            `).join('');
+        }
+
+        function renderPerTherapistView() {
+            const therapist = document.getElementById('perTherapistSelector').value;
+            currentPerTherapist = therapist;
+            const container = document.getElementById('perTherapistContainer');
+            if (!therapist) return;
+
+            // 1. Освежи ја страничната листа на чекирани ученици
+            renderSidebarStudents(therapist);
+
+            // 2. Генерирај ја табелата
+            let html = '<table class="per-therapist-table"><thead><tr><th class="period-header">Час</th>';
+            days.forEach((d,i) => { html += `<th class="day-${i+1}">${escapeHtml(d.toUpperCase())}</th>`; });
+            html += '</tr></thead><tbody>';
+
+            PERIODS.forEach(period => {
+                html += `<tr><td class="period-cell"><div class="period-roman">${escapeHtml(period.label)}</div><div class="period-time">${escapeHtml(period.time)}</div></td>`;
+                days.forEach(day => {
+                    const t1 = period.slots[0];
+                    const t2 = period.slots[1];
+                    const s1 = getAssignment(day, t1, therapist);
+                    const s2 = getAssignment(day, t2, therapist);
+
+                    if (s1 === s2) {
+                        let cls = 'pt-subslot full-period';
+                        if (s1) cls += ' filled'; else cls += ' empty';
+                        html += `<td class="pt-cell"><div class="${cls}" data-action="candidate-selector" data-day="${escapeAttr(day)}" data-t1="${escapeAttr(t1)}" data-t2="${escapeAttr(t2)}" data-therapist="${escapeAttr(therapist)}" data-current="${escapeAttr(s1 || '')}">${s1 ? escapeHtml(s1) : '+'}</div></td>`;
+                    } else {
+                        html += `<td class="pt-cell split">
+                            <div class="pt-subslot ${s1?'filled':'empty'}" data-action="candidate-selector" data-day="${escapeAttr(day)}" data-t1="${escapeAttr(t1)}" data-t2="" data-therapist="${escapeAttr(therapist)}" data-current="${escapeAttr(s1 || '')}">1: ${s1 ? escapeHtml(s1) : '+'}</div>
+                            <div class="pt-subslot ${s2?'filled':'empty'}" data-action="candidate-selector" data-day="${escapeAttr(day)}" data-t1="${escapeAttr(t2)}" data-t2="" data-therapist="${escapeAttr(therapist)}" data-current="${escapeAttr(s2 || '')}">2: ${s2 ? escapeHtml(s2) : '+'}</div>
+                        </td>`;
+                    }
+                });
+                html += '</tr>';
+            });
+            html += '</tbody></table>';
+            container.innerHTML = html;
+            attachCandidateCellHandlers();
+        }
+
+        function attachCandidateCellHandlers() {
+            document.querySelectorAll('[data-action="candidate-selector"]').forEach(el => {
+                el.addEventListener('click', () => {
+                    openCandidateSelector(
+                        el.dataset.day,
+                        el.dataset.t1,
+                        el.dataset.t2,
+                        el.dataset.therapist,
+                        el.dataset.current || ''
+                    );
+                });
+            });
+        }
+
+        function quickCellPrompt(day, t1, t2, therapist, currentVal) {
+            openCandidateSelector(day, t1, t2, therapist, currentVal || '');
+        }
+
+        function getStudentBlockers(day, time, student, currentTherapist) {
+            if (!student || student === 'Избери Ученик') return [];
+            return therapists.filter(t => t !== currentTherapist && getAssignment(day, time, t) === student);
+        }
+
+        function getCandidateStatus(student, edit) {
+            const slots = [edit.t1, edit.t2].filter(Boolean);
+            const blockers = [];
+            slots.forEach(time => {
+                getStudentBlockers(edit.day, time, student, edit.therapist).forEach(t => {
+                    blockers.push(`${t} (${time})`);
+                });
+            });
+            const uniqueBlockers = Array.from(new Set(blockers));
+            return {
+                blocked: uniqueBlockers.length > 0 && student !== edit.currentVal,
+                blockers: uniqueBlockers
+            };
+        }
+
+        function openCandidateSelector(day, t1, t2, therapist, currentVal) {
+            const allowed = therapistStudents[therapist] || [];
+            if (allowed.length === 0) {
+                alert('Овој терапевт нема асоцирани ученици. Доделете му ученици од горниот панел преку штиклирање.');
+                return;
+            }
+
+            const normalizedCurrent = currentVal === 'undefined' ? '' : String(currentVal || '').trim();
+            pendingCandidateEdit = { day, t1, t2, therapist, currentVal: normalizedCurrent };
+
+            const modal = document.getElementById('candidateModalBackdrop');
+            const title = document.getElementById('candidateModalTitle');
+            const subtitle = document.getElementById('candidateModalSubtitle');
+            const select = document.getElementById('candidateStudentSelect');
+            const meta = document.getElementById('candidateMeta');
+            const fillRow = document.getElementById('candidateFillRow');
+            const fillBoth = document.getElementById('candidateFillBoth');
+
+            title.textContent = 'Избери ученик';
+            subtitle.textContent = `${therapist} · ${day.toUpperCase()} · ${t2 ? `${t1} + ${t2}` : t1}`;
+            select.innerHTML = '';
+
+            const emptyOpt = document.createElement('option');
+            emptyOpt.value = '';
+            emptyOpt.textContent = '— Празно / без ученик —';
+            select.appendChild(emptyOpt);
+
+            const candidates = [...allowed];
+            if (normalizedCurrent && !candidates.includes(normalizedCurrent)) candidates.unshift(normalizedCurrent);
+
+            let blockedCount = 0;
+            candidates.forEach(student => {
+                const status = getCandidateStatus(student, pendingCandidateEdit);
+                const opt = document.createElement('option');
+                opt.value = student;
+                opt.textContent = status.blocked ? `${formatStudentOptionLabel(student)} — веќе закажан/а` : formatStudentOptionLabel(student);
+                opt.disabled = status.blocked;
+                opt.dataset.blockers = status.blockers.join(', ');
+                if (student === normalizedCurrent) opt.selected = true;
+                if (status.blocked) blockedCount++;
+                select.appendChild(opt);
+            });
+
+            meta.textContent = `Достапни кандидати: ${candidates.length - blockedCount} од ${candidates.length}. Недостапните се прикажани, но не може да се изберат за да се избегне конфликт.`;
+            fillBoth.checked = Boolean(t2);
+            fillRow.classList.toggle('show', Boolean(t2));
+            modal.classList.add('show');
+            document.addEventListener('keydown', handleCandidateKeyDown);
+            updateCandidateModalWarning();
+            setTimeout(() => select.focus(), 0);
+        }
+
+        function updateCandidateModalWarning() {
+            const select = document.getElementById('candidateStudentSelect');
+            const warning = document.getElementById('candidateWarning');
+            if (!select || !warning) return;
+            const opt = select.options[select.selectedIndex];
+            const blockers = opt ? opt.dataset.blockers : '';
+            if (blockers) {
+                warning.textContent = `Внимание: ученикот веќе е закажан кај ${blockers}.`;
+                warning.classList.add('show');
+            } else {
+                warning.textContent = '';
+                warning.classList.remove('show');
+            }
+        }
+
+        function closeCandidateModal() {
+            const modal = document.getElementById('candidateModalBackdrop');
+            if (modal) modal.classList.remove('show');
+            pendingCandidateEdit = null;
+            document.removeEventListener('keydown', handleCandidateKeyDown);
+        }
+
+        function handleCandidateBackdropClick(event) {
+            if (event.target && event.target.id === 'candidateModalBackdrop') closeCandidateModal();
+        }
+
+        function handleCandidateKeyDown(event) {
+            if (event.key === 'Escape') closeCandidateModal();
+            if (event.key === 'Enter' && document.getElementById('candidateModalBackdrop')?.classList.contains('show')) {
+                event.preventDefault();
+                saveCandidateSelection();
+            }
+        }
+
+        function saveCandidateSelection() {
+            if (!pendingCandidateEdit) return;
+            const select = document.getElementById('candidateStudentSelect');
+            const selectedOption = select.options[select.selectedIndex];
+            if (selectedOption && selectedOption.disabled) {
+                notify('Овој ученик веќе има термин во избраниот период.', 'warn');
+                return;
+            }
+
+            const value = select.value.trim();
+            const edit = pendingCandidateEdit;
+            const fillBoth = Boolean(edit.t2 && document.getElementById('candidateFillBoth')?.checked);
+
+            applyAssignment(edit.day, edit.t1, edit.therapist, value);
+            if (fillBoth) applyAssignment(edit.day, edit.t2, edit.therapist, value);
+
+            saveScheduleToLocal();
+            closeCandidateModal();
+            generateSchedule();
+            renderPerTherapistView();
+            checkConflicts();
+            notify(value ? 'Терминот е ажуриран.' : 'Терминот е испразнет.', 'ok');
+        }
+
+        function deleteCandidateSelection() {
+            if (!pendingCandidateEdit) return;
+            const edit = pendingCandidateEdit;
+            const fillBoth = Boolean(edit.t2 && document.getElementById('candidateFillBoth')?.checked);
+
+            applyAssignment(edit.day, edit.t1, edit.therapist, '');
+            if (fillBoth) applyAssignment(edit.day, edit.t2, edit.therapist, '');
+
+            saveScheduleToLocal();
+            closeCandidateModal();
+            generateSchedule();
+            renderPerTherapistView();
+            checkConflicts();
+            notify('Терминот е избришан.', 'ok');
+        }
+
+        // ============== ИМПОРТ / ЕКСПОРТ ==============
+        function handleJSONImport(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const data = JSON.parse(e.target.result);
+                    // [v3.3] Основна валидација — погрешен JSON (туѓ извоз, низа, празно)
+                    // претходно тивко ја газеше целата состојба.
+                    const looksValid = data && typeof data === 'object' && !Array.isArray(data) &&
+                        (data.students || data.therapists || data.schedule || data.therapistStudents);
+                    if (!looksValid) {
+                        alert('Фајлот не изгледа како backup од оваа апликација (нема students/therapists/schedule).');
+                        return;
+                    }
+                    if (data.students) students = data.students;
+                    if (data.therapists) therapists = data.therapists;
+                    if (data.therapistStudents) therapistStudents = data.therapistStudents;
+                    if (data.studentMeta) studentMeta = data.studentMeta;
+                    else if (data.studentGrades) studentMeta = data.studentGrades;
+                    if (Array.isArray(data.customGrades)) customGrades = data.customGrades.map(normalizeGrade).filter(Boolean);   // [v3.5]
+                    data.schedule = Array.isArray(data.schedule) ? data.schedule : [];  // [v3.3]
+                    scheduleData = data;
+                    ensureStudentMeta();
+                    saveScheduleToLocal();
+                    loadScheduleFromLocal();
+                    alert('Податоците се успешно вчитани!');
+                } catch (err) {
+                    console.error(err);
+                    alert('Грешка при читање на фајлот.');
+                } finally {
+                    // [v3.3] Ресет — без ова, повторен избор на ИСТИОТ фајл не активира change.
+                    event.target.value = '';
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        // [v3.3] Старата exportData (без CSV quoting и BOM) е избришана — беше мртов код
+        // прегазен од Excel-friendly верзијата подолу, но замка при идни измени.
+
+        // [v3.3] Дупликат clearSchedule избришан — важи дефиницијата кај Tools-блокот.
+
+        function escapeAttr(str) { return String(str).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, '&#39;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+        function escapeHtml(str) { return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+
+
+        // ============== ПОЛИРАНИ ФУНКЦИИ v2.7: backup, print, search, audit ==============
+        const POLISHED_VERSION = '2.11-grade-order-unified-therapist-crud';
+
+        function notify(message, type = 'info') {
+            const container = document.getElementById('toastContainer');
+            if (!container) {
+                console.log(message);
+                return;
+            }
+            const div = document.createElement('div');
+            div.className = `toast ${type}`;
+            div.textContent = message;
+            container.appendChild(div);
+            window.setTimeout(() => {
+                div.style.opacity = '0';
+                div.style.transform = 'translateY(8px)';
+                div.style.transition = 'all .18s ease';
+                window.setTimeout(() => div.remove(), 220);
+            }, 2800);
+        }
+
+        function downloadTextFile(content, fileName, mimeType) {
+            const blob = new Blob([content], { type: mimeType });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = fileName;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+        }
+
+        function safeFileStamp() {
+            return new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
+        }
+
+        function exportJSONBackup() {
+            if (!scheduleData) {
+                scheduleData = { students, therapists, therapistStudents, studentMeta, schedule: [] };
+            }
+            ensureStudentMeta();
+            saveScheduleToLocal();
+            const payload = {
+                appVersion: POLISHED_VERSION,
+                exportedAt: new Date().toISOString(),
+                students,
+                therapists,
+                therapistStudents,
+                studentMeta,
+                customGrades,
+                schedule: scheduleData.schedule || []
+            };
+            downloadTextFile(JSON.stringify(payload, null, 2), `raspored-backup-${safeFileStamp()}.json`, 'application/json;charset=utf-8');
+            notify('JSON backup е извезен.', 'ok');
+        }
+
+        function csvCell(value) {
+            const s = String(value ?? '');
+            return '"' + s.replace(/"/g, '""') + '"';
+        }
+
+        // Подобрен CSV за Excel: BOM + точка-запирка + правилно цитирање
+        function exportData() {
+            if (therapists.length === 0) {
+                notify('Нема терапевти за извоз.', 'warn');
+                return;
+            }
+            let csv = '\ufeff' + ['Ден', 'Време', ...therapists].map(csvCell).join(';') + '\n';
+            days.forEach(day => {
+                times.forEach(time => {
+                    const row = [day, time];
+                    therapists.forEach(t => row.push(getAssignment(day, time, t) || ''));
+                    csv += row.map(csvCell).join(';') + '\n';
+                });
+            });
+            downloadTextFile(csv, `raspored-${safeFileStamp()}.csv`, 'text/csv;charset=utf-8');
+            notify('CSV е извезен во Excel-friendly формат.', 'ok');
+        }
+
+        function printSchedule() {
+            window.print();
+        }
+
+        function setScheduleDensity(value) {
+            document.body.classList.remove('density-compact', 'density-comfortable');
+            if (value === 'compact') document.body.classList.add('density-compact');
+            if (value === 'comfortable') document.body.classList.add('density-comfortable');
+            localStorage.setItem('schedule_density', value);
+        }
+
+        function loadDensityPreference() {
+            const saved = localStorage.getItem('schedule_density') || 'normal';
+            const select = document.getElementById('densitySelect');
+            if (select) select.value = saved;
+            setScheduleDensity(saved);
+        }
+
+        function normalizeText(value) {
+            return String(value || '').toLocaleLowerCase('mk-MK').normalize('NFKC');
+        }
+
+        function applyScheduleSearch() {
+            const input = document.getElementById('scheduleSearch');
+            const query = normalizeText(input ? input.value.trim() : '');
+            const rows = document.querySelectorAll('.schedule-table tbody tr:not(.day-head)');   // [v3.4] header-лентите остануваат видливи
+
+            document.querySelectorAll('.cell-search-hit').forEach(el => el.classList.remove('cell-search-hit'));
+            rows.forEach(row => row.classList.remove('is-hidden-by-search'));
+
+            if (!query) return;
+
+            rows.forEach(row => {
+                let rowHit = false;
+                row.querySelectorAll('td:not(.time-cell)').forEach(td => {
+                    const select = td.querySelector('select');
+                    const value = normalizeText(select ? select.value : td.textContent);
+                    if (value && value !== normalizeText('Избери Ученик') && value.includes(query)) {
+                        td.classList.add('cell-search-hit');
+                        rowHit = true;
+                    }
+                });
+                if (!rowHit) row.classList.add('is-hidden-by-search');
+            });
+        }
+
+        function jumpToDay(day) {
+            if (!day) return;
+            const row = document.querySelector(`tr[data-day="${CSS.escape(day)}"]`);
+            if (row) {
+                row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                notify(`Прикажан е денот: ${day}.`, 'info');
+            }
+        }
+
+        function sortNames() {
+            const placeholder = 'Избери Ученик';
+            ensureStudentMeta();
+            students = [placeholder, ...students.filter(s => s !== placeholder).sort((a, b) => {
+                const cmp = compareGrades(getStudentGrade(a), getStudentGrade(b));
+                return cmp || a.localeCompare(b, 'mk');
+            })];
+            therapists = [...therapists].sort((a, b) => a.localeCompare(b, 'mk'));
+
+            const sortedRelations = {};
+            therapists.forEach(t => {
+                sortedRelations[t] = [...(therapistStudents[t] || [])].sort((a, b) => {
+                    const cmp = compareGrades(getStudentGrade(a), getStudentGrade(b));
+                    return cmp || a.localeCompare(b, 'mk');
+                });
+            });
+            therapistStudents = sortedRelations;
+
+            // [v3.3] Сортирањето не смее да го гази корисничкиот филтер —
+            // се задржува пресекот; ако остане празен, се вклучуваат сите.
+            const kept = therapists.filter(t => selectedTherapistsFilter.has(t));
+            selectedTherapistsFilter = new Set(kept.length ? kept : therapists);
+            saveScheduleToLocal();
+            updateStats();
+            updateQuickTherapistSelect();
+            loadTherapistStudentsCheckboxes();
+            generateCheckboxes();
+            generateSchedule();
+            refreshPerTherapistSelector();
+            renderPeopleCrudPanel();
+            notify('Листите се сортирани по одделение и азбучно.', 'ok');
+        }
+
+        function collectAssignments() {
+            const result = [];
+            if (!scheduleData || !scheduleData.schedule) return result;
+            scheduleData.schedule.forEach(slot => {
+                Object.entries(slot.assignments || {}).forEach(([therapist, student]) => {
+                    if (student && student !== 'Избери Ученик') {
+                        result.push({ day: slot.day, time: slot.time, therapist, student });
+                    }
+                });
+            });
+            return result;
+        }
+
+        function runQualityAudit() {
+            const panel = document.getElementById('qualityPanel');
+            if (!panel) return;
+
+            ensureStudentMeta();
+            try { checkConflicts(); } catch (e) {}   // [v3.3] свеж конфликт-број, не застарен badge
+            const pureStudents = students.filter(s => s !== 'Избери Ученик');
+            const assignments = collectAssignments();
+
+            const usedStudents = new Set(assignments.map(a => a.student));
+            const unusedStudents = pureStudents.filter(s => !usedStudents.has(s));
+            const studentsWithoutGrade = pureStudents.filter(s => !getStudentGrade(s));
+            const therapistsWithoutStudents = therapists.filter(t => (therapistStudents[t] || []).length === 0);
+
+            const assignmentsOutsideRelation = assignments.filter(a => {
+                const allowed = therapistStudents[a.therapist] || [];
+                return allowed.length > 0 && !allowed.includes(a.student);
+            });
+
+            const unknownStudents = assignments.filter(a => !pureStudents.includes(a.student));
+            const unknownTherapists = assignments.filter(a => !therapists.includes(a.therapist));
+
+            const conflictNumber = Number(document.getElementById('conflictCount')?.textContent || '0');
+
+            const statusClass = conflictNumber || assignmentsOutsideRelation.length || unknownStudents.length || unknownTherapists.length || studentsWithoutGrade.length ? 'bad' : 'ok';
+
+            function listPreview(items, formatter = x => x, empty = 'Нема забелешки.') {
+                if (!items.length) return `<span class="status-pill ok">${empty}</span>`;
+                const first = items.slice(0, 8).map(item => `<li>${escapeHtml(formatter(item))}</li>`).join('');
+                const more = items.length > 8 ? `<li>... уште ${items.length - 8}</li>` : '';
+                return `<ul class="quality-list">${first}${more}</ul>`;
+            }
+
+            panel.className = 'quality-panel show';
+            panel.innerHTML = `
+                <h3>🧭 Проверка на распоредот <span class="status-pill ${statusClass}">${statusClass === 'ok' ? 'стабилно' : 'потребна проверка'}</span></h3>
+                <div class="quality-grid">
+                    <div class="quality-card">
+                        <strong>Конфликти во ист термин</strong>
+                        <span class="status-pill ${conflictNumber ? 'bad' : 'ok'}">${conflictNumber}</span>
+                    </div>
+                    <div class="quality-card">
+                        <strong>Ученици без одделение</strong>
+                        ${listPreview(studentsWithoutGrade, x => x, 'Сите ученици имаат одделение.')}
+                    </div>
+                    <div class="quality-card">
+                        <strong>Ученици без термин</strong>
+                        ${listPreview(unusedStudents, x => `${x}${getStudentGrade(x) ? ' · ' + getStudentGrade(x) : ''}`, 'Сите ученици имаат барем еден термин.')}
+                    </div>
+                    <div class="quality-card">
+                        <strong>Терапевти без чекирани ученици</strong>
+                        ${listPreview(therapistsWithoutStudents, x => x, 'Сите терапевти имаат доделени ученици.')}
+                    </div>
+                    <div class="quality-card">
+                        <strong>Термини надвор од врска терапевт-ученик</strong>
+                        ${listPreview(assignmentsOutsideRelation, x => `${x.student} кај ${x.therapist}, ${x.day} ${x.time}`)}
+                    </div>
+                    <div class="quality-card">
+                        <strong>Непознати ученици во распоред</strong>
+                        ${listPreview(unknownStudents, x => `${x.student}, ${x.day} ${x.time}`)}
+                    </div>
+                    <div class="quality-card">
+                        <strong>Непознати терапевти во распоред</strong>
+                        ${listPreview(unknownTherapists, x => `${x.therapist}, ${x.day} ${x.time}`)}
+                    </div>
+                </div>
+            `;
+            notify('Проверката е завршена.', statusClass === 'ok' ? 'ok' : 'warn');
+        }
+
+        function clearOnlyAssignments() {
+            if (!confirm('Да се избришат само термините во распоредот? Учениците, терапевтите и врските ќе останат зачувани.')) return;
+            if (!scheduleData) scheduleData = { students, therapists, therapistStudents, studentMeta, schedule: [] };
+            scheduleData.schedule = [];
+            saveScheduleToLocal();
+            generateSchedule();
+            renderPerTherapistView();
+            checkConflicts();
+            notify('Распоредот е исчистен, листите се зачувани.', 'ok');
+        }
+
+        // Безбедно бришење: не го чисти целиот localStorage и ја зачувува темата.
+        function clearSchedule() {
+            if (!confirm('Дали сигурно сакате да ги избришете учениците, терапевтите, врските и распоредот?')) return;
+            localStorage.removeItem(LOCAL_STORAGE_KEY);
+            students = ['Избери Ученик'];
+            therapists = [];
+            therapistStudents = {};
+            studentMeta = {};   // [v3.3] експлицитно — претходно се потпираше на ensureStudentMeta()
+            customGrades = [];  // [v3.5]
+            scheduleData = null;
+            selectedDays = new Set(days);
+            selectedTherapistsFilter = new Set();
+            loadScheduleFromLocal();
+            notify('Податоците од апликацијата се избришани.', 'ok');
+        }
+
+        // Обвивка околу постоечкото генерирање за да се зачува пребарувањето по секоја промена.
+        const baseGenerateSchedule = generateSchedule;
+        generateSchedule = function() {
+            baseGenerateSchedule();
+            applyScheduleSearch();
+        };
+
+        window.addEventListener('DOMContentLoaded', loadDensityPreference);
+        window.addEventListener('DOMContentLoaded', renderGradeDatalist);
+
+        window.addEventListener('DOMContentLoaded', loadScheduleFromLocal);
+
+        // ============== TAB NAVIGATION (v3) ==============
+        const TAB_STORAGE_KEY = 'therapistSchedule_activeTab_v3';
+        const VALID_TABS = ['overview', 'schedule', 'students', 'therapists', 'per-therapist', 'tools'];
+
+        function switchTab(tabName) {
+            if (!VALID_TABS.includes(tabName)) tabName = 'overview';
+
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                const isActive = btn.dataset.tab === tabName;
+                btn.classList.toggle('active', isActive);
+                btn.setAttribute('aria-selected', isActive ? 'true' : 'false');
+                // [v3.2] на тесни екрани активниот таб се центрира во scroll-лентата
+                if (isActive && window.innerWidth <= 768 && btn.scrollIntoView) {
+                    try { btn.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' }); } catch (e) {}
+                }
+            });
+            document.querySelectorAll('.tab-panel').forEach(panel => {
+                panel.classList.toggle('active', panel.id === 'panel-' + tabName);
+            });
+
+            try { localStorage.setItem(TAB_STORAGE_KEY, tabName); } catch (e) {}
+
+            // Targeted refresh for tabs whose content depends on state recalculated on display
+            if (tabName === 'per-therapist') {
+                try { refreshPerTherapistSelector(); } catch (e) {}
+                updatePerTherapistEmptyHint();
+            }
+
+            // Scroll to top of panel for clean focus
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        function updatePerTherapistEmptyHint() {
+            const hint = document.getElementById('perTherapistEmptyHint');
+            const card = document.getElementById('perTherapistCard');
+            if (!hint) return;
+            const isEmpty = therapists.length === 0;
+            hint.style.display = isEmpty ? 'block' : 'none';
+            // [v3.3] Картичката мора и да се ВРАТИ кога повторно ќе има терапевти —
+            // претходно еднаш скриена остануваше скриена засекогаш.
+            if (card) card.style.display = isEmpty ? 'none' : '';
+        }
+
+        function updateTabBadges() {
+            const studentN = students.filter(s => s !== 'Избери Ученик').length;
+            const therapistN = therapists.length;
+            const conflictNode = document.getElementById('conflictCount');
+            const conflictN = Number(conflictNode?.textContent || '0');
+
+            const sb = document.getElementById('tabBadgeStudents');
+            const tb = document.getElementById('tabBadgeTherapists');
+            const cb = document.getElementById('tabBadgeConflicts');
+
+            if (sb) sb.textContent = studentN;
+            if (tb) tb.textContent = therapistN;
+            if (cb) {
+                cb.textContent = conflictN;
+                cb.style.display = conflictN > 0 ? 'inline-block' : 'none';
+            }
+        }
+
+        // Wrap updateStats to also refresh tab badges and per-therapist empty hint
+        if (typeof updateStats === 'function') {
+            const baseUpdateStats = updateStats;
+            updateStats = function () {
+                baseUpdateStats();
+                updateTabBadges();
+                updatePerTherapistEmptyHint();
+            };
+        }
+
+        // Wrap generateSchedule again (composing on top of the existing wrap) to refresh
+        // the conflict badge after each schedule regeneration.
+        const tabWrappedGenerateSchedule = generateSchedule;
+        generateSchedule = function () {
+            tabWrappedGenerateSchedule();
+            updateTabBadges();
+        };
+
+        // The quality-audit panel lives inside the Tools tab. When the user triggers
+        // the audit from the Schedule toolbar, automatically switch to Tools so the
+        // result is actually visible.
+        if (typeof runQualityAudit === 'function') {
+            const baseRunQualityAudit = runQualityAudit;
+            runQualityAudit = function () {
+                const result = baseRunQualityAudit.apply(this, arguments);
+                const activeTab = document.querySelector('.tab-btn.active')?.dataset.tab;
+                if (activeTab !== 'tools') {
+                    switchTab('tools');
+                }
+                return result;
+            };
+        }
+
+        // Keyboard shortcuts: Ctrl/Cmd + 1..6 → switch tab
+        document.addEventListener('keydown', (e) => {
+            if (!(e.ctrlKey || e.metaKey)) return;
+            if (e.key < '1' || e.key > '6') return;
+            const t = e.target;
+            if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable)) return;
+            const idx = parseInt(e.key, 10) - 1;
+            if (VALID_TABS[idx]) {
+                e.preventDefault();
+                switchTab(VALID_TABS[idx]);
+            }
+        });
+
+        // Restore the previously-active tab (or default to overview) after initial render
+        window.addEventListener('DOMContentLoaded', () => {
+            let savedTab = 'overview';
+            try { savedTab = localStorage.getItem(TAB_STORAGE_KEY) || 'overview'; } catch (e) {}
+            // Defer so loadScheduleFromLocal & friends finish first
+            setTimeout(() => {
+                switchTab(savedTab);
+                updateTabBadges();
+                updatePerTherapistEmptyHint();
+            }, 80);
+        });
+    </script>
+</body>
+</html>
