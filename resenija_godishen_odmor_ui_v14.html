@@ -1,0 +1,1710 @@
+<!doctype html>
+<html lang="mk">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Решенија за годишен одмор — ОУРЦ „Кочо Рацин” Битола</title>
+<style>
+  :root{
+    --bg:#eceff5; --panel:#ffffff; --ink:#1f2430; --muted:#6b7280; --line:#e2e6ee;
+    --accent:#2e3a87; --accent2:#3a48a8; --soft:#eef1f8; --good:#0f766e; --bad:#b42318;
+    --paper:#ffffff; --shadow:0 1px 2px rgba(20,30,60,.05),0 6px 24px rgba(20,30,60,.06);
+    --radius:13px;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{background:var(--bg);color:var(--ink);font-family:system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;font-size:14.5px;line-height:1.45}
+  a{color:var(--accent)}
+
+  header.app{background:var(--panel);border-bottom:1px solid var(--line);padding:14px 20px;position:sticky;top:0;z-index:30}
+  .head-row{max-width:1860px;margin:0 auto;display:flex;gap:14px;align-items:center;flex-wrap:wrap}
+  .brand{display:flex;align-items:center;gap:11px;min-width:0}
+  .seal{width:38px;height:38px;flex:0 0 auto}
+  .brand h1{margin:0;font-size:18px;font-weight:760;letter-spacing:-.01em;white-space:nowrap}
+  .brand .sub{font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .head-actions{margin-left:auto;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  .selinfo{font-size:12.5px;color:var(--muted);margin-right:2px}
+
+  button{font:inherit;border:1px solid var(--accent);background:var(--accent);color:#fff;border-radius:10px;padding:8px 13px;font-weight:650;cursor:pointer;transition:.12s}
+  button:hover{background:var(--accent2);border-color:var(--accent2)}
+  button.secondary{background:#fff;color:var(--accent)}
+  button.secondary:hover{background:var(--soft)}
+  button.ghost{background:transparent;color:var(--accent);border-color:var(--line)}
+  button.ghost:hover{background:var(--soft);border-color:#cdd4e6}
+  button.danger{background:#fff;color:var(--bad);border-color:#f0c2bd}
+  button.danger:hover{background:#fef3f2}
+  button.tiny{padding:5px 8px;font-size:12px;border-radius:8px}
+  button:disabled{opacity:.45;cursor:not-allowed}
+
+  main{max-width:1860px;margin:0 auto;padding:16px 16px 70px}
+
+
+
+  /* top navigation and dashboard */
+  .appnav{max-width:1860px;margin:10px auto 0;display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding-bottom:1px}
+  .appnav button{background:#fff;color:var(--accent);border-color:var(--line);padding:7px 12px;border-radius:999px;font-size:12.5px;white-space:nowrap}
+  .appnav button:hover,.appnav button.on{background:var(--accent);border-color:var(--accent);color:#fff}
+  .dashboard{margin-bottom:14px;scroll-margin-top:104px;overflow:hidden}
+  .dashboard .dash-head{padding:16px 18px;border-bottom:1px solid var(--line);display:flex;gap:12px;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;background:linear-gradient(180deg,#fff,#fafbff)}
+  .dashboard h2{border:0;padding:0;margin:0;font-size:17px}
+  .dashboard .dash-sub{font-size:12.5px;color:var(--muted);margin-top:3px}
+  .dash-actions{display:flex;gap:8px;flex-wrap:wrap}
+  .dash-body{padding:14px 18px;display:grid;gap:14px}
+  @media(min-width:1050px){.dash-body{grid-template-columns:1.2fr 1fr}}
+  .steps{display:grid;grid-template-columns:1fr;gap:10px}
+  @media(min-width:760px){.steps{grid-template-columns:repeat(3,1fr)}}
+  .step{background:#f8fafc;border:1px solid var(--line);border-radius:12px;padding:12px}
+  .step .n{width:26px;height:26px;border-radius:50%;background:var(--accent);color:#fff;display:inline-flex;align-items:center;justify-content:center;font-weight:750;margin-bottom:8px}
+  .step b{display:block;margin-bottom:4px}
+  .step span{font-size:12.5px;color:var(--muted)}
+  .stats{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+  .stat{border:1px solid var(--line);border-radius:12px;background:#fff;padding:12px}
+  .stat .num{font-size:24px;font-weight:800;letter-spacing:-.02em;color:var(--accent)}
+  .stat .lbl{font-size:12px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.03em}
+  .progressbox{grid-column:1/-1;background:#f8fafc;border:1px solid var(--line);border-radius:12px;padding:12px}
+  .progressbar{height:9px;background:#e6eaf3;border-radius:999px;overflow:hidden;margin:8px 0 6px}
+  .progressbar span{display:block;height:100%;background:var(--good);width:0%}
+  .progressbox small{color:var(--muted)}
+  .bulkgrid{display:grid;grid-template-columns:1fr;gap:9px}
+  @media(min-width:760px){.bulkgrid{grid-template-columns:repeat(2,1fr)}}
+
+  /* settings accordion */
+  .settings{display:grid;grid-template-columns:1fr;gap:12px;margin-bottom:14px;scroll-margin-top:104px}
+  @media(min-width:1180px){.settings{grid-template-columns:repeat(2,minmax(420px,1fr))}}
+  @media(min-width:1500px){.settings{grid-template-columns:repeat(3,minmax(420px,1fr))}}
+  #roleDaysWrap{display:grid;grid-template-columns:1fr;gap:8px}
+  @media(min-width:620px){#roleDaysWrap{grid-template-columns:repeat(2,minmax(0,1fr))}}
+  .roleRow{display:flex;align-items:center;gap:10px;margin-bottom:0;background:#f8fafc;border:1px solid var(--line);border-radius:10px;padding:8px 10px}
+  .roleRow span{flex:1;font-size:13px;line-height:1.25}
+  .roleRow input{width:86px;flex:0 0 auto;text-align:center}
+  .tokens{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0 14px}
+  .chip{font-size:11.5px;font-family:ui-monospace,Menlo,Consolas,monospace;background:var(--soft);color:var(--accent);border:1px solid #d6ddf2;border-radius:7px;padding:3px 7px;cursor:pointer}
+  .chip:hover{background:#dbe2f6}
+  details.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden}
+  details.card>summary{cursor:pointer;list-style:none;padding:13px 15px;font-weight:700;font-size:14px;display:flex;align-items:center;gap:8px}
+  details.card>summary::-webkit-details-marker{display:none}
+  details.card>summary .chev{margin-left:auto;color:var(--muted);transition:.15s;font-size:12px}
+  details.card[open]>summary .chev{transform:rotate(90deg)}
+  details.card .body{padding:0 15px 15px}
+  details.card .hint{font-size:12px;color:var(--muted);margin:2px 0 10px}
+
+  label{display:block;font-size:11.5px;text-transform:uppercase;letter-spacing:.03em;color:var(--muted);margin:11px 0 5px;font-weight:700}
+  input[type=text],input[type=number],input[type=date],select,textarea{
+    width:100%;border:1px solid var(--line);border-radius:9px;padding:8px 10px;background:#fff;color:var(--ink);font:inherit
+  }
+  input:focus,select:focus,textarea:focus{outline:2px solid #c4ccef;border-color:#aab6e6}
+  textarea{min-height:62px;resize:vertical;line-height:1.4}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+  .grid2 label{margin-top:0}
+  .ddate{display:grid;grid-template-columns:.85fr 1.45fr 1fr;gap:6px}
+  .ddate select{padding:8px 6px}
+  .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  .filebtn{display:inline-block}
+  .filebtn input{display:none}
+
+  /* workspace */
+  /* tab views */
+  .view{display:none}
+  .view.active{display:block}
+  .dashview{max-width:1180px;margin:0 auto}
+  .settingsview .card{max-width:860px;margin:0 auto}
+  .settingsview.wide .card{max-width:920px}
+
+  /* static settings cards (tab panels) */
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden}
+  .cardhead{padding:13px 16px;font-weight:740;font-size:14.5px;display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--line);background:linear-gradient(180deg,#fff,#fafbff)}
+  .card .body{padding:15px 16px 17px}
+  .card .hint{font-size:12px;color:var(--muted);margin:2px 0 10px}
+  .optline{display:flex;align-items:center;gap:8px;text-transform:none;letter-spacing:0;font-size:13px;color:var(--ink);font-weight:600;margin:12px 0 4px;cursor:pointer}
+  .optline input{width:16px;height:16px;accent-color:var(--accent);margin:0}
+  .logoprev{width:48px;height:48px;border:1px solid var(--line);border-radius:8px;background:#fff center/contain no-repeat;flex:0 0 auto}
+
+  /* 3-pane workspace (Full HD friendly) */
+  .work{display:grid;gap:14px;grid-template-columns:1fr;grid-template-areas:"list" "detail" "preview"}
+  @media(min-width:1040px){.work{grid-template-columns:340px 1fr;grid-template-areas:"list detail" "list preview"}}
+  @media(min-width:1480px){.work{grid-template-columns:330px minmax(440px,490px) minmax(560px,1fr);grid-template-areas:"list detail preview"}}
+  .col-list{grid-area:list;min-width:0;align-self:start}
+  .col-detail{grid-area:detail;min-width:0;align-self:start}
+  .col-preview{grid-area:preview;min-width:0;align-self:start}
+  @media(min-width:1080px){.work{grid-template-columns:minmax(340px,420px) 1fr}}
+
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow)}
+  #previewPanel{scroll-margin-top:104px}
+  .panel h2{margin:0;font-size:14px;font-weight:740;padding:13px 15px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:8px}
+  .dashboard .dash-head h2{border:0;padding:0;margin:0;font-size:17px;display:block}
+  .panel h2 .count{font-size:12px;color:var(--muted);font-weight:600;margin-left:auto}
+
+  .listtools{padding:11px 13px;border-bottom:1px solid var(--line);display:flex;gap:8px;align-items:center}
+  .listtools input[type=text]{flex:1}
+  .checkall{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);font-weight:600;text-transform:none;letter-spacing:0;margin:0;cursor:pointer;white-space:nowrap}
+  .listfilters{padding:9px 13px;border-bottom:1px solid var(--line);display:flex;gap:8px;align-items:center;background:#fafbfd}
+  .listfilters select{flex:1;font-size:13px;padding:6px 8px}
+  .chkmini{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);font-weight:600;margin:0;cursor:pointer;white-space:nowrap;text-transform:none;letter-spacing:0}
+  .chkmini input{width:15px;height:15px;accent-color:var(--accent)}
+
+  .emplist{max-height:min(68vh,720px);overflow:auto}
+  .emprow{display:flex;align-items:center;gap:10px;padding:9px 13px;border-bottom:1px solid #eef1f6;cursor:pointer}
+  .emprow:hover{background:#f7f9fc}
+  .emprow.active{background:var(--soft);box-shadow:inset 3px 0 0 var(--accent)}
+  .emprow input[type=checkbox]{width:17px;height:17px;flex:0 0 auto;accent-color:var(--accent)}
+  .emprow .who{min-width:0;flex:1}
+  .emprow .nm{font-weight:640;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .emprow .ps{font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .emprow .meta{flex:0 0 auto;display:flex;flex-direction:column;align-items:flex-end;gap:3px}
+  .emprow .badge{font-size:11px;font-weight:700;color:var(--accent);background:var(--soft);border-radius:999px;padding:2px 8px;white-space:nowrap}
+  .emprow .nodate{font-size:10px;font-weight:700;color:#92400e;background:#fef3c7;border-radius:999px;padding:1px 7px;white-space:nowrap}
+  .emprow .x{flex:0 0 auto;border:none;background:transparent;color:#b8bfcc;font-size:17px;line-height:1;padding:3px 5px;border-radius:7px}
+  .emprow .x:hover{background:#fde8e6;color:var(--bad)}
+  .listfoot{padding:11px 13px;border-top:1px solid var(--line)}
+
+  /* detail */
+  .detail{padding:15px}
+  .detail .sec-title{font-size:11.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--accent);font-weight:760;margin:4px 0 9px}
+  .detail .sec-title.mt{margin-top:20px;padding-top:16px;border-top:1px dashed var(--line)}
+  .card .body .sec-title{font-size:11.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--accent);font-weight:760;margin:4px 0 9px}
+  .card .body .sec-title.mt{margin-top:18px;padding-top:14px;border-top:1px dashed var(--line)}
+  .yos{font-size:12.5px;color:var(--muted);margin:9px 0 0}
+  .yos b{color:var(--ink)}
+  .calcline{display:flex;gap:8px;align-items:center;margin-top:6px;flex-wrap:wrap}
+  .empty-detail{padding:40px 20px;text-align:center;color:var(--muted)}
+  .empty-detail .big{font-size:15px;color:var(--ink);font-weight:650;margin-bottom:6px}
+  .warnbox{margin-top:14px;background:#fffbeb;border:1px solid #fde68a;border-radius:10px;padding:9px 12px;font-size:12.5px;color:#92400e}
+  .warnbox div{display:flex;gap:6px;align-items:flex-start}
+  .warnbox div+div{margin-top:4px}
+
+  .out-bar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:18px;padding-top:16px;border-top:1px dashed var(--line)}
+
+  /* preview */
+  .previewhead{display:flex;align-items:center;gap:10px;padding:11px 15px;border-bottom:1px solid var(--line)}
+  .previewhead h2{border:0;padding:0;margin:0}
+  .previewhead .ttl{font-size:14px;font-weight:740}
+  .previewhead .nm{font-size:12.5px;color:var(--muted);margin-left:auto;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:42%}
+  .previewWrap{padding:18px;background:#d8dde8;border-radius:0 0 var(--radius) var(--radius);overflow:auto;max-height:84vh}
+  .paperScaler{transform-origin:top left;margin:0 auto}
+  .zoomctl{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;background:#fff}
+  .zoomctl button{border:0;border-radius:0;background:#fff;color:var(--muted);padding:4px 9px;font-weight:650;font-size:11.5px;cursor:pointer}
+  .zoomctl button.on{background:var(--accent);color:#fff}
+  .zoomctl button:not(.on):hover{background:var(--soft);color:var(--accent)}
+
+  /* segmented control */
+  .seg{display:inline-flex;border:1px solid var(--line);border-radius:9px;overflow:hidden;background:#fff}
+  .seg button{border:0;border-radius:0;background:#fff;color:var(--muted);padding:7px 11px;font-weight:650;font-size:12.5px}
+  .seg button.on{background:var(--accent);color:#fff}
+  .seg button:not(.on):hover{background:var(--soft);color:var(--accent)}
+  .wordgrp{display:inline-flex;align-items:center;gap:6px}
+
+  .privacy{font-size:11.5px;color:var(--muted);text-align:center;margin-top:18px}
+
+  /* toast */
+  #toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);z-index:90;display:flex;flex-direction:column;gap:8px;align-items:center;pointer-events:none}
+  .toast{background:#11151f;color:#fff;padding:10px 16px;border-radius:10px;font-size:13.5px;box-shadow:0 8px 26px rgba(0,0,0,.25);max-width:90vw}
+  .toast.ok{background:#0f766e}.toast.err{background:#b42318}
+
+  /* ===== THE DOCUMENT (A4) — used in preview, print, and Word ===== */
+  .sheet{
+    width:794px;min-height:1123px;background:var(--paper);color:#15171c;
+    font-family:"Times New Roman","PT Serif",Georgia,serif;font-size:16px;line-height:1.5;
+    padding:75px 76px 64px;box-shadow:0 2px 6px rgba(20,30,60,.10),0 14px 40px rgba(20,30,60,.12);
+    border-radius:2px;
+  }
+
+  /* ===== PRINT ===== */
+  #printroot{display:none}
+  @media print{
+    @page{size:A4;margin:18mm 18mm 16mm}
+    body{background:#fff}
+    body>*{display:none !important}
+    #printroot{display:block !important}
+    #printroot .sheet{
+      width:auto;min-height:auto;box-shadow:none;border-radius:0;padding:0;
+    }
+  }
+
+  /* ===== Roster & quick-dates grid (v14, additive) ===== */
+  .rosterview{max-width:1860px;margin:0 auto;padding:0 14px 28px}
+  .rwrap{background:var(--panel);border:1px solid var(--line);border-radius:14px;overflow:hidden}
+  .rhead{padding:14px 16px;border-bottom:1px solid var(--line);background:linear-gradient(180deg,#fff,#fafbff);display:flex;gap:16px;align-items:center;justify-content:space-between;flex-wrap:wrap}
+  .rhead h2{margin:0;font-size:16px}
+  .rhead .rsub{font-size:12.5px;color:var(--muted);margin-top:3px;max-width:640px}
+  .rprog{flex:1 1 200px;min-width:180px;max-width:340px}
+  .rprog .lbl{font-size:12px;color:var(--muted)}
+  .rprog .bar{height:8px;border-radius:999px;background:var(--soft);overflow:hidden;margin-top:6px}
+  .rprog .bar>i{display:block;height:100%;background:var(--good);width:0;transition:width .25s}
+  .racts{display:flex;gap:8px;flex-wrap:wrap}
+  .racts button{padding:7px 12px;font-size:12.5px;border-radius:10px}
+  .rscroll{max-height:calc(100vh - 235px);overflow:auto}
+  table.rgrid{border-collapse:separate;border-spacing:0;width:100%;font-size:13.5px}
+  table.rgrid thead th{position:sticky;top:0;z-index:5;background:#eef1f8;color:var(--accent);font-weight:700;text-align:left;padding:9px 10px;border-bottom:1px solid var(--line);white-space:nowrap}
+  table.rgrid td{padding:6px 10px;border-bottom:1px solid var(--line);vertical-align:middle}
+  table.rgrid tbody tr:nth-child(even){background:#fafbff}
+  table.rgrid tbody tr:hover{background:#f3f6ff}
+  .rgrid .num{color:var(--muted);text-align:right;width:34px;font-variant-numeric:tabular-nums}
+  .rgrid .ord{white-space:nowrap;width:62px}
+  .rgrid .ord button{padding:2px 7px;font-size:12px;line-height:1.15;border-radius:7px;background:#fff;color:var(--accent);border-color:var(--line)}
+  .rgrid .ord button:hover{background:var(--accent);color:#fff}
+  .rgrid input[type=text],.rgrid input[type=number],.rgrid input[type=date],.rgrid select{width:100%;box-sizing:border-box;padding:6px 8px;border:1px solid var(--line);border-radius:8px;font:inherit;background:#fff;color:var(--ink)}
+  .rgrid input[type=number]{width:80px;text-align:center}
+  .rgrid input.dmy{width:118px;text-align:center}
+  .rgrid input.dmy.bad{border-color:var(--bad);background:#fff5f5}
+  input.bad{border-color:var(--bad)!important;background:#fff5f5}
+  .rgrid .nmcol{min-width:190px}
+  .rgrid .pscol{min-width:172px}
+  .rgrid .calc{white-space:nowrap;font-variant-numeric:tabular-nums}
+  .rgrid .calc.empty{color:var(--muted)}
+  .rgrid .st{white-space:nowrap;font-size:12px}
+  .rgrid .st .ok{color:var(--good);font-weight:700}
+  .rgrid .st .no{color:var(--muted)}
+  .rgrid .del{background:#fff;color:var(--bad);border-color:var(--line);border-radius:8px;padding:3px 9px;font-size:14px;line-height:1}
+  .rgrid .del:hover{background:var(--bad);color:#fff;border-color:var(--bad)}
+  .rgrid .st .warn{color:var(--bad);font-weight:700}
+  .leave-summary{margin-top:10px;border:1px solid var(--line);border-radius:12px;padding:11px 12px;background:#f8fafc}
+  .leave-summary.empty{background:#fff}
+  .leave-summary .ls-top{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
+  .leave-summary .ls-label{font-weight:700;color:var(--accent);font-size:13px}
+  .leave-summary .ls-body{margin-top:6px;font-size:13.5px;color:var(--ink);font-variant-numeric:tabular-nums}
+  .leave-summary.empty .ls-body{color:var(--muted)}
+  .leave-summary .ls-hint{margin-top:6px;font-size:11.5px;color:var(--muted);line-height:1.35}
+  #rBody tr.rhi{animation:rhiPulse 1.7s ease}
+  @keyframes rhiPulse{0%{background:#fff3bf}55%{background:#fff9db}100%{background:transparent}}
+  @media(max-width:760px){ .rscroll{max-height:none} .rgrid input.dmy{width:104px} }
+</style>
+</head>
+<body>
+
+<header class="app">
+  <div class="head-row">
+    <div class="brand">
+      <svg class="seal" viewBox="0 0 58 58" aria-hidden="true"><circle cx="29" cy="29" r="27" fill="none" stroke="#2e3a87" stroke-width="2.2"/><path d="M29 17a12 12 0 0 1 0 24" fill="none" stroke="#2e3a87" stroke-width="2.4"/><path d="M29 23a6 6 0 0 1 0 12" fill="none" stroke="#3a48a8" stroke-width="2.2"/><circle cx="29" cy="29" r="2.4" fill="#2e3a87"/></svg>
+      <div>
+        <h1>Решенија за годишен одмор</h1>
+        <div class="sub">ОУРЦ „Кочо Рацин” — Битола · работи целосно во прелистувачот</div>
+      </div>
+    </div>
+    <div class="head-actions">
+      <span class="selinfo" id="selInfo"></span>
+      <button id="btnPrint" class="secondary" type="button" title="Печати ги избраните — секој на своја страница. Зачувај како PDF од дијалогот за печатење.">🖨 Печати</button>
+      <div class="wordgrp" title="Зачувај Word: еден документ со сите решенија, или посебна датотека за секој вработен.">
+        <button id="btnWord" type="button">⬇ Word</button>
+        <div class="seg" id="modeSeg">
+          <button data-mode="one" class="on" type="button">еден док.</button>
+          <button data-mode="sep" type="button">посебно</button>
+        </div>
+      </div>
+      <label class="grpchk" title="Во заедничкиот документ/печатење: групирај ги решенијата по работно место, со насловна страница за секоја секција (пр. СТРУЧЕН СОРАБОТНИК)."><input id="chk_group" type="checkbox" style="width:auto;vertical-align:-2px"> по секции</label>
+    </div>
+  </div>
+  <nav class="appnav" aria-label="Навигација низ апликацијата">
+    <button type="button" data-tab="employees" class="on">Вработени и решенија</button>
+    <button type="button" data-tab="roster">Список и датуми</button>
+    <button type="button" data-tab="dashboard">Главно</button>
+    <button type="button" data-tab="docdata">Податоци на документот</button>
+    <button type="button" data-tab="days">Денови за одмор</button>
+    <button type="button" data-tab="text">Текст на решението</button>
+    <button type="button" data-tab="io">Увоз / извоз</button>
+  </nav>
+</header>
+
+<main>
+  <!-- VIEW: dashboard + bulk edits -->
+  <section class="view dashview" data-view="dashboard">
+    <section class="panel dashboard" id="dashboard">
+      <div class="dash-head">
+        <div>
+          <h2>Главна работна табла</h2>
+          <div class="dash-sub">Прво изберете вработени, потоа внесете датуми, на крај проверете го прегледот и печатете/зачувајте Word.</div>
+        </div>
+        <div class="dash-actions">
+          <button id="quickNoDates" class="secondary" type="button">Прикажи без датуми</button>
+          <button id="quickSelectDated" class="ghost" type="button">Избери со датуми</button>
+          <button id="quickClearFilters" class="ghost" type="button">Исчисти филтри</button>
+        </div>
+      </div>
+      <div class="dash-body">
+        <div class="steps">
+          <div class="step"><span class="n">1</span><b>Список</b><span>Пребарајте, филтрирајте или штиклирајте ги вработените за кои ќе се генерираат решенија.</span></div>
+          <div class="step"><span class="n">2</span><b>Датуми</b><span>Внесете почетен датум и број на денови. Апликацијата ги прескокнува викендите и внесените празници.</span></div>
+          <div class="step"><span class="n">3</span><b>Излез</b><span>Проверете го A4 прегледот, потоа печатете или зачувајте Word документ.</span></div>
+        </div>
+        <div class="stats">
+          <div class="stat"><div class="num" id="dashTotal">0</div><div class="lbl">вработени</div></div>
+          <div class="stat"><div class="num" id="dashSelected">0</div><div class="lbl">избрани</div></div>
+          <div class="stat"><div class="num" id="dashWithDates">0</div><div class="lbl">со датуми</div></div>
+          <div class="stat"><div class="num" id="dashWithoutDates">0</div><div class="lbl">без датуми</div></div>
+          <div class="progressbox"><b id="dashNext">Подготвено за работа</b><div class="progressbar"><span id="dashProgress"></span></div><small id="dashProgressText"></small></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel card" id="bulkCard">
+      <div class="cardhead">⚙️ Брзи групни измени</div>
+      <div class="body">
+        <div class="hint">Овие полиња се применуваат само на штиклираните вработени. Празно поле не менува ништо.</div>
+        <div class="bulkgrid">
+          <div><label>Работно место</label><select id="bulk_position"></select></div>
+          <div><label>Тип на работно време</label><select id="bulk_tip"><option value="">Не менувај</option><option value="неопределено">неопределено</option><option value="определено">определено</option></select></div>
+          <div><label>Вкупно денови одмор</label><input id="bulk_total" type="number" min="0" max="90" placeholder="остави празно"></div>
+          <div><label>Денови во ова решение</label><input id="bulk_part" type="number" min="0" max="90" placeholder="остави празно"></div>
+          <div><label>Користи од</label><input id="bulk_start" type="text" inputmode="numeric" placeholder="дд.мм.гггг"></div>
+          <div><label>Датум на решение</label><input id="bulk_decisionDate" type="text" inputmode="numeric" placeholder="дд.мм.гггг"></div>
+        </div>
+        <div class="row" style="margin-top:12px">
+          <button id="bulk_apply" class="secondary" type="button">Примени во избраните</button>
+          <button id="bulk_clear" class="ghost" type="button">Исчисти групни полиња</button>
+        </div>
+        <div class="hint" id="bulkHint" style="margin-top:8px"></div>
+      </div>
+    </section>
+  </section>
+
+  <!-- VIEW: document data -->
+  <section class="view settingsview" data-view="docdata">
+    <section class="panel card">
+      <div class="cardhead">📄 Податоци на документот</div>
+      <div class="body">
+        <div class="hint">Се применува на сите решенија. Заглавието горе-лево е печат, па не се пишува.</div>
+        <div class="grid2">
+          <div><label>Назив (центриран, закосено)</label><input id="s_title1" type="text"></div>
+          <div><label>Назив (центриран, задебелено)</label><input id="s_title2" type="text"></div>
+        </div>
+        <div class="grid2">
+          <div><label>Функција на потписникот</label><input id="s_dirTitle" type="text"></div>
+          <div><label>Име на потписникот</label><input id="s_dirName" type="text"></div>
+        </div>
+        <div class="grid2">
+          <div><label>Изработил (име)</label><input id="s_izrabotil" type="text"></div>
+          <div><label>Стандарден датум на решение</label><input id="s_date" type="text" inputmode="numeric" placeholder="дд.мм.гггг"></div>
+        </div>
+        <div class="grid2">
+          <div><label>Основа на број (пр. 04-92)</label><input id="s_brojBase" type="text"></div>
+          <div><label>Почетен реден број</label><input id="s_brojStart" type="number" min="1"></div>
+        </div>
+        <label class="optline"><input id="s_showBroj" type="checkbox"> Прикажи „Бр." и датум горе-лево во документот</label>
+        <label>Година за датумите во сите решенија</label>
+        <div class="row">
+          <select id="s_year" style="max-width:130px;flex:0 0 auto"></select>
+          <button id="s_applyYear" class="secondary tiny" type="button">Примени на сите</button>
+        </div>
+        <div class="hint">Ја менува само годината на сите датуми кај сите вработени (ден и месец остануваат), па повторно ги пресметува крајот и враќањето.</div>
+        <div class="sec-title mt">Лого</div>
+        <label class="optline"><input id="s_showLogo" type="checkbox"> Прикажи лого над насловот</label>
+        <div class="row" style="align-items:center">
+          <div class="logoprev" id="logoPrev" title="Тековно лого"></div>
+          <label class="filebtn"><button class="ghost tiny" type="button" onclick="this.parentElement.querySelector('input').click()">Постави свое лого…</button><input id="s_logoFile" type="file" accept="image/*"></label>
+          <button id="s_logoClear" class="ghost tiny" type="button">Врати стандардно лого</button>
+        </div>
+        <div class="hint">Стандардно е логото на „Кочо Рацин". Може да поставите своја слика (PNG со проѕирна позадина изгледа најдобро).</div>
+        <label>Големина на логото во документот: <b id="logoSizeVal" style="color:var(--accent)"></b></label>
+        <input id="s_logoSize" type="range" min="22" max="110" step="1" style="width:100%;accent-color:var(--accent)">
+      </div>
+    </section>
+  </section>
+
+  <!-- VIEW: leave days -->
+  <section class="view settingsview" data-view="days">
+    <section class="panel card">
+      <div class="cardhead">📐 Денови за одмор и празници</div>
+      <div class="body">
+        <div class="hint">Стандардни денови по работно место. Може рачно да се промени во картичката на секој вработен.</div>
+        <div id="roleDaysWrap"></div>
+        <div class="grid2" style="margin-top:10px">
+          <div><label>Други работни места</label><input id="r_base" type="number" min="0" max="60"></div>
+          <div><label>Максимум денови</label><input id="r_max" type="number" min="0" max="90"></div>
+        </div>
+        <label style="margin-top:12px"><input id="r_skipwe" type="checkbox" style="width:auto;vertical-align:-2px"> Прескокни сабота и недела при пресметка на датуми</label>
+        <label>Неработни денови (празници) што се прескокнуваат</label>
+        <textarea id="r_holidays" rows="2" placeholder="пр. 02.08.2026, 08.09.2026"></textarea>
+        <div class="hint" style="font-size:11.5px;color:var(--muted);margin-top:4px">Ако празник падне во недела, наредниот понеделник автоматски се смета за неработен (според Законот за празниците). Доволно е да го внесете самиот празник.</div>
+      </div>
+    </section>
+  </section>
+
+  <!-- VIEW: import / export -->
+  <section class="view settingsview" data-view="io">
+    <section class="panel card">
+      <div class="cardhead">💾 Податоци: увоз / извоз</div>
+      <div class="body">
+        <div class="hint">Сè се чува автоматски во овој прелистувач. Извезете JSON за резервна копија или префрлање.</div>
+        <div class="row" style="margin-bottom:9px">
+          <button id="d_export" class="secondary" type="button">Извези JSON</button>
+          <label class="filebtn"><button class="ghost" type="button" onclick="this.parentElement.querySelector('input').click()">Увези JSON…</button><input id="d_importJson" type="file" accept=".json,application/json"></label>
+        </div>
+        <div class="row" style="margin-bottom:9px">
+          <label class="filebtn"><button class="ghost" type="button" onclick="this.parentElement.querySelector('input').click()">Увези CSV список…</button><input id="d_importCsv" type="file" accept=".csv,text/csv"></label>
+        </div>
+        <div class="hint">CSV колони (по избор): име, работно место, пол, тип, датум на вработување.</div>
+        <div class="row" style="margin-top:6px">
+          <button id="d_resetRoster" class="danger" type="button">Врати го стандардниот список</button>
+        </div>
+      </div>
+    </section>
+  </section>
+
+  <!-- VIEW: document text -->
+  <section class="view settingsview wide" data-view="text">
+    <section class="panel card" id="textCard">
+      <div class="cardhead">✍️ Текст на решението</div>
+      <div class="body">
+        <div class="hint">Стандардниот текст е веќе внесен — менувајте само ако треба. Користете <b>{ознаки}</b> за податоците и <b>**текст**</b> за задебелено. Кликни во поле, па на ознака за да ја вметнеш.</div>
+        <div class="tokens" id="tokenChips"></div>
+
+        <div class="scopebox" style="border:1px solid var(--line);border-radius:12px;padding:10px 12px;background:#f8fafc;margin:6px 0 4px">
+          <label style="margin:0">Текстот подолу важи за:</label>
+          <select id="t_scope" style="margin-top:4px"></select>
+          <div id="t_scopeNote" class="hint" style="margin-top:6px"></div>
+        </div>
+
+        <div class="sec-title">Основ — членови на закон</div>
+        <textarea id="t_para1" rows="5"></textarea>
+
+        <div class="sec-title mt">Решение</div>
+        <label>Наслов</label><input id="t_decision" type="text">
+        <label>Главен дел (одобрување)</label><textarea id="t_bodyMain" rows="6"></textarea>
+        <label>Враќање на работа</label><textarea id="t_bodyReturn" rows="2"></textarea>
+
+        <div class="sec-title mt">Образложение</div>
+        <label>Наслов</label><input id="t_obrazTitle" type="text">
+        <label>Главен дел</label><textarea id="t_obrazMain" rows="5"></textarea>
+        <label>Втор дел</label><textarea id="t_obrazSecond" rows="2"></textarea>
+
+        <div class="sec-title mt">Поука и ДНА</div>
+        <div class="grid2">
+          <div><label>Правна поука — наслов</label><input id="t_poukaLabel" type="text"></div>
+          <div><label>ДНА — наслов</label><input id="t_dnaLabel" type="text"></div>
+        </div>
+        <label>Правна поука — текст</label><textarea id="t_poukaText" rows="2"></textarea>
+        <label>ДНА — текст</label><textarea id="t_dnaText" rows="2"></textarea>
+
+        <div class="row" style="margin-top:12px">
+          <button id="t_reset" class="danger" type="button">Врати стандарден текст</button>
+        </div>
+      </div>
+    </section>
+  </section>
+
+  <!-- VIEW: roster & quick dates (v14, additive) -->
+  <section class="view rosterview" data-view="roster">
+    <div class="rwrap">
+      <div class="rhead">
+        <div>
+          <h2>Список и датуми</h2>
+          <div class="rsub">Преуреди го списокот (▲▼ или „Подреди по работно место“) и внеси само <b>почетен датум</b> и по потреба <b>број денови</b>. „Заклучно со“ и „Враќање“ се пресметуваат автоматски, со прескокнување на викенди и празници. Сè се зачувува автоматски на овој уред.</div>
+        </div>
+        <div class="rprog">
+          <div class="lbl" id="rProgLbl">0 / 0 со датуми</div>
+          <div class="bar"><i id="rProgBar"></i></div>
+        </div>
+        <div class="racts">
+          <button type="button" class="secondary" id="rGroup" title="Подреди ги вработените по работно место">⤵ Подреди по работно место</button>
+          <button type="button" class="ghost" id="rClear" title="Исчисти ги сите внесени датуми">🧹 Исчисти датуми</button>
+          <button type="button" id="rAdd">＋ Нов вработен</button>
+        </div>
+      </div>
+      <div class="rscroll">
+        <table class="rgrid">
+          <thead><tr>
+            <th>Ред</th><th class="num">#</th><th class="nmcol">Име и презиме</th>
+            <th class="pscol">Работно место</th><th>Користи од</th><th>Денови</th>
+            <th>Заклучно со</th><th>Враќање на работа</th><th>Статус</th><th></th>
+          </tr></thead>
+          <tbody id="rBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- VIEW: employees (3-pane: list | detail | preview) -->
+  <section class="view active" data-view="employees">
+    <div class="work">
+      <section class="panel col-list">
+        <h2>Вработени <span class="count" id="listCount"></span></h2>
+        <div class="listtools">
+          <input id="search" type="text" placeholder="Пребарај по име или работно место…">
+          <label class="checkall"><input id="checkAll" type="checkbox" style="width:16px;height:16px;accent-color:var(--accent)"> Избери сите</label>
+        </div>
+        <div class="listfilters">
+          <select id="roleFilter" title="Филтрирај по работно место"></select>
+          <label class="chkmini" title="Прикажи само вработени на кои сè уште не им се внесени датуми"><input id="onlyNoDates" type="checkbox"> само без датуми</label>
+        </div>
+        <div class="emplist" id="emplist"></div>
+        <div class="listfoot"><button id="addEmp" class="secondary" type="button" style="width:100%">＋ Нов вработен</button></div>
+      </section>
+
+      <section class="panel col-detail">
+        <h2 id="detailTitle">Картичка на вработениот</h2>
+        <div id="detail"></div>
+      </section>
+
+      <section class="panel col-preview" id="previewPanel">
+        <div class="previewhead">
+          <span class="ttl">Преглед на решението</span>
+          <div class="zoomctl" id="zoomctl" title="Големина на прегледот">
+            <button data-zoom="fit" class="on" type="button">Сместено</button>
+            <button data-zoom="full" type="button">100%</button>
+          </div>
+          <span class="nm" id="previewName"></span>
+        </div>
+        <div class="previewWrap" id="previewWrap">
+          <div class="paperScaler" id="paperScaler"></div>
+        </div>
+      </section>
+    </div>
+    <div class="privacy">Сите податоци и документи се обработуваат само на овој уред. Ништо не се испраќа на сервер.</div>
+  </section>
+</main>
+
+<div id="printroot"></div>
+<div id="toast"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script>
+(function(){
+"use strict";
+const $ = id => document.getElementById(id);
+const LS_KEY = "godishenOdmorAppV1";
+const DEFAULT_LOGO = "data:image/png;base64,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";
+const DEFAULT_LOGO_ASPECT = 139/180; // intrinsic w/h of the embedded logo
+
+/* ---------- default roster (from список_со_вработени_08_2024.docx) ---------- */
+const POS = {
+  direktor:"Директор", admin:"Административен работник", sorab:"Стручен соработник",
+  vospit:"Воспитувач", oddel:"Одделенски наставник", predmet:"Предметен наставник", tehn:"Технички персонал"
+};
+const ROLE_ORDER = [POS.direktor, POS.admin, POS.sorab, POS.vospit, POS.oddel, POS.predmet, POS.tehn];
+const SEED = [
+  ["Драгана Кирковска",POS.direktor,"f"],
+  ["Никола Блајбершник",POS.admin,"m"], ["Живко Јефтимов",POS.admin,"m"],
+  ["Кристина Трајчевска",POS.sorab,"f"], ["Ирена Н. Ристановска",POS.sorab,"f"], ["Марија Лазароска",POS.sorab,"f"],
+  ["Марија Митревска",POS.sorab,"f"], ["Татјана Димитриевска",POS.sorab,"f"], ["Даниела Јованоска",POS.sorab,"f"],
+  ["Симона Ѓоргиевска",POS.sorab,"f"], ["Марина Тодеска",POS.sorab,"f"], ["Тесалија Жирова",POS.sorab,"f"],
+  ["Благој Насев",POS.sorab,"m"], ["Валентина Славковска",POS.sorab,"f"], ["Анета Спировска",POS.sorab,"f"],
+  ["Билјана Маслинко",POS.sorab,"f"], ["Марија Наумоска",POS.sorab,"f"], ["Оливера Филиповска",POS.sorab,"f"],
+  ["Сузана Станоевска",POS.sorab,"f"], ["Јасмина Симјановска",POS.sorab,"f"], ["Ивана Митревска",POS.sorab,"f"],
+  ["Весна Анчевска",POS.vospit,"f"], ["Лидија Ничков",POS.vospit,"f"], ["Светлана Огненова",POS.vospit,"f"], ["Маја Ташковска",POS.vospit,"f"],
+  ["Ангела Јовановска",POS.vospit,"f"], ["Драгана Спасевска",POS.vospit,"f"],
+  ["Весна Димовска",POS.oddel,"f"], ["Мимоза Ставревска",POS.oddel,"f"], ["Ивана Карајанова",POS.oddel,"f"],
+  ["Мери Несторовска",POS.oddel,"f"], ["Константина Петреска",POS.oddel,"f"], ["Лилјана Христовска",POS.oddel,"f"],
+  ["Ивица Митровски",POS.oddel,"m"],
+  ["Елена Петровска",POS.predmet,"f"], ["Тони Чавдаровски",POS.predmet,"m"], ["Сара Здравевска",POS.predmet,"f"],
+  ["Јасна Дурлова",POS.predmet,"f"], ["Јове Цветаноски",POS.predmet,"m"], ["Снежана Ѓоргиевска",POS.predmet,"f"],
+  ["Драган Спировски",POS.predmet,"m"], ["Емилија Трампевска",POS.predmet,"f"], ["Ева Крстевска",POS.predmet,"f"],
+  ["Душан Шешиќ",POS.predmet,"m"], ["Силвана С. Петковска",POS.predmet,"f"], ["Марија Михајловска",POS.predmet,"f"],
+  ["Силвана Јосифовска",POS.tehn,"f"], ["Дијана Николовска",POS.tehn,"f"], ["Василка Карадаковска",POS.tehn,"f"],
+  ["Весна Милојевиќ",POS.tehn,"f"], ["Билјана Тошевска",POS.tehn,"f"], ["Игор Таневски",POS.tehn,"m"],
+  ["Мајлинда Мустафовска",POS.tehn,"f"], ["Мира Недановска",POS.tehn,"f"], ["Дејан Никодиновски",POS.tehn,"m"],
+  ["Петар Сотировски",POS.tehn,"m"], ["Јагода Ангеловска",POS.tehn,"f"], ["Јулијана Пупуноска",POS.tehn,"f"],
+  ["Ѓорги Ристевски",POS.tehn,"m"], ["Валбона Стојковска",POS.tehn,"f"], ["Благојче Медаровски",POS.tehn,"m"],
+  ["Сашо Кековски",POS.tehn,"m"]
+];
+
+/* ---------- default document text (faithful to the scanned РЕШЕНИЕ) ---------- */
+function defaultSettings(){
+  return {
+    _v:2,
+    head:"Република Северна Македонија\nОсновно училиште со ресурсен центар\n„Кочо Рацин” – Битола",
+    title1:"Основно училиште со ресурсен центар",
+    title2:"„КОЧО РАЦИН” Битола",
+    dirTitle:"Директор",
+    dirName:"Драгана Кирковска",
+    izrabotil:"Живорад Јефтимов",
+    decisionDate:"2025-06-18",
+    brojBase:"04-92",
+    brojStart:1,
+    logo:"", showLogo:true, showBroj:true, logoSize:48, logoAspect:"",
+    base:21, max:40,
+    posDays:{ "Директор":27, "Административен работник":21, "Стручен соработник":27,
+              "Воспитувач":25, "Одделенски наставник":25, "Предметен наставник":25, "Технички персонал":20 },
+    skipWeekends:true,
+    holidays:"",
+    groupByRole:true,
+    textOverrides:{},
+    text: defaultText()
+  };
+}
+function defaultText(){
+  return {
+    para1:"Врз основа на чл.137, чл.138 од Законот за работни односи (пречистен текст, Сл. Весник на РМ бр.52 од 23.04.2012 година), чл.18, 19, 20 и чл.21 од Колективниот договор за основно образование, а согласно чл.113 од Законот за основно образование, директорот на училиштето го донесе следново:",
+    decision:"Р Е Ш Е Н И Е",
+    bodyMain:"На {rabotnikot} **{ime}** {vraboten} во училиштето на {tipText} работно време на работно место {rabotnoMesto} **{mu} СЕ ОДОБРУВА** користење на годишен одмор во траење од {vkupno} работни дена. Дел од одморот во траење од {del1} работни дена ќе ги користи сметано од {odDatum} година заклучно со {doDatum} година.",
+    bodyReturn:"{imenuvan} на работа да се јави на ден {javuvaDatum} година.",
+    obrazTitle:"Образложение",
+    obrazMain:"По извршениот увид во персоналното досие, согласно горенаведените членови од Законот за работни односи и Колективниот договор за основно образование на {imenuvanLc} {rabotnik} {muLc} следуваат {vkupno} работни дена одмор.",
+    obrazSecond:"Одморот ќе го користи на начин како што е опишано во диспозитивот на решението.",
+    poukaLabel:"Правна поука",
+    poukaText:"{imenuvanLc} има право на приговор во рок од осум (8) дена сметано од денот на приемот.",
+    dnaLabel:"ДНА",
+    dnaText:"На {imenuvanLc}, благајната, архива и персонално досие"
+  };
+}
+
+/* ---------- state ---------- */
+let state = { employees:[], settings:defaultSettings(), sel:null };
+let ui = { roleFilter:"", onlyNoDates:false, zoom:"fit", mode:"one", textScope:"" };
+
+function uid(){ return (crypto.randomUUID? crypto.randomUUID() : "id"+Date.now()+Math.random()); }
+
+function newEmployee(name="", position="", g="f"){
+  return { id:uid(), sel:true, name, position, g, tip:"неопределено",
+    employDate:"", broj:"", decisionDate:"",
+    vkupnoManual:"", del1:"", od:"", doDate:"", javuva:"" };
+}
+
+function buildDefaultEmployees(){
+  return SEED.map(([name,pos,g])=>{
+    const e = newEmployee(name,pos,g);
+    if(name==="Благој Насев"){ // reproduce the scanned document exactly
+      e.vkupnoManual="27"; e.del1="22"; e.od="2025-07-14"; e.doDate="2025-08-12"; e.javuva="2025-08-13";
+      e.broj="04-92/57"; e.decisionDate="2025-06-18"; e.tip="неопределено";
+    }
+    return e;
+  });
+}
+
+/* ---------- persistence ---------- */
+function persist(){ try{ localStorage.setItem(LS_KEY, JSON.stringify({employees:state.employees, settings:state.settings})); }catch(e){} }
+function load(){
+  try{
+    const raw = localStorage.getItem(LS_KEY);
+    if(raw){
+      const d = JSON.parse(raw);
+      state.settings = Object.assign(defaultSettings(), d.settings||{});
+      state.settings.text = Object.assign(defaultText(), (d.settings&&d.settings.text)||{});
+      // one-time migration: signatory is now "Директор" (not "Вд. Директор")
+      if(!(d.settings&&d.settings._v>=2)){
+        if(state.settings.dirTitle==="Вд. Директор") state.settings.dirTitle="Директор";
+        state.settings._v=2;
+      }
+      state.employees = Array.isArray(d.employees)&&d.employees.length ? d.employees.map(e=>Object.assign(newEmployee(),e)) : buildDefaultEmployees();
+    } else {
+      state.employees = buildDefaultEmployees();
+    }
+  }catch(e){ state.employees = buildDefaultEmployees(); state.settings = defaultSettings(); }
+  if(state.employees[0]) state.sel = state.employees[0].id;
+}
+
+/* ---------- dates & calc ---------- */
+function pad(n){ return String(n).padStart(2,"0"); }
+function parseDate(v){
+  if(!v) return null;
+  let m = String(v).match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+  if(m) return new Date(+m[1],+m[2]-1,+m[3]);
+  m = String(v).match(/^(\d{1,2})[.\/-](\d{1,2})[.\/-](\d{4})$/);
+  if(m) return new Date(+m[3],+m[2]-1,+m[1]);
+  const d = new Date(v); return isNaN(d)? null : new Date(d.getFullYear(),d.getMonth(),d.getDate());
+}
+function toIso(d){ return d ? d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate()) : ""; }
+function fmtMK(v){ const d = parseDate(v); return d ? pad(d.getDate())+"."+pad(d.getMonth()+1)+"."+d.getFullYear() : (v||"________"); }
+function parseDMYtoIso(s){ s=String(s||"").trim(); if(!s) return ""; const d=parseDate(s); return d? toIso(d) : null; }  /* ""=празно, null=неважечки */
+function addDays(d,n){ const x=new Date(d); x.setDate(x.getDate()+n); return x; }
+function todayIso(){ const d=new Date(); return toIso(d); }
+
+/* ---------- date dropdowns (ден / месец / година) ---------- */
+const MONTHS_MK=["Јануари","Февруари","Март","Април","Мај","Јуни","Јули","Август","Септември","Октомври","Ноември","Декември"];
+function daysInMonth(y,m){ return new Date(y, m, 0).getDate(); }
+function dateDropdown(key, iso, yFrom, yTo){
+  const d = parseDate(iso);
+  const dd = d? d.getDate():"", mm = d? d.getMonth()+1:"", yy = d? d.getFullYear():"";
+  let dH='<option value="">дд</option>';
+  for(let i=1;i<=31;i++) dH+='<option value="'+i+'"'+(dd===i?" selected":"")+'>'+pad(i)+'</option>';
+  let mH='<option value="">месец</option>';
+  for(let i=1;i<=12;i++) mH+='<option value="'+i+'"'+(mm===i?" selected":"")+'>'+MONTHS_MK[i-1]+'</option>';
+  let yH='<option value="">гггг</option>';
+  for(let i=yTo;i>=yFrom;i--) yH+='<option value="'+i+'"'+(yy===i?" selected":"")+'>'+i+'</option>';
+  return '<div class="ddate">'+
+    '<select data-k="'+key+'" data-part="d" aria-label="ден">'+dH+'</select>'+
+    '<select data-k="'+key+'" data-part="m" aria-label="месец">'+mH+'</select>'+
+    '<select data-k="'+key+'" data-part="y" aria-label="година">'+yH+'</select>'+
+  '</div>';
+}
+function readDateParts(host, key){
+  const g=p=>{ const el=host.querySelector('select[data-k="'+key+'"][data-part="'+p+'"]'); return el?el.value:""; };
+  const d=g("d"), m=g("m"), y=g("y");
+  if(d&&m&&y){ const dd=Math.min(+d, daysInMonth(+y,+m)); return (+y)+"-"+pad(m)+"-"+pad(dd); }
+  return "";
+}
+function syncDateDropdown(host, key, iso){
+  const d=parseDate(iso);
+  const set=(p,v)=>{ const el=host.querySelector('select[data-k="'+key+'"][data-part="'+p+'"]'); if(el) el.value=(v||v===0)?String(v):""; };
+  set("d", d?d.getDate():""); set("m", d?d.getMonth()+1:""); set("y", d?d.getFullYear():"");
+}
+
+function holidaySet(){
+  const set = new Set();
+  String(state.settings.holidays||"").split(/[\n,;]+/).map(s=>s.trim()).filter(Boolean).forEach(s=>{
+    const d=parseDate(s); if(!d) return;
+    set.add(toIso(d));
+    // Закон за празниците: ако празникот падне во недела, се празнува наредниот ден (понеделник) — тој е неработен.
+    if(d.getDay()===0) set.add(toIso(addDays(d,1)));
+  });
+  return set;
+}
+function isWorkingDay(d, hol){
+  if(state.settings.skipWeekends){ const w=d.getDay(); if(w===0||w===6) return false; }
+  if(hol && hol.has(toIso(d))) return false;
+  return true;
+}
+/* returns Date of the Nth working day counting from 'start' (inclusive) */
+function nthWorkingDay(start, n){
+  if(!start || !n || n<1) return null;
+  const hol = holidaySet(); let d=new Date(start), count=0, guard=0, last=null;
+  while(count<n && guard<2000){ if(isWorkingDay(d,hol)){ count++; last=new Date(d); } d=addDays(d,1); guard++; }
+  return last;
+}
+function nextWorkingDay(after){
+  if(!after) return null;
+  const hol=holidaySet(); let d=addDays(after,1), guard=0;
+  while(guard<2000){ if(isWorkingDay(d,hol)) return d; d=addDays(d,1); guard++; }
+  return null;
+}
+function fullYears(start, ref){
+  if(!start||!ref) return 0;
+  let y = ref.getFullYear()-start.getFullYear();
+  if(ref.getMonth()<start.getMonth() || (ref.getMonth()===start.getMonth() && ref.getDate()<start.getDate())) y--;
+  return Math.max(0,y);
+}
+function yearsOfService(emp){
+  const start = parseDate(emp.employDate);
+  const ref = parseDate(emp.decisionDate || state.settings.decisionDate) || new Date();
+  return fullYears(start, ref);
+}
+function autoDays(emp){
+  const s = state.settings;
+  const base = +s.base||0, max = +s.max||99;
+  const pd = s.posDays||{};
+  const raw = pd[emp.position];
+  let days = (raw===""||raw===undefined||raw===null) ? base : parseInt(raw,10);
+  if(isNaN(days)) days = base;
+  return Math.min(max, Math.max(0, days));
+}
+function totalDays(emp){ const m = parseInt(emp.vkupnoManual,10); return (m>0)? m : autoDays(emp); }
+function part1Days(emp){ const p = parseInt(emp.del1,10); return (p>0)? p : totalDays(emp); }
+function brojFor(emp, index){
+  if(emp.broj) return emp.broj;
+  const base = state.settings.brojBase||"";
+  const start = parseInt(state.settings.brojStart,10)||1;
+  return base ? base+"/"+(start+index) : String(start+index);
+}
+function isComplete(emp){ return !!(emp.name && emp.position && emp.od && emp.doDate && emp.javuva); }
+function hasDates(emp){ return !!(emp.od && emp.doDate && emp.javuva); }
+
+/* ---------- gendered tokens ---------- */
+function genderTokens(g){
+  return g==="f"
+    ? {vraboten:"вработена", mu:"Ѝ", muLc:"ѝ", imenuvan:"Именуваната", imenuvanLc:"именуваната", rabotnikot:"работничката", rabotnik:"работничка"}
+    : {vraboten:"вработен", mu:"МУ", muLc:"му", imenuvan:"Именуваниот", imenuvanLc:"именуваниот", rabotnikot:"работникот", rabotnik:"работник"};
+}
+function tokenMap(emp, index){
+  const g = genderTokens(emp.g);
+  return Object.assign({}, g, {
+    ime: emp.name||"________",
+    rabotnoMesto: emp.position||"________",
+    tipText: emp.tip||"неопределено",
+    vkupno: totalDays(emp),
+    del1: part1Days(emp),
+    odDatum: fmtMK(emp.od),
+    doDatum: fmtMK(emp.doDate),
+    javuvaDatum: fmtMK(emp.javuva),
+    broj: brojFor(emp, index),
+    datumResenie: fmtMK(emp.decisionDate || state.settings.decisionDate)
+  });
+}
+function fillTokens(tpl, map){ return String(tpl||"").replace(/\{(\w+)\}/g, (m,k)=> (map[k]!==undefined? map[k] : "")); }
+function esc(s){ return String(s).replace(/[&<>"]/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[c])); }
+function mdBold(s){ return esc(s).replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>"); }
+function render(tpl, map){ return mdBold(fillTokens(tpl, map)); }
+
+/* ---------- the document HTML (inline styles → identical in preview/print/Word) ---------- */
+function resolveText(emp){
+  const base = state.settings.text || {};
+  const ov = (state.settings.textOverrides||{})[emp && emp.position];
+  return ov ? Object.assign({}, base, ov) : base;   // category override (if any) takes precedence
+}
+function docHTML(emp, index, opts){
+  opts = opts||{};
+  const s = state.settings, T = resolveText(emp), map = tokenMap(emp, index);
+  const P = "margin:0 0 13px;text-align:justify;text-indent:40px;line-height:1.55";
+
+  let logo = "";
+  if(s.showLogo!==false){
+    const src = s.logo || DEFAULT_LOGO;
+    const lh = Math.max(12, Math.min(160, parseInt(s.logoSize,10)||48));
+    const mb = Math.max(4, Math.round(lh*0.14));
+    const aspect = s.logo ? parseFloat(s.logoAspect) : DEFAULT_LOGO_ASPECT;
+    const wAttr = (aspect && isFinite(aspect) && aspect>0) ? ' width="'+Math.max(1,Math.round(lh*aspect))+'"' : '';
+    // explicit width/height attributes: respected by Word (which ignores max-height) AND by browsers
+    logo = '<img src="'+src+'"'+wAttr+' height="'+lh+'" alt="" style="display:block;margin:0 auto '+mb+'px">';
+  }
+
+  const brk = opts.pageBreakBefore ? "page-break-before:always;break-before:page;" : "";
+  const brojBlock = (s.showBroj!==false)
+    ? '<div style="font-size:15px;line-height:1.4;margin:0 0 34px">Бр. '+esc(map.broj)+'<br>'+esc(map.datumResenie)+' год.</div>'
+    : '';
+  return ''+
+  '<div class="sheet" style="'+brk+'">'+
+    brojBlock+
+    '<div style="text-align:center;margin-bottom:2px">'+logo+
+      '<div style="font-style:italic;font-size:16.5px;margin-bottom:2px">'+esc(s.title1)+'</div>'+
+      '<div style="font-weight:bold;font-size:18.5px">'+esc(s.title2)+'</div>'+
+    '</div>'+
+    '<p style="margin:0;line-height:1.5">&nbsp;</p>'+
+    '<p style="margin:0;line-height:1.5">&nbsp;</p>'+
+    '<p style="margin:0;line-height:1.5">&nbsp;</p>'+
+    '<p style="'+P+'">'+render(T.para1, map)+'</p>'+
+    '<div style="text-align:center;font-weight:bold;letter-spacing:.28em;font-size:17px;margin:26px 0">'+esc(T.decision)+'</div>'+
+    '<p style="'+P+'">'+render(T.bodyMain, map)+'</p>'+
+    '<p style="'+P+'">'+render(T.bodyReturn, map)+'</p>'+
+    '<div style="text-align:center;font-style:italic;font-size:16px;margin:22px 0">'+esc(T.obrazTitle)+'</div>'+
+    '<p style="'+P+'">'+render(T.obrazMain, map)+'</p>'+
+    '<p style="'+P+'">'+render(T.obrazSecond, map)+'</p>'+
+    '<p style="margin:24px 0 0;text-align:justify;line-height:1.55"><strong>'+esc(T.poukaLabel)+'</strong>: '+render(T.poukaText, map)+'</p>'+
+    '<p style="margin:4px 0 0;line-height:1.55"><strong>'+esc(T.dnaLabel)+'</strong>: '+render(T.dnaText, map)+'</p>'+
+    '<p style="margin:26px 0 0">Изработил: '+esc(s.izrabotil)+'</p>'+
+    '<div style="text-align:right;margin-top:42px;line-height:1.55">'+
+      '<div>'+esc(s.dirTitle)+'</div>'+
+      '<div>'+esc(s.dirName)+'</div>'+
+      '<div style="height:64px"></div>'+
+    '</div>'+
+  '</div>';
+}
+
+/* ---------- preview ---------- */
+function renderPreview(){
+  const scaler = $("paperScaler"), nm = $("previewName");
+  const emp = state.employees.find(e=>e.id===state.sel);
+  if(!emp){ scaler.innerHTML=""; nm.textContent=""; return; }
+  const idx = state.employees.indexOf(emp);
+  nm.textContent = emp.name || "(без име)";
+  scaler.innerHTML = docHTML(emp, idx, {});
+  scalePreview();
+}
+function scalePreview(){
+  const wrap = $("previewWrap"), scaler = $("paperScaler"), sheet = scaler.querySelector(".sheet");
+  if(!sheet) return;
+  const availW = wrap.clientWidth - 36;
+  if(availW <= 0) return; // tab hidden — will rescale when shown
+  const maxH = Math.max(360, window.innerHeight*0.84 - 36);
+  const sheetH = sheet.offsetHeight || 1123;
+  const fit = Math.min(1, availW/794, maxH/sheetH);
+  const scale = ui.zoom==="full" ? 1 : fit;
+  scaler.style.transform = "scale("+scale+")";
+  scaler.style.width = "794px";
+  wrap.style.height = (sheetH*scale + 36) + "px";
+}
+
+/* ---------- employee list ---------- */
+function fillRoleFilter(){
+  const sel = $("roleFilter"); if(!sel) return;
+  const extra = [...new Set(state.employees.map(e=>e.position).filter(p=>p && !ROLE_ORDER.includes(p)))];
+  const roles = ROLE_ORDER.concat(extra);
+  sel.innerHTML = '<option value="">Сите работни места</option>' +
+    roles.map(r=>'<option value="'+esc(r)+'"'+(r===ui.roleFilter?" selected":"")+'>'+esc(r)+'</option>').join("");
+}
+function renderList(){
+  const wrap = $("emplist");
+  const items = filteredEmployees();
+  wrap.innerHTML = "";
+  if(!items.length){ wrap.innerHTML = '<div style="padding:26px 14px;color:var(--muted);text-align:center">Нема резултати за овој филтер.</div>'; }
+  items.forEach(emp=>{
+    const row = document.createElement("div");
+    row.className = "emprow"+(emp.id===state.sel?" active":"");
+    const dated = hasDates(emp);
+    row.innerHTML =
+      '<input type="checkbox" '+(emp.sel?"checked":"")+' data-act="sel">'+
+      '<div class="who"><div class="nm">'+esc(emp.name||"(без име)")+'</div><div class="ps">'+esc(emp.position||"—")+'</div></div>'+
+      '<div class="meta"><span class="badge">'+totalDays(emp)+' дена</span>'+(dated?'':'<span class="nodate">без датум</span>')+'</div>'+
+      '<button class="x" title="Избриши" data-act="del">×</button>';
+    row.addEventListener("click", ev=>{
+      const act = ev.target.getAttribute("data-act");
+      if(act==="sel"){ emp.sel = ev.target.checked; persist(); updateSelInfo(); syncCheckAll(); return; }
+      if(act==="del"){ ev.stopPropagation(); deleteEmp(emp.id); return; }
+      state.sel = emp.id; renderList(); renderDetail(); renderPreview();
+      if(window.innerWidth<1040){ const r=document.querySelector(".col-detail"); if(r&&r.scrollIntoView) r.scrollIntoView({behavior:"smooth",block:"start"}); }
+    });
+    wrap.appendChild(row);
+  });
+  const total = state.employees.length, withDates = state.employees.filter(hasDates).length;
+  const shown = items.length;
+  $("listCount").textContent = (shown!==total ? shown+" од "+total : total+" вкупно") + " · " + withDates + " со датуми";
+  updateSelInfo(); syncCheckAll();
+}
+function passesFilter(e){
+  const q = ($("search").value||"").trim().toLowerCase();
+  if(q && !(e.name+" "+e.position).toLowerCase().includes(q)) return false;
+  if(ui.roleFilter && e.position!==ui.roleFilter) return false;
+  if(ui.onlyNoDates && hasDates(e)) return false;
+  return true;
+}
+function filteredEmployees(){ return state.employees.filter(passesFilter); }
+function syncCheckAll(){
+  const f = filteredEmployees();
+  $("checkAll").checked = f.length>0 && f.every(e=>e.sel);
+}
+function updateSelInfo(){
+  const n = state.employees.filter(e=>e.sel).length;
+  $("selInfo").textContent = n+" избрани";
+  $("btnPrint").disabled = n===0; $("btnWord").disabled = n===0;
+  if($("dashTotal")) updateDashboard();
+}
+
+function deleteEmp(id){
+  const emp = state.employees.find(e=>e.id===id); if(!emp) return;
+  if(!confirm('Да се избрише „'+(emp.name||"овој вработен")+'"?')) return;
+  state.employees = state.employees.filter(e=>e.id!==id);
+  if(state.sel===id) state.sel = state.employees[0] ? state.employees[0].id : null;
+  persist(); renderList(); renderDetail(); renderPreview();
+}
+
+/* ---------- detail panel ---------- */
+
+function positionOptions(selected, includeEmpty){
+  const extra = [...new Set(state.employees.map(e=>e.position).filter(p=>p && !ROLE_ORDER.includes(p)))];
+  const roles = ROLE_ORDER.concat(extra);
+  if(selected && !roles.includes(selected)) roles.push(selected);
+  let html = includeEmpty ? '<option value="">Не менувај</option>' : '';
+  return html + roles.map(r=>'<option value="'+esc(r)+'"'+(r===selected?' selected':'')+'>'+esc(r)+'</option>').join('');
+}
+
+function field(label, inner){ return '<div><label>'+label+'</label>'+inner+'</div>'; }
+function renderDetail(){
+  const host = $("detail");
+  const emp = state.employees.find(e=>e.id===state.sel);
+  $("detailTitle").textContent = emp ? "Картичка: "+(emp.name||"(без име)") : "Картичка на вработениот";
+  if(!emp){ host.innerHTML = '<div class="empty-detail"><div class="big">Изберете вработен лево</div>или додајте нов за да почнете.</div>'; return; }
+  const idx = state.employees.indexOf(emp);
+  const auto = autoDays(emp), yos = yearsOfService(emp), NOW = new Date().getFullYear();
+
+  host.innerHTML =
+  '<div class="detail">'+
+    '<div class="sec-title">Податоци на вработениот</div>'+
+    field("Име и презиме", '<input type="text" data-k="name" value="'+esc(emp.name)+'">')+
+    '<div class="grid2">'+
+      field("Работно место", '<select data-k="position">'+positionOptions(emp.position, false)+'</select>')+
+      field("Пол", '<select data-k="g"><option value="f"'+(emp.g==="f"?" selected":"")+'>Женски</option><option value="m"'+(emp.g==="m"?" selected":"")+'>Машки</option></select>')+
+    '</div>'+
+    '<div class="grid2">'+
+      field("Тип на работно време", '<select data-k="tip"><option'+(emp.tip==="неопределено"?" selected":"")+'>неопределено</option><option'+(emp.tip==="определено"?" selected":"")+'>определено</option></select>')+
+      field("Датум на вработување", dateDropdown("employDate", emp.employDate, 1965, NOW))+
+    '</div>'+
+    '<div class="yos">Стаж во установата: <b>'+yos+'</b> год.'+(emp.employDate?"":" · (внесете датум на вработување за пресметка)")+'</div>'+
+
+    '<div class="sec-title mt">Решение</div>'+
+    '<div class="grid2">'+
+      field("Број на решение", '<input type="text" data-k="broj" placeholder="'+esc(brojFor(emp,idx))+'" value="'+esc(emp.broj)+'">')+
+      field("Датум на решение", dateDropdown("decisionDate", emp.decisionDate||state.settings.decisionDate, NOW-3, NOW+3))+
+    '</div>'+
+    field("Вкупно денови одмор", '<input type="number" min="0" max="90" data-k="vkupnoManual" placeholder="авто: '+auto+'" value="'+esc(emp.vkupnoManual)+'">')+
+    leaveSummaryHTML(emp)+
+    '<div id="warnHost"></div>'+
+    '<div class="out-bar">'+
+      '<button class="secondary" id="btnPrintOne" type="button">🖨 Печати го ова решение</button>'+
+      '<button id="btnWordOne" type="button">⬇ Зачувај Word (ова)</button>'+
+    '</div>'+
+  '</div>';
+
+  // wire plain field edits (text / number / simple selects). Dates & "денови во ова решение" now live in the "Список и датуми" tab.
+  host.querySelectorAll("[data-k]").forEach(el=>{
+    if(el.hasAttribute("data-part")) return; // date dropdowns handled separately
+    const evt = (el.tagName==="SELECT") ? "change" : "input";
+    el.addEventListener(evt, e=>{
+      const k = e.target.getAttribute("data-k");
+      emp[k] = e.target.value;
+      persist(); renderPreview();
+      $("detailTitle").textContent = "Картичка: "+(emp.name||"(без име)");
+      refreshListRow(emp); updateWarns(emp); updateLeaveSummary(emp);
+    });
+  });
+  // wire remaining date dropdowns (датум на вработување, датум на решение)
+  host.querySelectorAll("select[data-part]").forEach(el=>{
+    el.addEventListener("change", ()=>{
+      const k = el.getAttribute("data-k");
+      emp[k] = readDateParts(host, k);
+      persist(); renderPreview(); refreshListRow(emp); updateWarns(emp);
+    });
+  });
+  $("btnEditDates").addEventListener("click", ()=> gotoEmployeeDates(emp.id));
+  $("btnPrintOne").addEventListener("click", ()=>doPrint([emp]));
+  $("btnWordOne").addEventListener("click", ()=>doWord([emp], false));
+  updateWarns(emp);
+}
+function updateWarns(emp){
+  const host = $("warnHost"); if(!host) return;
+  const w = []; const vk = totalDays(emp), d1 = parseInt(emp.del1,10);
+  if(d1>0 && d1>vk) w.push("Деновите во ова решение ("+d1+") се повеќе од вкупните ("+vk+"). Се менуваат во „Список и датуми“.");
+  host.innerHTML = w.length ? '<div class="warnbox">'+w.map(x=>'<div><span>⚠</span><span>'+esc(x)+'</span></div>').join("")+'</div>' : '';
+}
+function refreshListRow(emp){
+  const rows = $("emplist").querySelectorAll(".emprow.active");
+  rows.forEach(r=>{
+    const nm = r.querySelector(".nm"), ps = r.querySelector(".ps"), meta = r.querySelector(".meta");
+    if(nm) nm.textContent = emp.name||"(без име)";
+    if(ps) ps.textContent = emp.position||"—";
+    if(meta){
+      const dated = hasDates(emp);
+      meta.innerHTML = '<span class="badge">'+totalDays(emp)+' дена</span>'+(dated?'':'<span class="nodate">без датум</span>');
+    }
+  });
+  // keep the "со датуми" progress fresh
+  const total = state.employees.length, withDates = state.employees.filter(hasDates).length;
+  const shown = filteredEmployees().length;
+  $("listCount").textContent = (shown!==total ? shown+" од "+total : total+" вкупно") + " · " + withDates + " со датуми";
+}
+function copyDatesToSelected(srcId){
+  const src = state.employees.find(e=>e.id===srcId); if(!src) return;
+  const targets = state.employees.filter(e=>e.sel && e.id!==src.id);
+  if(!targets.length){ toast("Нема други штиклирани вработени за копирање.","err"); return; }
+  if(!confirm("Да се копираат датумите (Користи од, денови, Заклучно со, Враќање, Датум на решение) од „"+(src.name||"овој вработен")+"“ во "+targets.length+" штиклирани вработени?")) return;
+  targets.forEach(t=>{ t.od=src.od; t.del1=src.del1; t.doDate=src.doDate; t.javuva=src.javuva; t.decisionDate=src.decisionDate; });
+  persist(); renderList(); renderDetail(); renderPreview();
+  toast("Датумите се копирани во "+targets.length+" вработени.","ok");
+}
+function autoFillDates(emp, force){
+  const start = parseDate(emp.od); if(!start) return;
+  const n = part1Days(emp);
+  const end = nthWorkingDay(start, n);
+  if(end && (force || !emp.doDate)) emp.doDate = toIso(end);
+  const ret = nextWorkingDay(parseDate(emp.doDate)||end);
+  if(ret && (force || !emp.javuva)) emp.javuva = toIso(ret);
+}
+
+/* ---------- output: print ---------- */
+function selectedEmployees(){ return state.employees.filter(e=>e.sel); }
+
+/* ---------- grouping into sections (by работно место) for combined output ---------- */
+function orderedForOutput(list){
+  if(!state.settings.groupByRole) return list.slice();
+  return list.map((e,i)=>[e,i])
+    .sort((A,B)=> (roleRank(A[0].position)-roleRank(B[0].position)) || (A[1]-B[1]))
+    .map(p=>p[0]);
+}
+function outputSequence(list){
+  const ordered = orderedForOutput(list);
+  const cats = new Set(ordered.map(e=>e.position));
+  const group = !!state.settings.groupByRole && cats.size>1;   // sections only when printing across multiple работни места
+  const seq = []; let lastRole = null;
+  ordered.forEach(e=>{
+    if(group && e.position!==lastRole){ seq.push({type:"sec", title:e.position}); lastRole = e.position; }
+    seq.push({type:"doc", emp:e});
+  });
+  return seq;
+}
+function sectionPageHTML(title, opts){
+  opts = opts||{};
+  const brk = opts.pageBreakBefore ? "page-break-before:always;break-before:page;" : "";
+  return '<div class="sheet" style="'+brk+'"><div style="text-align:center;margin-top:130px">'+
+    '<div style="font-style:italic;font-size:13pt;margin-bottom:10px">Решенија за годишен одмор</div>'+
+    '<div style="font-weight:bold;font-size:22pt;letter-spacing:.10em">'+esc(String(title||"").toUpperCase())+'</div>'+
+    '</div></div>';
+}
+
+function doPrint(list){
+  if(!list.length){ toast("Нема избрани вработени.","err"); return; }
+  const root = $("printroot");
+  const seq = outputSequence(list);
+  root.innerHTML = seq.map((it,i)=>{
+    if(it.type==="sec") return sectionPageHTML(it.title, {pageBreakBefore:i>0});
+    return docHTML(it.emp, state.employees.indexOf(it.emp), {pageBreakBefore:i>0});
+  }).join("");
+  // give layout a tick, then print
+  setTimeout(()=>{ window.print(); }, 60);
+}
+
+/* ---------- output: Word (.doc, fully offline) ---------- */
+function wordWrap(innerSheetsHTML){
+  return '\uFEFF<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40"><head><meta charset="utf-8">'+
+    '<style>@page Section1{size:210mm 297mm;margin:18mm 18mm 16mm 18mm}div.Section1{page:Section1}'+
+    'body{font-family:"Times New Roman",serif;font-size:12pt;color:#000}'+
+    '.sheet{width:auto}'+
+    '</style></head><body><div class="Section1">'+innerSheetsHTML+'</div></body></html>';
+}
+function sheetForWord(emp, idx){
+  return docHTML(emp, idx, {forWord:true});
+}
+function downloadBlob(blob, name){
+  const a = document.createElement("a"), url = URL.createObjectURL(blob);
+  a.href=url; a.download=name; document.body.appendChild(a); a.click();
+  setTimeout(()=>{ URL.revokeObjectURL(url); a.remove(); }, 800);
+}
+function safeName(s){ return String(s).replace(/[\\/:*?"<>|]+/g,"_").replace(/\s+/g,"_"); }
+
+function doWord(list, separate){
+  if(!list.length){ toast("Нема избрани вработени.","err"); return; }
+  if(separate && list.length>1){
+    if(!window.JSZip){
+      toast("ZIP не е достапен (нема интернет). Зачувајте поединечно од картичката, или изберете „Сите во еден”.","err");
+      return;
+    }
+    const zip = new JSZip();
+    list.forEach(e=>{
+      const html = wordWrap(sheetForWord(e, state.employees.indexOf(e)));
+      zip.file(safeName("Resenie_"+(e.name||"vraboten"))+".doc", new Blob([html],{type:"application/msword"}));
+    });
+    zip.generateAsync({type:"blob"}).then(b=> downloadBlob(b, "Resenija_godishen_odmor_"+todayIso()+".zip"));
+    toast("Подготвени "+list.length+" посебни Word документи (ZIP).","ok");
+  } else {
+    const seq = outputSequence(list);
+    const inner = seq.map((it,i)=>{
+      const pb = i>0 ? '<br clear="all" style="page-break-before:always;mso-special-character:line-break">' : '';
+      if(it.type==="sec") return pb + sectionPageHTML(it.title, {forWord:true});
+      return pb + sheetForWord(it.emp, state.employees.indexOf(it.emp));
+    }).join("");
+    const html = wordWrap(inner);
+    const fname = list.length===1 ? safeName("Resenie_"+(list[0].name||"vraboten"))+".doc"
+                                  : "Resenija_godishen_odmor_"+todayIso()+".doc";
+    downloadBlob(new Blob([html],{type:"application/msword"}), fname);
+    toast(list.length===1? "Word документот е зачуван." : "Зачуван е еден Word документ со "+list.length+" решенија.","ok");
+  }
+}
+
+/* ---------- settings bindings ---------- */
+function fillRoleDays(){
+  const wrap=$("roleDaysWrap"); if(!wrap) return;
+  const pd = state.settings.posDays||{};
+  wrap.innerHTML = ROLE_ORDER.map(role=>{
+    const v = (pd[role]!==undefined && pd[role]!==null) ? pd[role] : "";
+    return '<div class="roleRow"><span>'+esc(role)+'</span>'+
+      '<input type="number" min="0" max="90" data-role="'+esc(role)+'" value="'+esc(v)+'"></div>';
+  }).join("");
+}
+function fillSettings(){
+  const s = state.settings;
+  const set = (id,val)=>{ const el=$(id); if(el) el.value = val; };
+  set("s_title1", s.title1); set("s_title2", s.title2);
+  set("s_dirTitle", s.dirTitle); set("s_dirName", s.dirName); set("s_izrabotil", s.izrabotil);
+  set("s_date", s.decisionDate? fmtMK(s.decisionDate):""); set("s_brojBase", s.brojBase); set("s_brojStart", s.brojStart);
+  set("r_base", s.base); set("r_max", s.max);
+  const we=$("r_skipwe"); if(we) we.checked = !!s.skipWeekends; set("r_holidays", s.holidays);
+  const sb=$("s_showBroj"); if(sb) sb.checked = s.showBroj!==false;
+  const sl=$("s_showLogo"); if(sl) sl.checked = s.showLogo!==false;
+  const lp=$("logoPrev"); if(lp) lp.style.backgroundImage = "url('"+(s.logo||DEFAULT_LOGO)+"')";
+  const lsz=$("s_logoSize"), lszv=$("logoSizeVal"); const lv=parseInt(s.logoSize,10)||48;
+  if(lsz) lsz.value = lv; if(lszv) lszv.textContent = lv+" px";
+  fillRoleDays();
+  const ys = $("s_year");
+  if(ys){
+    const NOW = new Date().getFullYear();
+    const cur = (parseDate(s.decisionDate)||new Date()).getFullYear();
+    let opts="";
+    for(let y=NOW+3;y>=NOW-4;y--) opts+='<option value="'+y+'"'+(y===cur?" selected":"")+'>'+y+'</option>';
+    ys.innerHTML = opts;
+  }
+}
+function bindSettings(){
+  fillSettings();
+  const s = state.settings;
+  const wire = (id, key)=>{
+    const el = $(id); if(!el) return;
+    const evt = (el.type==="checkbox")?"change":(el.tagName==="SELECT"?"change":"input");
+    el.addEventListener(evt, ()=>{
+      s[key] = el.type==="checkbox"? el.checked : el.value;
+      persist(); renderPreview(); renderList(); renderDetail();
+    });
+  };
+  wire("s_title1","title1"); wire("s_title2","title2");
+  wire("s_dirTitle","dirTitle"); wire("s_dirName","dirName"); wire("s_izrabotil","izrabotil");
+  wire("s_brojBase","brojBase"); wire("s_brojStart","brojStart");
+  const sd=$("s_date");
+  if(sd) sd.addEventListener("change", ()=>{
+    const iso=parseDMYtoIso(sd.value);
+    if(iso===null){ sd.classList.add("bad"); toast("Неважечки датум. Внеси во формат дд.мм.гггг.","err"); return; }
+    sd.classList.remove("bad"); s.decisionDate=iso; sd.value = iso? fmtMK(iso):"";
+    persist(); renderPreview(); renderList(); renderDetail();
+  });
+  wire("r_base","base"); wire("r_max","max");
+  wire("r_skipwe","skipWeekends"); wire("r_holidays","holidays");
+  wire("s_showBroj","showBroj"); wire("s_showLogo","showLogo");
+  $("s_logoSize").addEventListener("input", e=>{ s.logoSize = parseInt(e.target.value,10)||48; const v=$("logoSizeVal"); if(v) v.textContent = s.logoSize+" px"; persist(); renderPreview(); });
+
+  // per-role default days (event delegation)
+  $("roleDaysWrap").addEventListener("input", e=>{
+    const el = e.target; if(!el.matches || !el.matches("[data-role]")) return;
+    const role = el.getAttribute("data-role");
+    if(!state.settings.posDays) state.settings.posDays = {};
+    state.settings.posDays[role] = el.value;
+    persist(); renderPreview(); renderList(); renderDetail();
+  });
+
+  $("s_applyYear").addEventListener("click", ()=>{ const y=parseInt($("s_year").value,10); if(y) applyYearToAll(y); });
+
+  $("s_logoFile").addEventListener("change", e=>{
+    const f = e.target.files[0]; if(!f) return;
+    const r = new FileReader();
+    r.onload = ()=>{
+      s.logo = r.result;
+      const probe = new Image();
+      probe.onload = ()=>{ s.logoAspect = (probe.naturalWidth && probe.naturalHeight) ? (probe.naturalWidth/probe.naturalHeight) : ""; persist(); renderPreview(); };
+      probe.onerror = ()=>{ s.logoAspect = ""; persist(); renderPreview(); };
+      probe.src = s.logo;
+      const lp=$("logoPrev"); if(lp) lp.style.backgroundImage="url('"+s.logo+"')";
+      if($("s_showLogo")) $("s_showLogo").checked=true; s.showLogo=true;
+      persist(); renderPreview(); toast("Логото е поставено.","ok");
+    };
+    r.readAsDataURL(f);
+  });
+  $("s_logoClear").addEventListener("click", ()=>{ s.logo=""; s.logoAspect=""; const lp=$("logoPrev"); if(lp) lp.style.backgroundImage="url('"+DEFAULT_LOGO+"')"; persist(); renderPreview(); toast("Вратено е стандардното лого.","ok"); });
+}
+function setYear(iso, year){
+  const d = parseDate(iso); if(!d) return iso||"";
+  const m = d.getMonth()+1, day = Math.min(d.getDate(), daysInMonth(year, m));
+  return year+"-"+pad(m)+"-"+pad(day);
+}
+function applyYearToAll(year){
+  state.employees.forEach(e=>{
+    if(e.decisionDate) e.decisionDate = setYear(e.decisionDate, year);
+    if(e.od){ e.od = setYear(e.od, year); e.doDate=""; e.javuva=""; autoFillDates(e); } // recompute from shifted start
+    else { if(e.doDate) e.doDate=setYear(e.doDate,year); if(e.javuva) e.javuva=setYear(e.javuva,year); }
+  });
+  if(state.settings.decisionDate) state.settings.decisionDate = setYear(state.settings.decisionDate, year);
+  persist(); fillSettings(); renderAll(); toast("Годината е сменета на "+year+" за сите датуми.","ok");
+}
+
+/* ---------- document text editing (by sections) ---------- */
+const TEXT_FIELDS = [
+  ["t_para1","para1"], ["t_decision","decision"],
+  ["t_bodyMain","bodyMain"], ["t_bodyReturn","bodyReturn"],
+  ["t_obrazTitle","obrazTitle"], ["t_obrazMain","obrazMain"], ["t_obrazSecond","obrazSecond"],
+  ["t_poukaLabel","poukaLabel"], ["t_poukaText","poukaText"],
+  ["t_dnaLabel","dnaLabel"], ["t_dnaText","dnaText"]
+];
+const TOKENS = [
+  ["{ime}","име и презиме"], ["{rabotnoMesto}","работно место"], ["{tipText}","определено/неопределено"],
+  ["{vkupno}","вкупно денови"], ["{del1}","денови во ова решение"],
+  ["{odDatum}","користи од"], ["{doDatum}","заклучно со"], ["{javuvaDatum}","се јавува на работа"],
+  ["{broj}","број на решение"], ["{datumResenie}","датум на решение"],
+  ["{vraboten}","вработен / вработена"], ["{mu}","МУ / Ѝ"], ["{muLc}","му / ѝ"],
+  ["{imenuvan}","Именуваниот / Именуваната"], ["{imenuvanLc}","именуваниот / именуваната"],
+  ["{rabotnikot}","работникот / работничката"], ["{rabotnik}","работник / работничка"]
+];
+let lastTextEl = null;
+function textScopeSource(){
+  // values to show in the fields for the current scope
+  if(!ui.textScope) return state.settings.text;
+  const ov = (state.settings.textOverrides||{})[ui.textScope];
+  return ov || state.settings.text;   // no override yet → show standard text as a starting point
+}
+function fillText(){
+  const src = textScopeSource();
+  TEXT_FIELDS.forEach(([id,key])=>{ const el=$(id); if(el) el.value = src[key]||""; });
+}
+function ensureOverrideSnapshot(){
+  // called on first edit while a category scope is active: copy the currently shown (standard) text
+  const ov = state.settings.textOverrides || (state.settings.textOverrides = {});
+  if(!ov[ui.textScope]){
+    ov[ui.textScope] = {};
+    TEXT_FIELDS.forEach(([id,key])=>{ const el=$(id); ov[ui.textScope][key] = el ? el.value : (state.settings.text[key]||""); });
+  }
+  return ov[ui.textScope];
+}
+function hasOverride(role){ const o=state.settings.textOverrides||{}; return !!o[role]; }
+function fillScopeSelect(){
+  const sel=$("t_scope"); if(!sel) return;
+  const extra=[...new Set(state.employees.map(e=>e.position).filter(p=>p && !ROLE_ORDER.includes(p)))];
+  const roles=ROLE_ORDER.concat(extra);
+  sel.innerHTML='<option value="">Сите вработени (стандарден текст)</option>'+
+    roles.map(r=>'<option value="'+esc(r)+'"'+(r===ui.textScope?' selected':'')+'>'+esc(r)+(hasOverride(r)?'  ✔ посебен':'')+'</option>').join('');
+}
+function updateScopeNote(){
+  const note=$("t_scopeNote"), reset=$("t_reset"); if(!note) return;
+  if(!ui.textScope){
+    note.innerHTML='Овој текст се користи за <b>сите</b> вработени, освен оние што имаат посебен текст.';
+    if(reset) reset.textContent='Врати стандарден текст';
+  } else if(hasOverride(ui.textScope)){
+    note.innerHTML='Посебен текст само за <b>'+esc(ui.textScope)+'</b>. Се применува автоматски при печатење/Word за таа категорија.';
+    if(reset) reset.textContent='Избриши посебен текст (наследи стандарден)';
+  } else {
+    note.innerHTML='<b>'+esc(ui.textScope)+'</b> сега го наследува стандардниот текст. Изменете кое било поле за да создадете <b>посебен</b> текст само за оваа категорија.';
+    if(reset) reset.textContent='Врати стандарден текст';
+  }
+}
+function bindText(){
+  fillText();
+  if(!$("textCard")) return;
+  fillScopeSelect(); updateScopeNote();
+  const chips = $("tokenChips");
+  chips.innerHTML = TOKENS.map(([t,d])=>'<span class="chip" data-tok="'+esc(t)+'" title="'+esc(d)+'">'+esc(t)+'</span>').join("");
+  chips.addEventListener("click", e=>{
+    const c = e.target.closest(".chip"); if(!c) return;
+    const tok = c.getAttribute("data-tok"), el = lastTextEl;
+    if(!el){ toast("Кликни во некое поле за текст, па потоа на ознаката.","err"); return; }
+    const a = el.selectionStart||0, b = el.selectionEnd||0, v = el.value;
+    el.value = v.slice(0,a)+tok+v.slice(b);
+    el.selectionStart = el.selectionEnd = a+tok.length;
+    el.focus();
+    el.dispatchEvent(new Event("input",{bubbles:true}));
+  });
+  $("t_scope").addEventListener("change", e=>{ ui.textScope = e.target.value; fillText(); updateScopeNote(); renderPreview(); });
+  TEXT_FIELDS.forEach(([id,key])=>{
+    const el = $(id); if(!el) return;
+    el.addEventListener("focus", ()=> lastTextEl = el);
+    el.addEventListener("input", ()=>{
+      if(!ui.textScope){ state.settings.text[key] = el.value; }
+      else { const ov = ensureOverrideSnapshot(); ov[key] = el.value; fillScopeSelect(); updateScopeNote(); }
+      persist(); renderPreview();
+    });
+  });
+  $("t_reset").addEventListener("click", ()=>{
+    if(!ui.textScope){
+      if(confirm("Да се врати стандардниот текст на решението? Сите измени во стандардниот текст ќе се изгубат.")){
+        state.settings.text = defaultText(); fillText(); persist(); renderPreview();
+        toast("Стандардниот текст е вратен.","ok");
+      }
+    } else {
+      if(confirm("Да се избрише посебниот текст за „"+ui.textScope+"“? Таа категорија пак ќе го користи стандардниот текст.")){
+        if(state.settings.textOverrides) delete state.settings.textOverrides[ui.textScope];
+        fillText(); fillScopeSelect(); updateScopeNote(); persist(); renderPreview();
+        toast("Посебниот текст е избришан.","ok");
+      }
+    }
+  });
+}
+
+/* ---------- data import/export ---------- */
+function exportJson(){
+  const blob = new Blob([JSON.stringify({employees:state.employees, settings:state.settings}, null, 2)], {type:"application/json"});
+  downloadBlob(blob, "godishen_odmor_podatoci_"+todayIso()+".json");
+  toast("JSON извезен.","ok");
+}
+function importJson(file){
+  const r = new FileReader();
+  r.onload = ()=>{ try{
+    const d = JSON.parse(r.result);
+    if(d.settings){ state.settings = Object.assign(defaultSettings(), d.settings); state.settings.text = Object.assign(defaultText(), d.settings.text||{}); }
+    if(Array.isArray(d.employees)) state.employees = d.employees.map(e=>Object.assign(newEmployee(),e));
+    state.sel = state.employees[0]? state.employees[0].id : null;
+    persist(); fillSettings(); fillText(); fillRoleFilter(); renderAll(); toast("Податоците се увезени.","ok");
+  }catch(err){ toast("Грешка при увоз на JSON.","err"); } };
+  r.readAsText(file);
+}
+function importCsv(file){
+  const r = new FileReader();
+  r.onload = ()=>{ try{
+    const rows = csvToObjects(r.result);
+    const norm = k => String(k||"").trim().toLowerCase();
+    const pick = (o,keys)=>{ for(const k of Object.keys(o)){ if(keys.includes(norm(k))) return o[k]; } return ""; };
+    const list = rows.map(o=>{
+      const name = pick(o,["име","ime","name","име и презиме","fullname"]).trim();
+      if(!name) return null;
+      const e = newEmployee(name, pick(o,["работно место","position","rabotno mesto","pozicija"]).trim() || POS.sorab,
+        /ж|f|жен/i.test(pick(o,["пол","gender","g"]))? "f":"m");
+      const tip = pick(o,["тип","tip","type"]); if(tip) e.tip = /опред|definite/i.test(tip) && !/неопред/i.test(tip) ? "определено":"неопределено";
+      const ed = pick(o,["датум на вработување","employdate","vrabotuvanje","датум"]); if(ed){ const d=parseDate(ed); if(d) e.employDate = toIso(d); }
+      return e;
+    }).filter(Boolean);
+    if(!list.length){ toast("Не пронајдов вработени во CSV.","err"); return; }
+    state.employees = list; state.sel = list[0].id;
+    persist(); fillRoleFilter(); renderAll(); toast("Увезени "+list.length+" вработени од CSV.","ok");
+  }catch(err){ toast("Грешка при увоз на CSV.","err"); } };
+  r.readAsText(file);
+}
+function csvToObjects(text){
+  const lines = String(text).replace(/^\uFEFF/,"").split(/\r?\n/).filter(l=>l.trim().length);
+  if(!lines.length) return [];
+  const delim = (lines[0].match(/;/g)||[]).length > (lines[0].match(/,/g)||[]).length ? ";" : ",";
+  const parse = line=>{ const out=[]; let cur="",q=false;
+    for(let i=0;i<line.length;i++){ const c=line[i];
+      if(c==='"'&&line[i+1]==='"'){ cur+='"'; i++; }
+      else if(c==='"'){ q=!q; }
+      else if(c===delim&&!q){ out.push(cur); cur=""; }
+      else cur+=c; }
+    out.push(cur); return out.map(x=>x.trim()); };
+  const heads = parse(lines[0]);
+  return lines.slice(1).map(l=>{ const v=parse(l), o={}; heads.forEach((h,i)=>o[h]=v[i]||""); return o; });
+}
+
+
+/* ---------- dashboard, navigation, and bulk edits ---------- */
+function updateDashboard(){
+  const total = state.employees.length;
+  const selected = state.employees.filter(e=>e.sel).length;
+  const withDates = state.employees.filter(hasDates).length;
+  const withoutDates = Math.max(0, total-withDates);
+  const pct = total ? Math.round((withDates/total)*100) : 0;
+  const setText=(id,v)=>{ const el=$(id); if(el) el.textContent=v; };
+  setText("dashTotal", total);
+  setText("dashSelected", selected);
+  setText("dashWithDates", withDates);
+  setText("dashWithoutDates", withoutDates);
+  const bar=$("dashProgress"); if(bar) bar.style.width = pct + "%";
+  setText("dashProgressText", withDates+" од "+total+" имаат внесени датуми ("+pct+"%).");
+  setText("dashNext", withoutDates ? "Следно: пополнете датуми за преостанатите вработени" : "Сите вработени имаат пополнети датуми");
+  const bh=$("bulkHint"); if(bh) bh.textContent = "Ќе се применува на "+selected+" штиклирани вработени.";
+}
+function showTab(name){
+  document.querySelectorAll("main .view").forEach(v=> v.classList.toggle("active", v.getAttribute("data-view")===name));
+  document.querySelectorAll(".appnav button[data-tab]").forEach(b=> b.classList.toggle("on", b.getAttribute("data-tab")===name));
+  ui.tab = name;
+  if(name==="employees"){ renderDetail(); scalePreview(); }
+  if(name==="roster") renderRoster();
+  if(name==="text"){ fillScopeSelect(); fillText(); updateScopeNote(); }
+  try{ window.scrollTo({top:0, behavior:"auto"}); }catch(e){}
+}
+function fillBulkControls(){
+  const p=$("bulk_position"); if(p) p.innerHTML = positionOptions("", true);
+  updateDashboard();
+}
+function clearBulkControls(){
+  ["bulk_position","bulk_tip","bulk_total","bulk_part","bulk_start","bulk_decisionDate"].forEach(id=>{ const el=$(id); if(el) el.value=""; });
+  updateDashboard();
+}
+function applyBulkSelected(){
+  const list = selectedEmployees();
+  if(!list.length){ toast("Нема штиклирани вработени.","err"); return; }
+  const position = $("bulk_position").value;
+  const tip = $("bulk_tip").value;
+  const total = $("bulk_total").value;
+  const part = $("bulk_part").value;
+  const start = parseDMYtoIso($("bulk_start").value);
+  const decisionDate = parseDMYtoIso($("bulk_decisionDate").value);
+  if(start===null || decisionDate===null){ toast("Неважечки датум во групните полиња. Внеси во формат дд.мм.гггг.","err"); return; }
+  const changed = position || tip || total!=="" || part!=="" || start || decisionDate;
+  if(!changed){ toast("Нема внесена групна измена.","err"); return; }
+  list.forEach(e=>{
+    if(position) e.position = position;
+    if(tip) e.tip = tip;
+    if(total!=="") e.vkupnoManual = total;
+    if(part!=="") e.del1 = part;
+    if(start) e.od = start;
+    if(decisionDate) e.decisionDate = decisionDate;
+    if((start || part!=="" || total!=="") && e.od){ e.doDate=""; e.javuva=""; autoFillDates(e, true); }
+  });
+  persist(); fillRoleFilter(); fillBulkControls(); renderAll();
+  toast("Групната измена е применета на "+list.length+" вработени.","ok");
+}
+
+/* ---------- toast ---------- */
+let toastT=null;
+function toast(msg, kind){
+  const c = $("toast"); const el = document.createElement("div");
+  el.className = "toast"+(kind?(" "+kind):""); el.textContent = msg; c.appendChild(el);
+  setTimeout(()=>{ el.style.opacity="0"; el.style.transition="opacity .4s"; setTimeout(()=>el.remove(),400); }, 2600);
+}
+
+/* ---------- top-level events ---------- */
+function bindTop(){
+  document.querySelectorAll(".appnav button[data-tab]").forEach(b=>{
+    b.addEventListener("click", ()=> showTab(b.getAttribute("data-tab")));
+  });
+  $("quickNoDates").addEventListener("click", ()=>{ ui.onlyNoDates=true; $("onlyNoDates").checked=true; renderList(); showTab("employees"); });
+  $("quickSelectDated").addEventListener("click", ()=>{ state.employees.forEach(e=>e.sel=hasDates(e)); persist(); renderList(); toast("Штиклирани се само вработените со внесени датуми.","ok"); });
+  $("quickClearFilters").addEventListener("click", ()=>{ ui.roleFilter=""; ui.onlyNoDates=false; $("search").value=""; $("onlyNoDates").checked=false; fillRoleFilter(); renderList(); });
+  $("bulk_apply").addEventListener("click", applyBulkSelected);
+  $("bulk_clear").addEventListener("click", clearBulkControls);
+
+  $("addEmp").addEventListener("click", ()=>{
+    const e = newEmployee("", POS.sorab, "f");
+    state.employees.unshift(e); state.sel = e.id;
+    persist(); $("search").value=""; renderAll();
+    const inp = $("detail").querySelector('[data-k="name"]'); if(inp) inp.focus();
+  });
+  $("search").addEventListener("input", renderList);
+  $("checkAll").addEventListener("change", e=>{ const v=e.target.checked; filteredEmployees().forEach(x=>x.sel=v); persist(); renderList(); });
+
+  fillRoleFilter();
+  fillBulkControls();
+  $("roleFilter").addEventListener("change", e=>{ ui.roleFilter = e.target.value; renderList(); });
+  $("onlyNoDates").addEventListener("change", e=>{ ui.onlyNoDates = e.target.checked; renderList(); });
+
+  $("zoomctl").querySelectorAll("button").forEach(b=>{
+    b.addEventListener("click", ()=>{ ui.zoom = b.getAttribute("data-zoom");
+      $("zoomctl").querySelectorAll("button").forEach(x=>x.classList.toggle("on", x===b));
+      scalePreview(); });
+  });
+
+  $("modeSeg").querySelectorAll("button").forEach(b=>{
+    b.addEventListener("click", ()=>{ ui.mode = b.getAttribute("data-mode");
+      $("modeSeg").querySelectorAll("button").forEach(x=>x.classList.toggle("on", x===b)); });
+  });
+  $("btnPrint").addEventListener("click", ()=> doPrint(selectedEmployees()));
+  $("btnWord").addEventListener("click", ()=> doWord(selectedEmployees(), ui.mode==="sep"));
+  const gchk=$("chk_group");
+  if(gchk){ gchk.checked = state.settings.groupByRole!==false;
+    gchk.addEventListener("change", ()=>{ state.settings.groupByRole = gchk.checked; persist(); toast(gchk.checked?"Решенијата ќе се групираат по работно место со наслови на секции.":"Групирањето по секции е исклучено.","ok"); }); }
+
+  $("d_export").addEventListener("click", exportJson);
+  $("d_importJson").addEventListener("change", e=>{ if(e.target.files[0]) importJson(e.target.files[0]); e.target.value=""; });
+  $("d_importCsv").addEventListener("change", e=>{ if(e.target.files[0]) importCsv(e.target.files[0]); e.target.value=""; });
+  $("d_resetRoster").addEventListener("click", ()=>{ if(confirm("Да се врати стандардниот список на вработени? Тековните измени на списокот ќе се изгубат.")){ state.employees = buildDefaultEmployees(); state.sel = state.employees[0].id; ui.roleFilter=""; ui.onlyNoDates=false; persist(); fillRoleFilter(); renderAll(); toast("Списокот е вратен на стандардниот.","ok"); }});
+
+  window.addEventListener("resize", scalePreview);
+  // after print, clear the print root
+  window.addEventListener("afterprint", ()=>{ $("printroot").innerHTML=""; });
+}
+
+/* ---------- roster & quick-date grid (v14, additive; reuses existing engine) ---------- */
+function roleRank(pos){ const i = ROLE_ORDER.indexOf(pos); return i<0 ? ROLE_ORDER.length : i; }
+function rUpdateProgress(){
+  const total = state.employees.length;
+  const withD = state.employees.filter(hasDates).length;
+  const pct = total ? Math.round(withD/total*100) : 0;
+  const lbl=$("rProgLbl"), bar=$("rProgBar");
+  if(lbl) lbl.textContent = withD+" / "+total+" со датуми ("+pct+"%)";
+  if(bar) bar.style.width = pct+"%";
+}
+function rStatusHTML(emp){
+  if(!emp.od) return '<span class="no">без датум</span>';
+  const od=parseDate(emp.od), dd=parseDate(emp.doDate), jv=parseDate(emp.javuva);
+  if(od&&dd&&dd<od) return '<span class="warn">⚠ крај пред почеток</span>';
+  if(dd&&jv&&jv<=dd) return '<span class="warn">⚠ враќање ≤ крај</span>';
+  if(isComplete(emp)) return '<span class="ok">✓ подготвено</span>';
+  return '<span class="no">нецелосно</span>';
+}
+function leaveSummaryText(emp){
+  const total = totalDays(emp);                 // full annual entitlement
+  const part  = part1Days(emp);                 // days in THIS decision (del1, or full if empty)
+  const isPart = parseInt(emp.del1,10) > 0;     // an explicit installment was set in the grid
+  const has = hasDates(emp);
+  const daysTxt = isPart ? (part+" од вкупно "+total+" раб. дена")
+                         : (total+" раб. дена (полн одмор)");
+  return has ? (daysTxt+" · "+fmtMK(emp.od)+" – "+fmtMK(emp.doDate)+" · враќање "+fmtMK(emp.javuva))
+             : (daysTxt+" · сè уште нема внесен почетен датум");
+}
+function leaveSummaryHTML(emp){
+  const has = hasDates(emp);
+  return '<div class="leave-summary'+(has?'':' empty')+'">'+
+      '<div class="ls-top"><span class="ls-label">📅 Годишен одмор</span>'+
+      '<button class="ghost tiny" id="btnEditDates" type="button">✎ Внеси / уреди датуми</button></div>'+
+      '<div class="ls-body">'+esc(leaveSummaryText(emp))+'</div>'+
+      '<div class="ls-hint">Почетниот датум и „Денови“ (овој дел од одморот) се внесуваат во „Список и датуми“. Полето „Вкупно денови одмор“ горе е целото годишно право — менувајте го тука.</div>'+
+    '</div>';
+}
+function updateLeaveSummary(emp){
+  const host=$("detail"); if(!host) return;
+  const box=host.querySelector('.leave-summary'), body=host.querySelector('.leave-summary .ls-body');
+  if(box) box.classList.toggle('empty', !hasDates(emp));
+  if(body) body.textContent = leaveSummaryText(emp);
+}
+function gotoEmployeeDates(id){
+  state.sel = id;
+  showTab("roster");
+  setTimeout(()=>{
+    const tr = document.querySelector('#rBody tr[data-id="'+id+'"]');
+    if(tr){
+      if(tr.scrollIntoView) tr.scrollIntoView({behavior:"smooth", block:"center"});
+      tr.classList.add("rhi"); setTimeout(()=>tr.classList.remove("rhi"), 1700);
+      const od = tr.querySelector(".cOd"); if(od) od.focus();
+    }
+  }, 60);
+}
+function rSetDates(emp){
+  if(!emp.od){ emp.doDate=""; emp.javuva=""; }
+  else autoFillDates(emp, true);
+}
+function rRefreshRow(emp){
+  const tr = document.querySelector('#rBody tr[data-id="'+emp.id+'"]'); if(!tr) return;
+  const odEl=tr.querySelector('.cOd'), doEl=tr.querySelector('.cDo'), jvEl=tr.querySelector('.cJv'), sEl=tr.querySelector('.cSt'), dn=tr.querySelector('.cDays');
+  const ae=document.activeElement;
+  if(odEl && odEl!==ae){ odEl.value = emp.od? fmtMK(emp.od):""; odEl.classList.remove("bad"); }
+  if(doEl && doEl!==ae){ doEl.value = emp.doDate? fmtMK(emp.doDate):""; doEl.classList.remove("bad"); }
+  if(jvEl && jvEl!==ae){ jvEl.value = emp.javuva? fmtMK(emp.javuva):""; jvEl.classList.remove("bad"); }
+  if(dn) dn.placeholder=String(part1Days(emp));
+  if(sEl) sEl.innerHTML=rStatusHTML(emp);
+}
+function renderRoster(){
+  const body=$("rBody"); if(!body) return;
+  body.innerHTML="";
+  state.employees.forEach((emp, i)=>{
+    const tr=document.createElement("tr");
+    tr.setAttribute("data-id", emp.id);
+    tr.innerHTML =
+      '<td class="ord"><button type="button" data-a="up" title="Помести нагоре">▲</button> <button type="button" data-a="down" title="Помести надолу">▼</button></td>'+
+      '<td class="num">'+(i+1)+'</td>'+
+      '<td class="nmcol"><input type="text" class="cName" value="'+esc(emp.name||"")+'" placeholder="Име и презиме"></td>'+
+      '<td class="pscol"><select class="cPos">'+positionOptions(emp.position,false)+'</select></td>'+
+      '<td><input type="text" inputmode="numeric" class="cOd dmy" value="'+(emp.od?esc(fmtMK(emp.od)):'')+'" placeholder="дд.мм.гггг" title="Почетен датум на одморот (дд.мм.гггг)"></td>'+
+      '<td><input type="number" class="cDays" min="1" value="'+esc(emp.del1||"")+'" placeholder="'+part1Days(emp)+'" title="Денови во ова решение (празно = стандардно по работно место)"></td>'+
+      '<td><input type="text" inputmode="numeric" class="cDo dmy" value="'+(emp.doDate?esc(fmtMK(emp.doDate)):'')+'" placeholder="дд.мм.гггг" title="Заклучно со — се пресметува автоматски, но може и рачно (дд.мм.гггг)"></td>'+
+      '<td><input type="text" inputmode="numeric" class="cJv dmy" value="'+(emp.javuva?esc(fmtMK(emp.javuva)):'')+'" placeholder="дд.мм.гггг" title="Враќање на работа — се пресметува автоматски, но може и рачно (дд.мм.гггг)"></td>'+
+      '<td class="st cSt">'+rStatusHTML(emp)+'</td>'+
+      '<td><button type="button" class="del" data-a="del" title="Избриши">×</button></td>';
+    body.appendChild(tr);
+  });
+  rUpdateProgress();
+}
+function rMove(id, dir){
+  const a=state.employees, i=a.findIndex(e=>e.id===id); if(i<0) return;
+  const j=i+dir; if(j<0||j>=a.length) return;
+  const t=a[i]; a[i]=a[j]; a[j]=t;
+  persist(); renderRoster(); renderList();
+}
+function bindRoster(){
+  const body=$("rBody"); if(!body) return;
+  body.addEventListener("input", e=>{
+    const tr=e.target.closest("tr[data-id]"); if(!tr) return;
+    const emp=state.employees.find(x=>x.id===tr.getAttribute("data-id")); if(!emp) return;
+    if(e.target.classList.contains("cName")){ emp.name=e.target.value; persist(); }
+  });
+  body.addEventListener("change", e=>{
+    const tr=e.target.closest("tr[data-id]"); if(!tr) return;
+    const emp=state.employees.find(x=>x.id===tr.getAttribute("data-id")); if(!emp) return;
+    const t=e.target;
+    if(t.classList.contains("cName")){ emp.name=t.value; }
+    else if(t.classList.contains("cPos")){ emp.position=t.value; rSetDates(emp); }
+    else if(t.classList.contains("cOd")){
+      const iso=parseDMYtoIso(t.value);
+      if(iso===null){ t.classList.add("bad"); toast("Неважечки датум. Внеси во формат дд.мм.гггг (пр. 17.08.2026).","err"); return; }
+      t.classList.remove("bad"); emp.od=iso; rSetDates(emp);
+    }
+    else if(t.classList.contains("cDays")){ emp.del1=(t.value||"").trim(); rSetDates(emp); }
+    else if(t.classList.contains("cDo")){            // рачно менување на „Заклучно со"
+      const iso=parseDMYtoIso(t.value);
+      if(iso===null){ t.classList.add("bad"); toast("Неважечки датум. дд.мм.гггг.","err"); return; }
+      t.classList.remove("bad"); emp.doDate=iso;
+      if(!emp.doDate){ rSetDates(emp); }
+      else { const ret=nextWorkingDay(parseDate(emp.doDate)); emp.javuva = ret?toIso(ret):""; }
+    }
+    else if(t.classList.contains("cJv")){            // рачно менување на „Враќање"
+      const iso=parseDMYtoIso(t.value);
+      if(iso===null){ t.classList.add("bad"); toast("Неважечки датум. дд.мм.гггг.","err"); return; }
+      t.classList.remove("bad"); emp.javuva=iso;
+      if(!emp.javuva){ const ret=nextWorkingDay(parseDate(emp.doDate)); emp.javuva = ret?toIso(ret):""; }
+    }
+    persist(); rRefreshRow(emp); rUpdateProgress(); renderList(); renderDetail(); renderPreview();
+  });
+  body.addEventListener("click", e=>{
+    const btn=e.target.closest("button[data-a]"); if(!btn) return;
+    const tr=e.target.closest("tr[data-id]"); if(!tr) return;
+    const id=tr.getAttribute("data-id"), a=btn.getAttribute("data-a");
+    if(a==="up") rMove(id,-1);
+    else if(a==="down") rMove(id,1);
+    else if(a==="del"){
+      const emp=state.employees.find(x=>x.id===id);
+      if(emp && confirm('Да се избрише „'+(emp.name||"овој вработен")+'"?')){
+        state.employees=state.employees.filter(x=>x.id!==id);
+        if(state.sel===id) state.sel=state.employees[0]?state.employees[0].id:null;
+        persist(); renderRoster(); renderList(); renderDetail(); renderPreview();
+      }
+    }
+  });
+  $("rAdd").addEventListener("click", ()=>{
+    const e=newEmployee("", POS.sorab, "f");
+    state.employees.push(e); state.sel=e.id;
+    persist(); renderRoster(); renderList();
+    const tr=document.querySelector('#rBody tr[data-id="'+e.id+'"]');
+    if(tr){ if(tr.scrollIntoView) tr.scrollIntoView({behavior:"smooth",block:"center"}); const nm=tr.querySelector(".cName"); if(nm) nm.focus(); }
+  });
+  $("rGroup").addEventListener("click", ()=>{
+    state.employees = state.employees
+      .map((e,idx)=>[e,idx])
+      .sort((A,B)=> (roleRank(A[0].position)-roleRank(B[0].position)) || (A[1]-B[1]))
+      .map(p=>p[0]);
+    persist(); renderRoster(); renderList();
+    toast("Списокот е подреден по работно место.","ok");
+  });
+  $("rClear").addEventListener("click", ()=>{
+    if(!confirm("Да се исчистат сите внесени датуми (Користи од, Заклучно со, Враќање и денови) за СИТЕ вработени? Имињата и работните места остануваат.")) return;
+    state.employees.forEach(e=>{ e.od=""; e.doDate=""; e.javuva=""; e.del1=""; });
+    persist(); renderRoster(); renderList(); renderDetail(); renderPreview();
+    toast("Сите датуми се исчистени.","ok");
+  });
+}
+
+/* ---------- boot ---------- */
+function renderAll(){ renderList(); renderDetail(); renderPreview(); fillBulkControls(); updateDashboard(); }
+load();
+bindSettings();
+bindText();
+bindTop();
+bindRoster();
+renderAll();
+})();
+</script>
+</body>
+</html>
