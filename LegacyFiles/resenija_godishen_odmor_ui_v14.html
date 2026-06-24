@@ -244,7 +244,9 @@
   .rgrid .ord button:hover{background:var(--accent);color:#fff}
   .rgrid input[type=text],.rgrid input[type=number],.rgrid input[type=date],.rgrid select{width:100%;box-sizing:border-box;padding:6px 8px;border:1px solid var(--line);border-radius:8px;font:inherit;background:#fff;color:var(--ink)}
   .rgrid input[type=number]{width:80px;text-align:center}
-  .rgrid input[type=date]{width:155px}
+  .rgrid input.dmy{width:118px;text-align:center}
+  .rgrid input.dmy.bad{border-color:var(--bad);background:#fff5f5}
+  input.bad{border-color:var(--bad)!important;background:#fff5f5}
   .rgrid .nmcol{min-width:190px}
   .rgrid .pscol{min-width:172px}
   .rgrid .calc{white-space:nowrap;font-variant-numeric:tabular-nums}
@@ -255,7 +257,6 @@
   .rgrid .del{background:#fff;color:var(--bad);border-color:var(--line);border-radius:8px;padding:3px 9px;font-size:14px;line-height:1}
   .rgrid .del:hover{background:var(--bad);color:#fff;border-color:var(--bad)}
   .rgrid .st .warn{color:var(--bad);font-weight:700}
-  .rgrid input[type=date]{width:144px}
   .leave-summary{margin-top:10px;border:1px solid var(--line);border-radius:12px;padding:11px 12px;background:#f8fafc}
   .leave-summary.empty{background:#fff}
   .leave-summary .ls-top{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
@@ -265,7 +266,7 @@
   .leave-summary .ls-hint{margin-top:6px;font-size:11.5px;color:var(--muted);line-height:1.35}
   #rBody tr.rhi{animation:rhiPulse 1.7s ease}
   @keyframes rhiPulse{0%{background:#fff3bf}55%{background:#fff9db}100%{background:transparent}}
-  @media(max-width:760px){ .rscroll{max-height:none} .rgrid input[type=date]{width:136px} }
+  @media(max-width:760px){ .rscroll{max-height:none} .rgrid input.dmy{width:104px} }
 </style>
 </head>
 <body>
@@ -289,6 +290,7 @@
           <button data-mode="sep" type="button">посебно</button>
         </div>
       </div>
+      <label class="grpchk" title="Во заедничкиот документ/печатење: групирај ги решенијата по работно место, со насловна страница за секоја секција (пр. СТРУЧЕН СОРАБОТНИК)."><input id="chk_group" type="checkbox" style="width:auto;vertical-align:-2px"> по секции</label>
     </div>
   </div>
   <nav class="appnav" aria-label="Навигација низ апликацијата">
@@ -342,8 +344,8 @@
           <div><label>Тип на работно време</label><select id="bulk_tip"><option value="">Не менувај</option><option value="неопределено">неопределено</option><option value="определено">определено</option></select></div>
           <div><label>Вкупно денови одмор</label><input id="bulk_total" type="number" min="0" max="90" placeholder="остави празно"></div>
           <div><label>Денови во ова решение</label><input id="bulk_part" type="number" min="0" max="90" placeholder="остави празно"></div>
-          <div><label>Користи од</label><input id="bulk_start" type="date"></div>
-          <div><label>Датум на решение</label><input id="bulk_decisionDate" type="date"></div>
+          <div><label>Користи од</label><input id="bulk_start" type="text" inputmode="numeric" placeholder="дд.мм.гггг"></div>
+          <div><label>Датум на решение</label><input id="bulk_decisionDate" type="text" inputmode="numeric" placeholder="дд.мм.гггг"></div>
         </div>
         <div class="row" style="margin-top:12px">
           <button id="bulk_apply" class="secondary" type="button">Примени во избраните</button>
@@ -370,7 +372,7 @@
         </div>
         <div class="grid2">
           <div><label>Изработил (име)</label><input id="s_izrabotil" type="text"></div>
-          <div><label>Стандарден датум на решение</label><input id="s_date" type="date"></div>
+          <div><label>Стандарден датум на решение</label><input id="s_date" type="text" inputmode="numeric" placeholder="дд.мм.гггг"></div>
         </div>
         <div class="grid2">
           <div><label>Основа на број (пр. 04-92)</label><input id="s_brojBase" type="text"></div>
@@ -410,7 +412,8 @@
         </div>
         <label style="margin-top:12px"><input id="r_skipwe" type="checkbox" style="width:auto;vertical-align:-2px"> Прескокни сабота и недела при пресметка на датуми</label>
         <label>Неработни денови (празници) што се прескокнуваат</label>
-        <textarea id="r_holidays" rows="2" placeholder="пр. 02.08.2025, 08.09.2025"></textarea>
+        <textarea id="r_holidays" rows="2" placeholder="пр. 02.08.2026, 08.09.2026"></textarea>
+        <div class="hint" style="font-size:11.5px;color:var(--muted);margin-top:4px">Ако празник падне во недела, наредниот понеделник автоматски се смета за неработен (според Законот за празниците). Доволно е да го внесете самиот празник.</div>
       </div>
     </section>
   </section>
@@ -443,6 +446,12 @@
       <div class="body">
         <div class="hint">Стандардниот текст е веќе внесен — менувајте само ако треба. Користете <b>{ознаки}</b> за податоците и <b>**текст**</b> за задебелено. Кликни во поле, па на ознака за да ја вметнеш.</div>
         <div class="tokens" id="tokenChips"></div>
+
+        <div class="scopebox" style="border:1px solid var(--line);border-radius:12px;padding:10px 12px;background:#f8fafc;margin:6px 0 4px">
+          <label style="margin:0">Текстот подолу важи за:</label>
+          <select id="t_scope" style="margin-top:4px"></select>
+          <div id="t_scopeNote" class="hint" style="margin-top:6px"></div>
+        </div>
 
         <div class="sec-title">Основ — членови на закон</div>
         <textarea id="t_para1" rows="5"></textarea>
@@ -606,6 +615,8 @@ function defaultSettings(){
               "Воспитувач":25, "Одделенски наставник":25, "Предметен наставник":25, "Технички персонал":20 },
     skipWeekends:true,
     holidays:"",
+    groupByRole:true,
+    textOverrides:{},
     text: defaultText()
   };
 }
@@ -627,7 +638,7 @@ function defaultText(){
 
 /* ---------- state ---------- */
 let state = { employees:[], settings:defaultSettings(), sel:null };
-let ui = { roleFilter:"", onlyNoDates:false, zoom:"fit", mode:"one" };
+let ui = { roleFilter:"", onlyNoDates:false, zoom:"fit", mode:"one", textScope:"" };
 
 function uid(){ return (crypto.randomUUID? crypto.randomUUID() : "id"+Date.now()+Math.random()); }
 
@@ -682,6 +693,7 @@ function parseDate(v){
 }
 function toIso(d){ return d ? d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate()) : ""; }
 function fmtMK(v){ const d = parseDate(v); return d ? pad(d.getDate())+"."+pad(d.getMonth()+1)+"."+d.getFullYear() : (v||"________"); }
+function parseDMYtoIso(s){ s=String(s||"").trim(); if(!s) return ""; const d=parseDate(s); return d? toIso(d) : null; }  /* ""=празно, null=неважечки */
 function addDays(d,n){ const x=new Date(d); x.setDate(x.getDate()+n); return x; }
 function todayIso(){ const d=new Date(); return toIso(d); }
 
@@ -717,7 +729,12 @@ function syncDateDropdown(host, key, iso){
 
 function holidaySet(){
   const set = new Set();
-  String(state.settings.holidays||"").split(/[\n,;]+/).map(s=>s.trim()).filter(Boolean).forEach(s=>{ const d=parseDate(s); if(d) set.add(toIso(d)); });
+  String(state.settings.holidays||"").split(/[\n,;]+/).map(s=>s.trim()).filter(Boolean).forEach(s=>{
+    const d=parseDate(s); if(!d) return;
+    set.add(toIso(d));
+    // Закон за празниците: ако празникот падне во недела, се празнува наредниот ден (понеделник) — тој е неработен.
+    if(d.getDay()===0) set.add(toIso(addDays(d,1)));
+  });
   return set;
 }
 function isWorkingDay(d, hol){
@@ -796,9 +813,14 @@ function mdBold(s){ return esc(s).replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>
 function render(tpl, map){ return mdBold(fillTokens(tpl, map)); }
 
 /* ---------- the document HTML (inline styles → identical in preview/print/Word) ---------- */
+function resolveText(emp){
+  const base = state.settings.text || {};
+  const ov = (state.settings.textOverrides||{})[emp && emp.position];
+  return ov ? Object.assign({}, base, ov) : base;   // category override (if any) takes precedence
+}
 function docHTML(emp, index, opts){
   opts = opts||{};
-  const s = state.settings, T = s.text, map = tokenMap(emp, index);
+  const s = state.settings, T = resolveText(emp), map = tokenMap(emp, index);
   const P = "margin:0 0 13px;text-align:justify;text-indent:40px;line-height:1.55";
 
   let logo = "";
@@ -987,7 +1009,7 @@ function renderDetail(){
       emp[k] = e.target.value;
       persist(); renderPreview();
       $("detailTitle").textContent = "Картичка: "+(emp.name||"(без име)");
-      refreshListRow(emp); updateWarns(emp);
+      refreshListRow(emp); updateWarns(emp); updateLeaveSummary(emp);
     });
   });
   // wire remaining date dropdowns (датум на вработување, датум на решение)
@@ -1045,10 +1067,42 @@ function autoFillDates(emp, force){
 
 /* ---------- output: print ---------- */
 function selectedEmployees(){ return state.employees.filter(e=>e.sel); }
+
+/* ---------- grouping into sections (by работно место) for combined output ---------- */
+function orderedForOutput(list){
+  if(!state.settings.groupByRole) return list.slice();
+  return list.map((e,i)=>[e,i])
+    .sort((A,B)=> (roleRank(A[0].position)-roleRank(B[0].position)) || (A[1]-B[1]))
+    .map(p=>p[0]);
+}
+function outputSequence(list){
+  const ordered = orderedForOutput(list);
+  const cats = new Set(ordered.map(e=>e.position));
+  const group = !!state.settings.groupByRole && cats.size>1;   // sections only when printing across multiple работни места
+  const seq = []; let lastRole = null;
+  ordered.forEach(e=>{
+    if(group && e.position!==lastRole){ seq.push({type:"sec", title:e.position}); lastRole = e.position; }
+    seq.push({type:"doc", emp:e});
+  });
+  return seq;
+}
+function sectionPageHTML(title, opts){
+  opts = opts||{};
+  const brk = opts.pageBreakBefore ? "page-break-before:always;break-before:page;" : "";
+  return '<div class="sheet" style="'+brk+'"><div style="text-align:center;margin-top:130px">'+
+    '<div style="font-style:italic;font-size:13pt;margin-bottom:10px">Решенија за годишен одмор</div>'+
+    '<div style="font-weight:bold;font-size:22pt;letter-spacing:.10em">'+esc(String(title||"").toUpperCase())+'</div>'+
+    '</div></div>';
+}
+
 function doPrint(list){
   if(!list.length){ toast("Нема избрани вработени.","err"); return; }
   const root = $("printroot");
-  root.innerHTML = list.map((e,i)=>docHTML(e, state.employees.indexOf(e), {pageBreakBefore:i>0})).join("");
+  const seq = outputSequence(list);
+  root.innerHTML = seq.map((it,i)=>{
+    if(it.type==="sec") return sectionPageHTML(it.title, {pageBreakBefore:i>0});
+    return docHTML(it.emp, state.employees.indexOf(it.emp), {pageBreakBefore:i>0});
+  }).join("");
   // give layout a tick, then print
   setTimeout(()=>{ window.print(); }, 60);
 }
@@ -1086,9 +1140,11 @@ function doWord(list, separate){
     zip.generateAsync({type:"blob"}).then(b=> downloadBlob(b, "Resenija_godishen_odmor_"+todayIso()+".zip"));
     toast("Подготвени "+list.length+" посебни Word документи (ZIP).","ok");
   } else {
-    const inner = list.map((e,i)=>{
+    const seq = outputSequence(list);
+    const inner = seq.map((it,i)=>{
       const pb = i>0 ? '<br clear="all" style="page-break-before:always;mso-special-character:line-break">' : '';
-      return pb + sheetForWord(e, state.employees.indexOf(e));
+      if(it.type==="sec") return pb + sectionPageHTML(it.title, {forWord:true});
+      return pb + sheetForWord(it.emp, state.employees.indexOf(it.emp));
     }).join("");
     const html = wordWrap(inner);
     const fname = list.length===1 ? safeName("Resenie_"+(list[0].name||"vraboten"))+".doc"
@@ -1113,7 +1169,7 @@ function fillSettings(){
   const set = (id,val)=>{ const el=$(id); if(el) el.value = val; };
   set("s_title1", s.title1); set("s_title2", s.title2);
   set("s_dirTitle", s.dirTitle); set("s_dirName", s.dirName); set("s_izrabotil", s.izrabotil);
-  set("s_date", toIso(parseDate(s.decisionDate))); set("s_brojBase", s.brojBase); set("s_brojStart", s.brojStart);
+  set("s_date", s.decisionDate? fmtMK(s.decisionDate):""); set("s_brojBase", s.brojBase); set("s_brojStart", s.brojStart);
   set("r_base", s.base); set("r_max", s.max);
   const we=$("r_skipwe"); if(we) we.checked = !!s.skipWeekends; set("r_holidays", s.holidays);
   const sb=$("s_showBroj"); if(sb) sb.checked = s.showBroj!==false;
@@ -1144,7 +1200,14 @@ function bindSettings(){
   };
   wire("s_title1","title1"); wire("s_title2","title2");
   wire("s_dirTitle","dirTitle"); wire("s_dirName","dirName"); wire("s_izrabotil","izrabotil");
-  wire("s_date","decisionDate"); wire("s_brojBase","brojBase"); wire("s_brojStart","brojStart");
+  wire("s_brojBase","brojBase"); wire("s_brojStart","brojStart");
+  const sd=$("s_date");
+  if(sd) sd.addEventListener("change", ()=>{
+    const iso=parseDMYtoIso(sd.value);
+    if(iso===null){ sd.classList.add("bad"); toast("Неважечки датум. Внеси во формат дд.мм.гггг.","err"); return; }
+    sd.classList.remove("bad"); s.decisionDate=iso; sd.value = iso? fmtMK(iso):"";
+    persist(); renderPreview(); renderList(); renderDetail();
+  });
   wire("r_base","base"); wire("r_max","max");
   wire("r_skipwe","skipWeekends"); wire("r_holidays","holidays");
   wire("s_showBroj","showBroj"); wire("s_showLogo","showLogo");
@@ -1211,13 +1274,50 @@ const TOKENS = [
   ["{rabotnikot}","работникот / работничката"], ["{rabotnik}","работник / работничка"]
 ];
 let lastTextEl = null;
+function textScopeSource(){
+  // values to show in the fields for the current scope
+  if(!ui.textScope) return state.settings.text;
+  const ov = (state.settings.textOverrides||{})[ui.textScope];
+  return ov || state.settings.text;   // no override yet → show standard text as a starting point
+}
 function fillText(){
-  const T = state.settings.text;
-  TEXT_FIELDS.forEach(([id,key])=>{ const el=$(id); if(el) el.value = T[key]||""; });
+  const src = textScopeSource();
+  TEXT_FIELDS.forEach(([id,key])=>{ const el=$(id); if(el) el.value = src[key]||""; });
+}
+function ensureOverrideSnapshot(){
+  // called on first edit while a category scope is active: copy the currently shown (standard) text
+  const ov = state.settings.textOverrides || (state.settings.textOverrides = {});
+  if(!ov[ui.textScope]){
+    ov[ui.textScope] = {};
+    TEXT_FIELDS.forEach(([id,key])=>{ const el=$(id); ov[ui.textScope][key] = el ? el.value : (state.settings.text[key]||""); });
+  }
+  return ov[ui.textScope];
+}
+function hasOverride(role){ const o=state.settings.textOverrides||{}; return !!o[role]; }
+function fillScopeSelect(){
+  const sel=$("t_scope"); if(!sel) return;
+  const extra=[...new Set(state.employees.map(e=>e.position).filter(p=>p && !ROLE_ORDER.includes(p)))];
+  const roles=ROLE_ORDER.concat(extra);
+  sel.innerHTML='<option value="">Сите вработени (стандарден текст)</option>'+
+    roles.map(r=>'<option value="'+esc(r)+'"'+(r===ui.textScope?' selected':'')+'>'+esc(r)+(hasOverride(r)?'  ✔ посебен':'')+'</option>').join('');
+}
+function updateScopeNote(){
+  const note=$("t_scopeNote"), reset=$("t_reset"); if(!note) return;
+  if(!ui.textScope){
+    note.innerHTML='Овој текст се користи за <b>сите</b> вработени, освен оние што имаат посебен текст.';
+    if(reset) reset.textContent='Врати стандарден текст';
+  } else if(hasOverride(ui.textScope)){
+    note.innerHTML='Посебен текст само за <b>'+esc(ui.textScope)+'</b>. Се применува автоматски при печатење/Word за таа категорија.';
+    if(reset) reset.textContent='Избриши посебен текст (наследи стандарден)';
+  } else {
+    note.innerHTML='<b>'+esc(ui.textScope)+'</b> сега го наследува стандардниот текст. Изменете кое било поле за да создадете <b>посебен</b> текст само за оваа категорија.';
+    if(reset) reset.textContent='Врати стандарден текст';
+  }
 }
 function bindText(){
   fillText();
   if(!$("textCard")) return;
+  fillScopeSelect(); updateScopeNote();
   const chips = $("tokenChips");
   chips.innerHTML = TOKENS.map(([t,d])=>'<span class="chip" data-tok="'+esc(t)+'" title="'+esc(d)+'">'+esc(t)+'</span>').join("");
   chips.addEventListener("click", e=>{
@@ -1230,15 +1330,28 @@ function bindText(){
     el.focus();
     el.dispatchEvent(new Event("input",{bubbles:true}));
   });
+  $("t_scope").addEventListener("change", e=>{ ui.textScope = e.target.value; fillText(); updateScopeNote(); renderPreview(); });
   TEXT_FIELDS.forEach(([id,key])=>{
     const el = $(id); if(!el) return;
     el.addEventListener("focus", ()=> lastTextEl = el);
-    el.addEventListener("input", ()=>{ state.settings.text[key] = el.value; persist(); renderPreview(); });
+    el.addEventListener("input", ()=>{
+      if(!ui.textScope){ state.settings.text[key] = el.value; }
+      else { const ov = ensureOverrideSnapshot(); ov[key] = el.value; fillScopeSelect(); updateScopeNote(); }
+      persist(); renderPreview();
+    });
   });
   $("t_reset").addEventListener("click", ()=>{
-    if(confirm("Да се врати стандардниот текст на решението? Сите измени во текстот ќе се изгубат.")){
-      state.settings.text = defaultText(); fillText(); persist(); renderPreview();
-      toast("Текстот е вратен на стандарден.","ok");
+    if(!ui.textScope){
+      if(confirm("Да се врати стандардниот текст на решението? Сите измени во стандардниот текст ќе се изгубат.")){
+        state.settings.text = defaultText(); fillText(); persist(); renderPreview();
+        toast("Стандардниот текст е вратен.","ok");
+      }
+    } else {
+      if(confirm("Да се избрише посебниот текст за „"+ui.textScope+"“? Таа категорија пак ќе го користи стандардниот текст.")){
+        if(state.settings.textOverrides) delete state.settings.textOverrides[ui.textScope];
+        fillText(); fillScopeSelect(); updateScopeNote(); persist(); renderPreview();
+        toast("Посебниот текст е избришан.","ok");
+      }
     }
   });
 }
@@ -1320,6 +1433,7 @@ function showTab(name){
   ui.tab = name;
   if(name==="employees"){ renderDetail(); scalePreview(); }
   if(name==="roster") renderRoster();
+  if(name==="text"){ fillScopeSelect(); fillText(); updateScopeNote(); }
   try{ window.scrollTo({top:0, behavior:"auto"}); }catch(e){}
 }
 function fillBulkControls(){
@@ -1337,8 +1451,9 @@ function applyBulkSelected(){
   const tip = $("bulk_tip").value;
   const total = $("bulk_total").value;
   const part = $("bulk_part").value;
-  const start = $("bulk_start").value;
-  const decisionDate = $("bulk_decisionDate").value;
+  const start = parseDMYtoIso($("bulk_start").value);
+  const decisionDate = parseDMYtoIso($("bulk_decisionDate").value);
+  if(start===null || decisionDate===null){ toast("Неважечки датум во групните полиња. Внеси во формат дд.мм.гггг.","err"); return; }
   const changed = position || tip || total!=="" || part!=="" || start || decisionDate;
   if(!changed){ toast("Нема внесена групна измена.","err"); return; }
   list.forEach(e=>{
@@ -1399,6 +1514,9 @@ function bindTop(){
   });
   $("btnPrint").addEventListener("click", ()=> doPrint(selectedEmployees()));
   $("btnWord").addEventListener("click", ()=> doWord(selectedEmployees(), ui.mode==="sep"));
+  const gchk=$("chk_group");
+  if(gchk){ gchk.checked = state.settings.groupByRole!==false;
+    gchk.addEventListener("change", ()=>{ state.settings.groupByRole = gchk.checked; persist(); toast(gchk.checked?"Решенијата ќе се групираат по работно место со наслови на секции.":"Групирањето по секции е исклучено.","ok"); }); }
 
   $("d_export").addEventListener("click", exportJson);
   $("d_importJson").addEventListener("change", e=>{ if(e.target.files[0]) importJson(e.target.files[0]); e.target.value=""; });
@@ -1428,17 +1546,30 @@ function rStatusHTML(emp){
   if(isComplete(emp)) return '<span class="ok">✓ подготвено</span>';
   return '<span class="no">нецелосно</span>';
 }
+function leaveSummaryText(emp){
+  const total = totalDays(emp);                 // full annual entitlement
+  const part  = part1Days(emp);                 // days in THIS decision (del1, or full if empty)
+  const isPart = parseInt(emp.del1,10) > 0;     // an explicit installment was set in the grid
+  const has = hasDates(emp);
+  const daysTxt = isPart ? (part+" од вкупно "+total+" раб. дена")
+                         : (total+" раб. дена (полн одмор)");
+  return has ? (daysTxt+" · "+fmtMK(emp.od)+" – "+fmtMK(emp.doDate)+" · враќање "+fmtMK(emp.javuva))
+             : (daysTxt+" · сè уште нема внесен почетен датум");
+}
 function leaveSummaryHTML(emp){
   const has = hasDates(emp);
-  const body = has
-    ? esc(part1Days(emp)+" раб. дена · "+fmtMK(emp.od)+" – "+fmtMK(emp.doDate)+" · враќање "+fmtMK(emp.javuva))
-    : "Сè уште нема внесени датуми за одмор.";
   return '<div class="leave-summary'+(has?'':' empty')+'">'+
       '<div class="ls-top"><span class="ls-label">📅 Годишен одмор</span>'+
       '<button class="ghost tiny" id="btnEditDates" type="button">✎ Внеси / уреди датуми</button></div>'+
-      '<div class="ls-body">'+body+'</div>'+
-      '<div class="ls-hint">Датумите се внесуваат во табот „Список и датуми“ — почетен датум (+ денови) и крајот со враќањето се пресметуваат сами.</div>'+
+      '<div class="ls-body">'+esc(leaveSummaryText(emp))+'</div>'+
+      '<div class="ls-hint">Почетниот датум и „Денови“ (овој дел од одморот) се внесуваат во „Список и датуми“. Полето „Вкупно денови одмор“ горе е целото годишно право — менувајте го тука.</div>'+
     '</div>';
+}
+function updateLeaveSummary(emp){
+  const host=$("detail"); if(!host) return;
+  const box=host.querySelector('.leave-summary'), body=host.querySelector('.leave-summary .ls-body');
+  if(box) box.classList.toggle('empty', !hasDates(emp));
+  if(body) body.textContent = leaveSummaryText(emp);
 }
 function gotoEmployeeDates(id){
   state.sel = id;
@@ -1460,9 +1591,9 @@ function rRefreshRow(emp){
   const tr = document.querySelector('#rBody tr[data-id="'+emp.id+'"]'); if(!tr) return;
   const odEl=tr.querySelector('.cOd'), doEl=tr.querySelector('.cDo'), jvEl=tr.querySelector('.cJv'), sEl=tr.querySelector('.cSt'), dn=tr.querySelector('.cDays');
   const ae=document.activeElement;
-  if(odEl && odEl!==ae) odEl.value = emp.od||"";
-  if(doEl && doEl!==ae) doEl.value = emp.doDate||"";
-  if(jvEl && jvEl!==ae) jvEl.value = emp.javuva||"";
+  if(odEl && odEl!==ae){ odEl.value = emp.od? fmtMK(emp.od):""; odEl.classList.remove("bad"); }
+  if(doEl && doEl!==ae){ doEl.value = emp.doDate? fmtMK(emp.doDate):""; doEl.classList.remove("bad"); }
+  if(jvEl && jvEl!==ae){ jvEl.value = emp.javuva? fmtMK(emp.javuva):""; jvEl.classList.remove("bad"); }
   if(dn) dn.placeholder=String(part1Days(emp));
   if(sEl) sEl.innerHTML=rStatusHTML(emp);
 }
@@ -1477,10 +1608,10 @@ function renderRoster(){
       '<td class="num">'+(i+1)+'</td>'+
       '<td class="nmcol"><input type="text" class="cName" value="'+esc(emp.name||"")+'" placeholder="Име и презиме"></td>'+
       '<td class="pscol"><select class="cPos">'+positionOptions(emp.position,false)+'</select></td>'+
-      '<td><input type="date" class="cOd" value="'+esc(emp.od||"")+'" title="Почетен датум на одморот"></td>'+
+      '<td><input type="text" inputmode="numeric" class="cOd dmy" value="'+(emp.od?esc(fmtMK(emp.od)):'')+'" placeholder="дд.мм.гггг" title="Почетен датум на одморот (дд.мм.гггг)"></td>'+
       '<td><input type="number" class="cDays" min="1" value="'+esc(emp.del1||"")+'" placeholder="'+part1Days(emp)+'" title="Денови во ова решение (празно = стандардно по работно место)"></td>'+
-      '<td><input type="date" class="cDo" value="'+esc(emp.doDate||"")+'" title="Заклучно со — се пресметува автоматски, но може и рачно"></td>'+
-      '<td><input type="date" class="cJv" value="'+esc(emp.javuva||"")+'" title="Враќање на работа — се пресметува автоматски, но може и рачно"></td>'+
+      '<td><input type="text" inputmode="numeric" class="cDo dmy" value="'+(emp.doDate?esc(fmtMK(emp.doDate)):'')+'" placeholder="дд.мм.гггг" title="Заклучно со — се пресметува автоматски, но може и рачно (дд.мм.гггг)"></td>'+
+      '<td><input type="text" inputmode="numeric" class="cJv dmy" value="'+(emp.javuva?esc(fmtMK(emp.javuva)):'')+'" placeholder="дд.мм.гггг" title="Враќање на работа — се пресметува автоматски, но може и рачно (дд.мм.гггг)"></td>'+
       '<td class="st cSt">'+rStatusHTML(emp)+'</td>'+
       '<td><button type="button" class="del" data-a="del" title="Избриши">×</button></td>';
     body.appendChild(tr);
@@ -1506,15 +1637,23 @@ function bindRoster(){
     const t=e.target;
     if(t.classList.contains("cName")){ emp.name=t.value; }
     else if(t.classList.contains("cPos")){ emp.position=t.value; rSetDates(emp); }
-    else if(t.classList.contains("cOd")){ emp.od=(t.value||"").trim(); rSetDates(emp); }
+    else if(t.classList.contains("cOd")){
+      const iso=parseDMYtoIso(t.value);
+      if(iso===null){ t.classList.add("bad"); toast("Неважечки датум. Внеси во формат дд.мм.гггг (пр. 17.08.2026).","err"); return; }
+      t.classList.remove("bad"); emp.od=iso; rSetDates(emp);
+    }
     else if(t.classList.contains("cDays")){ emp.del1=(t.value||"").trim(); rSetDates(emp); }
-    else if(t.classList.contains("cDo")){            // manual override of end date
-      emp.doDate=(t.value||"").trim();
-      if(!emp.doDate){ rSetDates(emp); }             // cleared → recompute from start + days
+    else if(t.classList.contains("cDo")){            // рачно менување на „Заклучно со"
+      const iso=parseDMYtoIso(t.value);
+      if(iso===null){ t.classList.add("bad"); toast("Неважечки датум. дд.мм.гггг.","err"); return; }
+      t.classList.remove("bad"); emp.doDate=iso;
+      if(!emp.doDate){ rSetDates(emp); }
       else { const ret=nextWorkingDay(parseDate(emp.doDate)); emp.javuva = ret?toIso(ret):""; }
     }
-    else if(t.classList.contains("cJv")){            // manual override of return date
-      emp.javuva=(t.value||"").trim();
+    else if(t.classList.contains("cJv")){            // рачно менување на „Враќање"
+      const iso=parseDMYtoIso(t.value);
+      if(iso===null){ t.classList.add("bad"); toast("Неважечки датум. дд.мм.гггг.","err"); return; }
+      t.classList.remove("bad"); emp.javuva=iso;
       if(!emp.javuva){ const ret=nextWorkingDay(parseDate(emp.doDate)); emp.javuva = ret?toIso(ret):""; }
     }
     persist(); rRefreshRow(emp); rUpdateProgress(); renderList(); renderDetail(); renderPreview();
