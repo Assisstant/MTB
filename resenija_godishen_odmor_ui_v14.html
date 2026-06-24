@@ -254,7 +254,18 @@
   .rgrid .st .no{color:var(--muted)}
   .rgrid .del{background:#fff;color:var(--bad);border-color:var(--line);border-radius:8px;padding:3px 9px;font-size:14px;line-height:1}
   .rgrid .del:hover{background:var(--bad);color:#fff;border-color:var(--bad)}
-  @media(max-width:760px){ .rscroll{max-height:none} .rgrid input[type=date]{width:142px} }
+  .rgrid .st .warn{color:var(--bad);font-weight:700}
+  .rgrid input[type=date]{width:144px}
+  .leave-summary{margin-top:10px;border:1px solid var(--line);border-radius:12px;padding:11px 12px;background:#f8fafc}
+  .leave-summary.empty{background:#fff}
+  .leave-summary .ls-top{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
+  .leave-summary .ls-label{font-weight:700;color:var(--accent);font-size:13px}
+  .leave-summary .ls-body{margin-top:6px;font-size:13.5px;color:var(--ink);font-variant-numeric:tabular-nums}
+  .leave-summary.empty .ls-body{color:var(--muted)}
+  .leave-summary .ls-hint{margin-top:6px;font-size:11.5px;color:var(--muted);line-height:1.35}
+  #rBody tr.rhi{animation:rhiPulse 1.7s ease}
+  @keyframes rhiPulse{0%{background:#fff3bf}55%{background:#fff9db}100%{background:transparent}}
+  @media(max-width:760px){ .rscroll{max-height:none} .rgrid input[type=date]{width:136px} }
 </style>
 </head>
 <body>
@@ -958,17 +969,8 @@ function renderDetail(){
       field("Број на решение", '<input type="text" data-k="broj" placeholder="'+esc(brojFor(emp,idx))+'" value="'+esc(emp.broj)+'">')+
       field("Датум на решение", dateDropdown("decisionDate", emp.decisionDate||state.settings.decisionDate, NOW-3, NOW+3))+
     '</div>'+
-    '<div class="grid2">'+
-      field("Вкупно денови одмор", '<input type="number" min="0" max="90" data-k="vkupnoManual" placeholder="авто: '+auto+'" value="'+esc(emp.vkupnoManual)+'">')+
-      field("Денови во ова решение", '<input type="number" min="0" max="90" data-k="del1" placeholder="цел одмор: '+totalDays(emp)+'" value="'+esc(emp.del1)+'">')+
-    '</div>'+
-    '<div class="grid2">'+
-      field("Користи од", dateDropdown("od", emp.od, NOW-3, NOW+3))+
-      field("Заклучно со", dateDropdown("doDate", emp.doDate, NOW-3, NOW+3))+
-    '</div>'+
-    field("Се јавува на работа", dateDropdown("javuva", emp.javuva, NOW-3, NOW+3))+
-    '<div class="calcline"><button class="ghost tiny" id="btnCalc" type="button">↻ Пресметај датуми од почеток + денови</button>'+
-      '<button class="ghost tiny" id="btnCopyDates" type="button" title="Копирај ги овие датуми во сите штиклирани вработени">📋 Копирај во избраните</button></div>'+
+    field("Вкупно денови одмор", '<input type="number" min="0" max="90" data-k="vkupnoManual" placeholder="авто: '+auto+'" value="'+esc(emp.vkupnoManual)+'">')+
+    leaveSummaryHTML(emp)+
     '<div id="warnHost"></div>'+
     '<div class="out-bar">'+
       '<button class="secondary" id="btnPrintOne" type="button">🖨 Печати го ова решение</button>'+
@@ -976,45 +978,35 @@ function renderDetail(){
     '</div>'+
   '</div>';
 
-  // wire plain field edits (text / number / simple selects)
+  // wire plain field edits (text / number / simple selects). Dates & "денови во ова решение" now live in the "Список и датуми" tab.
   host.querySelectorAll("[data-k]").forEach(el=>{
     if(el.hasAttribute("data-part")) return; // date dropdowns handled separately
     const evt = (el.tagName==="SELECT") ? "change" : "input";
     el.addEventListener(evt, e=>{
       const k = e.target.getAttribute("data-k");
       emp[k] = e.target.value;
-      if((k==="del1" || k==="vkupnoManual") && emp.od && !emp.doDate){
-        autoFillDates(emp); syncDateDropdown(host,"doDate",emp.doDate); syncDateDropdown(host,"javuva",emp.javuva);
-      }
       persist(); renderPreview();
       $("detailTitle").textContent = "Картичка: "+(emp.name||"(без име)");
       refreshListRow(emp); updateWarns(emp);
     });
   });
-  // wire date dropdowns (ден / месец / година)
+  // wire remaining date dropdowns (датум на вработување, датум на решение)
   host.querySelectorAll("select[data-part]").forEach(el=>{
     el.addEventListener("change", ()=>{
       const k = el.getAttribute("data-k");
       emp[k] = readDateParts(host, k);
-      if(k==="od" && emp.od && !emp.doDate){
-        autoFillDates(emp); syncDateDropdown(host,"doDate",emp.doDate); syncDateDropdown(host,"javuva",emp.javuva);
-      }
       persist(); renderPreview(); refreshListRow(emp); updateWarns(emp);
     });
   });
-  $("btnCalc").addEventListener("click", ()=>{ autoFillDates(emp, true); persist(); renderDetail(); renderPreview(); renderList(); toast("Датумите се пресметани.","ok"); });
+  $("btnEditDates").addEventListener("click", ()=> gotoEmployeeDates(emp.id));
   $("btnPrintOne").addEventListener("click", ()=>doPrint([emp]));
   $("btnWordOne").addEventListener("click", ()=>doWord([emp], false));
-  $("btnCopyDates").addEventListener("click", ()=> copyDatesToSelected(emp.id));
   updateWarns(emp);
 }
 function updateWarns(emp){
   const host = $("warnHost"); if(!host) return;
   const w = []; const vk = totalDays(emp), d1 = parseInt(emp.del1,10);
-  if(d1>0 && d1>vk) w.push("Деновите во ова решение ("+d1+") се повеќе од вкупните ("+vk+").");
-  const od=parseDate(emp.od), dd=parseDate(emp.doDate), jv=parseDate(emp.javuva);
-  if(od&&dd&&dd<od) w.push("Крајниот датум („Заклучно со“) е пред почетниот („Користи од“).");
-  if(dd&&jv&&jv<=dd) w.push("Датумот на враќање треба да е по крајниот датум на одморот.");
+  if(d1>0 && d1>vk) w.push("Деновите во ова решение ("+d1+") се повеќе од вкупните ("+vk+"). Се менуваат во „Список и датуми“.");
   host.innerHTML = w.length ? '<div class="warnbox">'+w.map(x=>'<div><span>⚠</span><span>'+esc(x)+'</span></div>').join("")+'</div>' : '';
 }
 function refreshListRow(emp){
@@ -1326,7 +1318,7 @@ function showTab(name){
   document.querySelectorAll("main .view").forEach(v=> v.classList.toggle("active", v.getAttribute("data-view")===name));
   document.querySelectorAll(".appnav button[data-tab]").forEach(b=> b.classList.toggle("on", b.getAttribute("data-tab")===name));
   ui.tab = name;
-  if(name==="employees") scalePreview();
+  if(name==="employees"){ renderDetail(); scalePreview(); }
   if(name==="roster") renderRoster();
   try{ window.scrollTo({top:0, behavior:"auto"}); }catch(e){}
 }
@@ -1428,14 +1420,37 @@ function rUpdateProgress(){
   if(lbl) lbl.textContent = withD+" / "+total+" со датуми ("+pct+"%)";
   if(bar) bar.style.width = pct+"%";
 }
-function rCalcCells(emp){
-  const doT = emp.doDate ? fmtMK(emp.doDate) : "—";
-  const jvT = emp.javuva ? fmtMK(emp.javuva) : "—";
-  let st;
-  if(!emp.od) st = '<span class="no">без датум</span>';
-  else if(isComplete(emp)) st = '<span class="ok">✓ подготвено</span>';
-  else st = '<span class="no">нецелосно</span>';
-  return [doT, jvT, st];
+function rStatusHTML(emp){
+  if(!emp.od) return '<span class="no">без датум</span>';
+  const od=parseDate(emp.od), dd=parseDate(emp.doDate), jv=parseDate(emp.javuva);
+  if(od&&dd&&dd<od) return '<span class="warn">⚠ крај пред почеток</span>';
+  if(dd&&jv&&jv<=dd) return '<span class="warn">⚠ враќање ≤ крај</span>';
+  if(isComplete(emp)) return '<span class="ok">✓ подготвено</span>';
+  return '<span class="no">нецелосно</span>';
+}
+function leaveSummaryHTML(emp){
+  const has = hasDates(emp);
+  const body = has
+    ? esc(part1Days(emp)+" раб. дена · "+fmtMK(emp.od)+" – "+fmtMK(emp.doDate)+" · враќање "+fmtMK(emp.javuva))
+    : "Сè уште нема внесени датуми за одмор.";
+  return '<div class="leave-summary'+(has?'':' empty')+'">'+
+      '<div class="ls-top"><span class="ls-label">📅 Годишен одмор</span>'+
+      '<button class="ghost tiny" id="btnEditDates" type="button">✎ Внеси / уреди датуми</button></div>'+
+      '<div class="ls-body">'+body+'</div>'+
+      '<div class="ls-hint">Датумите се внесуваат во табот „Список и датуми“ — почетен датум (+ денови) и крајот со враќањето се пресметуваат сами.</div>'+
+    '</div>';
+}
+function gotoEmployeeDates(id){
+  state.sel = id;
+  showTab("roster");
+  setTimeout(()=>{
+    const tr = document.querySelector('#rBody tr[data-id="'+id+'"]');
+    if(tr){
+      if(tr.scrollIntoView) tr.scrollIntoView({behavior:"smooth", block:"center"});
+      tr.classList.add("rhi"); setTimeout(()=>tr.classList.remove("rhi"), 1700);
+      const od = tr.querySelector(".cOd"); if(od) od.focus();
+    }
+  }, 60);
 }
 function rSetDates(emp){
   if(!emp.od){ emp.doDate=""; emp.javuva=""; }
@@ -1443,12 +1458,13 @@ function rSetDates(emp){
 }
 function rRefreshRow(emp){
   const tr = document.querySelector('#rBody tr[data-id="'+emp.id+'"]'); if(!tr) return;
-  const [doT,jvT,st] = rCalcCells(emp);
-  const dEl=tr.querySelector('.cDo'), jEl=tr.querySelector('.cJv'), sEl=tr.querySelector('.cSt'), dn=tr.querySelector('.cDays');
-  if(dEl){ dEl.textContent=doT; dEl.classList.toggle('empty', !emp.doDate); }
-  if(jEl){ jEl.textContent=jvT; jEl.classList.toggle('empty', !emp.javuva); }
-  if(sEl){ sEl.innerHTML=st; }
-  if(dn){ dn.placeholder=String(part1Days(emp)); }
+  const odEl=tr.querySelector('.cOd'), doEl=tr.querySelector('.cDo'), jvEl=tr.querySelector('.cJv'), sEl=tr.querySelector('.cSt'), dn=tr.querySelector('.cDays');
+  const ae=document.activeElement;
+  if(odEl && odEl!==ae) odEl.value = emp.od||"";
+  if(doEl && doEl!==ae) doEl.value = emp.doDate||"";
+  if(jvEl && jvEl!==ae) jvEl.value = emp.javuva||"";
+  if(dn) dn.placeholder=String(part1Days(emp));
+  if(sEl) sEl.innerHTML=rStatusHTML(emp);
 }
 function renderRoster(){
   const body=$("rBody"); if(!body) return;
@@ -1456,17 +1472,16 @@ function renderRoster(){
   state.employees.forEach((emp, i)=>{
     const tr=document.createElement("tr");
     tr.setAttribute("data-id", emp.id);
-    const [doT,jvT,st] = rCalcCells(emp);
     tr.innerHTML =
       '<td class="ord"><button type="button" data-a="up" title="Помести нагоре">▲</button> <button type="button" data-a="down" title="Помести надолу">▼</button></td>'+
       '<td class="num">'+(i+1)+'</td>'+
       '<td class="nmcol"><input type="text" class="cName" value="'+esc(emp.name||"")+'" placeholder="Име и презиме"></td>'+
       '<td class="pscol"><select class="cPos">'+positionOptions(emp.position,false)+'</select></td>'+
-      '<td><input type="date" class="cOd" value="'+esc(emp.od||"")+'"></td>'+
+      '<td><input type="date" class="cOd" value="'+esc(emp.od||"")+'" title="Почетен датум на одморот"></td>'+
       '<td><input type="number" class="cDays" min="1" value="'+esc(emp.del1||"")+'" placeholder="'+part1Days(emp)+'" title="Денови во ова решение (празно = стандардно по работно место)"></td>'+
-      '<td class="calc cDo'+(emp.doDate?'':' empty')+'">'+doT+'</td>'+
-      '<td class="calc cJv'+(emp.javuva?'':' empty')+'">'+jvT+'</td>'+
-      '<td class="st cSt">'+st+'</td>'+
+      '<td><input type="date" class="cDo" value="'+esc(emp.doDate||"")+'" title="Заклучно со — се пресметува автоматски, но може и рачно"></td>'+
+      '<td><input type="date" class="cJv" value="'+esc(emp.javuva||"")+'" title="Враќање на работа — се пресметува автоматски, но може и рачно"></td>'+
+      '<td class="st cSt">'+rStatusHTML(emp)+'</td>'+
       '<td><button type="button" class="del" data-a="del" title="Избриши">×</button></td>';
     body.appendChild(tr);
   });
@@ -1493,7 +1508,16 @@ function bindRoster(){
     else if(t.classList.contains("cPos")){ emp.position=t.value; rSetDates(emp); }
     else if(t.classList.contains("cOd")){ emp.od=(t.value||"").trim(); rSetDates(emp); }
     else if(t.classList.contains("cDays")){ emp.del1=(t.value||"").trim(); rSetDates(emp); }
-    persist(); rRefreshRow(emp); rUpdateProgress(); renderList(); renderPreview();
+    else if(t.classList.contains("cDo")){            // manual override of end date
+      emp.doDate=(t.value||"").trim();
+      if(!emp.doDate){ rSetDates(emp); }             // cleared → recompute from start + days
+      else { const ret=nextWorkingDay(parseDate(emp.doDate)); emp.javuva = ret?toIso(ret):""; }
+    }
+    else if(t.classList.contains("cJv")){            // manual override of return date
+      emp.javuva=(t.value||"").trim();
+      if(!emp.javuva){ const ret=nextWorkingDay(parseDate(emp.doDate)); emp.javuva = ret?toIso(ret):""; }
+    }
+    persist(); rRefreshRow(emp); rUpdateProgress(); renderList(); renderDetail(); renderPreview();
   });
   body.addEventListener("click", e=>{
     const btn=e.target.closest("button[data-a]"); if(!btn) return;
@@ -1515,7 +1539,7 @@ function bindRoster(){
     state.employees.push(e); state.sel=e.id;
     persist(); renderRoster(); renderList();
     const tr=document.querySelector('#rBody tr[data-id="'+e.id+'"]');
-    if(tr){ tr.scrollIntoView({behavior:"smooth",block:"center"}); const nm=tr.querySelector(".cName"); if(nm) nm.focus(); }
+    if(tr){ if(tr.scrollIntoView) tr.scrollIntoView({behavior:"smooth",block:"center"}); const nm=tr.querySelector(".cName"); if(nm) nm.focus(); }
   });
   $("rGroup").addEventListener("click", ()=>{
     state.employees = state.employees
