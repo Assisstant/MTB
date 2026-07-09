@@ -1,0 +1,2829 @@
+<!DOCTYPE html>
+<html lang="mk" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Artis Atelier Solak — Галерија</title>
+<meta name="description" content="Artis Atelier Solak — уметничко ателје. Слика, цртеж, форма. Дигитален каталог на дела.">
+<meta property="og:title" content="Artis Atelier Solak">
+<meta property="og:description" content="Уметничко ателје — дигитален каталог на дела.">
+<meta property="og:type" content="website">
+<meta property="og:image" content="preview.jpg">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="theme-color" content="#2437B8">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='14' fill='%23161412'/%3E%3Ctext x='50' y='64' font-size='52' text-anchor='middle' fill='%23F2EFE7' font-family='Verdana,sans-serif' letter-spacing='3'%3ES%3C/text%3E%3Crect x='30' y='72' width='40' height='7' fill='%23C8291C'/%3E%3C/svg%3E">
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..800;1,9..144,300..800&family=IBM+Plex+Mono:wght@400;500&family=Space+Grotesk:wght@300;400;500;600&family=Julius+Sans+One&family=Caveat:wght@600&display=swap');
+
+/* ============ TOKENS ============ */
+:root{
+  --bg:#EAE7E0;            /* plaster */
+  --bg2:#F3F1EB;           /* raw canvas */
+  --ink:#1B1A18;           /* charcoal */
+  --muted:#6E695E;         /* graphite wash */
+  --line:rgba(27,26,24,.16);
+  --line2:rgba(27,26,24,.38);
+  --accent:#2437B8;        /* ultramarine pigment */
+  --accent2:#1A2A96;
+  --on-accent:#F4F2EC;
+  --sold:#A8322A;          /* cadmium red */
+  --shadow:0 22px 55px -22px rgba(27,26,24,.4);
+  --hard:4px 4px 0 var(--line2);
+  --f-disp:'Fraunces',Georgia,'Times New Roman',serif;
+  --f-body:'Space Grotesk','Segoe UI',system-ui,-apple-system,sans-serif;
+  --f-mono:'IBM Plex Mono',ui-monospace,'Cascadia Mono',Consolas,monospace;
+  --f-logo:'Julius Sans One','Trebuchet MS',var(--f-body);
+  --f-script:'Caveat','Segoe Script',cursive;
+  --brand-red:#C8291C;
+  --pad:clamp(1rem,4.5vw,4rem);
+}
+[data-theme="dark"]{
+  --bg:#141311;            /* atelier at night */
+  --bg2:#1C1A17;
+  --ink:#EAE5DA;           /* bone */
+  --muted:#98917F;
+  --line:rgba(234,229,218,.17);
+  --line2:rgba(234,229,218,.42);
+  --accent:#7A90FF;        /* lit ultramarine */
+  --accent2:#5F76F0;
+  --on-accent:#10131F;
+  --sold:#E0685C;
+  --shadow:0 26px 70px -24px rgba(0,0,0,.85);
+}
+
+/* ============ BASE ============ */
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{
+  background:var(--bg);color:var(--ink);
+  font-family:var(--f-body);font-weight:400;font-size:16px;line-height:1.55;
+  -webkit-font-smoothing:antialiased;overflow-x:hidden;
+  transition:background .4s ease,color .4s ease;
+}
+::selection{background:var(--accent);color:var(--on-accent)}
+img{max-width:100%;display:block}
+a{color:inherit;text-decoration:none}
+button{font:inherit;color:inherit;background:none;border:none;cursor:pointer}
+input,select,textarea{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+.serif{font-family:var(--f-disp)}
+.mono{font-family:var(--f-mono);font-size:.68rem;letter-spacing:.14em;text-transform:uppercase}
+::-webkit-scrollbar{width:10px;height:10px}
+::-webkit-scrollbar-thumb{background:var(--line2)}
+::-webkit-scrollbar-track{background:var(--bg)}
+
+/* film grain */
+.grain{position:fixed;inset:-60%;width:220%;height:220%;pointer-events:none;z-index:1800;opacity:.05;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='300' height='300' filter='url(%23n)'/%3E%3C/svg%3E");
+  animation:grain 9s steps(6) infinite}
+[data-theme="dark"] .grain{opacity:.07}
+@keyframes grain{
+  0%,100%{transform:translate(0,0)}16%{transform:translate(-2%,1.5%)}
+  33%{transform:translate(1.5%,-2%)}50%{transform:translate(-1%,-1%)}
+  66%{transform:translate(2%,1%)}83%{transform:translate(-1.5%,2%)}
+}
+
+/* cursor ring (desktop only) */
+#cur{position:fixed;top:0;left:0;width:30px;height:30px;border:1.5px solid #fff;border-radius:50%;
+  pointer-events:none;z-index:3000;transform:translate(-50%,-50%);mix-blend-mode:difference;
+  transition:width .25s,height .25s,opacity .4s;opacity:0}
+#cur.big{width:56px;height:56px}
+@media (pointer:coarse){#cur{display:none}}
+
+/* ============ NAV ============ */
+.nav{position:sticky;top:0;z-index:120;display:flex;align-items:center;gap:1.4rem;
+  padding:.85rem var(--pad);border-bottom:1px solid var(--line);
+  background:var(--bg);background:color-mix(in srgb,var(--bg) 84%,transparent);
+  backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px)}
+.brand-logo{position:relative;display:inline-flex;flex-direction:column;align-items:center;
+  background:#161412;color:#F2EFE7;padding:.48rem .95rem .5rem;margin-right:auto;
+  border-radius:3px;line-height:1;box-shadow:var(--hard);transition:transform .18s}
+.brand-logo:hover{transform:translate(-1px,-1px)}
+.bl-badge{font-family:var(--f-script);font-size:1.02rem;font-weight:600;color:#fff;
+  background:var(--brand-red);padding:.04rem .55rem .16rem;border-radius:1px;
+  transform:rotate(-2.5deg) skewX(-7deg);align-self:flex-end;margin:0 -.42rem .32rem 0;
+  box-shadow:1.5px 1.5px 0 rgba(0,0,0,.35);text-transform:lowercase;letter-spacing:.02em}
+.bl-name{font-family:var(--f-logo);font-size:1.3rem;letter-spacing:.34em;margin-right:-.34em;
+  position:relative;text-transform:uppercase;font-weight:400}
+.bl-name::after{content:"";position:absolute;left:.04em;bottom:-.16em;width:2.05ch;height:2px;background:var(--brand-red)}
+.bl-img{display:none;height:46px;width:auto;max-width:210px;object-fit:contain;border-radius:2px}
+.brand-logo.has-img{background:none!important;box-shadow:none!important;padding:0}
+.brand-logo.has-img:hover{transform:translate(-1px,-1px)}
+.brand-logo.has-img .bl-badge,.brand-logo.has-img .bl-name{display:none}
+.brand-logo.has-img .bl-img{display:block}
+.nav-links{display:flex;gap:1.6rem}
+.nav-links a{font-family:var(--f-mono);font-size:.66rem;letter-spacing:.16em;text-transform:uppercase;
+  position:relative;padding:.3rem 0;color:var(--muted);transition:color .25s}
+.nav-links a:hover{color:var(--ink)}
+.nav-links a::after{content:"";position:absolute;left:0;bottom:0;height:1px;width:0;background:var(--accent);transition:width .3s}
+.nav-links a:hover::after{width:100%}
+.nav-ctrl{display:flex;gap:.5rem}
+.ic-btn{width:38px;height:38px;display:grid;place-items:center;border:1px solid var(--line2);
+  background:var(--bg2);font-family:var(--f-mono);font-size:.72rem;transition:transform .18s,box-shadow .18s}
+.ic-btn:hover{transform:translate(-1px,-1px);box-shadow:var(--hard)}
+.ic-btn:active{transform:translate(1px,1px);box-shadow:none}
+
+/* ============ HERO ============ */
+.hero{min-height:calc(100svh - 62px);display:flex;flex-direction:column;justify-content:center;
+  padding:4rem var(--pad) 3rem;position:relative}
+.hero-eyebrow{display:flex;align-items:center;gap:1rem;color:var(--muted);margin-bottom:2rem}
+.pigments{display:inline-flex;gap:.4rem}
+.pigments i{width:11px;height:11px;display:inline-block;border:1px solid var(--line2)}
+.pigments i:nth-child(1){background:var(--ink)}
+.pigments i:nth-child(2){background:var(--accent)}
+.pigments i:nth-child(3){background:var(--sold)}
+.pigments i:nth-child(4){background:var(--bg2)}
+.hero-t{font-family:var(--f-disp);font-weight:560;line-height:.88;letter-spacing:-.015em;
+  font-size:clamp(3.2rem,12.5vw,11rem);text-transform:uppercase}
+.hl{display:block;overflow:hidden;padding-bottom:.06em}
+.ht{display:inline-block;transform:translateY(115%);animation:rise .9s cubic-bezier(.16,1,.3,1) forwards}
+.hl:nth-child(1) .ht{animation-delay:.1s}
+.hl:nth-child(2) .ht{animation-delay:.24s}
+.hl:nth-child(3) .ht{animation-delay:.4s}
+@keyframes rise{to{transform:translateY(0)}}
+.hx{margin-left:clamp(1.5rem,9vw,9rem)}
+.hx em{display:inline-block;font-style:italic;font-weight:400;color:var(--accent);text-transform:none;letter-spacing:0}
+.hero-foot{display:flex;justify-content:space-between;align-items:flex-end;gap:2rem;margin-top:3.5rem;flex-wrap:wrap}
+.hero-tag{font-size:clamp(1.05rem,2vw,1.5rem);font-style:italic;max-width:34ch;color:var(--muted)}
+.hero-card{border:1px solid var(--line2);background:var(--bg2);min-width:240px;box-shadow:var(--hard)}
+.hc-row{display:flex;justify-content:space-between;gap:2.2rem;padding:.62rem .95rem;border-bottom:1px solid var(--line)}
+.hc-row:last-child{border-bottom:none}
+.hc-row span{color:var(--muted)}
+.hc-row b{font-weight:500}
+.hero-scroll{position:absolute;bottom:1.4rem;left:var(--pad);color:var(--muted)}
+
+/* ============ MARQUEE ============ */
+.marq{border-block:1px solid var(--line);overflow:hidden;padding:.85rem 0;background:var(--bg2)}
+.marq-in{display:flex;gap:3.2rem;width:max-content;animation:marq 38s linear infinite;
+  font-family:var(--f-mono);font-size:.72rem;letter-spacing:.28em;text-transform:uppercase;color:var(--muted);white-space:nowrap}
+.marq-in b{color:var(--accent);font-weight:400}
+@keyframes marq{to{transform:translateX(-50%)}}
+
+/* ============ SECTIONS ============ */
+.sec{padding:clamp(3.5rem,8vw,7rem) var(--pad)}
+.sec-head{display:flex;align-items:baseline;gap:1.3rem;margin-bottom:clamp(2rem,4vw,3.4rem)}
+.sec-no{color:var(--accent)}
+.sec-title{font-size:clamp(2rem,5vw,3.6rem);font-weight:520;font-style:italic;letter-spacing:-.01em}
+.sec-line{flex:1;height:1px;background:var(--line);transform-origin:left}
+
+/* toolbar */
+.toolbar{display:flex;justify-content:space-between;align-items:center;gap:1.2rem;flex-wrap:wrap;margin-bottom:2.2rem}
+.chips{display:flex;gap:.5rem;flex-wrap:wrap}
+.chip{font-family:var(--f-mono);font-size:.64rem;letter-spacing:.14em;text-transform:uppercase;
+  padding:.5rem .85rem;border:1px solid var(--line2);background:var(--bg2);color:var(--muted);
+  transition:transform .15s,box-shadow .15s,color .2s}
+.chip:hover{transform:translate(-1px,-1px);box-shadow:var(--hard);color:var(--ink)}
+.chip.on{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
+.tools{display:flex;gap:.6rem;align-items:center}
+.q,.sel{border:1px solid var(--line2);background:var(--bg2);padding:.55rem .8rem;
+  font-family:var(--f-mono);font-size:.68rem;letter-spacing:.08em;min-width:0}
+.q{width:190px}
+.q::placeholder{color:var(--muted)}
+.sel{appearance:none;-webkit-appearance:none;padding-right:1.6rem;
+  background-image:linear-gradient(45deg,transparent 49%,var(--muted) 50%),linear-gradient(-45deg,transparent 49%,var(--muted) 50%);
+  background-position:calc(100% - 14px) 55%,calc(100% - 9px) 55%;background-size:5px 5px;background-repeat:no-repeat}
+
+/* ============ GALLERY GRID ============ */
+.grid{columns:3 300px;column-gap:2rem}
+.work{break-inside:avoid;margin-bottom:2.6rem;cursor:pointer;position:relative;
+  transition:transform .35s cubic-bezier(.2,.8,.2,1)}
+.work:hover{transform:translateY(-5px)}
+.w-fig{border:1px solid var(--line2);background:var(--bg2);overflow:hidden;position:relative;
+  transition:box-shadow .35s}
+.w-fig::before{content:"";position:absolute;inset:0;z-index:1;background:linear-gradient(to top,rgba(0,0,0,.38),transparent 42%);opacity:0;transition:opacity .28s;pointer-events:none}
+.w-fig::after{content:attr(data-view);position:absolute;left:.75rem;bottom:.75rem;z-index:2;padding:.38rem .62rem;background:var(--ink);color:var(--bg);font-family:var(--f-mono);font-size:.58rem;letter-spacing:.14em;text-transform:uppercase;opacity:0;transform:translateY(7px);transition:opacity .28s,transform .28s;pointer-events:none}
+.work:hover .w-fig{box-shadow:var(--shadow)}
+.work:hover .w-fig::before,.work:hover .w-fig::after,.work:focus-visible .w-fig::before,.work:focus-visible .w-fig::after{opacity:1;transform:translateY(0)}
+.w-fig img{width:100%;transition:transform .6s cubic-bezier(.2,.8,.2,1)}
+.work:hover .w-fig img{transform:scale(1.025)}
+.w-ph{aspect-ratio:4/3;display:grid;place-items:center;position:relative;
+  background:repeating-linear-gradient(-45deg,transparent 0 11px,var(--line) 11px 12px)}
+.w-ph span{font-family:var(--f-disp);font-style:italic;font-size:3rem;color:var(--muted);
+  background:var(--bg2);width:84px;height:84px;display:grid;place-items:center;border:1px solid var(--line2);border-radius:50%}
+.w-badge{position:absolute;top:.7rem;right:.7rem;font-family:var(--f-mono);font-size:.58rem;
+  letter-spacing:.12em;text-transform:uppercase;padding:.28rem .5rem;background:var(--ink);color:var(--bg)}
+.w-label{padding:.95rem .15rem 0;position:relative}
+.w-no{font-family:var(--f-mono);font-size:.6rem;letter-spacing:.2em;color:var(--accent);margin-bottom:.3rem}
+.w-title{font-family:var(--f-disp);font-style:italic;font-weight:500;font-size:1.32rem;line-height:1.15;
+  display:inline;background-image:linear-gradient(var(--accent),var(--accent));
+  background-size:0 1px;background-repeat:no-repeat;background-position:0 96%;transition:background-size .35s}
+.work:hover .w-title{background-size:100% 1px}
+.w-meta{font-family:var(--f-mono);font-size:.62rem;letter-spacing:.1em;text-transform:uppercase;
+  color:var(--muted);margin-top:.45rem;line-height:1.7}
+.w-status{display:flex;align-items:center;gap:.45rem;font-family:var(--f-mono);font-size:.6rem;
+  letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin-top:.5rem}
+.dot{width:7px;height:7px;border-radius:50%;background:var(--accent);flex:none}
+.dot.sold{background:var(--sold)}
+.dot.nfs{background:var(--muted)}
+.w-feat{position:absolute;top:-1px;left:-1px;background:var(--accent);color:var(--on-accent);
+  font-family:var(--f-mono);font-size:.56rem;letter-spacing:.18em;padding:.3rem .55rem;z-index:2}
+
+.empty{text-align:center;padding:5rem 1rem;border:1px dashed var(--line2)}
+.empty h3{font-family:var(--f-disp);font-style:italic;font-weight:500;font-size:2.2rem;margin-bottom:.8rem}
+.empty p{color:var(--muted);margin-bottom:1.6rem}
+
+/* ============ ABOUT / CONTACT ============ */
+.about-wrap{display:grid;grid-template-columns:minmax(0,.85fr) minmax(0,1.15fr);gap:clamp(2rem,5vw,5rem);align-items:start}
+.about-photo{border:1px solid var(--line2);background:var(--bg2);padding:.7rem;box-shadow:var(--hard)}
+.about-photo img{width:100%}
+.about-photo figcaption{padding:.7rem .2rem .1rem;color:var(--muted)}
+.about-photo .ph-hint{display:none}
+.about-photo.ph{box-shadow:none;border-style:dashed}
+.about-photo.ph img{display:none}
+.about-photo.ph .ph-hint{display:grid;place-items:center;aspect-ratio:4/3;color:var(--muted);border:1px dashed var(--line2);text-align:center;padding:1rem;line-height:1.8}
+body.published .about-photo.ph{display:none}
+.about-txt{font-size:clamp(1.3rem,2.6vw,2rem);line-height:1.45;font-weight:400;white-space:pre-line}
+.about-txt::first-letter{color:var(--accent);font-style:italic}
+.c-rows{border-top:1px solid var(--line)}
+.c-row{display:flex;align-items:center;gap:1.5rem;padding:1.4rem .2rem;border-bottom:1px solid var(--line);
+  transition:padding .3s}
+.c-row:hover{padding-left:1rem}
+.c-lab{font-family:var(--f-mono);font-size:.62rem;letter-spacing:.18em;text-transform:uppercase;
+  color:var(--muted);width:130px;flex:none}
+.c-val{font-family:var(--f-disp);font-style:italic;font-size:clamp(1.15rem,2.6vw,1.9rem);word-break:break-word}
+.c-arr{margin-left:auto;color:var(--accent);font-size:1.3rem;transform:translate(0,0);transition:transform .3s}
+.c-row:hover .c-arr{transform:translate(5px,-5px)}
+.hint{color:var(--muted);font-style:italic}
+
+/* ============ FOOTER ============ */
+footer{border-top:1px solid var(--line);padding:3rem var(--pad) 2rem;position:relative;overflow:hidden}
+.wm{font-family:var(--f-logo);font-weight:400;font-size:clamp(4.5rem,20vw,17rem);line-height:.9;
+  text-transform:uppercase;letter-spacing:.12em;color:transparent;-webkit-text-stroke:1.5px var(--line2);
+  user-select:none;opacity:.6;text-align:center}
+.wm span{position:relative;display:inline-block;margin-right:-.12em}
+.wm span::after{content:"";position:absolute;left:.03em;bottom:.06em;width:2.05ch;height:.05em;background:var(--brand-red);opacity:.85}
+.foot-row{display:flex;justify-content:space-between;gap:1rem;flex-wrap:wrap;margin-top:1.6rem;
+  font-family:var(--f-mono);font-size:.62rem;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+.foot-row b{color:var(--accent);font-weight:400}
+
+/* ============ ADMIN BAR ============ */
+.admin{position:fixed;right:1.1rem;bottom:1.1rem;z-index:150;display:flex;flex-direction:column;gap:.6rem}
+.abtn{width:50px;height:50px;display:grid;place-items:center;font-size:1.25rem;
+  border:1px solid var(--line2);background:var(--bg2);box-shadow:var(--hard);
+  transition:transform .18s,box-shadow .18s}
+.abtn:hover{transform:translate(-2px,-2px);box-shadow:6px 6px 0 var(--line2)}
+.abtn:active{transform:translate(2px,2px);box-shadow:none}
+.abtn.primary{background:var(--accent);color:var(--on-accent);border-color:var(--accent2);font-size:1.6rem}
+body.published .admin{display:none}
+body.published .adm-only{display:none!important}
+
+/* ============ TEXT EDIT MODE ============ */
+body.editing [data-edit]{outline:1.5px dashed var(--accent);outline-offset:3px;cursor:text;min-height:1em}
+body.editing [data-edit]:hover{outline-style:solid}
+body.editing [data-edit]:focus{outline:2.5px solid var(--accent);background:color-mix(in srgb,var(--accent) 7%,transparent)}
+body.editing [data-edit]:empty::before{content:"✎ …";opacity:.4;font-style:italic}
+body.editing .marq-in{animation-play-state:paused}
+body.editing .nav-links a::after{display:none}
+.abtn.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+
+/* ============ LIGHTBOX ============ */
+.lb{position:fixed;inset:0;z-index:400;display:none}
+.lb.on{display:block}
+.lb-scrim{position:absolute;inset:0;background:rgba(12,11,10,.9);backdrop-filter:blur(7px)}
+.lb-panel{position:absolute;inset:clamp(.25rem,1.2vw,.85rem);background:var(--bg);border:1px solid var(--line2);
+  display:grid;grid-template-columns:minmax(0,1fr);overflow:hidden;min-height:0;
+  animation:lbIn .45s cubic-bezier(.16,1,.3,1)}
+@keyframes lbIn{from{opacity:0;transform:translateY(20px) scale(.988)}to{opacity:1;transform:none}}
+.lb-stage{position:relative;display:flex;flex-direction:column;background:var(--bg2);min-height:0;overflow:hidden}
+.lb-media{flex:1;position:relative;overflow:hidden;display:grid;place-items:center;min-height:0}
+.lb-media img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;padding:clamp(.5rem,1.5vw,1.25rem);background:transparent}
+.lb-media video{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;padding:clamp(.5rem,1.5vw,1.25rem);background:transparent}
+.lb-media iframe{position:absolute;inset:clamp(.5rem,1.5vw,1.25rem);width:calc(100% - 2*clamp(.5rem,1.5vw,1.25rem));height:calc(100% - 2*clamp(.5rem,1.5vw,1.25rem));border:1px solid var(--line2);background:#000}
+.lb-media audio{width:min(520px,90%)}
+.lb-caption{position:absolute;left:clamp(.7rem,1.6vw,1.3rem);bottom:clamp(.75rem,1.7vw,1.4rem);z-index:4;
+  max-width:min(620px,calc(100% - 12rem));padding:.65rem .85rem;background:color-mix(in srgb,var(--bg) 86%,transparent);
+  border:1px solid var(--line2);backdrop-filter:blur(12px);box-shadow:var(--shadow)}
+.lb-cap-no{font-family:var(--f-mono);font-size:.56rem;letter-spacing:.18em;text-transform:uppercase;color:var(--accent);margin-bottom:.18rem}
+.lb-cap-title{font-family:var(--f-disp);font-style:italic;font-size:clamp(1.05rem,2vw,1.55rem);line-height:1.08}
+.lb-cap-cat{display:inline-flex;align-items:center;gap:.35rem;margin-top:.5rem;font-family:var(--f-mono);font-size:.56rem;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);border:1px solid var(--line2);background:var(--bg2);padding:.3rem .55rem;cursor:pointer;transition:color .2s,transform .15s}
+.lb-cap-cat:hover{color:var(--ink);transform:translate(-1px,-1px)}
+@keyframes lbSlideL{from{opacity:0;transform:translateX(30px)}to{opacity:1;transform:none}}
+@keyframes lbSlideR{from{opacity:0;transform:translateX(-30px)}to{opacity:1;transform:none}}
+.lb-media.sl-l>*{animation:lbSlideL .32s cubic-bezier(.2,.8,.2,1)}
+.lb-media.sl-r>*{animation:lbSlideR .32s cubic-bezier(.2,.8,.2,1)}
+.lb-quick{position:absolute;right:clamp(.7rem,1.6vw,1.3rem);bottom:clamp(.75rem,1.7vw,1.4rem);z-index:4;display:flex;gap:.55rem;align-items:center;flex-wrap:wrap;justify-content:flex-end}
+.lb-quick .btn{background:color-mix(in srgb,var(--bg) 86%,transparent);backdrop-filter:blur(12px)}
+.lb-thumbs{position:absolute;left:50%;transform:translateX(-50%);top:clamp(.65rem,1.5vw,1.1rem);z-index:4;
+  display:flex;gap:.45rem;padding:.45rem;max-width:min(70vw,760px);overflow-x:auto;background:color-mix(in srgb,var(--bg) 78%,transparent);
+  border:1px solid var(--line2);backdrop-filter:blur(12px);box-shadow:var(--shadow)}
+.lb-thumbs:empty{display:none}
+.lb-th{width:54px;height:54px;flex:none;border:1px solid var(--line2);overflow:hidden;opacity:.58;
+  display:grid;place-items:center;font-size:1.1rem;background:var(--bg);transition:opacity .2s,transform .2s;padding:0}
+.lb-th:hover{opacity:.9;transform:translateY(-1px)}
+.lb-th img{width:100%;height:100%;object-fit:cover}
+.lb-th.on{opacity:1;outline:2px solid var(--accent);outline-offset:-2px}
+.lb-info{position:absolute;top:0;right:0;bottom:0;z-index:6;width:min(420px,92vw);padding:clamp(1.2rem,2.5vw,2rem);
+  overflow-y:auto;background:color-mix(in srgb,var(--bg) 94%,transparent);border-left:1px solid var(--line2);
+  box-shadow:-28px 0 65px -40px rgba(0,0,0,.55);backdrop-filter:blur(18px);
+  transform:translateX(calc(100% + 2px));transition:transform .32s cubic-bezier(.16,1,.3,1)}
+.lb.info-open .lb-info{transform:translateX(0)}
+.lb-no{font-family:var(--f-mono);font-size:.64rem;letter-spacing:.22em;color:var(--accent);margin-bottom:.7rem}
+.lb-title{font-family:var(--f-disp);font-style:italic;font-weight:500;font-size:clamp(1.7rem,3.4vw,2.45rem);
+  line-height:1.08;margin-bottom:1.4rem}
+.spec{border-top:1px solid var(--line);margin-bottom:1.4rem}
+.spec-row{display:flex;justify-content:space-between;gap:1.4rem;padding:.68rem .1rem;border-bottom:1px solid var(--line)}
+.spec-row dt{font-family:var(--f-mono);font-size:.6rem;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);padding-top:.15em}
+.spec-row dd{text-align:right;font-size:.92rem}
+.spec-row dd.st{display:flex;align-items:center;gap:.45rem;font-family:var(--f-mono);font-size:.62rem;letter-spacing:.12em;text-transform:uppercase}
+.lb-desc{font-family:var(--f-disp);font-size:1.03rem;line-height:1.65;color:var(--muted);white-space:pre-line}
+.lb-actions{display:flex;gap:.6rem;margin-top:1.3rem;flex-wrap:wrap}
+.lb-x{position:absolute;top:.8rem;right:.8rem;z-index:8}
+.lb-fs{position:absolute;top:.8rem;right:3.6rem;z-index:8}
+:fullscreen{background:var(--bg)}
+.lb-details{position:absolute;top:.8rem;right:6.4rem;z-index:8;width:auto;min-width:38px;padding:0 .72rem;gap:.35rem}
+.lb-nav{position:absolute;top:50%;transform:translateY(-50%);z-index:5;background:color-mix(in srgb,var(--bg) 78%,transparent);backdrop-filter:blur(10px)}
+.lb-nav.prev{left:.8rem}.lb-nav.next{right:.8rem}
+.lb.info-open .lb-nav.next{right:min(430px,calc(92vw + .8rem))}
+
+/* ============ DIALOGS / FORMS ============ */
+dialog{border:1px solid var(--line2);background:var(--bg);color:var(--ink);
+  width:min(660px,94vw);max-height:90vh;box-shadow:var(--shadow);padding:0;margin:auto}
+dialog::backdrop{background:rgba(12,11,10,.65);backdrop-filter:blur(4px)}
+.dlg-head{display:flex;align-items:center;justify-content:space-between;gap:1rem;
+  padding:1.1rem 1.4rem;border-bottom:1px solid var(--line)}
+.dlg-head h3{font-family:var(--f-disp);font-style:italic;font-weight:500;font-size:1.5rem}
+.dlg-body{padding:1.4rem;overflow-y:auto;max-height:calc(90vh - 140px)}
+.dlg-foot{display:flex;justify-content:flex-end;gap:.7rem;padding:1rem 1.4rem;border-top:1px solid var(--line)}
+.frow{display:grid;grid-template-columns:1fr 1fr;gap:.9rem;margin-bottom:.9rem}
+.frow.one{grid-template-columns:1fr}
+.fld label{display:block;font-family:var(--f-mono);font-size:.58rem;letter-spacing:.16em;
+  text-transform:uppercase;color:var(--muted);margin-bottom:.35rem}
+.fld input,.fld select,.fld textarea{width:100%;border:1px solid var(--line2);background:var(--bg2);
+  padding:.6rem .7rem;font-size:.92rem}
+.fld textarea{resize:vertical;min-height:90px}
+.fld input:focus,.fld select:focus,.fld textarea:focus{outline:none;border-color:var(--accent)}
+.chk{display:flex;align-items:center;gap:.6rem;font-size:.85rem;padding-top:1.4rem}
+.chk input{width:16px;height:16px;accent-color:var(--accent)}
+.btn{font-family:var(--f-mono);font-size:.66rem;letter-spacing:.16em;text-transform:uppercase;
+  padding:.72rem 1.25rem;border:1px solid var(--line2);background:var(--bg2);
+  transition:transform .16s,box-shadow .16s;display:inline-flex;align-items:center;gap:.5rem}
+.btn:hover{transform:translate(-1px,-1px);box-shadow:var(--hard)}
+.btn:active{transform:translate(1px,1px);box-shadow:none}
+.btn.pri{background:var(--accent);border-color:var(--accent2);color:var(--on-accent)}
+.btn.danger{color:var(--sold);border-color:var(--sold)}
+.btn.sm{padding:.5rem .8rem;font-size:.6rem}
+.media-mgr{border:1px dashed var(--line2);padding:.9rem;margin-bottom:1rem;background:var(--bg2)}
+.media-list{display:flex;flex-wrap:wrap;gap:.6rem;margin-bottom:.8rem}
+.media-list:empty{display:none}
+.m-chip{position:relative;width:76px}
+.m-chip .mc-th{width:76px;height:76px;border:1px solid var(--line2);background:var(--bg);
+  display:grid;place-items:center;font-size:1.5rem;overflow:hidden}
+.m-chip img{width:100%;height:100%;object-fit:cover}
+.m-chip .mc-x{position:absolute;top:-7px;right:-7px;width:20px;height:20px;border-radius:50%;
+  background:var(--sold);color:#fff;font-size:.7rem;line-height:1;display:grid;place-items:center;border:none}
+.m-chip .mc-k{display:block;font-family:var(--f-mono);font-size:.52rem;letter-spacing:.1em;
+  text-transform:uppercase;color:var(--muted);text-align:center;margin-top:.25rem;overflow:hidden;
+  text-overflow:ellipsis;white-space:nowrap}
+.media-add{display:flex;gap:.6rem;flex-wrap:wrap;align-items:center}
+.media-add input{flex:1;min-width:180px;border:1px solid var(--line2);background:var(--bg);
+  padding:.55rem .7rem;font-size:.85rem}
+.media-note{font-size:.72rem;color:var(--muted);margin-top:.6rem;line-height:1.5}
+.set-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:.6rem;margin-top:.6rem}
+.set-sec{font-family:var(--f-mono);font-size:.6rem;letter-spacing:.2em;text-transform:uppercase;
+  color:var(--accent);margin:1.4rem 0 .7rem;padding-bottom:.4rem;border-bottom:1px solid var(--line)}
+.set-sec:first-child{margin-top:0}
+.f-row{display:grid;grid-template-columns:96px 1fr auto auto;gap:.5rem;align-items:center;margin-bottom:.55rem}
+.f-role{font-family:var(--f-mono);font-size:.56rem;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+.f-row input{border:1px solid var(--line2);background:var(--bg2);padding:.5rem .6rem;font-size:.85rem;min-width:0;width:100%}
+.f-row input:disabled{color:var(--accent);font-style:italic;opacity:.9}
+@media (max-width:640px){.f-row{grid-template-columns:76px 1fr auto auto}}
+
+/* ============ TOASTS ============ */
+#toasts{position:fixed;bottom:1.2rem;left:50%;transform:translateX(-50%);z-index:500;
+  display:flex;flex-direction:column;gap:.5rem;align-items:center;pointer-events:none}
+.toast{font-family:var(--f-mono);font-size:.66rem;letter-spacing:.14em;text-transform:uppercase;
+  background:var(--ink);color:var(--bg);padding:.7rem 1.2rem;border:1px solid var(--line2);
+  box-shadow:var(--hard);animation:tIn .3s cubic-bezier(.16,1,.3,1)}
+.toast.err{background:var(--sold);color:#fff}
+@keyframes tIn{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+
+/* ============ REVEAL ============ */
+.rv{opacity:0;transform:translateY(26px);transition:opacity .7s ease,transform .7s cubic-bezier(.16,1,.3,1)}
+.rv.in{opacity:1;transform:none}
+
+/* ============ RESPONSIVE ============ */
+@media (min-width:1800px){
+  .grid{columns:4 340px}
+}
+@media (max-width:960px){
+  .lb-panel{inset:.35rem}
+  .lb-info{width:min(390px,94vw)}
+  .lb.info-open .lb-nav.next{right:.8rem}
+  .about-wrap{grid-template-columns:1fr}
+  .about-photo{max-width:420px}
+}
+@media (max-width:640px){
+  .lb-media{padding:.35rem}
+  .lb-caption{left:.55rem;right:.55rem;bottom:4.6rem;max-width:none}
+  .lb-quick{left:.55rem;right:.55rem;bottom:.65rem;justify-content:space-between}
+  .lb-quick .btn{flex:1;justify-content:center}
+  .lb-details{right:6.35rem}
+  .lb-thumbs{top:auto;bottom:8.6rem;max-width:calc(100% - 1.1rem)}
+  .lb-th{width:46px;height:46px}
+  .nav-links{display:none}
+  .toolbar{flex-direction:column;align-items:stretch}
+  .tools{width:100%}
+  .q{flex:1}
+  .frow{grid-template-columns:1fr}
+  .c-lab{width:86px}
+  .hero-foot{flex-direction:column;align-items:flex-start}
+}
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}
+  html{scroll-behavior:auto}
+  .rv{opacity:1;transform:none}
+  .ht{transform:none}
+}
+/* ===== right-click element editor ===== */
+.ctx{position:fixed;z-index:2000;min-width:190px;background:var(--bg);border:1px solid var(--line2);box-shadow:var(--shadow);padding:.35rem;display:none}
+.ctx.on{display:block}
+.ctx-h{font-family:var(--f-mono);font-size:.54rem;letter-spacing:.16em;text-transform:uppercase;color:var(--accent);padding:.3rem .5rem .45rem;border-bottom:1px solid var(--line);margin-bottom:.25rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:240px}
+.ctx button{display:flex;align-items:center;gap:.65rem;width:100%;text-align:left;padding:.52rem .55rem;font-family:var(--f-mono);font-size:.64rem;letter-spacing:.1em;text-transform:uppercase;transition:background .12s}
+.ctx button:hover{background:color-mix(in srgb,var(--accent) 13%,transparent)}
+.ctx button.danger{color:var(--sold)}
+.ctx-sep{height:1px;background:var(--line);margin:.3rem .1rem}
+.ctx-ico{width:1.15em;text-align:center;font-size:.85rem;flex:none}
+.ctx-pop{position:fixed;z-index:2010;background:var(--bg);border:1px solid var(--line2);box-shadow:var(--shadow);padding:.85rem;display:none;width:238px}
+.ctx-pop.on{display:block}
+.ctx-pop .pop-h{font-family:var(--f-mono);font-size:.56rem;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);margin-bottom:.65rem}
+.sw-row{display:flex;flex-wrap:wrap;gap:.4rem;margin-bottom:.75rem}
+.sw{width:26px;height:26px;border:1px solid var(--line2);cursor:pointer;padding:0}
+.sw:hover{transform:translateY(-1px)}
+.sw.on{outline:2px solid var(--accent);outline-offset:1px}
+.pop-lab{font-family:var(--f-mono);font-size:.54rem;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin:.5rem 0 .35rem}
+.pop-sync{display:flex;align-items:center;gap:.5rem;font-family:var(--f-mono);font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-top:.6rem;cursor:pointer;user-select:none}
+.pop-sync input{width:15px;height:15px;accent-color:var(--accent);margin:0}
+.al-row{display:flex;gap:.4rem;margin-bottom:.2rem}
+.al-row .btn{flex:1;justify-content:center}
+.tximg{display:block;height:1em;width:auto;max-width:100%}
+.wm span:has(.tximg)::after{display:none}
+.g-sel{outline:2px dashed var(--accent)!important;outline-offset:3px}
+.g-hl{outline:2px solid var(--accent)!important;outline-offset:3px}
+.grpbar{position:fixed;left:50%;bottom:1.1rem;transform:translateX(-50%);z-index:2100;
+  display:flex;align-items:center;gap:.9rem;padding:.6rem .9rem;background:var(--bg2);
+  border:1px solid var(--line2);box-shadow:var(--hard)}
+body.published .grpbar{display:none!important}
+.ctx-pop input[type=color]{width:100%;height:34px;border:1px solid var(--line2);background:var(--bg2);padding:2px;cursor:pointer}
+.ctx-pop input[type=range]{width:100%;accent-color:var(--accent)}
+.ctx-pop .pop-val{font-family:var(--f-mono);font-size:.62rem;color:var(--muted);text-align:right;margin-top:.3rem}
+.ctx-pop input[list]{width:100%;border:1px solid var(--line2);background:var(--bg2);padding:.55rem .6rem;font-size:.88rem}
+.ctx-pop .pop-foot{display:flex;justify-content:space-between;gap:.5rem;margin-top:.7rem}
+body.published .ctx,body.published .ctx-pop{display:none!important}
+
+@media print{
+  .nav,.admin,.marq,.hero-scroll,#cur,.grain,#toasts{display:none!important}
+  .grid{columns:2}
+  body{background:#fff;color:#000}
+}
+</style>
+</head>
+<body>
+<div class="grain" aria-hidden="true"></div>
+<div id="cur" aria-hidden="true"></div>
+
+<!-- ============ NAV ============ -->
+<nav class="nav">
+  <a class="brand-logo" href="#top" aria-label="Solak gallery">
+    <img class="bl-img" id="brandImg" alt="SOLAK gallery">
+    <span class="bl-badge" data-edit="brandBadge">gallery</span>
+    <span class="bl-name" data-edit="brandName">SOLAK</span>
+  </a>
+  <div class="nav-links">
+    <a href="#gallery" data-i18n="navGallery" data-edit="navGallery">Галерија</a>
+    <a href="#about" data-i18n="navAbout" data-edit="navAbout">Ателје</a>
+    <a href="#contact" data-i18n="navContact" data-edit="navContact">Контакт</a>
+  </div>
+  <div class="nav-ctrl">
+    <button class="ic-btn" id="btnLang" title="Language">EN</button>
+    <button class="ic-btn" id="btnFS" title="Цел екран">⛶</button>
+    <button class="ic-btn" id="btnTheme" title="Тема">◐</button>
+  </div>
+</nav>
+
+<!-- ============ HERO ============ -->
+<header class="hero" id="top">
+  <div class="hero-eyebrow mono">
+    <span data-i18n="heroEyebrow" data-edit="heroEyebrow">Уметничко ателје</span>
+    <span class="pigments" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+  </div>
+  <h1 class="hero-t" aria-label="Artis Atelier Solak">
+    <span class="hl"><span class="ht" data-edit="hero1">Artis</span></span>
+    <span class="hl"><span class="ht" data-edit="hero2">Atelier</span></span>
+    <span class="hl"><span class="ht hx"><em data-edit="hero3">Solak</em></span></span>
+  </h1>
+  <div class="hero-foot">
+    <p class="hero-tag serif" id="heroTag" data-edit="tagline"></p>
+    <div class="hero-card mono">
+      <div class="hc-row"><span data-i18n="stWorks">Дела</span><b id="stWorks">0</b></div>
+      <div class="hc-row"><span data-i18n="stCats">Категории</span><b id="stCats">0</b></div>
+      <div class="hc-row"><span data-i18n="stPeriod">Период</span><b id="stPeriod">—</b></div>
+    </div>
+  </div>
+  <div class="hero-scroll mono" data-i18n="scroll">Скролај ↓</div>
+</header>
+
+<!-- ============ MARQUEE ============ -->
+<div class="marq" aria-hidden="true">
+  <div class="marq-in" id="marq">
+    <span data-edit="marquee">Сликарство <b>✳</b> Painting <b>✳</b> Цртеж <b>✳</b> Drawing <b>✳</b> Скулптура <b>✳</b> Sculpture <b>✳</b> Графика <b>✳</b> Printmaking <b>✳</b> Акварел <b>✳</b> Watercolour <b>✳</b> Artis Atelier Solak <b>✳</b></span>
+    <span data-edit="marquee">Сликарство <b>✳</b> Painting <b>✳</b> Цртеж <b>✳</b> Drawing <b>✳</b> Скулптура <b>✳</b> Sculpture <b>✳</b> Графика <b>✳</b> Printmaking <b>✳</b> Акварел <b>✳</b> Watercolour <b>✳</b> Artis Atelier Solak <b>✳</b></span>
+  </div>
+</div>
+
+<!-- ============ GALLERY ============ -->
+<section class="sec" id="gallery">
+  <header class="sec-head rv">
+    <span class="sec-no mono">01</span>
+    <h2 class="sec-title" data-i18n="secGallery" data-edit="secGallery">Галерија</h2>
+    <span class="sec-line"></span>
+  </header>
+  <div class="toolbar rv">
+    <div class="chips" id="chips"></div>
+    <div class="tools">
+      <input type="search" id="q" class="q" data-i18n-ph="searchPh" placeholder="Пребарај…">
+      <select id="sort" class="sel">
+        <option value="new" data-i18n="sortNew">Најнови</option>
+        <option value="year" data-i18n="sortYear">По година</option>
+        <option value="title" data-i18n="sortTitle">По наслов</option>
+        <option value="no" data-i18n="sortNo">По кат. бр.</option>
+      </select>
+    </div>
+  </div>
+  <div class="grid" id="grid"></div>
+  <div class="empty rv" id="empty" hidden>
+    <h3 data-i18n="emptyT" data-edit="emptyT">Празна галерија.</h3>
+    <p data-i18n="emptyP" data-edit="emptyP">Секое дело почнува со празно платно.</p>
+    <button class="btn pri adm-only" id="btnEmptyAdd" data-i18n="addWork">+ Додади дело</button>
+  </div>
+</section>
+
+<!-- ============ ABOUT ============ -->
+<section class="sec" id="about" style="background:var(--bg2);border-block:1px solid var(--line)">
+  <header class="sec-head rv">
+    <span class="sec-no mono">02</span>
+    <h2 class="sec-title" data-i18n="secAbout" data-edit="secAbout">За ателјето</h2>
+    <span class="sec-line"></span>
+  </header>
+  <div class="about-wrap">
+    <figure class="about-photo rv" id="aPhotoWrap" hidden>
+      <img id="aPhoto" alt="Атеље">
+      <div class="ph-hint mono" data-i18n="phPhoto">Десен клик → Прикачи слика</div>
+      <figcaption class="mono" data-i18n="atelierCap" data-edit="atelierCap">Ателјето</figcaption>
+    </figure>
+    <p class="about-txt serif rv" id="aboutTxt" data-edit="about"></p>
+  </div>
+</section>
+
+<!-- ============ CONTACT ============ -->
+<section class="sec" id="contact">
+  <header class="sec-head rv">
+    <span class="sec-no mono">03</span>
+    <h2 class="sec-title" data-i18n="secContact" data-edit="secContact">Контакт</h2>
+    <span class="sec-line"></span>
+  </header>
+  <div class="c-rows rv" id="cRows"></div>
+</section>
+
+<!-- ============ FOOTER ============ -->
+<footer>
+  <div class="wm" aria-hidden="true"><span data-edit="wm">Solak</span></div>
+  <div class="foot-row">
+    <span>© <span id="yr"></span> Artis Atelier Solak</span>
+    <span><b>✳</b> <span data-i18n="footHand" data-edit="footHand">изработено рачно</span> <b>· fit3</b> <b>✳</b> single-file edition</span>
+  </div>
+</footer>
+
+<!-- дискретен режим: администрацијата е на десен клик (3× тап на логото на телефон) -->
+
+<!-- ============ LIGHTBOX ============ -->
+<div class="lb" id="lb" role="dialog" aria-modal="true">
+  <div class="lb-scrim" id="lbScrim"></div>
+  <div class="lb-panel">
+    <div class="lb-stage">
+      <button class="ic-btn lb-nav prev" id="lbPrev" title="Претходно">‹</button>
+      <div class="lb-media" id="lbMedia"></div>
+      <button class="ic-btn lb-nav next" id="lbNext" title="Следно">›</button>
+      <div class="lb-thumbs" id="lbThumbs"></div>
+      <div class="lb-caption" id="lbCaption"></div>
+      <div class="lb-quick" id="lbQuick"></div>
+    </div>
+    <aside class="lb-info" id="lbInfo"></aside>
+    <button class="ic-btn lb-details" id="lbDetails" title="Детали">ⓘ</button>
+    <button class="ic-btn lb-fs" id="lbFS" title="Цел екран">⛶</button>
+    <button class="ic-btn lb-x" id="lbClose" title="Затвори">✕</button>
+  </div>
+</div>
+
+<!-- ============ WORK FORM DIALOG ============ -->
+<dialog id="dlgWork">
+  <div class="dlg-head">
+    <h3 id="dlgWorkTitle" data-i18n="fNewWork">Ново дело</h3>
+    <button class="ic-btn" data-close="dlgWork">✕</button>
+  </div>
+  <div class="dlg-body">
+    <div class="media-mgr">
+      <label class="fld" style="display:block"><span class="mono" style="color:var(--muted)" data-i18n="fMedia">Медиуми (слика · видео · аудио · линк)</span></label>
+      <div class="media-list" id="mediaList"></div>
+      <div class="media-add">
+        <button class="btn sm" id="btnUpload" data-i18n="fUpload">⤒ Прикачи датотеки</button>
+        <input type="url" id="fLink" data-i18n-ph="fLinkPh" placeholder="Залепи линк (слика / YouTube / Vimeo / mp4 / mp3 / Drive / Dropbox)…">
+        <button class="btn sm" id="btnAddLink" data-i18n="fAddLink">+ Линк</button>
+      </div>
+      <p class="media-note" data-i18n="fMediaNote">Првиот медиум е насловна слика. Прикачените слики се компресираат и се чуваат локално (IndexedDB). За видео препорачливо е линк (YouTube / облак).</p>
+    </div>
+    <div class="frow">
+      <div class="fld"><label data-i18n="fTitle">Наслов *</label><input id="fTitle" maxlength="120"></div>
+      <div class="fld"><label data-i18n="fYear">Година</label><input id="fYear" inputmode="numeric" maxlength="9" placeholder="2024"></div>
+    </div>
+    <div class="frow">
+      <div class="fld"><label data-i18n="fTech">Техника</label><input id="fTech" maxlength="80" placeholder="масло на платно"></div>
+      <div class="fld"><label data-i18n="fDims">Димензии</label><input id="fDims" maxlength="60" placeholder="70 × 50 см"></div>
+    </div>
+    <div class="frow">
+      <div class="fld"><label data-i18n="fCat">Категорија</label>
+        <input id="fCat" list="catList" maxlength="40" placeholder="Слики">
+        <datalist id="catList">
+          <option value="Слики"></option><option value="Цртежи"></option>
+          <option value="Графики"></option><option value="Скулптури"></option>
+          <option value="Акварели"></option><option value="Дигитална уметност"></option>
+          <option value="Фотографија"></option>
+        </datalist>
+      </div>
+      <div class="fld"><label data-i18n="fStatus">Статус</label>
+        <select id="fStatus">
+          <option value="available" data-i18n="stAvail">Достапно</option>
+          <option value="sold" data-i18n="stSold">Продадено</option>
+          <option value="nfs" data-i18n="stNfs">Не е за продажба</option>
+        </select>
+      </div>
+    </div>
+    <div class="frow">
+      <div class="fld"><label data-i18n="fPrice">Цена (опц.)</label><input id="fPrice" maxlength="40" placeholder="12.000 ден."></div>
+      <div class="chk"><input type="checkbox" id="fFeat"><label for="fFeat" style="all:unset;cursor:pointer" data-i18n="fFeat">Издвоено дело</label></div>
+    </div>
+    <div class="frow one">
+      <div class="fld"><label data-i18n="fDesc">Опис / приказна</label><textarea id="fDesc" maxlength="2000"></textarea></div>
+    </div>
+  </div>
+  <div class="dlg-foot">
+    <button class="btn danger" id="btnDelWork" hidden data-i18n="del">Избриши</button>
+    <button class="btn" data-close="dlgWork" data-i18n="cancel">Откажи</button>
+    <button class="btn pri" id="btnSaveWork" data-i18n="save">Зачувај</button>
+  </div>
+</dialog>
+
+<!-- ============ SETTINGS DIALOG ============ -->
+<dialog id="dlgSet">
+  <div class="dlg-head">
+    <h3 data-i18n="setTitle">Поставки на ателјето</h3>
+    <button class="ic-btn" data-close="dlgSet">✕</button>
+  </div>
+  <div class="dlg-body">
+    <div class="set-sec" data-i18n="setSecInfo">Претставување</div>
+    <div class="frow one"><div class="fld"><label data-i18n="setTag">Мото / поднаслов</label><input id="sTagline" maxlength="140"></div></div>
+    <div class="frow one"><div class="fld"><label data-i18n="setAbout">За ателјето</label><textarea id="sAbout" maxlength="2500" style="min-height:130px"></textarea></div></div>
+    <div class="frow">
+      <div class="fld"><label data-i18n="setLogo">Лого на брендот (слика · линк)</label><input id="sLogoLink" type="url" placeholder="https://…"></div>
+      <div class="fld"><label>&nbsp;</label><button class="btn sm" id="sLogoBtn" style="width:100%" data-i18n="setLogoUp">⤒ или прикачи слика (jpg / png)</button></div>
+    </div>
+    <div class="frow">
+      <div class="fld"><label data-i18n="setPhoto">Фотографија од ателјето (линк)</label><input id="sPhotoLink" type="url" placeholder="https://…"></div>
+      <div class="fld"><label>&nbsp;</label><button class="btn sm" id="sPhotoBtn" style="width:100%" data-i18n="setPhotoUp">⤒ или прикачи слика</button></div>
+    </div>
+    <div class="set-sec" data-i18n="setSecContact">Контакт</div>
+    <div class="frow">
+      <div class="fld"><label>E-mail</label><input id="sEmail" type="email"></div>
+      <div class="fld"><label data-i18n="setPhone">Телефон</label><input id="sPhone"></div>
+    </div>
+    <div class="frow">
+      <div class="fld"><label>Instagram</label><input id="sInsta" placeholder="@atelier.solak"></div>
+      <div class="fld"><label>Facebook</label><input id="sFb" placeholder="fb.com/…"></div>
+    </div>
+    <div class="frow one"><div class="fld"><label data-i18n="setAddr">Адреса / локација</label><input id="sAddr"></div></div>
+    <div class="set-sec" data-i18n="setSecFonts">Фонтови</div>
+    <div id="fontRows"></div>
+    <datalist id="gfList">
+      <option value="Fraunces"></option><option value="Playfair Display"></option>
+      <option value="Cormorant Garamond"></option><option value="DM Serif Display"></option>
+      <option value="Bodoni Moda"></option><option value="Lora"></option>
+      <option value="Marcellus"></option><option value="Cinzel"></option>
+      <option value="Space Grotesk"></option><option value="Inter"></option>
+      <option value="Manrope"></option><option value="Outfit"></option>
+      <option value="Sora"></option><option value="Archivo"></option>
+      <option value="Josefin Sans"></option><option value="Montserrat"></option>
+      <option value="Syne"></option><option value="IBM Plex Mono"></option>
+      <option value="JetBrains Mono"></option><option value="Space Mono"></option>
+      <option value="Julius Sans One"></option><option value="Poiret One"></option>
+      <option value="Italiana"></option><option value="Six Caps"></option>
+      <option value="Monoton"></option><option value="Caveat"></option>
+      <option value="Dancing Script"></option><option value="Pacifico"></option>
+      <option value="Yellowtail"></option><option value="Great Vibes"></option>
+      <option value="Amatic SC"></option>
+    </datalist>
+    <p class="media-note" data-i18n="setFontNote">Избери од листата, впиши точно име од fonts.google.com, или ⤒ прикачи .woff2 / .ttf — прикачениот фонт се вградува во датотеката и во „Објави HTML". Празно = стандарден фонт.</p>
+    <div class="set-sec">GitHub</div>
+    <div class="frow">
+      <div class="fld"><label data-i18n="ghOwner">Корисник / организација</label><input id="ghOwner" placeholder="assisstant" autocomplete="off"></div>
+      <div class="fld"><label data-i18n="ghRepo">Репозиториум</label><input id="ghRepo" placeholder="MTB" autocomplete="off"></div>
+    </div>
+    <div class="frow">
+      <div class="fld"><label data-i18n="ghBranch">Гранка</label><input id="ghBranch" placeholder="main" autocomplete="off"></div>
+      <div class="fld"><label data-i18n="ghPath">Датотека во repo</label><input id="ghPath" placeholder="index.html" autocomplete="off"></div>
+    </div>
+    <div class="frow one"><div class="fld"><label data-i18n="ghToken">Fine-grained token (Contents: Read &amp; Write)</label><input id="ghToken" type="password" placeholder="github_pat_…" autocomplete="off"></div></div>
+    <div class="set-grid">
+      <button class="btn sm pri" id="btnGhPush" data-i18n="ghPush">✳ Објави на GitHub сега</button>
+      <button class="btn sm" id="btnGhDataPush" data-i18n="ghDataPush">⤒ Синх. податоци ☁</button>
+      <button class="btn sm" id="btnGhDataPull" data-i18n="ghDataPull">⤓ Повлечи податоци ☁</button>
+    </div>
+    <p class="media-note" data-i18n="scanNote">Скенот (десен клик → Скенирај слики) прави категории од имињата на папките; делата паметат релативни патеки — објавениот HTML мора да стои во истата папка / repo како сликите.</p>
+    <p class="media-note" data-i18n="ghNote">Токенот се чува само локално (IndexedDB) — не влегува во објавената верзија ниту во JSON експортот. Направи fine-grained token: github.com → Settings → Developer settings → Tokens, само за овој repo, Contents: Read and write.</p>
+    <div class="set-sec" data-i18n="setSecData">Податоци</div>
+    <div class="set-grid">
+      <button class="btn sm" id="btnExport" data-i18n="setExport">⤓ Експорт JSON</button>
+      <button class="btn sm" id="btnImport" data-i18n="setImport">⤒ Импорт JSON</button>
+      <button class="btn sm pri" id="btnPublish" data-i18n="setPublish">✳ Објави HTML</button>
+      <button class="btn sm" id="btnDemo" data-i18n="setDemo">Отстрани демо</button>
+      <button class="btn sm danger" id="btnWipe" data-i18n="setWipe">Избриши сè</button>
+    </div>
+    <p class="media-note" data-i18n="setPubNote">„Објави HTML" симнува копија од оваа страница со вградени дела — readonly верзија спремна за GitHub Pages / хостинг. Твојата работна верзија останува овде.</p>
+  </div>
+  <div class="dlg-foot">
+    <button class="btn" data-close="dlgSet" data-i18n="cancel">Откажи</button>
+    <button class="btn pri" id="btnSaveSet" data-i18n="save">Зачувај</button>
+  </div>
+</dialog>
+
+<input type="file" id="fileWork" accept="image/*,video/*,audio/*" multiple hidden>
+<input type="file" id="filePhoto" accept="image/*" hidden>
+<input type="file" id="fileLogo" accept="image/*" hidden>
+<input type="file" id="fileFont" accept=".woff2,.woff,.ttf,.otf,font/*" hidden>
+<input type="file" id="fileImport" accept="application/json,.json" hidden>
+<div class="ctx" id="ctxMenu" aria-hidden="true"></div>
+<div class="ctx-pop" id="ctxPop" aria-hidden="true"></div>
+<input type="file" id="fileCtxImg" accept="image/*" hidden>
+<div class="grpbar mono" id="grpBar" hidden>
+  <span>⧉ <span data-i18n="gBar">Кликни на елементи за групата</span> · <b id="grpCount">1</b></span>
+  <button class="btn sm pri" id="grpSave" data-i18n="gSave">✓ Зачувај група</button>
+  <button class="btn sm" id="grpCancel" data-i18n="gCancel">✕ Откажи</button>
+</div>
+<div id="toasts"></div>
+
+<script id="seed" type="application/json">null</script>
+<script>
+'use strict';
+/* =====================================================
+   ARTIS ATELIER SOLAK — single-file gallery & catalogue
+   offline-first · IndexedDB · JSON export/import · publish
+   ===================================================== */
+
+/* ---------- i18n ---------- */
+const I18N = {
+  mk:{
+    navGallery:'Галерија', navAbout:'Ателје', navContact:'Контакт',
+    heroEyebrow:'Уметничко ателје', stWorks:'Дела', stCats:'Категории', stPeriod:'Период',
+    scroll:'Скролај ↓', secGallery:'Галерија', secAbout:'За ателјето', secContact:'Контакт',
+    all:'Сите', searchPh:'Пребарај…', sortNew:'Најнови', sortYear:'По година',
+    sortTitle:'По наслов', sortNo:'По кат. бр.',
+    emptyT:'Празна галерија.', emptyP:'Секое дело почнува со празно платно.',
+    emptyFilter:'Нема дела за овој филтер.',
+    addWork:'+ Додади дело', atelierCap:'Ателјето', footHand:'изработено рачно',
+    editTexts:'Уреди текстови', editOn:'✎ Кликни на наслов или текст за уредување · празно = стандарден текст', editOff:'Текстови зачувани ✓',
+    setSecFonts:'Фонтови', roleDisp:'Наслови', roleBody:'Текст', roleMono:'Етикети', roleLogo:'Лого', roleScript:'Ракопис',
+    fontPh:'Стандарден · Google Font име',
+    setFontNote:'Избери од листата, впиши точно име од fonts.google.com, или ⤒ прикачи .woff2 / .ttf — прикачениот фонт се вградува во датотеката и во „Објави HTML". Празно = стандарден фонт.',
+    fontTooBig:'Фонтот е преголем (макс. 4 MB)', fontBad:'Невалиден фонт фајл', fontUp:'Прикачи фонт',
+    cat:'КАТ.', year:'Година', tech:'Техника', dims:'Димензии', category:'Категорија',
+    status:'Статус', price:'Цена', featured:'Издвоено',
+    stAvail:'Достапно', stSold:'Продадено', stNfs:'Не е за продажба',
+    edit:'Уреди', del:'Избриши', cancel:'Откажи', save:'Зачувај', close:'Затвори',
+    viewWork:'Погледни дело', details:'Детали', hideDetails:'Сокриј детали', askWork:'Прашај за делото',
+    fNewWork:'Ново дело', fEditWork:'Уреди дело',
+    fMedia:'Медиуми (слика · видео · аудио · линк)',
+    fUpload:'⤒ Прикачи датотеки', fAddLink:'+ Линк',
+    fLinkPh:'Залепи линк (слика / YouTube / Vimeo / mp4 / mp3 / Drive / Dropbox)…',
+    fMediaNote:'Првиот медиум е насловна слика. Прикачените слики се компресираат и се чуваат локално (IndexedDB). За видео препорачливо е линк (YouTube / облак).',
+    fTitle:'Наслов *', fYear:'Година', fTech:'Техника', fDims:'Димензии', fCat:'Категорија',
+    fStatus:'Статус', fPrice:'Цена (опц.)', fFeat:'Издвоено дело', fDesc:'Опис / приказна',
+    setTitle:'Поставки на ателјето', setSecInfo:'Претставување', setTag:'Мото / поднаслов',
+    setAbout:'За ателјето', setLogo:'Лого на брендот (слика · линк)', setLogoUp:'⤒ или прикачи слика (jpg / png)', setPhoto:'Фотографија од ателјето (линк)', setPhotoUp:'⤒ или прикачи слика',
+    setSecContact:'Контакт', setPhone:'Телефон', setAddr:'Адреса / локација', setSecData:'Податоци',
+    setExport:'⤓ Експорт JSON', setImport:'⤒ Импорт JSON', setPublish:'✳ Објави HTML',
+    setDemo:'Отстрани демо', setWipe:'Избриши сè',
+    setPubNote:'„Објави HTML" симнува копија од оваа страница со вградени дела — readonly верзија спремна за GitHub Pages / хостинг. Твојата работна верзија останува овде.',
+    aboutEmpty:'Напиши нешто за ателјето во ⚙ Поставки…',
+    contactEmpty:'Додади контакт-податоци во ⚙ Поставки…',
+    tEmail:'E-mail', tPhone:'Телефон', tInsta:'Instagram', tFb:'Facebook', tAddr:'Локација',
+    needTitle:'Внеси наслов на делото', needMedia:'Додади барем еден медиум',
+    saved:'Зачувано ✓', deleted:'Избришано', imported:'Импортирано ✓', exported:'Експортирано ⤓',
+    published:'Објавена верзија симната ⤓', demoRemoved:'Демо делата се отстранети',
+    wiped:'Сè е избришано', badLink:'Невалиден линк', badJson:'Невалиден JSON фајл', fileTooBig:'Датотеката е преголема (макс. 25 MB) — користи линк',
+    confirmDel:'Да го избришам ова дело?', confirmWipe:'ВНИМАНИЕ: сите дела и поставки ќе бидат избришани. Продолжи?',
+    confirmImport:'OK = ЗАМЕНИ сè со импортот · Cancel = ДОДАДИ кон постоечките',
+    prev:'Претходно', next:'Следно', workLabel:'дело', videoTag:'Видео', audioTag:'Аудио',
+    cxThis:'Елемент', cxFont:'Фонт', cxTextColor:'Боја на текст', cxBg:'Боја на позадина',
+    cxUpload:'Прикачи слика', cxSize:'Големина на слика', cxReset:'Врати стандардно',
+    cxRemove:'тргни', cxDefault:'стандардно', cxResetDone:'Вратено на стандардно ✓',
+    cxFontNote:'Влијае на сите елементи од истата улога.',
+    cxPalette:'Палета', cxMyColors:'Мои бои', cxSaveColor:'Зачувај боја', cxSyncAll:'Примени на сите слични',
+    mWorkMode:'Работен режим', mAddWork:'Додади дело', mEditTexts:'Уреди текстови', mEditDone:'Заврши уредување',
+    mSettings:'Поставки', mExport:'Експорт JSON', mImport:'Импорт JSON', mPublish:'Објави на GitHub',
+    mOpen:'Отвори', mEditWork:'Уреди дело', mDelWork:'Избриши дело',
+    ctxHint:'Работен режим · десен клик за мени',
+    phPhoto:'Десен клик → Прикачи слика',
+    mDownload:'Преземи HTML',
+    ghOwner:'Корисник / организација', ghRepo:'Репозиториум', ghBranch:'Гранка', ghPath:'Датотека во repo',
+    ghToken:'Fine-grained token (Contents: Read & Write)', ghPush:'✳ Објави на GitHub сега',
+    ghNote:'Токенот се чува само локално (IndexedDB) — не влегува во објавената верзија ниту во JSON експортот. Направи fine-grained token: github.com → Settings → Developer settings → Tokens, само за овој repo, Contents: Read and write.',
+    ghNeedCfg:'Пополни GitHub во ⚙ Поставки (корисник · repo · token)',
+    ghConfirm:'Објави на {r}? Постоечката датотека ќе биде заменета.',
+    ghUploading:'Се качува на GitHub…', ghDone:'Објавено на GitHub ✓ (Pages се освежува за ~1 мин)',
+    ghFail:'GitHub грешка — провери token / repo / гранка',
+    cxPos:'Позиција / Големина', cxMoveX:'Лево ↔ Десно', cxMoveY:'Горе ↕ Долу',
+    cxAlign:'Порамнување', cxCenter:'Центрирај',
+    lbOnlyCat:'Прикажи само оваа категорија (албум)', lbAllCat:'Прикажи сè',
+    gStart:'Групирај (избери елементи)', gLeave:'Тргни од групата', gKill:'Растури група',
+    gBar:'Кликни на елементи за групата', gSave:'✓ Зачувај група', gCancel:'✕ Откажи',
+    gSaved:'Група зачувана ⧉', gNeed2:'Избери барем 2 елементи', gRemoved:'Одгрупирано',
+    timgSet:'Слика наместо текст', timgClear:'Тргни слика (текст)',
+    ghDataPush:'⤒ Синх. податоци ☁', ghDataPull:'⤓ Повлечи податоци ☁',
+    ghDataPushC:'Качи artis-data.json (дела + поставки, без token) во repo-то?',
+    ghPulling:'Се влече од GitHub…', ghDataDone:'Податоците се качени ☁ ✓',
+    mScan:'Скенирај слики (папка / repo)', scanning:'Скенирам…',
+    scanWhich:'OK = скенирај GitHub repo · Cancel = локална папка',
+    scanNoFS:'Локалниот скен бара Chrome / Edge (File System Access)',
+    scanMisc:'Разно', scanDone:'Скен: {t} слики · нови {a}', scanMissing:'исчезнати {m}',
+    scanNote:'Скенот прави категории од имињата на папките; делата паметат релативни патеки — објавениот HTML мора да стои во истата папка / repo како сликите.',
+    ghNoData:'Нема artis-data.json во repo-то'
+  },
+  en:{
+    navGallery:'Gallery', navAbout:'Atelier', navContact:'Contact',
+    heroEyebrow:'Art atelier', stWorks:'Works', stCats:'Categories', stPeriod:'Period',
+    scroll:'Scroll ↓', secGallery:'Gallery', secAbout:'About the atelier', secContact:'Contact',
+    all:'All', searchPh:'Search…', sortNew:'Newest', sortYear:'By year',
+    sortTitle:'By title', sortNo:'By cat. no.',
+    emptyT:'An empty gallery.', emptyP:'Every work begins with a blank canvas.',
+    emptyFilter:'No works match this filter.',
+    addWork:'+ Add work', atelierCap:'The atelier', footHand:'made by hand',
+    editTexts:'Edit texts', editOn:'✎ Click any heading or paragraph to edit · empty = default text', editOff:'Texts saved ✓',
+    setSecFonts:'Fonts', roleDisp:'Headings', roleBody:'Body', roleMono:'Labels', roleLogo:'Logo', roleScript:'Script',
+    fontPh:'Default · Google Font name',
+    setFontNote:'Pick from the list, type an exact name from fonts.google.com, or ⤒ upload .woff2 / .ttf — uploaded fonts are embedded in the file and in "Publish HTML". Empty = default font.',
+    fontTooBig:'Font too large (max 4 MB)', fontBad:'Invalid font file', fontUp:'Upload font',
+    cat:'CAT.', year:'Year', tech:'Technique', dims:'Dimensions', category:'Category',
+    status:'Status', price:'Price', featured:'Featured',
+    stAvail:'Available', stSold:'Sold', stNfs:'Not for sale',
+    edit:'Edit', del:'Delete', cancel:'Cancel', save:'Save', close:'Close',
+    viewWork:'View work', details:'Details', hideDetails:'Hide details', askWork:'Ask about this work',
+    fNewWork:'New work', fEditWork:'Edit work',
+    fMedia:'Media (image · video · audio · link)',
+    fUpload:'⤒ Upload files', fAddLink:'+ Link',
+    fLinkPh:'Paste a link (image / YouTube / Vimeo / mp4 / mp3 / Drive / Dropbox)…',
+    fMediaNote:'The first medium is the cover. Uploaded images are compressed and stored locally (IndexedDB). For video, a link (YouTube / cloud) is recommended.',
+    fTitle:'Title *', fYear:'Year', fTech:'Technique', fDims:'Dimensions', fCat:'Category',
+    fStatus:'Status', fPrice:'Price (opt.)', fFeat:'Featured work', fDesc:'Description / story',
+    setTitle:'Atelier settings', setSecInfo:'Presentation', setTag:'Motto / tagline',
+    setAbout:'About the atelier', setLogo:'Brand logo (image · link)', setLogoUp:'⤒ or upload image (jpg / png)', setPhoto:'Atelier photo (link)', setPhotoUp:'⤒ or upload image',
+    setSecContact:'Contact', setPhone:'Phone', setAddr:'Address / location', setSecData:'Data',
+    setExport:'⤓ Export JSON', setImport:'⤒ Import JSON', setPublish:'✳ Publish HTML',
+    setDemo:'Remove demo', setWipe:'Delete everything',
+    setPubNote:'"Publish HTML" downloads a copy of this page with the works baked in — a readonly version ready for GitHub Pages / hosting. Your working version stays here.',
+    aboutEmpty:'Write something about the atelier in ⚙ Settings…',
+    contactEmpty:'Add contact details in ⚙ Settings…',
+    tEmail:'E-mail', tPhone:'Phone', tInsta:'Instagram', tFb:'Facebook', tAddr:'Location',
+    needTitle:'Enter a title for the work', needMedia:'Add at least one medium',
+    saved:'Saved ✓', deleted:'Deleted', imported:'Imported ✓', exported:'Exported ⤓',
+    published:'Published version downloaded ⤓', demoRemoved:'Demo works removed',
+    wiped:'Everything deleted', badLink:'Invalid link', badJson:'Invalid JSON file', fileTooBig:'File too large (max 25 MB) — use a link',
+    confirmDel:'Delete this work?', confirmWipe:'WARNING: all works and settings will be deleted. Continue?',
+    confirmImport:'OK = REPLACE everything with the import · Cancel = APPEND to existing',
+    prev:'Previous', next:'Next', workLabel:'work', videoTag:'Video', audioTag:'Audio',
+    cxThis:'Element', cxFont:'Font', cxTextColor:'Text colour', cxBg:'Background colour',
+    cxUpload:'Upload image', cxSize:'Image size', cxReset:'Reset to default',
+    cxRemove:'remove', cxDefault:'default', cxResetDone:'Reset to default ✓',
+    cxFontNote:'Affects all elements of the same role.',
+    cxPalette:'Palette', cxMyColors:'My colours', cxSaveColor:'Save colour', cxSyncAll:'Apply to all similar',
+    mWorkMode:'Working mode', mAddWork:'Add work', mEditTexts:'Edit texts', mEditDone:'Finish editing',
+    mSettings:'Settings', mExport:'Export JSON', mImport:'Import JSON', mPublish:'Publish to GitHub',
+    mOpen:'Open', mEditWork:'Edit work', mDelWork:'Delete work',
+    ctxHint:'Working mode · right-click for the menu',
+    phPhoto:'Right-click → Upload image',
+    mDownload:'Download HTML',
+    ghOwner:'User / organisation', ghRepo:'Repository', ghBranch:'Branch', ghPath:'File in repo',
+    ghToken:'Fine-grained token (Contents: Read & Write)', ghPush:'✳ Publish to GitHub now',
+    ghNote:'The token is stored locally only (IndexedDB) — it never enters the published copy or the JSON export. Create a fine-grained token: github.com → Settings → Developer settings → Tokens, this repo only, Contents: Read and write.',
+    ghNeedCfg:'Fill in GitHub in ⚙ Settings (user · repo · token)',
+    ghConfirm:'Publish to {r}? The existing file will be replaced.',
+    ghUploading:'Uploading to GitHub…', ghDone:'Published to GitHub ✓ (Pages refreshes in ~1 min)',
+    ghFail:'GitHub error — check token / repo / branch',
+    cxPos:'Position / Size', cxMoveX:'Left ↔ Right', cxMoveY:'Up ↕ Down',
+    cxAlign:'Alignment', cxCenter:'Center',
+    lbOnlyCat:'Show only this category (album)', lbAllCat:'Show all',
+    gStart:'Group (pick elements)', gLeave:'Remove from group', gKill:'Dissolve group',
+    gBar:'Click elements for the group', gSave:'✓ Save group', gCancel:'✕ Cancel',
+    gSaved:'Group saved ⧉', gNeed2:'Pick at least 2 elements', gRemoved:'Ungrouped',
+    timgSet:'Image instead of text', timgClear:'Remove image (text)',
+    ghDataPush:'⤒ Sync data ☁', ghDataPull:'⤓ Pull data ☁',
+    ghDataPushC:'Upload artis-data.json (works + settings, no token) to the repo?',
+    ghPulling:'Pulling from GitHub…', ghDataDone:'Data uploaded ☁ ✓',
+    mScan:'Scan images (folder / repo)', scanning:'Scanning…',
+    scanWhich:'OK = scan GitHub repo · Cancel = local folder',
+    scanNoFS:'Local scan needs Chrome / Edge (File System Access)',
+    scanMisc:'Misc', scanDone:'Scan: {t} images · new {a}', scanMissing:'missing {m}',
+    scanNote:'The scan builds categories from folder names; works remember relative paths — the published HTML must live in the same folder / repo as the images.',
+    ghNoData:'No artis-data.json in the repo'
+  }
+};
+let LANG = localStorage.getItem('aas_lang') || 'mk';
+const t = k => (I18N[LANG] && I18N[LANG][k]) || I18N.mk[k] || k;
+
+/* ---------- state ---------- */
+let WORKS = [];
+let SETTINGS = { tagline:'', about:'', logo:'', photo:'', email:'', phone:'', instagram:'', facebook:'', address:'', texts:{}, fonts:{}, styles:{}, savedColors:[], github:{} };
+let PUBLISHED = false;
+const FILTER = { cat:'*', q:'', sort:'new' };
+let LB = { list:[], idx:-1, mi:0 };
+let FORM = { editId:null, media:[] };
+
+/* ---------- utils ---------- */
+const $  = s => document.querySelector(s);
+const $$ = s => Array.from(document.querySelectorAll(s));
+const rid = () => Date.now().toString(36) + Math.random().toString(36).slice(2,8);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const pad3 = n => String(n).padStart(3,'0');
+
+function toast(msg, err){
+  const el = document.createElement('div');
+  el.className = 'toast' + (err ? ' err' : '');
+  el.textContent = msg;
+  $('#toasts').appendChild(el);
+  setTimeout(() => { el.style.opacity = '0'; el.style.transition = 'opacity .4s'; }, 2400);
+  setTimeout(() => el.remove(), 2900);
+}
+
+function applyI18n(){
+  $$('[data-i18n]').forEach(el => { el.textContent = t(el.getAttribute('data-i18n')); });
+  $$('[data-i18n-ph]').forEach(el => { el.placeholder = t(el.getAttribute('data-i18n-ph')); });
+  $('#btnLang').textContent = LANG === 'mk' ? 'EN' : 'МК';
+  document.documentElement.lang = LANG;
+}
+function setLang(l){
+  LANG = l; localStorage.setItem('aas_lang', l);
+  applyI18n(); renderAll();
+  if ($('#lb').classList.contains('on')) renderLBInfo();
+}
+function setTheme(th){
+  document.documentElement.dataset.theme = th;
+  localStorage.setItem('aas_theme', th);
+}
+
+/* ---------- editable texts ---------- */
+const DEFAULT_TEXTS = {
+  brandBadge:'gallery', brandName:'SOLAK',
+  hero1:'Artis', hero2:'Atelier', hero3:'Solak', wm:'Solak',
+  marquee:'Сликарство ✳ Painting ✳ Цртеж ✳ Drawing ✳ Скулптура ✳ Sculpture ✳ Графика ✳ Printmaking ✳ Акварел ✳ Watercolour ✳ Artis Atelier Solak ✳'
+};
+let EDITING = false;
+function defaultOf(k){ return I18N.mk[k] !== undefined ? t(k) : (DEFAULT_TEXTS[k] || ''); }
+function textOf(k){
+  const c = SETTINGS.texts && SETTINGS.texts[k];
+  return (c && String(c).trim()) ? c : defaultOf(k);
+}
+function applyTexts(){
+  $$('[data-edit]').forEach(el => {
+    const k = el.getAttribute('data-edit');
+    const hasImg = !!((SETTINGS.styles || {})[k] || {}).img;
+    if (k !== 'tagline' && k !== 'about' && !hasImg){
+      if (k === 'marquee') el.innerHTML = esc(textOf(k)).replace(/✳/g, '<b>✳</b>');
+      else el.textContent = textOf(k);
+    }
+    if (EDITING && !el.hasAttribute('contenteditable')) makeEditable(el);
+  });
+}
+function makeEditable(el){
+  if ((((SETTINGS.styles || {})[el.getAttribute('data-edit')] || {}).img)) return;
+  el.setAttribute('contenteditable', 'plaintext-only');
+  if (!el.isContentEditable) el.setAttribute('contenteditable', 'true');
+}
+async function persistSettings(){
+  if (PUBLISHED) return;
+  try { await kvSet('settings', SETTINGS); } catch {}
+}
+function saveEdit(el){
+  const k = el.getAttribute('data-edit');
+  if (!k || PUBLISHED) return;
+  const v = String(el.innerText !== undefined ? el.innerText : el.textContent).replace(/\u00a0/g, ' ').trim();
+  if (k === 'tagline') SETTINGS.tagline = v;
+  else if (k === 'about') SETTINGS.about = v;
+  else {
+    if (!SETTINGS.texts) SETTINGS.texts = {};
+    if (v && v !== defaultOf(k)) SETTINGS.texts[k] = v;
+    else delete SETTINGS.texts[k];
+  }
+  persistSettings();
+  renderAll();
+}
+function setEditing(on){
+  if (PUBLISHED) return;
+  if (!on){
+    const ae = document.activeElement;
+    if (ae && ae.closest){ const el = ae.closest('[data-edit]'); if (el) saveEdit(el); }
+  }
+  EDITING = !!on;
+  document.body.classList.toggle('editing', EDITING);
+  $$('[data-edit]').forEach(el => {
+    if (EDITING) makeEditable(el);
+    else el.removeAttribute('contenteditable');
+  });
+  const b = $('#btnEdit');
+  if (b) b.classList.toggle('on', EDITING);
+  toast(EDITING ? t('editOn') : t('editOff'));
+  if (!EDITING) renderAll();
+}
+
+/* ---------- custom fonts (Google Fonts by name / uploaded files) ---------- */
+const FONT_ROLES = {
+  disp:   "'Fraunces',Georgia,'Times New Roman',serif",
+  body:   "'Space Grotesk','Segoe UI',system-ui,sans-serif",
+  mono:   "'IBM Plex Mono',ui-monospace,'Cascadia Mono',Consolas,monospace",
+  logo:   "'Julius Sans One','Trebuchet MS',sans-serif",
+  script: "'Caveat','Segoe Script',cursive"
+};
+function applyFonts(){
+  const F = SETTINGS.fonts || {};
+  Object.keys(FONT_ROLES).forEach(role => {
+    const cfg = F[role] || {};
+    const linkId = 'gf-' + role, ffId = 'ff-' + role;
+    let fam = '';
+    if (cfg.d){
+      fam = 'AAS-' + role;
+      let st = document.getElementById(ffId);
+      if (!st){ st = document.createElement('style'); st.id = ffId; document.head.appendChild(st); }
+      st.textContent = "@font-face{font-family:'" + fam + "';src:url(" + cfg.d + ");font-display:swap}";
+      const l = document.getElementById(linkId); if (l) l.remove();
+    } else if (cfg.n && String(cfg.n).trim()){
+      fam = String(cfg.n).trim();
+      const href = 'https://fonts.googleapis.com/css2?family=' + encodeURIComponent(fam).replace(/%20/g, '+') + '&display=swap';
+      let l = document.getElementById(linkId);
+      if (!l){ l = document.createElement('link'); l.id = linkId; l.rel = 'stylesheet'; document.head.appendChild(l); }
+      if (l.getAttribute('href') !== href) l.setAttribute('href', href);
+      const st = document.getElementById(ffId); if (st) st.remove();
+    } else {
+      const l = document.getElementById(linkId); if (l) l.remove();
+      const st = document.getElementById(ffId); if (st) st.remove();
+    }
+    if (fam) document.documentElement.style.setProperty('--f-' + role, "'" + fam.replace(/'/g, '') + "'," + FONT_ROLES[role]);
+    else document.documentElement.style.removeProperty('--f-' + role);
+  });
+}
+function renderFontRows(){
+  const roles = [['disp','roleDisp'],['body','roleBody'],['mono','roleMono'],['logo','roleLogo'],['script','roleScript']];
+  $('#fontRows').innerHTML = roles.map(r => {
+    const [role, lab] = r;
+    const cfg = DRAFT_FONTS[role] || {};
+    const up = !!cfg.d;
+    return `<div class="f-row">
+      <label class="f-role">${t(lab)}</label>
+      <input list="gfList" data-frole="${role}" value="${up ? '📁 ' + esc(cfg.f || 'font') : esc(cfg.n || '')}" placeholder="${esc(t('fontPh'))}" ${up ? 'disabled' : ''}>
+      <button class="btn sm" data-fup="${role}" type="button" title="${esc(t('fontUp'))}">⤒</button>
+      <button class="btn sm danger" data-fclr="${role}" type="button" ${(up || cfg.n) ? '' : 'hidden'}>✕</button>
+    </div>`;
+  }).join('');
+}
+
+/* ---------- IndexedDB ---------- */
+const DB_NAME = 'artis-atelier-solak', DB_V = 1;
+function openDB(){
+  return new Promise((res, rej) => {
+    const r = indexedDB.open(DB_NAME, DB_V);
+    r.onerror = () => rej(r.error);
+    r.onsuccess = () => res(r.result);
+    r.onupgradeneeded = e => {
+      const d = e.target.result;
+      if (!d.objectStoreNames.contains('works')) d.createObjectStore('works', { keyPath:'id' });
+      if (!d.objectStoreNames.contains('kv'))    d.createObjectStore('kv');
+    };
+  });
+}
+async function dbAll(){
+  const d = await openDB();
+  return new Promise((res, rej) => {
+    const rq = d.transaction('works').objectStore('works').getAll();
+    rq.onsuccess = () => res(rq.result || []);
+    rq.onerror  = () => rej(rq.error);
+  });
+}
+async function dbPut(w){
+  const d = await openDB();
+  return new Promise((res, rej) => {
+    const tx = d.transaction('works','readwrite');
+    tx.objectStore('works').put(w);
+    tx.oncomplete = () => res();
+    tx.onerror = () => rej(tx.error);
+  });
+}
+async function dbDel(id){
+  const d = await openDB();
+  return new Promise((res, rej) => {
+    const tx = d.transaction('works','readwrite');
+    tx.objectStore('works').delete(id);
+    tx.oncomplete = () => res();
+    tx.onerror = () => rej(tx.error);
+  });
+}
+async function dbClear(){
+  const d = await openDB();
+  return new Promise((res, rej) => {
+    const tx = d.transaction('works','readwrite');
+    tx.objectStore('works').clear();
+    tx.oncomplete = () => res();
+    tx.onerror = () => rej(tx.error);
+  });
+}
+async function kvSet(k, v){
+  const d = await openDB();
+  return new Promise((res, rej) => {
+    const tx = d.transaction('kv','readwrite');
+    tx.objectStore('kv').put(v, k);
+    tx.oncomplete = () => res();
+    tx.onerror = () => rej(tx.error);
+  });
+}
+async function kvGet(k){
+  const d = await openDB();
+  return new Promise((res, rej) => {
+    const rq = d.transaction('kv').objectStore('kv').get(k);
+    rq.onsuccess = () => res(rq.result);
+    rq.onerror = () => rej(rq.error);
+  });
+}
+
+/* ---------- media detection (link → kind) ---------- */
+function tryParseUrl(u){ try { return new URL(u); } catch { return null; } }
+function getYouTubeId(url){
+  const p = tryParseUrl(url);
+  if (!p) return null;
+  if (p.hostname.includes('youtube.com')){
+    const v = p.searchParams.get('v'); if (v) return v;
+  }
+  if (p.hostname === 'youtu.be') return p.pathname.slice(1).split('/')[0] || null;
+  const m = p.pathname.match(/\/(embed|shorts|v|live)\/([^/?#]+)/);
+  return m ? m[2] : null;
+}
+function fixSvgSrc(src){
+  if (!src || !src.startsWith('data:image/svg+xml,') || src.includes('width%3D')) return src;
+  try {
+    const raw = decodeURIComponent(src.slice(19));
+    const m = raw.match(/viewBox="0 0 (\d+(?:\.\d+)?) (\d+(?:\.\d+)?)"/);
+    if (!m) return src;
+    return 'data:image/svg+xml,' + encodeURIComponent(raw.replace('<svg ', '<svg width="' + m[1] + '" height="' + m[2] + '" '));
+  } catch { return src; }
+}
+function detectMedia(raw){
+  let u = String(raw || '').trim();
+  if (!u) return null;
+  if (!/^https?:\/\//i.test(u) && !u.startsWith('data:')) u = 'https://' + u;
+  const yt = getYouTubeId(u);
+  if (yt) return { kind:'youtube', id:yt, src:u };
+  const vm = u.match(/vimeo\.com\/(?:video\/)?(\d+)/);
+  if (vm) return { kind:'vimeo', id:vm[1], src:u };
+  const gd = u.match(/drive\.google\.com\/(?:file\/d\/|open\?id=)([\w-]+)/);
+  if (gd) return { kind:'image', src:'https://lh3.googleusercontent.com/d/' + gd[1] };
+  if (u.includes('dropbox.com'))
+    return { kind:'image', src:u.replace('www.dropbox.com','dl.dropboxusercontent.com').replace(/([?&])dl=0/,'$1raw=1') };
+  if (/\.(mp4|webm|mov|m4v|ogv)([?#]|$)/i.test(u)) return { kind:'video', src:u };
+  if (/\.(mp3|wav|ogg|m4a|flac|aac)([?#]|$)/i.test(u)) return { kind:'audio', src:u };
+  return { kind:'image', src:u };
+}
+
+/* ---------- file → media (compress images, dataURL others) ---------- */
+function readAsDataURL(file){
+  return new Promise((res, rej) => {
+    const r = new FileReader();
+    r.onload = () => res(r.result);
+    r.onerror = () => rej(r.error);
+    r.readAsDataURL(file);
+  });
+}
+function loadImg(src){
+  return new Promise((res, rej) => {
+    const im = new Image();
+    im.onload = () => res(im);
+    im.onerror = rej;
+    im.src = src;
+  });
+}
+async function shrink(dataURL, max, q){
+  const im = await loadImg(dataURL);
+  const sc = Math.min(1, max / Math.max(im.naturalWidth, im.naturalHeight));
+  const w = Math.max(1, Math.round(im.naturalWidth * sc));
+  const h = Math.max(1, Math.round(im.naturalHeight * sc));
+  const c = document.createElement('canvas');
+  c.width = w; c.height = h;
+  c.getContext('2d').drawImage(im, 0, 0, w, h);
+  return c.toDataURL('image/jpeg', q);
+}
+async function fileToMedia(file){
+  const MAX = 25 * 1024 * 1024;
+  if (file.type.startsWith('image/')){
+    const raw = await readAsDataURL(file);
+    if (file.type === 'image/gif' && file.size < 3 * 1024 * 1024)
+      return { kind:'image', src:raw, thumb:raw, name:file.name };
+    const [src, thumb] = await Promise.all([shrink(raw, 1600, .84), shrink(raw, 520, .72)]);
+    return { kind:'image', src, thumb, name:file.name };
+  }
+  if (file.size > MAX) { toast(t('fileTooBig'), true); return null; }
+  const src = await readAsDataURL(file);
+  if (file.type.startsWith('video/')) return { kind:'video', src, name:file.name };
+  if (file.type.startsWith('audio/')) return { kind:'audio', src, name:file.name };
+  return null;
+}
+</script>
+<script>
+'use strict';
+/* ---------- status / cover / card ---------- */
+function statusOf(w){
+  if (w.status === 'sold') return { cls:'sold', label:t('stSold') };
+  if (w.status === 'nfs')  return { cls:'nfs',  label:t('stNfs') };
+  return { cls:'', label:t('stAvail') };
+}
+function coverHTML(w){
+  const m = (w.media && w.media[0]) || null;
+  if (!m) return '<div class="w-ph"><span>✳</span></div>';
+  if (m.kind === 'image')
+    return `<img loading="lazy" src="${esc(fixSvgSrc(m.thumb || m.src))}" alt="${esc(w.title)}">`;
+  if (m.kind === 'youtube')
+    return `<img loading="lazy" src="https://i.ytimg.com/vi/${esc(m.id)}/hqdefault.jpg" alt="${esc(w.title)}"><span class="w-badge">${t('videoTag')}</span>`;
+  const glyph = m.kind === 'audio' ? '♫' : '▶';
+  const tag   = m.kind === 'audio' ? t('audioTag') : t('videoTag');
+  return `<div class="w-ph"><span>${glyph}</span></div><span class="w-badge">${tag}</span>`;
+}
+function cardHTML(w){
+  const st = statusOf(w);
+  const meta = [w.year, w.technique, w.dims].filter(Boolean).join(' · ');
+  return `<article class="work rv" data-id="${w.id}" tabindex="0" role="button" aria-label="${esc(w.title)}">
+    ${w.featured ? `<span class="w-feat">${t('featured')}</span>` : ''}
+    <figure class="w-fig" data-view="${esc(t('viewWork'))}">${coverHTML(w)}</figure>
+    <div class="w-label">
+      <div class="w-no">${t('cat')} ${pad3(w.no || 0)}</div>
+      <h3 class="w-title">${esc(w.title)}</h3>
+      ${meta ? `<div class="w-meta">${esc(meta)}</div>` : ''}
+      <div class="w-status"><i class="dot ${st.cls}"></i>${st.label}</div>
+    </div>
+  </article>`;
+}
+
+/* ---------- filtering / sorting ---------- */
+function filteredWorks(){
+  let list = WORKS.slice();
+  if (FILTER.cat !== '*') list = list.filter(w => (w.category || '').trim() === FILTER.cat);
+  const q = FILTER.q.trim().toLowerCase();
+  if (q) list = list.filter(w =>
+    [w.title, w.technique, w.category, w.desc, w.year, 'кат ' + pad3(w.no || 0), 'cat ' + pad3(w.no || 0)]
+      .join(' ').toLowerCase().includes(q));
+  const s = FILTER.sort;
+  list.sort((a, b) => {
+    const f = (b.featured ? 1 : 0) - (a.featured ? 1 : 0);
+    if (f) return f;
+    if (s === 'year')  return String(b.year || '').localeCompare(String(a.year || ''), undefined, { numeric:true });
+    if (s === 'title') return String(a.title || '').localeCompare(String(b.title || ''), LANG === 'mk' ? 'mk' : 'en');
+    if (s === 'no')    return (a.no || 0) - (b.no || 0);
+    return (b.createdAt || 0) - (a.createdAt || 0);
+  });
+  return list;
+}
+
+/* ---------- render ---------- */
+function renderFilters(){
+  const cats = [...new Set(WORKS.map(w => (w.category || '').trim()).filter(Boolean))]
+    .sort((a, b) => a.localeCompare(b, 'mk'));
+  if (FILTER.cat !== '*' && !cats.includes(FILTER.cat)) FILTER.cat = '*';
+  $('#chips').innerHTML =
+    [`<button class="chip ${FILTER.cat === '*' ? 'on' : ''}" data-cat="*">${t('all')}</button>`]
+    .concat(cats.map(c => `<button class="chip ${FILTER.cat === c ? 'on' : ''}" data-cat="${esc(c)}">${esc(c)}</button>`))
+    .join('');
+}
+function updateStats(){
+  $('#stWorks').textContent = WORKS.length;
+  const cats = new Set(WORKS.map(w => (w.category || '').trim()).filter(Boolean));
+  $('#stCats').textContent = cats.size;
+  const yrs = WORKS.map(w => parseInt(w.year, 10)).filter(n => !isNaN(n));
+  $('#stPeriod').textContent = yrs.length
+    ? (Math.min(...yrs) === Math.max(...yrs) ? String(Math.min(...yrs)) : Math.min(...yrs) + ' — ' + Math.max(...yrs))
+    : '—';
+}
+function renderGallery(){
+  const list = filteredWorks();
+  const grid = $('#grid'), empty = $('#empty');
+  grid.innerHTML = list.map(cardHTML).join('');
+  empty.hidden = list.length > 0;
+  if (!empty.hidden){
+    const none = WORKS.length === 0;
+    empty.querySelector('h3').textContent = none ? textOf('emptyT') : t('emptyFilter');
+    empty.querySelector('p').textContent  = none ? textOf('emptyP') : '';
+    empty.classList.add('in');
+  }
+  watchRv(grid);
+}
+function instaHref(v){
+  if (/^https?:/i.test(v)) return v;
+  return 'https://instagram.com/' + v.replace(/^@/, '');
+}
+function fbHref(v){
+  if (/^https?:/i.test(v)) return v;
+  return 'https://' + v.replace(/^\/+/, '');
+}
+function renderAboutContact(){
+  $('#heroTag').textContent = SETTINGS.tagline || '';
+  const at = $('#aboutTxt');
+  if (SETTINGS.about){ at.textContent = SETTINGS.about; at.classList.remove('hint'); }
+  else { at.textContent = PUBLISHED ? '' : t('aboutEmpty'); at.classList.add('hint'); }
+  const pw = $('#aPhotoWrap');
+  if (SETTINGS.photo){ $('#aPhoto').src = SETTINGS.photo; pw.hidden = false; pw.classList.remove('ph'); }
+  else if (!PUBLISHED){ $('#aPhoto').removeAttribute('src'); pw.hidden = false; pw.classList.add('ph'); }
+  else pw.hidden = true;
+  $('#about').style.display = (PUBLISHED && !SETTINGS.about && !SETTINGS.photo) ? 'none' : '';
+
+  const rows = [];
+  const add = (lab, val, href) => { if (val && String(val).trim()) rows.push({ lab, val:String(val).trim(), href }); };
+  add(t('tEmail'), SETTINGS.email, 'mailto:' + SETTINGS.email);
+  add(t('tPhone'), SETTINGS.phone, 'tel:' + String(SETTINGS.phone || '').replace(/[^\d+]/g, ''));
+  add('Instagram', SETTINGS.instagram, instaHref(SETTINGS.instagram || ''));
+  add('Facebook', SETTINGS.facebook, fbHref(SETTINGS.facebook || ''));
+  add(t('tAddr'), SETTINGS.address, null);
+  const c = $('#cRows');
+  if (!rows.length){
+    c.innerHTML = PUBLISHED ? '' : `<div class="c-row"><span class="c-val hint">${t('contactEmpty')}</span></div>`;
+  } else {
+    c.innerHTML = rows.map(r => {
+      const inner = `<span class="c-lab">${esc(r.lab)}</span><span class="c-val">${esc(r.val)}</span><span class="c-arr">↗</span>`;
+      return r.href
+        ? `<a class="c-row" href="${esc(r.href)}" target="_blank" rel="noopener">${inner}</a>`
+        : `<div class="c-row">${inner}</div>`;
+    }).join('');
+  }
+  $('#contact').style.display = (PUBLISHED && !rows.length) ? 'none' : '';
+}
+function applyBrandLogo(){
+  const wrap = document.querySelector('.brand-logo');
+  const img = $('#brandImg');
+  if (!wrap || !img) return;
+  if (SETTINGS.logo){
+    if (img.getAttribute('src') !== SETTINGS.logo) img.src = SETTINGS.logo;
+    wrap.classList.add('has-img');
+  } else {
+    img.removeAttribute('src');
+    wrap.classList.remove('has-img');
+  }
+}
+function renderAll(){
+  applyTexts();
+  applyBrandLogo();
+  updateStats();
+  renderFilters();
+  renderGallery();
+  renderAboutContact();
+  applyStyles();
+}
+
+/* ---------- lightbox ---------- */
+function mediaHTML(m, title){
+  if (!m) return '';
+  if (m.kind === 'image')   return `<img src="${esc(fixSvgSrc(m.src))}" alt="${esc(title)}">`;
+  if (m.kind === 'youtube') return `<iframe src="https://www.youtube-nocookie.com/embed/${esc(m.id)}" title="YouTube" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>`;
+  if (m.kind === 'vimeo')   return `<iframe src="https://player.vimeo.com/video/${esc(m.id)}" title="Vimeo" allow="autoplay; fullscreen; picture-in-picture" allowfullscreen></iframe>`;
+  if (m.kind === 'video')   return `<video src="${esc(m.src)}" controls playsinline></video>`;
+  if (m.kind === 'audio')   return `<audio src="${esc(m.src)}" controls></audio>`;
+  return '';
+}
+function curWork(){ return WORKS.find(w => w.id === LB.list[LB.idx]); }
+function openLB(id){
+  LB.list = filteredWorks().map(w => w.id);
+  LB.idx  = LB.list.indexOf(id);
+  if (LB.idx < 0){ LB.list = WORKS.map(w => w.id); LB.idx = LB.list.indexOf(id); }
+  if (LB.idx < 0) return;
+  LB.mi = 0;
+  $('#lb').classList.add('on');
+  $('#lb').classList.remove('info-open');
+  document.body.style.overflow = 'hidden';
+  renderLB();
+}
+function renderLB(){
+  const w = curWork();
+  if (!w) return closeLB();
+  renderLBMedia(w);
+  renderLBThumbs(w);
+  renderLBCaption(w);
+  preloadNeighbors();
+  renderLBQuick(w);
+  renderLBInfo(w);
+  const many = LB.list.length > 1;
+  $('#lbPrev').style.visibility = many ? 'visible' : 'hidden';
+  $('#lbNext').style.visibility = many ? 'visible' : 'hidden';
+}
+function renderLBMedia(w){
+  const m = (w.media || [])[LB.mi] || (w.media || [])[0];
+  $('#lbMedia').innerHTML = mediaHTML(m, w.title) || '<div class="w-ph" style="width:100%"><span>✳</span></div>';
+}
+function renderLBThumbs(w){
+  const c = $('#lbThumbs');
+  if (!w.media || w.media.length < 2){ c.innerHTML = ''; return; }
+  c.innerHTML = w.media.map((m, i) => {
+    const inner = m.kind === 'image'
+      ? `<img src="${esc(fixSvgSrc(m.thumb || m.src))}" alt="">`
+      : m.kind === 'youtube'
+        ? `<img src="https://i.ytimg.com/vi/${esc(m.id)}/default.jpg" alt="">`
+        : (m.kind === 'audio' ? '♫' : '▶');
+    return `<button class="lb-th ${i === LB.mi ? 'on' : ''}" data-mi="${i}" type="button">${inner}</button>`;
+  }).join('');
+}
+function inquiryHref(w){
+  const subject = encodeURIComponent('Artis Atelier Solak — ' + (w.title || 'Artwork'));
+  const body = encodeURIComponent((LANG === 'mk'
+    ? 'Здраво,\n\nМе интересира делото: '
+    : 'Hello,\n\nI am interested in the work: ') + (w.title || '') + ' / ' + t('cat') + ' ' + pad3(w.no || 0) + '.\n\n');
+  if (SETTINGS.email) return 'mailto:' + SETTINGS.email.trim() + '?subject=' + subject + '&body=' + body;
+  return '#contact';
+}
+function bindInquiry(el){
+  if (!el) return;
+  el.onclick = e => {
+    if (!SETTINGS.email){ closeLB(); }
+  };
+}
+let GROUPING = null;
+function groupMembers(key){
+  const st = (SETTINGS.styles || {})[key] || {};
+  if (!st.grp) return [key];
+  const m = Object.keys(SETTINGS.styles || {}).filter(k => (SETTINGS.styles[k] || {}).grp === st.grp);
+  if (!m.includes(key)) m.push(key);
+  return m;
+}
+function startGrouping(fromKey){
+  if (PUBLISHED) return;
+  closeCtx(); closePop();
+  GROUPING = { id: 'g' + rid(), keys: new Set([fromKey]) };
+  const el = document.querySelector('[data-sk="' + fromKey + '"]');
+  if (el) el.classList.add('g-sel');
+  $('#grpCount').textContent = '1';
+  $('#grpBar').hidden = false;
+}
+function endGrouping(){
+  $$('.g-sel').forEach(el => el.classList.remove('g-sel'));
+  $('#grpBar').hidden = true;
+  GROUPING = null;
+}
+function saveGrouping(){
+  if (!GROUPING) return;
+  if (GROUPING.keys.size < 2) return toast(t('gNeed2'), true);
+  GROUPING.keys.forEach(k => { styleOf(k).grp = GROUPING.id; });
+  persistSettings();
+  endGrouping();
+  toast(t('gSaved'));
+}
+let LB_TS = null;
+function lbTouchStart(e){
+  const t = e.touches && e.touches[0];
+  if (t) LB_TS = { x: t.clientX, y: t.clientY, at: Date.now() };
+}
+function lbTouchEnd(e){
+  if (!LB_TS) return;
+  const t = (e.changedTouches && e.changedTouches[0]) || null;
+  const dx = t ? t.clientX - LB_TS.x : 0;
+  const dy = t ? t.clientY - LB_TS.y : 0;
+  const dt = Date.now() - LB_TS.at;
+  LB_TS = null;
+  if (dt > 800) return;
+  if (Math.abs(dy) > 80 && Math.abs(dy) > Math.abs(dx) * 1.4){ closeLB(); return; }
+  if (Math.abs(dx) > 45 && Math.abs(dx) > Math.abs(dy)) lbGo(dx < 0 ? 1 : -1);
+}
+function preloadNeighbors(){
+  if (typeof Image !== 'function' || LB.list.length < 2) return;
+  [1, -1].forEach(d => {
+    const w = WORKS.find(x => x.id === LB.list[(LB.idx + d + LB.list.length) % LB.list.length]);
+    const m = w && w.media && w.media[0];
+    if (m && m.kind === 'image'){ try { const im = new Image(); im.src = fixSvgSrc(m.src); } catch {} }
+  });
+}
+function renderLBCaption(w){
+  const pos = LB.list.length > 1 ? ' \u00b7 ' + (LB.idx + 1) + ' / ' + LB.list.length : '';
+  const cat = (w.category || '').trim();
+  const scoped = cat && FILTER.cat === cat;
+  $('#lbCaption').innerHTML = `<div class="lb-cap-no">${t('cat')} ${pad3(w.no || 0)}${pos}</div>
+    <div class="lb-cap-title">${esc(w.title)}</div>
+    ${cat ? `<button class="lb-cap-cat" data-lbcat="${esc(cat)}" type="button" title="${scoped ? esc(t('lbAllCat')) : esc(t('lbOnlyCat'))}">${scoped ? '\u25C0 ' + t('all') : '\u25A6 ' + esc(cat)}</button>` : ''}`;
+}
+function renderLBQuick(w){
+  $('#lbQuick').innerHTML = `<a class="btn sm pri" id="lbAskQuick" href="${esc(inquiryHref(w))}">${t('askWork')}</a><button class="btn sm" id="lbOpenDetails" type="button">ⓘ ${t('details')}</button>`;
+  const d = $('#lbOpenDetails');
+  if (d) d.onclick = () => setLBInfo(true);
+  bindInquiry($('#lbAskQuick'));
+}
+function setLBInfo(open){
+  const lb = $('#lb');
+  lb.classList.toggle('info-open', !!open);
+  const b = $('#lbDetails');
+  if (b) b.textContent = open ? 'ⓘ ' + t('hideDetails') : 'ⓘ ' + t('details');
+}
+function renderLBInfo(w){
+  w = w || curWork();
+  if (!w) return;
+  const st = statusOf(w);
+  const specs = [
+    [t('year'), w.year], [t('tech'), w.technique], [t('dims'), w.dims],
+    [t('category'), w.category], [t('price'), w.price]
+  ].filter(r => r[1]);
+  $('#lbInfo').innerHTML = `
+    <div class="lb-no">${t('cat')} ${pad3(w.no || 0)}${w.featured ? ' · ' + t('featured').toUpperCase() : ''}</div>
+    <h2 class="lb-title">${esc(w.title)}</h2>
+    <dl class="spec">
+      ${specs.map(r => `<div class="spec-row"><dt>${esc(r[0])}</dt><dd>${esc(r[1])}</dd></div>`).join('')}
+      <div class="spec-row"><dt>${t('status')}</dt><dd class="st"><i class="dot ${st.cls}"></i>${st.label}</dd></div>
+    </dl>
+    ${w.desc ? `<p class="lb-desc">${esc(w.desc)}</p>` : ''}
+    <div class="lb-actions">
+      <a class="btn sm pri" id="lbAsk" href="${esc(inquiryHref(w))}">${t('askWork')}</a>
+    </div>
+    <div class="lb-actions adm-only">
+      <button class="btn sm" id="lbEdit" type="button">✎ ${t('edit')}</button>
+      <button class="btn sm danger" id="lbDel" type="button">${t('del')}</button>
+    </div>`;
+  const eb = $('#lbEdit'), xb = $('#lbDel');
+  bindInquiry($('#lbAsk'));
+  setLBInfo($('#lb').classList.contains('info-open'));
+  if (eb) eb.onclick = () => openForm(w.id);
+  if (xb) xb.onclick = () => delWork(w.id);
+}
+function lbGo(d){
+  if (LB.list.length < 2) return;
+  LB.idx = (LB.idx + d + LB.list.length) % LB.list.length;
+  LB.mi = 0;
+  const m = $('#lbMedia');
+  if (m){ m.classList.remove('sl-l','sl-r'); void m.offsetWidth; m.classList.add(d > 0 ? 'sl-l' : 'sl-r'); }
+  renderLB();
+}
+function closeLB(){
+  try { if (document.fullscreenElement && $('#lb').contains(document.fullscreenElement)) document.exitFullscreen(); } catch {}
+  $('#lb').classList.remove('on');
+  $('#lb').classList.remove('info-open');
+  $('#lbMedia').innerHTML = '';
+  $('#lbCaption').innerHTML = '';
+  $('#lbQuick').innerHTML = '';
+  document.body.style.overflow = '';
+}
+
+/* ---------- work form ---------- */
+function openForm(id){
+  if (PUBLISHED) return;
+  FORM.editId = id || null;
+  const w = id ? WORKS.find(x => x.id === id) : null;
+  $('#dlgWorkTitle').textContent = w ? t('fEditWork') : t('fNewWork');
+  $('#fTitle').value  = w ? (w.title || '') : '';
+  $('#fYear').value   = w ? (w.year || '') : '';
+  $('#fTech').value   = w ? (w.technique || '') : '';
+  $('#fDims').value   = w ? (w.dims || '') : '';
+  $('#fCat').value    = w ? (w.category || '') : '';
+  $('#fStatus').value = w ? (w.status || 'available') : 'available';
+  $('#fPrice').value  = w ? (w.price || '') : '';
+  $('#fFeat').checked = !!(w && w.featured);
+  $('#fDesc').value   = w ? (w.desc || '') : '';
+  $('#fLink').value   = '';
+  FORM.media = w ? JSON.parse(JSON.stringify(w.media || [])) : [];
+  renderFormMedia();
+  $('#btnDelWork').hidden = !w;
+  $('#dlgWork').showModal();
+}
+function renderFormMedia(){
+  $('#mediaList').innerHTML = FORM.media.map((m, i) => {
+    const th = m.kind === 'image'
+      ? `<img src="${esc(fixSvgSrc(m.thumb || m.src))}">`
+      : m.kind === 'youtube'
+        ? `<img src="https://i.ytimg.com/vi/${esc(m.id)}/default.jpg">`
+        : (m.kind === 'audio' ? '♫' : '▶');
+    return `<div class="m-chip">
+      <div class="mc-th">${th}</div>
+      <button class="mc-x" data-mx="${i}" type="button">✕</button>
+      <span class="mc-k">${i === 0 ? '① ' : ''}${esc(m.kind)}</span>
+    </div>`;
+  }).join('');
+}
+function addLinkMedia(){
+  const v = $('#fLink').value.trim();
+  if (!v) return;
+  const m = detectMedia(v);
+  const okSrc = m && (m.src.startsWith('data:') || tryParseUrl(m.src));
+  if (!okSrc) return toast(t('badLink'), true);
+  FORM.media.push(m);
+  $('#fLink').value = '';
+  renderFormMedia();
+}
+function nextNo(){ return WORKS.reduce((m, w) => Math.max(m, w.no || 0), 0) + 1; }
+async function saveWork(){
+  if (PUBLISHED) return;
+  const title = $('#fTitle').value.trim();
+  if (!title) return toast(t('needTitle'), true);
+  if (!FORM.media.length) return toast(t('needMedia'), true);
+  const old = FORM.editId ? WORKS.find(w => w.id === FORM.editId) : null;
+  const w = {
+    id: old ? old.id : rid(),
+    no: old ? (old.no || nextNo()) : nextNo(),
+    title,
+    year: $('#fYear').value.trim(),
+    technique: $('#fTech').value.trim(),
+    dims: $('#fDims').value.trim(),
+    category: $('#fCat').value.trim(),
+    status: $('#fStatus').value,
+    price: $('#fPrice').value.trim(),
+    featured: $('#fFeat').checked,
+    desc: $('#fDesc').value.trim(),
+    media: FORM.media,
+    demo: false,
+    createdAt: old ? (old.createdAt || Date.now()) : Date.now(),
+    updatedAt: Date.now()
+  };
+  await dbPut(w);
+  if (old) WORKS[WORKS.indexOf(old)] = w; else WORKS.push(w);
+  $('#dlgWork').close();
+  renderAll();
+  if ($('#lb').classList.contains('on')) renderLB();
+  toast(t('saved'));
+}
+async function delWork(id){
+  if (PUBLISHED) return;
+  if (!confirm(t('confirmDel'))) return;
+  await dbDel(id);
+  WORKS = WORKS.filter(w => w.id !== id);
+  if ($('#dlgWork').open) $('#dlgWork').close();
+  if ($('#lb').classList.contains('on')) closeLB();
+  renderAll();
+  toast(t('deleted'));
+}
+
+/* ---------- settings ---------- */
+async function shrinkPNG(dataURL, max){
+  const im = await loadImg(dataURL);
+  const sc = Math.min(1, max / Math.max(im.naturalWidth, im.naturalHeight));
+  const w = Math.max(1, Math.round(im.naturalWidth * sc));
+  const h = Math.max(1, Math.round(im.naturalHeight * sc));
+  const c = document.createElement('canvas');
+  c.width = w; c.height = h;
+  c.getContext('2d').drawImage(im, 0, 0, w, h);
+  return c.toDataURL('image/png');
+}
+let DRAFT_PHOTO = '';
+let DRAFT_FONTS = {};
+let DRAFT_LOGO = '';
+function openSettings(){
+  if (PUBLISHED) return;
+  $('#sTagline').value = SETTINGS.tagline || '';
+  $('#sAbout').value = SETTINGS.about || '';
+  $('#sPhotoLink').value = /^https?:/i.test(SETTINGS.photo || '') ? SETTINGS.photo : '';
+  DRAFT_PHOTO = SETTINGS.photo || '';
+  $('#sLogoLink').value = /^https?:/i.test(SETTINGS.logo || '') ? SETTINGS.logo : '';
+  $('#sLogoLink').placeholder = 'https://…';
+  DRAFT_LOGO = SETTINGS.logo || '';
+  $('#sEmail').value = SETTINGS.email || '';
+  $('#sPhone').value = SETTINGS.phone || '';
+  $('#sInsta').value = SETTINGS.instagram || '';
+  $('#sFb').value = SETTINGS.facebook || '';
+  $('#sAddr').value = SETTINGS.address || '';
+  DRAFT_FONTS = JSON.parse(JSON.stringify(SETTINGS.fonts || {}));
+  renderFontRows();
+  const gh = SETTINGS.github || {};
+  $('#ghOwner').value = gh.owner || '';
+  $('#ghRepo').value = gh.repo || '';
+  $('#ghBranch').value = gh.branch || '';
+  $('#ghPath').value = gh.path || '';
+  $('#ghToken').value = gh.token || '';
+  $('#dlgSet').showModal();
+}
+async function saveSettings(){
+  if (PUBLISHED) return;
+  SETTINGS = {
+    tagline: $('#sTagline').value.trim(),
+    about: $('#sAbout').value.trim(),
+    logo: $('#sLogoLink').value.trim() || DRAFT_LOGO,
+    photo: $('#sPhotoLink').value.trim() || DRAFT_PHOTO,
+    email: $('#sEmail').value.trim(),
+    phone: $('#sPhone').value.trim(),
+    instagram: $('#sInsta').value.trim(),
+    facebook: $('#sFb').value.trim(),
+    address: $('#sAddr').value.trim(),
+    texts: SETTINGS.texts || {},
+    fonts: DRAFT_FONTS || {},
+    styles: SETTINGS.styles || {},
+    savedColors: SETTINGS.savedColors || [],
+    github: {
+      owner: $('#ghOwner').value.trim(),
+      repo: $('#ghRepo').value.trim(),
+      branch: $('#ghBranch').value.trim(),
+      path: $('#ghPath').value.trim(),
+      token: $('#ghToken').value.trim()
+    }
+  };
+  try { await kvSet('settings', SETTINGS); } catch {}
+  $('#dlgSet').close();
+  applyFonts();
+  renderAll();
+  toast(t('saved'));
+}
+
+/* ---------- data: export / import / publish / wipe ---------- */
+function download(name, data, type){
+  const blob = data instanceof Blob ? data : new Blob([data], { type: type || 'application/octet-stream' });
+  const url = URL.createObjectURL(blob);
+  const a = Object.assign(document.createElement('a'), { href:url, download:name });
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 400);
+}
+function exportJSON(){
+  const safeSettings = JSON.parse(JSON.stringify(SETTINGS));
+  if (safeSettings.github) delete safeSettings.github.token;
+  const payload = { app:'ArtisAtelierSolak', version:1, exportedAt:new Date().toISOString(), settings:safeSettings, works:WORKS };
+  download('artis-atelier-solak-backup.json', JSON.stringify(payload, null, 2), 'application/json');
+  toast(t('exported'));
+}
+async function applyImportedData(data){
+  if (PUBLISHED) return;
+  const works = Array.isArray(data.works) ? data.works : (Array.isArray(data) ? data : null);
+  if (!works){ toast(t('badJson'), true); return; }
+  const replace = confirm(t('confirmImport'));
+  if (replace){
+    await dbClear();
+    WORKS = [];
+    if (data.settings){
+      const inc = Object.assign({}, data.settings);
+      if (inc.github) delete inc.github.token;
+      const keepTok = (SETTINGS.github || {}).token;
+      SETTINGS = Object.assign({}, SETTINGS, inc);
+      if (keepTok){ SETTINGS.github = SETTINGS.github || {}; SETTINGS.github.token = keepTok; }
+      await kvSet('settings', SETTINGS);
+    }
+  }
+  let maxNo = WORKS.reduce((m, w) => Math.max(m, w.no || 0), 0);
+  for (const raw of works){
+    const w = Object.assign({ media:[], demo:false }, raw);
+    if (!replace || !w.id || WORKS.some(x => x.id === w.id)) w.id = rid();
+    if (!w.no || WORKS.some(x => x.no === w.no)) w.no = maxNo + 1;
+    maxNo = Math.max(maxNo, w.no);
+    if (!Array.isArray(w.media)) w.media = [];
+    w.createdAt = w.createdAt || Date.now();
+    w.updatedAt = Date.now();
+    await dbPut(w);
+    WORKS.push(w);
+  }
+  applyFonts();
+  renderAll();
+  tagStyleTargets();
+  applyStyles();
+  toast(t('imported'));
+}
+async function importJSON(file){
+  if (PUBLISHED || !file) return;
+  try {
+    const data = JSON.parse(await file.text());
+    await applyImportedData(data);
+  } catch (e) {
+    console.warn(e);
+    toast(t('badJson'), true);
+  }
+}
+function buildPublishedHTML(){
+  const pubSettings = JSON.parse(JSON.stringify(SETTINGS));
+  delete pubSettings.github;
+  const payload = { published:true, publishedAt:new Date().toISOString(), settings:pubSettings, works:WORKS };
+  const root = document.documentElement.cloneNode(true);
+  root.querySelectorAll('dialog[open]').forEach(d => d.removeAttribute('open'));
+  const lb = root.querySelector('#lb'); if (lb) lb.classList.remove('on');
+  ['#toasts', '#grid', '#lbMedia', '#lbInfo', '#lbThumbs', '#lbCaption', '#lbQuick', '#ctxMenu', '#ctxPop'].forEach(sel => {
+    const el = root.querySelector(sel); if (el) el.innerHTML = '';
+  });
+  root.querySelectorAll('.ctx, .ctx-pop').forEach(el => { el.classList.remove('on'); el.removeAttribute('style'); });
+  const b = root.querySelector('body'); if (b) b.removeAttribute('style');
+  if (b) b.classList.remove('editing');
+  root.querySelectorAll('[contenteditable]').forEach(el => el.removeAttribute('contenteditable'));
+  const seed = root.querySelector('#seed');
+  seed.textContent = JSON.stringify(payload).replace(/</g, '\\u003c');
+  return '<!DOCTYPE html>\n' + root.outerHTML;
+}
+function publishHTML(){
+  if (PUBLISHED) return;
+  download('artis-atelier-solak.html', buildPublishedHTML(), 'text/html');
+  toast(t('published'));
+}
+function b64utf8(str){
+  const bytes = new TextEncoder().encode(str);
+  let bin = '';
+  const CH = 0x8000;
+  for (let i = 0; i < bytes.length; i += CH) bin += String.fromCharCode.apply(null, bytes.subarray(i, i + CH));
+  return btoa(bin);
+}
+function ghCfg(){ return SETTINGS.github || {}; }
+function ghReady(){ const g = ghCfg(); return !!(g.owner && g.repo && g.token); }
+async function ghApi(path, opts){
+  const g = ghCfg();
+  const o = Object.assign({ method:'GET' }, opts || {});
+  o.headers = Object.assign({
+    'Authorization': 'Bearer ' + g.token,
+    'Accept': 'application/vnd.github+json',
+    'X-GitHub-Api-Version': '2022-11-28'
+  }, o.body ? { 'Content-Type': 'application/json' } : {}, o.headers || {});
+  return fetch('https://api.github.com' + path, o);
+}
+async function ghFindSha(url, branch, path){
+  const head = await ghApi(url + '?ref=' + encodeURIComponent(branch));
+  if (head.status === 200){
+    try { const j = await head.json(); if (j && j.sha) return j.sha; } catch {}
+  }
+  if (head.status === 404) return null;
+  if (head.status === 401 || head.status === 403){
+    /* 403 може да е и „file too large" — пробај преку tree */
+    const g = ghCfg();
+    const tr = await ghApi('/repos/' + g.owner + '/' + g.repo + '/git/trees/' + encodeURIComponent(branch) + '?recursive=1');
+    if (tr.status === 200){
+      const j = await tr.json();
+      const hit = (j.tree || []).find(x => x.path === path);
+      if (hit) return hit.sha;
+      return null;
+    }
+    throw new Error('auth ' + head.status);
+  }
+  return null;
+}
+async function publishToGitHub(){
+  if (PUBLISHED) return;
+  if (!ghReady()){
+    toast(t('ghNeedCfg'), true);
+    openSettings();
+    return;
+  }
+  const g = ghCfg();
+  const path = (g.path || 'index.html').replace(/^\/+/, '');
+  const branch = g.branch || 'main';
+  if (!confirm(t('ghConfirm').replace('{r}', g.owner + '/' + g.repo + ' / ' + path))) return;
+  toast(t('ghUploading'));
+  try {
+    const url = '/repos/' + g.owner + '/' + g.repo + '/contents/' + path.split('/').map(encodeURIComponent).join('/');
+    const sha = await ghFindSha(url, branch, path);
+    const body = {
+      message: 'Artis Atelier Solak — објава ' + new Date().toISOString().slice(0, 16).replace('T', ' '),
+      content: b64utf8(buildPublishedHTML()),
+      branch
+    };
+    if (sha) body.sha = sha;
+    const put = await ghApi(url, { method:'PUT', body: JSON.stringify(body) });
+    if (!put.ok) throw new Error('PUT ' + put.status);
+    toast(t('ghDone'));
+  } catch (err) {
+    console.warn('GitHub publish:', err);
+    toast(t('ghFail'), true);
+  }
+}
+const IMG_RE = /\.(jpe?g|png|webp|gif|avif|svg)$/i;
+function prettyTitle(name){
+  const base = name.replace(/\.[^.]+$/, '').replace(/[-_]+/g, ' ').replace(/\s+/g, ' ').trim();
+  return base ? base.charAt(0).toUpperCase() + base.slice(1) : name;
+}
+function encPath(p){ return p.split('/').map(encodeURIComponent).join('/'); }
+async function walkDir(handle, parts, found){
+  for await (const entry of handle.values()){
+    if (entry.name.startsWith('.')) continue;
+    if (entry.kind === 'directory'){
+      await walkDir(entry, parts.concat(entry.name), found);
+    } else if (IMG_RE.test(entry.name)){
+      const rel = parts.concat(entry.name).join('/');
+      const cat = parts.length ? parts[0] : t('scanMisc');
+      let thumb = '';
+      try {
+        const file = await entry.getFile();
+        if (file.size < 30 * 1024 * 1024){
+          const raw = await readAsDataURL(file);
+          thumb = await shrink(raw, 440, 0.68);
+        }
+      } catch {}
+      found.push({ path: rel, cat, name: entry.name, thumb });
+    }
+  }
+}
+async function applyScan(found){
+  const byPath = new Map(WORKS.filter(w => w.scan && w.path).map(w => [w.path, w]));
+  let added = 0;
+  let maxNo = WORKS.reduce((m, w) => Math.max(m, w.no || 0), 0);
+  const seen = new Set();
+  for (const f of found){
+    seen.add(f.path);
+    if (byPath.has(f.path)) continue;
+    maxNo++;
+    const w = { id: rid(), no: maxNo, title: prettyTitle(f.name), year:'', technique:'', dims:'',
+      category: f.cat, status:'available', price:'', featured:false, desc:'',
+      media: [{ kind:'image', src: encPath(f.path), thumb: f.thumb || encPath(f.path) }],
+      demo:false, scan:true, path: f.path, createdAt: Date.now(), updatedAt: Date.now() };
+    await dbPut(w);
+    WORKS.push(w);
+    added++;
+  }
+  const missing = WORKS.filter(w => w.scan && w.path && !seen.has(w.path)).length;
+  renderAll();
+  let msg = t('scanDone').replace('{t}', found.length).replace('{a}', added);
+  if (missing) msg += ' \u00b7 ' + t('scanMissing').replace('{m}', missing);
+  toast(msg);
+}
+async function scanLocal(){
+  if (!window.showDirectoryPicker) return toast(t('scanNoFS'), true);
+  let dir = null;
+  try { dir = await kvGet('scanDir'); } catch {}
+  try {
+    if (dir){
+      let perm = await dir.queryPermission({ mode:'read' });
+      if (perm !== 'granted') perm = await dir.requestPermission({ mode:'read' });
+      if (perm !== 'granted') dir = null;
+    }
+  } catch { dir = null; }
+  if (!dir){
+    try { dir = await window.showDirectoryPicker({ mode:'read' }); } catch { return; }
+    try { await kvSet('scanDir', dir); } catch {}
+  }
+  toast(t('scanning'));
+  const found = [];
+  await walkDir(dir, [], found);
+  await applyScan(found);
+}
+async function scanGitHub(){
+  if (!ghReady()){ toast(t('ghNeedCfg'), true); openSettings(); return; }
+  const g = ghCfg(), branch = g.branch || 'main';
+  toast(t('scanning'));
+  try {
+    const r = await ghApi('/repos/' + g.owner + '/' + g.repo + '/git/trees/' + encodeURIComponent(branch) + '?recursive=1');
+    if (!r.ok) throw new Error('trees ' + r.status);
+    const j = await r.json();
+    const rawBase = 'https://raw.githubusercontent.com/' + g.owner + '/' + g.repo + '/' + branch + '/';
+    const found = (j.tree || [])
+      .filter(x => x.type === 'blob' && IMG_RE.test(x.path) && !x.path.split('/').some(seg => seg.startsWith('.')))
+      .map(x => {
+        const parts = x.path.split('/');
+        return { path: x.path, cat: parts.length > 1 ? parts[0] : t('scanMisc'),
+          name: parts[parts.length - 1], thumb: rawBase + encPath(x.path) };
+      });
+    await applyScan(found);
+  } catch (e) { console.warn(e); toast(t('ghFail'), true); }
+}
+async function scanImages(){
+  if (PUBLISHED) return;
+  closeCtx();
+  const hasFS = !!window.showDirectoryPicker;
+  if (ghReady() && hasFS) return confirm(t('scanWhich')) ? scanGitHub() : scanLocal();
+  if (ghReady() && !hasFS) return scanGitHub();
+  return scanLocal();
+}
+async function ghPushData(){
+  if (PUBLISHED) return;
+  if (!ghReady()){ toast(t('ghNeedCfg'), true); openSettings(); return; }
+  const g = ghCfg(), branch = g.branch || 'main', path = 'artis-data.json';
+  if (!confirm(t('ghDataPushC'))) return;
+  toast(t('ghUploading'));
+  try {
+    const url = '/repos/' + g.owner + '/' + g.repo + '/contents/' + path;
+    const sha = await ghFindSha(url, branch, path);
+    const payload = JSON.parse(JSON.stringify({ app:'ArtisAtelierSolak', version:1, exportedAt:new Date().toISOString(), settings:SETTINGS, works:WORKS }));
+    if (payload.settings.github) delete payload.settings.github.token;
+    const body = { message:'artis-data sync ' + new Date().toISOString().slice(0, 16).replace('T',' '), content: b64utf8(JSON.stringify(payload)), branch };
+    if (sha) body.sha = sha;
+    const put = await ghApi(url, { method:'PUT', body: JSON.stringify(body) });
+    if (!put.ok) throw new Error('PUT ' + put.status);
+    toast(t('ghDataDone'));
+  } catch (e) { console.warn(e); toast(t('ghFail'), true); }
+}
+async function ghPullData(){
+  if (PUBLISHED) return;
+  if (!ghReady()){ toast(t('ghNeedCfg'), true); openSettings(); return; }
+  const g = ghCfg(), branch = g.branch || 'main';
+  toast(t('ghPulling'));
+  try {
+    const r = await ghApi('/repos/' + g.owner + '/' + g.repo + '/contents/artis-data.json?ref=' + encodeURIComponent(branch),
+      { headers: { Accept: 'application/vnd.github.raw' } });
+    if (r.status === 404) return toast(t('ghNoData'), true);
+    if (!r.ok) throw new Error('GET ' + r.status);
+    const data = JSON.parse(await r.text());
+    await applyImportedData(data);
+  } catch (e) { console.warn(e); toast(t('ghFail'), true); }
+}
+async function removeDemo(){
+  if (PUBLISHED) return;
+  const demos = WORKS.filter(w => w.demo);
+  for (const w of demos) await dbDel(w.id);
+  WORKS = WORKS.filter(w => !w.demo);
+  renderAll();
+  toast(t('demoRemoved'));
+}
+async function wipeAll(){
+  if (PUBLISHED) return;
+  if (!confirm(t('confirmWipe'))) return;
+  await dbClear();
+  WORKS = [];
+  SETTINGS = { tagline:'', about:'', logo:'', photo:'', email:'', phone:'', instagram:'', facebook:'', address:'', texts:{}, fonts:{}, styles:{}, savedColors:[], github:{} };
+  applyFonts();
+  try { await kvSet('settings', SETTINGS); } catch {}
+  $('#dlgSet').close();
+  renderAll();
+  toast(t('wiped'));
+}
+</script>
+<script>
+'use strict';
+/* =====================================================
+   RIGHT-CLICK ELEMENT EDITOR — working version only.
+   Per-element color/background overrides + image
+   upload/size; fonts change by role. All stored in
+   SETTINGS (IndexedDB) and baked into "Publish HTML".
+   Disabled entirely in the published/readonly copy.
+   ===================================================== */
+const CTX_PALETTE = ['#1B1A18','#6E695E','#8A8375','#EAE7E0','#F3F1EB','#FFFFFF','#161412','#2437B8','#1A2A96','#A8322A','#C8291C'];
+/* ComuniBoard vivid палета */
+const CTX_VIVID = ['#EAB308','#22C55E','#F97316','#3B82F6','#EC4899','#9333EA','#DC2626','#F59E0B','#16A34A','#2563EB'];
+function swBtn(c, cur, del){
+  const on = cur && cur.toLowerCase() === c.toLowerCase() ? 'on' : '';
+  return `<button class="sw ${on}" style="background:${c}" data-c="${c}" ${del ? 'data-del="1"' : ''} title="${c}${del ? ' \u00b7 ' + t('cxRemove') : ''}"></button>`;
+}
+function syncKeys(key, type){
+  if (type === 'section') return Object.values(SECT_TARGETS);
+  const role = KEY_ROLE[key] || 'disp';
+  return Object.keys(KEY_ROLE).filter(k => KEY_ROLE[k] === role);
+}
+const KEY_ROLE = {
+  hero1:'disp', hero2:'disp', hero3:'disp', tagline:'disp', secGallery:'disp',
+  secAbout:'disp', secContact:'disp', about:'disp', emptyT:'disp',
+  brandName:'logo', wm:'logo', brandBadge:'script',
+  navGallery:'mono', navAbout:'mono', navContact:'mono', heroEyebrow:'mono',
+  marquee:'mono', atelierCap:'mono', footHand:'mono', emptyP:'mono'
+};
+const SECT_TARGETS = { '.nav':'bgNav', '.hero':'bgHero', '.marq':'bgMarq', '#gallery':'bgGallery', '#about':'bgAbout', '#contact':'bgContact', 'footer':'bgFooter' };
+let CTX = { key:null, type:null, workId:null };
+let CTX_IMG_TARGET = null;
+
+function tagOne(el, key, type){
+  if (!el) return;
+  el.dataset.sk = key; el.dataset.sktype = type;
+  if (el.dataset.origbg === undefined) el.dataset.origbg = el.style.background || '';
+  if (el.dataset.origcolor === undefined) el.dataset.origcolor = el.style.color || '';
+  if (type === 'text' && el.dataset.origfs === undefined){
+    try { el.dataset.origfs = (typeof getComputedStyle === 'function' ? getComputedStyle(el).fontSize : '') || ''; }
+    catch { el.dataset.origfs = ''; }
+  }
+}
+function tagStyleTargets(){
+  document.querySelectorAll('[data-edit]').forEach(el => tagOne(el, el.getAttribute('data-edit'), 'text'));
+  Object.entries(SECT_TARGETS).forEach(([sel, key]) => tagOne(document.querySelector(sel), key, 'section'));
+  tagOne(document.querySelector('.brand-logo'), 'logo', 'image');
+  tagOne(document.querySelector('#brandImg'), 'logo', 'image');
+  tagOne(document.querySelector('#aPhoto'), 'photo', 'image');
+  tagOne(document.querySelector('#aPhotoWrap'), 'photo', 'image');
+}
+function styleOf(key){
+  if (!SETTINGS.styles) SETTINGS.styles = {};
+  return SETTINGS.styles[key] || (SETTINGS.styles[key] = {});
+}
+function applyStyles(){
+  const S = SETTINGS.styles || {};
+  const RESP = innerWidth > 860; /* под 860px: стандарден responsive изглед, без custom поместувања */
+  const trOf = s => {
+    if (!RESP) return '';
+    const hasX = s.dxv != null ? s.dxv !== 0 : !!s.dx;
+    if (!hasX && !s.dy) return '';
+    const x = s.dxv != null ? s.dxv + 'vw' : (s.dx || 0) + 'px';
+    return x + ' ' + (s.dy || 0) + 'px';
+  };
+  document.querySelectorAll('[data-sktype="text"]').forEach(el => {
+    const s = S[el.dataset.sk] || {};
+    if (el.dataset.sk === 'wm'){
+      el.style.color = '';
+      el.style.webkitTextStroke = s.color ? '1.5px ' + s.color : '';
+    } else {
+      el.style.color = s.color || el.dataset.origcolor || '';
+    }
+    el.style.background = s.bg || el.dataset.origbg || '';
+    if (s.img){
+      const cur = el.querySelector('.tximg');
+      if (!cur || cur.getAttribute('src') !== s.img){
+        el.textContent = '';
+        const im = document.createElement('img');
+        im.className = 'tximg'; im.alt = ''; im.src = s.img;
+        el.appendChild(im);
+      }
+    } else if (el.querySelector('.tximg')){
+      el.textContent = el.dataset.sk === 'tagline' ? (SETTINGS.tagline || '')
+        : el.dataset.sk === 'about' ? (SETTINGS.about || '') : textOf(el.dataset.sk);
+    }
+    const base = parseFloat(el.dataset.origfs || '');
+    el.style.fontSize = (s.fs && s.fs !== 100 && base) ? (Math.round(base * s.fs) / 100) + 'px' : '';
+    el.style.textAlign = s.al || '';
+    const tr = trOf(s);
+    el.style.translate = tr;
+    if (tr){ try { if (getComputedStyle(el).display === 'inline') el.style.display = 'inline-block'; } catch {} }
+  });
+  document.querySelectorAll('[data-sktype="section"]').forEach(el => {
+    const s = S[el.dataset.sk] || {};
+    el.style.background = s.bg || el.dataset.origbg || '';
+  });
+  document.querySelectorAll('[data-sktype="image"]').forEach(el => {
+    if (el.id === 'brandImg' || el.id === 'aPhoto') return;
+    el.style.translate = trOf(S[el.dataset.sk] || {});
+  });
+  const bi = document.querySelector('#brandImg');
+  if (bi) bi.style.height = (S.logo && S.logo.size) ? S.logo.size + 'px' : '';
+  const ap = document.querySelector('#aPhoto');
+  if (ap) ap.style.maxWidth = (S.photo && S.photo.size) ? S.photo.size + 'px' : '';
+}
+
+/* ---- menu ---- */
+function ctxBtn(act, ico, txt){ return `<button data-act="${act}"><span class="ctx-ico">${ico}</span>${txt}</button>`; }
+function buildCtxMenu(){
+  const { key, type, workId } = CTX;
+  let html = '';
+  if (workId){
+    const w = WORKS.find(x => x.id === workId);
+    html += `<div class="ctx-h">${esc(t('cat'))} ${pad3((w && w.no) || 0)} \u00b7 ${esc(w ? w.title : '')}</div>`;
+    html += ctxBtn('wOpen','\u2922', t('mOpen')) + ctxBtn('wEdit','\u270E', t('mEditWork'));
+    html += ctxBtn('wImg','\u2912', t('cxUpload'));
+    html += `<button data-act="wDel" class="danger"><span class="ctx-ico">\u2715</span>${t('mDelWork')}</button>`;
+    html += '<div class="ctx-sep"></div>';
+  }
+  if (type){
+    if (!workId) html += `<div class="ctx-h">${esc(t('cxThis'))}: ${esc(key)}</div>`;
+    const stG = (SETTINGS.styles || {})[key] || {};
+    const grpBtns = stG.grp
+      ? ctxBtn('grpLeave','\u29C9', t('gLeave')) + ctxBtn('grpKill','\u29C9', t('gKill'))
+      : ctxBtn('grpStart','\u29C9', t('gStart'));
+    if (type === 'text'){
+      html += ctxBtn('font','A', t('cxFont')) + ctxBtn('color','\u25A0', t('cxTextColor')) + ctxBtn('bg','\u25A3', t('cxBg')) + ctxBtn('pos','\u271C', t('cxPos'));
+      html += stG.img ? ctxBtn('timgClear','\u2715', t('timgClear')) : ctxBtn('timg','\u2912', t('timgSet'));
+      html += grpBtns;
+    } else if (type === 'section'){
+      html += ctxBtn('bg','\u25A3', t('cxBg'));
+    } else if (type === 'image'){
+      html += ctxBtn('upload','\u2912', t('cxUpload')) + ctxBtn('size','\u2921', t('cxSize')) + ctxBtn('pos','\u271C', t('cxPos'));
+      html += grpBtns;
+    }
+    html += `<button data-act="reset" class="danger"><span class="ctx-ico">\u21BA</span>${t('cxReset')}</button>`;
+    html += '<div class="ctx-sep"></div>';
+  }
+  if (!workId && !type) html += `<div class="ctx-h">Solak \u00b7 ${esc(t('mWorkMode'))}</div>`;
+  html += ctxBtn('addWork','\uFF0B', t('mAddWork'));
+  html += ctxBtn('editTexts','\u270E', EDITING ? t('mEditDone') : t('mEditTexts'));
+  html += ctxBtn('settings','\u2699', t('mSettings'));
+  html += ctxBtn('export','\u2913', t('mExport'));
+  html += ctxBtn('import','\u2912', t('mImport'));
+  html += ctxBtn('scan','\u{1F4C2}', t('mScan'));
+  html += ctxBtn('download','\u2913', t('mDownload'));
+  html += ctxBtn('publish','\u2733', t('mPublish'));
+  $('#ctxMenu').innerHTML = html;
+}
+function openCtx(e){
+  if (PUBLISHED) return;
+  if (e.target.closest('dialog, input, textarea, select, .ctx, .ctx-pop, .lb, #toasts')) return;
+  if (EDITING && e.target.closest('[data-edit]')) return; /* native мени при уредување текст */
+  e.preventDefault();
+  closePop();
+  const styleEl = e.target.closest('[data-sktype]');
+  const workEl = e.target.closest('.work');
+  CTX = {
+    key: styleEl ? styleEl.dataset.sk : null,
+    type: styleEl ? styleEl.dataset.sktype : null,
+    workId: workEl ? workEl.dataset.id : null
+  };
+  buildCtxMenu();
+  openCtxAt(e.clientX, e.clientY);
+}
+function openCtxAt(x, y){
+  const m = $('#ctxMenu');
+  m.classList.add('on');
+  const mw = m.offsetWidth || 200, mh = m.offsetHeight || 280;
+  m.style.left = Math.min(x, innerWidth - mw - 8) + 'px';
+  m.style.top  = Math.max(8, Math.min(y, innerHeight - mh - 8)) + 'px';
+}
+function closeCtx(){ $('#ctxMenu').classList.remove('on'); }
+function closePop(){
+  document.querySelectorAll('.g-hl').forEach(el => el.classList.remove('g-hl')); $('#ctxPop').classList.remove('on'); }
+function popAt(rect){
+  const p = $('#ctxPop');
+  p.classList.add('on');
+  const pw = p.offsetWidth || 238, ph = p.offsetHeight || 170;
+  p.style.left = Math.min(rect.left, innerWidth - pw - 8) + 'px';
+  p.style.top  = Math.min(rect.top, innerHeight - ph - 8) + 'px';
+}
+
+/* ---- colour ---- */
+function openColorPop(key, which, rect, syncOn){
+  const s = styleOf(key);
+  const prop = which === 'color' ? 'color' : 'bg';
+  const cur = s[prop] || '';
+  const saved = SETTINGS.savedColors || [];
+  $('#ctxPop').innerHTML = `<div class="pop-h">${which === 'color' ? t('cxTextColor') : t('cxBg')} \u00b7 ${esc(key)}</div>
+    <div class="pop-lab">${t('cxPalette')}</div>
+    <div class="sw-row">${CTX_PALETTE.map(c => swBtn(c, cur)).join('')}${CTX_VIVID.map(c => swBtn(c, cur)).join('')}</div>
+    ${saved.length ? `<div class="pop-lab">${t('cxMyColors')}</div><div class="sw-row" id="popSaved">${saved.map(c => swBtn(c, cur, true)).join('')}</div>` : ''}
+    <input type="color" id="popColor" value="${/^#([0-9a-f]{6})$/i.test(cur) ? cur : '#2437b8'}">
+    <label class="pop-sync"><input type="checkbox" id="popSync" ${syncOn ? 'checked' : ''}> ${t('cxSyncAll')}</label>
+    <div class="pop-foot"><button class="btn sm" data-popsave>\uFF0B ${t('cxSaveColor')}</button><button class="btn sm" data-popclr>\u2715 ${t('cxRemove')}</button><button class="btn sm pri" data-popok>\u2713 ${t('close')}</button></div>`;
+  popAt(rect);
+  const targets = () => $('#popSync').checked ? syncKeys(key, CTX.type) : [key];
+  const apply = v => { targets().forEach(k => { styleOf(k)[prop] = v; }); applyStyles(); };
+  const markOn = c => { $$('#ctxPop .sw').forEach(x => x.classList.toggle('on', x.dataset.c.toLowerCase() === String(c).toLowerCase())); };
+  $('#ctxPop').onclick = e => {
+    const b = e.target.closest('.sw'); if (!b) return;
+    apply(b.dataset.c); markOn(b.dataset.c);
+  };
+  $('#ctxPop').oncontextmenu = e => {
+    const b = e.target.closest('.sw[data-del]'); if (!b) return;
+    e.preventDefault();
+    SETTINGS.savedColors = (SETTINGS.savedColors || []).filter(c => c.toLowerCase() !== b.dataset.c.toLowerCase());
+    persistSettings();
+    openColorPop(key, which, rect, $('#popSync').checked);
+  };
+  $('#popColor').oninput = e => { apply(e.target.value); markOn(e.target.value); };
+  $('#ctxPop').querySelector('[data-popsave]').onclick = () => {
+    const v = $('#popColor').value;
+    if (!SETTINGS.savedColors) SETTINGS.savedColors = [];
+    if (!SETTINGS.savedColors.some(c => c.toLowerCase() === v.toLowerCase())){
+      SETTINGS.savedColors.unshift(v);
+      SETTINGS.savedColors = SETTINGS.savedColors.slice(0, 14);
+      persistSettings();
+      openColorPop(key, which, rect, $('#popSync').checked);
+    }
+  };
+  $('#ctxPop').querySelector('[data-popclr]').onclick = () => {
+    targets().forEach(k => { delete styleOf(k)[prop]; });
+    applyStyles(); closePop(); persistSettings();
+  };
+  $('#ctxPop').querySelector('[data-popok]').onclick = () => { closePop(); persistSettings(); toast(t('saved')); };
+}
+
+/* ---- image size ---- */
+function openSizePop(key, rect){
+  const s = styleOf(key);
+  const isLogo = key === 'logo';
+  const min = isLogo ? 24 : 200, max = isLogo ? 150 : 820, def = isLogo ? 46 : 420;
+  const cur = s.size || def;
+  $('#ctxPop').innerHTML = `<div class="pop-h">${t('cxSize')}</div>
+    <input type="range" id="popRange" min="${min}" max="${max}" value="${cur}">
+    <div class="pop-val" id="popRangeV">${cur}px</div>
+    <div class="pop-foot"><button class="btn sm" data-popclr>\u21BA ${t('cxDefault')}</button><button class="btn sm pri" data-popok>\u2713 ${t('close')}</button></div>`;
+  popAt(rect);
+  const r = $('#popRange');
+  r.oninput = () => { styleOf(key).size = Number(r.value); $('#popRangeV').textContent = r.value + 'px'; applyStyles(); };
+  $('#ctxPop').querySelector('[data-popclr]').onclick = () => { delete styleOf(key).size; applyStyles(); closePop(); persistSettings(); };
+  $('#ctxPop').querySelector('[data-popok]').onclick = () => { closePop(); persistSettings(); toast(t('saved')); };
+}
+
+/* ---- font (by role) ---- */
+function openFontPop(key, rect){
+  const role = KEY_ROLE[key] || 'disp';
+  if (!SETTINGS.fonts) SETTINGS.fonts = {};
+  const cfg = SETTINGS.fonts[role] || {};
+  const roleLab = { disp:t('roleDisp'), body:t('roleBody'), mono:t('roleMono'), logo:t('roleLogo'), script:t('roleScript') }[role];
+  $('#ctxPop').innerHTML = `<div class="pop-h">${t('cxFont')} \u00b7 ${esc(roleLab)}</div>
+    <input list="gfList" id="popFont" placeholder="${esc(t('fontPh'))}" value="${cfg.d ? '\uD83D\uDCC1 ' + esc(cfg.f || 'font') : esc(cfg.n || '')}" ${cfg.d ? 'disabled' : ''}>
+    <div class="pop-foot"><button class="btn sm" data-popclr>\u21BA ${t('cxDefault')}</button><button class="btn sm pri" data-popok>\u2713 ${t('close')}</button></div>
+    <p class="media-note" style="margin-top:.55rem">${t('cxFontNote')}</p>`;
+  popAt(rect);
+  const inp = $('#popFont');
+  inp.oninput = () => { SETTINGS.fonts[role] = { n: inp.value.trim() }; applyFonts(); };
+  $('#ctxPop').querySelector('[data-popclr]').onclick = () => { SETTINGS.fonts[role] = {}; applyFonts(); closePop(); persistSettings(); };
+  $('#ctxPop').querySelector('[data-popok]').onclick = () => { closePop(); persistSettings(); toast(t('saved')); };
+}
+
+function openPosPop(key, rect){
+  const st0 = styleOf(key);
+  const members = groupMembers(key);
+  members.forEach(k => { const el = document.querySelector('[data-sk="' + k + '"]'); if (el) el.classList.add('g-hl'); });
+  const isText = CTX.type === 'text';
+  const maxX = Math.max(320, Math.round(innerWidth * 0.45));
+  const baseX = {}, baseY = {};
+  members.forEach(k => {
+    const s = styleOf(k);
+    baseX[k] = s.dxv != null ? s.dxv : (s.dx ? Math.round(s.dx / innerWidth * 10000) / 100 : 0);
+    baseY[k] = s.dy || 0;
+  });
+  const px0 = Math.round(baseX[key] * innerWidth / 100);
+  $('#ctxPop').onclick = null;
+  $('#ctxPop').oncontextmenu = null;
+  $('#ctxPop').innerHTML = `<div class="pop-h">${t('cxPos')} \u00b7 ${esc(key)}${members.length > 1 ? ' \u29C9 ' + members.length : ''}</div>
+    ${isText ? `<div class="pop-lab">${t('cxSize')}</div>
+    <input type="range" id="posFs" min="40" max="220" step="2" value="${st0.fs || 100}">
+    <div class="pop-val" id="posFsV">${st0.fs || 100}%</div>` : ''}
+    <div class="pop-lab">\u2194 ${t('cxMoveX')}</div>
+    <input type="range" id="posX" min="-${maxX}" max="${maxX}" value="${px0}">
+    <div class="pop-lab">\u2195 ${t('cxMoveY')}</div>
+    <input type="range" id="posY" min="-240" max="240" value="${baseY[key]}">
+    <div class="pop-val" id="posXYV"></div>
+    ${isText ? `<div class="pop-lab">${t('cxAlign')}</div>
+    <div class="al-row">
+      <button class="btn sm ${st0.al === 'left' ? 'pri' : ''}" data-al="left" type="button">\u21E4</button>
+      <button class="btn sm ${st0.al === 'center' ? 'pri' : ''}" data-al="center" type="button">\u2261</button>
+      <button class="btn sm ${st0.al === 'right' ? 'pri' : ''}" data-al="right" type="button">\u21E5</button>
+    </div>` : ''}
+    <div class="pop-foot">
+      <button class="btn sm" data-poscenter type="button">\u2299 ${t('cxCenter')}</button>
+      <button class="btn sm" data-popclr type="button">\u21BA ${t('cxDefault')}</button>
+      <button class="btn sm pri" data-popok type="button">\u2713 ${t('close')}</button>
+    </div>`;
+  popAt(rect);
+  let dX = 0, dY = 0;
+  const applyDelta = () => {
+    members.forEach(k => {
+      const st = styleOf(k);
+      st.dxv = Math.round((baseX[k] + dX / innerWidth * 100) * 100) / 100;
+      delete st.dx;
+      st.dy = Math.round(baseY[k] + dY);
+    });
+    applyStyles();
+  };
+  const updV = () => {
+    $('#posXYV').textContent = (px0 + dX) + 'px (' + styleOf(key).dxv + 'vw) \u00b7 ' + (baseY[key] + dY) + 'px'
+      + (members.length > 1 ? ' \u00b7 \u29C9' + members.length : '');
+  };
+  const applyAll = () => { applyDelta(); updV(); };
+  updV();
+  if (isText){
+    $('#posFs').oninput = e => { st0.fs = Number(e.target.value); $('#posFsV').textContent = st0.fs + '%'; applyStyles(); };
+    $$('#ctxPop [data-al]').forEach(b => b.onclick = () => {
+      st0.al = b.dataset.al;
+      $$('#ctxPop [data-al]').forEach(x => x.classList.toggle('pri', x === b));
+      applyStyles();
+    });
+  }
+  $('#posX').oninput = e => { dX = Number(e.target.value) - px0; applyAll(); };
+  $('#posY').oninput = e => { dY = Number(e.target.value) - baseY[key]; applyAll(); };
+  $('#ctxPop').querySelector('[data-poscenter]').onclick = () => {
+    const el = document.querySelector('[data-sk="' + key + '"]');
+    if (!el) return;
+    try {
+      const r = el.getBoundingClientRect();
+      dX += Math.round((innerWidth / 2) - (r.left + r.width / 2));
+    } catch {}
+    $('#posX').value = Math.max(-maxX, Math.min(maxX, px0 + dX));
+    applyAll();
+  };
+  $('#ctxPop').querySelector('[data-popclr]').onclick = () => {
+    members.forEach(k => { const st = styleOf(k); delete st.dxv; delete st.dx; delete st.dy; });
+    if (isText){ delete st0.fs; delete st0.al; }
+    applyStyles(); closePop(); persistSettings();
+  };
+  $('#ctxPop').querySelector('[data-popok]').onclick = () => { closePop(); persistSettings(); toast(t('saved')); };
+}
+function resetStyle(key){
+  if (SETTINGS.styles) delete SETTINGS.styles[key];
+  applyStyles(); persistSettings(); toast(t('cxResetDone'));
+}
+function handleCtxAct(act, rect){
+  const { key, workId } = CTX;
+  if (act === 'wOpen')     return openLB(workId);
+  if (act === 'wEdit')     return openForm(workId);
+  if (act === 'wDel')      return delWork(workId);
+  if (act === 'wImg'){ CTX_IMG_TARGET = 'work:' + workId; $('#fileCtxImg').click(); return; }
+  if (act === 'addWork')   return openForm();
+  if (act === 'editTexts') return setEditing(!EDITING);
+  if (act === 'settings')  return openSettings();
+  if (act === 'export')    return exportJSON();
+  if (act === 'import')    return $('#fileImport').click();
+  if (act === 'scan')      return scanImages();
+  if (act === 'download')  return publishHTML();
+  if (act === 'publish')   return publishToGitHub();
+  if (act === 'reset')  return resetStyle(key);
+  if (act === 'upload'){ CTX_IMG_TARGET = key; $('#fileCtxImg').click(); return; }
+  if (act === 'color' || act === 'bg') return openColorPop(key, act, rect);
+  if (act === 'size')  return openSizePop(key, rect);
+  if (act === 'pos')   return openPosPop(key, rect);
+  if (act === 'timg'){ CTX_IMG_TARGET = 'txt:' + key; $('#fileCtxImg').click(); return; }
+  if (act === 'timgClear'){ const st = styleOf(key); delete st.img; applyStyles(); persistSettings(); return; }
+  if (act === 'grpStart') return startGrouping(key);
+  if (act === 'grpLeave'){ const st = styleOf(key); delete st.grp; persistSettings(); toast(t('gRemoved')); return; }
+  if (act === 'grpKill'){
+    const id = styleOf(key).grp;
+    if (id) Object.keys(SETTINGS.styles || {}).forEach(k => { if ((SETTINGS.styles[k] || {}).grp === id) delete SETTINGS.styles[k].grp; });
+    persistSettings(); toast(t('gRemoved')); return;
+  }
+  if (act === 'font')  return openFontPop(key, rect);
+}
+
+function setupCtxEditor(){
+  document.addEventListener('contextmenu', openCtx);
+  $('#ctxMenu').addEventListener('click', e => {
+    const b = e.target.closest('button'); if (!b) return;
+    const rect = $('#ctxMenu').getBoundingClientRect();
+    const act = b.dataset.act;
+    closeCtx();
+    handleCtxAct(act, rect);
+  });
+  document.addEventListener('click', e => {
+    if (!e.target.closest('.ctx') && !e.target.closest('.ctx-pop')) closeCtx();
+  });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape'){ closeCtx(); closePop(); } });
+  window.addEventListener('scroll', closeCtx, true);
+  let brTaps = 0, brTimer = null;
+  const br = document.querySelector('.brand-logo');
+  if (br) br.addEventListener('click', e => {
+    if (PUBLISHED) return;
+    brTaps++;
+    clearTimeout(brTimer);
+    brTimer = setTimeout(() => { brTaps = 0; }, 900);
+    if (brTaps >= 3){
+      brTaps = 0;
+      e.preventDefault();
+      closePop();
+      CTX = { key:null, type:null, workId:null };
+      buildCtxMenu();
+      const r = br.getBoundingClientRect();
+      openCtxAt(r.left, r.bottom + 6);
+    }
+  });
+  $('#fileCtxImg').addEventListener('change', async e => {
+    const f = e.target.files && e.target.files[0];
+    e.target.value = '';
+    if (!f || !CTX_IMG_TARGET || PUBLISHED) return;
+    try {
+      const raw = await readAsDataURL(f);
+      if (CTX_IMG_TARGET.startsWith('txt:')){
+        const k = CTX_IMG_TARGET.slice(4);
+        const data = /png/i.test(f.type) ? await shrinkPNG(raw, 1200) : await shrink(raw, 1400, 0.85);
+        styleOf(k).img = data;
+        persistSettings();
+      } else if (CTX_IMG_TARGET.startsWith('work:')){
+        const w = WORKS.find(x => x.id === CTX_IMG_TARGET.slice(5));
+        if (w){
+          const src = await shrink(raw, 1600, 0.84);
+          const thumb = await shrink(raw, 520, 0.72);
+          w.media.unshift({ kind:'image', src, thumb, name:f.name });
+          w.updatedAt = Date.now();
+          await dbPut(w);
+          renderAll();
+          if ($('#lb').classList.contains('on')) renderLB();
+        }
+      } else {
+        const data = /png/i.test(f.type) ? await shrinkPNG(raw, 1000) : await shrink(raw, 1400, 0.86);
+        if (CTX_IMG_TARGET === 'logo'){ SETTINGS.logo = data; applyBrandLogo(); }
+        else if (CTX_IMG_TARGET === 'photo'){ SETTINGS.photo = data; renderAboutContact(); }
+        persistSettings();
+      }
+      tagStyleTargets(); applyStyles(); toast(t('saved'));
+    } catch { toast(t('badLink'), true); }
+  });
+}
+</script>
+<script>
+'use strict';
+/* ---------- demo works (abstract SVG placeholders in the house palette) ---------- */
+function svgURI(s){ return 'data:image/svg+xml,' + encodeURIComponent(s); }
+function demoArt(i){
+  const P = { bg:'#E8E4DA', bg2:'#DDD8CC', paper:'#F0EDE5', ink:'#1B1A18', blue:'#2437B8', red:'#A8322A', mut:'#8A8375' };
+  const A = [
+`<svg xmlns="http://www.w3.org/2000/svg" width="600" height="800" viewBox="0 0 600 800"><rect width="600" height="800" fill="${P.bg}"/><circle cx="310" cy="295" r="175" fill="${P.blue}"/><circle cx="310" cy="295" r="175" fill="none" stroke="${P.ink}" stroke-width="2"/><rect x="88" y="502" width="424" height="24" fill="${P.ink}"/><rect x="392" y="550" width="62" height="62" fill="${P.red}"/><line x1="88" y1="646" x2="512" y2="646" stroke="${P.ink}" stroke-width="3"/><line x1="88" y1="672" x2="418" y2="672" stroke="${P.ink}" stroke-width="3"/></svg>`,
+`<svg xmlns="http://www.w3.org/2000/svg" width="640" height="800" viewBox="0 0 640 800"><rect width="640" height="800" fill="${P.bg2}"/><ellipse cx="320" cy="340" rx="152" ry="196" fill="${P.ink}" opacity="0.94"/><path d="M232 208 A150 192 0 0 0 232 476" stroke="${P.bg2}" stroke-width="7" fill="none" opacity="0.55"/><rect x="70" y="688" width="500" height="9" fill="${P.ink}"/><circle cx="512" cy="132" r="13" fill="${P.red}"/></svg>`,
+`<svg xmlns="http://www.w3.org/2000/svg" width="900" height="640" viewBox="0 0 900 640"><rect width="900" height="640" fill="${P.paper}"/><rect y="292" width="900" height="62" fill="${P.mut}" opacity="0.4"/><rect y="354" width="900" height="92" fill="${P.blue}" opacity="0.55"/><rect y="446" width="900" height="46" fill="${P.ink}" opacity="0.82"/><circle cx="688" cy="176" r="50" fill="${P.red}" opacity="0.9"/><line y1="292" x2="900" y2="292" stroke="${P.ink}" stroke-width="2" opacity="0.5"/></svg>`,
+`<svg xmlns="http://www.w3.org/2000/svg" width="800" height="800" viewBox="0 0 800 800"><rect width="800" height="800" fill="${P.bg}"/><rect width="392" height="800" fill="${P.ink}"/><rect x="408" width="392" height="800" fill="${P.bg2}"/><circle cx="196" cy="400" r="122" fill="${P.bg2}"/><circle cx="604" cy="400" r="122" fill="${P.ink}"/><rect x="20" y="20" width="30" height="30" fill="${P.blue}"/><rect x="750" y="750" width="30" height="30" fill="${P.blue}"/></svg>`,
+`<svg xmlns="http://www.w3.org/2000/svg" width="640" height="900" viewBox="0 0 640 900"><rect width="640" height="900" fill="${P.paper}"/><path d="M140 760 C 120 520, 300 500, 300 320 S 210 130, 260 96" stroke="${P.ink}" stroke-width="26" fill="none" stroke-linecap="round"/><path d="M330 800 C 360 610, 470 560, 452 400 S 400 200, 470 140" stroke="${P.ink}" stroke-width="12" fill="none" stroke-linecap="round"/><path d="M180 180 C 260 250, 420 250, 500 180" stroke="${P.blue}" stroke-width="16" fill="none" stroke-linecap="round"/><circle cx="520" cy="760" r="8" fill="${P.ink}"/><circle cx="552" cy="792" r="5" fill="${P.ink}"/></svg>`,
+`<svg xmlns="http://www.w3.org/2000/svg" width="720" height="900" viewBox="0 0 720 900"><rect width="720" height="900" fill="${P.bg2}"/><ellipse cx="360" cy="806" rx="210" ry="26" fill="${P.ink}" opacity="0.16"/><rect x="248" y="632" width="224" height="168" fill="#B9B2A4" stroke="${P.ink}" stroke-width="2"/><ellipse cx="360" cy="452" rx="112" ry="176" fill="${P.mut}"/><circle cx="360" cy="236" r="72" fill="#6F6960"/><path d="M300 320 A118 176 0 0 0 300 590" stroke="${P.bg2}" stroke-width="6" fill="none" opacity="0.5"/></svg>`
+  ];
+  return svgURI(A[i % A.length]);
+}
+async function seedDemo(){
+  const now = Date.now();
+  const D = [
+    { no:1, title:'Композиција I', year:'2021', technique:'масло на платно', dims:'80 × 60 см', category:'Слики', status:'available', featured:true,
+      desc:'Рамнотежа меѓу тежината на формата и тишината на празниот простор.' },
+    { no:2, title:'Портрет во сенка', year:'2019', technique:'јаглен на хартија', dims:'50 × 70 см', category:'Цртежи', status:'sold' },
+    { no:3, title:'Пејзаж II', year:'2023', technique:'акварел', dims:'42 × 30 см', category:'Акварели', status:'available' },
+    { no:4, title:'Без наслов (диптих)', year:'2020', technique:'комбинирана техника', dims:'100 × 100 см', category:'Слики', status:'available' },
+    { no:5, title:'Студија на движење', year:'2024', technique:'туш на хартија', dims:'35 × 50 см', category:'Цртежи', status:'available' },
+    { no:6, title:'Тивка форма', year:'2018', technique:'теракота', dims:'висина 28 см', category:'Скулптури', status:'sold' }
+  ];
+  WORKS = D.map((d, i) => {
+    const src = demoArt(i);
+    return Object.assign(
+      { id: rid(), price:'', desc:'', featured:false, demo:true,
+        media:[{ kind:'image', src, thumb:src }],
+        createdAt: now - (D.length - i) * 86400000, updatedAt: now },
+      d
+    );
+  });
+  for (const w of WORKS) await dbPut(w);
+  if (!SETTINGS.tagline && !SETTINGS.about){
+    SETTINGS.tagline = 'Слика · Цртеж · Форма';
+    SETTINGS.about = 'Артис Ателје Солак е работилница за слика, цртеж и форма — место каде материјалот, светлината и трпението се среќаваат.\nСекое дело е водено рачно, од првата скица до последниот слој.';
+    try { await kvSet('settings', SETTINGS); } catch {}
+  }
+  try { await kvSet('seeded', 1); } catch {}
+}
+
+/* ---------- reveal on scroll ---------- */
+const io = new IntersectionObserver(es => es.forEach(e => {
+  if (e.isIntersecting){ e.target.classList.add('in'); io.unobserve(e.target); }
+}), { threshold: 0.08 });
+function watchRv(scope){
+  (scope || document).querySelectorAll('.rv:not(.in)').forEach(el => io.observe(el));
+}
+
+/* ---------- cursor ring ---------- */
+function toggleFS(el){
+  if (document.fullscreenElement){
+    if (document.exitFullscreen) document.exitFullscreen().catch(() => {});
+    return;
+  }
+  const target = el || document.documentElement;
+  if (target.requestFullscreen) target.requestFullscreen().catch(() => {});
+  else if (target.webkitRequestFullscreen) target.webkitRequestFullscreen();
+}
+function initFS(){
+  const ok = !!(document.documentElement.requestFullscreen || document.documentElement.webkitRequestFullscreen);
+  if (!ok){
+    const a = $('#btnFS'), b = $('#lbFS');
+    if (a) a.style.display = 'none';
+    if (b) b.style.display = 'none';
+  }
+}
+function initCursor(){
+  const c = $('#cur');
+  if (!window.matchMedia('(pointer:fine)').matches) return;
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  let x = innerWidth / 2, y = innerHeight / 2, tx = x, ty = y, shown = false;
+  addEventListener('mousemove', e => {
+    tx = e.clientX; ty = e.clientY;
+    if (!shown){ c.style.opacity = '1'; shown = true; }
+  });
+  addEventListener('mouseover', e => {
+    c.classList.toggle('big', !!(e.target.closest && e.target.closest('a,button,.work,input,select,textarea,label')));
+  });
+  (function loop(){
+    x += (tx - x) * 0.16; y += (ty - y) * 0.16;
+    c.style.transform = 'translate(' + x + 'px,' + y + 'px) translate(-50%,-50%)';
+    requestAnimationFrame(loop);
+  })();
+}
+
+/* ---------- events ---------- */
+function bind(){
+  $('#btnTheme').onclick = () =>
+    setTheme(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark');
+  $('#btnLang').onclick = () => setLang(LANG === 'mk' ? 'en' : 'mk');
+
+  $('#chips').addEventListener('click', e => {
+    const ch = e.target.closest('.chip');
+    if (!ch) return;
+    FILTER.cat = ch.dataset.cat;
+    renderFilters();
+    renderGallery();
+  });
+  $('#q').addEventListener('input', e => { FILTER.q = e.target.value; renderGallery(); });
+  $('#sort').addEventListener('change', e => { FILTER.sort = e.target.value; renderGallery(); });
+
+  const grid = $('#grid');
+  grid.addEventListener('click', e => {
+    const el = e.target.closest('.work');
+    if (el) openLB(el.dataset.id);
+  });
+  grid.addEventListener('keydown', e => {
+    if (e.key !== 'Enter' && e.key !== ' ') return;
+    const el = e.target.closest('.work');
+    if (el){ e.preventDefault(); openLB(el.dataset.id); }
+  });
+
+  $('#btnEmptyAdd').onclick = () => openForm();
+  document.addEventListener('focusout', e => {
+    if (!EDITING || !e.target || !e.target.closest) return;
+    const el = e.target.closest('[data-edit]');
+    if (el) saveEdit(el);
+  });
+  document.addEventListener('focusin', e => {
+    if (!EDITING || !e.target || !e.target.closest) return;
+    const el = e.target.closest('[data-edit]');
+    if (el && el.classList.contains('hint')){ el.textContent = ''; el.classList.remove('hint'); }
+  });
+  document.addEventListener('keydown', e => {
+    if (!EDITING || e.key !== 'Enter' || !e.target.closest) return;
+    const el = e.target.closest('[data-edit]');
+    if (el && el.getAttribute('data-edit') !== 'about'){ e.preventDefault(); el.blur(); }
+  });
+  document.addEventListener('paste', e => {
+    if (!EDITING || !e.target.closest) return;
+    const el = e.target.closest('[data-edit]');
+    if (!el) return;
+    e.preventDefault();
+    const txt = (e.clipboardData || window.clipboardData).getData('text/plain');
+    document.execCommand('insertText', false, txt);
+  });
+  document.addEventListener('click', e => {
+    if (!EDITING || !e.target.closest) return;
+    if (e.target.closest('a[data-edit]') || e.target.closest('.brand-logo')) e.preventDefault();
+  }, true);
+  $$('[data-close]').forEach(b => { b.onclick = () => $('#' + b.dataset.close).close(); });
+
+  /* work form */
+  $('#btnUpload').onclick = () => $('#fileWork').click();
+  $('#fileWork').addEventListener('change', async e => {
+    for (const f of Array.from(e.target.files || [])){
+      const m = await fileToMedia(f);
+      if (m) FORM.media.push(m);
+    }
+    e.target.value = '';
+    renderFormMedia();
+  });
+  $('#mediaList').addEventListener('click', e => {
+    const x = e.target.closest('.mc-x');
+    if (!x) return;
+    FORM.media.splice(Number(x.dataset.mx), 1);
+    renderFormMedia();
+  });
+  $('#btnAddLink').onclick = addLinkMedia;
+  $('#fLink').addEventListener('keydown', e => {
+    if (e.key === 'Enter'){ e.preventDefault(); addLinkMedia(); }
+  });
+  $('#btnSaveWork').onclick = saveWork;
+  $('#btnDelWork').onclick = () => { if (FORM.editId) delWork(FORM.editId); };
+
+  /* settings */
+  $('#sPhotoBtn').onclick = () => $('#filePhoto').click();
+  $('#sLogoBtn').onclick = () => $('#fileLogo').click();
+  $('#fileLogo').addEventListener('change', async e => {
+    const f = e.target.files && e.target.files[0];
+    e.target.value = '';
+    if (!f) return;
+    try {
+      const raw = await readAsDataURL(f);
+      DRAFT_LOGO = /png/i.test(f.type) ? await shrinkPNG(raw, 900) : await shrink(raw, 900, 0.9);
+      $('#sLogoLink').value = '';
+      $('#sLogoLink').placeholder = '✓ ' + f.name;
+    } catch { toast(t('badLink'), true); }
+  });
+  $('#filePhoto').addEventListener('change', async e => {
+    const f = e.target.files && e.target.files[0];
+    e.target.value = '';
+    if (!f) return;
+    try {
+      const raw = await readAsDataURL(f);
+      DRAFT_PHOTO = await shrink(raw, 1400, 0.82);
+      $('#sPhotoLink').value = '';
+      $('#sPhotoLink').placeholder = '✓ ' + f.name;
+    } catch { toast(t('badLink'), true); }
+  });
+  $('#fontRows').addEventListener('input', e => {
+    const inp = e.target.closest('input[data-frole]');
+    if (!inp || inp.disabled) return;
+    const role = inp.getAttribute('data-frole');
+    DRAFT_FONTS[role] = { n: inp.value.trim() };
+  });
+  $('#fontRows').addEventListener('click', e => {
+    const up = e.target.closest('[data-fup]');
+    if (up){
+      const fi = $('#fileFont');
+      fi.dataset.role = up.getAttribute('data-fup');
+      fi.click();
+      return;
+    }
+    const clr = e.target.closest('[data-fclr]');
+    if (clr){
+      DRAFT_FONTS[clr.getAttribute('data-fclr')] = {};
+      renderFontRows();
+    }
+  });
+  $('#fileFont').addEventListener('change', async e => {
+    const f = e.target.files && e.target.files[0];
+    const role = e.target.dataset.role;
+    e.target.value = '';
+    if (!f || !role) return;
+    if (f.size > 4 * 1024 * 1024) return toast(t('fontTooBig'), true);
+    if (!/\.(woff2?|ttf|otf)$/i.test(f.name) && !/font/i.test(f.type || '')) return toast(t('fontBad'), true);
+    try {
+      const d = await readAsDataURL(f);
+      DRAFT_FONTS[role] = { d, f: f.name };
+      renderFontRows();
+    } catch { toast(t('fontBad'), true); }
+  });
+  $('#btnGhPush').onclick = async () => { await saveSettings(); publishToGitHub(); };
+  $('#btnGhDataPush').onclick = async () => { await saveSettings(); ghPushData(); };
+  $('#btnGhDataPull').onclick = async () => { await saveSettings(); ghPullData(); };
+  $('#btnSaveSet').onclick = saveSettings;
+  $('#btnExport').onclick = exportJSON;
+  $('#btnImport').onclick = () => $('#fileImport').click();
+  $('#fileImport').addEventListener('change', e => {
+    const f = e.target.files && e.target.files[0];
+    e.target.value = '';
+    if (f) importJSON(f);
+  });
+  $('#btnPublish').onclick = publishHTML;
+  $('#btnDemo').onclick = removeDemo;
+  $('#btnWipe').onclick = wipeAll;
+
+  /* lightbox */
+  $('#grpSave').onclick = saveGrouping;
+  $('#grpCancel').onclick = endGrouping;
+  document.addEventListener('click', e => {
+    if (!GROUPING || !e.target.closest) return;
+    if (e.target.closest('#grpBar')) return;
+    const el = e.target.closest('[data-sktype="text"], [data-sktype="image"]');
+    const wk = e.target.closest('.work');
+    if (!el && !wk) return;
+    e.preventDefault(); e.stopPropagation();
+    if (!el) return;
+    const k = el.dataset.sk;
+    if (GROUPING.keys.has(k)){ GROUPING.keys.delete(k); el.classList.remove('g-sel'); }
+    else { GROUPING.keys.add(k); el.classList.add('g-sel'); }
+    $('#grpCount').textContent = GROUPING.keys.size;
+  }, true);
+  let rsT = null;
+  window.addEventListener('resize', () => {
+    clearTimeout(rsT);
+    rsT = setTimeout(() => {
+      document.querySelectorAll('[data-sktype="text"]').forEach(el => {
+        el.style.fontSize = '';
+        try { const fs = getComputedStyle(el).fontSize; if (fs) el.dataset.origfs = fs; } catch {}
+      });
+      applyStyles();
+    }, 150);
+  });
+  const lbStage = document.querySelector('.lb-stage');
+  if (lbStage){
+    lbStage.addEventListener('touchstart', lbTouchStart, { passive:true });
+    lbStage.addEventListener('touchend', lbTouchEnd, { passive:true });
+  }
+  $('#lbMedia').addEventListener('dblclick', () => toggleFS($('#lb')));
+  $('#lbCaption').addEventListener('click', e => {
+    const b = e.target.closest('[data-lbcat]');
+    if (!b) return;
+    const cat = b.getAttribute('data-lbcat');
+    FILTER.cat = (FILTER.cat === cat) ? '*' : cat;
+    renderFilters(); renderGallery();
+    const cur = LB.list[LB.idx];
+    LB.list = filteredWorks().map(w => w.id);
+    LB.idx = Math.max(0, LB.list.indexOf(cur));
+    renderLB();
+  });
+  $('#btnFS').onclick = () => toggleFS(document.documentElement);
+  $('#lbFS').onclick = () => toggleFS($('#lb'));
+  $('#lbClose').onclick = closeLB;
+  $('#lbScrim').onclick = closeLB;
+  $('#lbDetails').onclick = () => setLBInfo(!$('#lb').classList.contains('info-open'));
+  $('#lbPrev').onclick = () => lbGo(-1);
+  $('#lbNext').onclick = () => lbGo(1);
+  $('#lbThumbs').addEventListener('click', e => {
+    const th = e.target.closest('.lb-th');
+    if (!th) return;
+    LB.mi = Number(th.dataset.mi);
+    const w = curWork();
+    renderLBMedia(w);
+    renderLBThumbs(w);
+  });
+  document.addEventListener('keydown', e => {
+    if (!$('#lb').classList.contains('on')) return;
+    if (e.key === 'Escape'){ $('#lb').classList.contains('info-open') ? setLBInfo(false) : closeLB(); }
+    if (e.key.toLowerCase && e.key.toLowerCase() === 'i') setLBInfo(!$('#lb').classList.contains('info-open'));
+    if (e.key === 'ArrowLeft') lbGo(-1);
+    if (e.key === 'ArrowRight') lbGo(1);
+  });
+  setupCtxEditor();
+}
+
+/* ---------- init ---------- */
+async function init(){
+  const savedTh = localStorage.getItem('aas_theme');
+  setTheme(savedTh || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'));
+  $('#yr').textContent = new Date().getFullYear();
+
+  let seed = null;
+  try { seed = JSON.parse($('#seed').textContent); } catch {}
+  if (seed && seed.published){
+    PUBLISHED = true;
+    document.body.classList.add('published');
+    WORKS = Array.isArray(seed.works) ? seed.works : [];
+    SETTINGS = Object.assign(SETTINGS, seed.settings || {});
+  } else {
+    try {
+      const s = await kvGet('settings');
+      if (s) SETTINGS = Object.assign(SETTINGS, s);
+      WORKS = await dbAll();
+      if (!WORKS.length && !(await kvGet('seeded'))) await seedDemo();
+      for (const w of WORKS){
+        if (w.demo && w.media && w.media[0] && w.media[0].kind === 'image'
+            && w.media[0].src.startsWith('data:image/svg') && !w.media[0].src.includes('width%3D')){
+          const src = demoArt(((w.no || 1) - 1) % 6);
+          w.media[0].src = src; w.media[0].thumb = src;
+          try { await dbPut(w); } catch {}
+        }
+      }
+    } catch (e) { console.warn('IndexedDB unavailable:', e); }
+  }
+  applyFonts();
+  applyI18n();
+  bind();
+  tagStyleTargets();
+  renderAll();
+  watchRv();
+  initFS();
+  initCursor();
+  if (!PUBLISHED && !localStorage.getItem('aas_ctx_hint')){
+    setTimeout(() => toast(t('ctxHint')), 900);
+    localStorage.setItem('aas_ctx_hint', '1');
+  }
+}
+init();
+</script>
+</body>
+</html>
