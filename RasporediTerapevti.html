@@ -1820,6 +1820,62 @@ body.density-comfortable .student-select {
 
 .merge-empty { font-size: 12px; color: var(--text-secondary); font-style: italic; padding: 8px 2px; }
 
+/* ── [v4.3] уредлив список за новата учебна година ── */
+.year-roster {
+    max-height: 300px;
+    overflow-y: auto;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--bg-main);
+    margin-top: 8px;
+}
+
+.year-group {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    font-size: 11px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    color: var(--primary);
+    background: var(--bg-card);
+    padding: 6px 10px;
+    border-bottom: 1px solid var(--border);
+}
+
+.year-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 5px 10px;
+    border-bottom: 1px solid var(--border);
+}
+
+.year-row:last-child { border-bottom: 0; }
+.year-row .yr-name { flex: 1; min-width: 0; font-size: 12.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.year-row .yr-dest {
+    flex: none;
+    width: 190px;
+    padding: 4px 7px;
+    font-size: 12px;
+    font-family: inherit;
+    border: 1.5px solid var(--border);
+    border-radius: 8px;
+    background: var(--bg-card);
+    color: var(--text-primary);
+}
+
+.year-row.manual { background: rgba(243, 156, 18, .12); }
+.year-row.manual .yr-dest { border-color: var(--warning); font-weight: 700; }
+.year-row.manual .yr-name::after { content: ' ✎'; color: var(--warning); }
+
+@media (max-width: 620px) {
+    .year-row { flex-wrap: wrap; }
+    .year-row .yr-dest { width: 100%; }
+}
+
 /* ============== [v4.0] ЦЕНТАР ЗА ПЕЧАТЕЊЕ ============== */
 .print-modal {
     width: min(1080px, 100%);
@@ -2837,6 +2893,13 @@ body.density-comfortable .student-select {
                 <textarea id="yearNewStudents" class="print-input" rows="4" style="resize:vertical; font-family:inherit;"
                           placeholder="Едно име по ред, на пр.&#10;Ана Стојанова&#10;Бојан Ристов&#10;&#10;Може и со одделение однапред: II-б - Влатко Петров"
                           oninput="scheduleYearRecompute()"></textarea>
+
+                <span class="print-group-label">Ученици — провери и коригирај <span id="yearManualCount" class="sync-hint"></span></span>
+                <div class="sync-row">
+                    <input type="search" id="yearRosterFilter" class="people-crud-search compact" placeholder="Пребарај ученик..." style="min-width:200px;" oninput="setYearFilter(this.value)">
+                    <button type="button" class="btn btn-soft btn-compact" onclick="resetYearOverrides()">↺ Сите автоматски</button>
+                </div>
+                <div class="year-roster" id="yearRoster"></div>
 
                 <span class="print-group-label">Преглед</span>
                 <div class="merge-chips" id="yearChips"></div>
@@ -5300,9 +5363,66 @@ function downloadDoc() {
             { id: 'namePrefix',    label: 'Запиши го одделението и во името на новите ученици', def: false }
         ];
 
+        const YEAR_STAY = '__stay__';
+        const YEAR_REMOVE = '__remove__';
+
         let yearOpt = null;
         let yearResult = null;
         let yearTimer = null;
+        let yearOverrides = {};   // име на ученик → одделение | YEAR_STAY | YEAR_REMOVE
+        let yearFilter = '';
+
+        // Автоматскиот предлог за еден ученик. Рачниот избор го прегазува ова.
+        function yearAutoDestination(name, meta, lastRoman) {
+            if ((meta.category || '') === 'preschool') {
+                return yearOpt.preschool ? ROMAN_BY_ORDER[1] : YEAR_STAY;
+            }
+            const grade = normalizeGrade(meta.grade || '');
+            const parts = grade ? splitGrade(grade) : null;
+            if (!parts) return YEAR_STAY;                                   // без одделение — не се допира
+            if (parts.roman === lastRoman) return yearOpt.graduate ? YEAR_REMOVE : YEAR_STAY;
+            if (!yearOpt.promote) return YEAR_STAY;
+            return nextGradeAfter(grade) || YEAR_STAY;
+        }
+
+        function yearStayReason(move, lastRoman) {
+            if (move.isPreschool) return 'предучилишна — преминот е исклучен';
+            if (!move.hasGrade) return 'нема одделение';
+            const parts = splitGrade(move.from);
+            if (parts && parts.roman === lastRoman) return 'последно одделение, отписот е исклучен';
+            if (!yearOpt.promote) return 'унапредувањето е исклучено';
+            return 'нема следно одделение';
+        }
+
+        // Мора да ги содржи и целните одделенија на автоматските предлози. Ако „VI-а“
+        // не постои никаде затоа што никој сè уште не е таму, менито немаше да ја
+        // понуди — и селектот ќе покажеше друга вредност од онаа во планот.
+        function yearGradePool() {
+            const extra = [];
+            ((yearResult && yearResult.plan.moves) || []).forEach(m => {
+                [m.auto, m.dest].forEach(v => {
+                    if (v && v !== YEAR_STAY && v !== YEAR_REMOVE) extra.push(v);
+                });
+            });
+            return Array.from(new Set([...COMMON_GRADE_ROMANS, ...getGradePool(), ...extra])).sort(compareGrades);
+        }
+
+        function setYearOverride(name, value) {
+            const move = (yearResult && yearResult.plan.moves || []).find(m => m.name === name);
+            if (move && value === move.auto) delete yearOverrides[name];
+            else yearOverrides[name] = value;
+            recomputeYearRollover({ keepRoster: true });
+        }
+
+        function resetYearOverrides() {
+            yearOverrides = {};
+            recomputeYearRollover();
+        }
+
+        function setYearFilter(value) {
+            yearFilter = String(value || '').toLocaleLowerCase('mk-MK').trim();
+            renderYearRoster();
+        }
 
         function splitGrade(grade) {
             const g = normalizeGrade(grade);
@@ -5363,82 +5483,93 @@ function downloadDoc() {
             const plan = {
                 lastRoman, promoted: [], graduated: [], enrolled: [], staying: [],
                 noGrade: [], preschool: [], collisions: [], duplicates: [],
-                scheduleCleared: false, linksCleared: false, termsDropped: 0
+                scheduleCleared: false, linksCleared: false, termsDropped: 0,
+                moves: [], manualCount: 0
             };
 
             const pure = state.students.filter(s => s && s !== 'Избери Ученик');
-            const graduating = [], promoting = [], preschoolers = [];
 
-            pure.forEach(name => {
+            // 1. За секој ученик — каде оди. Автоматскиот предлог може да биде
+            //    прегазен рачно (повторува година, прескокнува две, си заминува
+            //    пред последното одделение...). Рачниот избор секогаш победува.
+            const moves = pure.map(name => {
                 const meta = state.studentMeta[name] || {};
-                if ((meta.category || '') === 'preschool') return preschoolers.push(name);
-                const grade = normalizeGrade(meta.grade || '');
-                const parts = grade ? splitGrade(grade) : null;
-                if (!parts) return plan.noGrade.push(name);
-                if (parts.roman === lastRoman) return graduating.push({ name, grade });
-                const to = nextGradeAfter(grade);
-                if (!to) return plan.noGrade.push(name);
-                promoting.push({ name, from: grade, to });
+                const isPreschool = (meta.category || '') === 'preschool';
+                const from = normalizeGrade(meta.grade || '');
+                const parts = from ? splitGrade(from) : null;
+                const auto = yearAutoDestination(name, meta, lastRoman);
+                const override = yearOverrides[name];
+                const dest = override || auto;
+                return { name, from, isPreschool, hasGrade: Boolean(parts), auto, dest, manual: Boolean(override && override !== auto) };
             });
 
-            // 1. отпис на последното одделение
-            if (yearOpt.graduate) {
-                graduating.forEach(g => {
-                    plan.termsDropped += (state.schedule || []).reduce((n, slot) =>
-                        n + (slot && slot.assignments ? Object.values(slot.assignments).filter(v => v === g.name).length : 0), 0);
-                    stateRemoveStudent(state, g.name);
-                    plan.graduated.push(g);
-                });
-            } else {
-                graduating.forEach(g => plan.staying.push({ name: g.name, grade: g.grade, why: 'последно одделение, отписот е исклучен' }));
-            }
+            plan.moves = moves;
+            plan.manualCount = moves.filter(m => m.manual).length;
 
-            // 2. унапредување — и во studentMeta и во самото име ако го носи одделението
-            if (yearOpt.promote) {
-                const taken = new Set(state.students);
-                // Од највисокото одделение надолу: така „V-а - Иван“ прво станува
-                // „VI-а - Иван“ и го ослободува името за „IV-а - Иван“ што доаѓа по него.
-                // Обратниот редослед би пријавил лажен судир.
-                promoting.sort((a, b) => compareGrades(b.from, a.from));
-                promoting.forEach(p => {
-                    const keepsPrefix = studentNameHasGradePrefix(p.name);
-                    const newName = keepsPrefix ? `${p.to} - ${displayStudentName(p.name)}` : p.name;
-                    if (newName !== p.name && taken.has(newName)) {
-                        plan.collisions.push({ name: p.name, newName });
-                        return;
-                    }
-                    taken.delete(p.name);
-                    taken.add(newName);
-                    if (newName !== p.name) stateRenameStudent(state, p.name, newName);
-                    if (!state.studentMeta[newName]) state.studentMeta[newName] = { grade: '', category: '', school: '' };
-                    state.studentMeta[newName].grade = p.to;
-                    if (!state.customGrades.includes(p.to)) state.customGrades.push(p.to);
-                    plan.promoted.push({ name: p.name, newName, from: p.from, to: p.to });
-                });
-            } else {
-                promoting.forEach(p => plan.staying.push({ name: p.name, grade: p.from, why: 'унапредувањето е исклучено' }));
-            }
+            // 2. Отписи прво — ослободуваат имиња и термини.
+            moves.filter(m => m.dest === YEAR_REMOVE).forEach(m => {
+                plan.termsDropped += (state.schedule || []).reduce((n, slot) =>
+                    n + (slot && slot.assignments ? Object.values(slot.assignments).filter(v => v === m.name).length : 0), 0);
+                stateRemoveStudent(state, m.name);
+                plan.graduated.push({ name: m.name, grade: m.from, manual: m.manual });
+            });
 
-            // 3. предучилишни во прво
-            if (yearOpt.preschool) {
-                const firstGrade = ROMAN_BY_ORDER[1];
-                preschoolers.forEach(name => {
-                    const keepsPrefix = studentNameHasGradePrefix(name);
-                    const newName = keepsPrefix ? `${firstGrade} - ${displayStudentName(name)}` : name;
-                    if (newName !== name && state.students.includes(newName)) {
-                        plan.collisions.push({ name, newName });
-                        return;
-                    }
-                    if (newName !== name) stateRenameStudent(state, name, newName);
-                    if (!state.studentMeta[newName]) state.studentMeta[newName] = { grade: '', category: '', school: '' };
-                    state.studentMeta[newName].grade = firstGrade;
-                    state.studentMeta[newName].category = '';
-                    if (!state.customGrades.includes(firstGrade)) state.customGrades.push(firstGrade);
-                    plan.preschool.push({ name, newName, to: firstGrade });
+            // 3. Пресметај ги крајните имиња за сите што се преместуваат.
+            const movers = moves.filter(m => m.dest !== YEAR_REMOVE && m.dest !== YEAR_STAY);
+            const stayers = moves.filter(m => m.dest === YEAR_STAY);
+
+            const finalNames = new Map();   // старо име → ново име
+            movers.forEach(m => {
+                const keepsPrefix = studentNameHasGradePrefix(m.name);
+                finalNames.set(m.name, keepsPrefix ? `${m.dest} - ${displayStudentName(m.name)}` : m.name);
+            });
+
+            // Судир е само кога две РАЗЛИЧНИ лица би завршиле со исто име.
+            const claimed = new Map();
+            stayers.forEach(m => claimed.set(m.name, m.name));
+            movers.forEach(m => {
+                const target = finalNames.get(m.name);
+                if (claimed.has(target)) {
+                    plan.collisions.push({ name: m.name, newName: target, clashesWith: claimed.get(target) });
+                    finalNames.delete(m.name);
+                } else {
+                    claimed.set(target, m.name);
+                }
+            });
+
+            // 4. Преименување во две фази преку привремени имиња. Без ова, редоследот
+            //    би можел да создаде лажен судир (или да прегази) кога цела група се
+            //    поместува нагоре и имињата се разменуваат.
+            const staged = [];
+            let tmpIndex = 0;
+            finalNames.forEach((newName, oldName) => {
+                if (newName === oldName) return;
+                const tmp = ` year-tmp-${tmpIndex++}`;
+                stateRenameStudent(state, oldName, tmp);
+                staged.push({ tmp, newName, oldName });
+            });
+            staged.forEach(s => stateRenameStudent(state, s.tmp, s.newName));
+
+            // 5. Одделението во податоците + евиденција за прегледот.
+            movers.forEach(m => {
+                const newName = finalNames.get(m.name);
+                if (!newName) return;   // судир — прескокнат
+                if (!state.studentMeta[newName]) state.studentMeta[newName] = { grade: '', category: '', school: '' };
+                state.studentMeta[newName].grade = m.dest;
+                if (m.isPreschool) state.studentMeta[newName].category = '';
+                if (!state.customGrades.includes(m.dest)) state.customGrades.push(m.dest);
+                const entry = { name: m.name, newName, from: m.from || (m.isPreschool ? 'предучилишна' : '—'), to: m.dest, manual: m.manual };
+                if (m.isPreschool) plan.preschool.push(entry); else plan.promoted.push(entry);
+            });
+
+            stayers.forEach(m => {
+                if (!m.hasGrade && !m.isPreschool) return plan.noGrade.push(m.name);
+                plan.staying.push({
+                    name: m.name,
+                    grade: m.from || 'предучилишна',
+                    why: m.manual ? 'рачно поставено да остане' : yearStayReason(m, lastRoman)
                 });
-            } else {
-                preschoolers.forEach(name => plan.preschool.push({ name, newName: name, to: '' }));
-            }
+            });
 
             // 4. упис на нови
             //
@@ -5511,6 +5642,10 @@ function downloadDoc() {
             newSel.innerHTML = pool.map(g => `<option value="${escapeAttr(g)}" ${g === 'I' ? 'selected' : ''}>${escapeHtml(g)}</option>`).join('');
 
             document.getElementById('yearNewStudents').value = '';
+            yearOverrides = {};
+            yearFilter = '';
+            const filterEl = document.getElementById('yearRosterFilter');
+            if (filterEl) filterEl.value = '';
             document.getElementById('yearSubtitle').textContent =
                 `${schoolYearLabel('/')} → следна година · ${printCountLabel(getPureStudents().length, 'ученик', 'ученици')} во базата`;
 
@@ -5546,11 +5681,69 @@ function downloadDoc() {
             yearTimer = window.setTimeout(recomputeYearRollover, 250);
         }
 
-        function recomputeYearRollover() {
+        function recomputeYearRollover(options = {}) {
             if (!yearOpt) return;
             window.clearTimeout(yearTimer);
             yearResult = buildYearRolloverPlan();
+            // При промена на еден ученик списокот НЕ се прецртува — инаку се губи
+            // скролот и фокусот среде работа со сто ученици.
+            if (!options.keepRoster) renderYearRoster();
+            else updateYearRosterMarks();
             renderYearPreview(yearResult.plan);
+        }
+
+        function yearDestOptionsHtml(move) {
+            const mark = value => value === move.auto ? ' (автоматски)' : '';
+            let html = `<option value="${YEAR_STAY}" ${move.dest === YEAR_STAY ? 'selected' : ''}>остани${move.from ? ' во ' + escapeHtml(move.from) : ''}${mark(YEAR_STAY)}</option>`;
+            yearGradePool().forEach(g => {
+                html += `<option value="${escapeAttr(g)}" ${move.dest === g ? 'selected' : ''}>${escapeHtml(g)}${mark(g)}</option>`;
+            });
+            html += `<option value="${YEAR_REMOVE}" ${move.dest === YEAR_REMOVE ? 'selected' : ''}>отпиши${mark(YEAR_REMOVE)}</option>`;
+            return html;
+        }
+
+        function renderYearRoster() {
+            const host = document.getElementById('yearRoster');
+            if (!host || !yearResult) return;
+            const moves = yearResult.plan.moves.slice().sort((a, b) =>
+                compareGrades(a.from, b.from) || displayStudentName(a.name).localeCompare(displayStudentName(b.name), 'mk'));
+            const visible = yearFilter
+                ? moves.filter(m => displayStudentName(m.name).toLocaleLowerCase('mk-MK').includes(yearFilter))
+                : moves;
+
+            if (!visible.length) {
+                host.innerHTML = '<div class="merge-empty">Нема ученик што одговара на пребарувањето.</div>';
+                return;
+            }
+
+            let html = '', lastGrade = null;
+            visible.forEach(m => {
+                const groupLabel = m.isPreschool ? 'Предучилишна возраст' : (m.from || 'Без одделение');
+                if (groupLabel !== lastGrade) {
+                    html += `<div class="year-group">${escapeHtml(groupLabel)}</div>`;
+                    lastGrade = groupLabel;
+                }
+                html += `<div class="year-row${m.manual ? ' manual' : ''}" data-student="${escapeAttr(m.name)}">
+                    <span class="yr-name">${escapeHtml(displayStudentName(m.name))}</span>
+                    <select class="yr-dest" data-student="${escapeAttr(m.name)}" onchange="setYearOverride(this.dataset.student, this.value)">${yearDestOptionsHtml(m)}</select>
+                </div>`;
+            });
+            host.innerHTML = html;
+            updateYearRosterMarks();
+        }
+
+        function updateYearRosterMarks() {
+            if (!yearResult) return;
+            const byName = new Map(yearResult.plan.moves.map(m => [m.name, m]));
+            document.querySelectorAll('#yearRoster .year-row').forEach(row => {
+                const move = byName.get(row.dataset.student);
+                row.classList.toggle('manual', Boolean(move && move.manual));
+            });
+            const el = document.getElementById('yearManualCount');
+            if (el) {
+                const n = yearResult.plan.manualCount;
+                el.textContent = n ? `· ${printCountLabel(n, 'рачен исклучок', 'рачни исклучоци')}` : '· сите се автоматски';
+            }
         }
 
         function renderYearPreview(plan) {
@@ -5566,8 +5759,11 @@ function downloadDoc() {
 
             let html = '';
             if (plan.collisions.length) {
-                html += `<div class="merge-alert">⚠️ ${printCountLabel(plan.collisions.length, 'ученик', 'ученици')} НЕ се унапредени затоа што новото име веќе постои: `
-                    + plan.collisions.map(c => escapeHtml(c.newName)).join(', ') + '. Преименувај рачно па повтори.</div>';
+                html += `<div class="merge-alert">⚠️ ${printCountLabel(plan.collisions.length, 'ученик остана', 'ученици останаа')} на место — новото име би се судрило со друг ученик:<br>`
+                    + plan.collisions.map(c =>
+                        `• <strong>${escapeHtml(displayStudentName(c.name))}</strong> (${escapeHtml(c.name)}) → ${escapeHtml(c.newName)}, зафатено од ${escapeHtml(c.clashesWith)}`
+                      ).join('<br>')
+                    + '<br><small>Разликувај ги имињата во табот Ученици, или постави им различно одделение погоре.</small></div>';
             }
             if (plan.duplicates.length) {
                 html += '<div class="merge-alert">ℹ️ Прескокнати при упис — провери дали навистина се нови:<br>'
