@@ -2551,6 +2551,7 @@ body.density-comfortable .student-select {
                             </div>
                             <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
                                 <button type="button" class="btn btn-soft btn-compact" onclick="openStudentRosterPage()" title="Целосен список на една страна, групиран по одделенија — за гледање и печатење">📋 Список по одделенија</button>
+                                <button type="button" class="btn btn-secondary btn-compact" onclick="openYearRollover()" title="Унапредување во следно одделение, отпис на последното и упис на нови">🎓 Нова учебна година</button>
                                 <span class="people-crud-count" id="studentCrudCount">0</span>
                             </div>
                         </div>
@@ -2803,6 +2804,48 @@ body.density-comfortable .student-select {
                 <div class="right-actions">
                     <button type="button" class="btn btn-soft" onclick="closeCandidateModal()">Откажи</button>
                     <button type="button" class="btn btn-primary" onclick="saveCandidateSelection()">Зачувај</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============== [v4.3] НОВА УЧЕБНА ГОДИНА ============== -->
+    <div id="yearBackdrop" class="candidate-modal-backdrop" onclick="if(event.target===this)closeYearRollover()">
+        <div class="merge-modal" role="dialog" aria-modal="true" aria-labelledby="yearTitle">
+            <div class="candidate-modal-header">
+                <h3 id="yearTitle">🎓 Нова учебна година</h3>
+                <div class="candidate-modal-subtitle" id="yearSubtitle"></div>
+            </div>
+            <div class="merge-body">
+                <div class="merge-alert" style="background:var(--cell-filled-bg); border-color:var(--cell-filled-border); color:var(--cell-filled-text);">
+                    Пред да примениш, направи <strong>💾 Извези JOSN</strong> во Алатки. Автоматска снимка се прави, но
+                    една надворешна копија не е на одмет за ваква голема измена.
+                </div>
+
+                <span class="print-group-label">Што да се направи</span>
+                <div class="sync-row">
+                    <label class="sync-label" for="yearLastGrade">Последно одделение:</label>
+                    <select id="yearLastGrade" class="people-crud-search compact" onchange="recomputeYearRollover()"></select>
+                </div>
+                <div class="print-checks" id="yearOptions"></div>
+
+                <span class="print-group-label">Упис на нови ученици</span>
+                <div class="sync-row">
+                    <label class="sync-label" for="yearNewGrade">Во одделение:</label>
+                    <select id="yearNewGrade" class="people-crud-search compact" onchange="recomputeYearRollover()"></select>
+                </div>
+                <textarea id="yearNewStudents" class="print-input" rows="4" style="resize:vertical; font-family:inherit;"
+                          placeholder="Едно име по ред, на пр.&#10;Ана Стојанова&#10;Бојан Ристов&#10;&#10;Може и со одделение однапред: II-б - Влатко Петров"
+                          oninput="scheduleYearRecompute()"></textarea>
+
+                <span class="print-group-label">Преглед</span>
+                <div class="merge-chips" id="yearChips"></div>
+                <div class="merge-details" id="yearDetails"></div>
+            </div>
+            <div class="candidate-modal-actions">
+                <button type="button" class="btn btn-soft" onclick="closeYearRollover()">Откажи</button>
+                <div class="right-actions">
+                    <button type="button" class="btn btn-primary" onclick="applyYearRollover()">🎓 Примени</button>
                 </div>
             </div>
         </div>
@@ -5232,6 +5275,359 @@ function downloadDoc() {
             if (plan.doubleBookings.length) {
                 notify(`Внимание: ${plan.doubleBookings.length} двојно закажан термин — провери во табот Распоред.`, 'warn');
             }
+        }
+
+        // ============== [v4.3] НОВА УЧЕБНА ГОДИНА ==============
+        //
+        // Крајот на годината менува сè одеднаш: сите се качуваат за едно одделение,
+        // последното одделение се отпишува, нови се запишуваат. Затоа истиот образец
+        // како кај спојувањето — се пресметува врз копија од состојбата, се прикажува
+        // преглед, и дури потоа се вградува. Снимка се прави пред примена.
+        //
+        // Замка: во оваа база имињата често го носат одделението во себе
+        // („V-а - Дејан Станковски“). Унапредувањето затоа не менува само studentMeta,
+        // туку и го преименува ученикот низ therapistStudents и низ сите термини.
+
+        const ROMAN_BY_ORDER = {};
+        Object.keys(ROMAN_GRADE_ORDER).forEach(r => { ROMAN_BY_ORDER[ROMAN_GRADE_ORDER[r]] = r; });
+
+        const YEAR_OPTIONS = [
+            { id: 'promote',       label: 'Унапреди ги учениците за едно одделение', def: true },
+            { id: 'graduate',      label: 'Отпиши ги учениците од последното одделение', def: true },
+            { id: 'preschool',     label: 'Предучилишните преминуваат во прво одделение', def: false },
+            { id: 'clearSchedule', label: 'Исчисти го распоредот од минатата година', def: true },
+            { id: 'clearLinks',    label: 'Исчисти ги и врските терапевт–ученик', def: false },
+            { id: 'namePrefix',    label: 'Запиши го одделението и во името на новите ученици', def: false }
+        ];
+
+        let yearOpt = null;
+        let yearResult = null;
+        let yearTimer = null;
+
+        function splitGrade(grade) {
+            const g = normalizeGrade(grade);
+            const m = g.match(/^(VIII|VII|VI|IX|IV|III|II|X|V|I)(?:-([абвгд]))?$/);
+            return m ? { roman: m[1], section: m[2] || '' } : null;
+        }
+
+        function nextGradeAfter(grade) {
+            const parts = splitGrade(grade);
+            if (!parts) return '';
+            const next = ROMAN_BY_ORDER[ROMAN_GRADE_ORDER[parts.roman] + 1];
+            return next ? next + (parts.section ? '-' + parts.section : '') : '';
+        }
+
+        function studentNameHasGradePrefix(name) {
+            return Boolean(inferGradeFromStudentName(name));
+        }
+
+        // ── измени врз копија од состојбата ──
+        function stateRenameStudent(state, oldName, newName) {
+            state.students = state.students.map(s => s === oldName ? newName : s);
+            Object.keys(state.therapistStudents || {}).forEach(t => {
+                state.therapistStudents[t] = (state.therapistStudents[t] || []).map(s => s === oldName ? newName : s);
+            });
+            (state.schedule || []).forEach(slot => {
+                if (!slot || !slot.assignments) return;
+                Object.keys(slot.assignments).forEach(t => {
+                    if (slot.assignments[t] === oldName) slot.assignments[t] = newName;
+                });
+            });
+            if (state.studentMeta[oldName]) {
+                state.studentMeta[newName] = state.studentMeta[oldName];
+                if (newName !== oldName) delete state.studentMeta[oldName];
+            }
+        }
+
+        function stateRemoveStudent(state, name) {
+            state.students = state.students.filter(s => s !== name);
+            Object.keys(state.therapistStudents || {}).forEach(t => {
+                state.therapistStudents[t] = (state.therapistStudents[t] || []).filter(s => s !== name);
+            });
+            (state.schedule || []).forEach(slot => {
+                if (!slot || !slot.assignments) return;
+                Object.keys(slot.assignments).forEach(t => {
+                    if (slot.assignments[t] === name) delete slot.assignments[t];
+                });
+            });
+            delete state.studentMeta[name];
+        }
+
+        function buildYearRolloverPlan() {
+            ensureStudentMeta();
+            const state = currentStateSnapshot();
+            const lastRoman = (document.getElementById('yearLastGrade') || {}).value || 'IX';
+            const newGrade = normalizeGrade((document.getElementById('yearNewGrade') || {}).value || 'I');
+            const raw = ((document.getElementById('yearNewStudents') || {}).value || '');
+
+            const plan = {
+                lastRoman, promoted: [], graduated: [], enrolled: [], staying: [],
+                noGrade: [], preschool: [], collisions: [], duplicates: [],
+                scheduleCleared: false, linksCleared: false, termsDropped: 0
+            };
+
+            const pure = state.students.filter(s => s && s !== 'Избери Ученик');
+            const graduating = [], promoting = [], preschoolers = [];
+
+            pure.forEach(name => {
+                const meta = state.studentMeta[name] || {};
+                if ((meta.category || '') === 'preschool') return preschoolers.push(name);
+                const grade = normalizeGrade(meta.grade || '');
+                const parts = grade ? splitGrade(grade) : null;
+                if (!parts) return plan.noGrade.push(name);
+                if (parts.roman === lastRoman) return graduating.push({ name, grade });
+                const to = nextGradeAfter(grade);
+                if (!to) return plan.noGrade.push(name);
+                promoting.push({ name, from: grade, to });
+            });
+
+            // 1. отпис на последното одделение
+            if (yearOpt.graduate) {
+                graduating.forEach(g => {
+                    plan.termsDropped += (state.schedule || []).reduce((n, slot) =>
+                        n + (slot && slot.assignments ? Object.values(slot.assignments).filter(v => v === g.name).length : 0), 0);
+                    stateRemoveStudent(state, g.name);
+                    plan.graduated.push(g);
+                });
+            } else {
+                graduating.forEach(g => plan.staying.push({ name: g.name, grade: g.grade, why: 'последно одделение, отписот е исклучен' }));
+            }
+
+            // 2. унапредување — и во studentMeta и во самото име ако го носи одделението
+            if (yearOpt.promote) {
+                const taken = new Set(state.students);
+                // Од највисокото одделение надолу: така „V-а - Иван“ прво станува
+                // „VI-а - Иван“ и го ослободува името за „IV-а - Иван“ што доаѓа по него.
+                // Обратниот редослед би пријавил лажен судир.
+                promoting.sort((a, b) => compareGrades(b.from, a.from));
+                promoting.forEach(p => {
+                    const keepsPrefix = studentNameHasGradePrefix(p.name);
+                    const newName = keepsPrefix ? `${p.to} - ${displayStudentName(p.name)}` : p.name;
+                    if (newName !== p.name && taken.has(newName)) {
+                        plan.collisions.push({ name: p.name, newName });
+                        return;
+                    }
+                    taken.delete(p.name);
+                    taken.add(newName);
+                    if (newName !== p.name) stateRenameStudent(state, p.name, newName);
+                    if (!state.studentMeta[newName]) state.studentMeta[newName] = { grade: '', category: '', school: '' };
+                    state.studentMeta[newName].grade = p.to;
+                    if (!state.customGrades.includes(p.to)) state.customGrades.push(p.to);
+                    plan.promoted.push({ name: p.name, newName, from: p.from, to: p.to });
+                });
+            } else {
+                promoting.forEach(p => plan.staying.push({ name: p.name, grade: p.from, why: 'унапредувањето е исклучено' }));
+            }
+
+            // 3. предучилишни во прво
+            if (yearOpt.preschool) {
+                const firstGrade = ROMAN_BY_ORDER[1];
+                preschoolers.forEach(name => {
+                    const keepsPrefix = studentNameHasGradePrefix(name);
+                    const newName = keepsPrefix ? `${firstGrade} - ${displayStudentName(name)}` : name;
+                    if (newName !== name && state.students.includes(newName)) {
+                        plan.collisions.push({ name, newName });
+                        return;
+                    }
+                    if (newName !== name) stateRenameStudent(state, name, newName);
+                    if (!state.studentMeta[newName]) state.studentMeta[newName] = { grade: '', category: '', school: '' };
+                    state.studentMeta[newName].grade = firstGrade;
+                    state.studentMeta[newName].category = '';
+                    if (!state.customGrades.includes(firstGrade)) state.customGrades.push(firstGrade);
+                    plan.preschool.push({ name, newName, to: firstGrade });
+                });
+            } else {
+                preschoolers.forEach(name => plan.preschool.push({ name, newName: name, to: '' }));
+            }
+
+            // 4. упис на нови
+            //
+            // Внимание: проверката за дупликат не смее да биде само по цело име.
+            // Ако „V-а - Дејан“ штотуку е унапреден во „VI-а - Дејан“, тогаш
+            // „V-а - Дејан“ повеќе не постои во листата и би поминал како нов —
+            // а тоа создава близнак. Затоа се споредува и чистото име на личноста.
+            const personKey = n => displayStudentName(n).toLocaleLowerCase('mk-MK').replace(/\s+/g, ' ').trim();
+            const existingPeople = new Map();
+            state.students.forEach(s => { if (s !== 'Избери Ученик') existingPeople.set(personKey(s), s); });
+
+            raw.split('\n').map(l => l.replace(/\s+/g, ' ').trim()).filter(Boolean).forEach(line => {
+                const inferred = inferGradeFromStudentName(line);
+                const grade = inferred || newGrade;
+                const plain = inferred ? displayStudentName(line) : line;
+                if (!plain) return;
+                const finalName = (yearOpt.namePrefix && grade) ? `${grade} - ${plain}` : plain;
+
+                if (state.students.includes(finalName)) {
+                    plan.duplicates.push({ name: finalName, existing: finalName, reason: 'веќе постои со истото име' });
+                    return;
+                }
+                const already = existingPeople.get(personKey(finalName));
+                if (already) {
+                    plan.duplicates.push({ name: finalName, existing: already, reason: 'веќе постои ученик со тоа име' });
+                    return;
+                }
+
+                state.students.push(finalName);
+                state.studentMeta[finalName] = { grade: grade || '', category: '', school: '' };
+                existingPeople.set(personKey(finalName), finalName);
+                if (grade && !state.customGrades.includes(grade)) state.customGrades.push(grade);
+                plan.enrolled.push({ name: finalName, grade: grade || '—' });
+            });
+
+            // 5. распоред и врски
+            if (yearOpt.clearSchedule) {
+                plan.termsDropped = (state.schedule || []).reduce((n, slot) =>
+                    n + (slot && slot.assignments ? Object.keys(slot.assignments).length : 0), 0);
+                state.schedule = [];
+                plan.scheduleCleared = true;
+            }
+            if (yearOpt.clearLinks) {
+                Object.keys(state.therapistStudents || {}).forEach(t => { state.therapistStudents[t] = []; });
+                plan.linksCleared = true;
+            }
+
+            state.customGrades.sort(compareGrades);
+            return { state, plan };
+        }
+
+        // ── UI ──
+        function openYearRollover() {
+            ensureStudentMeta();
+            if (getPureStudents().length === 0) return notify('Нема ученици за унапредување.', 'warn');
+
+            if (!yearOpt) {
+                yearOpt = {};
+                YEAR_OPTIONS.forEach(o => { yearOpt[o.id] = o.def; });
+                // Ако постојните имиња го носат одделението, новите нека го носат исто.
+                yearOpt.namePrefix = getPureStudents().some(studentNameHasGradePrefix);
+            }
+
+            const lastSel = document.getElementById('yearLastGrade');
+            lastSel.innerHTML = COMMON_GRADE_ROMANS.map(r =>
+                `<option value="${r}" ${r === 'IX' ? 'selected' : ''}>${r} одделение</option>`).join('');
+
+            const newSel = document.getElementById('yearNewGrade');
+            const pool = Array.from(new Set([...COMMON_GRADE_ROMANS, ...getGradePool()])).sort(compareGrades);
+            newSel.innerHTML = pool.map(g => `<option value="${escapeAttr(g)}" ${g === 'I' ? 'selected' : ''}>${escapeHtml(g)}</option>`).join('');
+
+            document.getElementById('yearNewStudents').value = '';
+            document.getElementById('yearSubtitle').textContent =
+                `${schoolYearLabel('/')} → следна година · ${printCountLabel(getPureStudents().length, 'ученик', 'ученици')} во базата`;
+
+            renderYearOptions();
+            document.getElementById('yearBackdrop').classList.add('show');
+            document.addEventListener('keydown', handleYearKeyDown);
+            recomputeYearRollover();
+        }
+
+        function closeYearRollover() {
+            document.getElementById('yearBackdrop').classList.remove('show');
+            document.removeEventListener('keydown', handleYearKeyDown);
+            window.clearTimeout(yearTimer);
+            yearResult = null;
+        }
+
+        function handleYearKeyDown(event) {
+            if (event.key === 'Escape') closeYearRollover();
+        }
+
+        function renderYearOptions() {
+            document.getElementById('yearOptions').innerHTML = YEAR_OPTIONS.map(o =>
+                printCheckRow(o.label, yearOpt[o.id], `toggleYearOption('${o.id}', this.checked)`)).join('');
+        }
+
+        function toggleYearOption(id, checked) {
+            yearOpt[id] = checked;
+            recomputeYearRollover();
+        }
+
+        function scheduleYearRecompute() {
+            window.clearTimeout(yearTimer);
+            yearTimer = window.setTimeout(recomputeYearRollover, 250);
+        }
+
+        function recomputeYearRollover() {
+            if (!yearOpt) return;
+            window.clearTimeout(yearTimer);
+            yearResult = buildYearRolloverPlan();
+            renderYearPreview(yearResult.plan);
+        }
+
+        function renderYearPreview(plan) {
+            const chip = (n, one, many, cls) => `<span class="merge-chip ${n ? cls : 'none'}">${printCountLabel(n, one, many)}</span>`;
+            document.getElementById('yearChips').innerHTML = [
+                chip(plan.promoted.length, 'унапреден', 'унапредени', 'add'),
+                chip(plan.graduated.length, 'отпишан', 'отпишани', 'del'),
+                chip(plan.enrolled.length, 'запишан', 'запишани', 'add'),
+                chip(plan.noGrade.length, 'без одделение', 'без одделение', 'warn'),
+                chip(plan.collisions.length, 'судир на име', 'судири на имиња', 'del'),
+                chip(plan.duplicates.length, 'веќе постои', 'веќе постојат', 'warn')
+            ].join('');
+
+            let html = '';
+            if (plan.collisions.length) {
+                html += `<div class="merge-alert">⚠️ ${printCountLabel(plan.collisions.length, 'ученик', 'ученици')} НЕ се унапредени затоа што новото име веќе постои: `
+                    + plan.collisions.map(c => escapeHtml(c.newName)).join(', ') + '. Преименувај рачно па повтори.</div>';
+            }
+            if (plan.duplicates.length) {
+                html += '<div class="merge-alert">ℹ️ Прескокнати при упис — провери дали навистина се нови:<br>'
+                    + plan.duplicates.map(d => `• <strong>${escapeHtml(displayStudentName(d.name))}</strong> — ${escapeHtml(d.reason)} (${escapeHtml(d.existing)})`).join('<br>')
+                    + '<br><small>Ако е навистина друго дете со исто име, додај го рачно во табот Ученици со разлика во името.</small></div>';
+            }
+            if (plan.scheduleCleared) {
+                html += `<div class="merge-alert">🧽 Распоредот се брише — ${printCountLabel(plan.termsDropped, 'термин', 'термини')} од минатата година.</div>`;
+            }
+            if (plan.linksCleared) {
+                html += '<div class="merge-alert">🔗 Сите врски терапевт–ученик се бришат. Ќе треба одново да се чекираат.</div>';
+            }
+
+            const section = (title, body) => body ? `<div class="merge-section"><h5>${title}</h5>${body}</div>` : '';
+
+            html += section(`Унапредени (${plan.promoted.length})`,
+                mergeListHtml(plan.promoted, 'add', '↑', p =>
+                    `<span class="mi-when">${escapeHtml(p.from)} → <strong>${escapeHtml(p.to)}</strong></span><span>${escapeHtml(displayStudentName(p.newName))}</span>`));
+
+            html += section(`Отпишани — завршуваат ${escapeHtml(plan.lastRoman)} одделение (${plan.graduated.length})`,
+                mergeListHtml(plan.graduated, 'del', '−', g =>
+                    `<span class="mi-when">${escapeHtml(g.grade)}</span><span>${escapeHtml(displayStudentName(g.name))}</span>`));
+
+            html += section(`Запишани нови (${plan.enrolled.length})`,
+                mergeListHtml(plan.enrolled, 'add', '+', e =>
+                    `<span class="mi-when">${escapeHtml(e.grade)}</span><span>${escapeHtml(displayStudentName(e.name))}</span>`));
+
+            const movedPreschool = plan.preschool.filter(p => p.to);
+            html += section(`Предучилишни → прво одделение (${movedPreschool.length})`,
+                mergeListHtml(movedPreschool, 'add', '↑', p => `<span>${escapeHtml(displayStudentName(p.newName))}</span>`));
+
+            html += section(`Остануваат непроменети (${plan.staying.length})`,
+                mergeListHtml(plan.staying, 'chg', '=', s =>
+                    `<span class="mi-when">${escapeHtml(s.grade)}</span><span>${escapeHtml(displayStudentName(s.name))} — ${escapeHtml(s.why)}</span>`));
+
+            html += section(`Без одделение — не се допрени (${plan.noGrade.length})`,
+                mergeListHtml(plan.noGrade, 'chg', '?', n => `<span>${escapeHtml(displayStudentName(n))}</span>`));
+
+            if (!html) html = '<div class="merge-empty">Нема ништо за менување со тековните опции.</div>';
+            document.getElementById('yearDetails').innerHTML = html;
+        }
+
+        function applyYearRollover() {
+            if (!yearResult) return;
+            const { state, plan } = yearResult;
+            const nothing = !plan.promoted.length && !plan.graduated.length && !plan.enrolled.length
+                && !plan.preschool.filter(p => p.to).length && !plan.scheduleCleared && !plan.linksCleared;
+            if (nothing) return notify('Нема ништо за менување со тековните опции.', 'warn');
+
+            const parts = [];
+            if (plan.promoted.length) parts.push(`${plan.promoted.length} унапредени`);
+            if (plan.graduated.length) parts.push(`${plan.graduated.length} отпишани`);
+            if (plan.enrolled.length) parts.push(`${plan.enrolled.length} запишани`);
+            if (plan.scheduleCleared) parts.push('распоредот се брише');
+            if (!confirm(`Да се примени преминот во нова учебна година?\n\n${parts.join('\n')}\n\nСе прави автоматска снимка — може да се врати со „⏪ Врати пред спојување“ во Алатки.`)) return;
+
+            pushSnapshot('нова учебна година');
+            installState(state);
+            closeYearRollover();
+            notify(`Новата учебна година е подготвена (${parts.join(', ')}).`, 'ok');
         }
 
         // ============== [v4.2] ОБЛАК-СИНХРОНИЗАЦИЈА (Supabase) ==============
