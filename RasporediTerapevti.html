@@ -980,6 +980,34 @@
             border-color: var(--danger) !important;
             background: var(--conflict-bg-soft) !important;
         }
+
+        /* [v4.8] Врз споен час: покажува во која половина ќе падне ученикот. */
+        .pt-subslot.merged-period.drop-half-1,
+        .pt-subslot.merged-period.drop-half-2,
+        .pt-subslot.merged-period.drop-whole { position: relative; overflow: hidden; }
+
+        .pt-subslot.merged-period.drop-half-1::after,
+        .pt-subslot.merged-period.drop-half-2::after,
+        .pt-subslot.merged-period.drop-whole::after {
+            content: attr(data-drop-label);
+            position: absolute;
+            left: 0; right: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 10px;
+            font-weight: 800;
+            letter-spacing: .03em;
+            color: #fff;
+            background: var(--primary);
+            box-shadow: 0 0 0 2px var(--primary);
+            pointer-events: none;
+            opacity: .92;
+        }
+
+        .pt-subslot.merged-period.drop-half-1::after { top: 0; height: 50%; }
+        .pt-subslot.merged-period.drop-half-2::after { bottom: 0; height: 50%; }
+        .pt-subslot.merged-period.drop-whole::after { top: 0; bottom: 0; }
         .drag-hint {
             color: var(--text-secondary);
             font-size: 10px;
@@ -4831,26 +4859,64 @@ body.density-comfortable .student-select {
                     const allowed = scheduleDropIsAllowed(payload, el);
                     el.classList.toggle('drop-ready', allowed);
                     el.classList.toggle('drop-denied', !allowed);
+                    // [v4.8] Врз споен час, местото на курсорот одлучува дали паѓа
+                    // во првата половина, втората, или во целиот час. Без ова,
+                    // споен час не можеше да се расцепи со влечење.
+                    updateMergedDropZone(el, event, allowed);
                     if (event.dataTransfer) event.dataTransfer.dropEffect = allowed && payload?.kind === 'schedule' ? 'move' : allowed ? 'copy' : 'none';
                 });
-                el.addEventListener('dragleave', () => el.classList.remove('drop-ready', 'drop-denied'));
+                el.addEventListener('dragleave', () => clearMergedDropZone(el));
                 el.addEventListener('drop', event => {
                     event.preventDefault();
                     const payload = readScheduleDrag(event);
-                    el.classList.remove('drop-ready', 'drop-denied');
-                    applyScheduleDrop(payload, el);
+                    updateMergedDropZone(el, event, true);   // последна позиција пред пуштањето
+                    const half = el.dataset.dropHalf || '';
+                    clearMergedDropZone(el);
+                    applyScheduleDrop(payload, el, half);
                     finishScheduleDrag(null);
                 });
             });
         }
 
-        function applyScheduleDrop(payload, target) {
+        // [v4.8] Врз споен час, позицијата на курсорот бира половина. Горе = прв
+        // третман, долу = втор, средина = целиот час. Така споен час може да се
+        // расцепи со влечење — порано секое пуштање ги газеше двете половини.
+        function updateMergedDropZone(el, event, allowed) {
+            el.classList.remove('drop-half-1', 'drop-half-2', 'drop-whole');
+            delete el.dataset.dropHalf;
+            if (!allowed || el.dataset.dropBoth !== '1') return;
+            const rect = el.getBoundingClientRect();
+            if (!rect.height) return;
+            const ratio = (event.clientY - rect.top) / rect.height;
+            const t1 = el.dataset.t1 || '', t2 = el.dataset.t2 || '';
+            if (ratio < 0.4) {
+                el.dataset.dropHalf = '1';
+                el.dataset.dropLabel = '1. третман · ' + t1.replace('-', '–');
+                el.classList.add('drop-half-1');
+            } else if (ratio > 0.6) {
+                el.dataset.dropHalf = '2';
+                el.dataset.dropLabel = '2. третман · ' + t2.replace('-', '–');
+                el.classList.add('drop-half-2');
+            } else {
+                el.dataset.dropLabel = 'цел час';
+                el.classList.add('drop-whole');
+            }
+        }
+
+        function clearMergedDropZone(el) {
+            el.classList.remove('drop-ready', 'drop-denied', 'drop-half-1', 'drop-half-2', 'drop-whole');
+            delete el.dataset.dropHalf;
+        }
+
+        function applyScheduleDrop(payload, target, half) {
             if (!payload || !target) return false;
             const therapist = target.dataset.therapist || '';
             const day = target.dataset.day || '';
             const time = target.dataset.t1 || '';
             const time2 = target.dataset.t2 || '';
-            const targetTimes = target.dataset.dropBoth === '1' && time2 ? [time, time2] : [time];
+            const targetTimes = half === '1' ? [time]
+                : (half === '2' && time2) ? [time2]
+                : (target.dataset.dropBoth === '1' && time2 ? [time, time2] : [time]);
             const student = payload.student || '';
             if (!therapist || !day || !time || !student) return false;
 
@@ -4876,7 +4942,7 @@ body.density-comfortable .student-select {
                 .map(targetTime => getAssignment(day, targetTime, therapist))
                 .filter(existing => existing && existing !== student))];
             if (existingStudents.length) {
-                const timeLabel = targetTimes.length === 2 ? `${time.split('-')[0]}-${time2.split('-')[1]}` : time;
+                const timeLabel = targetTimes.length === 2 ? `${time.split('-')[0]}-${time2.split('-')[1]}` : targetTimes[0];
                 const existingLabel = existingStudents.map(displayStudentName).join(', ');
                 const ok = confirm(`Терминот ${day.toUpperCase()} ${timeLabel} веќе содржи „${existingLabel}“.\n\nДа се замени со „${displayStudentName(student)}“?`);
                 if (!ok) return false;
@@ -4895,7 +4961,7 @@ body.density-comfortable .student-select {
             renderPerTherapistView();
             renderTherapistComparison();
             checkConflicts();
-            const savedTimeLabel = targetTimes.length === 2 ? `${time.split('-')[0]}-${time2.split('-')[1]}` : time;
+            const savedTimeLabel = targetTimes.length === 2 ? `${time.split('-')[0]}-${time2.split('-')[1]}` : targetTimes[0];
             notify(payload.kind === 'schedule' ? 'Третманот е преместен.' : `Ученикот е додаден во терминот ${savedTimeLabel}.`, 'ok');
             return true;
         }
