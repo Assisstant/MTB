@@ -5201,8 +5201,9 @@ function downloadDoc() {
 
         const CLOUD_CFG_KEY = 'cloud_config_v1';
         const CLOUD_SESSION_KEY = 'cloud_session_v1';
-        const CLOUD_POLL_MS = 45000;
-        const CLOUD_PUSH_DEBOUNCE_MS = 1200;
+        const CLOUD_MODE_KEY = 'cloud_mode_v1';
+        const CLOUD_LOG_KEY = 'cloud_log_v1';
+        const CLOUD_LOG_LIMIT = 12;
 
         let cloudState = {
             session: null,
@@ -5210,11 +5211,64 @@ function downloadDoc() {
             status: 'off',      // off | anon | ready | syncing | error | conflict
             detail: '',
             lastSync: null,
-            pushTimer: null,
-            pollTimer: null,
+            dirty: false,       // има локални измени што не се пратени
+            remoteHasData: null,
+            remoteAt: null,
+            remoteBy: null,
             suppressPush: false,
             busy: false
         };
+
+        // Режимот е ОФЛАЈН по стандард и се памти. Во офлајн режим ниту еден
+        // мрежен повик не се прави — облакот не постои за апликацијата.
+        function getCloudMode() {
+            return localStorage.getItem(CLOUD_MODE_KEY) === 'sync' ? 'sync' : 'offline';
+        }
+
+        function cloudSyncModeOn() {
+            return getCloudMode() === 'sync';
+        }
+
+        function openSyncSession() {
+            if (!cloudConfigured()) return notify('Прво внеси ги поставките за облак.', 'warn');
+            localStorage.setItem(CLOUD_MODE_KEY, 'sync');
+            loadCloudSession();
+            cloudLogAdd('отворена сесија');
+            renderCloudPanel();
+            setCloudStatus(cloudLoggedIn() ? 'ready' : 'anon', '');
+            notify('Сесијата за синхронизација е отворена.', 'ok');
+            if (cloudLoggedIn()) cloudPull({ silent: true, install: false });
+        }
+
+        function closeSyncSession(quiet) {
+            localStorage.setItem(CLOUD_MODE_KEY, 'offline');
+            cloudState.session = null;
+            cloudState.version = null;
+            cloudState.dirty = false;
+            cloudState.remoteHasData = null;
+            persistCloudSession();
+            cloudLogAdd('затворена сесија');
+            setCloudStatus('off', '');
+            renderCloudPanel();
+            if (!quiet) notify('Сесијата е затворена. Апликацијата работи офлајн.', 'ok');
+        }
+
+        // ── дневник на сесиите (за евиденција кога податоците биле онлајн) ──
+        function cloudLogRead() {
+            try {
+                const list = JSON.parse(localStorage.getItem(CLOUD_LOG_KEY) || '[]');
+                return Array.isArray(list) ? list : [];
+            } catch (e) {
+                return [];
+            }
+        }
+
+        function cloudLogAdd(what) {
+            const list = cloudLogRead();
+            list.push({ at: new Date().toISOString(), what, who: cloudUserLabel() });
+            while (list.length > CLOUD_LOG_LIMIT) list.shift();
+            try { localStorage.setItem(CLOUD_LOG_KEY, JSON.stringify(list)); } catch (e) { /* ignore */ }
+        }
 
         function getCloudConfig() {
             let saved = {};
@@ -5300,9 +5354,10 @@ function downloadDoc() {
                 persistCloudSession();
                 passEl.value = '';   // лозинката не останува во DOM
                 notify(`Најавен си како ${email}.`, 'ok');
+                cloudLogAdd('најава');
                 renderCloudPanel();
-                await cloudPull({ silent: false });
-                startCloudPolling();
+                // Само проверува што стои горе — НЕ презема ништо без твоја команда.
+                await cloudPull({ silent: true, install: false });
             } catch (e) {
                 console.error(e);
                 setCloudStatus('error', 'нема врска');
