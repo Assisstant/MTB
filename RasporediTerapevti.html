@@ -1600,6 +1600,358 @@ body.density-comfortable .student-select {
     }
 }
 
+/* ============== [v4.1] ТИМСКА РАБОТА И СПОЈУВАЊЕ ============== */
+.sync-warn {
+    margin-top: 10px;
+    font-size: 11.5px;
+    color: var(--conflict-text);
+    background: var(--conflict-bg-soft);
+    border: 1px solid var(--conflict-border);
+    border-radius: 9px;
+    padding: 7px 10px;
+}
+
+.sync-card { border-left: 4px solid var(--secondary); }
+.cloud-card { border-left-color: var(--info); }
+
+.cloud-chip {
+    display: inline-block;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 3px 9px;
+    border-radius: 20px;
+    border: 1px solid var(--border);
+    background: var(--bg-main);
+    color: var(--text-secondary);
+    vertical-align: middle;
+    margin-left: 6px;
+}
+
+.cloud-chip.ready { border-color: var(--cell-filled-border); background: var(--cell-filled-bg); color: var(--cell-filled-text); }
+.cloud-chip.error, .cloud-chip.conflict { border-color: var(--conflict-border); background: var(--conflict-bg-soft); color: var(--conflict-text); }
+.cloud-chip.syncing { border-color: var(--info); color: var(--info); }
+
+.sync-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 10px;
+}
+
+.sync-label {
+    font-size: 12px;
+    font-weight: 800;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: .04em;
+}
+
+.sync-hint { font-size: 11.5px; color: var(--text-secondary); }
+
+.sync-stamps {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 4px;
+}
+
+.sync-stamp {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11.5px;
+    padding: 5px 9px;
+    border-radius: 20px;
+    border: 1px solid var(--border);
+    background: var(--bg-main);
+    color: var(--text-secondary);
+}
+
+.sync-stamp b { color: var(--text-primary); font-weight: 700; }
+.sync-stamp.never { border-style: dashed; opacity: .75; }
+
+.merge-modal {
+    width: min(720px, 100%);
+    max-height: min(88vh, 860px);
+    display: flex;
+    flex-direction: column;
+    background: var(--bg-card);
+    color: var(--text-primary);
+    border: 1px solid var(--border);
+    border-radius: 18px;
+    box-shadow: 0 24px 70px rgba(0,0,0,0.32);
+    overflow: hidden;
+}
+
+.merge-body {
+    padding: 16px 20px 6px;
+    overflow-y: auto;
+    flex: 1;
+    min-height: 0;
+}
+
+.merge-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 7px;
+    margin-bottom: 14px;
+}
+
+.merge-chip {
+    font-size: 12px;
+    font-weight: 700;
+    padding: 6px 11px;
+    border-radius: 20px;
+    border: 1px solid var(--border);
+    background: var(--bg-main);
+    color: var(--text-secondary);
+}
+
+.merge-chip.add { border-color: var(--cell-filled-border); background: var(--cell-filled-bg); color: var(--cell-filled-text); }
+.merge-chip.del { border-color: var(--conflict-border); background: var(--conflict-bg-soft); color: var(--conflict-text); }
+.merge-chip.warn { border-color: var(--warning); background: rgba(243,156,18,.14); color: #8a5a00; }
+[data-theme="dark"] .merge-chip.warn { color: var(--warning); }
+.merge-chip.none { opacity: .6; }
+
+.merge-section { margin-bottom: 14px; }
+
+.merge-section h5 {
+    font-size: 11.5px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    color: var(--text-secondary);
+    margin-bottom: 6px;
+}
+
+.merge-list {
+    max-height: 190px;
+    overflow-y: auto;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--bg-main);
+}
+
+.merge-item {
+    font-size: 12px;
+    padding: 5px 10px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    gap: 8px;
+    align-items: baseline;
+}
+
+.merge-item:last-child { border-bottom: 0; }
+.merge-item .mi-when { color: var(--text-secondary); font-size: 11px; white-space: nowrap; min-width: 132px; }
+.merge-item.add .mi-mark { color: var(--success); font-weight: 900; }
+.merge-item.del .mi-mark { color: var(--danger); font-weight: 900; }
+.merge-item.chg .mi-mark { color: var(--warning); font-weight: 900; }
+
+.merge-alert {
+    padding: 10px 12px;
+    border-radius: 11px;
+    font-size: 12px;
+    font-weight: 600;
+    margin-bottom: 14px;
+    background: var(--conflict-bg-soft);
+    border: 1px solid var(--conflict-border);
+    color: var(--conflict-text);
+}
+
+.merge-alert.ok {
+    background: var(--cell-filled-bg);
+    border-color: var(--cell-filled-border);
+    color: var(--cell-filled-text);
+}
+
+.merge-empty { font-size: 12px; color: var(--text-secondary); font-style: italic; padding: 8px 2px; }
+
+/* ============== [v4.0] ЦЕНТАР ЗА ПЕЧАТЕЊЕ ============== */
+.print-modal {
+    width: min(1080px, 100%);
+    max-height: min(90vh, 940px);
+    display: flex;
+    flex-direction: column;
+    background: var(--bg-card);
+    color: var(--text-primary);
+    border: 1px solid var(--border);
+    border-radius: 18px;
+    box-shadow: 0 24px 70px rgba(0,0,0,0.32);
+    overflow: hidden;
+}
+
+.print-modal-body {
+    display: grid;
+    grid-template-columns: 330px 1fr;
+    flex: 1;
+    min-height: 0;
+}
+
+.print-side {
+    padding: 14px 16px 20px;
+    overflow-y: auto;
+    border-right: 1px solid var(--border);
+    background: var(--bg-main);
+}
+
+.print-group-label {
+    display: block;
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: .05em;
+    text-transform: uppercase;
+    color: var(--text-secondary);
+    margin: 16px 0 7px;
+}
+
+.print-group-label:first-child { margin-top: 0; }
+
+.print-modes {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.print-mode {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    padding: 9px 10px;
+    border: 1.5px solid var(--border);
+    border-radius: 11px;
+    background: var(--bg-card);
+    cursor: pointer;
+    transition: border-color .14s ease, box-shadow .14s ease;
+}
+
+.print-mode:hover { border-color: var(--primary); }
+
+.print-mode.on {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(91,111,216,.14);
+}
+
+.print-mode input,
+.print-check input {
+    width: 15px;
+    height: 15px;
+    flex: none;
+    accent-color: var(--primary);
+    cursor: pointer;
+}
+
+.print-mode .pm-ico { font-size: 17px; }
+.print-mode b { display: block; font-size: 12.5px; }
+.print-mode small { display: block; font-size: 10.5px; color: var(--text-secondary); }
+
+.print-checks {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.print-check {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12.5px;
+    padding: 5px 8px;
+    border-radius: 8px;
+    cursor: pointer;
+}
+
+.print-check:hover { background: var(--bg-card); }
+
+.print-inline-actions {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 6px;
+}
+
+.print-input {
+    width: 100%;
+    padding: 8px 10px;
+    border: 1.5px solid var(--border);
+    border-radius: 9px;
+    background: var(--bg-card);
+    color: var(--text-primary);
+    font-size: 12.5px;
+    font-family: inherit;
+}
+
+.print-input:focus {
+    outline: none;
+    border-color: var(--primary);
+}
+
+.print-scroll-box {
+    max-height: 190px;
+    overflow-y: auto;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--bg-card);
+    padding: 4px;
+}
+
+.print-preview-wrap {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    background: var(--bg-main);
+}
+
+.print-preview-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 8px 14px;
+    border-bottom: 1px solid var(--border);
+    font-size: 11.5px;
+    font-weight: 700;
+    color: var(--text-secondary);
+    background: var(--bg-card);
+}
+
+#printPreviewFrame {
+    flex: 1;
+    width: 100%;
+    min-height: 360px;
+    border: 0;
+    background: #fff;
+}
+
+/* Тесен екран: опциите и прегледот се редат еден под друг и скролаат заедно,
+   наместо да си ја делат висината (панелот со опции станува неупотреблив). */
+@media (max-width: 900px) {
+    .print-modal-body {
+        grid-template-columns: 1fr;
+        grid-template-rows: auto auto;
+        overflow-y: auto;
+    }
+    .print-side {
+        border-right: 0;
+        border-bottom: 1px solid var(--border);
+        overflow: visible;
+    }
+    .print-preview-wrap { min-height: 300px; }
+    #printPreviewFrame {
+        height: 300px;
+        min-height: 300px;
+        flex: none;
+    }
+}
+
+@media (max-width: 520px) {
+    #printCenterBackdrop .candidate-modal-actions,
+    #printCenterBackdrop .candidate-modal-actions .right-actions {
+        flex-direction: row;
+        flex-wrap: wrap;
+    }
+    #printCenterBackdrop .candidate-modal-actions .btn { width: auto; }
+}
+
 @media (max-width: 1100px) {
     .smart-toolbar {
         grid-template-columns: 1fr 1fr;
@@ -1934,6 +2286,7 @@ body.density-comfortable .student-select {
 </head>
 <body>
     <input type="file" id="jsonFileInput" accept=".json" onchange="handleJSONImport(event)" style="display:none;">
+    <input type="file" id="mergeFileInput" accept=".json" onchange="handleMergeImport(event)" style="display:none;">
     <datalist id="gradeOptionsList"></datalist>
     
     <div class="header">
@@ -2289,11 +2642,48 @@ body.density-comfortable .student-select {
                     Вчитајте JSON архива или извезете ги моменталните податоци.
                 </div>
                 <div class="button-group">
-                    <button class="btn btn-primary" onclick="document.getElementById('jsonFileInput').click()">📥 Вчитај JSON</button>
+                    <button class="btn btn-primary" onclick="document.getElementById('jsonFileInput').click()">📥 Вчитај JSON (замена)</button>
                     <button class="btn btn-success" onclick="exportData()">📊 Извези CSV</button>
-                    <button class="btn btn-secondary" onclick="exportJSONBackup()">💾 Извези JSON</button>
+                    <button class="btn btn-secondary" onclick="exportJSONBackup()">💾 Извези JSON (сè)</button>
                     <button class="btn btn-soft" onclick="printSchedule()">🖨️ Печати</button>
                 </div>
+                <div class="sync-warn">⚠️ „Вчитај JSON (замена)“ ја брише целата тековна состојба. За фајл од колега користи „Спој дел од терапевт“ подолу.</div>
+            </div>
+
+            <!-- ============== [v4.1] ТИМСКА РАБОТА: делови по терапевт ============== -->
+            <div class="controls-section sync-card">
+                <h4 style="font-size: 14px; color: var(--primary); margin-bottom: 10px;">🔀 Тимска работа — делови по терапевт</h4>
+                <div style="font-size: 12px; color: var(--text-secondary); margin-bottom: 12px;">
+                    Секој терапевт го уредува само својот дел и го праќа како фајл. При спојување се менуваат
+                    <strong>само неговите термини и неговите ученици</strong> — туѓите остануваат недопрени.
+                </div>
+
+                <div class="sync-row">
+                    <label class="sync-label" for="myTherapistSelect">Јас сум:</label>
+                    <select id="myTherapistSelect" class="people-crud-search compact" onchange="setMyTherapist(this.value)">
+                        <option value="">— избери себеси —</option>
+                    </select>
+                    <button class="btn btn-primary btn-compact" onclick="exportTherapistSlice()">📤 Извези го мојот дел</button>
+                </div>
+
+                <div class="sync-row">
+                    <button class="btn btn-success btn-compact" onclick="document.getElementById('mergeFileInput').click()">🔀 Спој дел од терапевт</button>
+                    <button class="btn btn-soft btn-compact" onclick="restoreLastSnapshot()">⏪ Врати пред спојување</button>
+                    <span class="sync-hint" id="snapshotHint"></span>
+                </div>
+
+                <div class="sync-stamps" id="therapistStampList"></div>
+            </div>
+
+            <!-- ============== [v4.2] ОБЛАК-СИНХРОНИЗАЦИЈА ============== -->
+            <div class="controls-section sync-card cloud-card">
+                <h4 style="font-size: 14px; color: var(--primary); margin-bottom: 10px;">☁️ Облак-синхронизација <span id="cloudStatusChip" class="cloud-chip off">⚪ локално</span></h4>
+                <div style="font-size: 12px; color: var(--text-secondary); margin-bottom: 12px;">
+                    Кога е вклучена, сите работат врз иста состојба во реално време. Измените се снимаат автоматски;
+                    ако двајца снимат истовремено, твојот дел се применува врз свежата состојба наместо да се изгуби.
+                    <strong>Без најава или без интернет, апликацијата работи локално како и досега.</strong>
+                </div>
+                <div id="cloudPanel"></div>
             </div>
 
             <div class="danger-zone">
@@ -2313,7 +2703,7 @@ body.density-comfortable .student-select {
 
     <div id="studentDetailsBackdrop" class="candidate-modal-backdrop" onclick="if(event.target===this)closeStudentDetails()">
         <div class="candidate-modal" role="dialog" aria-modal="true" aria-labelledby="studentDetailsTitle" style="max-width: 430px;">
-            <div class="candidate-modal-head">
+            <div class="candidate-modal-header">
                 <h3 id="studentDetailsTitle">🏫 Детали за ученик</h3>
                 <div class="candidate-modal-subtitle" id="studentDetailsName"></div>
             </div>
@@ -2360,6 +2750,66 @@ body.density-comfortable .student-select {
                 <div class="right-actions">
                     <button type="button" class="btn btn-soft" onclick="closeCandidateModal()">Откажи</button>
                     <button type="button" class="btn btn-primary" onclick="saveCandidateSelection()">Зачувај</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============== [v4.1] ПРЕГЛЕД ПРЕД СПОЈУВАЊЕ ============== -->
+    <div id="mergeBackdrop" class="candidate-modal-backdrop" onclick="if(event.target===this)closeMergePreview()">
+        <div class="merge-modal" role="dialog" aria-modal="true" aria-labelledby="mergeTitle">
+            <div class="candidate-modal-header">
+                <h3 id="mergeTitle">🔀 Спојување на дел од терапевт</h3>
+                <div class="candidate-modal-subtitle" id="mergeFileInfo"></div>
+            </div>
+            <div class="merge-body">
+                <div class="sync-row" style="margin-bottom: 12px;">
+                    <label class="sync-label" for="mergeTherapistSelect">Чиј дел се спојува:</label>
+                    <select id="mergeTherapistSelect" class="people-crud-search compact" onchange="recomputeMergePreview()"></select>
+                </div>
+                <div class="merge-chips" id="mergeChips"></div>
+                <div class="merge-details" id="mergeDetails"></div>
+            </div>
+            <div class="candidate-modal-actions">
+                <button type="button" class="btn btn-soft" onclick="closeMergePreview()">Откажи</button>
+                <div class="right-actions">
+                    <button type="button" class="btn btn-primary" id="mergeApplyBtn" onclick="applyMergePlan()">🔀 Спој</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============== [v4.0] ЦЕНТАР ЗА ПЕЧАТЕЊЕ ============== -->
+    <div id="printCenterBackdrop" class="candidate-modal-backdrop" onclick="if(event.target===this)closePrintCenter()">
+        <div class="print-modal" role="dialog" aria-modal="true" aria-labelledby="printCenterTitle">
+            <div class="candidate-modal-header">
+                <h3 id="printCenterTitle">🖨️ Центар за печатење</h3>
+                <div class="candidate-modal-subtitle">Избери што да се печати и кои податоци да влезат во документот — прегледот десно се освежува веднаш.</div>
+            </div>
+            <div class="print-modal-body">
+                <div class="print-side">
+                    <span class="print-group-label">Што да се печати</span>
+                    <div class="print-modes" id="printModes"></div>
+
+                    <span class="print-group-label">Наслов на документот</span>
+                    <input type="text" id="printTitleInput" class="print-input" placeholder="(автоматски наслов)" oninput="onPrintTitleInput(this.value)">
+
+                    <div id="printOptionsHost"></div>
+                </div>
+                <div class="print-preview-wrap">
+                    <div class="print-preview-bar">
+                        <span id="printPreviewMeta">Преглед</span>
+                        <button type="button" class="btn btn-soft btn-compact" onclick="refreshPrintPreview()">↻ Освежи преглед</button>
+                    </div>
+                    <iframe id="printPreviewFrame" title="Преглед пред печатење"></iframe>
+                </div>
+            </div>
+            <div class="candidate-modal-actions">
+                <button type="button" class="btn btn-soft" onclick="closePrintCenter()">Затвори</button>
+                <div class="right-actions">
+                    <button type="button" class="btn btn-soft" onclick="openPrintInNewWindow()">🗔 Нов прозорец</button>
+                    <button type="button" class="btn btn-secondary" onclick="downloadPrintWord()">💾 Word</button>
+                    <button type="button" class="btn btn-primary" onclick="doPrintFromPreview()">🖨️ Печати</button>
                 </div>
             </div>
         </div>
@@ -3263,6 +3713,9 @@ function downloadDoc() {
                 if (t === currentSelected) opt.selected = true;
                 select.appendChild(opt);
             });
+            // [v4.1] „Јас сум“ и таблата со печати одат по истата листа терапевти
+            refreshMyTherapistSelect();
+            renderTherapistStamps();
         }
 
         function loadTherapistStudentsCheckboxes() {
@@ -3692,7 +4145,8 @@ function downloadDoc() {
         function getAssignment(day, time, therapist) {
             if (!scheduleData || !scheduleData.schedule) return '';
             const slot = scheduleData.schedule.find(s => s.day === day && s.time === time);
-            return slot ? slot.assignments[therapist] || '' : '';
+            // [v4.0] guard: увезени slots без assignments фрлаа TypeError (како кај v3.3)
+            return slot && slot.assignments ? slot.assignments[therapist] || '' : '';
         }
 
         function applyAssignment(day, time, therapist, value) {
@@ -4079,7 +4533,9 @@ function downloadDoc() {
                     else if (data.studentGrades) studentMeta = data.studentGrades;
                     if (Array.isArray(data.customGrades)) customGrades = data.customGrades.map(normalizeGrade).filter(Boolean);   // [v3.5]
                     if (Array.isArray(data.customListCols)) customListCols = data.customListCols.filter(c => typeof c === 'string' && c.trim());   // [v3.8]
+                    pushSnapshot('замена преку „Вчитај JSON“');   // [v4.1] замената сега може да се врати
                     data.schedule = Array.isArray(data.schedule) ? data.schedule : [];  // [v3.3]
+                    if (!data.therapistStamps || typeof data.therapistStamps !== 'object') data.therapistStamps = {};   // [v4.1]
                     scheduleData = data;
                     ensureStudentMeta();
                     saveScheduleToLocal();
@@ -4157,10 +4613,979 @@ function downloadDoc() {
                 studentMeta,
                 customGrades,
                 customListCols,
-                schedule: scheduleData.schedule || []
+                schedule: scheduleData.schedule || [],
+                therapistStamps: scheduleData.therapistStamps || {}   // [v4.1] кој дел кога е споен
             };
             downloadTextFile(JSON.stringify(payload, null, 2), `raspored-backup-${safeFileStamp()}.json`, 'application/json;charset=utf-8');
             notify('JSON backup е извезен.', 'ok');
+        }
+
+        // ============== [v4.1] ТИМСКА РАБОТА: делови по терапевт ==============
+        //
+        // МОДЕЛ НА СОПСТВЕНОСТ — основата на целото спојување.
+        // Распоредот е природно поделен по терапевт (slot.assignments[T]), па никој
+        // не пишува во туѓа колона. Оттука:
+        //
+        //   СОПСТВЕНО на терапевтот T (се ЗАМЕНУВА при спојување, бришењата се пренесуваат):
+        //     · slot.assignments[T] низ сите термини
+        //     · therapistStudents[T]
+        //
+        //   ЗАЕДНИЧКО (никогаш не се брише од туѓ фајл, само се додава):
+        //     · students[]        → унија
+        //     · therapists[]      → унија
+        //     · customGrades[]    → унија
+        //     · studentMeta[s]    → се пополнува само празно поле; различна непразна
+        //                           вредност е конфликт и master-от победува
+        //
+        // Бришење на ученик/терапевт останува дејство само на координаторот во master-от,
+        // затоа што туѓ фајл не разликува „јас го избришав“ од „јас никогаш го немав“.
+
+        const MY_THERAPIST_KEY = 'my_therapist_v1';
+        const SNAPSHOT_KEY = 'raspored_snapshots_v1';
+        const SNAPSHOT_LIMIT = 3;
+
+        function getMyTherapist() {
+            return localStorage.getItem(MY_THERAPIST_KEY) || '';
+        }
+
+        function setMyTherapist(name) {
+            if (name) localStorage.setItem(MY_THERAPIST_KEY, name);
+            else localStorage.removeItem(MY_THERAPIST_KEY);
+            renderTherapistStamps();
+        }
+
+        function refreshMyTherapistSelect() {
+            const select = document.getElementById('myTherapistSelect');
+            if (!select) return;
+            const mine = getMyTherapist();
+            select.innerHTML = '<option value="">— избери себеси —</option>'
+                + therapists.map(t => `<option value="${escapeAttr(t)}" ${t === mine ? 'selected' : ''}>${escapeHtml(t)}</option>`).join('');
+            if (mine && !therapists.includes(mine)) select.value = '';
+        }
+
+        function getTherapistStamps() {
+            if (!scheduleData) return {};
+            if (!scheduleData.therapistStamps || typeof scheduleData.therapistStamps !== 'object') scheduleData.therapistStamps = {};
+            return scheduleData.therapistStamps;
+        }
+
+        function formatStampTime(iso) {
+            if (!iso) return '';
+            const d = new Date(iso);
+            if (isNaN(d.getTime())) return '';
+            return d.toLocaleDateString('mk-MK', { day: 'numeric', month: 'short' }) + ' ' +
+                   d.toLocaleTimeString('mk-MK', { hour: '2-digit', minute: '2-digit' });
+        }
+
+        function renderTherapistStamps() {
+            const host = document.getElementById('therapistStampList');
+            if (!host) return;
+            if (!therapists.length) {
+                host.innerHTML = '<span class="sync-hint">Нема терапевти.</span>';
+                return;
+            }
+            const stamps = getTherapistStamps();
+            const mine = getMyTherapist();
+            host.innerHTML = therapists.map(t => {
+                const s = stamps[t];
+                const me = t === mine ? '⭐ ' : '';
+                if (!s || !s.mergedAt) {
+                    return `<span class="sync-stamp never">${me}<b>${escapeHtml(t)}</b> · сè уште нема споен дел</span>`;
+                }
+                const when = formatStampTime(s.mergedAt);
+                const terms = typeof s.terms === 'number' ? ` · ${s.terms} термини` : '';
+                return `<span class="sync-stamp">${me}<b>${escapeHtml(t)}</b> · споено ${escapeHtml(when)}${terms}</span>`;
+            }).join('');
+            updateSnapshotHint();
+        }
+
+        // ── снимки пред спојување (undo) ──
+        function readSnapshots() {
+            try {
+                const list = JSON.parse(localStorage.getItem(SNAPSHOT_KEY) || '[]');
+                return Array.isArray(list) ? list : [];
+            } catch (e) {
+                return [];
+            }
+        }
+
+        function pushSnapshot(label) {
+            const list = readSnapshots();
+            list.push({ at: new Date().toISOString(), label, state: currentStateSnapshot() });
+            while (list.length > SNAPSHOT_LIMIT) list.shift();
+            // Ако состојбата е преголема за localStorage, фрлај најстари наместо да пукне.
+            while (list.length) {
+                try {
+                    localStorage.setItem(SNAPSHOT_KEY, JSON.stringify(list));
+                    break;
+                } catch (e) {
+                    list.shift();
+                    if (!list.length) {
+                        try { localStorage.removeItem(SNAPSHOT_KEY); } catch (e2) { /* ignore */ }
+                        notify('Нема простор за автоматска снимка — извези JSON рачно пред спојување.', 'warn');
+                        return false;
+                    }
+                }
+            }
+            updateSnapshotHint();
+            return true;
+        }
+
+        function updateSnapshotHint() {
+            const el = document.getElementById('snapshotHint');
+            if (!el) return;
+            const list = readSnapshots();
+            const last = list[list.length - 1];
+            el.textContent = last
+                ? `Последна снимка: ${last.label} · ${formatStampTime(last.at)}`
+                : 'Нема снимки — снимка се прави автоматски пред секое спојување.';
+        }
+
+        function restoreLastSnapshot() {
+            const list = readSnapshots();
+            const last = list.pop();
+            if (!last) return notify('Нема зачувана снимка за враќање.', 'warn');
+            if (!confirm(`Да се врати состојбата од пред „${last.label}“ (${formatStampTime(last.at)})?\n\nТековните податоци ќе бидат заменети со таа снимка.`)) return;
+            try { localStorage.setItem(SNAPSHOT_KEY, JSON.stringify(list)); } catch (e) { /* ignore */ }
+            installState(last.state);
+            notify('Состојбата е вратена од снимка.', 'ok');
+        }
+
+        // ── состојба: снимање и враќање ──
+        function currentStateSnapshot() {
+            return JSON.parse(JSON.stringify({
+                students,
+                therapists,
+                therapistStudents,
+                studentMeta,
+                customGrades,
+                customListCols,
+                schedule: (scheduleData && scheduleData.schedule) || [],
+                therapistStamps: (scheduleData && scheduleData.therapistStamps) || {}
+            }));
+        }
+
+        function installState(state) {
+            students = Array.isArray(state.students) ? state.students.slice() : ['Избери Ученик'];
+            therapists = Array.isArray(state.therapists) ? state.therapists.slice() : [];
+            therapistStudents = state.therapistStudents || {};
+            studentMeta = state.studentMeta || {};
+            customGrades = Array.isArray(state.customGrades) ? state.customGrades.slice() : [];
+            customListCols = Array.isArray(state.customListCols) ? state.customListCols.slice() : [];
+            scheduleData = {
+                students, therapists, therapistStudents, studentMeta,
+                schedule: Array.isArray(state.schedule) ? state.schedule : [],
+                therapistStamps: state.therapistStamps || {}
+            };
+            ensureStudentMeta();
+            saveScheduleToLocal();
+            loadScheduleFromLocal();
+            renderTherapistStamps();
+        }
+
+        // ── извоз на сопствениот дел ──
+        // Делот на еден терапевт, извлечен од која било состојба (не мора тековната) —
+        // го користат и извозот во фајл и помирувањето при облак-синхронизација.
+        function buildSlicePayload(state, therapist) {
+            const link = ((state.therapistStudents || {})[therapist] || [])
+                .filter(s => (state.students || []).includes(s));
+            const terms = [];
+            (state.schedule || []).forEach(slot => {
+                if (!slot || !slot.assignments) return;
+                const student = slot.assignments[therapist];
+                if (!student || student === 'Избери Ученик') return;
+                terms.push({ day: slot.day, time: slot.time, student });
+            });
+
+            // Во делот влегуваат само учениците што ги допира овој терапевт.
+            const touched = Array.from(new Set([...link, ...terms.map(t => t.student)]));
+            const meta = {};
+            touched.forEach(s => { if ((state.studentMeta || {})[s]) meta[s] = state.studentMeta[s]; });
+
+            return {
+                appVersion: POLISHED_VERSION,
+                exportScope: 'therapist',
+                exportTherapist: therapist,
+                exportedAt: new Date().toISOString(),
+                updatedBy: therapist,
+                therapists: [therapist],
+                students: touched,
+                studentMeta: meta,
+                therapistStudents: { [therapist]: link },
+                customGrades: Array.from(new Set(touched.map(s => ((state.studentMeta || {})[s] || {}).grade).filter(Boolean))),
+                terms
+            };
+        }
+
+        function exportTherapistSlice() {
+            const me = getMyTherapist();
+            if (!me) return notify('Прво избери кој си во „Јас сум“.', 'warn');
+            if (!therapists.includes(me)) return notify('Избраниот терапевт повеќе не постои во листата.', 'warn');
+            ensureStudentMeta();
+            saveScheduleToLocal();
+
+            const payload = buildSlicePayload(currentStateSnapshot(), me);
+            const safeName = me.replace(/[^\wА-Яа-яЀ-ӿ]+/g, '_');
+            downloadTextFile(JSON.stringify(payload, null, 2), `del-${safeName}-${safeFileStamp()}.json`, 'application/json;charset=utf-8');
+            notify(`Делот на ${me} е извезен (${payload.terms.length} термини, ${payload.therapistStudents[me].length} ученици).`, 'ok');
+        }
+
+        // ── читање на дојдовен фајл ──
+        // Прифаќа и „дел“ (exportScope: therapist) и целосен backup — во вториот случај
+        // координаторот избира чиј дел да се земе од фајлот.
+        let pendingMergeFile = null;
+        let pendingMergeResult = null;
+
+        function normalizeIncoming(data) {
+            const out = {
+                scope: data.exportScope === 'therapist' ? 'therapist' : 'full',
+                therapist: typeof data.exportTherapist === 'string' ? data.exportTherapist : '',
+                exportedAt: data.exportedAt || '',
+                updatedBy: data.updatedBy || '',
+                students: Array.isArray(data.students) ? data.students.filter(s => typeof s === 'string' && s && s !== 'Избери Ученик') : [],
+                therapists: Array.isArray(data.therapists) ? data.therapists.filter(t => typeof t === 'string' && t) : [],
+                therapistStudents: (data.therapistStudents && typeof data.therapistStudents === 'object') ? data.therapistStudents : {},
+                studentMeta: (data.studentMeta && typeof data.studentMeta === 'object') ? data.studentMeta : {},
+                customGrades: Array.isArray(data.customGrades) ? data.customGrades : [],
+                termsByTherapist: {}
+            };
+
+            const addTerm = (therapist, day, time, student) => {
+                if (!therapist || !student || student === 'Избери Ученик') return;
+                if (!days.includes(day) || !times.includes(time)) return;   // отфрли непознати денови/термини
+                if (!out.termsByTherapist[therapist]) out.termsByTherapist[therapist] = [];
+                out.termsByTherapist[therapist].push({ day, time, student });
+            };
+
+            if (Array.isArray(data.terms)) {
+                data.terms.forEach(t => t && addTerm(out.therapist || t.therapist, t.day, t.time, t.student));
+            }
+            if (Array.isArray(data.schedule)) {
+                data.schedule.forEach(slot => {
+                    if (!slot || !slot.assignments) return;
+                    Object.keys(slot.assignments).forEach(t => addTerm(t, slot.day, slot.time, slot.assignments[t]));
+                });
+            }
+            return out;
+        }
+
+        function incomingTherapistCandidates(incoming) {
+            const set = new Set();
+            if (incoming.therapist) set.add(incoming.therapist);
+            Object.keys(incoming.termsByTherapist).forEach(t => set.add(t));
+            Object.keys(incoming.therapistStudents).forEach(t => set.add(t));
+            incoming.therapists.forEach(t => set.add(t));
+            return Array.from(set).filter(Boolean);
+        }
+
+        // ── јадро: примени еден дел врз копија од состојбата и врати го планот ──
+        // baseState по избор: спојувањето може да се пресмета и врз состојба што не е
+        // тековната (пр. свежата далечинска состојба при облак-конфликт).
+        function buildMergeResult(incoming, therapist, baseState) {
+            const state = baseState ? JSON.parse(JSON.stringify(baseState)) : currentStateSnapshot();
+            const plan = {
+                therapist,
+                therapistNew: false,
+                termsAdded: [], termsRemoved: [], termsChanged: [],
+                studentsNew: [], linkAdded: [], linkRemoved: [],
+                metaFilled: [], metaConflicts: [], gradesNew: [],
+                doubleBookings: []
+            };
+
+            if (!state.therapists.includes(therapist)) {
+                state.therapists.push(therapist);
+                plan.therapistNew = true;
+            }
+
+            // 1. ученици — унија, никогаш бришење
+            incoming.students.forEach(s => {
+                if (!state.students.includes(s)) {
+                    state.students.push(s);
+                    plan.studentsNew.push(s);
+                }
+            });
+
+            // 2. податоци за ученик — пополни празно, различно е конфликт (master победува)
+            Object.keys(incoming.studentMeta).forEach(s => {
+                const inc = incoming.studentMeta[s];
+                if (!inc || typeof inc !== 'object' || !state.students.includes(s)) return;
+                if (!state.studentMeta[s] || typeof state.studentMeta[s] !== 'object') {
+                    state.studentMeta[s] = { grade: '', category: '', school: '' };
+                }
+                ['grade', 'category', 'school'].forEach(field => {
+                    const incVal = String(inc[field] || '').trim();
+                    const curVal = String(state.studentMeta[s][field] || '').trim();
+                    if (!incVal) return;
+                    if (!curVal) {
+                        state.studentMeta[s][field] = incVal;
+                        plan.metaFilled.push({ student: s, field, value: incVal });
+                    } else if (curVal !== incVal) {
+                        plan.metaConflicts.push({ student: s, field, master: curVal, incoming: incVal });
+                    }
+                });
+            });
+
+            // 3. одделенија — унија
+            incoming.customGrades.map(normalizeGrade).filter(Boolean).forEach(g => {
+                if (!state.customGrades.includes(g)) {
+                    state.customGrades.push(g);
+                    plan.gradesNew.push(g);
+                }
+            });
+
+            // 4. врски терапевт→ученици — ЗАМЕНА (ова е негово)
+            const linkBefore = (state.therapistStudents[therapist] || []).slice();
+            const linkAfter = (incoming.therapistStudents[therapist] || [])
+                .filter(s => typeof s === 'string' && state.students.includes(s));
+            plan.linkAdded = linkAfter.filter(s => !linkBefore.includes(s));
+            plan.linkRemoved = linkBefore.filter(s => !linkAfter.includes(s));
+            state.therapistStudents[therapist] = linkAfter;
+
+            // 5. термини — ЗАМЕНА, за да се пренесат и бришењата
+            const key = (d, t) => d + '|' + t;
+            const before = new Map();
+            state.schedule.forEach(slot => {
+                if (!slot || !slot.assignments) return;
+                const student = slot.assignments[therapist];
+                if (student && student !== 'Избери Ученик') before.set(key(slot.day, slot.time), student);
+            });
+
+            const after = new Map();
+            (incoming.termsByTherapist[therapist] || []).forEach(t => {
+                if (state.students.includes(t.student)) after.set(key(t.day, t.time), t.student);
+            });
+
+            state.schedule.forEach(slot => {
+                if (slot && slot.assignments) delete slot.assignments[therapist];
+            });
+            after.forEach((student, k) => {
+                const [day, time] = k.split('|');
+                let slot = state.schedule.find(s => s && s.day === day && s.time === time);
+                if (!slot) {
+                    slot = { day, time, assignments: {} };
+                    state.schedule.push(slot);
+                }
+                if (!slot.assignments) slot.assignments = {};
+                slot.assignments[therapist] = student;
+            });
+
+            after.forEach((student, k) => {
+                const [day, time] = k.split('|');
+                if (!before.has(k)) plan.termsAdded.push({ day, time, student });
+                else if (before.get(k) !== student) plan.termsChanged.push({ day, time, from: before.get(k), to: student });
+            });
+            before.forEach((student, k) => {
+                if (!after.has(k)) {
+                    const [day, time] = k.split('|');
+                    plan.termsRemoved.push({ day, time, student });
+                }
+            });
+
+            // 6. печат — кога делот е испратен и кога е споен
+            if (!state.therapistStamps || typeof state.therapistStamps !== 'object') state.therapistStamps = {};
+            state.therapistStamps[therapist] = {
+                exportedAt: incoming.exportedAt || '',
+                by: incoming.updatedBy || therapist,
+                terms: after.size,
+                mergedAt: new Date().toISOString()
+            };
+
+            // 7. двојно закажан ученик во резултатот — само оние што го засегаат овој терапевт
+            plan.doubleBookings = findDataConflicts(state).filter(c => c.therapists.includes(therapist));
+
+            const sortTerm = (a, b) => (days.indexOf(a.day) - days.indexOf(b.day)) || (times.indexOf(a.time) - times.indexOf(b.time));
+            plan.termsAdded.sort(sortTerm);
+            plan.termsRemoved.sort(sortTerm);
+            plan.termsChanged.sort(sortTerm);
+
+            return { state, plan };
+        }
+
+        function findDataConflicts(state) {
+            const out = [];
+            (state.schedule || []).forEach(slot => {
+                if (!slot || !slot.assignments) return;
+                const seen = new Map();
+                Object.keys(slot.assignments).forEach(t => {
+                    const student = slot.assignments[t];
+                    if (!student || student === 'Избери Ученик') return;
+                    if (!seen.has(student)) seen.set(student, []);
+                    seen.get(student).push(t);
+                });
+                seen.forEach((list, student) => {
+                    if (list.length > 1) out.push({ day: slot.day, time: slot.time, student, therapists: list });
+                });
+            });
+            return out;
+        }
+
+        // ── UI на прегледот пред спојување ──
+        function handleMergeImport(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = e => {
+                try {
+                    const data = JSON.parse(e.target.result);
+                    const looksValid = data && typeof data === 'object' && !Array.isArray(data) &&
+                        (data.terms || data.schedule || data.therapistStudents || data.therapists);
+                    if (!looksValid) {
+                        alert('Фајлот не изгледа како дел или backup од оваа апликација.');
+                        return;
+                    }
+                    const incoming = normalizeIncoming(data);
+                    const candidates = incomingTherapistCandidates(incoming);
+                    if (!candidates.length) {
+                        alert('Во фајлот нема податоци за ниту еден терапевт.');
+                        return;
+                    }
+                    pendingMergeFile = { incoming, candidates, fileName: file.name };
+                    openMergePreview();
+                } catch (err) {
+                    console.error(err);
+                    alert('Грешка при читање на фајлот.');
+                } finally {
+                    event.target.value = '';
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        function openMergePreview() {
+            const { incoming, candidates, fileName } = pendingMergeFile;
+            const select = document.getElementById('mergeTherapistSelect');
+            select.innerHTML = candidates.map(t => `<option value="${escapeAttr(t)}">${escapeHtml(t)}</option>`).join('');
+            select.value = candidates.includes(incoming.therapist) ? incoming.therapist : candidates[0];
+
+            const bits = [escapeHtml(fileName)];
+            if (incoming.scope === 'therapist') bits.push('дел по терапевт');
+            else bits.push('целосен backup — избери чиј дел се зема');
+            if (incoming.exportedAt) bits.push('извезен ' + escapeHtml(formatStampTime(incoming.exportedAt)));
+            document.getElementById('mergeFileInfo').innerHTML = bits.join(' · ');
+
+            document.getElementById('mergeBackdrop').classList.add('show');
+            document.addEventListener('keydown', handleMergeKeyDown);
+            recomputeMergePreview();
+        }
+
+        function closeMergePreview() {
+            document.getElementById('mergeBackdrop').classList.remove('show');
+            document.removeEventListener('keydown', handleMergeKeyDown);
+            pendingMergeFile = null;
+            pendingMergeResult = null;
+        }
+
+        function handleMergeKeyDown(event) {
+            if (event.key === 'Escape') closeMergePreview();
+        }
+
+        function recomputeMergePreview() {
+            if (!pendingMergeFile) return;
+            const therapist = document.getElementById('mergeTherapistSelect').value;
+            pendingMergeResult = buildMergeResult(pendingMergeFile.incoming, therapist);
+            renderMergePreview(pendingMergeResult.plan);
+        }
+
+        function mergeTermLabel(t) {
+            return `<span class="mi-when">${escapeHtml(t.day)} · ${escapeHtml(t.time)}</span>`;
+        }
+
+        function mergeListHtml(items, cls, mark, render) {
+            if (!items.length) return '';
+            return `<div class="merge-list">${items.map(i => `<div class="merge-item ${cls}"><span class="mi-mark">${mark}</span>${render(i)}</div>`).join('')}</div>`;
+        }
+
+        function renderMergePreview(plan) {
+            const chips = document.getElementById('mergeChips');
+            const chip = (n, one, many, cls) => `<span class="merge-chip ${n ? cls : 'none'}">${printCountLabel(n, one, many)}</span>`;
+            chips.innerHTML = [
+                chip(plan.termsAdded.length, 'нов термин', 'нови термини', 'add'),
+                chip(plan.termsRemoved.length, 'избришан', 'избришани', 'del'),
+                chip(plan.termsChanged.length, 'променет', 'променети', 'warn'),
+                chip(plan.studentsNew.length, 'нов ученик', 'нови ученици', 'add'),
+                chip(plan.metaConflicts.length, 'спорен податок', 'спорни податоци', 'warn'),
+                chip(plan.doubleBookings.length, 'двоен термин', 'двојни термини', 'del')
+            ].join('');
+
+            let html = '';
+
+            if (plan.doubleBookings.length) {
+                html += `<div class="merge-alert">⚠️ По спојувањето, ${printCountLabel(plan.doubleBookings.length, 'ученик би бил', 'ученици би биле')} кај двајца терапевти во ист термин:<br>`
+                    + plan.doubleBookings.slice(0, 6).map(c =>
+                        `• <strong>${escapeHtml(displayStudentName(c.student))}</strong> — ${escapeHtml(c.day)} ${escapeHtml(c.time)}: ${c.therapists.map(escapeHtml).join(' и ')}`
+                      ).join('<br>')
+                    + (plan.doubleBookings.length > 6 ? `<br>… и уште ${plan.doubleBookings.length - 6}` : '')
+                    + '</div>';
+            }
+
+            if (plan.therapistNew) {
+                html += `<div class="merge-alert">➕ Терапевтот <strong>${escapeHtml(plan.therapist)}</strong> не постои во master-от и ќе биде додаден.</div>`;
+            }
+
+            const nothing = !plan.termsAdded.length && !plan.termsRemoved.length && !plan.termsChanged.length
+                && !plan.studentsNew.length && !plan.linkAdded.length && !plan.linkRemoved.length
+                && !plan.metaFilled.length && !plan.metaConflicts.length && !plan.gradesNew.length && !plan.therapistNew;
+            if (nothing) {
+                html += '<div class="merge-alert ok">✓ Нема разлики — master-от веќе го содржи овој дел.</div>';
+            }
+
+            const section = (title, body) => body ? `<div class="merge-section"><h5>${title}</h5>${body}</div>` : '';
+
+            html += section(`Нови термини (${plan.termsAdded.length})`,
+                mergeListHtml(plan.termsAdded, 'add', '+', t => mergeTermLabel(t) + `<span>${escapeHtml(displayStudentName(t.student))}</span>`));
+
+            html += section(`Избришани термини (${plan.termsRemoved.length})`,
+                mergeListHtml(plan.termsRemoved, 'del', '−', t => mergeTermLabel(t) + `<span>${escapeHtml(displayStudentName(t.student))}</span>`));
+
+            html += section(`Променети термини (${plan.termsChanged.length})`,
+                mergeListHtml(plan.termsChanged, 'chg', '~', t => mergeTermLabel(t) +
+                    `<span>${escapeHtml(displayStudentName(t.from))} → <strong>${escapeHtml(displayStudentName(t.to))}</strong></span>`));
+
+            html += section(`Нови ученици (${plan.studentsNew.length})`,
+                mergeListHtml(plan.studentsNew, 'add', '+', s => `<span>${escapeHtml(displayStudentName(s))}</span>`));
+
+            html += section(`Промени во „кои ученици ги презема“ (${plan.linkAdded.length + plan.linkRemoved.length})`,
+                mergeListHtml(
+                    [...plan.linkAdded.map(s => ({ s, add: true })), ...plan.linkRemoved.map(s => ({ s, add: false }))],
+                    'chg', '', i => `<span class="mi-mark">${i.add ? '+' : '−'}</span><span>${escapeHtml(displayStudentName(i.s))}</span>`));
+
+            html += section(`Спорни податоци — се задржува master-от (${plan.metaConflicts.length})`,
+                mergeListHtml(plan.metaConflicts, 'chg', '!', c =>
+                    `<span>${escapeHtml(displayStudentName(c.student))} · ${escapeHtml(c.field)}: <strong>${escapeHtml(c.master)}</strong> (се задржува) наспроти ${escapeHtml(c.incoming)}</span>`));
+
+            html += section(`Пополнети празни податоци (${plan.metaFilled.length})`,
+                mergeListHtml(plan.metaFilled, 'add', '+', c =>
+                    `<span>${escapeHtml(displayStudentName(c.student))} · ${escapeHtml(c.field)} = ${escapeHtml(c.value)}</span>`));
+
+            html += section(`Нови одделенија (${plan.gradesNew.length})`,
+                mergeListHtml(plan.gradesNew, 'add', '+', g => `<span>${escapeHtml(g)}</span>`));
+
+            document.getElementById('mergeDetails').innerHTML = html;
+        }
+
+        function applyMergePlan() {
+            if (!pendingMergeResult) return;
+            const { state, plan } = pendingMergeResult;
+            pushSnapshot(`спојување: ${plan.therapist}`);
+            installState(state);
+            closeMergePreview();
+            const parts = [];
+            if (plan.termsAdded.length) parts.push(`+${plan.termsAdded.length} термини`);
+            if (plan.termsRemoved.length) parts.push(`−${plan.termsRemoved.length} термини`);
+            if (plan.termsChanged.length) parts.push(`~${plan.termsChanged.length} променети`);
+            if (plan.studentsNew.length) parts.push(`+${plan.studentsNew.length} ученици`);
+            notify(`Делот на ${plan.therapist} е споен${parts.length ? ' (' + parts.join(', ') + ')' : ' — без разлики'}.`,
+                   plan.doubleBookings.length ? 'warn' : 'ok');
+            if (plan.doubleBookings.length) {
+                notify(`Внимание: ${plan.doubleBookings.length} двојно закажан термин — провери во табот Распоред.`, 'warn');
+            }
+        }
+
+        // ============== [v4.2] ОБЛАК-СИНХРОНИЗАЦИЈА (Supabase) ==============
+        //
+        // Целата состојба стои во ЕДЕН ред (`schedule_state`, id = 1) како jsonb, плус
+        // цел број `version`. Снимањето е optimistic locking: PATCH важи само ако
+        // `version` е сè уште онаа што ја имам. Ако некој ме престигнал, PATCH враќа
+        // празно — тогаш ја повлекувам свежата состојба и МОЈОТ дел го применувам врз
+        // неа преку buildMergeResult(), истата функција од Фаза 1. Тоа е исправно
+        // токму затоа што моите измени се ограничени на мојата колона.
+        //
+        // БЕЗБЕДНОСТ: публичниот клуч е јавен по дизајн — податоците ги чува
+        // единствено RLS. Табелата смее да биде отворена САМО за `authenticated`.
+        //
+        // Ако не е конфигурирано или нема интернет, апликацијата работи точно како
+        // порано, локално. Облакот е додаток, не услов.
+
+        const SUPABASE_URL = '';               // пр. https://xxxxxxxx.supabase.co
+        const SUPABASE_PUBLISHABLE_KEY = '';   // пр. sb_publishable_xxxxxxxx
+
+        const CLOUD_CFG_KEY = 'cloud_config_v1';
+        const CLOUD_SESSION_KEY = 'cloud_session_v1';
+        const CLOUD_POLL_MS = 45000;
+        const CLOUD_PUSH_DEBOUNCE_MS = 1200;
+
+        let cloudState = {
+            session: null,
+            version: null,
+            status: 'off',      // off | anon | ready | syncing | error | conflict
+            detail: '',
+            lastSync: null,
+            pushTimer: null,
+            pollTimer: null,
+            suppressPush: false,
+            busy: false
+        };
+
+        function getCloudConfig() {
+            let saved = {};
+            try { saved = JSON.parse(localStorage.getItem(CLOUD_CFG_KEY) || '{}') || {}; } catch (e) { saved = {}; }
+            return {
+                url: String(SUPABASE_URL || saved.url || '').replace(/\/+$/, ''),
+                key: String(SUPABASE_PUBLISHABLE_KEY || saved.key || '')
+            };
+        }
+
+        function cloudConfigured() {
+            const cfg = getCloudConfig();
+            return Boolean(cfg.url && cfg.key);
+        }
+
+        function cloudLoggedIn() {
+            return Boolean(cloudState.session && cloudState.session.access_token);
+        }
+
+        function saveCloudConfig() {
+            const url = (document.getElementById('cloudUrlInput').value || '').trim().replace(/\/+$/, '');
+            const key = (document.getElementById('cloudKeyInput').value || '').trim();
+            if (!url || !key) return notify('Внеси и Project URL и публичен клуч.', 'warn');
+            if (!/^https:\/\/[\w.-]+$/i.test(url)) return notify('Project URL треба да изгледа како https://xxxx.supabase.co', 'warn');
+            if (/^eyJ/.test(key)) {
+                notify('Тоа е стариот anon клуч — работи, но користи го новиот sb_publishable_... ако го имаш.', 'warn');
+            }
+            if (/^sb_secret_/.test(key) || /service_role/.test(key)) {
+                return notify('Тоа е ТАЈНИОТ клуч — не смее да стои во прелистувач. Земи го публичниот.', 'warn');
+            }
+            localStorage.setItem(CLOUD_CFG_KEY, JSON.stringify({ url, key }));
+            notify('Поставките за облак се зачувани.', 'ok');
+            renderCloudPanel();
+        }
+
+        function clearCloudConfig() {
+            if (!confirm('Да се отстранат поставките за облак од овој уред? Локалните податоци остануваат.')) return;
+            localStorage.removeItem(CLOUD_CFG_KEY);
+            cloudSignOut(true);
+            notify('Поставките за облак се отстранети.', 'ok');
+        }
+
+        // ── сесија ──
+        function loadCloudSession() {
+            try {
+                const s = JSON.parse(localStorage.getItem(CLOUD_SESSION_KEY) || 'null');
+                if (s && s.access_token && s.refresh_token) cloudState.session = s;
+            } catch (e) { /* ignore */ }
+        }
+
+        function persistCloudSession() {
+            if (cloudState.session) localStorage.setItem(CLOUD_SESSION_KEY, JSON.stringify(cloudState.session));
+            else localStorage.removeItem(CLOUD_SESSION_KEY);
+        }
+
+        async function cloudSignIn() {
+            const cfg = getCloudConfig();
+            if (!cfg.url || !cfg.key) return notify('Прво зачувај ги поставките за облак.', 'warn');
+            const emailEl = document.getElementById('cloudEmail');
+            const passEl = document.getElementById('cloudPassword');
+            const email = (emailEl.value || '').trim();
+            const password = passEl.value || '';
+            if (!email || !password) return notify('Внеси е-пошта и лозинка.', 'warn');
+
+            setCloudStatus('syncing', 'најава…');
+            try {
+                const res = await fetch(`${cfg.url}/auth/v1/token?grant_type=password`, {
+                    method: 'POST',
+                    headers: { apikey: cfg.key, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password })
+                });
+                const body = await res.json().catch(() => ({}));
+                if (!res.ok || !body.access_token) {
+                    setCloudStatus('error', 'неуспешна најава');
+                    return notify(body.error_description || body.msg || body.error || 'Неуспешна најава.', 'warn');
+                }
+                cloudState.session = {
+                    access_token: body.access_token,
+                    refresh_token: body.refresh_token,
+                    expires_at: Date.now() + (Number(body.expires_in) || 3600) * 1000,
+                    email
+                };
+                persistCloudSession();
+                passEl.value = '';   // лозинката не останува во DOM
+                notify(`Најавен си како ${email}.`, 'ok');
+                renderCloudPanel();
+                await cloudPull({ silent: false });
+                startCloudPolling();
+            } catch (e) {
+                console.error(e);
+                setCloudStatus('error', 'нема врска');
+                notify('Нема врска со серверот.', 'warn');
+            }
+        }
+
+        async function cloudRefreshSession() {
+            const cfg = getCloudConfig();
+            if (!cloudState.session || !cloudState.session.refresh_token) return false;
+            try {
+                const res = await fetch(`${cfg.url}/auth/v1/token?grant_type=refresh_token`, {
+                    method: 'POST',
+                    headers: { apikey: cfg.key, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ refresh_token: cloudState.session.refresh_token })
+                });
+                const body = await res.json().catch(() => ({}));
+                if (!res.ok || !body.access_token) return false;
+                cloudState.session = {
+                    access_token: body.access_token,
+                    refresh_token: body.refresh_token || cloudState.session.refresh_token,
+                    expires_at: Date.now() + (Number(body.expires_in) || 3600) * 1000,
+                    email: cloudState.session.email
+                };
+                persistCloudSession();
+                return true;
+            } catch (e) {
+                return false;
+            }
+        }
+
+        function cloudSignOut(quiet) {
+            cloudState.session = null;
+            cloudState.version = null;
+            persistCloudSession();
+            stopCloudPolling();
+            setCloudStatus(cloudConfigured() ? 'anon' : 'off', '');
+            renderCloudPanel();
+            if (!quiet) notify('Одјавен си од облакот.', 'ok');
+        }
+
+        async function cloudFetch(path, opts = {}, allowRetry = true) {
+            const cfg = getCloudConfig();
+            const headers = Object.assign({ apikey: cfg.key }, opts.headers || {});
+            if (cloudLoggedIn()) headers.Authorization = 'Bearer ' + cloudState.session.access_token;
+            const res = await fetch(cfg.url + path, Object.assign({}, opts, { headers }));
+            if (res.status === 401 && allowRetry && cloudState.session) {
+                if (await cloudRefreshSession()) return cloudFetch(path, opts, false);
+                cloudSignOut(true);
+                notify('Сесијата истече — најави се повторно.', 'warn');
+            }
+            return res;
+        }
+
+        // ── повлекување ──
+        async function cloudPull(options = {}) {
+            if (!cloudConfigured() || !cloudLoggedIn() || cloudState.busy) return null;
+            cloudState.busy = true;
+            setCloudStatus('syncing', 'повлекување…');
+            try {
+                const res = await cloudFetch('/rest/v1/schedule_state?id=eq.1&select=data,version,updated_at,updated_by');
+                if (!res.ok) {
+                    const txt = await res.text().catch(() => '');
+                    setCloudStatus('error', 'читањето не успеа');
+                    if (!options.silent) notify('Читањето од облакот не успеа. ' + txt.slice(0, 120), 'warn');
+                    return null;
+                }
+                const rows = await res.json();
+                const row = Array.isArray(rows) ? rows[0] : null;
+                if (!row) {
+                    setCloudStatus('error', 'нема ред id=1');
+                    if (!options.silent) notify('Во табелата нема ред со id = 1 — провери го SQL-от.', 'warn');
+                    return null;
+                }
+                const remote = { data: row.data && row.data.students ? row.data : null, version: Number(row.version) || 0, at: row.updated_at, by: row.updated_by };
+                if (options.install !== false && remote.data) {
+                    cloudState.suppressPush = true;
+                    installState(remote.data);
+                    cloudState.suppressPush = false;
+                }
+                cloudState.version = remote.version;
+                cloudState.lastSync = new Date().toISOString();
+                setCloudStatus('ready', remote.data ? '' : 'облакот е празен');
+                return remote;
+            } catch (e) {
+                console.error(e);
+                setCloudStatus('error', 'нема врска');
+                return null;
+            } finally {
+                cloudState.busy = false;
+                renderCloudPanel();
+            }
+        }
+
+        // ── снимање со optimistic locking ──
+        function scheduleCloudPush() {
+            if (cloudState.suppressPush || !cloudConfigured() || !cloudLoggedIn()) return;
+            window.clearTimeout(cloudState.pushTimer);
+            cloudState.pushTimer = window.setTimeout(() => cloudPush(), CLOUD_PUSH_DEBOUNCE_MS);
+        }
+
+        async function cloudPush(isRetry) {
+            if (!cloudConfigured() || !cloudLoggedIn() || cloudState.busy) return false;
+            if (cloudState.version === null) {
+                const pulled = await cloudPull({ silent: true, install: false });
+                if (!pulled) return false;
+            }
+            cloudState.busy = true;
+            setCloudStatus('syncing', 'снимање…');
+            try {
+                const payload = currentStateSnapshot();
+                const res = await cloudFetch(`/rest/v1/schedule_state?id=eq.1&version=eq.${cloudState.version}`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json', Prefer: 'return=representation' },
+                    body: JSON.stringify({
+                        data: payload,
+                        version: cloudState.version + 1,
+                        updated_at: new Date().toISOString(),
+                        updated_by: cloudUserLabel()
+                    })
+                });
+                if (!res.ok) {
+                    const txt = await res.text().catch(() => '');
+                    setCloudStatus('error', 'снимањето не успеа');
+                    notify('Снимањето во облак не успеа. ' + txt.slice(0, 120), 'warn');
+                    return false;
+                }
+                const rows = await res.json();
+                if (Array.isArray(rows) && rows.length) {
+                    cloudState.version = Number(rows[0].version);
+                    cloudState.lastSync = new Date().toISOString();
+                    setCloudStatus('ready', '');
+                    return true;
+                }
+                // празен резултат = некој снимил пред мене
+                cloudState.busy = false;
+                return await cloudReconcile(isRetry);
+            } catch (e) {
+                console.error(e);
+                setCloudStatus('error', 'нема врска');
+                return false;
+            } finally {
+                cloudState.busy = false;
+                renderCloudPanel();
+            }
+        }
+
+        // Конфликт: земи ја свежата далечинска состојба и примени го МОЈОТ дел врз неа.
+        async function cloudReconcile(isRetry) {
+            const me = getMyTherapist();
+            const remote = await cloudPull({ silent: true, install: false });
+            if (!remote || !remote.data) return false;
+
+            if (!me || !therapists.includes(me)) {
+                // Координатор: неговите измени не се ограничени на една колона, па не
+                // погодувам — му ја покажувам разликата и тој одлучува.
+                setCloudStatus('conflict', 'друг снимил во меѓувреме');
+                notify(`${remote.by || 'Друг корисник'} снимил во меѓувреме. Избери „Јас сум“ за автоматско помирување, или повлечи и повтори ги измените.`, 'warn');
+                renderCloudPanel();
+                return false;
+            }
+
+            const mySlice = normalizeIncoming(buildSlicePayload(currentStateSnapshot(), me));
+            const { state, plan } = buildMergeResult(mySlice, me, remote.data);
+            cloudState.suppressPush = true;
+            installState(state);
+            cloudState.suppressPush = false;
+            cloudState.version = remote.version;
+
+            if (plan.doubleBookings.length) {
+                notify(`Внимание: по помирувањето има ${plan.doubleBookings.length} двојно закажан термин.`, 'warn');
+            }
+            if (isRetry) {
+                setCloudStatus('conflict', 'премногу истовремени измени');
+                notify('Премногу истовремени измени — повлечи и обиди се повторно.', 'warn');
+                return false;
+            }
+            notify(`Помирено со измените од ${remote.by || 'друг корисник'}.`, 'ok');
+            return await cloudPush(true);
+        }
+
+        function cloudUserLabel() {
+            const me = getMyTherapist();
+            const email = cloudState.session && cloudState.session.email;
+            return me || email || 'непознат';
+        }
+
+        // ── статус и панел ──
+        function setCloudStatus(status, detail) {
+            cloudState.status = status;
+            cloudState.detail = detail || '';
+            const chip = document.getElementById('cloudStatusChip');
+            if (!chip) return;
+            const map = {
+                off:      { icon: '⚪', text: 'локално' },
+                anon:     { icon: '🔒', text: 'не си најавен' },
+                ready:    { icon: '🟢', text: 'синхронизирано' },
+                syncing:  { icon: '🔄', text: 'синхронизира…' },
+                error:    { icon: '🔴', text: 'грешка' },
+                conflict: { icon: '🟠', text: 'конфликт' }
+            };
+            const s = map[status] || map.off;
+            chip.className = 'cloud-chip ' + status;
+            chip.textContent = `${s.icon} ${s.text}${cloudState.detail ? ' · ' + cloudState.detail : ''}`;
+            chip.title = cloudState.lastSync ? 'Последна синхронизација: ' + formatStampTime(cloudState.lastSync) : '';
+        }
+
+        function renderCloudPanel() {
+            const host = document.getElementById('cloudPanel');
+            if (!host) return;
+            const cfg = getCloudConfig();
+            const hardcoded = Boolean(SUPABASE_URL && SUPABASE_PUBLISHABLE_KEY);
+
+            if (!cfg.url || !cfg.key) {
+                host.innerHTML = `
+                    <div class="sync-hint" style="margin-bottom:10px;">
+                        Внеси ги двете вредности од Supabase → Project Settings → API Keys.
+                        Публичниот клуч е безбеден за прелистувач; тајниот НЕ смее да се внесува тука.
+                    </div>
+                    <div class="sync-row">
+                        <input type="text" id="cloudUrlInput" class="people-crud-search compact" placeholder="https://xxxx.supabase.co" style="min-width:240px;">
+                        <input type="text" id="cloudKeyInput" class="people-crud-search compact" placeholder="sb_publishable_..." style="min-width:240px;">
+                        <button class="btn btn-primary btn-compact" onclick="saveCloudConfig()">Зачувај</button>
+                    </div>`;
+                setCloudStatus('off', '');
+                return;
+            }
+
+            if (!cloudLoggedIn()) {
+                host.innerHTML = `
+                    <div class="sync-row">
+                        <input type="email" id="cloudEmail" class="people-crud-search compact" placeholder="е-пошта" autocomplete="username" style="min-width:200px;">
+                        <input type="password" id="cloudPassword" class="people-crud-search compact" placeholder="лозинка" autocomplete="current-password" style="min-width:170px;"
+                               onkeydown="if(event.key==='Enter'){event.preventDefault();cloudSignIn();}">
+                        <button class="btn btn-primary btn-compact" onclick="cloudSignIn()">🔑 Најави се</button>
+                        ${hardcoded ? '' : '<button class="btn btn-soft btn-compact" onclick="clearCloudConfig()">Смени проект</button>'}
+                    </div>
+                    <div class="sync-hint">Секој терапевт има свој налог. Налозите ги отвора координаторот во Supabase → Authentication → Users.</div>`;
+                setCloudStatus('anon', '');
+                return;
+            }
+
+            const me = getMyTherapist();
+            host.innerHTML = `
+                <div class="sync-row">
+                    <span class="sync-stamp"><b>${escapeHtml(cloudState.session.email || '')}</b></span>
+                    <button class="btn btn-soft btn-compact" onclick="cloudPull()">⬇️ Повлечи сега</button>
+                    <button class="btn btn-soft btn-compact" onclick="cloudPush()">⬆️ Прати сега</button>
+                    <button class="btn btn-soft btn-compact" onclick="cloudSignOut()">Одјави се</button>
+                </div>
+                <div class="sync-hint">
+                    ${cloudState.lastSync ? 'Последна синхронизација: ' + escapeHtml(formatStampTime(cloudState.lastSync)) : 'Сè уште нема синхронизација.'}
+                    ${me ? '' : ' · <strong>Избери „Јас сум“ погоре</strong> за автоматско помирување при истовремени измени.'}
+                </div>`;
+        }
+
+        function startCloudPolling() {
+            stopCloudPolling();
+            cloudState.pollTimer = window.setInterval(() => {
+                if (document.hidden || cloudState.busy || !cloudLoggedIn()) return;
+                cloudPull({ silent: true });
+            }, CLOUD_POLL_MS);
+        }
+
+        function stopCloudPolling() {
+            window.clearInterval(cloudState.pollTimer);
+            cloudState.pollTimer = null;
+        }
+
+        async function initCloudSync() {
+            renderCloudPanel();
+            if (!cloudConfigured()) return setCloudStatus('off', '');
+            loadCloudSession();
+            if (!cloudLoggedIn()) {
+                renderCloudPanel();
+                return setCloudStatus('anon', '');
+            }
+            renderCloudPanel();
+            await cloudPull({ silent: true });
+            startCloudPolling();
+            document.addEventListener('visibilitychange', () => {
+                if (!document.hidden && cloudLoggedIn()) cloudPull({ silent: true });
+            });
         }
 
         function csvCell(value) {
@@ -4186,8 +5611,838 @@ function downloadDoc() {
             notify('CSV е извезен во Excel-friendly формат.', 'ok');
         }
 
+        // ============== [v4.0] ЦЕНТАР ЗА ПЕЧАТЕЊЕ ==============
+        // „Печати“ повеќе не праќа слепо на принтер. Отвора дијалог во кој се бира
+        // ШТО се печати (ученици / терапевти / по терапевт / распоред), КОИ податоци
+        // влегуваат во документот (checkbox-и), плус жив преглед, Word и нов прозорец.
+
+        const PRINT_PREFS_KEY = 'print_center_prefs_v1';
+        const SLOT_MINUTES = 20;
+
+        const PRINT_MODES = [
+            { id: 'students',     icon: '📋', title: 'Список на ученици',   desc: 'Сите ученици, групирани по одделение' },
+            { id: 'therapists',   icon: '👤', title: 'Список на терапевти', desc: 'Терапевти со број на ученици и термини' },
+            { id: 'perTherapist', icon: '🗂️', title: 'Списоци по терапевт', desc: 'Учениците на секој терапевт, посебна страна' },
+            { id: 'therapistGrid', icon: '🗓️', title: 'Распоред по терапевт', desc: 'Неделна табела I–VI, како во табот „По Терапевт“' },
+            { id: 'schedule',     icon: '📅', title: 'Неделен распоред',    desc: 'Целата табела со сите терапевти во колони' }
+        ];
+
+        // Боите по ден се земаат од :root променливите на апликацијата, но во
+        // документот мора да се впишат inline — Word ги игнорира CSS променливите.
+        const PRINT_DAY_COLORS = ['#1976d2', '#2e7d32', '#7b1fa2', '#e65100', '#c2185b'];
+
+        const PRINT_FIELDS = {
+            students: [
+                { id: 'index',      label: 'Реден број', def: true },
+                { id: 'grade',      label: 'Одделение', def: true },
+                { id: 'school',     label: 'Училиште (за ученици од друго училиште)', def: false },
+                { id: 'therapists', label: 'Терапевти на ученикот', def: false },
+                { id: 'terms',      label: 'Број на термини неделно', def: false },
+                { id: 'signature',  label: 'Празна колона (потпис / забелешка)', def: false },
+                { id: 'grouped',    label: 'Групирај по одделение (со наслови)', def: true }
+            ],
+            therapists: [
+                { id: 'index',       label: 'Реден број', def: true },
+                { id: 'count',       label: 'Број на ученици', def: true },
+                { id: 'studentList', label: 'Имиња на учениците', def: false },
+                { id: 'terms',       label: 'Број на термини неделно', def: true },
+                { id: 'minutes',     label: 'Минути неделно', def: false },
+                { id: 'days',        label: 'Денови во кои има термини', def: false },
+                { id: 'signature',   label: 'Празна колона (потпис / забелешка)', def: false },
+                { id: 'totals',      label: 'Ред „Вкупно“ на дното', def: true }
+            ],
+            perTherapist: [
+                { id: 'index',     label: 'Реден број', def: true },
+                { id: 'grade',     label: 'Одделение', def: true },
+                { id: 'school',    label: 'Училиште', def: false },
+                { id: 'terms',     label: 'Термини на ученикот (ден и време)', def: false },
+                { id: 'signature', label: 'Празна колона (потпис / забелешка)', def: false },
+                { id: 'emptyToo',  label: 'Вклучи и терапевти без ученици', def: true },
+                { id: 'pageBreak', label: 'Секој терапевт на нова страна', def: true }
+            ],
+            therapistGrid: [
+                { id: 'grade',      label: 'Одделение до името на ученикот', def: true },
+                { id: 'periodTime', label: 'Време на часот (08:00-08:40)', def: true },
+                { id: 'halfLabels', label: 'Ознаки 1: / 2: за половините час', def: true },
+                { id: 'dayColors',  label: 'Обоени заглавија по ден', def: true },
+                { id: 'emptyDash',  label: 'Означи ги празните термини со „—“', def: false },
+                { id: 'summary',    label: 'Список на ученици под табелата', def: false },
+                { id: 'emptyToo',   label: 'Вклучи и терапевти без ниту еден термин', def: false },
+                { id: 'pageBreak',  label: 'Секој терапевт на нова страна', def: true },
+                { id: 'landscape',  label: 'Положена страна (landscape)', def: true }
+            ],
+            schedule: [
+                { id: 'onlyDays',  label: 'Почитувај го филтерот за денови', def: true },
+                { id: 'onlyTher',  label: 'Почитувај го филтерот за терапевти', def: true },
+                { id: 'hideEmpty', label: 'Скриј празни редови (термини без ученик)', def: false },
+                { id: 'grade',     label: 'Одделение до името на ученикот', def: false },
+                { id: 'landscape', label: 'Положена страна (landscape)', def: true }
+            ]
+        };
+
+        const PRINT_COMMON_FIELDS = [
+            { id: 'showYear',  label: 'Учебна година во насловот', def: true },
+            { id: 'showDate',  label: 'Датум на печатење', def: true },
+            { id: 'signLines', label: 'Линии за потпис (Изработил / Директор)', def: false }
+        ];
+
+        const PRINT_CATEGORIES = [
+            { id: 'ours',      label: 'Од нашето училиште' },
+            { id: 'other',     label: 'Од друго училиште' },
+            { id: 'preschool', label: 'Предучилишна возраст' }
+        ];
+
+        let printState = null;
+        let printPreviewTimer = null;
+
+        function printFieldsFor(mode) {
+            return PRINT_FIELDS[mode] || [];
+        }
+
+        function defaultPrintState() {
+            const state = { mode: 'students', flags: {}, titles: {}, common: {}, categories: {}, therapistPick: {}, gradeFilter: '' };
+            PRINT_MODES.forEach(m => {
+                state.flags[m.id] = {};
+                state.titles[m.id] = '';
+                printFieldsFor(m.id).forEach(f => { state.flags[m.id][f.id] = f.def; });
+            });
+            PRINT_COMMON_FIELDS.forEach(f => { state.common[f.id] = f.def; });
+            PRINT_CATEGORIES.forEach(c => { state.categories[c.id] = true; });
+            return state;
+        }
+
+        function loadPrintPrefs() {
+            const state = defaultPrintState();
+            try {
+                const saved = JSON.parse(localStorage.getItem(PRINT_PREFS_KEY) || 'null');
+                if (!saved || typeof saved !== 'object') return state;
+                if (PRINT_MODES.some(m => m.id === saved.mode)) state.mode = saved.mode;
+                if (typeof saved.gradeFilter === 'string') state.gradeFilter = saved.gradeFilter;
+                PRINT_MODES.forEach(m => {
+                    const savedFlags = (saved.flags || {})[m.id];
+                    if (savedFlags) printFieldsFor(m.id).forEach(f => {
+                        if (typeof savedFlags[f.id] === 'boolean') state.flags[m.id][f.id] = savedFlags[f.id];
+                    });
+                    const savedTitle = (saved.titles || {})[m.id];
+                    if (typeof savedTitle === 'string') state.titles[m.id] = savedTitle;
+                });
+                PRINT_COMMON_FIELDS.forEach(f => {
+                    if (typeof (saved.common || {})[f.id] === 'boolean') state.common[f.id] = saved.common[f.id];
+                });
+                PRINT_CATEGORIES.forEach(c => {
+                    if (typeof (saved.categories || {})[c.id] === 'boolean') state.categories[c.id] = saved.categories[c.id];
+                });
+                if (saved.therapistPick && typeof saved.therapistPick === 'object') {
+                    Object.keys(saved.therapistPick).forEach(t => {
+                        if (typeof saved.therapistPick[t] === 'boolean') state.therapistPick[t] = saved.therapistPick[t];
+                    });
+                }
+            } catch (e) {
+                console.warn('Опциите за печатење не се вчитани, се користат стандардните.', e);
+            }
+            return state;
+        }
+
+        function savePrintPrefs() {
+            try {
+                localStorage.setItem(PRINT_PREFS_KEY, JSON.stringify(printState));
+            } catch (e) {
+                console.warn('Опциите за печатење не се зачувани.', e);
+            }
+        }
+
+        function printFlag(id) {
+            return Boolean((printState.flags[printState.mode] || {})[id]);
+        }
+
+        function printTherapistIncluded(therapist) {
+            return printState.therapistPick[therapist] !== false;
+        }
+
+        // ── отворање / затворање ──
         function printSchedule() {
-            window.print();
+            openPrintCenter();
+        }
+
+        function openPrintCenter() {
+            ensureStudentMeta();
+            if (!printState) printState = loadPrintPrefs();
+            renderPrintModes();
+            renderPrintOptions();
+            syncPrintTitleInput();
+            document.getElementById('printCenterBackdrop').classList.add('show');
+            document.addEventListener('keydown', handlePrintCenterKeyDown);
+            refreshPrintPreview();
+        }
+
+        function closePrintCenter() {
+            document.getElementById('printCenterBackdrop').classList.remove('show');
+            document.removeEventListener('keydown', handlePrintCenterKeyDown);
+            window.clearTimeout(printPreviewTimer);
+        }
+
+        function handlePrintCenterKeyDown(event) {
+            if (event.key === 'Escape') closePrintCenter();
+        }
+
+        // ── UI на панелот со опции ──
+        function renderPrintModes() {
+            const host = document.getElementById('printModes');
+            if (!host) return;
+            host.innerHTML = PRINT_MODES.map(m => `
+                <label class="print-mode ${printState.mode === m.id ? 'on' : ''}">
+                    <input type="radio" name="printMode" value="${m.id}" ${printState.mode === m.id ? 'checked' : ''} onchange="setPrintMode('${m.id}')">
+                    <span class="pm-ico">${m.icon}</span>
+                    <span class="pm-txt"><b>${escapeHtml(m.title)}</b><small>${escapeHtml(m.desc)}</small></span>
+                </label>`).join('');
+        }
+
+        function printCheckRow(label, checked, handler, attrs = '') {
+            return `<label class="print-check"><input type="checkbox" ${attrs} ${checked ? 'checked' : ''} onchange="${handler}"><span>${escapeHtml(label)}</span></label>`;
+        }
+
+        function printGradeFilterHtml() {
+            const grades = getGradePool();
+            const opt = (value, label) => `<option value="${escapeAttr(value)}" ${printState.gradeFilter === value ? 'selected' : ''}>${escapeHtml(label)}</option>`;
+            let html = opt('', 'Сите одделенија') + opt('__none__', 'Само без одделение');
+            grades.forEach(g => { html += opt(g, g); });
+            return `<select class="print-input" onchange="setPrintGradeFilter(this.value)">${html}</select>`;
+        }
+
+        function renderPrintOptions() {
+            const host = document.getElementById('printOptionsHost');
+            if (!host) return;
+            const mode = printState.mode;
+            let html = '<span class="print-group-label">Податоци во документот</span><div class="print-checks">';
+            printFieldsFor(mode).forEach(f => {
+                html += printCheckRow(f.label, printState.flags[mode][f.id], `togglePrintFlag('${f.id}', this.checked)`);
+            });
+            html += '</div>';
+
+            if (mode === 'students') {
+                html += '<span class="print-group-label">Кои ученици</span><div class="print-checks">';
+                PRINT_CATEGORIES.forEach(c => {
+                    html += printCheckRow(c.label, printState.categories[c.id] !== false, `togglePrintCategory('${c.id}', this.checked)`);
+                });
+                html += '</div>';
+                html += '<span class="print-group-label">Филтер по одделение</span>' + printGradeFilterHtml();
+            }
+
+            if (mode === 'perTherapist' || mode === 'therapistGrid') {
+                html += '<span class="print-group-label">Кои терапевти</span>';
+                if (!therapists.length) {
+                    html += '<div class="print-check" style="color:var(--text-secondary)">Нема додадени терапевти.</div>';
+                } else {
+                    html += '<div class="print-inline-actions">'
+                        + '<button type="button" class="btn btn-soft btn-compact" onclick="printPickAllTherapists(true)">✓ Сите</button>'
+                        + '<button type="button" class="btn btn-soft btn-compact" onclick="printPickAllTherapists(false)">✗ Никој</button>'
+                        + '</div><div class="print-scroll-box"><div class="print-checks">';
+                    therapists.forEach(t => {
+                        html += printCheckRow(t, printTherapistIncluded(t), 'togglePrintTherapist(this.dataset.t, this.checked)', `data-t="${escapeAttr(t)}"`);
+                    });
+                    html += '</div></div>';
+                }
+            }
+
+            html += '<span class="print-group-label">Заглавие и подножје</span><div class="print-checks">';
+            PRINT_COMMON_FIELDS.forEach(f => {
+                html += printCheckRow(f.label, printState.common[f.id], `togglePrintCommon('${f.id}', this.checked)`);
+            });
+            html += '</div>';
+
+            host.innerHTML = html;
+        }
+
+        function syncPrintTitleInput() {
+            const input = document.getElementById('printTitleInput');
+            if (!input) return;
+            input.value = printState.titles[printState.mode] || '';
+            input.placeholder = printDefaultTitle();
+        }
+
+        function setPrintMode(mode) {
+            printState.mode = mode;
+            savePrintPrefs();
+            renderPrintModes();
+            renderPrintOptions();
+            syncPrintTitleInput();
+            refreshPrintPreview();
+        }
+
+        function togglePrintFlag(id, checked) {
+            printState.flags[printState.mode][id] = checked;
+            savePrintPrefs();
+            schedulePrintPreview();
+        }
+
+        function togglePrintCommon(id, checked) {
+            printState.common[id] = checked;
+            savePrintPrefs();
+            syncPrintTitleInput();
+            schedulePrintPreview();
+        }
+
+        function togglePrintCategory(id, checked) {
+            printState.categories[id] = checked;
+            savePrintPrefs();
+            schedulePrintPreview();
+        }
+
+        function togglePrintTherapist(name, checked) {
+            printState.therapistPick[name] = checked;
+            savePrintPrefs();
+            schedulePrintPreview();
+        }
+
+        function printPickAllTherapists(flag) {
+            therapists.forEach(t => { printState.therapistPick[t] = flag; });
+            savePrintPrefs();
+            renderPrintOptions();
+            schedulePrintPreview();
+        }
+
+        function setPrintGradeFilter(value) {
+            printState.gradeFilter = value;
+            savePrintPrefs();
+            schedulePrintPreview();
+        }
+
+        function onPrintTitleInput(value) {
+            printState.titles[printState.mode] = value;
+            savePrintPrefs();
+            schedulePrintPreview();
+        }
+
+        // ── податочни помошници ──
+        function getTherapistTermList(therapist) {
+            if (!scheduleData || !Array.isArray(scheduleData.schedule)) return [];
+            const out = [];
+            scheduleData.schedule.forEach(slot => {
+                if (!slot || !slot.assignments) return;
+                const student = slot.assignments[therapist];
+                if (!student || student === 'Избери Ученик') return;
+                out.push({ day: slot.day, time: slot.time, student });
+            });
+            return out.sort((a, b) => (days.indexOf(a.day) - days.indexOf(b.day)) || (times.indexOf(a.time) - times.indexOf(b.time)));
+        }
+
+        function formatTermList(list) {
+            return list.map(t => `${String(t.day || '').slice(0, 3)}. ${t.time}`).join(', ');
+        }
+
+        function printStudentPool() {
+            const gradeFilter = printState.gradeFilter;
+            return getPureStudents().filter(s => {
+                const cat = getStudentCategory(s);
+                const key = cat === 'other' ? 'other' : cat === 'preschool' ? 'preschool' : 'ours';
+                if (printState.categories[key] === false) return false;
+                if (!gradeFilter) return true;
+                const grade = getStudentGrade(s);
+                return gradeFilter === '__none__' ? !grade : grade === gradeFilter;
+            });
+        }
+
+        function printStudentGradeLabel(student) {
+            if (getStudentCategory(student) === 'preschool') return 'предучилишна';
+            return getStudentGrade(student) || '—';
+        }
+
+        function printTableHtml(cols, rowsHtml, footHtml = '') {
+            const head = cols.map(c => `<th class="${c.cls || ''}">${escapeHtml(c.label)}</th>`).join('');
+            const foot = footHtml ? `<tfoot>${footHtml}</tfoot>` : '';
+            return `<table class="roster"><thead><tr>${head}</tr></thead><tbody>${rowsHtml}</tbody>${foot}</table>`;
+        }
+
+        function printNoteHtml(text) {
+            return `<div class="note">${escapeHtml(text)}</div>`;
+        }
+
+        // ── градење на телото по режим ──
+        function buildStudentsPrintBody() {
+            const pool = printStudentPool();
+            if (!pool.length) return { html: printNoteHtml('Нема ученици што одговараат на избраните филтри.'), count: 0 };
+
+            const cols = [];
+            if (printFlag('index')) cols.push({ key: 'index', label: 'Бр.', cls: 'num' });
+            if (printFlag('grade')) cols.push({ key: 'grade', label: 'Одд.', cls: 'odd' });
+            cols.push({ key: 'name', label: 'Име и Презиме' });
+            if (printFlag('school')) cols.push({ key: 'school', label: 'Училиште' });
+            if (printFlag('therapists')) cols.push({ key: 'therapists', label: 'Терапевти' });
+            if (printFlag('terms')) cols.push({ key: 'terms', label: 'Термини', cls: 'num' });
+            if (printFlag('signature')) cols.push({ key: 'sign', label: 'Потпис / забелешка', cls: 'sign' });
+
+            const cell = (col, student, index) => {
+                switch (col.key) {
+                    case 'index': return String(index);
+                    case 'grade': return escapeHtml(printStudentGradeLabel(student));
+                    case 'name': return escapeHtml(displayStudentName(student));
+                    case 'school': return escapeHtml(getStudentSchool(student) || '—');
+                    case 'therapists': return `<small>${getTherapistsOfStudent(student).map(escapeHtml).join(', ') || '—'}</small>`;
+                    case 'terms': return String(getStudentScheduleCount(student));
+                    default: return '';
+                }
+            };
+            const rows = list => list.map((s, i) => `<tr>${cols.map(c => `<td class="${c.cls || ''}">${cell(c, s, i + 1)}</td>`).join('')}</tr>`).join('');
+
+            const byName = (a, b) => displayStudentName(a).localeCompare(displayStudentName(b), 'mk');
+            const byGradeThenName = (a, b) => compareGrades(getStudentGrade(a), getStudentGrade(b)) || byName(a, b);
+
+            if (!printFlag('grouped')) {
+                return { html: printTableHtml(cols, rows(pool.slice().sort(byGradeThenName))), count: pool.length };
+            }
+
+            const gradeGroups = new Map(), schoolGroups = new Map(), preschool = [], noGrade = [];
+            pool.forEach(s => {
+                const cat = getStudentCategory(s);
+                if (cat === 'preschool') return preschool.push(s);
+                if (cat === 'other') {
+                    const key = getStudentSchool(s) || 'Друго училиште';
+                    if (!schoolGroups.has(key)) schoolGroups.set(key, []);
+                    return schoolGroups.get(key).push(s);
+                }
+                const grade = getStudentGrade(s);
+                if (!grade) return noGrade.push(s);
+                if (!gradeGroups.has(grade)) gradeGroups.set(grade, []);
+                gradeGroups.get(grade).push(s);
+            });
+
+            const groups = [];
+            [...gradeGroups.keys()].sort(compareGrades).forEach(g => groups.push({ label: g + ' одделение', list: gradeGroups.get(g).sort(byName) }));
+            [...schoolGroups.keys()].sort((a, b) => a.localeCompare(b, 'mk')).forEach(k => groups.push({ label: '🏫 ' + k, list: schoolGroups.get(k).sort(byGradeThenName) }));
+            if (preschool.length) groups.push({ label: '🧸 Предучилишна возраст', list: preschool.sort(byName) });
+            if (noGrade.length) groups.push({ label: 'Без одделение', list: noGrade.sort(byName) });
+
+            const html = groups.map(g => `<section class="grp-sec"><h2><span>${escapeHtml(g.label)}</span><em>${g.list.length} ученик${g.list.length === 1 ? '' : 'а'}</em></h2>${printTableHtml(cols, rows(g.list))}</section>`).join('');
+            return { html, count: pool.length };
+        }
+
+        function buildTherapistsPrintBody() {
+            if (!therapists.length) return { html: printNoteHtml('Нема додадени терапевти.'), count: 0 };
+
+            const cols = [];
+            if (printFlag('index')) cols.push({ key: 'index', label: 'Бр.', cls: 'num' });
+            cols.push({ key: 'name', label: 'Терапевт' });
+            if (printFlag('count')) cols.push({ key: 'count', label: 'Ученици', cls: 'num' });
+            if (printFlag('studentList')) cols.push({ key: 'studentList', label: 'Имиња на учениците' });
+            if (printFlag('terms')) cols.push({ key: 'terms', label: 'Термини', cls: 'num' });
+            if (printFlag('minutes')) cols.push({ key: 'minutes', label: 'Минути', cls: 'num' });
+            if (printFlag('days')) cols.push({ key: 'days', label: 'Денови' });
+            if (printFlag('signature')) cols.push({ key: 'sign', label: 'Потпис', cls: 'sign' });
+
+            let totalStudents = 0, totalTerms = 0;
+            const rows = therapists.map((t, i) => {
+                const list = (therapistStudents[t] || []).filter(s => students.includes(s))
+                    .sort((a, b) => compareGrades(getStudentGrade(a), getStudentGrade(b)) || displayStudentName(a).localeCompare(displayStudentName(b), 'mk'));
+                const termList = getTherapistTermList(t);
+                const workDays = days.filter(d => termList.some(x => x.day === d));
+                totalStudents += list.length;
+                totalTerms += termList.length;
+
+                const cell = col => {
+                    switch (col.key) {
+                        case 'index': return String(i + 1);
+                        case 'name': return escapeHtml(t);
+                        case 'count': return String(list.length);
+                        case 'studentList': return `<small>${list.map(s => escapeHtml(displayStudentName(s))).join(', ') || '—'}</small>`;
+                        case 'terms': return String(termList.length);
+                        case 'minutes': return String(termList.length * SLOT_MINUTES);
+                        case 'days': return `<small>${workDays.map(d => escapeHtml(d)).join(', ') || '—'}</small>`;
+                        default: return '';
+                    }
+                };
+                return `<tr>${cols.map(c => `<td class="${c.cls || ''}">${cell(c)}</td>`).join('')}</tr>`;
+            }).join('');
+
+            let foot = '';
+            if (printFlag('totals')) {
+                const cell = col => {
+                    switch (col.key) {
+                        case 'name': return 'Вкупно';
+                        case 'count': return String(totalStudents);
+                        case 'terms': return String(totalTerms);
+                        case 'minutes': return String(totalTerms * SLOT_MINUTES);
+                        default: return '';
+                    }
+                };
+                foot = `<tr class="totals">${cols.map(c => `<td class="${c.cls || ''}">${cell(c)}</td>`).join('')}</tr>`;
+            }
+
+            return { html: printTableHtml(cols, rows, foot), count: therapists.length };
+        }
+
+        function buildPerTherapistPrintBody() {
+            const picked = therapists.filter(printTherapistIncluded);
+            if (!picked.length) return { html: printNoteHtml('Не е избран ниту еден терапевт.'), count: 0 };
+
+            const cols = [];
+            if (printFlag('index')) cols.push({ key: 'index', label: 'Бр.', cls: 'num' });
+            if (printFlag('grade')) cols.push({ key: 'grade', label: 'Одд.', cls: 'odd' });
+            cols.push({ key: 'name', label: 'Име и Презиме' });
+            if (printFlag('school')) cols.push({ key: 'school', label: 'Училиште' });
+            if (printFlag('terms')) cols.push({ key: 'termList', label: 'Термини' });
+            if (printFlag('signature')) cols.push({ key: 'sign', label: 'Потпис', cls: 'sign' });
+
+            const includeEmpty = printFlag('emptyToo');
+            const breakClass = printFlag('pageBreak') ? ' brk' : '';
+            const year = schoolYearLabel('/');
+            let shown = 0, sections = '';
+
+            picked.forEach(t => {
+                const list = (therapistStudents[t] || []).filter(s => students.includes(s))
+                    .sort((a, b) => compareGrades(getStudentGrade(a), getStudentGrade(b)) || displayStudentName(a).localeCompare(displayStudentName(b), 'mk'));
+                if (!list.length && !includeEmpty) return;
+                shown++;
+
+                const termsByStudent = new Map();
+                getTherapistTermList(t).forEach(x => {
+                    if (!termsByStudent.has(x.student)) termsByStudent.set(x.student, []);
+                    termsByStudent.get(x.student).push(x);
+                });
+
+                const cell = (col, student, index) => {
+                    switch (col.key) {
+                        case 'index': return String(index);
+                        case 'grade': return escapeHtml(printStudentGradeLabel(student));
+                        case 'name': return escapeHtml(displayStudentName(student));
+                        case 'school': return escapeHtml(getStudentSchool(student) || '—');
+                        case 'termList': return `<small>${escapeHtml(formatTermList(termsByStudent.get(student) || [])) || '—'}</small>`;
+                        default: return '';
+                    }
+                };
+                const rows = list.map((s, i) => `<tr>${cols.map(c => `<td class="${c.cls || ''}">${cell(c, s, i + 1)}</td>`).join('')}</tr>`).join('');
+                const body = list.length ? printTableHtml(cols, rows) : '<div class="empty">Нема доделени ученици.</div>';
+
+                sections += `<section class="ther-sec${breakClass}"><h2><span>👤 ${escapeHtml(t)}</span><em>${list.length} ученик${list.length === 1 ? '' : 'а'}</em></h2>`
+                    + `<div class="smeta">Список на ученици кои посетуваат третмани · ${escapeHtml(year)}</div>${body}</section>`;
+            });
+
+            if (!shown) return { html: printNoteHtml('Избраните терапевти немаат доделени ученици.'), count: 0 };
+            return { html: sections, count: shown };
+        }
+
+        // Неделна табела за еден терапевт — истиот распоред како во табот „По Терапевт“:
+        // редови = часови I–VI, колони = денови, а кога двете половини од часот се
+        // различни ученици, ќелијата се дели на 1: / 2:.
+        function buildTherapistGridPrintBody() {
+            const picked = therapists.filter(printTherapistIncluded);
+            if (!picked.length) return { html: printNoteHtml('Не е избран ниту еден терапевт.'), count: 0 };
+
+            const withGrade = printFlag('grade');
+            const withTime = printFlag('periodTime');
+            const withHalves = printFlag('halfLabels');
+            const withColors = printFlag('dayColors');
+            const dashEmpty = printFlag('emptyDash');
+            const withSummary = printFlag('summary');
+            const includeEmpty = printFlag('emptyToo');
+            const breakClass = printFlag('pageBreak') ? ' brk' : '';
+            const year = schoolYearLabel('/');
+
+            const nameHtml = student => {
+                if (!student) return dashEmpty ? '<span class="mt">—</span>' : '';
+                const grade = withGrade ? getStudentGrade(student) : '';
+                return (grade ? `<b>${escapeHtml(grade)}</b> ` : '') + escapeHtml(displayStudentName(student));
+            };
+
+            let shown = 0, sections = '';
+            picked.forEach(therapist => {
+                let filled = 0;
+                let rows = '';
+
+                PERIODS.forEach(period => {
+                    const [t1, t2] = period.slots;
+                    let cells = '';
+                    days.forEach(day => {
+                        const s1 = getAssignment(day, t1, therapist);
+                        const s2 = getAssignment(day, t2, therapist);
+                        if (s1) filled++;
+                        if (s2) filled++;
+                        if (s1 === s2) {
+                            cells += `<td class="${s1 ? 'on' : ''}">${nameHtml(s1)}</td>`;
+                        } else {
+                            const p1 = withHalves ? '1: ' : '';
+                            const p2 = withHalves ? '2: ' : '';
+                            cells += `<td class="split"><div class="half${s1 ? ' on' : ''}">${p1}${nameHtml(s1)}</div>`
+                                + `<div class="half${s2 ? ' on' : ''}">${p2}${nameHtml(s2)}</div></td>`;
+                        }
+                    });
+                    const time = withTime ? `<span class="tm">${escapeHtml(period.time)}</span>` : '';
+                    rows += `<tr><td class="per"><span class="rom">${escapeHtml(period.label)}</span>${time}</td>${cells}</tr>`;
+                });
+
+                if (!filled && !includeEmpty) return;
+                shown++;
+
+                const head = days.map((d, i) => {
+                    const color = withColors ? ` style="background:${PRINT_DAY_COLORS[i] || '#5b6fd8'};color:#fff;"` : '';
+                    return `<th${color}>${escapeHtml(d.toUpperCase())}</th>`;
+                }).join('');
+
+                let summary = '';
+                if (withSummary) {
+                    const list = (therapistStudents[therapist] || []).filter(s => students.includes(s))
+                        .sort((a, b) => compareGrades(getStudentGrade(a), getStudentGrade(b)) || displayStudentName(a).localeCompare(displayStudentName(b), 'mk'));
+                    const names = list.map(s => {
+                        const grade = getStudentGrade(s);
+                        return escapeHtml((grade ? grade + ' ' : '') + displayStudentName(s));
+                    });
+                    summary = `<div class="ptg-summary"><b>Ученици (${list.length}):</b> ${names.join(' · ') || '—'}</div>`;
+                }
+
+                sections += `<section class="ptg-sec${breakClass}">`
+                    + `<h2><span>👤 ${escapeHtml(therapist)}</span><em>${printCountLabel(filled, 'термин', 'термини')} · ${escapeHtml(year)}</em></h2>`
+                    + `<table class="ptgrid"><thead><tr><th class="per">Час</th>${head}</tr></thead><tbody>${rows}</tbody></table>`
+                    + `${summary}</section>`;
+            });
+
+            if (!shown) return { html: printNoteHtml('Избраните терапевти немаат ниту еден закажан термин.'), count: 0 };
+            return { html: sections, count: shown };
+        }
+
+        function buildSchedulePrintBody() {
+            const dayList = days.filter(d => !printFlag('onlyDays') || selectedDays.has(d));
+            const therapistList = therapists.filter(t => !printFlag('onlyTher') || selectedTherapistsFilter.has(t));
+            if (!therapistList.length) return { html: printNoteHtml('Нема терапевти за приказ — провери го филтерот за терапевти.'), count: 0 };
+            if (!dayList.length) return { html: printNoteHtml('Нема избрани денови — провери го филтерот за денови.'), count: 0 };
+
+            const hideEmpty = printFlag('hideEmpty');
+            const withGrade = printFlag('grade');
+            let filled = 0, body = '';
+
+            dayList.forEach(day => {
+                let rows = '';
+                times.forEach(time => {
+                    const values = therapistList.map(t => getAssignment(day, time, t));
+                    const hasAny = values.some(v => v && v !== 'Избери Ученик');
+                    if (!hasAny && hideEmpty) return;
+                    const cells = values.map(v => {
+                        if (!v || v === 'Избери Ученик') return '<td></td>';
+                        filled++;
+                        const grade = withGrade ? getStudentGrade(v) : '';
+                        return `<td class="on">${escapeHtml(displayStudentName(v))}${grade ? ` <small>(${escapeHtml(grade)})</small>` : ''}</td>`;
+                    }).join('');
+                    rows += `<tr><td class="time">${escapeHtml(time)}</td>${cells}</tr>`;
+                });
+                if (!rows) return;
+                body += `<tr class="dayhead"><td colspan="${therapistList.length + 1}">${escapeHtml(day.toUpperCase())}</td></tr>${rows}`;
+            });
+
+            if (!body) return { html: printNoteHtml('Нема пополнети термини за избраните филтри.'), count: 0 };
+            const head = `<tr><th class="time">Време</th>${therapistList.map(t => `<th>${escapeHtml(t)}</th>`).join('')}</tr>`;
+            return { html: `<table class="grid"><thead>${head}</thead><tbody>${body}</tbody></table>`, count: filled };
+        }
+
+        // ── склопување на документот ──
+        function printDefaultTitle() {
+            const year = printState.common.showYear ? ' ' + schoolYearLabel('/') : '';
+            switch (printState.mode) {
+                case 'students': return 'Список на ученици' + year;
+                case 'therapists': return 'Список на терапевти' + year;
+                case 'perTherapist': return 'Списоци на ученици по терапевт' + year;
+                case 'therapistGrid': return 'Распоред по терапевт' + year;
+                default: return 'Неделен распоред' + year;
+            }
+        }
+
+        function printFileBase() {
+            const stamp = schoolYearLabel('-');
+            switch (printState.mode) {
+                case 'students': return 'spisok_ucenici_' + stamp;
+                case 'therapists': return 'spisok_terapevti_' + stamp;
+                case 'perTherapist': return 'spisok_po_terapevt_' + stamp;
+                case 'therapistGrid': return 'raspored_po_terapevt_' + stamp;
+                default: return 'raspored_' + stamp;
+            }
+        }
+
+        function printDocCss(landscape) {
+            return `
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Segoe UI', Tahoma, sans-serif; color: #20263a; background: #fff; padding: 22px 26px; }
+  .head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap;
+          border-bottom: 3px solid #5b6fd8; padding-bottom: 9px; margin-bottom: 14px; }
+  h1 { font-size: 19px; color: #3a47b5; }
+  .meta { font-size: 11.5px; color: #6a7188; }
+  section { margin-bottom: 16px; }
+  section.grp-sec { break-inside: avoid; }
+  section h2 { font-size: 14px; color: #3a47b5; background: #eef1fb; border-left: 4px solid #5b6fd8;
+               border-radius: 6px; padding: 5px 9px; margin-bottom: 6px;
+               display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
+  section h2 em { font-style: normal; font-size: 11px; color: #6a7188; font-weight: 600; }
+  .ther-sec .smeta { font-size: 11px; color: #6a7188; margin: 0 0 6px 2px; }
+  .ther-sec.brk:not(:first-of-type),
+  .ptg-sec.brk:not(:first-of-type) { break-before: page; page-break-before: always; }
+  table.ptgrid { width: 100%; border-collapse: collapse; table-layout: fixed; }
+  .ptgrid th, .ptgrid td { border: 1px solid #9aa3c0; padding: 3px 5px; font-size: 10px;
+        text-align: center; vertical-align: middle; word-wrap: break-word; }
+  .ptgrid th { color: #fff; font-weight: 800; font-size: 10.5px; letter-spacing: .03em; background: #5b6fd8; }
+  .ptgrid th.per { width: 76px; background: #eef1fb; color: #3a47b5; }
+  .ptgrid td.per { width: 76px; background: #f7f8fd; color: #3a47b5; font-weight: 800; }
+  .ptgrid td.per .rom { display: block; font-size: 15px; font-weight: 900; }
+  .ptgrid td.per .tm { display: block; font-size: 8px; font-weight: 600; color: #6a7188; }
+  .ptgrid td.on { background: #f0f9f4; }
+  .ptgrid td.split { padding: 0; }
+  .ptgrid td.split .half { padding: 3px 5px; min-height: 18px; }
+  .ptgrid td.split .half + .half { border-top: 1px dashed #9aa3c0; }
+  .ptgrid td.split .half.on { background: #f0f9f4; }
+  .ptgrid b { color: #3a47b5; }
+  .ptgrid .mt { color: #c3c9dd; }
+  .ptg-summary { font-size: 10.5px; color: #6a7188; margin-top: 5px; }
+  .ptg-summary b { color: #3a47b5; }
+  table.roster, table.grid { width: 100%; border-collapse: collapse; }
+  table.roster { max-width: ${landscape ? 'none' : '780px'}; }
+  .roster th, .roster td, .grid th, .grid td { border: 1px solid #9aa3c0; padding: 4px 8px;
+        font-size: 12.5px; text-align: left; vertical-align: top; }
+  .roster th, .grid th { background: #eef1fb; color: #3a47b5; font-size: 12px; }
+  .roster td.num, .roster th.num { width: 42px; text-align: center; }
+  .roster td.odd, .roster th.odd { width: 104px; white-space: nowrap; }
+  .roster td.sign, .roster th.sign { width: 150px; }
+  .roster tbody tr:nth-child(even) { background: #f7f8fd; }
+  .roster tfoot tr.totals td { background: #eef1fb; font-weight: 800; color: #3a47b5; }
+  .roster small, .grid small { color: #6a7188; font-size: 10.5px; }
+  .grid td, .grid th { font-size: 11px; padding: 3px 6px; }
+  .grid td.time, .grid th.time { width: 86px; white-space: nowrap; font-weight: 700; color: #3a47b5; background: #f7f8fd; }
+  .grid td.on { background: #f0f9f4; }
+  .grid tr.dayhead td { background: #5b6fd8; color: #fff; font-weight: 800; letter-spacing: .04em; }
+  .empty { font-size: 12.5px; font-style: italic; color: #6a7188; padding: 6px 2px; }
+  .note { font-size: 13px; color: #6a7188; padding: 18px 2px; }
+  .signs { display: flex; gap: 60px; justify-content: flex-end; margin-top: 34px; break-inside: avoid; }
+  .signs .sign { text-align: center; font-size: 11.5px; color: #6a7188; }
+  .signs .sign i { display: block; width: 180px; height: 32px; border-bottom: 1px solid #6a7188; margin-bottom: 4px; }
+  @media print {
+    body { padding: 0; }
+    .roster th, .roster tbody tr:nth-child(even), .roster tfoot tr.totals td,
+    .grid th, .grid td.on, .grid tr.dayhead td, section h2,
+    .ptgrid th, .ptgrid td.per, .ptgrid td.on, .ptgrid td.split .half.on {
+      -webkit-print-color-adjust: exact; print-color-adjust: exact;
+    }
+  }
+  @page { size: ${landscape ? 'A4 landscape' : 'A4'}; margin: ${landscape ? '10mm' : '12mm'}; }
+`;
+        }
+
+        function printCountLabel(count, one, many) {
+            return `${count} ${count === 1 ? one : many}`;
+        }
+
+        function buildPrintDocument() {
+            ensureStudentMeta();
+            let built, subtitle;
+            switch (printState.mode) {
+                case 'students':
+                    built = buildStudentsPrintBody();
+                    subtitle = printCountLabel(built.count, 'ученик', 'ученици');
+                    break;
+                case 'therapists':
+                    built = buildTherapistsPrintBody();
+                    subtitle = printCountLabel(built.count, 'терапевт', 'терапевти');
+                    break;
+                case 'perTherapist':
+                    built = buildPerTherapistPrintBody();
+                    subtitle = printCountLabel(built.count, 'терапевт', 'терапевти');
+                    break;
+                case 'therapistGrid':
+                    built = buildTherapistGridPrintBody();
+                    subtitle = printCountLabel(built.count, 'терапевт', 'терапевти');
+                    break;
+                default:
+                    built = buildSchedulePrintBody();
+                    subtitle = printCountLabel(built.count, 'пополнет термин', 'пополнети термини');
+            }
+
+            const landscape = ['schedule', 'therapistGrid'].includes(printState.mode) && printFlag('landscape');
+            const title = (printState.titles[printState.mode] || '').trim() || printDefaultTitle();
+            const metaBits = [subtitle];
+            if (printState.common.showDate) {
+                metaBits.push(new Date().toLocaleDateString('mk-MK', { day: 'numeric', month: 'long', year: 'numeric' }));
+            }
+            const signs = printState.common.signLines
+                ? '<div class="signs"><div class="sign"><i></i>Изработил</div><div class="sign"><i></i>Директор</div></div>'
+                : '';
+
+            const body = `<div class="head"><h1>${escapeHtml(title)}</h1><div class="meta">${escapeHtml(metaBits.join(' · '))}</div></div>${built.html}${signs}`;
+            const html = `<!DOCTYPE html><html lang="mk"><head><meta charset="UTF-8">`
+                + `<meta name="viewport" content="width=device-width, initial-scale=1.0">`
+                + `<title>${escapeHtml(title)}</title><style>${printDocCss(landscape)}</style></head><body>${body}</body></html>`;
+
+            return { title, body, html, landscape, meta: metaBits.join(' · '), empty: built.count === 0 };
+        }
+
+        // ── преглед и излези ──
+        function schedulePrintPreview() {
+            window.clearTimeout(printPreviewTimer);
+            printPreviewTimer = window.setTimeout(refreshPrintPreview, 160);
+        }
+
+        function refreshPrintPreview() {
+            const frame = document.getElementById('printPreviewFrame');
+            if (!frame) return null;
+            window.clearTimeout(printPreviewTimer);
+            const doc = buildPrintDocument();
+            frame.srcdoc = doc.html;
+            const metaEl = document.getElementById('printPreviewMeta');
+            if (metaEl) metaEl.textContent = `${doc.title} · ${doc.meta}`;
+            return doc;
+        }
+
+        function doPrintFromPreview() {
+            const frame = document.getElementById('printPreviewFrame');
+            const doc = refreshPrintPreview();
+            if (!doc || !frame) return;
+            if (doc.empty) return notify('Нема податоци за печатење со тековните опции.', 'warn');
+
+            let done = false;
+            const go = () => {
+                if (done) return;
+                done = true;
+                try {
+                    frame.contentWindow.focus();
+                    frame.contentWindow.print();
+                } catch (e) {
+                    console.warn('Печатењето од прегледот не успеа — се отвора нов прозорец.', e);
+                    openPrintInNewWindow();
+                }
+            };
+            frame.addEventListener('load', go, { once: true });
+            window.setTimeout(go, 800);
+        }
+
+        function openPrintInNewWindow() {
+            const doc = buildPrintDocument();
+            if (doc.empty) return notify('Нема податоци за печатење со тековните опции.', 'warn');
+            const w = window.open('', '_blank');
+            if (!w) return notify('Прелистувачот блокираше нов прозорец — дозволи pop-up за оваа страна.', 'warn');
+            w.document.write(doc.html);
+            w.document.close();
+        }
+
+        function downloadPrintWord() {
+            const doc = buildPrintDocument();
+            if (doc.empty) return notify('Нема податоци за извоз со тековните опции.', 'warn');
+            const wordCss = 'body{font-family:Calibri,sans-serif;}'
+                + 'h1{font-size:16pt;color:#3a47b5;}h2{font-size:13pt;color:#3a47b5;}'
+                + 'table{border-collapse:collapse;width:100%;}'
+                + 'th,td{border:1px solid #9aa3c0;padding:4pt 7pt;font-size:10.5pt;}'
+                + 'th{background:#eef1fb;color:#3a47b5;}small{color:#6a7188;font-size:8pt;}'
+                + '.meta{color:#6a7188;font-size:9pt;}.smeta{color:#6a7188;font-size:9pt;}'
+                + '.signs{margin-top:24pt;}.sign i{display:block;width:170pt;height:22pt;border-bottom:1px solid #6a7188;}'
+                // табелата на неделниот распоред по терапевт — Word чита само едноставен CSS
+                + '.ptgrid{table-layout:fixed;}'
+                + '.ptgrid th,.ptgrid td{font-size:8pt;padding:2pt 3pt;text-align:center;vertical-align:middle;}'
+                + '.ptgrid th{background:#5b6fd8;color:#fff;}'
+                + '.ptgrid th.per,.ptgrid td.per{width:52pt;background:#eef1fb;color:#3a47b5;font-weight:bold;}'
+                + '.ptgrid td.on,.ptgrid .half.on{background:#f0f9f4;}'
+                + '.ptgrid .rom{font-size:12pt;font-weight:bold;}.ptgrid .tm{font-size:6.5pt;color:#6a7188;}'
+                + '.ptgrid .half{padding:2pt 3pt;border-bottom:1px dashed #9aa3c0;}'
+                + '.ptg-summary{font-size:8.5pt;color:#6a7188;}';
+            const pageCss = doc.landscape
+                ? '@page WordSection1 { size: 841.9pt 595.3pt; mso-page-orientation: landscape; margin: 1cm; } div.WordSection1 { page: WordSection1; }'
+                : '@page WordSection1 { size: 595.3pt 841.9pt; margin: 1.2cm; } div.WordSection1 { page: WordSection1; }';
+            const html = '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">'
+                + '<head><meta charset="utf-8"><title>' + escapeHtml(doc.title) + '</title>'
+                + '<style>' + wordCss + pageCss + '</style></head>'
+                + '<body><div class="WordSection1">' + doc.body + '</div></body></html>';
+            downloadTextFile('\ufeff' + html, printFileBase() + '.doc', 'application/msword');
+            notify('Word документот е симнат.', 'ok');
         }
 
         function setScheduleDensity(value) {
@@ -4393,10 +6648,19 @@ function downloadDoc() {
             applyScheduleSearch();
         };
 
+        // [v4.2] Секое локално снимање се пренесува и во облак (ако е конфигуриран
+        // и најавен). Обвивка, за да не се допира секое место што менува податоци.
+        const baseSaveScheduleToLocal = saveScheduleToLocal;
+        saveScheduleToLocal = function() {
+            baseSaveScheduleToLocal();
+            scheduleCloudPush();
+        };
+
         window.addEventListener('DOMContentLoaded', loadDensityPreference);
         window.addEventListener('DOMContentLoaded', renderGradeDatalist);
 
         window.addEventListener('DOMContentLoaded', loadScheduleFromLocal);
+        window.addEventListener('DOMContentLoaded', () => { initCloudSync(); });
 
         // ============== TAB NAVIGATION (v3) ==============
         const TAB_STORAGE_KEY = 'therapistSchedule_activeTab_v3';
