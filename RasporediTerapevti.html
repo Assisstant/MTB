@@ -6462,7 +6462,10 @@ body.density-comfortable .student-select {
             const mode = printState.mode;
             let html = '<span class="print-group-label">Податоци во документот</span><div class="print-checks">';
             printFieldsFor(mode).forEach(f => {
-                html += printCheckRow(f.label, printState.flags[mode][f.id], `togglePrintFlag('${f.id}', this.checked)`);
+                // Означи ги колоните што ќе излезат празни за сите — да не се вклучат по грешка.
+                const empty = mode === 'students' && printStudentColumnIsEmpty(f.id);
+                const label = f.label + (empty ? ' — нема податоци' : '');
+                html += printCheckRow(label, printState.flags[mode][f.id], `togglePrintFlag('${f.id}', this.checked)`);
             });
             html += '</div>';
 
@@ -6481,7 +6484,19 @@ body.density-comfortable .student-select {
                         ${colOpt(2, 'Две колони')}
                         ${colOpt(3, 'Три колони')}
                        </select>`
-                    + '<div class="sync-hint" style="margin-top:5px;">Важи и за печатење и за Word. Автоматски: над ~34 ученици оди во две колони за да собере на една страна.</div>';
+                    + '<div class="sync-hint" style="margin-top:5px;">Важи и за печатење и за Word. Автоматски гледа и колку ученици има и колку колони со податоци се вклучени.</div>'
+                    + printColumnsWarningHtml();
+
+                if (printFlag('therapists')) {
+                    const tOpt = (value, label) => `<option value="${value}" ${(printState.therapistStyle || 'short') === value ? 'selected' : ''}>${label}</option>`;
+                    html += '<span class="print-group-label">Како да се прикажат терапевтите</span>'
+                        + `<select class="print-input" onchange="setPrintTherapistStyle(this.value)">
+                            ${tOpt('short', 'Скратено — И. Митревска')}
+                            ${tOpt('full', 'Полни имиња')}
+                            ${tOpt('count', 'Само број')}
+                           </select>`
+                        + '<div class="sync-hint" style="margin-top:5px;">Со по неколку терапевти на ученик, полните имиња прават редови високи по шест реда.</div>';
+                }
 
                 html += '<span class="print-group-label">Празни колони за рачно пополнување</span>'
                     + '<div class="print-inline-actions">'
@@ -6608,6 +6623,34 @@ body.density-comfortable .student-select {
             schedulePrintPreview();
         }
 
+        // Колона што би излегла празна за сите ученици — вреди да се знае пред печатење.
+        function printStudentColumnIsEmpty(fieldId) {
+            const pool = printStudentPool();
+            if (!pool.length) return false;
+            switch (fieldId) {
+                case 'school': return !pool.some(s => getStudentSchool(s));
+                case 'therapists': return !pool.some(s => getTherapistsOfStudent(s).length);
+                case 'terms': return !pool.some(s => getStudentScheduleCount(s));
+                case 'grade': return !pool.some(s => getStudentGrade(s));
+                default: return false;
+            }
+        }
+
+        function printColumnsWarningHtml() {
+            const cols = printStudentColumns();
+            const fits = printColumnsOverflow(cols);
+            if (!fits) return '';
+            return `<div class="merge-alert" style="margin-top:8px;">⚠️ Со ${printCountLabel(cols.length, 'колона', 'колони')} податоци, на страната собираат најмногу `
+                + `<strong>${printCountLabel(fits, 'колона', 'колони')}</strong>. Со повеќе, табелата излегува надвор од листот и десните колони се отсекуваат.<br>`
+                + '<small>Врати на „Автоматски“, исклучи некоја колона, или вклучи положена страна.</small></div>';
+        }
+
+        function setPrintTherapistStyle(value) {
+            printState.therapistStyle = value;
+            savePrintPrefs();
+            schedulePrintPreview();
+        }
+
         function setPrintListColumns(value) {
             printState.listColumns = value === 'auto' ? 'auto' : Number(value) || 1;
             savePrintPrefs();
@@ -6649,15 +6692,31 @@ body.density-comfortable .student-select {
             });
         }
 
+        // „Ивана Митревска“ → „И. Митревска“. Со шест терапевти по ученик, полните
+        // имиња ја растегнуваат ќелијата на шест реда и редот станува нечитлив.
+        function abbreviateFullName(name) {
+            const parts = String(name || '').trim().split(/\s+/);
+            if (parts.length < 2) return name;
+            return parts[0].charAt(0).toUpperCase() + '. ' + parts.slice(1).join(' ');
+        }
+
         function printStudentGradeLabel(student) {
             if (getStudentCategory(student) === 'preschool') return 'предучилишна';
             return getStudentGrade(student) || '—';
         }
 
+        // Тесните колони добиваат изречна ширина. Без неа Word ја шири табелата
+        // според најдолгата содржина и таа излегува надвор од страната.
+        const PRINT_COL_WIDTH = { num: 30, odd: 52, sign: 92, fill: 74 };
+
         function printTableHtml(cols, rowsHtml, footHtml = '') {
-            const head = cols.map(c => `<th class="${c.cls || ''}">${escapeHtml(c.label)}</th>`).join('');
+            const head = cols.map(c => {
+                const w = PRINT_COL_WIDTH[c.cls];
+                const width = w ? ` width="${w}" style="width:${w}px;"` : '';
+                return `<th class="${c.cls || ''}"${width}>${escapeHtml(c.label)}</th>`;
+            }).join('');
             const foot = footHtml ? `<tfoot>${footHtml}</tfoot>` : '';
-            return `<table class="roster"><thead><tr>${head}</tr></thead><tbody>${rowsHtml}</tbody>${foot}</table>`;
+            return `<table class="roster" width="100%" style="width:100%;"><thead><tr>${head}</tr></thead><tbody>${rowsHtml}</tbody>${foot}</table>`;
         }
 
         function printNoteHtml(text) {
@@ -6665,10 +6724,9 @@ body.density-comfortable .student-select {
         }
 
         // ── градење на телото по режим ──
-        function buildStudentsPrintBody() {
-            const pool = printStudentPool();
-            if (!pool.length) return { html: printNoteHtml('Нема ученици што одговараат на избраните филтри.'), count: 0 };
-
+        // Колоните на списокот на ученици — истите ги користат и градењето на
+        // документот и проверката дали воопшто собираат на страна.
+        function printStudentColumns() {
             const cols = [];
             if (printFlag('index')) cols.push({ key: 'index', label: 'Бр.', cls: 'num' });
             if (printFlag('grade')) cols.push({ key: 'grade', label: 'Одд.', cls: 'odd' });
@@ -6680,6 +6738,14 @@ body.density-comfortable .student-select {
             // Сопствени празни колони (Родител, Наставник...) — се пополнуваат рачно
             // на хартија, во Word, или директно во „Нов прозорец“.
             customListCols.forEach(c => cols.push({ key: 'custom', label: c, cls: 'fill' }));
+            return cols;
+        }
+
+        function buildStudentsPrintBody() {
+            const pool = printStudentPool();
+            if (!pool.length) return { html: printNoteHtml('Нема ученици што одговараат на избраните филтри.'), count: 0 };
+
+            const cols = printStudentColumns();
 
             const cell = (col, student, index) => {
                 switch (col.key) {
@@ -6687,7 +6753,14 @@ body.density-comfortable .student-select {
                     case 'grade': return escapeHtml(printStudentGradeLabel(student));
                     case 'name': return escapeHtml(displayStudentName(student));
                     case 'school': return escapeHtml(getStudentSchool(student) || '—');
-                    case 'therapists': return `<small>${getTherapistsOfStudent(student).map(escapeHtml).join(', ') || '—'}</small>`;
+                    case 'therapists': {
+                        const list = getTherapistsOfStudent(student);
+                        if (!list.length) return '—';
+                        const style = printState.therapistStyle || 'short';
+                        if (style === 'count') return String(list.length);
+                        const names = style === 'full' ? list : list.map(abbreviateFullName);
+                        return `<small>${names.map(escapeHtml).join(', ')}</small>`;
+                    }
                     case 'terms': return String(getStudentScheduleCount(student));
                     default: return '';
                 }
@@ -6699,7 +6772,7 @@ body.density-comfortable .student-select {
 
             const byName = (a, b) => displayStudentName(a).localeCompare(displayStudentName(b), 'mk');
             const byGradeThenName = (a, b) => compareGrades(getStudentGrade(a), getStudentGrade(b)) || byName(a, b);
-            const columnCount = printListColumns(pool.length);
+            const columnCount = printListColumns(pool.length, cols);
 
             if (!printFlag('grouped')) {
                 const sorted = pool.slice().sort(byGradeThenName);
@@ -6756,11 +6829,38 @@ body.density-comfortable .student-select {
 
         // Колку колони. „Автоматски“ гледа колку редови има и дали страната е положена —
         // 62 ученици исправено дадат 2 колони и сè собира на една страна наместо на две.
-        function printListColumns(rowCount) {
+        // Приближна ширина на секоја колона со податоци, во „единици“. Збирот кажува
+        // колку широка е табелата; страната собира ограничен збир.
+        const PRINT_COL_WEIGHT = { index: 0.5, grade: 1.0, name: 2.6, school: 2.0, therapists: 3.2, terms: 0.7, sign: 1.8, custom: 1.5 };
+
+        function printColumnsWeight(cols) {
+            return cols.reduce((sum, c) => sum + (PRINT_COL_WEIGHT[c.key] || 1), 0);
+        }
+
+        // Колку колони собираат. Гледа И колку редови има И колку е широка табелата —
+        // 7 колони податоци не собираат двапати на исправена страна, па автоматскиот
+        // избор паѓа на една наместо да излезе надвор од листот.
+        function printListColumns(rowCount, cols) {
             const setting = printState.listColumns || 'auto';
+            const landscape = printFlag('landscape');
+            const budget = landscape ? 12.5 : 8.6;
+            const weight = cols ? printColumnsWeight(cols) : 4.1;
+            const fitsByWidth = Math.max(1, Math.floor(budget / weight));
+
             if (setting !== 'auto') return Math.max(1, Math.min(3, Number(setting) || 1));
-            const perColumn = printFlag('landscape') ? 24 : 34;
-            return Math.max(1, Math.min(3, Math.ceil(rowCount / perColumn)));
+
+            const perColumn = landscape ? 24 : 34;
+            const byRows = Math.max(1, Math.ceil(rowCount / perColumn));
+            return Math.max(1, Math.min(3, byRows, fitsByWidth));
+        }
+
+        // Кога бројот на колони е поставен рачно повеќе отколку што собира.
+        function printColumnsOverflow(cols) {
+            const setting = printState.listColumns || 'auto';
+            if (setting === 'auto') return 0;
+            const budget = printFlag('landscape') ? 12.5 : 8.6;
+            const fits = Math.max(1, Math.floor(budget / printColumnsWeight(cols)));
+            return Number(setting) > fits ? fits : 0;
         }
 
         // Колоните се посебни табели една до друга во надворешна табела без рамки.
@@ -7046,7 +7146,8 @@ body.density-comfortable .student-select {
   .ptg-summary { font-size: 10.5px; color: #6a7188; margin-top: 5px; }
   .ptg-summary b { color: #3a47b5; }
   table.roster, table.grid { width: 100%; border-collapse: collapse; }
-  table.roster { max-width: ${landscape ? 'none' : '780px'}; }
+  table.roster { max-width: ${landscape ? 'none' : '780px'}; table-layout: fixed; }
+  .roster td, .roster th { word-wrap: break-word; overflow-wrap: break-word; }
   table.colwrap, table.colwrap > tbody > tr > td { border: 0 !important; }
   table.colwrap > tbody > tr > td > section:first-child { margin-top: 0; }
   table.colwrap table.roster { max-width: none; }
@@ -7214,7 +7315,11 @@ body.density-comfortable .student-select {
                 + '.ptg-summary{font-size:' + small + 'pt;color:#6a7188;}'
                 // надворешната табела што ги држи колоните не смее да има рамки —
                 // инаку глобалното th,td правило погоре ѝ ги дава
-                + '.colwrap,.colwrap td{border:0 !important;padding:0 4pt !important;}';
+                + '.colwrap,.colwrap td{border:0 !important;padding:0 4pt !important;}'
+                // Word ја шири табелата според најдолгиот збор ако не е фиксна —
+                // тогаш излегува надвор од страната и десните колони се отсекуваат.
+                + 'table.roster{table-layout:fixed;}'
+                + '.roster td,.roster th{word-wrap:break-word;overflow-wrap:break-word;}';
             const pageCss = doc.landscape
                 ? '@page WordSection1 { size: 841.9pt 595.3pt; mso-page-orientation: landscape; margin: 1cm; } div.WordSection1 { page: WordSection1; }'
                 : '@page WordSection1 { size: 595.3pt 841.9pt; margin: 1.2cm; } div.WordSection1 { page: WordSection1; }';
