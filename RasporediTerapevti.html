@@ -1627,6 +1627,59 @@ body.density-comfortable .student-select {
     margin-left: 6px;
 }
 
+.cloud-offline-box {
+    padding: 11px 13px;
+    border-radius: 11px;
+    border: 1px solid var(--cell-filled-border);
+    background: var(--cell-filled-bg);
+    color: var(--cell-filled-text);
+    font-size: 12.5px;
+}
+
+.sync-steps {
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+    margin-top: 12px;
+}
+
+.sync-step {
+    display: flex;
+    align-items: center;
+    gap: 11px;
+    padding: 9px 12px;
+    border: 1px solid var(--border);
+    border-radius: 11px;
+    background: var(--bg-main);
+}
+
+.sync-step .step-no {
+    flex: none;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    font-size: 12px;
+    font-weight: 900;
+    background: var(--primary);
+    color: #fff;
+}
+
+.sync-step .step-body { flex: 1; min-width: 0; }
+.sync-step .step-body b { display: block; font-size: 12.5px; }
+.sync-step .step-body small { display: block; font-size: 11px; color: var(--text-secondary); margin-top: 2px; }
+.sync-step .btn { flex: none; margin-top: 0; }
+
+.sync-step.danger-step { border-color: var(--conflict-border); background: var(--conflict-bg-soft); }
+.sync-step.danger-step .step-no { background: var(--danger); }
+.sync-step.danger-step .step-body b { color: var(--conflict-text); }
+
+@media (max-width: 620px) {
+    .sync-step { flex-wrap: wrap; }
+    .sync-step .btn { width: 100%; justify-content: center; }
+}
+
 .cloud-chip.ready { border-color: var(--cell-filled-border); background: var(--cell-filled-bg); color: var(--cell-filled-text); }
 .cloud-chip.error, .cloud-chip.conflict { border-color: var(--conflict-border); background: var(--conflict-bg-soft); color: var(--conflict-text); }
 .cloud-chip.syncing { border-color: var(--info); color: var(--info); }
@@ -2679,9 +2732,9 @@ body.density-comfortable .student-select {
             <div class="controls-section sync-card cloud-card">
                 <h4 style="font-size: 14px; color: var(--primary); margin-bottom: 10px;">☁️ Облак-синхронизација <span id="cloudStatusChip" class="cloud-chip off">⚪ локално</span></h4>
                 <div style="font-size: 12px; color: var(--text-secondary); margin-bottom: 12px;">
-                    Кога е вклучена, сите работат врз иста состојба во реално време. Измените се снимаат автоматски;
-                    ако двајца снимат истовремено, твојот дел се применува врз свежата состојба наместо да се изгуби.
-                    <strong>Без најава или без интернет, апликацијата работи локално како и досега.</strong>
+                    <strong>Апликацијата е офлајн по стандард.</strong> Облакот се користи само како привремено место
+                    за размена: отвораш сесија, повлекуваш и/или праќаш, ги бришеш податоците горе и затвораш.
+                    Ништо не се испраќа автоматски и ништо не работи во позадина.
                 </div>
                 <div id="cloudPanel"></div>
             </div>
@@ -5392,9 +5445,9 @@ function downloadDoc() {
         function cloudSignOut(quiet) {
             cloudState.session = null;
             cloudState.version = null;
+            cloudState.remoteHasData = null;
             persistCloudSession();
-            stopCloudPolling();
-            setCloudStatus(cloudConfigured() ? 'anon' : 'off', '');
+            setCloudStatus(cloudConfigured() && cloudSyncModeOn() ? 'anon' : 'off', '');
             renderCloudPanel();
             if (!quiet) notify('Одјавен си од облакот.', 'ok');
         }
@@ -5433,13 +5486,20 @@ function downloadDoc() {
                     return null;
                 }
                 const remote = { data: row.data && row.data.students ? row.data : null, version: Number(row.version) || 0, at: row.updated_at, by: row.updated_by };
+                cloudState.remoteHasData = Boolean(remote.data);
+                cloudState.remoteAt = row.updated_at;
+                cloudState.remoteBy = row.updated_by;
                 if (options.install !== false && remote.data) {
                     cloudState.suppressPush = true;
                     installState(remote.data);
                     cloudState.suppressPush = false;
+                    cloudState.dirty = false;
+                    cloudState.lastSync = new Date().toISOString();
+                    cloudLogAdd('повлечено од облак');
+                } else if (options.install !== false && !remote.data) {
+                    notify('Облакот е празен — нема што да се повлече.', 'warn');
                 }
                 cloudState.version = remote.version;
-                cloudState.lastSync = new Date().toISOString();
                 setCloudStatus('ready', remote.data ? '' : 'облакот е празен');
                 return remote;
             } catch (e) {
@@ -5453,10 +5513,13 @@ function downloadDoc() {
         }
 
         // ── снимање со optimistic locking ──
-        function scheduleCloudPush() {
-            if (cloudState.suppressPush || !cloudConfigured() || !cloudLoggedIn()) return;
-            window.clearTimeout(cloudState.pushTimer);
-            cloudState.pushTimer = window.setTimeout(() => cloudPush(), CLOUD_PUSH_DEBOUNCE_MS);
+        // НЕМА автоматско праќање. Локалната измена само се обележува како непратена;
+        // праќањето е секогаш свесен клик во отворена сесија.
+        function markCloudDirty() {
+            if (cloudState.suppressPush) return;
+            if (!cloudSyncModeOn()) return;
+            cloudState.dirty = true;
+            renderCloudPanel();
         }
 
         async function cloudPush(isRetry) {
@@ -5489,6 +5552,11 @@ function downloadDoc() {
                 if (Array.isArray(rows) && rows.length) {
                     cloudState.version = Number(rows[0].version);
                     cloudState.lastSync = new Date().toISOString();
+                    cloudState.dirty = false;
+                    cloudState.remoteHasData = true;
+                    cloudState.remoteAt = rows[0].updated_at;
+                    cloudState.remoteBy = rows[0].updated_by;
+                    if (!isRetry) cloudLogAdd('пратено во облак');
                     setCloudStatus('ready', '');
                     return true;
                 }
@@ -5586,6 +5654,26 @@ function downloadDoc() {
                 return;
             }
 
+            // ОФЛАЈН РЕЖИМ — стандардна состојба. Ништо не се поврзува додека
+            // сесијата не се отвори намерно.
+            if (!cloudSyncModeOn()) {
+                const lastWipe = cloudLogLastWipe();
+                host.innerHTML = `
+                    <div class="cloud-offline-box">
+                        <div><b>🔒 Апликацијата работи офлајн.</b> Не се поврзува со облакот и ништо не испраќа.</div>
+                        <div class="sync-hint" style="margin-top:6px;">
+                            Отвори сесија само кога размената е потребна, па избриши ги податоците горе и затвори ја.
+                            ${lastWipe ? '<br>Последно бришење од облакот: <strong>' + escapeHtml(lastWipe) + '</strong>' : ''}
+                        </div>
+                    </div>
+                    <div class="sync-row" style="margin-top:10px;">
+                        <button class="btn btn-primary btn-compact" onclick="openSyncSession()">🔓 Отвори сесија за синхронизација</button>
+                        ${hardcoded ? '' : '<button class="btn btn-soft btn-compact" onclick="clearCloudConfig()">Смени проект</button>'}
+                    </div>`;
+                setCloudStatus('off', '');
+                return;
+            }
+
             if (!cloudLoggedIn()) {
                 host.innerHTML = `
                     <div class="sync-row">
@@ -5593,7 +5681,7 @@ function downloadDoc() {
                         <input type="password" id="cloudPassword" class="people-crud-search compact" placeholder="лозинка" autocomplete="current-password" style="min-width:170px;"
                                onkeydown="if(event.key==='Enter'){event.preventDefault();cloudSignIn();}">
                         <button class="btn btn-primary btn-compact" onclick="cloudSignIn()">🔑 Најави се</button>
-                        ${hardcoded ? '' : '<button class="btn btn-soft btn-compact" onclick="clearCloudConfig()">Смени проект</button>'}
+                        <button class="btn btn-soft btn-compact" onclick="closeSyncSession()">Откажи</button>
                     </div>
                     <div class="sync-hint">Секој терапевт има свој налог. Налозите ги отвора координаторот во Supabase → Authentication → Users.</div>`;
                 setCloudStatus('anon', '');
@@ -5601,46 +5689,128 @@ function downloadDoc() {
             }
 
             const me = getMyTherapist();
+            const remote = cloudState.remoteHasData === null
+                ? '<span class="sync-hint">Состојбата на облакот сè уште не е проверена.</span>'
+                : cloudState.remoteHasData
+                    ? `<span class="cloud-chip conflict">📦 Облакот содржи податоци${cloudState.remoteAt ? ' · ' + escapeHtml(formatStampTime(cloudState.remoteAt)) : ''}${cloudState.remoteBy ? ' · ' + escapeHtml(cloudState.remoteBy) : ''}</span>`
+                    : '<span class="cloud-chip ready">✓ Облакот е празен</span>';
+
             host.innerHTML = `
                 <div class="sync-row">
                     <span class="sync-stamp"><b>${escapeHtml(cloudState.session.email || '')}</b></span>
-                    <button class="btn btn-soft btn-compact" onclick="cloudPull()">⬇️ Повлечи сега</button>
-                    <button class="btn btn-soft btn-compact" onclick="cloudPush()">⬆️ Прати сега</button>
-                    <button class="btn btn-soft btn-compact" onclick="cloudSignOut()">Одјави се</button>
+                    ${remote}
+                    ${cloudState.dirty ? '<span class="cloud-chip conflict">● непратени измени</span>' : ''}
                 </div>
-                <div class="sync-hint">
-                    ${cloudState.lastSync ? 'Последна синхронизација: ' + escapeHtml(formatStampTime(cloudState.lastSync)) : 'Сè уште нема синхронизација.'}
-                    ${me ? '' : ' · <strong>Избери „Јас сум“ погоре</strong> за автоматско помирување при истовремени измени.'}
+
+                <div class="sync-steps">
+                    <div class="sync-step">
+                        <span class="step-no">1</span>
+                        <div class="step-body">
+                            <b>Земи го она што е горе</b>
+                            <small>Ја заменува локалната состојба со онаа од облакот. Прво извези JSON ако имаш непратени измени.</small>
+                        </div>
+                        <button class="btn btn-soft btn-compact" onclick="cloudPull()">⬇️ Повлечи</button>
+                    </div>
+                    <div class="sync-step">
+                        <span class="step-no">2</span>
+                        <div class="step-body">
+                            <b>Прати го твоето</b>
+                            <small>${me ? 'Ако некој снимил во меѓувреме, твојот дел се применува врз неговата состојба.' : '<strong>Избери „Јас сум“ погоре</strong> за автоматско помирување при истовремени измени.'}</small>
+                        </div>
+                        <button class="btn btn-primary btn-compact" onclick="cloudPush()">⬆️ Прати</button>
+                    </div>
+                    <div class="sync-step danger-step">
+                        <span class="step-no">3</span>
+                        <div class="step-body">
+                            <b>Избриши ги податоците од облакот</b>
+                            <small>Кога сите ќе се синхронизираат. Онлајн не останува ниту едно име.</small>
+                        </div>
+                        <button class="btn btn-danger btn-compact" onclick="cloudWipe()">🗑️ Избриши горе</button>
+                    </div>
+                    <div class="sync-step">
+                        <span class="step-no">4</span>
+                        <div class="step-body">
+                            <b>Затвори ја сесијата</b>
+                            <small>Одјава и враќање во офлајн режим.</small>
+                        </div>
+                        <button class="btn btn-soft btn-compact" onclick="closeSyncSession()">🔒 Затвори</button>
+                    </div>
+                </div>
+
+                <div class="sync-hint" style="margin-top:10px;">
+                    ${cloudState.lastSync ? 'Последна размена: ' + escapeHtml(formatStampTime(cloudState.lastSync)) : 'Во оваа сесија сè уште нема размена.'}
+                    ${cloudLogLastWipe() ? ' · Последно бришење горе: ' + escapeHtml(cloudLogLastWipe()) : ''}
                 </div>`;
         }
 
-        function startCloudPolling() {
-            stopCloudPolling();
-            cloudState.pollTimer = window.setInterval(() => {
-                if (document.hidden || cloudState.busy || !cloudLoggedIn()) return;
-                cloudPull({ silent: true });
-            }, CLOUD_POLL_MS);
+        function cloudLogLastWipe() {
+            const last = cloudLogRead().filter(e => e.what === 'избришани податоци од облак').pop();
+            return last ? formatStampTime(last.at) : '';
         }
 
-        function stopCloudPolling() {
-            window.clearInterval(cloudState.pollTimer);
-            cloudState.pollTimer = null;
-        }
-
-        async function initCloudSync() {
-            renderCloudPanel();
-            if (!cloudConfigured()) return setCloudStatus('off', '');
-            loadCloudSession();
-            if (!cloudLoggedIn()) {
-                renderCloudPanel();
-                return setCloudStatus('anon', '');
+        // ── бришење на податоците од облакот ──
+        async function cloudWipe() {
+            if (!cloudConfigured() || !cloudLoggedIn()) return notify('Не си најавен.', 'warn');
+            if (!confirm('Да се избришат податоците од облакот?\n\nРедот останува, но содржината се празни — онлајн нема да остане ниту едно име на ученик.\n\nЛокалните податоци на овој компјутер остануваат недопрени.')) return;
+            if (cloudState.version === null) {
+                const pulled = await cloudPull({ silent: true, install: false });
+                if (!pulled) return;
             }
+            cloudState.busy = true;
+            setCloudStatus('syncing', 'бришење…');
+            try {
+                const res = await cloudFetch(`/rest/v1/schedule_state?id=eq.1&version=eq.${cloudState.version}`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json', Prefer: 'return=representation' },
+                    body: JSON.stringify({
+                        data: {},
+                        version: cloudState.version + 1,
+                        updated_at: new Date().toISOString(),
+                        updated_by: cloudUserLabel() + ' (бришење)'
+                    })
+                });
+                if (!res.ok) {
+                    setCloudStatus('error', 'бришењето не успеа');
+                    return notify('Бришењето не успеа. Провери врска и дозволи.', 'warn');
+                }
+                const rows = await res.json();
+                if (!Array.isArray(rows) || !rows.length) {
+                    setCloudStatus('conflict', 'некој снимил во меѓувреме');
+                    return notify('Некој снимил во меѓувреме — повлечи и повтори го бришењето.', 'warn');
+                }
+                cloudState.version = Number(rows[0].version);
+                cloudState.remoteHasData = false;
+                cloudState.remoteAt = rows[0].updated_at;
+                cloudState.remoteBy = rows[0].updated_by;
+                cloudLogAdd('избришани податоци од облак');
+                setCloudStatus('ready', 'облакот е празен');
+                notify('Податоците се избришани од облакот. Локалните се недопрени.', 'ok');
+            } catch (e) {
+                console.error(e);
+                setCloudStatus('error', 'нема врска');
+            } finally {
+                cloudState.busy = false;
+                renderCloudPanel();
+            }
+        }
+
+        // Никакво автоматско поврзување: во офлајн режим ниту еден повик не се прави.
+        async function initCloudSync() {
+            if (!cloudSyncModeOn()) {
+                setCloudStatus('off', '');
+                renderCloudPanel();
+                return;
+            }
+            if (!cloudConfigured()) {
+                setCloudStatus('off', '');
+                renderCloudPanel();
+                return;
+            }
+            loadCloudSession();
             renderCloudPanel();
-            await cloudPull({ silent: true });
-            startCloudPolling();
-            document.addEventListener('visibilitychange', () => {
-                if (!document.hidden && cloudLoggedIn()) cloudPull({ silent: true });
-            });
+            setCloudStatus(cloudLoggedIn() ? 'ready' : 'anon', '');
+            if (cloudLoggedIn()) await cloudPull({ silent: true, install: false });
+            renderCloudPanel();
         }
 
         function csvCell(value) {
@@ -6703,12 +6873,12 @@ function downloadDoc() {
             applyScheduleSearch();
         };
 
-        // [v4.2] Секое локално снимање се пренесува и во облак (ако е конфигуриран
-        // и најавен). Обвивка, за да не се допира секое место што менува податоци.
+        // [v4.2] Обвивка околу локалното снимање — само обележува дека има непратени
+        // измени. Не праќа ништо само од себе; праќањето е рачно, во отворена сесија.
         const baseSaveScheduleToLocal = saveScheduleToLocal;
         saveScheduleToLocal = function() {
             baseSaveScheduleToLocal();
-            scheduleCloudPush();
+            markCloudDirty();
         };
 
         window.addEventListener('DOMContentLoaded', loadDensityPreference);
