@@ -5641,6 +5641,18 @@ body.density-comfortable .student-select {
             ].join('');
 
             let html = '';
+
+            // Ако мапата е стара, во S-Dnevnik веројатно има измени (планови, нови
+            // ученици) што овој извоз не ги знае — а распоредот и учениците се
+            // заменуваат цели.
+            const bridge0 = getSdnBridge();
+            const ageDays = bridge0.learnedAt ? Math.floor((Date.now() - new Date(bridge0.learnedAt).getTime()) / 86400000) : null;
+            if (ageDays !== null && ageDays >= 3) {
+                html += `<div class="merge-alert">🕐 Податоците од S-Dnevnik се научени пред <strong>${printCountLabel(ageDays, 'ден', 'дена')}</strong>. Ако во меѓувреме си менувал планови или додавал ученици таму, вчитај свеж backup пред овој извоз — инаку овој фајл ќе врати постара состојба на списокот.</div>`;
+            }
+
+            html += '<div class="merge-alert">🔁 Распоредот во S-Dnevnik се <strong>заменува целосно</strong> со овој. Ако таму си закажал термин што го нема во Распореди, тој ќе исчезне. Историјата на распоредот (scheduleHistory) останува недопрена.</div>';
+
             html += '<div class="merge-alert ok">✅ Фајлот содржи само <strong>ученици и распоред</strong>. Присуството, проценките, досиејата и плановите во S-Dnevnik остануваат недопрени.'
                 + (plan.preservedFields && plan.preservedFields.length
                     ? `<br>Кај познатите ученици се пренесуваат и нивните постоечки полиња: <strong>${plan.preservedFields.map(escapeHtml).join(', ')}</strong>.`
@@ -5690,11 +5702,24 @@ body.density-comfortable .student-select {
 
         function downloadSdnPayload() {
             if (!sdnResult) return;
-            const { payload, therapist } = sdnResult;
+            const { payload, therapist, plan } = sdnResult;
             const safe = therapist.replace(/[^\wА-Яа-яЀ-ӿ]+/g, '_');
             downloadTextFile(JSON.stringify(payload, null, 2), `SDnevnik_od_Rasporedi_${safe}_${safeFileStamp()}.json`, 'application/json;charset=utf-8');
+
+            // Новододелените броеви влегуваат во мапата веднаш. Без ова, вториот
+            // извоз пак би ги сметал за нови и би им дал ДРУГ број — што во
+            // S-Dnevnik значи истиот ученик двапати, со разделена историја.
+            const bridge = getSdnBridge();
+            plan.created.forEach(c => {
+                const rec = payload.students.find(s => s.id === c.id);
+                if (rec) bridge.map[sdnKey(c.student)] = { id: rec.id, name: rec.name, grade: rec.grade || '', planId: rec.planId ?? null, raw: rec };
+            });
+            bridge.exportedAt = new Date().toISOString();
+            saveScheduleToLocal();
+            renderSdnPanel();
+
             closeSdnPreview();
-            notify('Фајлот е симнат. Вчитај го во S-Dnevnik преку неговото копче за увоз.', 'ok');
+            notify(`Фајлот е симнат${plan.created.length ? ` · ${printCountLabel(plan.created.length, 'нов број е запаметен', 'нови броеви се запаметени')}` : ''}. Вчитај го во S-Dnevnik.`, 'ok');
         }
 
         function renderSdnPanel() {
