@@ -3993,6 +3993,21 @@ function downloadDoc() {
             generateSchedule();
             refreshPerTherapistSelector();
             renderPeopleCrudPanel();
+            refreshSecondaryViews();
+        }
+
+        // [v4.5] Погледи што не се дел од основното вчитување, но мора да го следат
+        // секое големо преместување на податоци (унапредување, спојување, враќање
+        // снимка, повлекување од облак). Без ова, отворен Голем преглед покажуваше
+        // избришани ученици и уредувањето запишуваше во непостоечки запис.
+        function refreshSecondaryViews() {
+            const backdrop = document.getElementById('rosterEditorBackdrop');
+            if (backdrop && backdrop.classList.contains('show')) renderRosterEditor();
+
+            if (document.getElementById('quickTherapistSelect')) loadTherapistStudentsCheckboxes();
+
+            const selector = document.getElementById('perTherapistSelector');
+            if (selector && selector.value && therapists.includes(selector.value)) renderPerTherapistView();
         }
 
         function updateStats() {
@@ -4288,6 +4303,7 @@ function downloadDoc() {
             renderStudentGradeFilterOptions();
             renderPeopleCrudPanel();
             renderClbStudents();
+            refreshSecondaryViews();
             if (message) notify(message, 'ok');
         }
 
@@ -5655,17 +5671,27 @@ function downloadDoc() {
             }).join('');
         }
 
+        // Заштита: ако списокот е застарен (некој друг поглед ги преместил
+        // податоците), не смееме да запишеме во ученик што повеќе не постои.
+        function rosterEditorStudentGone(name) {
+            if (students.includes(name)) return false;
+            renderRosterEditor();
+            notify('Списокот беше застарен и е освежен — повтори ја измената.', 'warn');
+            return true;
+        }
+
         function rosterEditorSetGrade(select) {
             const student = select.dataset.student;
+            if (rosterEditorStudentGone(student)) return;
             setStudentGrade(student, select.value);
             saveScheduleToLocal();
             refreshAfterPeopleCrud();
-            renderRosterEditor();
             notify(`${displayStudentName(student)} → ${select.value || 'без одделение'}`, 'ok');
         }
 
         function rosterEditorRename(input) {
             const oldName = input.dataset.student;
+            if (rosterEditorStudentGone(oldName)) return;
             const typed = normalizeName(input.value);
             if (!typed) { renderRosterEditor(); return notify('Името не смее да биде празно.', 'warn'); }
 
