@@ -707,6 +707,15 @@
         .conflict-report h3 { color: var(--danger); margin-bottom: 15px; display: flex; align-items: center; gap: 10px; }
         .conflict-item { padding: 12px; margin: 8px 0; background: #fff3cd; border-left: 4px solid var(--warning); border-radius: 6px; color: #856404; }
         [data-theme="dark"] .conflict-item { background: rgba(243, 156, 18, 0.2); color: #f39c12; }
+        .conflict-item.clickable { cursor: pointer; transition: transform .12s ease, box-shadow .12s ease; }
+        .conflict-item.clickable:hover { transform: translateX(3px); box-shadow: 0 2px 8px var(--shadow); }
+        .conflict-item .ci-go { font-size: 11.5px; font-weight: 800; color: var(--primary); white-space: nowrap; }
+        @keyframes conflictFlash {
+            0%, 60% { box-shadow: 0 0 0 4px var(--danger) inset; }
+            100% { box-shadow: none; }
+        }
+        .schedule-table td.conflict-flash { animation: conflictFlash 2.5s ease-out; }
+        .schedule-table td.col-dim { opacity: 0.30; }
 
 /* ============== ПОЛИРАН СЛОЈ v2.7: професионален изглед + работни алатки ============== */
 :root {
@@ -2791,6 +2800,7 @@ body.density-comfortable .student-select {
                 <div class="per-therapist-header">
                     <h3>👤 Распоред по Терапевт</h3>
                     <select id="perTherapistSelector" onchange="renderPerTherapistView()"></select>
+                    <button type="button" class="btn btn-soft btn-compact" onclick="printCurrentTherapist()" title="Го отвора Центарот за печатење со неделниот распоред само на овој терапевт">🖨️ Печати го овој распоред</button>
                 </div>
 
                 <div class="pt-layout-grid">
@@ -4058,14 +4068,42 @@ body.density-comfortable .student-select {
             if (conflicts.length > 0) {
                 reportDiv.className = 'conflict-report show';
                 reportDiv.innerHTML = `<h3>⚠️ Извештај за Конфликти (${conflicts.length})</h3>` + conflicts.map(c => `
-                    <div class="conflict-item">
-                        <strong>${escapeHtml(c.student)}</strong> е ставен во ист термин (<strong>${c.day.toUpperCase()} во ${c.time}</strong>) кај повеќе терапевти одеднаш: 
-                        ${c.therapists.map(t => escapeHtml(t.name)).join(', ')}
+                    <div class="conflict-item clickable" role="button" tabindex="0" title="Скокни до овој термин во табелата"
+                         data-day="${escapeAttr(c.day)}" data-time="${escapeAttr(c.time)}" data-idx="${c.therapists[0].index}"
+                         onclick="jumpToConflict(this.dataset.day, this.dataset.time, this.dataset.idx)"
+                         onkeydown="if(event.key==='Enter')jumpToConflict(this.dataset.day, this.dataset.time, this.dataset.idx)">
+                        <strong>${escapeHtml(c.student)}</strong> е ставен во ист термин (<strong>${c.day.toUpperCase()} во ${c.time}</strong>) кај повеќе терапевти одеднаш:
+                        ${c.therapists.map(t => escapeHtml(t.name)).join(', ')} <span class="ci-go">→ покажи</span>
                     </div>
                 `).join('');
             } else {
                 reportDiv.className = 'conflict-report';
             }
+        }
+
+        // Клик на конфликт во извештајот → табот Распоред, скок до ќелијата, трепкање.
+        // Ако филтрите го кријат денот или терапевтот, привремено ги вклучува.
+        function jumpToConflict(day, time, therapistIndex) {
+            const therapist = therapists[Number(therapistIndex)];
+            let regenerate = false;
+            if (!selectedDays.has(day)) { selectedDays.add(day); regenerate = true; }
+            if (therapist && !selectedTherapistsFilter.has(therapist)) { selectedTherapistsFilter.add(therapist); regenerate = true; }
+            if (regenerate) {
+                generateCheckboxes();
+                generateSchedule();
+                notify('Филтрите се проширени за да се види конфликтот.', 'info');
+            }
+            switchTab('schedule');
+            // По менување таб, распоредот е веќе во DOM — скролај откако ќе се прикаже.
+            window.setTimeout(() => {
+                const cell = document.getElementById(`cell-${day}-${time}-T${therapistIndex}`);
+                if (!cell) return notify('Ќелијата не е најдена — освежи ја табелата.', 'warn');
+                cell.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                cell.classList.remove('conflict-flash');
+                void cell.offsetWidth;   // рестарт на анимацијата при повторен клик
+                cell.classList.add('conflict-flash');
+                window.setTimeout(() => cell.classList.remove('conflict-flash'), 2600);
+            }, 120);
         }
 
         // ============== ФИЛТРИ (CHECKBOXES) ==============
@@ -6411,6 +6449,18 @@ body.density-comfortable .student-select {
             openPrintCenter();
         }
 
+        // Од табот „По Терапевт“: директно во режимот „Распоред по терапевт“,
+        // со штиклиран само тековниот терапевт.
+        function printCurrentTherapist() {
+            const therapist = (document.getElementById('perTherapistSelector') || {}).value;
+            if (!therapist) return notify('Прво избери терапевт.', 'warn');
+            if (!printState) printState = loadPrintPrefs();
+            printState.mode = 'therapistGrid';
+            therapists.forEach(t => { printState.therapistPick[t] = t === therapist; });
+            savePrintPrefs();
+            openPrintCenter();
+        }
+
         function openPrintCenter() {
             ensureStudentMeta();
             if (!printState) printState = loadPrintPrefs();
@@ -7356,22 +7406,34 @@ body.density-comfortable .student-select {
             const rows = document.querySelectorAll('.schedule-table tbody tr:not(.day-head)');   // [v3.4] header-лентите остануваат видливи
 
             document.querySelectorAll('.cell-search-hit').forEach(el => el.classList.remove('cell-search-hit'));
+            document.querySelectorAll('.col-dim').forEach(el => el.classList.remove('col-dim'));
             rows.forEach(row => row.classList.remove('is-hidden-by-search'));
 
             if (!query) return;
 
+            // [v4.6] Освен редови, затемни ги и колоните (терапевтите) без ниту еден погодок.
+            const hitColumns = new Set();
             rows.forEach(row => {
                 let rowHit = false;
-                row.querySelectorAll('td:not(.time-cell)').forEach(td => {
+                [...row.querySelectorAll('td:not(.time-cell)')].forEach((td, colIndex) => {
                     const select = td.querySelector('select');
                     const value = normalizeText(select ? select.value : td.textContent);
                     if (value && value !== normalizeText('Избери Ученик') && value.includes(query)) {
                         td.classList.add('cell-search-hit');
                         rowHit = true;
+                        hitColumns.add(colIndex);
                     }
                 });
                 if (!rowHit) row.classList.add('is-hidden-by-search');
             });
+
+            if (hitColumns.size) {
+                rows.forEach(row => {
+                    [...row.querySelectorAll('td:not(.time-cell)')].forEach((td, colIndex) => {
+                        if (!hitColumns.has(colIndex)) td.classList.add('col-dim');
+                    });
+                });
+            }
         }
 
         function jumpToDay(day) {
@@ -7513,6 +7575,12 @@ body.density-comfortable .student-select {
         // Безбедно бришење: не го чисти целиот localStorage и ја зачувува темата.
         function clearSchedule() {
             if (!confirm('Дали сигурно сакате да ги избришете учениците, терапевтите, врските и распоредот?')) return;
+            // [v4.6] Последна шанса за резерва — JSON фајл надвор од прелистувачот.
+            if (confirm('Да се симне JSON резерва пред бришењето?\n\n„OK“ = прво резерва, па бришење.\n„Cancel“ = бриши без резерва.')) {
+                exportJSONBackup();
+            }
+            // Автоматска снимка секогаш — за „⏪ Врати пред спојување“ да може да го одврати и ова.
+            pushSnapshot('бришење на сите податоци');
             localStorage.removeItem(LOCAL_STORAGE_KEY);
             students = ['Избери Ученик'];
             therapists = [];
