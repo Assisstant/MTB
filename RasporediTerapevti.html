@@ -1820,6 +1820,173 @@ body.density-comfortable .student-select {
 
 .merge-empty { font-size: 12px; color: var(--text-secondary); font-style: italic; padding: 8px 2px; }
 
+/* ── [v4.4] голем преглед на ученици ── */
+.roster-editor-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    display: none;
+    background: rgba(6, 12, 30, 0.62);
+    backdrop-filter: blur(4px);
+    padding: 16px;
+}
+
+.roster-editor-backdrop.show { display: block; }
+
+.roster-editor {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    background: var(--bg-card);
+    color: var(--text-primary);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    box-shadow: 0 24px 70px rgba(0,0,0,0.4);
+    overflow: hidden;
+}
+
+.re-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    flex-wrap: wrap;
+    padding: 14px 18px;
+    border-bottom: 1px solid var(--border);
+    background: linear-gradient(135deg, rgba(91,111,216,0.16), rgba(61,213,152,0.08));
+}
+
+.re-title h3 { font-size: 17px; }
+.re-title .re-sub { font-size: 12px; color: var(--text-secondary); font-weight: 600; }
+.re-tools { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.re-tools .people-crud-search { min-width: 150px; }
+
+.re-summary {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    padding: 10px 18px;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg-main);
+}
+
+.re-chip {
+    font-size: 11.5px;
+    font-weight: 700;
+    padding: 4px 10px;
+    border-radius: 20px;
+    border: 1px solid var(--border);
+    background: var(--bg-card);
+    color: var(--text-secondary);
+    cursor: pointer;
+}
+
+.re-chip:hover { border-color: var(--primary); color: var(--primary); }
+.re-chip b { color: var(--primary); }
+
+/* Скролот и колоните мора да бидат на РАЗЛИЧНИ елементи. Повеќеколонски блок со
+   ограничена висина не се прелева надолу — прави нови колони настрана и добиваш
+   хоризонтално лизгање низ цел екран. */
+.re-scroll {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 14px 18px 24px;
+}
+
+.re-body {
+    /* Бројот на колони го одредува ширината на прозорецот. */
+    column-width: 380px;
+    column-gap: 26px;
+}
+
+.re-body.cols-1 { column-count: 1; column-width: auto; }
+.re-body.cols-2 { column-count: 2; column-width: auto; }
+.re-body.cols-3 { column-count: 3; column-width: auto; }
+
+.re-group {
+    break-inside: avoid;
+    -webkit-column-break-inside: avoid;
+    margin-bottom: 16px;
+}
+
+.re-group > h4 {
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+    color: var(--primary);
+    background: var(--bg-main);
+    border-left: 4px solid var(--primary);
+    border-radius: 6px;
+    padding: 6px 10px;
+    margin-bottom: 6px;
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.re-group > h4 em { font-style: normal; font-size: 11px; color: var(--text-secondary); }
+
+.re-row {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    padding: 3px 4px;
+    border-bottom: 1px dotted var(--border);
+}
+
+.re-row:last-child { border-bottom: 0; }
+.re-row .re-no { flex: none; width: 26px; font-size: 11px; color: var(--text-secondary); text-align: right; }
+
+.re-row input.re-name {
+    flex: 1;
+    min-width: 0;
+    padding: 4px 7px;
+    font-size: 12.5px;
+    font-family: inherit;
+    color: var(--text-primary);
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 7px;
+}
+
+.re-row input.re-name:hover { border-color: var(--border); }
+.re-row input.re-name:focus { outline: none; border-color: var(--primary); background: var(--bg-main); }
+
+.re-row select.re-grade {
+    flex: none;
+    width: 104px;
+    padding: 3px 6px;
+    font-size: 11.5px;
+    font-family: inherit;
+    border: 1.5px solid var(--border);
+    border-radius: 7px;
+    background: var(--bg-card);
+    color: var(--text-primary);
+}
+
+.re-row .re-cat {
+    flex: none;
+    border: 0;
+    background: transparent;
+    cursor: pointer;
+    font-size: 13px;
+    padding: 2px 4px;
+    border-radius: 6px;
+}
+
+.re-row .re-cat:hover { background: var(--bg-main); }
+.re-empty { font-size: 13px; color: var(--text-secondary); font-style: italic; padding: 20px 4px; }
+
+@media (max-width: 700px) {
+    .roster-editor-backdrop { padding: 0; }
+    .roster-editor { border-radius: 0; }
+    .re-tools .people-crud-search { min-width: 120px; flex: 1; }
+}
+
 /* ── [v4.3] уредлив список за новата учебна година ── */
 .year-roster {
     max-height: 300px;
@@ -2607,6 +2774,7 @@ body.density-comfortable .student-select {
                             </div>
                             <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
                                 <button type="button" class="btn btn-soft btn-compact" onclick="openStudentRosterPage()" title="Целосен список на една страна, групиран по одделенија — за гледање и печатење">📋 Список по одделенија</button>
+                                <button type="button" class="btn btn-primary btn-compact" onclick="openRosterEditor()" title="Цел прозорец: сите ученици со одделение, за брз преглед и уредување">🔍 Голем преглед</button>
                                 <button type="button" class="btn btn-secondary btn-compact" onclick="openYearRollover()" title="Унапредување во следно одделение, отпис на последното и упис на нови">🎓 Нова учебна година</button>
                                 <span class="people-crud-count" id="studentCrudCount">0</span>
                             </div>
@@ -2861,6 +3029,36 @@ body.density-comfortable .student-select {
                     <button type="button" class="btn btn-soft" onclick="closeCandidateModal()">Откажи</button>
                     <button type="button" class="btn btn-primary" onclick="saveCandidateSelection()">Зачувај</button>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============== [v4.4] ГОЛЕМ ПРЕГЛЕД НА УЧЕНИЦИ ============== -->
+    <div id="rosterEditorBackdrop" class="roster-editor-backdrop">
+        <div class="roster-editor" role="dialog" aria-modal="true" aria-labelledby="rosterEditorTitle">
+            <div class="re-head">
+                <div class="re-title">
+                    <h3 id="rosterEditorTitle">🔍 Ученици — преглед и уредување</h3>
+                    <span class="re-sub" id="rosterEditorCount"></span>
+                </div>
+                <div class="re-tools">
+                    <input type="search" id="rosterEditorSearch" class="people-crud-search compact" placeholder="Пребарај ученик..." oninput="renderRosterEditor()">
+                    <select id="rosterEditorSort" class="people-crud-search compact" onchange="renderRosterEditor()">
+                        <option value="grade">Подреди по одделение</option>
+                        <option value="name">Подреди по име</option>
+                    </select>
+                    <select id="rosterEditorWidth" class="people-crud-search compact" onchange="applyRosterEditorWidth()">
+                        <option value="auto">Колони: автоматски</option>
+                        <option value="1">Една колона</option>
+                        <option value="2">Две колони</option>
+                        <option value="3">Три колони</option>
+                    </select>
+                    <button type="button" class="btn btn-soft btn-compact" onclick="closeRosterEditor()">✕ Затвори</button>
+                </div>
+            </div>
+            <div class="re-summary" id="rosterEditorSummary"></div>
+            <div class="re-scroll">
+                <div class="re-body" id="rosterEditorBody"></div>
             </div>
         </div>
     </div>
@@ -5340,6 +5538,150 @@ function downloadDoc() {
             }
         }
 
+        // ============== [v4.4] ГОЛЕМ ПРЕГЛЕД НА УЧЕНИЦИ ==============
+        // Цел прозорец, ученикот се уредува на лице место, а бројот на колони го
+        // одредува ширината на екранот (column-width во CSS) освен ако не е избран рачно.
+
+        function openRosterEditor() {
+            ensureStudentMeta();
+            if (!getPureStudents().length) return notify('Нема ученици за приказ.', 'warn');
+            document.getElementById('rosterEditorBackdrop').classList.add('show');
+            document.addEventListener('keydown', handleRosterEditorKeyDown);
+            applyRosterEditorWidth();
+            renderRosterEditor();
+        }
+
+        function closeRosterEditor() {
+            document.getElementById('rosterEditorBackdrop').classList.remove('show');
+            document.removeEventListener('keydown', handleRosterEditorKeyDown);
+        }
+
+        function handleRosterEditorKeyDown(event) {
+            if (event.key === 'Escape') closeRosterEditor();
+        }
+
+        function applyRosterEditorWidth() {
+            const body = document.getElementById('rosterEditorBody');
+            const value = (document.getElementById('rosterEditorWidth') || {}).value || 'auto';
+            body.classList.remove('cols-1', 'cols-2', 'cols-3');
+            if (value !== 'auto') body.classList.add('cols-' + value);
+        }
+
+        function rosterEditorFilterByGrade(grade) {
+            const box = document.getElementById('rosterEditorSearch');
+            box.value = '';
+            rosterEditorGradeFilter = rosterEditorGradeFilter === grade ? '' : grade;
+            renderRosterEditor();
+        }
+
+        let rosterEditorGradeFilter = '';
+
+        function renderRosterEditor() {
+            const body = document.getElementById('rosterEditorBody');
+            if (!body) return;
+            ensureStudentMeta();
+
+            const query = (document.getElementById('rosterEditorSearch').value || '').toLocaleLowerCase('mk-MK').trim();
+            const sort = document.getElementById('rosterEditorSort').value || 'grade';
+            const all = getPureStudents();
+
+            // ── лента со увид: колку ученици по одделение ──
+            const counts = new Map();
+            all.forEach(s => {
+                const key = getStudentCategory(s) === 'preschool' ? 'предучилишна' : (getStudentGrade(s) || 'без одделение');
+                counts.set(key, (counts.get(key) || 0) + 1);
+            });
+            const keys = [...counts.keys()].sort((a, b) => compareGrades(a, b) || a.localeCompare(b, 'mk'));
+            document.getElementById('rosterEditorSummary').innerHTML =
+                `<span class="re-chip" onclick="rosterEditorFilterByGrade('')"><b>${all.length}</b> вкупно</span>`
+                + keys.map(k => `<span class="re-chip" onclick="rosterEditorFilterByGrade('${escapeAttr(k)}')" title="Прикажи само ${escapeHtml(k)}">${escapeHtml(k)}: <b>${counts.get(k)}</b></span>`).join('');
+
+            const visible = all.filter(s => {
+                if (query && !displayStudentName(s).toLocaleLowerCase('mk-MK').includes(query)) return false;
+                if (rosterEditorGradeFilter) {
+                    const key = getStudentCategory(s) === 'preschool' ? 'предучилишна' : (getStudentGrade(s) || 'без одделение');
+                    if (key !== rosterEditorGradeFilter) return false;
+                }
+                return true;
+            });
+
+            document.getElementById('rosterEditorCount').textContent =
+                visible.length === all.length
+                    ? printCountLabel(all.length, 'ученик', 'ученици')
+                    : `${visible.length} од ${all.length} прикажани${rosterEditorGradeFilter ? ' · ' + rosterEditorGradeFilter : ''}`;
+
+            if (!visible.length) {
+                body.innerHTML = '<div class="re-empty">Нема ученик што одговара на пребарувањето.</div>';
+                return;
+            }
+
+            const byName = (a, b) => displayStudentName(a).localeCompare(displayStudentName(b), 'mk');
+            const gradeOptions = Array.from(new Set([...COMMON_GRADE_ROMANS, ...getGradePool()])).sort(compareGrades);
+
+            const rowHtml = (student, index) => {
+                const cat = getStudentCategory(student);
+                const grade = getStudentGrade(student);
+                const badge = cat === 'other' ? '🏫' : cat === 'preschool' ? '🧸' : '👤';
+                const title = cat === 'other' ? ('Друго училиште: ' + (getStudentSchool(student) || 'непознато')) : cat === 'preschool' ? 'Предучилишна возраст' : 'Нашето училиште';
+                let opts = `<option value="" ${grade ? '' : 'selected'}>—</option>`;
+                gradeOptions.forEach(g => { opts += `<option value="${escapeAttr(g)}" ${g === grade ? 'selected' : ''}>${escapeHtml(g)}</option>`; });
+                return `<div class="re-row">
+                    <span class="re-no">${index}</span>
+                    <input class="re-name" type="text" value="${escapeAttr(displayStudentName(student))}" data-student="${escapeAttr(student)}"
+                           onchange="rosterEditorRename(this)" onkeydown="if(event.key==='Enter')this.blur();">
+                    <select class="re-grade" data-student="${escapeAttr(student)}" onchange="rosterEditorSetGrade(this)">${opts}</select>
+                    <button type="button" class="re-cat" title="${escapeAttr(title)}" onclick="openStudentDetails(this.dataset.student)" data-student="${escapeAttr(student)}">${badge}</button>
+                </div>`;
+            };
+
+            if (sort === 'name') {
+                const sorted = visible.slice().sort(byName);
+                body.innerHTML = `<div class="re-group"><h4><span>Сите по азбучен ред</span><em>${printCountLabel(sorted.length, 'ученик', 'ученици')}</em></h4>`
+                    + sorted.map((s, i) => rowHtml(s, i + 1)).join('') + '</div>';
+                return;
+            }
+
+            const groups = new Map();
+            visible.forEach(s => {
+                const key = getStudentCategory(s) === 'preschool' ? 'предучилишна' : (getStudentGrade(s) || 'без одделение');
+                if (!groups.has(key)) groups.set(key, []);
+                groups.get(key).push(s);
+            });
+            const order = [...groups.keys()].sort((a, b) => compareGrades(a, b) || a.localeCompare(b, 'mk'));
+            body.innerHTML = order.map(key => {
+                const list = groups.get(key).sort(byName);
+                return `<div class="re-group"><h4><span>${escapeHtml(key)}</span><em>${printCountLabel(list.length, 'ученик', 'ученици')}</em></h4>`
+                    + list.map((s, i) => rowHtml(s, i + 1)).join('') + '</div>';
+            }).join('');
+        }
+
+        function rosterEditorSetGrade(select) {
+            const student = select.dataset.student;
+            setStudentGrade(student, select.value);
+            saveScheduleToLocal();
+            refreshAfterPeopleCrud();
+            renderRosterEditor();
+            notify(`${displayStudentName(student)} → ${select.value || 'без одделение'}`, 'ok');
+        }
+
+        function rosterEditorRename(input) {
+            const oldName = input.dataset.student;
+            const typed = normalizeName(input.value);
+            if (!typed) { renderRosterEditor(); return notify('Името не смее да биде празно.', 'warn'); }
+
+            // Ако старото име го носеше одделението во себе, новото го задржува тоа.
+            const prefix = inferGradeFromStudentName(oldName);
+            const newName = prefix ? `${prefix} - ${typed}` : typed;
+            if (newName === oldName) return;
+            if (students.includes(newName)) { renderRosterEditor(); return notify('Веќе постои ученик со тоа име.', 'warn'); }
+
+            const state = currentStateSnapshot();
+            stateRenameStudent(state, oldName, newName);
+            installState(state);
+            renderRosterEditor();
+            notify('Ученикот е преименуван.', 'ok');
+        }
+
         // ============== [v4.3] НОВА УЧЕБНА ГОДИНА ==============
         //
         // Крајот на годината менува сè одеднаш: сите се качуваат за едно одделение,
@@ -5544,7 +5886,7 @@ function downloadDoc() {
             let tmpIndex = 0;
             finalNames.forEach((newName, oldName) => {
                 if (newName === oldName) return;
-                const tmp = ` year-tmp-${tmpIndex++}`;
+                const tmp = `__YEAR_TMP_${tmpIndex++}__`;
                 stateRenameStudent(state, oldName, tmp);
                 staged.push({ tmp, newName, oldName });
             });
@@ -6456,7 +6798,8 @@ function downloadDoc() {
                 { id: 'therapists', label: 'Терапевти на ученикот', def: false },
                 { id: 'terms',      label: 'Број на термини неделно', def: false },
                 { id: 'signature',  label: 'Празна колона (потпис / забелешка)', def: false },
-                { id: 'grouped',    label: 'Групирај по одделение (со наслови)', def: true }
+                { id: 'grouped',    label: 'Групирај по одделение (со наслови)', def: true },
+                { id: 'landscape',  label: 'Положена страна (landscape)', def: false }
             ],
             therapists: [
                 { id: 'index',       label: 'Реден број', def: true },
@@ -6517,7 +6860,7 @@ function downloadDoc() {
         }
 
         function defaultPrintState() {
-            const state = { mode: 'students', flags: {}, titles: {}, common: {}, categories: {}, therapistPick: {}, gradeFilter: '', wordFont: 11 };
+            const state = { mode: 'students', flags: {}, titles: {}, common: {}, categories: {}, therapistPick: {}, gradeFilter: '', wordFont: 11, listColumns: 'auto' };
             PRINT_MODES.forEach(m => {
                 state.flags[m.id] = {};
                 state.titles[m.id] = '';
@@ -6536,6 +6879,7 @@ function downloadDoc() {
                 if (PRINT_MODES.some(m => m.id === saved.mode)) state.mode = saved.mode;
                 if (typeof saved.gradeFilter === 'string') state.gradeFilter = saved.gradeFilter;
                 if (Number(saved.wordFont) >= 8 && Number(saved.wordFont) <= 14) state.wordFont = Number(saved.wordFont);
+                if (['auto', '1', '2', '3', 1, 2, 3].includes(saved.listColumns)) state.listColumns = saved.listColumns;
                 PRINT_MODES.forEach(m => {
                     const savedFlags = (saved.flags || {})[m.id];
                     if (savedFlags) printFieldsFor(m.id).forEach(f => {
@@ -6644,6 +6988,15 @@ function downloadDoc() {
                 });
                 html += '</div>';
                 html += '<span class="print-group-label">Филтер по одделение</span>' + printGradeFilterHtml();
+                const colOpt = (value, label) => `<option value="${value}" ${String(printState.listColumns) === String(value) ? 'selected' : ''}>${label}</option>`;
+                html += '<span class="print-group-label">Колони во списокот</span>'
+                    + `<select class="print-input" onchange="setPrintListColumns(this.value)">
+                        ${colOpt('auto', 'Автоматски (според бројот на ученици)')}
+                        ${colOpt(1, 'Една колона')}
+                        ${colOpt(2, 'Две колони')}
+                        ${colOpt(3, 'Три колони')}
+                       </select>`
+                    + '<div class="sync-hint" style="margin-top:5px;">Важи и за печатење и за Word. Автоматски: над ~34 ученици оди во две колони за да собере на една страна.</div>';
             }
 
             if (mode === 'perTherapist' || mode === 'therapistGrid') {
@@ -6738,6 +7091,12 @@ function downloadDoc() {
             savePrintPrefs();
         }
 
+        function setPrintListColumns(value) {
+            printState.listColumns = value === 'auto' ? 'auto' : Number(value) || 1;
+            savePrintPrefs();
+            schedulePrintPreview();
+        }
+
         function onPrintTitleInput(value) {
             printState.titles[printState.mode] = value;
             savePrintPrefs();
@@ -6813,13 +7172,22 @@ function downloadDoc() {
                     default: return '';
                 }
             };
-            const rows = list => list.map((s, i) => `<tr>${cols.map(c => `<td class="${c.cls || ''}">${cell(c, s, i + 1)}</td>`).join('')}</tr>`).join('');
+            const rows = (list, offset = 0) => list.map((s, i) => `<tr>${cols.map(c => `<td class="${c.cls || ''}">${cell(c, s, offset + i + 1)}</td>`).join('')}</tr>`).join('');
 
             const byName = (a, b) => displayStudentName(a).localeCompare(displayStudentName(b), 'mk');
             const byGradeThenName = (a, b) => compareGrades(getStudentGrade(a), getStudentGrade(b)) || byName(a, b);
+            const columnCount = printListColumns(pool.length);
 
             if (!printFlag('grouped')) {
-                return { html: printTableHtml(cols, rows(pool.slice().sort(byGradeThenName))), count: pool.length };
+                const sorted = pool.slice().sort(byGradeThenName);
+                const per = Math.ceil(sorted.length / columnCount);
+                const parts = [];
+                for (let i = 0; i < columnCount; i++) {
+                    const chunk = sorted.slice(i * per, (i + 1) * per);
+                    // Нумерацијата тече низ колоните: 1–31 лево, 32–62 десно.
+                    if (chunk.length) parts.push(printTableHtml(cols, rows(chunk, i * per)));
+                }
+                return { html: printColumnsWrap(parts), count: pool.length };
             }
 
             const gradeGroups = new Map(), schoolGroups = new Map(), preschool = [], noGrade = [];
@@ -6843,8 +7211,43 @@ function downloadDoc() {
             if (preschool.length) groups.push({ label: '🧸 Предучилишна возраст', list: preschool.sort(byName) });
             if (noGrade.length) groups.push({ label: 'Без одделение', list: noGrade.sort(byName) });
 
-            const html = groups.map(g => `<section class="grp-sec"><h2><span>${escapeHtml(g.label)}</span><em>${g.list.length} ученик${g.list.length === 1 ? '' : 'а'}</em></h2>${printTableHtml(cols, rows(g.list))}</section>`).join('');
-            return { html, count: pool.length };
+            const rendered = groups.map(g => ({
+                html: `<section class="grp-sec"><h2><span>${escapeHtml(g.label)}</span><em>${printCountLabel(g.list.length, 'ученик', 'ученици')}</em></h2>${printTableHtml(cols, rows(g.list))}</section>`,
+                weight: g.list.length + 2   // насловот на групата исто зазема простор
+            }));
+
+            if (columnCount <= 1) {
+                return { html: rendered.map(r => r.html).join(''), count: pool.length };
+            }
+
+            // Групите се распоредуваат во колони по висина, за да не остане една
+            // колона празна кога групите се нееднакви.
+            const buckets = Array.from({ length: columnCount }, () => ({ html: '', weight: 0 }));
+            rendered.forEach(r => {
+                const target = buckets.reduce((a, b) => (a.weight <= b.weight ? a : b));
+                target.html += r.html;
+                target.weight += r.weight;
+            });
+            return { html: printColumnsWrap(buckets.filter(b => b.html).map(b => b.html)), count: pool.length };
+        }
+
+        // Колку колони. „Автоматски“ гледа колку редови има и дали страната е положена —
+        // 62 ученици исправено дадат 2 колони и сè собира на една страна наместо на две.
+        function printListColumns(rowCount) {
+            const setting = printState.listColumns || 'auto';
+            if (setting !== 'auto') return Math.max(1, Math.min(3, Number(setting) || 1));
+            const perColumn = printFlag('landscape') ? 24 : 34;
+            return Math.max(1, Math.min(3, Math.ceil(rowCount / perColumn)));
+        }
+
+        // Колоните се посебни табели една до друга во надворешна табела без рамки.
+        // CSS column-count не се пренесува во Word; вгнездена табела се пренесува.
+        function printColumnsWrap(parts) {
+            if (!parts.length) return '';
+            if (parts.length === 1) return parts[0];
+            const width = (100 / parts.length).toFixed(2) + '%';
+            const cells = parts.map(p => `<td width="${width}" style="width:${width}; vertical-align:top; border:0; padding:0 6px;">${p}</td>`).join('');
+            return `<table class="colwrap" width="100%" style="width:100%; border-collapse:collapse; border:0;"><tr>${cells}</tr></table>`;
         }
 
         function buildTherapistsPrintBody() {
@@ -7121,6 +7524,9 @@ function downloadDoc() {
   .ptg-summary b { color: #3a47b5; }
   table.roster, table.grid { width: 100%; border-collapse: collapse; }
   table.roster { max-width: ${landscape ? 'none' : '780px'}; }
+  table.colwrap, table.colwrap > tbody > tr > td { border: 0 !important; }
+  table.colwrap > tbody > tr > td > section:first-child { margin-top: 0; }
+  table.colwrap table.roster { max-width: none; }
   .roster th, .roster td, .grid th, .grid td { border: 1px solid #9aa3c0; padding: 4px 8px;
         font-size: 12.5px; text-align: left; vertical-align: top; }
   .roster th, .grid th { background: #eef1fb; color: #3a47b5; font-size: 12px; }
@@ -7180,7 +7586,7 @@ function downloadDoc() {
                     subtitle = printCountLabel(built.count, 'пополнет термин', 'пополнети термини');
             }
 
-            const landscape = ['schedule', 'therapistGrid'].includes(printState.mode) && printFlag('landscape');
+            const landscape = printFlag('landscape');
             const title = (printState.titles[printState.mode] || '').trim() || printDefaultTitle();
             const metaBits = [subtitle];
             if (printState.common.showDate) {
@@ -7278,7 +7684,10 @@ function downloadDoc() {
                 + '.ptgrid td.on,.ptgrid .half.on{background:#f0f9f4;}'
                 + '.ptgrid .rom{font-size:' + (grid + 4) + 'pt;font-weight:bold;}.ptgrid .tm{font-size:' + Math.max(6, grid - 2) + 'pt;color:#6a7188;}'
                 + '.ptgrid .half{padding:2pt 3pt;border-bottom:1px dashed #9aa3c0;}'
-                + '.ptg-summary{font-size:' + small + 'pt;color:#6a7188;}';
+                + '.ptg-summary{font-size:' + small + 'pt;color:#6a7188;}'
+                // надворешната табела што ги држи колоните не смее да има рамки —
+                // инаку глобалното th,td правило погоре ѝ ги дава
+                + '.colwrap,.colwrap td{border:0 !important;padding:0 4pt !important;}';
             const pageCss = doc.landscape
                 ? '@page WordSection1 { size: 841.9pt 595.3pt; mso-page-orientation: landscape; margin: 1cm; } div.WordSection1 { page: WordSection1; }'
                 : '@page WordSection1 { size: 595.3pt 841.9pt; margin: 1.2cm; } div.WordSection1 { page: WordSection1; }';
