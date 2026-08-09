@@ -5490,7 +5490,10 @@ body.density-comfortable .student-select {
                         const name = String(s.name || '').trim();
                         const id = Number(s.id);
                         if (!name || !Number.isFinite(id)) return;
-                        bridge.map[sdnKey(name)] = { id, name, grade: s.grade || '', planId: s.planId ?? null };
+                        // Го чуваме ЦЕЛИОТ запис. Ученикот при вчитување се заменува
+                        // цел, па ако вратиме само четири полиња, planType, duration,
+                        // needsTrijazen, disabilityType и слични тивко би се избришале.
+                        bridge.map[sdnKey(name)] = { id, name, grade: s.grade || '', planId: s.planId ?? null, raw: s };
                         if (planId === null && s.planId != null) planId = s.planId;
                     });
                     bridge.planId = planId;
@@ -5555,7 +5558,16 @@ body.density-comfortable .student-select {
                 if (known && known.grade && known.grade !== grade) {
                     plan.gradeChanges.push({ student: s, from: known.grade, to: grade });
                 }
-                outStudents.push({ id, name: displayStudentName(s), grade, planId: known ? (known.planId ?? planId) : planId });
+                // Познат ученик: го враќаме неговиот оригинален запис, менувајќи само
+                // име и одделение. Нов ученик: минимумот што го прави и самиот
+                // S-Dnevnik кога додаваш преку неговата форма.
+                if (known && known.raw) {
+                    const extra = Object.keys(known.raw).filter(k => !['id', 'name', 'grade', 'planId'].includes(k));
+                    if (extra.length) plan.preservedFields = Array.from(new Set([...(plan.preservedFields || []), ...extra]));
+                    outStudents.push(Object.assign({}, known.raw, { id, name: displayStudentName(s), grade, planId: known.planId ?? planId }));
+                } else {
+                    outStudents.push({ id, name: displayStudentName(s), grade, planId, needsTrijazen: true });
+                }
             });
 
             // Учениците што ги има во S-Dnevnik а не се кај овој терапевт: ако не ги
@@ -5565,7 +5577,8 @@ body.density-comfortable .student-select {
                 const minesIds = new Set(outStudents.map(s => s.id));
                 Object.values(bridge.map).forEach(m => {
                     if (minesIds.has(m.id)) return;
-                    outStudents.push({ id: m.id, name: m.name, grade: m.grade || '', planId: m.planId ?? planId });
+                    // Недопрени, точно како што беа — само се пренесуваат понатаму.
+                    outStudents.push(m.raw ? Object.assign({}, m.raw) : { id: m.id, name: m.name, grade: m.grade || '', planId: m.planId ?? planId });
                     plan.kept.push(m.name);
                 });
             }
@@ -5628,7 +5641,15 @@ body.density-comfortable .student-select {
             ].join('');
 
             let html = '';
-            html += '<div class="merge-alert ok">✅ Фајлот содржи само <strong>ученици и распоред</strong>. Присуството, проценките, досиејата и плановите во S-Dnevnik остануваат недопрени.</div>';
+            html += '<div class="merge-alert ok">✅ Фајлот содржи само <strong>ученици и распоред</strong>. Присуството, проценките, досиејата и плановите во S-Dnevnik остануваат недопрени.'
+                + (plan.preservedFields && plan.preservedFields.length
+                    ? `<br>Кај познатите ученици се пренесуваат и нивните постоечки полиња: <strong>${plan.preservedFields.map(escapeHtml).join(', ')}</strong>.`
+                    : '')
+                + '</div>';
+
+            if (plan.created.length) {
+                html += `<div class="merge-alert">🆕 ${printCountLabel(plan.created.length, 'нов ученик влегува', 'нови ученици влегуваат')} со празни полиња во S-Dnevnik: без присуство, проценки, досие, аудиограм и тријажа. Тие се создаваат таму кога првпат ќе ги отвориш. Планот им е поставен на постоечкиот, а „потребна тријажа“ е вклучено.</div>`;
+            }
 
             if (plan.noPlan) {
                 html += '<div class="merge-alert">⚠️ Не е познат planId — вчитај S-Dnevnik JSON, инаку новите ученици може да не се појават.</div>';
