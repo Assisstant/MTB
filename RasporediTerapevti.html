@@ -2890,6 +2890,7 @@ body.density-comfortable .student-select {
 <body>
     <input type="file" id="jsonFileInput" accept=".json" onchange="handleJSONImport(event)" style="display:none;">
     <input type="file" id="mergeFileInput" accept=".json" onchange="handleMergeImport(event)" style="display:none;">
+    <input type="file" id="sdnFileInput" accept=".json" onchange="handleSdnLearn(event)" style="display:none;">
     <datalist id="gradeOptionsList"></datalist>
     
     <div class="header">
@@ -3286,6 +3287,17 @@ body.density-comfortable .student-select {
                 <div class="sync-stamps" id="therapistStampList"></div>
             </div>
 
+            <!-- ============== [v4.7] МОСТ КОН S-DNEVNIK ============== -->
+            <div class="controls-section sync-card sdn-card">
+                <h4 style="font-size: 14px; color: var(--primary); margin-bottom: 10px;">🔗 Мост кон S-Dnevnik <span id="sdnStatusChip" class="cloud-chip off">⚪ не е поврзан</span></h4>
+                <div style="font-size: 12px; color: var(--text-secondary); margin-bottom: 12px;">
+                    Го подготвува списокот и неделниот распоред на еден терапевт во формат што S-Dnevnik го разбира.
+                    <strong>Прво вчитај го твојот S-Dnevnik JSON</strong> — оттаму се учат броевите (id) на учениците,
+                    за да не се скинат присуството, проценките и досиејата што висат на нив.
+                </div>
+                <div id="sdnPanel"></div>
+            </div>
+
             <!-- ============== [v4.2] ОБЛАК-СИНХРОНИЗАЦИЈА ============== -->
             <div class="controls-section sync-card cloud-card">
                 <h4 style="font-size: 14px; color: var(--primary); margin-bottom: 10px;">☁️ Облак-синхронизација <span id="cloudStatusChip" class="cloud-chip off">⚪ локално</span></h4>
@@ -3416,6 +3428,26 @@ body.density-comfortable .student-select {
     </div>
 
     <!-- ============== [v4.1] ПРЕГЛЕД ПРЕД СПОЈУВАЊЕ ============== -->
+    <!-- ============== [v4.7] ПРЕГЛЕД ПРЕД ИЗВОЗ ВО S-DNEVNIK ============== -->
+    <div id="sdnBackdrop" class="candidate-modal-backdrop" onclick="if(event.target===this)closeSdnPreview()">
+        <div class="merge-modal" role="dialog" aria-modal="true" aria-labelledby="sdnTitle">
+            <div class="candidate-modal-header">
+                <h3 id="sdnTitle">🔗 Извоз за S-Dnevnik</h3>
+                <div class="candidate-modal-subtitle" id="sdnSubtitle"></div>
+            </div>
+            <div class="merge-body">
+                <div class="merge-chips" id="sdnChips"></div>
+                <div class="merge-details" id="sdnDetails"></div>
+            </div>
+            <div class="candidate-modal-actions">
+                <button type="button" class="btn btn-soft" onclick="closeSdnPreview()">Откажи</button>
+                <div class="right-actions">
+                    <button type="button" class="btn btn-primary" onclick="downloadSdnPayload()">📤 Симни за S-Dnevnik</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <div id="mergeBackdrop" class="candidate-modal-backdrop" onclick="if(event.target===this)closeMergePreview()">
         <div class="merge-modal" role="dialog" aria-modal="true" aria-labelledby="mergeTitle">
             <div class="candidate-modal-header">
@@ -3951,6 +3983,7 @@ body.density-comfortable .student-select {
             // [v4.1] „Јас сум“ и таблата со печати одат по истата листа терапевти
             refreshMyTherapistSelect();
             renderTherapistStamps();
+            renderSdnPanel();   // [v4.7] и изборот на терапевт за S-Dnevnik
         }
 
         const THERAPIST_STUDENT_COLUMNS_KEY = 'therapist_students_columns_v1';
@@ -5403,6 +5436,280 @@ body.density-comfortable .student-select {
                 customGrades: Array.from(new Set(touched.map(s => ((state.studentMeta || {})[s] || {}).grade).filter(Boolean))),
                 terms
             };
+        }
+
+        // ============== [v4.7] МОСТ КОН S-DNEVNIK ==============
+        //
+        // S-Dnevnik е дневник на ЕДЕН терапевт. Неговиот распоред нема димензија за
+        // терапевт: schedule[ден][час] = [id-а на ученици]. Затоа извезуваме по терапевт.
+        //
+        // ЗОШТО НЕ СМЕЕ ПРОСТО ДА СЕ ГЕНЕРИРА ФАЈЛ:
+        //  1. Неговиот увоз ЗАМЕНУВА, не спојува — `if (data.X) window.X = data.X`.
+        //  2. Присуството, проценките, досиејата и напредокот висат на нумеричкиот
+        //     id на ученикот. Нови id-а = сета таа историја останува без сопственик.
+        //  3. Ако ученикот носи firstName/lastName/studentId, S-Dnevnik го чита како
+        //     „unified“ и ги ПРЕГРАДУВА сите досиеја празни. Затоа испраќаме точно
+        //     {id, name, grade, planId} — неговата „diary“ форма — и ништо повеќе.
+        //
+        // Затоа фајлот содржи САМО students + schedule + _meta. Сè друго го нема во
+        // него, па S-Dnevnik не го ни допира — историјата преживува.
+
+        const SDN_DAYS = { 'понеделник': 'monday', 'вторник': 'tuesday', 'среда': 'wednesday', 'четврток': 'thursday', 'петок': 'friday' };
+        const SDN_PERIODS = 5;   // S-Dnevnik има I–V; Распореди има и VI (11:55-12:35)
+
+        let sdnResult = null;
+
+        function getSdnBridge() {
+            if (!scheduleData) return { map: {}, planId: null, therapist: '', learnedAt: '' };
+            if (!scheduleData.sdnBridge || typeof scheduleData.sdnBridge !== 'object') {
+                scheduleData.sdnBridge = { map: {}, planId: null, therapist: '', learnedAt: '' };
+            }
+            return scheduleData.sdnBridge;
+        }
+
+        // Спарувањето е по чисто име на личност — во Распореди името често го носи
+        // одделението во себе („V-а - Дејан“), во S-Dnevnik не.
+        function sdnKey(name) {
+            return displayStudentName(name).toLocaleLowerCase('mk-MK').replace(/\s+/g, ' ').trim();
+        }
+
+        function handleSdnLearn(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = e => {
+                try {
+                    const data = JSON.parse(e.target.result);
+                    if (!Array.isArray(data.students) || !data.students.length) {
+                        return alert('Во фајлот нема список на ученици. Извези од S-Dnevnik преку неговото копче за backup.');
+                    }
+                    const bridge = getSdnBridge();
+                    bridge.map = {};
+                    let planId = null;
+                    data.students.forEach(s => {
+                        const name = String(s.name || '').trim();
+                        const id = Number(s.id);
+                        if (!name || !Number.isFinite(id)) return;
+                        bridge.map[sdnKey(name)] = { id, name, grade: s.grade || '', planId: s.planId ?? null };
+                        if (planId === null && s.planId != null) planId = s.planId;
+                    });
+                    bridge.planId = planId;
+                    bridge.learnedAt = new Date().toISOString();
+                    saveScheduleToLocal();
+
+                    const known = Object.keys(bridge.map).length;
+                    const matched = getPureStudents().filter(s => bridge.map[sdnKey(s)]).length;
+                    renderSdnPanel();
+                    notify(`Научени ${known} ученици од S-Dnevnik · ${matched} се препознаени во Распореди.`, 'ok');
+                } catch (err) {
+                    console.error(err);
+                    alert('Грешка при читање на фајлот.');
+                } finally {
+                    event.target.value = '';
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        function setSdnTherapist(name) {
+            getSdnBridge().therapist = name;
+            saveScheduleToLocal();
+            renderSdnPanel();
+        }
+
+        function toggleSdnKeepOthers(checked) {
+            getSdnBridge().keepOthers = checked;
+            saveScheduleToLocal();
+        }
+
+        // Го гради целиот товар + извештај што ќе се случи. Истата пресметка ја
+        // користат и прегледот и симнувањето, за да не се разидат.
+        function buildSdnPayload() {
+            ensureStudentMeta();
+            const bridge = getSdnBridge();
+            const therapist = bridge.therapist;
+            const plan = { matched: [], created: [], kept: [], gradeChanges: [], lostPeriodVI: [], noPlan: false };
+
+            const mine = (therapistStudents[therapist] || []).filter(s => students.includes(s));
+            const usedIds = new Set(Object.values(bridge.map).map(m => m.id));
+            let nextId = Date.now();
+            const idFor = student => {
+                const hit = bridge.map[sdnKey(student)];
+                if (hit) { plan.matched.push({ student, id: hit.id }); return hit.id; }
+                while (usedIds.has(nextId)) nextId++;
+                usedIds.add(nextId);
+                plan.created.push({ student, id: nextId });
+                return nextId++;
+            };
+
+            const planId = bridge.planId;
+            if (planId == null) plan.noPlan = true;
+
+            const outStudents = [];
+            const idByStudent = new Map();
+            mine.forEach(s => {
+                const id = idFor(s);
+                idByStudent.set(s, id);
+                const grade = getStudentCategory(s) === 'preschool' ? '(предуч.)' : (getStudentGrade(s) || '');
+                const known = bridge.map[sdnKey(s)];
+                if (known && known.grade && known.grade !== grade) {
+                    plan.gradeChanges.push({ student: s, from: known.grade, to: grade });
+                }
+                outStudents.push({ id, name: displayStudentName(s), grade, planId: known ? (known.planId ?? planId) : planId });
+            });
+
+            // Учениците што ги има во S-Dnevnik а не се кај овој терапевт: ако не ги
+            // задржиме, увозот ќе ги избрише (students се заменува цел) и нивната
+            // историја останува без сопственик.
+            if (bridge.keepOthers !== false) {
+                const minesIds = new Set(outStudents.map(s => s.id));
+                Object.values(bridge.map).forEach(m => {
+                    if (minesIds.has(m.id)) return;
+                    outStudents.push({ id: m.id, name: m.name, grade: m.grade || '', planId: m.planId ?? planId });
+                    plan.kept.push(m.name);
+                });
+            }
+
+            // Распоред: за секој час ги собира двете половини во една листа id-а.
+            const schedule = {};
+            Object.values(SDN_DAYS).forEach(d => { schedule[d] = Array.from({ length: SDN_PERIODS }, () => []); });
+            days.forEach(day => {
+                const eng = SDN_DAYS[day];
+                if (!eng) return;
+                PERIODS.forEach((period, pIndex) => {
+                    const seen = new Set();
+                    period.slots.forEach(time => {
+                        const student = getAssignment(day, time, therapist);
+                        if (!student || student === 'Избери Ученик') return;
+                        if (pIndex >= SDN_PERIODS) {
+                            plan.lostPeriodVI.push({ day, time, student });
+                            return;
+                        }
+                        const id = idByStudent.get(student);
+                        if (id == null || seen.has(id)) return;
+                        seen.add(id);
+                        schedule[eng][pIndex].push(id);
+                    });
+                });
+            });
+
+            const payload = {
+                students: outStudents,
+                schedule,
+                _meta: {
+                    app: 'S-Dnevnik',
+                    schemaVersion: '1.1',
+                    savedAt: new Date().toISOString(),
+                    reason: 'import_from_rasporedi',
+                    source: 'RasporediTerapevti',
+                    sourceTherapist: therapist,
+                    counts: { students: outStudents.length }
+                }
+            };
+            return { payload, plan, therapist };
+        }
+
+        function openSdnPreview() {
+            const bridge = getSdnBridge();
+            if (!bridge.therapist) return notify('Прво избери терапевт.', 'warn');
+            if (!Object.keys(bridge.map).length && !confirm('Сè уште не е вчитан S-Dnevnik JSON.\n\nБез него сите ученици добиваат НОВИ броеви, што ја кине врската со присуството и проценките во S-Dnevnik.\n\nДа продолжам сепак?')) return;
+
+            sdnResult = buildSdnPayload();
+            const { plan, therapist, payload } = sdnResult;
+            document.getElementById('sdnSubtitle').textContent = `${therapist} · ${printCountLabel(payload.students.length, 'ученик', 'ученици')} во фајлот`;
+
+            const chip = (n, one, many, cls) => `<span class="merge-chip ${n ? cls : 'none'}">${printCountLabel(n, one, many)}</span>`;
+            document.getElementById('sdnChips').innerHTML = [
+                chip(plan.matched.length, 'препознаен', 'препознаени', 'add'),
+                chip(plan.created.length, 'нов број', 'нови броеви', 'warn'),
+                chip(plan.kept.length, 'задржан', 'задржани', 'add'),
+                chip(plan.gradeChanges.length, 'ново одделение', 'нови одделенија', 'warn'),
+                chip(plan.lostPeriodVI.length, 'термин во VI час', 'термини во VI час', 'del')
+            ].join('');
+
+            let html = '';
+            html += '<div class="merge-alert ok">✅ Фајлот содржи само <strong>ученици и распоред</strong>. Присуството, проценките, досиејата и плановите во S-Dnevnik остануваат недопрени.</div>';
+
+            if (plan.noPlan) {
+                html += '<div class="merge-alert">⚠️ Не е познат planId — вчитај S-Dnevnik JSON, инаку новите ученици може да не се појават.</div>';
+            }
+            if (plan.created.length && Object.keys(getSdnBridge().map).length) {
+                html += `<div class="merge-alert">ℹ️ ${printCountLabel(plan.created.length, 'ученик добива нов број', 'ученици добиваат нови броеви')} — за нив во S-Dnevnik нема претходна историја. Ако некој од нив веќе постои таму под друго име, прво израмни ги имињата.</div>`;
+            }
+            if (plan.lostPeriodVI.length) {
+                html += `<div class="merge-alert">⚠️ S-Dnevnik има само пет часа (до 11:50). ${printCountLabel(plan.lostPeriodVI.length, 'термин во VI час не може', 'термини во VI час не можат')} да се пренесат:<br>`
+                    + plan.lostPeriodVI.slice(0, 6).map(t => `• ${escapeHtml(t.day)} ${escapeHtml(t.time)} — ${escapeHtml(displayStudentName(t.student))}`).join('<br>')
+                    + (plan.lostPeriodVI.length > 6 ? `<br>… и уште ${plan.lostPeriodVI.length - 6}` : '') + '</div>';
+            }
+
+            const section = (title, body) => body ? `<div class="merge-section"><h5>${title}</h5>${body}</div>` : '';
+            html += section(`Препознаени — го задржуваат бројот (${plan.matched.length})`,
+                mergeListHtml(plan.matched, 'add', '=', m => `<span class="mi-when">#${m.id}</span><span>${escapeHtml(displayStudentName(m.student))}</span>`));
+            html += section(`Нови во S-Dnevnik (${plan.created.length})`,
+                mergeListHtml(plan.created, 'chg', '+', m => `<span class="mi-when">#${m.id}</span><span>${escapeHtml(displayStudentName(m.student))}</span>`));
+            html += section(`Променето одделение (${plan.gradeChanges.length})`,
+                mergeListHtml(plan.gradeChanges, 'chg', '~', g => `<span class="mi-when">${escapeHtml(g.from || '—')} → ${escapeHtml(g.to || '—')}</span><span>${escapeHtml(displayStudentName(g.student))}</span>`));
+            html += section(`Задржани од S-Dnevnik — не се кај овој терапевт (${plan.kept.length})`,
+                mergeListHtml(plan.kept, 'add', '·', n => `<span>${escapeHtml(n)}</span>`));
+
+            document.getElementById('sdnDetails').innerHTML = html;
+            document.getElementById('sdnBackdrop').classList.add('show');
+            document.addEventListener('keydown', handleSdnKeyDown);
+        }
+
+        function closeSdnPreview() {
+            document.getElementById('sdnBackdrop').classList.remove('show');
+            document.removeEventListener('keydown', handleSdnKeyDown);
+            sdnResult = null;
+        }
+
+        function handleSdnKeyDown(event) {
+            if (event.key === 'Escape') closeSdnPreview();
+        }
+
+        function downloadSdnPayload() {
+            if (!sdnResult) return;
+            const { payload, therapist } = sdnResult;
+            const safe = therapist.replace(/[^\wА-Яа-яЀ-ӿ]+/g, '_');
+            downloadTextFile(JSON.stringify(payload, null, 2), `SDnevnik_od_Rasporedi_${safe}_${safeFileStamp()}.json`, 'application/json;charset=utf-8');
+            closeSdnPreview();
+            notify('Фајлот е симнат. Вчитај го во S-Dnevnik преку неговото копче за увоз.', 'ok');
+        }
+
+        function renderSdnPanel() {
+            const host = document.getElementById('sdnPanel');
+            if (!host) return;
+            const bridge = getSdnBridge();
+            const known = Object.keys(bridge.map).length;
+            const chip = document.getElementById('sdnStatusChip');
+
+            if (chip) {
+                if (!known) { chip.className = 'cloud-chip off'; chip.textContent = '⚪ не е поврзан'; }
+                else { chip.className = 'cloud-chip ready'; chip.textContent = `🟢 ${known} ученици познати`; }
+            }
+
+            const matched = known ? getPureStudents().filter(s => bridge.map[sdnKey(s)]).length : 0;
+            const options = therapists.map(t => `<option value="${escapeAttr(t)}" ${t === bridge.therapist ? 'selected' : ''}>${escapeHtml(t)}</option>`).join('');
+
+            host.innerHTML = `
+                <div class="sync-row">
+                    <button class="btn btn-primary btn-compact" onclick="document.getElementById('sdnFileInput').click()">📥 Вчитај S-Dnevnik JSON</button>
+                    <span class="sync-hint">${known
+                        ? `Познати ${known} ученици · ${matched} спарени со Распореди · научено ${escapeHtml(formatStampTime(bridge.learnedAt))}`
+                        : 'Уште не е вчитан — без него новите броеви ја кинат историјата.'}</span>
+                </div>
+                <div class="sync-row">
+                    <label class="sync-label" for="sdnTherapistSelect">Дневник на:</label>
+                    <select id="sdnTherapistSelect" class="people-crud-search compact" onchange="setSdnTherapist(this.value)">
+                        <option value="">— избери терапевт —</option>${options}
+                    </select>
+                    <button class="btn btn-success btn-compact" onclick="openSdnPreview()">👁 Провери и симни</button>
+                </div>
+                <label class="print-check" style="padding-left:0;">
+                    <input type="checkbox" ${bridge.keepOthers !== false ? 'checked' : ''} onchange="toggleSdnKeepOthers(this.checked)">
+                    <span>Задржи ги и учениците што ги има во S-Dnevnik а не се кај овој терапевт</span>
+                </label>
+                <div class="sync-hint">Ако се исклучи, тие ученици ќе исчезнат од S-Dnevnik при вчитување — неговиот увоз ја заменува целата листа.</div>`;
         }
 
         function exportTherapistSlice() {
