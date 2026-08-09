@@ -5925,7 +5925,7 @@ function downloadDoc() {
         }
 
         function defaultPrintState() {
-            const state = { mode: 'students', flags: {}, titles: {}, common: {}, categories: {}, therapistPick: {}, gradeFilter: '' };
+            const state = { mode: 'students', flags: {}, titles: {}, common: {}, categories: {}, therapistPick: {}, gradeFilter: '', wordFont: 11 };
             PRINT_MODES.forEach(m => {
                 state.flags[m.id] = {};
                 state.titles[m.id] = '';
@@ -5943,6 +5943,7 @@ function downloadDoc() {
                 if (!saved || typeof saved !== 'object') return state;
                 if (PRINT_MODES.some(m => m.id === saved.mode)) state.mode = saved.mode;
                 if (typeof saved.gradeFilter === 'string') state.gradeFilter = saved.gradeFilter;
+                if (Number(saved.wordFont) >= 8 && Number(saved.wordFont) <= 14) state.wordFont = Number(saved.wordFont);
                 PRINT_MODES.forEach(m => {
                     const savedFlags = (saved.flags || {})[m.id];
                     if (savedFlags) printFieldsFor(m.id).forEach(f => {
@@ -6075,6 +6076,14 @@ function downloadDoc() {
             });
             html += '</div>';
 
+            html += '<span class="print-group-label">Големина на фонт во Word</span>'
+                + '<select class="print-input" onchange="setPrintWordFont(this.value)">'
+                + [9, 10, 11, 12, 13].map(n =>
+                    `<option value="${n}" ${Number(printState.wordFont) === n ? 'selected' : ''}>${n} pt${n === 11 ? ' (стандардно)' : ''}</option>`
+                  ).join('')
+                + '</select>'
+                + '<div class="sync-hint" style="margin-top:5px;">Важи само за 💾 Word. Табелата на распоредот се печати 2pt помала за да собере на страна.</div>';
+
             host.innerHTML = html;
         }
 
@@ -6130,6 +6139,11 @@ function downloadDoc() {
             printState.gradeFilter = value;
             savePrintPrefs();
             schedulePrintPreview();
+        }
+
+        function setPrintWordFont(value) {
+            printState.wordFont = Number(value) || 11;
+            savePrintPrefs();
         }
 
         function onPrintTitleInput(value) {
@@ -6640,32 +6654,47 @@ function downloadDoc() {
             w.document.close();
         }
 
+        // Word ги игнорира CSS `break-before: page` правилата — му треба неговиот
+        // сопствен таг, вметнат пред секоја секција освен првата.
+        function insertWordPageBreaks(bodyHtml) {
+            const brk = '<br clear="all" style="mso-special-character:line-break;page-break-before:always">';
+            let first = true;
+            return bodyHtml.replace(/<section class="(?:ptg-sec|ther-sec) brk">/g, match => {
+                if (first) { first = false; return match; }
+                return brk + match;
+            });
+        }
+
         function downloadPrintWord() {
             const doc = buildPrintDocument();
             if (doc.empty) return notify('Нема податоци за извоз со тековните опции.', 'warn');
-            const wordCss = 'body{font-family:Calibri,sans-serif;}'
-                + 'h1{font-size:16pt;color:#3a47b5;}h2{font-size:13pt;color:#3a47b5;}'
+            const f = Number(printState.wordFont) || 11;      // основна големина во Word
+            const grid = Math.max(7, f - 2);                   // решетката е погуста од списоците
+            const small = Math.max(6.5, f - 2.5);
+            const wordCss = 'body{font-family:Calibri,sans-serif;font-size:' + f + 'pt;}'
+                + 'h1{font-size:' + (f + 5) + 'pt;color:#3a47b5;}h2{font-size:' + (f + 2) + 'pt;color:#3a47b5;}'
                 + 'table{border-collapse:collapse;width:100%;}'
-                + 'th,td{border:1px solid #9aa3c0;padding:4pt 7pt;font-size:10.5pt;}'
-                + 'th{background:#eef1fb;color:#3a47b5;}small{color:#6a7188;font-size:8pt;}'
-                + '.meta{color:#6a7188;font-size:9pt;}.smeta{color:#6a7188;font-size:9pt;}'
+                + 'th,td{border:1px solid #9aa3c0;padding:4pt 7pt;font-size:' + f + 'pt;}'
+                + 'th{background:#eef1fb;color:#3a47b5;}small{color:#6a7188;font-size:' + small + 'pt;}'
+                + '.meta{color:#6a7188;font-size:' + small + 'pt;}.smeta{color:#6a7188;font-size:' + small + 'pt;}'
                 + '.signs{margin-top:24pt;}.sign i{display:block;width:170pt;height:22pt;border-bottom:1px solid #6a7188;}'
                 // табелата на неделниот распоред по терапевт — Word чита само едноставен CSS
                 + '.ptgrid{table-layout:fixed;}'
-                + '.ptgrid th,.ptgrid td{font-size:8pt;padding:2pt 3pt;text-align:center;vertical-align:middle;}'
+                + '.ptgrid th,.ptgrid td{font-size:' + grid + 'pt;padding:2pt 3pt;text-align:center;vertical-align:middle;}'
                 + '.ptgrid th{background:#5b6fd8;color:#fff;}'
                 + '.ptgrid th.per,.ptgrid td.per{width:52pt;background:#eef1fb;color:#3a47b5;font-weight:bold;}'
                 + '.ptgrid td.on,.ptgrid .half.on{background:#f0f9f4;}'
-                + '.ptgrid .rom{font-size:12pt;font-weight:bold;}.ptgrid .tm{font-size:6.5pt;color:#6a7188;}'
+                + '.ptgrid .rom{font-size:' + (grid + 4) + 'pt;font-weight:bold;}.ptgrid .tm{font-size:' + Math.max(6, grid - 2) + 'pt;color:#6a7188;}'
                 + '.ptgrid .half{padding:2pt 3pt;border-bottom:1px dashed #9aa3c0;}'
-                + '.ptg-summary{font-size:8.5pt;color:#6a7188;}';
+                + '.ptg-summary{font-size:' + small + 'pt;color:#6a7188;}';
             const pageCss = doc.landscape
                 ? '@page WordSection1 { size: 841.9pt 595.3pt; mso-page-orientation: landscape; margin: 1cm; } div.WordSection1 { page: WordSection1; }'
                 : '@page WordSection1 { size: 595.3pt 841.9pt; margin: 1.2cm; } div.WordSection1 { page: WordSection1; }';
+            const body = printFlag('pageBreak') ? insertWordPageBreaks(doc.body) : doc.body;
             const html = '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">'
                 + '<head><meta charset="utf-8"><title>' + escapeHtml(doc.title) + '</title>'
                 + '<style>' + wordCss + pageCss + '</style></head>'
-                + '<body><div class="WordSection1">' + doc.body + '</div></body></html>';
+                + '<body><div class="WordSection1">' + body + '</div></body></html>';
             downloadTextFile('\ufeff' + html, printFileBase() + '.doc', 'application/msword');
             notify('Word документот е симнат.', 'ok');
         }
