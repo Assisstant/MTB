@@ -256,29 +256,110 @@
             margin-top: 5px;
         }
 
-        .ts-list-container {
-            max-height: 150px;
-            overflow-y: auto;
-            margin-top: 8px;
-            border: 1px solid var(--border);
-            border-radius: 6px;
-            padding: 5px;
+        .ts-manager-toolbar {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+            grid-template-columns: minmax(220px, 1fr) minmax(180px, 1fr) 190px;
             gap: 8px;
+            align-items: center;
+            margin-bottom: 7px;
+        }
+
+        .ts-manager-toolbar select,
+        .ts-manager-toolbar input {
+            min-width: 0;
+            width: 100%;
+            padding: 8px 10px;
+            border: 1.5px solid var(--border);
+            border-radius: 8px;
+            background: var(--bg-card);
+            color: var(--text-primary);
+            font: inherit;
+            font-size: 12.5px;
+        }
+
+        .ts-manager-meta {
+            display: flex;
+            justify-content: space-between;
+            gap: 10px;
+            color: var(--text-secondary);
+            font-size: 11.5px;
+            margin: 2px 2px 7px;
+        }
+
+        .ts-list-scroll {
+            max-height: 520px;
+            overflow-y: auto;
+            border: 1px solid var(--border);
+            border-radius: 10px;
             background: var(--bg-main);
         }
+
+        .ts-list-container {
+            padding: 9px;
+            column-count: 2;
+            column-gap: 14px;
+        }
+
+        .ts-list-container.cols-1 { column-count: 1; }
+        .ts-list-container.cols-2 { column-count: 2; }
+        .ts-list-container.cols-3 { column-count: 3; }
+        .ts-list-container.cols-auto { column-count: auto; column-width: 280px; }
+
+        .ts-grade-group {
+            break-inside: avoid;
+            -webkit-column-break-inside: avoid;
+            margin-bottom: 10px;
+        }
+
+        .ts-grade-heading {
+            display: flex;
+            justify-content: space-between;
+            gap: 8px;
+            padding: 5px 8px;
+            margin-bottom: 4px;
+            border-left: 3px solid var(--primary);
+            border-radius: 6px;
+            background: var(--bg-card);
+            color: var(--primary);
+            font-size: 11px;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: .03em;
+        }
+
+        .ts-grade-heading small { color: var(--text-secondary); font-size: 10px; }
 
         .ts-student-checkbox {
             display: flex;
             align-items: center;
             gap: 6px;
-            padding: 4px 8px;
+            padding: 5px 7px;
+            margin-bottom: 4px;
             background: var(--bg-card);
             border: 1px solid var(--border);
-            border-radius: 4px;
+            border-radius: 6px;
             font-size: 12px;
             cursor: pointer;
+        }
+
+        .ts-student-checkbox:hover { border-color: var(--primary); }
+        .ts-student-checkbox.is-assigned { background: var(--cell-filled-bg); border-color: var(--cell-filled-border); }
+        .ts-student-checkbox .ts-row-number {
+            width: 24px;
+            flex: none;
+            text-align: right;
+            color: var(--text-secondary);
+            font-size: 10px;
+            font-variant-numeric: tabular-nums;
+        }
+        .ts-student-checkbox .ts-row-name { min-width: 0; flex: 1; }
+
+        @media (max-width: 760px) {
+            .ts-manager-toolbar { grid-template-columns: 1fr; }
+            .ts-list-container,
+            .ts-list-container.cols-2,
+            .ts-list-container.cols-3,
+            .ts-list-container.cols-auto { column-count: 1; column-width: auto; }
         }
 
         .stats-bar {
@@ -701,6 +782,220 @@
 
         .pt-subslot.full-period { min-height: 83px; justify-content: center; text-align: center; }
         .pt-cell.split .pt-subslot { min-height: 38px; }
+
+        /* [v4.8] Споредба на двајца терапевти — двата распореди остануваат уредливи. */
+        .therapist-compare-card {
+            background: var(--bg-card);
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 2px 8px var(--shadow);
+            margin-top: 20px;
+        }
+
+        .compare-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 14px;
+            flex-wrap: wrap;
+            padding-bottom: 14px;
+            margin-bottom: 14px;
+            border-bottom: 2px solid var(--border);
+        }
+
+        .compare-header h3 { color: var(--primary); font-size: 18px; }
+        .compare-header p { color: var(--text-secondary); font-size: 11.5px; margin-top: 3px; }
+
+        .compare-selectors {
+            display: grid;
+            grid-template-columns: minmax(180px, 1fr) auto minmax(180px, 1fr);
+            gap: 8px;
+            align-items: end;
+            min-width: min(100%, 520px);
+        }
+
+        .compare-selectors label { color: var(--text-secondary); font-size: 10.5px; font-weight: 700; }
+        .compare-selectors select {
+            display: block;
+            width: 100%;
+            margin-top: 3px;
+            padding: 8px 10px;
+            border: 1.5px solid var(--border);
+            border-radius: 8px;
+            background: var(--bg-card);
+            color: var(--text-primary);
+            font: inherit;
+            font-size: 12.5px;
+            font-weight: 650;
+        }
+
+        .compare-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 16px;
+            align-items: start;
+        }
+
+        .compare-pane {
+            min-width: 0;
+            border: 1.5px solid var(--border);
+            border-radius: 11px;
+            overflow: hidden;
+            background: var(--bg-main);
+        }
+
+        .compare-pane-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            padding: 10px 12px;
+            background: linear-gradient(135deg, rgba(91,111,216,.14), rgba(61,213,152,.07));
+            border-bottom: 1px solid var(--border);
+        }
+
+        .compare-pane-head strong { color: var(--primary); font-size: 13px; }
+        .compare-pane-head span { color: var(--text-secondary); font-size: 10.5px; }
+        .compare-schedule { overflow-x: auto; padding: 8px; background: var(--bg-card); }
+        .compare-schedule .per-therapist-table { border-spacing: 3px; min-width: 610px; }
+        .compare-schedule .per-therapist-table th { padding: 8px 4px; font-size: 10.5px; }
+        .compare-schedule .per-therapist-table th.period-header { width: 62px; }
+        .compare-schedule .per-therapist-table .period-cell { padding: 6px 3px; }
+        .compare-schedule .per-therapist-table .period-cell .period-roman { font-size: 17px; }
+        .compare-schedule .pt-cell { min-width: 98px; }
+        .compare-schedule .pt-subslot { padding: 6px; min-height: 34px; font-size: 10px; }
+        .compare-schedule .pt-subslot.full-period { min-height: 71px; }
+        .compare-schedule .pt-cell.split .pt-subslot { min-height: 33px; }
+
+        .compare-students-box { padding: 10px 12px 12px; border-top: 1px solid var(--border); }
+        .compare-students-head {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 7px;
+        }
+        .compare-students-head b { color: var(--primary); font-size: 11px; text-transform: uppercase; }
+        .compare-student-list {
+            columns: 2;
+            column-gap: 16px;
+            margin: 0;
+            padding-left: 24px;
+            color: var(--text-primary);
+            font-size: 11px;
+        }
+        .compare-student-list li { break-inside: avoid; padding: 2px 0 3px; border-bottom: 1px dotted var(--border); }
+        .compare-student-list small { color: var(--text-secondary); }
+
+        /* [v4.10] Двете половини се спојуваат визуелно само кога имаат ист ученик. */
+        .pt-subslot {
+            justify-content: flex-start;
+            align-items: center;
+        }
+
+        .pt-subslot.empty { justify-content: flex-start; }
+
+        .pt-half-tag {
+            flex: none;
+            width: 20px;
+            height: 20px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 6px;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            color: var(--primary);
+            font-size: 10px;
+            font-weight: 900;
+            font-style: normal;
+        }
+
+        .pt-half-body {
+            min-width: 0;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            line-height: 1.2;
+        }
+
+        .pt-half-time {
+            color: var(--text-secondary);
+            font-size: 8.5px;
+            font-weight: 650;
+            font-style: normal;
+            white-space: nowrap;
+        }
+
+        .pt-half-student {
+            max-width: 100%;
+            margin-top: 2px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            font-size: 10.5px;
+            font-weight: 750;
+            font-style: normal;
+        }
+
+        .pt-cell.merged { vertical-align: middle; }
+
+        .pt-subslot.merged-period {
+            min-height: 40px;
+            margin-bottom: 0;
+            justify-content: center;
+            text-align: center;
+        }
+
+        .pt-subslot.merged-period .pt-half-tag {
+            width: auto;
+            min-width: 30px;
+            padding: 0 6px;
+        }
+
+        .pt-subslot.merged-period .pt-half-body { align-items: center; }
+        .pt-subslot.merged-period .pt-half-student {
+            white-space: normal;
+            text-align: center;
+        }
+        .compare-schedule .pt-subslot.merged-period { min-height: 34px; }
+
+        .pt-subslot.empty .pt-half-student { color: var(--text-secondary); font-weight: 600; }
+        .pt-subslot[draggable="true"],
+        .compare-student-list li[draggable="true"],
+        .sidebar-student-item[draggable="true"] { cursor: grab; }
+        .pt-subslot[draggable="true"]:active,
+        .compare-student-list li[draggable="true"]:active,
+        .sidebar-student-item[draggable="true"]:active { cursor: grabbing; }
+
+        .schedule-dragging { opacity: .48; }
+        .pt-subslot.drop-ready {
+            border-color: var(--primary) !important;
+            background: rgba(91,111,216,.14) !important;
+            box-shadow: inset 0 0 0 2px rgba(91,111,216,.22), 0 2px 8px var(--shadow);
+            transform: translateY(-1px);
+        }
+        .pt-subslot.drop-denied {
+            border-color: var(--danger) !important;
+            background: var(--conflict-bg-soft) !important;
+        }
+        .drag-hint {
+            color: var(--text-secondary);
+            font-size: 10px;
+            font-weight: 600;
+            margin-left: 6px;
+        }
+
+        @media (max-width: 1180px) {
+            .compare-grid { grid-template-columns: 1fr; }
+        }
+
+        @media (max-width: 640px) {
+            .compare-selectors { grid-template-columns: 1fr; width: 100%; }
+            .compare-selectors .compare-swap { width: 100%; }
+            .compare-student-list { columns: 1; }
+        }
 
         .conflict-report { display: none; background: var(--bg-card); padding: 20px; border-radius: 12px; margin-top: 20px; box-shadow: 0 2px 8px var(--shadow); }
         .conflict-report.show { display: block; }
@@ -1795,6 +2090,24 @@ body.density-comfortable .student-select {
     overflow: hidden;
 }
 
+/* [v4.7] Споен приказ: големиот преглед сега е директно во табот Ученици. */
+.student-roster-workspace {
+    height: auto;
+    margin-top: 14px;
+    overflow: visible;
+    box-shadow: 0 8px 28px var(--shadow);
+}
+
+.student-roster-workspace .re-scroll {
+    flex: none;
+    min-height: 0;
+    overflow: visible;
+}
+
+.student-roster-workspace .re-body {
+    column-width: 430px;
+}
+
 .re-head {
     display: flex;
     align-items: center;
@@ -1833,6 +2146,12 @@ body.density-comfortable .student-select {
 
 .re-chip:hover { border-color: var(--primary); color: var(--primary); }
 .re-chip b { color: var(--primary); }
+.re-chip.active {
+    border-color: var(--primary);
+    background: rgba(91,111,216,0.13);
+    color: var(--primary);
+    box-shadow: inset 0 0 0 1px rgba(91,111,216,0.12);
+}
 
 /* Скролот и колоните мора да бидат на РАЗЛИЧНИ елементи. Повеќеколонски блок со
    ограничена висина не се прелева надолу — прави нови колони настрана и добиваш
@@ -1917,6 +2236,59 @@ body.density-comfortable .student-select {
     color: var(--text-primary);
 }
 
+.re-row .re-stats {
+    flex: none;
+    min-width: 58px;
+    color: var(--text-secondary);
+    font-size: 10.5px;
+    font-weight: 700;
+    text-align: center;
+    white-space: nowrap;
+}
+
+.re-row .re-actions {
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+}
+
+.re-row .re-action {
+    width: 29px;
+    height: 27px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    background: var(--bg-card);
+    color: var(--text-primary);
+    cursor: pointer;
+    font: inherit;
+    font-size: 12px;
+    transition: border-color .16s ease, background .16s ease, color .16s ease;
+}
+
+.re-row .re-action:hover {
+    border-color: var(--primary);
+    background: var(--bg-main);
+    color: var(--primary);
+}
+
+.re-row .re-action.re-save {
+    color: var(--success);
+}
+
+.re-row .re-action.re-delete {
+    color: var(--danger);
+}
+
+.re-row .re-action.re-delete:hover {
+    border-color: var(--danger);
+    background: var(--conflict-bg-soft);
+    color: var(--danger);
+}
+
 .re-row .re-cat {
     flex: none;
     border: 0;
@@ -1933,7 +2305,12 @@ body.density-comfortable .student-select {
 @media (max-width: 700px) {
     .roster-editor-backdrop { padding: 0; }
     .roster-editor { border-radius: 0; }
+    .student-roster-workspace { border-radius: 12px; }
     .re-tools .people-crud-search { min-width: 120px; flex: 1; }
+    .student-roster-workspace .re-body { column-count: 1; column-width: auto; }
+    .re-row .re-stats { display: none; }
+    .re-row select.re-grade { width: 88px; }
+    .re-row .re-action { width: 27px; }
 }
 
 /* ── [v4.3] уредлив список за новата учебна година ── */
@@ -2216,6 +2593,7 @@ body.density-comfortable .student-select {
     .filter-section,
     .conflict-report,
     .per-therapist-card,
+    .therapist-compare-card,
     .toast-container,
     .candidate-modal-backdrop,
     .quality-panel {
@@ -2714,27 +3092,31 @@ body.density-comfortable .student-select {
                     <div class="grade-chip-list" id="customGradeChips"></div>
                 </div>
 
-                <div class="people-crud-panel">
-                    <div class="people-crud-section">
-                        <div class="people-crud-header">
-                            <div>
-                                <h4>👶 CRUD за ученици</h4>
-                                <div class="people-crud-subtitle">Преименување, одделение, бришење и приказ групиран по одделенија.</div>
-                            </div>
-                            <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
-                                <button type="button" class="btn btn-primary btn-compact" onclick="openRosterEditor()" title="Цел прозорец: сите ученици со одделение, за брз преглед и уредување">🔍 Голем преглед</button>
-                                <button type="button" class="btn btn-secondary btn-compact" onclick="openYearRollover()" title="Унапредување во следно одделение, отпис на последното и упис на нови">🎓 Нова учебна година</button>
-                                <span class="people-crud-count" id="studentCrudCount">0</span>
-                            </div>
+                <!-- [v4.7] Споен CRUD + голем преглед: еден приказ, без втор прозорец. -->
+                <div id="studentRosterWorkspace" class="roster-editor student-roster-workspace" role="region" aria-labelledby="rosterEditorTitle">
+                    <div class="re-head">
+                        <div class="re-title">
+                            <h3 id="rosterEditorTitle">🔍 Сите ученици — преглед и CRUD уредување</h3>
+                            <span class="re-sub" id="rosterEditorCount"></span>
                         </div>
-                        <input class="people-crud-search" id="studentCrudSearch" type="search" placeholder="Пребарај ученик..." oninput="renderPeopleCrudPanel()">
-                        <div class="crud-filter-row">
-                            <select id="studentGradeFilter" class="people-crud-search compact" onchange="renderPeopleCrudPanel()">
-                                <option value="">Сите одделенија</option>
+                        <div class="re-tools">
+                            <input type="search" id="rosterEditorSearch" class="people-crud-search compact" placeholder="Пребарај ученик..." oninput="renderRosterEditor()">
+                            <select id="rosterEditorSort" class="people-crud-search compact" onchange="renderRosterEditor()">
+                                <option value="grade">Подреди по одделение</option>
+                                <option value="name">Подреди по име</option>
                             </select>
-                            <label class="crud-check"><input type="checkbox" id="studentGroupByGrade" checked onchange="renderPeopleCrudPanel()"> групирај по одделение</label>
+                            <select id="rosterEditorWidth" class="people-crud-search compact" onchange="applyRosterEditorWidth()">
+                                <option value="auto">Колони: автоматски</option>
+                                <option value="1">Една колона</option>
+                                <option value="2">Две колони</option>
+                                <option value="3">Три колони</option>
+                            </select>
+                            <button type="button" class="btn btn-secondary btn-compact" onclick="openYearRollover()" title="Унапредување во следно одделение, отпис на последното и упис на нови">🎓 Нова учебна година</button>
                         </div>
-                        <div class="people-crud-list" id="studentCrudList"></div>
+                    </div>
+                    <div class="re-summary" id="rosterEditorSummary"></div>
+                    <div class="re-scroll">
+                        <div class="re-body" id="rosterEditorBody"></div>
                     </div>
                 </div>
             </div>
@@ -2769,15 +3151,27 @@ body.density-comfortable .student-select {
                 <div class="quick-add-grid" style="margin-top: 18px;">
                     <div class="quick-add-box therapist-students-manager" style="grid-column: 1 / -1;">
                         <h4>🔗 Кои ученици припаѓаат на кој терапевт?</h4>
-                        <div class="quick-add-inputs" style="margin-bottom: 8px;">
+                        <div class="ts-manager-toolbar">
                             <select id="quickTherapistSelect" onchange="loadTherapistStudentsCheckboxes()">
                                 <option value="">— Избери Терапевт —</option>
                             </select>
-                            <span style="font-size: 12px; align-self: center; color: var(--text-secondary);">Штиклирајте ги учениците кои ги презема овој терапевт:</span>
+                            <input type="search" id="tsStudentSearch" placeholder="Пребарај ученик..." oninput="loadTherapistStudentsCheckboxes()">
+                            <select id="tsListColumns" onchange="setTherapistStudentColumns(this.value)" title="Број на колони во списокот">
+                                <option value="1">Една колона</option>
+                                <option value="2" selected>Две колони</option>
+                                <option value="3">Три колони</option>
+                                <option value="auto">Автоматски колони</option>
+                            </select>
                         </div>
-                        <div class="ts-list-container" id="tsStudentsCheckboxesContainer">
-                            <div style="color: var(--text-secondary); font-size: 12px; padding: 10px; text-align: center; grid-column: 1/-1;">
-                                Изберете терапевт погоре за да ги поврзете учениците.
+                        <div class="ts-manager-meta">
+                            <span>Штиклирај ги учениците кои ги презема избраниот терапевт.</span>
+                            <strong id="tsStudentCount">0 / 0</strong>
+                        </div>
+                        <div class="ts-list-scroll">
+                            <div class="ts-list-container cols-2" id="tsStudentsCheckboxesContainer">
+                                <div style="color: var(--text-secondary); font-size: 12px; padding: 10px; text-align: center;">
+                                    Изберете терапевт погоре за да ги поврзете учениците.
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -2789,7 +3183,7 @@ body.density-comfortable .student-select {
         <section class="tab-panel" id="panel-per-therapist" role="tabpanel" aria-labelledby="tab-per-therapist">
             <div class="panel-header">
                 <h2>🔍 По Терапевт</h2>
-                <span class="panel-hint">Фокусиран преглед за еден терапевт</span>
+                <span class="panel-hint">Уредлив преглед за еден терапевт и споредба на двајца</span>
             </div>
 
             <div id="perTherapistEmptyHint" style="display:none; padding: 24px; text-align: center; color: var(--text-secondary); background: var(--bg-card); border: 1px dashed var(--border); border-radius: 10px;">
@@ -2812,6 +3206,26 @@ body.density-comfortable .student-select {
                         </div>
                     </div>
                 </div>
+            </div>
+
+            <div id="therapistCompareCard" class="therapist-compare-card" style="display:none;">
+                <div class="compare-header">
+                    <div>
+                        <h3>⚖️ Споредба на двајца терапевти</h3>
+                        <p>Кликни на половина од часот или повлечи ученик од списокот во точниот 20-минутен термин.</p>
+                    </div>
+                    <div class="compare-selectors">
+                        <label>Лев терапевт
+                            <select id="compareTherapistA" onchange="renderTherapistComparison('a')"></select>
+                        </label>
+                        <button type="button" class="btn btn-soft btn-compact compare-swap" onclick="swapComparedTherapists()" title="Замени ги местата">⇄</button>
+                        <label>Десен терапевт
+                            <select id="compareTherapistB" onchange="renderTherapistComparison('b')"></select>
+                        </label>
+                    </div>
+                </div>
+                <div id="therapistCompareHint" class="sidebar-student-empty"></div>
+                <div id="therapistCompareGrid" class="compare-grid"></div>
             </div>
         </section>
 
@@ -2948,36 +3362,6 @@ body.density-comfortable .student-select {
                     <button type="button" class="btn btn-soft" onclick="closeCandidateModal()">Откажи</button>
                     <button type="button" class="btn btn-primary" onclick="saveCandidateSelection()">Зачувај</button>
                 </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- ============== [v4.4] ГОЛЕМ ПРЕГЛЕД НА УЧЕНИЦИ ============== -->
-    <div id="rosterEditorBackdrop" class="roster-editor-backdrop">
-        <div class="roster-editor" role="dialog" aria-modal="true" aria-labelledby="rosterEditorTitle">
-            <div class="re-head">
-                <div class="re-title">
-                    <h3 id="rosterEditorTitle">🔍 Ученици — преглед и уредување</h3>
-                    <span class="re-sub" id="rosterEditorCount"></span>
-                </div>
-                <div class="re-tools">
-                    <input type="search" id="rosterEditorSearch" class="people-crud-search compact" placeholder="Пребарај ученик..." oninput="renderRosterEditor()">
-                    <select id="rosterEditorSort" class="people-crud-search compact" onchange="renderRosterEditor()">
-                        <option value="grade">Подреди по одделение</option>
-                        <option value="name">Подреди по име</option>
-                    </select>
-                    <select id="rosterEditorWidth" class="people-crud-search compact" onchange="applyRosterEditorWidth()">
-                        <option value="auto">Колони: автоматски</option>
-                        <option value="1">Една колона</option>
-                        <option value="2">Две колони</option>
-                        <option value="3">Три колони</option>
-                    </select>
-                    <button type="button" class="btn btn-soft btn-compact" onclick="closeRosterEditor()">✕ Затвори</button>
-                </div>
-            </div>
-            <div class="re-summary" id="rosterEditorSummary"></div>
-            <div class="re-scroll">
-                <div class="re-body" id="rosterEditorBody"></div>
             </div>
         </div>
     </div>
@@ -3477,16 +3861,16 @@ body.density-comfortable .student-select {
 
         // [v4.5] Погледи што не се дел од основното вчитување, но мора да го следат
         // секое големо преместување на податоци (унапредување, спојување, враќање
-        // снимка, повлекување од облак). Без ова, отворен Голем преглед покажуваше
+        // снимка, повлекување од облак). Без ова, споениот преглед би покажувал
         // избришани ученици и уредувањето запишуваше во непостоечки запис.
         function refreshSecondaryViews() {
-            const backdrop = document.getElementById('rosterEditorBackdrop');
-            if (backdrop && backdrop.classList.contains('show')) renderRosterEditor();
+            if (document.getElementById('rosterEditorBody')) renderRosterEditor();
 
             if (document.getElementById('quickTherapistSelect')) loadTherapistStudentsCheckboxes();
 
             const selector = document.getElementById('perTherapistSelector');
             if (selector && selector.value && therapists.includes(selector.value)) renderPerTherapistView();
+            refreshTherapistComparisonSelectors();
         }
 
         function updateStats() {
@@ -3555,6 +3939,7 @@ body.density-comfortable .student-select {
 
         function updateQuickTherapistSelect() {
             const select = document.getElementById('quickTherapistSelect');
+            if (!select) return;
             const currentSelected = select.value;
             select.innerHTML = '<option value="">— Избери Терапевт —</option>';
             therapists.forEach(t => {
@@ -3568,31 +3953,86 @@ body.density-comfortable .student-select {
             renderTherapistStamps();
         }
 
-        function loadTherapistStudentsCheckboxes() {
-            const therapist = document.getElementById('quickTherapistSelect').value;
+        const THERAPIST_STUDENT_COLUMNS_KEY = 'therapist_students_columns_v1';
+
+        function applyTherapistStudentColumns(value) {
             const container = document.getElementById('tsStudentsCheckboxesContainer');
+            if (!container) return;
+            const normalized = ['1', '2', '3', 'auto'].includes(String(value)) ? String(value) : '2';
+            container.classList.remove('cols-1', 'cols-2', 'cols-3', 'cols-auto');
+            container.classList.add('cols-' + normalized);
+        }
+
+        function setTherapistStudentColumns(value) {
+            const normalized = ['1', '2', '3', 'auto'].includes(String(value)) ? String(value) : '2';
+            const select = document.getElementById('tsListColumns');
+            if (select) select.value = normalized;
+            try { localStorage.setItem(THERAPIST_STUDENT_COLUMNS_KEY, normalized); } catch (e) {}
+            applyTherapistStudentColumns(normalized);
+        }
+
+        function loadTherapistStudentViewPrefs() {
+            let value = '2';
+            try { value = localStorage.getItem(THERAPIST_STUDENT_COLUMNS_KEY) || '2'; } catch (e) {}
+            setTherapistStudentColumns(value);
+        }
+
+        function loadTherapistStudentsCheckboxes() {
+            const therapist = document.getElementById('quickTherapistSelect')?.value || '';
+            const container = document.getElementById('tsStudentsCheckboxesContainer');
+            const countEl = document.getElementById('tsStudentCount');
+            if (!container) return;
+            applyTherapistStudentColumns(document.getElementById('tsListColumns')?.value || '2');
             if (!therapist) {
-                container.innerHTML = `<div style="color: var(--text-secondary); font-size: 12px; padding: 10px; text-align: center; grid-column: 1/-1;">Изберете терапевт погоре за да ги поврзете учениците.</div>`;
+                if (countEl) countEl.textContent = `0 / ${getPureStudents().length}`;
+                container.innerHTML = `<div style="color: var(--text-secondary); font-size: 12px; padding: 10px; text-align: center;">Изберете терапевт погоре за да ги поврзете учениците.</div>`;
                 return;
             }
 
             if (!therapistStudents[therapist]) therapistStudents[therapist] = [];
-            const assigned = therapistStudents[therapist];
-            const pureStudents = students.filter(s => s !== 'Избери Ученик');
+            const assigned = therapistStudents[therapist].filter(s => students.includes(s));
+            const pureStudents = getPureStudents().sort((a, b) =>
+                compareGrades(getStudentGrade(a), getStudentGrade(b)) || displayStudentName(a).localeCompare(displayStudentName(b), 'mk')
+            );
+            const query = normalizeName(document.getElementById('tsStudentSearch')?.value || '').toLocaleLowerCase('mk-MK');
+            const visible = pureStudents.filter(s => {
+                if (!query) return true;
+                return `${displayStudentName(s)} ${getStudentGrade(s)} ${getStudentSchool(s)}`.toLocaleLowerCase('mk-MK').includes(query);
+            });
+
+            if (countEl) countEl.textContent = `${assigned.length} избрани · ${visible.length}/${pureStudents.length} прикажани`;
 
             if (pureStudents.length === 0) {
-                container.innerHTML = `<div style="color: var(--text-secondary); font-size: 12px; padding: 10px; text-align: center; grid-column: 1/-1;">Нема додадено ученици.</div>`;
+                container.innerHTML = `<div style="color: var(--text-secondary); font-size: 12px; padding: 10px; text-align: center;">Нема додадено ученици.</div>`;
                 return;
             }
 
-            container.innerHTML = pureStudents.map(s => {
-                const isChecked = assigned.includes(s) ? 'checked' : '';
-                return `
-                    <label class="ts-student-checkbox">
-                        <input type="checkbox" data-student="${escapeAttr(s)}" data-therapist="${escapeAttr(therapist)}" ${isChecked} onchange="toggleStudentTherapistRelation(this)">
-                        <span>${escapeHtml(s)}</span>${studentGradeChipHtml(s)}
-                    </label>
-                `;
+            if (!visible.length) {
+                container.innerHTML = `<div style="color: var(--text-secondary); font-size: 12px; padding: 10px; text-align: center;">Нема ученик што одговара на пребарувањето.</div>`;
+                return;
+            }
+
+            const groups = new Map();
+            visible.forEach(s => {
+                const key = getStudentCategory(s) === 'preschool' ? 'Предучилишна' : (getStudentGrade(s) || 'Без одделение');
+                if (!groups.has(key)) groups.set(key, []);
+                groups.get(key).push(s);
+            });
+
+            let rowNumber = 0;
+            const order = [...groups.keys()].sort((a, b) => compareGrades(a, b) || a.localeCompare(b, 'mk'));
+            container.innerHTML = order.map(grade => {
+                const list = groups.get(grade);
+                const rows = list.map(s => {
+                    rowNumber++;
+                    const checked = assigned.includes(s);
+                    return `<label class="ts-student-checkbox ${checked ? 'is-assigned' : ''}">
+                        <span class="ts-row-number">${rowNumber}</span>
+                        <input type="checkbox" data-student="${escapeAttr(s)}" data-therapist="${escapeAttr(therapist)}" ${checked ? 'checked' : ''} onchange="toggleStudentTherapistRelation(this)">
+                        <span class="ts-row-name">${escapeHtml(displayStudentName(s))}</span>${studentGradeChipHtml(s)}
+                    </label>`;
+                }).join('');
+                return `<section class="ts-grade-group"><div class="ts-grade-heading"><span>${escapeHtml(grade)}</span><small>${list.length}</small></div>${rows}</section>`;
             }).join('');
         }
 
@@ -3617,11 +4057,13 @@ body.density-comfortable .student-select {
             }
             saveScheduleToLocal();
             generateSchedule();
+            loadTherapistStudentsCheckboxes();
             
             // КЛУЧНО: Веднаш прекалкулирај ја и страничната лента ако се работи за активниот терапевт
             if (currentPerTherapist === therapist) {
                 renderPerTherapistView();
             }
+            renderTherapistComparison();
         }
 
 
@@ -3697,7 +4139,7 @@ body.density-comfortable .student-select {
             renderStudentGradeFilterOptions();
             const studentList = document.getElementById('studentCrudList');
             const therapistList = document.getElementById('therapistCrudList');
-            if (!studentList || !therapistList) return;
+            if (!studentList && !therapistList) return;
 
             const studentSearch = normalizeName(document.getElementById('studentCrudSearch')?.value || '').toLocaleLowerCase('mk-MK');
             const therapistSearch = normalizeName(document.getElementById('therapistCrudSearch')?.value || '').toLocaleLowerCase('mk-MK');
@@ -3724,28 +4166,32 @@ body.density-comfortable .student-select {
             if (studentCount) studentCount.textContent = `${filteredStudents.length}/${pureStudents.length}`;
             if (therapistCount) therapistCount.textContent = `${filteredTherapists.length}/${therapists.length}`;
 
-            if (filteredStudents.length === 0) {
-                studentList.innerHTML = `<div class="people-empty-state">Нема ученици за прикажување.</div>`;
-            } else if (groupByGrade) {
-                const groups = new Map();
-                filteredStudents.forEach(student => {
-                    const grade = getStudentGrade(student) || 'Без одделение';
-                    if (!groups.has(grade)) groups.set(grade, []);
-                    groups.get(grade).push(student);
-                });
-                studentList.innerHTML = Array.from(groups.entries()).map(([grade, list]) => `
-                    <div class="grade-group">
-                        <div class="grade-group-title"><span>${escapeHtml(grade)}</span><span class="grade-group-count">${list.length} ученици</span></div>
-                        ${list.map(buildStudentCrudRow).join('')}
-                    </div>
-                `).join('');
-            } else {
-                studentList.innerHTML = filteredStudents.map(buildStudentCrudRow).join('');
+            // Во v4.7 ученичкиот CRUD е споен со големиот преглед. Стариот
+            // studentCrudList се поддржува ако постои во постара вградена копија.
+            if (studentList) {
+                if (filteredStudents.length === 0) {
+                    studentList.innerHTML = `<div class="people-empty-state">Нема ученици за прикажување.</div>`;
+                } else if (groupByGrade) {
+                    const groups = new Map();
+                    filteredStudents.forEach(student => {
+                        const grade = getStudentGrade(student) || 'Без одделение';
+                        if (!groups.has(grade)) groups.set(grade, []);
+                        groups.get(grade).push(student);
+                    });
+                    studentList.innerHTML = Array.from(groups.entries()).map(([grade, list]) => `
+                        <div class="grade-group">
+                            <div class="grade-group-title"><span>${escapeHtml(grade)}</span><span class="grade-group-count">${list.length} ученици</span></div>
+                            ${list.map(buildStudentCrudRow).join('')}
+                        </div>
+                    `).join('');
+                } else {
+                    studentList.innerHTML = filteredStudents.map(buildStudentCrudRow).join('');
+                }
             }
 
-            if (filteredTherapists.length === 0) {
+            if (therapistList && filteredTherapists.length === 0) {
                 therapistList.innerHTML = `<div class="people-empty-state">Нема терапевти за прикажување.</div>`;
-            } else {
+            } else if (therapistList) {
                 therapistList.innerHTML = filteredTherapists.map(therapist => {
                     const termCount = getTherapistScheduleCount(therapist);
                     const assignedCount = getTherapistStudentCount(therapist);
@@ -3763,9 +4209,11 @@ body.density-comfortable .student-select {
                                 <button class="btn btn-soft" type="button" onclick="saveTherapistRename(this)">Зачувај</button>
                                 <button class="btn btn-danger" type="button" onclick="deleteTherapistFromManager(this)">Избриши</button>
                             </div>
-                        </div>`;
+                    </div>`;
                 }).join('');
             }
+
+            if (document.getElementById('rosterEditorBody')) renderRosterEditor();
         }
 
         function refreshAfterPeopleCrud(message) {
@@ -3785,8 +4233,8 @@ body.density-comfortable .student-select {
         }
 
         function getRowName(button) {
-            const row = button.closest('.person-row');
-            return row ? row.dataset.name : '';
+            const row = button.closest('.person-row, .re-row');
+            return row ? (row.dataset.name || row.dataset.student || '') : '';
         }
 
         function getRowInputValue(button) {
@@ -4149,6 +4597,7 @@ body.density-comfortable .student-select {
                 currentPerTherapist = null;
                 const side = document.getElementById('sidebarStudentListContainer');
                 if (side) side.innerHTML = '';
+                refreshTherapistComparisonSelectors();
                 return;
             }
             
@@ -4162,37 +4611,67 @@ body.density-comfortable .student-select {
             select.value = therapists.includes(previous) ? previous : therapists[0];
             currentPerTherapist = select.value;
             renderPerTherapistView();
+            refreshTherapistComparisonSelectors();
+        }
+
+        function getSortedTherapistStudents(therapist) {
+            return (therapistStudents[therapist] || [])
+                .filter(s => students.includes(s))
+                .sort((a, b) => compareGrades(getStudentGrade(a), getStudentGrade(b)) || displayStudentName(a).localeCompare(displayStudentName(b), 'mk'));
         }
 
         function renderSidebarStudents(therapist) {
             const container = document.getElementById('sidebarStudentListContainer');
-            const assigned = therapistStudents[therapist] || [];
+            if (!container) return;
+            const assigned = getSortedTherapistStudents(therapist);
 
             if (assigned.length === 0) {
                 container.innerHTML = `<div class="sidebar-student-empty">Нема штиклирано ученици за овој терапевт.</div>`;
                 return;
             }
 
-            container.innerHTML = assigned.map(s => `
-                <div class="sidebar-student-item">
-                    <span>${escapeHtml(s)}</span>${studentGradeChipHtml(s)}
+            container.innerHTML = assigned.map((s, index) => `
+                <div class="sidebar-student-item" draggable="true" data-drag-student="${escapeAttr(s)}" data-drag-therapist="${escapeAttr(therapist)}" title="Повлечи го ученикот во 20-минутен термин">
+                    <span style="color:var(--text-secondary);font-size:10px;min-width:18px;text-align:right;">${index + 1}.</span>
+                    <span>${escapeHtml(displayStudentName(s))}</span>${studentGradeChipHtml(s)}
                 </div>
             `).join('');
+            attachScheduleDragDropHandlers(container);
         }
 
-        function renderPerTherapistView() {
-            const therapist = document.getElementById('perTherapistSelector').value;
-            currentPerTherapist = therapist;
-            const container = document.getElementById('perTherapistContainer');
-            if (!therapist) return;
-
-            // 1. Освежи ја страничната листа на чекирани ученици
-            renderSidebarStudents(therapist);
-
-            // 2. Генерирај ја табелата
+        function buildTherapistScheduleTableHtml(therapist) {
+            if (!therapist) return '';
             let html = '<table class="per-therapist-table"><thead><tr><th class="period-header">Час</th>';
             days.forEach((d,i) => { html += `<th class="day-${i+1}">${escapeHtml(d.toUpperCase())}</th>`; });
             html += '</tr></thead><tbody>';
+
+            const halfSlotHtml = (day, time, number, student) => {
+                const value = student && student !== 'Избери Ученик' ? student : '';
+                const cls = `pt-subslot ${value ? 'filled' : 'empty'}`;
+                const displayTime = String(time || '').replace('-', '–');
+                const title = `${number}. третман · ${displayTime}${value ? ' · ' + displayStudentName(value) : ' · празно'}`;
+                return `<div class="${cls}" data-action="candidate-selector" data-drop-slot="1"
+                    data-day="${escapeAttr(day)}" data-t1="${escapeAttr(time)}" data-t2=""
+                    data-therapist="${escapeAttr(therapist)}" data-current="${escapeAttr(value)}"
+                    draggable="${value ? 'true' : 'false'}" title="${escapeAttr(title)}">
+                    <span class="pt-half-tag">${number}</span>
+                    <span class="pt-half-body"><span class="pt-half-time">${escapeHtml(displayTime)}</span>
+                    <span class="pt-half-student">${value ? escapeHtml(displayStudentName(value)) : '+ додај ученик'}</span></span>
+                </div>`;
+            };
+
+            const mergedSlotHtml = (day, time1, time2, periodTime, student) => {
+                const displayTime = String(periodTime || '').replace('-', '–');
+                const title = `Цел третман · ${displayTime} · ${displayStudentName(student)}. Кликни за уредување на двете половини.`;
+                return `<div class="pt-subslot filled full-period merged-period" data-action="candidate-selector" data-drop-slot="1" data-drop-both="1"
+                    data-day="${escapeAttr(day)}" data-t1="${escapeAttr(time1)}" data-t2="${escapeAttr(time2)}"
+                    data-therapist="${escapeAttr(therapist)}" data-current="${escapeAttr(student)}"
+                    draggable="true" title="${escapeAttr(title)}">
+                    <span class="pt-half-tag">1+2</span>
+                    <span class="pt-half-body"><span class="pt-half-time">${escapeHtml(displayTime)}</span>
+                    <span class="pt-half-student">${escapeHtml(displayStudentName(student))}</span></span>
+                </div>`;
+            };
 
             PERIODS.forEach(period => {
                 html += `<tr><td class="period-cell"><div class="period-roman">${escapeHtml(period.label)}</div><div class="period-time">${escapeHtml(period.time)}</div></td>`;
@@ -4201,28 +4680,42 @@ body.density-comfortable .student-select {
                     const t2 = period.slots[1];
                     const s1 = getAssignment(day, t1, therapist);
                     const s2 = getAssignment(day, t2, therapist);
-
-                    if (s1 === s2) {
-                        let cls = 'pt-subslot full-period';
-                        if (s1) cls += ' filled'; else cls += ' empty';
-                        html += `<td class="pt-cell"><div class="${cls}" data-action="candidate-selector" data-day="${escapeAttr(day)}" data-t1="${escapeAttr(t1)}" data-t2="${escapeAttr(t2)}" data-therapist="${escapeAttr(therapist)}" data-current="${escapeAttr(s1 || '')}">${s1 ? escapeHtml(s1) : '+'}</div></td>`;
+                    const value1 = s1 && s1 !== 'Избери Ученик' ? s1 : '';
+                    const value2 = s2 && s2 !== 'Избери Ученик' ? s2 : '';
+                    if (value1 && value1 === value2) {
+                        html += `<td class="pt-cell merged">${mergedSlotHtml(day, t1, t2, period.time, value1)}</td>`;
                     } else {
-                        html += `<td class="pt-cell split">
-                            <div class="pt-subslot ${s1?'filled':'empty'}" data-action="candidate-selector" data-day="${escapeAttr(day)}" data-t1="${escapeAttr(t1)}" data-t2="" data-therapist="${escapeAttr(therapist)}" data-current="${escapeAttr(s1 || '')}">1: ${s1 ? escapeHtml(s1) : '+'}</div>
-                            <div class="pt-subslot ${s2?'filled':'empty'}" data-action="candidate-selector" data-day="${escapeAttr(day)}" data-t1="${escapeAttr(t2)}" data-t2="" data-therapist="${escapeAttr(therapist)}" data-current="${escapeAttr(s2 || '')}">2: ${s2 ? escapeHtml(s2) : '+'}</div>
-                        </td>`;
+                        html += `<td class="pt-cell split">${halfSlotHtml(day, t1, 1, value1)}${halfSlotHtml(day, t2, 2, value2)}</td>`;
                     }
                 });
                 html += '</tr>';
             });
-            html += '</tbody></table>';
-            container.innerHTML = html;
-            attachCandidateCellHandlers();
+            return html + '</tbody></table>';
         }
 
-        function attachCandidateCellHandlers() {
-            document.querySelectorAll('[data-action="candidate-selector"]').forEach(el => {
+        function renderPerTherapistView() {
+            const therapist = document.getElementById('perTherapistSelector')?.value || '';
+            currentPerTherapist = therapist;
+            const container = document.getElementById('perTherapistContainer');
+            if (!therapist || !container) return;
+
+            // 1. Освежи ја страничната листа на чекирани ученици
+            renderSidebarStudents(therapist);
+
+            // 2. Истата табела ја користат единечниот приказ и споредбата.
+            container.innerHTML = buildTherapistScheduleTableHtml(therapist);
+            attachCandidateCellHandlers(container);
+        }
+
+        let activeScheduleDrag = null;
+        let scheduleDragJustEnded = 0;
+
+        function attachCandidateCellHandlers(root = document) {
+            root.querySelectorAll('[data-action="candidate-selector"]').forEach(el => {
+                if (el.dataset.candidateBound === '1') return;
+                el.dataset.candidateBound = '1';
                 el.addEventListener('click', () => {
+                    if (Date.now() - scheduleDragJustEnded < 260) return;
                     openCandidateSelector(
                         el.dataset.day,
                         el.dataset.t1,
@@ -4232,6 +4725,229 @@ body.density-comfortable .student-select {
                     );
                 });
             });
+            attachScheduleDragDropHandlers(root);
+        }
+
+        function writeScheduleDrag(event, payload, element) {
+            activeScheduleDrag = payload;
+            element.classList.add('schedule-dragging');
+            if (!event.dataTransfer) return;
+            event.dataTransfer.effectAllowed = payload.kind === 'schedule' ? 'move' : 'copy';
+            try { event.dataTransfer.setData('application/x-raspored-student', JSON.stringify(payload)); } catch (e) {}
+            try { event.dataTransfer.setData('text/plain', payload.student); } catch (e) {}
+        }
+
+        function readScheduleDrag(event) {
+            if (activeScheduleDrag) return activeScheduleDrag;
+            try {
+                const raw = event.dataTransfer?.getData('application/x-raspored-student');
+                return raw ? JSON.parse(raw) : null;
+            } catch (e) {
+                return null;
+            }
+        }
+
+        function finishScheduleDrag(element) {
+            if (element) element.classList.remove('schedule-dragging');
+            document.querySelectorAll('.pt-subslot.drop-ready, .pt-subslot.drop-denied').forEach(x => x.classList.remove('drop-ready', 'drop-denied'));
+            activeScheduleDrag = null;
+            scheduleDragJustEnded = Date.now();
+        }
+
+        function scheduleDropIsAllowed(payload, target) {
+            return Boolean(payload && payload.student && payload.therapist && target?.dataset.therapist === payload.therapist);
+        }
+
+        function attachScheduleDragDropHandlers(root = document) {
+            root.querySelectorAll('[data-drag-student]').forEach(el => {
+                if (el.dataset.dragBound === '1') return;
+                el.dataset.dragBound = '1';
+                el.addEventListener('dragstart', event => {
+                    writeScheduleDrag(event, {
+                        kind: 'student-list',
+                        student: el.dataset.dragStudent,
+                        therapist: el.dataset.dragTherapist
+                    }, el);
+                });
+                el.addEventListener('dragend', () => finishScheduleDrag(el));
+            });
+
+            root.querySelectorAll('.pt-subslot[data-drop-slot]').forEach(el => {
+                if (el.dataset.dropBound === '1') return;
+                el.dataset.dropBound = '1';
+
+                el.addEventListener('dragstart', event => {
+                    const student = el.dataset.current || '';
+                    if (!student) {
+                        event.preventDefault();
+                        return;
+                    }
+                    writeScheduleDrag(event, {
+                        kind: 'schedule',
+                        student,
+                        therapist: el.dataset.therapist,
+                        sourceDay: el.dataset.day,
+                        sourceTime: el.dataset.t1,
+                        sourceTime2: el.dataset.t2 || ''
+                    }, el);
+                });
+                el.addEventListener('dragend', () => finishScheduleDrag(el));
+                el.addEventListener('dragover', event => {
+                    const payload = readScheduleDrag(event);
+                    event.preventDefault();
+                    const allowed = scheduleDropIsAllowed(payload, el);
+                    el.classList.toggle('drop-ready', allowed);
+                    el.classList.toggle('drop-denied', !allowed);
+                    if (event.dataTransfer) event.dataTransfer.dropEffect = allowed && payload?.kind === 'schedule' ? 'move' : allowed ? 'copy' : 'none';
+                });
+                el.addEventListener('dragleave', () => el.classList.remove('drop-ready', 'drop-denied'));
+                el.addEventListener('drop', event => {
+                    event.preventDefault();
+                    const payload = readScheduleDrag(event);
+                    el.classList.remove('drop-ready', 'drop-denied');
+                    applyScheduleDrop(payload, el);
+                    finishScheduleDrag(null);
+                });
+            });
+        }
+
+        function applyScheduleDrop(payload, target) {
+            if (!payload || !target) return false;
+            const therapist = target.dataset.therapist || '';
+            const day = target.dataset.day || '';
+            const time = target.dataset.t1 || '';
+            const time2 = target.dataset.t2 || '';
+            const targetTimes = target.dataset.dropBoth === '1' && time2 ? [time, time2] : [time];
+            const student = payload.student || '';
+            if (!therapist || !day || !time || !student) return false;
+
+            if (payload.therapist !== therapist) {
+                notify('Ученикот може да се пушти само во распоредот на терапевтот на кој му е доделен.', 'warn');
+                return false;
+            }
+            if (!(therapistStudents[therapist] || []).includes(student)) {
+                notify('Ученикот прво треба да биде доделен на овој терапевт преку „Уреди список“.', 'warn');
+                return false;
+            }
+            if (payload.kind === 'schedule' && payload.sourceDay === day && payload.sourceTime === time && (payload.sourceTime2 || '') === time2) return false;
+
+            const blockerDetails = targetTimes.flatMap(targetTime =>
+                getStudentBlockers(day, targetTime, student, therapist).map(name => `${targetTime} кај ${name}`)
+            );
+            if (blockerDetails.length) {
+                notify(`Ученикот веќе е закажан во ${blockerDetails.join(', ')}.`, 'warn');
+                return false;
+            }
+
+            const existingStudents = [...new Set(targetTimes
+                .map(targetTime => getAssignment(day, targetTime, therapist))
+                .filter(existing => existing && existing !== student))];
+            if (existingStudents.length) {
+                const timeLabel = targetTimes.length === 2 ? `${time.split('-')[0]}-${time2.split('-')[1]}` : time;
+                const existingLabel = existingStudents.map(displayStudentName).join(', ');
+                const ok = confirm(`Терминот ${day.toUpperCase()} ${timeLabel} веќе содржи „${existingLabel}“.\n\nДа се замени со „${displayStudentName(student)}“?`);
+                if (!ok) return false;
+            }
+
+            targetTimes.forEach(targetTime => applyAssignment(day, targetTime, therapist, student));
+            if (payload.kind === 'schedule' && payload.sourceDay && payload.sourceTime) {
+                const sourceTimes = [payload.sourceTime, payload.sourceTime2].filter(Boolean);
+                sourceTimes
+                    .filter(sourceTime => !(payload.sourceDay === day && targetTimes.includes(sourceTime)))
+                    .forEach(sourceTime => applyAssignment(payload.sourceDay, sourceTime, therapist, ''));
+            }
+
+            saveScheduleToLocal();
+            generateSchedule();
+            renderPerTherapistView();
+            renderTherapistComparison();
+            checkConflicts();
+            const savedTimeLabel = targetTimes.length === 2 ? `${time.split('-')[0]}-${time2.split('-')[1]}` : time;
+            notify(payload.kind === 'schedule' ? 'Третманот е преместен.' : `Ученикот е додаден во терминот ${savedTimeLabel}.`, 'ok');
+            return true;
+        }
+
+        function refreshTherapistComparisonSelectors() {
+            const card = document.getElementById('therapistCompareCard');
+            const a = document.getElementById('compareTherapistA');
+            const b = document.getElementById('compareTherapistB');
+            if (!card || !a || !b) return;
+            card.style.display = therapists.length ? 'block' : 'none';
+            if (!therapists.length) return;
+
+            const previousA = a.value;
+            const previousB = b.value;
+            const options = therapists.map(t => `<option value="${escapeAttr(t)}">${escapeHtml(t)}</option>`).join('');
+            a.innerHTML = options;
+            b.innerHTML = options;
+            a.value = therapists.includes(previousA) ? previousA : therapists[0];
+            b.value = therapists.includes(previousB) ? previousB : (therapists[1] || therapists[0]);
+            if (therapists.length > 1 && a.value === b.value) b.value = therapists.find(t => t !== a.value) || therapists[0];
+            renderTherapistComparison();
+        }
+
+        function comparisonStudentListHtml(therapist) {
+            const list = getSortedTherapistStudents(therapist);
+            if (!list.length) return '<div class="sidebar-student-empty">Нема доделени ученици.</div>';
+            return `<ol class="compare-student-list">${list.map(s => `<li draggable="true" data-drag-student="${escapeAttr(s)}" data-drag-therapist="${escapeAttr(therapist)}" title="Повлечи во саканиот 20-минутен термин">${escapeHtml(displayStudentName(s))}${getStudentGrade(s) ? ` <small>· ${escapeHtml(getStudentGrade(s))}</small>` : ''}</li>`).join('')}</ol>`;
+        }
+
+        function comparisonPaneHtml(therapist) {
+            const studentCount = getSortedTherapistStudents(therapist).length;
+            const termCount = getTherapistTermList(therapist).length;
+            return `<section class="compare-pane">
+                <div class="compare-pane-head"><strong>👤 ${escapeHtml(therapist)}</strong><span>${studentCount} ученици · ${termCount} термини</span></div>
+                <div class="compare-schedule">${buildTherapistScheduleTableHtml(therapist)}</div>
+                <div class="compare-students-box">
+                    <div class="compare-students-head"><b>📋 Доделени ученици <span class="drag-hint">повлечи ученик нагоре ↥</span></b><button type="button" class="btn btn-soft btn-compact" data-therapist="${escapeAttr(therapist)}" onclick="openTherapistStudentsManager(this.dataset.therapist)">✎ Уреди список</button></div>
+                    ${comparisonStudentListHtml(therapist)}
+                </div>
+            </section>`;
+        }
+
+        function renderTherapistComparison(changedSide = '') {
+            const a = document.getElementById('compareTherapistA');
+            const b = document.getElementById('compareTherapistB');
+            const grid = document.getElementById('therapistCompareGrid');
+            const hint = document.getElementById('therapistCompareHint');
+            if (!a || !b || !grid || !hint) return;
+
+            if (therapists.length < 2) {
+                hint.textContent = 'За споредба се потребни најмалку двајца терапевти.';
+                hint.style.display = 'block';
+                grid.innerHTML = '';
+                return;
+            }
+
+            if (!therapists.includes(a.value)) a.value = therapists[0];
+            if (!therapists.includes(b.value)) b.value = therapists[1];
+            if (a.value === b.value) {
+                const replacement = therapists.find(t => t !== a.value);
+                if (changedSide === 'a') b.value = replacement;
+                else a.value = replacement;
+            }
+
+            hint.style.display = 'none';
+            grid.innerHTML = comparisonPaneHtml(a.value) + comparisonPaneHtml(b.value);
+            attachCandidateCellHandlers(grid);
+        }
+
+        function swapComparedTherapists() {
+            const a = document.getElementById('compareTherapistA');
+            const b = document.getElementById('compareTherapistB');
+            if (!a || !b) return;
+            const tmp = a.value;
+            a.value = b.value;
+            b.value = tmp;
+            renderTherapistComparison();
+        }
+
+        function openTherapistStudentsManager(therapist) {
+            switchTab('therapists');
+            const select = document.getElementById('quickTherapistSelect');
+            if (select && therapists.includes(therapist)) select.value = therapist;
+            loadTherapistStudentsCheckboxes();
+            document.querySelector('.therapist-students-manager')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
         }
 
         function getStudentBlockers(day, time, student, currentTherapist) {
@@ -4360,6 +5076,7 @@ body.density-comfortable .student-select {
             closeCandidateModal();
             generateSchedule();
             renderPerTherapistView();
+            renderTherapistComparison();
             checkConflicts();
             notify(value ? 'Терминот е ажуриран.' : 'Терминот е испразнет.', 'ok');
         }
@@ -4376,6 +5093,7 @@ body.density-comfortable .student-select {
             closeCandidateModal();
             generateSchedule();
             renderPerTherapistView();
+            renderTherapistComparison();
             checkConflicts();
             notify('Терминот е избришан.', 'ok');
         }
@@ -4432,7 +5150,7 @@ body.density-comfortable .student-select {
 
 
         // ============== ПОЛИРАНИ ФУНКЦИИ v2.7: backup, print, search, audit ==============
-        const POLISHED_VERSION = '2.11-grade-order-unified-therapist-crud';
+        const POLISHED_VERSION = '2.16-word-without-half-divider';
 
         function notify(message, type = 'info') {
             const container = document.getElementById('toastContainer');
@@ -5051,30 +5769,31 @@ body.density-comfortable .student-select {
             }
         }
 
-        // ============== [v4.4] ГОЛЕМ ПРЕГЛЕД НА УЧЕНИЦИ ==============
-        // Цел прозорец, ученикот се уредува на лице место, а бројот на колони го
-        // одредува ширината на екранот (column-width во CSS) освен ако не е избран рачно.
+        // ============== [v4.7] СПОЕН ПРЕГЛЕД И CRUD НА УЧЕНИЦИ ==============
+        // Големиот преглед е директно во табот Ученици; нема втор модален прозорец.
+        // Сите операции продолжуваат да ја користат истата состојба и истиот распоред.
 
         function openRosterEditor() {
             ensureStudentMeta();
-            if (!getPureStudents().length) return notify('Нема ученици за приказ.', 'warn');
-            document.getElementById('rosterEditorBackdrop').classList.add('show');
-            document.addEventListener('keydown', handleRosterEditorKeyDown);
+            switchTab('students');
             applyRosterEditorWidth();
             renderRosterEditor();
+            const workspace = document.getElementById('studentRosterWorkspace');
+            if (workspace) workspace.scrollIntoView({ behavior: 'smooth', block: 'start' });
         }
 
         function closeRosterEditor() {
-            document.getElementById('rosterEditorBackdrop').classList.remove('show');
-            document.removeEventListener('keydown', handleRosterEditorKeyDown);
+            // Задржано за назадна компатибилност со постари копчиња/обележувачи.
+            switchTab('students');
         }
 
         function handleRosterEditorKeyDown(event) {
-            if (event.key === 'Escape') closeRosterEditor();
+            if (event.key === 'Escape') document.getElementById('rosterEditorSearch')?.blur();
         }
 
         function applyRosterEditorWidth() {
             const body = document.getElementById('rosterEditorBody');
+            if (!body) return;
             const value = (document.getElementById('rosterEditorWidth') || {}).value || 'auto';
             body.classList.remove('cols-1', 'cols-2', 'cols-3');
             if (value !== 'auto') body.classList.add('cols-' + value);
@@ -5082,7 +5801,7 @@ body.density-comfortable .student-select {
 
         function rosterEditorFilterByGrade(grade) {
             const box = document.getElementById('rosterEditorSearch');
-            box.value = '';
+            if (box) box.value = '';
             rosterEditorGradeFilter = rosterEditorGradeFilter === grade ? '' : grade;
             renderRosterEditor();
         }
@@ -5106,8 +5825,8 @@ body.density-comfortable .student-select {
             });
             const keys = [...counts.keys()].sort((a, b) => compareGrades(a, b) || a.localeCompare(b, 'mk'));
             document.getElementById('rosterEditorSummary').innerHTML =
-                `<span class="re-chip" onclick="rosterEditorFilterByGrade('')"><b>${all.length}</b> вкупно</span>`
-                + keys.map(k => `<span class="re-chip" onclick="rosterEditorFilterByGrade('${escapeAttr(k)}')" title="Прикажи само ${escapeHtml(k)}">${escapeHtml(k)}: <b>${counts.get(k)}</b></span>`).join('');
+                `<span class="re-chip ${rosterEditorGradeFilter ? '' : 'active'}" onclick="rosterEditorFilterByGrade('')"><b>${all.length}</b> вкупно</span>`
+                + keys.map(k => `<span class="re-chip ${rosterEditorGradeFilter === k ? 'active' : ''}" onclick="rosterEditorFilterByGrade('${escapeAttr(k)}')" title="Прикажи само ${escapeHtml(k)}">${escapeHtml(k)}: <b>${counts.get(k)}</b></span>`).join('');
 
             const visible = all.filter(s => {
                 if (query && !displayStudentName(s).toLocaleLowerCase('mk-MK').includes(query)) return false;
@@ -5136,14 +5855,21 @@ body.density-comfortable .student-select {
                 const grade = getStudentGrade(student);
                 const badge = cat === 'other' ? '🏫' : cat === 'preschool' ? '🧸' : '👤';
                 const title = cat === 'other' ? ('Друго училиште: ' + (getStudentSchool(student) || 'непознато')) : cat === 'preschool' ? 'Предучилишна возраст' : 'Нашето училиште';
+                const termCount = getStudentScheduleCount(student);
+                const relationCount = getStudentRelationCount(student);
                 let opts = `<option value="" ${grade ? '' : 'selected'}>—</option>`;
                 gradeOptions.forEach(g => { opts += `<option value="${escapeAttr(g)}" ${g === grade ? 'selected' : ''}>${escapeHtml(g)}</option>`; });
-                return `<div class="re-row">
+                return `<div class="re-row" data-name="${escapeAttr(student)}" data-student="${escapeAttr(student)}">
                     <span class="re-no">${index}</span>
                     <input class="re-name" type="text" value="${escapeAttr(displayStudentName(student))}" data-student="${escapeAttr(student)}"
-                           onchange="rosterEditorRename(this)" onkeydown="if(event.key==='Enter')this.blur();">
-                    <select class="re-grade" data-student="${escapeAttr(student)}" onchange="rosterEditorSetGrade(this)">${opts}</select>
-                    <button type="button" class="re-cat" title="${escapeAttr(title)}" onclick="openStudentDetails(this.dataset.student)" data-student="${escapeAttr(student)}">${badge}</button>
+                           aria-label="Име на ученик" onkeydown="if(event.key==='Enter'){event.preventDefault();rosterEditorSaveRow(this.closest('.re-row').querySelector('.re-save'));}">
+                    <select class="re-grade" data-student="${escapeAttr(student)}" aria-label="Одделение на ученик">${opts}</select>
+                    <span class="re-stats" title="${termCount} термини · ${relationCount} терапевти">${termCount} т. · ${relationCount} тр.</span>
+                    <span class="re-actions">
+                        <button type="button" class="re-action re-details" title="${escapeAttr(title)} — уреди детали" onclick="openStudentDetails(this.dataset.student)" data-student="${escapeAttr(student)}">${badge}</button>
+                        <button type="button" class="re-action re-save" title="Зачувај име и одделение" onclick="rosterEditorSaveRow(this)">✓</button>
+                        <button type="button" class="re-action re-delete" title="Избриши ученик" onclick="deleteStudentFromManager(this)">🗑</button>
+                    </span>
                 </div>`;
             };
 
@@ -5166,6 +5892,47 @@ body.density-comfortable .student-select {
                 return `<div class="re-group"><h4><span>${escapeHtml(key)}</span><em>${printCountLabel(list.length, 'ученик', 'ученици')}</em></h4>`
                     + list.map((s, i) => rowHtml(s, i + 1)).join('') + '</div>';
             }).join('');
+        }
+
+        // Експлицитно „Зачувај“ како во стариот CRUD, но со безбедното
+        // преименување од големиот преглед кое ги ажурира и врските и термините.
+        function rosterEditorSaveRow(button) {
+            const row = button?.closest('.re-row');
+            if (!row) return;
+            const oldName = row.dataset.student || row.dataset.name || '';
+            if (rosterEditorStudentGone(oldName)) return;
+
+            const nameInput = row.querySelector('.re-name');
+            const gradeInput = row.querySelector('.re-grade');
+            const typed = normalizeName(nameInput?.value || '');
+            const grade = normalizeGrade(gradeInput?.value || '');
+            if (!typed) return notify('Името не смее да биде празно.', 'warn');
+            if (typed === 'Избери Ученик') return notify('Ова име е резервирано за празен избор.', 'warn');
+
+            // Редот прикажува име без стар префикс. Ако корисникот не внел нов
+            // префикс, го задржуваме постојниот за да не се смени форматот на записот.
+            const oldDisplayName = displayStudentName(oldName);
+            const typedHasPrefix = displayStudentName(typed) !== typed;
+            const oldHadPrefix = oldDisplayName !== oldName;
+            const oldPrefix = oldHadPrefix ? (getStudentGrade(oldName) || inferGradeFromStudentName(oldName)) : '';
+            const newName = typedHasPrefix ? typed : (oldPrefix ? `${oldPrefix} - ${typed}` : typed);
+
+            if (newName !== oldName && students.includes(newName)) {
+                renderRosterEditor();
+                return notify('Веќе постои ученик со тоа име.', 'warn');
+            }
+
+            if (newName === oldName) {
+                setStudentGrade(oldName, grade);
+                refreshAfterPeopleCrud('Името и одделението се зачувани.');
+                return;
+            }
+
+            const state = currentStateSnapshot();
+            stateRenameStudent(state, oldName, newName);
+            state.studentMeta[newName] = { ...(state.studentMeta[newName] || {}), grade };
+            installState(state);
+            notify('Ученикот е преименуван, а одделението е зачувано.', 'ok');
         }
 
         // Заштита: ако списокот е застарен (некој друг поглед ги преместил
@@ -6305,7 +7072,7 @@ body.density-comfortable .student-select {
             { id: 'students',     icon: '📋', title: 'Список на ученици',   desc: 'Сите ученици, групирани по одделение' },
             { id: 'therapists',   icon: '👤', title: 'Список на терапевти', desc: 'Терапевти со број на ученици и термини' },
             { id: 'perTherapist', icon: '🗂️', title: 'Списоци по терапевт', desc: 'Учениците на секој терапевт, посебна страна' },
-            { id: 'therapistGrid', icon: '🗓️', title: 'Распоред по терапевт', desc: 'Неделна табела I–VI, како во табот „По Терапевт“' },
+            { id: 'therapistGrid', icon: '🗓️', title: 'Распоред по терапевт', desc: 'Неделна табела I–VI со нумериран список на ученици' },
             { id: 'schedule',     icon: '📅', title: 'Неделен распоред',    desc: 'Целата табела со сите терапевти во колони' }
         ];
 
@@ -6349,7 +7116,7 @@ body.density-comfortable .student-select {
                 { id: 'halfLabels', label: 'Ознаки 1: / 2: за половините час', def: true },
                 { id: 'dayColors',  label: 'Обоени заглавија по ден', def: true },
                 { id: 'emptyDash',  label: 'Означи ги празните термини со „—“', def: false },
-                { id: 'summary',    label: 'Список на ученици под табелата', def: false },
+                { id: 'studentList', label: 'Нумериран список на ученици под табелата', def: true },
                 { id: 'emptyToo',   label: 'Вклучи и терапевти без ниту еден термин', def: false },
                 { id: 'pageBreak',  label: 'Секој терапевт на нова страна', def: true },
                 { id: 'landscape',  label: 'Положена страна (landscape)', def: true }
@@ -6383,7 +7150,7 @@ body.density-comfortable .student-select {
         }
 
         function defaultPrintState() {
-            const state = { mode: 'students', flags: {}, titles: {}, common: {}, categories: {}, therapistPick: {}, gradeFilter: '', wordFont: 11, listColumns: 'auto' };
+            const state = { mode: 'students', flags: {}, titles: {}, common: {}, categories: {}, therapistPick: {}, gradeFilter: '', wordFont: 11, listColumns: 'auto', therapistListColumns: 2 };
             PRINT_MODES.forEach(m => {
                 state.flags[m.id] = {};
                 state.titles[m.id] = '';
@@ -6403,6 +7170,7 @@ body.density-comfortable .student-select {
                 if (typeof saved.gradeFilter === 'string') state.gradeFilter = saved.gradeFilter;
                 if (Number(saved.wordFont) >= 8 && Number(saved.wordFont) <= 14) state.wordFont = Number(saved.wordFont);
                 if (['auto', '1', '2', '3', 1, 2, 3].includes(saved.listColumns)) state.listColumns = saved.listColumns;
+                if (['1', '2', '3', 1, 2, 3].includes(saved.therapistListColumns)) state.therapistListColumns = Number(saved.therapistListColumns);
                 PRINT_MODES.forEach(m => {
                     const savedFlags = (saved.flags || {})[m.id];
                     if (savedFlags) printFieldsFor(m.id).forEach(f => {
@@ -6562,6 +7330,16 @@ body.density-comfortable .student-select {
             }
 
             if (mode === 'perTherapist' || mode === 'therapistGrid') {
+                if (mode === 'therapistGrid') {
+                    const tColOpt = (value, label) => `<option value="${value}" ${Number(printState.therapistListColumns || 2) === Number(value) ? 'selected' : ''}>${label}</option>`;
+                    html += '<span class="print-group-label">Колони во списокот под распоредот</span>'
+                        + `<select class="print-input" onchange="setPrintTherapistListColumns(this.value)">
+                            ${tColOpt(1, 'Една колона')}
+                            ${tColOpt(2, 'Две колони (препорачано)')}
+                            ${tColOpt(3, 'Три колони')}
+                           </select>`
+                        + '<div class="sync-hint" style="margin-top:5px;">Истиот нумериран список излегува во прегледот, при печатење и во Word.</div>';
+                }
                 html += '<span class="print-group-label">Кои терапевти</span>';
                 if (!therapists.length) {
                     html += '<div class="print-check" style="color:var(--text-secondary)">Нема додадени терапевти.</div>';
@@ -6703,6 +7481,12 @@ body.density-comfortable .student-select {
 
         function setPrintListColumns(value) {
             printState.listColumns = value === 'auto' ? 'auto' : Number(value) || 1;
+            savePrintPrefs();
+            schedulePrintPreview();
+        }
+
+        function setPrintTherapistListColumns(value) {
+            printState.therapistListColumns = Math.max(1, Math.min(3, Number(value) || 2));
             savePrintPrefs();
             schedulePrintPreview();
         }
@@ -7027,6 +7811,27 @@ body.density-comfortable .student-select {
             return { html: sections, count: shown };
         }
 
+        function buildNumberedTherapistListPrintHtml(therapist) {
+            const list = getSortedTherapistStudents(therapist);
+            const requested = Math.max(1, Math.min(3, Number(printState.therapistListColumns) || 2));
+            const columnCount = Math.max(1, Math.min(requested, list.length || 1));
+            if (!list.length) return '<div class="ptg-students"><div class="ptg-list-title"><b>Ученици (0)</b></div><div class="empty">Нема доделени ученици.</div></div>';
+
+            const perColumn = Math.ceil(list.length / columnCount);
+            const parts = [];
+            for (let i = 0; i < columnCount; i++) {
+                const start = i * perColumn;
+                const chunk = list.slice(start, start + perColumn);
+                if (!chunk.length) continue;
+                const items = chunk.map(s => {
+                    const grade = getStudentGrade(s);
+                    return `<li>${grade ? `<b>${escapeHtml(grade)}</b> ` : ''}${escapeHtml(displayStudentName(s))}</li>`;
+                }).join('');
+                parts.push(`<ol class="ptg-student-ol" start="${start + 1}">${items}</ol>`);
+            }
+            return `<div class="ptg-students"><div class="ptg-list-title"><b>Ученици (${list.length})</b><span>${columnCount} ${columnCount === 1 ? 'колона' : 'колони'}</span></div>${printColumnsWrap(parts)}</div>`;
+        }
+
         // Неделна табела за еден терапевт — истиот распоред како во табот „По Терапевт“:
         // редови = часови I–VI, колони = денови, а кога двете половини од часот се
         // различни ученици, ќелијата се дели на 1: / 2:.
@@ -7039,7 +7844,7 @@ body.density-comfortable .student-select {
             const withHalves = printFlag('halfLabels');
             const withColors = printFlag('dayColors');
             const dashEmpty = printFlag('emptyDash');
-            const withSummary = printFlag('summary');
+            const withStudentList = printFlag('studentList');
             const includeEmpty = printFlag('emptyToo');
             const breakClass = printFlag('pageBreak') ? ' brk' : '';
             const year = schoolYearLabel('/');
@@ -7084,21 +7889,12 @@ body.density-comfortable .student-select {
                     return `<th${color}>${escapeHtml(d.toUpperCase())}</th>`;
                 }).join('');
 
-                let summary = '';
-                if (withSummary) {
-                    const list = (therapistStudents[therapist] || []).filter(s => students.includes(s))
-                        .sort((a, b) => compareGrades(getStudentGrade(a), getStudentGrade(b)) || displayStudentName(a).localeCompare(displayStudentName(b), 'mk'));
-                    const names = list.map(s => {
-                        const grade = getStudentGrade(s);
-                        return escapeHtml((grade ? grade + ' ' : '') + displayStudentName(s));
-                    });
-                    summary = `<div class="ptg-summary"><b>Ученици (${list.length}):</b> ${names.join(' · ') || '—'}</div>`;
-                }
+                const studentList = withStudentList ? buildNumberedTherapistListPrintHtml(therapist) : '';
 
                 sections += `<section class="ptg-sec${breakClass}">`
                     + `<h2><span>👤 ${escapeHtml(therapist)}</span><em>${printCountLabel(filled, 'термин', 'термини')} · ${escapeHtml(year)}</em></h2>`
                     + `<table class="ptgrid"><thead><tr><th class="per">Час</th>${head}</tr></thead><tbody>${rows}</tbody></table>`
-                    + `${summary}</section>`;
+                    + `${studentList}</section>`;
             });
 
             if (!shown) return { html: printNoteHtml('Избраните терапевти немаат ниту еден закажан термин.'), count: 0 };
@@ -7189,12 +7985,19 @@ body.density-comfortable .student-select {
   .ptgrid td.on { background: #f0f9f4; }
   .ptgrid td.split { padding: 0; }
   .ptgrid td.split .half { padding: 3px 5px; min-height: 18px; }
-  .ptgrid td.split .half + .half { border-top: 1px dashed #9aa3c0; }
+  .ptgrid td.split .half + .half { border-top: 0; }
   .ptgrid td.split .half.on { background: #f0f9f4; }
   .ptgrid b { color: #3a47b5; }
   .ptgrid .mt { color: #c3c9dd; }
   .ptg-summary { font-size: 10.5px; color: #6a7188; margin-top: 5px; }
   .ptg-summary b { color: #3a47b5; }
+  .ptg-students { margin-top: 7px; break-inside: avoid; }
+  .ptg-list-title { font-size: 10.5px; color: #6a7188; border-bottom: 1px solid #c9cee0; padding-bottom: 3px; margin-bottom: 4px; }
+  .ptg-list-title b { color: #3a47b5; margin-right: 10px; }
+  .ptg-list-title span { float: right; }
+  .ptg-student-ol { margin: 0; padding-left: 25px; font-size: 10.5px; color: #20263a; }
+  .ptg-student-ol li { padding: 1px 2px 2px; border-bottom: 1px dotted #d9ddea; break-inside: avoid; }
+  .ptg-student-ol b { color: #3a47b5; }
   table.roster, table.grid { width: 100%; border-collapse: collapse; }
   table.roster { max-width: ${landscape ? 'none' : '780px'}; table-layout: fixed; }
   .roster td, .roster th { word-wrap: break-word; overflow-wrap: break-word; }
@@ -7361,8 +8164,11 @@ body.density-comfortable .student-select {
                 + '.ptgrid th.per,.ptgrid td.per{width:52pt;background:#eef1fb;color:#3a47b5;font-weight:bold;}'
                 + '.ptgrid td.on,.ptgrid .half.on{background:#f0f9f4;}'
                 + '.ptgrid .rom{font-size:' + (grid + 4) + 'pt;font-weight:bold;}.ptgrid .tm{font-size:' + Math.max(6, grid - 2) + 'pt;color:#6a7188;}'
-                + '.ptgrid .half{padding:2pt 3pt;border-bottom:1px dashed #9aa3c0;}'
+                + '.ptgrid .half{padding:2pt 3pt;border:0;}'
                 + '.ptg-summary{font-size:' + small + 'pt;color:#6a7188;}'
+                + '.ptg-list-title{font-size:' + small + 'pt;color:#6a7188;border-bottom:1px solid #c9cee0;margin-top:5pt;padding-bottom:2pt;}'
+                + '.ptg-list-title b,.ptg-student-ol b{color:#3a47b5;}.ptg-list-title span{float:right;}'
+                + '.ptg-student-ol{margin:0;padding-left:20pt;font-size:' + small + 'pt;}.ptg-student-ol li{padding:1pt 0;border-bottom:1px dotted #d9ddea;}'
                 // надворешната табела што ги држи колоните не смее да има рамки —
                 // инаку глобалното th,td правило погоре ѝ ги дава
                 + '.colwrap,.colwrap td{border:0 !important;padding:0 4pt !important;}'
@@ -7612,6 +8418,7 @@ body.density-comfortable .student-select {
 
         window.addEventListener('DOMContentLoaded', loadDensityPreference);
         window.addEventListener('DOMContentLoaded', renderGradeDatalist);
+        window.addEventListener('DOMContentLoaded', loadTherapistStudentViewPrefs);
 
         window.addEventListener('DOMContentLoaded', loadScheduleFromLocal);
         window.addEventListener('DOMContentLoaded', () => { initCloudSync(); });
@@ -7642,6 +8449,9 @@ body.density-comfortable .student-select {
             if (tabName === 'per-therapist') {
                 try { refreshPerTherapistSelector(); } catch (e) {}
                 updatePerTherapistEmptyHint();
+            }
+            if (tabName === 'students') {
+                try { applyRosterEditorWidth(); renderRosterEditor(); } catch (e) {}
             }
 
             // Scroll to top of panel for clean focus
