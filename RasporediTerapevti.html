@@ -941,10 +941,13 @@
 
         .pt-cell.merged { vertical-align: middle; }
 
+        /* Споениот час зазема иста висина како двете половини заедно (2×38 + 3 razmak),
+           за редовите да останат порамнети, а содржината е центрирана вертикално. */
         .pt-subslot.merged-period {
-            min-height: 40px;
+            min-height: 90px;
             margin-bottom: 0;
             justify-content: center;
+            align-items: center;
             text-align: center;
         }
 
@@ -959,7 +962,34 @@
             white-space: normal;
             text-align: center;
         }
-        .compare-schedule .pt-subslot.merged-period { min-height: 34px; }
+        .compare-schedule .pt-subslot.merged-period { min-height: 69px; }
+
+        /* Избор на траење во попапот за ученик. */
+        .candidate-span-picker { display: none; margin-top: 14px; }
+        .candidate-span-picker.show { display: block; }
+        .span-options { display: flex; flex-direction: column; gap: 6px; }
+
+        .span-option {
+            display: flex;
+            align-items: center;
+            gap: 9px;
+            padding: 8px 10px;
+            border: 1.5px solid var(--border);
+            border-radius: 10px;
+            background: var(--bg-card);
+            cursor: pointer;
+            transition: border-color .14s ease, box-shadow .14s ease;
+        }
+
+        .span-option:hover { border-color: var(--primary); }
+        .span-option:has(input:checked) {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(91,111,216,.14);
+        }
+        .span-option input { width: 16px; height: 16px; flex: none; accent-color: var(--primary); cursor: pointer; }
+        .span-option .so-body b { display: block; font-size: 12.5px; }
+        .span-option .so-body small { display: block; font-size: 11px; color: var(--text-secondary); }
+        .span-hint { font-size: 11.5px; color: var(--text-secondary); margin-top: 8px; }
 
         .pt-subslot.empty .pt-half-student { color: var(--text-secondary); font-weight: 600; }
         .pt-subslot[draggable="true"],
@@ -3391,10 +3421,24 @@ body.density-comfortable .student-select {
                 <select id="candidateStudentSelect" class="candidate-select" onchange="updateCandidateModalWarning()"></select>
                 <div id="candidateMeta" class="candidate-meta"></div>
                 <div id="candidateWarning" class="candidate-warning"></div>
-                <label id="candidateFillRow" class="candidate-fill-row">
-                    <input type="checkbox" id="candidateFillBoth" checked>
-                    <span>Пополни ги/исчисти ги двете половини од часот.</span>
-                </label>
+                <div id="candidateFillRow" class="candidate-span-picker">
+                    <span class="candidate-field-label" style="margin-bottom:6px;">Колку трае третманот?</span>
+                    <div class="span-options">
+                        <label class="span-option">
+                            <input type="radio" name="candidateSpan" value="both" checked onchange="updateCandidateSpanHint()">
+                            <span class="so-body"><b>Цел час</b><small id="spanLabelBoth">40 минути — едно поле</small></span>
+                        </label>
+                        <label class="span-option">
+                            <input type="radio" name="candidateSpan" value="t1" onchange="updateCandidateSpanHint()">
+                            <span class="so-body"><b>Само 1. половина</b><small id="spanLabelT1">—</small></span>
+                        </label>
+                        <label class="span-option">
+                            <input type="radio" name="candidateSpan" value="t2" onchange="updateCandidateSpanHint()">
+                            <span class="so-body"><b>Само 2. половина</b><small id="spanLabelT2">—</small></span>
+                        </label>
+                    </div>
+                    <div class="span-hint" id="candidateSpanHint"></div>
+                </div>
             </div>
             <div class="candidate-modal-actions">
                 <button type="button" class="btn btn-danger" onclick="deleteCandidateSelection()">Избриши термин</button>
@@ -5085,7 +5129,6 @@ body.density-comfortable .student-select {
             const select = document.getElementById('candidateStudentSelect');
             const meta = document.getElementById('candidateMeta');
             const fillRow = document.getElementById('candidateFillRow');
-            const fillBoth = document.getElementById('candidateFillBoth');
 
             title.textContent = 'Избери ученик';
             subtitle.textContent = `${therapist} · ${day.toUpperCase()} · ${t2 ? `${t1} + ${t2}` : t1}`;
@@ -5113,12 +5156,42 @@ body.density-comfortable .student-select {
             });
 
             meta.textContent = `Достапни кандидати: ${candidates.length - blockedCount} од ${candidates.length}. Недостапните се прикажани, но не може да се изберат за да се избегне конфликт.`;
-            fillBoth.checked = Boolean(t2);
+            // Избор на траење: цел час или само една половина. Стандардно се
+            // предлага она што ученикот веќе го зафаќа, за да не се менува ненамерно.
+            const s1 = getAssignment(day, t1, therapist);
+            const s2 = t2 ? getAssignment(day, t2, therapist) : '';
+            const already = normalizedCurrent && s1 === s2 ? 'both' : (normalizedCurrent && s2 === normalizedCurrent && s1 !== normalizedCurrent) ? 't2' : (normalizedCurrent ? 't1' : 'both');
+            document.querySelectorAll('input[name="candidateSpan"]').forEach(radio => {
+                radio.checked = radio.value === (t2 ? already : 't1');
+                radio.disabled = !t2;
+            });
+            const lblT1 = document.getElementById('spanLabelT1');
+            const lblT2 = document.getElementById('spanLabelT2');
+            const lblBoth = document.getElementById('spanLabelBoth');
+            if (lblT1) lblT1.textContent = t1 ? t1.replace('-', '–') : '—';
+            if (lblT2) lblT2.textContent = t2 ? t2.replace('-', '–') : '—';
+            if (lblBoth) lblBoth.textContent = t2 ? `${t1.split('-')[0]}–${t2.split('-')[1]} · едно поле` : 'едно поле';
             fillRow.classList.toggle('show', Boolean(t2));
+            updateCandidateSpanHint();
+
             modal.classList.add('show');
             document.addEventListener('keydown', handleCandidateKeyDown);
             updateCandidateModalWarning();
             setTimeout(() => select.focus(), 0);
+        }
+
+        // Кажува што точно ќе се случи со другата половина при тековниот избор.
+        function updateCandidateSpanHint() {
+            const hint = document.getElementById('candidateSpanHint');
+            if (!hint || !pendingCandidateEdit) return;
+            const edit = pendingCandidateEdit;
+            const span = document.querySelector('input[name="candidateSpan"]:checked')?.value || 'both';
+            if (!edit.t2) { hint.textContent = ''; return; }
+            const other = span === 't1' ? edit.t2 : edit.t1;
+            const otherStudent = span === 'both' ? '' : getAssignment(edit.day, other, edit.therapist);
+            hint.textContent = span === 'both'
+                ? 'Двете половини добиваат ист ученик и се спојуваат во едно поле.'
+                : `Другата половина (${other.replace('-', '–')}) останува недопрена${otherStudent ? ` — таму е ${displayStudentName(otherStudent)}` : ' и празна'}.`;
         }
 
         function updateCandidateModalWarning() {
@@ -5166,10 +5239,20 @@ body.density-comfortable .student-select {
 
             const value = select.value.trim();
             const edit = pendingCandidateEdit;
-            const fillBoth = Boolean(edit.t2 && document.getElementById('candidateFillBoth')?.checked);
+            const span = edit.t2
+                ? (document.querySelector('input[name="candidateSpan"]:checked')?.value || 'both')
+                : 't1';
 
-            applyAssignment(edit.day, edit.t1, edit.therapist, value);
-            if (fillBoth) applyAssignment(edit.day, edit.t2, edit.therapist, value);
+            // „Само една половина“ ја остава другата недопрена — така се цепи
+            // спарен час без да се брише постоечкиот ученик во другата половина.
+            if (span === 'both') {
+                applyAssignment(edit.day, edit.t1, edit.therapist, value);
+                applyAssignment(edit.day, edit.t2, edit.therapist, value);
+            } else if (span === 't2') {
+                applyAssignment(edit.day, edit.t2, edit.therapist, value);
+            } else {
+                applyAssignment(edit.day, edit.t1, edit.therapist, value);
+            }
 
             saveScheduleToLocal();
             closeCandidateModal();
@@ -5183,10 +5266,18 @@ body.density-comfortable .student-select {
         function deleteCandidateSelection() {
             if (!pendingCandidateEdit) return;
             const edit = pendingCandidateEdit;
-            const fillBoth = Boolean(edit.t2 && document.getElementById('candidateFillBoth')?.checked);
+            const span = edit.t2
+                ? (document.querySelector('input[name="candidateSpan"]:checked')?.value || 'both')
+                : 't1';
 
-            applyAssignment(edit.day, edit.t1, edit.therapist, '');
-            if (fillBoth) applyAssignment(edit.day, edit.t2, edit.therapist, '');
+            if (span === 'both') {
+                applyAssignment(edit.day, edit.t1, edit.therapist, '');
+                applyAssignment(edit.day, edit.t2, edit.therapist, '');
+            } else if (span === 't2') {
+                applyAssignment(edit.day, edit.t2, edit.therapist, '');
+            } else {
+                applyAssignment(edit.day, edit.t1, edit.therapist, '');
+            }
 
             saveScheduleToLocal();
             closeCandidateModal();
