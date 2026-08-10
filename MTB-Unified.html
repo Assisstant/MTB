@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Електронски дневник — со распоред</title>
+<title>Електронски дневник + Сите распореди</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📚</text></svg>">
 <style>
     /* Стилот е преземен од S-Dnevnik за да не се чувствува како друга алатка:
@@ -101,8 +101,58 @@
     .shell-pane.active { display: block; }
     .shell-pane iframe { width: 100%; height: 100%; border: 0; display: block; background: #f0f2f5; }
 
-    .sync-pane { overflow-y: auto; padding: 20px; background: #eef0f6; }
-    .sync-inner { max-width: 920px; margin: 0 auto; }
+    /* ── дијалог за синхронизација (се вика од табот Сите распореди) ── */
+    .sync-backdrop {
+        position: fixed;
+        inset: 0;
+        z-index: 9998;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        padding: 18px;
+        background: rgba(15, 20, 45, .62);
+        backdrop-filter: blur(4px);
+    }
+
+    .sync-backdrop.show { display: flex; }
+
+    .sync-modal {
+        width: min(880px, 100%);
+        max-height: min(88vh, 900px);
+        display: flex;
+        flex-direction: column;
+        background: #eef0f6;
+        border-radius: 10px;
+        box-shadow: 0 24px 70px rgba(0,0,0,.45);
+        overflow: hidden;
+    }
+
+    .sync-modal-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 14px;
+        padding: 14px 20px;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: #fff;
+    }
+
+    .sync-modal-head h3 { font-size: 17px; }
+    .sync-modal-head .sub { font-size: 12.5px; opacity: .92; margin-top: 2px; }
+    .sync-modal-head .btn { background: rgba(255,255,255,.2); color: #fff; padding: 6px 12px; }
+
+    .sync-modal-body { padding: 18px 20px 6px; overflow-y: auto; flex: 1; min-height: 0; }
+
+    .sync-modal-foot {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        flex-wrap: wrap;
+        padding: 14px 20px;
+        background: #fff;
+        border-top: 1px solid #dddfe2;
+    }
 
     .section-header {
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
@@ -273,9 +323,8 @@
 <body>
 
 <div class="shell-tabs">
-    <button class="shell-tab active" data-pane="diary" onclick="showPane('diary')">Дневник</button>
-    <button class="shell-tab" data-pane="raspored" onclick="showPane('raspored')">Распоред</button>
-    <button class="shell-tab" data-pane="sync" onclick="showPane('sync')">Пренос<span class="shell-badge" id="tabBadge">—</span></button>
+    <button class="shell-tab active" data-pane="diary" onclick="showPane('diary')">Дневник<span class="shell-badge" id="tabBadge">—</span></button>
+    <button class="shell-tab" data-pane="raspored" onclick="showPane('raspored')">Сите распореди</button>
 </div>
 
 <div class="shell-body">
@@ -285,42 +334,38 @@
     <div class="shell-pane" id="pane-raspored">
         <iframe id="frameRaspored" src="RasporediTerapevti.html" title="Распоред на терапевти"></iframe>
     </div>
-    <div class="shell-pane sync-pane" id="pane-sync">
-        <div class="sync-inner">
-            <div class="section-header">🔗 Пренос од Распоред во Дневник</div>
+</div>
 
-            <div class="card">
-                <p class="lead">
-                    Двете апликации се вчитани во иста страница, па податоците се читаат <strong>во живо</strong> —
-                    без извоз и увоз на фајлови. Избери терапевт, прегледај што ќе се смени, и пренеси.
-                    Оригиналните апликации не се изменети.
-                </p>
+<!-- Дијалогот се отвора од копчето во табот „Сите распореди“ → Алатки. -->
+<div class="sync-backdrop" id="syncBackdrop" onclick="if(event.target===this)closeSyncDialog()">
+    <div class="sync-modal">
+        <div class="sync-modal-head">
+            <div>
+                <h3 id="syncTitle">🔗 Синхронизација со Дневникот</h3>
+                <div class="sub" id="syncSub"></div>
+            </div>
+            <button class="btn" onclick="closeSyncDialog()">✕</button>
+        </div>
+        <div class="sync-modal-body">
+            <div id="linkStatus"></div>
+            <div class="stats-row" id="statsRow"></div>
 
-                <div id="linkStatus"></div>
-                <div class="stats-row" id="statsRow"></div>
+            <div class="row">
+                <label style="font-size:13px; color:#1c1e21; cursor:pointer;">
+                    <input type="checkbox" id="keepOthers" checked onchange="onTherapistPick()" style="min-width:auto; vertical-align:middle; margin-right:6px;">
+                    Задржи ги учениците од Дневникот што не се кај овој терапевт
+                </label>
+            </div>
 
-                <div class="row">
-                    <label class="lbl" for="therapistPick">Терапевт</label>
-                    <select id="therapistPick" onchange="onTherapistPick()">
-                        <option value="">— вчитување… —</option>
-                    </select>
-                    <button class="btn" onclick="refreshLink()">↻ Освежи</button>
-                </div>
-
-                <div class="row">
-                    <label style="font-size:13px; color:#1c1e21; cursor:pointer;">
-                        <input type="checkbox" id="keepOthers" checked onchange="onTherapistPick()" style="min-width:auto; vertical-align:middle; margin-right:6px;">
-                        Задржи ги учениците од Дневникот што не се кај овој терапевт
-                    </label>
-                </div>
-
-                <div class="chips" id="previewChips"></div>
-                <div id="previewBody"></div>
-
-                <div class="row" style="margin-top:16px; margin-bottom:0;">
-                    <button class="btn primary" id="applyBtn" onclick="applyTransfer()" disabled>📥 Пренеси во Дневникот</button>
-                    <span class="status-line" id="applyStatus"></span>
-                </div>
+            <div class="chips" id="previewChips"></div>
+            <div id="previewBody"></div>
+            <select id="therapistPick" onchange="onTherapistPick()" style="display:none;"></select>
+        </div>
+        <div class="sync-modal-foot">
+            <span class="status-line" id="applyStatus"></span>
+            <div style="display:flex; gap:8px;">
+                <button class="btn" onclick="closeSyncDialog()">Откажи</button>
+                <button class="btn primary" id="applyBtn" onclick="applyTransfer()" disabled>📥 Пренеси во Дневникот</button>
             </div>
         </div>
     </div>
@@ -362,7 +407,85 @@ let transfer = null;
 function showPane(name) {
     document.querySelectorAll('.shell-pane').forEach(p => p.classList.toggle('active', p.id === 'pane-' + name));
     document.querySelectorAll('.shell-tab').forEach(t => t.classList.toggle('active', t.dataset.pane === name));
-    if (name === 'sync') refreshLink();
+    if (name === 'raspored') injectSyncPanel();
+}
+
+// ── дијалог ──
+function openSyncDialog(therapist) {
+    refreshLink();
+    const pick = document.getElementById('therapistPick');
+    if (therapist) pick.value = therapist;
+    document.getElementById('syncSub').textContent = therapist
+        ? `Распоредот на ${therapist} се пренесува во Дневникот`
+        : 'Избери терапевт во панелот и обиди се повторно';
+    onTherapistPick();
+    document.getElementById('syncBackdrop').classList.add('show');
+}
+
+function closeSyncDialog() {
+    document.getElementById('syncBackdrop').classList.remove('show');
+}
+
+// Панелот се вметнува ВНАТРЕ во Распоредот, во неговиот таб Алатки, за да не
+// биде посебен таб на обвивката. Оригиналниот фајл не се менува — вметнувањето
+// се случува во меморија при отворање.
+function injectSyncPanel() {
+    const r = rasporedWin();
+    if (!r || !r.document) return;
+    const doc = r.document;
+    if (doc.getElementById('shellLiveSync')) { refreshInjectedPanel(); return; }
+
+    const anchor = doc.querySelector('.sdn-card') || doc.querySelector('.sync-card');
+    if (!anchor || !anchor.parentNode) return;
+
+    const card = doc.createElement('div');
+    card.className = 'controls-section sync-card';
+    card.id = 'shellLiveSync';
+    card.style.borderLeftColor = '#667eea';
+    card.innerHTML = `
+        <h4 style="font-size:14px; color:var(--primary); margin-bottom:10px;">
+            ⚡ Синхронизација со Дневникот (во живо)
+            <span id="shellSyncChip" class="cloud-chip ready" style="margin-left:6px;">поврзано</span>
+        </h4>
+        <div style="font-size:12px; color:var(--text-secondary); margin-bottom:12px;">
+            Го праќа списокот и неделниот распоред на избраниот терапевт директно во Дневникот —
+            без фајлови. Присуството, проценките и досиејата остануваат недопрени.
+        </div>
+        <div class="sync-row">
+            <label class="sync-label" for="shellSyncTherapist">Кабинет / терапевт:</label>
+            <select id="shellSyncTherapist" class="people-crud-search compact"></select>
+            <button type="button" class="btn btn-primary btn-compact" id="shellSyncGo">👁 Провери и пренеси</button>
+        </div>`;
+    anchor.parentNode.insertBefore(card, anchor);
+
+    doc.getElementById('shellSyncGo').addEventListener('click', () => {
+        const t = doc.getElementById('shellSyncTherapist').value;
+        if (!t) return;
+        window.openSyncDialog(t);
+    });
+    refreshInjectedPanel();
+}
+
+function refreshInjectedPanel() {
+    const r = rasporedWin();
+    if (!r || !r.document) return;
+    const sel = r.document.getElementById('shellSyncTherapist');
+    const chip = r.document.getElementById('shellSyncChip');
+    if (!sel) return;
+    const s = linkState();
+    if (!s.raspored || !s.diary) {
+        sel.innerHTML = '<option value="">— недостапно —</option>';
+        if (chip) { chip.className = 'cloud-chip off'; chip.textContent = 'нема врска'; }
+        return;
+    }
+    if (chip) { chip.className = 'cloud-chip ready'; chip.textContent = `Дневник: ${s.d.students.length} ученици`; }
+    const prev = sel.value;
+    let saved = '';
+    try { saved = localStorage.getItem('mtb_shell_therapist') || ''; } catch (e) { /* ignore */ }
+    sel.innerHTML = '<option value="">— избери —</option>'
+        + s.snap.therapists.map(t => `<option value="${esc(t)}">${esc(t)}</option>`).join('');
+    if (prev && s.snap.therapists.includes(prev)) sel.value = prev;
+    else if (saved && s.snap.therapists.includes(saved)) sel.value = saved;
 }
 
 function toast(message, kind = '') {
@@ -620,9 +743,16 @@ const readyTimer = setInterval(() => {
     if (s.diary) document.getElementById('tabBadge').textContent = s.d.students.length;
     if ((s.raspored && s.diary) || readyChecks > 40) {
         clearInterval(readyTimer);
-        if (document.getElementById('pane-sync').classList.contains('active')) refreshLink();
+        injectSyncPanel();
     }
 }, 500);
+
+// Распоредот си го прецртува табот Алатки при секоја промена на податоци,
+// што може да го однесе вметнатиот панел — затоа се проверува периодично.
+setInterval(() => {
+    const r = rasporedWin();
+    if (r && r.document && !r.document.getElementById('shellLiveSync')) injectSyncPanel();
+}, 2000);
 </script>
 </body>
 </html>
