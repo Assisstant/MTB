@@ -1,0 +1,621 @@
+<!DOCTYPE html>
+<html lang="mk">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MTB — Дневник и Распоред (тест)</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🧩</text></svg>">
+<style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    :root {
+        --primary: #5b6fd8;
+        --primary-dark: #4a5bc7;
+        --secondary: #3dd598;
+        --danger: #e74c3c;
+        --warning: #f39c12;
+        --bg-main: #f5f7fa;
+        --bg-card: #ffffff;
+        --text-primary: #2c3e50;
+        --text-secondary: #7f8c8d;
+        --border: #e1e8ed;
+        --shadow: rgba(0,0,0,.1);
+        --ok-bg: #f0f9f4;
+        --ok-border: #4caf50;
+        --ok-text: #1b5e20;
+        --warn-bg: #ffebee;
+        --warn-border: #c62828;
+        --warn-text: #b71c1c;
+    }
+
+    [data-theme="dark"] {
+        --bg-main: #1a1d2e;
+        --bg-card: #252943;
+        --text-primary: #e8eaf0;
+        --text-secondary: #9ca3af;
+        --border: #3a4070;
+        --shadow: rgba(0,0,0,.3);
+        --ok-bg: rgba(76,175,80,.16);
+        --ok-text: #a5d6a7;
+        --warn-bg: rgba(198,40,40,.18);
+        --warn-text: #ef9a9a;
+    }
+
+    html, body { height: 100%; }
+
+    body {
+        display: flex;
+        flex-direction: column;
+        font-family: 'Segoe UI', Tahoma, sans-serif;
+        background: var(--bg-main);
+        color: var(--text-primary);
+        overflow: hidden;
+    }
+
+    /* ── лента со табови ── */
+    .shell-nav {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 8px 14px;
+        background: var(--bg-card);
+        border-bottom: 1px solid var(--border);
+        box-shadow: 0 2px 6px var(--shadow);
+        flex: none;
+        flex-wrap: wrap;
+    }
+
+    .shell-brand {
+        font-weight: 800;
+        font-size: 14px;
+        color: var(--primary);
+        margin-right: 8px;
+        white-space: nowrap;
+    }
+
+    .shell-brand small {
+        display: block;
+        font-size: 10px;
+        font-weight: 600;
+        color: var(--text-secondary);
+    }
+
+    .shell-tab {
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        padding: 9px 15px;
+        border: 1.5px solid transparent;
+        border-radius: 11px;
+        background: transparent;
+        color: var(--text-secondary);
+        font-family: inherit;
+        font-size: 13px;
+        font-weight: 700;
+        cursor: pointer;
+        transition: all .15s ease;
+    }
+
+    .shell-tab:hover { background: var(--bg-main); color: var(--text-primary); }
+
+    .shell-tab.active {
+        background: var(--primary);
+        border-color: var(--primary);
+        color: #fff;
+        box-shadow: 0 3px 10px rgba(91,111,216,.3);
+    }
+
+    .shell-spacer { flex: 1; }
+
+    .shell-btn {
+        padding: 8px 13px;
+        border: 1.5px solid var(--border);
+        border-radius: 10px;
+        background: var(--bg-card);
+        color: var(--text-primary);
+        font-family: inherit;
+        font-size: 12.5px;
+        font-weight: 700;
+        cursor: pointer;
+    }
+
+    .shell-btn:hover { border-color: var(--primary); color: var(--primary); }
+    .shell-btn.primary { background: var(--primary); border-color: var(--primary); color: #fff; }
+    .shell-btn.primary:hover { background: var(--primary-dark); color: #fff; }
+    .shell-btn:disabled { opacity: .5; cursor: not-allowed; }
+
+    /* ── содржина ── */
+    .shell-body { flex: 1; min-height: 0; position: relative; }
+
+    .shell-pane {
+        position: absolute;
+        inset: 0;
+        display: none;
+    }
+
+    .shell-pane.active { display: block; }
+    .shell-pane iframe { width: 100%; height: 100%; border: 0; display: block; background: var(--bg-main); }
+
+    .sync-pane {
+        overflow-y: auto;
+        padding: 22px;
+    }
+
+    .sync-inner { max-width: 900px; margin: 0 auto; }
+
+    .card {
+        background: var(--bg-card);
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        padding: 18px 20px;
+        margin-bottom: 16px;
+        box-shadow: 0 2px 8px var(--shadow);
+    }
+
+    .card h2 { font-size: 16px; color: var(--primary); margin-bottom: 6px; }
+    .card p.lead { font-size: 12.5px; color: var(--text-secondary); margin-bottom: 14px; line-height: 1.55; }
+
+    .row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
+    .row label { font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: .04em; color: var(--text-secondary); }
+
+    select, input[type="text"] {
+        padding: 9px 11px;
+        border: 1.5px solid var(--border);
+        border-radius: 10px;
+        background: var(--bg-card);
+        color: var(--text-primary);
+        font-family: inherit;
+        font-size: 13px;
+        min-width: 220px;
+    }
+
+    .chips { display: flex; flex-wrap: wrap; gap: 7px; margin-bottom: 12px; }
+
+    .chip {
+        font-size: 12px;
+        font-weight: 700;
+        padding: 5px 11px;
+        border-radius: 20px;
+        border: 1px solid var(--border);
+        background: var(--bg-main);
+        color: var(--text-secondary);
+    }
+
+    .chip.ok { border-color: var(--ok-border); background: var(--ok-bg); color: var(--ok-text); }
+    .chip.warn { border-color: var(--warning); background: rgba(243,156,18,.15); color: #8a5a00; }
+    [data-theme="dark"] .chip.warn { color: var(--warning); }
+    .chip.bad { border-color: var(--warn-border); background: var(--warn-bg); color: var(--warn-text); }
+    .chip.none { opacity: .55; }
+
+    .alert {
+        padding: 11px 13px;
+        border-radius: 11px;
+        font-size: 12.5px;
+        line-height: 1.5;
+        margin-bottom: 12px;
+        border: 1px solid var(--warn-border);
+        background: var(--warn-bg);
+        color: var(--warn-text);
+    }
+
+    .alert.ok { border-color: var(--ok-border); background: var(--ok-bg); color: var(--ok-text); }
+
+    .list {
+        max-height: 220px;
+        overflow-y: auto;
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        background: var(--bg-main);
+        margin-bottom: 12px;
+    }
+
+    .list .item {
+        display: flex;
+        gap: 9px;
+        align-items: baseline;
+        padding: 5px 11px;
+        font-size: 12.5px;
+        border-bottom: 1px solid var(--border);
+    }
+
+    .list .item:last-child { border-bottom: 0; }
+    .list .item .mark { font-weight: 900; flex: none; }
+    .list .item .when { color: var(--text-secondary); font-size: 11px; min-width: 118px; }
+    .item.add .mark { color: var(--ok-border); }
+    .item.new .mark { color: var(--warning); }
+    .item.bad .mark { color: var(--danger); }
+
+    h5.sec {
+        font-size: 11.5px;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: .04em;
+        color: var(--text-secondary);
+        margin: 14px 0 6px;
+    }
+
+    .status-line { font-size: 12px; color: var(--text-secondary); margin-top: 10px; }
+
+    .toast-wrap { position: fixed; bottom: 18px; right: 18px; z-index: 999; display: flex; flex-direction: column; gap: 8px; }
+
+    .toast {
+        padding: 11px 15px;
+        border-radius: 11px;
+        font-size: 13px;
+        font-weight: 600;
+        color: #fff;
+        background: var(--primary);
+        box-shadow: 0 6px 18px rgba(0,0,0,.25);
+        max-width: 380px;
+    }
+
+    .toast.ok { background: #27ae60; }
+    .toast.warn { background: var(--danger); }
+
+    @media (max-width: 700px) {
+        .shell-brand small { display: none; }
+        .shell-tab { padding: 8px 11px; font-size: 12px; }
+        select, input[type="text"] { min-width: 100%; }
+    }
+</style>
+</head>
+<body>
+
+<nav class="shell-nav">
+    <div class="shell-brand">🧩 MTB<small>тест — обединето</small></div>
+    <button class="shell-tab active" data-pane="raspored" onclick="showPane('raspored')">🗓️ Распоред</button>
+    <button class="shell-tab" data-pane="diary" onclick="showPane('diary')">📔 Дневник</button>
+    <button class="shell-tab" data-pane="sync" onclick="showPane('sync')">🔗 Пренос</button>
+    <div class="shell-spacer"></div>
+    <button class="shell-btn" onclick="toggleShellTheme()">🌓 Тема</button>
+</nav>
+
+<div class="shell-body">
+    <div class="shell-pane active" id="pane-raspored">
+        <iframe id="frameRaspored" src="RasporediTerapevti.html" title="Распоред на терапевти"></iframe>
+    </div>
+    <div class="shell-pane" id="pane-diary">
+        <iframe id="frameDiary" src="S-Dnevnik-.html" title="S-Dnevnik"></iframe>
+    </div>
+    <div class="shell-pane sync-pane" id="pane-sync">
+        <div class="sync-inner">
+            <div class="card">
+                <h2>🔗 Пренос од Распоред во Дневник</h2>
+                <p class="lead">
+                    Двете апликации се вчитани во истата страница, па нивните податоци се читаат <strong>во живо</strong> —
+                    без извоз и увоз на фајлови. Избери терапевт, прегледај што ќе се смени, и пренеси.
+                    Оригиналните апликации не се изменети; ова е само обвивка над нив.
+                </p>
+
+                <div id="linkStatus"></div>
+
+                <div class="row">
+                    <label for="therapistPick">Терапевт</label>
+                    <select id="therapistPick" onchange="onTherapistPick()">
+                        <option value="">— вчитување… —</option>
+                    </select>
+                    <button class="shell-btn" onclick="refreshLink()">↻ Освежи</button>
+                </div>
+
+                <div class="row">
+                    <label style="text-transform:none; font-weight:600; font-size:12.5px; color:var(--text-primary);">
+                        <input type="checkbox" id="keepOthers" checked onchange="onTherapistPick()" style="min-width:auto; vertical-align:middle;">
+                        Задржи ги учениците од Дневникот што не се кај овој терапевт
+                    </label>
+                </div>
+
+                <div class="chips" id="previewChips"></div>
+                <div id="previewBody"></div>
+
+                <div class="row" style="margin-top:14px; margin-bottom:0;">
+                    <button class="shell-btn primary" id="applyBtn" onclick="applyTransfer()" disabled>📥 Пренеси во Дневникот</button>
+                    <span class="status-line" id="applyStatus"></span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="toast-wrap" id="toasts"></div>
+
+<script>
+// ============================================================
+// Обвивка над двете постоечки апликации.
+//
+// Ниту еден ред од S-Dnevnik-.html и RasporediTerapevti.html не е изменет.
+// Тие се вчитани во iframe-ови, а оваа страница ги чита нивните живи
+// глобални променливи. Тоа е можно бидејќи двата фајла се од иста папка,
+// па делат origin.
+//
+// Затоа мапирањето по id е СЕКОГАШ свежо — не постои застарена мапа како
+// кај преносот преку фајл.
+// ============================================================
+
+const SDN_DAYS = { 'понеделник': 'monday', 'вторник': 'tuesday', 'среда': 'wednesday', 'четврток': 'thursday', 'петок': 'friday' };
+const SDN_PERIODS = 5;   // Дневникот има I–V; Распоредот има и VI
+
+// Распоредот ги држи глобалите со `let`, а `let` на врвно ниво НЕ станува
+// својство на window — за разлика од `var` што го користи Дневникот. Затоа
+// неговата состојба се чита преку функцијата currentStateSnapshot(), а деновите
+// и часовите стојат тука бидејќи се непроменливи во двете апликации.
+const RP_DAYS = ['понеделник', 'вторник', 'среда', 'четврток', 'петок'];
+const RP_PERIODS = [
+    ['08:00-08:20', '08:20-08:40'],
+    ['08:45-09:05', '09:05-09:25'],
+    ['09:40-10:00', '10:00-10:20'],
+    ['10:25-10:45', '10:45-11:05'],
+    ['11:10-11:30', '11:30-11:50'],
+    ['11:55-12:15', '12:15-12:35']
+];
+
+let transfer = null;
+
+function showPane(name) {
+    document.querySelectorAll('.shell-pane').forEach(p => p.classList.toggle('active', p.id === 'pane-' + name));
+    document.querySelectorAll('.shell-tab').forEach(t => t.classList.toggle('active', t.dataset.pane === name));
+    if (name === 'sync') refreshLink();
+}
+
+function toggleShellTheme() {
+    const next = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+    document.documentElement.setAttribute('data-theme', next);
+    try { localStorage.setItem('mtb_shell_theme', next); } catch (e) { /* ignore */ }
+}
+
+function toast(message, kind = '') {
+    const div = document.createElement('div');
+    div.className = 'toast ' + kind;
+    div.textContent = message;
+    document.getElementById('toasts').appendChild(div);
+    setTimeout(() => { div.style.opacity = '0'; div.style.transition = 'opacity .25s'; setTimeout(() => div.remove(), 280); }, 3200);
+}
+
+const esc = s => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+const plural = (n, one, many) => n + ' ' + (n === 1 ? one : many);
+
+// ── пристап до двете апликации ──
+function win(id) {
+    try {
+        const w = document.getElementById(id).contentWindow;
+        return (w && w.document && w.document.readyState === 'complete') ? w : null;
+    } catch (e) {
+        return null;
+    }
+}
+
+const rasporedWin = () => win('frameRaspored');
+const diaryWin = () => win('frameDiary');
+
+function linkState() {
+    const r = rasporedWin(), d = diaryWin();
+    let snap = null;
+    if (r && typeof r.currentStateSnapshot === 'function') {
+        try { snap = r.currentStateSnapshot(); } catch (e) { snap = null; }
+    }
+    return {
+        raspored: !!(snap && Array.isArray(snap.therapists)),
+        diary: !!(d && Array.isArray(d.students)),
+        r, d, snap
+    };
+}
+
+function refreshLink() {
+    const s = linkState();
+    const box = document.getElementById('linkStatus');
+    const pick = document.getElementById('therapistPick');
+
+    if (!s.raspored || !s.diary) {
+        box.innerHTML = '<div class="alert">⏳ Апликациите сè уште се вчитуваат, или прелистувачот не дозволува читање меѓу нив.'
+            + '<br><small>Ако ова остане, отвори ги табовите Распоред и Дневник еднаш, па врати се тука и притисни „Освежи“.</small></div>';
+        pick.innerHTML = '<option value="">— недостапно —</option>';
+        document.getElementById('applyBtn').disabled = true;
+        return;
+    }
+
+    box.innerHTML = `<div class="alert ok">✅ Поврзано во живо · Распоред: ${plural(s.snap.therapists.length, 'терапевт', 'терапевти')}, `
+        + `${plural(s.snap.students.filter(x => x !== 'Избери Ученик').length, 'ученик', 'ученици')} · `
+        + `Дневник: ${plural(s.d.students.length, 'ученик', 'ученици')}</div>`;
+
+    const previous = pick.value;
+    pick.innerHTML = '<option value="">— избери терапевт —</option>'
+        + s.snap.therapists.map(t => `<option value="${esc(t)}">${esc(t)}</option>`).join('');
+    if (previous && s.snap.therapists.includes(previous)) pick.value = previous;
+    else {
+        try { const saved = localStorage.getItem('mtb_shell_therapist'); if (saved && s.snap.therapists.includes(saved)) pick.value = saved; } catch (e) { /* ignore */ }
+    }
+    onTherapistPick();
+}
+
+// Чисто име на личност: во Распоредот често носи одделение („V-а - Дејан“).
+function personKey(name, rw) {
+    const clean = rw && typeof rw.displayStudentName === 'function' ? rw.displayStudentName(name) : String(name || '');
+    return clean.toLocaleLowerCase('mk-MK').replace(/\s+/g, ' ').trim();
+}
+
+function buildTransfer(therapist) {
+    const s = linkState();
+    if (!s.raspored || !s.diary || !therapist) return null;
+    const R = s.r, D = s.d, RS = s.snap;
+
+    const plan = { matched: [], created: [], kept: [], gradeChanges: [], lostVI: [], preserved: [] };
+
+    // Мапата се гради од ЖИВАТА состојба на Дневникот — секогаш свежа.
+    const byPerson = new Map();
+    D.students.forEach(st => { if (st && st.name) byPerson.set(personKey(st.name, R), st); });
+
+    const defaultPlanId = (D.students.find(x => x.planId != null) || {}).planId ?? null;
+    const usedIds = new Set(D.students.map(x => Number(x.id)).filter(Number.isFinite));
+    let nextId = Date.now();
+
+    const mine = (RS.therapistStudents[therapist] || []).filter(x => RS.students.includes(x));
+    const outStudents = [];
+    const idByStudent = new Map();
+
+    mine.forEach(student => {
+        const known = byPerson.get(personKey(student, R));
+        const cleanName = R.displayStudentName(student);
+        const grade = R.getStudentCategory(student) === 'preschool' ? '(предуч.)' : (R.getStudentGrade(student) || '');
+        let id;
+
+        if (known) {
+            id = Number(known.id);
+            plan.matched.push({ name: cleanName, id });
+            if (known.grade && known.grade !== grade) plan.gradeChanges.push({ name: cleanName, from: known.grade, to: grade });
+            const extra = Object.keys(known).filter(k => !['id', 'name', 'grade', 'planId'].includes(k));
+            extra.forEach(k => { if (!plan.preserved.includes(k)) plan.preserved.push(k); });
+            // Целиот постоечки запис се враќа; се менуваат само име и одделение,
+            // за да не се изгубат полиња како planType, duration, needsTrijazen.
+            outStudents.push(Object.assign({}, known, { id, name: cleanName, grade }));
+        } else {
+            while (usedIds.has(nextId)) nextId++;
+            id = nextId++;
+            usedIds.add(id);
+            plan.created.push({ name: cleanName, id });
+            outStudents.push({ id, name: cleanName, grade, planId: defaultPlanId, needsTrijazen: true });
+        }
+        idByStudent.set(student, id);
+    });
+
+    // Учениците на Дневникот што не се кај овој терапевт — инаку би исчезнале.
+    if (document.getElementById('keepOthers').checked) {
+        const has = new Set(outStudents.map(x => x.id));
+        D.students.forEach(st => {
+            if (has.has(Number(st.id))) return;
+            outStudents.push(Object.assign({}, st));
+            plan.kept.push(st.name);
+        });
+    }
+
+    // Распоред: двете половини од часот се спојуваат во една листа id-а.
+    const schedule = {};
+    Object.values(SDN_DAYS).forEach(d => { schedule[d] = Array.from({ length: SDN_PERIODS }, () => []); });
+
+    RP_DAYS.forEach(day => {
+        const eng = SDN_DAYS[day];
+        if (!eng) return;
+        RP_PERIODS.forEach((slots, pIndex) => {
+            const seen = new Set();
+            slots.forEach(time => {
+                const student = R.getAssignment(day, time, therapist);
+                if (!student || student === 'Избери Ученик') return;
+                if (pIndex >= SDN_PERIODS) {
+                    plan.lostVI.push({ day, time, name: R.displayStudentName(student) });
+                    return;
+                }
+                const id = idByStudent.get(student);
+                if (id == null || seen.has(id)) return;
+                seen.add(id);
+                schedule[eng][pIndex].push(id);
+            });
+        });
+    });
+
+    return { students: outStudents, schedule, plan, therapist };
+}
+
+function onTherapistPick() {
+    const therapist = document.getElementById('therapistPick').value;
+    try { if (therapist) localStorage.setItem('mtb_shell_therapist', therapist); } catch (e) { /* ignore */ }
+
+    transfer = therapist ? buildTransfer(therapist) : null;
+    const chips = document.getElementById('previewChips');
+    const body = document.getElementById('previewBody');
+    const btn = document.getElementById('applyBtn');
+
+    if (!transfer) {
+        chips.innerHTML = '';
+        body.innerHTML = '<p class="lead">Избери терапевт за да се прикаже што ќе се пренесе.</p>';
+        btn.disabled = true;
+        return;
+    }
+
+    const p = transfer.plan;
+    const chip = (n, one, many, cls) => `<span class="chip ${n ? cls : 'none'}">${plural(n, one, many)}</span>`;
+    chips.innerHTML = [
+        chip(p.matched.length, 'препознаен', 'препознаени', 'ok'),
+        chip(p.created.length, 'нов', 'нови', 'warn'),
+        chip(p.kept.length, 'задржан', 'задржани', 'ok'),
+        chip(p.gradeChanges.length, 'ново одделение', 'нови одделенија', 'warn'),
+        chip(p.lostVI.length, 'термин во VI час', 'термини во VI час', 'bad')
+    ].join('');
+
+    let html = '<div class="alert ok">✅ Се менуваат само <strong>списокот на ученици и неделниот распоред</strong> во Дневникот. '
+        + 'Присуството, проценките, досиејата, плановите и напредокот остануваат недопрени.'
+        + (p.preserved.length ? `<br>Кај познатите ученици се задржуваат и: <strong>${p.preserved.map(esc).join(', ')}</strong>.` : '')
+        + '</div>';
+
+    html += '<div class="alert">🔁 Распоредот во Дневникот се <strong>заменува целосно</strong>. Термин закажан таму што го нема во Распоредот ќе исчезне.</div>';
+
+    if (p.created.length) {
+        html += `<div class="alert">🆕 ${plural(p.created.length, 'нов ученик влегува', 'нови ученици влегуваат')} без присуство, проценки, досие и тријажа — тие се создаваат во Дневникот при првото отворање. Планот им е поставен на постоечкиот.</div>`;
+    }
+
+    if (p.lostVI.length) {
+        html += `<div class="alert">⚠️ Дневникот има само пет часа (до 11:50). Овие термини не можат да се пренесат:<br>`
+            + p.lostVI.slice(0, 6).map(t => `• ${esc(t.day)} ${esc(t.time)} — ${esc(t.name)}`).join('<br>')
+            + (p.lostVI.length > 6 ? `<br>… и уште ${p.lostVI.length - 6}` : '') + '</div>';
+    }
+
+    const section = (title, items, cls, mark, render) => items.length
+        ? `<h5 class="sec">${title} (${items.length})</h5><div class="list">`
+          + items.map(i => `<div class="item ${cls}"><span class="mark">${mark}</span>${render(i)}</div>`).join('') + '</div>'
+        : '';
+
+    html += section('Препознаени — го задржуваат бројот', p.matched, 'add', '=', i => `<span class="when">#${i.id}</span><span>${esc(i.name)}</span>`);
+    html += section('Нови во Дневникот', p.created, 'new', '+', i => `<span class="when">#${i.id}</span><span>${esc(i.name)}</span>`);
+    html += section('Променето одделение', p.gradeChanges, 'new', '~', i => `<span class="when">${esc(i.from || '—')} → ${esc(i.to || '—')}</span><span>${esc(i.name)}</span>`);
+    html += section('Задржани од Дневникот', p.kept, 'add', '·', n => `<span>${esc(n)}</span>`);
+
+    body.innerHTML = html;
+    btn.disabled = false;
+    document.getElementById('applyStatus').textContent = '';
+}
+
+function applyTransfer() {
+    if (!transfer) return;
+    const d = diaryWin();
+    if (!d || !Array.isArray(d.students)) return toast('Дневникот не е достапен. Отвори го табот Дневник еднаш.', 'warn');
+
+    const p = transfer.plan;
+    const summary = [
+        p.matched.length ? `${p.matched.length} препознаени` : '',
+        p.created.length ? `${p.created.length} нови` : '',
+        p.kept.length ? `${p.kept.length} задржани` : ''
+    ].filter(Boolean).join(', ');
+
+    if (!confirm(`Да се пренесе распоредот на ${transfer.therapist} во Дневникот?\n\n${summary}\n\nПрисуството и проценките остануваат недопрени.`)) return;
+
+    try {
+        d.students = transfer.students;
+        d.schedule = transfer.schedule;
+        if (typeof d.ensureStudentProgressStructure === 'function') d.ensureStudentProgressStructure();
+        if (typeof d.saveData === 'function') d.saveData();
+        if (typeof d.renderAll === 'function') d.renderAll();
+
+        document.getElementById('applyStatus').textContent = 'Пренесено во ' + new Date().toLocaleTimeString('mk-MK');
+        toast(`Пренесено: ${summary}. Провери во табот Дневник.`, 'ok');
+        onTherapistPick();
+    } catch (e) {
+        console.error(e);
+        toast('Преносот не успеа: ' + e.message, 'warn');
+    }
+}
+
+// ── подигање ──
+try {
+    const savedTheme = localStorage.getItem('mtb_shell_theme');
+    if (savedTheme) document.documentElement.setAttribute('data-theme', savedTheme);
+} catch (e) { /* ignore */ }
+
+let readyChecks = 0;
+const readyTimer = setInterval(() => {
+    readyChecks++;
+    const s = linkState();
+    if ((s.raspored && s.diary) || readyChecks > 40) {
+        clearInterval(readyTimer);
+        if (document.getElementById('pane-sync').classList.contains('active')) refreshLink();
+    }
+}, 500);
+</script>
+</body>
+</html>
