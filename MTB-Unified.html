@@ -3,303 +3,313 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>MTB — Дневник и Распоред (тест)</title>
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🧩</text></svg>">
+<title>Електронски дневник — со распоред</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📚</text></svg>">
 <style>
+    /* Стилот е преземен од S-Dnevnik за да не се чувствува како друга алатка:
+       иста темна лента со закосени табови, ист виолетов градиент, исти картички. */
     * { margin: 0; padding: 0; box-sizing: border-box; }
-
-    :root {
-        --primary: #5b6fd8;
-        --primary-dark: #4a5bc7;
-        --secondary: #3dd598;
-        --danger: #e74c3c;
-        --warning: #f39c12;
-        --bg-main: #f5f7fa;
-        --bg-card: #ffffff;
-        --text-primary: #2c3e50;
-        --text-secondary: #7f8c8d;
-        --border: #e1e8ed;
-        --shadow: rgba(0,0,0,.1);
-        --ok-bg: #f0f9f4;
-        --ok-border: #4caf50;
-        --ok-text: #1b5e20;
-        --warn-bg: #ffebee;
-        --warn-border: #c62828;
-        --warn-text: #b71c1c;
-    }
-
-    [data-theme="dark"] {
-        --bg-main: #1a1d2e;
-        --bg-card: #252943;
-        --text-primary: #e8eaf0;
-        --text-secondary: #9ca3af;
-        --border: #3a4070;
-        --shadow: rgba(0,0,0,.3);
-        --ok-bg: rgba(76,175,80,.16);
-        --ok-text: #a5d6a7;
-        --warn-bg: rgba(198,40,40,.18);
-        --warn-text: #ef9a9a;
-    }
 
     html, body { height: 100%; }
 
     body {
         display: flex;
         flex-direction: column;
-        font-family: 'Segoe UI', Tahoma, sans-serif;
-        background: var(--bg-main);
-        color: var(--text-primary);
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         overflow: hidden;
     }
 
     /* ── лента со табови ── */
-    .shell-nav {
+    .shell-tabs {
         display: flex;
-        align-items: center;
-        gap: 6px;
-        padding: 8px 14px;
-        background: var(--bg-card);
-        border-bottom: 1px solid var(--border);
-        box-shadow: 0 2px 6px var(--shadow);
+        justify-content: center;
+        align-items: flex-end;
+        background: linear-gradient(to bottom, #1a1a2e 0%, #16213e 100%);
+        border-bottom: 3px solid #0f3460;
+        padding: 0 10px;
+        gap: 5px;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.3);
         flex: none;
         flex-wrap: wrap;
     }
 
-    .shell-brand {
-        font-weight: 800;
-        font-size: 14px;
-        color: var(--primary);
-        margin-right: 8px;
-        white-space: nowrap;
-    }
-
-    .shell-brand small {
-        display: block;
-        font-size: 10px;
-        font-weight: 600;
-        color: var(--text-secondary);
-    }
-
     .shell-tab {
-        display: inline-flex;
-        align-items: center;
-        gap: 7px;
-        padding: 9px 15px;
-        border: 1.5px solid transparent;
-        border-radius: 11px;
-        background: transparent;
-        color: var(--text-secondary);
-        font-family: inherit;
-        font-size: 13px;
-        font-weight: 700;
+        padding: 12px 30px;
+        border: none;
+        background: linear-gradient(to bottom, #2d3748 0%, #1a202c 100%);
         cursor: pointer;
-        transition: all .15s ease;
+        transition: all 0.3s;
+        font-family: inherit;
+        font-size: 15px;
+        color: #a0aec0;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        position: relative;
+        clip-path: polygon(10px 0, 100% 0, calc(100% - 10px) 100%, 0 100%);
+        margin-top: 5px;
+        border-top: 2px solid #4a5568;
     }
 
-    .shell-tab:hover { background: var(--bg-main); color: var(--text-primary); }
+    .shell-tab::before {
+        content: '';
+        position: absolute;
+        top: 0; left: 0; right: 0;
+        height: 2px;
+        background: linear-gradient(90deg, transparent, #667eea, transparent);
+        opacity: 0;
+        transition: opacity 0.3s;
+    }
+
+    .shell-tab:hover {
+        background: linear-gradient(to bottom, #4a5568 0%, #2d3748 100%);
+        color: #e2e8f0;
+    }
+
+    .shell-tab:hover::before { opacity: 1; }
 
     .shell-tab.active {
-        background: var(--primary);
-        border-color: var(--primary);
-        color: #fff;
-        box-shadow: 0 3px 10px rgba(91,111,216,.3);
+        background: linear-gradient(to bottom, #667eea 0%, #5568d3 100%);
+        color: #ffffff;
+        font-weight: bold;
+        margin-top: 0;
+        padding-top: 17px;
+        border-top: 3px solid #818cf8;
+        box-shadow: 0 0 20px rgba(102, 126, 234, 0.5);
     }
 
-    .shell-spacer { flex: 1; }
+    .shell-tab.active::before {
+        opacity: 1;
+        background: linear-gradient(90deg, transparent, #ffffff, transparent);
+    }
 
-    .shell-btn {
-        padding: 8px 13px;
-        border: 1.5px solid var(--border);
+    .shell-badge {
+        margin-left: 8px;
+        font-size: 11px;
+        padding: 2px 7px;
         border-radius: 10px;
-        background: var(--bg-card);
-        color: var(--text-primary);
-        font-family: inherit;
-        font-size: 12.5px;
-        font-weight: 700;
-        cursor: pointer;
+        background: rgba(255,255,255,.22);
+        letter-spacing: 0;
+        text-transform: none;
     }
-
-    .shell-btn:hover { border-color: var(--primary); color: var(--primary); }
-    .shell-btn.primary { background: var(--primary); border-color: var(--primary); color: #fff; }
-    .shell-btn.primary:hover { background: var(--primary-dark); color: #fff; }
-    .shell-btn:disabled { opacity: .5; cursor: not-allowed; }
 
     /* ── содржина ── */
     .shell-body { flex: 1; min-height: 0; position: relative; }
 
-    .shell-pane {
-        position: absolute;
-        inset: 0;
-        display: none;
-    }
-
+    .shell-pane { position: absolute; inset: 0; display: none; }
     .shell-pane.active { display: block; }
-    .shell-pane iframe { width: 100%; height: 100%; border: 0; display: block; background: var(--bg-main); }
+    .shell-pane iframe { width: 100%; height: 100%; border: 0; display: block; background: #f0f2f5; }
 
-    .sync-pane {
-        overflow-y: auto;
-        padding: 22px;
+    .sync-pane { overflow-y: auto; padding: 20px; background: #eef0f6; }
+    .sync-inner { max-width: 920px; margin: 0 auto; }
+
+    .section-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 12px 20px;
+        border-radius: 6px;
+        margin-bottom: 20px;
+        text-align: center;
+        font-weight: 600;
+        font-size: 16px;
     }
-
-    .sync-inner { max-width: 900px; margin: 0 auto; }
 
     .card {
-        background: var(--bg-card);
-        border: 1px solid var(--border);
-        border-radius: 14px;
-        padding: 18px 20px;
-        margin-bottom: 16px;
-        box-shadow: 0 2px 8px var(--shadow);
+        background: #fff;
+        border-radius: 8px;
+        padding: 20px;
+        margin-bottom: 18px;
+        box-shadow: 0 2px 8px rgba(0,0,0,.12);
     }
 
-    .card h2 { font-size: 16px; color: var(--primary); margin-bottom: 6px; }
-    .card p.lead { font-size: 12.5px; color: var(--text-secondary); margin-bottom: 14px; line-height: 1.55; }
+    .card p.lead { font-size: 13px; color: #65676b; margin-bottom: 16px; line-height: 1.6; }
 
-    .row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
-    .row label { font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: .04em; color: var(--text-secondary); }
+    .row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
 
-    select, input[type="text"] {
-        padding: 9px 11px;
-        border: 1.5px solid var(--border);
-        border-radius: 10px;
-        background: var(--bg-card);
-        color: var(--text-primary);
-        font-family: inherit;
-        font-size: 13px;
-        min-width: 220px;
-    }
-
-    .chips { display: flex; flex-wrap: wrap; gap: 7px; margin-bottom: 12px; }
-
-    .chip {
+    .row label.lbl {
         font-size: 12px;
         font-weight: 700;
-        padding: 5px 11px;
-        border-radius: 20px;
-        border: 1px solid var(--border);
-        background: var(--bg-main);
-        color: var(--text-secondary);
+        text-transform: uppercase;
+        letter-spacing: .06em;
+        color: #65676b;
     }
 
-    .chip.ok { border-color: var(--ok-border); background: var(--ok-bg); color: var(--ok-text); }
-    .chip.warn { border-color: var(--warning); background: rgba(243,156,18,.15); color: #8a5a00; }
-    [data-theme="dark"] .chip.warn { color: var(--warning); }
-    .chip.bad { border-color: var(--warn-border); background: var(--warn-bg); color: var(--warn-text); }
-    .chip.none { opacity: .55; }
+    select, input[type="text"] {
+        padding: 10px 12px;
+        border: 2px solid #dddfe2;
+        border-radius: 6px;
+        background: #fff;
+        color: #1c1e21;
+        font-family: inherit;
+        font-size: 14px;
+        min-width: 240px;
+    }
+
+    select:focus { outline: none; border-color: #667eea; }
+
+    .btn {
+        padding: 10px 18px;
+        border: none;
+        border-radius: 6px;
+        font-family: inherit;
+        font-size: 14px;
+        font-weight: 600;
+        cursor: pointer;
+        background: #e4e6eb;
+        color: #1c1e21;
+        transition: filter .15s;
+    }
+
+    .btn:hover { filter: brightness(.95); }
+    .btn.primary { background: linear-gradient(135deg, #667eea, #764ba2); color: #fff; }
+    .btn.primary:disabled { opacity: .5; cursor: not-allowed; filter: none; }
+
+    .stats-row { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; }
+
+    .stat-box {
+        flex: 1;
+        min-width: 150px;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: #fff;
+        padding: 16px;
+        border-radius: 8px;
+        text-align: center;
+    }
+
+    .stat-box h2 { font-size: 2em; margin-bottom: 3px; }
+    .stat-box p { font-size: .85em; opacity: .95; }
+
+    .chips { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+
+    .chip {
+        font-size: 12.5px;
+        font-weight: 600;
+        padding: 6px 12px;
+        border-radius: 20px;
+        border: 1px solid #dddfe2;
+        background: #f0f2f5;
+        color: #65676b;
+    }
+
+    .chip.ok { border-color: #42b72a; background: #e8f5e9; color: #1b5e20; }
+    .chip.warn { border-color: #f0ad4e; background: #fff8e1; color: #8a5a00; }
+    .chip.bad { border-color: #e41e3f; background: #ffebee; color: #b71c1c; }
+    .chip.none { opacity: .5; }
 
     .alert {
-        padding: 11px 13px;
-        border-radius: 11px;
-        font-size: 12.5px;
-        line-height: 1.5;
+        padding: 12px 14px;
+        border-radius: 6px;
+        font-size: 13px;
+        line-height: 1.55;
         margin-bottom: 12px;
-        border: 1px solid var(--warn-border);
-        background: var(--warn-bg);
-        color: var(--warn-text);
+        border-left: 4px solid #e41e3f;
+        background: #ffebee;
+        color: #b71c1c;
     }
 
-    .alert.ok { border-color: var(--ok-border); background: var(--ok-bg); color: var(--ok-text); }
+    .alert.ok { border-left-color: #42b72a; background: #e8f5e9; color: #1b5e20; }
+    .alert.info { border-left-color: #667eea; background: #eef0fb; color: #3a47b5; }
 
     .list {
-        max-height: 220px;
+        max-height: 230px;
         overflow-y: auto;
-        border: 1px solid var(--border);
-        border-radius: 10px;
-        background: var(--bg-main);
+        border: 1px solid #dddfe2;
+        border-radius: 6px;
+        background: #f7f8fa;
         margin-bottom: 12px;
     }
 
     .list .item {
         display: flex;
-        gap: 9px;
+        gap: 10px;
         align-items: baseline;
-        padding: 5px 11px;
-        font-size: 12.5px;
-        border-bottom: 1px solid var(--border);
+        padding: 6px 12px;
+        font-size: 13px;
+        border-bottom: 1px solid #e8eaed;
     }
 
     .list .item:last-child { border-bottom: 0; }
     .list .item .mark { font-weight: 900; flex: none; }
-    .list .item .when { color: var(--text-secondary); font-size: 11px; min-width: 118px; }
-    .item.add .mark { color: var(--ok-border); }
-    .item.new .mark { color: var(--warning); }
-    .item.bad .mark { color: var(--danger); }
+    .list .item .when { color: #65676b; font-size: 11.5px; min-width: 120px; }
+    .item.add .mark { color: #42b72a; }
+    .item.new .mark { color: #f0ad4e; }
+    .item.bad .mark { color: #e41e3f; }
 
     h5.sec {
-        font-size: 11.5px;
-        font-weight: 800;
+        font-size: 12px;
+        font-weight: 700;
         text-transform: uppercase;
-        letter-spacing: .04em;
-        color: var(--text-secondary);
-        margin: 14px 0 6px;
+        letter-spacing: .05em;
+        color: #65676b;
+        margin: 16px 0 7px;
     }
 
-    .status-line { font-size: 12px; color: var(--text-secondary); margin-top: 10px; }
+    .status-line { font-size: 12.5px; color: #65676b; }
 
     .toast-wrap { position: fixed; bottom: 18px; right: 18px; z-index: 999; display: flex; flex-direction: column; gap: 8px; }
 
     .toast {
-        padding: 11px 15px;
-        border-radius: 11px;
-        font-size: 13px;
+        padding: 12px 16px;
+        border-radius: 6px;
+        font-size: 13.5px;
         font-weight: 600;
         color: #fff;
-        background: var(--primary);
-        box-shadow: 0 6px 18px rgba(0,0,0,.25);
+        background: linear-gradient(135deg, #667eea, #764ba2);
+        box-shadow: 0 6px 18px rgba(0,0,0,.3);
         max-width: 380px;
     }
 
-    .toast.ok { background: #27ae60; }
-    .toast.warn { background: var(--danger); }
+    .toast.ok { background: linear-gradient(135deg, #48bb78, #38a169); }
+    .toast.warn { background: linear-gradient(135deg, #e41e3f, #b71c1c); }
 
-    @media (max-width: 700px) {
-        .shell-brand small { display: none; }
-        .shell-tab { padding: 8px 11px; font-size: 12px; }
+    @media (max-width: 760px) {
+        .shell-tab { padding: 10px 16px; font-size: 12.5px; letter-spacing: .5px; }
+        .shell-tab.active { padding-top: 14px; }
         select, input[type="text"] { min-width: 100%; }
     }
 </style>
 </head>
 <body>
 
-<nav class="shell-nav">
-    <div class="shell-brand">🧩 MTB<small>тест — обединето</small></div>
-    <button class="shell-tab active" data-pane="raspored" onclick="showPane('raspored')">🗓️ Распоред</button>
-    <button class="shell-tab" data-pane="diary" onclick="showPane('diary')">📔 Дневник</button>
-    <button class="shell-tab" data-pane="sync" onclick="showPane('sync')">🔗 Пренос</button>
-    <div class="shell-spacer"></div>
-    <button class="shell-btn" onclick="toggleShellTheme()">🌓 Тема</button>
-</nav>
+<div class="shell-tabs">
+    <button class="shell-tab active" data-pane="diary" onclick="showPane('diary')">Дневник</button>
+    <button class="shell-tab" data-pane="raspored" onclick="showPane('raspored')">Распоред</button>
+    <button class="shell-tab" data-pane="sync" onclick="showPane('sync')">Пренос<span class="shell-badge" id="tabBadge">—</span></button>
+</div>
 
 <div class="shell-body">
-    <div class="shell-pane active" id="pane-raspored">
-        <iframe id="frameRaspored" src="RasporediTerapevti.html" title="Распоред на терапевти"></iframe>
+    <div class="shell-pane active" id="pane-diary">
+        <iframe id="frameDiary" src="S-Dnevnik-.html" title="Електронски дневник"></iframe>
     </div>
-    <div class="shell-pane" id="pane-diary">
-        <iframe id="frameDiary" src="S-Dnevnik-.html" title="S-Dnevnik"></iframe>
+    <div class="shell-pane" id="pane-raspored">
+        <iframe id="frameRaspored" src="RasporediTerapevti.html" title="Распоред на терапевти"></iframe>
     </div>
     <div class="shell-pane sync-pane" id="pane-sync">
         <div class="sync-inner">
+            <div class="section-header">🔗 Пренос од Распоред во Дневник</div>
+
             <div class="card">
-                <h2>🔗 Пренос од Распоред во Дневник</h2>
                 <p class="lead">
-                    Двете апликации се вчитани во истата страница, па нивните податоци се читаат <strong>во живо</strong> —
+                    Двете апликации се вчитани во иста страница, па податоците се читаат <strong>во живо</strong> —
                     без извоз и увоз на фајлови. Избери терапевт, прегледај што ќе се смени, и пренеси.
-                    Оригиналните апликации не се изменети; ова е само обвивка над нив.
+                    Оригиналните апликации не се изменети.
                 </p>
 
                 <div id="linkStatus"></div>
+                <div class="stats-row" id="statsRow"></div>
 
                 <div class="row">
-                    <label for="therapistPick">Терапевт</label>
+                    <label class="lbl" for="therapistPick">Терапевт</label>
                     <select id="therapistPick" onchange="onTherapistPick()">
                         <option value="">— вчитување… —</option>
                     </select>
-                    <button class="shell-btn" onclick="refreshLink()">↻ Освежи</button>
+                    <button class="btn" onclick="refreshLink()">↻ Освежи</button>
                 </div>
 
                 <div class="row">
-                    <label style="text-transform:none; font-weight:600; font-size:12.5px; color:var(--text-primary);">
-                        <input type="checkbox" id="keepOthers" checked onchange="onTherapistPick()" style="min-width:auto; vertical-align:middle;">
+                    <label style="font-size:13px; color:#1c1e21; cursor:pointer;">
+                        <input type="checkbox" id="keepOthers" checked onchange="onTherapistPick()" style="min-width:auto; vertical-align:middle; margin-right:6px;">
                         Задржи ги учениците од Дневникот што не се кај овој терапевт
                     </label>
                 </div>
@@ -307,8 +317,8 @@
                 <div class="chips" id="previewChips"></div>
                 <div id="previewBody"></div>
 
-                <div class="row" style="margin-top:14px; margin-bottom:0;">
-                    <button class="shell-btn primary" id="applyBtn" onclick="applyTransfer()" disabled>📥 Пренеси во Дневникот</button>
+                <div class="row" style="margin-top:16px; margin-bottom:0;">
+                    <button class="btn primary" id="applyBtn" onclick="applyTransfer()" disabled>📥 Пренеси во Дневникот</button>
                     <span class="status-line" id="applyStatus"></span>
                 </div>
             </div>
@@ -324,10 +334,9 @@
 //
 // Ниту еден ред од S-Dnevnik-.html и RasporediTerapevti.html не е изменет.
 // Тие се вчитани во iframe-ови, а оваа страница ги чита нивните живи
-// глобални променливи. Тоа е можно бидејќи двата фајла се од иста папка,
-// па делат origin.
+// податоци — двата фајла се од иста папка, па делат origin.
 //
-// Затоа мапирањето по id е СЕКОГАШ свежо — не постои застарена мапа како
+// Затоа мапирањето по id е СЕКОГАШ свежо: не постои застарена мапа како
 // кај преносот преку фајл.
 // ============================================================
 
@@ -336,8 +345,8 @@ const SDN_PERIODS = 5;   // Дневникот има I–V; Распоредо�
 
 // Распоредот ги држи глобалите со `let`, а `let` на врвно ниво НЕ станува
 // својство на window — за разлика од `var` што го користи Дневникот. Затоа
-// неговата состојба се чита преку функцијата currentStateSnapshot(), а деновите
-// и часовите стојат тука бидејќи се непроменливи во двете апликации.
+// неговата состојба се чита преку currentStateSnapshot(), а деновите и
+// часовите стојат тука бидејќи `const` исто не се изнесува.
 const RP_DAYS = ['понеделник', 'вторник', 'среда', 'четврток', 'петок'];
 const RP_PERIODS = [
     ['08:00-08:20', '08:20-08:40'],
@@ -354,12 +363,6 @@ function showPane(name) {
     document.querySelectorAll('.shell-pane').forEach(p => p.classList.toggle('active', p.id === 'pane-' + name));
     document.querySelectorAll('.shell-tab').forEach(t => t.classList.toggle('active', t.dataset.pane === name));
     if (name === 'sync') refreshLink();
-}
-
-function toggleShellTheme() {
-    const next = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
-    document.documentElement.setAttribute('data-theme', next);
-    try { localStorage.setItem('mtb_shell_theme', next); } catch (e) { /* ignore */ }
 }
 
 function toast(message, kind = '') {
@@ -402,19 +405,26 @@ function linkState() {
 function refreshLink() {
     const s = linkState();
     const box = document.getElementById('linkStatus');
+    const stats = document.getElementById('statsRow');
     const pick = document.getElementById('therapistPick');
+    const badge = document.getElementById('tabBadge');
 
     if (!s.raspored || !s.diary) {
         box.innerHTML = '<div class="alert">⏳ Апликациите сè уште се вчитуваат, или прелистувачот не дозволува читање меѓу нив.'
-            + '<br><small>Ако ова остане, отвори ги табовите Распоред и Дневник еднаш, па врати се тука и притисни „Освежи“.</small></div>';
+            + '<br><small>Ако ова остане, отвори ги табовите Дневник и Распоред по еднаш, па врати се тука и притисни „Освежи“.</small></div>';
+        stats.innerHTML = '';
         pick.innerHTML = '<option value="">— недостапно —</option>';
         document.getElementById('applyBtn').disabled = true;
+        badge.textContent = '—';
         return;
     }
 
-    box.innerHTML = `<div class="alert ok">✅ Поврзано во живо · Распоред: ${plural(s.snap.therapists.length, 'терапевт', 'терапевти')}, `
-        + `${plural(s.snap.students.filter(x => x !== 'Избери Ученик').length, 'ученик', 'ученици')} · `
-        + `Дневник: ${plural(s.d.students.length, 'ученик', 'ученици')}</div>`;
+    box.innerHTML = '<div class="alert ok">✅ Поврзано во живо — податоците се читаат директно од двете апликации.</div>';
+    stats.innerHTML = `
+        <div class="stat-box"><h2>${s.snap.therapists.length}</h2><p>терапевти во Распоред</p></div>
+        <div class="stat-box"><h2>${s.snap.students.filter(x => x !== 'Избери Ученик').length}</h2><p>ученици во Распоред</p></div>
+        <div class="stat-box"><h2>${s.d.students.length}</h2><p>ученици во Дневник</p></div>`;
+    badge.textContent = s.d.students.length;
 
     const previous = pick.value;
     pick.innerHTML = '<option value="">— избери терапевт —</option>'
@@ -461,8 +471,9 @@ function buildTransfer(therapist) {
             id = Number(known.id);
             plan.matched.push({ name: cleanName, id });
             if (known.grade && known.grade !== grade) plan.gradeChanges.push({ name: cleanName, from: known.grade, to: grade });
-            const extra = Object.keys(known).filter(k => !['id', 'name', 'grade', 'planId'].includes(k));
-            extra.forEach(k => { if (!plan.preserved.includes(k)) plan.preserved.push(k); });
+            Object.keys(known).forEach(k => {
+                if (!['id', 'name', 'grade', 'planId'].includes(k) && !plan.preserved.includes(k)) plan.preserved.push(k);
+            });
             // Целиот постоечки запис се враќа; се менуваат само име и одделение,
             // за да не се изгубат полиња како planType, duration, needsTrijazen.
             outStudents.push(Object.assign({}, known, { id, name: cleanName, grade }));
@@ -544,10 +555,10 @@ function onTherapistPick() {
         + (p.preserved.length ? `<br>Кај познатите ученици се задржуваат и: <strong>${p.preserved.map(esc).join(', ')}</strong>.` : '')
         + '</div>';
 
-    html += '<div class="alert">🔁 Распоредот во Дневникот се <strong>заменува целосно</strong>. Термин закажан таму што го нема во Распоредот ќе исчезне.</div>';
+    html += '<div class="alert info">🔁 Распоредот во Дневникот се <strong>заменува целосно</strong>. Термин закажан таму што го нема во Распоредот ќе исчезне.</div>';
 
     if (p.created.length) {
-        html += `<div class="alert">🆕 ${plural(p.created.length, 'нов ученик влегува', 'нови ученици влегуваат')} без присуство, проценки, досие и тријажа — тие се создаваат во Дневникот при првото отворање. Планот им е поставен на постоечкиот.</div>`;
+        html += `<div class="alert info">🆕 ${plural(p.created.length, 'нов ученик влегува', 'нови ученици влегуваат')} без присуство, проценки, досие и тријажа — тие се создаваат во Дневникот при првото отворање. Планот им е поставен на постоечкиот.</div>`;
     }
 
     if (p.lostVI.length) {
@@ -602,15 +613,11 @@ function applyTransfer() {
 }
 
 // ── подигање ──
-try {
-    const savedTheme = localStorage.getItem('mtb_shell_theme');
-    if (savedTheme) document.documentElement.setAttribute('data-theme', savedTheme);
-} catch (e) { /* ignore */ }
-
 let readyChecks = 0;
 const readyTimer = setInterval(() => {
     readyChecks++;
     const s = linkState();
+    if (s.diary) document.getElementById('tabBadge').textContent = s.d.students.length;
     if ((s.raspored && s.diary) || readyChecks > 40) {
         clearInterval(readyTimer);
         if (document.getElementById('pane-sync').classList.contains('active')) refreshLink();
