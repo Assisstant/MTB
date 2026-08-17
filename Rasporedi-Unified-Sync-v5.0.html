@@ -3320,6 +3320,26 @@ body.density-comfortable .student-select {
                 <div class="sync-warn">⚠️ Unified JSON е master-состојба: прво вчитај го, потоа уредувај и на крај извези нов. Пред вчитување автоматски се прави снимка. За паралелна измена од колега користи „Спој дел од терапевт“.</div>
             </div>
 
+            <!-- ============== [v5.1] ЛОКАЛЕН СЕРВЕР (PostgreSQL) ============== -->
+            <div class="controls-section sync-card">
+                <h4 style="font-size: 14px; color: var(--primary); margin-bottom: 10px;">🖥️ Локален сервер (PostgreSQL) <span id="localSrvChip" class="cloud-chip off">⚪ непроверено</span></h4>
+                <div style="font-size: 12px; color: var(--text-secondary); margin-bottom: 12px;">
+                    Го заменува рачното пренесување на Unified JSON: состојбата се чува во <strong>PostgreSQL на локалниот сервер</strong>.
+                    Работен тек: <strong>Вчитај</strong> кога почнуваш, уредувај, па <strong>Зачувај</strong>. Ако некој зачувал во меѓувреме, апликацијата ќе те предупреди.
+                    Пред секое вчитување автоматски се прави снимка.
+                </div>
+                <div class="sync-row">
+                    <label class="sync-label" for="localSrvUrlInput">Адреса:</label>
+                    <input type="text" id="localSrvUrlInput" class="people-crud-search compact" style="min-width: 220px;" placeholder="http://localhost:3000" onchange="setLocalSrvUrl(this.value)">
+                    <button class="btn btn-soft btn-compact" onclick="localSrvCheck()">🔌 Провери врска</button>
+                </div>
+                <div class="sync-row">
+                    <button class="btn btn-primary btn-compact" onclick="localSrvPull()">📥 Вчитај од сервер</button>
+                    <button class="btn btn-success btn-compact" onclick="localSrvPush()">📤 Зачувај на сервер</button>
+                    <span class="sync-hint" id="localSrvStamp"></span>
+                </div>
+            </div>
+
             <!-- ============== [v4.1] ТИМСКА РАБОТА: делови по терапевт ============== -->
             <div class="controls-section sync-card">
                 <h4 style="font-size: 14px; color: var(--primary); margin-bottom: 10px;">🔀 Тимска работа — делови по терапевт</h4>
@@ -5326,6 +5346,35 @@ body.density-comfortable .student-select {
         }
 
         // ============== ИМПОРТ / ЕКСПОРТ ==============
+        // [v5.1] Заедничко јадро за „Вчитај JSON“ и „Вчитај од сервер“ —
+        // валидација, снимка ПРЕД промена на глобалите, примена, зачувување.
+        // Фрла Error ако податоците не личат на backup од оваа апликација.
+        function applyUnifiedPayload(data, snapshotLabel) {
+            const source = data && data.rasporedi && typeof data.rasporedi === 'object' ? data.rasporedi : data;
+            // [v3.3] Основна валидација — погрешен JSON (туѓ извоз, низа, празно)
+            // претходно тивко ја газеше целата состојба.
+            const looksValid = source && typeof source === 'object' && !Array.isArray(source) &&
+                (source.students || source.therapists || source.schedule || source.therapistStudents);
+            if (!looksValid) {
+                throw new Error('Податоците не изгледаат како backup од оваа апликација (нема students/therapists/schedule).');
+            }
+            // Снимката мора да биде ПРЕД било каква промена на глобалите.
+            pushSnapshot(snapshotLabel || (data && data.unifiedSync ? 'пред вчитување Unified Sync JSON' : 'пред замена преку „Вчитај JSON“'));
+            if (source.students) students = source.students;
+            if (source.therapists) therapists = source.therapists;
+            if (source.therapistStudents) therapistStudents = source.therapistStudents;
+            if (source.studentMeta) studentMeta = source.studentMeta;
+            else if (source.studentGrades) studentMeta = source.studentGrades;
+            if (Array.isArray(source.customGrades)) customGrades = source.customGrades.map(normalizeGrade).filter(Boolean);   // [v3.5]
+            if (Array.isArray(source.customListCols)) customListCols = source.customListCols.filter(c => typeof c === 'string' && c.trim());   // [v3.8]
+            source.schedule = Array.isArray(source.schedule) ? source.schedule : [];  // [v3.3]
+            if (!source.therapistStamps || typeof source.therapistStamps !== 'object') source.therapistStamps = {};   // [v4.1]
+            scheduleData = source;
+            ensureStudentMeta();
+            saveScheduleToLocal();
+            loadScheduleFromLocal();
+        }
+
         function handleJSONImport(event) {
             const file = event.target.files[0];
             if (!file) return;
@@ -5333,36 +5382,13 @@ body.density-comfortable .student-select {
             reader.onload = function(e) {
                 try {
                     const data = JSON.parse(e.target.result);
-                    const source = data && data.rasporedi && typeof data.rasporedi === 'object' ? data.rasporedi : data;
-                    // [v3.3] Основна валидација — погрешен JSON (туѓ извоз, низа, празно)
-                    // претходно тивко ја газеше целата состојба.
-                    const looksValid = source && typeof source === 'object' && !Array.isArray(source) &&
-                        (source.students || source.therapists || source.schedule || source.therapistStudents);
-                    if (!looksValid) {
-                        alert('Фајлот не изгледа како backup од оваа апликација (нема students/therapists/schedule).');
-                        return;
-                    }
-                    // Снимката мора да биде ПРЕД било каква промена на глобалите.
-                    pushSnapshot(data && data.unifiedSync ? 'пред вчитување Unified Sync JSON' : 'пред замена преку „Вчитај JSON“');
-                    if (source.students) students = source.students;
-                    if (source.therapists) therapists = source.therapists;
-                    if (source.therapistStudents) therapistStudents = source.therapistStudents;
-                    if (source.studentMeta) studentMeta = source.studentMeta;
-                    else if (source.studentGrades) studentMeta = source.studentGrades;
-                    if (Array.isArray(source.customGrades)) customGrades = source.customGrades.map(normalizeGrade).filter(Boolean);   // [v3.5]
-                    if (Array.isArray(source.customListCols)) customListCols = source.customListCols.filter(c => typeof c === 'string' && c.trim());   // [v3.8]
-                    source.schedule = Array.isArray(source.schedule) ? source.schedule : [];  // [v3.3]
-                    if (!source.therapistStamps || typeof source.therapistStamps !== 'object') source.therapistStamps = {};   // [v4.1]
-                    scheduleData = source;
-                    ensureStudentMeta();
-                    saveScheduleToLocal();
-                    loadScheduleFromLocal();
+                    applyUnifiedPayload(data);
                     alert(data && data.unifiedSync
                         ? 'Unified Sync JSON е успешно вчитан. Сите кабинети, списоци и распореди се ажурирани.'
                         : 'Податоците се успешно вчитани!');
                 } catch (err) {
                     console.error(err);
-                    alert('Грешка при читање на фајлот.');
+                    alert(err && err.message ? err.message : 'Грешка при читање на фајлот.');
                 } finally {
                     // [v3.3] Ресет — без ова, повторен избор на ИСТИОТ фајл не активира change.
                     event.target.value = '';
@@ -5370,6 +5396,167 @@ body.density-comfortable .student-select {
             };
             reader.readAsText(file);
         }
+
+        // ============== [v5.1] ЛОКАЛЕН СЕРВЕР (PostgreSQL преку Fastify API) ==============
+        // Состојбата се чува во app_state (jsonb) со version-бројач. Логиката на
+        // конфликти е иста како кај облак-модулот: PUT со baseVersion, 409 = некој
+        // зачувал во меѓувреме.
+        const LOCAL_SRV_URL_KEY = 'local_server_url_v1';
+        const LOCAL_SRV_VER_KEY = 'local_server_version_v1';
+        const LOCAL_SRV_APP = 'unified';
+
+        function getLocalSrvUrl() {
+            const saved = localStorage.getItem(LOCAL_SRV_URL_KEY);
+            if (saved) return saved.replace(/\/+$/, '');
+            // Ако апликацијата е отворена ПРЕКУ серверот, адресата е очигледна.
+            if (/^https?:$/.test(window.location.protocol)) return window.location.origin;
+            return 'http://localhost:3000';
+        }
+
+        function setLocalSrvUrl(value) {
+            const url = String(value || '').trim().replace(/\/+$/, '');
+            if (url) localStorage.setItem(LOCAL_SRV_URL_KEY, url);
+            else localStorage.removeItem(LOCAL_SRV_URL_KEY);
+            renderLocalSrvPanel();
+        }
+
+        function getLocalSrvVersion() {
+            const v = parseInt(localStorage.getItem(LOCAL_SRV_VER_KEY) || '0', 10);
+            return Number.isFinite(v) && v > 0 ? v : 0;
+        }
+
+        function setLocalSrvVersion(v) {
+            localStorage.setItem(LOCAL_SRV_VER_KEY, String(v));
+        }
+
+        function setLocalSrvChip(state, label) {
+            const chip = document.getElementById('localSrvChip');
+            if (!chip) return;
+            chip.className = 'cloud-chip ' + state;
+            chip.textContent = label;
+        }
+
+        function setLocalSrvStamp(text) {
+            const el = document.getElementById('localSrvStamp');
+            if (el) el.textContent = text || '';
+        }
+
+        function renderLocalSrvPanel() {
+            const input = document.getElementById('localSrvUrlInput');
+            if (input && !input.value) input.value = getLocalSrvUrl();
+            const v = getLocalSrvVersion();
+            if (v) setLocalSrvStamp('последна позната верзија на серверот: ' + v);
+        }
+
+        async function localSrvFetch(path, opts) {
+            const res = await fetch(getLocalSrvUrl() + path, Object.assign({ cache: 'no-store' }, opts));
+            let body = null;
+            try { body = await res.json(); } catch (e) { /* не-JSON одговор */ }
+            return { res, body };
+        }
+
+        async function localSrvCheck() {
+            setLocalSrvChip('syncing', '⏳ проверувам…');
+            try {
+                const { res, body } = await localSrvFetch('/api/health');
+                if (res.ok && body && body.ok) {
+                    setLocalSrvChip('ready', '🟢 поврзан');
+                    notify('Локалниот сервер одговара (база: OK).', 'ok');
+                } else {
+                    setLocalSrvChip('error', '🔴 грешка');
+                    notify('Серверот одговори, но нешто не е во ред: ' + (res.status), 'warn');
+                }
+            } catch (err) {
+                setLocalSrvChip('error', '🔴 недостапен');
+                notify('Локалниот сервер не е достапен на ' + getLocalSrvUrl() + '. Дали е стартуван (npm run dev)?', 'error');
+            }
+        }
+
+        async function localSrvPull() {
+            setLocalSrvChip('syncing', '⏳ вчитувам…');
+            try {
+                const { res, body } = await localSrvFetch('/api/state/' + LOCAL_SRV_APP);
+                if (res.status === 404) {
+                    setLocalSrvChip('ready', '🟢 поврзан');
+                    notify('На серверот сè уште нема зачувана состојба. Прво „Зачувај на сервер“.', 'warn');
+                    return;
+                }
+                if (!res.ok || !body || !body.payload) throw new Error('невалиден одговор (' + res.status + ')');
+                applyUnifiedPayload(body.payload, 'пред вчитување од локален сервер (v' + body.version + ')');
+                setLocalSrvVersion(body.version);
+                setLocalSrvChip('ready', '🟢 поврзан');
+                setLocalSrvStamp('вчитано: верзија ' + body.version + ' • ' + formatStampTime(body.updated_at) + (body.updated_by ? ' • ' + body.updated_by : ''));
+                notify('Состојбата е вчитана од серверот (верзија ' + body.version + ').', 'ok');
+            } catch (err) {
+                console.error('localSrvPull:', err);
+                setLocalSrvChip('error', '🔴 грешка');
+                notify('Вчитувањето не успеа: ' + (err && err.message ? err.message : err), 'error');
+            }
+        }
+
+        async function localSrvPush() {
+            setLocalSrvChip('syncing', '⏳ зачувувам…');
+            try {
+                const payload = buildUnifiedSyncPayload();
+                // Ако немаме позната верзија (прв пат / нов уред), прашај го серверот.
+                let baseVersion = getLocalSrvVersion();
+                if (!baseVersion) {
+                    const probe = await localSrvFetch('/api/state/' + LOCAL_SRV_APP);
+                    baseVersion = (probe.res.ok && probe.body && probe.body.version) ? probe.body.version : 0;
+                    if (baseVersion > 0 && !confirm('На серверот веќе постои состојба (верзија ' + baseVersion +
+                        (probe.body.updated_by ? ', зачувана од ' + probe.body.updated_by : '') +
+                        ').\n\nДа ја ПРЕПИШАМ со она што е сега во апликацијата?\n\nАко не си сигурен, откажи и прво „Вчитај од сервер“.')) {
+                        setLocalSrvChip('ready', '🟢 поврзан');
+                        return;
+                    }
+                }
+                const attempt = await localSrvPut(payload, baseVersion);
+                if (attempt.res.status === 409) {
+                    const cur = attempt.body && attempt.body.current;
+                    const who = cur && cur.updated_by ? cur.updated_by : 'непознат уред';
+                    const when = cur ? formatStampTime(cur.updated_at) : '';
+                    if (confirm('КОНФЛИКТ: ' + who + ' зачувал понова верзија (' + (cur ? cur.version : '?') + ', ' + when + ').\n\n' +
+                        'Да ја ПРЕПИШАМ неговата верзија со мојата?\n\nПрепорака: Откажи, па „Вчитај од сервер“ за да видиш што е променето (пред тоа автоматски се прави снимка).')) {
+                        const retry = await localSrvPut(payload, cur ? cur.version : 0);
+                        if (!retry.res.ok) throw new Error('препишувањето не успеа (' + retry.res.status + ')');
+                        finishPush(retry.body.version);
+                    } else {
+                        setLocalSrvChip('ready', '🟢 поврзан');
+                        notify('Зачувувањето е откажано поради конфликт. Вчитај од сервер за да ја видиш поновата верзија.', 'warn');
+                    }
+                    return;
+                }
+                if (!attempt.res.ok || !attempt.body) throw new Error('серверот врати ' + attempt.res.status);
+                finishPush(attempt.body.version);
+            } catch (err) {
+                console.error('localSrvPush:', err);
+                setLocalSrvChip('error', '🔴 грешка');
+                notify('Зачувувањето не успеа: ' + (err && err.message ? err.message : err), 'error');
+            }
+
+            function finishPush(version) {
+                setLocalSrvVersion(version);
+                setLocalSrvChip('ready', '🟢 поврзан');
+                setLocalSrvStamp('зачувано: верзија ' + version + ' • ' + formatStampTime(new Date().toISOString()) + ' • ' + (getMyTherapist() || 'овој уред'));
+                notify('Состојбата е зачувана на серверот (верзија ' + version + ').', 'ok');
+            }
+        }
+
+        function localSrvPut(payload, baseVersion) {
+            return localSrvFetch('/api/state/' + LOCAL_SRV_APP, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    baseVersion: baseVersion,
+                    payload: payload,
+                    updated_by: getMyTherapist() || 'непознат уред'
+                })
+            });
+        }
+
+        // formatStampTime се реупотребува од блокот за снимки (дефинирана подолу).
+
+        window.addEventListener('DOMContentLoaded', renderLocalSrvPanel);
 
         // [v3.3] Старата exportData (без CSV quoting и BOM) е избришана — беше мртов код
         // прегазен од Excel-friendly верзијата подолу, но замка при идни измени.

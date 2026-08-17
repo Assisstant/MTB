@@ -8236,7 +8236,11 @@
             idbRemove(BACKUP_LIST_KEY).then(function () { showToast('Backup копиите се избришани.'); renderStoragePanel(); });
         },
         renderStoragePanel: renderStoragePanel,
-        hydrate: hydrateFromIndexedDb
+        hydrate: hydrateFromIndexedDb,
+        // [v4.1] Изложени за модулот „Локален сервер“ (PostgreSQL синхронизација):
+        // applyPayload ја применува целосната состојба, backup враќа Promise.
+        applyPayload: applyPayload,
+        backup: createBackup
     };
 
     window.SdnSyncApi = {
@@ -8257,6 +8261,209 @@
     }
 })();
 
+    </script>
+    <script>
+    // ═══════════════════════════════════════════════════════════════════════
+    // [v4.1] ЛОКАЛЕН СЕРВЕР (PostgreSQL преку Fastify API) — исто како кај
+    // Rasporedi: состојбата се чува во app_state (jsonb) под клуч 'sdnevnik',
+    // со version-бројач; PUT со baseVersion, 409 = некој зачувал во меѓувреме.
+    // Пред секое вчитување автоматски се прави IndexedDB backup.
+    // ═══════════════════════════════════════════════════════════════════════
+    (function () {
+        'use strict';
+
+        var URL_KEY = 'sdn_local_server_url_v1';
+        var VER_KEY = 'sdn_local_server_version_v1';
+        var APP_KEY = 'sdnevnik';
+
+        function toast(msg) {
+            if (window.SdnV2 && typeof window.SdnV2.toast === 'function') window.SdnV2.toast(msg);
+            else alert(msg);
+        }
+
+        function whoAmI() {
+            try { return (window.SdnSyncApi && window.SdnSyncApi.owner && window.SdnSyncApi.owner.name) || 'S-Dnevnik'; }
+            catch (e) { return 'S-Dnevnik'; }
+        }
+
+        function getUrl() {
+            var saved = localStorage.getItem(URL_KEY);
+            if (saved) return saved.replace(/\/+$/, '');
+            if (/^https?:$/.test(window.location.protocol)) return window.location.origin;
+            return 'http://localhost:3000';
+        }
+
+        function setUrl(value) {
+            var url = String(value || '').trim().replace(/\/+$/, '');
+            if (url) localStorage.setItem(URL_KEY, url);
+            else localStorage.removeItem(URL_KEY);
+            render();
+        }
+
+        function getVersion() {
+            var v = parseInt(localStorage.getItem(VER_KEY) || '0', 10);
+            return isFinite(v) && v > 0 ? v : 0;
+        }
+        function setVersion(v) { localStorage.setItem(VER_KEY, String(v)); }
+
+        function setStatus(text) {
+            var el = document.getElementById('sdnLocalSrvStatus');
+            if (el) el.textContent = text || '';
+        }
+
+        function stampTime(iso) {
+            if (!iso) return '';
+            try {
+                var d = new Date(iso);
+                return d.toLocaleDateString('mk-MK', { day: 'numeric', month: 'short' }) + ' ' +
+                    d.toLocaleTimeString('mk-MK', { hour: '2-digit', minute: '2-digit' });
+            } catch (e) { return String(iso); }
+        }
+
+        function srvFetch(path, opts) {
+            return fetch(getUrl() + path, Object.assign({ cache: 'no-store' }, opts || {})).then(function (res) {
+                return res.json().catch(function () { return null; }).then(function (body) {
+                    return { res: res, body: body };
+                });
+            });
+        }
+
+        function check() {
+            setStatus('⏳ проверувам…');
+            srvFetch('/api/health').then(function (r) {
+                if (r.res.ok && r.body && r.body.ok) { setStatus('🟢 поврзан'); toast('Локалниот сервер одговара (база: OK).'); }
+                else { setStatus('🔴 грешка ' + r.res.status); }
+            }).catch(function () {
+                setStatus('🔴 недостапен');
+                toast('Серверот не е достапен на ' + getUrl() + '. Дали е стартуван (npm run dev)?');
+            });
+        }
+
+        function pull() {
+            setStatus('⏳ вчитувам…');
+            srvFetch('/api/state/' + APP_KEY).then(function (r) {
+                if (r.res.status === 404) {
+                    setStatus('🟢 поврзан');
+                    toast('На серверот нема зачуван S-Dnevnik. Прво „Зачувај на сервер“.');
+                    return;
+                }
+                if (!r.res.ok || !r.body || !r.body.payload) throw new Error('невалиден одговор (' + r.res.status + ')');
+                return window.SdnV3.backup('before_local_server_pull').then(function () {
+                    window.SdnV3.applyPayload(r.body.payload);
+                    return window.SdnV3.saveFullPayload(window.SdnV3.currentPayload('after_local_server_pull'), 'after_local_server_pull');
+                }).then(function () {
+                    if (typeof window.renderAll === 'function') window.renderAll();
+                    setVersion(r.body.version);
+                    setStatus('🟢 вчитано: верзија ' + r.body.version + ' • ' + stampTime(r.body.updated_at));
+                    toast('S-Dnevnik е вчитан од серверот (верзија ' + r.body.version + ').');
+                });
+            }).catch(function (err) {
+                console.error('SdnLocalSrv.pull:', err);
+                setStatus('🔴 грешка');
+                toast('Вчитувањето не успеа: ' + (err && err.message ? err.message : err));
+            });
+        }
+
+        function putState(payload, baseVersion) {
+            return srvFetch('/api/state/' + APP_KEY, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ baseVersion: baseVersion, payload: payload, updated_by: whoAmI() })
+            });
+        }
+
+        function finishPush(version) {
+            setVersion(version);
+            setStatus('🟢 зачувано: верзија ' + version + ' • ' + stampTime(new Date().toISOString()));
+            toast('S-Dnevnik е зачуван на серверот (верзија ' + version + ').');
+        }
+
+        function push() {
+            setStatus('⏳ зачувувам…');
+            var payload;
+            try { payload = window.SdnV3.currentPayload('local_server_push'); }
+            catch (e) { setStatus('🔴 грешка'); toast('Не можам да ја соберам состојбата: ' + e.message); return; }
+
+            var basePromise;
+            var known = getVersion();
+            if (known) {
+                basePromise = Promise.resolve(known);
+            } else {
+                basePromise = srvFetch('/api/state/' + APP_KEY).then(function (probe) {
+                    var existing = (probe.res.ok && probe.body && probe.body.version) ? probe.body.version : 0;
+                    if (existing > 0 && !confirm('На серверот веќе постои S-Dnevnik состојба (верзија ' + existing +
+                        (probe.body.updated_by ? ', зачувана од ' + probe.body.updated_by : '') +
+                        ').\n\nДа ја ПРЕПИШАМ со она што е сега во апликацијата?\n\nАко не си сигурен, откажи и прво „Вчитај од сервер“.')) {
+                        return -1;
+                    }
+                    return existing;
+                });
+            }
+
+            basePromise.then(function (baseVersion) {
+                if (baseVersion === -1) { setStatus('🟢 поврзан'); return; }
+                return putState(payload, baseVersion).then(function (attempt) {
+                    if (attempt.res.status === 409) {
+                        var cur = attempt.body && attempt.body.current;
+                        var who = cur && cur.updated_by ? cur.updated_by : 'непознат уред';
+                        var when = cur ? stampTime(cur.updated_at) : '';
+                        if (confirm('КОНФЛИКТ: ' + who + ' зачувал понова верзија (' + (cur ? cur.version : '?') + ', ' + when + ').\n\n' +
+                            'Да ја ПРЕПИШАМ неговата верзија со мојата?\n\nПрепорака: Откажи, па „Вчитај од сервер“ (пред тоа автоматски се прави backup).')) {
+                            return putState(payload, cur ? cur.version : 0).then(function (retry) {
+                                if (!retry.res.ok || !retry.body) throw new Error('препишувањето не успеа (' + retry.res.status + ')');
+                                finishPush(retry.body.version);
+                            });
+                        }
+                        setStatus('🟠 конфликт — вчитај од сервер');
+                        return;
+                    }
+                    if (!attempt.res.ok || !attempt.body) throw new Error('серверот врати ' + attempt.res.status);
+                    finishPush(attempt.body.version);
+                });
+            }).catch(function (err) {
+                console.error('SdnLocalSrv.push:', err);
+                setStatus('🔴 грешка');
+                toast('Зачувувањето не успеа: ' + (err && err.message ? err.message : err));
+            });
+        }
+
+        function render() {
+            var dataTab = document.getElementById('data');
+            if (!dataTab) return;
+            var panel = document.getElementById('sdnLocalSrvPanel');
+            if (!panel) {
+                panel = document.createElement('div');
+                panel.id = 'sdnLocalSrvPanel';
+                panel.className = 'sdn-system-panel';
+                dataTab.appendChild(panel);
+                panel.innerHTML =
+                    '<h3>🖥️ Локален сервер (PostgreSQL)</h3>' +
+                    '<div style="font-size:12px;opacity:.8;margin-bottom:8px;">' +
+                        'Состојбата на S-Dnevnik се чува на локалниот сервер. Работен тек: <b>Вчитај</b> кога почнуваш, уредувај, па <b>Зачувај</b>. ' +
+                        'Пред вчитување автоматски се прави backup во IndexedDB.' +
+                    '</div>' +
+                    '<div class="sdn-actions-row" style="align-items:center;">' +
+                        '<input type="text" id="sdnLocalSrvUrl" class="sdn-backup-select" style="max-width:260px;" placeholder="http://localhost:3000">' +
+                        '<button class="sdn-mini-btn" onclick="SdnLocalSrv.check()">🔌 Провери врска</button>' +
+                    '</div>' +
+                    '<div class="sdn-actions-row">' +
+                        '<button class="sdn-mini-btn primary" onclick="SdnLocalSrv.pull()">📥 Вчитај од сервер</button>' +
+                        '<button class="sdn-mini-btn success" onclick="SdnLocalSrv.push()">📤 Зачувај на сервер</button>' +
+                        '<span id="sdnLocalSrvStatus" style="font-size:12px;opacity:.85;align-self:center;">⚪ непроверено</span>' +
+                    '</div>';
+                var input = document.getElementById('sdnLocalSrvUrl');
+                input.value = getUrl();
+                input.addEventListener('change', function () { setUrl(this.value); });
+            }
+            var v = getVersion();
+            if (v) setStatus('последна позната верзија: ' + v);
+        }
+
+        window.SdnLocalSrv = { check: check, pull: pull, push: push, setUrl: setUrl, render: render };
+
+        document.addEventListener('DOMContentLoaded', function () { setTimeout(render, 400); });
+        if (document.readyState !== 'loading') setTimeout(render, 400);
+    })();
     </script>
     <div class="credit-watermark">Created by Blagoj Nasev</div>
     <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
