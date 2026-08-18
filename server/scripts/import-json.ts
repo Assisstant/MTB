@@ -1,20 +1,25 @@
 /**
  * Stage 3 — JSON importer with student-identity reconciliation.
  *
- * Reads a Unified Sync JSON export (or a plain Rasporedi / S-Dnevnik backup)
- * and loads canonical students, therapists and their links into PostgreSQL.
+ * Reads Unified Sync JSON exports, or older separate Rasporedi / S-Dnevnik
+ * backups, and loads canonical students, therapists and their links into
+ * PostgreSQL.
  *
  * Identity is resolved BEFORE anything is written, because three schemes are
  * in play across the two apps:
- *   - Rasporedi identifies students by name string, with a stable id in
- *     studentMeta[name].studentId
- *   - S-Dnevnik identifies students by numeric id
+ *   - Rasporedi identifies students by display name ("IV-а - Име Презиме"),
+ *     with a stable id in studentMeta[name].studentId
+ *   - S-Dnevnik identifies students by numeric id, keeping the grade in its
+ *     own field ({ name: "Име Презиме", grade: "IV-а" })
  *   - the bridge between them is rasporediStudentId
- * Unmatched records are reported, never silently guessed into a match.
  *
- * Usage (from the server folder):
+ * Legacy exports predate both the stable id and the bridge, so the importer
+ * falls back through decreasing-confidence tiers and reports which tier each
+ * link used. It never merges two records on an ambiguous match.
+ *
+ * Usage (from the server folder) — one or more files, order does not matter:
  *   npm run import -- ../sample-data/anonymized/unified-sample.json
- *   npm run import -- ../sample-data/anonymized/unified-sample.json --apply
+ *   npm run import -- raspored-backup.json SDnevnik_v3_full.json --apply
  *
  * Without --apply the script only prints its report: nothing is written.
  * Re-running is safe: students upsert on public_id, therapists on name.
@@ -24,7 +29,10 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { pool } from '../src/db.js';
 
-const PLACEHOLDER = 'Избери Ученик';
+/** Both apps carry a non-student placeholder at the top of the list. */
+const PLACEHOLDERS = new Set(['Избери Ученик', 'Select Student']);
+
+type MatchTier = 'bridge-id' | 'exact-name' | 'bare-name' | 'name+grade' | 'rasporedi-only' | 'sdnevnik-only';
 
 interface SdnRecord {
     id: number;
@@ -38,14 +46,49 @@ interface CanonicalStudent {
     name: string;
     grade: string | null;
     sdnevnikId: number | null;
-    matchedBy: 'bridge-id' | 'name' | 'sdnevnik-only' | 'rasporedi-only';
+    matchedBy: MatchTier;
+    idWasGenerated: boolean;
 }
 
 const problems: string[] = [];
 const notes: string[] = [];
 
-function normalizeName(name: string): string {
-    return String(name || '').trim().replace(/\s+/g, ' ').toLocaleLowerCase('mk-MK');
+function norm(value: unknown): string {
+    return String(value ?? '').normalize('NFKC').trim().replace(/\s+/g, ' ').toLocaleLowerCase('mk-MK');
+}
+
+/**
+ * Strips the grade prefix ("IV-а - Име") and any trailing category suffix
+ * ("Име (над.)") so a Rasporedi display name can be compared with the plain
+ * name S-Dnevnik stores.
+ */
+function bareName(value: unknown): string {
+    let n = String(value ?? '');
+    const i = n.indexOf(' - ');
+    if (i > -1 && i <= 10) n = n.slice(i + 3);
+    n = n.replace(/\s*\([^)]*\)\s*$/, '');
+    return norm(n);
+}
+
+function normGrade(value: unknown): string {
+    return norm(String(value ?? '').replace(/[()]/g, '').replace(/\.$/, ''));
+}
+
+/**
+ * Mirrors stableStudentIdForName() in Rasporedi v5.0 byte for byte, so an id
+ * generated here is identical to the one the app generates for the same name.
+ * Without this, importing a legacy export would invent ids that diverge from
+ * the ones the app assigns on its next load.
+ */
+function stableStudentIdForName(name: string): string {
+    const text = String(name || '').normalize('NFKC').toLocaleLowerCase('mk-MK').trim();
+    let a = 2166136261, b = 5381;
+    for (let i = 0; i < text.length; i++) {
+        const c = text.charCodeAt(i);
+        a ^= c; a = Math.imul(a, 16777619) >>> 0;
+        b = (Math.imul(b, 33) ^ c) >>> 0;
+    }
+    return `RS-${a.toString(36)}-${b.toString(36)}`;
 }
 
 function asText(value: unknown): string | null {
@@ -53,27 +96,46 @@ function asText(value: unknown): string | null {
     return s ? s : null;
 }
 
-/** Accepts a unified export, a { rasporedi: {...} } wrapper, or a raw backup. */
-function readSource(filePath: string) {
-    const raw = JSON.parse(readFileSync(filePath, 'utf8'));
-    const base = raw && typeof raw.rasporedi === 'object' && raw.rasporedi ? raw.rasporedi : raw;
-    return { raw, base };
+interface Inputs {
+    base: any | null;          // Rasporedi-shaped state
+    sdnRecords: SdnRecord[];
+    sources: string[];
 }
 
-function collectSdnRecords(raw: any, base: any): SdnRecord[] {
-    // Unified export carries the diary slice under .sdnevnik; a plain
-    // S-Dnevnik backup has student objects at the top level instead.
-    const fromUnified = raw?.sdnevnik?.students;
-    const candidates = Array.isArray(fromUnified)
-        ? fromUnified
-        : (Array.isArray(base?.students) && typeof base.students[0] === 'object' ? base.students : []);
+/** Classifies each file by shape so the two apps' exports can be passed together. */
+function readInputs(paths: string[]): Inputs {
+    const out: Inputs = { base: null, sdnRecords: [], sources: [] };
 
+    for (const p of paths) {
+        const full = resolve(process.cwd(), p);
+        const raw = JSON.parse(readFileSync(full, 'utf8'));
+        const body = raw && typeof raw.rasporedi === 'object' && raw.rasporedi ? raw.rasporedi : raw;
+        const students = body?.students;
+
+        const isRasporedi = Array.isArray(students) && students.some((s: unknown) => typeof s === 'string');
+        const isSdnevnik = Array.isArray(students) && students.some((s: unknown) => s && typeof s === 'object');
+        const unifiedSdn = raw?.sdnevnik?.students;
+
+        if (isRasporedi) {
+            if (out.base) problems.push(`More than one Rasporedi-shaped file given; ignoring "${p}".`);
+            else out.base = body;
+        }
+        if (Array.isArray(unifiedSdn)) out.sdnRecords.push(...toSdnRecords(unifiedSdn));
+        else if (isSdnevnik) out.sdnRecords.push(...toSdnRecords(students));
+
+        if (!isRasporedi && !isSdnevnik && !unifiedSdn) problems.push(`"${p}" has no recognizable student list — ignored.`);
+        out.sources.push(`${full}  [${isRasporedi ? 'Rasporedi' : ''}${isRasporedi && (isSdnevnik || unifiedSdn) ? '+' : ''}${(isSdnevnik || unifiedSdn) ? 'S-Dnevnik' : ''}]`);
+    }
+    return out;
+}
+
+function toSdnRecords(list: any[]): SdnRecord[] {
     const out: SdnRecord[] = [];
-    for (const s of candidates) {
+    for (const s of list) {
         if (!s || typeof s !== 'object') continue;
         const id = Number(s.id);
         if (!Number.isFinite(id)) {
-            problems.push(`S-Dnevnik record without a numeric id skipped: ${JSON.stringify(s).slice(0, 80)}`);
+            problems.push(`S-Dnevnik record without a numeric id skipped: ${String(s.name || '').slice(0, 40)}`);
             continue;
         }
         out.push({
@@ -89,55 +151,89 @@ function collectSdnRecords(raw: any, base: any): SdnRecord[] {
 function reconcile(base: any, sdnRecords: SdnRecord[]): CanonicalStudent[] {
     const meta = (base?.studentMeta && typeof base.studentMeta === 'object') ? base.studentMeta : {};
     const rasporediNames: string[] = Array.isArray(base?.students)
-        ? base.students.filter((s: unknown) => typeof s === 'string' && s && s !== PLACEHOLDER)
+        ? base.students.filter((s: unknown) => typeof s === 'string' && s && !PLACEHOLDERS.has(s))
         : [];
 
+    // Indexes over the S-Dnevnik side.
     const byBridgeId = new Map<string, SdnRecord>();
-    const byName = new Map<string, SdnRecord>();
+    const byExact = new Map<string, SdnRecord[]>();
+    const byBare = new Map<string, SdnRecord[]>();
     for (const rec of sdnRecords) {
         if (rec.rasporediStudentId) byBridgeId.set(rec.rasporediStudentId, rec);
-        const key = normalizeName(rec.name);
-        if (key && !byName.has(key)) byName.set(key, rec);
+        for (const [map, key] of [[byExact, norm(rec.name)], [byBare, bareName(rec.name)]] as const) {
+            if (!key) continue;
+            if (!map.has(key)) map.set(key, []);
+            map.get(key)!.push(rec);
+        }
+    }
+
+    // How many Rasporedi students share a bare name — guards the fuzzy tier.
+    const bareCount = new Map<string, number>();
+    for (const n of rasporediNames) {
+        const k = bareName(n);
+        bareCount.set(k, (bareCount.get(k) || 0) + 1);
     }
 
     const canonical: CanonicalStudent[] = [];
-    const usedPublicIds = new Map<string, string>();   // publicId -> student name
-    const usedSdnIds = new Map<number, string>();      // sdnevnikId -> student name
+    const usedPublicIds = new Map<string, string>();
+    const usedSdnIds = new Map<number, string>();
     const consumedSdn = new Set<number>();
 
     for (const name of rasporediNames) {
-        const publicId = asText(meta[name]?.studentId);
-        if (!publicId) {
-            // Without a stable id we cannot key the row safely. Reported, not guessed.
-            problems.push(`"${name}" has no studentId in studentMeta — skipped. Open the student in Rasporedi once so an id is generated, then re-export.`);
-            continue;
-        }
+        const existingId = asText(meta[name]?.studentId) ?? asText(meta[name]?.rasporediStudentId);
+        const publicId = existingId ?? stableStudentIdForName(name);
+        const idWasGenerated = !existingId;
+
         if (usedPublicIds.has(publicId)) {
-            problems.push(`Duplicate studentId "${publicId}" used by both "${usedPublicIds.get(publicId)}" and "${name}" — second one skipped.`);
+            problems.push(`Duplicate student id "${publicId}" for both "${usedPublicIds.get(publicId)}" and "${name}" — second skipped.`);
             continue;
         }
 
-        let match = byBridgeId.get(publicId);
-        let matchedBy: CanonicalStudent['matchedBy'] = 'rasporedi-only';
-        if (match) {
-            matchedBy = 'bridge-id';
-        } else {
-            const byNameMatch = byName.get(normalizeName(name));
-            if (byNameMatch && !consumedSdn.has(byNameMatch.id)) {
-                match = byNameMatch;
-                matchedBy = 'name';
-                notes.push(`"${name}" matched to S-Dnevnik id ${byNameMatch.id} by NAME only (no rasporediStudentId). Verify this is the same student.`);
+        const gradeFromMeta = asText(meta[name]?.grade);
+        let match: SdnRecord | undefined;
+        let tier: MatchTier = 'rasporedi-only';
+
+        const bridge = byBridgeId.get(publicId);
+        const exact = (byExact.get(norm(name)) || []).filter((r) => !consumedSdn.has(r.id));
+        const bare = (byBare.get(bareName(name)) || []).filter((r) => !consumedSdn.has(r.id));
+
+        if (bridge && !consumedSdn.has(bridge.id)) {
+            match = bridge;
+            tier = 'bridge-id';
+        } else if (exact.length === 1) {
+            match = exact[0];
+            tier = 'exact-name';
+        } else if (bare.length >= 1) {
+            // Fuzzy tier: only safe when the bare name identifies exactly one
+            // student on BOTH sides, otherwise the grade must agree.
+            const rasporediShare = bareCount.get(bareName(name)) || 1;
+            if (bare.length === 1 && rasporediShare === 1) {
+                match = bare[0];
+                tier = 'bare-name';
+            } else {
+                const g = normGrade(gradeFromMeta);
+                const narrowed = bare.filter((r) => normGrade(r.grade) === g && g !== '');
+                if (narrowed.length === 1) {
+                    match = narrowed[0];
+                    tier = 'name+grade';
+                } else {
+                    problems.push(`"${name}" is ambiguous against S-Dnevnik (${bare.length} candidate(s) with the same name, ${rasporediShare} Rasporedi student(s) share it) — imported WITHOUT an S-Dnevnik link.`);
+                }
             }
         }
 
         let sdnevnikId: number | null = null;
         if (match) {
             if (usedSdnIds.has(match.id)) {
-                problems.push(`S-Dnevnik id ${match.id} would be linked to both "${usedSdnIds.get(match.id)}" and "${name}" — link dropped for "${name}".`);
+                problems.push(`S-Dnevnik id ${match.id} would link to both "${usedSdnIds.get(match.id)}" and "${name}" — link dropped for "${name}".`);
+                tier = 'rasporedi-only';
             } else {
                 sdnevnikId = match.id;
                 usedSdnIds.set(match.id, name);
                 consumedSdn.add(match.id);
+                if (tier === 'bare-name' || tier === 'name+grade') {
+                    notes.push(`${tier}: "${name}" ↔ S-Dnevnik #${match.id} "${match.name}" (${match.grade || 'no grade'})`);
+                }
             }
         }
 
@@ -145,30 +241,31 @@ function reconcile(base: any, sdnRecords: SdnRecord[]): CanonicalStudent[] {
         canonical.push({
             publicId,
             name,
-            grade: asText(meta[name]?.grade) ?? (match ? match.grade : null),
+            grade: gradeFromMeta ?? (match ? match.grade : null),
             sdnevnikId,
-            matchedBy
+            matchedBy: tier,
+            idWasGenerated
         });
     }
 
-    // Students that exist only in S-Dnevnik get their own identity rather than
-    // being merged into a similar-looking Rasporedi name.
+    // S-Dnevnik students with no Rasporedi counterpart get their own identity
+    // rather than being merged into a similar-looking name.
     for (const rec of sdnRecords) {
         if (consumedSdn.has(rec.id)) continue;
         const publicId = rec.rasporediStudentId || `sdn-${rec.id}`;
         if (usedPublicIds.has(publicId)) {
-            problems.push(`S-Dnevnik student "${rec.name}" (id ${rec.id}) collides with existing id "${publicId}" — skipped.`);
+            problems.push(`S-Dnevnik "${rec.name}" (id ${rec.id}) collides with existing id "${publicId}" — skipped.`);
             continue;
         }
         usedPublicIds.set(publicId, rec.name);
-        usedSdnIds.set(rec.id, rec.name);
-        notes.push(`"${rec.name}" (S-Dnevnik id ${rec.id}) has no Rasporedi counterpart — imported as a separate student with id "${publicId}".`);
+        notes.push(`S-Dnevnik only: "${rec.name}" (id ${rec.id}) has no Rasporedi counterpart — imported as "${publicId}".`);
         canonical.push({
             publicId,
             name: rec.name,
             grade: rec.grade,
             sdnevnikId: rec.id,
-            matchedBy: 'sdnevnik-only'
+            matchedBy: 'sdnevnik-only',
+            idWasGenerated: !rec.rasporediStudentId
         });
     }
 
@@ -200,7 +297,7 @@ async function write(canonical: CanonicalStudent[], base: any) {
                  RETURNING id`,
                 [s.publicId, s.sdnevnikId, s.name, s.grade]
             );
-            studentIdByName.set(normalizeName(s.name), rows[0].id);
+            studentIdByName.set(norm(s.name), rows[0].id);
         }
 
         for (const t of therapistNames) {
@@ -217,8 +314,8 @@ async function write(canonical: CanonicalStudent[], base: any) {
             await client.query('DELETE FROM therapist_students WHERE therapist_id = $1', [therapistId]);
             const assigned: string[] = Array.isArray(therapistStudents[t]) ? therapistStudents[t] : [];
             for (const studentName of assigned) {
-                if (!studentName || studentName === PLACEHOLDER) continue;
-                const studentId = studentIdByName.get(normalizeName(studentName));
+                if (!studentName || PLACEHOLDERS.has(studentName)) continue;
+                const studentId = studentIdByName.get(norm(studentName));
                 if (!studentId) {
                     problems.push(`Therapist "${t}" references unknown student "${studentName}" — link skipped.`);
                     continue;
@@ -243,39 +340,48 @@ async function write(canonical: CanonicalStudent[], base: any) {
 async function main() {
     const args = process.argv.slice(2);
     const apply = args.includes('--apply');
-    const filePath = args.find((a) => !a.startsWith('--'));
-    if (!filePath) {
-        console.error('Usage: npm run import -- <file.json> [--apply]');
+    const files = args.filter((a) => !a.startsWith('--'));
+    if (files.length === 0) {
+        console.error('Usage: npm run import -- <file.json> [more.json ...] [--apply]');
         process.exit(1);
     }
 
-    const full = resolve(process.cwd(), filePath);
-    const { raw, base } = readSource(full);
-    const sdnRecords = collectSdnRecords(raw, base);
+    const { base, sdnRecords, sources } = readInputs(files);
+    if (!base) {
+        console.error('No Rasporedi-shaped file among the inputs (need the student/therapist lists).');
+        process.exit(1);
+    }
     const canonical = reconcile(base, sdnRecords);
 
-    console.log('\n=== IMPORT REPORT ===');
-    console.log(`file:            ${full}`);
-    console.log(`exported at:     ${raw?.unifiedSync?.exportedAt || raw?._meta?.exportedAt || 'unknown'}`);
-    console.log(`mode:            ${apply ? 'APPLY (writes to PostgreSQL)' : 'DRY RUN (nothing is written)'}`);
-    console.log('');
-    console.log(`students found:  ${canonical.length}`);
-    const counts = canonical.reduce<Record<string, number>>((acc, s) => {
+    const tally = canonical.reduce<Record<string, number>>((acc, s) => {
         acc[s.matchedBy] = (acc[s.matchedBy] || 0) + 1;
         return acc;
     }, {});
-    console.log(`  linked by bridge id:  ${counts['bridge-id'] || 0}`);
-    console.log(`  linked by name only:  ${counts['name'] || 0}`);
-    console.log(`  Rasporedi only:       ${counts['rasporedi-only'] || 0}`);
-    console.log(`  S-Dnevnik only:       ${counts['sdnevnik-only'] || 0}`);
-    console.log(`therapists found: ${Array.isArray(base?.therapists) ? base.therapists.length : 0}`);
+    const generated = canonical.filter((s) => s.idWasGenerated).length;
+    const linked = canonical.filter((s) => s.sdnevnikId != null).length;
+
+    console.log('\n=== IMPORT REPORT ===');
+    sources.forEach((s) => console.log(`source: ${s}`));
+    console.log(`mode:   ${apply ? 'APPLY (writes to PostgreSQL)' : 'DRY RUN (nothing is written)'}`);
+    console.log('');
+    console.log(`students found:          ${canonical.length}`);
+    console.log(`  ids taken from file:   ${canonical.length - generated}`);
+    console.log(`  ids generated (legacy):${generated}   <- same algorithm the app uses`);
+    console.log(`linked to S-Dnevnik:     ${linked} of ${sdnRecords.length}`);
+    console.log(`  via bridge id:         ${tally['bridge-id'] || 0}`);
+    console.log(`  via exact name:        ${tally['exact-name'] || 0}`);
+    console.log(`  via bare name:         ${tally['bare-name'] || 0}`);
+    console.log(`  via name + grade:      ${tally['name+grade'] || 0}`);
+    console.log(`  Rasporedi only:        ${tally['rasporedi-only'] || 0}`);
+    console.log(`  S-Dnevnik only:        ${tally['sdnevnik-only'] || 0}`);
+    console.log(`therapists found:        ${Array.isArray(base?.therapists) ? base.therapists.length : 0}`);
 
     if (notes.length) {
-        console.log('\n--- needs a human look ---');
+        console.log('\n--- links made on a name match (worth a look) ---');
         notes.forEach((n) => console.log(`  • ${n}`));
     }
     if (problems.length) {
-        console.log('\n--- problems (records skipped) ---');
+        console.log('\n--- problems ---');
         problems.forEach((p) => console.log(`  ! ${p}`));
     }
 
