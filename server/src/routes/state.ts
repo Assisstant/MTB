@@ -1,6 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { pool } from '../db.js';
+import { projectPayload } from '../lib/import-core.js';
 
 // Stage 2.5 — blob endpoints. The whole Unified Sync JSON lives in one
 // jsonb row per app, with a version counter for conflict detection.
@@ -62,7 +63,43 @@ export async function stateRoutes(server: FastifyInstance) {
                 [app, newVersion, JSON.stringify(body.payload), body.updated_by ?? null]
             );
             await client.query('COMMIT');
-            return { app, version: newVersion };
+
+            // Project the saved state into the relational tables.
+            //
+            // Deliberately AFTER the blob is committed and in its own
+            // transaction: the blob is what the apps depend on, so a fault in
+            // the projection must never stop someone saving their work. A
+            // failure is reported back and the tables simply stay one save
+            // behind until the next successful save re-projects everything.
+            let projection: Record<string, unknown> = { ok: false, skipped: true };
+            try {
+                const p = await pool.connect();
+                try {
+                    await p.query('BEGIN');
+                    const result = await projectPayload(p, body.payload);
+                    await p.query('COMMIT');
+                    projection = {
+                        ok: true,
+                        kind: result.kind,
+                        students: result.students,
+                        notes: result.report.notes.length,
+                        problems: result.report.problems
+                    };
+                    if (result.report.problems.length) {
+                        server.log.warn({ problems: result.report.problems }, 'projection reported problems');
+                    }
+                } catch (err) {
+                    await p.query('ROLLBACK');
+                    throw err;
+                } finally {
+                    p.release();
+                }
+            } catch (err) {
+                server.log.error({ err }, 'projection into relational tables failed');
+                projection = { ok: false, error: err instanceof Error ? err.message : String(err) };
+            }
+
+            return { app, version: newVersion, projection };
         } catch (err) {
             await client.query('ROLLBACK');
             throw err;

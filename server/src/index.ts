@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 import 'dotenv/config';
 import { pool } from './db.js';
 import { stateRoutes } from './routes/state.js';
+import { dataRoutes } from './routes/data.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -25,6 +26,7 @@ server.get('/api/health', async () => {
 });
 
 server.register(stateRoutes);
+server.register(dataRoutes);
 
 const port = Number(process.env.PORT || 3000);
 server.listen({ port, host: '127.0.0.1' })
