@@ -1,22 +1,33 @@
--- Сејхан Демиров is a real student from an earlier year, and a different
--- person from Сејхан Неџипов who is on the current roster. His audiograms
--- carried only a subject name, so they had no student to hang from.
+-- Audiograms carry only a subject NAME, never a student id, and some name
+-- students from earlier years who are no longer on the roster.
 --
--- Give him a student row that is NOT enrolled in the current year: the roster
--- stays correct while his records attach to a person and stay searchable.
--- The demo record "Пример - Испитаник" is left unlinked on purpose.
+-- After an import, any audiogram still unlinked has no matching student at
+-- all. Give each such subject a student row that is NOT enrolled in the
+-- current year: the roster stays correct while the records attach to a person
+-- and remain searchable.
+--
+-- Written generically, with no names in it. This repository is public (it
+-- serves the apps through GitHub Pages), so student names must never appear
+-- in the source, only in the local database.
+--
+-- Sample/demo subjects are skipped.
 
--- Conditional on the audiograms actually being present: this is a data repair,
--- not a schema change, and a fresh database (a new machine, a test run) must
--- not gain a student who has no records to attach to.
 INSERT INTO students (public_id, name, grade, active)
-SELECT 'past-sejhan-demirov', 'Сејхан Демиров', NULL, false
-WHERE EXISTS (SELECT 1 FROM audiograms WHERE subject_name = 'Сејхан Демиров')
+SELECT DISTINCT
+       'past-' || substr(md5(a.subject_name), 1, 12),
+       a.subject_name,
+       NULL,
+       false
+FROM audiograms a
+WHERE a.student_id IS NULL
+  AND a.subject_name IS NOT NULL
+  AND a.subject_name NOT ILIKE '%пример%'
+  AND a.subject_name NOT ILIKE '%example%'
+  AND a.subject_name NOT ILIKE '%тест%'
 ON CONFLICT (public_id) DO NOTHING;
 
 UPDATE audiograms a
 SET student_id = s.id
 FROM students s
-WHERE s.public_id = 'past-sejhan-demirov'
-  AND a.student_id IS NULL
-  AND a.subject_name = 'Сејхан Демиров';
+WHERE a.student_id IS NULL
+  AND s.public_id = 'past-' || substr(md5(a.subject_name), 1, 12);

@@ -5388,9 +5388,23 @@ body.density-comfortable .student-select {
         function getLocalSrvUrl() {
             const saved = localStorage.getItem(LOCAL_SRV_URL_KEY);
             if (saved) return saved.replace(/\/+$/, '');
-            // Ако апликацијата е отворена ПРЕКУ серверот, адресата е очигледна.
-            if (/^https?:$/.test(window.location.protocol)) return window.location.origin;
+            // Ако апликацијата е отворена ПРЕКУ серверот (localhost или tailnet),
+            // адресата е очигледна. Ако е отворена од објавената копија на
+            // GitHub Pages, серверот НЕ е таму — тогаш почни од localhost, а на
+            // телефон внеси ја tailnet адресата рачно.
+            const host = window.location.hostname;
+            const servedByApi = /^(localhost|127\.0\.0\.1)$/.test(host) || /\.ts\.net$/.test(host);
+            if (servedByApi) return window.location.origin;
             return 'http://localhost:3000';
+        }
+
+        // Кога апликацијата не е отворена преку серверот, адресата мора да се
+        // внесе (особено на телефон) — затоа кажи го тоа веднаш, наместо да
+        // изгледа како да серверот не работи.
+        function localSrvNeedsAddress() {
+            const host = window.location.hostname;
+            return !(/^(localhost|127\.0\.0\.1)$/.test(host) || /\.ts\.net$/.test(host))
+                && !localStorage.getItem(LOCAL_SRV_URL_KEY);
         }
 
         function setLocalSrvUrl(value) {
@@ -5426,6 +5440,10 @@ body.density-comfortable .student-select {
             if (input && !input.value) input.value = getLocalSrvUrl();
             const v = getLocalSrvVersion();
             if (v) setLocalSrvStamp('последна позната верзија на серверот: ' + v);
+            if (localSrvNeedsAddress()) {
+                setLocalSrvChip('off', '⚪ внеси адреса');
+                setLocalSrvStamp('Оваа копија е отворена од интернет. Внеси ја адресата на твојот сервер (на телефон: tailnet адресата).');
+            }
         }
 
         async function localSrvFetch(path, opts) {

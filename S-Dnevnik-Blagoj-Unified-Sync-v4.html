@@ -8252,10 +8252,18 @@
             catch (e) { return 'S-Dnevnik'; }
         }
 
+        // Ако апликацијата е отворена преку серверот (localhost или tailnet),
+        // адресата е очигледна. Од објавената копија на GitHub Pages серверот
+        // не е таму, па адресата се внесува рачно.
+        function servedByApi() {
+            var host = window.location.hostname;
+            return /^(localhost|127\.0\.0\.1)$/.test(host) || /\.ts\.net$/.test(host);
+        }
+
         function getUrl() {
             var saved = localStorage.getItem(URL_KEY);
             if (saved) return saved.replace(/\/+$/, '');
-            if (/^https?:$/.test(window.location.protocol)) return window.location.origin;
+            if (servedByApi()) return window.location.origin;
             return 'http://localhost:3000';
         }
 
@@ -8441,6 +8449,9 @@
             }
             var v = getVersion();
             if (v) setStatus('последна позната верзија: ' + v);
+            if (!servedByApi() && !localStorage.getItem(URL_KEY)) {
+                setStatus('⚪ внеси адреса — оваа копија е отворена од интернет (на телефон: tailnet адресата)');
+            }
         }
 
         window.SdnLocalSrv = { check: check, pull: pull, push: push, setUrl: setUrl, render: render };
