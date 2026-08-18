@@ -105,12 +105,17 @@ function asText(value: unknown): string | null {
 interface Inputs {
     base: any | null;          // Rasporedi-shaped state
     sdnRecords: SdnRecord[];
+    sdnDoc: any | null;        // full S-Dnevnik document (plans, attendance, progress)
     sources: string[];
+}
+
+function asArray(value: unknown): any[] {
+    return Array.isArray(value) ? value : [];
 }
 
 /** Classifies each file by shape so the two apps' exports can be passed together. */
 function readInputs(paths: string[]): Inputs {
-    const out: Inputs = { base: null, sdnRecords: [], sources: [] };
+    const out: Inputs = { base: null, sdnRecords: [], sdnDoc: null, sources: [] };
 
     for (const p of paths) {
         const full = resolve(process.cwd(), p);
@@ -128,6 +133,13 @@ function readInputs(paths: string[]): Inputs {
         }
         if (Array.isArray(unifiedSdn)) out.sdnRecords.push(...toSdnRecords(unifiedSdn));
         else if (isSdnevnik) out.sdnRecords.push(...toSdnRecords(students));
+
+        // Only a full S-Dnevnik backup carries the clinical collections; the
+        // slice inside a Unified export has students and schedule only.
+        if (raw && (raw.attendance || raw.plans || raw.studentProgress)) {
+            if (out.sdnDoc) problems.push(`More than one S-Dnevnik backup given; ignoring the extra one.`);
+            else out.sdnDoc = raw;
+        }
 
         if (!isRasporedi && !isSdnevnik && !unifiedSdn) problems.push(`"${p}" has no recognizable student list — ignored.`);
         out.sources.push(`${full}  [${isRasporedi ? 'Rasporedi' : ''}${isRasporedi && (isSdnevnik || unifiedSdn) ? '+' : ''}${(isSdnevnik || unifiedSdn) ? 'S-Dnevnik' : ''}]`);
@@ -318,7 +330,55 @@ function analyzeSchedule(base: any): ScheduleStats {
     return stats;
 }
 
-async function write(canonical: CanonicalStudent[], base: any) {
+/** Attendance marks are a bare "present" string in some exports, an object in others. */
+function attendanceStatus(record: unknown): 'present' | 'absent' | null {
+    const raw = typeof record === 'string' ? record : (record && typeof record === 'object' ? (record as any).status : '');
+    const s = String(raw || '').trim().toLowerCase();
+    return s === 'present' || s === 'absent' ? s : null;
+}
+
+interface DiaryStats {
+    plans: number;
+    activities: number;
+    attendanceMarks: number;
+    blankMarks: number;
+    progressEntries: number;
+    unknownStudents: string[];
+}
+
+/** Counts what the diary file would contribute, without touching the database. */
+function analyzeDiary(sdnDoc: any, knownSdnIds: Set<number>): DiaryStats {
+    const stats: DiaryStats = { plans: 0, activities: 0, attendanceMarks: 0, blankMarks: 0, progressEntries: 0, unknownStudents: [] };
+    if (!sdnDoc) return stats;
+
+    const unknown = new Set<string>();
+    for (const p of asArray(sdnDoc.plans)) {
+        stats.plans++;
+        stats.activities += asArray(p?.activities).length;
+    }
+
+    for (const byStudent of Object.values(sdnDoc.attendance || {})) {
+        for (const [sid, bySlot] of Object.entries(byStudent as Record<string, any>)) {
+            if (!knownSdnIds.has(Number(sid))) { unknown.add(sid); continue; }
+            for (const rec of Object.values(bySlot as Record<string, unknown>)) {
+                if (attendanceStatus(rec)) stats.attendanceMarks++;
+                else stats.blankMarks++;
+            }
+        }
+    }
+
+    for (const [sid, byPlan] of Object.entries(sdnDoc.studentProgress || {})) {
+        if (!knownSdnIds.has(Number(sid))) { unknown.add(sid); continue; }
+        for (const entries of Object.values(byPlan as Record<string, any>)) {
+            stats.progressEntries += asArray(entries).length;
+        }
+    }
+
+    stats.unknownStudents = [...unknown];
+    return stats;
+}
+
+async function write(canonical: CanonicalStudent[], base: any, sdnDoc: any) {
     const therapistNames: string[] = Array.isArray(base?.therapists)
         ? base.therapists.filter((t: unknown) => typeof t === 'string' && t.trim())
         : [];
@@ -331,6 +391,7 @@ async function write(canonical: CanonicalStudent[], base: any) {
         await client.query('BEGIN');
 
         const studentIdByName = new Map<string, number>();
+        const studentIdBySdnId = new Map<number, number>();
         for (const s of canonical) {
             const { rows } = await client.query(
                 `INSERT INTO students (public_id, sdnevnik_id, name, grade)
@@ -344,6 +405,7 @@ async function write(canonical: CanonicalStudent[], base: any) {
                 [s.publicId, s.sdnevnikId, s.name, s.grade]
             );
             studentIdByName.set(norm(s.name), rows[0].id);
+            if (s.sdnevnikId != null) studentIdBySdnId.set(s.sdnevnikId, rows[0].id);
         }
 
         const therapistIdByName = new Map<string, number>();
@@ -410,12 +472,105 @@ async function write(canonical: CanonicalStudent[], base: any) {
             missing.forEach((m) => problems.push(`Schedule references unknown ${m} — slot skipped.`));
         }
 
+        if (sdnDoc) await writeDiary(client, sdnDoc, studentIdBySdnId);
+
         await client.query('COMMIT');
     } catch (err) {
         await client.query('ROLLBACK');
         throw err;
     } finally {
         client.release();
+    }
+}
+
+/** Plans, activities, per-student progress and attendance from a diary backup. */
+async function writeDiary(client: any, sdnDoc: any, studentIdBySdnId: Map<number, number>) {
+    // --- plans and their ordered activities ---
+    const planIdBySdnId = new Map<number, number>();
+    const activityIdByPlanPosition = new Map<string, number>();
+
+    for (const p of asArray(sdnDoc.plans)) {
+        const sdnPlanId = Number(p?.id);
+        const name = asText(p?.name);
+        if (!Number.isFinite(sdnPlanId) || !name) {
+            problems.push(`Plan without a usable id/name skipped.`);
+            continue;
+        }
+        const { rows } = await client.query(
+            `INSERT INTO plans (sdnevnik_id, name) VALUES ($1, $2)
+             ON CONFLICT (sdnevnik_id) DO UPDATE SET name = EXCLUDED.name
+             RETURNING id`,
+            [sdnPlanId, name]
+        );
+        const planId = rows[0].id;
+        planIdBySdnId.set(sdnPlanId, planId);
+
+        const activities = asArray(p?.activities);
+        for (let i = 0; i < activities.length; i++) {
+            const label = asText(activities[i]);
+            if (!label) continue;
+            const res = await client.query(
+                `INSERT INTO plan_activities (plan_id, position, label) VALUES ($1, $2, $3)
+                 ON CONFLICT (plan_id, position) DO UPDATE SET label = EXCLUDED.label
+                 RETURNING id`,
+                [planId, i, label]
+            );
+            activityIdByPlanPosition.set(`${planId}:${i}`, res.rows[0].id);
+        }
+    }
+
+    // --- which plan each student currently follows ---
+    for (const s of asArray(sdnDoc.students)) {
+        const studentId = studentIdBySdnId.get(Number(s?.id));
+        const planId = planIdBySdnId.get(Number(s?.planId));
+        if (!studentId || !planId) continue;
+        await client.query('UPDATE students SET plan_id = $1 WHERE id = $2', [planId, studentId]);
+    }
+
+    // --- completed activities ---
+    const missingPlans = new Set<string>();
+    let danglingActivities = 0;
+    for (const [sid, byPlan] of Object.entries(sdnDoc.studentProgress || {})) {
+        const studentId = studentIdBySdnId.get(Number(sid));
+        if (!studentId) continue;   // already reported by the analysis pass
+        for (const [sdnPlanId, entries] of Object.entries(byPlan as Record<string, any>)) {
+            const planId = planIdBySdnId.get(Number(sdnPlanId));
+            if (!planId) { missingPlans.add(sdnPlanId); continue; }
+            for (const e of asArray(entries)) {
+                const position = Number(e?.index);
+                if (!Number.isFinite(position)) continue;
+                const activityId = activityIdByPlanPosition.get(`${planId}:${position}`);
+                if (!activityId) { danglingActivities++; continue; }
+                await client.query(
+                    `INSERT INTO student_plan_progress (student_id, activity_id, completed_on, time_slot)
+                     VALUES ($1, $2, $3, $4)
+                     ON CONFLICT (student_id, activity_id)
+                     DO UPDATE SET completed_on = EXCLUDED.completed_on, time_slot = EXCLUDED.time_slot`,
+                    [studentId, activityId, asText(e?.date), asText(e?.time)]
+                );
+            }
+        }
+    }
+    missingPlans.forEach((p) => problems.push(`Progress refers to plan ${p}, which is not in the file — skipped.`));
+    if (danglingActivities) problems.push(`${danglingActivities} progress entries point past the end of their plan's activity list — skipped.`);
+
+    // --- attendance ---
+    for (const [date, byStudent] of Object.entries(sdnDoc.attendance || {})) {
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) { problems.push(`Attendance key "${date}" is not a date — skipped.`); continue; }
+        for (const [sid, bySlot] of Object.entries(byStudent as Record<string, any>)) {
+            const studentId = studentIdBySdnId.get(Number(sid));
+            if (!studentId) continue;   // already reported
+            for (const [slotKey, rec] of Object.entries(bySlot as Record<string, unknown>)) {
+                const status = attendanceStatus(rec);
+                if (!status) continue;  // blank marks carry no information
+                await client.query(
+                    `INSERT INTO attendance (student_id, date, slot_key, status)
+                     VALUES ($1, $2, $3, $4)
+                     ON CONFLICT (student_id, date, slot_key) DO UPDATE SET status = EXCLUDED.status`,
+                    [studentId, date, slotKey, status]
+                );
+            }
+        }
     }
 }
 
@@ -428,7 +583,7 @@ async function main() {
         process.exit(1);
     }
 
-    const { base, sdnRecords, sources } = readInputs(files);
+    const { base, sdnRecords, sdnDoc, sources } = readInputs(files);
     if (!base) {
         console.error('No Rasporedi-shaped file among the inputs (need the student/therapist lists).');
         process.exit(1);
@@ -471,6 +626,18 @@ async function main() {
         console.log('  (imported as-is — the database records them, it does not silently drop them)');
     }
 
+    const knownSdnIds = new Set(canonical.filter((s) => s.sdnevnikId != null).map((s) => s.sdnevnikId as number));
+    const diary = analyzeDiary(sdnDoc, knownSdnIds);
+    if (sdnDoc) {
+        console.log(`therapy plans:           ${diary.plans} (${diary.activities} activities)`);
+        console.log(`attendance marks:        ${diary.attendanceMarks}${diary.blankMarks ? `  (+${diary.blankMarks} blank, skipped)` : ''}`);
+        console.log(`progress entries:        ${diary.progressEntries}`);
+        if (diary.unknownStudents.length) {
+            console.log(`  ⚠ diary data for ${diary.unknownStudents.length} student id(s) no longer in the roster — skipped`);
+            console.log(`    (${diary.unknownStudents.join(', ')})`);
+        }
+    }
+
     if (notes.length) {
         console.log('\n--- links made on a name match (worth a look) ---');
         notes.forEach((n) => console.log(`  • ${n}`));
@@ -486,20 +653,32 @@ async function main() {
         return;
     }
 
-    await write(canonical, base);
+    const problemsBefore = problems.length;
+    await write(canonical, base, sdnDoc);
     const { rows } = await pool.query(
         `SELECT (SELECT count(*) FROM students) AS students,
                 (SELECT count(*) FROM therapists) AS therapists,
                 (SELECT count(*) FROM therapist_students) AS links,
                 (SELECT count(*) FROM schedule_slots) AS slots,
-                (SELECT count(*) FROM schedule_conflicts) AS conflicts`
+                (SELECT count(*) FROM schedule_conflicts) AS conflicts,
+                (SELECT count(*) FROM plans) AS plans,
+                (SELECT count(*) FROM plan_activities) AS activities,
+                (SELECT count(*) FROM student_plan_progress) AS progress,
+                (SELECT count(*) FROM attendance) AS attendance`
     );
+    if (problems.length > problemsBefore) {
+        console.log('\n--- problems found while writing ---');
+        problems.slice(problemsBefore).forEach((p) => console.log(`  ! ${p}`));
+    }
     console.log('\n--- written to PostgreSQL ---');
     console.log(`  students:           ${rows[0].students}`);
     console.log(`  therapists:         ${rows[0].therapists}`);
     console.log(`  therapist-student:  ${rows[0].links}`);
     console.log(`  schedule slots:     ${rows[0].slots}`);
     console.log(`  conflicts in view:  ${rows[0].conflicts}`);
+    console.log(`  plans / activities: ${rows[0].plans} / ${rows[0].activities}`);
+    console.log(`  progress entries:   ${rows[0].progress}`);
+    console.log(`  attendance marks:   ${rows[0].attendance}`);
     console.log('');
     await pool.end();
 }
