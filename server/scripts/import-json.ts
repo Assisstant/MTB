@@ -32,6 +32,12 @@ import { pool } from '../src/db.js';
 /** Both apps carry a non-student placeholder at the top of the list. */
 const PLACEHOLDERS = new Set(['Избери Ученик', 'Select Student']);
 
+/** Only for sorting — the day label itself is stored as the app writes it. */
+const DAY_ORDER: Record<string, number> = {
+    'понеделник': 1, 'вторник': 2, 'среда': 3, 'четврток': 4, 'петок': 5, 'сабота': 6, 'недела': 7,
+    'pon': 1, 'vto': 2, 'sre': 3, 'cet': 4, 'pet': 5
+};
+
 type MatchTier = 'bridge-id' | 'exact-name' | 'bare-name' | 'name+grade' | 'rasporedi-only' | 'sdnevnik-only';
 
 interface SdnRecord {
@@ -272,6 +278,46 @@ function reconcile(base: any, sdnRecords: SdnRecord[]): CanonicalStudent[] {
     return canonical;
 }
 
+interface ScheduleStats {
+    slots: number;
+    unknownDays: string[];
+    conflicts: { day: string; time: string; student: string; therapists: string[] }[];
+}
+
+/**
+ * Reads the schedule without touching the database, so a dry run can report
+ * what would be imported — including students booked with two therapists in
+ * the same term, which the app flags in red.
+ */
+function analyzeSchedule(base: any): ScheduleStats {
+    const stats: ScheduleStats = { slots: 0, unknownDays: [], conflicts: [] };
+    if (!Array.isArray(base?.schedule)) return stats;
+
+    const unknown = new Set<string>();
+    for (const slot of base.schedule) {
+        if (!slot || typeof slot !== 'object') continue;
+        const day = String(slot.day || '').trim();
+        const time = String(slot.time || '').trim();
+        if (!day || !time) continue;
+        if (!DAY_ORDER[norm(day)]) unknown.add(day);
+
+        const assignments = (slot.assignments && typeof slot.assignments === 'object') ? slot.assignments : {};
+        const perStudent = new Map<string, string[]>();
+        for (const [therapist, student] of Object.entries(assignments)) {
+            const s = String(student || '').trim();
+            if (!s || PLACEHOLDERS.has(s)) continue;
+            stats.slots++;
+            if (!perStudent.has(s)) perStudent.set(s, []);
+            perStudent.get(s)!.push(therapist);
+        }
+        for (const [student, therapists] of perStudent) {
+            if (therapists.length > 1) stats.conflicts.push({ day, time, student, therapists });
+        }
+    }
+    stats.unknownDays = [...unknown];
+    return stats;
+}
+
 async function write(canonical: CanonicalStudent[], base: any) {
     const therapistNames: string[] = Array.isArray(base?.therapists)
         ? base.therapists.filter((t: unknown) => typeof t === 'string' && t.trim())
@@ -300,6 +346,7 @@ async function write(canonical: CanonicalStudent[], base: any) {
             studentIdByName.set(norm(s.name), rows[0].id);
         }
 
+        const therapistIdByName = new Map<string, number>();
         for (const t of therapistNames) {
             const { rows } = await client.query(
                 `INSERT INTO therapists (name) VALUES ($1)
@@ -308,6 +355,7 @@ async function write(canonical: CanonicalStudent[], base: any) {
                 [t]
             );
             const therapistId = rows[0].id;
+            therapistIdByName.set(norm(t), therapistId);
 
             // Replace this therapist's list wholesale — mirrors the per-therapist
             // ownership model the apps already use when merging slices.
@@ -326,6 +374,40 @@ async function write(canonical: CanonicalStudent[], base: any) {
                     [therapistId, studentId]
                 );
             }
+        }
+
+        // The file is an authoritative snapshot of the whole week, so the
+        // schedule is replaced wholesale rather than merged.
+        if (Array.isArray(base?.schedule)) {
+            await client.query('DELETE FROM schedule_slots');
+            const missing = new Set<string>();
+            for (const slot of base.schedule) {
+                if (!slot || typeof slot !== 'object') continue;
+                const day = String(slot.day || '').trim();
+                const time = String(slot.time || '').trim();
+                if (!day || !time) continue;
+                const order = DAY_ORDER[norm(day)] ?? 0;
+                const assignments = (slot.assignments && typeof slot.assignments === 'object') ? slot.assignments : {};
+
+                for (const [therapistName, studentRaw] of Object.entries(assignments)) {
+                    const studentName = String(studentRaw || '').trim();
+                    if (!studentName || PLACEHOLDERS.has(studentName)) continue;
+
+                    const therapistId = therapistIdByName.get(norm(therapistName));
+                    const studentId = studentIdByName.get(norm(studentName));
+                    if (!therapistId) { missing.add(`therapist "${therapistName}"`); continue; }
+                    if (!studentId) { missing.add(`student "${studentName}"`); continue; }
+
+                    await client.query(
+                        `INSERT INTO schedule_slots (day, day_order, time_slot, therapist_id, student_id)
+                         VALUES ($1, $2, $3, $4, $5)
+                         ON CONFLICT (day, time_slot, therapist_id)
+                         DO UPDATE SET student_id = EXCLUDED.student_id`,
+                        [day, order, time, therapistId, studentId]
+                    );
+                }
+            }
+            missing.forEach((m) => problems.push(`Schedule references unknown ${m} — slot skipped.`));
         }
 
         await client.query('COMMIT');
@@ -376,6 +458,19 @@ async function main() {
     console.log(`  S-Dnevnik only:        ${tally['sdnevnik-only'] || 0}`);
     console.log(`therapists found:        ${Array.isArray(base?.therapists) ? base.therapists.length : 0}`);
 
+    const sched = analyzeSchedule(base);
+    console.log(`schedule slots:          ${sched.slots}`);
+    if (sched.unknownDays.length) console.log(`  unknown day labels:    ${sched.unknownDays.join(', ')} (sorted last)`);
+    console.log(`  double-booked students:${sched.conflicts.length}`);
+    if (sched.conflicts.length) {
+        console.log('\n--- students booked with two therapists in the same term ---');
+        sched.conflicts.slice(0, 20).forEach((c) => {
+            console.log(`  ⚠ ${c.day} ${c.time} — ${c.student}: ${c.therapists.join(' | ')}`);
+        });
+        if (sched.conflicts.length > 20) console.log(`  … and ${sched.conflicts.length - 20} more`);
+        console.log('  (imported as-is — the database records them, it does not silently drop them)');
+    }
+
     if (notes.length) {
         console.log('\n--- links made on a name match (worth a look) ---');
         notes.forEach((n) => console.log(`  • ${n}`));
@@ -393,12 +488,18 @@ async function main() {
 
     await write(canonical, base);
     const { rows } = await pool.query(
-        'SELECT (SELECT count(*) FROM students) AS students, (SELECT count(*) FROM therapists) AS therapists, (SELECT count(*) FROM therapist_students) AS links'
+        `SELECT (SELECT count(*) FROM students) AS students,
+                (SELECT count(*) FROM therapists) AS therapists,
+                (SELECT count(*) FROM therapist_students) AS links,
+                (SELECT count(*) FROM schedule_slots) AS slots,
+                (SELECT count(*) FROM schedule_conflicts) AS conflicts`
     );
     console.log('\n--- written to PostgreSQL ---');
     console.log(`  students:           ${rows[0].students}`);
     console.log(`  therapists:         ${rows[0].therapists}`);
     console.log(`  therapist-student:  ${rows[0].links}`);
+    console.log(`  schedule slots:     ${rows[0].slots}`);
+    console.log(`  conflicts in view:  ${rows[0].conflicts}`);
     console.log('');
     await pool.end();
 }
