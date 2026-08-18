@@ -102,6 +102,12 @@ function asText(value: unknown): string | null {
     return s ? s : null;
 }
 
+/** Dates are ISO in every export seen so far; anything else becomes NULL. */
+function isoDate(value: unknown): string | null {
+    const s = String(value ?? '').trim();
+    return /^\d{4}-\d{2}-\d{2}$/.test(s) ? s : null;
+}
+
 interface Inputs {
     base: any | null;          // Rasporedi-shaped state
     sdnRecords: SdnRecord[];
@@ -554,6 +560,111 @@ async function writeDiary(client: any, sdnDoc: any, studentIdBySdnId: Map<number
     missingPlans.forEach((p) => problems.push(`Progress refers to plan ${p}, which is not in the file — skipped.`));
     if (danglingActivities) problems.push(`${danglingActivities} progress entries point past the end of their plan's activity list — skipped.`);
 
+    // --- dossiers (one per student, keyed by the diary's student id) ---
+    for (const r of asArray(sdnDoc.student_records)) {
+        const studentId = studentIdBySdnId.get(Number(r?.id));
+        if (!studentId) continue;   // already reported
+        await client.query(
+            `INSERT INTO student_records (student_id, first_name, last_name, birth_date, father_name,
+                                          mother_name, address, residence, contact, findings, opinion,
+                                          attachment_links, updated_at)
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12, now())
+             ON CONFLICT (student_id) DO UPDATE SET
+                 first_name = EXCLUDED.first_name, last_name = EXCLUDED.last_name,
+                 birth_date = EXCLUDED.birth_date, father_name = EXCLUDED.father_name,
+                 mother_name = EXCLUDED.mother_name, address = EXCLUDED.address,
+                 residence = EXCLUDED.residence, contact = EXCLUDED.contact,
+                 findings = EXCLUDED.findings, opinion = EXCLUDED.opinion,
+                 attachment_links = EXCLUDED.attachment_links, updated_at = now()`,
+            [studentId, asText(r?.firstName), asText(r?.lastName), isoDate(r?.birthDate),
+             asText(r?.fatherName), asText(r?.motherName), asText(r?.address), asText(r?.residence),
+             asText(r?.contact), asText(r?.findings), asText(r?.opinion),
+             r?.attachmentLinks ? JSON.stringify(r.attachmentLinks) : null]
+        );
+    }
+
+    // --- rating scales ---
+    const templateIdBySdnId = new Map<string, number>();
+    for (const t of asArray(sdnDoc.scaleTemplates)) {
+        const sdnId = asText(t?.id);
+        const name = asText(t?.name);
+        if (!sdnId || !name) { problems.push('Scale template without id/name skipped.'); continue; }
+        const { rows } = await client.query(
+            `INSERT INTO scale_templates (sdnevnik_id, name, category, indicators)
+             VALUES ($1, $2, $3, $4)
+             ON CONFLICT (sdnevnik_id) DO UPDATE SET
+                 name = EXCLUDED.name, category = EXCLUDED.category, indicators = EXCLUDED.indicators
+             RETURNING id`,
+            [sdnId, name, asText(t?.category), JSON.stringify(asArray(t?.indicators))]
+        );
+        templateIdBySdnId.set(sdnId, rows[0].id);
+    }
+
+    // --- assessments ---
+    let assessmentsWithoutTemplate = 0;
+    for (const a of asArray(sdnDoc.assessments)) {
+        const studentId = studentIdBySdnId.get(Number(a?.studentId));
+        if (!studentId) continue;
+        const templateId = templateIdBySdnId.get(asText(a?.scaleType) ?? '') ?? null;
+        if (!templateId) assessmentsWithoutTemplate++;
+        const avg = Number(a?.average);
+        await client.query(
+            `INSERT INTO assessments (sdnevnik_id, student_id, template_id, date, period, scores, average, comment)
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
+             ON CONFLICT (sdnevnik_id) DO UPDATE SET
+                 student_id = EXCLUDED.student_id, template_id = EXCLUDED.template_id,
+                 date = EXCLUDED.date, period = EXCLUDED.period, scores = EXCLUDED.scores,
+                 average = EXCLUDED.average, comment = EXCLUDED.comment`,
+            [Number.isFinite(Number(a?.id)) ? Number(a.id) : null, studentId, templateId,
+             isoDate(a?.date), asText(a?.period), JSON.stringify(a?.scores ?? {}),
+             Number.isFinite(avg) ? avg : null, asText(a?.comment)]
+        );
+    }
+    if (assessmentsWithoutTemplate) notes.push(`${assessmentsWithoutTemplate} assessment(s) reference a scale template that is not in the file — imported without a template link.`);
+
+    // --- triage tests ---
+    for (const t of asArray(sdnDoc.trijazenTestovi)) {
+        const studentId = studentIdBySdnId.get(Number(t?.studentId));
+        if (!studentId) continue;
+        await client.query(
+            `INSERT INTO triage_tests (sdnevnik_id, student_id, test_date, assessor, payload)
+             VALUES ($1,$2,$3,$4,$5)
+             ON CONFLICT (sdnevnik_id) DO UPDATE SET
+                 student_id = EXCLUDED.student_id, test_date = EXCLUDED.test_date,
+                 assessor = EXCLUDED.assessor, payload = EXCLUDED.payload`,
+            [Number.isFinite(Number(t?.id)) ? Number(t.id) : null, studentId,
+             isoDate(t?.date), asText(t?.assessor), JSON.stringify(t?.assessments ?? {})]
+        );
+    }
+
+    // --- audiograms (matched by subject name only) ---
+    if (Array.isArray(sdnDoc.audiograms)) {
+        const dbIdByBareName = new Map<string, number>();
+        for (const s of asArray(sdnDoc.students)) {
+            const dbId = studentIdBySdnId.get(Number(s?.id));
+            if (dbId) dbIdByBareName.set(bareName(s?.name), dbId);
+        }
+
+        await client.query('DELETE FROM audiograms');
+        const unmatched: string[] = [];
+        for (const a of asArray(sdnDoc.audiograms)) {
+            const subject = asText(a?.subjectName);
+            if (!subject) continue;
+            const studentId = dbIdByBareName.get(bareName(subject)) ?? null;
+            if (!studentId) unmatched.push(subject);
+            await client.query(
+                `INSERT INTO audiograms (student_id, subject_name, date, record_type, right_air, right_bone, left_air, left_bone)
+                 VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
+                [studentId, subject, isoDate(a?.date), asText(a?.recordType),
+                 JSON.stringify(a?.rightAir ?? {}), JSON.stringify(a?.rightBone ?? {}),
+                 JSON.stringify(a?.leftAir ?? {}), JSON.stringify(a?.leftBone ?? {})]
+            );
+        }
+        if (unmatched.length) {
+            notes.push(`${unmatched.length} audiogram(s) name someone not in the roster — kept with the name, no student link: ${[...new Set(unmatched)].join(', ')}`);
+        }
+    }
+
     // --- attendance ---
     for (const [date, byStudent] of Object.entries(sdnDoc.attendance || {})) {
         if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) { problems.push(`Attendance key "${date}" is not a date — skipped.`); continue; }
@@ -632,6 +743,10 @@ async function main() {
         console.log(`therapy plans:           ${diary.plans} (${diary.activities} activities)`);
         console.log(`attendance marks:        ${diary.attendanceMarks}${diary.blankMarks ? `  (+${diary.blankMarks} blank, skipped)` : ''}`);
         console.log(`progress entries:        ${diary.progressEntries}`);
+        console.log(`dossiers:                ${asArray(sdnDoc.student_records).length}`);
+        console.log(`assessments:             ${asArray(sdnDoc.assessments).length} on ${asArray(sdnDoc.scaleTemplates).length} scale templates`);
+        console.log(`triage tests:            ${asArray(sdnDoc.trijazenTestovi).length}`);
+        console.log(`audiograms:              ${asArray(sdnDoc.audiograms).length}`);
         if (diary.unknownStudents.length) {
             console.log(`  ⚠ diary data for ${diary.unknownStudents.length} student id(s) no longer in the roster — skipped`);
             console.log(`    (${diary.unknownStudents.join(', ')})`);
@@ -654,6 +769,7 @@ async function main() {
     }
 
     const problemsBefore = problems.length;
+    const notesBefore = notes.length;
     await write(canonical, base, sdnDoc);
     const { rows } = await pool.query(
         `SELECT (SELECT count(*) FROM students) AS students,
@@ -664,8 +780,17 @@ async function main() {
                 (SELECT count(*) FROM plans) AS plans,
                 (SELECT count(*) FROM plan_activities) AS activities,
                 (SELECT count(*) FROM student_plan_progress) AS progress,
-                (SELECT count(*) FROM attendance) AS attendance`
+                (SELECT count(*) FROM attendance) AS attendance,
+                (SELECT count(*) FROM student_records) AS dossiers,
+                (SELECT count(*) FROM assessments) AS assessments,
+                (SELECT count(*) FROM triage_tests) AS triage,
+                (SELECT count(*) FROM audiograms) AS audiograms,
+                (SELECT count(*) FROM audiograms WHERE student_id IS NULL) AS audiograms_unlinked`
     );
+    if (notes.length > notesBefore) {
+        console.log('\n--- noticed while writing (worth a look) ---');
+        notes.slice(notesBefore).forEach((n) => console.log(`  • ${n}`));
+    }
     if (problems.length > problemsBefore) {
         console.log('\n--- problems found while writing ---');
         problems.slice(problemsBefore).forEach((p) => console.log(`  ! ${p}`));
@@ -679,6 +804,10 @@ async function main() {
     console.log(`  plans / activities: ${rows[0].plans} / ${rows[0].activities}`);
     console.log(`  progress entries:   ${rows[0].progress}`);
     console.log(`  attendance marks:   ${rows[0].attendance}`);
+    console.log(`  dossiers:           ${rows[0].dossiers}`);
+    console.log(`  assessments:        ${rows[0].assessments}`);
+    console.log(`  triage tests:       ${rows[0].triage}`);
+    console.log(`  audiograms:         ${rows[0].audiograms}${Number(rows[0].audiograms_unlinked) ? ` (${rows[0].audiograms_unlinked} without a student link)` : ''}`);
     console.log('');
     await pool.end();
 }
