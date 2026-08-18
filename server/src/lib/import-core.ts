@@ -94,6 +94,18 @@ export function asText(value: unknown): string | null {
     return s ? s : null;
 }
 
+/**
+ * Verbatim text — never trimmed. Used for the dossier, where the content is
+ * what a therapist typed: trailing newlines and spacing are theirs, not noise
+ * for us to tidy away. asText() stays for identifiers and codes, where
+ * trimming is what you want.
+ */
+export function asRawText(value: unknown): string | null {
+    if (value == null) return null;
+    const s = String(value);
+    return s.length ? s : null;
+}
+
 /** Dates are ISO in every export seen so far; anything else becomes NULL. */
 export function isoDate(value: unknown): string | null {
     const s = String(value ?? '').trim();
@@ -464,9 +476,9 @@ export async function writeDiary(client: any, sdnDoc: any, studentIdBySdnId: Map
                  residence = EXCLUDED.residence, contact = EXCLUDED.contact,
                  findings = EXCLUDED.findings, opinion = EXCLUDED.opinion,
                  attachment_links = EXCLUDED.attachment_links, updated_at = now()`,
-            [studentId, asText(r?.firstName), asText(r?.lastName), isoDate(r?.birthDate),
-             asText(r?.fatherName), asText(r?.motherName), asText(r?.address), asText(r?.residence),
-             asText(r?.contact), asText(r?.findings), asText(r?.opinion),
+            [studentId, asRawText(r?.firstName), asRawText(r?.lastName), isoDate(r?.birthDate),
+             asRawText(r?.fatherName), asRawText(r?.motherName), asRawText(r?.address), asRawText(r?.residence),
+             asRawText(r?.contact), asRawText(r?.findings), asRawText(r?.opinion),
              r?.attachmentLinks ? JSON.stringify(r.attachmentLinks) : null]
         );
     }
@@ -557,6 +569,58 @@ export async function writeDiary(client: any, sdnDoc: any, studentIdBySdnId: Map
         if (unmatched.length) {
             report.notes.push(`${unmatched.length} audiogram(s) name someone not in the roster — kept with the name, no student link: ${[...new Set(unmatched)].join(', ')}`);
         }
+    }
+
+    // The diary's own weekly plan: { monday: [[studentId], …] }, where the
+    // index is the slot number that attendance.slot_key refers to.
+    if (sdnDoc.schedule && typeof sdnDoc.schedule === 'object' && !Array.isArray(sdnDoc.schedule)) {
+        const yearRow = await client.query('SELECT id FROM school_years WHERE is_current');
+        const yearId = yearRow.rows[0]?.id;
+        if (yearId) {
+            const hasAny = Object.values(sdnDoc.schedule).some((slots: any) =>
+                asArray(slots).some((slot: any) => asArray(slot).length > 0));
+            if (hasAny) {
+                await client.query('DELETE FROM diary_schedule WHERE school_year_id = $1', [yearId]);
+                for (const [day, slots] of Object.entries(sdnDoc.schedule)) {
+                    const slotList = asArray(slots);
+                    for (let position = 0; position < slotList.length; position++) {
+                        const inSlot = asArray(slotList[position]);
+                        for (let ordinal = 0; ordinal < inSlot.length; ordinal++) {
+                            const studentId = studentIdBySdnId.get(Number(inSlot[ordinal]));
+                            if (!studentId) continue;
+                            await client.query(
+                                `INSERT INTO diary_schedule (school_year_id, day, position, student_id, ordinal)
+                                 VALUES ($1, $2, $3, $4, $5)
+                                 ON CONFLICT (school_year_id, day, position, student_id)
+                                 DO UPDATE SET ordinal = EXCLUDED.ordinal`,
+                                [yearId, day, position, studentId, ordinal]
+                            );
+                        }
+                    }
+                }
+            }
+
+            for (const [weekOf, payload] of Object.entries(sdnDoc.scheduleHistory || {})) {
+                if (!/^\d{4}-\d{2}-\d{2}$/.test(weekOf)) continue;
+                await client.query(
+                    `INSERT INTO diary_schedule_history (school_year_id, week_of, payload)
+                     VALUES ($1, $2, $3)
+                     ON CONFLICT (school_year_id, week_of) DO UPDATE SET payload = EXCLUDED.payload`,
+                    [yearId, weekOf, JSON.stringify(payload)]
+                );
+            }
+        }
+    }
+
+    for (const l of asArray(sdnDoc.links)) {
+        const name = asText(l?.name);
+        const url = asText(l?.url);
+        if (!name || !url) continue;
+        await client.query(
+            `INSERT INTO resource_links (sdnevnik_id, name, url) VALUES ($1, $2, $3)
+             ON CONFLICT (sdnevnik_id) DO UPDATE SET name = EXCLUDED.name, url = EXCLUDED.url`,
+            [Number.isFinite(Number(l?.id)) ? Number(l.id) : null, name, url]
+        );
     }
 
     for (const [date, byStudent] of Object.entries(sdnDoc.attendance || {})) {

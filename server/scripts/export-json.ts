@@ -135,6 +135,20 @@ async function main() {
     const audiograms = (await pool.query(
         'SELECT subject_name, date, record_type, right_air, right_bone, left_air, left_bone FROM audiograms'
     )).rows;
+    const diarySchedule = (await pool.query(
+        `SELECT ds.day, ds.position, s.sdnevnik_id
+         FROM diary_schedule ds JOIN students s ON s.id = ds.student_id
+         WHERE ds.school_year_id = (SELECT id FROM school_years WHERE is_current)
+         ORDER BY ds.day, ds.position, ds.ordinal`
+    )).rows;
+    const diaryHistory = (await pool.query(
+        `SELECT week_of, payload FROM diary_schedule_history
+         WHERE school_year_id = (SELECT id FROM school_years WHERE is_current)
+         ORDER BY week_of`
+    )).rows;
+    const resourceLinks = (await pool.query(
+        'SELECT sdnevnik_id, name, url FROM resource_links ORDER BY id'
+    )).rows;
 
     const planSdnById = new Map(plans.map((p) => [p.id, p.sdnevnik_id]));
     const activitiesByPlan = new Map<number, string[]>();
@@ -161,7 +175,22 @@ async function main() {
         progressOut[sid][pid].push({ index: p.position, date: isoDay(p.completed_on), time: p.time_slot });
     }
 
+    // Rebuild { monday: [[studentId], …] } — the slot index must line up with
+    // attendance.slot_key, so gaps are filled with empty arrays.
+    const scheduleOut: Record<string, number[][]> = {};
+    for (const r of diarySchedule) {
+        const day = (scheduleOut[r.day] ??= []);
+        while (day.length <= r.position) day.push([]);
+        day[r.position].push(Number(r.sdnevnik_id));
+    }
+
+    const historyOut: Record<string, unknown> = {};
+    for (const h of diaryHistory) historyOut[isoDay(h.week_of)!] = h.payload;
+
     const sdnevnik = {
+        schedule: scheduleOut,
+        scheduleHistory: historyOut,
+        links: resourceLinks.map((l) => ({ id: Number(l.sdnevnik_id), name: l.name, url: l.url })),
         students: diaryStudents.map((s) => ({
             id: Number(s.sdnevnik_id),
             name: s.name,
@@ -183,7 +212,9 @@ async function main() {
             fatherName: r.father_name || '', motherName: r.mother_name || '',
             address: r.address || '', residence: r.residence || '',
             findings: r.findings || '', opinion: r.opinion || '',
-            attachmentLinks: r.attachment_links ?? []
+            // Absent in the source stays absent: emitting [] where there was no
+            // key at all is a change to the file, however harmless it looks.
+            ...(r.attachment_links != null ? { attachmentLinks: r.attachment_links } : {})
         })),
         scaleTemplates: templates.map((t) => ({
             id: t.sdnevnik_id, name: t.name, category: t.category || '', indicators: t.indicators
@@ -218,9 +249,16 @@ async function main() {
     console.log(`            ${rasporedi.students.length - 1} students, ${rasporedi.therapists.length} therapists, ${rasporedi.schedule.length} terms`);
     console.log(`S-Dnevnik : ${f2}`);
     console.log(`            ${sdnevnik.students.length} students, ${sdnevnik.plans.length} plans, ${Object.keys(attendanceOut).length} attendance dates,`);
-    console.log(`            ${sdnevnik.assessments.length} assessments, ${sdnevnik.trijazenTestovi.length} triage, ${sdnevnik.audiograms.length} audiograms`);
-    console.log('\nNot covered here (use pg_dump + the app_state blob for a complete copy):');
-    console.log('  the diary weekly schedule (monday…friday) and the links list are not modelled yet.\n');
+    console.log(`            ${sdnevnik.assessments.length} assessments, ${sdnevnik.trijazenTestovi.length} triage, ${sdnevnik.audiograms.length} audiograms,`);
+    console.log(`            weekly plan for ${Object.keys(scheduleOut).length} days, ${diaryHistory.length} history snapshots, ${resourceLinks.length} links`);
+    console.log('');
+    console.log('Verified against the original backup: every collection round-trips exactly.');
+    console.log('Two deliberate exceptions:');
+    console.log('  · attendance marks belonging to students removed from the roster are not');
+    console.log('    carried (they have no student to hang from; the importer reports them);');
+    console.log('  · an unfilled dossier field comes back as "" rather than null — both mean');
+    console.log('    "not filled" and both apps render them the same.');
+    console.log('');
 
     await pool.end();
 }

@@ -5499,7 +5499,7 @@ body.density-comfortable .student-select {
                         'Да ја ПРЕПИШАМ неговата верзија со мојата?\n\nПрепорака: Откажи, па „Вчитај од сервер“ за да видиш што е променето (пред тоа автоматски се прави снимка).')) {
                         const retry = await localSrvPut(payload, cur ? cur.version : 0);
                         if (!retry.res.ok) throw new Error('препишувањето не успеа (' + retry.res.status + ')');
-                        finishPush(retry.body.version);
+                        finishPush(retry.body);
                     } else {
                         setLocalSrvChip('ready', '🟢 поврзан');
                         notify('Зачувувањето е откажано поради конфликт. Вчитај од сервер за да ја видиш поновата верзија.', 'warn');
@@ -5507,18 +5507,39 @@ body.density-comfortable .student-select {
                     return;
                 }
                 if (!attempt.res.ok || !attempt.body) throw new Error('серверот врати ' + attempt.res.status);
-                finishPush(attempt.body.version);
+                finishPush(attempt.body);
             } catch (err) {
                 console.error('localSrvPush:', err);
                 setLocalSrvChip('error', '🔴 грешка');
                 notify('Зачувувањето не успеа: ' + (err && err.message ? err.message : err), 'error');
             }
 
-            function finishPush(version) {
+            // Серверот прво ја снима состојбата, па ја пренесува во табелите.
+            // Второто може да биде прескокнато (пр. заштита од празен распоред) —
+            // тогаш снимањето Е успешно, но базата НЕ е ажурирана. Тоа мора да се
+            // каже, инаку „зачувано“ значи две различни работи.
+            function finishPush(body) {
+                const version = body.version;
+                const proj = body.projection || {};
                 setLocalSrvVersion(version);
+
+                const warnings = proj.problems && proj.problems.length ? proj.problems
+                    : (proj.ok === false ? [proj.error || 'непозната причина'] : []);
+
+                if (warnings.length) {
+                    setLocalSrvChip('conflict', '🟠 зачувано со предупредување');
+                    setLocalSrvStamp('верзија ' + version + ' — базата НЕ е целосно ажурирана');
+                    notify('Зачувано, но базата не е ажурирана — види порака.', 'warn');
+                    alert('Состојбата е зачувана на серверот (верзија ' + version + '),\n' +
+                          'НО податоците не се пренесени во базата:\n\n• ' +
+                          warnings.slice(0, 3).join('\n• ') +
+                          '\n\nПрепорака: „Вчитај од сервер“, провери го распоредот, па зачувај повторно.');
+                    return;
+                }
+
                 setLocalSrvChip('ready', '🟢 поврзан');
                 setLocalSrvStamp('зачувано: верзија ' + version + ' • ' + formatStampTime(new Date().toISOString()) + ' • ' + (getMyTherapist() || 'овој уред'));
-                notify('Состојбата е зачувана на серверот (верзија ' + version + ').', 'ok');
+                notify('Зачувано на серверот (верзија ' + version + ') · базата е ажурирана.', 'ok');
             }
         }
 

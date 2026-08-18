@@ -8338,10 +8338,28 @@
             });
         }
 
-        function finishPush(version) {
+        // Снимањето на состојбата и пренесувањето во табелите се две работи.
+        // Второто може да биде прескокнато — тогаш „зачувано“ не значи дека
+        // базата е ажурирана, па тоа мора јасно да се каже.
+        function finishPush(body) {
+            var version = body.version;
+            var proj = body.projection || {};
             setVersion(version);
+
+            var warnings = (proj.problems && proj.problems.length) ? proj.problems
+                : (proj.ok === false ? [proj.error || 'непозната причина'] : []);
+
+            if (warnings.length) {
+                setStatus('🟠 верзија ' + version + ' — базата НЕ е ажурирана');
+                alert('S-Dnevnik е зачуван на серверот (верзија ' + version + '),\n' +
+                      'НО податоците не се пренесени во базата:\n\n• ' +
+                      warnings.slice(0, 3).join('\n• ') +
+                      '\n\nПрепорака: „Вчитај од сервер“, провери, па зачувај повторно.');
+                return;
+            }
+
             setStatus('🟢 зачувано: верзија ' + version + ' • ' + stampTime(new Date().toISOString()));
-            toast('S-Dnevnik е зачуван на серверот (верзија ' + version + ').');
+            toast('S-Dnevnik е зачуван (верзија ' + version + ') · базата е ажурирана.');
         }
 
         function push() {
@@ -8377,14 +8395,14 @@
                             'Да ја ПРЕПИШАМ неговата верзија со мојата?\n\nПрепорака: Откажи, па „Вчитај од сервер“ (пред тоа автоматски се прави backup).')) {
                             return putState(payload, cur ? cur.version : 0).then(function (retry) {
                                 if (!retry.res.ok || !retry.body) throw new Error('препишувањето не успеа (' + retry.res.status + ')');
-                                finishPush(retry.body.version);
+                                finishPush(retry.body);
                             });
                         }
                         setStatus('🟠 конфликт — вчитај од сервер');
                         return;
                     }
                     if (!attempt.res.ok || !attempt.body) throw new Error('серверот врати ' + attempt.res.status);
-                    finishPush(attempt.body.version);
+                    finishPush(attempt.body);
                 });
             }).catch(function (err) {
                 console.error('SdnLocalSrv.push:', err);

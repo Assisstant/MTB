@@ -6,8 +6,12 @@
 -- stays correct while his records attach to a person and stay searchable.
 -- The demo record "Пример - Испитаник" is left unlinked on purpose.
 
+-- Conditional on the audiograms actually being present: this is a data repair,
+-- not a schema change, and a fresh database (a new machine, a test run) must
+-- not gain a student who has no records to attach to.
 INSERT INTO students (public_id, name, grade, active)
-VALUES ('past-sejhan-demirov', 'Сејхан Демиров', NULL, false)
+SELECT 'past-sejhan-demirov', 'Сејхан Демиров', NULL, false
+WHERE EXISTS (SELECT 1 FROM audiograms WHERE subject_name = 'Сејхан Демиров')
 ON CONFLICT (public_id) DO NOTHING;
 
 UPDATE audiograms a
