@@ -30,6 +30,10 @@ $AppRole     = 'therapy'
 $AppPassword = 'therapy_local'
 $AppDb       = 'therapy_dev'
 
+# --- migration files are UTF-8 (Cyrillic inside); do not let the Windows
+# --- console codepage (WIN1252/WIN1251) decide psql's client encoding.
+$env:PGCLIENTENCODING = 'UTF8'
+
 # --- locate repo root (folder containing 'server' and 'database') -----------
 $repoRoot = $PSScriptRoot
 while ($repoRoot -and -not (Test-Path (Join-Path $repoRoot 'server'))) {
