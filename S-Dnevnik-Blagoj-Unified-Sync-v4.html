@@ -7389,45 +7389,12 @@
             var sel = document.getElementById('sdnBackupSelect');
             return sel ? parseInt(sel.value, 10) : NaN;
         }
+        // [v4.1] Панелот на v2 слојот се градеше на секое рендерирање, а v3 слојот
+        // веднаш го криеше — иста функционалност двапати. Останува само лентата со
+        // статус; сите копчиња живеат во панелот на v3 (IndexedDB), кој е вистинскиот
+        // склад. „Провери структура“ е преместена таму, бидејќи беше единственото
+        // нешто што постоеше само тука и затоа беше недостапно.
         function renderSystemPanel() {
-            var dataTab = document.getElementById('data');
-            if (!dataTab) return;
-            var panel = document.getElementById('sdnSystemPanel');
-            if (!panel) {
-                panel = document.createElement('div');
-                panel.id = 'sdnSystemPanel';
-                panel.className = 'sdn-system-panel';
-                dataTab.appendChild(panel);
-            }
-            var data = buildVersionedPayload('status');
-            var stored = localStorage.getItem(MAIN_KEY) || '';
-            var backups = getBackups();
-            var lastSaved = localStorage.getItem(LAST_SAVED_KEY) || (data._meta && data._meta.savedAt) || '—';
-            var optionHtml = backups.length
-                ? backups.map(function (b, i) {
-                    var date = safeText(b.createdAt).replace('T', ' ').slice(0, 19);
-                    return '<option value="' + i + '">' + date + ' — ' + safeText(b.reason) + ' — ' + formatBytes(b.sizeBytes) + '</option>';
-                }).join('')
-                : '<option value="">Нема локални backup копии</option>';
-            panel.innerHTML =
-                '<h3>🛡️ Систем / безбедност на податоци</h3>' +
-                '<div class="sdn-system-grid">' +
-                    '<div class="sdn-system-card"><strong>Верзија</strong><span>' + APP_VERSION + '</span></div>' +
-                    '<div class="sdn-system-card"><strong>Ученици</strong><span>' + asArray(data.students).length + '</span></div>' +
-                    '<div class="sdn-system-card"><strong>Големина</strong><span>' + formatBytes(bytesOf(stored)) + '</span></div>' +
-                    '<div class="sdn-system-card"><strong>Последно зачувано</strong><span>' + safeText(lastSaved).replace('T', ' ').slice(0, 19) + '</span></div>' +
-                '</div>' +
-                '<div class="sdn-actions-row">' +
-                    '<button class="sdn-mini-btn success" onclick="SdnV2.createLocalBackup(&quot;manual&quot;) && SdnV2.toast(&quot;Локален backup е направен.&quot;)">+ Локален backup</button>' +
-                    '<button class="sdn-mini-btn primary" onclick="SdnV2.exportNow()">⬇ Export JSON v2</button>' +
-                    '<button class="sdn-mini-btn warn" onclick="SdnV2.validateCurrentData()">Провери структура</button>' +
-                    '<button class="sdn-mini-btn danger" onclick="SdnV2.clearBackups()">Исчисти локални backup-и</button>' +
-                '</div>' +
-                '<select class="sdn-backup-select" id="sdnBackupSelect">' + optionHtml + '</select>' +
-                '<div class="sdn-actions-row">' +
-                    '<button class="sdn-mini-btn" onclick="SdnV2.downloadBackup(SdnV2.selectedBackupIndex())">⬇ Преземи избран backup</button>' +
-                    '<button class="sdn-mini-btn danger" onclick="SdnV2.restoreBackup(SdnV2.selectedBackupIndex())">↩ Врати избран backup</button>' +
-                '</div>';
             renderStatusStrip();
         }
         function renderStatusStrip() {
@@ -8018,8 +7985,6 @@
     function renderStoragePanel() {
         var dataTab = document.getElementById('data');
         if (!dataTab) return;
-        var v2Panel = document.getElementById('sdnSystemPanel');
-        if (v2Panel) v2Panel.style.display = 'none';
         var panel = document.getElementById('sdnStorageV3Panel');
         if (!panel) {
             panel = document.createElement('div');
@@ -8035,8 +8000,8 @@
                     return '<option value="' + i + '">' + safeText(String(b.createdAt).replace('T',' ').slice(0,19)) + ' — ' + safeText(b.reason) + ' — ' + formatBytes(b.sizeBytes) + '</option>';
                 }).join('') : '<option value="">Нема IndexedDB backup копии</option>';
                 panel.innerHTML =
-                    '<h3 style="margin:0 0 8px 0;">✅ S-Dnevnik v4 · Благој Насев · Unified Sync</h3>' +
-                    '<p style="margin:0 0 10px 0;font-size:13px;line-height:1.45;">Големите податоци се чуваат во IndexedDB. Истиот Unified JSON од „Распореди“ ги ажурира само активниот список и распоредот на Благој Насев, без бришење на клиничките записи.</p>' +
+                    '<h3 style="margin:0 0 8px 0;">💾 Локална меморија (IndexedDB)</h3>' +
+                    '<p style="margin:0 0 10px 0;font-size:13px;line-height:1.45;">Сè што пишуваш се чува тука, веднаш и без интернет. Unified JSON од „Распореди“ ги ажурира само списокот и распоредот, без да ги брише клиничките записи.</p>' +
                     '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:8px;margin:10px 0;">' +
                         '<div><strong>Големина:</strong><br>' + formatBytes(size) + '</div>' +
                         '<div><strong>Ученици:</strong><br>' + asArray(data && data.students).length + '</div>' +
@@ -8044,10 +8009,11 @@
                         '<div><strong>Backup-и:</strong><br>' + backups.length + '</div>' +
                     '</div>' +
                     '<div style="display:flex;gap:8px;flex-wrap:wrap;margin:10px 0;">' +
-                        '<button class="btn btn-success" onclick="SdnV3.createBackup(\'manual\')">+ IndexedDB backup</button>' +
-                        '<button class="btn btn-primary" onclick="SdnV3.exportNow()">⬇ Export full JSON</button>' +
-                        '<button class="btn" style="background:#805ad5;color:white;" onclick="SdnV3.forceSave()">💾 Force save</button>' +
-                        '<button class="btn btn-danger" onclick="SdnV3.clearBackups()">Исчисти v3 backup-и</button>' +
+                        // Извозот во JSON стои горе во „Експортирај Backup (JSON)“ —
+                        // истото дејство не се повторува тука.
+                        '<button class="btn btn-success" onclick="SdnV3.createBackup(\'manual\')">+ Направи backup</button>' +
+                        '<button class="btn" style="background:#dd6b20;color:white;" onclick="SdnV2.validateCurrentData()">🔎 Провери структура</button>' +
+                        '<button class="btn btn-danger" onclick="SdnV3.clearBackups()">Исчисти backup-и</button>' +
                     '</div>' +
                     '<select id="sdnV3BackupSelect" style="width:100%;padding:10px;border-radius:6px;margin:8px 0;">' + options + '</select>' +
                     '<div style="display:flex;gap:8px;flex-wrap:wrap;">' +

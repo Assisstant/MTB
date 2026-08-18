@@ -525,10 +525,19 @@ export async function writeDiary(client: any, sdnDoc: any, studentIdBySdnId: Map
     // Same rule as the schedule: audiograms are replaced wholesale, so an
     // empty list must not wipe the existing ones.
     if (asArray(sdnDoc.audiograms).length > 0) {
+        // Match against EVERY student on record, not just those in this payload:
+        // audiograms often name students from earlier years who are no longer on
+        // the roster. Matching only the current diary would strip their link on
+        // every save.
         const dbIdByBareName = new Map<string, number>();
+        const allStudents = await client.query('SELECT id, name FROM students');
+        for (const s of allStudents.rows) {
+            const key = bareName(s.name);
+            if (key && !dbIdByBareName.has(key)) dbIdByBareName.set(key, s.id);
+        }
         for (const s of asArray(sdnDoc.students)) {
             const dbId = studentIdBySdnId.get(Number(s?.id));
-            if (dbId) dbIdByBareName.set(bareName(s?.name), dbId);
+            if (dbId) dbIdByBareName.set(bareName(s?.name), dbId);   // payload wins
         }
         await client.query('DELETE FROM audiograms');
         const unmatched: string[] = [];
