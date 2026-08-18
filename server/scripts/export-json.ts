@@ -51,11 +51,14 @@ async function main() {
          FROM therapist_students ts JOIN students s ON s.id = ts.student_id
          ORDER BY s.name`
     )).rows;
+    // Only the current year's schedule: earlier years stay archived in the
+    // database rather than being merged into one export.
     const slots = (await pool.query(
         `SELECT sl.day, sl.time_slot, t.name AS therapist, s.name AS student
          FROM schedule_slots sl
          JOIN therapists t ON t.id = sl.therapist_id
          LEFT JOIN students s ON s.id = sl.student_id
+         WHERE sl.school_year_id = (SELECT id FROM school_years WHERE is_current)
          ORDER BY sl.day_order, sl.time_slot, t.name`
     )).rows;
 

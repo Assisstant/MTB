@@ -396,6 +396,13 @@ async function write(canonical: CanonicalStudent[], base: any, sdnDoc: any) {
     try {
         await client.query('BEGIN');
 
+        // Everything imported belongs to the current school year: the roster
+        // carries over between years, the schedule does not.
+        const yearRow = await client.query('SELECT id, label FROM school_years WHERE is_current');
+        if (yearRow.rows.length === 0) throw new Error('No current school year is set (see migration 007).');
+        const schoolYearId = yearRow.rows[0].id;
+        notes.push(`Imported into school year ${yearRow.rows[0].label}.`);
+
         const studentIdByName = new Map<string, number>();
         const studentIdBySdnId = new Map<number, number>();
         for (const s of canonical) {
@@ -412,6 +419,13 @@ async function write(canonical: CanonicalStudent[], base: any, sdnDoc: any) {
             );
             studentIdByName.set(norm(s.name), rows[0].id);
             if (s.sdnevnikId != null) studentIdBySdnId.set(s.sdnevnikId, rows[0].id);
+
+            await client.query(
+                `INSERT INTO student_enrollments (student_id, school_year_id, grade)
+                 VALUES ($1, $2, $3)
+                 ON CONFLICT (student_id, school_year_id) DO UPDATE SET grade = EXCLUDED.grade`,
+                [rows[0].id, schoolYearId, s.grade]
+            );
         }
 
         const therapistIdByName = new Map<string, number>();
@@ -447,7 +461,8 @@ async function write(canonical: CanonicalStudent[], base: any, sdnDoc: any) {
         // The file is an authoritative snapshot of the whole week, so the
         // schedule is replaced wholesale rather than merged.
         if (Array.isArray(base?.schedule)) {
-            await client.query('DELETE FROM schedule_slots');
+            // Only THIS year's schedule is replaced; earlier years stay archived.
+            await client.query('DELETE FROM schedule_slots WHERE school_year_id = $1', [schoolYearId]);
             const missing = new Set<string>();
             for (const slot of base.schedule) {
                 if (!slot || typeof slot !== 'object') continue;
@@ -467,11 +482,11 @@ async function write(canonical: CanonicalStudent[], base: any, sdnDoc: any) {
                     if (!studentId) { missing.add(`student "${studentName}"`); continue; }
 
                     await client.query(
-                        `INSERT INTO schedule_slots (day, day_order, time_slot, therapist_id, student_id)
-                         VALUES ($1, $2, $3, $4, $5)
-                         ON CONFLICT (day, time_slot, therapist_id)
+                        `INSERT INTO schedule_slots (school_year_id, day, day_order, time_slot, therapist_id, student_id)
+                         VALUES ($1, $2, $3, $4, $5, $6)
+                         ON CONFLICT (school_year_id, day, time_slot, therapist_id)
                          DO UPDATE SET student_id = EXCLUDED.student_id`,
-                        [day, order, time, therapistId, studentId]
+                        [schoolYearId, day, order, time, therapistId, studentId]
                     );
                 }
             }
