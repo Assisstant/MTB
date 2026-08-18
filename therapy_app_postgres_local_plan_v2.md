@@ -16,6 +16,39 @@ to the API.
 
 ---
 
+## Progress (updated 2026-08-18)
+
+| Stage | State | Notes |
+|---|---|---|
+| 0 preserve current work | done | repo under git; real backups used as import source |
+| 1 PostgreSQL locally | done | PostgreSQL 18 on Windows, db `therapy_dev`, role `therapy` |
+| 2 TypeScript API | done | Fastify + pg + Zod in `server/`, `GET /api/health` |
+| 2.5 blob endpoint | done | `GET/PUT /api/state/:app`, version counter, 409 on conflict |
+| 3 identity + importer | done | `server/scripts/import-json.ts`, tiered matching, dry run by default |
+| 4 core tables | done | students / therapists / therapist_students |
+| 5 schedule | done | `schedule_slots` + `schedule_conflicts` view |
+| 6 attendance & plans | done | attendance, plans, plan_activities, student_plan_progress |
+| 7 clinical records | done | dossiers, scale_templates, assessments, triage_tests, audiograms |
+| 8 backup & restore | done | `scripts/backup-db.ps1` (weekly task `TherapyBackup`), JSON export, restore tested |
+| 9 LAN / remote access | done (Tailscale) | tailnet-only HTTPS via `tailscale serve`; phone + PCs reach one server |
+| 10 retire Supabase path | open | Supabase module still present in Rasporedi, offline by default |
+| 11 authentication | open | not needed while access is tailnet-only and single-user |
+| 12 institutional hosting | open | only if real staff and authorization appear |
+
+Loaded from the real May 2026 backups: 82 students, 10 therapists, 221
+therapist-student links, 436 schedule slots (6 double-bookings), 919
+attendance marks, 671 progress entries, 16 dossiers, 48 assessments, 21
+triage tests, 16 audiograms (3 unlinked).
+
+Still open, deliberately: the read paths. Both apps continue to run on the
+`app_state` blob; the relational tables are populated in parallel and nothing
+reads from them yet.
+
+Not modelled yet: the diary's own weekly schedule (monday…friday) and the
+links list — the JSON export says so on every run.
+
+---
+
 ## 0. What the apps actually contain today (inventory)
 
 The v1 plan assumed a generic app. This is the real state:

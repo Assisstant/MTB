@@ -46,6 +46,14 @@ New-Item -ItemType Directory -Force -Path $dumpDir | Out-Null
 
 $stamp = Get-Date -Format 'yyyy-MM-dd-HH-mm-ss'
 $dumpFile = Join-Path $dumpDir "$AppDb-$stamp.dump"
+$logFile = Join-Path $backupDir 'backup-log.txt'
+
+# Unattended runs need a trace: without it a scheduled backup can fail every
+# week and look exactly like one that never ran.
+trap {
+    Add-Content $logFile "$(Get-Date -Format 's')  FAILED  $($_.Exception.Message)"
+    break
+}
 
 # --- 1. database dump (custom format: compressed, restores selectively) ------
 $env:PGPASSWORD = $AppPassword
@@ -53,6 +61,24 @@ $env:PGPASSWORD = $AppPassword
 if ($LASTEXITCODE -ne 0) { Write-Error "pg_dump failed."; exit 1 }
 $sizeMb = [math]::Round((Get-Item $dumpFile).Length / 1MB, 2)
 Write-Host "Database dump: $dumpFile ($sizeMb MB)" -ForegroundColor Green
+
+# --- verify the dump is readable before trusting it --------------------------
+# pg_restore --list parses the archive without writing anything, so a
+# truncated or corrupt dump is caught now rather than on the day it is needed.
+$pgRestore = Join-Path (Split-Path $pgDump -Parent) 'pg_restore.exe'
+$objectCount = 0
+if (Test-Path $pgRestore) {
+    $listing = & $pgRestore --list $dumpFile 2>&1
+    if ($LASTEXITCODE -ne 0) {
+        Write-Error "The dump could not be read back by pg_restore - treat it as FAILED."
+        Add-Content $logFile "$(Get-Date -Format 's')  FAILED  dump unreadable: $dumpFile"
+        exit 1
+    }
+    $objectCount = ($listing | Where-Object { $_ -notmatch '^;' -and $_.Trim() }).Count
+    Write-Host "Dump verified readable ($objectCount objects)." -ForegroundColor Green
+} else {
+    Write-Warning "pg_restore.exe not found - dump was NOT verified."
+}
 
 # --- 2. JSON export (portable, app-readable) ---------------------------------
 if (-not $SkipJson) {
@@ -75,7 +101,10 @@ if ($old) {
 }
 
 $env:PGPASSWORD = $null
+Add-Content $logFile "$(Get-Date -Format 's')  OK      $([System.IO.Path]::GetFileName($dumpFile))  $sizeMb MB  $objectCount objects"
+
 Write-Host ""
 Write-Host "Backup complete." -ForegroundColor Green
+Write-Host "Log: $logFile"
 Write-Host "A backup you have never restored is not yet a backup - test one now and then:"
 Write-Host "  pg_restore -U therapy -h localhost -d therapy_restore_test `"$dumpFile`""
