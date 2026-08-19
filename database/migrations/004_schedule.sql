@@ -25,7 +25,10 @@ CREATE INDEX IF NOT EXISTS idx_schedule_student ON schedule_slots(student_id);
 CREATE INDEX IF NOT EXISTS idx_schedule_day_time ON schedule_slots(day_order, time_slot);
 
 -- Students sitting in two cabinets at the same time.
-CREATE OR REPLACE VIEW schedule_conflicts AS
+-- Re-runnable: 007 later redefines this view with more columns, and
+-- CREATE OR REPLACE cannot remove columns from an existing view.
+DROP VIEW IF EXISTS schedule_conflicts;
+CREATE VIEW schedule_conflicts AS
 SELECT sl.day,
        sl.day_order,
        sl.time_slot,

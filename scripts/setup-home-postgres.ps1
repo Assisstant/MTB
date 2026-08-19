@@ -87,13 +87,34 @@ if ($dbExists -eq '1') {
     Write-Host "Database '$AppDb' created." -ForegroundColor Green
 }
 
-# --- 3. migrations (as the app role, in numeric file order) ------------------
+# --- 3. migrations (ledger-driven: every file applied exactly once) ----------
+# A schema_migrations table records which files this database has already run.
+# Each migration is applied inside a single transaction together with its own
+# ledger row, so a file either fully applies and is recorded, or neither.
 $env:PGPASSWORD = $AppPassword
+
+function Invoke-AppPsql([string]$Sql) {
+    $out = & $psql -U $AppRole -h localhost -d $AppDb -v ON_ERROR_STOP=1 -t -A -c $Sql
+    if ($LASTEXITCODE -ne 0) { throw "psql failed: $Sql" }
+    return $out
+}
+
+Invoke-AppPsql "CREATE TABLE IF NOT EXISTS schema_migrations (filename text PRIMARY KEY, applied_at timestamptz NOT NULL DEFAULT now());" | Out-Null
+
+$applied = @(Invoke-AppPsql "SELECT filename FROM schema_migrations;") | Where-Object { $_ -ne '' }
+
 $migrations = Get-ChildItem (Join-Path $repoRoot 'database\migrations\*.sql') | Sort-Object Name
 foreach ($m in $migrations) {
+    if ($applied -contains $m.Name) {
+        Write-Host "Already applied: $($m.Name)" -ForegroundColor DarkGray
+        continue
+    }
     Write-Host "Applying migration: $($m.Name)" -ForegroundColor Cyan
-    & $psql -U $AppRole -h localhost -d $AppDb -v ON_ERROR_STOP=1 -f $m.FullName
-    if ($LASTEXITCODE -ne 0) { Write-Error "Migration failed: $($m.Name)"; exit 1 }
+    & $psql -U $AppRole -h localhost -d $AppDb -v ON_ERROR_STOP=1 -1 `
+            -f $m.FullName `
+            -c "INSERT INTO schema_migrations (filename) VALUES ('$($m.Name)');"
+    if ($LASTEXITCODE -ne 0) { Write-Error "Migration failed (rolled back): $($m.Name)"; exit 1 }
+    Write-Host "  applied and recorded." -ForegroundColor Green
 }
 
 # --- 4. server\.env (same credentials everywhere) ----------------------------
