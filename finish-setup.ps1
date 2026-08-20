@@ -1,9 +1,3 @@
-
-Page
-1
-/
-1
-100%
 # ============================================================================
 #  finish-setup.ps1  —  MTB one-shot finisher (companion to STATUS20260819.md)
 #
