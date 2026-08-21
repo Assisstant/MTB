@@ -8322,12 +8322,17 @@
                     return;
                 }
                 if (!r.res.ok || !r.body || !r.body.payload) throw new Error('невалиден одговор (' + r.res.status + ')');
+                // [v4.2] Отпечатокот се зема ПРЕД примената — applyPayload ја
+                // менува состојбата што ја добива.
+                var serverHashBefore = contentHash(r.body.payload);
                 return window.SdnV3.backup('before_local_server_pull').then(function () {
                     window.SdnV3.applyPayload(r.body.payload);
                     return window.SdnV3.saveFullPayload(window.SdnV3.currentPayload('after_local_server_pull'), 'after_local_server_pull');
                 }).then(function () {
                     if (typeof window.renderAll === 'function') window.renderAll();
                     setVersion(r.body.version);
+                    // [v4.2] инаку автоматската би мислела дека има локални измени
+                    setAgreement(contentHash(window.SdnV3.currentPayload('after_local_server_pull')), serverHashBefore, r.body.version);
                     setStatus('🟢 вчитано: верзија ' + r.body.version + ' • ' + stampTime(r.body.updated_at));
                     toast('S-Dnevnik е вчитан од серверот (верзија ' + r.body.version + ').');
                 });
@@ -8349,10 +8354,12 @@
         // Снимањето на состојбата и пренесувањето во табелите се две работи.
         // Второто може да биде прескокнато — тогаш „зачувано“ не значи дека
         // базата е ажурирана, па тоа мора јасно да се каже.
-        function finishPush(body) {
+        function finishPush(body, pushedHash) {
             var version = body.version;
             var proj = body.projection || {};
             setVersion(version);
+            // [v4.2] Серверот сега држи точно овој payload.
+            if (pushedHash) setAgreement(pushedHash, pushedHash, version);
 
             var warnings = (proj.problems && proj.problems.length) ? proj.problems
                 : (proj.ok === false ? [proj.error || 'непозната причина'] : []);
@@ -8403,19 +8410,268 @@
                             'Да ја ПРЕПИШАМ неговата верзија со мојата?\n\nПрепорака: Откажи, па „Вчитај од сервер“ (пред тоа автоматски се прави backup).')) {
                             return putState(payload, cur ? cur.version : 0).then(function (retry) {
                                 if (!retry.res.ok || !retry.body) throw new Error('препишувањето не успеа (' + retry.res.status + ')');
-                                finishPush(retry.body);
+                                finishPush(retry.body, contentHash(payload));
                             });
                         }
                         setStatus('🟠 конфликт — вчитај од сервер');
                         return;
                     }
                     if (!attempt.res.ok || !attempt.body) throw new Error('серверот врати ' + attempt.res.status);
-                    finishPush(attempt.body);
+                    finishPush(attempt.body, contentHash(payload));
                 });
             }).catch(function (err) {
                 console.error('SdnLocalSrv.push:', err);
                 setStatus('🔴 грешка');
                 toast('Зачувувањето не успеа: ' + (err && err.message ? err.message : err));
+            });
+        }
+
+        // ═══════════════════════════════════════════════════════════════════
+        // [v4.2] АВТОМАТСКА СИНХРОНИЗАЦИЈА
+        //
+        // Истото правило како кај Rasporedi и кај server/scripts/sync-peer.ts:
+        // се памети што двете страни држеле кога последно се согласиле, па
+        // страната чиј отпечаток сега е различен е таа со новата работа. Ако се
+        // промениле обете — застани и прашај, не погодувај.
+        // ═══════════════════════════════════════════════════════════════════
+        var AGREED_KEY = 'sdn_local_server_agreed_v1';
+        var AUTO_KEY = 'sdn_local_server_autosync_v1';
+        var AUTO_DELAY = 5000;
+
+        // Дали овој прелистувач воопшто има свој дневник? Мора да се прочита
+        // веднаш: првото зачувување го создава овој клуч, па подоцна одговорот
+        // секогаш би бил „да" и нов уред никогаш немаше да повлече од серверот.
+        var FRESH_DEVICE = localStorage.getItem('electronicDiary') === null;
+
+        var busy = false;        // една синхронизација во исто време
+        var suspend = false;     // додека трае вчитување, не праќај назад
+        var pushTimer = null;
+        var lastComplaint = '';
+
+        function fingerprint(text) {
+            var h = 0x811c9dc5;
+            for (var i = 0; i < text.length; i++) {
+                h ^= text.charCodeAt(i);
+                h = (h + ((h << 1) + (h << 4) + (h << 7) + (h << 8) + (h << 24))) >>> 0;
+            }
+            return ('00000000' + h.toString(16)).slice(-8);
+        }
+
+        // Редоследот на клучевите не смее да влијае: PostgreSQL го чува payload-от
+        // како jsonb и ги прередува клучевите, па она што серверот го враќа не е
+        // бајт-за-бајт истото што му го испративме иако содржината е иста.
+        function stableStringify(value) {
+            if (value === null || typeof value !== 'object') {
+                return JSON.stringify(value === undefined ? null : value);
+            }
+            if (Array.isArray(value)) {
+                var out = [];
+                for (var i = 0; i < value.length; i++) out.push(stableStringify(value[i]));
+                return '[' + out.join(',') + ']';
+            }
+            return '{' + Object.keys(value).sort().map(function (k) {
+                return JSON.stringify(k) + ':' + stableStringify(value[k]);
+            }).join(',') + '}';
+        }
+
+        // Сè освен _meta: таму се savedAt, reason и броевите, кои се менуваат при
+        // секое зачувување и без ниту една вистинска измена.
+        function contentHash(payload) {
+            if (!payload || typeof payload !== 'object') return '0';
+            var copy = {};
+            Object.keys(payload).forEach(function (k) { if (k !== '_meta') copy[k] = payload[k]; });
+            return fingerprint(stableStringify(copy));
+        }
+
+        // Празен payload не смее да замине на сервер и да го прегази дневникот.
+        var CONTENT_ARRAYS = ['students', 'plans', 'assessments', 'audiograms',
+                              'student_records', 'trijazenTestovi', 'scaleTemplates'];
+
+        function payloadHasContent(payload) {
+            if (!payload || typeof payload !== 'object') return false;
+            var counts = (payload._meta && payload._meta.counts) || null;
+            if (counts) {
+                for (var key in counts) {
+                    if (Object.prototype.hasOwnProperty.call(counts, key) && counts[key] > 0) return true;
+                }
+            }
+            return CONTENT_ARRAYS.some(function (k) {
+                return Array.isArray(payload[k]) && payload[k].length > 0;
+            });
+        }
+
+        function autoEnabled() { return localStorage.getItem(AUTO_KEY) !== '0'; }
+
+        function setAuto(on) {
+            localStorage.setItem(AUTO_KEY, on ? '1' : '0');
+            toast(on ? 'Автоматска синхронизација: вклучена.' : 'Автоматска синхронизација: исклучена.');
+        }
+
+        function getAgreement() {
+            try {
+                var parsed = JSON.parse(localStorage.getItem(AGREED_KEY) || 'null');
+                return (parsed && parsed.l && parsed.s) ? parsed : null;
+            } catch (e) { return null; }
+        }
+
+        function setAgreement(localHash, serverHash, version) {
+            localStorage.setItem(AGREED_KEY, JSON.stringify({ l: localHash, s: serverHash, v: version || 0 }));
+        }
+
+        function noteLocalChange() {
+            if (suspend || busy || !autoEnabled()) return;
+            if (!servedByApi() && !localStorage.getItem(URL_KEY)) return;
+            if (pushTimer) clearTimeout(pushTimer);
+            pushTimer = setTimeout(function () { pushTimer = null; sync({ auto: true }); }, AUTO_DELAY);
+        }
+
+        function complain(message, chip) {
+            setStatus(chip);
+            if (lastComplaint !== message) { lastComplaint = message; toast(message); }
+        }
+
+        function sync(opts) {
+            opts = opts || {};
+            var auto = !!opts.auto;
+            if (busy) return Promise.resolve('busy');
+            busy = true;
+            if (!auto) setStatus('⏳ синхронизирам…');
+
+            return srvFetch('/api/state/' + APP_KEY).then(function (probe) {
+                var server = null;
+                if (probe.res.status !== 404) {
+                    if (!probe.res.ok || !probe.body) throw new Error('серверот врати ' + probe.res.status);
+                    server = probe.body;
+                }
+
+                var localPayload;
+                try {
+                    localPayload = window.SdnV3.currentPayload('sync');
+                } catch (e) {
+                    // Невалидна локална состојба не е проблем со серверот и не
+                    // смее да се пријави како таков.
+                    complain('Синхронизацијата е запрена — состојбата не може да се собере: ' + e.message,
+                             '🔴 состојбата не е валидна');
+                    return 'invalid';
+                }
+                lastComplaint = '';
+
+                var localHash = contentHash(localPayload);
+                var serverHash = server ? contentHash(server.payload) : null;
+                var agreed = getAgreement();
+
+                if (!server) {
+                    // Ова прашање е за СОДРЖИНАТА, не за тоа дали уредот бил нов
+                    // при отворање: некој што штотуку почнал да внесува на нов
+                    // уред мора да може да ја создаде состојбата на серверот.
+                    if (!payloadHasContent(localPayload)) {
+                        setStatus('🟢 поврзан — нема состојба ниту тука ниту на серверот');
+                        return 'empty';
+                    }
+                    return doPush(localPayload, localHash, 0, auto, 'серверот беше празен');
+                }
+
+                if (serverHash === localHash) {
+                    setAgreement(localHash, serverHash, server.version);
+                    setVersion(server.version);
+                    setStatus('🟢 синхронизирано • верзија ' + server.version + ' • ' + stampTime(server.updated_at));
+                    return 'insync';
+                }
+
+                var localChanged, serverChanged;
+                if (agreed) {
+                    localChanged = localHash !== agreed.l;
+                    serverChanged = serverHash !== agreed.s;
+                } else {
+                    var known = getVersion();
+                    serverChanged = !known || known !== server.version;
+                    localChanged = !FRESH_DEVICE;
+                }
+
+                if (serverChanged && !localChanged) return doPull(server, serverHash);
+                if (localChanged && !serverChanged) return doPush(localPayload, localHash, server.version, auto, 'локални измени');
+
+                if (!localChanged && !serverChanged) {
+                    // Разликата е само од нормализацијата при примена — не е
+                    // причина за вчитување. Вчитување тука значеше бесконечен круг.
+                    setVersion(server.version);
+                    setStatus('🟢 синхронизирано • верзија ' + server.version + ' • ' + stampTime(server.updated_at));
+                    return 'insync';
+                }
+
+                setStatus('🟠 разидување — и тука и на серверот има измени');
+                var message = 'РАЗИДУВАЊЕ: и овој дневник и серверот се менувани од последната синхронизација.\n\n' +
+                    'Сервер: верзија ' + server.version + ', ' + stampTime(server.updated_at) +
+                    (server.updated_by ? ' (' + server.updated_by + ')' : '') + '\n\n' +
+                    'Ова не може да се спои автоматски. Одлучи која страна ја задржуваш:\n' +
+                    '• „📥 Вчитај од сервер" — задржи ја серверската (пред тоа автоматски се прави backup)\n' +
+                    '• „📤 Зачувај на сервер" — задржи ја оваа и препиши го серверот';
+                if (auto) toast('Разидување: и тука и на серверот има измени. Види го панелот „Локален сервер".');
+                else alert(message);
+                return 'conflict';
+
+            }).catch(function (err) {
+                console.error('SdnLocalSrv.sync:', err);
+                var offline = (err instanceof TypeError) || /fetch|network/i.test(String(err && err.message));
+                if (offline) {
+                    setStatus('⚪ серверот не е достапен');
+                    if (!auto) toast('Серверот не е достапен на ' + getUrl() + '.');
+                    return 'offline';
+                }
+                complain('Синхронизацијата не успеа: ' + (err && err.message ? err.message : err), '🔴 грешка');
+                return 'error';
+            }).then(function (result) {
+                busy = false;
+                return result;
+            }, function (err) {
+                busy = false;
+                throw err;
+            });
+        }
+
+        // serverHash мора да е пресметан ПРЕД примената — applyPayload ја менува
+        // состојбата што ја добива.
+        function doPull(server, serverHash) {
+            suspend = true;
+            return window.SdnV3.backup('before_auto_sync').then(function () {
+                window.SdnV3.applyPayload(server.payload);
+                return window.SdnV3.saveFullPayload(window.SdnV3.currentPayload('after_auto_sync'), 'after_auto_sync');
+            }).then(function () {
+                if (typeof window.renderAll === 'function') window.renderAll();
+                setVersion(server.version);
+                setAgreement(contentHash(window.SdnV3.currentPayload('after_auto_sync')), serverHash, server.version);
+                setStatus('🟢 вчитано од серверот • верзија ' + server.version + ' • ' + stampTime(server.updated_at));
+                toast('Вчитана е поновата состојба од серверот (верзија ' + server.version + ').');
+                return 'pulled';
+            }).then(function (r) { suspend = false; return r; }, function (e) { suspend = false; throw e; });
+        }
+
+        function doPush(payload, localHash, baseVersion, auto, why) {
+            return putState(payload, baseVersion).then(function (attempt) {
+                if (attempt.res.status === 409) {
+                    setStatus('🟠 разидување — некој зачувал во меѓувреме');
+                    if (auto) toast('Некој зачувал на серверот во меѓувреме. Отвори го панелот „Локален сервер".');
+                    else alert('Серверот е сменет во меѓувреме. Прво „📥 Вчитај од сервер", провери, па зачувај.');
+                    return 'conflict';
+                }
+                if (!attempt.res.ok || !attempt.body) throw new Error('серверот врати ' + attempt.res.status);
+
+                var version = attempt.body.version;
+                var proj = attempt.body.projection || {};
+                setVersion(version);
+                setAgreement(localHash, localHash, version);
+
+                var warnings = (proj.problems && proj.problems.length) ? proj.problems
+                    : (proj.ok === false ? [proj.error || 'непозната причина'] : []);
+                if (warnings.length) {
+                    setStatus('🟠 верзија ' + version + ' — базата НЕ е ажурирана');
+                    toast('Зачувано, но базата не е ажурирана: ' + warnings[0]);
+                    return 'pushed-warn';
+                }
+
+                setStatus('🟢 синхронизирано • верзија ' + version + ' • ' + stampTime(new Date().toISOString()));
+                toast('Синхронизирано (' + why + ') · верзија ' + version + '.');
+                return 'pushed';
             });
         }
 
@@ -8439,13 +8695,22 @@
                         '<button class="sdn-mini-btn" onclick="SdnLocalSrv.check()">🔌 Провери врска</button>' +
                     '</div>' +
                     '<div class="sdn-actions-row">' +
-                        '<button class="sdn-mini-btn primary" onclick="SdnLocalSrv.pull()">📥 Вчитај од сервер</button>' +
-                        '<button class="sdn-mini-btn success" onclick="SdnLocalSrv.push()">📤 Зачувај на сервер</button>' +
+                        '<button class="sdn-mini-btn primary" onclick="SdnLocalSrv.sync()">🔄 Синхронизирај</button>' +
+                        '<label style="font-size:12px;display:inline-flex;align-items:center;gap:6px;cursor:pointer;">' +
+                            '<input type="checkbox" id="sdnLocalSrvAuto" onchange="SdnLocalSrv.setAuto(this.checked)"> автоматски' +
+                        '</label>' +
                         '<span id="sdnLocalSrvStatus" style="font-size:12px;opacity:.85;align-self:center;">⚪ непроверено</span>' +
+                    '</div>' +
+                    '<div class="sdn-actions-row">' +
+                        '<span style="font-size:12px;opacity:.7;align-self:center;">Рачно, ако мора да наметнеш насока:</span>' +
+                        '<button class="sdn-mini-btn" onclick="SdnLocalSrv.pull()">📥 Вчитај од сервер</button>' +
+                        '<button class="sdn-mini-btn" onclick="SdnLocalSrv.push()">📤 Зачувај на сервер</button>' +
                     '</div>';
                 var input = document.getElementById('sdnLocalSrvUrl');
                 input.value = getUrl();
                 input.addEventListener('change', function () { setUrl(this.value); });
+                var autoBox = document.getElementById('sdnLocalSrvAuto');
+                if (autoBox) autoBox.checked = autoEnabled();
             }
             var v = getVersion();
             if (v) setStatus('последна позната верзија: ' + v);
@@ -8454,10 +8719,47 @@
             }
         }
 
-        window.SdnLocalSrv = { check: check, pull: pull, push: push, setUrl: setUrl, render: render };
+        window.SdnLocalSrv = {
+            check: check, pull: pull, push: push, setUrl: setUrl, render: render,
+            sync: sync, setAuto: setAuto
+        };
 
-        document.addEventListener('DOMContentLoaded', function () { setTimeout(render, 400); });
-        if (document.readyState !== 'loading') setTimeout(render, 400);
+        // Секое зачувување на дневникот минува низ SdnV3.saveFullPayload — тоа е
+        // и единственото место од кое автоматската синхронизација може да дознае
+        // дека има нешто ново. Обвивката не ја менува неговата работа.
+        function hookLocalSaves() {
+            if (!window.SdnV3 || typeof window.SdnV3.saveFullPayload !== 'function' || window.SdnV3.__syncHooked) return;
+            var original = window.SdnV3.saveFullPayload;
+            window.SdnV3.saveFullPayload = function () {
+                var result = original.apply(this, arguments);
+                try { noteLocalChange(); } catch (e) { console.warn('noteLocalChange:', e); }
+                return result;
+            };
+            window.SdnV3.__syncHooked = true;
+        }
+
+        function start() {
+            setTimeout(render, 400);
+            setTimeout(hookLocalSaves, 500);
+            if (autoEnabled() && (servedByApi() || localStorage.getItem(URL_KEY))) {
+                // Дневникот се вчитува од IndexedDB при подигање — задоцни за да
+                // не се синхронизира празна апликација.
+                setTimeout(function () { sync({ auto: true }); }, 2000);
+            }
+            // Кога прозорецот се напушта, зачувај го она што е недоспеано во
+            // тајмерот. Без ова, затворање пред истекот на одложувањето значи
+            // измена што останала само тука.
+            document.addEventListener('visibilitychange', function () {
+                if (document.visibilityState === 'hidden' && pushTimer) {
+                    clearTimeout(pushTimer);
+                    pushTimer = null;
+                    sync({ auto: true });
+                }
+            });
+        }
+
+        document.addEventListener('DOMContentLoaded', start);
+        if (document.readyState !== 'loading') start();
     })();
     </script>
     <div class="credit-watermark">Created by Blagoj Nasev</div>

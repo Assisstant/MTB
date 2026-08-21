@@ -10,6 +10,7 @@
     "import": "tsx scripts/import-json.ts",
     "export": "tsx scripts/export-json.ts",
     "rollover": "tsx scripts/rollover-year.ts",
+    "sync": "tsx scripts/sync-peer.ts",
     "test": "tsx --test test/*.test.ts"
   },
   "dependencies": {

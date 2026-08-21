@@ -3316,8 +3316,8 @@ body.density-comfortable .student-select {
                 <h4 style="font-size: 14px; color: var(--primary); margin-bottom: 10px;">🖥️ Локален сервер (PostgreSQL) <span id="localSrvChip" class="status-chip off">⚪ непроверено</span></h4>
                 <div style="font-size: 12px; color: var(--text-secondary); margin-bottom: 12px;">
                     Го заменува рачното пренесување на Unified JSON: состојбата се чува во <strong>PostgreSQL на локалниот сервер</strong>.
-                    Работен тек: <strong>Вчитај</strong> кога почнуваш, уредувај, па <strong>Зачувај</strong>. Ако некој зачувал во меѓувреме, апликацијата ќе те предупреди.
-                    Пред секое вчитување автоматски се прави снимка.
+                    Со вклучена автоматска синхронизација нема што да се памети — апликацијата се усогласува при отворање и по секоја измена.
+                    Пред секое вчитување автоматски се прави снимка. Ако и тука и на серверот има измени, апликацијата <strong>застанува и прашува</strong> наместо да погоди.
                 </div>
                 <div class="sync-row">
                     <label class="sync-label" for="localSrvUrlInput">Адреса:</label>
@@ -3325,9 +3325,17 @@ body.density-comfortable .student-select {
                     <button class="btn btn-soft btn-compact" onclick="localSrvCheck()">🔌 Провери врска</button>
                 </div>
                 <div class="sync-row">
-                    <button class="btn btn-primary btn-compact" onclick="localSrvPull()">📥 Вчитај од сервер</button>
-                    <button class="btn btn-success btn-compact" onclick="localSrvPush()">📤 Зачувај на сервер</button>
+                    <button class="btn btn-primary btn-compact" onclick="localSrvSync()">🔄 Синхронизирај</button>
+                    <label class="sync-label" style="display:inline-flex;align-items:center;gap:6px;cursor:pointer;">
+                        <input type="checkbox" id="localSrvAutoToggle" onchange="setLocalSrvAuto(this.checked)" checked>
+                        автоматски
+                    </label>
                     <span class="sync-hint" id="localSrvStamp"></span>
+                </div>
+                <div class="sync-row">
+                    <span class="sync-hint" style="opacity:.75;">Рачно, ако мора да наметнеш насока:</span>
+                    <button class="btn btn-soft btn-compact" onclick="localSrvPull()">📥 Вчитај од сервер</button>
+                    <button class="btn btn-soft btn-compact" onclick="localSrvPush()">📤 Зачувај на сервер</button>
                 </div>
             </div>
 
@@ -3974,6 +3982,11 @@ body.density-comfortable .student-select {
                 updatedBy: (typeof getMyTherapist === 'function' && getMyTherapist()) || 'локален корисник'
             });
             localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(scheduleData));
+            // [v5.2] Ова е единственото место каде локалната состојба се запишува,
+            // па е и единственото место од кое автоматската синхронизација треба
+            // да дознае дека има нешто ново. Дефиницијата е подолу во датотеката —
+            // повикот се извршува дури по подигањето, па редоследот не смета.
+            if (typeof localSrvNoteLocalChange === 'function') localSrvNoteLocalChange();
         }
 
         function loadScheduleFromLocal() {
@@ -5480,8 +5493,12 @@ body.density-comfortable .student-select {
                     return;
                 }
                 if (!res.ok || !body || !body.payload) throw new Error('невалиден одговор (' + res.status + ')');
+                // [v5.2] Отпечатокот се зема ПРЕД примената — applyUnifiedPayload
+                // ја менува состојбата што ја добива.
+                const serverHashBefore = localSrvContentHash(body.payload);
                 applyUnifiedPayload(body.payload, 'пред вчитување од локален сервер (v' + body.version + ')');
                 setLocalSrvVersion(body.version);
+                localSrvRecordAgreement(serverHashBefore, body.version);   // инаку автоматската би мислела дека има локални измени
                 setLocalSrvChip('ready', '🟢 поврзан');
                 setLocalSrvStamp('вчитано: верзија ' + body.version + ' • ' + formatStampTime(body.updated_at) + (body.updated_by ? ' • ' + body.updated_by : ''));
                 notify('Состојбата е вчитана од серверот (верзија ' + body.version + ').', 'ok');
@@ -5540,6 +5557,9 @@ body.density-comfortable .student-select {
                 const version = body.version;
                 const proj = body.projection || {};
                 setLocalSrvVersion(version);
+                // [v5.2] Серверот сега држи точно овој payload — обата отпечатока се исти.
+                const pushedHash = localSrvContentHash(payload);
+                localSrvSetAgreement(pushedHash, pushedHash, version);
 
                 const warnings = proj.problems && proj.problems.length ? proj.problems
                     : (proj.ok === false ? [proj.error || 'непозната причина'] : []);
@@ -5575,7 +5595,337 @@ body.density-comfortable .student-select {
 
         // formatStampTime се реупотребува од блокот за снимки (дефинирана подолу).
 
-        window.addEventListener('DOMContentLoaded', renderLocalSrvPanel);
+        // ══════════════════════════════════════════════════════════════════
+        // [v5.2] АВТОМАТСКА СИНХРОНИЗАЦИЈА — една одлука наместо две копчиња
+        //
+        // Апликацијата се користи на едно место во исто време (работа, па дома,
+        // па работа). Затоа не треба спојување — треба да се знае КОЈА страна се
+        // променила. Се памети отпечатокот на состојбата во моментот кога двете
+        // страни последно се согласиле; страната чиј отпечаток сега е различен е
+        // таа со новата работа.
+        //
+        // Ако се промениле ОБЕТЕ, тоа НЕ е спојливо и не смее да се погоди —
+        // тогаш апликацијата застанува и прашува. Истото правило важи и во
+        // server/scripts/sync-peer.ts, за да не постојат две различни логики.
+        // ══════════════════════════════════════════════════════════════════
+        const LOCAL_SRV_AGREED_KEY = 'local_server_agreed_hash_v1';
+        const LOCAL_SRV_AUTO_KEY = 'local_server_autosync_v1';
+        const LOCAL_SRV_AUTO_DELAY = 5000;   // ms по последната измена
+
+        // Отпечатокот се прави САМО од содржината. exportedAt, revision и
+        // appVersion се менуваат при секое зачувување и без ниту една вистинска
+        // измена — да влезеа тука, апликацијата ќе мислеше дека постојано има
+        // нешто ново и ќе праќаше на серверот без причина.
+        const LOCAL_SRV_CONTENT_FIELDS = [
+            'students', 'therapists', 'therapistStudents', 'studentMeta',
+            'schedule', 'customGrades', 'customListCols', 'sdnBridge', 'sdnevnik'
+        ];
+
+        let localSrvBusy = false;      // една синхронизација во исто време
+        let localSrvSuspend = false;   // додека трае вчитување, не праќај назад
+        let localSrvPushTimer = null;
+        let localSrvLastComplaint = '';   // за да не се повторува истата порака на секои 5 секунди
+
+        // Дали овој прелистувач воопшто има зачувано нешто свое?
+        //
+        // Мора да се прочита СЕГА, при вчитување на страницата. Апликацијата
+        // има вградени почетни податоци, па „има ли ученици" не разликува нов
+        // уред од уред со вистинска работа. А самото градење на состојбата
+        // запишува во localStorage — да се прашаше подоцна, одговорот секогаш
+        // би бил „да" и нов уред никогаш немаше да повлече од серверот.
+        const LOCAL_SRV_FRESH_DEVICE = localStorage.getItem(LOCAL_STORAGE_KEY) === null;
+
+        function localSrvFingerprint(text) {
+            // FNV-1a — доволно за „дали ова е истото?", не е безбедносен хеш.
+            let h = 0x811c9dc5;
+            for (let i = 0; i < text.length; i++) {
+                h ^= text.charCodeAt(i);
+                h = (h + ((h << 1) + (h << 4) + (h << 7) + (h << 8) + (h << 24))) >>> 0;
+            }
+            return ('00000000' + h.toString(16)).slice(-8);
+        }
+
+        // Редоследот на клучевите НЕ смее да влијае на отпечатокот. PostgreSQL
+        // го чува payload-от како jsonb, а jsonb ги прередува клучевите — значи
+        // она што серверот го враќа никогаш не е бајт-за-бајт истото што му го
+        // испративме, иако содржината е иста. Со обичен JSON.stringify тоа
+        // изгледаше како „серверот се промени" веднаш по успешно зачувување, па
+        // апликацијата пријавуваше разидување сама со себе.
+        function localSrvStableStringify(value) {
+            if (value === null || typeof value !== 'object') {
+                return JSON.stringify(value === undefined ? null : value);
+            }
+            if (Array.isArray(value)) {
+                return '[' + value.map(localSrvStableStringify).join(',') + ']';
+            }
+            return '{' + Object.keys(value).sort().map(function (k) {
+                return JSON.stringify(k) + ':' + localSrvStableStringify(value[k]);
+            }).join(',') + '}';
+        }
+
+        function localSrvContentHash(payload) {
+            if (!payload || typeof payload !== 'object') return '0';
+            const parts = LOCAL_SRV_CONTENT_FIELDS.map(function (k) {
+                return k + '=' + localSrvStableStringify(payload[k] === undefined ? null : payload[k]);
+            });
+            return localSrvFingerprint(parts.join(''));
+        }
+
+        // Согласноста се памети како ПАР отпечатоци, не како еден.
+        //
+        // Кога состојбата од серверот се примени овде, апликацијата ја
+        // нормализира (ensureStudentMeta, sdnBridge, пресметан sdnevnik дел), па
+        // повторно изградената состојба легитимно се разликува од онаа што ја
+        // држи серверот. Со еден заеднички отпечаток тоа изгледаше како „серверот
+        // се промени" при секоја проверка и апликацијата вчитуваше во круг.
+        // Затоа: за секоја страна се памети нејзиниот сопствен отпечаток.
+        function localSrvGetAgreement() {
+            try {
+                const raw = localStorage.getItem(LOCAL_SRV_AGREED_KEY);
+                if (!raw) return null;
+                const parsed = JSON.parse(raw);
+                return (parsed && parsed.l && parsed.s) ? parsed : null;
+            } catch (err) {
+                return null;
+            }
+        }
+
+        function localSrvSetAgreement(localHash, serverHash, version) {
+            localStorage.setItem(LOCAL_SRV_AGREED_KEY, JSON.stringify({ l: localHash, s: serverHash, v: version || 0 }));
+        }
+
+        // Мора да е замолчено: buildUnifiedSyncPayload() внатрешно зачувува
+        // локално и инаку би го активирало токму тајмерот што штотуку го
+        // задоволивме.
+        function localSrvRecordAgreement(serverHash, version) {
+            const previous = localSrvSuspend;
+            localSrvSuspend = true;
+            try {
+                const localHash = localSrvContentHash(buildUnifiedSyncPayload());
+                localSrvSetAgreement(localHash, serverHash || localHash, version);
+            } catch (err) {
+                console.warn('localSrvRecordAgreement:', err);
+            } finally {
+                localSrvSuspend = previous;
+            }
+        }
+
+        function localSrvAutoEnabled() {
+            return localStorage.getItem(LOCAL_SRV_AUTO_KEY) !== '0';
+        }
+
+        function setLocalSrvAuto(on) {
+            localStorage.setItem(LOCAL_SRV_AUTO_KEY, on ? '1' : '0');
+            notify(on ? 'Автоматска синхронизација: вклучена.' : 'Автоматска синхронизација: исклучена.', 'ok');
+        }
+
+        function localSrvHasLocalData() {
+            return !LOCAL_SRV_FRESH_DEVICE;
+        }
+
+        // Секое локално зачувување го одложува праќањето — така едно праќање
+        // покрива цела серија измени наместо по едно на секој клик.
+        function localSrvNoteLocalChange() {
+            if (localSrvSuspend || localSrvBusy) return;
+            if (!localSrvAutoEnabled()) return;
+            if (localSrvNeedsAddress()) return;
+            if (localSrvPushTimer) clearTimeout(localSrvPushTimer);
+            localSrvPushTimer = setTimeout(function () {
+                localSrvPushTimer = null;
+                localSrvSync({ auto: true });
+            }, LOCAL_SRV_AUTO_DELAY);
+        }
+
+        async function localSrvSync(opts) {
+            opts = opts || {};
+            const auto = !!opts.auto;
+            if (localSrvBusy) return 'busy';
+            localSrvBusy = true;
+            if (!auto) setLocalSrvChip('syncing', '⏳ синхронизирам…');
+
+            try {
+                let server = null;
+                const probe = await localSrvFetch('/api/state/' + LOCAL_SRV_APP);
+                if (probe.res.status !== 404) {
+                    if (!probe.res.ok || !probe.body) throw new Error('серверот врати ' + probe.res.status);
+                    server = probe.body;
+                }
+
+                // Состојбата може да не биде валидна (пр. дуплирани имиња). Тоа
+                // НЕ е проблем со серверот и не смее да се пријави како таков —
+                // инаку синхронизацијата тивко застанува со порака „серверот не
+                // е достапен", а корисникот работи со денови мислејќи дека сè оди.
+                let localPayload;
+                try {
+                    localPayload = buildUnifiedSyncPayload();
+                } catch (err) {
+                    const why = String((err && err.message) || err).split('\n').slice(0, 2).join(' ');
+                    setLocalSrvChip('error', '🔴 состојбата не е валидна');
+                    setLocalSrvStamp('синхронизацијата е запрена: ' + why);
+                    if (localSrvLastComplaint !== why) {
+                        localSrvLastComplaint = why;
+                        notify('Синхронизацијата е запрена — состојбата не е валидна: ' + why, 'error');
+                    }
+                    return 'invalid';
+                }
+                localSrvLastComplaint = '';
+                const localHash = localSrvContentHash(localPayload);
+                const serverHash = server ? localSrvContentHash(server.payload) : null;
+                const agreed = localSrvGetAgreement();
+
+                // Ништо на серверот — праќај, но никогаш празно.
+                if (!server) {
+                    // Ова прашање е за СОДРЖИНАТА, не за тоа дали уредот бил нов
+                    // при отворање: некој што штотуку почнал да внесува на нов
+                    // уред мора да може да ја создаде состојбата на серверот.
+                    if (!(Array.isArray(localPayload.students) && localPayload.students.length > 0)) {
+                        setLocalSrvChip('ready', '🟢 поврзан');
+                        if (!auto) notify('Нема состојба ниту тука ниту на серверот.', 'warn');
+                        return 'empty';
+                    }
+                    return await localSrvSyncPush(localPayload, localHash, 0, auto, 'серверот беше празен');
+                }
+
+                // Истата содржина од двете страни — само запиши ја согласноста.
+                if (serverHash === localHash) {
+                    localSrvSetAgreement(localHash, serverHash, server.version);
+                    setLocalSrvVersion(server.version);
+                    setLocalSrvChip('ready', '🟢 синхронизирано');
+                    setLocalSrvStamp('усогласено со серверот • верзија ' + server.version + ' • ' + formatStampTime(server.updated_at));
+                    if (!auto) notify('Сè е усогласено со серверот (верзија ' + server.version + ').', 'ok');
+                    return 'insync';
+                }
+
+                let localChanged, serverChanged;
+                if (agreed) {
+                    localChanged = localHash !== agreed.l;
+                    serverChanged = serverHash !== agreed.s;
+                } else {
+                    // Прв пат по надградбата: нема запишана согласност, но ако
+                    // последната позната верзија е точно онаа на серверот, тогаш
+                    // серверот не се променил од последното вчитување/зачувување.
+                    const known = getLocalSrvVersion();
+                    serverChanged = !known || known !== server.version;
+                    localChanged = localSrvHasLocalData();
+                }
+
+                if (serverChanged && !localChanged) {
+                    return await localSrvSyncPull(server, auto, serverHash);
+                }
+                if (localChanged && !serverChanged) {
+                    return await localSrvSyncPush(localPayload, localHash, server.version, auto, 'локални измени');
+                }
+                if (!localChanged && !serverChanged) {
+                    // Содржината се разликува, но ниту една страна не се
+                    // променила од последната согласност — тоа е само разликата
+                    // од нормализацијата при примена. Не е причина за вчитување;
+                    // вчитување тука значеше бесконечен круг.
+                    setLocalSrvVersion(server.version);
+                    setLocalSrvChip('ready', '🟢 синхронизирано');
+                    setLocalSrvStamp('усогласено со серверот • верзија ' + server.version + ' • ' + formatStampTime(server.updated_at));
+                    if (!auto) notify('Сè е усогласено со серверот (верзија ' + server.version + ').', 'ok');
+                    return 'insync';
+                }
+
+                // Обете се променети. Не погодувај.
+                setLocalSrvChip('conflict', '🟠 разидување');
+                setLocalSrvStamp('и тука и на серверот има измени • сервер: верзија ' + server.version + ' • ' + formatStampTime(server.updated_at));
+                const message =
+                    'РАЗИДУВАЊЕ: и оваа копија и серверот се менувани од последната синхронизација.\n\n' +
+                    'Сервер: верзија ' + server.version + ', ' + formatStampTime(server.updated_at) +
+                    (server.updated_by ? ' (' + server.updated_by + ')' : '') + '\n' +
+                    'Тука: ' + (Array.isArray(students) ? students.length : 0) + ' ученици\n\n' +
+                    'Ова не може да се спои автоматски. Одлучи која страна ја задржуваш:\n' +
+                    '• „📥 Вчитај од сервер" — задржи ја серверската (пред тоа автоматски се прави снимка)\n' +
+                    '• „📤 Зачувај на сервер" — задржи ја оваа и препиши го серверот';
+                if (auto) notify('Разидување: и тука и на серверот има измени. Види го панелот „Локален сервер".', 'warn');
+                else alert(message);
+                return 'conflict';
+
+            } catch (err) {
+                console.error('localSrvSync:', err);
+                // Угаснат сервер е нормална состојба кога се работи офлајн и не
+                // смее да вика. Сè друго е вистинска грешка и мора да се каже,
+                // дури и кога синхронизацијата е автоматска.
+                const offline = (err instanceof TypeError) || /fetch|network|достапен/i.test(String(err && err.message));
+                if (offline) {
+                    setLocalSrvChip('off', '⚪ серверот не е достапен');
+                    if (!auto) notify('Серверот не е достапен на ' + getLocalSrvUrl() + '.', 'warn');
+                } else {
+                    const why = String((err && err.message) || err).split('\n')[0];
+                    setLocalSrvChip('error', '🔴 грешка');
+                    if (localSrvLastComplaint !== why) {
+                        localSrvLastComplaint = why;
+                        notify('Синхронизацијата не успеа: ' + why, 'error');
+                    }
+                }
+                return offline ? 'offline' : 'error';
+            } finally {
+                localSrvBusy = false;
+            }
+        }
+
+        // serverHash мора да е пресметан ПРЕД примената: applyUnifiedPayload ја
+        // менува состојбата што ја добива (ја прави жива scheduleData), па
+        // отпечаток земен потоа не е отпечаток од она што го држи серверот.
+        async function localSrvSyncPull(server, auto, serverHash) {
+            localSrvSuspend = true;
+            try {
+                const hashBeforeApply = serverHash || localSrvContentHash(server.payload);
+                applyUnifiedPayload(server.payload, 'пред автоматска синхронизација (v' + server.version + ')');
+                setLocalSrvVersion(server.version);
+                localSrvRecordAgreement(hashBeforeApply, server.version);
+                setLocalSrvChip('ready', '🟢 синхронизирано');
+                setLocalSrvStamp('вчитано од серверот • верзија ' + server.version + ' • ' + formatStampTime(server.updated_at));
+                notify('Вчитана е поновата состојба од серверот (верзија ' + server.version + ').', 'ok');
+                return 'pulled';
+            } finally {
+                localSrvSuspend = false;
+            }
+        }
+
+        async function localSrvSyncPush(payload, localHash, baseVersion, auto, why) {
+            const attempt = await localSrvPut(payload, baseVersion);
+            if (attempt.res.status === 409) {
+                // Некој зачувал во меѓувреме — истото како разидување.
+                setLocalSrvChip('conflict', '🟠 разидување');
+                if (auto) notify('Некој зачувал на серверот во меѓувреме. Отвори го панелот „Локален сервер".', 'warn');
+                else alert('Серверот е сменет во меѓувреме. Прво „📥 Вчитај од сервер", провери, па зачувај.');
+                return 'conflict';
+            }
+            if (!attempt.res.ok || !attempt.body) throw new Error('серверот врати ' + attempt.res.status);
+
+            const version = attempt.body.version;
+            const proj = attempt.body.projection || {};
+            setLocalSrvVersion(version);
+            // Серверот сега држи точно овој payload, па обата отпечатока се исти.
+            localSrvSetAgreement(localHash, localHash, version);
+
+            const warnings = proj.problems && proj.problems.length ? proj.problems
+                : (proj.ok === false ? [proj.error || 'непозната причина'] : []);
+            if (warnings.length) {
+                setLocalSrvChip('conflict', '🟠 зачувано со предупредување');
+                setLocalSrvStamp('верзија ' + version + ' — базата НЕ е целосно ажурирана');
+                notify('Зачувано, но базата не е ажурирана: ' + warnings[0], 'warn');
+                return 'pushed-warn';
+            }
+
+            setLocalSrvChip('ready', '🟢 синхронизирано');
+            setLocalSrvStamp('зачувано на серверот • верзија ' + version + ' • ' + formatStampTime(new Date().toISOString()));
+            notify('Синхронизирано (' + why + ') · верзија ' + version + ' · базата е ажурирана.', 'ok');
+            return 'pushed';
+        }
+
+        window.addEventListener('DOMContentLoaded', function () {
+            renderLocalSrvPanel();
+            const auto = document.getElementById('localSrvAutoToggle');
+            if (auto) auto.checked = localSrvAutoEnabled();
+            // Вчитувањето на локалната состојба се случува при подигање; малку
+            // задоцни за да не се синхронизира празна апликација.
+            if (localSrvAutoEnabled() && !localSrvNeedsAddress()) {
+                setTimeout(function () { localSrvSync({ auto: true }); }, 1500);
+            }
+        });
 
         // [v3.3] Старата exportData (без CSV quoting и BOM) е избришана — беше мртов код
         // прегазен од Excel-friendly верзијата подолу, но замка при идни измени.
