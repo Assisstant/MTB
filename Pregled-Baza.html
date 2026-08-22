@@ -147,26 +147,39 @@ function showError(e) {
     const el = document.getElementById('err');
     el.style.display = 'block';
 
-    if (servedByApi() || serverBase()) {
+    // Кога страницата е сервирана од самиот сервер, адресата не е прашање —
+    // серверот е таму или го нема.
+    if (servedByApi()) {
         el.textContent = 'Серверот не одговара: ' + e.message + '. Дали е стартуван?';
         return;
     }
 
-    // Најчестиот случај: страницата е отворена од GitHub Pages, каде нема сервер.
-    // Порака „серверот не одговара" тука е погрешна — серверот воопшто не е прашан.
-    el.innerHTML =
-        '<div style="margin-bottom:10px;">Оваа страница чита директно од базата, а е отворена од интернет ' +
-        '(<code>' + esc(location.hostname) + '</code>) каде нема сервер. Внеси ја адресата на твојот сервер:</div>' +
+    const configured = serverBase();
+
+    // Сè друго значи: страницата е отворена од друго место (пр. GitHub Pages),
+    // каде нема сервер. Тогаш адресата е секогаш дел од одговорот — и кога не е
+    // внесена, и кога е внесена но не се јавува. „Серверот не одговара" без да
+    // се каже КОЈ сервер е порака со која не може да се направи ништо: не се
+    // знае дали машината е угасена или адресата е погрешна.
+    const head = configured
+        ? '<div style="margin-bottom:10px;">Не добивам одговор од <code>' + esc(configured) + '</code>' +
+          ' (' + esc(e.message) + ').<br>Или таа машина е угасена, или адресата е друга. ' +
+          'Провери ја адресата:</div>'
+        : '<div style="margin-bottom:10px;">Оваа страница чита директно од базата, а е отворена од ' +
+          '<code>' + esc(location.hostname) + '</code> каде нема сервер. Внеси ја адресата на твојот сервер:</div>';
+
+    el.innerHTML = head +
         '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">' +
         '<input id="srvUrlInput" style="flex:1;min-width:260px;padding:8px 10px;border:1px solid var(--line);' +
         'border-radius:8px;background:var(--card);color:var(--text);" placeholder="https://zenpc.tailXXXXX.ts.net">' +
-        '<button class="primary" id="srvUrlSave">Зачувај</button>' +
+        '<button class="primary" id="srvUrlSave">Зачувај и обиди се повторно</button>' +
         '</div>' +
         '<div style="margin-top:10px;color:var(--muted);font-size:13px;">' +
-        'Истата адреса што ја користат Распореди и S-Dnevnik. Се памети на овој уред.</div>';
+        'Истата адреса што ја користат Распореди и S-Dnevnik — се памети на овој уред. ' +
+        'Ако имаш повеќе сервери, внеси го оној што работи сега.</div>';
 
     const input = document.getElementById('srvUrlInput');
-    input.value = localStorage.getItem(SRV_URL_KEY) || '';
+    input.value = configured;
     document.getElementById('srvUrlSave').onclick = () => setServerBase(input.value);
     input.addEventListener('keydown', (ev) => { if (ev.key === 'Enter') setServerBase(input.value); });
 }
