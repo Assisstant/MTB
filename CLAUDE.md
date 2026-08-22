@@ -10,8 +10,8 @@ local PostgreSQL database they sync to.
 
 | File | Purpose |
 |---|---|
-| `Rasporedi-Unified-Sync-v5.0.html` | weekly schedule for all ten therapists |
-| `S-Dnevnik-Blagoj-Unified-Sync-v4.html` | one therapist's diary: attendance, plans, dossiers, assessments, audiograms |
+| `Rasporedi.html` | weekly schedule for all ten therapists |
+| `S-Dnevnik.html` | one therapist's diary: attendance, plans, dossiers, assessments, audiograms |
 | `Pregled-Baza.html` | read-only overview of the database |
 | `server/` | Fastify + TypeScript API over PostgreSQL |
 
@@ -96,6 +96,8 @@ powershell -ExecutionPolicy Bypass -File scripts\backup-db.ps1           dump + 
 powershell -ExecutionPolicy Bypass -File scripts\run-server.ps1          supervised server
 powershell -ExecutionPolicy Bypass -File scripts\sync-peer.ps1           report; -Apply to sync
 powershell -ExecutionPolicy Bypass -File scripts\install-scheduled-tasks.ps1   server, weekly backup, sync
+powershell -ExecutionPolicy Bypass -File scripts\server-control.ps1 status    start | stop | restart
+powershell -ExecutionPolicy Bypass -File scripts\create-shortcuts.ps1         desktop on/off buttons
 ```
 
 Credentials are the same on every machine: `therapy` / `therapy_local` /
@@ -162,4 +164,17 @@ Open, needing a human rather than code: 6 double-booked terms, 10 students
 with no term, the 2026/2027 rollover, and the `postgres` superuser password
 still being `qwerty`.
 
-See `docs/STATUS-2026-08-19.md` and `therapy_app_postgres_local_plan_v2.md`.
+See `docs/STATUS-2026-08-19.md` and, for the original plan,
+`LEGACY RASPOREDI I SDNEVNIK/therapy_app_postgres_local_plan_v2.md`.
+
+## File names
+
+The two apps are `Rasporedi.html` and `S-Dnevnik.html`. They were renamed from
+`Rasporedi-Unified-Sync-v5.0.html` and `S-Dnevnik-Blagoj-Unified-Sync-v4.html`,
+and **redirect pages still sit at the old names** so bookmarks and any link a
+colleague was given keep working. Do not delete those two stubs, and do not put
+real content back at those paths.
+
+Browser storage is per origin, not per path, so the rename cost nobody their
+data. That also means renaming again is cheap — but every rename adds another
+stub to keep forever, so don't.

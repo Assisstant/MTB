@@ -21,14 +21,14 @@ published apps, which save to browser storage. So export from the apps.
 
 ### A1. Export from Распореди
 
-1. Open <https://assisstant.github.io/MTB/Rasporedi-Unified-Sync-v5.0.html>
+1. Open <https://assisstant.github.io/MTB/Rasporedi.html>
 2. Tab **Алатки** → **💾 Внес и извоз**
 3. Press **🔄 Извези Unified Sync JSON**
 4. A file lands in Downloads: `UnifiedSync-Rasporedi-SDnevnik-….json`
 
 ### A2. Export from S-Dnevnik
 
-1. Open <https://assisstant.github.io/MTB/S-Dnevnik-Blagoj-Unified-Sync-v4.html>
+1. Open <https://assisstant.github.io/MTB/S-Dnevnik.html>
 2. Tab **Податоци** → **⬇ Експортирај Backup (JSON)**
 3. A file lands in Downloads: `SDnevnik_….json`
 
@@ -145,14 +145,14 @@ each address keeps its own separate browser storage.
 
 **Option 1 — through your own server (recommended at home):**
 
-- <http://localhost:3000/Rasporedi-Unified-Sync-v5.0.html>
-- <http://localhost:3000/S-Dnevnik-Blagoj-Unified-Sync-v4.html>
+- <http://localhost:3000/Rasporedi.html>
+- <http://localhost:3000/S-Dnevnik.html>
 
 The server address fills in by itself.
 
 **Option 2 — the published copy**, as you do at work:
 
-- <https://assisstant.github.io/MTB/Rasporedi-Unified-Sync-v5.0.html>
+- <https://assisstant.github.io/MTB/Rasporedi.html>
 
 Here you must type the address once, in the **🖥️ Локален сервер** panel:
 `http://localhost:3000`

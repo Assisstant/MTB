@@ -47,7 +47,7 @@ server.register(fastifyCors, {
 });
 
 // Serve the existing HTML apps from the repo root, so every device opens
-// the same copy: http://localhost:3000/Rasporedi-Unified-Sync-v5.0.html
+// the same copy: http://localhost:3000/Rasporedi.html
 server.register(fastifyStatic, {
     root: path.resolve(__dirname, '..', '..')
 });

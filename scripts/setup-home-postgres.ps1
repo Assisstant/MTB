@@ -143,7 +143,7 @@ $env:PGPASSWORD = $null
 Write-Host ""
 Write-Host "================= DONE =================" -ForegroundColor Green
 Write-Host "Start the server:   cd server ; npm run dev"
-Write-Host "Open the app:       http://localhost:3000/Rasporedi-Unified-Sync-v5.0.html"
+Write-Host "Open the app:       http://localhost:3000/Rasporedi.html"
 Write-Host "Health check:       http://localhost:3000/api/health"
 Write-Host ""
 Write-Host "Carrying data between work and home (until Tailscale):"

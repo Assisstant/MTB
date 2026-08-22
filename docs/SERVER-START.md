@@ -51,8 +51,8 @@ no password — the address is the access.
 The apps:
 
 ```
-https://zenpc-1.tailXXXXX.ts.net/Rasporedi-Unified-Sync-v5.0.html
-https://zenpc-1.tailXXXXX.ts.net/S-Dnevnik-Blagoj-Unified-Sync-v4.html
+https://zenpc-1.tailXXXXX.ts.net/Rasporedi.html
+https://zenpc-1.tailXXXXX.ts.net/S-Dnevnik.html
 https://zenpc-1.tailXXXXX.ts.net/Pregled-Baza.html
 ```
 

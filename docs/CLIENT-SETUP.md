@@ -77,8 +77,8 @@ on the server side, not this one (see the table at the bottom).
 **B3. Bookmark exactly these two addresses:**
 
 ```
-https://<name>.ts.net/Rasporedi-Unified-Sync-v5.0.html
-https://<name>.ts.net/S-Dnevnik-Blagoj-Unified-Sync-v4.html
+https://<name>.ts.net/Rasporedi.html
+https://<name>.ts.net/S-Dnevnik.html
 ```
 
 Served by the server itself, so the server address fills in by itself — there
@@ -119,7 +119,7 @@ tailnet address and stay there.
 ## PART D — Your phone
 
 Same address, nothing to install beyond Tailscale (App Store / Play Store,
-same account). Open `https://<name>.ts.net/S-Dnevnik-Blagoj-Unified-Sync-v4.html`.
+same account). Open `https://<name>.ts.net/S-Dnevnik.html`.
 The same PART C rule applies: pull before you touch anything.
 
 ---

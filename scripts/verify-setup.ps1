@@ -110,8 +110,8 @@ try {
 Write-Host ""
 if ($fails -eq 0 -and $warns -eq 0) {
     Write-Host "Everything checks out. Open:" -ForegroundColor Green
-    Write-Host "  http://localhost:3000/Rasporedi-Unified-Sync-v5.0.html"
-    Write-Host "  http://localhost:3000/S-Dnevnik-Blagoj-Unified-Sync-v4.html"
+    Write-Host "  http://localhost:3000/Rasporedi.html"
+    Write-Host "  http://localhost:3000/S-Dnevnik.html"
     Write-Host "  http://localhost:3000/Pregled-Baza.html   (overview)"
 } elseif ($fails -eq 0) {
     Write-Host "Working, with $warns thing(s) worth a look above." -ForegroundColor Yellow

@@ -99,6 +99,37 @@ quiet rather than merely unreported).
 
 Add `-WhatIf` to see what it would do first, `-Remove` to take them all out.
 
+## Turning the server on and off
+
+The server does **not** need to run all the time. The apps work offline; the
+server only matters at the moment something syncs. Turn it off overnight and
+nothing is lost — the next sync catches up.
+
+Put three buttons on the Desktop:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\create-shortcuts.ps1
+```
+
+**Сервер — Вклучи**, **Сервер — Исклучи**, **Сервер — Состојба**. The status one
+also prints the tailnet address your other devices should use.
+
+The same thing from a console:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\server-control.ps1 status
+powershell -ExecutionPolicy Bypass -File scripts\server-control.ps1 stop
+```
+
+Stopping deals with all three layers — the scheduled task, the supervisor loop
+and the server process, in that order. Killing only the server would let the
+supervisor start it straight back, which looks exactly like the button not
+working.
+
+There is no on/off switch inside the app itself, and there cannot be: a web page
+is not allowed to start or stop programs on your computer. The scheduled task is
+the practical version of that — the server comes up at logon on its own.
+
 ## Backups
 
 Weekly is enough now: the database is no longer the only copy. Every browser
