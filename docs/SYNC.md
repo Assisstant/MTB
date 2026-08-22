@@ -157,6 +157,12 @@ which one to keep, then use the explicit button, or `-Force` on the script.
 connection, and syncing stays stopped until it is fixed — deliberately, because
 sending a state that cannot be exported would put a broken copy everywhere.
 
+**Pregled-Baza shows nothing.** Unlike the two apps, that page has no copy of
+its own — it reads the database live, so it always needs the server. Opened from
+`assisstant.github.io` it now asks for the server address once and remembers it
+(the same address the apps use; they share it on that site). Opened through the
+server itself it needs no address at all.
+
 **Two browser addresses.** `https://assisstant.github.io/...` and
 `https://<machine>.ts.net/...` are different origins with separate storage. Work
 in one of them consistently. If something is missing, check the other address

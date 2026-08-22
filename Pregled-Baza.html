@@ -112,8 +112,33 @@ let STUDENTS = [];
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const year = () => document.getElementById('yearSel').value;
 
+// Оваа страница чита ЖИВО од базата, за разлика од апликациите кои држат своја
+// копија. Затоа ѝ треба адресата на серверот. Кога е отворена преку серверот,
+// адресата е очигледна. Кога е отворена од објавената копија на GitHub Pages,
+// таму нема сервер — тогаш се користи адресата што е веќе внесена во
+// „Локален сервер" во Распореди, зашто localStorage е заеднички за сајтот.
+const SRV_URL_KEY = 'local_server_url_v1';
+
+function servedByApi() {
+    const h = location.hostname;
+    return /^(localhost|127\.0\.0\.1)$/.test(h) || /\.ts\.net$/.test(h);
+}
+
+function serverBase() {
+    if (servedByApi()) return '';                       // ист origin — релативно
+    const saved = localStorage.getItem(SRV_URL_KEY);
+    return saved ? saved.replace(/\/+$/, '') : '';
+}
+
+function setServerBase(value) {
+    const url = String(value || '').trim().replace(/\/+$/, '');
+    if (url) localStorage.setItem(SRV_URL_KEY, url);
+    else localStorage.removeItem(SRV_URL_KEY);
+    location.reload();
+}
+
 async function api(path) {
-    const res = await fetch(path, { cache: 'no-store' });
+    const res = await fetch(serverBase() + path, { cache: 'no-store' });
     if (!res.ok) throw new Error(path + ' → ' + res.status);
     return res.json();
 }
@@ -121,7 +146,29 @@ async function api(path) {
 function showError(e) {
     const el = document.getElementById('err');
     el.style.display = 'block';
-    el.textContent = 'Серверот не одговара: ' + e.message + '. Дали е стартуван?';
+
+    if (servedByApi() || serverBase()) {
+        el.textContent = 'Серверот не одговара: ' + e.message + '. Дали е стартуван?';
+        return;
+    }
+
+    // Најчестиот случај: страницата е отворена од GitHub Pages, каде нема сервер.
+    // Порака „серверот не одговара" тука е погрешна — серверот воопшто не е прашан.
+    el.innerHTML =
+        '<div style="margin-bottom:10px;">Оваа страница чита директно од базата, а е отворена од интернет ' +
+        '(<code>' + esc(location.hostname) + '</code>) каде нема сервер. Внеси ја адресата на твојот сервер:</div>' +
+        '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">' +
+        '<input id="srvUrlInput" style="flex:1;min-width:260px;padding:8px 10px;border:1px solid var(--line);' +
+        'border-radius:8px;background:var(--card);color:var(--text);" placeholder="https://zenpc.tailXXXXX.ts.net">' +
+        '<button class="primary" id="srvUrlSave">Зачувај</button>' +
+        '</div>' +
+        '<div style="margin-top:10px;color:var(--muted);font-size:13px;">' +
+        'Истата адреса што ја користат Распореди и S-Dnevnik. Се памети на овој уред.</div>';
+
+    const input = document.getElementById('srvUrlInput');
+    input.value = localStorage.getItem(SRV_URL_KEY) || '';
+    document.getElementById('srvUrlSave').onclick = () => setServerBase(input.value);
+    input.addEventListener('keydown', (ev) => { if (ev.key === 'Enter') setServerBase(input.value); });
 }
 
 async function loadYears() {
