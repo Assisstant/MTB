@@ -101,7 +101,7 @@ async function putState(base: string, app: string, payload: unknown, baseVersion
     });
     const body = await res.json().catch(() => null);
     if (res.status === 409) {
-        throw new Error('the target changed while this script was running — rerun it');
+        throw new Error('the target changed while this script was running - rerun it');
     }
     if (!res.ok) throw new Error(`target answered ${res.status}: ${JSON.stringify(body)}`);
     return body as { version: number; projection?: Record<string, unknown> };
@@ -172,7 +172,7 @@ function decide(local: Side, peer: Side, watermark: string | null): Plan {
             return {
                 action: 'refuse',
                 reason:
-                    'BOTH machines changed since they were last in sync — this cannot be merged.\n' +
+                    'BOTH machines changed since they were last in sync - this cannot be merged.\n' +
                     `      ${local.label}: v${L.version}, ${when(L.updated_at)}, ${L.updated_by ?? 'unknown'}\n` +
                     `      ${peer.label}: v${P.version}, ${when(P.updated_at)}, ${P.updated_by ?? 'unknown'}\n` +
                     '      Export JSON from the side you want to keep, import it into the other,\n' +
@@ -204,7 +204,7 @@ function decide(local: Side, peer: Side, watermark: string | null): Plan {
             return {
                 action: 'refuse',
                 reason:
-                    `no previous sync on record, and the two states differ but were saved ${gapSeconds.toFixed(0)}s apart —\n` +
+                    `no previous sync on record, and the two states differ but were saved ${gapSeconds.toFixed(0)}s apart -\n` +
                     '      too close to tell which is newer.\n' +
                     `      ${local.label}: ${when(L.updated_at)} (v${L.version}, ${L.updated_by ?? 'unknown'})\n` +
                     `      ${peer.label}: ${when(P.updated_at)} (v${P.version}, ${P.updated_by ?? 'unknown'})\n` +
@@ -222,7 +222,7 @@ function decide(local: Side, peer: Side, watermark: string | null): Plan {
     const toState = to.state as State;
 
     if (isEmpty(fromState.payload)) {
-        return { action: 'refuse', reason: `${from.label} would be the source but its state is empty — refusing to erase ${to.label}` };
+        return { action: 'refuse', reason: `${from.label} would be the source but its state is empty - refusing to erase ${to.label}` };
     }
 
     const ratio = size(fromState.payload) / Math.max(1, size(toState.payload));
@@ -240,7 +240,7 @@ function decide(local: Side, peer: Side, watermark: string | null): Plan {
 }
 
 async function syncApp(app: string): Promise<'changed' | 'planned' | 'unchanged' | 'refused'> {
-    console.log(`\n── ${app} ────────────────────────────────────────`);
+    console.log(`\n--- ${app} ${'-'.repeat(Math.max(3, 44 - app.length))}`);
 
     const [localState, peerState] = await Promise.all([
         getState(LOCAL, app),
@@ -268,7 +268,7 @@ async function syncApp(app: string): Promise<'changed' | 'planned' | 'unchanged'
     const plan = decide(local, peer, watermark);
 
     if (plan.action === 'none') {
-        console.log(`   → nothing to do: ${plan.reason}`);
+        console.log(`   = nothing to do: ${plan.reason}`);
         // Record the agreement, so a later one-sided change is recognised as such.
         if (APPLY && localState && peerState) {
             await writeWatermark(app, PEER_URL, hash(localState.payload), localState.version, peerState.version);
@@ -276,22 +276,22 @@ async function syncApp(app: string): Promise<'changed' | 'planned' | 'unchanged'
         return 'unchanged';
     }
     if (plan.action === 'refuse') {
-        console.log(`   ✗ REFUSED: ${plan.reason}`);
+        console.log(`   ! REFUSED: ${plan.reason}`);
         return 'refused';
     }
 
-    const direction = plan.from === local ? 'this machine → peer' : 'peer → this machine';
-    console.log(`   → ${direction}`);
+    const direction = plan.from === local ? 'this machine -> peer' : 'peer -> this machine';
+    console.log(`   > ${direction}`);
     console.log(`     ${plan.reason}`);
 
     if (!APPLY) {
-        console.log('     (dry run — add --apply to write)');
+        console.log('     (dry run - add --apply to write)');
         return 'planned';
     }
 
     const source = plan.from.state as State;
     const targetVersion = plan.to.state ? plan.to.state.version : 0;
-    const by = `sync←${plan.from === local ? 'this machine' : 'peer'}`;
+    const by = `sync from ${plan.from === local ? 'this machine' : 'peer'}`;
 
     const result = await putState(plan.to.url, app, source.payload, targetVersion, by);
     console.log(`     written: ${plan.to.label} is now v${result.version}`);
@@ -303,12 +303,46 @@ async function syncApp(app: string): Promise<'changed' | 'planned' | 'unchanged'
 
     const proj = (result.projection ?? {}) as Record<string, unknown>;
     if (proj.ok === false) {
-        console.log(`     ⚠ the blob was saved but the relational tables were NOT updated: ${proj.error ?? 'unknown'}`);
+        console.log(`     WARNING: the blob was saved but the relational tables were NOT updated: ${proj.error ?? 'unknown'}`);
     } else if (Array.isArray(proj.problems) && proj.problems.length) {
-        console.log(`     ⚠ projection problems: ${proj.problems.slice(0, 3).join('; ')}`);
+        console.log(`     WARNING: projection problems: ${proj.problems.slice(0, 3).join('; ')}`);
     }
 
     return 'changed';
+}
+
+/**
+ * Both PCs here have the same Windows hostname, so pointing this at the machine
+ * it runs on is an easy mistake — and one that otherwise ends in a cheerful
+ * "already in sync" that means nothing. Every running server reports an id
+ * unique to it; equal ids mean one machine, not two.
+ */
+async function assertDifferentMachines() {
+    const read = async (base: string) => {
+        try {
+            const res = await fetch(`${base}/api/health`, { cache: 'no-store' } as RequestInit);
+            if (!res.ok) return null;
+            const body = (await res.json()) as { instance?: string };
+            return body.instance ?? null;
+        } catch {
+            return null;   // unreachable is reported later, with a better message
+        }
+    };
+
+    const [a, b] = await Promise.all([read(LOCAL), read(PEER_URL)]);
+    if (a && b && a === b) {
+        console.error(`
+Both addresses are the same machine.
+
+  this machine : ${LOCAL}
+  peer         : ${PEER_URL}
+
+Those point at one server, so there is nothing to carry. Run this ON one PC with
+--peer set to the OTHER one. Nothing was changed.
+`);
+        await pool.end();
+        process.exit(1);
+    }
 }
 
 async function main() {
@@ -316,12 +350,14 @@ async function main() {
     console.log(`peer         : ${PEER_URL}`);
     console.log(APPLY ? 'mode         : APPLY (writes)' : 'mode         : dry run');
 
+    await assertDifferentMachines();
+
     const results: string[] = [];
     for (const app of APPS) {
         try {
             results.push(await syncApp(app));
         } catch (err) {
-            console.log(`   ✗ ${app}: ${err instanceof Error ? err.message : String(err)}`);
+            console.log(`   ! ${app}: ${err instanceof Error ? err.message : String(err)}`);
             results.push('refused');
         }
     }
@@ -331,7 +367,7 @@ async function main() {
     const planned = results.filter((r) => r === 'planned').length;
     const inSync = results.filter((r) => r === 'unchanged').length;
 
-    console.log('\n─────────────────────────────────────────────────');
+    console.log('\n' + '-'.repeat(49));
     if (APPLY) {
         console.log(`${changed} synced, ${inSync} already in sync, ${refused} needing you`);
     } else {

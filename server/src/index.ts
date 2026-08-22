@@ -2,6 +2,7 @@ import Fastify from 'fastify';
 import fastifyStatic from '@fastify/static';
 import fastifyCors from '@fastify/cors';
 import path from 'node:path';
+import { randomUUID } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import 'dotenv/config';
 import { pool } from './db.js';
@@ -52,9 +53,18 @@ server.register(fastifyStatic, {
     root: path.resolve(__dirname, '..', '..')
 });
 
+/**
+ * A value unique to this running server, so a caller can tell two machines
+ * apart. sync-peer uses it to refuse when it has been pointed at the machine it
+ * is running on: with two PCs whose Windows hostname is the same, that mistake
+ * is easy to make and otherwise looks like a successful "nothing to do".
+ * Regenerated on restart, which is fine — it is only ever compared live.
+ */
+const INSTANCE = randomUUID();
+
 server.get('/api/health', async () => {
     const { rows } = await pool.query('SELECT now() AS db_time');
-    return { ok: true, db_time: rows[0].db_time };
+    return { ok: true, db_time: rows[0].db_time, instance: INSTANCE };
 });
 
 server.register(stateRoutes);
