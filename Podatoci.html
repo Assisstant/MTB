@@ -1164,7 +1164,7 @@
         el('therapists').innerHTML =
             '<table class="list"><thead><tr><th class="row-number">Р.Бр.</th><th style="width:280px;">Име</th>'
             + '<th style="width:230px;">Категорија</th><th style="width:110px;">Ученици</th>'
-            + '<th style="width:130px;">Термини/неделно</th><th></th></tr></thead><tbody>'
+            + '<th style="width:150px;" title="Колку термини има терапевтот во распоредот — план, не одржани сесии. Одржаното е во присуството.">Термини во распоред</th><th></th></tr></thead><tbody>'
             + (data.therapists || []).map((t, index) =>
                 `<tr data-therapist="${t.id}">`
                 + `<td class="row-number">${index + 1}.</td>`
