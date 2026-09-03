@@ -25,6 +25,36 @@ but it must not present parallel versions of the same task.
   is database-first and keeps no copy of a record in the browser; do not add a
   second page or a local fallback for either document.
 
+## What each application is FOR, and what it must refuse to become
+
+The rules above say which file owns what. These say why each exists. The second
+half of each line matters more than the first: an application stays useful by
+refusing work that belongs to another one, and every drift this project has had
+began with a screen growing a second purpose.
+
+- **`RasporediFusion.html` exists to detect impossible presence** — the same
+  pupil in the same time slot in two different cabinets. It is a diff over time
+  intervals assigned to pupils, and a conflict report. It therefore does not need
+  a week: "is this child booked twice" is a question about the plan, asked when
+  the plan is made, not about week fourteen. `schedule_slots` having no time
+  dimension is correct for it, not a gap. It must refuse weeks, holidays, a
+  diary, and history.
+
+- **`S-Dnevnik.html` is one therapist's personal tool.** It solves that person's
+  work and is not repurposed for another cabinet. It owns what HAPPENED; it reads
+  the shared facts and owns none of them. Its holiday and working-day logic is
+  its own and stays there. It must refuse to become a second writer of anything
+  shared -- above all the schedule, which it can still overwrite today through the
+  unified payload (see `docs/PLAN-rasporedot-i-nedelata.md`).
+
+- **`Podatoci.html` is who exists this year** — pupils, teachers, therapists,
+  classes, categories, and the caseload links. Every other screen derives from it
+  and none of them writes a person.
+
+- **`AkciskiPlan.html` is the pupil's development record** — the prescribed
+  евидентен лист and the quarterly action plan, one screen because they are one
+  document about one child.
+
 `RasporediFusion.html` intentionally contains its own HTML, CSS, and browser
 JavaScript. Its PostgreSQL API remains in `server/`; copying the appearance
 without that API layer is not a functional application.
