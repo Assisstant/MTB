@@ -1891,6 +1891,8 @@
             </div>
             <div style="display: flex; gap: 10px; margin-bottom: 15px; align-items: center;">
                 <button class="btn btn-success" onclick="manualSave()">Зачувај</button>
+                <button class="btn" onclick="seedScheduleFromDatabase()"
+                        title="Го зема планот од базата — истиот што го гради Rasporedi Fusion">⬇ Земи од базата</button>
                 <button id="undoBtn" class="btn" style="background: #718096; color: white;" onclick="undoLastChange()" disabled>↶ Undo</button>
                 <button id="redoBtn" class="btn" style="background: #718096; color: white;" onclick="redoLastChange()" disabled>↷ Redo</button>
                 <button id="lockToggleBtn" class="btn" style="background: #e53e3e; color: white; margin-left: auto;" onclick="togglePastWeekLock()">
@@ -3689,6 +3691,127 @@
             return reconstructScheduleFromAttendance(weekKey);
         }
         
+        /**
+         * Ја зема неделата од базата — планот што го држи Rasporedi Fusion.
+         *
+         * ЗОШТО ПОСТОИ. Двете апликации до сега држеа свој распоред: Fusion во
+         * `schedule_slots`, овој дневник во својот блоб. Не се разидуваа поради
+         * грешка туку по конструкција — никогаш не читаа од исто место. Fusion
+         * е сопственик на ПЛАНОТ (тој е единствениот што може да открие исто
+         * дете закажано во два кабинета истовремено); овој дневник е сопственик
+         * на тоа ШТО СЕ СЛУЧИЛО. Значи планот доаѓа оттаму, а измената по
+         * земањето останува тука.
+         *
+         * ЗОШТО СЕ ПОТВРДУВА, а не се повлекува само. Земањето го заменува
+         * живиот шаблон, кој оваа и сите идни недели го читаат. Тоа е доволно
+         * голема работа за да ја види човек пред да се случи — истото правило
+         * како синхронизацијата со серверот, која при разидување одбива да спои
+         * и прашува.
+         *
+         * СНИМКИТЕ НА МИНАТИТЕ НЕДЕЛИ НЕ СЕ ДОПИРААТ. Тие се запис, не план.
+         */
+        function seedScheduleFromDatabase() {
+            var base = (window.SdnLocalSrv && window.SdnLocalSrv.getUrl) ? window.SdnLocalSrv.getUrl() : '';
+            if (!base) { alert('Нема поставен локален сервер.'); return; }
+
+            var me = getLocalTherapistName();
+            if (!me) { alert('Прво постави кој терапевт е овој дневник (Локален сервер → име).'); return; }
+
+            var flat = function (t) {
+                return String(t || '').replace(/\s+/g, '').replace(/[–—]/g, '-');
+            };
+            var same = function (a, b) {
+                return String(a || '').trim().toLowerCase() === String(b || '').trim().toLowerCase();
+            };
+            var DAY_KEYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'];
+            var dayIndex = function (mk) {
+                var head = String(mk || '').trim().toLowerCase().slice(0, 3);
+                return ['пон', 'вто', 'сре', 'чет', 'пет'].indexOf(head);
+            };
+            // Полн термин или која било од двете половини — сите три паѓаат во
+            // истиот час; дневникот држи низа по час, па двајца во еден час се
+            // двата запишани еден до друг, како што веќе прави.
+            var slotIndex = function (time) {
+                var t = flat(time);
+                for (var i = 0; i < timeSlots.length; i++) {
+                    if (t === flat(timeSlots[i].time) ||
+                        t === flat(timeSlots[i].half1) ||
+                        t === flat(timeSlots[i].half2)) return i;
+                }
+                return -1;
+            };
+
+            fetch(base + '/api/schedule/sessions', { cache: 'no-store' })
+                .then(function (r) { return r.json(); })
+                .then(function (data) {
+                    var all = (data && data.sessions) || [];
+                    var mine = all.filter(function (x) { return same(x.therapist_name, me); });
+
+                    var next = {};
+                    DAY_KEYS.forEach(function (d) { next[d] = [[], [], [], [], []]; });
+
+                    var placed = 0;
+                    var unknownPupils = [];
+                    var unreadable = 0;
+
+                    mine.forEach(function (x) {
+                        if (!x.student_public_id) return;          // празна ќелија во Fusion
+                        var di = dayIndex(x.day);
+                        var ti = slotIndex(x.time);
+                        if (di < 0 || ti < 0) { unreadable++; return; }
+
+                        // Идентификаторот врзува, не името. `rasporediStudentId`
+                        // е `public_id` од базата и веќе се води тука; името се
+                        // користи само ако мостот уште не е поставен за детето.
+                        var st = null;
+                        for (var i = 0; i < students.length; i++) {
+                            if (students[i].rasporediStudentId === x.student_public_id) { st = students[i]; break; }
+                        }
+                        if (!st) {
+                            for (var j = 0; j < students.length; j++) {
+                                if (same(students[j].name, x.student_name)) {
+                                    st = students[j];
+                                    st.rasporediStudentId = x.student_public_id;   // мостот се поставува сега
+                                    break;
+                                }
+                            }
+                        }
+                        if (!st) {
+                            if (unknownPupils.indexOf(x.student_name) === -1) unknownPupils.push(x.student_name);
+                            return;
+                        }
+                        if (next[DAY_KEYS[di]][ti].indexOf(st.id) === -1) {
+                            next[DAY_KEYS[di]][ti].push(st.id);
+                            placed++;
+                        }
+                    });
+
+                    var msg = 'Од базата, за ' + me + ':\n\n' +
+                        '• ' + placed + ' термин(и) ќе бидат поставени\n';
+                    if (unknownPupils.length) {
+                        msg += '• ' + unknownPupils.length + ' ученик(ци) ги нема во овој дневник и нивните термини се ИСПУШТЕНИ:\n    ' +
+                            unknownPupils.join('\n    ') + '\n';
+                    }
+                    if (unreadable) msg += '• ' + unreadable + ' термин(и) со непознат ден или час се испуштени\n';
+                    if (!placed && !unknownPupils.length) {
+                        alert('Базата нема ниту еден термин за „' + me + '".\n\nАко распоредот го градиш во Rasporedi Fusion, провери дали таму стоиш под истото име.');
+                        return;
+                    }
+                    msg += '\nОва го заменува распоредот за оваа и идните недели.\n' +
+                        'Снимките на минатите недели остануваат недопрени.\n\nДа продолжам?';
+
+                    if (!confirm(msg)) return;
+
+                    DAY_KEYS.forEach(function (d) { schedule[d] = next[d]; });
+                    saveData();
+                    renderSchedule();
+                    if (typeof toast === 'function') toast('Распоредот е земен од базата: ' + placed + ' термини.');
+                })
+                .catch(function (err) {
+                    alert('Не можам да ја прочитам базата: ' + (err && err.message ? err.message : err));
+                });
+        }
+
         function reconstructScheduleFromAttendance(weekStartDate) {
             // Create empty schedule
             var reconstructed = {
