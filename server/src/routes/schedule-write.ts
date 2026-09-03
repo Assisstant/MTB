@@ -317,8 +317,8 @@ export async function scheduleWriteRoutes(server: FastifyInstance) {
             for (let index = 0; index < students.length; index++) {
                 await client.query(
                     `INSERT INTO schedule_slots
-                        (school_year_id, day, day_order, time_slot, therapist_id, student_id)
-                     VALUES ($1, $2, $3, $4, $5, $6)`,
+                        (school_year_id, day, day_order, time_slot, therapist_id, student_id, source)
+                     VALUES ($1, $2, $3, $4, $5, $6, 'api')`,
                     [year.id, body.day, dayOrder, desiredTimes[index], body.therapistId, students[index].id]
                 );
             }
@@ -507,10 +507,10 @@ export async function scheduleWriteRoutes(server: FastifyInstance) {
 
             await client.query(
                 `INSERT INTO schedule_slots
-                    (school_year_id, day, day_order, time_slot, therapist_id, student_id)
-                 VALUES ($1, $2, $3, $4, $5, $6)
+                    (school_year_id, day, day_order, time_slot, therapist_id, student_id, source)
+                 VALUES ($1, $2, $3, $4, $5, $6, 'api')
                  ON CONFLICT (school_year_id, day, time_slot, therapist_id)
-                 DO UPDATE SET student_id = EXCLUDED.student_id`,
+                 DO UPDATE SET student_id = EXCLUDED.student_id, source = 'api'`,
                 [year.id, body.day, dayOrder, body.time, body.therapistId, student.id]
             );
             await client.query('COMMIT');
@@ -609,10 +609,10 @@ export async function scheduleWriteRoutes(server: FastifyInstance) {
             }
 
             await client.query(
-                `INSERT INTO schedule_slots (school_year_id, day, day_order, time_slot, therapist_id, student_id)
-                 VALUES ($1, $2, $3, $4, $5, $6)
+                `INSERT INTO schedule_slots (school_year_id, day, day_order, time_slot, therapist_id, student_id, source)
+                 VALUES ($1, $2, $3, $4, $5, $6, 'api')
                  ON CONFLICT (school_year_id, day, time_slot, therapist_id)
-                 DO UPDATE SET student_id = EXCLUDED.student_id`,
+                 DO UPDATE SET student_id = EXCLUDED.student_id, source = 'api'`,
                 [yid, body.day, DAY_ORDER[norm(body.day)] ?? 0, body.time, therapistId, st.rows[0].id]
             );
             await client.query('COMMIT');

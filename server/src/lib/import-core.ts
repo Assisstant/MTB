@@ -748,7 +748,35 @@ export async function writeAll(
         }
     }
 
+    // A document may not replace what was written cell by cell.
+    //
+    // The block below deletes the whole year and rebuilds it from the payload,
+    // matching pupils BY NAME. That is fine for a document that owns the
+    // schedule and ruinous for one that does not: RasporediFusion writes each
+    // cell through `/api/schedule/*`, and one save from a diary whose browser
+    // copy is a fortnight old replaces the school's plan with it -- dropping
+    // every slot whose pupil has since been renamed as "unknown student".
+    //
+    // APP-CONTRACT names Fusion the only owner of the plan; this is where the
+    // server holds to it. Same shape as the empty-schedule guard directly
+    // above: say what is being refused and why, and change nothing. Refusing
+    // loudly is the rule everywhere else in this file.
+    let apiOwned = 0;
     if (!scheduleOwned && Array.isArray(base?.schedule) && incomingAssignments > 0) {
+        apiOwned = (await client.query(
+            `SELECT count(*)::int AS n FROM schedule_slots
+              WHERE school_year_id = $1 AND source = 'api'`,
+            [schoolYearId]
+        )).rows[0].n;
+        if (apiOwned > 0) {
+            report.problems.push(
+                `Schedule left untouched — ${apiOwned} slot(s) for this year were written cell by cell in Rasporedi Fusion. ` +
+                `A saved document cannot replace them; change the schedule there.`
+            );
+        }
+    }
+
+    if (!scheduleOwned && apiOwned === 0 && Array.isArray(base?.schedule) && incomingAssignments > 0) {
         await client.query('DELETE FROM schedule_slots WHERE school_year_id = $1', [schoolYearId]);
         const missing = new Set<string>();
         for (const slot of base.schedule) {
@@ -767,10 +795,10 @@ export async function writeAll(
                 if (!therapistId) { missing.add(`therapist "${therapistName}"`); continue; }
                 if (!studentId) { missing.add(`student "${studentName}"`); continue; }
                 await client.query(
-                    `INSERT INTO schedule_slots (school_year_id, day, day_order, time_slot, therapist_id, student_id)
-                     VALUES ($1, $2, $3, $4, $5, $6)
+                    `INSERT INTO schedule_slots (school_year_id, day, day_order, time_slot, therapist_id, student_id, source)
+                     VALUES ($1, $2, $3, $4, $5, $6, 'document')
                      ON CONFLICT (school_year_id, day, time_slot, therapist_id)
-                     DO UPDATE SET student_id = EXCLUDED.student_id`,
+                     DO UPDATE SET student_id = EXCLUDED.student_id, source = 'document'`,
                     [schoolYearId, day, order, time, therapistId, studentId]
                 );
             }

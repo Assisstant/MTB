@@ -169,6 +169,57 @@ test('an empty schedule does not erase the week', async () => {
     );
 });
 
+test('a document cannot replace a schedule written cell by cell', async () => {
+    // The live danger this guard exists for. RasporediFusion writes each cell
+    // through /api/schedule/*; S-Dnevnik saves a whole document and does not set
+    // `slotWrites`. Before this, one save from a diary whose copy was a fortnight
+    // old replaced the school's plan with it, and every slot whose pupil had been
+    // renamed since was dropped as "unknown student".
+    await db().query("UPDATE schedule_slots SET source = 'api'");
+    const before = (await db().query(
+        'SELECT day, time_slot, student_id FROM schedule_slots ORDER BY day, time_slot'
+    )).rows;
+
+    const payload = fullPayload();
+    payload.schedule = [{
+        day: 'среда', time: '10:00-10:20',
+        assignments: { 'Терапевт А': 'I-а - Ученик 3' }   // a week the database has never seen
+    }];
+    const result = await project(payload);
+
+    assert.deepEqual(
+        (await db().query('SELECT day, time_slot, student_id FROM schedule_slots ORDER BY day, time_slot')).rows,
+        before,
+        'not one slot moved'
+    );
+    assert.ok(
+        result.report.problems.some((p) => p.includes('written cell by cell')),
+        'and the caller is told which rows it may not replace, and where to change them'
+    );
+});
+
+test('but a document still owns a schedule it wrote itself', async () => {
+    // The guard must not lock out the path it is not aimed at. A year whose
+    // slots came from a document may still be rewritten by one -- otherwise the
+    // recovery page and the first sync of a fresh machine both stop working.
+    await db().query("UPDATE schedule_slots SET source = 'document'");
+
+    const payload = fullPayload();
+    payload.schedule = [{
+        day: 'среда', time: '10:00-10:20',
+        assignments: { 'Терапевт А': 'I-а - Ученик 3' }   // a week the database has never seen
+    }];
+    const result = await project(payload);
+
+    assert.ok(
+        !result.report.problems.some((p) => p.includes('written cell by cell')),
+        'nothing is refused'
+    );
+    const rows = (await db().query("SELECT source FROM schedule_slots")).rows;
+    assert.ok(rows.length > 0, 'the document wrote its week');
+    assert.ok(rows.every((r) => r.source === 'document'), 'and every row says who wrote it');
+});
+
 test('a drastically smaller roster skips projection entirely', async () => {
     const before = await counts();
     const result = await project(fullPayload(2));   // 2 students vs 12 stored
