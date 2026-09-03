@@ -239,6 +239,33 @@ async function run() {
         { sheetId, itemId: itemA.id, periodId: periods[0].id, value: '7', expected: '2' });
     same('a value outside the scale is refused', result.status, 400);
 
+    // `/` — не се однесува на ова дете. The state that was missing: without it a
+    // goal that was never this child's could only be left blank (reads as
+    // unfinished) or scored 1 (reads as failing something nobody asked of them),
+    // and on a `level` section that 1 went into ОПШТА ПРОЦЕНКА and out into a
+    // signed report. It is legal on BOTH scales -- `mark` has allowed it since
+    // the beginning and only the interface never offered it.
+    result = await api('PUT', '/api/evidence/score',
+        { sheetId, itemId: itemA.id, periodId: periods[0].id, value: '/', expected: '2' });
+    same('a level section accepts / — does not apply to this child', result.status, 200);
+
+    rows = await q('SELECT value, updated_by FROM evidence_scores WHERE sheet_id = $1 AND item_id = $2',
+        [sheetId, itemA.id]);
+    same('and it is stored', rows[0].value, '/');
+    same('with the author who decided it', String(rows[0].updated_by || '').length > 0, true);
+
+    // A decision with a name and a date on it is not an omission, so the column
+    // counter must see it. The average must not: that is arithmetic over
+    // achievement, and "not applicable" is not a low achievement.
+    const listedWithSlash = await api('GET', '/api/evidence/sheets');
+    const rowWithSlash = (listedWithSlash.body.pupils || []).find((x: any) => x.sheet_id === sheetId);
+    same('a / counts as an answered cell, not an empty one',
+        !rowWithSlash || Number((rowWithSlash.filled || {})[periods[0].id] || 0) >= 1, true);
+
+    result = await api('PUT', '/api/evidence/score',
+        { sheetId, itemId: itemA.id, periodId: periods[0].id, value: '2', expected: '/' });
+    same('and it is an ordinary value to write over', result.status, 200);
+
     // A column belongs to a year: writing this year's mark into another year's
     // column would be accepted by the primary key and would quietly change an
     // archived printout.

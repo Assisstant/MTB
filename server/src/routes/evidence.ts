@@ -150,10 +150,28 @@ function refuse(reply: FastifyReply, err: unknown) {
 
 const signed = (req: FastifyRequest) => whoIsSigned(req.headers['x-mtb-evidence-token']);
 
-/** Both scales are closed sets, so a typo cannot become a fourth grade. */
+/**
+ * Both scales are closed sets, so a typo cannot become a fourth grade.
+ *
+ * `/` MEANS "does not apply to this child" and is legal on both scales.
+ *
+ * Without it, a goal that was never this child's had two ways to be recorded and
+ * both lied: leave the cell empty and the sheet reads unfinished, or write 1 and
+ * the child reads as failing something nobody ever asked of them -- and on a
+ * `level` section that 1 goes into ОПШТА ПРОЦЕНКА and out into a signed report.
+ *
+ * So three states, three meanings, no overlap: empty is NOT YET ASSESSED, `/` is
+ * DECIDED NOT TO APPLY, and a grade is assessed. It counts as answered, because
+ * a decision with an author and a date is not an omission -- `evidence_scores`
+ * stamps both. It stays out of the average, because that is arithmetic over
+ * achievement and "not applicable" is not a low one; `sectionSummary` already
+ * skips it, since Number('/') is NaN.
+ *
+ * `mark` has allowed `/` since the beginning and the interface never offered it.
+ */
 function checkValue(scale: string, value: string) {
     if (value === '') return;
-    const allowed = scale === 'mark' ? ['√', 'X', '/'] : ['1', '2', '3'];
+    const allowed = scale === 'mark' ? ['√', 'X', '/'] : ['1', '2', '3', '/'];
     if (!allowed.includes(value)) {
         throw new Refused(400, `"${value}" is not one of ${allowed.join(' ')} for this section`);
     }

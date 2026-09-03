@@ -1042,14 +1042,20 @@ body.dark .at tr.ev td{color:#a3b0f7;}
     function cell(section, item, period) {
         const score = sheet && sheet.scores.find((s) => s.item_id === item.id && s.period_id === period.id);
         const value = score ? score.value : '';
-        const options = section.scale === 'mark' ? ['', '√', 'X'] : ['', '1', '2', '3'];
+        // `/` — не се однесува на ова дете. Празно значи „не е оценето уште";
+        // `/` значи „утврдено дека оваа цел не е за него". Без него, цел што
+        // никогаш не била негова се запишуваше како единица и влегуваше во
+        // ОПШТА ПРОЦЕНКА — детето читаше како да паднало нешто што никој не му
+        // го барал. Не влегува во просекот: Number('/') е NaN.
+        const options = section.scale === 'mark' ? ['', '√', 'X', '/'] : ['', '1', '2', '3', '/'];
         const locked = !item.active || !section.active
             || (catalogOf(section) === 'action' && !actionState(section.id).included);
         return '<select class="ss" data-item="' + item.id + '" data-period="' + period.id + '"'
             + ' data-was="' + esc(value) + '"'
             + (score && score.updated_by ? ' title="Последно внесено од: ' + esc(score.updated_by) + '"' : '')
             + (locked ? ' disabled' : '') + '>'
-            + options.map((o) => '<option value="' + esc(o) + '"' + (o === value ? ' selected' : '') + '>'
+            + options.map((o) => '<option value="' + esc(o) + '"' + (o === value ? ' selected' : '')
+                + (o === '/' ? ' title="не се однесува на ова дете"' : '') + '>'
                 + esc(o) + '</option>').join('')
             + '</select>';
     }
