@@ -1,0 +1,522 @@
+<!DOCTYPE html>
+<html lang="mk">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Настава ↔ терапии</title>
+<!--
+    Кој ученик недостига од кој час, и кај кого е.
+
+    Оваа страница НЕ чува ништо. Нема список на ученици, нема localStorage,
+    нема синхронизација — само чита од локалниот сервер и прикажува. Затоа
+    може да ѝ се даде на наставник или на директор без да им се дава екранот
+    за уредување на распоредот.
+
+    Целата пресметка (кој термин во кабинет со кој наставен час се преклопува,
+    и колку минути) се прави на серверот, во `lib/crossing.ts`. Тука нема ниту
+    еден час запишан во код — ако ѕвоната се сменат, се менува табелата
+    `bell_periods` и оваа страница веднаш кажува поинаку.
+-->
+<style>
+    :root {
+        --bg: #f5f7fb;
+        --card: #ffffff;
+        --text: #1f2430;
+        --muted: #6b7280;
+        --border: #e2e8f0;
+        --primary: #5b6fd8;
+        --primary-dark: #4356b8;
+        --warn: #b7791f;
+        --warn-bg: #fff8e6;
+        --danger: #c53030;
+        --shadow: 0 1px 3px rgba(0, 0, 0, .07);
+        --heat-1: #dbe4f7;
+        --heat-2: #a9bdec;
+        --heat-3: #6f8ddc;
+        --heat-4: #3c5bbf;
+        --on-dark: #ffffff;
+        --on-light: #16233f;
+    }
+    @media (prefers-color-scheme: dark) {
+        :root {
+            --bg: #14172a;
+            --card: #1c2138;
+            --text: #e6e9f2;
+            --muted: #9aa2b8;
+            --border: #333a5c;
+            --primary: #6d80e4;
+            --primary-dark: #5a6cd0;
+            --warn: #e0b155;
+            --warn-bg: #33280f;
+            --danger: #f08a8a;
+            --shadow: 0 1px 3px rgba(0, 0, 0, .35);
+            --heat-1: #2b3560;
+            --heat-2: #3a4d92;
+            --heat-3: #5570c4;
+            --heat-4: #7f97e8;
+            --on-light: #e6e9f2;
+        }
+    }
+
+    * { box-sizing: border-box; }
+    body {
+        margin: 0; background: var(--bg); color: var(--text);
+        font-family: "Segoe UI", system-ui, -apple-system, sans-serif; font-size: 15px;
+    }
+    header {
+        background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+        color: #fff; padding: 16px 22px; display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+    }
+    header h1 { margin: 0; font-size: 20px; font-weight: 700; }
+    header .sub { font-size: 13px; opacity: .85; }
+    header a { color: #fff; opacity: .85; font-size: 13px; margin-left: auto; }
+
+    main { padding: 18px 22px 40px; max-width: 1700px; margin: 0 auto; }
+    .panel {
+        background: var(--card); border: 1px solid var(--border); border-radius: 10px;
+        padding: 16px 18px; box-shadow: var(--shadow); margin-bottom: 16px;
+    }
+
+    .controls { display: flex; flex-wrap: wrap; gap: 14px; align-items: flex-end; }
+    .field { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--muted); }
+    .field select {
+        padding: 8px 10px; border: 1px solid var(--border); border-radius: 6px;
+        background: var(--card); color: var(--text); font-size: 14px; min-width: 190px;
+    }
+    .btn {
+        padding: 9px 16px; border: 0; border-radius: 6px; cursor: pointer;
+        background: var(--primary); color: #fff; font-size: 14px; font-weight: 600;
+    }
+    .btn.soft { background: transparent; color: var(--primary); border: 1px solid var(--border); }
+    .btn[aria-pressed="true"] { background: var(--primary-dark); }
+    .views { display: flex; gap: 8px; margin: 14px 0 0; }
+    .status { font-size: 13px; color: var(--muted); }
+    .status.warn { color: var(--warn); }
+    .status.error { color: var(--danger); }
+
+    .legend { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; font-size: 12px; color: var(--muted); margin: 14px 0 10px; }
+    .swatch { width: 26px; height: 15px; border-radius: 3px; border: 1px solid var(--border); display: inline-block; vertical-align: middle; }
+    .bells { margin-left: auto; }
+
+    .scroll { overflow-x: auto; }
+    table.grid { border-collapse: separate; border-spacing: 0; width: 100%; font-size: 13px; }
+    table.grid th, table.grid td { border-bottom: 1px solid var(--border); padding: 7px 9px; text-align: left; }
+    table.grid thead th {
+        position: sticky; top: 0; z-index: 2; background: var(--primary); color: #fff;
+        font-weight: 600; white-space: nowrap;
+    }
+    table.grid thead th small { display: block; font-weight: 400; opacity: .82; font-size: 11px; }
+    table.grid tbody th { position: sticky; left: 0; z-index: 1; background: var(--card); font-weight: 700; white-space: nowrap; }
+
+    .cell { border-radius: 4px; }
+    .cell.clickable { cursor: pointer; }
+    .cell .count {
+        display: inline-block; min-width: 20px; margin-left: 6px; padding: 0 6px;
+        border-radius: 10px; font-weight: 700; font-size: 11px;
+        background: rgba(255, 255, 255, .8); color: #16233f;
+    }
+    .cell.free { color: var(--muted); }
+    .heat-0 { background: transparent; }
+    .heat-1 { background: var(--heat-1); }
+    .heat-2 { background: var(--heat-2); color: var(--on-light); }
+    .heat-3 { background: var(--heat-3); color: var(--on-dark); }
+    .heat-4 { background: var(--heat-4); color: var(--on-dark); }
+    .cell.selected { outline: 2px solid var(--primary); outline-offset: -2px; }
+
+    .detail { display: none; }
+    .detail.open { display: block; }
+    .detail h3 { margin: 0 0 4px; font-size: 16px; }
+    .detail .meta { color: var(--muted); font-size: 13px; }
+    .detail ul { margin: 10px 0 0 18px; padding: 0; }
+    .detail li { margin-bottom: 4px; }
+
+    .unplaced h3 { margin: 0 0 8px; font-size: 15px; }
+    .unplaced table { border-collapse: collapse; width: 100%; font-size: 13px; }
+    .unplaced td, .unplaced th { border-bottom: 1px solid var(--border); padding: 6px 9px; text-align: left; }
+    .unplaced .why { color: var(--warn); }
+
+    .offline { background: var(--warn-bg); border: 1px solid var(--warn); border-radius: 8px; padding: 14px 16px; }
+    .offline h3 { margin: 0 0 6px; font-size: 15px; }
+    .offline code { font-family: Consolas, monospace; font-size: 13px; }
+
+    @media print {
+        header a, .controls, .views, .btn { display: none !important; }
+        body { background: #fff; }
+        .panel { border: 0; box-shadow: none; padding: 0; }
+        table.grid thead th { background: #eee !important; color: #000 !important; }
+        .heat-2, .heat-3, .heat-4 { color: #000 !important; }
+    }
+</style>
+</head>
+<body>
+<header>
+    <h1>🏫 Настава ↔ терапии</h1>
+    <span class="sub">Колку деца недостигаат од секое одделение, на секој час</span>
+</header>
+
+<main>
+    <div class="panel">
+        <div class="controls">
+            <label class="field">
+                <span>Учебна година</span>
+                <select id="year" disabled></select>
+            </label>
+            <label class="field">
+                <span>Ден</span>
+                <select id="day"></select>
+            </label>
+            <label class="field">
+                <span>Отсутен ако пропушти</span>
+                <select id="share">
+                    <option value="0.5" selected>половина час или повеќе</option>
+                    <option value="0">кој било дел од часот</option>
+                    <option value="0.9">речиси цел час</option>
+                </select>
+            </label>
+            <button class="btn" id="refresh">↻ Освежи</button>
+            <button class="btn soft" onclick="window.print()">🖨️ Печати</button>
+            <span class="status" id="status"></span>
+        </div>
+        <div class="views">
+            <button class="btn soft" id="viewClass" aria-pressed="true">🏫 По одделение</button>
+            <button class="btn soft" id="viewTeacher" aria-pressed="false">👩‍🏫 По наставник</button>
+        </div>
+    </div>
+
+    <div class="panel" id="gridPanel">
+        <div class="legend" id="legend"></div>
+        <div class="scroll"><div id="grid"></div></div>
+    </div>
+
+    <div class="panel detail" id="detail"></div>
+    <div class="panel unplaced" id="unplaced" style="display:none;"></div>
+    <div class="panel unplaced" id="external" style="display:none;"></div>
+</main>
+
+<script>
+(function () {
+    'use strict';
+
+    const DAYS = ['понеделник', 'вторник', 'среда', 'четврток', 'петок'];
+
+    let data = null;
+    let selected = null;    // "класа|час"
+    let view = 'class';
+    // Every request carries a number and only the newest one may draw. Without
+    // this, changing the day while the first fetch is still running leaves the
+    // previous day's grid on screen under the new day's label.
+    let ticket = 0;
+
+    const el = (id) => document.getElementById(id);
+    const esc = (v) => String(v == null ? '' : v)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+
+    function status(text, kind) {
+        const node = el('status');
+        node.textContent = text || '';
+        node.className = 'status' + (kind ? ' ' + kind : '');
+        let dataState = kind === 'error' ? 'error' : kind === 'warn' ? 'warning' : 'readonly';
+        if (/вчитув|проверув/i.test(text || '')) dataState = 'loading';
+        const detail = { state: dataState, text: text || 'Само читање од базата' };
+        window.__MTB_DATA_STATE__ = detail;
+        window.dispatchEvent(new CustomEvent('mtb:data-state', { detail }));
+    }
+
+    function fillDays() {
+        const select = el('day');
+        if (select.options.length) return;
+        DAYS.forEach((d) => {
+            const opt = document.createElement('option');
+            opt.value = d;
+            opt.textContent = d.charAt(0).toUpperCase() + d.slice(1);
+            select.appendChild(opt);
+        });
+        const today = new Date().getDay() - 1;
+        select.value = DAYS[today >= 0 && today < DAYS.length ? today : 0];
+    }
+
+    async function fillYears() {
+        const select = el('year');
+        if (select.options.length) return;
+        const res = await fetch('/api/years', { cache: 'no-store' });
+        const years = await res.json();
+        if (!res.ok) throw new Error((years && years.error) || ('HTTP ' + res.status));
+        const requested = new URLSearchParams(window.location.search).get('year');
+        years.forEach((year) => {
+            const opt = document.createElement('option');
+            opt.value = year.label;
+            opt.textContent = year.label + (year.is_current ? ' · тековна' : ' · архива');
+            select.appendChild(opt);
+        });
+        const fallback = years.find((year) => year.is_current) || years[0];
+        select.value = years.some((year) => year.label === requested) ? requested : (fallback && fallback.label);
+        select.disabled = !select.options.length;
+    }
+
+    /**
+     * The page is served BY the API, so a relative path is the whole story —
+     * and it is deliberately relative rather than configurable. A copy opened
+     * from GitHub Pages has no server behind it and must say so, not quietly
+     * point itself at somebody's machine.
+     */
+    async function load() {
+        fillDays();
+        const mine = ++ticket;
+        status('вчитувам…');
+        try {
+            await fillYears();
+            const year = el('year').value;
+            const day = el('day').value;
+            const share = el('share').value;
+            const res = await fetch(
+                `/api/teaching/crossing?year=${encodeURIComponent(year)}&day=${encodeURIComponent(day)}`
+                    + `&minShare=${encodeURIComponent(share)}`,
+                { cache: 'no-store' }
+            );
+            let body = null;
+            try { body = await res.json(); } catch (e) { /* не-JSON */ }
+            if (mine !== ticket) return;
+            if (!res.ok) throw new Error((body && body.error) || ('HTTP ' + res.status));
+            data = body;
+            selected = null;
+            draw();
+            if (!body.cells.length) {
+                status('Серверот нема внесен распоред на настава.', 'warn');
+            } else {
+                const yearLabel = body.year + (body.isCurrentYear ? '' : ' · архивски приказ');
+                const ext = body.summary.external
+                    ? ` · ${body.summary.external} кај екстерни ученици`
+                    : '';
+                status(`${yearLabel} · ${body.summary.placed} од ${body.summary.sessions} третмани се поврзани со час${ext} · `
+                     + `${body.summary.lessonsDisrupted} часа со отсутни`);
+            }
+        } catch (err) {
+            if (mine !== ticket) return;
+            data = null;
+            selected = null;
+            offline(err);
+        }
+    }
+
+    function offline(err) {
+        el('legend').innerHTML = '';
+        el('detail').className = 'panel detail';
+        el('unplaced').style.display = 'none';
+        el('external').style.display = 'none';
+        el('grid').innerHTML =
+            '<div class="offline"><h3>Нема врска со серверот</h3>'
+            + '<p>Овој преглед се пресметува на серверот — без него нема ни распоред на настава за вкрстување.</p>'
+            + '<p>Ако страницата е отворена од интернет (GitHub Pages), отвори ја преку '
+            + '<a href="start.html">start.html</a>, кој наоѓа кој компјутер е вклучен.</p>'
+            + `<p class="meta"><code>${esc(err.message)}</code></p></div>`;
+        status('серверот не одговара', 'error');
+    }
+
+    /** 0..4+, so the darkest shade means "four or more, look at this". */
+    const heat = (n) => 'heat-' + Math.max(0, Math.min(4, n));
+
+    function drawLegend() {
+        const covers = (data.bells.cabinet || []).map((b) =>
+            `${esc(b.label)} ${esc(b.startsAt)}→${(b.covers || []).map((c) => c.ordinal + '.').join('+') || '—'}`
+        ).join(' · ');
+        el('legend').innerHTML =
+            '<span>Отсутни од часот:</span>'
+            + [0, 1, 2, 3, 4].map((n) => `<span><i class="swatch ${heat(n)}"></i> ${n === 4 ? '4+' : n}</span>`).join('')
+            + (covers ? `<span class="bells">Кабинет → наставен час: ${covers}</span>` : '');
+    }
+
+    function draw() {
+        if (!data) return;
+        drawLegend();
+        if (view === 'class') drawByClass(); else drawByTeacher();
+        drawUnplaced();
+        drawExternal();
+        markSelected();
+    }
+
+    function periodHeader() {
+        return '<tr><th>' + (view === 'class' ? 'Одделение' : 'Наставник') + '</th>'
+            + (data.bells.teaching || []).map((p) =>
+                `<th>${esc(p.label)}<small>${esc(p.startsAt)}</small></th>`).join('')
+            + '</tr>';
+    }
+
+    function drawByClass() {
+        const periods = data.bells.teaching || [];
+        const byClass = new Map();
+        data.cells.forEach((c) => {
+            if (!byClass.has(c.class)) byClass.set(c.class, new Map());
+            byClass.get(c.class).set(c.ordinal, c);
+        });
+
+        let html = '<table class="grid"><thead>' + periodHeader() + '</thead><tbody>';
+        byClass.forEach((row, label) => {
+            html += `<tr><th>${esc(label)}</th>`;
+            periods.forEach((p) => {
+                const cell = row.get(p.ordinal);
+                if (!cell) { html += '<td class="cell free">—</td>'; return; }
+                const n = cell.awayCount;
+                const title = [
+                    `${label} · ${p.ordinal}. час`,
+                    cell.subject || 'без предмет',
+                    cell.teacher || 'без наставник',
+                    n ? `отсутни: ${n}` : 'сите се тука'
+                ].join(' · ');
+                html += `<td class="cell ${heat(n)}${n ? ' clickable' : ''}" title="${esc(title)}"`
+                    + (n ? ` data-key="${esc(label)}|${p.ordinal}"` : '')
+                    + `>${esc(cell.subject || '·')}`
+                    + (n ? `<span class="count">${n}</span>` : '')
+                    + '</td>';
+            });
+            html += '</tr>';
+        });
+        el('grid').innerHTML = html + '</tbody></table>';
+    }
+
+    /**
+     * The same week seen the way the school's own workbook prints it: one row
+     * per teacher, the class in the cell. Kept because that is the layout the
+     * staff already read, and a familiar shape is worth more than a tidier one.
+     */
+    function drawByTeacher() {
+        const periods = data.bells.teaching || [];
+        const byTeacher = new Map();
+        data.cells.forEach((c) => {
+            const name = c.teacher || '— без наставник —';
+            if (!byTeacher.has(name)) byTeacher.set(name, new Map());
+            const slot = byTeacher.get(name);
+            if (!slot.has(c.ordinal)) slot.set(c.ordinal, []);
+            slot.get(c.ordinal).push(c);
+        });
+
+        let html = '<table class="grid"><thead>' + periodHeader() + '</thead><tbody>';
+        Array.from(byTeacher.keys()).sort((a, b) => a.localeCompare(b, 'mk')).forEach((name) => {
+            html += `<tr><th>${esc(name)}</th>`;
+            periods.forEach((p) => {
+                const list = byTeacher.get(name).get(p.ordinal) || [];
+                if (!list.length) { html += '<td class="cell free">—</td>'; return; }
+                const away = list.reduce((n, c) => n + c.awayCount, 0);
+                const text = list.map((c) => c.class + (c.subject ? ' · ' + c.subject : '')).join(' / ');
+                const key = list[0].class + '|' + p.ordinal;
+                html += `<td class="cell ${heat(away)}${away ? ' clickable' : ''}" title="${esc(text)}"`
+                    + (away ? ` data-key="${esc(key)}"` : '')
+                    + `>${esc(text)}`
+                    + (away ? `<span class="count">${away}</span>` : '')
+                    + '</td>';
+            });
+            html += '</tr>';
+        });
+        el('grid').innerHTML = html + '</tbody></table>';
+    }
+
+    /** Clicking, not hovering: this gets read on a tablet in a staff room. */
+    function show(key) {
+        const [label, ordinal] = [key.slice(0, key.lastIndexOf('|')), Number(key.slice(key.lastIndexOf('|') + 1))];
+        const cell = data.cells.find((c) => c.class === label && c.ordinal === ordinal);
+        const box = el('detail');
+        if (!cell || !cell.awayCount) { box.className = 'panel detail'; box.innerHTML = ''; selected = null; return; }
+        selected = key;
+        const period = (data.bells.teaching || []).find((p) => p.ordinal === ordinal);
+        box.className = 'panel detail open';
+        box.innerHTML =
+            `<h3>${esc(label)} · ${ordinal}. час${period ? ' · ' + esc(period.startsAt) : ''}</h3>`
+            + `<div class="meta">${esc(cell.subject || 'без предмет')} · ${esc(cell.teacher || 'без наставник')}</div>`
+            + `<ul>${cell.away.map((a) =>
+                `<li><b>${esc(a.student)}</b> — ${esc(a.therapist)} <span class="meta">(${a.minutes} мин од часот)</span></li>`
+              ).join('')}</ul>`;
+        markSelected();
+    }
+
+    function markSelected() {
+        document.querySelectorAll('#grid .cell').forEach((td) => {
+            td.classList.toggle('selected', !!td.dataset.key && td.dataset.key === selected);
+        });
+    }
+
+    /**
+     * The sessions that could not be attached to a lesson, and why.
+     *
+     * This is the honest half of the page. Folding "VI" into "VI-а" would empty
+     * this list and put children in rooms they were never in, so nothing is
+     * folded and the work stays visible.
+     */
+    function reasonText(row) {
+        switch (row.reasonCode) {
+            case 'no-class':      return 'ученикот нема запишано одделение';
+            case 'unknown-class': return `одделението „${row.grade}" не постои во распоредот на настава`;
+            case 'unknown-bell':  return `терминот ${row.time_slot} не одговара на ниту еден час во кабинетот`;
+            case 'external':      return 'ученикот е екстерен — не е на настава';
+            default:              return row.reason || 'непознато';
+        }
+    }
+
+    function drawUnplaced() {
+        const box = el('unplaced');
+        const rows = (data && data.unplaced) || [];
+        if (!rows.length) { box.style.display = 'none'; box.innerHTML = ''; return; }
+        box.style.display = '';
+        box.innerHTML = `<h3>Неповрзани третмани: ${rows.length}</h3>`
+            + '<table><thead><tr><th>Ученик</th><th>Одделение</th><th>Термин</th><th>Терапевт</th><th>Причина</th></tr></thead><tbody>'
+            + rows.slice(0, 60).map((r) =>
+                `<tr><td>${esc(r.student)}</td><td>${esc(r.grade || '—')}</td><td>${esc(r.time_slot)}</td>`
+                + `<td>${esc(r.therapist)}</td><td class="why">${esc(reasonText(r))}</td></tr>`
+              ).join('')
+            + '</tbody></table>'
+            + (rows.length > 60 ? `<p class="meta">…и уште ${rows.length - 60}.</p>` : '');
+    }
+
+    /**
+     * The external children, listed apart and without a complaint.
+     *
+     * They belong to no class and never will — they come from home for the
+     * hour. Before this they sat in „Неповрзани третмани" with the reason
+     * „ученикот нема запишано одделение", which reads as twenty things to fix
+     * that cannot be fixed. A list like that stops being read, and the real
+     * omissions go with it.
+     */
+    function drawExternal() {
+        const box = el('external');
+        const rows = (data && data.external) || [];
+        if (!rows.length) { box.style.display = 'none'; box.innerHTML = ''; return; }
+        box.style.display = '';
+        const names = Array.from(new Set(rows.map((r) => r.student)))
+            .sort((a, b) => a.localeCompare(b, 'mk'));
+        box.innerHTML = `<h3>Екстерни ученици: ${names.length}</h3>`
+            + `<p class="meta">Не се на настава — доаѓаат само на третман, па немаат час од кој да бидат земени. `
+            + `${rows.length} ${rows.length === 1 ? 'термин' : 'термини'} вкупно.</p>`
+            + '<table><thead><tr><th>Ученик</th><th>Термин</th><th>Терапевт</th></tr></thead><tbody>'
+            + rows.slice(0, 60).map((r) =>
+                `<tr><td>${esc(r.student)}</td><td>${esc(r.time_slot)}</td><td>${esc(r.therapist)}</td></tr>`).join('')
+            + '</tbody></table>'
+            + (rows.length > 60 ? `<p class="meta">…и уште ${rows.length - 60}.</p>` : '');
+    }
+
+    function setView(next) {
+        view = next;
+        el('viewClass').setAttribute('aria-pressed', String(next === 'class'));
+        el('viewTeacher').setAttribute('aria-pressed', String(next === 'teacher'));
+        draw();
+    }
+
+    el('year').addEventListener('change', () => {
+        const url = new URL(window.location.href);
+        url.searchParams.set('year', el('year').value);
+        window.history.replaceState(null, '', url);
+        load();
+    });
+    el('day').addEventListener('change', load);
+    el('share').addEventListener('change', load);
+    el('refresh').addEventListener('click', load);
+    el('viewClass').addEventListener('click', () => setView('class'));
+    el('viewTeacher').addEventListener('click', () => setView('teacher'));
+    el('grid').addEventListener('click', (event) => {
+        const td = event.target.closest('.cell.clickable');
+        if (td) show(td.dataset.key);
+    });
+
+    load();
+})();
+</script>
+<script src="app-navigation.js"></script>
+</body>
+</html>

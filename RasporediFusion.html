@@ -1,0 +1,1943 @@
+<!DOCTYPE html>
+<html lang="mk">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#1a1a2e">
+<title>Распоред 40 минути — MTB</title>
+<style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        min-height: 100vh;
+        padding: 0;
+        color: #2d3748;
+    }
+    button, select, input { font-family: inherit; }
+    button { cursor: pointer; }
+    button:disabled, select:disabled { cursor: wait; opacity: .55; }
+    a { color: inherit; }
+
+    /* ── Header ─────────────────────────────────────────── */
+    .header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 15px 20px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 20px;
+        flex-wrap: wrap;
+    }
+    .header h1 { font-size: 1.6em; margin-bottom: 5px; letter-spacing: 1px; }
+    .header p { font-size: 0.85em; opacity: 0.95; }
+    .header-right { display: flex; align-items: center; gap: 16px; }
+    .header-state { display: flex; align-items: center; gap: 9px; white-space: nowrap; font-size: 0.85em; }
+    .live-dot { width: 10px; height: 10px; border-radius: 50%; background: #cbd5e0; }
+    .live-dot.ok { background: #48bb78; box-shadow: 0 0 0 4px rgba(72, 187, 120, .25); }
+    .live-dot.bad { background: #f56565; box-shadow: 0 0 0 4px rgba(245, 101, 101, .25); }
+
+    /* ── Dark Mode Toggle (S-Dnevnik) ───────────────────── */
+    .theme-switch-wrapper { display: flex; align-items: center; }
+    .theme-switch { display: inline-block; height: 24px; position: relative; width: 50px; }
+    .theme-switch input { display: none; }
+    .slider {
+        background-color: #ccc;
+        bottom: 0; left: 0; right: 0; top: 0;
+        cursor: pointer;
+        position: absolute;
+        transition: .4s;
+        border-radius: 24px;
+    }
+    .slider:before {
+        background-color: #fff;
+        bottom: 4px; left: 4px;
+        content: "";
+        height: 16px; width: 16px;
+        position: absolute;
+        transition: .4s;
+        border-radius: 50%;
+    }
+    input:checked + .slider { background-color: #667eea; }
+    input:checked + .slider:before { transform: translateX(26px); }
+
+    /* ── Bands ──────────────────────────────────────────── */
+    .band { width: 100%; background: #f7fafc; border-bottom: 1px solid #e2e8f0; }
+    .band__inner { max-width: 1680px; margin: 0 auto; padding: 13px 20px; }
+    .toolbar { display: flex; align-items: end; gap: 10px; flex-wrap: wrap; }
+    .field { display: grid; gap: 4px; min-width: 150px; }
+    .field span { font-size: 11px; font-weight: 700; color: #718096; text-transform: uppercase; letter-spacing: .5px; }
+    .field select {
+        width: 100%;
+        padding: 8px 10px;
+        font-size: 14px;
+        color: #2d3748;
+        border: 1px solid #e2e8f0;
+        border-radius: 6px;
+        background: #ffffff;
+    }
+    .field.year { min-width: 180px; }
+    .field.view { min-width: 240px; }
+    .field.focus { min-width: 240px; flex: 1; max-width: 380px; }
+    .actions { display: flex; align-items: center; gap: 7px; margin-left: auto; }
+    .btn {
+        padding: 10px 20px;
+        border: none;
+        border-radius: 6px;
+        font-size: 14px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s;
+        background: #edf2f7;
+        color: #2d3748;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 7px;
+    }
+    .btn:hover { transform: translateY(-1px); box-shadow: 0 4px 8px rgba(0,0,0,0.15); }
+    .btn-primary { background: #667eea; color: white; }
+    .btn-primary:hover { background: #5568d3; }
+    .btn-success { background: #48bb78; color: white; }
+    .btn-success:hover { background: #38a169; }
+    .icon-btn { width: 44px; padding: 0; font-size: 19px; }
+    @media (hover: none) { .btn:hover { transform: none; } }
+    button, .btn, .day-tab { -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
+
+    .metrics { display: flex; align-items: stretch; overflow-x: auto; }
+    .metric { min-width: 145px; padding: 3px 22px 3px 0; margin-right: 22px; border-right: 1px solid #e2e8f0; }
+    .metric:last-child { border-right: 0; }
+    .metric strong { display: block; font-size: 24px; line-height: 1.1; color: #2d3748; }
+    .metric span { color: #718096; font-size: 12px; }
+    .metric.warn strong { color: #dd6b20; }
+    .metric.bad strong { color: #e53e3e; }
+
+    /* ── Day tabs, in the S-Dnevnik tab-bar style ───────── */
+    .day-tabs-band { background: linear-gradient(to bottom, #1a1a2e 0%, #16213e 100%); border-bottom: 3px solid #0f3460; box-shadow: 0 4px 6px rgba(0,0,0,0.3); }
+    .day-tabs-band[hidden] { display: none; }
+    .day-tabs-band .band__inner { display: flex; justify-content: center; gap: 5px; padding: 0 10px; overflow-x: auto; }
+    .day-tabs-band .band__inner::-webkit-scrollbar { display: none; }
+    .day-tab {
+        padding: 12px 30px;
+        border: none;
+        background: linear-gradient(to bottom, #2d3748 0%, #1a202c 100%);
+        cursor: pointer;
+        transition: all 0.3s;
+        font-size: 15px;
+        color: #a0aec0;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        position: relative;
+        clip-path: polygon(10px 0, 100% 0, calc(100% - 10px) 100%, 0 100%);
+        margin-top: 5px;
+        border-top: 2px solid #4a5568;
+        white-space: nowrap;
+    }
+    .day-tab::before {
+        content: '';
+        position: absolute;
+        top: 0; left: 0; right: 0;
+        height: 2px;
+        background: linear-gradient(90deg, transparent, #667eea, transparent);
+        opacity: 0;
+        transition: opacity 0.3s;
+    }
+    .day-tab:hover { background: linear-gradient(to bottom, #4a5568 0%, #2d3748 100%); color: #e2e8f0; }
+    .day-tab:hover::before { opacity: 1; }
+    .day-tab[aria-pressed="true"] {
+        background: linear-gradient(to bottom, #667eea 0%, #5568d3 100%);
+        color: #ffffff;
+        font-weight: bold;
+        margin-top: 0;
+        padding-top: 17px;
+        border-top: 3px solid #818cf8;
+        box-shadow: 0 0 20px rgba(102, 126, 234, 0.5);
+    }
+    .day-tab[aria-pressed="true"]::before { opacity: 1; background: linear-gradient(90deg, transparent, #ffffff, transparent); }
+    body.dark-mode .day-tabs-band { background: #2d3748; border-bottom-color: #4a5568; }
+    body.dark-mode .day-tab { background: linear-gradient(to bottom, #1a202c 0%, #0f1419 100%); color: #718096; border-top-color: #2d3748; }
+    body.dark-mode .day-tab:hover { background: linear-gradient(to bottom, #2d3748 0%, #1a202c 100%); color: #cbd5e0; }
+    body.dark-mode .day-tab[aria-pressed="true"] { background: linear-gradient(to bottom, #818cf8 0%, #6366f1 100%); color: #ffffff; border-top-color: #a5b4fc; }
+
+    .notice {
+        display: none;
+        margin: 12px 20px 0;
+        padding: 12px 15px;
+        border-radius: 8px;
+        border-left: 4px solid #dd6b20;
+        background: #fffaf0;
+        color: #9c4221;
+        font-size: 14px;
+    }
+    .notice.on { display: block; }
+    .notice.error { background: #fff5f5; border-left-color: #e53e3e; color: #c53030; }
+    .notice a { font-weight: 700; }
+    body.dark-mode .notice { background: #3b2b18; color: #fbd38d; }
+    body.dark-mode .notice.error { background: #4a2020; color: #fed7d7; }
+
+    /* ── Content ────────────────────────────────────────── */
+    .content {
+        padding: 20px;
+        background: white;
+        min-height: calc(100vh - 220px);
+    }
+    .view-tabs {
+        width: 100%;
+        display: flex;
+        gap: 4px;
+        margin-bottom: 16px;
+        border-bottom: 1px solid #e2e8f0;
+        overflow-x: auto;
+    }
+    .view-tab {
+        flex: 0 0 auto;
+        padding: 10px 14px 9px;
+        border: 0;
+        border-bottom: 3px solid transparent;
+        background: transparent;
+        color: #718096;
+        font-size: 14px;
+        font-weight: 700;
+        white-space: nowrap;
+    }
+    .view-tab:hover { color: #4c51bf; }
+    .view-tab[aria-selected="true"] { color: #4c51bf; border-bottom-color: #667eea; }
+    .view-tab:focus-visible { outline: 2px solid #667eea; outline-offset: -2px; }
+    body[data-panel="roster"] .schedule-only { display: none !important; }
+    .workspace {
+        width: 100%;
+        min-width: 0;
+    }
+    .schedule-tool, .roster-tool { min-width: 0; width: 100%; }
+    .section-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 12px 15px;
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        font-weight: 600;
+    }
+    .section-header h2 { font-size: 16px; margin: 0; }
+    .section-header span { font-size: 12px; opacity: .9; font-weight: 500; }
+    body.dark-mode .section-header { background: linear-gradient(135deg, #4c51bf 0%, #2d3748 100%); }
+
+    .scrollable-container { width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    .empty-state { padding: 56px 20px; text-align: center; color: #718096; }
+
+    /* ══ Schedule grid — ported verbatim from S-Dnevnik ══ */
+    .schedule-grid {
+        display: grid;
+        grid-template-columns: 100px repeat(5, 1fr);
+        gap: 1px;
+        background: #f1f5f9; /* Grid line color */
+        border-radius: 8px;
+        overflow: hidden;
+        margin-top: 15px;
+        border: 1px solid #f1f5f9;
+        width: 100%;
+        /* min-width is set per view, so wide days scroll instead of squeezing */
+    }
+    .schedule-header {
+        background: #667eea;
+        color: white;
+        padding: 12px 5px;
+        font-weight: 600;
+        text-align: center;
+        font-size: 12px;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+    }
+    .schedule-header-name { font-size: 14px; font-weight: bold; }
+    .schedule-header-sub { font-size: 11px; margin-top: 3px; opacity: .85; }
+    .schedule-time {
+        background: #2d3748;
+        color: white;
+        padding: 15px 8px;
+        text-align: center;
+        font-size: 17px;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        line-height: 1.5;
+    }
+    .schedule-time-label { font-size: 20px; font-weight: bold; margin-bottom: 5px; }
+    .schedule-time-range { font-size: 11px; line-height: 1.6; white-space: nowrap; }
+    .schedule-cell {
+        background: white;
+        padding: 8px 4px;
+        min-height: 80px;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+    }
+    .schedule-cell.odd-row { background: #f8fafc; }
+    .schedule-cell:hover { background: #edf2f7; }
+    .schedule-cell.saving { background: #ebf8ff; }
+    .student-slot {
+        background: #e6fffa;
+        padding: 6px;
+        border-radius: 4px;
+        margin: 3px 0;
+        font-size: 17px;
+        font-weight: bold;
+        border-left: 3px solid #38b2ac;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        text-align: center;
+        min-height: 34px;
+        position: relative;
+        min-width: 0;
+        width: 100%;
+        /* Slots share the cell's height: one pupil fills it, two take half each */
+        flex: 1 1 0;
+    }
+    .student-slot.full { box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15); }
+    .student-slot.empty { background: #f7fafc; border-left-color: #cbd5e0; box-shadow: none; }
+    .student-slot.conflict { background: rgba(245, 101, 101, 0.3); border-left-color: #f56565; }
+    .student-slot.overlap { background: rgba(246, 173, 85, 0.3); border-left-color: #dd6b20; }
+
+    .slot-badge {
+        width: 28px;
+        height: 24px;
+        border-radius: 4px;
+        background: #cbd5e0;
+        border: 2px solid #a0aec0;
+        flex-shrink: 0;
+        margin-right: 6px;
+        font-size: 10px;
+        font-weight: bold;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #2d3748;
+        position: relative;
+        z-index: 10;
+        pointer-events: none;
+    }
+    .student-slot.full .slot-badge { background: #b2f5ea; border-color: #38b2ac; color: #234e52; }
+    .student-slot.empty .slot-badge { background: #edf2f7; border-color: #cbd5e0; color: #a0aec0; }
+    .student-slot.conflict .slot-badge { background: #f56565; border-color: #e53e3e; color: #fff; }
+
+    .slot-select {
+        position: absolute;
+        inset: 0;
+        z-index: 5;
+        width: 100%;
+        height: 100%;
+        opacity: 0;
+        background: transparent;
+        border: 0;
+        padding: 0;
+        font-family: inherit;
+        cursor: pointer;
+    }
+    .student-slot:focus-within { outline: 2px solid #667eea; outline-offset: 1px; }
+    .slot-select:focus { outline: none; }
+    .slot-select:disabled { opacity: 0; }
+    .slot-select option { font-size: 14px; font-weight: 600; text-align: left; background: #ffffff; color: #2d3748; }
+    .slot-name {
+        position: relative;
+        z-index: 1;
+        flex: 1;
+        min-width: 0;
+        font-size: 14px;
+        font-weight: 700;
+        line-height: 1.2;
+        white-space: normal;
+        overflow-wrap: anywhere;
+        text-align: center;
+        pointer-events: none;
+    }
+    .student-slot.empty .slot-name { color: #a0aec0; font-weight: 600; }
+    .slot-caret {
+        position: relative;
+        z-index: 10;
+        flex: 0 0 10px;
+        margin-left: 3px;
+        color: #718096;
+        font-size: 11px;
+        line-height: 1;
+        pointer-events: none;
+    }
+    .slot-action {
+        width: 22px;
+        min-width: 22px;
+        height: 24px;
+        margin-left: 5px;
+        padding: 0;
+        border-radius: 4px;
+        border: 1px dashed #38b2ac;
+        background: transparent;
+        color: #2c7a7b;
+        font-size: 16px;
+        font-weight: 800;
+        line-height: 1;
+        flex-shrink: 0;
+        position: relative;
+        z-index: 12;
+    }
+    .slot-action:hover { background: #b2f5ea; border-style: solid; }
+    .slot-action.remove { border-color: #a0aec0; color: #718096; }
+    .slot-action.remove:hover { background: #e2e8f0; }
+
+    /* ── Therapist roster ───────────────────────────────── */
+    .roster-controls {
+        display: grid;
+        grid-template-columns: minmax(220px, 1.4fr) minmax(180px, 1fr) minmax(150px, .7fr) minmax(170px, .8fr);
+        gap: 12px;
+        margin: 15px 0;
+        align-items: end;
+    }
+    .roster-field { display: grid; gap: 5px; min-width: 0; }
+    .roster-field span {
+        color: #718096;
+        font-size: 11px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: .5px;
+    }
+    .roster-field input, .roster-field select {
+        width: 100%;
+        min-width: 0;
+        padding: 9px 10px;
+        font-size: 14px;
+        color: #2d3748;
+        border: 1px solid #e2e8f0;
+        border-radius: 6px;
+        background: #ffffff;
+    }
+    .roster-table-wrap { width: 100%; overflow-x: auto; border-top: 1px solid #e2e8f0; }
+    .roster-table { width: 100%; min-width: 720px; border-collapse: collapse; table-layout: fixed; }
+    .roster-table th, .roster-table td {
+        padding: 11px 12px;
+        border-bottom: 1px solid #e2e8f0;
+        text-align: left;
+        vertical-align: middle;
+        font-size: 14px;
+    }
+    .roster-table th { background: #f7fafc; color: #4a5568; font-size: 12px; font-weight: 700; }
+    .roster-table tbody tr:hover { background: #f7fafc; }
+    .roster-table .roster-number { width: 64px; text-align: right; color: #718096; font-variant-numeric: tabular-nums; }
+    .roster-table .roster-grade { width: 130px; }
+    .roster-table .roster-name { width: auto; font-weight: 700; overflow-wrap: anywhere; }
+    .roster-table .roster-kind { width: 130px; }
+    .roster-table .roster-sessions { width: 150px; text-align: center; font-variant-numeric: tabular-nums; }
+    .roster-empty { padding: 40px 15px !important; color: #718096; text-align: center !important; }
+
+    .busy-layer {
+        display: none;
+        position: fixed;
+        inset: 0;
+        z-index: 10000;
+        background: rgba(26, 32, 44, .6);
+        align-items: center;
+        justify-content: center;
+    }
+    .busy-layer.on { display: flex; }
+    .busy-box { padding: 14px 18px; border-radius: 8px; background: #2d3748; color: #fff; box-shadow: 0 10px 30px rgba(0,0,0,.3); }
+
+    .credit-watermark {
+        position: fixed;
+        bottom: 10px; right: 15px;
+        font-size: 10px;
+        color: rgba(102, 126, 234, 0.4);
+        font-weight: 500;
+        z-index: 10;
+        pointer-events: none;
+        user-select: none;
+    }
+
+    /* ══ Dark Mode — ported verbatim from S-Dnevnik ══════ */
+    body.dark-mode {
+        background: linear-gradient(135deg, #2d3748 0%, #1a202c 100%);
+        color: #e2e8f0;
+    }
+    body.dark-mode .header, body.dark-mode .section-header {
+        background: linear-gradient(135deg, #4c51bf 0%, #2d3748 100%);
+    }
+    body.dark-mode .content { background: #1a202c; }
+    body.dark-mode .band { background: #2d3748; border-bottom-color: #4a5568; }
+    body.dark-mode .view-tabs { border-bottom-color: #4a5568; }
+    body.dark-mode .view-tab { color: #a0aec0; }
+    body.dark-mode .view-tab:hover, body.dark-mode .view-tab[aria-selected="true"] { color: #c7d2fe; }
+    body.dark-mode .view-tab[aria-selected="true"] { border-bottom-color: #818cf8; }
+    body.dark-mode .field span { color: #a0aec0; }
+    body.dark-mode .field select { background: #2d3748; border-color: #4a5568; color: #e2e8f0; }
+    body.dark-mode .btn { background: #2d3748; color: #e2e8f0; }
+    body.dark-mode .btn-primary { background: #818cf8; }
+    body.dark-mode .btn-primary:hover { background: #6366f1; }
+    body.dark-mode .metric { border-right-color: #4a5568; }
+    body.dark-mode .metric strong { color: #e2e8f0; }
+    body.dark-mode .metric span { color: #a0aec0; }
+    body.dark-mode .metric.warn strong { color: #f6ad55; }
+    body.dark-mode .metric.bad strong { color: #f56565; }
+    body.dark-mode .empty-state { color: #a0aec0; }
+    body.dark-mode .schedule-grid { background: #334155; border-color: #334155; } /* Grid line color */
+    body.dark-mode .schedule-header { background: #4c51bf; }
+    body.dark-mode .schedule-cell { background: #0f172a; }
+    body.dark-mode .schedule-cell.odd-row { background: #1e293b; }
+    body.dark-mode .schedule-cell:hover { background: #4a5568; }
+    body.dark-mode .schedule-cell.saving { background: #243b64; }
+    body.dark-mode .student-slot { background: #2c5282; border-left-color: #63b3ed; color: #e2e8f0; }
+    body.dark-mode .student-slot.full { box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3); }
+    body.dark-mode .student-slot.empty { background: #172033; border-left-color: #475569; }
+    body.dark-mode .student-slot.empty .slot-name, body.dark-mode .slot-caret { color: #94a3b8; }
+    body.dark-mode .student-slot.conflict { background: rgba(245, 101, 101, 0.4); border-left-color: #f56565; }
+    body.dark-mode .student-slot.overlap { background: rgba(246, 173, 85, 0.35); border-left-color: #f6ad55; }
+    body.dark-mode .slot-badge { background: #4a5568; border-color: #718096; color: #e2e8f0; }
+    body.dark-mode .student-slot.full .slot-badge { background: #2b6cb0; border-color: #63b3ed; color: #ebf8ff; }
+    body.dark-mode .student-slot.empty .slot-badge { background: #1e293b; border-color: #475569; color: #64748b; }
+    body.dark-mode .student-slot.conflict .slot-badge { background: #f56565; border-color: #e53e3e; color: #fff; }
+    body.dark-mode .slot-select option { background: #1e293b; color: #e2e8f0; }
+    body.dark-mode .slot-action { border-color: #63b3ed; color: #bfdbfe; }
+    body.dark-mode .slot-action:hover { background: #2c5282; }
+    body.dark-mode .slot-action.remove { border-color: #718096; color: #cbd5e0; }
+    body.dark-mode .slot-action.remove:hover { background: #2d3748; }
+    body.dark-mode .roster-field span, body.dark-mode .roster-empty { color: #a0aec0; }
+    body.dark-mode .roster-field input, body.dark-mode .roster-field select {
+        background: #1a202c;
+        border-color: #4a5568;
+        color: #e2e8f0;
+    }
+    body.dark-mode .roster-table-wrap, body.dark-mode .roster-table th, body.dark-mode .roster-table td { border-color: #4a5568; }
+    body.dark-mode .roster-table th { background: #2d3748; color: #cbd5e0; }
+    body.dark-mode .roster-table tbody tr:hover { background: #2d3748; }
+    body.dark-mode .roster-table .roster-number { color: #a0aec0; }
+    body.dark-mode .credit-watermark { color: rgba(129, 140, 248, 0.3); }
+
+    /* ── Responsive ─────────────────────────────────────── */
+    @media (max-width: 1100px) {
+        .roster-controls { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+    @media (max-width: 768px) {
+        .header h1 { font-size: 1.2em; }
+        .header { padding: 12px 14px; }
+        .band__inner, .content { padding-left: 12px; padding-right: 12px; }
+        .day-tab { padding: 10px 18px; font-size: 13px; }
+        .day-tab[aria-pressed="true"] { padding-top: 15px; }
+        .actions { width: 100%; margin-left: 0; flex-wrap: wrap; }
+        .actions .btn { flex: 1 1 92px; min-width: 0; padding-left: 8px; padding-right: 8px; }
+        .actions .icon-btn { flex: 0 0 44px; }
+        .field.focus { max-width: none; }
+        .view-tabs { margin-bottom: 12px; }
+        .view-tab { flex: 1 0 auto; }
+        .roster-controls { grid-template-columns: 1fr; }
+    }
+
+    /* On-page print stays as a fallback; ⎙ opens the clean sheet. */
+    @media print {
+        @page { size: landscape; margin: 9mm; }
+        body { background: #fff; }
+        .mtb-app-nav, .toolbar-band, .metrics-band, .day-tabs-band, .view-tabs, .roster-tool,
+        .notice, .busy-layer, .theme-switch-wrapper, .header-state, .credit-watermark { display: none !important; }
+        .header { background: #fff; color: #000; padding: 6px 0; }
+        .content { background: #fff; padding: 0; min-height: 0; }
+        .workspace { display: block; }
+        .scrollable-container { overflow: visible; }
+        .schedule-grid { width: 100%; min-width: 0; }
+    }
+</style>
+</head>
+<body>
+<header class="header">
+    <div>
+        <h1>Распоред 40 минути</h1>
+        <p>Терапевтски кабинети · тековна работна недела</p>
+    </div>
+    <div class="header-right">
+        <div class="header-state" role="status" aria-live="polite">
+            <span class="live-dot" id="liveDot"></span>
+            <span id="connectionState">Се поврзувам…</span>
+        </div>
+        <div class="theme-switch-wrapper">
+            <label class="theme-switch" for="checkbox">
+                <input type="checkbox" id="checkbox" />
+                <div class="slider round"></div>
+            </label>
+        </div>
+    </div>
+</header>
+
+<section class="band toolbar-band">
+    <div class="band__inner toolbar">
+        <label class="field year">
+            <span>Учебна година</span>
+            <select id="year" disabled></select>
+        </label>
+        <label class="field view schedule-only">
+            <span>Начин на приказ</span>
+            <select id="viewMode">
+                <option value="day">Дневен · сите кабинети</option>
+                <option value="week">Неделен · по терапевт</option>
+            </select>
+        </label>
+        <label class="field focus schedule-only">
+            <span id="focusLabel">Кабинети</span>
+            <select id="focus" disabled>
+                <option value="">Сите терапевти</option>
+            </select>
+        </label>
+        <div class="actions">
+            <a class="btn" href="Podatoci.html" data-server-link="Podatoci.html">Податоци</a>
+            <a class="btn" href="Nastava.html" data-server-link="Nastava.html">Настава</a>
+            <button class="btn icon-btn" id="refresh" type="button" title="Освежи" aria-label="Освежи">↻</button>
+            <button class="btn btn-primary schedule-only" id="printSheet" type="button" title="Печати го распоредот" aria-label="Печати го распоредот">⎙ Печати</button>
+            <button class="btn schedule-only" id="exportImage" type="button" title="Зачувај го распоредот како слика" aria-label="Зачувај го распоредот како слика">📸 Слика</button>
+        </div>
+    </div>
+</section>
+
+<section class="band metrics-band schedule-only">
+    <div class="band__inner metrics" aria-label="Краток преглед">
+        <div class="metric"><strong id="metricSessions">0</strong><span>сесии неделно</span></div>
+        <div class="metric"><strong id="metricScheduled">0</strong><span>закажани ученици</span></div>
+        <div class="metric warn"><strong id="metricWaiting">0</strong><span>без сесија</span></div>
+        <div class="metric bad"><strong id="metricConflicts">0</strong><span>конфликти</span></div>
+    </div>
+</section>
+
+<section class="band day-tabs-band schedule-only" id="dayTabsBand">
+    <div class="band__inner" id="dayTabs" aria-label="Работен ден"></div>
+</section>
+
+<div class="notice" id="notice" role="alert"></div>
+
+<main class="content">
+    <div class="view-tabs" role="tablist" aria-label="Приказ на распоредот">
+        <button class="view-tab" id="scheduleTab" type="button" role="tab" aria-selected="true"
+            aria-controls="schedulePanel" data-panel="schedule">Распоред</button>
+        <button class="view-tab" id="rosterTab" type="button" role="tab" aria-selected="false"
+            aria-controls="rosterPanel" data-panel="roster">Ученици по терапевт</button>
+    </div>
+    <div class="workspace">
+        <section class="schedule-tool" id="schedulePanel" role="tabpanel" aria-labelledby="scheduleTab scheduleTitle">
+            <div class="section-header">
+                <h2 id="scheduleTitle">Распоред</h2>
+                <span id="scheduleMeta"></span>
+            </div>
+            <div class="scrollable-container" id="scheduleGrid">
+                <div class="empty-state">Се вчитува распоредот…</div>
+            </div>
+        </section>
+
+        <section class="roster-tool" id="rosterPanel" role="tabpanel" aria-labelledby="rosterTab rosterTitle" hidden>
+            <div class="section-header">
+                <h2 id="rosterTitle">Ученици по терапевт</h2>
+                <span id="therapistRosterCount">0 ученици</span>
+            </div>
+            <div class="roster-controls">
+                <label class="roster-field">
+                    <span>Терапевт</span>
+                    <select id="rosterTherapist" disabled></select>
+                </label>
+                <label class="roster-field">
+                    <span>Пребарај</span>
+                    <input id="rosterSearch" type="search" placeholder="Име или одделение">
+                </label>
+                <label class="roster-field">
+                    <span>Категорија</span>
+                    <select id="rosterKind">
+                        <option value="all">Сите</option>
+                        <option value="internal">Интерни</option>
+                        <option value="boarding">Интернатски</option>
+                        <option value="external">Екстерни</option>
+                    </select>
+                </label>
+                <label class="roster-field">
+                    <span>Распоред</span>
+                    <select id="rosterSession">
+                        <option value="all">Сите</option>
+                        <option value="scheduled">Со сесија</option>
+                        <option value="waiting">Без сесија</option>
+                    </select>
+                </label>
+            </div>
+            <div class="roster-table-wrap">
+                <table class="roster-table">
+                    <thead>
+                        <tr>
+                            <th class="roster-number" scope="col">Бр.</th>
+                            <th class="roster-grade" scope="col">Одделение</th>
+                            <th class="roster-name" scope="col">Име и презиме</th>
+                            <th class="roster-kind" scope="col">Категорија</th>
+                            <th class="roster-sessions" scope="col">Термини неделно</th>
+                        </tr>
+                    </thead>
+                    <tbody id="therapistRosterRows">
+                        <tr><td class="roster-empty" colspan="5">Се вчитуваат учениците…</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    </div>
+</main>
+
+<div class="busy-layer" id="busyLayer" aria-hidden="true"><div class="busy-box">Се вчитуваат податоците…</div></div>
+
+<script>
+(function () {
+    'use strict';
+
+    const DAYS = ['понеделник', 'вторник', 'среда', 'четврток', 'петок'];
+    const DAY_SHORT = ['Пон', 'Вто', 'Сре', 'Чет', 'Пет'];
+    const SCHOOL = 'ОУРЦ „Кочо Рацин" – Битола';
+    const SERVER_KEY = 'mtb_podatoci_server_v1';
+    const SERVERS_KEY = 'mtb_servers_v1';
+    const PUBLISHED_HOST = 'assisstant.github.io';
+    const SERVER_DEFAULTS = [
+        'https://zenpc-1.tailc8965f.ts.net',
+        'https://zenpc.tailc8965f.ts.net'
+    ];
+    const SERVER_TIMEOUT = 4000;
+    const VIEW_KEY = 'mtb_fusion_view_v1';
+    const THEME_KEY = 'theme';
+    const REQUESTED_YEAR = new URLSearchParams(window.location.search).get('year') || '';
+    const state = {
+        years: [], year: '', day: DAYS[0], focus: '', view: 'day', panel: 'schedule', roster: null,
+        rosterTherapist: '',
+        bells: [], sessions: new Map(), pending: new Set(), expandedBlocks: new Set(), ticket: 0,
+        apiBase: window.location.hostname === PUBLISHED_HOST ? '' : window.location.origin,
+        serverLabel: ''
+    };
+
+    const el = (id) => document.getElementById(id);
+    const esc = (value) => String(value == null ? '' : value)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+
+    /* ── Dark Mode Logic (same localStorage key as S-Dnevnik) ── */
+    const toggleSwitch = document.querySelector('.theme-switch input[type="checkbox"]');
+
+    function isDarkThemeValue(value) {
+        const normalized = (value || '').toString().toLowerCase();
+        return normalized === 'dark-mode' || normalized === 'dark' || normalized === '1' || normalized === 'true';
+    }
+
+    function applyTheme(isDark) {
+        document.body.classList.toggle('dark-mode', !!isDark);
+        if (toggleSwitch) toggleSwitch.checked = !!isDark;
+        try { localStorage.setItem(THEME_KEY, isDark ? 'dark-mode' : 'light-mode'); }
+        catch (_) { /* the choice still works for this tab */ }
+    }
+
+    (function initTheme() {
+        let storedTheme = '';
+        try { storedTheme = localStorage.getItem(THEME_KEY) || ''; }
+        catch (_) { storedTheme = ''; }
+        document.body.classList.toggle('dark-mode', isDarkThemeValue(storedTheme));
+        if (toggleSwitch) toggleSwitch.checked = document.body.classList.contains('dark-mode');
+    })();
+
+    if (toggleSwitch) {
+        toggleSwitch.addEventListener('change', (event) => {
+            applyTheme(!!(event && event.target && event.target.checked));
+        }, false);
+    }
+
+    function apiBase() {
+        if (window.location.hostname !== PUBLISHED_HOST) return '';
+        if (state.apiBase) return state.apiBase;
+        try {
+            const saved = localStorage.getItem(SERVER_KEY);
+            if (!saved) return '';
+            const url = new URL(saved);
+            return url.protocol === 'https:' && url.hostname.endsWith('.ts.net') ? url.origin : '';
+        } catch (_) { return ''; }
+    }
+
+    function configuredServers() {
+        let values = SERVER_DEFAULTS;
+        try {
+            const stored = JSON.parse(localStorage.getItem(SERVERS_KEY));
+            if (Array.isArray(stored) && stored.length) values = stored;
+        } catch (_) { /* keep defaults */ }
+        return [...new Set(values.map((value) => {
+            try {
+                const url = new URL(String(value).trim());
+                return url.protocol === 'https:' && url.hostname.endsWith('.ts.net') ? url.origin : null;
+            } catch (_) { return null; }
+        }).filter(Boolean))];
+    }
+
+    async function probeServer(base) {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), SERVER_TIMEOUT);
+        try {
+            const response = await fetch(base + '/api/health', {
+                signal: controller.signal, cache: 'no-store'
+            });
+            const body = response.ok ? await response.json().catch(() => null) : null;
+            return body && body.ok ? { base, health: body } : null;
+        } catch (_) {
+            return null;
+        } finally {
+            clearTimeout(timer);
+        }
+    }
+
+    function savedServer() {
+        try { return localStorage.getItem(SERVER_KEY) || ''; }
+        catch (_) { return ''; }
+    }
+
+    function rememberServer(base, label) {
+        state.apiBase = base;
+        state.serverLabel = label || '';
+        try { localStorage.setItem(SERVER_KEY, base); }
+        catch (_) { /* the choice still works for this tab */ }
+        window.dispatchEvent(new CustomEvent('mtb:server-selected'));
+        refreshLocalLinks();
+    }
+
+    function forgetSelectedServer() {
+        state.apiBase = '';
+        state.serverLabel = '';
+        try { localStorage.removeItem(SERVER_KEY); }
+        catch (_) { /* private mode or locked storage */ }
+        window.dispatchEvent(new CustomEvent('mtb:server-selected'));
+        refreshLocalLinks();
+    }
+
+    function serverName(base) {
+        try {
+            const host = new URL(base).hostname.split('.')[0].toLowerCase();
+            return 'СЕРВЕР · ' + (host || base);
+        } catch (_) { return base; }
+    }
+
+    function identityLabel(target) {
+        return target && target.health && target.health.server && target.health.server.label
+            ? String(target.health.server.label)
+            : serverName(target && target.base ? target.base : target);
+    }
+
+    function refreshLocalLinks() {
+        const base = apiBase();
+        document.querySelectorAll('[data-server-link]').forEach((link) => {
+            const file = link.getAttribute('data-server-link');
+            link.href = base ? base + '/' + file : file;
+        });
+    }
+
+    async function discoverServer() {
+        if (window.location.hostname !== PUBLISHED_HOST) {
+            const local = await probeServer(window.location.origin);
+            if (local) state.serverLabel = identityLabel(local);
+            refreshLocalLinks();
+            return true;
+        }
+        setConnection(false, 'Ја барам базата…');
+        const candidates = configuredServers();
+        const live = (await Promise.all(candidates.map(probeServer))).filter(Boolean);
+        const remembered = savedServer();
+        const rememberedTarget = live.find((target) => target.base === remembered);
+        const chosen = rememberedTarget || (live.length === 1 ? live[0] : null);
+        if (chosen) {
+            rememberServer(chosen.base, identityLabel(chosen));
+            return true;
+        }
+        if (live.length === 0) {
+            if (remembered) forgetSelectedServer();
+            const error = new Error('Ниту ZenPC ниту ZenPC-1 не одговара. Провери Tailscale и дали серверот е пуштен.');
+            error.discovery = true;
+            throw error;
+        }
+        const error = new Error('Двата сервери одговараат — отвори преку start.html или Податоци и избери една база.');
+        error.discovery = true;
+        throw error;
+    }
+
+    async function api(path, options) {
+        const base = apiBase();
+        if (window.location.hostname === PUBLISHED_HOST && !base) {
+            const error = new Error('Отвори преку start.html за да се избере активната база.');
+            error.startRequired = true;
+            throw error;
+        }
+        const response = await fetch(base + path, Object.assign({ cache: 'no-store' }, options || {}));
+        const body = await response.json().catch(() => ({}));
+        if (!response.ok) {
+            const error = new Error(body.error || ('HTTP ' + response.status));
+            error.status = response.status;
+            error.body = body;
+            throw error;
+        }
+        return body;
+    }
+
+    function setConnection(ok, text) {
+        el('liveDot').className = 'live-dot ' + (ok ? 'ok' : 'bad');
+        el('connectionState').textContent = text;
+        let dataState = ok ? 'synced' : 'error';
+        if (/зачувува/i.test(text)) dataState = 'saving';
+        else if (/барам|вчитув/i.test(text)) dataState = 'loading';
+        else if (/одбиена|нема врска|грешка/i.test(text)) dataState = 'error';
+        const detail = { state: dataState, text: text };
+        window.__MTB_DATA_STATE__ = detail;
+        window.dispatchEvent(new CustomEvent('mtb:data-state', { detail }));
+    }
+
+    function showNotice(message, kind, html) {
+        const box = el('notice');
+        box.className = 'notice on' + (kind === 'error' ? ' error' : '');
+        if (html) box.innerHTML = message;
+        else box.textContent = message;
+    }
+
+    function clearNotice() {
+        el('notice').className = 'notice';
+        el('notice').textContent = '';
+    }
+
+    function minutes(clockText) {
+        const match = String(clockText || '').match(/^(\d{1,2}):(\d{2})$/);
+        return match ? Number(match[1]) * 60 + Number(match[2]) : NaN;
+    }
+
+    function clock(total) {
+        return String(Math.floor(total / 60)).padStart(2, '0') + ':' + String(total % 60).padStart(2, '0');
+    }
+
+    function bellTime(bell) {
+        const start = minutes(bell.startsAt);
+        return Number.isFinite(start) ? bell.startsAt + '-' + clock(start + Number(bell.minutes || 0)) : '';
+    }
+
+    function bellParts(bell) {
+        const start = minutes(bell.startsAt);
+        if (!Number.isFinite(start) || Number(bell.minutes) !== 40) return [];
+        return [
+            { label: '1/2', time: clock(start) + '-' + clock(start + 20) },
+            { label: '2/2', time: clock(start + 20) + '-' + clock(start + 40) }
+        ];
+    }
+
+    function spaced(range) {
+        return String(range || '').replace('-', ' - ');
+    }
+
+    function blockPartTimes(fullTime) {
+        const clocks = String(fullTime || '').match(/\d{1,2}:\d{2}/g);
+        if (!clocks || clocks.length !== 2) return [];
+        const start = minutes(clocks[0]);
+        const end = minutes(clocks[1]);
+        if (!Number.isFinite(start) || end - start !== 40) return [];
+        return [clock(start) + '-' + clock(start + 20), clock(start + 20) + '-' + clock(end)];
+    }
+
+    function cellKey(day, time, therapistId) {
+        return day + '|' + time + '|' + therapistId;
+    }
+
+    function todayDay() {
+        const index = new Date().getDay() - 1;
+        return DAYS[index >= 0 && index < DAYS.length ? index : 0];
+    }
+
+    function capitalise(word) {
+        return String(word || '').charAt(0).toUpperCase() + String(word || '').slice(1);
+    }
+
+    function activeTherapists() {
+        const all = (state.roster && state.roster.therapists) || [];
+        return state.focus ? all.filter((t) => String(t.id) === String(state.focus)) : all;
+    }
+
+    function studentsById() {
+        const map = new Map();
+        ((state.roster && state.roster.students) || []).forEach((student) => map.set(student.public_id, student));
+        return map;
+    }
+
+    /* S-Dnevnik prints a pupil as «одделение - име». */
+    function studentLabel(student) {
+        const grade = student && student.grade ? student.grade + ' - ' : '';
+        return grade + (student ? student.name : 'Непознат ученик');
+    }
+
+    function sessionConflicts() {
+        const seen = new Map();
+        const conflicts = new Set();
+        state.sessions.forEach((session, key) => {
+            if (!session.student_public_id) return;
+            const studentKey = session.day + '|' + session.time + '|' + session.student_public_id;
+            if (seen.has(studentKey)) {
+                conflicts.add(key);
+                conflicts.add(seen.get(studentKey));
+            } else seen.set(studentKey, key);
+        });
+        return conflicts;
+    }
+
+    function sessionConflictCount() {
+        const counts = new Map();
+        state.sessions.forEach((session) => {
+            if (!session.student_public_id) return;
+            const key = session.day + '|' + session.time + '|' + session.student_public_id;
+            counts.set(key, (counts.get(key) || 0) + 1);
+        });
+        return Array.from(counts.values()).filter((count) => count > 1).length;
+    }
+
+    function drawDays() {
+        el('dayTabs').innerHTML = DAYS.map((day) =>
+            '<button class="day-tab" type="button" data-day="' + esc(day) + '" aria-pressed="' +
+            String(day === state.day) + '">' + esc(capitalise(day)) + '</button>'
+        ).join('');
+        el('dayTabs').querySelectorAll('[data-day]').forEach((button) => {
+            button.addEventListener('click', () => {
+                state.day = button.dataset.day;
+                drawDays();
+                drawSchedule();
+            });
+        });
+    }
+
+    function drawFocus() {
+        const select = el('focus');
+        const previous = state.focus;
+        select.innerHTML = (state.view === 'week' ? '' : '<option value="">Сите терапевти</option>') +
+            (((state.roster && state.roster.therapists) || []).map((therapist) =>
+                '<option value="' + therapist.id + '">' + esc(therapist.name) + '</option>'
+            ).join(''));
+        const hasPrevious = Array.from(select.options).some((option) => option.value === previous);
+        state.focus = hasPrevious
+            ? previous
+            : (state.view === 'week' && select.options.length ? select.options[0].value : '');
+        select.value = state.focus;
+        el('focusLabel').textContent = state.view === 'week' ? 'Терапевт' : 'Кабинети';
+        select.disabled = false;
+    }
+
+    function drawView() {
+        el('viewMode').value = state.view;
+        el('dayTabsBand').hidden = state.panel !== 'schedule' || state.view === 'week';
+        drawFocus();
+    }
+
+    function drawPanel() {
+        const rosterActive = state.panel === 'roster';
+        document.body.dataset.panel = rosterActive ? 'roster' : 'schedule';
+        el('schedulePanel').hidden = rosterActive;
+        el('rosterPanel').hidden = !rosterActive;
+        document.querySelectorAll('[data-panel]').forEach((button) => {
+            const selected = button.dataset.panel === state.panel;
+            button.setAttribute('aria-selected', String(selected));
+            button.tabIndex = selected ? 0 : -1;
+        });
+        el('dayTabsBand').hidden = rosterActive || state.view === 'week';
+        if (rosterActive) {
+            drawRosterTherapists();
+            drawTherapistRoster();
+        }
+    }
+
+    function drawMetrics() {
+        const students = studentsById();
+        const visibleTherapistIds = new Set(activeTherapists().map((t) => String(t.id)));
+        const visibleSessions = Array.from(state.sessions.values()).filter((session) =>
+            !state.focus || visibleTherapistIds.has(String(session.therapist_id)));
+        const scheduled = new Set(visibleSessions.map((session) => session.student_public_id).filter(Boolean));
+        const relevant = state.focus
+            ? new Set((activeTherapists()[0] && activeTherapists()[0].students) || [])
+            : new Set(students.keys());
+        const waiting = Array.from(relevant).filter((id) => students.has(id) && !scheduled.has(id));
+        el('metricSessions').textContent = String(visibleSessions.length);
+        el('metricScheduled').textContent = String(scheduled.size);
+        el('metricWaiting').textContent = String(waiting.length);
+        el('metricConflicts').textContent = String(sessionConflictCount());
+    }
+
+    function drawRosterTherapists() {
+        const select = el('rosterTherapist');
+        const therapists = (state.roster && state.roster.therapists) || [];
+        select.innerHTML = therapists.map((therapist) =>
+            '<option value="' + therapist.id + '">' + esc(therapist.name) + '</option>'
+        ).join('');
+        const preferred = state.rosterTherapist || state.focus;
+        state.rosterTherapist = therapists.some((therapist) => String(therapist.id) === String(preferred))
+            ? String(preferred)
+            : (therapists[0] ? String(therapists[0].id) : '');
+        select.value = state.rosterTherapist;
+        select.disabled = !therapists.length;
+    }
+
+    function enclosingBlockTime(time) {
+        for (const bell of state.bells) {
+            const fullTime = bellTime(bell);
+            if (time === fullTime || bellParts(bell).some((part) => part.time === time)) return fullTime;
+        }
+        return time;
+    }
+
+    function therapistSessionCounts(therapistId) {
+        const blocksByStudent = new Map();
+        state.sessions.forEach((session) => {
+            if (String(session.therapist_id) !== String(therapistId) || !session.student_public_id) return;
+            if (!blocksByStudent.has(session.student_public_id)) blocksByStudent.set(session.student_public_id, new Set());
+            blocksByStudent.get(session.student_public_id).add(session.day + '|' + enclosingBlockTime(session.time));
+        });
+        const counts = new Map();
+        blocksByStudent.forEach((blocks, studentId) => counts.set(studentId, blocks.size));
+        return counts;
+    }
+
+    function drawTherapistRoster() {
+        const therapists = (state.roster && state.roster.therapists) || [];
+        const therapist = therapists.find((item) => String(item.id) === String(state.rosterTherapist));
+        const students = studentsById();
+        if (!therapist) {
+            el('therapistRosterCount').textContent = '0 ученици';
+            el('therapistRosterRows').innerHTML = '<tr><td class="roster-empty" colspan="5">Нема активни терапевти.</td></tr>';
+            return;
+        }
+
+        const ids = [...new Set(Array.isArray(therapist.students) ? therapist.students : [])];
+        const all = ids.map((id) => students.get(id)).filter(Boolean);
+        const counts = therapistSessionCounts(therapist.id);
+        const query = el('rosterSearch').value.trim().toLocaleLowerCase('mk');
+        const kindFilter = el('rosterKind').value;
+        const sessionFilter = el('rosterSession').value;
+        const rows = all.filter((student) => {
+            const kind = ['boarding', 'external'].includes(student.kind) ? student.kind : 'internal';
+            const sessionCount = counts.get(student.public_id) || 0;
+            const matchesQuery = !query || (student.name + ' ' + (student.grade || '')).toLocaleLowerCase('mk').includes(query);
+            const matchesKind = kindFilter === 'all' || kind === kindFilter;
+            const matchesSession = sessionFilter === 'all' ||
+                (sessionFilter === 'scheduled' ? sessionCount > 0 : sessionCount === 0);
+            return matchesQuery && matchesKind && matchesSession;
+        }).sort((a, b) =>
+            String(a.grade || '').localeCompare(String(b.grade || ''), 'mk') || a.name.localeCompare(b.name, 'mk'));
+
+        el('therapistRosterCount').textContent = rows.length === all.length
+            ? rows.length + ' ученици'
+            : rows.length + ' од ' + all.length + ' ученици';
+        el('therapistRosterRows').innerHTML = rows.length ? rows.map((student, index) => {
+            const kind = ['boarding', 'external'].includes(student.kind) ? student.kind : 'internal';
+            const kindLabel = { internal: 'интерен', boarding: 'интернатски', external: 'екстерен' }[kind];
+            return '<tr data-student-id="' + esc(student.public_id) + '" data-kind="' + kind + '">' +
+                '<td class="roster-number">' + (index + 1) + '.</td>' +
+                '<td class="roster-grade">' + esc(student.grade || '—') + '</td>' +
+                '<td class="roster-name">' + esc(student.name) + '</td>' +
+                '<td class="roster-kind">' + kindLabel + '</td>' +
+                '<td class="roster-sessions">' + String(counts.get(student.public_id) || 0) + '</td></tr>';
+        }).join('') : '<tr><td class="roster-empty" colspan="5">Нема ученици за избраните филтри.</td></tr>';
+    }
+
+    function optionsFor(therapist, selectedId, students, excludedId) {
+        const ids = Array.isArray(therapist.students) ? [...new Set(therapist.students)] : [];
+        if (selectedId && !ids.includes(selectedId)) ids.push(selectedId);
+        const available = ids.map((id) => students.get(id)).filter(Boolean)
+            .filter((student) => !excludedId || student.public_id !== excludedId || student.public_id === selectedId)
+            .sort((a, b) => String(a.grade || '').localeCompare(String(b.grade || ''), 'mk') || a.name.localeCompare(b.name, 'mk'));
+        return '<option value="">— празно —</option>' + available.map((student) =>
+            '<option value="' + esc(student.public_id) + '"' +
+            (student.public_id === selectedId ? ' selected' : '') + '>' + esc(studentLabel(student)) + '</option>'
+        ).join('');
+    }
+
+    /* ── One pupil block inside a 40′ cell, drawn as an S-Dnevnik slot ── */
+    function slotHtml(parts) {
+        return '<div class="' + parts.classes.join(' ') + '">' +
+            '<span class="slot-badge">' + esc(parts.badge) + '</span>' +
+            '<span class="slot-name">' + esc(parts.display) + '</span>' +
+            '<span class="slot-caret" aria-hidden="true">▼</span>' +
+            parts.select + (parts.action || '') + '</div>';
+    }
+
+    function legacySlotHtml(day, time, partLabel, therapist, students, conflicts) {
+        const key = cellKey(day, time, therapist.id);
+        const session = state.sessions.get(key);
+        const selected = session ? session.student_public_id : '';
+        const classes = ['student-slot', 'overlap'];
+        if (!selected) classes.push('empty');
+        if (conflicts.has(key)) classes.push('conflict');
+        return slotHtml({
+            classes: classes,
+            badge: partLabel,
+            display: selected ? studentLabel(students.get(selected)) : '— празно —',
+            select: '<select class="slot-select" data-session-day="' + esc(day) + '" data-session-time="' + esc(time) +
+                '" data-legacy-session="true" data-therapist-id="' + therapist.id +
+                '" data-previous="' + esc(selected || '') + '"' +
+                (state.pending.has(key) ? ' disabled' : '') +
+                ' title="' + esc(selected ? studentLabel(students.get(selected)) + ' · ' + spaced(time) : spaced(time)) +
+                '" aria-label="' + esc(therapist.name + ', ' + day + ', ' + time) + '">' +
+                optionsFor(therapist, selected, students) + '</select>'
+        });
+    }
+
+    function blockState(day, bell, therapist) {
+        const fullTime = bellTime(bell);
+        const parts = bellParts(bell);
+        const full = state.sessions.get(cellKey(day, fullTime, therapist.id));
+        const halves = parts.map((part) => state.sessions.get(cellKey(day, part.time, therapist.id)));
+        if (full && halves.some(Boolean)) {
+            return { fullTime, parts, full, halves, invalidOverlap: true, ids: [] };
+        }
+        if (full) return { fullTime, parts, full, halves, invalidOverlap: false, ids: [full.student_public_id] };
+        const halfIds = halves.map((session) => session && session.student_public_id).filter(Boolean);
+        const ids = halfIds.length === 2 && halfIds[0] === halfIds[1] ? [halfIds[0]] : halfIds;
+        const partialLabel = halfIds.length === 1
+            ? parts[halves[0] ? 0 : 1].label
+            : '';
+        return { fullTime, parts, full, halves, invalidOverlap: false, ids, partialLabel };
+    }
+
+    function blockSlotHtml(block, day, therapist, students, index, showSecond, conflicts) {
+        const selected = block.ids[index] || '';
+        const other = block.ids[index === 0 ? 1 : 0] || '';
+        const firstLabel = block.ids.length === 2 ? '1/2' : (block.partialLabel || '40′');
+        const label = index === 0 ? firstLabel : '2/2';
+        const displayTime = index === 0 && block.ids.length === 2 ? block.parts[0].time
+            : (index === 0 ? block.fullTime : block.parts[1].time);
+        const expected = encodeURIComponent(JSON.stringify(block.ids));
+        const blockKey = cellKey(day, block.fullTime, therapist.id);
+        const conflicted = [block.fullTime].concat(block.parts.map((part) => part.time))
+            .some((slot) => conflicts.has(cellKey(day, slot, therapist.id))) && Boolean(selected);
+
+        let action = '';
+        if (index === 0 && selected && !showSecond) {
+            action = '<button type="button" class="slot-action" data-add-second="true" ' +
+                'data-session-day="' + esc(day) + '" data-block-time="' + esc(block.fullTime) + '" ' +
+                'data-therapist-id="' + therapist.id + '" title="Додај втор ученик" ' +
+                'aria-label="Додај втор ученик">+</button>';
+        } else if (index === 1) {
+            action = '<button type="button" class="slot-action remove" data-remove-second="true" ' +
+                'data-session-day="' + esc(day) + '" data-block-time="' + esc(block.fullTime) + '" ' +
+                'data-therapist-id="' + therapist.id + '" title="Тргни го второто поле" ' +
+                'aria-label="Тргни го второто поле">×</button>';
+        }
+
+        const classes = ['student-slot'];
+        if (index === 0 && !showSecond) classes.push('full');
+        if (!selected) classes.push('empty');
+        if (conflicted) classes.push('conflict');
+
+        return slotHtml({
+            classes: classes,
+            badge: label,
+            display: selected ? studentLabel(students.get(selected)) : '— празно —',
+            action: action,
+            select: '<select class="slot-select" data-session-day="' + esc(day) + '" data-session-time="' +
+                esc(displayTime) + '" data-block-time="' +
+                esc(block.fullTime) + '" data-block-part="' + index + '" data-expected="' + esc(expected) +
+                '" data-therapist-id="' + therapist.id + '"' +
+                (state.pending.has(blockKey) ? ' disabled' : '') +
+                ' title="' + esc((selected ? studentLabel(students.get(selected)) + ' · ' : '') + spaced(displayTime)) +
+                '" aria-label="' + esc(therapist.name + ', ' + day + ', ' + label) + '">' +
+                optionsFor(therapist, selected, students, other) + '</select>'
+        });
+    }
+
+    function cellHtml(day, bell, rowIndex, therapist, students, conflicts) {
+        const block = blockState(day, bell, therapist);
+        const fullKey = cellKey(day, block.fullTime, therapist.id);
+        const keys = [fullKey].concat(block.parts.map((part) => cellKey(day, part.time, therapist.id)));
+        const classes = ['schedule-cell'];
+        if (rowIndex % 2 === 0) classes.push('odd-row');
+        if (keys.some((key) => state.pending.has(key))) classes.push('saving');
+
+        let controls = '';
+        if (block.invalidOverlap) {
+            controls += legacySlotHtml(day, block.fullTime, '40′', therapist, students, conflicts);
+            controls += block.parts.map((part) =>
+                legacySlotHtml(day, part.time, part.label, therapist, students, conflicts)).join('');
+        } else {
+            const showSecond = block.ids.length === 2 || state.expandedBlocks.has(fullKey);
+            controls += blockSlotHtml(block, day, therapist, students, 0, showSecond, conflicts);
+            if (showSecond) controls += blockSlotHtml(block, day, therapist, students, 1, true, conflicts);
+        }
+        return '<div class="' + classes.join(' ') + '" data-bell="' + esc(block.fullTime) + '">' + controls + '</div>';
+    }
+
+    function timeCellHtml(bell) {
+        const parts = bellParts(bell);
+        const ranges = parts.length
+            ? parts.map((part) => '<div class="schedule-time-range">' + esc(spaced(part.time)) + '</div>').join('')
+            : '<div class="schedule-time-range">' + esc(spaced(bellTime(bell))) + '</div>';
+        return '<div class="schedule-time">' +
+            '<div class="schedule-time-label">' + esc(bell.label || '') + '</div>' + ranges + '</div>';
+    }
+
+    function bindScheduleCells() {
+        el('scheduleGrid').querySelectorAll('[data-block-time]').forEach((select) => {
+            if (select.tagName !== 'SELECT') return;
+            select.addEventListener('change', () => saveBlock(select));
+        });
+        el('scheduleGrid').querySelectorAll('[data-legacy-session]').forEach((select) => {
+            select.addEventListener('change', () => saveSession(select));
+        });
+        el('scheduleGrid').querySelectorAll('[data-add-second]').forEach((button) => {
+            button.addEventListener('click', () => {
+                const key = cellKey(button.dataset.sessionDay, button.dataset.blockTime, Number(button.dataset.therapistId));
+                state.expandedBlocks.add(key);
+                drawSchedule();
+                const second = Array.from(el('scheduleGrid').querySelectorAll('[data-block-part="1"]')).find((control) =>
+                    control.dataset.sessionDay === button.dataset.sessionDay &&
+                    control.dataset.blockTime === button.dataset.blockTime &&
+                    control.dataset.therapistId === button.dataset.therapistId);
+                if (second) second.focus();
+            });
+        });
+        el('scheduleGrid').querySelectorAll('[data-remove-second]').forEach((button) => {
+            button.addEventListener('click', () => {
+                const cell = button.closest('.schedule-cell');
+                const second = cell && cell.querySelector('[data-block-part="1"]');
+                const key = cellKey(button.dataset.sessionDay, button.dataset.blockTime, Number(button.dataset.therapistId));
+                if (second && second.value) {
+                    second.value = '';
+                    saveBlock(second);
+                } else {
+                    state.expandedBlocks.delete(key);
+                    drawSchedule();
+                }
+            });
+        });
+    }
+
+    function gridOpen(columns, minColumn) {
+        const minWidth = 100 + (columns * minColumn) + columns + 1;
+        return '<div class="schedule-grid" style="grid-template-columns: 100px repeat(' + columns +
+            ', minmax(0, 1fr)); min-width: ' + minWidth + 'px;">';
+    }
+
+    function drawWeeklySchedule(therapist, students, conflicts) {
+        el('scheduleTitle').textContent = 'Неделен распоред · ' + therapist.name;
+        el('scheduleMeta').textContent = state.year + ' · 1 ученик = 40′ · 2 ученици = 20′ + 20′';
+        let html = gridOpen(DAYS.length, 190);
+        html += '<div class="schedule-header">Час</div>';
+        DAY_SHORT.forEach((day, index) => {
+            html += '<div class="schedule-header"><div class="schedule-header-name">' + esc(day) +
+                '</div><div class="schedule-header-sub">' + esc(capitalise(DAYS[index])) + '</div></div>';
+        });
+        state.bells.forEach((bell, rowIndex) => {
+            html += timeCellHtml(bell);
+            DAYS.forEach((day) => { html += cellHtml(day, bell, rowIndex, therapist, students, conflicts); });
+        });
+        html += '</div>';
+        el('scheduleGrid').innerHTML = html;
+        bindScheduleCells();
+        drawMetrics();
+    }
+
+    function drawSchedule() {
+        if (!state.roster) return;
+        const therapists = activeTherapists();
+        const students = studentsById();
+        const conflicts = sessionConflicts();
+        el('scheduleTitle').textContent = capitalise(state.day);
+        el('scheduleMeta').textContent = state.year + ' · ' + therapists.length + ' терапевти';
+        if (!therapists.length || !state.bells.length) {
+            el('scheduleGrid').innerHTML = '<div class="empty-state">Нема активни терапевти или 40-минутни ѕвона за оваа година.</div>';
+            drawMetrics();
+            return;
+        }
+
+        if (state.view === 'week') {
+            drawWeeklySchedule(therapists[0], students, conflicts);
+            return;
+        }
+
+        let html = gridOpen(therapists.length, 210);
+        html += '<div class="schedule-header">Час</div>';
+        therapists.forEach((therapist) => {
+            html += '<div class="schedule-header"><div class="schedule-header-name">' + esc(therapist.name) +
+                '</div><div class="schedule-header-sub">' + String((therapist.students || []).length) +
+                ' ученици</div></div>';
+        });
+        state.bells.forEach((bell, rowIndex) => {
+            html += timeCellHtml(bell);
+            therapists.forEach((therapist) => {
+                html += cellHtml(state.day, bell, rowIndex, therapist, students, conflicts);
+            });
+        });
+        html += '</div>';
+        el('scheduleGrid').innerHTML = html;
+        bindScheduleCells();
+        drawMetrics();
+    }
+
+    /* ── Print sheet ────────────────────────────────────── */
+    function blockEntries(day, bell, therapist, students) {
+        const block = blockState(day, bell, therapist);
+        const rows = [];
+        if (block.invalidOverlap) {
+            if (block.full && block.full.student_public_id) {
+                rows.push({ label: '40′', time: block.fullTime, id: block.full.student_public_id });
+            }
+            block.halves.forEach((session, index) => {
+                if (session && session.student_public_id) {
+                    rows.push({ label: block.parts[index].label, time: block.parts[index].time, id: session.student_public_id });
+                }
+            });
+        } else if (block.ids.length === 2) {
+            block.ids.forEach((id, index) => {
+                rows.push({ label: block.parts[index].label, time: block.parts[index].time, id });
+            });
+        } else if (block.ids.length === 1) {
+            const label = block.partialLabel || '40′';
+            const time = block.partialLabel
+                ? block.parts[block.partialLabel === '1/2' ? 0 : 1].time
+                : block.fullTime;
+            rows.push({ label, time, id: block.ids[0] });
+        }
+        return rows.map((row) => Object.assign(row, { name: studentLabel(students.get(row.id)) }));
+    }
+
+    function printCellHtml(day, bell, therapist, students) {
+        const rows = blockEntries(day, bell, therapist, students);
+        if (!rows.length) return '<td class="free">—</td>';
+        return '<td>' + rows.map((row) =>
+            '<div class="pupil"><span class="badge">' + esc(row.label) + '</span>' +
+            '<span class="name">' + esc(row.name) + '</span>' +
+            '<span class="time">' + esc(spaced(row.time)) + '</span></div>'
+        ).join('') + '</td>';
+    }
+
+    function printStyles() {
+        return 'body{font-family:Arial,Helvetica,sans-serif;font-size:12px;color:#222;margin:12mm;}' +
+            'h1{font-size:16px;text-align:center;margin-bottom:3px;}' +
+            'h2{font-size:13px;text-align:center;color:#555;margin-bottom:3px;font-weight:600;}' +
+            'h3{font-size:11px;text-align:center;color:#777;font-weight:400;margin-bottom:12px;}' +
+            'table{width:100%;border-collapse:collapse;table-layout:fixed;}' +
+            'th,td{border:1px solid #999;padding:5px 6px;vertical-align:top;}' +
+            'th{background:#eee;text-align:center;font-size:11px;}' +
+            'th.slot{width:78px;}' +
+            'td.slot{background:#f4f4f4;text-align:center;vertical-align:middle;}' +
+            'td.slot .roman{font-size:15px;font-weight:bold;display:block;}' +
+            'td.slot .range{font-size:9px;color:#555;display:block;line-height:1.5;}' +
+            'td.free{text-align:center;color:#bbb;vertical-align:middle;}' +
+            '.pupil{border-left:3px solid #38b2ac;background:#f0fdfa;border-radius:3px;padding:3px 5px;margin-bottom:3px;}' +
+            '.pupil:last-child{margin-bottom:0;}' +
+            '.badge{display:inline-block;min-width:26px;font-size:9px;font-weight:bold;color:#555;' +
+            'background:#e2e8f0;border-radius:3px;padding:1px 3px;text-align:center;margin-right:5px;}' +
+            '.name{font-weight:bold;font-size:11px;}' +
+            '.time{display:block;font-size:9px;color:#666;margin-top:2px;}' +
+            '.footer{text-align:center;font-size:9px;color:#999;margin-top:14px;border-top:1px solid #ddd;padding-top:6px;}' +
+            '@page{size:landscape;margin:10mm;}';
+    }
+
+    function buildPrintHtml() {
+        const students = studentsById();
+        const therapists = activeTherapists();
+        const weekly = state.view === 'week';
+        const therapist = therapists[0];
+        if (weekly && !therapist) return '';
+        const title = weekly
+            ? 'Неделен распоред — ' + therapist.name
+            : capitalise(state.day) + ' — сите кабинети';
+        const columns = weekly
+            ? DAYS.map((day, index) => ({ head: capitalise(day), sub: DAY_SHORT[index], day, therapist }))
+            : therapists.map((item) => ({
+                head: item.name,
+                sub: String((item.students || []).length) + ' ученици',
+                day: state.day,
+                therapist: item
+            }));
+
+        let html = '<!DOCTYPE html><html lang="mk"><head><meta charset="UTF-8"><title>' + esc(title) +
+            '</title><style>' + printStyles() + '</style></head><body>';
+        html += '<h1>' + esc(SCHOOL) + '</h1>';
+        html += '<h2>' + esc(title) + '</h2>';
+        html += '<h3>Кабинет за слух, говор, глас, алтернативна и аугментативна комуникација · ' +
+            esc(state.year) + ' · 1 ученик = 40′, 2 ученици = 20′ + 20′</h3>';
+        html += '<table><thead><tr><th class="slot">Час</th>';
+        columns.forEach((column) => {
+            html += '<th>' + esc(column.head) +
+                (column.sub ? '<br><span style="font-weight:400;font-size:9px;color:#666;">' + esc(column.sub) + '</span>' : '') +
+                '</th>';
+        });
+        html += '</tr></thead><tbody>';
+        state.bells.forEach((bell) => {
+            const parts = bellParts(bell);
+            const ranges = parts.length
+                ? parts.map((part) => '<span class="range">' + esc(spaced(part.time)) + '</span>').join('')
+                : '<span class="range">' + esc(spaced(bellTime(bell))) + '</span>';
+            html += '<tr><td class="slot"><span class="roman">' + esc(bell.label || '') + '</span>' + ranges + '</td>';
+            columns.forEach((column) => {
+                html += printCellHtml(column.day, bell, column.therapist, students);
+            });
+            html += '</tr>';
+        });
+        html += '</tbody></table>';
+        html += '<div class="footer">Распоред 40 минути · ' + new Date().toLocaleDateString('mk-MK') + '</div>';
+        html += '<scr' + 'ipt>window.onload=function(){window.print();}</scr' + 'ipt></body></html>';
+        return html;
+    }
+
+    function printSchedule() {
+        if (!state.roster || !state.bells.length) {
+            showNotice('Распоредот сè уште не е вчитан — нема што да се печати.', 'error');
+            return;
+        }
+        const html = buildPrintHtml();
+        if (!html) {
+            showNotice('Избери терапевт за да се испечати неделниот распоред.', 'error');
+            return;
+        }
+        const sheet = window.open('', '_blank');
+        if (!sheet) {
+            showNotice('Прозорецот за печатење е блокиран од прелистувачот. Дозволи pop-up за оваа страница.', 'error');
+            return;
+        }
+        sheet.document.write(html);
+        sheet.document.close();
+    }
+
+    /* ── JPG sheet, painted the way the Аудиограми export is painted ──
+       Drawn by hand rather than with html2canvas: no CDN to reach from the
+       school network, and a <select> does not screenshot as its own text. */
+    function isDarkMode() {
+        return document.body.classList.contains('dark-mode');
+    }
+
+    function imagePalette(dark) {
+        return dark ? {
+            bg: ['#1a1a2e', '#16213e'],
+            headBar: '#4a4e69', headText: '#ffffff',
+            infoBar: '#2d3250', infoText: '#a8dadc',
+            colHead: '#4c51bf', colHeadText: '#ffffff', colHeadSub: '#c7cbf7',
+            timeBg: '#2d3748', timeText: '#ffffff', timeSub: '#cbd5e0',
+            cell: '#0f172a', cellAlt: '#1e293b',
+            slot: '#2c5282', slotEdge: '#63b3ed', slotText: '#e9eef5',
+            badge: '#4a5568', badgeEdge: '#718096', badgeText: '#e2e8f0',
+            foot: '#a8dadc'
+        } : {
+            bg: ['#ffffff', '#ffffff'],
+            headBar: '#ffffff', headText: '#2c3e50',
+            infoBar: '#ffffff', infoText: '#2c3e50',
+            colHead: '#667eea', colHeadText: '#ffffff', colHeadSub: '#e4e8ff',
+            timeBg: '#2d3748', timeText: '#ffffff', timeSub: '#cbd5e0',
+            cell: '#ffffff', cellAlt: '#f8fafc',
+            slot: '#e6fffa', slotEdge: '#38b2ac', slotText: '#1a202c',
+            badge: '#cbd5e0', badgeEdge: '#a0aec0', badgeText: '#2d3748',
+            foot: '#2c3e50'
+        };
+    }
+
+    function roundBox(ctx, x, y, width, height, radius) {
+        const r = Math.min(radius, width / 2, height / 2);
+        ctx.beginPath();
+        ctx.moveTo(x + r, y);
+        ctx.arcTo(x + width, y, x + width, y + height, r);
+        ctx.arcTo(x + width, y + height, x, y + height, r);
+        ctx.arcTo(x, y + height, x, y, r);
+        ctx.arcTo(x, y, x + width, y, r);
+        ctx.closePath();
+        ctx.fill();
+    }
+
+    function fitText(ctx, text, maxWidth) {
+        let value = String(text == null ? '' : text);
+        if (ctx.measureText(value).width <= maxWidth) return value;
+        while (value.length > 1 && ctx.measureText(value + '…').width > maxWidth) {
+            value = value.slice(0, -1);
+        }
+        return value + '…';
+    }
+
+    function exportScheduleImage() {
+        if (!state.roster || !state.bells.length) {
+            showNotice('Распоредот сè уште не е вчитан — нема што да се зачува.', 'error');
+            return;
+        }
+        const students = studentsById();
+        const therapists = activeTherapists();
+        const weekly = state.view === 'week';
+        if (!therapists.length) {
+            showNotice('Нема активни терапевти за оваа година.', 'error');
+            return;
+        }
+        const columns = weekly
+            ? DAYS.map((day, index) => ({
+                head: capitalise(day), sub: DAY_SHORT[index], day, therapist: therapists[0]
+            }))
+            : therapists.map((therapist) => ({
+                head: therapist.name,
+                sub: String((therapist.students || []).length) + ' ученици',
+                day: state.day,
+                therapist
+            }));
+
+        const dark = isDarkMode();
+        const P = imagePalette(dark);
+        const M = 50, TIME_W = 230, COL_W = 440, GAP = 3;
+        const HEAD_Y = 30, HEAD_H = 150, INFO_Y = 200, INFO_H = 70;
+        const GRID_Y = 300, HEAD_ROW = 90, ROW_H = 150, FOOT_H = 130;
+        const width = (M * 2) + TIME_W + (columns.length * COL_W);
+        const height = GRID_Y + HEAD_ROW + (state.bells.length * ROW_H) + FOOT_H;
+
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+
+        if (dark) {
+            const gradient = ctx.createLinearGradient(0, 0, width, height);
+            gradient.addColorStop(0, P.bg[0]);
+            gradient.addColorStop(1, P.bg[1]);
+            ctx.fillStyle = gradient;
+        } else ctx.fillStyle = P.bg[0];
+        ctx.fillRect(0, 0, width, height);
+
+        const middle = width / 2;
+        ctx.textAlign = 'center';
+        ctx.fillStyle = P.headBar;
+        roundBox(ctx, M, HEAD_Y, width - (M * 2), HEAD_H, 10);
+        ctx.fillStyle = P.headText;
+        ctx.font = 'bold 40px Arial';
+        ctx.fillText('ОСНОВО УЧИЛИШТЕ СО РЕСУРСЕН ЦЕНТАР', middle, HEAD_Y + 60);
+        ctx.fillText('КОЧО РАЦИН БИТОЛА', middle, HEAD_Y + 110);
+
+        const title = weekly
+            ? 'Неделен распоред: ' + therapists[0].name
+            : capitalise(state.day) + ' — сите кабинети';
+        ctx.fillStyle = P.infoBar;
+        roundBox(ctx, M, INFO_Y, width - (M * 2), INFO_H, 8);
+        ctx.fillStyle = P.infoText;
+        ctx.font = 'bold 28px Arial';
+        ctx.fillText(title + ' | ' + state.year + ' | 1 ученик = 40′, 2 ученици = 20′ + 20′',
+            middle, INFO_Y + 45);
+
+        ctx.fillStyle = P.colHead;
+        ctx.fillRect(M, GRID_Y, TIME_W - GAP, HEAD_ROW);
+        ctx.fillStyle = P.colHeadText;
+        ctx.font = 'bold 26px Arial';
+        ctx.fillText('Час', M + ((TIME_W - GAP) / 2), GRID_Y + 54);
+        columns.forEach((column, index) => {
+            const x = M + TIME_W + (index * COL_W);
+            const w = COL_W - GAP;
+            ctx.fillStyle = P.colHead;
+            ctx.fillRect(x, GRID_Y, w, HEAD_ROW);
+            ctx.fillStyle = P.colHeadText;
+            ctx.font = 'bold 26px Arial';
+            ctx.fillText(fitText(ctx, column.head, w - 20), x + (w / 2), GRID_Y + 40);
+            ctx.fillStyle = P.colHeadSub;
+            ctx.font = '19px Arial';
+            ctx.fillText(fitText(ctx, column.sub, w - 20), x + (w / 2), GRID_Y + 68);
+        });
+
+        state.bells.forEach((bell, row) => {
+            const y = GRID_Y + HEAD_ROW + GAP + (row * ROW_H);
+            const h = ROW_H - GAP;
+            const parts = bellParts(bell);
+
+            ctx.fillStyle = P.timeBg;
+            ctx.fillRect(M, y, TIME_W - GAP, h);
+            ctx.fillStyle = P.timeText;
+            ctx.font = 'bold 34px Arial';
+            ctx.fillText(String(bell.label || ''), M + ((TIME_W - GAP) / 2), y + 48);
+            ctx.fillStyle = P.timeSub;
+            ctx.font = '19px Arial';
+            (parts.length ? parts.map((part) => part.time) : [bellTime(bell)]).forEach((range, i) => {
+                ctx.fillText(spaced(range), M + ((TIME_W - GAP) / 2), y + 82 + (i * 28));
+            });
+
+            columns.forEach((column, index) => {
+                const x = M + TIME_W + (index * COL_W);
+                const w = COL_W - GAP;
+                ctx.fillStyle = row % 2 === 0 ? P.cellAlt : P.cell;
+                ctx.fillRect(x, y, w, h);
+
+                const entries = blockEntries(column.day, bell, column.therapist, students);
+                if (!entries.length) return;
+                const pad = 10;
+                const inner = h - (pad * 2);
+                const slotH = entries.length > 1
+                    ? (inner - ((entries.length - 1) * 5)) / entries.length
+                    : inner;
+                entries.forEach((entry, slot) => {
+                    const sx = x + pad;
+                    const sy = y + pad + (slot * (slotH + 5));
+                    const sw = w - (pad * 2);
+                    ctx.fillStyle = P.slot;
+                    roundBox(ctx, sx, sy, sw, slotH, 6);
+                    ctx.fillStyle = P.slotEdge;
+                    ctx.fillRect(sx, sy + 2, 5, slotH - 4);
+
+                    const badgeW = 48, badgeH = Math.min(30, slotH - 12);
+                    ctx.fillStyle = P.badge;
+                    roundBox(ctx, sx + 14, sy + ((slotH - badgeH) / 2), badgeW, badgeH, 4);
+                    ctx.fillStyle = P.badgeText;
+                    ctx.font = 'bold 17px Arial';
+                    ctx.fillText(entry.label, sx + 14 + (badgeW / 2), sy + (slotH / 2) + 6);
+
+                    const nameX = sx + 14 + badgeW + 10;
+                    const nameW = sw - (nameX - sx) - 14;
+                    ctx.fillStyle = P.slotText;
+                    ctx.font = 'bold 23px Arial';
+                    ctx.fillText(fitText(ctx, entry.name, nameW), nameX + (nameW / 2),
+                        sy + (slotH / 2) + (slotH > 70 ? 0 : 9));
+                    if (slotH > 70) {
+                        ctx.fillStyle = P.slotEdge;
+                        ctx.font = '19px Arial';
+                        ctx.fillText(spaced(entry.time), nameX + (nameW / 2), sy + (slotH / 2) + 30);
+                    }
+                });
+            });
+        });
+
+        const footY = height - FOOT_H + 60;
+        ctx.fillStyle = P.foot;
+        ctx.font = '22px Arial';
+        ctx.textAlign = 'left';
+        ctx.fillText('Распоред 40 минути · ' + new Date().toLocaleDateString('mk-MK'), M, footY);
+        if (weekly) {
+            ctx.font = 'bold 22px Arial';
+            ctx.textAlign = 'right';
+            ctx.fillText(therapists[0].name, width - M, footY);
+        }
+
+        const stamp = weekly ? therapists[0].name : capitalise(state.day);
+        const name = 'Raspored40_' + stamp.replace(/\s+/g, '_') + '_' +
+            String(state.year).replace(/\//g, '-') + '.jpg';
+        canvas.toBlob((blob) => {
+            if (!blob) {
+                showNotice('Сликата не можеше да се создаде.', 'error');
+                return;
+            }
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = name;
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            setTimeout(() => URL.revokeObjectURL(url), 30000);
+        }, 'image/jpeg', 0.92);
+    }
+
+    function readableError(error) {
+        const body = error && error.body;
+        if (body && body.doubleBooked) return 'Ученикот веќе е закажан кај ' + body.therapistName + ' во истиот термин.';
+        if (body && body.therapistOccupied) return 'Кабинетот веќе има сесија што се преклопува со овој термин.';
+        if (body && body.blockOverlap) return 'Во часот има стар цел термин и половина во исто време. Исчисти ги означените записи поединечно.';
+        if (body && body.notInCaseload) return 'Ученикот не е во годишниот список на овој терапевт. Провери во Податоци.';
+        if (error && error.status === 409 && body && Object.prototype.hasOwnProperty.call(body, 'actualStudentPublicId')) {
+            return 'Терминот бил сменет од друг уред. Прикажана е состојбата од базата.';
+        }
+        return error && error.message ? error.message : 'Промената не е зачувана.';
+    }
+
+    async function saveBlock(select) {
+        const cell = select.closest('.schedule-cell');
+        const controls = Array.from(cell.querySelectorAll('[data-block-part]'))
+            .sort((a, b) => Number(a.dataset.blockPart) - Number(b.dataset.blockPart));
+        const wanted = [];
+        controls.forEach((control) => {
+            if (control.value && !wanted.includes(control.value)) wanted.push(control.value);
+        });
+        let expected = [];
+        try { expected = JSON.parse(decodeURIComponent(select.dataset.expected || '%5B%5D')); }
+        catch (_) { expected = []; }
+        if (wanted.length === expected.length && wanted.every((id, index) => id === expected[index])) {
+            drawSchedule();
+            return;
+        }
+
+        const day = select.dataset.sessionDay;
+        const time = select.dataset.blockTime;
+        const therapistId = Number(select.dataset.therapistId);
+        const key = cellKey(day, time, therapistId);
+        const partTimes = blockPartTimes(time);
+        let reload = false;
+        let failureMessage = '';
+        state.pending.add(key);
+        drawSchedule();
+        setConnection(true, 'Се зачувува…');
+        clearNotice();
+        try {
+            const saved = await api('/api/schedule/block', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    year: state.year, day, time, therapistId,
+                    studentPublicIds: wanted,
+                    expectedStudentPublicIds: expected
+                })
+            });
+            [time, ...partTimes].forEach((slot) => state.sessions.delete(cellKey(day, slot, therapistId)));
+            (saved.sessions || []).forEach((session) => {
+                state.sessions.set(cellKey(session.day, session.time, session.therapist_id), session);
+            });
+            if (wanted.length < 2) state.expandedBlocks.delete(key);
+            setConnection(true, 'Зачувано');
+        } catch (error) {
+            reload = Boolean(error && error.status === 409);
+            setConnection(false, 'Промената е одбиена');
+            failureMessage = readableError(error);
+        } finally {
+            state.pending.delete(key);
+            if (reload) await loadAll();
+            else drawSchedule();
+            if (failureMessage) showNotice(failureMessage, 'error');
+        }
+    }
+
+    async function saveSession(select) {
+        const day = select.dataset.sessionDay;
+        const time = select.dataset.sessionTime;
+        const therapistId = Number(select.dataset.therapistId);
+        const previous = select.dataset.previous || null;
+        const wanted = select.value || null;
+        const key = cellKey(day, time, therapistId);
+        if (wanted === previous) return;
+
+        state.pending.add(key);
+        drawSchedule();
+        setConnection(true, 'Се зачувува…');
+        clearNotice();
+        try {
+            const saved = await api('/api/schedule/session', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    year: state.year, day, time, therapistId,
+                    studentPublicId: wanted,
+                    expectedStudentPublicId: previous
+                })
+            });
+            if (saved.studentPublicId) {
+                state.sessions.set(key, {
+                    day, time, therapist_id: therapistId,
+                    therapist_name: saved.therapistName,
+                    student_public_id: saved.studentPublicId,
+                    student_name: saved.studentName
+                });
+            } else state.sessions.delete(key);
+            setConnection(true, 'Зачувано');
+        } catch (error) {
+            if (error.body && Object.prototype.hasOwnProperty.call(error.body, 'actualStudentPublicId')) {
+                if (error.body.actualStudentPublicId) {
+                    state.sessions.set(key, {
+                        day, time, therapist_id: therapistId,
+                        student_public_id: error.body.actualStudentPublicId,
+                        student_name: error.body.actualStudentName
+                    });
+                } else state.sessions.delete(key);
+            }
+            setConnection(false, 'Промената е одбиена');
+            showNotice(readableError(error), 'error');
+        } finally {
+            state.pending.delete(key);
+            drawSchedule();
+        }
+    }
+
+    function loadYears() {
+        return api('/api/years').then((years) => {
+            state.years = years;
+            const select = el('year');
+            const previous = state.year;
+            select.innerHTML = years.map((year) =>
+                '<option value="' + esc(year.label) + '">' + esc(year.label) +
+                (year.is_current ? ' · тековна' : ' · архива') + '</option>'
+            ).join('');
+            const current = years.find((year) => year.is_current) || years[0];
+            const preferred = previous || REQUESTED_YEAR;
+            state.year = years.some((year) => year.label === preferred) ? preferred : (current ? current.label : '');
+            select.value = state.year;
+            select.disabled = !state.year;
+        });
+    }
+
+    async function loadAll() {
+        const ticket = ++state.ticket;
+        el('busyLayer').className = 'busy-layer on';
+        clearNotice();
+        try {
+            await discoverServer();
+            await loadYears();
+            if (!state.year) throw new Error('Нема учебна година во базата.');
+            const query = '?year=' + encodeURIComponent(state.year);
+            const [roster, timetable, schedule] = await Promise.all([
+                api('/api/roster' + query),
+                api('/api/teaching/timetable' + query),
+                api('/api/schedule/sessions' + query)
+            ]);
+            if (ticket !== state.ticket) return;
+            state.roster = roster;
+            state.bells = ((timetable.bells && timetable.bells.kabinet) || [])
+                .filter((bell) => Number(bell.minutes) === 40 && bellTime(bell));
+            state.sessions = new Map();
+            (schedule.sessions || []).forEach((session) => {
+                state.sessions.set(cellKey(session.day, session.time, session.therapist_id), session);
+            });
+            drawView();
+            drawDays();
+            drawSchedule();
+            drawPanel();
+            setConnection(true, 'База: ' + (state.serverLabel || serverName(apiBase() || window.location.origin)));
+        } catch (error) {
+            if (ticket !== state.ticket) return;
+            state.roster = null;
+            el('scheduleGrid').innerHTML = '<div class="empty-state">Распоредот не е достапен.</div>';
+            drawPanel();
+            setConnection(false, 'Нема врска со базата');
+            if (error.startRequired) {
+                showNotice('Отвори ја апликацијата преку <a href="start.html">start.html</a>.', 'error', true);
+            } else if (error.discovery) {
+                showNotice(esc(error.message)
+                    + ' <a href="start.html">Отвори start.html</a> · <a href="Podatoci.html">Провери во Податоци</a>',
+                    'error', true);
+            } else showNotice(error.message, 'error');
+        } finally {
+            if (ticket === state.ticket) el('busyLayer').className = 'busy-layer';
+        }
+    }
+
+    el('year').addEventListener('change', () => {
+        state.year = el('year').value;
+        state.focus = '';
+        state.rosterTherapist = '';
+        loadAll();
+    });
+    el('focus').addEventListener('change', () => { state.focus = el('focus').value; drawSchedule(); });
+    el('viewMode').addEventListener('change', () => {
+        state.view = el('viewMode').value === 'week' ? 'week' : 'day';
+        try { localStorage.setItem(VIEW_KEY, state.view); } catch (_) { /* optional preference */ }
+        drawView();
+        drawSchedule();
+    });
+    el('refresh').addEventListener('click', loadAll);
+    el('printSheet').addEventListener('click', printSchedule);
+    el('exportImage').addEventListener('click', exportScheduleImage);
+    document.querySelectorAll('.view-tab[data-panel]').forEach((button) => {
+        button.addEventListener('click', () => {
+            state.panel = button.dataset.panel === 'roster' ? 'roster' : 'schedule';
+            drawPanel();
+        });
+        button.addEventListener('keydown', (event) => {
+            if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
+            const tabs = Array.from(document.querySelectorAll('.view-tab[data-panel]'));
+            const direction = event.key === 'ArrowRight' ? 1 : -1;
+            const next = tabs[(tabs.indexOf(button) + direction + tabs.length) % tabs.length];
+            next.click();
+            next.focus();
+        });
+    });
+    el('rosterTherapist').addEventListener('change', () => {
+        state.rosterTherapist = el('rosterTherapist').value;
+        drawTherapistRoster();
+    });
+    el('rosterSearch').addEventListener('input', drawTherapistRoster);
+    el('rosterKind').addEventListener('change', drawTherapistRoster);
+    el('rosterSession').addEventListener('change', drawTherapistRoster);
+    try { state.view = localStorage.getItem(VIEW_KEY) === 'week' ? 'week' : 'day'; }
+    catch (_) { state.view = 'day'; }
+    state.day = todayDay();
+    refreshLocalLinks();
+    loadAll();
+})();
+</script>
+<script src="app-navigation.js"></script>
+</body>
+</html>

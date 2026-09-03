@@ -1,0 +1,1570 @@
+<!DOCTYPE html>
+<html lang="mk">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Податоци — по учебна година</title>
+<!--
+    Списоците врз кои стојат распоредите: ученици, наставници, терапевти,
+    одделенија — и мапирањето меѓу нив, за ИЗБРАНАТА учебна година.
+
+    ЗОШТО ПО ГОДИНА. Одделението на ученикот и одделенијата на наставникот се
+    факти за една година, не за човекот. Порано одделението на наставникот беше
+    една колона без година (`teachers.homeroom_class_id`), па увоз на новата
+    година тивко го пишуваше врз она што важело лани — и архивскиот распоред
+    потоа кажуваше погрешен наставник. Од миграција 016 тоа е табела со година
+    и наставникот може да има повеќе одделенија (комбинирани паралелки,
+    предметен наставник што влегува во неколку).
+
+    НЕМА ЛОКАЛНА КОПИЈА. Како и NastavaUredi: секој запис оди право во базата;
+    ако не помине, тоа се кажува. Ништо не се чува „за подоцна".
+
+    ШТО НЕ ПРАВИ ОВАА СТРАНИЦА. Не архивира ученик и не го враќа од архива —
+    тоа го одлучува S-Dnevnik и таму е единственото место (правило 5). Тука
+    архивиран ученик се гледа, но не се менува.
+-->
+<style>
+    :root {
+        --bg: #f6f5fb;
+        --card: #ffffff;
+        --text: #1f2430;
+        --muted: #6b7280;
+        --border: #e4e2ee;
+        --accent: #6d5bd0;
+        --accent-dark: #57459f;
+        --warn: #b7791f;
+        --warn-bg: #fff8e6;
+        --danger: #c53030;
+        --ok: #2f855a;
+        --shadow: 0 1px 3px rgba(0, 0, 0, .07);
+        --soft: #f0edfb;
+        /* Reader's own display size, 1 = as designed. The slider in the header
+           writes it; `zoom` on <body> scales layout with the text, so a bigger
+           font does not leave the columns behind. */
+        --ui: 1;
+    }
+    @media (prefers-color-scheme: dark) {
+        :root {
+            --bg: #16152a;
+            --card: #1e1d36;
+            --text: #e8e6f2;
+            --muted: #9c99b5;
+            --border: #383557;
+            --accent: #8878e8;
+            --accent-dark: #6f5fd0;
+            --warn: #e0b155;
+            --warn-bg: #33280f;
+            --danger: #f08a8a;
+            --ok: #7fd0a5;
+            --shadow: 0 1px 3px rgba(0, 0, 0, .35);
+            --soft: #272544;
+        }
+    }
+
+    * { box-sizing: border-box; }
+    body {
+        margin: 0; background: var(--bg); color: var(--text);
+        font-family: "Segoe UI", system-ui, -apple-system, sans-serif; font-size: 15px;
+        zoom: var(--ui);
+    }
+    button, input, select { font-family: inherit; letter-spacing: 0; }
+    header {
+        background: linear-gradient(135deg, var(--accent), var(--accent-dark));
+        color: #fff; padding: 16px 22px; display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+    }
+    header h1 { margin: 0; font-size: 20px; font-weight: 700; }
+    header .sub { font-size: 13px; opacity: .85; }
+    header .links { margin-left: auto; display: flex; gap: 14px; }
+    header a { color: #fff; opacity: .9; font-size: 13px; }
+
+    main { padding: 18px 22px 60px; max-width: 1500px; margin: 0 auto; }
+    .panel {
+        background: var(--card); border: 1px solid var(--border); border-radius: 10px;
+        padding: 16px 18px; box-shadow: var(--shadow); margin-bottom: 16px;
+    }
+    .panel h2 { margin: 0 0 4px; font-size: 16px; }
+    .hint { margin: 0 0 12px; font-size: 13px; color: var(--muted); }
+
+    .controls { display: flex; flex-wrap: wrap; gap: 14px; align-items: flex-end; }
+    .field { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--muted); }
+    .field select, .field input {
+        padding: 8px 10px; border: 1px solid var(--border); border-radius: 6px;
+        background: var(--card); color: var(--text); font-size: 14px; min-width: 170px;
+    }
+    .btn {
+        padding: 9px 16px; border: 0; border-radius: 6px; cursor: pointer;
+        background: var(--accent); color: #fff; font-size: 14px; font-weight: 600;
+    }
+    .btn.soft { background: transparent; color: var(--text); border: 1px solid var(--border); font-weight: 500; }
+    .btn.danger { color: var(--danger); border-color: color-mix(in srgb, var(--danger) 45%, var(--border)); }
+    .btn:disabled { opacity: .45; cursor: not-allowed; }
+    .status { font-size: 13px; color: var(--muted); }
+    .status.ok { color: var(--ok); }
+    .status.warn { color: var(--warn); }
+    .status.error { color: var(--danger); }
+
+    .tabs { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
+    .tabs .btn[aria-pressed="true"] { background: var(--accent); color: #fff; border-color: transparent; }
+    .number-toggle {
+        display: inline-flex; align-items: center; gap: 7px; margin-left: auto;
+        padding: 7px 10px; border: 1px solid var(--border); border-radius: 6px;
+        color: var(--muted); background: var(--card); font-size: 13px; cursor: pointer;
+    }
+    .number-toggle input { width: 16px; height: 16px; margin: 0; accent-color: var(--accent); }
+    .tab { display: none; }
+    .tab.on { display: block; }
+
+    .scroll { overflow-x: auto; }
+    table.list { border-collapse: collapse; width: 100%; font-size: 13px; }
+    table.list th, table.list td { border-bottom: 1px solid var(--border); padding: 6px 9px; text-align: left; vertical-align: middle; }
+    table.list thead th { background: var(--soft); font-weight: 600; white-space: nowrap; position: sticky; top: 0; }
+    table.list input, table.list select {
+        padding: 5px 7px; border: 1px solid var(--border); border-radius: 5px;
+        background: var(--card); color: var(--text); font-size: 13px; width: 100%;
+    }
+    table.list td.act { width: 1%; white-space: nowrap; }
+    table.list th.row-number, table.list td.row-number {
+        width: 52px; min-width: 52px; text-align: center; color: var(--muted);
+        font-variant-numeric: tabular-nums; white-space: nowrap;
+    }
+    .list-number {
+        display: inline-block; min-width: 28px; margin-right: 4px; text-align: right;
+        color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap;
+    }
+    body.hide-list-numbers .row-number,
+    body.hide-list-numbers .list-number { display: none; }
+    /* The name is the column people read, and it was the one being squeezed:
+       the therapist chips take whatever they are given and the action buttons
+       cannot wrap, so „V-б - Јована Долгопрезимска" was cut off mid-surname while
+       the rest of the row had room to spare. The table already scrolls
+       sideways inside `.scroll`, so asking for the width is safe — better a
+       scrollbar than a name nobody can read. */
+    table.list input.s-name, table.list input.t-name, table.list input.th-name { min-width: 240px; }
+    table.list .btn { padding: 5px 10px; font-size: 12px; }
+    tr.archived td { opacity: .55; }
+
+    .chips { display: flex; gap: 4px; flex-wrap: wrap; }
+    .chip {
+        display: inline-block; padding: 1px 7px; border-radius: 10px; font-size: 12px;
+        background: var(--soft); border: 1px solid var(--border);
+    }
+    .chip.home { background: var(--accent); color: #fff; border-color: transparent; }
+    .none { color: var(--muted); font-size: 12px; }
+
+    .picker { display: none; margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--border); }
+    .picker.open { display: block; }
+    .picker h3 { margin: 0 0 8px; font-size: 15px; }
+    .picker h4 { margin: 14px 0 8px; font-size: 13px; }
+    /* Read DOWN a column, not across a row.
+       The roster is a vertical list on paper and in the годишен список, and a
+       person ticking eighty-one children reads it the same way. A grid numbers
+       1 2 3 4 5 6 across the first row, which puts подготвителна beside VIII and
+       makes the eye jump. CSS columns fill top-to-bottom and then move right, so
+       the order on screen is the order on the sheet in somebody's hand. */
+    .ui-size { display: flex; align-items: center; gap: 6px; margin-right: 10px; }
+    .ui-size span { font-weight: 700; font-size: 15px; opacity: .85; }
+    .ui-size input { width: 92px; accent-color: #fff; cursor: pointer; }
+
+    .grid-pick { columns: 300px 3; column-gap: 22px; }
+    .grid-pick label { display: flex; align-items: center; gap: 8px; font-size: 1em;
+        break-inside: avoid; -webkit-column-break-inside: avoid; margin-bottom: 8px; line-height: 1.35; }
+    .grid-pick input[type=checkbox] { width: 16px; height: 16px; flex: 0 0 auto; }
+    .grid-pick select { width: auto; padding: 2px 4px; font-size: 12px; }
+    .class-label { font-weight: 700; white-space: nowrap; }
+    .class-actions { display: flex; justify-content: flex-end; gap: 6px; }
+    .class-actions .btn { white-space: nowrap; }
+
+    .offline { background: var(--warn-bg); border: 1px solid var(--warn); border-radius: 8px; padding: 14px 16px; }
+    .offline h3 { margin: 0 0 6px; font-size: 15px; }
+    .offline code { font-family: Consolas, monospace; font-size: 13px; }
+    .caution { background: var(--warn-bg); border: 1px solid var(--warn); border-radius: 8px; padding: 10px 12px; font-size: 13px; margin-bottom: 12px; }
+    .year-change { border-top: 1px solid var(--border); margin-top: 14px; padding-top: 14px; }
+    .year-change[hidden] { display: none; }
+    .rollover-summary { margin-top: 12px; padding: 12px; background: var(--soft); border-radius: 6px; font-size: 13px; }
+    .rollover-summary p { margin: 0 0 7px; }
+    .rollover-summary p:last-child { margin-bottom: 0; }
+    .rollover-summary .graduates { color: var(--warn); }
+    .annual-bar {
+        display: flex; align-items: center; justify-content: space-between; gap: 12px;
+        padding: 9px 0 12px; flex-wrap: wrap;
+    }
+    .annual-bar strong { font-size: 13px; }
+    .annual-bar .btn { padding: 6px 10px; font-size: 12px; }
+    .suggestions { margin-top: 14px; border-top: 1px solid var(--border); padding-top: 12px; }
+    .suggestions details { background: var(--soft); border-radius: 6px; padding: 10px 12px; }
+    .suggestions summary { cursor: pointer; font-weight: 650; font-size: 13px; }
+    .suggestion-tools { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 10px 0; flex-wrap: wrap; }
+    .suggestion-list { display: grid; gap: 5px; }
+    .suggestion-row {
+        display: grid; grid-template-columns: 24px minmax(180px, 1.5fr) minmax(130px, 1fr);
+        gap: 8px; align-items: center; padding: 6px 8px; background: var(--card); border-radius: 5px;
+    }
+    .suggestion-row.student { grid-template-columns: 24px minmax(180px, 1.5fr) minmax(130px, 1fr) 150px 145px; }
+    .suggestion-row input[type="checkbox"] { width: 16px; height: 16px; }
+    .suggestion-row select { min-width: 0; width: 100%; padding: 5px 7px; background: var(--card); color: var(--text); border: 1px solid var(--border); border-radius: 5px; }
+    .suggestion-meta { color: var(--muted); font-size: 12px; }
+    @media (max-width: 720px) {
+        main { padding: 16px 14px 50px; }
+        .suggestion-row, .suggestion-row.student { grid-template-columns: 24px 1fr; }
+        .suggestion-row > :not(input[type="checkbox"]):not(.suggestion-name) { grid-column: 2; }
+    }
+</style>
+</head>
+<body>
+<header>
+    <h1>🗂️ Податоци</h1>
+    <span class="sub">ученици, наставници, терапевти и одделенија — по учебна година</span>
+    <div class="links">
+        <label class="ui-size" title="Големина на приказот">
+            <span aria-hidden="true">A</span>
+            <input type="range" id="uiSize" min="90" max="160" step="5" value="100"
+                   aria-label="Големина на приказот">
+        </label>
+        <a href="NastavaUredi.html">Уреди настава</a>
+        <a href="Pregled-Baza.html">Провери база</a>
+    </div>
+</header>
+
+<main>
+    <div class="panel">
+        <div class="controls">
+            <label class="field" id="serverField" hidden>
+                <span>База / сервер</span>
+                <select id="serverChoice" disabled>
+                    <option value="">проверувам…</option>
+                </select>
+            </label>
+            <label class="field">
+                <span>Учебна година</span>
+                <select id="year" disabled></select>
+            </label>
+            <button class="btn soft" id="refresh">↻ Освежи</button>
+            <button class="btn soft" id="openRollover" disabled>Нова учебна година</button>
+            <span class="status" id="status"></span>
+        </div>
+        <div class="caution" id="serverWarning" hidden style="margin-top: 12px; margin-bottom: 0;"></div>
+        <div class="year-change" id="rolloverPanel" hidden>
+            <h2>Премин во нова учебна година</h2>
+            <p class="hint">
+                Прво се прикажува точен преглед. Старата година останува цела, а новата
+                почнува со празни годишни списоци. Учениците, наставниците, терапевтите и
+                одделенијата од претходните години потоа се нудат како предлози за избор.
+            </p>
+            <div class="controls">
+                <label class="field">
+                    <span>Нова учебна година</span>
+                    <input id="newSchoolYear" inputmode="numeric" placeholder="2026/2027">
+                </label>
+                <label class="field">
+                    <span>Завршно одделение</span>
+                    <select id="lastGrade">
+                        <option value="IX" selected>IX</option>
+                        <option value="X">X</option>
+                    </select>
+                </label>
+                <button class="btn soft" id="previewRollover">Прикажи преглед</button>
+                <button class="btn" id="applyRollover" disabled>Создај ја годината</button>
+                <button class="btn soft" id="closeRollover">Откажи</button>
+            </div>
+            <div id="rolloverResult"></div>
+        </div>
+    </div>
+
+    <div class="tabs">
+        <button class="btn soft" data-tab="students" aria-pressed="true">🎒 Ученици</button>
+        <button class="btn soft" data-tab="teachers" aria-pressed="false">👩‍🏫 Наставници</button>
+        <button class="btn soft" data-tab="therapists" aria-pressed="false">🧩 Терапевти</button>
+        <button class="btn soft" data-tab="classes" aria-pressed="false">🏫 Одделенија</button>
+        <label class="number-toggle"><input id="showRowNumbers" type="checkbox" checked> Редни броеви</label>
+    </div>
+
+    <div class="panel tab on" id="tab-students">
+        <h2>Ученици</h2>
+        <p class="hint">
+            Одделението се чува по година. Тоа е полето што одлучува од кој час го зема
+            детето кабинетот. <b>Екстерните</b> немаат одделение и не треба да имаат —
+            доаѓаат само на третман; означи ги како екстерни и престануваат да се пријавуваат
+            како пропуст во прегледот „Кој недостига".
+        </p>
+        <div id="studentArchivedNote"></div>
+        <div class="annual-bar">
+            <strong id="studentYearCount"></strong>
+            <button class="btn soft danger" id="clearStudents">Испразни го списокот за оваа година</button>
+        </div>
+        <div class="controls" style="margin-bottom: 12px;">
+            <label class="field">
+                <span>Барај</span>
+                <input id="studentSearch" placeholder="име или одделение">
+            </label>
+            <label class="field">
+                <span>Листа</span>
+                <select id="studentKindFilter">
+                    <option value="">сите ученици</option>
+                    <option value="internal">интерни</option>
+                    <option value="boarding">интернатски</option>
+                    <option value="external">екстерни</option>
+                </select>
+            </label>
+            <label class="field">
+                <span>Нов ученик</span>
+                <input id="newStudent" placeholder="име и презиме">
+            </label>
+            <label class="field">
+                <span>Категорија</span>
+                <select id="newStudentKind">
+                    <option value="internal" selected>интерен</option>
+                    <option value="boarding">интернатски</option>
+                    <option value="external">екстерен</option>
+                </select>
+            </label>
+            <label class="field">
+                <span>Одделение</span>
+                <select id="newStudentClass"></select>
+            </label>
+            <button class="btn" id="addStudent">+ Додај</button>
+        </div>
+        <div class="scroll"><div id="students"></div></div>
+        <div class="suggestions" id="studentCandidates"></div>
+    </div>
+
+    <div class="panel tab" id="tab-teachers">
+        <h2>Наставници</h2>
+        <p class="hint">
+            Наставникот може да има <b>повеќе одделенија</b> — комбинирани паралелки кај
+            одделенските, и сите одделенија во кои влегува кај предметните. „Раководител"
+            е одделението што го води; останатите се одделенија во кои предава.
+        </p>
+        <div class="annual-bar">
+            <strong id="teacherYearCount"></strong>
+            <button class="btn soft danger" id="clearTeachers">Испразни го списокот за оваа година</button>
+        </div>
+        <div class="controls" style="margin-bottom: 12px;">
+            <label class="field">
+                <span>Нов наставник</span>
+                <input id="newTeacher" placeholder="име и презиме">
+            </label>
+            <label class="field">
+                <span>Улога</span>
+                <select id="newTeacherKind">
+                    <option value="odd">одделенски наставник</option>
+                    <option value="pred" selected>предметен наставник</option>
+                </select>
+            </label>
+            <label class="field">
+                <span>Предмет</span>
+                <input id="newTeacherSubject" placeholder="на пр. АНГ.">
+            </label>
+            <button class="btn" id="addTeacher">+ Додај</button>
+        </div>
+        <div class="scroll"><div id="teachers"></div></div>
+        <div class="suggestions" id="teacherCandidates"></div>
+        <div class="picker" id="classPicker"></div>
+    </div>
+
+    <div class="panel tab" id="tab-therapists">
+        <h2>Терапевти (кабинети)</h2>
+        <p class="hint">
+            Секој терапевт е еден кабинет. „Ученици" е кого го работи — тоа е списокот од кој
+            Распореди нуди имиња кога се составува неделата.
+        </p>
+        <div class="annual-bar">
+            <strong id="therapistYearCount"></strong>
+            <button class="btn soft danger" id="clearTherapists">Испразни го списокот за оваа година</button>
+        </div>
+        <div class="controls" style="margin-bottom: 12px;">
+            <label class="field">
+                <span>Нов терапевт</span>
+                <input id="newTherapist" placeholder="име и презиме">
+            </label>
+            <button class="btn" id="addTherapist">+ Додај</button>
+        </div>
+        <div class="scroll"><div id="therapists"></div></div>
+        <div class="suggestions" id="therapistCandidates"></div>
+        <div class="picker" id="studentPicker"></div>
+    </div>
+
+    <div class="panel tab" id="tab-classes">
+        <h2>Одделенија</h2>
+        <p class="hint">
+            Раководителот и предметните наставници се менуваат само за избраната учебна
+            година. <b>Смени ознака</b> служи само за исправка на името на одделението и
+            важи во сите години, вклучително и архивските.
+        </p>
+        <div class="annual-bar">
+            <strong id="classYearCount"></strong>
+            <button class="btn soft danger" id="clearClasses">Испразни ги одделенијата за оваа година</button>
+        </div>
+        <div class="controls" style="margin-bottom: 12px;">
+            <label class="field">
+                <span>Ново одделение</span>
+                <input id="newClass" placeholder="на пр. IV-б">
+            </label>
+            <button class="btn" id="addClass">+ Додај</button>
+        </div>
+        <div class="scroll"><div id="classes"></div></div>
+        <div class="suggestions" id="classCandidates"></div>
+        <div class="picker" id="classEditor"></div>
+    </div>
+</main>
+
+<script>
+(function () {
+    'use strict';
+
+    let data = null;
+    let years = [];
+    let tab = 'students';
+    let rolloverPreview = null;
+    const PUBLISHED = window.location.hostname === 'assisstant.github.io';
+    const SERVER_DEFAULTS = [
+        'https://zenpc-1.tailc8965f.ts.net',
+        'https://zenpc.tailc8965f.ts.net'
+    ];
+    const SERVERS_KEY = 'mtb_servers_v1';
+    const SELECTED_SERVER_KEY = 'mtb_podatoci_server_v1';
+    const SERVER_TIMEOUT = 4000;
+    let apiBase = PUBLISHED ? '' : window.location.origin;
+    let liveServers = [];
+    // Only the newest read may draw: switching the year while the first fetch
+    // is in flight otherwise leaves last year's people under this year's label.
+    let ticket = 0;
+
+    const el = (id) => document.getElementById(id);
+    const esc = (v) => String(v == null ? '' : v)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    const tidy = (v) => String(v == null ? '' : v).replace(/\s+/g, ' ').trim();
+    const personName = (value) => {
+        const clean = tidy(value);
+        const letters = clean.replace(/[^\p{L}]/gu, '');
+        if (!letters || letters !== letters.toLocaleUpperCase('mk-MK')) return clean;
+        return clean.toLocaleLowerCase('mk-MK').replace(
+            /(^|[\s\-‐‑–—'’])(\p{L})/gu,
+            (_, before, letter) => before + letter.toLocaleUpperCase('mk-MK')
+        );
+    };
+
+    function serverName(base) {
+        try {
+            const host = new URL(base).hostname.split('.')[0].toLowerCase();
+            if (host === 'zenpc-1') return 'ZenPC-1';
+            if (host === 'zenpc') return 'ZenPC';
+            return host || base;
+        } catch (e) { return base; }
+    }
+
+    function configuredServers() {
+        let values = SERVER_DEFAULTS;
+        try {
+            const stored = JSON.parse(localStorage.getItem(SERVERS_KEY));
+            if (Array.isArray(stored) && stored.length) values = stored;
+        } catch (e) { /* private mode or an old invalid preference */ }
+        return [...new Set(values.map((value) => {
+            try {
+                const url = new URL(String(value).trim());
+                return url.protocol === 'https:' && url.hostname.endsWith('.ts.net') ? url.origin : null;
+            } catch (e) { return null; }
+        }).filter(Boolean))];
+    }
+
+    async function probeServer(base) {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), SERVER_TIMEOUT);
+        try {
+            const res = await fetch(base + '/api/health', {
+                signal: controller.signal, cache: 'no-store'
+            });
+            const body = res.ok ? await res.json() : null;
+            return body && body.ok ? base : null;
+        } catch (e) {
+            return null;
+        } finally {
+            clearTimeout(timer);
+        }
+    }
+
+    function savedServer() {
+        try { return localStorage.getItem(SELECTED_SERVER_KEY) || ''; }
+        catch (e) { return ''; }
+    }
+
+    function rememberServer(base) {
+        try { localStorage.setItem(SELECTED_SERVER_KEY, base); }
+        catch (e) { /* the choice still works for this tab */ }
+        window.dispatchEvent(new CustomEvent('mtb:server-selected'));
+    }
+
+    function forgetSelectedServer() {
+        try { localStorage.removeItem(SELECTED_SERVER_KEY); }
+        catch (e) { /* private mode or locked storage */ }
+        window.dispatchEvent(new CustomEvent('mtb:server-selected'));
+    }
+
+    function drawServerWarning() {
+        const warning = el('serverWarning');
+        if (!PUBLISHED || liveServers.length < 2) {
+            warning.hidden = true;
+            warning.textContent = '';
+            return;
+        }
+        warning.hidden = false;
+        warning.innerHTML = apiBase
+            ? '<b>Двата сервери се вклучени.</b> Сега запишуваш во '
+              + `<b>${esc(serverName(apiBase))}</b>. Работи во една база; синхронизирај пред да се префрлиш на другата.`
+            : '<b>Двата сервери се вклучени.</b> Избери една база погоре; синхронизирај пред да се префрлиш на другата.';
+    }
+
+    async function discoverServers() {
+        if (!PUBLISHED) return true;
+        el('serverField').hidden = false;
+        status('ги проверувам ZenPC и ZenPC-1…');
+        const candidates = configuredServers();
+        liveServers = (await Promise.all(candidates.map(probeServer))).filter(Boolean);
+
+        const select = el('serverChoice');
+        select.innerHTML = '<option value="">— избери база —</option>'
+            + candidates.map((base) => {
+                const online = liveServers.includes(base);
+                return `<option value="${esc(base)}"${online ? '' : ' disabled'}>`
+                    + `${esc(serverName(base))}${online ? ' · достапен' : ' · недостапен'}</option>`;
+            }).join('');
+        select.disabled = liveServers.length === 0;
+
+        const remembered = savedServer();
+        const chosen = liveServers.includes(remembered)
+            ? remembered
+            : (liveServers.length === 1 ? liveServers[0] : '');
+        if (!chosen) {
+            if (liveServers.length === 0 && remembered) forgetSelectedServer();
+            apiBase = '';
+            drawServerWarning();
+            status(liveServers.length
+                ? 'Двата сервери одговараат — избери во која база ќе работиш.'
+                : 'Ниту ZenPC ниту ZenPC-1 не одговара. Провери Tailscale.', 'warn');
+            return false;
+        }
+        apiBase = chosen;
+        select.value = chosen;
+        rememberServer(chosen);
+        drawServerWarning();
+        return true;
+    }
+
+    async function switchServer(base) {
+        if (!PUBLISHED || !liveServers.includes(base)) return;
+        apiBase = base;
+        rememberServer(base);
+        drawServerWarning();
+        ++ticket;
+        data = null;
+        closePickers();
+        closeRollover();
+        el('year').innerHTML = '';
+        el('year').disabled = true;
+        years = [];
+        await load();
+    }
+
+    function status(text, kind) {
+        const node = el('status');
+        node.textContent = text || '';
+        node.className = 'status' + (kind ? ' ' + kind : '');
+        let dataState = kind === 'error' ? 'error' : kind === 'warn' ? 'warning' : kind === 'ok' ? 'synced' : 'synced';
+        if (/вчитув|проверув|ги проверувам|барам/i.test(text || '')) dataState = 'loading';
+        const detail = { state: dataState, text: text || 'Податоците се вчитани од базата' };
+        window.__MTB_DATA_STATE__ = detail;
+        window.dispatchEvent(new CustomEvent('mtb:data-state', { detail }));
+    }
+
+    /** The server answers in English; this is the staff room's sentence. */
+    function saySorry(res, body) {
+        const raw = (body && (body.error || body.message)) || ('HTTP ' + (res ? res.status : '?'));
+        if (body && body.archived) return 'Тој ученик е архивиран — се менува во S-Dnevnik.';
+        if (body && body.inactiveThisYear) return 'Записот не е активен во оваа учебна година. Додади го од „Предлози од претходни години“.';
+        if (res && res.status === 409 && /renamed while you were editing/.test(raw)) {
+            return 'Некој го преименува во меѓувреме. Освежи и погледни што стои сега.';
+        }
+        if (res && res.status === 404 && /no such class/.test(raw)) return 'Тоа одделение не постои. Додај го под „Одделенија".';
+        if (/no such student|no student with id/.test(raw)) return 'Тој ученик не постои во базата.';
+        if (res && res.status === 404 && /unknown therapist/.test(raw)) return 'Тој терапевт не постои.';
+        if (res && res.status === 404 && /no such school year/.test(raw)) return 'Таа учебна година не постои.';
+        if (res && res.status === 409 && /current school year changed/.test(raw)) {
+            return 'Друг компјутер веќе ја сменил тековната година. Освежи и прегледај повторно.';
+        }
+        if (res && res.status === 409 && /already exists/.test(raw)) return 'Таа учебна година веќе постои.';
+        if (res && res.status === 409 && /already/.test(raw)) return raw;
+        return raw;
+    }
+
+    async function api(method, path, body) {
+        if (!apiBase) throw new Error('Избери база/сервер.');
+        const res = await fetch(apiBase + path, {
+            method, cache: 'no-store',
+            headers: body === undefined ? undefined : { 'Content-Type': 'application/json' },
+            body: body === undefined ? undefined : JSON.stringify(body)
+        });
+        let payload = null;
+        try { payload = await res.json(); } catch (e) { /* не-JSON */ }
+        if (!res.ok) {
+            const err = new Error(saySorry(res, payload));
+            err.payload = payload; err.status = res.status;
+            throw err;
+        }
+        return payload;
+    }
+
+    async function fillYears(preferred) {
+        const select = el('year');
+        if (select.options.length) return;
+        years = await api('GET', '/api/years');
+        const requested = preferred || new URLSearchParams(window.location.search).get('year');
+        years.forEach((y) => {
+            const opt = document.createElement('option');
+            opt.value = y.label;
+            opt.textContent = y.label + (y.is_current ? ' · тековна' : ' · архива');
+            select.appendChild(opt);
+        });
+        const fallback = years.find((y) => y.is_current) || years[0];
+        select.value = years.some((y) => y.label === requested) ? requested : (fallback && fallback.label);
+        select.disabled = !select.options.length;
+    }
+
+    async function refreshYears(preferred) {
+        el('year').innerHTML = '';
+        years = [];
+        await fillYears(preferred);
+    }
+
+    async function load() {
+        const mine = ++ticket;
+        status((PUBLISHED ? serverName(apiBase) + ' · ' : '') + 'вчитувам…');
+        try {
+            await fillYears();
+            const body = await api('GET', '/api/roster?year=' + encodeURIComponent(el('year').value));
+            if (mine !== ticket) return;
+            // The rooms, and who holds which one THIS year. Read alongside the
+            // roster rather than in their own pass, so the table can never draw
+            // a person holding a profile the list has not heard of yet --
+            // the same reason /api/roster is one read for all four lists.
+            // An older server without these endpoints simply shows no column.
+            try {
+                const [list, held] = await Promise.all([
+                    api('GET', '/api/categories'),
+                    api('GET', '/api/categories/holders?year=' + encodeURIComponent(el('year').value))
+                ]);
+                body.categories = list.categories || [];
+                // Therapists and teachers are both special educators holding a
+                // profile, so both are keyed the same way and the picker is
+                // the same control in either table.
+                body.categoryOf = { therapist: {}, teacher: {} };
+                (held.therapists || []).forEach((h) => { body.categoryOf.therapist[h.personId] = h.categoryId; });
+                (held.teachers || []).forEach((h) => { body.categoryOf.teacher[h.personId] = h.categoryId; });
+            } catch (_) {
+                body.categories = [];
+                body.categoryOf = { therapist: {}, teacher: {} };
+            }
+            if (mine !== ticket) return;
+            data = body;
+            closePickers();
+            draw();
+            status((PUBLISHED ? serverName(apiBase) + ' · ' : '')
+                 + `${body.year}${body.isCurrentYear ? '' : ' · архивска година'} · `
+                 + `${body.students.length} ученици · ${body.teachers.length} наставници · `
+                 + `${body.therapists.length} терапевти · ${body.classes.length} одделенија`,
+                   body.isCurrentYear ? '' : 'warn');
+        } catch (err) {
+            if (mine !== ticket) return;
+            data = null;
+            offline(err);
+        }
+    }
+
+    function offline(err) {
+        ['students', 'teachers', 'therapists', 'classes',
+         'studentCandidates', 'teacherCandidates', 'therapistCandidates', 'classCandidates'].forEach((id) => {
+            el(id).innerHTML = '';
+        });
+        el('students').innerHTML =
+            '<div class="offline"><h3>Нема врска со серверот</h3>'
+            + '<p>Овие списоци ги чува само базата — оваа страница нема своја копија, '
+            + 'па нема ни што да прикаже, ни каде да запише.</p>'
+            + (PUBLISHED
+                ? '<p>Избери го другиот сервер погоре или провери дали Tailscale е поврзан.</p>'
+                : '<p>Ако страницата е отворена од интернет, отвори ја преку <a href="start.html">start.html</a>.</p>')
+            + `<p><code>${esc(err.message)}</code></p></div>`;
+        status((PUBLISHED && apiBase ? serverName(apiBase) + ' · ' : '') + 'серверот не одговара', 'error');
+    }
+
+    const classLabels = () => (data.classes || []).map((c) => c.label);
+    const allClassLabels = () => Array.from(new Set([
+        ...classLabels(),
+        ...(((data.candidates || {}).classes || []).map((c) => c.label))
+    ]));
+
+    /**
+     * Three values, not two flags. „Интернатски" is a boarding child, who is
+     * by definition also internal; a boarding EXTERNAL child is not a thing.
+     * One list to pick from beats two checkboxes with an impossible pair.
+     */
+    const KINDS = [
+        ['internal', 'интерен'],
+        ['boarding', 'интернатски'],
+        ['external', 'екстерен']
+    ];
+
+    function draw() {
+        if (!data) return;
+        drawStudents();
+        drawTeachers();
+        drawTherapists();
+        drawClasses();
+        drawAnnualControls();
+        fillClassSelect(el('newStudentClass'));
+        // Adding a person enrols them in the CURRENT year; there is no honest
+        // meaning for "add a student to a year that is over.
+        const archived = !data.isCurrentYear;
+        ['addStudent', 'clearStudents', 'clearTeachers', 'clearTherapists', 'clearClasses']
+            .forEach((id) => { el(id).disabled = archived; });
+        el('studentArchivedNote').innerHTML = archived
+            ? '<div class="caution">Ова е архивска година. Податоците може да се поправат за архивата да се чита точно, '
+              + 'но годишниот состав се додава и се трга само во тековната година.</div>'
+            : '';
+        el('openRollover').disabled = archived;
+        if (archived) closeRollover();
+        else prepareRolloverYear();
+    }
+
+    function nextYearLabel(label) {
+        const match = /^(\d{4})\/(\d{4})$/.exec(label || '');
+        if (!match) return '';
+        const start = Number(match[1]) + 1;
+        return `${start}/${start + 1}`;
+    }
+
+    function prepareRolloverYear() {
+        const input = el('newSchoolYear');
+        if (input.dataset.from !== data.year) {
+            input.value = nextYearLabel(data.year);
+            input.dataset.from = data.year;
+            invalidateRollover();
+        }
+    }
+
+    function invalidateRollover() {
+        rolloverPreview = null;
+        el('applyRollover').disabled = true;
+        el('applyRollover').textContent = 'Создај ја годината';
+        el('rolloverResult').innerHTML = '';
+    }
+
+    function closeRollover() {
+        el('rolloverPanel').hidden = true;
+        invalidateRollover();
+    }
+
+    function drawRolloverPreview(result) {
+        const graduates = result.graduated.map((s) => esc(s.name)).join(', ');
+        el('rolloverResult').innerHTML =
+            '<div class="rollover-summary">'
+            + `<p><b>${esc(result.from)} → ${esc(result.to)}</b>: ${result.roster} активни ученици.</p>`
+            + `<p>${result.promoted.length} се предлагаат со следно одделение, ${result.unchanged.length} без промена. `
+            + '<b>Никој не се внесува автоматски</b> — новиот состав се избира по создавањето.</p>'
+            + `<p class="graduates"><b>${result.graduated.length} од IX не се запишуваат во новата година:</b> `
+            + `${graduates || 'нема'}.</p>`
+            + `<p>Во ${esc(result.from)} остануваат ${result.archived.scheduleSlots} термини, `
+            + `${result.archived.attendance} присуства, ${result.archived.assessments} проценки и `
+            + `${result.archived.triage} тријажни тестови.</p>`
+            + '</div>';
+    }
+
+    async function previewYearRollover() {
+        if (!data || !data.isCurrentYear) return;
+        const to = tidy(el('newSchoolYear').value);
+        try {
+            const result = await api('POST', '/api/years/rollover', {
+                from: data.year, to, lastGrade: el('lastGrade').value, carryStudents: false, apply: false
+            });
+            rolloverPreview = result;
+            drawRolloverPreview(result);
+            el('applyRollover').disabled = false;
+            el('applyRollover').textContent = `Создај ${result.to}`;
+            status('Прегледот е подготвен. Провери ги учениците од IX.', 'warn');
+        } catch (err) {
+            invalidateRollover();
+            status(err.message, 'error');
+        }
+    }
+
+    async function applyYearRollover() {
+        if (!rolloverPreview || !data || rolloverPreview.from !== data.year) return;
+        const question = `Да се создаде ${rolloverPreview.to}? Старата година нема да се избрише.`;
+        if (!window.confirm(question)) return;
+        el('applyRollover').disabled = true;
+        try {
+            const result = await api('POST', '/api/years/rollover', {
+                from: rolloverPreview.from,
+                to: rolloverPreview.to,
+                lastGrade: el('lastGrade').value,
+                carryStudents: false,
+                apply: true
+            });
+            closeRollover();
+            await refreshYears(result.to);
+            await load();
+            status(`${result.to} е тековна со празен состав. Избери од предлозите под секоја листа.`, 'ok');
+        } catch (err) {
+            status(err.message, 'error');
+            el('applyRollover').disabled = false;
+        }
+    }
+
+    function fillClassSelect(select, selected) {
+        select.innerHTML = '<option value="">— без одделение —</option>'
+            + classLabels().map((l) => `<option value="${esc(l)}"${l === selected ? ' selected' : ''}>${esc(l)}</option>`).join('');
+    }
+
+    // ── годишен состав ─────────────────────────────────────────────────────
+    const MEMBERSHIP = {
+        student: { active: 'students', candidates: 'students', target: 'studentCandidates', count: 'studentYearCount', noun: 'ученици' },
+        teacher: { active: 'teachers', candidates: 'teachers', target: 'teacherCandidates', count: 'teacherYearCount', noun: 'наставници' },
+        therapist: { active: 'therapists', candidates: 'therapists', target: 'therapistCandidates', count: 'therapistYearCount', noun: 'терапевти' },
+        class: { active: 'classes', candidates: 'classes', target: 'classCandidates', count: 'classYearCount', noun: 'одделенија' }
+    };
+
+    const memberId = (entity, item) => entity === 'student' ? item.public_id : item.id;
+
+    async function setMembership(entity, active, members, message) {
+        if (!data || !data.isCurrentYear || !members.length) return;
+        try {
+            await api('PUT', '/api/roster/memberships', { year: data.year, entity, active, members });
+            closePickers();
+            await load();
+            status(message, 'ok');
+        } catch (err) { status(err.message, 'error'); }
+    }
+
+    async function removeFromYear(entity, id, label) {
+        if (!window.confirm(`„${label}“ да не се прикажува во списоците за ${data.year}?\n\nСтарите години и записите остануваат зачувани.`)) return;
+        await setMembership(entity, false, [{ id }], `${label} е тргнат само од ${data.year}`);
+    }
+
+    async function clearYear(entity) {
+        const cfg = MEMBERSHIP[entity];
+        const active = data[cfg.active] || [];
+        if (!active.length) return status(`Списокот на ${cfg.noun} веќе е празен.`, 'warn');
+        const question = `Да се испразни списокот на ${cfg.noun} за ${data.year}?\n\n`
+            + `${active.length} записи ќе престанат да се нудат во тековните апликации. `
+            + 'Ништо не се брише од базата или од старите години.';
+        if (!window.confirm(question)) return;
+        await setMembership(entity, false,
+            active.map((item) => ({ id: memberId(entity, item) })),
+            `Списокот на ${cfg.noun} за ${data.year} е испразнет; записите се во предлозите.`);
+    }
+
+    function suggestionMeta(entity, item) {
+        if (entity === 'student') {
+            const bits = [item.last_year, item.last_grade].filter(Boolean);
+            if (item.graduated) bits.push('можно завршено IX');
+            return bits.join(' · ') || 'постоечки ученик';
+        }
+        if (entity === 'teacher') {
+            return [item.kind === 'odd' ? 'одделенски' : 'предметен', item.subject, item.last_year]
+                .filter(Boolean).join(' · ') || 'постоечки наставник';
+        }
+        return item.last_year ? `последно: ${item.last_year}` : 'постоечки запис';
+    }
+
+    function studentGradeOptions(item) {
+        const selected = item.suggested_grade || '';
+        const labels = Array.from(new Set([...allClassLabels(), ...(selected ? [selected] : [])]));
+        return '<option value="">— без одделение —</option>'
+            + labels.map((label) => `<option value="${esc(label)}"${label === selected ? ' selected' : ''}>${esc(label)}</option>`).join('');
+    }
+
+    function drawSuggestions(entity) {
+        const cfg = MEMBERSHIP[entity];
+        const candidates = (((data.candidates || {})[cfg.candidates]) || []);
+        const target = el(cfg.target);
+        if (!candidates.length) {
+            target.innerHTML = '<p class="hint">Нема други записи за предлагање.</p>';
+            return;
+        }
+        const rows = candidates.map((item, index) => {
+            const id = memberId(entity, item);
+            const name = entity === 'class' ? item.label : personName(item.name);
+            const studentFields = entity === 'student'
+                ? `<select data-candidate-grade>${studentGradeOptions(item)}</select>`
+                  + '<select data-candidate-kind>'
+                  + KINDS.map(([value, label]) => `<option value="${value}"${(item.suggested_kind || 'internal') === value ? ' selected' : ''}>${label}</option>`).join('')
+                  + '</select>'
+                : '';
+            return `<label class="suggestion-row${entity === 'student' ? ' student' : ''}" data-candidate-row>`
+                + `<input type="checkbox" data-candidate-id="${esc(id)}">`
+                + `<span class="suggestion-name"><span class="list-number">${index + 1}.</span><b>${esc(name)}</b></span>`
+                + `<span class="suggestion-meta">${esc(suggestionMeta(entity, item))}</span>`
+                + studentFields + '</label>';
+        }).join('');
+        target.innerHTML = '<details><summary>'
+            + `Предлози од претходни години (${candidates.length})</summary>`
+            + '<div class="suggestion-tools"><label><input type="checkbox" data-select-all> Избери ги сите</label>'
+            + `<button class="btn" data-add-candidates>Додади избрани во ${esc(data.year)}</button></div>`
+            + `<div class="suggestion-list">${rows}</div></details>`;
+
+        target.querySelector('[data-select-all]').addEventListener('change', (event) => {
+            target.querySelectorAll('[data-candidate-id]').forEach((checkbox) => { checkbox.checked = event.target.checked; });
+        });
+        target.querySelectorAll('[data-candidate-kind]').forEach((select) => {
+            const sync = () => {
+                const grade = select.closest('[data-candidate-row]').querySelector('[data-candidate-grade]');
+                grade.disabled = select.value === 'external';
+                if (grade.disabled) grade.value = '';
+            };
+            select.addEventListener('change', sync);
+            sync();
+        });
+        target.querySelector('[data-add-candidates]').addEventListener('click', async () => {
+            const members = Array.from(target.querySelectorAll('[data-candidate-row]'))
+                .filter((row) => row.querySelector('[data-candidate-id]').checked)
+                .map((row) => {
+                    const raw = row.querySelector('[data-candidate-id]').dataset.candidateId;
+                    if (entity !== 'student') return { id: Number(raw) };
+                    return {
+                        id: raw,
+                        grade: row.querySelector('[data-candidate-grade]').value || null,
+                        kind: row.querySelector('[data-candidate-kind]').value
+                    };
+                });
+            if (!members.length) return status('Избери барем еден предлог.', 'warn');
+            await setMembership(entity, true, members, `${members.length} записи се додадени во ${data.year}`);
+        });
+    }
+
+    function drawAnnualControls() {
+        Object.entries(MEMBERSHIP).forEach(([entity, cfg]) => {
+            const count = (data[cfg.active] || []).length;
+            el(cfg.count).textContent = `${data.year}: ${count} активни ${cfg.noun}`;
+            drawSuggestions(entity);
+        });
+    }
+
+    // ── ученици ─────────────────────────────────────────────────────────────
+    function drawStudents() {
+        const q = tidy(el('studentSearch').value).toLowerCase();
+        const wantedKind = el('studentKindFilter').value;
+        const kindLabel = (k) => (KINDS.find(([value]) => value === (k || 'internal')) || [])[1] || '';
+        const rows = (data.students || []).filter((s) =>
+            (!wantedKind || (s.kind || 'internal') === wantedKind)
+            && (!q || s.name.toLowerCase().includes(q)
+               || String(s.grade || '').toLowerCase().includes(q)
+               || kindLabel(s.kind).includes(q)));
+        if (!rows.length) {
+            el('students').innerHTML = '<p class="hint">'
+                + ((data.students || []).length ? 'Никој не одговара на избраната листа/барањето.' : 'Нема запишани ученици за оваа година.')
+                + '</p>';
+            return;
+        }
+        el('students').innerHTML =
+            '<table class="list"><thead><tr><th class="row-number">Р.Бр.</th><th>Име</th><th style="width:150px;">Категорија</th>'
+            + '<th style="width:160px;">Одделение</th><th>Терапевти</th><th></th></tr></thead><tbody>'
+            + rows.map((s, index) =>
+                `<tr data-student="${esc(s.public_id)}"${s.active ? '' : ' class="archived"'}>`
+                + `<td class="row-number">${index + 1}.</td>`
+                + `<td><input class="s-name" value="${esc(personName(s.name))}"${s.active ? '' : ' disabled'}></td>`
+                + `<td><select class="s-kind"${s.active ? '' : ' disabled'}>`
+                + KINDS.map(([value, label]) =>
+                    `<option value="${value}"${(s.kind || 'internal') === value ? ' selected' : ''}>${label}</option>`).join('')
+                + '</select></td>'
+                + `<td><select class="s-grade"${s.active ? '' : ' disabled'}></select></td>`
+                + `<td>${(s.therapists || []).length
+                        ? `<span class="chips">${s.therapists.map((t) => `<span class="chip">${esc(personName(t))}</span>`).join('')}</span>`
+                        : '<span class="none">—</span>'}</td>`
+                + `<td class="act">${s.active
+                        ? `<button class="btn soft" data-save-student="${esc(s.public_id)}">Зачувај промени</button> `
+                          + (data.isCurrentYear ? `<button class="btn soft danger" data-remove-student="${esc(s.public_id)}">Тргни од ${esc(data.year)}</button>` : '')
+                        : '<span class="none">архивиран</span>'}</td></tr>`).join('')
+            + '</tbody></table>';
+
+        rows.forEach((s) => {
+            const row = el('students').querySelector(`[data-student="${CSS.escape(s.public_id)}"]`);
+            if (row) {
+                fillClassSelect(row.querySelector('.s-grade'), s.grade || '');
+                syncStudentKind(row);
+                row.querySelector('.s-kind').addEventListener('change', () => syncStudentKind(row));
+            }
+        });
+        el('students').querySelectorAll('[data-save-student]').forEach((b) =>
+            b.addEventListener('click', () => saveStudent(b.dataset.saveStudent)));
+        el('students').querySelectorAll('[data-remove-student]').forEach((b) => {
+            const student = rows.find((s) => s.public_id === b.dataset.removeStudent);
+            b.addEventListener('click', () => removeFromYear('student', b.dataset.removeStudent, personName(student.name)));
+        });
+    }
+
+    async function saveStudent(publicId) {
+        const row = el('students').querySelector(`[data-student="${CSS.escape(publicId)}"]`);
+        const was = (data.students || []).find((s) => s.public_id === publicId);
+        const kind = row.querySelector('.s-kind').value;
+        try {
+            const answer = await api('PATCH', '/api/students/' + encodeURIComponent(publicId), {
+                name: personName(row.querySelector('.s-name').value),
+                kind,
+                grade: kind === 'external' ? null : (tidy(row.querySelector('.s-grade').value) || null),
+                year: data.year,
+                // What this tab believed the name was. A second machine that
+                // renamed the child in the meantime must not be undone.
+                expected: was ? was.name : undefined
+            });
+            await load();
+            status(answer.enrolled === false
+                ? 'Зачувано, но ученикот не е запишан во оваа година — одделението не се смени.'
+                : 'ученикот е зачуван', answer.enrolled === false ? 'warn' : 'ok');
+        } catch (err) { status(err.message, 'error'); }
+    }
+
+    // ── наставници ──────────────────────────────────────────────────────────
+    function drawTeachers() {
+        el('teachers').innerHTML =
+            '<table class="list"><thead><tr><th class="row-number">Р.Бр.</th><th style="width:230px;">Име</th><th style="width:180px;">Улога</th>'
+            + '<th style="width:200px;">Категорија</th>'
+            + '<th style="width:110px;">Предмет</th><th>Одделенија оваа година</th><th></th></tr></thead><tbody>'
+            + (data.teachers || []).map((t, index) =>
+                `<tr data-teacher="${t.id}">`
+                + `<td class="row-number">${index + 1}.</td>`
+                + `<td><input class="t-name" value="${esc(personName(t.name))}"></td>`
+                + '<td><select class="t-kind">'
+                + `<option value="odd"${t.kind === 'odd' ? ' selected' : ''}>одделенски наставник</option>`
+                + `<option value="pred"${t.kind === 'pred' ? ' selected' : ''}>предметен наставник</option>`
+                + '</select></td>'
+                + `<td>${categoryPicker('teacher', t.id)}</td>`
+                + `<td><input class="t-subject" value="${esc(t.subject || '')}"></td>`
+                + `<td>${(t.classes || []).length
+                        ? `<span class="chips">${t.classes.map((c) =>
+                            `<span class="chip${c.role === 'homeroom' ? ' home' : ''}" title="${c.role === 'homeroom' ? 'раководител' : 'предава'}">${esc(c.label)}</span>`).join('')}</span>`
+                        : '<span class="none">нема</span>'}</td>`
+                + `<td class="act"><button class="btn soft" data-classes="${t.id}">Додели одделенија…</button> `
+                + `<button class="btn soft" data-save-teacher="${t.id}">Зачувај податоци</button> `
+                + (data.isCurrentYear ? `<button class="btn soft danger" data-remove-teacher="${t.id}">Тргни од ${esc(data.year)}</button>` : '')
+                + '</td></tr>').join('')
+            + '</tbody></table>';
+
+        el('teachers').querySelectorAll('[data-cat-for]').forEach((sel) =>
+            sel.addEventListener('change', () => saveCategory(sel)));
+        el('teachers').querySelectorAll('tr[data-teacher]').forEach((row) => {
+            syncTeacherSubject(row);
+            row.querySelector('.t-kind').addEventListener('change', () => syncTeacherSubject(row));
+        });
+        el('teachers').querySelectorAll('[data-save-teacher]').forEach((b) =>
+            b.addEventListener('click', () => saveTeacher(Number(b.dataset.saveTeacher))));
+        el('teachers').querySelectorAll('[data-classes]').forEach((b) =>
+            b.addEventListener('click', () => openClassPicker(Number(b.dataset.classes))));
+        el('teachers').querySelectorAll('[data-remove-teacher]').forEach((b) => {
+            const teacher = (data.teachers || []).find((t) => t.id === Number(b.dataset.removeTeacher));
+            b.addEventListener('click', () => removeFromYear('teacher', teacher.id, personName(teacher.name)));
+        });
+    }
+
+    async function saveTeacher(id) {
+        const row = el('teachers').querySelector(`[data-teacher="${id}"]`);
+        const kind = row.querySelector('.t-kind').value;
+        try {
+            await api('PUT', '/api/teaching/teacher/' + id, {
+                name: personName(row.querySelector('.t-name').value),
+                kind,
+                subject: kind === 'pred' ? (tidy(row.querySelector('.t-subject').value) || null) : null
+            });
+            await load();
+            status('наставникот е зачуван', 'ok');
+        } catch (err) { status(err.message, 'error'); }
+    }
+
+    function openClassPicker(id) {
+        const teacher = (data.teachers || []).find((t) => t.id === id);
+        if (!teacher) return;
+        const has = new Map((teacher.classes || []).map((c) => [c.label, c.role]));
+        const box = el('classPicker');
+        box.className = 'picker open';
+        box.innerHTML =
+            `<h3>Одделенија на ${esc(personName(teacher.name))} <span class="none">· ${esc(data.year)}</span></h3>`
+            + '<div class="grid-pick">'
+            + classLabels().map((label, index) =>
+                `<label><input type="checkbox" value="${esc(label)}"${has.has(label) ? ' checked' : ''}>`
+                + `<span><span class="list-number">${index + 1}.</span>${esc(label)}</span>`
+                + `<select data-role-for="${esc(label)}">`
+                + `<option value="subject"${has.get(label) === 'homeroom' ? '' : ' selected'}>предава</option>`
+                + `<option value="homeroom"${has.get(label) === 'homeroom' ? ' selected' : ''}>раководител</option>`
+                + '</select></label>').join('')
+            + '</div>'
+            + '<div class="controls" style="margin-top:12px;">'
+            + `<button class="btn" data-save-classes="${id}">Зачувај распределба</button>`
+            + '<button class="btn soft" data-close-picker>Откажи</button></div>';
+        box.querySelector('[data-save-classes]').addEventListener('click', () => saveTeacherClasses(id));
+        box.querySelector('[data-close-picker]').addEventListener('click', closePickers);
+        box.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    }
+
+    async function saveTeacherClasses(id) {
+        const box = el('classPicker');
+        const classes = Array.from(box.querySelectorAll('input[type=checkbox]'))
+            .filter((c) => c.checked)
+            .map((c) => ({
+                label: c.value,
+                role: box.querySelector(`[data-role-for="${CSS.escape(c.value)}"]`).value
+            }));
+        try {
+            await api('PUT', `/api/teaching/teacher/${id}/classes`, { year: data.year, classes });
+            await load();
+            status('одделенијата се зачувани', 'ok');
+        } catch (err) { status(err.message, 'error'); }
+    }
+
+    // ── терапевти ───────────────────────────────────────────────────────────
+    /**
+     * Which room this therapist holds THIS year.
+     *
+     * The category lives on the annual membership, not on the person: a
+     * person can change profile, and an action plan printed for an archived
+     * year must keep saying what was true then. So the picker is disabled on
+     * an archived year for the same reason the rest of this screen is.
+     */
+    function categoryPicker(kind, personId) {
+        const list = (data.categories || []);
+        if (!list.length) return '<span class="hint">—</span>';
+        const held = ((data.categoryOf || {})[kind] || {})[personId] || '';
+        return `<select class="th-category" data-cat-kind="${kind}" data-cat-for="${personId}"`
+            + (data.isCurrentYear ? '' : ' disabled') + '>'
+            + '<option value="">— без категорија —</option>'
+            + list.map((c) =>
+                `<option value="${c.id}"${String(c.id) === String(held) ? ' selected' : ''}>`
+                + `${esc(c.name)}</option>`).join('')
+            + '</select>';
+    }
+
+    async function saveCategory(select) {
+        const kind = select.dataset.catKind;
+        const personId = Number(select.dataset.catFor);
+        const categoryId = select.value ? Number(select.value) : null;
+        const was = ((data.categoryOf || {})[kind] || {})[personId] || null;
+        select.disabled = true;
+        try {
+            await api('PUT', '/api/categories/holder', {
+                year: el('year').value, kind, personId, categoryId
+            });
+            data.categoryOf[kind][personId] = categoryId;
+            status('Категоријата е зачувана.');
+        } catch (err) {
+            // Put the picker back to what the server still holds rather than
+            // leaving the screen claiming a change that did not land.
+            select.value = was === null ? '' : String(was);
+            status('Категоријата не е зачувана: ' + (err.message || err), 'error');
+        } finally {
+            select.disabled = !data.isCurrentYear;
+        }
+    }
+
+    function drawTherapists() {
+        el('therapists').innerHTML =
+            '<table class="list"><thead><tr><th class="row-number">Р.Бр.</th><th style="width:280px;">Име</th>'
+            + '<th style="width:230px;">Категорија</th><th style="width:110px;">Ученици</th>'
+            + '<th style="width:130px;">Термини/неделно</th><th></th></tr></thead><tbody>'
+            + (data.therapists || []).map((t, index) =>
+                `<tr data-therapist="${t.id}">`
+                + `<td class="row-number">${index + 1}.</td>`
+                + `<td><input class="th-name" value="${esc(personName(t.name))}" data-was="${esc(t.name)}"></td>`
+                + `<td>${categoryPicker('therapist', t.id)}</td>`
+                + `<td>${(t.students || []).length}</td><td>${t.terms_per_week}</td>`
+                + `<td class="act"><button class="btn soft" data-caseload="${t.id}">Додели ученици…</button> `
+                + `<button class="btn soft" data-save-therapist="${t.id}">Зачувај име</button> `
+                + (data.isCurrentYear ? `<button class="btn soft danger" data-remove-therapist="${t.id}">Тргни од ${esc(data.year)}</button>` : '')
+                + '</td></tr>').join('')
+            + '</tbody></table>';
+
+        el('therapists').querySelectorAll('[data-cat-for]').forEach((sel) =>
+            sel.addEventListener('change', () => saveCategory(sel)));
+        el('therapists').querySelectorAll('[data-save-therapist]').forEach((b) =>
+            b.addEventListener('click', () => renameTherapist(Number(b.dataset.saveTherapist))));
+        el('therapists').querySelectorAll('[data-caseload]').forEach((b) =>
+            b.addEventListener('click', () => openCaseload(Number(b.dataset.caseload))));
+        el('therapists').querySelectorAll('[data-remove-therapist]').forEach((b) => {
+            const therapist = (data.therapists || []).find((t) => t.id === Number(b.dataset.removeTherapist));
+            b.addEventListener('click', () => removeFromYear('therapist', therapist.id, personName(therapist.name)));
+        });
+    }
+
+    async function renameTherapist(id) {
+        const row = el('therapists').querySelector(`[data-therapist="${id}"]`);
+        const input = row.querySelector('.th-name');
+        const from = input.dataset.was;
+        const to = personName(input.value);
+        if (!to || to === from) return status('Нема промена.', 'warn');
+        try {
+            // A therapist has no id in the schedule — the NAME is the key there,
+            // so this is a rename the server carries across the week, not a
+            // delete-and-add. Saying it out loud is the only way to say it.
+            await api('PATCH', '/api/therapists/' + encodeURIComponent(from), { name: to });
+            await load();
+            status('терапевтот е преименуван, термините одат со него', 'ok');
+        } catch (err) { status(err.message, 'error'); }
+    }
+
+    function openCaseload(id) {
+        const therapist = (data.therapists || []).find((t) => t.id === id);
+        if (!therapist) return;
+        const mine = new Set(therapist.students || []);
+        const box = el('studentPicker');
+        box.className = 'picker open';
+        const active = (data.students || []).filter((s) => s.active);
+        box.innerHTML =
+            `<h3>Ученици кај ${esc(personName(therapist.name))} <span class="none">· ${esc(data.year)}</span></h3>`
+            + (active.length
+                ? '<div class="grid-pick">'
+                  + active.map((s, index) =>
+                      `<label><input type="checkbox" value="${esc(s.public_id)}"${mine.has(s.public_id) ? ' checked' : ''}>`
+                      + `<span><span class="list-number">${index + 1}.</span>${esc(personName(s.name))}${s.grade ? ' · ' + esc(s.grade) : ''}</span></label>`).join('')
+                  + '</div>'
+                : '<p class="hint">Нема запишани ученици за оваа година.</p>')
+            + '<div class="controls" style="margin-top:12px;">'
+            + `<button class="btn" data-save-caseload="${id}">Зачувај список</button>`
+            + '<button class="btn soft" data-close-picker>Откажи</button></div>';
+        box.querySelector('[data-save-caseload]').addEventListener('click', () => saveCaseload(id));
+        box.querySelector('[data-close-picker]').addEventListener('click', closePickers);
+        box.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    }
+
+    async function saveCaseload(id) {
+        const therapist = (data.therapists || []).find((t) => t.id === id);
+        const before = new Set(therapist.students || []);
+        const now = new Set(Array.from(el('studentPicker').querySelectorAll('input[type=checkbox]'))
+            .filter((c) => c.checked).map((c) => c.value));
+
+        // One call per changed tick, never a whole list: the server has no
+        // "replace this caseload" and should not — two people ticking different
+        // boxes would undo each other, which is the exact failure the per-row
+        // endpoints exist to stop.
+        const add = Array.from(now).filter((p) => !before.has(p));
+        const drop = Array.from(before).filter((p) => !now.has(p));
+        if (!add.length && !drop.length) { closePickers(); return status('Нема промена.', 'warn'); }
+
+        const name = encodeURIComponent(therapist.name);
+        const year = '?year=' + encodeURIComponent(data.year);
+        try {
+            for (const p of add) await api('PUT', `/api/therapists/${name}/students/${encodeURIComponent(p)}${year}`);
+            for (const p of drop) await api('DELETE', `/api/therapists/${name}/students/${encodeURIComponent(p)}${year}`);
+            await load();
+            status(`зачувано: +${add.length} / −${drop.length}`, 'ok');
+        } catch (err) {
+            // Some may have landed. Reload so the screen shows what really is.
+            await load();
+            status(err.message, 'error');
+        }
+    }
+
+    // ── одделенија ──────────────────────────────────────────────────────────
+    function teachersForClass(label) {
+        return (data.teachers || []).filter((teacher) =>
+            (teacher.classes || []).some((entry) => entry.label === label)
+        ).map((teacher) => ({
+            id: teacher.id,
+            name: teacher.name,
+            role: teacher.classes.find((entry) => entry.label === label).role
+        }));
+    }
+
+    function drawClasses() {
+        const studentsOf = new Map();
+        (data.students || []).forEach((s) => {
+            if (!s.grade) return;
+            studentsOf.set(s.grade, (studentsOf.get(s.grade) || 0) + 1);
+        });
+
+        el('classes').innerHTML =
+            '<table class="list"><thead><tr><th class="row-number">Р.Бр.</th><th style="width:180px;">Одделение</th><th style="width:90px;">Ученици</th>'
+            + '<th style="width:220px;">Раководител</th><th>Предметни наставници</th><th></th></tr></thead><tbody>'
+            + (data.classes || []).map((c, index) => {
+                const assigned = teachersForClass(c.label);
+                const homeroom = assigned.find((teacher) => teacher.role === 'homeroom');
+                const subjects = assigned.filter((teacher) => teacher.role !== 'homeroom');
+                return `<tr data-class="${c.id}">`
+                    + `<td class="row-number">${index + 1}.</td>`
+                    + `<td><span class="class-label">${esc(c.label)}</span></td>`
+                    + `<td>${studentsOf.get(c.label) || 0}</td>`
+                    + `<td>${homeroom ? `<span class="chip home">${esc(personName(homeroom.name))}</span>` : '<span class="none">не е одреден</span>'}</td>`
+                    + `<td>${subjects.length
+                            ? `<span class="chips">${subjects.map((teacher) =>
+                                `<span class="chip">${esc(personName(teacher.name))}</span>`).join('')}</span>`
+                            : '<span class="none">нема</span>'}</td>`
+                    + '<td class="act"><span class="class-actions">'
+                    + `<button class="btn soft" data-edit-class-teachers="${c.id}">Наставници…</button>`
+                    + `<button class="btn soft" data-edit-class-label="${c.id}">Смени ознака…</button>`
+                    + (data.isCurrentYear ? `<button class="btn soft danger" data-remove-class="${c.id}">Тргни од ${esc(data.year)}</button>` : '')
+                    + '</span></td></tr>';
+            }).join('')
+            + '</tbody></table>';
+
+        el('classes').querySelectorAll('[data-edit-class-teachers]').forEach((button) =>
+            button.addEventListener('click', () => openClassTeachers(Number(button.dataset.editClassTeachers))));
+        el('classes').querySelectorAll('[data-edit-class-label]').forEach((button) =>
+            button.addEventListener('click', () => openClassRename(Number(button.dataset.editClassLabel))));
+        el('classes').querySelectorAll('[data-remove-class]').forEach((button) => {
+            const cls = (data.classes || []).find((item) => item.id === Number(button.dataset.removeClass));
+            button.addEventListener('click', () => removeFromYear('class', cls.id, cls.label));
+        });
+    }
+
+    function openClassTeachers(id) {
+        const cls = (data.classes || []).find((item) => item.id === id);
+        if (!cls) return;
+        closePickers();
+        const assigned = teachersForClass(cls.label);
+        const homeroom = assigned.find((teacher) => teacher.role === 'homeroom');
+        const subjects = new Set(assigned.filter((teacher) => teacher.role === 'subject').map((teacher) => teacher.id));
+        const teachers = [...(data.teachers || [])].sort((a, b) =>
+            personName(a.name).localeCompare(personName(b.name), 'mk-MK'));
+        const box = el('classEditor');
+        box.className = 'picker open';
+        box.innerHTML =
+            `<h3>Наставници за ${esc(cls.label)} <span class="none">· ${esc(data.year)}</span></h3>`
+            + '<p class="hint">Оваа промена важи само за избраната учебна година.</p>'
+            + '<div class="controls">'
+            + '<label class="field"><span>Одделенски раководител</span><select id="classHomeroom">'
+            + '<option value="">— не е одреден —</option>'
+            + teachers.map((teacher) => `<option value="${teacher.id}"${homeroom?.id === teacher.id ? ' selected' : ''}>${esc(personName(teacher.name))}</option>`).join('')
+            + '</select></label></div>'
+            + '<h4>Предметни наставници</h4>'
+            + (teachers.length
+                ? '<div class="grid-pick">' + teachers.map((teacher, index) =>
+                    `<label><input type="checkbox" data-class-subject value="${teacher.id}"${subjects.has(teacher.id) ? ' checked' : ''}>`
+                    + `<span><span class="list-number">${index + 1}.</span>${esc(personName(teacher.name))}${teacher.subject ? ' · ' + esc(teacher.subject) : ''}</span></label>`).join('') + '</div>'
+                : '<p class="hint">Нема внесени наставници.</p>')
+            + '<div class="controls" style="margin-top:12px;">'
+            + `<button class="btn" data-save-class-teachers="${id}">Зачувај наставници</button>`
+            + '<button class="btn soft" data-close-picker>Откажи</button></div>';
+        box.querySelector('[data-save-class-teachers]').addEventListener('click', () => saveClassTeachers(id));
+        box.querySelector('[data-close-picker]').addEventListener('click', closePickers);
+        box.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    }
+
+    async function saveClassTeachers(id) {
+        const box = el('classEditor');
+        const homeroomValue = box.querySelector('#classHomeroom').value;
+        const subjectTeacherIds = Array.from(box.querySelectorAll('[data-class-subject]:checked'))
+            .map((checkbox) => Number(checkbox.value));
+        try {
+            await api('PUT', `/api/teaching/class/${id}/teachers`, {
+                year: data.year,
+                homeroomTeacherId: homeroomValue ? Number(homeroomValue) : null,
+                subjectTeacherIds
+            });
+            closePickers();
+            await load();
+            status('наставниците на одделението се зачувани', 'ok');
+        } catch (err) { status(err.message, 'error'); }
+    }
+
+    function openClassRename(id) {
+        const cls = (data.classes || []).find((item) => item.id === id);
+        if (!cls) return;
+        closePickers();
+        const box = el('classEditor');
+        box.className = 'picker open';
+        box.innerHTML =
+            `<h3>Смени ознака на ${esc(cls.label)}</h3>`
+            + '<div class="caution"><b>Ова важи за сите учебни години.</b> Користи го само за исправка на ознаката. За промена на раководител користи „Наставници…“.</div>'
+            + '<div class="controls"><label class="field"><span>Нова ознака</span>'
+            + `<input id="classRenameLabel" value="${esc(cls.label)}" data-was="${esc(cls.label)}"></label>`
+            + `<button class="btn" data-apply-class-rename="${id}">Смени ознака</button>`
+            + '<button class="btn soft" data-close-picker>Откажи</button></div>';
+        box.querySelector('[data-apply-class-rename]').addEventListener('click', () => renameClass(id));
+        box.querySelector('[data-close-picker]').addEventListener('click', closePickers);
+        box.querySelector('#classRenameLabel').focus();
+        box.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    }
+
+    async function renameClass(id) {
+        const input = el('classEditor').querySelector('#classRenameLabel');
+        const label = tidy(input.value);
+        if (!label || label === input.dataset.was) return status('Нема промена.', 'warn');
+        try {
+            await api('PATCH', '/api/teaching/class/' + id, { label });
+            closePickers();
+            await load();
+            status(`ознаката е сменета во ${label}`, 'ok');
+        } catch (err) { status(err.message, 'error'); }
+    }
+
+    function closePickers() {
+        ['classPicker', 'studentPicker', 'classEditor'].forEach((id) => {
+            el(id).className = 'picker';
+            el(id).innerHTML = '';
+        });
+    }
+
+    function syncNewStudentKind() {
+        const external = el('newStudentKind').value === 'external';
+        el('newStudentClass').disabled = external;
+        if (external) el('newStudentClass').value = '';
+    }
+
+    function syncTeacherSubject(row) {
+        const subject = row.querySelector('.t-subject');
+        const classroom = row.querySelector('.t-kind').value === 'odd';
+        subject.disabled = classroom;
+        if (classroom) subject.value = '';
+    }
+
+    function syncNewTeacherKind() {
+        const classroom = el('newTeacherKind').value === 'odd';
+        el('newTeacherSubject').disabled = classroom;
+        if (classroom) el('newTeacherSubject').value = '';
+    }
+
+    function syncStudentKind(row) {
+        const external = row.querySelector('.s-kind').value === 'external';
+        const grade = row.querySelector('.s-grade');
+        grade.disabled = external || row.classList.contains('archived');
+        if (external) grade.value = '';
+    }
+
+    function setTab(next) {
+        tab = next;
+        document.querySelectorAll('.tabs .btn').forEach((b) =>
+            b.setAttribute('aria-pressed', String(b.dataset.tab === next)));
+        document.querySelectorAll('.tab').forEach((t) =>
+            t.classList.toggle('on', t.id === 'tab-' + next));
+        closePickers();
+    }
+
+    function setNumberVisibility() {
+        document.body.classList.toggle('hide-list-numbers', !el('showRowNumbers').checked);
+    }
+
+    // ── wiring ──────────────────────────────────────────────────────────────
+    document.querySelectorAll('.tabs .btn').forEach((b) =>
+        b.addEventListener('click', () => setTab(b.dataset.tab)));
+    el('showRowNumbers').addEventListener('change', setNumberVisibility);
+    el('year').addEventListener('change', () => {
+        const url = new URL(window.location.href);
+        url.searchParams.set('year', el('year').value);
+        window.history.replaceState(null, '', url);
+        load();
+    });
+    el('refresh').addEventListener('click', load);
+    el('serverChoice').addEventListener('change', () => switchServer(el('serverChoice').value));
+    el('openRollover').addEventListener('click', () => {
+        prepareRolloverYear();
+        el('rolloverPanel').hidden = false;
+        el('newSchoolYear').focus();
+    });
+    el('closeRollover').addEventListener('click', closeRollover);
+    el('newSchoolYear').addEventListener('input', invalidateRollover);
+    el('lastGrade').addEventListener('change', invalidateRollover);
+    el('previewRollover').addEventListener('click', previewYearRollover);
+    el('applyRollover').addEventListener('click', applyYearRollover);
+    el('studentSearch').addEventListener('input', () => { if (data) drawStudents(); });
+    el('studentKindFilter').addEventListener('change', () => { if (data) drawStudents(); });
+    el('newStudentKind').addEventListener('change', syncNewStudentKind);
+    el('newTeacherKind').addEventListener('change', syncNewTeacherKind);
+    el('clearStudents').addEventListener('click', () => clearYear('student'));
+    el('clearTeachers').addEventListener('click', () => clearYear('teacher'));
+    el('clearTherapists').addEventListener('click', () => clearYear('therapist'));
+    el('clearClasses').addEventListener('click', () => clearYear('class'));
+
+    el('addStudent').addEventListener('click', async () => {
+        const name = personName(el('newStudent').value);
+        if (!name) return status('Внеси име на ученикот.', 'warn');
+        const kind = el('newStudentKind').value;
+        try {
+            const answer = await api('POST', '/api/students', {
+                name,
+                kind,
+                year: data ? data.year : undefined,
+                grade: kind === 'external' ? null : (tidy(el('newStudentClass').value) || null)
+            });
+            el('newStudent').value = '';
+            el('newStudentKind').value = 'internal';
+            syncNewStudentKind();
+            await load();
+            status((answer.sameName || []).length
+                ? `${name} е додаден — внимание, веќе постои ученик со истото име (различно одделение ги разликува)`
+                : `${name} е додаден`,
+                (answer.sameName || []).length ? 'warn' : 'ok');
+        } catch (err) { status(err.message, 'error'); }
+    });
+
+    el('addTeacher').addEventListener('click', async () => {
+        const name = personName(el('newTeacher').value);
+        if (!name) return status('Внеси име на наставникот.', 'warn');
+        const kind = el('newTeacherKind').value;
+        try {
+            await api('POST', '/api/teaching/teacher', {
+                name, kind,
+                subject: kind === 'pred' ? (tidy(el('newTeacherSubject').value) || null) : null,
+                year: data ? data.year : undefined
+            });
+            el('newTeacher').value = '';
+            el('newTeacherSubject').value = '';
+            await load();
+            status(`${name} е додаден — сега додели му одделенија`, 'ok');
+        } catch (err) { status(err.message, 'error'); }
+    });
+
+    el('addTherapist').addEventListener('click', async () => {
+        const name = personName(el('newTherapist').value);
+        if (!name) return status('Внеси име на терапевтот.', 'warn');
+        try {
+            const answer = await api('POST', '/api/therapists', { name, year: data ? data.year : undefined });
+            el('newTherapist').value = '';
+            await load();
+            status(answer.created ? `${name} е додаден` : `${name} веќе постоеше`, answer.created ? 'ok' : 'warn');
+        } catch (err) { status(err.message, 'error'); }
+    });
+
+    el('addClass').addEventListener('click', async () => {
+        const label = tidy(el('newClass').value);
+        if (!label) return status('Внеси име на одделението.', 'warn');
+        try {
+            await api('POST', '/api/teaching/class', { label, year: data ? data.year : undefined });
+            el('newClass').value = '';
+            await load();
+            status(`одделението ${label} е додадено`, 'ok');
+        } catch (err) { status(err.message, 'error'); }
+    });
+
+    /**
+     * The reader's own display size.
+     *
+     * WHY IT IS REMEMBERED, when this page deliberately keeps nothing.
+     * `podatoci.browser.mjs` asserts that browser storage stays empty, and the
+     * rule behind that assertion is that NO SCHOOL DATA lives in a browser --
+     * the database is the only place a child exists. How large somebody needs
+     * the letters is not school data; it is about the person reading, it never
+     * leaves their machine, and having to set it again on every load is exactly
+     * the kind of small daily friction that makes a tool tiring. The test now
+     * names this one key as allowed and still refuses everything else.
+     */
+    const UI_KEY = 'mtb.ui-size';
+    (function displaySize() {
+        const slider = el('uiSize');
+        if (!slider) return;
+        const apply = (percent) => {
+            document.documentElement.style.setProperty('--ui', (percent / 100).toFixed(2));
+            slider.title = 'Големина на приказот · ' + percent + '%';
+        };
+        let saved = null;
+        try { saved = localStorage.getItem(UI_KEY); } catch (err) { /* private mode; not fatal */ }
+        const start = Math.min(160, Math.max(90, parseInt(saved || '100', 10) || 100));
+        slider.value = String(start);
+        apply(start);
+        slider.addEventListener('input', () => {
+            apply(Number(slider.value));
+            try { localStorage.setItem(UI_KEY, slider.value); } catch (err) { /* nothing to do */ }
+        });
+    })();
+
+    syncNewStudentKind();
+    syncNewTeacherKind();
+    setNumberVisibility();
+    discoverServers().then((ready) => { if (ready) load(); });
+})();
+</script>
+<script src="app-navigation.js"></script>
+</body>
+</html>

@@ -1,0 +1,17 @@
+{
+  "_instructions": "Copy this file to roster-2026-2027.local.json, keep that copy local, and replace the empty arrays with verified decisions. The _examples object is documentation only.",
+  "schemaVersion": 1,
+  "schoolYear": "2026/2027",
+  "externalMark": " (над.)",
+  "renames": [],
+  "regrades": [],
+  "additions": [],
+  "removals": [],
+  "decide": [],
+  "_examples": {
+    "rename": { "from": "Ана Тестова", "to": "Ана Пробна", "why": "verified spelling" },
+    "regrade": { "name": "Борис Тестов", "grade": "IV", "why": "verified grade" },
+    "addition": { "name": "Вера Пробна", "kind": "internal", "grade": "I", "why": "verified enrolment" },
+    "removal": { "name": "Горан Тестов", "why": "not enrolled this year" }
+  }
+}

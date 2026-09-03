@@ -1,0 +1,16 @@
+.claude/
+backups/
+
+# real annual roster corrections stay on the machine, never in public Git
+scripts/roster-*.local.json
+
+# patches are transport, not source
+*.patch
+# old build zips - they contain real student names
+*.zip
+
+# rendered by test/progress-report.browser.mjs, regenerated on every run
+server/progress-report.png
+server/progress-report.sample.html
+
+server/nastava-page.png

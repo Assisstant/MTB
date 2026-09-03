@@ -1,0 +1,2154 @@
+<!DOCTYPE html>
+<html lang="mk">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Евидентен лист и акциски план</title>
+<!--
+  Евидентен лист за следење на развојот и постигнувањата на ученикот.
+
+  DB-FIRST, LIKE PODATOCI AND NASTAVAUREDI, AND FOR THE SAME REASON.
+  This page keeps no copy of the record. Nothing is written to localStorage
+  except the sign-in token, the chosen server and the theme -- so a save either
+  reaches PostgreSQL and says so, or fails and says that. The record is filled
+  by a whole team on several machines; a local copy would be one person's view
+  of the sheet quietly replacing everybody else's.
+
+  A score is written on its own: (sheet, item, period). Two specialists filling
+  their own sections of the same child never touch the same row, which is the
+  whole reason this stopped being one localStorage document.
+
+  The sign-in is a staff-room lock and an authorship stamp -- see the note in
+  server/src/routes/evidence-auth.ts. It is not security and must not be
+  described as such to anyone.
+-->
+<style>
+:root{
+  --brand1:#667eea; --brand2:#764ba2;
+  --bg:#eef1f7; --card:#fff; --text:#1a202c; --sub:#64748b; --border:#e2e8f0;
+  --hover:#f1f5f9; --green:#48bb78; --red:#e53e3e; --amber:#dd8b1f; --blue:#3182ce;
+  --radius:8px; --shadow:0 1px 3px rgba(16,24,40,.08),0 1px 2px rgba(16,24,40,.06);
+  --font:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;
+}
+body.dark{
+  --bg:#111827; --card:#1b2432; --text:#e8edf5; --sub:#9aa8bd; --border:#2d3a4d;
+  --hover:#243044; --shadow:0 1px 3px rgba(0,0,0,.45);
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:var(--font);background:var(--bg);color:var(--text);font-size:14px;line-height:1.5;}
+
+/* Header — the S-Dnevnik gradient, so the suite reads as one product */
+.hdr{background:linear-gradient(135deg,var(--brand1),var(--brand2));color:#fff;padding:12px 18px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;}
+.hdr h1{font-size:1.15em;font-weight:700;}
+.hdr p{font-size:.8em;opacity:.9;width:100%;margin-top:-4px;}
+.hdr-right{margin-left:auto;display:flex;align-items:center;gap:8px;}
+.hdr-btn{background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.28);color:#fff;padding:6px 11px;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600;font-family:var(--font);}
+.hdr-btn:hover{background:rgba(255,255,255,.32);}
+.who{background:rgba(255,255,255,.22);padding:4px 11px;border-radius:14px;font-size:12px;font-weight:700;}
+
+/* Tabs — S-Dnevnik's clipped dark strip */
+.tabs{display:flex;background:linear-gradient(to bottom,#1a1a2e,#16213e);border-bottom:3px solid #0f3460;padding:0 8px;gap:4px;overflow-x:auto;scrollbar-width:none;}
+.tabs::-webkit-scrollbar{display:none;}
+.tab{padding:11px 20px;border:none;background:linear-gradient(to bottom,#2d3748,#1a202c);cursor:pointer;font-size:12.5px;color:#a0aec0;font-weight:600;letter-spacing:.6px;text-transform:uppercase;white-space:nowrap;clip-path:polygon(10px 0,100% 0,calc(100% - 10px) 100%,0 100%);margin-top:5px;border-top:2px solid #4a5568;font-family:var(--font);}
+.tab:hover{background:linear-gradient(to bottom,#4a5568,#2d3748);color:#e2e8f0;}
+.tab.active{background:linear-gradient(to bottom,var(--brand1),#5568d3);color:#fff;margin-top:0;padding-top:16px;border-top:3px solid #818cf8;}
+
+/* Toolbar: year, pupil, actions */
+.bar{background:var(--card);border-bottom:1px solid var(--border);padding:9px 14px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
+.bar label{font-size:11px;font-weight:700;color:var(--sub);text-transform:uppercase;letter-spacing:.4px;}
+select,input,textarea{font-family:var(--font);font-size:13px;padding:7px 10px;border:1px solid var(--border);border-radius:6px;background:var(--card);color:var(--text);}
+textarea{min-height:56px;resize:vertical;width:100%;}
+.btn{display:inline-flex;align-items:center;gap:6px;padding:8px 15px;border-radius:6px;cursor:pointer;font-size:13px;font-weight:600;font-family:var(--font);background:var(--hover);color:var(--text);border:1px solid var(--border);}
+.btn:hover{filter:brightness(.96);}
+.btn-p{background:linear-gradient(135deg,var(--brand1),var(--brand2));color:#fff;border-color:transparent;}
+.btn-g{background:var(--green);color:#fff;border-color:transparent;}
+.btn-r{background:var(--red);color:#fff;border-color:transparent;}
+.btn-b{background:var(--blue);color:#fff;border-color:transparent;}
+.btn-sm{padding:4px 9px;font-size:11.5px;}
+.btn[disabled]{opacity:.5;cursor:not-allowed;}
+
+/* Layout */
+.wrap{display:grid;grid-template-columns:264px minmax(0,1fr);gap:14px;padding:14px;align-items:start;}
+.wrap>*{min-width:0;}
+.side{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);position:sticky;top:10px;max-height:calc(100vh - 30px);display:flex;flex-direction:column;}
+.side h3{font-size:12px;text-transform:uppercase;letter-spacing:.5px;color:var(--sub);padding:11px 12px 6px;}
+.side .find{margin:0 12px 8px;width:calc(100% - 24px);}
+.plist{overflow-y:auto;flex:1;min-height:0;padding-bottom:8px;}
+/* min-height:0 is load-bearing. A flex item defaults to min-height:auto,
+   which refuses to shrink below its content -- so with a real roster the
+   list pushed .side past its own max-height and carried the footer, and
+   the „+ Отвори лист“ button in it, off the bottom of the window. */
+.pupil{padding:7px 12px;cursor:pointer;border-left:3px solid transparent;display:flex;gap:8px;align-items:baseline;}
+.pupil:hover{background:var(--hover);}
+.pupil.on{background:var(--hover);border-left-color:var(--brand1);font-weight:700;}
+.pupil .num{width:24px;flex:0 0 24px;text-align:right;color:var(--sub);font-variant-numeric:tabular-nums;}
+.pupil .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.pupil .gr{font-size:11px;color:var(--sub);}
+.pupil .dot{width:8px;height:8px;border-radius:50%;background:var(--border);flex:0 0 8px;}
+.pupil.has .dot{background:var(--green);}
+.side .foot{border-bottom:1px solid var(--border);padding:0 12px 10px;display:flex;gap:6px;flex-wrap:wrap;}
+/* Above the list, not below it. `position:sticky` caps the sidebar's HEIGHT,
+   not where it begins — with the page header above it, a footer under 78
+   pupils sits below the fold until the whole page is scrolled. */
+
+.pane{display:none;}
+.pane.active{display:block;}
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);padding:14px;margin-bottom:14px;}
+.card h3{font-size:13.5px;font-weight:700;color:var(--brand1);margin-bottom:10px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+.card h3 .who-line{margin-left:auto;font-size:10.5px;color:var(--sub);font-weight:400;}
+body.dark .card h3{color:#a3b0f7;}
+.fl{margin-bottom:9px;}
+.fl label{display:block;font-size:11px;font-weight:600;color:var(--sub);margin-bottom:3px;}
+.fl input,.fl select,.fl textarea{width:100%;}
+.rw{display:grid;gap:9px;}
+.r2{grid-template-columns:1fr 1fr;} .r3{grid-template-columns:repeat(3,1fr);} .r4{grid-template-columns:repeat(4,1fr);}
+
+/* Score tables */
+.tw{overflow-x:auto;}
+.at{width:100%;border-collapse:collapse;font-size:12.5px;min-width:520px;}
+.at th,.at td{border:1px solid var(--border);padding:4px 7px;text-align:center;}
+.at th{background:var(--hover);font-size:10.5px;text-transform:uppercase;letter-spacing:.3px;font-weight:700;color:var(--sub);}
+.at th:first-child,.at td:first-child{text-align:left;}
+.at tr.gh td{background:linear-gradient(135deg,rgba(102,126,234,.10),rgba(118,75,162,.10));text-align:left;font-weight:700;color:var(--brand1);}
+body.dark .at tr.gh td{color:#a3b0f7;}
+.at tr.ev td{background:rgba(102,126,234,.05);font-size:11px;color:var(--brand1);font-weight:600;}
+body.dark .at tr.ev td{color:#a3b0f7;}
+.ss{width:56px;padding:2px;text-align:center;font-weight:700;font-size:13px;}
+.ss.saving{outline:2px solid var(--blue);}
+.ss.bad{outline:2px solid var(--red);}
+.itemedit{display:flex;gap:5px;align-items:center;}
+.itemedit input{flex:1;min-width:80px;}
+.dim{opacity:.55;}
+
+/* Notices */
+.note{border-radius:var(--radius);padding:11px 13px;margin-bottom:12px;font-size:13px;border:1px solid;}
+.note-info{background:rgba(49,130,206,.08);border-color:rgba(49,130,206,.35);}
+.note-warn{background:rgba(221,139,31,.10);border-color:rgba(221,139,31,.4);}
+.note-bad{background:rgba(229,62,62,.09);border-color:rgba(229,62,62,.4);}
+.status{padding:6px 14px;font-size:12px;color:var(--sub);background:var(--card);border-bottom:1px solid var(--border);}
+.status.error{color:var(--red);font-weight:600;}
+.status.warn{color:var(--amber);font-weight:600;}
+.status.ok{color:var(--green);font-weight:600;}
+.toast{position:fixed;bottom:18px;right:18px;background:#1f2937;color:#fff;padding:11px 18px;border-radius:8px;font-size:12.5px;z-index:9999;opacity:0;transition:opacity .25s;pointer-events:none;max-width:340px;box-shadow:0 10px 30px rgba(0,0,0,.3);}
+.toast.show{opacity:1;}
+.toast.bad{background:#7f1d1d;}
+
+/* Sign in */
+.gate{position:fixed;inset:0;background:rgba(15,23,42,.72);display:flex;align-items:center;justify-content:center;z-index:9500;padding:16px;}
+/* `display:flex` beats the browser's own [hidden] rule, so a signed-in
+   therapist kept an invisible overlay swallowing every click. */
+.gate[hidden]{display:none;}
+.gate .box{background:var(--card);border-radius:12px;padding:22px;max-width:400px;width:100%;box-shadow:0 24px 70px rgba(0,0,0,.35);}
+.gate h2{font-size:17px;margin-bottom:6px;}
+.gate p{font-size:12.5px;color:var(--sub);margin-bottom:14px;}
+.gate .fl{margin-bottom:11px;}
+.gate .msg{font-size:12.5px;margin-bottom:10px;}
+
+@media(max-width:880px){
+  .wrap{grid-template-columns:1fr;}
+  .side{position:static;max-height:min(360px,42vh);}
+  .r2,.r3,.r4{grid-template-columns:1fr;}
+}
+@media print{
+  .hdr,.tabs,.bar,.side,.status,.toast,.gate{display:none !important;}
+  .wrap{display:block;padding:0;}
+}
+</style>
+</head>
+<body>
+
+<div class="hdr">
+  <h1>📋 Евидентен лист и акциски план</h1>
+  <div class="hdr-right">
+    <span class="who" id="who">—</span>
+    <button class="hdr-btn" id="btnPin">PIN</button>
+    <button class="hdr-btn" id="btnOut">Одјава</button>
+    <button class="hdr-btn" id="btnTheme">🌓</button>
+  </div>
+  <p>Следење на развојот и квартални цели · записите се чуваат во базата, не во прелистувачот</p>
+</div>
+
+<div class="bar">
+  <label for="year">Учебна година</label>
+  <select id="year" disabled></select>
+  <span id="serverField" hidden>
+    <label for="serverChoice">База</label>
+    <select id="serverChoice"></select>
+  </span>
+  <span style="flex:1"></span>
+  <button class="btn btn-sm" id="btnReload">↻ Освежи</button>
+</div>
+
+<div class="status" id="status">…</div>
+
+<div class="tabs" id="tabs">
+  <button class="tab active" data-p="pProfile">👤 Профил</button>
+  <button class="tab" data-p="pScores">📊 Проценка</button>
+  <button class="tab" data-p="pPanels">👁 Сетила и говор</button>
+  <button class="tab" data-p="pPeople">👥 Стручни лица</button>
+  <button class="tab" data-p="pPrint">🖨 Печатење</button>
+  <button class="tab" data-p="pSetup">⚙ Подесувања</button>
+</div>
+
+<div class="wrap">
+  <aside class="side">
+    <h3>Ученици <span id="pupilCount"></span></h3>
+    <input class="find" id="find" placeholder="Барај по име…">
+    <div class="foot">
+      <button class="btn btn-sm btn-p" id="btnNewPupil">+ Нов ученик</button>
+      <button class="btn btn-sm" id="btnNewSheet" disabled>+ Отвори лист</button>
+    </div>
+    <div class="plist" id="plist"></div>
+  </aside>
+
+  <main>
+    <div id="sheetHead"></div>
+
+    <section class="pane active" id="pProfile"></section>
+    <section class="pane" id="pScores"></section>
+    <section class="pane" id="pPanels"></section>
+    <section class="pane" id="pPeople"></section>
+
+    <section class="pane" id="pPrint">
+      <div class="card">
+        <h3>📄 Печатење во Word (.doc)</h3>
+        <p style="font-size:12.5px;color:var(--sub);margin-bottom:10px;">
+          Документот се отвора во Word и се печати како и досега. Колоните се
+          онолку колку што има периоди во оваа учебна година.</p>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <button class="btn btn-g" id="btnDocOne">📄 Тековниот ученик</button>
+          <button class="btn btn-b" id="btnDocAll">📦 Сите ученици од годината</button>
+        </div>
+      </div>
+      <div class="card">
+        <h3>💾 Резервна копија (JSON)</h3>
+        <p style="font-size:12.5px;color:var(--sub);margin-bottom:10px;">
+          Извозот е копија од базата за оваа година. Внесувањето прима JSON од
+          старата верзија на оваа апликација (онаа што чуваше во прелистувачот)
+          и ги отвора листовите во базата — ученик што не е во базата не се
+          создава туку се пријавува.</p>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <button class="btn" id="btnExport">📤 Извези</button>
+          <button class="btn" id="btnImport">📥 Вчитај стар JSON</button>
+          <input type="file" id="fileIn" accept=".json" hidden>
+        </div>
+        <div id="importReport" style="margin-top:12px;"></div>
+      </div>
+      <div class="card" id="legacyCard" hidden>
+        <h3>📦 Стари записи, останати во овој прелистувач</h3>
+        <p style="font-size:12.5px;color:var(--sub);margin-bottom:10px;">
+          Претходната верзија ги чуваше записите во самиот прелистувач. Тие сè
+          уште се тука — извади ги како датотека (за да имаш копија) и внеси ги
+          во базата. Ништо не се брише од прелистувачот.</p>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <button class="btn" id="btnLegacySave">📤 Извади ги како датотека</button>
+          <button class="btn btn-p" id="btnLegacyImport">📥 Внеси ги во базата</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="pane" id="pSetup"></section>
+  </main>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<div class="gate" id="gate" hidden>
+  <div class="box">
+    <h2>Најава</h2>
+    <p>Секое стручно лице пишува под свое име — записот памти кој ја внел секоја
+       ставка. Ова е брава за кабинет, не заштита: секој што има пристап до
+       серверот ја чита базата и без PIN.</p>
+    <div class="msg" id="gateMsg"></div>
+    <div class="fl"><label>Стручно лице</label><select id="gateWho"></select></div>
+    <div class="fl"><label id="gatePinLabel">PIN (најмалку 4 знаци)</label>
+      <input id="gatePin" type="password" autocomplete="off" inputmode="numeric"></div>
+    <div class="fl" id="gatePin2Field" hidden><label>Повтори го новиот PIN</label>
+      <input id="gatePin2" type="password" autocomplete="off"></div>
+    <button class="btn btn-p" id="gateGo" style="width:100%;justify-content:center;">Влези</button>
+    <button class="btn" id="gateSet" style="width:100%;justify-content:center;margin-top:8px;">Постави нов PIN</button>
+  </div>
+</div>
+
+<script>
+(function () {
+    'use strict';
+
+    // ── constants and tiny helpers ───────────────────────────────────────────
+    const PUBLISHED_HOST = 'assisstant.github.io';
+    const PUBLISHED = window.location.hostname === PUBLISHED_HOST;
+    const SERVER_DEFAULTS = ['https://zenpc-1.tailc8965f.ts.net', 'https://zenpc.tailc8965f.ts.net'];
+    const SERVERS_KEY = 'mtb_servers_v1';
+    const SELECTED_SERVER_KEY = 'mtb_podatoci_server_v1';
+    const TOKEN_KEY = 'evidence_token_v1';
+    const THEME_KEY = 'evidence_theme_v1';
+    /**
+     * What the browser-only version saved under, and the ONLY thing this
+     * page ever reads from it. It is never written and never cleared: a
+     * therapist who has not yet moved their records must be able to open
+     * this page a second time and still find them.
+     */
+    const LEGACY_KEY = 'el2_db';
+    const SERVER_TIMEOUT = 4000;
+
+    const el = (id) => document.getElementById(id);
+    const esc = (v) => String(v == null ? '' : v)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    const tidy = (v) => String(v == null ? '' : v).replace(/\s+/g, ' ').trim();
+    /** Two spellings of one name differ only by case, spacing and the class prefix. */
+    const bareName = (v) => tidy(v).replace(/^[^-]{1,12}\s*-\s*/, '').toLocaleLowerCase('mk-MK');
+
+    let apiBase = PUBLISHED ? '' : window.location.origin;
+    let liveServers = [];
+    let token = '';
+    let me = null;
+    let years = [];
+    let catalog = null;      // { periods, sections }
+    let categories = [];     // global specialist-category catalogue
+    let pupils = [];
+    let sheet = null;        // the open record, whole
+    let editCatalog = false;
+    // Only the newest read may draw: switching the year while a fetch is in
+    // flight otherwise leaves last year's pupils under this year's label.
+    let ticket = 0;
+    // Pupil reads nest two more requests (sheet sections and team). Keep their
+    // own generation so a slow click on pupil A cannot finish over pupil B.
+    let sheetTicket = 0;
+
+    function toast(message, bad) {
+        const node = el('toast');
+        node.textContent = message;
+        node.className = 'toast show' + (bad ? ' bad' : '');
+        clearTimeout(node._t);
+        node._t = setTimeout(() => { node.className = 'toast'; }, 3600);
+    }
+
+    /**
+     * The shared status strip.
+     *
+     * Two independent facts, as everywhere in this suite: which installation
+     * this is, and whether the work in front of the therapist has reached it.
+     */
+    function status(text, kind) {
+        const node = el('status');
+        node.textContent = text || '';
+        node.className = 'status' + (kind ? ' ' + kind : '');
+        let state = kind === 'error' ? 'error' : kind === 'warn' ? 'warning'
+            : kind === 'saving' ? 'saving' : 'synced';
+        if (/вчитув|проверув|барам/i.test(text || '')) state = 'loading';
+        const detail = { state, text: text || 'Записите се вчитани од базата' };
+        window.__MTB_DATA_STATE__ = detail;
+        window.dispatchEvent(new CustomEvent('mtb:data-state', { detail }));
+    }
+
+    // ── choosing a server, when opened from GitHub Pages ─────────────────────
+    function serverName(base) {
+        try {
+            const host = new URL(base).hostname.split('.')[0].toLowerCase();
+            if (host === 'zenpc-1') return 'ZenPC-1';
+            if (host === 'zenpc') return 'ZenPC';
+            return host || base;
+        } catch (e) { return base; }
+    }
+
+    function configuredServers() {
+        let values = SERVER_DEFAULTS;
+        try {
+            const stored = JSON.parse(localStorage.getItem(SERVERS_KEY));
+            if (Array.isArray(stored) && stored.length) values = stored;
+        } catch (e) { /* private mode, or an old invalid preference */ }
+        return [...new Set(values.map((value) => {
+            try {
+                const url = new URL(String(value).trim());
+                return url.protocol === 'https:' && url.hostname.endsWith('.ts.net') ? url.origin : null;
+            } catch (e) { return null; }
+        }).filter(Boolean))];
+    }
+
+    async function probeServer(base) {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), SERVER_TIMEOUT);
+        try {
+            const res = await fetch(base + '/api/health', { signal: controller.signal, cache: 'no-store' });
+            const body = res.ok ? await res.json() : null;
+            return body && body.ok ? base : null;
+        } catch (e) { return null; } finally { clearTimeout(timer); }
+    }
+
+    async function discoverServers() {
+        if (!PUBLISHED) return true;
+        el('serverField').hidden = false;
+        status('ги проверувам ZenPC и ZenPC-1…');
+        const candidates = configuredServers();
+        liveServers = (await Promise.all(candidates.map(probeServer))).filter(Boolean);
+        const select = el('serverChoice');
+        select.innerHTML = '<option value="">— избери база —</option>' + candidates.map((base) => {
+            const online = liveServers.includes(base);
+            return '<option value="' + esc(base) + '"' + (online ? '' : ' disabled') + '>'
+                 + esc(serverName(base)) + (online ? ' · достапен' : ' · недостапен') + '</option>';
+        }).join('');
+        select.disabled = !liveServers.length;
+
+        let remembered = '';
+        try { remembered = localStorage.getItem(SELECTED_SERVER_KEY) || ''; } catch (e) { /* locked */ }
+        const chosen = liveServers.includes(remembered) ? remembered
+            : (liveServers.length === 1 ? liveServers[0] : '');
+        if (!chosen) {
+            apiBase = '';
+            status(liveServers.length
+                ? 'Двата сервери одговараат — избери во која база работиш.'
+                : 'Ниту ZenPC ниту ZenPC-1 не одговара. Провери Tailscale.', 'warn');
+            return false;
+        }
+        apiBase = chosen;
+        select.value = chosen;
+        try { localStorage.setItem(SELECTED_SERVER_KEY, chosen); } catch (e) { /* this tab still works */ }
+        window.dispatchEvent(new CustomEvent('mtb:server-selected'));
+        return true;
+    }
+
+    // ── talking to the API ───────────────────────────────────────────────────
+    /** The server answers in English; this is the staff room's sentence. */
+    function saySorry(res, body) {
+        const raw = (body && (body.error || body.message)) || ('HTTP ' + (res ? res.status : '?'));
+        if (body && body.signedOut) return 'Најавата истече — најави се повторно.';
+        if (body && body.inactiveThisYear) return 'Ученикот не е на списокот за оваа година. Додај го во „Податоци".';
+        if (body && body.deactivate) {
+            return 'Ставката веќе носи ' + body.scores + ' оценки, па не се брише — сокриј ја наместо тоа.';
+        }
+        if (body && body.needsCategory) return 'Избери категорија за новата секција на акцискиот план.';
+        if (body && body.inactiveCategory) return 'Избраната категорија веќе не се користи.';
+        if (body && body.scaleLocked) {
+            return 'Секцијата веќе носи оценки, па скалата не може да се смени.';
+        }
+        if (body && body.notIncluded) {
+            return 'Оваа секција не е вклучена во акцискиот план на ученикот.';
+        }
+        if (res && res.status === 409 && body && body.actual !== undefined) {
+            return 'Некој го смени тоа во меѓувреме. Сега стои: „' + (body.actual || '—') + '".';
+        }
+        if (/already has an evidence sheet/.test(raw)) return 'Тој ученик веќе има лист за таа година.';
+        if (/no student with id/.test(raw)) return 'Тој ученик не постои во базата.';
+        if (/no such school year/.test(raw)) return 'Таа учебна година не постои.';
+        if (/not one of/.test(raw)) return 'Таа вредност не е дозволена за оваа секција.';
+        return raw;
+    }
+
+    async function api(method, path, body) {
+        if (!apiBase && PUBLISHED) throw new Error('Избери база/сервер.');
+        const headers = {};
+        if (token) headers['X-MTB-Evidence-Token'] = token;
+        if (body !== undefined) headers['Content-Type'] = 'application/json';
+        const res = await fetch(apiBase + path, {
+            method, cache: 'no-store', headers,
+            body: body === undefined ? undefined : JSON.stringify(body)
+        });
+        let payload = null;
+        try { payload = await res.json(); } catch (e) { /* not JSON */ }
+        if (!res.ok) {
+            const err = new Error(saySorry(res, payload));
+            err.payload = payload; err.status = res.status;
+            // A dead session must reopen the gate rather than look like a bug.
+            if (payload && payload.signedOut) signOut(true);
+            throw err;
+        }
+        return payload;
+    }
+
+    // ── signing in ───────────────────────────────────────────────────────────
+    function rememberToken(value) {
+        token = value || '';
+        try {
+            if (value) localStorage.setItem(TOKEN_KEY, value);
+            else localStorage.removeItem(TOKEN_KEY);
+        } catch (e) { /* the session still works for this tab */ }
+    }
+
+    function showGate(message) {
+        el('gate').hidden = false;
+        el('gateMsg').innerHTML = message
+            ? '<span class="note note-warn" style="display:block">' + esc(message) + '</span>' : '';
+    }
+
+    function signOut(silent) {
+        if (!silent) api('POST', '/api/evidence/logout').catch(() => {});
+        ticket++;
+        sheetTicket++;
+        rememberToken('');
+        me = null;
+        el('who').textContent = '—';
+        showGate(silent ? 'Најавата истече.' : '');
+        fillGateWho().catch(() => {});
+    }
+
+    /**
+     * Everyone who can sign in — therapists and teachers.
+     *
+     * The value carries the kind, because two people of different kinds can
+     * share an id: `therapists.id` and `teachers.id` are separate sequences,
+     * and a picker keyed on the bare number would sign the wrong person in.
+     * An older server without /api/evidence/people falls back to therapists.
+     */
+    async function fillGateWho() {
+        let people;
+        try {
+            people = (await api('GET', '/api/evidence/people')).people || [];
+        } catch (_) {
+            people = ((await api('GET', '/api/evidence/therapists')).therapists || [])
+                .map((t) => Object.assign({ kind: 'therapist' }, t));
+        }
+        const label = { therapist: 'терапевт', teacher: 'наставник' };
+        el('gateWho').innerHTML = people.map((p) =>
+            '<option value="' + p.kind + ':' + p.id + '" data-pin="' + (p.has_pin ? '1' : '0') + '">'
+            + esc(p.name) + ' · ' + (label[p.kind] || p.kind)
+            + (p.has_pin ? '' : ' · нема PIN') + '</option>').join('');
+        gateModeFromChoice();
+    }
+
+    /** "teacher:12" back into something the API understands. */
+    function gateWhoRef() {
+        const raw = String(el('gateWho').value || '');
+        const cut = raw.indexOf(':');
+        if (cut < 0) return raw ? { kind: 'therapist', personId: Number(raw) } : null;
+        const personId = Number(raw.slice(cut + 1));
+        return personId ? { kind: raw.slice(0, cut), personId } : null;
+    }
+
+    function gateModeFromChoice() {
+        const option = el('gateWho').selectedOptions[0];
+        const hasPin = option && option.dataset.pin === '1';
+        el('gateGo').disabled = !hasPin;
+        el('gateGo').textContent = hasPin ? 'Влези' : 'Прво постави PIN';
+        el('gateSet').textContent = hasPin ? 'Смени PIN' : 'Постави PIN';
+    }
+
+    async function doLogin() {
+        const ref = gateWhoRef();
+        const pin = el('gatePin').value;
+        if (!ref || pin.length < 4) return toast('Внеси PIN од најмалку 4 знаци', true);
+        try {
+            const body = await api('POST', '/api/evidence/login', Object.assign({ pin }, ref));
+            rememberToken(body.token);
+            me = body.person || body.therapist;
+            el('who').textContent = me.name;
+            el('gate').hidden = true;
+            el('gatePin').value = '';
+            await load();
+        } catch (err) {
+            showGate(err.message);
+        }
+    }
+
+    /**
+     * Setting a PIN, in two presses.
+     *
+     * The first reveals the confirmation box; the second sends it. A PIN typed
+     * once and stored is a PIN nobody can prove they know, and the person who
+     * mistypes it is locked out of their own name.
+     */
+    async function doSetPin() {
+        const ref = gateWhoRef();
+        const id = el('gateWho').value;
+        const option = el('gateWho').selectedOptions[0];
+        const hasPin = option && option.dataset.pin === '1';
+        if (el('gatePin2Field').hidden) {
+            el('gatePin2Field').hidden = false;
+            el('gatePinLabel').textContent = hasPin
+                ? 'Нов PIN (треба стариот или веќе најавена сесија)'
+                : 'Нов PIN (најмалку 4 знаци)';
+            el('gatePin').focus();
+            return;
+        }
+        const first = el('gatePin').value;
+        const again = el('gatePin2').value;
+        if (first.length < 4) return toast('PIN од најмалку 4 знаци', true);
+        if (first !== again) return toast('Двата PIN-а не се исти', true);
+        try {
+            const current = hasPin && !token
+                ? (prompt('Внеси го стариот PIN:') || '')
+                : undefined;
+            await api('POST', '/api/evidence/pin', Object.assign({
+                pin: first, currentPin: current || undefined
+            }, ref));
+            toast('PIN е поставен — сега влези со него');
+            el('gatePin2Field').hidden = true;
+            el('gatePin2').value = '';
+            el('gatePin').value = '';
+            await fillGateWho();
+            el('gateWho').value = id;
+            gateModeFromChoice();
+        } catch (err) { showGate(err.message); }
+    }
+
+    // ── loading the year ─────────────────────────────────────────────────────
+    async function fillYears() {
+        const select = el('year');
+        if (select.options.length) return;
+        years = await api('GET', '/api/years');
+        const requested = new URLSearchParams(window.location.search).get('year');
+        years.forEach((y) => {
+            const option = document.createElement('option');
+            option.value = y.label;
+            option.textContent = y.label + (y.is_current ? ' · тековна' : ' · архива');
+            select.appendChild(option);
+        });
+        const fallback = years.find((y) => y.is_current) || years[0];
+        select.value = years.some((y) => y.label === requested) ? requested : (fallback && fallback.label);
+        select.disabled = !select.options.length;
+    }
+
+    async function load() {
+        if (!token) { showGate(); await fillGateWho().catch((err) => offline(err)); return; }
+        const mine = ++ticket;
+        sheetTicket++;
+        status((PUBLISHED ? serverName(apiBase) + ' · ' : '') + 'вчитувам…');
+        try {
+            if (!me) {
+                const who = await api('GET', '/api/evidence/me');
+                me = who.person || who.therapist;
+                el('who').textContent = me.name;
+                el('gate').hidden = true;
+            }
+            await fillYears();
+            const query = '?year=' + encodeURIComponent(el('year').value);
+            const [cat, list, categoryList] = await Promise.all([
+                api('GET', '/api/evidence/catalog' + query),
+                api('GET', '/api/evidence/sheets' + query),
+                // Categories are additive. A page opened against an older
+                // server must still show the prescribed evidence form.
+                api('GET', '/api/categories?all=1').catch(() => ({ categories: [] }))
+            ]);
+            if (mine !== ticket) return;
+            catalog = cat;
+            categories = categoryList.categories || [];
+            pupils = list.pupils;
+            const openId = sheet ? sheet.public_id : null;
+            sheet = null;
+            drawPupils();
+            drawSetup();
+            const again = openId && pupils.find((p) => p.public_id === openId && p.sheet_id);
+            if (again) await openSheet(again.sheet_id);
+            else drawSheet();
+            if (mine !== ticket) return;
+            const withSheet = pupils.filter((p) => p.sheet_id).length;
+            status((PUBLISHED ? serverName(apiBase) + ' · ' : '')
+                + list.year + (list.isCurrentYear ? '' : ' · архивска година') + ' · '
+                + pupils.length + ' ученици · ' + withSheet + ' отворени листови · '
+                + catalog.periods.filter((p) => p.active).length + ' периоди',
+                list.isCurrentYear ? '' : 'warn');
+        } catch (err) {
+            if (mine !== ticket) return;
+            offline(err);
+        }
+    }
+
+    function offline(err) {
+        pupils = []; catalog = null; categories = []; sheet = null;
+        el('plist').innerHTML = '';
+        el('sheetHead').innerHTML =
+            '<div class="note note-bad"><b>Нема врска со серверот.</b> '
+            + 'Оваа страница нема своја копија од записите — базата ги чува, па нема ни што да прикаже, '
+            + 'ни каде да запише.<br><code>' + esc(err.message) + '</code></div>';
+        ['pProfile', 'pScores', 'pPanels', 'pPeople', 'pSetup'].forEach((id) => { el(id).innerHTML = ''; });
+        status((PUBLISHED && apiBase ? serverName(apiBase) + ' · ' : '') + 'серверот не одговара', 'error');
+    }
+
+    // ── the pupil list ───────────────────────────────────────────────────────
+    function drawPupils() {
+        const needle = tidy(el('find').value).toLocaleLowerCase('mk-MK');
+        const shown = pupils.filter((p) => !needle || p.name.toLocaleLowerCase('mk-MK').includes(needle));
+        el('pupilCount').textContent = '(' + shown.length
+            + (shown.length !== pupils.length ? '/' + pupils.length : '') + ')';
+        el('plist').innerHTML = shown.map((p, index) =>
+            '<div class="pupil' + (p.sheet_id ? ' has' : '')
+            + (sheet && sheet.public_id === p.public_id ? ' on' : '')
+            + '" data-id="' + esc(p.public_id) + '">'
+            + '<span class="num">' + (index + 1) + '.</span><span class="dot"></span>'
+            + '<span class="nm">' + esc(p.name) + '</span>'
+            + '<span class="gr">' + esc(p.grade || '—') + '</span></div>').join('')
+            || '<p style="padding:10px 12px;color:var(--sub);font-size:12.5px;">Нема ученици.</p>';
+    }
+
+    function selectedPupil() {
+        return sheet ? pupils.find((p) => p.public_id === sheet.public_id) : null;
+    }
+
+    async function choosePupil(publicId) {
+        const pupil = pupils.find((p) => p.public_id === publicId);
+        if (!pupil) return;
+        if (!pupil.sheet_id) {
+            sheetTicket++;
+            sheet = null;
+            sheetSections = null;
+            pupilTeam = null;
+            drawPupils();
+            drawSheet(pupil);
+            el('btnNewSheet').disabled = false;
+            el('btnNewSheet').dataset.id = publicId;
+            return;
+        }
+        await openSheet(pupil.sheet_id);
+    }
+
+    /**
+     * Which document the „Проценка" pane is showing.
+     *
+     * 'prescribed' is the евидентен лист — the form from the Правилник, always
+     * every section. 'action' is the quarterly action plan, whose sections are
+     * the pupil's categories. They are never drawn together and never printed
+     * together: a printed form that carries sections the Правилник does not
+     * require stops being able to say what it is.
+     */
+    let docView = 'prescribed';
+    /** Per-sheet answer from the server: which action sections are in, and why. */
+    let sheetSections = null;
+    /** Derived, never stored: who the database already knows works with this pupil. */
+    let pupilTeam = null;
+
+    /** A section written before migration 023 has no catalogue; it is the form. */
+    const catalogOf = (section) => section.catalog || 'prescribed';
+
+    // An empty action catalogue is still a supported action plan: it must be
+    // visible so the specialist can create its first category section.
+    const supportsActionPlan = () => Array.isArray(sheetSections);
+
+    function actionState(sectionId) {
+        const row = (sheetSections || []).find((s) => s.sectionId === sectionId);
+        return row || { included: false, source: 'derived', categoryName: null };
+    }
+
+    /**
+     * Read alongside the sheet rather than on demand, so the pane can never
+     * draw a section list the server has not confirmed. A server without
+     * migration 023 answers 404 and the action plan simply is not offered —
+     * the евидентен лист behaves exactly as before.
+     */
+    async function readSheetContext(targetSheet, yearLabel) {
+        let sections = null;
+        let team = null;
+        try {
+            const body = await api('GET', '/api/evidence/sheet-sections?sheet=' + targetSheet.id);
+            sections = body.sections || [];
+        } catch (_) { sections = null; }
+        try {
+            const team = await api('GET', '/api/categories/pupil?year='
+                + encodeURIComponent(yearLabel) + '&student=' + encodeURIComponent(targetSheet.public_id));
+            return { sections, team: team.team || team.therapists || [] };
+        } catch (_) { return { sections, team }; }
+    }
+
+    async function toggleActionSection(sectionId, included) {
+        try {
+            status('запишувам во базата…', 'saving');
+            const saved = await api('PUT', '/api/evidence/sheet-section',
+                { sheetId: sheet.id, sectionId, included });
+            const row = (sheetSections || []).find((s) => s.sectionId === sectionId);
+            if (row) { row.included = saved.included; row.source = saved.source; }
+            drawScores();
+            status('зачувано во базата', 'ok');
+            toast(saved.source === 'derived'
+                ? 'Врати се на автоматското — ги следи годишните списоци.'
+                : 'Рачната одлука е зачувана за овој лист.');
+        } catch (err) {
+            // The checkbox changes before this async write begins. Redraw it
+            // from the last server-confirmed state when PostgreSQL refuses the
+            // write, otherwise the page claims an override that does not exist.
+            drawScores();
+            toast(err.message, true);
+            status(err.message, 'error');
+        }
+    }
+
+    async function openSheet(sheetId) {
+        const mine = ++sheetTicket;
+        const loadGeneration = ticket;
+        const yearLabel = el('year').value;
+        try {
+            const opened = await api('GET', '/api/evidence/sheet/' + sheetId);
+            const context = await readSheetContext(opened, yearLabel);
+            if (mine !== sheetTicket || loadGeneration !== ticket || yearLabel !== el('year').value) return;
+            sheet = opened;
+            sheetSections = context.sections;
+            pupilTeam = context.team;
+            el('btnNewSheet').disabled = true;
+            drawPupils();
+            drawSheet();
+        } catch (err) { toast(err.message, true); }
+    }
+
+    // ── drawing one sheet ────────────────────────────────────────────────────
+    function periods() {
+        return (catalog ? catalog.periods : []).filter((p) => p.active);
+    }
+
+    function scoreOf(itemId, periodId) {
+        if (!sheet) return '';
+        const row = sheet.scores.find((s) => s.item_id === itemId && s.period_id === periodId);
+        return row ? row.value : '';
+    }
+
+    function visibleSections() {
+        if (!catalog) return [];
+        const secondary = sheet && sheet.school_type === 'secondary';
+        return catalog.sections.filter((s) => {
+            if (!(editCatalog || s.active)) return false;
+            if (s.only_secondary && !secondary) return false;
+            const kind = catalogOf(s);
+            // With no action plan available the pane is the form, as before.
+            if (!supportsActionPlan()) return kind === 'prescribed';
+            if (docView === 'prescribed') return kind === 'prescribed';
+            // In the action plan, „Уреди ставки" shows every category section so
+            // the catalogue can be edited; otherwise only the pupil's own.
+            return kind === 'action' && (editCatalog || actionState(s.id).included);
+        });
+    }
+
+    function sectionItems(section) {
+        return section.items.filter((i) => editCatalog || i.active);
+    }
+
+    /** The wording of the printed form, kept because the form is what is signed. */
+    function verdict(sum, count) {
+        if (!count) return '';
+        const percent = Math.round(sum / (count * 3) * 100);
+        if (percent > 90) return 'целосно (' + percent + '%)';
+        if (percent >= 50) return 'добро (' + percent + '%)';
+        return 'недоволно (' + percent + '%)';
+    }
+
+    function sectionSummary(section, periodId) {
+        let sum = 0, count = 0;
+        sectionItems(section).forEach((item) => {
+            const value = Number(scoreOf(item.id, periodId));
+            if (value) { sum += value; count++; }
+        });
+        return verdict(sum, count);
+    }
+
+    function drawSheet(pupilWithout) {
+        const head = el('sheetHead');
+        if (!sheet) {
+            head.innerHTML = pupilWithout
+                ? '<div class="note note-info" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">'
+                  + '<span><b>' + esc(pupilWithout.name) + '</b> сè уште нема евидентен лист за '
+                  + esc(el('year').value) + '.</span>'
+                  + '<button class="btn btn-sm btn-p" id="btnOpenHere">+ Отвори лист</button></div>'
+                : '<div class="note note-info">Избери ученик лево. Зелената точка значи дека веќе има отворен лист.</div>';
+            ['pProfile', 'pScores', 'pPanels', 'pPeople'].forEach((id) => { el(id).innerHTML = ''; });
+            const here = el('btnOpenHere');
+            if (here) here.addEventListener('click', newSheet);
+            return;
+        }
+        head.innerHTML = '<div class="note note-info" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">'
+            + '<b style="font-size:15px;">' + esc(sheet.name) + '</b>'
+            + '<span>' + esc(sheet.grade || 'без одделение')
+            + (sheet.class_section ? '-' + esc(sheet.class_section) : '') + '</span>'
+            + '<span style="color:var(--sub);font-size:12px;">последна промена: '
+            + esc(String(sheet.updated_at).slice(0, 16).replace('T', ' ')) + ' · '
+            + esc(sheet.updated_by || '—') + '</span>'
+            + '<span style="flex:1"></span>'
+            + '<button class="btn btn-sm btn-r" id="btnDelSheet">🗑 Избриши го листот</button></div>';
+        el('btnDelSheet').onclick = deleteSheet;
+        drawProfile();
+        drawScores();
+        drawPanels();
+        drawPeople();
+    }
+
+    // ── profile ──────────────────────────────────────────────────────────────
+    function field(name, label, value) {
+        return '<div class="fl"><label>' + esc(label) + '</label>'
+             + '<input data-f="' + name + '" value="' + esc(value) + '"></div>';
+    }
+
+    function drawProfile() {
+        const s = sheet;
+        el('pProfile').innerHTML =
+            '<div class="card"><h3>🏫 Установа</h3>'
+            + field('institution', 'Име на посебното училиште', s.institution)
+            + '<div class="rw r2">' + field('place', 'Место', s.place)
+            + field('municipality', 'Општина', s.municipality) + '</div></div>'
+            + '<div class="card"><h3>👤 Ученик</h3>'
+            + '<div class="rw r4">'
+            + '<div class="fl"><label>Тип на училиште</label><select data-f="schoolType">'
+            + '<option value="primary"' + (s.school_type === 'primary' ? ' selected' : '') + '>Основно</option>'
+            + '<option value="secondary"' + (s.school_type === 'secondary' ? ' selected' : '') + '>Средно</option></select></div>'
+            + '<div class="fl"><label>Одделение / година</label>'
+            + '<input value="' + esc(s.grade || '') + '" disabled title="Одделението се менува во Податоци"></div>'
+            + '<div class="fl"><label>Паралелка</label>'
+            + '<input value="' + esc(s.class_section || '') + '" disabled title="Паралелката доаѓа од запишувањето"></div>'
+            + '<div class="fl"><label>Учебна година</label><input value="' + esc(el('year').value) + '" disabled></div>'
+            + '</div>'
+            + '<p style="font-size:11.5px;color:var(--sub);margin:-2px 0 10px;">Одделението и паралелката ги држи '
+            + '<a href="Podatoci.html" style="color:var(--brand1);">Податоци</a> — тука се само прикажани, '
+            + 'за да не се разидат двете места.</p>'
+            + (s.school_type === 'secondary'
+                ? '<div class="rw r2">' + field('vocation', 'Струка', s.vocation)
+                  + field('occupation', 'Занимање', s.occupation) + '</div>'
+                : '')
+            + '<div class="rw r2">' + field('dob', 'Датум на раѓање', s.dob)
+            + field('pob', 'Место на раѓање', s.pob) + '</div>'
+            + '<div class="fl"><label>Дијагноза (според Наод и мислење)</label>'
+            + '<textarea data-f="diagnosis">' + esc(s.diagnosis) + '</textarea></div>'
+            + '</div>';
+        el('pProfile').querySelectorAll('[data-f]').forEach((node) => {
+            node.addEventListener('change', () => saveProfileField(node));
+        });
+    }
+
+    async function saveProfileField(node) {
+        const patch = {};
+        patch[node.dataset.f] = node.value;
+        try {
+            status('запишувам…', 'saving');
+            const body = await api('PATCH', '/api/evidence/sheet/' + sheet.id, patch);
+            sheet = body.sheet;
+            status('зачувано во базата', 'ok');
+            // Секцијата XI постои само за средно, па изгледот се менува со типот.
+            if (node.dataset.f === 'schoolType') { drawProfile(); drawScores(); }
+        } catch (err) {
+            toast(err.message, true);
+            status(err.message, 'error');
+        }
+    }
+
+    // ── the scored sections ──────────────────────────────────────────────────
+    function drawScores() {
+        const cols = periods();
+        if (!cols.length) {
+            el('pScores').innerHTML = '<div class="note note-warn">Оваа година нема ниту еден период. '
+                + 'Додај во „Подесувања“.</div>';
+            return;
+        }
+        let html = '';
+        if (supportsActionPlan()) {
+            html += '<div class="note note-info" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">'
+                + '<b>Документ:</b>'
+                + '<button class="btn btn-sm' + (docView === 'prescribed' ? ' btn-p' : '')
+                + '" data-doc="prescribed">Евидентен лист</button>'
+                + '<button class="btn btn-sm' + (docView === 'action' ? ' btn-p' : '')
+                + '" data-doc="action">Акциски план</button>'
+                + '<span style="flex:1"></span>'
+                + '<span style="color:var(--sub);font-size:12px;">'
+                + (docView === 'prescribed'
+                    ? 'Пропишаниот образец — сите секции, секогаш.'
+                    : 'Секции по категорија, според тоа кај кого оди ученикот.')
+                + '</span></div>';
+        }
+        if (docView === 'action' && supportsActionPlan()) {
+            const rows = (sheetSections || []).filter((s) => s.catalog === 'action');
+            html += '<div class="card"><h3>Категории на овој ученик</h3>'
+                + '<p class="hint">Автоматски се чекирани категориите чие стручно лице го има ученикот '
+                + 'во својот годишен список. Рачната промена важи само за овој лист и се памети; '
+                + 'враќањето на автоматското ја брише.</p>'
+                + (rows.length ? '<div class="tw"><table class="at"><thead><tr>'
+                    + '<th style="width:52px;">Во план</th><th>Категорија</th><th>Секција</th>'
+                    + '<th style="width:120px;">Извор</th></tr></thead><tbody>'
+                    + rows.map((r) =>
+                        '<tr><td style="text-align:center;"><input type="checkbox" data-action-section="'
+                        + r.sectionId + '"' + (r.included ? ' checked' : '') + '></td>'
+                        + '<td>' + esc(r.categoryName || '—') + '</td>'
+                        + '<td>' + esc(r.title) + '</td>'
+                        + '<td>' + (r.source === 'manual'
+                            ? '<b>рачно</b>' : '<span class="dim">автоматски</span>') + '</td></tr>').join('')
+                    + '</tbody></table></div>'
+                  : '<div class="note note-warn">Нема ниту една секција за категорија во каталогот. '
+                    + '<button class="btn btn-sm" data-open-setup>Отвори Подесувања</button></div>')
+                + '</div>';
+        }
+        html += '<div class="note note-info" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">'
+            + '<span>Оценките се запишуваат веднаш, поле по поле.</span><span style="flex:1"></span>'
+            + '<label style="display:flex;gap:6px;align-items:center;font-size:12.5px;">'
+            + '<input type="checkbox" id="editToggle"' + (editCatalog ? ' checked' : '') + '> Уреди ставки</label></div>';
+
+        visibleSections().forEach((section) => {
+            const span = cols.length + 1 + (editCatalog ? 1 : 0);
+            const excluded = catalogOf(section) === 'action' && !actionState(section.id).included;
+            html += '<div class="card"><h3>' + esc(section.title)
+                + (section.active ? '' : ' <span class="dim">(скриена)</span>')
+                + (excluded ? ' <span class="dim">(не е во планот · оценките се заклучени)</span>' : '')
+                + '</h3><div class="tw"><table class="at" data-score-section="' + section.id
+                + '"><thead><tr><th>Ставка</th>'
+                + cols.map((p) => '<th>' + esc(p.short_label) + '</th>').join('')
+                + (editCatalog ? '<th></th>' : '') + '</tr></thead><tbody>';
+
+            const rows = [];
+            if (section.groups.length) {
+                section.groups.forEach((group) => {
+                    rows.push({ group });
+                    sectionItems(section).filter((i) => i.group_id === group.id)
+                        .forEach((item) => rows.push({ item }));
+                });
+                sectionItems(section).filter((i) => !i.group_id).forEach((item) => rows.push({ item }));
+            } else {
+                sectionItems(section).forEach((item) => rows.push({ item }));
+            }
+
+            let number = 0;
+            rows.forEach((row) => {
+                if (row.group) {
+                    html += '<tr class="gh"><td colspan="' + span + '">' + esc(row.group.label) + '</td></tr>';
+                    return;
+                }
+                number++;
+                const item = row.item;
+                html += '<tr' + (item.active ? '' : ' class="dim"') + '><td>'
+                    + (editCatalog
+                        ? '<span class="itemedit"><input value="' + esc(item.label)
+                          + '" data-item-label="' + item.id + '"></span>'
+                        : number + '. ' + esc(item.label))
+                    + '</td>'
+                    + cols.map((p) => '<td>' + cell(section, item, p) + '</td>').join('');
+                if (editCatalog) {
+                    html += '<td style="white-space:nowrap;">'
+                        + '<button class="btn btn-sm" data-item-hide="' + item.id + '" data-active="' + item.active + '">'
+                        + (item.active ? 'Сокриј' : 'Врати') + '</button> '
+                        + '<button class="btn btn-sm btn-r" data-item-del="' + item.id + '">✕</button></td>';
+                }
+                html += '</tr>';
+            });
+
+            if (section.summary && section.scale === 'level') {
+                html += '<tr class="ev"><td><b>ОПШТА ПРОЦЕНКА</b></td>'
+                    + cols.map((p) => '<td>' + esc(sectionSummary(section, p.id)) + '</td>').join('')
+                    + (editCatalog ? '<td></td>' : '') + '</tr>';
+            }
+            html += '</tbody></table></div>';
+
+            if (editCatalog) {
+                html += '<div style="display:flex;gap:6px;margin-top:9px;flex-wrap:wrap;">'
+                    + '<input placeholder="нова ставка…" data-new-item="' + section.id + '" style="flex:1;min-width:180px;">'
+                    + (section.groups.length
+                        ? '<select data-new-item-group="' + section.id + '"><option value="">— без група —</option>'
+                          + section.groups.map((g) => '<option value="' + g.id + '">' + esc(g.label) + '</option>').join('')
+                          + '</select>'
+                        : '')
+                    + '<button class="btn btn-sm btn-p" data-add-item="' + section.id + '">+ Додај ставка</button></div>';
+            }
+
+            section.examiners.forEach((role) => {
+                const filled = sheet.examiners.find((x) => x.role_id === role.id);
+                html += '<div class="fl" style="margin-top:9px;"><label>Име и презиме, ' + esc(role.label) + '</label>'
+                    + '<input data-examiner="' + role.id + '" value="' + esc(filled ? filled.name : '') + '"></div>';
+            });
+            html += '</div>';
+        });
+
+        el('pScores').innerHTML = html;
+        wireScores();
+    }
+
+    function cell(section, item, period) {
+        const score = sheet && sheet.scores.find((s) => s.item_id === item.id && s.period_id === period.id);
+        const value = score ? score.value : '';
+        const options = section.scale === 'mark' ? ['', '√', 'X'] : ['', '1', '2', '3'];
+        const locked = !item.active || !section.active
+            || (catalogOf(section) === 'action' && !actionState(section.id).included);
+        return '<select class="ss" data-item="' + item.id + '" data-period="' + period.id + '"'
+            + ' data-was="' + esc(value) + '"'
+            + (score && score.updated_by ? ' title="Последно внесено од: ' + esc(score.updated_by) + '"' : '')
+            + (locked ? ' disabled' : '') + '>'
+            + options.map((o) => '<option value="' + esc(o) + '"' + (o === value ? ' selected' : '') + '>'
+                + esc(o) + '</option>').join('')
+            + '</select>';
+    }
+
+    function wireScores() {
+        const toggle = el('editToggle');
+        if (toggle) toggle.onchange = () => { editCatalog = toggle.checked; drawScores(); };
+
+        el('pScores').querySelectorAll('[data-doc]').forEach((b) => {
+            b.addEventListener('click', () => { docView = b.dataset.doc; drawScores(); });
+        });
+        el('pScores').querySelectorAll('[data-action-section]').forEach((box) => {
+            box.addEventListener('change', () =>
+                toggleActionSection(Number(box.dataset.actionSection), box.checked));
+        });
+        const setup = el('pScores').querySelector('[data-open-setup]');
+        if (setup) setup.addEventListener('click', () => activatePane('pSetup'));
+
+        el('pScores').querySelectorAll('select.ss').forEach((node) => {
+            node.addEventListener('change', () => saveScore(node));
+        });
+        el('pScores').querySelectorAll('[data-examiner]').forEach((node) => {
+            node.addEventListener('change', () => saveExaminer(node));
+        });
+        el('pScores').querySelectorAll('[data-item-label]').forEach((node) => {
+            node.addEventListener('change', () => renameItem(node));
+        });
+        el('pScores').querySelectorAll('[data-item-hide]').forEach((node) => {
+            node.onclick = () => hideItem(Number(node.dataset.itemHide), node.dataset.active !== 'true');
+        });
+        el('pScores').querySelectorAll('[data-item-del]').forEach((node) => {
+            node.onclick = () => deleteItem(Number(node.dataset.itemDel));
+        });
+        el('pScores').querySelectorAll('[data-add-item]').forEach((node) => {
+            node.onclick = () => addItem(Number(node.dataset.addItem));
+        });
+    }
+
+    /**
+     * One cell.
+     *
+     * `expected` carries what this browser believed was there. A tab left open
+     * since the morning is a stale view of a table a colleague may have filled
+     * in since -- so a mismatch is refused, named, and put back on screen
+     * rather than silently overwritten.
+     */
+    async function saveScore(node) {
+        const itemId = Number(node.dataset.item);
+        const periodId = Number(node.dataset.period);
+        const was = node.dataset.was || '';
+        const value = node.value;
+        node.classList.add('saving');
+        node.classList.remove('bad');
+        status('запишувам…', 'saving');
+        try {
+            await api('PUT', '/api/evidence/score', {
+                sheetId: sheet.id, itemId, periodId, value, expected: was
+            });
+            node.dataset.was = value;
+            const existing = sheet.scores.find((s) => s.item_id === itemId && s.period_id === periodId);
+            if (value === '') {
+                sheet.scores = sheet.scores.filter((s) => !(s.item_id === itemId && s.period_id === periodId));
+            } else if (existing) {
+                existing.value = value;
+                existing.updated_by = me.name;
+            } else {
+                sheet.scores.push({
+                    sheet_id: sheet.id, item_id: itemId, period_id: periodId,
+                    value, updated_by: me.name, updated_at: new Date().toISOString()
+                });
+            }
+            refreshSummaries();
+            status('зачувано во базата', 'ok');
+        } catch (err) {
+            node.classList.add('bad');
+            const actual = err.payload && err.payload.actual;
+            if (actual !== undefined) {
+                node.value = actual;
+                node.dataset.was = actual;
+                const existing = sheet.scores.find((score) =>
+                    score.item_id === itemId && score.period_id === periodId);
+                if (actual === '') {
+                    sheet.scores = sheet.scores.filter((score) =>
+                        !(score.item_id === itemId && score.period_id === periodId));
+                } else if (existing) {
+                    existing.value = actual;
+                    if (err.payload.actualBy) existing.updated_by = err.payload.actualBy;
+                } else {
+                    sheet.scores.push({
+                        sheet_id: sheet.id, item_id: itemId, period_id: periodId,
+                        value: actual, updated_by: err.payload.actualBy || '', updated_at: ''
+                    });
+                }
+                // Summaries and Word output read the in-memory sheet. Keep it
+                // in step with the value used to correct the visible select.
+                refreshSummaries();
+            } else {
+                node.value = was;
+            }
+            toast(err.message, true);
+            status(err.message, 'error');
+        } finally {
+            node.classList.remove('saving');
+        }
+    }
+
+    /** Redraw only the ОПШТА ПРОЦЕНКА rows, so a whole table does not flicker. */
+    function refreshSummaries() {
+        const cols = periods();
+        el('pScores').querySelectorAll('table.at[data-score-section]').forEach((table) => {
+            const sectionId = Number(table.dataset.scoreSection);
+            const section = (catalog ? catalog.sections : []).find((entry) => entry.id === sectionId);
+            const row = table.querySelector('tr.ev');
+            if (!section || !row) return;
+            const cells = row.querySelectorAll('td');
+            cols.forEach((p, i) => {
+                if (cells[i + 1]) cells[i + 1].textContent = sectionSummary(section, p.id);
+            });
+        });
+    }
+
+    async function saveExaminer(node) {
+        const roleId = Number(node.dataset.examiner);
+        try {
+            status('запишувам…', 'saving');
+            await api('PUT', '/api/evidence/examiner', { sheetId: sheet.id, roleId, name: node.value });
+            const existing = sheet.examiners.find((x) => x.role_id === roleId);
+            if (existing) existing.name = node.value;
+            else sheet.examiners.push({ sheet_id: sheet.id, role_id: roleId, name: node.value, updated_by: me.name });
+            status('зачувано во базата', 'ok');
+        } catch (err) { toast(err.message, true); status(err.message, 'error'); }
+    }
+
+    // ── the catalogue, edited in place ───────────────────────────────────────
+    function catalogItem(id) {
+        for (const section of (catalog ? catalog.sections : [])) {
+            const found = section.items.find((i) => i.id === id);
+            if (found) return found;
+        }
+        return null;
+    }
+
+    async function reloadCatalog() {
+        const mine = ++sheetTicket;
+        const loadGeneration = ticket;
+        const yearLabel = el('year').value;
+        const sheetId = sheet && sheet.id;
+        const nextCatalog = await api('GET', '/api/evidence/catalog?year=' + encodeURIComponent(yearLabel));
+        let opened = null;
+        let context = null;
+        if (sheetId) {
+            opened = await api('GET', '/api/evidence/sheet/' + sheetId);
+            context = await readSheetContext(opened, yearLabel);
+        }
+        if (mine !== sheetTicket || loadGeneration !== ticket || yearLabel !== el('year').value) return;
+        catalog = nextCatalog;
+        if (opened) {
+            sheet = opened;
+            sheetSections = context.sections;
+            pupilTeam = context.team;
+        }
+        drawScores();
+        drawSetup();
+    }
+
+    async function addItem(sectionId) {
+        const input = el('pScores').querySelector('[data-new-item="' + sectionId + '"]');
+        const groupSelect = el('pScores').querySelector('[data-new-item-group="' + sectionId + '"]');
+        const label = tidy(input.value);
+        if (!label) return toast('Внеси текст за ставката', true);
+        try {
+            await api('POST', '/api/evidence/item', {
+                sectionId, label,
+                groupId: groupSelect && groupSelect.value ? Number(groupSelect.value) : null
+            });
+            input.value = '';
+            await reloadCatalog();
+            toast('Ставката е додадена');
+        } catch (err) { toast(err.message, true); }
+    }
+
+    async function renameItem(node) {
+        const id = Number(node.dataset.itemLabel);
+        const item = catalogItem(id);
+        try {
+            await api('PATCH', '/api/evidence/item/' + id, {
+                label: tidy(node.value), expected: item ? item.label : undefined
+            });
+            await reloadCatalog();
+        } catch (err) {
+            toast(err.message, true);
+            if (item) node.value = (err.payload && err.payload.actual) || item.label;
+        }
+    }
+
+    async function hideItem(id, active) {
+        try {
+            await api('PATCH', '/api/evidence/item/' + id, { active });
+            await reloadCatalog();
+        } catch (err) { toast(err.message, true); }
+    }
+
+    async function deleteItem(id) {
+        const item = catalogItem(id);
+        if (!confirm('Да ја избришам ставката „' + (item ? item.label : id) + '“?')) return;
+        try {
+            await api('DELETE', '/api/evidence/item/' + id);
+            await reloadCatalog();
+            toast('Избришана');
+        } catch (err) {
+            // The refusal is the useful half: it says how much work is behind it.
+            toast(err.message, true);
+            if (err.payload && err.payload.deactivate
+                && confirm(err.message + '\n\nДа ја сокријам наместо тоа?')) hideItem(id, false);
+        }
+    }
+
+    // ── the free-text panels ─────────────────────────────────────────────────
+    const PANELS = [
+        { key: 'vision', title: '👁 Проценка на функционален вид', gate: 'За ученици со оштетен вид', fields: [
+            ['testDate', 'Датум на тестирање'], ['vod_d', 'VOD sc/cc (далеку)'], ['vos_d', 'VOS sc/cc (далеку)'],
+            ['vods_d', 'VODS sc/cc (далеку)'], ['vods_n40', 'VODS sc/cc на 40cm'], ['vods_ncm', 'VODS sc/cc на __ cm'],
+            ['contr1', 'Контраст на _m _%'], ['contr2', 'Контраст на _m _%'], ['contrConc', 'Заклучок за контраст'],
+            ['color', 'Колорен вид'], ['stereo', 'Стереоскопски вид'], ['field', 'Видно поле'],
+            ['obs', 'Опсервација'], ['tiflologist', 'Тифлолог — испитувач'], ['tifName', 'Дефектолог-тифлолог'],
+            ['diag', 'Дијагноза'], ['correction', 'Корекција на видот'], ['acuity', 'Оштрина на видот'],
+            ['rehab', 'Рехабилитациски третман']
+        ] },
+        { key: 'hearing', title: '👂 Слух', gate: 'За ученици со оштетен слух', fields: [
+            ['surdologist', 'Дефектолог-сурдолог'], ['surdoDiag', 'Сурдоаудиолошка дијагноза', 1],
+            ['audiogram', 'Аудиограм', 1], ['aids', 'Индивидуални слушни апарати', 1],
+            ['opinion', 'Наод и мислење на аудиорехабилитатор', 1]
+        ] },
+        { key: 'speech', title: '🗣 Говор, глас и комуникација', fields: [
+            ['logoped', 'Деф. сурдолог, логопед'], ['verbal', 'Вербално комуницира', 1],
+            ['nonverbal', 'Невербално комуницира (гест)', 1], ['both', 'Вербално и невербално', 1],
+            ['triage', 'Тријажен тест (состојба на гласовите)', 1], ['logName', 'Дефектолог-логопед'],
+            ['diag', 'Дијагноза', 1], ['artic', 'Артикулативен тест', 1],
+            ['readWrite', 'Тестови за читање и пишување', 1], ['orofacial', 'Тест за орофацијална праксија', 1]
+        ] },
+        { key: 'biofeedback', title: '🧪 Биофидбек терапија', gate: 'Биофидбек терапија', fields: [
+            ['therapist', 'Дефектолог биофидбек терапевт'], ['type', 'Тип тренинг'], ['coop', 'Соработка']
+        ] }
+    ];
+
+    function drawPanels() {
+        el('pPanels').innerHTML = PANELS.map((panel) => {
+            const data = sheet.panels[panel.key] || {};
+            const on = !panel.gate || data.enabled === true;
+            return '<div class="card"><h3>' + esc(panel.title)
+                + (data._updatedBy ? '<span class="who-line">' + esc(data._updatedBy) + '</span>' : '')
+                + '</h3>'
+                + (panel.gate
+                    ? '<label style="display:flex;gap:8px;align-items:center;margin-bottom:10px;font-weight:600;">'
+                      + '<input type="checkbox" data-gate="' + panel.key + '"' + (on ? ' checked' : '') + '> '
+                      + esc(panel.gate) + '</label>'
+                    : '')
+                + '<div data-body="' + panel.key + '"' + (on ? '' : ' hidden') + '>'
+                + panel.fields.map(([key, label, big]) => '<div class="fl"><label>' + esc(label) + '</label>'
+                    + (big
+                        ? '<textarea data-panel="' + panel.key + '" data-key="' + key + '">' + esc(data[key] || '') + '</textarea>'
+                        : '<input data-panel="' + panel.key + '" data-key="' + key + '" value="' + esc(data[key] || '') + '">')
+                    + '</div>').join('')
+                + '<button class="btn btn-g btn-sm" data-save-panel="' + panel.key + '">💾 Зачувај</button>'
+                + '</div></div>';
+        }).join('');
+
+        el('pPanels').querySelectorAll('[data-gate]').forEach((node) => {
+            node.onchange = () => {
+                el('pPanels').querySelector('[data-body="' + node.dataset.gate + '"]').hidden = !node.checked;
+                savePanel(node.dataset.gate);
+            };
+        });
+        el('pPanels').querySelectorAll('[data-save-panel]').forEach((node) => {
+            node.onclick = () => savePanel(node.dataset.savePanel);
+        });
+    }
+
+    async function savePanel(key) {
+        const data = {};
+        const gate = el('pPanels').querySelector('[data-gate="' + key + '"]');
+        if (gate) data.enabled = gate.checked;
+        el('pPanels').querySelectorAll('[data-panel="' + key + '"]').forEach((node) => {
+            data[node.dataset.key] = node.value;
+        });
+        try {
+            status('запишувам…', 'saving');
+            await api('PUT', '/api/evidence/panel', { sheetId: sheet.id, panel: key, data });
+            sheet.panels[key] = Object.assign({}, data, { _updatedBy: me.name });
+            status('зачувано во базата', 'ok');
+            toast('Зачувано');
+        } catch (err) { toast(err.message, true); status(err.message, 'error'); }
+    }
+
+    // ── contacts ─────────────────────────────────────────────────────────────
+    function drawPeople() {
+        const rows = [];
+        for (let i = 0; i < 8; i++) {
+            const c = sheet.contacts[i] || {};
+            rows.push('<tr><td style="text-align:center;">' + (i + 1) + '</td>'
+                + ['name', 'profession', 'phone', 'email'].map((f) =>
+                    '<td><input data-contact="' + i + '" data-key="' + f + '" value="'
+                    + esc(c[f] || '') + '" style="width:100%"></td>').join('')
+                + '</tr>');
+        }
+        let derived = '';
+        if (Array.isArray(pupilTeam)) {
+            // Shown, never copied into the rows below. The record derives who
+            // works with the pupil; a stored copy would go stale the moment the
+            // caseload changed. Generating an outward report is what freezes it.
+            derived = '<div class="card"><h3>🧩 Стручни лица на овој ученик · ' + esc(el('year').value) + '</h3>'
+                + '<p class="hint">Ова се чита од годишните списоци и не се пишува тука — се менува во '
+                + '„Податоци“. Во табелата подолу впишувај само лица што базата ги нема '
+                + '(лекар, аудиолог од клиника, надворешен стручњак).</p>'
+                + (pupilTeam.length
+                    ? '<div class="tw"><table class="at"><thead><tr><th>#</th><th>Име и презиме</th>'
+                      + '<th>Улога</th><th>Занимање (категорија)</th></tr></thead><tbody>'
+                      + pupilTeam.map((t, index) => '<tr><td>' + (index + 1) + '.</td><td>' + esc(t.name)
+                          + '</td><td>' + (t.kind === 'teacher' ? 'наставник' : 'терапевт') + '</td><td>'
+                          + (t.profession ? esc(t.profession)
+                              : '<span class="dim">категоријата не е внесена во Податоци</span>')
+                          + '</td></tr>').join('')
+                      + '</tbody></table></div>'
+                    : '<div class="note note-warn">Нема стручно лице поврзано со ученикот преку '
+                      + 'годишниот список или одделението за ' + esc(el('year').value) + '.</div>')
+                + '</div>';
+        }
+        el('pPeople').innerHTML = derived + '<div class="card"><h3>👥 Други стручни лица</h3>'
+            + '<div class="tw"><table class="at"><thead><tr><th>#</th><th>Име и презиме</th><th>Занимање</th>'
+            + '<th>Телефон</th><th>Е-пошта</th></tr></thead><tbody>' + rows.join('') + '</tbody></table></div>'
+            + '<div class="fl" style="margin-top:11px;"><label>Место и датум</label>'
+            + '<input data-f="placeDate" value="' + esc(sheet.place_date) + '"></div>'
+            + '<button class="btn btn-g btn-sm" id="btnSaveContacts">💾 Зачувај ги лицата</button></div>';
+        el('btnSaveContacts').onclick = saveContacts;
+        el('pPeople').querySelector('[data-f="placeDate"]')
+            .addEventListener('change', (event) => saveProfileField(event.target));
+    }
+
+    async function saveContacts() {
+        const contacts = [];
+        for (let i = 0; i < 8; i++) {
+            const row = {};
+            el('pPeople').querySelectorAll('[data-contact="' + i + '"]').forEach((node) => {
+                row[node.dataset.key] = node.value;
+            });
+            contacts.push(row);
+        }
+        try {
+            status('запишувам…', 'saving');
+            await api('PUT', '/api/evidence/contacts', { sheetId: sheet.id, contacts });
+            sheet = await api('GET', '/api/evidence/sheet/' + sheet.id);
+            drawPeople();
+            status('зачувано во базата', 'ok');
+            toast('Зачувано');
+        } catch (err) { toast(err.message, true); status(err.message, 'error'); }
+    }
+
+    // ── settings: the year's columns, and the sections ───────────────────────
+    function categoryName(categoryId) {
+        const found = categories.find((category) => category.id === categoryId);
+        return found ? found.name : 'непозната категорија';
+    }
+
+    function sectionRows(sections) {
+        if (!sections.length) {
+            return '<tr><td colspan="6" class="dim">Нема секции во овој каталог.</td></tr>';
+        }
+        return sections.map((s) =>
+            '<tr data-section-catalog="' + esc(catalogOf(s)) + '"' + (s.active ? '' : ' class="dim"') + '>'
+            + '<td><input data-section-title="' + s.id + '" value="' + esc(s.title) + '" style="width:100%"></td>'
+            + '<td>' + (catalogOf(s) === 'action' ? esc(categoryName(s.category_id)) : 'пропишан образец') + '</td>'
+            + '<td><select data-section-scale="' + s.id + '">'
+            + '<option value="level"' + (s.scale === 'level' ? ' selected' : '') + '>1 · 2 · 3</option>'
+            + '<option value="mark"' + (s.scale === 'mark' ? ' selected' : '') + '>√ / X</option></select></td>'
+            + '<td>' + s.items.length + '</td>'
+            + '<td><input type="checkbox" data-section-active="' + s.id + '"' + (s.active ? ' checked' : '') + '></td>'
+            + '<td style="white-space:nowrap;">'
+            + '<button class="btn btn-sm" data-group-add="' + s.id + '">+ група</button> '
+            + '<button class="btn btn-sm btn-r" data-section-del="' + s.id + '">✕</button></td></tr>').join('');
+    }
+
+    function drawSetup() {
+        if (!catalog) { el('pSetup').innerHTML = ''; return; }
+        const prescribed = catalog.sections.filter((section) => catalogOf(section) !== 'action');
+        const action = catalog.sections.filter((section) => catalogOf(section) === 'action');
+        const activeCategories = categories.filter((category) => category.active);
+        el('pSetup').innerHTML =
+            '<div class="card"><h3>🗓 Периоди на оценување · ' + esc(el('year').value) + '</h3>'
+            + '<p style="font-size:12.5px;color:var(--sub);margin-bottom:10px;">Колоните припаѓаат на оваа учебна '
+            + 'година. Пропишаниот образец има три; тука листот се пополнува четири пати годишно — затоа колоните '
+            + 'се податок, а не нешто вградено. Архивските години си ги задржуваат своите.</p>'
+            + '<div class="tw"><table class="at"><thead><tr><th>Ред</th><th>Име во печатениот образец</th>'
+            + '<th>Кратко (на екран)</th><th>Се користи</th><th></th></tr></thead><tbody>'
+            + catalog.periods.map((p) =>
+                '<tr' + (p.active ? '' : ' class="dim"') + '><td>' + p.ord + '</td>'
+                + '<td><input data-period-label="' + p.id + '" value="' + esc(p.label) + '" style="width:100%"></td>'
+                + '<td><input data-period-short="' + p.id + '" value="' + esc(p.short_label) + '" style="width:100%"></td>'
+                + '<td><input type="checkbox" data-period-active="' + p.id + '"' + (p.active ? ' checked' : '') + '></td>'
+                + '<td><button class="btn btn-sm btn-r" data-period-del="' + p.id + '">✕</button></td></tr>').join('')
+            + '</tbody></table></div>'
+            + '<div style="display:flex;gap:6px;margin-top:9px;flex-wrap:wrap;">'
+            + '<input id="newPeriodLabel" placeholder="полн назив, пр. Второ тримесечие" style="flex:1;min-width:200px;">'
+            + '<input id="newPeriodShort" placeholder="кратко" style="width:120px;">'
+            + '<button class="btn btn-sm btn-p" id="btnAddPeriod">+ Додај период</button></div></div>'
+
+            + '<div class="card"><h3>📋 Пропишан евидентен лист</h3>'
+            + '<p style="font-size:12.5px;color:var(--sub);margin-bottom:10px;">Овие секции се само во евидентниот '
+            + 'лист. Ставките се менуваат во „Проценка“ со „Уреди ставки“. Секција или ставка со оценки се сокрива '
+            + 'наместо да се избрише, за историските записи да останат читливи.</p>'
+            + '<div class="tw"><table class="at"><thead><tr><th>Секција</th><th>Каталог</th><th>Скала</th>'
+            + '<th>Ставки</th><th>Се користи</th><th></th></tr></thead><tbody>'
+            + sectionRows(prescribed) + '</tbody></table></div>'
+            + '<div style="display:flex;gap:6px;margin-top:9px;flex-wrap:wrap;">'
+            + '<input id="newPrescribedTitle" placeholder="нова пропишана секција…" style="flex:1;min-width:200px;">'
+            + '<select id="newPrescribedScale"><option value="level">1 · 2 · 3</option><option value="mark">√ / X</option></select>'
+            + '<button class="btn btn-sm btn-p" id="btnAddPrescribedSection">+ Додај секција</button></div></div>'
+
+            + '<div class="card"><h3>🎯 Акциски план · секции по категорија</h3>'
+            + '<p style="font-size:12.5px;color:var(--sub);margin-bottom:10px;">Секоја секција мора да има категорија. '
+            + 'Кој ја држи категоријата за учебната година се задава во „Податоци“; целите и скалата ги внесува '
+            + 'стручното лице што ја држи. Секциите не се мешаат со пропишаниот образец.</p>'
+            + '<div class="tw"><table class="at"><thead><tr><th>Секција</th><th>Категорија</th><th>Скала</th>'
+            + '<th>Ставки</th><th>Се користи</th><th></th></tr></thead><tbody>'
+            + sectionRows(action) + '</tbody></table></div>'
+            + (activeCategories.length
+                ? '<div style="display:flex;gap:6px;margin-top:9px;flex-wrap:wrap;">'
+                  + '<select id="newActionCategory"><option value="">— избери категорија —</option>'
+                  + activeCategories.map((category) => '<option value="' + category.id + '">' + esc(category.name) + '</option>').join('')
+                  + '</select><input id="newActionTitle" placeholder="назив на акциската секција…" style="flex:1;min-width:200px;">'
+                  + '<select id="newActionScale"><option value="level">1 · 2 · 3</option><option value="mark">√ / X</option></select>'
+                  + '<button class="btn btn-sm btn-p" id="btnAddActionSection">+ Додај во акциски план</button></div>'
+                : '<div class="note note-warn" style="margin-top:10px;">Нема активни категории. Провери во „Податоци“.</div>')
+            + '</div>'
+
+            + '<div class="card"><h3>🔐 Најава</h3>'
+            + '<p style="font-size:12.5px;color:var(--sub);">Најавен(а) си како <b>' + esc(me ? me.name : '—') + '</b>. '
+            + 'PIN-от е брава за кабинет и потпис под внесеното, не заштита на податоците: секој што има пристап до '
+            + 'серверот ја чита базата и без него.</p></div>';
+
+        wireSetup();
+    }
+
+    function wireSetup() {
+        const patchPeriod = async (id, patch) => {
+            try { await api('PATCH', '/api/evidence/period/' + id, patch); await reloadCatalog(); }
+            catch (err) { toast(err.message, true); }
+        };
+        el('pSetup').querySelectorAll('[data-period-label]').forEach((n) =>
+            n.addEventListener('change', () => patchPeriod(Number(n.dataset.periodLabel), { label: tidy(n.value) })));
+        el('pSetup').querySelectorAll('[data-period-short]').forEach((n) =>
+            n.addEventListener('change', () => patchPeriod(Number(n.dataset.periodShort), { shortLabel: tidy(n.value) })));
+        el('pSetup').querySelectorAll('[data-period-active]').forEach((n) =>
+            n.addEventListener('change', () => patchPeriod(Number(n.dataset.periodActive), { active: n.checked })));
+        el('pSetup').querySelectorAll('[data-period-del]').forEach((n) => {
+            n.onclick = async () => {
+                if (!confirm('Да го избришам периодот?')) return;
+                try { await api('DELETE', '/api/evidence/period/' + n.dataset.periodDel); await reloadCatalog(); }
+                catch (err) { toast(err.message, true); }
+            };
+        });
+        el('btnAddPeriod').onclick = async () => {
+            const label = tidy(el('newPeriodLabel').value);
+            const short = tidy(el('newPeriodShort').value) || label.slice(0, 10);
+            if (!label) return toast('Внеси назив на периодот', true);
+            try {
+                await api('POST', '/api/evidence/period', { year: el('year').value, label, shortLabel: short });
+                el('newPeriodLabel').value = '';
+                el('newPeriodShort').value = '';
+                await reloadCatalog();
+                toast('Периодот е додаден');
+            } catch (err) { toast(err.message, true); }
+        };
+
+        const patchSection = async (id, patch) => {
+            try { await api('PATCH', '/api/evidence/section/' + id, patch); await reloadCatalog(); }
+            catch (err) {
+                toast(err.message, true);
+                await reloadCatalog().catch(() => {});
+            }
+        };
+        el('pSetup').querySelectorAll('[data-section-title]').forEach((n) => {
+            const section = catalog.sections.find((s) => s.id === Number(n.dataset.sectionTitle));
+            n.addEventListener('change', () => patchSection(Number(n.dataset.sectionTitle), {
+                title: tidy(n.value), expected: section ? section.title : undefined
+            }));
+        });
+        el('pSetup').querySelectorAll('[data-section-scale]').forEach((n) =>
+            n.addEventListener('change', () => patchSection(Number(n.dataset.sectionScale), { scale: n.value })));
+        el('pSetup').querySelectorAll('[data-section-active]').forEach((n) =>
+            n.addEventListener('change', () => patchSection(Number(n.dataset.sectionActive), { active: n.checked })));
+        el('pSetup').querySelectorAll('[data-section-del]').forEach((n) => {
+            n.onclick = async () => {
+                if (!confirm('Да ја избришам секцијата со сите нејзини ставки?')) return;
+                try { await api('DELETE', '/api/evidence/section/' + n.dataset.sectionDel); await reloadCatalog(); }
+                catch (err) {
+                    toast(err.message, true);
+                    if (err.payload && err.payload.deactivate
+                        && confirm(err.message + '\n\nДа ја сокријам наместо тоа?')) {
+                        patchSection(Number(n.dataset.sectionDel), { active: false });
+                    }
+                }
+            };
+        });
+        el('pSetup').querySelectorAll('[data-group-add]').forEach((n) => {
+            n.onclick = async () => {
+                const label = tidy(prompt('Назив на групата:') || '');
+                if (!label) return;
+                try {
+                    await api('POST', '/api/evidence/group', { sectionId: Number(n.dataset.groupAdd), label });
+                    await reloadCatalog();
+                } catch (err) { toast(err.message, true); }
+            };
+        });
+        el('btnAddPrescribedSection').onclick = async () => {
+            const title = tidy(el('newPrescribedTitle').value);
+            if (!title) return toast('Внеси назив на секцијата', true);
+            try {
+                await api('POST', '/api/evidence/section', {
+                    title, scale: el('newPrescribedScale').value, catalog: 'prescribed'
+                });
+                el('newPrescribedTitle').value = '';
+                await reloadCatalog();
+                toast('Пропишаната секција е додадена');
+            } catch (err) { toast(err.message, true); }
+        };
+        const actionCategory = el('newActionCategory');
+        if (actionCategory) {
+            actionCategory.onchange = () => {
+                const title = el('newActionTitle');
+                if (!title.value) title.value = actionCategory.selectedOptions[0]?.textContent || '';
+            };
+            el('btnAddActionSection').onclick = async () => {
+                const categoryId = Number(actionCategory.value);
+                const title = tidy(el('newActionTitle').value);
+                if (!categoryId) return toast('Избери категорија за акциската секција', true);
+                if (!title) return toast('Внеси назив на акциската секција', true);
+                try {
+                    await api('POST', '/api/evidence/section', {
+                        title, scale: el('newActionScale').value,
+                        catalog: 'action', categoryId
+                    });
+                    docView = 'action';
+                    await reloadCatalog();
+                    toast('Акциската секција е додадена — внеси ги целите во „Проценка“.');
+                } catch (err) { toast(err.message, true); }
+            };
+        }
+    }
+
+    // ── pupils and sheets ────────────────────────────────────────────────────
+    async function newPupil() {
+        const name = tidy(prompt('Име и презиме на ученикот:') || '');
+        if (!name) return;
+        const grade = tidy(prompt('Одделение/паралелка (пр. IV-а). Остави празно ако е екстерен:') || '');
+        try {
+            const created = await api('POST', '/api/students', {
+                name, grade: grade || null, year: el('year').value,
+                kind: grade ? 'internal' : 'external'
+            });
+            const publicId = created && (created.publicId
+                || (created.student && created.student.public_id));
+            if (publicId) await api('POST', '/api/evidence/sheet', { publicId, year: el('year').value });
+            await load();
+            if (publicId) await choosePupil(publicId);
+            toast('Ученикот е додаден');
+        } catch (err) { toast(err.message, true); }
+    }
+
+    async function newSheet() {
+        const publicId = el('btnNewSheet').dataset.id;
+        if (!publicId) return;
+        try {
+            const body = await api('POST', '/api/evidence/sheet', { publicId, year: el('year').value });
+            const id = body.sheetId;
+            await load();
+            await openSheet(id);
+            toast('Листот е отворен');
+        } catch (err) { toast(err.message, true); }
+    }
+
+    /**
+     * Deleting the SHEET, and saying so.
+     *
+     * The pupil is not touched: who is enrolled belongs to S-Dnevnik's archive
+     * and who is on this year's list to Podatoci. There is no endpoint here
+     * that could remove a person even if this button asked it to.
+     */
+    async function deleteSheet() {
+        const marks = sheet.scores.filter((s) => s.value !== '').length;
+        if (!confirm('Го бришам ЕВИДЕНТНИОТ ЛИСТ на ' + sheet.name + ' за ' + el('year').value + '.\n\n'
+            + marks + ' оценки одат со него. Ученикот останува во базата и на списокот — '
+            + 'ова брише само документот.\n\nДа продолжам?')) return;
+        try {
+            await api('DELETE', '/api/evidence/sheet/' + sheet.id
+                + '?expected=' + encodeURIComponent(sheet.name));
+            sheet = null;
+            await load();
+            toast('Листот е избришан');
+        } catch (err) { toast(err.message, true); }
+    }
+
+    // ── printing ─────────────────────────────────────────────────────────────
+    const DOC_CSS = '@page{size:A4 portrait;margin:15mm 20mm;}'
+        + 'body{font-family:"Times New Roman",serif;font-size:12pt;color:#000;line-height:1.4;}'
+        + '.c{text-align:center;}.b{font-weight:bold;}.u{text-decoration:underline;}'
+        + '.sm{font-size:9pt;color:#555;}table{width:100%;border-collapse:collapse;margin:6px 0;}'
+        + 'th,td{border:1px solid #000;padding:4px 6px;font-size:11pt;vertical-align:top;}'
+        + 'th{background:#eee;font-weight:bold;text-align:center;}td:first-child{text-align:left;}'
+        + '.pb{page-break-before:always;}.ev{font-size:9pt;}h2{font-size:13pt;margin:12px 0 6px;text-align:center;}'
+        + 'ul{margin:4px 0;padding-left:18px;}';
+
+    /** The three-line verdict of the printed form, with the reached one in bold. */
+    function verdictLines(sum, count) {
+        if (!count) return '';
+        const percent = sum / (count * 3) * 100;
+        return [
+            ['недоволно ниво 1', percent < 50],
+            ['добро ниво 2', percent >= 50 && percent <= 90],
+            ['целосно ниво 3', percent > 90]
+        ].map(([label, hit]) => (hit ? '<b>- ' + label + '</b>' : ' - ' + label)).join('<br>');
+    }
+
+    function docFor(record, cols, sections, kind) {
+        const action = kind === 'action';
+        const scoreAt = (itemId, periodId) => {
+            const row = record.scores.find((s) => s.item_id === itemId && s.period_id === periodId);
+            return row ? row.value : '';
+        };
+        const examiner = (roleId) => {
+            const row = record.examiners.find((x) => x.role_id === roleId);
+            return row ? row.name : '';
+        };
+        const panel = (key) => record.panels[key] || {};
+        const secondary = record.school_type === 'secondary';
+
+        let h = '<div class="c"><p class="sm">РЕПУБЛИКА СЕВЕРНА МАКЕДОНИЈА</p>'
+            + '<p class="u">' + esc(record.institution) + '</p>'
+            + (action ? '' : '<p class="sm">(име на посебното училиште)</p>')
+            + '<p>' + esc(record.place) + '</p>'
+            + (action ? '' : '<p class="sm">(место)</p><p>' + esc(record.municipality)
+                + '</p><p class="sm">(општина)</p>')
+            + '</div><h2>'
+            + (action ? 'АКЦИСКИ ПЛАН' : 'ЕВИДЕНТЕН ЛИСТ ЗА СЛЕДЕЊЕ НА РАЗВОЈОТ И ПОСТИГНУВАЊАТА НА УЧЕНИКОТ')
+            + '</h2><p class="c b" style="font-size:14pt;">' + esc(record.name) + '</p>';
+
+        const classLine = (word) => word + ' <u>' + esc(record.grade || '') + '</u> паралелка <u>'
+            + esc(record.class_section || '') + '</u> учебна ' + esc(record.year) + ' година';
+        if (action) {
+            h += '<table><tr><td style="width:26%;"><b>Учебна година</b></td><td>'
+                + esc(record.year) + '</td></tr><tr><td><b>'
+                + (secondary ? 'Година и паралелка' : 'Одделение и паралелка')
+                + '</b></td><td>' + esc(record.grade || '') + ' ' + esc(record.class_section || '')
+                + '</td></tr></table>';
+        } else {
+            h += '<table><tr><td style="width:26%;"><b>За основно училиште</b></td><td>'
+                + (secondary ? '' : classLine('Одделение')) + '</td></tr>'
+                + '<tr><td><b>За средно училиште</b></td><td>'
+                + (secondary
+                    ? classLine('Година')
+                      + '<br>Струка <u>' + esc(record.vocation) + '</u> занимање <u>' + esc(record.occupation) + '</u>'
+                    : '')
+                + '</td></tr></table>'
+                + '<p>Датум и место на раѓање: <u>' + esc(record.dob) + '</u> во <u>' + esc(record.pob) + '</u></p>'
+                + '<p>Дијагноза според Наод и мислење:</p><p>' + esc(record.diagnosis).replace(/\n/g, '<br>') + '</p>';
+        }
+
+        sections.forEach((section) => {
+            if (!section.active) return;
+            if (section.only_secondary && !secondary) return;
+            const items = section.items.filter((i) => i.active);
+            if (!items.length) return;
+            h += '<div class="pb"></div><h2>' + esc(section.title) + '</h2>'
+                + '<table><tr><th style="text-align:left;width:38%;">&nbsp;</th>'
+                + cols.map((p) => '<th>' + esc(p.label) + '</th>').join('') + '</tr>';
+            const sums = cols.map(() => ({ sum: 0, count: 0 }));
+            let number = 0;
+            const emit = (item) => {
+                number++;
+                h += '<tr><td>' + number + '. ' + esc(item.label) + '</td>'
+                    + cols.map((p, i) => {
+                        const value = scoreAt(item.id, p.id);
+                        if (value && section.scale === 'level') { sums[i].sum += Number(value); sums[i].count++; }
+                        return '<td style="text-align:center;">'
+                            + (value || (section.scale === 'mark' ? '□' : '')) + '</td>';
+                    }).join('') + '</tr>';
+            };
+            if (section.groups.length) {
+                section.groups.forEach((group) => {
+                    h += '<tr><td colspan="' + (cols.length + 1) + '" style="background:#eee;"><b>'
+                        + esc(group.label) + '</b></td></tr>';
+                    items.filter((i) => i.group_id === group.id).forEach(emit);
+                });
+                items.filter((i) => !i.group_id).forEach(emit);
+            } else {
+                items.forEach(emit);
+            }
+            if (section.summary && section.scale === 'level') {
+                h += '<tr><td><b>ОПШТА ПРОЦЕНКА НА СОСТОЈБАТА</b></td>'
+                    + sums.map((s) => '<td class="ev">' + verdictLines(s.sum, s.count) + '</td>').join('') + '</tr>';
+            }
+            h += '</table>';
+            section.examiners.forEach((role) => {
+                h += '<p>Име и презиме, ' + esc(role.label) + ': <u>' + esc(examiner(role.id)) + '</u></p>';
+            });
+            if (action) {
+                const itemIds = new Set(items.map((item) => item.id));
+                const authors = [...new Set(record.scores
+                    .filter((score) => itemIds.has(score.item_id) && score.updated_by)
+                    .map((score) => score.updated_by))];
+                if (authors.length) h += '<p>Внесено од: <u>' + esc(authors.join(', ')) + '</u></p>';
+            }
+        });
+
+        // The action plan is its own internal record. Diagnosis, sensory
+        // assessments and contacts belong only to the prescribed evidence form.
+        if (action) return h;
+
+        const vision = panel('vision');
+        if (vision.enabled) {
+            h += '<div class="pb"></div><p class="b">*За ученици со оштетен вид</p>'
+                + '<h2>ПРОЦЕНКА НА ФУНКЦИОНАЛЕН ВИД</h2><p>Датум: ' + esc(vision.testDate || '') + '</p>'
+                + '<table><tr><td>VOD sc/cc: ' + esc(vision.vod_d || '')
+                + '</td><td>VODS на 40cm: ' + esc(vision.vods_n40 || '') + '</td></tr>'
+                + '<tr><td>VOS sc/cc: ' + esc(vision.vos_d || '')
+                + '</td><td>VODS на cm: ' + esc(vision.vods_ncm || '') + '</td></tr></table>'
+                + '<p>Колорен вид: ' + esc(vision.color || '') + ' | Стереоскопски: ' + esc(vision.stereo || '') + '</p>'
+                + '<p>Видно поле: ' + esc(vision.field || '') + ' | Опсервација: ' + esc(vision.obs || '') + '</p>'
+                + '<p>Тифлолог — испитувач: <u>' + esc(vision.tiflologist || '') + '</u></p>'
+                + '<table><tr><td>Дефектолог-тифлолог: <u>' + esc(vision.tifName || '') + '</u></td></tr>'
+                + '<tr><td>Дијагноза: <u>' + esc(vision.diag || '') + '</u></td></tr>'
+                + '<tr><td>Корекција: <u>' + esc(vision.correction || '') + '</u></td></tr>'
+                + '<tr><td>Оштрина: <u>' + esc(vision.acuity || '') + '</u></td></tr>'
+                + '<tr><td>Рехабилитациски третман: <u>' + esc(vision.rehab || '') + '</u></td></tr></table>';
+        }
+
+        const hearing = panel('hearing');
+        if (hearing.enabled) {
+            h += '<div class="pb"></div><p class="b">*За ученици со оштетен слух</p>'
+                + '<table><tr><td><b>СЛУХ</b></td><td><b>Сурдолог:</b> ' + esc(hearing.surdologist || '') + '</td></tr>'
+                + '<tr><td colspan="2"><ul>'
+                + '<li>Дијагноза: ' + esc(hearing.surdoDiag || '') + '</li>'
+                + '<li>Аудиограм: ' + esc(hearing.audiogram || '') + '</li>'
+                + '<li>Апарати: ' + esc(hearing.aids || '') + '</li>'
+                + '<li>Наод: ' + esc(hearing.opinion || '') + '</li></ul></td></tr></table>';
+        }
+
+        const speech = panel('speech');
+        h += '<div class="pb"></div><table><tr><td><b>ГОВОР, ГЛАС И КОМУНИКАЦИЈА</b></td>'
+            + '<td><b>Логопед:</b> ' + esc(speech.logoped || '') + '</td></tr><tr><td colspan="2"><ul>'
+            + [['verbal', 'Вербално'], ['nonverbal', 'Невербално'], ['both', 'Вербално и невербално'],
+               ['triage', 'Тријажен тест']]
+                .filter(([key]) => speech[key])
+                .map(([key, label]) => '<li>' + label + ': ' + esc(speech[key]) + '</li>').join('')
+            + '</ul></td></tr></table>'
+            + '<table><tr><td><b>НАОД И МИСЛЕЊЕ</b></td><td>' + esc(speech.logName || '') + '</td></tr>'
+            + '<tr><td colspan="2"><ul>'
+            + [['diag', 'Дијагноза'], ['artic', 'Артикулативен тест'],
+               ['readWrite', 'Читање и пишување'], ['orofacial', 'Орофацијална праксија']]
+                .filter(([key]) => speech[key])
+                .map(([key, label]) => '<li>' + label + ': ' + esc(speech[key]) + '</li>').join('')
+            + '</ul></td></tr></table>';
+
+        const bio = panel('biofeedback');
+        if (bio.enabled) {
+            h += '<p class="b">БИОФИДБЕК ТЕРАПИЈА — ' + esc(bio.therapist || '') + '</p>'
+                + '<p>Тип тренинг: <u>' + esc(bio.type || '') + '</u></p>'
+                + '<p>Соработка: <u>' + esc(bio.coop || '') + '</u></p>';
+        }
+
+        if (record.contacts.length) {
+            h += '<div class="pb"></div><p class="b">Референтни стручни лица:</p>'
+                + '<table><tr><th>#</th><th>Име и презиме</th><th>занимање</th><th>телефон</th><th>е-пошта</th></tr>'
+                + record.contacts.map((c, i) => '<tr><td>' + (i + 1) + '</td><td>' + esc(c.name) + '</td><td>'
+                    + esc(c.profession) + '</td><td>' + esc(c.phone) + '</td><td>'
+                    + esc(c.email) + '</td></tr>').join('')
+                + '</table><p>Место и датум: ' + esc(record.place_date) + '</p>';
+        }
+        return h;
+    }
+
+    function downloadDoc(html, filename) {
+        const doc = '<!DOCTYPE html><html><head><meta charset="UTF-8"><style>' + DOC_CSS + '</style></head><body>'
+            + html + '</body></html>';
+        const blob = new Blob(['﻿' + doc], { type: 'application/msword' });
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = filename;
+        link.click();
+        setTimeout(() => URL.revokeObjectURL(link.href), 4000);
+    }
+
+    /**
+     * The sections one printed document may carry.
+     *
+     * The евидентен лист prints the prescribed form and nothing else — a form
+     * carrying sections the Правилник does not require stops being able to say
+     * what it is. The action plan prints only the categories that apply.
+     *
+     * A catalogue from a server without migration 023 has no `catalog` on its
+     * sections, so `catalogOf` answers 'prescribed' and this returns exactly
+     * what it returned before.
+     */
+    function sectionsForDoc(kind, forSheet) {
+        const all = (catalog ? catalog.sections : []);
+        if (kind !== 'action') return all.filter((sec) => catalogOf(sec) !== 'action');
+        const included = new Set((sheetSections || [])
+            .filter((r) => r.included && r.catalog === 'action').map((r) => r.sectionId));
+        return all.filter((sec) => catalogOf(sec) === 'action' && included.has(sec.id));
+    }
+
+    async function printOne() {
+        if (!sheet) return toast('Прво избери ученик со отворен лист', true);
+        const sheetId = sheet.id;
+        const yearLabel = el('year').value;
+        const action = docView === 'action' && supportsActionPlan();
+        try {
+            // Another colleague may have changed a mark since this tab opened.
+            // A DB-first document must therefore be built from a fresh sheet
+            // and catalogue, not from the page's last rendered snapshot.
+            status('го вчитувам записот од базата…', 'saving');
+            const query = '?year=' + encodeURIComponent(yearLabel);
+            const reads = [
+                api('GET', '/api/evidence/sheet/' + sheetId),
+                api('GET', '/api/evidence/catalog' + query)
+            ];
+            if (action) reads.push(api('GET', '/api/evidence/sheet-sections?sheet=' + sheetId));
+            const [freshSheet, freshCatalog, freshSectionState] = await Promise.all(reads);
+            if (!sheet || sheet.id !== sheetId || el('year').value !== yearLabel) {
+                return toast('Избраниот лист се смени — притисни повторно за документот.', true);
+            }
+            sheet = freshSheet;
+            catalog = freshCatalog;
+            if (action) sheetSections = freshSectionState.sections || [];
+
+            const sections = sectionsForDoc(action ? 'action' : 'prescribed', sheet)
+                .filter((section) => section.active
+                    && (!section.only_secondary || sheet.school_type === 'secondary')
+                    && section.items.some((item) => item.active));
+            if (!sections.length) {
+                return toast(action
+                    ? 'Овој ученик нема активна секција со ставки во акцискиот план — нема што да се печати.'
+                    : 'Каталогот нема ниту една пропишана секција.', true);
+            }
+            downloadDoc(docFor(sheet, periods(), sections, action ? 'action' : 'prescribed'),
+                (action ? 'АкцискиПлан_' : 'ЕвЛист_')
+                + sheet.name.replace(/\s+/g, '_') + '_' + yearLabel.replace('/', '-') + '.doc');
+            status('документот е подготвен од тековниот запис во базата', 'ok');
+            toast(action ? 'Акцискиот план е подготвен' : 'Документот е подготвен');
+        } catch (err) {
+            toast(err.message, true);
+            status(err.message, 'error');
+        }
+    }
+
+    async function printAll() {
+        try {
+            status('ги собирам сите листови…');
+            const body = await api('GET', '/api/evidence/sheets/full?year=' + encodeURIComponent(el('year').value));
+            if (!body.sheets.length) return toast('Нема отворени листови за оваа година', true);
+            const cols = periods();
+            const html = body.sheets.map((record, i) =>
+                (i ? '<div class="pb"></div>' : '')
+                + docFor(record, cols, sectionsForDoc('prescribed', record), 'prescribed')).join('');
+            downloadDoc(html, 'ЕвЛист_СИТЕ_' + el('year').value.replace('/', '-') + '.doc');
+            status('подготвени ' + body.sheets.length + ' листови', 'ok');
+        } catch (err) { toast(err.message, true); status(err.message, 'error'); }
+    }
+
+    // ── JSON: the escape hatch, and the way in from the old app ──────────────
+    async function exportJson() {
+        try {
+            const body = await api('GET', '/api/evidence/sheets/full?year=' + encodeURIComponent(el('year').value));
+            const blob = new Blob([JSON.stringify({
+                exportedAt: new Date().toISOString(), year: body.year, catalog, sheets: body.sheets
+            }, null, 2)], { type: 'application/json' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = 'ЕвЛист_' + el('year').value.replace('/', '-') + '_'
+                + new Date().toISOString().slice(0, 10) + '.json';
+            link.click();
+            setTimeout(() => URL.revokeObjectURL(link.href), 4000);
+            toast('Извезени ' + body.sheets.length + ' листови');
+        } catch (err) { toast(err.message, true); }
+    }
+
+    /**
+     * Reading what the old browser-only app saved.
+     *
+     * Its score keys are `<section code>_<item ord>_<s|m|e>`, which is exactly
+     * why item `ord` starts at 0 in the database. The three old columns land on
+     * the first, third and last of this year's periods -- почеток, полугодие,
+     * крај -- because those are the three the old form had.
+     *
+     * A name the database does not hold is REPORTED, never created (rule 2):
+     * two children really can share a name, and a record filed against the
+     * wrong one is worse than one that is not filed at all.
+     */
+    async function importLegacy(text) {
+        const report = el('importReport');
+        report.innerHTML = '<div class="note note-info">Читам…</div>';
+        document.querySelector('.tab[data-p="pPrint"]').click();
+        let records;
+        try {
+            records = JSON.parse(text);
+            if (!Array.isArray(records)) records = [records];
+        } catch (err) {
+            report.innerHTML = '<div class="note note-bad">Датотеката не е валиден JSON.</div>';
+            return;
+        }
+        const cols = periods();
+        if (!cols.length) {
+            report.innerHTML = '<div class="note note-bad">Оваа година нема периоди — додај ги прво.</div>';
+            return;
+        }
+        const oldColumn = {
+            _s: cols[0],
+            _m: cols[2] || cols[1] || cols[0],
+            _e: cols[cols.length - 1]
+        };
+        const itemByCodeOrd = {};
+        catalog.sections.forEach((s) => s.items.forEach((i) => { itemByCodeOrd[s.code + '_' + i.ord] = i; }));
+        const roleByCode = {};
+        catalog.sections.forEach((s) => s.examiners.forEach((r) => { roleByCode[r.code] = r; }));
+
+        const lines = [];
+        let written = 0;
+        for (const record of records) {
+            const name = tidy((record.profile && record.profile.fullName) || '');
+            if (!name) { lines.push('· запис без име — прескокнат'); continue; }
+            const matches = pupils.filter((p) => bareName(p.name) === bareName(name));
+            if (!matches.length) {
+                lines.push('· <b>' + esc(name) + '</b> — не е на списокот за оваа година, прескокнат');
+                continue;
+            }
+            if (matches.length > 1) {
+                lines.push('· <b>' + esc(name) + '</b> — повеќе ученици со тоа име, оставен на човек');
+                continue;
+            }
+            const pupil = matches[0];
+            try {
+                let sheetId = pupil.sheet_id;
+                if (!sheetId) {
+                    const created = await api('POST', '/api/evidence/sheet',
+                        { publicId: pupil.public_id, year: el('year').value });
+                    sheetId = created.sheetId;
+                    pupil.sheet_id = sheetId;
+                }
+                const profile = record.profile || {};
+                await api('PATCH', '/api/evidence/sheet/' + sheetId, {
+                    schoolType: profile.schoolType === 'secondary' ? 'secondary' : 'primary',
+                    vocation: profile.vocation || '', occupation: profile.occupation || '',
+                    dob: profile.dob || '', pob: profile.pob || '', diagnosis: profile.diagnosis || '',
+                    placeDate: record.placeDate || ''
+                });
+                let cells = 0;
+                for (const [key, value] of Object.entries(record.scores || {})) {
+                    if (!value) continue;
+                    const match = key.match(/^(.*)_(\d+)(_[sme])$/);
+                    if (!match) continue;
+                    const item = itemByCodeOrd[match[1] + '_' + match[2]];
+                    const period = oldColumn[match[3]];
+                    if (!item || !period) continue;
+                    await api('PUT', '/api/evidence/score',
+                        { sheetId, itemId: item.id, periodId: period.id, value: String(value) });
+                    cells++;
+                }
+                for (const [code, who] of Object.entries(record.examiners || {})) {
+                    const role = roleByCode[code];
+                    if (role && tidy(who)) {
+                        await api('PUT', '/api/evidence/examiner', { sheetId, roleId: role.id, name: who });
+                    }
+                }
+                for (const key of ['vision', 'hearing', 'speech', 'biofeedback']) {
+                    if (record[key]) await api('PUT', '/api/evidence/panel', { sheetId, panel: key, data: record[key] });
+                }
+                if (Array.isArray(record.contacts)) {
+                    await api('PUT', '/api/evidence/contacts', { sheetId, contacts: record.contacts.slice(0, 8) });
+                }
+                written++;
+                lines.push('· <b>' + esc(name) + '</b> — ' + cells + ' оценки внесени');
+            } catch (err) {
+                lines.push('· <b>' + esc(name) + '</b> — <span style="color:var(--red)">' + esc(err.message) + '</span>');
+            }
+        }
+        report.innerHTML = '<div class="note ' + (written ? 'note-info' : 'note-warn') + '">'
+            + '<b>Внесени ' + written + ' од ' + records.length + ' записи.</b><br>' + lines.join('<br>') + '</div>';
+        await load();
+    }
+
+    /**
+     * Getting the old app's records out of this browser.
+     *
+     * They were saved under one localStorage key by the version this page
+     * replaced, and replacing the page does not move them. The card offers a
+     * file first, because a copy on disk is the thing that survives clearing
+     * the browser -- and then the same import path a file would have taken.
+     */
+    function legacyRecords() {
+        try { return localStorage.getItem(LEGACY_KEY) || ''; }
+        catch (e) { return ''; }
+    }
+
+    function wireLegacyRescue() {
+        const raw = legacyRecords();
+        let count = 0;
+        try { count = (JSON.parse(raw) || []).length; } catch (e) { count = 0; }
+        if (!count) return;
+        const card = el('legacyCard');
+        card.hidden = false;
+        card.querySelector('h3').textContent =
+            '📦 Стари записи, останати во овој прелистувач (' + count + ')';
+        el('btnLegacySave').onclick = () => {
+            const blob = new Blob([raw], { type: 'application/json' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = 'ЕвЛист_стари_' + new Date().toISOString().slice(0, 10) + '.json';
+            link.click();
+            setTimeout(() => URL.revokeObjectURL(link.href), 4000);
+            toast('Извадени ' + count + ' стари записи');
+        };
+        el('btnLegacyImport').onclick = () => importLegacy(raw);
+    }
+
+    // ── wiring ───────────────────────────────────────────────────────────────
+    function activatePane(id) {
+        el('tabs').querySelectorAll('.tab').forEach((tab) =>
+            tab.classList.toggle('active', tab.dataset.p === id));
+        document.querySelectorAll('.pane').forEach((pane) =>
+            pane.classList.toggle('active', pane.id === id));
+    }
+
+    function initTabs() {
+        el('tabs').querySelectorAll('.tab').forEach((tab) => {
+            tab.onclick = () => activatePane(tab.dataset.p);
+        });
+    }
+
+    async function boot() {
+        try { if (localStorage.getItem(THEME_KEY) === 'd') document.body.classList.add('dark'); }
+        catch (e) { /* storage locked */ }
+        try { token = localStorage.getItem(TOKEN_KEY) || ''; } catch (e) { token = ''; }
+
+        initTabs();
+        el('btnTheme').onclick = () => {
+            document.body.classList.toggle('dark');
+            try { localStorage.setItem(THEME_KEY, document.body.classList.contains('dark') ? 'd' : 'l'); }
+            catch (e) { /* the choice still holds for this tab */ }
+        };
+        el('btnOut').onclick = () => signOut(false);
+        el('btnPin').onclick = () => {
+            showGate('');
+            el('gatePin2Field').hidden = true;
+            fillGateWho().catch((err) => toast(err.message, true));
+        };
+        el('btnReload').onclick = () => load();
+        el('year').onchange = () => { sheet = null; load(); };
+        el('find').oninput = () => drawPupils();
+        el('plist').onclick = (event) => {
+            const row = event.target.closest('.pupil');
+            if (row) choosePupil(row.dataset.id);
+        };
+        el('btnNewPupil').onclick = newPupil;
+        el('btnNewSheet').onclick = newSheet;
+        el('btnDocOne').onclick = printOne;
+        el('btnDocAll').onclick = printAll;
+        el('btnExport').onclick = exportJson;
+        el('btnImport').onclick = () => el('fileIn').click();
+        el('fileIn').onchange = async (event) => {
+            const file = event.target.files[0];
+            event.target.value = '';
+            if (file) await importLegacy(await file.text());
+        };
+        wireLegacyRescue();
+        el('gateWho').onchange = gateModeFromChoice;
+        el('gateGo').onclick = doLogin;
+        el('gateSet').onclick = doSetPin;
+        el('gatePin').addEventListener('keydown', (event) => {
+            if (event.key === 'Enter' && !el('gateGo').disabled) doLogin();
+        });
+        el('serverChoice').onchange = async (event) => {
+            if (!event.target.value) return;
+            apiBase = event.target.value;
+            try { localStorage.setItem(SELECTED_SERVER_KEY, apiBase); }
+            catch (e) { /* this tab still works */ }
+            window.dispatchEvent(new CustomEvent('mtb:server-selected'));
+            el('year').innerHTML = '';
+            years = [];
+            sheet = null;
+            await load();
+        };
+
+        const ready = await discoverServers();
+        if (!ready) return;
+        await load();
+    }
+
+    boot();
+})();
+</script>
+<script src="app-navigation.js"></script>
+</body>
+</html>

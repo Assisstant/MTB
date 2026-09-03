@@ -1,0 +1,58 @@
+{
+  "_note": "SYNTHETIC TEST DATA — invented names, no real students. Used to develop and test scripts/import-json.ts safely (plan v2, Stage 0 + Stage 3).",
+  "unifiedSync": {
+    "app": "Rasporedi-SDnevnik-Unified",
+    "schemaVersion": "2.0",
+    "exportedAt": "2026-08-18T06:00:00.000Z",
+    "owner": { "id": "BN", "name": "Локален терапевт" },
+    "workflow": "load-edit-export"
+  },
+  "schemaVersion": "2.0",
+  "exportScope": "unified",
+  "students": [
+    "Избери Ученик",
+    "Ана Тест",
+    "Бојан Проба",
+    "Влатко Пример",
+    "Гордана Модел",
+    "Дарко Демо",
+    "Елена Синтетичка"
+  ],
+  "therapists": ["Терапевт А", "Терапевт Б", "Локален терапевт"],
+  "therapistStudents": {
+    "Терапевт А": ["Ана Тест", "Бојан Проба"],
+    "Терапевт Б": ["Влатко Пример", "Ана Тест"],
+    "Локален терапевт": ["Гордана Модел", "Дарко Демо", "Елена Синтетичка"]
+  },
+  "studentMeta": {
+    "Ана Тест": { "studentId": "s-ana-test-01", "grade": "1" },
+    "Бојан Проба": { "studentId": "s-bojan-proba-02", "grade": "2" },
+    "Влатко Пример": { "studentId": "s-vlatko-primer-03", "grade": "3" },
+    "Гордана Модел": { "studentId": "s-gordana-model-04", "grade": "4" },
+    "Дарко Демо": { "studentId": "s-darko-demo-05", "grade": "5" },
+    "Елена Синтетичка": { "grade": "6" }
+  },
+  "schedule": [
+    {
+      "day": "pon",
+      "time": "08:00",
+      "assignments": { "Терапевт А": "Ана Тест", "Локален терапевт": "Гордана Модел" }
+    },
+    {
+      "day": "vto",
+      "time": "09:00",
+      "assignments": { "Терапевт Б": "Влатко Пример" }
+    }
+  ],
+  "sdnevnik": {
+    "owner": { "id": "BN", "name": "Локален терапевт" },
+    "status": "ready",
+    "students": [
+      { "id": 101, "name": "Гордана Модел", "grade": "4", "planId": 1, "rasporediStudentId": "s-gordana-model-04" },
+      { "id": 102, "name": "Дарко Демо", "grade": "5", "planId": 1, "rasporediStudentId": "s-darko-demo-05" },
+      { "id": 103, "name": "Ана Тест", "grade": "1", "planId": null, "rasporediStudentId": "" },
+      { "id": 104, "name": "Игор Стар", "grade": "7", "planId": null, "rasporediStudentId": "" }
+    ],
+    "_meta": { "app": "S-Dnevnik", "schemaVersion": "2.0", "source": "UnifiedSync" }
+  }
+}

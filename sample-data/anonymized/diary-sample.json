@@ -1,0 +1,290 @@
+{
+  "_note": "SYNTHETIC TEST DATA — invented names, no real students. A minimal S-Dnevnik payload for Stages D, E and F. The merged term on 2026-05-12 is the point of the attendance shape: two slot keys, ONE time string, therefore ONE session. The second audiogram names someone who is NOT on the roster, on purpose — that is the case that must be kept with the name and no link.",
+  "schemaVersion": "1.0",
+  "students": [
+    {
+      "id": 9001,
+      "name": "Проба Прва",
+      "grade": "1",
+      "planId": 7001,
+      "rasporediStudentId": "s-proba-prva-01"
+    },
+    {
+      "id": 9002,
+      "name": "Проба Втора",
+      "grade": "2",
+      "planId": 7001,
+      "rasporediStudentId": "s-proba-vtora-02"
+    },
+    {
+      "id": 9003,
+      "name": "Проба Трета",
+      "grade": "3",
+      "planId": null,
+      "rasporediStudentId": "s-proba-treta-03"
+    }
+  ],
+  "archivedStudents": [],
+  "plans": [
+    {
+      "id": 7001,
+      "name": "Проба програма",
+      "activities": [
+        "Активност А",
+        "Активност Б",
+        "Активност В",
+        "Активност Г"
+      ]
+    }
+  ],
+  "links": [],
+  "schedule": {
+    "monday": [
+      [
+        9001
+      ],
+      [
+        9002
+      ],
+      [],
+      [],
+      []
+    ],
+    "tuesday": [
+      [],
+      [],
+      [
+        9001
+      ],
+      [
+        9001
+      ],
+      []
+    ],
+    "wednesday": [
+      [],
+      [
+        9001
+      ],
+      [],
+      [],
+      []
+    ],
+    "thursday": [
+      [],
+      [],
+      [],
+      [],
+      []
+    ],
+    "friday": [
+      [],
+      [],
+      [],
+      [],
+      []
+    ]
+  },
+  "scheduleHistory": {},
+  "attendance": {
+    "2026-05-11": {
+      "9001": {
+        "monday-0": {
+          "status": "present",
+          "date": "2026-05-11",
+          "time": "08:00-08:40"
+        }
+      },
+      "9002": {
+        "monday-1": {
+          "status": "present",
+          "date": "2026-05-11",
+          "time": "08:45-09:25"
+        }
+      }
+    },
+    "2026-05-12": {
+      "9001": {
+        "tuesday-2": {
+          "status": "present",
+          "date": "2026-05-12",
+          "time": "09:40-10:20 + 10:25-11:05"
+        },
+        "tuesday-3": {
+          "status": "present",
+          "date": "2026-05-12",
+          "time": "09:40-10:20 + 10:25-11:05"
+        }
+      }
+    },
+    "2026-05-13": {
+      "9001": {
+        "wednesday-1": {
+          "status": "absent",
+          "date": "2026-05-13",
+          "time": "08:45-09:25"
+        }
+      }
+    }
+  },
+  "studentProgress": {
+    "9001": {
+      "7001": [
+        {
+          "index": 0,
+          "date": "2026-05-11",
+          "time": "08:00-08:40"
+        },
+        {
+          "index": 1,
+          "date": "2026-05-12",
+          "time": "09:40-10:20 + 10:25-11:05"
+        }
+      ]
+    },
+    "9002": {
+      "7001": [
+        {
+          "index": 0,
+          "date": "2026-05-11",
+          "time": "08:45-09:25"
+        }
+      ]
+    }
+  },
+  "progressArchive": {},
+  "trijazenTestovi": [
+    {
+      "id": 8101,
+      "studentId": 9001,
+      "date": "2026-05-11",
+      "assessor": "Проба Терапевт",
+      "assessments": {
+        "a": 1,
+        "b": 2
+      }
+    }
+  ],
+  "student_records": [
+    {
+      "id": 9001,
+      "firstName": "Проба",
+      "lastName": "Прва",
+      "birthDate": "2015-03-04",
+      "fatherName": "Татко Пробен",
+      "motherName": "Мајка Пробна",
+      "address": "Улица 1",
+      "residence": "Битола",
+      "contact": "070000000",
+      "findings": "Наод за проба.\n\n",
+      "opinion": "Мислење за проба.",
+      "attachmentLinks": []
+    }
+  ],
+  "audiograms": [
+    {
+      "subjectName": "Проба Прва",
+      "date": "2026-04-10",
+      "recordType": "history",
+      "rightAir": {
+        "250": 20,
+        "500": 25,
+        "1000": 30
+      },
+      "rightBone": {},
+      "leftAir": {
+        "250": 15
+      },
+      "leftBone": {}
+    },
+    {
+      "subjectName": "Некој Одамна",
+      "date": "2019-02-02",
+      "recordType": "history",
+      "rightAir": {
+        "500": 60
+      },
+      "rightBone": {},
+      "leftAir": {
+        "500": 55
+      },
+      "leftBone": {}
+    }
+  ],
+  "assessments": [
+    {
+      "id": 8001,
+      "studentId": 9001,
+      "scaleType": "proba_v1",
+      "date": "2026-05-11",
+      "period": "T3",
+      "scores": {
+        "i1": 3,
+        "i2": 2
+      },
+      "average": 2.5,
+      "comment": "Проба коментар"
+    },
+    {
+      "id": 8002,
+      "studentId": 9002,
+      "scaleType": "proba_v1",
+      "date": "2026-05-12",
+      "period": "T3",
+      "scores": {
+        "i1": 4,
+        "i2": 4
+      },
+      "average": 4,
+      "comment": ""
+    }
+  ],
+  "scaleTemplates": [
+    {
+      "id": "proba_v1",
+      "name": "Проба скала",
+      "category": "говор",
+      "indicators": [
+        {
+          "id": "i1",
+          "label": "Показател еден",
+          "levels": [
+            "0",
+            "1",
+            "2",
+            "3",
+            "4"
+          ]
+        },
+        {
+          "id": "i2",
+          "label": "Показател два",
+          "levels": [
+            "0",
+            "1",
+            "2",
+            "3",
+            "4"
+          ]
+        }
+      ]
+    }
+  ],
+  "schoolCalendar": {
+    "label": "2025/2026"
+  },
+  "_meta": {
+    "app": "S-Dnevnik",
+    "appVersion": "test-fixture",
+    "schemaVersion": "1.0",
+    "counts": {
+      "students": 3,
+      "plans": 1,
+      "assessments": 2,
+      "audiograms": 2,
+      "student_records": 1,
+      "trijazenTestovi": 1,
+      "scaleTemplates": 1
+    }
+  }
+}

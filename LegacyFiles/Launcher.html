@@ -1,0 +1,1283 @@
+<!DOCTYPE html>
+<html lang="mk">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>EduHub</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🧰</text></svg>">
+  <style>
+    :root {
+      --bg: #f5f7fa;
+      --surface: #ffffff;
+      --surface-light: #f0f2f5;
+      --text: #1a1a2e;
+      --text-secondary: #64748b;
+      --border: rgba(0, 0, 0, 0.08);
+      --accent: #6366f1;
+      --accent-hover: #4f46e5;
+      --accent-light: rgba(99, 102, 241, 0.1);
+      --success: #10b981;
+      --warning: #f59e0b;
+      --danger: #ef4444;
+      --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+      --shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+      --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.12);
+      --radius: 12px;
+      --radius-sm: 8px;
+    }
+
+    [data-theme="dark"] {
+      --bg: #0f172a;
+      --surface: #1e293b;
+      --surface-light: #334155;
+      --text: #f1f5f9;
+      --text-secondary: #94a3b8;
+      --border: rgba(255, 255, 255, 0.08);
+      --accent: #818cf8;
+      --accent-hover: #6366f1;
+      --accent-light: rgba(129, 140, 248, 0.15);
+      --shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+      --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.4);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      line-height: 1.5;
+      transition: background 0.3s, color 0.3s;
+    }
+
+        /* --- TOP NAVIGATION --- */
+    .top-nav {
+      background: linear-gradient(180deg, #3c4ea3 0%, #2d377c 100%);
+      border-bottom: 1px solid rgba(255,255,255,0.12);
+      padding: 12px 18px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      box-shadow: 0 6px 18px rgba(0,0,0,0.18);
+    }
+
+    .nav-title {
+      font-size: 20px;
+      font-weight: 900;
+      letter-spacing: 0.6px;
+      text-transform: uppercase;
+      margin-right: auto;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      color: #fff;
+      text-shadow: 0 2px 0 rgba(0,0,0,0.25);
+    }
+
+    .nav-title span { font-weight: 800; }
+
+    .nav-btn {
+      height: 40px;
+      min-width: 52px;
+      padding: 0 14px;
+      border: 1px solid rgba(255,255,255,0.18);
+      background: linear-gradient(180deg, rgba(255,255,255,0.12), rgba(0,0,0,0.10));
+      color: #fff;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+      transition: transform 0.15s, background 0.15s, border-color 0.15s;
+      clip-path: polygon(12px 0, 100% 0, calc(100% - 12px) 100%, 0 100%);
+    }
+
+    .nav-btn:hover { 
+      transform: translateY(-1px);
+      background: linear-gradient(180deg, rgba(255,255,255,0.22), rgba(0,0,0,0.06));
+      border-color: rgba(255,255,255,0.28);
+    }
+
+    .nav-btn.danger:hover { 
+      background: linear-gradient(180deg, rgba(239, 68, 68, 0.35), rgba(0,0,0,0.05)); 
+      border-color: rgba(239, 68, 68, 0.55); 
+    }
+    .nav-btn.success:hover { 
+      background: linear-gradient(180deg, rgba(16, 185, 129, 0.35), rgba(0,0,0,0.05)); 
+      border-color: rgba(16, 185, 129, 0.55); 
+    }
+
+    .nav-separator { width: 1px; height: 26px; background: rgba(255,255,255,0.18); margin: 0 4px; }
+
+    .nav-stats {
+      display: flex;
+      gap: 12px;
+      font-size: 12px;
+      color: rgba(255,255,255,0.8);
+    }
+
+    .lang-btn {
+      height: 40px;
+      padding: 0 14px;
+      background: linear-gradient(180deg, rgba(255,255,255,0.10), rgba(0,0,0,0.10));
+      color: #fff;
+      border: 1px solid rgba(255,255,255,0.18);
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 900;
+      letter-spacing: 0.6px;
+      cursor: pointer;
+      transition: transform 0.15s, background 0.15s, border-color 0.15s;
+    }
+
+    .lang-btn:hover { 
+      transform: translateY(-1px);
+      background: linear-gradient(180deg, rgba(255,255,255,0.18), rgba(0,0,0,0.06)); 
+      border-color: rgba(255,255,255,0.28); 
+    }
+
+    /* --- TABS --- */
+    .tabs-container {
+      background: linear-gradient(180deg, rgba(0,0,0,0.10), rgba(0,0,0,0.18)), #2a2f60;
+      border-bottom: 1px solid rgba(0,0,0,0.15);
+      padding: 8px 18px 0;
+      display: flex;
+      align-items: flex-end;
+      gap: 6px;
+      overflow-x: auto;
+      box-shadow: inset 0 -1px 0 rgba(255,255,255,0.06);
+    }
+
+    .tabs-container::-webkit-scrollbar { height: 6px; }
+    .tabs-container::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.18); border-radius: 999px; }
+
+    .tab {
+      height: 44px;
+      padding: 0 26px;
+      background: linear-gradient(180deg, rgba(255,255,255,0.08), rgba(0,0,0,0.12));
+      border: 1px solid rgba(255,255,255,0.14);
+      border-bottom: none;
+      color: rgba(255,255,255,0.78);
+      font-size: 13px;
+      font-weight: 900;
+      letter-spacing: 0.7px;
+      text-transform: uppercase;
+      cursor: pointer;
+      white-space: nowrap;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      transition: transform 0.12s, background 0.15s, color 0.15s;
+      clip-path: polygon(14px 0, 100% 0, calc(100% - 14px) 100%, 0 100%);
+      margin-bottom: -1px;
+    }
+
+    .tab:hover { 
+      transform: translateY(-1px);
+      color: #fff; 
+      background: linear-gradient(180deg, rgba(255,255,255,0.14), rgba(0,0,0,0.08)); 
+    }
+    .tab.active { 
+      color: #fff; 
+      background: linear-gradient(180deg, #5568ff 0%, #2a49ff 100%); 
+      border-color: rgba(255,255,255,0.18);
+      box-shadow: 0 -2px 0 rgba(255,255,255,0.20) inset;
+    }
+
+    .tab .tab-count {
+      background: rgba(0,0,0,0.22);
+      padding: 3px 9px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 900;
+      letter-spacing: 0.2px;
+      border: 1px solid rgba(255,255,255,0.10);
+    }
+
+    .tab.active .tab-count { background: rgba(255,255,255,0.18); border-color: rgba(255,255,255,0.18); }
+
+    .tab-close { margin-left: 2px; opacity: 0; font-size: 13px; transition: opacity 0.2s; }
+    .tab:hover .tab-close { opacity: 0.65; }
+    .tab-close:hover { opacity: 1; color: #ffb4b4; }
+
+    .add-tab-btn {
+      height: 40px;
+      padding: 0 18px;
+      background: linear-gradient(180deg, rgba(255,255,255,0.06), rgba(0,0,0,0.12));
+      border: 1px dashed rgba(255,255,255,0.22);
+      color: rgba(255,255,255,0.80);
+      border-radius: 10px;
+      font-size: 12px;
+      font-weight: 900;
+      letter-spacing: 0.6px;
+      cursor: pointer;
+      margin-left: 10px;
+      transition: transform 0.12s, background 0.15s, border-color 0.15s;
+      text-transform: uppercase;
+    }
+
+    .add-tab-btn:hover {
+      transform: translateY(-1px);
+      border-color: rgba(255,255,255,0.36);
+      background: linear-gradient(180deg, rgba(255,255,255,0.12), rgba(0,0,0,0.08));
+      color: #fff;
+    }
+
+    /* --- SEARCH --- */
+    .search-bar {
+      padding: 16px 20px;
+      display: flex;
+      justify-content: center;
+    }
+
+    .search-input {
+      width: 100%;
+      max-width: 400px;
+      padding: 12px 18px 12px 42px;
+      border: 2px solid var(--border);
+      border-radius: 25px;
+      font-size: 14px;
+      background: var(--surface);
+      color: var(--text);
+      outline: none;
+      transition: all 0.2s;
+    }
+
+    .search-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-light); }
+
+    .search-wrapper {
+      position: relative;
+      width: 100%;
+      max-width: 400px;
+    }
+
+    .search-wrapper::before {
+      content: '🔍';
+      position: absolute;
+      left: 14px;
+      top: 50%;
+      transform: translateY(-50%);
+      font-size: 14px;
+    }
+
+    /* --- MAIN GRID --- */
+    .main {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 10px 20px 100px;
+    }
+
+    .app-grid {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 14px;
+    }
+
+    @media (max-width: 1200px) { .app-grid { grid-template-columns: repeat(4, 1fr); } }
+    @media (max-width: 900px) { .app-grid { grid-template-columns: repeat(3, 1fr); } }
+    @media (max-width: 600px) { .app-grid { grid-template-columns: repeat(2, 1fr); } }
+
+    /* --- APP CARDS --- */
+    .app-card {
+      background: var(--surface);
+      border-radius: var(--radius);
+      padding: 14px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      text-decoration: none;
+      color: var(--text);
+      position: relative;
+      transition: all 0.2s;
+      border: 1px solid var(--border);
+      cursor: grab;
+      user-select: none;
+    }
+
+    .app-card:hover {
+      transform: translateY(-3px);
+      box-shadow: var(--shadow-lg);
+      border-color: var(--accent);
+    }
+
+    .app-card.dragging {
+      opacity: 0.5;
+      transform: scale(1.02);
+      box-shadow: var(--shadow-lg);
+    }
+
+    .app-card.drag-over {
+      border-color: var(--accent);
+      border-style: dashed;
+      background: var(--accent-light);
+    }
+
+    .app-icon {
+      width: 42px;
+      height: 42px;
+      background: var(--accent-light);
+      border-radius: var(--radius-sm);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 22px;
+      flex-shrink: 0;
+    }
+
+    .app-name {
+      font-weight: 600;
+      font-size: 13px;
+      flex: 1;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .app-actions {
+      position: absolute;
+      top: 6px;
+      right: 6px;
+      display: flex;
+      gap: 4px;
+      opacity: 0;
+      transition: opacity 0.2s;
+    }
+
+    .app-card:hover .app-actions { opacity: 1; }
+
+    .app-action {
+      width: 24px;
+      height: 24px;
+      border: none;
+      background: var(--surface-light);
+      color: var(--text-secondary);
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 11px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s;
+    }
+
+    .app-action:hover { background: var(--accent); color: white; }
+    .app-action.delete:hover { background: var(--danger); }
+    .app-action.star { color: var(--text-secondary); }
+    .app-action.star.active { color: #f59e0b; background: rgba(245, 158, 11, 0.1); }
+
+    /* --- ADD CARD --- */
+    .add-card {
+      background: var(--surface);
+      border: 2px dashed var(--border);
+      border-radius: var(--radius);
+      padding: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      cursor: pointer;
+      color: var(--text-secondary);
+      font-size: 13px;
+      font-weight: 600;
+      transition: all 0.2s;
+    }
+
+    .add-card:hover {
+      border-color: var(--accent);
+      color: var(--accent);
+      background: var(--accent-light);
+    }
+
+    /* --- MODALS --- */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.6);
+      backdrop-filter: blur(6px);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+      padding: 20px;
+    }
+
+    .modal-overlay.show { display: flex; }
+
+    .modal {
+      background: var(--surface);
+      width: 100%;
+      max-width: 480px;
+      border-radius: var(--radius);
+      padding: 24px;
+      box-shadow: var(--shadow-lg);
+      max-height: 85vh;
+      overflow-y: auto;
+    }
+
+    .modal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 20px;
+    }
+
+    .modal-title {
+      font-size: 18px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .modal-close {
+      width: 30px;
+      height: 30px;
+      background: var(--surface-light);
+      border: none;
+      border-radius: 50%;
+      cursor: pointer;
+      font-size: 14px;
+      color: var(--text-secondary);
+    }
+
+    .modal-close:hover { background: var(--danger); color: white; }
+
+    .form-group { margin-bottom: 16px; }
+
+    .form-label {
+      display: block;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-secondary);
+      margin-bottom: 6px;
+      text-transform: uppercase;
+    }
+
+    .form-input, .form-select {
+      width: 100%;
+      padding: 11px 14px;
+      background: var(--bg);
+      border: 2px solid var(--border);
+      color: var(--text);
+      border-radius: var(--radius-sm);
+      font-size: 14px;
+    }
+
+    .form-input:focus, .form-select:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+
+    .icon-grid {
+      display: grid;
+      grid-template-columns: repeat(8, 1fr);
+      gap: 6px;
+      background: var(--bg);
+      padding: 10px;
+      border-radius: var(--radius-sm);
+      border: 2px solid var(--border);
+    }
+
+    .icon-option {
+      aspect-ratio: 1;
+      border: 2px solid transparent;
+      background: var(--surface);
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 18px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.15s;
+    }
+
+    .icon-option:hover { border-color: var(--accent); transform: scale(1.1); }
+    .icon-option.active { border-color: var(--accent); background: var(--accent-light); }
+
+    .btn {
+      padding: 12px 20px;
+      border-radius: var(--radius-sm);
+      border: none;
+      cursor: pointer;
+      font-weight: 700;
+      font-size: 13px;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      width: 100%;
+    }
+
+    .btn-primary { background: var(--accent); color: white; }
+    .btn-primary:hover { background: var(--accent-hover); }
+    .btn-danger { background: var(--danger); color: white; }
+    .btn-secondary { background: var(--surface-light); color: var(--text-secondary); margin-top: 8px; }
+
+    /* --- APP SELECTOR (for tabs) --- */
+    .app-selector {
+      max-height: 250px;
+      overflow-y: auto;
+      border: 2px solid var(--border);
+      border-radius: var(--radius-sm);
+      background: var(--bg);
+    }
+
+    .app-selector-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 12px;
+      cursor: pointer;
+      border-bottom: 1px solid var(--border);
+      transition: background 0.15s;
+    }
+
+    .app-selector-item:last-child { border-bottom: none; }
+    .app-selector-item:hover { background: var(--surface-light); }
+
+    .app-selector-item input { width: 18px; height: 18px; accent-color: var(--accent); }
+    .app-selector-item .icon { font-size: 20px; }
+    .app-selector-item .name { font-weight: 500; font-size: 13px; }
+
+    /* --- STORAGE LIST --- */
+    .storage-list { max-height: 280px; overflow-y: auto; }
+
+    .storage-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px;
+      background: var(--bg);
+      border-radius: var(--radius-sm);
+      margin-bottom: 6px;
+      border: 1px solid var(--border);
+    }
+
+    .storage-item input { width: 18px; height: 18px; accent-color: var(--accent); }
+    .storage-key { font-weight: 600; font-size: 13px; }
+    .storage-size { font-size: 11px; color: var(--text-secondary); }
+
+    .warning-box {
+      background: rgba(239, 68, 68, 0.1);
+      border: 1px solid var(--danger);
+      border-radius: var(--radius-sm);
+      padding: 12px;
+      font-size: 12px;
+      color: var(--danger);
+      margin-bottom: 16px;
+    }
+
+    /* --- FILE DROP --- */
+    .file-drop {
+      border: 2px dashed var(--border);
+      border-radius: var(--radius);
+      padding: 24px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.2s;
+      margin-bottom: 12px;
+    }
+
+    .file-drop:hover { border-color: var(--accent); background: var(--accent-light); }
+    .file-drop-icon { font-size: 32px; margin-bottom: 8px; }
+    .file-drop-text { color: var(--text-secondary); font-size: 13px; }
+
+    /* --- TOAST --- */
+    .toast {
+      position: fixed;
+      bottom: 30px;
+      left: 50%;
+      transform: translateX(-50%) translateY(100px);
+      background: var(--surface);
+      color: var(--text);
+      padding: 12px 24px;
+      border-radius: 25px;
+      box-shadow: var(--shadow-lg);
+      font-weight: 600;
+      font-size: 13px;
+      z-index: 9999;
+      opacity: 0;
+      transition: all 0.3s;
+      border: 2px solid var(--accent);
+    }
+
+    .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+    .toast.error { border-color: var(--danger); }
+
+    /* --- EMPTY STATE --- */
+    .empty-state {
+      text-align: center;
+      padding: 60px 20px;
+      color: var(--text-secondary);
+    }
+
+    .empty-state-icon { font-size: 50px; margin-bottom: 12px; opacity: 0.5; }
+
+    @media (max-width: 600px) {
+      .nav-title span { display: none; }
+      .nav-stats { display: none; }
+      .tab { height: 40px; padding: 0 18px; font-size: 12px; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- TOP NAV -->
+  <nav class="top-nav">
+    <div class="nav-title">🧰 <span>Edu-Hub App</span></div>
+    <button class="nav-btn" id="themeBtn" title="Тема">🌙</button>
+    <button class="nav-btn" onclick="openImportModal()" title="Увези">📥</button>
+    <button class="nav-btn" onclick="exportData()" title="Извези">📤</button>
+    <div class="nav-separator"></div>
+    <button class="nav-btn success" onclick="scanGitHub()" title="Sync GitHub">🔄</button>
+    <button class="nav-btn" onclick="setScanFolder()" title="Папка за GitHub scan">📁</button>
+    <button class="nav-btn danger" onclick="openCleanModal()" title="Чист излез">🚪</button>
+    <div class="nav-separator"></div>
+    <button class="lang-btn" id="langBtn" onclick="toggleLang()">EN</button>
+    <div class="nav-stats">
+      <span>📱 <strong id="totalApps">0</strong></span>
+    </div>
+  </nav>
+
+  <!-- TABS -->
+  <div class="tabs-container" id="tabsContainer">
+    <!-- Tabs render here -->
+  </div>
+
+  <!-- SEARCH -->
+  <div class="search-bar">
+    <div class="search-wrapper">
+      <input type="text" class="search-input" id="searchInput" placeholder="Пребарај...">
+    </div>
+  </div>
+
+  <!-- MAIN -->
+  <main class="main">
+    <div class="app-grid" id="appGrid"></div>
+  </main>
+
+  <!-- APP MODAL -->
+  <div class="modal-overlay" id="appModal">
+    <div class="modal">
+      <div class="modal-header">
+        <h2 class="modal-title" id="appModalTitle">➕ Додај</h2>
+        <button class="modal-close" onclick="closeAppModal()">✕</button>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Име</label>
+        <input type="text" class="form-input" id="appName" placeholder="Име на апликација">
+      </div>
+      <div class="form-group">
+        <label class="form-label">URL</label>
+        <input type="text" class="form-input" id="appUrl" placeholder="https://...">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Икона</label>
+        <div class="icon-grid" id="iconGrid"></div>
+      </div>
+      <button class="btn btn-primary" onclick="saveApp()">💾 Зачувај</button>
+      <button class="btn btn-secondary" onclick="closeAppModal()">Откажи</button>
+    </div>
+  </div>
+
+  <!-- TAB MODAL -->
+  <div class="modal-overlay" id="tabModal">
+    <div class="modal">
+      <div class="modal-header">
+        <h2 class="modal-title">📁 Нова колекција</h2>
+        <button class="modal-close" onclick="closeTabModal()">✕</button>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Име на колекција</label>
+        <input type="text" class="form-input" id="tabName" placeholder="пр. Работа, Дома...">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Икона</label>
+        <div class="icon-grid" id="tabIconGrid"></div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Избери апликации</label>
+        <div class="app-selector" id="appSelector"></div>
+      </div>
+      <button class="btn btn-primary" onclick="saveTab()">💾 Зачувај</button>
+      <button class="btn btn-secondary" onclick="closeTabModal()">Откажи</button>
+    </div>
+  </div>
+
+  <!-- IMPORT MODAL -->
+  <div class="modal-overlay" id="importModal">
+    <div class="modal">
+      <div class="modal-header">
+        <h2 class="modal-title">📥 Увези</h2>
+        <button class="modal-close" onclick="closeImportModal()">✕</button>
+      </div>
+      <div class="file-drop" onclick="document.getElementById('fileInput').click()">
+        <div class="file-drop-icon">📁</div>
+        <div class="file-drop-text">Кликни или влечи JSON датотека</div>
+      </div>
+      <input type="file" id="fileInput" accept=".json" style="display:none" onchange="handleFile(event)">
+      <textarea class="form-input" id="importText" rows="4" placeholder="или залепи JSON..."></textarea>
+      <button class="btn btn-primary" onclick="doImport()" style="margin-top:12px">🚀 Увези</button>
+    </div>
+  </div>
+
+  <!-- CLEAN EXIT MODAL -->
+  <div class="modal-overlay" id="cleanModal">
+    <div class="modal">
+      <div class="modal-header">
+        <h2 class="modal-title">🚪 Чист излез</h2>
+        <button class="modal-close" onclick="closeCleanModal()">✕</button>
+      </div>
+      <div class="warning-box">⚠️ Ова ќе ги избрише избраните податоци неповратно!</div>
+      <div class="storage-list" id="storageList"></div>
+      <button class="btn btn-danger" onclick="performClean()" style="margin-top:12px">🗑️ Избриши</button>
+    </div>
+  </div>
+
+  <!-- TOAST -->
+  <div class="toast" id="toast"></div>
+
+  <script>
+    const ICONS = ['📋', '📊', '📈', '📅', '📝', '📁', '🔧', '⚙️', '🎨', '📱', '💻', '🌐', '📚', '💰', '🚀', '🔥', '⚡', '🧰', '🎯', '📦', '✅', '🔔', '💡', '🎓', '👥', '🏠', '💼', '🎮', '🎵', '📷', '✏️', '👂'];
+    const STORE_KEY = 'app-toolbox-v4';
+    
+    const FILE_MAPPINGS = {
+      'StudentRecords.html': { name: 'Студентски Досиеа', icon: '📋' },
+      'S_M_U_R_O_P.html': { name: 'СМУРОП Дневник', icon: '📅' },
+      'audiogram.html': { name: 'Аудиограм', icon: '👂' },
+      'kanban.html': { name: 'Канбан Табла', icon: '📌' },
+      'Kanban-Bookmark - Enhanced-v2.html': { name: 'Канбан Обележувачи', icon: '🔖' },
+      'cyrillic-whiteboard-enhanced.html': { name: 'Кирилична Табла', icon: '✏️' },
+      'TabelaSoDokazi.html': { name: 'Табела со Докази', icon: '📑' },
+      'Картичка.html': { name: 'ААК Картички', icon: '🎴' }
+    };
+
+    const i18n = {
+      mk: { all: 'Сите', favorites: '⭐ Омилени', search: 'Пребарај...', newCollection: '+ Колекција', noApps: 'Нема апликации', addNew: '➕ Додај', goodbye: 'Довидување! 👋' },
+      en: { all: 'All', favorites: '⭐ Favorites', search: 'Search...', newCollection: '+ Collection', noApps: 'No apps', addNew: '➕ Add', goodbye: 'Goodbye! 👋' }
+    };
+
+    let state = JSON.parse(localStorage.getItem(STORE_KEY)) || {
+      apps: [],
+      tabs: [],
+      order: [],
+      theme: 'dark',
+      lang: 'mk',
+      repoUrl: 'Assisstant/MTB',
+      activeTab: 'all',
+      scanPath: null
+    };
+
+    // Backfill new settings for older stored states
+    if (!('scanPath' in state)) state.scanPath = null;
+
+    let editingAppId = null;
+    let editingTabId = null;
+    let selectedIcon = '📋';
+    let selectedTabIcon = '📁';
+    let draggedCard = null;
+
+    const $ = s => document.querySelector(s);
+    const $$ = s => document.querySelectorAll(s);
+    const t = k => i18n[state.lang]?.[k] || k;
+
+    function save() {
+      localStorage.setItem(STORE_KEY, JSON.stringify(state));
+      render();
+    }
+
+    function render() {
+      renderTabs();
+      renderApps();
+      $('#totalApps').textContent = state.apps.length;
+      $('#langBtn').textContent = state.lang === 'mk' ? 'EN' : 'MK';
+      $('#themeBtn').textContent = state.theme === 'dark' ? '☀️' : '🌙';
+      $('#searchInput').placeholder = t('search');
+    }
+
+    function renderTabs() {
+      const container = $('#tabsContainer');
+      const favCount = state.apps.filter(a => a.favorite).length;
+      
+      let html = `
+        <button class="tab ${state.activeTab === 'all' ? 'active' : ''}" onclick="setTab('all')">
+          🏠 ${t('all')} <span class="tab-count">${state.apps.length}</span>
+        </button>
+        <button class="tab ${state.activeTab === 'favorites' ? 'active' : ''}" onclick="setTab('favorites')">
+          ${t('favorites')} <span class="tab-count">${favCount}</span>
+        </button>
+      `;
+
+      state.tabs.forEach(tab => {
+        const count = state.apps.filter(a => a.tabs?.includes(tab.id)).length;
+        html += `
+          <button class="tab ${state.activeTab === tab.id ? 'active' : ''}" onclick="setTab('${tab.id}')">
+            ${tab.icon} ${tab.name} <span class="tab-count">${count}</span>
+            <span class="tab-close" onclick="event.stopPropagation(); deleteTab('${tab.id}')">✕</span>
+          </button>
+        `;
+      });
+
+      html += `<button class="add-tab-btn" onclick="openTabModal()">${t('newCollection')}</button>`;
+      container.innerHTML = html;
+    }
+
+    function renderApps() {
+      const grid = $('#appGrid');
+      const search = $('#searchInput').value.toLowerCase();
+      
+      let apps = [...state.apps];
+
+      // Filter by tab
+      if (state.activeTab === 'favorites') {
+        apps = apps.filter(a => a.favorite);
+      } else if (state.activeTab !== 'all') {
+        apps = apps.filter(a => a.tabs?.includes(state.activeTab));
+      }
+
+      // Filter by search
+      if (search) {
+        apps = apps.filter(a => a.name.toLowerCase().includes(search));
+      }
+
+      // Sort by order
+      if (state.order.length) {
+        apps.sort((a, b) => {
+          const ia = state.order.indexOf(a.id);
+          const ib = state.order.indexOf(b.id);
+          if (ia === -1) return 1;
+          if (ib === -1) return -1;
+          return ia - ib;
+        });
+      }
+
+      if (apps.length === 0 && !search) {
+        grid.innerHTML = `
+          <div class="empty-state" style="grid-column: 1/-1;">
+            <div class="empty-state-icon">📭</div>
+            <div>${t('noApps')}</div>
+          </div>
+        `;
+        return;
+      }
+
+      let html = apps.map(app => `
+        <div class="app-card" draggable="true" data-id="${app.id}" onclick="openApp('${app.url}')">
+          <div class="app-actions">
+            <button class="app-action star ${app.favorite ? 'active' : ''}" onclick="event.stopPropagation(); toggleFav('${app.id}')" title="Омилено">★</button>
+            <button class="app-action" onclick="event.stopPropagation(); editApp('${app.id}')" title="Уреди">✏️</button>
+            <button class="app-action delete" onclick="event.stopPropagation(); deleteApp('${app.id}')" title="Избриши">🗑️</button>
+          </div>
+          <div class="app-icon">${app.icon || '📄'}</div>
+          <div class="app-name">${app.name}</div>
+        </div>
+      `).join('');
+
+      html += `<div class="add-card" onclick="openAppModal()">${t('addNew')}</div>`;
+      grid.innerHTML = html;
+
+      // Add drag events
+      $$('.app-card[draggable]').forEach(card => {
+        card.addEventListener('dragstart', handleDragStart);
+        card.addEventListener('dragend', handleDragEnd);
+        card.addEventListener('dragover', handleDragOver);
+        card.addEventListener('drop', handleDrop);
+        card.addEventListener('dragleave', handleDragLeave);
+      });
+    }
+
+    // Drag & Drop
+    function handleDragStart(e) {
+      draggedCard = this;
+      this.classList.add('dragging');
+      e.dataTransfer.effectAllowed = 'move';
+    }
+
+    function handleDragEnd() {
+      this.classList.remove('dragging');
+      $$('.app-card').forEach(c => c.classList.remove('drag-over'));
+      draggedCard = null;
+    }
+
+    function handleDragOver(e) {
+      e.preventDefault();
+      if (this !== draggedCard) {
+        this.classList.add('drag-over');
+      }
+    }
+
+    function handleDragLeave() {
+      this.classList.remove('drag-over');
+    }
+
+    function handleDrop(e) {
+      e.preventDefault();
+      this.classList.remove('drag-over');
+      
+      if (this === draggedCard) return;
+
+      const fromId = draggedCard.dataset.id;
+      const toId = this.dataset.id;
+
+      // Update order
+      let order = state.order.length ? [...state.order] : state.apps.map(a => a.id);
+      const fromIdx = order.indexOf(fromId);
+      const toIdx = order.indexOf(toId);
+
+      if (fromIdx > -1) order.splice(fromIdx, 1);
+      order.splice(toIdx, 0, fromId);
+
+      state.order = order;
+      save();
+    }
+
+    // Tab functions
+    window.setTab = (tabId) => {
+      state.activeTab = tabId;
+      save();
+    };
+
+    window.openTabModal = (tab = null) => {
+      editingTabId = tab ? tab.id : null;
+      $('#tabModal').classList.add('show');
+      $('#tabName').value = tab ? tab.name : '';
+      selectedTabIcon = tab ? tab.icon : '📁';
+      renderTabIconGrid();
+      renderAppSelector(tab);
+    };
+
+    window.closeTabModal = () => {
+      $('#tabModal').classList.remove('show');
+      editingTabId = null;
+    };
+
+    function renderTabIconGrid() {
+      $('#tabIconGrid').innerHTML = ICONS.slice(0, 24).map(icon =>
+        `<div class="icon-option ${selectedTabIcon === icon ? 'active' : ''}" onclick="selectedTabIcon='${icon}'; renderTabIconGrid()">${icon}</div>`
+      ).join('');
+    }
+
+    function renderAppSelector(tab = null) {
+      const selected = tab ? state.apps.filter(a => a.tabs?.includes(tab.id)).map(a => a.id) : [];
+      $('#appSelector').innerHTML = state.apps.map(app => `
+        <label class="app-selector-item">
+          <input type="checkbox" value="${app.id}" ${selected.includes(app.id) ? 'checked' : ''}>
+          <span class="icon">${app.icon || '📄'}</span>
+          <span class="name">${app.name}</span>
+        </label>
+      `).join('') || '<div style="padding:20px;text-align:center;color:var(--text-secondary)">Нема апликации</div>';
+    }
+
+    window.saveTab = () => {
+      const name = $('#tabName').value.trim();
+      if (!name) return showToast('Внеси име!', 'error');
+
+      const selectedApps = [...$$('#appSelector input:checked')].map(i => i.value);
+
+      if (editingTabId) {
+        const tab = state.tabs.find(t => t.id === editingTabId);
+        if (tab) {
+          tab.name = name;
+          tab.icon = selectedTabIcon;
+        }
+        // Update app assignments
+        state.apps.forEach(app => {
+          app.tabs = app.tabs?.filter(t => t !== editingTabId) || [];
+          if (selectedApps.includes(app.id)) {
+            app.tabs.push(editingTabId);
+          }
+        });
+      } else {
+        const newTab = { id: 'tab_' + Date.now(), name, icon: selectedTabIcon };
+        state.tabs.push(newTab);
+        // Assign apps
+        state.apps.forEach(app => {
+          if (selectedApps.includes(app.id)) {
+            app.tabs = app.tabs || [];
+            app.tabs.push(newTab.id);
+          }
+        });
+      }
+
+      save();
+      closeTabModal();
+    };
+
+    window.deleteTab = (tabId) => {
+      if (!confirm('Избриши колекција?')) return;
+      state.tabs = state.tabs.filter(t => t.id !== tabId);
+      state.apps.forEach(app => {
+        app.tabs = app.tabs?.filter(t => t !== tabId) || [];
+      });
+      if (state.activeTab === tabId) state.activeTab = 'all';
+      save();
+    };
+
+    // App functions
+    window.openApp = (url) => {
+      window.open(url, '_blank');
+    };
+
+    window.toggleFav = (id) => {
+      const app = state.apps.find(a => a.id === id);
+      if (app) app.favorite = !app.favorite;
+      save();
+    };
+
+    window.openAppModal = (app = null) => {
+      editingAppId = app ? app.id : null;
+      $('#appModal').classList.add('show');
+      $('#appModalTitle').textContent = app ? '✏️ Уреди' : '➕ Додај';
+      $('#appName').value = app ? app.name : '';
+      $('#appUrl').value = app ? app.url : '';
+      selectedIcon = app ? app.icon : '📋';
+      renderIconGrid();
+    };
+
+    window.closeAppModal = () => {
+      $('#appModal').classList.remove('show');
+      editingAppId = null;
+    };
+
+    function renderIconGrid() {
+      $('#iconGrid').innerHTML = ICONS.map(icon =>
+        `<div class="icon-option ${selectedIcon === icon ? 'active' : ''}" onclick="selectedIcon='${icon}'; renderIconGrid()">${icon}</div>`
+      ).join('');
+    }
+
+    window.saveApp = () => {
+      const name = $('#appName').value.trim();
+      const url = $('#appUrl').value.trim();
+      if (!name || !url) return showToast('Пополни сè!', 'error');
+
+      if (editingAppId) {
+        const app = state.apps.find(a => a.id === editingAppId);
+        if (app) {
+          app.name = name;
+          app.url = url;
+          app.icon = selectedIcon;
+        }
+      } else {
+        state.apps.push({
+          id: 'app_' + Date.now(),
+          name, url,
+          icon: selectedIcon,
+          favorite: false,
+          tabs: []
+        });
+      }
+
+      save();
+      closeAppModal();
+    };
+
+    window.editApp = (id) => {
+      const app = state.apps.find(a => a.id === id);
+      if (app) openAppModal(app);
+    };
+
+    window.deleteApp = (id) => {
+      if (!confirm('Избриши?')) return;
+      state.apps = state.apps.filter(a => a.id !== id);
+      state.order = state.order.filter(o => o !== id);
+      save();
+    };
+
+        // GitHub scan folder override
+    window.setScanFolder = () => {
+      const current = (state.scanPath === null || state.scanPath === undefined)
+        ? 'AUTO'
+        : (state.scanPath || 'root');
+
+      const v = prompt('📁 Папка за скенирање (AUTO / празно = root):', current);
+      if (v === null) return;
+
+      const val = v.trim();
+      if (!val) {
+        state.scanPath = '';
+      } else if (val.toUpperCase() === 'AUTO') {
+        state.scanPath = null; // automatic from URL
+      } else {
+        state.scanPath = val.replace(/^\/+|\/+$/g, '');
+      }
+      save();
+      showToast(`📁 Папка: ${state.scanPath === null ? 'AUTO' : (state.scanPath || 'root')}`);
+    };
+
+    // GitHub scan (folder where this index.html lives)
+    window.scanGitHub = async () => {
+      const repo = prompt('📂 GitHub repo (owner/repo):', state.repoUrl || 'Assisstant/MTB');
+      if (!repo) return;
+      state.repoUrl = repo.trim();
+
+      const getAutoScanPath = () => {
+        // Heuristic:
+        // - GitHub Pages "project site": URL starts with /<repo>/ but files live in repo root -> scanPath = ''
+        // - Monorepo folder site: URL starts with /<folder>/ and repo name is different -> scanPath = <folder>
+        const repoName = (state.repoUrl.split('/')[1] || '').toLowerCase();
+        const firstSegment = (location.pathname.split('/').filter(Boolean)[0] || '').toLowerCase();
+        if (firstSegment && repoName && firstSegment !== repoName) return firstSegment;
+        return '';
+      };
+
+      const contentPath = (state.scanPath === null || state.scanPath === undefined)
+        ? getAutoScanPath()
+        : String(state.scanPath).trim().replace(/^\/+|\/+$/g, '');
+
+      showToast(`🔄 Скенирање (${contentPath || 'root'})...`);
+
+      try {
+        // Root of selected folder only (no recursion)
+        const apiUrl = contentPath
+          ? `https://api.github.com/repos/${state.repoUrl}/contents/${encodeURIComponent(contentPath)}`
+          : `https://api.github.com/repos/${state.repoUrl}/contents/`;
+
+        const res = await fetch(apiUrl);
+        if (!res.ok) throw new Error('Not found');
+
+        const files = await res.json();
+        if (!Array.isArray(files)) throw new Error('Unexpected response');
+
+        // Avoid adding the page you're currently viewing (and the usual indexes)
+        const currentFile = (location.pathname.split('/').pop() || 'index.html').toLowerCase();
+        const ignore = new Set(['index.html', 'iiindex.html', currentFile]);
+
+        const htmlFiles = files.filter(f =>
+          f &&
+          f.type === 'file' &&
+          typeof f.name === 'string' &&
+          f.name.toLowerCase().endsWith('.html') &&
+          !ignore.has(f.name.toLowerCase())
+        );
+
+        let added = 0;
+        htmlFiles.forEach(file => {
+          const relUrl = file.name; // same folder as this index.html
+          if (state.apps.some(a => a.url === relUrl)) return;
+
+          const map = FILE_MAPPINGS[file.name] || {};
+          state.apps.push({
+            id: 'gh_' + (file.sha ? file.sha.slice(0, 8) : (Date.now() + '_' + Math.random().toString(16).slice(2, 6))),
+            name: map.name || file.name.replace(/\.html$/i, '').replace(/[-_]/g, ' '),
+            url: relUrl,
+            icon: map.icon || '📄',
+            favorite: false,
+            tabs: []
+          });
+          added++;
+        });
+
+        save();
+        showToast(`✅ Додадени ${added} апликации`);
+      } catch (e) {
+        showToast('❌ Грешка: ' + (e?.message || e), 'error');
+      }
+    };
+
+    // Import/Export
+    window.openImportModal = () => $('#importModal').classList.add('show');
+    window.closeImportModal = () => $('#importModal').classList.remove('show');
+
+    window.handleFile = (e) => {
+      const file = e.target.files[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = (ev) => { $('#importText').value = ev.target.result; };
+        reader.readAsText(file);
+      }
+    };
+
+    window.doImport = () => {
+      try {
+        const data = JSON.parse($('#importText').value);
+        if (data.apps) state.apps = data.apps;
+        if (data.tabs) state.tabs = data.tabs;
+        if (data.order) state.order = data.order;
+        if (data.theme) { state.theme = data.theme; document.documentElement.dataset.theme = data.theme; }
+        if (data.lang) state.lang = data.lang;
+        save();
+        closeImportModal();
+        showToast('✅ Увезено!');
+      } catch (e) {
+        showToast('❌ Грешка!', 'error');
+      }
+    };
+
+    window.exportData = () => {
+      const blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `toolbox-${new Date().toISOString().split('T')[0]}.json`;
+      a.click();
+      showToast('📤 Извезено!');
+    };
+
+    // Clean exit
+    window.openCleanModal = () => {
+      $('#cleanModal').classList.add('show');
+      let html = '';
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        const size = (localStorage.getItem(key).length / 1024).toFixed(1);
+        html += `
+          <div class="storage-item">
+            <input type="checkbox" data-key="${key}">
+            <div><div class="storage-key">${key}</div><div class="storage-size">${size} KB</div></div>
+          </div>
+        `;
+      }
+      $('#storageList').innerHTML = html || '<div style="padding:20px;text-align:center">Празно</div>';
+    };
+
+    window.closeCleanModal = () => $('#cleanModal').classList.remove('show');
+
+    window.performClean = () => {
+      const checked = [...$$('#storageList input:checked')];
+      if (!checked.length) return showToast('Избери нешто', 'error');
+      checked.forEach(cb => localStorage.removeItem(cb.dataset.key));
+      showToast('🧹 Избришано!');
+      closeCleanModal();
+      setTimeout(() => {
+        document.body.innerHTML = `
+          <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;background:var(--bg);color:var(--text);text-align:center">
+            <div style="font-size:60px;margin-bottom:16px">👋</div>
+            <h1>${t('goodbye')}</h1>
+          </div>
+        `;
+      }, 800);
+    };
+
+    // Theme & Lang
+    $('#themeBtn').onclick = () => {
+      state.theme = state.theme === 'dark' ? 'light' : 'dark';
+      document.documentElement.dataset.theme = state.theme;
+      save();
+    };
+
+    window.toggleLang = () => {
+      state.lang = state.lang === 'mk' ? 'en' : 'mk';
+      save();
+    };
+
+    // Search
+    $('#searchInput').oninput = () => renderApps();
+
+    // Toast
+    function showToast(msg, type = 'success') {
+      const toast = $('#toast');
+      toast.textContent = msg;
+      toast.className = 'toast show ' + type;
+      setTimeout(() => toast.classList.remove('show'), 2500);
+    }
+
+    // Init
+    document.documentElement.dataset.theme = state.theme;
+    render();
+  </script>
+</body>
+</html>

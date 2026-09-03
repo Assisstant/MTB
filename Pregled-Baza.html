@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="mk">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Преглед на базата — MTB</title>
+<style>
+:root {
+    --bg: #f4f6f9; --card: #fff; --text: #1e293b; --muted: #64748b;
+    --line: #e2e8f0; --primary: #2563eb; --ok: #16a34a; --warn: #d97706;
+    --danger: #dc2626; --chip: #f1f5f9;
+}
+@media (prefers-color-scheme: dark) {
+    :root {
+        --bg: #0f172a; --card: #1e293b; --text: #e2e8f0; --muted: #94a3b8;
+        --line: #334155; --primary: #60a5fa; --ok: #4ade80; --warn: #fbbf24;
+        --danger: #f87171; --chip: #334155;
+    }
+}
+* { box-sizing: border-box; }
+body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    font-size: 15px; line-height: 1.5;
+}
+.db-page { padding: 12px; }
+header { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 14px; }
+h1 { font-size: 18px; margin: 0; flex: 1; min-width: 180px; }
+h2 { font-size: 15px; margin: 0 0 10px; }
+select, input, button {
+    font: inherit; padding: 7px 10px; border-radius: 8px;
+    border: 1px solid var(--line); background: var(--card); color: var(--text);
+}
+button { cursor: pointer; }
+button.primary { background: var(--primary); color: #fff; border-color: transparent; }
+.card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 14px; margin-bottom: 12px; }
+.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 10px; margin-bottom: 12px; }
+.tile { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 12px; }
+.tile b { display: block; font-size: 24px; line-height: 1.2; }
+.tile span { font-size: 12px; color: var(--muted); }
+.tile.warn b { color: var(--warn); }
+.tile.danger b { color: var(--danger); }
+table { width: 100%; border-collapse: collapse; font-size: 14px; }
+th, td { text-align: left; padding: 7px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font-size: 12px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: .03em; }
+tbody tr:last-child td { border-bottom: none; }
+tr.clickable { cursor: pointer; }
+tr.clickable:hover td { background: var(--chip); }
+.scroll { overflow-x: auto; }
+.chip { display: inline-block; padding: 2px 8px; border-radius: 999px; background: var(--chip); font-size: 12px; margin: 1px 2px 1px 0; }
+.muted { color: var(--muted); font-size: 13px; }
+.bar { height: 6px; border-radius: 3px; background: var(--chip); overflow: hidden; min-width: 60px; }
+.bar i { display: block; height: 100%; background: var(--ok); }
+.bar.low i { background: var(--danger); }
+.bar.mid i { background: var(--warn); }
+dialog {
+    border: none; border-radius: 14px; padding: 0; max-width: 560px; width: calc(100% - 24px);
+    background: var(--card); color: var(--text);
+}
+dialog::backdrop { background: rgba(0,0,0,.5); }
+.dlg-head { padding: 14px; border-bottom: 1px solid var(--line); display: flex; gap: 10px; align-items: flex-start; }
+.dlg-body { padding: 14px; max-height: 70vh; overflow-y: auto; }
+.kv { display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; font-size: 14px; }
+.kv dt { color: var(--muted); }
+.kv dd { margin: 0; }
+.err { color: var(--danger); }
+</style>
+</head>
+<body>
+<main class="db-page">
+
+<header>
+    <h1>📊 Преглед на базата</h1>
+    <select id="yearSel" onchange="loadAll()"></select>
+    <button class="primary" onclick="loadAll()">↻ Освежи</button>
+</header>
+
+<div id="err" class="card err" style="display:none"></div>
+
+<div class="tiles" id="tiles"></div>
+
+<div class="card">
+    <h2>⚠️ Ученици кај двајца терапевти во ист термин</h2>
+    <div id="conflicts" class="scroll">…</div>
+</div>
+
+<div class="card">
+    <h2>🗓️ Без закажан термин</h2>
+    <div id="unscheduled">…</div>
+</div>
+
+<div class="card">
+    <h2>👩‍⚕️ Терапевти</h2>
+    <div id="therapists" class="scroll">…</div>
+</div>
+
+<div class="card">
+    <h2>🎓 Ученици <span class="muted" id="studentCount"></span></h2>
+    <input id="q" placeholder="Пребарај по име или одделение…" oninput="renderStudents()" style="width:100%;margin-bottom:10px">
+    <div id="students" class="scroll">…</div>
+</div>
+
+<p class="muted">Само за читање. Уредувањето останува во апликациите — тие снимаат локално и праќаат на серверот кога ќе избереш „Зачувај на сервер“.</p>
+
+<dialog id="dlg">
+    <div class="dlg-head">
+        <div style="flex:1">
+            <strong id="dlgName"></strong>
+            <div class="muted" id="dlgSub"></div>
+        </div>
+        <button onclick="document.getElementById('dlg').close()">✕</button>
+    </div>
+    <div class="dlg-body" id="dlgBody"></div>
+</dialog>
+</main>
+
+<script>
+let STUDENTS = [];
+
+const esc = (s) => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const year = () => document.getElementById('yearSel').value;
+
+// Оваа страница чита ЖИВО од базата, за разлика од апликациите кои држат своја
+// копија. Затоа ѝ треба адресата на серверот. Кога е отворена преку серверот,
+// адресата е очигледна. Кога е отворена од објавената копија на GitHub Pages,
+// таму нема сервер — тогаш се користи адресата што е веќе внесена во
+// „Локален сервер" во Распореди, зашто localStorage е заеднички за сајтот.
+const SRV_URL_KEY = 'local_server_url_v1';
+
+function servedByApi() {
+    const h = location.hostname;
+    return /^(localhost|127\.0\.0\.1)$/.test(h) || /\.ts\.net$/.test(h);
+}
+
+function serverBase() {
+    if (servedByApi()) return '';                       // ист origin — релативно
+    const saved = localStorage.getItem(SRV_URL_KEY);
+    return saved ? saved.replace(/\/+$/, '') : '';
+}
+
+function setServerBase(value) {
+    // Адреса без шема е релативна за прелистувачот, па барањето оди кај сајтот
+    // на кој е отворена страницата — од GitHub Pages тоа враќа 404 што личи на
+    // угаснат сервер. Шемата се додава овде: https, освен за localhost.
+    let url = String(value || '').trim().replace(/\/+$/, '');
+    if (url && !/^https?:\/\//i.test(url)) {
+        url = (/^(localhost|127\.0\.0\.1)(:|$)/i.test(url) ? 'http://' : 'https://') + url;
+    }
+    if (url) localStorage.setItem(SRV_URL_KEY, url);
+    else localStorage.removeItem(SRV_URL_KEY);
+    location.reload();
+}
+
+async function api(path) {
+    const res = await fetch(serverBase() + path, { cache: 'no-store' });
+    if (!res.ok) throw new Error(path + ' → ' + res.status);
+    return res.json();
+}
+
+function showError(e) {
+    const el = document.getElementById('err');
+    el.style.display = 'block';
+    const detail = { state: 'error', text: 'Нема врска со базата' };
+    window.__MTB_DATA_STATE__ = detail;
+    window.dispatchEvent(new CustomEvent('mtb:data-state', { detail }));
+
+    // Кога страницата е сервирана од самиот сервер, адресата не е прашање —
+    // серверот е таму или го нема.
+    if (servedByApi()) {
+        el.textContent = 'Серверот не одговара: ' + e.message + '. Дали е стартуван?';
+        return;
+    }
+
+    const configured = serverBase();
+
+    // Сè друго значи: страницата е отворена од друго место (пр. GitHub Pages),
+    // каде нема сервер. Тогаш адресата е секогаш дел од одговорот — и кога не е
+    // внесена, и кога е внесена но не се јавува. „Серверот не одговара" без да
+    // се каже КОЈ сервер е порака со која не може да се направи ништо: не се
+    // знае дали машината е угасена или адресата е погрешна.
+    const head = configured
+        ? '<div style="margin-bottom:10px;">Не добивам одговор од <code>' + esc(configured) + '</code>' +
+          ' (' + esc(e.message) + ').<br>Или таа машина е угасена, или адресата е друга. ' +
+          'Провери ја адресата:</div>'
+        : '<div style="margin-bottom:10px;">Оваа страница чита директно од базата, а е отворена од ' +
+          '<code>' + esc(location.hostname) + '</code> каде нема сервер. Внеси ја адресата на твојот сервер:</div>';
+
+    el.innerHTML = head +
+        '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">' +
+        '<input id="srvUrlInput" style="flex:1;min-width:260px;padding:8px 10px;border:1px solid var(--line);' +
+        'border-radius:8px;background:var(--card);color:var(--text);" placeholder="https://zenpc.tailXXXXX.ts.net">' +
+        '<button class="primary" id="srvUrlSave">Зачувај и обиди се повторно</button>' +
+        '</div>' +
+        '<div style="margin-top:10px;color:var(--muted);font-size:13px;">' +
+        'Истата адреса што ја користат Распореди и S-Dnevnik — се памети на овој уред. ' +
+        'Ако имаш повеќе сервери, внеси го оној што работи сега.</div>';
+
+    const input = document.getElementById('srvUrlInput');
+    input.value = configured;
+    document.getElementById('srvUrlSave').onclick = () => setServerBase(input.value);
+    input.addEventListener('keydown', (ev) => { if (ev.key === 'Enter') setServerBase(input.value); });
+}
+
+async function loadYears() {
+    const years = await api('/api/years');
+    const sel = document.getElementById('yearSel');
+    if (sel.options.length === 0) {
+        sel.innerHTML = years.map(y =>
+            `<option value="${esc(y.label)}"${y.is_current ? ' selected' : ''}>${esc(y.label)}${y.is_current ? ' (тековна)' : ''} — ${y.roster} ученици</option>`
+        ).join('');
+    }
+}
+
+async function loadAll() {
+    const loading = { state: 'loading', text: 'Се вчитува прегледот…' };
+    window.__MTB_DATA_STATE__ = loading;
+    window.dispatchEvent(new CustomEvent('mtb:data-state', { detail: loading }));
+    try {
+        document.getElementById('err').style.display = 'none';
+        await loadYears();
+        const y = '?year=' + encodeURIComponent(year());
+        const [stats, conflicts, therapists, students] = await Promise.all([
+            api('/api/stats' + y), api('/api/conflicts' + y),
+            api('/api/therapists' + y), api('/api/students' + y)
+        ]);
+        STUDENTS = students;
+        renderTiles(stats);
+        renderConflicts(conflicts);
+        renderTherapists(therapists);
+        renderStudents();
+        renderUnscheduled();
+        const ready = { state: 'readonly', text: 'Само читање · вчитано од базата' };
+        window.__MTB_DATA_STATE__ = ready;
+        window.dispatchEvent(new CustomEvent('mtb:data-state', { detail: ready }));
+    } catch (e) { showError(e); }
+}
+
+function renderTiles(s) {
+    const tile = (v, label, cls = '') => `<div class="tile ${cls}"><b>${v}</b><span>${label}</span></div>`;
+    const unscheduled = STUDENTS.filter(x => x.terms_per_week === 0).length;
+    document.getElementById('tiles').innerHTML =
+        tile(STUDENTS.length, 'ученици') +
+        tile(s.therapists, 'терапевти') +
+        tile(s.slots, 'термини неделно') +
+        tile(s.double_booked, 'двојни термини', s.double_booked ? 'danger' : '') +
+        tile(unscheduled, 'без термин', unscheduled ? 'warn' : '') +
+        tile(s.attendance_marks, 'записи присуство');
+}
+
+function renderConflicts(rows) {
+    document.getElementById('conflicts').innerHTML = rows.length === 0
+        ? '<p class="muted">Нема двојни термини. 👍</p>'
+        : `<table><thead><tr><th>Ден</th><th>Термин</th><th>Ученик</th><th>Терапевти</th></tr></thead><tbody>` +
+          rows.map(r => `<tr><td>${esc(r.day)}</td><td>${esc(r.time_slot)}</td><td>${esc(r.student)}</td><td>${esc(r.therapists)}</td></tr>`).join('') +
+          '</tbody></table>';
+}
+
+function renderUnscheduled() {
+    const list = STUDENTS.filter(s => s.terms_per_week === 0);
+    document.getElementById('unscheduled').innerHTML = list.length === 0
+        ? '<p class="muted">Сите ученици имаат барем еден термин.</p>'
+        : list.map(s => `<span class="chip">${esc(s.name)}</span>`).join('');
+}
+
+function renderTherapists(rows) {
+    document.getElementById('therapists').innerHTML =
+        `<table><thead><tr><th>Терапевт</th><th>Ученици</th><th>Термини/недела</th></tr></thead><tbody>` +
+        rows.map(t => `<tr><td>${esc(t.name)}</td><td>${t.caseload}</td><td>${t.terms_per_week}</td></tr>`).join('') +
+        '</tbody></table>';
+}
+
+function renderStudents() {
+    const q = document.getElementById('q').value.trim().toLocaleLowerCase('mk-MK');
+    const list = STUDENTS.filter(s =>
+        !q || String(s.name).toLocaleLowerCase('mk-MK').includes(q) || String(s.grade || '').toLocaleLowerCase('mk-MK').includes(q));
+    document.getElementById('studentCount').textContent = `(${list.length} од ${STUDENTS.length})`;
+    document.getElementById('students').innerHTML =
+        `<table><thead><tr><th>Име</th><th>Одд.</th><th>Термини</th><th>Кабинети</th></tr></thead><tbody>` +
+        list.map(s => `<tr class="clickable" onclick="openStudent('${esc(s.public_id)}')">
+            <td>${esc(s.name)}${s.has_diary ? ' <span class="chip">дневник</span>' : ''}</td>
+            <td>${esc(s.grade || '—')}</td>
+            <td>${s.terms_per_week}</td>
+            <td>${(s.therapists || []).map(t => `<span class="chip">${esc(t)}</span>`).join('') || '<span class="muted">—</span>'}</td>
+        </tr>`).join('') + '</tbody></table>';
+}
+
+async function openStudent(publicId) {
+    const dlg = document.getElementById('dlg');
+    document.getElementById('dlgName').textContent = 'Се вчитува…';
+    document.getElementById('dlgSub').textContent = '';
+    document.getElementById('dlgBody').innerHTML = '';
+    dlg.showModal();
+    try {
+        const s = await api('/api/students/' + encodeURIComponent(publicId));
+        document.getElementById('dlgName').textContent = s.name;
+        document.getElementById('dlgSub').textContent =
+            [s.grade, s.plan ? 'план: ' + s.plan : null, s.active ? null : 'неактивен'].filter(Boolean).join(' • ');
+
+        const a = s.attendance || {};
+        const total = (a.present || 0) + (a.absent || 0);
+        const pct = total ? Math.round(100 * a.present / total) : null;
+        const barCls = pct == null ? '' : pct < 50 ? 'low' : pct < 75 ? 'mid' : '';
+
+        let html = '';
+        if (total) {
+            html += `<h2>Присуство</h2><div class="kv">
+                <dt>Присутен</dt><dd>${a.present} од ${total} (${pct}%)</dd>
+                <dt>Период</dt><dd>${esc(a.first)} → ${esc(a.last)}</dd></div>
+                <div class="bar ${barCls}" style="margin:8px 0 14px"><i style="width:${pct}%"></i></div>`;
+        }
+        if (s.schedule.length) {
+            html += `<h2>Термини</h2><div class="scroll"><table><tbody>` +
+                s.schedule.map(t => `<tr><td>${esc(t.day)}</td><td>${esc(t.time_slot)}</td><td>${esc(t.therapist)}</td></tr>`).join('') +
+                `</tbody></table></div>`;
+        }
+        if (s.planProgress.length) {
+            html += '<h2 style="margin-top:14px">Напредок по план</h2>';
+            for (const p of s.planProgress) {
+                const w = p.in_plan ? Math.round(100 * p.completed / p.in_plan) : 0;
+                html += `<div style="margin-bottom:10px"><div>${esc(p.plan)} — ${p.completed}/${p.in_plan}
+                    <span class="muted">последно ${esc(p.last_worked || '—')}</span></div>
+                    <div class="bar"><i style="width:${w}%"></i></div></div>`;
+            }
+        }
+        if (s.assessments.length) {
+            html += `<h2 style="margin-top:14px">Проценки</h2><table><thead><tr><th>Датум</th><th>Период</th><th>Просек</th></tr></thead><tbody>` +
+                s.assessments.map(x => `<tr><td>${esc(x.date)}</td><td>${esc(x.period || '')}</td><td>${esc(x.average ?? '')}</td></tr>`).join('') +
+                '</tbody></table>';
+        }
+        if (s.enrollments.length > 1) {
+            html += `<h2 style="margin-top:14px">Учебни години</h2>` +
+                s.enrollments.map(e => `<span class="chip">${esc(e.label)}: ${esc(e.grade || '—')}</span>`).join('');
+        }
+        document.getElementById('dlgBody').innerHTML = html || '<p class="muted">Нема поврзани податоци.</p>';
+    } catch (e) {
+        document.getElementById('dlgBody').innerHTML = '<p class="err">' + esc(e.message) + '</p>';
+    }
+}
+
+loadAll();
+</script>
+<script src="app-navigation.js"></script>
+</body>
+</html>

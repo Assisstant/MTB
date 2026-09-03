@@ -1,0 +1,151 @@
+# Canonical application contract
+
+This file is the short, authoritative product contract for the MTB web suite.
+Read it before changing page structure, navigation, schedule behaviour, storage,
+server selection, or database sync. Longer design history belongs in
+`AGENTS.md`; when history and this contract disagree, this contract wins.
+
+## One product, one schedule
+
+The user works in one connected MTB suite. The suite has several task screens,
+but it must not present parallel versions of the same task.
+
+- `start.html` is the entry point and server chooser.
+- `app-navigation.js` is the shared movement and status bar.
+- `RasporediFusion.html` is the only user-facing schedule application.
+- `Rasporedi.html` is a compatibility and recovery file for legacy JSON. Keep
+  it loadable, but never list it in `start.html`, the shared navigation, or the
+  EduHub application grid.
+- Do not create another top-level schedule HTML file to try a visual redesign.
+  Improve `RasporediFusion.html` in place. A new schedule entry point requires
+  an explicit product decision and an update to this contract and its tests.
+
+- `AkciskiPlan.html` is the only pupil-development-record screen. It renders
+  both the prescribed евидентен лист and the category-linked action plan. It
+  is database-first and keeps no copy of a record in the browser; do not add a
+  second page or a local fallback for either document.
+
+`RasporediFusion.html` intentionally contains its own HTML, CSS, and browser
+JavaScript. Its PostgreSQL API remains in `server/`; copying the appearance
+without that API layer is not a functional application.
+
+## Required schedule behaviour
+
+The canonical schedule must retain all of these capabilities:
+
+- read years from `/api/years`;
+- read the selected year's students, caseloads, and therapists from
+  `/api/roster`;
+- read sessions from `/api/schedule/sessions`;
+- write one visible 40-minute block through `/api/schedule/block` using stable
+  student and therapist ids plus the expected previous value;
+- continue reading and editing compatible 20- or 40-minute rows through
+  `/api/schedule/session`;
+- represent one pupil as one 40-minute session and two pupils as ordered
+  20-minute halves;
+- refuse stale or conflicting writes visibly, never silently replace them;
+- provide day and therapist-week views, therapist focus, print, JPG export,
+  light/dark theme, and usable desktop/mobile layouts;
+- give the schedule the full workspace width and show every selected pupil's
+  full label without ellipsis; the native select remains the editor and opens
+  when its visible slot is clicked;
+- keep the caseload outside the schedule grid in a separate
+  `Ученици по терапевт` tab, with sequential row numbers and filters for
+  enrolment kind and scheduled/unscheduled pupils;
+- show server-confirmed save state and the server identity in the shared bar.
+
+There is no browser-only fallback inside Fusion. If PostgreSQL cannot confirm a
+write, the screen must report failure instead of pretending the change is safe.
+
+## Data and history
+
+The selected school year's enrolment decides who belongs to a historical
+roster and schedule. A student's present-day global `active` flag may filter
+the current year, but it must never hide a valid enrolment or schedule slot in
+an archived year. Old rows are history, not today's waiting list.
+
+Do not use names as row identity. Reads and writes use stable public ids;
+ambiguous identity is reported and never guessed. An empty payload never erases
+stored data. Real names remain local and must not enter this public repository.
+
+## Server identity and machine transfer
+
+WORK and HOME are logical installation roles. Their Windows hostname can be
+identical, so hostname is display information only and must never choose the
+role or sync direction. Each machine's ignored `server/.env` must explicitly
+set `SYNC_NAME=work` or `SYNC_NAME=home`; `/api/health` is the source displayed
+by the UI.
+
+The two PostgreSQL databases are independent. Transfer is the manual verified
+snapshot workflow in `docs/MANUAL-DB-SYNC.md`: export to separate pCloud
+folders, compare, then accept one exact snapshot id. Startup never restores a
+peer database and full databases are never row-merged.
+
+## The pupil development record
+
+`AkciskiPlan.html` writes `evidence_*` rows through `/api/evidence/*`. Its
+required behaviour:
+
+- sign in as one of the database's therapists or teachers, and stamp every
+  write with that name — the record is filled by several specialists;
+- write one score at a time as (sheet, item, period), passing the expected
+  previous value and refusing a stale write visibly;
+- read the pupil's class from the selected year's enrolment and never store a
+  second copy of it;
+- treat the sections, their items and the year's assessment columns as data the
+  page can edit, hiding rather than deleting anything that already carries
+  marks;
+- delete a SHEET only, never a person, and say which of the two it is doing;
+- print one prescribed Word document per pupil or for the whole year, with one
+  column per active period of that year;
+- print the selected pupil's action plan as a separate Word document containing
+  only its included category sections, never the diagnosis, sensory appendices
+  or contacts from the prescribed form.
+
+The sign-in is a staff-room lock and an authorship stamp. It is not access
+control, it must never be described as such, and no part of the suite may rely
+on it to keep anything secret.
+
+## Definition of done
+
+A schedule or navigation change is not complete until all of these hold:
+
+1. `npm test` passes, including `app-contract.test.ts`.
+2. `npm run test:fusion` proves database rows and historical visibility.
+3. `npm run test:fusion-ui` proves the real browser workflow and layout.
+4. `npm run test:navigation` proves the connected suite and status bar.
+5. `npm run check:names` confirms that no local names entered Git.
+6. For an evidence-record change, `npm run test:evidence` and
+   `npm run test:evidence-ui` pass. For categories, ownership or the action
+   plan, `npm run test:categories` passes too.
+7. The historical production count is compared before and after the change;
+   a UI count drop must be explained before any restore or delete is attempted.
+
+## Two catalogues, one engine
+
+`AkciskiPlan.html` renders TWO documents out of one set of tables. Sections
+carry a `catalog`:
+
+- `prescribed` — the евидентен лист itself. Always on every sheet, never
+  switchable, and the only thing the prescribed form may print. Adding cabinet
+  goals here is forbidden: within a year nobody would be able to tell which
+  sections the Правилник requires.
+- `action` — the quarterly action plan. Each such section names one specialist
+  category. It appears on a sheet when the pupil is on the caseload of a
+  therapist holding that category, or in a class assigned to a teacher holding
+  it, in that school year.
+
+The category is recorded per school year on `therapist_years` or
+`teacher_years`, and is assigned only in `Podatoci.html`. Do not add a second
+screen that assigns it, and do not move it onto the person row — an archived
+plan must keep saying what role the person held then. The category holder may
+create its action section and enter its goals in `AkciskiPlan.html` settings;
+the application must never invent clinical content.
+
+An action section's scale may change only before it carries marks. A section
+excluded from one pupil's plan is not writable even while catalogue-edit mode
+keeps it visible. Prescribed sections stay shared and are not category-gated.
+
+Manual overrides are stored as deviations only. Never persist the full section
+list for a sheet: that freezes the sheet at creation and stops it following the
+caseload.

@@ -1,0 +1,789 @@
+<!DOCTYPE html>
+<html lang="mk">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Настава — уредување</title>
+<!--
+    Уредување на распоредот на настава, час по час, во текот на целата година.
+
+    ЗОШТО Е ОДВОЕНА СТРАНИЦА. `Nastava.html` не запишува ништо — нема список,
+    нема localStorage, нема синхронизација — па може да ѝ се даде на наставник
+    или на директор. Тоа својство се губи во моментот кога истата страница може
+    и да менува. Затоа уредувањето е тука, на посебна адреса, а прегледот
+    останува непроменет.
+
+    НЕМА ЛОКАЛНА КОПИЈА, НАМЕРНО. Распоредот на настава го чува само базата.
+    Двете апликации (Rasporedi, S-Dnevnik) чуваат своја копија затоа што имаат
+    историски причини за тоа; овде такво нешто никогаш не постоело, па секој
+    запис оди право на серверот и ако не помине — тоа се кажува, не се крие.
+    Ништо не се чува „за подоцна".
+
+    Пресметките (кој термин со кој час се преклопува) не се тука. Тие се на
+    серверот, во `lib/crossing.ts`, и оваа страница воопшто не ги знае.
+-->
+<style>
+    :root {
+        --bg: #f5f7fb;
+        --card: #ffffff;
+        --text: #1f2430;
+        --muted: #6b7280;
+        --border: #e2e8f0;
+        --primary: #5b6fd8;
+        --primary-dark: #4356b8;
+        --edit: #2f855a;
+        --edit-dark: #276749;
+        --warn: #b7791f;
+        --warn-bg: #fff8e6;
+        --danger: #c53030;
+        --danger-bg: #fff5f5;
+        --ok: #2f855a;
+        --shadow: 0 1px 3px rgba(0, 0, 0, .07);
+        --filled: #eef2fd;
+    }
+    @media (prefers-color-scheme: dark) {
+        :root {
+            --bg: #14172a;
+            --card: #1c2138;
+            --text: #e6e9f2;
+            --muted: #9aa2b8;
+            --border: #333a5c;
+            --primary: #6d80e4;
+            --primary-dark: #5a6cd0;
+            --edit: #48a67a;
+            --edit-dark: #37855f;
+            --warn: #e0b155;
+            --warn-bg: #33280f;
+            --danger: #f08a8a;
+            --danger-bg: #35191b;
+            --ok: #7fd0a5;
+            --shadow: 0 1px 3px rgba(0, 0, 0, .35);
+            --filled: #232a49;
+        }
+    }
+
+    * { box-sizing: border-box; }
+    body {
+        margin: 0; background: var(--bg); color: var(--text);
+        font-family: "Segoe UI", system-ui, -apple-system, sans-serif; font-size: 15px;
+    }
+    header {
+        background: linear-gradient(135deg, var(--edit), var(--edit-dark));
+        color: #fff; padding: 16px 22px; display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+    }
+    header h1 { margin: 0; font-size: 20px; font-weight: 700; }
+    header .sub { font-size: 13px; opacity: .85; }
+    header .links { margin-left: auto; display: flex; gap: 14px; }
+    header a { color: #fff; opacity: .9; font-size: 13px; }
+
+    main { padding: 18px 22px 60px; max-width: 1700px; margin: 0 auto; }
+    .panel {
+        background: var(--card); border: 1px solid var(--border); border-radius: 10px;
+        padding: 16px 18px; box-shadow: var(--shadow); margin-bottom: 16px;
+    }
+    .panel > h2 { margin: 0 0 4px; font-size: 16px; }
+    .panel > p.hint { margin: 0 0 12px; font-size: 13px; color: var(--muted); }
+
+    .controls { display: flex; flex-wrap: wrap; gap: 14px; align-items: flex-end; }
+    .field { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--muted); }
+    .field select, .field input {
+        padding: 8px 10px; border: 1px solid var(--border); border-radius: 6px;
+        background: var(--card); color: var(--text); font-size: 14px; min-width: 170px;
+    }
+    .field input.narrow { min-width: 90px; }
+    .btn {
+        padding: 9px 16px; border: 0; border-radius: 6px; cursor: pointer;
+        background: var(--edit); color: #fff; font-size: 14px; font-weight: 600;
+    }
+    .btn.soft { background: transparent; color: var(--text); border: 1px solid var(--border); font-weight: 500; }
+    .btn.danger { background: var(--danger); }
+    .btn:disabled { opacity: .5; cursor: not-allowed; }
+    .status { font-size: 13px; color: var(--muted); }
+    .status.ok { color: var(--ok); }
+    .status.warn { color: var(--warn); }
+    .status.error { color: var(--danger); }
+
+    .scroll { overflow-x: auto; }
+    table.grid { border-collapse: separate; border-spacing: 0; width: 100%; font-size: 13px; }
+    table.grid th, table.grid td { border-bottom: 1px solid var(--border); padding: 0; text-align: left; }
+    table.grid thead th {
+        position: sticky; top: 0; z-index: 2; background: var(--edit); color: #fff;
+        font-weight: 600; white-space: nowrap; padding: 7px 9px;
+    }
+    table.grid thead th small { display: block; font-weight: 400; opacity: .82; font-size: 11px; }
+    table.grid tbody th {
+        position: sticky; left: 0; z-index: 1; background: var(--card);
+        font-weight: 700; white-space: nowrap; padding: 7px 9px;
+    }
+    td.cell { cursor: pointer; }
+    td.cell .box { padding: 6px 8px; min-height: 42px; border-radius: 4px; }
+    td.cell .subject { font-weight: 600; }
+    td.cell .teacher { display: block; font-size: 11px; color: var(--muted); }
+    td.cell.has .box { background: var(--filled); }
+    td.cell.empty .box { color: var(--muted); }
+    td.cell.clash .box { background: var(--danger-bg); }
+    td.cell.selected .box { outline: 2px solid var(--edit); outline-offset: -2px; }
+    td.cell:hover .box { box-shadow: inset 0 0 0 1px var(--edit); }
+
+    .editor { display: none; }
+    .editor.open { display: block; }
+    .editor h2 .who { color: var(--muted); font-weight: 400; }
+    .editor .row { display: flex; gap: 14px; align-items: flex-end; flex-wrap: wrap; }
+
+    table.list { border-collapse: collapse; width: 100%; font-size: 13px; }
+    table.list th, table.list td { border-bottom: 1px solid var(--border); padding: 6px 9px; text-align: left; }
+    table.list input, table.list select {
+        padding: 5px 7px; border: 1px solid var(--border); border-radius: 5px;
+        background: var(--card); color: var(--text); font-size: 13px; width: 100%;
+    }
+    table.list td.act { width: 1%; white-space: nowrap; }
+    table.list .btn { padding: 5px 10px; font-size: 12px; }
+
+    details.section > summary { cursor: pointer; font-size: 16px; font-weight: 700; margin-bottom: 4px; }
+    .caution { background: var(--warn-bg); border: 1px solid var(--warn); border-radius: 8px; padding: 10px 12px; font-size: 13px; margin-bottom: 12px; }
+    .offline { background: var(--warn-bg); border: 1px solid var(--warn); border-radius: 8px; padding: 14px 16px; }
+    .offline h3 { margin: 0 0 6px; font-size: 15px; }
+    .offline code { font-family: Consolas, monospace; font-size: 13px; }
+    .report { font-size: 13px; white-space: pre-wrap; margin: 10px 0 0; }
+    .clash-list { font-size: 13px; margin: 0; padding-left: 18px; }
+</style>
+</head>
+<body>
+<header>
+    <h1>✏️ Настава — уредување</h1>
+    <span class="sub">распоредот на часови, час по час, во текот на целата година</span>
+</header>
+
+<main>
+    <div class="panel">
+        <div class="controls">
+            <label class="field">
+                <span>Учебна година</span>
+                <select id="year" disabled></select>
+            </label>
+            <label class="field">
+                <span>Ден</span>
+                <select id="day"></select>
+            </label>
+            <label class="field" style="flex-direction: row; align-items: center; gap: 6px;">
+                <input type="checkbox" id="onlyUsed" style="min-width: auto;">
+                <span>само одделенија со часови</span>
+            </label>
+            <button class="btn soft" id="refresh">↻ Освежи</button>
+            <span class="status" id="status"></span>
+        </div>
+    </div>
+
+    <div class="panel">
+        <div class="scroll"><div id="grid"></div></div>
+    </div>
+
+    <div class="panel editor" id="editor"></div>
+
+    <div class="panel">
+        <details class="section" id="copySection">
+            <summary>📋 Земи го распоредот од друга година</summary>
+            <p class="hint">
+                Распоредот во септември е најчесто ланскиот со неколку измени. Копирај го, па
+                поправај го рачно — одделенијата ги задржуваат имињата (IV-б останува IV-б,
+                зашто распоредот припаѓа на одделението, не на децата што поминаа погоре).
+            </p>
+            <div class="controls">
+                <label class="field">
+                    <span>Од година</span>
+                    <select id="copyFrom"></select>
+                </label>
+                <label class="field" style="flex-direction: row; align-items: center; gap: 6px;">
+                    <input type="checkbox" id="copyReplace" style="min-width: auto;">
+                    <span>замени го постојниот распоред</span>
+                </label>
+                <button class="btn soft" id="copyCheck">Прикажи што ќе се случи</button>
+                <button class="btn" id="copyApply" disabled>Копирај сега</button>
+            </div>
+            <p class="report" id="copyReport"></p>
+        </details>
+    </div>
+
+    <div class="panel">
+        <details class="section" id="classSection">
+            <summary>🏫 Одделенија</summary>
+            <p class="hint">
+                Одделение не може да се брише: архивските години покажуваат на истиот ред и
+                мора да се читаат и понатаму. За да го тргнеш од оваа година, испразни му ги часовите.
+            </p>
+            <div class="controls" style="margin-bottom: 12px;">
+                <label class="field">
+                    <span>Ново одделение</span>
+                    <input id="newClass" placeholder="на пр. IV-б">
+                </label>
+                <button class="btn" id="addClass">+ Додај</button>
+            </div>
+            <div class="scroll"><div id="classes"></div></div>
+        </details>
+    </div>
+
+    <div class="panel">
+        <details class="section" id="teacherSection">
+            <summary>👩‍🏫 Наставници</summary>
+            <p class="hint">
+                Работната книга на училиштето не го кажува предметот на предметен наставник што
+                води и одделение — тоа се внесува тука еднаш и повторен увоз не го брише.
+            </p>
+            <div class="controls" style="margin-bottom: 12px;">
+                <label class="field">
+                    <span>Име и презиме</span>
+                    <input id="newTeacher" placeholder="ново име">
+                </label>
+                <label class="field">
+                    <span>Вид</span>
+                    <select id="newTeacherKind">
+                        <option value="odd">одделенски</option>
+                        <option value="pred" selected>предметен</option>
+                    </select>
+                </label>
+                <label class="field">
+                    <span>Предмет</span>
+                    <input id="newTeacherSubject" class="narrow" placeholder="на пр. АНГ.">
+                </label>
+                <button class="btn" id="addTeacher">+ Додај</button>
+            </div>
+            <div class="scroll"><div id="teachers"></div></div>
+        </details>
+    </div>
+
+    <div class="panel">
+        <details class="section" id="bellSection">
+            <summary>🔔 Ѕвона</summary>
+            <div class="caution">
+                Ѕвоната важат само за <b>избраната учебна година</b>. Архивските години ги
+                задржуваат своите времиња. Целата пресметка „кој час се пропушта" се врти
+                околу овие бројки.
+            </div>
+            <div class="scroll"><div id="bells"></div></div>
+        </details>
+    </div>
+
+    <div class="panel" id="clashPanel" style="display:none;">
+        <h2>⚠️ Судири</h2>
+        <p class="hint">Едно одделение со двајца наставници во ист час. Избриши го едниот час во табелата горе.</p>
+        <ul class="clash-list" id="clashes"></ul>
+    </div>
+</main>
+
+<script>
+(function () {
+    'use strict';
+
+    const DAYS = ['понеделник', 'вторник', 'среда', 'четврток', 'петок'];
+
+    let data = null;          // /api/teaching/timetable
+    let years = [];
+    let selected = null;      // { day, ordinal, class }
+    // Only the newest request may draw: changing the year while the first
+    // fetch is still running otherwise leaves the old year's grid on screen
+    // under the new year's label. The read-only page learned this the hard way.
+    let ticket = 0;
+
+    const el = (id) => document.getElementById(id);
+    const esc = (v) => String(v == null ? '' : v)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    const tidy = (v) => String(v == null ? '' : v).replace(/\s+/g, ' ').trim();
+
+    function status(text, kind) {
+        const node = el('status');
+        node.textContent = text || '';
+        node.className = 'status' + (kind ? ' ' + kind : '');
+        let dataState = kind === 'error' ? 'error' : kind === 'warn' ? 'warning' : kind === 'ok' ? 'synced' : 'synced';
+        if (/запишув|бришам/i.test(text || '')) dataState = 'saving';
+        else if (/вчитув|проверув/i.test(text || '')) dataState = 'loading';
+        const detail = { state: dataState, text: text || 'Податоците се вчитани од базата' };
+        window.__MTB_DATA_STATE__ = detail;
+        window.dispatchEvent(new CustomEvent('mtb:data-state', { detail }));
+    }
+
+    /**
+     * The server answers in English because the server is English (по договор).
+     * The staff room reads Macedonian, so the SENTENCE is owned here — and the
+     * page says what to do next, not just what went wrong.
+     */
+    function saySorry(res, body) {
+        const raw = (body && (body.error || body.message)) || ('HTTP ' + (res ? res.status : '?'));
+        if (res && res.status === 409 && body && body.here && Array.isArray(body.here)) {
+            return 'Во овој час веќе стојат два часа за истото одделение. Избриши го едниот прво.';
+        }
+        if (res && res.status === 409 && /not what you expected/.test(raw)) {
+            return 'Некој друг го смени овој час во меѓувреме. Освежи ја страницата и погледни што стои сега.';
+        }
+        if (res && res.status === 404 && /no such class/.test(raw)) {
+            return 'Тоа одделение не постои. Додај го прво под „Одделенија".';
+        }
+        if (res && res.status === 404 && /no such teacher/.test(raw)) {
+            return 'Тој наставник не постои. Додај го прво под „Наставници".';
+        }
+        if (res && res.status === 404 && /no such school year/.test(raw)) {
+            return 'Таа учебна година не постои во базата.';
+        }
+        return raw;
+    }
+
+    async function api(method, path, body) {
+        const res = await fetch(path, {
+            method,
+            cache: 'no-store',
+            headers: body === undefined ? undefined : { 'Content-Type': 'application/json' },
+            body: body === undefined ? undefined : JSON.stringify(body)
+        });
+        let payload = null;
+        try { payload = await res.json(); } catch (e) { /* не-JSON */ }
+        if (!res.ok) {
+            const err = new Error(saySorry(res, payload));
+            err.payload = payload;
+            err.status = res.status;
+            throw err;
+        }
+        return payload;
+    }
+
+    function fillDays() {
+        const select = el('day');
+        if (select.options.length) return;
+        DAYS.forEach((d) => {
+            const opt = document.createElement('option');
+            opt.value = d;
+            opt.textContent = d.charAt(0).toUpperCase() + d.slice(1);
+            select.appendChild(opt);
+        });
+        const today = new Date().getDay() - 1;
+        select.value = DAYS[today >= 0 && today < DAYS.length ? today : 0];
+    }
+
+    async function fillYears() {
+        const select = el('year');
+        if (select.options.length) return;
+        years = await api('GET', '/api/years');
+        const requested = new URLSearchParams(window.location.search).get('year');
+        const copyFrom = el('copyFrom');
+        years.forEach((year) => {
+            const opt = document.createElement('option');
+            opt.value = year.label;
+            opt.textContent = year.label + (year.is_current ? ' · тековна' : ' · архива');
+            select.appendChild(opt);
+            copyFrom.appendChild(opt.cloneNode(true));
+        });
+        const fallback = years.find((year) => year.is_current) || years[0];
+        select.value = years.some((year) => year.label === requested) ? requested : (fallback && fallback.label);
+        select.disabled = !select.options.length;
+        const other = years.find((y) => y.label !== select.value);
+        if (other) copyFrom.value = other.label;
+    }
+
+    async function load(keepSelection) {
+        fillDays();
+        const mine = ++ticket;
+        status('вчитувам…');
+        try {
+            await fillYears();
+            const year = el('year').value;
+            const body = await api('GET', '/api/teaching/timetable?year=' + encodeURIComponent(year));
+            if (mine !== ticket) return;
+            data = body;
+            if (!keepSelection) selected = null;
+            draw();
+            const archived = !(years.find((y) => y.label === body.year) || {}).is_current;
+            status(`${body.year}${archived ? ' · архивска година' : ''} · ${body.lessons.length} часа · `
+                 + `${body.classes.length} одделенија · ${body.teachers.length} наставници`,
+                   archived ? 'warn' : '');
+        } catch (err) {
+            if (mine !== ticket) return;
+            data = null;
+            offline(err);
+        }
+    }
+
+    function offline(err) {
+        el('editor').className = 'panel editor';
+        el('clashPanel').style.display = 'none';
+        el('grid').innerHTML =
+            '<div class="offline"><h3>Нема врска со серверот</h3>'
+            + '<p>Распоредот на настава го чува само базата — оваа страница нема своја копија, '
+            + 'па нема ни што да прикаже, ни каде да запише.</p>'
+            + '<p>Ако страницата е отворена од интернет (GitHub Pages), отвори ја преку '
+            + '<a href="start.html">start.html</a>, кој наоѓа кој компјутер е вклучен.</p>'
+            + `<p><code>${esc(err.message)}</code></p></div>`;
+        status('серверот не одговара', 'error');
+    }
+
+    const periods = () => (data && data.bells && data.bells['nastava-am']) || [];
+    const cellKey = (cls, ordinal) => cls + '|' + ordinal;
+
+    /** (class, period) -> the lessons sitting there on the chosen day. */
+    function cellsOfDay() {
+        const day = el('day').value;
+        const map = new Map();
+        (data.lessons || []).forEach((l) => {
+            if (l.day !== day) return;
+            const key = cellKey(l.class, l.ordinal);
+            if (!map.has(key)) map.set(key, []);
+            map.get(key).push(l);
+        });
+        return map;
+    }
+
+    function draw() {
+        if (!data) return;
+        drawGrid();
+        drawClasses();
+        drawTeachers();
+        drawBells();
+        drawClashes();
+    }
+
+    function drawGrid() {
+        const cells = cellsOfDay();
+        const used = new Set();
+        cells.forEach((list) => list.forEach((l) => used.add(l.class)));
+        const onlyUsed = el('onlyUsed').checked;
+        const classes = (data.classes || []).filter((c) => !onlyUsed || used.has(c.label));
+
+        if (!classes.length) {
+            el('grid').innerHTML = (data.classes || []).length
+                ? '<p class="hint">Ниту едно одделение нема часови во овој ден.</p>'
+                : '<p class="hint">Нема внесени одделенија. Додај едно подолу, или земи го распоредот од минатата година.</p>';
+            return;
+        }
+
+        let html = '<table class="grid"><thead><tr><th>Одделение</th>'
+            + periods().map((p) => `<th>${esc(p.label)}<small>${esc(p.startsAt)}</small></th>`).join('')
+            + '</tr></thead><tbody>';
+        classes.forEach((c) => {
+            html += `<tr><th>${esc(c.label)}</th>`;
+            periods().forEach((p) => {
+                const list = cells.get(cellKey(c.label, p.ordinal)) || [];
+                const key = cellKey(c.label, p.ordinal);
+                const cls = list.length > 1 ? 'clash' : (list.length ? 'has' : 'empty');
+                const inner = list.length
+                    ? list.map((l) => `<span class="subject">${esc(l.subject || '·')}</span>`
+                        + `<span class="teacher">${esc(l.teacher || 'без наставник')}</span>`).join('')
+                    : '<span class="teacher">+</span>';
+                html += `<td class="cell ${cls}" data-key="${esc(key)}" data-class="${esc(c.label)}" `
+                    + `data-ordinal="${p.ordinal}"><div class="box">${inner}</div></td>`;
+            });
+            html += '</tr>';
+        });
+        el('grid').innerHTML = html + '</tbody></table>';
+        markSelected();
+    }
+
+    function markSelected() {
+        const key = selected ? cellKey(selected.class, selected.ordinal) : null;
+        document.querySelectorAll('#grid td.cell').forEach((td) => {
+            td.classList.toggle('selected', td.dataset.key === key);
+        });
+    }
+
+    /** Every subject already used, so the same one is not typed three ways. */
+    function subjectList() {
+        const seen = new Set();
+        (data.lessons || []).forEach((l) => { if (l.subject) seen.add(l.subject); });
+        return Array.from(seen).sort((a, b) => a.localeCompare(b, 'mk'));
+    }
+
+    function openCell(label, ordinal) {
+        const day = el('day').value;
+        const list = (cellsOfDay().get(cellKey(label, ordinal)) || []);
+        selected = { day, class: label, ordinal };
+        const box = el('editor');
+        const period = periods().find((p) => p.ordinal === ordinal);
+        const lesson = list[0] || null;
+
+        box.className = 'panel editor open';
+        box.innerHTML =
+            `<h2>${esc(label)} · ${ordinal}. час <span class="who">`
+            + `${esc(day)}${period ? ' · ' + esc(period.startsAt) : ''}</span></h2>`
+            + (list.length > 1
+                ? `<div class="caution">Овој час има ${list.length} записи за истото одделение. `
+                  + 'Избриши ги вишокот прво — не може да се знае кој од нив е точниот.</div>'
+                  + '<ul class="clash-list">' + list.map((l) =>
+                        `<li>${esc(l.subject || '—')} · ${esc(l.teacher || 'без наставник')} `
+                        + `<button class="btn danger" data-drop="${l.id}">Избриши</button></li>`).join('') + '</ul>'
+                : '<div class="row">'
+                  + '<label class="field"><span>Предмет</span>'
+                  + `<input id="edSubject" list="subjects" value="${esc(lesson ? lesson.subject || '' : '')}"></label>`
+                  + '<label class="field"><span>Наставник</span><select id="edTeacher">'
+                  + '<option value="">— без наставник —</option>'
+                  + (data.teachers || []).map((t) =>
+                        `<option value="${esc(t.name)}"${lesson && lesson.teacher === t.name ? ' selected' : ''}>`
+                        + `${esc(t.name)}${t.subject ? ' · ' + esc(t.subject) : ''}</option>`).join('')
+                  + '</select></label>'
+                  + '<button class="btn" id="edSave">Зачувај</button>'
+                  + '<button class="btn soft" id="edNext">Зачувај и следен →</button>'
+                  + (lesson ? `<button class="btn danger" id="edDrop">Испразни го часот</button>` : '')
+                  + '<button class="btn soft" id="edClose">Откажи</button>'
+                  + '</div>'
+                  + `<datalist id="subjects">${subjectList().map((s) => `<option value="${esc(s)}">`).join('')}</datalist>`
+                  + '<p class="hint" style="margin-top:10px;">Enter зачувува и оди на следниот час, Esc откажува.</p>');
+
+        markSelected();
+        // With twenty classes the editor opens below the fold, and a form that
+        // is off screen reads as a click that did nothing.
+        box.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+        if (list.length > 1) {
+            box.querySelectorAll('[data-drop]').forEach((b) =>
+                b.addEventListener('click', () => dropLesson(Number(b.dataset.drop))));
+            return;
+        }
+        const subject = el('edSubject');
+        subject.focus();
+        subject.select();
+        el('edSave').addEventListener('click', () => saveCell(false));
+        el('edNext').addEventListener('click', () => saveCell(true));
+        el('edClose').addEventListener('click', closeEditor);
+        if (lesson) el('edDrop').addEventListener('click', () => dropLesson(lesson.id));
+        // The keyboard is wired ONCE, on the panel, not here: this function
+        // replaces the panel's contents on every cell and an addEventListener
+        // inside it would stack a new handler each time — by the tenth cell one
+        // Enter would send ten writes.
+    }
+
+    function closeEditor() {
+        selected = null;
+        el('editor').className = 'panel editor';
+        el('editor').innerHTML = '';
+        markSelected();
+    }
+
+    /**
+     * `expected` is what this tab believed was in the cell when it drew it.
+     * A tab left open since morning is a stale view of a table somebody may
+     * have imported over, and a silent overwrite is the one outcome nobody
+     * can notice afterwards.
+     */
+    async function saveCell(goNext) {
+        if (!selected || !el('edSubject')) return;
+        const list = (cellsOfDay().get(cellKey(selected.class, selected.ordinal)) || []);
+        const was = list[0] || null;
+        const subject = tidy(el('edSubject').value);
+        const teacher = tidy(el('edTeacher').value);
+        if (!subject && !teacher) {
+            // An empty save on an empty cell is not an edit; on a filled one it
+            // would be a delete by accident, and deleting has its own button.
+            status(was ? 'Празен предмет и празен наставник — користи „Испразни го часот".' : 'Ништо не е внесено.', 'warn');
+            return;
+        }
+        status('запишувам…');
+        try {
+            const answer = await api('PUT', '/api/teaching/lesson', {
+                year: data.year,
+                day: selected.day,
+                ordinal: selected.ordinal,
+                class: selected.class,
+                subject: subject || null,
+                teacher: teacher || null,
+                expected: was ? { subject: was.subject || null, teacher: was.teacher || null } : null
+            });
+            const where = { class: selected.class, ordinal: selected.ordinal };
+            await load(true);
+            status(`${where.class} · ${where.ordinal}. час — зачувано`, 'ok');
+            const next = periods().find((p) => p.ordinal > where.ordinal);
+            if (goNext && next) openCell(where.class, next.ordinal);
+            else if (goNext) closeEditor();
+            else openCell(where.class, where.ordinal);
+            return answer;
+        } catch (err) {
+            status(err.message, 'error');
+        }
+    }
+
+    async function dropLesson(id) {
+        status('бришам…');
+        try {
+            await api('DELETE', '/api/teaching/lesson/' + id);
+            const where = selected;
+            await load(true);
+            status('часот е испразнет', 'ok');
+            if (where) openCell(where.class, where.ordinal);
+        } catch (err) {
+            status(err.message, 'error');
+        }
+    }
+
+    // ── classes ─────────────────────────────────────────────────────────────
+    function drawClasses() {
+        const used = new Map();
+        (data.lessons || []).forEach((l) => used.set(l.class, (used.get(l.class) || 0) + 1));
+        el('classes').innerHTML =
+            '<table class="list"><thead><tr><th>Одделение</th><th>Часови оваа година</th><th></th></tr></thead><tbody>'
+            + (data.classes || []).map((c) =>
+                `<tr><td><input value="${esc(c.label)}" data-class-id="${c.id}"></td>`
+                + `<td>${used.get(c.label) || 0}</td>`
+                + `<td class="act"><button class="btn soft" data-rename="${c.id}">Преименувај</button></td></tr>`).join('')
+            + '</tbody></table>';
+        el('classes').querySelectorAll('[data-rename]').forEach((b) => b.addEventListener('click', async () => {
+            const id = Number(b.dataset.rename);
+            const input = el('classes').querySelector(`[data-class-id="${id}"]`);
+            try {
+                await api('PATCH', '/api/teaching/class/' + id, { label: tidy(input.value) });
+                await load(true);
+                status('одделението е преименувано', 'ok');
+            } catch (err) { status(err.message, 'error'); }
+        }));
+    }
+
+    // ── teachers ────────────────────────────────────────────────────────────
+    function drawTeachers() {
+        const classOptions = (data.classes || []).map((c) => c.label);
+        el('teachers').innerHTML =
+            '<table class="list"><thead><tr><th>Име</th><th>Вид</th><th>Предмет</th><th>Одделение што го води</th><th></th></tr></thead><tbody>'
+            + (data.teachers || []).map((t) =>
+                `<tr data-teacher="${t.id}">`
+                + `<td><input class="t-name" value="${esc(t.name)}"></td>`
+                + '<td><select class="t-kind">'
+                + `<option value="odd"${t.kind === 'odd' ? ' selected' : ''}>одделенски</option>`
+                + `<option value="pred"${t.kind === 'pred' ? ' selected' : ''}>предметен</option>`
+                + '</select></td>'
+                + `<td><input class="t-subject" value="${esc(t.subject || '')}"></td>`
+                + '<td><select class="t-home"><option value="">—</option>'
+                + classOptions.map((label) =>
+                    `<option value="${esc(label)}"${t.homeroom === label ? ' selected' : ''}>${esc(label)}</option>`).join('')
+                + '</select></td>'
+                + '<td class="act"><button class="btn soft" data-save-teacher="' + t.id + '">Зачувај</button></td></tr>').join('')
+            + '</tbody></table>';
+        el('teachers').querySelectorAll('[data-save-teacher]').forEach((b) => b.addEventListener('click', async () => {
+            const id = Number(b.dataset.saveTeacher);
+            const row = el('teachers').querySelector(`[data-teacher="${id}"]`);
+            try {
+                await api('PUT', '/api/teaching/teacher/' + id, {
+                    name: tidy(row.querySelector('.t-name').value),
+                    kind: row.querySelector('.t-kind').value,
+                    subject: tidy(row.querySelector('.t-subject').value) || null,
+                    homeroom: tidy(row.querySelector('.t-home').value) || null
+                });
+                await load(true);
+                status('наставникот е зачуван', 'ok');
+            } catch (err) { status(err.message, 'error'); }
+        }));
+    }
+
+    // ── bells ───────────────────────────────────────────────────────────────
+    const SCHEDULE_NAME = {
+        'nastava-am': 'настава, претпладне',
+        'nastava-pm': 'настава, попладне',
+        'kabinet': 'кабинет (терапии)'
+    };
+
+    function drawBells() {
+        const groups = data.bells || {};
+        el('bells').innerHTML = Object.keys(groups).map((schedule) =>
+            `<h3 style="font-size:14px;margin:12px 0 6px;">${esc(SCHEDULE_NAME[schedule] || schedule)}</h3>`
+            + '<table class="list"><thead><tr><th>Час</th><th>Почнува</th><th>Трае (мин)</th><th></th></tr></thead><tbody>'
+            + (groups[schedule] || []).map((b) =>
+                `<tr data-bell="${b.id}"><td>${esc(b.label)}</td>`
+                + `<td><input class="b-start" value="${esc(b.startsAt)}" style="max-width:90px;"></td>`
+                + `<td><input class="b-min" value="${b.minutes}" style="max-width:70px;"></td>`
+                + `<td class="act"><button class="btn soft" data-save-bell="${b.id}">Зачувај</button></td></tr>`).join('')
+            + '</tbody></table>').join('');
+        el('bells').querySelectorAll('[data-save-bell]').forEach((b) => b.addEventListener('click', async () => {
+            const id = Number(b.dataset.saveBell);
+            const row = el('bells').querySelector(`[data-bell="${id}"]`);
+            try {
+                await api('PUT', '/api/teaching/bell/' + id, {
+                    year: el('year').value,
+                    startsAt: tidy(row.querySelector('.b-start').value),
+                    minutes: Number(row.querySelector('.b-min').value)
+                });
+                await load(true);
+                status('ѕвоното е сменето само за ' + el('year').value, 'ok');
+            } catch (err) { status(err.message, 'error'); }
+        }));
+    }
+
+    function drawClashes() {
+        const rows = (data && data.clashes) || [];
+        el('clashPanel').style.display = rows.length ? '' : 'none';
+        el('clashes').innerHTML = rows.map((c) =>
+            `<li>${esc(c.day)}, ${c.ordinal}. час · <b>${esc(c.class)}</b> — ${esc(c.who)}</li>`).join('');
+    }
+
+    // ── copying a year ──────────────────────────────────────────────────────
+    async function copy(apply) {
+        const report = el('copyReport');
+        report.textContent = 'проверувам…';
+        try {
+            const answer = await api('POST', '/api/teaching/copy-year', {
+                from: el('copyFrom').value,
+                to: el('year').value,
+                replace: el('copyReplace').checked,
+                apply
+            });
+            report.textContent =
+                (apply
+                    ? `Копирани ${answer.lessons} часа во ${answer.to}`
+                        + (answer.removed ? ` (${answer.removed} претходни се отстранети)` : '') + '.'
+                    : `Ќе се копираат ${answer.lessons} часа од ${answer.from} во ${answer.to}`
+                        + (answer.existing ? `, а ${answer.existing} постојни ќе бидат отстранети` : '') + '.')
+                + (apply ? '\nСега провери ги рачно — одделенијата се ланските.' : '');
+            el('copyApply').disabled = apply;
+            if (apply) await load(false);
+        } catch (err) {
+            const problems = err.payload && err.payload.problems;
+            report.textContent = problems && problems.length ? problems.join('\n') : err.message;
+            el('copyApply').disabled = true;
+        }
+    }
+
+    // ── wiring ──────────────────────────────────────────────────────────────
+    el('year').addEventListener('change', () => {
+        const url = new URL(window.location.href);
+        url.searchParams.set('year', el('year').value);
+        window.history.replaceState(null, '', url);
+        closeEditor();
+        el('copyApply').disabled = true;
+        el('copyReport').textContent = '';
+        load(false);
+    });
+    el('day').addEventListener('change', () => { closeEditor(); draw(); });
+    el('onlyUsed').addEventListener('change', () => draw());
+    el('refresh').addEventListener('click', () => load(true));
+    el('grid').addEventListener('click', (event) => {
+        const td = event.target.closest('td.cell');
+        if (td) openCell(td.dataset.class, Number(td.dataset.ordinal));
+    });
+    el('editor').addEventListener('keydown', (event) => {
+        if (!selected || !el('edSubject')) return;
+        if (event.key === 'Enter') { event.preventDefault(); saveCell(true); }
+        if (event.key === 'Escape') { event.preventDefault(); closeEditor(); }
+    });
+    el('copyCheck').addEventListener('click', () => copy(false));
+    el('copyApply').addEventListener('click', () => copy(true));
+    el('addClass').addEventListener('click', async () => {
+        const label = tidy(el('newClass').value);
+        if (!label) return status('Внеси име на одделението.', 'warn');
+        try {
+            await api('POST', '/api/teaching/class', { label });
+            el('newClass').value = '';
+            await load(true);
+            status(`одделението ${label} е додадено`, 'ok');
+        } catch (err) { status(err.message, 'error'); }
+    });
+    el('addTeacher').addEventListener('click', async () => {
+        const name = tidy(el('newTeacher').value);
+        if (!name) return status('Внеси име на наставникот.', 'warn');
+        try {
+            await api('POST', '/api/teaching/teacher', {
+                name,
+                kind: el('newTeacherKind').value,
+                subject: tidy(el('newTeacherSubject').value) || null
+            });
+            el('newTeacher').value = '';
+            el('newTeacherSubject').value = '';
+            await load(true);
+            status(`${name} е додаден`, 'ok');
+        } catch (err) { status(err.message, 'error'); }
+    });
+
+    load(false);
+})();
+</script>
+<script src="app-navigation.js"></script>
+</body>
+</html>
