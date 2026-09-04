@@ -1908,6 +1908,46 @@ the change into one and copy it over the other in the same commit; they have
 already drifted once, and a memory that disagrees with itself is worse than a
 short one.
 
+## State (4 Sep 2026)
+
+Branch `kolegi-pristap` opened the server for colleagues. `lib/colleague.ts` is
+the ONE place that answers who may change what — rule 5 applied to permission,
+because a boundary spelled out in three route files is three boundaries that
+will disagree. Colleagues read everything, write only their own caseload, their
+own terms and their own sheets, and never the roster or a year's columns.
+
+Reads are open ON PURPOSE. A conflict is two therapists holding the same child
+in the same term, so a colleague who cannot see the other cabinet cannot
+resolve the red cell they are shown. Do not "tighten" the read side.
+
+Guards sit in `roster-write.ts`, `schedule-write.ts` and the two sheet-list
+reads in `evidence.ts`. They are INERT until `MTB_REQUIRE_SIGNIN=1`; with it
+unset every helper answers allowed, which is what keeps `sync-peer`, the import
+scripts and the whole e2e suite working with no token. `MTB_ADMIN` names the
+owner. Sessions also end after `MTB_SESSION_IDLE_MINUTES` (30) of silence,
+reading the `last_seen` column that migration 022 had been writing unread.
+
+The catalogue was left alone. `assertMayEdit` already restricts a section, its
+items and its groups to whoever holds that specialist category for the year,
+which is finer than "only the admin" and is the rule the owner asked for. Do
+not add an admin check to the section or item routes — it would take the
+логопед's own section away from the логопед. Only `evidence_periods` gained a
+guard, having belonged to no category.
+
+Still open, do not guess it: `assertMayEdit` does not ask whether a scored
+child is on the scorer's caseload. `assertOwnStudent` is written and ready but
+deliberately not called from the score route, because refusing a specialist who
+assesses a child outside their timetable may be wrong at this school.
+
+What is NOT built yet: Fusion's roster tab is still the read-only table with a
+disabled picker, sign-in is not yet shared between AkciskiPlan and Fusion, and
+conflicts still need a re-fetch to be live. `docs/PLAN-kolegi-pristap.md` holds
+the full plan, the call shapes to copy, and what a guard test has to prove.
+
+This is one sign-in across three tools, NOT one merged app —
+`PLAN-rasporedot-i-nedelata.md` settled that each app answers one question, and
+that decision is not reopened. Евидентен лист stays in AkciskiPlan.
+
 ## State (2 Sep 2026)
 
 `AkciskiPlan.html` draws both catalogues: a Документ switch in „Проценка",
