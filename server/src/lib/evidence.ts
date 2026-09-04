@@ -19,6 +19,17 @@ const scrypt = promisify(scryptCb) as (
 /** Long enough that a working day never asks twice, short enough to end. */
 export const SESSION_HOURS = 12;
 
+/**
+ * ...and short enough that a browser left open in a shared room ends by itself.
+ *
+ * The twelve hours above answer "how long may a working day be". They cannot
+ * answer "is anybody still sitting there", and in a staff room those are
+ * different questions -- the second one is the whole reason the PIN exists.
+ * `last_seen` has been written on every authenticated call since 022 and never
+ * once read; this reads it. Set MTB_SESSION_IDLE_MINUTES=0 to switch it off.
+ */
+export const SESSION_IDLE_MINUTES = Number(process.env.MTB_SESSION_IDLE_MINUTES ?? 30);
+
 export type PersonKind = 'therapist' | 'teacher';
 
 /**
@@ -90,10 +101,11 @@ export async function whoIsSigned(token: unknown): Promise<Signed> {
     const { rows } = await pool.query(
         `UPDATE evidence_sessions s SET last_seen = now()
          WHERE s.token = $1 AND s.expires_at > now()
+           AND ($2::int <= 0 OR s.last_seen > now() - make_interval(mins => $2::int))
          RETURNING s.therapist_id, s.teacher_id,
                    coalesce((SELECT name FROM therapists WHERE id = s.therapist_id),
                             (SELECT name FROM teachers   WHERE id = s.teacher_id)) AS name`,
-        [value]
+        [value, SESSION_IDLE_MINUTES]
     );
     if (!rows.length) throw new Refused(401, 'the session has ended -- sign in again', { signedOut: true });
     const row = rows[0];

@@ -11,6 +11,7 @@ import {
     Refused, resolveYear, touchSheet, whoIsSigned, type Signed
 } from '../lib/evidence.js';
 import { orderPupils } from '../lib/teaching.js';
+import { assertOwner, ownStudentIds, scopeOf } from '../lib/colleague.js';
 
 /**
  * Евидентен лист, one cell at a time.
@@ -218,6 +219,10 @@ export async function evidenceRoutes(server: FastifyInstance) {
             await signed(req);
             const year = await resolveYear((req.query as any)?.year);
             await ensurePeriods(year.id);
+            // null = no filter (the owner, or enforcement off); an array = this
+            // colleague's caseload for the year, so „Сите ученици" means their
+            // own and the list cannot be used to browse the whole school.
+            const mine = await ownStudentIds(await scopeOf(req), year.id);
             const { rows } = await pool.query(
                 `SELECT s.public_id, s.name, e.grade, e.kind, s.active,
                         sh.id AS sheet_id, sh.updated_at, sh.updated_by, sh.school_type,
@@ -235,8 +240,9 @@ export async function evidenceRoutes(server: FastifyInstance) {
                  LEFT JOIN evidence_sheets sh
                         ON sh.student_id = s.id AND sh.school_year_id = $1
                  WHERE e.school_year_id = $1 AND e.active AND (s.active OR NOT $2::boolean)
+                   AND ($3::int[] IS NULL OR s.id = ANY($3::int[]))
                  ORDER BY e.grade NULLS LAST, s.name`,
-                [year.id, year.is_current]
+                [year.id, year.is_current, mine]
             );
             return { year: year.label, isCurrentYear: year.is_current, pupils: orderPupils(rows) };
         } catch (err) {
@@ -264,11 +270,14 @@ export async function evidenceRoutes(server: FastifyInstance) {
         try {
             await signed(req);
             const year = await resolveYear((req.query as any)?.year);
+            const mine = await ownStudentIds(await scopeOf(req), year.id);
             const { rows } = await pool.query(
                 `SELECT sh.id FROM evidence_sheets sh
                  JOIN students s ON s.id = sh.student_id
-                 WHERE sh.school_year_id = $1 ORDER BY s.name`,
-                [year.id]
+                 WHERE sh.school_year_id = $1
+                   AND ($2::int[] IS NULL OR sh.student_id = ANY($2::int[]))
+                 ORDER BY s.name`,
+                [year.id, mine]
             );
             return {
                 year: year.label,
@@ -954,6 +963,7 @@ export async function evidenceRoutes(server: FastifyInstance) {
     server.post('/api/evidence/period', async (req, reply) => {
         try {
             await signed(req);
+            await assertOwner(await scopeOf(req), 'колоните на учебната година');
             const body = PeriodBody.parse(req.body);
             const year = await resolveYear(body.year);
             await ensurePeriods(year.id);
@@ -973,6 +983,7 @@ export async function evidenceRoutes(server: FastifyInstance) {
     server.patch('/api/evidence/period/:id', async (req, reply) => {
         try {
             await signed(req);
+            await assertOwner(await scopeOf(req), 'колоните на учебната година');
             const body = PeriodPatch.parse(req.body);
             const id = Number((req.params as any).id);
             const { rows } = await pool.query(
@@ -993,6 +1004,7 @@ export async function evidenceRoutes(server: FastifyInstance) {
     server.delete('/api/evidence/period/:id', async (req, reply) => {
         try {
             await signed(req);
+            await assertOwner(await scopeOf(req), 'колоните на учебната година');
             const id = Number((req.params as any).id);
             const client = await pool.connect();
             try {

@@ -2,6 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { pool } from '../db.js';
 import { norm, asText, stableStudentIdForName } from '../lib/import-core.js';
+import { assertOwner, assertOwnTherapistName, refuseScope, scopeOf } from '../lib/colleague.js';
 
 /**
  * Stage B of moving Rasporedi onto the database: the ROSTER, one person at a
@@ -87,6 +88,8 @@ export async function rosterWriteRoutes(server: FastifyInstance) {
      * create a second row for the same child.
      */
     server.post('/api/students', async (req, reply) => {
+        try { assertOwner(await scopeOf(req), 'списокот на ученици'); }
+        catch (err) { return refuseScope(reply, err); }
         const body = StudentBody.parse(req.body);
         const name = body.name.trim();
         const kind = body.kind ?? 'internal';
@@ -196,6 +199,8 @@ export async function rosterWriteRoutes(server: FastifyInstance) {
      * children by their name.
      */
     server.patch('/api/students/:publicId', async (req, reply) => {
+        try { assertOwner(await scopeOf(req), 'податоците на ученик'); }
+        catch (err) { return refuseScope(reply, err); }
         const publicId = String((req.params as any).publicId || '').trim();
         const body = StudentPatch.parse(req.body);
         if (body.name === undefined && body.grade === undefined && body.kind === undefined) {
@@ -278,6 +283,8 @@ export async function rosterWriteRoutes(server: FastifyInstance) {
 
     /** Add a therapist. Idempotent on the name — that is all a therapist has. */
     server.post('/api/therapists', async (req, reply) => {
+        try { assertOwner(await scopeOf(req), 'списокот на терапевти'); }
+        catch (err) { return refuseScope(reply, err); }
         const body = TherapistBody.parse(req.body);
         const name = body.name.trim();
         const client = await pool.connect();
@@ -391,13 +398,19 @@ export async function rosterWriteRoutes(server: FastifyInstance) {
     server.put('/api/therapists/:name/students/:publicId', async (req, reply) => {
         const p = req.params as any;
         const q = YearQuery.parse(req.query);
-        return linkRoute(reply, String(p.name || '').trim(), String(p.publicId || '').trim(), true, q.year);
+        const name = String(p.name || '').trim();
+        try { await assertOwnTherapistName(await scopeOf(req), name); }
+        catch (err) { return refuseScope(reply, err); }
+        return linkRoute(reply, name, String(p.publicId || '').trim(), true, q.year);
     });
 
     server.delete('/api/therapists/:name/students/:publicId', async (req, reply) => {
         const p = req.params as any;
         const q = YearQuery.parse(req.query);
-        return linkRoute(reply, String(p.name || '').trim(), String(p.publicId || '').trim(), false, q.year);
+        const name = String(p.name || '').trim();
+        try { await assertOwnTherapistName(await scopeOf(req), name); }
+        catch (err) { return refuseScope(reply, err); }
+        return linkRoute(reply, name, String(p.publicId || '').trim(), false, q.year);
     });
 
     /**
@@ -411,6 +424,8 @@ export async function rosterWriteRoutes(server: FastifyInstance) {
      * the foreign key carries the terms across.
      */
     server.patch('/api/therapists/:name', async (req, reply) => {
+        try { assertOwner(await scopeOf(req), 'името на терапевт'); }
+        catch (err) { return refuseScope(reply, err); }
         const from = String((req.params as any).name || '').trim();
         const to = TherapistPatch.parse(req.body).name.trim();
 

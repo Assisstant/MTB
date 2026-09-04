@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { pool } from '../db.js';
 import { norm, DAY_ORDER } from '../lib/import-core.js';
 import { minutesOf, slotBell, timeOf } from '../lib/crossing.js';
+import { assertOwnTherapistId, assertOwnTherapistName, refuseScope, scopeOf } from '../lib/colleague.js';
 
 /**
  * Stage A of moving Rasporedi onto the database: ONE schedule cell at a time.
@@ -145,6 +146,8 @@ export async function scheduleWriteRoutes(server: FastifyInstance) {
      */
     server.put('/api/schedule/block', async (req, reply) => {
         const body = BlockBody.parse(req.body);
+        try { assertOwnTherapistId(await scopeOf(req), body.therapistId); }
+        catch (err) { return refuseScope(reply, err); }
         const times = blockTimes(body.time);
         if (!times) return reply.code(400).send({ error: 'a block must name one 40-minute time range' });
         if (new Set(body.studentPublicIds).size !== body.studentPublicIds.length) {
@@ -344,6 +347,8 @@ export async function scheduleWriteRoutes(server: FastifyInstance) {
 
     server.put('/api/schedule/session', async (req, reply) => {
         const body = SessionBody.parse(req.body);
+        try { assertOwnTherapistId(await scopeOf(req), body.therapistId); }
+        catch (err) { return refuseScope(reply, err); }
         const span = slotBell(body.time);
         if (!span || ![20, 40].includes(span.minutes)) {
             return reply.code(400).send({ error: 'a Fusion session must name one 20- or 40-minute time range' });
@@ -530,6 +535,8 @@ export async function scheduleWriteRoutes(server: FastifyInstance) {
 
     server.put('/api/schedule/slot', async (req, reply) => {
         const body = SlotBody.parse(req.body);
+        try { await assertOwnTherapistName(await scopeOf(req), body.therapist); }
+        catch (err) { return refuseScope(reply, err); }
         const wanted = (body.student ?? '').trim();
 
         const yid = await yearId(body.year);
