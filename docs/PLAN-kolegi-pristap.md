@@ -9,9 +9,12 @@ database-backed `AkciskiPlan.html` rollout.
 The implementation and complete verification gate are green on
 `kolegi-pristap`; it is **not active merely because the branch is pulled**.
 Authorization remains compatibility-open until the local server has
-`MTB_REQUIRE_SIGNIN=1` and is restarted. The branch is ready for review and an
-explicit merge decision; `main` remains untouched because merging also updates
-the public GitHub Pages application.
+`MTB_REQUIRE_SIGNIN=1` and is restarted. The branch is ready for code review,
+but not yet for merge: the newer main-only commit `3edfb21` adds
+`docs/HANDOVER-07-09-2026.md`, and a count-only check found two exact matches
+from the local name directory in that public file. `main` remains untouched by
+this rollout; sanitize the current file and complete the separate history-purge
+procedure before combining the branches.
 
 The outcome is one shared session across the existing applications, not a new
 combined application:
@@ -240,13 +243,17 @@ Final verification captured on HOME on 5 September 2026:
   total of 27 migrations;
 - `npm run check:names` inspected the index, changed working copies and
   untracked non-ignored commit candidates, and found no local database name.
+  This result describes `kolegi-pristap` only. A separate count-only check of
+  the newer main-only handover found two matches and therefore blocks merge;
+  no matched name was printed.
 - refreshed `npm audit --omit=dev` reports one remaining high advisory in
   `xlsx@0.18.5`, with no npm fix. It is confined to the local administrative
   workbook-import CLI, not an HTTP upload route; do not feed it an untrusted
   workbook, and replace that parser in a separate change.
 
-The branch is ready for review/merge. Enabling enforcement on a real shared
-server remains a separate operational step and must follow the activation order
+The implementation is ready for review. Merge remains privacy-blocked by the
+newer main-only handover described above. Enabling enforcement on a real shared
+server is also a separate operational step and must follow the activation order
 above.
 
 ## Public consequence

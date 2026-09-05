@@ -1968,9 +1968,15 @@ unchanged. Final verification is green: typecheck, 90/90 unit/contract tests,
 all evidence/category/Fusion API suites, all 38 colleague-boundary checks and
 the Fusion, evidence and shared-navigation browser suites. Before/after counts
 match exactly, the live static smoke test keeps private paths at 404, and the
-expanded name guard found no local database name in any commit candidate. The
-branch is ready for review/merge; `main` remains an explicit public-deployment
-decision.
+expanded name guard found no local database name in this branch's commit
+candidates.
+
+DO NOT MERGE IT YET. The newer main-only commit `3edfb21` adds
+`docs/HANDOVER-07-09-2026.md`; a count-only comparison against the local name
+directory found two exact matches in that public file, without printing them.
+Sanitize the current file and complete the already-planned history-purge/GitHub
+Support procedure before combining the branches. The rollout code is ready for
+review; the target branch is privacy-blocked.
 
 This remains one shared sign-in across the existing tools, NOT one merged app.
 `docs/PLAN-kolegi-pristap.md` is the exact activation, rollback, migration and
