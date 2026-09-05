@@ -2,6 +2,8 @@
  * No real name may be committed to this repository.
  *
  *   npm run check:names
+ *   npm run check:names -- --history
+ *   npm run check:names -- --history --repo=C:\\path\\to\\fresh-mirror.git
  *
  * Rule 1 says student names belong in the local database only, because this
  * repository is public — GitHub Pages serves the apps straight out of it.
@@ -15,7 +17,11 @@
  * kept in a file could not live in this repository either — it would be the
  * same leak with a different filename. The one list that already exists, is
  * already local-only and is already gitignored is `students`, `teachers` and
- * `therapists`, so this reads those and greps the tracked files against them.
+ * `therapists`, so this reads those and checks every file Git could commit:
+ * the index, the working copy of tracked files, and untracked non-ignored
+ * files. Looking only at `git ls-files` misses a newly created fixture; looking
+ * only at the working tree misses sensitive content already staged and then
+ * edited away locally.
  *
  * IT NEVER PRINTS THE NAME IT FOUND. A report is a thing that gets pasted into
  * a chat, a log, an issue. So a hit is reported as the file, the line and a
@@ -40,7 +46,12 @@ import { fileURLToPath } from 'node:url';
 import { pool } from '../src/db.js';
 import { bareName } from '../src/lib/import-core.js';
 
-const REPO = resolve(fileURLToPath(new URL('../..', import.meta.url)));
+const cliArgs = process.argv.slice(2);
+const historyMode = cliArgs.includes('--history');
+const repoArg = cliArgs.find((arg) => arg.startsWith('--repo='));
+const REPO = repoArg
+    ? resolve(repoArg.slice('--repo='.length))
+    : resolve(fileURLToPath(new URL('../..', import.meta.url)));
 
 /** „Ана Тестова" -> „А••• Т•••••" — findable, not readable. */
 const mask = (name: string) =>
@@ -103,41 +114,171 @@ if (!names.length) {
     process.exit(0);
 }
 
-const tracked = execFileSync('git', ['ls-files', '-z'], { cwd: REPO, maxBuffer: 64 * 1024 * 1024 })
-    .toString('utf8').split('\0').filter(Boolean);
-
 const lower = names.map((n) => ({ term: n, needle: n.toLocaleLowerCase('mk-MK') }));
 let hits = 0;
 
-for (const file of tracked) {
-    const pathText = file.toLocaleLowerCase('mk-MK');
-    for (const { term, needle } of lower) {
-        if (!pathText.includes(needle)) continue;
-        console.log(`  ${file} (path)  ${mask(term)}`);
-        hits++;
-    }
-
-    const full = join(REPO, file);
-    let text: string;
-    try {
-        text = readFileSync(full, 'utf8');
-    } catch { continue; }
+function scanText(displayFile: string, text: string, source: string) {
     // Cheap rejection first: most files contain no Cyrillic name at all.
     const haystack = text.toLocaleLowerCase('mk-MK');
     for (const { term, needle } of lower) {
         if (!haystack.includes(needle)) continue;
         const line = text.split('\n').findIndex((l) => l.toLocaleLowerCase('mk-MK').includes(needle)) + 1;
-        console.log(`  ${file}:${line}  ${mask(term)}`);
+        console.log(`  ${displayFile}:${line} (${source})  ${mask(term)}`);
         hits++;
+    }
+}
+
+/** Do not let a name stored in a filename defeat the output masking rule. */
+function maskedPath(file: string): string {
+    let result = file;
+    for (const { needle } of lower) {
+        let at = result.toLocaleLowerCase('mk-MK').indexOf(needle);
+        while (at >= 0) {
+            const found = result.slice(at, at + needle.length);
+            result = result.slice(0, at) + mask(found) + result.slice(at + needle.length);
+            at = result.toLocaleLowerCase('mk-MK').indexOf(needle, at + found.length);
+        }
+    }
+    // Git permits control characters in a path; keep a diagnostic on one line.
+    return result.replace(/[\r\n\t]/g, '?');
+}
+
+if (historyMode) {
+    const gitText = (args: string[]) =>
+        execFileSync('git', args, {
+            cwd: REPO,
+            encoding: 'utf8',
+            maxBuffer: 512 * 1024 * 1024
+        });
+
+    const objectLines = gitText(['rev-list', '--objects', '--all'])
+        .split('\n').filter(Boolean);
+    const objectPaths = new Map<string, Set<string>>();
+    for (const line of objectLines) {
+        const split = line.indexOf(' ');
+        const oid = split < 0 ? line : line.slice(0, split);
+        const path = split < 0 ? '' : line.slice(split + 1);
+        if (!objectPaths.has(oid)) objectPaths.set(oid, new Set());
+        if (path) objectPaths.get(oid)!.add(path);
+    }
+
+    const objectIds = [...objectPaths.keys()];
+    const typeLines = execFileSync('git', ['cat-file', '--batch-check=%(objectname) %(objecttype)'], {
+        cwd: REPO,
+        input: objectIds.join('\n') + '\n',
+        encoding: 'utf8',
+        maxBuffer: 512 * 1024 * 1024
+    }).split('\n').filter(Boolean);
+    const blobIds = typeLines
+        .map((line) => line.split(' '))
+        .filter((parts) => parts[1] === 'blob')
+        .map((parts) => parts[0]);
+
+    const uniquePaths = new Set<string>();
+    for (const paths of objectPaths.values()) {
+        for (const path of paths) uniquePaths.add(path);
+    }
+    for (const path of uniquePaths) {
+        const folded = path.toLocaleLowerCase('mk-MK');
+        for (const { term, needle } of lower) {
+            if (!folded.includes(needle)) continue;
+            console.log(`  ${maskedPath(path)} (historical path)  ${mask(term)}`);
+            hits++;
+        }
+    }
+
+    const batch = execFileSync('git', ['cat-file', '--batch'], {
+        cwd: REPO,
+        input: blobIds.join('\n') + '\n',
+        maxBuffer: 512 * 1024 * 1024
+    });
+    let offset = 0;
+    for (const expectedOid of blobIds) {
+        const headerEnd = batch.indexOf(0x0a, offset);
+        if (headerEnd < 0) throw new Error(`Malformed git cat-file output at ${expectedOid}`);
+        const header = batch.subarray(offset, headerEnd).toString('utf8').split(' ');
+        const size = Number(header[2]);
+        if (header[0] !== expectedOid || header[1] !== 'blob' || !Number.isFinite(size)) {
+            throw new Error(`Unexpected git cat-file header for ${expectedOid}`);
+        }
+        const start = headerEnd + 1;
+        const end = start + size;
+        const contents = batch.subarray(start, end);
+        offset = end + 1;
+        if (contents.includes(0)) continue;
+        const paths = [...(objectPaths.get(expectedOid) ?? [])];
+        const display = maskedPath(paths[0] ?? '(unknown path)');
+        scanText(display, contents.toString('utf8'), `history blob ${expectedOid.slice(0, 12)}`);
+    }
+
+    const refCount = gitText(['for-each-ref', '--format=%(refname)'])
+        .split('\n').filter(Boolean).length;
+    if (hits) {
+        console.error(`\n${hits} real-name match${hits === 1 ? '' : 'es'} remain in reachable Git history.\n`);
+        process.exit(1);
+    }
+    console.log(
+        `Checked ${blobIds.length} reachable historical blobs across ${refCount} refs ` +
+        `against ${names.length} names — none appears.`
+    );
+    process.exit(0);
+}
+
+const gitFiles = (args: string[]) =>
+    execFileSync('git', args, { cwd: REPO, maxBuffer: 64 * 1024 * 1024 })
+        .toString('utf8').split('\0').filter(Boolean);
+
+// `--cached` is the exact set of paths represented in the index, including a
+// force-added ignored file. `--others --exclude-standard` adds new files that
+// would otherwise evade the guard until after somebody stages them.
+const indexed = gitFiles(['ls-files', '--cached', '-z']);
+const untracked = gitFiles(['ls-files', '--others', '--exclude-standard', '-z']);
+const candidates = [...new Set([...indexed, ...untracked])];
+const indexedSet = new Set(indexed);
+
+for (const file of candidates) {
+    const displayFile = maskedPath(file);
+    const pathText = file.toLocaleLowerCase('mk-MK');
+    for (const { term, needle } of lower) {
+        if (!pathText.includes(needle)) continue;
+        console.log(`  ${displayFile} (path)  ${mask(term)}`);
+        hits++;
+    }
+
+    let indexText: string | null = null;
+    if (indexedSet.has(file)) {
+        try {
+            indexText = execFileSync('git', ['show', `:${file}`], {
+                cwd: REPO, maxBuffer: 64 * 1024 * 1024, encoding: 'utf8'
+            });
+            scanText(displayFile, indexText, 'index');
+        } catch { /* a non-blob entry has no text to scan */ }
+    }
+
+    const full = join(REPO, file);
+    let workingText: string;
+    try {
+        workingText = readFileSync(full, 'utf8');
+    } catch { continue; }
+
+    // Avoid duplicate reports for the usual index/worktree copy. Normalizing
+    // line endings keeps Windows CRLF from making every tracked file look like
+    // a second content version.
+    const comparable = (value: string) => value.replace(/\r\n?/g, '\n');
+    if (indexText == null || comparable(indexText) !== comparable(workingText)) {
+        scanText(displayFile, workingText, indexedSet.has(file) ? 'working tree' : 'untracked');
     }
 }
 
 if (hits) {
     console.error(
-        `\n${hits} real name${hits === 1 ? '' : 's'} in tracked files.\n` +
+        `\n${hits} real name${hits === 1 ? '' : 's'} in files Git could commit.\n` +
         'This repository is public (GitHub Pages serves from it). Replace them with\n' +
         'invented ones — the tests already use Тестова / Пробен / Измислен.\n'
     );
     process.exit(1);
 }
-console.log(`Checked ${tracked.length} tracked files against ${names.length} names — none of them appears.`);
+console.log(
+    `Checked ${candidates.length} commit-candidate files ` +
+    `(${indexed.length} tracked/indexed, ${untracked.length} untracked) against ${names.length} names — none appears.`
+);

@@ -65,6 +65,15 @@ const PUPIL = `${TAG} Пробен Ученик`;
 const CLASS = `${TAG}-V-е`;
 const CATEGORY_CODE = `${TAG}_category`;
 const CATEGORY = `${TAG} Пробна категорија`;
+const BAND_PUPILS = [
+    { publicId: `${TAG}-band-prep`, name: `${TAG} Подготвителен Пример`, grade: 'Подготвително' },
+    { publicId: `${TAG}-band-iii`, name: `${TAG} Трето Пример`, grade: 'III-а' },
+    { publicId: `${TAG}-band-iv`, name: `${TAG} Четврто Пример`, grade: 'IV-а' },
+    { publicId: `${TAG}-band-vi`, name: `${TAG} Шесто Пример`, grade: 'VI' },
+    { publicId: `${TAG}-band-vii`, name: `${TAG} Седмо Пример`, grade: 'VII-б' },
+    { publicId: `${TAG}-band-ix`, name: `${TAG} Деветто Пример`, grade: 'IX' },
+    { publicId: `${TAG}-band-ten`, name: `${TAG} Десетто Пример`, grade: '10' }
+];
 
 const pool = new pg.Pool({ connectionString: DB });
 let browser;
@@ -142,6 +151,22 @@ async function seed() {
     return { year, pupil, therapists, teacher, category, section, item };
 }
 
+async function seedBandPupils(yearId, therapistId) {
+    for (const pupil of BAND_PUPILS) {
+        const [row] = await q(
+            `INSERT INTO students (public_id, name, grade)
+             VALUES ($1, $2, $3) RETURNING id`,
+            [pupil.publicId, pupil.name, pupil.grade]);
+        await q(
+            `INSERT INTO student_enrollments (student_id, school_year_id, grade, kind, active)
+             VALUES ($1, $2, $3, 'internal', true)`,
+            [row.id, yearId, pupil.grade]);
+        await q(
+            `INSERT INTO therapist_students (school_year_id, therapist_id, student_id)
+             VALUES ($1, $2, $3)`, [yearId, therapistId, row.id]);
+    }
+}
+
 const post = async (path, body, token) => {
     const res = await fetch(BASE + path, {
         method: 'POST',
@@ -202,6 +227,130 @@ const run = async () => {
          JOIN students s ON s.id = sh.student_id WHERE s.public_id = $1`, [`${TAG}-1`]);
     check('the sheet exists in the database and records who opened it',
         !!sheetRow && sheetRow.created_by === THERAPIST_A, JSON.stringify(sheetRow));
+
+    console.log('\nexact grade-band filters');
+    await seedBandPupils(fixture.year.id, fixture.therapists[0].id);
+    await page.click('#btnReload');
+    await page.waitForFunction(() => document.querySelectorAll('.pupil').length === 8);
+    checkEq('all keeps grades I–IX plus unclassified labels', await page.locator('.pupil').count(), 8);
+    await page.click('[data-grade="1-3"]');
+    checkEq('I–III does not swallow IV, IX, 10, or preparatory',
+        await page.locator('.pupil .nm').allTextContents(), [`${TAG} Трето Пример`]);
+    await page.click('[data-grade="4-6"]');
+    checkEq('IV–VI contains only the exact middle band',
+        (await page.locator('.pupil .nm').allTextContents()).sort(),
+        [`${TAG} Четврто Пример`, `${TAG} Шесто Пример`].sort());
+    await page.click('[data-grade="7-9"]');
+    checkEq('VII–IX contains only the exact upper band',
+        (await page.locator('.pupil .nm').allTextContents()).sort(),
+        [`${TAG} Седмо Пример`, `${TAG} Деветто Пример`].sort());
+    await page.fill('#find', 'Седмо');
+    checkEq('name search and grade band combine instead of replacing each other',
+        await page.locator('.pupil').count(), 1);
+    checkEq('filtered numbering restarts at one', await page.textContent('.pupil .num'), '1.');
+    checkEq('the counter reports filtered and total pupils', await page.textContent('#pupilCount'), '(1/8)');
+    await page.fill('#find', '');
+    await page.click('[data-grade="all"]');
+    await q('DELETE FROM students WHERE public_id LIKE $1', [`${TAG}-band-%`]);
+    await page.click('#btnReload');
+    await page.waitForFunction(() => document.querySelectorAll('.pupil').length === 1);
+
+    console.log('\nreliable text autosave');
+    await page.click('.tab[data-p="pProfile"]');
+    await page.evaluate(() => {
+        const diagnosis = document.querySelector('[data-f="diagnosis"]');
+        const place = document.querySelector('[data-f="pob"]');
+        diagnosis.value = 'Пробна дијагноза со празни места  ';
+        place.value = 'Пробно место на раѓање';
+        diagnosis.dispatchEvent(new Event('input', { bubbles: true }));
+        place.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    await page.waitForTimeout(1300);
+    let profileRow = (await q(
+        'SELECT diagnosis, pob FROM evidence_sheets WHERE id = $1', [sheetRow.id]))[0];
+    checkEq('two profile fields typed inside one second are both saved',
+        [profileRow.diagnosis, profileRow.pob],
+        ['Пробна дијагноза со празни места  ', 'Пробно место на раѓање']);
+
+    let pobPatches = 0;
+    const countPobPatch = (request) => {
+        if (request.method() !== 'PATCH' || !request.url().endsWith(`/api/evidence/sheet/${sheetRow.id}`)) return;
+        try {
+            if (Object.hasOwn(JSON.parse(request.postData() || '{}'), 'pob')) pobPatches++;
+        } catch (_) {}
+    };
+    page.on('request', countPobPatch);
+    await page.fill('[data-f="pob"]', 'Една потврдена промена');
+    await page.locator('[data-f="pob"]').press('Tab');
+    await page.waitForTimeout(1300);
+    page.off('request', countPobPatch);
+    checkEq('blur/change consumes the pending debounce instead of duplicating it', pobPatches, 1);
+
+    await page.click('.tab[data-p="pPanels"]');
+    await page.evaluate(() => {
+        const hearing = document.querySelector('[data-panel="hearing"][data-key="opinion"]');
+        const speech = document.querySelector('[data-panel="speech"][data-key="diag"]');
+        hearing.value = 'Пробна слухова белешка';
+        speech.value = 'Пробна говорна белешка';
+        hearing.dispatchEvent(new Event('input', { bubbles: true }));
+        speech.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    await page.waitForTimeout(1300);
+    const panelRows = await q(
+        `SELECT panel, data FROM evidence_panels
+         WHERE sheet_id = $1 AND panel IN ('hearing', 'speech') ORDER BY panel`, [sheetRow.id]);
+    check('different panels debounce independently and both reach PostgreSQL',
+        panelRows.length === 2
+            && panelRows.find((row) => row.panel === 'hearing')?.data.opinion === 'Пробна слухова белешка'
+            && panelRows.find((row) => row.panel === 'speech')?.data.diag === 'Пробна говорна белешка',
+        JSON.stringify(panelRows));
+
+    await page.evaluate(() => {
+        const field = document.querySelector('[data-panel="speech"][data-key="artic"]');
+        field.value = 'Запиши пред затворање';
+        field.dispatchEvent(new Event('input', { bubbles: true }));
+        window.dispatchEvent(new Event('pagehide'));
+    });
+    await page.waitForTimeout(350);
+    checkEq('pagehide flushes a pending text edit immediately',
+        (await q(`SELECT data->>'artic' AS value FROM evidence_panels
+                  WHERE sheet_id = $1 AND panel = 'speech'`, [sheetRow.id]))[0]?.value,
+        'Запиши пред затворање');
+
+    const otherPublicId = `${TAG}-autosave-other`;
+    const [otherStudent] = await q(
+        `INSERT INTO students (public_id, name, grade) VALUES ($1, $2, 'VI-а') RETURNING id`,
+        [otherPublicId, `${TAG} Друг Пробен Ученик`]);
+    await q(
+        `INSERT INTO student_enrollments (student_id, school_year_id, grade, kind, active)
+         VALUES ($1, $2, 'VI-а', 'internal', true)`, [otherStudent.id, fixture.year.id]);
+    await q(
+        `INSERT INTO therapist_students (student_id, therapist_id, school_year_id)
+         VALUES ($1, $2, $3)`, [otherStudent.id, fixture.therapists[0].id, fixture.year.id]);
+    const browserToken = await page.evaluate(() => localStorage.getItem('evidence_token_v1'));
+    const otherSheet = await post('/api/evidence/sheet', { publicId: otherPublicId, year: YEAR }, browserToken);
+    await page.click('#btnReload');
+    await page.waitForFunction((id) => document.querySelector(`.pupil[data-id="${id}"]`), otherPublicId);
+    await page.click('.tab[data-p="pProfile"]');
+    await page.evaluate((id) => {
+        const field = document.querySelector('[data-f="diagnosis"]');
+        field.value = 'Останува кај првиот лист';
+        field.dispatchEvent(new Event('input', { bubbles: true }));
+        document.querySelector(`.pupil[data-id="${id}"]`).click();
+    }, otherPublicId);
+    await page.waitForFunction((id) => document.querySelector(`.pupil.on[data-id="${id}"]`), otherPublicId);
+    await page.waitForTimeout(1300);
+    const autosaveTargets = await q(
+        `SELECT s.public_id, sh.diagnosis FROM evidence_sheets sh
+         JOIN students s ON s.id = sh.student_id
+         WHERE sh.id IN ($1, $2) ORDER BY s.public_id`, [sheetRow.id, otherSheet.sheetId]);
+    check('switching pupils cannot redirect a delayed save into the newly opened sheet',
+        autosaveTargets.find((row) => row.public_id === `${TAG}-1`)?.diagnosis === 'Останува кај првиот лист'
+            && autosaveTargets.find((row) => row.public_id === otherPublicId)?.diagnosis === '',
+        JSON.stringify(autosaveTargets));
+    await page.click(`.pupil[data-id="${TAG}-1"]`);
+    await page.waitForFunction((id) => document.querySelector(`.pupil.on[data-id="${id}"]`), `${TAG}-1`);
+    await q('DELETE FROM students WHERE id = $1', [otherStudent.id]);
 
     await page.click('.tab[data-p="pScores"]');
     await page.waitForSelector('select.ss', { timeout: 8000 });

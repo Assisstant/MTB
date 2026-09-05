@@ -18,9 +18,10 @@
   their own sections of the same child never touch the same row, which is the
   whole reason this stopped being one localStorage document.
 
-  The sign-in is a staff-room lock and an authorship stamp -- see the note in
-  server/src/routes/evidence-auth.ts. It is not security and must not be
-  described as such to anyone.
+  The sign-in is always a staff-room lock and an authorship stamp -- see the
+  note in server/src/routes/evidence-auth.ts. When MTB_REQUIRE_SIGNIN=1 the
+  server also uses it as an operational authorization boundary. It is not a
+  confidentiality guarantee; network reachability remains a separate control.
 -->
 <style>
 :root{
@@ -72,7 +73,11 @@ textarea{min-height:56px;resize:vertical;width:100%;}
 .wrap>*{min-width:0;}
 .side{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);position:sticky;top:10px;max-height:calc(100vh - 30px);display:flex;flex-direction:column;}
 .side h3{font-size:12px;text-transform:uppercase;letter-spacing:.5px;color:var(--sub);padding:11px 12px 6px;}
-.side .find{margin:0 12px 8px;width:calc(100% - 24px);}
+.side .find{margin:0 12px 6px;width:calc(100% - 24px);}
+.grade-pills{display:flex;gap:4px;margin:0 12px 8px;overflow-x:auto;padding-bottom:2px;}
+.grade-pills .pill{padding:3px 8px;font-size:11px;font-weight:600;border-radius:12px;border:1px solid var(--border);background:var(--card);color:var(--sub);cursor:pointer;white-space:nowrap;font-family:var(--font);}
+.grade-pills .pill:hover{background:var(--hover);color:var(--text);}
+.grade-pills .pill.active{background:var(--brand1);color:#fff;border-color:var(--brand1);}
 .plist{overflow-y:auto;flex:1;min-height:0;padding-bottom:8px;}
 /* min-height:0 is load-bearing. A flex item defaults to min-height:auto,
    which refuses to shrink below its content -- so with a real roster the
@@ -194,6 +199,12 @@ body.dark .at tr.ev td{color:#a3b0f7;}
   <aside class="side">
     <h3>Ученици <span id="pupilCount"></span></h3>
     <input class="find" id="find" placeholder="Барај по име…">
+    <div class="grade-pills" id="gradePills">
+      <button class="pill active" type="button" data-grade="all">Сите</button>
+      <button class="pill" type="button" data-grade="1-3">I-III</button>
+      <button class="pill" type="button" data-grade="4-6">IV-VI</button>
+      <button class="pill" type="button" data-grade="7-9">VII-IX</button>
+    </div>
     <div class="foot">
       <button class="btn btn-sm btn-p" id="btnNewPupil">+ Нов ученик</button>
       <button class="btn btn-sm" id="btnNewSheet" disabled>+ Отвори лист</button>
@@ -262,9 +273,9 @@ body.dark .at tr.ev td{color:#a3b0f7;}
     <div class="msg" id="gateMsg"></div>
     <div class="fl"><label>Стручно лице</label><select id="gateWho"></select></div>
     <div class="fl"><label id="gatePinLabel">PIN (најмалку 4 знаци)</label>
-      <input id="gatePin" type="password" autocomplete="off" inputmode="numeric"></div>
+      <input id="gatePin" type="password" autocomplete="off" inputmode="numeric" maxlength="4" pattern="[0-9]{4}"></div>
     <div class="fl" id="gatePin2Field" hidden><label>Повтори го новиот PIN</label>
-      <input id="gatePin2" type="password" autocomplete="off"></div>
+      <input id="gatePin2" type="password" autocomplete="off" inputmode="numeric" maxlength="4" pattern="[0-9]{4}"></div>
     <button class="btn btn-p" id="gateGo" style="width:100%;justify-content:center;">Влези</button>
     <button class="btn" id="gateSet" style="width:100%;justify-content:center;margin-top:8px;">Постави нов PIN</button>
   </div>
@@ -298,7 +309,6 @@ body.dark .at tr.ev td{color:#a3b0f7;}
     const tidy = (v) => String(v == null ? '' : v).replace(/\s+/g, ' ').trim();
     /** Two spellings of one name differ only by case, spacing and the class prefix. */
     const bareName = (v) => tidy(v).replace(/^[^-]{1,12}\s*-\s*/, '').toLocaleLowerCase('mk-MK');
-
     let apiBase = PUBLISHED ? '' : window.location.origin;
     let liveServers = [];
     let token = '';
@@ -308,6 +318,7 @@ body.dark .at tr.ev td{color:#a3b0f7;}
     let categories = [];     // global specialist-category catalogue
     let pupils = [];
     let sheet = null;        // the open record, whole
+    let sheetGeneration = 0;
     let editCatalog = false;
     // Only the newest read may draw: switching the year while a fetch is in
     // flight otherwise leaves last year's pupils under this year's label.
@@ -315,6 +326,121 @@ body.dark .at tr.ev td{color:#a3b0f7;}
     // Pupil reads nest two more requests (sheet sections and team). Keep their
     // own generation so a slow click on pupil A cannot finish over pupil B.
     let sheetTicket = 0;
+
+    /**
+     * Text fields save after a short pause, but the pause must not loosen the
+     * identity of the write. Every queued job below already contains the sheet,
+     * pupil, year and exact value that produced it; it never consults whichever
+     * sheet happens to be open when the timer fires.
+     *
+     * One queue per field/panel also keeps responses in order. `change` merely
+     * makes the already queued value ready immediately, so leaving a field does
+     * not send the same value once on blur and once again a second later.
+     */
+    const autosaveQueues = new Map();
+    const autosaveCommitted = new Map();
+
+    function replaceOpenSheet(next) {
+        sheet = next;
+        sheetGeneration++;
+        // A fresh read may contain a colleague's newer value.  A signature
+        // remembered before that read must not suppress a deliberate re-save.
+        autosaveCommitted.clear();
+        return sheet;
+    }
+
+    function openSheetRef() {
+        if (!sheet) return null;
+        return {
+            sheetId: Number(sheet.id),
+            publicId: String(sheet.public_id || ''),
+            year: String(sheet.year || el('year').value || ''),
+            generation: sheetGeneration
+        };
+    }
+
+    function isOpenSheet(ref) {
+        return Boolean(ref && sheet
+            && sheetGeneration === ref.generation
+            && Number(sheet.id) === ref.sheetId
+            && String(sheet.public_id || '') === ref.publicId
+            && String(sheet.year || el('year').value || '') === ref.year
+            && el('year').value === ref.year);
+    }
+
+    function autosaveHasNewer(key, signature) {
+        const slot = autosaveQueues.get(key);
+        return Boolean(slot && slot.pending && slot.pending.signature !== signature);
+    }
+
+    async function drainAutosave(key, keepalive) {
+        const slot = autosaveQueues.get(key);
+        if (!slot || slot.running || !slot.ready || !slot.pending) return;
+        const job = slot.pending;
+        slot.pending = null;
+        slot.ready = false;
+        slot.running = job.signature;
+        try {
+            if (await job.run(Boolean(keepalive))) autosaveCommitted.set(key, job.signature);
+        } finally {
+            slot.running = '';
+            if (slot.ready && slot.pending) {
+                void drainAutosave(key, keepalive);
+            } else if (!slot.pending && !slot.timer) {
+                autosaveQueues.delete(key);
+            }
+        }
+    }
+
+    function queueAutosave(key, signature, run, immediate) {
+        if (autosaveCommitted.get(key) === signature && !autosaveQueues.has(key)) return;
+        let slot = autosaveQueues.get(key);
+        if (!slot) {
+            slot = { timer: null, pending: null, ready: false, running: '' };
+            autosaveQueues.set(key, slot);
+        }
+        const job = { signature, run };
+
+        if (slot.pending && slot.pending.signature === signature) {
+            // Keep the newest captured context even when its content is equal.
+            slot.pending = job;
+        } else if (!slot.pending && slot.running === signature) {
+            // `change`, then a save-button click, is one user decision.
+            return;
+        } else {
+            slot.pending = job;
+        }
+
+        if (slot.timer) {
+            clearTimeout(slot.timer);
+            slot.timer = null;
+        }
+        if (immediate) {
+            slot.ready = true;
+            void drainAutosave(key);
+            return;
+        }
+        slot.ready = false;
+        slot.timer = setTimeout(() => {
+            slot.timer = null;
+            slot.ready = true;
+            void drainAutosave(key);
+        }, 1000);
+    }
+
+    function flushAutosaves() {
+        autosaveQueues.forEach((slot, key) => {
+            if (!slot.pending) return;
+            if (slot.timer) {
+                clearTimeout(slot.timer);
+                slot.timer = null;
+            }
+            slot.ready = true;
+            // keepalive asks the browser to finish these small JSON writes even
+            // when the tab is being closed or moved into the background.
+            void drainAutosave(key, true);
+        });
+    }
 
     function toast(message, bad) {
         const node = el('toast');
@@ -435,15 +561,15 @@ body.dark .at tr.ev td{color:#a3b0f7;}
         return raw;
     }
 
-    async function api(method, path, body) {
+    async function api(method, path, body, requestOptions) {
         if (!apiBase && PUBLISHED) throw new Error('Избери база/сервер.');
         const headers = {};
         if (token) headers['X-MTB-Evidence-Token'] = token;
         if (body !== undefined) headers['Content-Type'] = 'application/json';
-        const res = await fetch(apiBase + path, {
+        const res = await fetch(apiBase + path, Object.assign({
             method, cache: 'no-store', headers,
             body: body === undefined ? undefined : JSON.stringify(body)
-        });
+        }, requestOptions || {}));
         let payload = null;
         try { payload = await res.json(); } catch (e) { /* not JSON */ }
         if (!res.ok) {
@@ -463,6 +589,7 @@ body.dark .at tr.ev td{color:#a3b0f7;}
             if (value) localStorage.setItem(TOKEN_KEY, value);
             else localStorage.removeItem(TOKEN_KEY);
         } catch (e) { /* the session still works for this tab */ }
+        window.dispatchEvent(new CustomEvent('mtb:auth-changed'));
     }
 
     function showGate(message) {
@@ -526,7 +653,7 @@ body.dark .at tr.ev td{color:#a3b0f7;}
     async function doLogin() {
         const ref = gateWhoRef();
         const pin = el('gatePin').value;
-        if (!ref || pin.length < 4) return toast('Внеси PIN од најмалку 4 знаци', true);
+        if (!ref || !/^\d{4}$/.test(pin)) return toast('Внеси PIN од точно 4 цифри', true);
         try {
             const body = await api('POST', '/api/evidence/login', Object.assign({ pin }, ref));
             rememberToken(body.token);
@@ -556,13 +683,13 @@ body.dark .at tr.ev td{color:#a3b0f7;}
             el('gatePin2Field').hidden = false;
             el('gatePinLabel').textContent = hasPin
                 ? 'Нов PIN (треба стариот или веќе најавена сесија)'
-                : 'Нов PIN (најмалку 4 знаци)';
+                : 'Нов PIN (точно 4 цифри)';
             el('gatePin').focus();
             return;
         }
         const first = el('gatePin').value;
         const again = el('gatePin2').value;
-        if (first.length < 4) return toast('PIN од најмалку 4 знаци', true);
+        if (!/^\d{4}$/.test(first)) return toast('PIN од точно 4 цифри', true);
         if (first !== again) return toast('Двата PIN-а не се исти', true);
         try {
             const current = hasPin && !token
@@ -624,7 +751,7 @@ body.dark .at tr.ev td{color:#a3b0f7;}
             categories = categoryList.categories || [];
             pupils = list.pupils;
             const openId = sheet ? sheet.public_id : null;
-            sheet = null;
+            replaceOpenSheet(null);
             drawPupils();
             drawSetup();
             const again = openId && pupils.find((p) => p.public_id === openId && p.sheet_id);
@@ -644,7 +771,7 @@ body.dark .at tr.ev td{color:#a3b0f7;}
     }
 
     function offline(err) {
-        pupils = []; catalog = null; categories = []; sheet = null;
+        pupils = []; catalog = null; categories = []; replaceOpenSheet(null);
         el('plist').innerHTML = '';
         el('sheetHead').innerHTML =
             '<div class="note note-bad"><b>Нема врска со серверот.</b> '
@@ -655,9 +782,40 @@ body.dark .at tr.ev td{color:#a3b0f7;}
     }
 
     // ── the pupil list ───────────────────────────────────────────────────────
+    let selectedGradeBand = 'all';
+
+    function gradeNumber(grade) {
+        const label = String(grade || '').trim().toUpperCase();
+        if (!label) return null;
+        // Preparatory/preschool labels are intentionally outside I–IX and stay
+        // visible under „Сите“ rather than being guessed into a grade band.
+        if (/^(?:ПОДГОТВИТЕЛ|ПРЕДУЧИЛИШ)/.test(label)) return null;
+
+        // Consume the WHOLE leading token. Prefix checks make IV look like I,
+        // VII look like V and numeric 10 look like 1.
+        const numeric = label.match(/^(\d+)(?=$|[\s\-‐‑–—_/])/);
+        if (numeric) return Number(numeric[1]);
+        const roman = label.match(/^(VIII|VII|VI|IX|IV|III|II|V|I)(?=$|[\s\-‐‑–—_/])/);
+        if (!roman) return null;
+        return { I: 1, II: 2, III: 3, IV: 4, V: 5, VI: 6,
+            VII: 7, VIII: 8, IX: 9 }[roman[1]];
+    }
+
+    function matchGradeBand(grade, band) {
+        if (!band || band === 'all') return true;
+        const value = gradeNumber(grade);
+        if (band === '1-3') return value !== null && value >= 1 && value <= 3;
+        if (band === '4-6') return value !== null && value >= 4 && value <= 6;
+        if (band === '7-9') return value !== null && value >= 7 && value <= 9;
+        return true;
+    }
+
     function drawPupils() {
         const needle = tidy(el('find').value).toLocaleLowerCase('mk-MK');
-        const shown = pupils.filter((p) => !needle || p.name.toLocaleLowerCase('mk-MK').includes(needle));
+        const shown = pupils.filter((p) => {
+            if (needle && !p.name.toLocaleLowerCase('mk-MK').includes(needle)) return false;
+            return matchGradeBand(p.grade, selectedGradeBand);
+        });
         el('pupilCount').textContent = '(' + shown.length
             + (shown.length !== pupils.length ? '/' + pupils.length : '') + ')';
         el('plist').innerHTML = shown.map((p, index) =>
@@ -679,7 +837,7 @@ body.dark .at tr.ev td{color:#a3b0f7;}
         if (!pupil) return;
         if (!pupil.sheet_id) {
             sheetTicket++;
-            sheet = null;
+            replaceOpenSheet(null);
             sheetSections = null;
             pupilTeam = null;
             drawPupils();
@@ -768,7 +926,7 @@ body.dark .at tr.ev td{color:#a3b0f7;}
             const opened = await api('GET', '/api/evidence/sheet/' + sheetId);
             const context = await readSheetContext(opened, yearLabel);
             if (mine !== sheetTicket || loadGeneration !== ticket || yearLabel !== el('year').value) return;
-            sheet = opened;
+            replaceOpenSheet(opened);
             sheetSections = context.sections;
             pupilTeam = context.team;
             el('btnNewSheet').disabled = true;
@@ -848,6 +1006,7 @@ body.dark .at tr.ev td{color:#a3b0f7;}
             + esc(String(sheet.updated_at).slice(0, 16).replace('T', ' ')) + ' · '
             + esc(sheet.updated_by || '—') + '</span>'
             + '<span style="flex:1"></span>'
+            + '<a class="btn btn-sm" href="RasporediFusion.html" title="Отвори распоред за терапевти" style="text-decoration:none;">📅 Распоред</a>'
             + '<button class="btn btn-sm btn-r" id="btnDelSheet">🗑 Избриши го листот</button></div>';
         el('btnDelSheet').onclick = deleteSheet;
         drawProfile();
@@ -892,24 +1051,76 @@ body.dark .at tr.ev td{color:#a3b0f7;}
             + '<div class="fl"><label>Дијагноза (според Наод и мислење)</label>'
             + '<textarea data-f="diagnosis">' + esc(s.diagnosis) + '</textarea></div>'
             + '</div>';
-        el('pProfile').querySelectorAll('[data-f]').forEach((node) => {
-            node.addEventListener('change', () => saveProfileField(node));
+        wireProfileAutosave(el('pProfile'));
+    }
+
+    const PROFILE_SHEET_KEYS = {
+        institution: 'institution', place: 'place', municipality: 'municipality',
+        schoolType: 'school_type', classSection: 'class_section', vocation: 'vocation',
+        occupation: 'occupation', dob: 'dob', pob: 'pob', diagnosis: 'diagnosis',
+        placeDate: 'place_date'
+    };
+
+    function profileSaveFrom(node) {
+        const ref = openSheetRef();
+        const field = node && node.dataset ? node.dataset.f : '';
+        if (!ref || !field) return null;
+        const value = node.value;
+        const key = 'profile|' + ref.sheetId + '|' + field;
+        return {
+            ref, field, value, key,
+            signature: JSON.stringify([field, value])
+        };
+    }
+
+    function queueProfileSave(node, immediate) {
+        const save = profileSaveFrom(node);
+        if (!save) return;
+        if (!immediate) status('чекам внес…', 'saving');
+        queueAutosave(save.key, save.signature,
+            (keepalive) => persistProfileSave(save, keepalive), Boolean(immediate));
+    }
+
+    function wireProfileAutosave(root) {
+        if (!root) return;
+        root.querySelectorAll('[data-f]').forEach((node) => {
+            node.addEventListener('change', () => queueProfileSave(node, true));
+            if (node.matches('input, textarea')) {
+                node.addEventListener('input', () => queueProfileSave(node, false));
+            }
         });
     }
 
-    async function saveProfileField(node) {
+    async function persistProfileSave(save, keepalive) {
         const patch = {};
-        patch[node.dataset.f] = node.value;
+        patch[save.field] = save.value;
         try {
-            status('запишувам…', 'saving');
-            const body = await api('PATCH', '/api/evidence/sheet/' + sheet.id, patch);
-            sheet = body.sheet;
-            status('зачувано во базата', 'ok');
+            if (isOpenSheet(save.ref)) status('запишувам…', 'saving');
+            const body = await api('PATCH', '/api/evidence/sheet/' + save.ref.sheetId, patch,
+                keepalive ? { keepalive: true } : undefined);
+            if (!isOpenSheet(save.ref)) return true;
+
+            // A PATCH returns the whole record. Only merge the field this job
+            // owns; replacing `sheet` would let a late response from an older
+            // edit erase newer, independently confirmed fields in memory.
+            const returned = body && body.sheet;
+            const sheetKey = PROFILE_SHEET_KEYS[save.field];
+            if (returned && sheetKey) sheet[sheetKey] = returned[sheetKey];
+            if (returned) {
+                sheet.updated_at = returned.updated_at;
+                sheet.updated_by = returned.updated_by;
+            }
+            const newer = autosaveHasNewer(save.key, save.signature);
+            status(newer ? 'чекам внес…' : 'зачувано во базата', newer ? 'saving' : 'ok');
             // Секцијата XI постои само за средно, па изгледот се менува со типот.
-            if (node.dataset.f === 'schoolType') { drawProfile(); drawScores(); }
+            if (save.field === 'schoolType' && !newer) { drawProfile(); drawScores(); }
+            return true;
         } catch (err) {
-            toast(err.message, true);
-            status(err.message, 'error');
+            if (isOpenSheet(save.ref)) {
+                toast(err.message, true);
+                status(err.message, 'error');
+            }
+            return false;
         }
     }
 
@@ -1074,8 +1285,51 @@ body.dark .at tr.ev td{color:#a3b0f7;}
         const setup = el('pScores').querySelector('[data-open-setup]');
         if (setup) setup.addEventListener('click', () => activatePane('pSetup'));
 
+        function focusNextScore(currentSelect, step) {
+            const table = currentSelect.closest('table');
+            if (!table) return;
+            const period = currentSelect.dataset.period;
+            const colSelects = Array.from(table.querySelectorAll('select.ss[data-period="' + period + '"]:not(:disabled)'));
+            const idx = colSelects.indexOf(currentSelect);
+            if (idx !== -1 && idx + step >= 0 && idx + step < colSelects.length) {
+                colSelects[idx + step].focus();
+            }
+        }
+
         el('pScores').querySelectorAll('select.ss').forEach((node) => {
             node.addEventListener('change', () => saveScore(node));
+            node.addEventListener('keydown', (e) => {
+                if (node.disabled) return;
+                let val = null;
+                if (['1', '2', '3'].includes(e.key)) {
+                    val = e.key;
+                } else if (e.key === '/' || e.key === '-') {
+                    val = '/';
+                } else if (e.key === 'v' || e.key === 'V' || e.key === '√') {
+                    val = '√';
+                } else if (e.key === 'x' || e.key === 'X') {
+                    val = 'X';
+                } else if (e.key === 'Backspace' || e.key === 'Delete' || e.key === '0') {
+                    val = '';
+                } else if (e.key === 'ArrowDown' || e.key === 'Enter') {
+                    e.preventDefault();
+                    focusNextScore(node, 1);
+                    return;
+                } else if (e.key === 'ArrowUp') {
+                    e.preventDefault();
+                    focusNextScore(node, -1);
+                    return;
+                }
+                if (val !== null) {
+                    const opt = Array.from(node.options).find((o) => o.value === val);
+                    if (opt) {
+                        e.preventDefault();
+                        node.value = val;
+                        saveScore(node);
+                        focusNextScore(node, 1);
+                    }
+                }
+            });
         });
         el('pScores').querySelectorAll('[data-examiner]').forEach((node) => {
             node.addEventListener('change', () => saveExaminer(node));
@@ -1213,7 +1467,7 @@ body.dark .at tr.ev td{color:#a3b0f7;}
         if (mine !== sheetTicket || loadGeneration !== ticket || yearLabel !== el('year').value) return;
         catalog = nextCatalog;
         if (opened) {
-            sheet = opened;
+            replaceOpenSheet(opened);
             sheetSections = context.sections;
             pupilTeam = context.team;
         }
@@ -1332,22 +1586,62 @@ body.dark .at tr.ev td{color:#a3b0f7;}
         el('pPanels').querySelectorAll('[data-save-panel]').forEach((node) => {
             node.onclick = () => savePanel(node.dataset.savePanel);
         });
+        el('pPanels').querySelectorAll('[data-panel]').forEach((node) => {
+            const pKey = node.dataset.panel;
+            node.addEventListener('input', () => queuePanelSave(pKey, false));
+            node.addEventListener('change', () => queuePanelSave(pKey, true));
+        });
     }
 
-    async function savePanel(key) {
+    function panelSaveFor(key) {
+        const ref = openSheetRef();
+        if (!ref) return null;
         const data = {};
         const gate = el('pPanels').querySelector('[data-gate="' + key + '"]');
         if (gate) data.enabled = gate.checked;
         el('pPanels').querySelectorAll('[data-panel="' + key + '"]').forEach((node) => {
             data[node.dataset.key] = node.value;
         });
+        return {
+            ref, panel: key, data, by: me ? me.name : '',
+            key: 'panel|' + ref.sheetId + '|' + key,
+            signature: JSON.stringify(data)
+        };
+    }
+
+    function queuePanelSave(key, immediate) {
+        const save = panelSaveFor(key);
+        if (!save) return;
+        if (!immediate) status('чекам внес…', 'saving');
+        queueAutosave(save.key, save.signature,
+            (keepalive) => persistPanelSave(save, keepalive), Boolean(immediate));
+    }
+
+    async function persistPanelSave(save, keepalive) {
         try {
-            status('запишувам…', 'saving');
-            await api('PUT', '/api/evidence/panel', { sheetId: sheet.id, panel: key, data });
-            sheet.panels[key] = Object.assign({}, data, { _updatedBy: me.name });
-            status('зачувано во базата', 'ok');
-            toast('Зачувано');
-        } catch (err) { toast(err.message, true); status(err.message, 'error'); }
+            if (isOpenSheet(save.ref)) status('запишувам…', 'saving');
+            const body = await api('PUT', '/api/evidence/panel', {
+                sheetId: save.ref.sheetId, panel: save.panel, data: save.data
+            }, keepalive ? { keepalive: true } : undefined);
+            if (!isOpenSheet(save.ref)) return true;
+            sheet.panels[save.panel] = Object.assign({}, save.data, {
+                _updatedBy: (body && body.by) || save.by
+            });
+            const newer = autosaveHasNewer(save.key, save.signature);
+            status(newer ? 'чекам внес…' : 'зачувано во базата', newer ? 'saving' : 'ok');
+            if (!newer) toast('Зачувано');
+            return true;
+        } catch (err) {
+            if (isOpenSheet(save.ref)) {
+                toast(err.message, true);
+                status(err.message, 'error');
+            }
+            return false;
+        }
+    }
+
+    function savePanel(key) {
+        queuePanelSave(key, true);
     }
 
     // ── contacts ─────────────────────────────────────────────────────────────
@@ -1390,8 +1684,7 @@ body.dark .at tr.ev td{color:#a3b0f7;}
             + '<input data-f="placeDate" value="' + esc(sheet.place_date) + '"></div>'
             + '<button class="btn btn-g btn-sm" id="btnSaveContacts">💾 Зачувај ги лицата</button></div>';
         el('btnSaveContacts').onclick = saveContacts;
-        el('pPeople').querySelector('[data-f="placeDate"]')
-            .addEventListener('change', (event) => saveProfileField(event.target));
+        wireProfileAutosave(el('pPeople'));
     }
 
     async function saveContacts() {
@@ -1406,7 +1699,7 @@ body.dark .at tr.ev td{color:#a3b0f7;}
         try {
             status('запишувам…', 'saving');
             await api('PUT', '/api/evidence/contacts', { sheetId: sheet.id, contacts });
-            sheet = await api('GET', '/api/evidence/sheet/' + sheet.id);
+            replaceOpenSheet(await api('GET', '/api/evidence/sheet/' + sheet.id));
             drawPeople();
             status('зачувано во базата', 'ok');
             toast('Зачувано');
@@ -1651,7 +1944,7 @@ body.dark .at tr.ev td{color:#a3b0f7;}
         try {
             await api('DELETE', '/api/evidence/sheet/' + sheet.id
                 + '?expected=' + encodeURIComponent(sheet.name));
-            sheet = null;
+            replaceOpenSheet(null);
             await load();
             toast('Листот е избришан');
         } catch (err) { toast(err.message, true); }
@@ -1886,7 +2179,7 @@ body.dark .at tr.ev td{color:#a3b0f7;}
             if (!sheet || sheet.id !== sheetId || el('year').value !== yearLabel) {
                 return toast('Избраниот лист се смени — притисни повторно за документот.', true);
             }
-            sheet = freshSheet;
+            replaceOpenSheet(freshSheet);
             catalog = freshCatalog;
             if (action) sheetSections = freshSectionState.sections || [];
 
@@ -2111,8 +2404,19 @@ body.dark .at tr.ev td{color:#a3b0f7;}
             fillGateWho().catch((err) => toast(err.message, true));
         };
         el('btnReload').onclick = () => load();
-        el('year').onchange = () => { sheet = null; load(); };
+        el('year').onchange = () => { replaceOpenSheet(null); load(); };
         el('find').oninput = () => drawPupils();
+        const gradePills = el('gradePills');
+        if (gradePills) {
+            gradePills.querySelectorAll('.pill').forEach((btn) => {
+                btn.onclick = () => {
+                    gradePills.querySelectorAll('.pill').forEach((b) => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    selectedGradeBand = btn.dataset.grade;
+                    drawPupils();
+                };
+            });
+        }
         el('plist').onclick = (event) => {
             const row = event.target.closest('.pupil');
             if (row) choosePupil(row.dataset.id);
@@ -2143,7 +2447,7 @@ body.dark .at tr.ev td{color:#a3b0f7;}
             window.dispatchEvent(new CustomEvent('mtb:server-selected'));
             el('year').innerHTML = '';
             years = [];
-            sheet = null;
+            replaceOpenSheet(null);
             await load();
         };
 
@@ -2151,6 +2455,11 @@ body.dark .at tr.ev td{color:#a3b0f7;}
         if (!ready) return;
         await load();
     }
+
+    window.addEventListener('pagehide', flushAutosaves);
+    document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'hidden') flushAutosaves();
+    });
 
     boot();
 })();

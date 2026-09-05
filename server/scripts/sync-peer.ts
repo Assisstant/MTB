@@ -49,6 +49,10 @@ const LOCAL = (opt('local', 'http://127.0.0.1:3000') as string).replace(/\/+$/, 
 const APPS = (opt('apps', 'unified,sdnevnik') as string).split(',').map((s) => s.trim()).filter(Boolean);
 const APPLY = flag('apply');
 const FORCE = flag('force');
+// A long deployment key lets scheduled maintenance write while interactive
+// staff sessions still expire after inactivity.  It lives only in `.env` and
+// is never accepted on the command line, where process listings could expose it.
+const SERVICE_KEY = String(process.env.MTB_SERVICE_KEY || '').trim();
 
 /**
  * MAILBOX MODE.
@@ -143,9 +147,11 @@ async function getState(base: string, app: string): Promise<State | null> {
 }
 
 async function putState(base: string, app: string, payload: unknown, baseVersion: number, by: string) {
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (SERVICE_KEY) headers['X-MTB-Service-Key'] = SERVICE_KEY;
     const res = await fetch(`${base}/api/state/${app}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({ baseVersion, payload, updated_by: by })
     });
     const body = await res.json().catch(() => null);

@@ -21,6 +21,7 @@
     const SELECTED_SERVER_KEY = 'mtb_podatoci_server_v1';
     const HEALTH_TIMEOUT = 4500;
     const HEALTH_INTERVAL = 15000;
+    const TOKEN_KEY = 'evidence_token_v1';
     const LOCAL_FIRST = new Set(['s-dnevnik.html', 'rasporedi.html']);
     const READ_ONLY = new Set(['nastava.html', 'pregled-baza.html']);
 
@@ -28,6 +29,8 @@
     let healthRequest = 0;
     let serverState = { state: 'checking', label: 'Ја проверувам базата…', title: '' };
     let dataState = normalizeDataState(window.__MTB_DATA_STATE__ || defaultDataState());
+    let userState = null;
+    const nativeFetch = window.fetch.bind(window);
 
     function isPublished() {
         return window.location.hostname === PUBLISHED_HOST;
@@ -53,6 +56,46 @@
     function activeServer() {
         if (isPublished()) return selectedServer();
         return /^https?:$/.test(window.location.protocol) ? window.location.origin : '';
+    }
+
+    /**
+     * Every screen shares the same signed-in session.  Keeping the header here
+     * means an administrator who signs in once can use the database-backed
+     * editors too; individual pages do not each have to grow a second auth
+     * implementation.  Never send the token to a host other than the selected
+     * MTB server.
+     */
+    function installAuthenticatedFetch() {
+        if (window.__MTB_AUTH_FETCH_INSTALLED__) return;
+        window.__MTB_AUTH_FETCH_INSTALLED__ = true;
+        window.fetch = function (input, init) {
+            let token = '';
+            try { token = localStorage.getItem(TOKEN_KEY) || ''; } catch (_) {}
+            if (!token) return nativeFetch(input, init);
+
+            let target;
+            let server;
+            try {
+                const raw = typeof input === 'string' || input instanceof URL ? input : input.url;
+                target = new URL(raw, window.location.href);
+                server = new URL(activeServer());
+            } catch (_) {
+                return nativeFetch(input, init);
+            }
+            if (target.origin !== server.origin || !target.pathname.startsWith('/api/')) {
+                return nativeFetch(input, init);
+            }
+
+            const sourceHeaders = init && init.headers
+                ? init.headers
+                : (typeof Request !== 'undefined' && input instanceof Request ? input.headers : undefined);
+            const headers = new Headers(sourceHeaders || {});
+            if (!headers.has('x-mtb-evidence-token')) headers.set('x-mtb-evidence-token', token);
+            if (typeof Request !== 'undefined' && input instanceof Request) {
+                return nativeFetch(new Request(input, Object.assign({}, init || {}, { headers })));
+            }
+            return nativeFetch(input, Object.assign({}, init || {}, { headers }));
+        };
     }
 
     function currentFile() {
@@ -129,7 +172,7 @@
                 background: #e7f6f1; color: #0d594a; border-color: #a5d8ca;
             }
             .mtb-app-nav__state {
-                flex: 0 0 auto; min-width: 385px; padding: 5px 11px;
+                flex: 0 0 auto; min-width: auto; padding: 5px 11px;
                 border-left: 1px solid #465469; display: flex; align-items: center;
                 justify-content: flex-end; gap: 15px; background: #151c27;
             }
@@ -149,6 +192,7 @@
                 max-width: 230px; overflow: hidden; text-overflow: ellipsis;
                 color: #eef3f8; font-size: 12px; line-height: 1.25;
             }
+            .mtb-app-nav__status--user .mtb-app-nav__dot { background: #818cf8; }
             .mtb-app-nav__status[data-state="online"] .mtb-app-nav__dot,
             .mtb-app-nav__status[data-state="synced"] .mtb-app-nav__dot,
             .mtb-app-nav__status[data-state="readonly"] .mtb-app-nav__dot { background: #46c2a5; }
@@ -171,6 +215,12 @@
             .mtb-app-nav__retry:hover, .mtb-app-nav__retry:focus-visible {
                 border-color: #9fe3cf; outline: none; background: #33435b;
             }
+            .mtb-app-nav__logout {
+                padding: 3px 8px; border: 1px solid #52637b; border-radius: 4px;
+                background: rgba(255,255,255,0.1); color: #e2e8f0; font-size: 11px;
+                cursor: pointer; font-weight: 600; line-height: 1; margin-left: -5px;
+            }
+            .mtb-app-nav__logout:hover { background: rgba(255,255,255,0.22); color: #fff; }
             @media (max-width: 900px) {
                 .mtb-app-nav__shell { display: block; }
                 .mtb-app-nav__links { min-height: 42px; padding: 4px 7px; }
@@ -216,6 +266,7 @@
         }
         render();
         checkHealth();
+        checkUser();
         window.dispatchEvent(new CustomEvent('mtb:navigation-mounted'));
     }
 
@@ -251,6 +302,21 @@
         data.querySelector('.mtb-app-nav__value').textContent = dataState.text || 'Статусот не е познат';
         data.title = dataState.title || dataState.text;
         state.append(server, data);
+        if (userState) {
+            const user = statusNode('user', 'НАЈАВЕН');
+            user.querySelector('.mtb-app-nav__value').textContent = userState.name;
+            user.title = userState.name + (userState.kind ? ' · ' + userState.kind : '');
+            user.dataset.state = 'online';
+            state.append(user);
+
+            const logout = document.createElement('button');
+            logout.type = 'button';
+            logout.className = 'mtb-app-nav__logout';
+            logout.textContent = 'Одјава';
+            logout.title = 'Одјави се од системот';
+            logout.addEventListener('click', logoutUser);
+            state.appendChild(logout);
+        }
         if (dataState.action) {
             const retry = document.createElement('button');
             retry.type = 'button';
@@ -337,15 +403,73 @@
         }
     }
 
-    window.MTBAppNavigation = { refresh: render, checkHealth, reportDataState };
+    async function checkUser() {
+        let token = '';
+        try { token = localStorage.getItem(TOKEN_KEY) || ''; } catch (_) {}
+        if (!token) {
+            if (userState !== null) {
+                userState = null;
+                render();
+            }
+            return;
+        }
+        const base = activeServer();
+        if (!base) return;
+        try {
+            const response = await nativeFetch(base + '/api/evidence/me', {
+                headers: { 'x-mtb-evidence-token': token },
+                cache: 'no-store'
+            });
+            if (response.ok) {
+                const body = await response.json().catch(() => null);
+                userState = body && body.person
+                    ? Object.assign({}, body.person, { permissions: body.permissions || {} })
+                    : null;
+            } else if (response.status === 401) {
+                try { localStorage.removeItem(TOKEN_KEY); } catch (_) {}
+                userState = null;
+            }
+        } catch (_) {
+            // Keep existing userState if offline or network glitch
+        }
+        render();
+    }
+
+    async function logoutUser() {
+        let token = '';
+        try { token = localStorage.getItem(TOKEN_KEY) || ''; } catch (_) {}
+        const base = activeServer();
+        if (token && base) {
+            try {
+                await nativeFetch(base + '/api/evidence/logout', {
+                    method: 'POST',
+                    headers: { 'x-mtb-evidence-token': token },
+                    cache: 'no-store'
+                });
+            } catch (_) {
+                // Local logout must still work while the server is unavailable;
+                // the short-lived server session will expire on its own.
+            }
+        }
+        try { localStorage.removeItem(TOKEN_KEY); } catch (_) {}
+        userState = null;
+        render();
+        window.dispatchEvent(new CustomEvent('mtb:auth-changed'));
+        window.location.reload();
+    }
+
+    installAuthenticatedFetch();
+    window.MTBAppNavigation = { refresh: render, checkHealth, checkUser, logout: logoutUser, reportDataState };
     window.addEventListener('mtb:data-state', (event) => reportDataState(event.detail));
-    window.addEventListener('mtb:server-selected', () => { render(); checkHealth(); });
-    window.addEventListener('online', checkHealth);
+    window.addEventListener('mtb:server-selected', () => { render(); checkHealth(); checkUser(); });
+    window.addEventListener('mtb:auth-changed', () => checkUser());
+    window.addEventListener('online', () => { checkHealth(); checkUser(); });
     window.addEventListener('storage', (event) => {
-        if (event.key === SELECTED_SERVER_KEY) { render(); checkHealth(); }
+        if (event.key === SELECTED_SERVER_KEY) { render(); checkHealth(); checkUser(); }
+        if (event.key === TOKEN_KEY) { checkUser(); }
     });
     document.addEventListener('visibilitychange', () => {
-        if (document.visibilityState === 'visible') checkHealth();
+        if (document.visibilityState === 'visible') { checkHealth(); checkUser(); }
     });
 
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', mount);
