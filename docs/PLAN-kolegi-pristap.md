@@ -9,7 +9,8 @@ database-backed `AkciskiPlan.html` rollout.
 The implementation and complete verification gate are green on
 `kolegi-pristap`; it is **not active merely because the branch is pulled**.
 Authorization remains compatibility-open until the local server has
-`MTB_REQUIRE_SIGNIN=1` and is restarted. The branch is ready for code review.
+`MTB_REQUIRE_SIGNIN=1` and is restarted. The verified branch is merged into
+`main` and the GitHub Pages build has completed successfully.
 The reachable history was rewritten and `main` was force-pushed on 5 September
 after both current trees were verified byte-for-byte. The commit-candidate and
 reachable-history name guards are green, so the rollout may be merged. GitHub
@@ -251,7 +252,7 @@ Final verification captured on HOME on 5 September 2026:
   An invented workbook round-trip, typecheck and the full unit suite pass;
   `npm audit --omit=dev` now reports 0 vulnerabilities.
 
-The implementation and privacy rewrite are ready for merge. GitHub Support
+The implementation and privacy rewrite are merged and deployed. GitHub Support
 cleanup of the two closed-PR refs and enabling enforcement on a real shared
 server are separate operational steps; activation must follow the order above.
 

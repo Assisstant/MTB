@@ -1977,7 +1977,7 @@ candidates.
 
 The privacy-blocking history rewrite is complete. The rewritten `main`, the
 rollout branch and HOME's clone pass both the commit-candidate and reachable-
-history name guards, so the rollout may now be merged. GitHub Support cleanup
+history name guards, and the rollout was merged into `main`. GitHub Support cleanup
 of two read-only closed-PR refs remains operational follow-up; it does not
 require changing either branch again. Do not identify the removed commits in
 public documentation, and do not use WORK's pre-rewrite clone.
