@@ -36,7 +36,8 @@ param(
     [string] $Year = '2026/2027',
     [string] $BaseUrl = 'http://127.0.0.1:3000',
     [string] $Data,
-    [switch] $Apply
+    [switch] $Apply,
+    [switch] $Categories
 )
 
 $ErrorActionPreference = 'Stop'
@@ -110,7 +111,11 @@ $lessonsBy = @{}
 foreach ($l in $plan.lessons) {
     if ($null -ne $l.teacher_id) { $lessonsBy[[int]$l.teacher_id] = 1 + ($lessonsBy[[int]$l.teacher_id]) }
 }
-Write-Host "  во базата за оваа година: $($inDb.Count) наставници, $(@($plan.lessons).Count) часа"
+$holders = Invoke-RestMethod -Uri "$BaseUrl/api/categories/holders?year=$([uri]::EscapeDataString($Year))" -TimeoutSec 20
+$specialists = @($holders.therapists | Where-Object { $_.active })
+$categories  = @(Invoke-RestMethod -Uri "$BaseUrl/api/categories" -TimeoutSec 20)
+
+Write-Host "  во базата за оваа година: $($inDb.Count) наставници, $(@($plan.lessons).Count) часа, $($specialists.Count) во стручна служба"
 Write-Host ''
 
 $byKey = @{}
@@ -189,6 +194,84 @@ if ($unknown.Count) {
     Write-Host ''
 }
 
+# ── стручна служба ──────────────────────────────────────────────────────────
+#
+# `therapists` is not "somebody with a room" — migration 024 says the concept is
+# the KIND of specialist, and a teacher may hold one without a room at all. So a
+# педагог with no schedule slots is an ordinary row here: they never appear in
+# Распоред because they have no slots, not because they are missing.
+#
+# Entering them is not tidiness. `check:names` builds its blocklist from
+# students, teachers and therapists, so a specialist in none of the three is a
+# real name the pre-commit hook cannot protect.
+
+$wantedSpec = @($programme | Where-Object { -not $_.kind })
+$specByKey = @{}
+foreach ($t in $specialists) { $specByKey[(Key $t.name)] = $t }
+
+$specSame = @(); $specAdd = @(); $specExtra = @()
+foreach ($p in $wantedSpec) {
+    if ($specByKey[(Key $p.name)]) { $specSame += $p } else { $specAdd += $p }
+}
+foreach ($t in $specialists) {
+    $p = $programmeKeys[(Key $t.name)]
+    if ($p -and -not $p.kind) { continue }
+    $specExtra += [pscustomobject]@{ Person = $t; Programme = $p }
+}
+
+Write-Host 'СТРУЧНА СЛУЖБА' -ForegroundColor Cyan
+Write-Host "  веќе ги има                               $($specSame.Count)" -ForegroundColor Green
+if ($specAdd.Count) {
+    Write-Host "  ВО ПРОГРАМАТА СЕ, ВО БАЗАТА ГИ НЕМА       $($specAdd.Count)" -ForegroundColor Yellow
+    foreach ($a in $specAdd) {
+        Write-Host ("    {0,-32} {1}" -f $a.name, $a.role)
+        foreach ($n in (Near $a.name ($specialists | ForEach-Object { $_.name }))) {
+            Write-Host ("        личи на: {0}  (разлика {1})" -f $n.Name, $n.D) -ForegroundColor DarkGray
+        }
+    }
+}
+if ($specExtra.Count) {
+    Write-Host "  ВО БАЗАТА СЕ, ВО ПРОГРАМАТА НЕ СЕ СТРУЧНА СЛУЖБА   $($specExtra.Count)" -ForegroundColor Yellow
+    foreach ($e in $specExtra) {
+        $why = if ($e.Programme) { "програмата вели: $($e.Programme.role)" } else { 'воопшто го нема во програмата' }
+        Write-Host ("    {0,-32} {1}" -f $e.Person.name, $why)
+    }
+    Write-Host '    → некој може да е и наставник и да држи категорија. Прашање, не грешка.' -ForegroundColor DarkGray
+}
+Write-Host ''
+
+# Предложена категорија: последниот дел од работното место („…-психолог"),
+# спарен со вистинската листа на категории од серверот. Само предлог — да се
+# запише бара -Categories, зашто категоријата решава што смее човекот да пишува
+# во евидентниот лист, а тоа е потешко од ред во именик.
+function SuggestCategory([string] $role) {
+    if (-not $role) { return $null }
+    # The bracket comes off FIRST. „Стручен соработник-дефектолог
+    # (наставник-ментор)" has a hyphen inside the bracket too, so splitting
+    # before stripping leaves „ментор)" as the profession.
+    $clean = ($role -replace '\(.*?\)', '').Trim()
+    $tail = ($clean -split '-')[-1].Trim()
+    if (-not $tail) { return $null }
+    return @($categories | Where-Object {
+        $_.name -and ((Key $_.name) -eq (Key $tail) -or (Key $_.name).Contains((Key $tail)))
+    } | Select-Object -First 1)
+}
+
+$catPlan = @()
+foreach ($t in $specialists) {
+    if ($t.categoryId) { continue }
+    $p = $programmeKeys[(Key $t.name)]
+    if (-not $p) { continue }
+    $c = SuggestCategory $p.role
+    if ($c) { $catPlan += [pscustomobject]@{ Person = $t; Category = $c; Role = $p.role } }
+}
+if ($catPlan.Count) {
+    Write-Host "БЕЗ КАТЕГОРИЈА, А ПРОГРАМАТА ЈА КАЖУВА     $($catPlan.Count)" -ForegroundColor Yellow
+    foreach ($c in $catPlan) { Write-Host ("    {0,-32} → {1}" -f $c.Person.name, $c.Category.name) }
+    Write-Host '    → се запишува само со -Categories; категоријата решава што смее да пишува' -ForegroundColor DarkGray
+    Write-Host ''
+}
+
 if (-not $Apply) {
     Write-Host 'Ништо не е запишано. Прочитај го горното, па додај -Apply.' -ForegroundColor Cyan
     Write-Host ''
@@ -216,8 +299,23 @@ if ($retire.Count) {
     foreach ($r in $retire) { Write-Host ("  извадено   {0}" -f $r.Teacher.name) -ForegroundColor Green; $done++ }
 }
 
+foreach ($a in $specAdd) {
+    $body = @{ name = $a.name; year = $Year } | ConvertTo-Json
+    Invoke-RestMethod -Uri "$BaseUrl/api/therapists" -Method Post -Body $body -ContentType 'application/json; charset=utf-8' | Out-Null
+    Write-Host ("  внесен     {0}   (стручна служба)" -f $a.name) -ForegroundColor Green; $done++
+}
+if ($Categories -and $catPlan.Count) {
+    foreach ($c in $catPlan) {
+        $body = @{ year = $Year; kind = 'therapist'; personId = [int]$c.Person.personId; categoryId = [int]$c.Category.id } | ConvertTo-Json
+        Invoke-RestMethod -Uri "$BaseUrl/api/categories/holder" -Method Put -Body $body -ContentType 'application/json; charset=utf-8' | Out-Null
+        Write-Host ("  категорија {0} → {1}" -f $c.Person.name, $c.Category.name) -ForegroundColor Green; $done++
+    }
+} elseif ($catPlan.Count) {
+    Write-Host "  ($($catPlan.Count) категории се прескокнати — додај -Categories)" -ForegroundColor DarkGray
+}
+
 Write-Host ''
-Write-Host "$done промени запишани. Освежи ја страницата Настава." -ForegroundColor Cyan
+Write-Host "$done промени запишани. Освежи ги страниците Настава и Податоци." -ForegroundColor Cyan
 if ($keep.Count -or $unknown.Count) {
     Write-Host "Останаа $($keep.Count + $unknown.Count) за одлука — види погоре." -ForegroundColor Yellow
 }
