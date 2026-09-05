@@ -134,6 +134,9 @@ docs/CLIENT-SETUP.md            a machine that installs nothing
 docs/SYNC.md                    how staying in sync works, and what to do when it complains
 docs/SCHOOL-YEAR.md             the September routine, and the order it must happen in
 docs/PLAN-start-stop.md         one front door for the whole system: what must run on
+docs/PLAN-kadar.md              a name that changes, an absence, a stand-in: what the
+                                staff directory cannot say yet, and the one thing
+                                it must refuse to become
                                 the way in, what must run on the way out, and why the way
                                 out may never stop at the first failure
 docs/PLAN-rasporedot-i-nedelata.md   READ BEFORE TOUCHING THE SCHEDULE. schedule_slots
