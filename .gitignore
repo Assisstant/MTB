@@ -15,6 +15,5 @@ server/progress-report.sample.html
 
 server/nastava-page.png
 
-# Generated architecture maps (750KB viewer must not be served by GitHub Pages or scanned as app)
-mtb-seams.html
-docs/mtb-seams.html
+# Generated architecture maps in root must not be scanned as app
+/mtb-seams.html

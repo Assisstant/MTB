@@ -1424,7 +1424,7 @@
     <script src="home-button.js"></script>
 
     <script>
-        const ICONS = ['🎓', '📋', '📊', '📈', '📅', '📝', '📁', '🔧', '⚙️', '🎨', '📱', '💻', '🌐', '📚', '💰', '🚀', '🔥', '⚡', '🧰', '🎯', '📦', '✅', '🔔', '💡', '👥', '🏠', '💼', '🎮', '🎵', '📷', '✏️', '👂', '🔖', '📑'];
+        const ICONS = ['🎓', '📋', '📊', '📈', '📅', '📝', '📁', '🔧', '⚙️', '🎨', '📱', '💻', '🌐', '📚', '💰', '🚀', '🔥', '⚡', '🧰', '🎯', '📦', '✅', '🔔', '💡', '👥', '🏠', '💼', '🎮', '🎵', '📷', '✏️', '👂', '🔖', '📑', '🗺️', '🏛️'];
         const STORE_KEY = 'app-toolbox-v4';
 
         const FILE_MAPPINGS = {
@@ -1449,7 +1449,8 @@
             'TabelaSoDokazi_.html': { name: 'Табела со докази', icon: '📑' },
             'AkciskiPlan.html': { name: 'Евидентен лист и акциски план', icon: '📋' },
             'ComuniBoard.html': { name: 'WBACC Unified Studio', icon: '🗣️' },
-            'ScanArtisAtelierSolak.html': { name: 'Artis Atelier Solak — галерија', icon: '🖼️' }
+            'ScanArtisAtelierSolak.html': { name: 'Artis Atelier Solak — галерија', icon: '🖼️' },
+            'docs/mtb-seams.html': { name: 'Архитектура — Archify', icon: '🗺️' }
         };
 
         /**
@@ -1539,6 +1540,30 @@
             state.order = state.order.filter(id => !hiddenAppIds.has(id));
             try { localStorage.setItem(STORE_KEY, JSON.stringify(state)); }
             catch (e) { /* the current page is still corrected in memory */ }
+        }
+
+        // Ensure Archify Architecture Map card is available in the hub
+        const ARCH_FILE = 'docs/mtb-seams.html';
+        const archMap = FILE_MAPPINGS[ARCH_FILE];
+        if (archMap) {
+            let archApp = state.apps.find(a => a.url === ARCH_FILE);
+            if (!archApp) {
+                archApp = {
+                    id: 'app_archify_seams',
+                    name: archMap.name,
+                    url: ARCH_FILE,
+                    icon: archMap.icon,
+                    favorite: false,
+                    tabs: []
+                };
+                state.apps.push(archApp);
+                if (!state.order.includes(archApp.id)) state.order.push(archApp.id);
+                try { localStorage.setItem(STORE_KEY, JSON.stringify(state)); } catch (_) {}
+            } else {
+                if (archApp.stale) delete archApp.stale;
+                archApp.name = archMap.name;
+                archApp.icon = archMap.icon;
+            }
         }
 
         if (!('scanPath' in state)) state.scanPath = null;
