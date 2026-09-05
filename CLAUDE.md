@@ -125,7 +125,6 @@ docs/PLAN-rasporedot-i-nedelata.md   READ BEFORE TOUCHING THE SCHEDULE. schedule
                                 be asked. Stage 0 in there is urgent and independent: a
                                 document must not replace a schedule written per cell.
 docs/HANDOVER-03-09-2026.md     what each database was on 3 Sep, and the twelve assertions
-docs/HANDOVER-07-09-2026.md     the work machine on 7 Sep: which clone, which server, where the data is
                                 the evidence audit left failing
 docs/HANDOVER-07-09-2026.md     sanitized HOME→WORK technical steps; names stay local
 ```
