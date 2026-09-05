@@ -33,6 +33,11 @@ $target = if ($Folder) { Join-Path $desktop $Folder } else { $desktop }
 # FileNotFoundException. The shortcut's own text is what the user sees, so it
 # cannot be worked around with a Description; the file name must be safe.
 $shortcuts = @(
+    # The front door. It runs the start procedures, opens the apps itself, and
+    # stays open so there is something to close — see docs/PLAN-start-stop.md.
+    # The three server shortcuts below stay: they are the right tool when
+    # something is being debugged and a whole procedure is in the way.
+    @{ Name = 'MTB';                 Script = Join-Path $root 'scripts\mtb.ps1'; Args = ''; Icon = 'shell32.dll,44'; Description = 'MTB - open the day, and close it' },
     @{ Name = 'MTB Server - Start';  Script = $control; Args = 'start -Wait';  Icon = 'shell32.dll,137'; Description = 'Therapy server - start' },
     @{ Name = 'MTB Server - Stop';   Script = $control; Args = 'stop -Wait';   Icon = 'shell32.dll,109'; Description = 'Therapy server - stop' },
     @{ Name = 'MTB Server - Status'; Script = $control; Args = 'status -Wait'; Icon = 'shell32.dll,23';  Description = 'Therapy server - status' }
