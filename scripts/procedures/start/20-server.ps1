@@ -12,6 +12,12 @@
 # "the API responds" are different claims and only the second one is worth
 # opening the apps on top of.
 #
+# THIS RUNS BEFORE 30-setup ON PURPOSE. verify-setup.ps1 ends by asking whether
+# the API answers, which on a cold machine it cannot until this step has run —
+# so with the checks first, every single start failed on a machine that was
+# perfectly fine. A gate that asks about a thing the next step creates is not a
+# gate, it is a deadlock. Do not move this back above the checks.
+#
 # /api/health also says which installation this is and which database it holds,
 # which is the one thing worth reading out loud before a day's work: the two
 # machines are both called ZenPC and only the local configuration knows better.

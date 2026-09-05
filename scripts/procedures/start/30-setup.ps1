@@ -8,11 +8,16 @@
 # Order comes from the filename. Adding a step is a new numbered file; nothing
 # in mtb.ps1 changes.
 
-# The machine itself: PostgreSQL, the migrations, the installed packages.
-# verify-setup.ps1 already asks all of it and prints OK/WARN/FAIL per line, so
-# this runs it, counts, and surfaces only what is wrong. A FAIL here stops the
-# day before the apps open, because an app on a half-migrated database does not
-# fail — it answers wrongly, which is worse.
+# The machine itself: PostgreSQL, the migrations, the installed packages — and,
+# last, whether the API answers. verify-setup.ps1 already asks all of it and
+# prints OK/WARN/FAIL per line, so this runs it, counts, and surfaces only what
+# is wrong. A FAIL here stops the day before the apps open, because an app on a
+# half-migrated database does not fail — it answers wrongly, which is worse.
+#
+# It runs AFTER 20-server, not before. Its last question is whether the API
+# answers, and on a cold machine nothing has started it yet; asking first turned
+# every start on a healthy machine into a failure. The apps are still gated by
+# it, because 50-open comes after and the phase stops at the first FAIL.
 
 param([hashtable] $Ctx)
 
