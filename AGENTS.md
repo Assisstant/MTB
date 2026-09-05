@@ -3,6 +3,14 @@
 Read this first. It is the shared memory between machines: sessions on other
 PCs have none of the earlier conversation.
 
+Whatever local memory your tool keeps is **per machine** and diverges — one
+copy at HOME, another at WORK, and they never meet. This file and `docs/` are
+the only memory that crosses. So anything worth remembering goes into a commit,
+not into local memory, and where the two disagree **this file wins**. A global
+per-machine instructions file (`~/.codex/AGENTS.md` and its equivalents) should
+say nothing beyond "follow the repository's AGENTS.md": instructions that
+accumulate there ARE the divergence, because only one machine ever sees them.
+
 ## Canonical product contract
 
 Read [`docs/APP-CONTRACT.md`](docs/APP-CONTRACT.md) before changing any user
