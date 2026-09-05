@@ -69,22 +69,38 @@ function Key([string] $name) {
 
 function Distance([string] $a, [string] $b) {
     $n = $a.Length; $m = $b.Length
-    if ($n -eq 0) { return $m }; if ($m -eq 0) { return $n }
-    $d = New-Object 'int[,]' ($n + 1), ($m + 1)
-    for ($i = 0; $i -le $n; $i++) { $d[$i, 0] = $i }
-    for ($j = 0; $j -le $m; $j++) { $d[0, $j] = $j }
+    if ($n -eq 0) { return $m }
+    if ($m -eq 0) { return $n }
+
+    # Two rolling one-dimensional rows, not one two-dimensional array.
+    #
+    # `$d[$i - 1, $j]` reads as $i minus the ARRAY (1, $j) — the comma binds
+    # tighter than the minus. Parenthesising each index repairs that in pwsh 7
+    # and is a parse error in Windows PowerShell 5.1. And even plain variables,
+    # `$d[$p, $j]`, fail to parse in 5.1 when they sit inside a method call,
+    # where that comma reads as an argument separator. 5.1 is what
+    # `powershell -File` runs, so the array with a comma in it simply goes.
+    $prev = New-Object 'int[]' ($m + 1)
+    $cur  = New-Object 'int[]' ($m + 1)
+    for ($j = 0; $j -le $m; $j++) { $prev[$j] = $j }
+
     for ($i = 1; $i -le $n; $i++) {
+        $cur[0] = $i
+        $ai = $a[($i - 1)]
         for ($j = 1; $j -le $m; $j++) {
-            # Each index in its own brackets: in `$d[$i - 1, $j]` the comma binds
-            # tighter than the minus, so PowerShell reads it as $i minus the
-            # ARRAY (1, $j) and fails with op_Subtraction on Object[].
-            $cost = if ($a[($i - 1)] -eq $b[($j - 1)]) { 0 } else { 1 }
-            $d[$i, $j] = [Math]::Min(
-                [Math]::Min($d[($i - 1), $j] + 1, $d[$i, ($j - 1)] + 1),
-                $d[($i - 1), ($j - 1)] + $cost)
+            $q = $j - 1
+            $cost = 1
+            if ($ai -eq $b[$q]) { $cost = 0 }
+            $best = $prev[$j] + 1
+            $left = $cur[$q] + 1
+            if ($left -lt $best) { $best = $left }
+            $diag = $prev[$q] + $cost
+            if ($diag -lt $best) { $best = $diag }
+            $cur[$j] = $best
         }
+        for ($j = 0; $j -le $m; $j++) { $prev[$j] = $cur[$j] }
     }
-    return $d[$n, $m]
+    return $prev[$m]
 }
 
 function Near([string] $name, $pool) {
@@ -113,13 +129,45 @@ foreach ($l in $plan.lessons) {
 }
 $holders = Invoke-RestMethod -Uri "$BaseUrl/api/categories/holders?year=$([uri]::EscapeDataString($Year))" -TimeoutSec 20
 $specialists = @($holders.therapists | Where-Object { $_.active })
-$categories  = @(Invoke-RestMethod -Uri "$BaseUrl/api/categories" -TimeoutSec 20)
+# NOT $categories: PowerShell variable names are case-insensitive, so that
+# would be the -Categories switch, and assigning an array to a SwitchParameter
+# throws. The parser cannot see it; only running it can.
+$catalogue   = @(Invoke-RestMethod -Uri "$BaseUrl/api/categories" -TimeoutSec 20)
+
+# Somebody who worked here before but is not on this year's list is neither
+# missing nor new: they are a candidate, with an id. Creating them again is
+# refused — rightly — so they are brought back through the membership endpoint
+# instead, which is the one whose whole job is which year somebody belongs to.
+$roster = Invoke-RestMethod -Uri "$BaseUrl/api/roster?year=$([uri]::EscapeDataString($Year))" -TimeoutSec 20
+$candTeacher = @{}
+foreach ($c in $roster.candidates.teachers)   { $candTeacher[(Key $c.name)] = $c }
+$candSpecial = @{}
+foreach ($c in $roster.candidates.therapists) { $candSpecial[(Key $c.name)] = $c }
 
 Write-Host "  во базата за оваа година: $($inDb.Count) наставници, $(@($plan.lessons).Count) часа, $($specialists.Count) во стручна служба"
 Write-Host ''
 
+# ── исто лице, друг правопис ────────────────────────────────────────────────
+#
+# Half of what looks like "missing from the database" is one letter. Adding
+# those would make a duplicate of a person who is already there, and the
+# duplicate would hold none of their hours — which is exactly the mistake the
+# pupil roster made the first time.
+#
+# So the pairs are confirmed by hand in the local file, never guessed here, and
+# everything below compares as if they had already been applied. The report
+# then describes the state you are heading for instead of the mess you are in.
+$renames = @($doc.renames)
+$renameTo = @{}
+foreach ($r in $renames) { if ($r.from -and $r.to) { $renameTo[(Key $r.from)] = [string]$r.to } }
+function Effective([string] $name) {
+    $to = $renameTo[(Key $name)]
+    if ($to) { return $to }
+    return $name
+}
+
 $byKey = @{}
-foreach ($t in $inDb) { $byKey[(Key $t.name)] = $t }
+foreach ($t in $inDb) { $byKey[(Key (Effective $t.name))] = $t }
 $programmeKeys = @{}
 foreach ($p in $programme) { $programmeKeys[(Key $p.name)] = $p }
 
@@ -136,11 +184,47 @@ foreach ($p in $wanted) {
 }
 
 foreach ($t in $inDb) {
-    $p = $programmeKeys[(Key $t.name)]
+    $p = $programmeKeys[(Key (Effective $t.name))]
     $hours = [int]$lessonsBy[[int]$t.id]
     if ($p -and $p.kind) { continue }                      # во настава е, покриено погоре
     $row = [pscustomobject]@{ Teacher = $t; Hours = $hours; Role = $(if ($p) { $p.role } else { $null }) }
     if ($p) { $notTeaching += $row } else { $unknown += $row }
+}
+
+$renamePlan = @()
+foreach ($r in $renames) {
+    $asTeacher   = @($inDb        | Where-Object { (Key $_.name) -eq (Key $r.from) })
+    $asSpecialist= @($specialists | Where-Object { (Key $_.name) -eq (Key $r.from) })
+    # A clash is only a clash inside the same directory. The same person can be
+    # a teacher and hold a specialist profile; renaming their teacher row to a
+    # name a THERAPIST already carries is not a merge, it is the two halves of
+    # one person finally agreeing.
+    $clashT = @($inDb        | Where-Object { (Key $_.name) -eq (Key $r.to) })
+    $clashS = @($specialists | Where-Object { (Key $_.name) -eq (Key $r.to) })
+    $renamePlan += [pscustomobject]@{
+        From = $r.from; To = $r.to; Note = $r.note
+        Teacher = $asTeacher[0]; Specialist = $asSpecialist[0]
+        ClashTeacher = ($clashT.Count -gt 0); ClashSpecialist = ($clashS.Count -gt 0)
+    }
+}
+if ($renamePlan.Count) {
+    Write-Host "ИСТО ЛИЦЕ, ДРУГ ПРАВОПИС                    $($renamePlan.Count)" -ForegroundColor Cyan
+    foreach ($r in $renamePlan) {
+        $where = @()
+        if ($r.Teacher)    { $where += 'наставник' }
+        if ($r.Specialist) { $where += 'стручна служба' }
+        if (-not $where.Count) { $where += 'НЕ Е НАЈДЕН' }
+        Write-Host ("    {0,-28} → {1,-30} [{2}]" -f $r.From, $r.To, ($where -join ' + '))
+        if ($r.Note) { Write-Host ("        $($r.Note)") -ForegroundColor DarkGray }
+        if ($r.Teacher -and $r.ClashTeacher) {
+            Write-Host ('        ВЕЌЕ ПОСТОИ наставник со новото име — нема да преименувам, тоа би било спојување') -ForegroundColor Red
+        }
+        if ($r.Specialist -and $r.ClashSpecialist) {
+            Write-Host ('        ВЕЌЕ ПОСТОИ во стручна служба со новото име — нема да преименувам') -ForegroundColor Red
+        }
+    }
+    Write-Host '    → сето долу е пресметано КАКО ДА се веќе направени' -ForegroundColor DarkGray
+    Write-Host ''
 }
 
 Write-Host "СОВПАЃААТ                                   $($same.Count)" -ForegroundColor Green
@@ -158,6 +242,9 @@ if ($fix.Count) {
 
 if ($add.Count) {
     Write-Host "ВО ПРОГРАМАТА СЕ, ВО БАЗАТА ГИ НЕМА         $($add.Count)" -ForegroundColor Yellow
+    # These are the only names with nothing to check them against: everyone else
+    # is confirmed by an existing row. A misread letter here becomes a person.
+    Write-Host '    ⚠ овие ќе се СОЗДАДАТ со точно овој правопис — прочитај ги пред -Apply' -ForegroundColor Yellow
     foreach ($a in $add) {
         Write-Host ("    {0,-32} {1}{2}" -f $a.name, $a.kind, $(if ($a.subject) { " · $($a.subject)" }))
         foreach ($n in (Near $a.name ($inDb | ForEach-Object { $_.name }))) {
@@ -207,14 +294,14 @@ if ($unknown.Count) {
 
 $wantedSpec = @($programme | Where-Object { -not $_.kind })
 $specByKey = @{}
-foreach ($t in $specialists) { $specByKey[(Key $t.name)] = $t }
+foreach ($t in $specialists) { $specByKey[(Key (Effective $t.name))] = $t }
 
 $specSame = @(); $specAdd = @(); $specExtra = @()
 foreach ($p in $wantedSpec) {
     if ($specByKey[(Key $p.name)]) { $specSame += $p } else { $specAdd += $p }
 }
 foreach ($t in $specialists) {
-    $p = $programmeKeys[(Key $t.name)]
+    $p = $programmeKeys[(Key (Effective $t.name))]
     if ($p -and -not $p.kind) { continue }
     $specExtra += [pscustomobject]@{ Person = $t; Programme = $p }
 }
@@ -252,7 +339,7 @@ function SuggestCategory([string] $role) {
     $clean = ($role -replace '\(.*?\)', '').Trim()
     $tail = ($clean -split '-')[-1].Trim()
     if (-not $tail) { return $null }
-    return @($categories | Where-Object {
+    return @($catalogue | Where-Object {
         $_.name -and ((Key $_.name) -eq (Key $tail) -or (Key $_.name).Contains((Key $tail)))
     } | Select-Object -First 1)
 }
@@ -260,7 +347,7 @@ function SuggestCategory([string] $role) {
 $catPlan = @()
 foreach ($t in $specialists) {
     if ($t.categoryId) { continue }
-    $p = $programmeKeys[(Key $t.name)]
+    $p = $programmeKeys[(Key (Effective $t.name))]
     if (-not $p) { continue }
     $c = SuggestCategory $p.role
     if ($c) { $catPlan += [pscustomobject]@{ Person = $t; Category = $c; Role = $p.role } }
@@ -280,35 +367,86 @@ if (-not $Apply) {
 }
 
 $done = 0
+$failed = 0
+
+# ONE REFUSAL MUST NOT END THE RUN. The first version stopped dead on a single
+# 409 and left nine people unentered, which reads as a broken script rather than
+# as one row needing a decision. Same rule as the closing procedures in mtb.ps1:
+# on the way out, everything runs and the failures are reported.
+function Write-One {
+    param([string] $What, [scriptblock] $Do)
+    try {
+        & $Do | Out-Null
+        Write-Host ("  $What") -ForegroundColor Green
+        $script:done++
+    } catch {
+        # Invoke-RestMethod puts the server's JSON body in ErrorDetails, and the
+        # message there is the useful half.
+        $msg = $null
+        if ($_.ErrorDetails -and $_.ErrorDetails.Message) { $msg = $_.ErrorDetails.Message }
+        if (-not $msg) { $msg = $_.Exception.Message }
+        Write-Host ("  ПРОПАДНА  $What") -ForegroundColor Red
+        Write-Host ("            " + ($msg -replace '\s+', ' ')) -ForegroundColor DarkGray
+        $script:failed++
+    }
+}
+
+function Post-Json([string] $Url, $Body, [string] $Method = 'Post') {
+    Invoke-RestMethod -Uri $Url -Method $Method -Body ($Body | ConvertTo-Json -Depth 5) `
+        -ContentType 'application/json; charset=utf-8' -TimeoutSec 30
+}
+
+# First, so nothing below can add a second copy of somebody already here under
+# one letter of difference.
+foreach ($r in $renamePlan) {
+    if ($r.Teacher -and -not $r.ClashTeacher) {
+        $id = $r.Teacher.id; $to = $r.To; $from = $r.From
+        Write-One "преименуван $from → $to   (наставник)" { Post-Json "$BaseUrl/api/teaching/teacher/$id" @{ name = $to } 'Put' }
+    }
+    if ($r.Specialist -and -not $r.ClashSpecialist) {
+        $to = $r.To; $from = $r.From
+        Write-One "преименуван $from → $to   (стручна служба)" { Post-Json "$BaseUrl/api/therapists/$([uri]::EscapeDataString($from))" @{ name = $to } 'Patch' }
+    }
+}
+
 foreach ($f in $fix) {
-    $body = @{ kind = $f.Want.kind; subject = $f.Want.subject } | ConvertTo-Json
-    Invoke-RestMethod -Uri "$BaseUrl/api/teaching/teacher/$($f.Teacher.id)" -Method Put -Body $body -ContentType 'application/json; charset=utf-8' | Out-Null
-    Write-Host ("  поправено  {0}" -f $f.Teacher.name) -ForegroundColor Green; $done++
+    $id = $f.Teacher.id; $k = $f.Want.kind; $sub = $f.Want.subject; $n = $f.Teacher.name
+    Write-One "поправено   $n" { Post-Json "$BaseUrl/api/teaching/teacher/$id" @{ kind = $k; subject = $sub } 'Put' }
 }
+
 foreach ($a in $add) {
-    $body = @{ name = $a.name; kind = $a.kind; subject = $a.subject; year = $Year } | ConvertTo-Json
-    Invoke-RestMethod -Uri "$BaseUrl/api/teaching/teacher" -Method Post -Body $body -ContentType 'application/json; charset=utf-8' | Out-Null
-    Write-Host ("  додадено   {0}" -f $a.name) -ForegroundColor Green; $done++
-}
-if ($retire.Count) {
-    $body = @{
-        year = $Year; entity = 'teacher'; active = $false
-        members = @($retire | ForEach-Object { @{ id = [int]$_.Teacher.id } })
-    } | ConvertTo-Json -Depth 5
-    Invoke-RestMethod -Uri "$BaseUrl/api/roster/memberships" -Method Put -Body $body -ContentType 'application/json; charset=utf-8' | Out-Null
-    foreach ($r in $retire) { Write-Host ("  извадено   {0}" -f $r.Teacher.name) -ForegroundColor Green; $done++ }
+    $cand = $candTeacher[(Key $a.name)]
+    $n = $a.name; $k = $a.kind; $sub = $a.subject
+    if ($cand) {
+        $cid = [int]$cand.id
+        Write-One "вратен      $n   (беше на списокот порано)" {
+            Post-Json "$BaseUrl/api/roster/memberships" @{ year = $Year; entity = 'teacher'; active = $true; members = @(@{ id = $cid }) } 'Put'
+        }
+    } else {
+        Write-One "додаден     $n" { Post-Json "$BaseUrl/api/teaching/teacher" @{ name = $n; kind = $k; subject = $sub; year = $Year } }
+    }
 }
 
 foreach ($a in $specAdd) {
-    $body = @{ name = $a.name; year = $Year } | ConvertTo-Json
-    Invoke-RestMethod -Uri "$BaseUrl/api/therapists" -Method Post -Body $body -ContentType 'application/json; charset=utf-8' | Out-Null
-    Write-Host ("  внесен     {0}   (стручна служба)" -f $a.name) -ForegroundColor Green; $done++
+    $cand = $candSpecial[(Key $a.name)]
+    $n = $a.name
+    if ($cand) {
+        $cid = [int]$cand.id
+        Write-One "вратен      $n   (стручна служба, беше порано)" {
+            Post-Json "$BaseUrl/api/roster/memberships" @{ year = $Year; entity = 'therapist'; active = $true; members = @(@{ id = $cid }) } 'Put'
+        }
+    } else {
+        Write-One "внесен      $n   (стручна служба)" { Post-Json "$BaseUrl/api/therapists" @{ name = $n; year = $Year } }
+    }
 }
+
 if ($Categories -and $catPlan.Count) {
     foreach ($c in $catPlan) {
-        $body = @{ year = $Year; kind = 'therapist'; personId = [int]$c.Person.personId; categoryId = [int]$c.Category.id } | ConvertTo-Json
-        Invoke-RestMethod -Uri "$BaseUrl/api/categories/holder" -Method Put -Body $body -ContentType 'application/json; charset=utf-8' | Out-Null
-        Write-Host ("  категорија {0} → {1}" -f $c.Person.name, $c.Category.name) -ForegroundColor Green; $done++
+        $pid = [int]$c.Person.personId; $cid = [int]$c.Category.id
+        $n = $c.Person.name; $cn = $c.Category.name
+        Write-One "категорија  $n → $cn" {
+            Post-Json "$BaseUrl/api/categories/holder" @{ year = $Year; kind = 'therapist'; personId = $pid; categoryId = $cid } 'Put'
+        }
     }
 } elseif ($catPlan.Count) {
     Write-Host "  ($($catPlan.Count) категории се прескокнати — додај -Categories)" -ForegroundColor DarkGray
@@ -316,6 +454,7 @@ if ($Categories -and $catPlan.Count) {
 
 Write-Host ''
 Write-Host "$done промени запишани. Освежи ги страниците Настава и Податоци." -ForegroundColor Cyan
+if ($failed) { Write-Host "$failed не поминаа — прочитај ги црвените редови погоре." -ForegroundColor Red }
 if ($keep.Count -or $unknown.Count) {
     Write-Host "Останаа $($keep.Count + $unknown.Count) за одлука — види погоре." -ForegroundColor Yellow
 }
