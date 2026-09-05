@@ -15,10 +15,11 @@
 Решението е имплементирано и целосно проверено на посебниот branch, но не се
 активира само со повлекување на кодот. Ограничувањата почнуваат дури кога
 локалниот сервер има `MTB_REQUIRE_SIGNIN=1` и е рестартиран. Branch-от е
-подготвен за code review. Тековниот јавен `main` tip е исчистен во `dffe7a2` и
-privacy guard-от е зелен, но commit `3edfb21` сè уште содржи три маскирани
-совпаѓања во достапната Git историја. Merge останува блокиран до history purge,
-за чистењето да се направи еднаш врз конечниот graph.
+подготвен за merge. На 5 септември reachable историјата беше препишана и
+`main` беше force-push-нат по byte-for-byte проверка на тековните trees.
+Commit-candidate и `--history` privacy guard-овите се зелени. GitHub Support
+треба уште да ги dereference-ира двата read-only затворени PR ref-а; WORK мора
+да направи fresh clone пред каков било pull или push.
 
 ## Што е направено во AkciskiPlan
 
@@ -162,9 +163,9 @@ live HTTP проверка го чуваат тоа правило. Ниту е�
 - базата има точно 27 ledgered миграции, последна
   `027_schedule_source_default_api.sql`;
 - `check:names` не најде локално име во index, working copy или untracked
-  commit candidate на `kolegi-pristap`. Одделната маскирана проверка најде три
-  совпаѓања во commit `3edfb21`; тековниот main tip е исчистен и зелен, но merge
-  останува блокиран додека историјата не се исчисти.
+  commit candidate. По rewrite, `check:names -- --history` не најде име во
+  ниту еден reachable blob од branch-овите; погодени останаа само двата
+  read-only PR ref-а што GitHub Support треба да ги dereference-ира.
 
 Двата почетни `spawn EPERM` излези беа ограничување на изолираниот test sandbox:
 истите unit/browser команди надвор од sandbox поминаа. Тоа не беше дефект во
@@ -184,10 +185,9 @@ live HTTP проверка го чуваат тоа правило. Ниту е�
 
 ## Следни препораки
 
-1. **Пред merge:** тековниот main-only handover веќе е исчистен; спроведи ја
-   history-purge/support постапката и повторно пушти `check:names` врз
-   препишаните refs. Техничката gate-проверка и DB-споредбата на rollout
-   branch-от се завршени.
+1. **По history rewrite:** испрати го подготвеното GitHub Support барање за
+   двата затворени PR ref-а. На WORK не прави `pull`; тргни го стариот clone и
+   направи fresh clone од GitHub, за старата историја да не се врати.
 2. **Пред activation:** bootstrap на администраторскиот PIN додека режимот е
    отворен, постави ист долг service key на двете машини, па вклучи
    `MTB_REQUIRE_SIGNIN=1` и рестартирај.

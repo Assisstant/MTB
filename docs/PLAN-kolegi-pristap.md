@@ -10,10 +10,11 @@ The implementation and complete verification gate are green on
 `kolegi-pristap`; it is **not active merely because the branch is pulled**.
 Authorization remains compatibility-open until the local server has
 `MTB_REQUIRE_SIGNIN=1` and is restarted. The branch is ready for code review.
-The current public `main` tip was sanitized in `dffe7a2` and its name guard is
-green, but commit `3edfb21` still carries three masked matches in reachable Git
-history. Complete the separate history-purge procedure before combining the
-branches, so the purge happens once against the final intended graph.
+The reachable history was rewritten and `main` was force-pushed on 5 September
+after both current trees were verified byte-for-byte. The commit-candidate and
+reachable-history name guards are green, so the rollout may be merged. GitHub
+Support still needs to dereference two read-only closed-PR refs. WORK must use
+a fresh clone before any pull or push.
 
 The outcome is one shared session across the existing applications, not a new
 combined application:
@@ -242,18 +243,17 @@ Final verification captured on HOME on 5 September 2026:
   total of 27 migrations;
 - `npm run check:names` inspected the index, changed working copies and
   untracked non-ignored commit candidates, and found no local database name.
-  This result describes `kolegi-pristap` only. A separate masked check found
-  three matches in main commit `3edfb21`; the current main tip was sanitized and
-  now passes, but history purge is still required. No matched name was printed.
+  After the rewrite, `npm run check:names -- --history` also found none in any
+  reachable branch blob. Two read-only closed-PR refs remain for GitHub Support
+  to dereference; no matched name was printed.
 - the vulnerable npm-registry `xlsx@0.18.5` package was replaced with the
   official SheetJS `0.20.3` tarball while keeping the existing import API.
   An invented workbook round-trip, typecheck and the full unit suite pass;
   `npm audit --omit=dev` now reports 0 vulnerabilities.
 
-The implementation is ready for review. Merge remains privacy-blocked only by
-the reachable historical commit described above; the current main and rollout
-trees are clean. Enabling enforcement on a real shared server is also a separate
-operational step and must follow the activation order above.
+The implementation and privacy rewrite are ready for merge. GitHub Support
+cleanup of the two closed-PR refs and enabling enforcement on a real shared
+server are separate operational steps; activation must follow the order above.
 
 ## Public consequence
 

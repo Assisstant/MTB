@@ -337,12 +337,15 @@ read `DATABASE_URL`; never add literal credentials to this public repository.
   itself be committed — and refuses. It prints a masked form, never the name,
   because the report is the next thing to get pasted somewhere. Run it before
   any push that touches documentation or fixtures.
-  Still open: the names are in the HISTORY. Removing them there means
-  `git filter-repo`, a force-push, every SHA changing and both machines
-  re-cloning — and it is NOT removal on its own, because GitHub keeps
-  unreachable objects fetchable by SHA and forks keep their copies. Real
-  removal is rewrite → force-push → check forks → ask GitHub Support to purge
-  cached views. Not done; it needs a quiet hour and both machines idle.
+  On 5 Sep 2026 the reachable history was rewritten with `git-filter-repo`
+  2.47 after a verified local bundle was made. Both current branch trees were
+  checked byte-for-byte, `main` was force-pushed, the repository had zero
+  forks, and the masked `--history` guard found no database name. GitHub
+  correctly refused its two read-only closed-PR refs; Support still has to
+  dereference those cached views. HOME's refs/reflogs were cleaned. **WORK must
+  discard its pre-rewrite clone and re-clone before any pull or push** — merging
+  from that clone can put the removed history back. The recovery bundle is
+  local and gitignored; it must never be uploaded.
 
 - **`sync-peer` reports a failed fetch as a divergence, and then recommends
   `--force`.** The loop that runs each app is `try { … } catch { results.push('refused') }`
@@ -1972,12 +1975,12 @@ match exactly, the live static smoke test keeps private paths at 404, and the
 expanded name guard found no local database name in this branch's commit
 candidates.
 
-DO NOT MERGE IT YET. Main commit `3edfb21` added three names to
-`docs/HANDOVER-07-09-2026.md`; the masked checker printed no name. Current main
-tip `dffe7a2` replaces that document with a clean technical handover and passes
-the privacy guard. The old commit remains reachable, so complete the planned
-history-purge/GitHub Support procedure before combining branches. The rollout
-code and both current trees are clean; reachable history is the blocker.
+The privacy-blocking history rewrite is complete. The rewritten `main`, the
+rollout branch and HOME's clone pass both the commit-candidate and reachable-
+history name guards, so the rollout may now be merged. GitHub Support cleanup
+of two read-only closed-PR refs remains operational follow-up; it does not
+require changing either branch again. Do not identify the removed commits in
+public documentation, and do not use WORK's pre-rewrite clone.
 
 This remains one shared sign-in across the existing tools, NOT one merged app.
 `docs/PLAN-kolegi-pristap.md` is the exact activation, rollback, migration and
