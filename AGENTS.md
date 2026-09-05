@@ -67,7 +67,12 @@ deliberate selective path; exact full-snapshot acceptance is the complete path.
 
 1. **No student names in this repository.** It is public (GitHub Pages serves
    from it). Names belong in the local database only. Test fixtures and
-   migrations use invented names.
+   migrations use invented names. `npm run check:names` is the check and
+   `.githooks/pre-commit` runs it before every commit — a clone must be told
+   where its hooks live, which `scripts/setup-home-postgres.ps1` does, or
+   `git config core.hooksPath .githooks` by hand. The leak surface is prose,
+   not code: handovers, plans, TODO lists and commit messages are written
+   fastest and read least.
 2. **Never guess an identity match.** Students are reconciled across the two
    apps by bridge id → exact name → bare name → name+grade. Ambiguity is
    reported and left unlinked, never merged.
@@ -455,6 +460,30 @@ read `DATABASE_URL`; never add literal credentials to this public repository.
   migration once, with its ledger row, in one transaction. 023 now refuses out
   loud instead, and `database/repair/023_rerun_drift.sql` cleans a database where
   it already happened.
+- **The rule you just quoted is the one you break.** A handover document
+  written for the next working day carried three real names — two pupils and a
+  colleague — into this public repository, hours after its author had quoted
+  Rule 1 out of this very file. Code does not leak names; it calls things
+  `student_id`. Prose does, because a document explains itself with the person
+  in front of you, and a handover is written fast and reviewed by nobody.
+  Removing them cost a history rewrite plus a ticket to GitHub Support: a
+  force-push leaves the old commits reachable through `refs/pull/*` and
+  GitHub's cached views until Support dereferences them and runs `gc`. The
+  check had existed the whole time — `check:names` takes its blocklist from the
+  local database, so all three names were in it — and nothing ran it.
+  `.githooks/pre-commit` now does, and refuses rather than warns;
+  `scripts/verify-name-guard.ps1` proves that it still refuses, in both
+  directions, instead of asserting it.
+- **A PowerShell wrapper hides the tool it is checking.** Two separate ways,
+  both hit while proving the hook above actually refuses. First, a native
+  command's output is decoded with the *console* codepage, so a Cyrillic name
+  read out of `psql` into a variable arrives as mojibake — the guard then
+  correctly finds nothing and looks broken; `psql -o <file>` writes it straight
+  to disk and never touches the console. Second, `2>&1` on a native command
+  turns its stderr into ErrorRecords, and under `$ErrorActionPreference =
+  'Stop'` those THROW — so a guard that works kills the script that verifies
+  it, and the failure reads like a crash rather than a catch. Set
+  `$ErrorActionPreference = 'Continue'` around the call and read `$LASTEXITCODE`.
 
 ## Moving Rasporedi onto the database
 

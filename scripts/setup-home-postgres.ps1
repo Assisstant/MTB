@@ -160,6 +160,16 @@ if (-not $npm) {
     Pop-Location
 }
 
+# Rule 1 is enforced by a hook that lives in the repository, so a fresh clone
+# carries it — but Git ignores a tracked hooks directory until it is told to
+# use one. This is that telling; it is per-clone configuration, not a file.
+if (Get-Command git -ErrorAction SilentlyContinue) {
+    git -C $repoRoot config core.hooksPath .githooks
+    Write-Host "Rule 1 guard:       pre-commit hook active (core.hooksPath=.githooks)" -ForegroundColor Green
+} else {
+    Write-Warning "git not found - run 'git config core.hooksPath .githooks' yourself to turn the Rule 1 hook on."
+}
+
 $env:PGPASSWORD = $null
 Write-Host ""
 Write-Host "================= DONE =================" -ForegroundColor Green

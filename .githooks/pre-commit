@@ -1,0 +1,53 @@
+#!/bin/sh
+#
+# Rule 1, enforced rather than merely written down.
+#
+# The rule — "no real name in this repository, it is public" — was read and
+# quoted by an agent who then committed a handover document carrying three real
+# names, hours later. Removing them cost a history rewrite and a ticket to
+# GitHub Support: a force-push does not reach refs/pull/* or GitHub's cached
+# commit views.
+#
+# `check:names` already knew. Its blocklist is the local database, so those
+# three names were in it. Nothing ran it. That is the only gap this closes.
+#
+# Deliberate bypass:  git commit --no-verify
+
+set -u
+
+repo=$(git rev-parse --show-toplevel) || exit 1
+
+# A clone nobody has installed yet cannot check anything — and is also the
+# case with no database to check against. Say so, and let the commit through.
+if [ ! -e "$repo/server/node_modules/.bin/tsx" ]; then
+    echo "pre-commit: server/node_modules is missing, so Rule 1 was not checked."
+    echo "            Run 'npm install' inside server/ to turn the guard on."
+    exit 0
+fi
+
+if ! command -v npm >/dev/null 2>&1; then
+    echo "pre-commit: npm is not on PATH, so Rule 1 cannot be verified."
+    echo "            Commit from a terminal that has Node, or pass --no-verify"
+    echo "            if you have checked the change yourself."
+    exit 1
+fi
+
+cd "$repo/server" || exit 1
+npm run --silent check:names && exit 0
+
+cat <<'WHY'
+
+pre-commit: refused.
+
+  If a file and line are named above, that is a real name in something this
+  commit would publish. The name itself is masked on purpose. Replace it with
+  an invented one — Тестова / Пробен / Измислен — or, when the hit is a test
+  fixture the suite left in the database, clean the fixture, not the file.
+
+  If NO file is named above, the check itself could not run — PostgreSQL is
+  down, or server/node_modules was built for another platform. Fix that and
+  commit again. The guard refuses to call a repository clean when it was
+  unable to look, which is why this is a refusal and not a warning.
+
+WHY
+exit 1
