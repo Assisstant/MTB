@@ -474,6 +474,16 @@ read `DATABASE_URL`; never add literal credentials to this public repository.
   migration once, with its ledger row, in one transaction. 023 now refuses out
   loud instead, and `database/repair/023_rerun_drift.sql` cleans a database where
   it already happened.
+- **The school calendar is a RULE, not a list, and the server has neither.**
+  `S-Dnevnik.html` holds the year's start and end, nine national holidays in a
+  `FIXED` array, and hand-entered breaks and activities. The database knows
+  none of it. But the list is the smaller half. The rule beside it is
+  „Само распуст ја вади неделата од броењето. Празник и активност не." — an
+  excursion is a working day, marked differently. That distinction lives in one
+  JavaScript function, so anything counting weeks outside S-Dnevnik has no way
+  to apply it and will quietly count differently. Two maps of this system in a
+  row described it as „34 holidays" and „0 in the database", which is both wrong
+  as a number and wrong as the point.
 - **The rule you just quoted is the one you break.** A handover document
   written for the next working day carried three real names — two pupils and a
   colleague — into this public repository, hours after its author had quoted

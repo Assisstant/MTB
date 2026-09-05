@@ -1,0 +1,657 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "MTB Архитектура — Шевови, Празнини и Состојба на Системот",
+    "output": "mtb-seams.html",
+    "visual_preset": "signal-flow",
+    "animation": "trace",
+    "quality_profile": "showcase",
+    "viewBox": [
+      1280,
+      750
+    ],
+    "views": [
+      {
+        "id": "gaps-and-doors",
+        "label": "Празнини & Екран без Врата",
+        "focus": [
+          "nastava_uredi",
+          "s_dnevnik",
+          "indexed_db",
+          "api_server",
+          "pg_teaching"
+        ],
+        "note": "NastavaUredi нема врата во лентата; 34 празници живеат само во IndexedDB."
+      },
+      {
+        "id": "seam-split",
+        "label": "Расцеп на Состојбата",
+        "focus": [
+          "s_dnevnik",
+          "indexed_db",
+          "api_server",
+          "pg_schedule"
+        ],
+        "note": "Изолација на S-Дневник во IndexedDB наспроти PostgreSQL schedule_slots."
+      },
+      {
+        "id": "taxonomy-flow",
+        "label": "Целосна Таксономија",
+        "focus": [
+          "hub_launcher",
+          "raspored_fusion",
+          "podatoci",
+          "nastava",
+          "pregled_baza",
+          "pg_meta",
+          "pg_teaching"
+        ],
+        "note": "Релациона база, стручни профили (мигр. 024) и вкрстување со настава."
+      }
+    ],
+    "verified": "Фактите проверени против кодот на main, 5 септември 2026: имињата на табелите од database/migrations, календарот од S-Dnevnik.html, множествата од app-navigation.js."
+  },
+  "components": [
+    {
+      "id": "hub_launcher",
+      "type": "frontend",
+      "label": "Лаунчер & EduHub",
+      "sublabel": "start.html · index.html",
+      "pos": [
+        40,
+        50
+      ],
+      "size": [
+        190,
+        50
+      ],
+      "tag": "gateway"
+    },
+    {
+      "id": "s_dnevnik",
+      "type": "frontend",
+      "label": "S-Дневник",
+      "sublabel": "S-Dnevnik.html · евиденција",
+      "pos": [
+        40,
+        120
+      ],
+      "size": [
+        190,
+        50
+      ],
+      "tag": "local-first"
+    },
+    {
+      "id": "raspored_fusion",
+      "type": "frontend",
+      "label": "Распоред Fusion",
+      "sublabel": "RasporediFusion.html · DB-first",
+      "pos": [
+        40,
+        190
+      ],
+      "size": [
+        190,
+        50
+      ],
+      "tag": "server-first"
+    },
+    {
+      "id": "podatoci",
+      "type": "frontend",
+      "label": "Податоци",
+      "sublabel": "Podatoci.html · годишни листи",
+      "pos": [
+        40,
+        260
+      ],
+      "size": [
+        190,
+        50
+      ],
+      "tag": "server-first"
+    },
+    {
+      "id": "akciski",
+      "type": "frontend",
+      "label": "Евидентен лист",
+      "sublabel": "AkciskiPlan.html · планови",
+      "pos": [
+        40,
+        330
+      ],
+      "size": [
+        190,
+        50
+      ],
+      "tag": "server-first"
+    },
+    {
+      "id": "nastava",
+      "type": "frontend",
+      "label": "Настава",
+      "sublabel": "Nastava.html · вкрстување",
+      "pos": [
+        40,
+        400
+      ],
+      "size": [
+        190,
+        50
+      ],
+      "tag": "read-only"
+    },
+    {
+      "id": "nastava_uredi",
+      "type": "frontend",
+      "label": "Настава Уреди",
+      "sublabel": "NastavaUredi.html · БЕЗ ВРАТА",
+      "pos": [
+        40,
+        510
+      ],
+      "size": [
+        190,
+        52
+      ],
+      "tag": "doorless editor"
+    },
+    {
+      "id": "pregled_baza",
+      "type": "frontend",
+      "label": "Преглед База",
+      "sublabel": "Pregled-Baza.html · дијагностика",
+      "pos": [
+        40,
+        582
+      ],
+      "size": [
+        190,
+        52
+      ],
+      "tag": "read-only"
+    },
+    {
+      "id": "rasporedi_legacy",
+      "type": "frontend",
+      "label": "Rasporedi Legacy",
+      "sublabel": "Rasporedi.html · recovery",
+      "pos": [
+        40,
+        654
+      ],
+      "size": [
+        190,
+        52
+      ],
+      "tag": "local-first"
+    },
+    {
+      "id": "indexed_db",
+      "type": "database",
+      "label": "IndexedDB",
+      "sublabel": "локална шема, мост, училишен календар",
+      "pos": [
+        520,
+        110
+      ],
+      "size": [
+        220,
+        70
+      ],
+      "tag": "Client Storage"
+    },
+    {
+      "id": "api_server",
+      "type": "backend",
+      "label": "Fastify API Сервер",
+      "sublabel": "colleague.ts · MTB_REQUIRE_SIGNIN",
+      "pos": [
+        520,
+        330
+      ],
+      "size": [
+        220,
+        110
+      ],
+      "tag": "Fastify / TS"
+    },
+    {
+      "id": "pg_schedule",
+      "type": "database",
+      "label": "schedule_slots",
+      "sublabel": "source='api' (без IndexedDB)",
+      "brand": "postgresql",
+      "pos": [
+        1000,
+        100
+      ],
+      "size": [
+        240,
+        60
+      ],
+      "tag": "PostgreSQL"
+    },
+    {
+      "id": "pg_students",
+      "type": "database",
+      "label": "students.public_id",
+      "sublabel": "траен id мост кон локалните записи",
+      "brand": "postgresql",
+      "pos": [
+        1000,
+        220
+      ],
+      "size": [
+        240,
+        60
+      ],
+      "tag": "PostgreSQL"
+    },
+    {
+      "id": "pg_staff",
+      "type": "database",
+      "label": "teachers & therapists",
+      "sublabel": "наставници vs стручна служба",
+      "brand": "postgresql",
+      "pos": [
+        1000,
+        335
+      ],
+      "size": [
+        240,
+        60
+      ],
+      "tag": "PostgreSQL"
+    },
+    {
+      "id": "pg_meta",
+      "type": "database",
+      "label": "categories & school_years",
+      "sublabel": "стручни профили (мигр. 024) · БЕЗ календар",
+      "brand": "postgresql",
+      "pos": [
+        1000,
+        460
+      ],
+      "size": [
+        240,
+        70
+      ],
+      "tag": "PostgreSQL"
+    },
+    {
+      "id": "pg_teaching",
+      "type": "database",
+      "label": "lessons",
+      "sublabel": "часови по ден и час (од NastavaUredi)",
+      "brand": "postgresql",
+      "pos": [
+        1000,
+        590
+      ],
+      "size": [
+        240,
+        60
+      ],
+      "tag": "PostgreSQL"
+    }
+  ],
+  "boundaries": [
+    {
+      "kind": "region",
+      "label": "Канонска Навигација (app-navigation.js — 6 врати)",
+      "wraps": [
+        "hub_launcher",
+        "s_dnevnik",
+        "raspored_fusion",
+        "podatoci",
+        "akciski",
+        "nastava"
+      ],
+      "pad": 14
+    },
+    {
+      "kind": "region",
+      "label": "Изолирани Екрани (БЕЗ ВРАТА во лентата)",
+      "wraps": [
+        "nastava_uredi",
+        "pregled_baza",
+        "rasporedi_legacy"
+      ],
+      "pad": 14
+    },
+    {
+      "kind": "security-group",
+      "label": "Локална Состојба (Client Storage)",
+      "wraps": [
+        "indexed_db"
+      ],
+      "pad": 14
+    },
+    {
+      "kind": "security-group",
+      "label": "Серверски Периметар & Контрола",
+      "wraps": [
+        "api_server"
+      ],
+      "pad": 14
+    },
+    {
+      "kind": "region",
+      "label": "PostgreSQL База на Податоци",
+      "wraps": [
+        "pg_schedule",
+        "pg_students",
+        "pg_staff",
+        "pg_meta",
+        "pg_teaching"
+      ],
+      "pad": 16
+    }
+  ],
+  "connections": [
+    {
+      "id": "conn-sdnevnik-idb",
+      "from": "s_dnevnik",
+      "to": "indexed_db",
+      "label": "local-first (вклучно календарот)",
+      "variant": "emphasis",
+      "labelAt": [
+        375,
+        133
+      ]
+    },
+    {
+      "id": "conn-fusion-api",
+      "from": "raspored_fusion",
+      "to": "api_server",
+      "label": "ќелија по ќелија",
+      "variant": "emphasis",
+      "via": [
+        [
+          390,
+          215
+        ],
+        [
+          390,
+          385
+        ]
+      ],
+      "labelAt": [
+        290,
+        203
+      ]
+    },
+    {
+      "id": "conn-podatoci-api",
+      "from": "podatoci",
+      "to": "api_server",
+      "label": "годишни листи",
+      "variant": "default",
+      "via": [
+        [
+          420,
+          285
+        ],
+        [
+          420,
+          385
+        ]
+      ],
+      "labelAt": [
+        290,
+        273
+      ]
+    },
+    {
+      "id": "conn-akciski-api",
+      "from": "akciski",
+      "to": "api_server",
+      "label": "планови",
+      "variant": "default",
+      "via": [
+        [
+          450,
+          355
+        ],
+        [
+          450,
+          385
+        ]
+      ],
+      "labelAt": [
+        290,
+        343
+      ]
+    },
+    {
+      "id": "conn-nastava-api",
+      "from": "nastava",
+      "to": "api_server",
+      "label": "READ-ONLY",
+      "variant": "dashed",
+      "via": [
+        [
+          480,
+          425
+        ],
+        [
+          480,
+          385
+        ]
+      ],
+      "labelAt": [
+        290,
+        413
+      ]
+    },
+    {
+      "id": "conn-nastava-uredi-api",
+      "from": "nastava_uredi",
+      "to": "api_server",
+      "label": "БЕЗ ВРАТА (/api)",
+      "variant": "emphasis",
+      "via": [
+        [
+          360,
+          536
+        ],
+        [
+          360,
+          385
+        ]
+      ],
+      "labelAt": [
+        420,
+        524
+      ]
+    },
+    {
+      "id": "conn-pregled-baza-api",
+      "from": "pregled_baza",
+      "to": "api_server",
+      "label": "READ-ONLY преглед",
+      "variant": "dashed",
+      "via": [
+        [
+          330,
+          608
+        ],
+        [
+          330,
+          385
+        ]
+      ],
+      "labelAt": [
+        290,
+        596
+      ]
+    },
+    {
+      "id": "conn-sdnevnik-api-seam",
+      "from": "s_dnevnik",
+      "to": "api_server",
+      "label": "ПРЕКИН: 0 повици",
+      "variant": "dashed",
+      "fromSide": "right",
+      "toSide": "top",
+      "via": [
+        [
+          480,
+          145
+        ],
+        [
+          480,
+          240
+        ],
+        [
+          630,
+          240
+        ]
+      ],
+      "labelAt": [
+        550,
+        228
+      ]
+    },
+    {
+      "id": "conn-api-pgschedule",
+      "from": "api_server",
+      "to": "pg_schedule",
+      "label": "SQL sync (source='api')",
+      "variant": "emphasis",
+      "via": [
+        [
+          870,
+          385
+        ],
+        [
+          870,
+          130
+        ]
+      ],
+      "labelAt": [
+        890,
+        118
+      ]
+    },
+    {
+      "id": "conn-api-pgstudents",
+      "from": "api_server",
+      "to": "pg_students",
+      "label": "ID референци (public_id)",
+      "variant": "default",
+      "via": [
+        [
+          910,
+          385
+        ],
+        [
+          910,
+          250
+        ]
+      ],
+      "labelAt": [
+        960,
+        216
+      ]
+    },
+    {
+      "id": "conn-api-pgstaff",
+      "from": "api_server",
+      "to": "pg_staff",
+      "label": "одделни улоги",
+      "variant": "default",
+      "via": [
+        [
+          950,
+          385
+        ],
+        [
+          950,
+          365
+        ]
+      ],
+      "labelAt": [
+        820,
+        358
+      ]
+    },
+    {
+      "id": "conn-api-pgmeta",
+      "from": "api_server",
+      "to": "pg_meta",
+      "label": "стручни профили (не кабинети)",
+      "variant": "default",
+      "via": [
+        [
+          910,
+          385
+        ],
+        [
+          910,
+          495
+        ]
+      ],
+      "labelAt": [
+        960,
+        456
+      ]
+    },
+    {
+      "id": "conn-api-pgteaching",
+      "from": "api_server",
+      "to": "pg_teaching",
+      "label": "распоред на часови",
+      "variant": "default",
+      "via": [
+        [
+          870,
+          385
+        ],
+        [
+          870,
+          620
+        ]
+      ],
+      "labelAt": [
+        890,
+        632
+      ]
+    }
+  ],
+  "cards": [
+    {
+      "dot": "rose",
+      "title": "Критични Празнини во Архитектурата",
+      "items": [
+        "Календарот живее само во S-Dnevnik: девет државни празници во FIXED, плус распусти и активности внесени рачно. Базата не знае ниту еден.",
+        "Поважно од списокот е ПРАВИЛОТО: „Само распуст ја вади неделата од броењето. Празник и активност не.\" Тоа живее во една JS функција, надвор од серверот — значи ниеден извештај на серверот не може да брои недели точно.",
+        "NastavaUredi.html е клучен DB-first едитор на настава, но нема врата во app-navigation.js.",
+        "Централен шев со ПРЕКИН: S-Дневник и /api/schedule работат паралелно без комуникација."
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "Терминологија и Идентитет (Миграција 024)",
+      "items": [
+        "„Специјалистички кабинети\" е заменет со „Стручни профили\": стручниот профил (логопед, дефектолог итн.) е категорија, а не соба.",
+        "Поимот „кабинет\" останува само за ѕвонење (bell_periods.kind = 'kabinet').",
+        "students.public_id е траен мост меѓу базата и локалните записи на S-Dnevnik."
+      ]
+    },
+    {
+      "dot": "cyan",
+      "title": "Таксономија на Екраните & Хаб",
+      "items": [
+        "Хабот (index.html / start.html) скенира фајлови во репото, но филтрира застарени редиректи (NOT_APPS).",
+        "LOCAL_FIRST има два екрана: S-Dnevnik.html и наследениот Rasporedi.html за recovery.",
+        "READ_ONLY има два екрана: Nastava.html (вкрстување) и Pregled-Baza.html (дијагностика).",
+        "Директно во базата пишуваат: RasporediFusion, Podatoci, AkciskiPlan и NastavaUredi. („DB_FIRST\" не е константа во кодот — постојат само LOCAL_FIRST и READ_ONLY.)"
+      ]
+    }
+  ]
+}
