@@ -2,6 +2,8 @@
  * No real name may be committed to this repository.
  *
  *   npm run check:names
+ *   npm run check:names -- --history
+ *   npm run check:names -- --history --repo=C:\\path\\to\\fresh-mirror.git
  *
  * Rule 1 says student names belong in the local database only, because this
  * repository is public — GitHub Pages serves the apps straight out of it.
@@ -44,7 +46,12 @@ import { fileURLToPath } from 'node:url';
 import { pool } from '../src/db.js';
 import { bareName } from '../src/lib/import-core.js';
 
-const REPO = resolve(fileURLToPath(new URL('../..', import.meta.url)));
+const cliArgs = process.argv.slice(2);
+const historyMode = cliArgs.includes('--history');
+const repoArg = cliArgs.find((arg) => arg.startsWith('--repo='));
+const REPO = repoArg
+    ? resolve(repoArg.slice('--repo='.length))
+    : resolve(fileURLToPath(new URL('../..', import.meta.url)));
 
 /** „Ана Тестова" -> „А••• Т•••••" — findable, not readable. */
 const mask = (name: string) =>
@@ -107,18 +114,6 @@ if (!names.length) {
     process.exit(0);
 }
 
-const gitFiles = (args: string[]) =>
-    execFileSync('git', args, { cwd: REPO, maxBuffer: 64 * 1024 * 1024 })
-        .toString('utf8').split('\0').filter(Boolean);
-
-// `--cached` is the exact set of paths represented in the index, including a
-// force-added ignored file. `--others --exclude-standard` adds new files that
-// would otherwise evade the guard until after somebody stages them.
-const indexed = gitFiles(['ls-files', '--cached', '-z']);
-const untracked = gitFiles(['ls-files', '--others', '--exclude-standard', '-z']);
-const candidates = [...new Set([...indexed, ...untracked])];
-const indexedSet = new Set(indexed);
-
 const lower = names.map((n) => ({ term: n, needle: n.toLocaleLowerCase('mk-MK') }));
 let hits = 0;
 
@@ -147,6 +142,99 @@ function maskedPath(file: string): string {
     // Git permits control characters in a path; keep a diagnostic on one line.
     return result.replace(/[\r\n\t]/g, '?');
 }
+
+if (historyMode) {
+    const gitText = (args: string[]) =>
+        execFileSync('git', args, {
+            cwd: REPO,
+            encoding: 'utf8',
+            maxBuffer: 512 * 1024 * 1024
+        });
+
+    const objectLines = gitText(['rev-list', '--objects', '--all'])
+        .split('\n').filter(Boolean);
+    const objectPaths = new Map<string, Set<string>>();
+    for (const line of objectLines) {
+        const split = line.indexOf(' ');
+        const oid = split < 0 ? line : line.slice(0, split);
+        const path = split < 0 ? '' : line.slice(split + 1);
+        if (!objectPaths.has(oid)) objectPaths.set(oid, new Set());
+        if (path) objectPaths.get(oid)!.add(path);
+    }
+
+    const objectIds = [...objectPaths.keys()];
+    const typeLines = execFileSync('git', ['cat-file', '--batch-check=%(objectname) %(objecttype)'], {
+        cwd: REPO,
+        input: objectIds.join('\n') + '\n',
+        encoding: 'utf8',
+        maxBuffer: 512 * 1024 * 1024
+    }).split('\n').filter(Boolean);
+    const blobIds = typeLines
+        .map((line) => line.split(' '))
+        .filter((parts) => parts[1] === 'blob')
+        .map((parts) => parts[0]);
+
+    const uniquePaths = new Set<string>();
+    for (const paths of objectPaths.values()) {
+        for (const path of paths) uniquePaths.add(path);
+    }
+    for (const path of uniquePaths) {
+        const folded = path.toLocaleLowerCase('mk-MK');
+        for (const { term, needle } of lower) {
+            if (!folded.includes(needle)) continue;
+            console.log(`  ${maskedPath(path)} (historical path)  ${mask(term)}`);
+            hits++;
+        }
+    }
+
+    const batch = execFileSync('git', ['cat-file', '--batch'], {
+        cwd: REPO,
+        input: blobIds.join('\n') + '\n',
+        maxBuffer: 512 * 1024 * 1024
+    });
+    let offset = 0;
+    for (const expectedOid of blobIds) {
+        const headerEnd = batch.indexOf(0x0a, offset);
+        if (headerEnd < 0) throw new Error(`Malformed git cat-file output at ${expectedOid}`);
+        const header = batch.subarray(offset, headerEnd).toString('utf8').split(' ');
+        const size = Number(header[2]);
+        if (header[0] !== expectedOid || header[1] !== 'blob' || !Number.isFinite(size)) {
+            throw new Error(`Unexpected git cat-file header for ${expectedOid}`);
+        }
+        const start = headerEnd + 1;
+        const end = start + size;
+        const contents = batch.subarray(start, end);
+        offset = end + 1;
+        if (contents.includes(0)) continue;
+        const paths = [...(objectPaths.get(expectedOid) ?? [])];
+        const display = maskedPath(paths[0] ?? '(unknown path)');
+        scanText(display, contents.toString('utf8'), `history blob ${expectedOid.slice(0, 12)}`);
+    }
+
+    const refCount = gitText(['for-each-ref', '--format=%(refname)'])
+        .split('\n').filter(Boolean).length;
+    if (hits) {
+        console.error(`\n${hits} real-name match${hits === 1 ? '' : 'es'} remain in reachable Git history.\n`);
+        process.exit(1);
+    }
+    console.log(
+        `Checked ${blobIds.length} reachable historical blobs across ${refCount} refs ` +
+        `against ${names.length} names — none appears.`
+    );
+    process.exit(0);
+}
+
+const gitFiles = (args: string[]) =>
+    execFileSync('git', args, { cwd: REPO, maxBuffer: 64 * 1024 * 1024 })
+        .toString('utf8').split('\0').filter(Boolean);
+
+// `--cached` is the exact set of paths represented in the index, including a
+// force-added ignored file. `--others --exclude-standard` adds new files that
+// would otherwise evade the guard until after somebody stages them.
+const indexed = gitFiles(['ls-files', '--cached', '-z']);
+const untracked = gitFiles(['ls-files', '--others', '--exclude-standard', '-z']);
+const candidates = [...new Set([...indexed, ...untracked])];
+const indexedSet = new Set(indexed);
 
 for (const file of candidates) {
     const displayFile = maskedPath(file);

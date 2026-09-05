@@ -191,10 +191,10 @@ live HTTP проверка го чуваат тоа правило. Ниту е�
 2. **Пред activation:** bootstrap на администраторскиот PIN додека режимот е
    отворен, постави ист долг service key на двете машини, па вклучи
    `MTB_REQUIRE_SIGNIN=1` и рестартирај.
-3. **Dependency follow-up:** `npm audit` сè уште пријавува една high слабост во
-   `xlsx@0.18.5` без npm fix. Пакетот се користи само во локалната административна
-   CLI-алатка `import-teaching.ts`, не во HTTP upload route. Не пуштај непознат
-   workbook; планирај замена на parser-от наместо `audit fix --force`.
+3. **Dependency status:** ранливото npm-registry издание `xlsx@0.18.5` е
+   заменето со официјалното SheetJS `0.20.3` издание. `import-teaching.ts` го
+   задржува истиот API; измислен workbook round-trip, typecheck и целата unit
+   suite поминаа, а `npm audit --omit=dev` сега пријавува 0 слабости.
 4. **Оперативно:** редовно тестирај backup и Tailscale revoke на уред; PIN
    logout не отстранува уред од мрежата.
 5. **Идна ревизија:** ако е потребно да се знае секоја стара оценка, додади

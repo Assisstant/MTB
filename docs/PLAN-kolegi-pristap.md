@@ -245,10 +245,10 @@ Final verification captured on HOME on 5 September 2026:
   This result describes `kolegi-pristap` only. A separate masked check found
   three matches in main commit `3edfb21`; the current main tip was sanitized and
   now passes, but history purge is still required. No matched name was printed.
-- refreshed `npm audit --omit=dev` reports one remaining high advisory in
-  `xlsx@0.18.5`, with no npm fix. It is confined to the local administrative
-  workbook-import CLI, not an HTTP upload route; do not feed it an untrusted
-  workbook, and replace that parser in a separate change.
+- the vulnerable npm-registry `xlsx@0.18.5` package was replaced with the
+  official SheetJS `0.20.3` tarball while keeping the existing import API.
+  An invented workbook round-trip, typecheck and the full unit suite pass;
+  `npm audit --omit=dev` now reports 0 vulnerabilities.
 
 The implementation is ready for review. Merge remains privacy-blocked only by
 the reachable historical commit described above; the current main and rollout
