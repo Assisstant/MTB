@@ -133,6 +133,9 @@ docs/HOME-SETUP.md              setting up another machine
 docs/CLIENT-SETUP.md            a machine that installs nothing
 docs/SYNC.md                    how staying in sync works, and what to do when it complains
 docs/SCHOOL-YEAR.md             the September routine, and the order it must happen in
+docs/PLAN-start-stop.md         one front door for the whole system: what must run on
+                                the way in, what must run on the way out, and why the way
+                                out may never stop at the first failure
 docs/PLAN-rasporedot-i-nedelata.md   READ BEFORE TOUCHING THE SCHEDULE. schedule_slots
                                 has no week, so "from which week does this apply" cannot
                                 be asked. Stage 0 in there is urgent and independent: a
