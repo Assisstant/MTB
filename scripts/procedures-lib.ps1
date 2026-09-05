@@ -76,3 +76,72 @@ function Get-MtbHealth {
         }
     }
 }
+
+# ── running a phase without blocking whoever asked ──────────────────────────
+#
+# A procedure can take most of a minute — 40-server waits for the API to answer.
+# Run that on the thread that paints a window and Windows stops receiving
+# messages from it, marks it "not responding" and paints it black. The window
+# then looks broken at exactly the moment it is doing its job.
+#
+# So the phase runs in its own runspace and pushes each result into a queue as
+# it finishes. The caller drains the queue whenever it likes — a Forms timer, a
+# loop, anything — and never waits on a procedure.
+
+function Start-MtbPhase {
+    param(
+        [string] $ScriptsDir,
+        [string] $Phase,
+        [hashtable] $Ctx,
+        [bool] $StopOnFail = $false
+    )
+
+    $queue = New-Object System.Collections.Concurrent.ConcurrentQueue[object]
+
+    $runspace = [runspacefactory]::CreateRunspace()
+    $runspace.ApartmentState = 'STA'
+    $runspace.ThreadOptions  = 'ReuseThread'
+    $runspace.Open()
+    $runspace.SessionStateProxy.SetVariable('Queue', $queue)
+
+    $worker = [powershell]::Create()
+    $worker.Runspace = $runspace
+    [void]$worker.AddScript({
+        param([string] $ScriptsDir, [string] $Phase, [hashtable] $Ctx, [bool] $StopOnFail)
+        . (Join-Path $ScriptsDir 'procedures-lib.ps1')
+        foreach ($p in (Get-MtbProcedures -ScriptsDir $ScriptsDir -Phase $Phase)) {
+            $Queue.Enqueue([pscustomobject]@{ Kind = 'started'; Label = $p.Label })
+            $r = Invoke-MtbProcedure -Procedure $p -Ctx $Ctx
+            $Queue.Enqueue([pscustomobject]@{ Kind = 'result'; Result = $r })
+            if ($StopOnFail -and $r.Status -eq 'FAIL') { break }
+        }
+        $Queue.Enqueue([pscustomobject]@{ Kind = 'done' })
+    })
+    [void]$worker.AddArgument($ScriptsDir)
+    [void]$worker.AddArgument($Phase)
+    [void]$worker.AddArgument($Ctx)
+    [void]$worker.AddArgument($StopOnFail)
+
+    return [pscustomobject]@{
+        Queue    = $queue
+        Worker   = $worker
+        Runspace = $runspace
+        Handle   = $worker.BeginInvoke()
+    }
+}
+
+# Takes whatever has arrived so far. Never waits.
+function Receive-MtbPhase {
+    param([pscustomobject] $Phase)
+    $items = @()
+    $item = $null
+    while ($Phase.Queue.TryDequeue([ref]$item)) { $items += $item }
+    return $items
+}
+
+function Stop-MtbPhase {
+    param([pscustomobject] $Phase)
+    try { if ($Phase.Handle) { [void]$Phase.Worker.EndInvoke($Phase.Handle) } } catch { }
+    try { $Phase.Worker.Dispose() } catch { }
+    try { $Phase.Runspace.Close(); $Phase.Runspace.Dispose() } catch { }
+}

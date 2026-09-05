@@ -140,114 +140,127 @@ try {
 
 [System.Windows.Forms.Application]::EnableVisualStyles()
 
-$ui = @{}
-$script:DayClosed = $false
-$script:Busy      = $false
+# NOTHING SLOW MAY RUN ON THIS THREAD. Waiting for the API to answer takes most
+# of a minute; do it here and Windows stops receiving messages from the window,
+# marks it "not responding" and paints it black — so the app looks broken at
+# exactly the moment it is working. The phase runs in its own runspace and this
+# thread only drains its queue on a timer.
+$script:Phase      = $null      # the running phase, or $null
+$script:PhaseKind  = ''         # 'start' | 'stop'
+$script:Results    = @()
+$script:DayClosed  = $false
+$script:CloseAfter = $false
 
 $form                 = New-Object System.Windows.Forms.Form
 $form.Text            = 'MTB'
-$form.Size            = New-Object System.Drawing.Size(620, 470)
+$form.Size            = New-Object System.Drawing.Size(660, 480)
 $form.StartPosition   = 'CenterScreen'
 $form.Font            = New-Object System.Drawing.Font('Segoe UI', 9)
 $form.AutoScaleMode   = 'Dpi'
-$form.MinimumSize     = New-Object System.Drawing.Size(520, 380)
+$form.MinimumSize     = New-Object System.Drawing.Size(540, 380)
 try { $form.Icon = [System.Drawing.Icon]::ExtractAssociatedIcon((Get-Process -Id $PID).Path) } catch { }
 
 $header               = New-Object System.Windows.Forms.Panel
 $header.Dock          = 'Top'
-$header.Height        = 58
-$header.BackColor     = [System.Drawing.Color]::FromArgb(240, 243, 247)
+$header.Height        = 60
+$header.BackColor     = [System.Drawing.Color]::FromArgb(243, 246, 250)
 $form.Controls.Add($header)
 
 $title                = New-Object System.Windows.Forms.Label
 $title.Text           = 'MTB'
-$title.Font           = New-Object System.Drawing.Font('Segoe UI Semibold', 13)
+$title.Font           = New-Object System.Drawing.Font('Segoe UI Semibold', 14)
 $title.Location       = New-Object System.Drawing.Point(14, 8)
 $title.AutoSize       = $true
 $header.Controls.Add($title)
 
 $identity             = New-Object System.Windows.Forms.Label
 $identity.Text        = 'се подига…'
-$identity.Location    = New-Object System.Drawing.Point(16, 33)
+$identity.Location    = New-Object System.Drawing.Point(16, 36)
 $identity.AutoSize    = $true
 $identity.ForeColor   = [System.Drawing.Color]::FromArgb(70, 80, 95)
 $header.Controls.Add($identity)
 
 $buttons              = New-Object System.Windows.Forms.Panel
 $buttons.Dock         = 'Bottom'
-$buttons.Height       = 80
+$buttons.Height       = 82
 $form.Controls.Add($buttons)
 
-function New-Button {
-    param([string] $Text, [int] $X, [int] $Width, [bool] $Primary = $false)
-    $b            = New-Object System.Windows.Forms.Button
-    $b.Text       = $Text
-    $b.Width      = $Width
-    $b.Height     = 32
-    $b.Location   = New-Object System.Drawing.Point($X, 12)
-    $b.Anchor     = 'Bottom,Left'
-    $b.FlatStyle  = 'System'
-    if ($Primary) { $b.Font = New-Object System.Drawing.Font('Segoe UI Semibold', 9) }
-    $buttons.Controls.Add($b)
-    return $b
-}
+$btnFinish            = New-Object System.Windows.Forms.Button
+$btnFinish.Text       = 'Заврши го денот'
+$btnFinish.Font       = New-Object System.Drawing.Font('Segoe UI Semibold', 9)
+$btnFinish.SetBounds(14, 12, 155, 32)
+$btnFinish.FlatStyle  = 'System'
+$buttons.Controls.Add($btnFinish)
 
-$btnFinish = New-Button -Text 'Заврши го денот' -X 14  -Width 150 -Primary $true
-$btnOpen   = New-Button -Text 'Отвори апликации' -X 174 -Width 140
-$btnRefresh= New-Button -Text 'Состојба'         -X 324 -Width 100
+$btnOpen              = New-Object System.Windows.Forms.Button
+$btnOpen.Text         = 'Отвори апликации'
+$btnOpen.SetBounds(179, 12, 145, 32)
+$btnOpen.FlatStyle    = 'System'
+$buttons.Controls.Add($btnOpen)
 
-# Anchored, not docked. Docking order in WinForms follows z-order, so the last
-# docked control silently loses its space to a Fill added before it — a layout
-# that looks right until the window is resized.
-$list                 = New-Object System.Windows.Forms.ListView
-$list.Location        = New-Object System.Drawing.Point(0, $header.Height)
-$list.Size            = New-Object System.Drawing.Size($form.ClientSize.Width, ($form.ClientSize.Height - $header.Height - $buttons.Height))
-$list.Anchor          = 'Top,Bottom,Left,Right'
-$list.View            = 'Details'
-$list.FullRowSelect   = $true
-$list.GridLines       = $false
-$list.HeaderStyle     = 'Nonclickable'
-$list.BorderStyle     = 'None'
-[void]$list.Columns.Add('', 58)
-[void]$list.Columns.Add('чекор', 100)
-[void]$list.Columns.Add('', 420)
-$form.Controls.Add($list)
+$btnRefresh           = New-Object System.Windows.Forms.Button
+$btnRefresh.Text      = 'Состојба'
+$btnRefresh.SetBounds(334, 12, 100, 32)
+$btnRefresh.FlatStyle = 'System'
+$buttons.Controls.Add($btnRefresh)
 
-# Inside the button strip, so no third docked control fights for leftover space.
 $status               = New-Object System.Windows.Forms.Label
-$status.Location      = New-Object System.Drawing.Point(16, 52)
-$status.Size          = New-Object System.Drawing.Size(560, 20)
+$status.SetBounds(16, 52, 600, 20)
 $status.Anchor        = 'Bottom,Left,Right'
 $status.ForeColor     = [System.Drawing.Color]::FromArgb(90, 100, 115)
 $status.Text          = ''
 $buttons.Controls.Add($status)
 
+# Anchored, not docked: docking order in WinForms follows z-order, so a Fill
+# added before a Bottom silently eats it — a layout that looks right until the
+# window is resized.
+$list                 = New-Object System.Windows.Forms.ListView
+$list.SetBounds(0, $header.Height, $form.ClientSize.Width, ($form.ClientSize.Height - $header.Height - $buttons.Height))
+$list.Anchor          = 'Top,Bottom,Left,Right'
+$list.View            = 'Details'
+$list.FullRowSelect   = $true
+$list.HeaderStyle     = 'Nonclickable'
+$list.BorderStyle     = 'None'
+[void]$list.Columns.Add('', 60)
+[void]$list.Columns.Add('чекор', 96)
+[void]$list.Columns.Add('', 460)
+$form.Controls.Add($list)
+
+$timer                = New-Object System.Windows.Forms.Timer
+$timer.Interval       = 120
+
 function Add-Row {
     param([pscustomobject] $R)
-    $item = New-Object System.Windows.Forms.ListViewItem($R.Status)
-    [void]$item.SubItems.Add($R.Label)
-    $text = $R.Message
+    $item = New-Object System.Windows.Forms.ListViewItem([string]$R.Status)
+    [void]$item.SubItems.Add([string]$R.Label)
+    $text = [string]$R.Message
     if ($R.Fix) { $text = "$text   ($($R.Fix))" }
     [void]$item.SubItems.Add($text)
     $item.ForeColor = switch ($R.Status) {
-        'OK'   { [System.Drawing.Color]::FromArgb(20, 120, 60) }
-        'WARN' { [System.Drawing.Color]::FromArgb(150, 100, 0) }
-        default{ [System.Drawing.Color]::FromArgb(180, 30, 30) }
+        'OK'    { [System.Drawing.Color]::FromArgb(20, 120, 60) }
+        'WARN'  { [System.Drawing.Color]::FromArgb(150, 95, 0) }
+        default { [System.Drawing.Color]::FromArgb(185, 30, 30) }
     }
     [void]$list.Items.Add($item)
     $item.EnsureVisible()
-    [System.Windows.Forms.Application]::DoEvents()
 }
 
-function Set-Busy {
-    param([bool] $On, [string] $Text = '')
-    $script:Busy = $On
-    $btnFinish.Enabled  = -not $On
+function Add-Heading {
+    param([string] $Text)
+    $item = New-Object System.Windows.Forms.ListViewItem('')
+    [void]$item.SubItems.Add('')
+    [void]$item.SubItems.Add($Text)
+    $item.Font = New-Object System.Drawing.Font('Segoe UI Semibold', 9)
+    [void]$list.Items.Add($item)
+    $item.EnsureVisible()
+}
+
+function Set-Working {
+    param([bool] $On)
+    $btnFinish.Enabled  = (-not $On) -and (-not $script:DayClosed)
     $btnOpen.Enabled    = -not $On
     $btnRefresh.Enabled = -not $On
-    $status.Text = $Text
-    $form.Cursor = if ($On) { 'WaitCursor' } else { 'Default' }
-    [System.Windows.Forms.Application]::DoEvents()
+    $form.Cursor = if ($On) { [System.Windows.Forms.Cursors]::AppStarting } else { [System.Windows.Forms.Cursors]::Default }
 }
 
 function Update-Identity {
@@ -256,79 +269,102 @@ function Update-Identity {
     $identity.ForeColor = if ($h.Ok) {
         [System.Drawing.Color]::FromArgb(70, 80, 95)
     } else {
-        [System.Drawing.Color]::FromArgb(180, 30, 30)
+        [System.Drawing.Color]::FromArgb(185, 30, 30)
     }
 }
 
-function Invoke-PhaseUi {
-    param([string] $Phase, [switch] $StopOnFail)
-    $results = @()
-    foreach ($p in (Get-MtbProcedures -ScriptsDir $PSScriptRoot -Phase $Phase)) {
-        Set-Busy -On $true -Text "$($p.Label)…"
-        $r = Invoke-MtbProcedure -Procedure $p -Ctx $Ctx
-        Add-Row $r
-        $results += $r
-        if ($StopOnFail -and $r.Status -eq 'FAIL') { break }
-    }
-    return $results
+function Start-Phase {
+    param([string] $Kind, [bool] $StopOnFail)
+    $script:PhaseKind = $Kind
+    $script:Results   = @()
+    $script:Phase     = Start-MtbPhase -ScriptsDir $PSScriptRoot -Phase $Kind -Ctx $Ctx -StopOnFail $StopOnFail
+    Set-Working -On $true
+    $timer.Start()
 }
 
-function Close-Day {
-    if ($script:DayClosed -or $script:Busy) { return $true }
-    $list.Items.Clear()
-    $sep = New-Object System.Windows.Forms.ListViewItem('')
-    [void]$sep.SubItems.Add('')
-    [void]$sep.SubItems.Add('Затворам го денот')
-    $sep.Font = New-Object System.Drawing.Font('Segoe UI Semibold', 9)
-    [void]$list.Items.Add($sep)
+function Complete-Phase {
+    $timer.Stop()
+    Stop-MtbPhase -Phase $script:Phase
+    $script:Phase = $null
+    $bad = @($script:Results | Where-Object { $_.Status -eq 'FAIL' })
 
-    $results = Invoke-PhaseUi -Phase 'stop'          # без -StopOnFail, намерно
-    $bad = @($results | Where-Object { $_.Status -eq 'FAIL' })
+    if ($script:PhaseKind -eq 'start') {
+        Update-Identity
+        if ($bad.Count) {
+            # Nothing opened, so there is nothing to close down either.
+            $script:DayClosed = $true
+            $status.Text = 'Застанав. Апликациите не се отворени врз ова.'
+        } else {
+            $status.Text = 'Денот е отворен.'
+        }
+        Set-Working -On $false
+        return
+    }
+
     $script:DayClosed = $true
     Update-Identity
+    Set-Working -On $false
     if ($bad.Count) {
-        Set-Busy -On $false -Text "$($bad.Count) чекор(и) не поминаа: $(($bad.Label) -join ', ')"
+        $status.Text = "$($bad.Count) чекор(и) не поминаа: $(($bad.Label) -join ', ')"
         [void][System.Windows.Forms.MessageBox]::Show(
-            "Не сè помина:`n`n$(($bad | ForEach-Object { "$($_.Label): $($_.Message)" }) -join "`n")",
+            ("Не сè помина:`n`n" + (($bad | ForEach-Object { "$($_.Label): $($_.Message)" }) -join "`n")),
             'MTB', 'OK', 'Warning')
-        return $false
+    } else {
+        $status.Text = 'Денот е затворен. Бекап направен, snapshot објавен, серверот спуштен.'
     }
-    Set-Busy -On $false -Text 'Денот е затворен. Бекап направен, snapshot објавен, серверот спуштен.'
-    return $true
+    if ($script:CloseAfter) { $form.Close() }
 }
 
-$btnOpen.Add_Click({
-    Set-Busy -On $true -Text 'отворам…'
-    $open = [pscustomobject]@{ Path = (Join-Path $PSScriptRoot 'procedures\start\50-open.ps1'); Label = 'open' }
-    $r = Invoke-MtbProcedure -Procedure $open -Ctx $Ctx
-    Add-Row $r
-    Set-Busy -On $false
+$timer.Add_Tick({
+    if (-not $script:Phase) { $timer.Stop(); return }
+    foreach ($item in (Receive-MtbPhase -Phase $script:Phase)) {
+        switch ($item.Kind) {
+            'started' { $status.Text = "$($item.Label)…" }
+            'result'  { Add-Row $item.Result; $script:Results += $item.Result }
+            'done'    { Complete-Phase; return }
+        }
+    }
 })
 
-$btnRefresh.Add_Click({
-    Set-Busy -On $true -Text 'проверувам…'
-    Update-Identity
-    Set-Busy -On $false -Text ''
+$btnOpen.Add_Click({
+    # Start-Process returns at once, so this one is safe on this thread.
+    $open = [pscustomobject]@{ Path = (Join-Path $PSScriptRoot 'procedures\start\50-open.ps1'); Label = 'open' }
+    Add-Row (Invoke-MtbProcedure -Procedure $open -Ctx $Ctx)
 })
+
+$btnRefresh.Add_Click({ Update-Identity })
 
 $btnFinish.Add_Click({
     if ([System.Windows.Forms.MessageBox]::Show(
             'Бекап, објава на pCloud и гасење на серверот. Да продолжам?',
             'Заврши го денот', 'YesNo', 'Question') -ne 'Yes') { return }
-    if (Close-Day) { $form.Close() }
+    $list.Items.Clear()
+    Add-Heading 'Затворам го денот'
+    Start-Phase -Kind 'stop' -StopOnFail $false      # излезот никогаш не застанува
 })
 
 # The whole reason this is a window: X can be answered instead of obeyed.
 $form.Add_FormClosing({
     param($sender, $e)
-    if ($script:Busy) { $e.Cancel = $true; return }
+    if ($script:Phase) {
+        $e.Cancel = $true
+        $status.Text = 'Почекај да заврши тековниот чекор.'
+        return
+    }
     if ($script:DayClosed) { return }
     $answer = [System.Windows.Forms.MessageBox]::Show(
-        "Денот не е затворен.`n`nДа — бекап, објава на pCloud, гасење на серверот." +
-        "`nНе — само затвори; серверот останува и објава нема." ,
+        ("Денот не е затворен." + [Environment]::NewLine + [Environment]::NewLine +
+         "Да — бекап, објава на pCloud, гасење на серверот." + [Environment]::NewLine +
+         "Не — само затвори; серверот останува и објава нема."),
         'MTB', 'YesNoCancel', 'Warning')
     switch ($answer) {
-        'Yes'    { $e.Cancel = $true; if (Close-Day) { $form.Close() } }
+        'Yes' {
+            $e.Cancel = $true
+            $script:CloseAfter = $true
+            $list.Items.Clear()
+            Add-Heading 'Затворам го денот'
+            Start-Phase -Kind 'stop' -StopOnFail $false
+        }
         'Cancel' { $e.Cancel = $true }
         default  { }
     }
@@ -336,15 +372,8 @@ $form.Add_FormClosing({
 
 $form.Add_Shown({
     $form.Activate()
-    $results = Invoke-PhaseUi -Phase 'start' -StopOnFail
-    Update-Identity
-    if (@($results | Where-Object { $_.Status -eq 'FAIL' }).Count) {
-        Set-Busy -On $false -Text 'Застанав. Апликациите не се отворени врз ова.'
-        $script:DayClosed = $true      # ништо не почна, па нема што да се затвора
-        $btnFinish.Enabled = $false
-    } else {
-        Set-Busy -On $false -Text 'Денот е отворен.'
-    }
+    Add-Heading 'Отворам го денот'
+    Start-Phase -Kind 'start' -StopOnFail $true
 })
 
 [void]$form.ShowDialog()
