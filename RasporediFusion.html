@@ -533,12 +533,56 @@
         .roster-controls { grid-template-columns: 1fr; }
     }
 
+    /* ── User badge & Modals ── */
+    .user-badge { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+    .user-name { font-weight: 600; color: #fff; background: rgba(255,255,255,0.16); padding: 5px 10px; border-radius: 6px; }
+    .user-btn { background: #4c51bf; color: #fff; border: 1px solid #667eea; }
+    .user-btn:hover { background: #5a67d8; }
+    .btn-xs { padding: 4px 8px; font-size: 11px; border-radius: 4px; background: rgba(255,255,255,0.18); color: #fff; border: none; cursor: pointer; }
+    .btn-xs:hover { background: rgba(255,255,255,0.3); }
+
+    .modal-overlay {
+        position: fixed; inset: 0; background: rgba(0,0,0,0.65);
+        display: flex; align-items: center; justify-content: center;
+        z-index: 10000; padding: 16px;
+    }
+    .modal-overlay[hidden] { display: none !important; }
+    .modal-card {
+        background: #fff; color: #1a202c; border-radius: 12px;
+        box-shadow: 0 20px 25px -5px rgba(0,0,0,0.35); width: 100%;
+        max-width: 460px; padding: 22px; max-height: 90vh;
+        display: flex; flex-direction: column; border: 1px solid #cbd5e0;
+    }
+    .modal-card.wide { max-width: 980px; }
+    .modal-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+    .modal-header h3 { margin: 0; font-size: 17px; font-weight: 700; color: #2d3748; }
+    .btn-close { background: none; border: none; font-size: 20px; cursor: pointer; color: inherit; opacity: 0.6; line-height: 1; padding: 4px 8px; }
+    .btn-close:hover { opacity: 1; }
+    .modal-body { overflow-y: auto; flex: 1 1 auto; padding: 4px 0; }
+    .modal-footer { margin-top: 14px; display: flex; align-items: center; gap: 10px; }
+
+    /* CSS Columns for 3-column vertical checklist (read down columns) */
+    .grid-pick { columns: 280px 3; column-gap: 22px; margin: 10px 0; max-height: 56vh; overflow-y: auto; padding: 4px 2px; }
+    .grid-pick label {
+        display: flex; align-items: center; gap: 8px; font-size: 13px;
+        break-inside: avoid; -webkit-column-break-inside: avoid;
+        margin-bottom: 7px; padding: 4px 6px; border-radius: 5px; cursor: pointer;
+    }
+    .grid-pick label:hover { background: #edf2f7; }
+    .grid-pick input[type="checkbox"] { width: 16px; height: 16px; accent-color: #4c51bf; cursor: pointer; flex: 0 0 auto; }
+    .list-number { color: #718096; font-size: 11px; margin-right: 4px; display: inline-block; min-width: 22px; }
+    .pin-error { color: #e53e3e; font-size: 13px; margin-top: 8px; font-weight: 600; }
+
+    body.dark-mode .modal-card { background: #1a202c; color: #e2e8f0; border-color: #4a5568; }
+    body.dark-mode .modal-header h3 { color: #e2e8f0; }
+    body.dark-mode .grid-pick label:hover { background: #2d3748; }
+
     /* On-page print stays as a fallback; ⎙ opens the clean sheet. */
     @media print {
         @page { size: landscape; margin: 9mm; }
         body { background: #fff; }
         .mtb-app-nav, .toolbar-band, .metrics-band, .day-tabs-band, .view-tabs, .roster-tool,
-        .notice, .busy-layer, .theme-switch-wrapper, .header-state, .credit-watermark { display: none !important; }
+        .notice, .busy-layer, .theme-switch-wrapper, .header-state, .credit-watermark, .modal-overlay { display: none !important; }
         .header { background: #fff; color: #000; padding: 6px 0; }
         .content { background: #fff; padding: 0; min-height: 0; }
         .workspace { display: block; }
@@ -554,6 +598,7 @@
         <p>Терапевтски кабинети · тековна работна недела</p>
     </div>
     <div class="header-right">
+        <div class="user-badge" id="userBadge"></div>
         <div class="header-state" role="status" aria-live="polite">
             <span class="live-dot" id="liveDot"></span>
             <span id="connectionState">Се поврзувам…</span>
@@ -631,13 +676,16 @@
 
         <section class="roster-tool" id="rosterPanel" role="tabpanel" aria-labelledby="rosterTab rosterTitle" hidden>
             <div class="section-header">
-                <h2 id="rosterTitle">Ученици по терапевт</h2>
-                <span id="therapistRosterCount">0 ученици</span>
+                <div>
+                    <h2 id="rosterTitle">Ученици по терапевт</h2>
+                    <span id="therapistRosterCount">0 ученици</span>
+                </div>
+                <button class="btn btn-primary" id="openCaseloadBtn" type="button">✓ Измени список (штиклирање)</button>
             </div>
             <div class="roster-controls">
                 <label class="roster-field">
                     <span>Терапевт</span>
-                    <select id="rosterTherapist" disabled></select>
+                    <select id="rosterTherapist"></select>
                 </label>
                 <label class="roster-field">
                     <span>Пребарај</span>
@@ -683,6 +731,60 @@
 
 <div class="busy-layer" id="busyLayer" aria-hidden="true"><div class="busy-box">Се вчитуваат податоците…</div></div>
 
+<!-- Caseload Checklist Modal (read-down 3 columns) -->
+<div class="modal-overlay" id="caseloadModal" hidden>
+    <div class="modal-card wide">
+        <div class="modal-header">
+            <h3 id="caseloadModalTitle">Ученици кај терапевт</h3>
+            <button type="button" class="btn-close" id="closeCaseloadModal" aria-label="Затвори">✕</button>
+        </div>
+        <div class="modal-body">
+            <div style="margin-bottom: 10px;">
+                <input id="caseloadSearch" type="search" placeholder="Пребарај ученик по име или одделение…"
+                    style="width: 100%; padding: 8px 12px; border-radius: 6px; border: 1px solid var(--border, #cbd5e0); background: inherit; color: inherit; box-sizing: border-box;">
+            </div>
+            <div class="grid-pick" id="caseloadGrid"></div>
+        </div>
+        <div class="modal-footer" style="justify-content: space-between;">
+            <div style="display: flex; gap: 8px;">
+                <button class="btn btn-primary" id="saveCaseloadBtn" type="button">Зачувај список</button>
+                <button class="btn" id="cancelCaseloadBtn" type="button">Откажи</button>
+            </div>
+            <span id="caseloadSelectedCount" style="font-size: 13px; font-weight: 600; opacity: 0.85;">0 избрани</span>
+        </div>
+    </div>
+</div>
+
+<!-- PIN Login Modal -->
+<div class="modal-overlay" id="pinModal" hidden>
+    <div class="modal-card">
+        <div class="modal-header">
+            <h3>🔑 Најава со PIN</h3>
+            <button type="button" class="btn-close" id="closePinModal" aria-label="Затвори">✕</button>
+        </div>
+        <div class="modal-body">
+            <p style="font-size: 13px; color: var(--muted, #666); margin-top: 0; margin-bottom: 12px;">
+                Внеси го твојот 4-цифрен PIN за да добиеш пристап до твојот распоред и список на ученици.
+            </p>
+            <label class="field" style="display: flex; flex-direction: column; gap: 4px; margin-bottom: 12px;">
+                <span style="font-weight: 600; font-size: 13px;">Терапевт</span>
+                <select id="pinTherapistSelect" style="padding: 8px 10px; border-radius: 6px; border: 1px solid var(--border, #cbd5e0); font-size: 14px; background: inherit; color: inherit;"></select>
+            </label>
+            <label class="field" style="display: flex; flex-direction: column; gap: 4px; margin-bottom: 8px;">
+                <span style="font-weight: 600; font-size: 13px;">PIN код (4 цифри)</span>
+                <input type="password" id="pinInput" maxlength="4" inputmode="numeric" pattern="[0-9]{4}"
+                    placeholder="••••" autocomplete="current-password"
+                    style="padding: 8px 10px; border-radius: 6px; border: 1px solid var(--border, #cbd5e0); font-size: 16px; letter-spacing: 3px; background: inherit; color: inherit;">
+            </label>
+            <div id="pinError" class="pin-error" hidden></div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-primary" id="submitPinBtn" type="button">Најави се</button>
+            <button class="btn" id="cancelPinBtn" type="button">Откажи</button>
+        </div>
+    </div>
+</div>
+
 <script>
 (function () {
     'use strict';
@@ -700,11 +802,13 @@
     const SERVER_TIMEOUT = 4000;
     const VIEW_KEY = 'mtb_fusion_view_v1';
     const THEME_KEY = 'theme';
+    const TOKEN_KEY = 'evidence_token_v1';
     const REQUESTED_YEAR = new URLSearchParams(window.location.search).get('year') || '';
     const state = {
         years: [], year: '', day: DAYS[0], focus: '', view: 'day', panel: 'schedule', roster: null,
-        rosterTherapist: '',
+        rosterTherapist: '', token: '', me: null, authRequired: false,
         bells: [], sessions: new Map(), pending: new Set(), expandedBlocks: new Set(), ticket: 0,
+        pollTicket: 0, sessionVersion: 0,
         apiBase: window.location.hostname === PUBLISHED_HOST ? '' : window.location.origin,
         serverLabel: ''
     };
@@ -800,6 +904,7 @@
     function forgetSelectedServer() {
         state.apiBase = '';
         state.serverLabel = '';
+        state.authRequired = false;
         try { localStorage.removeItem(SERVER_KEY); }
         catch (_) { /* private mode or locked storage */ }
         window.dispatchEvent(new CustomEvent('mtb:server-selected'));
@@ -830,7 +935,10 @@
     async function discoverServer() {
         if (window.location.hostname !== PUBLISHED_HOST) {
             const local = await probeServer(window.location.origin);
-            if (local) state.serverLabel = identityLabel(local);
+            if (local) {
+                state.serverLabel = identityLabel(local);
+                state.authRequired = local.health && local.health.signinRequired === true;
+            }
             refreshLocalLinks();
             return true;
         }
@@ -841,6 +949,7 @@
         const rememberedTarget = live.find((target) => target.base === remembered);
         const chosen = rememberedTarget || (live.length === 1 ? live[0] : null);
         if (chosen) {
+            state.authRequired = chosen.health && chosen.health.signinRequired === true;
             rememberServer(chosen.base, identityLabel(chosen));
             return true;
         }
@@ -862,12 +971,17 @@
             error.startRequired = true;
             throw error;
         }
-        const response = await fetch(base + path, Object.assign({ cache: 'no-store' }, options || {}));
+        const opts = Object.assign({ cache: 'no-store' }, options || {});
+        const headers = Object.assign({}, opts.headers || {});
+        if (state.token) headers['X-MTB-Evidence-Token'] = state.token;
+        opts.headers = headers;
+        const response = await fetch(base + path, opts);
         const body = await response.json().catch(() => ({}));
         if (!response.ok) {
             const error = new Error(body.error || ('HTTP ' + response.status));
             error.status = response.status;
             error.body = body;
+            if (body && body.signedOut) clearSignedState(true);
             throw error;
         }
         return body;
@@ -963,28 +1077,68 @@
         return grade + (student ? student.name : 'Непознат ученик');
     }
 
+    function timeRangeMinutes(timeStr) {
+        if (!timeStr) return null;
+        const clocks = String(timeStr).match(/\b\d{1,2}:\d{2}\b/g) || [];
+        if (clocks.length < 2) return null;
+        const start = minutes(clocks[0]);
+        const end = minutes(clocks[clocks.length - 1]);
+        if (!Number.isFinite(start) || !Number.isFinite(end)) return null;
+        return { start, end };
+    }
+
+    function timesOverlap(t1, t2) {
+        const r1 = timeRangeMinutes(t1);
+        const r2 = timeRangeMinutes(t2);
+        if (!r1 || !r2) return t1 === t2;
+        return Math.max(r1.start, r2.start) < Math.min(r1.end, r2.end);
+    }
+
     function sessionConflicts() {
-        const seen = new Map();
         const conflicts = new Set();
-        state.sessions.forEach((session, key) => {
-            if (!session.student_public_id) return;
-            const studentKey = session.day + '|' + session.time + '|' + session.student_public_id;
-            if (seen.has(studentKey)) {
-                conflicts.add(key);
-                conflicts.add(seen.get(studentKey));
-            } else seen.set(studentKey, key);
-        });
+        const entries = Array.from(state.sessions.entries()).filter(([_, s]) => Boolean(s.student_public_id));
+        for (let i = 0; i < entries.length; i++) {
+            const [k1, s1] = entries[i];
+            for (let j = i + 1; j < entries.length; j++) {
+                const [k2, s2] = entries[j];
+                if (s1.student_public_id === s2.student_public_id && s1.day === s2.day && timesOverlap(s1.time, s2.time)) {
+                    conflicts.add(k1);
+                    conflicts.add(k2);
+                }
+            }
+        }
         return conflicts;
     }
 
     function sessionConflictCount() {
-        const counts = new Map();
-        state.sessions.forEach((session) => {
-            if (!session.student_public_id) return;
-            const key = session.day + '|' + session.time + '|' + session.student_public_id;
-            counts.set(key, (counts.get(key) || 0) + 1);
-        });
-        return Array.from(counts.values()).filter((count) => count > 1).length;
+        const groups = new Set();
+        const entries = Array.from(state.sessions.values()).filter((session) => Boolean(session.student_public_id));
+        for (let i = 0; i < entries.length; i++) {
+            for (let j = i + 1; j < entries.length; j++) {
+                const first = entries[i];
+                const second = entries[j];
+                if (first.student_public_id === second.student_public_id && first.day === second.day &&
+                    timesOverlap(first.time, second.time)) {
+                    groups.add(first.day + '|' + first.student_public_id);
+                }
+            }
+        }
+        return groups.size;
+    }
+
+    function authEnforced() {
+        return state.authRequired || Boolean(state.me && state.me.permissions && state.me.permissions.enforced);
+    }
+
+    function isRestrictedTherapist() {
+        return Boolean(state.me && authEnforced() && !state.me.permissions.admin && state.me.kind === 'therapist');
+    }
+
+    function mayEditTherapist(therapistId) {
+        if (!authEnforced()) return true;
+        if (!state.me) return false;
+        if (state.me.permissions.admin) return true;
+        return state.me.kind === 'therapist' && String(state.me.id) === String(therapistId);
     }
 
     function drawDays() {
@@ -1004,8 +1158,12 @@
     function drawFocus() {
         const select = el('focus');
         const previous = state.focus;
+        const allowed = isRestrictedTherapist()
+            ? ((state.roster && state.roster.therapists) || []).filter((therapist) =>
+                String(therapist.id) === String(state.me.id))
+            : ((state.roster && state.roster.therapists) || []);
         select.innerHTML = (state.view === 'week' ? '' : '<option value="">Сите терапевти</option>') +
-            (((state.roster && state.roster.therapists) || []).map((therapist) =>
+            (allowed.map((therapist) =>
                 '<option value="' + therapist.id + '">' + esc(therapist.name) + '</option>'
             ).join(''));
         const hasPrevious = Array.from(select.options).some((option) => option.value === previous);
@@ -1014,11 +1172,12 @@
             : (state.view === 'week' && select.options.length ? select.options[0].value : '');
         select.value = state.focus;
         el('focusLabel').textContent = state.view === 'week' ? 'Терапевт' : 'Кабинети';
-        select.disabled = false;
+        select.disabled = isRestrictedTherapist();
     }
 
     function drawView() {
         el('viewMode').value = state.view;
+        el('viewMode').disabled = isRestrictedTherapist();
         el('dayTabsBand').hidden = state.panel !== 'schedule' || state.view === 'week';
         drawFocus();
     }
@@ -1058,7 +1217,10 @@
 
     function drawRosterTherapists() {
         const select = el('rosterTherapist');
-        const therapists = (state.roster && state.roster.therapists) || [];
+        const all = (state.roster && state.roster.therapists) || [];
+        const therapists = isRestrictedTherapist()
+            ? all.filter((therapist) => String(therapist.id) === String(state.me.id))
+            : all;
         select.innerHTML = therapists.map((therapist) =>
             '<option value="' + therapist.id + '">' + esc(therapist.name) + '</option>'
         ).join('');
@@ -1067,7 +1229,7 @@
             ? String(preferred)
             : (therapists[0] ? String(therapists[0].id) : '');
         select.value = state.rosterTherapist;
-        select.disabled = !therapists.length;
+        select.disabled = !therapists.length || isRestrictedTherapist();
     }
 
     function enclosingBlockTime(time) {
@@ -1093,6 +1255,7 @@
     function drawTherapistRoster() {
         const therapists = (state.roster && state.roster.therapists) || [];
         const therapist = therapists.find((item) => String(item.id) === String(state.rosterTherapist));
+        el('openCaseloadBtn').disabled = !therapist || !mayEditTherapist(therapist && therapist.id);
         const students = studentsById();
         if (!therapist) {
             el('therapistRosterCount').textContent = '0 ученици';
@@ -1132,6 +1295,303 @@
         }).join('') : '<tr><td class="roster-empty" colspan="5">Нема ученици за избраните филтри.</td></tr>';
     }
 
+    /* ── Shared PIN Auth ────────────────────────────────── */
+    function clearSignedState(silent) {
+        try { localStorage.removeItem(TOKEN_KEY); } catch (_) {}
+        state.token = '';
+        state.me = null;
+        updateUserUI();
+        window.dispatchEvent(new CustomEvent('mtb:auth-changed'));
+        if (el('rosterTherapist')) el('rosterTherapist').disabled = false;
+        if (!silent) showNotice('Сесијата е завршена. Одјавени сте.', 'warn');
+    }
+
+    async function signOut(silent) {
+        const token = state.token;
+        const base = apiBase();
+        if (token && (base || window.location.hostname !== PUBLISHED_HOST)) {
+            try {
+                await fetch(base + '/api/evidence/logout', {
+                    method: 'POST',
+                    headers: { 'X-MTB-Evidence-Token': token },
+                    cache: 'no-store'
+                });
+            } catch (_) {
+                // The browser must still forget the session while offline.  Its
+                // server-side copy expires automatically if it cannot be revoked.
+            }
+        }
+        clearSignedState(silent);
+        drawView();
+        drawPanel();
+        drawSchedule();
+    }
+
+    async function checkAuth() {
+        try { state.token = localStorage.getItem(TOKEN_KEY) || ''; } catch (_) {}
+        if (!state.token) {
+            state.me = null;
+            updateUserUI();
+            return;
+        }
+        try {
+            const res = await api('/api/evidence/me');
+            if (res && res.person) {
+                state.me = Object.assign({}, res.person, { permissions: res.permissions || {} });
+                updateUserUI();
+                applyUserConstraints();
+            } else clearSignedState(true);
+        } catch (error) {
+            // A transient LAN/Tailscale failure must not silently sign the
+            // therapist out.  api() already clears an actually expired token.
+            if (error && error.status === 401) clearSignedState(true);
+        }
+    }
+
+    function updateUserUI() {
+        const badge = el('userBadge');
+        if (!badge) return;
+        if (state.me) {
+            badge.innerHTML = '<span class="user-name" title="' + esc(state.me.kind) + '">👤 ' + esc(state.me.name) + '</span>' +
+                '<button class="btn btn-xs" id="logoutBtn" type="button" title="Одјави се">Одјави се</button>';
+            const btn = el('logoutBtn');
+            if (btn) btn.addEventListener('click', () => { void signOut(false); });
+        } else {
+            badge.innerHTML = '<button class="btn user-btn" id="loginBtn" type="button">🔑 Најави се со PIN</button>';
+            const btn = el('loginBtn');
+            if (btn) btn.addEventListener('click', openPinModal);
+        }
+    }
+
+    function applyUserConstraints() {
+        if (!state.me || !state.roster || !state.roster.therapists) return;
+        if (!isRestrictedTherapist()) return;
+        const therapists = state.roster.therapists;
+        const therapist = therapists.find((item) => String(item.id) === String(state.me.id));
+        if (therapist) {
+            state.focus = String(therapist.id);
+            state.rosterTherapist = String(therapist.id);
+            state.view = 'week';
+            if (el('viewMode')) el('viewMode').value = 'week';
+            if (el('focus')) el('focus').value = String(therapist.id);
+            if (el('rosterTherapist')) el('rosterTherapist').value = String(therapist.id);
+        }
+    }
+
+    async function openPinModal() {
+        el('pinError').hidden = true;
+        el('pinError').textContent = '';
+        el('pinInput').value = '';
+        el('pinModal').hidden = false;
+        try {
+            const data = await api('/api/evidence/therapists');
+            const select = el('pinTherapistSelect');
+            select.innerHTML = (data.therapists || []).map((t) =>
+                '<option value="' + t.id + '">' + esc(t.name) + '</option>'
+            ).join('');
+        } catch (e) {
+            el('pinError').textContent = 'Не може да се вчитаат терапевтите: ' + e.message;
+            el('pinError').hidden = false;
+        }
+        el('pinInput').focus();
+    }
+
+    function closePinModal() {
+        el('pinModal').hidden = true;
+    }
+
+    async function submitPin() {
+        const therapistId = Number(el('pinTherapistSelect').value);
+        const pin = el('pinInput').value.trim();
+        if (!/^\d{4}$/.test(pin)) {
+            el('pinError').textContent = 'Внеси точно 4 цифри.';
+            el('pinError').hidden = false;
+            return;
+        }
+        el('submitPinBtn').disabled = true;
+        el('pinError').hidden = true;
+        try {
+            const res = await api('/api/evidence/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ therapistId, pin })
+            });
+            if (res && res.token) {
+                state.token = res.token;
+                try { localStorage.setItem(TOKEN_KEY, res.token); } catch (_) {}
+                window.dispatchEvent(new CustomEvent('mtb:auth-changed'));
+                closePinModal();
+                await checkAuth();
+                showNotice('Добредојде, ' + res.person.name + '!', 'ok');
+            }
+        } catch (err) {
+            el('pinError').textContent = err.message || 'Погрешен PIN.';
+            el('pinError').hidden = false;
+        } finally {
+            el('submitPinBtn').disabled = false;
+        }
+    }
+
+    /* ── Interactive Caseload Checklist (Image 1 pattern) ── */
+    let activeCaseloadAssigned = new Set();
+
+    function openCaseloadModal() {
+        const therapists = (state.roster && state.roster.therapists) || [];
+        const therapist = therapists.find((t) => String(t.id) === String(state.rosterTherapist)) || therapists[0];
+        if (!therapist) return showNotice('Избери терапевт прво.', 'warn');
+        if (!mayEditTherapist(therapist.id)) {
+            return showNotice('Може да го менувате само сопствениот список на ученици.', 'error');
+        }
+
+        // /api/roster is already scoped to the selected year.  A present-day
+        // global active flag must not hide a pupil from an archived roster.
+        const activeStudents = ((state.roster && state.roster.students) || []);
+        activeCaseloadAssigned = new Set(therapist.students || []);
+
+        el('caseloadModalTitle').textContent = 'Ученици кај ' + therapist.name + ' · ' + state.year;
+        el('caseloadSearch').value = '';
+        renderCaseloadGrid(activeStudents, '');
+        el('caseloadModal').hidden = false;
+        el('caseloadSearch').focus();
+    }
+
+    function renderCaseloadGrid(activeStudents, query) {
+        const q = query.trim().toLocaleLowerCase('mk');
+        const filtered = activeStudents.filter((s) => !q || (s.name + ' ' + (s.grade || '')).toLocaleLowerCase('mk').includes(q));
+
+        if (!filtered.length) {
+            el('caseloadGrid').innerHTML = '<p style="color:var(--muted);margin:14px 0;">Нема ученици за избраниот филтер.</p>';
+            updateCaseloadCount();
+            return;
+        }
+
+        el('caseloadGrid').innerHTML = filtered.map((student, idx) => {
+            const checked = activeCaseloadAssigned.has(student.public_id);
+            return '<label class="caseload-item" data-id="' + esc(student.public_id) + '">' +
+                '<input type="checkbox" value="' + esc(student.public_id) + '"' + (checked ? ' checked' : '') + '>' +
+                '<span><span class="list-number">' + (idx + 1) + '.</span>' + esc(student.name) +
+                (student.grade ? ' · ' + esc(student.grade) : '') +
+                (student.kind && student.kind !== 'internal' ? ' (' + (student.kind === 'boarding' ? 'инт.' : 'екст.') + ')' : '') +
+                '</span></label>';
+        }).join('');
+
+        updateCaseloadCount();
+
+        el('caseloadGrid').querySelectorAll('input[type="checkbox"]').forEach((cb) => {
+            cb.addEventListener('change', (e) => {
+                if (e.target.checked) activeCaseloadAssigned.add(e.target.value);
+                else activeCaseloadAssigned.delete(e.target.value);
+                updateCaseloadCount();
+            });
+        });
+    }
+
+    function updateCaseloadCount() {
+        const count = activeCaseloadAssigned.size;
+        el('caseloadSelectedCount').textContent = count + (count === 1 ? ' избран ученик' : ' избрани ученици');
+    }
+
+    function closeCaseloadModal() {
+        el('caseloadModal').hidden = true;
+    }
+
+    async function saveCaseload() {
+        const therapists = (state.roster && state.roster.therapists) || [];
+        const therapist = therapists.find((t) => String(t.id) === String(state.rosterTherapist)) || therapists[0];
+        if (!therapist) return;
+        if (!mayEditTherapist(therapist.id)) {
+            return showNotice('Може да го менувате само сопствениот список на ученици.', 'error');
+        }
+
+        const before = new Set(therapist.students || []);
+        const now = activeCaseloadAssigned;
+
+        const add = Array.from(now).filter((p) => !before.has(p));
+        const drop = Array.from(before).filter((p) => !now.has(p));
+
+        if (!add.length && !drop.length) {
+            closeCaseloadModal();
+            showNotice('Немаше промени во списокот.', 'warn');
+            return;
+        }
+
+        const name = encodeURIComponent(therapist.name);
+        const year = '?year=' + encodeURIComponent(state.year);
+        el('saveCaseloadBtn').disabled = true;
+        setConnection(true, 'Се зачувува списокот…');
+
+        let applied = 0;
+        try {
+            for (const p of add) {
+                await api(`/api/therapists/${name}/students/${encodeURIComponent(p)}${year}`, { method: 'PUT' });
+                applied++;
+            }
+            for (const p of drop) {
+                await api(`/api/therapists/${name}/students/${encodeURIComponent(p)}${year}`, { method: 'DELETE' });
+                applied++;
+            }
+            // Reload roster from server
+            const roster = await api('/api/roster' + year);
+            state.roster = roster;
+            closeCaseloadModal();
+            drawTherapistRoster();
+            drawSchedule();
+            showNotice(`Зачувано: +${add.length} / −${drop.length} ученици во списокот.`, 'ok');
+            setConnection(true, 'Зачувано');
+        } catch (err) {
+            // Row writes are intentionally atomic one by one, so an error can
+            // happen after an earlier row landed.  Re-read before showing the
+            // checklist again instead of leaving a stale all-or-nothing view.
+            try {
+                state.roster = await api('/api/roster' + year);
+                const actual = (state.roster.therapists || []).find((item) => String(item.id) === String(therapist.id));
+                activeCaseloadAssigned = new Set((actual && actual.students) || []);
+                renderCaseloadGrid(state.roster.students || [], el('caseloadSearch').value);
+                drawTherapistRoster();
+                drawSchedule();
+            } catch (_) { /* keep the original write error */ }
+            showNotice((applied ? 'Дел од промените беа запишани; списокот е повторно вчитан. ' : '') + err.message, 'error');
+            setConnection(false, 'Грешка при зачувување');
+        } finally {
+            el('saveCaseloadBtn').disabled = false;
+        }
+    }
+
+    /* ── Background Live Conflict Polling ───────────────── */
+    async function pollLiveSessions() {
+        if (document.hidden) return;
+        const active = document.activeElement;
+        if ((active && active.matches('#scheduleGrid select')) ||
+            document.querySelector('.modal-overlay:not([hidden])') || state.pending.size) return;
+        const year = state.year;
+        if (!year) return;
+        const ticket = ++state.pollTicket;
+        const version = state.sessionVersion;
+        try {
+            const query = '?year=' + encodeURIComponent(year);
+            const schedule = await api('/api/schedule/sessions' + query);
+            if (ticket !== state.pollTicket || year !== state.year || version !== state.sessionVersion ||
+                state.pending.size || document.hidden) return;
+            if (schedule && Array.isArray(schedule.sessions)) {
+                const fresh = new Map();
+                schedule.sessions.forEach((s) => fresh.set(cellKey(s.day, s.time, s.therapist_id), s));
+                let changed = fresh.size !== state.sessions.size;
+                if (!changed) {
+                    for (const [k, v] of fresh.entries()) {
+                        const old = state.sessions.get(k);
+                        if (!old || old.student_public_id !== v.student_public_id) { changed = true; break; }
+                    }
+                }
+                if (changed) {
+                    state.sessions = fresh;
+                    state.sessionVersion++;
+                    drawSchedule();
+                    drawMetrics();
+                }
+            }
+        } catch (_) {}
+    }
+
     function optionsFor(therapist, selectedId, students, excludedId) {
         const ids = Array.isArray(therapist.students) ? [...new Set(therapist.students)] : [];
         if (selectedId && !ids.includes(selectedId)) ids.push(selectedId);
@@ -1167,7 +1627,7 @@
             select: '<select class="slot-select" data-session-day="' + esc(day) + '" data-session-time="' + esc(time) +
                 '" data-legacy-session="true" data-therapist-id="' + therapist.id +
                 '" data-previous="' + esc(selected || '') + '"' +
-                (state.pending.has(key) ? ' disabled' : '') +
+                (state.pending.has(key) || !mayEditTherapist(therapist.id) ? ' disabled' : '') +
                 ' title="' + esc(selected ? studentLabel(students.get(selected)) + ' · ' + spaced(time) : spaced(time)) +
                 '" aria-label="' + esc(therapist.name + ', ' + day + ', ' + time) + '">' +
                 optionsFor(therapist, selected, students) + '</select>'
@@ -1208,12 +1668,12 @@
             action = '<button type="button" class="slot-action" data-add-second="true" ' +
                 'data-session-day="' + esc(day) + '" data-block-time="' + esc(block.fullTime) + '" ' +
                 'data-therapist-id="' + therapist.id + '" title="Додај втор ученик" ' +
-                'aria-label="Додај втор ученик">+</button>';
+                (!mayEditTherapist(therapist.id) ? 'disabled ' : '') + 'aria-label="Додај втор ученик">+</button>';
         } else if (index === 1) {
             action = '<button type="button" class="slot-action remove" data-remove-second="true" ' +
                 'data-session-day="' + esc(day) + '" data-block-time="' + esc(block.fullTime) + '" ' +
                 'data-therapist-id="' + therapist.id + '" title="Тргни го второто поле" ' +
-                'aria-label="Тргни го второто поле">×</button>';
+                (!mayEditTherapist(therapist.id) ? 'disabled ' : '') + 'aria-label="Тргни го второто поле">×</button>';
         }
 
         const classes = ['student-slot'];
@@ -1230,7 +1690,7 @@
                 esc(displayTime) + '" data-block-time="' +
                 esc(block.fullTime) + '" data-block-part="' + index + '" data-expected="' + esc(expected) +
                 '" data-therapist-id="' + therapist.id + '"' +
-                (state.pending.has(blockKey) ? ' disabled' : '') +
+                (state.pending.has(blockKey) || !mayEditTherapist(therapist.id) ? ' disabled' : '') +
                 ' title="' + esc((selected ? studentLabel(students.get(selected)) + ' · ' : '') + spaced(displayTime)) +
                 '" aria-label="' + esc(therapist.name + ', ' + day + ', ' + label) + '">' +
                 optionsFor(therapist, selected, students, other) + '</select>'
@@ -1746,11 +2206,19 @@
         const day = select.dataset.sessionDay;
         const time = select.dataset.blockTime;
         const therapistId = Number(select.dataset.therapistId);
+        if (!mayEditTherapist(therapistId)) {
+            drawSchedule();
+            showNotice('Може да го менувате само сопствениот распоред.', 'error');
+            return;
+        }
+
         const key = cellKey(day, time, therapistId);
         const partTimes = blockPartTimes(time);
         let reload = false;
         let failureMessage = '';
         state.pending.add(key);
+        state.sessionVersion++;
+        state.pollTicket++;
         drawSchedule();
         setConnection(true, 'Се зачувува…');
         clearNotice();
@@ -1790,8 +2258,15 @@
         const wanted = select.value || null;
         const key = cellKey(day, time, therapistId);
         if (wanted === previous) return;
+        if (!mayEditTherapist(therapistId)) {
+            drawSchedule();
+            showNotice('Може да го менувате само сопствениот распоред.', 'error');
+            return;
+        }
 
         state.pending.add(key);
+        state.sessionVersion++;
+        state.pollTicket++;
         drawSchedule();
         setConnection(true, 'Се зачувува…');
         clearNotice();
@@ -1851,10 +2326,12 @@
 
     async function loadAll() {
         const ticket = ++state.ticket;
+        state.pollTicket++;
         el('busyLayer').className = 'busy-layer on';
         clearNotice();
         try {
             await discoverServer();
+            await checkAuth();
             await loadYears();
             if (!state.year) throw new Error('Нема учебна година во базата.');
             const query = '?year=' + encodeURIComponent(state.year);
@@ -1865,12 +2342,14 @@
             ]);
             if (ticket !== state.ticket) return;
             state.roster = roster;
+            applyUserConstraints();
             state.bells = ((timetable.bells && timetable.bells.kabinet) || [])
                 .filter((bell) => Number(bell.minutes) === 40 && bellTime(bell));
             state.sessions = new Map();
             (schedule.sessions || []).forEach((session) => {
                 state.sessions.set(cellKey(session.day, session.time, session.therapist_id), session);
             });
+            state.sessionVersion++;
             drawView();
             drawDays();
             drawSchedule();
@@ -1900,8 +2379,19 @@
         state.rosterTherapist = '';
         loadAll();
     });
-    el('focus').addEventListener('change', () => { state.focus = el('focus').value; drawSchedule(); });
+    el('focus').addEventListener('change', () => {
+        if (isRestrictedTherapist()) applyUserConstraints();
+        else state.focus = el('focus').value;
+        drawView();
+        drawSchedule();
+    });
     el('viewMode').addEventListener('change', () => {
+        if (isRestrictedTherapist()) {
+            applyUserConstraints();
+            drawView();
+            drawSchedule();
+            return;
+        }
         state.view = el('viewMode').value === 'week' ? 'week' : 'day';
         try { localStorage.setItem(VIEW_KEY, state.view); } catch (_) { /* optional preference */ }
         drawView();
@@ -1925,12 +2415,53 @@
         });
     });
     el('rosterTherapist').addEventListener('change', () => {
-        state.rosterTherapist = el('rosterTherapist').value;
+        if (isRestrictedTherapist()) applyUserConstraints();
+        else state.rosterTherapist = el('rosterTherapist').value;
+        drawRosterTherapists();
         drawTherapistRoster();
     });
     el('rosterSearch').addEventListener('input', drawTherapistRoster);
     el('rosterKind').addEventListener('change', drawTherapistRoster);
     el('rosterSession').addEventListener('change', drawTherapistRoster);
+
+    // Caseload modal event listeners
+    const openCaseloadBtn = el('openCaseloadBtn');
+    if (openCaseloadBtn) openCaseloadBtn.addEventListener('click', openCaseloadModal);
+    const closeCaseloadModalBtn = el('closeCaseloadModal');
+    if (closeCaseloadModalBtn) closeCaseloadModalBtn.addEventListener('click', closeCaseloadModal);
+    const cancelCaseloadBtn = el('cancelCaseloadBtn');
+    if (cancelCaseloadBtn) cancelCaseloadBtn.addEventListener('click', closeCaseloadModal);
+    const saveCaseloadBtn = el('saveCaseloadBtn');
+    if (saveCaseloadBtn) saveCaseloadBtn.addEventListener('click', saveCaseload);
+    const caseloadSearch = el('caseloadSearch');
+    if (caseloadSearch) caseloadSearch.addEventListener('input', () => {
+        const activeStudents = ((state.roster && state.roster.students) || []);
+        renderCaseloadGrid(activeStudents, caseloadSearch.value);
+    });
+
+    // PIN modal event listeners
+    const closePinModalBtn = el('closePinModal');
+    if (closePinModalBtn) closePinModalBtn.addEventListener('click', closePinModal);
+    const cancelPinBtn = el('cancelPinBtn');
+    if (cancelPinBtn) cancelPinBtn.addEventListener('click', closePinModal);
+    const submitPinBtn = el('submitPinBtn');
+    if (submitPinBtn) submitPinBtn.addEventListener('click', submitPin);
+    const pinInput = el('pinInput');
+    if (pinInput) pinInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') submitPin();
+    });
+
+    // Live sync polling
+    setInterval(pollLiveSessions, 20000);
+    document.addEventListener('visibilitychange', () => {
+        if (!document.hidden) pollLiveSessions();
+    });
+    document.addEventListener('focusout', (event) => {
+        if (event.target && event.target.matches && event.target.matches('#scheduleGrid select')) {
+            setTimeout(pollLiveSessions, 0);
+        }
+    });
+
     try { state.view = localStorage.getItem(VIEW_KEY) === 'week' ? 'week' : 'day'; }
     catch (_) { state.view = 'day'; }
     state.day = todayDay();

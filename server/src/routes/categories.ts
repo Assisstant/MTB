@@ -17,8 +17,9 @@ import { Refused, resolveYear, whoIsSigned } from '../lib/evidence.js';
 import {
     listCategories, createCategory, renameCategory, setCategoryActive,
     categoryHolders, setPersonCategory, categoriesForPupil, teamForPupil,
-    sheetSections, setSheetSection, CategoryRefused
+    sheetSections, setSheetSection, assertMayEdit, CategoryRefused
 } from '../lib/categories.js';
+import { assertOwnSheet, scopeOf } from '../lib/colleague.js';
 
 const NewCategory = z.object({
     code: z.string().min(1).max(48),
@@ -143,6 +144,7 @@ export async function categoryRoutes(server: FastifyInstance) {
             return reply.code(400).send({ error: 'sheet is required' });
         }
         try {
+            await assertOwnSheet(await scopeOf(req), sheetId);
             return { sections: await sheetSections(sheetId) };
         } catch (err) { return refuse(reply, err); }
     });
@@ -155,6 +157,11 @@ export async function categoryRoutes(server: FastifyInstance) {
         }
         try {
             const who = await whoIsSigned((req.headers as any)['x-mtb-evidence-token']);
+            const scope = await scopeOf(req);
+            const target = await assertOwnSheet(scope, parsed.data.sheetId);
+            if (!scope.open && !scope.admin) {
+                await assertMayEdit(who, { section: parsed.data.sectionId }, target.schoolYearId);
+            }
             return await setSheetSection(
                 parsed.data.sheetId, parsed.data.sectionId, parsed.data.included, who);
         } catch (err) { return refuse(reply, err); }

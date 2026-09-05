@@ -134,6 +134,48 @@ check('дневникот на серверска адреса не може д�
     localFirstState.url === localFirstState.origin && localFirstState.addressLocked, JSON.stringify(localFirstState));
 await localFirst.close();
 
+console.log('\nshared sign-in — server identity shape, authenticated writes, and logout revocation');
+const authContext = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+await authContext.addInitScript(() => {
+    // Seed only the first document.  Logout deliberately reloads the page; an
+    // unconditional init script would put the token back during that reload
+    // and make a successful logout look as though it failed.
+    if (sessionStorage.getItem('navigation_auth_seeded') !== '1') {
+        localStorage.setItem('evidence_token_v1', 'invented-browser-token');
+        sessionStorage.setItem('navigation_auth_seeded', '1');
+    }
+});
+const authPage = await authContext.newPage();
+let probeToken = '';
+let logoutToken = '';
+await authPage.route('**/api/evidence/me', (route) => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify({
+        person: { kind: 'therapist', id: 24601, name: 'Пробен Најавен Терапевт' },
+        permissions: { enforced: true, admin: false }
+    })
+}));
+await authPage.route('**/api/test-auth-probe', (route) => {
+    probeToken = route.request().headers()['x-mtb-evidence-token'] || '';
+    return route.fulfill({ status: 200, contentType: 'application/json', body: '{"ok":true}' });
+});
+await authPage.route('**/api/evidence/logout', (route) => {
+    logoutToken = route.request().headers()['x-mtb-evidence-token'] || '';
+    return route.fulfill({ status: 200, contentType: 'application/json', body: '{"ok":true}' });
+});
+await authPage.goto(`${BASE}/Nastava.html`, { waitUntil: 'domcontentloaded' });
+await authPage.waitForFunction(() =>
+    document.querySelector('.mtb-app-nav__status--user .mtb-app-nav__value')?.textContent.includes('Пробен Најавен'));
+check('`/me` person shape is shown as the signed-in user',
+    /Пробен Најавен Терапевт/.test(await authPage.textContent('.mtb-app-nav__status--user')));
+await authPage.evaluate(() => fetch('/api/test-auth-probe', { method: 'POST' }).then((response) => response.json()));
+check('shared fetch sends the session only to the active MTB API', probeToken === 'invented-browser-token');
+await authPage.click('.mtb-app-nav__logout');
+await authPage.waitForFunction(() => localStorage.getItem('evidence_token_v1') === null);
+check('logout revokes the server session before forgetting the browser token', logoutToken === 'invented-browser-token');
+await authContext.close();
+
 console.log('\nphone width — the row fits or scrolls without widening the page');
 const mobile = await browser.newContext({ viewport: { width: 390, height: 844 } });
 const phonePage = await mobile.newPage();

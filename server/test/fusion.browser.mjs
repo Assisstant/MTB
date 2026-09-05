@@ -311,6 +311,35 @@ async function run() {
 
     await context.close();
 
+    const restricted = await browser.newContext({ viewport: { width: 1280, height: 850 } });
+    await restricted.addInitScript(() => localStorage.setItem('evidence_token_v1', 'invented-fusion-token'));
+    const ownPage = await restricted.newPage();
+    await ownPage.route('**/api/evidence/me', (route) => route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+            person: { kind: 'therapist', id: fixture.therapists[0].id, name: fixture.therapists[0].name },
+            permissions: { enforced: true, admin: false }
+        })
+    }));
+    await ownPage.goto(`${BASE}/RasporediFusion.html?year=${encodeURIComponent(YEAR)}`);
+    await ownPage.waitForFunction((id) =>
+        document.querySelector('#focus')?.disabled && document.querySelector('#focus')?.value === String(id),
+        fixture.therapists[0].id);
+    check('a signed-in therapist is locked to their own weekly schedule',
+        await ownPage.inputValue('#viewMode') === 'week' && await ownPage.locator('#viewMode').isDisabled() &&
+        await ownPage.locator('#focus').isDisabled());
+    checkEq('the therapist focus cannot target a same-name or different cabinet',
+        await ownPage.locator('#focus option').count(), 1);
+    checkEq('their weekly grid contains exactly five editable day cells',
+        await ownPage.locator('.schedule-grid select[data-block-time="08:00-08:40"]:not([disabled])').count(), 5);
+    await ownPage.click('#rosterTab');
+    check('the caseload picker is also locked to the signed-in therapist',
+        await ownPage.locator('#rosterTherapist').isDisabled() &&
+        await ownPage.locator('#rosterTherapist option').count() === 1 &&
+        await ownPage.locator('#openCaseloadBtn').isEnabled());
+    await restricted.close();
+
     const mobile = await browser.newContext({ viewport: { width: 390, height: 844 } });
     const phone = await mobile.newPage();
     await phone.goto(`${BASE}/RasporediFusion.html?year=${encodeURIComponent(YEAR)}`);

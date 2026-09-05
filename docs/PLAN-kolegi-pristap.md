@@ -1,203 +1,264 @@
 # Пристап за колегите
 
-Started 4 September 2026, branch `kolegi-pristap`. Written in English because
-the audience is whoever — person or model — picks this up cold; the domain
-words stay Macedonian because renaming them would be the third name for things
-that already have two.
+Started 4 September and verified 5 September 2026 on branch `kolegi-pristap`. This is the operational
+handover for the shared sign-in, colleague-scoped schedule/caseload work and the
+database-backed `AkciskiPlan.html` rollout.
 
-The one-line version: **ten therapists reach the same database over Tailscale,
-each fills their own list and their own timetable, and everybody sees the
-conflicts.**
+## Status
 
----
+The implementation and complete verification gate are green on
+`kolegi-pristap`; it is **not active merely because the branch is pulled**.
+Authorization remains compatibility-open until the local server has
+`MTB_REQUIRE_SIGNIN=1` and is restarted. The branch is ready for review and an
+explicit merge decision; `main` remains untouched because merging also updates
+the public GitHub Pages application.
 
-## What the owner asked for
+The outcome is one shared session across the existing applications, not a new
+combined application:
 
-Colleagues get access to exactly two acts:
+| Screen | Colleague work when enforcement is on |
+|---|---|
+| `RasporediFusion.html` | therapist edits their own annual caseload and own schedule; everybody can see cross-cabinet conflicts |
+| `AkciskiPlan.html` | therapist works with pupils on their annual caseload; teacher works with pupils in their assigned annual class |
+| `Podatoci.html` and other system editors | administrator only |
 
-1. tick which pupils are theirs (the caseload), and
-2. fill their own weekly распоред from a dropdown of the pupils they ticked.
+`RasporediFusion.html` remains the only schedule. `AkciskiPlan.html` remains the
+only pupil-development-record screen.
 
-Plus Евидентен лист, scoped to those same pupils. No CRUD on anything else. If
-two of them book the same child in the same term, both must see it live and
-resolve it themselves.
+## Permission boundary
 
----
+`server/src/lib/colleague.ts` owns the authorization decision. A root
+`onRequest` hook default-denies every mutating API route that is not on the
+small delegated allowlist. This also makes a future write route
+administrator-only until somebody deliberately classifies it.
 
-## The decision that shaped everything
+With `MTB_REQUIRE_SIGNIN=1`:
 
-**This is not one merged application.** `PLAN-rasporedot-i-nedelata.md` already
-settled that each app answers one question and must refuse to grow into
-another, and that decision is not reopened here. So what colleagues get is
-**one sign-in across three tools**, not one tool:
+- a therapist may write only schedule blocks/sessions addressed to their stable
+  therapist id and caseload links addressed to their own therapist row;
+- the legacy name-addressed schedule-slot writer is administrator-only;
+- a therapist's evidence pupil set comes from the active annual
+  `therapist_students` membership;
+- a teacher's evidence pupil set comes from active annual `teacher_classes`,
+  using the same normalized class-label comparison as teaching/action-plan
+  derivation;
+- sheet lists, a direct sheet read, profile/panel/examiner/contact writes,
+  score writes and sheet-section reads/writes all apply that pupil boundary;
+- an action-plan section remains editable by the person who holds its
+  specialist category for that school year;
+- changing the structure of the prescribed catalogue and changing a year's
+  evidence columns is administrator-only;
+- roster, teaching, state, purge and other unlisted mutations are
+  administrator/service-only.
 
-| tool | its one question | what a colleague may do |
-|---|---|---|
-| `RasporediFusion.html` | is this child in two cabinets at once? | edit own caseload + own terms |
-| `AkciskiPlan.html` | what does this child's record say? | own sheets, own category |
-| `Podatoci.html` | who exists at this school? | **nothing — owner only** |
+Administrator identity is kind-qualified. Configure
+`therapist:<database display name>` or `teacher:<database display name>`;
+the same visible name in the other directory is a different identity. An
+unqualified legacy value is interpreted as a therapist only, but new
+installations must use the qualified form.
 
-Merging them would answer two questions in one place, which is the failure
-that document exists to prevent.
+### Reads that intentionally remain open
 
----
+Schedule sessions, conflict information and the shared roster remain readable
+to any caller that can reach the API. The login directory also remains
+readable so a person can choose their identity. A colleague cannot resolve a
+cross-cabinet conflict if the other booking is hidden.
 
-## Done (commit `bb589bf`)
+Evidence sheets are different: when enforcement is on, sheet lists and direct
+sheet-derived reads are limited to the therapist's annual caseload or the
+teacher's assigned annual class. Administrator and service scopes are not
+filtered.
 
-`server/src/lib/colleague.ts` — the one place that answers *кој смее што*, so
-the boundary is not spelled out in three route files that will disagree. Rule 5
-applied to permission.
+This is an **operational authorization boundary**, not a promise of
+confidentiality. A four-digit PIN is low-entropy. The API accepts exactly four
+decimal digits and temporarily locks that identity for five minutes after five
+wrong guesses, including against a subsequent correct guess. Open shared reads
+still contain school information; the database is not encrypted or anonymized
+by this change. Tailscale and the server's origin/network configuration remain
+the real reachability boundary. Never publish the API port on the public
+Internet.
 
-    read    everything.
-    write   own caseload, own terms, own sheets.
-    never   the roster, or the year's columns.
+## Sign-in and maintenance
 
-**Reads are deliberately open.** A conflict is by definition two therapists
-holding the same child in the same term. A colleague who cannot see the other
-cabinet cannot resolve the red cell the screen is showing them, so hiding it
-would make the feature pointless.
+`app-navigation.js` attaches the same `evidence_token_v1` session to requests
+for the selected MTB server only. It never sends the token to another host.
+`AkciskiPlan.html` and `RasporediFusion.html` consume the same `/me` response,
+show the signed-in person and revoke the server session on logout. A transient
+network failure does not erase a still-valid local token; an HTTP 401 does.
 
-Guards were added to:
+Sessions expire after the configured idle interval. Changing a PIN ends the
+sessions created with the old PIN. Once enforcement is active, only the
+administrator/service scope can provision a person's first PIN; after that the
+person signs in and changes their own PIN from the live session. Direct proof
+with the current PIN remains available only in compatibility-open mode, where
+it preserves the old workflow without creating a second guessing surface in
+the enforced deployment.
 
-- `routes/roster-write.ts` — both `/api/therapists/:name/students/:publicId`
-  routes (own name only); `POST /api/students`, `PATCH /api/students/:publicId`,
-  `POST /api/therapists`, `PATCH /api/therapists/:name` (owner only).
-- `routes/schedule-write.ts` — `/api/schedule/block`, `/session`, `/slot`.
-- `routes/evidence.ts` — caseload filter on `/api/evidence/sheets` and
-  `/sheets/full`; owner-only on the three `/api/evidence/period` routes.
+The local server also has an explicit top-level static-file allowlist. It serves
+the approved HTML/JavaScript/image application shell and returns 404 for
+`server/.env`, `.git`, migrations, scripts, documentation, backups and unknown
+files. This is independent of GitHub Pages: it protects every LAN/Tailscale
+client from reading private repository or machine files through port 3000.
 
-`lib/evidence.ts` — `SESSION_IDLE_MINUTES` (30). `last_seen` had been written
-on every authenticated call since migration 022 and never once read. Twelve
-hours answers "how long may a working day be"; it cannot answer "is anybody
-still sitting there", and in a staff room those are different questions.
+Maintenance callers cannot use a four-digit human PIN. `MTB_SERVICE_KEY` is a
+random deployment secret of at least 32 characters, accepted only through
+`X-MTB-Service-Key`. `server/scripts/sync-peer.ts` reads it from the local
+ignored `.env` and sends it on state writes. WORK and HOME therefore need the
+same service key before either server is switched to enforced mode. Never put
+the key in Git, a command-line argument, browser storage or client setup notes.
 
-### What was deliberately NOT touched
+## User-facing work completed
 
-The catalogue already had an owner before this branch: `lib/categories.ts`
-`assertMayEdit` restricts a section, its items and its groups to whoever holds
-that specialist category **for the year**. That is finer than "only the admin"
-and it is the rule the owner asked for, so nothing here layers on top of it.
-Only `evidence_periods` gained a guard, because a year's columns belong to no
-category and therefore had nobody.
+`RasporediFusion.html` now:
 
-**Do not "fix" this by adding an admin check to the section and item routes.**
-It would take the логопед's own section away from the логопед.
+- edits the selected therapist's caseload with checkboxes against the selected
+  school year's roster;
+- limits a therapist's schedule selector to that therapist and their selected
+  pupils, while teachers are read-only and administrators remain unrestricted;
+- refreshes colleague changes about every 20 seconds, without replacing an
+  active editor, an open caseload modal or queued writes;
+- invalidates stale polling responses when the year/session changes;
+- treats the schedule API as authoritative: an overlapping booking is refused,
+  reloaded and shown as a conflict rather than accepted through a browser-only
+  confirmation.
 
----
+`AkciskiPlan.html` now:
 
-## Still to do
+- filters pupils with exact grade bands `Сите`, `I–III`, `IV–VI`, `VII–IX`;
+  preparatory, missing and out-of-band grades remain visible under `Сите`;
+- accepts keyboard scores (`1`, `2`, `3`, `/`, `√`, `X`) and moves to the next
+  row;
+- auto-saves independent profile fields and panels after one second without
+  collapsing simultaneous edits into one request;
+- captures the sheet/pupil/year at edit time, so a delayed save cannot land on
+  a sheet opened later, and flushes pending text with `keepalive` on page exit;
+- links directly to the canonical schedule.
 
-### 1. Make Fusion's roster tab editable  (the actual feature)
+The server remains the authority. Disabled selectors are guidance, not the
+security control; the API tests prove the same requests are rejected when sent
+directly.
 
-`RasporediFusion.html` already has the tab — `#rosterPanel`, heading
-„Ученици по терапевт" — but it renders a read-only table and its
-`<select id="rosterTherapist">` is `disabled`. It needs checkboxes.
+## Database and migration steps
 
-The endpoint already exists and is already used by `Podatoci.html`:
+This authorization hardening adds **no new SQL migration**. It uses structures
+already introduced and ledgered by:
 
-    PUT    /api/therapists/${name}/students/${publicId}?year=…    tick
-    DELETE /api/therapists/${name}/students/${publicId}?year=…    untick
+- `019_yearly_caseloads.sql` — annual therapist/pupil membership;
+- `022_evidence_sheets.sql` — evidence sheets, scores, PIN logins and sessions;
+- `024_specialist_categories.sql` — annual specialist-category ownership;
+- `025_teacher_signin.sql` — teacher login/session support.
 
-So this is a rendering change plus two fetches, not new plumbing. Copy the call
-shape from `Podatoci.html` rather than inventing a second one.
-
-### 2. Shared sign-in
-
-`AkciskiPlan.html` already holds the whole flow: `/api/evidence/login`,
-`/me`, `/logout`, `/pin`, `/people`, and it sends the token as the
-`x-mtb-evidence-token` header. Fusion must read the **same** token so signing
-in once covers both. One storage key, one helper, both pages.
-
-When signed in as a colleague, Fusion fixes the therapist to that person and
-hides the picker. That is presentation — the server guard is what makes it
-true, and the guard is already in.
-
-### 3. Live conflicts
-
-Fusion computes conflicts client-side (`RasporediFusion.html`, near the
-`const conflicts = new Set()` in `computeConflicts`) from
-`/api/schedule/sessions`, which already returns **every** therapist. So "live"
-is a periodic re-fetch, not new logic.
-
-Two things to get right: do not re-render while a dropdown is open (it eats the
-selection), and back off when the tab is hidden.
-
-`schedule_conflicts` (migration 004, redefined in 007) and `/api/conflicts`
-exist if a server-side answer is ever wanted. Today's client-side one is not
-wrong — do not add the second without removing the first, or two components
-decide one fact.
-
----
-
-## Open question the owner has not answered
-
-`assertMayEdit` says who may **score** a section. It does not ask whether the
-child is on that person's caseload — so the holder of a category can currently
-score any child's section of it.
-
-Caseload-scoping that too would match "only his roster students" literally. It
-would also refuse a specialist assessing a child who is not on their weekly
-timetable, which may be entirely normal at this school. `assertOwnStudent` in
-`lib/colleague.ts` is written and ready if the answer turns out to be yes; it
-is simply not called from the score route. **Ask before wiring it.**
-
----
-
-## How to switch it on
-
-Nothing is enforced until `.env` says so. Without it every helper in
-`colleague.ts` answers "allowed" and every endpoint behaves exactly as it did
-before this branch — which is what keeps `sync-peer`, the import scripts and
-the whole e2e suite working.
-
-```
-MTB_REQUIRE_SIGNIN=1
-MTB_ADMIN=<the owner's name, as it is spelled in the therapists table>
-MTB_SESSION_IDLE_MINUTES=30
-```
-
-`MTB_ADMIN` is matched with `lower(btrim(name))`, the same way every other name
-in this server is matched. It lives in `.env` and not in a column on purpose: it
-is a fact about **this deployment**, so a database restored onto a colleague's
-machine for a test does not carry somebody else's rights into it.
-
-Access itself stays Tailscale — `docs/CLIENT-SETUP.md`, unchanged. A colleague
-installs Tailscale, is invited to the tailnet, and opens the same
-`https://<name>.ts.net` address. Revoking someone is removing their device in
-the Tailscale admin. **Do not put this on a public address**: migration 025
-records why in its own words, and the four-digit PIN is worth exactly what the
-network boundary is worth.
-
----
-
-## Testing
-
-The suite could not be run from the cloud side of the bridge: this repo's
-`node_modules` holds the `win32-x64` esbuild binary, so `tsx` refuses on Linux,
-and Postgres is not reachable from there either. `npm install` was deliberately
-NOT run — it would have replaced the owner's Windows binaries and broken the
-running server.
-
-On the server PC:
+The repository currently continues through `027_schedule_source_default_api.sql`.
+On HOME, the final verification found migrations 001–026 already ledgered and
+applied only 027 through the repository installer. That migration changes the
+default source for new schedule rows; it does not import, restore or rewrite a
+pupil. Apply migrations only through the installer, which records each filename
+once in `schema_migrations`; never paste or rerun an individual SQL file:
 
 ```powershell
-cd C:\Users\Admin\Documents\MTB\server
-npm test
+cd C:\Users\Admin\Documents\GitHub\MTB
+powershell -ExecutionPolicy Bypass -File scripts\setup-home-postgres.ps1
+powershell -ExecutionPolicy Bypass -File scripts\verify-setup.ps1
 ```
 
-`tsc --noEmit` is clean as of `bb589bf`.
+The migration step is complete only when `schema_migrations` exactly matches
+the filenames under `database/migrations/` and health reports a working UTF-8
+database/collation. It must not import, restore or rewrite student rows.
 
-### What a guard test has to prove
+## Safe activation order
 
-Not yet written. It needs a live database, so it belongs with the other
-`*.e2e.ts` files:
+1. Stop editing on the peer machine. Make a verified local backup with
+   `scripts\backup-db.ps1`; do not restore anything.
+2. Record production table counts before tests. Run the migration/health steps
+   above and confirm the count has not changed unexpectedly.
+3. While `MTB_REQUIRE_SIGNIN` is still unset and access is physically/network
+   restricted, create or confirm the administrator's own PIN. This avoids a
+   first-PIN bootstrap deadlock.
+4. In ignored `server/.env` on **both** machines set values of this shape (use
+   the real local directory spelling only in `.env`):
 
-1. with `MTB_REQUIRE_SIGNIN` unset, every existing endpoint answers as before —
-   this is the one that protects the owner's own workflow;
-2. therapist A signed in cannot `PUT /api/schedule/session` for therapist B → 403;
-3. therapist A cannot tick a pupil onto B's caseload → 403;
-4. A token idle past `MTB_SESSION_IDLE_MINUTES` → 401 `signedOut`;
-5. `/api/evidence/sheets` signed in as A returns only A's caseload;
-6. A colleague cannot `POST /api/students` → 403, but the owner still can.
+   ```dotenv
+   MTB_ADMIN=therapist:<exact database display name>
+   MTB_SESSION_IDLE_MINUTES=30
+   MTB_SERVICE_KEY=<same random value of at least 32 characters on WORK and HOME>
+   ```
 
-Test fixtures use invented names (rule 1).
+5. Restart and run the complete verification gate below while compatibility is
+   still open. This establishes that the rollout itself did not change data.
+6. Add `MTB_REQUIRE_SIGNIN=1`, restart, and confirm `/api/health` reports
+   `signinRequired: true`.
+7. Sign in as the administrator and provision the remaining first PINs. Give
+   each PIN to its person through a private channel; do not record it in Git.
+8. Smoke-test one therapist: own schedule/caseload/evidence succeeds; another
+   therapist's write gets 403; a signed-out write gets 401. Smoke-test one
+   teacher against an assigned class. Run a peer-sync dry run so the service
+   key path is exercised before allowing live edits.
+9. Repeat on the peer machine and compare the same table counts after the test
+   fixtures have cleaned themselves up.
+
+Rollback is immediate and non-destructive: remove/set
+`MTB_REQUIRE_SIGNIN=0` and restart. That restores compatibility-open behavior;
+it does not remove PIN hashes, sessions, catalogue rows or pupil records.
+
+## Verification gate
+
+From `server/`, with the normal local test database/server selected:
+
+```powershell
+npm run typecheck
+npm test
+npm run test:evidence
+npm run test:categories
+npm run test:colleague
+npm run test:fusion
+npm run test:fusion-ui
+npm run test:evidence-ui
+npm run test:navigation
+npm run check:names
+```
+
+Record counts for `school_years`, `students`, `therapists`,
+`therapist_students`, `schedule_slots`, `evidence_sessions` and
+`evidence_sheets` before and after. The final counts must match except for an
+explicit, explained application change; these suites use invented fixtures and
+must clean them up. Never inspect, print or paste real pupil rows into a report.
+
+Final verification captured on HOME on 5 September 2026:
+
+- `npm run typecheck` and `npm test` — passed, 90/90 unit/contract tests;
+- `npm run test:evidence`, `test:categories`, `test:fusion` and
+  `test:colleague` — passed; the colleague suite completed all 38 checks,
+  including exact-PIN validation and five-guess lockout;
+- `npm run test:evidence-ui`, `test:fusion-ui` and `test:navigation` — passed in
+  real Chromium browsers;
+- live static checks returned 200 for the approved application files and 404
+  for `.env`, `.git`, local roster JSON, migrations and `AGENTS.md`;
+- the before/after counts were identical:
+  `school_years=2`, `students=100`, `therapists=10`,
+  `therapist_students=440`, `schedule_slots=438`, `evidence_sessions=0`,
+  `evidence_sheets=1`; the only ledger change was migration 027, for a final
+  total of 27 migrations;
+- `npm run check:names` inspected the index, changed working copies and
+  untracked non-ignored commit candidates, and found no local database name.
+- refreshed `npm audit --omit=dev` reports one remaining high advisory in
+  `xlsx@0.18.5`, with no npm fix. It is confined to the local administrative
+  workbook-import CLI, not an HTTP upload route; do not feed it an untrusted
+  workbook, and replace that parser in a separate change.
+
+The branch is ready for review/merge. Enabling enforcement on a real shared
+server remains a separate operational step and must follow the activation order
+above.
+
+## Public consequence
+
+Merging publishes the HTML/JavaScript implementation on GitHub Pages, so the
+public will be able to see how the application works. It does **not** publish
+the local PostgreSQL database, `.env`, service key, PIN hashes, backups or
+student records. `npm run check:names` is mandatory because code being public
+is exactly why no real names may enter fixtures, comments or documentation.
+
+The practical benefit is narrower damage from mistakes or misuse by an
+authorized colleague: they can perform the two shared tasks assigned to them
+without changing somebody else's timetable, the school roster or the
+prescribed form. It does not turn a local operational system into a hardened
+public records portal.

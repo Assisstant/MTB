@@ -150,7 +150,11 @@ async function run() {
     result = await api('POST', '/api/evidence/pin', { therapistId: fixture.therapist.id, pin: '9999' }, false);
     same('a second PIN without the first is refused', [result.status, result.body.needsCurrentPin], [403, true]);
 
-    result = await api('POST', '/api/evidence/login', { therapistId: fixture.therapist.id, pin: 'wrong' }, false);
+    result = await api('POST', '/api/evidence/login', { therapistId: fixture.therapist.id, pin: 'word' }, false);
+    check('a non-numeric PIN is refused before password hashing',
+        result.status === 400 && result.body.invalidPin === true, JSON.stringify(result.body));
+
+    result = await api('POST', '/api/evidence/login', { therapistId: fixture.therapist.id, pin: '0000' }, false);
     check('a wrong PIN answers 401', result.status === 401, JSON.stringify(result.body));
 
     result = await api('POST', '/api/evidence/login', { therapistId: fixture.therapist.id, pin: PIN }, false);

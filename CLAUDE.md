@@ -97,8 +97,9 @@ server/src/routes/state.ts      blob save/load, projects into tables
 server/src/routes/annual-roster.ts   who is on this year's four lists (active, not deleted)
 server/src/routes/roster-purge.ts    the other бришење: a typo, and only when nothing points at it
 server/src/routes/evidence.ts        евидентен лист: one score cell, one panel, one line of the form
-server/src/routes/evidence-auth.ts   who is writing — a PIN, a session, and no claim to be security
+server/src/routes/evidence-auth.ts   shared sign-in: authorship always, opt-in authorization
 server/src/lib/evidence.ts           the catalogue, the year's columns and one sheet read whole
+server/src/lib/public-static.ts      explicit allowlist for files published by the local server
 server/src/routes/data.ts       read endpoints
 server/src/routes/schedule-write.ts  one schedule cell at a time (Stage A, behind a flag that is off)
 server/src/routes/roster-write.ts    students, therapists, caseload links (Stage B/C, same flag; no delete of people)
@@ -315,8 +316,8 @@ read `DATABASE_URL`; never add literal credentials to this public repository.
   the `public_id` only when the incoming one was STORED rather than generated,
   and refuses outright when the two ids sit on different rows.
 - **A shared name must not archive the wrong child.** `alsoArchived` was
-  "matched by id OR by name". Archive one „Јана Пробева" and the other one —
-  a different child, different grade, still enrolled — matched on the name: kept
+  "matched by id OR by name". Archive one pupil from a same-name pair and the
+  other one — a different child, different grade, still enrolled — matched on the name: kept
   out of the list that restores active students, and reported to the therapist
   as archived-but-still-listed. When a student's identity is known the id
   decides and the name adds nothing; the name is evidence only for someone with
@@ -414,6 +415,14 @@ read `DATABASE_URL`; never add literal credentials to this public repository.
   this server, so those calls are same-origin and never preflighted. The
   published GitHub Pages copy is not, and would have been refused the moment
   anyone pointed it at a tailnet address.
+- **A static root is a disclosure boundary.** The local server used to mount
+  `@fastify/static` at the repository root without an allowlist. A tailnet/LAN
+  caller could therefore request `server/.env`, Git metadata, migrations,
+  scripts or ignored local handoff data. Plugin dotfile settings are not enough:
+  ordinary private files still sit below that root. `lib/public-static.ts` now
+  permits only named top-level app assets, and `public-static.test.ts` plus a
+  live HTTP smoke test prove private paths return 404. Never replace that list
+  with a wildcard or publish a directory merely because one file in it is safe.
 - **"Is this device new?" must be asked at page load.** Building the payload
   writes to localStorage, so asking later always answers "not new" — and a fresh
   device would push its built-in defaults over a year of real work instead of
@@ -1540,16 +1549,20 @@ logopedist's morning was gone with nothing on either screen to say so. A score
 is `(sheet, item, period)` now, so two specialists filling different sections
 never share a row. Proven with two browsers in `evidence.browser.mjs`.
 
-**Signing in exists for the same reason, and is not security.** The record has
-to say WHO wrote each line, so a therapist picks their name from `therapists`
-and unlocks it with a PIN (scrypt, salted, in `evidence_logins`; a session token
-in `evidence_sessions`, twelve hours). It is a staff-room lock and an authorship
-stamp: nothing else in this API authenticates, and anybody who can reach the
-port reads the same tables without one. That sentence is in the page, in the
-route file and in the migration, because the danger is somebody believing
-otherwise and putting something here they would not put in an open table.
-First PIN wins; changing it needs the old one or a live session, and ends the
-sessions opened with the old one.
+**Signing in began as authorship and now has an opt-in authorization role.**
+The record has to say WHO wrote each line, so a therapist or teacher picks their
+database identity and unlocks it with a salted scrypt PIN in `evidence_logins`;
+`evidence_sessions` holds the session. With `MTB_REQUIRE_SIGNIN` unset this is
+still only a staff-room lock and authorship stamp. With it set to `1`, the same
+session drives the default-deny write boundary and evidence pupil scope in
+`lib/colleague.ts`. Initial PINs are then administrator/service-only; changing
+one needs its current value, that person's live session or the administrator,
+and ends sessions opened with the old PIN.
+
+This is operational authorization, not confidentiality. A four-digit PIN is
+low-entropy, shared schedule/roster/conflict reads deliberately stay open, and
+Tailscale remains the reachability boundary. Nothing here justifies exposing
+the API publicly or putting data into it that the deployment cannot protect.
 
 **The catalogue is data, and that is what „додавај и бриши полиња" means.** The
 eleven sections, their groups, their 112 items and the twelve examiner lines
@@ -1908,45 +1921,60 @@ the change into one and copy it over the other in the same commit; they have
 already drifted once, and a memory that disagrees with itself is worse than a
 short one.
 
-## State (4 Sep 2026)
+## State (5 Sep 2026)
 
-Branch `kolegi-pristap` opened the server for colleagues. `lib/colleague.ts` is
-the ONE place that answers who may change what — rule 5 applied to permission,
-because a boundary spelled out in three route files is three boundaries that
-will disagree. Colleagues read everything, write only their own caseload, their
-own terms and their own sheets, and never the roster or a year's columns.
+Branch `kolegi-pristap` now carries the complete opt-in colleague boundary and
+the browser work that uses it. It is not active merely because the code is
+pulled: every helper remains compatibility-open until
+`MTB_REQUIRE_SIGNIN=1` and a server restart.
 
-Reads are open ON PURPOSE. A conflict is two therapists holding the same child
-in the same term, so a colleague who cannot see the other cabinet cannot
-resolve the red cell they are shown. Do not "tighten" the read side.
+`lib/colleague.ts` is the ONE permission owner. A root `onRequest` hook
+default-denies every mutating route not deliberately delegated, including
+future routes. A therapist may change only their own annual caseload, canonical
+schedule blocks/sessions and evidence for pupils in that caseload. A teacher's
+evidence pupils come from their assigned annual classes. Action-catalogue
+content belongs to its annual category holder; prescribed-catalogue structure,
+year columns, the roster and other system writes are administrator-only.
+`MTB_ADMIN` is kind-qualified (`therapist:name` / `teacher:name`), and a random
+`MTB_SERVICE_KEY` of at least 32 characters lets local maintenance/sync cross
+the boundary without storing a human PIN in automation.
 
-Guards sit in `roster-write.ts`, `schedule-write.ts` and the two sheet-list
-reads in `evidence.ts`. They are INERT until `MTB_REQUIRE_SIGNIN=1`; with it
-unset every helper answers allowed, which is what keeps `sync-peer`, the import
-scripts and the whole e2e suite working with no token. `MTB_ADMIN` names the
-owner. Sessions also end after `MTB_SESSION_IDLE_MINUTES` (30) of silence,
-reading the `last_seen` column that migration 022 had been writing unread.
+Reads are intentionally split. Shared schedule, conflicts, roster and login
+directory remain open to anyone who can reach the API, because hiding another
+cabinet makes its conflict unactionable. Evidence sheet lists, direct sheet
+reads and sheet-derived writes are scoped to the therapist's annual caseload or
+teacher's annual class when enforcement is on. This is operational integrity,
+not confidentiality: the exact four-digit PIN is low-entropy, five wrong
+guesses lock that identity for five minutes, and Tailscale remains the network
+boundary. With enforcement on, first-PIN setup is administrator/service-only;
+a person signs in before changing their own PIN.
 
-The catalogue was left alone. `assertMayEdit` already restricts a section, its
-items and its groups to whoever holds that specialist category for the year,
-which is finer than "only the admin" and is the rule the owner asked for. Do
-not add an admin check to the section or item routes — it would take the
-логопед's own section away from the логопед. Only `evidence_periods` gained a
-guard, having belonged to no category.
+`app-navigation.js` attaches the shared session only to the selected MTB server
+and revokes it on logout. Fusion now has the editable caseload checklist,
+locks therapists to their own stable id, uses only those pupils in their
+dropdown and refreshes colleague changes about every 20 seconds without
+clobbering an active editor or queued write. AkciskiPlan now has exact grade-band
+filters, keyboard score entry, one-second independent autosave with sheet-bound
+stale-response protection and a direct schedule link.
 
-Still open, do not guess it: `assertMayEdit` does not ask whether a scored
-child is on the scorer's caseload. `assertOwnStudent` is written and ready but
-deliberately not called from the score route, because refusing a specialist who
-assesses a child outside their timetable may be wrong at this school.
+The local server no longer exposes the repository tree. An explicit static
+allowlist serves the application shell and refuses `.env`, `.git`, migrations,
+scripts, docs, backups, local roster files and unknown paths.
 
-What is NOT built yet: Fusion's roster tab is still the read-only table with a
-disabled picker, sign-in is not yet shared between AkciskiPlan and Fusion, and
-conflicts still need a re-fetch to be live. `docs/PLAN-kolegi-pristap.md` holds
-the full plan, the call shapes to copy, and what a guard test has to prove.
+No SQL migration was added for this hardening; it uses migrations 019, 022, 024
+and 025. HOME already had 001–026 and the repository installer applied only
+`027_schedule_source_default_api.sql`, leaving application-table counts
+unchanged. Final verification is green: typecheck, 90/90 unit/contract tests,
+all evidence/category/Fusion API suites, all 38 colleague-boundary checks and
+the Fusion, evidence and shared-navigation browser suites. Before/after counts
+match exactly, the live static smoke test keeps private paths at 404, and the
+expanded name guard found no local database name in any commit candidate. The
+branch is ready for review/merge; `main` remains an explicit public-deployment
+decision.
 
-This is one sign-in across three tools, NOT one merged app —
-`PLAN-rasporedot-i-nedelata.md` settled that each app answers one question, and
-that decision is not reopened. Евидентен лист stays in AkciskiPlan.
+This remains one shared sign-in across the existing tools, NOT one merged app.
+`docs/PLAN-kolegi-pristap.md` is the exact activation, rollback, migration and
+verification handover. Евидентен лист stays in AkciskiPlan.
 
 ## State (2 Sep 2026)
 

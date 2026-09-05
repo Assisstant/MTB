@@ -15,7 +15,11 @@
  * kept in a file could not live in this repository either — it would be the
  * same leak with a different filename. The one list that already exists, is
  * already local-only and is already gitignored is `students`, `teachers` and
- * `therapists`, so this reads those and greps the tracked files against them.
+ * `therapists`, so this reads those and checks every file Git could commit:
+ * the index, the working copy of tracked files, and untracked non-ignored
+ * files. Looking only at `git ls-files` misses a newly created fixture; looking
+ * only at the working tree misses sensitive content already staged and then
+ * edited away locally.
  *
  * IT NEVER PRINTS THE NAME IT FOUND. A report is a thing that gets pasted into
  * a chat, a log, an issue. So a hit is reported as the file, the line and a
@@ -103,41 +107,90 @@ if (!names.length) {
     process.exit(0);
 }
 
-const tracked = execFileSync('git', ['ls-files', '-z'], { cwd: REPO, maxBuffer: 64 * 1024 * 1024 })
-    .toString('utf8').split('\0').filter(Boolean);
+const gitFiles = (args: string[]) =>
+    execFileSync('git', args, { cwd: REPO, maxBuffer: 64 * 1024 * 1024 })
+        .toString('utf8').split('\0').filter(Boolean);
+
+// `--cached` is the exact set of paths represented in the index, including a
+// force-added ignored file. `--others --exclude-standard` adds new files that
+// would otherwise evade the guard until after somebody stages them.
+const indexed = gitFiles(['ls-files', '--cached', '-z']);
+const untracked = gitFiles(['ls-files', '--others', '--exclude-standard', '-z']);
+const candidates = [...new Set([...indexed, ...untracked])];
+const indexedSet = new Set(indexed);
 
 const lower = names.map((n) => ({ term: n, needle: n.toLocaleLowerCase('mk-MK') }));
 let hits = 0;
 
-for (const file of tracked) {
-    const pathText = file.toLocaleLowerCase('mk-MK');
-    for (const { term, needle } of lower) {
-        if (!pathText.includes(needle)) continue;
-        console.log(`  ${file} (path)  ${mask(term)}`);
-        hits++;
-    }
-
-    const full = join(REPO, file);
-    let text: string;
-    try {
-        text = readFileSync(full, 'utf8');
-    } catch { continue; }
+function scanText(displayFile: string, text: string, source: string) {
     // Cheap rejection first: most files contain no Cyrillic name at all.
     const haystack = text.toLocaleLowerCase('mk-MK');
     for (const { term, needle } of lower) {
         if (!haystack.includes(needle)) continue;
         const line = text.split('\n').findIndex((l) => l.toLocaleLowerCase('mk-MK').includes(needle)) + 1;
-        console.log(`  ${file}:${line}  ${mask(term)}`);
+        console.log(`  ${displayFile}:${line} (${source})  ${mask(term)}`);
         hits++;
+    }
+}
+
+/** Do not let a name stored in a filename defeat the output masking rule. */
+function maskedPath(file: string): string {
+    let result = file;
+    for (const { needle } of lower) {
+        let at = result.toLocaleLowerCase('mk-MK').indexOf(needle);
+        while (at >= 0) {
+            const found = result.slice(at, at + needle.length);
+            result = result.slice(0, at) + mask(found) + result.slice(at + needle.length);
+            at = result.toLocaleLowerCase('mk-MK').indexOf(needle, at + found.length);
+        }
+    }
+    // Git permits control characters in a path; keep a diagnostic on one line.
+    return result.replace(/[\r\n\t]/g, '?');
+}
+
+for (const file of candidates) {
+    const displayFile = maskedPath(file);
+    const pathText = file.toLocaleLowerCase('mk-MK');
+    for (const { term, needle } of lower) {
+        if (!pathText.includes(needle)) continue;
+        console.log(`  ${displayFile} (path)  ${mask(term)}`);
+        hits++;
+    }
+
+    let indexText: string | null = null;
+    if (indexedSet.has(file)) {
+        try {
+            indexText = execFileSync('git', ['show', `:${file}`], {
+                cwd: REPO, maxBuffer: 64 * 1024 * 1024, encoding: 'utf8'
+            });
+            scanText(displayFile, indexText, 'index');
+        } catch { /* a non-blob entry has no text to scan */ }
+    }
+
+    const full = join(REPO, file);
+    let workingText: string;
+    try {
+        workingText = readFileSync(full, 'utf8');
+    } catch { continue; }
+
+    // Avoid duplicate reports for the usual index/worktree copy. Normalizing
+    // line endings keeps Windows CRLF from making every tracked file look like
+    // a second content version.
+    const comparable = (value: string) => value.replace(/\r\n?/g, '\n');
+    if (indexText == null || comparable(indexText) !== comparable(workingText)) {
+        scanText(displayFile, workingText, indexedSet.has(file) ? 'working tree' : 'untracked');
     }
 }
 
 if (hits) {
     console.error(
-        `\n${hits} real name${hits === 1 ? '' : 's'} in tracked files.\n` +
+        `\n${hits} real name${hits === 1 ? '' : 's'} in files Git could commit.\n` +
         'This repository is public (GitHub Pages serves from it). Replace them with\n' +
         'invented ones — the tests already use Тестова / Пробен / Измислен.\n'
     );
     process.exit(1);
 }
-console.log(`Checked ${tracked.length} tracked files against ${names.length} names — none of them appears.`);
+console.log(
+    `Checked ${candidates.length} commit-candidate files ` +
+    `(${indexed.length} tracked/indexed, ${untracked.length} untracked) against ${names.length} names — none appears.`
+);

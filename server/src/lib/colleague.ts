@@ -19,32 +19,40 @@
  *
  * WHAT A COLLEAGUE MAY DO.
  *
- *   read   — everything. A conflict is by definition two therapists holding the
- *            same child in the same term, so a colleague who cannot see the
- *            other cabinet cannot resolve the conflict the screen is showing
- *            them. Hiding the other half would make the red cell unactionable.
- *   write  — only rows that are theirs: their own caseload (therapist_students),
- *            their own terms (schedule_slots), their own sheets.
- *   never  — the roster itself (who exists at this school) and the catalogue
- *            (what the printed form asks). One colleague editing an indicator
- *            reshapes the form for all ten, and that is the owner's decision.
+ *   read   — the shared roster, schedule and conflicts stay open: a colleague
+ *            who cannot see the other cabinet cannot resolve the red cell.
+ *            Evidence-sheet reads are narrower and follow the pupil ownership
+ *            rule below.
+ *   write  — only rows that are theirs: a therapist's own caseload and terms,
+ *            and evidence for pupils in their annual caseload; a teacher's
+ *            evidence pupils come from their assigned annual classes.
+ *   never  — the roster itself, the prescribed catalogue or unlisted system
+ *            settings. Action catalogue content keeps its existing, finer
+ *            annual-category-holder ownership.
  *
- * WHO IS THE OWNER. MTB_ADMIN names them, comma separated, matched the way
- * every other name in this server is matched: lower(btrim(name)). It lives in
- * `.env` rather than a column because it is a fact about this deployment, not
- * about the person — the same database restored on a colleague's machine for a
- * test should not carry someone else's rights into it.
+ * WHO IS THE OWNER. MTB_ADMIN names kind-qualified identities
+ * (`therapist:name` or `teacher:name`), comma separated and normalized with
+ * lower(btrim(name)). It lives in `.env` because it is a fact about this
+ * deployment. A separate random MTB_SERVICE_KEY lets local maintenance scripts
+ * cross the write perimeter without placing a human PIN in automation.
  */
 
-import type { FastifyRequest } from 'fastify';
+import { timingSafeEqual } from 'node:crypto';
+import type { FastifyInstance, FastifyRequest } from 'fastify';
+import type { PoolClient } from 'pg';
 import { pool } from '../db.js';
 import { Refused, whoIsSigned, type Signed } from './evidence.js';
+import { normalizeClassLabel } from './crossing.js';
+
+type Queryable = Pick<PoolClient, 'query'>;
 
 export type Scope =
     /** Enforcement off: the server behaves as it always has. */
     | { open: true; signed: Signed | null }
     /** Enforcement on: somebody is signed in and these are their rights. */
-    | { open: false; signed: Signed; admin: boolean };
+    | { open: false; signed: Signed; admin: boolean; service: false }
+    /** A long random deployment key used only by local maintenance scripts. */
+    | { open: false; signed: null; admin: true; service: true };
 
 export function enforcing(): boolean {
     return process.env.MTB_REQUIRE_SIGNIN === '1';
@@ -53,9 +61,30 @@ export function enforcing(): boolean {
 const norm = (value: string) => value.trim().toLowerCase();
 
 function admins(): Set<string> {
-    return new Set(
-        (process.env.MTB_ADMIN || '').split(',').map(norm).filter(Boolean)
-    );
+    return new Set((process.env.MTB_ADMIN || '').split(',').map((raw) => {
+        const value = raw.trim();
+        const typed = value.match(/^(therapist|teacher)\s*:\s*(.+)$/i);
+        // Compatibility with the first branch handover: an unqualified name is
+        // a therapist.  Treating the same display name in the teachers table as
+        // admin was an account-takeover path, because those are separate people.
+        return typed
+            ? `${typed[1].toLowerCase()}:${norm(typed[2])}`
+            : (value ? `therapist:${norm(value)}` : '');
+    }).filter(Boolean));
+}
+
+/** Admin identity includes the directory kind; a display name alone is ambiguous. */
+export function isAdmin(signed: Signed): boolean {
+    return admins().has(`${signed.kind}:${norm(signed.name)}`);
+}
+
+function serviceKeyMatches(req: FastifyRequest): boolean {
+    const expected = String(process.env.MTB_SERVICE_KEY || '').trim();
+    const offered = req.headers['x-mtb-service-key'];
+    if (expected.length < 32 || typeof offered !== 'string') return false;
+    const a = Buffer.from(expected);
+    const b = Buffer.from(offered.trim());
+    return a.length === b.length && timingSafeEqual(a, b);
 }
 
 /**
@@ -75,8 +104,11 @@ export async function scopeOf(req: FastifyRequest): Promise<Scope> {
             return { open: true, signed: null };
         }
     }
+    if (serviceKeyMatches(req)) {
+        return { open: false, signed: null, admin: true, service: true };
+    }
     const signed = await whoIsSigned(token);
-    return { open: false, signed, admin: admins().has(norm(signed.name)) };
+    return { open: false, signed, admin: isAdmin(signed), service: false };
 }
 
 /**
@@ -86,7 +118,7 @@ export async function scopeOf(req: FastifyRequest): Promise<Scope> {
  * so that every guard below reads `scope.signed` without a non-null assertion.
  * The compiler then holds the invariant instead of a comment promising it.
  */
-function restricted(scope: Scope): scope is { open: false; signed: Signed; admin: boolean } {
+function restricted(scope: Scope): scope is { open: false; signed: Signed; admin: false; service: false } {
     return !scope.open && !scope.admin;
 }
 
@@ -134,46 +166,141 @@ export async function assertOwnTherapistName(scope: Scope, name: string): Promis
 }
 
 /**
- * Is this child on the signer's own caseload this year?
+ * Is this child in the signer's own pupil set this year?
  *
- * The caseload is `therapist_students`, which migration 019 made year-scoped --
- * so a colleague who dropped a child in September cannot still write last
- * year's sheet for them, and one who never held them cannot start.
+ * A therapist's set is `therapist_students`, which migration 019 made
+ * year-scoped. A teacher's set is derived from their annual `teacher_classes`
+ * and the pupils' annual enrolment grades; there is deliberately no second
+ * teacher↔student list.
  */
 export async function assertOwnStudent(
-    scope: Scope, studentId: number, schoolYearId: number
+    scope: Scope, studentId: number, schoolYearId: number, db: Queryable = pool
 ): Promise<void> {
     if (!restricted(scope)) return;
-    if (scope.signed.therapistId == null) {
-        throw new Refused(403, 'наставник нема свој список на ученици', { notATherapist: true });
-    }
-    const { rows } = await pool.query(
-        `SELECT 1 FROM therapist_students
-         WHERE school_year_id = $1 AND therapist_id = $2 AND student_id = $3`,
-        [schoolYearId, scope.signed.therapistId, studentId]
-    );
-    if (!rows.length) {
+    const mine = await ownStudentIds(scope, schoolYearId, db);
+    if (!mine?.includes(studentId)) {
         throw new Refused(403, 'тој ученик не е во вашиот список за оваа учебна година', { notYours: true });
     }
 }
 
-/** Only the sheets of children on the signer's caseload, for list endpoints. */
+/** Pupil ids owned through annual caseload or assigned class; null means unfiltered. */
 export async function ownStudentIds(
-    scope: Scope, schoolYearId: number
+    scope: Scope, schoolYearId: number, db: Queryable = pool
 ): Promise<number[] | null> {
     if (!restricted(scope)) return null; // null means "no filter"
-    if (scope.signed.therapistId == null) return [];
-    const { rows } = await pool.query(
-        `SELECT student_id FROM therapist_students
-         WHERE school_year_id = $1 AND therapist_id = $2`,
-        [schoolYearId, scope.signed.therapistId]
+    if (scope.signed.kind === 'therapist') {
+        const { rows } = await db.query(
+            `SELECT ts.student_id FROM therapist_students ts
+             JOIN therapist_years ty
+               ON ty.school_year_id = ts.school_year_id AND ty.therapist_id = ts.therapist_id
+             WHERE ts.school_year_id = $1 AND ts.therapist_id = $2 AND ty.active`,
+            [schoolYearId, scope.signed.personId]
+        );
+        return rows.map((r) => r.student_id as number);
+    }
+
+    // A teacher's pupils are owned by the existing annual class assignment,
+    // not by inventing a second teacher↔student list.  Class labels have several
+    // spellings in imported workbooks, so compare with the same normalizer used
+    // by the teaching and action-plan derivation code.
+    // Keep these sequential: `db` may be one transaction's PoolClient, where
+    // parallel queries would share a single connection and obscure which one
+    // failed.  Empty labels confer no ownership.
+    const classes = await db.query(
+        `SELECT sc.label FROM teacher_classes tc
+         JOIN teacher_years ty
+           ON ty.school_year_id = tc.school_year_id AND ty.teacher_id = tc.teacher_id
+         JOIN school_classes sc ON sc.id = tc.class_id
+         WHERE tc.school_year_id = $1 AND tc.teacher_id = $2 AND ty.active`,
+        [schoolYearId, scope.signed.personId]
     );
-    return rows.map((r) => r.student_id as number);
+    const pupils = await db.query(
+        `SELECT student_id, grade FROM student_enrollments
+         WHERE school_year_id = $1 AND active`, [schoolYearId]);
+    const classKeys = new Set(classes.rows
+        .map((r) => normalizeClassLabel(r.label || ''))
+        .filter(Boolean));
+    return pupils.rows
+        .filter((r) => {
+            const key = normalizeClassLabel(r.grade || '');
+            return Boolean(key) && classKeys.has(key);
+        })
+        .map((r) => r.student_id as number);
+}
+
+/** Resolve a sheet to its pupil and year, then apply the same ownership rule. */
+export async function assertOwnSheet(
+    scope: Scope, sheetId: number, db: Queryable = pool
+): Promise<{ studentId: number; schoolYearId: number }> {
+    const { rows } = await db.query(
+        `SELECT student_id, school_year_id FROM evidence_sheets WHERE id = $1`, [sheetId]);
+    if (!rows.length) throw new Refused(404, `no evidence sheet with id ${sheetId}`);
+    const target = {
+        studentId: rows[0].student_id as number,
+        schoolYearId: rows[0].school_year_id as number
+    };
+    await assertOwnStudent(scope, target.studentId, target.schoolYearId, db);
+    return target;
 }
 
 /** The name a write should be attributed to, when one is signed in. */
 export function signerName(scope: Scope): string | null {
     return scope.signed?.name ?? null;
+}
+
+const WRITE_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
+const PUBLIC_WRITES = new Set([
+    'POST /api/evidence/login',
+    'POST /api/evidence/logout',
+    // The route itself applies the stricter first-PIN/admin rule because it
+    // needs to know whether a login row already exists.
+    'POST /api/evidence/pin'
+]);
+const DELEGATED_WRITES = new Set([
+    'PUT /api/therapists/:name/students/:publicId',
+    'DELETE /api/therapists/:name/students/:publicId',
+    'PUT /api/schedule/block',
+    'PUT /api/schedule/session',
+    'POST /api/evidence/sheet',
+    'PATCH /api/evidence/sheet/:id',
+    'DELETE /api/evidence/sheet/:id',
+    'PUT /api/evidence/score',
+    'PUT /api/evidence/panel',
+    'PUT /api/evidence/examiner',
+    'PUT /api/evidence/contacts',
+    'PUT /api/evidence/sheet-section',
+    'POST /api/evidence/item',
+    'PATCH /api/evidence/item/:id',
+    'DELETE /api/evidence/item/:id',
+    'POST /api/evidence/section',
+    'PATCH /api/evidence/section/:id',
+    'DELETE /api/evidence/section/:id',
+    'POST /api/evidence/group',
+    'DELETE /api/evidence/group/:id'
+]);
+
+/**
+ * Default-deny perimeter for every mutating API route.
+ *
+ * A route omitted from the small delegated list is owner-only automatically.
+ * That is what closes future endpoints as well as today's state/category/
+ * teaching/purge bypasses.  Delegated handlers still apply their finer own-row
+ * or category guard; this hook first proves that the caller is signed in.
+ */
+export function installColleagueBoundary(server: FastifyInstance): void {
+    server.addHook('onRequest', async (req, reply) => {
+        if (!enforcing() || !WRITE_METHODS.has(req.method)) return;
+        const route = req.routeOptions.url;
+        const key = `${req.method} ${route}`;
+        if (PUBLIC_WRITES.has(key)) return;
+        try {
+            const scope = await scopeOf(req);
+            if (DELEGATED_WRITES.has(key)) return;
+            assertOwner(scope, 'оваа системска поставка');
+        } catch (err) {
+            return refuseScope(reply, err);
+        }
+    });
 }
 
 /**

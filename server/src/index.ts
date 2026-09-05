@@ -1,5 +1,4 @@
 import Fastify from 'fastify';
-import fastifyStatic from '@fastify/static';
 import fastifyCors from '@fastify/cors';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
@@ -21,6 +20,8 @@ import { evidenceRoutes } from './routes/evidence.js';
 import { evidenceAuthRoutes } from './routes/evidence-auth.js';
 import { categoryRoutes } from './routes/categories.js';
 import { resolveServerIdentity } from './lib/server-identity.js';
+import { installColleagueBoundary } from './lib/colleague.js';
+import { installPublicStatic } from './lib/public-static.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -66,11 +67,16 @@ server.register(fastifyCors, {
     credentials: false
 });
 
-// Serve the existing HTML apps from the repo root, so every device opens
-// the same copy: http://localhost:3000/Rasporedi.html
-server.register(fastifyStatic, {
-    root: path.resolve(__dirname, '..', '..')
-});
+// Serve only the explicitly public app files from the repo root.  A wildcard
+// rooted here without an allowlist also exposes server/.env, .git metadata,
+// migrations and ignored local handoff files to every tailnet client.
+installPublicStatic(server, path.resolve(__dirname, '..', '..'));
+
+// Install this on the root instance before route plugins are registered.  A
+// plugin-local hook would be encapsulated and sibling route plugins could walk
+// around it; this perimeter must see every mutating API route, including ones
+// added later.
+installColleagueBoundary(server);
 
 /**
  * A value unique to this running server, so a caller can tell two machines
@@ -116,6 +122,9 @@ server.get('/api/health', async () => {
         database: rows[0].db_name,
         server: SERVER_IDENTITY,
         instance: INSTANCE,
+        // Additive deployment capability: pages can become read-only before a
+        // signed-out user presses Save, while the API remains the authority.
+        signinRequired: process.env.MTB_REQUIRE_SIGNIN === '1',
         ...(warnings.length ? { warning: warnings.join('; ') } : {})
     };
 });

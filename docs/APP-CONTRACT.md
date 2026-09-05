@@ -111,6 +111,13 @@ snapshot workflow in `docs/MANUAL-DB-SYNC.md`: export to separate pCloud
 folders, compare, then accept one exact snapshot id. Startup never restores a
 peer database and full databases are never row-merged.
 
+The local/Tailscale HTTP server publishes only an explicit allowlist of the
+top-level application HTML, shared JavaScript and required image assets. A new
+public file must be added deliberately to `server/src/lib/public-static.ts`.
+Repository directories, `.env`, Git metadata, migrations, scripts, backups,
+documentation, local handoff files and unknown paths must remain unreachable
+through the static route and return 404.
+
 ## The pupil development record
 
 `AkciskiPlan.html` writes `evidence_*` rows through `/api/evidence/*`. Its
@@ -132,9 +139,38 @@ required behaviour:
   only its included category sections, never the diagnosis, sensory appendices
   or contacts from the prescribed form.
 
-The sign-in is a staff-room lock and an authorship stamp. It is not access
-control, it must never be described as such, and no part of the suite may rely
-on it to keep anything secret.
+The sign-in is always an authorship stamp and a shared-workstation lock. Its
+authorization role is deployment-controlled:
+
+- with `MTB_REQUIRE_SIGNIN` unset, the compatibility contract remains open and
+  a PIN does not grant or restrict API access;
+- with `MTB_REQUIRE_SIGNIN=1`, every API mutation is default-denied unless it
+  is explicitly delegated or made by the configured administrator/service
+  account. A therapist may change only their own schedule and annual caseload;
+  a pupil's evidence sheet and its sheet-derived reads/writes are limited to
+  that therapist's annual caseload or a teacher's assigned annual class;
+  action-catalogue content remains owned by the annual category holder, while
+  structural changes to the prescribed catalogue are administrator-only;
+- schedule, conflict and shared roster reads remain visible to any caller that
+  can reach the API because a cross-cabinet conflict cannot be resolved while
+  the other cabinet is hidden. Public directory endpoints needed to choose a
+  login also remain visible.
+
+This is an operational authorization boundary, not a confidentiality claim.
+A four-digit PIN is low-entropy. The API accepts exactly four decimal digits and
+locks that identity for five minutes after five wrong guesses. Under enforced
+mode, an initial PIN requires administrator/service scope and a person changes
+their own PIN from a live session; direct proof of the old PIN remains available
+only in compatibility-open mode. The server still depends on Tailscale and its
+CORS/network configuration, and none of this encrypts or anonymizes the local database.
+Never expose the API on a public address.
+
+`MTB_ADMIN` must identify the person by kind (`therapist:<name>` or
+`teacher:<name>`); a display name alone is ambiguous across the two directories.
+Local maintenance and peer-sync writes use a random `MTB_SERVICE_KEY` of at
+least 32 characters. The key belongs only in each machine's ignored
+`server/.env`, must match on the WORK/HOME pair, and must never be placed in a
+browser or committed.
 
 ## Definition of done
 
@@ -150,6 +186,13 @@ A schedule or navigation change is not complete until all of these hold:
    plan, `npm run test:categories` passes too.
 7. The historical production count is compared before and after the change;
    a UI count drop must be explained before any restore or delete is attempted.
+8. For a colleague-access or authorization change, `npm run test:colleague`
+   passes in both compatibility and enforced modes, and the browser suites
+   prove the shared sign-in without treating a disabled control as the
+   security boundary.
+9. The static-route regression test and a live HTTP smoke test prove that the
+   approved app shell loads while local configuration and repository internals
+   return 404.
 
 ## Two catalogues, one engine
 

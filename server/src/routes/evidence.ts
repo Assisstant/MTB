@@ -11,7 +11,9 @@ import {
     Refused, resolveYear, touchSheet, whoIsSigned, type Signed
 } from '../lib/evidence.js';
 import { orderPupils } from '../lib/teaching.js';
-import { assertOwner, ownStudentIds, scopeOf } from '../lib/colleague.js';
+import {
+    assertOwner, assertOwnSheet, assertOwnStudent, ownStudentIds, scopeOf
+} from '../lib/colleague.js';
 
 /**
  * Евидентен лист, one cell at a time.
@@ -253,7 +255,9 @@ export async function evidenceRoutes(server: FastifyInstance) {
     server.get('/api/evidence/sheet/:id', async (req, reply) => {
         try {
             await signed(req);
-            return await readSheet(Number((req.params as any).id));
+            const id = Number((req.params as any).id);
+            await assertOwnSheet(await scopeOf(req), id);
+            return await readSheet(id);
         } catch (err) {
             return refuse(reply, err);
         }
@@ -312,6 +316,7 @@ export async function evidenceRoutes(server: FastifyInstance) {
                     inactiveThisYear: true
                 });
             }
+            await assertOwnStudent(await scopeOf(req), rows[0].id, year.id);
             const sheetId = await createSheet(rows[0].id, year, me.name);
             return { ok: true, sheetId, sheet: await readSheet(sheetId) };
         } catch (err) {
@@ -324,6 +329,7 @@ export async function evidenceRoutes(server: FastifyInstance) {
             const me = await signed(req);
             const body = SheetPatch.parse(req.body);
             const id = Number((req.params as any).id);
+            await assertOwnSheet(await scopeOf(req), id);
             const columns: Record<string, unknown> = {
                 institution: body.institution, place: body.place, municipality: body.municipality,
                 school_type: body.schoolType, class_section: body.classSection,
@@ -361,6 +367,7 @@ export async function evidenceRoutes(server: FastifyInstance) {
     server.delete('/api/evidence/sheet/:id', async (req, reply) => {
         try {
             await signed(req);
+            const scope = await scopeOf(req);
             const id = Number((req.params as any).id);
             const expected = String((req.query as any)?.expected ?? '').trim();
             if (!expected) {
@@ -377,7 +384,7 @@ export async function evidenceRoutes(server: FastifyInstance) {
                     'SELECT pg_advisory_xact_lock(hashtextextended($1::text, 0))',
                     [`evidence-sheet:${id}`]);
                 const { rows } = await client.query(
-                    `SELECT sh.id, s.name,
+                    `SELECT sh.id, sh.student_id, sh.school_year_id, s.name,
                             (SELECT count(*)::int FROM evidence_scores sc
                               WHERE sc.sheet_id = sh.id AND sc.value <> '') AS scores
                        FROM evidence_sheets sh JOIN students s ON s.id = sh.student_id
@@ -389,6 +396,8 @@ export async function evidenceRoutes(server: FastifyInstance) {
                     await client.query('ROLLBACK');
                     return reply.code(404).send({ error: `no evidence sheet with id ${id}` });
                 }
+                await assertOwnStudent(
+                    scope, rows[0].student_id, rows[0].school_year_id, client);
                 if (rows[0].name !== expected) {
                     await client.query('ROLLBACK');
                     return reply.code(409).send({
@@ -415,6 +424,7 @@ export async function evidenceRoutes(server: FastifyInstance) {
     server.put('/api/evidence/score', async (req, reply) => {
         try {
             const me = await signed(req);
+            const scope = await scopeOf(req);
             const body = ScoreBody.parse(req.body);
             const client = await pool.connect();
             try {
@@ -438,11 +448,19 @@ export async function evidenceRoutes(server: FastifyInstance) {
                 // the current one — an archived sheet is scored by whoever held
                 // the profile THEN.
                 const { rows: sheetYear } = await client.query(
-                    'SELECT school_year_id FROM evidence_sheets WHERE id = $1', [body.sheetId]);
+                    'SELECT student_id, school_year_id FROM evidence_sheets WHERE id = $1', [body.sheetId]);
                 if (sheetYear.length) {
                     try {
-                        await assertMayEdit(me, { item: body.itemId },
-                            sheetYear[0].school_year_id, client);
+                        await assertOwnStudent(
+                            scope, sheetYear[0].student_id, sheetYear[0].school_year_id, client);
+                        // Colleagues fill the prescribed form for pupils they
+                        // own; only STRUCTURAL edits to that catalogue are
+                        // admin-only. Action sections retain their category
+                        // holder check. The admin can repair either kind.
+                        if (scope.open || !scope.admin) {
+                            await assertMayEdit(me, { item: body.itemId },
+                                sheetYear[0].school_year_id, client);
+                        }
                     } catch (err) { await client.query('ROLLBACK'); throw err; }
                 }
                 if (!item.length) {
@@ -549,6 +567,7 @@ export async function evidenceRoutes(server: FastifyInstance) {
         try {
             const me = await signed(req);
             const body = PanelBody.parse(req.body);
+            await assertOwnSheet(await scopeOf(req), body.sheetId);
             const { rowCount } = await pool.query(
                 `INSERT INTO evidence_panels (sheet_id, panel, data, updated_by)
                  SELECT $1, $2, $3::jsonb, $4 WHERE EXISTS (SELECT 1 FROM evidence_sheets WHERE id = $1)
@@ -568,6 +587,7 @@ export async function evidenceRoutes(server: FastifyInstance) {
         try {
             const me = await signed(req);
             const body = ExaminerBody.parse(req.body);
+            await assertOwnSheet(await scopeOf(req), body.sheetId);
             const { rowCount } = await pool.query(
                 `INSERT INTO evidence_examiners (sheet_id, role_id, name, updated_by)
                  SELECT $1, $2, $3, $4
@@ -596,17 +616,21 @@ export async function evidenceRoutes(server: FastifyInstance) {
     server.put('/api/evidence/contacts', async (req, reply) => {
         try {
             const me = await signed(req);
+            const scope = await scopeOf(req);
             const body = ContactsBody.parse(req.body);
             const client = await pool.connect();
             try {
                 await client.query('BEGIN');
                 const { rows } = await client.query(
-                    'SELECT id FROM evidence_sheets WHERE id = $1 FOR UPDATE', [body.sheetId]
+                    `SELECT id, student_id, school_year_id
+                     FROM evidence_sheets WHERE id = $1 FOR UPDATE`, [body.sheetId]
                 );
                 if (!rows.length) {
                     await client.query('ROLLBACK');
                     return reply.code(404).send({ error: `no evidence sheet with id ${body.sheetId}` });
                 }
+                await assertOwnStudent(
+                    scope, rows[0].student_id, rows[0].school_year_id, client);
                 await client.query('DELETE FROM evidence_contacts WHERE sheet_id = $1', [body.sheetId]);
                 let ord = 0;
                 for (const c of body.contacts) {
@@ -640,8 +664,9 @@ export async function evidenceRoutes(server: FastifyInstance) {
     server.post('/api/evidence/item', async (req, reply) => {
         try {
             const me: Signed = await signed(req);
+            const scope = await scopeOf(req);
             const body = ItemBody.parse(req.body);
-            await assertMayEdit(me, { section: body.sectionId });
+            await assertMayEdit(me, { section: body.sectionId }, undefined, pool, scope);
             const { rows: section } = await pool.query(
                 'SELECT id FROM evidence_sections WHERE id = $1', [body.sectionId]
             );
@@ -669,9 +694,10 @@ export async function evidenceRoutes(server: FastifyInstance) {
     server.patch('/api/evidence/item/:id', async (req, reply) => {
         try {
             const me = await signed(req);
+            const scope = await scopeOf(req);
             const body = ItemPatch.parse(req.body);
             const id = Number((req.params as any).id);
-            await assertMayEdit(me, { item: id });
+            await assertMayEdit(me, { item: id }, undefined, pool, scope);
             const { rows: updated } = await pool.query(
                 `UPDATE evidence_items
                     SET label = coalesce($2, label), ord = coalesce($3, ord),
@@ -701,8 +727,9 @@ export async function evidenceRoutes(server: FastifyInstance) {
     server.delete('/api/evidence/item/:id', async (req, reply) => {
         try {
             const me = await signed(req);
+            const scope = await scopeOf(req);
             const id = Number((req.params as any).id);
-            await assertMayEdit(me, { item: id });
+            await assertMayEdit(me, { item: id }, undefined, pool, scope);
             const client = await pool.connect();
             try {
                 await client.query('BEGIN');
@@ -741,6 +768,7 @@ export async function evidenceRoutes(server: FastifyInstance) {
     server.post('/api/evidence/section', async (req, reply) => {
         try {
             const me = await signed(req);
+            const scope = await scopeOf(req);
             const body = SectionBody.parse(req.body);
             const catalog = body.catalog ?? 'prescribed';
             const categoryId = body.categoryId ?? null;
@@ -755,9 +783,15 @@ export async function evidenceRoutes(server: FastifyInstance) {
                 });
             }
 
+            if (catalog === 'prescribed') {
+                assertOwner(scope, 'пропишаниот каталог');
+            }
+
             let categoryCode = '';
             if (categoryId) {
-                await assertMayEditCategory(me, categoryId);
+                if (scope.open || !scope.admin) {
+                    await assertMayEditCategory(me, categoryId);
+                }
                 const category = await pool.query(
                     'SELECT code FROM specialist_categories WHERE id = $1 AND active', [categoryId]);
                 if (!category.rowCount) {
@@ -787,9 +821,10 @@ export async function evidenceRoutes(server: FastifyInstance) {
     server.patch('/api/evidence/section/:id', async (req, reply) => {
         try {
             const me = await signed(req);
+            const scope = await scopeOf(req);
             const body = SectionPatch.parse(req.body);
             const id = Number((req.params as any).id);
-            await assertMayEdit(me, { section: id });
+            await assertMayEdit(me, { section: id }, undefined, pool, scope);
             const client = await pool.connect();
             try {
                 await client.query('BEGIN');
@@ -849,8 +884,9 @@ export async function evidenceRoutes(server: FastifyInstance) {
     server.delete('/api/evidence/section/:id', async (req, reply) => {
         try {
             const me = await signed(req);
+            const scope = await scopeOf(req);
             const id = Number((req.params as any).id);
-            await assertMayEdit(me, { section: id });
+            await assertMayEdit(me, { section: id }, undefined, pool, scope);
             const client = await pool.connect();
             try {
                 await client.query('BEGIN');
@@ -900,8 +936,9 @@ export async function evidenceRoutes(server: FastifyInstance) {
     server.post('/api/evidence/group', async (req, reply) => {
         try {
             const me = await signed(req);
+            const scope = await scopeOf(req);
             const body = GroupBody.parse(req.body);
-            await assertMayEdit(me, { section: body.sectionId });
+            await assertMayEdit(me, { section: body.sectionId }, undefined, pool, scope);
             const { rows } = await pool.query(
                 `INSERT INTO evidence_groups (section_id, label, ord)
                  SELECT $1, $2, coalesce(max(ord), 0) + 1 FROM evidence_groups WHERE section_id = $1
@@ -917,8 +954,9 @@ export async function evidenceRoutes(server: FastifyInstance) {
     server.delete('/api/evidence/group/:id', async (req, reply) => {
         try {
             const me = await signed(req);
+            const scope = await scopeOf(req);
             const id = Number((req.params as any).id);
-            await assertMayEdit(me, { group: id });
+            await assertMayEdit(me, { group: id }, undefined, pool, scope);
             const client = await pool.connect();
             try {
                 await client.query('BEGIN');

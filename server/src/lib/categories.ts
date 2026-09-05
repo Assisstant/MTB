@@ -20,6 +20,7 @@
 import { pool } from '../db.js';
 import { normalizeClassLabel } from './crossing.js';
 import type { PersonKind } from './evidence.js';
+import type { Scope } from './colleague.js';
 import type { PoolClient } from 'pg';
 
 export type { PersonKind };
@@ -407,14 +408,14 @@ export async function assertMayEditCategory(
 /**
  * May this person change what a section CONTAINS?
  *
- * The rule the owner asked for: everyone reads everything, but the section for
- * a profile is edited and scored by whoever holds that profile. Adding an item,
- * rewording one, changing the scale and writing a mark are the same permission,
- * because they are all "what this specialist says about this pupil".
+ * An action section is edited and scored by whoever holds its annual category.
+ * Adding an item, rewording one, changing the scale and writing a mark are all
+ * "what this specialist says about this pupil" and share that owner.
  *
- * PRESCRIBED SECTIONS ARE NOT COVERED. They are the евидентен лист itself, the
- * form everybody fills in together, and restricting them was not asked for and
- * would break the screen that exists. Only action-plan sections have an owner.
+ * Prescribed scores remain a team activity, subject to the caller's pupil
+ * scope in `routes/evidence.ts`. Structural edits to the prescribed catalogue
+ * are different: when an enforced Scope is supplied they are administrator-
+ * only; without a Scope, compatibility-open behavior is retained exactly.
  *
  * Either kind of person holds a profile, and either signs in (migration 025).
  * The check therefore asks the table that matches the signed-in kind, and the
@@ -424,7 +425,8 @@ export async function assertMayEdit(
     who: { kind: PersonKind; personId: number },
     target: { section?: number; item?: number; group?: number },
     schoolYearId?: number,
-    db: QueryExecutor = pool
+    db: QueryExecutor = pool,
+    scope?: Scope
 ): Promise<void> {
     const sectionId = target.section ?? (await (async () => {
         if (target.item) {
@@ -449,7 +451,19 @@ export async function assertMayEdit(
           WHERE s.id = $1`, [sectionId]);
     if (!found.rowCount) return;
     const section = found.rows[0];
-    if (section.catalog !== 'action') return;
+
+    // The configured administrator can repair every catalogue.  In open mode
+    // retain the pre-boundary behaviour exactly; only enforcement mode narrows
+    // prescribed-form edits to the administrator.
+    if (scope && !scope.open && scope.admin) return;
+    if (section.catalog !== 'action') {
+        if (scope && !scope.open) {
+            throw new CategoryRefused(403,
+                'Само администраторот го менува пропишаниот каталог.',
+                { needsAdmin: true, prescribed: true });
+        }
+        return;
+    }
 
     await assertMayEditCategory(who, section.category_id, schoolYearId, section.title, db);
 }
