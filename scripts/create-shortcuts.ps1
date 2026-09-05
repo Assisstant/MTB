@@ -37,7 +37,8 @@ $shortcuts = @(
     # stays open so there is something to close — see docs/PLAN-start-stop.md.
     # The three server shortcuts below stay: they are the right tool when
     # something is being debugged and a whole procedure is in the way.
-    @{ Name = 'MTB';                 Script = Join-Path $root 'scripts\mtb.ps1'; Args = ''; Icon = 'shell32.dll,44'; Description = 'MTB - open the day, and close it'; Minimised = $true },
+    @{ Name = 'MTB';                 Script = Join-Path $root 'scripts\mtb.ps1'; Args = ''; Icon = 'shell32.dll,44'; Description = 'MTB - open the day' },
+    @{ Name = 'MTB - Zavrshi den';   Script = Join-Path $root 'scripts\mtb.ps1'; Args = '-Action stop'; Icon = 'shell32.dll,46'; Description = 'MTB - backup, publish to pCloud, stop the server' },
     @{ Name = 'MTB Server - Start';  Script = $control; Args = 'start -Wait';  Icon = 'shell32.dll,137'; Description = 'Therapy server - start' },
     @{ Name = 'MTB Server - Stop';   Script = $control; Args = 'stop -Wait';   Icon = 'shell32.dll,109'; Description = 'Therapy server - stop' },
     @{ Name = 'MTB Server - Status'; Script = $control; Args = 'status -Wait'; Icon = 'shell32.dll,23';  Description = 'Therapy server - status' }
