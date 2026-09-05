@@ -1208,6 +1208,19 @@ each with their кабинет — слушно-говорни вежби, пс�
 развој / подготвителен** (1), **образование на ученици со комплексни потреби —
 модифицирана програма** (1), **продолжена програма** (3), **ученички дом** (4).
 
+**„Кабинет" is what the staff call it to each other; the систематизација calls
+it ОДДЕЛЕНИЕ ЗА ИНДИВИДУАЛНА РЕХАБИЛИТАЦИЈА.** Both names are correct in their
+own register and the screens currently use neither well: they say „Кабинети",
+„Терапевти (кабинети)", „Терапевтски кабинети". That is the colloquial word
+doing the work of an official one, which is why the label keeps reading as
+wrong to the people who work there — and why renaming it to „Стручна служба"
+would be wrong too, since стручни соработници are a DIFFERENT one of the six
+оддели, eight people who are not in индивидуална рехабилитација at all.
+
+The systematisation is the authority on what a post is called. When the screens
+are relabelled, that is where the words come from — not from the database, not
+from what an agent infers from the годишна програма.
+
 The schema holds none of that:
 
 ```
