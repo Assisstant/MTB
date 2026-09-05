@@ -37,7 +37,7 @@ $shortcuts = @(
     # stays open so there is something to close — see docs/PLAN-start-stop.md.
     # The three server shortcuts below stay: they are the right tool when
     # something is being debugged and a whole procedure is in the way.
-    @{ Name = 'MTB';                 Script = Join-Path $root 'scripts\mtb.ps1'; Args = ''; Icon = 'shell32.dll,44'; Description = 'MTB - open the day, and close it' },
+    @{ Name = 'MTB';                 Script = Join-Path $root 'scripts\mtb.ps1'; Args = ''; Icon = 'shell32.dll,44'; Description = 'MTB - open the day, and close it'; Minimised = $true },
     @{ Name = 'MTB Server - Start';  Script = $control; Args = 'start -Wait';  Icon = 'shell32.dll,137'; Description = 'Therapy server - start' },
     @{ Name = 'MTB Server - Stop';   Script = $control; Args = 'stop -Wait';   Icon = 'shell32.dll,109'; Description = 'Therapy server - stop' },
     @{ Name = 'MTB Server - Status'; Script = $control; Args = 'status -Wait'; Icon = 'shell32.dll,23';  Description = 'Therapy server - status' }
@@ -77,7 +77,10 @@ foreach ($s in $shortcuts) {
     $lnk.WorkingDirectory = $root
     $lnk.IconLocation = Join-Path $env:SystemRoot ('System32\' + $s.Icon)
     $lnk.Description = $s.Description
-    $lnk.WindowStyle = 1
+    # 7 = minimised. mtb.ps1 opens its own window; the PowerShell console behind
+    # it is wanted only when something goes wrong, and then it is one click away
+    # on the taskbar instead of a black rectangle in front of the app.
+    $lnk.WindowStyle = if ($s.ContainsKey('Minimised') -and $s.Minimised) { 7 } else { 1 }
     $lnk.Save()
     Write-Host "sozdadeno: $path" -ForegroundColor Green
 }
