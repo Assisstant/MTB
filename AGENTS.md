@@ -126,6 +126,7 @@ docs/PLAN-rasporedot-i-nedelata.md   READ BEFORE TOUCHING THE SCHEDULE. schedule
                                 document must not replace a schedule written per cell.
 docs/HANDOVER-03-09-2026.md     what each database was on 3 Sep, and the twelve assertions
                                 the evidence audit left failing
+docs/HANDOVER-07-09-2026.md     sanitized HOME→WORK technical steps; names stay local
 ```
 
 ## Commands (from `server/`)
@@ -1971,12 +1972,12 @@ match exactly, the live static smoke test keeps private paths at 404, and the
 expanded name guard found no local database name in this branch's commit
 candidates.
 
-DO NOT MERGE IT YET. The newer main-only commit `3edfb21` adds
-`docs/HANDOVER-07-09-2026.md`; a count-only comparison against the local name
-directory found two exact matches in that public file, without printing them.
-Sanitize the current file and complete the already-planned history-purge/GitHub
-Support procedure before combining the branches. The rollout code is ready for
-review; the target branch is privacy-blocked.
+DO NOT MERGE IT YET. Main commit `3edfb21` added three names to
+`docs/HANDOVER-07-09-2026.md`; the masked checker printed no name. Current main
+tip `dffe7a2` replaces that document with a clean technical handover and passes
+the privacy guard. The old commit remains reachable, so complete the planned
+history-purge/GitHub Support procedure before combining branches. The rollout
+code and both current trees are clean; reachable history is the blocker.
 
 This remains one shared sign-in across the existing tools, NOT one merged app.
 `docs/PLAN-kolegi-pristap.md` is the exact activation, rollback, migration and
