@@ -50,7 +50,7 @@
         "note": "Релациона база, стручни профили (мигр. 024) и вкрстување со настава."
       }
     ],
-    "verified": "Фактите проверени против кодот на main, 5 септември 2026: имињата на табелите од database/migrations, календарот од S-Dnevnik.html, множествата од app-navigation.js."
+    "subtitle": "Фактите проверени против кодот на main, 5 септември 2026: имињата на табелите од database/migrations, календарот од S-Dnevnik.html, множествата од app-navigation.js."
   },
   "components": [
     {
