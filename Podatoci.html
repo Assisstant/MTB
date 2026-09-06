@@ -98,6 +98,24 @@
     .btn.soft { background: transparent; color: var(--text); border: 1px solid var(--border); font-weight: 500; }
     .btn.danger { color: var(--danger); border-color: color-mix(in srgb, var(--danger) 45%, var(--border)); }
     .btn:disabled { opacity: .45; cursor: not-allowed; }
+    /* Дали е запишано во базата — на самата контрола, не само горе на екранот.
+       docs/MANUAL-DB-SYNC.md вели: копчето станува зелено дури откако серверот
+       ќе прифати. Ова е тоа ветување, одржано таму каде што рацете работат. */
+    .btn.dirty {
+        background: var(--warn-bg); color: var(--text);
+        border-color: color-mix(in srgb, var(--warn) 60%, var(--border));
+    }
+    .btn.saved, .btn.saved:disabled {
+        background: color-mix(in srgb, var(--ok) 20%, transparent);
+        border-color: var(--ok); color: var(--ok); opacity: 1;
+    }
+    .btn.failed {
+        background: color-mix(in srgb, var(--danger) 16%, transparent);
+        border-color: var(--danger); color: var(--danger);
+    }
+    .saved-mark { outline: 2px solid var(--ok); outline-offset: 1px; border-radius: 4px; }
+    .failed-mark { outline: 2px solid var(--danger); outline-offset: 1px; border-radius: 4px; }
+    table.list tr.dirty > td { background: color-mix(in srgb, var(--warn) 10%, transparent); }
     .status { font-size: 13px; color: var(--muted); }
     .status.ok { color: var(--ok); }
     .status.warn { color: var(--warn); }
@@ -564,15 +582,73 @@
         await load();
     }
 
-    function status(text, kind) {
+    function status(text, kind, opts) {
         const node = el('status');
         node.textContent = text || '';
         node.className = 'status' + (kind ? ' ' + kind : '');
         let dataState = kind === 'error' ? 'error' : kind === 'warn' ? 'warning' : kind === 'ok' ? 'synced' : 'synced';
         if (/вчитув|проверув|ги проверувам|барам/i.test(text || '')) dataState = 'loading';
         const detail = { state: dataState, text: text || 'Податоците се вчитани од базата' };
+        // Оваа лента стои на врвот на страницата, а страницата се лизга. Кога
+        // измената е намерна, одговорот се бара и во агол што не се лизга —
+        // затоа само записите бараат `toast`, не и обичното вчитување.
+        if (opts && opts.toast) detail.toast = true;
         window.__MTB_DATA_STATE__ = detail;
         window.dispatchEvent(new CustomEvent('mtb:data-state', { detail }));
+    }
+
+    /**
+     * Потврда на самата контрола што беше притисната.
+     *
+     * Секој запис повикува `load()`, а `load()` ја прецртува целата табела и го
+     * уништува копчето што беше кликнато. Затоа контролата се бара повторно по
+     * селектор ПОСЛЕ вчитувањето, не се држи преку него.
+     */
+    function flash(target, kind, label) {
+        const node = typeof target === 'string' ? document.querySelector(target) : target;
+        if (!node) return;
+        const bad = kind === 'error';
+        const button = node.tagName === 'BUTTON';
+        const was = button ? node.textContent : null;
+        node.classList.remove('saved', 'failed', 'saved-mark', 'failed-mark', 'dirty');
+        node.classList.add(button ? (bad ? 'failed' : 'saved') : (bad ? 'failed-mark' : 'saved-mark'));
+        if (button && label) node.textContent = label;
+        const row = node.closest ? node.closest('tr') : null;
+        if (row && !bad) row.classList.remove('dirty');
+        try { node.scrollIntoView({ block: 'nearest' }); } catch (_) { /* стара верзија */ }
+        window.setTimeout(() => {
+            if (!node.isConnected) return;
+            node.classList.remove('saved', 'failed', 'saved-mark', 'failed-mark');
+            if (button && label) node.textContent = was;
+        }, 2600);
+    }
+
+    /**
+     * Измена што чека мора и да изгледа како измена што чека.
+     *
+     * Пишувањето во ќелија не менува ништо во PostgreSQL додека не се притисне
+     * копчето на редот. Затоа редот го кажува тоа сам, а копчето престанува да
+     * биде уште едно сиво копче меѓу другите — тоа е „submit“-от на тој ред.
+     *
+     * Категоријата се исклучува намерно: таа се запишува веднаш штом ќе се
+     * избере, па редот не смее да тврди дека нешто чека.
+     */
+    function markSubmittable(container, rowAttribute, saveAttribute) {
+        container.querySelectorAll('tr[' + rowAttribute + ']').forEach((row) => {
+            const button = row.querySelector('[' + saveAttribute + ']');
+            if (!button) return;
+            const touched = () => {
+                row.classList.add('dirty');
+                button.classList.remove('saved', 'failed');
+                button.classList.add('dirty');
+                button.title = 'Има непратена измена во овој ред — притисни за да се запише во базата.';
+            };
+            row.querySelectorAll('input, select').forEach((field) => {
+                if (field.matches('[data-cat-for]')) return;
+                field.addEventListener('input', touched);
+                field.addEventListener('change', touched);
+            });
+        });
     }
 
     /** The server answers in English; this is the staff room's sentence. */
@@ -810,9 +886,9 @@
             closeRollover();
             await refreshYears(result.to);
             await load();
-            status(`${result.to} е тековна со празен состав. Избери од предлозите под секоја листа.`, 'ok');
+            status(`${result.to} е тековна со празен состав. Избери од предлозите под секоја листа.`, 'ok', { toast: true });
         } catch (err) {
-            status(err.message, 'error');
+            status(err.message, 'error', { toast: true });
             el('applyRollover').disabled = false;
         }
     }
@@ -838,8 +914,8 @@
             await api('PUT', '/api/roster/memberships', { year: data.year, entity, active, members });
             closePickers();
             await load();
-            status(message, 'ok');
-        } catch (err) { status(err.message, 'error'); }
+            status(message, 'ok', { toast: true });
+        } catch (err) { status(err.message, 'error', { toast: true }); }
     }
 
     async function removeFromYear(entity, id, label) {
@@ -997,6 +1073,7 @@
             const student = rows.find((s) => s.public_id === b.dataset.removeStudent);
             b.addEventListener('click', () => removeFromYear('student', b.dataset.removeStudent, personName(student.name)));
         });
+        markSubmittable(el('students'), 'data-student', 'data-save-student');
     }
 
     async function saveStudent(publicId) {
@@ -1014,10 +1091,17 @@
                 expected: was ? was.name : undefined
             });
             await load();
-            status(answer.enrolled === false
-                ? 'Зачувано, но ученикот не е запишан во оваа година — одделението не се смени.'
-                : 'ученикот е зачуван', answer.enrolled === false ? 'warn' : 'ok');
-        } catch (err) { status(err.message, 'error'); }
+            const enrolled = answer.enrolled !== false;
+            const where = '[data-save-student="' + CSS.escape(publicId) + '"]';
+            status(enrolled
+                ? 'ученикот е зачуван'
+                : 'Зачувано, но ученикот не е запишан во оваа година — одделението не се смени.',
+                enrolled ? 'ok' : 'warn', { toast: true });
+            flash(where, enrolled ? 'ok' : 'warn', enrolled ? '\u2713 Зачувано' : '\u2713 Зачувано · без одделение');
+        } catch (err) {
+            status(err.message, 'error', { toast: true });
+            flash('[data-save-student="' + CSS.escape(publicId) + '"]', 'error', '\u2715 Не е зачувано');
+        }
     }
 
     // ── наставници ──────────────────────────────────────────────────────────
@@ -1060,6 +1144,7 @@
             const teacher = (data.teachers || []).find((t) => t.id === Number(b.dataset.removeTeacher));
             b.addEventListener('click', () => removeFromYear('teacher', teacher.id, personName(teacher.name)));
         });
+        markSubmittable(el('teachers'), 'data-teacher', 'data-save-teacher');
     }
 
     async function saveTeacher(id) {
@@ -1072,8 +1157,12 @@
                 subject: kind === 'pred' ? (tidy(row.querySelector('.t-subject').value) || null) : null
             });
             await load();
-            status('наставникот е зачуван', 'ok');
-        } catch (err) { status(err.message, 'error'); }
+            status('наставникот е зачуван', 'ok', { toast: true });
+            flash('[data-save-teacher="' + id + '"]', 'ok', '\u2713 Зачувано');
+        } catch (err) {
+            status(err.message, 'error', { toast: true });
+            flash('[data-save-teacher="' + id + '"]', 'error', '\u2715 Не е зачувано');
+        }
     }
 
     function openClassPicker(id) {
@@ -1112,8 +1201,8 @@
         try {
             await api('PUT', `/api/teaching/teacher/${id}/classes`, { year: data.year, classes });
             await load();
-            status('одделенијата се зачувани', 'ok');
-        } catch (err) { status(err.message, 'error'); }
+            status('одделенијата се зачувани', 'ok', { toast: true });
+        } catch (err) { status(err.message, 'error', { toast: true }); }
     }
 
     // ── терапевти ───────────────────────────────────────────────────────────
@@ -1149,12 +1238,17 @@
                 year: el('year').value, kind, personId, categoryId
             });
             data.categoryOf[kind][personId] = categoryId;
-            status('Категоријата е зачувана.');
+            const chosen = select.options[select.selectedIndex];
+            status(categoryId
+                ? 'Категоријата е зачувана: ' + (chosen ? chosen.textContent : '')
+                : 'Категоријата е тргната.', 'ok', { toast: true });
+            flash(select, 'ok');
         } catch (err) {
             // Put the picker back to what the server still holds rather than
             // leaving the screen claiming a change that did not land.
             select.value = was === null ? '' : String(was);
-            status('Категоријата не е зачувана: ' + (err.message || err), 'error');
+            status('Категоријата не е зачувана: ' + (err.message || err), 'error', { toast: true });
+            flash(select, 'error');
         } finally {
             select.disabled = !data.isCurrentYear;
         }
@@ -1187,6 +1281,7 @@
             const therapist = (data.therapists || []).find((t) => t.id === Number(b.dataset.removeTherapist));
             b.addEventListener('click', () => removeFromYear('therapist', therapist.id, personName(therapist.name)));
         });
+        markSubmittable(el('therapists'), 'data-therapist', 'data-save-therapist');
     }
 
     async function renameTherapist(id) {
@@ -1201,8 +1296,12 @@
             // delete-and-add. Saying it out loud is the only way to say it.
             await api('PATCH', '/api/therapists/' + encodeURIComponent(from), { name: to });
             await load();
-            status('терапевтот е преименуван, термините одат со него', 'ok');
-        } catch (err) { status(err.message, 'error'); }
+            status('терапевтот е преименуван, термините одат со него', 'ok', { toast: true });
+            flash('[data-save-therapist="' + id + '"]', 'ok', '\u2713 Зачувано');
+        } catch (err) {
+            status(err.message, 'error', { toast: true });
+            flash('[data-save-therapist="' + id + '"]', 'error', '\u2715 Не е зачувано');
+        }
     }
 
     function openCaseload(id) {
@@ -1249,11 +1348,11 @@
             for (const p of add) await api('PUT', `/api/therapists/${name}/students/${encodeURIComponent(p)}${year}`);
             for (const p of drop) await api('DELETE', `/api/therapists/${name}/students/${encodeURIComponent(p)}${year}`);
             await load();
-            status(`зачувано: +${add.length} / −${drop.length}`, 'ok');
+            status(`зачувано: +${add.length} / −${drop.length}`, 'ok', { toast: true });
         } catch (err) {
             // Some may have landed. Reload so the screen shows what really is.
             await load();
-            status(err.message, 'error');
+            status(err.message, 'error', { toast: true });
         }
     }
 
@@ -1355,8 +1454,8 @@
             });
             closePickers();
             await load();
-            status('наставниците на одделението се зачувани', 'ok');
-        } catch (err) { status(err.message, 'error'); }
+            status('наставниците на одделението се зачувани', 'ok', { toast: true });
+        } catch (err) { status(err.message, 'error', { toast: true }); }
     }
 
     function openClassRename(id) {
@@ -1386,8 +1485,8 @@
             await api('PATCH', '/api/teaching/class/' + id, { label });
             closePickers();
             await load();
-            status(`ознаката е сменета во ${label}`, 'ok');
-        } catch (err) { status(err.message, 'error'); }
+            status(`ознаката е сменета во ${label}`, 'ok', { toast: true });
+        } catch (err) { status(err.message, 'error', { toast: true }); }
     }
 
     function closePickers() {
@@ -1485,8 +1584,8 @@
             status((answer.sameName || []).length
                 ? `${name} е додаден — внимание, веќе постои ученик со истото име (различно одделение ги разликува)`
                 : `${name} е додаден`,
-                (answer.sameName || []).length ? 'warn' : 'ok');
-        } catch (err) { status(err.message, 'error'); }
+                (answer.sameName || []).length ? 'warn' : 'ok', { toast: true });
+        } catch (err) { status(err.message, 'error', { toast: true }); }
     });
 
     el('addTeacher').addEventListener('click', async () => {
@@ -1502,8 +1601,8 @@
             el('newTeacher').value = '';
             el('newTeacherSubject').value = '';
             await load();
-            status(`${name} е додаден — сега додели му одделенија`, 'ok');
-        } catch (err) { status(err.message, 'error'); }
+            status(`${name} е додаден — сега додели му одделенија`, 'ok', { toast: true });
+        } catch (err) { status(err.message, 'error', { toast: true }); }
     });
 
     el('addTherapist').addEventListener('click', async () => {
@@ -1513,8 +1612,9 @@
             const answer = await api('POST', '/api/therapists', { name, year: data ? data.year : undefined });
             el('newTherapist').value = '';
             await load();
-            status(answer.created ? `${name} е додаден` : `${name} веќе постоеше`, answer.created ? 'ok' : 'warn');
-        } catch (err) { status(err.message, 'error'); }
+            status(answer.created ? `${name} е додаден` : `${name} веќе постоеше`,
+                answer.created ? 'ok' : 'warn', { toast: true });
+        } catch (err) { status(err.message, 'error', { toast: true }); }
     });
 
     el('addClass').addEventListener('click', async () => {
@@ -1524,8 +1624,8 @@
             await api('POST', '/api/teaching/class', { label, year: data ? data.year : undefined });
             el('newClass').value = '';
             await load();
-            status(`одделението ${label} е додадено`, 'ok');
-        } catch (err) { status(err.message, 'error'); }
+            status(`одделението ${label} е додадено`, 'ok', { toast: true });
+        } catch (err) { status(err.message, 'error', { toast: true }); }
     });
 
     /**

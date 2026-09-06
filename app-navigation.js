@@ -233,6 +233,32 @@
                 .mtb-app-nav__status { flex: 1 1 50%; }
                 .mtb-app-nav__value { max-width: calc(50vw - 34px); }
             }
+            .mtb-toast {
+                position: fixed; right: 18px; bottom: 18px; z-index: 9500;
+                max-width: min(430px, calc(100vw - 36px));
+                display: flex; align-items: flex-start; gap: 10px;
+                padding: 11px 14px; border-radius: 9px;
+                background: #18202c; color: #eef3f8;
+                border: 1px solid #303b4b; border-left: 4px solid #46c2a5;
+                box-shadow: 0 8px 26px rgba(0, 0, 0, .34);
+                font: 600 13px/1.35 system-ui, -apple-system, "Segoe UI", sans-serif;
+                cursor: pointer; opacity: 0; transform: translateY(10px);
+                transition: opacity .16s ease, transform .16s ease;
+            }
+            .mtb-toast--on { opacity: 1; transform: none; }
+            .mtb-toast__mark { flex: 0 0 auto; line-height: 1.3; }
+            .mtb-toast__text { min-width: 0; overflow-wrap: anywhere; }
+            .mtb-toast[data-kind="warning"], .mtb-toast[data-kind="pending"] {
+                border-left-color: #e4a34b; color: #ffd18a;
+            }
+            .mtb-toast[data-kind="error"] { border-left-color: #f07878; color: #ffc9c9; }
+            @media (max-width: 620px) {
+                .mtb-toast { right: 12px; left: 12px; bottom: 12px; max-width: none; }
+            }
+            @media (prefers-reduced-motion: reduce) {
+                .mtb-toast { transition: none; transform: none; }
+            }
+            @media print { .mtb-toast { display: none !important; } }
             @media print { .mtb-app-nav { display: none !important; } }
         `;
         document.head.appendChild(style);
@@ -341,10 +367,92 @@
         }
     }
 
+    /**
+     * A confirmation you can actually see.
+     *
+     * Every screen already says whether PostgreSQL accepted the write. It says
+     * it in the strip at the top of the page — and the page scrolls. Someone
+     * editing the thirtieth row presses Save and the green sentence is written
+     * a screen and a half above the eyes, so the honest answer arrives and is
+     * never read. This puts the same sentence in a fixed corner, where the work
+     * is happening.
+     *
+     * Only a deliberate write reaches here: a screen opts in per action with
+     * `toast: true` on the data-state detail. Loading noise stays out, because
+     * a confirmation that appears for everything confirms nothing.
+     */
+    let toastNode = null;
+    let toastTimer = null;
+    let toastWaiting = null;
+
+    function hideToast() {
+        if (toastTimer) { clearTimeout(toastTimer); toastTimer = null; }
+        if (toastWaiting) {
+            document.removeEventListener('visibilitychange', toastWaiting);
+            toastWaiting = null;
+        }
+        if (toastNode) toastNode.classList.remove('mtb-toast--on');
+    }
+
+    function showToast(text, kind) {
+        const message = String(text == null ? '' : text).trim();
+        if (!message || !document.body) return;
+        addStyles();
+        if (!toastNode) {
+            toastNode = document.createElement('div');
+            toastNode.className = 'mtb-toast';
+            toastNode.setAttribute('role', 'status');
+            toastNode.setAttribute('aria-live', 'polite');
+            toastNode.title = 'Кликни за да се затвори';
+            toastNode.addEventListener('click', hideToast);
+            const mark = document.createElement('span');
+            mark.className = 'mtb-toast__mark';
+            mark.setAttribute('aria-hidden', 'true');
+            const body = document.createElement('span');
+            body.className = 'mtb-toast__text';
+            toastNode.append(mark, body);
+            document.body.appendChild(toastNode);
+        }
+        const state = normalizeDataState({ state: kind, text: message }).state;
+        const soft = state === 'warning' || state === 'pending';
+        toastNode.dataset.kind = state;
+        toastNode.querySelector('.mtb-toast__mark').textContent =
+            state === 'error' ? '\u2715' : soft ? '!' : '\u2713';
+        toastNode.querySelector('.mtb-toast__text').textContent = message;
+        toastNode.classList.remove('mtb-toast--on');
+        // Not requestAnimationFrame: a hidden tab paints no frames, so a
+        // confirmation that lands while the tab is in the background would never
+        // become visible and would then time out unseen — the same failure as
+        // writing it off the top of the screen. Forcing layout starts the
+        // transition whether or not anyone is looking.
+        void toastNode.offsetWidth;
+        toastNode.classList.add('mtb-toast--on');
+        if (toastTimer) { clearTimeout(toastTimer); toastTimer = null; }
+        if (toastWaiting) {
+            document.removeEventListener('visibilitychange', toastWaiting);
+            toastWaiting = null;
+        }
+        // A refusal stays until it is read or replaced. Success may leave — but
+        // its countdown runs only while the page is actually on screen.
+        if (state === 'error') return;
+        const linger = soft ? 5200 : 3200;
+        if (!document.hidden) { toastTimer = setTimeout(hideToast, linger); return; }
+        toastWaiting = () => {
+            if (document.hidden) return;
+            document.removeEventListener('visibilitychange', toastWaiting);
+            toastWaiting = null;
+            toastTimer = setTimeout(hideToast, linger);
+        };
+        document.addEventListener('visibilitychange', toastWaiting);
+    }
+
     function reportDataState(detail) {
         dataState = normalizeDataState(detail);
         window.__MTB_DATA_STATE__ = dataState;
         render();
+        // `normalizeDataState` drops unknown keys, so the opt-in is read from
+        // the raw detail rather than from the normalised copy.
+        if (detail && typeof detail === 'object' && detail.toast) showToast(dataState.text, dataState.state);
     }
 
     async function checkHealth() {
@@ -459,7 +567,10 @@
     }
 
     installAuthenticatedFetch();
-    window.MTBAppNavigation = { refresh: render, checkHealth, checkUser, logout: logoutUser, reportDataState };
+    window.MTBAppNavigation = {
+        refresh: render, checkHealth, checkUser, logout: logoutUser,
+        reportDataState, toast: showToast, hideToast
+    };
     window.addEventListener('mtb:data-state', (event) => reportDataState(event.detail));
     window.addEventListener('mtb:server-selected', () => { render(); checkHealth(); checkUser(); });
     window.addEventListener('mtb:auth-changed', () => checkUser());

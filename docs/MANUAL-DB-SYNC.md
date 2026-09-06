@@ -32,6 +32,27 @@ straight to PostgreSQL. They do not need one large Submit button: the existing
 cell/form Save action becomes green only after the server accepts it. A failed
 write is rejected and stays visible as an error.
 
+That promise was written before it was kept. The bar above lives at the top of
+the page, and the page scrolls; someone editing the thirtieth row pressed Save
+and the green sentence was written a screen and a half above the eyes, so the
+honest answer arrived and was never read. Two things now carry it to where the
+work is:
+
+- **The control that was pressed answers for itself.** A row whose fields have
+  been touched marks itself as carrying an unsent edit — that mark is the
+  Submit that is being asked for. The Save button turns green and reads
+  `✓ Зачувано` once PostgreSQL has accepted, or red and `✕ Не е зачувано` if it
+  refused, and the row keeps its pending mark until a write lands.
+- **A confirmation in a fixed corner.** `app-navigation.js` shows the same
+  sentence in the lower corner of the window. Success fades on its own; a
+  refusal stays until it is clicked away, because a refusal that disappears is
+  a refusal that was not read.
+
+The corner confirmation is opt-in per action: a screen passes `toast: true`
+alongside its data state, so a deliberate write is announced and ordinary
+loading is not. `Podatoci` opts in on every write today; the other screens gain
+it by passing the same flag, without any other change.
+
 S-Dnevnik is still local-first. An edit is first made safe in IndexedDB, then
 automatic sync sends it to the selected server. Its pending flag is stored too,
 so closing or refreshing the tab cannot turn an unsent edit into a green state.

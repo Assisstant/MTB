@@ -17,3 +17,8 @@ server/nastava-page.png
 
 # Generated architecture maps in root must not be scanned as app
 /mtb-seams.html
+
+# files Claude delivers into the chat land here on this machine; they are
+# evidence for a conversation, not source, and one of them is a PNG the name
+# guard then has to open on every commit
+Claude outputs/
