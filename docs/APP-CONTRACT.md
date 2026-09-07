@@ -44,8 +44,10 @@ began with a screen growing a second purpose.
   work and is not repurposed for another cabinet. It owns what HAPPENED; it reads
   the shared facts and owns none of them. Its holiday and working-day logic is
   its own and stays there. It must refuse to become a second writer of anything
-  shared -- above all the schedule, which it can still overwrite today through the
-  unified payload (see `docs/PLAN-rasporedot-i-nedelata.md`).
+  shared -- above all the schedule. Whole-document projection leaves the current
+  year's schedule untouched when `slotWrites` is set or any existing slot has
+  `source = 'api'`. Legacy document-owned schedules retain their compatibility
+  path (see `docs/PLAN-rasporedot-i-nedelata.md`).
 
 - **`Podatoci.html` is who exists this year** — pupils, teachers, therapists,
   classes, categories, and annual enrolment. Every other screen derives its

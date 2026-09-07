@@ -150,8 +150,8 @@ docs/PLAN-kadar.md              a name that changes, an absence, a stand-in: wha
                                 out may never stop at the first failure
 docs/PLAN-rasporedot-i-nedelata.md   READ BEFORE TOUCHING THE SCHEDULE. schedule_slots
                                 has no week, so "from which week does this apply" cannot
-                                be asked. Stage 0 in there is urgent and independent: a
-                                document must not replace a schedule written per cell.
+                                be asked. The document-overwrite guard is implemented;
+                                see the dated status before reopening the remaining proposals.
 docs/HANDOVER-03-09-2026.md     what each database was on 3 Sep, and the twelve assertions
                                 the evidence audit left failing
 docs/HANDOVER-07-09-2026.md     sanitized HOME→WORK technical steps; names stay local

@@ -4,6 +4,66 @@ Decision and readiness note, 7 September 2026. This is the next-work plan, not
 evidence that private hosting, colleague enforcement or a database transfer has
 been activated. The product rules remain in [APP-CONTRACT.md](APP-CONTRACT.md).
 
+## Reconciliation of the overlapping conversations
+
+The user shared the conversations to explain one connected, unfinished project,
+not to request every old proposal again. This note is the single current work
+queue. Older plans and chats explain decisions; their commands and completion
+claims must be checked against today's checkout and the relevant live machine.
+
+Reviewed on 7 September: the recent relevant turns of the tasks below, the
+shared sync conversation, the two attached proposals and the current source.
+This is not a claim to have audited every turn or the other PC.
+
+| Discussion | What survives in the current project | What must not be restarted from that discussion |
+|---|---|---|
+| **Implement Podatoci CRUD management** | Annual school lists and annual caseloads exist in migrations 018 and 019 and the current directory APIs. | An old "not committed" answer describes that moment, not today's source. Do not create a second set of year-membership tables. |
+| **Finish AkciskiPlan rollout** | This task grew to include evidence, shared PIN sign-in, Fusion pupil selection and permissions, and the static-file boundary. That code is already integrated in the current source. | "Implemented and tested" does not mean permissions are enabled on either live PC. HOME enforcement is still off. The inspected support-request attempt has no confirmed ticket receipt. |
+| **Создавање RasporedFusion копија** | Keep the useful goal of a clear, database-backed cabinet schedule. The current contract already defines its features. | Work described in a temporary workspace is not proof it reached this clone. Do not introduce a second schedule app or reinstate the older strict-40-minutes-only proposal; the contract retains ordered 20-minute halves. |
+| **File syncing chat** | The screens should share pupil identity, annual relationships, navigation and server access while keeping distinct purposes. | The old assumption that the data is disposable demo data is false for today's HOME. A shared assessment engine is a future proposal, not required for rollout. |
+| **Check MYB sync status** / **Sync PCs Across Tailscale** | Code transfer, network reachability and database transfer need separate checks. Verified snapshot files are useful recovery evidence. | Neither a successful Git pull nor an older snapshot proves that today's two databases agree. Do not pull pre-history-rewrite WORK history into the cleaned repository. |
+
+Current code evidence: [annual rosters](../database/migrations/018_annual_rosters.sql),
+[yearly caseloads](../database/migrations/019_yearly_caseloads.sql),
+[the canonical schedule](../RasporediFusion.html),
+[colleague authorization](../server/src/routes/evidence-auth.ts) and
+[the static allowlist](../server/src/lib/public-static.ts).
+
+The architecture picture also describes an earlier state. S-Dnevnik already has
+an explicit `seedScheduleFromDatabase` action that reads `/api/schedule/sessions`
+and asks before replacing its live template. Therefore "no connection" is no
+longer accurate; this is a deliberate import, not continuous synchronization.
+Its name-based identity fallback still needs review against the no-ambiguity
+rule before this action is treated as a verified colleague workflow. Do not
+infer completion from the presence of a fetch alone.
+
+"One database" also had two meanings across the discussions. One shared data
+model for the apps on each installation is consistent with the current design.
+One always-on physical database replacing WORK and HOME is inconsistent with
+the user's confirmed requirement that both PCs work independently offline.
+
+The current distinction is:
+
+- **Already in the source:** directory/annual lists, canonical Fusion,
+  self-service pupil checklist, evidence records and the permission mechanism.
+- **New local work:** commit `a8a8c66` on `codex/private-mtb-readiness` contains
+  the launcher, sync-error and schedule-label fixes described below. It has not
+  been pushed or installed on the other PC as part of this session.
+- **Changed on HOME:** the two obsolete automatic import tasks are disabled;
+  the audit is machine-local. A code commit alone does not reproduce this.
+- **Still unverified or inactive:** WORK's reinstall, complete database
+  handover, colleague enforcement, replacement access and private cutover.
+- **Separate follow-up:** verify whether GitHub Support received the cleanup
+  request before sending a duplicate. Private visibility and cache cleanup
+  are different outcomes.
+
+Use one coordinating implementation task for this rollout. Other chats can
+provide context and independent reviews; do not resume overlapping edits in
+the same checkout without allocating files and naming the integration owner.
+Every handoff must say which PC and branch were inspected, which commit holds
+the work, whether it was pushed, and which live activation checks remain.
+"Done" without those distinctions is not a cross-machine handoff.
+
 ## What the user confirmed
 
 - This session is on **HOME**. The other PC is temporarily at the user's home
@@ -267,22 +327,26 @@ covered by a regression test. Verify code before reopening old proposed work.
 
 ## Ordered next work and acceptance
 
-1. **This branch:** clarify the existing schedule journey, repair offline
-   launching, distinguish sync transport failures from data refusals, and run
-   isolated regression checks. The two obsolete HOME automatic-import tasks are
-   paused; no live database data, credentials or public hosting was changed.
-2. **Verify WORK:** inspect its active fresh clone, local role, migration ledger,
-   live counts, network access and backup. A stale shared snapshot is not enough.
+1. **Completed locally; integration pending:** the schedule journey, offline
+   launcher, sync failure reporting and isolated regression checks are in
+   `a8a8c66`. Carry this reviewed branch forward; do not redo these changes from
+   an older chat. No private cutover or full database acceptance has happened.
+2. **Next gate — verify WORK:** use [OTHER-PC-AUDIT.md](OTHER-PC-AUDIT.md) in
+   Codex on that PC. Inspect its active fresh clone, local role, migration
+   ledger, live counts, network access and backup. Establish the source version
+   before integrating this branch. A stale shared snapshot is not enough.
    Test server startup after reboot and with internet disconnected on each PC.
-3. **Onboard one colleague:** activate the documented boundary and complete
+3. **Prove the handover:** preserve both live copies, rehearse a backup restore,
+   then use a fresh snapshot, complete transport, compare, exact acceptance and
+   destination fingerprint verification during agreed downtime. Reverse after
+   a deliberate small edit. Any independent destination work stops replacement
+   until a human resolves it. Only then adopt this as the daily shift routine.
+4. **Onboard one colleague:** activate the documented boundary and complete
    checklist → schedule → refresh with two distinct identities. Own edits must
    persist; another colleague's writes must fail; cross-cabinet conflicts must
    remain visible. Then onboard the rest.
-4. **Private cutover:** follow the ordered hosting checklist above; verify a
+5. **Private cutover:** follow the ordered hosting checklist above; verify a
    colleague can work while the old public site is unavailable.
-5. **Handover rehearsal:** fresh snapshot, complete transport, compare, exact
-   acceptance, destination fingerprint verification, then reverse after a
-   deliberate small edit. Do this with preserved backups and agreed downtime.
 6. **Next UX pass:** test real tasks with a colleague before a visual redesign.
    Focus on finding the list, unscheduled pupils, visible save feedback and
    recovery after refusal. Keep school setup secondary and diagnostic tools out
