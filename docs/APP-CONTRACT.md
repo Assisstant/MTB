@@ -48,8 +48,12 @@ began with a screen growing a second purpose.
   unified payload (see `docs/PLAN-rasporedot-i-nedelata.md`).
 
 - **`Podatoci.html` is who exists this year** — pupils, teachers, therapists,
-  classes, categories, and the caseload links. Every other screen derives from it
-  and none of them writes a person.
+  classes, categories, and annual enrolment. Every other screen derives its
+  people from it and none of them writes a person. Annual therapist–pupil
+  caseload links are one shared database relationship: `Podatoci.html` provides
+  the administrator's view, and `RasporediFusion.html` lets therapists choose
+  their own pupils through the same row-level API. Choosing an existing pupil
+  for a caseload does not create, enrol or archive that person.
 
 - **`AkciskiPlan.html` is the pupil's development record** — the prescribed
   евидентен лист and the quarterly action plan, one screen because they are one

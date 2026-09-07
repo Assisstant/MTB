@@ -1,11 +1,10 @@
 /**
  * sync-peer — carry state between two machines that each run their own database.
  *
- * The apps are used in one place at a time (work, then home, then work), never
- * in two at once. That makes the direction of a sync decidable: whichever side
- * was updated later holds the work the other has not seen, and copying it over
- * loses nothing. This is NOT a merge and must never pretend to be one — if both
- * sides changed since they last agreed, the script refuses and says so.
+ * The legacy app states are used in one place at a time (work, then home,
+ * then work), never in two at once. Copy the side that changed since the last
+ * agreement; if both changed, refuse. Clocks are only a first-sync fallback.
+ * This carries app_state, not the complete database used by DB-first screens.
  *
  *   npm run sync -- --peer https://zenpc-1.tailXXXX.ts.net           dry run
  *   npm run sync -- --peer https://zenpc-1.tailXXXX.ts.net --apply   writes
@@ -28,6 +27,7 @@ type State = {
 };
 
 type Side = { label: string; url: string; state: State | null };
+type SyncResult = 'changed' | 'planned' | 'unchanged' | 'refused' | 'failed';
 
 const args = process.argv.slice(2);
 
@@ -223,16 +223,13 @@ function mailboxRead(app: string, peerName: string | null): State | null {
     try {
         env = JSON.parse(readFileSync(file, 'utf8')) as Envelope;
     } catch {
-        console.log(`   ! ${peerName}/${app}.json is not readable yet (still syncing?) - skipped`);
-        return null;
+        throw new Error(`${peerName}/${app}.json is not readable yet (still syncing?) - retry after the mailbox is available`);
     }
     if (!env || typeof env !== 'object' || !env.payload) {
-        console.log(`   ! ${peerName}/${app}.json has no payload - skipped`);
-        return null;
+        throw new Error(`${peerName}/${app}.json has no payload - wait for a complete mailbox file`);
     }
     if (env.hash && env.hash !== hash(env.payload)) {
-        console.log(`   ! ${peerName}/${app}.json is incomplete (hash does not match) - skipped`);
-        return null;
+        throw new Error(`${peerName}/${app}.json is incomplete (hash does not match) - wait for a complete mailbox file`);
     }
     return {
         app,
@@ -389,7 +386,7 @@ function decide(local: Side, peer: Side, watermark: string | null): Plan {
     return { action: 'copy', from, to, reason };
 }
 
-async function syncApp(app: string, peerName: string | null): Promise<'changed' | 'planned' | 'unchanged' | 'refused'> {
+async function syncApp(app: string, peerName: string | null): Promise<SyncResult> {
     console.log(`\n--- ${app} ${'-'.repeat(Math.max(3, 44 - app.length))}`);
 
     // The watermark is per peer, and a mailbox peer is a different counterpart
@@ -405,6 +402,11 @@ async function syncApp(app: string, peerName: string | null): Promise<'changed' 
     const local: Side = { label: 'this machine', url: LOCAL, state: localState };
     const peer: Side = { label: peerLabel, url: PEER_URL, state: peerState };
     const watermark = await readWatermark(app, peerKey);
+    // A missing first publication is normal. A file disappearing after an
+    // agreement is not evidence that the peer has an empty state.
+    if (MODE === 'folder' && !peerState && watermark) {
+        throw new Error(`${peerLabel}/${app}.json is missing after a previous sync - check the mailbox and retry`);
+    }
 
     for (const side of [local, peer]) {
         if (side.state) {
@@ -551,13 +553,13 @@ async function main() {
     }
     console.log(APPLY ? 'mode         : APPLY (writes)' : 'mode         : dry run');
 
-    const results: string[] = [];
+    const results: SyncResult[] = [];
     for (const app of APPS) {
         try {
             results.push(await syncApp(app, peerName));
         } catch (err) {
-            console.log(`   ! ${app}: ${err instanceof Error ? err.message : String(err)}`);
-            results.push('refused');
+            console.log(`   ! FAILED: ${app}: ${err instanceof Error ? err.message : String(err)}`);
+            results.push('failed');
         }
     }
 
@@ -565,17 +567,23 @@ async function main() {
     const changed = results.filter((r) => r === 'changed').length;
     const planned = results.filter((r) => r === 'planned').length;
     const inSync = results.filter((r) => r === 'unchanged').length;
+    const failed = results.filter((r) => r === 'failed').length;
 
     console.log('\n' + '-'.repeat(49));
     if (APPLY) {
-        console.log(`${changed} synced, ${inSync} already in sync, ${refused} needing you`);
+        console.log(`${changed} synced, ${inSync} already in sync, ${refused} refused, ${failed} failed`);
     } else {
-        console.log(`${planned} would sync, ${inSync} already in sync, ${refused} needing you`);
-        if (planned > 0) console.log('Rerun with --apply to write.');
-        else if (refused === 0) console.log('Nothing would change.');
+        console.log(`${planned} would sync, ${inSync} already in sync, ${refused} refused, ${failed} failed`);
+        if (failed === 0 && refused === 0) {
+            if (planned > 0) console.log('Rerun with --apply to write.');
+            else console.log('Nothing would change.');
+        }
     }
+    if (failed > 0) console.log('Check the failed app reports, repair the server or mailbox problem, then rerun the report.');
     await pool.end();
-    process.exit(refused > 0 ? 2 : 0);
+    // Failure takes precedence even when a different app was refused or synced.
+    // Exit 2 means a completed safety decision, never a failed attempt to look.
+    process.exit(failed > 0 ? 1 : refused > 0 ? 2 : 0);
 }
 
 main().catch(async (err) => {

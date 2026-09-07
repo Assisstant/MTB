@@ -206,6 +206,75 @@ check('состојбата останува во ширината на теле
 check('и базата и податоците се видливи на телефон', phone.serverVisible && phone.dataVisible, JSON.stringify(phone));
 
 await mobile.close();
+
+console.log('\nlauncher — local database without Internet, explicit peer choice, and no-server recovery');
+const launcherContext = await browser.newContext();
+const alias = 'https://home-alias.fixture.ts.net';
+const peer = 'https://work.fixture.ts.net';
+await launcherContext.addInitScript(({ alias, peer }) => {
+    if (!localStorage.getItem('mtb_servers_v1')) {
+        localStorage.setItem('mtb_servers_v1', JSON.stringify([alias, peer]));
+    }
+}, { alias, peer });
+const launcher = await launcherContext.newPage();
+const launcherErrors = [];
+launcher.on('pageerror', (error) => launcherErrors.push(String(error)));
+let healthMode = 'local';
+let localProbes = 0;
+await launcher.route('**/api/health', (route) => {
+    const origin = new URL(route.request().url()).origin;
+    if (origin === new URL(BASE).origin) localProbes++;
+    if (healthMode === 'none' || (healthMode === 'local' && origin !== new URL(BASE).origin)) {
+        return route.abort('internetdisconnected');
+    }
+    return route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+            ok: true,
+            instance: origin === peer ? 'invented-work-instance' : 'invented-home-instance',
+            server: { label: origin === peer ? 'ПРОБНА РАБОТА' : 'ПРОБНА ДОМА' }
+        })
+    });
+});
+await launcher.goto(`${BASE}/start.html`);
+await launcher.waitForSelector('#apps:not(.hide)');
+check('local start finds its own API when every configured tailnet address is unreachable',
+    await launcher.locator('#apps a').count() === APPS.length && localProbes === 1);
+check('offline Internet access keeps app links on the local server',
+    (await launcher.locator('#apps a').evaluateAll((links) => links.map((link) => link.origin)))
+        .every((origin) => origin === new URL(BASE).origin));
+
+await launcher.evaluate(({ base, alias, peer }) => {
+    localStorage.setItem('mtb_servers_v1', JSON.stringify([base + '/', base, alias, peer]));
+    localStorage.removeItem('mtb_podatoci_server_v1');
+}, { base: BASE, alias, peer });
+healthMode = 'both';
+localProbes = 0;
+await launcher.reload();
+await launcher.waitForSelector('#extra a.app');
+check('local URL duplicates and a tailnet alias do not create an extra machine choice',
+    localProbes === 1 && await launcher.locator('#extra a.app').count() === 2);
+check('two independent databases require a choice before opening any application',
+    await launcher.locator('#apps').evaluate((box) => box.classList.contains('hide')) &&
+    await launcher.evaluate(() => localStorage.getItem('mtb_podatoci_server_v1')) === null);
+await launcher.getByRole('link', { name: /ПРОБНА РАБОТА/ }).click();
+check('an explicit peer choice is used by the app links',
+    await launcher.evaluate(() => localStorage.getItem('mtb_podatoci_server_v1')) === peer &&
+    (await launcher.locator('#apps a').evaluateAll((links) => links.map((link) => link.origin)))
+        .every((origin) => origin === peer));
+
+healthMode = 'none';
+await launcher.reload();
+await launcher.waitForSelector('#extra .apps a');
+check('with no API the launcher offers only the local-first diary',
+    JSON.stringify(await launcher.locator('#extra .apps a').evaluateAll((links) =>
+        links.map((link) => new URL(link.href).pathname.split('/').pop()))) === JSON.stringify(['S-Dnevnik.html']));
+check('the no-server path has no JavaScript error and never exposes the legacy schedule',
+    launcherErrors.length === 0 && await launcher.locator('a[href*="Rasporedi.html"]').count() === 0,
+    launcherErrors.join(' | '));
+await launcherContext.close();
+
 await browser.close();
 console.log(fails ? `\n${fails} failed` : '\nall good');
 process.exit(fails ? 1 : 0);

@@ -56,7 +56,7 @@ try {
     Pop-Location
 }
 
-# Exit codes from sync-peer.ts: 0 fine, 2 something needs a human, 1 failed.
+# Exit codes: 0 complete, 2 safety refusal, 1 operational failure (also in mixed results).
 if ($Quiet -and $code -eq 0) {
     # Nothing to say. Still leave a trail, so a silent week is provably silent.
     $log = Join-Path $root 'backups\sync-peer.log'
@@ -69,11 +69,11 @@ Write-Host $output
 
 if ($code -eq 2) {
     Write-Host ''
-    Write-Host 'The two machines have diverged and nothing was changed.' -ForegroundColor Yellow
-    Write-Host 'Read the report above, decide which side to keep, then rerun with -Force.' -ForegroundColor Yellow
+    Write-Host 'One or more app states were refused by a safety check.' -ForegroundColor Yellow
+    Write-Host 'Read each app report above before deciding how to resolve it; other apps may have synced.' -ForegroundColor Yellow
 } elseif ($code -ne 0) {
     Write-Host ''
-    Write-Host 'Sync failed. Is the other machine on, and is its server running?' -ForegroundColor Red
+    Write-Host 'Sync could not complete. Check the failed app reports and the local/peer server or mailbox, then rerun the report.' -ForegroundColor Red
 }
 
 exit $code

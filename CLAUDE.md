@@ -18,6 +18,15 @@ interface, navigation, schedule, server-selection, or sync behaviour. It is the
 short authoritative specification. In particular, extend
 `RasporediFusion.html` in place; never expose or create a second schedule app.
 
+Current private-access and two-PC work is tracked in
+[`docs/PLAN-private-mtb.md`](docs/PLAN-private-mtb.md). The user confirmed that
+both installations must work offline and colleagues normally share WORK during
+the shift; preserve the manual handover. Physical location does not change an
+installation's `SYNC_NAME`. On 7 September HOME was healthy and populated,
+while WORK's live reinstall remained unverified. The old automatic legacy
+import tasks on HOME were disabled with their definitions preserved locally;
+do not re-enable them as a substitute for verified manual snapshot acceptance.
+
 ## What this is
 
 One connected set of work screens used daily by a speech therapist, backed by
@@ -366,7 +375,7 @@ read `DATABASE_URL`; never add literal credentials to this public repository.
   from that clone can put the removed history back. The recovery bundle is
   local and gitignored; it must never be uploaded.
 
-- **`sync-peer` reports a failed fetch as a divergence, and then recommends
+- **`sync-peer` used to report a failed fetch as a divergence, then recommend
   `--force`.** The loop that runs each app is `try { … } catch { results.push('refused') }`
   — so a network error, a stopped local server or a missing mailbox file all
   land in the SAME bucket as "both sides changed, a human must decide". The
@@ -375,8 +384,12 @@ read `DATABASE_URL`; never add literal credentials to this public repository.
   In the one situation where it knows least, it points at the switch that turns
   the protections off. Seen on 31 Aug 2026: both apps answered `fetch failed`
   because the local server was down, and it was reported as a divergence. A
-  failure to LOOK is not a disagreement; it needs its own outcome, counted
-  apart, and must never advise forcing. Not yet fixed.
+  failure to LOOK is not a disagreement. Fixed on 7 September: operational
+  failures are counted separately and exit 1, safety refusals exit 2, and
+  failure takes precedence in mixed results. Corrupt or unexpectedly missing
+  mailbox files fail visibly. The wrapper no longer offers generic Force
+  advice or claims that nothing changed when another app may have synced.
+  Offline CLI and Windows PowerShell regression tests cover these outcomes.
 
 - **A queue in memory is not a queue.** Cells waiting to be sent lived in a
   plain array. The app said „промените чекаат", a refresh threw them away, and

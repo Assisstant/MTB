@@ -267,10 +267,11 @@ the practical version of that — the server comes up at logon on its own.
 
 ## Backups
 
-Weekly is enough now: the database is no longer the only copy. Every browser
-that opens the apps holds a full copy, and the two machines hold each other's.
-The weekly dump exists for the case where all of that is wrong in the same way —
-a bad import, a mistaken bulk edit — and you need to go back to a known week.
+The database-first screens do not keep a browser backup. The other PC may also
+be behind, so neither an open browser nor a peer's existence proves a current
+copy. Keep the scheduled weekly dump and create a fresh verified snapshot before
+each manual machine handover; choose additional backup frequency according to
+how much work you can afford to re-enter. See `docs/MANUAL-DB-SYNC.md`.
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File scripts\backup-db.ps1
@@ -279,6 +280,14 @@ powershell -ExecutionPolicy Bypass -File scripts\backup-db.ps1
 Fourteen dumps are kept by default.
 
 ## When something looks wrong
+
+**The script reports FAILED.** A server, mailbox or database operation could
+not complete. This is not proof that both sides changed. Repair the reported
+problem and rerun without `-Apply`; do not use `-Force` to fix connectivity.
+Exit 1 means operational failure, exit 2 means a safety refusal, and exit 0
+means the report/apply completed. Read each app's outcome: one app may have
+synced before another failed. The legacy script still carries only app state,
+not the complete relational database.
 
 **A device shows old data.** Look at the chip. If it is ⚪, the server is not
 reachable from there. If 🟢, that device really is in agreement with the server —

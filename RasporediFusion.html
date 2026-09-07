@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="theme-color" content="#1a1a2e">
-<title>Распоред 40 минути — MTB</title>
+<title>Распоред на кабинети — MTB</title>
 <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
@@ -206,6 +206,7 @@
     .view-tab:hover { color: #4c51bf; }
     .view-tab[aria-selected="true"] { color: #4c51bf; border-bottom-color: #667eea; }
     .view-tab:focus-visible { outline: 2px solid #667eea; outline-offset: -2px; }
+    .workflow-hint { margin: 12px 0 16px; color: #4a5568; font-size: 13px; line-height: 1.5; }
     body[data-panel="roster"] .schedule-only { display: none !important; }
     .workspace {
         width: 100%;
@@ -467,6 +468,7 @@
     body.dark-mode .content { background: #1a202c; }
     body.dark-mode .band { background: #2d3748; border-bottom-color: #4a5568; }
     body.dark-mode .view-tabs { border-bottom-color: #4a5568; }
+    body.dark-mode .workflow-hint { color: #cbd5e0; }
     body.dark-mode .view-tab { color: #a0aec0; }
     body.dark-mode .view-tab:hover, body.dark-mode .view-tab[aria-selected="true"] { color: #c7d2fe; }
     body.dark-mode .view-tab[aria-selected="true"] { border-bottom-color: #818cf8; }
@@ -582,7 +584,7 @@
         @page { size: landscape; margin: 9mm; }
         body { background: #fff; }
         .mtb-app-nav, .toolbar-band, .metrics-band, .day-tabs-band, .view-tabs, .roster-tool,
-        .notice, .busy-layer, .theme-switch-wrapper, .header-state, .credit-watermark, .modal-overlay { display: none !important; }
+        .notice, .busy-layer, .theme-switch-wrapper, .header-state, .credit-watermark, .modal-overlay, .workflow-hint { display: none !important; }
         .header { background: #fff; color: #000; padding: 6px 0; }
         .content { background: #fff; padding: 0; min-height: 0; }
         .workspace { display: block; }
@@ -594,8 +596,8 @@
 <body>
 <header class="header">
     <div>
-        <h1>Распоред 40 минути</h1>
-        <p>Терапевтски кабинети · тековна работна недела</p>
+        <h1>Распоред на кабинети</h1>
+        <p>Неделен план на термини за избраната учебна година</p>
     </div>
     <div class="header-right">
         <div class="user-badge" id="userBadge"></div>
@@ -663,6 +665,7 @@
         <button class="view-tab" id="rosterTab" type="button" role="tab" aria-selected="false"
             aria-controls="rosterPanel" data-panel="roster">Ученици по терапевт</button>
     </div>
+    <p class="workflow-hint">Избери ученици во „Ученици по терапевт“, па постави ги термините во „Распоред“.</p>
     <div class="workspace">
         <section class="schedule-tool" id="schedulePanel" role="tabpanel" aria-labelledby="scheduleTab scheduleTitle">
             <div class="section-header">
@@ -682,6 +685,7 @@
                 </div>
                 <button class="btn btn-primary" id="openCaseloadBtn" type="button">✓ Измени список (штиклирање)</button>
             </div>
+            <p class="workflow-hint">Овде го избираш списокот од веќе запишаните ученици. Нов ученик додава администраторот во „Податоци“.</p>
             <div class="roster-controls">
                 <label class="roster-field">
                     <span>Терапевт</span>
@@ -739,6 +743,7 @@
             <button type="button" class="btn-close" id="closeCaseloadModal" aria-label="Затвори">✕</button>
         </div>
         <div class="modal-body">
+            <p class="workflow-hint">Отштиклирањето го трга ученикот од овој список. Веќе закажаните термини се менуваат посебно во „Распоред“.</p>
             <div style="margin-bottom: 10px;">
                 <input id="caseloadSearch" type="search" placeholder="Пребарај ученик по име или одделение…"
                     style="width: 100%; padding: 8px 12px; border-radius: 6px; border: 1px solid var(--border, #cbd5e0); background: inherit; color: inherit; box-sizing: border-box;">
@@ -1928,7 +1933,7 @@
             html += '</tr>';
         });
         html += '</tbody></table>';
-        html += '<div class="footer">Распоред 40 минути · ' + new Date().toLocaleDateString('mk-MK') + '</div>';
+        html += '<div class="footer">Распоред на кабинети · ' + new Date().toLocaleDateString('mk-MK') + '</div>';
         html += '<scr' + 'ipt>window.onload=function(){window.print();}</scr' + 'ipt></body></html>';
         return html;
     }
@@ -2149,7 +2154,7 @@
         ctx.fillStyle = P.foot;
         ctx.font = '22px Arial';
         ctx.textAlign = 'left';
-        ctx.fillText('Распоред 40 минути · ' + new Date().toLocaleDateString('mk-MK'), M, footY);
+        ctx.fillText('Распоред на кабинети · ' + new Date().toLocaleDateString('mk-MK'), M, footY);
         if (weekly) {
             ctx.font = 'bold 22px Arial';
             ctx.textAlign = 'right';
@@ -2157,7 +2162,7 @@
         }
 
         const stamp = weekly ? therapists[0].name : capitalise(state.day);
-        const name = 'Raspored40_' + stamp.replace(/\s+/g, '_') + '_' +
+        const name = 'RasporedKabineti_' + stamp.replace(/\s+/g, '_') + '_' +
             String(state.year).replace(/\//g, '-') + '.jpg';
         canvas.toBlob((blob) => {
             if (!blob) {
@@ -2180,7 +2185,7 @@
         if (body && body.doubleBooked) return 'Ученикот веќе е закажан кај ' + body.therapistName + ' во истиот термин.';
         if (body && body.therapistOccupied) return 'Кабинетот веќе има сесија што се преклопува со овој термин.';
         if (body && body.blockOverlap) return 'Во часот има стар цел термин и половина во исто време. Исчисти ги означените записи поединечно.';
-        if (body && body.notInCaseload) return 'Ученикот не е во годишниот список на овој терапевт. Провери во Податоци.';
+        if (body && body.notInCaseload) return 'Ученикот не е во годишниот список на овој терапевт. Отвори „Ученици по терапевт“ → „Измени список (штиклирање)“.';
         if (error && error.status === 409 && body && Object.prototype.hasOwnProperty.call(body, 'actualStudentPublicId')) {
             return 'Терминот бил сменет од друг уред. Прикажана е состојбата од базата.';
         }
