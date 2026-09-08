@@ -18,6 +18,16 @@ interface, navigation, schedule, server-selection, or sync behaviour. It is the
 short authoritative specification. In particular, extend
 `RasporediFusion.html` in place; never expose or create a second schedule app.
 
+The owner's 8 September clarification is recorded in the contract's domain
+section. Read it before the historical notes below: external pupils can attend
+local preparatory/modified teaching; programmes, boarding and recommendations
+are distinct facts; not every professional associate provides treatments;
+simultaneous groups are distinct from consecutive 20-minute sessions. Preserve
+the tested personal S-Dnevnik. The shared annual list is administered in
+Podatoci; the diary archive's remaining global-retirement coupling is a known
+integration gap, not authority to make the personal diary the school register.
+README.md is the short user-facing map; this file is technical history.
+
 Current private-access and two-PC work is tracked in
 [`docs/PLAN-private-mtb.md`](docs/PLAN-private-mtb.md). The user confirmed that
 both installations must work offline and colleagues normally share WORK during
@@ -104,10 +114,13 @@ deliberate selective path; exact full-snapshot acceptance is the complete path.
    New fields are therefore ADDITIVE and optional — never required, never a
    rename, never a change of shape. `readArchive` tolerating an `_archived`
    without `reason` is the pattern to copy.
-5. **One owner per fact.** A fact that two components each decide is a fact
-   they will eventually disagree about. Student enrolment is owned by
-   S-Dnevnik's archive; the database and `rollover-year` read it. Before adding
-   a field, name its owner.
+5. **One owner per fact.** The shared annual school/service list is administered
+   in Podatoci; the therapist's annual caseload is a separate relationship;
+   the personal diary owns its records. Legacy S-Dnevnik archives still project
+   global retirement into the database. Preserve that compatibility until a
+   reviewed change separates personal archival from shared eligibility; do not
+   claim it is the intended school-enrolment owner. Before adding a field, name
+   its owner and account for the existing writer.
 6. **Real data stays local.** `backups/` is gitignored. Never commit exports,
    dumps or `.env`.
 
@@ -274,7 +287,8 @@ read `DATABASE_URL`; never add literal credentials to this public repository.
 - **Rasporedi must never delete a person from the database, and cannot.**
   Removing a student from its list means "not on my schedule", which is a
   different fact from "left the school": a child can be untimetabled for a term
-  and still be enrolled. Enrolment has one owner, S-Dnevnik's archive. So
+  and still be enrolled. Global retirement still follows the legacy diary
+  archive; shared annual membership is administered separately. So
   `roster-write.ts` has no DELETE at all — and the roster diff ignores whoever
   is absent locally rather than reporting it as a departure. It also refuses to
   re-activate: a browser that has not pulled still lists last year's roster, and
@@ -1064,8 +1078,9 @@ after a full editing session, because that is the claim most able to rot.
 
 What it will NOT do, and the reason each time:
 
-- **Archive or restore a student.** S-Dnevnik's archive owns who is enrolled
-  (rule 5). An archived child is SHOWN here, locked, with no save button —
+- **Archive or restore a student.** Global retirement still comes from the
+  legacy S-Dnevnik archive; this is separate from annual membership (rule 5).
+  An archived child is SHOWN here, locked, with no save button —
   hiding them would look like data loss and editing them would be a second
   owner.
 - **Add a student to a year that is over.** `POST /api/students` enrols into
@@ -1278,23 +1293,19 @@ spellings, one document, one page apart. Which is the whole argument for
 reporting every mismatch and merging none of them (rule 2), made by the source
 itself.
 
-#### Two kinds of teaching that are not a numbered class
+#### Teaching that is not a numbered class — clarified 8 September
 
-Told by the owner, and neither is in the model yet:
+The owner's clarification supersedes the earlier external-only assumption:
 
-- **Модифицирана програма** is a category of class in its own right. Teaching
-  happens there, but the children come from OTHER schools — they are not
-  enrolled internally and attend as service sessions.
+- **Модифицирана програма** can serve internal pupils or external pupils from
+  other schools. The programme is not another internal/external category.
 - **Предшколско / подготвително** is also teaching, with its own teacher.
 
-This contradicts something the crossing currently assumes. `kind = 'external'`
-was introduced to mean "belongs to no class and attends no lessons", and
-`/api/teaching/crossing` reports those children in a calm panel saying exactly
-that. A child in модифицирана програма is external by enrolment and **does**
-have lessons, so a therapy session that collides with their teaching is
-invisible today — reported as "attends no lessons" rather than as a clash.
-Nothing has been changed for it yet; the fix is a class whose kind is not a
-numbered grade, and it needs the lesson model that holds several classes.
+The existing crossing already uses an assigned class before checking `kind`.
+The actual blocker was the write/UI paths forcing an external pupil's class
+to null. Those paths now preserve explicit class/group assignment. The external
+panel reports missing assignment, not a fact that the pupil attends no lessons.
+Structured programme membership and recommendation renewal remain unimplemented.
 
 #### How the school names a class, and what that costs
 
@@ -1482,11 +1493,10 @@ The model that fixes all of it is one lesson holding several TEACHERS and, for
 owner said the current timetable is a placeholder to be rebuilt from the new
 teacher↔class mapping, so nothing was spent collapsing the existing rows.
 
-### A child with no class is two different things
+### Historical migration 017 assumptions — corrected 8 September
 
-The school keeps three lists, not one: интерни ученици (grouped by class and
-numbered within it), the интернатски children inside that list, and екстерни
-ученици — children who belong to no class at all and come in only for therapy.
+The legacy annual labels are интерни, интернатски and екстерни. External
+does not mean therapy-only: preparatory and modified teaching may apply too.
 
 Nothing recorded which was which, so an external child was simply a student
 with no class — indistinguishable from an internal child whose class nobody
@@ -1508,10 +1518,10 @@ are rather than what is missing. **The class still decides placement; the kind
 only decides how a MISSING class is reported** — so correcting somebody's kind
 can never change a number that was already right.
 
-The backfill reads the existing data rather than guessing about people: a child
-with no class in a year is external, which is exactly what the school's own two
-lists mean. An internal child who really is missing a class is then the case
-somebody corrects — they set the kind back and type the class in.
+Migration 017 historically inferred external status from a missing class.
+That inference is not a valid classification rule under the clarified domain.
+Do not rerun or rewrite the migration as a cleanup, or guess corrections from
+name suffixes. Review existing assignments locally before any data correction.
 
 ### The setup script asked for a password nobody has
 

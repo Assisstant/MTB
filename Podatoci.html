@@ -336,11 +336,12 @@
                 </select>
             </label>
             <label class="field">
-                <span>Одделение</span>
+                <span>Одделение / група</span>
                 <select id="newStudentClass"></select>
             </label>
             <button class="btn" id="addStudent">+ Додај</button>
         </div>
+        <p class="hint">Екстерен ученик може да посетува подготвителна или модифицирана настава кај нас. Избери го неговото одделение/група; остави празно ако доаѓа само на третмани.</p>
         <div class="scroll"><div id="students"></div></div>
         <div class="suggestions" id="studentCandidates"></div>
     </div>
@@ -380,10 +381,11 @@
     </div>
 
     <div class="panel tab" id="tab-therapists">
-        <h2>Терапевти (кабинети)</h2>
+        <h2>Терапевти</h2>
         <p class="hint">
-            Секој терапевт е еден кабинет. „Ученици" е кого го работи — тоа е списокот од кој
-            Распореди нуди имиња кога се составува неделата.
+            Овде администраторот го уредува годишниот список на терапевти и нивните доделени ученици.
+            Колегата го избира сопствениот список во „Распоред на кабинети“ → „Ученици по терапевт“.
+            Терапевтот е лице; стручниот профил и просторијата се посебни податоци.
         </p>
         <div class="annual-bar">
             <strong id="therapistYearCount"></strong>
@@ -776,11 +778,8 @@
         ...(((data.candidates || {}).classes || []).map((c) => c.label))
     ]));
 
-    /**
-     * Three values, not two flags. „Интернатски" is a boarding child, who is
-     * by definition also internal; a boarding EXTERNAL child is not a thing.
-     * One list to pick from beats two checkboxes with an impossible pair.
-     */
+    // Legacy annual list labels. They do not determine teaching participation:
+    // an external pupil can also have a local preparatory/modified class.
     const KINDS = [
         ['internal', 'интерен'],
         ['boarding', 'интернатски'],
@@ -795,6 +794,7 @@
         drawClasses();
         drawAnnualControls();
         fillClassSelect(el('newStudentClass'));
+        syncNewStudentKind();
         // Adding a person enrols them in the CURRENT year; there is no honest
         // meaning for "add a student to a year that is over.
         const archived = !data.isCurrentYear;
@@ -988,15 +988,6 @@
         target.querySelector('[data-select-all]').addEventListener('change', (event) => {
             target.querySelectorAll('[data-candidate-id]').forEach((checkbox) => { checkbox.checked = event.target.checked; });
         });
-        target.querySelectorAll('[data-candidate-kind]').forEach((select) => {
-            const sync = () => {
-                const grade = select.closest('[data-candidate-row]').querySelector('[data-candidate-grade]');
-                grade.disabled = select.value === 'external';
-                if (grade.disabled) grade.value = '';
-            };
-            select.addEventListener('change', sync);
-            sync();
-        });
         target.querySelector('[data-add-candidates]').addEventListener('click', async () => {
             const members = Array.from(target.querySelectorAll('[data-candidate-row]'))
                 .filter((row) => row.querySelector('[data-candidate-id]').checked)
@@ -1040,7 +1031,7 @@
         }
         el('students').innerHTML =
             '<table class="list"><thead><tr><th class="row-number">Р.Бр.</th><th>Име</th><th style="width:150px;">Категорија</th>'
-            + '<th style="width:160px;">Одделение</th><th>Терапевти</th><th></th></tr></thead><tbody>'
+            + '<th style="width:160px;">Одделение / група</th><th>Терапевти</th><th></th></tr></thead><tbody>'
             + rows.map((s, index) =>
                 `<tr data-student="${esc(s.public_id)}"${s.active ? '' : ' class="archived"'}>`
                 + `<td class="row-number">${index + 1}.</td>`
@@ -1084,7 +1075,7 @@
             const answer = await api('PATCH', '/api/students/' + encodeURIComponent(publicId), {
                 name: personName(row.querySelector('.s-name').value),
                 kind,
-                grade: kind === 'external' ? null : (tidy(row.querySelector('.s-grade').value) || null),
+                grade: tidy(row.querySelector('.s-grade').value) || null,
                 year: data.year,
                 // What this tab believed the name was. A second machine that
                 // renamed the child in the meantime must not be undone.
@@ -1497,9 +1488,7 @@
     }
 
     function syncNewStudentKind() {
-        const external = el('newStudentKind').value === 'external';
-        el('newStudentClass').disabled = external;
-        if (external) el('newStudentClass').value = '';
+        el('newStudentClass').disabled = !data || !data.isCurrentYear;
     }
 
     function syncTeacherSubject(row) {
@@ -1516,10 +1505,8 @@
     }
 
     function syncStudentKind(row) {
-        const external = row.querySelector('.s-kind').value === 'external';
         const grade = row.querySelector('.s-grade');
-        grade.disabled = external || row.classList.contains('archived');
-        if (external) grade.value = '';
+        grade.disabled = row.classList.contains('archived');
     }
 
     function setTab(next) {
@@ -1575,7 +1562,7 @@
                 name,
                 kind,
                 year: data ? data.year : undefined,
-                grade: kind === 'external' ? null : (tidy(el('newStudentClass').value) || null)
+                grade: tidy(el('newStudentClass').value) || null
             });
             el('newStudent').value = '';
             el('newStudentKind').value = 'internal';

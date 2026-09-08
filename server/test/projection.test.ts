@@ -56,10 +56,15 @@ before(async () => {
 
     // Every connection used by projectPayload resolves unqualified table names
     // inside the disposable schema, never in therapy_dev.public.
-    pool = new pg.Pool({
-        connectionString: TEST_URL,
-        options: `-c search_path=${TEST_SCHEMA}`
-    });
+    // pg gives connection-string options precedence over Pool.options. When
+    // a caller already isolates its URL, our override must live in that URL
+    // too, otherwise migrations run against the caller's existing tables.
+    const isolatedUrl = new URL(TEST_URL);
+    const inherited = isolatedUrl.searchParams.get('options') || '';
+    isolatedUrl.searchParams.set('options', `${inherited} -c search_path=${TEST_SCHEMA}`.trim());
+    pool = new pg.Pool({ connectionString: isolatedUrl.href });
+    assert.equal((await db().query('SELECT current_schema() AS name')).rows[0].name, TEST_SCHEMA,
+        'refuse migrations outside the projection test schema');
     for (const file of readdirSync(migrationsDir).filter((f) => f.endsWith('.sql')).sort()) {
         await db().query(readFileSync(resolve(migrationsDir, file), 'utf8'));
     }

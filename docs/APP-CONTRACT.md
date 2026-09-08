@@ -25,6 +25,47 @@ but it must not present parallel versions of the same task.
   is database-first and keeps no copy of a record in the browser; do not add a
   second page or a local fallback for either document.
 
+## Domain clarified by the owner — 8 September 2026
+
+S-Dnevnik grew from practical personal tools and already covers the owner's
+daily schedule, attendance, completed work, pupils, tests and dossiers. Preserve
+that tested workflow and its offline/export compatibility. The newer shared
+screens solve the points where colleagues' work meets; integrating the diary
+with PostgreSQL is not permission to rebuild its clinical workflow.
+
+Keep these facts distinct:
+
+| Fact | Meaning and owner |
+|---|---|
+| Permanent pupil identity | One shared directory entry; a new year or changed name does not create a new person. |
+| Annual school/service membership | The reviewed list for this year, administered in Podatoci. Includes continuing/new pupils and continued/new/ended access to services; last year's presence is not proof of renewed recommendation. |
+| Internal/external enrolment and boarding | An internal pupil may attend daily or board. An external pupil may attend another school and receive services here. The current three-value `kind` is a compatibility encoding, not a complete programme model. |
+| Teaching participation | Ordinary teaching, preparatory group or modified programme, independently of internal/external status. Modified teaching can serve internal or external pupils. Assign the local class/group explicitly when teaching happens here; leave it empty for therapy-only pupils. |
+| Annual therapist caseload | Which existing pupils a colleague works with, selected in Fusion from the shared annual list. This is not school enrolment, a recommendation renewal or a personal diary archive. |
+| Staff role, profession and activity | Teachers and professional associates have different duties. Special educator, psychologist or pedagogue is not a room or proof that someone delivers pupil treatments. Teaching assignments, individual/group/parent work and administrative responsibilities must not be inferred from the job title alone. |
+| Planned treatment and actual work | Fusion owns the recurring shared plan and pupil/time conflicts; S-Dnevnik owns the personal dated record. Nastava predicts overlap with planned teaching, not actual attendance or observed location. |
+
+Implementation limits must remain explicit. There is currently one text
+class/group assignment per pupil/year, not a structured list of teaching
+programmes or a recommendation lifecycle. Do not infer those fields from name
+suffixes, missing grade, or `kind`, and do not edit migration 017 to reclassify
+existing data. Introduce any future representation additively after reviewing
+the existing records locally.
+
+Personal archiving and shared eligibility still have a legacy coupling:
+S-Dnevnik's explicit archive projects to global `students.active`, which can
+hide the pupil from the shared current roster. Annual membership is separately
+stored in `student_enrollments.active`. This is a remaining integration task,
+not a claim that the owners are already fully separated. Preserve the diary
+and its compatibility path until a reviewed migration/projection change can
+separate these meanings without reviving retired pupils or losing history.
+
+Simultaneous group treatment is a real requirement, distinct from two
+successive 20-minute sessions. It is not supported by the current slot model.
+Parent work is not an empty pupil slot. Both need an explicit activity and
+participant model, preserving each pupil's conflict checks and legacy exports;
+do not simulate them by weakening therapist overlap constraints.
+
 ## What each application is FOR, and what it must refuse to become
 
 The rules above say which file owns what. These say why each exists. The second
@@ -41,9 +82,10 @@ began with a screen growing a second purpose.
   diary, and history.
 
 - **`S-Dnevnik.html` is one therapist's personal tool.** It solves that person's
-  work and is not repurposed for another cabinet. It owns what HAPPENED; it reads
-  the shared facts and owns none of them. Its holiday and working-day logic is
-  its own and stays there. It must refuse to become a second writer of anything
+  work and is not repurposed for another cabinet. It owns what HAPPENED. Its
+  target role is to read shared facts; the archive coupling above still needs
+  separation. Its holiday and working-day logic is its own and stays there.
+  It must refuse to become a second writer of anything
   shared -- above all the schedule. Whole-document projection leaves the current
   year's schedule untouched when `slotWrites` is set or any existing slot has
   `source = 'api'`. Legacy document-owned schedules retain their compatibility
@@ -51,7 +93,8 @@ began with a screen growing a second purpose.
 
 - **`Podatoci.html` is who exists this year** — pupils, teachers, therapists,
   classes, categories, and annual enrolment. Every other screen derives its
-  people from it and none of them writes a person. Annual therapist–pupil
+  people from it; new shared person-editing flows belong here. The diary's
+  existing compatibility import/projection remains supported. Annual therapist–pupil
   caseload links are one shared database relationship: `Podatoci.html` provides
   the administrator's view, and `RasporediFusion.html` lets therapists choose
   their own pupils through the same row-level API. Choosing an existing pupil

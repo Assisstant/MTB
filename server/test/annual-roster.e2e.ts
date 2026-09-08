@@ -104,6 +104,32 @@ async function run() {
         [oldRoster.students.length, oldRoster.teachers.length, oldRoster.therapists.length, oldRoster.classes.length],
         [1, 1, 1, 1]);
 
+    console.log('\nexternal membership keeps its independently assigned class or group');
+    const selectStudent = (year: string, member: Record<string, unknown>) => api('PUT', '/api/roster/memberships', {
+        year, entity: 'student', active: true, members: [{ id: TAG, ...member }]
+    });
+    const enrollment = async (yearId: number) => (await q(
+        'SELECT grade, kind FROM student_enrollments WHERE student_id = $1 AND school_year_id = $2',
+        [fixture.student.id, yearId]
+    ))[0];
+    let externalSelection = await selectStudent(NEW, { grade: 'Подготвителна-annual', kind: 'external' });
+    same('the external preparatory-group selection answers 200', externalSelection.status, 200);
+    same('the annual record keeps the group and the external kind', await enrollment(fixture.newYear.id),
+        { grade: 'Подготвителна-annual', kind: 'external' });
+    externalSelection = await selectStudent(NEW, { kind: 'external' });
+    same('reselecting without grade answers 200', externalSelection.status, 200);
+    same('an omitted group keeps the explicit assignment', (await enrollment(fixture.newYear.id)).grade, 'Подготвителна-annual');
+    externalSelection = await selectStudent(OLD, { kind: 'external' });
+    same('selecting an older year answers 200', externalSelection.status, 200);
+    same('an omitted older-year class is not replaced by the newest group', await enrollment(fixture.oldYear.id),
+        { grade: 'VIII-annual', kind: 'external' });
+    externalSelection = await selectStudent(NEW, { grade: null, kind: 'external' });
+    same('explicitly clearing the local group answers 200', externalSelection.status, 200);
+    same('therapy-only external membership may have no local class', await enrollment(fixture.newYear.id),
+        { grade: null, kind: 'external' });
+    await selectStudent(OLD, { grade: 'VIII-annual', kind: 'internal' });
+    await selectStudent(NEW, { grade: 'IX-annual', kind: 'internal' });
+
     console.log('\ncaseload links belong to the selected year');
     let result = await api(
         'PUT',

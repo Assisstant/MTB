@@ -206,7 +206,8 @@ body.dark .at tr.ev td{color:#a3b0f7;}
       <button class="pill" type="button" data-grade="7-9">VII-IX</button>
     </div>
     <div class="foot">
-      <button class="btn btn-sm btn-p" id="btnNewPupil">+ Нов ученик</button>
+      <a class="btn btn-sm" id="schoolDirectory" href="Podatoci.html" style="text-decoration:none;"
+         title="Администраторот ги додава учениците и го уредува училишниот список во Податоци">Училишен список · администратор</a>
       <button class="btn btn-sm" id="btnNewSheet" disabled>+ Отвори лист</button>
     </div>
     <div class="plist" id="plist"></div>
@@ -709,6 +710,14 @@ body.dark .at tr.ev td{color:#a3b0f7;}
     }
 
     // ── loading the year ─────────────────────────────────────────────────────
+    function updateDirectoryLink() {
+        // Follow the same selected server as this record and the shared bar.
+        // A directory visit must keep the year the person was working in.
+        const target = new URL('Podatoci.html', apiBase ? apiBase + '/' : window.location.href);
+        if (el('year').value) target.searchParams.set('year', el('year').value);
+        el('schoolDirectory').href = target.href;
+    }
+
     async function fillYears() {
         const select = el('year');
         if (select.options.length) return;
@@ -738,6 +747,7 @@ body.dark .at tr.ev td{color:#a3b0f7;}
                 el('gate').hidden = true;
             }
             await fillYears();
+            updateDirectoryLink();
             const query = '?year=' + encodeURIComponent(el('year').value);
             const [cat, list, categoryList] = await Promise.all([
                 api('GET', '/api/evidence/catalog' + query),
@@ -1899,24 +1909,6 @@ body.dark .at tr.ev td{color:#a3b0f7;}
     }
 
     // ── pupils and sheets ────────────────────────────────────────────────────
-    async function newPupil() {
-        const name = tidy(prompt('Име и презиме на ученикот:') || '');
-        if (!name) return;
-        const grade = tidy(prompt('Одделение/паралелка (пр. IV-а). Остави празно ако е екстерен:') || '');
-        try {
-            const created = await api('POST', '/api/students', {
-                name, grade: grade || null, year: el('year').value,
-                kind: grade ? 'internal' : 'external'
-            });
-            const publicId = created && (created.publicId
-                || (created.student && created.student.public_id));
-            if (publicId) await api('POST', '/api/evidence/sheet', { publicId, year: el('year').value });
-            await load();
-            if (publicId) await choosePupil(publicId);
-            toast('Ученикот е додаден');
-        } catch (err) { toast(err.message, true); }
-    }
-
     async function newSheet() {
         const publicId = el('btnNewSheet').dataset.id;
         if (!publicId) return;
@@ -2421,7 +2413,6 @@ body.dark .at tr.ev td{color:#a3b0f7;}
             const row = event.target.closest('.pupil');
             if (row) choosePupil(row.dataset.id);
         };
-        el('btnNewPupil').onclick = newPupil;
         el('btnNewSheet').onclick = newSheet;
         el('btnDocOne').onclick = printOne;
         el('btnDocAll').onclick = printAll;

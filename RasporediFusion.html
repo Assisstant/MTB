@@ -672,6 +672,7 @@
                 <h2 id="scheduleTitle">Распоред</h2>
                 <span id="scheduleMeta"></span>
             </div>
+            <p class="workflow-hint">Еден ученик: 40 минути. Со „+“ терминот се дели на два последователни третмани по 20 минути. Истовремен групен третман сè уште не може да се внесе.</p>
             <div class="scrollable-container" id="scheduleGrid">
                 <div class="empty-state">Се вчитува распоредот…</div>
             </div>
@@ -1672,8 +1673,8 @@
         if (index === 0 && selected && !showSecond) {
             action = '<button type="button" class="slot-action" data-add-second="true" ' +
                 'data-session-day="' + esc(day) + '" data-block-time="' + esc(block.fullTime) + '" ' +
-                'data-therapist-id="' + therapist.id + '" title="Додај втор ученик" ' +
-                (!mayEditTherapist(therapist.id) ? 'disabled ' : '') + 'aria-label="Додај втор ученик">+</button>';
+                'data-therapist-id="' + therapist.id + '" title="Подели на два термина по 20 минути" ' +
+                (!mayEditTherapist(therapist.id) ? 'disabled ' : '') + 'aria-label="Подели на два термина по 20 минути">+</button>';
         } else if (index === 1) {
             action = '<button type="button" class="slot-action remove" data-remove-second="true" ' +
                 'data-session-day="' + esc(day) + '" data-block-time="' + esc(block.fullTime) + '" ' +

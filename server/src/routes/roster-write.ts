@@ -52,8 +52,8 @@ const StudentPatch = z.object({
     year: z.string().min(1).max(64).optional(),
     /**
      * internal / boarding / external, for that year's enrolment. An external
-     * child belongs to no class and never will; recording it is what stops the
-     * crossing listing them for ever as a class somebody forgot to type in.
+     * pupil may also attend a local preparatory group or modified teaching;
+     * class/group assignment is independent and may be null for therapy only.
      */
     kind: z.enum(['internal', 'boarding', 'external']).optional()
 });
@@ -93,8 +93,8 @@ export async function rosterWriteRoutes(server: FastifyInstance) {
         const body = StudentBody.parse(req.body);
         const name = body.name.trim();
         const kind = body.kind ?? 'internal';
-        const grade = kind === 'external' ? null : asText(body.grade);
-        const explicitEnrollment = body.kind !== undefined || body.grade !== undefined;
+        const grade = asText(body.grade);
+        const explicitGrade = body.grade !== undefined;
         // The app computes this id the same way, byte for byte, so a student
         // created here and one created there converge on one row.
         const publicId = body.publicId?.trim() || stableStudentIdForName(name);
@@ -155,10 +155,10 @@ export async function rosterWriteRoutes(server: FastifyInstance) {
                  VALUES ($1, $2, $3)
                  ON CONFLICT (public_id) DO UPDATE
                  SET name = EXCLUDED.name,
-                     grade = COALESCE(EXCLUDED.grade, students.grade),
+                     grade = CASE WHEN $4::boolean THEN EXCLUDED.grade ELSE students.grade END,
                      updated_at = now()
                  RETURNING id, public_id, name, grade`,
-                [publicId, name, grade]
+                [publicId, name, grade, explicitGrade]
             );
 
             // Being on the roster is being enrolled this year — the same row
@@ -170,10 +170,10 @@ export async function rosterWriteRoutes(server: FastifyInstance) {
                      ON CONFLICT (student_id, school_year_id) DO UPDATE
                      SET grade = CASE WHEN $5::boolean
                                       THEN EXCLUDED.grade
-                                      ELSE COALESCE(EXCLUDED.grade, student_enrollments.grade)
+                                      ELSE student_enrollments.grade
                                  END,
                          kind = COALESCE($6::text, student_enrollments.kind)`,
-                    [rows[0].id, yid, grade, kind, explicitEnrollment, body.kind ?? null]
+                    [rows[0].id, yid, grade, kind, explicitGrade, body.kind ?? null]
                 );
             }
 
@@ -238,9 +238,7 @@ export async function rosterWriteRoutes(server: FastifyInstance) {
             }
 
             const name = body.name === undefined ? cur.rows[0].name : body.name.trim();
-            const grade = body.kind === 'external'
-                ? null
-                : (body.grade === undefined ? cur.rows[0].grade : asText(body.grade));
+            const grade = body.grade === undefined ? cur.rows[0].grade : asText(body.grade);
 
             const { rows } = await client.query(
                 `UPDATE students SET name = $2, grade = $3, updated_at = now()
@@ -260,10 +258,10 @@ export async function rosterWriteRoutes(server: FastifyInstance) {
             if (yid != null) {
                 const touched = await client.query(
                     `UPDATE student_enrollments
-                        SET grade = $3,
+                        SET grade = CASE WHEN $5::boolean THEN $3 ELSE grade END,
                             kind = COALESCE($4, kind)
                       WHERE student_id = $1 AND school_year_id = $2`,
-                    [cur.rows[0].id, yid, grade, body.kind ?? null]
+                    [cur.rows[0].id, yid, grade, body.kind ?? null, body.grade !== undefined]
                 );
                 enrolled = (touched.rowCount ?? 0) > 0;
             }

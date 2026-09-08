@@ -210,14 +210,27 @@ const run = async () => {
     await page.selectOption('#year', NEW_YEAR);
     await page.waitForTimeout(900);
     await page.selectOption(`${rowOf(`${TAG}-a`)} .s-kind`, 'external');
+    check('external pupils can keep their local teaching class',
+        await page.locator(`${rowOf(`${TAG}-a`)} .s-grade`).isEnabled());
+    checkEq('changing kind does not clear the chosen group',
+        await page.inputValue(`${rowOf(`${TAG}-a`)} .s-grade`), CLASS_C);
     await page.click(`${rowOf(`${TAG}-a`)} [data-save-student]`);
     await page.waitForTimeout(800);
     const kindIn = async (yearId, pid) => (await q(
         `SELECT e.kind FROM student_enrollments e JOIN students s ON s.id = e.student_id
           WHERE e.school_year_id = $1 AND s.public_id = $2`, [yearId, pid]))[0]?.kind ?? null;
     checkEq('this year says external', await kindIn(newYear.id, `${TAG}-a`), 'external');
-    checkEq('and an external child has no hidden class', await gradeIn(newYear.id, `${TAG}-a`), null);
+    checkEq('the external pupil retains the assigned class after saving', await gradeIn(newYear.id, `${TAG}-a`), CLASS_C);
     checkEq('last year is untouched by it', await kindIn(oldYear.id, `${TAG}-a`), 'internal');
+    await page.selectOption(`${rowOf(`${TAG}-a`)} .s-grade`, CLASS_B);
+    await page.click(`${rowOf(`${TAG}-a`)} [data-save-student]`);
+    await page.waitForTimeout(800);
+    checkEq('an external pupil can move to a different teaching group', await gradeIn(newYear.id, `${TAG}-a`), CLASS_B);
+    await page.selectOption(`${rowOf(`${TAG}-a`)} .s-grade`, '');
+    await page.click(`${rowOf(`${TAG}-a`)} [data-save-student]`);
+    await page.waitForTimeout(800);
+    checkEq('therapy-only pupils can explicitly have no local teaching group', await gradeIn(newYear.id, `${TAG}-a`), null);
+    checkEq('the previous year retains its own class throughout', await gradeIn(oldYear.id, `${TAG}-a`), CLASS_A);
     // He thinks of them as „екстерни", so that is what the search box takes.
     await page.fill('#studentSearch', 'екстерен');
     await page.waitForTimeout(300);

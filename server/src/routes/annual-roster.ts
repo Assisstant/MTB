@@ -42,13 +42,13 @@ async function setStudent(
         `SELECT e.grade, e.kind FROM student_enrollments e
          JOIN school_years y ON y.id = e.school_year_id
          WHERE e.student_id = $1
-         ORDER BY y.starts_on DESC, y.id DESC LIMIT 1`,
-        [rows[0].id]
+         ORDER BY (e.school_year_id = $2) DESC, y.starts_on DESC, y.id DESC LIMIT 1`,
+        [rows[0].id, yearId]
     )).rows[0] ?? {};
     const kind = member.kind ?? previous.kind ?? 'internal';
-    const grade = kind === 'external' ? null : (
-        member.grade !== undefined ? asText(member.grade) : asText(previous.grade)
-    );
+    // External describes enrolment, not whether the pupil attends a local
+    // preparatory group or modified teaching. Only an explicit null clears it.
+    const grade = member.grade !== undefined ? asText(member.grade) : asText(previous.grade);
     const result = await client.query(
         `INSERT INTO student_enrollments (student_id, school_year_id, grade, kind, active)
          VALUES ($1, $2, $3, $4, true)

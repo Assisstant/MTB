@@ -4,6 +4,69 @@ Decision and readiness note, 7 September 2026. This is the next-work plan, not
 evidence that private hosting, colleague enforcement or a database transfer has
 been activated. The product rules remain in [APP-CONTRACT.md](APP-CONTRACT.md).
 
+## Update from the owner's explanation — 8 September
+
+The personal S-Dnevnik is already useful and tested. Preserve its daily work
+while the newer shared screens are developed. The concise user map is now in
+[README.md](../README.md); the domain distinctions are in the existing
+[application contract](APP-CONTRACT.md#domain-clarified-by-the-owner--8-september-2026).
+
+Implemented locally from this explanation:
+
+- External pupils can retain an explicitly assigned local class/group in
+  Podatoci, creation/update APIs and annual reselection. Changing `kind` alone
+  no longer erases it; omission preserves the annual assignment and explicit
+  blank/null removes it. No migration or real pupil reclassification was run.
+- Teaching crossing already accepted external pupils with a class. Corrected
+  its misleading therapy-only explanation and verified that assigned external
+  pupils appear against their teaching. The view reports planned overlap,
+  never proof of actual attendance.
+- AkciskiPlan opens records for existing pupils. Its duplicate pupil-creation
+  flow is replaced by the administrator directory link, keeping server/year.
+- Fusion labels the split as consecutive 20-minute treatments and explicitly
+  states that simultaneous group treatment cannot yet be entered.
+
+Remaining domain work, in dependency order after the installation/handover gate:
+
+1. Separate personal diary archival from shared school/service eligibility.
+   The legacy projection still sets global `students.active`; annual membership
+   already has its own flag. Preserve records and compatibility, and test both
+   writers before changing either. This can affect who colleagues can select.
+2. Correct Nastava's identity and historical reads before calling it a complete
+   pupil-location tool: its aggregation still uses names, and global `active`
+   filters historical rows. Also, the teacher view can sum several classes but
+   open details for only the first. Use same-name and multi-class fixtures.
+3. Model annual teaching programmes and service recommendations independently
+   of `kind`, including continuing/new/ended eligibility. A prior-year suggestion
+   must not become evidence of renewal. Review actual labels locally; do not
+   infer them from a name or missing grade.
+4. Distinguish staff role/profile from treatment participation and room use.
+   Current roster reads include all active entries in the therapist directory;
+   zero sessions do not automatically hide administrative associates.
+5. Add explicit sessions/participants for simultaneous groups or parent work.
+   Preserve per-pupil time conflicts and old exports; 20 + 20 is sequential.
+
+PCW was awakened and reached over Tailscale during this session. Its private
+HTTPS and API ports refused connections, and no SSH/WinRM channel was available.
+Therefore network reachability is verified, but the installed API, current WORK
+database and pCloud receipt still need an on-PC diagnostic. Do not label them
+synchronized because Tailscale ping succeeds. No Windows access policy was changed.
+
+Validation for this update: typecheck; 100 unit tests; 610 checks across roster,
+annual roster, teaching API, Podatoci, Fusion API/browser, navigation, colleague
+authorization, evidence API/browser and Nastava browser suites. All used a
+disposable schema and separate API. Before/after content hashes for all 44
+public tables, plus sequence counters, are identical; the schema was removed.
+Evidence is local under ignored `backups/domain-qa/`.
+
+The initial unit run exposed a test-isolation defect: projection tests put
+their schema in Pool.options, but an inherited DATABASE_URL options parameter
+overrode it. Migrations reached the already-migrated disposable harness schema
+and stopped. The test now places its override in the URL and asserts the actual
+schema before any migration. Only the failing unit suite was rerun after that
+fix; it passed and the public-data proof remained unchanged. No application
+migration or data repair was needed.
+
 ## Reconciliation of the overlapping conversations
 
 The user shared the conversations to explain one connected, unfinished project,
