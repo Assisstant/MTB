@@ -46,11 +46,13 @@ Remaining domain work, in dependency order after the installation/handover gate:
 5. Add explicit sessions/participants for simultaneous groups or parent work.
    Preserve per-pupil time conflicts and old exports; 20 + 20 is sequential.
 
-PCW was awakened and reached over Tailscale during this session. Its private
-HTTPS and API ports refused connections, and no SSH/WinRM channel was available.
-Therefore network reachability is verified, but the installed API, current WORK
-database and pCloud receipt still need an on-PC diagnostic. Do not label them
-synchronized because Tailscale ping succeeds. No Windows access policy was changed.
+PCW's checksum-matched portable audit arrived through pCloud on 8 September.
+It reports logical role `work`, PostgreSQL 18.6, all 27 migrations, 43 known
+application tables, working Cyrillic comparisons and current year 2026/2027.
+Its checkout is at the cleaned base `7ad9cdf`, with one local changed/untracked
+path to preserve. Its API is stopped, no Therapy tasks are installed and
+Tailscale Serve is not configured. The network works; no SSH/WinRM command
+channel exists. A one-time command must therefore execute locally on PCW.
 
 The tested changes are committed locally as `3bbaac1`. HOME's verified API
 process was reloaded through its existing supervisor; localhost and private
@@ -58,16 +60,28 @@ HTTPS health respond, app pages return 200, and private paths remain 404.
 No GitHub push, WORK deployment, permission activation or snapshot acceptance
 has happened. HOME's full handover fingerprint still matches the baseline.
 
-The existing pCloud status checker verified both published snapshot checksums:
-HOME is still 5 September and WORK is still 2 September. Those readable old
-snapshots do not establish current two-PC equality. The portable
-[read-only audit](../scripts/audit-installation.ps1) was tested on HOME and
-copied with an identical checksum to `P:\MTB-sync\diagnostics\`. The user has
-the [one-command PCW step](OTHER-PC-AUDIT.md). Its returned report is the next
-gate: verify its script checksum, role, code version, live database and snapshot
-receipt before planning any replacement. The audit itself never imports or
-starts services, and cannot certify that a clone is post-rewrite from its HEAD
-alone. That ancestry check remains part of the WORK review.
+The owner has now explicitly selected **HOME as the source and authorized a
+complete PCW replacement**. Do not reopen data reconciliation: the owner will
+correct parsing mistakes manually. Retain PCW's automatic pre-import safety
+dump, accept the exact fresh HOME snapshot and verify the restored fingerprint.
+The fresh local snapshot is `home-2026-09-08-20-10-28-0d369154`, under ignored
+`backups/pcw-transfer/`; its table-and-sequence fingerprint still matches HOME's
+baseline. It must reach pCloud completely before PCW can accept it. Permission
+to upload the full clinical database to that external folder is separately
+pending automatic approval review. Do not confuse the old published snapshots
+or successful diagnostic transfer with a completed database replacement.
+
+The user's next UX direction is one connected workspace for **school lists,
+my pupils, cabinet timetable and teaching timetable**. Extend the existing
+Fusion entry point and reuse the existing APIs and fact owners; do not create
+another scheduling app or copy shared data into a new browser store. Carry the
+selected server/year/therapist through each step, put pupil selection beside
+the therapist's timetable, and expose teaching overlap from that timetable.
+Keep annual administration distinct within the workspace. Add correction
+previews for imports, incomplete class/programme assignments and possible
+duplicates; ambiguous people must remain separate until explicitly resolved.
+Preserve S-Dnevnik's tested personal workflow. This direction is agreed for the
+next implementation pass, not a claim that those screens are already merged.
 
 Validation for this update: typecheck; 100 unit tests; 610 checks across roster,
 annual roster, teaching API, Podatoci, Fusion API/browser, navigation, colleague
@@ -411,16 +425,16 @@ covered by a regression test. Verify code before reopening old proposed work.
    launcher, sync failure reporting and isolated regression checks are in
    `a8a8c66`. Carry this reviewed branch forward; do not redo these changes from
    an older chat. No private cutover or full database acceptance has happened.
-2. **Next gate — verify WORK:** use [OTHER-PC-AUDIT.md](OTHER-PC-AUDIT.md) in
-   Codex on that PC. Inspect its active fresh clone, local role, migration
-   ledger, live counts, network access and backup. Establish the source version
-   before integrating this branch. A stale shared snapshot is not enough.
-   Test server startup after reboot and with internet disconnected on each PC.
-3. **Prove the handover:** preserve both live copies, rehearse a backup restore,
-   then use a fresh snapshot, complete transport, compare, exact acceptance and
-   destination fingerprint verification during agreed downtime. Reverse after
-   a deliberate small edit. Any independent destination work stops replacement
-   until a human resolves it. Only then adopt this as the daily shift routine.
+2. **WORK audit received; deployment pending:** preserve the local changed
+   path, transport this reviewed branch from the matching cleaned base and
+   activate the local API, private Tailscale Serve and export-only backup tasks.
+   Use a local PCW command: Tailscale connectivity is not a remote shell.
+3. **Complete the authorized HOME-to-PCW replacement:** transport the fresh
+   exact snapshot, retain the automatic PCW safety dump, compare once, accept
+   and check the destination fingerprint. The owner selected HOME as the
+   source, so no further row-by-row reconciliation is needed for this transfer.
+   Do not repeat the full test suites. Reboot/offline checks and a later reverse
+   shift handover remain operational follow-up, not completed evidence.
 4. **Onboard one colleague:** activate the documented boundary and complete
    checklist → schedule → refresh with two distinct identities. Own edits must
    persist; another colleague's writes must fail; cross-cabinet conflicts must
