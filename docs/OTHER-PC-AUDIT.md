@@ -1,5 +1,28 @@
 # Continue on the reinstalled PC
 
+The portable [audit script](../scripts/audit-installation.ps1) can now collect
+the initial facts without opening another coding task. It is read-only except
+for one explicitly requested JSON report; it never starts services, imports,
+changes access settings or runs commands received from another machine.
+The report contains configuration-presence flags and aggregate hashes/counts,
+not passwords or pupil names. Snapshot metadata presence is not checksum proof.
+
+For PCW, after the reviewed script reaches the existing pCloud diagnostics
+folder, run this once in PowerShell on PCW:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File P:\MTB-sync\diagnostics\audit-installation.ps1 -OutputPath P:\MTB-sync\diagnostics\PCW-audit-2026-09-08.json
+```
+
+It only auto-selects a single recognized local checkout. If the report says
+`not_found_pass_RepoRoot` or `multiple_candidates_pass_RepoRoot`, supply that
+PC's actual `-RepoRoot` and choose a new report filename. Do not point it at
+another machine's repository or overwrite the first report. When pCloud has
+transferred the report, the coordinating task on HOME can read it directly.
+This is a diagnostic handoff, not a remote shell.
+
+For further local investigation:
+
 Open this PC's actual MTB checkout in a local Codex task. A permission in the
 other PC's conversation does not itself establish a remote shell here. The
 machine may be physically at home while still being the WORK installation.

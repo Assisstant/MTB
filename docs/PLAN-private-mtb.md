@@ -52,6 +52,23 @@ Therefore network reachability is verified, but the installed API, current WORK
 database and pCloud receipt still need an on-PC diagnostic. Do not label them
 synchronized because Tailscale ping succeeds. No Windows access policy was changed.
 
+The tested changes are committed locally as `3bbaac1`. HOME's verified API
+process was reloaded through its existing supervisor; localhost and private
+HTTPS health respond, app pages return 200, and private paths remain 404.
+No GitHub push, WORK deployment, permission activation or snapshot acceptance
+has happened. HOME's full handover fingerprint still matches the baseline.
+
+The existing pCloud status checker verified both published snapshot checksums:
+HOME is still 5 September and WORK is still 2 September. Those readable old
+snapshots do not establish current two-PC equality. The portable
+[read-only audit](../scripts/audit-installation.ps1) was tested on HOME and
+copied with an identical checksum to `P:\MTB-sync\diagnostics\`. The user has
+the [one-command PCW step](OTHER-PC-AUDIT.md). Its returned report is the next
+gate: verify its script checksum, role, code version, live database and snapshot
+receipt before planning any replacement. The audit itself never imports or
+starts services, and cannot certify that a clone is post-rewrite from its HEAD
+alone. That ancestry check remains part of the WORK review.
+
 Validation for this update: typecheck; 100 unit tests; 610 checks across roster,
 annual roster, teaching API, Podatoci, Fusion API/browser, navigation, colleague
 authorization, evidence API/browser and Nastava browser suites. All used a
