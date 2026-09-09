@@ -211,6 +211,7 @@
 
     let data = null;
     let selected = null;    // "класа|час", или "ден|класа|час" во неделниот приказ
+    let tipCell = null;     // ќелијата под покажувачот, за да се премести картичката
     let view = 'class';
     // Every request carries a number and only the newest one may draw. Without
     // this, changing the day while the first fetch is still running leaves the
@@ -346,6 +347,7 @@
 
     function draw() {
         if (!data) return;
+        hideTip();
         drawLegend();
         if (view === 'week') drawWeek();
         else if (view === 'class') drawByClass();
@@ -575,9 +577,28 @@
     }
 
     function hideTip() {
+        tipCell = null;
         const tip = el('tip');
         tip.style.display = 'none';
         tip.setAttribute('aria-hidden', 'true');
+    }
+
+    /**
+     * The card is `position: fixed`, so it must be told where its cell went.
+     * Hiding it on scroll instead READ as a bug: the weekly grid scrolls
+     * sideways, and the browser scrolls a cell into view AFTER the pointer
+     * reaches it — so the card appeared and vanished in the same breath.
+     * Measured in a browser; it is not a hypothetical.
+     */
+    function placeTip(td) {
+        const tip = el('tip');
+        const box = td.getBoundingClientRect();
+        if (!box.width || box.bottom < 0 || box.top > window.innerHeight) { hideTip(); return; }
+        const w = tip.offsetWidth, h = tip.offsetHeight;
+        // Below the cell by default, above it when the page has run out of room.
+        const top = box.bottom + 8 + h > window.innerHeight ? box.top - h - 8 : box.bottom + 8;
+        tip.style.top = Math.max(8, top) + 'px';
+        tip.style.left = Math.max(8, Math.min(box.left, window.innerWidth - w - 8)) + 'px';
     }
 
     function markSelected() {
@@ -685,15 +706,12 @@
         tip.innerHTML = html;
         tip.style.display = 'block';
         tip.setAttribute('aria-hidden', 'false');
-        const box = td.getBoundingClientRect();
-        const w = tip.offsetWidth, h = tip.offsetHeight;
-        // Below the cell by default, above it when the page has run out of room.
-        const top = box.bottom + 8 + h > window.innerHeight ? box.top - h - 8 : box.bottom + 8;
-        tip.style.top = Math.max(8, top) + 'px';
-        tip.style.left = Math.max(8, Math.min(box.left, window.innerWidth - w - 8)) + 'px';
+        tipCell = td;
+        placeTip(td);
     });
     el('grid').addEventListener('mouseleave', hideTip);
-    window.addEventListener('scroll', hideTip, true);
+    window.addEventListener('scroll', () => { if (tipCell) placeTip(tipCell); }, true);
+    window.addEventListener('resize', hideTip);
 
     load();
 })();

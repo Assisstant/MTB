@@ -2072,6 +2072,12 @@ project and cost something:
   staff room, where there is no hover at all, so the detail panel stays exactly
   as it was. The hover card is the quick look, and „Никој не е на третман" is
   printed as a real answer — a card that appears blank reads like a fault.
+  The card is `position: fixed`, and the first version HID it on scroll. That
+  read as a bug, and it was caught in a browser rather than by reasoning: the
+  weekly grid scrolls sideways, and a browser scrolls a cell into view AFTER
+  the pointer reaches it, so the card appeared and vanished in the same breath.
+  `placeTip` moves it with its cell instead, and `draw()` dismisses it, because
+  a redraw detaches the cell it is glued to.
 
 The day picker is disabled in this view rather than left live, because a day
 cannot be chosen for a week and a control that still moves suggests it filters
