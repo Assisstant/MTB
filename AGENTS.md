@@ -2040,6 +2040,16 @@ list was ever edited by hand keeps the old two and a code fix does not reach it.
 and it is per origin — the GitHub Pages copy and each tailnet copy have separate
 storage.
 
+**A copied timetable no longer decides who works here.** Copying a timetable
+activates the classes it proves are present, but stops inserting teachers into
+`teacher_years` for the target year. Instead it reports `offStaff` teachers who
+are on the copied lessons but absent from the target year's staff list. The
+timetable and crossing queries now return `teacherOnStaff` per lesson, and
+`Nastava.html` visibly marks a teacher who is not on this year's staff list
+(„не е на списокот оваа година") instead of hiding her or blanking the cell. A
+lesson genuinely has a teacher recorded, archived years must keep reading
+correctly, and a blank cell invites someone to type in a wrong teacher.
+
 ## State (5 Sep 2026)
 
 Branch `kolegi-pristap` now carries the complete opt-in colleague boundary and
@@ -2231,8 +2241,10 @@ to S-Dnevnik; annual operational inclusion belongs to Podatoci.
 Every operational read path now filters through the selected year's active
 memberships: Rasporedi hydration, schedule writes, teaching grids/crossing,
 stats and Podatoci itself. A stale whole-document save cannot silently reactivate
-someone removed from the year. Copying a teaching timetable activates the
-classes and teachers it proves are present in the target year.
+someone removed from the year. Copying a teaching timetable activates the classes
+it proves are present, but no longer activates teachers — it reports which
+teachers on the copied timetable are not on the target year's list, because a
+copy is last year's placeholder and annual staff membership is owned by Podatoci.
 
 The current 2026/2027 data was preserved by the migration: 82 students, 10
 therapists, 21 teachers and 18 classes. `test:annual-roster`, `test:podatoci`,
