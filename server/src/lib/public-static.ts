@@ -16,6 +16,7 @@ const PUBLIC_FILES = new Set([
     'BookmarksPlus.html',
     'ComuniBoard.html',
     'Dnevnik-Rasporedi-SafeSync.html',
+    'MTB-Workspace.html',
     'Nastava.html',
     'NastavaUredi.html',
     'Podatoci.html',
