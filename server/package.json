@@ -32,6 +32,7 @@
     "test:fusion": "tsx test/fusion-schedule.e2e.ts",
     "test:fusion-ui": "node test/fusion.browser.mjs",
     "test:navigation": "node test/app-navigation.browser.mjs",
+    "test:workspace": "node test/workspace.browser.mjs",
     "test:therapist-view": "node test/per-therapist-view.browser.mjs",
     "test:sdnevnik-compat": "node test/sdnevnik-compat.browser.mjs",
     "test:teaching": "tsx test/teaching.e2e.ts",

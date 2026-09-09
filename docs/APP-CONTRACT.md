@@ -108,6 +108,19 @@ began with a screen growing a second purpose.
 JavaScript. Its PostgreSQL API remains in `server/`; copying the appearance
 without that API layer is not a functional application.
 
+`MTB-Workspace.html` is the existing integrated layout shell. It embeds the
+canonical applications and uses the shared directory APIs; it introduces no
+second schedule or new owner of pupil facts. Its windows may dock, float,
+resize, overlap, maximize, hide and pin above other workspace windows. Pinning
+applies within this browser page, not above other operating-system apps.
+Changing a window's layout or returning to an already opened application must
+retain the same iframe/editor DOM and any unsaved input. Only window geometry
+and layout preferences may persist in the shell's layout storage. No pupil
+records or clinical drafts may enter that storage. Hidden windows remain
+reachable from the top bar, and layout controls must work at phone width and
+with a keyboard. `npm run test:workspace` verifies this with invented data and
+intercepted API requests.
+
 ## Required schedule behaviour
 
 The canonical schedule must retain all of these capabilities:

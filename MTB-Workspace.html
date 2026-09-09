@@ -7,11 +7,93 @@
 <style>
 :root{--bg:#121329;--panel:#1b1c39;--panel2:#222342;--line:#343659;--text:#f2f2fb;--muted:#a5a8c5;--accent:#7c6ff0;--accent2:#978df7;--ok:#4fc69d;--warn:#e8ad55;--danger:#f17888;--input:#171832}*{box-sizing:border-box}html,body{height:100%;margin:0}body{font-family:Inter,Segoe UI,system-ui,sans-serif;background:var(--bg);color:var(--text);overflow:hidden}#mtbAppNav{display:none!important}button,input,select{font:inherit}button{cursor:pointer}.workspace{height:100vh;display:grid;grid-template-rows:54px 1fr;min-width:0}.topbar{display:flex;align-items:center;gap:10px;padding:8px 12px;background:#17182f;border-bottom:1px solid var(--line)}.brand{font-weight:800;white-space:nowrap}.brand small{font-weight:600;color:var(--muted);margin-left:6px}.app-tabs{display:flex;gap:4px;overflow-x:auto;min-width:0;flex:1}.app-tabs button,.dir-tabs button,.soft,.primary,.danger{border:1px solid var(--line);border-radius:7px;background:var(--panel2);color:var(--text);padding:8px 10px;font-weight:700}.app-tabs button.active,.dir-tabs button.active{background:var(--accent);border-color:var(--accent2);color:#fff}.soft:hover,.app-tabs button:hover,.dir-tabs button:hover{border-color:#686b99}.primary{background:var(--accent);border-color:var(--accent2)}.danger{background:transparent;color:#ff9ba8;border-color:#8b4050}.compact{padding:6px 8px;font-size:12px}.year-wrap{display:flex;align-items:center;gap:6px;color:var(--muted);font-size:12px;white-space:nowrap}.year-wrap select{background:var(--input);border:1px solid var(--line);color:var(--text);border-radius:6px;padding:7px}.status{font-size:12px;color:var(--muted);max-width:280px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.status.ok{color:var(--ok)}.status.error{color:#ff9baa}.status.warn{color:var(--warn)}.main{display:grid;grid-template-columns:minmax(0,1fr) 640px;min-height:0}.main.panel-hidden{grid-template-columns:minmax(0,1fr) 0}.stage{position:relative;min-width:0;background:#0d0e20}.stage iframe{width:100%;height:100%;border:0;background:#fff}.directory{min-width:0;background:var(--panel);border-left:1px solid var(--line);display:grid;grid-template-rows:auto auto auto minmax(0,1fr);overflow:hidden}.main.panel-hidden .directory{display:none}.dir-head{display:flex;align-items:center;gap:8px;padding:10px 12px;border-bottom:1px solid var(--line)}.dir-head h2{font-size:15px;margin:0;flex:1}.dir-head span{font-size:11px;color:var(--muted)}.dir-tabs{display:flex;gap:5px;padding:8px 10px;border-bottom:1px solid var(--line)}.dir-tabs button{flex:1;padding:7px;font-size:12px}.tools{display:flex;gap:7px;padding:8px 10px;border-bottom:1px solid var(--line)}.tools input,.tools select,.editor input,.editor select{width:100%;background:var(--input);border:1px solid var(--line);border-radius:6px;color:var(--text);padding:8px}.tools input{flex:1}.tools select{width:150px}.directory-content{min-height:0;overflow:hidden}.split{height:100%;display:grid;grid-template-columns:42% 58%;min-height:0}.master{min-height:0;border-right:1px solid var(--line);display:grid;grid-template-rows:auto minmax(0,1fr)}.master-title,.editor-title{padding:9px 10px;font-size:12px;font-weight:800;color:#d7d8ea;border-bottom:1px solid var(--line)}.list{overflow:auto;min-height:0;padding:5px}.person{display:grid;grid-template-columns:24px minmax(0,1fr) auto;gap:6px;align-items:center;width:100%;border:1px solid transparent;border-radius:6px;background:transparent;color:var(--text);padding:7px;text-align:left}.person:hover{background:#242644}.person.active{background:#2b2d52;border-color:#615ba5}.person .num{font-size:11px;color:var(--muted);text-align:right}.person .name{min-width:0;font-size:12px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.person .meta{font-size:10px;color:var(--muted);white-space:nowrap}.editor{overflow:auto;min-height:0;padding:10px}.empty{color:var(--muted);font-size:13px;padding:22px;text-align:center}.field{display:grid;gap:5px;margin-bottom:10px}.field label,.section-label{font-size:11px;color:var(--muted);font-weight:700}.row{display:flex;gap:8px;align-items:center}.row>*{min-width:0}.actions{display:flex;gap:7px;flex-wrap:wrap;margin:10px 0 14px}.note{font-size:11px;color:var(--muted);line-height:1.45}.badge{display:inline-flex;padding:2px 6px;border-radius:999px;background:#30325a;color:#dfe0ff;font-size:10px}.class-grid{display:grid;grid-template-columns:1fr 1fr;gap:5px;max-height:250px;overflow:auto;padding:4px 0}.class-row{display:grid;grid-template-columns:18px 1fr 92px;gap:5px;align-items:center;background:#20213e;border:1px solid var(--line);border-radius:6px;padding:6px;font-size:11px}.class-row select{padding:5px;font-size:10px}.caseload{border-top:1px solid var(--line);margin-top:12px;padding-top:10px}.caseload-head{display:flex;align-items:center;gap:8px;margin-bottom:8px}.caseload-head b{font-size:12px;flex:1}.caseload-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;min-height:0}.pick-box{border:1px solid var(--line);border-radius:7px;background:#171832;display:grid;grid-template-rows:auto minmax(0,1fr);height:330px;overflow:hidden}.pick-head{padding:7px 8px;border-bottom:1px solid var(--line);font-size:11px;font-weight:800;display:flex;align-items:center;gap:6px}.pick-head input{min-width:0;flex:1;background:#121329;border:1px solid var(--line);color:var(--text);border-radius:5px;padding:5px}.pick-list{overflow:auto;padding:4px}.pick-row{display:grid;grid-template-columns:18px minmax(0,1fr) auto;gap:5px;align-items:center;padding:5px;border-radius:5px;font-size:11px}.pick-row:hover{background:#252744}.pick-row .pname{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.icon{border:0;background:transparent;color:#beb9ff;padding:2px 4px;font-weight:900}.icon:hover{color:#fff}.save-state{font-size:11px;min-height:16px;color:var(--muted)}.save-state.ok{color:var(--ok)}.save-state.error{color:#ff9baa}.back{display:none;margin-bottom:8px}.back.show{display:inline-flex}.panel-toggle{position:absolute;right:10px;top:10px;z-index:20;border:1px solid var(--line);background:#1b1c39;color:white;border-radius:6px;padding:6px 8px}.main:not(.panel-hidden) .panel-toggle{display:none}@media(max-width:1200px){.main{grid-template-columns:minmax(0,1fr) 520px}.split{grid-template-columns:38% 62%}}@media(max-width:900px){body{overflow:auto}.workspace{height:auto;min-height:100vh}.main{display:block}.stage{height:58vh}.directory{height:78vh;border-left:0;border-top:1px solid var(--line)}.main.panel-hidden .directory{display:none}.split{grid-template-columns:1fr}.master{max-height:240px;border-right:0;border-bottom:1px solid var(--line)}.caseload-grid{grid-template-columns:1fr}.pick-box{height:220px}.status{display:none}.year-wrap{margin-left:auto}}
 </style>
+<style>
+/* Windows retain their DOM when docked, floated or hidden so drafts stay put. */
+.workspace { height: 100dvh; grid-template-rows: auto minmax(0, 1fr); grid-template-columns: minmax(0, 1fr); }
+.topbar { min-height: 54px; min-width: 0; flex-wrap: wrap; }
+.app-tabs button { flex-shrink: 0; white-space: nowrap; }
+.main { --directory-width: 560px; display: block; position: relative; overflow: hidden; isolation: isolate; }
+.workspace-window { position: absolute; min-width: 0; min-height: 0; overflow: hidden; background: var(--panel); }
+.app-window { inset: 0 var(--directory-width) 0 0; display: grid; grid-template-rows: 38px minmax(0, 1fr); }
+.app-window iframe { display: block; width: 100%; height: 100%; min-height: 0; border: 0; background: #fff; }
+.directory { inset: 0 0 0 auto; width: var(--directory-width); height: auto; grid-template-rows: auto auto auto minmax(0, 1fr); }
+.directory .dir-head { display: grid; padding: 0; }
+.directory .dir-description { padding: 0 10px 8px; font-size: 11px; color: var(--muted); }
+.main.directory-undocked { --directory-width: 0px !important; }
+.main.panel-hidden { --directory-width: 0px !important; }
+.workspace-window[hidden] { display: none !important; }
+.window-titlebar { display: flex; align-items: center; gap: 8px; min-height: 38px; padding: 4px 6px 4px 12px; background: #242541; border-bottom: 1px solid var(--line); cursor: grab; touch-action: none; user-select: none; }
+.window-titlebar:active { cursor: grabbing; }
+.window-title { flex: 1; min-width: 0; font-size: 12px; font-weight: 750; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.window-title::before { content: '⠿'; color: var(--muted); margin-right: 7px; }
+.window-actions { display: flex; gap: 3px; flex: 0 0 auto; }
+.window-actions button { width: 29px; height: 28px; padding: 0; display: grid; place-items: center; border: 1px solid transparent; border-radius: 5px; color: var(--muted); background: transparent; }
+.window-actions svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; pointer-events: none; }
+.window-actions button:hover { background: #35365a; color: white; }
+button:focus-visible, .window-titlebar:focus-visible, #dockDivider:focus-visible, .resize-handle:focus-visible { outline: 2px solid var(--accent2); outline-offset: -2px; }
+.window-actions button[aria-pressed="true"] { color: #fff; background: #6256c0; }
+.workspace-window.is-focused > .window-titlebar, .workspace-window.is-focused > .dir-head > .window-titlebar { background: #303052; }
+.workspace-window[data-pinned="true"] .window-title::after { content: ' · Прикачено'; font-size: 10px; color: #bbb4ff; }
+.workspace-window[data-mode="floating"] { inset: auto; border: 1px solid #65618d; border-radius: 9px; box-shadow: 0 14px 48px #0008, 0 2px 8px #0005; }
+.workspace-window[data-mode="floating"].is-focused { border-color: var(--accent2); }
+.workspace-window[data-maximized="true"] { inset: 0 !important; width: auto !important; height: auto !important; border-radius: 0; }
+.directory { container: directory / inline-size; }
+@container directory (max-width: 510px) {
+  .split { grid-template-columns: 1fr; grid-template-rows: minmax(110px, 30%) minmax(0, 1fr); }
+  .master { max-height: none; border-right: 0; border-bottom: 1px solid var(--line); }
+  .caseload-grid { grid-template-columns: 1fr 1fr; }
+  .pick-box { height: 250px; }
+  .dir-description { display: none; }
+}
+#dockDivider { position: absolute; top: 0; bottom: 0; right: calc(var(--directory-width) - 4px); width: 8px; z-index: 3; cursor: col-resize; touch-action: none; }
+#dockDivider::after { content: ''; position: absolute; inset: 0 3px; background: var(--line); }
+#dockDivider:hover::after, #dockDivider:focus-visible::after { background: var(--accent2); }
+.main.directory-undocked #dockDivider, .main.panel-hidden #dockDivider { display: none; }
+.resize-handle { display: none; position: absolute; z-index: 5; padding: 0; border: 0; background: transparent; touch-action: none; }
+[data-mode="floating"]:not([data-maximized="true"]) > .resize-handle { display: block; }
+.resize-handle[data-edge="n"], .resize-handle[data-edge="s"] { left: 10px; right: 10px; height: 7px; cursor: ns-resize; }
+.resize-handle[data-edge="n"] { top: 0; } .resize-handle[data-edge="s"] { bottom: 0; }
+.resize-handle[data-edge="e"], .resize-handle[data-edge="w"] { top: 10px; bottom: 10px; width: 7px; cursor: ew-resize; }
+.resize-handle[data-edge="e"] { right: 0; } .resize-handle[data-edge="w"] { left: 0; }
+.resize-handle[data-edge="ne"], .resize-handle[data-edge="nw"], .resize-handle[data-edge="se"], .resize-handle[data-edge="sw"] { width: 13px; height: 13px; }
+.resize-handle[data-edge="ne"] { right: 0; top: 0; cursor: nesw-resize; }
+.resize-handle[data-edge="nw"] { left: 0; top: 0; cursor: nwse-resize; }
+.resize-handle[data-edge="se"] { right: 0; bottom: 0; cursor: nwse-resize; border-right: 3px solid var(--accent2); border-bottom: 3px solid var(--accent2); border-radius: 0 0 7px; }
+.resize-handle[data-edge="sw"] { left: 0; bottom: 0; cursor: nesw-resize; }
+.main.is-arranging iframe { pointer-events: none; }
+.main.is-arranging { user-select: none; }
+.app-tabs button.is-open::after { content: ''; display: inline-block; width: 4px; height: 4px; border-radius: 50%; background: currentColor; margin-left: 5px; vertical-align: middle; }
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+@media (max-width: 1450px) { .brand small, .status { display: none; } }
+@media (max-width: 700px) {
+  body { overflow: hidden; }
+  .workspace { height: 100dvh; min-height: 0; }
+  .topbar { gap: 6px; padding: 6px; }
+  .brand { font-size: 13px; }
+  .app-tabs { order: 2; flex-basis: 100%; }
+  .app-tabs button { flex-shrink: 0; font-size: 12px; }
+  .year-wrap { margin-left: auto; }
+  .year-wrap > span { display: none; }
+  .main { --directory-width: 0px !important; }
+  .directory { inset: 0; width: 100%; border-left: 0; border-top: 0; }
+  #dockDivider { display: none; }
+  .window-actions button { width: 28px; }
+  .directory .dir-description { display: none; }
+  .split { grid-template-columns: 1fr; grid-template-rows: minmax(110px, 30%) minmax(0, 1fr); }
+  .master { max-height: none; }
+  .caseload-grid { grid-template-columns: 1fr 1fr; }
+  .pick-box { height: 220px; }
+  #resetLayout { font-size: 0; }
+  #resetLayout::before { content: '▥'; font-size: 16px; }
+}
+</style>
 </head>
 <body>
 <div class="workspace">
-<header class="topbar"><div class="brand">MTB <small>работен простор</small></div><div class="app-tabs" id="appTabs"><button data-app="RasporediFusion.html" class="active">Распоред</button><button data-app="NastavaUredi.html">Настава</button><button data-app="AkciskiPlan.html">Евидентен лист</button><button data-app="S-Dnevnik.html">S-Дневник</button><button data-app="Pregled-Baza.html">Преглед база</button></div><div class="year-wrap"><span>Година</span><select id="year"></select></div><button class="soft compact" id="refresh">↻</button><div class="status" id="status">Се поврзувам…</div><button class="soft compact" id="hidePanel">Скриј податоци</button></header>
-<div class="main" id="main"><section class="stage"><button class="panel-toggle" id="showPanel">Податоци</button><iframe id="appFrame" src="RasporediFusion.html" title="MTB апликација"></iframe></section><aside class="directory" aria-label="Заеднички податоци"><div class="dir-head"><div><h2>Заеднички податоци</h2><span>истата PostgreSQL база · уредување без напуштање на работата</span></div></div><div class="dir-tabs" id="dirTabs"><button data-dir="students" class="active">Ученици</button><button data-dir="teachers">Наставници</button><button data-dir="therapists">Стручни / терапевти</button></div><div class="tools"><input id="search" type="search" placeholder="Пребарај…"><select id="kindFilter"><option value="">Сите</option><option value="internal">Интерни</option><option value="boarding">Интернатски</option><option value="external">Екстерни</option></select></div><div class="directory-content" id="content"></div></aside></div>
+<header class="topbar"><div class="brand">MTB <small>работен простор</small></div><div class="app-tabs" id="appTabs"><button data-app="RasporediFusion.html" class="active">Распоред</button><button data-app="NastavaUredi.html">Настава</button><button data-app="AkciskiPlan.html">Евидентен лист</button><button data-app="S-Dnevnik.html">S-Дневник</button><button data-app="Pregled-Baza.html">Преглед база</button></div><div class="year-wrap"><span>Година</span><select id="year" aria-label="Учебна година"></select></div><button class="soft compact" id="refresh" aria-label="Освежи податоци">↻</button><div class="status" id="status">Се поврзувам…</div><button class="soft compact" id="resetLayout" title="Врати ги прозорците во почетниот распоред" aria-label="Почетен распоред">Почетен распоред</button><button class="soft compact" id="hidePanel" aria-controls="directoryWindow" aria-expanded="true">Скриј податоци</button></header>
+<div class="main" id="main"><section class="workspace-window app-window" id="scheduleWindow" aria-label="Распоред"><div class="window-titlebar" tabindex="0"><span class="window-title">Распоред</span><div class="window-actions"></div></div><iframe id="appFrame" src="RasporediFusion.html" title="Распоред"></iframe></section><div id="dockDivider" role="separator" tabindex="0" aria-label="Ширина на заедничките податоци" aria-orientation="vertical" aria-controls="directoryWindow"></div><aside class="workspace-window directory" id="directoryWindow" aria-label="Заеднички податоци"><div class="dir-head"><div class="window-titlebar" tabindex="0"><span class="window-title">Заеднички податоци</span><div class="window-actions"></div></div><div class="dir-description">Истата база · уредување без напуштање на работата</div></div><div class="dir-tabs" id="dirTabs"><button data-dir="students" class="active">Ученици</button><button data-dir="teachers">Наставници</button><button data-dir="therapists">Стручни / терапевти</button></div><div class="tools"><input id="search" type="search" placeholder="Пребарај…" aria-label="Пребарај податоци"><select id="kindFilter"><option value="">Сите</option><option value="internal">Интерни</option><option value="boarding">Интернатски</option><option value="external">Екстерни</option></select></div><div class="directory-content" id="content"></div></aside></div>
+<div class="sr-only" id="windowAnnouncement" role="status" aria-live="polite"></div>
+<p class="sr-only" id="windowHelp">Влечи го насловот за преместување или користи ги стрелките кога насловот е избран. Двоен клик го максимизира прозорецот. Менувај големина од рабовите. Секогаш напред важи во овој работен простор.</p>
 </div>
 <script src="app-navigation.js"></script>
 <script>
@@ -29,7 +111,320 @@ function renderTherapists(){const rows=filteredPeople('therapists'),t=selected.t
 function bindTherapistEditor(t){$('thCategory').addEventListener('change',()=>saveCategory('therapist',t.id,$('thCategory').value));$('saveTherapist').addEventListener('click',async()=>{const to=personName($('thName').value),from=t.name;if(!to||to===from){state('Нема промена.');return}const btn=$('saveTherapist');btn.disabled=true;state('Зачувувам…');try{await api('PATCH','/api/therapists/'+encodeURIComponent(from),{name:to});await load(data.year);selected.therapists=(data.therapists||[]).find(x=>personName(x.name)===to)||selected.therapists;if(selected.therapists){caseloadOriginal=new Set(selected.therapists.students||[]);draftCaseload=new Set(caseloadOriginal)}render();state('Зачувано во базата.','ok')}catch(e){state(e.message,'error')}finally{btn.disabled=false}});$('caseloadSearch').addEventListener('input',drawCaseloadLists);$('resetCaseload').addEventListener('click',()=>{draftCaseload=new Set(caseloadOriginal);drawCaseloadLists()});$('saveCaseload').addEventListener('click',()=>saveCaseload(t));drawCaseloadLists()}function caseloadCandidates(){const needle=tidy($('caseloadSearch')?.value||'').toLocaleLowerCase('mk-MK');return(data.students||[]).filter(s=>s.active!==false).filter(s=>!needle||personName(s.name).toLocaleLowerCase('mk-MK').includes(needle)||String(s.grade||'').toLocaleLowerCase('mk-MK').includes(needle))}
 function drawCaseloadLists(){const all=$('allStudents'),chosen=$('selectedStudents');if(!all||!chosen)return;const rows=caseloadCandidates();all.innerHTML=rows.map(s=>'<label class="pick-row"><input type="checkbox" data-caseload-id="'+esc(s.public_id)+'"'+(draftCaseload.has(s.public_id)?' checked':'')+'><span class="pname">'+esc(personName(s.name))+(s.grade?' · '+esc(s.grade):'')+'</span><button type="button" class="icon" data-edit-student="'+esc(s.public_id)+'" title="Уреди ученик">✎</button></label>').join('');const selectedRows=(data.students||[]).filter(s=>draftCaseload.has(s.public_id));chosen.innerHTML=selectedRows.length?selectedRows.map(s=>'<div class="pick-row"><span></span><span class="pname">'+esc(personName(s.name))+(s.grade?' · '+esc(s.grade):'')+'</span><span><button type="button" class="icon" data-edit-student="'+esc(s.public_id)+'" title="Уреди ученик">✎</button><button type="button" class="icon" data-drop-student="'+esc(s.public_id)+'" title="Тргни од избрани">×</button></span></div>').join(''):'<div class="empty">Нема избрани.</div>';document.querySelectorAll('[data-caseload-id]').forEach(c=>c.addEventListener('change',()=>{c.checked?draftCaseload.add(c.dataset.caseloadId):draftCaseload.delete(c.dataset.caseloadId);drawCaseloadLists()}));document.querySelectorAll('[data-drop-student]').forEach(b=>b.addEventListener('click',()=>{draftCaseload.delete(b.dataset.dropStudent);drawCaseloadLists()}));document.querySelectorAll('[data-edit-student]').forEach(b=>b.addEventListener('click',()=>openStudentFromCaseload(b.dataset.editStudent)));if($('selectedCount'))$('selectedCount').textContent=draftCaseload.size+' избрани';if($('selectedCount2'))$('selectedCount2').textContent=draftCaseload.size}function openStudentFromCaseload(id){returnTherapist=selected.therapists?.id||null;dir='students';selected.students=(data.students||[]).find(s=>s.public_id===id)||null;selectDirButton();render()}
 async function saveCaseload(t){const add=[...draftCaseload].filter(x=>!caseloadOriginal.has(x)),drop=[...caseloadOriginal].filter(x=>!draftCaseload.has(x));if(!add.length&&!drop.length){state('Нема промена.');return}const btn=$('saveCaseload');btn.disabled=true;state('Зачувувам список…');const name=encodeURIComponent(t.name),year='?year='+encodeURIComponent(data.year);try{for(const id of add)await api('PUT','/api/therapists/'+name+'/students/'+encodeURIComponent(id)+year);for(const id of drop)await api('DELETE','/api/therapists/'+name+'/students/'+encodeURIComponent(id)+year);const therapistId=t.id;await load(data.year);selected.therapists=(data.therapists||[]).find(x=>x.id===therapistId)||null;if(selected.therapists){caseloadOriginal=new Set(selected.therapists.students||[]);draftCaseload=new Set(caseloadOriginal)}render();state('Списокот е зачуван: +'+add.length+' / −'+drop.length,'ok')}catch(e){state(e.message,'error');await load(data.year);selected.therapists=(data.therapists||[]).find(x=>x.id===t.id)||null;if(selected.therapists){caseloadOriginal=new Set(selected.therapists.students||[]);draftCaseload=new Set(caseloadOriginal)}render()}finally{btn.disabled=false}}
-function selectDirButton(){document.querySelectorAll('#dirTabs button').forEach(b=>b.classList.toggle('active',b.dataset.dir===dir));$('kindFilter').style.display=dir==='students'?'':'none'}document.querySelectorAll('#dirTabs button').forEach(b=>b.addEventListener('click',()=>{dir=b.dataset.dir;returnTherapist=null;$('search').value='';selectDirButton();render()}));$('search').addEventListener('input',render);$('kindFilter').addEventListener('change',render);$('year').addEventListener('change',()=>load($('year').value));$('refresh').addEventListener('click',()=>load($('year').value));$('hidePanel').addEventListener('click',()=>$('main').classList.add('panel-hidden'));$('showPanel').addEventListener('click',()=>$('main').classList.remove('panel-hidden'));document.querySelectorAll('#appTabs button').forEach(b=>b.addEventListener('click',()=>{document.querySelectorAll('#appTabs button').forEach(x=>x.classList.toggle('active',x===b));$('appFrame').src=b.dataset.app}));$('appFrame').addEventListener('load',()=>{try{const d=$('appFrame').contentDocument,nav=d&&d.getElementById('mtbAppNav');if(nav)nav.style.display='none'}catch(_){}});window.addEventListener('mtb:server-selected',()=>load());window.addEventListener('storage',e=>{if(e.key===SERVER_KEY)load()});load()})();
+function selectDirButton(){document.querySelectorAll('#dirTabs button').forEach(b=>b.classList.toggle('active',b.dataset.dir===dir));$('kindFilter').style.display=dir==='students'?'':'none'}document.querySelectorAll('#dirTabs button').forEach(b=>b.addEventListener('click',()=>{dir=b.dataset.dir;returnTherapist=null;$('search').value='';selectDirButton();render()}));$('search').addEventListener('input',render);$('kindFilter').addEventListener('change',render);$('year').addEventListener('change',()=>load($('year').value));$('refresh').addEventListener('click',()=>load($('year').value));window.addEventListener('mtb:server-selected',()=>load());window.addEventListener('storage',e=>{if(e.key===SERVER_KEY)load()});load()})();
+</script>
+<script>
+(() => {
+  'use strict';
+  const desktop = document.getElementById('main');
+  const divider = document.getElementById('dockDivider');
+  const panelToggle = document.getElementById('hidePanel');
+  const tabs = [...document.querySelectorAll('#appTabs button')];
+  const windows = new Map();
+  const layoutKey = 'mtb_workspace_layout_v1';
+  const mobile = () => desktop.clientWidth <= 700;
+  const finite = (n) => typeof n === 'number' && Number.isFinite(n);
+  const clamp = (n, min, max) => Math.min(Math.max(n, min), Math.max(min, max));
+  let saved = {};
+  try {
+    const value = JSON.parse(localStorage.getItem(layoutKey));
+    if (value?.version === 1 && value.windows && typeof value.windows === 'object') saved = value;
+  } catch (_) { /* A blocked or obsolete preference must not block the workspace. */ }
+  let dockWidth = finite(saved.dockWidth) ? saved.dockWidth : 560;
+  let activeDocked = 'scheduleWindow';
+  let focused = 'scheduleWindow';
+  let order = [];
+  let gesture = null;
+  const icons = {
+    float: '<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M14 3v18M14 8h7"/>',
+    pin: '<path d="m9 3 6 0-1 6 4 4v2H6v-2l4-4-1-6ZM12 15v6"/>',
+    maximize: '<rect x="4" y="4" width="16" height="16" rx="1"/>',
+    minimize: '<path d="M5 17h14"/>'
+  };
+  const labels = { float: 'Оддели прозорец', pin: 'Секогаш напред во работниот простор', maximize: 'Максимизирај', minimize: 'Скриј прозорец' };
+
+  function bounds() { return { width: desktop.clientWidth, height: desktop.clientHeight }; }
+  function constrain(rect) {
+    const area = bounds();
+    const width = clamp(rect.width, Math.min(300, area.width), area.width);
+    const height = clamp(rect.height, Math.min(220, area.height), area.height);
+    return { x: clamp(rect.x, 0, area.width - width), y: clamp(rect.y, 0, area.height - height), width, height };
+  }
+  function defaultRect(id) {
+    const area = bounds();
+    const directory = id === 'directoryWindow';
+    const width = directory ? Math.min(600, area.width - 32) : Math.min(960, area.width * .78);
+    return constrain({ x: directory ? area.width - width - 24 : 28 + windows.size * 18, y: 24 + windows.size * 12, width, height: area.height * .84 });
+  }
+  function readRect(value, fallback) {
+    return value && ['x', 'y', 'width', 'height'].every(k => finite(value[k])) && value.width > 0 && value.height > 0
+      ? constrain(value) : fallback;
+  }
+  function persist() {
+    const preferences = {};
+    // Only layout is saved. Never retain directory contents or iframe state here.
+    for (const tab of tabs) {
+      const id = appId(tab.dataset.app);
+      if (saved.windows?.[id]) preferences[id] = saved.windows[id];
+    }
+    for (const [id, win] of windows) {
+      preferences[id] = { mode: win.mode, pinned: win.pinned, maximized: win.maximized, rect: win.rect };
+    }
+    saved = { version: 1, dockWidth, windows: preferences };
+    try { localStorage.setItem(layoutKey, JSON.stringify(saved)); } catch (_) { /* Layout still works without storage. */ }
+  }
+  function announce(text) { document.getElementById('windowAnnouncement').textContent = text; }
+  function render() {
+    const directory = windows.get('directoryWindow');
+    const maxDock = Math.max(260, desktop.clientWidth - 320);
+    dockWidth = clamp(dockWidth, 260, maxDock);
+    desktop.style.setProperty('--directory-width', dockWidth + 'px');
+    desktop.classList.toggle('panel-hidden', Boolean(directory?.hidden));
+    desktop.classList.toggle('directory-undocked', directory?.mode === 'floating');
+    panelToggle.textContent = directory?.hidden ? 'Податоци' : 'Скриј податоци';
+    panelToggle.setAttribute('aria-expanded', String(!directory?.hidden));
+    divider.setAttribute('aria-valuemin', '260');
+    divider.setAttribute('aria-valuemax', String(maxDock));
+    divider.setAttribute('aria-valuenow', String(Math.round(dockWidth)));
+    for (const [id, win] of windows) {
+      const el = win.el;
+      const visible = !win.hidden && (id === 'directoryWindow' || win.mode === 'floating' || id === activeDocked);
+      el.hidden = !visible;
+      el.dataset.mode = win.mode;
+      el.dataset.pinned = String(win.pinned);
+      el.dataset.maximized = String(win.maximized);
+      el.classList.toggle('is-focused', focused === id);
+      // Pinning is a separate layer; focusing an ordinary window cannot overtake it.
+      el.style.zIndex = String(win.mode === 'docked' ? (id === 'directoryWindow' ? 2 : 1) : (win.pinned ? 100 : 10) + order.indexOf(id));
+      if (win.mode === 'floating') {
+        win.rect = constrain(win.rect);
+        Object.assign(el.style, { left: win.rect.x + 'px', top: win.rect.y + 'px', width: win.rect.width + 'px', height: win.rect.height + 'px' });
+      } else {
+        for (const key of ['left', 'top', 'width', 'height']) el.style.removeProperty(key);
+      }
+      for (const action of ['float', 'pin', 'maximize']) {
+        const button = el.querySelector(`[data-window-action="${action}"]`);
+        const label = action === 'float' && win.mode === 'floating' ? 'Врати во распоредот'
+          : action === 'maximize' && win.maximized ? 'Врати ја големината' : labels[action];
+        button.title = label;
+        button.setAttribute('aria-label', label);
+        button.setAttribute('aria-pressed', String(action === 'pin' ? win.pinned : action === 'maximize' ? win.maximized : win.mode === 'floating'));
+      }
+    }
+    for (const tab of tabs) {
+      const win = windows.get(appId(tab.dataset.app));
+      tab.classList.toggle('active', focused === win?.id);
+      tab.classList.toggle('is-open', Boolean(win && !win.hidden));
+      tab.setAttribute('aria-pressed', String(focused === win?.id));
+    }
+  }
+  function focusWindow(win) {
+    focused = win.id;
+    order = order.filter(id => id !== win.id).concat(win.id);
+    render();
+  }
+  function floatWindow(win) {
+    if (win.mode === 'floating') return;
+    win.mode = 'floating';
+    win.rect = constrain(win.rect);
+  }
+  function act(win, action) {
+    if (action === 'float') {
+      win.mode = win.mode === 'docked' ? 'floating' : 'docked';
+      win.maximized = false;
+      if (win.mode === 'docked') { win.pinned = false; if (win.id !== 'directoryWindow') activeDocked = win.id; }
+    } else if (action === 'pin') {
+      floatWindow(win);
+      win.pinned = !win.pinned;
+      announce(win.title + (win.pinned ? ' е секогаш напред во работниот простор.' : ' повеќе не е прикачен.'));
+    } else if (action === 'maximize') {
+      if (!win.maximized) { win.beforeMaxMode = win.mode; floatWindow(win); win.maximized = true; }
+      else {
+        win.maximized = false; win.mode = win.pinned ? 'floating' : win.beforeMaxMode || 'floating';
+        if (win.mode === 'docked' && win.id !== 'directoryWindow') activeDocked = win.id;
+      }
+    } else if (action === 'minimize') {
+      win.hidden = true;
+      announce(win.title + ' е скриен. Отвори го повторно од горната лента.');
+    }
+    focusWindow(win);
+    persist();
+    if (win.hidden) (win.id === 'directoryWindow' ? panelToggle : tabs.find(tab => appId(tab.dataset.app) === win.id))?.focus();
+  }
+  function wireFrame(win, frame) {
+    const loaded = () => {
+      try {
+        const doc = frame.contentDocument;
+        const nav = doc?.getElementById('mtbAppNav');
+        if (nav) nav.style.display = 'none';
+        doc?.addEventListener('pointerdown', () => focusWindow(win), true);
+        doc?.addEventListener('focusin', () => focusWindow(win), true);
+      } catch (_) { /* Native focus fallback below also supports another origin. */ }
+    };
+    frame.addEventListener('load', loaded);
+    loaded();
+  }
+  function register(el, id, title) {
+    const pref = saved.windows?.[id];
+    const win = { el, id, title, mode: pref?.mode === 'floating' ? 'floating' : 'docked',
+      pinned: pref?.mode === 'floating' && pref?.pinned === true, maximized: pref?.mode === 'floating' && pref?.maximized === true,
+      rect: readRect(pref?.rect, defaultRect(id)), hidden: id === 'directoryWindow' && mobile() };
+    windows.set(id, win);
+    order.push(id);
+    el.dataset.windowId = id;
+    const titlebar = el.querySelector('.window-titlebar');
+    titlebar.setAttribute('aria-label', 'Премести: ' + title);
+    titlebar.setAttribute('aria-describedby', 'windowHelp');
+    titlebar.title = 'Влечи за преместување · двоен клик за максимизирање';
+    el.querySelector('.window-actions').innerHTML = Object.entries(icons).map(([action, svg]) =>
+      `<button type="button" data-window-action="${action}" title="${labels[action]}" aria-label="${labels[action]}"><svg viewBox="0 0 24 24" aria-hidden="true">${svg}</svg></button>`).join('');
+    el.addEventListener('pointerdown', () => focusWindow(win), true);
+    el.addEventListener('focusin', () => focusWindow(win));
+    el.querySelector('.window-actions').addEventListener('click', event => {
+      const button = event.target.closest('button[data-window-action]');
+      if (button) act(win, button.dataset.windowAction);
+    });
+    titlebar.addEventListener('dblclick', event => { if (!event.target.closest('button')) act(win, 'maximize'); });
+    titlebar.addEventListener('pointerdown', event => {
+      if (!event.target.closest('button')) startGesture(event, win, 'move', titlebar);
+    });
+    titlebar.addEventListener('keydown', event => {
+      if (event.target !== titlebar || !event.key.startsWith('Arrow')) return;
+      event.preventDefault();
+      floatWindow(win); win.maximized = false;
+      const step = event.shiftKey ? 48 : 16;
+      win.rect = constrain({ ...win.rect, x: win.rect.x + (event.key === 'ArrowRight' ? step : event.key === 'ArrowLeft' ? -step : 0),
+        y: win.rect.y + (event.key === 'ArrowDown' ? step : event.key === 'ArrowUp' ? -step : 0) });
+      focusWindow(win); persist();
+    });
+    for (const edge of ['n', 'e', 's', 'w', 'ne', 'nw', 'se', 'sw']) {
+      const handle = document.createElement('button');
+      handle.type = 'button'; handle.className = 'resize-handle'; handle.dataset.edge = edge;
+      handle.setAttribute('aria-label', 'Менувај големина: ' + title + ' (' + edge + ')');
+      handle.setAttribute('aria-describedby', 'windowHelp');
+      handle.addEventListener('pointerdown', event => startGesture(event, win, edge, handle));
+      handle.addEventListener('keydown', event => {
+        if (!event.key.startsWith('Arrow')) return;
+        event.preventDefault();
+        const step = event.shiftKey ? 48 : 16;
+        resize(win, win.rect, edge, event.key === 'ArrowRight' ? step : event.key === 'ArrowLeft' ? -step : 0,
+          event.key === 'ArrowDown' ? step : event.key === 'ArrowUp' ? -step : 0);
+        render(); persist();
+      });
+      el.append(handle);
+    }
+    const frame = el.querySelector('iframe');
+    if (frame) wireFrame(win, frame);
+    return win;
+  }
+  function resize(win, rect, edge, dx, dy) {
+    const area = bounds();
+    let left = rect.x, top = rect.y, right = left + rect.width, bottom = top + rect.height;
+    if (edge.includes('w')) left = clamp(left + dx, 0, right - Math.min(300, area.width));
+    if (edge.includes('e')) right = clamp(right + dx, left + Math.min(300, area.width), area.width);
+    if (edge.includes('n')) top = clamp(top + dy, 0, bottom - Math.min(220, area.height));
+    if (edge.includes('s')) bottom = clamp(bottom + dy, top + Math.min(220, area.height), area.height);
+    win.rect = constrain({ x: left, y: top, width: right - left, height: bottom - top });
+  }
+  function startGesture(event, win, edge, target) {
+    if (event.button !== 0 || gesture) return;
+    event.preventDefault();
+    target.focus({ preventScroll: true });
+    const rect = win ? { ...win.rect } : null;
+    gesture = { win, edge, target, pointerId: event.pointerId, x: event.clientX, y: event.clientY, rect, originalRect: rect,
+      mode: win?.mode, maximized: win?.maximized, dockWidth, started: false };
+    target.setPointerCapture(event.pointerId);
+    desktop.classList.add('is-arranging');
+  }
+  desktop.addEventListener('pointermove', event => {
+    const g = gesture;
+    if (!g || event.pointerId !== g.pointerId) return;
+    const dx = event.clientX - g.x, dy = event.clientY - g.y;
+    if (!g.started && Math.abs(dx) + Math.abs(dy) < 4) return;
+    if (!g.started && g.win && g.edge === 'move' && (g.win.mode === 'docked' || g.win.maximized)) {
+      const box = g.win.el.getBoundingClientRect(), area = desktop.getBoundingClientRect();
+      const ratio = clamp((g.x - box.left) / box.width, 0, 1);
+      floatWindow(g.win); g.win.maximized = false;
+      g.rect = constrain({ ...g.win.rect, x: g.x - area.left - g.win.rect.width * ratio, y: g.y - area.top - 19 });
+    }
+    g.started = true;
+    if (!g.win) dockWidth = g.dockWidth - dx;
+    else if (g.edge === 'move') g.win.rect = constrain({ ...g.rect, x: g.rect.x + dx, y: g.rect.y + dy });
+    else resize(g.win, g.rect, g.edge, dx, dy);
+    render();
+  });
+  function finishGesture(cancel) {
+    const g = gesture;
+    if (!g) return;
+    gesture = null;
+    if (cancel) {
+      dockWidth = g.dockWidth;
+      if (g.win) { g.win.mode = g.mode; g.win.maximized = g.maximized; g.win.rect = g.originalRect || g.rect; }
+    }
+    if (g.target.hasPointerCapture(g.pointerId)) g.target.releasePointerCapture(g.pointerId);
+    desktop.classList.remove('is-arranging'); render();
+    if (!cancel && g.started) persist();
+  }
+  desktop.addEventListener('pointerup', () => finishGesture(false));
+  desktop.addEventListener('pointercancel', () => finishGesture(true));
+  desktop.addEventListener('lostpointercapture', () => finishGesture(true));
+  document.addEventListener('keydown', event => { if (event.key === 'Escape' && gesture) { event.preventDefault(); finishGesture(true); } });
+  divider.addEventListener('pointerdown', event => startGesture(event, null, 'dock', divider));
+  divider.addEventListener('keydown', event => {
+    if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+    event.preventDefault();
+    if (event.key === 'Home') dockWidth = 260;
+    else if (event.key === 'End') dockWidth = desktop.clientWidth - 320;
+    else dockWidth += (event.key === 'ArrowLeft' ? 1 : -1) * (event.shiftKey ? 48 : 16);
+    render(); persist();
+  });
+  function appId(file) { return file === 'RasporediFusion.html' ? 'scheduleWindow' : 'app-' + file.replace(/\.html$/, ''); }
+  register(document.getElementById('scheduleWindow'), 'scheduleWindow', 'Распоред');
+  register(document.getElementById('directoryWindow'), 'directoryWindow', 'Заеднички податоци');
+  for (const tab of tabs) tab.addEventListener('click', () => {
+    const id = appId(tab.dataset.app);
+    let win = windows.get(id);
+    if (!win) {
+      const el = document.createElement('section');
+      el.className = 'workspace-window app-window'; el.id = id; el.setAttribute('aria-label', tab.textContent);
+      el.innerHTML = '<div class="window-titlebar" tabindex="0"><span class="window-title"></span><div class="window-actions"></div></div>';
+      el.querySelector('.window-title').textContent = tab.textContent;
+      const frame = document.createElement('iframe'); frame.title = tab.textContent;
+      // The filename comes only from the fixed application tabs above.
+      frame.src = tab.dataset.app;
+      el.append(frame); desktop.append(el);
+      win = register(el, id, tab.textContent);
+    }
+    win.hidden = false;
+    if (win.mode === 'docked') activeDocked = id;
+    if (mobile()) windows.get('directoryWindow').hidden = true;
+    focusWindow(win);
+  });
+  panelToggle.addEventListener('click', () => {
+    const win = windows.get('directoryWindow');
+    win.hidden = !win.hidden;
+    if (!win.hidden) focusWindow(win); else render();
+  });
+  document.getElementById('resetLayout').addEventListener('click', () => {
+    saved = {}; dockWidth = 560;
+    if (windows.has(focused) && focused !== 'directoryWindow') activeDocked = focused;
+    for (const win of windows.values()) {
+      win.mode = 'docked'; win.pinned = false; win.maximized = false;
+      win.hidden = win.id === 'directoryWindow' && mobile(); win.rect = defaultRect(win.id);
+    }
+    focusWindow(windows.get(activeDocked)); persist();
+    announce('Вратен е почетниот распоред. Отворените податоци се задржани.');
+  });
+  window.addEventListener('blur', () => requestAnimationFrame(() => {
+    const frame = document.activeElement;
+    if (frame?.tagName === 'IFRAME') {
+      const win = windows.get(frame.closest('.workspace-window')?.id);
+      if (win) focusWindow(win);
+    }
+  }));
+  new ResizeObserver(() => { if (gesture) finishGesture(true); render(); }).observe(desktop);
+  render();
+})();
 </script>
 </body>
 </html>
