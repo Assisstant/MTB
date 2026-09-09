@@ -137,6 +137,8 @@ export interface CopyResult {
     to: string;
     /** Lessons that would be (or were) written into the target year. */
     lessons: number;
+    /** Teachers on the copied timetable who are not on the target year's list. */
+    offStaff: number;
     /** Lessons already in the target year, which `replace` would remove. */
     existing: number;
     removed: number;
@@ -172,7 +174,7 @@ export async function copyYearLessons(
 ): Promise<CopyResult> {
     const result: CopyResult = {
         from: from.label, to: to.label,
-        lessons: 0, existing: 0, removed: 0,
+        lessons: 0, existing: 0, removed: 0, offStaff: 0,
         applied: false, problems: [], notes: []
     };
 
@@ -205,6 +207,30 @@ export async function copyYearLessons(
     );
     result.notes.push('Classes keep their labels: IV-б stays IV-б. The timetable belongs to the classroom, not to the children who moved up.');
 
+    // Who is on the copied timetable but not on the target year's staff list.
+    // A copy is last year's placeholder — it is not evidence that somebody
+    // works here this year, and annual membership has one owner (Podatoci).
+    // Same reasoning as `rollover-year`, which stopped retiring students and
+    // now names them in its report instead.
+    result.offStaff = (await client.query(
+        `SELECT count(DISTINCT l.teacher_id)::int AS n
+           FROM lessons l
+           LEFT JOIN teacher_years ty
+                  ON ty.teacher_id = l.teacher_id
+                 AND ty.school_year_id = $2 AND ty.active
+          WHERE l.school_year_id = $1 AND l.teacher_id IS NOT NULL
+            AND ty.teacher_id IS NULL`,
+        [from.id, to.id]
+    )).rows[0].n as number;
+
+    if (result.offStaff) {
+        result.notes.push(
+            `${result.offStaff} teachers on the copied timetable are not on `
+            + `${to.label}'s staff list. Nobody was added — confirm the staff `
+            + 'list in Podatoci; those lessons are marked until you do.'
+        );
+    }
+
     if (!opts.apply) return result;
 
     if (result.existing) {
@@ -222,13 +248,6 @@ export async function copyYearLessons(
         `INSERT INTO class_years (school_year_id, class_id, active)
          SELECT DISTINCT $2::integer, class_id, true FROM lessons WHERE school_year_id = $1
          ON CONFLICT (school_year_id, class_id) DO UPDATE SET active = true`,
-        [from.id, to.id]
-    );
-    await client.query(
-        `INSERT INTO teacher_years (school_year_id, teacher_id, active)
-         SELECT DISTINCT $2::integer, teacher_id, true FROM lessons
-         WHERE school_year_id = $1 AND teacher_id IS NOT NULL
-         ON CONFLICT (school_year_id, teacher_id) DO UPDATE SET active = true`,
         [from.id, to.id]
     );
     result.lessons = written.rowCount ?? 0;
