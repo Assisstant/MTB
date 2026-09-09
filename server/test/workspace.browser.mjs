@@ -288,6 +288,15 @@ try {
         assert.equal(await teaching.locator('#draft').inputValue(), 'Invented teaching draft');
         await page.locator('#appTabs [data-app="RasporediFusion.html"]').click();
         assert.equal(await page.frameLocator('#appFrame').locator('#draft').inputValue(), DRAFT);
+        await action(page, '#scheduleWindow', 'maximize').click();
+        await page.locator('#appTabs [data-app="NastavaUredi.html"]').click();
+        await action(page, '#scheduleWindow', 'maximize').click();
+        await mode(page, '#scheduleWindow', 'docked');
+        assert.equal(await page.locator('#scheduleWindow').isVisible(), true,
+            'restoring a maximized app makes it the visible docked app after another tab was opened');
+        assert.equal(await page.locator('#app-NastavaUredi').isVisible(), false,
+            'previously selected docked app yields to the restored app');
+        assert.equal(await page.frameLocator('#appFrame').locator('#draft').inputValue(), DRAFT);
         assert.equal(await page.locator('iframe[src*="NastavaUredi.html"]').count(), 1);
         assert.equal(loads.get('RasporediFusion.html'), 1);
         assert.equal(loads.get('NastavaUredi.html'), 1);

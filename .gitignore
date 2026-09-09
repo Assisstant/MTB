@@ -22,3 +22,11 @@ server/nastava-page.png
 # evidence for a conversation, not source, and one of them is a PNG the name
 # guard then has to open on every commit
 Claude outputs/
+
+# agent tooling installed per machine, not part of the apps. `.agents/skills/`
+# holds third-party skill packs (HyperFrames et al.) and `skills-lock.json`
+# is their manifest; both arrive by installer, differ between HOME and WORK,
+# and a single `git add -A` would put dozens of vendor directories into a
+# public repository that serves GitHub Pages.
+.agents/
+skills-lock.json
