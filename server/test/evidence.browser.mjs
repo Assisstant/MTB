@@ -215,6 +215,37 @@ const run = async () => {
     check('the PIN reached the database as a hash, not as typed',
         !!pinRow && pinRow.pin_hash !== PIN_A && pinRow.pin_hash.length >= 32, JSON.stringify(pinRow));
 
+    // The record opens sheets for existing pupils. School people are managed
+    // in Podatoci, and following that link must not itself create a person.
+    console.log('\nschool-directory navigation keeps the selected server and year');
+    const directoryPage = await ctx.newPage();
+    let peopleWrites = 0;
+    let directoryPrompts = 0;
+    directoryPage.on('dialog', (dialog) => { directoryPrompts++; return dialog.dismiss(); });
+    directoryPage.on('request', (request) => {
+        if (request.method() === 'POST' && new URL(request.url()).pathname === '/api/students') peopleWrites++;
+    });
+    await directoryPage.route('**/api/students', (route) => route.request().method() === 'POST'
+        ? route.abort() : route.continue());
+    await directoryPage.goto(`${BASE}/AkciskiPlan.html?year=${encodeURIComponent(YEAR)}`);
+    await pupilReady(directoryPage, []);
+    // Stop at the destination so this check cannot run the directory's own
+    // scripts or accidentally exercise any unrelated editing workflow.
+    await directoryPage.route('**/Podatoci.html?*', (route) => route.fulfill({
+        status: 200, contentType: 'text/html', body: '<!doctype html><title>Directory navigation target</title>'
+    }));
+    await Promise.all([
+        directoryPage.waitForURL((url) => url.pathname.endsWith('/Podatoci.html')),
+        directoryPage.click('#schoolDirectory')
+    ]);
+    const directoryUrl = new URL(directoryPage.url());
+    check('the record opens the directory on its own selected server and school year',
+        directoryUrl.origin === new URL(BASE).origin && directoryUrl.searchParams.get('year') === YEAR,
+        directoryUrl.href);
+    check('opening the directory never prompts for a new pupil or posts a person',
+        directoryPrompts === 0 && peopleWrites === 0, JSON.stringify({ directoryPrompts, peopleWrites }));
+    await directoryPage.close();
+
     // ── opening a sheet ──────────────────────────────────────────────────────
     console.log('\nopening a record');
     checkEq('the pupil list comes from the database',

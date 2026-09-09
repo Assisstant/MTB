@@ -86,17 +86,60 @@ async function main() {
 
     const addExternal = await call('POST', '/api/students',
         { publicId: EXTERNAL_ID, name: EXTERNAL_STUDENT, grade: 'III-б', kind: 'external' });
-    const externalEnrollment = await pool.query(
+    const readExternalEnrollment = () => pool.query(
         `SELECT e.grade, e.kind FROM student_enrollments e
            JOIN students s ON s.id = e.student_id
            JOIN school_years y ON y.id = e.school_year_id AND y.is_current
           WHERE s.public_id = $1`, [EXTERNAL_ID]);
-    check('an external student is added to the external list, not a class', () => {
+    const externalEnrollment = await readExternalEnrollment();
+    check('an external student keeps the explicitly assigned local class', () => {
         assert.equal(addExternal.status, 200);
         assert.equal(externalEnrollment.rowCount, 1);
-        assert.equal(externalEnrollment.rows[0].grade, null);
+        assert.equal(externalEnrollment.rows[0].grade, 'III-б');
         assert.equal(externalEnrollment.rows[0].kind, 'external');
     });
+
+    const externalAgain = await call('POST', '/api/students',
+        { publicId: EXTERNAL_ID, name: EXTERNAL_STUDENT, kind: 'external' });
+    const afterExternalAgain = await readExternalEnrollment();
+    check('a kind-only POST preserves the assigned class', () => {
+        assert.equal(externalAgain.status, 200);
+        assert.equal(afterExternalAgain.rows[0].grade, 'III-б');
+    });
+
+    const externalGroup = await call('PATCH', `/api/students/${encodeURIComponent(EXTERNAL_ID)}`,
+        { grade: 'Подготвителна-тест', kind: 'external' });
+    const afterExternalGroup = await readExternalEnrollment();
+    check('an external student can be assigned a preparatory group through PATCH', () => {
+        assert.equal(externalGroup.status, 200);
+        assert.deepEqual(afterExternalGroup.rows[0], { grade: 'Подготвителна-тест', kind: 'external' });
+    });
+
+    // The legacy directory grade can differ from the selected year's fact.
+    // Omitting grade must not copy that unrelated value onto the enrolment.
+    await pool.query('UPDATE students SET grade = $2 WHERE public_id = $1', [EXTERNAL_ID, 'I-тест']);
+    const externalKindOnly = await call('PATCH', `/api/students/${encodeURIComponent(EXTERNAL_ID)}`,
+        { kind: 'external' });
+    const afterExternalKindOnly = await readExternalEnrollment();
+    check('a kind-only PATCH preserves the annual group even when the directory differs', () => {
+        assert.equal(externalKindOnly.status, 200);
+        assert.equal(afterExternalKindOnly.rows[0].grade, 'Подготвителна-тест');
+    });
+
+    for (const method of ['POST', 'PATCH']) {
+        // Give both clear paths a non-empty assignment to remove deliberately.
+        await call('PATCH', `/api/students/${encodeURIComponent(EXTERNAL_ID)}`, { grade: 'III-б' });
+        const cleared = await call(method,
+            method === 'POST' ? '/api/students' : `/api/students/${encodeURIComponent(EXTERNAL_ID)}`,
+            { publicId: EXTERNAL_ID, name: EXTERNAL_STUDENT, kind: 'external', grade: null });
+        const afterClear = await readExternalEnrollment();
+        const directoryGrade = (await pool.query('SELECT grade FROM students WHERE public_id = $1', [EXTERNAL_ID])).rows[0].grade;
+        check(`an explicit null through ${method} keeps therapy-only enrolment without a local class`, () => {
+            assert.equal(cleared.status, 200);
+            assert.deepEqual(afterClear.rows[0], { grade: null, kind: 'external' });
+            assert.equal(directoryGrade, null);
+        });
+    }
 
     const again = await call('POST', '/api/students', { publicId: PUBLIC_ID, name: STUDENT, grade: 'III-а' });
     const rowCount = await pool.query('SELECT count(*)::int n FROM students WHERE public_id = $1', [PUBLIC_ID]);

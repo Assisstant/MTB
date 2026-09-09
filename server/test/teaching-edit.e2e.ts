@@ -432,6 +432,16 @@ const run = async () => {
     checkEq('for 25 minutes of it', second?.away?.[0]?.minutes, 25);
     checkEq('no session was left unplaced', (crossing.body?.unplaced || []).length, 0);
 
+    const externalWithClass = await call('PATCH', `/api/students/${encodeURIComponent(`${TAG}-s1`)}`,
+        { year: DST_YEAR, kind: 'external', grade: CLASS_A });
+    checkEq('an external pupil can retain the local teaching class', externalWithClass.status, 200);
+    const externalCrossing = await call('GET', `/api/teaching/crossing?year=${encodeURIComponent(DST_YEAR)}&day=${encodeURIComponent(DAY)}`);
+    const externalLesson = (externalCrossing.body?.cells || []).find((c: any) => c.class === CLASS_A && c.ordinal === 2);
+    checkEq('the external pupil with an assigned class still crosses into that lesson', externalLesson?.awayCount, 1);
+    checkEq('the external pupil still misses the same 25 minutes', externalLesson?.away?.[0]?.minutes, 25);
+    checkEq('an assigned external pupil is not put in the no-local-class bucket', externalCrossing.body?.external, []);
+    checkEq('and is not reported as an unplaced session', externalCrossing.body?.unplaced, []);
+
     console.log('\nan external child is not an omission, and a missing class still is');
     // Two children with no class, differing only in what the school calls them.
     // Different terms, because a therapist cannot hold two children in one:
@@ -451,6 +461,8 @@ const run = async () => {
     const gaps = crossed2.body?.unplaced || [];
     checkEq('the external child is listed apart', ext.map((r: any) => r.reasonCode), ['external']);
     check('and it is the external one', String(ext[0]?.student).includes('Екстерен'), JSON.stringify(ext));
+    checkEq('the reason reports only the missing local assignment', ext[0]?.reason,
+        'the external student has no local class or group recorded');
     // The point of the split: this one is still work for a person.
     checkEq('the internal child with no class is still an omission', gaps.map((r: any) => r.reasonCode), ['no-class']);
     check('and it is the other one', String(gaps[0]?.student).includes('Безкласен'), JSON.stringify(gaps));

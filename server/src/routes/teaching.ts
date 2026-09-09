@@ -174,10 +174,9 @@ export async function teachingRoutes(server: FastifyInstance) {
         type Absence = { therapist: string; student: string; minutes: number };
         const absences = new Map<string, Map<string, Absence>>();   // day|ordinal|class -> student|therapist
         const unplaced: any[] = [];
-        // Kept apart from `unplaced` on purpose. An external child belongs to
-        // no class and never will — they come from home for the hour. Listing
-        // them as work to be done makes a backlog that cannot shrink, and the
-        // real omissions then hide inside it.
+        // An external pupil without a local class may attend therapy only.
+        // Keep that case apart from missing internal class assignments, without
+        // inferring that every external pupil attends no local teaching.
         const external: any[] = [];
 
         // The schedule stores one row per twenty-minute half, so the rows are
@@ -203,7 +202,7 @@ export async function teachingRoutes(server: FastifyInstance) {
                 // MISSING class is reported. So correcting somebody's kind can
                 // never change a number that was already right.
                 if (s.kind === 'external') {
-                    external.push({ ...s, reasonCode: 'external', reason: 'the student is external and attends no lessons' });
+                    external.push({ ...s, reasonCode: 'external', reason: 'the external student has no local class or group recorded' });
                 } else {
                     unplaced.push({ ...s, reasonCode: 'no-class', reason: 'the student has no class recorded' });
                 }

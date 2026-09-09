@@ -69,9 +69,9 @@ async function seed() {
         );
         ids.push(row.id);
         await q(
-            `INSERT INTO student_enrollments (student_id, school_year_id, grade)
-             VALUES ($1, $2, $3)`,
-            [row.id, selectedYear.id, label]
+            `INSERT INTO student_enrollments (student_id, school_year_id, grade, kind)
+             VALUES ($1, $2, $3, $4)`,
+            [row.id, selectedYear.id, label, n === 'a' ? 'external' : 'internal']
         );
     }
     const [t] = await q(`INSERT INTO therapists (name) VALUES ($1) RETURNING id`, [`${TAG} Терапевт`]);
@@ -129,6 +129,10 @@ const run = async () => {
     check('and the occupied lesson is shaded', /^heat-\d$/.test(firstSession.heat), firstSession.heat);
     check('the tooltip names the subject and the teacher',
         /·/.test(firstSession.title) && firstSession.title.includes(label), firstSession.title);
+    check('the tooltip describes planned treatment rather than actual attendance',
+        firstSession.title.includes('планирано на третман'), firstSession.title);
+    check('an external pupil with a teaching group is not labelled as therapy-only',
+        !(await page.locator('#external').innerText()).includes('Прв Пробен'));
 
     const laterOrdinal = aligned ? 3 : 4;
     const laterNeighbour = aligned ? 4 : 3;

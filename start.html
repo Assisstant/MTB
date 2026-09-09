@@ -108,7 +108,7 @@
 
   var APPS = [
     { id:'s-dnevnik', file:'S-Dnevnik.html',  name:'S-Dnevnik',        desc:'дневник, присуство, планови, досиеја' },
-    { id:'raspored',  file:'RasporediFusion.html', name:'Распоред',     desc:'40-минутен распоред на терапевтските кабинети' },
+    { id:'raspored',  file:'RasporediFusion.html', name:'Распоред',     desc:'избор на ученици и неделен план на термини во кабинетите' },
     { id:'nastava',   file:'Nastava.html',    name:'Настава ↔ терапии', desc:'кој ученик недостига од кој час' },
     { id:'podatoci',  file:'Podatoci.html',    name:'Податоци',          desc:'поставување на годината, списоците и задолженијата' },
     { id:'evidenten', file:'AkciskiPlan.html', name:'Евидентен лист и акциски план', desc:'пропишаниот лист и кварталниот план по категории — по секции и периоди' }
@@ -121,11 +121,21 @@
   var $ = function(id){ return document.getElementById(id); };
 
   function servers(){
+    var list = DEFAULTS;
     try {
       var v = JSON.parse(localStorage.getItem(KEY));
-      if (Array.isArray(v) && v.length) return v;
+      if (Array.isArray(v) && v.length) list = v;
     } catch (e) { /* unreadable storage — fall through to defaults */ }
-    return DEFAULTS;
+    // A running local API still works with the Internet/Tailscale unavailable.
+    // The public Pages origin has no API and must never become a candidate.
+    var host = location.hostname;
+    if (/^https?:$/.test(location.protocol) &&
+        (host === 'localhost' || host === '127.0.0.1' || host.endsWith('.ts.net'))) {
+      list = [location.origin].concat(list);
+    }
+    return list.filter(function(base){ return typeof base === 'string'; })
+      .map(function(base){ return base.trim().replace(/\/+$/, ''); })
+      .filter(function(base, index, all){ return base && all.indexOf(base) === index; });
   }
 
   function label(target){
@@ -225,12 +235,12 @@
     var h = document.createElement('p');
     h.className = 'sub';
     h.style.margin = '16px 0 8px';
-    h.innerHTML = 'Можеш да ги отвориш и <b>без сервер</b> — работат нормално, но <b>нема да се синхронизираат</b> и покажуваат само она што е зачувано на овој уред:';
+    h.innerHTML = 'Можеш да го отвориш <b>S-Дневник без сервер</b> со зачуваното на овој уред. Промените остануваат локално додека не се поврзеш и синхронизираш. Распоредот на кабинети и другите екрани бараат вклучена база:';
     box.appendChild(h);
 
     var offline = document.createElement('div');
     offline.className = 'apps';
-    [APPS[0], TOOLS[2]].forEach(function(app){
+    [APPS[0]].forEach(function(app){
       var a = appLink('.', app);
       a.href = './' + app.file;
       offline.appendChild(a);
@@ -248,7 +258,14 @@
     $('extra').textContent = '';
 
     Promise.all(list.map(probe)).then(function(results){
-      var live = results.filter(Boolean);
+      // localhost and the tailnet address may be the same running server.
+      // Its instance id proves that; a hostname or logical role alone does not.
+      var live = results.filter(Boolean).filter(function(target, index, all){
+        var instance = target.health.instance;
+        return !instance || all.findIndex(function(other){
+          return other.health.instance === instance;
+        }) === index;
+      });
       if (live.length === 1) return found(live[0]);
       if (live.length > 1)  return choose(live);
       nothing(list);

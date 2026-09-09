@@ -221,9 +221,9 @@ function Export-Snapshot {
     New-Item -ItemType Directory -Force -Path $paths.Snapshots | Out-Null
     $stamp = Get-Date -Format 'yyyy-MM-dd-HH-mm-ss'
     $snapshotId = '{0}-{1}-{2}' -f $Me, $stamp, ([guid]::NewGuid().ToString('N').Substring(0, 8))
-    $localTemp = Join-Path $context.StateDir ('outgoing-' + $snapshotId)
-    $sharedPart = Join-Path $paths.Snapshots ($snapshotId + '.part')
-    $sharedFinal = Join-Path $paths.Snapshots $snapshotId
+    $localTemp = Assert-ChildPath -Parent $context.StateDir -Child (Join-Path $context.StateDir ('outgoing-' + $snapshotId))
+    $sharedPart = Assert-ChildPath -Parent $paths.Snapshots -Child (Join-Path $paths.Snapshots ($snapshotId + '.part'))
+    $sharedFinal = Assert-ChildPath -Parent $paths.Snapshots -Child (Join-Path $paths.Snapshots $snapshotId)
 
     try {
         New-Item -ItemType Directory -Force -Path $localTemp | Out-Null

@@ -360,7 +360,7 @@
                     `${label} · ${p.ordinal}. час`,
                     cell.subject || 'без предмет',
                     cell.teacher || 'без наставник',
-                    n ? `отсутни: ${n}` : 'сите се тука'
+                    n ? `планирано на третман: ${n}` : 'нема планирано отсуство поради третман'
                 ].join(' · ');
                 html += `<td class="cell ${heat(n)}${n ? ' clickable' : ''}" title="${esc(title)}"`
                     + (n ? ` data-key="${esc(label)}|${p.ordinal}"` : '')
@@ -445,7 +445,7 @@
             case 'no-class':      return 'ученикот нема запишано одделение';
             case 'unknown-class': return `одделението „${row.grade}" не постои во распоредот на настава`;
             case 'unknown-bell':  return `терминот ${row.time_slot} не одговара на ниту еден час во кабинетот`;
-            case 'external':      return 'ученикот е екстерен — не е на настава';
+            case 'external':      return 'екстерен ученик без доделено одделение/група за оваа година';
             default:              return row.reason || 'непознато';
         }
     }
@@ -466,13 +466,9 @@
     }
 
     /**
-     * The external children, listed apart and without a complaint.
-     *
-     * They belong to no class and never will — they come from home for the
-     * hour. Before this they sat in „Неповрзани третмани" with the reason
-     * „ученикот нема запишано одделение", which reads as twenty things to fix
-     * that cannot be fixed. A list like that stops being read, and the real
-     * omissions go with it.
+     * External pupils without an assigned local teaching class are listed
+     * apart. This is not proof they attend no teaching: assignments can be
+     * incomplete. An assigned external pupil participates in the crossing.
      */
     function drawExternal() {
         const box = el('external');
@@ -481,8 +477,8 @@
         box.style.display = '';
         const names = Array.from(new Set(rows.map((r) => r.student)))
             .sort((a, b) => a.localeCompare(b, 'mk'));
-        box.innerHTML = `<h3>Екстерни ученици: ${names.length}</h3>`
-            + `<p class="meta">Не се на настава — доаѓаат само на третман, па немаат час од кој да бидат земени. `
+        box.innerHTML = `<h3>Екстерни без доделено одделение/група: ${names.length}</h3>`
+            + `<p class="meta">Не може да се одреди час за вкрстување. Ако посетуваат настава кај нас, додели одделение/група во „Податоци“. За ученици само на третмани, полето може да остане празно. `
             + `${rows.length} ${rows.length === 1 ? 'термин' : 'термини'} вкупно.</p>`
             + '<table><thead><tr><th>Ученик</th><th>Термин</th><th>Терапевт</th></tr></thead><tbody>'
             + rows.slice(0, 60).map((r) =>

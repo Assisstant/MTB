@@ -1,5 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync, readdirSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { pool } from '../src/db.js';
 import { nextGrade, rolloverSchoolYear } from '../src/lib/year-rollover.js';
 
@@ -14,7 +16,22 @@ test('a new year carries active students and their kind without touching the old
     const client = await pool.connect();
     const target = '1888/1889';
     const prefix = 'test-year-rollover-';
+    const schema = `rollover_test_${process.pid}`;
+    let schemaCreated = false;
     try {
+        // Rolling back rows does not roll back sequence increments. Keep even
+        // those counters away from the real database's snapshot fingerprint.
+        await client.query(`CREATE SCHEMA ${schema}`);
+        schemaCreated = true;
+        // Migrations contain their own COMMITs, so SET LOCAL would stop
+        // protecting the search path halfway through the migration list.
+        await client.query(`SET search_path = ${schema}`);
+        assert.equal((await client.query('SELECT current_schema() AS name')).rows[0].name, schema);
+        const migrationsDir = resolve(import.meta.dirname, '../../database/migrations');
+        for (const filename of readdirSync(migrationsDir).filter((name) => name.endsWith('.sql')).sort()) {
+            await client.query(readFileSync(resolve(migrationsDir, filename), 'utf8'));
+        }
+        assert.equal((await client.query('SELECT current_schema() AS name')).rows[0].name, schema);
         await client.query('BEGIN');
         const current = (await client.query('SELECT id, label FROM school_years WHERE is_current')).rows[0];
         assert.ok(current, 'a current school year is required');
@@ -118,6 +135,11 @@ test('a new year carries active students and their kind without touching the old
         assert.equal(result.promoted.some((s) => s.publicId === `${prefix}4`), false, 'inactive students stay out');
     } finally {
         await client.query('ROLLBACK').catch(() => {});
-        client.release();
+        try {
+            await client.query('RESET search_path');
+            if (schemaCreated) await client.query(`DROP SCHEMA ${schema} CASCADE`);
+        } finally {
+            client.release();
+        }
     }
 });
