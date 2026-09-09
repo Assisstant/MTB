@@ -2050,6 +2050,49 @@ timetable and crossing queries now return `teacherOnStaff` per lesson, and
 lesson genuinely has a teacher recorded, archived years must keep reading
 correctly, and a blank cell invites someone to type in a wrong teacher.
 
+**Настава има и неделен приказ.** „Цела недела" ги става наставниците долж
+страницата и петте дена напречно — прашањето што се поставува во зборницата
+(„кога сум слободен, и кој ми недостига од часот"), а на кое ниту еден од
+дневните прикази не одговара без да се прелистуваат деновите еден по еден.
+
+Three things it does NOT do, each because the alternative was tried in this
+project and cost something:
+
+- **It does not recompute the overlap.** It asks `/api/teaching/crossing`
+  WITHOUT a day — the endpoint already answers for the whole week — and draws
+  `awayCount` and `away` as they arrive. `lib/crossing.ts` stays the only copy
+  of that arithmetic; a second one in the browser could drift by a minute and
+  nothing would say so.
+- **A weekly cell key carries the DAY.** A single-day view keys a cell
+  „класа|час"; the same class and period exist five times in a week, so the
+  weekly key is „ден|класа|час". Without it a Friday cell opens Monday's
+  lesson — and it looks entirely plausible. `cellForKey` reads both shapes and
+  `nastava.browser.mjs` asserts the Friday cell against Monday's child.
+- **Hover is added, click is not replaced.** The page is read on a tablet in a
+  staff room, where there is no hover at all, so the detail panel stays exactly
+  as it was. The hover card is the quick look, and „Никој не е на третман" is
+  printed as a real answer — a card that appears blank reads like a fault.
+
+The day picker is disabled in this view rather than left live, because a day
+cannot be chosen for a week and a control that still moves suggests it filters
+something.
+
+**Работниот простор не ја препишува спелувањето на ученик или терапевт.**
+`personName` постои за НАСТАВНИЦИ, чии имиња доаѓаат со главни букви од
+работната книга на училиштето. `MTB-Workspace.html` го применуваше и на
+учениците и на терапевтите, и на приказ и при зачувување — па полето покажуваше
+една форма додека базата чуваше друга, и притискањето „Зачувај" на неотворано
+менуван запис го преименуваше лицето. Кај терапевт тоа е скапо: ИМЕТО е клучот
+во распоредот, па преименувањето влече цела недела термини со себе. Полињата
+сега го покажуваат зачуваното име, а зачувувањето праќа `tidy`, не `personName`.
+
+**БАЗА останува видлива и во работниот простор.** Школката ја крие заедничката
+лента (сама дава движење), но „во која база пишувам" е сигналот што дизајнот со
+два компјутери вели дека не смее да се крие — двете машини може да одговараат на
+исто hostname. Топ-лентата сега слуша `mtb:server-state` од
+`app-navigation.js` и ја прикажува улогата (РАБОТА / ДОМА). Сè уште не е
+пренесена ПОДАТОЦИ состојбата на вгнездената апликација — тоа е отворено.
+
 ## State (5 Sep 2026)
 
 Branch `kolegi-pristap` now carries the complete opt-in colleague boundary and

@@ -147,6 +147,14 @@
         .heat-2, .heat-3, .heat-4 { color: #000 !important; }
     }
     .off-staff{display:block;font-size:10px;font-weight:600;color:#b45309;margin-top:2px}
+    table.grid th.wk-edge, table.grid td.wk-edge { border-left: 2px solid var(--border); }
+    table.grid thead th.wk-day { text-align: center; }
+    #tip { position: fixed; z-index: 50; max-width: 340px; display: none; pointer-events: none;
+           background: var(--card); border: 1px solid var(--border); border-radius: 8px;
+           padding: 9px 11px; box-shadow: 0 8px 24px rgba(0,0,0,.28); font-size: 12px; }
+    #tip h4 { margin: 0 0 5px; font-size: 12px; }
+    #tip ul { margin: 4px 0 0; padding-left: 16px; }
+    @media print { #tip { display: none !important; } }
 </style>
 </head>
 <body>
@@ -181,6 +189,7 @@
         <div class="views">
             <button class="btn soft" id="viewClass" aria-pressed="true">🏫 По одделение</button>
             <button class="btn soft" id="viewTeacher" aria-pressed="false">👩‍🏫 По наставник</button>
+            <button class="btn soft" id="viewWeek" aria-pressed="false">📅 Цела недела</button>
         </div>
     </div>
 
@@ -201,7 +210,7 @@
     const DAYS = ['понеделник', 'вторник', 'среда', 'четврток', 'петок'];
 
     let data = null;
-    let selected = null;    // "класа|час"
+    let selected = null;    // "класа|час", или "ден|класа|час" во неделниот приказ
     let view = 'class';
     // Every request carries a number and only the newest one may draw. Without
     // this, changing the day while the first fetch is still running leaves the
@@ -269,8 +278,13 @@
             const year = el('year').value;
             const day = el('day').value;
             const share = el('share').value;
+            // The weekly view crosses every day at once, and the endpoint
+            // already answers for the whole week when no day is named. Asking
+            // five times and stitching the answers together in the browser
+            // would be a second opinion about the same arithmetic.
+            const dayParam = view === 'week' ? '' : `&day=${encodeURIComponent(day)}`;
             const res = await fetch(
-                `/api/teaching/crossing?year=${encodeURIComponent(year)}&day=${encodeURIComponent(day)}`
+                `/api/teaching/crossing?year=${encodeURIComponent(year)}${dayParam}`
                     + `&minShare=${encodeURIComponent(share)}`,
                 { cache: 'no-store' }
             );
@@ -288,8 +302,12 @@
                 const ext = body.summary.external
                     ? ` · ${body.summary.external} кај екстерни ученици`
                     : '';
-                status(`${yearLabel} · ${body.summary.placed} од ${body.summary.sessions} третмани се поврзани со час${ext} · `
-                     + `${body.summary.lessonsDisrupted} часа со отсутни`);
+                const off = body.summary.offStaffLessons
+                    ? ` · ${body.summary.offStaffLessons} часа кај наставник вон списокот`
+                    : '';
+                const scope = view === 'week' ? ' · цела недела' : '';
+                status(`${yearLabel}${scope} · ${body.summary.placed} од ${body.summary.sessions} третмани се поврзани со час${ext} · `
+                     + `${body.summary.lessonsDisrupted} часа со отсутни${off}`);
             }
         } catch (err) {
             if (mine !== ticket) return;
@@ -329,7 +347,9 @@
     function draw() {
         if (!data) return;
         drawLegend();
-        if (view === 'class') drawByClass(); else drawByTeacher();
+        if (view === 'week') drawWeek();
+        else if (view === 'class') drawByClass();
+        else drawByTeacher();
         drawUnplaced();
         drawExternal();
         markSelected();
@@ -416,22 +436,148 @@
         el('grid').innerHTML = html + '</tbody></table>';
     }
 
+    /**
+     * The whole week: teachers down the page, the five days across it.
+     *
+     * This is the shape the staff room asks in — „кога сум јас слободен, и кој
+     * ми недостига од часот" — which neither single-day view can answer without
+     * clicking through the days one at a time.
+     *
+     * It is drawn from the SAME crossing the other two views use, fetched
+     * without a day. Nothing about the overlap is recomputed here: `awayCount`
+     * and `away` arrive already measured in real minutes by `lib/crossing.ts`,
+     * which is deliberately the only copy of that arithmetic — a second one in
+     * the browser could drift by a minute and nobody would see it.
+     */
+    function drawWeek() {
+        const periods = data.bells.teaching || [];
+        const offStaff = new Set();
+        data.cells.forEach((c) => {
+            if (c.teacher && c.teacherOnStaff === false) offStaff.add(c.teacher);
+        });
+
+        // teacher -> "ден|час" -> the lessons in that slot
+        const byTeacher = new Map();
+        data.cells.forEach((c) => {
+            const name = c.teacher || '— без наставник —';
+            if (!byTeacher.has(name)) byTeacher.set(name, new Map());
+            const slot = byTeacher.get(name);
+            const at = c.day + '|' + c.ordinal;
+            if (!slot.has(at)) slot.set(at, []);
+            slot.get(at).push(c);
+        });
+
+        // Only the days the timetable actually uses, in the school's own order.
+        const days = DAYS.filter((d) => data.cells.some((c) => c.day === d));
+        if (!days.length || !periods.length) {
+            el('grid').innerHTML = '<div class="offline"><p>Нема внесени часови за оваа година.</p></div>';
+            return;
+        }
+
+        const cap = (d) => d.charAt(0).toUpperCase() + d.slice(1);
+        const head = '<tr><th rowspan="2">Наставник</th>'
+            + days.map((d) =>
+                `<th class="wk-day wk-edge" colspan="${periods.length}">${esc(cap(d))}</th>`).join('')
+            + '</tr><tr>'
+            + days.map(() => periods.map((p, i) =>
+                `<th${i === 0 ? ' class="wk-edge"' : ''}>${esc(String(p.ordinal))}.`
+                + `<small>${esc(p.startsAt)}</small></th>`).join('')).join('')
+            + '</tr>';
+
+        let html = '<table class="grid"><thead>' + head + '</thead><tbody>';
+        Array.from(byTeacher.keys()).sort((a, b) => a.localeCompare(b, 'mk')).forEach((name) => {
+            html += `<tr><th>${esc(name)}`
+                + (offStaff.has(name) ? '<span class="off-staff">не е на списокот оваа година</span>' : '')
+                + '</th>';
+            days.forEach((d) => {
+                periods.forEach((p, i) => {
+                    const edge = i === 0 ? ' wk-edge' : '';
+                    const list = byTeacher.get(name).get(d + '|' + p.ordinal) || [];
+                    if (!list.length) { html += `<td class="cell free${edge}">—</td>`; return; }
+                    const away = list.reduce((n, c) => n + c.awayCount, 0);
+                    const text = list.map((c) => c.class + (c.subject ? ' · ' + c.subject : '')).join(' / ');
+                    // Every lesson carries a key, not only the disrupted ones:
+                    // hovering a quiet lesson must be able to say "nobody is
+                    // out", which is an answer, not an empty tooltip.
+                    const key = d + '|' + list[0].class + '|' + p.ordinal;
+                    html += `<td class="cell ${heat(away)}${edge}${away ? ' clickable' : ''}"`
+                        + ` data-key="${esc(key)}" title="${esc(text)}">`
+                        + esc(list.map((c) => c.class).join(' / '))
+                        + (away ? `<span class="count">${away}</span>` : '')
+                        + '</td>';
+                });
+            });
+            html += '</tr>';
+        });
+        el('grid').innerHTML = html + '</tbody></table>';
+    }
+
+    /**
+     * A key is „класа|час" in a single-day view and „ден|класа|час" in the
+     * weekly one. The same class and period exist five times in a week, so
+     * without the day a Friday cell would open Monday's lesson — and it would
+     * look entirely plausible.
+     */
+    function cellForKey(key) {
+        if (!data) return null;
+        const parts = String(key).split('|');
+        const ordinal = Number(parts[parts.length - 1]);
+        if (parts.length >= 3) {
+            const day = parts[0];
+            const label = parts.slice(1, -1).join('|');
+            return data.cells.find((c) =>
+                c.day === day && c.class === label && c.ordinal === ordinal) || null;
+        }
+        const label = parts.slice(0, -1).join('|');
+        return data.cells.find((c) => c.class === label && c.ordinal === ordinal) || null;
+    }
+
     /** Clicking, not hovering: this gets read on a tablet in a staff room. */
     function show(key) {
-        const [label, ordinal] = [key.slice(0, key.lastIndexOf('|')), Number(key.slice(key.lastIndexOf('|') + 1))];
-        const cell = data.cells.find((c) => c.class === label && c.ordinal === ordinal);
+        const cell = cellForKey(key);
         const box = el('detail');
-        if (!cell || !cell.awayCount) { box.className = 'panel detail'; box.innerHTML = ''; selected = null; return; }
+        if (!cell || !cell.awayCount) {
+            box.className = 'panel detail'; box.innerHTML = '';
+            selected = null; markSelected(); return;
+        }
         selected = key;
-        const period = (data.bells.teaching || []).find((p) => p.ordinal === ordinal);
+        const period = (data.bells.teaching || []).find((p) => p.ordinal === cell.ordinal);
+        const when = view === 'week' ? esc(cell.day) + ' · ' : '';
         box.className = 'panel detail open';
         box.innerHTML =
-            `<h3>${esc(label)} · ${ordinal}. час${period ? ' · ' + esc(period.startsAt) : ''}</h3>`
-            + `<div class="meta">${esc(cell.subject || 'без предмет')} · ${esc(cell.teacher || 'без наставник')}</div>`
+            `<h3>${when}${esc(cell.class)} · ${cell.ordinal}. час${period ? ' · ' + esc(period.startsAt) : ''}</h3>`
+            + `<div class="meta">${esc(cell.subject || 'без предмет')} · ${esc(cell.teacher || 'без наставник')}`
+            + (cell.teacherOnStaff === false ? ' · не е на списокот оваа година' : '')
+            + '</div>'
             + `<ul>${cell.away.map((a) =>
                 `<li><b>${esc(a.student)}</b> — ${esc(a.therapist)} <span class="meta">(${a.minutes} мин од часот)</span></li>`
               ).join('')}</ul>`;
         markSelected();
+    }
+
+    /**
+     * What the hover card says about one lesson.
+     *
+     * „Никој не е на третман" is a real answer and is shown as one. A lesson
+     * nobody is taken out of is the common case, and a tooltip that appears
+     * blank reads like a page that is broken.
+     */
+    function tipFor(cell) {
+        if (!cell) return '';
+        const head = `<h4>${esc(cell.class)} · ${cell.ordinal}. час</h4>`
+            + `<div class="meta">${esc(cell.subject || 'без предмет')} · ${esc(cell.teacher || 'без наставник')}`
+            + (cell.teacherOnStaff === false ? ' · вон списокот' : '')
+            + '</div>';
+        if (!cell.awayCount) return head + '<div class="meta">Никој не е на третман.</div>';
+        return head + `<ul>${cell.away.map((a) =>
+            `<li>${esc(a.student)} — ${esc(a.therapist)} <span class="meta">(${a.minutes} мин)</span></li>`
+          ).join('')}</ul>`;
+    }
+
+    function hideTip() {
+        const tip = el('tip');
+        tip.style.display = 'none';
+        tip.setAttribute('aria-hidden', 'true');
     }
 
     function markSelected() {
@@ -495,10 +641,19 @@
     }
 
     function setView(next) {
+        const wasWeek = view === 'week';
         view = next;
         el('viewClass').setAttribute('aria-pressed', String(next === 'class'));
         el('viewTeacher').setAttribute('aria-pressed', String(next === 'teacher'));
-        draw();
+        el('viewWeek').setAttribute('aria-pressed', String(next === 'week'));
+        // A day cannot be chosen for a week, and leaving the control live would
+        // suggest it still filters something.
+        el('day').disabled = next === 'week';
+        selected = null;
+        hideTip();
+        // The weekly view holds every day and the other two hold one, so this
+        // is a different REQUEST, not a different drawing of the same answer.
+        if (wasWeek !== (next === 'week')) load(); else draw();
     }
 
     el('year').addEventListener('change', () => {
@@ -512,14 +667,38 @@
     el('refresh').addEventListener('click', load);
     el('viewClass').addEventListener('click', () => setView('class'));
     el('viewTeacher').addEventListener('click', () => setView('teacher'));
+    el('viewWeek').addEventListener('click', () => setView('week'));
     el('grid').addEventListener('click', (event) => {
         const td = event.target.closest('.cell.clickable');
         if (td) show(td.dataset.key);
     });
 
+    // Hover is the quick look. The click panel above stays exactly as it was,
+    // because this page is read on a tablet in a staff room, where there is no
+    // hover at all — so nothing may depend on it alone.
+    el('grid').addEventListener('mouseover', (event) => {
+        const td = event.target.closest('.cell[data-key]');
+        if (!td) return;
+        const html = tipFor(cellForKey(td.dataset.key));
+        if (!html) return;
+        const tip = el('tip');
+        tip.innerHTML = html;
+        tip.style.display = 'block';
+        tip.setAttribute('aria-hidden', 'false');
+        const box = td.getBoundingClientRect();
+        const w = tip.offsetWidth, h = tip.offsetHeight;
+        // Below the cell by default, above it when the page has run out of room.
+        const top = box.bottom + 8 + h > window.innerHeight ? box.top - h - 8 : box.bottom + 8;
+        tip.style.top = Math.max(8, top) + 'px';
+        tip.style.left = Math.max(8, Math.min(box.left, window.innerWidth - w - 8)) + 'px';
+    });
+    el('grid').addEventListener('mouseleave', hideTip);
+    window.addEventListener('scroll', hideTip, true);
+
     load();
 })();
 </script>
 <script src="app-navigation.js"></script>
+<div id="tip" role="tooltip" aria-hidden="true"></div>
 </body>
 </html>

@@ -246,6 +246,81 @@ const run = async () => {
     check('a teacher who is on the list has no marker',
         onTeacher && onTeacher.badge === null, JSON.stringify(onTeacher));
 
+    console.log('\nthe weekly view crosses the whole week and keeps the days apart');
+    let weekUrl = '';
+    await ctx.unroute('**/api/teaching/crossing*');
+    await ctx.route('**/api/teaching/crossing*', async (route) => {
+        weekUrl = route.request().url();
+        const response = await route.fetch();
+        const json = await response.json();
+        // The same class, the same period, on two different days — which is the
+        // whole reason a weekly cell key has to carry the day.
+        json.cells = [
+            { day: 'понеделник', dayOrder: 1, ordinal: 1, class: 'ТЕСТ-Н', subject: 'мат',
+              teacher: 'Пробен Неделен', teacherOnStaff: true, awayCount: 1,
+              away: [{ student: 'Понеделник Дете', therapist: 'Пробен Терапевт', minutes: 25 }] },
+            { day: 'петок', dayOrder: 5, ordinal: 1, class: 'ТЕСТ-Н', subject: 'мат',
+              teacher: 'Пробен Неделен', teacherOnStaff: true, awayCount: 1,
+              away: [{ student: 'Петок Дете', therapist: 'Пробен Терапевт', minutes: 30 }] },
+            { day: 'среда', dayOrder: 3, ordinal: 2, class: 'ТЕСТ-Н', subject: 'мат',
+              teacher: 'Пробен Неделен', teacherOnStaff: true, away: [], awayCount: 0 }
+        ];
+        json.summary = Object.assign({}, json.summary, { offStaffLessons: 0 });
+        await route.fulfill({ json });
+    });
+
+    await page.click('#viewWeek');
+    await page.waitForTimeout(1000);
+
+    check('the weekly view asks the server for every day at once',
+        weekUrl && !/[?&]day=/.test(weekUrl), weekUrl);
+    check('the day picker is disabled while a whole week is shown',
+        await page.evaluate(() => document.getElementById('day').disabled));
+
+    const dayHeads = await page.evaluate(() =>
+        Array.from(document.querySelectorAll('#grid thead th.wk-day')).map((th) => th.textContent.trim()));
+    check('the header names more than one day', dayHeads.length >= 2, JSON.stringify(dayHeads));
+
+    const keyOn = (day) => page.evaluate((d) => {
+        const td = Array.from(document.querySelectorAll('#grid td.cell[data-key]'))
+            .find((t) => t.dataset.key.startsWith(d + '|'));
+        return td ? td.dataset.key : null;
+    }, day);
+
+    const monKey = await keyOn('понеделник');
+    const friKey = await keyOn('петок');
+    const wedKey = await keyOn('среда');
+    check('Monday and Friday are separate cells, not one shared key',
+        monKey && friKey && monKey !== friKey, `${monKey} / ${friKey}`);
+
+    // Without the day in the key this passes on Monday and silently opens the
+    // wrong lesson on Friday — plausible, and wrong all week.
+    await page.click(`#grid td[data-key="${friKey}"]`);
+    await page.waitForTimeout(400);
+    const friDetail = await page.evaluate(() =>
+        document.getElementById('detail').textContent.replace(/\s+/g, ' ').trim());
+    check("clicking the Friday cell opens FRIDAY's lesson, not Monday's",
+        /Петок Дете/.test(friDetail) && !/Понеделник Дете/.test(friDetail), friDetail);
+
+    await page.hover(`#grid td[data-key="${monKey}"]`);
+    await page.waitForTimeout(400);
+    const tip = await page.evaluate(() => {
+        const t = document.getElementById('tip');
+        return { shown: getComputedStyle(t).display !== 'none',
+                 text: t.textContent.replace(/\s+/g, ' ').trim() };
+    });
+    check('hovering a lesson shows the therapy that overlaps it', tip.shown, JSON.stringify(tip));
+    check('and it names the child, the therapist and the minutes',
+        /Понеделник Дете/.test(tip.text) && /Пробен Терапевт/.test(tip.text) && /25/.test(tip.text),
+        tip.text);
+
+    await page.hover(`#grid td[data-key="${wedKey}"]`);
+    await page.waitForTimeout(400);
+    const quietTip = await page.evaluate(() =>
+        document.getElementById('tip').textContent.replace(/\s+/g, ' ').trim());
+    check('a lesson nobody is taken out of says so rather than showing a blank card',
+        /Никој не е на третман/.test(quietTip), quietTip);
+
     console.log('\nthe tab is honest when the server is gone');
     await ctx.route('**/api/teaching/**', (r) => r.abort());
     await page.click('#refresh');
