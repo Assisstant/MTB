@@ -326,6 +326,9 @@ const run = async () => {
         );
     }
 
+    // Ensure T1 is not on dst's staff list so we can test that copy doesn't add them
+    await q(`DELETE FROM teacher_years WHERE school_year_id = $1`, [dst.id]);
+
     const dry = await call('POST', '/api/teaching/copy-year', { from: SRC_YEAR, to: DST_YEAR });
     checkEq('copying onto a year that already has lessons is refused', dry.status, 409);
     check('and says why, in a sentence with the numbers in it',
@@ -336,6 +339,7 @@ const run = async () => {
     checkEq('a dry run with replace answers 200', dryReplace.status, 200);
     checkEq('and does not claim to have applied anything', dryReplace.body?.applied, false);
     checkEq('it counts what is in the way', dryReplace.body?.existing, dstBefore);
+    checkEq('it reports offStaff count in dry run', dryReplace.body?.offStaff, 1);
     checkEq('nothing moved', (await q(`SELECT count(*)::int AS n FROM lessons WHERE school_year_id = $1`, [dst.id]))[0].n, dstBefore);
 
     const applied = await call('POST', '/api/teaching/copy-year', { from: SRC_YEAR, to: DST_YEAR, replace: true, apply: true });
@@ -346,6 +350,14 @@ const run = async () => {
     );
     checkEq('and copies every lesson', applied.body?.lessons, 3);
     checkEq('reporting what it removed', applied.body?.removed, dstBefore);
+    checkEq('and reports the same offStaff count when applied', applied.body?.offStaff, 1);
+    const dstStaff = await q(
+        `SELECT count(*)::int AS n FROM teacher_years ty
+           JOIN teachers t ON t.id = ty.teacher_id
+          WHERE ty.school_year_id = $1 AND t.name = $2 AND ty.active`,
+        [dst.id, T1]
+    );
+    checkEq('after copy, a teacher not on target year list is STILL not on it', dstStaff[0].n, 0);
     const after = await q(
         `SELECT c.label, l.ordinal FROM lessons l JOIN school_classes c ON c.id = l.class_id
           WHERE l.school_year_id = $1 ORDER BY c.label, l.ordinal`, [dst.id]);

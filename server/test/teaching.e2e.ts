@@ -289,6 +289,41 @@ const run = async () => {
         JSON.stringify(viA2));
     check('and VI itself is present in the crossing', cross.cells.some((c: any) => c.class === 'VI'));
 
+    // ── teacher on staff marker ──────────────────────────────────────────────
+    console.log('\nwhether a lesson\'s teacher is on that year\'s staff list');
+    await pool.query(
+        `UPDATE teacher_years SET active = false
+         WHERE teacher_id = (SELECT id FROM teachers WHERE name = 'Три Пробен')
+           AND school_year_id = $1`,
+        [year.id]
+    );
+    await pool.query(
+        `INSERT INTO lessons (school_year_id, day, day_order, ordinal, class_id, teacher_id, subject)
+         SELECT $1, $2, 2, 6, id, NULL, 'проект'
+         FROM school_classes WHERE label = 'VI-а' LIMIT 1`,
+        [year.id, DAY]
+    );
+    const { body: crossStaff } = await call('GET', `/api/teaching/crossing?year=${Y}&day=${encodeURIComponent(DAY)}`);
+    const edenLesson = crossStaff.cells.find((c: any) => c.class === 'IV-а' && c.ordinal === 1);
+    const triLesson = crossStaff.cells.find((c: any) => c.class === 'VI-а' && c.ordinal === 2);
+    const noTeacherLesson = crossStaff.cells.find((c: any) => c.class === 'VI-а' && c.ordinal === 6);
+
+    checkEq('a lesson whose teacher IS on the list has teacherOnStaff = true', edenLesson?.teacherOnStaff, true);
+    checkEq('a lesson whose teacher is NOT on the list has teacherOnStaff = false', triLesson?.teacherOnStaff, false);
+    checkEq('a lesson with NO teacher has teacherOnStaff = true', noTeacherLesson?.teacherOnStaff, true);
+    checkEq('summary counts exactly the off-staff lessons', crossStaff.summary.offStaffLessons, 1);
+
+    await pool.query(
+        `UPDATE teacher_years SET active = true
+         WHERE teacher_id = (SELECT id FROM teachers WHERE name = 'Три Пробен')
+           AND school_year_id = $1`,
+        [year.id]
+    );
+    await pool.query(
+        `DELETE FROM lessons WHERE school_year_id = $1 AND ordinal = 6 AND subject = 'проект'`,
+        [year.id]
+    );
+
     // ── a hand-typed subject survives ───────────────────────────────────────
     console.log('\nwhat a person typed in is not overwritten by a re-import');
     const { body: table } = await call('GET', `/api/teaching/timetable?year=${Y}`);

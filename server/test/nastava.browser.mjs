@@ -208,6 +208,44 @@ const run = async () => {
     await page.screenshot({ path: 'nastava-page.png', fullPage: true });
     console.log('  →   screenshot at server/nastava-page.png');
 
+    console.log('\nthe teacher view marks off-staff staff while keeping their names visible');
+    await ctx.route('**/api/teaching/crossing*', async (route) => {
+        const response = await route.fetch();
+        const json = await response.json();
+        if (json.cells) {
+            json.cells.push({
+                day: DAY, dayOrder: 3, ordinal: 1, class: 'ТЕСТ-ОФФ', subject: 'тест',
+                teacher: 'Пробен Наставник Офф', teacherOnStaff: false, away: [], awayCount: 0
+            });
+            json.cells.push({
+                day: DAY, dayOrder: 3, ordinal: 1, class: 'ТЕСТ-ОН', subject: 'тест',
+                teacher: 'Пробен Наставник Он', teacherOnStaff: true, away: [], awayCount: 0
+            });
+        }
+        await route.fulfill({ json });
+    });
+    await page.click('#refresh');
+    await page.waitForTimeout(1000);
+    await page.click('#viewTeacher');
+    await page.waitForTimeout(600);
+
+    const teacherHeaders = await page.evaluate(() => {
+        return Array.from(document.querySelectorAll('#grid tbody tr th')).map((th) => ({
+            text: th.textContent.replace(/\s+/g, ' ').trim(),
+            badge: th.querySelector('.off-staff')?.textContent.trim() || null
+        }));
+    });
+
+    const offTeacher = teacherHeaders.find((t) => t.text.includes('Пробен Наставник Офф'));
+    const onTeacher = teacherHeaders.find((t) => t.text.includes('Пробен Наставник Он'));
+
+    check('the teacher view renders the marker text for an off-staff teacher',
+        offTeacher && offTeacher.badge === 'не е на списокот оваа година', JSON.stringify(offTeacher));
+    check('her name is still visible alongside the marker',
+        offTeacher && offTeacher.text.includes('Пробен Наставник Офф'), JSON.stringify(offTeacher));
+    check('a teacher who is on the list has no marker',
+        onTeacher && onTeacher.badge === null, JSON.stringify(onTeacher));
+
     console.log('\nthe tab is honest when the server is gone');
     await ctx.route('**/api/teaching/**', (r) => r.abort());
     await page.click('#refresh');
