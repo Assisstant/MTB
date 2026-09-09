@@ -93,13 +93,16 @@ export async function teachingRoutes(server: FastifyInstance) {
                         GROUP BY t.id, t.name, t.kind, t.subject
                         ORDER BY t.kind, t.name`, [year.id]),
             pool.query(`SELECT l.id, l.day, l.day_order, l.ordinal, c.label AS class, c.id AS class_id,
-                               l.subject, t.name AS teacher, t.id AS teacher_id
+                               l.subject, t.name AS teacher, t.id AS teacher_id,
+                               (t.id IS NULL OR ty.teacher_id IS NOT NULL) AS teacher_on_staff
                         FROM lessons l
                         JOIN school_classes c ON c.id = l.class_id
                         LEFT JOIN teachers t  ON t.id = l.teacher_id
+                        LEFT JOIN teacher_years ty
+                               ON ty.teacher_id = t.id AND ty.school_year_id = $1 AND ty.active
                         WHERE l.school_year_id = $1
                         ORDER BY l.day_order, l.ordinal, c.sort_key`,
-                       [year.id]),
+                        [year.id]),
             pool.query(
                 `SELECT day, ordinal, class, who FROM teaching_clashes
                  WHERE school_year = $1 ORDER BY day_order, ordinal`,
@@ -139,10 +142,13 @@ export async function teachingRoutes(server: FastifyInstance) {
         ]);
 
         const { rows: lessonRows } = await pool.query(
-            `SELECT l.day, l.day_order, l.ordinal, c.label AS class, l.subject, t.name AS teacher
+            `SELECT l.day, l.day_order, l.ordinal, c.label AS class, l.subject, t.name AS teacher,
+                    (t.id IS NULL OR ty.teacher_id IS NOT NULL) AS teacher_on_staff
              FROM lessons l
              JOIN school_classes c ON c.id = l.class_id
              LEFT JOIN teachers t  ON t.id = l.teacher_id
+             LEFT JOIN teacher_years ty
+                    ON ty.teacher_id = t.id AND ty.school_year_id = $2 AND ty.active
              WHERE l.school_year_id = $2
                AND ($1::text IS NULL OR l.day = $1)
              ORDER BY l.day_order, l.ordinal, c.sort_key`,
@@ -245,6 +251,7 @@ export async function teachingRoutes(server: FastifyInstance) {
                 class: r.class,
                 subject: r.subject,
                 teacher: r.teacher,
+                teacherOnStaff: r.teacher_on_staff !== false,
                 away,
                 awayCount: away.length
             };
@@ -274,7 +281,8 @@ export async function teachingRoutes(server: FastifyInstance) {
                 // Distinct children out of a lesson, not rows: the same child
                 // in both halves of one term is one absence.
                 absences: cells.reduce((n, c) => n + c.awayCount, 0),
-                lessonsDisrupted: cells.filter((c) => c.awayCount > 0).length
+                lessonsDisrupted: cells.filter((c) => c.awayCount > 0).length,
+                offStaffLessons: cells.filter((c) => !c.teacherOnStaff).length
             }
         };
     });
