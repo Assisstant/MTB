@@ -289,7 +289,7 @@ body.dark .at tr.ev td{color:#a3b0f7;}
     // ── constants and tiny helpers ───────────────────────────────────────────
     const PUBLISHED_HOST = 'assisstant.github.io';
     const PUBLISHED = window.location.hostname === PUBLISHED_HOST;
-    const SERVER_DEFAULTS = ['https://zenpc-1.tailc8965f.ts.net', 'https://zenpc.tailc8965f.ts.net'];
+    const SERVER_DEFAULTS = ['https://pcw.tailc8965f.ts.net', 'https://zenpc-1.tailc8965f.ts.net', 'https://zenpc.tailc8965f.ts.net'];
     const SERVERS_KEY = 'mtb_servers_v1';
     const SELECTED_SERVER_KEY = 'mtb_podatoci_server_v1';
     const TOKEN_KEY = 'evidence_token_v1';
@@ -473,6 +473,7 @@ body.dark .at tr.ev td{color:#a3b0f7;}
     function serverName(base) {
         try {
             const host = new URL(base).hostname.split('.')[0].toLowerCase();
+            if (host === 'pcw') return 'PCW';
             if (host === 'zenpc-1') return 'ZenPC-1';
             if (host === 'zenpc') return 'ZenPC';
             return host || base;
@@ -506,7 +507,7 @@ body.dark .at tr.ev td{color:#a3b0f7;}
     async function discoverServers() {
         if (!PUBLISHED) return true;
         el('serverField').hidden = false;
-        status('ги проверувам ZenPC и ZenPC-1…');
+        status('ги проверувам серверите…');
         const candidates = configuredServers();
         liveServers = (await Promise.all(candidates.map(probeServer))).filter(Boolean);
         const select = el('serverChoice');
@@ -524,8 +525,8 @@ body.dark .at tr.ev td{color:#a3b0f7;}
         if (!chosen) {
             apiBase = '';
             status(liveServers.length
-                ? 'Двата сервери одговараат — избери во која база работиш.'
-                : 'Ниту ZenPC ниту ZenPC-1 не одговара. Провери Tailscale.', 'warn');
+                ? 'Повеќе сервери одговараат — избери во која база работиш.'
+                : 'Ниту еден сервер не одговара. Провери дали серверот е пуштен и Tailscale.', 'warn');
             return false;
         }
         apiBase = chosen;

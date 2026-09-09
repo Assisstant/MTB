@@ -99,6 +99,7 @@
   // Both machines run their own server and only one is usually on. Rather than
   // remembering which, ask them all and go where the answer comes from.
   var DEFAULTS = [
+    'https://pcw.tailc8965f.ts.net',
     'https://zenpc-1.tailc8965f.ts.net',
     'https://zenpc.tailc8965f.ts.net'
   ];
@@ -202,7 +203,7 @@
 
   function choose(list){
     $('dot').className = 'dot live';
-    $('msg').textContent = 'Двата сервери одговараат — избери машина';
+    $('msg').textContent = 'Повеќе сервери одговараат — избери машина';
     var box = $('extra');
     box.textContent = '';
     list.forEach(function(target){

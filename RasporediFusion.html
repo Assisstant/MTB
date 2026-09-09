@@ -802,6 +802,7 @@
     const SERVERS_KEY = 'mtb_servers_v1';
     const PUBLISHED_HOST = 'assisstant.github.io';
     const SERVER_DEFAULTS = [
+        'https://pcw.tailc8965f.ts.net',
         'https://zenpc-1.tailc8965f.ts.net',
         'https://zenpc.tailc8965f.ts.net'
     ];
@@ -961,11 +962,11 @@
         }
         if (live.length === 0) {
             if (remembered) forgetSelectedServer();
-            const error = new Error('Ниту ZenPC ниту ZenPC-1 не одговара. Провери Tailscale и дали серверот е пуштен.');
+            const error = new Error('Ниту еден сервер не одговара. Провери дали серверот е пуштен и Tailscale.');
             error.discovery = true;
             throw error;
         }
-        const error = new Error('Двата сервери одговараат — отвори преку start.html или Податоци и избери една база.');
+        const error = new Error('Повеќе сервери одговараат — отвори преку start.html или Податоци и избери една база.');
         error.discovery = true;
         throw error;
     }

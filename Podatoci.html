@@ -437,6 +437,7 @@
     let rolloverPreview = null;
     const PUBLISHED = window.location.hostname === 'assisstant.github.io';
     const SERVER_DEFAULTS = [
+        'https://pcw.tailc8965f.ts.net',
         'https://zenpc-1.tailc8965f.ts.net',
         'https://zenpc.tailc8965f.ts.net'
     ];
@@ -466,6 +467,7 @@
     function serverName(base) {
         try {
             const host = new URL(base).hostname.split('.')[0].toLowerCase();
+            if (host === 'pcw') return 'PCW';
             if (host === 'zenpc-1') return 'ZenPC-1';
             if (host === 'zenpc') return 'ZenPC';
             return host || base;
@@ -528,15 +530,15 @@
         }
         warning.hidden = false;
         warning.innerHTML = apiBase
-            ? '<b>Двата сервери се вклучени.</b> Сега запишуваш во '
+            ? '<b>Повеќе сервери се вклучени.</b> Сега запишуваш во '
               + `<b>${esc(serverName(apiBase))}</b>. Работи во една база; синхронизирај пред да се префрлиш на другата.`
-            : '<b>Двата сервери се вклучени.</b> Избери една база погоре; синхронизирај пред да се префрлиш на другата.';
+            : '<b>Повеќе сервери се вклучени.</b> Избери една база погоре; синхронизирај пред да се префрлиш на другата.';
     }
 
     async function discoverServers() {
         if (!PUBLISHED) return true;
         el('serverField').hidden = false;
-        status('ги проверувам ZenPC и ZenPC-1…');
+        status('ги проверувам серверите…');
         const candidates = configuredServers();
         liveServers = (await Promise.all(candidates.map(probeServer))).filter(Boolean);
 
@@ -558,8 +560,8 @@
             apiBase = '';
             drawServerWarning();
             status(liveServers.length
-                ? 'Двата сервери одговараат — избери во која база ќе работиш.'
-                : 'Ниту ZenPC ниту ZenPC-1 не одговара. Провери Tailscale.', 'warn');
+                ? 'Повеќе сервери одговараат — избери во која база ќе работиш.'
+                : 'Ниту еден сервер не одговара. Провери дали серверот е пуштен и Tailscale.', 'warn');
             return false;
         }
         apiBase = chosen;

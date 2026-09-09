@@ -2014,6 +2014,32 @@ the change into one and copy it over the other in the same commit; they have
 already drifted once, and a memory that disagrees with itself is worse than a
 short one.
 
+## State (9 Sep 2026)
+
+**WORK was reinstalled and its machine is now named `PCW`, not `zenpc`.** Its
+tailnet address is `https://pcw.tailc8965f.ts.net`, the repository sits at
+`C:\Users\Admin\Documents\GitHub\MTB`, `tailscale serve` proxies `/` to
+`127.0.0.1:3000` on that name, and `server/.env` still says `SYNC_NAME=work` —
+the role comes from that setting and never from the hostname, which is the
+whole reason a rename costs nothing here.
+
+The published apps could not find it, and the failure read as a network fault.
+`SERVER_DEFAULTS` listed `zenpc-1` and `zenpc` only, so the GitHub Pages copy
+probed two machines — one offline for days, one that no longer exists under
+that name — and reported „Ниту ZenPC ниту ZenPC-1 не одговара. Провери
+Tailscale" while the server, the database and Tailscale were all healthy the
+entire time. `pcw` is now first in the four lists that hold the addresses
+(`start.html`, `Podatoci.html`, `AkciskiPlan.html`, `RasporediFusion.html`),
+`serverName` labels it `PCW`, and every message that named exactly two machines
+now says „ниту еден" / „повеќе": the list is three long today and a hard-coded
+count is what made this failure unreadable.
+
+**A stored `mtb_servers_v1` beats the defaults**, so a browser where the address
+list was ever edited by hand keeps the old two and a code fix does not reach it.
+„Измени адреси на серверите" → „Врати ги основните" in `start.html` is the cure,
+and it is per origin — the GitHub Pages copy and each tailnet copy have separate
+storage.
+
 ## State (5 Sep 2026)
 
 Branch `kolegi-pristap` now carries the complete opt-in colleague boundary and
