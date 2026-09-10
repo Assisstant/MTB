@@ -155,6 +155,19 @@ export async function teachingRoutes(server: FastifyInstance) {
             [q.day ?? null, year.id]
         );
 
+        // Everyone on the year's staff list, including whoever has no lesson
+        // yet. „По наставник" is a list of the STAFF, not a reading of the
+        // timetable: a teacher Podatoci shows and this page does not reads as
+        // data loss, and it WAS — the two screens disagreed by everybody who
+        // had not been given a lesson.
+        const { rows: staffRows } = await pool.query(
+            `SELECT t.id, t.name, t.kind FROM teachers t
+               JOIN teacher_years ty
+                 ON ty.teacher_id = t.id AND ty.school_year_id = $1 AND ty.active
+              ORDER BY t.kind, t.name`,
+            [year.id]
+        );
+
         // Every therapy session, with the class its student is recorded in.
         const { rows: sessionRows } = await pool.query(
             `SELECT sl.day, sl.day_order, sl.time_slot, th.name AS therapist,
@@ -269,6 +282,7 @@ export async function teachingRoutes(server: FastifyInstance) {
             day: q.day ?? null,
             minShare,
             bells: { teaching: teachBells, cabinet: blocks },
+            teachers: staffRows,
             cells,
             unplaced,
             external,

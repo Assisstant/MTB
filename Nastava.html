@@ -397,27 +397,45 @@
     }
 
     /**
+     * Every teacher on the year's staff list gets a row, even one with no
+     * lesson at all — plus anyone the timetable names who is NOT on the list,
+     * who is marked rather than dropped.
+     *
+     * The list of PEOPLE and the list of LESSONS are different questions, and
+     * reading the first out of the second is what made this page disagree with
+     * „Податоци" by everybody who had not been given a lesson yet. An empty row
+     * says „on the staff, nothing timetabled"; a missing row says nothing at
+     * all, and reads as data loss.
+     */
+    function teacherRows() {
+        const rows = new Map();
+        (data.teachers || []).forEach((t) => rows.set(t.name, new Map()));
+        const offStaff = new Set();
+        data.cells.forEach((c) => {
+            const name = c.teacher || '— без наставник —';
+            if (c.teacher && c.teacherOnStaff === false) offStaff.add(c.teacher);
+            if (!rows.has(name)) rows.set(name, new Map());
+        });
+        const order = Array.from(rows.keys()).sort((a, b) => a.localeCompare(b, 'mk'));
+        return { rows, offStaff, order };
+    }
+
+    /**
      * The same week seen the way the school's own workbook prints it: one row
      * per teacher, the class in the cell. Kept because that is the layout the
      * staff already read, and a familiar shape is worth more than a tidier one.
      */
     function drawByTeacher() {
         const periods = data.bells.teaching || [];
-        const byTeacher = new Map();
-        const offStaff = new Set();
+        const { rows: byTeacher, offStaff, order } = teacherRows();
         data.cells.forEach((c) => {
-            if (c.teacher && c.teacherOnStaff === false) offStaff.add(c.teacher);
-        });
-        data.cells.forEach((c) => {
-            const name = c.teacher || '— без наставник —';
-            if (!byTeacher.has(name)) byTeacher.set(name, new Map());
-            const slot = byTeacher.get(name);
+            const slot = byTeacher.get(c.teacher || '— без наставник —');
             if (!slot.has(c.ordinal)) slot.set(c.ordinal, []);
             slot.get(c.ordinal).push(c);
         });
 
         let html = '<table class="grid"><thead>' + periodHeader() + '</thead><tbody>';
-        Array.from(byTeacher.keys()).sort((a, b) => a.localeCompare(b, 'mk')).forEach((name) => {
+        order.forEach((name) => {
             html += `<tr><th>${esc(name)}`
                 + (offStaff.has(name) ? '<span class="off-staff">не е на списокот оваа година</span>' : '')
                 + '</th>';
@@ -453,17 +471,10 @@
      */
     function drawWeek() {
         const periods = data.bells.teaching || [];
-        const offStaff = new Set();
-        data.cells.forEach((c) => {
-            if (c.teacher && c.teacherOnStaff === false) offStaff.add(c.teacher);
-        });
-
         // teacher -> "ден|час" -> the lessons in that slot
-        const byTeacher = new Map();
+        const { rows: byTeacher, offStaff, order } = teacherRows();
         data.cells.forEach((c) => {
-            const name = c.teacher || '— без наставник —';
-            if (!byTeacher.has(name)) byTeacher.set(name, new Map());
-            const slot = byTeacher.get(name);
+            const slot = byTeacher.get(c.teacher || '— без наставник —');
             const at = c.day + '|' + c.ordinal;
             if (!slot.has(at)) slot.set(at, []);
             slot.get(at).push(c);
@@ -487,7 +498,7 @@
             + '</tr>';
 
         let html = '<table class="grid"><thead>' + head + '</thead><tbody>';
-        Array.from(byTeacher.keys()).sort((a, b) => a.localeCompare(b, 'mk')).forEach((name) => {
+        order.forEach((name) => {
             html += `<tr><th>${esc(name)}`
                 + (offStaff.has(name) ? '<span class="off-staff">не е на списокот оваа година</span>' : '')
                 + '</th>';

@@ -273,7 +273,7 @@ body.dark .at tr.ev td{color:#a3b0f7;}
        серверот ја чита базата и без PIN.</p>
     <div class="msg" id="gateMsg"></div>
     <div class="fl"><label>Стручно лице</label><select id="gateWho"></select></div>
-    <div class="fl"><label id="gatePinLabel">PIN (најмалку 4 знаци)</label>
+    <div class="fl"><label id="gatePinLabel">PIN · точно 4 цифри (почетен 0000)</label>
       <input id="gatePin" type="password" autocomplete="off" inputmode="numeric" maxlength="4" pattern="[0-9]{4}"></div>
     <div class="fl" id="gatePin2Field" hidden><label>Повтори го новиот PIN</label>
       <input id="gatePin2" type="password" autocomplete="off" inputmode="numeric" maxlength="4" pattern="[0-9]{4}"></div>
@@ -631,7 +631,7 @@ body.dark .at tr.ev td{color:#a3b0f7;}
         el('gateWho').innerHTML = people.map((p) =>
             '<option value="' + p.kind + ':' + p.id + '" data-pin="' + (p.has_pin ? '1' : '0') + '">'
             + esc(p.name) + ' · ' + (label[p.kind] || p.kind)
-            + (p.has_pin ? '' : ' · нема PIN') + '</option>').join('');
+            + (p.has_pin ? '' : ' · почетен PIN 0000') + '</option>').join('');
         gateModeFromChoice();
     }
 
@@ -644,12 +644,19 @@ body.dark .at tr.ev td{color:#a3b0f7;}
         return personId ? { kind: raw.slice(0, cut), personId } : null;
     }
 
+    /**
+     * Somebody who has never signed in can still press „Влези": the default is
+     * 0000 and the first sign-in stores it. Disabling the button and demanding
+     * they invent a PIN first is a wall in front of the one screen they were
+     * asked to open.
+     */
     function gateModeFromChoice() {
         const option = el('gateWho').selectedOptions[0];
         const hasPin = option && option.dataset.pin === '1';
-        el('gateGo').disabled = !hasPin;
-        el('gateGo').textContent = hasPin ? 'Влези' : 'Прво постави PIN';
+        el('gateGo').disabled = false;
+        el('gateGo').textContent = 'Влези';
         el('gateSet').textContent = hasPin ? 'Смени PIN' : 'Постави PIN';
+        if (!hasPin && !el('gatePin').value) el('gatePin').value = '0000';
     }
 
     async function doLogin() {

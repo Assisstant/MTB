@@ -246,6 +246,46 @@ const run = async () => {
     check('a teacher who is on the list has no marker',
         onTeacher && onTeacher.badge === null, JSON.stringify(onTeacher));
 
+    console.log('\nthe teacher view lists the STAFF, not a reading of the timetable');
+    await ctx.unroute('**/api/teaching/crossing*');
+    await ctx.route('**/api/teaching/crossing*', async (route) => {
+        const response = await route.fetch();
+        const json = await response.json();
+        // Three on the year's list; only one of them has a lesson. The fourth
+        // name is on a lesson but NOT on the list.
+        json.teachers = [
+            { id: 9001, name: 'Пробен Соchas', kind: 'odd' },
+            { id: 9002, name: 'Пробен Безчас', kind: 'pred' },
+            { id: 9003, name: 'Пробен Празен', kind: 'pred' }
+        ];
+        json.cells = [
+            { day: DAY, dayOrder: 3, ordinal: 1, class: 'ТЕСТ-С', subject: 'тест',
+              teacher: 'Пробен Соchas', teacherOnStaff: true, away: [], awayCount: 0 },
+            { day: DAY, dayOrder: 3, ordinal: 2, class: 'ТЕСТ-О', subject: 'тест',
+              teacher: 'Пробен Отстранет', teacherOnStaff: false, away: [], awayCount: 0 }
+        ];
+        await route.fulfill({ json });
+    });
+    await page.click('#refresh');
+    await page.waitForTimeout(1000);
+    await page.click('#viewTeacher');
+    await page.waitForTimeout(600);
+
+    const staffRows = await page.evaluate(() =>
+        Array.from(document.querySelectorAll('#grid tbody tr th'))
+            .map((th) => th.textContent.replace(/\s+/g, ' ').trim()));
+
+    // This is the assertion the screens disagreed on: „Податоци" listed
+    // everybody on the year, this page listed only whoever had a lesson.
+    check('a teacher on the year list with NO lesson still gets a row',
+        staffRows.some((r) => r.includes('Пробен Безчас'))
+        && staffRows.some((r) => r.includes('Пробен Празен')), JSON.stringify(staffRows));
+    check('a teacher on a lesson but NOT on the list is shown and marked',
+        staffRows.some((r) => r.includes('Пробен Отстранет') && r.includes('не е на списокот')),
+        JSON.stringify(staffRows));
+    check('nobody is listed twice',
+        new Set(staffRows).size === staffRows.length, JSON.stringify(staffRows));
+
     console.log('\nthe weekly view crosses the whole week and keeps the days apart');
     let weekUrl = '';
     await ctx.unroute('**/api/teaching/crossing*');

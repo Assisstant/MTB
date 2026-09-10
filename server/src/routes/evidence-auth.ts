@@ -69,6 +69,21 @@ const PinBody = z.object({
 // it stores no extra identity data and a server restart is already an owner
 // action.  Five failures in one five-minute window are enough to stop scripts
 // from walking the whole PIN space.
+/**
+ * Everyone starts at 0000.
+ *
+ * A colleague sitting down at the screen for the first time must be able to
+ * get in without an administrator standing over them; „Смени PIN" is then the
+ * ordinary way to make it their own. The first sign-in STORES it, so this is a
+ * default rather than a bypass — after it, the account has a real PIN row like
+ * any other.
+ *
+ * It is refused outright while `MTB_REQUIRE_SIGNIN=1`. There a first PIN is
+ * administrator/service-only on purpose, and a publicly known default would
+ * make the whole boundary a decoration.
+ */
+const DEFAULT_PIN = '0000';
+
 const PIN_FAILURE_LIMIT = 5;
 const PIN_FAILURE_WINDOW_MS = 5 * 60 * 1000;
 const pinFailures = new Map<string, { failures: number; resetAt: number }>();
@@ -281,12 +296,26 @@ export async function evidenceAuthRoutes(server: FastifyInstance) {
         );
         if (!rows.length) return reply.code(404).send({ error: `no ${ref.kind} with id ${ref.id}` });
         if (!rows[0].pin_hash) {
-            return reply.code(409).send({
-                error: 'that name has no PIN yet -- set one first',
-                needsPin: true,
-                person: { kind: ref.kind, id: rows[0].id, name: rows[0].name },
-                therapist: { id: rows[0].id, name: rows[0].name }
-            });
+            if (enforcing() || body.pin !== DEFAULT_PIN) {
+                return reply.code(409).send({
+                    error: enforcing()
+                        ? 'that name has no PIN yet -- an administrator sets the first one'
+                        : `that name has no PIN yet -- the default is ${DEFAULT_PIN}`,
+                    needsPin: true,
+                    person: { kind: ref.kind, id: rows[0].id, name: rows[0].name },
+                    therapist: { id: rows[0].id, name: rows[0].name }
+                });
+            }
+            // Store it, so the next sign-in is an ordinary one and „Смени PIN"
+            // has something to check the change against.
+            const seeded = await hashPin(DEFAULT_PIN);
+            await pool.query(
+                `INSERT INTO evidence_logins (${col}, pin_salt, pin_hash)
+                 VALUES ($1, $2, $3) ON CONFLICT DO NOTHING`,
+                [rows[0].id, seeded.salt, seeded.hash]
+            );
+            rows[0].pin_salt = seeded.salt;
+            rows[0].pin_hash = seeded.hash;
         }
         if (!(await pinMatches(body.pin, rows[0].pin_salt, rows[0].pin_hash))) {
             const retryAfter = recordPinFailure(ref);
