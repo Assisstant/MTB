@@ -1,14 +1,14 @@
 /**
  * Workspace window behaviour, using invented data only.
  * Start the static/API server first, then run npm run test:workspace.
- * API defaults to http://127.0.0.1:31372; CHROME can select an installed browser.
+ * API defaults to http://127.0.0.1:3000; CHROME can select an installed browser.
  * Only the workspace and its shared scripts reach that server. Every API call
  * and child application document is intercepted, and every write is refused.
  */
 import assert from 'node:assert/strict';
 import { chromium } from 'playwright';
 
-const BASE = (process.env.API || 'http://127.0.0.1:31372').replace(/\/$/, '');
+const BASE = (process.env.API || 'http://127.0.0.1:3000').replace(/\/$/, '');
 const LAYOUT_KEY = 'mtb_workspace_layout_v1';
 const DRAFT = 'Invented unsaved workspace draft';
 const STUDENT_ID = 'workspace-invented-student';

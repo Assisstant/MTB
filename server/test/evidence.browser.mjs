@@ -196,15 +196,10 @@ const run = async () => {
     check('the page is gated until somebody signs in',
         await page.isVisible('#gate'), 'the record was readable without a name on it');
     await page.selectOption('#gateWho', `therapist:${fixture.therapists[0].id}`);
-    check('a therapist with no PIN cannot simply enter',
-        await page.isDisabled('#gateGo'), 'the login button was live with no PIN set');
-    await page.fill('#gatePin', PIN_A);
-    await page.click('#gateSet');                       // reveals the confirmation
-    await page.fill('#gatePin2', PIN_A);
-    await page.click('#gateSet');                       // sends it
-    await pinReady(page, `therapist:${fixture.therapists[0].id}`);
-    await page.selectOption('#gateWho', `therapist:${fixture.therapists[0].id}`);
-    await page.fill('#gatePin', PIN_A);
+    check('a therapist with no PIN can enter with default PIN 0000',
+        !(await page.isDisabled('#gateGo')), 'the login button was disabled with no PIN set');
+    check('the PIN field prefills with default 0000',
+        (await page.inputValue('#gatePin')) === '0000', 'the PIN was not prefilled with 0000');
     await page.click('#gateGo');
     await pupilReady(page, errors);
     check('after signing in the page names who is writing',
@@ -212,8 +207,8 @@ const run = async () => {
 
     const [pinRow] = await q('SELECT pin_hash FROM evidence_logins WHERE therapist_id = $1',
         [fixture.therapists[0].id]);
-    check('the PIN reached the database as a hash, not as typed',
-        !!pinRow && pinRow.pin_hash !== PIN_A && pinRow.pin_hash.length >= 32, JSON.stringify(pinRow));
+    check('the default 0000 PIN reached the database as a hash, not as typed',
+        !!pinRow && pinRow.pin_hash !== '0000' && pinRow.pin_hash.length >= 32, JSON.stringify(pinRow));
 
     // The record opens sheets for existing pupils. School people are managed
     // in Podatoci, and following that link must not itself create a person.

@@ -127,7 +127,8 @@ export const PURGE: Record<string, PurgeSpec> = {
             triage_tests: 'student_id',
             audiograms: 'student_id',
             diary_schedule: 'student_id',
-            therapist_students: 'student_id'
+            therapist_students: 'student_id',
+            evidence_sheets: 'student_id'
         },
         instead: 'a student with any history is archived in S-Dnevnik, never removed'
     },
@@ -137,7 +138,10 @@ export const PURGE: Record<string, PurgeSpec> = {
         sweep: { teacher_years: 'teacher_id' },
         refuse: {
             lessons: 'teacher_id',
-            teacher_classes: 'teacher_id'
+            teacher_classes: 'teacher_id',
+            evidence_logins: 'teacher_id',
+            evidence_sessions: 'teacher_id',
+            evidence_sheet_sections: 'decided_by_teacher'
         },
         instead: 'take them off the year with PUT /api/roster/memberships instead'
     },
@@ -147,7 +151,10 @@ export const PURGE: Record<string, PurgeSpec> = {
         sweep: { therapist_years: 'therapist_id' },
         refuse: {
             schedule_slots: 'therapist_id',
-            therapist_students: 'therapist_id'
+            therapist_students: 'therapist_id',
+            evidence_logins: 'therapist_id',
+            evidence_sessions: 'therapist_id',
+            evidence_sheet_sections: 'decided_by'
         },
         instead: 'take them off the year with PUT /api/roster/memberships instead'
     },
