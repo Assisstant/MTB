@@ -315,7 +315,7 @@
                 <input id="studentSearch" placeholder="име или одделение">
             </label>
             <label class="field">
-                <span>Листа</span>
+                <span>Вид на ученик</span>
                 <select id="studentKindFilter">
                     <option value="">сите ученици</option>
                     <option value="internal">интерни</option>
@@ -328,7 +328,7 @@
                 <input id="newStudent" placeholder="име и презиме">
             </label>
             <label class="field">
-                <span>Категорија</span>
+                <span>Вид на ученик</span>
                 <select id="newStudentKind">
                     <option value="internal" selected>интерен</option>
                     <option value="boarding">интернатски</option>
@@ -634,7 +634,7 @@
      * копчето на редот. Затоа редот го кажува тоа сам, а копчето престанува да
      * биде уште едно сиво копче меѓу другите — тоа е „submit“-от на тој ред.
      *
-     * Категоријата се исклучува намерно: таа се запишува веднаш штом ќе се
+     * Профилот / кабинетот се исклучува намерно: тој се запишува веднаш штом ќе се
      * избере, па редот не смее да тврди дека нешто чека.
      */
     function markSubmittable(container, rowAttribute, saveAttribute) {
@@ -1032,7 +1032,7 @@
             return;
         }
         el('students').innerHTML =
-            '<table class="list"><thead><tr><th class="row-number">Р.Бр.</th><th>Име</th><th style="width:150px;">Категорија</th>'
+            '<table class="list"><thead><tr><th class="row-number">Р.Бр.</th><th>Име</th><th style="width:150px;">Вид на ученик</th>'
             + '<th style="width:160px;">Одделение / група</th><th>Терапевти</th><th></th></tr></thead><tbody>'
             + rows.map((s, index) =>
                 `<tr data-student="${esc(s.public_id)}"${s.active ? '' : ' class="archived"'}>`
@@ -1101,7 +1101,7 @@
     function drawTeachers() {
         el('teachers').innerHTML =
             '<table class="list"><thead><tr><th class="row-number">Р.Бр.</th><th style="width:230px;">Име</th><th style="width:180px;">Улога</th>'
-            + '<th style="width:200px;">Категорија</th>'
+            + '<th style="width:200px;">Профил / кабинет</th>'
             + '<th style="width:110px;">Предмет</th><th>Одделенија оваа година</th><th></th></tr></thead><tbody>'
             + (data.teachers || []).map((t, index) =>
                 `<tr data-teacher="${t.id}">`
@@ -1213,7 +1213,7 @@
         const held = ((data.categoryOf || {})[kind] || {})[personId] || '';
         return `<select class="th-category" data-cat-kind="${kind}" data-cat-for="${personId}"`
             + (data.isCurrentYear ? '' : ' disabled') + '>'
-            + '<option value="">— без категорија —</option>'
+            + '<option value="">— без профил / кабинет —</option>'
             + list.map((c) =>
                 `<option value="${c.id}"${String(c.id) === String(held) ? ' selected' : ''}>`
                 + `${esc(c.name)}</option>`).join('')
@@ -1233,14 +1233,14 @@
             data.categoryOf[kind][personId] = categoryId;
             const chosen = select.options[select.selectedIndex];
             status(categoryId
-                ? 'Категоријата е зачувана: ' + (chosen ? chosen.textContent : '')
-                : 'Категоријата е тргната.', 'ok', { toast: true });
+                ? 'Профилот / кабинетот е зачуван: ' + (chosen ? chosen.textContent : '')
+                : 'Профилот / кабинетот е тргнат.', 'ok', { toast: true });
             flash(select, 'ok');
         } catch (err) {
             // Put the picker back to what the server still holds rather than
             // leaving the screen claiming a change that did not land.
             select.value = was === null ? '' : String(was);
-            status('Категоријата не е зачувана: ' + (err.message || err), 'error', { toast: true });
+            status('Профилот / кабинетот не е зачуван: ' + (err.message || err), 'error', { toast: true });
             flash(select, 'error');
         } finally {
             select.disabled = !data.isCurrentYear;
@@ -1250,7 +1250,7 @@
     function drawTherapists() {
         el('therapists').innerHTML =
             '<table class="list"><thead><tr><th class="row-number">Р.Бр.</th><th style="width:280px;">Име</th>'
-            + '<th style="width:230px;">Категорија</th><th style="width:110px;">Ученици</th>'
+            + '<th style="width:230px;">Профил / кабинет</th><th style="width:110px;">Ученици</th>'
             + '<th style="width:150px;" title="Колку термини има терапевтот во распоредот — план, не одржани сесии. Одржаното е во присуството.">Термини во распоред</th><th></th></tr></thead><tbody>'
             + (data.therapists || []).map((t, index) =>
                 `<tr data-therapist="${t.id}">`
