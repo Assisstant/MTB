@@ -147,6 +147,10 @@
         .heat-2, .heat-3, .heat-4 { color: #000 !important; }
     }
     .off-staff{display:block;font-size:10px;font-weight:600;color:#b45309;margin-top:2px}
+    /* Кого земаш, и каде е: името горе, каде да го најдеш под него. */
+    .take { display: block; line-height: 1.25; }
+    .take + .take { margin-top: 4px; padding-top: 4px; border-top: 1px dashed var(--border); }
+    .take small { display: block; font-size: 10px; opacity: .72; }
     table.grid th.wk-edge, table.grid td.wk-edge { border-left: 2px solid var(--border); }
     table.grid thead th.wk-day { text-align: center; }
     #tip { position: fixed; z-index: 50; max-width: 340px; display: none; pointer-events: none;
@@ -160,7 +164,7 @@
 <body>
 <header>
     <h1>🏫 Настава ↔ терапии</h1>
-    <span class="sub">Колку деца недостигаат од секое одделение, на секој час</span>
+    <span class="sub">Кој недостига од часот, и кого кабинетот го зема — истото, од двете страни</span>
 </header>
 
 <main>
@@ -192,6 +196,7 @@
             <button class="btn soft" id="viewClass" aria-pressed="true">🏫 По одделение</button>
             <button class="btn soft" id="viewTeacher" aria-pressed="false">👩‍🏫 По наставник</button>
             <button class="btn soft" id="viewWeek" aria-pressed="false">📅 Цела недела</button>
+            <button class="btn soft" id="viewCabinet" aria-pressed="false">🧩 По кабинет</button>
         </div>
     </div>
 
@@ -369,6 +374,7 @@
         drawLegend();
         if (view === 'week') drawWeek();
         else if (view === 'class') drawByClass();
+        else if (view === 'cabinet') drawByTherapist();
         else drawByTeacher();
         drawUnplaced();
         drawExternal();
@@ -376,7 +382,9 @@
     }
 
     function periodHeader() {
-        return '<tr><th>' + (view === 'class' ? 'Одделение' : 'Наставник') + '</th>'
+        const first = view === 'class' ? 'Одделение'
+            : view === 'cabinet' ? 'Кабинет / терапевт' : 'Наставник';
+        return '<tr><th>' + first + '</th>'
             + (data.bells.teaching || []).map((p) =>
                 `<th>${esc(p.label)}<small>${esc(p.startsAt)}</small></th>`).join('')
             + '</tr>';
@@ -587,6 +595,65 @@
         return data.cells.find((c) => c.class === label && c.ordinal === ordinal) || null;
     }
 
+    /**
+     * The same crossing, read from the cabinet's side.
+     *
+     * „По одделение" and „По наставник" answer the TEACHER's question — who is
+     * missing from my lesson. This answers the CABINET's, which is the other
+     * half and had no screen at all: at my term, which child do I collect, and
+     * WHERE are they — whose lesson, which class.
+     *
+     * A REGROUPING, never a second computation. Which lesson a session lands
+     * in and for how many minutes is decided once, in `lib/crossing.ts`; this
+     * only reads that answer from the other end. A second opinion here could
+     * disagree with the teacher's screen about the same child, which is the
+     * failure this project keeps paying for.
+     */
+    function drawByTherapist() {
+        const periods = data.bells.teaching || [];
+        // терапевт -> час -> кого зема тогаш
+        const rows = new Map();
+        data.cells.forEach((c) => {
+            (c.away || []).forEach((a) => {
+                if (!rows.has(a.therapist)) rows.set(a.therapist, new Map());
+                const slot = rows.get(a.therapist);
+                if (!slot.has(c.ordinal)) slot.set(c.ordinal, []);
+                slot.get(c.ordinal).push({
+                    student: a.student, minutes: a.minutes,
+                    class: c.class, teacher: c.teacher, subject: c.subject
+                });
+            });
+        });
+        // A session nobody could place still belongs to its therapist — that is
+        // exactly the case where they must be told the child cannot be located.
+        [...(data.unplaced || []), ...(data.external || [])].forEach((r) => {
+            if (!rows.has(r.therapist)) rows.set(r.therapist, new Map());
+        });
+
+        if (!rows.size) {
+            el('grid').innerHTML = '<div class="offline"><p>Нема третмани за овој ден.</p></div>';
+            return;
+        }
+
+        let html = '<table class="grid"><thead>' + periodHeader() + '</thead><tbody>';
+        Array.from(rows.keys()).sort((a, b) => a.localeCompare(b, 'mk')).forEach((name) => {
+            html += `<tr><th>${esc(name)}</th>`;
+            periods.forEach((p) => {
+                const list = rows.get(name).get(p.ordinal) || [];
+                if (!list.length) { html += '<td class="cell free">—</td>'; return; }
+                const key = list[0].class + '|' + p.ordinal;
+                html += `<td class="cell ${heat(list.length)} clickable" data-key="${esc(key)}">`
+                    + list.map((x) =>
+                        `<span class="take"><b>${esc(x.student)}</b>`
+                        + `<small>${esc(x.class)}${x.teacher ? ' · ' + esc(x.teacher) : ''}</small></span>`
+                      ).join('')
+                    + '</td>';
+            });
+            html += '</tr>';
+        });
+        el('grid').innerHTML = html + '</tbody></table>';
+    }
+
     /** Clicking, not hovering: this gets read on a tablet in a staff room. */
     function show(key) {
         const cell = cellForKey(key);
@@ -720,6 +787,7 @@
         el('viewClass').setAttribute('aria-pressed', String(next === 'class'));
         el('viewTeacher').setAttribute('aria-pressed', String(next === 'teacher'));
         el('viewWeek').setAttribute('aria-pressed', String(next === 'week'));
+        el('viewCabinet').setAttribute('aria-pressed', String(next === 'cabinet'));
         // A day cannot be chosen for a week, and leaving the control live would
         // suggest it still filters something.
         el('day').disabled = next === 'week';
@@ -742,6 +810,7 @@
     el('viewClass').addEventListener('click', () => setView('class'));
     el('viewTeacher').addEventListener('click', () => setView('teacher'));
     el('viewWeek').addEventListener('click', () => setView('week'));
+    el('viewCabinet').addEventListener('click', () => setView('cabinet'));
     el('grid').addEventListener('click', (event) => {
         const td = event.target.closest('.cell.clickable');
         if (td) show(td.dataset.key);
