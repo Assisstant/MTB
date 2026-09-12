@@ -202,8 +202,16 @@ const run = async () => {
     check('the unplaceable session is listed', unplaced.includes('Трет Пробен'), unplaced.slice(0, 300));
     // The server answers in English; the staff room reads Macedonian. The page
     // owns the sentence, so this asserts the sentence and not the code.
+    //
+    // And it asserts the SPLIT, not a fragment of one sentence. „НЕПОСТОЕЧКО-99"
+    // is on nobody's list, so it must get the „neither timetabled nor on the
+    // list" wording — while a class that IS formed and merely has no lessons
+    // must not. One assertion that pins both, because the whole point of
+    // separating them is that they send a person to different screens.
     check('with a reason a person can act on, in Macedonian',
-        /не постои во распоредот на настава/.test(unplaced), unplaced.slice(0, 300));
+        /не е ни во распоредот, ни на списокот паралелки/.test(unplaced), unplaced.slice(0, 300));
+    check('and it says WHERE to fix that one',
+        /провери го одделението во „Податоци"/.test(unplaced), unplaced.slice(0, 400));
 
     await page.screenshot({ path: 'nastava-page.png', fullPage: true });
     console.log('  →   screenshot at server/nastava-page.png');
@@ -518,6 +526,45 @@ const run = async () => {
     }
     check('no page errors in the cabinet schedule', fusionErrors.length === 0, fusionErrors.join('\n       '));
     await fusion.close();
+
+    console.log('\nден по ден — истата недела, читана надолу');
+    let askedForDays = null;
+    page.on('request', (r) => { if (r.url().includes('/api/teaching/crossing')) askedForDays = r.url(); });
+    await page.click('#viewWeek');
+    await page.waitForTimeout(800);
+    askedForDays = null;
+    await page.click('#viewDays');
+    await page.waitForSelector('.dayblock');
+    check('week ↔ ден по ден is the same answer drawn twice, not a second request',
+        askedForDays === null, String(askedForDays));
+
+    const dayBlocks = await page.evaluate(() => Array.from(document.querySelectorAll('.dayblock')).map((b) => ({
+        day: b.querySelector('h3').firstChild.textContent.trim(),
+        grids: b.querySelectorAll('table.grid').length,
+        key: (b.querySelector('td.cell.clickable') || {}).dataset?.key || null
+    })));
+    check('one block per day, in the school\'s own order and not alphabetical',
+        dayBlocks.length > 0 && dayBlocks[0].day.toLowerCase().startsWith('пон'), JSON.stringify(dayBlocks.map((d) => d.day)));
+    check('each block carries its own grid', dayBlocks.every((d) => d.grids === 1));
+    // The risk this guards is the one the weekly grid already paid for: the
+    // same class and period exist five times, so a key without the day opens
+    // Monday's lesson from a Wednesday cell and looks entirely plausible.
+    check('every cell key carries the day of its own block',
+        dayBlocks.filter((d) => d.key).every((d) => d.key.startsWith(d.day.toLowerCase() + '|')),
+        JSON.stringify(dayBlocks.map((d) => d.key)));
+
+    const withKey = dayBlocks.find((d) => d.key);
+    if (withKey) {
+        await page.click(`#grid td[data-key="${withKey.key}"]`);
+        await page.waitForTimeout(300);
+        const head = await page.evaluate(() => document.querySelector('#detail h3')?.textContent || '');
+        check('and the panel names WHICH day it is describing',
+            head.toLowerCase().includes(withKey.day.toLowerCase()), head);
+    }
+    check('the day picker is disabled here too, because a day cannot be chosen for a week',
+        await page.evaluate(() => document.getElementById('day').disabled));
+    await page.click('#viewClass');
+    await page.waitForTimeout(800);
 
     console.log('\nthe tab is honest when the server is gone');
     await ctx.route('**/api/teaching/**', (r) => r.abort());

@@ -1758,7 +1758,13 @@
     function whereReason(entry) {
         switch (entry.reasonCode) {
             case 'no-class':      return 'ученикот нема запишано одделение';
-            case 'unknown-class': return 'одделението „' + (entry.grade || '') + '" не постои во распоредот на настава';
+            // Two cases, because they are two different jobs — see `reasonText`
+            // in Nastava.html. Naming the first one wrongly sent people looking
+            // at the child's record for a fault that was never there.
+            case 'class-not-timetabled':
+                return 'одделението „' + (entry.grade || '') + '" нема внесени часови оваа година';
+            case 'unknown-class':
+                return 'одделението „' + (entry.grade || '') + '" не е ни во распоредот, ни на списокот паралелки';
             case 'external':      return 'екстерен ученик без доделено одделение/група';
             case 'outside-teaching': return 'терминот е вон наставниот ден';
             default:              return 'не може да се врзе за час';

@@ -283,6 +283,12 @@ export async function teachingRoutes(server: FastifyInstance) {
         );
 
         const known = new Set(lessonRows.map((r: any) => normalizeClassLabel(r.class)));
+        // The year's own class list, which is a DIFFERENT question from what the
+        // timetable names — and telling the two apart is the whole difference
+        // between a message somebody can act on and a dead end. „II-а is not in
+        // the timetable" reads as a fault in the pupil's record when in fact the
+        // class is formed, on the list, and simply has no lessons typed in yet.
+        const onTheList = new Set(classRows.map((r: any) => normalizeClassLabel(r.label)));
 
         // `slots` carries the RAW time_slot strings this session was assembled
         // from. A caller that draws the cabinet's own week — RasporediFusion —
@@ -332,7 +338,17 @@ export async function teachingRoutes(server: FastifyInstance) {
                 continue;
             }
             if (!known.has(label)) {
-                unplaced.push({ ...s, reasonCode: 'unknown-class', reason: `class "${s.grade}" is not in the teaching timetable` });
+                // Two different jobs for a person, so two different answers.
+                // NOTE what is deliberately NOT offered here: the nearest other
+                // label. „II-б" is one letter from „II-а" and is a different
+                // room with different children — for a NAME a near match is a
+                // typo worth showing, for a class it is an invitation to put a
+                // child somewhere they have never been (rule 2).
+                unplaced.push(onTheList.has(label)
+                    ? { ...s, reasonCode: 'class-not-timetabled',
+                        reason: `class "${s.grade}" is on this year's list but has no lessons yet` }
+                    : { ...s, reasonCode: 'unknown-class',
+                        reason: `class "${s.grade}" is neither timetabled nor on this year's class list` });
                 continue;
             }
 

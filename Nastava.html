@@ -141,6 +141,10 @@
     .unplaced table { border-collapse: collapse; width: 100%; font-size: 13px; }
     .unplaced td, .unplaced th { border-bottom: 1px solid var(--border); padding: 6px 9px; text-align: left; }
     .unplaced .why { color: var(--warn); }
+    /* The jobs above the rows: what to DO, before the evidence for it. */
+    .unplaced ul.jobs { margin: 0 0 12px; padding: 0 0 0 18px; font-size: 13px; }
+    .unplaced ul.jobs li { margin-bottom: 4px; }
+    .unplaced ul.jobs .meta { color: var(--muted); }
 
     .offline { background: var(--warn-bg); border: 1px solid var(--warn); border-radius: 8px; padding: 14px 16px; }
     .offline h3 { margin: 0 0 6px; font-size: 15px; }
@@ -165,6 +169,18 @@
     .notice td small { display: block; font-size: 10px; color: var(--muted); }
     .notice tr.new-day td { border-top: 2px solid var(--border); }
     .quiet { color: var(--muted); font-size: 13px; }
+    /* Ден по ден: истата мрежа како „По одделение", пет пати, една под друга.
+       „Цела недела" ги реди деновите НАПРЕЧНО и е поширока од секој екран; овој
+       приказ е истата недела читана НАДОЛУ, што е и единствениот од двата што
+       се печати без да се исече. */
+    .dayblock { margin-bottom: 20px; }
+    .dayblock h3 { margin: 0 0 6px; font-size: 15px; }
+    .dayblock h3 small { font-weight: 400; color: var(--muted); margin-left: 8px; font-size: 12px; }
+    @media print {
+        .dayblock { page-break-after: always; break-after: page; }
+        .dayblock:last-of-type { page-break-after: auto; break-after: auto; }
+        .dayblock table { break-inside: auto; }
+    }
     @media print {
         .notice { page-break-after: always; break-after: page; }
         .notice:last-of-type { page-break-after: auto; break-after: auto; }
@@ -234,6 +250,7 @@
             <button class="btn soft" id="viewTeacher" aria-pressed="false">👩‍🏫 По наставник</button>
             <button class="btn soft" id="viewWeek" aria-pressed="false">📅 Цела недела</button>
             <button class="btn soft" id="viewCabinet" aria-pressed="false">🧩 По кабинет</button>
+            <button class="btn soft" id="viewDays" aria-pressed="false">🗓 Ден по ден</button>
             <button class="btn soft" id="viewNotice" aria-pressed="false">📄 Известувања по одделение</button>
         </div>
     </div>
@@ -270,7 +287,7 @@
     // Two views cross the WHOLE week rather than one day: the weekly grid and
     // the per-class notice sheet. It is the same request either way — the
     // endpoint already answers for the week when no day is named.
-    const wholeWeek = () => view === 'week' || view === 'notice';
+    const wholeWeek = () => view === 'week' || view === 'notice' || view === 'days';
     // Every request carries a number and only the newest one may draw. Without
     // this, changing the day while the first fetch is still running leaves the
     // previous day's grid on screen under the new day's label.
@@ -477,6 +494,7 @@
         if (view === 'notice') el('legend').innerHTML = '';
         else drawLegend();
         if (view === 'week') drawWeek();
+        else if (view === 'days') drawDays();
         else if (view === 'notice') drawNotices();
         else if (view === 'class') drawByClass();
         else if (view === 'cabinet') drawByTherapist();
@@ -488,7 +506,7 @@
     }
 
     function periodHeader() {
-        const first = view === 'class' ? 'Одделение'
+        const first = (view === 'class' || view === 'days') ? 'Одделение'
             : view === 'cabinet' ? 'Кабинет / терапевт' : 'Наставник';
         return '<tr><th>' + first + '</th>'
             + (data.bells.teaching || []).map((p) =>
@@ -520,10 +538,19 @@
         return { rows, offList, order: Array.from(rows.keys()) };
     }
 
-    function drawByClass() {
+    /**
+     * ONE по-одделение grid, drawn for whatever cells it is handed.
+     *
+     * Two views need it — the day's grid and each day of „Ден по ден" — and a
+     * second copy of this markup is how the two would start disagreeing about
+     * a heat colour or a key. `dayKey` is the difference between them: a key
+     * without the day opens Monday's lesson from a Friday cell, and it looks
+     * entirely plausible (`cellForKey` reads both shapes).
+     */
+    function classGridHtml(cells, dayKey) {
         const periods = data.bells.teaching || [];
         const { rows: byClass, offList, order } = classRows();
-        data.cells.forEach((c) => { byClass.get(c.class).set(c.ordinal, c); });
+        cells.forEach((c) => { byClass.get(c.class).set(c.ordinal, c); });
 
         let html = '<table class="grid"><thead>' + periodHeader() + '</thead><tbody>';
         order.forEach((label) => {
@@ -543,7 +570,7 @@
                 ].join(' · ');
                 html += `<td class="cell ${heat(n)}${n ? ' clickable' : ''}" title="${esc(title)}"`
                     + focusKeys([cell])
-                    + (n ? ` data-key="${esc(label)}|${p.ordinal}"` : '')
+                    + (n ? ` data-key="${esc((dayKey ? dayKey + '|' : '') + label)}|${p.ordinal}"` : '')
                     + `>${esc(cell.subject || '·')}`
                     + (n ? `<span class="count">${n}</span>` : '')
                     + takenHtml([cell])
@@ -551,7 +578,43 @@
             });
             html += '</tr>';
         });
-        el('grid').innerHTML = html + '</tbody></table>';
+        return html + '</tbody></table>';
+    }
+
+    function drawByClass() {
+        el('grid').innerHTML = classGridHtml(data.cells, '');
+    }
+
+    /**
+     * The whole week read DOWNWARDS: each day as its own по-одделение grid, one
+     * under another.
+     *
+     * „Цела недела" answers the staff-room question (when am I free, and who is
+     * missing) by laying the days ACROSS, and that grid is wider than any
+     * screen — five days times seven periods will always scroll sideways. This
+     * is the same week in the shape that fits a screen and a sheet of paper: a
+     * day per block, each one the grid everybody already reads.
+     *
+     * Not a second computation. It hands `classGridHtml` a slice of the same
+     * `data.cells` the other views draw — one request, five drawings.
+     */
+    function drawDays() {
+        const periods = data.bells.teaching || [];
+        const days = DAYS.filter((d) => data.cells.some((c) => c.day === d));
+        if (!days.length || !periods.length) {
+            el('grid').innerHTML = '<div class="offline"><p>Нема внесени часови за оваа година.</p></div>';
+            return;
+        }
+        const cap = (d) => d.charAt(0).toUpperCase() + d.slice(1);
+        el('grid').innerHTML = days.map((d) => {
+            const cells = data.cells.filter((c) => c.day === d);
+            const away = cells.reduce((n, c) => n + c.awayCount, 0);
+            return '<section class="dayblock"><h3>' + esc(cap(d))
+                + '<small>' + cells.length + (cells.length === 1 ? ' час' : ' часа')
+                + ' · ' + (away ? away + (away === 1 ? ' изземање' : ' изземања') : 'без изземања')
+                + '</small></h3>'
+                + classGridHtml(cells, d) + '</section>';
+        }).join('');
     }
 
     /**
@@ -890,7 +953,13 @@
         }
         selected = key;
         const period = (data.bells.teaching || []).find((p) => p.ordinal === cell.ordinal);
-        const when = view === 'week' ? esc(cell.day) + ' · ' : '';
+        // The day belongs in the heading of ANY view that holds more than one:
+        // the same class and period exist five times in a week, so a panel that
+        // names only „I-а · 2. час" is describing one of five lessons and does
+        // not say which. Tied to `wholeWeek()` rather than to a view name, or
+        // the next week-wide view added forgets it again — which is exactly how
+        // this was missed when „Ден по ден" landed.
+        const when = wholeWeek() ? esc(cell.day) + ' · ' : '';
         box.className = 'panel detail open';
         box.innerHTML =
             `<h3>${when}${esc(cell.class)} · ${cell.ordinal}. час${period ? ' · ' + esc(period.startsAt) : ''}</h3>`
@@ -963,11 +1032,39 @@
     function reasonText(row) {
         switch (row.reasonCode) {
             case 'no-class':      return 'ученикот нема запишано одделение';
-            case 'unknown-class': return `одделението „${row.grade}" не постои во распоредот на настава`;
+            // Two sentences where there used to be one, because they are two
+            // different jobs. „Не постои во распоредот" read as a fault in the
+            // child's record when the usual truth is the opposite: the class is
+            // formed and on the list, and its timetable is simply not typed in.
+            case 'class-not-timetabled':
+                return `одделението „${row.grade}" е на списокот, но нема ниту еден внесен час`;
+            case 'unknown-class':
+                return `одделението „${row.grade}" не е ни во распоредот, ни на списокот паралелки оваа година`;
             case 'unknown-bell':  return `терминот ${row.time_slot} не одговара на ниту еден час во кабинетот`;
             case 'external':      return 'екстерен ученик без доделено одделение/група за оваа година';
             default:              return row.reason || 'непознато';
         }
+    }
+
+    /**
+     * What to DO about the list, above the list.
+     *
+     * Twenty rows all saying „II-а has no lessons" are one job, not twenty, and
+     * a backlog that reads as twenty is one nobody starts. Grouped by the pair
+     * (reason, class) — the pair, because the same class can be unplaceable for
+     * two different reasons on two different days and folding those together
+     * would hide the one that is actually fixable.
+     */
+    function unplacedJobs(rows) {
+        const jobs = new Map();
+        rows.forEach((r) => {
+            const key = r.reasonCode + '|' + (r.grade || '');
+            if (!jobs.has(key)) jobs.set(key, { row: r, terms: 0, pupils: new Set() });
+            const job = jobs.get(key);
+            job.terms++;
+            job.pupils.add(r.studentPublicId || r.student);
+        });
+        return [...jobs.values()].sort((a, b) => b.terms - a.terms);
     }
 
     function drawUnplaced() {
@@ -975,7 +1072,17 @@
         const rows = (data && data.unplaced) || [];
         if (!rows.length) { box.style.display = 'none'; box.innerHTML = ''; return; }
         box.style.display = '';
+        const jobs = unplacedJobs(rows);
         box.innerHTML = `<h3>Неповрзани третмани: ${rows.length}</h3>`
+            + '<ul class="jobs">' + jobs.map((j) =>
+                `<li><b>${esc(reasonText(j.row))}</b>`
+                + `<span class="meta"> — ${j.terms} ${j.terms === 1 ? 'термин' : 'термини'}, `
+                + `${j.pupils.size} ${j.pupils.size === 1 ? 'ученик' : 'ученици'}`
+                + (j.row.reasonCode === 'class-not-timetabled'
+                    ? ' · внеси ги часовите во „Уреди распоред"'
+                    : j.row.reasonCode === 'unknown-class'
+                        ? ' · провери го одделението во „Податоци"' : '')
+                + '</span></li>').join('') + '</ul>'
             + '<table><thead><tr><th>Ученик</th><th>Одделение</th><th>Термин</th><th>Терапевт</th><th>Причина</th></tr></thead><tbody>'
             + rows.slice(0, 60).map((r) =>
                 `<tr><td>${esc(r.student)}</td><td>${esc(r.grade || '—')}</td><td>${esc(r.time_slot)}</td>`
@@ -1014,6 +1121,7 @@
         el('viewTeacher').setAttribute('aria-pressed', String(next === 'teacher'));
         el('viewWeek').setAttribute('aria-pressed', String(next === 'week'));
         el('viewCabinet').setAttribute('aria-pressed', String(next === 'cabinet'));
+        el('viewDays').setAttribute('aria-pressed', String(next === 'days'));
         el('viewNotice').setAttribute('aria-pressed', String(next === 'notice'));
         // A day cannot be chosen for a week, and leaving the control live would
         // suggest it still filters something.
@@ -1052,6 +1160,7 @@
     el('viewTeacher').addEventListener('click', () => setView('teacher'));
     el('viewWeek').addEventListener('click', () => setView('week'));
     el('viewCabinet').addEventListener('click', () => setView('cabinet'));
+    el('viewDays').addEventListener('click', () => setView('days'));
     el('viewNotice').addEventListener('click', () => setView('notice'));
     el('grid').addEventListener('click', (event) => {
         const td = event.target.closest('.cell.clickable');
