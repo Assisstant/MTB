@@ -357,7 +357,29 @@
         return item;
     }
 
+    /**
+     * Embedded inside `MTB-Workspace.html`, which carries its own tabs.
+     *
+     * Two rows of the same links, one above the other, is the thing the owner
+     * called confusing — so the shell says so in the address (`?embed=1`) and
+     * the bar does not draw. Everything BEHIND it stays: the health check, the
+     * session, the authenticated fetch and the server choice are the same
+     * module, because a second copy of any of those is what this project keeps
+     * paying for. Only the strip of buttons is left out.
+     */
+    function embedded() {
+        try { return new URLSearchParams(window.location.search).has('embed'); }
+        catch (_) { return false; }
+    }
+
     function mount() {
+        if (embedded()) {
+            // No bar, but the state still has to reach whoever asks for it —
+            // the shell's own БАЗА chip listens for exactly this event.
+            checkHealth();
+            checkUser();
+            return;
+        }
         addStyles();
         let nav = document.getElementById('mtbAppNav');
         if (!nav) {
@@ -455,6 +477,7 @@
     window.addEventListener('keydown', (event) => { if (event.key === 'Escape') closeServerMenu(); });
 
     function render() {
+        if (embedded()) return;
         const nav = document.getElementById('mtbAppNav');
         if (!nav) return;
         const base = selectedServer();
@@ -746,7 +769,13 @@
          */
         apiBase: activeServer,
         servers: configuredServers,
-        selectServer: rememberServer
+        selectServer: rememberServer,
+        // The scan itself, and the short name a person recognises. The bar uses
+        // both already; the workspace shell hides the bar and still has to be
+        // able to ask „кој компјутер е вклучен", which is the one question a
+        // two-machine system may never answer by guessing.
+        probe: probeServer,
+        serverName
     };
     window.addEventListener('mtb:data-state', (event) => reportDataState(event.detail));
     window.addEventListener('mtb:server-selected', () => { render(); checkHealth(); checkUser(); });

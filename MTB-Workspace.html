@@ -91,9 +91,49 @@ button:focus-visible, .window-titlebar:focus-visible, #dockDivider:focus-visible
 <body>
 <div class="workspace">
 <header class="topbar"><div class="brand">MTB <small>работен простор</small></div><div class="app-tabs" id="appTabs"><button data-app="RasporediFusion.html" class="active">Распоред</button><button data-app="NastavaUredi.html">Настава</button><button data-app="AkciskiPlan.html">Евидентен лист</button><button data-app="S-Dnevnik.html">S-Дневник</button><button data-app="Pregled-Baza.html">Преглед база</button></div><div class="year-wrap"><span>Година</span><select id="year" aria-label="Учебна година"></select></div><button class="soft compact" id="refresh" aria-label="Освежи податоци">↻</button><div class="dbrole" id="dbrole" title="Која база се запишува">БАЗА: —</div><div class="status" id="status">Се поврзувам…</div><button class="soft compact" id="resetLayout" title="Врати ги прозорците во почетниот распоред" aria-label="Почетен распоред">Почетен распоред</button><button class="soft compact" id="hidePanel" aria-controls="directoryWindow" aria-expanded="true">Скриј податоци</button></header>
-<div class="main" id="main"><section class="workspace-window app-window" id="scheduleWindow" aria-label="Распоред"><div class="window-titlebar" tabindex="0"><span class="window-title">Распоред</span><div class="window-actions"></div></div><iframe id="appFrame" src="RasporediFusion.html" title="Распоред"></iframe></section><div id="dockDivider" role="separator" tabindex="0" aria-label="Ширина на заедничките податоци" aria-orientation="vertical" aria-controls="directoryWindow"></div><aside class="workspace-window directory" id="directoryWindow" aria-label="Заеднички податоци"><div class="dir-head"><div class="window-titlebar" tabindex="0"><span class="window-title">Заеднички податоци</span><div class="window-actions"></div></div><div class="dir-description">Истата база · уредување без напуштање на работата</div></div><div class="dir-tabs" id="dirTabs"><button data-dir="students" class="active">Ученици</button><button data-dir="teachers">Наставници</button><button data-dir="therapists">Стручни / терапевти</button></div><div class="tools"><input id="search" type="search" placeholder="Пребарај…" aria-label="Пребарај податоци"><select id="kindFilter"><option value="">Сите</option><option value="internal">Интерни</option><option value="boarding">Интернатски</option><option value="external">Екстерни</option></select></div><div class="directory-content" id="content"></div></aside></div>
+<div class="main" id="main"><section class="workspace-window app-window" id="scheduleWindow" aria-label="Распоред"><div class="window-titlebar" tabindex="0"><span class="window-title">Распоред</span><div class="window-actions"></div></div><iframe id="appFrame" data-app-file="RasporediFusion.html" src="RasporediFusion.html" title="Распоред"></iframe></section><div id="dockDivider" role="separator" tabindex="0" aria-label="Ширина на заедничките податоци" aria-orientation="vertical" aria-controls="directoryWindow"></div><aside class="workspace-window directory" id="directoryWindow" aria-label="Заеднички податоци"><div class="dir-head"><div class="window-titlebar" tabindex="0"><span class="window-title">Заеднички податоци</span><div class="window-actions"></div></div><div class="dir-description">Истата база · уредување без напуштање на работата</div></div><div class="dir-tabs" id="dirTabs"><button data-dir="students" class="active">Ученици</button><button data-dir="teachers">Наставници</button><button data-dir="therapists">Стручни / терапевти</button></div><div class="tools"><input id="search" type="search" placeholder="Пребарај…" aria-label="Пребарај податоци"><select id="kindFilter"><option value="">Сите</option><option value="internal">Интерни</option><option value="boarding">Интернатски</option><option value="external">Екстерни</option></select></div><div class="directory-content" id="content"></div></aside></div>
 <div class="sr-only" id="windowAnnouncement" role="status" aria-live="polite"></div>
 <p class="sr-only" id="windowHelp">Влечи го насловот за преместување или користи ги стрелките кога насловот е избран. Двоен клик го максимизира прозорецот. Менувај големина од рабовите. Секогаш напред важи во овој работен простор.</p>
+</div>
+<style>
+/* Почетната процедура: кој компјутер е вклучен, пред да се работи.
+   Свој блок наместо во збиениот стил горе, зашто ова е дел што се чита. */
+#startGate{position:fixed;inset:0;z-index:400;display:none;align-items:center;justify-content:center;
+  background:rgba(10,11,26,.92);backdrop-filter:blur(3px)}
+#startGate.on{display:flex}
+#startGate .card{width:min(560px,92vw);background:var(--panel);border:1px solid var(--line);
+  border-radius:12px;padding:20px 22px;box-shadow:0 24px 60px rgba(0,0,0,.5)}
+#startGate h2{margin:0 0 4px;font-size:19px}
+#startGate .sub{color:var(--muted);font-size:13px;margin-bottom:14px}
+#startGate ul{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+#startGate li{display:flex;align-items:center;gap:10px;background:var(--panel2);
+  border:1px solid var(--line);border-radius:8px;padding:10px 12px}
+#startGate .dot{width:10px;height:10px;border-radius:50%;background:#585b85;flex:none}
+#startGate li[data-state=up] .dot{background:var(--ok)}
+#startGate li[data-state=down] .dot{background:#6b3141}
+#startGate .who{flex:1;min-width:0}
+#startGate .who b{display:block;font-size:13px}
+#startGate .who small{display:block;color:var(--muted);font-size:11px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#startGate li button{border:1px solid var(--accent2);background:var(--accent);color:#fff;
+  border-radius:7px;padding:7px 12px;font-weight:700}
+#startGate li[data-state=down] button{background:transparent;border-color:var(--line);color:var(--muted)}
+#startGate .foot{margin-top:14px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+#startGate .foot a{color:var(--accent2)}
+#startGate .msg{font-size:12px;color:var(--muted);flex:1;min-width:180px}
+#dbrole[data-clickable]{cursor:pointer}
+</style>
+<div id="startGate" role="dialog" aria-modal="true" aria-labelledby="startGateTitle">
+  <div class="card">
+    <h2 id="startGateTitle">Кој компјутер е вклучен?</h2>
+    <div class="sub">Работниот простор пишува право во базата на избраниот сервер. Изборот важи за сите екрани.</div>
+    <ul id="startGateList"></ul>
+    <div class="foot">
+      <span class="msg" id="startGateMsg">Скенирам…</span>
+      <button class="soft compact" id="startGateAgain">Скенирај повторно</button>
+      <a class="soft compact" href="start.html" style="text-decoration:none;display:inline-block">Измени адреси</a>
+    </div>
+  </div>
 </div>
 <script src="app-navigation.js"></script>
 <script>
@@ -111,7 +151,113 @@ function renderTherapists(){const rows=filteredPeople('therapists'),t=selected.t
 function bindTherapistEditor(t){$('thCategory').addEventListener('change',()=>saveCategory('therapist',t.id,$('thCategory').value));$('saveTherapist').addEventListener('click',async()=>{const to=tidy($('thName').value),from=t.name;if(!to||to===from){state('Нема промена.');return}const btn=$('saveTherapist');btn.disabled=true;state('Зачувувам…');try{await api('PATCH','/api/therapists/'+encodeURIComponent(from),{name:to});await load(data.year);selected.therapists=(data.therapists||[]).find(x=>tidy(x.name)===to)||selected.therapists;if(selected.therapists){caseloadOriginal=new Set(selected.therapists.students||[]);draftCaseload=new Set(caseloadOriginal)}render();state('Зачувано во базата.','ok')}catch(e){state(e.message,'error')}finally{btn.disabled=false}});$('caseloadSearch').addEventListener('input',drawCaseloadLists);$('resetCaseload').addEventListener('click',()=>{draftCaseload=new Set(caseloadOriginal);drawCaseloadLists()});$('saveCaseload').addEventListener('click',()=>saveCaseload(t));drawCaseloadLists()}function caseloadCandidates(){const needle=tidy($('caseloadSearch')?.value||'').toLocaleLowerCase('mk-MK');return(data.students||[]).filter(s=>s.active!==false).filter(s=>!needle||personName(s.name).toLocaleLowerCase('mk-MK').includes(needle)||String(s.grade||'').toLocaleLowerCase('mk-MK').includes(needle))}
 function drawCaseloadLists(){const all=$('allStudents'),chosen=$('selectedStudents');if(!all||!chosen)return;const rows=caseloadCandidates();all.innerHTML=rows.map(s=>'<label class="pick-row"><input type="checkbox" data-caseload-id="'+esc(s.public_id)+'"'+(draftCaseload.has(s.public_id)?' checked':'')+'><span class="pname">'+esc(personName(s.name))+(s.grade?' · '+esc(s.grade):'')+'</span><button type="button" class="icon" data-edit-student="'+esc(s.public_id)+'" title="Уреди ученик">✎</button></label>').join('');const selectedRows=(data.students||[]).filter(s=>draftCaseload.has(s.public_id));chosen.innerHTML=selectedRows.length?selectedRows.map(s=>'<div class="pick-row"><span></span><span class="pname">'+esc(personName(s.name))+(s.grade?' · '+esc(s.grade):'')+'</span><span><button type="button" class="icon" data-edit-student="'+esc(s.public_id)+'" title="Уреди ученик">✎</button><button type="button" class="icon" data-drop-student="'+esc(s.public_id)+'" title="Тргни од избрани">×</button></span></div>').join(''):'<div class="empty">Нема избрани.</div>';document.querySelectorAll('[data-caseload-id]').forEach(c=>c.addEventListener('change',()=>{c.checked?draftCaseload.add(c.dataset.caseloadId):draftCaseload.delete(c.dataset.caseloadId);drawCaseloadLists()}));document.querySelectorAll('[data-drop-student]').forEach(b=>b.addEventListener('click',()=>{draftCaseload.delete(b.dataset.dropStudent);drawCaseloadLists()}));document.querySelectorAll('[data-edit-student]').forEach(b=>b.addEventListener('click',()=>openStudentFromCaseload(b.dataset.editStudent)));if($('selectedCount'))$('selectedCount').textContent=draftCaseload.size+' избрани';if($('selectedCount2'))$('selectedCount2').textContent=draftCaseload.size}function openStudentFromCaseload(id){returnTherapist=selected.therapists?.id||null;dir='students';selected.students=(data.students||[]).find(s=>s.public_id===id)||null;selectDirButton();render()}
 async function saveCaseload(t){const add=[...draftCaseload].filter(x=>!caseloadOriginal.has(x)),drop=[...caseloadOriginal].filter(x=>!draftCaseload.has(x));if(!add.length&&!drop.length){state('Нема промена.');return}const btn=$('saveCaseload');btn.disabled=true;state('Зачувувам список…');const name=encodeURIComponent(t.name),year='?year='+encodeURIComponent(data.year);try{for(const id of add)await api('PUT','/api/therapists/'+name+'/students/'+encodeURIComponent(id)+year);for(const id of drop)await api('DELETE','/api/therapists/'+name+'/students/'+encodeURIComponent(id)+year);const therapistId=t.id;await load(data.year);selected.therapists=(data.therapists||[]).find(x=>x.id===therapistId)||null;if(selected.therapists){caseloadOriginal=new Set(selected.therapists.students||[]);draftCaseload=new Set(caseloadOriginal)}render();state('Списокот е зачуван: +'+add.length+' / −'+drop.length,'ok')}catch(e){state(e.message,'error');await load(data.year);selected.therapists=(data.therapists||[]).find(x=>x.id===t.id)||null;if(selected.therapists){caseloadOriginal=new Set(selected.therapists.students||[]);draftCaseload=new Set(caseloadOriginal)}render()}finally{btn.disabled=false}}
-function selectDirButton(){document.querySelectorAll('#dirTabs button').forEach(b=>b.classList.toggle('active',b.dataset.dir===dir));$('kindFilter').style.display=dir==='students'?'':'none'}document.querySelectorAll('#dirTabs button').forEach(b=>b.addEventListener('click',()=>{dir=b.dataset.dir;returnTherapist=null;$('search').value='';selectDirButton();render()}));$('search').addEventListener('input',render);$('kindFilter').addEventListener('change',render);$('year').addEventListener('change',()=>load($('year').value));$('refresh').addEventListener('click',()=>load($('year').value));window.addEventListener('mtb:server-state',e=>{const n=$('dbrole');if(!n)return;const d=e.detail||{};n.textContent='БАЗА: '+((d.identity&&d.identity.label)||'—');n.dataset.state=d.state||'';n.title=[d.base||'',d.database?'PostgreSQL: '+d.database:'',d.warning||''].filter(Boolean).join(' · ')||'Која база се запишува';});window.addEventListener('mtb:server-selected',()=>load());window.addEventListener('storage',e=>{if(e.key===SERVER_KEY)load()});load()})();
+function selectDirButton(){document.querySelectorAll('#dirTabs button').forEach(b=>b.classList.toggle('active',b.dataset.dir===dir));$('kindFilter').style.display=dir==='students'?'':'none'}document.querySelectorAll('#dirTabs button').forEach(b=>b.addEventListener('click',()=>{dir=b.dataset.dir;returnTherapist=null;$('search').value='';selectDirButton();render()}));$('search').addEventListener('input',render);$('kindFilter').addEventListener('change',render);$('year').addEventListener('change',()=>load($('year').value));$('refresh').addEventListener('click',()=>load($('year').value));window.addEventListener('mtb:server-state',e=>{const n=$('dbrole');if(!n)return;const d=e.detail||{};
+  // The installation's own label when it has one; otherwise the machine name,
+  // because „БАЗА: —" on a working connection reads as a fault. The role is
+  // the one signal a two-computer system may never hide.
+  n.textContent='БАЗА: '+((d.identity&&d.identity.label)||(d.base?shortName(d.base):'')||'—');n.dataset.state=d.state||'';n.title=[d.base||'',d.database?'PostgreSQL: '+d.database:'',d.warning||''].filter(Boolean).join(' · ')||'Која база се запишува';});window.addEventListener('mtb:server-selected',()=>{repointFrames();load()});window.addEventListener('storage',e=>{if(e.key===SERVER_KEY)load()});
+
+/* ── Почетната процедура ──────────────────────────────────────────────
+ *
+ * Работниот простор е една врата за целиот систем, и една врата мора прво да
+ * одговори на прашањето со кое секој ден почнува: КОЈ КОМПЈУТЕР Е ВКЛУЧЕН.
+ * Досега не го одговараше — велеше „Избери база во start.html" и те праќаше на
+ * друга страница, што значи дека „едно место од кое се почнува" не беше точно.
+ *
+ * НИШТО ТУКА НЕ Е НОВО ОСВЕН ЕКРАНОТ. Списокот адреси, скенирањето и памтењето
+ * се `configuredServers`, `probeServer` и `rememberServer` во
+ * `app-navigation.js` — истите што ги користат лентата и `start.html`. Втора
+ * копија од пронаоѓањето сервер е токму грешката за која овој проект постојано
+ * плаќа; овде само се прикажуваат.
+ *
+ * И НЕ СЕ КРШИ ПРАВИЛОТО „не додавај пронаоѓање сервер во апликациите". Тоа
+ * правило ги штити S-Dnevnik и Rasporedi, кои држат СВОЈА копија: еден
+ * прелистувач што зборува со две бази таму го произведува застојот „и двете
+ * страни се сменија". Затоа изборот тука е ЕДЕН клуч за целиот пакет, и затоа
+ * рамките се пренасочуваат на origin-от на избраниот сервер — origin и понатаму
+ * значи една база, што е целата причина поради која `start.html` пренасочува
+ * наместо да учи некого да бара.
+ */
+const nav=()=>window.MTBAppNavigation||null;
+function knownServers(){const n=nav();try{return(n&&n.servers&&n.servers())||[]}catch(_){return[]}}
+function probeOne(base){const n=nav();return n&&n.probe?n.probe(base):Promise.resolve(null)}
+function shortName(base){const n=nav();try{return(n&&n.serverName&&n.serverName(base))||base}catch(_){return base}}
+
+/**
+ * Рамката се вчитува од origin-от на ИЗБРАНИОТ сервер, не од оваа страница.
+ *
+ * Отворен од GitHub Pages, работниот простор инаку би ги вгнездил Pages
+ * копиите — а кај S-Dnevnik тоа е тивка стапица: таму автоматската
+ * синхронизација е ИСКЛУЧЕНА (`servedByApi` бара localhost или .ts.net), па
+ * страницата работи офлајн засекогаш и изгледа убедливо.
+ */
+function appSrc(file){const base=activeServer(),root=base&&base!==location.origin?base+'/':'';
+  // `embed` tells the shared bar not to draw inside the shell: the shell has
+  // its own tabs, and two rows of the same links is the confusion complained
+  // about. Everything behind the bar still runs.
+  return root+file+(file.indexOf('?')<0?'?embed=1':'&embed=1')}
+// The window manager below opens new tabs; it must build the same address.
+window.MTBWorkspaceAppSrc=appSrc;
+function repointFrames(){document.querySelectorAll('#main iframe[data-app-file]').forEach(f=>{const want=appSrc(f.dataset.appFile);if(f.src!==want&&!f.src.endsWith(want))f.src=want})}
+
+function gateRow(base,state,label){
+  return '<li data-base="'+esc(base)+'" data-state="'+esc(state)+'"><span class="dot"></span>'
+    +'<span class="who"><b>'+esc(shortName(base))+'</b><small>'+esc(base)+'</small></span>'
+    +'<button type="button">'+esc(label)+'</button></li>';
+}
+function showGate(on){$('startGate').classList.toggle('on',!!on)}
+
+let gateTicket=0;
+async function runStartGate(force){
+  // Послужен ОД сервер: origin-от е базата и нема што да се бара.
+  if(!PUBLISHED){showGate(false);return}
+  const mine=++gateTicket;
+  const list=knownServers();
+  const chosen=activeServer();
+  if(chosen&&!force){
+    // Тивко, ако веќе избраниот одговара: процедура што прашува секое утро
+    // кога одговорот е ист е процедура што луѓето ја кликаат без да ја читаат.
+    const ok=await probeOne(chosen);
+    if(mine!==gateTicket)return;
+    if(ok){showGate(false);return}
+  }
+  if(!list.length){
+    $('startGateList').innerHTML='';
+    $('startGateMsg').textContent='Нема запишани адреси. Отвори „Измени адреси".';
+    showGate(true);return;
+  }
+  $('startGateList').innerHTML=list.map(b=>gateRow(b,'',"проверувам…")).join('');
+  $('startGateMsg').textContent='Скенирам '+list.length+' '+(list.length===1?'адреса':'адреси')+'…';
+  showGate(true);
+  const found=[];
+  await Promise.all(list.map(async base=>{
+    const ok=await probeOne(base);
+    if(mine!==gateTicket)return;
+    if(ok)found.push(base);
+    const li=$('startGateList').querySelector('li[data-base="'+base.replace(/"/g,'&quot;')+'"]');
+    if(li){li.dataset.state=ok?'up':'down';li.querySelector('button').textContent=ok?'Влези':'не одговара'}
+  }));
+  if(mine!==gateTicket)return;
+  // Еден одговара и никој не бирал рачно → влегуваме. Повеќе, или изречно
+  // побарано менување → човек одлучува, зашто двете машини можат да се викаат
+  // исто и погодувањето таму чини цел ден работа.
+  if(found.length===1&&!force&&!chosen){nav().selectServer(found[0]);showGate(false);return}
+  $('startGateMsg').textContent=found.length
+    ? (found.length===1?'Еден сервер одговара.':found.length+' сервери одговараат — избери во која база се работи.')
+    : 'Ниту еден сервер не одговара. Провери дали компјутерот е вклучен и дали Tailscale работи.';
+}
+$('startGateList').addEventListener('click',e=>{
+  const li=e.target.closest('li[data-base]');
+  if(!li||li.dataset.state!=='up')return;
+  nav().selectServer(li.dataset.base);
+  showGate(false);
+});
+$('startGateAgain').addEventListener('click',()=>runStartGate(true));
+const roleChip=$('dbrole');
+if(roleChip){roleChip.setAttribute('data-clickable','');roleChip.title='Која база се запишува — кликни за да смениш';
+  roleChip.addEventListener('click',()=>runStartGate(true));}
+
+runStartGate(false).then(()=>{repointFrames();load()});})();
 </script>
 <script>
 (() => {
@@ -390,8 +536,11 @@ function selectDirButton(){document.querySelectorAll('#dirTabs button').forEach(
       el.innerHTML = '<div class="window-titlebar" tabindex="0"><span class="window-title"></span><div class="window-actions"></div></div>';
       el.querySelector('.window-title').textContent = tab.textContent;
       const frame = document.createElement('iframe'); frame.title = tab.textContent;
-      // The filename comes only from the fixed application tabs above.
-      frame.src = tab.dataset.app;
+      // The filename comes only from the fixed application tabs above, and it
+      // is kept on the element so the frame can be re-pointed at another
+      // machine's copy when the chosen database changes.
+      frame.dataset.appFile = tab.dataset.app;
+      frame.src = (window.MTBWorkspaceAppSrc || ((f) => f))(tab.dataset.app);
       el.append(frame); desktop.append(el);
       win = register(el, id, tab.textContent);
     }
