@@ -244,15 +244,11 @@ function filteredPeople(kind){const needle=q();return(data[kind]||[]).filter(x=>
  * место. ПОНУДА, НЕ ОГРАНИЧУВАЊЕ: `teachers.subject` останува слободен текст,
  * зашто работната книга на училиштето пишува во него кратенки (`ФЗО.`) што
  * серверот ги разбира, и еден избор од мени не смее тивко да ги избрише.
+ *
+ * И ПОВЕЌЕ ОД ЕДЕН. Каталогот, разделувачот и избирачот се една копија во
+ * `app-navigation.js`; овој екран ја имаше своја, а трите копии се разидуваат
+ * за едно зборче.
  */
-let subjectCatalogue=null,subjectCataloguePromise=null;
-function loadSubjectCatalogue(){
-  if(subjectCatalogue)return Promise.resolve(subjectCatalogue);
-  if(!subjectCataloguePromise)subjectCataloguePromise=api('GET','/api/teaching/subjects?year='+encodeURIComponent(data.year))
-    .then(r=>{subjectCatalogue=(r.subjects||[]).map(x=>x.subject);return subjectCatalogue})
-    .catch(()=>{subjectCataloguePromise=null;return[]});
-  return subjectCataloguePromise;
-}
 
 function classSummary(map){
   const home=[...map].filter(([,r])=>r==='homeroom').map(([l])=>l);
@@ -270,13 +266,16 @@ function teacherEditor(t){
     +'<div class="row"><div class="field" style="flex:1"><label>Улога</label><select id="tKind">'
       +'<option value="odd"'+(odd?' selected':'')+'>одделенски наставник</option>'
       +'<option value="pred"'+(t.kind==='pred'?' selected':'')+'>предметен наставник</option></select></div>'
-    +'<div class="field" style="flex:1"><label>Предмет</label>'
+    +'<div class="field" style="flex:1"><label>Предмети</label>'
       // Полето го покажува ЗАЧУВАНОТО и кога е заклучено. Порано се празнеше
       // при отворање, па кратенката од работната книга исчезнуваше од екранот
       // и следното „Зачувај" ја бришеше од базата — истата грешка како со
       // препишаното спелување на име.
-      +'<input id="tSubject" list="tSubjectList" placeholder="пиши или избери" value="'+esc(t.subject||'')+'"'+(odd?' disabled':'')+'>'
-      +'<datalist id="tSubjectList"></datalist></div></div>'
+      //
+      // Избирачот е ЕДНА копија, во `app-navigation.js`: повеќе предмети се
+      // чипови, а „друго…" ја прима кратенката од работната книга онака како
+      // што е напишана.
+      +'<div id="tSubjectCell"></div></div></div>'
     +'<p class="note" id="tSubjectNote">'+(odd
         ? 'Одделенскиот наставник ги држи сите предмети, па полето е заклучено. Зачуваното останува како што е.'
         : 'Понуда од каталогот на МОН. Кратенка како „ФЗО." останува како што е напишана — серверот ја разбира.')+'</p>'
@@ -299,17 +298,14 @@ function bindTeacherEditor(t){
   // Со каква улога е ОТВОРЕН записот. Само изречна промена на улогата го
   // брише предметот; обичното отворање и зачувување не смее.
   const openedKind=t.kind;
-  loadSubjectCatalogue().then(list=>{
-    const dl=$('tSubjectList');if(!dl)return;
-    const seen=new Set(list);const stored=tidy(t.subject||'');
-    // Зачуваното што каталогот не го знае се нуди прво, за да не изгледа како
-    // да треба да се замени.
-    const all=(stored&&!seen.has(stored)?[stored]:[]).concat(list);
-    dl.innerHTML=all.map(x=>'<option value="'+esc(x)+'"></option>').join('');
-  });
+  const mountSubjects=(value,odd)=>window.MTBAppNavigation.subjects.mount($('tSubjectCell'),
+    {value:value||'',year:data.year,id:'tSubject',disabled:odd});
   const syncRole=()=>{
     const odd=$('tKind').value==='odd';
-    $('tSubject').disabled=odd;
+    // Прецртано со ОНА ШТО СТОИ СЕГА, не со зачуваното: инаку менувањето улога
+    // напред-назад би ги вратило чиповите на состојбата од отворањето.
+    const now=$('tSubject')?$('tSubject').value:(t.subject||'');
+    mountSubjects(now,odd);
     $('tSubjectNote').textContent=odd
       ? 'Одделенскиот наставник ги држи сите предмети, па полето е заклучено.'
         +(openedKind==='pred'?' Со зачувување предметот ќе се тргне.':' Зачуваното останува како што е.')

@@ -985,13 +985,28 @@
                 + `<option value="odd"${t.kind === 'odd' ? ' selected' : ''}>одделенски</option>`
                 + `<option value="pred"${t.kind === 'pred' ? ' selected' : ''}>предметен</option>`
                 + '</select></td>'
-                + `<td><input class="t-subject" value="${esc(t.subject || '')}"></td>`
+                + '<td data-subject-cell></td>'
                 + '<td><select class="t-home"><option value="">—</option>'
                 + classOptions.map((label) =>
                     `<option value="${esc(label)}"${t.homeroom === label ? ' selected' : ''}>${esc(label)}</option>`).join('')
                 + '</select></td>'
                 + '<td class="act"><button class="btn soft" data-save-teacher="' + t.id + '">Зачувај</button></td></tr>').join('')
             + '</tbody></table>';
+
+        // Предметот се избира од каталогот на МОН, и може да биде ПОВЕЌЕ од
+        // еден — некои наставници навистина држат два и три. Избирачот е ЕДНА
+        // копија, во `app-navigation.js`, истиот што го цртаат Податоци и
+        // работниот простор; тука само се закачува на ќелијата. Тој остава
+        // скриено `.t-subject` внатре, па зачувувањето подолу не се менува.
+        el('teachers').querySelectorAll('tr[data-teacher]').forEach((row) => {
+            const teacher = (data.teachers || []).find((t) => t.id === Number(row.dataset.teacher));
+            window.MTBAppNavigation.subjects.mount(row.querySelector('[data-subject-cell]'), {
+                value: teacher ? teacher.subject : '',
+                year: data.year,
+                className: 't-subject'
+            });
+        });
+
         el('teachers').querySelectorAll('[data-save-teacher]').forEach((b) => b.addEventListener('click', async () => {
             const id = Number(b.dataset.saveTeacher);
             const row = el('teachers').querySelector(`[data-teacher="${id}"]`);

@@ -404,7 +404,7 @@
             </label>
             <label class="field">
                 <span>Предмет</span>
-                <input id="newTeacherSubject" placeholder="на пр. АНГ.">
+                <input id="newTeacherSubject" placeholder="на пр. АНГ. (повеќе — со запирка)">
             </label>
             <button class="btn" id="addTeacher">+ Додај</button>
         </div>
@@ -680,11 +680,16 @@
                 button.classList.add('dirty');
                 button.title = 'Има непратена измена во овој ред — притисни за да се запише во базата.';
             };
-            row.querySelectorAll('input, select').forEach((field) => {
-                if (field.matches('[data-cat-for]')) return;
-                field.addEventListener('input', touched);
-                field.addEventListener('change', touched);
-            });
+            // Делегирано на РЕДОТ, не по поле: избирачот на предмети се
+            // прецртува кога ќе се смени улогата, па полето врзано при првото
+            // цртање повеќе не постои — а редот молчеше дека има непратена
+            // измена. Категоријата се зачувува сама и затоа е изземена.
+            const from = (event) => {
+                if (event.target.closest('[data-cat-for]')) return;
+                touched();
+            };
+            row.addEventListener('input', from);
+            row.addEventListener('change', from);
         });
     }
 
@@ -1177,40 +1182,18 @@
 
     // ── наставници ──────────────────────────────────────────────────────────
     /**
-     * Предметите од каталогот на МОН, понудени и тука.
+     * Предметите на еден наставник се избираат, и може да се повеќе од еден.
      *
-     * The field was a bare text box while `teaching_subjects` had held the
-     * catalogue since migration 032 and NastavaUredi already offered it. One
-     * read, cached for the page: a list of forty is not worth fetching per row.
+     * Каталогот на МОН, разделувачот и самиот избирач живеат во
+     * `app-navigation.js` — една копија за оваа страница, за НаставаУреди и за
+     * работниот простор. Тука беше голо поле со `datalist`, што е понуда што
+     * не се гледа: за да се појави мораш да почнеш да пишуваш, па човекот што
+     * не знае како се вика предметот не дознава дека воопшто има список.
      */
-    let subjectCatalogue = null, subjectCataloguePromise = null;
-
-    function loadSubjectCatalogue() {
-        if (subjectCatalogue) return Promise.resolve(subjectCatalogue);
-        if (!subjectCataloguePromise) {
-            subjectCataloguePromise = api('GET', '/api/teaching/subjects?year=' + encodeURIComponent(data.year))
-                .then((r) => { subjectCatalogue = (r.subjects || []).map((x) => x.subject); return subjectCatalogue; })
-                // An older server without this endpoint simply offers nothing;
-                // the field still accepts anything typed, so nothing is lost.
-                .catch(() => { subjectCataloguePromise = null; return []; });
-        }
-        return subjectCataloguePromise;
-    }
-
-    /**
-     * What is ALREADY STORED comes first, so a saved abbreviation the catalogue
-     * has never heard of does not read as a mistake somebody has to correct.
-     */
-    function subjectOptions() {
-        const stored = (data.teachers || []).map((t) => tidy(t.subject || '')).filter(Boolean);
-        return Array.from(new Set([...stored, ...(subjectCatalogue || [])]))
-            .map((name) => `<option value="${esc(name)}"></option>`).join('');
-    }
-
     function drawTeachers() {
         el('teachers').innerHTML =
             '<table class="list"><thead><tr><th class="row-number">Р.Бр.</th><th style="width:230px;">Име</th><th style="width:180px;">Улога</th>'
-            + '<th style="width:150px;">Предмет</th><th>Одделенија оваа година</th><th></th></tr></thead><tbody>'
+            + '<th style="width:250px;">Предмети</th><th>Одделенија оваа година</th><th></th></tr></thead><tbody>'
             + (data.teachers || []).map((t, index) =>
                 `<tr data-teacher="${t.id}">`
                 + `<td class="row-number">${index + 1}.</td>`
@@ -1219,7 +1202,7 @@
                 + `<option value="odd"${t.kind === 'odd' ? ' selected' : ''}>одделенски наставник</option>`
                 + `<option value="pred"${t.kind === 'pred' ? ' selected' : ''}>предметен наставник</option>`
                 + '</select></td>'
-                + `<td><input class="t-subject" list="podSubjects" value="${esc(t.subject || '')}"></td>`
+                + '<td data-subject-cell></td>'
                 + `<td>${(t.classes || []).length
                         ? `<span class="chips">${t.classes.map((c) =>
                             `<span class="chip${c.role === 'homeroom' ? ' home' : ''}" title="${c.role === 'homeroom' ? 'раководител' : 'предава'}">${esc(c.label)}</span>`).join('')}</span>`
@@ -1228,20 +1211,20 @@
                 + `<button class="btn soft" data-save-teacher="${t.id}">Зачувај податоци</button> `
                 + (data.isCurrentYear ? `<button class="btn soft danger" data-remove-teacher="${t.id}">Тргни од ${esc(data.year)}</button>` : '')
                 + '</td></tr>').join('')
-            + '</tbody></table>'
-            + `<datalist id="podSubjects">${subjectOptions()}</datalist>`;
+            + '</tbody></table>';
 
         // The catalogue is an OFFER, not a restriction: `teachers.subject` stays
         // free text because the school's workbook writes abbreviations („ФЗО.")
         // that the server understands through SUBJECT_ALIASES, and one pick from
-        // a menu must not quietly replace them. A `datalist` does exactly that —
-        // it suggests, and it never rejects what is typed.
-        if (subjectCatalogue === null) {
-            loadSubjectCatalogue().then((list) => { if (list.length) drawTeachers(); });
-        }
+        // a menu must not quietly replace them — „друго…" is how they are typed.
         el('teachers').querySelectorAll('tr[data-teacher]').forEach((row) => {
-            syncTeacherSubject(row);
-            row.querySelector('.t-kind').addEventListener('change', () => syncTeacherSubject(row));
+            const teacher = (data.teachers || []).find((t) => t.id === Number(row.dataset.teacher));
+            // Со каква улога е ОТВОРЕН редот. Само изречна промена на улогата
+            // го брише предметот; обичното отворање и зачувување не смее.
+            row.dataset.kindWas = teacher ? teacher.kind : 'pred';
+            mountTeacherSubjects(row, teacher ? teacher.subject : '');
+            row.querySelector('.t-kind').addEventListener('change', () =>
+                mountTeacherSubjects(row, row.querySelector('.t-subject').value));
         });
         el('teachers').querySelectorAll('[data-save-teacher]').forEach((b) =>
             b.addEventListener('click', () => saveTeacher(Number(b.dataset.saveTeacher))));
@@ -1257,12 +1240,17 @@
     async function saveTeacher(id) {
         const row = el('teachers').querySelector(`[data-teacher="${id}"]`);
         const kind = row.querySelector('.t-kind').value;
+        const body = { name: personName(row.querySelector('.t-name').value), kind };
+        // Три случаи, и серверот ги разликува сите три од почеток — `PUT
+        // /api/teaching/teacher/:id` гради SET список наместо COALESCE, па
+        // отсутно и `null` не значат исто:
+        //   предметен                 → тоа што пишува во редот
+        //   штотуку стана одделенски  → `null`, изречно, и редот го кажа тоа
+        //   веќе беше одделенски      → полето воопшто не се праќа
+        if (kind === 'pred') body.subject = tidy(row.querySelector('.t-subject').value) || null;
+        else if (row.dataset.kindWas !== 'odd') body.subject = null;
         try {
-            await api('PUT', '/api/teaching/teacher/' + id, {
-                name: personName(row.querySelector('.t-name').value),
-                kind,
-                subject: kind === 'pred' ? (tidy(row.querySelector('.t-subject').value) || null) : null
-            });
+            await api('PUT', '/api/teaching/teacher/' + id, body);
             await load();
             status('наставникот е зачуван', 'ok', { toast: true });
             flash('[data-save-teacher="' + id + '"]', 'ok', '\u2713 Зачувано');
@@ -1799,11 +1787,33 @@
         el('newStudentClass').disabled = !data || !data.isCurrentYear;
     }
 
-    function syncTeacherSubject(row) {
-        const subject = row.querySelector('.t-subject');
+    /**
+     * Предметите на еден ред, нацртани според улогата што е ИЗБРАНА СЕГА.
+     *
+     * Одделенски → заклучено, но зачуваното и понатаму се ГЛЕДА. Порано полето
+     * се празнеше при секое цртање, не само при менување улога: отвораш
+     * одделенски наставник на кого работната книга му запишала предмет, полето
+     * е празно, притискаш „Зачувај податоци" за нешто сосема друго — и
+     * предметот е избришан од базата. Истата тивка форма што веќе беше
+     * затворена во работниот простор, оставена отворена тука.
+     */
+    function mountTeacherSubjects(row, value) {
+        const cell = row.querySelector('[data-subject-cell]');
         const classroom = row.querySelector('.t-kind').value === 'odd';
-        subject.disabled = classroom;
-        if (classroom) subject.value = '';
+        window.MTBAppNavigation.subjects.mount(cell, {
+            value: value || '',
+            year: data.year,
+            className: 't-subject',
+            disabled: classroom
+        });
+        if (!classroom) return;
+        const note = document.createElement('span');
+        note.className = 'none';
+        // Што ќе се случи при зачувување, кажано ПРЕД да се притисне.
+        note.textContent = row.dataset.kindWas === 'odd'
+            ? '\u00b7 заклучено'
+            : '\u00b7 со зачувување се брише';
+        cell.appendChild(note);
     }
 
     function syncNewTeacherKind() {

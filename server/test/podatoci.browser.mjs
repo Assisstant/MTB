@@ -383,14 +383,58 @@ const run = async () => {
     check('the teachers table offers no профил/кабинет', !teacherHeads.some((h) => h.includes('Профил')),
         JSON.stringify(teacherHeads));
     check('and carries no category picker at all', await page.locator('#teachers [data-cat-for]').count() === 0);
-    check('the subject field is bound to the МОН catalogue',
-        await page.locator('#teachers .t-subject').first().getAttribute('list') === 'podSubjects');
-    // An OFFER, never a restriction: the field still takes anything typed, which
-    // is why the school's own abbreviations survive a re-import.
-    await page.waitForFunction(() => document.querySelectorAll('#podSubjects option').length > 5,
-        null, { timeout: 8000 }).catch(() => {});
-    check('and the catalogue actually arrives',
-        await page.locator('#podSubjects option').count() > 5);
+
+    console.log('\na teacher holds SEVERAL subjects, picked from the catalogue');
+    // The owner said it plainly: some teach more than one. The field was a bare
+    // text box with a `datalist` behind it — an offer that cannot be seen,
+    // because it appears only once you start typing the name you are looking
+    // for. It is chips and a menu now, and `teachers.subject` carries the list.
+    await q(`UPDATE teachers SET kind = 'pred', subject = 'ФЗО.' WHERE name = $1`, [TEACHER]);
+    await page.reload({ waitUntil: 'networkidle' });
+    await page.click('[data-tab="teachers"]');
+    await page.waitForSelector('#teachers table.list');
+    const subjectCell = page.locator(`#teachers tr:has(input[value="${TEACHER}"])`);
+    // An OFFER, never a restriction: an abbreviation the catalogue has never
+    // heard of is what the school's own workbook writes, and it is KEPT.
+    checkEq('the stored abbreviation is shown as it was written',
+        (await subjectCell.locator('.mtb-subj').allTextContents()).map((t) => t.replace('\u2715', '')),
+        ['ФЗО.']);
+    const addMenu = subjectCell.locator('select.mtb-subj-add');
+    await page.waitForFunction(
+        (name) => {
+            const row = [...document.querySelectorAll('#teachers tr[data-teacher]')]
+                .find((tr) => tr.querySelector(`input[value="${name}"]`));
+            return row && row.querySelectorAll('select.mtb-subj-add option').length > 5;
+        }, TEACHER, { timeout: 8000 }).catch(() => {});
+    check('the МОН catalogue arrives in the menu', await addMenu.locator('option').count() > 5);
+    await addMenu.selectOption({ label: 'Ликовно образование' });
+    await subjectCell.locator('[data-save-teacher]').click();
+    await page.waitForTimeout(900);
+    checkEq('both subjects are IN THE DATABASE',
+        (await q(`SELECT subject FROM teachers WHERE name = $1`, [TEACHER]))[0].subject,
+        'ФЗО., Ликовно образование');
+
+    console.log('\nand a classroom teacher\'s subject is not deleted by saving something else');
+    // `syncTeacherSubject` blanked the field on EVERY draw, not only when the
+    // role changed — so opening a одделенски teacher whose subject the workbook
+    // had written, then pressing „Зачувај податоци" for the NAME, sent
+    // `subject: null` and the subject was gone. The same silent shape that was
+    // already closed in the workspace and left open here. The server tells
+    // absent from null apart; the page now uses that.
+    await q(`UPDATE teachers SET kind = 'odd', subject = 'ЛИК.' WHERE name = $1`, [TEACHER]);
+    await page.reload({ waitUntil: 'networkidle' });
+    await page.click('[data-tab="teachers"]');
+    await page.waitForSelector('#teachers table.list');
+    const lockedRow = page.locator(`#teachers tr:has(input[value="${TEACHER}"])`);
+    checkEq('a classroom teacher still SEES what is stored',
+        (await lockedRow.locator('.mtb-subj').allTextContents()).map((t) => t.replace('\u2715', '')),
+        ['ЛИК.']);
+    check('and cannot edit it from here', await lockedRow.locator('select.mtb-subj-add').count() === 0);
+    await lockedRow.locator('[data-save-teacher]').click();
+    await page.waitForTimeout(900);
+    checkEq('saving the row leaves the subject alone',
+        (await q(`SELECT subject FROM teachers WHERE name = $1`, [TEACHER]))[0].subject, 'ЛИК.');
+    await q(`UPDATE teachers SET kind = 'odd', subject = NULL WHERE name = $1`, [TEACHER]);
 
     console.log('\nwhat the database holds is said at rest, not only after a save');
     // The choice saved on change and reported it with a toast that vanished, so

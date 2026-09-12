@@ -93,7 +93,14 @@ const ClassRoleEntry = z.object({
 const TeacherBody = z.object({
     name: z.string().min(1).max(200),
     kind: z.enum(['odd', 'pred']).optional(),
-    subject: z.string().max(120).nullable().optional(),
+    /**
+     * ONE column holding a LIST: a teacher can hold several subjects and they
+     * are written comma-separated (see the picker in `app-navigation.js`).
+     * The cap is per teacher, not per subject — four of the longest names in
+     * the MON catalogue already pass 120 — while a single lesson's `subject`
+     * stays at 120 because a cell holds exactly one.
+     */
+    subject: z.string().max(400).nullable().optional(),
     year: YearRef.optional(),
     /** The classes they have this year. A teacher can have several. */
     classes: z.array(ClassRoleEntry).max(40).optional()
@@ -101,7 +108,8 @@ const TeacherBody = z.object({
 
 const TeacherPatch = z.object({
     name: z.string().min(1).max(200).optional(),
-    subject: z.string().max(120).nullable().optional(),
+    /** A comma-separated LIST of subjects — see TeacherBody above. */
+    subject: z.string().max(400).nullable().optional(),
     kind: z.enum(['odd', 'pred']).optional()
 });
 

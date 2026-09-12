@@ -127,6 +127,36 @@ test('a teacher recorded with the school\'s abbreviation gets that subject', () 
     for (const l of pe) assert.equal(l.teacherId, 30, 'the ФЗО. teacher takes Физичко');
 });
 
+test('a teacher who holds several subjects is offered all of them', () => {
+    // `teachers.subject` holds a LIST, comma-separated, because a teacher can
+    // hold two or three. Before the split the whole string went through the
+    // alias table as one spelling, found nothing, and the person was skipped
+    // for every lesson in their own subjects — with the generated week still
+    // looking entirely plausible.
+    assert.equal(teacherHandles('ФЗО., ЛИК.', 'Физичко и здравствено образование'), true);
+    assert.equal(teacherHandles('ФЗО., ЛИК.', 'Ликовно образование'), true);
+    assert.equal(teacherHandles('ФЗО., ЛИК.', 'Математика'), false);
+    // Спелувањата смеат да се мешаат, зашто така и се внесуваат: едно од
+    // менито, едно куцано како во работната книга.
+    assert.equal(teacherHandles('Македонски јазик, ФЗО.', 'Македонски јазик'), true);
+    assert.equal(teacherHandles('Македонски јазик, ФЗО.', 'Физичко и здравствено образование'), true);
+    // Празно место околу запирката е она што човек го пишува, и не смее да
+    // направи предметот да не се препознае.
+    assert.equal(teacherHandles('  ЛИК.  ,ФЗО.', 'Ликовно образование'), true);
+    // Празен член ништо не фаќа — инаку „Математика," би значело СИТЕ предмети.
+    assert.equal(teacherHandles('Математика,', 'Ликовно образование'), false);
+    assert.equal(teacherHandles(',', 'Ликовно образование'), false);
+
+    // И во распределбата: еден човек ги зема двата свои предмета.
+    const classes: DemoClass[] = [{ id: 1, label: 'VII', grades: ['VII'], homeroomTeacherId: null }];
+    const teachers = [teacher(40, 'pred', 'ФЗО., ЛИК.'), teacher(41, 'pred'), teacher(42, 'pred')];
+    const plan = planDemoTimetable(classes, teachers, () => SUBJECTS, { periods: PERIODS });
+    const mine = plan.lessons.filter((l) =>
+        l.subject === 'Ликовно образование' || isPhysical(l.subject));
+    assert.ok(mine.length > 0);
+    for (const l of mine) assert.equal(l.teacherId, 40, 'обата предмета одат кај истиот наставник');
+});
+
 test('classes do not all open the week with the same subject', () => {
     // Strict importance order from Monday put Македонски in the first period of
     // every class at once, which needs one Македонски teacher per parallel

@@ -93,13 +93,33 @@ const SUBJECT_ALIASES: Record<string, string> = {
 
 const bare = (v: unknown) => String(v ?? '').toLowerCase().replace(/[.\s]/g, '');
 
-/** Does this teacher's recorded subject mean this catalogue subject? */
-export function teacherHandles(teacherSubject: string | null, subject: string): boolean {
-    const key = bare(teacherSubject);
+/** One recorded spelling against one catalogue subject. */
+function oneSubjectHandles(recorded: string, subject: string): boolean {
+    const key = bare(recorded);
     if (!key) return false;
     const full = SUBJECT_ALIASES[key];
     if (full) return subject.toLowerCase().startsWith(full.toLowerCase());
-    return subject.toLowerCase().startsWith(String(teacherSubject).toLowerCase());
+    return subject.toLowerCase().startsWith(recorded.trim().toLowerCase());
+}
+
+/**
+ * Does this teacher's recorded subject mean this catalogue subject?
+ *
+ * `teachers.subject` holds a LIST, comma-separated, because a teacher can hold
+ * several subjects and the school's workbook really does list them that way.
+ * Any one of them matching is a match.
+ *
+ * This is the ONE function that reads that column as a fact rather than
+ * printing it, which is the whole reason the list could stay in the column it
+ * was already in instead of costing a table. Before the split a teacher
+ * recorded as „ФЗО., ЛИК." matched NEITHER — the whole string went through the
+ * alias table, found nothing, and the person was quietly skipped for every
+ * lesson in their own subjects while the generated week still looked plausible.
+ */
+export function teacherHandles(teacherSubject: string | null, subject: string): boolean {
+    return String(teacherSubject ?? '')
+        .split(',')
+        .some((part) => oneSubjectHandles(part, subject));
 }
 
 export function importanceOf(subject: string): number {

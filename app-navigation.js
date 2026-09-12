@@ -839,6 +839,247 @@
         setFocus(typeof msg.key === 'string' ? msg.key.slice(0, 120) : '');
     });
 
+    /* ── Предметите на еден наставник ───────────────────────────────────────
+     *
+     * Еден наставник предава ПОВЕЌЕ предмети — кажано од сопственикот и
+     * видливо во работната книга. Дотогаш „Предмет" беше едно поле за пишување
+     * во три екрана, па списокот немаше како да се внесе, а каталогот на МОН
+     * (`teaching_subjects`, миграција 032) се нудеше само во ќелиите на
+     * распоредот.
+     *
+     * ЕДНА КОЛОНА, СПИСОК ВО НЕА. `teachers.subject` останува слободен текст, а
+     * повеќе предмети се пишуваат разделени со запирка. Втора табела би барала
+     * миграција, увозот од работната книга и трите екрана да се преместат
+     * ОДЕДНАШ, а овој проект веќе измери колку чини таква селидба. Она што го
+     * чита како ФАКТ е точно една функција — `teacherHandles` во
+     * `lib/teaching-demo.ts` — и таа сега го дели списокот; сѐ друго само го
+     * печати. Кога предметот ќе почне да носи СВОЈ факт (фонд часови, наставен
+     * план, во која паралелка), тој ден е денот за табела, не порано.
+     *
+     * Проверено пред да се одбере разделувачот: ниту еден од 39-те предмети во
+     * каталогот не содржи запирка, па делењето не може да пресече име.
+     *
+     * И ЕДНА КОПИЈА, ТУКА. Истиот избирач стои во НаставаУреди, во Податоци и
+     * во работниот простор. Три копии би се разишле за еден разделувач или за
+     * едно зборче, што е грешката за која овој проект постојано плаќа — истата
+     * причина поради која изборот на сервер живее во оваа датотека.
+     */
+    const SUBJECT_CATALOGUES = new Map();
+
+    /** „Физичко, Ликовно" → ['Физичко', 'Ликовно']. Празно и повторено паѓа. */
+    function parseSubjects(value) {
+        const out = [];
+        String(value == null ? '' : value).split(',').forEach((part) => {
+            const name = part.trim();
+            if (name && !out.some((had) => had.toLowerCase() === name.toLowerCase())) out.push(name);
+        });
+        return out;
+    }
+
+    function joinSubjects(list) {
+        return (list || []).join(', ');
+    }
+
+    /**
+     * Каталогот на МОН, целиот. Без `?class=` endpoint-от враќа сѐ — што е
+     * точно за наставник, зашто наставник не припаѓа на едно одделение.
+     * Кеширано по (сервер, година): список од четириесет не се бара по ред.
+     */
+    function subjectCatalogue(year) {
+        const base = activeServer();
+        const key = base + '|' + String(year || '');
+        if (!SUBJECT_CATALOGUES.has(key)) {
+            const url = base + '/api/teaching/subjects'
+                + (year ? '?year=' + encodeURIComponent(year) : '');
+            SUBJECT_CATALOGUES.set(key, window.fetch(url, { headers: { accept: 'application/json' } })
+                .then((res) => (res.ok ? res.json() : { subjects: [] }))
+                .then((body) => (body.subjects || []).map((row) => row.subject).filter(Boolean))
+                // Постар сервер без овој endpoint едноставно не нуди ништо;
+                // „друго…" и понатаму прима што ќе се напише, па ништо не се
+                // губи — понуда што ја нема не е ѕид.
+                .catch(() => []));
+        }
+        return SUBJECT_CATALOGUES.get(key);
+    }
+
+    function addSubjectStyles() {
+        if (document.getElementById('mtbSubjectStyles')) return;
+        const style = document.createElement('style');
+        style.id = 'mtbSubjectStyles';
+        style.textContent = `
+            .mtb-subjects { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+            .mtb-subjects .mtb-subj {
+                display: inline-flex; align-items: center; gap: 3px;
+                padding: 1px 4px 1px 8px; border-radius: 10px; font-size: 12px;
+                /* Името на предметот не се крши на два реда: се крши РЕДОТ од
+                   чипови, инаку „Македонски јазик" изгледа како два предмети. */
+                white-space: nowrap;
+                background: var(--chip, var(--soft, var(--panel2, rgba(125, 125, 160, .20))));
+                border: 1px solid var(--border, var(--line, rgba(125, 125, 160, .45)));
+                /* ИЗРЕЧНО, и тоа е правило од скапо искуство: копче НЕ наследува
+                   боја на текст — прелистувачот му дава buttontext, што е црно
+                   и во темна тема се губи. Чипот ја кажува својата, а ✕ во него
+                   изречно ја наследува. */
+                color: var(--text, inherit);
+            }
+            .mtb-subjects .mtb-subj button {
+                border: 0; background: transparent; color: inherit; cursor: pointer;
+                font-size: 12px; line-height: 1; padding: 2px 3px; opacity: .6;
+            }
+            .mtb-subjects .mtb-subj button:hover { opacity: 1; }
+            .mtb-subjects select, .mtb-subjects .mtb-subj-free {
+                font-size: 12px; padding: 2px 4px; max-width: 170px; min-width: 90px;
+            }
+            .mtb-subjects .mtb-none { opacity: .6; font-size: 12px; }
+            .mtb-subjects.is-locked .mtb-subj { opacity: .75; }
+        `;
+        (document.head || document.documentElement).appendChild(style);
+    }
+
+    /**
+     * Го исполнува `host` со чипови и едно „+ предмет…" мени, и го држи
+     * зачуваниот СТРИНГ во скриено поле внатре.
+     *
+     * Скриеното поле е намерно: секој од трите екрана веќе чита
+     * `row.querySelector('.t-subject').value` кога зачувува, па патот на
+     * зачувување НЕ се менува воопшто — се менува само како човек го внесува.
+     * Затоа се праќаат и `input` и `change`, зашто по нив страницата знае дека
+     * редот има непратена измена.
+     *
+     * Заклучено (одделенски наставник) значи: се ПОКАЖУВА зачуваното и не се
+     * менува. Празнењето на екранот беше тивко бришење — истата стапица што
+     * веќе беше затворена во работниот простор.
+     */
+    function mountSubjectPicker(host, options) {
+        if (!host) return null;
+        const opts = options || {};
+        addSubjectStyles();
+
+        let chosen = parseSubjects(opts.value);
+        let catalogue = null;
+
+        const field = document.createElement('input');
+        field.type = 'hidden';
+        if (opts.id) field.id = opts.id;
+        if (opts.className) field.className = opts.className;
+        field.value = joinSubjects(chosen);
+
+        host.classList.add('mtb-subjects');
+        host.classList.toggle('is-locked', !!opts.disabled);
+
+        function commit() {
+            const was = field.value;
+            field.value = joinSubjects(chosen);
+            if (field.value === was) return;
+            field.dispatchEvent(new Event('input', { bubbles: true }));
+            field.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+
+        function add(name) {
+            const clean = String(name || '').trim();
+            if (!clean) return;
+            if (chosen.some((had) => had.toLowerCase() === clean.toLowerCase())) return;
+            chosen = chosen.concat(clean);
+            commit();
+        }
+
+        function draw() {
+            host.textContent = '';
+            host.appendChild(field);
+
+            chosen.forEach((name) => {
+                const chip = document.createElement('span');
+                chip.className = 'mtb-subj';
+                chip.appendChild(document.createTextNode(name));
+                if (!opts.disabled) {
+                    const off = document.createElement('button');
+                    off.type = 'button';
+                    off.textContent = '✕';
+                    off.title = 'тргни го предметот';
+                    off.addEventListener('click', () => {
+                        chosen = chosen.filter((had) => had !== name);
+                        commit();
+                        draw();
+                    });
+                    chip.appendChild(off);
+                }
+                host.appendChild(chip);
+            });
+
+            if (opts.disabled) {
+                if (!chosen.length) {
+                    const none = document.createElement('span');
+                    none.className = 'mtb-none';
+                    none.textContent = opts.lockedNote || 'нема';
+                    host.appendChild(none);
+                }
+                return;
+            }
+
+            const pick = document.createElement('select');
+            pick.className = 'mtb-subj-add';
+            pick.title = 'Понуда од каталогот на МОН. Кратенка како „ФЗО." се пишува преку „друго…" и останува како што е напишана.';
+            const first = document.createElement('option');
+            first.value = '';
+            first.textContent = chosen.length ? '+ уште еден…' : '+ предмет…';
+            pick.appendChild(first);
+            (catalogue || []).forEach((name) => {
+                if (chosen.some((had) => had.toLowerCase() === name.toLowerCase())) return;
+                const option = document.createElement('option');
+                option.value = name;
+                option.textContent = name;
+                pick.appendChild(option);
+            });
+            const other = document.createElement('option');
+            other.value = '';
+            other.dataset.other = '1';
+            other.textContent = '✎ друго…';
+            pick.appendChild(other);
+
+            pick.addEventListener('change', () => {
+                const option = pick.selectedOptions[0];
+                const value = pick.value;
+                const wantsFree = !!(option && option.dataset.other);
+                pick.selectedIndex = 0;
+                if (!wantsFree) {
+                    if (!value) return;
+                    add(value);
+                    draw();
+                    return;
+                }
+                // Слободен текст, зашто каталогот е ПОНУДА: работната книга
+                // пишува „ФЗО." и еден избор од мени не смее да го замени.
+                const free = document.createElement('input');
+                free.type = 'text';
+                free.className = 'mtb-subj-free';
+                free.placeholder = 'напиши предмет';
+                const finish = (keep) => {
+                    if (keep) add(free.value);
+                    draw();
+                };
+                free.addEventListener('keydown', (event) => {
+                    if (event.key === 'Enter') { event.preventDefault(); finish(true); }
+                    if (event.key === 'Escape') { event.preventDefault(); finish(false); }
+                });
+                free.addEventListener('blur', () => finish(true));
+                pick.replaceWith(free);
+                free.focus();
+            });
+            host.appendChild(pick);
+        }
+
+        draw();
+        if (!opts.disabled) {
+            subjectCatalogue(opts.year).then((list) => {
+                catalogue = list;
+                // Нацртај пак само ако избирачот сѐ уште стои во страницата:
+                // редот може да е прецртан во меѓувреме.
+                if (host.isConnected && list.length) draw();
+            });
+        }
+        return { value: () => field.value, subjects: () => chosen.slice() };
+    }
+
     window.MTBAppNavigation = {
         refresh: render, checkHealth, checkUser, logout: logoutUser,
         reportDataState, toast: showToast, hideToast,
@@ -864,7 +1105,15 @@
         // else knows that the page has just rebuilt itself.
         applyFocus,
         setFocus,
-        focusKey: () => focusKey
+        focusKey: () => focusKey,
+        // Предметите на еден наставник: ЕДНА копија на разделувачот, на
+        // каталогот и на избирачот, за трите екрана што го внесуваат.
+        subjects: {
+            parse: parseSubjects,
+            join: joinSubjects,
+            catalogue: subjectCatalogue,
+            mount: mountSubjectPicker
+        }
     };
     window.addEventListener('mtb:data-state', (event) => reportDataState(event.detail));
     window.addEventListener('mtb:server-selected', () => { render(); checkHealth(); checkUser(); });
