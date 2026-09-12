@@ -11,11 +11,11 @@ import assert from 'node:assert/strict';
 import { foldName, nameKey, nameDistance, nearestNames, clearlyNearest } from '../src/lib/name-match.js';
 
 const ROSTER = [
-    { id: 'A', name: 'Михаил Бошевски' },
-    { id: 'B', name: 'Мирко Долевски' },
-    { id: 'C', name: 'Ѓеоргина Ѓоргиевска' },
-    { id: 'D', name: 'Јована Пластовска' },
-    { id: 'E', name: 'Јована Пластевска' }
+    { id: 'A', name: 'Тодор Тестовски' },
+    { id: 'B', name: 'Стојан Пробенски' },
+    { id: 'C', name: 'Ѓорѓи Ѓоргиевски' },
+    { id: 'D', name: 'Јована Измислевска' },
+    { id: 'E', name: 'Јована Измисловска' }
 ];
 const near = (q: string) => nearestNames(q, ROSTER, (r) => r.name);
 
@@ -25,29 +25,28 @@ test('the class prefix and the owner\'s marker are not part of the name', () => 
 });
 
 test('surname first is the same name', () => {
-    assert.equal(nameKey('Бошевски Михаил'), nameKey('Михаил Бошевски'));
-    assert.equal(nameDistance('Бошевски Михаил', 'Михаил Бошевски'), 0);
+    assert.equal(nameKey('Тестовски Тодор'), nameKey('Тодор Тестовски'));
+    assert.equal(nameDistance('Тестовски Тодор', 'Тодор Тестовски'), 0);
 });
 
-test('a dropped letter is distance 1 — the sheet really does this', () => {
-    // „Михаил ошевски" appears in the centre's own workbook for „Бошевски".
-    assert.equal(nameDistance('Михаил ошевски', 'Михаил Бошевски'), 1);
-    assert.equal(near('Михаил ошевски')[0].row.id, 'A');
+test('a dropped letter is distance 1 — a hurried, hand-typed entry does this', () => {
+    assert.equal(nameDistance('Тодор естовски', 'Тодор Тестовски'), 1);
+    assert.equal(near('Тодор естовски')[0].row.id, 'A');
 });
 
 test('a name typed in the Latin layout still finds its owner', () => {
-    assert.equal(nameDistance('Mихаил Бошевски', 'Михаил Бошевски'), 0);   // Latin M
+    assert.equal(nameDistance('Tодор Тестовски', 'Тодор Тестовски'), 0);   // Latin T
 });
 
 test('ѓ typed as г is offered, never decided', () => {
-    assert.equal(nameDistance('Георгина Горгиевска', 'Ѓеоргина Ѓоргиевска'), 0);
+    assert.equal(nameDistance('Горги Горгиевски', 'Ѓорѓи Ѓоргиевски'), 0);
     // Folded to zero distance — and that is exactly why this file may only
     // SUGGEST: those two spellings can be two different people.
-    assert.equal(near('Георгина Горгиевска')[0].row.id, 'C');
+    assert.equal(near('Горги Горгиевски')[0].row.id, 'C');
 });
 
 test('a missing surname is not a close match — half a name is not evidence', () => {
-    assert.equal(near('Михаил').length, 0);
+    assert.equal(near('Тодор').length, 0);
 });
 
 test('a genuinely different name offers nothing', () => {
@@ -55,18 +54,18 @@ test('a genuinely different name offers nothing', () => {
 });
 
 test('two candidates one letter apart are a tie, and read as one', () => {
-    const list = near('Јована Пластивска');
-    assert.equal(list.length, 2);                       // both Пластовска and Пластевска
+    const list = near('Јована Измиславска');
+    assert.equal(list.length, 2);                       // both Измислевска and Измисловска
     assert.equal(list[0].distance, list[1].distance);
     assert.equal(clearlyNearest(list), false);          // must not be worded as an answer
 });
 
 test('one clear candidate is worded as one', () => {
-    assert.equal(clearlyNearest(near('Мирко Долески')), true);
+    assert.equal(clearlyNearest(near('Стојан Пробески')), true);
 });
 
 test('the exact spelling is not offered as a correction of itself', () => {
-    assert.equal(near('Михаил Бошевски').some((c) => c.row.id === 'A'), false);
+    assert.equal(near('Тодор Тестовски').some((c) => c.row.id === 'A'), false);
 });
 
 test('an empty name asks nothing', () => {

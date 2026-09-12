@@ -45,7 +45,7 @@ export function foldName(value: unknown): string {
     return [...n].map((ch) => FOLD[ch] ?? ch).join('');
 }
 
-/** Tokens sorted, so „Спирковски Михаил" and „Михаил Спирковски" are one. */
+/** Tokens sorted, so „Тестовски Тодор" and „Тодор Тестовски" are one. */
 export function nameKey(value: unknown): string {
     return foldName(value).split(' ').filter(Boolean).sort().join(' ');
 }
@@ -74,11 +74,12 @@ export function editDistance(a: string, b: string): number {
  * How far apart two spellings are.
  *
  * The smaller of two readings, and BOTH are needed — this was measured, not
- * assumed. Sorting the tokens is what makes „Бошевски Михаил" the same name;
- * it is also what breaks a dropped FIRST letter, because „ошевски" sorts after
- * „михаил" while „бошевски" sorts before it, and the sorted strings then differ by
- * far more than the one letter that actually changed. „Михаил ошевски" is a
- * real cell in the centre's own sheet, so the in-order reading has to stay.
+ * assumed. Sorting the tokens is what makes „Тестовски Тодор" the same name;
+ * it is also what breaks a dropped FIRST letter, because „естовски" sorts after
+ * „тодор" while „тестовски" sorts before it, and the sorted strings then differ by
+ * far more than the one letter that actually changed. A dropped first letter
+ * is a shape the centre's own hand-typed sheets really produce, so the
+ * in-order reading has to stay.
  *
  * A different surname is far. A missing surname altogether is the length of
  * that surname, which is exactly why it does NOT come out close: half a name
