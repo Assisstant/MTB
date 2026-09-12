@@ -15,6 +15,7 @@
 
 import { parseCabinetGrid, clashingPupils } from './cabinet-sheet.js';
 import { bareName } from './import-core.js';
+import { nearestNames, clearlyNearest, type NameCandidate } from './name-match.js';
 
 const norm = (v: unknown) => String(v ?? '').replace(/\s+/g, ' ').trim().toLowerCase();
 
@@ -34,6 +35,13 @@ export type CabinetPlan = {
     /** Matched because the heading is the start of one category name. Say it out loud. */
     byPrefix: string[];
     unknownPupils: string[];
+    /**
+     * For a name nothing matched: the nearest spellings on the year's list.
+     * Offered, never taken — see `name-match.ts`. The report prints them as a
+     * line the caller can paste into the `--names` file, so the same reading
+     * is done once rather than every time the sheet is imported.
+     */
+    suggestions: { pupil: string; sure: boolean; candidates: { name: string; publicId: string; distance: number }[] }[];
     ambiguousPupils: string[];
     dropped: string[];
     sheetProblems: string[];
@@ -52,7 +60,7 @@ export type CabinetPlan = {
 export async function planCabinetImport(
     db: { query: (sql: string, params?: any[]) => Promise<{ rows: any[] }> },
     grid: unknown[][],
-    opts: { year?: string; map?: Record<string, string> } = {}
+    opts: { year?: string; map?: Record<string, string>; names?: Record<string, string> } = {}
 ): Promise<CabinetPlan> {
     const sheet = parseCabinetGrid(grid);
     const clashes = clashingPupils(sheet.cells);
@@ -161,9 +169,27 @@ export async function planCabinetImport(
         if (!bare.has(b)) bare.set(b, []);
         bare.get(b)!.push(p.public_id);
     }
+    // A spelling a PERSON has already tied to a pupil, once, in a file they
+    // keep. By public_id, or by the pupil's exact name in the database — the
+    // id is what is stored either way, so the tie survives a later rename.
+    const byPublicId = new Set<string>(pupils.map((p: any) => p.public_id));
+    const said = new Map<string, string>();
+    const badlyStated: string[] = [];
+    for (const [spelling, target] of Object.entries(opts.names ?? {})) {
+        const t = String(target).trim();
+        if (byPublicId.has(t)) { said.set(norm(spelling), t); continue; }
+        const hit = exact.get(norm(t));
+        if (hit && hit.length === 1) { said.set(norm(spelling), hit[0]); continue; }
+        badlyStated.push(hit && hit.length > 1
+            ? `„${spelling}" → „${t}": тоа име го носат ${hit.length} деца — напиши public_id.`
+            : `„${spelling}" → „${t}": ни public_id, ни име на годишниот список.`);
+    }
+
     const unknown = new Set<string>();
     const ambiguous = new Set<string>();
     const resolvePupil = (name: string): string | null => {
+        const stated = said.get(norm(name));
+        if (stated) return stated;
         const hit = exact.get(norm(name)) ?? bare.get(norm(bareName(name)));
         if (!hit) { unknown.add(name); return null; }
         // The sheet writes a name, and a name is not an identity here: two
@@ -199,11 +225,23 @@ export async function planCabinetImport(
         });
     }
 
+    // Nothing here changes a single decision above: the plan is already fixed
+    // by the time this runs. It exists so the person reading the report is
+    // shown three names instead of eighty.
+    const suggestions = [...unknown].map((pupil) => {
+        const list: NameCandidate<any>[] = nearestNames(pupil, pupils, (p: any) => p.name);
+        return {
+            pupil,
+            sure: clearlyNearest(list),
+            candidates: list.map((c) => ({ name: c.row.name, publicId: c.row.public_id, distance: c.distance }))
+        };
+    }).filter((s) => s.candidates.length > 0);
+
     return {
         year, cabinets: sheet.cabinets.length, cells: sheet.cells.length, blocks,
-        unresolvedCabinets, byPrefix,
+        unresolvedCabinets, byPrefix, suggestions,
         unknownPupils: [...unknown], ambiguousPupils: [...ambiguous],
-        dropped, sheetProblems: sheet.problems, clashes,
+        dropped: dropped.concat(badlyStated), sheetProblems: sheet.problems, clashes,
         missingCaseload: [...missing.values()]
     };
 }

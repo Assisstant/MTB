@@ -5,6 +5,7 @@
  *   npm run import:cabinets -- "C:\Users\...\Raspored kabineti.xlsx"
  *   npm run import:cabinets -- ../private/kabineti.xlsx --map ../private/kabineti-map.json
  *   npm run import:cabinets -- ../private/kabineti.xlsx --year 2026/2027 --apply
+ *   npm run import:cabinets -- ../private/kabineti.xlsx --names ../private/imina.json
  *   npm run import:cabinets -- ../private/kabineti.xlsx --apply --caseload
  *
  * DRY RUN BY DEFAULT: it parses, resolves every column and every name against
@@ -35,13 +36,14 @@ const flag = (name: string) => {
 const apply = argv.includes('--apply');
 const caseload = argv.includes('--caseload');
 const mapArg = flag('map');
+const namesArg = flag('names');
 const yearArg = flag('year');
 const sheetArg = flag('sheet');
 const BASE = (process.env.API || 'http://127.0.0.1:3000').replace(/\/+$/, '');
-const files = argv.filter((a) => !a.startsWith('--') && a !== mapArg && a !== yearArg && a !== sheetArg);
+const files = argv.filter((a) => !a.startsWith('--') && a !== mapArg && a !== namesArg && a !== yearArg && a !== sheetArg);
 
 if (files.length !== 1) {
-    console.error('Употреба: npm run import:cabinets -- <workbook.xlsx> [--sheet Име] [--year 2026/2027] [--map map.json] [--apply]');
+    console.error('Употреба: npm run import:cabinets -- <workbook.xlsx> [--sheet Име] [--year 2026/2027] [--map map.json] [--names names.json] [--apply]');
     process.exit(1);
 }
 
@@ -64,7 +66,8 @@ const list = (title: string, lines: string[], limit = 20) => {
 
 try {
     const map = mapArg ? JSON.parse(readFileSync(resolve(mapArg), 'utf8')) : undefined;
-    const plan = await planCabinetImport(pool, gridOf(files[0]), { year: yearArg, map });
+    const names = namesArg ? JSON.parse(readFileSync(resolve(namesArg), 'utf8')) : undefined;
+    const plan = await planCabinetImport(pool, gridOf(files[0]), { year: yearArg, map, names });
 
     console.log(`\n════ РАСПОРЕД НА КАБИНЕТИ · ${plan.year.label} ════`);
     console.log(`  ${files[0]}`);
@@ -81,6 +84,23 @@ try {
         console.log('      Додади ги во Податоци; оваа скрипта намерно не создава ученици.');
     }
     list('✗ Име што значи повеќе од едно дете — не погодувам (правило 2)', plan.ambiguousPupils);
+
+    // Offered, never taken. The line is printed ready to paste, so the reading
+    // a person does once is kept and the next import does not ask again.
+    if (plan.suggestions.length) {
+        console.log(`\n  ? Слични имиња на годишниот список (${plan.suggestions.length}) — ти одлучуваш:`);
+        for (const s of plan.suggestions) {
+            console.log(`      „${s.pupil}"${s.sure ? '  — веројатно:' : '  — едно од:'}`);
+            for (const c of s.candidates) {
+                console.log(`          ${c.name}   (${c.publicId}, оддалеченост ${c.distance})`);
+            }
+        }
+        console.log('\n      Кога ќе одлучиш, запиши го во датотека и додади --names <патека>:');
+        console.log('      {');
+        console.log(plan.suggestions.map((s) =>
+            `        "${s.pupil}": "${s.candidates[0].publicId}"`).join(',\n'));
+        console.log('      }');
+    }
     list('· Ќелии испуштени поради горното', plan.dropped);
     list('· Работната книга', plan.sheetProblems);
     list('· Исто дете во два кабинета истовремено — серверот ќе го одбие вториот', plan.clashes);

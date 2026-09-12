@@ -2,18 +2,29 @@
 import { chromium } from 'playwright';
 
 const BASE = process.env.API || 'http://127.0.0.1:3000';
+// The bar's own list, in its order. `NastavaUredi.html` moved up here the day
+// it became a tab; leaving it under TOOLS made ten assertions fail for a
+// change that was deliberate, which is the shape of a stale expectation rather
+// than a fault — and a suite that is red for a reason nobody acts on stops
+// being read at all.
 const APPS = [
     ['S-Dnevnik.html', 'S-Дневник'],
     ['RasporediFusion.html', 'Распоред'],
     ['Nastava.html', 'Настава'],
+    ['NastavaUredi.html', 'Уреди настава'],
     ['Podatoci.html', 'Податоци'],
     ['AkciskiPlan.html', 'Евидентен лист']
 ];
 const TOOLS = [
-    ['NastavaUredi.html', 'Уреди настава'],
     ['Pregled-Baza.html', 'Проверка на базата'],
     ['Rasporedi.html', 'Стар распоред']
 ];
+// `start.html` keeps its OWN split and deliberately files „Уреди настава"
+// under its tools rather than its cards, so the launcher shows one card fewer
+// than the bar shows tabs. One constant was standing for both lists, which is
+// why making NastavaUredi a tab turned a launcher assertion red for a reason
+// that had nothing to do with the launcher.
+const LAUNCHER_CARDS = APPS.filter(([file]) => file !== 'NastavaUredi.html').length;
 const LABELS = ['Сите', ...APPS.map(([, label]) => label)];
 
 let fails = 0;
@@ -240,7 +251,7 @@ await launcher.route('**/api/health', (route) => {
 await launcher.goto(`${BASE}/start.html`);
 await launcher.waitForSelector('#apps:not(.hide)');
 check('local start finds its own API when every configured tailnet address is unreachable',
-    await launcher.locator('#apps a').count() === APPS.length && localProbes === 1);
+    await launcher.locator('#apps a').count() === LAUNCHER_CARDS && localProbes === 1);
 check('offline Internet access keeps app links on the local server',
     (await launcher.locator('#apps a').evaluateAll((links) => links.map((link) => link.origin)))
         .every((origin) => origin === new URL(BASE).origin));

@@ -93,6 +93,59 @@ try {
     ok('a name the year does not hold is reported and its cell left out',
         plan.unknownPupils.includes('Никаква Личност')
         && !plan.blocks.some((b) => b.pupilNames.includes('Никаква Личност')));
+
+    // „Прва Пробнаа" is one letter off a real pupil. It must be OFFERED and
+    // must NOT become a term on its own (rule 2) — the whole point of the
+    // approximate matching is that it stops at a suggestion.
+    const typo = await planCabinetImport(pool, [
+        ['', 'Час', 'КАБИНЕТ', ''],
+        ['', '', 'Логопед', 'Сензорна'],
+        ['Среда', 'I.', 'Прва Пробнаа', '']
+    ], { year: YEAR });
+    ok('a near miss is reported as unknown, never resolved',
+        typo.unknownPupils.includes('Прва Пробнаа') && typo.blocks.length === 0);
+    const offered = typo.suggestions.find((s) => s.pupil === 'Прва Пробнаа');
+    ok('and the nearest real name is offered with its public id',
+        !!offered && offered!.candidates[0].name === 'Прва Пробна'
+        && offered!.candidates[0].publicId === 'KAB-1', JSON.stringify(offered));
+    ok('one clear candidate is worded as one', offered!.sure === true);
+    ok('a name nothing resembles offers nothing',
+        (await planCabinetImport(pool, [
+            ['', 'Час', 'КАБИНЕТ', ''],
+            ['', '', 'Логопед', 'Сензорна'],
+            ['Среда', 'I.', 'Зоран Несличен', '']
+        ], { year: YEAR })).suggestions.length === 0);
+
+    // A person states the tie ONCE, in a file they keep, and the same sheet
+    // then imports without asking again.
+    const stated = await planCabinetImport(pool, [
+        ['', 'Час', 'КАБИНЕТ', ''],
+        ['', '', 'Логопед', 'Сензорна'],
+        ['Среда', 'I.', 'Прва Пробнаа', '']
+    ], { year: YEAR, names: { 'Прва Пробнаа': 'KAB-1' } });
+    ok('a stated spelling resolves and stops being unknown',
+        stated.unknownPupils.length === 0 && stated.blocks.length === 1
+        && stated.blocks[0].pupilIds[0] === 'KAB-1');
+
+    const statedByName = await planCabinetImport(pool, [
+        ['', 'Час', 'КАБИНЕТ', ''],
+        ['', '', 'Логопед', 'Сензорна'],
+        ['Среда', 'I.', 'Прва Пробнаа', '']
+    ], { year: YEAR, names: { 'Прва Пробнаа': 'Прва Пробна' } });
+    ok('stating it by the database spelling works too',
+        statedByName.blocks.length === 1 && statedByName.blocks[0].pupilIds[0] === 'KAB-1');
+
+    // Stating a name TWO children share resolves nothing, and says why —
+    // otherwise the map would be a way around rule 2.
+    const statedAmbiguous = await planCabinetImport(pool, [
+        ['', 'Час', 'КАБИНЕТ', ''],
+        ['', '', 'Логопед', 'Сензорна'],
+        ['Среда', 'I.', 'Некој Друг', '']
+    ], { year: YEAR, names: { 'Некој Друг': 'Ист Именик' } });
+    ok('the names file cannot be used to pick between two namesakes',
+        statedAmbiguous.blocks.length === 0
+        && statedAmbiguous.dropped.some((d) => d.includes('public_id')),
+        statedAmbiguous.dropped.join(' | '));
     ok('a name two children share is refused (rule 2)',
         plan.ambiguousPupils.includes('Ист Именик')
         && !plan.blocks.some((b) => b.pupilNames.includes('Ист Именик')));
