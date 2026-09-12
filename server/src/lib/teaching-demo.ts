@@ -336,18 +336,25 @@ export function planDemoTimetable(
     // rather than a fault in it, and a real timetable staggers the days to
     // soften it — but a generator that quietly staggered would stop answering
     // the question that was asked.
-    const crowd = new Map<string, number>();
+    // Counted in TEACHERS ACTUALLY USED, not in classes. Counting classes read
+    // as "sixteen people must be able to teach this at once" and was false:
+    // eleven of those are одделенска, where the class teacher already does it
+    // and competes with nobody. A number that overstates the problem is the
+    // kind nobody acts on.
+    const crowd = new Map<string, Set<number>>();
     for (const l of plan.lessons) {
+        if (l.teacherId == null) continue;
         const at = `${l.day}|${l.ordinal}|${l.subject}`;
-        crowd.set(at, (crowd.get(at) ?? 0) + 1);
+        if (!crowd.has(at)) crowd.set(at, new Set());
+        crowd.get(at)!.add(l.teacherId);
     }
     let worst = ['', 0] as [string, number];
-    for (const [at, n] of crowd) if (n > worst[1]) worst = [at, n];
+    for (const [at, who] of crowd) if (who.size > worst[1]) worst = [at, who.size];
     if (worst[1] > 1) {
         const [day, ordinal, subject] = worst[0].split('|');
         plan.notes.push(
-            `Most crowded period: ${subject} in ${worst[1]} classes at once (${day}, ${ordinal}. час) — `
-            + `so ${worst[1]} people have to be able to teach it in that period.`
+            `Busiest subject in one period: ${subject}, ${worst[1]} teachers at once `
+            + `(${day}, ${ordinal}. час).`
         );
     }
 

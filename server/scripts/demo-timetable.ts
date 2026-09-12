@@ -4,6 +4,7 @@
  *   npm run demo:teaching                          dry run, current year
  *   npm run demo:teaching -- --year 2026/2027      dry run, a named year
  *   npm run demo:teaching -- --load 23             a different weekly load
+ *   npm run demo:teaching -- --plan "Оштетен слух"  another teaching plan
  *   npm run demo:teaching -- --fzo-pred            Физичко to an accompanying
  *                                                  subject teacher instead of
  *                                                  the class teacher
@@ -41,6 +42,22 @@ const apply = argv.includes('--apply');
 const replace = argv.includes('--replace');
 const load = Number(flag('load') ?? 21);
 const physicalToSubjectTeacher = argv.includes('--fzo-pred');
+/**
+ * ONE teaching plan, not the union of all six.
+ *
+ * `/api/teaching/subjects` unions them deliberately: it is offering a MENU, and
+ * a subject missing from the menu is a wall. A WEEK is the opposite question.
+ * Measured against the real catalogue: grade I is 22 hours under any single
+ * plan — exactly the 21–23 the owner named — and 35 hours as a union of six,
+ * because subjects that exist only in the special plans pile on top of the
+ * regular one. The first run produced class teachers with 33–35 lessons and it
+ * looked like a distribution problem; it was a curriculum nobody teaches.
+ *
+ * Which plan a class follows is NOT derivable — migration 031 says nothing may
+ * compute it from `class_years.description` — so the demo states an assumption
+ * out loud instead of inferring one.
+ */
+const planName = flag('plan') ?? 'Редовен наставен план';
 
 const ROMAN = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX'];
 
@@ -101,12 +118,13 @@ try {
     const { rows: homeRows } = await client.query(
         `SELECT class_id, teacher_id FROM teacher_classes
           WHERE school_year_id = $1 AND role = 'homeroom'`, [year.id]);
+    // The column is `schedule`, not `kind` — and an override changes a bell's
+    // label, start and length, never its ORDINAL, so there is nothing to
+    // coalesce here. The first version wrote both wrong and would have died on
+    // the query, which is what running it against a real database found and
+    // seventeen pure tests could not.
     const { rows: bellRows } = await client.query(
-        `SELECT coalesce(o.ordinal, b.ordinal) AS ordinal
-           FROM bell_periods b
-           LEFT JOIN bell_period_overrides o
-                  ON o.bell_period_id = b.id AND o.school_year_id = $1
-          WHERE b.kind = 'nastava-am' ORDER BY 1`, [year.id]);
+        `SELECT ordinal FROM bell_periods WHERE schedule = 'nastava-am' ORDER BY ordinal`);
 
     const periods: number[] = bellRows.map((r: any) => Number(r.ordinal)).filter((n: number) => n > 0);
     if (!periods.length) throw new Error('This year has no teaching bells (nastava-am).');
@@ -127,7 +145,14 @@ try {
 
     const { rows: subjectRows } = await client.query(
         `SELECT grade, subject, max(weekly_hours) AS hours FROM teaching_subjects
-          WHERE weekly_hours IS NOT NULL GROUP BY grade, subject`);
+          WHERE weekly_hours IS NOT NULL AND plan = $1 GROUP BY grade, subject`, [planName]);
+    if (!subjectRows.length) {
+        const { rows: known } = await client.query(
+            'SELECT DISTINCT plan FROM teaching_subjects ORDER BY plan');
+        throw new Error(
+            `No subjects for the plan "${planName}". Known plans: `
+            + known.map((r: any) => `"${r.plan}"`).join(', '));
+    }
     const byGrade = new Map<string, SubjectHours[]>();
     for (const r of subjectRows) {
         const list = byGrade.get(r.grade) ?? [];
@@ -149,7 +174,8 @@ try {
     const plan = planDemoTimetable(classes, teachers, subjectsFor,
         { periods, load, physicalToSubjectTeacher });
 
-    console.log(`\nДЕМО распоред за ${year.label}${apply ? '' : '  (проба — ништо не се запишува)'}\n`);
+    console.log(`\nДЕМО распоред за ${year.label}${apply ? '' : '  (проба — ништо не се запишува)'}`);
+    console.log(`  наставен план: ${planName}\n`);
     plan.notes.forEach((n) => console.log('  ' + n));
     if (noGrade.length) {
         console.log(`  ${noGrade.length} classes have no readable grade, so they got no lessons: ${noGrade.join(', ')}`);
