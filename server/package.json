@@ -20,6 +20,7 @@
     "test:recovery": "node test/rslots-recovery.browser.mjs",
     "test:hydrate": "node test/hydrate.browser.mjs",
     "check:names": "tsx scripts/check-names.ts",
+    "check:consistency": "tsx scripts/check-consistency.ts",
     "check:lists": "tsx scripts/check-lists.ts",
     "import:roster": "tsx scripts/import-roster.ts",
     "import:teaching": "tsx scripts/import-teaching.ts",
