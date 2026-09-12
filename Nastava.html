@@ -421,6 +421,34 @@
                 + `<small>${esc(a.therapist)}</small></span>`).join('');
     }
 
+    /**
+     * Кои луѓе ги засега оваа ќелија, за осветлувањето од работниот простор.
+     *
+     * Ќелијата носи ПОВЕЌЕ клучеви: наставникот што го држи часот и секое дете
+     * што е изземено од него. Едно дете и еден наставник не се исклучуваат —
+     * тоа е истата ќелија гледана од двете страни, што е целата поента на оваа
+     * страница.
+     */
+    function focusKeys(cells) {
+        const keys = new Set();
+        cells.forEach((c) => {
+            const t = (data.teachers || []).find((x) => x.name === c.teacher);
+            if (t) keys.add('teacher:' + t.id);
+            (c.away || []).forEach((a) => { if (a.studentPublicId) keys.add('student:' + a.studentPublicId); });
+        });
+        // JSON, not a space-separated list: an id may contain anything, and a
+        // key split in half matches nothing while looking like it should.
+        return keys.size ? ` data-focus="${esc(JSON.stringify([...keys]))}"` : '';
+    }
+
+    /** A redraw makes new elements; the highlight has to be put back on them. */
+    function refocus() {
+        try {
+            const nav = window.MTBAppNavigation;
+            if (nav && nav.applyFocus) nav.applyFocus();
+        } catch (_) { /* без лентата, нема ни осветлување */ }
+    }
+
     /** 0..4+, so the darkest shade means "four or more, look at this". */
     const heat = (n) => 'heat-' + Math.max(0, Math.min(4, n));
 
@@ -449,6 +477,7 @@
         drawUnplaced();
         drawExternal();
         markSelected();
+        refocus();
     }
 
     function periodHeader() {
@@ -506,6 +535,7 @@
                     n ? `планирано на третман: ${n}` : 'нема планирано отсуство поради третман'
                 ].join(' · ');
                 html += `<td class="cell ${heat(n)}${n ? ' clickable' : ''}" title="${esc(title)}"`
+                    + focusKeys([cell])
                     + (n ? ` data-key="${esc(label)}|${p.ordinal}"` : '')
                     + `>${esc(cell.subject || '·')}`
                     + (n ? `<span class="count">${n}</span>` : '')
@@ -557,7 +587,8 @@
 
         let html = '<table class="grid"><thead>' + periodHeader() + '</thead><tbody>';
         order.forEach((name) => {
-            html += `<tr><th>${esc(name)}`
+            const who = (data.teachers || []).find((x) => x.name === name);
+            html += `<tr><th${who ? ` data-focus="teacher:${who.id}"` : ''}>${esc(name)}`
                 + (offStaff.has(name) ? '<span class="off-staff">не е на списокот оваа година</span>' : '')
                 + '</th>';
             periods.forEach((p) => {
@@ -567,6 +598,7 @@
                 const text = list.map((c) => c.class + (c.subject ? ' · ' + c.subject : '')).join(' / ');
                 const key = list[0].class + '|' + p.ordinal;
                 html += `<td class="cell ${heat(away)}${away ? ' clickable' : ''}" title="${esc(text)}"`
+                    + focusKeys(list)
                     + (away ? ` data-key="${esc(key)}"` : '')
                     + `>${esc(text)}`
                     + (away ? `<span class="count">${away}</span>` : '')
@@ -621,7 +653,8 @@
 
         let html = '<table class="grid"><thead>' + head + '</thead><tbody>';
         order.forEach((name) => {
-            html += `<tr><th>${esc(name)}`
+            const who = (data.teachers || []).find((x) => x.name === name);
+            html += `<tr><th${who ? ` data-focus="teacher:${who.id}"` : ''}>${esc(name)}`
                 + (offStaff.has(name) ? '<span class="off-staff">не е на списокот оваа година</span>' : '')
                 + '</th>';
             days.forEach((d) => {
@@ -636,6 +669,7 @@
                     // out", which is an answer, not an empty tooltip.
                     const key = d + '|' + list[0].class + '|' + p.ordinal;
                     html += `<td class="cell ${heat(away)}${edge}${away ? ' clickable' : ''}"`
+                        + focusKeys(list)
                         + ` data-key="${esc(key)}" title="${esc(text)}">`
                         + esc(list.map((c) => c.class).join(' / '))
                         + (away ? `<span class="count">${away}</span>` : '')
@@ -715,7 +749,10 @@
                 const list = rows.get(name).get(p.ordinal) || [];
                 if (!list.length) { html += '<td class="cell free">—</td>'; return; }
                 const key = list[0].class + '|' + p.ordinal;
-                html += `<td class="cell ${heat(list.length)} clickable" data-key="${esc(key)}">`
+                const pids = list.map((x) => x.studentPublicId).filter(Boolean);
+                html += `<td class="cell ${heat(list.length)} clickable" data-key="${esc(key)}"`
+                    + (pids.length ? ` data-focus="${esc(JSON.stringify(pids.map((p) => 'student:' + p)))}"` : '')
+                    + '>'
                     + list.map((x) =>
                         `<span class="take"><b>${esc(x.student)}</b>`
                         + `<small>${esc(x.class)}${x.teacher ? ' · ' + esc(x.teacher) : ''}</small></span>`

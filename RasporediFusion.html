@@ -1689,6 +1689,14 @@
         return day + '|' + time + '|' + publicId;
     }
 
+    /** A redraw makes new elements; the highlight has to be put back on them. */
+    function refocus() {
+        try {
+            const nav = window.MTBAppNavigation;
+            if (nav && nav.applyFocus) nav.applyFocus();
+        } catch (_) { /* без лентата, нема ни осветлување */ }
+    }
+
     function applyWhereToggle() {
         const button = el('whereToggle');
         button.setAttribute('aria-pressed', String(state.whereOn));
@@ -1815,7 +1823,11 @@
     /* ── One pupil block inside a 40′ cell, drawn as an S-Dnevnik slot ── */
     function slotHtml(parts) {
         return '<div class="' + parts.classes.join(' ') + '"' +
-            (parts.where ? ' data-where="' + esc(parts.where) + '"' : '') + '>' +
+            (parts.where ? ' data-where="' + esc(parts.where) + '"' : '') +
+            // Кого го држи оваа ќелија, за осветлувањето од работниот простор.
+            // Празен термин не добива клуч: нема кого да осветли, а повлекувањето
+            // на празните ќелии би го направило распоредот нечитлив.
+            (parts.focus ? ' data-focus="' + esc(parts.focus) + '"' : '') + '>' +
             '<span class="slot-badge">' + esc(parts.badge) + '</span>' +
             '<span class="slot-name">' + esc(parts.display) + '</span>' +
             '<span class="slot-caret" aria-hidden="true">▼</span>' +
@@ -1833,6 +1845,7 @@
             classes: classes,
             badge: partLabel,
             where: selected ? whereKey(day, time, selected) : '',
+            focus: selected ? 'student:' + selected : '',
             display: selected ? studentLabel(students.get(selected)) : '— празно —',
             select: '<select class="slot-select" data-session-day="' + esc(day) + '" data-session-time="' + esc(time) +
                 '" data-legacy-session="true" data-therapist-id="' + therapist.id +
@@ -1895,6 +1908,7 @@
             classes: classes,
             badge: label,
             where: selected ? whereKey(day, displayTime, selected) : '',
+            focus: selected ? 'student:' + selected : '',
             display: selected ? studentLabel(students.get(selected)) : '— празно —',
             action: action,
             select: '<select class="slot-select" data-session-day="' + esc(day) + '" data-session-time="' +
@@ -1997,6 +2011,7 @@
         el('scheduleGrid').innerHTML = html;
         bindScheduleCells();
         drawMetrics();
+        refocus();
     }
 
     function drawSchedule() {
@@ -2021,7 +2036,8 @@
         let html = gridOpen(therapists.length, 210);
         html += '<div class="schedule-header">Час</div>';
         therapists.forEach((therapist) => {
-            html += '<div class="schedule-header"><div class="schedule-header-name">' + esc(therapist.name) +
+            html += '<div class="schedule-header" data-focus="therapist:' + therapist.id +
+                '"><div class="schedule-header-name">' + esc(therapist.name) +
                 '</div><div class="schedule-header-sub">' + String((therapist.students || []).length) +
                 ' ученици</div></div>';
         });
@@ -2035,6 +2051,7 @@
         el('scheduleGrid').innerHTML = html;
         bindScheduleCells();
         drawMetrics();
+        refocus();
     }
 
     /* ── Print sheet ────────────────────────────────────── */

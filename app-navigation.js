@@ -373,6 +373,7 @@
     }
 
     function mount() {
+        addFocusStyles();
         if (embedded()) {
             // No bar, but the state still has to reach whoever asks for it —
             // the shell's own БАЗА chip listens for exactly this event.
@@ -755,6 +756,89 @@
     }
 
     installAuthenticatedFetch();
+    /* ── Едно избрано лице, низ сите прозорци ─────────────────────────
+     *
+     * Работниот простор држи список на луѓе покрај распоредот. Избирањето на
+     * човек таму досега не значеше ништо за прозорецот до него — а тоа е токму
+     * прашањето што се поставува: го избирам ова дете, КАДЕ Е ТОА во неделата.
+     *
+     * Школката праќа само ИДЕНТИФИКАТОР, никогаш име. Прозорецот и онака ги има
+     * имињата; праќањето име низ `postMessage` би значело личен податок што
+     * патува кон origin што испраќачот не го контролира (правило 6), а тука не
+     * добива ништо.
+     *
+     * Секоја страница само ги ОБЕЛЕЖУВА своите елементи со `data-focus`, а
+     * осветлувањето го прави ова место — една копија, па двата екрана не можат
+     * да осветлат различно. Ќелија во која има повеќе луѓе носи повеќе клучеви,
+     * одделени со празно место.
+     */
+    let focusKey = '';
+
+    /**
+     * Осветлувањето мора да постои и кога лентата НЕ се црта: вгнездена во
+     * школката токму тогаш и се користи. Затоа свој блок, а не во `addStyles`.
+     */
+    function addFocusStyles() {
+        if (document.getElementById('mtbFocusStyles')) return;
+        const style = document.createElement('style');
+        style.id = 'mtbFocusStyles';
+        style.textContent = `
+            .mtb-focused {
+                outline: 2px solid #f6c453 !important;
+                outline-offset: -2px;
+                box-shadow: 0 0 0 3px rgba(246, 196, 83, .35) !important;
+            }
+            /* Останатото се повлекува наместо да се крие: она што НЕ е
+               осветлено е и понатаму одговор — колку часа има тој ден, каде има
+               празно — и криењето би направило распоред што лаже. */
+            .mtb-has-focus [data-focus]:not(.mtb-focused) { opacity: .38; }
+            @media print { .mtb-focused { outline: 1px solid #000 !important; box-shadow: none !important; }
+                           .mtb-has-focus [data-focus]:not(.mtb-focused) { opacity: 1; } }
+        `;
+        (document.head || document.documentElement).appendChild(style);
+    }
+
+    /**
+     * One element, one or several people.
+     *
+     * A list is written as JSON, a single key as itself. Splitting on spaces
+     * was the obvious form and it is wrong: a `public_id` is only USUALLY the
+     * generated `RS-…` shape, and one carrying a space split into two keys that
+     * matched nothing — the highlight silently did not appear, which is the
+     * hardest kind of fault to notice because nothing goes red.
+     */
+    function focusKeysOf(el) {
+        const raw = String(el.dataset.focus || '');
+        if (raw.charAt(0) !== '[') return raw ? [raw] : [];
+        try {
+            const list = JSON.parse(raw);
+            return Array.isArray(list) ? list.map(String) : [];
+        } catch (_) { return [raw]; }
+    }
+
+    function applyFocus() {
+        const root = document.documentElement;
+        root.classList.toggle('mtb-has-focus', !!focusKey);
+        document.querySelectorAll('[data-focus]').forEach((el) => {
+            el.classList.toggle('mtb-focused', !!focusKey && focusKeysOf(el).includes(focusKey));
+        });
+    }
+
+    function setFocus(key) {
+        focusKey = String(key || '');
+        applyFocus();
+        window.dispatchEvent(new CustomEvent('mtb:focus', { detail: { key: focusKey } }));
+    }
+
+    window.addEventListener('message', (event) => {
+        // Само од школката што ја вгнездила оваа страница, и само облик што
+        // ништо не менува: ова е приказ, не команда.
+        if (event.source !== window.parent || event.source === window) return;
+        const msg = event.data;
+        if (!msg || msg.type !== 'mtb:focus') return;
+        setFocus(typeof msg.key === 'string' ? msg.key.slice(0, 120) : '');
+    });
+
     window.MTBAppNavigation = {
         refresh: render, checkHealth, checkUser, logout: logoutUser,
         reportDataState, toast: showToast, hideToast,
@@ -775,7 +859,12 @@
         // able to ask „кој компјутер е вклучен", which is the one question a
         // two-machine system may never answer by guessing.
         probe: probeServer,
-        serverName
+        serverName,
+        // Re-run after a redraw: a fresh grid has new elements, and nothing
+        // else knows that the page has just rebuilt itself.
+        applyFocus,
+        setFocus,
+        focusKey: () => focusKey
     };
     window.addEventListener('mtb:data-state', (event) => reportDataState(event.detail));
     window.addEventListener('mtb:server-selected', () => { render(); checkHealth(); checkUser(); });
