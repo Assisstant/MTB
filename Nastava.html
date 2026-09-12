@@ -184,6 +184,8 @@
             </label>
             <button class="btn" id="refresh">↻ Освежи</button>
             <button class="btn soft" onclick="window.print()">🖨️ Печати</button>
+            <a class="btn soft" href="NastavaUredi.html"
+               title="Внеси или промени го распоредот на настава">✏️ Уреди распоред</a>
             <span class="status" id="status"></span>
         </div>
         <div class="views">
@@ -246,10 +248,26 @@
         select.value = DAYS[today >= 0 && today < DAYS.length ? today : 0];
     }
 
+    /**
+     * Where the API lives.
+     *
+     * Served BY a server this is that origin, which is exactly what the bare
+     * relative path meant before — nothing changes on a tailnet address. Opened
+     * from GitHub Pages it is the database chosen in the shared bar, so this
+     * page stops being dead there. The choice is one key for the whole suite,
+     * so two screens cannot end up looking at two different databases.
+     */
+    function apiBase() {
+        try {
+            const nav = window.MTBAppNavigation;
+            return (nav && typeof nav.apiBase === 'function' && nav.apiBase()) || '';
+        } catch (_) { return ''; }
+    }
+
     async function fillYears() {
         const select = el('year');
         if (select.options.length) return;
-        const res = await fetch('/api/years', { cache: 'no-store' });
+        const res = await fetch(apiBase() + '/api/years', { cache: 'no-store' });
         const years = await res.json();
         if (!res.ok) throw new Error((years && years.error) || ('HTTP ' + res.status));
         const requested = new URLSearchParams(window.location.search).get('year');
@@ -285,7 +303,7 @@
             // would be a second opinion about the same arithmetic.
             const dayParam = view === 'week' ? '' : `&day=${encodeURIComponent(day)}`;
             const res = await fetch(
-                `/api/teaching/crossing?year=${encodeURIComponent(year)}${dayParam}`
+                `${apiBase()}/api/teaching/crossing?year=${encodeURIComponent(year)}${dayParam}`
                     + `&minShare=${encodeURIComponent(share)}`,
                 { cache: 'no-store' }
             );

@@ -13,12 +13,22 @@
         { file: 'start.html', label: 'Сите', title: 'Сите апликации' },
         { file: 'S-Dnevnik.html', label: 'S-Дневник', title: 'Електронски дневник' },
         { file: 'RasporediFusion.html', label: 'Распоред', title: 'Распоред на терапевтски кабинети' },
-        { file: 'Nastava.html', label: 'Настава', title: 'Настава и терапии' },
+        { file: 'Nastava.html', label: 'Настава', title: 'Настава и терапии — кој е отсутен од кој час' },
+        { file: 'NastavaUredi.html', label: 'Уреди настава', title: 'Внесување и менување на распоредот на настава' },
         { file: 'Podatoci.html', label: 'Податоци', title: 'Поставување на учебната година и списоците' },
         { file: 'AkciskiPlan.html', label: 'Евидентен лист', title: 'Евидентен лист и акциски план — следење на развојот, и кварталниот план по категории' }
     ];
     const PUBLISHED_HOST = 'assisstant.github.io';
     const SELECTED_SERVER_KEY = 'mtb_podatoci_server_v1';
+    const SERVERS_KEY = 'mtb_servers_v1';
+    const SERVER_DEFAULTS = [
+        'https://pcw.tailc8965f.ts.net',
+        'https://zenpc-1.tailc8965f.ts.net',
+        'https://zenpc.tailc8965f.ts.net'
+    ];
+    const SERVER_TIMEOUT = 4000;
+    let serverMenu = null;
+    let probed = [];
     const HEALTH_TIMEOUT = 4500;
     const HEALTH_INTERVAL = 15000;
     const TOKEN_KEY = 'evidence_token_v1';
@@ -51,6 +61,53 @@
         } catch (_) {
             return '';
         }
+    }
+
+    function serverName(base) {
+        try {
+            const host = new URL(base).hostname.split('.')[0].toLowerCase();
+            if (host === 'pcw') return 'PCW';
+            if (host === 'zenpc-1') return 'ZenPC-1';
+            if (host === 'zenpc') return 'ZenPC';
+            return host || base;
+        } catch (_) { return base; }
+    }
+
+    /** The hand-edited list wins over the built-in one, exactly as start.html reads it. */
+    function configuredServers() {
+        let values = SERVER_DEFAULTS;
+        try {
+            const stored = JSON.parse(localStorage.getItem(SERVERS_KEY));
+            if (Array.isArray(stored) && stored.length) values = stored;
+        } catch (_) { /* private mode, or an old invalid preference */ }
+        return [...new Set(values.map((value) => {
+            try {
+                const url = new URL(String(value).trim());
+                return url.protocol === 'https:' && url.hostname.endsWith('.ts.net') ? url.origin : null;
+            } catch (_) { return null; }
+        }).filter(Boolean))];
+    }
+
+    async function probeServer(base) {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), SERVER_TIMEOUT);
+        try {
+            const res = await nativeFetch(base + '/api/health', {
+                signal: controller.signal, cache: 'no-store'
+            });
+            const body = res.ok ? await res.json() : null;
+            return body && body.ok ? base : null;
+        } catch (_) {
+            return null;
+        } finally {
+            clearTimeout(timer);
+        }
+    }
+
+    function rememberServer(base) {
+        try { localStorage.setItem(SELECTED_SERVER_KEY, base); }
+        catch (_) { /* the choice still works for this tab */ }
+        window.dispatchEvent(new CustomEvent('mtb:server-selected'));
     }
 
     function activeServer() {
@@ -233,6 +290,26 @@
                 .mtb-app-nav__status { flex: 1 1 50%; }
                 .mtb-app-nav__value { max-width: calc(50vw - 34px); }
             }
+            .mtb-app-nav__status--pick { cursor: pointer; }
+            .mtb-app-nav__status--pick:hover .mtb-app-nav__value { text-decoration: underline; }
+            .mtb-app-nav__menu {
+                position: fixed; z-index: 9999; min-width: 210px; max-width: 88vw;
+                background: #18202c; color: #e9eef5; border: 1px solid #33414f;
+                border-radius: 10px; padding: 7px; box-shadow: 0 12px 32px rgba(0,0,0,.42);
+                font: 500 12px/1.35 Inter, "Segoe UI", system-ui, sans-serif;
+            }
+            .mtb-app-nav__menu-title {
+                font-size: 10px; letter-spacing: .06em; text-transform: uppercase;
+                opacity: .62; padding: 4px 8px 7px;
+            }
+            .mtb-app-nav__menu-row {
+                display: block; width: 100%; text-align: left; border: 0; border-radius: 7px;
+                background: transparent; color: inherit; font: inherit; padding: 8px 9px; cursor: pointer;
+            }
+            .mtb-app-nav__menu-row:hover { background: #243244; }
+            .mtb-app-nav__menu-row[data-current="1"] { background: #2b3a4d; font-weight: 800; }
+            .mtb-app-nav__menu-note { font-size: 10px; opacity: .55; padding: 7px 9px 3px; }
+            @media print { .mtb-app-nav__menu { display: none !important; } }
             .mtb-toast {
                 position: fixed; right: 18px; bottom: 18px; z-index: 9500;
                 max-width: min(430px, calc(100vw - 36px));
@@ -296,6 +373,87 @@
         window.dispatchEvent(new CustomEvent('mtb:navigation-mounted'));
     }
 
+    function closeServerMenu() {
+        if (serverMenu && serverMenu.parentNode) serverMenu.parentNode.removeChild(serverMenu);
+        serverMenu = null;
+    }
+
+    /**
+     * Choosing the database, from any screen.
+     *
+     * Landing on one address and staying there is still the rule — so on a
+     * server's own origin this NAVIGATES to the same page on the other
+     * machine rather than quietly pointing one open tab at two databases.
+     * Only the published copy, which has no server of its own, stores a
+     * choice; it stores it under the key every screen already reads, so the
+     * whole suite moves together.
+     */
+    function toggleServerMenu() {
+        if (serverMenu) { closeServerMenu(); return; }
+        const here = currentFile();
+        const mine = activeServer();
+        const menu = document.createElement('div');
+        menu.className = 'mtb-app-nav__menu';
+        const title = document.createElement('div');
+        title.className = 'mtb-app-nav__menu-title';
+        title.textContent = 'Во која база се работи';
+        menu.appendChild(title);
+
+        const list = configuredServers();
+        if (!list.length) {
+            const empty = document.createElement('div');
+            empty.className = 'mtb-app-nav__menu-note';
+            empty.textContent = 'Нема запишани адреси. Отвори „Сите“ за да ги поставиш.';
+            menu.appendChild(empty);
+        }
+        list.forEach((base) => {
+            const row = document.createElement('button');
+            row.type = 'button';
+            row.className = 'mtb-app-nav__menu-row';
+            const known = probed.find((p) => p.base === base);
+            const mark = !known ? '…' : known.live ? '●' : '○';
+            row.textContent = mark + ' ' + serverName(base);
+            if (base === mine) row.dataset.current = '1';
+            row.title = base + (known && !known.live ? ' · не одговара' : '');
+            row.addEventListener('click', () => {
+                closeServerMenu();
+                if (base === mine) return;
+                rememberServer(base);
+                // A page served BY a server belongs to that server. Moving
+                // database means moving address, not re-pointing this tab.
+                if (!isPublished()) window.location.href = base + '/' + here;
+            });
+            menu.appendChild(row);
+        });
+
+        const note = document.createElement('div');
+        note.className = 'mtb-app-nav__menu-note';
+        note.textContent = '● одговара · ○ не одговара';
+        menu.appendChild(note);
+        document.body.appendChild(menu);
+        serverMenu = menu;
+
+        const chip = document.querySelector('.mtb-app-nav__status--server');
+        if (chip) {
+            const box = chip.getBoundingClientRect();
+            menu.style.top = (box.bottom + 6) + 'px';
+            menu.style.right = Math.max(8, window.innerWidth - box.right) + 'px';
+        }
+        // Probe in the background; redraw the menu when the answers land.
+        Promise.all(list.map(async (base) => ({ base, live: !!(await probeServer(base)) })))
+            .then((results) => {
+                probed = results;
+                if (serverMenu === menu) { closeServerMenu(); toggleServerMenu(); }
+            });
+    }
+
+    document.addEventListener('click', (event) => {
+        if (!serverMenu) return;
+        if (event.target.closest('.mtb-app-nav__menu, .mtb-app-nav__status--server')) return;
+        closeServerMenu();
+    });
+    window.addEventListener('keydown', (event) => { if (event.key === 'Escape') closeServerMenu(); });
+
     function render() {
         const nav = document.getElementById('mtbAppNav');
         if (!nav) return;
@@ -323,7 +481,14 @@
         state.setAttribute('aria-live', 'polite');
         const server = statusNode('server', isPublished() ? 'ИЗБРАНА БАЗА' : 'БАЗА');
         server.querySelector('.mtb-app-nav__value').textContent = serverState.label;
-        server.title = serverState.title || serverState.label;
+        server.title = (serverState.title || serverState.label) + ' · кликни за да избереш база';
+        server.classList.add('mtb-app-nav__status--pick');
+        server.setAttribute('role', 'button');
+        server.setAttribute('tabindex', '0');
+        server.addEventListener('click', toggleServerMenu);
+        server.addEventListener('keydown', (event) => {
+            if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); toggleServerMenu(); }
+        });
         const data = statusNode('data', 'ПОДАТОЦИ');
         data.querySelector('.mtb-app-nav__value').textContent = dataState.text || 'Статусот не е познат';
         data.title = dataState.title || dataState.text;
@@ -569,7 +734,19 @@
     installAuthenticatedFetch();
     window.MTBAppNavigation = {
         refresh: render, checkHealth, checkUser, logout: logoutUser,
-        reportDataState, toast: showToast, hideToast
+        reportDataState, toast: showToast, hideToast,
+        /**
+         * Where this page's API calls should go.
+         *
+         * Served BY a local server it is that origin, which is what the
+         * teaching pages relied on with a bare relative path. Opened from
+         * GitHub Pages it is the SELECTED server — one choice, shared by every
+         * screen through one key, so no two screens can be looking at
+         * different databases at the same time.
+         */
+        apiBase: activeServer,
+        servers: configuredServers,
+        selectServer: rememberServer
     };
     window.addEventListener('mtb:data-state', (event) => reportDataState(event.detail));
     window.addEventListener('mtb:server-selected', () => { render(); checkHealth(); checkUser(); });
