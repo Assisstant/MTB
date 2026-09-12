@@ -361,6 +361,27 @@ const run = async () => {
     check('a lesson nobody is taken out of says so rather than showing a blank card',
         /Никој не е на третман/.test(quietTip), quietTip);
 
+    // Картичката е брз поглед и некому пречи додека чита мрежа. Гаснењето не
+    // крие ништо: панелот на клик останува единствениот што мора да работи.
+    await page.uncheck('#hoverCard');
+    await page.waitForTimeout(300);
+    check('turning the hover card off hides the one on screen',
+        await page.evaluate(() => getComputedStyle(document.getElementById('tip')).display === 'none'));
+    await page.hover(`#grid td[data-key="${monKey}"]`);
+    await page.waitForTimeout(400);
+    check('and hovering does not bring it back',
+        await page.evaluate(() => getComputedStyle(document.getElementById('tip')).display === 'none'));
+    await page.click(`#grid td[data-key="${monKey}"]`);
+    await page.waitForTimeout(300);
+    check('while clicking still answers, because nothing depends on hover alone',
+        (await page.evaluate(() => document.getElementById('detail').textContent)).includes('Понеделник Дете'));
+    await page.check('#hoverCard');
+    await page.waitForTimeout(200);
+    await page.hover(`#grid td[data-key="${monKey}"]`);
+    await page.waitForTimeout(400);
+    check('turning it back on restores it',
+        await page.evaluate(() => getComputedStyle(document.getElementById('tip')).display !== 'none'));
+
     console.log('\nизвестувањето по одделение е истиот одговор, во формата што се предава');
     let noticeUrl = null;
     page.on('request', (r) => {
@@ -407,12 +428,12 @@ const run = async () => {
         sheet && /Понеделник/.test(sheet.rows[0][0]) && /^1\. час/.test(sheet.rows[0][1])
             && sheet.rows[0][2] === 'Понеделник Дете' && sheet.rows[0][4] === 'Пробен Терапевт',
         JSON.stringify(sheet && sheet.rows[0]));
+    // Колку минути од часот трае третманот е анализа, не порака до одделението.
+    // Бројката е во мрежата и во картичката на лебдење; на листот нема место.
+    check('and NOT how many minutes of the lesson the treatment takes',
+        sheet && sheet.rows.every((r) => r.length === 5), JSON.stringify(sheet && sheet.rows[0]));
     check('the days are in the school\'s own order, Monday before Friday',
         sheet && /Петок/.test(sheet.rows[1][0]), JSON.stringify(sheet && sheet.rows[1]));
-    // Read off the crossing, never recomputed here.
-    check('the minutes are the ones lib/crossing.ts measured',
-        sheet && sheet.rows[0][5] === '25' && sheet.rows[1][5] === '30',
-        JSON.stringify(sheet && sheet.rows.map((r) => r[5])));
     check('the sheet counts its own pupils and pull-outs',
         sheet && /2 ученици/.test(sheet.meta) && /2 изземања/.test(sheet.meta), sheet && sheet.meta);
 

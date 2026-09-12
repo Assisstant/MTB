@@ -685,6 +685,8 @@
         <div class="actions">
             <a class="btn" href="Podatoci.html" data-server-link="Podatoci.html">Податоци</a>
             <a class="btn" href="Nastava.html" data-server-link="Nastava.html">Настава</a>
+            <button class="btn schedule-only" id="whereToggle" type="button" aria-pressed="true"
+                    title="Прикажи каде е детето во тој термин, на лебдење">📍 Каде е детето</button>
             <button class="btn icon-btn" id="refresh" type="button" title="Освежи" aria-label="Освежи">↻</button>
             <button class="btn btn-primary schedule-only" id="printSheet" type="button" title="Печати го распоредот" aria-label="Печати го распоредот">⎙ Печати</button>
             <button class="btn schedule-only" id="exportImage" type="button" title="Зачувај го распоредот како слика" aria-label="Зачувај го распоредот како слика">📸 Слика</button>
@@ -858,6 +860,7 @@
     ];
     const SERVER_TIMEOUT = 4000;
     const VIEW_KEY = 'mtb_fusion_view_v1';
+    const WHERE_KEY = 'mtb_fusion_where_v1';
     const THEME_KEY = 'theme';
     const TOKEN_KEY = 'evidence_token_v1';
     const REQUESTED_YEAR = new URLSearchParams(window.location.search).get('year') || '';
@@ -868,7 +871,7 @@
         pollTicket: 0, sessionVersion: 0,
         // ден|термин|public_id -> каде е детето во тој термин. Полни се од
         // /api/teaching/crossing, одделно и без да го држи распоредот.
-        whereabouts: new Map(), whereTicket: 0,
+        whereabouts: new Map(), whereTicket: 0, whereOn: true, whereCell: null,
         apiBase: window.location.hostname === PUBLISHED_HOST ? '' : window.location.origin,
         serverLabel: ''
     };
@@ -1686,6 +1689,28 @@
         return day + '|' + time + '|' + publicId;
     }
 
+    function applyWhereToggle() {
+        const button = el('whereToggle');
+        button.setAttribute('aria-pressed', String(state.whereOn));
+        button.classList.toggle('btn-primary', state.whereOn);
+        if (!state.whereOn) hideWhere();
+    }
+
+    (function initWhere() {
+        let stored = '';
+        try { stored = localStorage.getItem(WHERE_KEY) || ''; } catch (_) { stored = ''; }
+        // Празно значи „уште не е одлучено", а стандардно е вклучено.
+        state.whereOn = stored !== 'off';
+    })();
+
+    el('whereToggle').addEventListener('click', () => {
+        state.whereOn = !state.whereOn;
+        try { localStorage.setItem(WHERE_KEY, state.whereOn ? 'on' : 'off'); }
+        catch (_) { /* изборот сепак важи за овој таб */ }
+        applyWhereToggle();
+    });
+    applyWhereToggle();
+
     function loadWhereabouts() {
         const ticket = ++state.whereTicket;
         const year = state.year;
@@ -1768,6 +1793,7 @@
     }
 
     document.addEventListener('mouseover', (event) => {
+        if (!state.whereOn) return;
         const node = event.target.closest && event.target.closest('.student-slot[data-where]');
         if (!node) return;
         const html = whereHtml(node.dataset.where);
@@ -2543,6 +2569,7 @@
             // Deliberately NOT awaited and NOT in the Promise.all above: the
             // crossing is an extra the schedule does not need, and a school
             // with no timetable entered yet must still get its week.
+            applyWhereToggle();
             loadWhereabouts().then(() => { if (ticket === state.ticket) drawSchedule(); });
             setConnection(true, 'База: ' + (state.serverLabel || serverName(apiBase() || window.location.origin)));
         } catch (error) {

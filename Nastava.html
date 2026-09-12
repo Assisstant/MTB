@@ -212,6 +212,10 @@
                 <input type="checkbox" id="named">
                 <span>Испиши кој кого зема</span>
             </label>
+            <label class="field" style="flex-direction:row;align-items:center;gap:6px;">
+                <input type="checkbox" id="hoverCard" checked>
+                <span>Картичка на лебдење</span>
+            </label>
             <button class="btn" id="refresh">↻ Освежи</button>
             <button class="btn soft" onclick="window.print()">🖨️ Печати</button>
             <a class="btn soft" href="NastavaUredi.html"
@@ -251,6 +255,11 @@
     // Држено во променлива, не во localStorage: оваа страница намерно не чува
     // ништо во прелистувачот.
     let named = false;
+    // Картичката на лебдење е брз поглед и некому пречи додека чита мрежа. Ниту
+    // еден одговор не зависи само од неа — панелот на клик останува — па
+    // гаснењето не крие ништо. Во променлива, не во localStorage: страницата
+    // намерно не чува ништо во прелистувачот.
+    let hoverCard = true;
     // Two views cross the WHOLE week rather than one day: the weekly grid and
     // the per-class notice sheet. It is the same request either way — the
     // endpoint already answers for the week when no day is named.
@@ -795,8 +804,10 @@
                 + `${rows.length === 1 ? 'изземање' : 'изземања'} во неделата`
                 + (offList.has(label) ? ' · одделението не е на списокот оваа година' : '')
                 + '</div>'
+                // Без минути: известувањето е „кој, кога, кај кого", а колку
+                // од часот трае третманот е анализа, не порака до одделението.
                 + '<table><thead><tr><th>Ден</th><th>Час</th><th>Ученик</th>'
-                + '<th>Од часот</th><th>Кабинет / терапевт</th><th>Мин.</th></tr></thead><tbody>';
+                + '<th>Од часот</th><th>Кабинет / терапевт</th></tr></thead><tbody>';
             rows.forEach((r) => {
                 const fresh = r.day !== last;
                 last = r.day;
@@ -807,8 +818,7 @@
                     + '</td>'
                     + `<td><b>${esc(r.student)}</b></td>`
                     + `<td>${esc(r.subject || 'без предмет')}<small>${esc(r.teacher || 'без наставник')}</small></td>`
-                    + `<td>${esc(r.therapist)}</td>`
-                    + `<td>${r.minutes}</td></tr>`;
+                    + `<td>${esc(r.therapist)}</td></tr>`;
             });
             html += '</tbody></table>'
                 + (loose
@@ -964,7 +974,11 @@
         // A day cannot be chosen for a week, and leaving the control live would
         // suggest it still filters something.
         el('day').disabled = wholeWeek();
+        // Панелот на клик опишува ќелија што во новиот приказ веќе ја нема —
+        // а на листот со известувања стоеше под него како да е дел од листот.
         selected = null;
+        el('detail').className = 'panel detail';
+        el('detail').innerHTML = '';
         hideTip();
         // A week-wide view holds every day and a daily one holds one, so this
         // is a different REQUEST, not a different drawing of the same answer.
@@ -981,6 +995,10 @@
     el('share').addEventListener('change', load);
     el('refresh').addEventListener('click', load);
     // Само друго цртање на истиот одговор — нема повторно барање.
+    el('hoverCard').addEventListener('change', () => {
+        hoverCard = el('hoverCard').checked;
+        if (!hoverCard) hideTip();
+    });
     el('named').addEventListener('change', () => {
         named = el('named').checked;
         document.body.classList.toggle('named', named);
@@ -1000,6 +1018,7 @@
     // because this page is read on a tablet in a staff room, where there is no
     // hover at all — so nothing may depend on it alone.
     el('grid').addEventListener('mouseover', (event) => {
+        if (!hoverCard) return;
         const td = event.target.closest('.cell[data-key]');
         if (!td) return;
         const html = tipFor(cellForKey(td.dataset.key));
