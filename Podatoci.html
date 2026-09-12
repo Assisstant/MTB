@@ -77,7 +77,11 @@
     header .links { margin-left: auto; display: flex; gap: 14px; }
     header a { color: #fff; opacity: .9; font-size: 13px; }
 
-    main { padding: 18px 22px 60px; max-width: 1500px; margin: 0 auto; }
+    /* Same as the two Настава pages: the pupil table is wider than the cap,
+       so a reading width only added margin beside something still scrolling.
+       The window is the width; the prose keeps its own. */
+    main { padding: 18px 22px 60px; max-width: none; margin: 0; }
+    .panel p, .panel > .hint { max-width: 105ch; }
     .panel {
         background: var(--card); border: 1px solid var(--border); border-radius: 10px;
         padding: 16px 18px; box-shadow: var(--shadow); margin-bottom: 16px;

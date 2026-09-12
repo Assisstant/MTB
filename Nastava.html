@@ -71,7 +71,14 @@
     header .sub { font-size: 13px; opacity: .85; }
     header a { color: #fff; opacity: .85; font-size: 13px; margin-left: auto; }
 
-    main { padding: 18px 22px 40px; max-width: 1700px; margin: 0 auto; }
+    /* The weekly grid is every teacher across five days — wider than any
+       screen. A fixed reading width there does not protect anything: it
+       just puts empty margin beside a table that is STILL scrolling, so
+       maximising the window changed nothing. The page takes the window and
+       only the prose is capped, because a 2000px line of explanation is
+       what the reading width was ever for. */
+    main { padding: 18px 22px 40px; max-width: none; margin: 0; }
+    .panel p, .panel > .hint { max-width: 105ch; }
     .panel {
         background: var(--card); border: 1px solid var(--border); border-radius: 10px;
         padding: 16px 18px; box-shadow: var(--shadow); margin-bottom: 16px;
