@@ -120,6 +120,85 @@ export async function teachingRoutes(server: FastifyInstance) {
     });
 
     /**
+     * What a teacher could plausibly be holding in this period.
+     *
+     * The MON/BRO catalogue, narrowed to the generations a paralelka actually
+     * teaches. It is an OFFER, never a constraint: `lessons.subject` stays free
+     * text and a subject outside this list saves exactly as before.
+     *
+     * Which generations, in this order, and the answer says which one it used:
+     *
+     *   `oddelenie` — the pupils' own generations, which is the fact migration
+     *      030 created the column to hold and 031 pointed at by name. This is
+     *      its first reader.
+     *   `label` — the Roman numeral in „IV-а", for a numbered paralelka where
+     *      the label IS the generation.
+     *   `all` — everything, when neither can say. Showing forty subjects is a
+     *      mild annoyance; hiding the one the teacher needs is a wall.
+     *
+     * UNION, not the highest generation. Measured against the workbook: for
+     * Аутизам, Мултихендикеп and Интелектуална попреченост the ninth grade
+     * carries 11 of 25 subjects, so „take the largest" would hide more than
+     * half of them in exactly the plans this centre uses most.
+     *
+     * The PLAN is deliberately not derived. `class_years.description` says
+     * „ученици со оштетен слух" in the school's own words, and migration 031
+     * states in as many words that nothing may compute from it. So every plan
+     * is offered together, folded by subject name.
+     */
+    server.get('/api/teaching/subjects', async (req, reply) => {
+        const label = String((req.query as any)?.class ?? '').trim();
+        const year = await schoolYear((req.query as any)?.year);
+        if (!year) {
+            return reply.code(404).send({ error: 'no such school year' });
+        }
+
+        const ROMAN = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX'];
+        let grades: string[] = [];
+        let basis: 'oddelenie' | 'label' | 'all' = 'all';
+
+        if (label) {
+            const { rows } = await pool.query(
+                `SELECT DISTINCT btrim(e.oddelenie) AS g
+                   FROM student_enrollments e
+                   JOIN students s ON s.id = e.student_id
+                  WHERE e.school_year_id = $1 AND e.active AND s.active
+                    AND lower(btrim(e.grade)) = lower($2)
+                    AND e.oddelenie IS NOT NULL AND btrim(e.oddelenie) <> ''`,
+                [year.id, label]
+            );
+            grades = rows.map((r: any) => String(r.g).toUpperCase()).filter((g) => ROMAN.includes(g));
+            if (grades.length) basis = 'oddelenie';
+        }
+        if (!grades.length && label) {
+            // „IV-а" → IV. A combined label carries no numeral and falls through.
+            const match = /^\s*(IX|IV|V?I{0,3})\b/i.exec(label.replace(/[Іі]/g, 'I').replace(/[Хх]/g, 'X'));
+            const guess = match ? match[1].toUpperCase() : '';
+            if (ROMAN.includes(guess)) { grades = [guess]; basis = 'label'; }
+        }
+
+        const { rows: found } = await pool.query(
+            grades.length
+                ? `SELECT subject, min(category) AS category,
+                          array_agg(DISTINCT grade ORDER BY grade) AS grades
+                     FROM teaching_subjects WHERE grade = ANY($1)
+                    GROUP BY subject ORDER BY subject`
+                : `SELECT subject, min(category) AS category,
+                          array_agg(DISTINCT grade ORDER BY grade) AS grades
+                     FROM teaching_subjects GROUP BY subject ORDER BY subject`,
+            grades.length ? [grades] : []
+        );
+
+        return {
+            year: year.label,
+            class: label || null,
+            basis,
+            grades: grades.sort((a, b) => ROMAN.indexOf(a) - ROMAN.indexOf(b)),
+            subjects: found
+        };
+    });
+
+    /**
      * For each class and teaching period: what is on, and who is not there.
      *
      * `unplaced` is the part worth reading. A session lands nowhere when the

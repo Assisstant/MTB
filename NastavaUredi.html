@@ -145,6 +145,11 @@
     table.grid.week td.wk .cls { display: block; font-weight: 600; }
     table.grid.week td.wk .sub2 { display: block; font-size: 10px; color: var(--muted); }
     table.grid.week td.wk .plus { color: var(--muted); opacity: .45; }
+    /* The subject is a second click target, so it has to look like one. */
+    table.grid.week td.wk .sub2 { cursor: pointer; }
+    table.grid.week td.wk .sub2:hover { text-decoration: underline; }
+    table.grid.week td.wk .sub2.none { opacity: .38; font-style: italic; }
+    table.grid.week td.wk select.subj { font-size: 10px; max-width: 100%; }
     table.grid.week td.wk.has { background: var(--filled); }
     table.grid.week td.wk:hover { box-shadow: inset 0 0 0 1px var(--edit); }
     table.grid.week td.wk select.pick { width: 100%; min-width: 150px; font-size: 12px; padding: 2px; }
@@ -564,7 +569,8 @@
                     + ` data-teacher="${esc(name)}" data-day="${esc(d)}" data-ordinal="${p.ordinal}"`
                     + ` title="${esc(title)}">`
                     + (l ? `<span class="cls">${esc(l.class)}</span>`
-                         + (l.subject ? `<span class="sub2">${esc(l.subject)}</span>` : '')
+                         + `<span class="sub2${l.subject ? '' : ' none'}" data-subject="1">`
+                         + `${esc(l.subject || '+ предмет')}</span>`
                        : '<span class="plus">+</span>')
                     + '</td>';
             }));
@@ -616,6 +622,94 @@
         const y = box ? box.scrollTop : 0;
         draw();
         if (box) { box.scrollLeft = x; box.scrollTop = y; }
+    }
+
+    /**
+     * What the MON catalogue offers for THIS class, cached per label.
+     *
+     * Cached because bulk entry opens one cell after another in the same
+     * paralelka, and a fetch per click would make the fast path the slow one.
+     * A failure falls back to an empty list, which still lets the person type
+     * nothing and close — never a dead cell.
+     */
+    const subjectCache = new Map();
+    async function subjectsFor(label) {
+        if (subjectCache.has(label)) return subjectCache.get(label);
+        try {
+            const body = await api('GET',
+                '/api/teaching/subjects?year=' + encodeURIComponent(data.year)
+                + '&class=' + encodeURIComponent(label));
+            subjectCache.set(label, body);
+            return body;
+        } catch (_) {
+            const empty = { subjects: [], basis: 'all', grades: [] };
+            subjectCache.set(label, empty);
+            return empty;
+        }
+    }
+
+    /**
+     * The subject for one cell. The list is an offer, not a rule: „— без
+     * предмет —" clears it, and a subject already saved that the catalogue
+     * does not know is kept and shown, because the school's own workbook
+     * wrote plenty of those and losing one on a click would be a silent edit.
+     */
+    async function openWeekSubject(td) {
+        if (td.querySelector('select')) return;
+        const label = tidy(td.querySelector('.cls') ? td.querySelector('.cls').textContent : '');
+        if (!label) return openWeekCell(td);
+        const slot = td.querySelector('[data-subject]');
+        const was = slot && !slot.classList.contains('none') ? tidy(slot.textContent) : '';
+
+        slot.textContent = '…';
+        const body = await subjectsFor(label);
+        const names = (body.subjects || []).map((x) => x.subject);
+        if (was && !names.includes(was)) names.unshift(was);
+
+        const options = ['<option value="">— без предмет —</option>'].concat(
+            names.map((n) => `<option value="${esc(n)}"${n === was ? ' selected' : ''}>${esc(n)}</option>`));
+        slot.outerHTML = `<select class="pick subj">${options.join('')}</select>`;
+        const pick = td.querySelector('select');
+        pick.title = body.basis === 'oddelenie'
+            ? 'Предмети за одделенијата ' + (body.grades || []).join(', ') + ' — според запишаните ученици'
+            : body.basis === 'label'
+                ? 'Предмети за ' + (body.grades || []).join(', ') + ' — според ознаката на паралелката'
+                : 'Сите предмети — не може да се одреди одделението на оваа паралелка';
+        pick.focus();
+
+        let done = false;
+        const finish = (commit) => {
+            if (done) return;
+            done = true;
+            if (commit && tidy(pick.value) !== was) saveWeekSubject(td, label, tidy(pick.value));
+            else drawAndKeep();
+        };
+        pick.addEventListener('change', () => finish(true));
+        pick.addEventListener('blur', () => finish(true));
+        pick.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') { e.preventDefault(); finish(false); }
+        });
+    }
+
+    async function saveWeekSubject(td, label, subject) {
+        status('запишувам…');
+        try {
+            await api('PUT', '/api/teaching/teacher-lesson', {
+                year: data.year,
+                day: td.dataset.day,
+                ordinal: Number(td.dataset.ordinal),
+                teacher: td.dataset.teacher,
+                class: label,
+                subject: subject || null,
+                expected: { class: label }
+            });
+            await load(true);
+            status(`${td.dataset.teacher} · ${td.dataset.day} · ${td.dataset.ordinal}. час — `
+                 + (subject ? subject : 'без предмет'), 'ok');
+        } catch (err) {
+            status(err.message, 'error');
+            drawAndKeep();
+        }
     }
 
     async function saveWeekCell(td, was, now) {
@@ -992,7 +1086,10 @@
         const td = event.target.closest('td.cell');
         if (!td) return;
         // The weekly grid edits in place; the day grid opens the panel below it.
-        if (td.classList.contains('wk')) openWeekCell(td);
+        if (td.classList.contains('wk')) {
+            if (event.target.closest('[data-subject]')) openWeekSubject(td);
+            else openWeekCell(td);
+        }
         else openCell(td.dataset.class, Number(td.dataset.ordinal));
     });
     el('editor').addEventListener('keydown', (event) => {
