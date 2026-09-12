@@ -264,7 +264,8 @@ export async function teachingRoutes(server: FastifyInstance) {
         // Every therapy session, with the class its student is recorded in.
         const { rows: sessionRows } = await pool.query(
             `SELECT sl.day, sl.day_order, sl.time_slot, th.name AS therapist,
-                    st.name AS student, coalesce(e.grade, '') AS grade,
+                    st.name AS student, st.public_id AS student_public_id,
+                    coalesce(e.grade, '') AS grade,
                     coalesce(e.kind, 'internal') AS kind
              FROM schedule_slots sl
              JOIN therapists th ON th.id = sl.therapist_id
@@ -283,7 +284,16 @@ export async function teachingRoutes(server: FastifyInstance) {
 
         const known = new Set(lessonRows.map((r: any) => normalizeClassLabel(r.class)));
 
-        type Absence = { therapist: string; student: string; minutes: number };
+        // `slots` carries the RAW time_slot strings this session was assembled
+        // from. A caller that draws the cabinet's own week — RasporediFusion —
+        // holds exactly those strings and can therefore say "at THIS term the
+        // child is in that lesson" by string equality, with no second copy of
+        // the overlap arithmetic and no matching on a name: two pupils really
+        // do share one (rule 2), which is why the public id travels too.
+        type Absence = {
+            therapist: string; student: string; studentPublicId: string;
+            minutes: number; slots: string[];
+        };
         const absences = new Map<string, Map<string, Absence>>();   // day|ordinal|class -> student|therapist
         const unplaced: any[] = [];
         // An external pupil without a local class may attend therapy only.
@@ -295,19 +305,20 @@ export async function teachingRoutes(server: FastifyInstance) {
         // gathered into the sessions they actually are before any arithmetic.
         // Doing it the other way round splits one session across two lessons
         // and understates both — see mergeAdjacent.
-        const bySession = new Map<string, { row: any; spans: Bell[] }>();
+        const bySession = new Map<string, { row: any; spans: Bell[]; slots: string[] }>();
         for (const s of sessionRows) {
             const span = slotBell(s.time_slot);
             if (!span) {
                 unplaced.push({ ...s, reasonCode: 'unreadable-slot', reason: `the term "${s.time_slot}" does not name a time range` });
                 continue;
             }
-            const key = `${s.day}|${s.therapist}|${s.student}`;
-            if (!bySession.has(key)) bySession.set(key, { row: s, spans: [] });
+            const key = `${s.day}|${s.therapist}|${s.student_public_id}`;
+            if (!bySession.has(key)) bySession.set(key, { row: s, spans: [], slots: [] });
             bySession.get(key)!.spans.push(span);
+            bySession.get(key)!.slots.push(s.time_slot);
         }
 
-        for (const { row: s, spans } of bySession.values()) {
+        for (const { row: s, spans, slots } of bySession.values()) {
             const label = normalizeClassLabel(s.grade);
             if (!label) {
                 // The class decides placement; the kind only decides how a
@@ -334,10 +345,17 @@ export async function teachingRoutes(server: FastifyInstance) {
                     const seat = absences.get(key)!;
                     // Two separate sessions can still touch one lesson. One
                     // child out of one lesson is ONE absence; keep the longer.
-                    const who = `${s.student}|${s.therapist}`;
+                    // By public id, not by name: two pupils share one name in
+                    // this school, and keyed by name the second one would be
+                    // dropped from the lesson they are genuinely out of.
+                    const who = `${s.student_public_id}|${s.therapist}`;
                     const before = seat.get(who);
                     if (!before || before.minutes < hit.minutes) {
-                        seat.set(who, { therapist: s.therapist, student: s.student, minutes: hit.minutes });
+                        seat.set(who, {
+                            therapist: s.therapist, student: s.student,
+                            studentPublicId: s.student_public_id,
+                            minutes: hit.minutes, slots
+                        });
                     }
                 }
             }

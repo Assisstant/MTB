@@ -259,6 +259,20 @@ const run = async () => {
         !(cellOf('IV-а', 1)?.away || []).some((a: any) => a.student === 'Прв Пробен'),
         JSON.stringify(cellOf('IV-а', 1)?.away));
 
+    // The cabinet's own schedule reads this answer back the other way round —
+    // "at THIS term, where is the child?" — so an absence has to carry what
+    // identifies the child and the term to a caller that holds neither the
+    // bells nor the overlap arithmetic. The public id, because two pupils in
+    // this school share a name (rule 2); the RAW slot strings, because that is
+    // what `schedule_slots` holds and string equality needs no second copy of
+    // anything. A forty-minute session stored as two rows must hand back both.
+    checkEq('an absence names the pupil by public id', halves[0]?.studentPublicId, `${TAG}-s1`);
+    checkEq('and lists every raw term the session was assembled from',
+        (halves[0]?.slots || []).slice().sort(), ['08:00-08:20', '08:20-08:40']);
+    checkEq('a session stored as ONE row lists that one',
+        (cellOf('IV-а', 2)?.away || []).find((a: any) => a.student === 'Втор Пробен')?.slots,
+        ['08:00-08:40']);
+
     // A child booked only in a second half starts at 10:45, which is nobody's
     // period start. Matched against a table of starts, they vanished from the
     // crossing entirely — present in the schedule, absent from the answer.

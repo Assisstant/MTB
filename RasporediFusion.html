@@ -627,6 +627,19 @@
         .scrollable-container { overflow: visible; }
         .schedule-grid { width: 100%; min-width: 0; }
     }
+
+    /* Каде е детето во тој термин — брз поглед, ништо не зависи само од него. */
+    #whereTip {
+        position: fixed; z-index: 200; max-width: 320px; display: none; pointer-events: none;
+        background: #fff; color: #2d3748; border: 1px solid #cbd5e0; border-radius: 8px;
+        padding: 9px 11px; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.22); font-size: 12px;
+    }
+    #whereTip h4 { margin: 0 0 5px; font-size: 12px; }
+    #whereTip ul { margin: 0; padding-left: 16px; }
+    #whereTip li + li { margin-top: 4px; }
+    #whereTip .where-meta { opacity: .7; }
+    body.dark-mode #whereTip { background: #1a202c; color: #e2e8f0; border-color: #4a5568; }
+    @media print { #whereTip { display: none !important; } }
 </style>
 </head>
 <body>
@@ -827,6 +840,7 @@
     </div>
 </div>
 
+<div id="whereTip" role="tooltip" aria-hidden="true"></div>
 <script>
 (function () {
     'use strict';
@@ -852,6 +866,9 @@
         rosterTherapist: '', token: '', me: null, authRequired: false,
         bells: [], sessions: new Map(), pending: new Set(), expandedBlocks: new Set(), ticket: 0,
         pollTicket: 0, sessionVersion: 0,
+        // ден|термин|public_id -> каде е детето во тој термин. Полни се од
+        // /api/teaching/crossing, одделно и без да го држи распоредот.
+        whereabouts: new Map(), whereTicket: 0,
         apiBase: window.location.hostname === PUBLISHED_HOST ? '' : window.location.origin,
         serverLabel: ''
     };
@@ -1647,9 +1664,132 @@
         ).join('');
     }
 
+    /* ── Каде е детето во тој термин ───────────────────────
+     *
+     * Распоредот на кабинетите отсекогаш знаеше дека терапевтот го зема детето
+     * во 09:40. Наставникот што го држи часот тоа го гледа во „Настава ↔
+     * терапии"; тука недостигаше другата половина — од кој час, кај кој
+     * наставник и во кое одделение го земаш.
+     *
+     * НИШТО НЕ СЕ ПРЕСМЕТУВА ТУКА. Кој третман во кој час паѓа и за колку
+     * минути го решава `lib/crossing.ts` и никој друг; оваа страница го чита
+     * готовиот одговор и го врзува за својата ќелија по ТОЧЕН низ на термин
+     * (`slots` во одговорот се истите `time_slot` стрингови што овој распоред
+     * ги запишува), а детето по `public_id`. Совпаѓање по ИМЕ би било погодена
+     * идентичност — а во ова училиште две деца делат едно име (правило 2).
+     *
+     * И се вчитува ОДДЕЛНО од распоредот: училиште без внесена настава, постар
+     * сервер без овој одговор или бавна мрежа не смеат да го задржат или да го
+     * скршат екранот на кој се работи. Нема одговор → нема картичка.
+     */
+    function whereKey(day, time, publicId) {
+        return day + '|' + time + '|' + publicId;
+    }
+
+    function loadWhereabouts() {
+        const ticket = ++state.whereTicket;
+        const year = state.year;
+        if (!year) return Promise.resolve();
+        return api('/api/teaching/crossing?year=' + encodeURIComponent(year))
+            .then((data) => {
+                if (ticket !== state.whereTicket || state.year !== year) return;
+                const map = new Map();
+                const add = (key, entry) => {
+                    if (!map.has(key)) map.set(key, []);
+                    map.get(key).push(entry);
+                };
+                (data.cells || []).forEach((cell) => {
+                    (cell.away || []).forEach((a) => {
+                        (a.slots || []).forEach((slot) => {
+                            add(whereKey(cell.day, slot, a.studentPublicId), {
+                                ordinal: cell.ordinal, class: cell.class,
+                                teacher: cell.teacher, subject: cell.subject,
+                                minutes: a.minutes
+                            });
+                        });
+                    });
+                });
+                // Термин што воопшто не може да се врзе за час е исто толку
+                // корисен одговор — и единствениот случај во кој човекот мора
+                // да дознае дека детето не може да се лоцира.
+                [].concat(data.unplaced || [], data.external || []).forEach((row) => {
+                    add(whereKey(row.day, row.time_slot, row.student_public_id), {
+                        unplaced: true, reasonCode: row.reasonCode, grade: row.grade
+                    });
+                });
+                state.whereabouts = map;
+            })
+            .catch(() => { /* без настава нема што да се вкрсти */ });
+    }
+
+    function whereReason(entry) {
+        switch (entry.reasonCode) {
+            case 'no-class':      return 'ученикот нема запишано одделение';
+            case 'unknown-class': return 'одделението „' + (entry.grade || '') + '" не постои во распоредот на настава';
+            case 'external':      return 'екстерен ученик без доделено одделение/група';
+            case 'outside-teaching': return 'терминот е вон наставниот ден';
+            default:              return 'не може да се врзе за час';
+        }
+    }
+
+    function whereHtml(key) {
+        const rows = state.whereabouts.get(key);
+        if (!rows || !rows.length) return '';
+        const placed = rows.filter((r) => !r.unplaced);
+        if (!placed.length) {
+            return '<h4>Не е на час</h4><div class="where-meta">' + esc(whereReason(rows[0])) + '</div>';
+        }
+        return '<h4>Во тој термин детето е на</h4><ul>' + placed
+            .sort((a, b) => a.ordinal - b.ordinal)
+            .map((r) => '<li><b>' + r.ordinal + '. час · ' + esc(r.class) + '</b><br>' +
+                esc(r.subject || 'без предмет') + ' · ' + esc(r.teacher || 'без наставник') +
+                ' <span class="where-meta">(' + r.minutes + ' мин)</span></li>').join('') + '</ul>';
+    }
+
+    function hideWhere() {
+        state.whereCell = null;
+        const tip = el('whereTip');
+        tip.style.display = 'none';
+        tip.setAttribute('aria-hidden', 'true');
+    }
+
+    /* Картичката е `position: fixed`, па мора да ѝ се каже каде отиде ќелијата.
+       Криењето при скролање беше пробано во Настава и се читаше како грешка:
+       мрежата се лизга странично и прелистувачот ја носи ќелијата ПОСЛЕ што
+       покажувачот стигнал до неа. */
+    function placeWhere(node) {
+        const tip = el('whereTip');
+        const box = node.getBoundingClientRect();
+        if (!box.width || box.bottom < 0 || box.top > window.innerHeight) { hideWhere(); return; }
+        const w = tip.offsetWidth, h = tip.offsetHeight;
+        const top = box.bottom + 8 + h > window.innerHeight ? box.top - h - 8 : box.bottom + 8;
+        tip.style.top = Math.max(8, top) + 'px';
+        tip.style.left = Math.max(8, Math.min(box.left, window.innerWidth - w - 8)) + 'px';
+    }
+
+    document.addEventListener('mouseover', (event) => {
+        const node = event.target.closest && event.target.closest('.student-slot[data-where]');
+        if (!node) return;
+        const html = whereHtml(node.dataset.where);
+        if (!html) return;
+        const tip = el('whereTip');
+        tip.innerHTML = html;
+        tip.style.display = 'block';
+        tip.setAttribute('aria-hidden', 'false');
+        state.whereCell = node;
+        placeWhere(node);
+    });
+    document.addEventListener('mouseout', (event) => {
+        const node = event.target.closest && event.target.closest('.student-slot[data-where]');
+        if (node && state.whereCell === node) hideWhere();
+    });
+    window.addEventListener('scroll', () => { if (state.whereCell) placeWhere(state.whereCell); }, true);
+    window.addEventListener('resize', hideWhere);
+
     /* ── One pupil block inside a 40′ cell, drawn as an S-Dnevnik slot ── */
     function slotHtml(parts) {
-        return '<div class="' + parts.classes.join(' ') + '">' +
+        return '<div class="' + parts.classes.join(' ') + '"' +
+            (parts.where ? ' data-where="' + esc(parts.where) + '"' : '') + '>' +
             '<span class="slot-badge">' + esc(parts.badge) + '</span>' +
             '<span class="slot-name">' + esc(parts.display) + '</span>' +
             '<span class="slot-caret" aria-hidden="true">▼</span>' +
@@ -1666,6 +1806,7 @@
         return slotHtml({
             classes: classes,
             badge: partLabel,
+            where: selected ? whereKey(day, time, selected) : '',
             display: selected ? studentLabel(students.get(selected)) : '— празно —',
             select: '<select class="slot-select" data-session-day="' + esc(day) + '" data-session-time="' + esc(time) +
                 '" data-legacy-session="true" data-therapist-id="' + therapist.id +
@@ -1727,6 +1868,7 @@
         return slotHtml({
             classes: classes,
             badge: label,
+            where: selected ? whereKey(day, displayTime, selected) : '',
             display: selected ? studentLabel(students.get(selected)) : '— празно —',
             action: action,
             select: '<select class="slot-select" data-session-day="' + esc(day) + '" data-session-time="' +
@@ -1833,6 +1975,7 @@
 
     function drawSchedule() {
         if (!state.roster) return;
+        hideWhere();
         const therapists = activeTherapists();
         const students = studentsById();
         const conflicts = sessionConflicts();
@@ -2397,6 +2540,10 @@
             drawDays();
             drawSchedule();
             drawPanel();
+            // Deliberately NOT awaited and NOT in the Promise.all above: the
+            // crossing is an extra the schedule does not need, and a school
+            // with no timetable entered yet must still get its week.
+            loadWhereabouts().then(() => { if (ticket === state.ticket) drawSchedule(); });
             setConnection(true, 'База: ' + (state.serverLabel || serverName(apiBase() || window.location.origin)));
         } catch (error) {
             if (ticket !== state.ticket) return;

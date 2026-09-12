@@ -430,6 +430,74 @@ const run = async () => {
     check('leaving the sheet re-enables the day picker',
         await page.evaluate(() => !document.getElementById('day').disabled));
 
+    console.log('\nќелиите можат да го испишат кој кого зема');
+    check('by default a cell shows a count, not a list',
+        (await page.locator('#grid .take').count()) === 0);
+    let askedWhileToggling = null;
+    page.on('request', (r) => { if (r.url().includes('/api/teaching/crossing')) askedWhileToggling = r.url(); });
+    await page.check('#named');
+    await page.waitForTimeout(500);
+    // Истиот одговор, друго цртање: ново барање овде би значело дека бројот и
+    // списокот можат да дојдат од две различни читања.
+    check('turning it on does not ask the server again', askedWhileToggling === null, askedWhileToggling);
+    const written = await page.evaluate(() =>
+        Array.from(document.querySelectorAll('#grid .cell .take')).map((n) => n.textContent.replace(/\s+/g, ' ').trim()));
+    check('the cell now names the child and the cabinet',
+        written.some((t) => /Понеделник Дете/.test(t) && /Пробен Терапевт/.test(t)), JSON.stringify(written));
+    check('and the count stays beside the names',
+        (await page.locator('#grid .cell .count').count()) > 0);
+    await page.uncheck('#named');
+    await page.waitForTimeout(400);
+    check('turning it off returns the compact grid',
+        (await page.locator('#grid .take').count()) === 0);
+
+    console.log('\nистото вкрстување, прочитано од страната на кабинетот');
+    // Серверскиот дел е носечкиот: без public_id и без суровите термини,
+    // распоредот на кабинетите би морал да погодува по ИМЕ — а во ова училиште
+    // две деца делат едно (правило 2).
+    const crossing = await (await fetch(
+        `${BASE}/api/teaching/crossing?year=${encodeURIComponent(year.label)}&day=${encodeURIComponent(DAY)}`
+    )).json();
+    const mine = [];
+    (crossing.cells || []).forEach((c) => (c.away || []).forEach((a) => {
+        if (a.therapist === `${TAG} Терапевт`) mine.push({ cell: c, away: a });
+    }));
+    check('the crossing reports the fixture\'s own sessions', mine.length >= 1, String(mine.length));
+    const firstAway = mine.find((m) => m.away.student.includes('Прв Пробен'));
+    check('an absence carries the pupil\'s public id, not only the name',
+        firstAway && firstAway.away.studentPublicId === `${TAG}-a`,
+        JSON.stringify(firstAway && firstAway.away));
+    // Точно оние стрингови што schedule_slots ги чува: по нив распоредот на
+    // кабинетите ја наоѓа својата ќелија, без втора копија од аритметиката.
+    check('and the raw term strings the schedule itself stores',
+        firstAway && Array.isArray(firstAway.away.slots) && firstAway.away.slots.includes('08:00-08:40'),
+        JSON.stringify(firstAway && firstAway.away.slots));
+
+    const fusion = await ctx.newPage();
+    const fusionErrors = [];
+    fusion.on('pageerror', (e) => fusionErrors.push(String(e)));
+    await fusion.goto(`${BASE}/RasporediFusion.html?year=${encodeURIComponent(year.label)}`);
+    await fusion.waitForTimeout(2500);
+    await fusion.click(`#dayTabs [data-day="${DAY}"]`);
+    await fusion.waitForTimeout(2000);
+    const whereSel = `.student-slot[data-where="${DAY}|08:00-08:40|${TAG}-a"]`;
+    const hasSlot = await fusion.locator(whereSel).count();
+    check('the cabinet schedule marks the term with day, term and pupil', hasSlot === 1, String(hasSlot));
+    if (hasSlot === 1) {
+        await fusion.hover(whereSel);
+        await fusion.waitForTimeout(500);
+        const card = await fusion.evaluate(() => {
+            const t = document.getElementById('whereTip');
+            return { shown: getComputedStyle(t).display !== 'none',
+                     text: t.textContent.replace(/\s+/g, ' ').trim() };
+        });
+        check('hovering it says where the child actually is', card.shown, JSON.stringify(card));
+        check('and names the class it reads out of the crossing',
+            card.text.includes(label), card.text);
+    }
+    check('no page errors in the cabinet schedule', fusionErrors.length === 0, fusionErrors.join('\n       '));
+    await fusion.close();
+
     console.log('\nthe tab is honest when the server is gone');
     await ctx.route('**/api/teaching/**', (r) => r.abort());
     await page.click('#refresh');

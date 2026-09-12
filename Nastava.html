@@ -167,6 +167,11 @@
     /* Кого земаш, и каде е: името горе, каде да го најдеш под него. */
     .take { display: block; line-height: 1.25; }
     .take + .take { margin-top: 4px; padding-top: 4px; border-top: 1px dashed var(--border); }
+    /* Во мрежата имињата доаѓаат под предметот и бројот, па им треба воздух. */
+    .cell .take:first-of-type { margin-top: 5px; }
+    /* Со имиња ќелијата носи повеќе од број, па ѝ треба ширина. Мрежата и онака
+       се лизга странично — подобро лизгање отколку име скршено на четири реда. */
+    body.named table.grid td.cell { min-width: 104px; }
     .take small { display: block; font-size: 10px; opacity: .72; }
     table.grid th.wk-edge, table.grid td.wk-edge { border-left: 2px solid var(--border); }
     table.grid thead th.wk-day { text-align: center; }
@@ -203,6 +208,10 @@
                     <option value="0.9">речиси цел час</option>
                 </select>
             </label>
+            <label class="field" style="flex-direction:row;align-items:center;gap:6px;">
+                <input type="checkbox" id="named">
+                <span>Испиши кој кого зема</span>
+            </label>
             <button class="btn" id="refresh">↻ Освежи</button>
             <button class="btn soft" onclick="window.print()">🖨️ Печати</button>
             <a class="btn soft" href="NastavaUredi.html"
@@ -238,6 +247,10 @@
     let selected = null;    // "класа|час", или "ден|класа|час" во неделниот приказ
     let tipCell = null;     // ќелијата под покажувачот, за да се премести картичката
     let view = 'class';
+    // Кажува ли ќелијата кој кабинет кое дете зема, или само колку се.
+    // Држено во променлива, не во localStorage: оваа страница намерно не чува
+    // ништо во прелистувачот.
+    let named = false;
     // Two views cross the WHOLE week rather than one day: the weekly grid and
     // the per-class notice sheet. It is the same request either way — the
     // endpoint already answers for the week when no day is named.
@@ -377,6 +390,28 @@
         status('серверот не одговара', 'error');
     }
 
+    /**
+     * Кој кого зема, напишано во самата ќелија.
+     *
+     * „По кабинет" веќе го кажува ова од страната на кабинетот; ова е истото во
+     * мрежата на наставата, зашто прашањето е двонасочно — наставникот сака да
+     * знае кој му се губи И кај кого оди. ПРЕГРУПИРАЊЕ на `away`, како секаде
+     * тука: пресметката е една и е во `lib/crossing.ts`.
+     *
+     * Бројот останува покрај имињата наместо да биде заменет: мрежата се чита
+     * попреку за „каде е густо", а тоа е бројка, не список.
+     */
+    function takenHtml(cells) {
+        if (!named) return '';
+        const out = [];
+        cells.forEach((c) => (c.away || []).forEach((a) => out.push(a)));
+        if (!out.length) return '';
+        return out
+            .sort((a, b) => a.student.localeCompare(b.student, 'mk'))
+            .map((a) => `<span class="take"><b>${esc(a.student)}</b>`
+                + `<small>${esc(a.therapist)}</small></span>`).join('');
+    }
+
     /** 0..4+, so the darkest shade means "four or more, look at this". */
     const heat = (n) => 'heat-' + Math.max(0, Math.min(4, n));
 
@@ -465,6 +500,7 @@
                     + (n ? ` data-key="${esc(label)}|${p.ordinal}"` : '')
                     + `>${esc(cell.subject || '·')}`
                     + (n ? `<span class="count">${n}</span>` : '')
+                    + takenHtml([cell])
                     + '</td>';
             });
             html += '</tr>';
@@ -525,6 +561,7 @@
                     + (away ? ` data-key="${esc(key)}"` : '')
                     + `>${esc(text)}`
                     + (away ? `<span class="count">${away}</span>` : '')
+                    + takenHtml(list)
                     + '</td>';
             });
             html += '</tr>';
@@ -593,6 +630,7 @@
                         + ` data-key="${esc(key)}" title="${esc(text)}">`
                         + esc(list.map((c) => c.class).join(' / '))
                         + (away ? `<span class="count">${away}</span>` : '')
+                        + takenHtml(list)
                         + '</td>';
                 });
             });
@@ -942,6 +980,12 @@
     el('day').addEventListener('change', load);
     el('share').addEventListener('change', load);
     el('refresh').addEventListener('click', load);
+    // Само друго цртање на истиот одговор — нема повторно барање.
+    el('named').addEventListener('change', () => {
+        named = el('named').checked;
+        document.body.classList.toggle('named', named);
+        draw();
+    });
     el('viewClass').addEventListener('click', () => setView('class'));
     el('viewTeacher').addEventListener('click', () => setView('teacher'));
     el('viewWeek').addEventListener('click', () => setView('week'));
