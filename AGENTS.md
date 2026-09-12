@@ -168,10 +168,10 @@ docs/PLAN-rasporedot-i-nedelata.md   READ BEFORE TOUCHING THE SCHEDULE. schedule
 docs/HANDOVER-03-09-2026.md     what each database was on 3 Sep, and the twelve assertions
                                 the evidence audit left failing
 docs/HANDOVER-07-09-2026.md     sanitized HOME→WORK technical steps; names stay local
-docs/PONEDELNIK-PCW.md          putting this branch into service on PCW: the branch
-                                itself, migrations 028-032 with the pre-check that
-                                says whether 028 will pass, restart, and what each
-                                failure actually means
+docs/PONEDELNIK-PCW.md          putting the current main into service on PCW:
+                                migrations 028-032 with the pre-check that says
+                                whether 028 will pass BEFORE the installer runs,
+                                restart, and what each failure actually means
 docs/PLAN-rabotna-konzola.md    what can still be plugged into MTB-Workspace to make
                                 it the one console, in order of usefulness — and the
                                 short list of CRUD that must never be added there
