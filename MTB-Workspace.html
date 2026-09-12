@@ -131,6 +131,18 @@ button:focus-visible, .window-titlebar:focus-visible, #dockDivider:focus-visible
 .chips{display:flex;flex-wrap:wrap;gap:6px}
 .chip{border:1px solid #4a4c7e;cursor:pointer}
 .chip:hover{border-color:#8f8af0;color:#fff}
+/* Чекнатото одделение се гледа од метар; неизбраните остануваат читливи, а не
+   исчезнуваат — да се види ШТО СЀ постои, не само што е избрано. */
+.class-row.on{border-color:#6f68c9;background:#252a52}
+.class-row select[hidden]{display:none}
+/* Ознаките се кратки и ролната е тесна; без minmax(0,…) селектот излегуваше
+   надвор од панелот и ознаката се сечеше на средина. */
+.class-grid{grid-template-columns:repeat(auto-fill,minmax(165px,1fr))}
+.class-row{grid-template-columns:16px minmax(0,1fr) auto;gap:6px}
+.class-row>span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.class-row select{width:auto;max-width:92px}
+.quiet-note{opacity:.7}
+#tSubjectNote{margin:-4px 0 10px}
 </style>
 <div id="startGate" role="dialog" aria-modal="true" aria-labelledby="startGateTitle">
   <div class="card">
@@ -224,8 +236,116 @@ function bindStudentEditor(s){
     const btn=$('saveStudent');btn.disabled=true;state('Зачувувам…');
     try{await api('PATCH','/api/students/'+encodeURIComponent(s.public_id),body);await load(data.year);selectStudent(s.public_id);state('Зачувано во базата.','ok')}
     catch(e){state(e.message,'error')}finally{btn.disabled=false}});if($('backToCaseload'))$('backToCaseload').addEventListener('click',()=>{const id=returnTherapist;returnTherapist=null;dir='therapists';selectDirButton();selected.therapists=(data.therapists||[]).find(t=>t.id===id)||selected.therapists;if(selected.therapists){caseloadOriginal=new Set(selected.therapists.students||[]);draftCaseload=new Set(caseloadOriginal)}render()})}function selectStudent(id){selected.students=(data.students||[]).find(x=>x.public_id===id)||null;render()}function state(text,kind){const n=$('editorState');if(!n)return;n.textContent=text||'';n.className='save-state'+(kind?' '+kind:'')}
-function filteredPeople(kind){const needle=q();return(data[kind]||[]).filter(x=>!needle||personName(x.name).toLocaleLowerCase('mk-MK').includes(needle)||String(x.subject||'').toLocaleLowerCase('mk-MK').includes(needle))}function renderTeachers(){const rows=filteredPeople('teachers'),t=selected.teachers;$('content').innerHTML='<div class="split"><section class="master"><div class="master-title">Наставници · '+rows.length+'</div><div class="list">'+rows.map((x,i)=>masterRow('teachers',x,i,x.kind==='odd'?'одделенски':x.subject||'предметен')).join('')+'</div></section><section class="editor">'+(t?teacherEditor(t):'<div class="empty">Избери наставник за измена.</div>')+'</section></div>';bindMaster('teachers');if(t)bindTeacherEditor(t)}function teacherEditor(t){const map=new Map((t.classes||[]).map(c=>[c.label,c.role]));return'<div class="editor-title">Наставник</div><div class="field"><label>Име и презиме</label><input id="tName" value="'+esc(personName(t.name))+'"></div><div class="row"><div class="field" style="flex:1"><label>Улога</label><select id="tKind"><option value="odd"'+(t.kind==='odd'?' selected':'')+'>одделенски наставник</option><option value="pred"'+(t.kind==='pred'?' selected':'')+'>предметен наставник</option></select></div><div class="field" style="flex:1"><label>Предмет</label><input id="tSubject" value="'+esc(t.subject||'')+'"></div></div><div class="field"><label>Стручна категорија</label><select id="tCategory">'+categoryOptions('teacher',t.id)+'</select></div><div class="section-label">Одделенија оваа година</div><div class="class-grid">'+(data.classes||[]).map(c=>'<label class="class-row"><input type="checkbox" data-class="'+esc(c.label)+'"'+(map.has(c.label)?' checked':'')+'><span>'+esc(c.label)+'</span><select data-role="'+esc(c.label)+'"><option value="subject"'+(map.get(c.label)==='homeroom'?'':' selected')+'>предава</option><option value="homeroom"'+(map.get(c.label)==='homeroom'?' selected':'')+'>раководител</option></select></label>').join('')+'</div><div class="actions"><button class="primary" id="saveTeacher">Зачувај наставник</button></div><div class="save-state" id="editorState"></div>'}
-function bindTeacherEditor(t){const sync=()=>{$('tSubject').disabled=$('tKind').value==='odd';if($('tKind').value==='odd')$('tSubject').value=''};$('tKind').addEventListener('change',sync);sync();$('tCategory').addEventListener('change',()=>saveCategory('teacher',t.id,$('tCategory').value));$('saveTeacher').addEventListener('click',async()=>{const btn=$('saveTeacher');btn.disabled=true;state('Зачувувам…');try{const kind=$('tKind').value;await api('PUT','/api/teaching/teacher/'+t.id,{name:personName($('tName').value),kind,subject:kind==='pred'?tidy($('tSubject').value)||null:null});const classes=Array.from(document.querySelectorAll('[data-class]')).filter(x=>x.checked).map(x=>({label:x.dataset.class,role:document.querySelector('[data-role="'+CSS.escape(x.dataset.class)+'"]').value}));await api('PUT','/api/teaching/teacher/'+t.id+'/classes',{year:data.year,classes});await load(data.year);selected.teachers=(data.teachers||[]).find(x=>x.id===t.id)||null;render();state('Зачувано во базата.','ok')}catch(e){state(e.message,'error')}finally{btn.disabled=false}})}async function saveCategory(kind,id,value){state('Ја зачувувам категоријата…');try{await api('PUT','/api/categories/holder',{year:data.year,kind,personId:id,categoryId:value?Number(value):null});categoryOf[kind][id]=value?Number(value):null;state('Категоријата е зачувана.','ok')}catch(e){state(e.message,'error');await load(data.year)}}
+function filteredPeople(kind){const needle=q();return(data[kind]||[]).filter(x=>!needle||personName(x.name).toLocaleLowerCase('mk-MK').includes(needle)||String(x.subject||'').toLocaleLowerCase('mk-MK').includes(needle))}function renderTeachers(){const rows=filteredPeople('teachers'),t=selected.teachers;$('content').innerHTML='<div class="split"><section class="master"><div class="master-title">Наставници · '+rows.length+'</div><div class="list">'+rows.map((x,i)=>masterRow('teachers',x,i,x.kind==='odd'?'одделенски':x.subject||'предметен')).join('')+'</div></section><section class="editor">'+(t?teacherEditor(t):'<div class="empty">Избери наставник за измена.</div>')+'</section></div>';bindMaster('teachers');if(t)bindTeacherEditor(t)}/* ── Наставникот: што предава, и каде ─────────────────────────────────
+ *
+ * Двете полиња што досега беа најслаби на овој екран. „Предмет" беше празно
+ * поле за пишување, а каталогот на МОН веќе стои во `teaching_subjects` и веќе
+ * се нуди во НаставаУреди — истата понуда тука ги врзува двете страни на едно
+ * место. ПОНУДА, НЕ ОГРАНИЧУВАЊЕ: `teachers.subject` останува слободен текст,
+ * зашто работната книга на училиштето пишува во него кратенки (`ФЗО.`) што
+ * серверот ги разбира, и еден избор од мени не смее тивко да ги избрише.
+ */
+let subjectCatalogue=null,subjectCataloguePromise=null;
+function loadSubjectCatalogue(){
+  if(subjectCatalogue)return Promise.resolve(subjectCatalogue);
+  if(!subjectCataloguePromise)subjectCataloguePromise=api('GET','/api/teaching/subjects?year='+encodeURIComponent(data.year))
+    .then(r=>{subjectCatalogue=(r.subjects||[]).map(x=>x.subject);return subjectCatalogue})
+    .catch(()=>{subjectCataloguePromise=null;return[]});
+  return subjectCataloguePromise;
+}
+
+function classSummary(map){
+  const home=[...map].filter(([,r])=>r==='homeroom').map(([l])=>l);
+  const teach=[...map].filter(([,r])=>r!=='homeroom').map(([l])=>l);
+  if(!map.size)return'<span class="quiet-note">Нема доделено ниту едно одделение оваа година.</span>';
+  return(home.length?'<b>Раководител:</b> '+esc(home.join(', ')):'')
+    +(home.length&&teach.length?' &nbsp;·&nbsp; ':'')
+    +(teach.length?'<b>Предава во:</b> '+esc(teach.join(', ')):'');
+}
+
+function teacherEditor(t){
+  const map=new Map((t.classes||[]).map(c=>[c.label,c.role])),odd=t.kind==='odd';
+  return'<div class="editor-title">Наставник</div>'
+    +'<div class="field"><label>Име и презиме</label><input id="tName" value="'+esc(personName(t.name))+'"></div>'
+    +'<div class="row"><div class="field" style="flex:1"><label>Улога</label><select id="tKind">'
+      +'<option value="odd"'+(odd?' selected':'')+'>одделенски наставник</option>'
+      +'<option value="pred"'+(t.kind==='pred'?' selected':'')+'>предметен наставник</option></select></div>'
+    +'<div class="field" style="flex:1"><label>Предмет</label>'
+      // Полето го покажува ЗАЧУВАНОТО и кога е заклучено. Порано се празнеше
+      // при отворање, па кратенката од работната книга исчезнуваше од екранот
+      // и следното „Зачувај" ја бришеше од базата — истата грешка како со
+      // препишаното спелување на име.
+      +'<input id="tSubject" list="tSubjectList" placeholder="пиши или избери" value="'+esc(t.subject||'')+'"'+(odd?' disabled':'')+'>'
+      +'<datalist id="tSubjectList"></datalist></div></div>'
+    +'<p class="note" id="tSubjectNote">'+(odd
+        ? 'Одделенскиот наставник ги држи сите предмети, па полето е заклучено. Зачуваното останува како што е.'
+        : 'Понуда од каталогот на МОН. Кратенка како „ФЗО." останува како што е напишана — серверот ја разбира.')+'</p>'
+    +'<div class="field"><label>Стручна категорија</label><select id="tCategory">'+categoryOptions('teacher',t.id)+'</select></div>'
+    +'<div class="year-block"><div class="section-label">Одделенија · '+esc(data.year)+'</div>'
+      +'<p class="note" id="tClassSummary">'+classSummary(map)+'</p>'
+      +'<div class="class-grid">'+(data.classes||[]).map(c=>{
+          const on=map.has(c.label);
+          return'<label class="class-row'+(on?' on':'')+'"><input type="checkbox" data-class="'+esc(c.label)+'"'+(on?' checked':'')+'>'
+            +'<span>'+esc(c.label)+'</span>'
+            +'<select data-role="'+esc(c.label)+'"'+(on?'':' hidden')+'>'
+              +'<option value="subject"'+(map.get(c.label)==='homeroom'?'':' selected')+'>предава</option>'
+              +'<option value="homeroom"'+(map.get(c.label)==='homeroom'?' selected':'')+'>раководител</option></select></label>'}).join('')
+      +'</div>'
+      +'<p class="note">Списокот се запишува како ЦЕЛИНА: тоа што е чекнато е тоа што важи за оваа година.</p></div>'
+    +'<div class="actions"><button class="primary" id="saveTeacher">Зачувај наставник</button></div>'
+    +'<div class="save-state" id="editorState"></div>'}
+
+function bindTeacherEditor(t){
+  // Со каква улога е ОТВОРЕН записот. Само изречна промена на улогата го
+  // брише предметот; обичното отворање и зачувување не смее.
+  const openedKind=t.kind;
+  loadSubjectCatalogue().then(list=>{
+    const dl=$('tSubjectList');if(!dl)return;
+    const seen=new Set(list);const stored=tidy(t.subject||'');
+    // Зачуваното што каталогот не го знае се нуди прво, за да не изгледа како
+    // да треба да се замени.
+    const all=(stored&&!seen.has(stored)?[stored]:[]).concat(list);
+    dl.innerHTML=all.map(x=>'<option value="'+esc(x)+'"></option>').join('');
+  });
+  const syncRole=()=>{
+    const odd=$('tKind').value==='odd';
+    $('tSubject').disabled=odd;
+    $('tSubjectNote').textContent=odd
+      ? 'Одделенскиот наставник ги држи сите предмети, па полето е заклучено.'
+        +(openedKind==='pred'?' Со зачувување предметот ќе се тргне.':' Зачуваното останува како што е.')
+      : 'Понуда од каталогот на МОН. Кратенка како „ФЗО." останува како што е напишана — серверот ја разбира.';
+  };
+  $('tKind').addEventListener('change',syncRole);syncRole();
+  const syncClasses=()=>{
+    const map=new Map();
+    document.querySelectorAll('[data-class]').forEach(b=>{
+      const sel=document.querySelector('[data-role="'+CSS.escape(b.dataset.class)+'"]');
+      sel.hidden=!b.checked;b.closest('.class-row').classList.toggle('on',b.checked);
+      if(b.checked)map.set(b.dataset.class,sel.value);
+    });
+    $('tClassSummary').innerHTML=classSummary(map);
+  };
+  document.querySelectorAll('[data-class]').forEach(b=>b.addEventListener('change',syncClasses));
+  document.querySelectorAll('[data-role]').forEach(sel=>sel.addEventListener('change',syncClasses));
+  $('tCategory').addEventListener('change',()=>saveCategory('teacher',t.id,$('tCategory').value));
+  $('saveTeacher').addEventListener('click',async()=>{
+    const btn=$('saveTeacher');btn.disabled=true;state('Зачувувам…');
+    try{
+      const kind=$('tKind').value;
+      const body={name:personName($('tName').value),kind};
+      // Отсутно поле значи „остави го", `null` значи „тргни го" — серверот ги
+      // разликува, па тука се одлучува намерно: предметен → она што пишува;
+      // станал одделенски сега → се брише; веќе бил одделенски → не се допира.
+      if(kind==='pred')body.subject=tidy($('tSubject').value)||null;
+      else if(openedKind==='pred')body.subject=null;
+      await api('PUT','/api/teaching/teacher/'+t.id,body);
+      const classes=Array.from(document.querySelectorAll('[data-class]')).filter(x=>x.checked)
+        .map(x=>({label:x.dataset.class,role:document.querySelector('[data-role="'+CSS.escape(x.dataset.class)+'"]').value}));
+      await api('PUT','/api/teaching/teacher/'+t.id+'/classes',{year:data.year,classes});
+      await load(data.year);selected.teachers=(data.teachers||[]).find(x=>x.id===t.id)||null;render();
+      state('Зачувано во базата.','ok')}
+    catch(e){state(e.message,'error')}finally{btn.disabled=false}})}
+async function saveCategory(kind,id,value){state('Ја зачувувам категоријата…');try{await api('PUT','/api/categories/holder',{year:data.year,kind,personId:id,categoryId:value?Number(value):null});categoryOf[kind][id]=value?Number(value):null;state('Категоријата е зачувана.','ok')}catch(e){state(e.message,'error');await load(data.year)}}
 function renderTherapists(){const rows=filteredPeople('therapists'),t=selected.therapists;$('content').innerHTML='<div class="split"><section class="master"><div class="master-title">Стручни / терапевти · '+rows.length+'</div><div class="list">'+rows.map((x,i)=>masterRow('therapists',x,i,(x.students||[]).length+' ученици')).join('')+'</div></section><section class="editor">'+(t?therapistEditor(t):'<div class="empty">Избери лице за податоци и список на ученици.</div>')+'</section></div>';bindMaster('therapists');if(t)bindTherapistEditor(t)}function therapistEditor(t){return'<div class="editor-title">Стручен соработник / терапевт</div><div class="field"><label>Име и презиме</label><input id="thName" value="'+esc(t.name)+'"></div><div class="field"><label>Стручна категорија</label><select id="thCategory">'+categoryOptions('therapist',t.id)+'</select></div><div class="actions"><button class="primary" id="saveTherapist">Зачувај податоци</button></div><div class="save-state" id="editorState"></div><div class="caseload"><div class="caseload-head"><b>Ученици кај '+esc(personName(t.name))+'</b><span class="badge" id="selectedCount">'+draftCaseload.size+' избрани</span></div><div class="caseload-grid"><div class="pick-box"><div class="pick-head"><span>Сите ученици</span><input id="caseloadSearch" placeholder="барај"></div><div class="pick-list" id="allStudents"></div></div><div class="pick-box"><div class="pick-head"><span>Избрани</span><span class="badge" id="selectedCount2">'+draftCaseload.size+'</span></div><div class="pick-list" id="selectedStudents"></div></div></div><div class="actions"><button class="primary" id="saveCaseload">Зачувај список</button><button class="soft" id="resetCaseload">Врати</button></div><p class="note">Левата и десната листа се скролаат независно. ✎ отвора податоци за ученикот без да се напушти работниот простор.</p></div>'}
 function bindTherapistEditor(t){$('thCategory').addEventListener('change',()=>saveCategory('therapist',t.id,$('thCategory').value));$('saveTherapist').addEventListener('click',async()=>{const to=tidy($('thName').value),from=t.name;if(!to||to===from){state('Нема промена.');return}const btn=$('saveTherapist');btn.disabled=true;state('Зачувувам…');try{await api('PATCH','/api/therapists/'+encodeURIComponent(from),{name:to});await load(data.year);selected.therapists=(data.therapists||[]).find(x=>tidy(x.name)===to)||selected.therapists;if(selected.therapists){caseloadOriginal=new Set(selected.therapists.students||[]);draftCaseload=new Set(caseloadOriginal)}render();state('Зачувано во базата.','ok')}catch(e){state(e.message,'error')}finally{btn.disabled=false}});$('caseloadSearch').addEventListener('input',drawCaseloadLists);$('resetCaseload').addEventListener('click',()=>{draftCaseload=new Set(caseloadOriginal);drawCaseloadLists()});$('saveCaseload').addEventListener('click',()=>saveCaseload(t));drawCaseloadLists()}function caseloadCandidates(){const needle=tidy($('caseloadSearch')?.value||'').toLocaleLowerCase('mk-MK');return(data.students||[]).filter(s=>s.active!==false).filter(s=>!needle||personName(s.name).toLocaleLowerCase('mk-MK').includes(needle)||String(s.grade||'').toLocaleLowerCase('mk-MK').includes(needle))}
 function drawCaseloadLists(){const all=$('allStudents'),chosen=$('selectedStudents');if(!all||!chosen)return;const rows=caseloadCandidates();all.innerHTML=rows.map(s=>'<label class="pick-row"><input type="checkbox" data-caseload-id="'+esc(s.public_id)+'"'+(draftCaseload.has(s.public_id)?' checked':'')+'><span class="pname">'+esc(personName(s.name))+(s.grade?' · '+esc(s.grade):'')+'</span><button type="button" class="icon" data-edit-student="'+esc(s.public_id)+'" title="Уреди ученик">✎</button></label>').join('');const selectedRows=(data.students||[]).filter(s=>draftCaseload.has(s.public_id));chosen.innerHTML=selectedRows.length?selectedRows.map(s=>'<div class="pick-row"><span></span><span class="pname">'+esc(personName(s.name))+(s.grade?' · '+esc(s.grade):'')+'</span><span><button type="button" class="icon" data-edit-student="'+esc(s.public_id)+'" title="Уреди ученик">✎</button><button type="button" class="icon" data-drop-student="'+esc(s.public_id)+'" title="Тргни од избрани">×</button></span></div>').join(''):'<div class="empty">Нема избрани.</div>';document.querySelectorAll('[data-caseload-id]').forEach(c=>c.addEventListener('change',()=>{c.checked?draftCaseload.add(c.dataset.caseloadId):draftCaseload.delete(c.dataset.caseloadId);drawCaseloadLists()}));document.querySelectorAll('[data-drop-student]').forEach(b=>b.addEventListener('click',()=>{draftCaseload.delete(b.dataset.dropStudent);drawCaseloadLists()}));document.querySelectorAll('[data-edit-student]').forEach(b=>b.addEventListener('click',()=>openStudentFromCaseload(b.dataset.editStudent)));if($('selectedCount'))$('selectedCount').textContent=draftCaseload.size+' избрани';if($('selectedCount2'))$('selectedCount2').textContent=draftCaseload.size}function openStudentFromCaseload(id){returnTherapist=selected.therapists?.id||null;dir='students';selected.students=(data.students||[]).find(s=>s.public_id===id)||null;selectDirButton();render()}
