@@ -41,6 +41,23 @@ const TEACHER = `${TAG} Раководител`;
 
 const pool = new pg.Pool({ connectionString: DB });
 
+/**
+ * WCAG contrast, because "is this readable?" was answered by looking and the
+ * answer was wrong. A clickable chip is a <button>, and a button does NOT
+ * inherit `color` — the browser gives it `buttontext`, which is BLACK. In the
+ * light theme that passes at 18:1 and nobody notices; in the dark theme the
+ * name fell to 2.0:1 and read as "the letters went dark again".
+ */
+const luminance = ([r, g, b]) => {
+    const f = (c) => { c /= 255; return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4); };
+    return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b);
+};
+const channels = (css) => css.match(/\d+/g).slice(0, 3).map(Number);
+const contrast = (fg, bg) => {
+    const [hi, lo] = [luminance(channels(fg)), luminance(channels(bg))].sort((a, b) => b - a);
+    return (hi + 0.05) / (lo + 0.05);
+};
+
 let fails = 0;
 const check = (l, c, d = '') => { if (c) console.log(`  ok   ${l}`); else { fails++; console.log(`  FAIL ${l}${d ? '\n       ' + d : ''}`); } };
 const q = async (text, args = []) => (await pool.query(text, args)).rows;
@@ -187,6 +204,32 @@ const run = async () => {
     const external = await patch(`${TAG}-d`, { grade: null, year: YEAR });
     check('while an EXTERNAL pupil may still have no class at all', external.status === 200,
         `got ${external.status}`);
+
+    console.log('\nand the chip is readable in BOTH themes, measured');
+    for (const scheme of ['dark', 'light']) {
+        const themed = await ctx.newPage();
+        await themed.emulateMedia({ colorScheme: scheme });
+        await themed.goto(`${BASE}/Podatoci.html?year=${encodeURIComponent(YEAR)}`);
+        await themed.waitForSelector('#students table.list', { timeout: 8000 });
+        await themed.click('[data-tab="classes"]');
+        await themed.waitForSelector('#classes .chip');
+        const seen = await themed.evaluate(() => {
+            const chip = document.querySelector('#classes .chip');
+            const note = chip.querySelector('.none');
+            const cs = getComputedStyle(chip);
+            return { bg: cs.backgroundColor, name: cs.color,
+                     note: note ? getComputedStyle(note).color : null };
+        });
+        const nameRatio = contrast(seen.name, seen.bg);
+        check(`${scheme}: the pupil's name reads on the chip`, nameRatio >= 4.5,
+            `${nameRatio.toFixed(2)}:1 — ${seen.name} on ${seen.bg}`);
+        if (seen.note) {
+            const noteRatio = contrast(seen.note, seen.bg);
+            check(`${scheme}: and so does „· одд. X"`, noteRatio >= 4.5,
+                `${noteRatio.toFixed(2)}:1 — ${seen.note} on ${seen.bg}`);
+        }
+        await themed.close();
+    }
 
     check('no page errors', errors.length === 0, errors.join('\n       '));
 

@@ -562,6 +562,19 @@ read `DATABASE_URL`; never add literal credentials to this public repository.
   run none of these four, which is luck, not a guard. They have no npm script
   either; that is a mitigation, not a boundary, because an agent enumerating
   `test/*.mjs` reaches them by path.
+- **A `<button>` does not inherit `color`, and the light theme hid it.** Making
+  the pupil chips clickable turned them from `<span>` into `<button>`. `.chip`
+  set `background` and `border` and never `color`, so the browser applied its
+  own `buttontext` — BLACK. In the light theme black on `#f0edfb` measures
+  18:1 and looks deliberate; in the dark theme the name fell to **2.0:1** on
+  `#3d3a68` and the owner reported it as „пак темни букви". A visual review of
+  the same commit called the screen good, because it was read in light mode.
+  Two lessons. Any element that carries text must state its own `color` when
+  it also states a `background` — inheritance is not a promise across element
+  types. And „is this readable?" is a MEASUREMENT: `podatoci-classes.browser.mjs`
+  now computes the WCAG ratio for the chip's name and its `· одд. X` note in
+  BOTH themes and fails under 4.5:1, because the eye that looks is usually
+  looking at whichever theme it already had open.
 - **A PowerShell wrapper hides the tool it is checking.** Two separate ways,
   both hit while proving the hook above actually refuses. First, a native
   command's output is decoded with the *console* codepage, so a Cyrillic name

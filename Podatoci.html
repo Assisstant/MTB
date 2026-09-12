@@ -31,6 +31,7 @@
         --muted: #6b7280;
         --border: #e4e2ee;
         --chip: #f0edfb;
+        --chip-note: #4b5563;
         --accent: #6d5bd0;
         --accent-dark: #57459f;
         --warn: #b7791f;
@@ -62,6 +63,7 @@
             /* Чипот носи име и мора да се чита. --soft е само една нијанса над
                --card, па во темна тема чипот се губеше во позадината. */
             --chip: #3d3a68;
+            --chip-note: #c3bfe0;
         }
     }
 
@@ -173,12 +175,20 @@
     .chip {
         display: inline-block; padding: 1px 7px; border-radius: 10px; font-size: 12px;
         background: var(--chip); border: 1px solid var(--border);
+        /* ИЗРЕЧНО. Кликливиот чип е <button>, а копче не наследува боја на
+           текст — прелистувачот му дава `buttontext`, што е ЦРНО. Во светла
+           тема тоа помина незабележано (18:1); во темна името падна на
+           2.0:1, читано како „пак темни букви". */
+        color: var(--text);
     }
     .chip.home { background: var(--accent); color: #fff; border-color: transparent; }
     /* A chip that is also the way to the screen which OWNS the fact it shows. */
     .chip.link { cursor: pointer; font: inherit; font-size: 12px; }
     .chip.link:hover, .chip.link:focus-visible { border-color: var(--accent); color: var(--accent); }
     .chip.off { opacity: .55; cursor: default; }
+    /* Внатре во чипот подлогата е посветла од картичката, па --muted таму
+       паѓа под читливо. Своја боја, мерена врз --chip, не врз --card. */
+    .chip .none { color: var(--chip-note); }
     .class-pupils { display: flex; align-items: baseline; gap: 6px; flex-wrap: wrap; }
     .class-pupils .count { font-variant-numeric: tabular-nums; font-weight: 600; }
     /* The move control is one choice, not a column: a select stretched across
@@ -201,7 +211,10 @@
        the order on screen is the order on the sheet in somebody's hand. */
     .ui-size { display: flex; align-items: center; gap: 6px; margin-right: 10px; }
     .ui-size span { font-weight: 700; font-size: 15px; opacity: .85; }
-    .ui-size input { width: 92px; accent-color: #fff; cursor: pointer; }
+    /* 90–160% е 70 чекори. Врз 92px тоа е 1.3px по процент, па најмалото
+       мрдање скока неколку проценти — затоа се чувствуваше брзо. Поширока
+       патека е повеќе пиксели по чекор, што е она што го прави постепено. */
+    .ui-size input { width: 190px; accent-color: #fff; cursor: pointer; }
 
     .grid-pick { columns: 300px 3; column-gap: 22px; }
     .grid-pick label { display: flex; align-items: center; gap: 8px; font-size: 1em;
