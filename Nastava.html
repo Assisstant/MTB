@@ -146,6 +146,23 @@
         table.grid thead th { background: #eee !important; color: #000 !important; }
         .heat-2, .heat-3, .heat-4 { color: #000 !important; }
     }
+    /* Известувањето е ЛИСТ, не мрежа: едно одделение по страница, зашто така
+       се доставува — на секое одделение своето. */
+    .notice { margin-bottom: 22px; }
+    .notice h3 { margin: 0 0 2px; font-size: 16px; }
+    .notice .meta { color: var(--muted); font-size: 12px; margin-bottom: 8px; }
+    .notice table { border-collapse: collapse; width: 100%; font-size: 13px; }
+    .notice th, .notice td { border-bottom: 1px solid var(--border); padding: 6px 9px; text-align: left; }
+    .notice thead th { background: var(--primary); color: #fff; font-weight: 600; white-space: nowrap; }
+    .notice td.when { white-space: nowrap; }
+    .notice td small { display: block; font-size: 10px; color: var(--muted); }
+    .notice tr.new-day td { border-top: 2px solid var(--border); }
+    .quiet { color: var(--muted); font-size: 13px; }
+    @media print {
+        .notice { page-break-after: always; break-after: page; }
+        .notice:last-of-type { page-break-after: auto; break-after: auto; }
+        .notice thead th { background: #eee !important; color: #000 !important; }
+    }
     .off-staff{display:block;font-size:10px;font-weight:600;color:#b45309;margin-top:2px}
     /* Кого земаш, и каде е: името горе, каде да го најдеш под него. */
     .take { display: block; line-height: 1.25; }
@@ -197,6 +214,7 @@
             <button class="btn soft" id="viewTeacher" aria-pressed="false">👩‍🏫 По наставник</button>
             <button class="btn soft" id="viewWeek" aria-pressed="false">📅 Цела недела</button>
             <button class="btn soft" id="viewCabinet" aria-pressed="false">🧩 По кабинет</button>
+            <button class="btn soft" id="viewNotice" aria-pressed="false">📄 Известувања по одделение</button>
         </div>
     </div>
 
@@ -220,6 +238,10 @@
     let selected = null;    // "класа|час", или "ден|класа|час" во неделниот приказ
     let tipCell = null;     // ќелијата под покажувачот, за да се премести картичката
     let view = 'class';
+    // Two views cross the WHOLE week rather than one day: the weekly grid and
+    // the per-class notice sheet. It is the same request either way — the
+    // endpoint already answers for the week when no day is named.
+    const wholeWeek = () => view === 'week' || view === 'notice';
     // Every request carries a number and only the newest one may draw. Without
     // this, changing the day while the first fetch is still running leaves the
     // previous day's grid on screen under the new day's label.
@@ -306,7 +328,7 @@
             // already answers for the whole week when no day is named. Asking
             // five times and stitching the answers together in the browser
             // would be a second opinion about the same arithmetic.
-            const dayParam = view === 'week' ? '' : `&day=${encodeURIComponent(day)}`;
+            const dayParam = wholeWeek() ? '' : `&day=${encodeURIComponent(day)}`;
             const res = await fetch(
                 `${apiBase()}/api/teaching/crossing?year=${encodeURIComponent(year)}${dayParam}`
                     + `&minShare=${encodeURIComponent(share)}`,
@@ -329,7 +351,7 @@
                 const off = body.summary.offStaffLessons
                     ? ` · ${body.summary.offStaffLessons} часа кај наставник вон списокот`
                     : '';
-                const scope = view === 'week' ? ' · цела недела' : '';
+                const scope = wholeWeek() ? ' · цела недела' : '';
                 status(`${yearLabel}${scope} · ${body.summary.placed} од ${body.summary.sessions} третмани се поврзани со час${ext} · `
                      + `${body.summary.lessonsDisrupted} часа со отсутни${off}`);
             }
@@ -371,8 +393,12 @@
     function draw() {
         if (!data) return;
         hideTip();
-        drawLegend();
+        // The heat swatches explain a grid. The notice sheet has no cells to
+        // shade, so a legend there would be a key to nothing.
+        if (view === 'notice') el('legend').innerHTML = '';
+        else drawLegend();
         if (view === 'week') drawWeek();
+        else if (view === 'notice') drawNotices();
         else if (view === 'class') drawByClass();
         else if (view === 'cabinet') drawByTherapist();
         else drawByTeacher();
@@ -654,6 +680,114 @@
         el('grid').innerHTML = html + '</tbody></table>';
     }
 
+    /**
+     * Известувања по одделение — истото вкрстување, во формата во која реално
+     * се доставува на хартија.
+     *
+     * Ова е праксата што веќе постои: секој кабинет му носи на одделението
+     * список по дете — кој ден, кое дете, на кој час е запишано — зашто тоа е
+     * податокот што му треба на оној што го држи часот во тој термин. Мрежата
+     * одговара на прашањето „колку ми недостигаат"; овој лист одговара на
+     * „кого, кога и кај кого", и е единствениот приказ чија единица е ЛИСТ, па
+     * се прекршува по страница за секое одделение.
+     *
+     * ПРЕГРУПИРАЊЕ, не второ пресметување. Кој третман на кој час паѓа и за
+     * колку минути го решава `lib/crossing.ts` и никој друг; тука само се чита
+     * истиот одговор, подреден по ден и час.
+     */
+    function drawNotices() {
+        const periods = data.bells.teaching || [];
+        const startsAt = new Map(periods.map((p) => [p.ordinal, p.startsAt]));
+        const cap = (d) => String(d || '').charAt(0).toUpperCase() + String(d || '').slice(1);
+
+        // Одделенијата од годишниот список го даваат редоследот; она што го
+        // именува распоредот а го нема на списокот се додава, обележано —
+        // истата поделба како во `classRows`, и од истата причина.
+        const { rows: byClass, offList, order } = classRows();
+        const lines = new Map(order.map((label) => [label, []]));
+        data.cells.forEach((c) => {
+            (c.away || []).forEach((a) => {
+                if (!lines.has(c.class)) lines.set(c.class, []);
+                lines.get(c.class).push({
+                    day: c.day || el('day').value,
+                    ordinal: c.ordinal,
+                    subject: c.subject,
+                    teacher: c.teacher,
+                    student: a.student,
+                    therapist: a.therapist,
+                    minutes: a.minutes
+                });
+            });
+        });
+
+        const dayIndex = (d) => {
+            const i = DAYS.indexOf(d);
+            return i < 0 ? DAYS.length : i;
+        };
+
+        const withLines = [];
+        const quiet = [];
+        Array.from(lines.keys()).forEach((label) => {
+            (lines.get(label).length ? withLines : quiet).push(label);
+        });
+
+        if (!withLines.length) {
+            el('grid').innerHTML = '<div class="offline"><p>Никој не е изземен од час оваа недела '
+                + '— или распоредот на настава сè уште не е внесен.</p></div>';
+            return;
+        }
+
+        const yearLabel = data.year + (data.isCurrentYear ? '' : ' · архивски приказ');
+        let html = '';
+        withLines.forEach((label) => {
+            const rows = lines.get(label).sort((a, b) =>
+                dayIndex(a.day) - dayIndex(b.day)
+                || a.ordinal - b.ordinal
+                || a.student.localeCompare(b.student, 'mk'));
+            const pupils = new Set(rows.map((r) => r.student)).size;
+            // Броењето е по точна ознака, намерно: `normalizeClassLabel` е една
+            // копија на серверот и не се преповторува тука за фуснота.
+            const loose = (data.unplaced || []).filter((r) =>
+                String(r.grade || '').trim().toLowerCase() === label.trim().toLowerCase()).length;
+
+            let last = null;
+            html += `<section class="notice"><h3>${esc(label)} — изземања од настава</h3>`
+                + `<div class="meta">${esc(yearLabel)} · ${pupils} `
+                + `${pupils === 1 ? 'ученик' : 'ученици'} · ${rows.length} `
+                + `${rows.length === 1 ? 'изземање' : 'изземања'} во неделата`
+                + (offList.has(label) ? ' · одделението не е на списокот оваа година' : '')
+                + '</div>'
+                + '<table><thead><tr><th>Ден</th><th>Час</th><th>Ученик</th>'
+                + '<th>Од часот</th><th>Кабинет / терапевт</th><th>Мин.</th></tr></thead><tbody>';
+            rows.forEach((r) => {
+                const fresh = r.day !== last;
+                last = r.day;
+                html += `<tr${fresh ? ' class="new-day"' : ''}>`
+                    + `<td class="when">${fresh ? esc(cap(r.day)) : ''}</td>`
+                    + `<td class="when">${r.ordinal}. час`
+                    + (startsAt.has(r.ordinal) ? `<small>${esc(startsAt.get(r.ordinal))}</small>` : '')
+                    + '</td>'
+                    + `<td><b>${esc(r.student)}</b></td>`
+                    + `<td>${esc(r.subject || 'без предмет')}<small>${esc(r.teacher || 'без наставник')}</small></td>`
+                    + `<td>${esc(r.therapist)}</td>`
+                    + `<td>${r.minutes}</td></tr>`;
+            });
+            html += '</tbody></table>'
+                + (loose
+                    ? `<p class="quiet">Уште ${loose} ${loose === 1 ? 'термин' : 'термини'} `
+                      + 'за ова одделение не може да се врзе за час — види „Неповрзани третмани“ подолу.</p>'
+                    : '')
+                + '</section>';
+        });
+
+        // Одделение без изземања се именува, а не се остава празен лист: тишина
+        // што не е кажана изгледа како податок што недостига.
+        if (quiet.length) {
+            html += `<p class="quiet">Без изземања оваа недела: ${esc(quiet.join(', '))}.</p>`;
+        }
+        el('grid').innerHTML = html;
+    }
+
     /** Clicking, not hovering: this gets read on a tablet in a staff room. */
     function show(key) {
         const cell = cellForKey(key);
@@ -782,20 +916,21 @@
     }
 
     function setView(next) {
-        const wasWeek = view === 'week';
+        const wasWhole = wholeWeek();
         view = next;
         el('viewClass').setAttribute('aria-pressed', String(next === 'class'));
         el('viewTeacher').setAttribute('aria-pressed', String(next === 'teacher'));
         el('viewWeek').setAttribute('aria-pressed', String(next === 'week'));
         el('viewCabinet').setAttribute('aria-pressed', String(next === 'cabinet'));
+        el('viewNotice').setAttribute('aria-pressed', String(next === 'notice'));
         // A day cannot be chosen for a week, and leaving the control live would
         // suggest it still filters something.
-        el('day').disabled = next === 'week';
+        el('day').disabled = wholeWeek();
         selected = null;
         hideTip();
-        // The weekly view holds every day and the other two hold one, so this
+        // A week-wide view holds every day and a daily one holds one, so this
         // is a different REQUEST, not a different drawing of the same answer.
-        if (wasWeek !== (next === 'week')) load(); else draw();
+        if (wasWhole !== wholeWeek()) load(); else draw();
     }
 
     el('year').addEventListener('change', () => {
@@ -811,6 +946,7 @@
     el('viewTeacher').addEventListener('click', () => setView('teacher'));
     el('viewWeek').addEventListener('click', () => setView('week'));
     el('viewCabinet').addEventListener('click', () => setView('cabinet'));
+    el('viewNotice').addEventListener('click', () => setView('notice'));
     el('grid').addEventListener('click', (event) => {
         const td = event.target.closest('.cell.clickable');
         if (td) show(td.dataset.key);

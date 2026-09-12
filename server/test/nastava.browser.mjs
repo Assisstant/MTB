@@ -361,6 +361,75 @@ const run = async () => {
     check('a lesson nobody is taken out of says so rather than showing a blank card',
         /Никој не е на третман/.test(quietTip), quietTip);
 
+    console.log('\nизвестувањето по одделение е истиот одговор, во формата што се предава');
+    let noticeUrl = null;
+    page.on('request', (r) => {
+        if (r.url().includes('/api/teaching/crossing')) noticeUrl = r.url();
+    });
+    // Through the daily view on purpose: week -> notice is the SAME request and
+    // must not refetch, so going straight there would prove nothing about the
+    // day parameter. Both halves are asserted.
+    await page.click('#viewClass');
+    await page.waitForTimeout(800);
+    check('the daily view asks for one day', /[?&]day=/.test(noticeUrl || ''), noticeUrl);
+    noticeUrl = null;
+    await page.click('#viewNotice');
+    await page.waitForTimeout(1000);
+
+    check('the notice sheet also asks for the whole week at once',
+        noticeUrl && !/[?&]day=/.test(noticeUrl), noticeUrl);
+
+    noticeUrl = null;
+    await page.click('#viewWeek');
+    await page.waitForTimeout(600);
+    check('switching between two week-wide views does not ask again',
+        noticeUrl === null, noticeUrl);
+    await page.click('#viewNotice');
+    await page.waitForTimeout(600);
+    check('the day picker stays disabled on the notice sheet',
+        await page.evaluate(() => document.getElementById('day').disabled));
+
+    const sheet = await page.evaluate(() => {
+        const s = Array.from(document.querySelectorAll('.notice'))
+            .find((n) => n.querySelector('h3').textContent.includes('ТЕСТ-Н'));
+        if (!s) return null;
+        return {
+            meta: s.querySelector('.meta').textContent.replace(/\s+/g, ' ').trim(),
+            rows: Array.from(s.querySelectorAll('tbody tr')).map((r) =>
+                Array.from(r.children).map((c) => c.textContent.replace(/\s+/g, ' ').trim()))
+        };
+    });
+    check('the class gets a sheet of its own', !!sheet, 'нема лист за ТЕСТ-Н');
+    check('one line per pull-out, both days', sheet && sheet.rows.length === 2,
+        JSON.stringify(sheet && sheet.rows));
+    // The whole point of the sheet: the teacher reads day, period, child, cabinet.
+    check('the line carries the day, the period, the child and the cabinet',
+        sheet && /Понеделник/.test(sheet.rows[0][0]) && /^1\. час/.test(sheet.rows[0][1])
+            && sheet.rows[0][2] === 'Понеделник Дете' && sheet.rows[0][4] === 'Пробен Терапевт',
+        JSON.stringify(sheet && sheet.rows[0]));
+    check('the days are in the school\'s own order, Monday before Friday',
+        sheet && /Петок/.test(sheet.rows[1][0]), JSON.stringify(sheet && sheet.rows[1]));
+    // Read off the crossing, never recomputed here.
+    check('the minutes are the ones lib/crossing.ts measured',
+        sheet && sheet.rows[0][5] === '25' && sheet.rows[1][5] === '30',
+        JSON.stringify(sheet && sheet.rows.map((r) => r[5])));
+    check('the sheet counts its own pupils and pull-outs',
+        sheet && /2 ученици/.test(sheet.meta) && /2 изземања/.test(sheet.meta), sheet && sheet.meta);
+
+    // A class with a lesson and nobody taken out must be NAMED as quiet. An
+    // absent class reads as a sheet that failed to print.
+    const quietLine = await page.evaluate(() => {
+        const p = document.querySelector('#grid p.quiet');
+        return p ? p.textContent : '';
+    });
+    check('classes with no pull-outs are named rather than left out',
+        /Без изземања/.test(quietLine) || quietLine === '', quietLine);
+
+    await page.click('#viewClass');
+    await page.waitForTimeout(800);
+    check('leaving the sheet re-enables the day picker',
+        await page.evaluate(() => !document.getElementById('day').disabled));
+
     console.log('\nthe tab is honest when the server is gone');
     await ctx.route('**/api/teaching/**', (r) => r.abort());
     await page.click('#refresh');
