@@ -37,13 +37,30 @@ const checkEq = (l, a, e) => {
 };
 
 async function refuseUnlessScratch() {
+    // A NAME CANNOT ANSWER THIS, and the old check proved it twice over.
+    //
+    // It passed whenever current_database() matched /dev|test/ -- and the real
+    // database on BOTH of this project's machines is called `therapy_dev`, so
+    // the guard never once fired on the thing it was built to stop. Worse, its
+    // refusal read "Point DATABASE_URL at therapy_dev": in the one moment it
+    // knew least it pointed straight at the live school data. That is the same
+    // shape as sync-peer recommending --force on a failed fetch.
+    //
+    // So it asks for INTENT instead. This suite deletes the whole `sdnevnik`
+    // row from app_state -- the diary as the server holds it -- and nothing it
+    // can read tells it whose diary that is.
+    if (process.env.MTB_SCRATCH_DB === '1') return;
     const { rows } = await pool.query('SELECT current_database() AS db');
-    const db = String(rows[0].db);
-    if (!/dev|test/i.test(db)) {
-        console.error(`\nRefusing to run: "${db}" does not look like a scratch database.\n`);
-        await pool.end();
-        process.exit(1);
-    }
+    console.error(
+        `\nRefusing to run against "${rows[0].db}".\n\n` +
+        '  This suite DELETES the whole sdnevnik row from app_state, along with\n' +
+        '  its own fixture students and their attendance. A database NAME cannot\n' +
+        '  say whether that is safe: therapy_dev is the real database on both\n' +
+        '  machines in this project, and it is also the default below.\n\n' +
+        '  If this database is disposable, say so:\n' +
+        '      MTB_SCRATCH_DB=1 node test/<this file>\n');
+    await pool.end();
+    process.exit(1);
 }
 
 async function clean() {

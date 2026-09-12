@@ -545,6 +545,23 @@ read `DATABASE_URL`; never add literal credentials to this public repository.
   `.githooks/pre-commit` now does, and refuses rather than warns;
   `scripts/verify-name-guard.ps1` proves that it still refuses, in both
   directions, instead of asserting it.
+- **The scratch-database guard never once fired, and its refusal pointed at the
+  real data.** Four browser suites delete `app_state WHERE app = 'sdnevnik'` —
+  the diary as the server holds it — and asked one question first: does
+  `current_database()` match `/dev|test/`? **Both machines' real database is
+  named `therapy_dev`**, which the State (31 Aug) section has said all along.
+  So the guard passed on the one database it existed to stop, every time. Its
+  refusal then read *"Point DATABASE_URL at therapy_dev"*, and the default
+  connection string when `DATABASE_URL` is unset is also `therapy_dev` — so
+  running one of these files with no environment at all went straight at the
+  live school. In the moment it knew least it named the data it protects, which
+  is the `sync-peer --force` mistake in a second place.
+  A name cannot answer "is this disposable?", so it asks for INTENT:
+  `MTB_SCRATCH_DB=1`. Found because another agent ran seven browser suites
+  against the real database on WORK and reported it as routine — it happened to
+  run none of these four, which is luck, not a guard. They have no npm script
+  either; that is a mitigation, not a boundary, because an agent enumerating
+  `test/*.mjs` reaches them by path.
 - **A PowerShell wrapper hides the tool it is checking.** Two separate ways,
   both hit while proving the hook above actually refuses. First, a native
   command's output is decoded with the *console* codepage, so a Cyrillic name
