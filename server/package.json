@@ -24,6 +24,7 @@
     "import:roster": "tsx scripts/import-roster.ts",
     "import:teaching": "tsx scripts/import-teaching.ts",
     "copy:teaching": "tsx scripts/copy-teaching-year.ts",
+    "demo:teaching": "tsx scripts/demo-timetable.ts",
     "test:teaching-edit": "tsx test/teaching-edit.e2e.ts",
     "test:uredi": "node test/nastava-uredi.browser.mjs",
     "test:podatoci": "node test/podatoci.browser.mjs",
