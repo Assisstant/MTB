@@ -30,6 +30,7 @@
         --text: #1f2430;
         --muted: #6b7280;
         --border: #e4e2ee;
+        --chip: #f0edfb;
         --accent: #6d5bd0;
         --accent-dark: #57459f;
         --warn: #b7791f;
@@ -58,6 +59,9 @@
             --ok: #7fd0a5;
             --shadow: 0 1px 3px rgba(0, 0, 0, .35);
             --soft: #272544;
+            /* Чипот носи име и мора да се чита. --soft е само една нијанса над
+               --card, па во темна тема чипот се губеше во позадината. */
+            --chip: #3d3a68;
         }
     }
 
@@ -168,7 +172,7 @@
     .chips { display: flex; gap: 4px; flex-wrap: wrap; }
     .chip {
         display: inline-block; padding: 1px 7px; border-radius: 10px; font-size: 12px;
-        background: var(--soft); border: 1px solid var(--border);
+        background: var(--chip); border: 1px solid var(--border);
     }
     .chip.home { background: var(--accent); color: #fff; border-color: transparent; }
     /* A chip that is also the way to the screen which OWNS the fact it shows. */
@@ -251,7 +255,7 @@
     <div class="links">
         <label class="ui-size" title="Големина на приказот">
             <span aria-hidden="true">A</span>
-            <input type="range" id="uiSize" min="90" max="160" step="5" value="100"
+            <input type="range" id="uiSize" min="90" max="160" step="1" value="100"
                    aria-label="Големина на приказот">
         </label>
         <a href="NastavaUredi.html">Уреди настава</a>
@@ -1036,6 +1040,39 @@
     }
 
     // ── ученици ─────────────────────────────────────────────────────────────
+    /**
+     * ПАРАЛЕЛКА и ОДДЕЛЕНИЕ се два различни факта, и кај комбинираните се
+     * разидуваат. „II-б" што всушност е „комбинирана II, III, IV" држи деца
+     * од три генерации: паралелката кажува КАДЕ учат, одделението кажува
+     * КОЈА ГЕНЕРАЦИЈА е детето. Кај единаесетте нумерирани паралелки двете се
+     * исти; кај петте комбинирани не се, и тоа НЕ е грешка.
+     *
+     * `student_enrollments.oddelenie` (миграции 030/031) е сопственикот на
+     * вториот факт. Работниот простор го уредуваше од 12 септември; овој
+     * екран не го покажуваше воопшто, па комбинираната паралелка тука
+     * изгледаше како обична и разликата немаше каде да се види.
+     */
+    const ROMAN = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX'];
+
+    /** Римскиот број во ознаката на паралелката, ако таа носи таков. */
+    function romanOf(label) {
+        const m = /^\s*(IX|IV|V?I{0,3})\b/i.exec(
+            String(label || '').replace(/[Іі]/g, 'I').replace(/[Хх]/g, 'X'));
+        const g = m ? m[1].toUpperCase() : '';
+        return ROMAN.includes(g) ? g : '';
+    }
+
+    /** Се пишува САМО кога кажува нешто ново — инаку е двапати иста работа. */
+    function generationNote(student) {
+        const odd = String(student.oddelenie || '').toUpperCase();
+        return odd && odd !== romanOf(student.grade) ? odd : '';
+    }
+
+    function fillOddelenieSelect(select, selected) {
+        select.innerHTML = '<option value="">— не е внесено —</option>'
+            + ROMAN.map((g) => `<option value="${g}"${g === String(selected || '').toUpperCase() ? ' selected' : ''}>${g}</option>`).join('');
+    }
+
     function drawStudents() {
         const q = tidy(el('studentSearch').value).toLowerCase();
         const wantedKind = el('studentKindFilter').value;
@@ -1053,7 +1090,9 @@
         }
         el('students').innerHTML =
             '<table class="list"><thead><tr><th class="row-number">Р.Бр.</th><th>Име</th><th style="width:150px;">Вид на ученик</th>'
-            + '<th style="width:160px;">Одделение / група</th><th>Терапевти</th><th></th></tr></thead><tbody>'
+            + '<th style="width:170px;">Паралелка · каде учи</th>'
+            + '<th style="width:130px;">Одделение · генерација</th>'
+            + '<th>Терапевти</th><th></th></tr></thead><tbody>'
             + rows.map((s, index) =>
                 `<tr data-student="${esc(s.public_id)}"${s.active ? '' : ' class="archived"'}>`
                 + `<td class="row-number">${index + 1}.</td>`
@@ -1063,6 +1102,7 @@
                     `<option value="${value}"${(s.kind || 'internal') === value ? ' selected' : ''}>${label}</option>`).join('')
                 + '</select></td>'
                 + `<td><select class="s-grade"${s.active ? '' : ' disabled'}></select></td>`
+                + `<td><select class="s-oddelenie"${s.active ? '' : ' disabled'}></select></td>`
                 + `<td>${(s.therapists || []).length
                         ? `<span class="chips">${s.therapists.map((t) => `<span class="chip">${esc(personName(t))}</span>`).join('')}</span>`
                         : '<span class="none">—</span>'}</td>`
@@ -1076,6 +1116,7 @@
             const row = el('students').querySelector(`[data-student="${CSS.escape(s.public_id)}"]`);
             if (row) {
                 fillClassSelect(row.querySelector('.s-grade'), s.grade || '');
+                fillOddelenieSelect(row.querySelector('.s-oddelenie'), s.oddelenie || '');
                 syncStudentKind(row);
                 row.querySelector('.s-kind').addEventListener('change', () => syncStudentKind(row));
             }
@@ -1098,6 +1139,10 @@
                 name: personName(row.querySelector('.s-name').value),
                 kind,
                 grade: tidy(row.querySelector('.s-grade').value) || null,
+                // Испратено ИЗРЕЧНО: полето се полни од зачуваното, па кога
+                // никој не го допрел се враќа истото. `null` овде значи
+                // „нема генерација", не „не менувај" — серверот ги разликува.
+                oddelenie: tidy(row.querySelector('.s-oddelenie').value) || null,
                 year: data.year,
                 // What this tab believed the name was. A second machine that
                 // renamed the child in the meantime must not be undone.
@@ -1474,10 +1519,19 @@
                     + '<td><span class="class-pupils">'
                     + `<span class="count">${pupils.length}</span>`
                     + (pupils.length
-                        ? `<span class="chips">${pupils.map((s) => s.active
-                            ? `<button type="button" class="chip link" data-goto-student="${esc(s.public_id)}"`
-                              + ` title="Отвори го во „Ученици“">${esc(personName(s.name))}</button>`
-                            : `<span class="chip off" title="архивиран">${esc(personName(s.name))}</span>`).join('')}</span>`
+                        ? `<span class="chips">${pupils.map((s) => {
+                            // Кај комбинирана паралелка детето е од друга
+                            // генерација, и токму тоа е она што не се гледа
+                            // од ознаката. Кај нумерираните не се пишува —
+                            // би било двапати истото.
+                            const gen = generationNote(s);
+                            const label = esc(personName(s.name))
+                                + (gen ? ` <span class="none">· одд. ${esc(gen)}</span>` : '');
+                            return s.active
+                                ? `<button type="button" class="chip link" data-goto-student="${esc(s.public_id)}"`
+                                  + ` title="Отвори го во „Ученици“">${label}</button>`
+                                : `<span class="chip off" title="архивиран">${label}</span>`;
+                        }).join('')}</span>`
                         : '<span class="none">нема ученици</span>')
                     + '</span></td>'
                     + `<td>${homeroom
