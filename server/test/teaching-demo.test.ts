@@ -10,7 +10,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
     planDemoTimetable, layOutClass, importanceOf, isPhysical, timetabled,
-    DEMO_DAYS, type DemoClass, type DemoTeacher, type SubjectHours
+    teacherHandles, DEMO_DAYS, type DemoClass, type DemoTeacher, type SubjectHours
 } from '../src/lib/teaching-demo.js';
 
 const PERIODS = [1, 2, 3, 4, 5, 6, 7];
@@ -43,19 +43,29 @@ test('Македонски and Математика come first, in that order', 
     assert.ok(importanceOf('Нешто Измислено') > importanceOf('Час на одделенска заедница'));
 });
 
-test('the first period of every day is the most important lesson of that day', () => {
-    const week = layOutClass(SUBJECTS, { periods: PERIODS });
-    for (const day of DEMO_DAYS) {
-        const inDay = week.filter((l) => l.day === day).sort((a, b) => a.ordinal - b.ordinal);
-        if (!inDay.length) continue;
-        const ranks = inDay.map((l) => importanceOf(l.subject));
-        assert.deepEqual(ranks, [...ranks].sort((a, b) => a - b),
-            `${day}: ${inDay.map((l) => l.subject).join(' / ')}`);
+test('a day opens with one of its two most important lessons, and descends from there', () => {
+    // Not strict order: which of the two heaviest subjects leads alternates by
+    // day, exactly as the school's workbook has мак. on Monday and мат. on
+    // Tuesday in the same class. Everything after the second period is in
+    // order, which is what „од прв до последен час по важност" means in
+    // practice.
+    for (const offset of [0, 1, 2]) {
+        const week = layOutClass(SUBJECTS, { periods: PERIODS }, offset);
+        for (const day of DEMO_DAYS) {
+            const inDay = week.filter((l) => l.day === day).sort((a, b) => a.ordinal - b.ordinal);
+            if (inDay.length < 2) continue;
+            const ranks = inDay.map((l) => importanceOf(l.subject));
+            const sorted = [...ranks].sort((a, b) => a - b);
+            assert.ok(ranks[0] === sorted[0] || ranks[0] === sorted[1],
+                `${day} opens with ${inDay[0].subject}`);
+            assert.deepEqual(ranks.slice(2), sorted.slice(2),
+                `${day}: ${inDay.map((l) => l.subject).join(' / ')}`);
+        }
     }
 });
 
 test('a five-hour subject is spread over the days, not stacked on one', () => {
-    const week = layOutClass(SUBJECTS, { periods: PERIODS });
+    const week = layOutClass(SUBJECTS, { periods: PERIODS }, 2);
     const mk = week.filter((l) => l.subject === 'Македонски јазик');
     assert.equal(mk.length, 5);
     assert.equal(new Set(mk.map((l) => l.day)).size, 5);
@@ -74,21 +84,58 @@ test('a day never holds more lessons than there are periods', () => {
     }
 });
 
-test('in одделенска the class teacher holds everything except Физичко', () => {
+test('in одделенска the class teacher holds every lesson, as the workbook shows', () => {
     const classes: DemoClass[] = [{ id: 1, label: 'II-а', grades: ['II'], homeroomTeacherId: 10 }];
     const teachers = [teacher(10, 'odd'), teacher(20, 'pred')];
     const plan = planDemoTimetable(classes, teachers, () => SUBJECTS, { periods: PERIODS });
 
     const mine = plan.lessons.filter((l) => l.classId === 1);
     assert.ok(mine.length > 0);
-    for (const l of mine) {
-        if (isPhysical(l.subject)) {
-            assert.notEqual(l.teacherId, 10, 'Физичко must go to the accompanying teacher');
-            assert.equal(l.teacherId, 20);
-        } else {
-            assert.equal(l.teacherId, 10, `${l.subject} belongs to the class teacher`);
-        }
+    for (const l of mine) assert.equal(l.teacherId, 10, `${l.subject} belongs to the class teacher`);
+});
+
+test('…unless the accompanying arrangement is asked for in as many words', () => {
+    const classes: DemoClass[] = [{ id: 1, label: 'II-а', grades: ['II'], homeroomTeacherId: 10 }];
+    const teachers = [teacher(10, 'odd'), teacher(20, 'pred')];
+    const plan = planDemoTimetable(classes, teachers, () => SUBJECTS,
+        { periods: PERIODS, physicalToSubjectTeacher: true });
+
+    for (const l of plan.lessons) {
+        if (isPhysical(l.subject)) assert.equal(l.teacherId, 20);
+        else assert.equal(l.teacherId, 10);
     }
+});
+
+test('a teacher recorded with the school\'s abbreviation gets that subject', () => {
+    // ФЗО. against „Физичко и здравствено образование" — matched as plain text
+    // the two never meet, and the one teacher who really does teach only that
+    // was passed over for every one of its lessons.
+    assert.equal(teacherHandles('ФЗО.', 'Физичко и здравствено образование'), true);
+    assert.equal(teacherHandles('АНГ.', 'Англиски јазик'), true);
+    assert.equal(teacherHandles('ЛИК.', 'Ликовно образование'), true);
+    assert.equal(teacherHandles('ИНФ.', 'Техничко образование и информатика'), true);
+    assert.equal(teacherHandles('ФЗО.', 'Математика'), false);
+    assert.equal(teacherHandles('', 'Математика'), false);
+    // A full name still works, and so does a short form nobody listed.
+    assert.equal(teacherHandles('Математика', 'Математика'), true);
+
+    const classes: DemoClass[] = [{ id: 1, label: 'VII', grades: ['VII'], homeroomTeacherId: null }];
+    const teachers = [teacher(30, 'pred', 'ФЗО.'), teacher(31, 'pred'), teacher(32, 'pred')];
+    const plan = planDemoTimetable(classes, teachers, () => SUBJECTS, { periods: PERIODS });
+    const pe = plan.lessons.filter((l) => isPhysical(l.subject));
+    assert.ok(pe.length > 0);
+    for (const l of pe) assert.equal(l.teacherId, 30, 'the ФЗО. teacher takes Физичко');
+});
+
+test('classes do not all open the week with the same subject', () => {
+    // Strict importance order from Monday put Македонски in the first period of
+    // every class at once, which needs one Македонски teacher per parallel
+    // class. The school's own workbook does not look like that.
+    const first = [0, 1, 2, 3].map((offset) => {
+        const week = layOutClass(SUBJECTS, { periods: PERIODS }, offset);
+        return week.filter((l) => l.day === DEMO_DAYS[0]).sort((a, b) => a.ordinal - b.ordinal)[0]?.subject;
+    });
+    assert.ok(new Set(first).size > 1, JSON.stringify(first));
 });
 
 test('a class whose homeroom is a SUBJECT teacher is предметна, not одделенска', () => {
@@ -134,6 +181,19 @@ test('the load cap holds, and what it cannot cover is reported rather than inven
     const empty = plan.lessons.filter((l) => l.teacherId === null);
     assert.equal(empty.length, plan.unstaffed);
     assert.ok(plan.problems.some((p) => /NO teacher/.test(p)));
+});
+
+test('a recorded specialist is not put on somebody else\'s subject', () => {
+    // „Силвана е само англиски, Драган е само физичко." Handing the Физичко
+    // teacher a Математика lesson because they were lightest at that moment
+    // produces a timetable that looks fine and misstates who does what.
+    const classes: DemoClass[] = [{ id: 1, label: 'VII', grades: ['VII'], homeroomTeacherId: null }];
+    const teachers = [teacher(90, 'pred', 'ФЗО.'), teacher(91, 'pred'), teacher(92, 'pred')];
+    const plan = planDemoTimetable(classes, teachers, () => SUBJECTS, { periods: PERIODS });
+    for (const l of plan.lessons) {
+        if (l.teacherId === 90) assert.ok(isPhysical(l.subject), `ФЗО. teacher given ${l.subject}`);
+    }
+    assert.ok(plan.lessons.some((l) => l.teacherId === 90), 'and they do get their own');
 });
 
 test('it creates nobody: every teacher in the plan came from the staff list', () => {

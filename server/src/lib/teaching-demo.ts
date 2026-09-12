@@ -69,6 +69,39 @@ const startsWithAny = (subject: string, list: string[]) =>
 
 export const isPhysical = (subject: string) => startsWithAny(subject, ['Физичко']);
 
+/**
+ * The school writes a teacher's subject as the abbreviation its own workbook
+ * uses — ФЗО., ЛИК., ТЕХ., ИНФ., АНГ. — while the MON catalogue spells it out
+ * („Физичко и здравствено образование"). Matched as plain text the two never
+ * meet, so the one teacher who really does teach only Физичко was passed over
+ * for every Физичко lesson in the school and the load landed on whoever
+ * happened to be lightest. It looked like a distribution and it was a miss.
+ *
+ * A short table of the abbreviations actually in use, not a general rule: an
+ * unknown short form falls back to a plain prefix match and, failing that, to
+ * the lightest timetable, which is what it did before.
+ */
+const SUBJECT_ALIASES: Record<string, string> = {
+    'мак': 'Македонски', 'мат': 'Математика', 'анг': 'Англиски',
+    'пн': 'Природни науки', 'прир': 'Природни науки',
+    'опш': 'Општество', 'ои': 'Историја и општество', 'ист': 'Историја',
+    'гео': 'Географија', 'био': 'Биологија', 'физ': 'Физика', 'хем': 'Хемија',
+    'тех': 'Техничко', 'то': 'Техничко', 'инф': 'Техничко образование и информатика',
+    'лик': 'Ликовно', 'муз': 'Музичко', 'фзо': 'Физичко',
+    'гра': 'Граѓанско', 'зо': 'Час на одделенска заедница'
+};
+
+const bare = (v: unknown) => String(v ?? '').toLowerCase().replace(/[.\s]/g, '');
+
+/** Does this teacher's recorded subject mean this catalogue subject? */
+export function teacherHandles(teacherSubject: string | null, subject: string): boolean {
+    const key = bare(teacherSubject);
+    if (!key) return false;
+    const full = SUBJECT_ALIASES[key];
+    if (full) return subject.toLowerCase().startsWith(full.toLowerCase());
+    return subject.toLowerCase().startsWith(String(teacherSubject).toLowerCase());
+}
+
 export function importanceOf(subject: string): number {
     const at = IMPORTANCE.findIndex((p) => subject.toLowerCase().startsWith(p.toLowerCase()));
     return at < 0 ? IMPORTANCE.length : at;
@@ -121,6 +154,14 @@ export interface DemoOptions {
     days?: string[];
     /** Target weekly load per subject teacher. The owner's demo figure is 21. */
     load?: number;
+    /**
+     * Физичко taken by an accompanying subject teacher instead of the class
+     * teacher. OFF by default, because the school's own workbook writes фзо.
+     * inside the одделенска rows — the accompanying teacher is beside the
+     * class teacher there, not instead of them, and a generated timetable
+     * must not claim a staffing arrangement the source does not show.
+     */
+    physicalToSubjectTeacher?: boolean;
 }
 
 /**
@@ -133,7 +174,11 @@ export interface DemoOptions {
  * sorted by importance, which is what puts Македонски and Математика in the
  * first periods — the owner's rule, applied per day rather than per week.
  */
-export function layOutClass(subjects: SubjectHours[], opts: DemoOptions): Array<{ day: string; ordinal: number; subject: string }> {
+export function layOutClass(
+    subjects: SubjectHours[],
+    opts: DemoOptions,
+    offset = 0
+): Array<{ day: string; ordinal: number; subject: string }> {
     const days = opts.days ?? DEMO_DAYS;
     const perDay = opts.periods.length;
     const byDay = new Map<string, string[]>(days.map((d) => [d, []]));
@@ -143,27 +188,43 @@ export function layOutClass(subjects: SubjectHours[], opts: DemoOptions): Array<
         .sort((a, b) => importanceOf(a.subject) - importanceOf(b.subject)
             || a.subject.localeCompare(b.subject, 'mk'));
 
-    for (const { subject, hours } of wanted) {
-        for (let h = 0; h < hours; h++) {
-            // The emptiest day that does not already hold this subject; if they
-            // all do, the emptiest day regardless. Ties go to the earlier day,
-            // so the same input always produces the same week.
-            const room = days.filter((d) => byDay.get(d)!.length < perDay);
-            if (!room.length) break;
-            const fresh = room.filter((d) => !byDay.get(d)!.includes(subject));
-            const pool = fresh.length ? fresh : room;
-            const pick = pool.reduce((best, d) =>
-                byDay.get(d)!.length < byDay.get(best)!.length ? d : best, pool[0]);
-            byDay.get(pick)!.push(subject);
+    // Dealt round the days like cards, STARTING AT A DIFFERENT DAY FOR EACH
+    // CLASS. The first version started every class on Monday with the most
+    // important subject, so the whole school opened the week with Македонски at
+    // once and needed one Македонски teacher per parallel class — the report
+    // said so, and the school's own workbook shows it is not what happens:
+    // one class opens with мак., the next with одд., another with ж.в.
+    // Consecutive hours of one subject still land on consecutive days, so a
+    // five-hour subject is still on five different days.
+    let at = ((offset % days.length) + days.length) % days.length;
+    const deal = (subject: string) => {
+        for (let step = 0; step < days.length; step++) {
+            const day = days[(at + step) % days.length];
+            if (byDay.get(day)!.length < perDay) {
+                byDay.get(day)!.push(subject);
+                at = (at + step + 1) % days.length;
+                return true;
+            }
         }
+        return false;
+    };
+    for (const { subject, hours } of wanted) {
+        for (let h = 0; h < hours; h++) if (!deal(subject)) break;
     }
 
     const out: Array<{ day: string; ordinal: number; subject: string }> = [];
-    for (const day of days) {
+    days.forEach((day, dayIndex) => {
         const list = byDay.get(day)!
             .sort((a, b) => importanceOf(a) - importanceOf(b) || a.localeCompare(b, 'mk'));
+        // Which of the two heaviest subjects opens the day alternates. The
+        // workbook has Monday starting мак. and Tuesday мат. in the same class,
+        // and it is also what stops two classes needing the same specialist in
+        // the first period every single morning.
+        if (list.length > 1 && (offset + dayIndex) % 2 === 1 && list[0] !== list[1]) {
+            [list[0], list[1]] = [list[1], list[0]];
+        }
         list.forEach((subject, i) => out.push({ day, ordinal: opts.periods[i], subject }));
-    }
+    });
     return out;
 }
 
@@ -217,27 +278,38 @@ export function planDemoTimetable(
         const primary = !!home && home.kind === 'odd';
         if (primary) homeroomLed++;
 
+        const index = classOrder.indexOf(cls);
         const subjects = subjectsFor(cls.grades);
         if (!subjects.length) {
             plan.problems.push(`${cls.label}: no subjects in the catalogue for grades ${cls.grades.join(', ') || '—'}.`);
             continue;
         }
 
-        for (const slot of layOutClass(subjects, opts)) {
+        for (const slot of layOutClass(subjects, opts, index)) {
             let teacherId: number | null = null;
+            const handOver = opts.physicalToSubjectTeacher === true && isPhysical(slot.subject);
 
-            if (primary && !isPhysical(slot.subject) && free(home!.id, slot.day, slot.ordinal)) {
+            if (primary && !handOver && free(home!.id, slot.day, slot.ordinal)) {
                 teacherId = home!.id;
             } else {
                 // Prefer whoever already carries this subject, then whoever the
                 // staff list says teaches it, then the lightest timetable. Each
                 // must be free in this period and still under the load cap.
-                const named = subjectTeachers.filter((t) =>
-                    t.subject && slot.subject.toLowerCase().startsWith(String(t.subject).toLowerCase().slice(0, 6)));
+                const named = subjectTeachers.filter((t) => teacherHandles(t.subject, slot.subject));
+                const lightest = (list: DemoTeacher[]) =>
+                    [...list].sort((a, b) => (plan.load.get(a.id) ?? 0) - (plan.load.get(b.id) ?? 0));
                 const ranked = [
                     ...(owner.get(slot.subject) ?? []).map((id) => byId.get(id)).filter(Boolean) as DemoTeacher[],
                     ...named,
-                    ...[...subjectTeachers].sort((a, b) => (plan.load.get(a.id) ?? 0) - (plan.load.get(b.id) ?? 0))
+                    // Whoever has NO subject recorded comes before a recorded
+                    // specialist. „Силвана е само англиски, Драган е само
+                    // физичко" — putting the Физичко teacher on Математика
+                    // because they happened to be lightest at that moment is a
+                    // plausible-looking timetable that misstates who does what.
+                    // Still allowed as the last resort: an unteachable lesson
+                    // helps nobody.
+                    ...lightest(subjectTeachers.filter((t) => !t.subject)),
+                    ...lightest(subjectTeachers)
                 ];
                 const pick = ranked.find((t) =>
                     free(t.id, slot.day, slot.ordinal) && (plan.load.get(t.id) ?? 0) < cap);
@@ -248,7 +320,7 @@ export function planDemoTimetable(
                 plan.unstaffed++;
             } else {
                 take(teacherId, slot.day, slot.ordinal);
-                if (!primary || isPhysical(slot.subject)) {
+                if (!primary || handOver) {
                     const seen = owner.get(slot.subject) ?? [];
                     if (!seen.includes(teacherId)) owner.set(slot.subject, [...seen, teacherId]);
                 }
@@ -274,13 +346,16 @@ export function planDemoTimetable(
     if (worst[1] > 1) {
         const [day, ordinal, subject] = worst[0].split('|');
         plan.notes.push(
-            `Most crowded period: ${subject} in ${worst[1]} classes at once (${day}, ${ordinal}. час). `
-            + 'Strict importance order does that — every class opens the day with the same subject.'
+            `Most crowded period: ${subject} in ${worst[1]} classes at once (${day}, ${ordinal}. час) — `
+            + `so ${worst[1]} people have to be able to teach it in that period.`
         );
     }
 
     plan.notes.push(`${plan.lessons.length} lessons · ${classOrder.length} classes · ${days.length} days × ${opts.periods.length} periods`);
-    plan.notes.push(`${homeroomLed} classes are одделенска (their class teacher holds everything but Физичко); ${classOrder.length - homeroomLed} are предметна`);
+    plan.notes.push(
+        `${homeroomLed} classes are одделенска (their class teacher holds `
+        + (opts.physicalToSubjectTeacher ? 'everything but Физичко' : 'every lesson, Физичко included')
+        + `); ${classOrder.length - homeroomLed} are предметна`);
     if (plan.unstaffed) {
         plan.problems.push(
             `${plan.unstaffed} lessons have NO teacher: nobody was free and under ${cap} lessons. `

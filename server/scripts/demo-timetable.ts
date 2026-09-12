@@ -4,6 +4,9 @@
  *   npm run demo:teaching                          dry run, current year
  *   npm run demo:teaching -- --year 2026/2027      dry run, a named year
  *   npm run demo:teaching -- --load 23             a different weekly load
+ *   npm run demo:teaching -- --fzo-pred            Физичко to an accompanying
+ *                                                  subject teacher instead of
+ *                                                  the class teacher
  *   npm run demo:teaching -- --apply               write it
  *   npm run demo:teaching -- --apply --replace     throw away what is there
  *
@@ -37,6 +40,7 @@ const yearLabel = flag('year');
 const apply = argv.includes('--apply');
 const replace = argv.includes('--replace');
 const load = Number(flag('load') ?? 21);
+const physicalToSubjectTeacher = argv.includes('--fzo-pred');
 
 const ROMAN = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX'];
 
@@ -142,7 +146,8 @@ try {
         return [...merged].map(([subject, hours]) => ({ subject, hours }));
     };
 
-    const plan = planDemoTimetable(classes, teachers, subjectsFor, { periods, load });
+    const plan = planDemoTimetable(classes, teachers, subjectsFor,
+        { periods, load, physicalToSubjectTeacher });
 
     console.log(`\nДЕМО распоред за ${year.label}${apply ? '' : '  (проба — ништо не се запишува)'}\n`);
     plan.notes.forEach((n) => console.log('  ' + n));
