@@ -371,6 +371,55 @@ const run = async () => {
         (await q(`SELECT count(*)::int AS n FROM school_classes WHERE label = $1`, ['ПОДАТ-Г']))[0].n, 1);
     await q(`DELETE FROM school_classes WHERE label = $1`, ['ПОДАТ-Г']);
 
+    console.log('\na teacher has no профил/кабинет, and the subject is offered');
+    // The owner's reading of his own staff: a teacher does not hold a cabinet.
+    // The column was empty for all 22 of them and would stay empty — and the
+    // one person who does hold a profile holds it as a THERAPIST, which is a
+    // different row in a different tab. A column that can only ever be blank is
+    // the "field with nobody to maintain it" this project refuses elsewhere.
+    await page.click('[data-tab="teachers"]');
+    await page.waitForSelector('#teachers table.list');
+    const teacherHeads = await page.locator('#teachers thead th').allTextContents();
+    check('the teachers table offers no профил/кабинет', !teacherHeads.some((h) => h.includes('Профил')),
+        JSON.stringify(teacherHeads));
+    check('and carries no category picker at all', await page.locator('#teachers [data-cat-for]').count() === 0);
+    check('the subject field is bound to the МОН catalogue',
+        await page.locator('#teachers .t-subject').first().getAttribute('list') === 'podSubjects');
+    // An OFFER, never a restriction: the field still takes anything typed, which
+    // is why the school's own abbreviations survive a re-import.
+    await page.waitForFunction(() => document.querySelectorAll('#podSubjects option').length > 5,
+        null, { timeout: 8000 }).catch(() => {});
+    check('and the catalogue actually arrives',
+        await page.locator('#podSubjects option').count() > 5);
+
+    console.log('\nwhat the database holds is said at rest, not only after a save');
+    // The choice saved on change and reported it with a toast that vanished, so
+    // seconds later the row claimed nothing and the honest response was to type
+    // it in again. The marker is derived from the STORED value on every draw,
+    // so a reload is what proves it: if it still says so after F5, it is a read
+    // of the database and not a memory of the click.
+    const [anyCategory] = await q('SELECT id, name FROM specialist_categories ORDER BY id LIMIT 1');
+    await q(`UPDATE therapist_years SET category_id = $1
+              WHERE school_year_id = $2
+                AND therapist_id = (SELECT id FROM therapists WHERE name = $3)`,
+        [anyCategory.id, newYear.id, THERAPIST]);
+    await page.reload({ waitUntil: 'networkidle' });
+    await page.click('[data-tab="therapists"]');
+    await page.waitForSelector('#therapists table.list');
+    const stateCell = page.locator(`#therapists tr:has(input[value="${THERAPIST}"]) [data-cat-state]`).first();
+    check('a held profile reads as being in the database',
+        ((await stateCell.textContent()) || '').includes('во базата'));
+    await q(`UPDATE therapist_years SET category_id = NULL
+              WHERE school_year_id = $1
+                AND therapist_id = (SELECT id FROM therapists WHERE name = $2)`,
+        [newYear.id, THERAPIST]);
+    await page.reload({ waitUntil: 'networkidle' });
+    await page.click('[data-tab="therapists"]');
+    await page.waitForSelector('#therapists table.list');
+    const emptyCell = page.locator(`#therapists tr:has(input[value="${THERAPIST}"]) [data-cat-state]`).first();
+    check('and an unheld one says so rather than looking merely blank',
+        ((await emptyCell.textContent()) || '').includes('не е поставен'));
+
     console.log('\nthe page keeps nothing of its own');
     // The rule this guards is that NO SCHOOL DATA lives in a browser -- the
     // database is the only place a child exists. It used to be spelled "storage

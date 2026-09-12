@@ -181,6 +181,9 @@
        the row reads as an empty field rather than as something to pick from. */
     .picker select[data-move-student] { width: auto; min-width: 190px; }
     .none { color: var(--muted); font-size: 12px; }
+    /* What the DATABASE holds, said at rest — not a toast that vanishes. */
+    .stored { color: #35c08a; font-size: 12px; white-space: nowrap; }
+    .cat-cell { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 
     .picker { display: none; margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--border); }
     .picker.open { display: block; }
@@ -1115,11 +1118,41 @@
     }
 
     // ── наставници ──────────────────────────────────────────────────────────
+    /**
+     * Предметите од каталогот на МОН, понудени и тука.
+     *
+     * The field was a bare text box while `teaching_subjects` had held the
+     * catalogue since migration 032 and NastavaUredi already offered it. One
+     * read, cached for the page: a list of forty is not worth fetching per row.
+     */
+    let subjectCatalogue = null, subjectCataloguePromise = null;
+
+    function loadSubjectCatalogue() {
+        if (subjectCatalogue) return Promise.resolve(subjectCatalogue);
+        if (!subjectCataloguePromise) {
+            subjectCataloguePromise = api('GET', '/api/teaching/subjects?year=' + encodeURIComponent(data.year))
+                .then((r) => { subjectCatalogue = (r.subjects || []).map((x) => x.subject); return subjectCatalogue; })
+                // An older server without this endpoint simply offers nothing;
+                // the field still accepts anything typed, so nothing is lost.
+                .catch(() => { subjectCataloguePromise = null; return []; });
+        }
+        return subjectCataloguePromise;
+    }
+
+    /**
+     * What is ALREADY STORED comes first, so a saved abbreviation the catalogue
+     * has never heard of does not read as a mistake somebody has to correct.
+     */
+    function subjectOptions() {
+        const stored = (data.teachers || []).map((t) => tidy(t.subject || '')).filter(Boolean);
+        return Array.from(new Set([...stored, ...(subjectCatalogue || [])]))
+            .map((name) => `<option value="${esc(name)}"></option>`).join('');
+    }
+
     function drawTeachers() {
         el('teachers').innerHTML =
             '<table class="list"><thead><tr><th class="row-number">Р.Бр.</th><th style="width:230px;">Име</th><th style="width:180px;">Улога</th>'
-            + '<th style="width:200px;">Профил / кабинет</th>'
-            + '<th style="width:110px;">Предмет</th><th>Одделенија оваа година</th><th></th></tr></thead><tbody>'
+            + '<th style="width:150px;">Предмет</th><th>Одделенија оваа година</th><th></th></tr></thead><tbody>'
             + (data.teachers || []).map((t, index) =>
                 `<tr data-teacher="${t.id}">`
                 + `<td class="row-number">${index + 1}.</td>`
@@ -1128,8 +1161,7 @@
                 + `<option value="odd"${t.kind === 'odd' ? ' selected' : ''}>одделенски наставник</option>`
                 + `<option value="pred"${t.kind === 'pred' ? ' selected' : ''}>предметен наставник</option>`
                 + '</select></td>'
-                + `<td>${categoryPicker('teacher', t.id)}</td>`
-                + `<td><input class="t-subject" value="${esc(t.subject || '')}"></td>`
+                + `<td><input class="t-subject" list="podSubjects" value="${esc(t.subject || '')}"></td>`
                 + `<td>${(t.classes || []).length
                         ? `<span class="chips">${t.classes.map((c) =>
                             `<span class="chip${c.role === 'homeroom' ? ' home' : ''}" title="${c.role === 'homeroom' ? 'раководител' : 'предава'}">${esc(c.label)}</span>`).join('')}</span>`
@@ -1138,10 +1170,17 @@
                 + `<button class="btn soft" data-save-teacher="${t.id}">Зачувај податоци</button> `
                 + (data.isCurrentYear ? `<button class="btn soft danger" data-remove-teacher="${t.id}">Тргни од ${esc(data.year)}</button>` : '')
                 + '</td></tr>').join('')
-            + '</tbody></table>';
+            + '</tbody></table>'
+            + `<datalist id="podSubjects">${subjectOptions()}</datalist>`;
 
-        el('teachers').querySelectorAll('[data-cat-for]').forEach((sel) =>
-            sel.addEventListener('change', () => saveCategory(sel)));
+        // The catalogue is an OFFER, not a restriction: `teachers.subject` stays
+        // free text because the school's workbook writes abbreviations („ФЗО.")
+        // that the server understands through SUBJECT_ALIASES, and one pick from
+        // a menu must not quietly replace them. A `datalist` does exactly that —
+        // it suggests, and it never rejects what is typed.
+        if (subjectCatalogue === null) {
+            loadSubjectCatalogue().then((list) => { if (list.length) drawTeachers(); });
+        }
         el('teachers').querySelectorAll('tr[data-teacher]').forEach((row) => {
             syncTeacherSubject(row);
             row.querySelector('.t-kind').addEventListener('change', () => syncTeacherSubject(row));
@@ -1224,17 +1263,33 @@
      * year must keep saying what was true then. So the picker is disabled on
      * an archived year for the same reason the rest of this screen is.
      */
+    /**
+     * „Дали е ова во базата?" — одговорено во мирување, не само по зачувување.
+     *
+     * The choice saves on change and said so with a toast that disappears, so
+     * seconds later the row itself no longer claimed anything. The honest
+     * response to a screen that will not say is to type it in again, which is
+     * exactly what the owner was doing. This marker is derived from the STORED
+     * value on every draw, so it answers the question at rest.
+     */
+    const categoryState = (held) => held
+        ? '<span class="stored" data-cat-state>✓ во базата</span>'
+        : '<span class="none" data-cat-state>не е поставен</span>';
+
     function categoryPicker(kind, personId) {
         const list = (data.categories || []);
         if (!list.length) return '<span class="hint">—</span>';
         const held = ((data.categoryOf || {})[kind] || {})[personId] || '';
-        return `<select class="th-category" data-cat-kind="${kind}" data-cat-for="${personId}"`
+        return '<span class="cat-cell">'
+            + `<select class="th-category" data-cat-kind="${kind}" data-cat-for="${personId}"`
             + (data.isCurrentYear ? '' : ' disabled') + '>'
             + '<option value="">— без профил / кабинет —</option>'
             + list.map((c) =>
                 `<option value="${c.id}"${String(c.id) === String(held) ? ' selected' : ''}>`
                 + `${esc(c.name)}</option>`).join('')
-            + '</select>';
+            + '</select>'
+            + categoryState(held)
+            + '</span>';
     }
 
     async function saveCategory(select) {
@@ -1244,12 +1299,16 @@
         const was = ((data.categoryOf || {})[kind] || {})[personId] || null;
         select.disabled = true;
         try {
-            await api('PUT', '/api/categories/holder', {
+            const answer = await api('PUT', '/api/categories/holder', {
                 year: el('year').value, kind, personId, categoryId
             });
-            data.categoryOf[kind][personId] = categoryId;
+            // What the server says it stored, not what this tab asked for.
+            const stored = answer && answer.categoryId !== undefined ? answer.categoryId : categoryId;
+            data.categoryOf[kind][personId] = stored;
+            const mark = select.parentElement && select.parentElement.querySelector('[data-cat-state]');
+            if (mark) mark.outerHTML = categoryState(stored);
             const chosen = select.options[select.selectedIndex];
-            status(categoryId
+            status(stored
                 ? 'Профилот / кабинетот е зачуван: ' + (chosen ? chosen.textContent : '')
                 : 'Профилот / кабинетот е тргнат.', 'ok', { toast: true });
             flash(select, 'ok');
@@ -1257,6 +1316,8 @@
             // Put the picker back to what the server still holds rather than
             // leaving the screen claiming a change that did not land.
             select.value = was === null ? '' : String(was);
+            const mark = select.parentElement && select.parentElement.querySelector('[data-cat-state]');
+            if (mark) mark.outerHTML = categoryState(was);
             status('Профилот / кабинетот не е зачуван: ' + (err.message || err), 'error', { toast: true });
             flash(select, 'error');
         } finally {
