@@ -171,6 +171,15 @@
         background: var(--soft); border: 1px solid var(--border);
     }
     .chip.home { background: var(--accent); color: #fff; border-color: transparent; }
+    /* A chip that is also the way to the screen which OWNS the fact it shows. */
+    .chip.link { cursor: pointer; font: inherit; font-size: 12px; }
+    .chip.link:hover, .chip.link:focus-visible { border-color: var(--accent); color: var(--accent); }
+    .chip.off { opacity: .55; cursor: default; }
+    .class-pupils { display: flex; align-items: baseline; gap: 6px; flex-wrap: wrap; }
+    .class-pupils .count { font-variant-numeric: tabular-nums; font-weight: 600; }
+    /* The move control is one choice, not a column: a select stretched across
+       the row reads as an empty field rather than as something to pick from. */
+    .picker select[data-move-student] { width: auto; min-width: 190px; }
     .none { color: var(--muted); font-size: 12px; }
 
     .picker { display: none; margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--border); }
@@ -663,6 +672,10 @@
     function saySorry(res, body) {
         const raw = (body && (body.error || body.message)) || ('HTTP ' + (res ? res.status : '?'));
         if (body && body.archived) return 'Тој ученик е архивиран — се менува во S-Dnevnik.';
+        if (body && body.needsClass) {
+            return 'Интерен и интернатски ученик мора да има одделение. Премести го во друго одделение '
+                 + 'наместо да го оставиш без; ако навистина е надворешен, смени му го видот во „Ученици“.';
+        }
         if (body && body.inactiveThisYear) return 'Записот не е активен во оваа учебна година. Додади го од „Предлози од претходни години“.';
         if (res && res.status === 409 && /renamed while you were editing/.test(raw)) {
             return 'Некој го преименува во меѓувреме. Освежи и погледни што стои сега.';
@@ -1364,30 +1377,57 @@
         }));
     }
 
-    function drawClasses() {
-        const studentsOf = new Map();
+    const kindLabelOf = (kind) =>
+        (KINDS.find(([value]) => value === (kind || 'internal')) || [])[1] || '';
+
+    /** Only an external pupil may be left without a class -- migration 029. */
+    const mayHaveNoClass = (kind) => (kind || 'internal') === 'external';
+
+    /** The pupils carrying a class label, by that label, sorted for reading. */
+    function pupilsByClass() {
+        const byLabel = new Map();
         (data.students || []).forEach((s) => {
             if (!s.grade) return;
-            studentsOf.set(s.grade, (studentsOf.get(s.grade) || 0) + 1);
+            if (!byLabel.has(s.grade)) byLabel.set(s.grade, []);
+            byLabel.get(s.grade).push(s);
         });
+        byLabel.forEach((list) => list.sort((a, b) =>
+            personName(a.name).localeCompare(personName(b.name), 'mk-MK')));
+        return byLabel;
+    }
+
+    function drawClasses() {
+        const pupilsOf = pupilsByClass();
 
         el('classes').innerHTML =
-            '<table class="list"><thead><tr><th class="row-number">Р.Бр.</th><th style="width:180px;">Одделение</th><th style="width:90px;">Ученици</th>'
+            '<table class="list"><thead><tr><th class="row-number">Р.Бр.</th><th style="width:180px;">Одделение</th><th style="width:280px;">Ученици</th>'
             + '<th style="width:220px;">Раководител</th><th>Предметни наставници</th><th></th></tr></thead><tbody>'
             + (data.classes || []).map((c, index) => {
                 const assigned = teachersForClass(c.label);
                 const homeroom = assigned.find((teacher) => teacher.role === 'homeroom');
                 const subjects = assigned.filter((teacher) => teacher.role !== 'homeroom');
+                const pupils = pupilsOf.get(c.label) || [];
                 return `<tr data-class="${c.id}">`
                     + `<td class="row-number">${index + 1}.</td>`
                     + `<td><span class="class-label">${esc(c.label)}</span></td>`
-                    + `<td>${studentsOf.get(c.label) || 0}</td>`
-                    + `<td>${homeroom ? `<span class="chip home">${esc(personName(homeroom.name))}</span>` : '<span class="none">не е одреден</span>'}</td>`
+                    + '<td><span class="class-pupils">'
+                    + `<span class="count">${pupils.length}</span>`
+                    + (pupils.length
+                        ? `<span class="chips">${pupils.map((s) => s.active
+                            ? `<button type="button" class="chip link" data-goto-student="${esc(s.public_id)}"`
+                              + ` title="Отвори го во „Ученици“">${esc(personName(s.name))}</button>`
+                            : `<span class="chip off" title="архивиран">${esc(personName(s.name))}</span>`).join('')}</span>`
+                        : '<span class="none">нема ученици</span>')
+                    + '</span></td>'
+                    + `<td>${homeroom
+                            ? `<button type="button" class="chip home link" data-goto-teacher="${homeroom.id}" title="Отвори го во „Наставници“">${esc(personName(homeroom.name))}</button>`
+                            : '<span class="none">не е одреден</span>'}</td>`
                     + `<td>${subjects.length
                             ? `<span class="chips">${subjects.map((teacher) =>
-                                `<span class="chip">${esc(personName(teacher.name))}</span>`).join('')}</span>`
+                                `<button type="button" class="chip link" data-goto-teacher="${teacher.id}" title="Отвори го во „Наставници“">${esc(personName(teacher.name))}</button>`).join('')}</span>`
                             : '<span class="none">нема</span>'}</td>`
                     + '<td class="act"><span class="class-actions">'
+                    + `<button class="btn soft" data-edit-class-students="${c.id}">Ученици…</button>`
                     + `<button class="btn soft" data-edit-class-teachers="${c.id}">Наставници…</button>`
                     + `<button class="btn soft" data-edit-class-label="${c.id}">Смени ознака…</button>`
                     + (data.isCurrentYear ? `<button class="btn soft danger" data-remove-class="${c.id}">Тргни од ${esc(data.year)}</button>` : '')
@@ -1395,6 +1435,8 @@
             }).join('')
             + '</tbody></table>';
 
+        el('classes').querySelectorAll('[data-edit-class-students]').forEach((button) =>
+            button.addEventListener('click', () => openClassStudents(Number(button.dataset.editClassStudents))));
         el('classes').querySelectorAll('[data-edit-class-teachers]').forEach((button) =>
             button.addEventListener('click', () => openClassTeachers(Number(button.dataset.editClassTeachers))));
         el('classes').querySelectorAll('[data-edit-class-label]').forEach((button) =>
@@ -1403,6 +1445,138 @@
             const cls = (data.classes || []).find((item) => item.id === Number(button.dataset.removeClass));
             button.addEventListener('click', () => removeFromYear('class', cls.id, cls.label));
         });
+        el('classes').querySelectorAll('[data-goto-student]').forEach((button) =>
+            button.addEventListener('click', () => focusStudent(button.dataset.gotoStudent)));
+        el('classes').querySelectorAll('[data-goto-teacher]').forEach((button) =>
+            button.addEventListener('click', () => focusTeacher(Number(button.dataset.gotoTeacher))));
+    }
+
+    /**
+     * Where a fact is SHOWN, offer the way to where it is CHANGED.
+     *
+     * „Одделенија“ shows a pupil's name and the teacher holding the class, and
+     * edits neither: the pupil's class is saved in „Ученици“ and the homeroom
+     * in „Наставници“. Reading a name here and then having to find the same
+     * person again by hand in another tab is the step these two remove.
+     *
+     * The search box and the kind filter are cleared first. A pupil hidden
+     * behind a filter would otherwise land the person on a tab where the row
+     * they just clicked is not drawn at all, which reads as a broken link
+     * rather than as a filter still being on.
+     */
+    function focusStudent(publicId) {
+        el('studentSearch').value = '';
+        el('studentKindFilter').value = '';
+        drawStudents();
+        setTab('students');
+        const row = el('students').querySelector(`[data-student="${CSS.escape(publicId)}"]`);
+        if (!row) return status('Тој ученик не е на списокот за оваа година.', 'warn', { toast: true });
+        row.scrollIntoView({ block: 'center', behavior: 'smooth' });
+        flash(row.querySelector('.s-name') || row, 'ok');
+    }
+
+    function focusTeacher(id) {
+        setTab('teachers');
+        const row = el('teachers').querySelector(`[data-teacher="${id}"]`);
+        if (!row) return status('Тој наставник не е на списокот за оваа година.', 'warn', { toast: true });
+        row.scrollIntoView({ block: 'center', behavior: 'smooth' });
+        flash(row.querySelector('.t-name') || row, 'ok');
+    }
+
+    /**
+     * Who is in this class, and the way to put somebody in it.
+     *
+     * A pupil holds ONE class per school year -- it is a single column on the
+     * enrolment -- so putting them here takes them out of wherever they were,
+     * with no second write to undo and nothing to keep in step. That is why
+     * this panel offers no „remove from the other class“ step: there is no
+     * such fact to remove.
+     *
+     * It writes through PATCH /api/students, the endpoint that already owns a
+     * pupil's class (rule 5), and sends ONLY the class -- never the name, so
+     * this screen cannot restate a spelling somebody corrected elsewhere, and
+     * never the kind, which is answered in „Ученици“.
+     */
+    function openClassStudents(id) {
+        const cls = (data.classes || []).find((item) => item.id === id);
+        if (!cls) return;
+        closePickers();
+        const active = (data.students || []).filter((s) => s.active)
+            .sort((a, b) => personName(a.name).localeCompare(personName(b.name), 'mk-MK'));
+        const mine = active.filter((s) => s.grade === cls.label);
+        const others = active.filter((s) => s.grade !== cls.label);
+        const elsewhereLabels = classLabels().filter((label) => label !== cls.label);
+        const box = el('classEditor');
+        box.className = 'picker open';
+        box.innerHTML =
+            `<h3>Ученици во ${esc(cls.label)} <span class="none">· ${esc(data.year)}</span></h3>`
+            + '<p class="hint">Одделението е факт за оваа учебна година. Ученикот е во точно едно одделение, '
+            + 'па ставањето овде сам го вади од претходното — нема посебно тргање.</p>'
+            + (others.length
+                ? '<div class="controls">'
+                  + '<label class="field"><span>Додај ученик од списокот</span><select id="classAddStudent">'
+                  + '<option value="">— избери ученик —</option>'
+                  + others.map((s) => `<option value="${esc(s.public_id)}">`
+                      + `${esc(personName(s.name))} · ${esc(s.grade ? 'сега ' + s.grade : 'без одделение')}`
+                      + '</option>').join('')
+                  + '</select></label>'
+                  + `<button class="btn" data-add-class-student="${id}">Стави во ${esc(cls.label)}</button>`
+                  + '<button class="btn soft" data-close-picker>Затвори</button></div>'
+                : '<p class="hint">Сите ученици од списокот се веќе во ова одделение.</p>'
+                  + '<div class="controls"><button class="btn soft" data-close-picker>Затвори</button></div>')
+            + '<h4>Во ова одделение</h4>'
+            + (mine.length
+                ? '<table class="list"><tbody>' + mine.map((s, index) =>
+                    `<tr data-class-pupil="${esc(s.public_id)}">`
+                    + `<td class="row-number">${index + 1}.</td>`
+                    + `<td>${esc(personName(s.name))} <span class="none">· ${esc(kindLabelOf(s.kind))}</span></td>`
+                    + '<td class="act"><select data-move-student="' + esc(s.public_id) + '">'
+                    + `<option value="">— премести во… —</option>`
+                    + elsewhereLabels.map((label) => `<option value="${esc(label)}">${esc(label)}</option>`).join('')
+                    + (mayHaveNoClass(s.kind) ? '<option value="__none__">— без одделение —</option>' : '')
+                    + '</select></td></tr>').join('')
+                  + '</tbody></table>'
+                : '<p class="hint">Сè уште нема ученици во ова одделение.</p>');
+
+        const add = box.querySelector('[data-add-class-student]');
+        if (add) {
+            add.addEventListener('click', () => {
+                const publicId = box.querySelector('#classAddStudent').value;
+                if (!publicId) return status('Избери ученик.', 'warn', { toast: true });
+                setClassOfStudent(publicId, cls.label, id);
+            });
+        }
+        box.querySelectorAll('[data-move-student]').forEach((select) =>
+            select.addEventListener('change', () => {
+                if (!select.value) return;
+                setClassOfStudent(select.dataset.moveStudent,
+                    select.value === '__none__' ? null : select.value, id);
+            }));
+        box.querySelectorAll('[data-close-picker]').forEach((button) =>
+            button.addEventListener('click', closePickers));
+        box.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    }
+
+    async function setClassOfStudent(publicId, label, classId) {
+        const was = (data.students || []).find((s) => s.public_id === publicId);
+        if (!was) return;
+        const from = was.grade;
+        try {
+            await api('PATCH', '/api/students/' + encodeURIComponent(publicId), {
+                grade: label,
+                year: data.year,
+                // What this tab believed the name was, exactly as „Ученици“
+                // sends it: a rename made on another machine must not be
+                // undone by a class change made here.
+                expected: was.name
+            });
+            await load();
+            if (classId != null) openClassStudents(classId);
+            status(label
+                ? `${personName(was.name)} е во ${label}${from && from !== label ? ' (беше ' + from + ')' : ''}`
+                : `${personName(was.name)} е без одделение`,
+                'ok', { toast: true });
+        } catch (err) { status(err.message, 'error', { toast: true }); }
     }
 
     function openClassTeachers(id) {

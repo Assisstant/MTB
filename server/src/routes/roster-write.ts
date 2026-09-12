@@ -273,6 +273,35 @@ export async function rosterWriteRoutes(server: FastifyInstance) {
             // owner, and it is S-Dnevnik's archive, not this endpoint.
             let enrolled = true;
             if (yid != null) {
+                // Migration 029 put this rule in the database: an ACTIVE
+                // internal or boarding pupil must have a class. Reached
+                // through a plain UPDATE it surfaces as the constraint's own
+                // name under an HTTP 500 — which reads as a broken endpoint
+                // rather than as the rule it is, and the screen that clears
+                // the field is exactly where a person meets it. So ask first,
+                // and name the move that IS legal: a pupil leaves a class by
+                // going to another one, not by being left without any.
+                // FOR UPDATE so the read and the write below are one
+                // decision: taken AFTER the students row above, which is the
+                // order every writer in this project takes the two tables.
+                const enr = await client.query(
+                    `SELECT grade, kind, active FROM student_enrollments
+                      WHERE student_id = $1 AND school_year_id = $2 FOR UPDATE`,
+                    [cur.rows[0].id, yid]
+                );
+                if (enr.rows.length) {
+                    const nextKind = body.kind ?? enr.rows[0].kind;
+                    const nextGrade = body.grade !== undefined ? grade : enr.rows[0].grade;
+                    if (enr.rows[0].active
+                        && (nextKind === 'internal' || nextKind === 'boarding')
+                        && !asText(nextGrade)) {
+                        await client.query('ROLLBACK');
+                        return reply.code(409).send({
+                            error: `an active ${nextKind} pupil must have a class`,
+                            needsClass: true, kind: nextKind
+                        });
+                    }
+                }
                 const touched = await client.query(
                     `UPDATE student_enrollments
                         SET grade = CASE WHEN $5::boolean THEN $3 ELSE grade END,

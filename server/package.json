@@ -33,6 +33,7 @@
     "test:teaching-edit": "tsx test/teaching-edit.e2e.ts",
     "test:uredi": "node test/nastava-uredi.browser.mjs",
     "test:podatoci": "node test/podatoci.browser.mjs",
+    "test:podatoci-classes": "node test/podatoci-classes.browser.mjs",
     "test:annual-roster": "tsx test/annual-roster.e2e.ts",
     "test:purge": "tsx test/roster-purge.e2e.ts",
     "test:fusion": "tsx test/fusion-schedule.e2e.ts",
