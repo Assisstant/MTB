@@ -190,6 +190,45 @@ async function main() {
     const missing = await call('PATCH', '/api/students/RS-nothing-here', { name: 'X' });
     check('an unknown id is 404, not a silent insert', () => assert.equal(missing.status, 404));
 
+    // ── одделение: the generation, which is NOT the паралелка ──────────────
+    // Migration 030 made the column and 031 named it the owner of the
+    // generation range; until now nothing could write it. They coincide for a
+    // numbered class and NOT for a combined one, so the two must move apart.
+    const gradeOnly = await call('PATCH', `/api/students/${PUBLIC_ID}`, { grade: 'II комб.' });
+    check('the paralelka is written', () => assert.equal(gradeOnly.status, 200));
+    const afterGrade = await pool.query(
+        `SELECT e.grade, e.oddelenie FROM student_enrollments e
+         JOIN students s ON s.id = e.student_id WHERE s.public_id = $1`, [PUBLIC_ID]);
+    check('and writing it alone leaves the generation untouched',
+        () => assert.equal(afterGrade.rows[0].oddelenie, null));
+
+    const both = await call('PATCH', `/api/students/${PUBLIC_ID}`, { oddelenie: 'III' });
+    check('the generation is written on its own', () => assert.equal(both.status, 200));
+    const afterOdd = await pool.query(
+        `SELECT e.grade, e.oddelenie FROM student_enrollments e
+         JOIN students s ON s.id = e.student_id WHERE s.public_id = $1`, [PUBLIC_ID]);
+    check('the two are separate facts, and both survive', () => {
+        assert.equal(afterOdd.rows[0].grade, 'II комб.');
+        assert.equal(afterOdd.rows[0].oddelenie, 'III');
+    });
+
+    // A pupil taught in a combined paralelka is what this exists for: the
+    // subject offer is built from the GENERATION, and reading it off the label
+    // („II комб.") would offer the wrong curriculum.
+    const rosterBack = await call('GET', '/api/roster');
+    const seen = (rosterBack.body.students || []).find((x: any) => x.public_id === PUBLIC_ID);
+    check('and the roster hands both back, or no screen can show them',
+        () => { assert.equal(seen?.grade, 'II комб.'); assert.equal(seen?.oddelenie, 'III'); });
+
+    const cleared = await call('PATCH', `/api/students/${PUBLIC_ID}`, { oddelenie: null });
+    const afterClear = await pool.query(
+        `SELECT e.oddelenie FROM student_enrollments e
+         JOIN students s ON s.id = e.student_id WHERE s.public_id = $1`, [PUBLIC_ID]);
+    check('and it can be cleared, not only set', () => {
+        assert.equal(cleared.status, 200);
+        assert.equal(afterClear.rows[0].oddelenie, null);
+    });
+
     // ── therapists ────────────────────────────────────────────────────────
     console.log('\ntherapists');
 

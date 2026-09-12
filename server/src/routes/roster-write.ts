@@ -41,6 +41,22 @@ const StudentBody = z.object({
 const StudentPatch = z.object({
     name: z.string().min(1).max(200).optional(),
     grade: z.string().max(40).nullable().optional(),
+    /**
+     * The pupil's GENERATION, which is not their паралелка.
+     *
+     * Migration 030 created the column and 031 named it the owner of the
+     * generation range; until now nothing could write it — it was added by
+     * hand on one machine and read by `/api/teaching/subjects` alone. A fact
+     * with a reader and no writer is a fact that goes stale the first time a
+     * child moves up.
+     *
+     * They coincide for eleven of this school's classes and NOT for the five
+     * комбинирани: a child in „II комбинирана 2,3,4" is in the THIRD grade and
+     * taught in the SECOND combined паралелка. One field for both is the
+     * mistake those two migrations exist to prevent, so this is separate from
+     * `grade` and is written only when the caller names it.
+     */
+    oddelenie: z.string().max(40).nullable().optional(),
     /** Row-level optimistic concurrency: the name the caller believes is stored. */
     expected: z.string().max(200).optional(),
     /**
@@ -203,7 +219,8 @@ export async function rosterWriteRoutes(server: FastifyInstance) {
         catch (err) { return refuseScope(reply, err); }
         const publicId = String((req.params as any).publicId || '').trim();
         const body = StudentPatch.parse(req.body);
-        if (body.name === undefined && body.grade === undefined && body.kind === undefined) {
+        if (body.name === undefined && body.grade === undefined
+            && body.kind === undefined && body.oddelenie === undefined) {
             return reply.code(400).send({ error: 'nothing to change' });
         }
 
@@ -259,9 +276,12 @@ export async function rosterWriteRoutes(server: FastifyInstance) {
                 const touched = await client.query(
                     `UPDATE student_enrollments
                         SET grade = CASE WHEN $5::boolean THEN $3 ELSE grade END,
-                            kind = COALESCE($4, kind)
+                            kind = COALESCE($4, kind),
+                            oddelenie = CASE WHEN $7::boolean THEN $6 ELSE oddelenie END
                       WHERE student_id = $1 AND school_year_id = $2`,
-                    [cur.rows[0].id, yid, grade, body.kind ?? null, body.grade !== undefined]
+                    [cur.rows[0].id, yid, grade, body.kind ?? null, body.grade !== undefined,
+                     body.oddelenie === undefined ? null : asText(body.oddelenie),
+                     body.oddelenie !== undefined]
                 );
                 enrolled = (touched.rowCount ?? 0) > 0;
             }

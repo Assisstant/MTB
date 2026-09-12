@@ -149,7 +149,8 @@ export async function dataRoutes(server: FastifyInstance) {
                 [year.id, year.is_current]
             ),
             pool.query(
-                `SELECT s.public_id, s.sdnevnik_id::text AS sdnevnik_id, s.name, e.grade, e.kind, s.active,
+                `SELECT s.public_id, s.sdnevnik_id::text AS sdnevnik_id, s.name, e.grade,
+                        e.oddelenie, e.kind, s.active,
                         coalesce(array_agg(DISTINCT t.name) FILTER (WHERE t.name IS NOT NULL AND thy.active), '{}') AS therapists
                  FROM student_enrollments e
                  JOIN students s ON s.id = e.student_id
@@ -157,7 +158,7 @@ export async function dataRoutes(server: FastifyInstance) {
                  LEFT JOIN therapists t ON t.id = ts.therapist_id
                  LEFT JOIN therapist_years thy ON thy.therapist_id = t.id AND thy.school_year_id = $1
                  WHERE e.school_year_id = $1 AND e.active AND (s.active OR NOT $2::boolean)
-                 GROUP BY s.id, e.grade, e.kind ORDER BY e.grade NULLS LAST, s.name`,
+                 GROUP BY s.id, e.grade, e.oddelenie, e.kind ORDER BY e.grade NULLS LAST, s.name`,
                 [year.id, year.is_current]
             ),
             pool.query(
