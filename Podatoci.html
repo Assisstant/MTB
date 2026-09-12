@@ -1192,8 +1192,8 @@
      */
     function drawTeachers() {
         el('teachers').innerHTML =
-            '<table class="list"><thead><tr><th class="row-number">Р.Бр.</th><th style="width:230px;">Име</th><th style="width:180px;">Улога</th>'
-            + '<th style="width:250px;">Предмети</th><th>Одделенија оваа година</th><th></th></tr></thead><tbody>'
+            '<table class="list"><thead><tr><th class="row-number">Р.Бр.</th><th style="width:230px;">Име</th><th style="width:190px;">Улога</th>'
+            + '<th style="min-width:440px;">Предмети</th><th style="width:150px;">Одделенија оваа година</th><th></th></tr></thead><tbody>'
             + (data.teachers || []).map((t, index) =>
                 `<tr data-teacher="${t.id}">`
                 + `<td class="row-number">${index + 1}.</td>`
