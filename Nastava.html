@@ -364,17 +364,41 @@
             + '</tr>';
     }
 
+    /**
+     * Every class on the year's list gets a row, even one with no lesson yet —
+     * plus any the timetable names that is NOT on the list, marked rather than
+     * dropped. The same split as `teacherRows`, for the same reason: the list
+     * of CLASSES and the list of LESSONS are different questions.
+     *
+     * Reading the first out of the second emptied this whole view the morning a
+     * year's invalid timetable was thrown away to be retyped — sixteen classes
+     * alive in the database and not one row on screen.
+     *
+     * The server's order is KEPT, never re-sorted here: it comes from
+     * `sort_key`, which knows that IX follows VIII. `localeCompare` does not —
+     * it reads the labels as words and puts IX before V.
+     */
+    function classRows() {
+        const rows = new Map();
+        (data.classes || []).forEach((c) => rows.set(c.label, new Map()));
+        const offList = new Set();
+        data.cells.forEach((c) => {
+            if (!rows.has(c.class)) { rows.set(c.class, new Map()); offList.add(c.class); }
+        });
+        return { rows, offList, order: Array.from(rows.keys()) };
+    }
+
     function drawByClass() {
         const periods = data.bells.teaching || [];
-        const byClass = new Map();
-        data.cells.forEach((c) => {
-            if (!byClass.has(c.class)) byClass.set(c.class, new Map());
-            byClass.get(c.class).set(c.ordinal, c);
-        });
+        const { rows: byClass, offList, order } = classRows();
+        data.cells.forEach((c) => { byClass.get(c.class).set(c.ordinal, c); });
 
         let html = '<table class="grid"><thead>' + periodHeader() + '</thead><tbody>';
-        byClass.forEach((row, label) => {
-            html += `<tr><th>${esc(label)}</th>`;
+        order.forEach((label) => {
+            const row = byClass.get(label);
+            html += `<tr><th>${esc(label)}`
+                + (offList.has(label) ? '<span class="off-staff">не е на списокот оваа година</span>' : '')
+                + '</th>';
             periods.forEach((p) => {
                 const cell = row.get(p.ordinal);
                 if (!cell) { html += '<td class="cell free">—</td>'; return; }

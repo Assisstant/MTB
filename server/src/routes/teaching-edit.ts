@@ -8,9 +8,11 @@
  * read path writes, and nothing here draws.
  *
  *   PUT    /api/teaching/lesson        one cell: (year, day, period, class)
+ *   PUT    /api/teaching/teacher-lesson  the same cell: (year, day, period, teacher)
  *   DELETE /api/teaching/lesson/:id    remove one lesson
  *   POST   /api/teaching/class         add a class
- *   PATCH  /api/teaching/class/:id     rename one
+ *   PATCH  /api/teaching/class/:id     rename one, globally and for every year
+ *   PUT    /api/teaching/class/:id/description  what it is, THIS year
  *   PUT    /api/teaching/class/:id/teachers   who holds it, THIS year
  *   POST   /api/teaching/teacher       add a teacher
  *   PUT    /api/teaching/teacher/:id   name, subject, kind
@@ -28,7 +30,7 @@ import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { pool } from '../db.js';
 import { TEACHING_DAYS, classSortKey } from '../lib/teaching.js';
-import { copyYearLessons, putLesson, upsertClass, setClassTeachers, setTeacherClasses, tidy } from '../lib/teaching-edit.js';
+import { copyYearLessons, putLesson, putTeacherLesson, setClassDescription, upsertClass, setClassTeachers, setTeacherClasses, tidy } from '../lib/teaching-edit.js';
 import { personName } from '../lib/import-core.js';
 
 /** `school_years.label` is free text; a limit shorter than the column reads as a missing year. */
@@ -49,9 +51,31 @@ const LessonBody = z.object({
     }).nullable().optional()
 });
 
+/** The same cell as LessonBody, keyed by the teacher rather than by the class. */
+const TeacherLessonBody = z.object({
+    year: YearRef.optional(),
+    day: z.string().min(1).max(40),
+    ordinal: z.coerce.number().int().min(1).max(12),
+    /** A teacher's NAME, because that is what the grid's row is labelled with. */
+    teacher: z.string().min(1).max(200),
+    /** The class they are with. null empties the period. */
+    class: z.string().max(40).nullable().optional(),
+    subject: z.string().max(120).nullable().optional(),
+    /** Which class the caller believes is in this teacher's period; null means empty. */
+    expected: z.object({ class: z.string().max(40).nullable().optional() }).nullable().optional()
+});
+
 const ClassBody = z.object({
     label: z.string().min(1).max(40),
     year: YearRef.optional()
+});
+
+/** The school's own words about a class, for ONE year. Blank clears it. */
+const DescriptionBody = z.object({
+    year: YearRef.optional(),
+    description: z.string().max(200).nullable().optional(),
+    /** What the caller believes is written there; null means empty. */
+    expected: z.string().max(200).nullable().optional()
 });
 
 const ClassTeachersBody = z.object({
@@ -209,6 +233,101 @@ export async function teachingEditRoutes(server: FastifyInstance) {
     });
 
     /**
+     * The same cell, addressed by TEACHER instead of by class.
+     *
+     * A new timetable is filled in along the staff list, not along the class
+     * list — „кој наставник, кој час, во кое одделение" — and forcing that
+     * through the class-first route means hunting for the right row for every
+     * single period. Same table, same rules, one owner: `putTeacherLesson`
+     * delegates the write to `putLesson`.
+     */
+    server.put('/api/teaching/teacher-lesson', async (req, reply) => {
+        const body = TeacherLessonBody.parse(req.body);
+        const day = body.day.trim().toLowerCase();
+        if (!TEACHING_DAYS.includes(day)) {
+            return reply.code(400).send({ error: `"${body.day}" is not a school day`, days: TEACHING_DAYS });
+        }
+
+        const client = await pool.connect();
+        try {
+            await client.query('BEGIN');
+            const year = await schoolYear(client, body.year);
+            if (!year) {
+                await client.query('ROLLBACK');
+                return reply.code(404).send({ error: `no such school year: ${body.year ?? '(current)'}` });
+            }
+
+            const t = await client.query(
+                'SELECT id, name FROM teachers WHERE lower(btrim(name)) = lower(btrim($1))',
+                [tidy(body.teacher) ?? '']
+            );
+            if (!t.rows.length) {
+                await client.query('ROLLBACK');
+                return reply.code(404).send({ error: `no such teacher: ${body.teacher}` });
+            }
+
+            // `class: null` clears the period; anything else must already exist.
+            let classId: number | null = null;
+            const wanted = body.class === undefined || body.class === null ? null : tidy(body.class);
+            if (wanted) {
+                const c = await client.query('SELECT id FROM school_classes WHERE label = $1', [wanted]);
+                if (!c.rows.length) {
+                    await client.query('ROLLBACK');
+                    return reply.code(404).send({ error: `no such class: ${body.class}`, fix: 'POST /api/teaching/class first' });
+                }
+                classId = c.rows[0].id;
+            }
+
+            const written = await putTeacherLesson(
+                client,
+                { yearId: year.id, day, ordinal: body.ordinal, teacherId: t.rows[0].id },
+                { classId, subject: body.subject ?? null },
+                body.expected === undefined ? undefined : { class: body.expected?.class ?? null }
+            );
+
+            if (!written.ok) {
+                await client.query('ROLLBACK');
+                // English here, Macedonian in the page: `saySorry` owns the
+                // sentence the staff room reads, the same as every other route.
+                if (written.code === 'clash') {
+                    return reply.code(409).send({
+                        error: 'this teacher already holds two classes in this period',
+                        fix: 'delete one of them first',
+                        code: 'teacher-clash',
+                        here: written.here
+                    });
+                }
+                if (written.code === 'taken') {
+                    return reply.code(409).send({
+                        error: `${written.class} already has a lesson in this period, with another teacher`,
+                        fix: 'empty that lesson first',
+                        code: 'class-taken',
+                        class: written.class,
+                        here: written.here
+                    });
+                }
+                return reply.code(409).send({
+                    error: 'the cell is not what you expected',
+                    code: 'stale',
+                    here: written.here
+                });
+            }
+
+            await client.query('COMMIT');
+            return {
+                ok: true, action: written.action, year: year.label,
+                day, ordinal: body.ordinal, teacher: t.rows[0].name,
+                class: wanted, lesson: written.lesson
+            };
+        } catch (err) {
+            await client.query('ROLLBACK').catch(() => {});
+            throw err;
+        } finally {
+            client.release();
+        }
+    });
+
+    /**
      * Remove one lesson.
      *
      * Deleting a LESSON is safe in a way that deleting a class or a teacher is
@@ -286,6 +405,59 @@ export async function teachingEditRoutes(server: FastifyInstance) {
         );
         if (!rows.length) return reply.code(404).send({ error: 'no such class' });
         return { ok: true, ...rows[0] };
+    });
+
+    /**
+     * How the school formed this class this year, in its own words.
+     *
+     * A SEPARATE route from `PATCH /api/teaching/class/:id`, which renames the
+     * class globally and for every year at once. One verb doing a global thing
+     * and an annual thing depending on which field you filled in is the muddle
+     * this project keeps having to undo.
+     */
+    server.put('/api/teaching/class/:id/description', async (req, reply) => {
+        const id = Number((req.params as any).id);
+        if (!Number.isInteger(id) || id <= 0) return reply.code(400).send({ error: 'bad class id' });
+        const body = DescriptionBody.parse(req.body);
+
+        const client = await pool.connect();
+        try {
+            await client.query('BEGIN');
+            const year = await schoolYear(client, body.year);
+            if (!year) {
+                await client.query('ROLLBACK');
+                return reply.code(404).send({ error: `no such school year: ${body.year ?? '(current)'}` });
+            }
+            const cls = await client.query('SELECT id, label FROM school_classes WHERE id = $1', [id]);
+            if (!cls.rows.length) {
+                await client.query('ROLLBACK');
+                return reply.code(404).send({ error: 'no such class' });
+            }
+
+            const written = await setClassDescription(
+                client, year.id, id, body.description ?? null,
+                body.expected === undefined ? undefined : (body.expected ?? null)
+            );
+
+            if (!written.ok) {
+                await client.query('ROLLBACK');
+                if (written.code === 'not-in-year') {
+                    return reply.code(404).send({
+                        error: `${cls.rows[0].label} is not on ${year.label}'s class list`,
+                        fix: 'add it to the year first'
+                    });
+                }
+                return reply.code(409).send({ error: 'the description is not what you expected', here: written.here });
+            }
+
+            await client.query('COMMIT');
+            return { ok: true, action: written.action, year: year.label, class: cls.rows[0].label, description: written.description };
+        } catch (err) {
+            await client.query('ROLLBACK').catch(() => {});
+            throw err;
+        } finally {
+            client.release();
+        }
     });
 
     /** Replace the teaching staff for one class in one year, atomically. */

@@ -73,7 +73,7 @@ export async function teachingRoutes(server: FastifyInstance) {
         // would have meant a second, nearly identical endpoint.
         const [classes, teachers, lessons, clashes] = await Promise.all([
             pool.query(
-                `SELECT c.id, c.label, c.sort_key FROM class_years cy
+                `SELECT c.id, c.label, c.sort_key, cy.description FROM class_years cy
                  JOIN school_classes c ON c.id = cy.class_id
                  WHERE cy.school_year_id = $1 AND cy.active
                  ORDER BY c.sort_key, c.label`, [year.id]),
@@ -165,6 +165,20 @@ export async function teachingRoutes(server: FastifyInstance) {
                JOIN teacher_years ty
                  ON ty.teacher_id = t.id AND ty.school_year_id = $1 AND ty.active
               ORDER BY t.kind, t.name`,
+            [year.id]
+        );
+
+        // And the same for classes, for the same reason and against the same
+        // failure. „По одделение" was built from the LESSONS, so a class with
+        // no lesson yet did not exist on this page — and the morning a year's
+        // invalid timetable is thrown away to be retyped, every class vanishes
+        // at once while sitting active in the database. That reads as data
+        // loss on the one week it is guaranteed to happen.
+        const { rows: classRows } = await pool.query(
+            `SELECT c.id, c.label, cy.description FROM class_years cy
+               JOIN school_classes c ON c.id = cy.class_id
+              WHERE cy.school_year_id = $1 AND cy.active
+              ORDER BY c.sort_key, c.label`,
             [year.id]
         );
 
@@ -283,6 +297,7 @@ export async function teachingRoutes(server: FastifyInstance) {
             minShare,
             bells: { teaching: teachBells, cabinet: blocks },
             teachers: staffRows,
+            classes: classRows,
             cells,
             unplaced,
             external,

@@ -39,6 +39,7 @@
     "test:crossing": "tsx --test test/crossing.test.ts test/teaching.test.ts",
     "test:projection": "tsx test/state-projection.e2e.ts",
     "test:nastava": "node test/nastava.browser.mjs",
+    "test:nastava-week": "node test/nastava-week.browser.mjs",
     "test:evidence": "tsx test/evidence.e2e.ts",
     "test:evidence-ui": "node test/evidence.browser.mjs",
     "test:categories": "tsx test/categories.e2e.ts",

@@ -125,6 +125,31 @@
     td.cell.selected .box { outline: 2px solid var(--edit); outline-offset: -2px; }
     td.cell:hover .box { box-shadow: inset 0 0 0 1px var(--edit); }
 
+    /* ── по наставник, цела недела ───────────────────────────────────────── */
+    /* 22 teachers across five days is wider than any screen, so the name
+       column stays put while the week scrolls under it — without it you lose
+       track of whose row you are typing into by Wednesday. */
+    table.grid.week { width: auto; min-width: 100%; font-size: 12px; }
+    table.grid.week th.who {
+        position: sticky; left: 0; z-index: 3;
+        background: var(--panel); min-width: 190px; max-width: 190px;
+        padding: 6px 10px; font-size: 12px; line-height: 1.25;
+    }
+    table.grid.week thead th.who { z-index: 4; }
+    table.grid.week thead th { text-align: center; padding: 4px 6px; white-space: nowrap; }
+    table.grid.week .daysep { border-left: 2px solid var(--edit); }
+    table.grid.week td.wk {
+        min-width: 58px; padding: 3px 4px; text-align: center; vertical-align: middle;
+        border-right: 1px solid var(--border);
+    }
+    table.grid.week td.wk .cls { display: block; font-weight: 600; }
+    table.grid.week td.wk .sub2 { display: block; font-size: 10px; color: var(--muted); }
+    table.grid.week td.wk .plus { color: var(--muted); opacity: .45; }
+    table.grid.week td.wk.has { background: var(--filled); }
+    table.grid.week td.wk:hover { box-shadow: inset 0 0 0 1px var(--edit); }
+    table.grid.week td.wk select.pick { width: 100%; min-width: 150px; font-size: 12px; padding: 2px; }
+    .off-staff { display: block; font-size: 10px; font-weight: 400; color: var(--warn, #b7791f); }
+
     .editor { display: none; }
     .editor.open { display: block; }
     .editor h2 .who { color: var(--muted); font-weight: 400; }
@@ -162,10 +187,17 @@
                 <select id="year" disabled></select>
             </label>
             <label class="field">
+                <span>Приказ</span>
+                <select id="view">
+                    <option value="class">По одделение · еден ден</option>
+                    <option value="teacher">По наставник · цела недела</option>
+                </select>
+            </label>
+            <label class="field" id="dayField">
                 <span>Ден</span>
                 <select id="day"></select>
             </label>
-            <label class="field" style="flex-direction: row; align-items: center; gap: 6px;">
+            <label class="field" id="onlyUsedField" style="flex-direction: row; align-items: center; gap: 6px;">
                 <input type="checkbox" id="onlyUsed" style="min-width: auto;">
                 <span>само одделенија со часови</span>
             </label>
@@ -210,6 +242,12 @@
             <p class="hint">
                 Одделение не може да се брише: архивските години покажуваат на истиот ред и
                 мора да се читаат и понатаму. За да го тргнеш од оваа година, испразни му ги часовите.
+            </p>
+            <p class="hint">
+                <strong>Описот важи само за избраната учебна година.</strong> Ознаката (на пр. VIII-б)
+                се повторува од година в година и не значи исто нешто секој пат, па „комбинирана
+                паралелка" запишано овде не ја менува ланската. Опфатените одделенија не се пишуваат
+                тука — тие се читаат од самите деца.
             </p>
             <div class="controls" style="margin-bottom: 12px;">
                 <label class="field">
@@ -308,6 +346,26 @@
      */
     function saySorry(res, body) {
         const raw = (body && (body.error || body.message)) || ('HTTP ' + (res ? res.status : '?'));
+        // The weekly grid's three refusals, each naming what to do next.
+        if (body && body.code === 'teacher-clash') {
+            return 'Овој наставник веќе има два часа во овој термин. Избриши го едниот прво '
+                 + '— не може да се знае кој е точниот.';
+        }
+        if (body && body.code === 'class-taken') {
+            const who = (body.here || []).map((h) => h.teacher).filter(Boolean).join(', ');
+            return `${body.class || 'Тоа одделение'} веќе има час во овој термин`
+                 + (who ? `, кај ${who}` : ', кај друг наставник')
+                 + '. Испразни го тој час прво.';
+        }
+        if (body && body.code === 'stale') {
+            return 'Некој друг го смени овој час во меѓувреме. Освежи ја страницата и погледни што стои сега.';
+        }
+        if (res && res.status === 409 && /description is not what you expected/.test(raw)) {
+            return 'Описот е сменет од друг во меѓувреме. Освежи ја страницата и напиши го повторно.';
+        }
+        if (res && res.status === 404 && /is not on .* class list/.test(raw)) {
+            return 'Тоа одделение не е на списокот за оваа година, па нема каде да му се запише опис.';
+        }
         if (res && res.status === 409 && body && body.here && Array.isArray(body.here)) {
             return 'Во овој час веќе стојат два часа за истото одделение. Избриши го едниот прво.';
         }
@@ -429,8 +487,151 @@
         return map;
     }
 
+    const view = () => el('view').value;
+
+    /**
+     * The whole week, one row per teacher, the class in the cell.
+     *
+     * This is the axis a NEW timetable is actually filled along — down the
+     * staff list, across the week — which the class-first grid cannot serve
+     * without hunting for a different row every period. Same rows in the same
+     * table; `PUT /api/teaching/teacher-lesson` simply addresses the cell by
+     * the teacher instead of by the class.
+     *
+     * Every teacher on the year's list gets a row, including one with nothing
+     * timetabled yet: on the morning a fresh year is typed in, that is all of
+     * them, and a grid that draws only the filled rows would start empty and
+     * stay empty.
+     */
+    function drawTeacherWeek() {
+        const ps = periods();
+        // teacher -> "ден|час" -> the lesson there
+        const rows = new Map();
+        (data.teachers || []).forEach((t) => rows.set(t.name, new Map()));
+        const offList = new Set();
+        (data.lessons || []).forEach((l) => {
+            const name = l.teacher || '— без наставник —';
+            if (!rows.has(name)) { rows.set(name, new Map()); if (l.teacher) offList.add(name); }
+            rows.get(name).set(l.day + '|' + l.ordinal, l);
+        });
+
+        if (!rows.size) {
+            el('grid').innerHTML = '<p class="hint">Нема наставници на списокот за оваа година. '
+                + 'Додај ги во „Податоци", па врати се овде.</p>';
+            return;
+        }
+
+        let head = '<tr><th class="who">Наставник</th>';
+        DAYS.forEach((d) => {
+            head += `<th class="daysep" colspan="${ps.length}">${esc(d)}</th>`;
+        });
+        head += '</tr><tr><th class="who"></th>';
+        DAYS.forEach(() => ps.forEach((p, i) => {
+            head += `<th class="${i === 0 ? 'daysep' : ''}">${esc(p.label)}</th>`;
+        }));
+        head += '</tr>';
+
+        let html = '<table class="grid week"><thead>' + head + '</thead><tbody>';
+        Array.from(rows.keys()).forEach((name) => {
+            html += `<tr><th class="who">${esc(name)}`
+                + (offList.has(name) ? '<span class="off-staff">не е на списокот</span>' : '')
+                + '</th>';
+            DAYS.forEach((d) => ps.forEach((p, i) => {
+                const l = rows.get(name).get(d + '|' + p.ordinal);
+                const title = l
+                    ? `${name} · ${d} · ${p.ordinal}. час (${p.startsAt}) · ${l.class}`
+                      + (l.subject ? ' · ' + l.subject : '') + (classNote(l.class) ? ' · ' + classNote(l.class) : '')
+                    : `${name} · ${d} · ${p.ordinal}. час (${p.startsAt}) · слободен`;
+                html += `<td class="cell wk ${l ? 'has' : 'empty'}${i === 0 ? ' daysep' : ''}"`
+                    + ` data-teacher="${esc(name)}" data-day="${esc(d)}" data-ordinal="${p.ordinal}"`
+                    + ` title="${esc(title)}">`
+                    + (l ? `<span class="cls">${esc(l.class)}</span>`
+                         + (l.subject ? `<span class="sub2">${esc(l.subject)}</span>` : '')
+                       : '<span class="plus">+</span>')
+                    + '</td>';
+            }));
+            html += '</tr>';
+        });
+        el('grid').innerHTML = html + '</tbody></table>';
+    }
+
+    /** The school's own words about a class this year, for the hover and the picker. */
+    function classNote(label) {
+        const c = (data.classes || []).find((x) => x.label === label);
+        return c && c.description ? c.description : '';
+    }
+
+    /**
+     * Click a cell and it becomes the picker, focused. The list is the classes
+     * this year HAS — a timetable may not invent a room, and a mistyped label
+     * that silently creates one is the failure `putLesson` already refuses.
+     */
+    function openWeekCell(td) {
+        if (td.querySelector('select')) return;
+        const was = tidy(td.querySelector('.cls') ? td.querySelector('.cls').textContent : '');
+        const options = ['<option value="">— слободен —</option>']
+            .concat((data.classes || []).map((c) =>
+                `<option value="${esc(c.label)}"${c.label === was ? ' selected' : ''}>`
+                + `${esc(c.label)}${c.description ? ' · ' + esc(c.description) : ''}</option>`));
+        td.innerHTML = `<select class="pick">${options.join('')}</select>`;
+        const pick = td.querySelector('select');
+        pick.focus();
+
+        let done = false;
+        const finish = (commit) => {
+            if (done) return;
+            done = true;
+            if (commit && tidy(pick.value) !== was) saveWeekCell(td, was, tidy(pick.value));
+            else drawAndKeep();
+        };
+        pick.addEventListener('change', () => finish(true));
+        pick.addEventListener('blur', () => finish(true));
+        pick.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') { e.preventDefault(); finish(false); }
+        });
+    }
+
+    /** Redraw without losing where the person was looking. */
+    function drawAndKeep() {
+        const box = el('grid').parentElement;
+        const x = box ? box.scrollLeft : 0;
+        const y = box ? box.scrollTop : 0;
+        draw();
+        if (box) { box.scrollLeft = x; box.scrollTop = y; }
+    }
+
+    async function saveWeekCell(td, was, now) {
+        status('запишувам…');
+        try {
+            await api('PUT', '/api/teaching/teacher-lesson', {
+                year: data.year,
+                day: td.dataset.day,
+                ordinal: Number(td.dataset.ordinal),
+                teacher: td.dataset.teacher,
+                class: now || null,
+                expected: { class: was || null }
+            });
+            await load(true);
+            status(`${td.dataset.teacher} · ${td.dataset.day} · ${td.dataset.ordinal}. час — зачувано`, 'ok');
+        } catch (err) {
+            status(err.message, 'error');
+            drawAndKeep();
+        }
+    }
+
     function draw() {
         if (!data) return;
+        const weekly = view() === 'teacher';
+        el('dayField').style.display = weekly ? 'none' : '';
+        el('onlyUsedField').style.display = weekly ? 'none' : '';
+        if (weekly) {
+            drawTeacherWeek();
+            drawClasses();
+            drawTeachers();
+            drawBells();
+            drawClashes();
+            return;
+        }
         drawGrid();
         drawClasses();
         drawTeachers();
@@ -612,11 +813,18 @@
         const used = new Map();
         (data.lessons || []).forEach((l) => used.set(l.class, (used.get(l.class) || 0) + 1));
         el('classes').innerHTML =
-            '<table class="list"><thead><tr><th>Одделение</th><th>Часови оваа година</th><th></th></tr></thead><tbody>'
+            '<table class="list"><thead><tr><th>Одделение</th><th>Што е тоа, оваа година</th>'
+            + '<th>Часови</th><th></th></tr></thead><tbody>'
             + (data.classes || []).map((c) =>
                 `<tr><td><input value="${esc(c.label)}" data-class-id="${c.id}"></td>`
+                + `<td><input value="${esc(c.description || '')}" data-desc-id="${c.id}"`
+                + ` data-desc-was="${esc(c.description || '')}"`
+                + ' placeholder="на пр. ученици со оштетен слух"></td>'
                 + `<td>${used.get(c.label) || 0}</td>`
-                + `<td class="act"><button class="btn soft" data-rename="${c.id}">Преименувај</button></td></tr>`).join('')
+                + '<td class="act">'
+                + `<button class="btn soft" data-rename="${c.id}">Преименувај</button> `
+                + `<button class="btn soft" data-savedesc="${c.id}">Зачувај опис</button>`
+                + '</td></tr>').join('')
             + '</tbody></table>';
         el('classes').querySelectorAll('[data-rename]').forEach((b) => b.addEventListener('click', async () => {
             const id = Number(b.dataset.rename);
@@ -625,6 +833,23 @@
                 await api('PATCH', '/api/teaching/class/' + id, { label: tidy(input.value) });
                 await load(true);
                 status('одделението е преименувано', 'ok');
+            } catch (err) { status(err.message, 'error'); }
+        }));
+        // The description belongs to the SELECTED YEAR, not to the class for
+        // ever — which is why it is a different button from „Преименувај",
+        // and why `expected` carries what this tab last read.
+        el('classes').querySelectorAll('[data-savedesc]').forEach((b) => b.addEventListener('click', async () => {
+            const id = Number(b.dataset.savedesc);
+            const input = el('classes').querySelector(`[data-desc-id="${id}"]`);
+            status('запишувам…');
+            try {
+                await api('PUT', '/api/teaching/class/' + id + '/description', {
+                    year: data.year,
+                    description: tidy(input.value),
+                    expected: tidy(input.dataset.descWas)
+                });
+                await load(true);
+                status('описот е зачуван', 'ok');
             } catch (err) { status(err.message, 'error'); }
         }));
     }
@@ -743,10 +968,14 @@
     });
     el('day').addEventListener('change', () => { closeEditor(); draw(); });
     el('onlyUsed').addEventListener('change', () => draw());
+    el('view').addEventListener('change', () => { closeEditor(); draw(); });
     el('refresh').addEventListener('click', () => load(true));
     el('grid').addEventListener('click', (event) => {
         const td = event.target.closest('td.cell');
-        if (td) openCell(td.dataset.class, Number(td.dataset.ordinal));
+        if (!td) return;
+        // The weekly grid edits in place; the day grid opens the panel below it.
+        if (td.classList.contains('wk')) openWeekCell(td);
+        else openCell(td.dataset.class, Number(td.dataset.ordinal));
     });
     el('editor').addEventListener('keydown', (event) => {
         if (!selected || !el('edSubject')) return;

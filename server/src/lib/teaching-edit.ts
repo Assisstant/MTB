@@ -132,6 +132,106 @@ export async function putLesson(
     return { ok: true, action: 'inserted', lesson: rows[0] };
 }
 
+/** The rows a teacher holds in one (year, day, period) — normally 0 or 1. */
+export async function teacherCellAt(
+    client: any,
+    key: { yearId: number; day: string; ordinal: number; teacherId: number }
+): Promise<Array<LessonCell & { classId: number; class: string }>> {
+    const { rows } = await client.query(
+        `SELECT l.id, l.subject, l.teacher_id AS "teacherId", t.name AS teacher,
+                l.class_id AS "classId", c.label AS class
+         FROM lessons l
+         JOIN school_classes c ON c.id = l.class_id
+         LEFT JOIN teachers t  ON t.id = l.teacher_id
+         WHERE l.school_year_id = $1 AND l.day = $2 AND l.ordinal = $3 AND l.teacher_id = $4
+         ORDER BY c.sort_key, c.label`,
+        [key.yearId, key.day, key.ordinal, key.teacherId]
+    );
+    return rows;
+}
+
+export type TeacherLessonWrite =
+    | { ok: true; action: 'inserted' | 'moved' | 'updated' | 'unchanged' | 'cleared'; lesson: LessonCell | null }
+    | { ok: false; code: 'clash'; here: Array<{ class: string; subject: string | null }> }
+    | { ok: false; code: 'conflict'; here: Array<{ class: string; subject: string | null }> }
+    | { ok: false; code: 'taken'; here: LessonCell[]; class: string };
+
+/**
+ * One cell of the timetable seen from the OTHER side: a teacher's period, and
+ * which class they are with in it.
+ *
+ * The same row as `putLesson` writes, approached from the axis a person
+ * actually fills a new timetable along — down a staff list, across a week —
+ * rather than the axis the school's workbook happens to print. Which is why it
+ * delegates the actual write to `putLesson` instead of having its own INSERT:
+ * a second statement writing these rows a slightly different way is the failure
+ * this file's header already warns about.
+ *
+ * Three refusals, and each is a thing a person must decide rather than a thing
+ * a default can pick:
+ *
+ *   - `clash`  — the teacher already holds TWO classes in this period. Writing
+ *                "the" one would silently pick between them.
+ *   - `taken`  — the class already has a lesson then, with somebody else. Two
+ *                teachers in one room at one hour is either co-teaching nobody
+ *                recorded or a mistake, and guessing which is not this
+ *                function's business.
+ *   - `conflict` — the cell is not what the caller believed, same as everywhere
+ *                else in this project.
+ */
+export async function putTeacherLesson(
+    client: any,
+    key: { yearId: number; day: string; ordinal: number; teacherId: number },
+    value: { classId: number | null; subject: string | null },
+    expected?: { class: string | null } | undefined
+): Promise<TeacherLessonWrite> {
+    const mine = await teacherCellAt(client, key);
+    const seen = mine.map((r) => ({ class: r.class, subject: r.subject }));
+    if (mine.length > 1) return { ok: false, code: 'clash', here: seen };
+
+    if (expected !== undefined) {
+        const now = mine[0] ? mine[0].class : null;
+        if (!same(tidy(now), tidy(expected.class))) return { ok: false, code: 'conflict', here: seen };
+    }
+
+    // Clearing: the teacher has nothing this period after all.
+    if (value.classId === null) {
+        if (!mine.length) return { ok: true, action: 'unchanged', lesson: null };
+        await client.query('DELETE FROM lessons WHERE id = $1', [mine[0].id]);
+        return { ok: true, action: 'cleared', lesson: null };
+    }
+
+    // Is the class free then? `putLesson` would happily UPDATE a row that
+    // belongs to another teacher, which from this side reads as one teacher
+    // quietly taking another's lesson away.
+    const label = (await client.query(
+        'SELECT label FROM school_classes WHERE id = $1', [value.classId]
+    )).rows[0]?.label ?? '';
+
+    const target = await cellAt(client, {
+        yearId: key.yearId, day: key.day, ordinal: key.ordinal, classId: value.classId
+    });
+    const foreign = target.filter((r) => (r.teacherId ?? null) !== key.teacherId);
+    if (foreign.length) return { ok: false, code: 'taken', here: foreign, class: label };
+
+    // Moving a teacher to a different class frees the one they were in.
+    const moved = mine.length > 0 && mine[0].classId !== value.classId;
+    if (moved) await client.query('DELETE FROM lessons WHERE id = $1', [mine[0].id]);
+
+    const written = await putLesson(
+        client,
+        { yearId: key.yearId, day: key.day, ordinal: key.ordinal, classId: value.classId },
+        { subject: value.subject, teacherId: key.teacherId }
+    );
+    // Unreachable in practice — the target cell was just checked and the unique
+    // key stops one teacher holding the same class twice in one period — but a
+    // refusal is reported in this function's own shape rather than cast away.
+    if (!written.ok) {
+        return { ok: false, code: written.code, here: written.here.map((r) => ({ class: label, subject: r.subject })) };
+    }
+    return { ok: true, action: moved ? 'moved' : written.action, lesson: written.lesson };
+}
+
 export interface CopyResult {
     from: string;
     to: string;
@@ -244,6 +344,14 @@ export async function copyYearLessons(
          ON CONFLICT (school_year_id, day, ordinal, class_id, teacher_id) DO NOTHING`,
         [from.id, to.id]
     );
+    // The classes the copied lessons prove are taught, marked present in the
+    // target year — and NOTHING else about them. `class_years.description` is
+    // deliberately not in this statement, not in its SELECT and not in its DO
+    // UPDATE, and it must not start being: a copy is last year's placeholder,
+    // not evidence about how this year's paralelka was formed, the same
+    // reasoning that stopped a copy inserting `teacher_years` rows. Carrying
+    // it forward would print last year's words on this year's class and on
+    // this year's евидентен лист, with nothing on any screen to say so.
     await client.query(
         `INSERT INTO class_years (school_year_id, class_id, active)
          SELECT DISTINCT $2::integer, class_id, true FROM lessons WHERE school_year_id = $1
@@ -253,6 +361,85 @@ export async function copyYearLessons(
     result.lessons = written.rowCount ?? 0;
     result.applied = true;
     return result;
+}
+
+export type DescriptionWrite =
+    | { ok: true; action: 'set' | 'cleared' | 'unchanged'; description: string | null }
+    | { ok: false; code: 'not-in-year' }
+    | { ok: false; code: 'conflict'; here: string | null };
+
+/**
+ * How the school formed this class THIS YEAR, in its own words:
+ * „ученици со оштетен слух", „комбинирана паралелка", „мултихендикеп".
+ *
+ * It is written on `class_years` and nowhere else, and this function names no
+ * other table, so it cannot reach `school_classes` even by accident. That is
+ * the whole point of the column's placement (migration 031): a label is reused
+ * across years and means a different thing in each — VIII-б is active in two
+ * years and 451 archived lessons point at the same `class_id` — so a
+ * description on the global row would let this year's truth overwrite last
+ * year's, silently, in a table archived crossings and printed евидентни
+ * листови read from. That is the `teachers.homeroom_class_id` failure
+ * migration 016 already had to undo.
+ *
+ * Two consequences worth stating where the write is, not only where the column
+ * is declared:
+ *
+ *   - It is DISPLAY ONLY. Nothing parses it, no query filters on it, no CHECK
+ *     constrains it. The grade span a combined paralelka covers is NOT here
+ *     and must never be: that is derived from `student_enrollments.oddelenie`,
+ *     the pupils' own fact, which already has one owner (rule 5).
+ *   - A class that is not on the year's list has no row to describe, and a
+ *     description for a year the class is not in means nothing. That is
+ *     `not-in-year`, and the caller is told rather than quietly given a row.
+ *
+ * `expected` is the same row-level check as everywhere else: the caller says
+ * what it believes is written there, `null` meaning nothing, and gets a
+ * refusal naming what really is. A tab left open since morning must not
+ * silently replace a description somebody typed at 10:00.
+ */
+export async function setClassDescription(
+    client: any,
+    yearId: number,
+    classId: number,
+    description: string | null,
+    expected?: string | null
+): Promise<DescriptionWrite> {
+    // Locked rather than merely read: the comparison with `expected` and the
+    // write that follows it are one decision, and a second editor landing
+    // between them is exactly what `expected` exists to catch.
+    const here = await client.query(
+        `SELECT description FROM class_years
+          WHERE school_year_id = $1 AND class_id = $2 AND active
+          FOR UPDATE`,
+        [yearId, classId]
+    );
+    // `AND active` and not merely "a row exists": a class taken off this year's
+    // list keeps its class_years row with active = false, so without it every
+    // retired class of every past year would still accept a new description —
+    // and the 404 that is supposed to say "that class is not taught this year"
+    // would never fire. Measured: VII-а, off this year's list, accepted one.
+    if (!here.rows.length) return { ok: false, code: 'not-in-year' };
+
+    const now: string | null = here.rows[0].description ?? null;
+    if (expected !== undefined && !same(tidy(now), tidy(expected))) {
+        return { ok: false, code: 'conflict', here: now };
+    }
+
+    const wanted = tidy(description);
+    if (same(tidy(now), wanted)) return { ok: true, action: 'unchanged', description: now };
+
+    const { rows } = await client.query(
+        `UPDATE class_years SET description = $3
+          WHERE school_year_id = $1 AND class_id = $2
+          RETURNING description`,
+        [yearId, classId, wanted]
+    );
+    return {
+        ok: true,
+        action: wanted === null ? 'cleared' : 'set',
+        description: rows[0].description ?? null
+    };
 }
 
 export type ClassRole = 'homeroom' | 'subject';
