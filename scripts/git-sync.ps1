@@ -194,6 +194,42 @@ function Initialize-DataRepoFiles {
     }
 }
 
+# "Create it as private" was written in this file's own header and in the data
+# repository's README, and nothing ever checked it. On 14 Sep 2026 the repository
+# was created PUBLIC and a full dump of the school's database - 178 pupils, their
+# attendance, dossiers and assessments - was pushed to the open internet, where it
+# stayed for four hours. A rule with nothing enforcing it is a wish; this project
+# has now paid for that twice.
+#
+# Anonymous ON PURPOSE. The question is not "can I see it?" - the owner always
+# can - but "can ANYONE see it?", and an authenticated request cannot tell those
+# two apart. 200 means the world can read it. 404 means private, or absent, and
+# a push to something absent fails on its own terms a moment later.
+function Get-DataRepoVisibility {
+    param([string] $RemoteUrl)
+
+    if (-not ($RemoteUrl -match 'github\.com[/:]([^/]+)/([^/]+?)(?:\.git)?/?$')) {
+        return [pscustomobject]@{ State = 'n/a'; Slug = $null }
+    }
+    $slug = '{0}/{1}' -f $Matches[1], $Matches[2]
+
+    $status = 0
+    try {
+        $response = Invoke-WebRequest -Uri ('https://api.github.com/repos/' + $slug) `
+            -Headers @{ 'User-Agent' = 'mtb-git-sync' } -UseBasicParsing -ErrorAction Stop
+        $status = [int] $response.StatusCode
+    } catch {
+        if ($_.Exception.Response) { $status = [int] $_.Exception.Response.StatusCode }
+    }
+
+    $state = switch ($status) {
+        200     { 'public' }
+        404     { 'private' }
+        default { 'unknown' }
+    }
+    return [pscustomobject]@{ State = $state; Slug = $slug; Status = $status }
+}
+
 function Invoke-ManualSync {
     param([string[]] $Arguments)
 
@@ -267,7 +303,28 @@ Write-Host '=== MTB GIT SYNC ===' -ForegroundColor Cyan
 Write-Host ("  this machine: {0}      other machine: {1}" -f $Me, $PeerName)
 Write-Host ("  code:         {0}" -f $repoRoot)
 Write-Host ("  data (private): {0}" -f $dataFull)
+
+$visibility = Get-DataRepoVisibility -RemoteUrl $dataRemote
+switch ($visibility.State) {
+    'private' { Write-Host ("  visibility:     {0} is private" -f $visibility.Slug) -ForegroundColor Green }
+    'public'  { Write-Host ("  visibility:     {0} is PUBLIC" -f $visibility.Slug) -ForegroundColor Red }
+    'unknown' { Write-Host ("  visibility:     could not be established for {0} (HTTP {1})" -f $visibility.Slug, $visibility.Status) -ForegroundColor Yellow }
+    'n/a'     { Write-Host '  visibility:     not a github.com remote - not checked' -ForegroundColor Yellow }
+}
 Write-Host ''
+
+# Reading is not what exposes anything - the data is already out there by the
+# time this can tell - so Status and Pull say it loudly and carry on. Push is
+# the one that would ADD to it, and it refuses. There is deliberately no switch
+# to override a PUBLIC answer: the one place this script knows the most is not
+# the place to offer a way past it.
+if ($visibility.State -ne 'private') {
+    Write-Host 'The repository that carries the database is not confirmed private.' -ForegroundColor Yellow
+    if ($visibility.Slug) {
+        Write-Host ("  https://github.com/{0}/settings  ->  Danger Zone  ->  Change visibility" -f $visibility.Slug) -ForegroundColor Yellow
+    }
+    Write-Host ''
+}
 
 # --------------------------------------------------------------------------
 # Status
@@ -311,6 +368,19 @@ if ($Mode -eq 'Status') {
 # --------------------------------------------------------------------------
 
 if ($Mode -eq 'Push') {
+    # Before the dirty-tree check and long before the export, for the same reason
+    # the inside-the-public-repo check sits where it does: the failure mode has to
+    # be "refuses to start", never "published it and then complained".
+    if ($visibility.State -eq 'public') {
+        throw ("{0} is a PUBLIC repository, and this push would put the live database in it." -f $visibility.Slug)
+    }
+    if ($visibility.State -eq 'unknown') {
+        throw ("Could not establish whether {0} is private (HTTP {1}), so nothing was exported or pushed.`nA push needs GitHub reachable anyway - check the connection and rerun." -f $visibility.Slug, $visibility.Status)
+    }
+    if ($visibility.State -eq 'n/a') {
+        throw ("{0} is not a github.com remote, so this script cannot check whether it is readable by anyone.`nNothing was exported or pushed. Verify it by hand, or point the data clone at a private GitHub repository." -f $dataRemote)
+    }
+
     $dirty = (Invoke-Git -Root $repoRoot -GitArgs @('status', '--porcelain')).Output
     $trackedDirty = @($dirty -split "`r?`n" | Where-Object { $_ -and -not $_.StartsWith('??') })
     if ($trackedDirty.Count -and -not $Force) {

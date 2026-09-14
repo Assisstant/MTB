@@ -100,6 +100,27 @@ Code is pulled before the database, always. `manual-db-sync.ps1` refuses a
 snapshot whose migration list does not match the working tree, which is the
 check that stops a newer database landing on older code.
 
+## The script checks that it really is private
+
+**It asks GitHub, before every push, and refuses if the answer is "anyone can
+read this".** That check exists because on 14 September 2026 the repository was
+created PUBLIC and a full dump of the live database — 178 pupils with their
+attendance, dossiers and assessments — was pushed to the open internet, where it
+sat for four hours before anyone noticed. Until then "create it as private" was
+written in this document and in the repository's own README, and nothing
+anywhere checked it. A rule with nothing enforcing it is a wish.
+
+The request is deliberately **anonymous**: the owner can always see their own
+repository, so an authenticated request cannot distinguish "private" from
+"public". HTTP 200 means the world can read it; 404 means it is private.
+
+`-Mode Status` and `-Mode Pull` only say so loudly and carry on — reading does
+not add to an exposure that has already happened. `-Mode Push` refuses outright,
+before the export runs, so the failure is "refuses to start" rather than
+"published it and then complained". **There is no switch to override a public
+answer.** The one moment this script knows the most is not the moment to offer a
+way past it.
+
 ## Two things to know about the private repository
 
 **Every push adds a full snapshot to its history.** A snapshot is roughly a
@@ -127,6 +148,9 @@ correct behaviour, and very confusing to debug.
 | `schema: DIFFERENT - git pull is required` | the code pull did not bring what the snapshot expects; check which branch you are on |
 | `The data folder must not be inside the public MTB repository` | the clone is in the wrong place; it must be a sibling of MTB, not inside it |
 | `The data clone points at the public code repository` | `git clone` was run against the wrong URL |
+| `<repo> is a PUBLIC repository, and this push would put the live database in it` | make it private in GitHub → Settings → Danger Zone → Change visibility, then rerun. Nothing was exported |
+| `Could not establish whether <repo> is private` | GitHub was unreachable or rate-limited; a push needs it reachable anyway, so check the connection and rerun |
+| `<url> is not a github.com remote` | the visibility check only understands GitHub; verify by hand, or use a private GitHub repository |
 
 ## A note for the first run on PCW
 
