@@ -68,10 +68,23 @@ function Get-EnvValue {
 
 # Always pass git arguments as an explicit array. PowerShell would otherwise try
 # to bind a leading --word to a parameter of this function instead of to git.
+#
+# git writes routine progress to STDERR even on success ("Everything up-to-date",
+# the "To https://..." push summary). Under the script's own $ErrorActionPreference
+# = 'Stop', a bare `2>&1` on a native command turns each of those lines into a
+# terminating ErrorRecord and throws before $LASTEXITCODE is ever read - the exact
+# trap CLAUDE.md documents elsewhere in this project. Continue locally and judge
+# success from the exit code, not from whether anything was written to stderr.
 function Invoke-Git {
     param([string] $Root, [string[]] $GitArgs)
 
-    $output = & git -C $Root @GitArgs 2>&1
+    $previous = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+    try {
+        $output = & git -C $Root @GitArgs 2>&1
+    } finally {
+        $ErrorActionPreference = $previous
+    }
     return [pscustomobject]@{
         Code   = $LASTEXITCODE
         Output = ($output | Out-String).Trim()
