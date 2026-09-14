@@ -1,6 +1,13 @@
 # MTB — therapy apps for ОУРЦ „Кочо Рацин", Битола
 
-Read this first. It is the shared memory between machines: sessions on other
+**Read [`SOSTOJBA.md`](SOSTOJBA.md) before this file.** It is short and it says
+where the work actually stands — what is open, what happened last, which
+machine you are on. This file is 258 KB of technical history: why things are
+built the way they are and which traps have already been paid for. That is a
+reference to consult, not a place to start, and a session that begins here
+spends its first minutes reconstructing a present that one page already states.
+
+This file is the shared memory between machines: sessions on other
 PCs have none of the earlier conversation.
 
 Whatever local memory your tool keeps is **per machine** and diverges — one
