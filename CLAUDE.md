@@ -2656,6 +2656,52 @@ GitHub Pages беа мртви. Сега поминуваат низ `MTBAppNavi
 присутен. Токму тогаш човекот мора да биде известен дека детето не може да се
 лоцира, а причината веќе стои во „Неповрзани третмани" под таблицата.
 
+## State (14 Sep 2026)
+
+**Git becomes the active transport for the database too, alongside code.**
+`scripts\git-sync.ps1` and `docs\GIT-DB-SYNC.md` carry a verified PostgreSQL
+snapshot through a SECOND, PRIVATE repository (`Assisstant/MTB-data`) on every
+push/pull, so one command at the end of a session on one machine and one at the
+start on the other replaces the old two-step "open the sync dashboard, click
+Export / Compare / Accept" routine. This was a deliberate choice, asked and
+answered: keep the working pCloud mechanism (`manual-db-sync.ps1`) exactly as
+it is underneath, or move to git. The owner chose git, via a second private
+repository — never the public `Assisstant/MTB`, which GitHub Pages serves.
+
+**Nothing about how sync DECIDES changed.** `git-sync.ps1` is transport only:
+it shells out to `manual-db-sync.ps1` for Export/Compare/Accept, so the
+checksum, the database fingerprint, the exact migration-list match and the
+pre-import safety dump under `backups\manual-sync\pre-import\` are all still
+that script's, unchanged. `git-sync.ps1` adds exactly two things of its own:
+it refuses to create the data folder inside the public repo (checked by path
+prefix before any export runs, so the failure mode is "refuses to start", not
+"published it"), and it refuses to push code+database out of step — a dirty
+tracked tree blocks `-Mode Push` unless `-Force`, because a database the other
+machine's checked-out code cannot reproduce is the thing worth preventing.
+
+**pCloud is not retired.** `SYNC_DIR=P:\MTB-sync` in `server\.env` is
+untouched and the weekly `TherapyDbSnapshotWeekly` task keeps running — that
+stays the independent backup. Git is now the one either machine actually runs
+by hand.
+
+**Setup is manual and per-machine, on purpose:** create `Assisstant/MTB-data`
+on GitHub as **private**, then `git clone` it as a sibling of `MTB` on each
+machine. `git-sync.ps1` refuses outright — before anything else — if that
+clone is missing, inside the public repo, or points at the public repo's
+remote. See `docs\GIT-DB-SYNC.md` for the full routine and its failure
+messages.
+
+**Checked before this was committed:** `npm run check:names` against both new
+files (231 commit-candidate files, none of 162 known names present) — the
+private repository's own README states in its own text why it must stay
+private, precisely so that warning survives being read on its own, without
+this file open beside it.
+
+Not yet done: neither machine has `MTB-data` cloned yet, so `git-sync.ps1`
+has not been run for real (`-Mode Status` was not yet exercised against a live
+clone). Run `-Mode Status` first on whichever machine sets up the clone first
+— it is read-only — before trusting `-Mode Push`.
+
 ## State (9 Sep 2026)
 
 **WORK was reinstalled and its machine is now named `PCW`, not `zenpc`.** Its
