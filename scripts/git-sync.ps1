@@ -198,8 +198,29 @@ function Invoke-ManualSync {
     param([string[]] $Arguments)
 
     $script = Join-Path $PSScriptRoot 'manual-db-sync.ps1'
-    & powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File $script @Arguments
-    return $LASTEXITCODE
+
+    # Do not let the nested `powershell.exe -File` child write straight to the
+    # console. Measured: under a host that has no real console of its own -
+    # any automation tool that starts this script with redirected/piped
+    # stdio, which is how it is normally run - a grandchild process can fail
+    # silently and immediately, before printing even its first line, the
+    # moment it (or PowerShell itself) queries the console to write to it.
+    # The parent process's own Write-Host calls work throughout this script
+    # because the parent is one process closer to a real console; the
+    # grandchild is not guaranteed to be. Redirecting the child's streams to
+    # a file needs no console at all, so the parent reads the file back and
+    # relays it with its own, working Write-Host.
+    $logFile = [IO.Path]::Combine($env:TEMP, "mtb-git-sync-$([Guid]::NewGuid().ToString('N')).log")
+    try {
+        & powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File $script @Arguments *> $logFile
+        $code = $LASTEXITCODE
+        if (Test-Path -LiteralPath $logFile) {
+            Get-Content -LiteralPath $logFile | ForEach-Object { Write-Host $_ }
+        }
+        return $code
+    } finally {
+        Remove-Item -LiteralPath $logFile -ErrorAction SilentlyContinue
+    }
 }
 
 # --------------------------------------------------------------------------

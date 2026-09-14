@@ -585,6 +585,26 @@ read `DATABASE_URL`; never add literal credentials to this public repository.
   'Stop'` those THROW — so a guard that works kills the script that verifies
   it, and the failure reads like a crash rather than a catch. Set
   `$ErrorActionPreference = 'Continue'` around the call and read `$LASTEXITCODE`.
+- **A grandchild `powershell.exe -File` can fail before printing its first
+  line, and say nothing about why.** `git-sync.ps1` spawns
+  `manual-db-sync.ps1` as a nested process. Run standalone it worked every
+  time; run nested from inside `git-sync.ps1` it failed silently and
+  immediately — not even its `=== EXPORT ===` header appeared — while the
+  identical command, identical arguments, identical working directory
+  succeeded seconds earlier as a single-level call. The difference was depth:
+  a host with no real console of its own (which is what any automation tool
+  gives a script it runs with redirected/piped stdio) can let ONE nested
+  `powershell.exe -File` child through, because it inherits enough to write,
+  but a child's OWN Write-Host can still need to query a console device it
+  does not actually have, and that query is what breaks — reproducibly, not
+  intermittently, once the exact depth and hosting were matched. Redirecting
+  the child's streams to a file (`*> $logFile`) needs no console at all; the
+  parent — which had a working console throughout every test — reads the
+  file back and relays it with its own `Write-Host`. `Invoke-ManualSync` does
+  this now. Proven the slow way: a minimal two-file repro (outer calls inner,
+  both just `Write-Host`) did NOT reproduce it — the failure needed the real
+  script's real nesting depth, so do not trust a simplified repro to clear a
+  fix here; instrument the real call.
 
 ## Moving Rasporedi onto the database
 
@@ -2697,10 +2717,16 @@ private repository's own README states in its own text why it must stay
 private, precisely so that warning survives being read on its own, without
 this file open beside it.
 
-Not yet done: neither machine has `MTB-data` cloned yet, so `git-sync.ps1`
-has not been run for real (`-Mode Status` was not yet exercised against a live
-clone). Run `-Mode Status` first on whichever machine sets up the clone first
-— it is read-only — before trusting `-Mode Push`.
+**Run for real the same day, on HOME.** `Assisstant/MTB-data` was created
+private and cloned beside `MTB`. The first `-Mode Push` hit the nested-process
+trap above and had to be fixed before it worked; once fixed, `-Mode Push`
+genuinely exported HOME's live database (178 students, 22 therapists, 60
+terms, plus S-Dnevnik's collections) and pushed the snapshot — confirmed
+afterward by `-Mode Status` reporting it back from the private repository,
+not merely by the push command exiting 0. **WORK has not run `-Mode Pull`
+yet.** That is the next real step: clone `MTB-data` there too (fresh `MTB`
+clone first if it predates 5 Sep), then `-Mode Pull` without `-Apply` and read
+the report before ever adding `-Apply`.
 
 ## State (9 Sep 2026)
 
