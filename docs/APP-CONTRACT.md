@@ -146,6 +146,14 @@ The canonical schedule must retain all of these capabilities:
   enrolment kind and scheduled/unscheduled pupils;
 - show server-confirmed save state and the server identity in the shared bar.
 
+Fusion also provides read-only printable caseload lists for each therapist,
+and a pupil summary of distinct scheduled therapists and weekly planned visits.
+Counts use stable pupil ids and one visit per pupil/therapist/day/enclosing
+40-minute block, including when that block is stored as two halves. Caseload
+membership without a booking shows zero visits; planned visits are not attendance.
+The `Сите денови` tab stacks Monday through Friday using the same editable cells
+and API protections as the daily view, and prints one day per page.
+
 There is no browser-only fallback inside Fusion. If PostgreSQL cannot confirm a
 write, the screen must report failure instead of pretending the change is safe.
 

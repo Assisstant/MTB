@@ -38,6 +38,7 @@
     "test:purge": "tsx test/roster-purge.e2e.ts",
     "test:fusion": "tsx test/fusion-schedule.e2e.ts",
     "test:fusion-ui": "node test/fusion.browser.mjs",
+    "test:fusion-reports": "node test/fusion-reports.browser.mjs",
     "test:navigation": "node test/app-navigation.browser.mjs",
     "test:workspace": "node test/workspace.browser.mjs",
     "test:therapist-view": "node test/per-therapist-view.browser.mjs",

@@ -208,6 +208,28 @@
     .view-tab:focus-visible { outline: 2px solid #667eea; outline-offset: -2px; }
     .workflow-hint { margin: 12px 0 16px; color: #4a5568; font-size: 13px; line-height: 1.5; }
     body[data-panel="roster"] .schedule-only { display: none !important; }
+    body[data-panel="lists"] .schedule-only, body[data-panel="visits"] .schedule-only { display: none !important; }
+    body[data-panel="allDays"] .field.view, body[data-panel="allDays"] #exportImage { display: none !important; }
+    .report-section { margin: 20px 0 30px; }
+    .report-section h3 { margin: 0; font-size: 18px; }
+    .report-heading { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 10px; }
+    .report-note { color: #64748b; font-size: 13px; line-height: 1.5; }
+    body.dark-mode .report-note { color: #cbd5e0; }
+    .report-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+    #reportContent { overflow-x: auto; }
+    .report-table { min-width: 620px; }
+    .report-table th, .report-table td { text-align: left; padding: 10px; border-bottom: 1px solid #cbd5e0; overflow-wrap: anywhere; }
+    .report-table th { background: #edf2f7; color: #1a202c; }
+    .report-table .number { text-align: center; width: 80px; }
+    .day-section + .day-section { margin-top: 30px; }
+    @media print {
+        .report-controls, .report-heading button { display: none !important; }
+        .report-section, .day-section { break-before: page; }
+        .report-section:first-child, .day-section:first-child { break-before: auto; }
+        .report-table tr { break-inside: avoid; }
+        #reportContent { overflow: visible; }
+        .report-table { min-width: 0; }
+    }
     .workspace {
         width: 100%;
         min-width: 0;
@@ -715,6 +737,9 @@
             aria-controls="schedulePanel" data-panel="schedule">Распоред</button>
         <button class="view-tab" id="rosterTab" type="button" role="tab" aria-selected="false"
             aria-controls="rosterPanel" data-panel="roster">Ученици по терапевт</button>
+        <button class="view-tab" id="listsTab" type="button" role="tab" aria-selected="false" aria-controls="reportPanel" data-panel="lists">Списоци за печатење</button>
+        <button class="view-tab" id="visitsTab" type="button" role="tab" aria-selected="false" aria-controls="reportPanel" data-panel="visits">Посети по ученик</button>
+        <button class="view-tab" id="allDaysTab" type="button" role="tab" aria-selected="false" aria-controls="schedulePanel" data-panel="allDays">Сите денови</button>
     </div>
     <p class="workflow-hint">Избери ученици во „Ученици по терапевт“, па постави ги термините во „Распоред“.</p>
     <div class="workspace">
@@ -781,6 +806,15 @@
                     </tbody>
                 </table>
             </div>
+        </section>
+        <section id="reportPanel" role="tabpanel" aria-labelledby="listsTab" hidden>
+            <div class="section-header"><h2 id="reportTitle">Списоци за печатење</h2><span id="reportYear"></span></div>
+            <div class="roster-controls report-controls">
+                <label class="roster-field"><span>Терапевт</span><select id="reportTherapist"><option value="">Сите терапевти</option></select></label>
+                <button class="btn btn-primary" id="printReport" type="button">⎙ Печати го прегледот</button>
+            </div>
+            <p class="report-note" id="reportNote"></p>
+            <div id="reportContent"></div>
         </section>
     </div>
 </main>
@@ -866,7 +900,7 @@
     const REQUESTED_YEAR = new URLSearchParams(window.location.search).get('year') || '';
     const state = {
         years: [], year: '', day: DAYS[0], focus: '', view: 'day', panel: 'schedule', roster: null,
-        rosterTherapist: '', token: '', me: null, authRequired: false,
+        rosterTherapist: '', reportTherapist: '', token: '', me: null, authRequired: false,
         bells: [], sessions: new Map(), pending: new Set(), expandedBlocks: new Set(), ticket: 0,
         pollTicket: 0, sessionVersion: 0,
         // ден|термин|public_id -> каде е детето во тој термин. Полни се од
@@ -1220,21 +1254,22 @@
 
     function drawFocus() {
         const select = el('focus');
+        const weekly = state.view === 'week' && state.panel !== 'allDays';
         const previous = state.focus;
         const allowed = isRestrictedTherapist()
             ? ((state.roster && state.roster.therapists) || []).filter((therapist) =>
                 String(therapist.id) === String(state.me.id))
             : ((state.roster && state.roster.therapists) || []);
-        select.innerHTML = (state.view === 'week' ? '' : '<option value="">Сите терапевти</option>') +
+        select.innerHTML = (weekly ? '' : '<option value="">Сите терапевти</option>') +
             (allowed.map((therapist) =>
                 '<option value="' + therapist.id + '">' + esc(therapist.name) + '</option>'
             ).join(''));
         const hasPrevious = Array.from(select.options).some((option) => option.value === previous);
         state.focus = hasPrevious
             ? previous
-            : (state.view === 'week' && select.options.length ? select.options[0].value : '');
+            : (weekly && select.options.length ? select.options[0].value : '');
         select.value = state.focus;
-        el('focusLabel').textContent = state.view === 'week' ? 'Терапевт' : 'Кабинети';
+        el('focusLabel').textContent = weekly ? 'Терапевт' : 'Кабинети';
         select.disabled = isRestrictedTherapist();
     }
 
@@ -1246,20 +1281,95 @@
     }
 
     function drawPanel() {
+        drawView();
         const rosterActive = state.panel === 'roster';
-        document.body.dataset.panel = rosterActive ? 'roster' : 'schedule';
-        el('schedulePanel').hidden = rosterActive;
+        const reportActive = ['lists', 'visits'].includes(state.panel);
+        document.body.dataset.panel = state.panel;
+        el('schedulePanel').hidden = rosterActive || reportActive;
         el('rosterPanel').hidden = !rosterActive;
-        document.querySelectorAll('[data-panel]').forEach((button) => {
+        el('reportPanel').hidden = !reportActive;
+        el('schedulePanel').setAttribute('aria-labelledby', state.panel === 'allDays' ? 'allDaysTab' : 'scheduleTab');
+        document.querySelectorAll('.view-tab[data-panel]').forEach((button) => {
             const selected = button.dataset.panel === state.panel;
             button.setAttribute('aria-selected', String(selected));
             button.tabIndex = selected ? 0 : -1;
         });
-        el('dayTabsBand').hidden = rosterActive || state.view === 'week';
+        el('dayTabsBand').hidden = state.panel !== 'schedule' || state.view === 'week';
         if (rosterActive) {
             drawRosterTherapists();
             drawTherapistRoster();
         }
+        if (reportActive) drawReports();
+        drawSchedule();
+    }
+
+    // Counts use stable pupil ids and the same enclosing 40-minute block as
+    // the caseload view. Two stored halves of one visit count only once.
+    function reportData() {
+        const students = studentsById();
+        state.sessions.forEach((s) => {
+            if (s.student_public_id && !students.has(s.student_public_id)) students.set(s.student_public_id,
+                { public_id: s.student_public_id, name: s.student_name || 'Непознат ученик', grade: s.student_grade || '' });
+        });
+        const therapists = ((state.roster && state.roster.therapists) || []).filter((t) =>
+            !state.reportTherapist || String(t.id) === state.reportTherapist);
+        return { students, therapists, counts: new Map(therapists.map((t) => [t.id, therapistSessionCounts(t.id)])) };
+    }
+
+    function reportTable(headers, rows) {
+        return '<table class="report-table"><thead><tr>' + headers.map((h) => '<th scope="col">' + esc(h) + '</th>').join('') +
+            '</tr></thead><tbody>' + (rows.length ? rows.map((row) => '<tr>' + row.map((v) => '<td>' + esc(v) + '</td>').join('') + '</tr>').join('') :
+            '<tr><td colspan="' + headers.length + '">Нема ученици.</td></tr>') + '</tbody></table>';
+    }
+
+    function reportHtml(onlyTherapist) {
+        const { students, therapists, counts } = reportData();
+        const sort = (a, b) => String(a.name).localeCompare(String(b.name), 'mk') || String(a.grade || '').localeCompare(String(b.grade || ''), 'mk') || a.public_id.localeCompare(b.public_id);
+        if (state.panel === 'lists') return therapists.filter((t) => !onlyTherapist || String(t.id) === onlyTherapist).map((t) => {
+            const visits = counts.get(t.id);
+            const ids = new Set([...(t.students || []), ...visits.keys()]);
+            const pupils = [...ids].map((id) => students.get(id)).filter(Boolean).sort(sort);
+            return '<section class="report-section" data-report-therapist="' + t.id + '"><div class="report-heading"><h3>' + esc(t.name) +
+                '</h3><button class="btn" type="button" data-print-therapist="' + t.id + '">Печати список</button></div>' +
+                '<p class="report-note">' + esc(state.year) + ' · ' + pupils.length + ' ученици</p>' +
+                reportTable(['Бр.', 'Име и презиме', 'Паралелка', 'Посети неделно'], pupils.map((s, i) => [i + 1, s.name, s.grade || '—', visits.get(s.public_id) || 0])) + '</section>';
+        }).join('');
+        const rows = [...students.values()].sort(sort).map((s) => {
+            const visits = therapists.map((t) => ({ t, n: counts.get(t.id).get(s.public_id) || 0 })).filter((v) => v.n);
+            return { s, visits };
+        }).filter((r) => r.visits.length);
+        return '<section class="report-section"><h3>' + rows.length + ' ученици со закажани посети</h3>' +
+            reportTable(['Бр.', 'Име и презиме', 'Паралелка', 'Кабинети', 'Посети неделно', 'Терапевт · посети'], rows.map(({ s, visits }, i) =>
+                [i + 1, s.name, s.grade || '—', visits.length, visits.reduce((sum, v) => sum + v.n, 0), visits.map((v) => v.t.name + ' · ' + v.n).join('; ')])) + '</section>';
+    }
+
+    function drawReports() {
+        if (!['lists', 'visits'].includes(state.panel)) return;
+        const select = el('reportTherapist');
+        const all = (state.roster && state.roster.therapists) || [];
+        if (!all.some((t) => String(t.id) === state.reportTherapist)) state.reportTherapist = '';
+        select.innerHTML = '<option value="">Сите терапевти</option>' + all.map((t) => '<option value="' + t.id + '">' + esc(t.name) + '</option>').join('');
+        select.value = state.reportTherapist;
+        el('reportPanel').setAttribute('aria-labelledby', state.panel === 'lists' ? 'listsTab' : 'visitsTab');
+        el('reportTitle').textContent = state.panel === 'lists' ? 'Списоци по терапевт' : 'Посети по ученик';
+        el('reportYear').textContent = state.year;
+        el('reportNote').textContent = state.panel === 'lists'
+            ? 'Годишен список и закажани ученици по терапевт. Нула значи дека ученикот нема закажан термин.'
+            : 'Планирани посети според распоредот, не евиденција на присуство. Кабинети = различни терапевти со закажан термин. Бројките важат за избраниот филтер.';
+        el('reportContent').innerHTML = state.roster ? reportHtml() : '<p>Податоците не се вчитани.</p>';
+        el('reportContent').querySelectorAll('[data-print-therapist]').forEach((b) => b.addEventListener('click', () => printReport(b.dataset.printTherapist)));
+    }
+
+    function printReport(therapistId) {
+        if (!state.roster) return showNotice('Податоците сè уште не се вчитани.', 'error');
+        const sheet = window.open('', '_blank');
+        if (!sheet) return showNotice('Дозволи прозорец за печатење во прелистувачот.', 'error');
+        const title = el('reportTitle').textContent;
+        sheet.document.write('<!DOCTYPE html><html lang="mk"><head><meta charset="UTF-8"><title>' + esc(title) + '</title><style>' + printStyles() +
+            '@page{size:A4 portrait;margin:12mm}.report-section{break-before:page}.report-section:first-of-type{break-before:auto}button{display:none}table{table-layout:auto}tr{break-inside:avoid}h3{color:#222}.report-note{font-size:11px}' +
+            '</style></head><body><h1>' + esc(SCHOOL) + '</h1><h2>' + esc(title) + ' · ' + esc(state.year) + '</h2><p>' + esc(el('reportNote').textContent) +
+            '</p>' + reportHtml(therapistId) + '<scr' + 'ipt>window.onload=function(){window.print();}</scr' + 'ipt></body></html>');
+        sheet.document.close();
     }
 
     function drawMetrics() {
@@ -1272,7 +1382,8 @@
             ? new Set((activeTherapists()[0] && activeTherapists()[0].students) || [])
             : new Set(students.keys());
         const waiting = Array.from(relevant).filter((id) => students.has(id) && !scheduled.has(id));
-        el('metricSessions').textContent = String(visibleSessions.length);
+        el('metricSessions').textContent = String(activeTherapists().reduce((sum, therapist) =>
+            sum + Array.from(therapistSessionCounts(therapist.id).values()).reduce((n, count) => n + count, 0), 0));
         el('metricScheduled').textContent = String(scheduled.size);
         el('metricWaiting').textContent = String(waiting.length);
         el('metricConflicts').textContent = String(sessionConflictCount());
@@ -2022,6 +2133,7 @@
 
     function drawSchedule() {
         if (!state.roster) return;
+        drawReports();
         hideWhere();
         const therapists = activeTherapists();
         const students = studentsById();
@@ -2034,12 +2146,16 @@
             return;
         }
 
-        if (state.view === 'week') {
+        if (state.view === 'week' && state.panel !== 'allDays') {
             drawWeeklySchedule(therapists[0], students, conflicts);
             return;
         }
 
-        let html = gridOpen(therapists.length, 210);
+        const days = state.panel === 'allDays' ? DAYS : [state.day];
+        if (state.panel === 'allDays') el('scheduleTitle').textContent = 'Сите денови · неделен распоред';
+        let html = days.map((day) => {
+        let html = '<section class="day-section" data-schedule-day="' + esc(day) + '">' +
+            (state.panel === 'allDays' ? '<h3>' + esc(capitalise(day)) + '</h3>' : '') + gridOpen(therapists.length, 210);
         html += '<div class="schedule-header">Час</div>';
         therapists.forEach((therapist) => {
             html += '<div class="schedule-header" data-focus="therapist:' + therapist.id +
@@ -2050,10 +2166,11 @@
         state.bells.forEach((bell, rowIndex) => {
             html += timeCellHtml(bell);
             therapists.forEach((therapist) => {
-                html += cellHtml(state.day, bell, rowIndex, therapist, students, conflicts);
+                html += cellHtml(day, bell, rowIndex, therapist, students, conflicts);
             });
         });
-        html += '</div>';
+        return html + '</div></section>';
+        }).join('');
         el('scheduleGrid').innerHTML = html;
         bindScheduleCells();
         drawMetrics();
@@ -2121,6 +2238,7 @@
     }
 
     function buildPrintHtml() {
+        if (state.panel === 'allDays') return buildAllDaysPrintHtml();
         const students = studentsById();
         const therapists = activeTherapists();
         const weekly = state.view === 'week';
@@ -2185,6 +2303,17 @@
         }
         sheet.document.write(html);
         sheet.document.close();
+    }
+
+    function buildAllDaysPrintHtml() {
+        const students = studentsById(), therapists = activeTherapists();
+        return '<!DOCTYPE html><html lang="mk"><head><meta charset="UTF-8"><title>Сите денови</title><style>' + printStyles() +
+            '.day-section{break-before:page}.day-section:first-child{break-before:auto}tr{break-inside:avoid}</style></head><body>' +
+            DAYS.map((day) => '<section class="day-section"><h1>' + esc(SCHOOL) + '</h1><h2>' + esc(capitalise(day)) + ' · ' + esc(state.year) +
+                '</h2><table><thead><tr><th class="slot">Час</th>' + therapists.map((t) => '<th>' + esc(t.name) + '</th>').join('') + '</tr></thead><tbody>' +
+                state.bells.map((bell) => '<tr><td class="slot">' + esc(bell.label) + '<br>' + esc(spaced(bellTime(bell))) + '</td>' +
+                    therapists.map((t) => printCellHtml(day, bell, t, students)).join('') + '</tr>').join('') + '</tbody></table></section>').join('') +
+            '<scr' + 'ipt>window.onload=function(){window.print();}</scr' + 'ipt></body></html>';
     }
 
     /* ── JPG sheet, painted the way the Аудиограми export is painted ──
@@ -2642,7 +2771,7 @@
     el('exportImage').addEventListener('click', exportScheduleImage);
     document.querySelectorAll('.view-tab[data-panel]').forEach((button) => {
         button.addEventListener('click', () => {
-            state.panel = button.dataset.panel === 'roster' ? 'roster' : 'schedule';
+            state.panel = button.dataset.panel;
             drawPanel();
         });
         button.addEventListener('keydown', (event) => {
@@ -2654,6 +2783,8 @@
             next.focus();
         });
     });
+    el('reportTherapist').addEventListener('change', () => { state.reportTherapist = el('reportTherapist').value; drawReports(); });
+    el('printReport').addEventListener('click', () => printReport());
     el('rosterTherapist').addEventListener('change', () => {
         if (isRestrictedTherapist()) applyUserConstraints();
         else state.rosterTherapist = el('rosterTherapist').value;
