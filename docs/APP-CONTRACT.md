@@ -121,6 +121,15 @@ reachable from the top bar, and layout controls must work at phone width and
 with a keyboard. `npm run test:workspace` verifies this with invented data and
 intercepted API requests.
 
+The workspace's class panel groups pupils by their stored annual class label,
+and shows each pupil's explicit `oddelenie` separately. Never infer a pupil's
+generation from the combined-class label. Pupil and teacher links open the
+existing directory editor by stable id; shared class and annual-list operations
+open the existing `Podatoci.html` window. Related timetable/crossing actions
+reuse existing windows without replacing their DOM or discarding drafts. Newly
+opened windows inherit the panel's selected year. Existing windows retain their
+own year and drafts; do not claim automatic year synchronization between them.
+
 ## Required schedule behaviour
 
 The canonical schedule must retain all of these capabilities:

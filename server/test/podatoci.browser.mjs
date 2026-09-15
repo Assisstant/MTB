@@ -121,7 +121,9 @@ const run = async () => {
     page.on('pageerror', (e) => errors.push(String(e)));
     page.on('dialog', (d) => d.dismiss());
 
-    await page.goto(`${BASE}/Podatoci.html?year=${encodeURIComponent(NEW_YEAR)}`);
+    await page.goto(`${BASE}/Podatoci.html?year=${encodeURIComponent(NEW_YEAR)}&tab=classes`);
+    check('workspace link opens the existing classes editor', await page.locator('#tab-classes').isVisible());
+    await page.click('[data-tab="students"]');
     await page.waitForSelector('#students table.list', { timeout: 8000 });
 
     const rowOf = (pid) => `#students tr[data-student="${pid}"]`;

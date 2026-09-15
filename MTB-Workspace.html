@@ -90,8 +90,8 @@ button:focus-visible, .window-titlebar:focus-visible, #dockDivider:focus-visible
 </head>
 <body>
 <div class="workspace">
-<header class="topbar"><div class="brand">MTB <small>работен простор</small></div><div class="app-tabs" id="appTabs"><button data-app="RasporediFusion.html" class="active">Распоред</button><button data-app="Nastava.html">Настава</button><button data-app="NastavaUredi.html">Уреди настава</button><button data-app="AkciskiPlan.html">Евидентен лист</button><button data-app="S-Dnevnik.html">S-Дневник</button><button data-app="Pregled-Baza.html">Преглед база</button></div><div class="year-wrap"><span>Година</span><select id="year" aria-label="Учебна година"></select></div><button class="soft compact" id="refresh" aria-label="Освежи податоци">↻</button><div class="dbrole" id="dbrole" title="Која база се запишува">БАЗА: —</div><div class="status" id="status">Се поврзувам…</div><button class="soft compact" id="resetLayout" title="Врати ги прозорците во почетниот распоред" aria-label="Почетен распоред">Почетен распоред</button><button class="soft compact" id="hidePanel" aria-controls="directoryWindow" aria-expanded="true">Скриј податоци</button></header>
-<div class="main" id="main"><section class="workspace-window app-window" id="scheduleWindow" aria-label="Распоред"><div class="window-titlebar" tabindex="0"><span class="window-title">Распоред</span><div class="window-actions"></div></div><iframe id="appFrame" data-app-file="RasporediFusion.html" src="RasporediFusion.html?embed=1" title="Распоред"></iframe></section><div id="dockDivider" role="separator" tabindex="0" aria-label="Ширина на заедничките податоци" aria-orientation="vertical" aria-controls="directoryWindow"></div><aside class="workspace-window directory" id="directoryWindow" aria-label="Заеднички податоци"><div class="dir-head"><div class="window-titlebar" tabindex="0"><span class="window-title">Заеднички податоци</span><div class="window-actions"></div></div><div class="dir-description">Истата база · уредување без напуштање на работата</div></div><div class="dir-tabs" id="dirTabs"><button data-dir="students" class="active">Ученици</button><button data-dir="teachers">Наставници</button><button data-dir="therapists">Стручни / терапевти</button></div><div class="tools"><input id="search" type="search" placeholder="Пребарај…" aria-label="Пребарај податоци"><select id="kindFilter"><option value="">Сите</option><option value="internal">Интерни</option><option value="boarding">Интернатски</option><option value="external">Екстерни</option></select></div><div class="directory-content" id="content"></div></aside></div>
+<header class="topbar"><div class="brand">MTB <small>работен простор</small></div><div class="app-tabs" id="appTabs"><button data-app="RasporediFusion.html" class="active">Распоред</button><button data-app="Nastava.html">Настава ↔ терапии</button><button data-app="NastavaUredi.html">Уреди настава</button><button data-app="Podatoci.html">Паралелки / списоци</button><button data-app="AkciskiPlan.html">Евидентен лист</button><button data-app="S-Dnevnik.html">S-Дневник</button><button data-app="Pregled-Baza.html">Преглед база</button></div><div class="year-wrap"><span>Година</span><select id="year" aria-label="Учебна година"></select></div><button class="soft compact" id="refresh" aria-label="Освежи податоци">↻</button><div class="dbrole" id="dbrole" title="Која база се запишува">БАЗА: —</div><div class="status" id="status">Се поврзувам…</div><button class="soft compact" id="resetLayout" title="Врати ги прозорците во почетниот распоред" aria-label="Почетен распоред">Почетен распоред</button><button class="soft compact" id="hidePanel" aria-controls="directoryWindow" aria-expanded="true">Скриј податоци</button></header>
+<div class="main" id="main"><section class="workspace-window app-window" id="scheduleWindow" aria-label="Распоред"><div class="window-titlebar" tabindex="0"><span class="window-title">Распоред</span><div class="window-actions"></div></div><iframe id="appFrame" data-app-file="RasporediFusion.html" src="RasporediFusion.html?embed=1" title="Распоред"></iframe></section><div id="dockDivider" role="separator" tabindex="0" aria-label="Ширина на заедничките податоци" aria-orientation="vertical" aria-controls="directoryWindow"></div><aside class="workspace-window directory" id="directoryWindow" aria-label="Заеднички податоци"><div class="dir-head"><div class="window-titlebar" tabindex="0"><span class="window-title">Заеднички податоци</span><div class="window-actions"></div></div><div class="dir-description">Истата база · уредување без напуштање на работата</div></div><div class="dir-tabs" id="dirTabs"><button data-dir="students" class="active">Ученици</button><button data-dir="teachers">Наставници</button><button data-dir="therapists">Стручни / терапевти</button><button data-dir="classes">Паралелки</button></div><div class="tools"><input id="search" type="search" placeholder="Пребарај…" aria-label="Пребарај податоци"><select id="kindFilter"><option value="">Сите</option><option value="internal">Интерни</option><option value="boarding">Интернатски</option><option value="external">Екстерни</option></select></div><div class="directory-content" id="content"></div></aside></div>
 <div class="sr-only" id="windowAnnouncement" role="status" aria-live="polite"></div>
 <p class="sr-only" id="windowHelp">Влечи го насловот за преместување или користи ги стрелките кога насловот е избран. Двоен клик го максимизира прозорецот. Менувај големина од рабовите. Секогаш напред важи во овој работен простор.</p>
 </div>
@@ -143,6 +143,19 @@ button:focus-visible, .window-titlebar:focus-visible, #dockDivider:focus-visible
 .class-row select{width:auto;max-width:92px}
 .quiet-note{opacity:.7}
 #tSubjectNote{margin:-4px 0 10px}
+.related-work{margin-top:16px;padding-top:12px;border-top:1px solid var(--line)}
+.related-work h3,.class-composition h3{margin:8px 0;font-size:13px}
+.related-work .actions{margin-bottom:6px}
+.class-composition .person{grid-template-columns:24px minmax(0,1fr);align-items:start}
+.class-composition .person .meta{grid-column:2;white-space:normal}
+.class-composition .person .name,.person .name{white-space:normal;overflow:visible;overflow-wrap:anywhere}
+.class-composition .summary{display:flex;gap:6px;flex-wrap:wrap;margin:10px 0}
+.class-composition .badge{font-size:12px;padding:4px 8px}
+.dir-tabs{flex-wrap:wrap}
+.dir-tabs button{min-width:100px}
+.class-composition .note{font-size:12px}
+@media(min-width:901px){.app-tabs{order:2;flex:1 0 100%;flex-wrap:wrap;overflow:visible}}
+@media(max-width:900px){.dir-tabs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}.dir-tabs button{min-width:0}}
 </style>
 <div id="startGate" role="dialog" aria-modal="true" aria-labelledby="startGateTitle">
   <div class="card">
@@ -158,14 +171,68 @@ button:focus-visible, .window-titlebar:focus-visible, #dockDivider:focus-visible
 </div>
 <script src="app-navigation.js"></script>
 <script>
-(function(){'use strict';const $=id=>document.getElementById(id),esc=v=>String(v==null?'':v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'),tidy=v=>String(v==null?'':v).replace(/\s+/g,' ').trim(),personName=value=>{const clean=tidy(value),letters=clean.replace(/[^\p{L}]/gu,'');if(!letters||letters!==letters.toLocaleUpperCase('mk-MK'))return clean;return clean.toLocaleLowerCase('mk-MK').replace(/(^|[\s\-‐‑–—'’])(\p{L})/gu,(_,b,l)=>b+l.toLocaleUpperCase('mk-MK'))};const PUBLISHED=location.hostname==='assisstant.github.io',SERVER_KEY='mtb_podatoci_server_v1',ROMAN=['I','II','III','IV','V','VI','VII','VIII','IX'];let apiBase='',years=[],data=null,categories=[],categoryOf={teacher:{},therapist:{}},dir='students',selected={students:null,teachers:null,therapists:null},draftCaseload=new Set(),caseloadOriginal=new Set(),returnTherapist=null,ticket=0;
+(function(){'use strict';const $=id=>document.getElementById(id),esc=v=>String(v==null?'':v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'),tidy=v=>String(v==null?'':v).replace(/\s+/g,' ').trim(),personName=value=>{const clean=tidy(value),letters=clean.replace(/[^\p{L}]/gu,'');if(!letters||letters!==letters.toLocaleUpperCase('mk-MK'))return clean;return clean.toLocaleLowerCase('mk-MK').replace(/(^|[\s\-‐‑–—'’])(\p{L})/gu,(_,b,l)=>b+l.toLocaleUpperCase('mk-MK'))};const PUBLISHED=location.hostname==='assisstant.github.io',SERVER_KEY='mtb_podatoci_server_v1',ROMAN=['I','II','III','IV','V','VI','VII','VIII','IX'];let apiBase='',years=[],data=null,categories=[],categoryOf={teacher:{},therapist:{}},dir='students',selected={students:null,teachers:null,therapists:null,classes:null},draftCaseload=new Set(),caseloadOriginal=new Set(),returnTherapist=null,ticket=0;
 function setStatus(text,kind){const n=$('status');n.textContent=text||'';n.className='status'+(kind?' '+kind:'')}function activeServer(){if(!PUBLISHED)return /^https?:$/.test(location.protocol)?location.origin:'';try{const raw=localStorage.getItem(SERVER_KEY)||'';if(!raw)return'';const u=new URL(raw);if(u.protocol!=='https:'||!u.hostname.endsWith('.ts.net'))return'';return u.origin}catch(_){return''}}async function api(method,path,body){if(!apiBase)throw new Error('Не е избрана PostgreSQL база.');const res=await fetch(apiBase+path,{method,cache:'no-store',headers:body===undefined?undefined:{'Content-Type':'application/json'},body:body===undefined?undefined:JSON.stringify(body)});let out=null;try{out=await res.json()}catch(_){}if(!res.ok)throw new Error(out&&(out.error||out.message)||'HTTP '+res.status);return out}
 async function load(preferYear){const mine=++ticket;apiBase=activeServer();if(!apiBase){data=null;render();setStatus('Избери база во start.html','warn');return}setStatus('Вчитувам од базата…');try{years=await api('GET','/api/years');if(mine!==ticket)return;const current=years.find(y=>y.is_current)||years[0],wanted=preferYear||$('year').value||current&&current.label||'';$('year').innerHTML=years.map(y=>'<option value="'+esc(y.label)+'"'+(y.label===wanted?' selected':'')+'>'+esc(y.label)+(y.is_current?' · тековна':' · архива')+'</option>').join('');const year=$('year').value||wanted,[roster,cats,holders]=await Promise.all([api('GET','/api/roster?year='+encodeURIComponent(year)),api('GET','/api/categories').catch(()=>({categories:[]})),api('GET','/api/categories/holders?year='+encodeURIComponent(year)).catch(()=>({teachers:[],therapists:[]}))]);if(mine!==ticket)return;data=roster;categories=cats.categories||[];categoryOf={teacher:{},therapist:{}};(holders.teachers||[]).forEach(x=>categoryOf.teacher[x.personId]=x.categoryId);(holders.therapists||[]).forEach(x=>categoryOf.therapist[x.personId]=x.categoryId);preserveSelection();render();setStatus(roster.year+' · '+roster.students.length+' ученици · '+roster.teachers.length+' наставници · '+roster.therapists.length+' стручни/терапевти','ok')}catch(err){data=null;render();setStatus(err.message,'error')}}
-function preserveSelection(){for(const key of ['students','teachers','therapists']){const old=selected[key];if(!old)continue;const id=key==='students'?old.public_id:old.id,next=(data[key]||[]).find(x=>(key==='students'?x.public_id:x.id)===id);selected[key]=next||null}if(selected.therapists){caseloadOriginal=new Set(selected.therapists.students||[]);draftCaseload=new Set(caseloadOriginal)}}function render(){$('kindFilter').style.display=dir==='students'?'':'none';if(!data){$('content').innerHTML='<div class="empty">Нема вчитани податоци од базата.</div>';return}dir==='students'?renderStudents():dir==='teachers'?renderTeachers():renderTherapists()}function q(){return tidy($('search').value).toLocaleLowerCase('mk-MK')}
+function preserveSelection(){for(const key of ['students','teachers','therapists','classes']){const old=selected[key];if(!old)continue;const id=key==='students'?old.public_id:old.id,next=(data[key]||[]).find(x=>(key==='students'?x.public_id:x.id)===id);selected[key]=next||null}if(selected.therapists){caseloadOriginal=new Set(selected.therapists.students||[]);draftCaseload=new Set(caseloadOriginal)}}function render(){$('kindFilter').style.display=dir==='students'?'':'none';if(!data){$('content').innerHTML='<div class="empty">Нема вчитани податоци од базата.</div>';return}dir==='students'?renderStudents():dir==='teachers'?renderTeachers():dir==='classes'?renderClasses():renderTherapists();renderRelatedActions()}function q(){return tidy($('search').value).toLocaleLowerCase('mk-MK')}
 function masterRow(kind,item,index,meta){const id=kind==='students'?item.public_id:item.id,active=selected[kind]&&(kind==='students'?selected[kind].public_id:selected[kind].id)===id;return'<button class="person'+(active?' active':'')+'" data-pick="'+esc(String(id))+'"><span class="num">'+(index+1)+'.</span><span class="name">'+esc(personName(item.name))+'</span><span class="meta">'+esc(meta||'')+'</span></button>'}function bindMaster(kind){document.querySelectorAll('[data-pick]').forEach(b=>b.addEventListener('click',()=>{const raw=b.dataset.pick;selected[kind]=(data[kind]||[]).find(x=>String(kind==='students'?x.public_id:x.id)===raw)||null;if(kind==='therapists'){caseloadOriginal=new Set(selected.therapists?.students||[]);draftCaseload=new Set(caseloadOriginal)}
   // Истиот клик што го отвора записот го осветлува човекот во прозорците.
-  setFocus((kind==='students'?'student:':kind==='teachers'?'teacher:':'therapist:')+raw);
+  setFocus(kind==='classes'?'':(kind==='students'?'student:':kind==='teachers'?'teacher:':'therapist:')+raw);
   render()}))}const KIND_LABEL={internal:'интерен',boarding:'интернатски',external:'екстерен'};
+// Class membership comes from this year's enrolment, and generation only from
+// the pupil's explicit oddelenie. A combined class label is not a grade parser.
+function classPupils(c){return(data.students||[]).filter(s=>s.active!==false&&s.grade===c.label)}
+function classTeachers(c){return(data.teachers||[]).filter(t=>(t.classes||[]).some(x=>x.label===c.label))}
+function renderClasses(){
+  const rows=(data.classes||[]).filter(c=>!q()||c.label.toLocaleLowerCase('mk-MK').includes(q()));
+  const c=selected.classes;
+  $('content').innerHTML='<div class="split"><section class="master"><div class="master-title">Паралелки · '+rows.length+'</div><div class="list">'
+    +rows.map((x,i)=>masterRow('classes',{...x,name:x.label},i,classPupils(x).length+' ученици')).join('')
+    +'</div></section><section class="editor class-composition">'
+    +(c?classComposition(c):'<div class="empty">Избери паралелка за составот, одделенијата и наставниците. Изборот на ученик или наставник ги отвора неговите податоци за корекција.</div>')
+    +'</section></div>';
+  bindMaster('classes');
+}
+function classComposition(c){
+  const pupils=classPupils(c),teachers=classTeachers(c);
+  const generations=ROMAN.filter(g=>pupils.some(s=>String(s.oddelenie||'').toUpperCase()===g));
+  const missing=pupils.filter(s=>!s.oddelenie).length;
+  return '<div class="editor-title">Паралелка '+esc(c.label)+' · '+esc(data.year)+'</div>'
+    +'<div class="summary"><span class="badge">'+pupils.length+' ученици</span>'
+    +generations.map(g=>'<span class="badge">Одделение '+esc(g)+'</span>').join('')+'</div>'
+    +'<p class="note">Паралелката е заедничката група во која учат. Одделението е генерацијата на секое дете. Во една паралелка може да има повеќе одделенија.</p>'
+    +(missing?'<p class="note">Невнесено одделение: '+missing+'. Отвори го ученикот за проверка; не се погодува од ознаката на паралелката.</p>':'')
+    +'<h3>Ученици · отвори за корекција</h3>'
+    +(pupils.map((s,i)=>'<button type="button" class="person" data-related-person="students" data-person-id="'+esc(s.public_id)+'"><span class="num">'+(i+1)+'.</span><span class="name">'+esc(personName(s.name))+'</span><span class="meta">Одделение: '+esc(s.oddelenie||'не е внесено')+'</span></button>').join('')||'<p class="note">Нема ученици во оваа паралелка.</p>')
+    +'<h3>Наставници · отвори за корекција</h3>'
+    +(teachers.map((t,i)=>'<button type="button" class="person" data-related-person="teachers" data-person-id="'+t.id+'"><span class="num">'+(i+1)+'.</span><span class="name">'+esc(personName(t.name))+'</span><span class="meta">'+((t.classes||[]).some(x=>x.label===c.label&&x.role==='homeroom')?'Раководител':'Наставник')+'</span></button>').join('')||'<p class="note">Нема доделен наставник. Доделувањето се уредува во неговите податоци.</p>');
+}
+function renderRelatedActions(){
+  const editor=$('content').querySelector('.editor');
+  if(!editor||!selected[dir])return;
+  const teaching=dir==='teachers'||dir==='classes';
+  editor.insertAdjacentHTML('beforeend','<section class="related-work"><h3>Поврзана работа</h3>'
+    +'<div class="actions"><button type="button" class="soft compact" data-open-app="'+(teaching?'NastavaUredi.html':'RasporediFusion.html')+'">'+(teaching?'Уреди наставни часови':'Термини во кабинети')+'</button>'
+    +'<button type="button" class="soft compact" data-open-app="Nastava.html">Настава ↔ терапии</button>'
+    +(dir==='classes'?'<button type="button" class="soft compact" data-open-app="Podatoci.html">Уреди паралелки / списоци</button>':'')+'</div>'
+    +'<p class="note">Нов прозорец почнува со '+esc(data.year)+'. Веќе отворените прозорци ја задржуваат својата година и незачуваниот внес.</p></section>');
+}
+$('content').addEventListener('click',event=>{
+  const link=event.target.closest('[data-open-app]');
+  if(link){
+    const tab=[...document.querySelectorAll('#appTabs [data-app]')].find(b=>b.dataset.app===link.dataset.openApp);
+    if(tab)tab.click();
+    return;
+  }
+  const person=event.target.closest('[data-related-person]');
+  if(!person)return;
+  const kind=person.dataset.relatedPerson;
+  if(!['students','teachers'].includes(kind))return;
+  const found=(data[kind]||[]).find(x=>String(kind==='students'?x.public_id:x.id)===person.dataset.personId);
+  if(!found)return;
+  dir=kind;selected[kind]=found;returnTherapist=null;$('search').value='';$('kindFilter').value='';
+  selectDirButton();setFocus((kind==='students'?'student:':'teacher:')+person.dataset.personId);render();
+});
 function studentMeta(s){const roman=romanOf(s.grade),odd=String(s.oddelenie||'').toUpperCase();
   // Одделението се пишува само кога КАЖУВА нешто ново — инаку секој ред би
   // носел двапати иста работа и разликата што е важна би се изгубила во неа.
@@ -390,7 +457,7 @@ function appSrc(file){const base=activeServer(),root=base&&base!==location.origi
   // `embed` tells the shared bar not to draw inside the shell: the shell has
   // its own tabs, and two rows of the same links is the confusion complained
   // about. Everything behind the bar still runs.
-  return root+file+(file.indexOf('?')<0?'?embed=1':'&embed=1')}
+  return root+file+(file.indexOf('?')<0?'?embed=1':'&embed=1')+($('year').value?'&year='+encodeURIComponent($('year').value):'')+(file==='Podatoci.html'?'&tab=classes':'')}
 // The window manager below opens new tabs; it must build the same address.
 window.MTBWorkspaceAppSrc=appSrc;
 

@@ -6,17 +6,23 @@
  * and child application document is intercepted, and every write is refused.
  */
 import assert from 'node:assert/strict';
+import { mkdir } from 'node:fs/promises';
 import { chromium } from 'playwright';
 
 const BASE = (process.env.API || 'http://127.0.0.1:3000').replace(/\/$/, '');
 const LAYOUT_KEY = 'mtb_workspace_layout_v1';
 const DRAFT = 'Invented unsaved workspace draft';
 const STUDENT_ID = 'workspace-invented-student';
-const APPS = ['RasporediFusion.html', 'NastavaUredi.html', 'AkciskiPlan.html', 'S-Dnevnik.html', 'Pregled-Baza.html'];
+const APPS = ['RasporediFusion.html', 'Nastava.html', 'NastavaUredi.html', 'Podatoci.html', 'AkciskiPlan.html', 'S-Dnevnik.html', 'Pregled-Baza.html'];
 const roster = {
     year: '2026/2027',
-    students: [{ public_id: STUDENT_ID, name: 'Ученик Пример', grade: 'I', kind: 'internal', active: true }],
-    teachers: [], therapists: [], classes: [{ label: 'I' }]
+    students: [
+        { public_id: STUDENT_ID, name: 'Ученик Пример', grade: 'К-4', oddelenie: 'II', kind: 'internal', active: true },
+        { public_id: STUDENT_ID + '-other', name: 'Ученик Пример', grade: 'К-4', oddelenie: 'V', kind: 'internal', active: true },
+        { public_id: STUDENT_ID + '-unknown', name: 'Пробен Ученик', grade: 'К-4', oddelenie: null, kind: 'external', active: true }
+    ],
+    teachers: [{ id: 8, name: 'Наставник Пример', classes: [{ label: 'К-4', role: 'homeroom' }] }],
+    therapists: [], classes: [{ id: 17, label: 'К-4' }, { id: 18, label: 'I' }]
 };
 const browser = await chromium.launch({ ...(process.env.CHROME ? { executablePath: process.env.CHROME } : {}) });
 let failures = 0;
@@ -136,6 +142,40 @@ async function run(label, scenario, options) {
 
 try {
     console.log('Workspace windows — isolated browser regression');
+    await run('combined class opens the correct same-name pupil and reuses editors with drafts intact', async ({ page, loads }) => {
+        await page.locator('[data-dir="classes"]').click();
+        await page.locator('[data-pick="17"]').click();
+        assert.deepEqual(await page.locator('.summary .badge').allTextContents(), ['3 ученици', 'Одделение II', 'Одделение V']);
+        assert.match(await page.locator('.class-composition').textContent(), /Невнесено одделение: 1/);
+        assert.equal(await page.locator('[data-related-person="students"]').count(), 3);
+        assert.equal(await page.locator('[data-related-person="teachers"]').count(), 1);
+        await mkdir('../backups/workspace-integration-2026-09-15', { recursive: true });
+        await page.screenshot({ path: '../backups/workspace-integration-2026-09-15/classes-desktop.png' });
+        await page.locator('[data-open-app="Podatoci.html"]').click();
+        const annual = page.locator('#app-Podatoci iframe');
+        await annual.waitFor();
+        const annualUrl = new URL(await annual.getAttribute('src'), BASE);
+        assert.equal(annualUrl.searchParams.get('tab'), 'classes');
+        assert.equal(annualUrl.searchParams.get('year'), roster.year);
+        await page.frameLocator('#app-Podatoci iframe').locator('#draft').fill(DRAFT);
+        await page.locator('[data-open-app="Podatoci.html"]').click();
+        assert.equal(loads.get('Podatoci.html'), 1);
+        assert.equal(await page.frameLocator('#app-Podatoci iframe').locator('#draft').inputValue(), DRAFT);
+        await page.locator(`[data-person-id="${STUDENT_ID}-other"]`).click();
+        assert.equal(await page.locator('#sOddelenie').inputValue(), 'V');
+        assert.equal(await page.locator('#sGrade').inputValue(), 'К-4');
+        await page.locator('#sName').fill(DRAFT);
+        await page.locator('[data-open-app="Nastava.html"]').click();
+        assert.equal(await page.locator('#sName').inputValue(), DRAFT);
+        assert.equal(new URL(await page.locator('#app-Nastava iframe').getAttribute('src'), BASE).searchParams.get('year'), roster.year);
+        assert.ok(!String(await page.evaluate(key => localStorage.getItem(key), LAYOUT_KEY) || '').includes(STUDENT_ID));
+        await page.setViewportSize({ width: 390, height: 844 });
+        if (!await page.locator('#directoryWindow').isVisible()) await page.locator('#hidePanel').click();
+        await page.locator('[data-dir="classes"]').click();
+        await page.locator('[data-pick="17"]').click();
+        assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
+        await page.screenshot({ path: '../backups/workspace-integration-2026-09-15/classes-mobile.png' });
+    });
     await run('dock divider supports pointer and keyboard without losing drafts', async ({ page }) => {
         await editor(page);
         await page.frameLocator('#appFrame').locator('#draft').fill(DRAFT);

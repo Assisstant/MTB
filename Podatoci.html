@@ -466,7 +466,8 @@
 
     let data = null;
     let years = [];
-    let tab = 'students';
+    const requestedTab = new URLSearchParams(window.location.search).get('tab');
+    let tab = ['students', 'teachers', 'therapists', 'classes'].includes(requestedTab) ? requestedTab : 'students';
     let rolloverPreview = null;
     const PUBLISHED = window.location.hostname === 'assisstant.github.io';
     const SERVER_DEFAULTS = [
@@ -1964,6 +1965,7 @@
         });
     })();
 
+    setTab(tab);
     syncNewStudentKind();
     syncNewTeacherKind();
     setNumberVisibility();
