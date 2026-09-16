@@ -92,6 +92,7 @@
 
 </div>
 
+<script src="mtb-runtime.js"></script>
 <script>
 (function(){
   'use strict';
@@ -122,6 +123,7 @@
   var $ = function(id){ return document.getElementById(id); };
 
   function servers(){
+    if (window.MTB_CLOUD_SAME_ORIGIN === true) return [location.origin];
     var list = DEFAULTS;
     try {
       var v = JSON.parse(localStorage.getItem(KEY));

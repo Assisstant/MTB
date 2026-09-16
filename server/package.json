@@ -7,6 +7,9 @@
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "start": "tsx src/index.ts",
+    "migrate": "tsx scripts/migrate.ts",
+    "test:migrations": "tsx test/migrations.e2e.ts",
+    "test:cloud-browser": "node test/cloud.browser.mjs",
     "import": "tsx scripts/import-json.ts",
     "export": "tsx scripts/export-json.ts",
     "rollover": "tsx scripts/rollover-year.ts",

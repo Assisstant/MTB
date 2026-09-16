@@ -114,6 +114,7 @@ dialog::backdrop { background: rgba(0,0,0,.5); }
 </dialog>
 </main>
 
+<script src="mtb-runtime.js"></script>
 <script>
 let STUDENTS = [];
 
@@ -128,6 +129,7 @@ const year = () => document.getElementById('yearSel').value;
 const SRV_URL_KEY = 'local_server_url_v1';
 
 function servedByApi() {
+    if (window.MTB_CLOUD_SAME_ORIGIN === true) return true;
     const h = location.hostname;
     return /^(localhost|127\.0\.0\.1)$/.test(h) || /\.ts\.net$/.test(h);
 }

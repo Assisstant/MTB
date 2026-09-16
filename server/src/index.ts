@@ -22,6 +22,7 @@ import { categoryRoutes } from './routes/categories.js';
 import { resolveServerIdentity } from './lib/server-identity.js';
 import { installColleagueBoundary } from './lib/colleague.js';
 import { installPublicStatic } from './lib/public-static.js';
+import { installCloudAuth, listenOptions } from './lib/cloud-auth.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -29,6 +30,7 @@ const server = Fastify({
     logger: true,
     bodyLimit: 50 * 1024 * 1024 // Unified JSON with dossiers can be large
 });
+installCloudAuth(server);
 
 /**
  * The apps are also published on GitHub Pages, so they run from a different
@@ -144,8 +146,7 @@ server.register(evidenceAuthRoutes);
 server.register(categoryRoutes);
 server.register(evidenceRoutes);
 
-const port = Number(process.env.PORT || 3000);
-server.listen({ port, host: '127.0.0.1' })
+server.listen(listenOptions())
     .then(async () => {
         if (!(await cyrillicFolds())) {
             server.log.error(

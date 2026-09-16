@@ -1,0 +1,33 @@
+# Optional blueprint only. Creating a service is a separate, manual decision.
+services:
+  - type: web
+    name: mtb-cloud-test
+    runtime: node
+    plan: free
+    repo: https://github.com/Assisstant/MTB
+    branch: codex/optional-cloud-test
+    autoDeployTrigger: off
+    buildCommand: npm ci --prefix server --include=dev
+    startCommand: npm start --prefix server
+    healthCheckPath: /healthz
+    envVars:
+      - key: NODE_VERSION
+        value: "24"
+      - key: HOST
+        value: "0.0.0.0"
+      - key: NODE_ENV
+        value: production
+      - key: MTB_CLOUD_AUTH
+        value: "1"
+      - key: DATABASE_URL
+        sync: false
+      - key: MTB_CLOUD_USER
+        sync: false
+      - key: MTB_CLOUD_PASSWORD
+        sync: false
+      - key: MTB_CLOUD_ORIGIN
+        sync: false
+      - key: MTB_SERVER_ID
+        value: cloud-test
+      - key: MTB_SERVER_LABEL
+        value: MTB cloud test

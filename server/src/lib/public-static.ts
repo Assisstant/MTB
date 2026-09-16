@@ -32,6 +32,7 @@ const PUBLIC_FILES = new Set([
     'start.html',
     'РаспоредТерапевти.html',
     'app-navigation.js',
+    'mtb-runtime.js',
     'home-button.js',
     'logo.png'
 ]);

@@ -2303,6 +2303,7 @@
         </div>
     </div>
     
+    <script src="mtb-runtime.js"></script>
     <script>
         var students = [];
         var studentListFilter = 'all';
@@ -9548,6 +9549,7 @@
         // адресата е очигледна. Од објавената копија на GitHub Pages серверот
         // не е таму, па адресата се внесува рачно.
         function servedByApi() {
+            if (window.MTB_CLOUD_SAME_ORIGIN === true) return true;
             var host = window.location.hostname;
             return /^(localhost|127\.0\.0\.1)$/.test(host) || /\.ts\.net$/.test(host);
         }
