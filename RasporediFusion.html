@@ -810,7 +810,8 @@
         <section id="reportPanel" role="tabpanel" aria-labelledby="listsTab" hidden>
             <div class="section-header"><h2 id="reportTitle">Списоци за печатење</h2><span id="reportYear"></span></div>
             <div class="roster-controls report-controls">
-                <label class="roster-field"><span>Терапевт</span><select id="reportTherapist"><option value="">Сите терапевти</option></select></label>
+                <label class="roster-field"><span id="reportFilterLabel">Терапевт за овој приказ</span><select id="reportTherapist"><option value="">Сите терапевти</option></select></label>
+                <button class="btn" id="reportAllTherapists" type="button">Прикажи ги сите</button>
                 <button class="btn btn-primary" id="printReport" type="button">⎙ Печати го прегледот</button>
             </div>
             <p class="report-note" id="reportNote"></p>
@@ -900,7 +901,7 @@
     const REQUESTED_YEAR = new URLSearchParams(window.location.search).get('year') || '';
     const state = {
         years: [], year: '', day: DAYS[0], focus: '', view: 'day', panel: 'schedule', roster: null,
-        rosterTherapist: '', reportTherapist: '', token: '', me: null, authRequired: false,
+        rosterTherapist: '', reportTherapists: { lists: '', visits: '' }, token: '', me: null, authRequired: false,
         bells: [], sessions: new Map(), pending: new Set(), expandedBlocks: new Set(), ticket: 0,
         pollTicket: 0, sessionVersion: 0,
         // ден|термин|public_id -> каде е детето во тој термин. Полни се од
@@ -1312,7 +1313,7 @@
                 { public_id: s.student_public_id, name: s.student_name || 'Непознат ученик', grade: s.student_grade || '' });
         });
         const therapists = ((state.roster && state.roster.therapists) || []).filter((t) =>
-            !state.reportTherapist || String(t.id) === state.reportTherapist);
+            !state.reportTherapists[state.panel] || String(t.id) === state.reportTherapists[state.panel]);
         return { students, therapists, counts: new Map(therapists.map((t) => [t.id, therapistSessionCounts(t.id)])) };
     }
 
@@ -1331,14 +1332,19 @@
             const pupils = [...ids].map((id) => students.get(id)).filter(Boolean).sort(sort);
             return '<section class="report-section" data-report-therapist="' + t.id + '"><div class="report-heading"><h3>' + esc(t.name) +
                 '</h3><button class="btn" type="button" data-print-therapist="' + t.id + '">Печати список</button></div>' +
-                '<p class="report-note">' + esc(state.year) + ' · ' + pupils.length + ' ученици</p>' +
+                '<p class="report-note">' + esc(state.year) + ' · ' + pupils.length + ' ученици · Вкупно посети неделно: ' + pupils.reduce((sum, s) => sum + (visits.get(s.public_id) || 0), 0) + '</p>' +
                 reportTable(['Бр.', 'Име и презиме', 'Паралелка', 'Посети неделно'], pupils.map((s, i) => [i + 1, s.name, s.grade || '—', visits.get(s.public_id) || 0])) + '</section>';
         }).join('');
         const rows = [...students.values()].sort(sort).map((s) => {
             const visits = therapists.map((t) => ({ t, n: counts.get(t.id).get(s.public_id) || 0 })).filter((v) => v.n);
             return { s, visits };
         }).filter((r) => r.visits.length);
-        return '<section class="report-section"><h3>' + rows.length + ' ученици со закажани посети</h3>' +
+        const totalVisits = rows.reduce((sum, row) => sum + row.visits.reduce((n, v) => n + v.n, 0), 0);
+        const usedTherapists = new Set(rows.flatMap(row => row.visits.map(v => v.t.id)));
+        const scope = state.reportTherapists.visits ? therapists.map(t => t.name).join(', ') : 'Сите терапевти';
+        return '<section class="report-section"><p class="report-note report-scope">Приказ: ' + esc(scope) + '</p>' +
+            '<h3>' + rows.length + ' ученици со закажани посети</h3>' +
+            '<p class="report-note report-totals">Кабинети со посети: ' + usedTherapists.size + ' · Вкупно посети неделно: ' + totalVisits + '</p>' +
             reportTable(['Бр.', 'Име и презиме', 'Паралелка', 'Кабинети', 'Посети неделно', 'Терапевт · посети'], rows.map(({ s, visits }, i) =>
                 [i + 1, s.name, s.grade || '—', visits.length, visits.reduce((sum, v) => sum + v.n, 0), visits.map((v) => v.t.name + ' · ' + v.n).join('; ')])) + '</section>';
     }
@@ -1347,9 +1353,11 @@
         if (!['lists', 'visits'].includes(state.panel)) return;
         const select = el('reportTherapist');
         const all = (state.roster && state.roster.therapists) || [];
-        if (!all.some((t) => String(t.id) === state.reportTherapist)) state.reportTherapist = '';
+        if (!all.some((t) => String(t.id) === state.reportTherapists[state.panel])) state.reportTherapists[state.panel] = '';
         select.innerHTML = '<option value="">Сите терапевти</option>' + all.map((t) => '<option value="' + t.id + '">' + esc(t.name) + '</option>').join('');
-        select.value = state.reportTherapist;
+        select.value = state.reportTherapists[state.panel];
+        el('reportFilterLabel').textContent = state.panel === 'lists' ? 'Терапевт за списоците' : 'Терапевт за збирниот преглед';
+        el('reportAllTherapists').disabled = !state.reportTherapists[state.panel];
         el('reportPanel').setAttribute('aria-labelledby', state.panel === 'lists' ? 'listsTab' : 'visitsTab');
         el('reportTitle').textContent = state.panel === 'lists' ? 'Списоци по терапевт' : 'Посети по ученик';
         el('reportYear').textContent = state.year;
@@ -2783,7 +2791,8 @@
             next.focus();
         });
     });
-    el('reportTherapist').addEventListener('change', () => { state.reportTherapist = el('reportTherapist').value; drawReports(); });
+    el('reportTherapist').addEventListener('change', () => { state.reportTherapists[state.panel] = el('reportTherapist').value; drawReports(); });
+    el('reportAllTherapists').addEventListener('click', () => { state.reportTherapists[state.panel] = ''; drawReports(); });
     el('printReport').addEventListener('click', () => printReport());
     el('rosterTherapist').addEventListener('change', () => {
         if (isRestrictedTherapist()) applyUserConstraints();
