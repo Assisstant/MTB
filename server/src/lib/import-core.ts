@@ -660,10 +660,15 @@ export async function writeAll(
         if (s.sdnevnikId != null) studentIdBySdnId.set(s.sdnevnikId, rowId);
         const rows = [{ id: rowId }];
 
+        // CHECK constraints run before ON CONFLICT. For an existing external
+        // enrolment with no class, even a would-be ignored default-internal
+        // INSERT fails. An API document does not own that existing row at all.
         await client.query(
             rosterOwned
                 ? `INSERT INTO student_enrollments (student_id, school_year_id, grade)
-                   VALUES ($1, $2, $3) ON CONFLICT (student_id, school_year_id) DO NOTHING`
+                   SELECT $1, $2, $3 WHERE NOT EXISTS (
+                     SELECT 1 FROM student_enrollments WHERE student_id = $1 AND school_year_id = $2
+                   ) ON CONFLICT (student_id, school_year_id) DO NOTHING`
                 : `INSERT INTO student_enrollments (student_id, school_year_id, grade)
                    VALUES ($1, $2, $3)
                    ON CONFLICT (student_id, school_year_id) DO UPDATE SET grade = EXCLUDED.grade`,

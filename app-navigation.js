@@ -40,6 +40,7 @@
     let serverState = { state: 'checking', label: 'Ја проверувам базата…', title: '' };
     let dataState = normalizeDataState(window.__MTB_DATA_STATE__ || defaultDataState());
     let userState = null;
+    let cloudGoogle = false;
     const nativeFetch = window.fetch.bind(window);
 
     function isPublished() {
@@ -517,6 +518,27 @@
         data.querySelector('.mtb-app-nav__value').textContent = dataState.text || 'Статусот не е познат';
         data.title = dataState.title || dataState.text;
         state.append(server, data);
+        if (cloudGoogle) {
+            const logout = document.createElement('button');
+            logout.type = 'button';
+            logout.className = here === 'mtb-workspace.html' ? 'soft compact' : 'mtb-app-nav__logout';
+            logout.id = 'mtbCloudLogout';
+            logout.textContent = 'Одјава од MTB';
+            logout.addEventListener('click', async () => {
+                if (!window.confirm('Зачувај ги отворените измени пред одјава. Продолжи со одјава?')) return;
+                logout.disabled = true;
+                try {
+                    const response = await fetch('/auth/logout', { method: 'POST', credentials: 'same-origin' });
+                    if (!response.ok && response.status !== 401) throw new Error();
+                    try { localStorage.removeItem(TOKEN_KEY); } catch (_) { /* logout still succeeds */ }
+                    window.top.location.href = '/auth/login';
+                } catch (_) { logout.disabled = false; window.alert('Одјавата не успеа. Обиди се повторно.'); }
+            });
+            if (here === 'mtb-workspace.html') {
+                document.getElementById('mtbCloudLogout')?.remove();
+                document.querySelector('.topbar')?.appendChild(logout);
+            } else state.appendChild(logout);
+        }
         if (userState) {
             const user = statusNode('user', 'НАЈАВЕН');
             user.querySelector('.mtb-app-nav__value').textContent = userState.name;
@@ -670,6 +692,7 @@
             if (!response.ok || !body || body.ok !== true) throw new Error('health check failed');
             if (request !== healthRequest) return;
             const identity = body.server && typeof body.server === 'object' ? body.server : {};
+            cloudGoogle = body.cloudAuth === 'google';
             serverState = {
                 state: body.warning ? 'warning' : 'online',
                 label: String(identity.label || fallbackServerLabel(base) || 'ПОВРЗАНА БАЗА')

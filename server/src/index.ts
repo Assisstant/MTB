@@ -22,15 +22,21 @@ import { categoryRoutes } from './routes/categories.js';
 import { resolveServerIdentity } from './lib/server-identity.js';
 import { installColleagueBoundary } from './lib/colleague.js';
 import { installPublicStatic } from './lib/public-static.js';
-import { installCloudAuth, listenOptions } from './lib/cloud-auth.js';
+import { cloudAuthMode, cloudRequestLog, installCloudAuth, listenOptions } from './lib/cloud-auth.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const server = Fastify({
-    logger: true,
+    logger: {
+        // OAuth callback query strings contain authorization codes. Never log
+        // request queries, headers, session cookies or provider error objects.
+        serializers: { req: cloudRequestLog },
+        redact: ['req.headers.authorization', 'req.headers.cookie', 'res.headers.set-cookie']
+    },
+    trustProxy: cloudAuthMode() === 'google', // Render terminates HTTPS; callbacks use configured origin only.
     bodyLimit: 50 * 1024 * 1024 // Unified JSON with dossiers can be large
 });
-installCloudAuth(server);
+await installCloudAuth(server);
 
 /**
  * The apps are also published on GitHub Pages, so they run from a different
@@ -127,6 +133,7 @@ server.get('/api/health', async () => {
         // Additive deployment capability: pages can become read-only before a
         // signed-out user presses Save, while the API remains the authority.
         signinRequired: process.env.MTB_REQUIRE_SIGNIN === '1',
+        ...(cloudAuthMode() === 'google' ? { cloudAuth: 'google' } : {}),
         ...(warnings.length ? { warning: warnings.join('; ') } : {})
     };
 });

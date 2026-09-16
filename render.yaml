@@ -18,12 +18,16 @@ services:
       - key: NODE_ENV
         value: production
       - key: MTB_CLOUD_AUTH
-        value: "1"
+        value: google
       - key: DATABASE_URL
         sync: false
-      - key: MTB_CLOUD_USER
+      - key: MTB_GOOGLE_CLIENT_ID
         sync: false
-      - key: MTB_CLOUD_PASSWORD
+      - key: MTB_GOOGLE_CLIENT_SECRET
+        sync: false
+      - key: MTB_GOOGLE_ALLOWED_EMAIL
+        sync: false
+      - key: MTB_SESSION_SECRET
         sync: false
       - key: MTB_CLOUD_ORIGIN
         sync: false

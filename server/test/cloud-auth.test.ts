@@ -22,7 +22,7 @@ test('local defaults and explicit host/port; unsafe cloud config fails closed', 
 
 for (const enabled of [false, true]) test(`server-wide boundary, enabled=${enabled}`, async () => {
     const app = Fastify();
-    installCloudAuth(app, enabled ? env : {});
+    await installCloudAuth(app, enabled ? env : {});
     installPublicStatic(app, fileURLToPath(new URL('../..', import.meta.url)));
     app.register(async child => {
         child.get('/api/private-test', async () => ({ protected: true }));
@@ -61,7 +61,7 @@ test('valid outer credentials do not bypass colleague authorization', async () =
     const previous = process.env.MTB_REQUIRE_SIGNIN;
     process.env.MTB_REQUIRE_SIGNIN = '1';
     const app = Fastify();
-    installCloudAuth(app, env);
+    await installCloudAuth(app, env);
     installColleagueBoundary(app);
     app.post('/api/test/unlisted-cloud-write', async () => ({ saved: true }));
     try {

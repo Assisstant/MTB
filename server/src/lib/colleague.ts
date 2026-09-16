@@ -292,6 +292,8 @@ export function installColleagueBoundary(server: FastifyInstance): void {
         if (!enforcing() || !WRITE_METHODS.has(req.method)) return;
         const route = req.routeOptions.url;
         const key = `${req.method} ${route}`;
+        // This is only the outer cloud session's logout, never a data mutation.
+        if (key === 'POST /auth/logout') return;
         if (PUBLIC_WRITES.has(key)) return;
         try {
             const scope = await scopeOf(req);

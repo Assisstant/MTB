@@ -424,6 +424,21 @@ async function projectAsApi(payload: any) {
     }
 }
 
+test('API document save preserves an existing external enrolment without a class', async () => {
+    await reset();
+    const name = 'Измислен Екстерен Ученик';
+    const payload = { students: [name], therapists: [], schedule: [],
+        studentMeta: { [name]: { studentId: 'external-no-class-test', grade: 'III' } } };
+    await project(payload);
+    await db().query("UPDATE student_enrollments SET kind = 'external', grade = NULL");
+    await db().query('UPDATE students SET grade = NULL');
+    payload.studentMeta[name].grade = '';
+    const result = await projectAsApi(payload);
+    assert.equal(result.kind, 'rasporedi', 'the save must actually project, not skip');
+    const rows = (await db().query('SELECT kind, grade FROM student_enrollments')).rows;
+    assert.deepEqual(rows, [{ kind: 'external', grade: null }]);
+});
+
 test('a save from an app may add a person, and may not restate one', async () => {
     await reset();
     const A = 'Прва Измислена';

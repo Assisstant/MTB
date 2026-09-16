@@ -10,6 +10,7 @@
     "migrate": "tsx scripts/migrate.ts",
     "test:migrations": "tsx test/migrations.e2e.ts",
     "test:cloud-browser": "node test/cloud.browser.mjs",
+    "test:google-ui": "tsx test/google-login.browser.ts",
     "import": "tsx scripts/import-json.ts",
     "export": "tsx scripts/export-json.ts",
     "rollover": "tsx scripts/rollover-year.ts",
@@ -59,10 +60,13 @@
     "typecheck": "tsc -p tsconfig.test.json"
   },
   "dependencies": {
+    "@fastify/cookie": "^11.1.2",
     "@fastify/cors": "^11.3.0",
+    "@fastify/session": "^11.1.3",
     "@fastify/static": "^10.1.3",
     "dotenv": "^16.4.5",
     "fastify": "^5.12.3",
+    "openid-client": "^6.8.8",
     "pg": "^8.13.0",
     "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz",
     "zod": "^3.23.8"
