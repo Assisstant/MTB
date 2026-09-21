@@ -144,7 +144,10 @@
   function label(target){
     var base = target && target.base ? target.base : target;
     var health = target && target.health;
-    if (health && health.server && health.server.label) return health.server.label;
+    if (health && health.server && health.server.label) {
+      var suffix = health.mirror ? (health.mirror.pending ? ' · КОПИЈА БЕЗ ПОДАТОЦИ' : ' · КОПИЈА САМО ЗА ЧИТАЊЕ') : '';
+      return health.server.label + suffix;
+    }
     try {
       var host = new URL(base).hostname.split('.')[0].toLowerCase();
       return 'СЕРВЕР · ' + host;
@@ -194,7 +197,10 @@
     machine.className = 'machine';
     machine.textContent = label(target);
     $('msg').appendChild(machine);
-    $('tried').textContent = '';
+    $('tried').textContent = target.health && target.health.mirror
+      ? ('Извор: ' + (target.health.mirror.source || 'Supabase') + ' · податоци од: ' +
+        (target.health.mirror.dataAt ? String(target.health.mirror.dataAt).replace('T',' ').slice(0,19) : 'нема успешен sync'))
+      : '';
     showApps(base);
 
     // start.html#s-dnevnik goes straight in, so the everyday bookmark costs no taps.

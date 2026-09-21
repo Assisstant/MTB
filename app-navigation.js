@@ -692,12 +692,24 @@
             if (!response.ok || !body || body.ok !== true) throw new Error('health check failed');
             if (request !== healthRequest) return;
             const identity = body.server && typeof body.server === 'object' ? body.server : {};
+            const mirror = body.mirror && typeof body.mirror === 'object' ? body.mirror : null;
             cloudGoogle = body.cloudAuth === 'google';
+            // A user can switch servers without reloading the page. Clear a
+            // previous mirror flag as deliberately as setting a new one.
+            window.MTB_MIRROR_READONLY = Boolean(mirror);
+            const mirrorTime = mirror && mirror.dataAt ? String(mirror.dataAt).replace('T', ' ').slice(0, 16) : '';
+            const mirrorSuffix = mirror
+                ? (mirror.pending ? ' · КОПИЈА БЕЗ ПОДАТОЦИ' : ' · КОПИЈА ' + mirrorTime)
+                : '';
             serverState = {
-                state: body.warning ? 'warning' : 'online',
+                state: body.warning ? 'warning' : (mirror ? 'readonly' : 'online'),
                 label: String(identity.label || fallbackServerLabel(base) || 'ПОВРЗАНА БАЗА')
-                    + (body.warning ? ' · ПРОВЕРИ' : ''),
-                title: [base, body.database ? 'PostgreSQL: ' + body.database : '', body.warning || ''].filter(Boolean).join(' · ')
+                    + mirrorSuffix + (body.warning ? ' · ПРОВЕРИ' : ''),
+                title: [base, body.database ? 'PostgreSQL: ' + body.database : '',
+                    mirror ? 'Само читање; извор: ' + String(mirror.source || 'Supabase') : '',
+                    mirror && mirror.lastAppliedAt ? 'последен sync: ' + String(mirror.lastAppliedAt) : '',
+                    mirror && mirror.lastError ? 'последна грешка: ' + String(mirror.lastError) : '',
+                    body.warning || ''].filter(Boolean).join(' · ')
             };
             window.dispatchEvent(new CustomEvent('mtb:server-state', { detail: {
                 state: serverState.state,
@@ -705,7 +717,8 @@
                 identity,
                 database: body.database || '',
                 instance: body.instance || '',
-                warning: body.warning || ''
+                warning: body.warning || '',
+                mirror
             } }));
         } catch (_) {
             if (request !== healthRequest) return;

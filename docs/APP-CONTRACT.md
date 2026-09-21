@@ -194,6 +194,18 @@ snapshot workflow in `docs/MANUAL-DB-SYNC.md`: export to separate pCloud
 folders, compare, then accept one exact snapshot id. Startup never restores a
 peer database and full databases are never row-merged.
 
+An additive, opt-in cloud-primary mode is specified in
+`docs/SUPABASE-MIRROR.md`. It does not silently convert either existing
+installation. In phase 1, Supabase is the only writable source and each
+approved local target is a separate read-only `*_mirror` database. The normal
+API/import connection is transaction-read-only; only the dedicated pull
+process can atomically replace the explicit business-table scope. Offline use
+is reading the last successfully applied snapshot, never queued editing.
+Snapshot download requires its own revocable read credential, reports source
+version/time and integrity, and refuses incompatible schemas, older packages,
+changed dry-runs and unexpected mass deletion. The old HOME/WORK databases and
+manual handover remain unchanged until a separately approved PC rollout.
+
 The local/Tailscale HTTP server publishes only an explicit allowlist of the
 top-level application HTML, shared JavaScript and required image assets. A new
 public file must be added deliberately to `server/src/lib/public-static.ts`.

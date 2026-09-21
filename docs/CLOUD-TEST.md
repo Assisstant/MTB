@@ -112,7 +112,7 @@ credential variables in a separate reviewed change. Auth-off remains for local u
    npm run migrate --prefix server
    ```
 
-   First run applies numbered migrations through 032; the second skips recorded
+   First run applies numbered migrations through 033; the second skips recorded
    files. Each file and ledger row commit together. Failure reports filename and
    SQLSTATE and rolls back that file; earlier successful files remain recorded.
    Existing outer transactions are normalized in memory, not edited on disk.

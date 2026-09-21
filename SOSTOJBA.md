@@ -22,11 +22,11 @@
 | | |
 |---|---|
 | Последно проверена инсталација | **HOME**, 21 септември 2026; кодот и Git состојбата се проверени. Локалната база последно е содржински проверена на 15 септември; `SYNC_NAME=home`. Ова е заедничка белешка, не поставка за машината: живата улога секогаш се чита од локалниот `server\.env` и `/api/health`. |
-| Репо | `C:\Users\Admin\Documents\GitHub\MTB`, гранка `main`; cloud подготовката е fast-forward споена со основа `10a70ab` |
+| Репо | Објавениот `main` е `a25fd43` и е чиста основа за новата форма. Тековната развојна гранка на HOME е `codex/supabase-local-mirror`; не е споена во `main`. |
 | База | `therapy_dev`, **32 миграции** |
 | Пренос на базата | `scripts\git-sync.ps1` преку приватното `Assisstant/MTB-data` |
 | Резервна копија на HOME | `TherapyBackupWeekly` е активна; `TherapyDbSnapshotWeekly` не е инсталирана. pCloud `P:\MTB-sync` е достапен, но тоа само по себе не докажува неделен извоз таму. |
-| Cloud | Render `/healthz` врати HTTP 200 на 21 септември. Сопственикот пријави дека Google-најавата и увезената Supabase база се живи. Supabase→локален mirror **не е имплементиран или активиран**. |
+| Cloud | Render `/healthz` врати HTTP 200 на 21 септември. Сопственикот пријави дека Google-најавата и увезената Supabase база се живи. Supabase→локалниот mirror е подготвен и тестиран во одделна гранка, но **не е споен, deployed или активиран**. |
 
 **Учебна 2026/2027 (тековна):**
 
@@ -42,12 +42,13 @@
 
 ## Отворено
 
-1. **Supabase→локален mirror е следна одделна фаза.** Supabase треба да стане
-   главен извор, а локалните бази opt-in read-only копии. Увозот во Supabase не
-   е синхронизација и не смее да се повторува. Прво се подготвуваат snapshot,
-   dry-run, атомско apply и guards со функцијата исклучена по default; нема live
-   база, права, Render поставки или scheduled jobs да се менуваат без ново
-   одобрение. Деталниот локален brief е надвор од Git во pCloud.
+1. **Supabase→локален mirror е подготвен, но не е активиран.** Гранката
+   `codex/supabase-local-mirror` има versioned snapshot, dry-run, атомско apply,
+   guards, read-only API/UI и тестови, сè исклучено по default. Следниот чекор
+   бара одобрение за live migration 033, посебни права/credentials во Supabase,
+   Render поставки и пилот `therapy_mirror` база на една машина. Не се повторува
+   стариот увоз и не се допира оригиналната локална `therapy_dev`. Упатството е
+   во `docs/SUPABASE-MIRROR.md`; scheduled job не е инсталиран.
 
 2. **Наставниот распоред е делумно внесен** од
    `P:\MTB-sync\Raspored-NASTAVA-2026-2027-POPOLNET.xlsx`.
@@ -104,6 +105,28 @@
 ---
 
 ## Дневник
+
+### 21 септември 2026 — подготвен read-only Supabase→локален mirror
+
+На одделната гранка `codex/supabase-local-mirror` е подготвена првата безбедна
+фаза: Supabase е единствен извор, а локалната opt-in база е само копија за
+читање. Snapshot-от се чита во една repeatable-read трансакција, носи точен
+schema/table ledger и hashes, а примената бара exact snapshot id и plan hash,
+работи атомски и одбива постара снимка, неочекуван scope или големо бришење без
+точна потврда. Сесиите, PIN-овите, sync bookkeeping и mirror audit табелите не
+се пренесуваат. Локалната цел мора експлицитно да биде посебна база со име што
+завршува на `_mirror`; normal API writes и normal PostgreSQL pool се read-only.
+
+Функцијата е исклучена по default. Не е пуштена миграција 033 во Supabase, не
+се сменети Render environment settings или права, не е креирана/пополнета
+локална mirror база и нема scheduled task. Подготвеното упатство бара посебна
+read credential за snapshot и посебна writer улога само за mirror apply.
+
+Проверки: 170 server тестови и typecheck поминаа; mirror e2e тестот примени
+иста снимка во две disposable шеми, докажа idempotent replay, промена/додавање/
+бришење, одбивање на постара и оштетена снимка и rollback при constraint
+грешка. Browser проверката дополнително докажува видлив read-only статус и
+одбиено S-Dnevnik зачувување. Live базите не беа менувани.
 
 ### 21 септември 2026 — cloud branch е проверен и споен локално во main
 

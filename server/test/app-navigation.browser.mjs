@@ -121,6 +121,59 @@ for (const [file, label] of TOOLS) {
 }
 await toolContext.close();
 
+console.log('\nread-only mirror — visible source and refused diary save');
+const mirrorContext = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+await mirrorContext.addInitScript(() => localStorage.setItem('sdn_local_server_autosync_v1', '0'));
+await mirrorContext.route('**/api/health', (route) => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify({
+        ok: true,
+        database: 'therapy_mirror',
+        server: { label: 'ПРОБНА КОПИЈА' },
+        mirror: {
+            mode: 'readonly',
+            source: 'Supabase test',
+            dataAt: '2026-09-21T08:15:00.000Z',
+            appliedAt: '2026-09-21T08:16:00.000Z',
+            pending: false
+        }
+    })
+}));
+const mirrorDiary = await mirrorContext.newPage();
+const mirrorErrors = [];
+mirrorDiary.on('pageerror', (error) => mirrorErrors.push(String(error)));
+await mirrorDiary.goto(`${BASE}/S-Dnevnik.html`, { waitUntil: 'domcontentloaded' });
+await mirrorDiary.waitForFunction(() => window.SdnV3 && window.MTB_MIRROR_READONLY === true);
+const mirrorState = await mirrorDiary.evaluate(async () => {
+    const serverChip = document.querySelector('.mtb-app-nav__status--server');
+    let refusal = '';
+    try {
+        await window.SdnV3.saveFullPayload(window.SdnV3.currentPayload('mirror_browser_test'), 'mirror_browser_test');
+    } catch (error) {
+        refusal = String(error && error.message || error);
+    }
+    return {
+        serverState: serverChip?.dataset.state,
+        serverText: serverChip?.querySelector('.mtb-app-nav__value')?.textContent.trim(),
+        serverTitle: serverChip?.title,
+        refusal,
+        dataState: document.querySelector('.mtb-app-nav__status--data')?.dataset.state
+    };
+});
+check('mirror: server chip is visibly read-only',
+    mirrorState.serverState === 'readonly' && mirrorState.serverText.includes('КОПИЈА'),
+    JSON.stringify(mirrorState));
+check('mirror: chip identifies the authoritative source and data time',
+    mirrorState.serverTitle.includes('Supabase test') && mirrorState.serverText.includes('2026-09-21 08:15'),
+    JSON.stringify(mirrorState));
+check('mirror: S-Dnevnik refuses a local save',
+    mirrorState.refusal.includes('само за читање') && mirrorState.dataState === 'error',
+    JSON.stringify(mirrorState));
+check('mirror: refusal is handled without a JavaScript page error',
+    mirrorErrors.length === 0, mirrorErrors.join(' | '));
+await mirrorContext.close();
+
 console.log('\nlocal-first status — pending survives a reload and the page origin owns the server');
 const localFirst = await browser.newContext({ viewport: { width: 1200, height: 800 } });
 await localFirst.addInitScript(() => {

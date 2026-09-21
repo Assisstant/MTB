@@ -19,10 +19,14 @@ import { rosterPurgeRoutes } from './routes/roster-purge.js';
 import { evidenceRoutes } from './routes/evidence.js';
 import { evidenceAuthRoutes } from './routes/evidence-auth.js';
 import { categoryRoutes } from './routes/categories.js';
+import { mirrorRoutes } from './routes/mirror.js';
 import { resolveServerIdentity } from './lib/server-identity.js';
 import { installColleagueBoundary } from './lib/colleague.js';
+import { installMirrorWriteBoundary } from './lib/mirror-boundary.js';
 import { installPublicStatic } from './lib/public-static.js';
 import { cloudAuthMode, cloudRequestLog, installCloudAuth, listenOptions } from './lib/cloud-auth.js';
+import { mirrorMode, mirrorSourceLabel } from './lib/mirror-config.js';
+import { mirrorStatus } from './lib/mirror.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -80,6 +84,11 @@ server.register(fastifyCors, {
 // migrations and ignored local handoff files to every tailnet client.
 installPublicStatic(server, path.resolve(__dirname, '..', '..'));
 
+// A mirror rejects every API mutation before the ordinary role boundary. The
+// pool also asks PostgreSQL for read-only transactions, so scripts cannot walk
+// around this HTTP hook by importing the normal application connection.
+installMirrorWriteBoundary(server);
+
 // Install this on the root instance before route plugins are registered.  A
 // plugin-local hook would be encapsulated and sibling route plugins could walk
 // around it; this perimeter must see every mutating API route, including ones
@@ -120,9 +129,19 @@ async function cyrillicFolds(): Promise<boolean> {
 server.get('/api/health', async () => {
     const { rows } = await pool.query('SELECT now() AS db_time, current_database() AS db_name');
     const folds = await cyrillicFolds();
+    let mirror: Record<string, unknown> | undefined;
+    if (mirrorMode() === 'readonly') {
+        try { mirror = await mirrorStatus(pool, mirrorSourceLabel()); }
+        catch (err) {
+            mirror = { mode: 'readonly', source: mirrorSourceLabel(), pending: true,
+                error: err instanceof Error ? err.message : String(err) };
+        }
+    }
     const warnings = [
         SERVER_IDENTITY.warning,
-        ...(folds ? [] : ['this database cannot lower-case Cyrillic (collation C) — name matching will fail'])
+        ...(folds ? [] : ['this database cannot lower-case Cyrillic (collation C) — name matching will fail']),
+        ...(mirror && mirror.pending ? ['mirror mode has no successfully applied snapshot'] : []),
+        ...(mirror && mirror.lastError ? [`mirror last attempt failed: ${mirror.lastError}`] : [])
     ].filter(Boolean);
     return {
         ok: true,
@@ -134,10 +153,12 @@ server.get('/api/health', async () => {
         // signed-out user presses Save, while the API remains the authority.
         signinRequired: process.env.MTB_REQUIRE_SIGNIN === '1',
         ...(cloudAuthMode() === 'google' ? { cloudAuth: 'google' } : {}),
+        ...(mirror ? { mirror } : {}),
         ...(warnings.length ? { warning: warnings.join('; ') } : {})
     };
 });
 
+server.register(mirrorRoutes);
 server.register(stateRoutes);
 server.register(dataRoutes);
 server.register(scheduleWriteRoutes);

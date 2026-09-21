@@ -9062,6 +9062,17 @@
     }
 
     function saveFullPayload(data, reason) {
+        if (window.MTB_MIRROR_READONLY === true && reason !== 'after_local_server_pull') {
+            var mirrorMessage = 'Ова е локална копија само за читање. Направи ја измената во cloud MTB.';
+            window.isDataDirty = true;
+            if (typeof window.dispatchEvent === 'function') {
+                window.dispatchEvent(new CustomEvent('mtb:data-state', {
+                    detail: { state: 'error', text: mirrorMessage, toast: true }
+                }));
+            }
+            showToast(mirrorMessage);
+            return Promise.reject(new Error(mirrorMessage));
+        }
         data = data || currentPayload(reason || 'save');
         data._meta = Object.assign({}, data._meta || {}, {
             app: 'S-Dnevnik',
@@ -9364,7 +9375,7 @@
     window.manualSave = function () {
         saveFullPayload(currentPayload('manual_save'), 'manual_save').then(function () {
             showToast('Зачувано во IndexedDB.');
-        });
+        }).catch(function () { /* mirror refusal is already shown */ });
     };
 
     window.exportData = function () {
@@ -9375,6 +9386,11 @@
     };
 
     window.importData = function (e) {
+        if (window.MTB_MIRROR_READONLY === true) {
+            if (e && e.target) e.target.value = '';
+            alert('Ова е локална копија само за читање. Import се прави само во главната cloud апликација.');
+            return;
+        }
         var file = e && e.target && e.target.files ? e.target.files[0] : null;
         if (!file) return;
         importFile(file, e);
@@ -9383,6 +9399,10 @@
     if (typeof window.deleteStudent === 'function' && !window.__sdnV3OriginalDeleteStudent) {
         window.__sdnV3OriginalDeleteStudent = window.deleteStudent;
         window.deleteStudent = function (idx) {
+            if (window.MTB_MIRROR_READONLY === true) {
+                alert('Ова е локална копија само за читање. Ученик не е изменет.');
+                return;
+            }
             createBackup('before_delete_student').then(function () {
                 window.__sdnV3OriginalDeleteStudent(idx);
                 saveFullPayload(currentPayload('after_delete_student'), 'after_delete_student');
@@ -9650,7 +9670,7 @@
 
         function pull() {
             setStatus('⏳ вчитувам…');
-            srvFetch('/api/state/' + APP_KEY).then(function (r) {
+            return srvFetch('/api/state/' + APP_KEY).then(function (r) {
                 if (r.res.status === 404) {
                     setStatus('🟢 поврзан');
                     toast('На серверот нема зачуван S-Dnevnik. Прво „Зачувај на сервер“.');
@@ -9733,6 +9753,10 @@
         }
 
         function push() {
+            if (window.MTB_MIRROR_READONLY === true) {
+                complain('Ова е локална копија само за читање. Измените се прават во cloud MTB.', '🟠 само читање');
+                return Promise.resolve('readonly');
+            }
             setStatus('⏳ зачувувам…');
             var payload;
             try { payload = window.SdnV3.currentPayload('local_server_push'); }
@@ -9902,6 +9926,10 @@
 
         function noteLocalChange() {
             if (suspend) return;
+            if (window.MTB_MIRROR_READONLY === true) {
+                complain('Ова е локална копија само за читање. Измената не е зачувана.', '🟠 само читање');
+                return;
+            }
             setPending(true);
             if (!autoEnabled()) return;
             if (!hasChosenServer()) return;
@@ -9916,6 +9944,7 @@
 
         function sync(opts) {
             opts = opts || {};
+            if (window.MTB_MIRROR_READONLY === true) return pull();
             var auto = !!opts.auto;
             if (busy) return Promise.resolve('busy');
             busy = true;
@@ -10155,7 +10184,12 @@
         function start() {
             setTimeout(render, 400);
             setTimeout(hookLocalSaves, 500);
-            if (autoEnabled() && hasChosenServer()) {
+            if (window.MTB_MIRROR_READONLY === true && hasChosenServer()) {
+                // SDiary loads the row-owned collections first. Pull the
+                // document afterwards, so keepOwned() keeps the relational
+                // mirror rather than an older browser cache.
+                setTimeout(pull, 3200);
+            } else if (autoEnabled() && hasChosenServer()) {
                 // Дневникот се вчитува од IndexedDB при подигање — задоцни за да
                 // не се синхронизира празна апликација.
                 setTimeout(function () { sync({ auto: true }); }, 2000);

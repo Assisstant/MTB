@@ -57,6 +57,22 @@ test('migration wrapper ownership preserves SQL and rejects unpaired transaction
     assert.throws(() => migrationBody('BEGIN; SELECT 1;'));
 });
 
+test('a mirror bearer key crosses outer cloud auth only for its one snapshot read', async () => {
+    const mirrorKey = 'mirror-test-key-1234567890-abcdefghijk';
+    const mirrorEnv = { ...env, MTB_MIRROR_EXPORT: '1', MTB_MIRROR_EXPORT_KEY: mirrorKey };
+    const app = Fastify();
+    await installCloudAuth(app, mirrorEnv);
+    app.get('/api/mirror/snapshot', async () => ({ snapshot: true }));
+    app.get('/api/private-test', async () => ({ protected: true }));
+    const bearer = { authorization: `Bearer ${mirrorKey}` };
+    try {
+        assert.equal((await app.inject({ url: '/api/mirror/snapshot', headers: bearer })).statusCode, 200);
+        assert.equal((await app.inject({ url: '/api/private-test', headers: bearer })).statusCode, 401);
+        assert.equal((await app.inject({ url: '/api/mirror/snapshot', headers: { authorization: 'Bearer wrong' } })).statusCode, 401);
+        assert.equal((await app.inject({ url: '/api/mirror/snapshot', method: 'POST', headers: bearer })).statusCode, 401);
+    } finally { await app.close(); }
+});
+
 test('valid outer credentials do not bypass colleague authorization', async () => {
     const previous = process.env.MTB_REQUIRE_SIGNIN;
     process.env.MTB_REQUIRE_SIGNIN = '1';

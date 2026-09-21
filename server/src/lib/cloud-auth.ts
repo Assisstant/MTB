@@ -2,6 +2,7 @@ import { createHash, timingSafeEqual } from 'node:crypto';
 import type { FastifyInstance } from 'fastify';
 import type { CustomFetch } from 'openid-client';
 import { googleSettings, installGoogleLogin } from './google-login.js';
+import { mirrorExportRequest, mirrorMode } from './mirror-config.js';
 
 export function cloudRequestLog(req: { method: string; url?: string }) {
     return { method: req.method, url: String(req.url || '').split('?')[0] };
@@ -55,6 +56,10 @@ export function installCloudAuth(server: FastifyInstance, env: NodeJS.ProcessEnv
                 .header('X-Content-Type-Options', 'nosniff')
                 .header('Content-Security-Policy', "frame-ancestors 'self'");
             if (['GET', 'HEAD'].includes(req.method) && req.url.split('?')[0] === '/healthz') return;
+            // A revocable machine credential can read exactly the mirror
+            // snapshot. It is not a Google/browser cookie and cannot enter any
+            // other static or API route.
+            if (mirrorExportRequest(req, env)) return;
             const route = req.routeOptions.url;
             // Google's cross-site top-level callback is the one exception. The OIDC
             // library checks its bound state, nonce, PKCE, issuer, audience and signature.
@@ -86,7 +91,9 @@ export function installCloudAuth(server: FastifyInstance, env: NodeJS.ProcessEnv
         server.get('/healthz', async () => ({ ok: true }));
         // Legacy screens and the launcher need an explicit hosted-server capability.
         server.get('/mtb-runtime.js', async (_req, reply) => reply.type('application/javascript')
-            .header('Cache-Control', 'no-store').send(`window.MTB_CLOUD_SAME_ORIGIN=${enabled};`));
+            .header('Cache-Control', 'no-store').send(
+                `window.MTB_CLOUD_SAME_ORIGIN=${enabled};window.MTB_MIRROR_READONLY=${mirrorMode(env) === 'readonly'};`
+            ));
         return enabled;
     }
 }

@@ -8,6 +8,7 @@
     "dev": "tsx watch src/index.ts",
     "start": "tsx src/index.ts",
     "migrate": "tsx scripts/migrate.ts",
+    "mirror:pull": "tsx scripts/mirror-pull.ts",
     "test:migrations": "tsx test/migrations.e2e.ts",
     "test:cloud-browser": "node test/cloud.browser.mjs",
     "test:google-ui": "tsx test/google-login.browser.ts",

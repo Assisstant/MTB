@@ -35,3 +35,9 @@ services:
         value: cloud-test
       - key: MTB_SERVER_LABEL
         value: MTB cloud test
+      # Supabase -> local mirror export remains opt-in. Enabling it and setting
+      # the secret is a separate reviewed rollout step.
+      - key: MTB_MIRROR_EXPORT
+        value: "0"
+      - key: MTB_MIRROR_EXPORT_KEY
+        sync: false

@@ -101,3 +101,16 @@ test('the written contract names Fusion as canonical and the old page as recover
     assert.match(contract, /hostname.*must never choose/is);
     assert.match(contract, /SYNC_NAME=work.*SYNC_NAME=home/is);
 });
+
+test('mirror apply consumes the exact reviewed, gitignored snapshot artifact', async () => {
+    const [script, guide, ignore] = await Promise.all([
+        readRoot('server/scripts/mirror-pull.ts'),
+        readRoot('docs/SUPABASE-MIRROR.md'),
+        readRoot('.gitignore')
+    ]);
+    assert.match(script, /if \(apply && !suppliedFile\)[\s\S]*--apply requires --snapshot-file/);
+    assert.match(script, /suppliedFile[\s\S]*readSnapshotArtifact\(suppliedFile\)/);
+    assert.match(script, /saveSnapshotArtifact\(snapshot\)/);
+    assert.match(guide, /истиот зачуван фајл/);
+    assert.match(ignore, /^backups\/$/m);
+});
