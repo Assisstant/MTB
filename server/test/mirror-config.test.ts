@@ -17,6 +17,7 @@ test('mirror mode is explicit and the normal database pool is transaction-read-o
     });
     assert.match(String(options.options), /search_path=test/);
     assert.match(String(options.options), /default_transaction_read_only=on/);
+    assert.match(new URL(options.connectionString!).searchParams.get('options')!, /default_transaction_read_only=on/);
 });
 
 test('the machine credential authorizes only the exact read-only snapshot endpoint', () => {

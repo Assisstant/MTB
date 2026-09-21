@@ -80,6 +80,11 @@ try {
          UNION SELECT name FROM teachers
          UNION SELECT name FROM therapists`
     );
+    // Compatible with installations before migration 035, but include staff
+    // without a teaching/therapy profile once the shared identity table exists.
+    if ((await pool.query("SELECT to_regclass('employees') AS table_name")).rows[0].table_name) {
+        rows.push(...(await pool.query('SELECT name FROM employees')).rows);
+    }
     // Keyed on the folded form so „Ана Тестова" and its lower-cased twin are
     // one search term rather than two identical-looking hits.
     const seen = new Map<string, string>();

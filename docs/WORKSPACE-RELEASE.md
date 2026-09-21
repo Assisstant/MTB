@@ -1,0 +1,86 @@
+# Master administration release — 21 September 2026
+
+Open `MTB-Workspace.html` on the selected server. Administration is the initial
+view; all existing windows remain available and retain their iframe/editor DOM.
+The traditional layout is available directly with `?view=windows`.
+
+## What is implemented
+
+- Pupil search and filters: year, class, individual grade, Internal/External,
+  therapist, active/inactive. Stable public identity, full name, annual class,
+  individual I–IX grade, boarding, programme and preparatory/observation placement.
+- Pupil creation and annual activation/deactivation; annual class/history;
+  explicit caseload assignments. No permanent person deletion. Globally archived
+  pupils remain read-only pending review in the existing diary archive.
+- One employee identity with multiple annual teacher, therapist, specialist and
+  administration roles; optional employee identifier. Existing profile ids and
+  their records remain intact. Linking is explicit, stale-checked and refused
+  when both identities carry the same profile type or conflicting identifiers.
+- Existing Podatoci class/subject editors, Fusion cabinet conflict checks and
+  NastavaUredi teaching timetable are reused inside the same shell.
+- Server-confirmed transactions, stale-write refusals, recoverable DOM drafts,
+  responsive layout, read-only mirror controls, no browser business-data store.
+
+Employee roles are not access-control roles. Teacher class/subject assignments
+remain in the existing relationship editor; the legacy primary teacher kind is
+not a limitation on those assignments. Existing names are not automatically split
+into first and last names. Same-name pupil creation is referred to the existing
+Podatoci identity-review flow. This does not implement simultaneous group therapy,
+recommendation renewal, or separation of the diary's global archive coupling.
+
+## Schema and data safety
+
+033 is the opt-in mirror ledger, 034 adds annual pupil facts, 035 adds staff
+identities and compatibility triggers, and 036 locks the new tables away from
+anonymous/Supabase-authenticated Data API roles. The MTB backend connects directly
+with its existing database owner connection and retains its Google perimeter.
+No new browser Supabase SDK, keys, or direct-table API is introduced.
+
+`npm run deploy:workspace --prefix server` is the reviewed 032→036 release runner.
+It requires an explicitly supplied `DATABASE_URL`; it never reads a local `.env`
+as a fallback. It accepts only the known migration baseline and pending 033–036.
+In one locked transaction it copies the original tables and sequence values to
+the private `mtb_workspace_recovery_20260921` schema, applies the migrations,
+checks original-column content hashes for every existing non-ledger table and
+commits only if unchanged. It neither drops nor replaces live business tables.
+On failure the whole transaction rolls back and the new server does not start.
+On subsequent starts at 036 it does nothing.
+
+The recovery schema is local to the same PostgreSQL database, denied to PUBLIC,
+anon and authenticated. It contains sensitive data and must never be exported to
+the public repository. It is a point-in-time data recovery aid, not an automatic
+restore command or a replacement for normal database backups. A rollback normally
+redeploys the prior app commit; additive schema changes remain in place. Restoring
+old data would discard newer work and requires a separate reviewed operation.
+
+## Hosting
+
+The existing Render service is used; no new service, billing plan or database is
+created. Branch: `main`; automatic deployments remain off. Startup:
+
+```
+npm run deploy:workspace --prefix server && npm start --prefix server
+```
+
+Keep the existing Google login, allowed identity, origin, session secret and
+database connection unchanged. Verify the release commit, migration result,
+protected application access, 36 migrations, record counts and live shell.
+The free Render instance can sleep; this release does not provide an uptime SLA.
+
+## Local database sync is a separate activation
+
+This release includes the tested opt-in Supabase→read-only local mirror code.
+It does not make `therapy_dev` a mirror, activate export credentials, or install
+a scheduled task. Follow `SUPABASE-MIRROR.md`: use a separate `*_mirror` database,
+review the exact snapshot/plan and configure a dedicated read-only application
+connection plus private pull credentials. Existing HOME/WORK databases and their
+manual handover remain unchanged until that rollout. Offline mirror use is read
+only, not bidirectional editing or automatic merging.
+
+## Verification
+
+`npm test`, `npm run typecheck`, `npm run test:workspace-admin` and
+`node test/release-verification.mjs` from `server/`. The latter creates an isolated
+schema, runs the real API/browser suites, then removes it and compares the live
+public-table content fingerprints before/after. Tests use invented identities.
+`npm run check:names` remains mandatory before publishing.

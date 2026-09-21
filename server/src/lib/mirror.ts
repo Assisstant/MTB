@@ -21,6 +21,9 @@ export const MIRROR_TABLES = [
     'class_years',
     'diary_schedule',
     'diary_schedule_history',
+    'employees',
+    'employee_roles',
+    'employee_identity_links',
     'evidence_contacts',
     'evidence_examiner_roles',
     'evidence_examiners',
@@ -421,7 +424,10 @@ async function buildPlan(client: PoolClient, snapshot: MirrorSnapshot): Promise<
         (BigInt(snapshot.source.version) === BigInt(state.source_version) &&
             Date.parse(snapshot.source.snapshotAt) < new Date(state.source_snapshot_at).getTime())
     ));
+    // xmax is a transaction watermark, not a commit counter: an already-open
+    // transaction can commit between two observations with the same xmax.
     if (state && BigInt(snapshot.source.version) === BigInt(state.source_version) &&
+        Date.parse(snapshot.source.snapshotAt) === new Date(state.source_snapshot_at).getTime() &&
         state.content_hash !== snapshot.contentHash) {
         throw new Error('Source version was reused with different snapshot content');
     }
@@ -572,6 +578,7 @@ export async function applyMirrorSnapshot(
     const client = await pool.connect();
     try {
         await client.query('BEGIN ISOLATION LEVEL SERIALIZABLE');
+        await client.query("SET LOCAL mtb.mirror_apply = 'on'");
         await client.query(`SELECT pg_advisory_xact_lock(hashtext($1))`, [MIRROR_FORMAT]);
         await client.query(`SET LOCAL lock_timeout = '10s'`);
         await client.query(`SET LOCAL statement_timeout = '120s'`);

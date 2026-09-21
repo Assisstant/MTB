@@ -67,7 +67,7 @@ async function openWorkspace({ viewport = { width: 1600, height: 1000 }, savedLa
             loads.set(file, count);
             return route.fulfill({ status: 200, contentType: 'text/html; charset=utf-8', body: stub(file, count) });
         }
-        if (url.origin === new URL(BASE).origin && (file === 'MTB-Workspace.html' || file === 'app-navigation.js')) {
+        if (url.origin === new URL(BASE).origin && ['MTB-Workspace.html','app-navigation.js','workspace-admin.js','workspace-admin.css'].includes(file)) {
             return route.continue();
         }
         // No remote resources or production data may escape the fixture router.
@@ -77,7 +77,7 @@ async function openWorkspace({ viewport = { width: 1600, height: 1000 }, savedLa
     const page = await context.newPage();
     page.setDefaultTimeout(6000);
     page.on('pageerror', error => errors.push(error.message));
-    await page.goto(`${BASE}/MTB-Workspace.html`, { waitUntil: 'domcontentloaded' });
+    await page.goto(`${BASE}/MTB-Workspace.html?view=windows`, { waitUntil: 'domcontentloaded' });
     await page.locator('#scheduleWindow.workspace-window').waitFor();
     await page.locator(`[data-pick="${STUDENT_ID}"]`).waitFor({ state: 'attached' });
     await page.frameLocator('#appFrame').locator('#draft').waitFor();

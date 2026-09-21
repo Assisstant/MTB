@@ -45,9 +45,10 @@ Keep these facts distinct:
 | Staff role, profession and activity | Teachers and professional associates have different duties. Special educator, psychologist or pedagogue is not a room or proof that someone delivers pupil treatments. Teaching assignments, individual/group/parent work and administrative responsibilities must not be inferred from the job title alone. |
 | Planned treatment and actual work | Fusion owns the recurring shared plan and pupil/time conflicts; S-Dnevnik owns the personal dated record. Nastava predicts overlap with planned teaching, not actual attendance or observed location. |
 
-Implementation limits must remain explicit. There is currently one text
-class/group assignment per pupil/year, not a structured list of teaching
-programmes or a recommendation lifecycle. Do not infer those fields from name
+Implementation limits must remain explicit. There is one text class/group
+assignment per pupil/year. Migration 034 adds explicit annual programme and
+placement fields, defaulting to unknown; it does not model recommendation
+renewal or multiple simultaneous programmes. Do not infer these fields from name
 suffixes, missing grade, or `kind`, and do not edit migration 017 to reclassify
 existing data. Introduce any future representation additively after reviewing
 the existing records locally.
@@ -97,7 +98,10 @@ began with a screen growing a second purpose.
   existing compatibility import/projection remains supported. Annual therapist–pupil
   caseload links are one shared database relationship: `Podatoci.html` provides
   the administrator's view, and `RasporediFusion.html` lets therapists choose
-  their own pupils through the same row-level API. Choosing an existing pupil
+  their own pupils through the same row-level API. The owner's 21 September
+  Master CRUD request extends this shared administration into the existing
+  Workspace shell, using the same tables and stale-checked row transactions,
+  not a second data store. Choosing an existing pupil
   for a caseload does not create, enrol or archive that person.
 
 - **`AkciskiPlan.html` is the pupil's development record** — the prescribed
@@ -108,7 +112,21 @@ began with a screen growing a second purpose.
 JavaScript. Its PostgreSQL API remains in `server/`; copying the appearance
 without that API layer is not a functional application.
 
-`MTB-Workspace.html` is the existing integrated layout shell. It embeds the
+`MTB-Workspace.html` is the existing integrated layout shell. Its Administration
+view (`workspace-admin.js`) edits shared pupil identity, annual membership,
+class assignment, employee identity/annual roles, and annual caseload through
+`/api/workspace/*`. Mutations are administrator-only when sign-in enforcement
+is enabled. PostgreSQL confirms each save; a conflict keeps the DOM draft.
+It uses one full-name field rather than guessing how to split existing names.
+Migration 035 preserves teacher/therapist profile ids and creates separate
+employee identities for existing profiles. Only explicit administrator review
+may link two profiles to one employee; matching names never do so automatically.
+Additional employee duties confer neither API permissions nor a cabinet.
+Normal deactivation changes annual membership/roles, not historical rows.
+The existing class, subject and timetable editors remain embedded and canonical.
+`?view=windows` opens the traditional window layout directly.
+
+The shell embeds the
 canonical applications and uses the shared directory APIs; it introduces no
 second schedule or new owner of pupil facts. Its windows may dock, float,
 resize, overlap, maximize, hide and pin above other workspace windows. Pinning

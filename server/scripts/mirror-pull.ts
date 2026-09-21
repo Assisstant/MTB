@@ -62,7 +62,7 @@ function targetSettings() {
         try {
             const app = new URL(active);
             if (app.hostname === url.hostname && (app.port || '5432') === (url.port || '5432') &&
-                decodeURIComponent(app.pathname) === decodeURIComponent(url.pathname)) {
+                decodeURIComponent(app.pathname) === decodeURIComponent(url.pathname) && mirrorMode() !== 'readonly') {
                 throw new Error('Mirror target is the active local application database; use a separate *_mirror database');
             }
         } catch (err) {

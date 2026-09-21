@@ -21,10 +21,11 @@ export function databasePoolOptions(env: NodeJS.ProcessEnv = process.env): pg.Po
     try {
         inherited = connectionString ? new URL(connectionString).searchParams.get('options') || '' : '';
     } catch { /* pg will report a malformed DATABASE_URL in the usual way */ }
-    return {
-        connectionString,
-        options: `${inherited} -c default_transaction_read_only=on`.trim()
-    };
+    const options = `${inherited} -c default_transaction_read_only=on`.trim();
+    // node-postgres gives URL options precedence over config.options.
+    const url = connectionString ? new URL(connectionString) : null;
+    if (url) url.searchParams.set('options', options);
+    return { connectionString: url?.href, options };
 }
 
 export const pool = new pg.Pool(databasePoolOptions());

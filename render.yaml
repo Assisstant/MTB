@@ -5,10 +5,10 @@ services:
     runtime: node
     plan: free
     repo: https://github.com/Assisstant/MTB
-    branch: codex/optional-cloud-test
+    branch: main
     autoDeployTrigger: off
     buildCommand: npm ci --prefix server --include=dev
-    startCommand: npm start --prefix server
+    startCommand: npm run deploy:workspace --prefix server && npm start --prefix server
     healthCheckPath: /healthz
     envVars:
       - key: NODE_VERSION

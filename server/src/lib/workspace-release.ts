@@ -1,0 +1,52 @@
+/** One reviewed additive upgrade, with a private in-database recovery snapshot.
+ * Nothing is exported, logged or sent to a new service. A failed check rolls
+ * back the backup, migrations and ledger together. Repeated starts are no-ops. */
+import type {Client} from 'pg';
+import {readFile,readdir} from 'node:fs/promises';
+import {join} from 'node:path';
+import {migrationBody} from './migrations.js';
+const ident=(s:string)=>'"'+s.replace(/"/g,'""')+'"';
+export async function workspaceRelease(client:Client,directory:string,log=console.log,recoverySchema='mtb_workspace_recovery_20260921'){
+ if(!/^mtb_workspace_recovery_[a-z0-9_]+$/.test(recoverySchema))throw Error('Invalid recovery schema');
+ await client.query('BEGIN ISOLATION LEVEL SERIALIZABLE');
+ try{
+  await client.query("SET LOCAL lock_timeout='15s'");await client.query("SET LOCAL statement_timeout='120s'");
+  await client.query('SELECT pg_advisory_xact_lock(716284,1)');
+  const schema=(await client.query('SELECT current_schema() AS name')).rows[0].name;
+  const files=(await readdir(directory)).filter(f=>/^\d+_[\w-]+\.sql$/.test(f)).sort();
+  const applied=new Set((await client.query('SELECT filename FROM schema_migrations')).rows.map(r=>r.filename));
+  if(files.some(f=>Number(f.slice(0,3))<=32&&!applied.has(f))||[...applied].some(f=>!files.includes(f)))throw Error('Unexpected migration baseline');
+  const pending=files.filter(f=>!applied.has(f));
+  if(pending.some(f=>!/^0(33|34|35|36)_/.test(f)))throw Error('Unreviewed migration in release');
+  if(!pending.length){await client.query('COMMIT');log('Workspace schema already current');return;}
+  const tables=(await client.query(`SELECT tablename AS name FROM pg_tables WHERE schemaname=$1 ORDER BY tablename`,[schema])).rows;
+  // The recovery schema must be absent. Never overwrite an earlier backup.
+  await client.query(`CREATE SCHEMA ${ident(recoverySchema)}`);
+  await client.query(`REVOKE ALL ON SCHEMA ${ident(recoverySchema)} FROM PUBLIC`);
+  for(const role of ['anon','authenticated'])if((await client.query('SELECT 1 FROM pg_roles WHERE rolname=$1',[role])).rowCount)await client.query(`REVOKE ALL ON SCHEMA ${ident(recoverySchema)} FROM ${ident(role)}`);
+  await client.query('LOCK TABLE '+tables.map(t=>`${ident(schema)}.${ident(t.name)}`).join(',')+' IN SHARE ROW EXCLUSIVE MODE');
+  const checks=[];
+  for(const {name} of tables){
+   await client.query(`CREATE TABLE ${ident(recoverySchema)}.${ident(name)} AS TABLE ${ident(schema)}.${ident(name)}`);
+   await client.query(`REVOKE ALL ON ${ident(recoverySchema)}.${ident(name)} FROM PUBLIC`);
+   const cols=(await client.query('SELECT column_name FROM information_schema.columns WHERE table_schema=$1 AND table_name=$2 ORDER BY ordinal_position',[schema,name])).rows.map(r=>r.column_name);
+   // Project only pre-upgrade columns, so additive fields cannot mask a change.
+   const projection=cols.map(ident).join(',');
+   const hash=async (s:string)=>(await client.query(`SELECT count(*)::int AS n,md5(string_agg(to_jsonb(t)::text,'|' ORDER BY to_jsonb(t)::text)) AS hash FROM (SELECT ${projection} FROM ${ident(s)}.${ident(name)}) t`)).rows[0];
+   checks.push({name,hash,before:await hash(recoverySchema)});
+  }
+  // Recovery stores sequence values too; copying rows alone is not a full
+  // restore recipe. Constraints and functions remain versioned in Git.
+  await client.query(`CREATE TABLE ${ident(recoverySchema)}.sequence_values AS SELECT sequencename,last_value FROM pg_sequences WHERE schemaname=$1`,[schema]);
+  await client.query(`REVOKE ALL ON ALL TABLES IN SCHEMA ${ident(recoverySchema)} FROM PUBLIC`);
+  for(const role of ['anon','authenticated'])if((await client.query('SELECT 1 FROM pg_roles WHERE rolname=$1',[role])).rowCount)await client.query(`REVOKE ALL ON ALL TABLES IN SCHEMA ${ident(recoverySchema)} FROM ${ident(role)}`);
+  for(const file of pending){
+   await client.query(migrationBody(await readFile(join(directory,file),'utf8')));
+   // Finish deferred backfill checks before the next migration alters a table.
+   await client.query('SET CONSTRAINTS ALL IMMEDIATE');
+   await client.query('INSERT INTO schema_migrations(filename) VALUES($1)',[file]);
+  }
+  for(const check of checks){if(check.name==='schema_migrations')continue;if(JSON.stringify(await check.hash(schema))!==JSON.stringify(check.before))throw Error('Existing table content changed: '+check.name);}
+  await client.query('COMMIT');log(`Workspace upgrade verified: ${pending.length} migrations; ${checks.length-1} original tables unchanged; private recovery snapshot retained`);
+ }catch(error){await client.query('ROLLBACK').catch(()=>{});const code=(error as {code?:string}).code||'verification';throw Error(`Workspace upgrade refused (${code}); transaction rolled back`,{cause:error});}
+}
