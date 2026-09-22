@@ -22,11 +22,11 @@
 | | |
 |---|---|
 | Последно проверена инсталација | **HOME**, 21 септември 2026; кодот и Git состојбата се проверени. Локалната база последно е содржински проверена на 15 септември; `SYNC_NAME=home`. Ова е заедничка белешка, не поставка за машината: живата улога секогаш се чита од локалниот `server\.env` и `/api/health`. |
-| Репо | Развојната гранка `codex/production-workspace` ја додава главната администрација и го вклучува mirror кодот. Live release проверката е во тек; види `docs/WORKSPACE-RELEASE.md`. |
+| Репо | `main` содржи `c04b7cf`: главната администрација и opt-in mirror кодот се споени и објавени. Render е префрлен на `main`, со manual deploy. |
 | База | `therapy_dev`, **32 миграции** |
 | Пренос на базата | `scripts\git-sync.ps1` преку приватното `Assisstant/MTB-data` |
 | Резервна копија на HOME | `TherapyBackupWeekly` е активна; `TherapyDbSnapshotWeekly` не е инсталирана. pCloud `P:\MTB-sync` е достапен, но тоа само по себе не докажува неделен извоз таму. |
-| Cloud | Render `/healthz` врати HTTP 200 на 21 септември. Сопственикот пријави дека Google-најавата и увезената Supabase база се живи. Supabase→локалниот mirror е подготвен и тестиран во одделна гранка, но **не е споен, deployed или активиран**. |
+| Cloud | На 22 септември Render успешно го deployed `c04b7cf`. Supabase е на **36 миграции**; release проверката потврди непроменети податоци во сите **44 постојни деловни табели** и приватна recovery снимка. `/healthz` е 200; неавтентициран API е 401 и апликацијата бара Google login. Финалната автентицирана browser проверка чека најава од сопственикот. **Локалниот mirror не е активиран.** |
 
 **Учебна 2026/2027 (тековна):**
 
@@ -42,11 +42,13 @@
 
 ## Отворено
 
-1. **Supabase→локален mirror е подготвен, но не е активиран.** Гранката
-   `codex/supabase-local-mirror` има versioned snapshot, dry-run, атомско apply,
-   guards, read-only API/UI и тестови, сè исклучено по default. Следниот чекор
-   бара одобрение за live migration 033, посебни права/credentials во Supabase,
-   Render поставки и пилот `therapy_mirror` база на една машина. Не се повторува
+1. **Supabase→локален mirror е deployed, но не е активиран.** Кодот во `main`
+   има versioned snapshot, dry-run, атомско apply, guards, read-only API/UI и
+   тестови, сè исклучено по default. Cloud migration 033 е веќе применета.
+   Следниот чекор е посебен пилот: приватен Render export key, локални database
+   roles/grants, проверена backup/restore постапка и `therapy_mirror` база.
+   Пред локална употреба на новата администрација се потребни и миграциите
+   034–036; HOME `therapy_dev` намерно останува на 032 засега. Не се повторува
    стариот увоз и не се допира оригиналната локална `therapy_dev`. Упатството е
    во `docs/SUPABASE-MIRROR.md`; scheduled job не е инсталиран.
 
@@ -105,6 +107,24 @@
 ---
 
 ## Дневник
+
+### 22 септември 2026 — Master CRUD е deployed во постојниот cloud
+
+Тестираната гранка е fast-forward споена во `main` и објавена како `c04b7cf`.
+Постојниот Render сервис сега гради од `main`; start command е
+`npm run deploy:workspace --prefix server && npm start --prefix server`.
+Deploy `dep-daot905g1s2s738jla10` успеа на 22 септември во 03:06 (локално).
+Release логот потврди 4 миграции, 44 непроменети оригинални деловни табели и
+задржана приватна `mtb_workspace_recovery_20260921` снимка во истата Supabase база.
+Нема повторен увоз на податоци, нов hosting план или промена на Google credentials.
+
+174 server тестови, typecheck, desktop/mobile Master CRUD, Fusion API/browser,
+Workspace windows, навигација, Podatoci, S-Dnevnik compatibility, colleague
+границата и privacy scan поминаа. Издвоените тест-шеми се отстранети; живите
+локални public табели се содржински непроменети. Public cloud smoke: health 200,
+API health/workspace 401 без сесија, Workspace 302 кон Google login.
+Финалната проверка на новата cloud форма со автентицирана сесија чека сопственикот
+да се најави. Supabase→локален mirror, credentials и scheduled pull не се активирани.
 
 ### 21 септември 2026 — Master CRUD release подготовка
 

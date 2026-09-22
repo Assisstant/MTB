@@ -1,7 +1,8 @@
 # Supabase → локална копија (фаза 1)
 
-Оваа функција е **подготвена, но исклучена по default**. Не е активирана на
-HOME, WORK, Render или Supabase. Увозот што веќе е направен во Supabase не се
+Оваа функција е **deployed на Render, но исклучена по default**. Migration 033
+е применета во Supabase на 22 септември; export и локален mirror не се активирани.
+Нема mirror база или scheduled pull на HOME/WORK. Увозот во Supabase не се
 повторува.
 
 Во фаза 1 Supabase е единственото место за измена. Локалниот mirror е последна
@@ -11,7 +12,7 @@ queue не постојат во оваа фаза.
 
 ## Што точно се пренесува
 
-Еден `REPEATABLE READ READ ONLY` snapshot ги зема сите 41 деловни табели за
+Еден `REPEATABLE READ READ ONLY` snapshot ги зема сите 44 деловни табели за
 сите години: списоци, годишни членства, кабинетски и наставен распоред,
 присуство, планови, клинички записи, евидентни листови, каталози и `app_state`.
 Списокот е експлицитен во `server/src/lib/mirror.ts`; непозната нова табела го
@@ -31,14 +32,16 @@ sequences се проверуваат одделно во reviewed постап�
 Snapshot-от носи source id, source transaction version, време, migration
 ledger, columns/primary keys, број и SHA-256 за секоја табела, стабилен content
 hash и SHA-256 за целиот пакет. Затоа нова проверка додека cloud содржината е
-мирна е no-op, а иста source version со различна деловна содржина се одбива.
+мирна е no-op. Ист watermark и исто observation време со различна содржина се
+одбиваат. Подоцнежна снимка може да има ист watermark и сменета содржина ако
+трансакција што била отворена во првата снимка се commit-ирала меѓу нив.
 Endpoint-от е исклучен без `MTB_MIRROR_EXPORT=1` и прифаќа посебен
 Bearer key само на `GET /api/mirror/snapshot`. Тој key не отвора друга API рута
 и не е cloud DB/service-role credential.
 
 ## Безбедна подготовка (не е дозвола за live промена)
 
-Пред пилот треба посебно одобрение за: migration 033 во Supabase, Render env,
+Пред пилот треба посебно одобрение за: Render env,
 создавање локална база/roles и првото `--apply`.
 
 1. Направи и провери независен Supabase backup/restore во изолирана цел.
@@ -53,19 +56,22 @@ Bearer key само на `GET /api/mirror/snapshot`. Тој key не отвор�
    ```
 
 4. Направи два локални PostgreSQL roles: app role со `CONNECT`, `USAGE` и
-   `SELECT`; sync role со право да ги заменува 41-те деловни табели и да пишува
+   `SELECT`; sync role со право да ги заменува 44-те деловни табели и да пишува
    во двете `mirror_sync_*` табели. App URL оди во `DATABASE_URL`; sync URL само
    во `MTB_MIRROR_TARGET_DATABASE_URL`. Дополнително, `MTB_MIRROR_MODE=readonly`
    му поставува `default_transaction_read_only=on` на секое обично app/API/import
-   поврзување. Точните grants се проверуваат на пилотот; не се погодуваат live.
+   поврзување. Migration 036 воведува RLS на новите staff и mirror-ledger табели:
+   локалните roles мора да имаат и соодветни RLS policies, не само table grants.
+   Точните grants/policies се проверуваат на пилотот; не се погодуваат live.
 5. Копирај ги placeholder-ите од `server/.env.example` во игнорираниот `.env`.
    Export key мора да е случаен, отповиклив и најмалку 32 знаци. Истиот secret
    е `MTB_MIRROR_EXPORT_KEY` на Render и `MTB_MIRROR_PULL_KEY` на одобрениот PC.
    `MTB_MIRROR_SOURCE_ID` мора точно да се совпадне со cloud server id.
 
 Cloud кодот останува во primary/write режим (`MTB_MIRROR_MODE=off`). Локалниот
-app користи `readonly`. Pull алатката одбива non-local target, активната
-`DATABASE_URL` база и име што не завршува со `_mirror`.
+app користи `readonly`. Pull алатката одбива non-local target и име што не
+завршува со `_mirror`. Истата цел може да е активната `DATABASE_URL` само кога
+апликацијата веќе е експлицитно во `readonly`; `therapy_dev` никогаш не е цел.
 
 ## Dry-run и рачно apply
 

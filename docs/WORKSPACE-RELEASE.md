@@ -1,5 +1,14 @@
 # Master administration release — 21 September 2026
 
+Deployment verified on 22 September: commit `c04b7cf`, Render deployment
+`dep-daot905g1s2s738jla10`, existing service `mtb-cloud-test`. The release log
+confirmed four applied migrations, 44 unchanged original business tables and
+the retained private recovery snapshot. Public health returned 200; both health
+and Workspace API returned 401 without a session; the shell redirected to login.
+Authenticated live UI acceptance still requires the owner's Google sign-in.
+HOME's original database is intentionally still on migration 032; the new local
+administration requires a separately reviewed upgrade or the mirror rollout.
+
 Open `MTB-Workspace.html` on the selected server. Administration is the initial
 view; all existing windows remain available and retain their iframe/editor DOM.
 The traditional layout is available directly with `?view=windows`.
