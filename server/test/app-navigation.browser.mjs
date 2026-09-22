@@ -332,9 +332,12 @@ check('an explicit peer choice is used by the app links',
 healthMode = 'none';
 await launcher.reload();
 await launcher.waitForSelector('#extra .apps a');
-check('with no API the launcher offers only the local-first diary',
+// The sync page reads this browser's own diary copy, so it still has an answer
+// when no server does; every other screen needs the API.
+check('with no API the launcher offers only the local-first diary and the sync page',
     JSON.stringify(await launcher.locator('#extra .apps a').evaluateAll((links) =>
-        links.map((link) => new URL(link.href).pathname.split('/').pop()))) === JSON.stringify(['S-Dnevnik.html']));
+        links.map((link) => new URL(link.href).pathname.split('/').pop()))) ===
+        JSON.stringify(['S-Dnevnik.html', 'Sinhronizacija.html']));
 check('the no-server path has no JavaScript error and never exposes the legacy schedule',
     launcherErrors.length === 0 && await launcher.locator('a[href*="Rasporedi.html"]').count() === 0,
     launcherErrors.join(' | '));
