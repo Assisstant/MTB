@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdtemp, writeFile, rm } from 'node:fs/promises';
+import { mkdtemp, readdir, writeFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -17,12 +17,18 @@ try {
     await client.query(`CREATE SCHEMA ${schema}`);
     await client.query(`SET search_path TO ${schema}`);
     const actual = fileURLToPath(new URL('../../database/migrations/', import.meta.url));
+    // The expected number comes from the ledger of files, not from a literal.
+    // The old literal 33 became stale when 034-036 were added: the runner
+    // applies all numbered files, so that assertion would fail, not skip them.
+    // Match the runner's filename filter; keep atomicity checks unchanged.
+    const expected = (await readdir(actual)).filter(name => /^\d+_[\w-]+\.sql$/.test(name)).length;
+    assert.ok(expected > 0, 'no migration files were found to apply');
     const messages: string[] = [];
     await migrate(client, actual, m => messages.push(m));
-    assert.equal(messages.filter(m => m.startsWith('Applied:')).length, 33);
+    assert.equal(messages.filter(m => m.startsWith('Applied:')).length, expected);
     messages.length = 0;
     await migrate(client, actual, m => messages.push(m));
-    assert.equal(messages.filter(m => m.startsWith('Already applied:')).length, 33);
+    assert.equal(messages.filter(m => m.startsWith('Already applied:')).length, expected);
     await writeFile(join(directory, '100_failure.sql'), 'BEGIN;\nCREATE TABLE rollback_probe(id int);\nSELECT * FROM missing_test_table;\nCOMMIT;');
     await assert.rejects(migrate(client, directory), /100_failure.sql failed \(SQLSTATE 42P01\); rolled back/);
     assert.equal((await client.query("SELECT to_regclass('rollback_probe') AS name")).rows[0].name, null);
@@ -30,7 +36,7 @@ try {
     await writeFile(join(directory, '100_failure.sql'), 'BEGIN;\nCREATE TABLE rollback_probe(id int);\nCOMMIT;');
     await migrate(client, directory, () => {});
     assert.equal((await client.query("SELECT count(*)::int AS n FROM schema_migrations WHERE filename='100_failure.sql'")).rows[0].n, 1);
-    console.log('Migrations: all 33, repeat skip, atomic failure, and corrected retry passed');
+    console.log(`Migrations: all ${expected}, repeat skip, atomic failure, and corrected retry passed`);
 } finally {
     await client.query(`DROP SCHEMA ${schema} CASCADE`);
     await client.end();
