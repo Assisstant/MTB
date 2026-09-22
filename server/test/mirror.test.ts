@@ -21,10 +21,14 @@ const SCHEMAS = [`${BASE}_source`, `${BASE}_one`, `${BASE}_two`];
 const migrationsDir = resolve(import.meta.dirname, '..', '..', 'database', 'migrations');
 const pools: pg.Pool[] = [];
 
-function isolatedUrl(schema: string): string {
+// The cloud runs in UTC and a PC in its own zone: each schema gets a different
+// session TimeZone so the same instant is rendered differently on each side.
+const ZONES = ['UTC', 'Europe/Skopje', 'Asia/Tokyo'];
+
+function isolatedUrl(schema: string, zone = 'UTC'): string {
     const url = new URL(TEST_URL);
     const inherited = url.searchParams.get('options') || '';
-    url.searchParams.set('options', `${inherited} -c search_path=${schema}`.trim());
+    url.searchParams.set('options', `${inherited} -c search_path=${schema} -c TimeZone=${zone}`.trim());
     return url.href;
 }
 
@@ -53,7 +57,7 @@ before(async () => {
     }
     await setup.end();
     for (const schema of SCHEMAS) {
-        const pool = new pg.Pool({ connectionString: isolatedUrl(schema), max: 1 });
+        const pool = new pg.Pool({ connectionString: isolatedUrl(schema, ZONES[SCHEMAS.indexOf(schema)]), max: 1 });
         pools.push(pool);
         await pool.query(`CREATE TABLE schema_migrations (
             filename text PRIMARY KEY,
@@ -81,6 +85,8 @@ before(async () => {
     await source.query(`INSERT INTO therapist_years(school_year_id, therapist_id) VALUES($1,$2)`, [year, therapist]);
     await source.query(`INSERT INTO therapist_students(school_year_id, therapist_id, student_id) VALUES($1,$2,$3)`, [year, therapist, student]);
     await source.query(`INSERT INTO app_state(app, payload, updated_by) VALUES('sdnevnik', '{"students":[]}'::jsonb, 'mirror test')`);
+    // Real documents hold lists and bare strings too; only an object used to survive apply.
+    await source.query(`INSERT INTO app_state(app, payload, updated_by) VALUES('mirror-list', '[1,{"a":"б"},null]'::jsonb, 'mirror test'), ('mirror-text', '"present"'::jsonb, 'mirror test')`);
 });
 
 after(async () => {

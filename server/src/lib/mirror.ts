@@ -276,6 +276,10 @@ export async function createMirrorSnapshot(pool: Connectable, sourceId: string):
     const client = await pool.connect();
     try {
         await client.query('BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY');
+        // One text form for every timestamptz: row_to_json renders it in the
+        // session time zone, and the cloud (UTC) and a PC (Europe/...) would
+        // otherwise hash the same instant differently and refuse every apply.
+        await client.query("SET LOCAL TimeZone = 'UTC'");
         const source = (await client.query(
             `SELECT current_database() AS database,
                     clock_timestamp() AS snapshot_at,
@@ -495,6 +499,8 @@ export async function planMirror(pool: Connectable, input: unknown): Promise<Mir
     const client = await pool.connect();
     try {
         await client.query('BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY');
+        // UTC for the same reason as createMirrorSnapshot.
+        await client.query("SET LOCAL TimeZone = 'UTC'");
         const plan = await buildPlan(client, snapshot);
         await client.query('COMMIT');
         return plan;
@@ -582,6 +588,8 @@ export async function applyMirrorSnapshot(
     const client = await pool.connect();
     try {
         await client.query('BEGIN ISOLATION LEVEL SERIALIZABLE');
+        // UTC for the same reason as createMirrorSnapshot.
+        await client.query("SET LOCAL TimeZone = 'UTC'");
         await client.query("SET LOCAL mtb.mirror_apply = 'on'");
         await client.query(`SELECT pg_advisory_xact_lock(hashtext($1))`, [MIRROR_FORMAT]);
         await client.query(`SET LOCAL lock_timeout = '10s'`);
@@ -616,9 +624,19 @@ export async function applyMirrorSnapshot(
         for (const tableName of order) {
             const table = byName.get(tableName)!;
             const columnNames = table.columns.map((column) => column.name);
+            // row_to_json already turned json/jsonb into JS values. node-pg would
+            // send a string as raw text and an array as a PostgreSQL array
+            // literal, and both are refused as json — so a document holding a
+            // list, or a bare "present", stopped the first real apply.
+            const isJson = table.columns.map((column) => column.udt === 'json' || column.udt === 'jsonb');
             const sql = `INSERT INTO ${qualified(schema.schema, tableName)} (${columnNames.map(quoteIdent).join(', ')}) ` +
                 `VALUES (${columnNames.map((_, index) => `$${index + 1}`).join(', ')})`;
-            for (const row of table.rows) await client.query(sql, columnNames.map((column) => row[column]));
+            for (const row of table.rows) {
+                await client.query(sql, columnNames.map((column, index) => {
+                    const value = row[column];
+                    return isJson[index] && value !== null && value !== undefined ? JSON.stringify(value) : value;
+                }));
+            }
         }
 
         // Verify every table before the data and success marker become visible.
