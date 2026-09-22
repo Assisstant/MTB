@@ -86,6 +86,14 @@ The relational tables now feed the canonical schedule and the cross-cutting
 screens (`Pregled-Baza.html`, `/api/*`). JSON remains an additive compatibility
 contract and recovery export, not a reason to fork the live interface.
 
+**Direction chosen 23 Sep 2026: the cloud becomes the source of truth.** The
+owner decided that daily work is written in Supabase (the Render app) and that
+WORK and HOME become read-only `*_mirror` copies (`docs/SUPABASE-MIRROR.md`),
+accepting that nothing is written without Internet. Nothing has been converted
+yet: every rollout step needs its own approval, and until a PC's mirror is live
+the manual sync below still describes how it works. Never build two-way sync
+toward the cloud — local numeric ids collide. See `docs/APP-CONTRACT.md`.
+
 **Cross-machine database sync is manual.** WORK and HOME each run their own
 PostgreSQL database. Their Windows hostnames may both be `ZenPC`; the ignored
 `SYNC_NAME=work/home` setting is authoritative. Scheduled tasks may export each machine's own verified

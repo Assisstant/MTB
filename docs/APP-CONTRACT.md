@@ -243,6 +243,18 @@ version/time and integrity, and refuses incompatible schemas, older packages,
 changed dry-runs and unexpected mass deletion. The old HOME/WORK databases and
 manual handover remain unchanged until a separately approved PC rollout.
 
+**Owner decision, 23 September 2026: the cloud is the target source of truth.**
+Daily work (schedule, diary, lists) is to be written in Supabase through the
+cloud app; WORK and HOME become read-only `*_mirror` copies that serve offline
+reading and backup. The owner accepted the cost: without Internet nothing is
+written. This chooses the direction; it does not by itself convert anything.
+Each rollout step still needs its own approval, and until a PC's mirror is live
+its `therapy_dev` and the manual handover keep working as documented above. It
+never means two-way sync: local databases do not send anything to the cloud,
+because their local numeric ids would collide on a row merge. A browser copy
+(IndexedDB/localStorage) follows the server of the address it was opened from,
+so the cloud address is its source once work moves there.
+
 The local/Tailscale HTTP server publishes only an explicit allowlist of the
 top-level application HTML, shared JavaScript and required image assets. A new
 public file must be added deliberately to `server/src/lib/public-static.ts`.
