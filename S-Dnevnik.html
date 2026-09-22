@@ -3711,12 +3711,44 @@
          *
          * СНИМКИТЕ НА МИНАТИТЕ НЕДЕЛИ НЕ СЕ ДОПИРААТ. Тие се запис, не план.
          */
+        /**
+         * Кој терапевт е овој дневник — прашано еднаш, од списокот на базата.
+         *
+         * Името се чуваше само кога ќе дојде преку Unified JSON или од стариот
+         * Rasporedi, па на нова адреса (облакот, нов прелистувач) го немаше, а
+         * пораката упатуваше на поле „Локален сервер → име" што не постои.
+         * Се бира од активните терапевти за годината, никогаш не се куца:
+         * името мора да совпадне со она под кое Fusion ги води термините.
+         */
+        function chooseLocalTherapist(base, done) {
+            fetch(base + '/api/therapists', { cache: 'no-store' })
+                .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+                .then(function (rows) {
+                    var names = (Array.isArray(rows) ? rows : []).map(function (t) { return t && t.name; })
+                        .filter(Boolean).sort(function (a, b) { return a.localeCompare(b, 'mk'); });
+                    if (!names.length) { alert('Базата нема активни терапевти за оваа година.'); return; }
+                    var answer = prompt('Кој терапевт е овој дневник? Внеси го бројот:\n\n' +
+                        names.map(function (n, i) { return (i + 1) + '. ' + n; }).join('\n') +
+                        '\n\nСе памти на овој уред и не се прашува повторно.');
+                    if (answer == null) return;
+                    var pick = names[parseInt(String(answer).trim(), 10) - 1];
+                    if (!pick) { alert('Нема терапевт со број „' + String(answer).trim() + '".'); return; }
+                    try { localStorage.setItem('my_therapist_v1', pick); } catch (e) { /* unavailable storage */ }
+                    var shown = document.getElementById('sdnLocalSrvMe');
+                    if (shown) shown.textContent = pick;
+                    done(pick);
+                })
+                .catch(function (err) {
+                    alert('Списокот на терапевти не може да се прочита од базата: ' + (err && err.message ? err.message : err));
+                });
+        }
+
         function seedScheduleFromDatabase() {
             var base = (window.SdnLocalSrv && window.SdnLocalSrv.getUrl) ? window.SdnLocalSrv.getUrl() : '';
-            if (!base) { alert('Нема поставен локален сервер.'); return; }
+            if (!base) { alert('Нема поставен сервер.'); return; }
 
             var me = getLocalTherapistName();
-            if (!me) { alert('Прво постави кој терапевт е овој дневник (Локален сервер → име).'); return; }
+            if (!me) { chooseLocalTherapist(base, seedScheduleFromDatabase); return; }
 
             var flat = function (t) {
                 return String(t || '').replace(/\s+/g, '').replace(/[–—]/g, '-');
@@ -10108,6 +10140,8 @@
         function showWho() {
             var el = document.getElementById('sdnLocalSrvWho');
             if (!el) return;
+            var meEl = document.getElementById('sdnLocalSrvMe');
+            if (meEl) meEl.textContent = getLocalTherapistName() || 'не е поставен';
             if (!hasChosenServer()) { el.textContent = 'нема избран сервер — само овој прелистувач'; return; }
             var s = lastServerState;
             var label = s && s.identity && s.identity.label ? s.identity.label : '';
@@ -10130,6 +10164,8 @@
                 panel.innerHTML =
                     '<h3>🖥️ Сервер (PostgreSQL)</h3>' +
                     '<div style="font-size:13px;margin-bottom:6px;">Овој дневник се синхронизира со: <b id="sdnLocalSrvWho">—</b></div>' +
+                    '<div style="font-size:13px;margin-bottom:6px;">Терапевт на овој дневник: <b id="sdnLocalSrvMe">—</b> ' +
+                        '<button class="sdn-mini-btn" id="sdnLocalSrvMeBtn">смени</button></div>' +
                     '<div style="font-size:12px;opacity:.8;margin-bottom:8px;">' +
                         'Секоја измена прво се чува во овој прелистувач, па сама се праќа на серверот — при отворање и 5 секунди по измена. ' +
                         'Пред вчитување од серверот автоматски се прави backup во IndexedDB. ' +
@@ -10158,6 +10194,10 @@
                 input.addEventListener('change', function () { setUrl(this.value); });
                 var autoBox = document.getElementById('sdnLocalSrvAuto');
                 if (autoBox) autoBox.checked = autoEnabled();
+                document.getElementById('sdnLocalSrvMeBtn').addEventListener('click', function () {
+                    if (!hasChosenServer()) { alert('Прво избери сервер.'); return; }
+                    chooseLocalTherapist(getUrl(), showWho);
+                });
             }
             showWho();
             var v = getVersion();
