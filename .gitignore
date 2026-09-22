@@ -30,3 +30,6 @@ Claude outputs/
 # public repository that serves GitHub Pages.
 .agents/
 skills-lock.json
+
+# Terminal Paste Image folder
+.cp-images/
