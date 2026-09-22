@@ -517,7 +517,7 @@ ul.plain li { margin-bottom: 4px; }
 
         var names = { git: 'GitHub · приватно MTB-data', pcloud: 'pCloud' };
         var problems = [];
-        var mine = null;
+        var mine = null, theirs = null;
         (status.transports || []).forEach(function (t) {
             var tr = document.createElement('tr');
             var head = document.createElement('td');
@@ -537,6 +537,7 @@ ul.plain li { margin-bottom: 4px; }
                 tr.appendChild(snapshotCell(t.me, me ? 'уште нема извоз' : 'нема улога', 'Последен извоз од оваа машина'));
                 tr.appendChild(snapshotCell(t.peer, peer ? 'уште нема снимка' : '—', 'Последна снимка од другата'));
                 if (t.me && (!mine || t.me.createdAt > mine.createdAt)) mine = t.me;
+                if (t.peer && (!theirs || t.peer.createdAt > theirs.createdAt)) theirs = t.peer;
             }
             (t.problems || []).forEach(function (p) { problems.push(p); });
             body.appendChild(tr);
@@ -549,6 +550,18 @@ ul.plain li { margin-bottom: 4px; }
         } else if (problems.length) {
             verdict('machineVerdict', 'bad', 'Манифест што скриптата би го одбила: ', problems.join(' · '));
             badge('lvlMachines', 'bad', 'провери');
+        } else if (m && theirs && typeof theirs.migrations === 'number' && theirs.migrations !== m.applied) {
+            // manual-db-sync.ps1 accepts a snapshot only when both migration
+            // lists match exactly, so a gap refuses the transfer both ways. The
+            // other side's count is as of its newest snapshot seen here.
+            var behind = theirs.migrations < m.applied;
+            verdict('machineVerdict', 'warn', 'Миграциите се разликуваат: оваа база ' + m.applied +
+                ', другата машина ' + theirs.migrations + ' (според нејзината последна снимка).',
+                (behind
+                    ? ' Снимка извезена од тука нема да се прифати таму додека другата машина не ги примени истите миграции'
+                    : ' Снимката од другата машина нема да се прифати тука додека оваа база не ги примени истите миграции') +
+                ' — git pull, резерва (scripts\\backup-db.ps1), па scripts\\setup-home-postgres.ps1. Преносот дотогаш одбива.');
+            badge('lvlMachines', 'warn', 'миграциите се разликуваат');
         } else if (!mine) {
             verdict('machineVerdict', 'warn', 'Оваа машина уште нема извезено снимка.',
                 ' На крајот од работата пушти го чекорот 1 подолу.');

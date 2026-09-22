@@ -223,6 +223,20 @@ console.log('\n② WORK ↔ HOME');
     await context.close();
 }
 {
+    // This database moved ahead of the other machine's newest snapshot: the
+    // transfer refuses both ways until the migration lists match again.
+    const ahead = status();
+    ahead.transports[0].peer = snapshot('home', '2026-09-20T07:00:00.000Z', { migrations: 32, latestMigration: '032_x.sql' });
+    const { context, page } = await open({ api: { '/api/health': health(), '/api/sync/status': ahead }, storage: synced });
+    await settle(page);
+    const v = await verdictOf(page, 'machineVerdict');
+    check('друг број миграции кај другата машина → предупредување во пресудата',
+        /warn/.test(v.kind) && /оваа база 38, другата машина 32/.test(v.text) && /нема да се прифати таму/.test(v.text), v.text);
+    check('и кажува како се изедначува, без -Apply', /setup-home-postgres\.ps1/.test(v.text) && !/-Apply/.test(v.text), v.text);
+    check('картичката горе го кажува истото', /миграциите се разликуваат/.test((await badgeOf(page, 'lvlMachines')).text));
+    await context.close();
+}
+{
     const bad = status();
     bad.transports[0].problems = ['home: манифестот именува друга машина'];
     const { context, page } = await open({ api: { '/api/health': health(), '/api/sync/status': bad }, storage: synced });
