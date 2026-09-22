@@ -24,6 +24,7 @@ export const MIRROR_TABLES = [
     'employees',
     'employee_roles',
     'employee_identity_links',
+    'employee_year_details',
     'evidence_contacts',
     'evidence_examiner_roles',
     'evidence_examiners',

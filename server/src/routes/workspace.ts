@@ -6,6 +6,7 @@ import { pool as applicationPool } from '../db.js';
 import { assertOwner, scopeOf, refuseScope } from '../lib/colleague.js';
 import { sha256 } from '../lib/mirror.js';
 import { pupilDetailsProblem, validAnnualClass } from '../lib/pupil-membership.js';
+import { STAFF_PROFESSIONS, STAFF_DUTIES } from '../lib/staff-details.js';
 
 const Year = z.string().min(1).max(64);
 const Name = z.string().trim().min(1).max(120);
@@ -22,6 +23,9 @@ const StaffRole = z.enum(['teacher','therapist','specialist','administration']);
 const Employee = z.object({
     year: Year, name: Name, identifier: z.string().trim().max(80).nullable(),
     roles: z.array(StaffRole).max(4), teacherKind: z.enum(['odd','pred']).default('pred'),
+    professionCode: z.string().refine(v=>Object.hasOwn(STAFF_PROFESSIONS,v)).optional(),
+    jobTitle: z.string().trim().max(200).optional(),
+    duties: z.array(z.string().refine(v=>Object.hasOwn(STAFF_DUTIES,v))).max(9).optional(),
     expected: Expected.optional()
 }).strict();
 class Problem extends Error {
@@ -45,12 +49,18 @@ async function pupilRows(c: PoolClient, yid: number, publicId?: string) {
 }
 async function employeeRows(c: PoolClient, yid: number, id?: number) {
     return (await c.query(`SELECT e.id,e.name,e.identifier,t.id AS teacher_id,h.id AS therapist_id,
+        coalesce(d.profession_code,'unknown') AS profession_code,coalesce(d.job_title,'') AS job_title,
+        coalesce(d.duties,'{}'::text[]) AS duties,
+        tc.name AS teacher_category,hc.name AS therapist_category,
         t.kind AS teacher_kind,coalesce(ty.active,false) AS teacher_active,coalesce(hy.active,false) AS therapist_active,
         coalesce((SELECT jsonb_agg(r.role ORDER BY r.role) FROM employee_roles r
           WHERE r.employee_id=e.id AND r.school_year_id=$1 AND r.active),'[]'::jsonb) AS additional_roles
         FROM employees e LEFT JOIN teachers t ON t.employee_id=e.id LEFT JOIN therapists h ON h.employee_id=e.id
         LEFT JOIN teacher_years ty ON ty.teacher_id=t.id AND ty.school_year_id=$1
         LEFT JOIN therapist_years hy ON hy.therapist_id=h.id AND hy.school_year_id=$1
+        LEFT JOIN employee_year_details d ON d.employee_id=e.id AND d.school_year_id=$1
+        LEFT JOIN specialist_categories tc ON tc.id=ty.category_id
+        LEFT JOIN specialist_categories hc ON hc.id=hy.category_id
         WHERE e.superseded_by IS NULL AND ($2::integer IS NULL OR e.id=$2) ORDER BY e.name,e.id`, [yid,id ?? null])).rows;
 }
 async function expectRow(row: any, expected: string | undefined) {
@@ -93,7 +103,7 @@ export async function workspaceRoutes(server: FastifyInstance, options: {pool?: 
             const employees = (await employeeRows(c,y.id)).map(stamp);
             const classes = (await c.query(`SELECT c.id,c.label FROM school_classes c JOIN class_years cy
               ON cy.class_id=c.id WHERE cy.school_year_id=$1 AND cy.active ORDER BY c.sort_key,c.label`,[y.id])).rows;
-            return {year:y.label,pupils,employees,classes};
+            return {year:y.label,pupils,employees,classes,staffProfessions:STAFF_PROFESSIONS,staffDuties:STAFF_DUTIES};
         },true);
     });
     server.get('/api/workspace/pupils/:id/history', async req => {
@@ -167,12 +177,13 @@ export async function workspaceRoutes(server: FastifyInstance, options: {pool?: 
         if(!await owner(req,reply))return;
         const b=Employee.parse(req.body);
         return transaction(async c=>{
-            const y=await yearRow(c,b.year);let id:number;
+            const y=await yearRow(c,b.year);let id:number;let previous:any;
             if(create)id=(await c.query('INSERT INTO employees(name,identifier) VALUES($1,$2) RETURNING id',[b.name,b.identifier||null])).rows[0].id;
             else {
                 id=z.coerce.number().int().positive().parse(req.params.id);
                 await c.query('SELECT id FROM employees WHERE id=$1 FOR UPDATE',[id]);
-                await expectRow((await employeeRows(c,y.id,id))[0],b.expected);
+                previous=(await employeeRows(c,y.id,id))[0];
+                await expectRow(previous,b.expected);
                 await c.query('UPDATE employees SET name=$2,identifier=$3 WHERE id=$1',[id,b.name,b.identifier||null]);
             }
             for(const role of ['teacher','therapist'] as const) {
@@ -190,11 +201,23 @@ export async function workspaceRoutes(server: FastifyInstance, options: {pool?: 
             }
             for(const role of ['specialist','administration'] as const)await c.query(`INSERT INTO employee_roles(employee_id,school_year_id,role,active)
               VALUES($1,$2,$3,$4) ON CONFLICT(employee_id,school_year_id,role) DO UPDATE SET active=EXCLUDED.active`,[id,y.id,role,b.roles.includes(role)]);
+            // Omitted fields from an older client preserve the explicit annual facts.
+            await c.query(`INSERT INTO employee_year_details(employee_id,school_year_id,profession_code,job_title,duties)
+              VALUES($1,$2,$3,$4,$5) ON CONFLICT(employee_id,school_year_id) DO UPDATE SET
+              profession_code=EXCLUDED.profession_code,job_title=EXCLUDED.job_title,duties=EXCLUDED.duties`,
+                [id,y.id,b.professionCode??previous?.profession_code??'unknown',b.jobTitle??previous?.job_title??'',
+                 [...new Set<string>(b.duties??previous?.duties??[])].sort()]);
             return {ok:true,employee:stamp((await employeeRows(c,y.id,id))[0])};
         });
     }
     server.post('/api/workspace/employees',async(req,reply)=>saveEmployee(req,reply,true));
     server.put('/api/workspace/employees/:id',async(req,reply)=>saveEmployee(req,reply,false));
+    server.get('/api/workspace/employees/:id/history',async req=>{
+        const id=z.coerce.number().int().positive().parse((req.params as any).id);
+        return transaction(async c=>({history:(await c.query(`SELECT y.label AS year,d.profession_code,d.job_title,d.duties
+          FROM employee_year_details d JOIN school_years y ON y.id=d.school_year_id
+          WHERE d.employee_id=$1 ORDER BY y.starts_on DESC`,[id])).rows}),true);
+    });
     server.post('/api/workspace/employees/:id/link',async(req,reply)=>{
         if(!await owner(req,reply))return;
         const id=z.coerce.number().int().positive().parse((req.params as any).id);
@@ -208,6 +231,15 @@ export async function workspaceRoutes(server: FastifyInstance, options: {pool?: 
             if((target.teacher_id&&source.teacher_id)||(target.therapist_id&&source.therapist_id))throw new Problem(409,
                 'Двата записи имаат ист вид профил. Потребна е посебна проверка на историјата; не се спојуваат автоматски.');
             if(target.identifier&&source.identifier&&target.identifier!==source.identifier)throw new Problem(409,'Идентификаторите на вработените се различни.');
+            // Review all years, not just the visible year. Never discard a second
+            // profession/title/duty record merely because the profiles can link.
+            const conflicting=(await c.query(`SELECT 1 FROM employee_year_details a JOIN employee_year_details b
+              ON b.school_year_id=a.school_year_id WHERE a.employee_id=$1 AND b.employee_id=$2
+              AND (a.profession_code<>b.profession_code OR a.job_title<>b.job_title OR NOT(a.duties @> b.duties AND a.duties <@ b.duties)) LIMIT 1`,[id,b.sourceId])).rowCount;
+            if(conflicting)throw new Problem(409,'Годишната професија или задолженијата се различни. Проверете ги сите години пред поврзување; ништо не е заменето.');
+            await c.query(`INSERT INTO employee_year_details(employee_id,school_year_id,profession_code,job_title,duties)
+              SELECT $1,school_year_id,profession_code,job_title,duties FROM employee_year_details WHERE employee_id=$2
+              ON CONFLICT(employee_id,school_year_id) DO NOTHING`,[id,b.sourceId]);
             await c.query('UPDATE employees SET identifier=NULL WHERE id=$1',[b.sourceId]);
             if(!target.identifier&&source.identifier)await c.query('UPDATE employees SET identifier=$2 WHERE id=$1',[id,source.identifier]);
             await c.query('UPDATE teachers SET employee_id=$1 WHERE employee_id=$2',[id,b.sourceId]);

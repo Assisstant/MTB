@@ -1,5 +1,30 @@
 # Master administration release — 21 September 2026
 
+## Staff form update — 22 September, code ready, NOT deployed
+
+Migration 037 adds `employee_year_details` for annual profession, job title and
+multiple duties; it classifies nobody automatically. The existing Administration
+form exposes these facts, filters and annual history separately from participation
+in teaching/cabinet schedules. Staff-only professions never create profiles.
+The categories used by action plans are unchanged and displayed read-only here.
+
+The current `deploy:workspace` runner accepts reviewed pending 033–037. Its new
+private recovery schema is `mtb_workspace_recovery_staff_20260922`; it preserves
+the previous `mtb_workspace_recovery_20260921` snapshot. Both 032→037 and
+036→037 are tested, including repeat no-op and preservation of original data.
+The added business table is included in the mirror scope; source and target
+must have matching schema/table ledgers. This does not activate a mirror.
+
+Do not use a bare migration command to bypass the guarded release. A future
+approved deployment must verify 37 migrations, unchanged pre-existing data,
+authenticated form save/reload and staff-only exclusion from Fusion. No live
+database or hosting change was made while implementing this update.
+
+The sections below record the earlier 036 deployment; they are historical,
+not a claim that the new fields are already live.
+
+## Previous verified cloud release
+
 Deployment verified on 22 September: commit `c04b7cf`, Render deployment
 `dep-daot905g1s2s738jla10`, existing service `mtb-cloud-test`. The release log
 confirmed four applied migrations, 44 unchanged original business tables and

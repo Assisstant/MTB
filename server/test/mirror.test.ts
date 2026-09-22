@@ -70,6 +70,7 @@ before(async () => {
     await source.query('UPDATE employees SET superseded_by=$2 WHERE id=$1',[oldEmployee,newEmployee]);
     await source.query('INSERT INTO employee_identity_links(source_id,target_id) VALUES($1,$2)',[oldEmployee,newEmployee]);
     const year = (await source.query(`SELECT id FROM school_years WHERE label='2025/2026'`)).rows[0].id;
+    await source.query("INSERT INTO employee_year_details(employee_id,school_year_id,profession_code,duties) VALUES($1,$2,'pedagog',ARRAY['counselling'])",[newEmployee,year]);
     const student = (await source.query(
         `INSERT INTO students(public_id, sdnevnik_id, name, grade) VALUES('mirror-pupil-a', 900001, 'Измислен Ученик А', 'IV-а') RETURNING id`
     )).rows[0].id;

@@ -122,6 +122,17 @@ Migration 035 preserves teacher/therapist profile ids and creates separate
 employee identities for existing profiles. Only explicit administrator review
 may link two profiles to one employee; matching names never do so automatically.
 Additional employee duties confer neither API permissions nor a cabinet.
+Migration 037 adds `employee_year_details`: profession, optional job title and
+multiple duties for one employee/year. The Workspace administration owns these
+facts. Unrecorded means unknown; never infer them from a name, profile category,
+class, or existing timetable. Teaching/therapy participation continues to use
+the explicit annual profile memberships, independently of profession and duties.
+A staff-only pedagogue, special educator or educator needs no therapy profile.
+Modified teaching and preparatory-group duties are directory facts, not new
+group-treatment sessions. Pupil programme, placement and class are still edited
+on the pupil. Clinical/action-plan categories retain their existing owner and
+are only displayed by this form. Identity linking refuses differing annual
+profession/job/duty records in ANY year rather than silently selecting one.
 Normal deactivation changes annual membership/roles, not historical rows.
 The existing class, subject and timetable editors remain embedded and canonical.
 `?view=windows` opens the traditional window layout directly.

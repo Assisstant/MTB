@@ -71,3 +71,45 @@ test('caseload uses shared rows and fails closed for invalid foreign keys or sta
  assert.equal(changed.therapists[0].id,t.therapist_id);
  await call('PUT',`/api/workspace/pupils/${p.public_id}/therapists`,{year,expected:p.expected,therapistIds:[]},409);
 });
+
+test('annual professions and duties do not create schedules, profiles or permissions',async()=>{
+ const directory=await snapshot();
+ for(const code of ['pedagog','spec_edukator','vospituvac','socijalen_rabotnik']) assert.ok(directory.staffProfessions[code]);
+ assert.ok(directory.staffDuties.modified_teaching);assert.ok(directory.staffDuties.preparatory_group);
+ for(const professionCode of ['pedagog','spec_edukator','vospituvac']){
+  const body={year,name:`Измислен Профил ${professionCode}`,identifier:null,roles:['specialist'],professionCode,
+   jobTitle:'Пробно работно место',duties:['preparatory_group','modified_teaching','preparatory_group']};
+  const e=(await call('POST','/api/workspace/employees',body)).employee;
+  assert.equal(e.teacher_id,null);assert.equal(e.therapist_id,null);
+  assert.equal(e.teacher_active,false);assert.equal(e.therapist_active,false);
+  assert.equal(e.profession_code,professionCode);assert.deepEqual(e.duties,['modified_teaching','preparatory_group']);
+  const updated=(await call('PUT',`/api/workspace/employees/${e.id}`,{year,name:e.name,identifier:null,roles:['specialist'],expected:e.expected})).employee;
+  assert.equal(updated.job_title,body.jobTitle);assert.equal(updated.profession_code,professionCode);
+  assert.deepEqual(updated.duties,e.duties,'older clients must preserve annual facts');
+  await call('PUT',`/api/workspace/employees/${e.id}`,{...body,professionCode:'invalid',expected:updated.expected},400);
+  await call('PUT',`/api/workspace/employees/${e.id}`,{...body,duties:['invalid'],expected:updated.expected},400);
+  const second=(await call('POST','/api/workspace/employees',{...body,name:`Измислен Втор Профил ${professionCode}`})).employee;
+  assert.equal(second.profession_code,professionCode,'a shared profession is allowed');
+ }
+});
+
+test('annual staff facts preserve other years and reject stale or conflicting links',async()=>{
+ const body={year,name:'Измислен Годишен Профил',identifier:null,roles:['specialist'],professionCode:'spec_edukator',duties:['preparatory_group'],jobTitle:'Пробна служба'};
+ const e=(await call('POST','/api/workspace/employees',body)).employee;
+ const other=(await call('GET',`/api/workspace?year=${encodeURIComponent(later)}`)).employees.find((r:any)=>r.id===e.id);
+ const changed=(await call('PUT',`/api/workspace/employees/${e.id}`,{...body,year:later,professionCode:'pedagog',duties:['counselling'],expected:other.expected})).employee;
+ assert.equal(changed.teacher_id,null);assert.equal(changed.therapist_id,null);
+ const history=(await call('GET',`/api/workspace/employees/${e.id}/history`)).history;
+ assert.equal(history.find((r:any)=>r.year===year).profession_code,'spec_edukator');
+ assert.equal(history.find((r:any)=>r.year===later).profession_code,'pedagog');
+ await call('PUT',`/api/workspace/employees/${e.id}`,{...body,year:later,expected:other.expected},409);
+ const source=(await call('POST','/api/workspace/employees',{...body,name:'Измислен Друг Годишен Профил',professionCode:'vospituvac'})).employee;
+ const targetLater=(await call('GET',`/api/workspace?year=${encodeURIComponent(later)}`)).employees.find((r:any)=>r.id===e.id);
+ const sourceLater=(await call('GET',`/api/workspace?year=${encodeURIComponent(later)}`)).employees.find((r:any)=>r.id===source.id);
+ await call('POST',`/api/workspace/employees/${e.id}/link`,{year:later,sourceId:source.id,expected:targetLater.expected,sourceExpected:sourceLater.expected},409);
+ assert.equal((await pool.query('SELECT superseded_by FROM employees WHERE id=$1',[source.id])).rows[0].superseded_by,null);
+ const blank=(await call('POST','/api/workspace/employees',{year:later,name:'Измислен Идентитет Без Историја',identifier:null,roles:['administration']})).employee;
+ const target=(await snapshot()).employees.find((r:any)=>r.id===blank.id);
+ const merged=(await call('POST',`/api/workspace/employees/${blank.id}/link`,{year,sourceId:source.id,expected:target.expected,sourceExpected:source.expected})).employee;
+ assert.equal(merged.profession_code,'vospituvac');assert.deepEqual(merged.duties,['preparatory_group']);
+});

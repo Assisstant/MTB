@@ -6,7 +6,7 @@ import {readFile,readdir} from 'node:fs/promises';
 import {join} from 'node:path';
 import {migrationBody} from './migrations.js';
 const ident=(s:string)=>'"'+s.replace(/"/g,'""')+'"';
-export async function workspaceRelease(client:Client,directory:string,log=console.log,recoverySchema='mtb_workspace_recovery_20260921'){
+export async function workspaceRelease(client:Client,directory:string,log=console.log,recoverySchema='mtb_workspace_recovery_staff_20260922'){
  if(!/^mtb_workspace_recovery_[a-z0-9_]+$/.test(recoverySchema))throw Error('Invalid recovery schema');
  await client.query('BEGIN ISOLATION LEVEL SERIALIZABLE');
  try{
@@ -17,7 +17,7 @@ export async function workspaceRelease(client:Client,directory:string,log=consol
   const applied=new Set((await client.query('SELECT filename FROM schema_migrations')).rows.map(r=>r.filename));
   if(files.some(f=>Number(f.slice(0,3))<=32&&!applied.has(f))||[...applied].some(f=>!files.includes(f)))throw Error('Unexpected migration baseline');
   const pending=files.filter(f=>!applied.has(f));
-  if(pending.some(f=>!/^0(33|34|35|36)_/.test(f)))throw Error('Unreviewed migration in release');
+  if(pending.some(f=>!/^0(33|34|35|36|37)_/.test(f)))throw Error('Unreviewed migration in release');
   if(!pending.length){await client.query('COMMIT');log('Workspace schema already current');return;}
   const tables=(await client.query(`SELECT tablename AS name FROM pg_tables WHERE schemaname=$1 ORDER BY tablename`,[schema])).rows;
   // The recovery schema must be absent. Never overwrite an earlier backup.
