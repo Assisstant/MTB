@@ -52,5 +52,13 @@ test('staff release upgrades 036 without overwriting the previous recovery snaps
   assert.equal((await c.query('SELECT count(*)::int AS n FROM schema_migrations')).rows[0].n,38);
   assert.equal((await c.query(`SELECT id FROM ${oldBackup}.probe`)).rows[0].id,1);
   await workspaceRelease(c,dir,()=>{},backup);
+  // The NEXT reviewed batch must not be handed this batch's recovery name:
+  // it would overwrite the snapshot taken before this upgrade. A deploy log
+  // meets this as duplicate_schema, so the refusal has to name the schema.
+  const last=(await c.query('SELECT filename FROM schema_migrations ORDER BY filename DESC LIMIT 1')).rows[0].filename;
+  await c.query('DELETE FROM schema_migrations WHERE filename=$1',[last]);
+  await assert.rejects(workspaceRelease(c,dir,()=>{},backup),new RegExp(`recovery schema ${backup} already exists`));
+  assert.equal((await c.query('SELECT count(*)::int AS n FROM schema_migrations')).rows[0].n,37,'the refusal must roll back');
+  await c.query('INSERT INTO schema_migrations(filename) VALUES($1)',[last]);
  }finally{await c.query(`DROP SCHEMA IF EXISTS ${backup} CASCADE`);await c.query(`DROP SCHEMA ${oldBackup} CASCADE`);await c.query(`DROP SCHEMA ${schema} CASCADE`);await c.end();}
 });

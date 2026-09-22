@@ -6,7 +6,12 @@ import {readFile,readdir} from 'node:fs/promises';
 import {join} from 'node:path';
 import {migrationBody} from './migrations.js';
 const ident=(s:string)=>'"'+s.replace(/"/g,'""')+'"';
-export async function workspaceRelease(client:Client,directory:string,log=console.log,recoverySchema='mtb_workspace_recovery_staff_20260922'){
+// The recovery schema names ONE reviewed batch, and the run refuses to reuse
+// it — a second batch writing into it would overwrite the snapshot taken
+// before the first. So a new batch gets a new name here, and the old snapshots
+// stay where they are. 20260921: 033-036. staff_20260922: 037. order_20260922:
+// 038 (roster_order).
+export async function workspaceRelease(client:Client,directory:string,log=console.log,recoverySchema='mtb_workspace_recovery_order_20260922'){
  if(!/^mtb_workspace_recovery_[a-z0-9_]+$/.test(recoverySchema))throw Error('Invalid recovery schema');
  await client.query('BEGIN ISOLATION LEVEL SERIALIZABLE');
  try{
@@ -48,5 +53,13 @@ export async function workspaceRelease(client:Client,directory:string,log=consol
   }
   for(const check of checks){if(check.name==='schema_migrations')continue;if(JSON.stringify(await check.hash(schema))!==JSON.stringify(check.before))throw Error('Existing table content changed: '+check.name);}
   await client.query('COMMIT');log(`Workspace upgrade verified: ${pending.length} migrations; ${checks.length-1} original tables unchanged; private recovery snapshot retained`);
- }catch(error){await client.query('ROLLBACK').catch(()=>{});const code=(error as {code?:string}).code||'verification';throw Error(`Workspace upgrade refused (${code}); transaction rolled back`,{cause:error});}
+ }catch(error){
+  await client.query('ROLLBACK').catch(()=>{});
+  const code=(error as {code?:string}).code||'verification';
+  // duplicate_schema is the one refusal a deploy log will actually meet, and
+  // "42P06" says nothing about what to do. It means this batch was given a
+  // recovery name an earlier batch already used.
+  if(code==='42P06')throw Error(`Workspace upgrade refused: recovery schema ${recoverySchema} already exists, so this batch would overwrite the snapshot an earlier one took. Give the new batch its own recovery schema name; transaction rolled back`,{cause:error});
+  throw Error(`Workspace upgrade refused (${code}); transaction rolled back`,{cause:error});
+ }
 }

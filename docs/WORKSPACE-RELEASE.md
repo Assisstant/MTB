@@ -15,9 +15,19 @@ reader’s own order, so the upgrade changes nothing until somebody presses an
 arrow in „Податоци“.
 
 The current `deploy:workspace` runner accepts reviewed pending 033–038. Its new
-private recovery schema is `mtb_workspace_recovery_staff_20260922`; it preserves
-the previous `mtb_workspace_recovery_20260921` snapshot. Both 032→038 and
-036→038 are tested, including repeat no-op and preservation of original data.
+private recovery schema is `mtb_workspace_recovery_order_20260922`; it preserves
+both earlier snapshots, `mtb_workspace_recovery_20260921` (033–036) and
+`mtb_workspace_recovery_staff_20260922` (037). Both 032→038 and 036→038 are
+tested, including repeat no-op and preservation of original data.
+
+**A recovery schema name belongs to ONE batch.** The runner creates it and
+refuses if it is already there, because writing a second batch into it would
+overwrite the snapshot taken before the first. That is why each batch above has
+its own name. Reusing one shows up in the deploy log as
+`Workspace upgrade refused (42P06)` — duplicate_schema — which says nothing
+about the cause, so the refusal now names the schema and what to do. Measured:
+the 038 deploy failed exactly this way on Render, after 037 had deployed
+successfully earlier the same day.
 The added business table is included in the mirror scope; source and target
 must have matching schema/table ledgers. This does not activate a mirror.
 

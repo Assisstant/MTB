@@ -417,6 +417,22 @@ read `DATABASE_URL`; never add literal credentials to this public repository.
   from that clone can put the removed history back. The recovery bundle is
   local and gitignored; it must never be uploaded.
 
+- **A recovery schema name belongs to ONE reviewed batch, and reusing it stops
+  the deploy dead.** `workspaceRelease` copies every table into a private
+  schema before applying pending migrations, and it `CREATE SCHEMA`s that name
+  rather than reusing it — correctly, because a second batch writing into the
+  first batch's snapshot destroys the only copy of the state before the first
+  upgrade. But the name is a DEFAULT PARAMETER, so a new batch inherits the
+  previous one's unless somebody changes it. Render then prints
+  `Workspace upgrade refused (42P06); transaction rolled back` and exits 1,
+  over and over. `42P06` is duplicate_schema, which reads like a bug in the
+  release runner rather than the one-line fix it is. Seen on 22 Sep 2026: 037
+  deployed successfully in the morning under
+  `mtb_workspace_recovery_staff_20260922`, and 038 was refused that afternoon
+  because it was handed the same name. The refusal now names the schema and
+  says to give the new batch its own; the test deletes the top ledger row to
+  make one pending again and asserts that sentence, checked to fail first.
+
 - **`sync-peer` used to report a failed fetch as a divergence, then recommend
   `--force`.** The loop that runs each app is `try { … } catch { results.push('refused') }`
   — so a network error, a stopped local server or a missing mailbox file all
