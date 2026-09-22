@@ -21,6 +21,7 @@ import { evidenceAuthRoutes } from './routes/evidence-auth.js';
 import { categoryRoutes } from './routes/categories.js';
 import { mirrorRoutes } from './routes/mirror.js';
 import { workspaceRoutes } from './routes/workspace.js';
+import { syncStatusRoutes } from './routes/sync-status.js';
 import { resolveServerIdentity } from './lib/server-identity.js';
 import { installColleagueBoundary } from './lib/colleague.js';
 import { installMirrorWriteBoundary } from './lib/mirror-boundary.js';
@@ -160,6 +161,7 @@ server.get('/api/health', async () => {
 });
 
 server.register(mirrorRoutes);
+server.register(syncStatusRoutes, { repoRoot: path.resolve(__dirname, '..', '..') });
 server.register(workspaceRoutes);
 server.register(stateRoutes);
 server.register(dataRoutes);

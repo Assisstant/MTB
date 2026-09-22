@@ -48,6 +48,7 @@
     "test:fusion-ui": "node test/fusion.browser.mjs",
     "test:fusion-reports": "node test/fusion-reports.browser.mjs",
     "test:navigation": "node test/app-navigation.browser.mjs",
+    "test:sync-page": "node test/sync-page.browser.mjs",
     "test:workspace": "node test/workspace.browser.mjs",
     "test:workspace-admin": "node test/workspace-admin.browser.mjs",
     "test:therapist-view": "node test/per-therapist-view.browser.mjs",

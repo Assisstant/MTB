@@ -60,6 +60,7 @@ the machine's local PostgreSQL database.
 | `Podatoci.html` | the lists a year is made of: students, teachers, therapists, classes |
 | `AkciskiPlan.html` | евидентен лист: one pupil's development record, filled section by section by the whole team |
 | `start.html` | launcher: finds whichever machine is on, sends you to it |
+| `Sinhronizacija.html` | where the data stands: this browser's diary ↔ its server, WORK ↔ HOME, the cloud — reads, never syncs |
 | `server/` | Fastify + TypeScript API over PostgreSQL |
 
 The apps are published through GitHub Pages at
@@ -140,6 +141,7 @@ server/src/routes/annual-roster.ts   who is on this year's four lists (active, n
 server/src/routes/roster-purge.ts    the other бришење: a typo, and only when nothing points at it
 server/src/routes/evidence.ts        евидентен лист: one score cell, one panel, one line of the form
 server/src/routes/evidence-auth.ts   shared sign-in: authorship always, opt-in authorization
+server/src/routes/sync-status.ts     read-only: the sync manifests, migrations, last backup; exports and accepts nothing
 server/src/lib/evidence.ts           the catalogue, the year's columns and one sheet read whole
 server/src/lib/public-static.ts      explicit allowlist for files published by the local server
 server/src/routes/data.ts       read endpoints
@@ -220,6 +222,7 @@ npm run test:order                   the order a year’s four lists are read in
 npm run test:purge                   the typo delete, including the concurrent booking
 npm run test:evidence                евидентен лист against the database, needs the server running
 npm run test:evidence-ui             the same page in a browser, two therapists at once
+npm run test:sync-page               Sinhronizacija.html in a browser; serves itself, every API call invented
 npm run test:teaching                the crossing and the workbook writer, needs the server
 npm run rollover -- --to 2026/2027   dry run; add --apply
 npm run sync -- --peer <url>         dry run; add --apply to write
@@ -2824,6 +2827,64 @@ GitHub Pages беа мртви. Сега поминуваат низ `MTBAppNavi
 `npm test` (200, со два нови што тврдат дека база без 038 се чита нормално). Миграцијата 038 е додадена во прегледаниот release сет и во
 опсегот на mirror-от — нов business факт, зашто две инсталации што ист список го
 читаат во два редоследа се разидување.
+
+## Една страница за „каде се податоците" (22 Sep 2026)
+
+Сопственикот рече дека врската на S-Dnevnik со другите апликации, синхронизацијата
+и табелите „не е прегледно" и предложи сето тоа на една страница. Пребројано, во
+системот има СЕДУМ работи што се викаат синхронизација или резерва: панелот
+„Локален сервер" во S-Dnevnik, IndexedDB резервите, JSON извозот, менито
+`manual-db-sync`, `git-sync.ps1`, облакот и стариот `sync-peer`. Секоја е
+исправна; ниедна не кажуваше каде стои во однос на другите.
+
+И една лажеше. На неговата слика панелот „🖥️ Локален сервер (PostgreSQL)" беше
+поврзан со `mtb-cloud-test.onrender.com` — трета, посебна копија на дневникот,
+со натпис што вели „локален". Панелот сега вели „Сервер", ја именува базата од
+`/api/health` (преку `mtb:server-state`, без втора проверка) и води до страницата.
+
+`Sinhronizacija.html` ги реди во три нивоа: ① овој прелистувач ↔ неговата база,
+② РАБОТА ↔ ДОМА, ③ облакот — плус резервите и табела „што каде се запишува".
+Секое ниво има една реченица што кажува што да се направи.
+
+**Чита, никогаш не синхронизира — и тоа е целата одлука.** Нема копче „Извези"
+ниту „Прифати". Прифаќањето ја ЗАМЕНУВА цела база; да се стави тоа зад HTTP
+endpoint што стартува PowerShell значи рестор достапен за секој на tailnet-от
+додека `MTB_REQUIRE_SIGNIN` е исклучено по default — а вгнездениот
+`powershell.exe` без конзола веќе еднаш паднал тивко (видете ги стапиците).
+Затоа страницата ги покажува командите за копирање, а `-Apply` НЕ е меѓу нив:
+извештајот од `-Mode Pull` сам ја печати, откако човек го прочитал. Ако некогаш
+треба копче, тоа е одделна одлука со сопственикот, не проширување на ова.
+
+**`GET /api/sync/status` (`lib/sync-status.ts`) ги чита само манифестите** што
+`manual-db-sync.ps1` веќе ги напишал (`<dir>/manual-db-sync/<машина>/current.json`,
+ист редослед на `.env` клучеви како скриптите), миграциите во базата наспроти
+кодот, последниот `backups/db/*.dump` и верзиите на документите во `app_state`
+(без payload). Намерно НЕ пресметува отпечаток на живата база: тоа го прави
+PowerShell, а втор одговор на „дали оваа машина се сменила од извозот" е втор
+сопственик на факт. Манифест што скриптата би го одбила (друга машина, непознат
+формат, небезбедно име) се пријавува, никогаш не се прикажува како снимка.
+Миграции што базата ги нема се ОПИШУВААТ, не се нудат: ДОМА намерно заостанува.
+
+**Страницата не смее да го отвори IndexedDB на дневникот.** `indexedDB.open` по
+име СОЗДАВА празна база на верзија 1 без продавницата `kv`; потоа S-Dnevnik-овиот
+`open` никогаш не добива `onupgradeneeded` и секое читање паѓа. Затоа се читаат
+само клучеви од localStorage (`electronicDiary`, `…_lastSavedAt_v2`,
+`sdn_local_server_*`), а тестот тврди дека по отворањето нема ниту една IndexedDB
+база и дека localStorage е бајт-за-бајт ист.
+
+**Помала верзија не значи „понова".** Верзијата на `app_state` може да ОПАДНЕ само
+кога целата база е заменета — обично прифатена снимка од другата машина. Првата
+верзија на пресудата би го нарекла тоа „базата е понова" и би поканила погрешно
+копче; сега вели „базата е заменета" (проверено дека тестот паѓа без тоа).
+
+Достапна е од `start.html` (меѓу алатките, и кога ниту еден сервер не одговара —
+таа сè уште знае нешто вистинито за дневникот на овој уред), од менито на чипот
+БАЗА на секој екран и од панелот во S-Dnevnik. Не е јазиче: тоа е дијагностика
+како „Проверка на базата", а бројот на јазичиња е тврдење во два теста.
+
+Проверено со `npm run test:sync-page` (44 тврдења во прелистувач, без сервер и без
+база: секоја пресуда, само GET, ништо запишано, двете теми над 4.5:1, 390px без
+хоризонтално лизгање, и S-Dnevnik панелот) и `test/sync-status.test.ts` (7).
 
 ## State (14 Sep 2026)
 

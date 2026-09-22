@@ -17,6 +17,7 @@ const APPS = [
 ];
 const TOOLS = [
     ['Pregled-Baza.html', 'Проверка на базата'],
+    ['Sinhronizacija.html', 'Синхронизација и резерви'],
     ['Rasporedi.html', 'Стар распоред']
 ];
 // `start.html` keeps its OWN split and deliberately files „Уреди настава"

@@ -33,7 +33,7 @@
     const HEALTH_INTERVAL = 15000;
     const TOKEN_KEY = 'evidence_token_v1';
     const LOCAL_FIRST = new Set(['s-dnevnik.html', 'rasporedi.html']);
-    const READ_ONLY = new Set(['nastava.html', 'pregled-baza.html']);
+    const READ_ONLY = new Set(['nastava.html', 'pregled-baza.html', 'sinhronizacija.html']);
 
     let healthTimer = null;
     let healthRequest = 0;
@@ -309,6 +309,7 @@
             }
             .mtb-app-nav__menu-row:hover { background: #243244; }
             .mtb-app-nav__menu-row[data-current="1"] { background: #2b3a4d; font-weight: 800; }
+            a.mtb-app-nav__menu-row { box-sizing: border-box; margin-top: 6px; text-decoration: none; border-top: 1px solid #33414f; border-radius: 0 0 7px 7px; }
             .mtb-app-nav__menu-note { font-size: 10px; opacity: .55; padding: 7px 9px 3px; }
             @media print { .mtb-app-nav__menu { display: none !important; } }
             .mtb-toast {
@@ -454,6 +455,17 @@
         note.className = 'mtb-app-nav__menu-note';
         note.textContent = '● одговара · ○ не одговара';
         menu.appendChild(note);
+
+        // "Which database" and "has my work reached it / the other machine"
+        // are asked together, so the page that answers the second one is
+        // reachable from the chip that answers the first, on every screen.
+        if (here !== 'sinhronizacija.html') {
+            const sync = document.createElement('a');
+            sync.className = 'mtb-app-nav__menu-row';
+            sync.href = 'Sinhronizacija.html';
+            sync.textContent = 'Синхронизација и резерви →';
+            menu.appendChild(sync);
+        }
         document.body.appendChild(menu);
         serverMenu = menu;
 

@@ -117,7 +117,8 @@
   ];
   var TOOLS = [
     { id:'nastava-uredi', file:'NastavaUredi.html', name:'Уреди настава', desc:'внесување и измени на училишниот распоред' },
-    { id:'baza', file:'Pregled-Baza.html', name:'Проверка на базата', desc:'дијагностички преглед само за читање' }
+    { id:'baza', file:'Pregled-Baza.html', name:'Проверка на базата', desc:'дијагностички преглед само за читање' },
+    { id:'sinhronizacija', file:'Sinhronizacija.html', name:'Синхронизација и резерви', desc:'дали S-Dnevnik стигнал до базата, преносот РАБОТА ↔ ДОМА и резервите' }
   ];
 
   var $ = function(id){ return document.getElementById(id); };
@@ -249,7 +250,9 @@
 
     var offline = document.createElement('div');
     offline.className = 'apps';
-    [APPS[0]].forEach(function(app){
+    // The sync page reads this browser's own diary copy, so it still has an
+    // answer when no server does.
+    [APPS[0], TOOLS[TOOLS.length - 1]].forEach(function(app){
       var a = appLink('.', app);
       a.href = './' + app.file;
       offline.appendChild(a);

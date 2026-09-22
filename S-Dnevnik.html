@@ -10097,6 +10097,23 @@
             });
         }
 
+        // Who answered, as the shared bar learned it from /api/health. Kept
+        // from the event rather than asked again: one health check per page.
+        var lastServerState = null;
+        window.addEventListener('mtb:server-state', function (event) {
+            lastServerState = event && event.detail ? event.detail : null;
+            showWho();
+        });
+
+        function showWho() {
+            var el = document.getElementById('sdnLocalSrvWho');
+            if (!el) return;
+            if (!hasChosenServer()) { el.textContent = 'нема избран сервер — само овој прелистувач'; return; }
+            var s = lastServerState;
+            var label = s && s.identity && s.identity.label ? s.identity.label : '';
+            el.textContent = (label ? label + ' · ' : '') + getUrl();
+        }
+
         function render() {
             var dataTab = document.getElementById('data');
             if (!dataTab) return;
@@ -10106,11 +10123,17 @@
                 panel.id = 'sdnLocalSrvPanel';
                 panel.className = 'sdn-system-panel';
                 dataTab.appendChild(panel);
+                // Not „Локален сервер": the same panel talks to WORK, HOME or
+                // the cloud, whichever address the page was opened from, and a
+                // label that says "local" while the diary is being written to
+                // the cloud is how a third copy goes unnoticed.
                 panel.innerHTML =
-                    '<h3>🖥️ Локален сервер (PostgreSQL)</h3>' +
+                    '<h3>🖥️ Сервер (PostgreSQL)</h3>' +
+                    '<div style="font-size:13px;margin-bottom:6px;">Овој дневник се синхронизира со: <b id="sdnLocalSrvWho">—</b></div>' +
                     '<div style="font-size:12px;opacity:.8;margin-bottom:8px;">' +
-                        'Состојбата на S-Dnevnik се чува на локалниот сервер. Работен тек: <b>Вчитај</b> кога почнуваш, уредувај, па <b>Зачувај</b>. ' +
-                        'Пред вчитување автоматски се прави backup во IndexedDB.' +
+                        'Секоја измена прво се чува во овој прелистувач, па сама се праќа на серверот — при отворање и 5 секунди по измена. ' +
+                        'Пред вчитување од серверот автоматски се прави backup во IndexedDB. ' +
+                        '<a href="Sinhronizacija.html">Преглед на сите синхронизации и резерви →</a>' +
                     '</div>' +
                     '<div class="sdn-actions-row" style="align-items:center;">' +
                         '<input type="text" id="sdnLocalSrvUrl" class="sdn-backup-select" style="max-width:260px;" placeholder="http://localhost:3000">' +
@@ -10136,6 +10159,7 @@
                 var autoBox = document.getElementById('sdnLocalSrvAuto');
                 if (autoBox) autoBox.checked = autoEnabled();
             }
+            showWho();
             var v = getVersion();
             if (v) setStatus('последна позната верзија: ' + v);
             if (hasPending()) {

@@ -1,0 +1,641 @@
+<!DOCTYPE html>
+<html lang="mk">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Синхронизација и резерви — MTB</title>
+<style>
+:root {
+    --bg: #f4f6f9; --card: #fff; --text: #1e293b; --muted: #5b6776;
+    --line: #e2e8f0; --primary: #1d4ed8; --chip: #eef2f7;
+    --ok: #0f6b4f; --ok-bg: #e3f3ec; --warn: #8a4b06; --warn-bg: #fbefdc;
+    --bad: #a61b1b; --bad-bg: #fbe6e6; --info: #1e4f8f; --info-bg: #e5eefb;
+    --code: #f3f5f8;
+}
+@media (prefers-color-scheme: dark) {
+    :root {
+        --bg: #0f172a; --card: #1b2638; --text: #e2e8f0; --muted: #a3b0c2;
+        --line: #334155; --primary: #93b8ff; --chip: #2a3850;
+        --ok: #7fdcb9; --ok-bg: #16352c; --warn: #f3c27a; --warn-bg: #3a2c16;
+        --bad: #ff9d9d; --bad-bg: #3d1d1f; --info: #a9c8ff; --info-bg: #1c2d4a;
+        --code: #121b2b;
+    }
+}
+* { box-sizing: border-box; }
+body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    font-size: 15px; line-height: 1.55;
+}
+main { max-width: 980px; margin: 0 auto; padding: 18px 16px 64px; }
+h1 { font-size: 1.35rem; margin: 0 0 4px; letter-spacing: -.01em; }
+h2 { font-size: 1.05rem; margin: 0; }
+h3 { font-size: .95rem; margin: 14px 0 6px; }
+p { margin: 0 0 8px; }
+a { color: var(--primary); }
+.lead { color: var(--muted); max-width: 70ch; margin-bottom: 16px; }
+.levels { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; margin-bottom: 18px; }
+.level {
+    display: block; text-decoration: none; color: inherit; background: var(--card);
+    border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px;
+}
+.level:hover, .level:focus-visible { border-color: var(--primary); outline: none; }
+.level .n { font-size: 12px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: .04em; }
+.level .t { font-weight: 650; margin: 2px 0 6px; }
+.card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 16px; margin-bottom: 16px; }
+.card-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin-bottom: 10px; }
+.card-head h2 { flex: 1 1 auto; }
+.badge {
+    display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; border-radius: 999px;
+    font-size: 12.5px; font-weight: 650; background: var(--chip); color: var(--text); white-space: nowrap;
+}
+.badge::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor; opacity: .85; }
+.badge.ok { background: var(--ok-bg); color: var(--ok); }
+.badge.warn { background: var(--warn-bg); color: var(--warn); }
+.badge.bad { background: var(--bad-bg); color: var(--bad); }
+.badge.info { background: var(--info-bg); color: var(--info); }
+.verdict { border-left: 4px solid var(--line); background: var(--chip); padding: 10px 12px; border-radius: 6px; margin: 4px 0 12px; }
+.verdict.ok { border-left-color: var(--ok); background: var(--ok-bg); }
+.verdict.warn { border-left-color: var(--warn); background: var(--warn-bg); }
+.verdict.bad { border-left-color: var(--bad); background: var(--bad-bg); }
+.verdict.info { border-left-color: var(--info); background: var(--info-bg); }
+.verdict b { display: block; margin-bottom: 2px; }
+dl.facts { display: grid; grid-template-columns: minmax(150px, 34%) 1fr; gap: 6px 14px; margin: 0; font-size: 14px; }
+dl.facts dt { color: var(--muted); }
+dl.facts dd { margin: 0; overflow-wrap: anywhere; }
+.muted { color: var(--muted); font-size: 13.5px; }
+.mono { font-family: ui-monospace, "Cascadia Mono", Consolas, monospace; font-size: 13px; }
+.steps { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px; margin-top: 8px; }
+.step { border: 1px solid var(--line); border-radius: 10px; padding: 12px; }
+.step h3 { margin-top: 0; }
+.step ol { margin: 6px 0 0; padding-left: 20px; }
+.step li { margin-bottom: 6px; }
+/* A command is read before it is copied, so it wraps rather than hiding the
+   one part that matters (-Mode Push) behind a horizontal scroll. */
+.cmd { display: flex; flex-wrap: wrap; gap: 6px 8px; align-items: flex-start; margin: 6px 0; }
+.cmd code {
+    flex: 1 1 220px; min-width: 0; display: block; background: var(--code); border: 1px solid var(--line);
+    border-radius: 6px; padding: 7px 9px; white-space: normal; overflow-wrap: anywhere;
+    font-family: ui-monospace, "Cascadia Mono", Consolas, monospace; font-size: 12.5px; line-height: 1.45;
+}
+.cmd button { flex: 0 0 auto; }
+button {
+    font: inherit; font-size: 13.5px; padding: 6px 12px; border-radius: 8px; cursor: pointer;
+    border: 1px solid var(--line); background: var(--card); color: var(--text);
+}
+button:hover, button:focus-visible { border-color: var(--primary); outline: none; }
+.btn-link {
+    display: inline-block; padding: 7px 13px; border-radius: 8px; background: var(--primary);
+    color: var(--card); text-decoration: none; font-weight: 600; font-size: 14px;
+}
+.row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.scroll { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-size: 14px; }
+th, td { text-align: left; padding: 7px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font-size: 12px; color: var(--muted); font-weight: 600; }
+tbody tr:last-child td { border-bottom: none; }
+details { border-top: 1px solid var(--line); padding-top: 10px; margin-top: 10px; }
+summary { cursor: pointer; font-weight: 600; }
+ul.plain { margin: 6px 0 0; padding-left: 20px; }
+ul.plain li { margin-bottom: 4px; }
+.hide { display: none !important; }
+@media (max-width: 560px) {
+    dl.facts { grid-template-columns: 1fr; gap: 0 0; }
+    dl.facts dd { margin-bottom: 8px; }
+    /* Three columns of dates do not fit a phone: each transport becomes a
+       block, and each cell says which side it is. */
+    table.stack thead { display: none; }
+    table.stack tr, table.stack td { display: block; width: 100%; }
+    table.stack tr { border-bottom: 1px solid var(--line); padding: 6px 0; }
+    table.stack tbody tr:last-child { border-bottom: none; }
+    table.stack td { border: none; padding: 4px 0; }
+    table.stack td[data-label]::before {
+        content: attr(data-label); display: block; font-size: 12px; color: var(--muted); font-weight: 600;
+    }
+}
+</style>
+</head>
+<body>
+<main>
+    <h1>Синхронизација и резерви</h1>
+    <p class="lead">Каде се твоите податоци, дали стигнале до базата и како се пренесуваат меѓу РАБОТА и ДОМА.
+        Оваа страница само ја чита состојбата. Ништо не менува, не синхронизира и не враќа база.</p>
+
+    <nav class="levels" aria-label="Трите нивоа">
+        <a class="level" href="#browser">
+            <div class="n">① Прелистувач ↔ база</div>
+            <div class="t">S-Dnevnik на овој уред</div>
+            <span class="badge" id="lvlBrowser">се проверува…</span>
+        </a>
+        <a class="level" href="#machines">
+            <div class="n">② База ↔ база</div>
+            <div class="t">РАБОТА ↔ ДОМА</div>
+            <span class="badge" id="lvlMachines">се проверува…</span>
+        </a>
+        <a class="level" href="#cloud">
+            <div class="n">③ Облак</div>
+            <div class="t">Render + Supabase</div>
+            <span class="badge" id="lvlCloud">се проверува…</span>
+        </a>
+    </nav>
+
+    <section class="card" id="browser" aria-labelledby="browserTitle">
+        <div class="card-head">
+            <h2 id="browserTitle">① S-Dnevnik во овој прелистувач</h2>
+            <button type="button" id="refresh">↻ Провери пак</button>
+        </div>
+        <div class="verdict" id="browserVerdict"><b>Се проверува…</b></div>
+        <dl class="facts">
+            <dt>Адреса на страницата</dt><dd id="fOrigin">—</dd>
+            <dt>База со која зборува</dt><dd id="fServer">—</dd>
+            <dt>Дневник на овој уред</dt><dd id="fLocal">—</dd>
+            <dt>Автоматска синхронизација</dt><dd id="fAuto">—</dd>
+            <dt>Последно договорено со базата</dt><dd id="fAgreed">—</dd>
+            <dt>Дневникот во базата</dt><dd id="fRemote">—</dd>
+        </dl>
+        <p class="muted" style="margin-top:12px">Прелистувачот чува <b>посебна копија за секоја адреса</b>. GitHub Pages,
+            адресата на РАБОТА, адресата на ДОМА и облакот се четири одвоени копии, и оваа страница ја гледа само копијата за
+            <span class="mono" id="fOriginShort">оваа адреса</span>. Затоа апликациите се отвораат секогаш преку
+            <a href="start.html">start.html</a>.</p>
+        <div class="row" style="margin-top:6px">
+            <a class="btn-link" href="S-Dnevnik.html" id="openDiary">Отвори S-Dnevnik</a>
+            <span class="muted">При отворање сам се синхронизира, и 5 секунди по секоја измена.</span>
+        </div>
+    </section>
+
+    <section class="card" id="machines" aria-labelledby="machinesTitle">
+        <div class="card-head">
+            <h2 id="machinesTitle">② РАБОТА ↔ ДОМА</h2>
+        </div>
+        <div class="verdict" id="machineVerdict"><b>Се проверува…</b></div>
+        <dl class="facts" id="machineFacts">
+            <dt>Оваа инсталација</dt><dd id="mWho">—</dd>
+            <dt>Миграции</dt><dd id="mMigrations">—</dd>
+            <dt>Последна неделна резерва</dt><dd id="mBackup">—</dd>
+        </dl>
+        <div class="scroll" style="margin-top:12px">
+            <table class="stack">
+                <thead><tr><th>Пренос</th><th>Последен извоз од оваа машина</th><th>Последна снимка од другата</th></tr></thead>
+                <tbody id="transports"><tr><td colspan="3" class="muted">—</td></tr></tbody>
+            </table>
+        </div>
+        <p class="muted" style="margin-top:8px">Снимката од другата машина е онаква каква што овој компјутер ја видел при последното
+            влечење. Двете бази се независни: секоја работи и без другата, и ниедна алатка не ги спојува ред по ред.</p>
+
+        <h3>Постапка — секогаш во оваа низа</h3>
+        <p class="muted">Командите се пуштаат во PowerShell, во папката <span class="mono">MTB</span>, на компјутерот на кој е базата
+            (<span id="mWhere">оној што ја служи оваа страница</span>).</p>
+        <div class="steps">
+            <div class="step">
+                <h3>1 · Завршуваш на оваа машина</h3>
+                <ol>
+                    <li>Почекај S-Dnevnik да покаже „Синхронизирано“, или затвори ги апликациите.</li>
+                    <li>Извези и турни:
+                        <div class="cmd"><code id="cmdPush">powershell -ExecutionPolicy Bypass -File scripts\git-sync.ps1 -Mode Push</code><button type="button" data-copy="cmdPush">Копирај</button></div>
+                        <span class="muted">Прави проверена снимка и ја праќа во приватното <span class="mono">MTB-data</span>. Базата не ја менува.</span></li>
+                </ol>
+            </div>
+            <div class="step">
+                <h3>2 · Почнуваш на другата машина</h3>
+                <ol>
+                    <li>Влечи и спореди:
+                        <div class="cmd"><code id="cmdPull">powershell -ExecutionPolicy Bypass -File scripts\git-sync.ps1 -Mode Pull</code><button type="button" data-copy="cmdPull">Копирај</button></div>
+                        <span class="muted">Го влече кодот и снимката, и кажува кои табели се разликуваат. Ништо не менува.</span></li>
+                    <li>Прочитај го извештајот. Ако ја нуди снимката што ја очекуваш и тука нема понова работа, извештајот сам ја печати
+                        следната команда (со <span class="mono">-Apply</span>). Таа ја <b>заменува целата база</b>, не спојува;
+                        пред тоа прави заштитна копија.</li>
+                </ol>
+            </div>
+            <div class="step">
+                <h3>Само да погледнеш</h3>
+                <div class="cmd"><code id="cmdStatus">powershell -ExecutionPolicy Bypass -File scripts\git-sync.ps1 -Mode Status</code><button type="button" data-copy="cmdStatus">Копирај</button></div>
+                <p class="muted">Ако работеле двете машини без пренос помеѓу нив, ниту една алатка нема да одлучи наместо тебе.
+                    Одлучи која страна важи, па пренеси ја таа.</p>
+            </div>
+        </div>
+    </section>
+
+    <section class="card" id="cloud" aria-labelledby="cloudTitle">
+        <div class="card-head"><h2 id="cloudTitle">③ Облакот</h2></div>
+        <div class="verdict" id="cloudVerdict"><b>Се проверува…</b></div>
+        <p class="muted">Облакот (Render + Supabase) е <b>трета, посебна база</b>. Она што ќе се внесе таму не стигнува до РАБОТА или
+            ДОМА, и обратно. Локалната копија од облакот само за читање постои во кодот, но не е вклучена.</p>
+    </section>
+
+    <section class="card" id="backups" aria-labelledby="backupsTitle">
+        <div class="card-head"><h2 id="backupsTitle">④ Резерви и итен излез</h2></div>
+        <ul class="plain">
+            <li><b>S-Dnevnik → Податоци → „Експортирај Backup (JSON)“.</b> Ова е излезот за итен случај: старата апликација го
+                отвора истиот фајл, па работата продолжува и ако нешто друго падне.</li>
+            <li><b>Автоматски резерви во прелистувачот.</b> S-Dnevnik прави копија пред секое вчитување од базата (до 8 копии, во
+                истото поле „Податоци“). Тие се само на овој уред и само за оваа адреса.</li>
+            <li><b>Неделна резерва на базата</b> на секоја машина, во <span class="mono">backups\db</span>. Последната е наведена погоре.</li>
+            <li><b>Неделна снимка во pCloud</b>, ако е поставена. Таа е независна резерва, а не патот за пренос.</li>
+        </ul>
+
+        <details>
+            <summary>Што каде се запишува</summary>
+            <div class="scroll" style="margin-top:10px">
+                <table>
+                    <thead><tr><th>Екран</th><th>Каде пишува</th><th>Како</th></tr></thead>
+                    <tbody>
+                        <tr><td>S-Dnevnik</td><td>прво во прелистувачот, па како еден документ во базата; оттаму во табелите за
+                            присуство, неделата на дневникот, досиеја, проценки и аудиограми</td><td>автоматски, цел документ</td></tr>
+                        <tr><td>Распоред</td><td>распоред на кабинетите</td><td>право во базата, термин по термин</td></tr>
+                        <tr><td>Податоци, Работен простор</td><td>ученици, запишувања, наставници, терапевти, паралелки</td><td>право во базата</td></tr>
+                        <tr><td>Уреди настава</td><td>часови</td><td>право во базата, ќелија по ќелија</td></tr>
+                        <tr><td>Евидентен лист</td><td>евидентни листови и акциски планови</td><td>право во базата, оценка по оценка</td></tr>
+                        <tr><td>Настава, Проверка на базата</td><td>—</td><td>само читаат</td></tr>
+                    </tbody>
+                </table>
+            </div>
+            <ul class="plain">
+                <li><b>Неделата во S-Dnevnik и распоредот на кабинетите се две различни недели.</b> Термин внесен во Распоред не се
+                    појавува во дневникот, ниту обратно. Тоа е намерно: едното е договорот со училиштето, другото е личниот дневник.</li>
+                <li>Кога додаваш ученик во S-Dnevnik, се избира од годишниот список што се води во Податоци.</li>
+                <li>Само S-Dnevnik има копија во прелистувачот. Другите екрани не чуваат ништо локално: ако базата не одговори,
+                    велат дека не е зачувано.</li>
+            </ul>
+        </details>
+    </section>
+</main>
+
+<script src="mtb-runtime.js"></script>
+<script src="app-navigation.js"></script>
+<script>
+(function () {
+    'use strict';
+
+    // Only these keys are READ. The page writes nothing to the browser: the
+    // diary's sync bookkeeping belongs to S-Dnevnik, and a second writer of it
+    // would be a second decider of which side is newer.
+    var DIARY_KEY = 'electronicDiary';
+    var DIARY_SAVED_KEY = 'electronicDiary_lastSavedAt_v2';
+    var PENDING_KEY = 'sdn_local_server_pending_v1';
+    var AUTO_KEY = 'sdn_local_server_autosync_v1';
+    var VERSION_KEY = 'sdn_local_server_version_v1';
+    var ROW_WRITES_KEY = 'sdnevnik_row_writes_v1';
+
+    var $ = function (id) { return document.getElementById(id); };
+    var request = 0;
+
+    function read(key) {
+        try { return localStorage.getItem(key); } catch (e) { return null; }
+    }
+
+    function when(iso) {
+        if (!iso) return '';
+        var d = new Date(iso);
+        if (isNaN(d.getTime())) return String(iso);
+        return d.toLocaleDateString('mk-MK', { day: 'numeric', month: 'long', year: 'numeric' }) + ', ' +
+            d.toLocaleTimeString('mk-MK', { hour: '2-digit', minute: '2-digit' });
+    }
+
+    function ago(iso) {
+        var d = new Date(iso);
+        if (!iso || isNaN(d.getTime())) return '';
+        var days = Math.floor((Date.now() - d.getTime()) / 86400000);
+        if (days <= 0) return 'денес';
+        if (days === 1) return 'вчера';
+        return 'пред ' + days + ' дена';
+    }
+
+    function setText(id, text) { $(id).textContent = text; }
+
+    function badge(id, kind, text) {
+        var el = $(id);
+        el.className = 'badge' + (kind ? ' ' + kind : '');
+        el.textContent = text;
+    }
+
+    function verdict(id, kind, title, body) {
+        var el = $(id);
+        el.className = 'verdict' + (kind ? ' ' + kind : '');
+        el.textContent = '';
+        var b = document.createElement('b');
+        b.textContent = title;
+        el.appendChild(b);
+        if (body) el.appendChild(document.createTextNode(body));
+    }
+
+    function published() { return window.location.hostname === 'assisstant.github.io'; }
+
+    function apiBase() {
+        try {
+            var nav = window.MTBAppNavigation;
+            var base = nav && typeof nav.apiBase === 'function' ? nav.apiBase() : '';
+            if (base) return base;
+        } catch (e) { /* fall through */ }
+        // A page served by a server is that server; a file:// or Pages copy
+        // without a chosen server has none, and must not ask its own origin.
+        if (published() || !/^https?:$/.test(window.location.protocol)) return '';
+        return window.location.origin;
+    }
+
+    function getJson(base, path) {
+        var ctl = new AbortController();
+        var timer = setTimeout(function () { ctl.abort(); }, 6000);
+        return fetch(base + path, { cache: 'no-store', signal: ctl.signal })
+            .then(function (res) {
+                return res.json().catch(function () { return null; })
+                    .then(function (body) { return { ok: res.ok, status: res.status, body: body }; });
+            })
+            .catch(function () { return { ok: false, status: 0, body: null }; })
+            .then(function (r) { clearTimeout(timer); return r; });
+    }
+
+    function sizeLabel(bytes) {
+        if (typeof bytes !== 'number') return '';
+        return bytes >= 1048576 ? (bytes / 1048576).toFixed(1) + ' MB' : Math.max(1, Math.round(bytes / 1024)) + ' KB';
+    }
+
+    // ── ① this browser ───────────────────────────────────────────────────
+    function localFacts() {
+        return {
+            hasDiary: read(DIARY_KEY) !== null,
+            savedAt: read(DIARY_SAVED_KEY),
+            pending: read(PENDING_KEY) === '1',
+            auto: read(AUTO_KEY) !== '0',
+            version: parseInt(read(VERSION_KEY) || '0', 10) || 0,
+            rowWrites: read(ROW_WRITES_KEY) === 'on'
+        };
+    }
+
+    function drawBrowser(base, health, status) {
+        var local = localFacts();
+        setText('fOrigin', published() ? 'GitHub Pages — објавена копија (' + location.origin + ')' : location.origin);
+        setText('fOriginShort', location.host || 'оваа адреса');
+
+        if (!base) {
+            setText('fServer', 'нема избрана база — оваа копија е само во прелистувачот');
+        } else if (!health) {
+            setText('fServer', base + ' — не одговара');
+        } else {
+            var label = health.server && health.server.label ? health.server.label : base;
+            setText('fServer', label + (health.database ? ' · ' + health.database : '') + ' · ' + base);
+        }
+
+        setText('fLocal', local.hasDiary
+            ? 'има' + (local.savedAt ? ' · последно зачувано ' + when(local.savedAt) : '') +
+              (local.pending ? ' · има измени што чекаат' : '')
+            : 'нема — S-Dnevnik уште не е отворен на оваа адреса');
+        setText('fAuto', (local.auto ? 'вклучена' : 'ИСКЛУЧЕНА — праќа само кога ќе притиснеш „Синхронизирај“') +
+            (local.rowWrites ? ' · присуството и записите се пишуваат еден по еден' : ''));
+        setText('fAgreed', local.version ? 'верзија ' + local.version : 'уште никогаш');
+
+        var doc = status && Array.isArray(status.documents)
+            ? status.documents.filter(function (d) { return d.app === 'sdnevnik'; })[0] : null;
+        var remoteKnown = Boolean(status);
+        if (!health) setText('fRemote', '—');
+        else if (!remoteKnown) setText('fRemote', 'непознато — серверот нема оваа проверка (постар код)');
+        else if (!doc) setText('fRemote', 'нема — уште никој не зачувал дневник на оваа база');
+        else setText('fRemote', 'верзија ' + doc.version + ' · ' + when(doc.updatedAt) + (doc.updatedBy ? ' · ' + doc.updatedBy : ''));
+
+        // One sentence, and what to do about it. Checked in order of what a
+        // person must act on first.
+        if (!base || !health) {
+            if (local.pending || local.hasDiary) {
+                verdict('browserVerdict', 'warn', base ? 'Базата не одговара.' : 'Дневникот е само на овој уред.',
+                    (local.pending ? ' Има измени што чекаат. Тие се безбедни тука и ќе заминат кога базата ќе одговори. '
+                        : ' ') + 'Отвори ги апликациите преку start.html за да се поврзат со вклучената машина.');
+            } else {
+                verdict('browserVerdict', 'info', 'Нема поврзана база.', ' Отвори ја оваа страница преку start.html.');
+            }
+            badge('lvlBrowser', local.pending ? 'warn' : '', base ? 'базата не одговара' : 'само прелистувач');
+            return;
+        }
+        if (local.pending) {
+            verdict('browserVerdict', 'warn', 'Има измени што уште не стигнале до базата.',
+                local.auto ? ' Отвори S-Dnevnik — ги праќа сам за неколку секунди.'
+                    : ' Отвори S-Dnevnik и притисни „Синхронизирај“ (автоматското е исклучено).');
+            badge('lvlBrowser', 'warn', 'чека праќање');
+            return;
+        }
+        if (!local.hasDiary) {
+            verdict('browserVerdict', 'info', 'На оваа адреса нема локален дневник.',
+                doc ? ' При првото отворање S-Dnevnik ќе го вчита од базата (верзија ' + doc.version + ').'
+                    : ' Ниту базата уште нема дневник.');
+            badge('lvlBrowser', 'info', 'нема локална копија');
+            return;
+        }
+        if (!remoteKnown) {
+            verdict('browserVerdict', '', 'Нема измени што чекаат.',
+                ' Верзијата во базата не може да се спореди — серверот работи постар код.');
+            badge('lvlBrowser', 'ok', 'нема што чека');
+            return;
+        }
+        if (!doc) {
+            verdict('browserVerdict', 'info', 'Базата уште нема дневник.',
+                ' Првото синхронизирање од S-Dnevnik ќе го создаде.');
+            badge('lvlBrowser', 'info', 'уште не е во базата');
+            return;
+        }
+        if (doc.version === local.version) {
+            verdict('browserVerdict', 'ok', 'Усогласено.',
+                ' Овој уред и базата последно се согласиле за верзија ' + doc.version + ', и тука нема измени што чекаат.' +
+                ' При отворање S-Dnevnik ја споредува и содржината.');
+            badge('lvlBrowser', 'ok', 'усогласено · в' + doc.version);
+            return;
+        }
+        if (local.version && doc.version < local.version) {
+            // A version can only go DOWN when the whole database was replaced —
+            // usually a snapshot accepted from the other machine. Calling that
+            // "newer" would invite pressing the wrong button.
+            verdict('browserVerdict', 'warn', 'Базата е заменета: има верзија ' + doc.version + ', а овој уред последно видел ' +
+                local.version + '.',
+                ' Најверојатно е прифатена снимка од другата машина. Отвори S-Dnevnik: ако каже „разидување“, одлучи која страна важи —' +
+                ' пред вчитување сам прави резерва.');
+            badge('lvlBrowser', 'warn', 'базата е заменета');
+            return;
+        }
+        verdict('browserVerdict', 'info', 'Базата има понова верзија (' + doc.version + ') од онаа што овој уред последно ја видел (' +
+            (local.version || 'ниедна') + ').',
+            local.auto ? ' Се менувала од друг уред или адреса. Отвори S-Dnevnik — ќе ја вчита сама, а пред тоа прави резерва.'
+                : ' Отвори S-Dnevnik и притисни „Синхронизирај“ (автоматското е исклучено).');
+        badge('lvlBrowser', 'info', 'базата е понова');
+    }
+
+    // ── ② the two machines ──────────────────────────────────────────────
+    function snapshotCell(snap, emptyText, label) {
+        var td = document.createElement('td');
+        td.setAttribute('data-label', label);
+        if (!snap) {
+            td.className = 'muted';
+            td.textContent = emptyText;
+            return td;
+        }
+        var first = document.createElement('div');
+        first.textContent = when(snap.createdAt) + (snap.createdAt ? ' (' + ago(snap.createdAt) + ')' : '');
+        var second = document.createElement('div');
+        second.className = 'muted';
+        second.textContent = [snap.migrations + ' миграции', sizeLabel(snap.dumpBytes),
+            snap.gitCommit ? 'код ' + snap.gitCommit : ''].filter(Boolean).join(' · ');
+        var third = document.createElement('div');
+        third.className = 'mono muted';
+        third.textContent = snap.snapshotId;
+        td.append(first, second, third);
+        return td;
+    }
+
+    function drawMachines(base, health, status) {
+        var body = $('transports');
+        body.textContent = '';
+        var place = health && health.server && health.server.label ? health.server.label : '';
+        setText('mWhere', place || 'оној што ја служи оваа страница');
+
+        if (!status) {
+            setText('mWho', health ? place || base : '—');
+            setText('mMigrations', '—');
+            setText('mBackup', '—');
+            var tr = document.createElement('tr');
+            var td = document.createElement('td');
+            td.colSpan = 3; td.className = 'muted';
+            td.textContent = health ? 'Серверот нема оваа проверка (постар код).' : 'Нема поврзана база.';
+            tr.appendChild(td); body.appendChild(tr);
+            verdict('machineVerdict', '', health ? 'Состојбата на преносот не е достапна.' : 'Нема поврзана база.',
+                health ? ' Постапката подолу важи и понатаму.' : '');
+            badge('lvlMachines', '', 'непознато');
+            return;
+        }
+
+        var me = status.me, peer = status.peer;
+        setText('mWho', (place || 'непозната') + (me ? ' · SYNC_NAME=' + me : ' · без улога РАБОТА/ДОМА') +
+            (peer ? ' · партнер: ' + peer : ''));
+
+        var m = status.migrations;
+        if (!m) setText('mMigrations', 'непознато');
+        else {
+            var text = 'базата ' + m.applied + ' · кодот ' + m.inCode;
+            if (m.notApplied.length) text += ' · кодот носи ' + m.notApplied.length + ' што оваа база ги нема (последна: ' +
+                m.notApplied[m.notApplied.length - 1] + ') — тоа може да е намерно; не се применуваат од тука';
+            if (m.unknownToCode.length) text += ' · базата има ' + m.unknownToCode.length + ' непознати за овој код';
+            setText('mMigrations', text);
+        }
+        setText('mBackup', status.backup
+            ? when(status.backup.at) + ' (' + ago(status.backup.at) + ') · ' + sizeLabel(status.backup.bytes)
+            : 'нема најдено во backups\\db');
+
+        var names = { git: 'GitHub · приватно MTB-data', pcloud: 'pCloud' };
+        var problems = [];
+        var mine = null;
+        (status.transports || []).forEach(function (t) {
+            var tr = document.createElement('tr');
+            var head = document.createElement('td');
+            var title = document.createElement('div');
+            title.textContent = names[t.kind] || t.kind;
+            var where = document.createElement('div');
+            where.className = 'muted mono';
+            where.textContent = !t.configured ? 'не е поставен' : (t.available ? t.dir : t.dir + ' — папката ја нема');
+            head.append(title, where);
+            tr.appendChild(head);
+            if (!t.available) {
+                var none = document.createElement('td');
+                none.colSpan = 2; none.className = 'muted';
+                none.textContent = t.kind === 'git' ? 'Нема клон на MTB-data до папката MTB.' : '—';
+                tr.appendChild(none);
+            } else {
+                tr.appendChild(snapshotCell(t.me, me ? 'уште нема извоз' : 'нема улога', 'Последен извоз од оваа машина'));
+                tr.appendChild(snapshotCell(t.peer, peer ? 'уште нема снимка' : '—', 'Последна снимка од другата'));
+                if (t.me && (!mine || t.me.createdAt > mine.createdAt)) mine = t.me;
+            }
+            (t.problems || []).forEach(function (p) { problems.push(p); });
+            body.appendChild(tr);
+        });
+
+        if (!me) {
+            verdict('machineVerdict', 'info', 'Оваа инсталација не учествува во преносот РАБОТА ↔ ДОМА.',
+                ' Нема поставено SYNC_NAME. Тоа е точно за облакот; на РАБОТА или ДОМА треба да пишува work или home во server\\.env.');
+            badge('lvlMachines', 'info', 'не учествува');
+        } else if (problems.length) {
+            verdict('machineVerdict', 'bad', 'Манифест што скриптата би го одбила: ', problems.join(' · '));
+            badge('lvlMachines', 'bad', 'провери');
+        } else if (!mine) {
+            verdict('machineVerdict', 'warn', 'Оваа машина уште нема извезено снимка.',
+                ' На крајот од работата пушти го чекорот 1 подолу.');
+            badge('lvlMachines', 'warn', 'нема извоз');
+        } else {
+            verdict('machineVerdict', '', 'Последен извоз од оваа машина: ' + when(mine.createdAt) + ' (' + ago(mine.createdAt) + ').',
+                ' Ако работеше тука по тоа, пушти го чекорот 1 пред да ја изгасиш машината.');
+            badge('lvlMachines', '', 'извоз ' + ago(mine.createdAt));
+        }
+    }
+
+    // ── ③ the cloud ─────────────────────────────────────────────────────
+    function drawCloud(health) {
+        var here = window.MTB_CLOUD_SAME_ORIGIN === true || (health && health.cloudAuth === 'google');
+        if (here) {
+            verdict('cloudVerdict', 'warn', 'Сега си во облакот.',
+                ' Сè што ќе внесеш тука останува во облакот и не стигнува до РАБОТА или ДОМА. Ако дневникот треба да е на машина, работи на неа.');
+            badge('lvlCloud', 'warn', 'сега си тука');
+        } else if (health && health.mirror) {
+            verdict('cloudVerdict', 'info', 'Оваа инсталација е копија само за читање од облакот.',
+                health.mirror.dataAt ? ' Податоци од: ' + when(health.mirror.dataAt) + '.' : ' Уште нема успешно преземена снимка.');
+            badge('lvlCloud', 'info', 'копија за читање');
+        } else {
+            verdict('cloudVerdict', '', 'Не си во облакот.', ' Облакот не се синхронизира со оваа база.');
+            badge('lvlCloud', '', 'посебна база');
+        }
+    }
+
+    function load() {
+        var ticket = ++request;
+        var base = apiBase();
+        if (!base) {
+            drawBrowser('', null, null);
+            drawMachines('', null, null);
+            drawCloud(null);
+            return;
+        }
+        getJson(base, '/api/health').then(function (h) {
+            if (ticket !== request) return;
+            var health = h.ok && h.body && h.body.ok ? h.body : null;
+            if (!health) {
+                drawBrowser(base, null, null);
+                drawMachines(base, null, null);
+                drawCloud(null);
+                return;
+            }
+            return getJson(base, '/api/sync/status').then(function (s) {
+                if (ticket !== request) return;
+                var status = s.ok && s.body && s.body.server ? s.body : null;
+                drawBrowser(base, health, status);
+                drawMachines(base, health, status);
+                drawCloud(health);
+            });
+        });
+    }
+
+    document.addEventListener('click', function (event) {
+        var button = event.target.closest('[data-copy]');
+        if (!button) return;
+        var text = $(button.getAttribute('data-copy')).textContent;
+        var done = function () {
+            button.textContent = '✓ Копирано';
+            setTimeout(function () { button.textContent = 'Копирај'; }, 1600);
+        };
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(text).then(done, function () { selectText(button); });
+        } else selectText(button);
+    });
+
+    function selectText(button) {
+        var code = $(button.getAttribute('data-copy'));
+        var range = document.createRange();
+        range.selectNodeContents(code);
+        var sel = window.getSelection();
+        sel.removeAllRanges();
+        sel.addRange(range);
+        button.textContent = 'Ctrl+C';
+    }
+
+    $('refresh').addEventListener('click', load);
+    window.addEventListener('mtb:server-selected', load);
+    // Another tab (S-Dnevnik) finishing a sync changes what this one should say.
+    window.addEventListener('storage', function (event) {
+        if (event.key === PENDING_KEY || event.key === VERSION_KEY) load();
+    });
+    load();
+})();
+</script>
+</body>
+</html>

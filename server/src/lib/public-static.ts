@@ -27,6 +27,7 @@ const PUBLIC_FILES = new Set([
     'S-Dnevnik-Unified-Sync-v4.html',
     'S-Dnevnik.html',
     'ScanArtisAtelierSolak.html',
+    'Sinhronizacija.html',
     'TabelaSoDokazi_.html',
     'index.html',
     'start.html',

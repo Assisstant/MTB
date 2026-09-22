@@ -20,6 +20,14 @@ but it must not present parallel versions of the same task.
   Improve `RasporediFusion.html` in place. A new schedule entry point requires
   an explicit product decision and an update to this contract and its tests.
 
+- `Sinhronizacija.html` is the one place that explains where the data stands:
+  this browser's S-Dnevnik copy against its server, the WORK↔HOME snapshots,
+  and the separate cloud. It only reads (`/api/health`, `/api/sync/status`
+  and S-Dnevnik's own localStorage bookkeeping); it never opens the diary's
+  IndexedDB, writes browser storage, syncs, exports or restores. Machine
+  transfer stays in `git-sync.ps1`/`manual-db-sync.ps1`, and the page never
+  offers a copyable `-Apply` command. Adding an action to it is a separate
+  product decision, not an extension of this page.
 - `AkciskiPlan.html` is the only pupil-development-record screen. It renders
   both the prescribed евидентен лист and the category-linked action plan. It
   is database-first and keeps no copy of a record in the browser; do not add a
