@@ -25,7 +25,7 @@ test('release upgrades 032 atomically, retains private recovery, and repeats saf
   assert.equal((await c.query('SELECT count(*)::int AS n FROM schema_migrations')).rows[0].n,32);
   await c.query('DROP TABLE employees');
   await workspaceRelease(c,dir,()=>{},backup);
-  assert.equal((await c.query('SELECT count(*)::int AS n FROM schema_migrations')).rows[0].n,37);
+  assert.equal((await c.query('SELECT count(*)::int AS n FROM schema_migrations')).rows[0].n,38);
   assert.equal((await c.query(`SELECT count(*)::int AS n FROM ${backup}.teachers`)).rows[0].n,1);
   assert.equal((await c.query("SELECT relrowsecurity FROM pg_class WHERE oid='employees'::regclass")).rows[0].relrowsecurity,true);
   assert.equal((await c.query('SELECT count(*)::int AS n FROM employees')).rows[0].n,1);
@@ -49,7 +49,7 @@ test('staff release upgrades 036 without overwriting the previous recovery snaps
   await c.query(`CREATE SCHEMA ${oldBackup}`);await c.query(`CREATE TABLE ${oldBackup}.probe(id integer)`);
   await c.query(`INSERT INTO ${oldBackup}.probe VALUES(1)`);
   await workspaceRelease(c,dir,()=>{},backup);
-  assert.equal((await c.query('SELECT count(*)::int AS n FROM schema_migrations')).rows[0].n,37);
+  assert.equal((await c.query('SELECT count(*)::int AS n FROM schema_migrations')).rows[0].n,38);
   assert.equal((await c.query(`SELECT id FROM ${oldBackup}.probe`)).rows[0].id,1);
   await workspaceRelease(c,dir,()=>{},backup);
  }finally{await c.query(`DROP SCHEMA IF EXISTS ${backup} CASCADE`);await c.query(`DROP SCHEMA ${oldBackup} CASCADE`);await c.query(`DROP SCHEMA ${schema} CASCADE`);await c.end();}

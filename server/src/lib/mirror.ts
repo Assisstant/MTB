@@ -40,6 +40,9 @@ export const MIRROR_TABLES = [
     'plan_activities',
     'plans',
     'resource_links',
+    // Business data: the arrangement belongs to the school's year, and two
+    // installations reading one year's list in two orders is a disagreement.
+    'roster_order',
     'scale_templates',
     'schedule_slots',
     'school_classes',

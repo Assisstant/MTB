@@ -22,7 +22,7 @@ const Pupil = z.object({
 const StaffRole = z.enum(['teacher','therapist','specialist','administration']);
 const Employee = z.object({
     year: Year, name: Name, identifier: z.string().trim().max(80).nullable(),
-    roles: z.array(StaffRole).max(4), teacherKind: z.enum(['odd','pred']).default('pred'),
+    roles: z.array(StaffRole).max(4), teacherKind: z.enum(['odd','pred','none']).default('none'),
     professionCode: z.string().refine(v=>Object.hasOwn(STAFF_PROFESSIONS,v)).optional(),
     jobTitle: z.string().trim().max(200).optional(),
     duties: z.array(z.string().refine(v=>Object.hasOwn(STAFF_DUTIES,v))).max(9).optional(),
@@ -186,6 +186,12 @@ export async function workspaceRoutes(server: FastifyInstance, options: {pool?: 
                 await expectRow(previous,b.expected);
                 await c.query('UPDATE employees SET name=$2,identifier=$3 WHERE id=$1',[id,b.name,b.identifier||null]);
             }
+            // „Не е наставник" is the honest answer for a cabinet or service
+            // employee, and it is the ABSENCE of a teaching profile — the
+            // timetable is read one way for an одделенски row and the other
+            // way for a предметен one, so a teacher in it cannot be neither.
+            if(b.roles.includes('teacher')&&b.teacherKind==='none')throw new Problem(400,
+                'Наставник во распоред мора да биде одделенски или предметен. „Не е наставник“ е за вработен без настава.');
             for(const role of ['teacher','therapist'] as const) {
                 const table=role==='teacher'?'teachers':'therapists';
                 let profile=(await c.query(`SELECT id FROM ${table} WHERE employee_id=$1`,[id])).rows[0];

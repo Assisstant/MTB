@@ -8,15 +8,21 @@ form exposes these facts, filters and annual history separately from participati
 in teaching/cabinet schedules. Staff-only professions never create profiles.
 The categories used by action plans are unchanged and displayed read-only here.
 
-The current `deploy:workspace` runner accepts reviewed pending 033–037. Its new
+Migration 038 adds `roster_order`, the preferred display order of one year’s
+four lists. It stores a position and nothing else — no membership, identity,
+eligibility or access — and an absent row simply means the list is read in the
+reader’s own order, so the upgrade changes nothing until somebody presses an
+arrow in „Податоци“.
+
+The current `deploy:workspace` runner accepts reviewed pending 033–038. Its new
 private recovery schema is `mtb_workspace_recovery_staff_20260922`; it preserves
-the previous `mtb_workspace_recovery_20260921` snapshot. Both 032→037 and
-036→037 are tested, including repeat no-op and preservation of original data.
+the previous `mtb_workspace_recovery_20260921` snapshot. Both 032→038 and
+036→038 are tested, including repeat no-op and preservation of original data.
 The added business table is included in the mirror scope; source and target
 must have matching schema/table ledgers. This does not activate a mirror.
 
 Do not use a bare migration command to bypass the guarded release. A future
-approved deployment must verify 37 migrations, unchanged pre-existing data,
+approved deployment must verify 38 migrations, unchanged pre-existing data,
 authenticated form save/reload and staff-only exclusion from Fusion. No live
 database or hosting change was made while implementing this update.
 

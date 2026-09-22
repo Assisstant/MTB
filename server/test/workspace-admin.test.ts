@@ -63,6 +63,30 @@ test('one employee holds multiple roles; explicit links preserve profile ids and
  assert.equal(inactive.teacher_id,a.teacher_id);
 });
 
+test('an employee without teaching is neither odd nor pred, and a scheduled teacher cannot be neither',async()=>{
+ // A cabinet or service employee has no teaching profile at all. That is the
+ // ABSENCE of one, not a third kind of teacher: the timetable is read one way
+ // for an одделенска row and the other for a предметна one.
+ const service=(await call('POST','/api/workspace/employees',{year,name:'Измислен Кабинет Ипсилон',identifier:null,roles:['therapist','specialist'],teacherKind:'none'})).employee;
+ assert.equal(service.teacher_id,null);assert.equal(service.teacher_kind,null);
+ assert.equal(service.therapist_active,true,'the cabinet role is unaffected by having no teaching profile');
+ // The database CHECK already refuses the row; what the endpoint adds is the
+ // sentence a person can act on, so the sentence is what is asserted.
+ const refused=await call('POST','/api/workspace/employees',{year,name:'Измислен Наставник Зета',identifier:null,roles:['teacher'],teacherKind:'none'},400);
+ assert.match(refused.error,/одделенски или предметен/);
+ assert.equal((await pool.query('SELECT count(*)::int AS n FROM employees WHERE name=$1',['Измислен Наставник Зета'])).rows[0].n,0,
+  'a refused save must leave no half-made employee behind');
+ const current=(await snapshot()).employees.find((e:any)=>e.id===service.id);
+ await call('PUT',`/api/workspace/employees/${service.id}`,{year,name:service.name,identifier:null,roles:['teacher','therapist'],teacherKind:'none',expected:current.expected},400).then((r:any)=>assert.match(r.error,/одделенски или предметен/));
+ const teaching=(await call('PUT',`/api/workspace/employees/${service.id}`,{year,name:service.name,identifier:null,roles:['teacher','therapist'],teacherKind:'odd',expected:current.expected})).employee;
+ assert.equal(teaching.teacher_kind,'odd');assert.equal(teaching.teacher_active,true);
+ // Taking the teaching away keeps the profile it had; the year's membership is
+ // what says whether they teach, and an archived year must still read right.
+ const now=(await snapshot()).employees.find((e:any)=>e.id===service.id);
+ const back=(await call('PUT',`/api/workspace/employees/${service.id}`,{year,name:service.name,identifier:null,roles:['therapist'],teacherKind:'none',expected:now.expected})).employee;
+ assert.equal(back.teacher_active,false);assert.equal(back.teacher_kind,'odd');
+});
+
 test('caseload uses shared rows and fails closed for invalid foreign keys or stale membership',async()=>{
  const p=(await snapshot()).pupils[0];
  const t=(await call('POST','/api/workspace/employees',{year,name:'Измислен Терапевт Делта',identifier:null,roles:['therapist']})).employee;

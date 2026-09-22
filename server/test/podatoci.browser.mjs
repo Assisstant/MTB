@@ -130,29 +130,79 @@ const run = async () => {
 
     console.log('student rows have visible consecutive numbers');
     const studentNumbers = await page.evaluate(() => Array.from(
-        document.querySelectorAll('#students tbody td.row-number')
+        document.querySelectorAll('#students tbody td.row-number .rn')
     ).map((cell) => cell.textContent.trim()));
     check('the first column is labelled R.Br.',
-        await page.textContent('#students thead th.row-number') === 'Р.Бр.', 'missing student number heading');
+        (await page.textContent('#students thead th.row-number')).trim() === 'Р.Бр.', 'missing student number heading');
     checkEq('numbers follow the visible rows', studentNumbers,
         studentNumbers.map((_, index) => `${index + 1}.`));
     check('numbers are shown by default', await page.isChecked('#showRowNumbers'), 'number toggle starts off');
     await page.uncheck('#showRowNumbers');
-    check('one control hides number columns in every list', await page.evaluate(() =>
-        getComputedStyle(document.querySelector('#students td.row-number')).display === 'none'), 'student number stayed visible');
+    check('one control hides the numbering in every list', await page.evaluate(() =>
+        getComputedStyle(document.querySelector('#students td.row-number .rn')).display === 'none'), 'student number stayed visible');
+    // The arrows are how the order is changed, so they must survive the
+    // toggle that hides the numbering beside them.
+    check('hiding the numbering keeps the reordering arrows', await page.evaluate(() =>
+        getComputedStyle(document.querySelector('#students td.row-number .ord-btn')).display !== 'none'),
+        'the arrows went with the numbers');
     await page.check('#showRowNumbers');
 
     for (const section of ['teachers', 'therapists', 'classes']) {
         await page.click(`[data-tab="${section}"]`);
         await page.waitForSelector(`#${section} table.list`);
         const numbers = await page.evaluate((selector) => Array.from(
-            document.querySelectorAll(`${selector} tbody td.row-number`)
+            document.querySelectorAll(`${selector} tbody td.row-number .rn`)
         ).map((cell) => cell.textContent.trim()), `#${section}`);
         check(`${section} has the R.Br. heading`,
-            await page.textContent(`#${section} thead th.row-number`) === 'Р.Бр.', section);
+            (await page.textContent(`#${section} thead th.row-number`)).trim() === 'Р.Бр.', section);
         checkEq(`${section} has consecutive numbers`, numbers,
             numbers.map((_, index) => `${index + 1}.`));
     }
+    await page.click('[data-tab="students"]');
+
+    /* The order the lists are READ in.
+     *
+     * A year's lists are entered from the school's own document, which does
+     * not read alphabetically, so the arrangement is a fact and it lives in
+     * the database. It is read back after a full RELOAD and out of the table
+     * itself: a remembered click would pass while nothing had been stored.
+     */
+    console.log('the rows can be arranged, and the arrangement is in the database');
+    await page.click('[data-tab="teachers"]');
+    await page.waitForSelector('#teachers table.list');
+    const teacherNames = () => page.evaluate(() => Array.from(
+        document.querySelectorAll('#teachers tbody .t-name')).map((input) => input.value));
+    const before = await teacherNames();
+    check('there are two teachers to arrange', before.length === 2, JSON.stringify(before));
+    check('the first row cannot move up', await page.isDisabled(
+        '#teachers tbody tr:nth-child(1) .ord-btn[data-move="-1"]'), 'the top row offered a move up');
+    check('the last row cannot move down', await page.isDisabled(
+        `#teachers tbody tr:nth-child(${before.length}) .ord-btn[data-move="1"]`), 'the bottom row offered a move down');
+    await page.click('#teachers tbody tr:nth-child(1) .ord-btn[data-move="1"]');
+    await page.waitForTimeout(1200);
+    const moved = await teacherNames();
+    checkEq('the two rows swapped places', moved, [before[1], before[0]]);
+    checkEq('the numbering stayed where it was; only the contents moved',
+        await page.evaluate(() => Array.from(
+            document.querySelectorAll('#teachers tbody td.row-number .rn')
+        ).map((cell) => cell.textContent.trim())), moved.map((_, index) => `${index + 1}.`));
+    await page.reload();
+    // The reload lands on whichever tab the address names, so wait for the
+    // list to be DRAWN and then open the one being read.
+    await page.waitForFunction(() => document.querySelector('#teachers table.list') !== null, null, { timeout: 15000 });
+    await page.click('[data-tab="teachers"]');
+    await page.waitForSelector('#teachers table.list');
+    checkEq('and it is still arranged that way after a reload', await teacherNames(), moved);
+    const arranged = await q(
+        `SELECT o.member_key, o.position FROM roster_order o
+         JOIN school_years y ON y.id = o.school_year_id
+         WHERE y.label = $1 AND o.list = 'teachers' ORDER BY o.position`, [NEW_YEAR]);
+    checkEq('it is stored as consecutive positions and nothing else',
+        arranged.map((row) => row.position), [0, 1]);
+    const otherYear = await q(
+        `SELECT count(*)::int AS n FROM roster_order o JOIN school_years y ON y.id = o.school_year_id
+         WHERE y.label = $1`, [OLD_YEAR]);
+    check('the other year was not arranged with it', otherYear[0].n === 0, JSON.stringify(otherYear));
     await page.click('[data-tab="students"]');
 
     // The label of the destructive button is not decoration. It is the one
@@ -240,7 +290,7 @@ const run = async () => {
         Array.from(document.querySelectorAll('#students tr[data-student]')).map((r) => r.dataset.student));
     checkEq('searching by the word finds exactly them', found, [`${TAG}-a`]);
     checkEq('a filtered list is numbered from one', await page.evaluate(() => Array.from(
-        document.querySelectorAll('#students tbody td.row-number')
+        document.querySelectorAll('#students tbody td.row-number .rn')
     ).map((cell) => cell.textContent.trim())), ['1.']);
     await page.fill('#studentSearch', '');
     await page.waitForTimeout(300);

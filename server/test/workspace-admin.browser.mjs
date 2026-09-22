@@ -19,13 +19,18 @@ try{
    staffProfessions:{unknown:'Непотврдено',pedagog:'Педагог',spec_edukator:'Специјален едукатор / дефектолог',vospituvac:'Воспитувач'},
    staffDuties:{teaching:'Настава',modified_teaching:'Настава · модифицирана програма (и со надворешни)',preparatory_group:'Групна рехабилитација · подготвителна',
     individual_rehabilitation:'Индивидуална рехабилитација',counselling:'Советодавна работа',assistant_coordination:'Координација на образовни асистенти',mentoring:'Менторство',administration:'Администрација',boarding:'Воспитна работа / интернат'}};
-  let fail=false,writes=0;const errors=[];
+  let fail=false,writes=0,lastEmployee=null;const errors=[];
   await context.route('**/*',async route=>{const req=route.request(),u=new URL(req.url()),path=u.pathname;const json=(body,status=200)=>route.fulfill({status,contentType:'application/json',body:JSON.stringify(body)});
    if(u.origin!==base)return route.abort();
    if(req.method()!=='GET'){
     writes++;if(fail)return json({error:'Конфликт · внесот е задржан'},409);
     const body=req.postDataJSON();assert.equal(body.year,data.year);
-    if(path.startsWith('/api/workspace/employees/')){Object.assign(employee,{name:body.name,profession_code:body.professionCode,job_title:body.jobTitle,duties:body.duties,
+    if(path.startsWith('/api/workspace/employees/')){lastEmployee=body;
+     // The server refuses a scheduled teacher with no profile; the stub says so
+     // in the same words, or the page would look as if it had been accepted.
+     if(body.roles.includes('teacher')&&body.teacherKind==='none')return json({error:'Наставник во распоред мора да биде одделенски или предметен. „Не е наставник“ е за вработен без настава.'},400);
+     Object.assign(employee,{name:body.name,profession_code:body.professionCode,job_title:body.jobTitle,duties:body.duties,
+     teacher_kind:body.teacherKind==='none'?null:body.teacherKind,
      teacher_active:body.roles.includes('teacher'),therapist_active:body.roles.includes('therapist'),additional_roles:body.roles.filter(r=>r!=='teacher'&&r!=='therapist'),expected:'d'.repeat(64)});return json({employee});}
     if(path.endsWith('/therapists')){p.therapists=body.therapistIds.map(id=>({id,name:employee.name}));return json({pupil:p});}
     p.name=body.name;p.expected='c'.repeat(64);return json({pupil:p});
@@ -83,9 +88,30 @@ try{
   await page.locator('#maDetail').evaluate(n=>n.scrollTop=0);
   if(width<760)await page.locator('[name=professionCode]').scrollIntoViewIfNeeded();
   await page.screenshot({path:resolve(root,`backups/workspace-release-qa/staff-${width}.png`)});
+  /* A cabinet or service employee is NEITHER одделенски NOR предметен, and
+   * that is the absence of a teaching profile rather than a third kind of
+   * teacher. The refusal in the other direction is what keeps it honest: the
+   * timetable is read one way for a class row and the other way for a subject
+   * row, so a teacher in it cannot be neither. */
+  assert.deepEqual(await page.locator('[name=teacherKind] option').allTextContents(),
+   ['Не е наставник · кабинет или служба','Одделенски','Предметен']);
+  assert.equal(await page.locator('[name=teacherKind]').inputValue(),'none','an employee with no teaching profile must not read as предметен');
+  await page.locator('[name=roles][value=teacher]').check();
+  await page.getByText('Со „Учествува во настава“ изберете одделенски или предметен — инаку зачувувањето ќе биде одбиено.').waitFor();
+  await page.locator('#maForm button[type=submit]').click();
+  await page.getByText(/мора да биде одделенски или предметен/).first().waitFor();
+  assert.equal(await page.locator('[name=teacherKind]').inputValue(),'none','the refused choice must be kept, not reset');
+  await page.locator('[name=teacherKind]').selectOption('odd');
+  assert.equal(await page.locator('#maKindNote').textContent(),'');
+  await page.locator('#maForm button[type=submit]').click();await page.getByText('Зачувано и потврдено од PostgreSQL.',{exact:true}).waitFor();
+  assert.equal(lastEmployee.teacherKind,'odd');assert.equal(employee.teacher_kind,'odd');
+  await page.locator('[name=roles][value=teacher]').uncheck();
+  await page.locator('[name=teacherKind]').selectOption('none');
+  await page.locator('#maForm button[type=submit]').click();await page.getByText('Зачувано и потврдено од PostgreSQL.',{exact:true}).waitFor();
+  assert.equal(lastEmployee.teacherKind,'none');assert.equal(employee.teacher_active,false);
   await page.evaluate(()=>window.dispatchEvent(new CustomEvent('mtb:server-state',{detail:{mirror:{mode:'readonly'}}})));
   assert.equal(await page.locator('[name=professionCode]').isDisabled(),true);
-  assert.equal(writes,5);assert.deepEqual(errors,[]);
-  await context.close();console.log(`PASS master administration at ${width}px: save, conflict, drafts, caseload, history, layout, privacy`);
+  assert.equal(writes,8);assert.deepEqual(errors,[]);
+  await context.close();console.log(`PASS master administration at ${width}px: save, conflict, drafts, caseload, history, teaching profile, layout, privacy`);
  }
 }finally{await browser.close();await new Promise(r=>server.close(r));}

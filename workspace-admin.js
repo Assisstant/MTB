@@ -76,7 +76,7 @@
       if(data.staffProfessions&&data.staffDuties){
         html+=`<div class="ma-grid">${select('Професија / стручно звање','professionCode',data.staffProfessions,r.profession_code||'unknown')}<label>Работно место · незадолжително<input name="jobTitle" maxlength="200" value="${esc(r.job_title||'')}"></label></div><fieldset class="ma-duty-group"><legend>Годишни задолженија · може повеќе</legend><div class="ma-checks">${Object.entries(data.staffDuties).map(([k,v])=>`<label><input type="checkbox" name="duties" value="${esc(k)}" ${(r.duties||[]).includes(k)?'checked':''}>${esc(v)}</label>`).join('')}</div></fieldset><p class="ma-hint">Непотврдено / без избрано задолжение значи дека податокот сè уште не е внесен. Професијата и задолжението сами не додаваат лице во распоред.</p>`;
       }else html+='<p class="ma-hint">Овој сервер сè уште нема поддршка за професија и годишни задолженија. Потребна е надградба; овие податоци не се зачувуваат привидно.</p>';
-      html+=`<h3>Учество во распоред и годишни улоги</h3><div class="ma-checks">${Object.entries(roles).map(([k,v])=>`<label><input type="checkbox" name="roles" value="${k}" ${employeeRoles(r).includes(k)?'checked':''}>${v}</label>`).join('')}</div><div class="ma-grid" style="margin-top:16px">${select('Основен наставнички профил','teacherKind',{odd:'Одделенски',pred:'Предметен'},r.teacher_kind||'pred')}</div><p class="ma-hint">За вработен без распоред изберете „Стручен соработник / служба“ или „Администрација“, без двете полиња за учество. „Учествува во кабинетски распоред“ го вклучува лицето во Fusion; не создава термини и не доделува пристап. Без избрани улоги лицето е неактивно за оваа година; историјата останува.</p><p class="ma-hint">Категорија за услуги / акциски план: настава — ${esc(r.teacher_category||'Недоделена')}; кабинет — ${esc(r.therapist_category||'Недоделена')}. Се уредува преку постојниот избор во „Податоци“, одделно од професијата.</p><p class="ma-hint">Модифицираната програма и подготвителната група се избираат и на секој ученик, со неговиот статус и паралелка. Овде се евидентира задолжението, не се создава групен кабинетски термин.</p>`;
+      html+=`<h3>Учество во распоред и годишни улоги</h3><div class="ma-checks">${Object.entries(roles).map(([k,v])=>`<label><input type="checkbox" name="roles" value="${k}" ${employeeRoles(r).includes(k)?'checked':''}>${v}</label>`).join('')}</div><div class="ma-grid" style="margin-top:16px">${select('Основен наставнички профил','teacherKind',{none:'Не е наставник · кабинет или служба',odd:'Одделенски',pred:'Предметен'},r.teacher_kind||'none')}</div><p class="ma-hint" id="maKindNote"></p><p class="ma-hint">„Не е наставник“ е за вработен без настава — кабинет, стручна служба или администрација; тогаш нема наставнички профил воопшто. Со „Учествува во настава“ профилот мора да биде одделенски или предметен, зашто распоредот на наставата се чита поинаку за секој од двата. За вработен без распоред изберете „Стручен соработник / служба“ или „Администрација“, без двете полиња за учество. „Учествува во кабинетски распоред“ го вклучува лицето во Fusion; не создава термини и не доделува пристап. Без избрани улоги лицето е неактивно за оваа година; историјата останува.</p><p class="ma-hint">Категорија за услуги / акциски план: настава — ${esc(r.teacher_category||'Недоделена')}; кабинет — ${esc(r.therapist_category||'Недоделена')}. Се уредува преку постојниот избор во „Податоци“, одделно од професијата.</p><p class="ma-hint">Модифицираната програма и подготвителната група се избираат и на секој ученик, со неговиот статус и паралелка. Овде се евидентира задолжението, не се создава групен кабинетски термин.</p>`;
     }
     html+=`</div><div class="ma-footer"><button class="ma-save" data-ma-write type="submit">Зачувај во базата</button><button type="button" id="maCancel">Откажи внес</button><span id="maSaved" role="status" class="ma-hint">${r.globally_active===false?'Глобално архивиран · проверете ја архивата во S-Дневник.':'Промената на името важи за сите години.'}</span></div></fieldset></form>`;
     if(!isNew&&tab==='pupils'){
@@ -85,9 +85,20 @@
     if(!isNew&&tab==='employees')html+=`<details class="ma-section"><summary>Поврзи постоен наставнички / терапевтски идентитет</summary><p class="ma-hint">Само по човечка проверка дека е истата личност. Исто име не е доказ. Профилите и нивната историја се задржуваат; избраниот запис се поврзува со овој.</p><select id="maLinkSource" aria-label="Постоен вработен за поврзување">${option('','Изберете потврден идентитет','')+data.employees.filter(e=>e.id!==r.id).map(e=>option(e.id,e.name+' · #'+e.id,'')).join('')}</select><button id="maLink" data-ma-write>Поврзи со овој запис</button></details>`;
     if(!isNew&&tab==='employees'&&data.staffProfessions)html+='<section class="ma-section"><h3>Годишна историја на задолженија</h3><button id="maEmployeeHistory">Прикажи професија и задолженија по година</button><div id="maEmployeeHistoryResult"></div></section>';
     html+=`<h3>Поврзана работа</h3><div class="ma-links"><button data-ma-open="RasporediFusion.html">Кабинетски распоред</button><button data-ma-open="NastavaUredi.html">Настава / предмети</button><button data-ma-open="Podatoci.html">Паралелки / списоци</button><button data-ma-open="AkciskiPlan.html">Евидентен лист</button></div><p class="ma-hint">Веќе отворените прозорци ги задржуваат својата година и внесот. Освежете ги таму по зачувана корекција, кога нема незачувани промени.</p>`;
-    $('maDetail').innerHTML=html;applyReadonly();
+    $('maDetail').innerHTML=html;applyReadonly();syncKindNote();
     $('maForm').addEventListener('submit',savePerson);
     $('maCaseload')?.addEventListener('submit',saveCaseload);
+  }
+  /* Says it BEFORE the save is refused, and never rewrites the choice: a
+   * field that quietly resets itself while somebody is reading it is how a
+   * profile gets emptied by a press of Save meant for something else. */
+  function syncKindNote(){
+    const note=$('maKindNote'),form=$('maForm');if(!note||!form)return;
+    const teaches=[...form.querySelectorAll('input[name=roles]')].some(n=>n.value==='teacher'&&n.checked);
+    const kind=form.elements.teacherKind?.value;
+    note.textContent=teaches&&kind==='none'?'Со „Учествува во настава“ изберете одделенски или предметен — инаку зачувувањето ќе биде одбиено.'
+      :!teaches&&kind!=='none'?'Профилот се памети, но без „Учествува во настава“ лицето не е во наставата оваа година.':'';
+    note.className=teaches&&kind==='none'?'ma-hint ma-error':'ma-hint';
   }
   function inputChanged(){dirty=true;status('Незачуван внес · останува во отворениот прозорец.');}
   async function write(path,body,method){
@@ -112,7 +123,7 @@
     try{const out=await write('/api/workspace/pupils/'+encodeURIComponent(selected.public_id)+'/therapists',{year,expected:selected.expected,therapistIds:new FormData($('maCaseload')).getAll('therapist').map(Number)},'PUT');saved(out.pupil);}catch(e){status(e.message,'error');}
   }
   root.addEventListener('input',e=>{if(e.target.closest('form'))inputChanged();});
-  root.addEventListener('change',e=>{if(e.target.closest('form'))inputChanged();});
+  root.addEventListener('change',e=>{if(e.target.closest('form')){inputChanged();syncKindNote();}});
   root.addEventListener('click',async e=>{
     const b=e.target.closest('button');if(!b)return;
     if(b.dataset.maOpen){launch(b.dataset.maOpen);return;}
@@ -124,7 +135,7 @@
     if(b.id==='maLink'&&!busy){if(dirty){status('Прво зачувајте или откажете го внесот.','error');return;}const source=data.employees.find(r=>String(r.id)===$('maLinkSource').value);if(!source)return;if(!confirm(`Потврдувате дека „${source.name}“ (#${source.id}) и „${selected.name}“ (#${selected.id}) се истата личност? Профилите ќе се поврзат.`))return;try{const out=await write('/api/workspace/employees/'+selected.id+'/link',{year,sourceId:source.id,expected:selected.expected,sourceExpected:source.expected},'POST');data.employees=data.employees.filter(r=>r.id!==source.id);saved(out.employee);}catch(error){status(error.message,'error');}}
   });
   $('maSearch').addEventListener('input',renderList);['maActive','maKind','maClass','maGrade','maTherapist','maProfession','maDuty'].forEach(id=>$(id).addEventListener('change',renderList));
-  $('maAdd').addEventListener('click',()=>{if(!data||readonly||busy||!canDiscard())return;selected=tab==='pupils'?{name:'',enrollment_type:'internal',boarding:false,programme:'unknown',placement:'unknown',annual_active:true,therapists:[]}:{name:'',identifier:'',additional_roles:[],teacher_kind:'pred'};dirty=false;renderList();renderDetail();$('maForm').elements.name.focus();});
+  $('maAdd').addEventListener('click',()=>{if(!data||readonly||busy||!canDiscard())return;selected=tab==='pupils'?{name:'',enrollment_type:'internal',boarding:false,programme:'unknown',placement:'unknown',annual_active:true,therapists:[]}:{name:'',identifier:'',additional_roles:[],teacher_kind:'none'};dirty=false;renderList();renderDetail();$('maForm').elements.name.focus();});
   $('maYear').addEventListener('change',()=>{if(canDiscard())load($('maYear').value);else $('maYear').value=year;});
   $('maReload').addEventListener('click',()=>{if(canDiscard())load(year);});$('maClose').addEventListener('click',close);
   toggle.addEventListener('click',()=>{root.hidden=false;toggle.setAttribute('aria-expanded','true');if(!data)load();else if(base!==ctx.server())status('Избран е друг сервер. Освежете пред уредување.','error');$('maSearch').focus();});

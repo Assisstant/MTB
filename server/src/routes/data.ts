@@ -14,6 +14,7 @@ import type { FastifyInstance } from 'fastify';
 import { pool } from '../db.js';
 import { nextGrade } from '../lib/year-rollover.js';
 import { orderPupils } from '../lib/teaching.js';
+import { arrange, readArrangement } from '../lib/roster-order.js';
 
 export async function dataRoutes(server: FastifyInstance) {
 
@@ -105,6 +106,13 @@ export async function dataRoutes(server: FastifyInstance) {
      *
      * Deliberately NOT `/api/teaching/timetable`: that one carries every lesson
      * of the year (451 of them here) and this page never draws one.
+     *
+     * The four lists come back in the order a person arranged them for that
+     * year (`roster_order`, migration 038), and in the reader's own order
+     * where nobody has. That is why the arrangement is read here and not in
+     * each screen: Podatoci owns the arrows, while Fusion, the workspace and
+     * S-Dnevnik all read this one answer, so one list cannot be arranged two
+     * ways at once.
      */
     server.get('/api/roster', async (req, reply) => {
         const label = (req.query as any)?.year as string | undefined;
@@ -231,6 +239,11 @@ export async function dataRoutes(server: FastifyInstance) {
             )
         ]);
 
+        // Applied here and nowhere else, so the four screens that read this
+        // answer cannot arrange one list two ways. The CANDIDATES are left
+        // alone: they are last year's directory offered for review, not a list
+        // anybody has arranged.
+        const arrangement = await readArrangement(pool, year.id);
         const studentSuggestions = orderPupils(studentCandidates.rows).map((student: any) => {
             const sourceGrade = student.current_grade ?? student.last_grade;
             const suggestion = nextGrade(sourceGrade);
@@ -245,10 +258,10 @@ export async function dataRoutes(server: FastifyInstance) {
         return {
             year: year.label,
             isCurrentYear: year.is_current,
-            classes: classes.rows,
-            teachers: teachers.rows,
-            therapists: therapists.rows,
-            students: orderPupils(students.rows),
+            classes: arrange(classes.rows, (row: any) => String(row.id), arrangement.get('classes')),
+            teachers: arrange(teachers.rows, (row: any) => String(row.id), arrangement.get('teachers')),
+            therapists: arrange(therapists.rows, (row: any) => String(row.id), arrangement.get('therapists')),
+            students: arrange(orderPupils(students.rows), (row: any) => String(row.public_id), arrangement.get('students')),
             candidates: {
                 students: studentSuggestions,
                 teachers: teacherCandidates.rows,

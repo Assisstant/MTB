@@ -152,15 +152,29 @@
     }
     table.list td.act { width: 1%; white-space: nowrap; }
     table.list th.row-number, table.list td.row-number {
-        width: 52px; min-width: 52px; text-align: center; color: var(--muted);
+        width: 92px; min-width: 92px; text-align: center; color: var(--muted);
         font-variant-numeric: tabular-nums; white-space: nowrap;
     }
+    /* Стрелките стојат до бројот зашто бројот е тоа што НЕ се поместува:
+       „1." останува „1.", а содржината на редот се менува со соседот. */
+    .ord { display: inline-flex; gap: 2px; margin-left: 5px; vertical-align: middle; }
+    .ord-btn {
+        padding: 0 4px; line-height: 17px; font-size: 10px; cursor: pointer;
+        border: 1px solid var(--border); border-radius: 4px;
+        background: var(--card); color: var(--text);
+    }
+    .ord-btn:disabled { opacity: .3; cursor: default; }
+    .ord-btn:not(:disabled):hover { background: var(--soft); }
     .list-number {
         display: inline-block; min-width: 28px; margin-right: 4px; text-align: right;
         color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap;
     }
-    body.hide-list-numbers .row-number,
+    /* Се крие БРОЈОТ, не ќелијата: стрелките се начинот да се смени
+       редоследот и не смеат да исчезнат со нумерацијата. */
+    body.hide-list-numbers .row-number .rn,
     body.hide-list-numbers .list-number { display: none; }
+    body.hide-list-numbers table.list th.row-number,
+    body.hide-list-numbers table.list td.row-number { width: 44px; min-width: 44px; }
     /* The name is the column people read, and it was the one being squeezed:
        the therapist chips take whatever they are given and the action buttons
        cannot wrap, so „V-б - Јована Долгопрезимска" was cut off mid-surname while
@@ -1092,6 +1106,81 @@
             + ROMAN.map((g) => `<option value="${g}"${g === String(selected || '').toUpperCase() ? ' selected' : ''}>${g}</option>`).join('');
     }
 
+    // ── редослед на списоците ───────────────────────────────
+    /**
+     * Стрелки за поместување ред, и зошто редоследот е во БАЗАТА.
+     *
+     * Списокот не се чита по азбука. Годишната програма ги реди луѓето по
+     * оддели, а комбинираната паралелка се чита до наставникот што ја држи —
+     * затоа поместувањето е податок, а не подредување во главата на еден
+     * човек. Оваа страница намерно не памети ништо во прелистувачот (пакетот
+     * го тврди тоа), а редослед запаметен на една машина е редослед што
+     * другата машина го демантира. Значи оди во базата, годишно, како и
+     * самите списоци.
+     *
+     * Бројот е местото, содржината се поместува: „2." останува „2." и по
+     * поместувањето. Точно тоа е и во базата — `roster_order` чува позиција,
+     * ништо друго.
+     *
+     * СОСЕДОТ Е СЛЕДНИОТ ВИДЛИВ РЕД. Кај учениците списокот е филтриран, па
+     * „нагоре" значи „над оној што го гледам над себе"; скриените редови
+     * остануваат каде што биле, зашто човекот не одлучувал за нив.
+     */
+    const ORDER_KEY = {
+        students: (row) => String(row.public_id),
+        teachers: (row) => String(row.id),
+        therapists: (row) => String(row.id),
+        classes: (row) => String(row.id)
+    };
+
+    function rowNumberCell(list, key, index, total) {
+        const arrow = (delta, sign, off, label) =>
+            `<button type="button" class="ord-btn" data-move-list="${list}"`
+            + ` data-move-key="${esc(key)}" data-move="${delta}"${off ? ' disabled' : ''}`
+            + ` title="${label}" aria-label="${label}">${sign}</button>`;
+        return `<td class="row-number"><span class="rn">${index + 1}.</span><span class="ord">`
+            + arrow(-1, '\u25B2', index === 0, 'Помести го редот нагоре')
+            + arrow(1, '\u25BC', index === total - 1, 'Помести го редот надолу')
+            + '</span></td>';
+    }
+
+    function attachOrderArrows(container, list, shown) {
+        container.querySelectorAll('[data-move-list]').forEach((button) =>
+            button.addEventListener('click', () =>
+                moveRow(container, list, shown, button.dataset.moveKey, Number(button.dataset.move))));
+    }
+
+    async function moveRow(container, list, shown, key, delta) {
+        // Поместувањето препрочитува сè од базата, па незачувана измена во друг
+        // ред би се фрлила тивко — истата грешка како „Зачувај" врз стар таб.
+        if (container.querySelector('tr.dirty')) {
+            status('Има ред со незачувана измена. Зачувај го или освежи, па поместувај.', 'warn', { toast: true });
+            return;
+        }
+        const keyOf = ORDER_KEY[list];
+        const at = shown.findIndex((row) => keyOf(row) === key);
+        const neighbour = shown[at + delta];
+        if (at < 0 || !neighbour) return;
+        const order = (data[list] || []).map(keyOf);
+        const a = order.indexOf(key);
+        const b = order.indexOf(keyOf(neighbour));
+        if (a < 0 || b < 0) return;
+        order[a] = order[b];
+        order[b] = key;
+        try {
+            await api('PUT', '/api/roster/order', { year: el('year').value, list, order });
+            await load();
+            status('редоследот е зачуван', 'ok', { toast: true });
+            // Истото копче, по прецртувањето: поместување за три места е три
+            // притискања, а не три барања на копче што скокнало на друго место.
+            const again = document.querySelector(
+                `[data-move-list="${list}"][data-move-key="${CSS.escape(key)}"][data-move="${delta}"]`);
+            if (again && !again.disabled) again.focus();
+        } catch (err) {
+            status(err.message, 'error', { toast: true });
+        }
+    }
+
     function drawStudents() {
         const q = tidy(el('studentSearch').value).toLowerCase();
         const wantedKind = el('studentKindFilter').value;
@@ -1108,13 +1197,13 @@
             return;
         }
         el('students').innerHTML =
-            '<table class="list"><thead><tr><th class="row-number">Р.Бр.</th><th>Име</th><th style="width:150px;">Вид на ученик</th>'
+            '<table class="list"><thead><tr><th class="row-number" title="Редоследот се менува со стрелките и се памети за оваа учебна година. Новододадените одат на крај додека не ги преместите."><span class="rn">Р.Бр.</span></th><th>Име</th><th style="width:150px;">Вид на ученик</th>'
             + '<th style="width:170px;">Паралелка · каде учи</th>'
             + '<th style="width:130px;">Одделение · генерација</th>'
             + '<th>Терапевти</th><th></th></tr></thead><tbody>'
             + rows.map((s, index) =>
                 `<tr data-student="${esc(s.public_id)}"${s.active ? '' : ' class="archived"'}>`
-                + `<td class="row-number">${index + 1}.</td>`
+                + rowNumberCell('students', s.public_id, index, rows.length)
                 + `<td><input class="s-name" value="${esc(personName(s.name))}"${s.active ? '' : ' disabled'}></td>`
                 + `<td><select class="s-kind"${s.active ? '' : ' disabled'}>`
                 + KINDS.map(([value, label]) =>
@@ -1147,6 +1236,7 @@
             b.addEventListener('click', () => removeFromYear('student', b.dataset.removeStudent, personName(student.name)));
         });
         markSubmittable(el('students'), 'data-student', 'data-save-student');
+        attachOrderArrows(el('students'), 'students', rows);
     }
 
     async function saveStudent(publicId) {
@@ -1193,11 +1283,11 @@
      */
     function drawTeachers() {
         el('teachers').innerHTML =
-            '<table class="list"><thead><tr><th class="row-number">Р.Бр.</th><th style="width:230px;">Име</th><th style="width:190px;">Улога</th>'
+            '<table class="list"><thead><tr><th class="row-number" title="Редоследот се менува со стрелките и се памети за оваа учебна година. Новододадените одат на крај додека не ги преместите."><span class="rn">Р.Бр.</span></th><th style="width:230px;">Име</th><th style="width:190px;">Улога</th>'
             + '<th style="min-width:440px;">Предмети</th><th style="width:150px;">Одделенија оваа година</th><th></th></tr></thead><tbody>'
             + (data.teachers || []).map((t, index) =>
                 `<tr data-teacher="${t.id}">`
-                + `<td class="row-number">${index + 1}.</td>`
+                + rowNumberCell('teachers', t.id, index, (data.teachers || []).length)
                 + `<td><input class="t-name" value="${esc(personName(t.name))}"></td>`
                 + '<td><select class="t-kind">'
                 + `<option value="odd"${t.kind === 'odd' ? ' selected' : ''}>одделенски наставник</option>`
@@ -1236,6 +1326,7 @@
             b.addEventListener('click', () => removeFromYear('teacher', teacher.id, personName(teacher.name)));
         });
         markSubmittable(el('teachers'), 'data-teacher', 'data-save-teacher');
+        attachOrderArrows(el('teachers'), 'teachers', data.teachers || []);
     }
 
     async function saveTeacher(id) {
@@ -1374,12 +1465,12 @@
 
     function drawTherapists() {
         el('therapists').innerHTML =
-            '<table class="list"><thead><tr><th class="row-number">Р.Бр.</th><th style="width:280px;">Име</th>'
+            '<table class="list"><thead><tr><th class="row-number" title="Редоследот се менува со стрелките и се памети за оваа учебна година. Новододадените одат на крај додека не ги преместите."><span class="rn">Р.Бр.</span></th><th style="width:280px;">Име</th>'
             + '<th style="width:230px;">Профил / кабинет</th><th style="width:110px;">Ученици</th>'
             + '<th style="width:150px;" title="Колку термини има терапевтот во распоредот — план, не одржани сесии. Одржаното е во присуството.">Термини во распоред</th><th></th></tr></thead><tbody>'
             + (data.therapists || []).map((t, index) =>
                 `<tr data-therapist="${t.id}">`
-                + `<td class="row-number">${index + 1}.</td>`
+                + rowNumberCell('therapists', t.id, index, (data.therapists || []).length)
                 + `<td><input class="th-name" value="${esc(personName(t.name))}" data-was="${esc(t.name)}"></td>`
                 + `<td>${categoryPicker('therapist', t.id)}</td>`
                 + `<td>${(t.students || []).length}</td><td>${t.terms_per_week}</td>`
@@ -1400,6 +1491,7 @@
             b.addEventListener('click', () => removeFromYear('therapist', therapist.id, personName(therapist.name)));
         });
         markSubmittable(el('therapists'), 'data-therapist', 'data-save-therapist');
+        attachOrderArrows(el('therapists'), 'therapists', data.therapists || []);
     }
 
     async function renameTherapist(id) {
@@ -1508,7 +1600,7 @@
         const pupilsOf = pupilsByClass();
 
         el('classes').innerHTML =
-            '<table class="list"><thead><tr><th class="row-number">Р.Бр.</th><th style="width:180px;">Одделение</th><th style="width:280px;">Ученици</th>'
+            '<table class="list"><thead><tr><th class="row-number" title="Редоследот се менува со стрелките и се памети за оваа учебна година. Новододадените одат на крај додека не ги преместите."><span class="rn">Р.Бр.</span></th><th style="width:180px;">Одделение</th><th style="width:280px;">Ученици</th>'
             + '<th style="width:220px;">Раководител</th><th>Предметни наставници</th><th></th></tr></thead><tbody>'
             + (data.classes || []).map((c, index) => {
                 const assigned = teachersForClass(c.label);
@@ -1516,7 +1608,7 @@
                 const subjects = assigned.filter((teacher) => teacher.role !== 'homeroom');
                 const pupils = pupilsOf.get(c.label) || [];
                 return `<tr data-class="${c.id}">`
-                    + `<td class="row-number">${index + 1}.</td>`
+                    + rowNumberCell('classes', c.id, index, (data.classes || []).length)
                     + `<td><span class="class-label">${esc(c.label)}</span></td>`
                     + '<td><span class="class-pupils">'
                     + `<span class="count">${pupils.length}</span>`
@@ -1566,6 +1658,7 @@
             button.addEventListener('click', () => focusStudent(button.dataset.gotoStudent)));
         el('classes').querySelectorAll('[data-goto-teacher]').forEach((button) =>
             button.addEventListener('click', () => focusTeacher(Number(button.dataset.gotoTeacher))));
+        attachOrderArrows(el('classes'), 'classes', data.classes || []);
     }
 
     /**
@@ -1645,7 +1738,7 @@
             + (mine.length
                 ? '<table class="list"><tbody>' + mine.map((s, index) =>
                     `<tr data-class-pupil="${esc(s.public_id)}">`
-                    + `<td class="row-number">${index + 1}.</td>`
+                    + `<td class="row-number"><span class="rn">${index + 1}.</span></td>`
                     + `<td>${esc(personName(s.name))} <span class="none">· ${esc(kindLabelOf(s.kind))}</span></td>`
                     + '<td class="act"><select data-move-student="' + esc(s.public_id) + '">'
                     + `<option value="">— премести во… —</option>`
