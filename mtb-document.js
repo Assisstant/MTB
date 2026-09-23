@@ -17,6 +17,12 @@
  * and headings — a later rule wins, and that is how the standard would drift
  * back apart. The two smaller sizes are for what is not text to read: a note
  * (`small`) and a footer or a time label (`tiny`).
+ *
+ * `tableCss` is the other half, stated the same evening: the documents look
+ * like S-Dnevnik's. A header row on a light grey with S-Dnevnik's purple
+ * line under it, dark grey text, and `.rule` for the purple divider under a
+ * title. A generator adds it AFTER its own cell borders, so the purple line
+ * wins over a boxed form's black one, and never restates a header colour.
  */
 (function () {
     'use strict';
@@ -34,5 +40,11 @@
         'h4{font-size:' + SIZE.h4 + ';}' +
         'p{margin:0 0 6pt;}';
 
-    window.MTBDocument = Object.freeze({ FONT, SIZE: Object.freeze(SIZE), css });
+    const ACCENT = '#667eea';
+    const tableCss =
+        'h1,h2{color:#222;}h3{color:#333;}' +
+        'th{background:#f8f9fa;color:#444;font-weight:bold;text-align:center;border-bottom:2px solid ' + ACCENT + ';}' +
+        '.rule{border:none;border-top:2px solid ' + ACCENT + ';margin:4pt 0 10pt;}';
+
+    window.MTBDocument = Object.freeze({ FONT, SIZE: Object.freeze(SIZE), css, ACCENT, tableCss });
 })();

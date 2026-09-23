@@ -135,6 +135,21 @@ test('every suite screen takes light/dark from the one shared choice', async () 
     assert.match(await readRoot('mtb-theme.js'), /const KEY = 'theme';/);
 });
 
+test('the generated documents take their table look from S-Dnevnik, through the standard', async () => {
+    // Owner, 23 Sep 2026: the Word files look like S-Dnevnik's — a light
+    // header row with its purple line. Before, Распоред printed a grey grid and
+    // the евидентен лист a plain #eee row; a generator that paints its own
+    // header row again is how they part.
+    assert.match(await readRoot('mtb-document.js'),
+        /th\{background:#f8f9fa;color:#444;font-weight:bold;text-align:center;border-bottom:2px solid ' \+ ACCENT/);
+    for (const file of ['RasporediFusion.html', 'AkciskiPlan.html']) {
+        const html = await readRoot(file);
+        assert.ok(html.includes('MTBDocument.tableCss'), `${file} does not use the shared table look`);
+        // `: 'th{…}'` is the fallback for when the shared file is missing.
+        assert.doesNotMatch(html, /(?<!: ')th\{background:#e/, `${file} paints its own header row again`);
+    }
+});
+
 test('the connected screens take their look from S-Dnevnik, through one stylesheet', async () => {
     // Owner, 23 Sep 2026: S-Dnevnik has the buttons, sizes and header he
     // wants, and the rest follow it. Before, the header was blue in Настава,
@@ -145,7 +160,8 @@ test('the connected screens take their look from S-Dnevnik, through one styleshe
         'the shared header is no longer the S-Dnevnik gradient');
     assert.match(look, /--primary: #667eea;/, 'the shared primary is no longer the S-Dnevnik one');
     assert.match(look, /padding: 12px 25px;/, 'the shared button is no longer the S-Dnevnik size');
-    for (const file of ['Nastava.html', 'NastavaUredi.html', 'Podatoci.html']) {
+    for (const file of ['Nastava.html', 'NastavaUredi.html', 'Podatoci.html', 'Pregled-Baza.html',
+        'Sinhronizacija.html', 'start.html']) {
         const html = await readRoot(file);
         const head = html.slice(0, html.indexOf('</head>'));
         const link = head.indexOf('<link rel="stylesheet" href="mtb-look.css">');

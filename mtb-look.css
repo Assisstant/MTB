@@ -31,18 +31,22 @@
 
     --primary: #667eea;
     --primary-dark: #5568d3;
+    /* A FILLED button carries white text, and white on S-Dnevnik's #667eea is
+       3.7:1 — under the 4.5:1 anyone should be able to read. Its fill is the
+       next shade of the same palette (4.8:1); the header, borders and
+       highlights keep S-Dnevnik's exact colours. */
+    --btn-bg: #5a67d8;
     --toggle-bg: #edf2f7;
     --toggle-border: #cbd5e0;
     --toggle-text: #4a5568;
     --toggle-on: #4c51bf;
 
     --ok: #2f855a;
-    --success: #48bb78;
-    --success-dark: #38a169;
+    --success: #2f855a;
     --warn: #b7791f;
     --warn-bg: #fff8e6;
-    --danger: #e53e3e;
-    --danger-dark: #c53030;
+    --danger: #c53030;
+    --danger-dark: #9b2c2c;
     --danger-bg: #fff5f5;
 
     /* Older names the pages already use, pointed at the one palette. */
@@ -70,11 +74,15 @@
     --toggle-text: #cbd5e0;
     --toggle-on: #4c51bf;
 
+    --btn-bg: #5a67d8;
+
     --ok: #7fd0a5;
     --warn: #e0b155;
     --warn-bg: #33280f;
+    /* Red TEXT on a dark panel needs the light red; a filled red button
+       keeps the dark one under its white text. */
     --danger: #f56565;
-    --danger-dark: #e53e3e;
+    --danger-dark: #c53030;
     --danger-bg: #35191b;
 }
 
@@ -126,7 +134,7 @@ header a { color: #fff; opacity: .9; font-size: 0.85em; }
     padding: 12px 25px;
     border: none;
     border-radius: 6px;
-    background: var(--primary);
+    background: var(--btn-bg);
     color: #fff;
     font-size: 14px;
     font-weight: 600;
@@ -134,17 +142,18 @@ header a { color: #fff; opacity: .9; font-size: 0.85em; }
     cursor: pointer;
     transition: all 0.3s;
 }
+/* Hover darkens whatever the button is, rather than swapping in one
+   colour: a page's own states (unsaved, saved, failed) and the grey buttons
+   keep their meaning under the mouse. */
 .btn:hover:not(:disabled) {
     transform: translateY(-1px);
     box-shadow: 0 4px 8px rgba(0, 0, 0, .15);
+    filter: brightness(.92);
 }
 .btn:disabled { opacity: .5; cursor: not-allowed; }
-.btn-primary { background: var(--primary); color: #fff; }
-.btn-primary:hover:not(:disabled) { background: var(--primary-dark); }
+.btn-primary { background: var(--btn-bg); color: #fff; }
 .btn-success { background: var(--success); color: #fff; }
-.btn-success:hover:not(:disabled) { background: var(--success-dark); }
-.btn-danger, .btn.danger { background: var(--danger); color: #fff; }
-.btn-danger:hover:not(:disabled), .btn.danger:hover:not(:disabled) { background: var(--danger-dark); }
+.btn-danger, .btn.danger { background: var(--danger-dark); color: #fff; }
 
 /* The quieter button, and the on/off choice between views — S-Dnevnik's
    filter buttons: grey until chosen, indigo when chosen. */
@@ -155,7 +164,6 @@ header a { color: #fff; opacity: .9; font-size: 0.85em; }
     font-weight: 700;
 }
 .btn.soft.danger { color: var(--danger); background: var(--toggle-bg); }
-.btn.soft.danger:hover:not(:disabled) { background: var(--danger-bg); }
 .btn[aria-pressed="true"], .btn.soft[aria-pressed="true"] {
     background: var(--toggle-on);
     color: #fff;
@@ -184,7 +192,7 @@ table .btn { padding: 6px 12px; font-size: 13px; }
 .hint { color: var(--muted); }
 
 /* The browser's own link blue is unreadable on a dark panel. */
-:root[data-theme="dark"] main a:not(.btn) { color: #a3b0f7; }
+:root[data-theme="dark"] main a:not([class]) { color: #a3b0f7; }
 
 @media print {
     header { background: none; color: #000; }

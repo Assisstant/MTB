@@ -2390,20 +2390,27 @@
             : 'body{font-family:"Times New Roman",serif;font-size:11pt;}';
     }
 
+    // S-Dnevnik's table look (mtb-document.js): added after the cell borders,
+    // so its header row and purple line win. The grid keeps its vertical lines:
+    // a week read across five days needs them, which S-Dnevnik's lists do not.
+    function docTableCss() {
+        return window.MTBDocument ? window.MTBDocument.tableCss : '';
+    }
+
     function printStyles() {
         return docCss() + 'body{color:#222;margin:12mm;}' +
             'h1{text-align:center;margin-bottom:3px;}' +
             'h2{text-align:center;color:#555;margin-bottom:3px;}' +
             'h3{text-align:center;color:#777;font-weight:400;margin-bottom:12px;}' +
             'table{width:100%;border-collapse:collapse;table-layout:fixed;}' +
-            'th,td{border:1px solid #999;padding:5px 6px;vertical-align:top;}' +
-            'th{background:#eee;text-align:center;}' +
+            'th,td{border:1px solid #ddd;padding:5px 6px;vertical-align:top;}' +
+            docTableCss() +
             'th.slot{width:78px;}' +
-            'td.slot{background:#f4f4f4;text-align:center;vertical-align:middle;}' +
+            'td.slot{background:#f8f9fa;text-align:center;vertical-align:middle;}' +
             'td.slot .roman{font-size:14pt;font-weight:bold;display:block;}' +
             'td.slot .range{font-size:8pt;color:#555;display:block;line-height:1.5;}' +
             'td.free{text-align:center;color:#bbb;vertical-align:middle;}' +
-            '.pupil{border-left:3px solid #38b2ac;background:#f0fdfa;border-radius:3px;padding:3px 5px;margin-bottom:3px;}' +
+            '.pupil{border-left:3px solid #667eea;background:#f5f6fe;border-radius:3px;padding:3px 5px;margin-bottom:3px;}' +
             '.pupil:last-child{margin-bottom:0;}' +
             '.badge{display:inline-block;min-width:26px;font-size:8pt;font-weight:bold;color:#555;' +
             'background:#e2e8f0;border-radius:3px;padding:1px 3px;text-align:center;margin-right:5px;}' +
@@ -2542,9 +2549,9 @@
             'h2{text-align:center;margin:0 0 2pt;color:#444;}' +
             'h3{text-align:center;margin:0 0 8pt;color:#777;font-weight:normal;}' +
             'table{border-collapse:collapse;width:100%;table-layout:fixed;}' +
-            'th,td{border:1px solid #999;padding:3pt 4pt;vertical-align:top;}' +
-            'th{background:#e8e8e8;}' +
-            'td.slot{background:#f4f4f4;text-align:center;vertical-align:middle;width:62pt;}' +
+            'th,td{border:1px solid #ddd;padding:3pt 4pt;vertical-align:top;}' +
+            docTableCss() +
+            'td.slot{background:#f8f9fa;text-align:center;vertical-align:middle;width:62pt;}' +
             '.roman{font-size:14pt;}' +
             'td.free{color:#bbb;text-align:center;vertical-align:middle;}' +
             'p.pupil{margin:0 0 3pt;}' +

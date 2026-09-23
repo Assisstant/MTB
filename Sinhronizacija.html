@@ -5,43 +5,38 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Синхронизација — MTB</title>
 <script src="mtb-theme.js"></script>
+<link rel="stylesheet" href="mtb-look.css">
 <style>
+/* Palette, header and font are the suite's one look (mtb-look.css, taken
+   from S-Dnevnik). The verdict colours below are this page's own: each one
+   means a state, and they are measured against their own backgrounds. */
 :root {
-    --bg: #f4f6f9; --card: #fff; --text: #1e293b; --muted: #5b6776;
-    --line: #e2e8f0; --primary: #1d4ed8; --chip: #eef2f7;
+    --line: var(--border); --chip: var(--soft); --code: var(--soft);
     --ok: #0f6b4f; --ok-bg: #e3f3ec; --warn: #8a4b06; --warn-bg: #fbefdc;
     --bad: #a61b1b; --bad-bg: #fbe6e6; --info: #1e4f8f; --info-bg: #e5eefb;
-    --code: #f3f5f8;
+    --link: var(--btn-bg);
 }
 :root[data-theme="dark"] {
-    --bg: #0f172a; --card: #1b2638; --text: #e2e8f0; --muted: #a3b0c2;
-    --line: #334155; --primary: #93b8ff; --chip: #2a3850;
     --ok: #7fdcb9; --ok-bg: #16352c; --warn: #f3c27a; --warn-bg: #3a2c16;
     --bad: #ff9d9d; --bad-bg: #3d1d1f; --info: #a9c8ff; --info-bg: #1c2d4a;
-    --code: #121b2b;
+    --link: #a3b0f7;
 }
-* { box-sizing: border-box; }
-body {
-    margin: 0; background: var(--bg); color: var(--text);
-    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-    font-size: 15px; line-height: 1.55;
-}
+body { font-size: 15px; line-height: 1.55; }
 main { max-width: 980px; margin: 0 auto; padding: 18px 16px 64px; }
-h1 { font-size: 1.35rem; margin: 0 0 4px; letter-spacing: -.01em; }
 h2 { font-size: 1.05rem; margin: 0; }
 h3 { font-size: .95rem; margin: 14px 0 6px; }
 p { margin: 0 0 8px; }
-a { color: var(--primary); }
+a { color: var(--link); }
 .lead { color: var(--muted); max-width: 70ch; margin-bottom: 16px; }
 .levels { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; margin-bottom: 18px; }
 .level {
     display: block; text-decoration: none; color: inherit; background: var(--card);
-    border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px;
+    border: 2px solid var(--line); border-radius: 8px; padding: 12px 14px;
 }
 .level:hover, .level:focus-visible { border-color: var(--primary); outline: none; }
 .level .n { font-size: 12px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: .04em; }
 .level .t { font-weight: 650; margin: 2px 0 6px; }
-.card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 16px; margin-bottom: 16px; }
+.card { background: var(--card); border: 2px solid var(--line); border-radius: 8px; padding: 16px; margin-bottom: 16px; }
 .card-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin-bottom: 10px; }
 .card-head h2 { flex: 1 1 auto; }
 .badge {
@@ -78,15 +73,18 @@ dl.facts dd { margin: 0; overflow-wrap: anywhere; }
     font-family: ui-monospace, "Cascadia Mono", Consolas, monospace; font-size: 12.5px; line-height: 1.45;
 }
 .cmd button { flex: 0 0 auto; }
+/* S-Dnevnik's buttons: grey and bold, the one that goes somewhere filled. */
 button {
-    font: inherit; font-size: 13.5px; padding: 6px 12px; border-radius: 8px; cursor: pointer;
-    border: 1px solid var(--line); background: var(--card); color: var(--text);
+    font: inherit; font-size: 13.5px; font-weight: 700; padding: 7px 14px; border-radius: 6px; cursor: pointer;
+    border: 1px solid var(--toggle-border); background: var(--toggle-bg); color: var(--toggle-text);
+    transition: all .3s;
 }
-button:hover, button:focus-visible { border-color: var(--primary); outline: none; }
+button:hover, button:focus-visible { border-color: var(--primary); outline: none; filter: brightness(.95); }
 .btn-link {
-    display: inline-block; padding: 7px 13px; border-radius: 8px; background: var(--primary);
-    color: var(--card); text-decoration: none; font-weight: 600; font-size: 14px;
+    display: inline-block; padding: 10px 20px; border-radius: 6px; background: var(--btn-bg);
+    color: #fff; text-decoration: none; font-weight: 600; font-size: 14px; transition: all .3s;
 }
+.btn-link:hover { transform: translateY(-1px); box-shadow: 0 4px 8px rgba(0,0,0,.15); }
 .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 .scroll { overflow-x: auto; }
 table { width: 100%; border-collapse: collapse; font-size: 14px; }
@@ -115,8 +113,10 @@ ul.plain li { margin-bottom: 4px; }
 </style>
 </head>
 <body>
+<header>
+    <h1>🔄 Синхронизација и резерви</h1>
+</header>
 <main>
-    <h1>Синхронизација и резерви</h1>
     <p class="lead">Каде се твоите податоци, дали стигнале до базата и како се пренесуваат меѓу РАБОТА и ДОМА.
         Оваа страница само ја чита состојбата. Ништо не менува, не синхронизира и не враќа база.</p>
 

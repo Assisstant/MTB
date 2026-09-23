@@ -28,14 +28,18 @@
 <style>
 :root{
   --brand1:#667eea; --brand2:#764ba2;
-  --bg:#eef1f7; --card:#fff; --text:#1a202c; --sub:#64748b; --border:#e2e8f0;
-  --hover:#f1f5f9; --green:#48bb78; --red:#e53e3e; --amber:#dd8b1f; --blue:#3182ce;
+  --bg:#f7fafc; --card:#fff; --text:#2d3748; --sub:#5f6b7d; --border:#e2e8f0;
+  --hover:#edf2f7; --green:#48bb78; --red:#e53e3e; --amber:#dd8b1f; --blue:#3182ce;
+  /* Filled buttons carry white text: the next shade of S-Dnevnik's palette,
+     as in mtb-look.css, because white on #667eea / #48bb78 is under 4.5:1. */
+  --btn-bg:#5a67d8; --btn-green:#2f855a; --btn-red:#c53030; --btn-blue:#2b6cb0;
   --radius:8px; --shadow:0 1px 3px rgba(16,24,40,.08),0 1px 2px rgba(16,24,40,.06);
   --font:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;
 }
+/* S-Dnevnik's dark palette (body.dark-mode there). */
 body.dark{
-  --bg:#111827; --card:#1b2432; --text:#e8edf5; --sub:#9aa8bd; --border:#2d3a4d;
-  --hover:#243044; --shadow:0 1px 3px rgba(0,0,0,.45);
+  --bg:#1a202c; --card:#2d3748; --text:#e2e8f0; --sub:#a0aec0; --border:#4a5568;
+  --hover:#374151; --shadow:0 1px 3px rgba(0,0,0,.45);
 }
 *{box-sizing:border-box;margin:0;padding:0;}
 body{font-family:var(--font);background:var(--bg);color:var(--text);font-size:14px;line-height:1.5;}
@@ -61,13 +65,15 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);font-size:14
 .bar label{font-size:11px;font-weight:700;color:var(--sub);text-transform:uppercase;letter-spacing:.4px;}
 select,input,textarea{font-family:var(--font);font-size:13px;padding:7px 10px;border:1px solid var(--border);border-radius:6px;background:var(--card);color:var(--text);}
 textarea{min-height:56px;resize:vertical;width:100%;}
-.btn{display:inline-flex;align-items:center;gap:6px;padding:8px 15px;border-radius:6px;cursor:pointer;font-size:13px;font-weight:600;font-family:var(--font);background:var(--hover);color:var(--text);border:1px solid var(--border);}
-.btn:hover{filter:brightness(.96);}
-.btn-p{background:linear-gradient(135deg,var(--brand1),var(--brand2));color:#fff;border-color:transparent;}
-.btn-g{background:var(--green);color:#fff;border-color:transparent;}
-.btn-r{background:var(--red);color:#fff;border-color:transparent;}
-.btn-b{background:var(--blue);color:#fff;border-color:transparent;}
-.btn-sm{padding:4px 9px;font-size:11.5px;}
+/* S-Dnevnik's buttons: 14px, bold, lifted on hover; the plain one is its
+   grey filter button, the coloured ones are filled. */
+.btn{display:inline-flex;align-items:center;gap:6px;padding:10px 20px;border-radius:6px;cursor:pointer;font-size:14px;font-weight:700;font-family:var(--font);background:var(--hover);color:var(--text);border:1px solid var(--border);transition:all .3s;}
+.btn:hover:not([disabled]){filter:brightness(.94);transform:translateY(-1px);box-shadow:0 4px 8px rgba(0,0,0,.15);}
+.btn-p{background:var(--btn-bg);color:#fff;border-color:transparent;}
+.btn-g{background:var(--btn-green);color:#fff;border-color:transparent;}
+.btn-r{background:var(--btn-red);color:#fff;border-color:transparent;}
+.btn-b{background:var(--btn-blue);color:#fff;border-color:transparent;}
+.btn-sm{padding:5px 11px;font-size:12px;}
 .btn[disabled]{opacity:.5;cursor:not-allowed;}
 
 /* Layout */
@@ -1962,7 +1968,10 @@ body.dark .at tr.ev td{color:#a3b0f7;}
         + '.c{text-align:center;}.b{font-weight:bold;}.u{text-decoration:underline;}'
         + '.sm{font-size:9pt;color:#555;}table{width:100%;border-collapse:collapse;margin:6px 0;}'
         + 'th,td{border:1px solid #000;padding:4px 6px;vertical-align:top;}'
-        + 'th{background:#eee;font-weight:bold;text-align:center;}td:first-child{text-align:left;}'
+        // The form keeps its boxes (people write into them); the header row
+        // takes S-Dnevnik's look from the shared standard.
+        + (window.MTBDocument ? window.MTBDocument.tableCss : 'th{background:#eee;font-weight:bold;text-align:center;}')
+        + 'td:first-child{text-align:left;}'
         + '.pb{page-break-before:always;}.ev{font-size:9pt;}h2{margin:12px 0 6px;text-align:center;}'
         + 'ul{margin:4px 0;padding-left:18px;}';
 

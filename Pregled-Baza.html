@@ -5,36 +5,31 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Преглед на базата — MTB</title>
 <script src="mtb-theme.js"></script>
+<link rel="stylesheet" href="mtb-look.css">
 <style>
-:root {
-    --bg: #f4f6f9; --card: #fff; --text: #1e293b; --muted: #64748b;
-    --line: #e2e8f0; --primary: #2563eb; --ok: #16a34a; --warn: #d97706;
-    --danger: #dc2626; --chip: #f1f5f9;
-}
-:root[data-theme="dark"] {
-    --bg: #0f172a; --card: #1e293b; --text: #e2e8f0; --muted: #94a3b8;
-    --line: #334155; --primary: #60a5fa; --ok: #4ade80; --warn: #fbbf24;
-    --danger: #f87171; --chip: #334155;
-}
-* { box-sizing: border-box; }
-body {
-    margin: 0; background: var(--bg); color: var(--text);
-    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-    font-size: 15px; line-height: 1.5;
-}
+/* Palette, header and font are the suite's one look (mtb-look.css, taken
+   from S-Dnevnik). */
+:root { --line: var(--border); --chip: var(--toggle-bg); }
+body { font-size: 15px; line-height: 1.5; }
 .db-page { padding: 12px; }
-header { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 14px; }
-h1 { font-size: 18px; margin: 0; flex: 1; min-width: 180px; }
+header h1 { flex: 1; min-width: 180px; }
+header select { padding: 7px 10px; border-radius: 6px; border: 1px solid transparent; }
 h2 { font-size: 15px; margin: 0 0 10px; }
-select, input, button {
-    font: inherit; padding: 7px 10px; border-radius: 8px;
-    border: 1px solid var(--line); background: var(--card); color: var(--text);
+select, input {
+    font: inherit; padding: 7px 10px; border-radius: 6px;
+    border: 2px solid var(--line); background: var(--card); color: var(--text);
 }
-button { cursor: pointer; }
-button.primary { background: var(--primary); color: #fff; border-color: transparent; }
-.card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 14px; margin-bottom: 12px; }
+/* S-Dnevnik's buttons: grey and bold, the main one filled. */
+button {
+    font: inherit; font-size: 14px; font-weight: 700; padding: 8px 16px; border-radius: 6px; cursor: pointer;
+    border: 1px solid var(--toggle-border); background: var(--toggle-bg); color: var(--toggle-text);
+    transition: all .3s;
+}
+button:hover { transform: translateY(-1px); box-shadow: 0 4px 8px rgba(0,0,0,.15); filter: brightness(.95); }
+button.primary { background: var(--btn-bg); color: #fff; border-color: transparent; }
+.card { background: var(--card); border: 2px solid var(--line); border-radius: 8px; padding: 14px; margin-bottom: 12px; }
 .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 10px; margin-bottom: 12px; }
-.tile { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 12px; }
+.tile { background: var(--card); border: 2px solid var(--line); border-radius: 8px; padding: 12px; }
 .tile b { display: block; font-size: 24px; line-height: 1.2; }
 .tile span { font-size: 12px; color: var(--muted); }
 .tile.warn b { color: var(--warn); }
@@ -66,13 +61,13 @@ dialog::backdrop { background: rgba(0,0,0,.5); }
 </style>
 </head>
 <body>
-<main class="db-page">
-
 <header>
     <h1>📊 Преглед на базата</h1>
     <select id="yearSel" onchange="loadAll()"></select>
-    <button class="primary" onclick="loadAll()">↻ Освежи</button>
+    <button onclick="loadAll()">↻ Освежи</button>
 </header>
+
+<main class="db-page">
 
 <div id="err" class="card err" style="display:none"></div>
 
