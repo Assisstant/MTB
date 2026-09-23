@@ -40,7 +40,15 @@ const diary = () => ({
         { id: 106, name: 'Дана Двојна', grade: 'VII', kind: 'internal' },
         { id: 109, name: 'Зора Петрова - Јованова', grade: 'VIII', kind: 'internal' },
         // One diary pupil, but TWO children of that name in the database.
-        { id: 110, name: 'Ива Близнак', grade: 'III', kind: 'internal' }
+        { id: 110, name: 'Ива Близнак', grade: 'III', kind: 'internal' },
+        // The same child entered twice in the database: the diary still points
+        // at the OLD record, the database gives the diary number to the NEW one.
+        { id: 111, name: 'Хана Преместена', grade: 'VII', kind: 'internal', rasporediStudentId: 'RS-OLD' },
+        // Same, but the old record is ALSO booked in this plan: no guessing.
+        { id: 112, name: 'Тина Двоен', grade: 'VI', kind: 'internal', rasporediStudentId: 'RS-P2OLD' },
+        // Same child twice, and the new record has NO diary number (WORK's
+        // local shape): must not be added as a second diary pupil.
+        { id: 113, name: 'Лука Двапати', grade: 'VIII', kind: 'internal', rasporediStudentId: 'RS-STALE' }
     ],
     archivedStudents: [{ id: 107, name: 'Ѓорѓи Архивски', grade: 'VII', kind: 'internal' }],
     formerCaseloadStudents: [{ id: 108, name: 'Елена Поранешна', grade: 'IV', kind: 'internal', rasporediStudentId: 'RS-G' }],
@@ -63,7 +71,13 @@ const roster = {
         { public_id: 'RS-H', sdnevnik_id: null, name: 'IX-а - Жана Нова', grade: 'IX-а', kind: 'external' },
         { public_id: 'RS-I', sdnevnik_id: null, name: 'Зора Петрова - Јованова', grade: 'VIII', kind: 'internal' },
         { public_id: 'RS-K', sdnevnik_id: null, name: 'III-а - Ива Близнак', grade: 'III-а', kind: 'internal' },
-        { public_id: 'RS-L', sdnevnik_id: null, name: 'V-а - Ива Близнак', grade: 'V-а', kind: 'internal' }
+        { public_id: 'RS-L', sdnevnik_id: null, name: 'V-а - Ива Близнак', grade: 'V-а', kind: 'internal' },
+        { public_id: 'RS-NEW', sdnevnik_id: '111', name: 'VII - Хана Преместена', grade: 'VII', kind: 'internal' },
+        { public_id: 'RS-P2NEW', sdnevnik_id: '112', name: 'VI-а - Тина Двоен', grade: 'VI-а', kind: 'internal' },
+        { public_id: 'RS-P2OLD', sdnevnik_id: null, name: 'Тина Двоен', grade: 'VI', kind: 'internal' },
+        { public_id: 'RS-FRESH', sdnevnik_id: null, name: 'VIII - Лука Двапати', grade: 'VIII', kind: 'internal' },
+        // A SECOND new pupil with no diary number: both must arrive as two children.
+        { public_id: 'RS-H2', sdnevnik_id: null, name: 'IX-а - Мила Нова', grade: 'IX-а', kind: 'internal' }
     ]
 };
 
@@ -84,6 +98,11 @@ const sessions = {
         s('петок', '09:40-10:20', 'RS-I', 'Зора Петрова - Јованова'),
         s('петок', '10:25-11:05', 'RS-J', 'Непознат Пробен'),
         s('четврток', '08:00-08:40', 'RS-K', 'III-а - Ива Близнак'),
+        s('среда', '08:00-08:40', 'RS-NEW', 'VII - Хана Преместена'),
+        s('среда', '08:45-09:25', 'RS-P2NEW', 'VI-а - Тина Двоен'),
+        s('среда', '11:10-11:50', 'RS-P2OLD', 'Тина Двоен'),
+        s('вторник', '08:00-08:40', 'RS-FRESH', 'VIII - Лука Двапати'),
+        s('вторник', '09:40-10:20', 'RS-H2', 'IX-а - Мила Нова'),
         s('понеделник', '11:55-12:35', 'RS-A', 'V-а - Ана Тестова'),
         s('понеделник', '08:45-09:25', 'RS-A', 'V-а - Ана Тестова', 'Друг Терапевт'),
         s('вторник', '10:25-11:05', null, null)
@@ -203,7 +222,14 @@ const click = async (page, dialogs, expectConfirm = true) => {
             bridges: { 102: byId(102)?.rasporediStudentId, 103: byId(103)?.rasporediStudentId,
                 104: byId(104)?.rasporediStudentId, 105: byId(105)?.rasporediStudentId,
                 106: byId(106)?.rasporediStudentId, 109: byId(109)?.rasporediStudentId,
-                110: byId(110)?.rasporediStudentId },
+                110: byId(110)?.rasporediStudentId, 111: byId(111)?.rasporediStudentId,
+                112: byId(112)?.rasporediStudentId, 113: byId(113)?.rasporediStudentId },
+            wed0: window.schedule.wednesday[0], wed1: window.schedule.wednesday[1],
+            wed4: window.schedule.wednesday[4], tue0: window.schedule.tuesday[0],
+            lukaCopies: nameCount('Лука Двапати'),
+            added2: window.students.find((x) => x.rasporediStudentId === 'RS-H2') || null,
+            tue2: window.schedule.tuesday[2],
+            ids: window.students.map((x) => x.id),
             added: window.students.find((x) => x.rasporediStudentId === 'RS-H') || null,
             restored: !!window.students.find((x) => x.id === 108),
             stillFormer: (window.formerCaseloadStudents || []).some((x) => x.id === 108),
@@ -217,7 +243,7 @@ const click = async (page, dialogs, expectConfirm = true) => {
 
     console.log('\nconfirmation');
     check('one confirmation is shown', seen.filter((d) => d.type === 'confirm').length === 1, JSON.stringify(seen.map((d) => d.type)));
-    check('it names how many terms will be placed', /• 7 термин\(и\) ќе бидат поставени/.test(confirmText), confirmText);
+    check('it names how many terms will be placed', /• 10 термин\(и\) ќе бидат поставени/.test(confirmText), confirmText);
     check('a link by name is shown for the person to check', confirmText.includes('дневник „VI - Вера Измислена" = база „VI-а - Вера Измислена"'));
     check('the combined-class pupil is linked by name, and shown', confirmText.includes('дневник „II-а - Гоце Пробни" = база „Комбинирана II, III, IV - Гоце Пробни"'));
     check('a link by the diary number is NOT listed as a name guess', !confirmText.includes('Бојана Пробена" = база'));
@@ -228,7 +254,14 @@ const click = async (page, dialogs, expectConfirm = true) => {
     check('a pupil off the annual list is refused and said so', confirmText.includes('Непознат Пробен — не е на годишниот список'));
     check('one diary pupil is NOT guessed between two same-name children in the database',
         confirmText.includes('III-а - Ива Близнак — повеќе деца со тоа име'));
-    check('the refused terms are counted', /НЕ се ставени \(4 термин\(и\)\)/.test(confirmText), confirmText);
+    check('a link the database moved is followed, and said so',
+        /1 врска\(и\) преместени според базата[\s\S]*Хана Преместена/.test(confirmText), confirmText);
+    check('a moved link is not dressed up as a name guess', !confirmText.includes('Хана Преместена" = база'));
+    check('when the old record is also booked, the link is NOT moved',
+        confirmText.includes('VI-а - Тина Двоен — во дневникот е поврзан со друг ученик од базата'));
+    check('a same-name child on another record is reported, not added',
+        confirmText.includes('VIII - Лука Двапати — во дневникот веќе има дете со тоа име'));
+    check('the refused terms are counted', /НЕ се ставени \(6 термин\(и\)\)/.test(confirmText), confirmText);
     check('the VI hour the diary does not have is named', /1 термин\(и\) во час што дневникот го нема \(11:55-12:35\)/.test(confirmText));
 
     console.log('\nwhat landed in the diary');
@@ -251,7 +284,21 @@ const click = async (page, dialogs, expectConfirm = true) => {
     check('neither of the two same-name pupils got a bridge', !r.bridges[105] && !r.bridges[106]);
     check('the diary pupil with two database namesakes got no bridge and no term',
         !r.bridges[110] && r.thu0.length === 0, JSON.stringify(r.thu0));
-    check('exactly two pupils were added or restored', r.total === 10, String(r.total));
+    check('the database-moved link is placed on the new record', JSON.stringify(r.wed0) === '[111]' && r.bridges[111] === 'RS-NEW',
+        JSON.stringify(r.wed0) + ' ' + r.bridges[111]);
+    check('with both records booked, the diary keeps its own link and only that term',
+        r.bridges[112] === 'RS-P2OLD' && r.wed1.length === 0 && JSON.stringify(r.wed4) === '[112]',
+        JSON.stringify({ b: r.bridges[112], wed1: r.wed1, wed4: r.wed4 }));
+    check('a child stored twice is NOT copied into the diary a second time', r.lukaCopies === 1, String(r.lukaCopies));
+    check('that child keeps its link and gets no term by guess', r.bridges[113] === 'RS-STALE' && r.tue0.length === 0,
+        JSON.stringify({ b: r.bridges[113], tue0: r.tue0 }));
+    check('two new pupils without a diary number arrive as TWO children',
+        !!r.added && !!r.added2 && r.added.id !== r.added2.id, JSON.stringify([r.added?.id, r.added2?.id]));
+    check('no pupil gets diary id 0 from a missing number', !r.ids.includes(0), JSON.stringify(r.ids));
+    check('every diary id is unique', new Set(r.ids).size === r.ids.length, JSON.stringify(r.ids));
+    check('the second new pupil holds its own term', !!r.added2 && JSON.stringify(r.tue2) === JSON.stringify([r.added2.id]),
+        JSON.stringify(r.tue2));
+    check('exactly three pupils were added or restored', r.total === 14, String(r.total));
 
     console.log('\nthe server');
     check('the diary synced with its server BEFORE reading the plan', server.puts.length >= 2, String(server.puts.length));

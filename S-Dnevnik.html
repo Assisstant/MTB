@@ -2580,7 +2580,13 @@
         }
 
         function annualRosterStudentId(row) {
-            var raw = Number(row && row.sdnevnik_id);
+            // `Number(null)` е 0, а не „нема број". Ученик од базата без
+            // `sdnevnik_id` (годишниот список од 11 септември е токму таков)
+            // добиваше дневнички id 0, па секој следен таков „веќе беше
+            // додаден" — и неговите термини паѓаа врз првото дете.
+            var value = row ? row.sdnevnik_id : null;
+            if (value == null || String(value).trim() === '') return null;
+            var raw = Number(value);
             return Number.isFinite(raw) ? raw : null;
         }
 
@@ -3941,7 +3947,9 @@
                 };
                 var take = function (student, how) {
                     claimed[student.id] = pid;
-                    if (bridge(student) !== pid) links.push({ student: student, publicId: pid, how: how, dbName: p.name });
+                    if (bridge(student) !== pid) {
+                        links.push({ student: student, publicId: pid, how: how, dbName: p.name, from: bridge(student) });
+                    }
                     resolved[pid] = { student: student };
                 };
 
@@ -3949,7 +3957,28 @@
                 var known = findAnnualStudent(active, row);
                 if (known >= 0) {
                     var st = active[known];
-                    if (!free(st)) {
+                    if (claimed[st.id] && claimed[st.id] !== pid) {
+                        skip(pid, 'истото дете во дневникот е веќе земено за друг ученик од базата — провери рачно');
+                        return;
+                    }
+                    var was = bridge(st);
+                    if (was && was !== pid) {
+                        // Дневникот вели еден запис, базата со СВОЈАТА врска
+                        // (`sdnevnik_id`) вели друг. Базата е изворот на
+                        // вистината (одлука на сопственикот, 23 септември), па
+                        // врската се преместува — но само кога стариот запис
+                        // не е во овој план. Ако и тој е закажан, две деца од
+                        // базата бараат едно од дневникот и тоа не се погодува.
+                        //
+                        // Така изгледа кога годишниот список е внесен како НОВИ
+                        // записи (11 септември) наместо на постоечките: стариот
+                        // ја носи врската со дневникот, новиот ги носи терминот
+                        // и паралелката, и базата подоцна му ја дала врската.
+                        var dbSays = row.sdnevnik_id != null && String(row.sdnevnik_id) === String(st.id);
+                        if (dbSays && !pupils[was]) {
+                            take(st, 'поправена врска');
+                            return;
+                        }
                         skip(pid, 'во дневникот е поврзан со друг ученик од базата — провери рачно');
                         return;
                     }
@@ -3983,6 +4012,14 @@
                 }
                 if (former.some(function (s) { return pupilNameKey(s.name) === key && !bridge(s); })) {
                     skip(pid, 'можеби е истиот како поранешен ученик во дневникот — поврзи рачно');
+                    return;
+                }
+                // Ист со некој што дневникот веќе го води, но поврзан со друг
+                // запис: тоа е речиси секогаш истото дете внесено двапати во
+                // базата, а базата не кажала кој запис е вистинскиот. Додавање
+                // би направило втора копија во дневникот.
+                if (active.some(function (s) { return pupilNameKey(s.name) === key; })) {
+                    skip(pid, 'во дневникот веќе има дете со тоа име, поврзано со друг запис во базата — поврзи рачно');
                     return;
                 }
                 if (!rowById[pid]) {
@@ -4022,7 +4059,12 @@
 
         function describeFusionPlan(plan, me) {
             var lines = ['Од базата, за ' + me + ':', '', '• ' + plan.cells.length + ' термин(и) ќе бидат поставени'];
-            var byName = plan.links.filter(function (l) { return l.how !== 'број'; });
+            var moved = plan.links.filter(function (l) { return l.how === 'поправена врска'; });
+            if (moved.length) {
+                lines.push('', '• ' + moved.length + ' врска(и) преместени според базата (стариот запис нема термини во планот):');
+                moved.forEach(function (l) { lines.push('    ' + l.student.name); });
+            }
+            var byName = plan.links.filter(function (l) { return l.how !== 'број' && l.how !== 'поправена врска'; });
             if (byName.length) {
                 lines.push('', '• Поврзани по ИМЕ — провери дали е истото дете:');
                 byName.forEach(function (l) {
