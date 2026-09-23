@@ -88,9 +88,12 @@ contract and recovery export, not a reason to fork the live interface.
 
 **Direction chosen 23 Sep 2026: the cloud becomes the source of truth.** The
 owner decided that daily work is written in Supabase (the Render app) and that
-WORK and HOME become read-only `*_mirror` copies (`docs/SUPABASE-MIRROR.md`),
-accepting that nothing is written without Internet. Nothing has been converted
-yet: every rollout step needs its own approval, and until a PC's mirror is live
+each PC may also hold a read-only `*_mirror` copy (`docs/SUPABASE-MIRROR.md`).
+Refined the same day: the local `therapy_dev` is NOT made read-only — it stays
+a writable fallback mode, chosen by which address is opened. Work entered
+locally is never sent to the cloud automatically; it is re-entered there by
+hand, so local mode is for a reason (no Internet), not a daily alternative.
+Nothing has been converted yet: every rollout step needs its own approval, and until a PC's mirror is live
 the manual sync below still describes how it works. Never build two-way sync
 toward the cloud — local numeric ids collide. See `docs/APP-CONTRACT.md`.
 

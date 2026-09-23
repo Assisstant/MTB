@@ -245,9 +245,11 @@ manual handover remain unchanged until a separately approved PC rollout.
 
 **Owner decision, 23 September 2026: the cloud is the target source of truth.**
 Daily work (schedule, diary, lists) is to be written in Supabase through the
-cloud app; WORK and HOME become read-only `*_mirror` copies that serve offline
-reading and backup. The owner accepted the cost: without Internet nothing is
-written. This chooses the direction; it does not by itself convert anything.
+cloud app; WORK and HOME may hold read-only `*_mirror` copies that serve
+offline reading and backup. Refined the same day: each PC's `therapy_dev` stays
+writable as a fallback mode, chosen by the address opened, and is not converted
+into a mirror. Local work is never sent to the cloud automatically; it is
+re-entered there by hand. This chooses the direction; it does not by itself convert anything.
 Each rollout step still needs its own approval, and until a PC's mirror is live
 its `therapy_dev` and the manual handover keep working as documented above. It
 never means two-way sync: local databases do not send anything to the cloud,
