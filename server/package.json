@@ -63,7 +63,8 @@
     "test:evidence-ui": "node test/evidence.browser.mjs",
     "test:categories": "tsx test/categories.e2e.ts",
     "test:colleague": "tsx test/colleague.e2e.ts",
-    "typecheck": "tsc -p tsconfig.test.json"
+    "typecheck": "tsc -p tsconfig.test.json",
+    "test:sdnevnik-pull": "node test/sdnevnik-fusion-pull.browser.mjs"
   },
   "dependencies": {
     "@fastify/cookie": "^11.1.2",

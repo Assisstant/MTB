@@ -2732,13 +2732,31 @@
         }
 
         function addStudentFromAnnualRoster(row) {
-            if (!row || findAnnualStudent(window.students || [], row) >= 0) return;
-            if (!Array.isArray(window.formerCaseloadStudents)) window.formerCaseloadStudents = [];
-            var archivedIndex = findAnnualStudent(window.archivedStudents || [], row);
-            if (archivedIndex >= 0) {
+            var result = admitAnnualStudent(row);
+            if (result === 'archived') {
                 alert('Овој ученик е во архивата. Врати го од „Податоци → Учебна година".');
                 return;
             }
+            if (!result || typeof result !== 'object') return;
+            saveData();
+            renderAll();
+            renderAnnualRosterPicker();
+            if (typeof window.showToast === 'function') window.showToast('Ученикот е додаден во „Мои ученици".');
+        }
+
+        /**
+         * Го става ученикот од годишниот список во „Мои ученици", без да
+         * зачувува и без да црта. Го користат и копчето „Додади" и „⬇ Земи од
+         * базата", кое додава повеќе ученици одеднаш и зачувува еднаш — една
+         * копија на тоа како изгледа ученик додаден од базата, не две.
+         *
+         * Враќа го ученикот, или 'present' / 'archived' / null кога не додава.
+         */
+        function admitAnnualStudent(row) {
+            if (!row) return null;
+            if (findAnnualStudent(window.students || [], row) >= 0) return 'present';
+            if (!Array.isArray(window.formerCaseloadStudents)) window.formerCaseloadStudents = [];
+            if (findAnnualStudent(window.archivedStudents || [], row) >= 0) return 'archived';
 
             var formerIndex = findAnnualStudent(window.formerCaseloadStudents, row);
             var student;
@@ -2774,10 +2792,7 @@
             if (student.planId != null && !Array.isArray(window.studentProgress[student.id][student.planId])) {
                 window.studentProgress[student.id][student.planId] = [];
             }
-            saveData();
-            renderAll();
-            renderAnnualRosterPicker();
-            if (typeof window.showToast === 'function') window.showToast('Ученикот е додаден во „Мои ученици".');
+            return student;
         }
 
         function showAddStudentModal() {
@@ -3693,25 +3708,6 @@
         }
         
         /**
-         * Ја зема неделата од базата — планот што го држи Rasporedi Fusion.
-         *
-         * ЗОШТО ПОСТОИ. Двете апликации до сега држеа свој распоред: Fusion во
-         * `schedule_slots`, овој дневник во својот блоб. Не се разидуваа поради
-         * грешка туку по конструкција — никогаш не читаа од исто место. Fusion
-         * е сопственик на ПЛАНОТ (тој е единствениот што може да открие исто
-         * дете закажано во два кабинета истовремено); овој дневник е сопственик
-         * на тоа ШТО СЕ СЛУЧИЛО. Значи планот доаѓа оттаму, а измената по
-         * земањето останува тука.
-         *
-         * ЗОШТО СЕ ПОТВРДУВА, а не се повлекува само. Земањето го заменува
-         * живиот шаблон, кој оваа и сите идни недели го читаат. Тоа е доволно
-         * голема работа за да ја види човек пред да се случи — истото правило
-         * како синхронизацијата со серверот, која при разидување одбива да спои
-         * и прашува.
-         *
-         * СНИМКИТЕ НА МИНАТИТЕ НЕДЕЛИ НЕ СЕ ДОПИРААТ. Тие се запис, не план.
-         */
-        /**
          * Кој терапевт е овој дневник — прашано еднаш, од списокот на базата.
          *
          * Името се чуваше само кога ќе дојде преку Unified JSON или од стариот
@@ -3743,106 +3739,351 @@
                 });
         }
 
+        /**
+         * „⬇ Земи од базата" — дневникот до базата во еден клик.
+         *
+         * ЗОШТО ПОСТОИ. Fusion ја држи неделата во `schedule_slots`, овој
+         * дневник во својот документ. Не се разидуваа поради грешка туку по
+         * конструкција — никогаш не читаа од исто место. Fusion е сопственик на
+         * ПЛАНОТ (единствениот што открива исто дете во два кабинета
+         * истовремено); дневникот е сопственик на тоа ШТО СЕ СЛУЧИЛО. Значи
+         * планот доаѓа оттаму, а измената по земањето останува тука.
+         *
+         * ЧЕТИРИ ЧЕКОРИ, по ред, и секој запира ако не успее:
+         *   1. Дневникот се согласува со својот сервер (`SdnLocalSrv.sync`) —
+         *      истото правило како секогаш: се сменила едната страна → се зема
+         *      таа; двете → се запира и се прашува човек. Без ова, планот би се
+         *      ставил врз застарена копија, а следното праќање би ја вратила.
+         *   2. Планот и годишниот список се читаат од ИСТИОТ сервер.
+         *   3. Секој ученик од планот се наоѓа во дневникот или се додава од
+         *      списокот (`planFusionPupils`). До „OK" ништо не е сменето.
+         *   4. По „OK" се зачувува и веднаш се праќа на серверот.
+         *
+         * Кој е „серверот" го одлучува адресата од која е отворен дневникот
+         * (`getUrl`): во облакот е Supabase, локално е базата на машината.
+         * Ова копче не пренесува ништо МЕЃУ базите — само го усогласува
+         * дневникот со базата на која веќе припаѓа.
+         *
+         * ЗОШТО СЕ ПОТВРДУВА. Земањето го заменува живиот шаблон, кој оваа и
+         * сите идни недели го читаат, и може да поврзе или да додаде ученици.
+         * Човекот го гледа секое такво решение пред да се случи.
+         *
+         * СНИМКИТЕ НА МИНАТИТЕ НЕДЕЛИ НЕ СЕ ДОПИРААТ. Тие се запис, не план.
+         */
         function seedScheduleFromDatabase() {
-            var base = (window.SdnLocalSrv && window.SdnLocalSrv.getUrl) ? window.SdnLocalSrv.getUrl() : '';
+            if (window.MTB_MIRROR_READONLY === true) {
+                alert('Ова е копија само за читање. Распоредот се зема во облакот.');
+                return;
+            }
+            var srv = window.SdnLocalSrv;
+            var base = (srv && srv.getUrl) ? srv.getUrl() : '';
             if (!base) { alert('Нема поставен сервер.'); return; }
 
             var me = getLocalTherapistName();
             if (!me) { chooseLocalTherapist(base, seedScheduleFromDatabase); return; }
 
-            var flat = function (t) {
-                return String(t || '').replace(/\s+/g, '').replace(/[–—]/g, '-');
+            var getJson = function (path) {
+                return fetch(base + path, { cache: 'no-store' }).then(function (r) {
+                    return r.json().catch(function () { return {}; }).then(function (body) {
+                        if (!r.ok) throw new Error((body && body.error) || ('HTTP ' + r.status));
+                        return body;
+                    });
+                });
             };
-            var same = function (a, b) {
-                return String(a || '').trim().toLowerCase() === String(b || '').trim().toLowerCase();
+            var syncNow = function () {
+                return (srv && typeof srv.sync === 'function') ? srv.sync() : Promise.resolve('');
             };
-            var DAY_KEYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'];
+            var say = function (msg) {
+                if (typeof window.showToast === 'function') window.showToast(msg);
+            };
+
+            // 1. Прво дневникот и неговиот сервер да се согласат.
+            syncNow().then(function (state) {
+                var stop = {
+                    conflict: '', // sync веќе кажа што е разидувањето и што да се прави
+                    busy: 'Синхронизацијата токму сега работи. Обиди се повторно за неколку секунди.',
+                    offline: 'Серверот не е достапен на ' + base + '. Распоредот не е земен.',
+                    error: 'Синхронизацијата не успеа, па распоредот не е земен. Види го панелот „Локален сервер".',
+                    invalid: 'Состојбата на дневникот не може да се собере, па распоредот не е земен.'
+                };
+                if (Object.prototype.hasOwnProperty.call(stop, state)) {
+                    if (stop[state]) alert(stop[state]);
+                    return;
+                }
+
+                // 2. Планот и списокот, од истиот сервер. Списокот не смее тивко
+                // да биде празен: без него не се гледа кој ученик веќе е тука
+                // под друг број, и истото дете би се додало двапати.
+                return Promise.all([getJson('/api/schedule/sessions'), getJson('/api/roster')])
+                    .then(function (answers) {
+                        var plan = planFusionPupils(answers[0], answers[1], me);
+                        if (!plan.cells.length && !plan.skipped.length) {
+                            alert('Базата нема ниту еден термин за „' + me + '".\n\n' +
+                                'Ако распоредот го градиш во Rasporedi Fusion, провери дали таму стоиш под истото име.');
+                            return;
+                        }
+                        // 3. Човекот гледа, па одлучува.
+                        if (!confirm(describeFusionPlan(plan, me))) return;
+                        applyFusionPlan(plan);
+
+                        // 4. Веднаш на серверот, не на следниот одложен круг.
+                        return syncNow().then(function (after) {
+                            var done = after === 'pushed' || after === 'pushed-warn' || after === 'insync';
+                            say('Распоредот е земен од базата: ' + plan.cells.length + ' термини.' +
+                                (done ? ' Зачуван и на серверот.' : ' Зачуван тука; серверот уште не го потврди.'));
+                        });
+                    });
+            }).catch(function (err) {
+                alert('Не можам да ја прочитам базата: ' + (err && err.message ? err.message : err));
+            });
+        }
+
+        // Истото правило како `bareName` на серверот (lib/import-core.ts):
+        // ознаката на паралелката напред и заградата на крајот не се дел од
+        // името. Серверот сече префикс само до 10 знаци, а комбинирана
+        // паралелка („Комбинирана II, III, IV - …") е подолга. Затоа тука
+        // префиксот се сече кога ИЗГЛЕДА КАКО ПАРАЛЕЛКА — римски или арапски
+        // број, подготвителна, комбинирана, модифицирана — без разлика колку
+        // е долг, а двојно презиме („Петрова - Јованова") останува цело.
+        var CLASS_LIKE_PREFIX = /^\s*(?:(?:[IVXІХ]+|\d+)(?![A-Za-zЀ-ӿ])|подготвит|комбинир|модифиц|предучил)/i;
+
+        function pupilNameKey(value) {
+            var n = String(value == null ? '' : value);
+            var cut = n.indexOf(' - ');
+            if (cut > -1 && CLASS_LIKE_PREFIX.test(n.slice(0, cut))) n = n.slice(cut + 3);
+            n = n.replace(/\s*\([^)]*\)\s*$/, '');
+            return n.normalize('NFKC').trim().replace(/\s+/g, ' ').toLocaleLowerCase('mk-MK');
+        }
+
+        /**
+         * Кој ученик од планот е кој ученик во дневникот. Само одлучува — не
+         * менува ништо, за човекот да го види секое решение пред „OK".
+         *
+         * Редоследот е правилото 2 на проектот, од најсигурното кон
+         * најслабото: мостот (`rasporediStudentId` = `public_id`) → бројот на
+         * дневникот што базата го чува (`sdnevnik_id`) → точно исто име →
+         * исто име без ознаката на паралелката. Име поврзува САМО кога е
+         * единствено и од двете страни. Две деца со исто име во базата, или
+         * двајца во дневникот, значат дека не се знае кое е кое — тоа се
+         * пријавува, не се погодува.
+         *
+         * Ученик што го нема никаде во дневникот се додава од годишниот список,
+         * преку истиот `admitAnnualStudent` како копчето „Додади". Но ако некој
+         * во архивата или меѓу поранешните носи исто име, тоа можеби е истото
+         * дете под друг број. Тогаш НЕ се додава: втора копија би ги поделила
+         * присуството и досието на едно дете на двајца. Се пријавува за рачно.
+         */
+        function planFusionPupils(sessionsBody, rosterBody, me) {
+            var norm = function (v) {
+                return String(v == null ? '' : v).normalize('NFKC').trim().replace(/\s+/g, ' ').toLocaleLowerCase('mk-MK');
+            };
+            var flat = function (t) { return String(t || '').replace(/\s+/g, '').replace(/[–—]/g, '-'); };
             var dayIndex = function (mk) {
-                var head = String(mk || '').trim().toLowerCase().slice(0, 3);
-                return ['пон', 'вто', 'сре', 'чет', 'пет'].indexOf(head);
+                return ['пон', 'вто', 'сре', 'чет', 'пет'].indexOf(norm(mk).slice(0, 3));
             };
             // Полн термин или која било од двете половини — сите три паѓаат во
             // истиот час; дневникот држи низа по час, па двајца во еден час се
-            // двата запишани еден до друг, како што веќе прави.
+            // запишуваат еден до друг, како што веќе прави.
             var slotIndex = function (time) {
                 var t = flat(time);
                 for (var i = 0; i < timeSlots.length; i++) {
-                    if (t === flat(timeSlots[i].time) ||
-                        t === flat(timeSlots[i].half1) ||
+                    if (t === flat(timeSlots[i].time) || t === flat(timeSlots[i].half1) ||
                         t === flat(timeSlots[i].half2)) return i;
                 }
                 return -1;
             };
 
-            fetch(base + '/api/schedule/sessions', { cache: 'no-store' })
-                .then(function (r) { return r.json(); })
-                .then(function (data) {
-                    var all = (data && data.sessions) || [];
-                    var mine = all.filter(function (x) { return same(x.therapist_name, me); });
+            var sessions = (sessionsBody && Array.isArray(sessionsBody.sessions)) ? sessionsBody.sessions : [];
+            var mine = sessions.filter(function (x) { return norm(x.therapist_name) === norm(me); });
+            var rosterRows = (rosterBody && Array.isArray(rosterBody.students)) ? rosterBody.students : [];
 
-                    var next = {};
-                    DAY_KEYS.forEach(function (d) { next[d] = [[], [], [], [], []]; });
+            var rowById = {};
+            var dbNameCount = {};
+            var countName = function (name) {
+                var k = pupilNameKey(name);
+                dbNameCount[k] = (dbNameCount[k] || 0) + 1;
+            };
+            rosterRows.forEach(function (row) {
+                if (!row || !row.public_id || rowById[row.public_id]) return;
+                rowById[row.public_id] = row;
+                countName(row.name);
+            });
 
-                    var placed = 0;
-                    var unknownPupils = [];
-                    var unreadable = 0;
+            var pupils = {};
+            var order = [];
+            mine.forEach(function (x) {
+                var pid = x.student_public_id;
+                if (!pid || pupils[pid]) return;
+                pupils[pid] = { id: pid, name: x.student_name || (rowById[pid] && rowById[pid].name) || '' };
+                order.push(pid);
+                if (!rowById[pid]) countName(pupils[pid].name);
+            });
 
-                    mine.forEach(function (x) {
-                        if (!x.student_public_id) return;          // празна ќелија во Fusion
-                        var di = dayIndex(x.day);
-                        var ti = slotIndex(x.time);
-                        if (di < 0 || ti < 0) { unreadable++; return; }
+            var active = window.students || [];
+            var former = window.formerCaseloadStudents || [];
+            var archived = window.archivedStudents || [];
+            var bridge = function (s) { return s && s.rasporediStudentId ? String(s.rasporediStudentId) : ''; };
 
-                        // Идентификаторот врзува, не името. `rasporediStudentId`
-                        // е `public_id` од базата и веќе се води тука; името се
-                        // користи само ако мостот уште не е поставен за детето.
-                        var st = null;
-                        for (var i = 0; i < students.length; i++) {
-                            if (students[i].rasporediStudentId === x.student_public_id) { st = students[i]; break; }
-                        }
-                        if (!st) {
-                            for (var j = 0; j < students.length; j++) {
-                                if (same(students[j].name, x.student_name)) {
-                                    st = students[j];
-                                    st.rasporediStudentId = x.student_public_id;   // мостот се поставува сега
-                                    break;
-                                }
-                            }
-                        }
-                        if (!st) {
-                            if (unknownPupils.indexOf(x.student_name) === -1) unknownPupils.push(x.student_name);
-                            return;
-                        }
-                        if (next[DAY_KEYS[di]][ti].indexOf(st.id) === -1) {
-                            next[DAY_KEYS[di]][ti].push(st.id);
-                            placed++;
-                        }
-                    });
+            var claimed = {};   // дневнички id → public_id: едно дете не зема двајца од базата
+            var resolved = {};  // public_id → { student } | { admit: row }
+            var links = [];     // { student, publicId, how, dbName } — мост што сега се поставува
+            var admits = [];    // редови од списокот што ќе се додадат
+            var skipped = [];   // { publicId, name, why }
+            var skip = function (pid, why) { skipped.push({ publicId: pid, name: pupils[pid].name, why: why }); };
 
-                    var msg = 'Од базата, за ' + me + ':\n\n' +
-                        '• ' + placed + ' термин(и) ќе бидат поставени\n';
-                    if (unknownPupils.length) {
-                        msg += '• ' + unknownPupils.length + ' ученик(ци) ги нема во овој дневник и нивните термини се ИСПУШТЕНИ:\n    ' +
-                            unknownPupils.join('\n    ') + '\n';
-                    }
-                    if (unreadable) msg += '• ' + unreadable + ' термин(и) со непознат ден или час се испуштени\n';
-                    if (!placed && !unknownPupils.length) {
-                        alert('Базата нема ниту еден термин за „' + me + '".\n\nАко распоредот го градиш во Rasporedi Fusion, провери дали таму стоиш под истото име.');
+            order.forEach(function (pid) {
+                var p = pupils[pid];
+                var row = rowById[pid] || { public_id: pid, name: p.name };
+                var key = pupilNameKey(p.name);
+                var free = function (s) {
+                    var b = bridge(s);
+                    return (!b || b === pid) && (!claimed[s.id] || claimed[s.id] === pid);
+                };
+                var take = function (student, how) {
+                    claimed[student.id] = pid;
+                    if (bridge(student) !== pid) links.push({ student: student, publicId: pid, how: how, dbName: p.name });
+                    resolved[pid] = { student: student };
+                };
+
+                // Мост или број — сигурно.
+                var known = findAnnualStudent(active, row);
+                if (known >= 0) {
+                    var st = active[known];
+                    if (!free(st)) {
+                        skip(pid, 'во дневникот е поврзан со друг ученик од базата — провери рачно');
                         return;
                     }
-                    msg += '\nОва го заменува распоредот за оваа и идните недели.\n' +
-                        'Снимките на минатите недели остануваат недопрени.\n\nДа продолжам?';
+                    take(st, 'број');
+                    return;
+                }
 
-                    if (!confirm(msg)) return;
+                // Име — само кога е единствено и од двете страни.
+                var exact = active.filter(function (s) { return free(s) && norm(s.name) === norm(p.name); });
+                var hits = exact.length ? exact
+                    : active.filter(function (s) { return free(s) && pupilNameKey(s.name) === key; });
+                if (hits.length > 1 || (hits.length === 1 && (dbNameCount[key] || 0) > 1)) {
+                    skip(pid, 'повеќе деца со тоа име — поврзи рачно');
+                    return;
+                }
+                if (hits.length === 1) {
+                    take(hits[0], exact.length ? 'исто име' : 'исто име без паралелката');
+                    return;
+                }
 
-                    DAY_KEYS.forEach(function (d) { schedule[d] = next[d]; });
-                    saveData();
-                    renderSchedule();
-                    if (typeof toast === 'function') toast('Распоредот е земен од базата: ' + placed + ' термини.');
-                })
-                .catch(function (err) {
-                    alert('Не можам да ја прочитам базата: ' + (err && err.message ? err.message : err));
+                // Го нема меѓу активните. Архивата ја одлучува дневникот.
+                if (findAnnualStudent(archived, row) >= 0 ||
+                    archived.some(function (s) { return pupilNameKey(s.name) === key; })) {
+                    skip(pid, 'е во архивата на дневникот — врати го рачно ако треба');
+                    return;
+                }
+                if (findAnnualStudent(former, row) >= 0) {
+                    admits.push(row);
+                    resolved[pid] = { admit: row, restored: true };
+                    return;
+                }
+                if (former.some(function (s) { return pupilNameKey(s.name) === key && !bridge(s); })) {
+                    skip(pid, 'можеби е истиот како поранешен ученик во дневникот — поврзи рачно');
+                    return;
+                }
+                if (!rowById[pid]) {
+                    skip(pid, 'не е на годишниот список на базата');
+                    return;
+                }
+                admits.push(row);
+                resolved[pid] = { admit: row };
+            });
+
+            var cells = [];
+            var seen = {};
+            var odd = {};
+            var lostTerms = 0;
+            mine.forEach(function (x) {
+                var pid = x.student_public_id;
+                if (!pid) return;                               // празна ќелија во Fusion
+                var di = dayIndex(x.day);
+                var ti = slotIndex(x.time);
+                if (di < 0 || ti < 0) {
+                    var label = di < 0 ? String(x.day || '?') : String(x.time || '?');
+                    odd[label] = (odd[label] || 0) + 1;
+                    return;
+                }
+                if (!resolved[pid]) { lostTerms++; return; }
+                var cellKey = di + '|' + ti + '|' + pid;
+                if (seen[cellKey]) return;                      // две половини кај исто дете се еден час
+                seen[cellKey] = true;
+                cells.push({ day: di, slot: ti, publicId: pid });
+            });
+
+            return {
+                cells: cells, resolved: resolved, links: links, admits: admits,
+                skipped: skipped, lostTerms: lostTerms, odd: odd
+            };
+        }
+
+        function describeFusionPlan(plan, me) {
+            var lines = ['Од базата, за ' + me + ':', '', '• ' + plan.cells.length + ' термин(и) ќе бидат поставени'];
+            var byName = plan.links.filter(function (l) { return l.how !== 'број'; });
+            if (byName.length) {
+                lines.push('', '• Поврзани по ИМЕ — провери дали е истото дете:');
+                byName.forEach(function (l) {
+                    lines.push('    дневник „' + l.student.name + '" = база „' + l.dbName + '"');
                 });
+            }
+            var added = plan.admits.filter(function (row) { return !plan.resolved[row.public_id].restored; });
+            var restored = plan.admits.filter(function (row) { return plan.resolved[row.public_id].restored; });
+            if (added.length) {
+                lines.push('', '• Ќе се додадат во „Мои ученици" од годишниот список:');
+                added.forEach(function (row) { lines.push('    ' + row.name); });
+            }
+            if (restored.length) {
+                lines.push('', '• Ќе се вратат од поранешните ученици:');
+                restored.forEach(function (row) { lines.push('    ' + row.name); });
+            }
+            if (plan.skipped.length) {
+                lines.push('', '• НЕ се ставени (' + plan.lostTerms + ' термин(и)) — треба рачно:');
+                plan.skipped.forEach(function (s) { lines.push('    ' + s.name + ' — ' + s.why); });
+            }
+            var odd = Object.keys(plan.odd);
+            if (odd.length) {
+                var total = odd.reduce(function (sum, k) { return sum + plan.odd[k]; }, 0);
+                lines.push('', '• ' + total + ' термин(и) во час што дневникот го нема (' +
+                    odd.map(function (k) { return k + (plan.odd[k] > 1 ? ' ×' + plan.odd[k] : ''); }).join(', ') +
+                    ') — дневникот има часови ' + timeSlots[0].label + '–' + timeSlots[timeSlots.length - 1].label + '.');
+            }
+            lines.push('', 'Ова го заменува распоредот за оваа и идните недели.',
+                'Снимките на минатите недели остануваат недопрени.', '', 'Да продолжам?');
+            return lines.join('\n');
+        }
+
+        function applyFusionPlan(plan) {
+            plan.links.forEach(function (l) { l.student.rasporediStudentId = l.publicId; });
+
+            var idOf = {};
+            Object.keys(plan.resolved).forEach(function (pid) {
+                var r = plan.resolved[pid];
+                if (r && r.student) idOf[pid] = r.student.id;
+            });
+            plan.admits.forEach(function (row) {
+                var st = admitAnnualStudent(row);
+                if (st === 'present') {
+                    var at = findAnnualStudent(window.students || [], row);
+                    if (at >= 0) st = window.students[at];
+                }
+                if (st && typeof st === 'object') idOf[row.public_id] = st.id;
+            });
+
+            var DAY_KEYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'];
+            DAY_KEYS.forEach(function (d) { schedule[d] = timeSlots.map(function () { return []; }); });
+            plan.cells.forEach(function (c) {
+                var id = idOf[c.publicId];
+                if (id == null) return;
+                var cell = schedule[DAY_KEYS[c.day]][c.slot];
+                if (cell.indexOf(id) === -1) cell.push(id);
+            });
+
+            saveData();
+            renderAll();
+            if (typeof renderAnnualRosterPicker === 'function') renderAnnualRosterPicker();
         }
 
         function reconstructScheduleFromAttendance(weekStartDate) {
