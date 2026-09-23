@@ -2568,6 +2568,30 @@ F5: ако по освежување сè уште пишува „во база
 `test:workspace` и 142-те unit теста — сите зелени, и трите екрана прочитани во
 вистински прелистувач со запишување прочитано од базата.
 
+## Формулар за колега (23 Sep 2026)
+
+Owner's request: each colleague gets their own week as a file, fills it in
+without access to the schedule, and sends it back; a name they add becomes a
+pupil under observation. „📤 Формулар" / „📥 Внеси формулар" in
+`RasporediFusion.html`, logic in `mtb-schedule-form.js`.
+
+- **The form is one standalone HTML file** — data embedded as JSON (`<` escaped),
+  inline CSS and script, no request of any kind (the browser test opens it with
+  the network cut). The answer is a `.json` the colleague sends back.
+- **The answer carries the week as the form showed it (`baseline`).** A block
+  is written only if the colleague changed it, through `PUT /api/schedule/block`
+  with `expected` = what the database holds NOW; a block the database changed
+  since the form was made is listed and left alone. Row-level `expected`,
+  carried through an e-mail. A block missing from the answer means "cleared".
+- **A typed name is matched, never trusted (rule 2):** one pupil with that
+  name → that pupil; two → refused; none → a new observation pupil via
+  `POST /api/workspace/pupils`, then the caseload route. Import is admin-only.
+- `plan()` is pure and decides everything (`test/schedule-form.test.ts`, 12);
+  `npm run test:schedule-form` is the round trip (21), and the "changed since"
+  guard was checked to fail both suites when removed.
+- **The file carries children's names.** It is made when sent and never kept
+  in this repository (rules 1 and 6).
+
 ## Conventions
 
 App code and UI text are Macedonian; server code and comments are English.

@@ -7,6 +7,7 @@
 <title>Распоред — MTB</title>
 <script src="mtb-theme.js"></script>
 <script src="mtb-document.js"></script>
+<script src="mtb-schedule-form.js"></script>
 <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
@@ -754,6 +755,9 @@
             <button class="btn btn-primary schedule-only" id="printSheet" type="button" title="Печати го распоредот" aria-label="Печати го распоредот">⎙ Печати</button>
             <button class="btn schedule-only" id="exportImage" type="button" title="Зачувај го распоредот како слика" aria-label="Зачувај го распоредот како слика">📸 Слика</button>
             <button class="btn schedule-only" id="exportWord" type="button" title="Word документ: неделниот распоред на избраниот терапевт, или на секој терапевт на своја страница" aria-label="Зачувај го распоредот како Word документ">📄 Word</button>
+            <button class="btn schedule-only" id="exportForm" type="button" title="Формулар за колега: неговата недела и неговите ученици во една датотека што се пополнува без апликацијата" aria-label="Зачувај формулар за избраниот терапевт">📤 Формулар</button>
+            <button class="btn schedule-only" id="importForm" type="button" title="Внеси го одговорот (.json) од формуларот — прво се прикажува што би се сменило" aria-label="Внеси одговор од формулар">📥 Внеси формулар</button>
+            <input type="file" id="importFormFile" accept=".json,application/json" hidden>
         </div>
     </div>
 </section>
@@ -1940,6 +1944,158 @@
         }
     }
 
+    /* ── Формулар за колега ───────────────────────────────
+     *
+     * The week of ONE therapist as a file they fill in without the app, and
+     * their answer read back. What an answer changes is decided in
+     * mtb-schedule-form.js (`plan`), tested there; this is the part that has
+     * the database: it reads the week the same way the grid does and writes
+     * through the endpoints that own each fact — the pupil through
+     * /api/workspace/pupils, the list through the caseload route, the week
+     * block by block with `expected`, so a block somebody changed since the
+     * form was made is refused rather than overwritten. */
+    function weekOf(therapist) {
+        const blocks = {}, locked = [], valid = [];
+        DAYS.forEach((day) => state.bells.forEach((bell) => {
+            const time = bellTime(bell);
+            if (!time) return;
+            const key = MTBScheduleForm.blockKey(day, time);
+            valid.push(key);
+            const block = blockState(day, bell, therapist);
+            if (block.invalidOverlap) locked.push(key);
+            else if (block.ids.length) blocks[key] = block.ids.slice();
+        }));
+        return { blocks, locked, valid };
+    }
+
+    function downloadFile(text, name, type) {
+        const url = URL.createObjectURL(new Blob([text], { type }));
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = name;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 2000);
+    }
+
+    function showLongNotice(lines, kind) {
+        showNotice(lines.join('\n'), kind);
+        el('notice').style.whiteSpace = 'pre-line';
+    }
+
+    function exportScheduleForm() {
+        const chosen = activeTherapists();
+        if (chosen.length !== 1) {
+            showNotice('Избери еден терапевт во „Терапевт", па „📤 Формулар" — секој колега добива свој формулар.', 'error');
+            return;
+        }
+        const therapist = chosen[0];
+        const students = studentsById();
+        const week = weekOf(therapist);
+        const ids = new Set(therapist.students || []);
+        Object.values(week.blocks).forEach((list) => list.forEach((id) => ids.add(id)));
+        const pupils = Array.from(ids).filter((id) => students.has(id))
+            .map((id) => ({ id, label: studentLabel(students.get(id)) }))
+            .sort((a, b) => a.label.localeCompare(b.label, 'mk'));
+        const html = MTBScheduleForm.buildForm({
+            school: SCHOOL, year: state.year,
+            therapist: { id: therapist.id, name: therapist.name },
+            generatedAt: new Date().toISOString(),
+            days: DAYS,
+            bells: state.bells.map((bell) => ({ label: bell.label || '', time: bellTime(bell) })).filter((bell) => bell.time),
+            pupils, blocks: week.blocks, locked: week.locked
+        });
+        downloadFile(html, 'Распоред-формулар — ' + therapist.name + '.html', 'text/html');
+        showNotice('Формуларот за ' + therapist.name + ' е зачуван. Испрати го; одговорот (.json) што ќе ти го вратат се внесува со „📥 Внеси формулар".', 'ok');
+    }
+
+    async function importScheduleForm(file) {
+        if (!mayCreatePupil()) {
+            showNotice('Одговор од формулар внесува само администраторот.', 'error');
+            return;
+        }
+        let reply;
+        try { reply = JSON.parse(await file.text()); }
+        catch (_) { showNotice('„' + file.name + '" не е читлив одговор (.json) од формулар.', 'error'); return; }
+        const roster = state.roster || {};
+        const therapists = roster.therapists || [];
+        const owner = therapists.find((t) => String(t.id) === String(reply && reply.therapist && reply.therapist.id));
+        const week = owner ? weekOf(owner) : { blocks: {}, locked: [], valid: [] };
+        const result = MTBScheduleForm.plan(reply, {
+            year: state.year, therapists, students: roster.students || [],
+            current: week.blocks, validKeys: week.valid, locked: week.locked
+        });
+        if (result.errors.length) { showNotice(result.errors.join(' '), 'error'); return; }
+
+        const students = studentsById();
+        const who = (x) => typeof x === 'string' ? studentLabel(students.get(x)) : x.create + ' (ново)';
+        const line = (c) => capitalise(c.day) + ' ' + spaced(c.time) + ': ' +
+            (c.from.map(who).join(' + ') || '—') + ' → ' + (c.to.map(who).join(' + ') || '—');
+        const created = result.newPupils.filter((p) => p.match === 'create');
+        const linked = result.newPupils.filter((p) => p.match === 'existing');
+        const ambiguous = result.newPupils.filter((p) => p.match === 'ambiguous');
+        const text = ['Одговор од формулар — ' + result.therapist.name + ' · ' + state.year, ''];
+        if (result.changes.length) text.push('Ќе се запишат ' + result.changes.length + ' термини:', ...result.changes.map((c) => '• ' + line(c)), '');
+        if (created.length) text.push('Нови ученици под набљудување: ' + created.map((p) => p.name).join(', '), '');
+        if (linked.length) text.push('Напишани имиња поврзани со постоечки ученик: ' + linked.map((p) => '„' + p.name + '" → ' + p.label).join(', '), '');
+        if (ambiguous.length) text.push('НЕ се внесуваат (повеќе деца со тоа име): ' + ambiguous.map((p) => p.name).join(', '), '');
+        if (result.conflicts.length) text.push('НЕ се внесуваат — сменети во базата откако е направен формуларот (' + result.conflicts.length + '):', ...result.conflicts.map((c) => '• ' + line(c)), '');
+        if (result.skipped.length) text.push('НЕ се внесуваат:', ...result.skipped.map((c) => '• ' + capitalise(c.day) + ' ' + spaced(c.time) + ' — ' + c.reason), '');
+        if (result.note) text.push('Белешка: ' + result.note, '');
+        if (!result.changes.length && !created.length && !result.caseloadAdds.length) {
+            showLongNotice(text.concat('Нема ништо ново за запишување.'), result.conflicts.length || result.skipped.length ? 'error' : 'ok');
+            return;
+        }
+        if (!window.confirm(text.concat('Да се запише?').join('\n'))) return;
+
+        const yearQuery = '?year=' + encodeURIComponent(state.year);
+        const failures = [];
+        const createdIds = new Map();
+        setConnection(true, 'Се внесува формуларот…');
+        for (const pupil of created) {
+            try {
+                const answer = await api('/api/workspace/pupils', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        year: state.year, name: pupil.name, grade: null, oddelenie: null,
+                        enrollmentType: 'external', boarding: false, programme: 'unknown',
+                        placement: 'observation', active: true
+                    })
+                });
+                createdIds.set(pupil.name, answer.pupil.public_id);
+            } catch (error) { failures.push('„' + pupil.name + '": ' + readableError(error)); }
+        }
+        for (const id of new Set(result.caseloadAdds.concat(Array.from(createdIds.values())))) {
+            try {
+                await api('/api/therapists/' + encodeURIComponent(result.therapist.name) + '/students/' +
+                    encodeURIComponent(id) + yearQuery, { method: 'PUT' });
+            } catch (error) { failures.push(who(id) + ' во списокот: ' + readableError(error)); }
+        }
+        let written = 0;
+        for (const change of result.changes) {
+            const to = change.to.map((x) => typeof x === 'string' ? x : createdIds.get(x.create));
+            if (to.some((id) => !id)) { failures.push(line(change) + ' — новиот ученик не е додаден'); continue; }
+            try {
+                await api('/api/schedule/block', {
+                    method: 'PUT', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        year: state.year, day: change.day, time: change.time,
+                        therapistId: Number(result.therapist.id),
+                        studentPublicIds: to, expectedStudentPublicIds: change.from
+                    })
+                });
+                written++;
+            } catch (error) { failures.push(line(change) + ' — ' + readableError(error)); }
+        }
+        await loadAll();
+        const done = ['Формуларот на ' + result.therapist.name + ': запишани ' + written + ' од ' + result.changes.length + ' термини' +
+            (createdIds.size ? ', ' + createdIds.size + ' нови ученици под набљудување' : '') + '.'];
+        if (failures.length) done.push('Не поминаа:', ...failures.map((f) => '• ' + f));
+        if (result.conflicts.length) done.push(result.conflicts.length + ' термини не се допрени — сменети во базата откако е направен формуларот.');
+        showLongNotice(done, failures.length ? 'error' : 'ok');
+    }
+
     /* ── Каде е детето во тој термин ───────────────────────
      *
      * Распоредот на кабинетите отсекогаш знаеше дека терапевтот го зема детето
@@ -3068,6 +3224,12 @@
     el('printSheet').addEventListener('click', printSchedule);
     el('exportImage').addEventListener('click', exportScheduleImage);
     el('exportWord').addEventListener('click', exportScheduleWord);
+    el('exportForm').addEventListener('click', exportScheduleForm);
+    el('importForm').addEventListener('click', () => { el('importFormFile').value = ''; el('importFormFile').click(); });
+    el('importFormFile').addEventListener('change', () => {
+        const file = el('importFormFile').files && el('importFormFile').files[0];
+        if (file) importScheduleForm(file);
+    });
     document.querySelectorAll('.view-tab[data-panel]').forEach((button) => {
         button.addEventListener('click', () => {
             state.panel = button.dataset.panel;
