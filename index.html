@@ -1438,16 +1438,18 @@
             'Картичка.html': { name: 'ААК Картички', icon: '🎴' },
             'index.html': { name: 'Стар Почетна', icon: '🏠' },
             'ACC.html': { name: 'ACC', icon: '📱' },
-            'S-Dnevnik.html': { name: 'S-Dnevnik — дневник', icon: '📚' },
+            'S-Dnevnik.html': { name: 'S-Дневник', icon: '📚' },
             'BookmarksPlus.html': { name: 'BookmarksPlus', icon: '🔖' },
-            'start.html': { name: 'Отвори — најди сервер', icon: '🚀' },
-            'RasporediFusion.html': { name: 'Распоред — 40 минути', icon: '📅' },
+            'start.html': { name: 'Сите апликации', icon: '🚀' },
+            'RasporediFusion.html': { name: 'Распоред', icon: '📅' },
             'Nastava.html': { name: 'Настава ↔ терапии', icon: '🏫' },
-            'NastavaUredi.html': { name: 'Настава — уредување', icon: '✏️' },
-            'Podatoci.html': { name: 'Податоци — списоци', icon: '🗂️' },
+            'NastavaUredi.html': { name: 'Уреди настава', icon: '✏️' },
+            'Podatoci.html': { name: 'Податоци', icon: '🗂️' },
             'Pregled-Baza.html': { name: 'Преглед на базата', icon: '📊' },
             'TabelaSoDokazi_.html': { name: 'Табела со докази', icon: '📑' },
-            'AkciskiPlan.html': { name: 'Евидентен лист и акциски план', icon: '📋' },
+            'AkciskiPlan.html': { name: 'Евидентен лист', icon: '📋' },
+            'MTB-Workspace.html': { name: 'Работен простор', icon: '🧭' },
+            'Sinhronizacija.html': { name: 'Синхронизација', icon: '🔄' },
             'ComuniBoard.html': { name: 'WBACC Unified Studio', icon: '🗣️' },
             'ScanArtisAtelierSolak.html': { name: 'Artis Atelier Solak — галерија', icon: '🖼️' },
             'docs/mtb-seams.html': { name: 'Архитектура — Archify', icon: '🗺️' }
@@ -1473,6 +1475,9 @@
          * somewhere else is not a reason to be absent from the launcher.
          */
         const NOT_APPS = new Set([
+            // This page itself. Its card opened the page it sat on, under the
+            // name „Стар Почетна", which described neither.
+            'index.html',
             'Rasporedi-Unified-Sync-v5.0.html',
             'S-Dnevnik-Unified-Sync-v4.html',
             'Dnevnik-Rasporedi-SafeSync.html',
@@ -1482,6 +1487,27 @@
 
         /** What smartScan would have called a file with no mapping. */
         const derivedName = (file) => file.replace(/\.html$/i, '').replace(/[-_]/g, ' ');
+
+        /**
+         * Names THIS file gave the MTB apps before they got one name everywhere
+         * (23 Sep 2026): the hub, the start page, the workspace tabs and the
+         * shared bar each called the same app something different.
+         *
+         * A saved card keeps its name, because a name a person typed must win
+         * over a mapping. But these were never typed by a person — the mapping
+         * wrote them — so a card still carrying one is updated to the current
+         * name. Anything else on a card is left exactly as it is.
+         */
+        const FORMER_NAMES = {
+            'S-Dnevnik.html': ['S-Dnevnik — дневник'],
+            'start.html': ['Отвори — најди сервер'],
+            'RasporediFusion.html': ['Распоред — 40 минути'],
+            'NastavaUredi.html': ['Настава — уредување'],
+            'Podatoci.html': ['Податоци — списоци'],
+            'AkciskiPlan.html': ['Евидентен лист и акциски план']
+        };
+        const namedByUs = (file, name) =>
+            name === derivedName(file) || (FORMER_NAMES[file] || []).includes(name);
 
         const i18n = {
             mk: {
@@ -1538,6 +1564,23 @@
         if (hiddenAppIds.size) {
             state.apps = state.apps.filter(app => !hiddenAppIds.has(app.id));
             state.order = state.order.filter(id => !hiddenAppIds.has(id));
+            try { localStorage.setItem(STORE_KEY, JSON.stringify(state)); }
+            catch (e) { /* the current page is still corrected in memory */ }
+        }
+
+        // Cards saved under a name the mapping gave them (or the scanner made
+        // up) take the current name; a name a person typed is never touched.
+        let renamedCards = 0;
+        state.apps.forEach(app => {
+            const map = FILE_MAPPINGS[app.url];
+            if (!map || !app.id || !String(app.id).startsWith('gh_')) return;
+            if (map.name && app.name !== map.name && namedByUs(app.url, app.name)) {
+                app.name = map.name;
+                renamedCards++;
+            }
+            if (map.icon && app.icon === '📄') app.icon = map.icon;
+        });
+        if (renamedCards) {
             try { localStorage.setItem(STORE_KEY, JSON.stringify(state)); }
             catch (e) { /* the current page is still corrected in memory */ }
         }
@@ -1997,7 +2040,7 @@
                         // touches one a person typed — otherwise every scan would
                         // undo the renaming somebody did on purpose.
                         if (existing.id && existing.id.startsWith('gh_')) {
-                            if (map.name && existing.name === derivedName(file.name)) {
+                            if (map.name && existing.name !== map.name && namedByUs(file.name, existing.name)) {
                                 existing.name = map.name;
                                 named++;
                             }

@@ -10,14 +10,14 @@ const BASE = process.env.API || 'http://127.0.0.1:3000';
 const APPS = [
     ['S-Dnevnik.html', 'S-Дневник'],
     ['RasporediFusion.html', 'Распоред'],
-    ['Nastava.html', 'Настава'],
+    ['Nastava.html', 'Настава ↔ терапии'],
     ['NastavaUredi.html', 'Уреди настава'],
     ['Podatoci.html', 'Податоци'],
     ['AkciskiPlan.html', 'Евидентен лист']
 ];
 const TOOLS = [
-    ['Pregled-Baza.html', 'Проверка на базата'],
-    ['Sinhronizacija.html', 'Синхронизација и резерви'],
+    ['Pregled-Baza.html', 'Преглед на базата'],
+    ['Sinhronizacija.html', 'Синхронизација'],
     ['Rasporedi.html', 'Стар распоред']
 ];
 // `start.html` keeps its OWN split and deliberately files „Уреди настава"

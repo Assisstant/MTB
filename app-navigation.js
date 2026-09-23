@@ -13,7 +13,7 @@
         { file: 'start.html', label: 'Сите', title: 'Сите апликации' },
         { file: 'S-Dnevnik.html', label: 'S-Дневник', title: 'Електронски дневник' },
         { file: 'RasporediFusion.html', label: 'Распоред', title: 'Распоред на терапевтски кабинети' },
-        { file: 'Nastava.html', label: 'Настава', title: 'Настава и терапии — кој е отсутен од кој час' },
+        { file: 'Nastava.html', label: 'Настава ↔ терапии', title: 'Настава и терапии — кој е отсутен од кој час' },
         { file: 'NastavaUredi.html', label: 'Уреди настава', title: 'Внесување и менување на распоредот на настава' },
         { file: 'Podatoci.html', label: 'Податоци', title: 'Поставување на учебната година и списоците' },
         { file: 'AkciskiPlan.html', label: 'Евидентен лист', title: 'Евидентен лист и акциски план — следење на развојот, и кварталниот план по категории' }
@@ -374,11 +374,49 @@
         catch (_) { return false; }
     }
 
+    /**
+     * Inside the workspace, a link to ANOTHER app opens that app's own window.
+     *
+     * Left alone, „Настава" in Fusion navigated the Распоред window itself to
+     * Nastava.html: the Распоред tab stayed highlighted over a different page,
+     * and pressing it did nothing, because the window it shows was the one that
+     * had wandered off. So the click is handed to the shell, which owns the
+     * windows. Only the file name travels — no pupil, no person — and only for
+     * the apps the shell has tabs for; every other link, a modified click and
+     * `target=_blank` behave exactly as before.
+     */
+    const SHELL_APPS = new Set(['rasporedifusion.html', 'nastava.html', 'nastavauredi.html',
+        'podatoci.html', 'akciskiplan.html', 's-dnevnik.html', 'pregled-baza.html']);
+
+    function appFileOf(link) {
+        const href = link.getAttribute('href') || '';
+        if (!href || href.startsWith('#') || /^(mailto|tel|javascript):/i.test(href)) return '';
+        let url;
+        try { url = new URL(href, window.location.href); } catch (_) { return ''; }
+        const file = decodeURIComponent(url.pathname.split('/').pop() || '');
+        return SHELL_APPS.has(file.toLowerCase()) ? file : '';
+    }
+
+    function handOverAppLinks() {
+        document.addEventListener('click', (event) => {
+            if (event.defaultPrevented || event.button !== 0 ||
+                event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
+            const link = event.target && event.target.closest && event.target.closest('a[href]');
+            if (!link || (link.target && link.target !== '_self')) return;
+            const file = appFileOf(link);
+            if (!file || window.parent === window) return;
+            event.preventDefault();
+            // A file name only; the shell checks the sender is one of its own frames.
+            window.parent.postMessage({ type: 'mtb:open-app', file }, '*');
+        });
+    }
+
     function mount() {
         addFocusStyles();
         if (embedded()) {
             // No bar, but the state still has to reach whoever asks for it —
             // the shell's own БАЗА chip listens for exactly this event.
+            handOverAppLinks();
             checkHealth();
             checkUser();
             return;
@@ -463,7 +501,7 @@
             const sync = document.createElement('a');
             sync.className = 'mtb-app-nav__menu-row';
             sync.href = 'Sinhronizacija.html';
-            sync.textContent = 'Синхронизација и резерви →';
+            sync.textContent = 'Синхронизација →';
             menu.appendChild(sync);
         }
         document.body.appendChild(menu);

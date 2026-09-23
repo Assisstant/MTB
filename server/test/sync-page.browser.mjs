@@ -323,7 +323,7 @@ console.log('\nreachable — the launcher, the shared bar and S-Dnevnik');
     await page.waitForSelector('.mtb-app-nav__status--server');
     await page.click('.mtb-app-nav__status--server');
     const link = await page.$eval('.mtb-app-nav__menu a', (a) => ({ text: a.textContent, href: new URL(a.href).pathname }));
-    check('чипот БАЗА води до неа од секој екран', /Синхронизација и резерви/.test(link.text) && link.href.endsWith('/Sinhronizacija.html'),
+    check('чипот БАЗА води до неа од секој екран', /Синхронизација/.test(link.text) && link.href.endsWith('/Sinhronizacija.html'),
         JSON.stringify(link));
     await context.close();
 }

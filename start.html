@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Отвори — MTB</title>
+<title>Сите апликации — MTB</title>
 <style>
   :root{
     --bg:#f4f6f8; --card:#fff; --ink:#16202a; --soft:#5b6a78; --line:#dde4ea;
@@ -109,16 +109,16 @@
   var TIMEOUT = 3500;
 
   var APPS = [
-    { id:'s-dnevnik', file:'S-Dnevnik.html',  name:'S-Dnevnik',        desc:'дневник, присуство, планови, досиеја' },
+    { id:'s-dnevnik', file:'S-Dnevnik.html',  name:'S-Дневник',        desc:'дневник, присуство, планови, досиеја' },
     { id:'raspored',  file:'RasporediFusion.html', name:'Распоред',     desc:'избор на ученици и неделен план на термини во кабинетите' },
     { id:'nastava',   file:'Nastava.html',    name:'Настава ↔ терапии', desc:'кој ученик недостига од кој час' },
     { id:'podatoci',  file:'Podatoci.html',    name:'Податоци',          desc:'поставување на годината, списоците и задолженијата' },
-    { id:'evidenten', file:'AkciskiPlan.html', name:'Евидентен лист и акциски план', desc:'пропишаниот лист и кварталниот план по категории — по секции и периоди' }
+    { id:'evidenten', file:'AkciskiPlan.html', name:'Евидентен лист', desc:'пропишаниот лист и кварталниот план по категории — по секции и периоди' }
   ];
   var TOOLS = [
     { id:'nastava-uredi', file:'NastavaUredi.html', name:'Уреди настава', desc:'внесување и измени на училишниот распоред' },
-    { id:'baza', file:'Pregled-Baza.html', name:'Проверка на базата', desc:'дијагностички преглед само за читање' },
-    { id:'sinhronizacija', file:'Sinhronizacija.html', name:'Синхронизација и резерви', desc:'дали S-Dnevnik стигнал до базата, преносот РАБОТА ↔ ДОМА и резервите' }
+    { id:'baza', file:'Pregled-Baza.html', name:'Преглед на базата', desc:'дијагностички преглед само за читање' },
+    { id:'sinhronizacija', file:'Sinhronizacija.html', name:'Синхронизација', desc:'дали S-Dnevnik стигнал до базата, преносот РАБОТА ↔ ДОМА и резервите' }
   ];
 
   var $ = function(id){ return document.getElementById(id); };
