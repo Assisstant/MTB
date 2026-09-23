@@ -112,6 +112,11 @@
         font-weight: 600; white-space: nowrap;
     }
     table.grid thead th small { display: block; font-weight: 400; opacity: .82; font-size: 11px; }
+    /* One day's grid: seven equal periods. Sized by content, one long subject
+       name made its period twice as wide as the rest and pushed the others
+       together. A teacher's name keeps to one line. */
+    table.grid.day { table-layout: fixed; }
+    table.grid.day thead th:first-child { width: 150px; }
     table.grid tbody th { position: sticky; left: 0; z-index: 1; background: var(--card); font-weight: 700; white-space: nowrap; }
 
     .cell { border-radius: 4px; }
@@ -551,7 +556,7 @@
         const { rows: byClass, offList, order } = classRows();
         cells.forEach((c) => { byClass.get(c.class).set(c.ordinal, c); });
 
-        let html = '<table class="grid"><thead>' + periodHeader() + '</thead><tbody>';
+        let html = '<table class="grid day"><thead>' + periodHeader() + '</thead><tbody>';
         order.forEach((label) => {
             const row = byClass.get(label);
             html += `<tr><th>${esc(label)}`
@@ -654,7 +659,7 @@
             slot.get(c.ordinal).push(c);
         });
 
-        let html = '<table class="grid"><thead>' + periodHeader() + '</thead><tbody>';
+        let html = '<table class="grid day"><thead>' + periodHeader() + '</thead><tbody>';
         order.forEach((name) => {
             const who = (data.teachers || []).find((x) => x.name === name);
             html += `<tr><th${who ? ` data-focus="teacher:${who.id}"` : ''}>${esc(name)}`
@@ -811,7 +816,7 @@
             return;
         }
 
-        let html = '<table class="grid"><thead>' + periodHeader() + '</thead><tbody>';
+        let html = '<table class="grid day"><thead>' + periodHeader() + '</thead><tbody>';
         Array.from(rows.keys()).sort((a, b) => a.localeCompare(b, 'mk')).forEach((name) => {
             html += `<tr><th>${esc(name)}</th>`;
             periods.forEach((p) => {

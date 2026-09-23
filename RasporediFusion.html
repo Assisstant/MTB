@@ -396,11 +396,34 @@
         font-size: 14px;
         font-weight: 700;
         line-height: 1.2;
-        white-space: normal;
-        overflow-wrap: anywhere;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
         text-align: center;
         pointer-events: none;
     }
+    .slot-person { white-space: nowrap; }
+    /* Nine therapist columns: the class on a small line, the name on its own. */
+    .schedule-grid.compact .slot-name { display: flex; flex-direction: column; align-items: center; }
+    .schedule-grid.compact .slot-sep { display: none; }
+    .schedule-grid.compact .slot-class { font-size: 11px; font-weight: 600; opacity: .75; line-height: 1.1; }
+    .schedule-grid.compact .slot-person {
+        max-width: 100%; overflow: hidden; text-overflow: ellipsis; font-size: 13px;
+    }
+    /* The badge and the „+" sit in the corners of the class line, so the name
+       has the whole width of the cell instead of what is left between them. */
+    .schedule-grid.compact .student-slot { padding: 3px 5px; min-height: 40px; }
+    .schedule-grid.compact .slot-name { width: 100%; }
+    .schedule-grid.compact .slot-badge {
+        position: absolute; top: 3px; left: 4px; margin: 0;
+        width: auto; min-width: 22px; height: 15px; padding: 0 3px; border-width: 1px; font-size: 9px;
+    }
+    .schedule-grid.compact .slot-caret { display: none; }
+    .schedule-grid.compact .slot-action {
+        position: absolute; top: 2px; right: 3px; margin: 0;
+        width: 17px; min-width: 17px; height: 17px; font-size: 13px;
+    }
+    .schedule-grid.compact .slot-class { min-height: 13px; }
     .student-slot.empty .slot-name { color: #a0aec0; font-weight: 600; }
     .slot-caret {
         position: relative;
@@ -2069,9 +2092,25 @@
             // на празните ќелии би го направило распоредот нечитлив.
             (parts.focus ? ' data-focus="' + esc(parts.focus) + '"' : '') + '>' +
             '<span class="slot-badge">' + esc(parts.badge) + '</span>' +
-            '<span class="slot-name">' + esc(parts.display) + '</span>' +
+            slotNameHtml(parts) +
             '<span class="slot-caret" aria-hidden="true">▼</span>' +
             parts.select + (parts.action || '') + '</div>';
+    }
+
+    /* The class and the name are separate spans so the name can keep to ONE
+       line (owner's request, 23 Sep 2026): in the wide weekly grid they read
+       „IV-а - Име Презиме" as before, and in the nine-column day grid the class
+       moves to its own small line above a name that is never broken in two.
+       The text content is unchanged, so anything reading the label still reads
+       „IV-а - Име Презиме". The select's title carries the full label on hover
+       when a very long name has to end in „…". */
+    function slotNameHtml(parts) {
+        const pupil = parts.pupil;
+        if (!pupil) return '<span class="slot-name">' + esc(parts.display) + '</span>';
+        const grade = pupil.grade ? '<span class="slot-class">' + esc(pupil.grade) + '</span>' +
+            '<span class="slot-sep"> - </span>' : '';
+        return '<span class="slot-name">' + grade +
+            '<span class="slot-person">' + esc(pupil.name || 'Непознат ученик') + '</span></span>';
     }
 
     function legacySlotHtml(day, time, partLabel, therapist, students, conflicts) {
@@ -2087,6 +2126,7 @@
             where: selected ? whereKey(day, time, selected) : '',
             focus: selected ? 'student:' + selected : '',
             display: selected ? studentLabel(students.get(selected)) : '— празно —',
+            pupil: selected ? students.get(selected) : null,
             select: '<select class="slot-select" data-session-day="' + esc(day) + '" data-session-time="' + esc(time) +
                 '" data-legacy-session="true" data-therapist-id="' + therapist.id +
                 '" data-previous="' + esc(selected || '') + '"' +
@@ -2150,6 +2190,7 @@
             where: selected ? whereKey(day, displayTime, selected) : '',
             focus: selected ? 'student:' + selected : '',
             display: selected ? studentLabel(students.get(selected)) : '— празно —',
+            pupil: selected ? students.get(selected) : null,
             action: action,
             select: '<select class="slot-select" data-session-day="' + esc(day) + '" data-session-time="' +
                 esc(displayTime) + '" data-block-time="' +
@@ -2232,7 +2273,10 @@
 
     function gridOpen(columns, minColumn) {
         const minWidth = 100 + (columns * minColumn) + columns + 1;
-        return '<div class="schedule-grid" style="grid-template-columns: 100px repeat(' + columns +
+        // More than the five weekdays means therapist columns (up to nine at the
+        // centre): narrow enough that the class goes above the name.
+        return '<div class="schedule-grid' + (columns > DAYS.length ? ' compact' : '') +
+            '" style="grid-template-columns: 100px repeat(' + columns +
             ', minmax(0, 1fr)); min-width: ' + minWidth + 'px;">';
     }
 
@@ -2280,7 +2324,7 @@
         if (state.panel === 'allDays') el('scheduleTitle').textContent = 'Сите денови · неделен распоред';
         let html = days.map((day) => {
         let html = '<section class="day-section" data-schedule-day="' + esc(day) + '">' +
-            (state.panel === 'allDays' ? '<h3>' + esc(capitalise(day)) + '</h3>' : '') + gridOpen(therapists.length, 210);
+            (state.panel === 'allDays' ? '<h3>' + esc(capitalise(day)) + '</h3>' : '') + gridOpen(therapists.length, 180);
         html += '<div class="schedule-header">Час</div>';
         therapists.forEach((therapist) => {
             html += '<div class="schedule-header" data-focus="therapist:' + therapist.id +

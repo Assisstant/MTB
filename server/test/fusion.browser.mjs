@@ -134,13 +134,18 @@ async function run() {
         .locator('xpath=ancestor::div[contains(concat(" ", normalize-space(@class), " "), " student-slot ")]');
     checkEq('the selected pupil is printed in full inside the slot',
         await firstSlot.locator('.slot-name').textContent(), `IV-а - ${TAG} Исто Име`);
-    const pupilNameFit = await firstSlot.locator('.slot-name').evaluate((name) => ({
-        whiteSpace: getComputedStyle(name).whiteSpace,
-        clientHeight: name.clientHeight,
-        scrollHeight: name.scrollHeight
-    }));
-    check('the visible pupil name wraps and is not vertically clipped',
-        pupilNameFit.whiteSpace === 'normal' && pupilNameFit.scrollHeight <= pupilNameFit.clientHeight + 1,
+    // Owner, 23 Sep 2026: a name is never broken across two lines. The
+    // class may sit on its own line in the narrow day grid; the name may not.
+    const pupilNameFit = await firstSlot.locator('.slot-person').evaluate((person) => {
+        const box = person.closest('.slot-name');
+        // Inline in the weekly grid (clientWidth 0), a block in the day grid.
+        const cut = person.clientWidth > 0
+            ? person.scrollWidth > person.clientWidth + 1
+            : person.getBoundingClientRect().width > box.getBoundingClientRect().width + 1;
+        return { whiteSpace: getComputedStyle(person).whiteSpace, rects: person.getClientRects().length, cut };
+    });
+    check('the visible pupil name keeps to one line and is not cut off',
+        pupilNameFit.whiteSpace === 'nowrap' && pupilNameFit.rects === 1 && !pupilNameFit.cut,
         JSON.stringify(pupilNameFit));
     await firstSlot.click();
     check('clicking the visible slot focuses its native dropdown', await page.evaluate((selector) =>

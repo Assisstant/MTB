@@ -135,6 +135,12 @@
     /* 22 teachers across five days is wider than any screen, so the name
        column stays put while the week scrolls under it — without it you lose
        track of whose row you are typing into by Wednesday. */
+    /* One day's grid: seven equal periods. Sized by content, one long subject
+       name made its period twice as wide as the rest and pushed the others
+       together. A teacher's name keeps to one line. */
+    table.grid.day { table-layout: fixed; }
+    table.grid.day thead th:first-child { width: 150px; }
+    table.grid.day td.cell .teacher { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     table.grid.week { width: auto; min-width: 100%; font-size: 12px; }
     table.grid.week th.who {
         position: sticky; left: 0; z-index: 3;
@@ -771,7 +777,7 @@
             return;
         }
 
-        let html = '<table class="grid"><thead><tr><th>Одделение</th>'
+        let html = '<table class="grid day"><thead><tr><th>Одделение</th>'
             + periods().map((p) => `<th>${esc(p.label)}<small>${esc(p.startsAt)}</small></th>`).join('')
             + '</tr></thead><tbody>';
         classes.forEach((c) => {
@@ -782,7 +788,7 @@
                 const cls = list.length > 1 ? 'clash' : (list.length ? 'has' : 'empty');
                 const inner = list.length
                     ? list.map((l) => `<span class="subject">${esc(l.subject || '·')}</span>`
-                        + `<span class="teacher">${esc(l.teacher || 'без наставник')}</span>`).join('')
+                        + `<span class="teacher" title="${esc(l.teacher || '')}">${esc(l.teacher || 'без наставник')}</span>`).join('')
                     : '<span class="teacher">+</span>';
                 html += `<td class="cell ${cls}" data-key="${esc(key)}" data-class="${esc(c.label)}" `
                     + `data-ordinal="${p.ordinal}"><div class="box">${inner}</div></td>`;
