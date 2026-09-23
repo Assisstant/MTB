@@ -134,3 +134,24 @@ test('every suite screen takes light/dark from the one shared choice', async () 
     // S-Dnevnik's key since before the suite existed: an existing choice carries over.
     assert.match(await readRoot('mtb-theme.js'), /const KEY = 'theme';/);
 });
+
+test('every generated document takes its font and sizes from the one standard', async () => {
+    // Owner, 23 Sep 2026: Times New Roman, 11 pt text, headings a step above.
+    // Before, one generator printed Arial 10 pt, another Times 11 PX (8 pt on
+    // paper) and a third 12 pt. A generator that states its own body font or
+    // a pixel text size again is how they drift apart.
+    const standard = await readRoot('mtb-document.js');
+    assert.match(standard, /FONT = '"Times New Roman", Times, serif'/);
+    assert.match(standard, /body: '11pt', h1: '16pt', h2: '14pt', h3: '12pt'/);
+    for (const file of ['S-Dnevnik.html', 'RasporediFusion.html', 'AkciskiPlan.html']) {
+        const html = await readRoot(file);
+        const head = html.slice(0, html.indexOf('</head>'));
+        assert.ok(head.includes('<script src="mtb-document.js"></script>'),
+            `${file} does not load the document standard`);
+        assert.doesNotMatch(html, /body\{font-family:Arial/,
+            `${file} still prints a document in Arial`);
+        // `: 'body{…11pt}'` is the fallback for when the shared file is missing.
+        assert.doesNotMatch(html, /(?<!: ')body\{font-family:"Times New Roman",serif;font-size:\d+(px|pt)/,
+            `${file} states its own body size instead of the standard`);
+    }
+});

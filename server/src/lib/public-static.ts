@@ -34,6 +34,7 @@ const PUBLIC_FILES = new Set([
     'РаспоредТерапевти.html',
     'app-navigation.js',
     'mtb-theme.js',
+    'mtb-document.js',
     'workspace-admin.js',
     'workspace-admin.css',
     'mtb-runtime.js',

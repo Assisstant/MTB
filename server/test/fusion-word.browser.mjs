@@ -100,7 +100,7 @@ try {
         pages[2].includes('Неделен распоред — Терапевт Без Посети'));
     check('each page carries the school and the year', pages.every((p) => p.includes('Кочо Рацин') && p.includes(year)));
     check('all five days are columns on every page',
-        pages.every((p) => ['Понеделник', 'Вторник', 'Среда', 'Четврток', 'Петок'].every((d) => p.includes('<th>' + d + '</th>'))));
+        pages.every((p) => ['Понеделник', 'Вторник', 'Среда', 'Четврток', 'Петок'].every((d) => new RegExp('<th[^>]*>' + d + '</th>').test(p))));
     check('every bell is a row on every page', pages.every((p) => count(p, 'class="slot"><b class="roman">') === 2));
     check('two halves of one pupil are ONE 40-minute term', count(pages[0], '<b>III - Пробно Име</b>') === 1 && pages[0].includes('>40′</span> <b>III - Пробно Име</b>'));
     check('two pupils sharing a block are both there, first and second half',

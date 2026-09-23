@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>S-Дневник — MTB</title>
     <script src="mtb-theme.js"></script>
+    <script src="mtb-document.js"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
@@ -6238,7 +6239,7 @@
         function deleteTemplate(id) { if (!confirm('Избриши го овој шаблон?')) return; window.scaleTemplates = window.scaleTemplates.filter(function(t) { return t.id !== id; }); saveData(); refreshScaleTypeDropdown(); renderTemplatesList(); }
 
         // ── Print ──
-        function buildAssessmentPrintHtml(list, title) { var pl = { T1: 'I Тромесечие', T2: 'II Тромесечие', T3: 'III Тромесечие', T4: 'IV Тромесечие' }; var h = '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Проценка</title><style>body{font-family:Arial,sans-serif;font-size:12px;color:#333;margin:20px;}h1{font-size:16px;text-align:center;}h2{font-size:13px;text-align:center;color:#555;margin-bottom:15px;}.assessment{page-break-inside:avoid;margin-bottom:25px;border:1px solid #ccc;padding:15px;border-radius:6px;}.ass-header{display:flex;justify-content:space-between;border-bottom:1px solid #ddd;padding-bottom:8px;margin-bottom:10px;}.ass-header h3{margin:0;font-size:14px;}table{width:100%;border-collapse:collapse;margin-bottom:10px;}th,td{border:1px solid #ccc;padding:6px 8px;text-align:center;font-size:11px;}th{background:#f0f0f0;}th:first-child,td:first-child{text-align:left;width:40%;}.filled{background:#d4edda;font-weight:bold;}.comment{background:#f9f9f9;padding:8px;border-radius:4px;font-style:italic;margin-top:5px;}.avg{font-weight:bold;font-size:13px;margin-top:5px;}.footer{text-align:center;font-size:10px;color:#999;margin-top:30px;border-top:1px solid #ddd;padding-top:10px;}@media print{body{margin:10mm;}}</style></head><body>'; h += '<h1>ОУРЦ „Кочо Рацин" – Битола</h1><h2>' + (title || 'Скала за проценка') + '</h2>'; for (var i = 0; i < list.length; i++) { var a = list[i]; var tmpl = getTemplateById(a.scaleType); var sn = a.templateName || (tmpl ? tmpl.name : a.scaleType); h += '<div class="assessment"><div class="ass-header"><h3>' + a.studentName + ' (' + a.grade + ')</h3><div>' + a.date + ' • ' + (pl[a.period] || '') + ' • ' + sn + '</div></div>'; if (tmpl) { h += '<table><tr><th>Показател</th><th>0</th><th>1</th><th>2</th><th>3</th><th>4</th></tr>'; for (var j = 0; j < tmpl.indicators.length; j++) { var ind = tmpl.indicators[j]; var sc = a.scores[ind.id]; h += '<tr><td>' + ind.label + '</td>'; for (var v = 0; v <= 4; v++) { var f = (typeof sc === 'number' && sc === v); h += '<td' + (f ? ' class="filled"' : '') + '>' + ind.levels[v] + (f ? ' ●' : '') + '</td>'; } h += '</tr>'; } h += '</table>'; } h += '<div class="avg">Просек: ' + a.average + ' / 4</div>'; if (a.comment) h += '<div class="comment">💬 ' + a.comment + '</div>'; h += '</div>'; } h += '<div class="footer">S-Dnevnik • ' + new Date().toLocaleDateString('mk-MK') + '</div><script>window.onload=function(){window.print();}<\/script></body></html>'; return h; }
+        function buildAssessmentPrintHtml(list, title) { var pl = { T1: 'I Тромесечие', T2: 'II Тромесечие', T3: 'III Тромесечие', T4: 'IV Тромесечие' }; var h = '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Проценка</title><style>' + mtbDocCss() + 'body{color:#333;margin:20px;}h1{text-align:center;}h2{text-align:center;color:#555;margin-bottom:15px;}.assessment{page-break-inside:avoid;margin-bottom:25px;border:1px solid #ccc;padding:15px;border-radius:6px;}.ass-header{display:flex;justify-content:space-between;border-bottom:1px solid #ddd;padding-bottom:8px;margin-bottom:10px;}.ass-header h3{margin:0;}table{width:100%;border-collapse:collapse;margin-bottom:10px;}th,td{border:1px solid #ccc;padding:6px 8px;text-align:center;}th{background:#f0f0f0;}th:first-child,td:first-child{text-align:left;width:40%;}.filled{background:#d4edda;font-weight:bold;}.comment{background:#f9f9f9;padding:8px;border-radius:4px;font-style:italic;margin-top:5px;}.avg{font-weight:bold;margin-top:5px;}.footer{text-align:center;font-size:8pt;color:#999;margin-top:30px;border-top:1px solid #ddd;padding-top:10px;}@media print{body{margin:10mm;}}</style></head><body>'; h += '<h1>ОУРЦ „Кочо Рацин" – Битола</h1><h2>' + (title || 'Скала за проценка') + '</h2>'; for (var i = 0; i < list.length; i++) { var a = list[i]; var tmpl = getTemplateById(a.scaleType); var sn = a.templateName || (tmpl ? tmpl.name : a.scaleType); h += '<div class="assessment"><div class="ass-header"><h3>' + a.studentName + ' (' + a.grade + ')</h3><div>' + a.date + ' • ' + (pl[a.period] || '') + ' • ' + sn + '</div></div>'; if (tmpl) { h += '<table><tr><th>Показател</th><th>0</th><th>1</th><th>2</th><th>3</th><th>4</th></tr>'; for (var j = 0; j < tmpl.indicators.length; j++) { var ind = tmpl.indicators[j]; var sc = a.scores[ind.id]; h += '<tr><td>' + ind.label + '</td>'; for (var v = 0; v <= 4; v++) { var f = (typeof sc === 'number' && sc === v); h += '<td' + (f ? ' class="filled"' : '') + '>' + ind.levels[v] + (f ? ' ●' : '') + '</td>'; } h += '</tr>'; } h += '</table>'; } h += '<div class="avg">Просек: ' + a.average + ' / 4</div>'; if (a.comment) h += '<div class="comment">💬 ' + a.comment + '</div>'; h += '</div>'; } h += '<div class="footer">S-Dnevnik • ' + new Date().toLocaleDateString('mk-MK') + '</div><script>window.onload=function(){window.print();}<\/script></body></html>'; return h; }
         function printSingleAssessment(id) { var a = window.assessments.filter(function(x) { return x.id === id; }); if (!a.length) return; var w = window.open('', '_blank'); w.document.write(buildAssessmentPrintHtml(a, 'Проценка — ' + a[0].studentName)); w.document.close(); }
         function printStudentAssessments() { var sid = document.getElementById('procenkaHistoryStudentSelect').value; var f = window.assessments.filter(function(a) { return !sid || String(a.studentId) === sid; }); f.sort(function(a, b) { return a.date.localeCompare(b.date); }); if (!f.length) { alert('Нема проценки.'); return; } var s = sid ? getStudentById(parseInt(sid)) : null; var w = window.open('', '_blank'); w.document.write(buildAssessmentPrintHtml(f, s ? ('Проценки — ' + s.name) : 'Сите проценки')); w.document.close(); }
 
@@ -6437,16 +6438,16 @@
         }
 
         function progressReportStyles() {
-            return 'body{font-family:"Times New Roman",serif;font-size:12px;color:#222;margin:14mm;}' +
-                'h1{font-size:16px;text-align:center;margin:0 0 2px;}' +
-                'h2{font-size:13px;text-align:center;color:#555;margin:0 0 14px;font-weight:normal;}' +
-                'h3{font-size:13px;margin:16px 0 6px;border-bottom:1px solid #999;padding-bottom:3px;}' +
-                'h4{font-size:12px;margin:10px 0 4px;}' +
+            return mtbDocCss() + 'body{color:#222;margin:14mm;}' +
+                'h1{text-align:center;margin:0 0 2px;}' +
+                'h2{text-align:center;color:#555;margin:0 0 14px;font-weight:normal;}' +
+                'h3{margin:16px 0 6px;border-bottom:1px solid #999;padding-bottom:3px;}' +
+                'h4{margin:10px 0 4px;}' +
                 '.section{page-break-inside:avoid;margin-bottom:16px;}' +
                 '.student{page-break-before:always;}' +
                 '.student:first-of-type{page-break-before:auto;}' +
                 'table.grid{width:100%;border-collapse:collapse;margin-bottom:6px;}' +
-                'table.grid th,table.grid td{border:1px solid #999;padding:4px 6px;font-size:11px;text-align:center;}' +
+                'table.grid th,table.grid td{border:1px solid #999;padding:4px 6px;text-align:center;}' +
                 'table.grid th{background:#eee;}' +
                 'td.ind,th.ind{text-align:left;width:38%;}' +
                 'td.v{color:#fff;font-weight:bold;width:11%;}' +
@@ -6454,12 +6455,12 @@
                 'tr.avg td{background:#f2f2f2;color:#222;font-weight:bold;}' +
                 'td.delta{width:11%;font-weight:bold;}' +
                 'td.delta.up{color:#2f855a;} td.delta.down{color:#c53030;} td.delta.flat{color:#888;font-weight:normal;}' +
-                'ul.moved{margin:4px 0 0 18px;padding:0;} ul.moved li{font-size:11px;margin-bottom:2px;}' +
+                'ul.moved{margin:4px 0 0 18px;padding:0;} ul.moved li{margin-bottom:2px;}' +
                 'ul.moved li.up{color:#2f855a;} ul.moved li.down{color:#c53030;}' +
-                '.comment{background:#f7f7f7;padding:5px 7px;border-radius:3px;font-style:italic;font-size:11px;margin-bottom:4px;}' +
-                '.dates{font-size:10px;color:#777;display:flex;gap:14px;flex-wrap:wrap;margin-bottom:6px;}' +
-                '.note{font-size:10px;color:#777;font-style:italic;margin:4px 0;}' +
-                '.footer{text-align:center;font-size:9px;color:#aaa;margin-top:18px;border-top:1px solid #ddd;padding-top:5px;}' +
+                '.comment{background:#f7f7f7;padding:5px 7px;border-radius:3px;font-style:italic;margin-bottom:4px;}' +
+                '.dates{font-size:9pt;color:#777;display:flex;gap:14px;flex-wrap:wrap;margin-bottom:6px;}' +
+                '.note{font-size:9pt;color:#777;font-style:italic;margin:4px 0;}' +
+                '.footer{text-align:center;font-size:8pt;color:#aaa;margin-top:18px;border-top:1px solid #ddd;padding-top:5px;}' +
                 '@media print{body{margin:10mm;}}';
         }
 
@@ -6519,19 +6520,19 @@
             var periodText = periodSel.options[periodSel.selectedIndex].text;
 
             var h = '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Скала за проценка</title><style>';
-            h += 'body{font-family:"Times New Roman",serif;font-size:12px;color:#333;margin:15mm;}';
-            h += 'h1{font-size:16px;text-align:center;margin-bottom:3px;}';
-            h += 'h2{font-size:13px;text-align:center;color:#555;margin-bottom:5px;}';
-            h += '.info{font-size:12px;margin-bottom:15px;}';
+            h += mtbDocCss() + 'body{color:#333;margin:15mm;}';
+            h += 'h1{text-align:center;margin-bottom:3px;}';
+            h += 'h2{text-align:center;color:#555;margin-bottom:5px;}';
+            h += '.info{margin-bottom:15px;}';
             h += '.info span{display:inline-block;margin-right:30px;}';
             h += 'table{width:100%;border-collapse:collapse;margin-bottom:20px;}';
-            h += 'th,td{border:1px solid #999;padding:6px 8px;font-size:11px;vertical-align:top;}';
+            h += 'th,td{border:1px solid #999;padding:6px 8px;vertical-align:top;}';
             h += 'th{background:#f0f0f0;text-align:center;font-weight:bold;}';
             h += 'th:first-child,td:first-child{text-align:left;width:35%;}';
             h += '.circle{display:inline-block;width:14px;height:14px;border:1.5px solid #999;border-radius:50%;margin:0 auto;}';
             h += '.sign-line{margin-top:40px;display:flex;justify-content:space-between;}';
-            h += '.sign-line div{border-top:1px solid #333;padding-top:4px;width:200px;text-align:center;font-size:11px;}';
-            h += '.footer{text-align:center;font-size:9px;color:#aaa;margin-top:30px;border-top:1px solid #ddd;padding-top:5px;}';
+            h += '.sign-line div{border-top:1px solid #333;padding-top:4px;width:200px;text-align:center;}';
+            h += '.footer{text-align:center;font-size:8pt;color:#aaa;margin-top:30px;border-top:1px solid #ddd;padding-top:5px;}';
             h += '@media print{body{margin:10mm;}}';
             h += '</style></head><body>';
 
@@ -6636,7 +6637,7 @@
             });
         }
 
-        function printStudentDosieWithAssessments(directSid) { var sid = directSid || document.getElementById('procenkaHistoryStudentSelect').value; if (!sid) { alert('Изберете ученик!'); return; } sid = parseInt(sid); var student = getStudentById(sid); if (!student) return; var record = null; if (window.studentRecords) { for (var i = 0; i < window.studentRecords.length; i++) { if (window.studentRecords[i].id === sid) { record = window.studentRecords[i]; break; } } } var plan = getPlanById(student.planId); var aList = window.assessments.filter(function(a) { return a.studentId === sid; }); aList.sort(function(a, b) { return a.date.localeCompare(b.date); }); var pl = { T1: 'I Тромесечие', T2: 'II Тромесечие', T3: 'III Тромесечие', T4: 'IV Тромесечие' }; var h = '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Досие — ' + student.name + '</title><style>body{font-family:"Times New Roman",serif;font-size:12px;color:#333;margin:15mm;}h1{font-size:16px;text-align:center;margin-bottom:3px;}h2{font-size:13px;text-align:center;color:#555;margin-bottom:12px;}h3{font-size:14px;margin:15px 0 8px;border-bottom:1px solid #999;padding-bottom:4px;}table{width:100%;border-collapse:collapse;margin-bottom:12px;}th,td{border:1px solid #999;padding:5px 7px;text-align:left;font-size:11px;vertical-align:top;}th{background:#eee;}.filled{background:#d4edda;font-weight:bold;}.info-grid{display:grid;grid-template-columns:1fr 1fr;gap:4px 15px;margin-bottom:12px;font-size:12px;}.info-grid dt{font-weight:bold;color:#555;}.info-grid dd{margin:0;padding:2px 0 4px;}.section{page-break-inside:avoid;margin-bottom:15px;}.page-break{page-break-before:always;}.comment{background:#f9f9f9;padding:6px;border-radius:3px;font-style:italic;font-size:11px;}.footer{text-align:center;font-size:9px;color:#aaa;margin-top:20px;border-top:1px solid #ddd;padding-top:5px;}@media print{body{margin:10mm;}}</style></head><body>'; h += '<h1>ОУРЦ „Кочо Рацин" – Битола</h1><h2>Сурдолошко досие — ' + student.name + ' (' + student.grade + ')</h2>'; h += '<div class="info-grid">'; if (record) { var ff = [['Име', record.firstName], ['Презиме', record.lastName], ['Одделение', record.grade], ['Датум на раѓање', record.birthDate], ['Татко', record.fatherName], ['Мајка', record.motherName], ['Адреса', (record.address || '') + ', ' + (record.residence || '')], ['Контакт', record.contact]]; for (var i = 0; i < ff.length; i++) h += '<dt>' + ff[i][0] + '</dt><dd>' + (ff[i][1] || '—') + '</dd>'; } else { h += '<dt>Име</dt><dd>' + student.name + '</dd><dt>Одделение</dt><dd>' + student.grade + '</dd>'; } h += '</div>'; if (record && record.findings) h += '<h3>Наод</h3><p style="white-space:pre-wrap;">' + record.findings + '</p>'; if (record && record.opinion) h += '<h3>Мислење</h3><p style="white-space:pre-wrap;">' + record.opinion + '</p>'; if (plan) h += '<h3>План: ' + plan.name + '</h3>'; if (aList.length > 0) { h += '<div class="page-break"></div><h1>Скала за проценка (0–4)</h1><h2>' + student.name + '</h2>'; for (var i = 0; i < aList.length; i++) { var a = aList[i]; var tmpl = getTemplateById(a.scaleType); var sn = a.templateName || (tmpl ? tmpl.name : a.scaleType); h += '<div class="section"><h3>' + a.date + ' • ' + (pl[a.period] || '') + ' • ' + sn + '</h3>'; if (tmpl) { h += '<table><tr><th style="width:40%;">Показател</th>'; for (var v = 0; v <= 4; v++) h += '<th>' + v + '</th>'; h += '</tr>'; for (var j = 0; j < tmpl.indicators.length; j++) { var ind = tmpl.indicators[j]; var sc = a.scores[ind.id]; h += '<tr><td>' + ind.label + '</td>'; for (var v = 0; v <= 4; v++) { var f = (typeof sc === 'number' && sc === v); h += '<td' + (f ? ' class="filled"' : '') + '>' + ind.levels[v] + (f ? ' ●' : '') + '</td>'; } h += '</tr>'; } h += '</table>'; } h += '<div><strong>Просек: ' + a.average + ' / 4</strong></div>'; if (a.comment) h += '<div class="comment">💬 ' + a.comment + '</div>'; h += '</div>'; } } h += '<div class="footer">S-Dnevnik • ' + new Date().toLocaleDateString('mk-MK') + ' • ' + localTherapistLabel() + '</div><script>window.onload=function(){window.print();}<\/script></body></html>'; var w = window.open('', '_blank'); w.document.write(h); w.document.close(); }
+        function printStudentDosieWithAssessments(directSid) { var sid = directSid || document.getElementById('procenkaHistoryStudentSelect').value; if (!sid) { alert('Изберете ученик!'); return; } sid = parseInt(sid); var student = getStudentById(sid); if (!student) return; var record = null; if (window.studentRecords) { for (var i = 0; i < window.studentRecords.length; i++) { if (window.studentRecords[i].id === sid) { record = window.studentRecords[i]; break; } } } var plan = getPlanById(student.planId); var aList = window.assessments.filter(function(a) { return a.studentId === sid; }); aList.sort(function(a, b) { return a.date.localeCompare(b.date); }); var pl = { T1: 'I Тромесечие', T2: 'II Тромесечие', T3: 'III Тромесечие', T4: 'IV Тромесечие' }; var h = '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Досие — ' + student.name + '</title><style>' + mtbDocCss() + 'body{color:#333;margin:15mm;}h1{text-align:center;margin-bottom:3px;}h2{text-align:center;color:#555;margin-bottom:12px;}h3{margin:15px 0 8px;border-bottom:1px solid #999;padding-bottom:4px;}table{width:100%;border-collapse:collapse;margin-bottom:12px;}th,td{border:1px solid #999;padding:5px 7px;text-align:left;vertical-align:top;}th{background:#eee;}.filled{background:#d4edda;font-weight:bold;}.info-grid{display:grid;grid-template-columns:1fr 1fr;gap:4px 15px;margin-bottom:12px;}.info-grid dt{font-weight:bold;color:#555;}.info-grid dd{margin:0;padding:2px 0 4px;}.section{page-break-inside:avoid;margin-bottom:15px;}.page-break{page-break-before:always;}.comment{background:#f9f9f9;padding:6px;border-radius:3px;font-style:italic;}.footer{text-align:center;font-size:8pt;color:#aaa;margin-top:20px;border-top:1px solid #ddd;padding-top:5px;}@media print{body{margin:10mm;}}</style></head><body>'; h += '<h1>ОУРЦ „Кочо Рацин" – Битола</h1><h2>Сурдолошко досие — ' + student.name + ' (' + student.grade + ')</h2>'; h += '<div class="info-grid">'; if (record) { var ff = [['Име', record.firstName], ['Презиме', record.lastName], ['Одделение', record.grade], ['Датум на раѓање', record.birthDate], ['Татко', record.fatherName], ['Мајка', record.motherName], ['Адреса', (record.address || '') + ', ' + (record.residence || '')], ['Контакт', record.contact]]; for (var i = 0; i < ff.length; i++) h += '<dt>' + ff[i][0] + '</dt><dd>' + (ff[i][1] || '—') + '</dd>'; } else { h += '<dt>Име</dt><dd>' + student.name + '</dd><dt>Одделение</dt><dd>' + student.grade + '</dd>'; } h += '</div>'; if (record && record.findings) h += '<h3>Наод</h3><p style="white-space:pre-wrap;">' + record.findings + '</p>'; if (record && record.opinion) h += '<h3>Мислење</h3><p style="white-space:pre-wrap;">' + record.opinion + '</p>'; if (plan) h += '<h3>План: ' + plan.name + '</h3>'; if (aList.length > 0) { h += '<div class="page-break"></div><h1>Скала за проценка (0–4)</h1><h2>' + student.name + '</h2>'; for (var i = 0; i < aList.length; i++) { var a = aList[i]; var tmpl = getTemplateById(a.scaleType); var sn = a.templateName || (tmpl ? tmpl.name : a.scaleType); h += '<div class="section"><h3>' + a.date + ' • ' + (pl[a.period] || '') + ' • ' + sn + '</h3>'; if (tmpl) { h += '<table><tr><th style="width:40%;">Показател</th>'; for (var v = 0; v <= 4; v++) h += '<th>' + v + '</th>'; h += '</tr>'; for (var j = 0; j < tmpl.indicators.length; j++) { var ind = tmpl.indicators[j]; var sc = a.scores[ind.id]; h += '<tr><td>' + ind.label + '</td>'; for (var v = 0; v <= 4; v++) { var f = (typeof sc === 'number' && sc === v); h += '<td' + (f ? ' class="filled"' : '') + '>' + ind.levels[v] + (f ? ' ●' : '') + '</td>'; } h += '</tr>'; } h += '</table>'; } h += '<div><strong>Просек: ' + a.average + ' / 4</strong></div>'; if (a.comment) h += '<div class="comment">💬 ' + a.comment + '</div>'; h += '</div>'; } } h += '<div class="footer">S-Dnevnik • ' + new Date().toLocaleDateString('mk-MK') + ' • ' + localTherapistLabel() + '</div><script>window.onload=function(){window.print();}<\/script></body></html>'; var w = window.open('', '_blank'); w.document.write(h); w.document.close(); }
         // ══════════════════════════════════════════════════════════
 
         function buildDiaryPayload() {
@@ -8131,16 +8132,23 @@
             for (var i = 0; i < cbs.length; i++) cbs[i].checked = val;
         }
 
+        // The font and the text sizes come from mtb-document.js, the one standard
+        // every generated document shares; the rules here are layout and colour.
+        function mtbDocCss() {
+            return window.MTBDocument ? window.MTBDocument.css
+                : 'body{font-family:"Times New Roman",serif;font-size:11pt;}';
+        }
+
         var DOCX_STYLES = '@page{size:portrait;margin:12mm 15mm;}' +
             '@page landscape{size:landscape;mso-page-orientation:landscape;margin:12mm 15mm;}' +
             'div.ls{page:landscape;mso-element:section;}' +
-            'body{font-family:"Times New Roman",serif;font-size:11px;color:#222;margin:12mm 15mm;line-height:1.4;}' +
-            '.inst{text-align:center;font-size:9px;color:#999;margin-bottom:2px;}' +
-            '.stname{text-align:center;font-size:15px;font-weight:bold;color:#222;margin:4px 0 1px;}' +
-            '.stgrade{text-align:center;font-size:10px;color:#888;margin:0 0 8px;}' +
-            'h3{font-size:11px;margin:10px 0 4px;color:#333;font-weight:bold;}' +
+            mtbDocCss() + 'body{color:#222;margin:12mm 15mm;line-height:1.4;}' +
+            '.inst{text-align:center;font-size:9pt;color:#999;margin-bottom:2px;}' +
+            '.stname{text-align:center;font-size:16pt;font-weight:bold;color:#222;margin:4px 0 1px;}' +
+            '.stgrade{text-align:center;font-size:9pt;color:#888;margin:0 0 8px;}' +
+            'h3{margin:10px 0 4px;color:#333;}' +
             'table{width:100%;border-collapse:collapse;margin:4px 0 10px;table-layout:auto;}' +
-            'th,td{border:none;border-bottom:1px solid #ddd;padding:3px 6px;font-size:11px;vertical-align:middle;line-height:1.3;}' +
+            'th,td{border:none;border-bottom:1px solid #ddd;padding:3px 6px;vertical-align:middle;line-height:1.3;}' +
             'th{background:#f8f9fa;font-weight:bold;text-align:center;border-bottom:2px solid #667eea;color:#444;}' +
             'td:first-child{text-align:left;}' +
             'tr:nth-child(even){background:#fcfcfc;}' +
@@ -8151,17 +8159,17 @@
             '.a-mid{background:#fffde7;text-align:center;font-weight:bold;}' +
             '.a-bad{background:#ffebee;text-align:center;font-weight:bold;}' +
             '.info-tbl{border:none;margin:6px 0 12px;}' +
-            '.info-tbl td{border:none;border-bottom:1px solid #eee;padding:3px 10px;font-size:11px;}' +
+            '.info-tbl td{border:none;border-bottom:1px solid #eee;padding:3px 10px;}' +
             '.info-tbl td:first-child{color:#555;font-weight:bold;width:140px;white-space:nowrap;background:transparent;border-right:2px solid #667eea;}' +
             '.info-tbl tr:last-child td{border-bottom:none;}' +
-            '.footer{text-align:center;font-size:8px;color:#aaa;margin-top:10px;border-top:1px solid #ddd;padding-top:3px;}' +
+            '.footer{text-align:center;font-size:8pt;color:#aaa;margin-top:10px;border-top:1px solid #ddd;padding-top:3px;}' +
             '.pb{page-break-before:always;}' +
             '.mso-pb{mso-special-character:line-break;page-break-before:always;}' +
             '.section{page-break-inside:avoid;margin-bottom:6px;}' +
             '.sec-divider{border:none;border-top:2px solid #667eea;margin:15px 0 10px;}' +
             '.toc{margin:10px 0 20px;}' +
-            '.toc-title{text-align:center;font-size:16px;font-weight:bold;margin:5px 0 15px;color:#333;border-bottom:2px solid #667eea;padding-bottom:8px;}' +
-            '.toc-item{font-size:12px;padding:4px 0;border-bottom:1px dotted #ccc;}' +
+            '.toc-title{text-align:center;font-size:16pt;font-weight:bold;margin:5px 0 15px;color:#333;border-bottom:2px solid #667eea;padding-bottom:8px;}' +
+            '.toc-item{padding:4px 0;border-bottom:1px dotted #ccc;}' +
             '.toc-item a{color:#2b6cb0;text-decoration:none;}' +
             '.toc-num{display:inline-block;width:25px;font-weight:bold;color:#667eea;}' +
             '@media print{body{margin:10mm;}}';
