@@ -712,6 +712,7 @@
             <button class="btn icon-btn" id="refresh" type="button" title="Освежи" aria-label="Освежи">↻</button>
             <button class="btn btn-primary schedule-only" id="printSheet" type="button" title="Печати го распоредот" aria-label="Печати го распоредот">⎙ Печати</button>
             <button class="btn schedule-only" id="exportImage" type="button" title="Зачувај го распоредот како слика" aria-label="Зачувај го распоредот како слика">📸 Слика</button>
+            <button class="btn schedule-only" id="exportWord" type="button" title="Word документ: неделниот распоред на избраниот терапевт, или на секој терапевт на своја страница" aria-label="Зачувај го распоредот како Word документ">📄 Word</button>
         </div>
     </div>
 </section>
@@ -2324,6 +2325,102 @@
             '<scr' + 'ipt>window.onload=function(){window.print();}</scr' + 'ipt></body></html>';
     }
 
+    /* ── Word: the week of each therapist, one per page ──
+       The same shape AkciskiPlan uses for its евидентен лист — HTML that Word
+       opens as a document (.doc) — so there is no library to load from a CDN
+       the school network may not reach, and the file stays editable.
+       It follows the therapist choice already on the screen: one therapist →
+       that week; „сите" → every colleague, each on a page of their own.
+       The cells come from `blockEntries`, the same reading the printout uses,
+       so the paper and the Word file cannot say different things. Word does
+       not honour everything a browser does, so the cell is drawn in plain
+       paragraphs rather than reusing the printout's styled divs. */
+    function wordCellHtml(day, bell, therapist, students) {
+        const rows = blockEntries(day, bell, therapist, students);
+        if (!rows.length) return '<td class="free">—</td>';
+        return '<td>' + rows.map((row) =>
+            '<p class="pupil"><span class="badge">' + esc(row.label) + '</span> <b>' + esc(row.name) + '</b><br>' +
+            '<span class="time">' + esc(spaced(row.time)) + '</span></p>'
+        ).join('') + '</td>';
+    }
+
+    function wordWeekHtml(therapist, students) {
+        let html = '<h1>' + esc(SCHOOL) + '</h1>' +
+            '<h2>Неделен распоред — ' + esc(therapist.name) + '</h2>' +
+            '<h3>' + esc(state.year) + ' · 1 ученик = 40′, 2 ученици = 20′ + 20′</h3>' +
+            '<table><thead><tr><th class="slot">Час</th>' +
+            DAYS.map((day) => '<th>' + esc(capitalise(day)) + '</th>').join('') + '</tr></thead><tbody>';
+        state.bells.forEach((bell) => {
+            const parts = bellParts(bell);
+            const ranges = (parts.length ? parts.map((part) => part.time) : [bellTime(bell)])
+                .map((range) => esc(spaced(range))).join('<br>');
+            html += '<tr><td class="slot"><b class="roman">' + esc(bell.label || '') + '</b><br>' +
+                '<span class="time">' + ranges + '</span></td>' +
+                DAYS.map((day) => wordCellHtml(day, bell, therapist, students)).join('') + '</tr>';
+        });
+        return html + '</tbody></table>';
+    }
+
+    function buildWordDoc(therapists) {
+        const students = studentsById();
+        // Word reads page size and orientation only from a named @page that a
+        // section div points at; a plain `@page{size:landscape}` is ignored.
+        const css = '@page Sheet{size:841.9pt 595.3pt;mso-page-orientation:landscape;margin:28pt;}' +
+            'div.Sheet{page:Sheet;}' +
+            'body{font-family:Arial,sans-serif;font-size:10pt;color:#222;}' +
+            'h1{font-size:14pt;text-align:center;margin:0 0 2pt;}' +
+            'h2{font-size:12pt;text-align:center;margin:0 0 2pt;color:#444;}' +
+            'h3{font-size:9pt;text-align:center;margin:0 0 8pt;color:#777;font-weight:normal;}' +
+            'table{border-collapse:collapse;width:100%;}' +
+            'th,td{border:1px solid #999;padding:3pt 4pt;vertical-align:top;font-size:9pt;}' +
+            'th{background:#e8e8e8;}' +
+            'td.slot{background:#f4f4f4;text-align:center;vertical-align:middle;width:62pt;}' +
+            '.roman{font-size:12pt;}' +
+            'td.free{color:#bbb;text-align:center;vertical-align:middle;}' +
+            'p.pupil{margin:0 0 3pt;}' +
+            '.badge{color:#555;font-size:7.5pt;font-weight:bold;}' +
+            '.time{color:#666;font-size:7.5pt;}' +
+            '.footer{text-align:center;font-size:8pt;color:#999;margin-top:8pt;}';
+        const footer = '<p class="footer">Распоред на кабинети · ' + esc(new Date().toLocaleDateString('mk-MK')) + '</p>';
+        // Word breaks a page on this exact element; CSS break-before is ignored.
+        const pageBreak = '<br clear="all" style="page-break-before:always">';
+        return '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" ' +
+            'xmlns="http://www.w3.org/TR/REC-html40" lang="mk"><head><meta charset="UTF-8"><title>Распоред</title>' +
+            '<!--[if gte mso 9]><xml><w:WordDocument><w:View>Print</w:View></w:WordDocument></xml><![endif]-->' +
+            '<style>' + css + '</style></head><body><div class="Sheet">' +
+            therapists.map((therapist) => wordWeekHtml(therapist, students) + footer).join(pageBreak) +
+            '</div></body></html>';
+    }
+
+    function wordFileName(therapists) {
+        const safe = (text) => String(text || '').replace(/[\\/:*?"<>|]+/g, '').replace(/\s+/g, '_');
+        const who = therapists.length === 1 ? safe(therapists[0].name) : 'сите_терапевти';
+        return 'Распоред_' + who + '_' + safe(String(state.year || '').replace('/', '-')) + '.doc';
+    }
+
+    function exportScheduleWord() {
+        if (!state.roster || !state.bells.length) {
+            showNotice('Распоредот сè уште не е вчитан — нема што да се извезе.', 'error');
+            return;
+        }
+        const therapists = activeTherapists();
+        if (!therapists.length) {
+            showNotice('Нема терапевти за оваа година — нема што да се извезе.', 'error');
+            return;
+        }
+        const blob = new Blob(['﻿' + buildWordDoc(therapists)], { type: 'application/msword' });
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = wordFileName(therapists);
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        setTimeout(() => URL.revokeObjectURL(link.href), 4000);
+        showNotice(therapists.length === 1
+            ? 'Word документот е подготвен: ' + therapists[0].name + '.'
+            : 'Word документот е подготвен: ' + therapists.length + ' терапевти, секој на своја страница.', 'ok');
+    }
+
     /* ── JPG sheet, painted the way the Аудиограми export is painted ──
        Drawn by hand rather than with html2canvas: no CDN to reach from the
        school network, and a <select> does not screenshot as its own text. */
@@ -2777,6 +2874,7 @@
     el('refresh').addEventListener('click', loadAll);
     el('printSheet').addEventListener('click', printSchedule);
     el('exportImage').addEventListener('click', exportScheduleImage);
+    el('exportWord').addEventListener('click', exportScheduleWord);
     document.querySelectorAll('.view-tab[data-panel]').forEach((button) => {
         button.addEventListener('click', () => {
             state.panel = button.dataset.panel;
