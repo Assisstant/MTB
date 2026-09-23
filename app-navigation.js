@@ -913,12 +913,20 @@
         } catch (_) { return [raw]; }
     }
 
+    /**
+     * The rest fades only when the chosen person is actually ON this page.
+     * A pupil with no term in the week shown matched nothing, and the whole
+     * grid still went to .38 — every name grey, nothing lit, and no reason
+     * visible anywhere. The owner read it as "why are these letters grey".
+     */
     function applyFocus() {
-        const root = document.documentElement;
-        root.classList.toggle('mtb-has-focus', !!focusKey);
+        let matched = 0;
         document.querySelectorAll('[data-focus]').forEach((el) => {
-            el.classList.toggle('mtb-focused', !!focusKey && focusKeysOf(el).includes(focusKey));
+            const on = !!focusKey && focusKeysOf(el).includes(focusKey);
+            el.classList.toggle('mtb-focused', on);
+            if (on) matched += 1;
         });
+        document.documentElement.classList.toggle('mtb-has-focus', matched > 0);
     }
 
     function setFocus(key) {

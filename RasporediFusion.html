@@ -133,7 +133,7 @@
         text-transform: uppercase;
         letter-spacing: 1px;
         position: relative;
-        clip-path: polygon(10px 0, 100% 0, calc(100% - 10px) 100%, 0 100%);
+        clip-path: polygon(5px 0, 100% 0, calc(100% - 5px) 100%, 0 100%);
         margin-top: 5px;
         border-top: 2px solid #4a5568;
         white-space: nowrap;
@@ -186,28 +186,44 @@
         background: white;
         min-height: calc(100vh - 220px);
     }
+    /* S-Dnevnik's tab strip (mtb-look.css `.mtb-tabs`; this page carries its
+       own copy because it does not load the shared stylesheet). */
     .view-tabs {
         width: 100%;
         display: flex;
-        gap: 4px;
+        align-items: flex-end;
+        gap: 5px;
+        padding: 0 10px;
         margin-bottom: 16px;
-        border-bottom: 1px solid #e2e8f0;
+        background: linear-gradient(to bottom, #1a1a2e 0%, #16213e 100%);
+        border-bottom: 3px solid #0f3460;
+        border-radius: 8px 8px 0 0;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, .3);
         overflow-x: auto;
     }
     .view-tab {
         flex: 0 0 auto;
-        padding: 10px 14px 9px;
+        padding: 11px 24px;
+        margin-top: 5px;
         border: 0;
-        border-bottom: 3px solid transparent;
-        background: transparent;
-        color: #718096;
+        border-top: 2px solid #4a5568;
+        background: linear-gradient(to bottom, #2d3748 0%, #1a202c 100%);
+        color: #a0aec0;
         font-size: 14px;
-        font-weight: 700;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 1px;
         white-space: nowrap;
+        clip-path: polygon(5px 0, 100% 0, calc(100% - 5px) 100%, 0 100%);
+        transition: all .3s;
     }
-    .view-tab:hover { color: #4c51bf; }
-    .view-tab[aria-selected="true"] { color: #4c51bf; border-bottom-color: #667eea; }
-    .view-tab:focus-visible { outline: 2px solid #667eea; outline-offset: -2px; }
+    .view-tab:hover { background: linear-gradient(to bottom, #4a5568 0%, #2d3748 100%); color: #e2e8f0; }
+    .view-tab[aria-selected="true"] {
+        background: linear-gradient(to bottom, #667eea 0%, #5568d3 100%);
+        color: #fff; font-weight: 700;
+        margin-top: 0; padding-top: 15px; border-top: 3px solid #818cf8; /* lifted, not taller */
+    }
+    .view-tab:focus-visible { outline: 2px solid #f6c453; outline-offset: -2px; }
     .workflow-hint { margin: 12px 0 16px; color: #4a5568; font-size: 13px; line-height: 1.5; }
     body[data-panel="roster"] .schedule-only { display: none !important; }
     body[data-panel="lists"] .schedule-only, body[data-panel="visits"] .schedule-only { display: none !important; }
@@ -540,11 +556,11 @@
     }
     body.dark-mode .content { background: #1a202c; }
     body.dark-mode .band { background: #2d3748; border-bottom-color: #4a5568; }
-    body.dark-mode .view-tabs { border-bottom-color: #4a5568; }
+    body.dark-mode .view-tabs { background: #2d3748; border-bottom-color: #4a5568; }
+    body.dark-mode .view-tab { background: linear-gradient(to bottom, #1a202c 0%, #0f1419 100%); color: #a0aec0; border-top-color: #2d3748; }
+    body.dark-mode .view-tab:hover { background: linear-gradient(to bottom, #2d3748 0%, #1a202c 100%); color: #cbd5e0; }
+    body.dark-mode .view-tab[aria-selected="true"] { background: linear-gradient(to bottom, #5a67d8 0%, #4c51bf 100%); color: #fff; border-top-color: #a5b4fc; }
     body.dark-mode .workflow-hint { color: #cbd5e0; }
-    body.dark-mode .view-tab { color: #a0aec0; }
-    body.dark-mode .view-tab:hover, body.dark-mode .view-tab[aria-selected="true"] { color: #c7d2fe; }
-    body.dark-mode .view-tab[aria-selected="true"] { border-bottom-color: #818cf8; }
     body.dark-mode .field span { color: #a0aec0; }
     body.dark-mode .field select { background: #2d3748; border-color: #4a5568; color: #e2e8f0; }
     body.dark-mode .btn { background: #2d3748; color: #e2e8f0; }

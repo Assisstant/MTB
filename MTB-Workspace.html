@@ -23,11 +23,11 @@
 .topbar .brand small { color: rgba(255, 255, 255, .85); }
 .app-tabs button.active { background: #4c51bf; border-color: rgba(255, 255, 255, .6); }
 .app-tabs button { flex-shrink: 0; white-space: nowrap; }
-.main { --directory-width: 560px; display: block; position: relative; overflow: hidden; isolation: isolate; }
+.main { --directory-width: 560px; --rail: 72px; display: block; position: relative; overflow: hidden; isolation: isolate; }
 .workspace-window { position: absolute; min-width: 0; min-height: 0; overflow: hidden; background: var(--panel); }
-.app-window { inset: 0 var(--directory-width) 0 0; display: grid; grid-template-rows: 38px minmax(0, 1fr); }
+.app-window { inset: 0 calc(var(--directory-width) + var(--rail)) 0 0; display: grid; grid-template-rows: 38px minmax(0, 1fr); }
 .app-window iframe { display: block; width: 100%; height: 100%; min-height: 0; border: 0; background: var(--bg); }
-.directory { inset: 0 0 0 auto; width: var(--directory-width); height: auto; grid-template-rows: auto auto auto minmax(0, 1fr); }
+.directory { inset: 0 var(--rail) 0 auto; width: var(--directory-width); height: auto; grid-template-rows: auto auto minmax(0, 1fr); }
 .directory .dir-head { display: grid; padding: 0; }
 .directory .dir-description { padding: 0 10px 8px; font-size: 11px; color: var(--muted); }
 .main.directory-undocked { --directory-width: 0px !important; }
@@ -56,7 +56,7 @@ button:focus-visible, .window-titlebar:focus-visible, #dockDivider:focus-visible
   .pick-box { height: 250px; }
   .dir-description { display: none; }
 }
-#dockDivider { position: absolute; top: 0; bottom: 0; right: calc(var(--directory-width) - 4px); width: 8px; z-index: 3; cursor: col-resize; touch-action: none; }
+#dockDivider { position: absolute; top: 0; bottom: 0; right: calc(var(--directory-width) + var(--rail) - 4px); width: 8px; z-index: 3; cursor: col-resize; touch-action: none; }
 #dockDivider::after { content: ''; position: absolute; inset: 0 3px; background: var(--line); }
 #dockDivider:hover::after, #dockDivider:focus-visible::after { background: var(--accent2); }
 .main.directory-undocked #dockDivider, .main.panel-hidden #dockDivider { display: none; }
@@ -74,6 +74,37 @@ button:focus-visible, .window-titlebar:focus-visible, #dockDivider:focus-visible
 .main.is-arranging iframe { pointer-events: none; }
 .main.is-arranging { user-select: none; }
 .app-tabs button.is-open::after { content: ''; display: inline-block; width: 4px; height: 4px; border-radius: 50%; background: currentColor; margin-left: 5px; vertical-align: middle; }
+/* VS Code's activity bar, on the right because the panel is on the right.
+   The sections used to be a row of four buttons INSIDE the panel, so a
+   narrow panel squeezed them until „Стручни / терапевти" stood in a column
+   of syllables. Here they never share width with anything: an icon and a
+   short word, always visible, and the panel opens beside them. Clicking the
+   chosen section again folds the panel away, as VS Code does. */
+.activity-rail { position: absolute; top: 0; right: 0; bottom: 0; width: var(--rail); z-index: 4; display: flex; flex-direction: column; gap: 2px; padding: 6px 0; background: linear-gradient(to bottom, #1a1a2e 0%, #16213e 100%); border-left: 1px solid #0f3460; }
+.activity-rail button { position: relative; display: flex; flex-direction: column; align-items: center; gap: 4px; width: 100%; padding: 10px 2px 9px; border: 0; border-radius: 0; background: transparent; color: #a0aec0; font-size: 10.5px; font-weight: 700; letter-spacing: .2px; }
+.activity-rail .ico { font-size: 21px; line-height: 1; }
+.activity-rail .lbl { font-size: 10px; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.activity-rail button:hover { color: #e2e8f0; background: rgba(255, 255, 255, .06); }
+.activity-rail button.active { color: #fff; background: rgba(102, 126, 234, .24); }
+.activity-rail button.active::before { content: ''; position: absolute; left: 0; top: 6px; bottom: 6px; width: 3px; border-radius: 0 2px 2px 0; background: #818cf8; }
+.main.panel-hidden .activity-rail button.active { background: transparent; color: #a0aec0; }
+.main.panel-hidden .activity-rail button.active::before { display: none; }
+/* A row in the list: the class and status on their own line under the name,
+   so the name has the whole width. Beside it, they took the width and a name
+   broke anywhere — „Ке / Му" — which is what the owner saw. It still wraps,
+   but only between words. */
+.person { grid-template-columns: 24px minmax(0, 1fr); align-items: start; }
+.person .meta { grid-column: 2; white-space: normal; }
+.person .name { white-space: normal; overflow-wrap: normal; }
+/* The app tabs: S-Dnevnik's strip, the side walls standing straighter.
+   The chosen tab is lifted, never taller: 5 + 2 + 9 = 0 + 3 + 13. A tab one
+   pixel taller than the rest resized the top bar whenever focus moved to the
+   panel, and a resize cancels a window drag — so grabbing the panel's title
+   dropped it on the first move. */
+.app-tabs { align-self: flex-end; gap: 5px; padding: 0 8px; background: linear-gradient(to bottom, #1a1a2e 0%, #16213e 100%); border-radius: 8px 8px 0 0; margin-bottom: -8px; }
+.app-tabs button { margin-top: 5px; padding: 9px 18px; border: 0; border-top: 2px solid #4a5568; border-radius: 0; background: linear-gradient(to bottom, #2d3748 0%, #1a202c 100%); color: #a0aec0; font-size: 12.5px; font-weight: 600; letter-spacing: .6px; text-transform: uppercase; clip-path: polygon(5px 0, 100% 0, calc(100% - 5px) 100%, 0 100%); }
+.app-tabs button:hover { background: linear-gradient(to bottom, #4a5568 0%, #2d3748 100%); color: #e2e8f0; border-color: #4a5568; }
+.app-tabs button.active { margin-top: 0; padding-top: 13px; background: linear-gradient(to bottom, #667eea 0%, #5568d3 100%); color: #fff; border-top: 3px solid #818cf8; }
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 @media (max-width: 1450px) { .brand small, .status { display: none; } }
 @media (max-width: 700px) {
@@ -86,7 +117,11 @@ button:focus-visible, .window-titlebar:focus-visible, #dockDivider:focus-visible
   .year-wrap { margin-left: auto; }
   .year-wrap > span { display: none; }
   .main { --directory-width: 0px !important; }
-  .directory { inset: 0; width: 100%; border-left: 0; border-top: 0; }
+  .directory { inset: 0 0 58px 0; width: 100%; border-left: 0; border-top: 0; }
+  .app-window { inset: 0 0 58px 0; }
+  .activity-rail { top: auto; left: 0; width: auto; height: 58px; flex-direction: row; padding: 0 6px; border-left: 0; border-top: 1px solid #0f3460; }
+  .activity-rail button { flex: 1; padding: 8px 2px; }
+  .activity-rail button.active::before { left: 6px; right: 6px; top: 0; bottom: auto; width: auto; height: 3px; border-radius: 0 0 2px 2px; }
   #dockDivider { display: none; }
   .window-actions button { width: 28px; }
   .directory .dir-description { display: none; }
@@ -102,7 +137,7 @@ button:focus-visible, .window-titlebar:focus-visible, #dockDivider:focus-visible
 <body>
 <div class="workspace">
 <header class="topbar"><div class="brand">MTB <small>работен простор</small></div><div class="app-tabs" id="appTabs"><button data-app="RasporediFusion.html" class="active">Распоред</button><button data-app="Nastava.html">Настава ↔ терапии</button><button data-app="NastavaUredi.html">Уреди настава</button><button data-app="Podatoci.html">Податоци</button><button data-app="AkciskiPlan.html">Евидентен лист</button><button data-app="S-Dnevnik.html">S-Дневник</button><button data-app="Pregled-Baza.html">Преглед на базата</button></div><div class="year-wrap"><span>Година</span><select id="year" aria-label="Учебна година"></select></div><button class="soft compact" id="refresh" aria-label="Освежи податоци">↻</button><div class="dbrole" id="dbrole" title="Која база се запишува">БАЗА: —</div><div class="status" id="status">Се поврзувам…</div><button class="soft compact" id="themeToggle" data-mtb-theme-control></button><button class="soft compact" id="resetLayout" title="Врати ги прозорците во почетниот распоред" aria-label="Почетен распоред">Почетен распоред</button><button class="soft compact" id="hidePanel" aria-controls="directoryWindow" aria-expanded="true">Скриј податоци</button></header>
-<div class="main" id="main"><section class="workspace-window app-window" id="scheduleWindow" aria-label="Распоред"><div class="window-titlebar" tabindex="0"><span class="window-title">Распоред</span><div class="window-actions"></div></div><iframe id="appFrame" data-app-file="RasporediFusion.html" src="RasporediFusion.html?embed=1" title="Распоред"></iframe></section><div id="dockDivider" role="separator" tabindex="0" aria-label="Ширина на заедничките податоци" aria-orientation="vertical" aria-controls="directoryWindow"></div><aside class="workspace-window directory" id="directoryWindow" aria-label="Заеднички податоци"><div class="dir-head"><div class="window-titlebar" tabindex="0"><span class="window-title">Заеднички податоци</span><div class="window-actions"></div></div><div class="dir-description">Истата база · уредување без напуштање на работата</div></div><div class="dir-tabs" id="dirTabs"><button data-dir="students" class="active">Ученици</button><button data-dir="teachers">Наставници</button><button data-dir="therapists">Стручни / терапевти</button><button data-dir="classes">Паралелки</button></div><div class="tools"><input id="search" type="search" placeholder="Пребарај…" aria-label="Пребарај податоци"><select id="kindFilter"><option value="">Сите</option><option value="internal">Интерни</option><option value="boarding">Интернатски</option><option value="external">Екстерни</option></select></div><div class="directory-content" id="content"></div></aside></div>
+<div class="main" id="main"><section class="workspace-window app-window" id="scheduleWindow" aria-label="Распоред"><div class="window-titlebar" tabindex="0"><span class="window-title">Распоред</span><div class="window-actions"></div></div><iframe id="appFrame" data-app-file="RasporediFusion.html" src="RasporediFusion.html?embed=1" title="Распоред"></iframe></section><div id="dockDivider" role="separator" tabindex="0" aria-label="Ширина на заедничките податоци" aria-orientation="vertical" aria-controls="directoryWindow"></div><aside class="workspace-window directory" id="directoryWindow" aria-label="Заеднички податоци"><div class="dir-head"><div class="window-titlebar" tabindex="0"><span class="window-title">Заеднички податоци</span><div class="window-actions"></div></div><div class="dir-description">Истата база · уредување без напуштање на работата</div></div><div class="tools"><input id="search" type="search" placeholder="Пребарај…" aria-label="Пребарај податоци"><select id="kindFilter"><option value="">Сите</option><option value="internal">Интерни</option><option value="boarding">Интернатски</option><option value="external">Екстерни</option></select></div><div class="directory-content" id="content"></div></aside><nav class="activity-rail" id="dirTabs" aria-label="Заеднички податоци — делови"><button data-dir="students" class="active" title="Ученици"><span class="ico" aria-hidden="true">🎒</span><span class="lbl">Ученици</span></button><button data-dir="teachers" title="Наставници"><span class="ico" aria-hidden="true">👩‍🏫</span><span class="lbl">Наставници</span></button><button data-dir="therapists" title="Стручни лица / терапевти"><span class="ico" aria-hidden="true">🧩</span><span class="lbl">Стручни</span></button><button data-dir="classes" title="Паралелки"><span class="ico" aria-hidden="true">🏫</span><span class="lbl">Паралелки</span></button></nav></div>
 <div class="sr-only" id="windowAnnouncement" role="status" aria-live="polite"></div>
 <p class="sr-only" id="windowHelp">Влечи го насловот за преместување или користи ги стрелките кога насловот е избран. Двоен клик го максимизира прозорецот. Менувај големина од рабовите. Секогаш напред важи во овој работен простор.</p>
 </div>
@@ -646,14 +681,15 @@ runStartGate(false).then(()=>{repointFrames();load()});})();
   function announce(text) { document.getElementById('windowAnnouncement').textContent = text; }
   function render() {
     const directory = windows.get('directoryWindow');
-    const maxDock = Math.max(260, desktop.clientWidth - 320);
-    dockWidth = clamp(dockWidth, 260, maxDock);
+    // 360, not 260: below it the pupil list wrapped names into two lines.
+    const maxDock = Math.max(360, desktop.clientWidth - 320 - 72);
+    dockWidth = clamp(dockWidth, 360, maxDock);
     desktop.style.setProperty('--directory-width', dockWidth + 'px');
     desktop.classList.toggle('panel-hidden', Boolean(directory?.hidden));
     desktop.classList.toggle('directory-undocked', directory?.mode === 'floating');
     panelToggle.textContent = directory?.hidden ? 'Податоци' : 'Скриј податоци';
     panelToggle.setAttribute('aria-expanded', String(!directory?.hidden));
-    divider.setAttribute('aria-valuemin', '260');
+    divider.setAttribute('aria-valuemin', '360');
     divider.setAttribute('aria-valuemax', String(maxDock));
     divider.setAttribute('aria-valuenow', String(Math.round(dockWidth)));
     for (const [id, win] of windows) {
@@ -843,8 +879,8 @@ runStartGate(false).then(()=>{repointFrames();load()});})();
   divider.addEventListener('keydown', event => {
     if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
     event.preventDefault();
-    if (event.key === 'Home') dockWidth = 260;
-    else if (event.key === 'End') dockWidth = desktop.clientWidth - 320;
+    if (event.key === 'Home') dockWidth = 360;
+    else if (event.key === 'End') dockWidth = desktop.clientWidth - 320 - 72;
     else dockWidth += (event.key === 'ArrowLeft' ? 1 : -1) * (event.shiftKey ? 48 : 16);
     render(); persist();
   });
@@ -904,6 +940,20 @@ runStartGate(false).then(()=>{repointFrames();load()});})();
     win.hidden = !win.hidden;
     if (!win.hidden) focusWindow(win); else render();
   });
+  // The activity bar: a section opens the panel on it; the section already
+  // open folds the panel away. Capture phase, so "was it the open one?" is
+  // read before the section handler marks the click as the open one.
+  document.getElementById('dirTabs').addEventListener('click', (event) => {
+    const button = event.target.closest('button[data-dir]');
+    if (!button) return;
+    const win = windows.get('directoryWindow');
+    if (win.hidden) { win.hidden = false; focusWindow(win); return; }
+    if (button.classList.contains('active')) {
+      event.stopPropagation();
+      win.hidden = true;
+      render();
+    }
+  }, true);
   document.getElementById('resetLayout').addEventListener('click', () => {
     saved = {}; dockWidth = 560;
     if (windows.has(focused) && focused !== 'directoryWindow') activeDocked = focused;

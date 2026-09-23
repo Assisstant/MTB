@@ -176,6 +176,27 @@ try {
         assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
         await page.screenshot({ path: '../backups/workspace-integration-2026-09-15/classes-mobile.png' });
     });
+    await run('the section bar opens, switches and folds the panel, and never squeezes it', async ({ page }) => {
+        // Owner, 23 Sep 2026: the four sections sat INSIDE the panel and a
+        // narrow panel stood „Стручни / терапевти" on end. They are VS Code's
+        // activity bar now: always visible, and the open one folds the panel.
+        const directory = page.locator('#directoryWindow');
+        assert.equal(await directory.isVisible(), true);
+        const rail = await rect(page.locator('#dirTabs'));
+        const panel = await rect(directory);
+        assert.ok(rail.x >= panel.x + panel.width - 1, 'the bar stands beside the panel, not inside it');
+        await page.locator('[data-dir="students"]').click();
+        assert.equal(await directory.isVisible(), false, 'the open section folds the panel');
+        assert.equal(await page.locator('#dirTabs').isVisible(), true, 'the bar stays when the panel is folded');
+        await page.locator('[data-dir="teachers"]').click();
+        assert.equal(await directory.isVisible(), true, 'a section opens the folded panel');
+        assert.equal(await page.locator('[data-dir="teachers"]').getAttribute('class'), 'active');
+        const labels = await page.locator('#dirTabs .lbl').evaluateAll(nodes => nodes.map(n => n.getBoundingClientRect().height));
+        assert.ok(Math.max(...labels) < 20, `every section name stays on one line: ${labels}`);
+        await page.locator('#dockDivider').focus();
+        await page.keyboard.press('Home');
+        assert.ok((await rect(directory)).width >= 359, 'the panel cannot be squeezed under 360px');
+    });
     await run('dock divider supports pointer and keyboard without losing drafts', async ({ page }) => {
         await editor(page);
         await page.frameLocator('#appFrame').locator('#draft').fill(DRAFT);

@@ -52,7 +52,7 @@
     .panel p, .panel > .hint { max-width: 105ch; }
     .controls { display: flex; flex-wrap: wrap; gap: 14px; align-items: flex-end; }
     .field select { min-width: 190px; }
-    .views { display: flex; gap: 8px; margin: 14px 0 0; }
+    .views { margin: 14px 0 0; }
     .status { font-size: 13px; color: var(--muted); }
     .status.warn { color: var(--warn); }
     .status.error { color: var(--danger); }
@@ -206,7 +206,7 @@
                title="Внеси или промени го распоредот на настава">✏️ Уреди распоред</a>
             <span class="status" id="status"></span>
         </div>
-        <div class="views">
+        <div class="views mtb-tabs">
             <button class="btn soft" id="viewClass" aria-pressed="true">🏫 По одделение</button>
             <button class="btn soft" id="viewTeacher" aria-pressed="false">👩‍🏫 По наставник</button>
             <button class="btn soft" id="viewWeek" aria-pressed="false">📅 Цела недела</button>
