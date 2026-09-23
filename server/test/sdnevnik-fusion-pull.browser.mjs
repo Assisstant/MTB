@@ -21,7 +21,8 @@ const SERVED = {
     'S-Dnevnik.html': 'text/html; charset=utf-8',
     'mtb-runtime.js': 'application/javascript',
     'home-button.js': 'application/javascript',
-    'app-navigation.js': 'application/javascript'
+    'app-navigation.js': 'application/javascript',
+    'mtb-theme.js': 'application/javascript'
 };
 
 const emptyWeek = () => ({

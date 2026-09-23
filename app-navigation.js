@@ -265,14 +265,16 @@
             .mtb-app-nav__status[data-state="warning"] .mtb-app-nav__value { color: #ffd18a; }
             .mtb-app-nav__status[data-state="offline"] .mtb-app-nav__value,
             .mtb-app-nav__status[data-state="error"] .mtb-app-nav__value { color: #ffaaaa; }
-            .mtb-app-nav__retry {
+            .mtb-app-nav__retry, .mtb-app-nav__theme {
                 width: 28px; height: 28px; padding: 0; border: 1px solid #52637b;
                 border-radius: 6px; background: #273346; color: #fff; cursor: pointer;
                 font: 700 17px/1 system-ui, sans-serif;
             }
-            .mtb-app-nav__retry:hover, .mtb-app-nav__retry:focus-visible {
+            .mtb-app-nav__retry:hover, .mtb-app-nav__retry:focus-visible,
+            .mtb-app-nav__theme:hover, .mtb-app-nav__theme:focus-visible {
                 border-color: #9fe3cf; outline: none; background: #33435b;
             }
+            .mtb-app-nav__theme { flex: 0 0 auto; font-size: 14px; }
             .mtb-app-nav__logout {
                 padding: 3px 8px; border: 1px solid #52637b; border-radius: 4px;
                 background: rgba(255,255,255,0.1); color: #e2e8f0; font-size: 11px;
@@ -613,6 +615,15 @@
             retry.setAttribute('aria-label', dataState.actionLabel);
             retry.addEventListener('click', () => dataState.action());
             state.appendChild(retry);
+        }
+        // One light/dark switch for the suite (`mtb-theme.js`). A screen that
+        // already carries its own switch keeps it, and the bar does not draw
+        // a second one beside it.
+        if (window.MTBTheme && !document.querySelector('[data-mtb-theme-control]')) {
+            const theme = document.createElement('button');
+            theme.type = 'button';
+            theme.className = 'mtb-app-nav__theme';
+            state.appendChild(window.MTBTheme.bind(theme));
         }
         shell.append(scroller, state);
         nav.replaceChildren(shell);

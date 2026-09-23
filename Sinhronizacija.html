@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Синхронизација — MTB</title>
+<script src="mtb-theme.js"></script>
 <style>
 :root {
     --bg: #f4f6f9; --card: #fff; --text: #1e293b; --muted: #5b6776;
@@ -12,14 +13,12 @@
     --bad: #a61b1b; --bad-bg: #fbe6e6; --info: #1e4f8f; --info-bg: #e5eefb;
     --code: #f3f5f8;
 }
-@media (prefers-color-scheme: dark) {
-    :root {
-        --bg: #0f172a; --card: #1b2638; --text: #e2e8f0; --muted: #a3b0c2;
-        --line: #334155; --primary: #93b8ff; --chip: #2a3850;
-        --ok: #7fdcb9; --ok-bg: #16352c; --warn: #f3c27a; --warn-bg: #3a2c16;
-        --bad: #ff9d9d; --bad-bg: #3d1d1f; --info: #a9c8ff; --info-bg: #1c2d4a;
-        --code: #121b2b;
-    }
+:root[data-theme="dark"] {
+    --bg: #0f172a; --card: #1b2638; --text: #e2e8f0; --muted: #a3b0c2;
+    --line: #334155; --primary: #93b8ff; --chip: #2a3850;
+    --ok: #7fdcb9; --ok-bg: #16352c; --warn: #f3c27a; --warn-bg: #3a2c16;
+    --bad: #ff9d9d; --bad-bg: #3d1d1f; --info: #a9c8ff; --info-bg: #1c2d4a;
+    --code: #121b2b;
 }
 * { box-sizing: border-box; }
 body {

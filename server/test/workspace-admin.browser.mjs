@@ -5,7 +5,7 @@ import {createServer} from 'node:http';
 import {readFile,mkdir} from 'node:fs/promises';
 import {resolve} from 'node:path';
 const root=resolve(import.meta.dirname,'../..');
-const files=new Set(['MTB-Workspace.html','workspace-admin.js','workspace-admin.css','app-navigation.js','mtb-runtime.js']);
+const files=new Set(['MTB-Workspace.html','workspace-admin.js','workspace-admin.css','app-navigation.js','mtb-theme.js','mtb-runtime.js']);
 const server=createServer(async(req,res)=>{const file=new URL(req.url,'http://local').pathname.slice(1);if(!files.has(file)){res.writeHead(404).end();return;}res.setHeader('Content-Type',file.endsWith('.css')?'text/css':file.endsWith('.js')?'text/javascript':'text/html');res.end(await readFile(resolve(root,file)));});
 await new Promise(r=>server.listen(0,'127.0.0.1',r));
 const base=`http://127.0.0.1:${server.address().port}`;

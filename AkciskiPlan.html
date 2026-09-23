@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Евидентен лист — MTB</title>
+<script src="mtb-theme.js"></script>
 <!--
   Евидентен лист за следење на развојот и постигнувањата на ученикот.
 
@@ -168,7 +169,7 @@ body.dark .at tr.ev td{color:#a3b0f7;}
     <span class="who" id="who">—</span>
     <button class="hdr-btn" id="btnPin">PIN</button>
     <button class="hdr-btn" id="btnOut">Одјава</button>
-    <button class="hdr-btn" id="btnTheme">🌓</button>
+    <button class="hdr-btn" id="btnTheme" data-mtb-theme-control title="Светла / темна тема">🌓</button>
   </div>
   <p>Следење на развојот и квартални цели · записите се чуваат во базата, не во прелистувачот</p>
 </div>
@@ -2386,17 +2387,34 @@ body.dark .at tr.ev td{color:#a3b0f7;}
         });
     }
 
+    /**
+     * The suite's one light/dark choice (`mtb-theme.js`). This page used to
+     * keep its own under THEME_KEY; a choice made here back then is adopted
+     * once, only while nobody has chosen for the suite. It is read, never
+     * written again.
+     */
+    function initTheme() {
+        const shared = window.MTBTheme;
+        if (!shared) {
+            try { if (localStorage.getItem(THEME_KEY) === 'd') document.body.classList.add('dark'); }
+            catch (e) { /* storage locked */ }
+            el('btnTheme').onclick = () => document.body.classList.toggle('dark');
+            return;
+        }
+        let legacy = '';
+        try { legacy = localStorage.getItem(THEME_KEY) || ''; } catch (e) { legacy = ''; }
+        if (!shared.choice() && (legacy === 'd' || legacy === 'l')) shared.set(legacy === 'd' ? 'dark' : 'light');
+        const paint = () => document.body.classList.toggle('dark', shared.get() === 'dark');
+        paint();
+        window.addEventListener('mtb:theme', paint);
+        shared.bind(el('btnTheme'));
+    }
+
     async function boot() {
-        try { if (localStorage.getItem(THEME_KEY) === 'd') document.body.classList.add('dark'); }
-        catch (e) { /* storage locked */ }
+        initTheme();
         try { token = localStorage.getItem(TOKEN_KEY) || ''; } catch (e) { token = ''; }
 
         initTabs();
-        el('btnTheme').onclick = () => {
-            document.body.classList.toggle('dark');
-            try { localStorage.setItem(THEME_KEY, document.body.classList.contains('dark') ? 'd' : 'l'); }
-            catch (e) { /* the choice still holds for this tab */ }
-        };
         el('btnOut').onclick = () => signOut(false);
         el('btnPin').onclick = () => {
             showGate('');

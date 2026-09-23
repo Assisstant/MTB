@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Уреди настава — MTB</title>
+<script src="mtb-theme.js"></script>
 <!--
     Уредување на распоредот на настава, час по час, во текот на целата година.
 
@@ -41,25 +42,23 @@
         --shadow: 0 1px 3px rgba(0, 0, 0, .07);
         --filled: #eef2fd;
     }
-    @media (prefers-color-scheme: dark) {
-        :root {
-            --bg: #14172a;
-            --card: #1c2138;
-            --text: #e6e9f2;
-            --muted: #9aa2b8;
-            --border: #333a5c;
-            --primary: #6d80e4;
-            --primary-dark: #5a6cd0;
-            --edit: #48a67a;
-            --edit-dark: #37855f;
-            --warn: #e0b155;
-            --warn-bg: #33280f;
-            --danger: #f08a8a;
-            --danger-bg: #35191b;
-            --ok: #7fd0a5;
-            --shadow: 0 1px 3px rgba(0, 0, 0, .35);
-            --filled: #232a49;
-        }
+    :root[data-theme="dark"] {
+        --bg: #14172a;
+        --card: #1c2138;
+        --text: #e6e9f2;
+        --muted: #9aa2b8;
+        --border: #333a5c;
+        --primary: #6d80e4;
+        --primary-dark: #5a6cd0;
+        --edit: #48a67a;
+        --edit-dark: #37855f;
+        --warn: #e0b155;
+        --warn-bg: #33280f;
+        --danger: #f08a8a;
+        --danger-bg: #35191b;
+        --ok: #7fd0a5;
+        --shadow: 0 1px 3px rgba(0, 0, 0, .35);
+        --filled: #232a49;
     }
 
     * { box-sizing: border-box; }

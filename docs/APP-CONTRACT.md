@@ -20,6 +20,10 @@ but it must not present parallel versions of the same task.
   Improve `RasporediFusion.html` in place. A new schedule entry point requires
   an explicit product decision and an update to this contract and its tests.
 
+- `mtb-theme.js` is the one light/dark choice for every suite screen, loaded
+  in `<head>` (key `theme`, S-Dnevnik's since before the suite). Pages style
+  from `html[data-theme]`; none follows `prefers-color-scheme` on its own, and
+  nothing is stored until the viewer chooses.
 - `Sinhronizacija.html` is the one place that explains where the data stands:
   this browser's S-Dnevnik copy against its server, the WORK↔HOME snapshots,
   and the separate cloud. It only reads (`/api/health`, `/api/sync/status`

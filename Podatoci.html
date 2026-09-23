@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Податоци — MTB</title>
+<script src="mtb-theme.js"></script>
 <!--
     Списоците врз кои стојат распоредите: ученици, наставници, терапевти,
     одделенија — и мапирањето меѓу нив, за ИЗБРАНАТА учебна година.
@@ -45,26 +46,24 @@
            font does not leave the columns behind. */
         --ui: 1;
     }
-    @media (prefers-color-scheme: dark) {
-        :root {
-            --bg: #16152a;
-            --card: #1e1d36;
-            --text: #e8e6f2;
-            --muted: #9c99b5;
-            --border: #383557;
-            --accent: #8878e8;
-            --accent-dark: #6f5fd0;
-            --warn: #e0b155;
-            --warn-bg: #33280f;
-            --danger: #f08a8a;
-            --ok: #7fd0a5;
-            --shadow: 0 1px 3px rgba(0, 0, 0, .35);
-            --soft: #272544;
-            /* Чипот носи име и мора да се чита. --soft е само една нијанса над
-               --card, па во темна тема чипот се губеше во позадината. */
-            --chip: #3d3a68;
-            --chip-note: #c3bfe0;
-        }
+    :root[data-theme="dark"] {
+        --bg: #16152a;
+        --card: #1e1d36;
+        --text: #e8e6f2;
+        --muted: #9c99b5;
+        --border: #383557;
+        --accent: #8878e8;
+        --accent-dark: #6f5fd0;
+        --warn: #e0b155;
+        --warn-bg: #33280f;
+        --danger: #f08a8a;
+        --ok: #7fd0a5;
+        --shadow: 0 1px 3px rgba(0, 0, 0, .35);
+        --soft: #272544;
+        /* Чипот носи име и мора да се чита. --soft е само една нијанса над
+           --card, па во темна тема чипот се губеше во позадината. */
+        --chip: #3d3a68;
+        --chip-note: #c3bfe0;
     }
 
     * { box-sizing: border-box; }

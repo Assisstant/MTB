@@ -114,3 +114,23 @@ test('mirror apply consumes the exact reviewed, gitignored snapshot artifact', a
     assert.match(guide, /истиот зачуван фајл/);
     assert.match(ignore, /^backups\/$/m);
 });
+
+test('every suite screen takes light/dark from the one shared choice', async () => {
+    // Before this, six screens followed only the operating system, the
+    // workspace was dark-only, and three screens kept their own switch. A page
+    // that answers the system on its own again cannot be switched from the
+    // others, which is exactly what this closed.
+    const pages = ['start.html', 'S-Dnevnik.html', 'RasporediFusion.html', 'Nastava.html',
+        'NastavaUredi.html', 'Podatoci.html', 'AkciskiPlan.html', 'Pregled-Baza.html',
+        'Sinhronizacija.html', 'MTB-Workspace.html'];
+    for (const file of pages) {
+        const html = await readRoot(file);
+        const head = html.slice(0, html.indexOf('</head>'));
+        assert.ok(head.includes('<script src="mtb-theme.js"></script>'),
+            `${file} does not load mtb-theme.js in <head>, so it paints before knowing the theme`);
+        assert.doesNotMatch(html, /@media\s*\(prefers-color-scheme/,
+            `${file} follows the system on its own instead of the suite's choice`);
+    }
+    // S-Dnevnik's key since before the suite existed: an existing choice carries over.
+    assert.match(await readRoot('mtb-theme.js'), /const KEY = 'theme';/);
+});

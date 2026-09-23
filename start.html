@@ -4,16 +4,15 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Сите апликации — MTB</title>
+<script src="mtb-theme.js"></script>
 <style>
   :root{
     --bg:#f4f6f8; --card:#fff; --ink:#16202a; --soft:#5b6a78; --line:#dde4ea;
     --ok:#0e6b58; --ok-bg:#dcebe6; --warn:#a2570b; --warn-bg:#f8eddb; --dim:#8a99a6;
   }
-  @media (prefers-color-scheme:dark){
-    :root{
-      --bg:#0f1519; --card:#18212a; --ink:#e6edf3; --soft:#a9b8c4; --line:#26323d;
-      --ok:#46c2a5; --ok-bg:#16302b; --warn:#e4a34b; --warn-bg:#2b2418; --dim:#7c8b98;
-    }
+  :root[data-theme="dark"] {
+    --bg:#0f1519; --card:#18212a; --ink:#e6edf3; --soft:#a9b8c4; --line:#26323d;
+    --ok:#46c2a5; --ok-bg:#16302b; --warn:#e4a34b; --warn-bg:#2b2418; --dim:#7c8b98;
   }
   *{box-sizing:border-box}
   body{
@@ -56,14 +55,19 @@
   button.go{background:var(--ok);color:var(--bg);border:none;border-radius:6px;
             padding:9px 15px;font:inherit;font-weight:600;cursor:pointer}
   .hide{display:none}
+  .head{position:relative;padding-right:44px}
+  .theme{position:absolute;top:0;right:0;width:34px;height:34px;border:1px solid var(--line);
+         border-radius:8px;background:var(--card);color:var(--ink);font-size:16px;cursor:pointer}
+  .theme:hover,.theme:focus-visible{border-color:var(--ok);outline:none}
 </style>
 </head>
 <body>
 <div class="wrap">
 
-  <div>
+  <div class="head">
     <h1>Отвори ја апликацијата</h1>
     <p class="sub">Барам кој компјутер е вклучен, па те носам таму. Обележи ја <b>оваа</b> страница — не самите апликации.</p>
+    <button type="button" class="theme" id="theme" hidden></button>
   </div>
 
   <div class="card">
@@ -96,6 +100,13 @@
 <script>
 (function(){
   'use strict';
+
+  // The suite's one light/dark switch (mtb-theme.js); hidden if it did not load.
+  if (window.MTBTheme) {
+    var themeButton = document.getElementById('theme');
+    themeButton.hidden = false;
+    window.MTBTheme.bind(themeButton);
+  }
 
   // Both machines run their own server and only one is usually on. Rather than
   // remembering which, ask them all and go where the answer comes from.

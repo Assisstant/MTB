@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Настава ↔ терапии — MTB</title>
+<script src="mtb-theme.js"></script>
 <!--
     Кој ученик недостига од кој час, и кај кого е.
 
@@ -37,25 +38,23 @@
         --on-dark: #ffffff;
         --on-light: #16233f;
     }
-    @media (prefers-color-scheme: dark) {
-        :root {
-            --bg: #14172a;
-            --card: #1c2138;
-            --text: #e6e9f2;
-            --muted: #9aa2b8;
-            --border: #333a5c;
-            --primary: #6d80e4;
-            --primary-dark: #5a6cd0;
-            --warn: #e0b155;
-            --warn-bg: #33280f;
-            --danger: #f08a8a;
-            --shadow: 0 1px 3px rgba(0, 0, 0, .35);
-            --heat-1: #2b3560;
-            --heat-2: #3a4d92;
-            --heat-3: #5570c4;
-            --heat-4: #7f97e8;
-            --on-light: #e6e9f2;
-        }
+    :root[data-theme="dark"] {
+        --bg: #14172a;
+        --card: #1c2138;
+        --text: #e6e9f2;
+        --muted: #9aa2b8;
+        --border: #333a5c;
+        --primary: #6d80e4;
+        --primary-dark: #5a6cd0;
+        --warn: #e0b155;
+        --warn-bg: #33280f;
+        --danger: #f08a8a;
+        --shadow: 0 1px 3px rgba(0, 0, 0, .35);
+        --heat-1: #2b3560;
+        --heat-2: #3a4d92;
+        --heat-3: #5570c4;
+        --heat-4: #7f97e8;
+        --on-light: #e6e9f2;
     }
 
     * { box-sizing: border-box; }

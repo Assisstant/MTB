@@ -23,7 +23,7 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const ORIGIN = 'http://localhost:3995';
 const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'application/javascript', '.css': 'text/css' };
 const STUBS = ['RasporediFusion.html', 'Nastava.html', 'NastavaUredi.html', 'Podatoci.html', 'AkciskiPlan.html', 'S-Dnevnik.html', 'Pregled-Baza.html'];
-const REAL = new Set(['MTB-Workspace.html', 'app-navigation.js', 'workspace-admin.js', 'workspace-admin.css', 'mtb-runtime.js', 'home-button.js']);
+const REAL = new Set(['MTB-Workspace.html', 'app-navigation.js', 'mtb-theme.js', 'workspace-admin.js', 'workspace-admin.css', 'mtb-runtime.js', 'home-button.js']);
 
 const stub = (file) => `<!doctype html><html><meta charset="utf-8"><title>${file}</title><body data-app="${file}">
   <p id="who">${file}</p>

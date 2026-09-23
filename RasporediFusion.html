@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="theme-color" content="#1a1a2e">
 <title>Распоред — MTB</title>
+<script src="mtb-theme.js"></script>
 <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
@@ -676,7 +677,7 @@
             <span class="live-dot" id="liveDot"></span>
             <span id="connectionState">Се поврзувам…</span>
         </div>
-        <div class="theme-switch-wrapper">
+        <div class="theme-switch-wrapper" data-mtb-theme-control title="Светла / темна тема">
             <label class="theme-switch" for="checkbox">
                 <input type="checkbox" id="checkbox" />
                 <div class="slider round"></div>
@@ -924,19 +925,32 @@
         return normalized === 'dark-mode' || normalized === 'dark' || normalized === '1' || normalized === 'true';
     }
 
-    function applyTheme(isDark) {
+    // The suite's one choice (`mtb-theme.js`, same key and values); without it
+    // the page still decides for itself as before.
+    const sharedTheme = window.MTBTheme || null;
+
+    function paintTheme(isDark) {
         document.body.classList.toggle('dark-mode', !!isDark);
         if (toggleSwitch) toggleSwitch.checked = !!isDark;
+    }
+
+    function applyTheme(isDark) {
+        if (sharedTheme) { sharedTheme.set(isDark ? 'dark' : 'light'); return; }
+        paintTheme(isDark);
         try { localStorage.setItem(THEME_KEY, isDark ? 'dark-mode' : 'light-mode'); }
         catch (_) { /* the choice still works for this tab */ }
     }
 
     (function initTheme() {
+        if (sharedTheme) {
+            paintTheme(sharedTheme.get() === 'dark');
+            window.addEventListener('mtb:theme', (e) => paintTheme(e.detail.theme === 'dark'));
+            return;
+        }
         let storedTheme = '';
         try { storedTheme = localStorage.getItem(THEME_KEY) || ''; }
         catch (_) { storedTheme = ''; }
-        document.body.classList.toggle('dark-mode', isDarkThemeValue(storedTheme));
-        if (toggleSwitch) toggleSwitch.checked = document.body.classList.contains('dark-mode');
+        paintTheme(isDarkThemeValue(storedTheme));
     })();
 
     if (toggleSwitch) {

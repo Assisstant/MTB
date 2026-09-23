@@ -33,6 +33,7 @@ const PUBLIC_FILES = new Set([
     'start.html',
     'РаспоредТерапевти.html',
     'app-navigation.js',
+    'mtb-theme.js',
     'workspace-admin.js',
     'workspace-admin.css',
     'mtb-runtime.js',
