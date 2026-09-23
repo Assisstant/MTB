@@ -229,6 +229,30 @@
     body[data-panel="roster"] .schedule-only { display: none !important; }
     body[data-panel="lists"] .schedule-only, body[data-panel="visits"] .schedule-only { display: none !important; }
     body[data-panel="allDays"] .field.view, body[data-panel="allDays"] #exportImage { display: none !important; }
+    body[data-panel="now"] .schedule-only { display: none !important; }
+    .now-summary { font-size: 16px; margin: 4px 0 12px; }
+    .now-table { width: 100%; min-width: 620px; border-collapse: collapse; font-size: 14px; }
+    .now-table th, .now-table td { text-align: left; padding: 9px 10px; border-bottom: 1px solid #cbd5e0; vertical-align: top; }
+    .now-table th { background: #edf2f7; color: #1a202c; }
+    .now-table .now-bell { width: 44px; text-align: center; }
+    .now-table .now-bell input { width: 18px; height: 18px; cursor: pointer; }
+    .now-table tr.is-live td { background: #e6fffa; }
+    .now-table tr.is-live td.now-current { font-weight: 700; color: #22543d; }
+    .now-time { display: block; font-size: 12px; color: #4a5568; font-weight: 400; }
+    .now-idle { color: #4a5568; }
+    .remind-stack { position: fixed; right: 16px; bottom: 16px; z-index: 3000; display: flex; flex-direction: column; gap: 10px; max-width: min(380px, calc(100vw - 32px)); }
+    .remind-card { background: #fffbeb; color: #1a202c; border: 2px solid #d69e2e; border-radius: 10px; padding: 12px 14px; box-shadow: 0 10px 30px rgba(0,0,0,.25); }
+    .remind-card h4 { margin: 0 0 4px; font-size: 15px; color: inherit; }
+    .remind-card p { margin: 0 0 10px; font-size: 14px; line-height: 1.4; color: inherit; }
+    .remind-card .remind-actions { display: flex; gap: 8px; justify-content: flex-end; }
+    body.dark-mode .now-table th { background: #2d3748; color: #e2e8f0; }
+    body.dark-mode .now-table th, body.dark-mode .now-table td { border-bottom-color: #4a5568; }
+    body.dark-mode .now-table tr.is-live td { background: #1c4532; }
+    body.dark-mode .now-table tr.is-live td.now-current { color: #c6f6d5; }
+    body.dark-mode .now-time { color: #cbd5e0; }
+    body.dark-mode .now-idle { color: #cbd5e0; }
+    body.dark-mode .remind-card { background: #2d3748; color: #f7fafc; border-color: #f6c453; }
+    @media print { .remind-stack { display: none !important; } }
     .report-section { margin: 20px 0 30px; }
     .report-section h3 { margin: 0; font-size: 18px; }
     .report-heading { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 10px; }
@@ -781,6 +805,8 @@
     <div class="view-tabs" role="tablist" aria-label="Приказ на распоредот">
         <button class="view-tab" id="scheduleTab" type="button" role="tab" aria-selected="true"
             aria-controls="schedulePanel" data-panel="schedule">Распоред</button>
+        <button class="view-tab" id="nowTab" type="button" role="tab" aria-selected="false"
+            aria-controls="nowPanel" data-panel="now">🔔 Сега</button>
         <button class="view-tab" id="rosterTab" type="button" role="tab" aria-selected="false"
             aria-controls="rosterPanel" data-panel="roster">Ученици по терапевт</button>
         <button class="view-tab" id="listsTab" type="button" role="tab" aria-selected="false" aria-controls="reportPanel" data-panel="lists">Списоци за печатење</button>
@@ -853,6 +879,20 @@
                 </table>
             </div>
         </section>
+        <section id="nowPanel" role="tabpanel" aria-labelledby="nowTab" hidden>
+            <div class="section-header"><h2>Сега</h2><span id="nowClock"></span></div>
+            <p class="now-summary" id="nowSummary"></p>
+            <div class="roster-controls">
+                <button class="btn" id="nowRemindAll" type="button">🔔 Сите</button>
+                <button class="btn" id="nowRemindNone" type="button">Ниеден</button>
+                <button class="btn" id="nowSystemNotify" type="button" hidden>Известувања и кога табот е во позадина</button>
+            </div>
+            <div class="scrollable-container" id="nowContent"></div>
+            <p class="report-note">Се чита од распоредот — тоа е планот, не присуството во дневникот.
+                Празниците и распустите не се познати тука. Потсетникот (🔔) се јавува кога ќе почне
+                третманот и исчезнува кога ќе почне следниот третман кај истиот терапевт, или со „Во ред“.
+                Изборот се памти само во овој прелистувач и работи додека оваа страница е отворена.</p>
+        </section>
         <section id="reportPanel" role="tabpanel" aria-labelledby="listsTab" hidden>
             <div class="section-header"><h2 id="reportTitle">Списоци за печатење</h2><span id="reportYear"></span></div>
             <div class="roster-controls report-controls">
@@ -866,6 +906,7 @@
     </div>
 </main>
 
+<div class="remind-stack" id="remindStack" aria-live="polite"></div>
 <div class="busy-layer" id="busyLayer" aria-hidden="true"><div class="busy-box">Се вчитуваат податоците…</div></div>
 
 <!-- Caseload Checklist Modal (read-down 3 columns) -->
@@ -942,6 +983,8 @@
     const SERVER_TIMEOUT = 4000;
     const VIEW_KEY = 'mtb_fusion_view_v1';
     const WHERE_KEY = 'mtb_fusion_where_v1';
+    const REMIND_KEY = 'mtb_fusion_remind_v1';
+    const REMIND_SEEN_KEY = 'mtb_fusion_remind_seen_v1';
     const THEME_KEY = 'theme';
     const TOKEN_KEY = 'evidence_token_v1';
     const REQUESTED_YEAR = new URLSearchParams(window.location.search).get('year') || '';
@@ -1344,8 +1387,10 @@
         drawView();
         const rosterActive = state.panel === 'roster';
         const reportActive = ['lists', 'visits'].includes(state.panel);
+        const nowActive = state.panel === 'now';
         document.body.dataset.panel = state.panel;
-        el('schedulePanel').hidden = rosterActive || reportActive;
+        el('schedulePanel').hidden = rosterActive || reportActive || nowActive;
+        el('nowPanel').hidden = !nowActive;
         el('rosterPanel').hidden = !rosterActive;
         el('reportPanel').hidden = !reportActive;
         el('schedulePanel').setAttribute('aria-labelledby', state.panel === 'allDays' ? 'allDaysTab' : 'scheduleTab');
@@ -1360,6 +1405,7 @@
             drawTherapistRoster();
         }
         if (reportActive) drawReports();
+        if (nowActive) drawNow();
         drawSchedule();
     }
 
@@ -1828,6 +1874,7 @@
                     state.sessionVersion++;
                     drawSchedule();
                     drawMetrics();
+                    tickNow();
                 }
             }
         } catch (_) {}
@@ -3125,6 +3172,226 @@
         }
     }
 
+    /* ── Сега и потсетник ──────────────────────────────────
+       Read from the week already loaded; nothing is written anywhere except
+       this browser's own choice of whom to be reminded about. It is the PLAN
+       (attendance belongs to S-Dnevnik) and the page does not know holidays,
+       so it says so instead of pretending. */
+    const remindState = { ids: new Set(), seen: {}, shown: new Set(), baseTitle: document.title };
+
+    function localDateKey(date) {
+        return date.getFullYear() + '-' + String(date.getMonth() + 1).padStart(2, '0') + '-' +
+            String(date.getDate()).padStart(2, '0');
+    }
+
+    function dayOfDate(date) {
+        const index = date.getDay() - 1;
+        return index >= 0 && index < DAYS.length ? DAYS[index] : '';
+    }
+
+    function currentYearSelected() {
+        const current = state.years.find((year) => year.is_current);
+        return Boolean(current && current.label === state.year);
+    }
+
+    // One therapist's day as treatments: two 20-minute halves of the same
+    // pupil back to back are ONE treatment and must remind once, not twice.
+    function treatmentsFor(day, therapistId) {
+        const parts = [];
+        state.sessions.forEach((session) => {
+            if (session.day !== day || String(session.therapist_id) !== String(therapistId) ||
+                !session.student_public_id) return;
+            const range = timeRangeMinutes(session.time);
+            if (range) parts.push({ start: range.start, end: range.end, id: session.student_public_id });
+        });
+        parts.sort((a, b) => a.start - b.start || a.end - b.end);
+        const joined = [];
+        parts.forEach((part) => {
+            const last = joined[joined.length - 1];
+            if (last && last.id === part.id && last.end >= part.start) last.end = Math.max(last.end, part.end);
+            else joined.push(Object.assign({}, part));
+        });
+        return joined;
+    }
+
+    // Where one therapist stands at `cur` minutes: the treatment in progress,
+    // the next one, and the reminder — open from a treatment's start until the
+    // next treatment starts (or, for the last one of the day, until it ends).
+    function therapistNow(day, therapistId, cur) {
+        const list = treatmentsFor(day, therapistId);
+        let current = null, next = null, remind = null;
+        list.forEach((item, index) => {
+            if (!current && item.start <= cur && cur < item.end) current = item;
+            if (!next && item.start > cur) next = item;
+            if (item.start <= cur) {
+                const following = list.slice(index + 1).find((other) => other.start > item.start);
+                if (cur < (following ? following.start : item.end)) remind = item;
+            }
+        });
+        return { current, next, remind, count: list.length };
+    }
+
+    function rangeText(item) {
+        return clock(item.start) + '–' + clock(item.end);
+    }
+
+    function loadRemindChoices() {
+        try {
+            const ids = JSON.parse(localStorage.getItem(REMIND_KEY) || '[]');
+            remindState.ids = new Set(Array.isArray(ids) ? ids.map(String) : []);
+        } catch (_) { remindState.ids = new Set(); }
+        try {
+            const seen = JSON.parse(localStorage.getItem(REMIND_SEEN_KEY) || '{}');
+            remindState.seen = seen && typeof seen === 'object' ? seen : {};
+        } catch (_) { remindState.seen = {}; }
+    }
+
+    function saveRemindChoices() {
+        try { localStorage.setItem(REMIND_KEY, JSON.stringify(Array.from(remindState.ids))); }
+        catch (_) { /* optional preference */ }
+    }
+
+    function saveRemindSeen(todayKey) {
+        // Only today's dismissals matter; yesterday's treatments cannot recur.
+        Object.keys(remindState.seen).forEach((key) => {
+            if (!key.startsWith(todayKey + '|')) delete remindState.seen[key];
+        });
+        try { localStorage.setItem(REMIND_SEEN_KEY, JSON.stringify(remindState.seen)); }
+        catch (_) { /* optional preference */ }
+    }
+
+    function drawNow() {
+        const panel = el('nowContent');
+        if (!panel) return;
+        const date = new Date();
+        const day = dayOfDate(date);
+        const cur = date.getHours() * 60 + date.getMinutes();
+        const therapists = (state.roster && state.roster.therapists) || [];
+        const students = studentsById();
+        el('nowClock').textContent = (day ? capitalise(day) + ' · ' : '') + clock(cur);
+        const notify = el('nowSystemNotify');
+        if (notify) notify.hidden = !('Notification' in window) || Notification.permission !== 'default';
+        if (!state.roster) {
+            el('nowSummary').textContent = '';
+            panel.innerHTML = '<div class="empty-state">Распоредот не е вчитан.</div>';
+            return;
+        }
+        if (!currentYearSelected()) {
+            el('nowSummary').textContent = 'Избрана е архивска година — „Сега“ се чита само од тековната.';
+            panel.innerHTML = '';
+            return;
+        }
+        let live = 0;
+        const rows = therapists.map((therapist) => {
+            const where = day ? therapistNow(day, therapist.id, cur) : { current: null, next: null, count: 0 };
+            if (where.current) live++;
+            const checked = remindState.ids.has(String(therapist.id));
+            const currentCell = where.current
+                ? esc(studentLabel(students.get(where.current.id))) + '<span class="now-time">' +
+                  rangeText(where.current) + ' · уште ' + (where.current.end - cur) + ' мин.</span>'
+                : '<span class="now-idle">' + (where.count ? 'слободно' : 'нема термини денес') + '</span>';
+            const nextCell = where.next
+                ? esc(studentLabel(students.get(where.next.id))) + '<span class="now-time">од ' +
+                  clock(where.next.start) + '</span>'
+                : '<span class="now-idle">—</span>';
+            return '<tr data-now-therapist="' + esc(therapist.id) + '"' + (where.current ? ' class="is-live"' : '') + '>' +
+                '<td class="now-bell"><input type="checkbox" data-remind="' + esc(therapist.id) + '"' +
+                (checked ? ' checked' : '') + ' aria-label="Потсетник за ' + esc(therapist.name) + '"></td>' +
+                '<td>' + esc(therapist.name) + '</td>' +
+                '<td class="now-current">' + currentCell + '</td>' +
+                '<td class="now-next">' + nextCell + '</td></tr>';
+        }).join('');
+        el('nowSummary').textContent = !day ? 'Денес не е работен ден.'
+            : live ? 'Во третман сега: ' + live + (live === 1 ? ' ученик.' : ' ученици.')
+            : 'Никој не е во третман во моментов.';
+        panel.innerHTML = therapists.length
+            ? '<table class="now-table"><thead><tr><th class="now-bell" title="Потсетник">🔔</th><th>Терапевт</th>' +
+              '<th>Сега</th><th>Следно</th></tr></thead><tbody>' + rows + '</tbody></table>'
+            : '<div class="empty-state">Нема терапевти на списокот за оваа година.</div>';
+        panel.querySelectorAll('input[data-remind]').forEach((box) => {
+            box.addEventListener('change', () => {
+                if (box.checked) remindState.ids.add(box.dataset.remind);
+                else remindState.ids.delete(box.dataset.remind);
+                saveRemindChoices();
+                checkReminders();
+            });
+        });
+    }
+
+    function checkReminders() {
+        const stack = el('remindStack');
+        if (!stack) return;
+        const date = new Date();
+        const day = dayOfDate(date);
+        const todayKey = localDateKey(date);
+        const cur = date.getHours() * 60 + date.getMinutes();
+        const wanted = new Map();
+        if (day && state.roster && currentYearSelected()) {
+            const students = studentsById();
+            (state.roster.therapists || []).forEach((therapist) => {
+                if (!remindState.ids.has(String(therapist.id))) return;
+                const where = therapistNow(day, therapist.id, cur);
+                if (!where.remind) return;
+                const key = todayKey + '|' + therapist.id + '|' + where.remind.start + '|' + where.remind.id;
+                if (remindState.seen[key]) return;
+                wanted.set(key, {
+                    therapist: therapist.name,
+                    pupil: studentLabel(students.get(where.remind.id)),
+                    time: rangeText(where.remind)
+                });
+            });
+        }
+        // A card whose window has closed is gone, answered or not.
+        stack.querySelectorAll('.remind-card').forEach((card) => {
+            if (!wanted.has(card.dataset.key)) card.remove();
+        });
+        wanted.forEach((info, key) => {
+            if (Array.from(stack.children).some((card) => card.dataset.key === key)) return;
+            const card = document.createElement('div');
+            card.className = 'remind-card';
+            card.dataset.key = key;
+            card.setAttribute('role', 'alert');
+            card.innerHTML = '<h4>🔔 ' + esc(info.time) + ' · ' + esc(info.therapist) + '</h4>' +
+                '<p>Почнува третман: <strong>' + esc(info.pupil) + '</strong></p>' +
+                '<div class="remind-actions"><button class="btn" type="button" data-remind-open>Сега</button>' +
+                '<button class="btn btn-primary" type="button" data-remind-ok>✓ Во ред</button></div>';
+            card.querySelector('[data-remind-ok]').addEventListener('click', () => {
+                remindState.seen[key] = 1;
+                saveRemindSeen(todayKey);
+                card.remove();
+                updateRemindTitle();
+            });
+            card.querySelector('[data-remind-open]').addEventListener('click', () => {
+                state.panel = 'now';
+                drawPanel();
+            });
+            stack.appendChild(card);
+            if (!remindState.shown.has(key) && 'Notification' in window && Notification.permission === 'granted') {
+                try { new Notification('🔔 ' + info.time + ' · ' + info.therapist, { body: info.pupil, tag: key }); }
+                catch (_) { /* the card on the page is the reminder; this is only a nudge */ }
+            }
+            remindState.shown.add(key);
+        });
+        updateRemindTitle();
+    }
+
+    function updateRemindTitle() {
+        const open = document.querySelectorAll('#remindStack .remind-card').length;
+        document.title = (open ? '🔔 (' + open + ') ' : '') + remindState.baseTitle;
+    }
+
+    function tickNow() {
+        checkReminders();
+        if (state.panel === 'now') drawNow();
+    }
+
+    function setRemindAll(on) {
+        remindState.ids = new Set(on ? ((state.roster && state.roster.therapists) || []).map((t) => String(t.id)) : []);
+        saveRemindChoices();
+        tickNow();
+    }
+
+
     function loadYears() {
         return api('/api/years').then((years) => {
             state.years = years;
@@ -3172,6 +3439,7 @@
             drawDays();
             drawSchedule();
             drawPanel();
+            tickNow();
             // Deliberately NOT awaited and NOT in the Promise.all above: the
             // crossing is an extra the schedule does not need, and a school
             // with no timetable entered yet must still get its week.
@@ -3284,10 +3552,20 @@
         if (e.key === 'Enter') submitPin();
     });
 
+    // Сега и потсетник: the clock moves even when the week does not.
+    loadRemindChoices();
+    el('nowRemindAll').addEventListener('click', () => setRemindAll(true));
+    el('nowRemindNone').addEventListener('click', () => setRemindAll(false));
+    el('nowSystemNotify').addEventListener('click', () => {
+        if (!('Notification' in window)) return;
+        Notification.requestPermission().then(() => { if (state.panel === 'now') drawNow(); });
+    });
+    setInterval(tickNow, 15000);
+
     // Live sync polling
     setInterval(pollLiveSessions, 20000);
     document.addEventListener('visibilitychange', () => {
-        if (!document.hidden) pollLiveSessions();
+        if (!document.hidden) { pollLiveSessions(); tickNow(); }
     });
     document.addEventListener('focusout', (event) => {
         if (event.target && event.target.matches && event.target.matches('#scheduleGrid select')) {

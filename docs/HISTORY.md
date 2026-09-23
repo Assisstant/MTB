@@ -3159,3 +3159,34 @@ still being `qwerty`.
 See `docs/STATUS-2026-08-19.md` and, for the original plan,
 `LEGACY RASPOREDI I SDNEVNIK/therapy_app_postgres_local_plan_v2.md`.
 
+## „Сега“ и потсетникот (23 Sep 2026)
+
+Owner's request: see which pupil is with which therapist right now, and a
+reminder popup for chosen therapists. It is a panel of `RasporediFusion.html`
+(`data-panel="now"`), not a page of its own: the contract allows one schedule
+app, and this is one more way of reading its week.
+
+- **It reads the week already loaded** (`state.sessions`, refreshed by the
+  20-second poll) and writes nothing to the server. The browser suite
+  asserts no non-GET request leaves the page.
+- **A treatment is the joined run of one pupil** with one therapist:
+  `08:00-08:20` + `08:20-08:40` of the same child is one 40-minute
+  treatment, so it reminds once, not once per half.
+- **The reminder window is from a start until the therapist's next start**
+  (for the last treatment of the day, until it ends). An unanswered card is
+  removed when the window closes — the owner's words: „се губи ако не се
+  одговори до следниот третман". „Во ред" stores the dismissal for today
+  only (`mtb_fusion_remind_seen_v1`), so a reload does not bring it back.
+- **Who to remind is a per-browser convenience** (`mtb_fusion_remind_v1`), the
+  same class of choice as `mtb_fusion_where_v1`. It is not a fact about a
+  therapist and must not move into the database without an owner.
+- It is the PLAN, not attendance (S-Dnevnik owns that), and Fusion does not
+  know the school calendar, so a holiday still shows terms. The panel says so.
+- Only the current school year; an archived year says it is archived.
+- The optional Windows notification uses the browser's Notification API and
+  only after the person grants it; the in-page card is the reminder.
+
+Proven by `npm run test:fusion-now` (29 assertions on Playwright's fake
+clock: halves joined, no duplicate at the second half, the unanswered card
+lost at the next start, dismissal surviving a reload, unticked therapists
+silent, nothing written).
