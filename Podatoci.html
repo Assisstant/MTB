@@ -24,89 +24,41 @@
     тоа го одлучува S-Dnevnik и таму е единственото место (правило 5). Тука
     архивиран ученик се гледа, но не се менува.
 -->
+<link rel="stylesheet" href="mtb-look.css">
 <style>
+    /* Palette, header, buttons and fields are the suite's one look
+       (mtb-look.css, taken from S-Dnevnik). What stays here is this page's
+       own: the pupil chips and the reader's display size. */
     :root {
-        --bg: #f6f5fb;
-        --card: #ffffff;
-        --text: #1f2430;
-        --muted: #6b7280;
-        --border: #e4e2ee;
         --chip: #f0edfb;
-        --chip-note: #4b5563;
-        --accent: #6d5bd0;
-        --accent-dark: #57459f;
-        --warn: #b7791f;
-        --warn-bg: #fff8e6;
-        --danger: #c53030;
-        --ok: #2f855a;
-        --shadow: 0 1px 3px rgba(0, 0, 0, .07);
-        --soft: #f0edfb;
+        --chip-note: #4a5568;
         /* Reader's own display size, 1 = as designed. The slider in the header
            writes it; `zoom` on <body> scales layout with the text, so a bigger
            font does not leave the columns behind. */
         --ui: 1;
     }
     :root[data-theme="dark"] {
-        --bg: #16152a;
-        --card: #1e1d36;
-        --text: #e8e6f2;
-        --muted: #9c99b5;
-        --border: #383557;
-        --accent: #8878e8;
-        --accent-dark: #6f5fd0;
-        --warn: #e0b155;
-        --warn-bg: #33280f;
-        --danger: #f08a8a;
-        --ok: #7fd0a5;
-        --shadow: 0 1px 3px rgba(0, 0, 0, .35);
-        --soft: #272544;
         /* Чипот носи име и мора да се чита. --soft е само една нијанса над
            --card, па во темна тема чипот се губеше во позадината. */
         --chip: #3d3a68;
         --chip-note: #c3bfe0;
     }
 
-    * { box-sizing: border-box; }
-    body {
-        margin: 0; background: var(--bg); color: var(--text);
-        font-family: "Segoe UI", system-ui, -apple-system, sans-serif; font-size: 15px;
-        zoom: var(--ui);
-    }
-    button, input, select { font-family: inherit; letter-spacing: 0; }
-    header {
-        background: linear-gradient(135deg, var(--accent), var(--accent-dark));
-        color: #fff; padding: 16px 22px; display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
-    }
-    header h1 { margin: 0; font-size: 20px; font-weight: 700; }
-    header .sub { font-size: 13px; opacity: .85; }
+    body { font-size: 15px; zoom: var(--ui); }
+    button, input, select { letter-spacing: 0; }
     header .links { margin-left: auto; display: flex; gap: 14px; }
-    header a { color: #fff; opacity: .9; font-size: 13px; }
 
     /* Same as the two Настава pages: the pupil table is wider than the cap,
        so a reading width only added margin beside something still scrolling.
        The window is the width; the prose keeps its own. */
     main { padding: 18px 22px 60px; max-width: none; margin: 0; }
     .panel p, .panel > .hint { max-width: 105ch; }
-    .panel {
-        background: var(--card); border: 1px solid var(--border); border-radius: 10px;
-        padding: 16px 18px; box-shadow: var(--shadow); margin-bottom: 16px;
-    }
     .panel h2 { margin: 0 0 4px; font-size: 16px; }
     .hint { margin: 0 0 12px; font-size: 13px; color: var(--muted); }
 
     .controls { display: flex; flex-wrap: wrap; gap: 14px; align-items: flex-end; }
-    .field { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--muted); }
-    .field select, .field input {
-        padding: 8px 10px; border: 1px solid var(--border); border-radius: 6px;
-        background: var(--card); color: var(--text); font-size: 14px; min-width: 170px;
-    }
-    .btn {
-        padding: 9px 16px; border: 0; border-radius: 6px; cursor: pointer;
-        background: var(--accent); color: #fff; font-size: 14px; font-weight: 600;
-    }
-    .btn.soft { background: transparent; color: var(--text); border: 1px solid var(--border); font-weight: 500; }
-    .btn.danger { color: var(--danger); border-color: color-mix(in srgb, var(--danger) 45%, var(--border)); }
-    .btn:disabled { opacity: .45; cursor: not-allowed; }
+    .field select, .field input { min-width: 170px; }
+    .btn.soft.danger { border-color: color-mix(in srgb, var(--danger) 45%, var(--toggle-border)); }
     /* Дали е запишано во базата — на самата контрола, не само горе на екранот.
        docs/MANUAL-DB-SYNC.md вели: копчето станува зелено дури откако серверот
        ќе прифати. Ова е тоа ветување, одржано таму каде што рацете работат. */
@@ -131,7 +83,6 @@
     .status.error { color: var(--danger); }
 
     .tabs { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
-    .tabs .btn[aria-pressed="true"] { background: var(--accent); color: #fff; border-color: transparent; }
     .number-toggle {
         display: inline-flex; align-items: center; gap: 7px; margin-left: auto;
         padding: 7px 10px; border: 1px solid var(--border); border-radius: 6px;

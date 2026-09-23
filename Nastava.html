@@ -18,19 +18,12 @@
     еден час запишан во код — ако ѕвоната се сменат, се менува табелата
     `bell_periods` и оваа страница веднаш кажува поинаку.
 -->
+<link rel="stylesheet" href="mtb-look.css">
 <style>
+    /* Palette, header, buttons and fields are the suite's one look
+       (mtb-look.css, taken from S-Dnevnik). Only this page's heat scale is
+       its own. */
     :root {
-        --bg: #f5f7fb;
-        --card: #ffffff;
-        --text: #1f2430;
-        --muted: #6b7280;
-        --border: #e2e8f0;
-        --primary: #5b6fd8;
-        --primary-dark: #4356b8;
-        --warn: #b7791f;
-        --warn-bg: #fff8e6;
-        --danger: #c53030;
-        --shadow: 0 1px 3px rgba(0, 0, 0, .07);
         --heat-1: #dbe4f7;
         --heat-2: #a9bdec;
         --heat-3: #6f8ddc;
@@ -39,17 +32,6 @@
         --on-light: #16233f;
     }
     :root[data-theme="dark"] {
-        --bg: #14172a;
-        --card: #1c2138;
-        --text: #e6e9f2;
-        --muted: #9aa2b8;
-        --border: #333a5c;
-        --primary: #6d80e4;
-        --primary-dark: #5a6cd0;
-        --warn: #e0b155;
-        --warn-bg: #33280f;
-        --danger: #f08a8a;
-        --shadow: 0 1px 3px rgba(0, 0, 0, .35);
         --heat-1: #2b3560;
         --heat-2: #3a4d92;
         --heat-3: #5570c4;
@@ -57,18 +39,8 @@
         --on-light: #e6e9f2;
     }
 
-    * { box-sizing: border-box; }
-    body {
-        margin: 0; background: var(--bg); color: var(--text);
-        font-family: "Segoe UI", system-ui, -apple-system, sans-serif; font-size: 15px;
-    }
-    header {
-        background: linear-gradient(135deg, var(--primary), var(--primary-dark));
-        color: #fff; padding: 16px 22px; display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
-    }
-    header h1 { margin: 0; font-size: 20px; font-weight: 700; }
-    header .sub { font-size: 13px; opacity: .85; }
-    header a { color: #fff; opacity: .85; font-size: 13px; margin-left: auto; }
+    body { font-size: 15px; }
+    header a { margin-left: auto; }
 
     /* The weekly grid is every teacher across five days — wider than any
        screen. A fixed reading width there does not protect anything: it
@@ -78,23 +50,8 @@
        what the reading width was ever for. */
     main { padding: 18px 22px 40px; max-width: none; margin: 0; }
     .panel p, .panel > .hint { max-width: 105ch; }
-    .panel {
-        background: var(--card); border: 1px solid var(--border); border-radius: 10px;
-        padding: 16px 18px; box-shadow: var(--shadow); margin-bottom: 16px;
-    }
-
     .controls { display: flex; flex-wrap: wrap; gap: 14px; align-items: flex-end; }
-    .field { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--muted); }
-    .field select {
-        padding: 8px 10px; border: 1px solid var(--border); border-radius: 6px;
-        background: var(--card); color: var(--text); font-size: 14px; min-width: 190px;
-    }
-    .btn {
-        padding: 9px 16px; border: 0; border-radius: 6px; cursor: pointer;
-        background: var(--primary); color: #fff; font-size: 14px; font-weight: 600;
-    }
-    .btn.soft { background: transparent; color: var(--primary); border: 1px solid var(--border); }
-    .btn[aria-pressed="true"] { background: var(--primary-dark); }
+    .field select { min-width: 190px; }
     .views { display: flex; gap: 8px; margin: 14px 0 0; }
     .status { font-size: 13px; color: var(--muted); }
     .status.warn { color: var(--warn); }

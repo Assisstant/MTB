@@ -135,6 +135,30 @@ test('every suite screen takes light/dark from the one shared choice', async () 
     assert.match(await readRoot('mtb-theme.js'), /const KEY = 'theme';/);
 });
 
+test('the connected screens take their look from S-Dnevnik, through one stylesheet', async () => {
+    // Owner, 23 Sep 2026: S-Dnevnik has the buttons, sizes and header he
+    // wants, and the rest follow it. Before, the header was blue in Настава,
+    // green in Уреди настава and violet in S-Dnevnik. A page that restates a
+    // palette, a header gradient or a button shape is how they drift again.
+    const look = await readRoot('mtb-look.css');
+    assert.match(look, /--mtb-header: linear-gradient\(135deg, #667eea 0%, #764ba2 100%\)/,
+        'the shared header is no longer the S-Dnevnik gradient');
+    assert.match(look, /--primary: #667eea;/, 'the shared primary is no longer the S-Dnevnik one');
+    assert.match(look, /padding: 12px 25px;/, 'the shared button is no longer the S-Dnevnik size');
+    for (const file of ['Nastava.html', 'NastavaUredi.html', 'Podatoci.html']) {
+        const html = await readRoot(file);
+        const head = html.slice(0, html.indexOf('</head>'));
+        const link = head.indexOf('<link rel="stylesheet" href="mtb-look.css">');
+        assert.ok(link > 0, `${file} does not load mtb-look.css`);
+        assert.ok(link < head.indexOf('<style>'),
+            `${file} loads mtb-look.css after its own <style>, so the shared look cannot be refined there`);
+        assert.doesNotMatch(head, /--(bg|primary|accent|edit|border|text):\s*#/,
+            `${file} states its own palette again`);
+        assert.doesNotMatch(head, /\n\s*header \{/, `${file} draws its own header again`);
+        assert.doesNotMatch(head, /\n\s*\.btn \{/, `${file} draws its own button again`);
+    }
+});
+
 test('every generated document takes its font and sizes from the one standard', async () => {
     // Owner, 23 Sep 2026: Times New Roman, 11 pt text, headings a step above.
     // Before, one generator printed Arial 10 pt, another Times 11 PX (8 pt on

@@ -23,57 +23,17 @@
     Пресметките (кој термин со кој час се преклопува) не се тука. Тие се на
     серверот, во `lib/crossing.ts`, и оваа страница воопшто не ги знае.
 -->
+<link rel="stylesheet" href="mtb-look.css">
 <style>
-    :root {
-        --bg: #f5f7fb;
-        --card: #ffffff;
-        --text: #1f2430;
-        --muted: #6b7280;
-        --border: #e2e8f0;
-        --primary: #5b6fd8;
-        --primary-dark: #4356b8;
-        --edit: #2f855a;
-        --edit-dark: #276749;
-        --warn: #b7791f;
-        --warn-bg: #fff8e6;
-        --danger: #c53030;
-        --danger-bg: #fff5f5;
-        --ok: #2f855a;
-        --shadow: 0 1px 3px rgba(0, 0, 0, .07);
-        --filled: #eef2fd;
-    }
-    :root[data-theme="dark"] {
-        --bg: #14172a;
-        --card: #1c2138;
-        --text: #e6e9f2;
-        --muted: #9aa2b8;
-        --border: #333a5c;
-        --primary: #6d80e4;
-        --primary-dark: #5a6cd0;
-        --edit: #48a67a;
-        --edit-dark: #37855f;
-        --warn: #e0b155;
-        --warn-bg: #33280f;
-        --danger: #f08a8a;
-        --danger-bg: #35191b;
-        --ok: #7fd0a5;
-        --shadow: 0 1px 3px rgba(0, 0, 0, .35);
-        --filled: #232a49;
-    }
+    /* Palette, header, buttons and fields are the suite's one look
+       (mtb-look.css, taken from S-Dnevnik). This page used to paint itself
+       green to say "editing"; the title says that now, and the colour no
+       longer makes it look like a different application. */
+    :root { --filled: #eef2fd; }
+    :root[data-theme="dark"] { --filled: #313a5a; }
 
-    * { box-sizing: border-box; }
-    body {
-        margin: 0; background: var(--bg); color: var(--text);
-        font-family: "Segoe UI", system-ui, -apple-system, sans-serif; font-size: 15px;
-    }
-    header {
-        background: linear-gradient(135deg, var(--edit), var(--edit-dark));
-        color: #fff; padding: 16px 22px; display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
-    }
-    header h1 { margin: 0; font-size: 20px; font-weight: 700; }
-    header .sub { font-size: 13px; opacity: .85; }
+    body { font-size: 15px; }
     header .links { margin-left: auto; display: flex; gap: 14px; }
-    header a { color: #fff; opacity: .9; font-size: 13px; }
 
     /* The weekly grid is every teacher across five days — wider than any
        screen. A fixed reading width there does not protect anything: it
@@ -83,27 +43,12 @@
        what the reading width was ever for. */
     main { padding: 18px 22px 60px; max-width: none; margin: 0; }
     .panel p, .panel > .hint { max-width: 105ch; }
-    .panel {
-        background: var(--card); border: 1px solid var(--border); border-radius: 10px;
-        padding: 16px 18px; box-shadow: var(--shadow); margin-bottom: 16px;
-    }
     .panel > h2 { margin: 0 0 4px; font-size: 16px; }
     .panel > p.hint { margin: 0 0 12px; font-size: 13px; color: var(--muted); }
 
     .controls { display: flex; flex-wrap: wrap; gap: 14px; align-items: flex-end; }
-    .field { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--muted); }
-    .field select, .field input {
-        padding: 8px 10px; border: 1px solid var(--border); border-radius: 6px;
-        background: var(--card); color: var(--text); font-size: 14px; min-width: 170px;
-    }
+    .field select, .field input { min-width: 170px; }
     .field input.narrow { min-width: 90px; }
-    .btn {
-        padding: 9px 16px; border: 0; border-radius: 6px; cursor: pointer;
-        background: var(--edit); color: #fff; font-size: 14px; font-weight: 600;
-    }
-    .btn.soft { background: transparent; color: var(--text); border: 1px solid var(--border); font-weight: 500; }
-    .btn.danger { background: var(--danger); }
-    .btn:disabled { opacity: .5; cursor: not-allowed; }
     .status { font-size: 13px; color: var(--muted); }
     .status.ok { color: var(--ok); }
     .status.warn { color: var(--warn); }
