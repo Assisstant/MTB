@@ -1784,7 +1784,106 @@
         return '<option value="">— празно —</option>' + available.map((student) =>
             '<option value="' + esc(student.public_id) + '"' +
             (student.public_id === selectedId ? ' selected' : '') + '>' + esc(studentLabel(student)) + '</option>'
-        ).join('');
+        ).join('') +
+            (mayCreatePupil() ? '<option value="' + NEW_PUPIL + '">＋ Нов ученик (набљудување)…</option>' : '');
+    }
+
+    /* ── Дете што базата уште не го знае ───────────────────
+     *
+     * Име напишано право во ќелијата би било натпис, не дете: без проверка на
+     * судир (исто дете во два кабинета), истото дете напишано на три начини,
+     * историја што не го следи кога ќе се запише, и ништо што S-Dnevnik може
+     * да го земе. Затоа името создава УЧЕНИК — надворешен, без паралелка,
+     * `placement = observation` (миграција 034) — преку endpoint-от на
+     * Администрацијата, кој го поседува тој факт и одбива второ дете со исто
+     * име. Потоа истите записи како секогаш: каталогот на терапевтот, па
+     * терминот. Име што веќе е на годишниот список се НУДИ, никогаш не се
+     * дуплира. Создавање ученик е администраторско, па копчето не им се
+     * нуди на колегите за да не удираат во сигурно одбивање. */
+    const NEW_PUPIL = '__new-observation-pupil__';
+
+    function mayCreatePupil() {
+        return !authEnforced() || Boolean(state.me && state.me.permissions && state.me.permissions.admin);
+    }
+
+    const pupilKey = (name) =>
+        String(name || '').normalize('NFKC').trim().replace(/\s+/g, ' ').toLocaleLowerCase('mk-MK');
+
+    function bookedHere(select, publicId) {
+        const therapistId = String(select.dataset.therapistId);
+        return Array.from(state.sessions.values()).some((session) =>
+            session.student_public_id === publicId && String(session.therapist_id) === therapistId &&
+            session.day === select.dataset.sessionDay);
+    }
+
+    async function addObservationPupil(select, save) {
+        const therapistId = Number(select.dataset.therapistId);
+        if (!mayEditTherapist(therapistId) || !mayCreatePupil()) {
+            drawSchedule();
+            showNotice('Нов ученик може да додаде само администраторот.', 'error');
+            return;
+        }
+        const therapist = ((state.roster && state.roster.therapists) || [])
+            .find((item) => String(item.id) === String(therapistId));
+        if (!therapist) { drawSchedule(); return; }
+
+        const typed = window.prompt('Нов ученик под набљудување — име и презиме (доволно е и само име):', '');
+        const name = String(typed || '').replace(/\s+/g, ' ').trim();
+        if (!name) { drawSchedule(); return; }
+
+        let publicId = '';
+        const same = ((state.roster && state.roster.students) || [])
+            .filter((student) => pupilKey(student.name) === pupilKey(name));
+        if (same.length > 1) {
+            drawSchedule();
+            showNotice('На годишниот список има повеќе деца со името „' + name + '". Избери го вистинското во „Ученици по терапевт“.', 'error');
+            return;
+        }
+        if (same.length === 1) {
+            const ok = window.confirm('На годишниот список веќе има „' + studentLabel(same[0]) + '".\n\n' +
+                'OK — да се стави тој ученик во терминот.\n' +
+                'Откажи — ако е друго дете; тогаш внеси го со повеќе од името (на пр. со презиме).');
+            if (!ok) { drawSchedule(); return; }
+            publicId = same[0].public_id;
+        }
+
+        const yearQuery = '?year=' + encodeURIComponent(state.year);
+        setConnection(true, 'Се додава ученик…');
+        try {
+            if (!publicId) {
+                const created = await api('/api/workspace/pupils', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        year: state.year, name, grade: null, oddelenie: null,
+                        enrollmentType: 'external', boarding: false, programme: 'unknown',
+                        placement: 'observation', active: true
+                    })
+                });
+                publicId = created.pupil.public_id;
+            }
+            if (!(therapist.students || []).includes(publicId)) {
+                await api('/api/therapists/' + encodeURIComponent(therapist.name) + '/students/' +
+                    encodeURIComponent(publicId) + yearQuery, { method: 'PUT' });
+            }
+            state.roster = await api('/api/roster' + yearQuery);
+        } catch (error) {
+            setConnection(false, 'Ученикот не е додаден');
+            drawSchedule();
+            showNotice(readableError(error), 'error');
+            return;
+        }
+
+        // The ordinary save reads the chosen pupil from the cell itself.
+        const option = document.createElement('option');
+        option.value = publicId;
+        option.textContent = name;
+        select.appendChild(option);
+        select.value = publicId;
+        await save(select);
+        if (bookedHere(select, publicId)) {
+            showNotice('„' + name + '" е во терминот' + (same.length ? '.' : ' — додаден како ученик под набљудување.'), 'ok');
+        }
     }
 
     /* ── Каде е детето во тој термин ───────────────────────
@@ -2081,10 +2180,12 @@
     function bindScheduleCells() {
         el('scheduleGrid').querySelectorAll('[data-block-time]').forEach((select) => {
             if (select.tagName !== 'SELECT') return;
-            select.addEventListener('change', () => saveBlock(select));
+            select.addEventListener('change', () =>
+                select.value === NEW_PUPIL ? addObservationPupil(select, saveBlock) : saveBlock(select));
         });
         el('scheduleGrid').querySelectorAll('[data-legacy-session]').forEach((select) => {
-            select.addEventListener('change', () => saveSession(select));
+            select.addEventListener('change', () =>
+                select.value === NEW_PUPIL ? addObservationPupil(select, saveSession) : saveSession(select));
         });
         el('scheduleGrid').querySelectorAll('[data-add-second]').forEach((button) => {
             button.addEventListener('click', () => {

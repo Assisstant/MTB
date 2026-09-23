@@ -65,7 +65,8 @@
     "test:colleague": "tsx test/colleague.e2e.ts",
     "typecheck": "tsc -p tsconfig.test.json",
     "test:sdnevnik-pull": "node test/sdnevnik-fusion-pull.browser.mjs",
-    "test:fusion-word": "node test/fusion-word.browser.mjs"
+    "test:fusion-word": "node test/fusion-word.browser.mjs",
+    "test:fusion-new-pupil": "node test/fusion-new-pupil.browser.mjs"
   },
   "dependencies": {
     "@fastify/cookie": "^11.1.2",
