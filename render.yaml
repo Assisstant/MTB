@@ -29,6 +29,11 @@ services:
         sync: false
       - key: MTB_SESSION_SECRET
         sync: false
+      # Who may open Податоци → Формулари (the review queue for offline form
+      # answers): therapist:Име Презиме or teacher:Име Презиме, as in the
+      # database. Set in the dashboard; without it the queue refuses everyone.
+      - key: MTB_ADMIN
+        sync: false
       - key: MTB_CLOUD_ORIGIN
         sync: false
       - key: MTB_SERVER_ID
