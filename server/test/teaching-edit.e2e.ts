@@ -31,6 +31,7 @@ const SRC_YEAR = '1902/1903-edit';
 const DST_YEAR = '1903/1904-edit';
 const CLASS_A = 'ТЕСТ-А';
 const CLASS_B = 'ТЕСТ-Б';
+const CLASS_C = 'ТЕСТ-В';
 const T1 = `${TAG} Прв Наставник`;
 const T2 = `${TAG} Втор Наставник`;
 const DAY = 'четврток';
@@ -82,7 +83,7 @@ async function cleanup() {
     await q(`DELETE FROM students WHERE public_id LIKE $1`, [`${TAG}%`]);
     // Deleting the class cascades its lessons in every year; both are this
     // suite's own, and the labels cannot collide with a real class.
-    await q(`DELETE FROM school_classes WHERE label IN ($1, $2, $3)`, [CLASS_A, CLASS_B, CLASS_B + '-ново']);
+    await q(`DELETE FROM school_classes WHERE label IN ($1, $2, $3, $4)`, [CLASS_A, CLASS_B, CLASS_B + '-ново', CLASS_C]);
     // Case-insensitively: this suite deliberately creates a teacher whose
     // name is SHOUTED, and the server stores one spelling for everybody. A
     // case-sensitive LIKE would leave whichever form it did not guess behind.
@@ -354,6 +355,57 @@ const run = async () => {
     checkEq('and the previous class assignment remains complete',
         (await q(`SELECT count(*)::int AS n FROM teacher_classes WHERE school_year_id = $1 AND class_id = $2`,
             [dst.id, madeA.body.id]))[0].n, 2);
+
+    console.log('\na teacher\'s homeroom, set from the teacher\'s side');
+    // Until 24 Sep 2026 Уреди настава sent this as a field of the teacher,
+    // which has no such field, so it vanished without an error. A homeroom is
+    // one class per teacher and one teacher per class, for ONE year; whoever
+    // it replaces keeps a subject link only where they actually teach.
+    const madeC = await call('POST', '/api/teaching/class', { label: CLASS_C, year: DST_YEAR });
+    checkEq('a class of its own for this, in the year it names', madeC.status, 201);
+    await q(`INSERT INTO teacher_classes (school_year_id, teacher_id, class_id, role) VALUES ($1, $2, $3, 'homeroom')`,
+        [dst.id, t2.body.id, madeC.body.id]);
+    // T2 teaches in C; T1 does not.
+    const [taught] = await q(
+        `INSERT INTO lessons (school_year_id, day, day_order, ordinal, class_id, teacher_id, subject)
+         VALUES ($1, $2, 4, 11, $3, $4, 'ФЗО.') RETURNING id`, [dst.id, DAY, madeC.body.id, t2.body.id]);
+    const linksInC = async () => (await q(
+        `SELECT t.name, tc.role FROM teacher_classes tc JOIN teachers t ON t.id = tc.teacher_id
+          WHERE tc.school_year_id = $1 AND tc.class_id = $2
+          ORDER BY (tc.role = 'homeroom') DESC, t.name`, [dst.id, madeC.body.id]))
+        .map((r: any) => `${r.name}:${r.role}`);
+
+    const took = await call('PUT', `/api/teaching/teacher/${t1.body.id}/homeroom`, { year: DST_YEAR, class: CLASS_C, expected: null });
+    checkEq('taking a class answers 200', took.status, 200);
+    checkEq('the class now has this homeroom, and the one it replaced stays as a subject teacher because they teach there',
+        await linksInC(), [`${T1}:homeroom`, `${T2}:subject`]);
+    checkEq('and the answer says whom it replaced, and what they kept',
+        (took.body?.replaced || []).map((r: any) => `${r.teacher}:${r.class}:${r.kept}`), [`${T2}:${CLASS_C}:subject`]);
+    checkEq('the teacher\'s other class is untouched',
+        (await q(`SELECT tc.role FROM teacher_classes tc WHERE tc.school_year_id = $1 AND tc.teacher_id = $2 AND tc.class_id = $3`,
+            [dst.id, t1.body.id, madeA.body.id])).map((r: any) => r.role), ['subject']);
+    checkEq('and the archived year did not receive it',
+        (await q(`SELECT count(*)::int AS n FROM teacher_classes WHERE school_year_id = $1 AND class_id = $2`, [src.id, madeC.body.id]))[0].n, 0);
+
+    const sameAgain = await call('PUT', `/api/teaching/teacher/${t1.body.id}/homeroom`, { year: DST_YEAR, class: CLASS_C, expected: CLASS_C });
+    checkEq('the same homeroom again changes nothing', [sameAgain.status, sameAgain.body?.unchanged], [200, true]);
+
+    const staleHomeroom = await call('PUT', `/api/teaching/teacher/${t1.body.id}/homeroom`, { year: DST_YEAR, class: null, expected: null });
+    checkEq('a tab that believed there was no homeroom is refused', staleHomeroom.status, 409);
+    checkEq('and is told what is there now', staleHomeroom.body?.current, CLASS_C);
+    checkEq('and nothing moved', await linksInC(), [`${T1}:homeroom`, `${T2}:subject`]);
+
+    const typo = await call('PUT', `/api/teaching/teacher/${t1.body.id}/homeroom`, { year: DST_YEAR, class: 'НЕПОСТОЕЧКО-99', expected: CLASS_C });
+    checkEq('an unknown class is a 404', typo.status, 404);
+    checkEq('and nothing moved either', await linksInC(), [`${T1}:homeroom`, `${T2}:subject`]);
+    checkEq('an unknown teacher is a 404',
+        (await call('PUT', '/api/teaching/teacher/999999999/homeroom', { year: DST_YEAR, class: null })).status, 404);
+
+    const cleared = await call('PUT', `/api/teaching/teacher/${t1.body.id}/homeroom`, { year: DST_YEAR, class: null, expected: CLASS_C });
+    checkEq('„none" answers 200', [cleared.status, cleared.body?.homeroom], [200, null]);
+    // T1 teaches nothing in C, so no subject link is invented for them.
+    checkEq('and leaves no link where the teacher does not teach', await linksInC(), [`${T2}:subject`]);
+    await q(`DELETE FROM lessons WHERE id = $1`, [taught.id]);
 
     console.log('\nlast year as this year\'s starting point');
     // The source year gets a small timetable of its own, written the way the

@@ -32,6 +32,7 @@ const SRC_YEAR = '1906/1907-uredi';
 const CLASS = 'ПРОБНО-А';
 const NEW_CLASS = 'ПРОБНО-Б';
 const TEACHER = `${TAG} Наставник Пробен`;
+const OTHER = `${TAG} Раководител Друг`;
 
 const pool = new pg.Pool({ connectionString: DB });
 
@@ -487,6 +488,72 @@ const run = async () => {
     await page.click('#addClass');
     await page.waitForTimeout(700);
     checkEq('the class is in the database', (await q(`SELECT count(*)::int AS n FROM school_classes WHERE label = $1`, [NEW_CLASS]))[0].n, 1);
+    // It used to go to whichever year is CURRENT, not the one on screen — so
+    // this very test was adding its invented class to the real school's year.
+    checkEq('and in the year the page is showing',
+        (await q(`SELECT count(*)::int AS n FROM class_years cy JOIN school_classes c ON c.id = cy.class_id
+                   WHERE c.label = $1 AND cy.school_year_id = $2 AND cy.active`, [NEW_CLASS, year.id]))[0].n, 1);
+    checkEq('and in no other year',
+        (await q(`SELECT count(*)::int AS n FROM class_years cy JOIN school_classes c ON c.id = cy.class_id
+                   WHERE c.label = $1 AND cy.school_year_id <> $2`, [NEW_CLASS, year.id]))[0].n, 0);
+
+    console.log('\nthe homeroom picked on a teacher\'s row is saved');
+    // Until 24 Sep 2026 this dropdown went to a route with no such field: it
+    // was dropped without an error, and the reload quietly put the old one back.
+    const [{ id: teacherId }] = await q(`SELECT id FROM teachers WHERE name = $1`, [TEACHER]);
+    const [{ id: classId }] = await q(`SELECT id FROM school_classes WHERE label = $1`, [CLASS]);
+    const [{ id: newClassId }] = await q(`SELECT id FROM school_classes WHERE label = $1`, [NEW_CLASS]);
+    const [other] = await q(`INSERT INTO teachers (name, kind) VALUES ($1, 'odd') RETURNING id`, [OTHER]);
+    await q(`INSERT INTO teacher_years (school_year_id, teacher_id, active) VALUES ($1, $2, true)`, [year.id, other.id]);
+    await q(`DELETE FROM teacher_classes WHERE school_year_id = $1 AND teacher_id = ANY($2::int[])`, [year.id, [teacherId, other.id]]);
+    // The teacher holds CLASS and teaches there; OTHER holds NEW_CLASS and teaches nothing in it.
+    await q(`INSERT INTO teacher_classes (school_year_id, teacher_id, class_id, role)
+             VALUES ($1, $2, $3, 'homeroom'), ($1, $4, $5, 'homeroom')`, [year.id, teacherId, classId, other.id, newClassId]);
+    await q(`INSERT INTO lessons (school_year_id, day, day_order, ordinal, class_id, teacher_id, subject)
+             SELECT $1, $2, 2, 9, $3, $4, 'мак.'
+              WHERE NOT EXISTS (SELECT 1 FROM lessons WHERE school_year_id = $1 AND class_id = $3 AND teacher_id = $4)`,
+        [year.id, DAY, classId, teacherId]);
+    const links = async () => (await q(
+        `SELECT t.name, c.label, tc.role FROM teacher_classes tc
+           JOIN teachers t ON t.id = tc.teacher_id JOIN school_classes c ON c.id = tc.class_id
+          WHERE tc.school_year_id = $1 AND tc.teacher_id = ANY($2::int[]) ORDER BY t.name, c.label`,
+        [year.id, [teacherId, other.id]])).map((r) => `${r.name === TEACHER ? 'T' : 'O'}:${r.label}:${r.role}`);
+    const teacherRow = `#teachers tr[data-teacher="${teacherId}"]`;
+    const reopenTeachers = async () => {
+        await page.click('#refresh');
+        await page.waitForTimeout(800);
+        await page.evaluate(() => { document.getElementById('teacherSection').open = true; });
+    };
+    await reopenTeachers();
+    checkEq('the row shows the homeroom the database holds', await page.$eval(`${teacherRow} .t-home`, (s) => s.value), CLASS);
+    await page.selectOption(`${teacherRow} .t-home`, NEW_CLASS);
+    await page.click(`${teacherRow} [data-save-teacher]`);
+    await page.waitForTimeout(900);
+    checkEq('the teacher now holds the new class, and keeps the old one as a subject class because they teach there; '
+        + 'the homeroom it replaced, who teaches nothing there, is let go',
+        await links(), ['T:' + CLASS + ':subject', 'T:' + NEW_CLASS + ':homeroom']);
+    const said = await page.evaluate(() => document.getElementById('status').textContent);
+    check('and the page says whom it replaced', said.includes(OTHER), said);
+    await reopenTeachers();
+    checkEq('after a reload the row still shows it', await page.$eval(`${teacherRow} .t-home`, (s) => s.value), NEW_CLASS);
+
+    // Somebody else moves it back, behind this tab's back.
+    await q(`UPDATE teacher_classes SET role = 'subject' WHERE school_year_id = $1 AND teacher_id = $2 AND class_id = $3`, [year.id, teacherId, newClassId]);
+    await q(`UPDATE teacher_classes SET role = 'homeroom' WHERE school_year_id = $1 AND teacher_id = $2 AND class_id = $3`, [year.id, teacherId, classId]);
+    const behindTheBack = await links();
+    await page.selectOption(`${teacherRow} .t-home`, '');
+    await page.click(`${teacherRow} [data-save-teacher]`);
+    await page.waitForTimeout(900);
+    checkEq('a stale tab cannot overwrite it', await links(), behindTheBack);
+    const refused = await page.evaluate(() => document.getElementById('status').textContent);
+    check('and it says what is there now', /во меѓувреме/.test(refused) && refused.includes(CLASS), refused);
+
+    await reopenTeachers();
+    await page.selectOption(`${teacherRow} .t-home`, '');
+    await page.click(`${teacherRow} [data-save-teacher]`);
+    await page.waitForTimeout(900);
+    checkEq('„—" leaves no homeroom, and a subject link only where one was already',
+        await links(), ['T:' + CLASS + ':subject', 'T:' + NEW_CLASS + ':subject']);
 
     console.log('\ncopying last year is shown before it is done');
     await page.evaluate(() => { document.getElementById('copySection').open = true; });

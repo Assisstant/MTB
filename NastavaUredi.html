@@ -2021,16 +2021,39 @@
         el('teachers').querySelectorAll('[data-save-teacher]').forEach((b) => b.addEventListener('click', async () => {
             const id = Number(b.dataset.saveTeacher);
             const row = el('teachers').querySelector(`[data-teacher="${id}"]`);
+            const was = (data.teachers || []).find((t) => t.id === id);
+            const name = tidy(row.querySelector('.t-name').value);
+            const homeroom = tidy(row.querySelector('.t-home').value) || null;
+            const hadHomeroom = (was && was.homeroom) || null;
             try {
                 await api('PUT', '/api/teaching/teacher/' + id, {
-                    name: tidy(row.querySelector('.t-name').value),
+                    name,
                     kind: row.querySelector('.t-kind').value,
-                    subject: tidy(row.querySelector('.t-subject').value) || null,
-                    homeroom: tidy(row.querySelector('.t-home').value) || null
+                    subject: tidy(row.querySelector('.t-subject').value) || null
                 });
+                // Одделението што го води е факт на ГОДИНАТА, не на наставникот,
+                // па има своја рута. Порано се праќаше како поле на наставникот,
+                // кое серверот го нема — и тивко се губеше.
+                let said = 'наставникот е зачуван';
+                if (homeroom !== hadHomeroom) {
+                    const answer = await api('PUT', `/api/teaching/teacher/${id}/homeroom`, {
+                        year: data.year, class: homeroom, expected: hadHomeroom
+                    });
+                    said = (homeroom ? `${name} е раководител на ${homeroom}` : `${name} повеќе не води одделение`)
+                        + (answer.replaced || []).map((r) => `; ${r.teacher} повеќе не е раководител на ${r.class}`
+                            + (r.kept === 'subject' ? ' (останува како предметен, таму има часови)' : '')).join('');
+                }
                 await load(true);
-                status('наставникот е зачуван', 'ok');
-            } catch (err) { status(err.message, 'error'); }
+                status(said, 'ok');
+            } catch (err) {
+                if (err.status === 409 && err.payload && 'current' in err.payload) {
+                    // Некој друг го сменил во меѓувреме. Се прикажува тоа што
+                    // е сега, а не тоа што оваа картичка мислеше.
+                    await load(true);
+                    status(`Раководството не е зачувано: во меѓувреме е сменето и сега е `
+                        + `${err.payload.current || 'без одделение'}. Одбери повторно ако треба.`, 'error');
+                } else status(err.message, 'error');
+            }
         }));
     }
 
@@ -2192,7 +2215,10 @@
         const label = tidy(el('newClass').value);
         if (!label) return status('Внеси име на одделението.', 'warn');
         try {
-            await api('POST', '/api/teaching/class', { label });
+            // Годината на екранот, не тековната. Без неа серверот ја зема
+            // тековната, па одделение додадено додека се гледа друга година
+            // одеше во погрешната година.
+            await api('POST', '/api/teaching/class', { label, year: data ? data.year : undefined });
             el('newClass').value = '';
             await load(true);
             status(`одделението ${label} е додадено`, 'ok');
@@ -2205,7 +2231,8 @@
             await api('POST', '/api/teaching/teacher', {
                 name,
                 kind: el('newTeacherKind').value,
-                subject: tidy(el('newTeacherSubject').value) || null
+                subject: tidy(el('newTeacherSubject').value) || null,
+                year: data ? data.year : undefined
             });
             el('newTeacher').value = '';
             el('newTeacherSubject').value = '';

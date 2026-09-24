@@ -17,6 +17,7 @@
  *   POST   /api/teaching/teacher       add a teacher
  *   PUT    /api/teaching/teacher/:id   name, subject, kind
  *   PUT    /api/teaching/teacher/:id/classes   which classes, THIS year
+ *   PUT    /api/teaching/teacher/:id/homeroom  which one class they hold, THIS year
  *   POST   /api/teaching/copy-year     last year's timetable as this year's start
  *   DELETE /api/teaching/year-lessons  empty a year, on purpose
  *   PUT    /api/teaching/bell/:id      when a period rings
@@ -30,7 +31,7 @@ import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { pool } from '../db.js';
 import { TEACHING_DAYS, classSortKey } from '../lib/teaching.js';
-import { copyYearLessons, noteTeacherClass, putLesson, putTeacherLesson, setClassDescription, upsertClass, setClassTeachers, setTeacherClasses, tidy } from '../lib/teaching-edit.js';
+import { copyYearLessons, noteTeacherClass, putLesson, putTeacherLesson, setClassDescription, upsertClass, setClassTeachers, setHomeroom, setTeacherClasses, tidy } from '../lib/teaching-edit.js';
 import { personName } from '../lib/import-core.js';
 
 /** `school_years.label` is free text; a limit shorter than the column reads as a missing year. */
@@ -116,6 +117,14 @@ const TeacherPatch = z.object({
 const TeacherClassesBody = z.object({
     year: YearRef.optional(),
     classes: z.array(ClassRoleEntry).max(40)
+});
+
+const HomeroomBody = z.object({
+    year: YearRef.optional(),
+    /** The class this teacher holds this year; null means none. */
+    class: z.string().max(40).nullable(),
+    /** The homeroom the caller believes they hold now; null means none. Omit to skip the check. */
+    expected: z.string().max(40).nullable().optional()
 });
 
 const CopyBody = z.object({
@@ -714,6 +723,83 @@ export async function teachingEditRoutes(server: FastifyInstance) {
             );
             await client.query('COMMIT');
             return { ok: true, teacher: teacher.rows[0].name, year: year.label, classes: rows };
+        } catch (err) {
+            await client.query('ROLLBACK').catch(() => {});
+            throw err;
+        } finally {
+            client.release();
+        }
+    });
+
+    /**
+     * A teacher's homeroom this year: one class, or none.
+     *
+     * Its own route because it is neither the teacher's own fields (it
+     * belongs to a year) nor their whole class list (the other classes must
+     * not be restated to change this one). Уреди настава sent it as a field
+     * of `PUT /teacher/:id`, which has no such field, so for as long as that
+     * dropdown existed it was dropped without an error. What it replaces is
+     * in `setHomeroom`, and the answer names it so the screen can say so.
+     */
+    server.put('/api/teaching/teacher/:id/homeroom', async (req, reply) => {
+        const id = Number((req.params as any).id);
+        if (!Number.isInteger(id) || id <= 0) return reply.code(400).send({ error: 'bad teacher id' });
+        const body = HomeroomBody.parse(req.body);
+        const wanted = body.class === null ? null : tidy(body.class) || null;
+
+        const client = await pool.connect();
+        try {
+            await client.query('BEGIN');
+            const teacher = await client.query('SELECT id, name FROM teachers WHERE id = $1 FOR UPDATE', [id]);
+            if (!teacher.rows.length) {
+                await client.query('ROLLBACK');
+                return reply.code(404).send({ error: 'no such teacher' });
+            }
+            const year = await schoolYear(client, body.year);
+            if (!year) {
+                await client.query('ROLLBACK');
+                return reply.code(404).send({ error: `no such school year: ${body.year ?? '(current)'}` });
+            }
+            let classId: number | null = null;
+            if (wanted !== null) {
+                const cls = await client.query('SELECT id FROM school_classes WHERE label = $1 FOR UPDATE', [wanted]);
+                if (!cls.rows.length) {
+                    await client.query('ROLLBACK');
+                    return reply.code(404).send({ error: `no such class: ${wanted}`, fix: 'POST /api/teaching/class first' });
+                }
+                classId = cls.rows[0].id;
+            }
+
+            const held = async () => (await client.query(
+                `SELECT c.label FROM teacher_classes tc JOIN school_classes c ON c.id = tc.class_id
+                  WHERE tc.school_year_id = $1 AND tc.teacher_id = $2 AND tc.role = 'homeroom'
+                  ORDER BY c.sort_key, c.label`, [year.id, id])).rows.map((r: any) => r.label as string);
+            const now = await held();
+            if (body.expected !== undefined && (now[0] ?? null) !== (body.expected === null ? null : tidy(body.expected) || null)) {
+                await client.query('ROLLBACK');
+                return reply.code(409).send({
+                    error: `the homeroom was changed in the meantime: it is now ${now[0] ?? 'none'}`,
+                    current: now[0] ?? null
+                });
+            }
+            if (now.length === (wanted === null ? 0 : 1) && (wanted === null || now[0] === wanted)) {
+                await client.query('ROLLBACK');
+                return { ok: true, unchanged: true, teacher: teacher.rows[0].name, year: year.label, homeroom: wanted, replaced: [] };
+            }
+
+            const { replaced } = await setHomeroom(client, year.id, id, classId);
+            // The same bookkeeping as the class list: whoever holds a class
+            // this year teaches this year, and the class is in session.
+            if (classId !== null) {
+                await client.query(
+                    `INSERT INTO teacher_years (school_year_id, teacher_id, active) VALUES ($1, $2, true)
+                     ON CONFLICT (school_year_id, teacher_id) DO UPDATE SET active = true`, [year.id, id]);
+                await client.query(
+                    `INSERT INTO class_years (school_year_id, class_id, active) VALUES ($1, $2, true)
+                     ON CONFLICT (school_year_id, class_id) DO UPDATE SET active = true`, [year.id, classId]);
+            }
+            await client.query('COMMIT');
+            return { ok: true, teacher: teacher.rows[0].name, year: year.label, homeroom: wanted, replaced };
         } catch (err) {
             await client.query('ROLLBACK').catch(() => {});
             throw err;

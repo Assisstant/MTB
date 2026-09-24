@@ -3355,3 +3355,49 @@ arrows are only how a person writes it.
 Tests: `test:fusion-order` (new, intercepted), `test:order` +10,
 `test:colleague` +2, `workspace-release` 038→039, `test:podatoci` unchanged
 and green on the new arrows.
+
+## One form per thing, and a homeroom dropdown that saved nothing (24 Sep 2026)
+
+The owner asked for the simplest form of the whole system, because the same
+data appears in too many places and not all of them can edit it. A map of
+every write route against every screen that calls it is in
+`docs/PLAN-eden-urednik.md`: 30 facts, 15 of them changed by two to four
+separate pieces of code. The owner turned down the first proposal ("one
+editor, read-only everywhere else") in favour of the Excel way: wherever a
+thing is shown it can be changed on the spot, in a popup, behind one
+„✏️ Уредување" switch in the shared bar. The duplication to remove is
+therefore the separate IMPLEMENTATIONS, not the doors: one form per kind of
+thing, opened from every screen that shows it. S-Дневник stays the owner's
+own cabinet system and only reads the shared facts.
+
+The map found the first thing to fix. Уреди настава → Наставници drew a
+„раководител" dropdown on every teacher and sent it as `homeroom` in
+`PUT /api/teaching/teacher/:id`. `TeacherPatch` has no such field, and a zod
+object drops unknown keys, so the value vanished without an error; the page
+then said „наставникот е зачуван" and the reload put the old class back. No
+test touched it.
+
+- **`PUT /api/teaching/teacher/:id/homeroom`** `{year, class | null,
+  expected}` is its own route: a homeroom belongs to a year, which the
+  teacher's own fields must not (migration 016), and changing it must not
+  mean restating the teacher's whole class list. It is owner-only under
+  enforced sign-in by the default-deny hook; nothing was added to the
+  delegated list.
+- **`setHomeroom`** keeps one homeroom per teacher and one per class (true of
+  every year on WORK when measured: 15 homerooms, no doubles). Whoever it
+  replaces, this teacher's old class or the class's old teacher, is demoted to
+  a subject link when they have a lesson in that class that year, and removed
+  only when nothing says they teach there. That is the same evidence the lesson
+  routes use to add subject links, so the two do not argue. The answer names
+  each replaced link, and the page says it.
+- A stale tab gets a 409 carrying `current`; the page reloads and says what is
+  there now instead of what the tab believed.
+- **Adding a class or a teacher in Уреди настава sent no year**, so it landed in
+  the current year whatever year was on screen. Podatoci always sent it. The
+  page now sends the year it shows, which also stops `test:uredi` from adding
+  its invented class to the real school's current year.
+
+Tests: `test:uredi` +9, written first. The two year checks failed, then the
+dropdown checks failed with the page reporting success. `test:teaching-edit`
++15, all before the suite's older, unrelated `kind_matches_grade` fixture
+failure. `npm test` 231/231.

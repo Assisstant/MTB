@@ -521,6 +521,70 @@ export async function setClassTeachers(
     return { written };
 }
 
+/** A homeroom link that `setHomeroom` took away, and what was left in its place. */
+export interface ReplacedHomeroom { teacher: string; class: string; kept: 'subject' | 'removed' }
+
+/**
+ * A teacher's homeroom for one year, set from the TEACHER's side: one class
+ * or none.
+ *
+ * A homeroom is one class per teacher and one teacher per class, so this
+ * moves two things at once:
+ *
+ *   - this teacher's other homeroom, if they had one;
+ *   - the class's previous homeroom, if it had one.
+ *
+ * Neither of them is simply deleted. Each is DEMOTED to a subject link when
+ * that teacher has a lesson in that class this year, because the lesson is
+ * evidence that they still teach there. It is removed only when nothing says
+ * they do. That is the same evidence the lesson routes already use to add
+ * subject links, so the two cannot argue. Only (year, this teacher) and
+ * (year, this class) are touched; other years never are.
+ */
+export async function setHomeroom(
+    client: any,
+    yearId: number,
+    teacherId: number,
+    classId: number | null
+): Promise<{ replaced: ReplacedHomeroom[] }> {
+    const { rows: going } = await client.query(
+        `SELECT tc.teacher_id, tc.class_id, t.name AS teacher, c.label AS class,
+                EXISTS (SELECT 1 FROM lessons l
+                         WHERE l.school_year_id = tc.school_year_id
+                           AND l.teacher_id = tc.teacher_id AND l.class_id = tc.class_id) AS teaches
+           FROM teacher_classes tc
+           JOIN teachers t ON t.id = tc.teacher_id
+           JOIN school_classes c ON c.id = tc.class_id
+          WHERE tc.school_year_id = $1 AND tc.role = 'homeroom'
+            AND ((tc.teacher_id = $2 AND tc.class_id IS DISTINCT FROM $3)
+              OR (tc.class_id = $3 AND tc.teacher_id <> $2))
+          ORDER BY c.sort_key, c.label, t.name`,
+        [yearId, teacherId, classId]
+    );
+    const replaced: ReplacedHomeroom[] = [];
+    for (const row of going) {
+        if (row.teaches) {
+            await client.query(
+                `UPDATE teacher_classes SET role = 'subject'
+                  WHERE school_year_id = $1 AND teacher_id = $2 AND class_id = $3`,
+                [yearId, row.teacher_id, row.class_id]);
+        } else {
+            await client.query(
+                'DELETE FROM teacher_classes WHERE school_year_id = $1 AND teacher_id = $2 AND class_id = $3',
+                [yearId, row.teacher_id, row.class_id]);
+        }
+        replaced.push({ teacher: row.teacher, class: row.class, kept: row.teaches ? 'subject' : 'removed' });
+    }
+    if (classId !== null) {
+        await client.query(
+            `INSERT INTO teacher_classes (school_year_id, teacher_id, class_id, role)
+             VALUES ($1, $2, $3, 'homeroom')
+             ON CONFLICT (school_year_id, teacher_id, class_id) DO UPDATE SET role = 'homeroom'`,
+            [yearId, teacherId, classId]);
+    }
+    return { replaced };
+}
+
 /**
  * Note that a teacher has a class, without disturbing what is already there.
  *
