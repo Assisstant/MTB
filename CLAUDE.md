@@ -199,6 +199,8 @@ docs/PONEDELNIK-PCW.md          putting the current main into service on PCW:
 docs/PLAN-rabotna-konzola.md    what can still be plugged into MTB-Workspace to make
                                 it the one console, in order of usefulness — and the
                                 short list of CRUD that must never be added there
+docs/PLAN-formulari.md          offline forms for colleagues (кабинет, одделение) and the
+                                review queue their answers wait in before anything is written
 ```
 
 ## Commands (from `server/`)

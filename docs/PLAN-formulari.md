@@ -1,0 +1,154 @@
+# Offline forms for colleagues, and a review queue for what comes back
+
+Owner's request, 24 September 2026. Status: **plan, awaiting the owner's go
+for step 1.** Nothing below is built yet except what already exists in
+`mtb-schedule-form.js` (the therapist form, 23 Sep).
+
+This is not the same thing as `docs/PLAN-eden-urednik.md`. That plan is about
+popup forms INSIDE the apps, which write at once. This one is about a FILE a
+colleague fills in WITHOUT the app, whose answer is checked by the
+administrator before anything is written. The two must share their fields and
+their rules (see "One definition" below), but they are different doors.
+
+## 1. What the owner asked for
+
+- **Two forms, the same abilities:**
+  - **Кабинет** (individual rehabilitation): a therapist's week of sessions
+    and their pupils.
+  - **Одделение** (teaching): a class's weekly timetable of lessons, filled by
+    its homeroom teacher.
+- **Each form carries the existing data**, not an empty page.
+- **A dropdown of people in the form:** therapists in the cabinet form,
+  homeroom teachers / classes in the class form. Choosing one shows that
+  person's pupils, or that class's week, with the option to add.
+- **The returned JSON says whom it is about** (cabinet–therapist, or
+  class–homeroom). That, not the file name or the sender, decides where the
+  data goes.
+- **Checkbox customisation:** the full list of pupils (cabinet), and the full
+  list of subjects (class), from which the person ticks what is theirs.
+- **An image of the week** from inside the form, if not a problem.
+- **The answer only updates what exists.** Because one change can move the
+  whole timetable, answers are **stored first**, and the administrator
+  **personally checks and approves** every item that does not match the
+  database or causes a conflict. Examples the owner named: a different subject
+  in a period; a child already busy at that time (a session at the same
+  time).
+
+## 2. The design
+
+### 2.1 One generic file per kind, not one per person
+
+The form is one HTML file per kind and year: all therapists (or all classes)
+with their current data, and the dropdown at the top. A colleague picks
+themselves. The file works offline, with no server and no sign-in.
+
+Consequence, stated plainly: **the file carries the whole year's pupils and
+timetable.** It must be sent only through school channels. It is made when it
+is sent and never stored in this repository (rules 1 and 6).
+
+### 2.2 The reply
+
+```
+{ type: 'mtb-form-reply', version: 2, kind: 'cabinet' | 'class',
+  year, madeAt, filledAt,
+  about: { therapist: {id, name} } | { class: {id, label}, homeroom: {id, name} },
+  baseline: …the week exactly as the form showed it…,
+  week: …the week as the colleague left it…,
+  ticks: …pupils (cabinet) or subjects (class) as ticked…,
+  newPupils: [names typed that are not on the list],
+  note }
+```
+
+Identity is by stable id (`public_id`, class id, teacher id), never by name
+(rule 2). A typed name stays a proposal: one match → that pupil, said so; two
+→ refused; none → a new pupil under observation.
+
+### 2.3 The review queue (new: the "layer" the owner asked for)
+
+- **Storing:** importing a reply no longer writes the schedule. It stores the
+  reply as one row (`form_replies`, migration 040): kind, year, whom it is
+  about, the JSON, when it arrived, status.
+- **Nothing is lost:** a stored reply survives closing the page, a restart,
+  and a second reply from the same person (both are kept, newest first).
+- **Each reply becomes a list of items**, each one a single change:
+  - a session block (cabinet), or a lesson cell (class);
+  - a pupil ticked or unticked on a therapist's list;
+  - a new pupil name.
+- **Each item is checked against the database AT REVIEW TIME, not at import**
+  (the database may have moved since):
+  - **unchanged** — the reply says what the database already says;
+  - **clean** — only this reply touches it, and the database still holds
+    what the form showed;
+  - **changed meanwhile** — the database no longer holds the form's baseline;
+  - **conflict** — see 2.4.
+- **The administrator decides per item:** accept, reject, or accept all
+  clean items at once. Conflicts and "changed meanwhile" are never accepted
+  in bulk; each is looked at.
+- **Writing goes through the endpoints that already own each fact**, with
+  `expected`, exactly as the in-app editors do. The queue decides; it never
+  writes a table directly.
+- **A record stays:** who accepted or rejected which item, and when. That is
+  the "notification": a list of received forms and their outcome, readable
+  later.
+
+### 2.4 Conflicts that are checked
+
+| Kind | Conflict | Why it matters |
+|---|---|---|
+| cabinet | the child already has a session with **another therapist** at an overlapping time | two cabinets cannot hold one child (today this is only counted, never refused) |
+| cabinet | the session falls over a **lesson** the child must not miss, per Настава ↔ терапии | the reason the crossing exists |
+| cabinet | the child is **not on this therapist's list** and the reply does not tick them | the list and the week disagree |
+| class | the **teacher** already teaches another class in that period | `teacher-clash`, already refused by the server |
+| class | **another subject** is in the database for that cell than the form showed | "changed meanwhile" |
+| class | the cell already holds **two lessons** | a person must choose (as in Уреди настава) |
+| both | the form was made for **another school year** | refused whole |
+
+### 2.5 One definition, two doors
+
+The fields and the checks of 2.3/2.4 live once, in a pure module (like
+`MTBScheduleForm.plan` today), and are used by:
+- the offline file's reply (this plan), and
+- the in-app popup forms of `PLAN-eden-urednik.md` step 5/6.
+
+So a conflict the queue finds is the same conflict a popup would refuse.
+
+## 3. Order of work
+
+Small steps; each approved, tested with invented data, committed, shipped.
+
+1. **The review queue for the form that exists.**
+   - Migration 040 `form_replies`; `POST/GET /api/forms/replies`,
+     `POST /api/forms/replies/:id/decisions` (records the decisions only).
+   - Кабинети → „📥 Внеси формулар" stores the reply and opens the queue
+     instead of writing at once.
+   - The queue screen: received replies, their items, the checks of 2.4 for
+     the cabinet, accept/reject per item, "accept all clean".
+   - Tests: a reply stored, reloaded, reviewed; a child double-booked is
+     shown as a conflict and not written in bulk; a stale item refused.
+2. **The cabinet form, version 2.**
+   - The therapist dropdown; the full pupil list as a checklist, each pupil
+     labelled with class and homeroom („II-б · Христовска"); add a name.
+   - "🖼 Слика" inside the form (the week drawn to a PNG, as Кабинети does).
+   - Version 1 replies still import (rule 4 spirit: an answer already sent
+     must not become unreadable).
+3. **The class form.**
+   - The class / homeroom dropdown; the weekly grid (periods × days) with the
+     subject per cell, teacher optional; the subject checklist from the full
+     MON list filtering what the cells offer; the pupils with their
+     generation, read only, with "report a mistake".
+   - "🖼 Слика"; the reply into the same queue, with the class checks of 2.4.
+4. **Exports from the apps:** Кабинети → „📤 Формулар" and Уреди настава →
+   „📤 Формулар за одделенија", each producing the one generic file.
+
+## 4. Open decisions for the owner
+
+- **Subject ticks:** kept only as a filter in the form (proposed), or stored
+  as "this class's subjects" (a new fact, a new table, its own owner)?
+- **Pupil changes from the class form:** proposed as "report only" — a
+  homeroom teacher can flag that a child is in the wrong class, and the
+  administrator makes the move in Податоци.
+- **Where the queue lives:** proposed as a tab „📥 Пристигнати формулари" in
+  Податоци, because that is the administration screen; the import buttons in
+  Кабинети and Уреди настава lead there.
+- **Who may accept:** today anyone with the app. Under `MTB_REQUIRE_SIGNIN`
+  it can be limited to the administrator.
