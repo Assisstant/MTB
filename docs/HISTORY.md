@@ -3456,3 +3456,83 @@ Tests: `test:forms` (new, 32 checks against the database, both themes,
 `test:navigation`, `test:workspace` (its file allowlist now includes
 `mtb-forms.js`), `test:fusion`, `test:fusion-ui`, `test:fusion-order`,
 `test:uredi`, `npm test` 231/231.
+
+## One change, every window (24 Sep 2026)
+
+The owner added and changed classes, and the pupils' class dropdowns did not
+show it: „ако нешто се промени на едно место, треба да биде истото и во
+паѓачкото мени и на другите места каде се појавува податокот". Two causes,
+one in the data and one in the screens.
+
+**A rename left the children behind.** `PATCH /api/teaching/class/:id`
+renamed the `school_classes` row. Lessons follow it by id, but a pupil's class
+is the label as text in `student_enrollments.grade` and `students.grade`. So
+every child in a renamed class held a name no class had: Podatoci showed them
+„— без одделение —", the class showed nobody, and „Зачувај" on such a row wrote
+the blank back (refused for internal pupils only because migration 029
+happens to say so). The rename now moves both texts in one transaction, for
+every year, exact match only, and answers `moved: { enrolments, students }`.
+The two holders are locked first, in the order every writer takes them
+(`roster-purge.ts`), so nobody can put a child under the old name in between.
+HOME's database had no child holding a missing label when this was found; the
+cloud was not checked from here.
+
+**Every screen read the lists once.** The workspace keeps „Администрација",
+„Заеднички податоци" and windows of Податоци, Уреди настава and Кабинети open
+at the same time, each with the lists it read when it opened. The admin panel's
+own hint told the owner to refresh the other windows by hand. Only the ✏️ form
+told the others, and only about its own saves.
+
+- **Announced where every write passes.** The `fetch` wrapper in
+  `app-navigation.js` already stood in front of every API call to add the PIN
+  token. After a successful non-GET to `/api/<topic>/…` it now announces the
+  topic, never an id or a name, on a `BroadcastChannel` (`mtb-data`). A frame
+  also tells its parent, and the same window hears it too. Not in the save
+  functions: that was the ✏️ form's way, and a rule every new screen must
+  remember is the rule that gets forgotten once. The евидентен лист and the
+  diary's clinical records are not announced, because no other screen shows
+  them; the diary's schedule writes are.
+- **Re-read, unless somebody is working there.** A page registers
+  `onDataChange(reload, { busy, mine, sameWindow, ignore })`. Several writes in
+  a row make one redraw (0.7 s). A hidden tab waits until it is shown. While
+  `busy()` or while a text field or select has focus, it waits, checks again
+  every 1.5 s and says once, in a toast, why it waits. `busy` is what the page
+  knows: an unsaved row (`tr.dirty`), an open picker, a form reply under
+  review, ticked suggestions in Podatoci; the unsaved list edits in Уреди
+  настава; `dirty` in „Администрација"; any edit in the directory's editor;
+  a pending cell or an open dialog in Кабинети.
+- **The shell's two editors hear each other, but not themselves.**
+  „Администрација" and „Заеднички податоци" live in one window, so they register
+  with `sameWindow`. `mine()` is true while the part is writing, because it
+  redraws from its own answer. A second redraw would replace „Зачувано и
+  потврдено" with „Вчитувам…" 0.7 s later. The directory counts only its own
+  writes; the admin panel writes through the same `api()` and is marked.
+- **Frames of another origin.** Opened from GitHub Pages, the shell is
+  github.io and its frames are the server's origin, so the channel does not
+  reach between them. The shell passes a change from one frame to the others
+  and to its own panels, and from its own panels to every frame. It accepts
+  only messages from its own frames, and frames accept only messages from
+  their parent, the same checks as for the focus and the theme.
+- **Kept across the redraw:** the pupil class picked for a new pupil in
+  Podatoci, the opened „Предлози од претходни години", the admin panel's
+  filters, the directory's scroll, the lesson open in Настава ↔ терапии, and
+  the cell open in Уреди настава. Кабинети redraws quietly, with no loading
+  box and no cleared notice.
+- **A class that is not on the year's list stays visible.** Podatoci and the
+  directory now show it as „II-б · неактивна", as the ✏️ form and
+  „Администрација" already did, instead of „— без одделение —".
+- `mtb-forms.js` no longer keeps its own `mtb-forms` channel. The local
+  `mtb:saved` stays for the page the form was opened on.
+
+„Одделение · генерација" stays I–IX on purpose. It is the MON grade, not a
+class, so a new class does not appear there. Whether the preparatory class
+needs its own value is an open question for the owner.
+
+Tests: `test:one-change` (new, invented API): two tabs of Podatoci, Уреди
+настава, an unsaved row, typing, and the workspace with the channel deleted, so
+only the shell can carry the change. It fails 12 checks on the old pages and
+passes all of them now. `test:teaching-edit` gained the rename checks, which
+fail 5 checks against the old server. Its fixture, dead since migration 028 on
+an internal pupil with no class, now uses a placeholder class (`-`) that names
+none, and the whole suite passes again. `npm test` 255/255; every browser suite
+with invented data is green.

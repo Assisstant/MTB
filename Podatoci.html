@@ -886,7 +886,10 @@
         drawTherapists();
         drawClasses();
         drawAnnualControls();
-        fillClassSelect(el('newStudentClass'));
+        // What was already picked for the new pupil stays picked: a redraw
+        // because something changed in another window must not reset it.
+        const picked = el('newStudentClass').value;
+        fillClassSelect(el('newStudentClass'), classLabels().includes(picked) ? picked : '');
         syncNewStudentKind();
         // Adding a person enrols them in the CURRENT year; there is no honest
         // meaning for "add a student to a year that is over.
@@ -986,9 +989,18 @@
         }
     }
 
+    /**
+     * A pupil whose class is not on this year's list KEEPS it on screen,
+     * marked, as the ✏️ form and „Администрација" already do. Before, the
+     * select found no such option and showed „— без одделение —": the child
+     * looked unplaced, and „Зачувај" on the row wrote that blank back.
+     */
     function fillClassSelect(select, selected) {
+        const labels = classLabels();
+        const missing = selected && !labels.includes(selected) ? selected : '';
         select.innerHTML = '<option value="">— без одделение —</option>'
-            + classLabels().map((l) => `<option value="${esc(l)}"${l === selected ? ' selected' : ''}>${esc(classOptionText(l))}</option>`).join('');
+            + labels.map((l) => `<option value="${esc(l)}"${l === selected ? ' selected' : ''}>${esc(classOptionText(l))}</option>`).join('')
+            + (missing ? `<option value="${esc(missing)}" selected>${esc(missing)} · неактивна</option>` : '');
     }
 
     // ── годишен состав ─────────────────────────────────────────────────────
@@ -1072,7 +1084,9 @@
                 + `<span class="suggestion-meta">${esc(suggestionMeta(entity, item))}</span>`
                 + studentFields + '</label>';
         }).join('');
-        target.innerHTML = '<details><summary>'
+        // Opened stays opened across a redraw from the database.
+        const wasOpen = Boolean(target.querySelector('details[open]'));
+        target.innerHTML = `<details${wasOpen ? ' open' : ''}><summary>`
             + `Предлози од претходни години (${candidates.length})</summary>`
             + '<div class="suggestion-tools"><label><input type="checkbox" data-select-all> Избери ги сите</label>'
             + `<button class="btn" data-add-candidates>Додади избрани во ${esc(data.year)}</button></div>`
@@ -2017,10 +2031,12 @@
         const label = tidy(input.value);
         if (!label || label === input.dataset.was) return status('Нема промена.', 'warn');
         try {
-            await api('PATCH', '/api/teaching/class/' + id, { label });
+            const answer = await api('PATCH', '/api/teaching/class/' + id, { label });
             closePickers();
             await load();
-            status(`ознаката е сменета во ${label}`, 'ok', { toast: true });
+            // The pupils move with the label on the server (teaching-edit.ts).
+            const moved = answer && answer.moved ? answer.moved.enrolments : 0;
+            status(`ознаката е сменета во ${label}` + (moved ? ', заедно со учениците во неа' : ''), 'ok', { toast: true });
         } catch (err) { status(err.message, 'error', { toast: true }); }
     }
 
@@ -2450,9 +2466,27 @@
     setNumberVisibility();
     discoverServers().then((ready) => { if (ready) load(); });
 
-    // Формуларот (✏️, `mtb-forms.js`) зачувал нешто — овде или во друг
-    // прозорец. Страницата се прецртува од базата. Ред со незачуван внес не
-    // се допира: тоа е работа што некој ја пишува.
+    /**
+     * Нешто е запишано во ДРУГ прозорец — Уреди настава, Администрација,
+     * десниот панел, друг таб. Страницата се препрочитува од базата, за
+     * паѓачките менија да ги нудат истите паралелки и луѓе како таму.
+     *
+     * Не додека некој работи тука: ред со незачуван внес, отворен избирач,
+     * формулар во преглед или штиклирани предлози. Тоа е работа што некој ја
+     * пишува; освежувањето чека (`app-navigation.js`) и доаѓа само по неа.
+     */
+    const workingHere = () => Boolean(
+        document.querySelector('tr.dirty, .picker.open, [data-candidate-id]:checked')
+        || (tab === 'forms' && formsReviewId));
+    // `app-navigation.js` is loaded after this script, so it is asked once
+    // the page is parsed.
+    document.addEventListener('DOMContentLoaded', () => {
+        const nav = window.MTBAppNavigation;
+        if (nav && nav.onDataChange) nav.onDataChange(() => { if (data) return load(); }, { busy: workingHere });
+    });
+
+    // Формуларот (✏️, `mtb-forms.js`) зачувал нешто во ОВОЈ прозорец.
+    // Страницата се прецртува од базата. Ред со незачуван внес не се допира.
     window.addEventListener('mtb:saved', () => {
         if (document.querySelector('tr.dirty')) {
             status('Формуларот зачува промена. Вашите незачувани редови се задржани: зачувајте ги, па освежете.', 'warn');

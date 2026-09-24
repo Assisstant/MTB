@@ -1163,6 +1163,19 @@
     window.addEventListener('scroll', () => { if (tipCell) placeTip(tipCell); }, true);
     window.addEventListener('resize', hideTip);
 
+    // Written in another window — a lesson, a term, a pupil's class: the
+    // crossing is read again, and the lesson that was open stays open with
+    // what is true now.
+    document.addEventListener('DOMContentLoaded', () => {
+        const nav = window.MTBAppNavigation;
+        if (!nav || !nav.onDataChange) return;
+        nav.onDataChange(async () => {
+            const open = selected;
+            await load();
+            if (open && data) show(open);
+        });
+    });
+
     load();
 })();
 </script>

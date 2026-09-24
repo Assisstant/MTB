@@ -268,12 +268,32 @@ const run = async () => {
     checkEq('the class is still there', (await q(`SELECT count(*)::int AS n FROM school_classes WHERE id = $1`, [classId]))[0].n, 1);
     checkEq('and so is the teacher', (await q(`SELECT count(*)::int AS n FROM teachers WHERE id = $1`, [teacherId]))[0].n, 1);
 
-    console.log('\nrenaming a class moves its lessons with it, and cannot merge two');
+    console.log('\nrenaming a class moves its lessons AND its pupils with it, and cannot merge two');
+    // A pupil's class is the LABEL, as text, on the enrolment and on the
+    // person. Enrolled in both years, so „every year at once" is checked too.
+    const [inB] = await q(
+        `INSERT INTO students (public_id, name, grade) VALUES ($1, $2, $3) RETURNING id`,
+        [`${TAG}-inB`, `${TAG} Ученик Во Б`, CLASS_B]);
+    await q(`INSERT INTO student_enrollments (student_id, school_year_id, grade) VALUES ($1, $2, $3), ($1, $4, $3)`,
+        [inB.id, dst.id, CLASS_B, src.id]);
     const renamed = await call('PATCH', '/api/teaching/class/' + madeB.body.id, { label: CLASS_B + '-ново' });
     checkEq('a rename answers 200', renamed.status, 200);
+    checkEq('and says what moved with it', renamed.body?.moved, { enrolments: 2, students: 1 });
+    checkEq('its pupil is in the renamed class, in both years',
+        (await q(`SELECT grade FROM student_enrollments WHERE student_id = $1 ORDER BY school_year_id`, [inB.id])).map((r: any) => r.grade),
+        [CLASS_B + '-ново', CLASS_B + '-ново']);
+    checkEq('and so is the class the person row carries',
+        (await q(`SELECT grade FROM students WHERE id = $1`, [inB.id]))[0].grade, CLASS_B + '-ново');
+    checkEq('nobody is left holding the old name',
+        (await q(`SELECT count(*)::int AS n FROM student_enrollments WHERE grade = $1`, [CLASS_B]))[0].n, 0);
     const onto = await call('PATCH', '/api/teaching/class/' + madeB.body.id, { label: CLASS_A });
     checkEq('renaming onto an existing class is refused', onto.status, 409);
     checkEq('and it kept its own name', (await q(`SELECT label FROM school_classes WHERE id = $1`, [madeB.body.id]))[0].label, CLASS_B + '-ново');
+    checkEq('and its pupil stayed with it',
+        (await q(`SELECT grade FROM student_enrollments WHERE student_id = $1 AND school_year_id = $2`, [inB.id, dst.id]))[0].grade,
+        CLASS_B + '-ново');
+    checkEq('while nobody moved into the other class',
+        (await q(`SELECT count(*)::int AS n FROM student_enrollments WHERE grade = $1`, [CLASS_A]))[0].n, 0);
 
     console.log('\nthe teacher fields the workbook cannot fill');
     const patched = await call('PUT', '/api/teaching/teacher/' + t2.body.id, { subject: 'АНГ.', kind: 'pred' });
@@ -551,13 +571,19 @@ const run = async () => {
     // Two children with no class, differing only in what the school calls them.
     // Different terms, because a therapist cannot hold two children in one:
     // (year, day, time, therapist) is unique, and that constraint is right.
-    for (const [pid, name, kind, term] of [
-        [`${TAG}-ext`, `${TAG} Екстерен Пробен`, 'external', '09:40-10:20'],
-        [`${TAG}-gap`, `${TAG} Безкласен Пробен`, 'internal', '10:25-11:05']
-    ] as [string, string, string, string][]) {
+    //
+    // Since migration 029 an ACTIVE internal pupil cannot be enrolled with a
+    // blank class — the database refuses it, and this fixture used to die on
+    // exactly that before reaching a single check. What still arrives here as
+    // „no class" is a placeholder that names none, as a dash typed into the
+    // old lists does: `normalizeClassLabel('-')` is empty.
+    for (const [pid, name, kind, term, grade] of [
+        [`${TAG}-ext`, `${TAG} Екстерен Пробен`, 'external', '09:40-10:20', null],
+        [`${TAG}-gap`, `${TAG} Безкласен Пробен`, 'internal', '10:25-11:05', '-']
+    ] as [string, string, string, string, string | null][]) {
         const [st] = await q(`INSERT INTO students (public_id, name) VALUES ($1, $2) RETURNING id`, [pid, name]);
-        await q(`INSERT INTO student_enrollments (student_id, school_year_id, grade, kind) VALUES ($1, $2, NULL, $3)`,
-            [st.id, dst.id, kind]);
+        await q(`INSERT INTO student_enrollments (student_id, school_year_id, grade, kind) VALUES ($1, $2, $3, $4)`,
+            [st.id, dst.id, grade, kind]);
         await q(`INSERT INTO schedule_slots (school_year_id, day, day_order, time_slot, therapist_id, student_id)
                  VALUES ($1, $2, 4, $3, $4, $5)`, [dst.id, DAY, term, therapist.id, st.id]);
     }

@@ -3578,11 +3578,20 @@
         });
     }
 
-    async function loadAll() {
+    /**
+     * `{ quiet: true }` is the redraw after a write in ANOTHER window: no
+     * „Се вчитуваат податоците…" over the grid, no notice cleared, and a
+     * failure leaves the week on screen as it was — the next write or the
+     * „Освежи" button says what is wrong.
+     */
+    async function loadAll(options) {
+        const quiet = Boolean(options && options.quiet === true);
         const ticket = ++state.ticket;
         state.pollTicket++;
-        el('busyLayer').className = 'busy-layer on';
-        clearNotice();
+        if (!quiet) {
+            el('busyLayer').className = 'busy-layer on';
+            clearNotice();
+        }
         try {
             await discoverServer();
             await checkAuth();
@@ -3616,7 +3625,7 @@
             loadWhereabouts().then(() => { if (ticket === state.ticket) drawSchedule(); });
             setConnection(true, 'База: ' + (state.serverLabel || serverName(apiBase() || window.location.origin)));
         } catch (error) {
-            if (ticket !== state.ticket) return;
+            if (ticket !== state.ticket || quiet) return;
             state.roster = null;
             el('scheduleGrid').innerHTML = '<div class="empty-state">Распоредот не е достапен.</div>';
             drawPanel();
@@ -3748,9 +3757,21 @@
     refreshLocalLinks();
     loadAll();
 
-    // A pupil changed through the one pupil form (✏️, `mtb-forms.js`) — here
-    // or in another window. Redrawn from the database, like after any write.
+    // A pupil changed through the one pupil form (✏️, `mtb-forms.js`) in this
+    // window. Redrawn from the database, like after any write.
     window.addEventListener('mtb:saved', () => loadAll());
+
+    // Anything written in ANOTHER window — a class, a pupil, a caseload, a
+    // term in another tab: the same redraw, quietly, and never under a term
+    // that is still being chosen or waiting to be sent (the poll above
+    // stands back for the same reasons).
+    document.addEventListener('DOMContentLoaded', () => {
+        const nav = window.MTBAppNavigation;
+        if (!nav || !nav.onDataChange) return;
+        nav.onDataChange(() => loadAll({ quiet: true }), {
+            busy: () => state.pending.size > 0 || Boolean(document.querySelector('.modal-overlay:not([hidden])'))
+        });
+    });
 })();
 </script>
 <script src="mtb-forms.js"></script>

@@ -246,6 +246,7 @@ npm run test:evidence-ui             the same page in a browser, two therapists 
 npm run test:sync-page               Sinhronizacija.html in a browser; serves itself, every API call invented
 npm run test:form-replies            the form review queue, in-process with its own MTB_ADMIN, invented year
 npm run test:forms-queue             Податоци → Формулари in a browser; every API call invented
+npm run test:one-change              a write in one window reaches every other one; every API call invented
 npm run test:schedule-form           the cabinet form (all therapists) offline, then into the queue
 npm run test:class-form              the class form AND the teacher's own week from Уреди настава, offline, then in
 npm run test:teaching                the crossing and the workbook writer, needs the server
@@ -657,6 +658,34 @@ read `DATABASE_URL`; never add literal credentials to this public repository.
   both just `Write-Host`) did NOT reproduce it — the failure needed the real
   script's real nesting depth, so do not trust a simplified repro to clear a
   fix here; instrument the real call.
+
+- **A screen that reads the lists once is a copy, and copies disagree.**
+  Every page read its classes, pupils and staff when it opened. The workspace
+  keeps five of them open at once — „Администрација", „Заеднички податоци",
+  Податоци, Уреди настава, Кабинети — so a class added in one did not exist in
+  another's dropdown, and the admin panel's own note told the owner to refresh
+  the other windows by hand. Only the ✏️ form told the others, for its own
+  saves. The owner (24 Sep 2026): „ако нешто се промени на едно место, треба
+  да биде истото и во паѓачкото мени и на другите места". The announcement
+  now lives in the ONE place every write passes, the `fetch` wrapper in
+  `app-navigation.js`; a screen registers how it re-reads with
+  `MTBAppNavigation.onDataChange(reload, { busy, mine, sameWindow, ignore })`.
+  Do not move it into save functions — a rule each new screen must remember to
+  call is how this happened. `busy` is not optional politeness: a redraw
+  under an unsaved row or an open picker is lost work, so the reload waits
+  and says why. The workspace shell passes changes on to frames of another
+  origin, where the channel does not reach. `test:one-change` removes the
+  channel to prove that path.
+
+- **A label stored as text must move with a rename.** Lessons point at a
+  class by id; a pupil's class is `student_enrollments.grade` and
+  `students.grade`, the LABEL as plain text (roster-purge.ts). Renaming the
+  class renamed only the row, so its children held a name no class had: the
+  pupil list showed them „— без одделение —", the class showed nobody, and
+  „Зачувај" on such a row wrote the blank back. The rename now moves both
+  texts in the same transaction, every year, exact match only. Any NEW place
+  that stores a class label as text must be added there — or, better, be a
+  `class_id`.
 
 ## Conventions
 

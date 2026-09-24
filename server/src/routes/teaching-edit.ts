@@ -413,6 +413,15 @@ export async function teachingEditRoutes(server: FastifyInstance) {
      * children. It is refused when the new name already exists, because
      * merging two classes is not a rename and nothing here can tell them apart
      * afterwards (rule 2).
+     *
+     * THE CHILDREN MOVE WITH IT. Lessons point at the row by id, but a pupil's
+     * class is the LABEL as plain text, in `student_enrollments.grade` and
+     * `students.grade` (roster-purge.ts says why). Renaming only the row left
+     * every child in the class holding a name no class had any more: the
+     * pupil list showed them „без одделение", the class showed no pupils, and
+     * a „Зачувај" on such a row would have written the blank back. Both texts
+     * move in the same transaction. Exact match only: a label is unique, so
+     * the old one names this row and no other.
      */
     server.patch('/api/teaching/class/:id', async (req, reply) => {
         const id = Number((req.params as any).id);
@@ -420,19 +429,46 @@ export async function teachingEditRoutes(server: FastifyInstance) {
         const label = tidy(ClassBody.parse(req.body).label);
         if (!label) return reply.code(400).send({ error: 'a class needs a label' });
 
-        const taken = await pool.query('SELECT id FROM school_classes WHERE label = $1 AND id <> $2', [label, id]);
-        if (taken.rows.length) {
-            return reply.code(409).send({
-                error: `"${label}" already exists`,
-                note: 'renaming onto an existing class would merge two classes, which cannot be undone'
-            });
+        const client = await pool.connect();
+        try {
+            await client.query('BEGIN');
+            // The two text holders first, in the order every writer takes them
+            // (roster-purge.ts), and then the row: nobody can put a child under
+            // the old name between the move and the rename.
+            await client.query('LOCK TABLE students, student_enrollments IN SHARE ROW EXCLUSIVE MODE');
+            const current = await client.query('SELECT label FROM school_classes WHERE id = $1 FOR UPDATE', [id]);
+            if (!current.rows.length) {
+                await client.query('ROLLBACK');
+                return reply.code(404).send({ error: 'no such class' });
+            }
+            const was: string = current.rows[0].label;
+            const taken = await client.query('SELECT id FROM school_classes WHERE label = $1 AND id <> $2', [label, id]);
+            if (taken.rows.length) {
+                await client.query('ROLLBACK');
+                return reply.code(409).send({
+                    error: `"${label}" already exists`,
+                    note: 'renaming onto an existing class would merge two classes, which cannot be undone'
+                });
+            }
+            const enrolments = await client.query(
+                'UPDATE student_enrollments SET grade = $2 WHERE grade = $1 AND $1 <> $2', [was, label]);
+            const students = await client.query(
+                'UPDATE students SET grade = $2, updated_at = now() WHERE grade = $1 AND $1 <> $2', [was, label]);
+            const { rows } = await client.query(
+                `UPDATE school_classes SET label = $2, sort_key = $3 WHERE id = $1 RETURNING id, label`,
+                [id, label, classSortKey(label)]
+            );
+            await client.query('COMMIT');
+            return {
+                ok: true, ...rows[0], was,
+                moved: { enrolments: enrolments.rowCount ?? 0, students: students.rowCount ?? 0 }
+            };
+        } catch (err) {
+            await client.query('ROLLBACK').catch(() => {});
+            throw err;
+        } finally {
+            client.release();
         }
-        const { rows } = await pool.query(
-            `UPDATE school_classes SET label = $2, sort_key = $3 WHERE id = $1 RETURNING id, label`,
-            [id, label, classSortKey(label)]
-        );
-        if (!rows.length) return reply.code(404).send({ error: 'no such class' });
-        return { ok: true, ...rows[0] };
     });
 
     /**

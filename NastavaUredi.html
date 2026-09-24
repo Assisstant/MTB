@@ -450,6 +450,7 @@
     let data = null;          // /api/teaching/timetable
     let years = [];
     let selected = null;      // { day, ordinal, class }
+    let sideEdited = false;   // typed in the class/teacher lists, not yet saved
     // Only the newest request may draw: changing the year while the first
     // fetch is still running otherwise leaves the old year's grid on screen
     // under the new year's label. The read-only page learned this the hard way.
@@ -935,6 +936,9 @@
 
     function draw() {
         if (!data) return;
+        // The side lists are drawn again below, so nothing typed in them is
+        // left unsaved after this.
+        sideEdited = false;
         const weekly = view() === 'teacher';
         const classWeek = view() === 'classweek';
         const assign = view() === 'assign';
@@ -1970,9 +1974,11 @@
             const id = Number(b.dataset.rename);
             const input = el('classes').querySelector(`[data-class-id="${id}"]`);
             try {
-                await api('PATCH', '/api/teaching/class/' + id, { label: tidy(input.value) });
+                const answer = await api('PATCH', '/api/teaching/class/' + id, { label: tidy(input.value) });
                 await load(true);
-                status('одделението е преименувано', 'ok');
+                // The pupils move with the label on the server (teaching-edit.ts).
+                status('одделението е преименувано'
+                    + (answer && answer.moved && answer.moved.enrolments ? ', заедно со учениците во него' : ''), 'ok');
             } catch (err) { status(err.message, 'error'); }
         }));
         // The description belongs to the SELECTED YEAR, not to the class for
@@ -2429,6 +2435,22 @@
     el('exportTeacherForm').addEventListener('click', () => exportTeacherForm().catch((err) => status(err.message, 'error')));
     el('importClassForm').addEventListener('click', () => { el('importClassFormFile').value = ''; el('importClassFormFile').click(); });
     el('importClassFormFile').addEventListener('change', () => importClassForms(el('importClassFormFile').files));
+
+    /**
+     * Written in ANOTHER window — a class added in Податоци, a teacher renamed
+     * in Администрација: this page reads the timetable again, keeping the
+     * cell that is open. Not while a name or description is typed in the
+     * lists on the side and not yet saved; the reload waits for it.
+     */
+    ['classes', 'teachers'].forEach((id) => ['input', 'change'].forEach((type) =>
+        el(id).addEventListener(type, () => { sideEdited = true; })));
+    document.addEventListener('DOMContentLoaded', () => {
+        const nav = window.MTBAppNavigation;
+        if (nav && nav.onDataChange) {
+            nav.onDataChange(() => { if (data) return load(true); },
+                { busy: () => sideEdited, ignore: ['schedule', 'state'] });
+        }
+    });
 
     load(false);
 })();

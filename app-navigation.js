@@ -127,10 +127,6 @@
         if (window.__MTB_AUTH_FETCH_INSTALLED__) return;
         window.__MTB_AUTH_FETCH_INSTALLED__ = true;
         window.fetch = function (input, init) {
-            let token = '';
-            try { token = localStorage.getItem(TOKEN_KEY) || ''; } catch (_) {}
-            if (!token) return nativeFetch(input, init);
-
             let target;
             let server;
             try {
@@ -143,18 +139,166 @@
             if (target.origin !== server.origin || !target.pathname.startsWith('/api/')) {
                 return nativeFetch(input, init);
             }
-
-            const sourceHeaders = init && init.headers
-                ? init.headers
-                : (typeof Request !== 'undefined' && input instanceof Request ? input.headers : undefined);
-            const headers = new Headers(sourceHeaders || {});
-            if (!headers.has('x-mtb-evidence-token')) headers.set('x-mtb-evidence-token', token);
-            if (typeof Request !== 'undefined' && input instanceof Request) {
-                return nativeFetch(new Request(input, Object.assign({}, init || {}, { headers })));
-            }
-            return nativeFetch(input, Object.assign({}, init || {}, { headers }));
+            // Every write to the database passes this one line, whichever page
+            // or form made it — so this is where the other windows are told.
+            const method = String((init && init.method)
+                || (typeof Request !== 'undefined' && input instanceof Request ? input.method : 'GET')).toUpperCase();
+            const topic = changeTopic(target.pathname, method);
+            const sent = withToken(input, init);
+            if (!topic) return sent;
+            return sent.then((res) => {
+                if (res && res.ok) announceChange(topic);
+                return res;
+            });
         };
     }
+
+    function withToken(input, init) {
+        let token = '';
+        try { token = localStorage.getItem(TOKEN_KEY) || ''; } catch (_) {}
+        if (!token) return nativeFetch(input, init);
+        const sourceHeaders = init && init.headers
+            ? init.headers
+            : (typeof Request !== 'undefined' && input instanceof Request ? input.headers : undefined);
+        const headers = new Headers(sourceHeaders || {});
+        if (!headers.has('x-mtb-evidence-token')) headers.set('x-mtb-evidence-token', token);
+        if (typeof Request !== 'undefined' && input instanceof Request) {
+            return nativeFetch(new Request(input, Object.assign({}, init || {}, { headers })));
+        }
+        return nativeFetch(input, Object.assign({}, init || {}, { headers }));
+    }
+
+    /* ── Една промена, сите прозорци ─────────────────────────────────────
+     *
+     * Сопственикот, 24 септември: „ако нешто се промени на едно место, треба
+     * да биде истото и во паѓачкото мени и на другите места каде се појавува
+     * податокот". Не беше. Секој екран ги чита списоците ЕДНАШ, кога ќе се
+     * отвори, а работниот простор држи неколку отворени одеднаш — паралелка
+     * додадена во „Податоци" не постоеше во паѓачкото мени на „Администрација"
+     * до рачно освежување, а белешката таму го велеше тоа како упатство.
+     * Само формуларот ✏️ им кажуваше на другите, и само за своите зачувувања.
+     *
+     * Затоа известувањето е ТУКА, во единствениот `fetch` низ кој минува секое
+     * запишување, а не во секоја функција за зачувување: правило што секој
+     * нов екран мора да се сети да го повика е правило што ќе се заборави
+     * точно еднаш — токму така настана ова.
+     *
+     * Се праќа само ТЕМАТА (`teaching`, `students`…), никогаш идентификатор или
+     * име: истото правило како за изборот на лице подолу.
+     */
+    const CHANGE_TYPE = 'mtb:data-changed';
+    const CHANGE_SETTLE = 700;      // неколку запишувања по ред се едно освежување
+    const CHANGE_RETRY = 1500;      // колку често се прашува „дали уште пишува"
+    const changeChannel = (() => {
+        try { return 'BroadcastChannel' in window ? new BroadcastChannel('mtb-data') : null; }
+        catch (_) { return null; }
+    })();
+    const changeListeners = [];
+    const changeHeard = new Set();
+    let changeTimer = null;
+    let changeWarned = false;
+
+    /**
+     * Што е промена на ЗАЕДНИЧКИТЕ податоци. Евидентниот лист и клиничките
+     * записи на дневникот имаат свои екрани и никој друг не ги прикажува, а
+     * најавата не е податок; нив другите прозорци не треба да ги слушаат.
+     */
+    function changeTopic(pathname, method) {
+        if (['GET', 'HEAD', 'OPTIONS'].includes(method)) return null;
+        const parts = pathname.split('/').filter(Boolean);
+        if (parts[0] !== 'api' || !parts[1]) return null;
+        if (parts[1] === 'evidence') return null;
+        if (parts[1] === 'diary') return parts[2] === 'schedule' ? 'schedule' : null;
+        return parts[1];
+    }
+
+    function announceChange(topic) {
+        const msg = { type: CHANGE_TYPE, topic };
+        if (changeChannel) { try { changeChannel.postMessage(msg); } catch (_) { /* the other windows refresh on their next load */ } }
+        // A frame of the workspace can be another origin, where the channel
+        // does not reach; the shell passes it on to its other frames.
+        if (window.parent !== window) { try { window.parent.postMessage(msg, '*'); } catch (_) { /* no shell */ } }
+        window.dispatchEvent(new CustomEvent('mtb:data-announced', { detail: { topic } }));
+        heardChange(topic, true);
+    }
+
+    function heardChange(topic, local) {
+        const mine = (l) => { try { return Boolean(l.mine()); } catch (_) { return false; } };
+        const wanted = changeListeners.filter((l) =>
+            (!local || (l.sameWindow && !mine(l))) && !l.ignore.includes(topic));
+        if (!wanted.length) return;
+        wanted.forEach((l) => changeHeard.add(l));
+        clearTimeout(changeTimer);
+        changeTimer = setTimeout(runChange, CHANGE_SETTLE);
+    }
+
+    /** Somebody is typing or choosing here: a redraw now would take it away. */
+    function typingHere() {
+        const node = document.activeElement;
+        if (!node || node === document.body) return false;
+        if (node.isContentEditable || node.tagName === 'TEXTAREA' || node.tagName === 'SELECT') return true;
+        if (node.tagName !== 'INPUT') return false;
+        return !['button', 'submit', 'reset', 'checkbox', 'radio', 'range', 'file', 'color', 'image']
+            .includes(String(node.type || 'text').toLowerCase());
+    }
+
+    async function runChange() {
+        changeTimer = null;
+        if (!changeHeard.size || document.hidden) return;   // visibilitychange comes back here
+        const waiting = [...changeHeard];
+        const busy = typingHere() || waiting.some((l) => { try { return Boolean(l.busy()); } catch (_) { return false; } });
+        if (busy) {
+            if (!changeWarned) {
+                changeWarned = true;
+                showToast('Во друг прозорец е сменето нешто. Оваа страница ќе се освежи сама штом ќе го зачувате или откажете тоа што го уредувате.', 'warning');
+            }
+            changeTimer = setTimeout(runChange, CHANGE_RETRY);
+            return;
+        }
+        changeHeard.clear();
+        changeWarned = false;
+        for (const l of waiting) {
+            try { await l.reload(); } catch (_) { /* the page reports its own failure */ }
+        }
+    }
+
+    /**
+     * A page that draws the shared lists registers how it re-reads them.
+     *   busy       — true while it holds unsaved input; the reload waits
+     *   sameWindow — also for writes made in THIS window by another part of it
+     *                (the workspace shell has two editors side by side)
+     *   mine       — true while that part is writing itself: it redraws from
+     *                its own answer, and a second redraw would only replace
+     *                „Зачувано" with „Вчитувам…"
+     *   ignore     — topics that page does not show
+     */
+    function onDataChange(reload, options) {
+        const o = options || {};
+        changeListeners.push({
+            reload,
+            busy: typeof o.busy === 'function' ? o.busy : () => false,
+            mine: typeof o.mine === 'function' ? o.mine : () => false,
+            sameWindow: Boolean(o.sameWindow),
+            ignore: Array.isArray(o.ignore) ? o.ignore : []
+        });
+    }
+
+    if (changeChannel) {
+        changeChannel.onmessage = (event) => {
+            const msg = event.data;
+            if (msg && msg.type === CHANGE_TYPE && typeof msg.topic === 'string') heardChange(msg.topic.slice(0, 40), false);
+        };
+    }
+    // From the shell only, as for the focus below: a frame of another origin
+    // hears the change through its parent.
+    window.addEventListener('message', (event) => {
+        if (event.source !== window.parent || event.source === window) return;
+        const msg = event.data;
+        if (msg && msg.type === CHANGE_TYPE && typeof msg.topic === 'string') heardChange(msg.topic.slice(0, 40), false);
+    });
+    document.addEventListener('visibilitychange', () => {
+        if (!document.hidden && changeHeard.size && !changeTimer) changeTimer = setTimeout(runChange, CHANGE_SETTLE);
+    });
 
     function currentFile() {
         return (window.location.pathname.split('/').pop() || 'start.html').toLowerCase();
@@ -1287,7 +1431,11 @@
             catalogue: subjectCatalogue,
             mount: mountSubjectPicker
         },
-        holdRepeat
+        holdRepeat,
+        // Една промена, сите прозорци: страницата кажува како се препрочитува,
+        // а школката на работниот простор ги пренесува промените од рамките.
+        onDataChange,
+        dataChanged: (topic) => heardChange(String(topic || '').slice(0, 40), false)
     };
     window.addEventListener('mtb:data-state', (event) => reportDataState(event.detail));
     window.addEventListener('mtb:server-selected', () => { render(); checkHealth(); checkUser(); });

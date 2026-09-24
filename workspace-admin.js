@@ -41,11 +41,14 @@
       const [next,health]=await Promise.all([ctx.request('GET','/api/workspace?year='+encodeURIComponent(chosen)),ctx.request('GET','/api/health')]);
       if(mine!==ticket||server!==ctx.server())return;
       year=chosen;base=server;data=next;readonly=health.mirror?.mode==='readonly';
+      // The filters someone chose survive a reload; one that no longer exists falls back to „Сите".
+      const kept=['maProfession','maDuty','maClass','maTherapist'].map(id=>[id,$(id).value]);
       $('maProfession').innerHTML=option('','Сите','')+options(data.staffProfessions||{},'');
       $('maDuty').innerHTML=option('','Сите','')+options(data.staffDuties||{},'');
       $('maYear').innerHTML=years.map(y=>option(y.label,y.label+(y.is_current?' · тековна':' · архива'),year)).join('');
       $('maClass').innerHTML=option('','Сите','')+option('__none','Без паралелка','')+data.classes.map(c=>option(c.label,c.label,'')).join('');
       $('maTherapist').innerHTML=option('','Сите','')+data.employees.filter(e=>e.therapist_active).map(e=>option(e.therapist_id,e.name,'')).join('');
+      kept.forEach(([id,value])=>{if([...$(id).options].some(o=>o.value===value))$(id).value=value;});
       selected=selected&&rows().find(r=>String(idOf(r))===String(idOf(selected)))||null;dirty=false;renderList();renderDetail();
       status(readonly?'Локална копија · само читање':`${year} · PostgreSQL · ${data.pupils.filter(pupilActive).length} активни ученици`);applyReadonly();
     }catch(e){status(e.message,'error');$('maYear').value=year;}
@@ -84,7 +87,7 @@
     }
     if(!isNew&&tab==='employees')html+=`<details class="ma-section"><summary>Поврзи постоен наставнички / терапевтски идентитет</summary><p class="ma-hint">Само по човечка проверка дека е истата личност. Исто име не е доказ. Профилите и нивната историја се задржуваат; избраниот запис се поврзува со овој.</p><select id="maLinkSource" aria-label="Постоен вработен за поврзување">${option('','Изберете потврден идентитет','')+data.employees.filter(e=>e.id!==r.id).map(e=>option(e.id,e.name+' · #'+e.id,'')).join('')}</select><button id="maLink" data-ma-write>Поврзи со овој запис</button></details>`;
     if(!isNew&&tab==='employees'&&data.staffProfessions)html+='<section class="ma-section"><h3>Годишна историја на задолженија</h3><button id="maEmployeeHistory">Прикажи професија и задолженија по година</button><div id="maEmployeeHistoryResult"></div></section>';
-    html+=`<h3>Поврзана работа</h3><div class="ma-links"><button data-ma-open="RasporediFusion.html">Кабинети</button><button data-ma-open="NastavaUredi.html">Уреди настава</button><button data-ma-open="Podatoci.html">Податоци</button><button data-ma-open="AkciskiPlan.html">Евидентен лист</button></div><p class="ma-hint">Веќе отворените прозорци ги задржуваат својата година и внесот. Освежете ги таму по зачувана корекција, кога нема незачувани промени.</p>`;
+    html+=`<h3>Поврзана работа</h3><div class="ma-links"><button data-ma-open="RasporediFusion.html">Кабинети</button><button data-ma-open="NastavaUredi.html">Уреди настава</button><button data-ma-open="Podatoci.html">Податоци</button><button data-ma-open="AkciskiPlan.html">Евидентен лист</button></div><p class="ma-hint">Отворените прозорци се освежуваат сами по секое зачувување. Прозорец со незачуван внес чека да се зачува или откаже, па се освежува.</p>`;
     $('maDetail').innerHTML=html;applyReadonly();syncKindNote();
     $('maForm').addEventListener('submit',savePerson);
     $('maCaseload')?.addEventListener('submit',saveCaseload);
@@ -142,5 +145,10 @@
   document.querySelector('#appTabs').addEventListener('click',e=>{if(e.target.closest('[data-app]'))close();});
   window.addEventListener('beforeunload',e=>{if(dirty){e.preventDefault();e.returnValue='';}});
   window.addEventListener('mtb:server-state',e=>{if(e.detail?.mirror?.mode==='readonly'){readonly=true;applyReadonly();status('Локална копија · само читање');}});
+  // Запишано на друго место — во прозорец или во панелот покрај — и оваа листа
+  // се препрочитува, за паралелките и луѓето во паѓачките менија да бидат
+  // истите. Не додека тука стои незачуван внес: `dirty` веќе го знае тоа.
+  const nav=window.MTBAppNavigation;
+  if(nav&&nav.onDataChange)nav.onDataChange(()=>{if(data&&!busy)return load(year);},{busy:()=>dirty||busy,mine:()=>busy,sameWindow:true,ignore:['schedule']});
   if(new URLSearchParams(location.search).get('view')!=='windows')toggle.click();
 })();

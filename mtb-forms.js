@@ -133,13 +133,11 @@
     }
 
     // ── after a save: every screen redraws from the database ────────────────
-    const channel = 'BroadcastChannel' in window ? new BroadcastChannel('mtb-forms') : null;
-    if (channel) channel.onmessage = (event) =>
-        window.dispatchEvent(new CustomEvent('mtb:saved', { detail: event.data }));
-
+    // The page this form was opened on hears it here. Every OTHER window hears
+    // it the way it hears any write — `app-navigation.js` announces each one
+    // from its `fetch`, so this form no longer keeps a channel of its own.
     function announce(detail) {
         window.dispatchEvent(new CustomEvent('mtb:saved', { detail }));
-        if (channel) channel.postMessage(detail);
         const nav = window.MTBAppNavigation;
         if (nav && typeof nav.toast === 'function' && detail.said) {
             try { nav.toast(detail.said, 'synced'); } catch (_) { /* the page redraws either way */ }

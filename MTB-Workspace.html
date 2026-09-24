@@ -226,10 +226,12 @@ button:focus-visible, .window-titlebar:focus-visible, #dockDivider:focus-visible
 </div>
 <script src="app-navigation.js"></script>
 <script>
-(function(){'use strict';const $=id=>document.getElementById(id),esc=v=>String(v==null?'':v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'),tidy=v=>String(v==null?'':v).replace(/\s+/g,' ').trim(),personName=value=>{const clean=tidy(value),letters=clean.replace(/[^\p{L}]/gu,'');if(!letters||letters!==letters.toLocaleUpperCase('mk-MK'))return clean;return clean.toLocaleLowerCase('mk-MK').replace(/(^|[\s\-‐‑–—'’])(\p{L})/gu,(_,b,l)=>b+l.toLocaleUpperCase('mk-MK'))};const PUBLISHED=location.hostname==='assisstant.github.io',SERVER_KEY='mtb_podatoci_server_v1',ROMAN=['I','II','III','IV','V','VI','VII','VIII','IX'];let apiBase='',years=[],data=null,categories=[],categoryOf={teacher:{},therapist:{}},dir='students',selected={students:null,teachers:null,therapists:null,classes:null},draftCaseload=new Set(),caseloadOriginal=new Set(),returnTherapist=null,ticket=0;
-function setStatus(text,kind){const n=$('status');n.textContent=text||'';n.className='status'+(kind?' '+kind:'')}function activeServer(){if(!PUBLISHED)return /^https?:$/.test(location.protocol)?location.origin:'';try{const raw=localStorage.getItem(SERVER_KEY)||'';if(!raw)return'';const u=new URL(raw);if(u.protocol!=='https:'||!u.hostname.endsWith('.ts.net'))return'';return u.origin}catch(_){return''}}async function api(method,path,body){if(!apiBase)throw new Error('Не е избрана PostgreSQL база.');const res=await fetch(apiBase+path,{method,cache:'no-store',headers:body===undefined?undefined:{'Content-Type':'application/json'},body:body===undefined?undefined:JSON.stringify(body)});let out=null;try{out=await res.json()}catch(_){}if(!res.ok)throw new Error(out&&(out.error||out.message)||'HTTP '+res.status);return out}
+(function(){'use strict';const $=id=>document.getElementById(id),esc=v=>String(v==null?'':v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'),tidy=v=>String(v==null?'':v).replace(/\s+/g,' ').trim(),personName=value=>{const clean=tidy(value),letters=clean.replace(/[^\p{L}]/gu,'');if(!letters||letters!==letters.toLocaleUpperCase('mk-MK'))return clean;return clean.toLocaleLowerCase('mk-MK').replace(/(^|[\s\-‐‑–—'’])(\p{L})/gu,(_,b,l)=>b+l.toLocaleUpperCase('mk-MK'))};const PUBLISHED=location.hostname==='assisstant.github.io',SERVER_KEY='mtb_podatoci_server_v1',ROMAN=['I','II','III','IV','V','VI','VII','VIII','IX'];let apiBase='',years=[],data=null,categories=[],categoryOf={teacher:{},therapist:{}},dir='students',selected={students:null,teachers:null,therapists:null,classes:null},draftCaseload=new Set(),caseloadOriginal=new Set(),returnTherapist=null,ticket=0,dirEdited=false,writing=0;
+function setStatus(text,kind){const n=$('status');n.textContent=text||'';n.className='status'+(kind?' '+kind:'')}function activeServer(){if(!PUBLISHED)return /^https?:$/.test(location.protocol)?location.origin:'';try{const raw=localStorage.getItem(SERVER_KEY)||'';if(!raw)return'';const u=new URL(raw);if(u.protocol!=='https:'||!u.hostname.endsWith('.ts.net'))return'';return u.origin}catch(_){return''}}async function api(method,path,body,forAdmin){if(!apiBase)throw new Error('Не е избрана PostgreSQL база.');
+  // Only this panel's OWN writes are counted: „Администрација" writes through here too (MTBWorkspaceContext), and the panel must hear those.
+  const write=method!=='GET'&&!forAdmin;if(write)writing++;let res;try{res=await fetch(apiBase+path,{method,cache:'no-store',headers:body===undefined?undefined:{'Content-Type':'application/json'},body:body===undefined?undefined:JSON.stringify(body)})}finally{if(write)writing--}let out=null;try{out=await res.json()}catch(_){}if(!res.ok)throw new Error(out&&(out.error||out.message)||'HTTP '+res.status);return out}
 async function load(preferYear){const mine=++ticket;apiBase=activeServer();if(!apiBase){data=null;render();setStatus('Избери база во start.html','warn');return}setStatus('Вчитувам од базата…');try{years=await api('GET','/api/years');if(mine!==ticket)return;const current=years.find(y=>y.is_current)||years[0],wanted=preferYear||$('year').value||current&&current.label||'';$('year').innerHTML=years.map(y=>'<option value="'+esc(y.label)+'"'+(y.label===wanted?' selected':'')+'>'+esc(y.label)+(y.is_current?' · тековна':' · архива')+'</option>').join('');const year=$('year').value||wanted,[roster,cats,holders]=await Promise.all([api('GET','/api/roster?year='+encodeURIComponent(year)),api('GET','/api/categories').catch(()=>({categories:[]})),api('GET','/api/categories/holders?year='+encodeURIComponent(year)).catch(()=>({teachers:[],therapists:[]}))]);if(mine!==ticket)return;data=roster;categories=cats.categories||[];categoryOf={teacher:{},therapist:{}};(holders.teachers||[]).forEach(x=>categoryOf.teacher[x.personId]=x.categoryId);(holders.therapists||[]).forEach(x=>categoryOf.therapist[x.personId]=x.categoryId);preserveSelection();render();setStatus(roster.year+' · '+roster.students.length+' ученици · '+roster.teachers.length+' наставници · '+roster.therapists.length+' стручни/терапевти','ok')}catch(err){data=null;render();setStatus(err.message,'error')}}
-function preserveSelection(){for(const key of ['students','teachers','therapists','classes']){const old=selected[key];if(!old)continue;const id=key==='students'?old.public_id:old.id,next=(data[key]||[]).find(x=>(key==='students'?x.public_id:x.id)===id);selected[key]=next||null}if(selected.therapists){caseloadOriginal=new Set(selected.therapists.students||[]);draftCaseload=new Set(caseloadOriginal)}}function render(){$('kindFilter').style.display=dir==='students'?'':'none';if(!data){$('content').innerHTML='<div class="empty">Нема вчитани податоци од базата.</div>';return}dir==='students'?renderStudents():dir==='teachers'?renderTeachers():dir==='classes'?renderClasses():renderTherapists();renderRelatedActions()}function q(){return tidy($('search').value).toLocaleLowerCase('mk-MK')}
+function preserveSelection(){for(const key of ['students','teachers','therapists','classes']){const old=selected[key];if(!old)continue;const id=key==='students'?old.public_id:old.id,next=(data[key]||[]).find(x=>(key==='students'?x.public_id:x.id)===id);selected[key]=next||null}if(selected.therapists){caseloadOriginal=new Set(selected.therapists.students||[]);draftCaseload=new Set(caseloadOriginal)}}function render(){dirEdited=false;$('kindFilter').style.display=dir==='students'?'':'none';if(!data){$('content').innerHTML='<div class="empty">Нема вчитани податоци од базата.</div>';return}dir==='students'?renderStudents():dir==='teachers'?renderTeachers():dir==='classes'?renderClasses():renderTherapists();renderRelatedActions()}function q(){return tidy($('search').value).toLocaleLowerCase('mk-MK')}
 function masterRow(kind,item,index,meta){const id=kind==='students'?item.public_id:item.id,active=selected[kind]&&(kind==='students'?selected[kind].public_id:selected[kind].id)===id;return'<button class="person'+(active?' active':'')+'" data-pick="'+esc(String(id))+'"><span class="num">'+(index+1)+'.</span><span class="name">'+esc(personName(item.name))+'</span><span class="meta">'+esc(meta||'')+'</span></button>'}function bindMaster(kind){document.querySelectorAll('[data-pick]').forEach(b=>b.addEventListener('click',()=>{const raw=b.dataset.pick;selected[kind]=(data[kind]||[]).find(x=>String(kind==='students'?x.public_id:x.id)===raw)||null;if(kind==='therapists'){caseloadOriginal=new Set(selected.therapists?.students||[]);draftCaseload=new Set(caseloadOriginal)}
   // Истиот клик што го отвора записот го осветлува човекот во прозорците.
   setFocus(kind==='classes'?'':(kind==='students'?'student:':kind==='teachers'?'teacher:':'therapist:')+raw);
@@ -292,7 +294,10 @@ function studentMeta(s){const roman=romanOf(s.grade),odd=String(s.oddelenie||'')
   // Одделението се пишува само кога КАЖУВА нешто ново — инаку секој ред би
   // носел двапати иста работа и разликата што е важна би се изгубила во неа.
   return[s.grade||'',(odd&&odd!==roman)?'одд. '+odd:'',KIND_LABEL[s.kind||'internal']||s.kind||''].filter(Boolean).join(' · ')}function filteredStudents(){const needle=q(),k=$('kindFilter').value;return(data.students||[]).filter(s=>s.active!==false).filter(s=>!k||(s.kind||'internal')===k).filter(s=>!needle||personName(s.name).toLocaleLowerCase('mk-MK').includes(needle)||String(s.grade||'').toLocaleLowerCase('mk-MK').includes(needle))}
-function categoryOptions(kind,id){const held=categoryOf[kind][id]||'';return'<option value="">— без категорија —</option>'+categories.map(c=>'<option value="'+c.id+'"'+(String(c.id)===String(held)?' selected':'')+'>'+esc(c.name)+'</option>').join('')}function classOptions(selectedGrade){return'<option value="">— без одделение / група —</option>'+(data.classes||[]).map(c=>'<option value="'+esc(c.label)+'"'+(c.label===selectedGrade?' selected':'')+'>'+esc(c.label)+'</option>').join('')}
+function categoryOptions(kind,id){const held=categoryOf[kind][id]||'';return'<option value="">— без категорија —</option>'+categories.map(c=>'<option value="'+c.id+'"'+(String(c.id)===String(held)?' selected':'')+'>'+esc(c.name)+'</option>').join('')}function classOptions(selectedGrade){const known=(data.classes||[]).some(c=>c.label===selectedGrade);return'<option value="">— без одделение / група —</option>'+(data.classes||[]).map(c=>'<option value="'+esc(c.label)+'"'+(c.label===selectedGrade?' selected':'')+'>'+esc(c.label)+'</option>').join('')
+  // Паралелка што не е на листата за годинава останува видлива, обележана —
+  // инаку ученикот изгледа „без одделение" и „Зачувај" го пишува празното назад.
+  +(selectedGrade&&!known?'<option value="'+esc(selectedGrade)+'" selected>'+esc(selectedGrade)+' · неактивна</option>':'')}
 function renderStudents(){const rows=filteredStudents(),s=selected.students;$('content').innerHTML='<div class="split"><section class="master"><div class="master-title">Ученици · '+rows.length+'</div><div class="list">'+rows.map((x,i)=>masterRow('students',x,i,studentMeta(x))).join('')+'</div></section><section class="editor">'+(s?studentEditor(s):'<div class="empty">Избери ученик за преглед или измена.</div>')+'</section></div>';bindMaster('students');if(s)bindStudentEditor(s)}/* ── Записот за еден ученик ────────────────────────────────────────────
  *
  * Подреден по СОПСТВЕНИК НА ФАКТОТ, не по редослед на полиња. Горе е она што
@@ -516,7 +521,7 @@ function appSrc(file){const base=activeServer(),root=base&&base!==location.origi
 // The window manager below opens new tabs; it must build the same address.
 window.MTBWorkspaceAppSrc=appSrc;
 window.MTBWorkspaceContext={
-  request:(method,path,body)=>{apiBase=activeServer();return api(method,path,body)},
+  request:(method,path,body)=>{apiBase=activeServer();return api(method,path,body,true)},
   server:activeServer,
   focus:value=>setFocus(value),
   year:()=>$('year').value,
@@ -636,6 +641,36 @@ $('startGateAgain').addEventListener('click',()=>runStartGate(true));
 const roleChip=$('dbrole');
 if(roleChip){roleChip.setAttribute('data-clickable','');roleChip.title='Која база се запишува — кликни за да смениш';
   roleChip.addEventListener('click',()=>runStartGate(true));}
+
+/* ── Една промена, сите прозорци ─────────────────────────────────────
+ *
+ * Секое запишување го објавува `app-navigation.js`, од својот `fetch`, по
+ * канал што ги достигнува сите прозорци од истиот origin. Рамка од ДРУГ
+ * origin — работниот простор отворен од GitHub Pages, рамките од серверот —
+ * каналот не ја достигнува, па школката ја пренесува промената: од рамка до
+ * другите рамки и до својот панел, и од своите уредувачи до сите рамки.
+ * Се пренесува само темата, а рамката што ја пратила не ја добива назад.
+ */
+function frameOrigin(f){try{return new URL(f.src,location.href).origin}catch(_){return''}}
+function passChange(topic,except){if(!topic)return;document.querySelectorAll('#main iframe').forEach(f=>{
+  if(f.contentWindow===except)return;const o=frameOrigin(f);if(!o||o==='null')return;
+  try{f.contentWindow&&f.contentWindow.postMessage({type:'mtb:data-changed',topic},o)}catch(_){/* рамка што уште не е вчитана */}})}
+window.addEventListener('message',e=>{
+  const m=e.data;if(!m||m.type!=='mtb:data-changed'||typeof m.topic!=='string')return;
+  if(![...document.querySelectorAll('#main iframe')].some(f=>f.contentWindow===e.source))return;
+  const topic=m.topic.slice(0,40),n=nav();passChange(topic,e.source);if(n&&n.dataChanged)n.dataChanged(topic)});
+window.addEventListener('mtb:data-announced',e=>passChange(String((e.detail&&e.detail.topic)||''),null));
+// Панелот се препрочитува кога нешто е запишано на друго место — во рамка
+// или во „Администрација" покрај него — но не додека во неговиот уредувач
+// стои незачуван внес. Скролот на листата и на уредувачот останува.
+['input','change'].forEach(t=>$('content').addEventListener(t,e=>{if(!e.target.closest('#tCategory,#thCategory,#caseloadSearch'))dirEdited=true}));
+async function reloadDirectory(){
+  if(!data)return;
+  const keep=[...$('content').querySelectorAll('.list,.editor')].map(n=>n.scrollTop);
+  await load(data.year);
+  $('content').querySelectorAll('.list,.editor').forEach((n,i)=>{if(keep[i])n.scrollTop=keep[i]});
+}
+{const n=nav();if(n&&n.onDataChange)n.onDataChange(reloadDirectory,{busy:()=>dirEdited,mine:()=>writing>0,sameWindow:true,ignore:['schedule']})}
 
 runStartGate(false).then(()=>{repointFrames();load()});})();
 </script>
