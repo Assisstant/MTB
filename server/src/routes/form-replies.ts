@@ -44,6 +44,7 @@ import { z } from 'zod';
 import { pool } from '../db.js';
 import { isAdmin, refuseScope, scopeOf } from '../lib/colleague.js';
 import { Refused, whoIsSigned } from '../lib/evidence.js';
+import { internalHeaders } from '../lib/internal.js';
 import {
     cabinetContext, cabinetItems, classContext, classItems, describeReply, fingerprintOf, personKey, selfApplies, settleNewest,
     signers, teacherContext, teacherItems, verifySignature, type Item
@@ -155,148 +156,152 @@ const summary = (row: any) => ({
 /** Who an answer is about, in words, for a refusal. */
 const sameKind = (kind: string) => kind === 'class' ? 'истото одделение' : kind === 'teacher' ? 'истиот наставник' : 'истиот терапевт';
 
-export async function formReplyRoutes(server: FastifyInstance) {
-    /**
-     * Accept or reject items of one answer. Accepted items are written by the
-     * routes that own each fact, with the caller's own credentials; every
-     * decision and outcome is recorded under `by`.
-     */
-    async function decide(id: number, acceptKeys: string[], rejectKeys: string[], by: string, headers: Record<string, string>) {
-        const review = await reviewOf(id);
-        if (!review) return { code: 404, body: { error: 'нема таков одговор' } };
-        const { row, year, result } = review;
-        if (row.status !== 'pending') {
-            return { code: 409, body: { error: row.status === 'superseded'
-                ? `пристигнал понов одговор за ${sameKind(row.kind)} — се одлучува за него`
-                : 'одговорот е веќе затворен' } };
-        }
-        if (result.errors.length || !(result.therapist || result.classLabel || result.teacher)) {
-            return { code: 409, body: { error: result.errors.join(' ') } };
-        }
-        const therapist = result.therapist || { id: 0, name: '' };
-        const byKey = new Map(result.items.map((item) => [item.key, item]));
-        const accept = acceptKeys.filter((k) => byKey.has(k));
-        const reject = rejectKeys.filter((k) => byKey.has(k) && !accept.includes(k));
+/**
+ * Accept or reject items of one answer. Accepted items are written by the
+ * routes that own each fact, with the caller's own credentials; every
+ * decision and outcome is recorded under `by`.
+ */
+export async function decide(server: FastifyInstance, id: number, acceptKeys: string[], rejectKeys: string[], by: string, headers: Record<string, string>) {
+    const review = await reviewOf(id);
+    if (!review) return { code: 404, body: { error: 'нема таков одговор' } };
+    const { row, year, result } = review;
+    if (row.status !== 'pending') {
+        return { code: 409, body: { error: row.status === 'superseded'
+            ? `пристигнал понов одговор за ${sameKind(row.kind)} — се одлучува за него`
+            : 'одговорот е веќе затворен' } };
+    }
+    if (result.errors.length || !(result.therapist || result.classLabel || result.teacher)) {
+        return { code: 409, body: { error: result.errors.join(' ') } };
+    }
+    const therapist = result.therapist || { id: 0, name: '' };
+    const byKey = new Map(result.items.map((item) => [item.key, item]));
+    const accept = acceptKeys.filter((k) => byKey.has(k));
+    const reject = rejectKeys.filter((k) => byKey.has(k) && !accept.includes(k));
 
-        const call = async (method: 'POST' | 'PUT' | 'DELETE', url: string, payload?: unknown) => {
-            // A content-type with no body is a 400 in Fastify; only a body carries one.
-            const res = await server.inject(payload === undefined
-                ? { method, url, headers }
-                : { method, url, headers: { ...headers, 'content-type': 'application/json' }, payload: JSON.stringify(payload) });
-            let json: any = null;
-            try { json = res.json(); } catch { /* no body */ }
-            if (res.statusCode >= 400) throw new Error((json && json.error) || `HTTP ${res.statusCode}`);
-            return json;
-        };
-        const yearQuery = '?year=' + encodeURIComponent(year.label);
-        const linkToList = (publicId: string) =>
-            call('PUT', `/api/therapists/${encodeURIComponent(therapist.name)}/students/${encodeURIComponent(publicId)}${yearQuery}`);
+    const call = async (method: 'POST' | 'PUT' | 'DELETE', url: string, payload?: unknown) => {
+        // A content-type with no body is a 400 in Fastify; only a body carries one.
+        const res = await server.inject(payload === undefined
+            ? { method, url, headers }
+            : { method, url, headers: { ...headers, 'content-type': 'application/json' }, payload: JSON.stringify(payload) });
+        let json: any = null;
+        try { json = res.json(); } catch { /* no body */ }
+        if (res.statusCode >= 400) throw new Error((json && json.error) || `HTTP ${res.statusCode}`);
+        return json;
+    };
+    const yearQuery = '?year=' + encodeURIComponent(year.label);
+    const linkToList = (publicId: string) =>
+        call('PUT', `/api/therapists/${encodeURIComponent(therapist.name)}/students/${encodeURIComponent(publicId)}${yearQuery}`);
 
-        const outcomes = new Map<string, string>();
-        const created = new Map<string, string>();
-        const order: Record<Item['type'], number> = { pupil: 0, caseload: 1, block: 2, uncaseload: 3, lesson: 4, mylesson: 4, report: 5 };
-        // A teacher's own week: freeing a period first, so a lesson moved
-        // from Monday to Tuesday does not meet itself on the way.
-        const weight = (i: Item) => order[i.type] + (i.type === 'mylesson' && !i.toCell ? -0.5 : 0);
-        const accepted = accept.map((k) => byKey.get(k)!).sort((a, b) => weight(a) - weight(b));
-        for (const item of accepted) {
-            if (item.decision) { outcomes.set(item.key, 'веќе одлучено'); continue; }
-            if (item.state === 'refused') { outcomes.set(item.key, 'не може да се запише: ' + item.reasons.join('; ')); continue; }
-            try {
-                if (item.type === 'pupil') {
-                    const answer = await call('POST', '/api/workspace/pupils', {
-                        year: year.label, name: item.name, grade: null, oddelenie: null,
-                        enrollmentType: 'external', boarding: false, programme: 'unknown',
-                        placement: 'observation', active: true
-                    });
-                    created.set(String(item.name), answer.pupil.public_id);
-                    await linkToList(answer.pupil.public_id);
-                } else if (item.type === 'caseload') {
-                    await linkToList(String(item.publicId));
-                } else if (item.type === 'uncaseload') {
-                    await call('DELETE', `/api/therapists/${encodeURIComponent(therapist.name)}/students/${encodeURIComponent(String(item.publicId))}${yearQuery}`);
-                } else if (item.type === 'report') {
-                    // Nothing to write: the administrator has read it, and
-                    // moves the child in Податоци if the report is right.
-                    outcomes.set(item.key, 'забележано');
-                    continue;
-                } else if (item.type === 'lesson') {
-                    const to = item.toCell || null;
-                    const from = item.fromCell || null;
-                    if (!to) {
-                        if (item.lessonId) await call('DELETE', `/api/teaching/lesson/${item.lessonId}`);
-                    } else {
-                        await call('PUT', '/api/teaching/lesson', {
-                            year: year.label, day: item.day, ordinal: item.ordinal, class: result.classLabel,
-                            subject: to.subject, teacher: to.teacher,
-                            expected: from ? { subject: from.subject, teacher: from.teacher ?? null } : null
-                        });
-                    }
-                } else if (item.type === 'mylesson') {
-                    const to = item.toCell || null;
-                    const from = item.fromCell || null;
-                    // Co-teaching when the plan found the same subject; and a
-                    // conflict the administrator accepts is theirs to call two
-                    // teachers in one class (the route still refuses a third).
-                    await call('PUT', '/api/teaching/teacher-lesson', {
-                        year: year.label, day: item.day, ordinal: item.ordinal, teacher: result.teacher,
-                        class: to ? to.class : null, subject: to ? to.subject : null,
-                        expected: { class: from ? from.class : null },
-                        together: !!item.together || item.state !== 'clean'
-                    });
+    const outcomes = new Map<string, string>();
+    const created = new Map<string, string>();
+    const order: Record<Item['type'], number> = { pupil: 0, caseload: 1, block: 2, uncaseload: 3, lesson: 4, mylesson: 4, report: 5 };
+    // A teacher's own week: freeing a period first, so a lesson moved
+    // from Monday to Tuesday does not meet itself on the way.
+    const weight = (i: Item) => order[i.type] + (i.type === 'mylesson' && !i.toCell ? -0.5 : 0);
+    const accepted = accept.map((k) => byKey.get(k)!).sort((a, b) => weight(a) - weight(b));
+    for (const item of accepted) {
+        if (item.decision) { outcomes.set(item.key, 'веќе одлучено'); continue; }
+        if (item.state === 'refused') { outcomes.set(item.key, 'не може да се запише: ' + item.reasons.join('; ')); continue; }
+        try {
+            if (item.type === 'pupil') {
+                const answer = await call('POST', '/api/workspace/pupils', {
+                    year: year.label, name: item.name, grade: null, oddelenie: null,
+                    enrollmentType: 'external', boarding: false, programme: 'unknown',
+                    placement: 'observation', active: true
+                });
+                created.set(String(item.name), answer.pupil.public_id);
+                await linkToList(answer.pupil.public_id);
+            } else if (item.type === 'caseload') {
+                await linkToList(String(item.publicId));
+            } else if (item.type === 'uncaseload') {
+                await call('DELETE', `/api/therapists/${encodeURIComponent(therapist.name)}/students/${encodeURIComponent(String(item.publicId))}${yearQuery}`);
+            } else if (item.type === 'report') {
+                // Nothing to write: the administrator has read it, and
+                // moves the child in Податоци if the report is right.
+                outcomes.set(item.key, 'забележано');
+                continue;
+            } else if (item.type === 'lesson') {
+                const to = item.toCell || null;
+                const from = item.fromCell || null;
+                if (!to) {
+                    if (item.lessonId) await call('DELETE', `/api/teaching/lesson/${item.lessonId}`);
                 } else {
-                    const to = (item.to || []).map((x) => typeof x === 'string' ? x : created.get(x.create));
-                    if (to.some((x) => !x)) throw new Error('новиот ученик во овој термин не е прифатен');
-                    const theirs = new Set((await pool.query(
-                        `SELECT s.public_id FROM therapist_students ts JOIN students s ON s.id = ts.student_id
-                          WHERE ts.school_year_id = $1 AND ts.therapist_id = $2`, [year.id, therapist.id])).rows.map((r: any) => r.public_id));
-                    for (const publicId of to as string[]) if (!theirs.has(publicId)) await linkToList(publicId);
-                    await call('PUT', '/api/schedule/block', {
-                        year: year.label, day: item.day, time: item.time, therapistId: Number(therapist.id),
-                        studentPublicIds: to, expectedStudentPublicIds: item.from || []
+                    await call('PUT', '/api/teaching/lesson', {
+                        year: year.label, day: item.day, ordinal: item.ordinal, class: result.classLabel,
+                        subject: to.subject, teacher: to.teacher,
+                        expected: from ? { subject: from.subject, teacher: from.teacher ?? null } : null
                     });
                 }
-                outcomes.set(item.key, 'запишано');
-            } catch (err) {
-                outcomes.set(item.key, 'одбиено при запишување: ' + (err as Error).message);
+            } else if (item.type === 'mylesson') {
+                const to = item.toCell || null;
+                const from = item.fromCell || null;
+                // Co-teaching when the plan found the same subject; and a
+                // conflict the administrator accepts is theirs to call two
+                // teachers in one class (the route still refuses a third).
+                await call('PUT', '/api/teaching/teacher-lesson', {
+                    year: year.label, day: item.day, ordinal: item.ordinal, teacher: result.teacher,
+                    class: to ? to.class : null, subject: to ? to.subject : null,
+                    expected: { class: from ? from.class : null },
+                    together: !!item.together || item.state !== 'clean'
+                });
+            } else {
+                const to = (item.to || []).map((x) => typeof x === 'string' ? x : created.get(x.create));
+                if (to.some((x) => !x)) throw new Error('новиот ученик во овој термин не е прифатен');
+                const theirs = new Set((await pool.query(
+                    `SELECT s.public_id FROM therapist_students ts JOIN students s ON s.id = ts.student_id
+                      WHERE ts.school_year_id = $1 AND ts.therapist_id = $2`, [year.id, therapist.id])).rows.map((r: any) => r.public_id));
+                for (const publicId of to as string[]) if (!theirs.has(publicId)) await linkToList(publicId);
+                await call('PUT', '/api/schedule/block', {
+                    year: year.label, day: item.day, time: item.time, therapistId: Number(therapist.id),
+                    studentPublicIds: to, expectedStudentPublicIds: item.from || []
+                });
             }
-        }
-        const client = await pool.connect();
-        try {
-            await client.query('BEGIN');
-            for (const item of accepted) {
-                if (item.decision) continue;
-                await client.query(
-                    `INSERT INTO form_reply_decisions (reply_id, item_key, decision, outcome, decided_by)
-                     VALUES ($1, $2, 'accepted', $3, $4) ON CONFLICT (reply_id, item_key) DO NOTHING`,
-                    [id, item.key, outcomes.get(item.key) || null, by]);
-            }
-            for (const key of reject) {
-                await client.query(
-                    `INSERT INTO form_reply_decisions (reply_id, item_key, decision, outcome, decided_by)
-                     VALUES ($1, $2, 'rejected', NULL, $3) ON CONFLICT (reply_id, item_key) DO NOTHING`,
-                    [id, key, by]);
-            }
-            // Closed when every item that can be decided has been — and an
-            // answer that changes nothing is a confirmation, closed at once.
-            const decided = new Set((await client.query(`SELECT item_key FROM form_reply_decisions WHERE reply_id = $1`, [id])).rows
-                .map((r: any) => r.item_key));
-            const open = result.items.filter((i) => i.state !== 'refused' && !decided.has(i.key));
-            if (!open.length) {
-                await client.query(`UPDATE form_replies SET status = 'done', closed_at = now(), closed_by = $2 WHERE id = $1`, [id, by]);
-            }
-            await client.query('COMMIT');
+            outcomes.set(item.key, 'запишано');
         } catch (err) {
-            await client.query('ROLLBACK').catch(() => {});
-            throw err;
-        } finally { client.release(); }
-        return { code: 200, body: { id, outcomes: Object.fromEntries(outcomes), rejected: reject, waiting: result.items.filter((i) =>
-            i.state !== 'refused' && !i.decision && !outcomes.has(i.key) && !reject.includes(i.key)).length } };
+            outcomes.set(item.key, 'одбиено при запишување: ' + (err as Error).message);
+        }
     }
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+        for (const item of accepted) {
+            if (item.decision) continue;
+            await client.query(
+                `INSERT INTO form_reply_decisions (reply_id, item_key, decision, outcome, decided_by)
+                 VALUES ($1, $2, 'accepted', $3, $4) ON CONFLICT (reply_id, item_key) DO NOTHING`,
+                [id, item.key, outcomes.get(item.key) || null, by]);
+        }
+        for (const key of reject) {
+            await client.query(
+                `INSERT INTO form_reply_decisions (reply_id, item_key, decision, outcome, decided_by)
+                 VALUES ($1, $2, 'rejected', NULL, $3) ON CONFLICT (reply_id, item_key) DO NOTHING`,
+                [id, key, by]);
+        }
+        // Closed when every item that can be decided has been — and an
+        // answer that changes nothing is a confirmation, closed at once.
+        const decided = new Set((await client.query(`SELECT item_key FROM form_reply_decisions WHERE reply_id = $1`, [id])).rows
+            .map((r: any) => r.item_key));
+        const open = result.items.filter((i) => i.state !== 'refused' && !decided.has(i.key));
+        if (!open.length) {
+            await client.query(`UPDATE form_replies SET status = 'done', closed_at = now(), closed_by = $2 WHERE id = $1`, [id, by]);
+        }
+        await client.query('COMMIT');
+    } catch (err) {
+        await client.query('ROLLBACK').catch(() => {});
+        throw err;
+    } finally { client.release(); }
+    return { code: 200, body: { id, outcomes: Object.fromEntries(outcomes), rejected: reject, waiting: result.items.filter((i) =>
+        i.state !== 'refused' && !i.decision && !outcomes.has(i.key) && !reject.includes(i.key)).length } };
+}
 
-    /** The inner writes carry the caller's own credentials. */
+export async function formReplyRoutes(server: FastifyInstance) {
+    /**
+     * The inner writes carry the caller's own credentials, and the server's
+     * own mark (lib/internal.ts) — without it the cloud's Google gate refused
+     * every one of them, having no session cookie to look at.
+     */
     const credentials = (req: FastifyRequest) => {
-        const headers: Record<string, string> = {};
+        const headers: Record<string, string> = { ...internalHeaders() };
         for (const h of ['x-mtb-evidence-token', 'x-mtb-service-key']) {
             const v = req.headers[h];
             if (typeof v === 'string') headers[h] = v;
@@ -351,7 +356,7 @@ export async function formReplyRoutes(server: FastifyInstance) {
             const review = await reviewOf(Number(r.id));
             if (!review || review.result.errors.length) { r.applied = 0; r.waiting = review ? review.result.items.length : 0; continue; }
             const own = review.result.items.filter(selfApplies).map((i) => i.key);
-            const done = await decide(Number(r.id), own, [], `${r.signedBy || review.row.about_name} (од формулар)`, credentials(req));
+            const done = await decide(server, Number(r.id), own, [], `${r.signedBy || review.row.about_name} (од формулар)`, credentials(req));
             const outcomes = Object.values((done.body as any).outcomes || {}) as string[];
             r.applied = outcomes.filter((o) => o === 'запишано').length;
             r.failed = outcomes.length - (r.applied as number);
@@ -439,7 +444,7 @@ export async function formReplyRoutes(server: FastifyInstance) {
         let who: string;
         try { who = await administrator(req); } catch (err) { return refuseScope(reply, err); }
         const body = DecideBody.parse(req.body);
-        const done = await decide(Number((req.params as any).id), body.accept, body.reject, who, credentials(req));
+        const done = await decide(server, Number((req.params as any).id), body.accept, body.reject, who, credentials(req));
         return reply.code(done.code).send(done.body);
     });
 }

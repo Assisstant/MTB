@@ -292,3 +292,18 @@ match, the file does not go in.
   `createHmac` byte for byte.
 - Forms are made and imported on the SAME installation: PINs are per
   database (WORK, HOME and the cloud each have their own).
+
+## 9. Collecting the answers: a pCloud upload link (24 September, late)
+
+The owner considered, and dropped, a time-limited link that would open a
+colleague's page on the cloud server and write directly. Kept instead: the
+files. The owner makes a **pCloud upload link** (upload only, with an expiry
+he sets, a password if he wants) to a folder; colleagues upload their signed
+.json there; he imports them all at once in Податоци → Формулари (the file
+picker takes many files; newest per person wins). Nothing in MTB depends on
+pCloud — any shared folder or e-mail works the same way.
+
+Found on the way: the queue writes accepted items by injecting requests into
+its own routes, and the cloud's Google gate refused them (no session cookie,
+no Origin). Injected requests now carry an in-memory secret (lib/internal.ts)
+that the gate and  recognise; nothing outside the process can know it.

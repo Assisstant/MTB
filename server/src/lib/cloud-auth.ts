@@ -3,6 +3,7 @@ import type { FastifyInstance } from 'fastify';
 import type { CustomFetch } from 'openid-client';
 import { googleSettings, installGoogleLogin } from './google-login.js';
 import { mirrorExportRequest, mirrorMode } from './mirror-config.js';
+import { isInternal } from './internal.js';
 
 export function cloudRequestLog(req: { method: string; url?: string }) {
     return { method: req.method, url: String(req.url || '').split('?')[0] };
@@ -52,6 +53,8 @@ export function installCloudAuth(server: FastifyInstance, env: NodeJS.ProcessEnv
         });
         server.addHook('onRequest', async (req, reply) => {
             if (!enabled) return;
+            // The server writing through its own routes (lib/internal.ts).
+            if (isInternal(req)) return;
             reply.header('Cache-Control', 'no-store').header('Referrer-Policy', 'same-origin')
                 .header('X-Content-Type-Options', 'nosniff')
                 .header('Content-Security-Policy', "frame-ancestors 'self'");

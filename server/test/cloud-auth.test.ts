@@ -90,3 +90,18 @@ test('valid outer credentials do not bypass colleague authorization', async () =
         else process.env.MTB_REQUIRE_SIGNIN = previous;
     }
 });
+
+test('the server writing through its own routes crosses the cloud gate; nobody else can claim to', async () => {
+    const { internalHeaders, INTERNAL_HEADER } = await import('../src/lib/internal.js');
+    const app = Fastify();
+    await installCloudAuth(app, env);
+    app.put('/api/private-test', async () => ({ written: true }));
+    try {
+        // An injected write carries no session, no Basic credentials and no
+        // Origin — the review queue's inner writes were refused for exactly that.
+        assert.equal((await app.inject({ method: 'PUT', url: '/api/private-test' })).statusCode, 401);
+        assert.equal((await app.inject({ method: 'PUT', url: '/api/private-test', headers: internalHeaders() })).statusCode, 200);
+        assert.equal((await app.inject({ method: 'PUT', url: '/api/private-test', headers: { [INTERNAL_HEADER]: 'guessed' } })).statusCode, 401);
+        assert.equal((await app.inject({ method: 'PUT', url: '/api/private-test', headers: { [INTERNAL_HEADER]: '' } })).statusCode, 401);
+    } finally { await app.close(); }
+});

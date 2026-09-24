@@ -43,6 +43,7 @@ import type { PoolClient } from 'pg';
 import { pool } from '../db.js';
 import { Refused, whoIsSigned, type Signed } from './evidence.js';
 import { normalizeClassLabel } from './crossing.js';
+import { isInternal } from './internal.js';
 
 type Queryable = Pick<PoolClient, 'query'>;
 
@@ -96,6 +97,9 @@ function serviceKeyMatches(req: FastifyRequest): boolean {
  * required to send one, so failing on it would be a new way to break a script.
  */
 export async function scopeOf(req: FastifyRequest): Promise<Scope> {
+    // The server writing through its own routes: the administrator who
+    // started it was checked already.
+    if (enforcing() && isInternal(req)) return { open: false, signed: null, admin: true, service: true };
     const token = req.headers['x-mtb-evidence-token'];
     if (!enforcing()) {
         try {
