@@ -31,6 +31,17 @@ async function cleanup() {
     await q('DELETE FROM school_years WHERE label = $1', [YEAR]);
     await q('DELETE FROM students WHERE public_id LIKE $1', [`${TAG}%`]);
     await q('DELETE FROM therapists WHERE name LIKE $1', [`${TAG}%`]);
+    // Migration 035 gives every new therapist a staff identity and keeps it
+    // when the profile goes, on purpose. The fixture's must go too, or
+    // `check:names` learns these invented names from the database and refuses
+    // to commit the very file that holds them. Only rows nothing points at.
+    await q(`DELETE FROM employees e WHERE e.name ILIKE ANY($1::text[])
+              AND NOT EXISTS (SELECT 1 FROM teachers x WHERE x.employee_id = e.id)
+              AND NOT EXISTS (SELECT 1 FROM therapists x WHERE x.employee_id = e.id)
+              AND NOT EXISTS (SELECT 1 FROM employee_roles x WHERE x.employee_id = e.id)
+              AND NOT EXISTS (SELECT 1 FROM employee_year_details x WHERE x.employee_id = e.id)
+              AND NOT EXISTS (SELECT 1 FROM employee_identity_links x WHERE x.source_id = e.id OR x.target_id = e.id)
+              AND NOT EXISTS (SELECT 1 FROM employees x WHERE x.superseded_by = e.id)`, [[`${TAG}%`]]);
 }
 
 async function seed() {
@@ -104,8 +115,11 @@ async function run() {
     checkEq('the requested isolated year is selected', await page.inputValue('#year'), YEAR);
     checkEq('the grid has one column per active therapist',
         await page.locator('.schedule-grid > .schedule-header .schedule-header-name').count(), 2);
+    // Since 23 Sep 2026 the list also ends in „＋ Нов ученик (набљудување)…",
+    // which is an action, not a pupil, so it is left out of the count.
     checkEq('a cabinet dropdown contains each pupil once plus the empty choice',
-        await page.locator('select[data-session-time="08:00-08:40"]').first().locator('option').count(), 4);
+        await page.locator('select[data-session-time="08:00-08:40"]').first().locator('option')
+            .evaluateAll((all) => all.filter((o) => o.value !== '__new-observation-pupil__').length), 4);
 
     const testedDay = await page.locator('select[data-session-time="08:00-08:40"]').first().getAttribute('data-session-day');
     const firstCell = `select[data-session-day="${testedDay}"][data-session-time="08:00-08:40"][data-therapist-id="${fixture.therapists[0].id}"]`;
@@ -171,8 +185,10 @@ async function run() {
         await page.locator('#rosterPanel').isVisible() && !(await page.locator('#schedulePanel').isVisible()));
     checkEq('the selected therapist roster lists every assigned pupil once',
         await page.locator('#therapistRosterRows tr[data-student-id]').count(), 3);
+    // The ▲▼ that arrange one's own list sit in the same cell (24 Sep 2026).
     checkEq('the roster has visible sequential row numbers',
-        await page.locator('#therapistRosterRows .roster-number').allTextContents(), ['1.', '2.', '3.']);
+        (await page.locator('#therapistRosterRows .roster-number').allTextContents()).map((t) => t.replace(/[▲▼]/g, '')),
+        ['1.', '2.', '3.']);
     await page.selectOption('#rosterKind', 'external');
     checkEq('the category filter isolates external pupils',
         await page.locator('#therapistRosterRows tr[data-kind="external"]').count(), 1);
