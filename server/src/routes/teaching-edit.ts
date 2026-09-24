@@ -30,7 +30,7 @@ import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { pool } from '../db.js';
 import { TEACHING_DAYS, classSortKey } from '../lib/teaching.js';
-import { copyYearLessons, putLesson, putTeacherLesson, setClassDescription, upsertClass, setClassTeachers, setTeacherClasses, tidy } from '../lib/teaching-edit.js';
+import { copyYearLessons, noteTeacherClass, putLesson, putTeacherLesson, setClassDescription, upsertClass, setClassTeachers, setTeacherClasses, tidy } from '../lib/teaching-edit.js';
 import { personName } from '../lib/import-core.js';
 
 /** `school_years.label` is free text; a limit shorter than the column reads as a missing year. */
@@ -226,6 +226,11 @@ export async function teachingEditRoutes(server: FastifyInstance) {
                 );
             }
 
+            // The timetable is evidence of who teaches whom: a teacher placed
+            // in a class this year belongs to it this year. Add-only, the
+            // importer's rule — never evidence against a link typed by hand.
+            if (teacherId !== null) await noteTeacherClass(client, year.id, teacherId, cls.rows[0].id, 'subject');
+
             await client.query('COMMIT');
             return {
                 ok: true, action: written.action, year: year.label,
@@ -320,6 +325,10 @@ export async function teachingEditRoutes(server: FastifyInstance) {
                     here: written.here
                 });
             }
+
+            // Same rule as the class-keyed route: placing a teacher in a class
+            // links them to it for the year, and clearing a period unlinks nothing.
+            if (classId !== null) await noteTeacherClass(client, year.id, t.rows[0].id, classId, 'subject');
 
             await client.query('COMMIT');
             return {

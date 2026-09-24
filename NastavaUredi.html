@@ -150,6 +150,49 @@
     table.grid.week td.wk:hover { box-shadow: inset 0 0 0 1px var(--edit); }
     table.grid.week td.wk select.pick { width: 100%; min-width: 150px; font-size: 12px; padding: 2px; }
     .off-staff { display: block; font-size: 10px; font-weight: 400; color: var(--warn, #b7791f); }
+    /* The teacher's own subjects under the name, and the week in one number. */
+    table.grid th .own { display: block; font-size: 10px; font-weight: 400; color: var(--muted); white-space: normal; }
+    table.grid td.wsum, table.grid td.as-sum, table.grid th.as-sum {
+        text-align: center; font-weight: 700; padding: 4px 8px; border-left: 2px solid var(--edit); color: var(--text);
+    }
+    table.grid thead th.wsum, table.grid thead th.as-sum { color: #fff; }
+    table.grid td.wsum small, table.grid td.as-sum small { display: block; font-size: 10px; font-weight: 400; color: var(--muted); }
+
+    /* ── распределба ─────────────────────────────────────────────────────── */
+    /* Teachers down, classes across: the same lessons, counted. */
+    .as-note { font-size: 13px; color: var(--muted); margin: 0 0 10px; max-width: 105ch; }
+    table.grid.assign { width: auto; min-width: 100%; font-size: 12px; }
+    table.grid.assign th.who {
+        position: sticky; left: 0; z-index: 3; background: var(--card); color: var(--text);
+        min-width: 180px; max-width: 220px; padding: 6px 10px; line-height: 1.25; white-space: normal;
+    }
+    table.grid.assign thead th.who { z-index: 4; background: var(--btn-bg); color: #fff; }
+    table.grid.assign thead th { text-align: center; padding: 5px 6px; }
+    table.grid.assign td.as { min-width: 66px; padding: 0; vertical-align: top; text-align: center; border-right: 1px solid var(--border); }
+    table.grid.assign td.as.has { background: var(--filled); }
+    table.grid.assign td.as.picked { box-shadow: inset 0 0 0 2px var(--edit); }
+    /* A <button> states its own colour: it does not inherit one. */
+    table.grid.assign .as-open {
+        display: block; width: 100%; min-height: 40px; padding: 4px 5px; margin: 0;
+        font: inherit; color: var(--text); background: none; border: 0; cursor: pointer; text-align: center;
+    }
+    table.grid.assign .as-open:hover, table.grid.assign .as-open:focus-visible { box-shadow: inset 0 0 0 1px var(--edit); outline: none; }
+    table.grid.assign .as-open b { display: block; font-size: 14px; }
+    table.grid.assign .as-open b.as-zero { font-weight: 400; color: var(--muted); }
+    table.grid.assign .as-subj, table.grid.assign .as-bare, table.grid.assign .as-home { display: block; font-size: 10px; line-height: 1.3; }
+    table.grid.assign .as-bare { color: var(--muted); }
+    table.grid.assign .as-home { font-weight: 600; }
+    table.grid.assign .as-unlinked {
+        display: inline-block; margin-top: 2px; padding: 0 4px; border-radius: 4px; font-size: 10px;
+        background: var(--warn-bg); color: var(--text); font-weight: 600;
+    }
+    table.grid.assign tfoot th, table.grid.assign tfoot td {
+        border-top: 2px solid var(--edit); text-align: center; font-weight: 700; padding: 5px 6px; color: var(--text);
+    }
+    table.grid.assign tfoot th.who { text-align: left; }
+    table.grid.assign tfoot small { display: block; font-size: 10px; font-weight: 400; color: var(--muted); }
+    .editor table.as-lessons { max-width: 560px; margin-top: 10px; }
+    .editor table.as-lessons small { color: var(--muted); }
 
     /* ── по одделение, цела недела ───────────────────────────────────────── */
     /* The sheet that hangs on a classroom door: periods down, days across.
@@ -280,6 +323,8 @@
             <button class="btn soft" data-view="class" aria-pressed="true">🏫 По одделение · еден ден</button>
             <button class="btn soft" data-view="classweek" aria-pressed="false">📅 Одделение · цела недела</button>
             <button class="btn soft" data-view="teacher" aria-pressed="false">👩‍🏫 Наставник · цела недела</button>
+            <button class="btn soft" data-view="assign" aria-pressed="false"
+                    title="Кој наставник во која паралелка, колку часа и со кои предмети">🔗 Распределба</button>
         </div>
         <div class="class-strip" id="classStrip" role="group" aria-label="Одделение" style="display:none;"></div>
     </div>
@@ -582,7 +627,7 @@
         return map;
     }
 
-    const VIEWS = ['class', 'classweek', 'teacher'];
+    const VIEWS = ['class', 'classweek', 'teacher', 'assign'];
     let currentView = 'class';
     const view = () => currentView;
 
@@ -590,6 +635,30 @@
         currentView = VIEWS.includes(next) ? next : 'class';
         el('views').querySelectorAll('[data-view]').forEach((b) =>
             b.setAttribute('aria-pressed', String(b.dataset.view === currentView)));
+    }
+
+    /**
+     * Full salary needs at least this many lessons a week (owner, 24 Sep
+     * 2026). Fewer is not a mistake — the rest of the norm is other duties —
+     * so the count is shown beside the teacher, never refused.
+     */
+    const NORM = 21;
+
+    /** A teacher's own subjects: `teachers.subject` holds them comma-separated. */
+    function ownSubjects(name) {
+        const t = (data.teachers || []).find((x) => x.name === name);
+        return t && t.subject ? String(t.subject).split(',').map(tidy).filter(Boolean) : [];
+    }
+
+    /**
+     * The subject a lesson gets when a teacher is placed in it and nobody
+     * chose one: only when the teacher has exactly ONE. With two or more it is
+     * a person's choice — a guess between Macedonian and mathematics is a
+     * wrong lesson that looks right.
+     */
+    function autoSubject(name) {
+        const own = ownSubjects(name);
+        return own.length === 1 ? own[0] : '';
     }
 
     /**
@@ -624,10 +693,19 @@
             return;
         }
 
+        // Counted from the lessons, not from the grid's map: two lessons in one
+        // period are two lessons of the week, even while only one is drawn.
+        const perTeacher = new Map();
+        (data.lessons || []).forEach((l) => {
+            const name = l.teacher || '— без наставник —';
+            perTeacher.set(name, (perTeacher.get(name) || 0) + 1);
+        });
+
         let head = '<tr><th class="who">Наставник</th>';
         DAYS.forEach((d) => {
             head += `<th class="daysep" colspan="${ps.length}">${esc(d)}</th>`;
         });
+        head += `<th class="wsum" rowspan="2" title="${esc('Часа неделно. Нормата за полна плата е ' + NORM + '.')}">Σ</th>`;
         head += '</tr><tr><th class="who"></th>';
         DAYS.forEach(() => ps.forEach((p, i) => {
             head += `<th class="${i === 0 ? 'daysep' : ''}">${esc(p.label)}</th>`;
@@ -636,7 +714,9 @@
 
         let html = '<table class="grid week"><thead>' + head + '</thead><tbody>';
         Array.from(rows.keys()).forEach((name) => {
+            const own = ownSubjects(name);
             html += `<tr><th class="who">${esc(name)}`
+                + (own.length ? `<small class="own">${esc(own.join(', '))}</small>` : '')
                 + (offList.has(name) ? '<span class="off-staff">не е на списокот</span>' : '')
                 + '</th>';
             DAYS.forEach((d) => ps.forEach((p, i) => {
@@ -654,9 +734,17 @@
                        : '<span class="plus">+</span>')
                     + '</td>';
             }));
-            html += '</tr>';
+            html += sumCell(perTeacher.get(name) || 0, 'wsum') + '</tr>';
         });
         el('grid').innerHTML = html + '</tbody></table>';
+    }
+
+    /** A teacher's week in one number, with the norm beside it when it is not reached. */
+    function sumCell(n, cls) {
+        const under = n > 0 && n < NORM;
+        return `<td class="${cls}${under ? ' under' : ''}"`
+            + ` title="${esc(n + ' часа неделно' + (under ? ' — под нормата од ' + NORM + '; остатокот се други задолженија' : ''))}">`
+            + `${n}${under ? `<small>од ${NORM}</small>` : ''}</td>`;
     }
 
     /**
@@ -758,12 +846,17 @@
 
         slot.textContent = '…';
         const body = await subjectsFor(label);
-        const names = (body.subjects || []).map((x) => x.subject);
-        if (was && !names.includes(was)) names.unshift(was);
+        // The teacher's own subjects first: that is what they teach, and the
+        // catalogue below is for the day it is not.
+        const own = ownSubjects(td.dataset.teacher);
+        const names = (body.subjects || []).map((x) => x.subject).filter((n) => !own.includes(n));
+        if (was && !names.includes(was) && !own.includes(was)) names.unshift(was);
 
-        const options = ['<option value="">— без предмет —</option>'].concat(
-            names.map((n) => `<option value="${esc(n)}"${n === was ? ' selected' : ''}>${esc(n)}</option>`));
-        slot.outerHTML = `<select class="pick subj">${options.join('')}</select>`;
+        const opt = (n) => `<option value="${esc(n)}"${n === was ? ' selected' : ''}>${esc(n)}</option>`;
+        const options = '<option value="">— без предмет —</option>'
+            + (own.length ? `<optgroup label="${esc('Предмети на ' + td.dataset.teacher)}">${own.map(opt).join('')}</optgroup>` : '')
+            + (names.length ? `<optgroup label="${own.length ? 'Други предмети' : 'Предмети'}">${names.map(opt).join('')}</optgroup>` : '');
+        slot.outerHTML = `<select class="pick subj">${options}</select>`;
         const pick = td.querySelector('select');
         pick.title = body.basis === 'oddelenie'
             ? 'Предмети за одделенијата ' + (body.grades || []).join(', ') + ' — според запишаните ученици'
@@ -809,6 +902,8 @@
 
     async function saveWeekCell(td, was, now) {
         status('запишувам…');
+        // A teacher with one subject brings it into the class (autoSubject).
+        const subject = now ? autoSubject(td.dataset.teacher) : '';
         try {
             await api('PUT', '/api/teaching/teacher-lesson', {
                 year: data.year,
@@ -816,10 +911,12 @@
                 ordinal: Number(td.dataset.ordinal),
                 teacher: td.dataset.teacher,
                 class: now || null,
+                subject: subject || null,
                 expected: { class: was || null }
             });
             await load(true);
-            status(`${td.dataset.teacher} · ${td.dataset.day} · ${td.dataset.ordinal}. час — зачувано`, 'ok');
+            status(`${td.dataset.teacher} · ${td.dataset.day} · ${td.dataset.ordinal}. час — `
+                + (now ? now + (subject ? ' · ' + subject : '') + ' — зачувано' : 'слободен'), 'ok');
         } catch (err) {
             status(err.message, 'error');
             drawAndKeep();
@@ -830,10 +927,20 @@
         if (!data) return;
         const weekly = view() === 'teacher';
         const classWeek = view() === 'classweek';
-        el('dayField').style.display = weekly || classWeek ? 'none' : '';
-        el('onlyUsedField').style.display = weekly || classWeek ? 'none' : '';
+        const assign = view() === 'assign';
+        el('dayField').style.display = weekly || classWeek || assign ? 'none' : '';
+        el('onlyUsedField').style.display = weekly || classWeek || assign ? 'none' : '';
         el('classStrip').style.display = classWeek ? '' : 'none';
         el('printWeek').style.display = classWeek ? '' : 'none';
+        if (assign) {
+            drawAssign();
+            drawClasses();
+            drawTeachers();
+            drawBells();
+            drawClashes();
+            if (assignPick) openPair(assignPick.teacher, assignPick.label);
+            return;
+        }
         if (classWeek) {
             drawClasses();
             drawTeachers();
@@ -854,6 +961,329 @@
         drawTeachers();
         drawBells();
         drawClashes();
+    }
+
+    // ── распределба: кој наставник, во која паралелка, со кој предмет ───────
+    //
+    // The same lessons once more, counted instead of placed: a row per
+    // teacher, a column per class, and in each cell how many periods a week
+    // that teacher spends there and with which subjects. Nothing is stored
+    // for it. The count is a pivot of `lessons`, the teacher's subjects are
+    // `teachers.subject` and the links are `teacher_classes` — so a lesson
+    // changed in either week changes this table on the next draw, and a
+    // subject chosen here is written into the lessons themselves.
+
+    let assignPick = null;   // { teacher, label } whose lessons the panel lists
+
+    /** teacher -> class -> that teacher's lessons in that class. */
+    function assignPivot() {
+        const byTeacher = new Map();
+        (data.lessons || []).forEach((l) => {
+            if (!l.teacher) return;
+            if (!byTeacher.has(l.teacher)) byTeacher.set(l.teacher, new Map());
+            const row = byTeacher.get(l.teacher);
+            if (!row.has(l.class)) row.set(l.class, []);
+            row.get(l.class).push(l);
+        });
+        return byTeacher;
+    }
+
+    const staffNamed = (name) => (data.teachers || []).find((t) => t.name === name) || null;
+    const linkOf = (name, label) => {
+        const t = staffNamed(name);
+        return t ? (t.classes || []).find((c) => c.label === label) || null : null;
+    };
+
+    /** Pairs the timetable proves and `teacher_classes` does not say yet. */
+    function unlinkedPairs(pivot) {
+        const out = [];
+        pivot.forEach((row, name) => {
+            if (!staffNamed(name)) return;   // off the year's list: nothing to link
+            row.forEach((_, label) => { if (!linkOf(name, label)) out.push({ name, label }); });
+        });
+        return out;
+    }
+
+    function drawAssign() {
+        const pivot = assignPivot();
+        const classes = data.classes || [];
+        const staff = data.teachers || [];
+        // Everyone who teaches or holds a class; a teacher with neither is
+        // counted under the table rather than drawn as an empty row.
+        const names = staff.filter((t) => pivot.has(t.name) || (t.classes || []).length).map((t) => t.name);
+        pivot.forEach((_, name) => { if (!names.includes(name)) names.push(name); });
+        const idle = staff.filter((t) => !names.includes(t.name)).map((t) => t.name);
+        if (!names.length) {
+            el('grid').innerHTML = '<p class="hint">Уште нема ниту еден час ни наставник поврзан со одделение за оваа година.</p>';
+            return;
+        }
+        const loose = unlinkedPairs(pivot);
+
+        let html = '<p class="as-note">Ред е наставник, колона е паралелка. Бројот е колку часа неделно '
+            + 'наставникот е во таа паралелка, а под него со кои предмети. Клик на ќелија ги покажува тие часови '
+            + 'и им го запишува предметот. Се менува заедно со двата неделни распореди — тоа се истите часови.</p>';
+        if (loose.length) {
+            html += `<p class="as-note"><button type="button" class="btn soft" id="asLinkAll">`
+                + `<span class="ico" aria-hidden="true">🔗</span> Поврзи ги сите според распоредот (${loose.length})</button> `
+                + 'наставници што предаваат во паралелка, а не се запишани во неа.</p>';
+        }
+
+        html += '<table class="grid assign"><thead><tr><th class="who">Наставник</th>'
+            + classes.map((c) => `<th title="${esc(c.label + (c.description ? ' · ' + c.description : ''))}">${esc(c.label)}`
+                + (homeroomSurname(c.label) ? `<small>${esc(homeroomSurname(c.label))}</small>` : '') + '</th>').join('')
+            + `<th class="as-sum" title="${esc('Часа неделно. Нормата за полна плата е ' + NORM + '.')}">Σ</th></tr></thead><tbody>`;
+
+        // The class's week in full, straight from the lessons: a lesson with no
+        // teacher sits in no row above, and is still a period of that class.
+        const perClass = new Map();
+        (data.lessons || []).forEach((l) => {
+            const pc = perClass.get(l.class) || { total: 0, bare: 0, orphan: 0 };
+            pc.total++;
+            if (!l.subject) pc.bare++;
+            if (!l.teacher) pc.orphan++;
+            perClass.set(l.class, pc);
+        });
+        names.forEach((name) => {
+            const row = pivot.get(name) || new Map();
+            const own = ownSubjects(name);
+            const onStaff = !!staffNamed(name);
+            let total = 0;
+            html += `<tr><th class="who">${esc(name)}`
+                + `<small class="own">${own.length ? esc(own.join(', ')) : 'предметот не е внесен'}</small>`
+                + (onStaff ? '' : '<span class="off-staff">не е на списокот</span>')
+                + '</th>';
+            classes.forEach((c) => {
+                const lessons = row.get(c.label) || [];
+                const link = linkOf(name, c.label);
+                total += lessons.length;
+                if (!lessons.length && !link) { html += '<td class="as"></td>'; return; }
+
+                const tally = new Map();
+                let bare = 0;
+                lessons.forEach((l) => { if (l.subject) tally.set(l.subject, (tally.get(l.subject) || 0) + 1); else bare++; });
+                const lines = Array.from(tally.entries())
+                    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], 'mk'))
+                    .map(([s, n]) => `<span class="as-subj">${esc(s)}${n > 1 ? ' ×' + n : ''}</span>`);
+                if (bare) lines.push(`<span class="as-bare">без предмет${bare > 1 ? ' ×' + bare : ''}</span>`);
+                const flag = link && link.role === 'homeroom'
+                    ? '<span class="as-home">раководител</span>'
+                    : !link && onStaff ? '<span class="as-unlinked">не е поврзан</span>' : '';
+                const picked = assignPick && assignPick.teacher === name && assignPick.label === c.label;
+                html += `<td class="as${lessons.length ? ' has' : ''}${picked ? ' picked' : ''}">`
+                    + `<button type="button" class="as-open" data-teacher="${esc(name)}" data-class="${esc(c.label)}"`
+                    + ` title="${esc(name + ' · ' + c.label + ' · ' + lessons.length + ' часа неделно')}">`
+                    + (lessons.length ? `<b>${lessons.length}</b>` : '<b class="as-zero">0</b>')
+                    + lines.join('') + flag + '</button></td>';
+            });
+            html += sumCell(total, 'as-sum') + '</tr>';
+        });
+        html += '</tbody><tfoot><tr><th class="who">Вкупно во паралелката</th>'
+            + classes.map((c) => {
+                const pc = perClass.get(c.label) || { total: 0, bare: 0, orphan: 0 };
+                return `<td>${pc.total}${pc.bare ? `<small>${pc.bare} без предмет</small>` : ''}`
+                    + `${pc.orphan ? `<small>${pc.orphan} без наставник</small>` : ''}</td>`;
+            }).join('')
+            // The corner closes the footer, so it is the classes' total, not the teachers'.
+            + `<td class="as-sum">${classes.reduce((n, c) => n + (perClass.get(c.label) || { total: 0 }).total, 0)}</td></tr></tfoot></table>`;
+        if (idle.length) {
+            html += `<p class="as-note">Без часови и без паралелка оваа година (${idle.length}): ${idle.map(esc).join(', ')}.</p>`;
+        }
+        el('grid').innerHTML = html;
+    }
+
+    /**
+     * One teacher in one class: every lesson of the week, each with its own
+     * subject picker, and one picker that writes a subject into all of them.
+     * The teacher's own subjects come first in every list.
+     */
+    let pairTicket = 0;
+    async function openPair(name, label) {
+        assignPick = { teacher: name, label };
+        el('grid').querySelectorAll('td.as').forEach((td) => {
+            const b = td.querySelector('.as-open');
+            td.classList.toggle('picked', !!b && b.dataset.teacher === name && b.dataset.class === label);
+        });
+        const mine = ++pairTicket;
+        const box = el('editor');
+        const lessons = (data.lessons || [])
+            .filter((l) => l.teacher === name && l.class === label)
+            .sort((a, b) => a.day_order - b.day_order || a.ordinal - b.ordinal);
+        const link = linkOf(name, label);
+        const onStaff = !!staffNamed(name);
+        const heading = `<h2>${esc(name)} · ${esc(label)} <span class="who">`
+            + `${lessons.length} ${lessons.length === 1 ? 'час' : 'часа'} неделно</span></h2>`;
+        box.className = 'panel editor open';
+        if (!box.querySelector('#asBulk')) box.innerHTML = heading + '<p class="hint">вчитувам ги предметите…</p>';
+        const offer = await subjectsFor(label);
+        if (mine !== pairTicket) return;
+
+        const options = subjectOptionsHtml(offer, name);
+        const bare = lessons.filter((l) => !l.subject).length;
+        const time = (ordinal) => { const p = periods().find((x) => x.ordinal === ordinal); return p ? p.startsAt : ''; };
+        const linkLine = !onStaff
+            ? `<span class="hint">${esc(name)} не е на списокот за ${esc(data.year)} — додај го во „Податоци".</span>`
+            : link && link.role === 'homeroom'
+                ? `<span class="hint">Раководител на ${esc(label)}.</span>`
+                : link
+                    ? `<span class="hint">Запишан во ${esc(label)}.</span>`
+                      + (lessons.length ? '' : ` <button type="button" class="btn soft" id="asUnlink">Отстрани го од ${esc(label)}</button>`)
+                    : `<button type="button" class="btn soft" id="asLink"><span class="ico" aria-hidden="true">🔗</span> Запиши го во ${esc(label)}</button>`;
+
+        box.innerHTML = heading
+            + `<p class="basis">Предмети на наставникот: <b>${ownSubjects(name).length ? esc(ownSubjects(name).join(', ')) : 'не се внесени'}</b>`
+            + ' — се менуваат подолу, под „Наставници".</p>'
+            + (lessons.length
+                ? '<div class="row">'
+                  + `<label class="field"><span>Предмет за ${bare && bare < lessons.length ? `часовите без предмет (${bare})` : `сите ${lessons.length} часа`}</span>`
+                  + `<select id="asBulk">${options}</select></label>`
+                  + (bare && bare < lessons.length
+                      ? '<label class="field" style="flex-direction: row; align-items: center; gap: 6px;">'
+                        + '<input type="checkbox" id="asAll" style="min-width: auto;"><span>и на оние што веќе имаат предмет</span></label>'
+                      : '')
+                  + '<button type="button" class="btn" id="asApply">Запиши</button>'
+                  + '</div>'
+                  + '<table class="list as-lessons"><thead><tr><th>Ден</th><th>Час</th><th>Предмет</th></tr></thead><tbody>'
+                  + lessons.map((l) => `<tr><td>${esc(l.day)}</td><td>${l.ordinal}. <small>${esc(time(l.ordinal))}</small></td>`
+                      + `<td><select class="as-lsubj" data-day="${esc(l.day)}" data-ordinal="${l.ordinal}"`
+                      + ` data-was="${esc(l.subject || '')}" aria-label="${esc(l.day + ' · ' + l.ordinal + '. час · предмет')}">`
+                      + options + '</select></td></tr>').join('')
+                  + '</tbody></table>'
+                : '<p class="hint">Нема часови во оваа паралелка.</p>')
+            + `<div class="row" style="margin-top:10px;">${linkLine}`
+            + `<button type="button" class="btn soft" id="asWeek"><span class="ico" aria-hidden="true">📅</span> Цела недела за ${esc(label)}</button>`
+            + '<button type="button" class="btn soft" id="asClose">Затвори</button></div>'
+            + '<datalist id="asSubjects">' + subjectList().map((s) => `<option value="${esc(s)}">`).join('') + '</datalist>';
+
+        box.querySelectorAll('select.as-lsubj').forEach((s) => {
+            selectOrAdd(s, s.dataset.was);
+            if (!s.value && s.options[0]) s.options[0].textContent = '— без предмет —';
+        });
+        const bulk = el('asBulk');
+        if (bulk) {
+            const kinds = Array.from(new Set(lessons.map((l) => l.subject).filter(Boolean)));
+            const guess = kinds.length === 1 ? kinds[0] : autoSubject(name);
+            if (guess) selectOrAdd(bulk, guess);
+            bulk.addEventListener('change', () => { if (bulk.value === OTHER) typeInstead(bulk); });
+            el('asApply').addEventListener('click', () => applyPairSubject(name, label));
+        }
+        box.querySelectorAll('select.as-lsubj').forEach((s) => s.addEventListener('change', () => {
+            if (s.value === OTHER) {
+                const input = typeInstead(s);
+                const done = () => { if (tidy(input.value)) savePairLesson(name, label, input.dataset.day, Number(input.dataset.ordinal), input.dataset.was, tidy(input.value)); };
+                input.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); input.blur(); } });
+                input.addEventListener('blur', done, { once: true });
+                return;
+            }
+            savePairLesson(name, label, s.dataset.day, Number(s.dataset.ordinal), s.dataset.was, tidy(s.value));
+        }));
+        if (el('asLink')) el('asLink').addEventListener('click', () => setLink(name, label, true));
+        if (el('asUnlink')) el('asUnlink').addEventListener('click', () => setLink(name, label, false));
+        el('asWeek').addEventListener('click', () => openClassWeek(label));
+        el('asClose').addEventListener('click', closeEditor);
+    }
+
+    /** „✎ друг предмет…" in the panel: the picker becomes a text field in place. */
+    function typeInstead(select) {
+        const input = document.createElement('input');
+        input.id = select.id;
+        input.className = select.className;
+        Object.assign(input.dataset, select.dataset);
+        input.setAttribute('list', 'asSubjects');
+        input.setAttribute('aria-label', select.getAttribute('aria-label') || 'предмет');
+        input.placeholder = 'име на предметот';
+        input.value = select.dataset.was || '';
+        select.replaceWith(input);
+        input.focus();
+        return input;
+    }
+
+    const pairWrite = (name, label, day, ordinal, subject) => api('PUT', '/api/teaching/teacher-lesson', {
+        year: data.year, day, ordinal, teacher: name, class: label,
+        subject: subject || null,
+        // The class is the whole of what this cell claims from the teacher's
+        // side; a lesson moved to another class since is refused, not overwritten.
+        expected: { class: label }
+    });
+
+    async function savePairLesson(name, label, day, ordinal, was, subject) {
+        if (tidy(was) === subject) return;
+        status('запишувам…');
+        try {
+            await pairWrite(name, label, day, ordinal, subject);
+            await load(true);
+            status(`${name} · ${label} · ${day} ${ordinal}. час — ${subject || 'без предмет'}`, 'ok');
+        } catch (err) {
+            status(err.message, 'error');
+        }
+    }
+
+    async function applyPairSubject(name, label) {
+        const subject = tidy(el('asBulk').value);
+        if (!subject || subject === OTHER) return status('Избери го предметот прво.', 'warn');
+        const everyone = el('asAll') ? el('asAll').checked : true;
+        const targets = (data.lessons || []).filter((l) => l.teacher === name && l.class === label
+            && (everyone || !l.subject) && tidy(l.subject) !== subject);
+        if (!targets.length) return status('Сите тие часови веќе го имаат тој предмет.', 'ok');
+        status('запишувам…');
+        let done = 0;
+        try {
+            // One at a time: each is its own checked write, and a refusal
+            // halfway says how far it got instead of pretending all or none.
+            for (const l of targets) {
+                await pairWrite(name, label, l.day, l.ordinal, subject);
+                done++;
+            }
+            await load(true);
+            status(`${name} · ${label} — ${subject} на ${done} ${done === 1 ? 'час' : 'часа'}`, 'ok');
+        } catch (err) {
+            await load(true);
+            status(`${done} од ${targets.length} запишани. ${err.message}`, 'error');
+        }
+    }
+
+    /** Add or remove ONE class from a teacher's list, keeping the rest as they are. */
+    async function setLink(name, label, on) {
+        const t = staffNamed(name);
+        if (!t) return;
+        const keep = (t.classes || []).filter((c) => c.label !== label).map((c) => ({ label: c.label, role: c.role }));
+        status('запишувам…');
+        try {
+            await api('PUT', `/api/teaching/teacher/${t.id}/classes`, {
+                year: data.year,
+                classes: on ? keep.concat([{ label, role: 'subject' }]) : keep
+            });
+            await load(true);
+            status(on ? `${name} е запишан во ${label}` : `${name} е отстранет од ${label}`, 'ok');
+        } catch (err) {
+            status(err.message, 'error');
+        }
+    }
+
+    async function linkAll() {
+        const loose = unlinkedPairs(assignPivot());
+        const byTeacher = new Map();
+        loose.forEach((p) => {
+            if (!byTeacher.has(p.name)) byTeacher.set(p.name, []);
+            byTeacher.get(p.name).push(p.label);
+        });
+        status('запишувам…');
+        let done = 0;
+        try {
+            for (const [name, labels] of byTeacher) {
+                const t = staffNamed(name);
+                const keep = (t.classes || []).map((c) => ({ label: c.label, role: c.role }));
+                await api('PUT', `/api/teaching/teacher/${t.id}/classes`, {
+                    year: data.year,
+                    classes: keep.concat(labels.map((label) => ({ label, role: 'subject' })))
+                });
+                done += labels.length;
+            }
+            await load(true);
+            status(`${done} ${done === 1 ? 'врска е запишана' : 'врски се запишани'} според распоредот`, 'ok');
+        } catch (err) {
+            await load(true);
+            status(err.message, 'error');
+        }
     }
 
     // ── по одделение, цела недела ───────────────────────────────────────────
@@ -960,7 +1390,12 @@
         select.value = want;
     }
 
-    function subjectOptionsHtml(offer) {
+    /**
+     * `teacher`, when there is one, puts that teacher's own subjects on top —
+     * the list a person reaches for first — without taking them out of the
+     * catalogue below, so the MON groups read the same in every cell.
+     */
+    function subjectOptionsHtml(offer, teacher) {
         const groups = new Map();
         const offered = new Set();
         (offer.subjects || []).forEach((s) => {
@@ -972,6 +1407,8 @@
         const rank = (cat) => { const i = CATEGORY_ORDER.indexOf(cat); return i < 0 ? 99 : i; };
         const opt = (n) => `<option value="${esc(n)}">${esc(n)}</option>`;
         let html = '<option value="">—</option>';
+        const own = teacher ? ownSubjects(teacher) : [];
+        if (own.length) html += `<optgroup label="${esc('Предмети на ' + teacher)}">${own.map(opt).join('')}</optgroup>`;
         Array.from(groups.keys())
             .sort((a, b) => rank(a) - rank(b) || a.localeCompare(b, 'mk'))
             .forEach((cat) => { html += `<optgroup label="${esc(cat)}">${groups.get(cat).map(opt).join('')}</optgroup>`; });
@@ -1003,7 +1440,14 @@
 
     function sheetHtml(c, offer, pupilsHere, cells) {
         const label = c.label;
-        const subjOpts = subjectOptionsHtml(offer);
+        // Per teacher, because each cell puts its own teacher's subjects on
+        // top; cached, because a class has a handful of teachers and 35 cells.
+        const optsBy = new Map();
+        const subjOpts = (teacher) => {
+            const k = teacher || '';
+            if (!optsBy.has(k)) optsBy.set(k, subjectOptionsHtml(offer, k));
+            return optsBy.get(k);
+        };
         const teachOpts = teacherOptionsHtml(label);
         const homeroom = (data.teachers || [])
             .filter((t) => (t.classes || []).some((x) => x.label === label && x.role === 'homeroom'))
@@ -1065,7 +1509,7 @@
                     + (l ? ` data-was-id="${l.id}" data-was-subject="${esc(l.subject || '')}" data-was-teacher="${esc(l.teacher || '')}"` : '')
                     + ` title="${esc(where + ' (' + p.startsAt + ')' + (l && l.teacher ? ' · ' + l.teacher : ''))}">`
                     + `<select class="cw-subj" data-current="${esc(l ? l.subject || '' : '')}"`
-                    + ` aria-label="${esc(where + ' · предмет')}">${subjOpts}</select>`
+                    + ` aria-label="${esc(where + ' · предмет')}">${subjOpts(l ? l.teacher : '')}</select>`
                     + `<select class="cw-teach" data-current="${esc(l ? l.teacher || '' : '')}"`
                     + ` aria-label="${esc(where + ' · наставник')}">${teachOpts}</select>`
                     + `<span class="print-only">${esc(l ? l.subject || '' : '')}</span>`
@@ -1172,11 +1616,16 @@
     /** Returns false when there is nothing to send. */
     function saveClassCell(td, typed) {
         const subjSel = td.querySelector('select.cw-subj');
-        const subject = tidy(typed !== undefined ? typed : (subjSel ? subjSel.value : ''));
+        let subject = tidy(typed !== undefined ? typed : (subjSel ? subjSel.value : ''));
         if (subject === OTHER) return false;
         const teachSel = td.querySelector('select.cw-teach');
         const teacher = tidy(teachSel ? teachSel.value : '');
-        if (unchanged(wasOf(td), subject, teacher)) return false;
+        // A teacher newly placed in a lesson with no subject brings their one
+        // subject along (autoSubject); keeping the teacher and emptying the
+        // subject stays a deliberate „без предмет".
+        const drawn = wasOf(td);
+        if (!subject && teacher && (!drawn || tidy(drawn.teacher) !== teacher)) subject = autoSubject(teacher);
+        if (unchanged(drawn, subject, teacher)) return false;
         const key = cwKey(td);
         const where = { label: td.dataset.class, day: td.dataset.day, ordinal: Number(td.dataset.ordinal) };
         writing = writing.then(() => {
@@ -1369,7 +1818,7 @@
         (offer.subjects || []).forEach((s) => everything.add(s.subject));
         box.innerHTML = heading
             + '<div class="row">'
-            + `<label class="field"><span>Предмет</span><select id="edSubject">${subjectOptionsHtml(offer)}</select></label>`
+            + `<label class="field"><span>Предмет</span><select id="edSubject">${subjectOptionsHtml(offer, lesson ? lesson.teacher : '')}</select></label>`
             + `<label class="field"><span>Наставник</span><select id="edTeacher">${teacherOptionsHtml(label)}</select></label>`
             + '<button class="btn" id="edSave">Зачувај</button>'
             + '<button class="btn soft" id="edNext">Зачувај и следен →</button>'
@@ -1400,6 +1849,13 @@
             input.focus();
             input.select();
         });
+        // Choosing a teacher with one subject fills an empty subject in —
+        // visibly, before Save, so it can still be changed (autoSubject).
+        el('edTeacher').addEventListener('change', () => {
+            const subj = el('edSubject');
+            const auto = autoSubject(tidy(el('edTeacher').value));
+            if (subj && subj.tagName === 'SELECT' && !subj.value && auto) selectOrAdd(subj, auto);
+        });
         el('edWeek').addEventListener('click', () => openClassWeek(label));
         const subject = el('edSubject');
         subject.focus();
@@ -1415,6 +1871,9 @@
 
     function closeEditor() {
         selected = null;
+        assignPick = null;
+        pairTicket++;
+        el('grid').querySelectorAll('td.as.picked').forEach((td) => td.classList.remove('picked'));
         el('editor').className = 'panel editor';
         el('editor').innerHTML = '';
         markSelected();
@@ -1710,6 +2169,9 @@
     el('grid').addEventListener('click', (event) => {
         const week = event.target.closest('[data-week]');
         if (week) { openClassWeek(week.dataset.week); return; }
+        const pair = event.target.closest('.as-open');
+        if (pair) { openPair(pair.dataset.teacher, pair.dataset.class); return; }
+        if (event.target.closest('#asLinkAll')) { linkAll(); return; }
         const td = event.target.closest('td.cell');
         if (!td) return;
         // The weekly grid edits in place; the day grid opens the panel below it.

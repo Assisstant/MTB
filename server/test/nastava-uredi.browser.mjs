@@ -126,7 +126,8 @@ const run = async () => {
 
     console.log('the views are tabs, and the day editor offers the same lists as the week');
     const tabs = await page.$$eval('#views [data-view]', (b) => b.map((x) => [x.dataset.view, x.getAttribute('aria-pressed')]));
-    checkEq('three view tabs, the day grid chosen', tabs, [['class', 'true'], ['classweek', 'false'], ['teacher', 'false']]);
+    checkEq('four view tabs, the day grid chosen', tabs,
+        [['class', 'true'], ['classweek', 'false'], ['teacher', 'false'], ['assign', 'false']]);
     await openCell(2);
     const dayOffer = await page.$$eval('#edSubject option', (o) => o.map((x) => x.value));
     check('the day editor offers the MON catalogue, not only what is already typed',
@@ -350,6 +351,124 @@ const run = async () => {
         await page.evaluate(() => Array.from(document.querySelectorAll('#grid .cw-sheet')).map((x) => x.dataset.sheet)), [CLASS]);
     await page.click('#views [data-view="class"]');
     await page.waitForSelector('#grid table.grid.day', { timeout: 4000 });
+
+    console.log('\nthe teacher week counts the week, and a teacher with one subject brings it along');
+    const THU = 'четврток';
+    const teacherLessons = () => q(
+        `SELECT l.day, l.ordinal, l.subject FROM lessons l JOIN teachers t ON t.id = l.teacher_id
+          WHERE l.school_year_id = $1 AND t.name = $2 ORDER BY l.day_order, l.ordinal`, [year.id, TEACHER]);
+    await page.click('#views [data-view="teacher"]');
+    await page.waitForSelector('#grid table.grid.week', { timeout: 4000 });
+    const wk = (day, ordinal) => `#grid td.wk[data-teacher="${TEACHER}"][data-day="${day}"][data-ordinal="${ordinal}"]`;
+    await page.click(wk(THU, 2));
+    await page.waitForSelector(`${wk(THU, 2)} select.pick`, { timeout: 3000 });
+    await page.selectOption(`${wk(THU, 2)} select.pick`, CLASS);
+    await page.waitForTimeout(1000);
+    checkEq('placing the teacher in a class writes the teacher\'s one subject with it',
+        (await teacherLessons()).map((r) => `${r.day} ${r.ordinal} ${r.subject}`), [`${THU} 2 ФЗО.`]);
+    const weekRow = await page.evaluate((name) => {
+        const th = Array.from(document.querySelectorAll('#grid table.week tbody th.who'))
+            .find((x) => x.firstChild && x.firstChild.textContent === name);
+        const tr = th && th.parentElement;
+        return tr ? { own: (th.querySelector('.own') || {}).textContent, sum: tr.querySelector('td.wsum').textContent.replace(/\s+/g, ' ').trim() } : null;
+    }, TEACHER);
+    checkEq('the row names the teacher\'s own subjects under the name', weekRow && weekRow.own, 'ФЗО.');
+    checkEq('and ends with the week\'s count, measured against the norm of 21', weekRow && weekRow.sum, '1од 21');
+
+    console.log('\nthe distribution: teachers down, classes across, the same lessons counted');
+    // A second lesson written the workbook's way — no subject — and the link
+    // removed behind the page's back, so both gaps have something to show.
+    await q(`INSERT INTO lessons (school_year_id, day, day_order, ordinal, class_id, teacher_id, subject)
+             SELECT $1, $2, 4, 3, c.id, t.id, NULL FROM school_classes c, teachers t WHERE c.label = $3 AND t.name = $4`,
+        [year.id, THU, CLASS, TEACHER]);
+    await q(`DELETE FROM teacher_classes WHERE school_year_id = $1
+               AND teacher_id = (SELECT id FROM teachers WHERE name = $2)`, [year.id, TEACHER]);
+    await page.click('#views [data-view="assign"]');
+    await page.waitForSelector('#grid table.grid.assign', { timeout: 4000 });
+    checkEq('the tab puts the distribution in the address', new URL(page.url()).searchParams.get('view'), 'assign');
+    await page.click('#refresh');   // what the database holds after the changes above
+    await page.waitForTimeout(900);
+    const pairSel = `#grid .as-open[data-teacher="${TEACHER}"][data-class="${CLASS}"]`;
+    const pairText = () => page.$eval(pairSel, (b) => b.textContent.replace(/\s+/g, ' ').trim());
+    let pair = await pairText();
+    check('the cell counts the teacher\'s two lessons in the class', /^2/.test(pair), pair);
+    check('names the subject, and the lesson that has none', /ФЗО\./.test(pair) && /без предмет/.test(pair), pair);
+    check('and says the timetable puts the teacher in a class they are not linked to', /не е поврзан/.test(pair), pair);
+    const classTotal = (await q(`SELECT count(*)::int AS n FROM lessons l JOIN school_classes c ON c.id = l.class_id
+                                  WHERE l.school_year_id = $1 AND c.label = $2`, [year.id, CLASS]))[0].n;
+    const footer = await page.evaluate((label) => {
+        const heads = Array.from(document.querySelectorAll('#grid table.assign thead th')).map((x) => x.firstChild ? x.firstChild.textContent : '');
+        const at = heads.indexOf(label);
+        const cell = document.querySelectorAll('#grid table.assign tfoot tr > *')[at];
+        return cell ? cell.firstChild.textContent : null;
+    }, CLASS);
+    checkEq('the footer counts every lesson of the class, with or without a teacher', footer, String(classTotal));
+
+    await page.click('#asLinkAll');
+    await page.waitForTimeout(1000);
+    checkEq('„Поврзи ги сите" writes the link the timetable proves, and only that',
+        (await q(`SELECT c.label, tc.role FROM teacher_classes tc JOIN school_classes c ON c.id = tc.class_id
+                   WHERE tc.school_year_id = $1 AND tc.teacher_id = (SELECT id FROM teachers WHERE name = $2)`,
+            [year.id, TEACHER])).map((r) => `${r.label}:${r.role}`), [`${CLASS}:subject`]);
+    check('and the cell no longer complains', !/не е поврзан/.test(await pairText()), await pairText());
+
+    await page.click(pairSel);
+    await page.waitForSelector('#editor #asBulk', { timeout: 4000 });
+    checkEq('the panel lists that teacher\'s lessons in that class', await page.$$eval('#editor select.as-lsubj', (s) => s.length), 2);
+    const firstGroup = await page.$eval('#asBulk optgroup', (g) => g.label);
+    check('the teacher\'s own subjects are offered first', firstGroup.includes(TEACHER), firstGroup);
+    checkEq('the one subject the pair already has is proposed for the rest', await page.$eval('#asBulk', (s) => s.value), 'ФЗО.');
+    await page.click('#asApply');
+    await page.waitForTimeout(1000);
+    checkEq('„Запиши" gives the lesson without a subject that subject, and touches nothing else',
+        (await teacherLessons()).map((r) => r.subject), ['ФЗО.', 'ФЗО.']);
+    await page.waitForSelector('#editor select.as-lsubj', { timeout: 4000 });
+    await page.selectOption('#editor select.as-lsubj >> nth=0', 'Математика');
+    await page.waitForTimeout(1000);
+    checkEq('one lesson\'s picker changes that lesson only',
+        (await teacherLessons()).map((r) => `${r.ordinal} ${r.subject}`), ['2 Математика', '3 ФЗО.']);
+    pair = await pairText();
+    check('and the distribution follows at once', /Математика/.test(pair) && /ФЗО\./.test(pair), pair);
+    check('the panel stays open on the same pair after the write', await page.isVisible('#editor #asBulk'));
+
+    // Readable in both themes, measured: the count on a filled cell, and the
+    // muted „од 21" under the week's total.
+    await page.click('#views [data-view="teacher"]');
+    await page.waitForSelector('#grid table.grid.week', { timeout: 4000 });
+    await page.click('#views [data-view="assign"]');
+    await page.waitForSelector('#grid table.grid.assign', { timeout: 4000 });
+    const ratios = await page.evaluate(([pairSelector]) => {
+        const lum = (rgb) => {
+            const [r, g, b] = rgb.match(/\d+(\.\d+)?/g).slice(0, 3).map(Number).map((v) => {
+                v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4;
+            });
+            return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+        };
+        // The first ancestor that paints a background is what the text sits on.
+        const ground = (node) => {
+            for (let n = node; n; n = n.parentElement) {
+                const bg = getComputedStyle(n).backgroundColor;
+                if (!/rgba\(.*,\s*0\)$/.test(bg) && bg !== 'transparent') return bg;
+            }
+            return 'rgb(255, 255, 255)';
+        };
+        const ratio = (node) => {
+            const a = lum(getComputedStyle(node).color); const b = lum(ground(node));
+            return Math.round(((Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05)) * 10) / 10;
+        };
+        const out = {};
+        for (const theme of ['light', 'dark']) {
+            document.documentElement.setAttribute('data-theme', theme);
+            out[theme] = {
+                count: ratio(document.querySelector(pairSelector + ' b')),
+                norm: ratio(document.querySelector('#grid table.assign td.as-sum small')),
+                own: ratio(document.querySelector('#grid table.assign th .own'))
+            };
+        }
+        return out;
+    }, [pairSel]);
+    check('the count, the norm and the subjects are readable in both themes (≥ 4.5:1)',
+        Object.values(ratios).every((t) => Object.values(t).every((r) => r >= 4.5)), JSON.stringify(ratios));
 
     console.log('\nadding a class goes to the server, not to a list in the page');
     await page.evaluate(() => { document.getElementById('classSection').open = true; });

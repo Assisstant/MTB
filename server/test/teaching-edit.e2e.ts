@@ -175,6 +175,36 @@ const run = async () => {
     row = await cellIn(dst.id, DAY, 2, CLASS_A);
     checkEq('the teacher can be cleared without losing the subject', [row[0].teacher, row[0].subject], [null, 'мак.']);
 
+    console.log('\nplacing a teacher in a class links them to it, for that year only');
+    // The timetable is evidence of who teaches whom (the importer's rule), so
+    // the class's teacher list follows it instead of waiting to be retyped.
+    const linksOf = async (yearId: number, label: string) => (await q(
+        `SELECT t.name, tc.role FROM teacher_classes tc
+           JOIN teachers t ON t.id = tc.teacher_id JOIN school_classes c ON c.id = tc.class_id
+          WHERE tc.school_year_id = $1 AND c.label = $2 ORDER BY t.name`, [yearId, label]))
+        .map((r: any) => `${r.name}:${r.role}`);
+    checkEq('both teachers placed in the class are linked to it as subject teachers',
+        await linksOf(dst.id, CLASS_A), [`${T1}:subject`, `${T2}:subject`].sort((a, b) => a.localeCompare(b)));
+    checkEq('the teacher taken off the lesson above is still linked — clearing unlinks nobody',
+        (await linksOf(dst.id, CLASS_A)).length, 2);
+    checkEq('and the other year was not touched', await linksOf(src.id, CLASS_A), []);
+
+    // The teacher-keyed route follows the same rule, and a homeroom stays one.
+    await q(
+        `UPDATE teacher_classes SET role = 'homeroom'
+          WHERE school_year_id = $1 AND teacher_id = (SELECT id FROM teachers WHERE name = $2)
+            AND class_id = (SELECT id FROM school_classes WHERE label = $3)`, [dst.id, T2, CLASS_A]);
+    const byTeacher = await call('PUT', '/api/teaching/teacher-lesson',
+        { year: DST_YEAR, day: DAY, ordinal: 6, teacher: T2, class: CLASS_A, subject: 'физ.', expected: { class: null } });
+    checkEq('the teacher-keyed write answers 200', byTeacher.status, 200);
+    check('and leaves a homeroom a homeroom', (await linksOf(dst.id, CLASS_A)).includes(`${T2}:homeroom`),
+        JSON.stringify(await linksOf(dst.id, CLASS_A)));
+    const freed = await call('PUT', '/api/teaching/teacher-lesson',
+        { year: DST_YEAR, day: DAY, ordinal: 6, teacher: T2, class: null, expected: { class: CLASS_A } });
+    checkEq('freeing that period answers 200', freed.status, 200);
+    checkEq('the lesson is gone', (await cellIn(dst.id, DAY, 6, CLASS_A)).length, 0);
+    checkEq('and the link is not', (await linksOf(dst.id, CLASS_A)).length, 2);
+
     console.log('\nnothing is invented to make a write succeed');
     const ghostClass = await put({ ordinal: 3, class: 'НЕПОСТОЕЧКО-99', subject: 'мак.' });
     checkEq('an unknown class is a 404', ghostClass.status, 404);

@@ -3236,3 +3236,79 @@ timetable editor in place; there is no new page and no new endpoint.
 `npm run test:uredi` gained 17 assertions (DB read back for every write,
 stale refusal, the arrow-key burst, free-text subject, WCAG contrast of the
 chosen subject in both themes, print media).
+
+## Распределба: кој наставник, во која паралелка, со кој предмет (24 Sep 2026)
+
+The owner showed the school's handwritten draft of the subject-teacher
+timetable and explained how it is read: every teacher row says which class
+the teacher is with in each period; „/" is a window, not missing data; a full
+salary needs at least **21 lessons a week**, and a teacher with fewer (one has
+about ten) makes up the rest with other duties. „Which teacher attends which
+class, and every teacher has their own subjects — the subjects, the class
+weeks and the teacher grid should all be connected."
+
+They already were one table. What was missing was the view that COUNTS it,
+and the wire from a teacher's own subjects to the lessons.
+
+- **A fourth tab in `NastavaUredi.html`, `?view=assign` „🔗 Распределба".**
+  Teachers down, classes across; each cell is how many periods a week that
+  teacher is in that class and with which subjects („без предмет ×3" says
+  what is still open), plus „раководител" or „не е поврзан". Σ per teacher
+  with „од 21" under it when the norm is not reached; the footer is each
+  class's week in full, including lessons with no teacher. Nothing is stored
+  for it — a pivot of `lessons`, `teachers.subject` and `teacher_classes` —
+  so an edit in either week shows here on the next draw.
+- **Click a cell: that teacher's lessons in that class**, each with its own
+  subject picker, and one picker that writes a subject into all the lessons
+  without one (or, ticked, into all of them). One checked write per lesson
+  through `PUT /api/teaching/teacher-lesson` with `expected: {class}`; a
+  refusal halfway says how many landed. „🔗 Запиши го во …" / „Отстрани го"
+  change one class in the teacher's list and keep the rest.
+- **The teacher's own subjects come first in every subject picker** (day
+  editor, class week, teacher week, the new panel). `teachers.subject` is still
+  the comma-separated list of 12 Sep; nothing new is stored.
+- **`autoSubject`: a teacher with exactly ONE subject brings it along** when
+  placed in a lesson that has none — in the teacher week, in the class week
+  when the teacher changes, and visibly (before Save) in the day editor. Two
+  or more subjects is a person's choice: a guess between Macedonian and
+  mathematics is a wrong lesson that looks right.
+- **The teacher week ends in Σ**, counted from the lessons rather than the
+  drawn grid, so a double-booked period still counts twice.
+- **Server: placing a teacher in a class links them to it for that year**
+  (`noteTeacherClass`, add-only, the importer's rule since migration 016) in
+  both `PUT /api/teaching/lesson` and `PUT /api/teaching/teacher-lesson`.
+  Clearing a period unlinks nobody — a hand-typed link is not contradicted by
+  an empty cell — and a homeroom stays a homeroom. Existing gaps are closed on
+  purpose with „Поврзи ги сите според распоредот (N)". Note for enforced
+  sign-in: `teacher_classes` also scopes a teacher's evidence sheets, so the
+  timetable now widens that scope to the classes they actually teach.
+- Tests: `test:teaching-edit` +8 (both routes link; clearing does not unlink;
+  homeroom kept; the other year untouched), checked to FAIL against the old
+  server; `test:uredi` +18 (the tab, auto-subject, Σ „1од 21", the matrix
+  against the database, link-all, bulk and single writes, WCAG ≥ 4.5 in both
+  themes). `test:teaching-edit` still dies later, at its external-pupil
+  fixture: it inserts an internal enrolment with no grade, which
+  `kind_matches_grade` (028/029) now refuses — older than this change.
+
+**The draft, and what the Excel got wrong.** The imported Excel was a typed
+copy of the draft, and the copy had systematic errors that the 15 Sep import
+could not see:
+
+- The draft writes classes as grades with a superscript letter: `6ᴬ`, `9ᴮ`,
+  `8`, `7/8ᴬ`, `6/7/8ᴮ`. A bare **`8` is VIII-а** (the non-combined VIII); it
+  was typed as `VII` in all 30 cells, so VIII-а had no lessons and VII had 39
+  with 8 of the 11 „clashes". **`7/8` and `7/8ᴬ` are VII** (the combined
+  VII+VIII class) and **`6/7/8`, `6/7/8ᴮ` are VIII-б**; the copy mangled the
+  latter into `VI-а/VIII-б` five times. With the draft's notation all 230
+  lessons fit with **zero** double-booked classes.
+- The other three „source clashes" were slips of the copy too: one teacher's
+  Friday was shifted a period left, and one `9ᴬ` became `9ᴮ`.
+- One teacher's nickname in the draft was put on another staff member's row;
+  the owner named the right person. The exact cells, the mapping and the
+  apply script are local, under `backups/teaching-analysis-2026-09-24/`.
+
+How it was found, for next time: the timing. A label whose lessons collide
+with another class at 7 of 9 hours is not that class; a label that never
+collides with a second label in 33 cells is the same class. `teaching_clashes`
+was reporting the wrong mapping all along — read a clash count after an
+import as a test of the mapping, not only of the timetable.
