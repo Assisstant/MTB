@@ -4,8 +4,8 @@
 .ma-heading{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:20px 24px 12px;border-bottom:1px solid var(--line);flex-wrap:wrap}
 .ma-heading h1{font-size:23px;letter-spacing:-.4px;margin:0 0 5px}.ma-caption{color:var(--muted);font-size:12px;line-height:1.6}
 .ma-actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
-#masterAdmin button,#masterAdmin select,#masterAdmin input{border:1px solid var(--line);border-radius:8px;color:var(--text);background:var(--panel2);padding:9px 11px;max-width:100%;font:inherit}
-#masterAdmin button:hover{border-color:var(--accent2)}#masterAdmin button:disabled{opacity:.5;cursor:not-allowed}
+#masterAdmin button,#masterAdmin select,#masterAdmin input{border:1px solid var(--line);border-radius:10px;color:var(--text);background:var(--panel2);padding:9px 11px;max-width:100%;font:inherit}
+#masterAdmin button:hover{border-color:var(--accent2);box-shadow:0 0 0 1px var(--accent2)}#masterAdmin button:disabled{opacity:.5;cursor:not-allowed}
 #masterAdmin button[aria-pressed=true],#masterAdmin .ma-save{background:var(--accent);border-color:var(--accent2);color:white}
 #masterAdmin input[type=checkbox]{width:18px;height:18px;accent-color:var(--accent)}
 #masterAdmin :focus-visible{outline:3px solid var(--accent2);outline-offset:2px}

@@ -84,9 +84,10 @@
         background: rgba(255, 255, 255, .8); color: #16233f;
     }
     .cell.free { color: var(--muted); }
-    /* A lesson with no subject yet. Italic and in the cell's own colour: a
-       muted grey measured poorly on the darker heat shades. */
-    .cell .nosubj { font-style: italic; font-weight: 400; }
+    /* A lesson with no subject yet: in the cell's own colour, because a muted
+       grey measured poorly on the darker heat shades, and upright, because a
+       Macedonian italic turns „предмет" into „ūредмеш". */
+    .cell .nosubj { font-weight: 400; opacity: .8; }
     /* From a class's row straight to editing that class's week. */
     .edit-week { margin-left: 6px; font-size: 12px; text-decoration: none; opacity: .7; }
     .edit-week:hover { opacity: 1; }
@@ -206,10 +207,10 @@
                 <input type="checkbox" id="hoverCard" checked>
                 <span>Картичка на лебдење</span>
             </label>
-            <button class="btn" id="refresh">↻ Освежи</button>
-            <button class="btn soft" onclick="window.print()">🖨️ Печати</button>
+            <button class="btn" id="refresh"><span class="ico" aria-hidden="true">↻</span> Освежи</button>
+            <button class="btn soft" onclick="window.print()"><span class="ico" aria-hidden="true">⎙</span> Печати</button>
             <a class="btn soft" href="NastavaUredi.html"
-               title="Внеси или промени го распоредот на настава">✏️ Уреди распоред</a>
+               title="Внеси или промени го распоредот на настава"><span class="ico" aria-hidden="true">✏️</span> Уреди настава</a>
             <span class="status" id="status"></span>
         </div>
         <div class="views mtb-tabs">
@@ -1054,7 +1055,7 @@
                 + `<span class="meta"> — ${j.terms} ${j.terms === 1 ? 'термин' : 'термини'}, `
                 + `${j.pupils.size} ${j.pupils.size === 1 ? 'ученик' : 'ученици'}`
                 + (j.row.reasonCode === 'class-not-timetabled'
-                    ? ' · внеси ги часовите во „Уреди распоред"'
+                    ? ' · внеси ги часовите во „Уреди настава"'
                     : j.row.reasonCode === 'unknown-class'
                         ? ' · провери го одделението во „Податоци"' : '')
                 + '</span></li>').join('') + '</ul>'

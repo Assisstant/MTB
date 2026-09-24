@@ -20,7 +20,7 @@ const read = (file: string) => readFileSync(join(ROOT, file), 'utf8');
 const NAMES: Record<string, string> = {
     'MTB-Workspace.html': 'Работен простор',
     'start.html': 'Сите апликации',
-    'RasporediFusion.html': 'Распоред',
+    'RasporediFusion.html': 'Кабинети',
     'Nastava.html': 'Настава ↔ терапии',
     'NastavaUredi.html': 'Уреди настава',
     'Podatoci.html': 'Податоци',

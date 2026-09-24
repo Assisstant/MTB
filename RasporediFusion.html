@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="theme-color" content="#1a1a2e">
-<title>Распоред — MTB</title>
+<title>Кабинети — MTB</title>
 <script src="mtb-theme.js"></script>
 <script src="mtb-document.js"></script>
 <script src="mtb-schedule-form.js"></script>
@@ -84,27 +84,41 @@
     .field.view { min-width: 240px; }
     .field.focus { min-width: 240px; flex: 1; max-width: 380px; }
     .actions { display: flex; align-items: center; gap: 7px; margin-left: auto; }
+    /* The suite's card button (mtb-look.css, copied: this page does not load
+       it): its own surface, a thin border lit in the accent on hover, the icon
+       in a tile — `<span class="ico">⎙</span> Печати`. In the dark theme the
+       old grey fill was the band's own colour, so Печати, Слика and Word read
+       as loose words. */
     .btn {
-        padding: 10px 20px;
-        border: none;
-        border-radius: 6px;
+        padding: 10px 18px;
+        min-height: 42px;
+        border: 1px solid #cbd5e0;
+        border-radius: 10px;
         font-size: 14px;
         font-weight: 600;
         cursor: pointer;
-        transition: all 0.3s;
-        background: #edf2f7;
+        transition: border-color .2s, box-shadow .2s, background .2s;
+        background: #ffffff;
         color: #2d3748;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, .06);
         text-decoration: none;
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        gap: 7px;
+        gap: 8px;
     }
-    .btn:hover { transform: translateY(-1px); box-shadow: 0 4px 8px rgba(0,0,0,0.15); }
-    .btn-primary { background: #667eea; color: white; }
-    .btn-primary:hover { background: #5568d3; }
-    .btn-success { background: #48bb78; color: white; }
-    .btn-success:hover { background: #38a169; }
+    .btn:hover { border-color: #667eea; box-shadow: 0 0 0 1px #667eea; }
+    /* White on #667eea is 3.7:1; the suite's filled buttons use #5a67d8 (4.8:1). */
+    .btn-primary { background: #5a67d8; border-color: transparent; color: white; }
+    .btn-primary:hover { background: #4c51bf; border-color: transparent; box-shadow: 0 4px 8px rgba(0,0,0,.15); }
+    .btn-success { background: #2f855a; border-color: transparent; color: white; }
+    .btn-success:hover { background: #276749; border-color: transparent; }
+    .btn .ico {
+        display: inline-grid; place-items: center; flex: 0 0 auto;
+        width: 26px; height: 26px; margin-left: -6px; border-radius: 7px;
+        background: #eceffd; color: #4c51bf; font-size: 15px; line-height: 1; font-weight: 400;
+    }
+    .btn-primary .ico, .btn-success .ico { background: rgba(255, 255, 255, .2); color: #fff; }
     .icon-btn { width: 44px; padding: 0; font-size: 19px; }
     @media (hover: none) { .btn:hover { transform: none; } }
     button, .btn, .day-tab { -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
@@ -128,11 +142,11 @@
         background: linear-gradient(to bottom, #2d3748 0%, #1a202c 100%);
         cursor: pointer;
         transition: all 0.3s;
-        font-size: 15px;
+        font-size: 13px;
         color: #a0aec0;
         font-weight: 600;
         text-transform: uppercase;
-        letter-spacing: 1px;
+        letter-spacing: .8px;
         position: relative;
         clip-path: polygon(5px 0, 100% 0, calc(100% - 5px) 100%, 0 100%);
         margin-top: 5px;
@@ -155,13 +169,13 @@
         color: #ffffff;
         font-weight: bold;
         margin-top: 0;
-        padding-top: 17px;
+        padding-top: 14px; /* 5 + 2 + 10 = 0 + 3 + 14: lifted, not taller */
         border-top: 3px solid #818cf8;
         box-shadow: 0 0 20px rgba(102, 126, 234, 0.5);
     }
     .day-tab[aria-pressed="true"]::before { opacity: 1; background: linear-gradient(90deg, transparent, #ffffff, transparent); }
     body.dark-mode .day-tabs-band { background: #2d3748; border-bottom-color: #4a5568; }
-    body.dark-mode .day-tab { background: linear-gradient(to bottom, #1a202c 0%, #0f1419 100%); color: #718096; border-top-color: #2d3748; }
+    body.dark-mode .day-tab { background: linear-gradient(to bottom, #1a202c 0%, #0f1419 100%); color: #a0aec0; border-top-color: #2d3748; }
     body.dark-mode .day-tab:hover { background: linear-gradient(to bottom, #2d3748 0%, #1a202c 100%); color: #cbd5e0; }
     body.dark-mode .day-tab[aria-pressed="true"] { background: linear-gradient(to bottom, #818cf8 0%, #6366f1 100%); color: #ffffff; border-top-color: #a5b4fc; }
 
@@ -204,16 +218,16 @@
     }
     .view-tab {
         flex: 0 0 auto;
-        padding: 11px 24px;
+        padding: 10px 20px; /* the suite's one tab size (mtb-look.css) */
         margin-top: 5px;
         border: 0;
         border-top: 2px solid #4a5568;
         background: linear-gradient(to bottom, #2d3748 0%, #1a202c 100%);
         color: #a0aec0;
-        font-size: 14px;
+        font-size: 13px;
         font-weight: 600;
         text-transform: uppercase;
-        letter-spacing: 1px;
+        letter-spacing: .8px;
         white-space: nowrap;
         clip-path: polygon(5px 0, 100% 0, calc(100% - 5px) 100%, 0 100%);
         transition: all .3s;
@@ -222,7 +236,7 @@
     .view-tab[aria-selected="true"] {
         background: linear-gradient(to bottom, #667eea 0%, #5568d3 100%);
         color: #fff; font-weight: 700;
-        margin-top: 0; padding-top: 15px; border-top: 3px solid #818cf8; /* lifted, not taller */
+        margin-top: 0; padding-top: 14px; border-top: 3px solid #818cf8; /* lifted, not taller */
     }
     .view-tab:focus-visible { outline: 2px solid #f6c453; outline-offset: -2px; }
     .workflow-hint { margin: 12px 0 16px; color: #4a5568; font-size: 13px; line-height: 1.5; }
@@ -588,9 +602,12 @@
     body.dark-mode .workflow-hint { color: #cbd5e0; }
     body.dark-mode .field span { color: #a0aec0; }
     body.dark-mode .field select { background: #2d3748; border-color: #4a5568; color: #e2e8f0; }
-    body.dark-mode .btn { background: #2d3748; color: #e2e8f0; }
-    body.dark-mode .btn-primary { background: #818cf8; }
-    body.dark-mode .btn-primary:hover { background: #6366f1; }
+    body.dark-mode .btn { background: #1f2635; color: #e2e8f0; border-color: #4a5568; }
+    body.dark-mode .btn:hover { border-color: #818cf8; box-shadow: 0 0 0 1px #818cf8; }
+    body.dark-mode .btn .ico { background: #2c3553; color: #a5b4fc; }
+    body.dark-mode .btn-primary { background: #5a67d8; color: #fff; border-color: transparent; }
+    body.dark-mode .btn-primary:hover { background: #4c51bf; }
+    body.dark-mode .btn-primary .ico { background: rgba(255, 255, 255, .2); color: #fff; }
     body.dark-mode .metric { border-right-color: #4a5568; }
     body.dark-mode .metric strong { color: #e2e8f0; }
     body.dark-mode .metric span { color: #a0aec0; }
@@ -649,7 +666,7 @@
         .header { padding: 12px 14px; }
         .band__inner, .content { padding-left: 12px; padding-right: 12px; }
         .day-tab { padding: 10px 18px; font-size: 13px; }
-        .day-tab[aria-pressed="true"] { padding-top: 15px; }
+        .day-tab[aria-pressed="true"] { padding-top: 14px; }
         .actions { width: 100%; margin-left: 0; flex-wrap: wrap; }
         .actions .btn { flex: 1 1 92px; min-width: 0; padding-left: 8px; padding-right: 8px; }
         .actions .icon-btn { flex: 0 0 44px; }
@@ -771,16 +788,16 @@
             </select>
         </label>
         <div class="actions">
-            <a class="btn" href="Podatoci.html" data-server-link="Podatoci.html">Податоци</a>
-            <a class="btn" href="Nastava.html" data-server-link="Nastava.html">Настава</a>
+            <a class="btn" href="Podatoci.html" data-server-link="Podatoci.html"><span class="ico" aria-hidden="true">📁</span> Податоци</a>
+            <a class="btn" href="Nastava.html" data-server-link="Nastava.html" title="Настава ↔ терапии"><span class="ico" aria-hidden="true">🏫</span> Настава</a>
             <button class="btn schedule-only" id="whereToggle" type="button" aria-pressed="true"
-                    title="Прикажи каде е детето во тој термин, на лебдење">📍 Каде е детето</button>
+                    title="Прикажи каде е детето во тој термин, на лебдење"><span class="ico" aria-hidden="true">📍</span> Каде е детето</button>
             <button class="btn icon-btn" id="refresh" type="button" title="Освежи" aria-label="Освежи">↻</button>
-            <button class="btn btn-primary schedule-only" id="printSheet" type="button" title="Печати го распоредот" aria-label="Печати го распоредот">⎙ Печати</button>
-            <button class="btn schedule-only" id="exportImage" type="button" title="Зачувај го распоредот како слика" aria-label="Зачувај го распоредот како слика">📸 Слика</button>
-            <button class="btn schedule-only" id="exportWord" type="button" title="Word документ: неделниот распоред на избраниот терапевт, или на секој терапевт на своја страница" aria-label="Зачувај го распоредот како Word документ">📄 Word</button>
-            <button class="btn schedule-only" id="exportForm" type="button" title="Формулар за колега: неговата недела и неговите ученици во една датотека што се пополнува без апликацијата" aria-label="Зачувај формулар за избраниот терапевт">📤 Формулар</button>
-            <button class="btn schedule-only" id="importForm" type="button" title="Внеси го одговорот (.json) од формуларот — прво се прикажува што би се сменило" aria-label="Внеси одговор од формулар">📥 Внеси формулар</button>
+            <button class="btn btn-primary schedule-only" id="printSheet" type="button" title="Печати го распоредот" aria-label="Печати го распоредот"><span class="ico" aria-hidden="true">⎙</span> Печати</button>
+            <button class="btn schedule-only" id="exportImage" type="button" title="Зачувај го распоредот како слика" aria-label="Зачувај го распоредот како слика"><span class="ico" aria-hidden="true">📸</span> Слика</button>
+            <button class="btn schedule-only" id="exportWord" type="button" title="Word документ: неделниот распоред на избраниот терапевт, или на секој терапевт на своја страница" aria-label="Зачувај го распоредот како Word документ"><span class="ico" aria-hidden="true">📄</span> Word</button>
+            <button class="btn schedule-only" id="exportForm" type="button" title="Формулар за колега: неговата недела и неговите ученици во една датотека што се пополнува без апликацијата" aria-label="Зачувај формулар за избраниот терапевт"><span class="ico" aria-hidden="true">📤</span> Формулар</button>
+            <button class="btn schedule-only" id="importForm" type="button" title="Внеси го одговорот (.json) од формуларот — прво се прикажува што би се сменило" aria-label="Внеси одговор од формулар"><span class="ico" aria-hidden="true">📥</span> Внеси формулар</button>
             <input type="file" id="importFormFile" accept=".json,application/json" hidden>
         </div>
     </div>
@@ -804,7 +821,7 @@
 <main class="content">
     <div class="view-tabs" role="tablist" aria-label="Приказ на распоредот">
         <button class="view-tab" id="scheduleTab" type="button" role="tab" aria-selected="true"
-            aria-controls="schedulePanel" data-panel="schedule">Распоред</button>
+            aria-controls="schedulePanel" data-panel="schedule">Термини</button>
         <button class="view-tab" id="nowTab" type="button" role="tab" aria-selected="false"
             aria-controls="nowPanel" data-panel="now">🔔 Сега</button>
         <button class="view-tab" id="rosterTab" type="button" role="tab" aria-selected="false"
@@ -813,11 +830,11 @@
         <button class="view-tab" id="visitsTab" type="button" role="tab" aria-selected="false" aria-controls="reportPanel" data-panel="visits">Посети по ученик</button>
         <button class="view-tab" id="allDaysTab" type="button" role="tab" aria-selected="false" aria-controls="schedulePanel" data-panel="allDays">Сите денови</button>
     </div>
-    <p class="workflow-hint">Избери ученици во „Ученици по терапевт“, па постави ги термините во „Распоред“.</p>
+    <p class="workflow-hint">Избери ученици во „Ученици по терапевт“, па постави ги во „Термини“.</p>
     <div class="workspace">
         <section class="schedule-tool" id="schedulePanel" role="tabpanel" aria-labelledby="scheduleTab scheduleTitle">
             <div class="section-header">
-                <h2 id="scheduleTitle">Распоред</h2>
+                <h2 id="scheduleTitle">Термини</h2>
                 <span id="scheduleMeta"></span>
             </div>
             <p class="workflow-hint">Еден ученик: 40 минути. Со „+“ терминот се дели на два последователни третмани по 20 минути. Истовремен групен третман сè уште не може да се внесе.</p>
@@ -832,7 +849,7 @@
                     <h2 id="rosterTitle">Ученици по терапевт</h2>
                     <span id="therapistRosterCount">0 ученици</span>
                 </div>
-                <button class="btn btn-primary" id="openCaseloadBtn" type="button">✓ Измени список на ученици</button>
+                <button class="btn btn-primary" id="openCaseloadBtn" type="button"><span class="ico" aria-hidden="true">✓</span> Измени список на ученици</button>
             </div>
             <p class="workflow-hint">Овде го избираш списокот од веќе запишаните ученици. Нов ученик додава администраторот во „Податоци“.</p>
             <div class="roster-controls">
@@ -854,7 +871,7 @@
                     </select>
                 </label>
                 <label class="roster-field">
-                    <span>Распоред</span>
+                    <span>Термин</span>
                     <select id="rosterSession">
                         <option value="all">Сите</option>
                         <option value="scheduled">Со сесија</option>
@@ -898,7 +915,7 @@
             <div class="roster-controls report-controls">
                 <label class="roster-field"><span id="reportFilterLabel">Терапевт за овој приказ</span><select id="reportTherapist"><option value="">Сите терапевти</option></select></label>
                 <button class="btn" id="reportAllTherapists" type="button">Прикажи ги сите</button>
-                <button class="btn btn-primary" id="printReport" type="button">⎙ Печати го прегледот</button>
+                <button class="btn btn-primary" id="printReport" type="button"><span class="ico" aria-hidden="true">⎙</span> Печати го прегледот</button>
             </div>
             <p class="report-note" id="reportNote"></p>
             <div id="reportContent"></div>
@@ -917,7 +934,7 @@
             <button type="button" class="btn-close" id="closeCaseloadModal" aria-label="Затвори">✕</button>
         </div>
         <div class="modal-body">
-            <p class="workflow-hint">Отштиклирањето го трга ученикот од овој список. Веќе закажаните термини се менуваат посебно во „Распоред“.</p>
+            <p class="workflow-hint">Отштиклирањето го трга ученикот од овој список. Веќе закажаните термини се менуваат посебно во „Термини“.</p>
             <div style="margin-bottom: 10px;">
                 <input id="caseloadSearch" type="search" placeholder="Пребарај ученик по име или одделение…"
                     style="width: 100%; padding: 8px 12px; border-radius: 6px; border: 1px solid var(--border, #cbd5e0); background: inherit; color: inherit; box-sizing: border-box;">

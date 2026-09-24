@@ -9,7 +9,7 @@ const BASE = process.env.API || 'http://127.0.0.1:3000';
 // being read at all.
 const APPS = [
     ['S-Dnevnik.html', 'S-Дневник'],
-    ['RasporediFusion.html', 'Распоред'],
+    ['RasporediFusion.html', 'Кабинети'],
     ['Nastava.html', 'Настава ↔ терапии'],
     ['NastavaUredi.html', 'Уреди настава'],
     ['Podatoci.html', 'Податоци'],

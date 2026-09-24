@@ -56,9 +56,9 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);font-size:14
 /* Tabs — S-Dnevnik's clipped dark strip */
 .tabs{display:flex;background:linear-gradient(to bottom,#1a1a2e,#16213e);border-bottom:3px solid #0f3460;padding:0 8px;gap:4px;overflow-x:auto;scrollbar-width:none;}
 .tabs::-webkit-scrollbar{display:none;}
-.tab{padding:11px 20px;border:none;background:linear-gradient(to bottom,#2d3748,#1a202c);cursor:pointer;font-size:12.5px;color:#a0aec0;font-weight:600;letter-spacing:.6px;text-transform:uppercase;white-space:nowrap;clip-path:polygon(5px 0,100% 0,calc(100% - 5px) 100%,0 100%);margin-top:5px;border-top:2px solid #4a5568;font-family:var(--font);}
+.tab{padding:10px 20px;border:none;background:linear-gradient(to bottom,#2d3748,#1a202c);cursor:pointer;font-size:13px;color:#a0aec0;font-weight:600;letter-spacing:.8px;text-transform:uppercase;white-space:nowrap;clip-path:polygon(5px 0,100% 0,calc(100% - 5px) 100%,0 100%);margin-top:5px;border-top:2px solid #4a5568;font-family:var(--font);}
 .tab:hover{background:linear-gradient(to bottom,#4a5568,#2d3748);color:#e2e8f0;}
-.tab.active{background:linear-gradient(to bottom,var(--brand1),#5568d3);color:#fff;margin-top:0;padding-top:16px;border-top:3px solid #818cf8;}
+.tab.active{background:linear-gradient(to bottom,var(--brand1),#5568d3);color:#fff;margin-top:0;padding-top:14px;border-top:3px solid #818cf8;}
 
 /* Toolbar: year, pupil, actions */
 .bar{background:var(--card);border-bottom:1px solid var(--border);padding:9px 14px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
@@ -67,8 +67,11 @@ select,input,textarea{font-family:var(--font);font-size:13px;padding:7px 10px;bo
 textarea{min-height:56px;resize:vertical;width:100%;}
 /* S-Dnevnik's buttons: 14px, bold, lifted on hover; the plain one is its
    grey filter button, the coloured ones are filled. */
-.btn{display:inline-flex;align-items:center;gap:6px;padding:10px 20px;border-radius:6px;cursor:pointer;font-size:14px;font-weight:700;font-family:var(--font);background:var(--hover);color:var(--text);border:1px solid var(--border);transition:all .3s;}
+.btn{display:inline-flex;align-items:center;gap:8px;padding:10px 18px;border-radius:10px;cursor:pointer;font-size:14px;font-weight:700;font-family:var(--font);background:var(--hover);color:var(--text);border:1px solid var(--border);transition:all .3s;}
 .btn:hover:not([disabled]){filter:brightness(.94);transform:translateY(-1px);box-shadow:0 4px 8px rgba(0,0,0,.15);}
+/* The suite's card (mtb-look.css): an unfilled button lights its border in the accent. */
+.btn:where(:not(.btn-p,.btn-g,.btn-r,.btn-b)):hover:not([disabled]){filter:none;transform:none;border-color:var(--brand1,#667eea);box-shadow:0 0 0 1px var(--brand1,#667eea);}
+.btn-sm{border-radius:8px;}
 .btn-p{background:var(--btn-bg);color:#fff;border-color:transparent;}
 .btn-g{background:var(--btn-green);color:#fff;border-color:transparent;}
 .btn-r{background:var(--btn-red);color:#fff;border-color:transparent;}

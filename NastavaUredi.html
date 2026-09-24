@@ -99,7 +99,8 @@
     table.grid th .cls-link:hover { color: var(--edit); }
 
     td.cell { cursor: pointer; }
-    td.cell .subject.none { font-weight: 400; font-style: italic; color: var(--muted); }
+    /* Upright: a Macedonian italic turns „предмет" into „ūредмеш". */
+    td.cell .subject.none { font-weight: 400; color: var(--muted); }
     td.cell .box { padding: 6px 8px; min-height: 42px; border-radius: 4px; }
     td.cell .subject { font-weight: 600; }
     td.cell .teacher { display: block; font-size: 11px; color: var(--muted); }
@@ -138,7 +139,7 @@
     /* The subject is a second click target, so it has to look like one. */
     table.grid.week td.wk .sub2 { cursor: pointer; }
     table.grid.week td.wk .sub2:hover { text-decoration: underline; }
-    table.grid.week td.wk .sub2.none { opacity: .38; font-style: italic; }
+    table.grid.week td.wk .sub2.none { opacity: .38; }
     table.grid.week td.wk select.subj { font-size: 10px; max-width: 100%; }
     table.grid.week td.wk.has { background: var(--filled); }
     table.grid.week td.wk:hover { box-shadow: inset 0 0 0 1px var(--edit); }
@@ -232,9 +233,9 @@
 </head>
 <body>
 <header>
-    <h1>✏️ Настава — уредување</h1>
+    <h1>✏️ Уреди настава</h1>
     <a class="btn soft" href="Nastava.html"
-       title="Види кој е отсутен од кој час">👁️ Преглед со терапии</a>
+       title="Види кој е отсутен од кој час"><span class="ico" aria-hidden="true">🏫</span> Настава ↔ терапии</a>
     <span class="sub">распоредот на часови, час по час, во текот на целата година</span>
 </header>
 
@@ -253,9 +254,9 @@
                 <input type="checkbox" id="onlyUsed" style="min-width: auto;">
                 <span>само одделенија со часови</span>
             </label>
-            <button class="btn soft" id="refresh">↻ Освежи</button>
+            <button class="btn soft" id="refresh"><span class="ico" aria-hidden="true">↻</span> Освежи</button>
             <button class="btn soft" id="printWeek" style="display:none;"
-                    title="Секое одделение на своја страница, како распоредот што стои на вратата">⎙ Печати</button>
+                    title="Секое одделение на своја страница, како распоредот што стои на вратата"><span class="ico" aria-hidden="true">⎙</span> Печати</button>
             <span class="status" id="status"></span>
         </div>
         <!-- The same tab strip as Настава ↔ терапии and S-Dnevnik. The views
@@ -1341,7 +1342,7 @@
             + '<button class="btn soft" id="edNext">Зачувај и следен →</button>'
             + (lesson ? `<button class="btn danger" id="edDrop">Испразни го часот</button>` : '')
             + '<button class="btn soft" id="edClose">Откажи</button>'
-            + `<button class="btn soft" id="edWeek" title="Истото одделение, сите пет дена">📅 Цела недела за ${esc(label)}</button>`
+            + `<button class="btn soft" id="edWeek" title="Истото одделение, сите пет дена"><span class="ico" aria-hidden="true">📅</span> Цела недела за ${esc(label)}</button>`
             + '</div>'
             + '<datalist id="edSubjects">'
             + Array.from(everything).sort((a, b) => a.localeCompare(b, 'mk')).map((s) => `<option value="${esc(s)}">`).join('')

@@ -12,7 +12,7 @@
     const APPS = [
         { file: 'start.html', label: 'Сите', title: 'Сите апликации' },
         { file: 'S-Dnevnik.html', label: 'S-Дневник', title: 'Електронски дневник' },
-        { file: 'RasporediFusion.html', label: 'Распоред', title: 'Распоред на терапевтски кабинети' },
+        { file: 'RasporediFusion.html', label: 'Кабинети', title: 'Распоред на терапевтски кабинети' },
         { file: 'Nastava.html', label: 'Настава ↔ терапии', title: 'Настава и терапии — кој е отсутен од кој час' },
         { file: 'NastavaUredi.html', label: 'Уреди настава', title: 'Внесување и менување на распоредот на настава' },
         { file: 'Podatoci.html', label: 'Податоци', title: 'Поставување на учебната година и списоците' },

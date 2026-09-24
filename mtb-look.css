@@ -128,12 +128,26 @@ header a { color: #fff; opacity: .9; font-size: 0.85em; }
     font-weight: 600;
 }
 
-/* Buttons — S-Dnevnik's `.btn`: solid, 14px, lifted on hover. */
+/* Buttons. The filled one keeps S-Dnevnik's indigo; the quieter one is a
+   CARD (24 Sep 2026, the owner's reference was ImageGlass's download page):
+   its own surface, a thin border that lights up in the accent on hover, and
+   the icon in a small tile of its own — `<span class="ico">⎙</span> Печати`.
+   A button without the span still looks right; the tile is only a bonus.
+   Fusion carries a copy of these numbers because it does not load this file. */
+:root {
+    --mtb-card-btn: #ffffff; --mtb-card-line: #cbd5e0; --mtb-card-hover: #667eea;
+    --mtb-ico-bg: #eceffd; --mtb-ico: #4c51bf;
+}
+:root[data-theme="dark"] {
+    --mtb-card-btn: #1f2635; --mtb-card-line: #4a5568; --mtb-card-hover: #818cf8;
+    --mtb-ico-bg: #2c3553; --mtb-ico: #a5b4fc;
+}
 .btn {
-    display: inline-flex; align-items: center; justify-content: center; gap: 6px;
-    padding: 12px 25px;
-    border: none;
-    border-radius: 6px;
+    display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+    padding: 10px 18px;
+    min-height: 42px;
+    border: 1px solid transparent;
+    border-radius: 10px;
     background: var(--btn-bg);
     color: #fff;
     font-size: 14px;
@@ -155,20 +169,37 @@ header a { color: #fff; opacity: .9; font-size: 0.85em; }
 .btn-success { background: var(--success); color: #fff; }
 .btn-danger, .btn.danger { background: var(--danger-dark); color: #fff; }
 
-/* The quieter button, and the on/off choice between views — S-Dnevnik's
-   filter buttons: grey until chosen, indigo when chosen. */
-.btn.soft {
-    background: var(--toggle-bg);
-    color: var(--toggle-text);
-    border: 1px solid var(--toggle-border);
-    font-weight: 700;
+/* The quieter button is the card; as an on/off choice it turns indigo when
+   chosen, as S-Dnevnik's filter buttons do.
+   :where() keeps these at the weight of `.btn`, so a tab strip's own
+   `.mtb-tabs > .btn` still wins over the card look on the tabs. */
+.btn:where(.soft) {
+    background: var(--mtb-card-btn);
+    color: var(--text);
+    border: 1px solid var(--mtb-card-line);
+    font-weight: 600;
+    box-shadow: var(--shadow);
 }
-.btn.soft.danger { color: var(--danger); background: var(--toggle-bg); }
+.btn:where(.soft):hover:not(:disabled) {
+    transform: none; filter: none;
+    border-color: var(--mtb-card-hover);
+    box-shadow: 0 0 0 1px var(--mtb-card-hover);
+}
+.btn:where(.soft.danger) { color: var(--danger); background: var(--mtb-card-btn); }
 .btn[aria-pressed="true"], .btn.soft[aria-pressed="true"] {
     background: var(--toggle-on);
     color: #fff;
     border-color: transparent;
 }
+/* The icon tile. On a filled button it is a lighter square of the fill. */
+.btn .ico {
+    display: inline-grid; place-items: center; flex: 0 0 auto;
+    width: 26px; height: 26px; margin-left: -6px;
+    border-radius: 7px;
+    background: var(--mtb-ico-bg); color: var(--mtb-ico);
+    font-size: 15px; line-height: 1; font-weight: 400;
+}
+.btn:not(.soft) .ico, .btn[aria-pressed="true"] .ico { background: rgba(255, 255, 255, .2); color: #fff; }
 
 /* Tabs — S-Dnevnik's УЧЕНИЦИ / РАСПОРЕД strip: a dark band, tabs cut on a
    slant, the chosen one lifted in the purple. The owner liked them best and
@@ -176,7 +207,13 @@ header a { color: #fff; opacity: .9; font-size: 0.85em; }
    S-Dnevnik's 10px lean — hence --mtb-tab-slant, used by every copy.
    A page marks its row of view buttons `mtb-tabs`; the buttons keep their
    classes and aria-pressed, so nothing that selects them has to change. */
-:root { --mtb-tab-slant: 5px; }
+/* ONE size for every tab strip in the suite, the workspace's app row
+   included. Pages that cannot load this file (S-Dnevnik, Fusion, the
+   workspace shell, Евидентен лист) copy these four numbers: 13px, 10px 20px,
+   .8px, and 14px for the lifted tab. Until 24 Sep 2026 there were four
+   sizes, from 12.5px to 15px, and the page's tabs stood taller than the
+   workspace's own row above them. */
+:root { --mtb-tab-slant: 5px; --mtb-tab-font: 13px; --mtb-tab-pad: 10px 20px; --mtb-tab-track: .8px; }
 .mtb-tabs {
     display: flex; flex-wrap: wrap; align-items: flex-end; gap: 5px;
     padding: 0 10px;
@@ -187,17 +224,17 @@ header a { color: #fff; opacity: .9; font-size: 0.85em; }
     margin-bottom: 16px;
 }
 .mtb-tabs > .btn {
-    padding: 11px 24px;
+    padding: var(--mtb-tab-pad);
     margin-top: 5px;
     border: none;
     border-top: 2px solid #4a5568;
     border-radius: 0;
     background: linear-gradient(to bottom, #2d3748 0%, #1a202c 100%);
     color: #a0aec0;
-    font-size: 14px;
+    font-size: var(--mtb-tab-font);
     font-weight: 600;
     text-transform: uppercase;
-    letter-spacing: 1px;
+    letter-spacing: var(--mtb-tab-track);
     clip-path: polygon(var(--mtb-tab-slant) 0, 100% 0, calc(100% - var(--mtb-tab-slant)) 100%, 0 100%);
 }
 .mtb-tabs > .btn:hover:not(:disabled) {
@@ -209,17 +246,19 @@ header a { color: #fff; opacity: .9; font-size: 0.85em; }
     background: linear-gradient(to bottom, #667eea 0%, #5568d3 100%);
     color: #fff;
     font-weight: 700;
-    /* Lifted, not taller: 5 + 2 + 11 = 0 + 3 + 15, so choosing a tab does
+    /* Lifted, not taller: 5 + 2 + 10 = 0 + 3 + 14, so choosing a tab does
        not move everything under the strip by a pixel. */
     margin-top: 0;
-    padding-top: 15px;
+    padding-top: 14px;
     border-top: 3px solid #818cf8;
 }
 /* Anything else on the strip (a checkbox, a note) sits on its dark band. */
 .mtb-tabs > :not(.btn) { align-self: center; margin-top: 5px; margin-bottom: 5px; }
 
 /* Inside a table a button is one of many on a row: same look, less room. */
-table .btn { padding: 6px 12px; font-size: 13px; }
+table .btn { padding: 6px 12px; min-height: 0; font-size: 13px; border-radius: 8px; }
+/* A tab is not a card: the strip above states its own shape. */
+.mtb-tabs > .btn { min-height: 0; box-shadow: none; }
 
 /* Fields — S-Dnevnik's `.form-group`. */
 .field { display: flex; flex-direction: column; gap: 6px; font-size: 13px; font-weight: 600; color: var(--text); }

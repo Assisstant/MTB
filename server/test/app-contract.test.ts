@@ -14,7 +14,7 @@ test('the launchers expose one canonical schedule application', async () => {
 
     assert.match(start, /id:'raspored'[^\n]+file:'RasporediFusion\.html'/);
     assert.doesNotMatch(start, /file:'Rasporedi\.html'/);
-    assert.match(navigation, /file: 'RasporediFusion\.html', label: 'Распоред'/);
+    assert.match(navigation, /file: 'RasporediFusion\.html', label: 'Кабинети'/);
     assert.doesNotMatch(navigation, /file: 'Rasporedi\.html', label:/);
     assert.match(hub, /NOT_APPS = new Set\([\s\S]*?'Rasporedi\.html'/);
     assert.match(hub, /apps = apps\.filter\(a => !NOT_APPS\.has\(a\.url\)\)/);
@@ -159,7 +159,13 @@ test('the connected screens take their look from S-Dnevnik, through one styleshe
     assert.match(look, /--mtb-header: linear-gradient\(135deg, #667eea 0%, #764ba2 100%\)/,
         'the shared header is no longer the S-Dnevnik gradient');
     assert.match(look, /--primary: #667eea;/, 'the shared primary is no longer the S-Dnevnik one');
-    assert.match(look, /padding: 12px 25px;/, 'the shared button is no longer the S-Dnevnik size');
+    // 24 Sep 2026: one button size for the suite, S-Dnevnik included — so
+    // the check is that the two copies AGREE, not a number frozen in time.
+    const diary = await readRoot('S-Dnevnik.html');
+    for (const [name, css] of [['mtb-look.css', look], ['S-Dnevnik.html', diary]] as const) {
+        assert.match(css, /\.btn \{\s*[^}]*padding: 10px 18px;\s*min-height: 42px;[^}]*border-radius: 10px;/,
+            `${name}: the button is no longer the suite's one size`);
+    }
     for (const file of ['Nastava.html', 'NastavaUredi.html', 'Podatoci.html', 'Pregled-Baza.html',
         'Sinhronizacija.html', 'start.html']) {
         const html = await readRoot(file);
@@ -172,6 +178,28 @@ test('the connected screens take their look from S-Dnevnik, through one styleshe
             `${file} states its own palette again`);
         assert.doesNotMatch(head, /\n\s*header \{/, `${file} draws its own header again`);
         assert.doesNotMatch(head, /\n\s*\.btn \{/, `${file} draws its own button again`);
+    }
+});
+
+test('every tab strip in the suite is one size', async () => {
+    // Owner, 24 Sep 2026: the workspace's app row and the page's own tabs
+    // under it stood at two sizes (12.5px and 14–15px), and it read as two
+    // designs. Five files carry a copy of the strip because three of them
+    // cannot load the shared stylesheet; each copy must state the same four
+    // numbers: 13px text, 10px 20px padding, .8px tracking, 14px lifted.
+    const look = await readRoot('mtb-look.css');
+    assert.match(look, /--mtb-tab-font: 13px; --mtb-tab-pad: 10px 20px; --mtb-tab-track: \.8px;/);
+    assert.match(look, /padding-top: 14px;/);
+    const copies: Array<[string, RegExp, RegExp]> = [
+        ['MTB-Workspace.html', /\.app-tabs button \{[^}]*padding: 10px 20px;[^}]*font-size: 13px;[^}]*letter-spacing: \.8px;/, /\.app-tabs button\.active \{[^}]*padding-top: 14px;/],
+        ['S-Dnevnik.html', /\.tab \{\s*padding: 10px 20px;[^}]*font-size: 13px;[^}]*letter-spacing: \.8px;/, /\.tab\.active \{[^}]*padding-top: 14px;/],
+        ['RasporediFusion.html', /\.view-tab \{[^}]*padding: 10px 20px;[^}]*font-size: 13px;[^}]*letter-spacing: \.8px;/, /\.view-tab\[aria-selected="true"\] \{[^}]*padding-top: 14px;/],
+        ['AkciskiPlan.html', /\.tab\{padding:10px 20px;[^}]*font-size:13px;[^}]*letter-spacing:\.8px;/, /\.tab\.active\{[^}]*padding-top:14px;/]
+    ];
+    for (const [file, tab, lifted] of copies) {
+        const html = await readRoot(file);
+        assert.match(html, tab, `${file}: its tabs are not the suite's one size`);
+        assert.match(html, lifted, `${file}: its chosen tab is not lifted by exactly the border it gains`);
     }
 });
 
