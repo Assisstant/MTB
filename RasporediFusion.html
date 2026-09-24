@@ -272,6 +272,13 @@
     .report-heading { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 10px; }
     .report-note { color: #64748b; font-size: 13px; line-height: 1.5; }
     body.dark-mode .report-note { color: #cbd5e0; }
+    /* Slots left behind by pupils taken off the list: apart, and not printed. */
+    .report-stray { margin-top: 14px; padding: 10px 12px; border: 1px solid #d69e2e; border-radius: 8px; background: #fffaf0; color: #1a202c; }
+    .report-stray h4 { margin: 0 0 4px; font-size: 14px; color: #1a202c; }
+    .report-stray .report-note { color: #4a5568; }
+    body.dark-mode .report-stray { background: #3b3222; border-color: #b7791f; color: #f7fafc; }
+    body.dark-mode .report-stray h4 { color: #f7fafc; }
+    body.dark-mode .report-stray .report-note { color: #e2e8f0; }
     .report-table { width: 100%; border-collapse: collapse; font-size: 14px; }
     #reportContent { overflow-x: auto; }
     .report-table { min-width: 620px; }
@@ -1452,12 +1459,25 @@
         const sort = (a, b) => String(a.name).localeCompare(String(b.name), 'mk') || String(a.grade || '').localeCompare(String(b.grade || ''), 'mk') || a.public_id.localeCompare(b.public_id);
         if (state.panel === 'lists') return therapists.filter((t) => !onlyTherapist || String(t.id) === onlyTherapist).map((t) => {
             const visits = counts.get(t.id);
-            const ids = new Set([...(t.students || []), ...visits.keys()]);
-            const pupils = [...ids].map((id) => students.get(id)).filter(Boolean).sort(sort);
+            // The list is who is ON it. A pupil taken off it keeps any slot
+            // already booked, and that slot used to put them straight back in
+            // the printed list — edited in the picker, not in the printout.
+            // Such slots are named apart, with where they are, and not printed.
+            const pupils = (t.students || []).map((id) => students.get(id)).filter(Boolean).sort(sort);
+            const left = strayBookings(t);
+            const stray = [...left.keys()].map((id) => students.get(id)).filter(Boolean).sort(sort);
             return '<section class="report-section" data-report-therapist="' + t.id + '"><div class="report-heading"><h3>' + esc(t.name) +
                 '</h3><button class="btn" type="button" data-print-therapist="' + t.id + '">Печати список</button></div>' +
                 '<p class="report-note">' + esc(state.year) + ' · ' + pupils.length + ' ученици · Вкупно посети неделно: ' + pupils.reduce((sum, s) => sum + (visits.get(s.public_id) || 0), 0) + '</p>' +
-                reportTable(['Бр.', 'Име и презиме', 'Паралелка', 'Посети неделно'], pupils.map((s, i) => [i + 1, s.name, s.grade || '—', visits.get(s.public_id) || 0])) + '</section>';
+                reportTable(['Бр.', 'Име и презиме', 'Паралелка', 'Посети неделно'], pupils.map((s, i) => [i + 1, s.name, s.grade || '—', visits.get(s.public_id) || 0])) +
+                (stray.length
+                    ? '<div class="report-stray"><h4>Закажани, а не се на списокот (' + stray.length + ')</h4>' +
+                      '<p class="report-note">Отстранети од списокот, но терминот во распоредот останал. Испразнете го во „Термини“, ' +
+                      'или вратете го ученикот на списокот. Не се печатат.</p>' +
+                      reportTable(['Име и презиме', 'Паралелка', 'Термин'], stray.map((s) => [s.name, s.grade || '—', slotText(left.get(s.public_id))])) +
+                      '</div>'
+                    : '') +
+                '</section>';
         }).join('');
         const rows = [...students.values()].sort(sort).map((s) => {
             const visits = therapists.map((t) => ({ t, n: counts.get(t.id).get(s.public_id) || 0 })).filter((v) => v.n);
@@ -1498,7 +1518,7 @@
         if (!sheet) return showNotice('Дозволи прозорец за печатење во прелистувачот.', 'error');
         const title = el('reportTitle').textContent;
         sheet.document.write('<!DOCTYPE html><html lang="mk"><head><meta charset="UTF-8"><title>' + esc(title) + '</title><style>' + printStyles() +
-            '@page{size:A4 portrait;margin:12mm}.report-section{break-before:page}.report-section:first-of-type{break-before:auto}button{display:none}table{table-layout:auto}tr{break-inside:avoid}h3{color:#222}.report-note{font-size:9pt}' +
+            '@page{size:A4 portrait;margin:12mm}.report-section{break-before:page}.report-section:first-of-type{break-before:auto}button{display:none}.report-stray{display:none}table{table-layout:auto}tr{break-inside:avoid}h3{color:#222}.report-note{font-size:9pt}' +
             '</style></head><body><h1>' + esc(SCHOOL) + '</h1><h2>' + esc(title) + ' · ' + esc(state.year) + '</h2><p>' + esc(el('reportNote').textContent) +
             '</p>' + reportHtml(therapistId) + '<scr' + 'ipt>window.onload=function(){window.print();}</scr' + 'ipt></body></html>');
         sheet.document.close();
@@ -1544,6 +1564,33 @@
             if (time === fullTime || bellParts(bell).some((part) => part.time === time)) return fullTime;
         }
         return time;
+    }
+
+    /**
+     * Slots a therapist still holds for pupils no longer on their list:
+     * public_id -> Set of "day|block". Taking a pupil off the list does not
+     * clear the week — the week is edited cell by cell, and a 40-minute block
+     * may be shared by two pupils — so what is left behind is named instead.
+     */
+    function strayBookings(therapist) {
+        const onList = new Set(therapist.students || []);
+        const where = new Map();
+        state.sessions.forEach((session) => {
+            if (String(session.therapist_id) !== String(therapist.id) || !session.student_public_id) return;
+            if (onList.has(session.student_public_id)) return;
+            if (!where.has(session.student_public_id)) where.set(session.student_public_id, new Set());
+            where.get(session.student_public_id).add(session.day + '|' + enclosingBlockTime(session.time));
+        });
+        return where;
+    }
+
+    /** „понеделник 09:40, среда 08:00" — in the week's order. */
+    function slotText(keys) {
+        return [...(keys || [])]
+            .map((key) => key.split('|'))
+            .sort((a, b) => DAYS.indexOf(a[0]) - DAYS.indexOf(b[0]) || String(a[1]).localeCompare(String(b[1])))
+            .map(([day, block]) => day + ' ' + String(block).split('-')[0])
+            .join(', ');
     }
 
     function therapistSessionCounts(therapistId) {
@@ -1842,7 +1889,16 @@
             closeCaseloadModal();
             drawTherapistRoster();
             drawSchedule();
-            showNotice(`Зачувано: +${add.length} / −${drop.length} ученици во списокот.`, 'ok');
+            // Taking a pupil off the list leaves their booked slots where
+            // they are (see strayBookings), so say which, and where.
+            const saved = (roster.therapists || []).find((item) => String(item.id) === String(therapist.id));
+            const left = saved ? strayBookings(saved) : new Map();
+            const byId = studentsById();
+            const kept = drop.filter((p) => left.has(p)).map((p) =>
+                ((byId.get(p) && byId.get(p).name) || p) + ' (' + slotText(left.get(p)) + ')');
+            showNotice(`Зачувано: +${add.length} / −${drop.length} ученици во списокот.`
+                + (kept.length ? ` Терминот во распоредот остана за: ${kept.join('; ')} — испразнете го во „Термини“.` : ''),
+                kept.length ? 'warn' : 'ok');
             setConnection(true, 'Зачувано');
         } catch (err) {
             // Row writes are intentionally atomic one by one, so an error can

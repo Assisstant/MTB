@@ -102,6 +102,26 @@ try {
     await page.click('#visitsTab');
     assert.ok(await page.locator('#reportContent').isVisible());
     await page.screenshot({ path: '../backups/fusion-reports-qa/mobile.png', fullPage: true });
+    // A pupil taken off a list keeps the slot already booked. The list is who
+    // is ON it; the slot left behind is named apart, with where it is, and
+    // the printed list leaves it out (owner, 24 Sep 2026: it printed anyway).
+    therapists[1].students = [];
+    await page.setViewportSize({ width: 1440, height: 1000 });
+    await page.reload();
+    await page.locator('#scheduleGrid .schedule-grid').waitFor();
+    await page.click('#listsTab');
+    await page.selectOption('#reportTherapist', '2');
+    const listB = page.locator('[data-report-therapist="2"]');
+    assert.match(await listB.locator('.report-note').first().textContent(), / 0 ученици · Вкупно посети неделно: 0$/);
+    assert.equal(await listB.locator('table.report-table').first().locator('tbody').textContent(), 'Нема ученици.');
+    assert.match(await listB.locator('.report-stray h4').textContent(), /Закажани, а не се на списокот \(1\)/);
+    assert.deepEqual(await listB.locator('.report-stray tbody td').allTextContents(), ['Пробно Име', 'III', 'среда 08:00']);
+    const strayPrint = context.waitForEvent('page');
+    await listB.locator('[data-print-therapist="2"]').click();
+    const straySheet = await strayPrint; await straySheet.waitForLoadState();
+    assert.equal(await straySheet.locator('.report-stray').isVisible(), false, 'the slot left behind is not printed as part of the list');
+    assert.equal(await straySheet.locator('table.report-table').first().locator('tbody').textContent(), 'Нема ученици.');
+    await straySheet.close();
     assert.deepEqual(writes, []); assert.deepEqual(errors, []);
     console.log('Fusion reports: independent therapist filters, scoped totals and printing, zero visits, stable identities, merged halves, all days, mobile and dark theme passed; no API writes.');
 } finally { await browser.close(); }
