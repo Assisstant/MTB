@@ -1,9 +1,8 @@
 # Offline forms for colleagues, and a review queue for what comes back
 
-Owner's request, 24 September 2026. Status: **step 1 built** (24 Sep, HOME):
-the review queue, for the therapist form that already existed
-(`mtb-schedule-form.js`, 23 Sep). Steps 2–4 not started. The owner's
-decisions are in part 4.
+Owner's request, 24 September 2026. Status: **steps 1–4 built** (24 Sep,
+HOME): the review queue (part 5), the cabinet form version 2, the class form
+and the export/import buttons (part 6). The owner's decisions are in part 4.
 
 This is not the same thing as `docs/PLAN-eden-urednik.md`. That plan is about
 popup forms INSIDE the apps, which write at once. This one is about a FILE a
@@ -185,3 +184,42 @@ Small steps; each approved, tested with invented data, committed, shipped.
 - **Tests:** `test:form-replies` (in-process, its own MTB_ADMIN, invented
   year), `test:forms-queue` (the tab, both themes), `test:schedule-form`
   (the hand-off), and a release test for 040.
+
+## 6. Steps 2–4 as built (24 September, evening)
+
+- **Cabinet form, version 2** (`mtb-schedule-form.js`): ONE file for every
+  therapist of the year; „Терапевт:" dropdown at the top (preselected when
+  one therapist is chosen in Кабинети); the whole year's pupils as a
+  checklist grouped „II-б · Христовска"; only ticked pupils are offered in a
+  term; unticking a placed pupil asks and takes them out of those terms;
+  „🖼 Слика" draws the week to a PNG (`paintGrid`, shared with the class
+  form). Each person's draft is kept apart in the browser. The reply adds
+  `pupils: {baseline, ticked}`; `plan()` still reads version 1.
+  A tick taken away becomes an `uncaseload` item — only when the database
+  still lists the pupil and the answer places them in no term — written by
+  `DELETE /api/therapists/:name/students/:id` (the link only; history stays).
+- **Class form** (`mtb-class-form.js`, needs `mtb-schedule-form.js` first):
+  ONE file for every class; „Одделение:" dropdown „II-б · Христовска"; the
+  week as periods × days, a subject select per cell (only ticked subjects,
+  plus „✎ друг предмет…") and an optional teacher; the full subject list as
+  a checklist that only filters (nothing stored); the class's pupils with
+  their generation, read only, each with a free-text „what is wrong"; a
+  cell holding two lessons is locked, as in Уреди настава. The reply is
+  `{kind: 'mtb-class-reply', version: 1, class: {id, label}, homeroom,
+  baseline, cells, subjects, reports, note}` — cells keyed `day|ordinal`.
+- **Queue:** a class answer is `kind = 'class'`, the same employee rule by
+  LABEL (`class:<label>`), newest wins. Items: `lesson` — clean, changed
+  (the database no longer holds the form's cell), conflict (the teacher is
+  in another class in that period), refused (no such period, two lessons in
+  the cell, a teacher not on the year's list); `report` — its own group,
+  never pre-ticked, accepting it records „забележано" and writes nothing.
+  Lessons are written by `PUT /api/teaching/lesson` with `expected`, or
+  `DELETE /api/teaching/lesson/:id` for a cleared period.
+- **Buttons:** Кабинети → „📤 Формулар" (all therapists) and „📥 Внеси
+  формулар"; Уреди настава → „📤 Формулар" (all classes) and „📥 Внеси
+  формулар". Both imports only store; the review is Податоци → Формулари.
+- **Tests:** `class-form.test.ts` (10, pure), `schedule-form.test.ts` (+5
+  for version 2), `test:class-form` (Уреди настава → offline form → queue),
+  `test:schedule-form` (version 2), `test:forms-queue` (a class answer),
+  `test:form-replies` (+ version 2 checklist and a class answer written
+  through the owning routes, against a real database, invented year).

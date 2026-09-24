@@ -1,5 +1,7 @@
 /**
- * The review queue for offline form answers (docs/PLAN-formulari.md, step 1).
+ * The review queue for offline form answers (docs/PLAN-formulari.md, steps
+ * 1–3): a therapist's answer (version 1, and version 2 with its checklist) and
+ * a homeroom teacher's class answer.
  *
  * In-process, like colleague.e2e.ts: the app is built here with its own
  * MTB_ADMIN, so the rule "only the administrator, signed in" is exercised
@@ -16,6 +18,7 @@ import { rosterWriteRoutes } from '../src/routes/roster-write.js';
 import { evidenceAuthRoutes } from '../src/routes/evidence-auth.js';
 import { workspaceRoutes } from '../src/routes/workspace.js';
 import { formReplyRoutes } from '../src/routes/form-replies.js';
+import { teachingEditRoutes } from '../src/routes/teaching-edit.js';
 import { installColleagueBoundary } from '../src/lib/colleague.js';
 
 const DB = process.env.DATABASE_URL;
@@ -30,6 +33,11 @@ const A = 'Пробен Терапевт Формулар А';
 const B = 'Пробен Терапевт Формулар Б';
 const NEW_PUPIL = 'Сосема Нов Пробен Ученик';
 const PEOPLE = [ADMIN, A, B];
+const TA = 'Пробен Наставник Формулар А';
+const TB = 'Пробен Наставник Формулар Б';
+const TEACHERS = [TA, TB];
+const C1 = 'ПФ-1';
+const C2 = 'ПФ-2';
 
 let fails = 0;
 const check = (label: string, ok: boolean, detail = '') => {
@@ -40,7 +48,10 @@ const eq = (label: string, a: unknown, b: unknown) =>
     check(label, JSON.stringify(a) === JSON.stringify(b), `expected ${JSON.stringify(b)}, got ${JSON.stringify(a)}`);
 
 async function cleanup() {
+    await q(`DELETE FROM lessons WHERE class_id IN (SELECT id FROM school_classes WHERE label = ANY($1::text[]))`, [[C1, C2]]);
     await q(`DELETE FROM school_years WHERE label = $1`, [YEAR]);
+    await q(`DELETE FROM school_classes WHERE label = ANY($1::text[])`, [[C1, C2]]);
+    await q(`DELETE FROM teachers WHERE name = ANY($1::text[])`, [TEACHERS]);
     await q(`DELETE FROM students WHERE public_id LIKE $1 OR name = $2`, [`${TAG}%`, NEW_PUPIL]);
     await q(`DELETE FROM therapists WHERE name = ANY($1::text[])`, [PEOPLE]);
     // Migration 035 keeps an employee identity when the profile goes; the
@@ -51,7 +62,7 @@ async function cleanup() {
               AND NOT EXISTS (SELECT 1 FROM employee_roles x WHERE x.employee_id = e.id)
               AND NOT EXISTS (SELECT 1 FROM employee_year_details x WHERE x.employee_id = e.id)
               AND NOT EXISTS (SELECT 1 FROM employee_identity_links x WHERE x.source_id = e.id OR x.target_id = e.id)
-              AND NOT EXISTS (SELECT 1 FROM employees x WHERE x.superseded_by = e.id)`, [PEOPLE]);
+              AND NOT EXISTS (SELECT 1 FROM employees x WHERE x.superseded_by = e.id)`, [PEOPLE.concat(TEACHERS)]);
 }
 
 async function run() {
@@ -67,6 +78,7 @@ async function run() {
     await app.register(scheduleWriteRoutes);
     await app.register(rosterWriteRoutes);
     await app.register(workspaceRoutes);
+    await app.register(teachingEditRoutes);
     await app.register(formReplyRoutes);
     await app.ready();
 
@@ -201,6 +213,89 @@ async function run() {
         eq('the term changed meanwhile keeps what the database had', tue2.map((r) => r.public_id), [pupil.p3.pid]);
         const decisions = await q(`SELECT item_key, decision FROM form_reply_decisions WHERE reply_id = $1 ORDER BY item_key`, [newerId]);
         eq('every decision is recorded', decisions.length, 4);
+
+        console.log('\nversion 2: the checklist');
+        // B unticks p2 and clears the term p2 had; ticks p3.
+        const v2 = {
+            kind: 'mtb-schedule-reply', version: 2, year: YEAR, therapist: { id: 1, name: B },
+            formGeneratedAt: '1917-09-20T08:00:00.000Z', savedAt: '1917-09-23T10:00:00.000Z',
+            baseline: { [MON2]: [pupil.p2.pid] }, blocks: { [MON2]: [] }, newPupils: [],
+            pupils: { baseline: [pupil.p2.pid], ticked: [pupil.p3.pid] }, note: ''
+        };
+        res = await app.inject({ method: 'POST', url: '/api/forms/replies', payload: { replies: [{ fileName: 'b.json', reply: v2 }] }, headers: as(adminToken) });
+        const v2Id = res.json().results[0].id;
+        const v2Review = (await app.inject({ method: 'GET', url: `/api/forms/replies/${v2Id}/review`, headers: as(adminToken) })).json();
+        eq('a tick added, a tick removed and the cleared term are three items',
+            v2Review.items.map((i: any) => [i.key, i.state]).sort(),
+            [[`block:${MON2}`, 'clean'], [`caseload:${pupil.p3.pid}`, 'clean'], [`uncaseload:${pupil.p2.pid}`, 'clean']].sort());
+        res = await app.inject({ method: 'POST', url: `/api/forms/replies/${v2Id}/decide`,
+            payload: { accept: v2Review.items.map((i: any) => i.key) }, headers: as(adminToken) });
+        check('all three are written', Object.values(res.json().outcomes).every((o) => o === 'запишано'), JSON.stringify(res.json()));
+        const bList = (await q(`SELECT s.public_id FROM therapist_students ts JOIN students s ON s.id = ts.student_id
+                                  WHERE ts.school_year_id = $1 AND ts.therapist_id = $2 ORDER BY 1`, [year.id, ids[B]])).map((r) => r.public_id);
+        eq('B\'s list is now exactly what B ticked', bList, [pupil.p3.pid]);
+
+        console.log('\nthe class form');
+        const cls: Record<string, number> = {};
+        for (const label of [C1, C2]) {
+            cls[label] = (await q(`INSERT INTO school_classes (label, sort_key) VALUES ($1, $1) RETURNING id`, [label]))[0].id;
+            await q(`INSERT INTO class_years (school_year_id, class_id, active) VALUES ($1, $2, true)`, [year.id, cls[label]]);
+        }
+        const tid: Record<string, number> = {};
+        for (const [name, kind] of [[TA, 'odd'], [TB, 'pred']]) {
+            tid[name] = (await q(`INSERT INTO teachers (name, kind) VALUES ($1, $2) RETURNING id`, [name, kind]))[0].id;
+            await q(`INSERT INTO teacher_years (school_year_id, teacher_id, active) VALUES ($1, $2, true)`, [year.id, tid[name]]);
+        }
+        const lesson = (label: string, day: string, ordinal: number, subject: string, teacher: string) => q(
+            `INSERT INTO lessons (school_year_id, day, day_order, ordinal, class_id, teacher_id, subject)
+             VALUES ($1, $2, $3, $4, $5, $6, $7)`, [year.id, day, day === 'понеделник' ? 1 : 2, ordinal, cls[label], tid[teacher], subject]);
+        await lesson(C1, 'понеделник', 1, 'Математика', TA);
+        await lesson(C1, 'понеделник', 2, 'Македонски јазик', TA);
+        await lesson(C2, 'вторник', 1, 'Англиски јазик', TB);           // TB is busy on Tuesday, 1st period
+
+        const classAnswer = {
+            kind: 'mtb-class-reply', version: 1, year: YEAR, class: { id: 99999, label: C1 }, homeroom: TA,
+            formGeneratedAt: '1917-09-20T08:00:00.000Z', savedAt: '1917-09-23T11:00:00.000Z',
+            baseline: { 'понеделник|1': { subject: 'Математика', teacher: TA }, 'понеделник|2': { subject: 'Македонски јазик', teacher: TA } },
+            cells: {
+                'понеделник|1': { subject: 'Ликовно образование', teacher: TA },   // a new subject
+                'вторник|1': { subject: 'Музичко образование', teacher: TB },     // TB is in ПФ-2 then
+                'среда|1': { subject: 'Физичко образование', teacher: null }      // a new lesson, no teacher
+            },                                                                    // Monday 2nd: cleared
+            subjects: ['Ликовно образование'],
+            reports: [{ name: 'Пробно Дете Прво', generation: 'I', text: 'е во ПФ-2' }], note: 'од понеделник'
+        };
+        res = await app.inject({ method: 'POST', url: '/api/forms/replies', payload: { replies: [{ fileName: 'class.json', reply: classAnswer }] }, headers: as(adminToken) });
+        eq('a class answer is stored, named by its class and homeroom', [res.json().results[0].outcome, res.json().results[0].about], ['stored', `${C1} · ${TA}`]);
+        const classId = res.json().results[0].id;
+        const cr = (await app.inject({ method: 'GET', url: `/api/forms/replies/${classId}/review`, headers: as(adminToken) })).json();
+        const citem = (key: string) => cr.items.find((i: any) => i.key === key);
+        eq('the class is found by its label although the file carried another id', cr.class, C1);
+        eq('a changed subject is clean', citem('lesson:понеделник|1')?.state, 'clean');
+        eq('a cleared period is clean', [citem('lesson:понеделник|2')?.state, citem('lesson:понеделник|2')?.toCell], ['clean', null]);
+        eq('a teacher already in another class is a conflict', citem('lesson:вторник|1')?.state, 'conflict');
+        check('and it says where', /ПФ-2/.test((citem('lesson:вторник|1')?.reasons || []).join(' ')), JSON.stringify(citem('lesson:вторник|1')));
+        const reportKey = cr.items.find((i: any) => i.type === 'report')?.key;
+        eq('a pupil report is its own kind of item', cr.items.find((i: any) => i.type === 'report')?.state, 'report');
+
+        res = await app.inject({ method: 'POST', url: `/api/forms/replies/${classId}/decide`,
+            payload: { accept: ['lesson:понеделник|1', 'lesson:понеделник|2', 'lesson:среда|1', reportKey] }, headers: as(adminToken) });
+        eq('accepted lessons are written, the report only noted', res.json().outcomes, {
+            'lesson:понеделник|1': 'запишано', 'lesson:понеделник|2': 'запишано', 'lesson:среда|1': 'запишано', [reportKey]: 'забележано'
+        });
+        const week = (await q(`SELECT l.day || '|' || l.ordinal AS k, l.subject, t.name AS teacher FROM lessons l LEFT JOIN teachers t ON t.id = l.teacher_id
+                                 WHERE l.school_year_id = $1 AND l.class_id = $2 ORDER BY l.day_order, l.ordinal`, [year.id, cls[C1]]))
+            .map((r) => [r.k, r.subject, r.teacher]);
+        eq('the class week is what was accepted, and nothing else', week,
+            [['понеделник|1', 'Ликовно образование', TA], ['среда|1', 'Физичко образование', null]]);
+        const moved = await q(`SELECT 1 FROM student_enrollments e JOIN students s ON s.id = e.student_id
+                                WHERE e.school_year_id = $1 AND s.public_id = $2 AND e.grade = $3`, [year.id, pupil.p1.pid, C2]);
+        eq('the report moved nobody', moved.length, 0);
+        res = await app.inject({ method: 'POST', url: `/api/forms/replies/${classId}/decide`,
+            payload: { reject: ['lesson:вторник|1'] }, headers: as(adminToken) });
+        eq('once the conflict is rejected the answer closes', (await q(`SELECT status FROM form_replies WHERE id = $1`, [classId]))[0].status, 'done');
+        const tb = await q(`SELECT 1 FROM lessons WHERE school_year_id = $1 AND class_id = $2 AND day = 'вторник'`, [year.id, cls[C1]]);
+        eq('and the conflicting lesson was never written', tb.length, 0);
     } finally {
         await app.close();
         await cleanup();

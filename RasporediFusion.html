@@ -816,7 +816,7 @@
             <button class="btn btn-primary schedule-only" id="printSheet" type="button" title="Печати го распоредот" aria-label="Печати го распоредот"><span class="ico" aria-hidden="true">⎙</span> Печати</button>
             <button class="btn schedule-only" id="exportImage" type="button" title="Зачувај го распоредот како слика" aria-label="Зачувај го распоредот како слика"><span class="ico" aria-hidden="true">📸</span> Слика</button>
             <button class="btn schedule-only" id="exportWord" type="button" title="Word документ: неделниот распоред на избраниот терапевт, или на секој терапевт на своја страница" aria-label="Зачувај го распоредот како Word документ"><span class="ico" aria-hidden="true">📄</span> Word</button>
-            <button class="btn schedule-only" id="exportForm" type="button" title="Формулар за колега: неговата недела и неговите ученици во една датотека што се пополнува без апликацијата" aria-label="Зачувај формулар за избраниот терапевт"><span class="ico" aria-hidden="true">📤</span> Формулар</button>
+            <button class="btn schedule-only" id="exportForm" type="button" title="Формулар за колегите: сите терапевти во една датотека што се пополнува без апликацијата; секој го избира своето име" aria-label="Зачувај формулар за терапевтите"><span class="ico" aria-hidden="true">📤</span> Формулар</button>
             <button class="btn schedule-only" id="importForm" type="button" title="Внеси еден или повеќе одговори (.json) — се чуваат за преглед во Податоци → Формулари; ништо не се запишува веднаш" aria-label="Внеси одговор од формулар"><span class="ico" aria-hidden="true">📥</span> Внеси формулар</button>
             <input type="file" id="importFormFile" accept=".json,application/json" multiple hidden>
         </div>
@@ -2206,30 +2206,49 @@
         el('notice').style.whiteSpace = 'pre-line';
     }
 
+    /**
+     * One file for every therapist of the year (docs/PLAN-formulari.md, step
+     * 2): the colleague picks their own name in it. The whole year's pupils
+     * go in as the checklist, each labelled „II-б · Христовска" — the class
+     * and its homeroom, which is how a class is known here. When one
+     * therapist is chosen in „Терапевт", the form opens on them.
+     */
     function exportScheduleForm() {
-        const chosen = activeTherapists();
-        if (chosen.length !== 1) {
-            showNotice('Избери еден терапевт во „Терапевт", па „📤 Формулар" — секој колега добива свој формулар.', 'error');
+        const all = (state.roster && state.roster.therapists) || [];
+        if (!all.length) {
+            showNotice('Нема терапевти за оваа година — нема за кого да се направи формулар.', 'error');
             return;
         }
-        const therapist = chosen[0];
-        const students = studentsById();
-        const week = weekOf(therapist);
-        const ids = new Set(therapist.students || []);
-        Object.values(week.blocks).forEach((list) => list.forEach((id) => ids.add(id)));
-        const pupils = Array.from(ids).filter((id) => students.has(id))
-            .map((id) => ({ id, label: studentLabel(students.get(id)) }))
-            .sort((a, b) => a.label.localeCompare(b.label, 'mk'));
+        const homeroom = new Map();
+        ((state.roster && state.roster.teachers) || []).forEach((t) => (t.classes || []).forEach((c) => {
+            if (c.role === 'homeroom' && !homeroom.has(c.label)) {
+                const parts = String(t.name).trim().split(/\s+/);
+                homeroom.set(c.label, parts.length > 1 ? parts.slice(1).join(' ') : parts[0]);
+            }
+        }));
+        const pupils = ((state.roster && state.roster.students) || [])
+            .map((s) => ({ id: s.public_id, name: s.name, label: studentLabel(s), klass: s.grade || '', homeroom: homeroom.get(s.grade) || '' }))
+            .sort((a, b) => a.klass.localeCompare(b.klass, 'mk') || a.name.localeCompare(b.name, 'mk'));
+        const known = new Set(pupils.map((p) => p.id));
+        const therapists = all.map((therapist) => {
+            const week = weekOf(therapist);
+            return {
+                id: therapist.id, name: therapist.name,
+                students: (therapist.students || []).filter((id) => known.has(id)),
+                blocks: week.blocks, locked: week.locked
+            };
+        });
+        const focused = state.focus ? all.find((t) => String(t.id) === String(state.focus)) : null;
         const html = MTBScheduleForm.buildForm({
             school: SCHOOL, year: state.year,
-            therapist: { id: therapist.id, name: therapist.name },
             generatedAt: new Date().toISOString(),
             days: DAYS,
             bells: state.bells.map((bell) => ({ label: bell.label || '', time: bellTime(bell) })).filter((bell) => bell.time),
-            pupils, blocks: week.blocks, locked: week.locked
+            pupils, therapists, selected: focused ? focused.id : null
         });
-        downloadFile(html, 'Распоред-формулар — ' + therapist.name + '.html', 'text/html');
-        showNotice('Формуларот за ' + therapist.name + ' е зачуван. Испрати го; одговорот (.json) што ќе ти го вратат се внесува со „📥 Внеси формулар".', 'ok');
+        downloadFile(html, 'Формулар-кабинети — ' + String(state.year).replace(/\//g, '-') + '.html', 'text/html');
+        showNotice('Формуларот е зачуван — во него се сите ' + therapists.length + ' терапевти; секој го избира своето име. '
+            + 'Испрати го; одговорите (.json) се внесуваат со „📥 Внеси формулар".', 'ok');
     }
 
     /**

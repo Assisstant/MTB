@@ -218,6 +218,7 @@
     .form-item.changed { border-left-color: var(--warn); }
     .form-item.clean { border-left-color: var(--ok); }
     .form-item.refused { border-left-color: var(--border); }
+    .form-item.report { border-left-color: var(--accent, #5a67d8); }
     .form-item input[type=checkbox] { width: 18px; height: 18px; margin-top: 2px; flex: 0 0 auto; }
     .form-item .what { font-weight: 600; }
     .form-item .why { display: block; font-size: 12px; color: var(--muted); margin-top: 2px; }
@@ -2078,7 +2079,7 @@
     const FORM_STATUS = { pending: 'чека преглед', superseded: 'заменет со понов', done: 'затворен', rejected: 'одбиен' };
     const FORM_OUTCOME = {
         stored: ['ok', 'примен — чека преглед'],
-        superseded: ['warn', 'примен, но за истиот терапевт има понов одговор — важи новиот'],
+        superseded: ['warn', 'примен, но за истиот терапевт / истото одделение има понов одговор — важи новиот'],
         duplicate: ['warn', 'веќе е примен порано'],
         refused: ['bad', 'одбиен']
     };
@@ -2134,7 +2135,7 @@
         const rows = body.replies || [];
         el('formsList').innerHTML = rows.length
             ? '<table class="list"><thead><tr><th>За кого</th><th>Пополнет</th><th>Примен</th><th>Датотека</th><th>Состојба</th><th></th></tr></thead><tbody>'
-              + rows.map((r) => `<tr><td>${esc(personName(r.about))}</td><td>${esc(when(r.filledAt))}</td><td>${esc(when(r.receivedAt))}</td>`
+              + rows.map((r) => `<tr><td>${r.kind === 'class' ? '🏫 ' + esc(r.about) : '🗓 ' + esc(personName(r.about))}</td><td>${esc(when(r.filledAt))}</td><td>${esc(when(r.receivedAt))}</td>`
                 + `<td>${esc(r.fileName || '—')}</td><td><span class="form-status ${esc(r.status)}">${esc(FORM_STATUS[r.status] || r.status)}</span>`
                 + (r.decided ? ` <span class="none">· ${r.decided} одлуки</span>` : '') + '</td>'
                 + `<td class="act"><button class="btn soft" data-form-review="${r.id}">Прегледај</button></td></tr>`).join('')
@@ -2169,7 +2170,14 @@
         const who = (x) => typeof x === 'string' ? (names[x] || x) : x.create + ' (нов)';
         if (item.type === 'pupil') return 'Нов ученик под набљудување: ' + item.name;
         if (item.type === 'caseload') return 'Во списокот на терапевтот: ' + (names[item.publicId] || item.name);
+        if (item.type === 'uncaseload') return 'Излегува од списокот на терапевтот: ' + (names[item.publicId] || item.name);
+        if (item.type === 'report') return 'Пријава за ' + item.name + (item.generation ? ' (генерација ' + item.generation + ')' : '') + ': „' + item.text + '"';
         const day = String(item.day || '');
+        if (item.type === 'lesson') {
+            const cell = (c) => c ? (c.subject || '(без предмет)') + (c.teacher ? ' · ' + c.teacher : '') : 'празно';
+            return day.charAt(0).toUpperCase() + day.slice(1) + ', ' + item.ordinal + '. час: '
+                + (item.state === 'refused' ? '' : cell(item.fromCell) + ' → ' + cell(item.toCell));
+        }
         return day.charAt(0).toUpperCase() + day.slice(1) + ' ' + (item.time || '') + ': '
             + ((item.from || []).map(who).join(' + ') || 'празно') + ' → ' + ((item.to || []).map(who).join(' + ') || 'празно');
     }
@@ -2185,11 +2193,13 @@
             ['conflict', '⚠ Конфликти — се запишуваат само ако ги избереш'],
             ['changed', 'Сменети во базата откако е направен формуларот'],
             ['clean', 'Чисти'],
+            ['report', 'Пријави за ученици — не се запишуваат; ако се точни, поправи во „Ученици"'],
             ['refused', 'Не можат да се запишат']
         ];
-        let html = `<div class="form-review"><h3>${esc(personName(r.about))} · пополнет ${esc(when(r.filledAt))}</h3>`
+        const isClass = r.kind === 'class';
+        let html = `<div class="form-review"><h3>${isClass ? '🏫 ' + esc(r.about) : esc(personName(r.about))} · пополнет ${esc(when(r.filledAt))}</h3>`
             + `<p class="hint">Состојба: <b>${esc(FORM_STATUS[r.status] || r.status)}</b>${r.closedBy ? ' · ' + esc(r.closedBy) : ''}`
-            + (body.unchanged ? ` · ${body.unchanged} термини без промена` : '') + '</p>'
+            + (body.unchanged ? ` · ${body.unchanged} ${isClass ? 'часа' : 'термини'} без промена` : '') + '</p>'
             + (body.note ? `<p><b>Белешка:</b> ${esc(body.note)}</p>` : '')
             + (body.errors && body.errors.length ? `<div class="caution">${esc(body.errors.join(' '))}</div>` : '');
         groups.forEach(([state, title]) => {
@@ -2220,7 +2230,7 @@
         el('formsAccept').addEventListener('click', async () => {
             const picked = chosen();
             if (!picked.length) return status('Избери барем една ставка.', 'warn');
-            const risky = picked.filter((c) => c.dataset.state !== 'clean').length;
+            const risky = picked.filter((c) => c.dataset.state !== 'clean' && c.dataset.state !== 'report').length;
             if (risky && !window.confirm(`Избра ${risky} ставки во конфликт или сменети во меѓувреме. `
                 + 'Тие ќе се запишат над она што е сега во базата. Продолжи?')) return;
             await decideForm(id, { accept: picked.map((c) => c.dataset.formItem) });
@@ -2242,7 +2252,7 @@
         try {
             const res = await api('POST', '/api/forms/replies/' + id + '/decide', { accept: [], reject: [], ...body });
             const outcomes = Object.values(res.outcomes || {});
-            const failed = outcomes.filter((o) => o !== 'запишано').length;
+            const failed = outcomes.filter((o) => o !== 'запишано' && o !== 'забележано').length;
             status(outcomes.length
                 ? `Запишани ${outcomes.length - failed} од ${outcomes.length}${failed ? ' — погледни зошто кај секоја ставка' : ''}.`
                 : 'Одлуката е запишана.', failed ? 'warn' : 'ok');

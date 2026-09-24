@@ -17,10 +17,15 @@
  *
  * WRITING GOES THROUGH THE OWNERS. An accepted item is not written here: it is
  * handed to the route that already owns that fact — POST /api/workspace/pupils,
- * PUT /api/therapists/:name/students/:id, PUT /api/schedule/block with
- * `expectedStudentPublicIds` — through `server.inject`, with the
- * administrator's own token. Every check those routes make still happens, and
- * a refusal is recorded as the item's outcome, in words.
+ * PUT/DELETE /api/therapists/:name/students/:id, PUT /api/schedule/block with
+ * `expectedStudentPublicIds`, and for a class PUT /api/teaching/lesson with
+ * `expected` or DELETE /api/teaching/lesson/:id — through `server.inject`,
+ * with the administrator's own token. Every check those routes make still
+ * happens, and a refusal is recorded as the item's outcome, in words.
+ *
+ * Two kinds of answer (docs/PLAN-formulari.md): `cabinet` — a therapist's
+ * week and list; `class` — a class's lessons, plus reports about its pupils,
+ * which are only ever noted: the owner decided the class form moves nobody.
  */
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { z } from 'zod';
@@ -28,7 +33,7 @@ import { pool } from '../db.js';
 import { isAdmin, refuseScope, scopeOf } from '../lib/colleague.js';
 import { Refused, whoIsSigned } from '../lib/evidence.js';
 import {
-    cabinetContext, cabinetItems, describeReply, fingerprintOf, settleNewest, type Item
+    cabinetContext, cabinetItems, classContext, classItems, describeReply, fingerprintOf, settleNewest, type Item
 } from '../lib/form-replies.js';
 
 const StoreBody = z.object({
@@ -68,11 +73,19 @@ async function reviewOf(id: number) {
         `SELECT item_key, decision, outcome, decided_by, decided_at FROM form_reply_decisions WHERE reply_id = $1`, [id])).rows
         .map((d: any) => [d.item_key, d]));
     const year = { id: row.school_year_id, label: row.year_label, is_current: row.is_current };
+    if (row.kind === 'class') {
+        const label = String(row.reply?.class?.label || '').replace(/\s+/g, ' ').trim();
+        const ctx = await classContext(pool, year, label);
+        const found = classItems(row.reply, ctx);
+        found.items.forEach((item: Item) => { item.decision = decisions.get(item.key) || null; });
+        const result = { errors: found.errors, therapist: null, classLabel: found.class, note: found.note, unchanged: found.unchanged, items: found.items };
+        return { row, year, result, names: {} as Record<string, string> };
+    }
     const probe = await cabinetContext(pool, year, -1);
     const wanted = probe.therapists.find((t) =>
         t.name.normalize('NFKC').trim().toLocaleLowerCase('mk-MK') === row.about_name.normalize('NFKC').trim().toLocaleLowerCase('mk-MK'));
     const ctx = wanted ? await cabinetContext(pool, year, wanted.id) : probe;
-    const result = cabinetItems(row.reply, ctx);
+    const result = { ...cabinetItems(row.reply, ctx), classLabel: null as string | null };
     result.items.forEach((item: Item) => { item.decision = decisions.get(item.key) || null; });
     const names = Object.fromEntries(ctx.students.map((s) => [s.public_id, s.grade ? `${s.name} (${s.grade})` : s.name]));
     return { row, year, result, names };
@@ -144,7 +157,7 @@ export async function formReplyRoutes(server: FastifyInstance) {
         if (!review) return reply.code(404).send({ error: 'нема таков одговор' });
         const { row, result, names } = review;
         return { reply: summary(row), note: result.note, errors: result.errors, therapist: result.therapist,
-                 unchanged: result.unchanged, items: result.items, names };
+                 class: result.classLabel, unchanged: result.unchanged, items: result.items, names };
     });
 
     server.post('/api/forms/replies/:id/reject', async (req, reply) => {
@@ -168,11 +181,12 @@ export async function formReplyRoutes(server: FastifyInstance) {
         const { row, year, result } = review;
         if (row.status !== 'pending') {
             return reply.code(409).send({ error: row.status === 'superseded'
-                ? 'пристигнал понов одговор за истиот терапевт — се одлучува за него'
+                ? (row.kind === 'class' ? 'пристигнал понов одговор за истото одделение — се одлучува за него'
+                                        : 'пристигнал понов одговор за истиот терапевт — се одлучува за него')
                 : 'одговорот е веќе затворен' });
         }
-        if (result.errors.length || !result.therapist) return reply.code(409).send({ error: result.errors.join(' ') });
-        const therapist = result.therapist;
+        if (result.errors.length || !(result.therapist || result.classLabel)) return reply.code(409).send({ error: result.errors.join(' ') });
+        const therapist = result.therapist || { id: 0, name: '' };
         const byKey = new Map(result.items.map((item) => [item.key, item]));
         const accept = body.accept.filter((k) => byKey.has(k));
         const reject = body.reject.filter((k) => byKey.has(k) && !accept.includes(k));
@@ -184,7 +198,7 @@ export async function formReplyRoutes(server: FastifyInstance) {
             const v = req.headers[h];
             if (typeof v === 'string') headers[h] = v;
         }
-        const call = async (method: 'POST' | 'PUT', url: string, payload?: unknown) => {
+        const call = async (method: 'POST' | 'PUT' | 'DELETE', url: string, payload?: unknown) => {
             // A content-type with no body is a 400 in Fastify; only a body carries one.
             const res = await server.inject(payload === undefined
                 ? { method, url, headers }
@@ -200,7 +214,7 @@ export async function formReplyRoutes(server: FastifyInstance) {
 
         const outcomes = new Map<string, string>();
         const created = new Map<string, string>();
-        const order = (t: Item['type']) => ({ pupil: 0, caseload: 1, block: 2 })[t];
+        const order = (t: Item['type']) => ({ pupil: 0, caseload: 1, block: 2, uncaseload: 3, lesson: 4, report: 5 })[t];
         const accepted = accept.map((k) => byKey.get(k)!).sort((a, b) => order(a.type) - order(b.type));
         for (const item of accepted) {
             if (item.decision) { outcomes.set(item.key, 'веќе одлучено'); continue; }
@@ -216,6 +230,25 @@ export async function formReplyRoutes(server: FastifyInstance) {
                     await linkToList(answer.pupil.public_id);
                 } else if (item.type === 'caseload') {
                     await linkToList(String(item.publicId));
+                } else if (item.type === 'uncaseload') {
+                    await call('DELETE', `/api/therapists/${encodeURIComponent(therapist.name)}/students/${encodeURIComponent(String(item.publicId))}${yearQuery}`);
+                } else if (item.type === 'report') {
+                    // Nothing to write: the administrator has read it, and
+                    // moves the child in Податоци if the report is right.
+                    outcomes.set(item.key, 'забележано');
+                    continue;
+                } else if (item.type === 'lesson') {
+                    const to = item.toCell || null;
+                    const from = item.fromCell || null;
+                    if (!to) {
+                        if (item.lessonId) await call('DELETE', `/api/teaching/lesson/${item.lessonId}`);
+                    } else {
+                        await call('PUT', '/api/teaching/lesson', {
+                            year: year.label, day: item.day, ordinal: item.ordinal, class: result.classLabel,
+                            subject: to.subject, teacher: to.teacher,
+                            expected: from ? { subject: from.subject, teacher: from.teacher } : null
+                        });
+                    }
                 } else {
                     const to = (item.to || []).map((x) => typeof x === 'string' ? x : created.get(x.create));
                     if (to.some((x) => !x)) throw new Error('новиот ученик во овој термин не е прифатен');

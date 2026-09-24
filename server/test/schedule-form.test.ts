@@ -149,3 +149,61 @@ test('the form carries its data inside, so a name cannot close the script', asyn
     assert.equal((html.match(/<script/g) || []).length, 2, 'the data and the form script, nothing loaded from outside');
     assert.doesNotMatch(html, /src=|href="http/, 'the form needs nothing from a server');
 });
+
+test('version 2: a tick added joins the list, a tick removed leaves it', async () => {
+    const form = await load();
+    const p = form.plan(reply(form, { [MON1]: ['p-a'], [MON2]: ['p-b'] }, {
+        pupils: { baseline: ['p-a', 'p-b'], ticked: ['p-a', 'p-b', 'p-c'] }
+    }), ctx());
+    assert.deepEqual(p.caseloadAdds, ['p-c']);
+    assert.deepEqual((p as any).caseloadRemovals, []);
+    const off = form.plan(reply(form, { [MON1]: ['p-a'] }, {
+        pupils: { baseline: ['p-a', 'p-b'], ticked: ['p-a'] }
+    }), ctx());
+    assert.deepEqual((off as any).caseloadRemovals, ['p-b'], 'unticked and no longer placed');
+});
+
+test('version 2: a pupil still placed in a term never leaves the list', async () => {
+    const form = await load();
+    const p = form.plan(reply(form, { [MON1]: ['p-a'], [MON2]: ['p-b'] }, {
+        pupils: { baseline: ['p-a', 'p-b'], ticked: ['p-a'] }
+    }), ctx());
+    assert.deepEqual((p as any).caseloadRemovals, []);
+});
+
+test('version 2: a removal the database already made is not proposed again', async () => {
+    const form = await load();
+    const p = form.plan(reply(form, { [MON1]: ['p-a'] }, {
+        pupils: { baseline: ['p-a', 'p-b'], ticked: ['p-a'] }
+    }), ctx({ therapists: [{ id: 7, name: 'Терапевт Пример', students: ['p-a'] }] }));
+    assert.deepEqual((p as any).caseloadRemovals, []);
+});
+
+test('a version 1 answer, already sent before version 2, still reads', async () => {
+    const form = await load();
+    assert.equal(form.VERSION, 2);
+    const p = form.plan(reply(form, { [MON1]: ['p-a'], [MON2]: [] }, { version: 1 }), ctx());
+    assert.deepEqual(p.errors, []);
+    assert.deepEqual(p.changes.map((c) => c.key), [MON2]);
+    assert.match(form.plan(reply(form, {}, { version: 3 }), ctx()).errors[0], /верзија/);
+});
+
+test('version 2 form: every therapist, a dropdown, the checklist and a picture', async () => {
+    const form = await load();
+    const html = form.buildForm({
+        year: '2026/2027', generatedAt: '2026-09-24T00:00:00Z',
+        days: ['понеделник'], bells: [{ label: 'I', time: '08:00-08:40' }],
+        pupils: [{ id: 'p-a', name: 'Ана Пробна', label: 'II-б - Ана Пробна', klass: 'II-б', homeroom: 'Измислена' }],
+        therapists: [
+            { id: 7, name: 'Терапевт Пример', students: ['p-a'], blocks: {}, locked: [] },
+            { id: 8, name: 'Друг Терапевт', students: [], blocks: {}, locked: [] }
+        ],
+        selected: null
+    });
+    assert.match(html, /id="who"/);
+    assert.match(html, /Друг Терапевт/);
+    assert.match(html, /id="checks"/);
+    assert.match(html, /id="image"/);
+    assert.match(html, /function paintGrid/);
+    assert.equal((html.match(/<script/g) || []).length, 2);
+});

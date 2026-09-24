@@ -9,9 +9,9 @@
  *
  * The answer's meaning — which blocks changed, which typed names are which
  * pupil — is decided by `plan()` in `mtb-schedule-form.js`, the SAME function
- * Кабинети used when it wrote answers directly. It is loaded here the way its
- * test loads it, so the file on a colleague's desk and the queue cannot read an
- * answer two ways.
+ * Кабинети used when it wrote answers directly; a class answer by `plan()` in
+ * `mtb-class-form.js`. They are loaded here the way their tests load them, so
+ * the file on a colleague's desk and the queue cannot read an answer two ways.
  */
 import { createHash } from 'node:crypto';
 import { existsSync, readFileSync } from 'node:fs';
@@ -33,11 +33,23 @@ type Planned = {
     changes: Array<{ key: string; day: string; time: string; from: string[]; to: Array<string | { create: string }> }>;
     conflicts: Array<{ key: string; day: string; time: string; from: string[]; to: Array<string | { create: string }>; baseline: string[] }>;
     skipped: Array<{ key: string; day: string; time: string; reason: string }>;
-    unchanged: number; caseloadAdds: string[];
+    unchanged: number; caseloadAdds: string[]; caseloadRemovals?: string[];
 };
 type Planner = { REPLY: string; VERSION: number; plan: (reply: unknown, ctx: unknown) => Planned };
 
+type Cell = { subject: string | null; teacher: string | null } | null;
+type ClassChange = { key: string; day: string; ordinal: number; from: Cell; to: Cell; reasons: string[] };
+type ClassPlanned = {
+    errors: string[]; class: string | null; homeroom: string | null; note: string; unchanged: number;
+    changes: ClassChange[];
+    conflicts: Array<ClassChange & { baseline: Cell }>;
+    skipped: Array<{ key: string; day: string; ordinal: number; reason: string }>;
+    reports: Array<{ name: string; generation: string | null; text: string }>;
+};
+type ClassPlanner = { REPLY: string; VERSION: number; plan: (reply: unknown, ctx: unknown) => ClassPlanned };
+
 let planner: Planner | null = null;
+let classPlanner: ClassPlanner | null = null;
 
 function repoFile(name: string): string {
     const here = path.dirname(fileURLToPath(import.meta.url));
@@ -48,14 +60,26 @@ function repoFile(name: string): string {
     throw new Error(`${name} is not where the server expects the repository root`);
 }
 
-export function formPlanner(): Planner {
-    if (planner) return planner;
-    const sandbox: { window: { MTBScheduleForm?: Planner } } = { window: {} };
-    vm.runInNewContext(readFileSync(repoFile('mtb-schedule-form.js'), 'utf8'), sandbox);
+function loadForms() {
+    const sandbox: { window: { MTBScheduleForm?: Planner; MTBClassForm?: ClassPlanner } } = { window: {} };
+    const context = vm.createContext(sandbox);
+    vm.runInContext(readFileSync(repoFile('mtb-schedule-form.js'), 'utf8'), context);
+    vm.runInContext(readFileSync(repoFile('mtb-class-form.js'), 'utf8'), context);
     const form = sandbox.window.MTBScheduleForm as Planner;
+    const cls = sandbox.window.MTBClassForm as ClassPlanner;
     // Results are made in another realm; hand them on as plain data.
     planner = { REPLY: form.REPLY, VERSION: form.VERSION, plan: (r, c) => JSON.parse(JSON.stringify(form.plan(r, c))) };
-    return planner;
+    classPlanner = { REPLY: cls.REPLY, VERSION: cls.VERSION, plan: (r, c) => JSON.parse(JSON.stringify(cls.plan(r, c))) };
+}
+
+export function formPlanner(): Planner {
+    if (!planner) loadForms();
+    return planner!;
+}
+
+export function classFormPlanner(): ClassPlanner {
+    if (!classPlanner) loadForms();
+    return classPlanner!;
 }
 
 // ── who an answer is about ──────────────────────────────────────────────────
@@ -65,7 +89,7 @@ export const personKey = (kind: string, name: unknown) =>
     kind + ':' + String(name || '').normalize('NFKC').trim().replace(/\s+/g, ' ').toLocaleLowerCase('mk-MK');
 
 export type Described =
-    | { ok: true; kind: 'cabinet'; year: string; aboutKey: string; aboutName: string; madeAt: string | null; filledAt: string | null }
+    | { ok: true; kind: 'cabinet' | 'class'; year: string; aboutKey: string; aboutName: string; madeAt: string | null; filledAt: string | null }
     | { ok: false; error: string };
 
 const isoOrNull = (value: unknown) => {
@@ -83,6 +107,19 @@ export function describeReply(reply: any): Described {
         return {
             ok: true, kind: 'cabinet', year: String(reply.year),
             aboutKey: personKey('therapist', name), aboutName: name,
+            madeAt: isoOrNull(reply.formGeneratedAt), filledAt: isoOrNull(reply.savedAt)
+        };
+    }
+    if (reply.kind === classFormPlanner().REPLY) {
+        // The class is the subject of the answer, by its label: the id is
+        // this machine's, the label is the school's.
+        const label = String(reply.class?.label || '').replace(/\s+/g, ' ').trim();
+        if (!label) return { ok: false, error: 'одговорот не кажува за кое одделение е' };
+        if (!reply.year) return { ok: false, error: 'одговорот не кажува за која учебна година е' };
+        const homeroom = String(reply.homeroom || '').trim();
+        return {
+            ok: true, kind: 'class', year: String(reply.year),
+            aboutKey: personKey('class', label), aboutName: homeroom ? `${label} · ${homeroom}` : label,
             madeAt: isoOrNull(reply.formGeneratedAt), filledAt: isoOrNull(reply.savedAt)
         };
     }
@@ -197,15 +234,16 @@ export async function cabinetContext(db: Queryable, year: { id: number; label: s
 
 // ── the items the administrator decides ─────────────────────────────────────
 
-export type ItemState = 'clean' | 'changed' | 'conflict' | 'refused';
+export type ItemState = 'clean' | 'changed' | 'conflict' | 'refused' | 'report';
 export type Item = {
     key: string;
-    type: 'block' | 'pupil' | 'caseload';
+    type: 'block' | 'pupil' | 'caseload' | 'uncaseload' | 'lesson' | 'report';
     state: ItemState;
-    day?: string; time?: string;
+    day?: string; time?: string; ordinal?: number;
     from?: string[];
     to?: Array<string | { create: string }>;
-    name?: string; publicId?: string;
+    fromCell?: Cell; toCell?: Cell; lessonId?: number | null;
+    name?: string; publicId?: string; generation?: string | null; text?: string;
     reasons: string[];
     decision?: { decision: string; outcome: string | null; decided_by: string; decided_at: string } | null;
 };
@@ -278,5 +316,86 @@ export function cabinetItems(reply: any, ctx: CabinetContext): { errors: string[
         if (placed.has(id)) continue;
         items.push({ key: `caseload:${id}`, type: 'caseload', state: 'clean', publicId: id, name: names.get(id) || id, reasons: ['на списокот на терапевтот'] });
     }
+    for (const id of planned.caseloadRemovals || []) {
+        items.push({ key: `uncaseload:${id}`, type: 'uncaseload', state: 'clean', publicId: id, name: names.get(id) || id,
+                     reasons: ['одштиклиран во формуларот — излегува од списокот на терапевтот (досието останува)'] });
+    }
     return { errors: [], therapist: planned.therapist, note: planned.note, unchanged: planned.unchanged, items };
+}
+
+// ── a class's week ──────────────────────────────────────────────────────────
+
+export type ClassContext = {
+    year: string;
+    classes: string[];
+    validKeys: string[];
+    doubled: string[];
+    current: Record<string, Cell>;
+    ids: Record<string, number>;
+    teachers: string[];
+    busy: Record<string, Array<{ teacher: string; class: string }>>;
+};
+
+export async function classContext(db: Queryable, year: { id: number; label: string }, label: string): Promise<ClassContext> {
+    const classes = (await db.query(
+        `SELECT c.label FROM class_years cy JOIN school_classes c ON c.id = cy.class_id
+          WHERE cy.school_year_id = $1 AND cy.active ORDER BY c.sort_key, c.label`, [year.id])).rows.map((r: any) => r.label);
+    const ordinals = (await db.query(
+        `SELECT ordinal FROM bell_periods WHERE schedule = 'nastava-am' ORDER BY ordinal`)).rows.map((r: any) => Number(r.ordinal));
+    const teachers = (await db.query(
+        `SELECT t.name FROM teachers t JOIN teacher_years ty ON ty.teacher_id = t.id AND ty.school_year_id = $1 AND ty.active
+          ORDER BY t.name`, [year.id])).rows.map((r: any) => r.name);
+    const lessons = (await db.query(
+        `SELECT l.id, l.day, l.ordinal, c.label AS class, l.subject, t.name AS teacher
+           FROM lessons l JOIN school_classes c ON c.id = l.class_id LEFT JOIN teachers t ON t.id = l.teacher_id
+          WHERE l.school_year_id = $1`, [year.id])).rows;
+    const validKeys = DAYS.flatMap((day) => ordinals.map((o) => `${day}|${o}`));
+    const current: Record<string, Cell> = {};
+    const ids: Record<string, number> = {};
+    const count = new Map<string, number>();
+    const busy: ClassContext['busy'] = {};
+    for (const l of lessons) {
+        const key = `${l.day}|${l.ordinal}`;
+        if (l.teacher) (busy[key] ||= []).push({ teacher: l.teacher, class: l.class });
+        if (l.class !== label) continue;
+        count.set(key, (count.get(key) || 0) + 1);
+        current[key] = { subject: l.subject ?? null, teacher: l.teacher ?? null };
+        ids[key] = l.id;
+    }
+    const doubled = Array.from(count.entries()).filter(([, n]) => n > 1).map(([k]) => k);
+    doubled.forEach((k) => { delete current[k]; delete ids[k]; });
+    return { year: year.label, classes, validKeys, doubled, current, ids, teachers, busy };
+}
+
+/**
+ * One stored class answer as items, checked against the database NOW. A
+ * teacher already teaching another class in that period is a conflict; a
+ * cell changed in Уреди настава since the form was made is „changed"; a
+ * pupil report is only a note for the administrator — the owner decided the
+ * class form never moves a child.
+ */
+export function classItems(reply: any, ctx: ClassContext): { errors: string[]; class: string | null; note: string; unchanged: number; items: Item[] } {
+    const planned = classFormPlanner().plan(reply, ctx);
+    const items: Item[] = [];
+    if (planned.errors.length || !planned.class) {
+        return { errors: planned.errors.length ? planned.errors : ['одделението не е препознаено'], class: null, note: '', unchanged: 0, items };
+    }
+    const show = (c: Cell) => c ? (c.subject || '(без предмет)') + (c.teacher ? ` · ${c.teacher}` : '') : 'празно';
+    for (const c of planned.changes) {
+        items.push({ key: `lesson:${c.key}`, type: 'lesson', state: c.reasons.length ? 'conflict' : 'clean', day: c.day, ordinal: c.ordinal,
+                     fromCell: c.from, toCell: c.to, lessonId: ctx.ids[c.key] ?? null, reasons: c.reasons });
+    }
+    for (const c of planned.conflicts) {
+        items.push({ key: `lesson:${c.key}`, type: 'lesson', state: 'changed', day: c.day, ordinal: c.ordinal,
+                     fromCell: c.from, toCell: c.to, lessonId: ctx.ids[c.key] ?? null,
+                     reasons: [`сменето во базата откако е направен формуларот (формуларот: ${show(c.baseline)})`].concat(c.reasons) });
+    }
+    for (const s of planned.skipped) {
+        items.push({ key: `lesson:${s.key}`, type: 'lesson', state: 'refused', day: s.day, ordinal: s.ordinal, reasons: [s.reason] });
+    }
+    for (const r of planned.reports) {
+        items.push({ key: `report:${personKey('pupil', r.name)}`, type: 'report', state: 'report', name: r.name, generation: r.generation, text: r.text,
+                     reasons: ['се поправа рачно во Податоци → Ученици; од тука не се менува ништо'] });
+    }
+    return { errors: [], class: planned.class, note: planned.note, unchanged: planned.unchanged, items };
 }

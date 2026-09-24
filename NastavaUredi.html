@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Уреди настава — MTB</title>
 <script src="mtb-theme.js"></script>
+<script src="mtb-schedule-form.js"></script>
+<script src="mtb-class-form.js"></script>
 <!--
     Уредување на распоредот на настава, час по час, во текот на целата година.
 
@@ -314,6 +316,11 @@
             <button class="btn soft" id="refresh"><span class="ico" aria-hidden="true">↻</span> Освежи</button>
             <button class="btn soft" id="printWeek" style="display:none;"
                     title="Секое одделение на своја страница, како распоредот што стои на вратата"><span class="ico" aria-hidden="true">⎙</span> Печати</button>
+            <button class="btn soft" id="exportClassForm"
+                    title="Формулар за одделенските раководители: сите одделенија во една датотека што се пополнува без апликацијата; секој го избира своето одделение"><span class="ico" aria-hidden="true">📤</span> Формулар</button>
+            <button class="btn soft" id="importClassForm"
+                    title="Внеси еден или повеќе одговори (.json) — се чуваат за преглед во Податоци → Формулари; ништо не се запишува веднаш"><span class="ico" aria-hidden="true">📥</span> Внеси формулар</button>
+            <input type="file" id="importClassFormFile" accept=".json,application/json" multiple hidden>
             <span class="status" id="status"></span>
         </div>
         <!-- The same tab strip as Настава ↔ терапии and S-Dnevnik. The views
@@ -327,6 +334,7 @@
                     title="Кој наставник во која паралелка, колку часа и со кои предмети">🔗 Распределба</button>
         </div>
         <div class="class-strip" id="classStrip" role="group" aria-label="Одделение" style="display:none;"></div>
+        <div class="report" id="formReport" hidden></div>
     </div>
 
     <div class="panel" id="gridPanel">
@@ -2240,6 +2248,114 @@
             status(`${name} е додаден`, 'ok');
         } catch (err) { status(err.message, 'error'); }
     });
+
+    /* ── Формулар за одделенските раководители ───────────────────────────
+     *
+     * docs/PLAN-formulari.md, step 3. One file for all the classes of the
+     * year; a homeroom teacher picks their class and corrects its week. What
+     * an answer means is decided in mtb-class-form.js (`plan`); answers are
+     * never written from here — they go to the review queue, and the
+     * administrator accepts them cell by cell in Податоци → Формулари. */
+    function downloadFile(text, name, type) {
+        const url = URL.createObjectURL(new Blob([text], { type }));
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = name;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 2000);
+    }
+
+    function formReport(lines, link) {
+        const box = el('formReport');
+        box.hidden = false;
+        box.textContent = lines.join('\n');
+        if (link) {
+            const a = document.createElement('a');
+            a.href = link;
+            a.setAttribute('data-server-link', link);
+            a.textContent = 'Отвори ги пристигнатите формулари →';
+            box.appendChild(document.createElement('br'));
+            box.appendChild(a);
+        }
+    }
+
+    async function exportClassForm() {
+        if (!data) { status('Распоредот сè уште не е вчитан.', 'warn'); return; }
+        status('Го подготвувам формуларот…');
+        const classes = data.classes || [];
+        const [students, all, offered] = await Promise.all([
+            annualList(),
+            api('GET', '/api/teaching/subjects?year=' + encodeURIComponent(data.year)).catch(() => ({ subjects: [] })),
+            Promise.all(classes.map((c) => subjectsFor(c.label)))
+        ]);
+        const homeroomName = (label) => {
+            const t = (data.teachers || []).find((x) => (x.classes || []).some((c) => c.label === label && c.role === 'homeroom'));
+            return t ? t.name : null;
+        };
+        const subjects = new Set((all.subjects || []).map((s) => s.subject));
+        (data.lessons || []).forEach((l) => { if (l.subject) subjects.add(l.subject); });
+        const payload = classes.map((c, i) => {
+            const lessons = {}, count = new Map();
+            (data.lessons || []).filter((l) => l.class === c.label).forEach((l) => {
+                const key = MTBClassForm.cellKey(l.day, l.ordinal);
+                count.set(key, (count.get(key) || 0) + 1);
+                lessons[key] = { subject: l.subject || null, teacher: l.teacher || null };
+            });
+            const doubled = Array.from(count.entries()).filter(([, n]) => n > 1).map(([k]) => k);
+            doubled.forEach((k) => { delete lessons[k]; });
+            return {
+                id: c.id, label: c.label, description: c.description || '',
+                homeroom: homeroomName(c.label),
+                lessons, doubled,
+                offered: (offered[i].subjects || []).map((s) => s.subject),
+                pupils: (students || []).filter((s) => tidy(s.grade) === c.label)
+                    .map((s) => ({ name: s.name, generation: s.oddelenie || '' }))
+                    .sort((a, b) => a.name.localeCompare(b.name, 'mk'))
+            };
+        });
+        const html = MTBClassForm.buildForm({
+            school: 'ОУРЦ „Кочо Рацин" – Битола', year: data.year,
+            generatedAt: new Date().toISOString(),
+            days: DAYS,
+            periods: periods().map((p) => ({ ordinal: p.ordinal, label: p.label + '. час', time: p.startsAt })),
+            subjects: Array.from(subjects).sort((a, b) => a.localeCompare(b, 'mk')),
+            teachers: (data.teachers || []).map((t) => t.name).sort((a, b) => a.localeCompare(b, 'mk')),
+            classes: payload,
+            selected: view() === 'classweek' && chosenClass ? chosenClass : null
+        });
+        downloadFile(html, 'Формулар-одделенија — ' + String(data.year).replace(/\//g, '-') + '.html', 'text/html');
+        status('Формуларот е зачуван — сите ' + payload.length + ' одделенија; секој раководител го избира своето.', 'ok');
+    }
+
+    async function importClassForms(files) {
+        const replies = [], unreadable = [];
+        for (const file of Array.from(files || [])) {
+            try { replies.push({ fileName: file.name, reply: JSON.parse(await file.text()) }); }
+            catch (_) { unreadable.push('• „' + file.name + '" не е читлив одговор (.json).'); }
+        }
+        if (!replies.length) { formReport(unreadable.length ? unreadable : ['Не е избран одговор.']); return; }
+        let results;
+        try { results = (await api('POST', '/api/forms/replies', { replies })).results || []; }
+        catch (err) {
+            formReport(['Одговорите не се примени: ' + err.message,
+                'Пристигнатите формулари ги прима и прегледува само администраторот, најавен со PIN.']);
+            return;
+        }
+        const said = {
+            stored: 'примен — чека преглед', superseded: 'примен, но за истото има понов — важи новиот',
+            duplicate: 'веќе е примен порано', refused: 'одбиен'
+        };
+        formReport(['Одговори од формулари:'].concat(results.map((r) => '• ' + r.fileName + (r.about ? ' (' + r.about + ')' : '') + ': '
+            + (said[r.outcome] || r.outcome) + (r.error ? ' — ' + r.error : '')), unreadable,
+            ['', 'Ништо не е запишано во распоредот. Прегледај ги и прифати ги во Податоци → 📥 Формулари.']),
+            'Podatoci.html?tab=forms&year=' + encodeURIComponent(data ? data.year : ''));
+    }
+
+    el('exportClassForm').addEventListener('click', () => exportClassForm().catch((err) => status(err.message, 'error')));
+    el('importClassForm').addEventListener('click', () => { el('importClassFormFile').value = ''; el('importClassFormFile').click(); });
+    el('importClassFormFile').addEventListener('change', () => importClassForms(el('importClassFormFile').files));
 
     load(false);
 })();

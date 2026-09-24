@@ -12,7 +12,9 @@
  *     against what the database held, a typed name as ONE new pupil, a block
  *     changed meanwhile left alone — is asserted against a real database in
  *     form-replies.e2e.ts;
- *   - the form itself makes no request of any kind.
+ *   - the form itself makes no request of any kind;
+ *   - version 2 (24 Sep 2026): ONE file for every therapist, a dropdown of
+ *     names, the whole year's pupils as a checklist, and „🖼 Слика".
  *
  *   node test/schedule-form.browser.mjs
  */
@@ -87,17 +89,21 @@ page.on('pageerror', (e) => errors.push(e.message));
 await page.goto(ORIGIN + '/RasporediFusion.html');
 await page.locator('#scheduleGrid .schedule-grid').waitFor();
 
-console.log('\nthe form is made for ONE therapist');
+console.log('\none form for every therapist');
+let waitingForm = page.waitForEvent('download');
 await page.click('#exportForm');
-check('without a therapist chosen it asks for one', /Избери еден терапевт/.test(await page.locator('#notice').textContent()));
+let formDownload = await waitingForm;
+const allHtml = await readFile(await formDownload.path(), 'utf8');
+check('the file is named for the year', formDownload.suggestedFilename() === 'Формулар-кабинети — 2026-2027.html', formDownload.suggestedFilename());
+check('it carries every therapist and every pupil', allHtml.includes('Терапевт Формулар') && allHtml.includes('Друг Терапевт') && allHtml.includes('Трето Пробно'));
+check('with nobody chosen, nobody is preselected', /"selected":null/.test(allHtml));
 await page.selectOption('#focus', '1');
 await page.locator('#scheduleGrid .schedule-grid').waitFor();
-const waitingForm = page.waitForEvent('download');
+waitingForm = page.waitForEvent('download');
 await page.click('#exportForm');
-const formDownload = await waitingForm;
+formDownload = await waitingForm;
 const formHtml = await readFile(await formDownload.path(), 'utf8');
-check('the file is named for the therapist', formDownload.suggestedFilename() === 'Распоред-формулар — Терапевт Формулар.html', formDownload.suggestedFilename());
-check('it carries the therapist\'s pupils and not the others', formHtml.includes('Трето Пробно') && !formHtml.includes('Друг Терапевт'));
+check('with one therapist chosen, the form opens on them', /"selected":1[,}]/.test(formHtml));
 check('no write left the app to make it', writes.length === 0, JSON.stringify(writes));
 
 console.log('\nthe colleague fills it in with no network at all');
@@ -113,6 +119,11 @@ const form = await offline.newPage();
 const formErrors = [];
 form.on('pageerror', (e) => formErrors.push(e.message));
 await form.goto('https://form.invalid/f.html');
+check('the dropdown names every therapist', (await form.locator('#who option').allTextContents()).join('|').includes('Друг Терапевт'));
+check('the chosen therapist\'s week is open', await form.locator('#who').inputValue() === '1' && await form.locator('#work').isVisible());
+await form.selectOption('#who', '2');
+check('another name shows that person\'s list', await form.locator('#tickCount').textContent() === '1');
+await form.selectOption('#who', '1');
 const mon = form.locator('select[data-key="понеделник|08:00-08:40"][data-part="0"]');
 check('the week arrives filled in', await mon.inputValue() === 'f-a');
 check('two pupils in one block show as 20′ + 20′',
@@ -123,13 +134,26 @@ await form.locator('select[data-key="среда|08:00-08:40"][data-part="0"]').s
 // The colleague also frees Tuesday's second half …
 await form.locator('select[data-key="вторник|08:45-09:25"][data-part="1"]').selectOption('');
 check('the typed name is offered as a pupil under observation',
-    /Ново Дете \(ново · набљудување\)/.test(await form.locator('#list').textContent()));
-check('three changed terms are counted', await form.locator('#count').textContent() === '3');
+    /Ново Дете \(ново · набљудување\)/.test(await form.locator('select[data-key="среда|08:00-08:40"][data-part="0"]').textContent()));
+check('and listed among the pupils', /Ново Дете/.test(await form.locator('#checks').textContent()));
+check('the checklist is grouped by class', /III/.test(await form.locator('#checks .group h3').first().textContent()));
+check('three changed terms and one new name are counted', await form.locator('#count').textContent() === '4', await form.locator('#count').textContent());
+// … and takes Трето, no longer in any term, off their list.
+await form.locator('input[data-pupil="f-c"]').uncheck();
+check('an unticked pupil is no longer offered in the terms', await form.locator('select[data-key="вторник|08:45-09:25"][data-part="1"]').count() === 1
+    && !/Трето/.test(await form.locator('select[data-key="вторник|08:45-09:25"][data-part="0"]').textContent()));
+const waitingImage = form.waitForEvent('download');
+await form.click('#image');
+const image = await waitingImage;
+check('„🖼 Слика" saves the week as a PNG', /^Распоред — Терапевт Формулар\.png$/.test(image.suggestedFilename()), image.suggestedFilename());
 const waitingReply = form.waitForEvent('download');
 await form.click('#save');
 const replyDownload = await waitingReply;
 const replyText = await readFile(await replyDownload.path(), 'utf8');
 check('the answer is a .json named for the therapist', /^Распоред-одговор — Терапевт Формулар — \d{4}-\d{2}-\d{2}\.json$/.test(replyDownload.suggestedFilename()), replyDownload.suggestedFilename());
+const answered = JSON.parse(replyText);
+check('the answer is version 2 and carries the checklist', answered.version === 2
+    && JSON.stringify(answered.pupils.ticked.slice().sort()) === JSON.stringify(['f-a', 'f-b']) && answered.pupils.baseline.length === 3, JSON.stringify(answered.pupils));
 check('the form asked for nothing over the network', requests.length === 0, requests.join(', '));
 check('no JavaScript error in the form', formErrors.length === 0, formErrors.join(' | '));
 await offline.close();

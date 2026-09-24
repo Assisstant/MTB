@@ -201,7 +201,8 @@ docs/PLAN-rabotna-konzola.md    what can still be plugged into MTB-Workspace to 
                                 it the one console, in order of usefulness — and the
                                 short list of CRUD that must never be added there
 docs/PLAN-formulari.md          offline forms for colleagues (кабинет, одделение) and the
-                                review queue their answers wait in before anything is written
+                                review queue their answers wait in before anything is written;
+                                the forms are mtb-schedule-form.js and mtb-class-form.js
 ```
 
 ## Commands (from `server/`)
@@ -244,6 +245,8 @@ npm run test:evidence-ui             the same page in a browser, two therapists 
 npm run test:sync-page               Sinhronizacija.html in a browser; serves itself, every API call invented
 npm run test:form-replies            the form review queue, in-process with its own MTB_ADMIN, invented year
 npm run test:forms-queue             Податоци → Формулари in a browser; every API call invented
+npm run test:schedule-form           the cabinet form (all therapists) offline, then into the queue
+npm run test:class-form              the class form from Уреди настава offline, then into the queue
 npm run test:teaching                the crossing and the workbook writer, needs the server
 npm run rollover -- --to 2026/2027   dry run; add --apply
 npm run sync -- --peer <url>         dry run; add --apply to write

@@ -37,6 +37,7 @@ const PUBLIC_FILES = new Set([
     'mtb-document.js',
     'mtb-look.css',
     'mtb-schedule-form.js',
+    'mtb-class-form.js',
     'mtb-forms.js',
     'workspace-admin.js',
     'workspace-admin.css',

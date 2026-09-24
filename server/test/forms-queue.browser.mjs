@@ -10,6 +10,8 @@
  *   - several files go to the queue in one request, each with its outcome;
  *   - in the review a clean item is pre-ticked, a conflict is not, a refused
  *     one cannot be ticked, and accepting a conflict asks first;
+ *   - a class answer reads as lessons, and a pupil report is its own group,
+ *     never ticked by itself;
  *   - the item text is readable in both themes (≥ 4.5:1).
  *
  *   node test/forms-queue.browser.mjs
@@ -34,6 +36,16 @@ const check = (label, ok, detail = '') => {
 
 let mode = 'no-admin';                  // → 'signed-out' → 'signed-in'
 const calls = [];
+const classReview = {
+    reply: { id: 8, kind: 'class', about: 'II-б · Наставничка Измислена', filledAt: '2026-09-24T12:00:00Z', status: 'pending' },
+    note: '', errors: [], unchanged: 5, class: 'II-б', names: {},
+    items: [
+        { key: 'lesson:понеделник|1', type: 'lesson', state: 'clean', day: 'понеделник', ordinal: 1,
+          fromCell: { subject: 'Математика', teacher: 'Наставничка Измислена' }, toCell: { subject: 'Ликовно образование', teacher: null }, reasons: [] },
+        { key: 'report:pupil:ана', type: 'report', state: 'report', name: 'Ана Измислена', generation: 'II', text: 'е во III-а',
+          reasons: ['се поправа рачно во Податоци → Ученици; од тука не се менува ништо'] }
+    ]
+};
 const review = {
     reply: { id: 7, about: 'Терапевт Измислен', filledAt: '2026-09-24T10:00:00Z', status: 'pending' },
     note: 'од понеделник', errors: [], unchanged: 2,
@@ -72,11 +84,13 @@ async function serve(context) {
                 if (mode === 'no-admin') return json(403, { error: 'Нема поставен администратор. Во server/.env додај MTB_ADMIN=therapist:Име Презиме и рестартирај го серверот.', needsAdmin: true, noAdmin: true });
                 if (token !== TOKEN) return json(401, { error: 'not signed in', signedOut: true });
                 if (p === '/api/forms/replies' && req.method() === 'GET') return json(200, { year: YEAR, replies: [
+                    { id: 8, kind: 'class', about: 'II-б · Наставничка Измислена', fileName: 'одделение.json', filledAt: '2026-09-24T12:00:00Z', receivedAt: '2026-09-24T12:30:00Z', status: 'pending', decided: 0 },
                     { id: 7, about: 'Терапевт Измислен', fileName: 'одговор.json', filledAt: '2026-09-24T10:00:00Z', receivedAt: '2026-09-24T11:00:00Z', status: 'pending', decided: 0 },
                     { id: 6, about: 'Терапевт Измислен', fileName: 'постар.json', filledAt: '2026-09-23T10:00:00Z', receivedAt: '2026-09-24T11:00:00Z', status: 'superseded', decided: 0 }] });
                 if (p === '/api/forms/replies' && req.method() === 'POST') return json(200, { results: body.replies.map((r, i) => ({
                     fileName: r.fileName, outcome: i === 0 ? 'stored' : 'superseded', about: 'Терапевт Измислен' })) });
                 if (p === '/api/forms/replies/7/review') return json(200, review);
+                if (p === '/api/forms/replies/8/review') return json(200, classReview);
                 if (p === '/api/forms/replies/7/decide') return json(200, { id: 7, outcomes: Object.fromEntries((body.accept || []).map((k) => [k, 'запишано'])), rejected: body.reject || [] });
             }
             return json(404, { error: 'not in this test' });
@@ -113,7 +127,8 @@ await page.waitForSelector('#formsList table', { timeout: 4000 });
 const listCall = calls.filter((c) => c.path === '/api/forms/replies' && c.method === 'GET').pop();
 check('after signing in the list is fetched with the token', listCall && listCall.token === TOKEN, JSON.stringify(listCall));
 const statuses = await page.$$eval('#formsList .form-status', (x) => x.map((n) => n.textContent));
-check('the newer answer waits, the older one is shown as superseded', JSON.stringify(statuses) === JSON.stringify(['чека преглед', 'заменет со понов']), JSON.stringify(statuses));
+check('the newer answers wait, the older one is shown as superseded', JSON.stringify(statuses) === JSON.stringify(['чека преглед', 'чека преглед', 'заменет со понов']), JSON.stringify(statuses));
+check('a class answer is marked as one', /🏫 II-б · Наставничка Измислена/.test(await page.locator('#formsList').textContent()));
 
 console.log('\nseveral files at once');
 const reply = { kind: 'mtb-schedule-reply', version: 1, year: YEAR, therapist: { id: 1, name: 'Терапевт Измислен' }, blocks: {}, baseline: {} };
@@ -155,6 +170,16 @@ await page.click('#formsAccept');
 await page.waitForTimeout(300);
 check('accepting a conflict asks first', /конфликт/.test(asked), asked);
 check('and a „no" sends nothing', !calls.slice(before).some((c) => c.path.endsWith('/decide')));
+
+console.log('\na class answer');
+await page.click('[data-form-review="8"]');
+await page.waitForSelector('.form-review .form-item.report', { timeout: 4000 });
+check('a lesson reads as day, period, before → after',
+    /Понеделник, 1\. час: Математика · Наставничка Измислена → Ликовно образование/.test(await page.locator('.form-item.clean').textContent()),
+    await page.locator('.form-item.clean').textContent());
+check('a pupil report is its own group, and not ticked', /Пријави за ученици/.test(await page.locator('.form-review').textContent())
+    && !(await page.locator('.form-review input[data-state="report"]').isChecked()));
+check('and says what it is about', /Пријава за Ана Измислена \(генерација II\): „е во III-а"/.test(await page.locator('.form-item.report').textContent()));
 
 console.log('\nreadable in both themes');
 const ratio = () => page.evaluate(() => {
