@@ -8,6 +8,10 @@
  * at all. What the queue then does with the answer is asserted against a real
  * database in form-replies.e2e.ts.
  *
+ * The second half is the TEACHER form from the same page („📤 Формулар ·
+ * наставници"): each teacher's own week, class + subject per period, and the
+ * class's week read only, put together from everybody's entries.
+ *
  *   node test/class-form.browser.mjs
  */
 import { readFile } from 'node:fs/promises';
@@ -66,7 +70,7 @@ await context.route('**/*', async (route) => {
             const body = req.postData() ? JSON.parse(req.postData()) : null;
             writes.push({ method: req.method(), path: decodeURIComponent(url.pathname), body });
             if (url.pathname === '/api/forms/replies') {
-                return json(200, { results: body.replies.map((r) => ({ fileName: r.fileName, outcome: 'stored', about: r.reply.class.label })) });
+                return json(200, { results: body.replies.map((r) => ({ fileName: r.fileName, outcome: 'stored', about: r.reply.class ? r.reply.class.label : r.reply.teacher.name, applied: 1 })) });
             }
             return json(200, { ok: true });
         }
@@ -153,6 +157,60 @@ const queued = writes.filter((w) => w.path === '/api/forms/replies');
 check('it goes to the queue whole', queued.length === 1 && queued[0].body.replies[0].reply.class.label === 'II-б');
 check('nothing is written to the timetable', !writes.some((w) => /\/api\/teaching\//.test(w.path)), JSON.stringify(writes.map((w) => w.path)));
 check('and it links to the review', await page.locator('#formReport a[href^="Podatoci.html?tab=forms"]').count() === 1);
+console.log('\na teacher\'s own week');
+const waitingTeacher = page.waitForEvent('download');
+await page.click('#exportTeacherForm');
+const teacherDownload = await waitingTeacher;
+const teacherHtml = await readFile(await teacherDownload.path(), 'utf8');
+check('the file is named for the year', teacherDownload.suggestedFilename() === 'Формулар-наставници — 2026-2027.html', teacherDownload.suggestedFilename());
+check('it carries no pupil', !teacherHtml.includes('Ана Измислена') && !teacherHtml.includes('Бојан Измислен'));
+const offline2 = await browser.newContext({ acceptDownloads: true });
+const requests2 = [];
+await offline2.route('**/*', (route) => {
+    const u = route.request().url();
+    if (u === 'https://form.invalid/t.html') return route.fulfill({ status: 200, contentType: 'text/html; charset=utf-8', body: teacherHtml });
+    requests2.push(u);
+    return route.abort();
+});
+const tf = await offline2.newPage();
+const tErrors = [];
+tf.on('pageerror', (e) => tErrors.push(e.message));
+await tf.goto('https://form.invalid/t.html');
+check('each name says what the person is', (await tf.locator('#who option').allTextContents()).some((o) => /Наставничка Прва · одделенски раководител на II-б/.test(o))
+    && (await tf.locator('#who option').allTextContents()).some((o) => /Наставник Втор · предметен наставник/.test(o)));
+await tf.selectOption('#who', '22');
+const slot = (key, part) => tf.locator(`#grid select[data-key="${key}"][data-part="${part}"]`);
+check('the week arrives filled in: class and subject', await slot('понеделник|2', 'class').inputValue() === 'III-а'
+    && await slot('понеделник|2', 'subject').inputValue() === 'Англиски јазик');
+check('own subjects come first', (await slot('понеделник|2', 'subject').locator('optgroup').first().getAttribute('label')) === 'Мои предмети');
+await slot('понеделник|1', 'class').selectOption('II-б');
+await slot('понеделник|1', 'subject').selectOption('Англиски јазик');
+check('another teacher with another subject there is flagged', /⚠ во тој час: Наставничка Прва — Математика/.test(await tf.locator('#grid .warn').first().textContent()));
+await slot('понеделник|1', 'subject').selectOption('Математика');
+check('the same subject reads as teaching together', /заедно со Наставничка Прва/.test(await tf.locator('#grid .with').first().textContent()));
+await slot('вторник|2', 'class').selectOption('III-а');
+check('two changed periods are counted', await tf.locator('#count').textContent() === '2', await tf.locator('#count').textContent());
+await tf.click('[data-tab="klass"]');
+await tf.selectOption('#klassPick', 'II-б');
+const klass = await tf.locator('#klassGrid').textContent();
+check('the class view puts everybody\'s entries together, this draft included',
+    /МатематикаНаставничка Прва/.test(klass) && /МатематикаНаставник Втор/.test(klass), klass);
+check('and has no field to edit', await tf.locator('#klassGrid select').count() === 0);
+const waitingKlassImage = tf.waitForEvent('download');
+await tf.click('#klassImage');
+check('the class view saves as a PNG', (await waitingKlassImage).suggestedFilename() === 'Распоред — II-б.png');
+await tf.click('[data-tab="mine"]');
+const waitingOwn = tf.waitForEvent('download');
+await tf.click('#save');
+const own = JSON.parse(await readFile(await (await waitingOwn).path(), 'utf8'));
+check('the answer names the teacher and carries the week as shown and as left', own.kind === 'mtb-teacher-reply' && own.teacher.name === 'Наставник Втор'
+    && own.baseline['понеделник|2'].class === 'III-а' && own.cells['понеделник|1'].class === 'II-б' && own.cells['вторник|2'].class === 'III-а', JSON.stringify(own.cells));
+check('the teacher form asked for nothing over the network', requests2.length === 0, requests2.join(', '));
+check('no JavaScript error in the teacher form', tErrors.length === 0, tErrors.join(' | '));
+await offline2.close();
+await page.setInputFiles('#importClassFormFile', [{ name: 't.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(own)) }]);
+await page.waitForFunction(() => /Наставник Втор/.test(document.getElementById('formReport').textContent || ''), null, { timeout: 8000 });
+check('it goes in through the same import, and says what was written', /запишани 1/.test(await page.locator('#formReport').textContent()));
 check('no JavaScript error in Уреди настава', errors.length === 0, errors.join(' | '));
 
 await browser.close();

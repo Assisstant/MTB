@@ -24,10 +24,14 @@ Migration 040 (24 September) adds the review queue for offline form answers
 tables, row-level security on, no rights for the REST roles; no existing row
 changes.
 
-The current `deploy:workspace` runner accepts reviewed pending 033–040. Its new
-private recovery schema is `mtb_workspace_recovery_form_replies_20260924` (it
-covers 039 too wherever 039 was not deployed yet; `…_caseload_order_20260924`
-was never used in the cloud); it preserves the earlier snapshots, `mtb_workspace_recovery_20260921` (033–036),
+Migration 041 (24 September, late) lets a teacher's own week be a form answer:
+the `form_replies.kind` check gains `'teacher'`. No row changes. 039 and 040
+were already in the cloud (`8cc595e` deployed as "already current").
+
+The current `deploy:workspace` runner accepts reviewed pending 033–041. Its new
+private recovery schema is `mtb_workspace_recovery_teacher_forms_20260924`
+(041); 040 went in under `mtb_workspace_recovery_form_replies_20260924`, and
+`…_caseload_order_20260924` was never used in the cloud; it preserves the earlier snapshots, `mtb_workspace_recovery_20260921` (033–036),
 `mtb_workspace_recovery_staff_20260922` (037) and
 `mtb_workspace_recovery_order_20260922` (038). Both 032→038 and 036→038 are
 tested, including repeat no-op and preservation of original data.

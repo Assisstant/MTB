@@ -175,14 +175,17 @@ export type TeacherLessonWrite =
  *   - `taken`  — the class already has a lesson then, with somebody else. Two
  *                teachers in one room at one hour is either co-teaching nobody
  *                recorded or a mistake, and guessing which is not this
- *                function's business.
+ *                function's business. Unless the caller SAYS it is
+ *                co-teaching (`together`): the owner, 24 Sep 2026 — physical
+ *                education in the lower classes has two teachers at once. Then
+ *                one other teacher is allowed, never two.
  *   - `conflict` — the cell is not what the caller believed, same as everywhere
  *                else in this project.
  */
 export async function putTeacherLesson(
     client: any,
     key: { yearId: number; day: string; ordinal: number; teacherId: number },
-    value: { classId: number | null; subject: string | null },
+    value: { classId: number | null; subject: string | null; together?: boolean },
     expected?: { class: string | null } | undefined
 ): Promise<TeacherLessonWrite> {
     const mine = await teacherCellAt(client, key);
@@ -211,12 +214,36 @@ export async function putTeacherLesson(
     const target = await cellAt(client, {
         yearId: key.yearId, day: key.day, ordinal: key.ordinal, classId: value.classId
     });
-    const foreign = target.filter((r) => (r.teacherId ?? null) !== key.teacherId);
-    if (foreign.length) return { ok: false, code: 'taken', here: foreign, class: label };
+    // A lesson nobody has put a name to yet is not somebody else's: a teacher
+    // entering it as their own puts their name to it (putLesson updates it).
+    const foreign = target.filter((r) => r.teacherId != null && r.teacherId !== key.teacherId);
+    if (foreign.length && !(value.together && foreign.length === 1)) return { ok: false, code: 'taken', here: foreign, class: label };
 
     // Moving a teacher to a different class frees the one they were in.
     const moved = mine.length > 0 && mine[0].classId !== value.classId;
     if (moved) await client.query('DELETE FROM lessons WHERE id = $1', [mine[0].id]);
+
+    // Co-teaching: the class's cell holds the other teacher's row, which
+    // `putLesson` (one row per class and period) would refuse or overwrite.
+    // This teacher's own row is written by its own key instead.
+    if (foreign.length) {
+        const own = target.find((r) => (r.teacherId ?? null) === key.teacherId);
+        const subject = tidy(value.subject);
+        if (own) {
+            if (same(tidy(own.subject), subject)) return { ok: true, action: 'unchanged', lesson: own };
+            const { rows } = await client.query(
+                `UPDATE lessons SET subject = $2 WHERE id = $1
+                 RETURNING id, subject, teacher_id AS "teacherId", (SELECT name FROM teachers WHERE id = teacher_id) AS teacher`,
+                [own.id, subject]);
+            return { ok: true, action: 'updated', lesson: rows[0] };
+        }
+        const { rows } = await client.query(
+            `INSERT INTO lessons (school_year_id, day, day_order, ordinal, class_id, teacher_id, subject)
+             VALUES ($1, $2, $3, $4, $5, $6, $7)
+             RETURNING id, subject, teacher_id AS "teacherId", (SELECT name FROM teachers WHERE id = $6) AS teacher`,
+            [key.yearId, key.day, dayOrderOf(key.day), key.ordinal, value.classId, key.teacherId, subject]);
+        return { ok: true, action: moved ? 'moved' : 'inserted', lesson: rows[0] };
+    }
 
     const written = await putLesson(
         client,

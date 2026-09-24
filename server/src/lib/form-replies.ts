@@ -37,7 +37,7 @@ type Planned = {
 };
 type Planner = { REPLY: string; VERSION: number; plan: (reply: unknown, ctx: unknown) => Planned };
 
-type Cell = { subject: string | null; teacher: string | null } | null;
+type Cell = { subject: string | null; teacher?: string | null; class?: string } | null;
 type ClassChange = { key: string; day: string; ordinal: number; from: Cell; to: Cell; reasons: string[] };
 type ClassPlanned = {
     errors: string[]; class: string | null; homeroom: string | null; note: string; unchanged: number;
@@ -48,8 +48,19 @@ type ClassPlanned = {
 };
 type ClassPlanner = { REPLY: string; VERSION: number; plan: (reply: unknown, ctx: unknown) => ClassPlanned };
 
+type Slot = { class: string; subject: string | null } | null;
+type TeacherChange = { key: string; day: string; ordinal: number; from: Slot; to: Slot; reasons: string[]; together: string | null };
+type TeacherPlanned = {
+    errors: string[]; teacher: string | null; note: string; unchanged: number;
+    changes: TeacherChange[];
+    conflicts: Array<TeacherChange & { baseline: Slot }>;
+    skipped: Array<{ key: string; day: string; ordinal: number; reason: string }>;
+};
+type TeacherPlanner = { REPLY: string; VERSION: number; plan: (reply: unknown, ctx: unknown) => TeacherPlanned };
+
 let planner: Planner | null = null;
 let classPlanner: ClassPlanner | null = null;
+let teacherPlanner: TeacherPlanner | null = null;
 
 function repoFile(name: string): string {
     const here = path.dirname(fileURLToPath(import.meta.url));
@@ -61,7 +72,7 @@ function repoFile(name: string): string {
 }
 
 function loadForms() {
-    const sandbox: { window: { MTBScheduleForm?: Planner; MTBClassForm?: ClassPlanner } } = { window: {} };
+    const sandbox: { window: { MTBScheduleForm?: Planner; MTBClassForm?: ClassPlanner; MTBTeacherForm?: TeacherPlanner } } = { window: {} };
     const context = vm.createContext(sandbox);
     vm.runInContext(readFileSync(repoFile('mtb-schedule-form.js'), 'utf8'), context);
     vm.runInContext(readFileSync(repoFile('mtb-class-form.js'), 'utf8'), context);
@@ -70,6 +81,13 @@ function loadForms() {
     // Results are made in another realm; hand them on as plain data.
     planner = { REPLY: form.REPLY, VERSION: form.VERSION, plan: (r, c) => JSON.parse(JSON.stringify(form.plan(r, c))) };
     classPlanner = { REPLY: cls.REPLY, VERSION: cls.VERSION, plan: (r, c) => JSON.parse(JSON.stringify(cls.plan(r, c))) };
+    const own = sandbox.window.MTBTeacherForm as TeacherPlanner;
+    teacherPlanner = { REPLY: own.REPLY, VERSION: own.VERSION, plan: (r, c) => JSON.parse(JSON.stringify(own.plan(r, c))) };
+}
+
+export function teacherFormPlanner(): TeacherPlanner {
+    if (!teacherPlanner) loadForms();
+    return teacherPlanner!;
 }
 
 export function formPlanner(): Planner {
@@ -89,7 +107,7 @@ export const personKey = (kind: string, name: unknown) =>
     kind + ':' + String(name || '').normalize('NFKC').trim().replace(/\s+/g, ' ').toLocaleLowerCase('mk-MK');
 
 export type Described =
-    | { ok: true; kind: 'cabinet' | 'class'; year: string; aboutKey: string; aboutName: string; madeAt: string | null; filledAt: string | null }
+    | { ok: true; kind: 'cabinet' | 'class' | 'teacher'; year: string; aboutKey: string; aboutName: string; madeAt: string | null; filledAt: string | null }
     | { ok: false; error: string };
 
 const isoOrNull = (value: unknown) => {
@@ -120,6 +138,16 @@ export function describeReply(reply: any): Described {
         return {
             ok: true, kind: 'class', year: String(reply.year),
             aboutKey: personKey('class', label), aboutName: homeroom ? `${label} · ${homeroom}` : label,
+            madeAt: isoOrNull(reply.formGeneratedAt), filledAt: isoOrNull(reply.savedAt)
+        };
+    }
+    if (reply.kind === teacherFormPlanner().REPLY) {
+        const name = String(reply.teacher?.name || '').replace(/\s+/g, ' ').trim();
+        if (!name) return { ok: false, error: 'одговорот не кажува за кој наставник е' };
+        if (!reply.year) return { ok: false, error: 'одговорот не кажува за која учебна година е' };
+        return {
+            ok: true, kind: 'teacher', year: String(reply.year),
+            aboutKey: personKey('teacher', name), aboutName: name,
             madeAt: isoOrNull(reply.formGeneratedAt), filledAt: isoOrNull(reply.savedAt)
         };
     }
@@ -237,12 +265,12 @@ export async function cabinetContext(db: Queryable, year: { id: number; label: s
 export type ItemState = 'clean' | 'changed' | 'conflict' | 'refused' | 'report';
 export type Item = {
     key: string;
-    type: 'block' | 'pupil' | 'caseload' | 'uncaseload' | 'lesson' | 'report';
+    type: 'block' | 'pupil' | 'caseload' | 'uncaseload' | 'lesson' | 'mylesson' | 'report';
     state: ItemState;
     day?: string; time?: string; ordinal?: number;
     from?: string[];
     to?: Array<string | { create: string }>;
-    fromCell?: Cell; toCell?: Cell; lessonId?: number | null;
+    fromCell?: Cell; toCell?: Cell; lessonId?: number | null; together?: string | null;
     name?: string; publicId?: string; generation?: string | null; text?: string;
     reasons: string[];
     decision?: { decision: string; outcome: string | null; decided_by: string; decided_at: string } | null;
@@ -398,4 +426,88 @@ export function classItems(reply: any, ctx: ClassContext): { errors: string[]; c
                      reasons: ['се поправа рачно во Податоци → Ученици; од тука не се менува ништо'] });
     }
     return { errors: [], class: planned.class, note: planned.note, unchanged: planned.unchanged, items };
+}
+
+// ── a teacher's own week ────────────────────────────────────────────────────
+
+export type TeacherContext = {
+    year: string;
+    teachers: string[];
+    classes: string[];
+    validKeys: string[];
+    current: Record<string, Slot>;
+    doubled: string[];
+    occupied: Record<string, Array<{ class: string; teacher: string; subject: string | null }>>;
+};
+
+export async function teacherContext(db: Queryable, year: { id: number; label: string }, name: string): Promise<TeacherContext> {
+    const classes = (await db.query(
+        `SELECT c.label FROM class_years cy JOIN school_classes c ON c.id = cy.class_id
+          WHERE cy.school_year_id = $1 AND cy.active ORDER BY c.sort_key, c.label`, [year.id])).rows.map((r: any) => r.label);
+    const ordinals = (await db.query(
+        `SELECT ordinal FROM bell_periods WHERE schedule = 'nastava-am' ORDER BY ordinal`)).rows.map((r: any) => Number(r.ordinal));
+    const teachers = (await db.query(
+        `SELECT t.name FROM teachers t JOIN teacher_years ty ON ty.teacher_id = t.id AND ty.school_year_id = $1 AND ty.active
+          ORDER BY t.name`, [year.id])).rows.map((r: any) => r.name);
+    const lessons = (await db.query(
+        `SELECT l.day, l.ordinal, c.label AS class, l.subject, t.name AS teacher
+           FROM lessons l JOIN school_classes c ON c.id = l.class_id JOIN teachers t ON t.id = l.teacher_id
+          WHERE l.school_year_id = $1`, [year.id])).rows;
+    const low = (v: string) => v.normalize('NFKC').trim().replace(/\s+/g, ' ').toLocaleLowerCase('mk-MK');
+    const me = low(name);
+    const current: Record<string, Slot> = {};
+    const count = new Map<string, number>();
+    const occupied: TeacherContext['occupied'] = {};
+    for (const l of lessons) {
+        const key = `${l.day}|${l.ordinal}`;
+        (occupied[key] ||= []).push({ class: l.class, teacher: l.teacher, subject: l.subject ?? null });
+        if (low(l.teacher) !== me) continue;
+        count.set(key, (count.get(key) || 0) + 1);
+        current[key] = { class: l.class, subject: l.subject ?? null };
+    }
+    const doubled = Array.from(count.entries()).filter(([, n]) => n > 1).map(([k]) => k);
+    doubled.forEach((k) => { delete current[k]; });
+    return { year: year.label, teachers, classes, validKeys: DAYS.flatMap((d) => ordinals.map((o) => `${d}|${o}`)), current, doubled, occupied };
+}
+
+/**
+ * One teacher's own week as items, checked against every lesson NOW. Another
+ * teacher in that class then is co-teaching when the subject is the same (one
+ * other, never two) and a conflict otherwise.
+ */
+export function teacherItems(reply: any, ctx: TeacherContext): { errors: string[]; teacher: string | null; note: string; unchanged: number; items: Item[] } {
+    const planned = teacherFormPlanner().plan(reply, ctx);
+    const items: Item[] = [];
+    if (planned.errors.length || !planned.teacher) {
+        return { errors: planned.errors.length ? planned.errors : ['наставникот не е препознаен'], teacher: null, note: '', unchanged: 0, items };
+    }
+    const show = (c: Slot) => c ? `${c.class} · ${c.subject || '(без предмет)'}` : 'слободен час';
+    const info = (c: TeacherChange) => c.together ? [`заедно со ${c.together} (двајца наставници)`] : [];
+    for (const c of planned.changes) {
+        items.push({ key: `mylesson:${c.key}`, type: 'mylesson', state: c.reasons.length ? 'conflict' : 'clean', day: c.day, ordinal: c.ordinal,
+                     fromCell: c.from, toCell: c.to, together: c.together, reasons: c.reasons.concat(info(c)) });
+    }
+    for (const c of planned.conflicts) {
+        items.push({ key: `mylesson:${c.key}`, type: 'mylesson', state: 'changed', day: c.day, ordinal: c.ordinal,
+                     fromCell: c.from, toCell: c.to, together: c.together,
+                     reasons: [`сменето во базата откако е направен формуларот (формуларот: ${show(c.baseline)})`].concat(c.reasons, info(c)) });
+    }
+    for (const s of planned.skipped) {
+        items.push({ key: `mylesson:${s.key}`, type: 'mylesson', state: 'refused', day: s.day, ordinal: s.ordinal, reasons: [s.reason] });
+    }
+    return { errors: [], teacher: planned.teacher, note: planned.note, unchanged: planned.unchanged, items };
+}
+
+/**
+ * Written at once, without the administrator (owner, 24 Sep 2026: colleagues
+ * answer for their own data; it is enough to know who entered it). Only what
+ * is theirs and touches nobody else: a clean term, a clean lesson, their own
+ * list. A new child (rule 2 — a person decides who a typed name is), a pupil
+ * report, anything changed meanwhile or in conflict waits for the
+ * administrator.
+ */
+export function selfApplies(item: Item): boolean {
+    if (item.state !== 'clean' || item.decision) return false;
+    if (item.type === 'block') return (item.to || []).every((x) => typeof x === 'string');
+    return ['caseload', 'uncaseload', 'lesson', 'mylesson'].includes(item.type);
 }

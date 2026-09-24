@@ -63,7 +63,9 @@ const TeacherLessonBody = z.object({
     class: z.string().max(40).nullable().optional(),
     subject: z.string().max(120).nullable().optional(),
     /** Which class the caller believes is in this teacher's period; null means empty. */
-    expected: z.object({ class: z.string().max(40).nullable().optional() }).nullable().optional()
+    expected: z.object({ class: z.string().max(40).nullable().optional() }).nullable().optional(),
+    /** Co-teaching: one other teacher may already be in that class then. */
+    together: z.boolean().optional()
 });
 
 const ClassBody = z.object({
@@ -303,7 +305,7 @@ export async function teachingEditRoutes(server: FastifyInstance) {
             const written = await putTeacherLesson(
                 client,
                 { yearId: year.id, day, ordinal: body.ordinal, teacherId: t.rows[0].id },
-                { classId, subject: body.subject ?? null },
+                { classId, subject: body.subject ?? null, together: body.together === true },
                 body.expected === undefined ? undefined : { class: body.expected?.class ?? null }
             );
 

@@ -2,7 +2,9 @@
 
 Owner's request, 24 September 2026. Status: **steps 1–4 built** (24 Sep,
 HOME): the review queue (part 5), the cabinet form version 2, the class form
-and the export/import buttons (part 6). The owner's decisions are in part 4.
+and the export/import buttons (part 6); then the teacher's own week and
+"what is clean is written at once" (part 7, which REPLACES part 4's "only
+after review" for clean items). The owner's decisions are in parts 4 and 7.
 
 This is not the same thing as `docs/PLAN-eden-urednik.md`. That plan is about
 popup forms INSIDE the apps, which write at once. This one is about a FILE a
@@ -223,3 +225,43 @@ Small steps; each approved, tested with invented data, committed, shipped.
   `test:schedule-form` (version 2), `test:forms-queue` (a class answer),
   `test:form-replies` (+ version 2 checklist and a class answer written
   through the owning routes, against a real database, invented year).
+
+## 7. The teacher's own week, and clean answers written at once (24 September, late)
+
+The owner's decisions, in the order they were made that evening:
+
+- **No personal links, no second login for colleagues.** The files stay. The
+  owner keeps the full app behind Google; colleagues never see the
+  administration and need nothing explained.
+- **Colleagues answer for their own data; it is enough to know who entered
+  it.** On import, every item that is CLEAN and only the sender's own is
+  written at once, recorded as decided by `<name> (од формулар)`
+  (`selfApplies` in `lib/form-replies.ts`). Only these wait for the
+  administrator: a conflict with somebody else's data, a cell changed
+  meanwhile, a new child (rule 2), a pupil report. The owner corrects by
+  editing in the app; an old form cannot overwrite it (`expected`).
+- **Three forms:** Кабинети (therapists), По одделение (the class form,
+  kept), and **Мој распоред** (every teacher — одделенски, класен or
+  subject-only): per period, class + subject; the teacher is known. The
+  class's week is NOT typed a second time in that form: it is shown read
+  only, put together from everybody's entries, with print and a picture —
+  which is also how one sees whose week is still missing.
+- **Two teachers in one class at once** (physical education in the lower
+  classes): allowed when they teach the SAME subject, one other teacher and
+  never two (`together` on `PUT /api/teaching/teacher-lesson`). A different
+  subject is a conflict. A lesson with no teacher yet takes the name of the
+  teacher who enters it. Уреди настава and `teaching_clashes` still list such
+  cells as „два часа" — not changed yet.
+- **"Who has answered"** — Податоци → Формулари → „Кој пополнил, а кој не":
+  every teacher (lessons in the database, own week, class form if homeroom)
+  and every therapist (terms, cabinet form), `GET /api/forms/coverage`.
+- Одделенски vs класен is read from the class numeral (I–V → одделенски,
+  VI–IX → класен) only to NAME the role in the form; the database's
+  `teachers.kind` does not match the classes and is not used.
+
+Built: `MTBTeacherForm` in `mtb-class-form.js` (form + `plan`), migration
+041 (`kind = 'teacher'`), `teacherContext`/`teacherItems`, Уреди настава →
+„📤 Формулар · наставници". Tests: `class-form.test.ts` (+5),
+`test:form-replies` (auto-write, co-teaching, coverage), `test:class-form`
+(the teacher form offline), `test:forms-queue`, `test:schedule-form`,
+release test for 041.

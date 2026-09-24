@@ -62,7 +62,7 @@ await context.route('**/*', async (route) => {
             writes.push({ method: req.method(), path: decodeURIComponent(url.pathname), body });
             if (url.pathname === '/api/forms/replies') {
                 return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({
-                    results: body.replies.map((r) => ({ fileName: r.fileName, outcome: 'stored', about: r.reply.therapist.name })) }) });
+                    results: body.replies.map((r, i) => ({ fileName: r.fileName, outcome: i ? 'superseded' : 'stored', about: r.reply.therapist.name, applied: i ? undefined : 2, waiting: i ? undefined : 1 })) }) });
             }
             if (url.pathname === '/api/workspace/pupils') {
                 return route.fulfill({ status: 201, contentType: 'application/json', body: JSON.stringify({ pupil: { public_id: 'f-new', name: body.name } }) });
@@ -170,11 +170,11 @@ check('both files go to the queue in ONE request', queued.length === 1 && queued
     && queued[0].body.replies.map((r) => r.fileName).join() === 'reply.json,reply-2.json', JSON.stringify(queued.map((w) => w.body.replies.length)));
 check('each answer is sent whole, as the colleague saved it',
     queued.length === 1 && queued[0].body.replies[0].reply.kind === 'mtb-schedule-reply' && queued[0].body.replies[0].reply.therapist.name === 'Терапевт Формулар');
-check('nothing is written to the schedule, and no pupil is created',
+check('Кабинети itself writes nothing to the schedule, and creates no pupil — the server does, in the colleague\'s name',
     !writes.some((w) => w.path === '/api/schedule/block' || w.path === '/api/workspace/pupils' || /\/students\//.test(w.path)),
     JSON.stringify(writes.map((w) => w.path)));
 const notice = await page.locator('#notice').textContent();
-check('the notice says where to review them', /Ништо не е запишано во распоредот/.test(notice) && /Формулари/.test(notice), notice);
+check('the notice says what was written at once and what waits', /запишани 2, чекаат преглед 1/.test(notice) && /Чистото е запишано веднаш/.test(notice) && /Формулари/.test(notice), notice);
 check('and links there', await page.locator('#notice a[href^="Podatoci.html?tab=forms"]').count() === 1);
 check('no JavaScript error in the schedule', errors.length === 0, errors.join(' | '));
 

@@ -2278,13 +2278,19 @@
                 'Пристигнатите формулари ги прима и прегледува само администраторот, најавен со PIN.'], 'error');
             return;
         }
-        const said = {
-            stored: 'примен — чека преглед', superseded: 'примен, но за истиот терапевт има понов — важи новиот',
-            duplicate: 'веќе е примен порано', refused: 'одбиен'
-        };
-        const lines = results.map((r) => '• ' + r.fileName + (r.about ? ' (' + r.about + ')' : '') + ': '
-            + (said[r.outcome] || r.outcome) + (r.error ? ' — ' + r.error : '')).concat(unreadable.map((u) => '• ' + u));
-        lines.push('', 'Ништо не е запишано во распоредот. Прегледај ги и прифати ги во Податоци → 📥 Формулари.');
+        // Since 24 Sep 2026 what is clean and the colleague's own is written on
+        // import, in their name; conflicts and new children wait for review.
+        const said = (r) => r.outcome === 'refused' ? 'одбиен' + (r.error ? ' — ' + r.error : '')
+            : r.outcome === 'duplicate' ? 'веќе е примен порано'
+            : r.outcome === 'superseded' ? 'за истиот терапевт има понов одговор — важи новиот'
+            : r.confirmed ? '✓ потврдено, без промени'
+            : 'запишани ' + (r.applied || 0) + (r.waiting ? ', чекаат преглед ' + r.waiting : '') + (r.failed ? ', одбиени ' + r.failed : '');
+        const lines = results.map((r) => '• ' + r.fileName + (r.about ? ' (' + r.about + ')' : '') + ': ' + said(r))
+            .concat(unreadable.map((u) => '• ' + u));
+        if (results.some((r) => r.applied)) {
+            await loadAll().catch(() => {});
+        }
+        lines.push('', 'Чистото е запишано веднаш, во името на тој што го пополнил. Судирите и новите деца чекаат во Податоци → 📥 Формулари.');
         showLongNotice(['Одговори од формулари:'].concat(lines), results.some((r) => r.outcome === 'refused') ? 'error' : 'ok');
         const link = document.createElement('a');
         link.href = 'Podatoci.html?tab=forms&year=' + encodeURIComponent(state.year);

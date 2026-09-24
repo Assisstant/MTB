@@ -219,6 +219,9 @@
     .form-item.clean { border-left-color: var(--ok); }
     .form-item.refused { border-left-color: var(--border); }
     .form-item.report { border-left-color: var(--accent, #5a67d8); }
+    .form-coverage { margin-top: 18px; }
+    .form-coverage summary { cursor: pointer; padding: 6px 0; }
+    .form-coverage .missing { color: var(--danger); font-weight: 600; }
     .form-item input[type=checkbox] { width: 18px; height: 18px; margin-top: 2px; flex: 0 0 auto; }
     .form-item .what { font-weight: 600; }
     .form-item .why { display: block; font-size: 12px; color: var(--muted); margin-top: 2px; }
@@ -458,9 +461,10 @@
     <div class="panel tab" id="tab-forms">
         <h2>Пристигнати формулари</h2>
         <p class="hint">
-            Одговорите од формуларите (.json) прво се чуваат тука. <b>Ништо не се запишува во распоредот</b>
-            додека администраторот не ги прегледа и прифати, ставка по ставка. Ако за истиот терапевт
-            стигнат повеќе одговори, важи <b>најновиот</b>; постарите остануваат за увид.
+            Одговорите од формуларите (.json) се чуваат тука. При внесување, <b>чистото се запишува веднаш</b>,
+            во името на тој што го пополнил — колегите одговараат за своите податоци. <b>Чекаат само</b>
+            судирите (туѓ час или туѓо дете во исто време), сменетото во меѓувреме, новите деца и пријавите
+            за ученици. Ако за истиот човек стигнат повеќе одговори, важи <b>најновиот</b>.
         </p>
         <div id="formsGate"></div>
         <div class="controls" id="formsTools" style="margin-bottom: 12px;">
@@ -471,6 +475,10 @@
         <div id="formsImport"></div>
         <div class="scroll"><div id="formsList"></div></div>
         <div id="formsReview"></div>
+        <details class="form-coverage" id="formsCoverageBox">
+            <summary><b>Кој пополнил, а кој не</b></summary>
+            <div class="scroll"><div id="formsCoverage"></div></div>
+        </details>
     </div>
 
     <div class="panel tab" id="tab-classes">
@@ -2078,11 +2086,18 @@
     const FORM_TOKEN_KEY = 'evidence_token_v1';
     const FORM_STATUS = { pending: 'чека преглед', superseded: 'заменет со понов', done: 'затворен', rejected: 'одбиен' };
     const FORM_OUTCOME = {
-        stored: ['ok', 'примен — чека преглед'],
-        superseded: ['warn', 'примен, но за истиот терапевт / истото одделение има понов одговор — важи новиот'],
+        stored: ['ok', 'примен'],
+        superseded: ['warn', 'примен, но за истиот човек / истото одделение има понов одговор — важи новиот'],
         duplicate: ['warn', 'веќе е примен порано'],
         refused: ['bad', 'одбиен']
     };
+    /** What happened to one stored file: written at once, or waiting. */
+    function formStoredText(r) {
+        if (r.outcome !== 'stored') return '';
+        if (r.confirmed) return ' — ✓ потврдено, без промени';
+        return ' — запишани ' + (r.applied || 0) + (r.waiting ? ', чекаат преглед ' + r.waiting : '') + (r.failed ? ', одбиени ' + r.failed : '');
+    }
+    const FORM_KIND = { cabinet: '🗓 ', class: '🏫 ', teacher: '👩‍🏫 ' };
     let formsReviewId = null;
     const when = (v) => (v ? new Date(v).toLocaleString('mk-MK', { dateStyle: 'short', timeStyle: 'short' }) : '—');
 
@@ -2135,7 +2150,7 @@
         const rows = body.replies || [];
         el('formsList').innerHTML = rows.length
             ? '<table class="list"><thead><tr><th>За кого</th><th>Пополнет</th><th>Примен</th><th>Датотека</th><th>Состојба</th><th></th></tr></thead><tbody>'
-              + rows.map((r) => `<tr><td>${r.kind === 'class' ? '🏫 ' + esc(r.about) : '🗓 ' + esc(personName(r.about))}</td><td>${esc(when(r.filledAt))}</td><td>${esc(when(r.receivedAt))}</td>`
+              + rows.map((r) => `<tr><td>${(FORM_KIND[r.kind] || '') + esc(r.kind === 'class' ? r.about : personName(r.about))}</td><td>${esc(when(r.filledAt))}</td><td>${esc(when(r.receivedAt))}</td>`
                 + `<td>${esc(r.fileName || '—')}</td><td><span class="form-status ${esc(r.status)}">${esc(FORM_STATUS[r.status] || r.status)}</span>`
                 + (r.decided ? ` <span class="none">· ${r.decided} одлуки</span>` : '') + '</td>'
                 + `<td class="act"><button class="btn soft" data-form-review="${r.id}">Прегледај</button></td></tr>`).join('')
@@ -2144,6 +2159,27 @@
         el('formsList').querySelectorAll('[data-form-review]').forEach((b) =>
             b.addEventListener('click', () => openFormReview(Number(b.dataset.formReview))));
         if (formsReviewId) await openFormReview(formsReviewId, true);
+        await loadCoverage();
+    }
+
+    /** Everybody on the year's lists, and when they last answered. */
+    async function loadCoverage() {
+        let body;
+        try { body = await api('GET', '/api/forms/coverage?year=' + encodeURIComponent(data.year)); }
+        catch (_) { el('formsCoverage').innerHTML = ''; return; }
+        const date = (v) => v ? esc(when(v)) : '<span class="missing">не пополнил</span>';
+        const teachers = body.teachers || [], therapists = body.therapists || [];
+        const missing = teachers.filter((t) => !t.filledAt).length + therapists.filter((t) => !t.filledAt).length;
+        el('formsCoverageBox').querySelector('summary').innerHTML = '<b>Кој пополнил, а кој не</b>'
+            + (missing ? ` <span class="none">· ${missing} уште не пополниле</span>` : ' <span class="none">· сите пополниле</span>');
+        el('formsCoverage').innerHTML =
+            '<table class="list"><thead><tr><th>Наставник</th><th>Раководител на</th><th>Часови во базата</th><th>Личен распоред</th><th>По одделение</th></tr></thead><tbody>'
+            + teachers.map((t) => `<tr><td>${esc(personName(t.name))}</td><td>${esc(t.homeroom || '—')}</td><td>${t.lessons}</td>`
+                + `<td>${date(t.filledAt)}</td><td>${t.homeroom ? date(t.classForm) : '—'}</td></tr>`).join('')
+            + '</tbody></table>'
+            + '<table class="list" style="margin-top:12px"><thead><tr><th>Терапевт</th><th>Термини во базата</th><th>Формулар за кабинет</th></tr></thead><tbody>'
+            + therapists.map((t) => `<tr><td>${esc(personName(t.name))}</td><td>${t.terms}</td><td>${date(t.filledAt)}</td></tr>`).join('')
+            + '</tbody></table>';
     }
 
     async function importFormFiles(files) {
@@ -2160,7 +2196,7 @@
         }
         el('formsImport').innerHTML = '<ul class="form-results">' + results.map((r) => {
             const [cls, text] = FORM_OUTCOME[r.outcome] || ['bad', r.outcome];
-            return `<li class="${cls}"><b>${esc(r.fileName)}</b>${r.about ? ' · ' + esc(personName(r.about)) : ''} — ${esc(text)}${r.error ? ': ' + esc(r.error) : ''}</li>`;
+            return `<li class="${cls}"><b>${esc(r.fileName)}</b>${r.about ? ' · ' + esc(personName(r.about)) : ''} — ${esc(text)}${esc(formStoredText(r))}${r.error ? ': ' + esc(r.error) : ''}</li>`;
         }).join('') + '</ul>';
         el('formsFiles').value = '';
         await loadForms();
@@ -2173,6 +2209,11 @@
         if (item.type === 'uncaseload') return 'Излегува од списокот на терапевтот: ' + (names[item.publicId] || item.name);
         if (item.type === 'report') return 'Пријава за ' + item.name + (item.generation ? ' (генерација ' + item.generation + ')' : '') + ': „' + item.text + '"';
         const day = String(item.day || '');
+        if (item.type === 'mylesson') {
+            const slot = (c) => c ? c.class + ' · ' + (c.subject || '(без предмет)') : 'слободен час';
+            return day.charAt(0).toUpperCase() + day.slice(1) + ', ' + item.ordinal + '. час: '
+                + (item.state === 'refused' ? '' : slot(item.fromCell) + ' → ' + slot(item.toCell));
+        }
         if (item.type === 'lesson') {
             const cell = (c) => c ? (c.subject || '(без предмет)') + (c.teacher ? ' · ' + c.teacher : '') : 'празно';
             return day.charAt(0).toUpperCase() + day.slice(1) + ', ' + item.ordinal + '. час: '
@@ -2196,8 +2237,8 @@
             ['report', 'Пријави за ученици — не се запишуваат; ако се точни, поправи во „Ученици"'],
             ['refused', 'Не можат да се запишат']
         ];
-        const isClass = r.kind === 'class';
-        let html = `<div class="form-review"><h3>${isClass ? '🏫 ' + esc(r.about) : esc(personName(r.about))} · пополнет ${esc(when(r.filledAt))}</h3>`
+        const isClass = r.kind === 'class' || r.kind === 'teacher';
+        let html = `<div class="form-review"><h3>${(FORM_KIND[r.kind] || '') + esc(r.kind === 'class' ? r.about : personName(r.about))} · пополнет ${esc(when(r.filledAt))}</h3>`
             + `<p class="hint">Состојба: <b>${esc(FORM_STATUS[r.status] || r.status)}</b>${r.closedBy ? ' · ' + esc(r.closedBy) : ''}`
             + (body.unchanged ? ` · ${body.unchanged} ${isClass ? 'часа' : 'термини'} без промена` : '') + '</p>'
             + (body.note ? `<p><b>Белешка:</b> ${esc(body.note)}</p>` : '')

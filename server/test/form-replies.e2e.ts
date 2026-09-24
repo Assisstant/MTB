@@ -1,7 +1,9 @@
 /**
- * The review queue for offline form answers (docs/PLAN-formulari.md, steps
- * 1–3): a therapist's answer (version 1, and version 2 with its checklist) and
- * a homeroom teacher's class answer.
+ * The review queue for offline form answers (docs/PLAN-formulari.md): a
+ * therapist's answer (version 1, and version 2 with its checklist), a homeroom
+ * teacher's class answer, and a teacher's own week. Since 24 Sep 2026 what is
+ * clean and the sender's own is written on import, in the sender's name; the
+ * rest waits for the administrator.
  *
  * In-process, like colleague.e2e.ts: the app is built here with its own
  * MTB_ADMIN, so the rule "only the administrator, signed in" is exercised
@@ -155,6 +157,9 @@ async function run() {
         eq('and cannot even read the list', res.statusCode, 403);
 
         console.log('\nseveral files at once; the newest wins');
+        // Behind the form's back: A's Tuesday term now holds p3, not p1.
+        await q(`UPDATE schedule_slots SET student_id = $1 WHERE school_year_id = $2 AND therapist_id = $3 AND day = 'вторник'`,
+            [pupil.p3.id, year.id, ids[A]]);
         res = await app.inject({ method: 'POST', url: '/api/forms/replies', payload: files, headers: as(adminToken) });
         const out = res.json().results as Array<{ fileName: string; outcome: string; id?: number }>;
         eq('each file gets its own outcome', out.map((r) => [r.fileName, r.outcome]),
@@ -167,10 +172,10 @@ async function run() {
         res = await app.inject({ method: 'POST', url: `/api/forms/replies/${olderId}/decide`, payload: { accept: [`block:${MON2}`] }, headers: as(adminToken) });
         eq('a superseded answer cannot be decided', res.statusCode, 409);
 
+        eq('nothing of A\'s answer was A\'s alone to write: a new child, a conflict, a term changed meanwhile',
+            [(out[0] as any).applied, (out[0] as any).waiting], [0, 4]);
+
         console.log('\nthe review, against the database as it is now');
-        // Behind the form's back: A's Tuesday term now holds p3, not p1.
-        await q(`UPDATE schedule_slots SET student_id = $1 WHERE school_year_id = $2 AND therapist_id = $3 AND day = 'вторник'`,
-            [pupil.p3.id, year.id, ids[A]]);
         const review = (await app.inject({ method: 'GET', url: `/api/forms/replies/${newerId}/review`, headers: as(adminToken) })).json();
         const item = (key: string) => review.items.find((i: any) => i.key === key);
         eq('the therapist is found by name although the file carried another id', review.therapist && review.therapist.name, A);
@@ -224,13 +229,14 @@ async function run() {
         };
         res = await app.inject({ method: 'POST', url: '/api/forms/replies', payload: { replies: [{ fileName: 'b.json', reply: v2 }] }, headers: as(adminToken) });
         const v2Id = res.json().results[0].id;
+        eq('B\'s own clean changes are written on import, nothing waits', [res.json().results[0].applied, res.json().results[0].waiting], [3, 0]);
         const v2Review = (await app.inject({ method: 'GET', url: `/api/forms/replies/${v2Id}/review`, headers: as(adminToken) })).json();
         eq('a tick added, a tick removed and the cleared term are three items',
             v2Review.items.map((i: any) => [i.key, i.state]).sort(),
             [[`block:${MON2}`, 'clean'], [`caseload:${pupil.p3.pid}`, 'clean'], [`uncaseload:${pupil.p2.pid}`, 'clean']].sort());
-        res = await app.inject({ method: 'POST', url: `/api/forms/replies/${v2Id}/decide`,
-            payload: { accept: v2Review.items.map((i: any) => i.key) }, headers: as(adminToken) });
-        check('all three are written', Object.values(res.json().outcomes).every((o) => o === 'запишано'), JSON.stringify(res.json()));
+        check('each is recorded as written, in B\'s name', v2Review.items.every((i: any) => i.decision && i.decision.outcome === 'запишано'
+            && i.decision.decided_by === `${B} (од формулар)`), JSON.stringify(v2Review.items.map((i: any) => i.decision)));
+        eq('and the answer is closed', (await q(`SELECT status FROM form_replies WHERE id = $1`, [v2Id]))[0].status, 'done');
         const bList = (await q(`SELECT s.public_id FROM therapist_students ts JOIN students s ON s.id = ts.student_id
                                   WHERE ts.school_year_id = $1 AND ts.therapist_id = $2 ORDER BY 1`, [year.id, ids[B]])).map((r) => r.public_id);
         eq('B\'s list is now exactly what B ticked', bList, [pupil.p3.pid]);
@@ -268,10 +274,11 @@ async function run() {
         res = await app.inject({ method: 'POST', url: '/api/forms/replies', payload: { replies: [{ fileName: 'class.json', reply: classAnswer }] }, headers: as(adminToken) });
         eq('a class answer is stored, named by its class and homeroom', [res.json().results[0].outcome, res.json().results[0].about], ['stored', `${C1} · ${TA}`]);
         const classId = res.json().results[0].id;
+        eq('its clean lessons are written on import; the conflict and the report wait', [res.json().results[0].applied, res.json().results[0].waiting], [3, 2]);
         const cr = (await app.inject({ method: 'GET', url: `/api/forms/replies/${classId}/review`, headers: as(adminToken) })).json();
         const citem = (key: string) => cr.items.find((i: any) => i.key === key);
         eq('the class is found by its label although the file carried another id', cr.class, C1);
-        eq('a changed subject is clean', citem('lesson:понеделник|1')?.state, 'clean');
+        eq('a changed subject is clean, and was written', [citem('lesson:понеделник|1')?.state, citem('lesson:понеделник|1')?.decision?.outcome], ['clean', 'запишано']);
         eq('a cleared period is clean', [citem('lesson:понеделник|2')?.state, citem('lesson:понеделник|2')?.toCell], ['clean', null]);
         eq('a teacher already in another class is a conflict', citem('lesson:вторник|1')?.state, 'conflict');
         check('and it says where', /ПФ-2/.test((citem('lesson:вторник|1')?.reasons || []).join(' ')), JSON.stringify(citem('lesson:вторник|1')));
@@ -279,10 +286,8 @@ async function run() {
         eq('a pupil report is its own kind of item', cr.items.find((i: any) => i.type === 'report')?.state, 'report');
 
         res = await app.inject({ method: 'POST', url: `/api/forms/replies/${classId}/decide`,
-            payload: { accept: ['lesson:понеделник|1', 'lesson:понеделник|2', 'lesson:среда|1', reportKey] }, headers: as(adminToken) });
-        eq('accepted lessons are written, the report only noted', res.json().outcomes, {
-            'lesson:понеделник|1': 'запишано', 'lesson:понеделник|2': 'запишано', 'lesson:среда|1': 'запишано', [reportKey]: 'забележано'
-        });
+            payload: { accept: [reportKey] }, headers: as(adminToken) });
+        eq('the report is only noted', res.json().outcomes, { [reportKey]: 'забележано' });
         const week = (await q(`SELECT l.day || '|' || l.ordinal AS k, l.subject, t.name AS teacher FROM lessons l LEFT JOIN teachers t ON t.id = l.teacher_id
                                  WHERE l.school_year_id = $1 AND l.class_id = $2 ORDER BY l.day_order, l.ordinal`, [year.id, cls[C1]]))
             .map((r) => [r.k, r.subject, r.teacher]);
@@ -296,6 +301,42 @@ async function run() {
         eq('once the conflict is rejected the answer closes', (await q(`SELECT status FROM form_replies WHERE id = $1`, [classId]))[0].status, 'done');
         const tb = await q(`SELECT 1 FROM lessons WHERE school_year_id = $1 AND class_id = $2 AND day = 'вторник'`, [year.id, cls[C1]]);
         eq('and the conflicting lesson was never written', tb.length, 0);
+
+        console.log('\na teacher\'s own week');
+        await lesson(C2, 'понеделник', 2, 'Математика', TA);             // TA is in ПФ-2 on Monday, 2nd
+        const own = {
+            kind: 'mtb-teacher-reply', version: 1, year: YEAR, teacher: { id: 424242, name: TB },
+            formGeneratedAt: '1917-09-20T08:00:00.000Z', savedAt: '1917-09-23T12:00:00.000Z',
+            baseline: { 'вторник|1': { class: C2, subject: 'Англиски јазик' } },
+            cells: {
+                'вторник|1': { class: C2, subject: 'Англиски јазик' },            // as it was: a confirmation
+                'понеделник|1': { class: C1, subject: 'Ликовно образование' },    // TA teaches it then: together
+                'среда|1': { class: C1, subject: 'Физичко образование' },         // a lesson nobody had named
+                'четврток|1': { class: C1, subject: 'Музичко образование' },      // a new lesson
+                'понеделник|2': { class: C2, subject: 'Англиски јазик' }          // TA has Maths there: a conflict
+            }, note: ''
+        };
+        res = await app.inject({ method: 'POST', url: '/api/forms/replies', payload: { replies: [{ fileName: 'tb.json', reply: own }] }, headers: as(adminToken) });
+        const ownResult = res.json().results[0];
+        eq('stored as the teacher\'s own answer, three written, the conflict waits',
+            [ownResult.outcome, ownResult.about, ownResult.applied, ownResult.waiting], ['stored', TB, 3, 1]);
+        const at = async (day: string, ordinal: number, label: string) => (await q(
+            `SELECT t.name, l.subject FROM lessons l LEFT JOIN teachers t ON t.id = l.teacher_id
+              WHERE l.school_year_id = $1 AND l.class_id = $2 AND l.day = $3 AND l.ordinal = $4 ORDER BY t.name`,
+            [year.id, cls[label], day, ordinal])).map((r) => [r.name, r.subject]);
+        eq('two teachers of one subject in one class: both kept', await at('понеделник', 1, C1),
+            [[TA, 'Ликовно образование'], [TB, 'Ликовно образование']]);
+        eq('a lesson with no teacher gets this one\'s name, not a second row', await at('среда', 1, C1), [[TB, 'Физичко образование']]);
+        eq('a new lesson is written', await at('четврток', 1, C1), [[TB, 'Музичко образование']]);
+        eq('the conflict is not written', await at('понеделник', 2, C2), [[TA, 'Математика']]);
+        const ownReview = (await app.inject({ method: 'GET', url: `/api/forms/replies/${ownResult.id}/review`, headers: as(adminToken) })).json();
+        const conflict = ownReview.items.find((i: any) => i.key === 'mylesson:понеделник|2');
+        check('the conflict names who is there', conflict?.state === 'conflict' && /Формулар А \(Математика\)/.test(conflict.reasons.join(' ')), JSON.stringify(conflict));
+        eq('the confirmation is not an item', ownReview.unchanged, 1);
+        const coverage = (await app.inject({ method: 'GET', url: `/api/forms/coverage?year=${encodeURIComponent(YEAR)}`, headers: as(adminToken) })).json();
+        const cov = (name: string) => coverage.teachers.find((t: any) => t.name === name);
+        check('coverage says who has answered and who has not', !!cov(TB)?.filledAt && cov(TA)?.filledAt === null, JSON.stringify(coverage.teachers));
+        check('and counts each one\'s lessons', cov(TB)?.lessons === 4, JSON.stringify(cov(TB)));
     } finally {
         await app.close();
         await cleanup();

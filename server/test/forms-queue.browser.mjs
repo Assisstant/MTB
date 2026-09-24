@@ -88,7 +88,11 @@ async function serve(context) {
                     { id: 7, about: 'Терапевт Измислен', fileName: 'одговор.json', filledAt: '2026-09-24T10:00:00Z', receivedAt: '2026-09-24T11:00:00Z', status: 'pending', decided: 0 },
                     { id: 6, about: 'Терапевт Измислен', fileName: 'постар.json', filledAt: '2026-09-23T10:00:00Z', receivedAt: '2026-09-24T11:00:00Z', status: 'superseded', decided: 0 }] });
                 if (p === '/api/forms/replies' && req.method() === 'POST') return json(200, { results: body.replies.map((r, i) => ({
-                    fileName: r.fileName, outcome: i === 0 ? 'stored' : 'superseded', about: 'Терапевт Измислен' })) });
+                    fileName: r.fileName, outcome: i === 0 ? 'stored' : 'superseded', about: 'Терапевт Измислен', applied: i === 0 ? 3 : undefined, waiting: i === 0 ? 1 : undefined })) });
+                if (p === '/api/forms/coverage') return json(200, { year: YEAR,
+                    teachers: [{ name: 'Наставничка Измислена', lessons: 20, homeroom: 'II-б', filledAt: '2026-09-24T12:00:00Z', status: 'done', classForm: '2026-09-24T12:00:00Z' },
+                               { name: 'Наставник Незаинтересиран', lessons: 0, homeroom: null, filledAt: null, status: null, classForm: null }],
+                    therapists: [{ name: 'Терапевт Измислен', terms: 12, filledAt: '2026-09-24T10:00:00Z', status: 'pending' }] });
                 if (p === '/api/forms/replies/7/review') return json(200, review);
                 if (p === '/api/forms/replies/8/review') return json(200, classReview);
                 if (p === '/api/forms/replies/7/decide') return json(200, { id: 7, outcomes: Object.fromEntries((body.accept || []).map((k) => [k, 'запишано'])), rejected: body.reject || [] });
@@ -143,7 +147,13 @@ check('the readable files go in ONE request', posted.length === 1 && posted[0].b
     JSON.stringify(posted.map((c) => c.body.replies.length)));
 const lines = await page.$$eval('#formsImport li', (x) => x.map((n) => n.textContent));
 check('each file says what happened to it, the unreadable one too',
-    lines.length === 3 && /чека преглед/.test(lines.join()) && /понов/.test(lines.join()) && /не е читлив JSON/.test(lines.join()), JSON.stringify(lines));
+    lines.length === 3 && /запишани 3, чекаат преглед 1/.test(lines.join()) && /понов/.test(lines.join()) && /не е читлив JSON/.test(lines.join()), JSON.stringify(lines));
+
+console.log('\nwho has answered');
+await page.click('#formsCoverageBox summary');
+check('the ones who have not answered are counted', /1 уште не пополниле/.test(await page.locator('#formsCoverageBox summary').textContent()));
+check('and named', /Наставник Незаинтересиран\s*—\s*0\s*не пополнил/.test((await page.locator('#formsCoverage').textContent()).replace(/\s+/g, ' ')),
+    (await page.locator('#formsCoverage').textContent()).replace(/\s+/g, ' '));
 
 console.log('\nthe review');
 await page.click('[data-form-review="7"]');

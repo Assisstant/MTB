@@ -316,8 +316,10 @@
             <button class="btn soft" id="refresh"><span class="ico" aria-hidden="true">↻</span> Освежи</button>
             <button class="btn soft" id="printWeek" style="display:none;"
                     title="Секое одделение на своја страница, како распоредот што стои на вратата"><span class="ico" aria-hidden="true">⎙</span> Печати</button>
+            <button class="btn soft" id="exportTeacherForm"
+                    title="Личен распоред за секој наставник (одделенски, класен или предметен): сите во една датотека; секој го избира своето име и за секој час внесува одделение и предмет"><span class="ico" aria-hidden="true">📤</span> Формулар · наставници</button>
             <button class="btn soft" id="exportClassForm"
-                    title="Формулар за одделенските раководители: сите одделенија во една датотека што се пополнува без апликацијата; секој го избира своето одделение"><span class="ico" aria-hidden="true">📤</span> Формулар</button>
+                    title="Формулар по одделение, за одделенските и класните раководители: сите одделенија во една датотека; секој го избира своето одделение"><span class="ico" aria-hidden="true">📤</span> Формулар · одделенија</button>
             <button class="btn soft" id="importClassForm"
                     title="Внеси еден или повеќе одговори (.json) — се чуваат за преглед во Податоци → Формулари; ништо не се запишува веднаш"><span class="ico" aria-hidden="true">📥</span> Внеси формулар</button>
             <input type="file" id="importClassFormFile" accept=".json,application/json" multiple hidden>
@@ -2329,6 +2331,56 @@
         status('Формуларот е зачуван — сите ' + payload.length + ' одделенија; секој раководител го избира своето.', 'ok');
     }
 
+    /** „I-а" … „V-в" is одделенска настава, from VI on предметна: how a homeroom is called. */
+    function homeroomRole(label) {
+        const m = /^\s*(IX|IV|V?I{0,3})\b/i.exec(String(label || ''));
+        const n = m && m[1] ? ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX'].indexOf(m[1].toUpperCase()) + 1 : 0;
+        return (n >= 6 ? 'класен раководител на ' : 'одделенски раководител на ') + label;
+    }
+
+    /**
+     * Every teacher's own week in one file (owner, 24 Sep 2026): each picks
+     * their name and enters class + subject per period; the class's week is
+     * shown read only, put together from everybody's entries.
+     */
+    async function exportTeacherForm() {
+        if (!data) { status('Распоредот сè уште не е вчитан.', 'warn'); return; }
+        status('Го подготвувам формуларот…');
+        const all = await api('GET', '/api/teaching/subjects?year=' + encodeURIComponent(data.year)).catch(() => ({ subjects: [] }));
+        const subjects = new Set((all.subjects || []).map((x) => x.subject));
+        (data.lessons || []).forEach((l) => { if (l.subject) subjects.add(l.subject); });
+        const key = (l) => MTBClassForm.cellKey(l.day, l.ordinal);
+        const homeroomOf = (t) => ((t.classes || []).find((c) => c.role === 'homeroom') || {}).label || null;
+        const teachers = (data.teachers || []).map((t) => {
+            const lessons = {}, count = new Map();
+            (data.lessons || []).filter((l) => l.teacher === t.name).forEach((l) => {
+                count.set(key(l), (count.get(key(l)) || 0) + 1);
+                lessons[key(l)] = { class: l.class, subject: l.subject || null };
+            });
+            const doubled = Array.from(count.entries()).filter(([, n]) => n > 1).map(([k]) => k);
+            doubled.forEach((k) => { delete lessons[k]; });
+            const hr = homeroomOf(t);
+            return { id: t.id, name: t.name, subject: t.subject || null, homeroomOf: hr, role: hr ? homeroomRole(hr) : 'предметен наставник', lessons, doubled };
+        }).sort((a, b) => a.name.localeCompare(b.name, 'mk'));
+        const homeroomName = (label) => {
+            const t = (data.teachers || []).find((x) => (x.classes || []).some((c) => c.label === label && c.role === 'homeroom'));
+            return t ? t.name : null;
+        };
+        const html = MTBTeacherForm.buildForm({
+            school: 'ОУРЦ „Кочо Рацин" – Битола', year: data.year,
+            generatedAt: new Date().toISOString(),
+            days: DAYS,
+            periods: periods().map((p) => ({ ordinal: p.ordinal, label: p.label + '. час', time: p.startsAt })),
+            subjects: Array.from(subjects).sort((a, b) => a.localeCompare(b, 'mk')),
+            classes: (data.classes || []).map((c) => ({ label: c.label, homeroom: homeroomName(c.label) })),
+            teachers,
+            lessons: (data.lessons || []).map((l) => ({ key: key(l), class: l.class, subject: l.subject || null, teacher: l.teacher || null })),
+            selected: null
+        });
+        downloadFile(html, 'Формулар-наставници — ' + String(data.year).replace(/\//g, '-') + '.html', 'text/html');
+        status('Формуларот е зачуван — сите ' + teachers.length + ' наставници; секој го избира своето име.', 'ok');
+    }
+
     async function importClassForms(files) {
         const replies = [], unreadable = [];
         for (const file of Array.from(files || [])) {
@@ -2343,17 +2395,23 @@
                 'Пристигнатите формулари ги прима и прегледува само администраторот, најавен со PIN.']);
             return;
         }
-        const said = {
-            stored: 'примен — чека преглед', superseded: 'примен, но за истото има понов — важи новиот',
-            duplicate: 'веќе е примен порано', refused: 'одбиен'
-        };
         formReport(['Одговори од формулари:'].concat(results.map((r) => '• ' + r.fileName + (r.about ? ' (' + r.about + ')' : '') + ': '
-            + (said[r.outcome] || r.outcome) + (r.error ? ' — ' + r.error : '')), unreadable,
-            ['', 'Ништо не е запишано во распоредот. Прегледај ги и прифати ги во Податоци → 📥 Формулари.']),
+            + formOutcome(r)), unreadable,
+            ['', 'Чистото е запишано веднаш, во името на тој што го пополнил. Судирите чекаат во Податоци → 📥 Формулари.']),
             'Podatoci.html?tab=forms&year=' + encodeURIComponent(data ? data.year : ''));
     }
 
+    /** One file's fate after import, in words. */
+    function formOutcome(r) {
+        if (r.outcome === 'refused') return 'одбиен' + (r.error ? ' — ' + r.error : '');
+        if (r.outcome === 'duplicate') return 'веќе е примен порано';
+        if (r.outcome === 'superseded') return 'за истото има понов одговор — важи новиот';
+        if (r.confirmed) return '✓ потврдено, без промени';
+        return 'запишани ' + (r.applied || 0) + (r.waiting ? ', чекаат преглед ' + r.waiting : '') + (r.failed ? ', одбиени ' + r.failed : '');
+    }
+
     el('exportClassForm').addEventListener('click', () => exportClassForm().catch((err) => status(err.message, 'error')));
+    el('exportTeacherForm').addEventListener('click', () => exportTeacherForm().catch((err) => status(err.message, 'error')));
     el('importClassForm').addEventListener('click', () => { el('importClassFormFile').value = ''; el('importClassFormFile').click(); });
     el('importClassFormFile').addEventListener('change', () => importClassForms(el('importClassFormFile').files));
 
