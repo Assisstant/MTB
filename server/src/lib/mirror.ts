@@ -62,10 +62,17 @@ export const MIRROR_TABLES = [
     'triage_tests'
 ] as const;
 
-/** Never leave the cloud database: credentials, sessions, ledgers and local sync state. */
+/**
+ * Never leave the cloud database: credentials, sessions, ledgers and local
+ * sync state — and the review inbox of offline form answers (040). An answer's
+ * outcome reaches the mirrored tables when it is accepted; the inbox itself is
+ * the administrator's work in progress, useless in a read-only copy.
+ */
 export const MIRROR_EXCLUDED_TABLES = [
     'evidence_logins',
     'evidence_sessions',
+    'form_replies',
+    'form_reply_decisions',
     'mirror_sync_attempt',
     'mirror_sync_state',
     'schema_migrations',

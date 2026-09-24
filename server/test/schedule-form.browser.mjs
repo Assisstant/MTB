@@ -6,9 +6,12 @@
  * browser context with no network at all, as a colleague would open it from
  * an e-mail. What is asserted is what reaches the server on import:
  *
- *   - a changed block is written with `expected` = what the database held;
- *   - a typed name becomes ONE pupil under observation, on the colleague's list;
- *   - a block changed in the database since the form was made is NOT written;
+ *   - since 24 Sep 2026 an answer is NOT written by Кабинети: it goes to the
+ *     review queue (POST /api/forms/replies), several files in one request,
+ *     and nothing touches the schedule. What the queue then writes — a block
+ *     against what the database held, a typed name as ONE new pupil, a block
+ *     changed meanwhile left alone — is asserted against a real database in
+ *     form-replies.e2e.ts;
  *   - the form itself makes no request of any kind.
  *
  *   node test/schedule-form.browser.mjs
@@ -55,6 +58,10 @@ await context.route('**/*', async (route) => {
         if (req.method() !== 'GET') {
             const body = req.postData() ? JSON.parse(req.postData()) : null;
             writes.push({ method: req.method(), path: decodeURIComponent(url.pathname), body });
+            if (url.pathname === '/api/forms/replies') {
+                return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({
+                    results: body.replies.map((r) => ({ fileName: r.fileName, outcome: 'stored', about: r.reply.therapist.name })) }) });
+            }
             if (url.pathname === '/api/workspace/pupils') {
                 return route.fulfill({ status: 201, contentType: 'application/json', body: JSON.stringify({ pupil: { public_id: 'f-new', name: body.name } }) });
             }
@@ -127,33 +134,24 @@ check('the form asked for nothing over the network', requests.length === 0, requ
 check('no JavaScript error in the form', formErrors.length === 0, formErrors.join(' | '));
 await offline.close();
 
-console.log('\nthe answer comes back — and Tuesday was changed in the database meanwhile');
-sessions = sessions.filter((s) => s.day !== 'вторник').concat(session('вторник', '08:45-09:25', 1, 'f-a'));
-await page.click('#refresh');
-await page.waitForTimeout(400);
-let question = '';
-page.once('dialog', (d) => { question = d.message(); d.accept(); });
-await page.setInputFiles('#importFormFile', { name: 'reply.json', mimeType: 'application/json', buffer: Buffer.from(replyText) });
-await page.waitForFunction(() => /Формуларот на/.test(document.getElementById('notice').textContent || ''), null, { timeout: 8000 });
-check('the question lists what will be written', /Ќе се запишат 2 термини/.test(question), question);
-check('it names the new pupil', /Нови ученици под набљудување: Ново Дете/.test(question), question);
-check('it says Tuesday will NOT be written, and why', /НЕ се внесуваат — сменети во базата/.test(question), question);
-
-const pupilPosts = writes.filter((w) => w.path === '/api/workspace/pupils');
-check('one new pupil, under observation, external, this year',
-    pupilPosts.length === 1 && pupilPosts[0].body.name === 'Ново Дете' && pupilPosts[0].body.placement === 'observation' &&
-    pupilPosts[0].body.enrollmentType === 'external' && pupilPosts[0].body.year === year, JSON.stringify(pupilPosts));
-check('the new pupil joins the therapist\'s list',
-    writes.some((w) => w.method === 'PUT' && w.path === '/api/therapists/Терапевт Формулар/students/f-new'),
+console.log('\nthe answers come back — into the review queue, not into the schedule');
+const second = JSON.stringify({ ...JSON.parse(replyText), savedAt: new Date(Date.now() + 60000).toISOString(), note: 'втор' });
+await page.setInputFiles('#importFormFile', [
+    { name: 'reply.json', mimeType: 'application/json', buffer: Buffer.from(replyText) },
+    { name: 'reply-2.json', mimeType: 'application/json', buffer: Buffer.from(second) }
+]);
+await page.waitForFunction(() => /Одговори од формулари/.test(document.getElementById('notice').textContent || ''), null, { timeout: 8000 });
+const queued = writes.filter((w) => w.path === '/api/forms/replies');
+check('both files go to the queue in ONE request', queued.length === 1 && queued[0].body.replies.length === 2
+    && queued[0].body.replies.map((r) => r.fileName).join() === 'reply.json,reply-2.json', JSON.stringify(queued.map((w) => w.body.replies.length)));
+check('each answer is sent whole, as the colleague saved it',
+    queued.length === 1 && queued[0].body.replies[0].reply.kind === 'mtb-schedule-reply' && queued[0].body.replies[0].reply.therapist.name === 'Терапевт Формулар');
+check('nothing is written to the schedule, and no pupil is created',
+    !writes.some((w) => w.path === '/api/schedule/block' || w.path === '/api/workspace/pupils' || /\/students\//.test(w.path)),
     JSON.stringify(writes.map((w) => w.path)));
-const blocks = writes.filter((w) => w.path === '/api/schedule/block').map((w) => w.body);
-check('Monday is written against what the database held',
-    blocks.some((b) => b.day === 'понеделник' && b.time === '08:00-08:40' &&
-        JSON.stringify(b.studentPublicIds) === '["f-b"]' && JSON.stringify(b.expectedStudentPublicIds) === '["f-a"]'),
-    JSON.stringify(blocks));
-check('Wednesday gets the new pupil', blocks.some((b) => b.day === 'среда' && JSON.stringify(b.studentPublicIds) === '["f-new"]'), JSON.stringify(blocks));
-check('Tuesday, changed in the database since, is not written', !blocks.some((b) => b.day === 'вторник'), JSON.stringify(blocks));
-check('exactly two blocks are written', blocks.length === 2, JSON.stringify(blocks));
+const notice = await page.locator('#notice').textContent();
+check('the notice says where to review them', /Ништо не е запишано во распоредот/.test(notice) && /Формулари/.test(notice), notice);
+check('and links there', await page.locator('#notice a[href^="Podatoci.html?tab=forms"]').count() === 1);
 check('no JavaScript error in the schedule', errors.length === 0, errors.join(' | '));
 
 await browser.close();

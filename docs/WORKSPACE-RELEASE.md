@@ -19,9 +19,15 @@ Migration 039 (24 September) lets the same table hold one list per therapist,
 It changes a CHECK constraint and no row; until somebody presses an arrow in
 „Ученици по терапевт“ every list reads as before.
 
-The current `deploy:workspace` runner accepts reviewed pending 033–039. Its new
-private recovery schema is `mtb_workspace_recovery_caseload_order_20260924`; it
-preserves the earlier snapshots, `mtb_workspace_recovery_20260921` (033–036),
+Migration 040 (24 September) adds the review queue for offline form answers
+(`form_replies`, `form_reply_decisions`, docs/PLAN-formulari.md): two new
+tables, row-level security on, no rights for the REST roles; no existing row
+changes.
+
+The current `deploy:workspace` runner accepts reviewed pending 033–040. Its new
+private recovery schema is `mtb_workspace_recovery_form_replies_20260924` (it
+covers 039 too wherever 039 was not deployed yet; `…_caseload_order_20260924`
+was never used in the cloud); it preserves the earlier snapshots, `mtb_workspace_recovery_20260921` (033–036),
 `mtb_workspace_recovery_staff_20260922` (037) and
 `mtb_workspace_recovery_order_20260922` (038). Both 032→038 and 036→038 are
 tested, including repeat no-op and preservation of original data.

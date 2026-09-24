@@ -71,7 +71,9 @@
     "test:fusion-word": "node test/fusion-word.browser.mjs",
     "test:schedule-form": "node test/schedule-form.browser.mjs",
     "test:fusion-new-pupil": "node test/fusion-new-pupil.browser.mjs",
-    "test:workspace-links": "node test/workspace-links.browser.mjs"
+    "test:workspace-links": "node test/workspace-links.browser.mjs",
+    "test:form-replies": "tsx test/form-replies.e2e.ts",
+    "test:forms-queue": "node test/forms-queue.browser.mjs"
   },
   "dependencies": {
     "@fastify/cookie": "^11.1.2",

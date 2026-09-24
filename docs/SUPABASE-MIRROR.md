@@ -24,6 +24,8 @@ queue не постојат во оваа фаза.
 - `sync_watermark` — стар локален peer договор;
 - `mirror_sync_state` и `mirror_sync_attempt` — локален статус;
 - `evidence_logins` и `evidence_sessions` — PIN hash-ови и живи сесии.
+- `form_replies` и `form_reply_decisions` — сандаче на пристигнати формулари
+  (040); прифатените ставки стигнуваат во табелите што се пренесуваат.
 
 Не се пренесуваат Supabase schemas, Google/Render сесии, тајни или PostgreSQL
 sequences. Mirror-от е read-only; ако некогаш треба да стане главна база,

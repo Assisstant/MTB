@@ -156,6 +156,7 @@ server/src/routes/roster-purge.ts    the other бришење: a typo, and only 
 server/src/routes/evidence.ts        евидентен лист: one score cell, one panel, one line of the form
 server/src/routes/evidence-auth.ts   shared sign-in: authorship always, opt-in authorization
 server/src/routes/sync-status.ts     read-only: the sync manifests, migrations, last backup; exports and accepts nothing
+server/src/routes/form-replies.ts    the review queue for offline form answers: stored first, the administrator decides
 server/src/lib/evidence.ts           the catalogue, the year's columns and one sheet read whole
 server/src/lib/public-static.ts      explicit allowlist for files published by the local server
 server/src/routes/data.ts       read endpoints
@@ -241,6 +242,8 @@ npm run test:purge                   the typo delete, including the concurrent b
 npm run test:evidence                евидентен лист against the database, needs the server running
 npm run test:evidence-ui             the same page in a browser, two therapists at once
 npm run test:sync-page               Sinhronizacija.html in a browser; serves itself, every API call invented
+npm run test:form-replies            the form review queue, in-process with its own MTB_ADMIN, invented year
+npm run test:forms-queue             Податоци → Формулари in a browser; every API call invented
 npm run test:teaching                the crossing and the workbook writer, needs the server
 npm run rollover -- --to 2026/2027   dry run; add --apply
 npm run sync -- --peer <url>         dry run; add --apply to write

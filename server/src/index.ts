@@ -22,6 +22,7 @@ import { categoryRoutes } from './routes/categories.js';
 import { mirrorRoutes } from './routes/mirror.js';
 import { workspaceRoutes } from './routes/workspace.js';
 import { syncStatusRoutes } from './routes/sync-status.js';
+import { formReplyRoutes } from './routes/form-replies.js';
 import { resolveServerIdentity } from './lib/server-identity.js';
 import { installColleagueBoundary } from './lib/colleague.js';
 import { installMirrorWriteBoundary } from './lib/mirror-boundary.js';
@@ -177,6 +178,7 @@ server.register(rosterPurgeRoutes);
 server.register(evidenceAuthRoutes);
 server.register(categoryRoutes);
 server.register(evidenceRoutes);
+server.register(formReplyRoutes);
 
 server.listen(listenOptions())
     .then(async () => {

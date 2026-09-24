@@ -1,8 +1,9 @@
 # Offline forms for colleagues, and a review queue for what comes back
 
-Owner's request, 24 September 2026. Status: **plan, awaiting the owner's go
-for step 1.** Nothing below is built yet except what already exists in
-`mtb-schedule-form.js` (the therapist form, 23 Sep).
+Owner's request, 24 September 2026. Status: **step 1 built** (24 Sep, HOME):
+the review queue, for the therapist form that already existed
+(`mtb-schedule-form.js`, 23 Sep). Steps 2–4 not started. The owner's
+decisions are in part 4.
 
 This is not the same thing as `docs/PLAN-eden-urednik.md`. That plan is about
 popup forms INSIDE the apps, which write at once. This one is about a FILE a
@@ -96,12 +97,15 @@ Identity is by stable id (`public_id`, class id, teacher id), never by name
 | Kind | Conflict | Why it matters |
 |---|---|---|
 | cabinet | the child already has a session with **another therapist** at an overlapping time | two cabinets cannot hold one child (today this is only counted, never refused) |
-| cabinet | the session falls over a **lesson** the child must not miss, per Настава ↔ терапии | the reason the crossing exists |
 | cabinet | the child is **not on this therapist's list** and the reply does not tick them | the list and the week disagree |
 | class | the **teacher** already teaches another class in that period | `teacher-clash`, already refused by the server |
 | class | **another subject** is in the database for that cell than the form showed | "changed meanwhile" |
 | class | the cell already holds **two lessons** | a person must choose (as in Уреди настава) |
 | both | the form was made for **another school year** | refused whole |
+
+A session over a lesson is **not** a conflict: taking a child out of a lesson
+is how therapy is done here, and Настава ↔ терапии reports it. It was in the
+first draft of this table by mistake.
 
 ### 2.5 One definition, two doors
 
@@ -140,15 +144,44 @@ Small steps; each approved, tested with invented data, committed, shipped.
 4. **Exports from the apps:** Кабинети → „📤 Формулар" and Уреди настава →
    „📤 Формулар за одделенија", each producing the one generic file.
 
-## 4. Open decisions for the owner
+## 4. The owner's decisions (24 September 2026)
 
-- **Subject ticks:** kept only as a filter in the form (proposed), or stored
-  as "this class's subjects" (a new fact, a new table, its own owner)?
-- **Pupil changes from the class form:** proposed as "report only" — a
-  homeroom teacher can flag that a child is in the wrong class, and the
-  administrator makes the move in Податоци.
-- **Where the queue lives:** proposed as a tab „📥 Пристигнати формулари" in
-  Податоци, because that is the administration screen; the import buttons in
-  Кабинети and Уреди настава lead there.
-- **Who may accept:** today anyone with the app. Under `MTB_REQUIRE_SIGNIN`
-  it can be limited to the administrator.
+- **Subject ticks:** a filter in the form only. Nothing new is stored; the
+  lessons themselves say which subjects a class has.
+- **Pupils in the class form:** report only. A homeroom teacher flags a child
+  in the wrong class; the administrator moves them in Податоци.
+- **Where the queue lives:** Податоци → „📥 Формулари".
+- **Who:** only the administrator, signed in — on every machine and in every
+  mode, not only under `MTB_REQUIRE_SIGNIN`. The administrator is whoever
+  `MTB_ADMIN` names in `server/.env` (`therapist:Име Презиме`); without it
+  nobody can open the queue, and the screen says how to set it.
+- **Several files at once**, and among answers about the same employee **the
+  newest wins** (`savedAt`). "The same employee" is matched by NAME, because
+  the numeric id differs between WORK, HOME and the cloud.
+
+## 5. Step 1 as built
+
+- **Migration 040** `form_replies` + `form_reply_decisions`, row-level
+  security on and no rights for the Supabase REST roles; the cloud runner
+  accepts 040 under its own recovery schema
+  `mtb_workspace_recovery_form_replies_20260924`. Excluded from the
+  cloud→local mirror (an inbox is useless read-only; accepted items reach the
+  mirrored tables).
+- **Server** `routes/form-replies.ts`, `lib/form-replies.ts`:
+  - `POST /api/forms/replies` — one request, many files; each file answers
+    `stored` / `superseded` / `duplicate` (same content, key order
+    ignored) / `refused`.
+  - `GET /api/forms/replies/:id/review` — the answer read by the SAME
+    `plan()` Кабинети used (loaded with `vm`), against the database as it is
+    now: `clean`, `changed`, `conflict` (a child with another therapist at
+    an overlapping time), `refused`.
+  - `POST /api/forms/replies/:id/decide` — accepted items are written by the
+    routes that own them (`/api/workspace/pupils`, the caseload route,
+    `PUT /api/schedule/block` with `expected`) through `server.inject`
+    with the administrator's own token; every decision and its outcome is
+    recorded; the answer closes when nothing is left undecided.
+- **Кабинети → „📥 Внеси формулар"** no longer writes: it sends one or more
+  files to the queue and links to Податоци.
+- **Tests:** `test:form-replies` (in-process, its own MTB_ADMIN, invented
+  year), `test:forms-queue` (the tab, both themes), `test:schedule-form`
+  (the hand-off), and a release test for 040.

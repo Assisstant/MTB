@@ -197,6 +197,32 @@
     .grid-pick input[type=checkbox] { width: 16px; height: 16px; flex: 0 0 auto; }
     .grid-pick select { width: auto; padding: 2px 4px; font-size: 12px; }
     .class-label { font-weight: 700; white-space: nowrap; }
+    /* ── пристигнати формулари ── */
+    .form-gate { background: var(--warn-bg); border: 1px solid var(--warn); border-radius: 8px; padding: 12px 14px; margin-bottom: 12px; }
+    .form-gate .controls { margin-top: 8px; }
+    .form-results { list-style: none; padding: 0; margin: 0 0 12px; font-size: 13px; }
+    .form-results li { padding: 3px 0; }
+    .form-results .ok { color: var(--ok); }
+    .form-results .warn { color: var(--warn); }
+    .form-results .bad { color: var(--danger); }
+    .form-status { font-size: 12px; font-weight: 600; }
+    .form-status.pending { color: var(--warn); }
+    .form-status.done { color: var(--ok); }
+    .form-status.superseded, .form-status.rejected { color: var(--muted); }
+    .form-review { margin-top: 18px; border-top: 2px solid var(--border); padding-top: 14px; }
+    .form-review h3 { margin: 0 0 4px; }
+    .form-group-title { margin: 16px 0 6px; font-size: 14px; }
+    .form-item { display: flex; gap: 10px; align-items: flex-start; padding: 8px 10px; margin: 4px 0;
+        border: 1px solid var(--border); border-left-width: 4px; border-radius: 6px; background: var(--card); color: var(--text); }
+    .form-item.conflict { border-left-color: var(--danger); }
+    .form-item.changed { border-left-color: var(--warn); }
+    .form-item.clean { border-left-color: var(--ok); }
+    .form-item.refused { border-left-color: var(--border); }
+    .form-item input[type=checkbox] { width: 18px; height: 18px; margin-top: 2px; flex: 0 0 auto; }
+    .form-item .what { font-weight: 600; }
+    .form-item .why { display: block; font-size: 12px; color: var(--muted); margin-top: 2px; }
+    .form-item .done { display: block; font-size: 12px; margin-top: 2px; color: var(--text); }
+    .form-actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 14px 0 4px; }
     /* Under the label, the rest of how the school names a class — in the
        Word list it is one cell: „Комбинирана / II, III, IV". Here it is the
        three facts it is made of, each from its own owner: the year's
@@ -314,6 +340,7 @@
         <button class="btn soft" data-tab="teachers" aria-pressed="false">👩‍🏫 Наставници</button>
         <button class="btn soft" data-tab="therapists" aria-pressed="false">🧩 Терапевти</button>
         <button class="btn soft" data-tab="classes" aria-pressed="false">🏫 Одделенија</button>
+        <button class="btn soft" data-tab="forms" aria-pressed="false">📥 Формулари</button>
         <label class="number-toggle"><input id="showRowNumbers" type="checkbox" checked> Редни броеви</label>
     </div>
 
@@ -424,6 +451,27 @@
         <div class="picker" id="studentPicker"></div>
     </div>
 
+    <!-- Answers to the offline forms wait here until the administrator has
+         checked them (docs/PLAN-formulari.md). Nothing in an answer reaches the
+         schedule before that. -->
+    <div class="panel tab" id="tab-forms">
+        <h2>Пристигнати формулари</h2>
+        <p class="hint">
+            Одговорите од формуларите (.json) прво се чуваат тука. <b>Ништо не се запишува во распоредот</b>
+            додека администраторот не ги прегледа и прифати, ставка по ставка. Ако за истиот терапевт
+            стигнат повеќе одговори, важи <b>најновиот</b>; постарите остануваат за увид.
+        </p>
+        <div id="formsGate"></div>
+        <div class="controls" id="formsTools" style="margin-bottom: 12px;">
+            <label class="btn soft" for="formsFiles" tabindex="0"><span class="ico" aria-hidden="true">📥</span> Внеси одговори (.json)</label>
+            <input type="file" id="formsFiles" accept=".json,application/json" multiple hidden>
+            <button class="btn soft" id="formsRefresh"><span class="ico" aria-hidden="true">↻</span> Освежи</button>
+        </div>
+        <div id="formsImport"></div>
+        <div class="scroll"><div id="formsList"></div></div>
+        <div id="formsReview"></div>
+    </div>
+
     <div class="panel tab" id="tab-classes">
         <h2>Одделенија</h2>
         <p class="hint">
@@ -455,7 +503,7 @@
     let data = null;
     let years = [];
     const requestedTab = new URLSearchParams(window.location.search).get('tab');
-    let tab = ['students', 'teachers', 'therapists', 'classes'].includes(requestedTab) ? requestedTab : 'students';
+    let tab = ['students', 'teachers', 'therapists', 'classes', 'forms'].includes(requestedTab) ? requestedTab : 'students';
     let rolloverPreview = null;
     const PUBLISHED = window.location.hostname === 'assisstant.github.io';
     const SERVER_DEFAULTS = [
@@ -782,6 +830,9 @@
                  + `${body.students.length} ученици · ${body.teachers.length} наставници · `
                  + `${body.therapists.length} терапевти · ${body.classes.length} одделенија`,
                    body.isCurrentYear ? '' : 'warn');
+            // A year change is a different queue.
+            formsReviewId = null;
+            if (tab === 'forms') loadForms();
         } catch (err) {
             if (mine !== ticket) return;
             data = null;
@@ -2015,6 +2066,190 @@
         grade.disabled = row.classList.contains('archived');
     }
 
+    // ── пристигнати формулари ───────────────────────────────────────────────
+    /**
+     * The queue is the administrator's, signed in, on every machine (owner,
+     * 24 Sep 2026) — the server refuses anyone else and says why; this page
+     * only turns that refusal into the way forward: sign in, or set
+     * MTB_ADMIN. The PIN is the same one Евидентен лист and Кабинети use, and
+     * the token is the shared one the bar already sends with every request.
+     */
+    const FORM_TOKEN_KEY = 'evidence_token_v1';
+    const FORM_STATUS = { pending: 'чека преглед', superseded: 'заменет со понов', done: 'затворен', rejected: 'одбиен' };
+    const FORM_OUTCOME = {
+        stored: ['ok', 'примен — чека преглед'],
+        superseded: ['warn', 'примен, но за истиот терапевт има понов одговор — важи новиот'],
+        duplicate: ['warn', 'веќе е примен порано'],
+        refused: ['bad', 'одбиен']
+    };
+    let formsReviewId = null;
+    const when = (v) => (v ? new Date(v).toLocaleString('mk-MK', { dateStyle: 'short', timeStyle: 'short' }) : '—');
+
+    async function formSignIn() {
+        const who = el('formsWho').value.split(':');
+        const pin = tidy(el('formsPin').value);
+        if (!/^\d{4}$/.test(pin)) return status('Внеси точно 4 цифри.', 'warn');
+        try {
+            const res = await api('POST', '/api/evidence/login', { kind: who[0], personId: Number(who[1]), pin });
+            try { localStorage.setItem(FORM_TOKEN_KEY, res.token); } catch (_) { /* the shared bar reads the same key */ }
+            window.dispatchEvent(new CustomEvent('mtb:auth-changed'));
+            status('Добредојде, ' + personName(res.person.name) + '.', 'ok');
+            await loadForms();
+        } catch (err) { status(err.message, 'error'); }
+    }
+
+    async function drawFormGate(err) {
+        const gate = el('formsGate');
+        el('formsTools').style.display = 'none';
+        el('formsList').innerHTML = '';
+        el('formsReview').innerHTML = '';
+        if (err.payload && err.payload.noAdmin) {
+            gate.innerHTML = '<div class="form-gate"><b>Нема поставен администратор.</b> ' + esc(err.message) + '</div>';
+            return;
+        }
+        let people = [];
+        try { people = (await api('GET', '/api/evidence/people')).people || []; } catch (_) { /* the message below still helps */ }
+        gate.innerHTML = '<div class="form-gate">'
+            + (err.status === 403 ? '<b>Пристигнатите формулари ги прегледува само администраторот.</b> Најави се како администратор.'
+                                  : '<b>Најави се како администратор</b> за да ги видиш пристигнатите формулари.')
+            + '<div class="controls"><label class="field"><span>Кој си</span><select id="formsWho">'
+            + people.map((p) => `<option value="${esc(p.kind + ':' + p.id)}">${esc(personName(p.name))}${p.kind === 'teacher' ? ' · наставник' : ''}</option>`).join('')
+            + '</select></label><label class="field"><span>PIN</span><input id="formsPin" type="password" inputmode="numeric" maxlength="4" style="max-width:110px;"></label>'
+            + '<button class="btn" id="formsSignIn">Најави се</button></div></div>';
+        el('formsSignIn').addEventListener('click', formSignIn);
+        el('formsPin').addEventListener('keydown', (e) => { if (e.key === 'Enter') formSignIn(); });
+    }
+
+    async function loadForms() {
+        if (!data) return;
+        let body;
+        try { body = await api('GET', '/api/forms/replies?year=' + encodeURIComponent(data.year)); }
+        catch (err) {
+            if (err.status === 401 || err.status === 403) return drawFormGate(err);
+            el('formsList').innerHTML = '<p class="hint">' + esc(err.message) + '</p>';
+            return;
+        }
+        el('formsGate').innerHTML = '';
+        el('formsTools').style.display = '';
+        const rows = body.replies || [];
+        el('formsList').innerHTML = rows.length
+            ? '<table class="list"><thead><tr><th>За кого</th><th>Пополнет</th><th>Примен</th><th>Датотека</th><th>Состојба</th><th></th></tr></thead><tbody>'
+              + rows.map((r) => `<tr><td>${esc(personName(r.about))}</td><td>${esc(when(r.filledAt))}</td><td>${esc(when(r.receivedAt))}</td>`
+                + `<td>${esc(r.fileName || '—')}</td><td><span class="form-status ${esc(r.status)}">${esc(FORM_STATUS[r.status] || r.status)}</span>`
+                + (r.decided ? ` <span class="none">· ${r.decided} одлуки</span>` : '') + '</td>'
+                + `<td class="act"><button class="btn soft" data-form-review="${r.id}">Прегледај</button></td></tr>`).join('')
+              + '</tbody></table>'
+            : '<p class="hint">Нема пристигнати формулари за ' + esc(data.year) + '.</p>';
+        el('formsList').querySelectorAll('[data-form-review]').forEach((b) =>
+            b.addEventListener('click', () => openFormReview(Number(b.dataset.formReview))));
+        if (formsReviewId) await openFormReview(formsReviewId, true);
+    }
+
+    async function importFormFiles(files) {
+        const replies = [];
+        const local = [];
+        for (const file of Array.from(files || [])) {
+            try { replies.push({ fileName: file.name, reply: JSON.parse(await file.text()) }); }
+            catch (_) { local.push({ fileName: file.name, outcome: 'refused', error: 'не е читлив JSON' }); }
+        }
+        let results = local;
+        if (replies.length) {
+            try { results = results.concat((await api('POST', '/api/forms/replies', { replies })).results || []); }
+            catch (err) { status(err.message, 'error'); return; }
+        }
+        el('formsImport').innerHTML = '<ul class="form-results">' + results.map((r) => {
+            const [cls, text] = FORM_OUTCOME[r.outcome] || ['bad', r.outcome];
+            return `<li class="${cls}"><b>${esc(r.fileName)}</b>${r.about ? ' · ' + esc(personName(r.about)) : ''} — ${esc(text)}${r.error ? ': ' + esc(r.error) : ''}</li>`;
+        }).join('') + '</ul>';
+        el('formsFiles').value = '';
+        await loadForms();
+    }
+
+    function formItemText(item, names) {
+        const who = (x) => typeof x === 'string' ? (names[x] || x) : x.create + ' (нов)';
+        if (item.type === 'pupil') return 'Нов ученик под набљудување: ' + item.name;
+        if (item.type === 'caseload') return 'Во списокот на терапевтот: ' + (names[item.publicId] || item.name);
+        const day = String(item.day || '');
+        return day.charAt(0).toUpperCase() + day.slice(1) + ' ' + (item.time || '') + ': '
+            + ((item.from || []).map(who).join(' + ') || 'празно') + ' → ' + ((item.to || []).map(who).join(' + ') || 'празно');
+    }
+
+    async function openFormReview(id, quiet) {
+        formsReviewId = id;
+        let body;
+        try { body = await api('GET', '/api/forms/replies/' + id + '/review'); }
+        catch (err) { if (!quiet) status(err.message, 'error'); return; }
+        const r = body.reply;
+        const open = r.status === 'pending';
+        const groups = [
+            ['conflict', '⚠ Конфликти — се запишуваат само ако ги избереш'],
+            ['changed', 'Сменети во базата откако е направен формуларот'],
+            ['clean', 'Чисти'],
+            ['refused', 'Не можат да се запишат']
+        ];
+        let html = `<div class="form-review"><h3>${esc(personName(r.about))} · пополнет ${esc(when(r.filledAt))}</h3>`
+            + `<p class="hint">Состојба: <b>${esc(FORM_STATUS[r.status] || r.status)}</b>${r.closedBy ? ' · ' + esc(r.closedBy) : ''}`
+            + (body.unchanged ? ` · ${body.unchanged} термини без промена` : '') + '</p>'
+            + (body.note ? `<p><b>Белешка:</b> ${esc(body.note)}</p>` : '')
+            + (body.errors && body.errors.length ? `<div class="caution">${esc(body.errors.join(' '))}</div>` : '');
+        groups.forEach(([state, title]) => {
+            const items = (body.items || []).filter((i) => i.state === state);
+            if (!items.length) return;
+            html += `<h4 class="form-group-title">${esc(title)} (${items.length})</h4>`;
+            items.forEach((item) => {
+                const decided = item.decision;
+                const can = open && !decided && state !== 'refused';
+                html += `<label class="form-item ${state}">`
+                    + `<input type="checkbox" data-form-item="${esc(item.key)}" data-state="${esc(state)}"${can ? '' : ' disabled'}${can && state === 'clean' ? ' checked' : ''}>`
+                    + `<span><span class="what">${esc(formItemText(item, body.names || {}))}</span>`
+                    + (item.reasons || []).map((why) => `<span class="why">${esc(why)}</span>`).join('')
+                    + (decided ? `<span class="done">${decided.decision === 'accepted' ? '✓ прифатено' : '✕ одбиено'} · ${esc(decided.outcome || '')} · ${esc(decided.decided_by)}</span>` : '')
+                    + '</span></label>';
+            });
+        });
+        if (!(body.items || []).length) html += '<p class="hint">Одговорот не менува ништо.</p>';
+        if (open) {
+            html += '<div class="form-actions">'
+                + '<button class="btn" id="formsAccept"><span class="ico" aria-hidden="true">✓</span> Прифати ги избраните</button>'
+                + '<button class="btn soft" id="formsRejectSome">Одбиј ги избраните</button>'
+                + '<button class="btn soft danger" id="formsRejectAll">Одбиј го целиот одговор</button></div>';
+        }
+        el('formsReview').innerHTML = html + '</div>';
+        if (!open) return;
+        const chosen = () => Array.from(el('formsReview').querySelectorAll('[data-form-item]:checked'));
+        el('formsAccept').addEventListener('click', async () => {
+            const picked = chosen();
+            if (!picked.length) return status('Избери барем една ставка.', 'warn');
+            const risky = picked.filter((c) => c.dataset.state !== 'clean').length;
+            if (risky && !window.confirm(`Избра ${risky} ставки во конфликт или сменети во меѓувреме. `
+                + 'Тие ќе се запишат над она што е сега во базата. Продолжи?')) return;
+            await decideForm(id, { accept: picked.map((c) => c.dataset.formItem) });
+        });
+        el('formsRejectSome').addEventListener('click', async () => {
+            const picked = chosen();
+            if (!picked.length) return status('Избери барем една ставка.', 'warn');
+            await decideForm(id, { reject: picked.map((c) => c.dataset.formItem) });
+        });
+        el('formsRejectAll').addEventListener('click', async () => {
+            if (!window.confirm('Целиот одговор да се одбие? Ништо од него нема да се запише.')) return;
+            try { await api('POST', '/api/forms/replies/' + id + '/reject'); status('Одговорот е одбиен.', 'ok'); }
+            catch (err) { status(err.message, 'error'); }
+            await loadForms();
+        });
+    }
+
+    async function decideForm(id, body) {
+        try {
+            const res = await api('POST', '/api/forms/replies/' + id + '/decide', { accept: [], reject: [], ...body });
+            const outcomes = Object.values(res.outcomes || {});
+            const failed = outcomes.filter((o) => o !== 'запишано').length;
+            status(outcomes.length
+                ? `Запишани ${outcomes.length - failed} од ${outcomes.length}${failed ? ' — погледни зошто кај секоја ставка' : ''}.`
+                : 'Одлуката е запишана.', failed ? 'warn' : 'ok');
+        } catch (err) { status(err.message, 'error'); }
+        await loadForms();
+    }
+
     function setTab(next) {
         tab = next;
         document.querySelectorAll('.tabs .btn').forEach((b) =>
@@ -2022,6 +2257,7 @@
         document.querySelectorAll('.tab').forEach((t) =>
             t.classList.toggle('on', t.id === 'tab-' + next));
         closePickers();
+        if (next === 'forms') loadForms();
     }
 
     function setNumberVisibility() {
@@ -2032,6 +2268,11 @@
     document.querySelectorAll('.tabs .btn').forEach((b) =>
         b.addEventListener('click', () => setTab(b.dataset.tab)));
     el('showRowNumbers').addEventListener('change', setNumberVisibility);
+    el('formsFiles').addEventListener('change', (e) => importFormFiles(e.target.files));
+    el('formsRefresh').addEventListener('click', () => loadForms());
+    document.querySelector('label[for="formsFiles"]').addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); el('formsFiles').click(); }
+    });
     el('year').addEventListener('change', () => {
         const url = new URL(window.location.href);
         url.searchParams.set('year', el('year').value);

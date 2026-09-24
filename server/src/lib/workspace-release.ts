@@ -11,7 +11,9 @@ const ident=(s:string)=>'"'+s.replace(/"/g,'""')+'"';
 // before the first. So a new batch gets a new name here, and the old snapshots
 // stay where they are. 20260921: 033-036. staff_20260922: 037. order_20260922:
 // 038 (roster_order). caseload_order_20260924: 039 (a therapist's own order).
-export async function workspaceRelease(client:Client,directory:string,log=console.log,recoverySchema='mtb_workspace_recovery_caseload_order_20260924'){
+// form_replies_20260924: 040 (the review queue for offline form answers), and
+// 039 with it wherever 039 had not been deployed yet.
+export async function workspaceRelease(client:Client,directory:string,log=console.log,recoverySchema='mtb_workspace_recovery_form_replies_20260924'){
  if(!/^mtb_workspace_recovery_[a-z0-9_]+$/.test(recoverySchema))throw Error('Invalid recovery schema');
  await client.query('BEGIN ISOLATION LEVEL SERIALIZABLE');
  try{
@@ -22,7 +24,7 @@ export async function workspaceRelease(client:Client,directory:string,log=consol
   const applied=new Set((await client.query('SELECT filename FROM schema_migrations')).rows.map(r=>r.filename));
   if(files.some(f=>Number(f.slice(0,3))<=32&&!applied.has(f))||[...applied].some(f=>!files.includes(f)))throw Error('Unexpected migration baseline');
   const pending=files.filter(f=>!applied.has(f));
-  if(pending.some(f=>!/^0(33|34|35|36|37|38|39)_/.test(f)))throw Error('Unreviewed migration in release');
+  if(pending.some(f=>!/^0(33|34|35|36|37|38|39|40)_/.test(f)))throw Error('Unreviewed migration in release');
   if(!pending.length){await client.query('COMMIT');log('Workspace schema already current');return;}
   const tables=(await client.query(`SELECT tablename AS name FROM pg_tables WHERE schemaname=$1 ORDER BY tablename`,[schema])).rows;
   // The recovery schema must be absent. Never overwrite an earlier backup.
