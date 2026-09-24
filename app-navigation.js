@@ -1029,13 +1029,13 @@
             }
             .mtb-subjects .mtb-subj button {
                 border: 0; background: transparent; color: inherit; cursor: pointer;
-                font-size: 12px; line-height: 1; padding: 2px 3px; opacity: .6;
+                font-size: 12px; line-height: 1; padding: 2px 3px; opacity: .8;
             }
             .mtb-subjects .mtb-subj button:hover { opacity: 1; }
             .mtb-subjects select, .mtb-subjects .mtb-subj-free {
                 font-size: 12px; padding: 2px 4px; max-width: 170px; min-width: 90px;
             }
-            .mtb-subjects .mtb-none { opacity: .6; font-size: 12px; }
+            .mtb-subjects .mtb-none { opacity: .85; font-size: 12px; }
             .mtb-subjects.is-locked .mtb-subj { opacity: .75; }
         `;
         (document.head || document.documentElement).appendChild(style);

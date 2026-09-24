@@ -146,10 +146,17 @@
            2.0:1, читано како „пак темни букви". */
         color: var(--text);
     }
-    .chip.home { background: var(--accent); color: #fff; border-color: transparent; }
-    /* A chip that is also the way to the screen which OWNS the fact it shows. */
+    /* The homeroom teacher: white on a fixed indigo, 6.5:1 in both themes.
+       It was var(--accent) — white on #818cf8 in the dark theme is 3:1 — and
+       the hover below then turned the TEXT the accent as well: the name
+       vanished into its own chip (1:1), which is what the owner saw. */
+    .chip.home { background: #4c51bf; color: #fff; border-color: transparent; }
+    /* A chip that is also the way to the screen which OWNS the fact it shows.
+       Hover lights the BORDER, as the suite's card buttons do, and never
+       changes the text colour: text in the accent measured 3.2:1 on --chip. */
     .chip.link { cursor: pointer; font: inherit; font-size: 12px; }
-    .chip.link:hover, .chip.link:focus-visible { border-color: var(--accent); color: var(--accent); }
+    .chip.link:hover, .chip.link:focus-visible { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+    .chip.home.link:hover, .chip.home.link:focus-visible { background: #434190; color: #fff; }
     .chip.off { opacity: .55; cursor: default; }
     /* Внатре во чипот подлогата е посветла од картичката, па --muted таму
        паѓа под читливо. Своја боја, мерена врз --chip, не врз --card. */
@@ -161,7 +168,7 @@
     .picker select[data-move-student] { width: auto; min-width: 190px; }
     .none { color: var(--muted); font-size: 12px; }
     /* What the DATABASE holds, said at rest — not a toast that vanishes. */
-    .stored { color: #35c08a; font-size: 12px; white-space: nowrap; }
+    .stored { color: var(--ok); font-size: 12px; white-space: nowrap; } /* #35c08a was 2.3:1 on white */
     .cat-cell { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 
     .picker { display: none; margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--border); }

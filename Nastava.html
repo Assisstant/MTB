@@ -65,10 +65,10 @@
     table.grid { border-collapse: separate; border-spacing: 0; width: 100%; font-size: 13px; }
     table.grid th, table.grid td { border-bottom: 1px solid var(--border); padding: 7px 9px; text-align: left; }
     table.grid thead th {
-        position: sticky; top: 0; z-index: 2; background: var(--primary); color: #fff;
+        position: sticky; top: 0; z-index: 2; background: var(--btn-bg); color: #fff; /* --primary is #818cf8 in the dark theme: 3:1 under white */
         font-weight: 600; white-space: nowrap;
     }
-    table.grid thead th small { display: block; font-weight: 400; opacity: .82; font-size: 11px; }
+    table.grid thead th small { display: block; font-weight: 400; font-size: 11px; }
     /* One day's grid: seven equal periods. Sized by content, one long subject
        name made its period twice as wide as the rest and pushed the others
        together. A teacher's name keeps to one line. */
@@ -89,7 +89,7 @@
        Macedonian italic turns „предмет" into „ūредмеш". */
     .cell .nosubj { font-weight: 400; opacity: .8; }
     /* From a class's row straight to editing that class's week. */
-    .edit-week { margin-left: 6px; font-size: 12px; text-decoration: none; opacity: .7; }
+    .edit-week { margin-left: 6px; font-size: 12px; text-decoration: none; color: inherit; opacity: .8; }
     .edit-week:hover { opacity: 1; }
     .heat-0 { background: transparent; }
     .heat-1 { background: var(--heat-1); }
@@ -132,7 +132,7 @@
     .notice .meta { color: var(--muted); font-size: 12px; margin-bottom: 8px; }
     .notice table { border-collapse: collapse; width: 100%; font-size: 13px; }
     .notice th, .notice td { border-bottom: 1px solid var(--border); padding: 6px 9px; text-align: left; }
-    .notice thead th { background: var(--primary); color: #fff; font-weight: 600; white-space: nowrap; }
+    .notice thead th { background: var(--btn-bg); color: #fff; font-weight: 600; white-space: nowrap; }
     .notice td.when { white-space: nowrap; }
     .notice td small { display: block; font-size: 10px; color: var(--muted); }
     .notice tr.new-day td { border-top: 2px solid var(--border); }

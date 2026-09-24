@@ -43,7 +43,8 @@
 
     --ok: #2f855a;
     --success: #2f855a;
-    --warn: #b7791f;
+    /* Used as TEXT too: #b7791f on white was 3.6:1. */
+    --warn: #975a16;
     --warn-bg: #fff8e6;
     --danger: #c53030;
     --danger-dark: #9b2c2c;
@@ -199,7 +200,9 @@ header a { color: #fff; opacity: .9; font-size: 0.85em; }
     background: var(--mtb-ico-bg); color: var(--mtb-ico);
     font-size: 15px; line-height: 1; font-weight: 400;
 }
-.btn:not(.soft) .ico, .btn[aria-pressed="true"] .ico { background: rgba(255, 255, 255, .2); color: #fff; }
+/* Darker than the fill, not lighter: a white glyph on a lighter square of
+   #5a67d8 measured 3.3:1. */
+.btn:not(.soft) .ico, .btn[aria-pressed="true"] .ico { background: rgba(0, 0, 0, .2); color: #fff; }
 
 /* Tabs — S-Dnevnik's УЧЕНИЦИ / РАСПОРЕД strip: a dark band, tabs cut on a
    slant, the chosen one lifted in the purple. The owner liked them best and

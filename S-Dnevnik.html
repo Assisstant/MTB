@@ -118,8 +118,9 @@
         /* White on #667eea is 3.7:1; the suite fills with #5a67d8 (4.8:1). */
         .btn-primary { background: #5a67d8; color: white; }
         .btn-primary:hover { background: #4c51bf; }
-        .btn-success { background: #48bb78; color: white; }
-        .btn-success:hover { background: #38a169; }
+        /* „Зачувај": white on #48bb78 was 2.4:1. The same green, deeper (4.6:1). */
+        .btn-success { background: #2f855a; color: white; }
+        .btn-success:hover { background: #276749; }
         .btn-danger { background: #e53e3e; color: white; }
         .btn-danger:hover { background: #c53030; }
         body.dark-mode .btn-primary { background: #5a67d8; }
@@ -734,7 +735,7 @@
             padding: 0 8px;
         }
         .week-calendar-info {
-            color: #667eea;
+            color: #4c51bf; /* #667eea was 3.5:1 on the panel */
             font-size: 13px;
             font-weight: 700;
         }
@@ -849,8 +850,9 @@
             background: linear-gradient(to bottom, #2d3748 0%, #1a202c 100%);
             color: #cbd5e0;
         }
+        /* White on #818cf8 is 3:1; the dark theme's chosen tab is the deeper indigo. */
         body.dark-mode .tab.active { 
-            background: linear-gradient(to bottom, #818cf8 0%, #6366f1 100%);
+            background: linear-gradient(to bottom, #5a67d8 0%, #4c51bf 100%);
             color: #ffffff;
             border-top-color: #a5b4fc;
         }
@@ -895,7 +897,8 @@
         body.dark-mode .schedule-cell-split .schedule-cell.merged::before { background: #334155; }
         body.dark-mode .schedule-cell-split .schedule-cell.merged .student-slot { box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3); }
         body.dark-mode .student-slot { background: #2c5282; border-left-color: #63b3ed; color: #e2e8f0; }
-        body.dark-mode .attendance-indicator { background: #4a5568; border-color: #718096; }
+        body.dark-mode .attendance-indicator { background: #4a5568; border-color: #718096; color: #f7fafc; } /* the „1/2" label was dark on dark (1.6:1) */
+        body.dark-mode .week-calendar-info { color: #a3b0f7; }
         body.dark-mode .attendance-indicator.present { background: #48bb78; border-color: #38a169; }
         body.dark-mode .attendance-indicator.absent { background: #f56565; border-color: #e53e3e; }
         body.dark-mode .student-slot.linked-first { border-bottom-color: #63b3ed; }

@@ -203,6 +203,21 @@ test('every tab strip in the suite is one size', async () => {
     }
 });
 
+test('a hovered chip keeps its text readable', async () => {
+    // Owner, 24 Sep 2026: hovering the homeroom teacher in Податоци →
+    // Одделенија left an empty lavender pill. `.chip.link:hover` set the TEXT
+    // to the accent while `.chip.home` used the accent as its BACKGROUND —
+    // 1:1. Hover may light the border; it must not recolour the text, and a
+    // chip carrying white text must not sit on the theme's light accent.
+    const html = await readRoot('Podatoci.html');
+    const hover = /\.chip\.link:hover[^{]*\{([^}]*)\}/.exec(html)?.[1] ?? '';
+    assert.ok(hover, 'Podatoci.html has a hover rule for link chips');
+    assert.doesNotMatch(hover, /(^|[;\s])color:/, 'a hovered chip changes its text colour again');
+    const home = /\.chip\.home \{([^}]*)\}/.exec(html)?.[1] ?? '';
+    assert.doesNotMatch(home, /background:\s*var\(--(accent|primary|edit)\)/,
+        'the homeroom chip is white text on the theme accent again (3:1 in the dark theme)');
+});
+
 test('every generated document takes its font and sizes from the one standard', async () => {
     // Owner, 23 Sep 2026: Times New Roman, 11 pt text, headings a step above.
     // Before, one generator printed Arial 10 pt, another Times 11 PX (8 pt on
