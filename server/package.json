@@ -40,6 +40,7 @@
     "test:teaching-edit": "tsx test/teaching-edit.e2e.ts",
     "test:uredi": "node test/nastava-uredi.browser.mjs",
     "test:podatoci": "node test/podatoci.browser.mjs",
+    "test:forms": "node test/forms-pupil.browser.mjs",
     "test:podatoci-classes": "node test/podatoci-classes.browser.mjs",
     "test:annual-roster": "tsx test/annual-roster.e2e.ts",
     "test:order": "tsx test/roster-order.e2e.ts",

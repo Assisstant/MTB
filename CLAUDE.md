@@ -233,6 +233,7 @@ npm run test:crossing                the overlap model and the workbook parser (
 npm run test:teaching-edit           editing the timetable, needs the server running
 npm run test:uredi                   NastavaUredi.html in a browser, needs the server running
 npm run test:podatoci                Podatoci.html in a browser, needs the server running
+npm run test:forms                   the one pupil form (`mtb-forms.js`, ✏️) in a browser, needs the server
 npm run test:order                   the order a year’s four lists are read in, needs the server
 npm run test:purge                   the typo delete, including the concurrent booking
 npm run test:evidence                евидентен лист against the database, needs the server running

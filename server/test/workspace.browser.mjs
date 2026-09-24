@@ -67,7 +67,7 @@ async function openWorkspace({ viewport = { width: 1600, height: 1000 }, savedLa
             loads.set(file, count);
             return route.fulfill({ status: 200, contentType: 'text/html; charset=utf-8', body: stub(file, count) });
         }
-        if (url.origin === new URL(BASE).origin && ['MTB-Workspace.html','app-navigation.js','mtb-theme.js','workspace-admin.js','workspace-admin.css'].includes(file)) {
+        if (url.origin === new URL(BASE).origin && ['MTB-Workspace.html','app-navigation.js','mtb-theme.js','mtb-forms.js','workspace-admin.js','workspace-admin.css'].includes(file)) {
             return route.continue();
         }
         // No remote resources or production data may escape the fixture router.

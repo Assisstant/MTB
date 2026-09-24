@@ -39,6 +39,7 @@ test('the installed static route refuses local configuration and repository inte
 
     assert.equal((await server.inject({ method: 'GET', url: '/AkciskiPlan.html' })).statusCode, 200);
     assert.equal((await server.inject({ method: 'GET', url: '/app-navigation.js' })).statusCode, 200);
+    assert.equal((await server.inject({ method: 'GET', url: '/mtb-forms.js' })).statusCode, 200);
 
     for (const url of [
         '/server/.env',

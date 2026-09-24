@@ -24,6 +24,18 @@ but it must not present parallel versions of the same task.
   in `<head>` (key `theme`, S-Dnevnik's since before the suite). Pages style
   from `html[data-theme]`; none follows `prefers-color-scheme` on its own, and
   nothing is stored until the viewer chooses.
+- `mtb-forms.js` is the one form per kind of thing (owner, 24 September 2026;
+  `docs/PLAN-eden-urednik.md`). Wherever a thing is shown, a screen may carry
+  a ✏️ door that opens its form in a popup. Doors are hidden until the
+  „✏️ Уреди“ switch is on; that switch sits in the shared bar or the
+  Workspace's top bar, and nothing is stored until somebody flips it. A form
+  writes only through the endpoint that already owns the fact, with that
+  endpoint's stale check. It never adds a second writer with rules of its own.
+  After a save, every open page of the origin redraws from the database. The
+  pupil form uses `/api/workspace/pupils`, the same route as the
+  administration. Its deletes are named: „Тргни од листата“ ends the year's
+  membership, and „Избриши — грешка при внес“ is the guarded typo purge.
+  Global archiving stays with S-Dnevnik.
 - `Sinhronizacija.html` is the one place that explains where the data stands:
   this browser's S-Dnevnik copy against its server, the WORK↔HOME snapshots,
   and the separate cloud. It only reads (`/api/health`, `/api/sync/status`

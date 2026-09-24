@@ -100,6 +100,9 @@
         background: var(--card); color: var(--text); font-size: 13px; width: 100%;
     }
     table.list td.act { width: 1%; white-space: nowrap; }
+    /* Полето и ✏️ во еден ред; кога уредувањето е исклучено, ✏️ го нема и полето ја зема целата ширина. */
+    .with-door { display: flex; align-items: center; gap: 2px; }
+    .with-door > input { flex: 1; min-width: 0; }
     table.list th.row-number, table.list td.row-number {
         width: 92px; min-width: 92px; text-align: center; color: var(--muted);
         font-variant-numeric: tabular-nums; white-space: nowrap;
@@ -1205,7 +1208,8 @@
             + rows.map((s, index) =>
                 `<tr data-student="${esc(s.public_id)}"${s.active ? '' : ' class="archived"'}>`
                 + rowNumberCell('students', s.public_id, index, rows.length)
-                + `<td><input class="s-name" value="${esc(personName(s.name))}"${s.active ? '' : ' disabled'}></td>`
+                + `<td><span class="with-door"><input class="s-name" value="${esc(personName(s.name))}"${s.active ? '' : ' disabled'}>`
+                + `${window.MTBForms ? window.MTBForms.doorHtml('pupil', s.public_id, data.year, personName(s.name)) : ''}</span></td>`
                 + `<td><select class="s-kind"${s.active ? '' : ' disabled'}>`
                 + KINDS.map(([value, label]) =>
                     `<option value="${value}"${(s.kind || 'internal') === value ? ' selected' : ''}>${label}</option>`).join('')
@@ -2153,8 +2157,20 @@
     syncNewTeacherKind();
     setNumberVisibility();
     discoverServers().then((ready) => { if (ready) load(); });
+
+    // Формуларот (✏️, `mtb-forms.js`) зачувал нешто — овде или во друг
+    // прозорец. Страницата се прецртува од базата. Ред со незачуван внес не
+    // се допира: тоа е работа што некој ја пишува.
+    window.addEventListener('mtb:saved', () => {
+        if (document.querySelector('tr.dirty')) {
+            status('Формуларот зачува промена. Вашите незачувани редови се задржани: зачувајте ги, па освежете.', 'warn');
+            return;
+        }
+        load();
+    });
 })();
 </script>
+<script src="mtb-forms.js"></script>
 <script src="app-navigation.js"></script>
 </body>
 </html>

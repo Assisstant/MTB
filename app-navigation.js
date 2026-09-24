@@ -275,6 +275,15 @@
                 border-color: #9fe3cf; outline: none; background: #33435b;
             }
             .mtb-app-nav__theme { flex: 0 0 auto; font-size: 14px; }
+            .mtb-app-nav__editing {
+                flex: 0 0 auto; height: 28px; padding: 0 9px; border: 1px solid #52637b; border-radius: 6px;
+                background: #273346; color: #fff; cursor: pointer; font: 700 12px/1 system-ui, sans-serif;
+                white-space: nowrap;
+            }
+            .mtb-app-nav__editing:hover, .mtb-app-nav__editing:focus-visible {
+                border-color: #9fe3cf; outline: none; background: #33435b;
+            }
+            .mtb-app-nav__editing[aria-pressed="true"] { border-color: #e4a34b; background: #5a4217; color: #fff; }
             .mtb-app-nav__logout {
                 padding: 3px 8px; border: 1px solid #52637b; border-radius: 4px;
                 background: rgba(255,255,255,0.1); color: #e2e8f0; font-size: 11px;
@@ -624,6 +633,14 @@
             theme.type = 'button';
             theme.className = 'mtb-app-nav__theme';
             state.appendChild(window.MTBTheme.bind(theme));
+        }
+        // The editing switch, only on a screen that has doors to open
+        // (`mtb-forms.js`). A switch that changes nothing on this page would
+        // teach people that it does nothing anywhere.
+        if (window.MTBForms) {
+            const editing = document.createElement('button');
+            editing.className = 'mtb-app-nav__editing';
+            state.appendChild(window.MTBForms.bindSwitch(editing));
         }
         shell.append(scroller, state);
         nav.replaceChildren(shell);

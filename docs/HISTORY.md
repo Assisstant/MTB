@@ -3401,3 +3401,58 @@ Tests: `test:uredi` +9, written first. The two year checks failed, then the
 dropdown checks failed with the page reporting success. `test:teaching-edit`
 +15, all before the suite's older, unrelated `kind_matches_grade` fixture
 failure. `npm test` 231/231.
+
+## `mtb-forms.js`: one pupil form, a door wherever the pupil is shown (24 Sep 2026)
+
+Step 2 of `docs/PLAN-eden-urednik.md`. The owner wants every screen to edit
+what it shows, on the spot. Before this, a pupil was edited by three separately
+written editors, each with its own fields: Podatoci's row, the Workspace
+panel's form and the administration's form. Adding a fourth for Кабинети would
+have made the confusion worse. So the form is written once, and screens only
+open it.
+
+- **A door is markup, not code.** `MTBForms.doorHtml(kind, id, year, name)`
+  returns a `data-mtb-door` button. One capture-phase listener opens the form
+  for any door on the page. Capture matters because the door often sits inside
+  a row that has its own click handler, and that older behaviour must not also
+  fire.
+- **The switch hides every door until it is on.** A screen therefore looks
+  and behaves exactly as before for anyone who never touches it. The flag is
+  one localStorage key, written only when flipped, so the pages that promise
+  to keep nothing in the browser still keep nothing. The bar draws the switch
+  only where `mtb-forms.js` is loaded, because a switch that changes nothing on
+  a screen teaches people it does nothing anywhere. The Workspace pushes the
+  mode to its windows by `postMessage`, as it does the theme: from GitHub Pages
+  the shell is another origin with other storage.
+- **No new server path.** The pupil form reads and writes
+  `/api/workspace/pupils`, which already carries every annual field in one
+  transaction with a whole-row sha256 stale check. The therapists go through
+  its `/therapists` sub-route, which refuses to take away a therapist who still
+  has bookings. The form shows the server's own sentence. It never repeats the
+  rules itself, so it cannot drift from them.
+- **After a save, the pages redraw from the database.** `mtb:saved` goes out
+  locally and over a `BroadcastChannel`, so another tab or another Workspace
+  window reloads too. Podatoci refuses to reload over a row with unsaved
+  typing and says so.
+- **Questions are asked inside the dialog, never with `confirm()`.** A native
+  box blocks every window of the Workspace, and a test that dismisses dialogs
+  would answer it without anybody reading it. A second Esc may close a modal
+  whatever `cancel` says. The `close` handler then still cleans up.
+- **Two deletes, named.** „Тргни од листата“ ends the year's membership through
+  the same PUT. „Избриши — грешка при внес“ is the guarded purge from
+  `roster-purge.ts`, which refuses anybody on another year's list. Global
+  archiving stays with S-Dnevnik (rule 5), so there is no archive button.
+
+Found on the way: `test:fusion-ui` had been failing on two stale expectations,
+the „＋ Нов ученик" option added to every cell on 23 Sep and the ▲▼ added beside
+the row number this morning. Neither is a bug; the checks now count pupils and
+numbers. `test:fusion` and `test:fusion-ui` also left their therapists'
+`employees` rows behind (the migration 035 trap again), which grew
+`check:names`'s blocklist from 162 to 166. Their cleanup now matches the other
+suites'.
+
+Tests: `test:forms` (new, 32 checks against the database, both themes,
+400px, a second window, stale, Esc, both deletes). Green: `test:podatoci`,
+`test:navigation`, `test:workspace` (its file allowlist now includes
+`mtb-forms.js`), `test:fusion`, `test:fusion-ui`, `test:fusion-order`,
+`test:uredi`, `npm test` 231/231.

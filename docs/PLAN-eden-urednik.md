@@ -1,13 +1,20 @@
 # One form per thing, a door wherever it is shown
 
+**Progress:**
+- **Step 1 is done** (`4e9e24c`, 24 September): the homeroom dropdown saves.
+- **Step 2 is done** (24 September):
+  - `mtb-forms.js`, the „✏️ Уреди“ switch, and the pupil form;
+  - the first doors are in Податоци · Ученици and in Кабинети · Ученици по
+    терапевт.
+
 **Status, 24 September 2026:**
 - **The map** (part 3) was read from the code on `main` (`d9d6fe6`), not from
   memory.
 - **The working rule** (part 1) is the owner's, from the same day. It replaces
   a first proposal, "one editor, read-only everywhere else", which the owner
   turned down.
-- **Nothing has been changed yet.** Each step in part 5 waits for its own
-  approval.
+- **The owner approved starting** („START“, 24 September). Each step in
+  part 5 is tested and committed on its own.
 
 ## 1. The rule — the owner's, 24 September 2026
 
@@ -42,14 +49,16 @@ What that means in the code:
   - Permissions still come from the server. Under sign-in, a colleague can
     change only their own list and their own schedule. The popup shows as
     read-only whatever the server would refuse.
-- **A delete says which delete it is.** These are three different acts here,
-  and the form names each one:
-  - „Тргни од листата за оваа година“ (take off this year's list);
-  - „Архивирај“ (archive);
-  - „Избриши — грешка при внес“ (delete a typo), allowed only when nothing
-    points at it.
+- **A delete says which delete it is.** The pupil form names two different
+  acts:
+  - „Тргни од листата за оваа година“ (take off this year's list). The
+    history stays, and „Врати на листата“ brings the pupil back.
+  - „Избриши — грешка при внес“ (delete a typo). The server refuses it for
+    anybody who has records or was on another year's list.
 
-  Pupils are archived, never deleted (see `CLAUDE.md` and `roster-purge.ts`).
+  Archiving a pupil for good is a third act. It stays with S-Дневник, which
+  owns it (see `CLAUDE.md` and `roster-purge.ts`), so the form offers no
+  archive button. It shows an archived pupil read-only.
 
 ## 2. How the apps fit together — the owner, 24 September 2026
 

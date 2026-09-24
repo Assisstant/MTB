@@ -1741,7 +1741,8 @@
                     arrow(student.public_id, 1, '▼', index === rows.length - 1, 'Помести го надолу') + '</span>' : '') +
                 '</td>' +
                 '<td class="roster-grade">' + esc(student.grade || '—') + '</td>' +
-                '<td class="roster-name">' + esc(student.name) + '</td>' +
+                '<td class="roster-name">' + esc(student.name) +
+                (window.MTBForms ? window.MTBForms.doorHtml('pupil', student.public_id, state.year, student.name) : '') + '</td>' +
                 '<td class="roster-kind">' + kindLabel + '</td>' +
                 '<td class="roster-sessions">' + String(counts.get(student.public_id) || 0) + '</td></tr>';
         }).join('') : '<tr><td class="roster-empty" colspan="5">Нема ученици за избраните филтри.</td></tr>';
@@ -3752,8 +3753,13 @@
     state.day = todayDay();
     refreshLocalLinks();
     loadAll();
+
+    // A pupil changed through the one pupil form (✏️, `mtb-forms.js`) — here
+    // or in another window. Redrawn from the database, like after any write.
+    window.addEventListener('mtb:saved', () => loadAll());
 })();
 </script>
+<script src="mtb-forms.js"></script>
 <script src="app-navigation.js"></script>
 </body>
 </html>
