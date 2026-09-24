@@ -14,10 +14,16 @@ eligibility or access — and an absent row simply means the list is read in the
 reader’s own order, so the upgrade changes nothing until somebody presses an
 arrow in „Податоци“.
 
-The current `deploy:workspace` runner accepts reviewed pending 033–038. Its new
-private recovery schema is `mtb_workspace_recovery_order_20260922`; it preserves
-both earlier snapshots, `mtb_workspace_recovery_20260921` (033–036) and
-`mtb_workspace_recovery_staff_20260922` (037). Both 032→038 and 036→038 are
+Migration 039 (24 September) lets the same table hold one list per therapist,
+`caseload:<therapist id>` — the order a therapist reads their own pupils in.
+It changes a CHECK constraint and no row; until somebody presses an arrow in
+„Ученици по терапевт“ every list reads as before.
+
+The current `deploy:workspace` runner accepts reviewed pending 033–039. Its new
+private recovery schema is `mtb_workspace_recovery_caseload_order_20260924`; it
+preserves the earlier snapshots, `mtb_workspace_recovery_20260921` (033–036),
+`mtb_workspace_recovery_staff_20260922` (037) and
+`mtb_workspace_recovery_order_20260922` (038). Both 032→038 and 036→038 are
 tested, including repeat no-op and preservation of original data.
 
 **A recovery schema name belongs to ONE batch.** The runner creates it and

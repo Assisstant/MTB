@@ -14,7 +14,7 @@ import type { FastifyInstance } from 'fastify';
 import { pool } from '../db.js';
 import { nextGrade } from '../lib/year-rollover.js';
 import { orderPupils } from '../lib/teaching.js';
-import { arrange, readArrangement } from '../lib/roster-order.js';
+import { arrange, caseloadList, readArrangement } from '../lib/roster-order.js';
 
 export async function dataRoutes(server: FastifyInstance) {
 
@@ -274,13 +274,29 @@ export async function dataRoutes(server: FastifyInstance) {
             };
         });
 
+        // Each therapist's own list, in the order it is READ (migration 039):
+        // what the therapist placed first, then everyone else in the order of
+        // the year's pupil list. The tab, the printed list and the picker in a
+        // schedule cell all take this order as given — three screens used to
+        // sort one list three ways. `caseloadOrder` tells a screen it may.
+        const pupils = arrange(orderPupils(students.rows), (row: any) => String(row.public_id), arrangement.get('students'));
+        const pupilAt = new Map(pupils.map((row: any, index: number) => [String(row.public_id), index]));
+        const byPupilList = (a: string, b: string) =>
+            (pupilAt.get(a) ?? Number.MAX_SAFE_INTEGER) - (pupilAt.get(b) ?? Number.MAX_SAFE_INTEGER) || a.localeCompare(b);
+        const therapistRows = therapists.rows.map((row: any) => ({
+            ...row,
+            students: arrange((row.students || []).map(String).sort(byPupilList), (id: string) => id,
+                arrangement.get(caseloadList(row.id)))
+        }));
+
         return {
             year: year.label,
             isCurrentYear: year.is_current,
+            caseloadOrder: true,
             classes: arrange(classes.rows, (row: any) => String(row.id), arrangement.get('classes')),
             teachers: arrange(teachers.rows, (row: any) => String(row.id), arrangement.get('teachers')),
-            therapists: arrange(therapists.rows, (row: any) => String(row.id), arrangement.get('therapists')),
-            students: arrange(orderPupils(students.rows), (row: any) => String(row.public_id), arrangement.get('students')),
+            therapists: arrange(therapistRows, (row: any) => String(row.id), arrangement.get('therapists')),
+            students: pupils,
             candidates: {
                 students: studentSuggestions,
                 teachers: teacherCandidates.rows,

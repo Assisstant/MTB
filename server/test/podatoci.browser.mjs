@@ -54,6 +54,17 @@ async function cleanup() {
     await q(`DELETE FROM therapists WHERE name LIKE $1`, [`${TAG}%`]);
     await q(`DELETE FROM students WHERE public_id LIKE $1`, [`${TAG}%`]);
     await q(`DELETE FROM teachers WHERE name ILIKE $1`, [`${TAG}%`]);
+    // Migration 035 gives every new teacher and therapist a staff identity and
+    // keeps it when the profile goes, on purpose. The fixture's must go too, or
+    // `check:names` learns these invented names from the database and refuses
+    // to commit the very file that holds them. Only rows nothing points at.
+    await q(`DELETE FROM employees e WHERE e.name ILIKE ANY($1::text[])
+              AND NOT EXISTS (SELECT 1 FROM teachers x WHERE x.employee_id = e.id)
+              AND NOT EXISTS (SELECT 1 FROM therapists x WHERE x.employee_id = e.id)
+              AND NOT EXISTS (SELECT 1 FROM employee_roles x WHERE x.employee_id = e.id)
+              AND NOT EXISTS (SELECT 1 FROM employee_year_details x WHERE x.employee_id = e.id)
+              AND NOT EXISTS (SELECT 1 FROM employee_identity_links x WHERE x.source_id = e.id OR x.target_id = e.id)
+              AND NOT EXISTS (SELECT 1 FROM employees x WHERE x.superseded_by = e.id)`, [[`${TAG}%`]]);
     await q(`DELETE FROM school_classes WHERE label IN ($1, $2, $3)`, [CLASS_A, CLASS_B, CLASS_C]);
 }
 

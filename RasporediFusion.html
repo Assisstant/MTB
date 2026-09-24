@@ -565,6 +565,17 @@
     .roster-table th { background: #f7fafc; color: #4a5568; font-size: 12px; font-weight: 700; }
     .roster-table tbody tr:hover { background: #f7fafc; }
     .roster-table .roster-number { width: 64px; text-align: right; color: #718096; font-variant-numeric: tabular-nums; }
+    /* ▲▼ beside the number, as in Податоци: the number stays, the row moves.
+       A <button> states its own colours; holding one must not select text. */
+    .roster-table.with-order .roster-number { width: 104px; white-space: nowrap; }
+    .roster-table .ord { display: inline-flex; gap: 2px; margin-left: 6px; vertical-align: middle; }
+    .roster-table .ord-btn {
+        padding: 0 5px; line-height: 18px; font-size: 10px; cursor: pointer; user-select: none; touch-action: manipulation;
+        border: 1px solid #cbd5e0; border-radius: 4px; background: #fff; color: #2d3748;
+    }
+    .roster-table .ord-btn:disabled { opacity: .3; cursor: default; }
+    .roster-table .ord-btn:not(:disabled):hover { border-color: #5a67d8; }
+    body.dark-mode .roster-table .ord-btn { background: #2d3748; color: #f7fafc; border-color: #4a5568; }
     .roster-table .roster-grade { width: 130px; }
     .roster-table .roster-name { width: auto; font-weight: 700; overflow-wrap: anywhere; }
     .roster-table .roster-kind { width: 130px; }
@@ -1463,7 +1474,7 @@
             // already booked, and that slot used to put them straight back in
             // the printed list — edited in the picker, not in the printout.
             // Such slots are named apart, with where they are, and not printed.
-            const pupils = (t.students || []).map((id) => students.get(id)).filter(Boolean).sort(sort);
+            const pupils = inListOrder((t.students || []).map((id) => students.get(id)).filter(Boolean));
             const left = strayBookings(t);
             const stray = [...left.keys()].map((id) => students.get(id)).filter(Boolean).sort(sort);
             return '<section class="report-section" data-report-therapist="' + t.id + '"><div class="report-heading"><h3>' + esc(t.name) +
@@ -1605,7 +1616,84 @@
         return counts;
     }
 
+    /**
+     * A therapist's list is READ in one order everywhere — this tab, the
+     * printed list and the picker in a schedule cell (owner, 24 Sep 2026:
+     * „same data displayed in too many places"). The server hands it over in
+     * that order (the therapist's own, then the year's pupil list) and says
+     * so with `caseloadOrder`. A server that does not yet (an older release)
+     * gets the old class-then-name sort, so no screen reads in id order.
+     */
+    function listOrderStored() {
+        return Boolean(state.roster && state.roster.caseloadOrder);
+    }
+    function inListOrder(pupils) {
+        return listOrderStored() ? pupils : pupils.slice().sort((a, b) =>
+            String(a.grade || '').localeCompare(String(b.grade || ''), 'mk') || String(a.name).localeCompare(String(b.name), 'mk'));
+    }
+
+    // The rows the tab last drew: an arrow moves a pupil past the next VISIBLE
+    // one, so a filtered list moves the way it looks, and hidden rows stay put.
+    let rosterShown = [];
+
+    function rosterTherapist() {
+        return ((state.roster && state.roster.therapists) || [])
+            .find((item) => String(item.id) === String(state.rosterTherapist)) || null;
+    }
+
+    /** One step, on screen only; the save waits for the button to be let go. */
+    function stepCaseload(info) {
+        const therapist = rosterTherapist();
+        if (!therapist || !mayEditTherapist(therapist.id)) return false;
+        const key = info.caseloadKey;
+        const at = rosterShown.indexOf(key);
+        const neighbour = rosterShown[at + Number(info.caseloadMove)];
+        if (at < 0 || !neighbour) return false;
+        const list = therapist.students || [];
+        const a = list.indexOf(key);
+        const b = list.indexOf(neighbour);
+        if (a < 0 || b < 0) return false;
+        list[a] = neighbour;
+        list[b] = key;
+        drawTherapistRoster();
+        return true;
+    }
+
+    async function saveCaseloadOrder(info) {
+        const therapist = rosterTherapist();
+        if (!therapist) return;
+        const year = '?year=' + encodeURIComponent(state.year);
+        setConnection(true, 'Се зачувува редоследот…');
+        try {
+            await api('/api/therapists/' + encodeURIComponent(therapist.name) + '/students-order' + year, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ order: therapist.students || [] })
+            });
+            setConnection(true, 'Зачувано');
+        } catch (err) {
+            showNotice(err.body && err.body.needsMigration
+                ? 'Редоследот не е зачуван: оваа база сè уште нема надградба ' + err.body.needsMigration + '.'
+                : 'Редоследот не е зачуван: ' + err.message, 'error');
+        }
+        // What the database holds now — also after a refusal, so the screen
+        // never shows an order that was not stored.
+        try {
+            state.roster = await api('/api/roster' + year);
+        } catch (_) { /* keep the local order; the notice above says it failed */ }
+        drawTherapistRoster();
+        drawSchedule();
+        if (state.panel === 'lists') drawReports();
+        const again = el('therapistRosterRows').querySelector(
+            '[data-caseload-key="' + CSS.escape(info.caseloadKey) + '"][data-caseload-move="' + info.caseloadMove + '"]');
+        if (again && !again.disabled) again.focus();
+    }
+
     function drawTherapistRoster() {
+        const nav = window.MTBAppNavigation;
+        if (nav && nav.holdRepeat) {
+            nav.holdRepeat(el('therapistRosterRows'), '[data-caseload-move]', { step: stepCaseload, done: saveCaseloadOrder });
+        }
         const therapists = (state.roster && state.roster.therapists) || [];
         const therapist = therapists.find((item) => String(item.id) === String(state.rosterTherapist));
         el('openCaseloadBtn').disabled = !therapist || !mayEditTherapist(therapist && therapist.id);
@@ -1617,7 +1705,7 @@
         }
 
         const ids = [...new Set(Array.isArray(therapist.students) ? therapist.students : [])];
-        const all = ids.map((id) => students.get(id)).filter(Boolean);
+        const all = inListOrder(ids.map((id) => students.get(id)).filter(Boolean));
         const counts = therapistSessionCounts(therapist.id);
         const query = el('rosterSearch').value.trim().toLocaleLowerCase('mk');
         const kindFilter = el('rosterKind').value;
@@ -1630,17 +1718,28 @@
             const matchesSession = sessionFilter === 'all' ||
                 (sessionFilter === 'scheduled' ? sessionCount > 0 : sessionCount === 0);
             return matchesQuery && matchesKind && matchesSession;
-        }).sort((a, b) =>
-            String(a.grade || '').localeCompare(String(b.grade || ''), 'mk') || a.name.localeCompare(b.name, 'mk'));
+        });
+        // The arrows only where the order can be stored, and only on one's own
+        // list: the same rule as adding and removing pupils.
+        const arrows = listOrderStored() && mayEditTherapist(therapist.id);
+        rosterShown = rows.map((student) => student.public_id);
+        el('therapistRosterRows').closest('table').classList.toggle('with-order', arrows);
 
         el('therapistRosterCount').textContent = rows.length === all.length
             ? rows.length + ' ученици'
             : rows.length + ' од ' + all.length + ' ученици';
+        const arrow = (key, delta, sign, off, label) =>
+            '<button type="button" class="ord-btn" data-caseload-key="' + esc(key) + '" data-caseload-move="' + delta + '"' +
+            (off ? ' disabled' : '') + ' title="' + label + '" aria-label="' + label + '">' + sign + '</button>';
         el('therapistRosterRows').innerHTML = rows.length ? rows.map((student, index) => {
             const kind = ['boarding', 'external'].includes(student.kind) ? student.kind : 'internal';
             const kindLabel = { internal: 'интерен', boarding: 'интернатски', external: 'екстерен' }[kind];
             return '<tr data-student-id="' + esc(student.public_id) + '" data-kind="' + kind + '">' +
-                '<td class="roster-number">' + (index + 1) + '.</td>' +
+                '<td class="roster-number">' + (index + 1) + '.' +
+                (arrows ? '<span class="ord">' +
+                    arrow(student.public_id, -1, '▲', index === 0, 'Помести го нагоре') +
+                    arrow(student.public_id, 1, '▼', index === rows.length - 1, 'Помести го надолу') + '</span>' : '') +
+                '</td>' +
                 '<td class="roster-grade">' + esc(student.grade || '—') + '</td>' +
                 '<td class="roster-name">' + esc(student.name) + '</td>' +
                 '<td class="roster-kind">' + kindLabel + '</td>' +
@@ -1958,9 +2057,9 @@
     function optionsFor(therapist, selectedId, students, excludedId) {
         const ids = Array.isArray(therapist.students) ? [...new Set(therapist.students)] : [];
         if (selectedId && !ids.includes(selectedId)) ids.push(selectedId);
-        const available = ids.map((id) => students.get(id)).filter(Boolean)
-            .filter((student) => !excludedId || student.public_id !== excludedId || student.public_id === selectedId)
-            .sort((a, b) => String(a.grade || '').localeCompare(String(b.grade || ''), 'mk') || a.name.localeCompare(b.name, 'mk'));
+        // The therapist's list in its one reading order (see listOrderStored).
+        const available = inListOrder(ids.map((id) => students.get(id)).filter(Boolean)
+            .filter((student) => !excludedId || student.public_id !== excludedId || student.public_id === selectedId));
         return '<option value="">— празно —</option>' + available.map((student) =>
             '<option value="' + esc(student.public_id) + '"' +
             (student.public_id === selectedId ? ' selected' : '') + '>' + esc(studentLabel(student)) + '</option>'

@@ -87,6 +87,17 @@ async function cleanup() {
     // name is SHOUTED, and the server stores one spelling for everybody. A
     // case-sensitive LIKE would leave whichever form it did not guess behind.
     await q(`DELETE FROM teachers WHERE lower(btrim(name)) LIKE lower($1)`, [`${TAG}%`]);
+    // Migration 035 gives every new teacher and therapist a staff identity and
+    // keeps it when the profile goes, on purpose. The fixture's must go too, or
+    // `check:names` learns these invented names from the database and refuses
+    // to commit the very file that holds them. Only rows nothing points at.
+    await q(`DELETE FROM employees e WHERE e.name ILIKE ANY($1::text[])
+              AND NOT EXISTS (SELECT 1 FROM teachers x WHERE x.employee_id = e.id)
+              AND NOT EXISTS (SELECT 1 FROM therapists x WHERE x.employee_id = e.id)
+              AND NOT EXISTS (SELECT 1 FROM employee_roles x WHERE x.employee_id = e.id)
+              AND NOT EXISTS (SELECT 1 FROM employee_year_details x WHERE x.employee_id = e.id)
+              AND NOT EXISTS (SELECT 1 FROM employee_identity_links x WHERE x.source_id = e.id OR x.target_id = e.id)
+              AND NOT EXISTS (SELECT 1 FROM employees x WHERE x.superseded_by = e.id)`, [[`${TAG}%`]]);
     await q(`DELETE FROM bell_periods WHERE schedule = $1`, [`${TAG}-bells`]);
 }
 

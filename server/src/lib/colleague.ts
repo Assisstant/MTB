@@ -259,6 +259,7 @@ const PUBLIC_WRITES = new Set([
 const DELEGATED_WRITES = new Set([
     'PUT /api/therapists/:name/students/:publicId',
     'DELETE /api/therapists/:name/students/:publicId',
+    'PUT /api/therapists/:name/students-order',
     'PUT /api/schedule/block',
     'PUT /api/schedule/session',
     'POST /api/evidence/sheet',

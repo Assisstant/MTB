@@ -57,6 +57,17 @@ async function cleanup() {
     await q('DELETE FROM therapists WHERE name LIKE $1', [`%${TAG}%`]);
     await q('DELETE FROM therapists WHERE name IN ($1, $2, $3, $4)',
         [OWNER_NAME, THERAPIST_A_NAME, THERAPIST_B_NAME, NO_PIN_NAME]);
+    // Migration 035 gives every new teacher and therapist a staff identity and
+    // keeps it when the profile goes, on purpose. The fixture's must go too, or
+    // `check:names` learns these invented names from the database and refuses
+    // to commit the very file that holds them. Only rows nothing points at.
+    await q(`DELETE FROM employees e WHERE e.name ILIKE ANY($1::text[])
+              AND NOT EXISTS (SELECT 1 FROM teachers x WHERE x.employee_id = e.id)
+              AND NOT EXISTS (SELECT 1 FROM therapists x WHERE x.employee_id = e.id)
+              AND NOT EXISTS (SELECT 1 FROM employee_roles x WHERE x.employee_id = e.id)
+              AND NOT EXISTS (SELECT 1 FROM employee_year_details x WHERE x.employee_id = e.id)
+              AND NOT EXISTS (SELECT 1 FROM employee_identity_links x WHERE x.source_id = e.id OR x.target_id = e.id)
+              AND NOT EXISTS (SELECT 1 FROM employees x WHERE x.superseded_by = e.id)`, [[OWNER_NAME, THERAPIST_A_NAME, THERAPIST_B_NAME, NO_PIN_NAME, `%${TAG}%`]]);
     await q('DELETE FROM school_classes WHERE label = $1', [TEACHER_CLASS]);
 }
 
@@ -361,6 +372,23 @@ async function run() {
             headers: { 'X-MTB-Evidence-Token': tokenA }
         });
         check('Therapist A can tick pupil onto own caseload -> 200', caseloadOwnRes.statusCode === 200);
+
+        // The order of a list follows the same rule as its membership: one's
+        // own list only (migration 039).
+        const orderOtherRes = await app.inject({
+            method: 'PUT',
+            url: `/api/therapists/${encodeURIComponent(THERAPIST_B_NAME)}/students-order?year=${YEAR}`,
+            headers: { 'X-MTB-Evidence-Token': tokenA },
+            payload: { order: [`${TAG}-st2`] }
+        });
+        check('Therapist A cannot arrange Therapist B\'s list -> 403', orderOtherRes.statusCode === 403);
+        const orderOwnRes = await app.inject({
+            method: 'PUT',
+            url: `/api/therapists/${encodeURIComponent(THERAPIST_A_NAME)}/students-order?year=${YEAR}`,
+            headers: { 'X-MTB-Evidence-Token': tokenA },
+            payload: { order: [`${TAG}-st2`, `${TAG}-st1`] }
+        });
+        check('Therapist A can arrange own list -> 200', orderOwnRes.statusCode === 200);
 
         // Put the fixture back into its original ownership split before probing
         // direct sheet ids; otherwise Student 2 would now legitimately be A's.

@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { pool } from '../db.js';
 import { norm, asText, stableStudentIdForName } from '../lib/import-core.js';
 import { assertOwner, assertOwnTherapistName, refuseScope, scopeOf } from '../lib/colleague.js';
+import { arrangementAvailable, caseloadList } from '../lib/roster-order.js';
 
 /**
  * Stage B of moving Rasporedi onto the database: the ROSTER, one person at a
@@ -84,6 +85,10 @@ const TherapistPatch = z.object({
 });
 const YearQuery = z.object({
     year: z.string().min(1).max(64).optional()
+});
+/** A therapist's whole list, in reading order, by `students.public_id`. */
+const CaseloadOrder = z.object({
+    order: z.array(z.string().trim().min(1).max(80)).max(1000)
 });
 
 async function currentYearId(client: any, label?: string): Promise<number | null> {
@@ -458,6 +463,73 @@ export async function rosterWriteRoutes(server: FastifyInstance) {
         try { await assertOwnTherapistName(await scopeOf(req), name); }
         catch (err) { return refuseScope(reply, err); }
         return linkRoute(reply, name, String(p.publicId || '').trim(), false, q.year);
+    });
+
+    /**
+     * The order a therapist reads their own list in (migration 039).
+     *
+     * Display only, the whole list at once, like `/api/roster/order` — and
+     * for the same reasons: moving a row changes at least two places, and
+     * there is no `expected` for "the order" that would mean anything. It
+     * cannot add or remove anybody: keys are positions, not membership, and a
+     * key naming nobody is gone the next time the list is arranged. Its own
+     * route because a therapist arranges their OWN list, which the annual
+     * lists' route (administrator only) must not allow.
+     */
+    server.put('/api/therapists/:name/students-order', async (req, reply) => {
+        const q = YearQuery.parse(req.query);
+        const name = String((req.params as any).name || '').trim();
+        try { await assertOwnTherapistName(await scopeOf(req), name); }
+        catch (err) { return refuseScope(reply, err); }
+        const parsed = CaseloadOrder.safeParse(req.body);
+        if (!parsed.success) return reply.code(400).send({ error: 'invalid order payload' });
+        const order = parsed.data.order;
+        if (new Set(order).size !== order.length) {
+            return reply.code(400).send({ error: 'the submitted order repeats a pupil' });
+        }
+        if (!await arrangementAvailable(pool)) {
+            return reply.code(503).send({ error: 'Оваа база сè уште нема поддршка за редослед; потребна е надградба.', needsMigration: '039_caseload_order.sql' });
+        }
+        const client = await pool.connect();
+        try {
+            await client.query('BEGIN');
+            const yid = await currentYearId(client, q.year);
+            if (yid == null) {
+                await client.query('ROLLBACK');
+                return reply.code(404).send({ error: `no such school year: ${q.year ?? '(current)'}` });
+            }
+            const th = await client.query(
+                `SELECT t.id FROM therapists t
+                 JOIN therapist_years ty ON ty.therapist_id = t.id
+                 WHERE lower(btrim(t.name)) = $1 AND ty.school_year_id = $2 AND ty.active`,
+                [norm(name), yid]
+            );
+            if (!th.rows.length) {
+                await client.query('ROLLBACK');
+                return reply.code(404).send({ error: `unknown or inactive therapist "${name}" for that school year` });
+            }
+            const list = caseloadList(th.rows[0].id);
+            await client.query('DELETE FROM roster_order WHERE school_year_id = $1 AND list = $2', [yid, list]);
+            if (order.length) {
+                await client.query(
+                    `INSERT INTO roster_order (school_year_id, list, member_key, position)
+                     SELECT $1, $2, member.key, member.ordinality - 1
+                     FROM unnest($3::text[]) WITH ORDINALITY AS member(key, ordinality)`,
+                    [yid, list, order]
+                );
+            }
+            await client.query('COMMIT');
+            return { ok: true, therapist: name, list, placed: order.length };
+        } catch (err: any) {
+            await client.query('ROLLBACK').catch(() => {});
+            // 038 without 039: the table is there, the per-therapist list is not allowed yet.
+            if (err?.code === '23514') {
+                return reply.code(503).send({ error: 'Оваа база сè уште нема поддршка за редослед на ученици по терапевт; потребна е надградба.', needsMigration: '039_caseload_order.sql' });
+            }
+            throw err;
+        } finally {
+            client.release();
+        }
     });
 
     /**

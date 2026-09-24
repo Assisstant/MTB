@@ -3312,3 +3312,46 @@ with another class at 7 of 9 hours is not that class; a label that never
 collides with a second label in 33 cells is the same class. `teaching_clashes`
 was reporting the wrong mapping all along — read a clash count after an
 import as a test of the mapping, not only of the timetable.
+
+## One order for a therapist's list, and arrows that repeat (24 Sep 2026)
+
+The owner asked for ▲▼ on a therapist's pupils „like the classes", with a held
+arrow advancing every 0.3 s and a click moving one place — and, more broadly,
+said the same data shows up in too many places, not all of them editable.
+
+That second point was literally true of this list. Three screens read one
+therapist's pupils and each sorted it itself: „Ученици по терапевт" by class
+then name, the printed list by name, the picker in a schedule cell by its
+label. An order stored in one place and applied by the server is the fix; the
+arrows are only how a person writes it.
+
+- **Migration 039 reuses `roster_order`** with one list per therapist,
+  `caseload:<therapists.id>`. It is the same kind of fact as the four annual
+  lists — display only, absent means "not placed yet" and sorts last, a stale
+  key names nobody — and keeping it off `therapist_students` keeps "who is on
+  the list" and "in what order" as two facts. Only the CHECK changes.
+- **`/api/roster` applies it**, and its default for an unarranged list is the
+  year's pupil list order, not the id order the aggregate used to return. The
+  answer carries `caseloadOrder: true`; a screen that does not see it (an older
+  server during a staggered rollout) keeps its old sort and hides the arrows,
+  so no screen ever reads a list in id order.
+- **`PUT /api/therapists/:name/students-order`** is delegated like adding and
+  removing a pupil: a therapist arranges their own list, `/api/roster/order`
+  stays administrator-only. Whole list at once, like the annual lists; it can
+  add or remove nobody, and a pupil taken off the list is not brought back by
+  a leftover position.
+- **`holdRepeat` in `app-navigation.js`**, one copy for both pages: pointerdown
+  steps at once, a timer steps every 300 ms, and `done` runs once on release
+  (or when the row reaches the end). Each step moves the row on screen only;
+  the page redraws under the pointer, so the held info is the button's dataset
+  captured at press, not whatever button is under the mouse later. Keyboard
+  and screen readers arrive as a click with `detail` 0 and are one step, one
+  save. Podatoci's arrows moved to it: before, every click was a PUT and a full
+  reload, which a 0.3 s repeat would have turned into overlapping reloads.
+- The deploy runner accepts 039 under its own recovery schema
+  (`mtb_workspace_recovery_caseload_order_20260924`); reusing the previous name
+  is the 42P06 trap.
+
+Tests: `test:fusion-order` (new, intercepted), `test:order` +10,
+`test:colleague` +2, `workspace-release` 038→039, `test:podatoci` unchanged
+and green on the new arrows.

@@ -15,7 +15,11 @@ import type { Pool } from 'pg';
  */
 export const ORDER_LISTS = ['students', 'teachers', 'therapists', 'classes'] as const;
 export type OrderList = typeof ORDER_LISTS[number];
-export type Arrangement = Map<OrderList, Map<string, number>>;
+/** The four annual lists by name, plus one `caseload:<id>` per therapist (migration 039). */
+export type Arrangement = Map<string, Map<string, number>>;
+
+/** One therapist's own list of pupils, keyed by `students.public_id`. */
+export const caseloadList = (therapistId: number | string) => `caseload:${therapistId}`;
 
 /**
  * Is the arrangement storable on THIS installation?
@@ -39,7 +43,11 @@ export async function readArrangement(pool: Pool, yearId: number): Promise<Arran
     const { rows } = await pool.query(
         'SELECT list, member_key, position FROM roster_order WHERE school_year_id = $1', [yearId]
     );
-    for (const row of rows) empty.get(row.list as OrderList)?.set(String(row.member_key), Number(row.position));
+    for (const row of rows) {
+        const list = String(row.list);
+        if (!empty.has(list)) empty.set(list, new Map<string, number>());
+        empty.get(list)!.set(String(row.member_key), Number(row.position));
+    }
     return empty;
 }
 

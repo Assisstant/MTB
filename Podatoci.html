@@ -1115,41 +1115,71 @@
             + '</span></td>';
     }
 
+    // Редовите што секој список последно ги нацрта: чекорот се движи меѓу
+    // видливите, и секое прецртување ги освежува.
+    const shownBy = {};
+    const DRAW_LIST = {
+        students: () => drawStudents(),
+        teachers: () => drawTeachers(),
+        therapists: () => drawTherapists(),
+        classes: () => drawClasses()
+    };
+
+    /**
+     * Стрелките се држат (сопственикот, 24 септември): еден клик е едно
+     * место, а задржано копче оди понатаму на секои 0,3 s. Секој чекор го
+     * поместува редот само НА ЕКРАНОТ; се зачувува еднаш, кога ќе се пушти —
+     * шест места се едно барање, не шест превчитувања што се бркаат.
+     * Помошникот е еден, во `app-navigation.js`, истиот што го користи Fusion.
+     */
     function attachOrderArrows(container, list, shown) {
-        container.querySelectorAll('[data-move-list]').forEach((button) =>
-            button.addEventListener('click', () =>
-                moveRow(container, list, shown, button.dataset.moveKey, Number(button.dataset.move))));
+        shownBy[list] = shown;
+        const nav = window.MTBAppNavigation;
+        if (nav && nav.holdRepeat) nav.holdRepeat(document.body, '[data-move-list]', { step: stepRow, done: saveOrder });
     }
 
-    async function moveRow(container, list, shown, key, delta) {
+    function stepRow(info) {
+        const list = info.moveList;
+        const key = info.moveKey;
         // Поместувањето препрочитува сè од базата, па незачувана измена во друг
         // ред би се фрлила тивко — истата грешка како „Зачувај" врз стар таб.
-        if (container.querySelector('tr.dirty')) {
+        const box = el(list);
+        if (box && box.querySelector('tr.dirty')) {
             status('Има ред со незачувана измена. Зачувај го или освежи, па поместувај.', 'warn', { toast: true });
-            return;
+            return false;
         }
         const keyOf = ORDER_KEY[list];
+        const shown = shownBy[list] || [];
         const at = shown.findIndex((row) => keyOf(row) === key);
-        const neighbour = shown[at + delta];
-        if (at < 0 || !neighbour) return;
-        const order = (data[list] || []).map(keyOf);
-        const a = order.indexOf(key);
-        const b = order.indexOf(keyOf(neighbour));
-        if (a < 0 || b < 0) return;
-        order[a] = order[b];
-        order[b] = key;
+        const neighbour = shown[at + Number(info.move)];
+        if (at < 0 || !neighbour) return false;
+        const rows = data[list] || [];
+        const a = rows.findIndex((row) => keyOf(row) === key);
+        const b = rows.findIndex((row) => keyOf(row) === keyOf(neighbour));
+        if (a < 0 || b < 0) return false;
+        const moved = rows[a];
+        rows[a] = rows[b];
+        rows[b] = moved;
+        DRAW_LIST[list]();
+        return true;
+    }
+
+    async function saveOrder(info) {
+        const list = info.moveList;
+        const order = (data[list] || []).map(ORDER_KEY[list]);
         try {
             await api('PUT', '/api/roster/order', { year: el('year').value, list, order });
             await load();
             status('редоследот е зачуван', 'ok', { toast: true });
-            // Истото копче, по прецртувањето: поместување за три места е три
-            // притискања, а не три барања на копче што скокнало на друго место.
-            const again = document.querySelector(
-                `[data-move-list="${list}"][data-move-key="${CSS.escape(key)}"][data-move="${delta}"]`);
-            if (again && !again.disabled) again.focus();
         } catch (err) {
             status(err.message, 'error', { toast: true });
+            // Екранот покажува што држи базата, не поместување што не поминало.
+            await load().catch(() => {});
         }
+        // Истото копче по прецртувањето, за да може да се продолжи со тастатура.
+        const again = document.querySelector(
+            `[data-move-list="${list}"][data-move-key="${CSS.escape(info.moveKey)}"][data-move="${info.move}"]`);
+        if (again && !again.disabled) again.focus();
     }
 
     function drawStudents() {

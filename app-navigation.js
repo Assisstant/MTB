@@ -1185,6 +1185,57 @@
         return { value: () => field.value, subjects: () => chosen.slice() };
     }
 
+    /**
+     * ▲▼ that repeat while held (owner, 24 Sep 2026): one press is one step,
+     * and a held button steps again every 300 ms until it is let go.
+     *
+     * `step(info)` moves ON SCREEN only and answers false when there is
+     * nowhere further to go; `done(info)` runs ONCE, after the last step, so a
+     * row held for six places is one save rather than six reloads racing each
+     * other. `info` is the button's dataset as it was when pressed — the page
+     * redraws under the pointer after every step, and the next step must still
+     * move the same row, not whichever button now sits under the mouse.
+     *
+     * Enter and Space on a focused arrow are one step and one save, so the
+     * arrows stay usable without a mouse. Installed once per root: a page that
+     * redraws its lists must not stack a listener per redraw.
+     */
+    const holdRoots = new WeakSet();
+    function holdRepeat(root, selector, handlers) {
+        if (!root || holdRoots.has(root)) return;
+        holdRoots.add(root);
+        const every = handlers.interval || 300;
+        let timer = null;
+        let held = null;
+        const stop = () => {
+            if (!held) return;
+            clearInterval(timer);
+            timer = null;
+            const info = held;
+            held = null;
+            handlers.done(info);
+        };
+        root.addEventListener('pointerdown', (event) => {
+            const button = event.target.closest && event.target.closest(selector);
+            if (!button || button.disabled || event.button !== 0 || held) return;
+            event.preventDefault();
+            held = Object.assign({}, button.dataset);
+            if (handlers.step(held) === false) { held = null; return; }
+            timer = setInterval(() => { if (held && handlers.step(held) === false) stop(); }, every);
+        });
+        ['pointerup', 'pointercancel', 'blur'].forEach((name) => window.addEventListener(name, stop));
+        // Enter, Space and a screen reader all arrive as a click with
+        // `detail` 0: one step and one save. A mouse or touch click (detail
+        // ≥ 1) was already handled by its pointerdown above and is ignored.
+        root.addEventListener('click', (event) => {
+            if (event.detail !== 0) return;
+            const button = event.target.closest && event.target.closest(selector);
+            if (!button || button.disabled) return;
+            const info = Object.assign({}, button.dataset);
+            if (handlers.step(info) !== false) handlers.done(info);
+        });
+    }
+
     window.MTBAppNavigation = {
         refresh: render, checkHealth, checkUser, logout: logoutUser,
         reportDataState, toast: showToast, hideToast,
@@ -1218,7 +1269,8 @@
             join: joinSubjects,
             catalogue: subjectCatalogue,
             mount: mountSubjectPicker
-        }
+        },
+        holdRepeat
     };
     window.addEventListener('mtb:data-state', (event) => reportDataState(event.detail));
     window.addEventListener('mtb:server-selected', () => { render(); checkHealth(); checkUser(); });

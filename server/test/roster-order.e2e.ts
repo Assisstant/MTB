@@ -53,6 +53,17 @@ async function cleanup() {
     await q('DELETE FROM students WHERE public_id LIKE $1', [`${TAG}%`]);
     await q('DELETE FROM teachers WHERE name LIKE $1', [`${TAG}%`]);
     await q('DELETE FROM therapists WHERE name LIKE $1', [`${TAG}%`]);
+    // Migration 035 gives every new teacher and therapist a staff identity and
+    // keeps it when the profile goes, on purpose. The fixture's must go too, or
+    // `check:names` learns these invented names from the database and refuses
+    // to commit the very file that holds them. Only rows nothing points at.
+    await q(`DELETE FROM employees e WHERE e.name ILIKE ANY($1::text[])
+              AND NOT EXISTS (SELECT 1 FROM teachers x WHERE x.employee_id = e.id)
+              AND NOT EXISTS (SELECT 1 FROM therapists x WHERE x.employee_id = e.id)
+              AND NOT EXISTS (SELECT 1 FROM employee_roles x WHERE x.employee_id = e.id)
+              AND NOT EXISTS (SELECT 1 FROM employee_year_details x WHERE x.employee_id = e.id)
+              AND NOT EXISTS (SELECT 1 FROM employee_identity_links x WHERE x.source_id = e.id OR x.target_id = e.id)
+              AND NOT EXISTS (SELECT 1 FROM employees x WHERE x.superseded_by = e.id)`, [[`${TAG}%`]]);
     await q('DELETE FROM school_classes WHERE label LIKE $1', [`${TAG}%`]);
 }
 
@@ -154,6 +165,38 @@ async function run() {
     same('the rows for that list are gone rather than left behind',
         (await q('SELECT count(*)::int AS n FROM roster_order WHERE school_year_id = $1 AND list = $2',
             [fixture.year.id, 'therapists']))[0].n, 0);
+
+    console.log("\na therapist's own list (migration 039): one order, read by every screen");
+    const own = fixture.therapists[0];
+    const ownName = `${TAG} Гама терапевт`;
+    for (const publicId of fixture.students) {
+        await q(`INSERT INTO therapist_students (school_year_id, therapist_id, student_id)
+                 SELECT $1, $2, id FROM students WHERE public_id = $3`, [fixture.year.id, own, publicId]);
+    }
+    const caseload = async () => (await roster()).therapists.find((t: any) => t.id === own).students;
+    const putCaseload = (order: string[], name = ownName) =>
+        api('PUT', `/api/therapists/${encodeURIComponent(name)}/students-order?year=${encodeURIComponent(YEAR)}`, { order });
+    lists = await roster();
+    same('the roster says its therapist lists are in reading order', lists.caseloadOrder, true);
+    same('unarranged, a therapist\'s list follows the year\'s pupil list', await caseload(),
+        lists.students.map((s: any) => s.public_id));
+    const wantedOwn = [fixture.students[1], fixture.students[2], fixture.students[0]];
+    same('arranging it answers 200', (await putCaseload(wantedOwn)).status, 200);
+    same('the list is then read in that order', await caseload(), wantedOwn);
+    same('the year\'s pupil list is not arranged with it',
+        (await roster()).students.map((s: any) => s.public_id), [...fixture.students].reverse());
+    same('it is stored as the therapist\'s own list, and nothing else',
+        (await q(`SELECT member_key FROM roster_order WHERE school_year_id = $1 AND list = $2 ORDER BY position`,
+            [fixture.year.id, `caseload:${own}`])).map((r: any) => r.member_key), wantedOwn);
+    same('nobody was added to or removed from the list',
+        (await q('SELECT count(*)::int AS n FROM therapist_students WHERE school_year_id = $1 AND therapist_id = $2',
+            [fixture.year.id, own]))[0].n, 3);
+    same('a repeated pupil is refused', (await putCaseload([wantedOwn[0], wantedOwn[0]])).status, 400);
+    same('an unknown therapist is refused', (await putCaseload(wantedOwn, `${TAG} Никој`)).status, 404);
+    await q(`DELETE FROM therapist_students WHERE school_year_id = $1 AND therapist_id = $2
+               AND student_id = (SELECT id FROM students WHERE public_id = $3)`, [fixture.year.id, own, wantedOwn[0]]);
+    same('a pupil taken off the list is not brought back by the stored order', await caseload(),
+        [wantedOwn[1], wantedOwn[2]]);
 
     console.log('\nthe arrangement belongs to the year and dies with it');
     await q('DELETE FROM school_years WHERE label = $1', [YEAR]);
