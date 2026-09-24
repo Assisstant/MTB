@@ -112,6 +112,66 @@
     table.grid.week td.wk select.pick { width: 100%; min-width: 150px; font-size: 12px; padding: 2px; }
     .off-staff { display: block; font-size: 10px; font-weight: 400; color: var(--warn, #b7791f); }
 
+    /* ── по одделение, цела недела ───────────────────────────────────────── */
+    /* The sheet that hangs on a classroom door: periods down, days across.
+       Every cell is two pickers, so the week is filled without a panel. */
+    .cw-sheet { margin: 0 0 26px; }
+    .cw-sheet h2 { margin: 0 0 2px; font-size: 18px; }
+    .cw-sheet h2 .who { color: var(--muted); font-weight: 400; font-size: 14px; }
+    .cw-meta { font-size: 13px; color: var(--muted); margin: 0 0 8px; }
+    .cw-meta b { color: var(--text); font-weight: 600; }
+    table.grid.cweek { table-layout: fixed; min-width: 760px; }
+    table.grid.cweek thead th { text-align: center; }
+    table.grid.cweek thead th:first-child { width: 64px; }
+    table.grid.cweek tbody th { text-align: center; vertical-align: middle; }
+    table.grid.cweek tbody th small { display: block; font-weight: 400; color: var(--muted); font-size: 11px; }
+    table.grid.cweek td.cw {
+        padding: 4px 5px; vertical-align: top; border-right: 1px solid var(--border);
+    }
+    table.grid.cweek td.cw.has { background: var(--filled); }
+    table.grid.cweek td.cw.clash { background: var(--danger-bg); }
+    table.grid.cweek td.cw.failed { box-shadow: inset 0 0 0 2px var(--danger); }
+    /* A <select> does not inherit colour or background (a <button> taught
+       this project that the hard way), so both are stated. */
+    table.grid.cweek select {
+        display: block; width: 100%; min-width: 0; font: inherit; font-size: 12px;
+        color: var(--text); background: var(--card);
+        border: 1px solid var(--border); border-radius: 4px; padding: 3px 4px;
+    }
+    table.grid.cweek select.cw-subj { font-weight: 600; }
+    table.grid.cweek select.cw-teach { margin-top: 3px; font-size: 11px; color: var(--muted); }
+    table.grid.cweek td.cw.has select.cw-teach { color: var(--text); }
+    table.grid.cweek input.cw-other {
+        width: 100%; font: inherit; font-size: 12px; padding: 3px 4px;
+        color: var(--text); background: var(--card); border: 1px solid var(--edit); border-radius: 4px;
+    }
+    .cw-clash { font-size: 11px; color: var(--danger); font-weight: 600; }
+    p.cw-clash { font-size: 12px; }
+    table.grid.cweek .cw-two { font-size: 12px; line-height: 1.3; }
+    table.grid.cweek .cw-two small { color: var(--muted); }
+    .print-only { display: none; }
+    .cw-count { font-size: 12px; color: var(--muted); margin: 6px 0 0; }
+
+    @media print {
+        body { background: #fff; }
+        body > *:not(main) { display: none !important; }
+        main { padding: 0; }
+        main > .panel:not(#gridPanel) { display: none !important; }
+        #gridPanel { border: 0; box-shadow: none; padding: 0; margin: 0; background: none; }
+        .scroll { overflow: visible; }
+        .no-print, table.grid.cweek select, table.grid.cweek input { display: none !important; }
+        .print-only { display: block; }
+        .cw-sheet { break-after: page; page-break-after: always; margin: 0; }
+        .cw-sheet:last-child { break-after: auto; page-break-after: auto; }
+        .cw-sheet h2 { text-align: center; font-size: 22px; margin-bottom: 8px; color: #000; }
+        table.grid.cweek { min-width: 0; font-size: 14px; }
+        table.grid.cweek th, table.grid.cweek td { border: 1px solid #000 !important; color: #000; background: #fff !important; }
+        table.grid.cweek thead th { position: static; }
+        table.grid.cweek tbody th { position: static; }
+        table.grid.cweek td.cw { height: 58px; text-align: center; vertical-align: middle; font-weight: 600; }
+        table.grid.cweek td.cw small { display: block; font-weight: 400; font-size: 11px; }
+    }
+
     .editor { display: none; }
     .editor.open { display: block; }
     .editor h2 .who { color: var(--muted); font-weight: 400; }
@@ -154,8 +214,13 @@
                 <span>Приказ</span>
                 <select id="view">
                     <option value="class">По одделение · еден ден</option>
+                    <option value="classweek">По одделение · цела недела</option>
                     <option value="teacher">По наставник · цела недела</option>
                 </select>
+            </label>
+            <label class="field" id="classField" style="display:none;">
+                <span>Одделение</span>
+                <select id="klass"></select>
             </label>
             <label class="field" id="dayField">
                 <span>Ден</span>
@@ -166,11 +231,13 @@
                 <span>само одделенија со часови</span>
             </label>
             <button class="btn soft" id="refresh">↻ Освежи</button>
+            <button class="btn soft" id="printWeek" style="display:none;"
+                    title="Секое одделение на своја страница, како распоредот што стои на вратата">⎙ Печати</button>
             <span class="status" id="status"></span>
         </div>
     </div>
 
-    <div class="panel">
+    <div class="panel" id="gridPanel">
         <div class="scroll"><div id="grid"></div></div>
     </div>
 
@@ -426,7 +493,8 @@
             if (mine !== ticket) return;
             data = body;
             if (!keepSelection) selected = null;
-            draw();
+            await draw();
+            if (mine !== ticket) return;
             const archived = !(years.find((y) => y.label === body.year) || {}).is_current;
             status(`${body.year}${archived ? ' · архивска година' : ''} · ${body.lessons.length} часа · `
                  + `${body.classes.length} одделенија · ${body.teachers.length} наставници`,
@@ -589,18 +657,21 @@
      * A failure falls back to an empty list, which still lets the person type
      * nothing and close — never a dead cell.
      */
+    // Keyed by YEAR and label: „VI-а" is a different set of children, and so
+    // of generations, every September.
     const subjectCache = new Map();
     async function subjectsFor(label) {
-        if (subjectCache.has(label)) return subjectCache.get(label);
+        const key = data.year + '|' + label;
+        if (subjectCache.has(key)) return subjectCache.get(key);
         try {
             const body = await api('GET',
                 '/api/teaching/subjects?year=' + encodeURIComponent(data.year)
                 + '&class=' + encodeURIComponent(label));
-            subjectCache.set(label, body);
+            subjectCache.set(key, body);
             return body;
         } catch (_) {
             const empty = { subjects: [], basis: 'all', grades: [] };
-            subjectCache.set(label, empty);
+            subjectCache.set(key, empty);
             return empty;
         }
     }
@@ -691,8 +762,18 @@
     function draw() {
         if (!data) return;
         const weekly = view() === 'teacher';
-        el('dayField').style.display = weekly ? 'none' : '';
-        el('onlyUsedField').style.display = weekly ? 'none' : '';
+        const classWeek = view() === 'classweek';
+        el('dayField').style.display = weekly || classWeek ? 'none' : '';
+        el('onlyUsedField').style.display = weekly || classWeek ? 'none' : '';
+        el('classField').style.display = classWeek ? '' : 'none';
+        el('printWeek').style.display = classWeek ? '' : 'none';
+        if (classWeek) {
+            drawClasses();
+            drawTeachers();
+            drawBells();
+            drawClashes();
+            return drawClassWeek();
+        }
         if (weekly) {
             drawTeacherWeek();
             drawClasses();
@@ -706,6 +787,380 @@
         drawTeachers();
         drawBells();
         drawClashes();
+    }
+
+    // ── по одделение, цела недела ───────────────────────────────────────────
+    //
+    // The sheet the school prints for each classroom door: periods down, the
+    // five days across, the subject in the cell. The therapists have had that
+    // view of their own week in Распоред for a long time; a paralelka had only
+    // the one-day grid, where filling one class's week means changing the day
+    // five times.
+    //
+    // Same rows, same endpoint (`PUT /api/teaching/lesson`), same refusals.
+    // The subject list is the MON/BRO catalogue for the generations actually
+    // sitting in this class (`/api/teaching/subjects`), and it stays an OFFER:
+    // „✎ друг предмет…" writes anything, because an elective such as
+    // „Планинарење" is a real lesson the catalogue only calls „Слободни
+    // изборни предмети".
+
+    const ALL_CLASSES = '*';
+    const OTHER = '__other__';
+    const CATEGORY_ORDER = [
+        'Задолжителен предмет', 'Задолжителен предмет (условен)', 'Задолжителна програма',
+        'Изборен предмет', 'Изборен предмет (условен)', 'Друга активност'
+    ];
+
+    /**
+     * The year's annual list, fetched once per year and shared by every sheet
+     * drawn from it. Only for showing who sits in the class; a failure shows
+     * no names rather than no timetable.
+     */
+    let roster = null;
+    function annualList() {
+        if (!roster || roster.year !== data.year) {
+            const year = data.year;
+            roster = {
+                year,
+                promise: api('GET', '/api/roster?year=' + encodeURIComponent(year))
+                    .then((body) => (body && body.students) || [])
+                    .catch(() => null)
+            };
+        }
+        return roster.promise;
+    }
+
+    function fillClassPicker() {
+        const pick = el('klass');
+        const want = pick.value || new URLSearchParams(window.location.search).get('class') || '';
+        const labels = (data.classes || []).map((c) => c.label);
+        pick.innerHTML = (data.classes || []).map((c) =>
+            `<option value="${esc(c.label)}">${esc(c.label)}${c.description ? ' · ' + esc(c.description) : ''}</option>`).join('')
+            + (labels.length > 1 ? `<option value="${ALL_CLASSES}">— сите одделенија —</option>` : '');
+        pick.value = (want === ALL_CLASSES && labels.length > 1) || labels.includes(want) ? want : (labels[0] || '');
+    }
+
+    function subjectOptionsHtml(offer) {
+        const groups = new Map();
+        const offered = new Set();
+        (offer.subjects || []).forEach((s) => {
+            offered.add(s.subject);
+            const cat = s.category || 'Друго';
+            if (!groups.has(cat)) groups.set(cat, []);
+            groups.get(cat).push(s.subject);
+        });
+        const rank = (cat) => { const i = CATEGORY_ORDER.indexOf(cat); return i < 0 ? 99 : i; };
+        const opt = (n) => `<option value="${esc(n)}">${esc(n)}</option>`;
+        let html = '<option value="">—</option>';
+        Array.from(groups.keys())
+            .sort((a, b) => rank(a) - rank(b) || a.localeCompare(b, 'mk'))
+            .forEach((cat) => { html += `<optgroup label="${esc(cat)}">${groups.get(cat).map(opt).join('')}</optgroup>`; });
+        // Whatever the school's workbook already wrote („ТЕХ.", „АНГ."), so a
+        // saved lesson is always one of the choices and never shown as blank.
+        const used = subjectList().filter((n) => !offered.has(n));
+        if (used.length) html += `<optgroup label="Веќе запишани оваа година">${used.map(opt).join('')}</optgroup>`;
+        return html + `<option value="${OTHER}">✎ друг предмет…</option>`;
+    }
+
+    function teacherOptionsHtml(label) {
+        const opt = (name, note) => `<option value="${esc(name)}">${esc(name)}${note ? ' · ' + esc(note) : ''}</option>`;
+        const inClass = [];
+        const rest = [];
+        (data.teachers || []).forEach((t) => {
+            const link = (t.classes || []).find((x) => x.label === label);
+            if (link) inClass.push(opt(t.name, link.role === 'homeroom' ? 'раководител' : t.subject));
+            else rest.push(opt(t.name, t.subject));
+        });
+        const staff = new Set((data.teachers || []).map((t) => t.name));
+        const offList = Array.from(new Set((data.lessons || [])
+            .map((l) => l.teacher).filter((n) => n && !staff.has(n))));
+        let html = '<option value="">— наставник —</option>';
+        if (inClass.length) html += `<optgroup label="Во ${esc(label)}">${inClass.join('')}</optgroup>`;
+        if (rest.length) html += `<optgroup label="${inClass.length ? 'Останати' : 'Наставници'}">${rest.join('')}</optgroup>`;
+        if (offList.length) html += `<optgroup label="Не се на списокот за годината">${offList.map((n) => opt(n)).join('')}</optgroup>`;
+        return html;
+    }
+
+    function sheetHtml(c, offer, pupilsHere, cells) {
+        const label = c.label;
+        const subjOpts = subjectOptionsHtml(offer);
+        const teachOpts = teacherOptionsHtml(label);
+        const homeroom = (data.teachers || [])
+            .filter((t) => (t.classes || []).some((x) => x.label === label && x.role === 'homeroom'))
+            .map((t) => t.name);
+
+        const meta = [];
+        if (c.description) meta.push(esc(c.description));
+        if (homeroom.length) meta.push('раководител <b>' + homeroom.map(esc).join(', ') + '</b>');
+        let pupilsLine = '';
+        if (pupilsHere && pupilsHere.length) {
+            pupilsLine = `<p class="cw-meta no-print">Ученици (${pupilsHere.length}): `
+                + pupilsHere.map((s) => esc(s.name) + (s.oddelenie ? ` <small>(${esc(s.oddelenie)})</small>` : '')).join(', ')
+                + '</p>';
+        } else if (pupilsHere) {
+            pupilsLine = '<p class="cw-meta no-print">Нема ученици запишани во ова одделение за оваа година.</p>';
+        }
+        const basis = offer.basis === 'oddelenie'
+            ? `Предметите во листата се за ${esc((offer.grades || []).join(', '))} одделение — според запишаните ученици.`
+            : offer.basis === 'label'
+                ? `Предметите во листата се за ${esc((offer.grades || []).join(', '))} одделение — според ознаката.`
+                : 'Во листата се сите предмети — одделението на учениците не е запишано.';
+
+        let html = `<section class="cw-sheet" data-sheet="${esc(label)}">`
+            + `<h2>${esc(label)} распоред на часови <span class="who">${esc(data.year)}</span></h2>`
+            + (meta.length ? `<p class="cw-meta">${meta.join(' · ')}</p>` : '')
+            + pupilsLine
+            + '<table class="grid cweek"><thead><tr><th>Час</th>'
+            + DAYS.map((d) => `<th>${esc(d.charAt(0).toUpperCase() + d.slice(1))}</th>`).join('')
+            + '</tr></thead><tbody>';
+
+        let total = 0;
+        let bare = 0;
+        let clashes = 0;
+        const tally = new Map();
+        periods().forEach((p) => {
+            html += `<tr><th>${esc(p.label)}<small>${esc(p.startsAt)}</small></th>`;
+            DAYS.forEach((d) => {
+                const here = cells.get(label + '|' + d + '|' + p.ordinal) || [];
+                here.forEach((l) => {
+                    total++;
+                    if (!l.subject) bare++;
+                    else tally.set(l.subject, (tally.get(l.subject) || 0) + 1);
+                });
+                const where = `${label} · ${d} · ${p.ordinal}. час`;
+                if (here.length > 1) {
+                    // Not editable here: which of the two is right is a
+                    // person's decision, made where both can be deleted.
+                    clashes++;
+                    html += `<td class="cw clash" data-class="${esc(label)}" data-day="${esc(d)}" data-ordinal="${p.ordinal}"`
+                        + ` title="${esc(where)} — ${here.length} часа во ист термин">`
+                        + `<div class="cw-clash no-print">⚠ ${here.length} часа</div>`
+                        + here.map((l) => `<div class="cw-two no-print">${esc(l.subject || '·')} · `
+                            + `<small>${esc(l.teacher || 'без наставник')}</small></div>`).join('')
+                        + `<span class="print-only">${here.map((l) => esc(l.subject || '')).filter(Boolean).join(' / ')}</span>`
+                        + '</td>';
+                    return;
+                }
+                const l = here[0] || null;
+                html += `<td class="cw ${l ? 'has' : 'empty'}" data-class="${esc(label)}" data-day="${esc(d)}"`
+                    + ` data-ordinal="${p.ordinal}"`
+                    // What this tab believed was in the cell when it drew it —
+                    // sent back as `expected`, so a stale tab cannot overwrite.
+                    + (l ? ` data-was-id="${l.id}" data-was-subject="${esc(l.subject || '')}" data-was-teacher="${esc(l.teacher || '')}"` : '')
+                    + ` title="${esc(where + ' (' + p.startsAt + ')')}">`
+                    + `<select class="cw-subj" data-current="${esc(l ? l.subject || '' : '')}"`
+                    + ` aria-label="${esc(where + ' · предмет')}">${subjOpts}</select>`
+                    + `<select class="cw-teach" data-current="${esc(l ? l.teacher || '' : '')}"`
+                    + ` aria-label="${esc(where + ' · наставник')}">${teachOpts}</select>`
+                    + `<span class="print-only">${esc(l ? l.subject || '' : '')}</span>`
+                    + '</td>';
+            });
+            html += '</tr>';
+        });
+        html += '</tbody></table>';
+
+        const parts = [`${total} ${total === 1 ? 'час' : 'часа'} неделно`];
+        if (bare) parts.push(`${bare} без предмет`);
+        Array.from(tally.entries())
+            .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], 'mk'))
+            .forEach(([s, n]) => parts.push(`${esc(s)} ${n}`));
+        html += (clashes
+                ? `<p class="cw-count cw-clash no-print">⚠ Во ${clashes} ${clashes === 1 ? 'термин стојат' : 'термини стојат'} по два часа. `
+                  + 'Тие не се менуваат тука — избриши го вишокот во „По одделение · еден ден".</p>'
+                : '')
+            + `<p class="cw-count no-print">${parts.join(' · ')}</p>`
+            + `<p class="cw-count no-print">${basis}</p>`;
+        return html + '</section>';
+    }
+
+    let sheetTicket = 0;
+    async function drawClassWeek() {
+        const mine = ++sheetTicket;
+        fillClassPicker();
+        const chosen = el('klass').value;
+        const classes = (data.classes || []).filter((c) => chosen === ALL_CLASSES || c.label === chosen);
+        if (!classes.length) {
+            el('grid').innerHTML = '<p class="hint">Нема одделенија за оваа година. Додај едно подолу, под „Одделенија".</p>';
+            return;
+        }
+        if (!periods().length) {
+            el('grid').innerHTML = '<p class="hint">Нема ѕвона за наставата во оваа година — внеси ги под „Ѕвона".</p>';
+            return;
+        }
+        const [offers, list] = await Promise.all([
+            Promise.all(classes.map((c) => subjectsFor(c.label))),
+            annualList()
+        ]);
+        if (mine !== sheetTicket || view() !== 'classweek') return;
+
+        const cells = new Map();
+        (data.lessons || []).forEach((l) => {
+            const key = l.class + '|' + l.day + '|' + l.ordinal;
+            if (!cells.has(key)) cells.set(key, []);
+            cells.get(key).push(l);
+        });
+        const pupilsOf = (label) => (list
+            ? list.filter((s) => s.active !== false && tidy(s.grade).toLowerCase() === label.toLowerCase())
+            : null);
+
+        const everything = new Set(subjectList());
+        offers.forEach((o) => (o.subjects || []).forEach((s) => everything.add(s.subject)));
+        el('grid').innerHTML = classes.map((c, i) => sheetHtml(c, offers[i], pupilsOf(c.label), cells)).join('')
+            + '<datalist id="cwAllSubjects">'
+            + Array.from(everything).sort((a, b) => a.localeCompare(b, 'mk')).map((s) => `<option value="${esc(s)}">`).join('')
+            + '</datalist>';
+
+        // The saved value is selected AFTER the options exist. If it is not
+        // among them it is added, never left showing „—": a select that
+        // silently reads blank would send an empty subject with the next
+        // teacher change, and wipe a lesson nobody touched.
+        el('grid').querySelectorAll('select[data-current]').forEach((s) => {
+            const want = s.dataset.current;
+            s.value = want;
+            if (s.value !== want) {
+                const o = document.createElement('option');
+                o.value = want;
+                o.textContent = want;
+                s.insertBefore(o, s.options[1] || null);
+                s.value = want;
+            }
+        });
+    }
+
+    const cwKey = (td) => td.dataset.class + '|' + td.dataset.day + '|' + td.dataset.ordinal;
+
+    /**
+     * A closed <select> fires `change` on every arrow key, so an immediate
+     * write would send one lesson per keypress. The choice waits a moment,
+     * and leaving the cell sends it at once.
+     */
+    const waiting = new Map();
+    function queueCell(td) {
+        const key = cwKey(td);
+        const had = waiting.get(key);
+        if (had) clearTimeout(had.timer);
+        waiting.set(key, { td, timer: setTimeout(() => flushCell(td), 450) });
+    }
+    function flushCell(td) {
+        const key = cwKey(td);
+        const had = waiting.get(key);
+        if (!had) return;
+        clearTimeout(had.timer);
+        waiting.delete(key);
+        saveClassCell(had.td);
+    }
+
+    // One write at a time, in the order they were made: two cells changed in
+    // quick succession must not race each other's reload.
+    let writing = Promise.resolve();
+
+    const wasOf = (td) => (td.dataset.wasId
+        ? { id: Number(td.dataset.wasId), subject: td.dataset.wasSubject || '', teacher: td.dataset.wasTeacher || '' }
+        : null);
+    const unchanged = (was, subject, teacher) => (was
+        ? subject === tidy(was.subject) && teacher === tidy(was.teacher)
+        : !subject && !teacher);
+    const findCell = (key) => Array.from(document.querySelectorAll('#grid td.cw')).find((x) => cwKey(x) === key) || null;
+
+    /** Returns false when there is nothing to send. */
+    function saveClassCell(td, typed) {
+        const subjSel = td.querySelector('select.cw-subj');
+        const subject = tidy(typed !== undefined ? typed : (subjSel ? subjSel.value : ''));
+        if (subject === OTHER) return false;
+        const teachSel = td.querySelector('select.cw-teach');
+        const teacher = tidy(teachSel ? teachSel.value : '');
+        if (unchanged(wasOf(td), subject, teacher)) return false;
+        const key = cwKey(td);
+        const where = { label: td.dataset.class, day: td.dataset.day, ordinal: Number(td.dataset.ordinal) };
+        writing = writing.then(() => {
+            // Subject, then Tab to the teacher: the first write reloads and
+            // redraws before the second is sent. The cell as drawn NOW is what
+            // the database held after our own write, so that is what the
+            // second one expects — the old cell's belief would refuse it as
+            // somebody else's change.
+            const live = td.isConnected ? td : (findCell(key) || td);
+            const was = wasOf(live);
+            if (unchanged(was, subject, teacher)) {
+                if (td.isConnected && td.querySelector('input.cw-other')) drawAndKeep();
+                return undefined;
+            }
+            return writeClassCell(where, was, subject, teacher, live);
+        }).catch((err) => status(err.message, 'error'));
+        return true;
+    }
+
+    async function writeClassCell(where, was, subject, teacher, td) {
+        status('запишувам…');
+        const active = document.activeElement;
+        const at = active && active.closest ? active.closest('td.cw') : null;
+        const refocus = at ? { key: cwKey(at), which: active.classList.contains('cw-teach') ? 'cw-teach' : 'cw-subj' } : null;
+        try {
+            if (!subject && !teacher) {
+                // Both pickers emptied: the period is free. DELETE carries no
+                // `expected`, so the database is asked first whether the row
+                // is still the one this tab drew.
+                const fresh = await api('GET', '/api/teaching/timetable?year=' + encodeURIComponent(data.year));
+                const now = (fresh.lessons || []).filter((l) =>
+                    l.class === where.label && l.day === where.day && l.ordinal === where.ordinal);
+                if (now.length !== 1 || now[0].id !== was.id
+                    || tidy(now[0].subject) !== tidy(was.subject) || tidy(now[0].teacher) !== tidy(was.teacher)) {
+                    throw new Error(saySorry(null, { code: 'stale' }));
+                }
+                await api('DELETE', '/api/teaching/lesson/' + was.id);
+            } else {
+                await api('PUT', '/api/teaching/lesson', {
+                    year: data.year,
+                    day: where.day,
+                    ordinal: where.ordinal,
+                    class: where.label,
+                    subject: subject || null,
+                    teacher: teacher || null,
+                    expected: was ? { subject: was.subject || null, teacher: was.teacher || null } : null
+                });
+            }
+            await load(true);
+            restoreFocus(refocus);
+            status(`${where.label} · ${where.day} · ${where.ordinal}. час — `
+                + (subject || teacher ? (subject || 'без предмет') + (teacher ? ' · ' + teacher : '') : 'испразнет'), 'ok');
+        } catch (err) {
+            // The cell keeps what the person chose, marked, so nothing they
+            // did is quietly replaced; ↻ Освежи shows what the database holds.
+            if (td.isConnected) td.classList.add('failed');
+            status(err.message, 'error');
+        }
+    }
+
+    function restoreFocus(r) {
+        if (!r) return;
+        const td = findCell(r.key);
+        const target = td && td.querySelector('select.' + r.which);
+        if (target) target.focus();
+    }
+
+    /** „✎ друг предмет…": the picker becomes a text field for this one cell. */
+    function openOtherSubject(td) {
+        const sel = td.querySelector('select.cw-subj');
+        if (!sel) return;
+        const input = document.createElement('input');
+        input.className = 'cw-other';
+        input.setAttribute('list', 'cwAllSubjects');
+        input.placeholder = 'име на предметот';
+        input.setAttribute('aria-label', sel.getAttribute('aria-label') || 'предмет');
+        input.value = td.dataset.wasSubject || '';
+        sel.replaceWith(input);
+        input.focus();
+        input.select();
+        let done = false;
+        const finish = (commit) => {
+            if (done) return;
+            done = true;
+            if (!(commit && tidy(input.value) && saveClassCell(td, input.value))) drawAndKeep();
+        };
+        input.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') { e.preventDefault(); finish(true); }
+            if (e.key === 'Escape') { e.preventDefault(); finish(false); }
+        });
+        input.addEventListener('blur', () => finish(true));
     }
 
     function drawGrid() {
@@ -1052,8 +1507,40 @@
     });
     el('day').addEventListener('change', () => { closeEditor(); draw(); });
     el('onlyUsed').addEventListener('change', () => draw());
-    el('view').addEventListener('change', () => { closeEditor(); draw(); });
-    el('refresh').addEventListener('click', () => load(true));
+    // The view and the class live in the address, not in browser storage:
+    // this page keeps nothing of its own, and a link to „IX-б, цела недела"
+    // is worth being able to send.
+    const remember = (name, value) => {
+        const url = new URL(window.location.href);
+        url.searchParams.set(name, value);
+        window.history.replaceState(null, '', url);
+    };
+    (function initialView() {
+        const want = new URLSearchParams(window.location.search).get('view');
+        if (want && Array.from(el('view').options).some((o) => o.value === want)) el('view').value = want;
+    })();
+    el('view').addEventListener('change', () => { closeEditor(); remember('view', el('view').value); draw(); });
+    el('klass').addEventListener('change', () => { remember('class', el('klass').value); draw(); });
+    el('printWeek').addEventListener('click', () => window.print());
+    el('refresh').addEventListener('click', () => {
+        // A refresh is the person asking for what the database holds NOW,
+        // including a pupil moved to another class a minute ago.
+        roster = null;
+        subjectCache.clear();
+        load(true);
+    });
+    el('grid').addEventListener('change', (event) => {
+        const sel = event.target.closest && event.target.closest('select.cw-subj, select.cw-teach');
+        if (!sel) return;
+        const td = sel.closest('td.cw');
+        td.classList.remove('failed');
+        if (sel.value === OTHER) { openOtherSubject(td); return; }
+        queueCell(td);
+    });
+    el('grid').addEventListener('focusout', (event) => {
+        const td = event.target.closest && event.target.closest('td.cw');
+        if (td) flushCell(td);
+    });
     el('grid').addEventListener('click', (event) => {
         const td = event.target.closest('td.cell');
         if (!td) return;

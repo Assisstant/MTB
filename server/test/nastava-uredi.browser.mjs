@@ -182,6 +182,126 @@ const run = async () => {
     checkEq('the lesson is gone from the database', (await cellIn(year.id, 1)).length, 0);
     check('and the cell is drawn empty again', (await cellText(1))?.cls.includes('empty'), JSON.stringify(await cellText(1)));
 
+    console.log('\nthe class week: periods down, days across, a dropdown in every cell');
+    const WED = 'среда';
+    const FRI = 'петок';
+    const cellOn = async (day, ordinal) => q(
+        `SELECT l.id, l.subject, t.name AS teacher
+           FROM lessons l JOIN school_classes c ON c.id = l.class_id
+           LEFT JOIN teachers t ON t.id = l.teacher_id
+          WHERE l.school_year_id = $1 AND l.day = $2 AND l.ordinal = $3 AND c.label = $4
+          ORDER BY l.id`,
+        [year.id, day, ordinal, CLASS]);
+    const cw = (day, ordinal) => `#grid td.cw[data-day="${day}"][data-ordinal="${ordinal}"]`;
+    const puts = [];
+    page.on('request', (r) => { if (r.method() === 'PUT' && r.url().includes('/api/teaching/lesson')) puts.push(r.url()); });
+
+    await page.goto(`${BASE}/NastavaUredi.html?year=${encodeURIComponent(YEAR)}`
+        + `&view=classweek&class=${encodeURIComponent(CLASS)}`);
+    await page.waitForSelector('#grid table.cweek', { timeout: 8000 });
+    const shape = await page.evaluate(() => ({
+        view: document.getElementById('view').value,
+        klass: document.getElementById('klass').value,
+        heads: Array.from(document.querySelectorAll('#grid table.cweek thead th')).map((t) => t.textContent.trim()),
+        rows: document.querySelectorAll('#grid table.cweek tbody tr').length,
+        cells: document.querySelectorAll('#grid td.cw').length
+    }));
+    checkEq('the address opens the class week of the class it names', [shape.view, shape.klass], ['classweek', CLASS]);
+    checkEq('the days run across', shape.heads.slice(1), ['Понеделник', 'Вторник', 'Среда', 'Четврток', 'Петок']);
+    check('one row per period, five cells in each', shape.rows > 0 && shape.cells === shape.rows * 5, JSON.stringify(shape));
+    const offered = await page.$$eval(`${cw(WED, 2)} select.cw-subj option`, (o) => o.map((x) => x.value));
+    check('the subject list is the MON catalogue', offered.includes('Математика') && offered.includes('Англиски јазик'),
+        offered.slice(0, 8).join(', '));
+
+    await page.selectOption(`${cw(WED, 2)} select.cw-subj`, 'Математика');
+    await page.waitForTimeout(1500);
+    rows = await cellOn(WED, 2);
+    checkEq('choosing a subject writes one lesson', rows.map((r) => r.subject), ['Математика']);
+    checkEq('with no teacher, because none was chosen', rows[0] && rows[0].teacher, null);
+
+    await page.selectOption(`${cw(WED, 2)} select.cw-teach`, TEACHER);
+    await page.waitForTimeout(1500);
+    rows = await cellOn(WED, 2);
+    checkEq('choosing the teacher changes the same row', rows.map((r) => [r.subject, r.teacher]), [['Математика', TEACHER]]);
+
+    // A closed <select> fires `change` on each arrow key. Without the pause
+    // before sending, this would be three writes and three reloads.
+    puts.length = 0;
+    await page.focus(`${cw(WED, 3)} select.cw-subj`);
+    await page.keyboard.press('ArrowDown');
+    await page.keyboard.press('ArrowDown');
+    await page.keyboard.press('ArrowDown');
+    await page.waitForTimeout(1600);
+    checkEq('three arrow presses are one write, not three', puts.length, 1);
+    checkEq('and one lesson', (await cellOn(WED, 3)).length, 1);
+
+    await q(`UPDATE lessons SET subject = 'лик.' WHERE id = $1`, [rows[0].id]);
+    await page.selectOption(`${cw(WED, 2)} select.cw-subj`, 'Англиски јазик');
+    await page.waitForTimeout(1500);
+    const stale = await page.evaluate((sel) => ({
+        status: document.getElementById('status').textContent,
+        failed: document.querySelector(sel).classList.contains('failed')
+    }), cw(WED, 2));
+    check('a stale tab is refused here too', /Некој друг/.test(stale.status), stale.status);
+    check('and the cell is marked, keeping what was chosen', stale.failed);
+    checkEq('the database keeps what it had', (await cellOn(WED, 2))[0].subject, 'лик.');
+
+    await page.click('#refresh');
+    await page.waitForTimeout(900);
+    checkEq('after a refresh the cell shows what the database holds',
+        await page.$eval(`${cw(WED, 2)} select.cw-subj`, (s) => s.value), 'лик.');
+    await page.selectOption(`${cw(WED, 2)} select.cw-subj`, '');
+    await page.selectOption(`${cw(WED, 2)} select.cw-teach`, '');
+    await page.waitForTimeout(1600);
+    checkEq('emptying both pickers frees the period', (await cellOn(WED, 2)).length, 0);
+
+    await page.selectOption(`${cw(FRI, 1)} select.cw-subj`, '__other__');
+    await page.waitForSelector(`${cw(FRI, 1)} input.cw-other`, { timeout: 3000 });
+    await page.fill(`${cw(FRI, 1)} input.cw-other`, 'Планинарење');
+    await page.press(`${cw(FRI, 1)} input.cw-other`, 'Enter');
+    await page.waitForTimeout(1200);
+    checkEq('„друг предмет" writes a subject the catalogue does not list',
+        (await cellOn(FRI, 1)).map((r) => r.subject), ['Планинарење']);
+    checkEq('and the cell shows it, rather than a blank picker',
+        await page.$eval(`${cw(FRI, 1)} select.cw-subj`, (s) => s.value), 'Планинарење');
+
+    // Readable in both themes is a measurement, not a glance (the chip trap).
+    const contrast = await page.evaluate((sel) => {
+        const lum = (rgb) => {
+            const [r, g, b] = rgb.match(/\d+(\.\d+)?/g).slice(0, 3).map(Number).map((v) => {
+                v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4;
+            });
+            return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+        };
+        const ratio = (node) => {
+            const s = getComputedStyle(node);
+            const a = lum(s.color); const b = lum(s.backgroundColor);
+            return (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
+        };
+        const out = {};
+        for (const theme of ['light', 'dark']) {
+            document.documentElement.setAttribute('data-theme', theme);
+            out[theme] = Math.round(ratio(document.querySelector(sel)) * 10) / 10;
+        }
+        return out;
+    }, `${cw(FRI, 1)} select.cw-subj`);
+    check('the chosen subject is readable in both themes (≥ 4.5:1)',
+        contrast.light >= 4.5 && contrast.dark >= 4.5, JSON.stringify(contrast));
+
+    check('the print button is offered in this view', await page.isVisible('#printWeek'));
+    await page.emulateMedia({ media: 'print' });
+    const printed = await page.evaluate((sel) => ({
+        select: getComputedStyle(document.querySelector(sel + ' select.cw-subj')).display,
+        text: document.querySelector(sel + ' .print-only').textContent,
+        shown: getComputedStyle(document.querySelector(sel + ' .print-only')).display
+    }), cw(FRI, 1));
+    await page.emulateMedia({ media: 'screen' });
+    checkEq('on paper the cell is the subject, not a dropdown',
+        [printed.select, printed.shown, printed.text], ['none', 'block', 'Планинарење']);
+
+    await page.selectOption('#view', 'class');
+    await page.waitForSelector('#grid table.grid.day', { timeout: 4000 });
+
     console.log('\nadding a class goes to the server, not to a list in the page');
     await page.evaluate(() => { document.getElementById('classSection').open = true; });
     await page.fill('#newClass', NEW_CLASS);

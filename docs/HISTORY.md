@@ -3190,3 +3190,49 @@ Proven by `npm run test:fusion-now` (29 assertions on Playwright's fake
 clock: halves joined, no duplicate at the second half, the unanswered card
 lost at the next start, dismissal surviving a reload, unticked therapists
 silent, nothing written).
+
+## Уреди настава: по одделение, цела недела (24 Sep 2026)
+
+The owner asked for „распоред за секое одделение, исто како неделниот за секој
+терапевт", with a subject dropdown fed by the official MON/BRO list, and
+showed the school's own paper sheet for one class: periods down, the five days
+across, the subject in the cell. `NastavaUredi.html` had the one-day grid (every
+class, one day) and the teacher week; filling one class's week meant changing
+the day five times. The third view, `?view=classweek&class=IX-б`, is that
+sheet, with two pickers per cell (subject, teacher). It extends the canonical
+timetable editor in place; there is no new page and no new endpoint.
+
+- **The dropdown is `teaching_subjects` (migration 032), unchanged.** It was
+  compared row by row with `Nastavni_predmeti_MON_BRO_2026_2027.xlsx` on
+  24 September: 707 of its 709 rows are there, identical in plan, grade,
+  category and hours. The two left out are „Општествено-хуманитарна работа"
+  VII/VIII, which is 20 hours a YEAR, not a weekly period. Offered per class by
+  the pupils' own `oddelenie`, so a wrong generation on one pupil puts another
+  grade's subjects in that class's list.
+- **An offer, not a rule.** „✎ друг предмет…" writes free text („Планинарење"
+  is a real lesson the catalogue calls „Слободни изборни предмети"), and every
+  subject already written this year is its own group, so a saved lesson never
+  reads as a blank picker. A select that silently shows „—" would send an empty
+  subject with the next teacher change and wipe a lesson nobody touched; the
+  draw adds any missing value as an option instead.
+- **A closed `<select>` fires `change` on every arrow key.** Writes wait 450 ms,
+  and leaving the cell sends them at once; the suite presses ArrowDown three
+  times and asserts one PUT.
+- **Subject, then Tab to teacher, is two writes, and the first redraws the
+  grid.** The second must expect what the database held after our OWN first
+  write, so each queued write reads `expected` from the cell as drawn when it is
+  sent, not from the detached cell the person edited. Otherwise the page refuses
+  its own second step as „Некој друг го смени".
+- **Emptying both pickers deletes**, after re-reading the row, because
+  `DELETE /api/teaching/lesson/:id` carries no `expected`.
+- Cells holding two lessons are shown but not editable, same as the day grid.
+- **Print:** each class on its own page, with the subject as text instead of a
+  dropdown (`⎙ Печати`; „— сите одделенија —" prints all 16). Pupil names are
+  on screen only; the printed sheet carries the class, the year, the
+  description and the homeroom teacher.
+- No browser storage: the view and class live in the address, which the
+  existing assertion „nothing was written to browser storage" still proves.
+
+`npm run test:uredi` gained 17 assertions (DB read back for every write,
+stale refusal, the arrow-key burst, free-text subject, WCAG contrast of the
+chosen subject in both themes, print media).
