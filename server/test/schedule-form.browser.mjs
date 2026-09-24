@@ -73,6 +73,8 @@ await context.route('**/*', async (route) => {
             '/api/health': { ok: true, server: { label: 'Пробна база' } },
             '/api/years': [{ id: 1, label: year, is_current: true }],
             '/api/roster': { year, students, therapists, teachers: [] },
+            // Терапевт Формулар has a PIN (this salt), Друг Терапевт has none yet.
+            '/api/forms/signers': { people: [{ kind: 'therapist', name: 'Терапевт Формулар', salt: '00112233445566778899aabbccddeeff' }, { kind: 'therapist', name: 'Друг Терапевт', salt: null }] },
             '/api/schedule/sessions': { sessions },
             '/api/teaching/timetable': { bells: { kabinet: bells } },
             '/api/teaching/crossing': { cells: [] }
@@ -146,12 +148,19 @@ const waitingImage = form.waitForEvent('download');
 await form.click('#image');
 const image = await waitingImage;
 check('„🖼 Слика" saves the week as a PNG', /^Распоред — Терапевт Формулар\.png$/.test(image.suggestedFilename()), image.suggestedFilename());
+await form.click('#save');
+check('without the PIN nothing is saved, and it says why', /PIN/.test(await form.locator('#savedMsg').textContent()));
+check('a person with a PIN is asked once, not to create one', !(await form.locator('#pin2box').isVisible()));
+await form.fill('#pin', '4321');
 const waitingReply = form.waitForEvent('download');
 await form.click('#save');
 const replyDownload = await waitingReply;
 const replyText = await readFile(await replyDownload.path(), 'utf8');
 check('the answer is a .json named for the therapist', /^Распоред-одговор — Терапевт Формулар — \d{4}-\d{2}-\d{2}\.json$/.test(replyDownload.suggestedFilename()), replyDownload.suggestedFilename());
 const answered = JSON.parse(replyText);
+check('the answer is signed with that PIN: salt, author, a value — and no PIN in it',
+    answered.signature && answered.signature.salt === '00112233445566778899aabbccddeeff' && answered.signature.by.name === 'Терапевт Формулар'
+    && /^[0-9a-f]{64}$/.test(answered.signature.value) && !answered.signature.newPin && !replyText.includes('4321'), JSON.stringify(answered.signature));
 check('the answer is version 2 and carries the checklist', answered.version === 2
     && JSON.stringify(answered.pupils.ticked.slice().sort()) === JSON.stringify(['f-a', 'f-b']) && answered.pupils.baseline.length === 3, JSON.stringify(answered.pupils));
 check('the form asked for nothing over the network', requests.length === 0, requests.join(', '));

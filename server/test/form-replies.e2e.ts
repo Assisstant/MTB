@@ -13,6 +13,7 @@
  *     npx tsx test/form-replies.e2e.ts     (DATABASE_URL from server/.env)
  */
 import pg from 'pg';
+import { createHmac, randomBytes, scryptSync } from 'node:crypto';
 import Fastify from 'fastify';
 import 'dotenv/config';
 import { scheduleWriteRoutes } from '../src/routes/schedule-write.js';
@@ -46,6 +47,18 @@ const check = (label: string, ok: boolean, detail = '') => {
     if (ok) console.log(`  ok   ${label}`);
     else { fails++; console.log(`  FAIL ${label}${detail ? `\n       ${detail}` : ''}`); }
 };
+/** Sign an answer as the form does: HMAC(scrypt(PIN, salt), the answer with sorted keys). */
+const sortKeys = (v: any): any => Array.isArray(v) ? v.map(sortKeys)
+    : v && typeof v === 'object' ? Object.keys(v).sort().reduce((o: any, k) => { o[k] = sortKeys(v[k]); return o; }, {}) : v;
+function signed<T extends Record<string, any>>(reply: T, kind: string, name: string, pin: string, salt: string | null): T {
+    const body: any = { ...reply };
+    delete body.signature;
+    const create = !salt;
+    const useSalt = salt || randomBytes(16).toString('hex');
+    const key = scryptSync(pin, useSalt, 32).toString('hex');
+    const value = createHmac('sha256', Buffer.from(key, 'hex')).update(JSON.stringify(sortKeys(body)), 'utf8').digest('hex');
+    return { ...body, signature: { version: 1, by: { kind, name }, salt: useSalt, ...(create ? { newPin: key } : {}), value } };
+}
 const eq = (label: string, a: unknown, b: unknown) =>
     check(label, JSON.stringify(a) === JSON.stringify(b), `expected ${JSON.stringify(b)}, got ${JSON.stringify(a)}`);
 
@@ -136,8 +149,15 @@ async function run() {
             blocks: { [MON1]: [pupil.p1.pid], [MON2]: [pupil.p2.pid], [TUE1]: ['new:1'], [TUE2]: [] },
             newPupils: [{ id: 'new:1', name: NEW_PUPIL }], note: '', ...over
         });
-        const older = answer('1917-09-21T10:00:00.000Z', { note: 'постар' });
-        const newer = answer('1917-09-22T10:00:00.000Z');
+        const aSalt = randomBytes(16).toString('hex');
+        // A has no PIN yet: both files carry the same new one, as one form makes it.
+        const asA = (r: any) => {
+            const key = scryptSync('1111', aSalt, 32).toString('hex');
+            const value = createHmac('sha256', Buffer.from(key, 'hex')).update(JSON.stringify(sortKeys(r)), 'utf8').digest('hex');
+            return { ...r, signature: { version: 1, by: { kind: 'therapist', name: A }, salt: aSalt, newPin: key, value } };
+        };
+        const older = asA(answer('1917-09-21T10:00:00.000Z', { note: 'постар' }));
+        const newer = asA(answer('1917-09-22T10:00:00.000Z'));
         const files = { replies: [
             { fileName: 'newer.json', reply: newer },
             { fileName: 'older.json', reply: older },
@@ -156,6 +176,23 @@ async function run() {
         res = await app.inject({ method: 'GET', url: `/api/forms/replies?year=${encodeURIComponent(YEAR)}`, headers: as(bToken) });
         eq('and cannot even read the list', res.statusCode, 403);
 
+        console.log('\nthe PIN decides whose answer it is');
+        const probe = answer('1917-09-19T10:00:00.000Z', { note: 'проба' });
+        const bSalt = (await q(`SELECT pin_salt FROM evidence_logins WHERE therapist_id = $1`, [ids[B]]))[0].pin_salt;
+        const tries = [
+            { fileName: 'unsigned.json', reply: probe },
+            { fileName: 'as-b.json', reply: signed(probe, 'therapist', B, '4321', bSalt) },
+            { fileName: 'b-wrong-pin.json', reply: signed({ ...probe, therapist: { id: 1, name: B } }, 'therapist', B, '9999', bSalt) },
+            { fileName: 'b-new-pin.json', reply: signed({ ...probe, therapist: { id: 1, name: B } }, 'therapist', B, '5555', null) }
+        ];
+        res = await app.inject({ method: 'POST', url: '/api/forms/replies', payload: { replies: tries }, headers: as(adminToken) });
+        const refusals = res.json().results.map((r: any) => [r.fileName, r.outcome, r.error]);
+        eq('an unsigned answer, one signed by somebody else, a wrong PIN, and a "new" PIN over an existing one are all refused',
+            refusals.map((r: any) => r[1]), ['refused', 'refused', 'refused', 'refused']);
+        check('each says why', /не е потпишан/.test(refusals[0][2]) && /потписот е на/.test(refusals[1][2])
+            && /PIN-от не се совпаѓа/.test(refusals[2][2]) && /сменет или создаден/.test(refusals[3][2]), JSON.stringify(refusals));
+        eq('and none of them was stored', (await q(`SELECT count(*)::int AS n FROM form_replies r JOIN school_years y ON y.id = r.school_year_id WHERE y.label = $1`, [YEAR]))[0].n, 0);
+
         console.log('\nseveral files at once; the newest wins');
         // Behind the form's back: A's Tuesday term now holds p3, not p1.
         await q(`UPDATE schedule_slots SET student_id = $1 WHERE school_year_id = $2 AND therapist_id = $3 AND day = 'вторник'`,
@@ -164,6 +201,9 @@ async function run() {
         const out = res.json().results as Array<{ fileName: string; outcome: string; id?: number }>;
         eq('each file gets its own outcome', out.map((r) => [r.fileName, r.outcome]),
             [['newer.json', 'stored'], ['older.json', 'superseded'], ['again.json', 'duplicate'], ['wrong.json', 'refused']]);
+        check('the first answer created A\'s PIN', (out[0] as any).pinCreated === true, JSON.stringify(out[0]));
+        const aLogin = await app.inject({ method: 'POST', url: '/api/evidence/login', payload: { therapistId: ids[A], pin: '1111' } });
+        eq('and it is A\'s Евидентен лист PIN from now on', aLogin.statusCode, 200);
         const list = (await app.inject({ method: 'GET', url: `/api/forms/replies?year=${encodeURIComponent(YEAR)}`, headers: as(adminToken) })).json();
         eq('the list shows the newer pending first, the older kept as superseded',
             list.replies.map((r: any) => [r.fileName, r.status]), [['newer.json', 'pending'], ['older.json', 'superseded']]);
@@ -221,12 +261,12 @@ async function run() {
 
         console.log('\nversion 2: the checklist');
         // B unticks p2 and clears the term p2 had; ticks p3.
-        const v2 = {
+        const v2 = signed({
             kind: 'mtb-schedule-reply', version: 2, year: YEAR, therapist: { id: 1, name: B },
             formGeneratedAt: '1917-09-20T08:00:00.000Z', savedAt: '1917-09-23T10:00:00.000Z',
             baseline: { [MON2]: [pupil.p2.pid] }, blocks: { [MON2]: [] }, newPupils: [],
             pupils: { baseline: [pupil.p2.pid], ticked: [pupil.p3.pid] }, note: ''
-        };
+        }, 'therapist', B, '4321', bSalt);
         res = await app.inject({ method: 'POST', url: '/api/forms/replies', payload: { replies: [{ fileName: 'b.json', reply: v2 }] }, headers: as(adminToken) });
         const v2Id = res.json().results[0].id;
         eq('B\'s own clean changes are written on import, nothing waits', [res.json().results[0].applied, res.json().results[0].waiting], [3, 0]);
@@ -259,7 +299,7 @@ async function run() {
         await lesson(C1, 'понеделник', 2, 'Македонски јазик', TA);
         await lesson(C2, 'вторник', 1, 'Англиски јазик', TB);           // TB is busy on Tuesday, 1st period
 
-        const classAnswer = {
+        const classAnswer = signed({
             kind: 'mtb-class-reply', version: 1, year: YEAR, class: { id: 99999, label: C1 }, homeroom: TA,
             formGeneratedAt: '1917-09-20T08:00:00.000Z', savedAt: '1917-09-23T11:00:00.000Z',
             baseline: { 'понеделник|1': { subject: 'Математика', teacher: TA }, 'понеделник|2': { subject: 'Македонски јазик', teacher: TA } },
@@ -270,11 +310,12 @@ async function run() {
             },                                                                    // Monday 2nd: cleared
             subjects: ['Ликовно образование'],
             reports: [{ name: 'Пробно Дете Прво', generation: 'I', text: 'е во ПФ-2' }], note: 'од понеделник'
-        };
+        }, 'teacher', TA, '2222', null);
         res = await app.inject({ method: 'POST', url: '/api/forms/replies', payload: { replies: [{ fileName: 'class.json', reply: classAnswer }] }, headers: as(adminToken) });
         eq('a class answer is stored, named by its class and homeroom', [res.json().results[0].outcome, res.json().results[0].about], ['stored', `${C1} · ${TA}`]);
         const classId = res.json().results[0].id;
         eq('its clean lessons are written on import; the conflict and the report wait', [res.json().results[0].applied, res.json().results[0].waiting], [3, 2]);
+        eq('in the name of the teacher who signed it', (await q(`SELECT DISTINCT decided_by FROM form_reply_decisions WHERE reply_id = $1`, [res.json().results[0].id])).map((r) => r.decided_by), [`${TA} (од формулар)`]);
         const cr = (await app.inject({ method: 'GET', url: `/api/forms/replies/${classId}/review`, headers: as(adminToken) })).json();
         const citem = (key: string) => cr.items.find((i: any) => i.key === key);
         eq('the class is found by its label although the file carried another id', cr.class, C1);
@@ -304,7 +345,7 @@ async function run() {
 
         console.log('\na teacher\'s own week');
         await lesson(C2, 'понеделник', 2, 'Математика', TA);             // TA is in ПФ-2 on Monday, 2nd
-        const own = {
+        const own = signed({
             kind: 'mtb-teacher-reply', version: 1, year: YEAR, teacher: { id: 424242, name: TB },
             formGeneratedAt: '1917-09-20T08:00:00.000Z', savedAt: '1917-09-23T12:00:00.000Z',
             baseline: { 'вторник|1': { class: C2, subject: 'Англиски јазик' } },
@@ -315,7 +356,7 @@ async function run() {
                 'четврток|1': { class: C1, subject: 'Музичко образование' },      // a new lesson
                 'понеделник|2': { class: C2, subject: 'Англиски јазик' }          // TA has Maths there: a conflict
             }, note: ''
-        };
+        }, 'teacher', TB, '3333', null);
         res = await app.inject({ method: 'POST', url: '/api/forms/replies', payload: { replies: [{ fileName: 'tb.json', reply: own }] }, headers: as(adminToken) });
         const ownResult = res.json().results[0];
         eq('stored as the teacher\'s own answer, three written, the conflict waits',

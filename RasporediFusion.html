@@ -2213,10 +2213,20 @@
      * and its homeroom, which is how a class is known here. When one
      * therapist is chosen in „Терапевт", the form opens on them.
      */
-    function exportScheduleForm() {
+    async function exportScheduleForm() {
         const all = (state.roster && state.roster.therapists) || [];
         if (!all.length) {
             showNotice('Нема терапевти за оваа година — нема за кого да се направи формулар.', 'error');
+            return;
+        }
+        // Each person's PIN salt: the form signs the answer with their PIN,
+        // and an answer that does not verify is not accepted.
+        let salts;
+        try {
+            salts = new Map(((await api('/api/forms/signers')).people || [])
+                .filter((p) => p.kind === 'therapist').map((p) => [p.name, p.salt]));
+        } catch (error) {
+            showNotice('Формуларот не може да се направи без серверот: ' + readableError(error), 'error');
             return;
         }
         const homeroom = new Map();
@@ -2233,7 +2243,7 @@
         const therapists = all.map((therapist) => {
             const week = weekOf(therapist);
             return {
-                id: therapist.id, name: therapist.name,
+                id: therapist.id, name: therapist.name, salt: salts.get(therapist.name) || null,
                 students: (therapist.students || []).filter((id) => known.has(id)),
                 blocks: week.blocks, locked: week.locked
             };
@@ -3651,7 +3661,7 @@
     el('printSheet').addEventListener('click', printSchedule);
     el('exportImage').addEventListener('click', exportScheduleImage);
     el('exportWord').addEventListener('click', exportScheduleWord);
-    el('exportForm').addEventListener('click', exportScheduleForm);
+    el('exportForm').addEventListener('click', () => { exportScheduleForm(); });
     el('importForm').addEventListener('click', () => { el('importFormFile').value = ''; el('importFormFile').click(); });
     el('importFormFile').addEventListener('change', () => {
         const files = el('importFormFile').files;

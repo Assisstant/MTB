@@ -2287,10 +2287,11 @@
         if (!data) { status('Распоредот сè уште не е вчитан.', 'warn'); return; }
         status('Го подготвувам формуларот…');
         const classes = data.classes || [];
-        const [students, all, offered] = await Promise.all([
+        const [students, all, offered, salts] = await Promise.all([
             annualList(),
             api('GET', '/api/teaching/subjects?year=' + encodeURIComponent(data.year)).catch(() => ({ subjects: [] })),
-            Promise.all(classes.map((c) => subjectsFor(c.label)))
+            Promise.all(classes.map((c) => subjectsFor(c.label))),
+            teacherSalts()
         ]);
         const homeroomName = (label) => {
             const t = (data.teachers || []).find((x) => (x.classes || []).some((c) => c.label === label && c.role === 'homeroom'));
@@ -2325,6 +2326,9 @@
             subjects: Array.from(subjects).sort((a, b) => a.localeCompare(b, 'mk')),
             teachers: (data.teachers || []).map((t) => t.name).sort((a, b) => a.localeCompare(b, 'mk')),
             classes: payload,
+            // Whoever fills a class in signs it with their own PIN.
+            signers: (data.teachers || []).map((t) => ({ name: t.name, salt: salts.get(t.name) || null }))
+                .sort((a, b) => a.name.localeCompare(b.name, 'mk')),
             selected: view() === 'classweek' && chosenClass ? chosenClass : null
         });
         downloadFile(html, 'Формулар-одделенија — ' + String(data.year).replace(/\//g, '-') + '.html', 'text/html');
@@ -2343,9 +2347,20 @@
      * their name and enters class + subject per period; the class's week is
      * shown read only, put together from everybody's entries.
      */
+    /**
+     * Each teacher's PIN salt — the form signs an answer with their PIN, and
+     * one that does not verify is not accepted. Without the server there is no
+     * form: a guessed "no PIN yet" would ask people to create one they have.
+     */
+    async function teacherSalts() {
+        const body = await api('GET', '/api/forms/signers');
+        return new Map((body.people || []).filter((p) => p.kind === 'teacher').map((p) => [p.name, p.salt]));
+    }
+
     async function exportTeacherForm() {
         if (!data) { status('Распоредот сè уште не е вчитан.', 'warn'); return; }
         status('Го подготвувам формуларот…');
+        const salts = await teacherSalts();
         const all = await api('GET', '/api/teaching/subjects?year=' + encodeURIComponent(data.year)).catch(() => ({ subjects: [] }));
         const subjects = new Set((all.subjects || []).map((x) => x.subject));
         (data.lessons || []).forEach((l) => { if (l.subject) subjects.add(l.subject); });
@@ -2360,7 +2375,7 @@
             const doubled = Array.from(count.entries()).filter(([, n]) => n > 1).map(([k]) => k);
             doubled.forEach((k) => { delete lessons[k]; });
             const hr = homeroomOf(t);
-            return { id: t.id, name: t.name, subject: t.subject || null, homeroomOf: hr, role: hr ? homeroomRole(hr) : 'предметен наставник', lessons, doubled };
+            return { id: t.id, name: t.name, salt: salts.get(t.name) || null, subject: t.subject || null, homeroomOf: hr, role: hr ? homeroomRole(hr) : 'предметен наставник', lessons, doubled };
         }).sort((a, b) => a.name.localeCompare(b.name, 'mk'));
         const homeroomName = (label) => {
             const t = (data.teachers || []).find((x) => (x.classes || []).some((c) => c.label === label && c.role === 'homeroom'));

@@ -265,3 +265,30 @@ Built: `MTBTeacherForm` in `mtb-class-form.js` (form + `plan`), migration
 `test:form-replies` (auto-write, co-teaching, coverage), `test:class-form`
 (the teacher form offline), `test:forms-queue`, `test:schedule-form`,
 release test for 041.
+
+## 8. Signed with the sender's PIN (24 September, late)
+
+Owner: nobody may make an answer in a colleague's name; if the PIN does not
+match, the file does not go in.
+
+- At „💾 Зачувај" every form asks for the PIN — the same PIN as Евидентен
+  лист. The answer carries `signature: {version, by: {kind, name}, salt,
+  value[, newPin]}`: `value` = HMAC-SHA256(scrypt(PIN, salt), the answer
+  without `signature`, keys sorted). The PIN itself is never in the file.
+- The form holds each person's PIN SALT only (`GET /api/forms/signers`),
+  never a hash: a hash in a file every colleague receives would let anyone
+  try all 10 000 PINs. So a wrong PIN is found at import, not while filling.
+- `verifySignature` (lib/form-replies.ts) refuses, and nothing is stored:
+  no signature; signer ≠ the person the answer is about (a class answer may be
+  signed by any teacher — "Пополнува:", the homeroom by default — who is then
+  the author); a salt that is not the current one (PIN changed since the form
+  was made); a wrong PIN.
+- Someone with no PIN creates it in the form (twice); the first import stores
+  it in `evidence_logins` — from then on also their Евидентен лист PIN. An
+  existing PIN is never replaced from a file.
+- The scrypt/HMAC in the form is plain JavaScript (`formKit` in
+  mtb-schedule-form.js), because a form opened from the disk is not always a
+  secure context; a unit test checks it against Node's `scryptSync` and
+  `createHmac` byte for byte.
+- Forms are made and imported on the SAME installation: PINs are per
+  database (WORK, HOME and the cloud each have their own).

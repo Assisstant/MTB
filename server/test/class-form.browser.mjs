@@ -79,7 +79,8 @@ await context.route('**/*', async (route) => {
             '/api/health': { ok: true, server: { label: 'Пробна база' } },
             '/api/years': [{ id: 1, label: year, is_current: true }],
             '/api/roster': roster,
-            '/api/teaching/timetable': timetable
+            '/api/teaching/timetable': timetable,
+            '/api/forms/signers': { people: [{ kind: 'teacher', name: 'Наставничка Прва', salt: null }, { kind: 'teacher', name: 'Наставник Втор', salt: 'ffeeddccbbaa99887766554433221100' }] }
         }[url.pathname];
         return json(data ? 200 : 404, data || { error: 'not in this test' });
     }
@@ -138,6 +139,13 @@ check('only this class\'s pupils are listed, with their generation',
 const waitingImage = form.waitForEvent('download');
 await form.click('#image');
 check('„🖼 Слика" saves the week as a PNG', (await waitingImage).suggestedFilename() === 'Распоред — II-б.png');
+check('the homeroom teacher is the one filling it in', await form.locator('#signer').inputValue() === 'Наставничка Прва');
+check('with no PIN yet, the form offers to create one', await form.locator('#pin2box').isVisible());
+await form.fill('#pin', '1234');
+await form.fill('#pin2', '1243');
+await form.click('#save');
+check('two different PINs are refused', /не се исти/.test(await form.locator('#savedMsg').textContent()));
+await form.fill('#pin2', '1234');
 const waitingReply = form.waitForEvent('download');
 await form.click('#save');
 const replyDownload = await waitingReply;
@@ -146,6 +154,8 @@ check('the answer names the class and its homeroom', reply.kind === 'mtb-class-r
 check('it carries the week as shown and as left', reply.baseline['понеделник|1'].subject === 'Математика' && !reply.cells['понеделник|1']
     && reply.cells['вторник|1'].subject === 'Ликовно образование' && reply.cells['вторник|1'].teacher === 'Наставник Втор', JSON.stringify(reply.cells));
 check('and the report, not a move', JSON.stringify(reply.reports) === JSON.stringify([{ name: 'Ана Измислена', generation: 'II', text: 'е во III-а' }]));
+check('signed by the homeroom teacher, creating her PIN', reply.signature && reply.signature.by.name === 'Наставничка Прва'
+    && /^[0-9a-f]{64}$/.test(reply.signature.newPin) && /^[0-9a-f]{32}$/.test(reply.signature.salt), JSON.stringify(reply.signature));
 check('the form asked for nothing over the network', requests.length === 0, requests.join(', '));
 check('no JavaScript error in the form', formErrors.length === 0, formErrors.join(' | '));
 await offline.close();
@@ -200,11 +210,13 @@ const waitingKlassImage = tf.waitForEvent('download');
 await tf.click('#klassImage');
 check('the class view saves as a PNG', (await waitingKlassImage).suggestedFilename() === 'Распоред — II-б.png');
 await tf.click('[data-tab="mine"]');
+await tf.fill('#pin', '4321');
 const waitingOwn = tf.waitForEvent('download');
 await tf.click('#save');
 const own = JSON.parse(await readFile(await (await waitingOwn).path(), 'utf8'));
 check('the answer names the teacher and carries the week as shown and as left', own.kind === 'mtb-teacher-reply' && own.teacher.name === 'Наставник Втор'
     && own.baseline['понеделник|2'].class === 'III-а' && own.cells['понеделник|1'].class === 'II-б' && own.cells['вторник|2'].class === 'III-а', JSON.stringify(own.cells));
+check('signed with his PIN', own.signature && own.signature.salt === 'ffeeddccbbaa99887766554433221100' && own.signature.by.name === 'Наставник Втор');
 check('the teacher form asked for nothing over the network', requests2.length === 0, requests2.join(', '));
 check('no JavaScript error in the teacher form', tErrors.length === 0, tErrors.join(' | '));
 await offline2.close();

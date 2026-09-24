@@ -207,3 +207,20 @@ test('version 2 form: every therapist, a dropdown, the checklist and a picture',
     assert.match(html, /function paintGrid/);
     assert.equal((html.match(/<script/g) || []).length, 2);
 });
+
+test('the PIN kit in the form computes exactly what the server stores and checks', async () => {
+    const { createHmac, randomBytes, scryptSync } = await import('node:crypto');
+    const source = await readFile(new URL('../../mtb-schedule-form.js', import.meta.url), 'utf8');
+    const sandbox: { window: Record<string, any> } = { window: {} };
+    vm.runInNewContext(source, sandbox);
+    const kit = sandbox.window.MTBScheduleForm.formKit();
+    for (const pin of ['0000', '4321']) {
+        const salt = randomBytes(16).toString('hex');
+        const key = kit.pinKey(pin, salt);
+        assert.equal(key, scryptSync(pin, salt, 32).toString('hex'), 'the same scrypt as hashPin');
+        const reply = { year: '2026/2027', therapist: { name: 'Ѓорѓи Пробен' }, blocks: { 'понеделник|08:00-08:40': ['p-a'] }, a: null };
+        const sorted = '{"a":null,"blocks":{"понеделник|08:00-08:40":["p-a"]},"therapist":{"name":"Ѓорѓи Пробен"},"year":"2026/2027"}';
+        assert.equal(kit.sign({ ...reply, signature: { value: 'x' } }, key),
+            createHmac('sha256', Buffer.from(key, 'hex')).update(sorted, 'utf8').digest('hex'), 'the signature leaves itself out and sorts the keys');
+    }
+});

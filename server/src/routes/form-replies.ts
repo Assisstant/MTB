@@ -28,6 +28,11 @@
  * which are only ever noted: the owner decided the class form moves nobody;
  * `teacher` — a teacher's own week (class + subject per period).
  *
+ * SIGNED WITH THE SENDER'S PIN (owner, 24 Sep 2026): an answer whose PIN
+ * signature does not verify — none, a wrong PIN, somebody else's name — is
+ * not stored at all (`verifySignature`). `GET /api/forms/signers` gives
+ * the forms each person's PIN salt, never a hash.
+ *
  * WHAT IS CLEAN IS WRITTEN AT ONCE (owner, 24 Sep 2026): colleagues answer for
  * their own data, and it is enough to know who entered it. On import every
  * clean item that touches only the sender's own facts is written in their
@@ -41,7 +46,7 @@ import { isAdmin, refuseScope, scopeOf } from '../lib/colleague.js';
 import { Refused, whoIsSigned } from '../lib/evidence.js';
 import {
     cabinetContext, cabinetItems, classContext, classItems, describeReply, fingerprintOf, personKey, selfApplies, settleNewest,
-    teacherContext, teacherItems, type Item
+    signers, teacherContext, teacherItems, verifySignature, type Item
 } from '../lib/form-replies.js';
 
 const StoreBody = z.object({
@@ -314,6 +319,8 @@ export async function formReplyRoutes(server: FastifyInstance) {
             const fingerprint = fingerprintOf(incoming.reply);
             const existing = (await pool.query(`SELECT id, status FROM form_replies WHERE fingerprint = $1`, [fingerprint])).rows[0];
             if (existing) { results.push({ fileName: label, outcome: 'duplicate', id: existing.id, about: d.aboutName }); continue; }
+            const signed = await verifySignature(pool, incoming.reply, d);
+            if (!signed.ok) { results.push({ fileName: label, outcome: 'refused', about: d.aboutName, error: signed.error }); continue; }
             const row = (await pool.query(
                 `INSERT INTO form_replies (kind, school_year_id, about_key, about_name, made_at, filled_at, file_name,
                                            fingerprint, reply, received_by)
@@ -321,7 +328,8 @@ export async function formReplyRoutes(server: FastifyInstance) {
                 [d.kind, year.id, d.aboutKey, d.aboutName, d.madeAt, d.filledAt, incoming.fileName ?? null,
                  fingerprint, JSON.stringify(incoming.reply), who])).rows[0];
             touched.add(JSON.stringify([year.id, d.kind, d.aboutKey]));
-            results.push({ fileName: label, outcome: 'stored', id: row.id, about: d.aboutName, filledAt: d.filledAt });
+            results.push({ fileName: label, outcome: 'stored', id: row.id, about: d.aboutName, filledAt: d.filledAt,
+                           signedBy: signed.name, ...(signed.created ? { pinCreated: true } : {}) });
         }
         for (const key of touched) {
             const [yearId, kind, aboutKey] = JSON.parse(key);
@@ -343,7 +351,7 @@ export async function formReplyRoutes(server: FastifyInstance) {
             const review = await reviewOf(Number(r.id));
             if (!review || review.result.errors.length) { r.applied = 0; r.waiting = review ? review.result.items.length : 0; continue; }
             const own = review.result.items.filter(selfApplies).map((i) => i.key);
-            const done = await decide(Number(r.id), own, [], `${review.row.about_name} (од формулар)`, credentials(req));
+            const done = await decide(Number(r.id), own, [], `${r.signedBy || review.row.about_name} (од формулар)`, credentials(req));
             const outcomes = Object.values((done.body as any).outcomes || {}) as string[];
             r.applied = outcomes.filter((o) => o === 'запишано').length;
             r.failed = outcomes.length - (r.applied as number);
@@ -352,6 +360,10 @@ export async function formReplyRoutes(server: FastifyInstance) {
         }
         return { results };
     });
+
+    // Salts only: they are what a form needs to sign with, and useless
+    // without the PIN. Open like /api/evidence/people, so any export works.
+    server.get('/api/forms/signers', async () => ({ people: await signers(pool) }));
 
     server.get('/api/forms/replies', async (req, reply) => {
         try { await administrator(req); } catch (err) { return refuseScope(reply, err); }

@@ -161,6 +161,11 @@
             const s = mine();
             el('facts').textContent = [c.homeroom ? 'одделенски раководител: ' + c.homeroom : 'без одделенски раководител',
                 c.description || '', c.pupils.length + ' ученици'].filter(Boolean).join(' · ');
+            const signers = data.signers || [];
+            if (!draft.signer || !signers.some((p) => p.name === draft.signer)) draft.signer = c.homeroom || '';
+            el('signer').innerHTML = '<option value="">— кој пополнува —</option>' + signers.map((p) =>
+                '<option' + (p.name === draft.signer ? ' selected' : '') + '>' + esc(p.name) + '</option>').join('');
+            MTBKit.pinFor(signers.find((p) => p.name === draft.signer) || { salt: 'x' });
             drawGrid(c, s);
             drawTicks(s);
             drawPupils(c, s);
@@ -168,7 +173,11 @@
             el('note').value = s.note || '';
         }
 
-        el('who').addEventListener('change', () => { draft.who = el('who').value; keep(); draw(); });
+        el('who').addEventListener('change', () => { draft.who = el('who').value; draft.signer = ''; keep(); draw(); });
+        el('signer').addEventListener('change', () => {
+            draft.signer = el('signer').value; keep();
+            MTBKit.pinFor((data.signers || []).find((p) => p.name === draft.signer) || { salt: 'x' });
+        });
         el('grid').addEventListener('change', (event) => {
             const select = event.target.closest('select[data-key]');
             if (!select) return;
@@ -233,7 +242,9 @@
         el('save').addEventListener('click', () => {
             const c = chosen(), s = mine();
             if (!c) return;
-            const reply = {
+            const signer = (data.signers || []).find((p) => p.name === draft.signer);
+            if (!signer) { el('savedMsg').className = 'unsaved'; el('savedMsg').textContent = 'Избери кој пополнува — со неговиот PIN се потпишува одговорот.'; return; }
+            const unsigned = {
                 kind: data.replyKind, version: data.version, year: data.year,
                 class: { id: c.id, label: c.label }, homeroom: c.homeroom || null,
                 formGeneratedAt: data.generatedAt, savedAt: new Date().toISOString(),
@@ -242,6 +253,9 @@
                     .map((p) => ({ name: p.name, generation: p.generation || null, text: tidy(s.reports[p.name]) })),
                 note: s.note || ''
             };
+            const reply = MTBKit.signWith(unsigned, 'teacher', signer);
+            if (typeof reply === 'string') { el('savedMsg').className = 'unsaved'; el('savedMsg').textContent = reply; return; }
+            el('savedMsg').className = 'saved';
             const blob = new Blob([JSON.stringify(reply, null, 2)], { type: 'application/json' });
             const a = document.createElement('a');
             a.href = URL.createObjectURL(blob);
@@ -270,12 +284,13 @@
             '<li>Во секој час избери го предметот; наставникот е по избор. „— празно —" значи дека тогаш нема час.</li>' +
             '<li>Во „Предмети" штиклирај ги предметите на одделението — само за полесно избирање; ништо не се запишува од штиклирањето.</li>' +
             '<li>Кај „Ученици", ако нешто не е точно, напиши што. Учениците не се менуваат од тука — администраторот ги поправа.</li>' +
-            '<li>Кога ќе завршиш, „💾 Зачувај го одговорот" и испрати ја зачуваната <b>.json</b> датотека назад. „🖼 Слика" ја зачувува неделата како слика.</li>' +
+            '<li>Кога ќе завршиш, избери кој пополнува, внеси го <b>својот PIN</b> и „💾 Зачувај го одговорот", па испрати ја <b>.json</b> датотеката назад. Без точен PIN одговорот не може да се внесе. „🖼 Слика" ја зачувува неделата како слика.</li>' +
             '</ol>Промените се чуваат во овој прелистувач додека не го зачуваш одговорот; оваа страница не праќа ништо никаде.</div>' +
             '<div class="who"><label for="who">Одделение:</label><select id="who"></select><span class="facts" id="facts"></span></div>' +
             '<p class="empty" id="pickFirst">Избери го одделението погоре.</p>' +
             '<div id="work">' +
-            '<div class="bar"><button class="btn" id="save" type="button">💾 Зачувај го одговорот</button>' +
+            '<div class="bar"><label for="signer"><b>Пополнува:</b></label> <select id="signer" style="padding:8px 10px;border:2px solid #a3bffa;border-radius:8px;"></select>' +
+            kit.PIN_HTML + '<button class="btn" id="save" type="button">💾 Зачувај го одговорот</button>' +
             '<button class="btn soft" id="image" type="button">🖼 Слика</button>' +
             '<button class="btn soft" id="reset" type="button">↺ Врати како што беше</button>' +
             '<span>Промени: <span class="count" id="count">0</span></span> <span class="saved" id="savedMsg"></span></div>' +
@@ -520,6 +535,7 @@
             el('tabMine').style.display = draft.tab === 'mine' ? '' : 'none';
             el('tabKlass').style.display = draft.tab === 'klass' ? '' : 'none';
             el('facts').textContent = (t.role ? t.role + ' · ' : '') + Object.keys(t.lessons).length + ' часа во базата';
+            MTBKit.pinFor(t);
             drawMine(t, s);
             drawKlass();
             el('count').textContent = changedCount();
@@ -590,12 +606,14 @@
         el('save').addEventListener('click', () => {
             const t = teacher(), s = mine();
             if (!t) return;
-            const reply = {
+            const reply = MTBKit.signWith({
                 kind: data.replyKind, version: data.version, year: data.year,
                 teacher: { id: t.id, name: t.name },
                 formGeneratedAt: data.generatedAt, savedAt: new Date().toISOString(),
                 baseline: t.lessons, cells: s.cells, note: s.note || ''
-            };
+            }, 'teacher', t);
+            if (typeof reply === 'string') { el('savedMsg').className = 'unsaved'; el('savedMsg').textContent = reply; return; }
+            el('savedMsg').className = 'saved';
             const blob = new Blob([JSON.stringify(reply, null, 2)], { type: 'application/json' });
             const a = document.createElement('a');
             a.href = URL.createObjectURL(blob);
@@ -642,14 +660,14 @@
             '<li>Во секој час избери <b>одделение</b> и <b>предмет</b>. „— слободен час —" значи дека тогаш немаш час.</li>' +
             '<li>Ако е точно како што стои, само зачувај — тоа е потврда. Ако со друг наставник држите ист час заедно (на пр. физичко), избери го истиот предмет.</li>' +
             '<li>„👁 Распоред на паралелка" покажува кој сè внел часови во некое одделение. Само за гледање, печатење и слика.</li>' +
-            '<li>Кога ќе завршиш, „💾 Зачувај го одговорот" и испрати ја <b>.json</b> датотеката назад.</li>' +
+            '<li>Кога ќе завршиш, внеси го <b>својот PIN</b> и „💾 Зачувај го одговорот", па испрати ја <b>.json</b> датотеката назад. Без точен PIN одговорот не може да се внесе.</li>' +
             '</ol>Промените се чуваат во овој прелистувач додека не го зачуваш одговорот; оваа страница не праќа ништо никаде.</div>' +
             '<div class="who"><label for="who">Наставник:</label><select id="who"></select><span class="facts" id="facts"></span></div>' +
             '<p class="empty" id="pickFirst">Избери го своето име погоре.</p>' +
             '<div id="work">' +
             '<div class="tabs" role="group"><button type="button" data-tab="mine">✏️ Мој распоред</button><button type="button" data-tab="klass">👁 Распоред на паралелка</button></div>' +
             '<div id="tabMine">' +
-            '<div class="bar"><button class="btn" id="save" type="button">💾 Зачувај го одговорот</button>' +
+            '<div class="bar">' + kit.PIN_HTML + '<button class="btn" id="save" type="button">💾 Зачувај го одговорот</button>' +
             '<button class="btn soft" id="image" type="button">🖼 Слика</button>' +
             '<button class="btn soft" id="reset" type="button">↺ Врати како што беше</button>' +
             '<span>Промени: <span class="count" id="count">0</span></span> <span class="saved" id="savedMsg"></span></div>' +

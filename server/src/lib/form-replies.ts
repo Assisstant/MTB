@@ -13,7 +13,7 @@
  * `mtb-class-form.js`. They are loaded here the way their tests load them, so
  * the file on a colleague's desk and the queue cannot read an answer two ways.
  */
-import { createHash } from 'node:crypto';
+import { createHash, createHmac, timingSafeEqual } from 'node:crypto';
 import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -510,4 +510,85 @@ export function selfApplies(item: Item): boolean {
     if (item.state !== 'clean' || item.decision) return false;
     if (item.type === 'block') return (item.to || []).every((x) => typeof x === 'string');
     return ['caseload', 'uncaseload', 'lesson', 'mylesson'].includes(item.type);
+}
+
+// ── whose answer it is: the PIN signature ───────────────────────────────────
+
+export type Signed = { ok: true; kind: 'therapist' | 'teacher'; id: number; name: string; created: boolean } | { ok: false; error: string };
+
+const stableText = (v: unknown): string => {
+    const sorted = (x: any): any => Array.isArray(x) ? x.map(sorted)
+        : x && typeof x === 'object' ? Object.keys(x).sort().reduce((o: any, k) => { o[k] = sorted(x[k]); return o; }, {}) : x;
+    return JSON.stringify(sorted(v));
+};
+
+/**
+ * Nobody may bring in an answer in a colleague's name (owner, 24 Sep 2026).
+ * The form signs the answer with HMAC-SHA256 keyed by scrypt(PIN, salt) — the
+ * very value `evidence_logins.pin_hash` holds — so the check needs nothing the
+ * server does not already have. No signature, another person's salt, or a
+ * wrong PIN: the answer is not stored at all.
+ *
+ * A person with no PIN yet may create one in the form: the answer then carries
+ * the new key, it must verify with that key, and it is stored as their PIN
+ * (the same one Евидентен лист uses). Only when there is none — an existing
+ * PIN is never replaced from a file.
+ */
+export async function verifySignature(db: Queryable, reply: any, d: Extract<Described, { ok: true }>): Promise<Signed> {
+    const sig = reply?.signature;
+    if (!sig || typeof sig !== 'object' || typeof sig.value !== 'string' || typeof sig.salt !== 'string') {
+        return { ok: false, error: 'одговорот не е потпишан со PIN — пополни го во нов формулар' };
+    }
+    const kind = sig.by?.kind === 'teacher' ? 'teacher' : sig.by?.kind === 'therapist' ? 'therapist' : null;
+    const name = String(sig.by?.name || '').trim();
+    if (!kind || !name) return { ok: false, error: 'потписот не кажува кој пополнил' };
+    // The signer must be the person the answer is about; a class answer may
+    // be filled in by any teacher, whose name is then the author.
+    const subject = d.kind === 'cabinet' ? ['therapist', reply.therapist?.name] : d.kind === 'teacher' ? ['teacher', reply.teacher?.name] : ['teacher', name];
+    if (subject[0] !== kind || personKey(kind, subject[1]) !== personKey(kind, name)) {
+        return { ok: false, error: `потписот е на ${name}, а одговорот е за ${subject[1]}` };
+    }
+    const table = kind === 'teacher' ? 'teachers' : 'therapists';
+    const column = kind === 'teacher' ? 'teacher_id' : 'therapist_id';
+    const people = (await db.query(`SELECT id, name FROM ${table} WHERE lower(btrim(name)) = lower(btrim($1))`, [name])).rows;
+    if (people.length !== 1) return { ok: false, error: `${name} не е во базата` };
+    const person = people[0];
+    const login = (await db.query(`SELECT pin_salt, pin_hash FROM evidence_logins WHERE ${column} = $1`, [person.id])).rows[0];
+    let key: string;
+    let created = false;
+    if (login) {
+        if (login.pin_salt !== sig.salt) {
+            return { ok: false, error: `PIN-от на ${person.name} е сменет или создаден откако е направен формуларот — пополни го во нов формулар` };
+        }
+        key = login.pin_hash;
+    } else {
+        if (typeof sig.newPin !== 'string' || !/^[0-9a-f]{64}$/.test(sig.newPin) || !/^[0-9a-f]{32}$/.test(sig.salt)) {
+            return { ok: false, error: `${person.name} нема PIN — формуларот мора да создаде PIN` };
+        }
+        key = sig.newPin;
+        created = true;
+    }
+    const body = { ...reply };
+    delete body.signature;
+    const expected = createHmac('sha256', Buffer.from(key, 'hex')).update(stableText(body), 'utf8').digest();
+    const offered = Buffer.from(String(sig.value), 'hex');
+    if (expected.length !== offered.length || !timingSafeEqual(expected, offered)) {
+        return { ok: false, error: 'PIN-от не се совпаѓа — одговорот не е внесен' };
+    }
+    if (created) {
+        const stored = await db.query(
+            `INSERT INTO evidence_logins (${column}, pin_salt, pin_hash) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING RETURNING 1`,
+            [person.id, sig.salt, key]);
+        if (!stored.rowCount) return { ok: false, error: `${person.name} во меѓувреме доби PIN — пополни го во нов формулар` };
+    }
+    return { ok: true, kind, id: person.id, name: person.name, created };
+}
+
+/** Every person's PIN salt (never a hash) — what a form needs to sign with. */
+export async function signers(db: Queryable): Promise<Array<{ kind: 'therapist' | 'teacher'; name: string; salt: string | null }>> {
+    return (await db.query(
+        `SELECT 'therapist' AS kind, t.name, l.pin_salt AS salt FROM therapists t LEFT JOIN evidence_logins l ON l.therapist_id = t.id
+         UNION ALL
+         SELECT 'teacher', t.name, l.pin_salt FROM teachers t LEFT JOIN evidence_logins l ON l.teacher_id = t.id
+         ORDER BY 1, 2`)).rows;
 }

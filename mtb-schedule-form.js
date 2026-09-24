@@ -102,6 +102,11 @@
         .reports tr.flag td { background: #fffbea; }
         textarea { width: 100%; max-width: 110ch; min-height: 70px; padding: 10px; border: 2px solid #e2e8f0; border-radius: 6px; font: inherit; }
         .saved { color: #276749; font-weight: 700; }
+        .unsaved { color: #9b2c2c; font-weight: 700; }
+        .pinbox { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 6px 10px; border: 2px solid #c3dafe; border-radius: 10px; background: #ebf4ff; }
+        .pinbox label { font-weight: 700; font-size: 13px; }
+        .pinbox input { width: 64px; padding: 6px 8px; border: 2px solid #a3bffa; border-radius: 6px; font: inherit; letter-spacing: 3px; }
+        .pinbox small { color: #4a5568; font-size: 12px; }
         .empty { padding: 30px 16px; color: #4a5568; }
     `;
 
@@ -185,7 +190,188 @@
         }, 'image/png');
     }
 
-    /** One standalone page: the data, the painter, and the form's own code. */
+
+    /**
+     * The PIN that signs an answer (owner, 24 Sep 2026: nobody may make an
+     * answer in a colleague's name; if the PIN does not match, the file does
+     * not go in).
+     *
+     * The form holds each person's PIN SALT only — never a hash, which would let
+     * anyone with the file try all 10 000 PINs. At „Зачувај" the colleague types
+     * their PIN; the key is scrypt(PIN, salt) exactly as the server stores it
+     * (`hashPin`: N=16384, r=8, p=1, 32 bytes, the salt's hex text as bytes),
+     * and the answer carries HMAC-SHA256(key, the answer with its keys sorted).
+     * The server recomputes that with the key it already has. Someone without
+     * a PIN yet creates one here: the answer carries the new key, and the first
+     * import stores it — from then on it is also their Евидентен лист PIN.
+     *
+     * Plain JavaScript on purpose: a form opened from the disk is not always a
+     * secure context, and WebCrypto is only promised in one. Standalone — it is
+     * copied into the form page as text.
+     */
+    function formKit() {
+        const K = [
+            0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5,
+            0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3, 0x72be5d74, 0x80deb1fe, 0x9bdc06a7, 0xc19bf174,
+            0xe49b69c1, 0xefbe4786, 0x0fc19dc6, 0x240ca1cc, 0x2de92c6f, 0x4a7484aa, 0x5cb0a9dc, 0x76f988da,
+            0x983e5152, 0xa831c66d, 0xb00327c8, 0xbf597fc7, 0xc6e00bf3, 0xd5a79147, 0x06ca6351, 0x14292967,
+            0x27b70a85, 0x2e1b2138, 0x4d2c6dfc, 0x53380d13, 0x650a7354, 0x766a0abb, 0x81c2c92e, 0x92722c85,
+            0xa2bfe8a1, 0xa81a664b, 0xc24b8b70, 0xc76c51a3, 0xd192e819, 0xd6990624, 0xf40e3585, 0x106aa070,
+            0x19a4c116, 0x1e376c08, 0x2748774c, 0x34b0bcb5, 0x391c0cb3, 0x4ed8aa4a, 0x5b9cca4f, 0x682e6ff3,
+            0x748f82ee, 0x78a5636f, 0x84c87814, 0x8cc70208, 0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2
+        ];
+        function sha256(bytes) {
+            const len = bytes.length;
+            const total = ((len + 9 + 63) >> 6) << 6;
+            const m = new Uint8Array(total);
+            m.set(bytes); m[len] = 0x80;
+            const bits = len * 8;
+            m[total - 4] = (bits >>> 24) & 255; m[total - 3] = (bits >>> 16) & 255; m[total - 2] = (bits >>> 8) & 255; m[total - 1] = bits & 255;
+            const h = [0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a, 0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19];
+            const w = new Array(64);
+            for (let off = 0; off < total; off += 64) {
+                for (let i = 0; i < 16; i++) w[i] = (m[off + i * 4] << 24) | (m[off + i * 4 + 1] << 16) | (m[off + i * 4 + 2] << 8) | m[off + i * 4 + 3];
+                for (let i = 16; i < 64; i++) {
+                    const a = w[i - 15], b = w[i - 2];
+                    const s0 = ((a >>> 7) | (a << 25)) ^ ((a >>> 18) | (a << 14)) ^ (a >>> 3);
+                    const s1 = ((b >>> 17) | (b << 15)) ^ ((b >>> 19) | (b << 13)) ^ (b >>> 10);
+                    w[i] = (w[i - 16] + s0 + w[i - 7] + s1) | 0;
+                }
+                let [a, b, c, d, e, f, g, hh] = h;
+                for (let i = 0; i < 64; i++) {
+                    const S1 = ((e >>> 6) | (e << 26)) ^ ((e >>> 11) | (e << 21)) ^ ((e >>> 25) | (e << 7));
+                    const t1 = (hh + S1 + ((e & f) ^ (~e & g)) + K[i] + w[i]) | 0;
+                    const S0 = ((a >>> 2) | (a << 30)) ^ ((a >>> 13) | (a << 19)) ^ ((a >>> 22) | (a << 10));
+                    const t2 = (S0 + ((a & b) ^ (a & c) ^ (b & c))) | 0;
+                    hh = g; g = f; f = e; e = (d + t1) | 0; d = c; c = b; b = a; a = (t1 + t2) | 0;
+                }
+                h[0] = (h[0] + a) | 0; h[1] = (h[1] + b) | 0; h[2] = (h[2] + c) | 0; h[3] = (h[3] + d) | 0;
+                h[4] = (h[4] + e) | 0; h[5] = (h[5] + f) | 0; h[6] = (h[6] + g) | 0; h[7] = (h[7] + hh) | 0;
+            }
+            const out = new Uint8Array(32);
+            for (let i = 0; i < 8; i++) { out[i * 4] = h[i] >>> 24; out[i * 4 + 1] = (h[i] >>> 16) & 255; out[i * 4 + 2] = (h[i] >>> 8) & 255; out[i * 4 + 3] = h[i] & 255; }
+            return out;
+        }
+        const concat = (a, b) => { const o = new Uint8Array(a.length + b.length); o.set(a); o.set(b, a.length); return o; };
+        function hmac(key, msg) {
+            if (key.length > 64) key = sha256(key);
+            const k = new Uint8Array(64); k.set(key);
+            const ip = new Uint8Array(64), op = new Uint8Array(64);
+            for (let i = 0; i < 64; i++) { ip[i] = k[i] ^ 0x36; op[i] = k[i] ^ 0x5c; }
+            return sha256(concat(op, sha256(concat(ip, msg))));
+        }
+        /** PBKDF2-HMAC-SHA256 with one iteration — all scrypt asks of it. */
+        function pbkdf2(pw, salt, dkLen) {
+            const out = new Uint8Array(dkLen);
+            for (let i = 1, pos = 0; pos < dkLen; i++, pos += 32) {
+                const u = hmac(pw, concat(salt, new Uint8Array([i >>> 24, (i >>> 16) & 255, (i >>> 8) & 255, i & 255])));
+                out.set(u.subarray(0, Math.min(32, dkLen - pos)), pos);
+            }
+            return out;
+        }
+        function salsa(B, x) {
+            for (let i = 0; i < 16; i++) x[i] = B[i];
+            const R = (a, b) => (a << b) | (a >>> (32 - b));
+            for (let i = 0; i < 8; i += 2) {
+                x[4] ^= R(x[0] + x[12], 7); x[8] ^= R(x[4] + x[0], 9); x[12] ^= R(x[8] + x[4], 13); x[0] ^= R(x[12] + x[8], 18);
+                x[9] ^= R(x[5] + x[1], 7); x[13] ^= R(x[9] + x[5], 9); x[1] ^= R(x[13] + x[9], 13); x[5] ^= R(x[1] + x[13], 18);
+                x[14] ^= R(x[10] + x[6], 7); x[2] ^= R(x[14] + x[10], 9); x[6] ^= R(x[2] + x[14], 13); x[10] ^= R(x[6] + x[2], 18);
+                x[3] ^= R(x[15] + x[11], 7); x[7] ^= R(x[3] + x[15], 9); x[11] ^= R(x[7] + x[3], 13); x[15] ^= R(x[11] + x[7], 18);
+                x[1] ^= R(x[0] + x[3], 7); x[2] ^= R(x[1] + x[0], 9); x[3] ^= R(x[2] + x[1], 13); x[0] ^= R(x[3] + x[2], 18);
+                x[6] ^= R(x[5] + x[4], 7); x[7] ^= R(x[6] + x[5], 9); x[4] ^= R(x[7] + x[6], 13); x[5] ^= R(x[4] + x[7], 18);
+                x[11] ^= R(x[10] + x[9], 7); x[8] ^= R(x[11] + x[10], 9); x[9] ^= R(x[8] + x[11], 13); x[10] ^= R(x[9] + x[8], 18);
+                x[12] ^= R(x[15] + x[14], 7); x[13] ^= R(x[12] + x[15], 9); x[14] ^= R(x[13] + x[12], 13); x[15] ^= R(x[14] + x[13], 18);
+            }
+            for (let i = 0; i < 16; i++) B[i] = (B[i] + x[i]) | 0;
+        }
+        function blockMix(B, Y, r, X, t) {
+            for (let i = 0; i < 16; i++) X[i] = B[(2 * r - 1) * 16 + i];
+            for (let i = 0; i < 2 * r; i++) {
+                for (let j = 0; j < 16; j++) X[j] ^= B[i * 16 + j];
+                salsa(X, t);
+                for (let j = 0; j < 16; j++) Y[i * 16 + j] = X[j];
+            }
+            for (let i = 0; i < r; i++) {
+                for (let j = 0; j < 16; j++) { B[i * 16 + j] = Y[2 * i * 16 + j]; B[(i + r) * 16 + j] = Y[(2 * i + 1) * 16 + j]; }
+            }
+        }
+        function scrypt(pw, salt, N, r, p, dkLen) {
+            const B = pbkdf2(pw, salt, p * 128 * r);
+            const n = 32 * r;
+            const X = new Int32Array(n), Y = new Int32Array(n), V = new Int32Array(n * N), T = new Int32Array(16), S = new Int32Array(16);
+            for (let q = 0; q < p; q++) {
+                const off = q * 128 * r;
+                for (let i = 0; i < n; i++) X[i] = B[off + i * 4] | (B[off + i * 4 + 1] << 8) | (B[off + i * 4 + 2] << 16) | (B[off + i * 4 + 3] << 24);
+                for (let i = 0; i < N; i++) { V.set(X, i * n); blockMix(X, Y, r, T, S); }
+                for (let i = 0; i < N; i++) {
+                    const j = X[(2 * r - 1) * 16] & (N - 1);
+                    for (let k = 0; k < n; k++) X[k] ^= V[j * n + k];
+                    blockMix(X, Y, r, T, S);
+                }
+                for (let i = 0; i < n; i++) { B[off + i * 4] = X[i] & 255; B[off + i * 4 + 1] = (X[i] >>> 8) & 255; B[off + i * 4 + 2] = (X[i] >>> 16) & 255; B[off + i * 4 + 3] = (X[i] >>> 24) & 255; }
+            }
+            return pbkdf2(pw, B, dkLen);
+        }
+        const utf8 = (s) => { const b = unescape(encodeURIComponent(String(s))); const o = new Uint8Array(b.length); for (let i = 0; i < b.length; i++) o[i] = b.charCodeAt(i); return o; };
+        const hex = (b) => Array.from(b, (x) => (x < 16 ? '0' : '') + x.toString(16)).join('');
+        const unhex = (h) => { const o = new Uint8Array(h.length / 2); for (let i = 0; i < o.length; i++) o[i] = parseInt(h.substr(i * 2, 2), 16); return o; };
+        /** Keys sorted at every level — the same text the server hashes. */
+        const sorted = (v) => Array.isArray(v) ? v.map(sorted)
+            : v && typeof v === 'object' ? Object.keys(v).sort().reduce((o, k) => { o[k] = sorted(v[k]); return o; }, {}) : v;
+        const stable = (v) => JSON.stringify(sorted(v));
+        const pinKey = (pin, salt) => hex(scrypt(utf8(pin), utf8(salt), 16384, 8, 1, 32));
+        function sign(reply, keyHex) {
+            const body = Object.assign({}, reply);
+            delete body.signature;
+            return hex(hmac(unhex(keyHex), utf8(stable(body))));
+        }
+        function newSalt() {
+            const b = new Uint8Array(16);
+            if (typeof crypto !== 'undefined' && crypto.getRandomValues) crypto.getRandomValues(b);
+            else for (let i = 0; i < 16; i++) b[i] = Math.floor(Math.random() * 256);
+            return hex(b);
+        }
+
+        /* The PIN fields of a form page: #pin, #pin2 (only when creating), #pinHint. */
+        function pinFor(person) {
+            const has = !!(person && person.salt);
+            const box = document.getElementById('pin2box');
+            if (box) box.style.display = has ? 'none' : '';
+            const hint = document.getElementById('pinHint');
+            if (hint) hint.textContent = has
+                ? 'твојот PIN — истиот како во Евидентен лист'
+                : 'немаш PIN: создај го сега (4 цифри, двапати) — ќе важи и за Евидентен лист';
+        }
+        /** Returns the signed answer, or a sentence saying what is missing. */
+        function signWith(reply, kind, person) {
+            const pin = String((document.getElementById('pin') || {}).value || '').trim();
+            if (!/^\d{4}$/.test(pin)) return 'Внеси го PIN-от (4 цифри) — без него одговорот не може да се внесе.';
+            let salt = person.salt;
+            const signature = { version: 1, by: { kind, name: person.name } };
+            let key;
+            if (!salt) {
+                const again = String((document.getElementById('pin2') || {}).value || '').trim();
+                if (again !== pin) return 'Двата PIN-а не се исти.';
+                salt = newSalt();
+                key = pinKey(pin, salt);
+                signature.newPin = key;
+            } else key = pinKey(pin, salt);
+            signature.salt = salt;
+            const signed = Object.assign({}, reply);
+            delete signed.signature;
+            signature.value = sign(signed, key);
+            signed.signature = signature;
+            return signed;
+        }
+        return { sha256, hmac, scrypt, pinKey, sign, stable, newSalt, pinFor, signWith };
+    }
+
+    /** The PIN fields, put beside „💾 Зачувај" in every form. */
+    const PIN_HTML = '<span class="pinbox"><label>PIN <input id="pin" type="password" inputmode="numeric" maxlength="4" autocomplete="off"></label>' +
+        '<label id="pin2box">потврди <input id="pin2" type="password" inputmode="numeric" maxlength="4" autocomplete="off"></label>' +
+        '<small id="pinHint"></small></span>';
+
+    /** One standalone page: the data, the painter, the PIN kit, and the form's own code. */
     function page(title, heading, sub, bodyHtml, payload, main) {
         const json = JSON.stringify(payload).replace(/</g, '\\u003c');
         const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
@@ -194,7 +380,7 @@
             '<title>' + esc(title) + '</title><style>' + FORM_CSS + '</style></head><body>' +
             '<header><h1 id="heading">' + esc(heading) + '</h1><p>' + esc(sub) + '</p></header>' +
             '<main>' + bodyHtml + '</main><script type="application/json" id="formData">' + json + '<\/script>' +
-            '<script>' + paintGrid.toString() + '\n(' + main.toString() + ')();<\/script></body></html>';
+            '<script>' + paintGrid.toString() + '\nvar MTBKit = (' + formKit.toString() + ')();\n(' + main.toString() + ')();<\/script></body></html>';
     }
 
     /* ── The page the colleague opens ─────────────────────────────────────── */
@@ -320,6 +506,7 @@
             if (!t) return;
             const s = mine();
             el('facts').textContent = t.students.length + ' ученици на списокот · ' + Object.keys(t.blocks).length + ' пополнети термини';
+            MTBKit.pinFor(t);
             drawGrid(t, s);
             drawChecks(s);
             el('count').textContent = changedCount();
@@ -406,7 +593,7 @@
             if (!t) return;
             // A new name that is not placed in any term is sent too: the
             // colleague said they work with that child.
-            const reply = {
+            const unsigned = {
                 kind: data.replyKind, version: data.version, year: data.year,
                 therapist: { id: t.id, name: t.name },
                 formGeneratedAt: data.generatedAt, savedAt: new Date().toISOString(),
@@ -415,6 +602,9 @@
                 pupils: { baseline: t.students, ticked: s.ticked },
                 note: s.note || ''
             };
+            const reply = MTBKit.signWith(unsigned, 'therapist', t);
+            if (typeof reply === 'string') { el('savedMsg').className = 'unsaved'; el('savedMsg').textContent = reply; return; }
+            el('savedMsg').className = 'saved';
             const blob = new Blob([JSON.stringify(reply, null, 2)], { type: 'application/json' });
             const a = document.createElement('a');
             a.href = URL.createObjectURL(blob);
@@ -449,12 +639,12 @@
             '<li>Во секој термин избери го детето. Едно дете = 40 минути; за двајца по 20 минути избери и „втор ученик".</li>' +
             '<li>Во „Мои ученици" штиклирај ги сите деца со кои работиш — списокот е на целото училиште, по одделенија. ' +
             'Ако детето го нема, „+ Ново дете" — ќе биде внесено како ученик под набљудување.</li>' +
-            '<li>Кога ќе завршиш, „💾 Зачувај го одговорот" и испрати ја зачуваната <b>.json</b> датотека назад. „🖼 Слика" ја зачувува неделата како слика.</li>' +
+            '<li>Кога ќе завршиш, внеси го <b>својот PIN</b> и „💾 Зачувај го одговорот", па испрати ја зачуваната <b>.json</b> датотека назад. Без точен PIN одговорот не може да се внесе. „🖼 Слика" ја зачувува неделата како слика.</li>' +
             '</ol>Промените се чуваат во овој прелистувач додека не го зачуваш одговорот; оваа страница не праќа ништо никаде.</div>' +
             '<div class="who"><label for="who">Терапевт:</label><select id="who"></select><span class="facts" id="facts"></span></div>' +
             '<p class="empty" id="pickFirst">Избери го своето име погоре.</p>' +
             '<div id="work">' +
-            '<div class="bar"><button class="btn" id="save" type="button">💾 Зачувај го одговорот</button>' +
+            '<div class="bar">' + PIN_HTML + '<button class="btn" id="save" type="button">💾 Зачувај го одговорот</button>' +
             '<button class="btn soft" id="image" type="button">🖼 Слика</button>' +
             '<button class="btn soft" id="addPupil" type="button">+ Ново дете</button>' +
             '<button class="btn soft" id="reset" type="button">↺ Врати како што беше</button>' +
@@ -577,5 +767,5 @@
         return out;
     }
 
-    window.MTBScheduleForm = Object.freeze({ FORM, REPLY, VERSION, READS, FORM_CSS, blockKey, pupilKey, paintGrid, page, buildForm, plan });
+    window.MTBScheduleForm = Object.freeze({ FORM, REPLY, VERSION, READS, FORM_CSS, PIN_HTML, blockKey, pupilKey, paintGrid, formKit, page, buildForm, plan });
 })();
