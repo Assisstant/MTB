@@ -84,6 +84,12 @@
         background: rgba(255, 255, 255, .8); color: #16233f;
     }
     .cell.free { color: var(--muted); }
+    /* A lesson with no subject yet. Italic and in the cell's own colour: a
+       muted grey measured poorly on the darker heat shades. */
+    .cell .nosubj { font-style: italic; font-weight: 400; }
+    /* From a class's row straight to editing that class's week. */
+    .edit-week { margin-left: 6px; font-size: 12px; text-decoration: none; opacity: .7; }
+    .edit-week:hover { opacity: 1; }
     .heat-0 { background: transparent; }
     .heat-1 { background: var(--heat-1); }
     .heat-2 { background: var(--heat-2); color: var(--on-light); }
@@ -112,7 +118,7 @@
     .offline code { font-family: Consolas, monospace; font-size: 13px; }
 
     @media print {
-        header a, .controls, .views, .btn { display: none !important; }
+        header a, .controls, .views, .btn, .edit-week { display: none !important; }
         body { background: #fff; }
         .panel { border: 0; box-shadow: none; padding: 0; }
         table.grid thead th { background: #eee !important; color: #000 !important; }
@@ -489,6 +495,12 @@
      * `sort_key`, which knows that IX follows VIII. `localeCompare` does not —
      * it reads the labels as words and puts IX before V.
      */
+    /** The same class's whole week in Уреди настава, in the same year. */
+    function editWeekHref(label) {
+        return 'NastavaUredi.html?view=classweek&class=' + encodeURIComponent(label)
+            + '&year=' + encodeURIComponent(el('year').value);
+    }
+
     function classRows() {
         const rows = new Map();
         (data.classes || []).forEach((c) => rows.set(c.label, new Map()));
@@ -517,6 +529,8 @@
         order.forEach((label) => {
             const row = byClass.get(label);
             html += `<tr><th>${esc(label)}`
+                + (offList.has(label) ? '' : `<a class="edit-week" href="${esc(editWeekHref(label))}"`
+                    + ` title="${esc('Уреди ја неделата на ' + label)}">✏️</a>`)
                 + (offList.has(label) ? '<span class="off-staff">не е на списокот оваа година</span>' : '')
                 + '</th>';
             periods.forEach((p) => {
@@ -532,7 +546,7 @@
                 html += `<td class="cell ${heat(n)}${n ? ' clickable' : ''}" title="${esc(title)}"`
                     + focusKeys([cell])
                     + (n ? ` data-key="${esc((dayKey ? dayKey + '|' : '') + label)}|${p.ordinal}"` : '')
-                    + `>${esc(cell.subject || '·')}`
+                    + `>${cell.subject ? esc(cell.subject) : '<span class="nosubj">без предмет</span>'}`
                     + (n ? `<span class="count">${n}</span>` : '')
                     + takenHtml([cell])
                     + '</td>';

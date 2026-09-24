@@ -66,7 +66,40 @@
         position: sticky; left: 0; z-index: 1; background: var(--card);
         font-weight: 700; white-space: nowrap; padding: 7px 9px;
     }
+    .views { margin: 14px 0 0; }
+    .views.mtb-tabs { margin-bottom: 0; }
+
+    /* One button per class, with what is still missing in it — so the class
+       that needs work is visible before it is opened. Buttons state their own
+       colour: a <button> does not inherit it, and the dark theme showed that. */
+    .class-strip { display: flex; flex-wrap: wrap; gap: 6px; margin: 12px 0 0; }
+    .class-strip .chip {
+        font: inherit; font-size: 13px; line-height: 1.25; text-align: left; cursor: pointer;
+        color: var(--text); background: var(--card);
+        border: 1px solid var(--border); border-radius: 8px; padding: 5px 10px; min-width: 64px;
+    }
+    .class-strip .chip b { display: block; font-weight: 700; }
+    .class-strip .chip small { display: block; font-size: 11px; color: var(--muted); white-space: nowrap; }
+    .class-strip .chip .bare {
+        display: inline-block; margin-top: 2px; padding: 0 5px; border-radius: 4px;
+        background: var(--warn-bg); color: var(--text); font-weight: 600;
+    }
+    .class-strip .chip:hover { border-color: var(--edit); }
+    /* A fixed indigo, not var(--edit): white on the dark theme's lighter
+       primary measured 3:1. This one is 6.5:1 in both. */
+    .class-strip .chip[aria-pressed="true"] { background: #4c51bf; border-color: #4c51bf; color: #fff; }
+    .class-strip .chip[aria-pressed="true"] small { color: #fff; }
+    .class-strip .chip[aria-pressed="true"] .bare { background: rgba(0, 0, 0, .28); color: #fff; }
+
+    /* The class name in the day grid opens that class's whole week. */
+    table.grid th .cls-link {
+        font: inherit; font-weight: 700; color: var(--text); background: none; border: 0; padding: 0;
+        cursor: pointer; text-decoration: underline dotted; text-underline-offset: 3px;
+    }
+    table.grid th .cls-link:hover { color: var(--edit); }
+
     td.cell { cursor: pointer; }
+    td.cell .subject.none { font-weight: 400; font-style: italic; color: var(--muted); }
     td.cell .box { padding: 6px 8px; min-height: 42px; border-radius: 4px; }
     td.cell .subject { font-weight: 600; }
     td.cell .teacher { display: block; font-size: 11px; color: var(--muted); }
@@ -176,6 +209,8 @@
     .editor.open { display: block; }
     .editor h2 .who { color: var(--muted); font-weight: 400; }
     .editor .row { display: flex; gap: 14px; align-items: flex-end; flex-wrap: wrap; }
+    .editor .field select optgroup { font-style: normal; }
+    .editor .basis { font-size: 12px; color: var(--muted); margin: 8px 0 0; }
 
     table.list { border-collapse: collapse; width: 100%; font-size: 13px; }
     table.list th, table.list td { border-bottom: 1px solid var(--border); padding: 6px 9px; text-align: left; }
@@ -210,18 +245,6 @@
                 <span>Учебна година</span>
                 <select id="year" disabled></select>
             </label>
-            <label class="field">
-                <span>Приказ</span>
-                <select id="view">
-                    <option value="class">По одделение · еден ден</option>
-                    <option value="classweek">По одделение · цела недела</option>
-                    <option value="teacher">По наставник · цела недела</option>
-                </select>
-            </label>
-            <label class="field" id="classField" style="display:none;">
-                <span>Одделение</span>
-                <select id="klass"></select>
-            </label>
             <label class="field" id="dayField">
                 <span>Ден</span>
                 <select id="day"></select>
@@ -235,6 +258,15 @@
                     title="Секое одделение на своја страница, како распоредот што стои на вратата">⎙ Печати</button>
             <span class="status" id="status"></span>
         </div>
+        <!-- The same tab strip as Настава ↔ терапии and S-Dnevnik. The views
+             were options of a dropdown, and the class week was built and then
+             not found: a choice nobody opens is a feature nobody has. -->
+        <div class="views mtb-tabs" id="views">
+            <button class="btn soft" data-view="class" aria-pressed="true">🏫 По одделение · еден ден</button>
+            <button class="btn soft" data-view="classweek" aria-pressed="false">📅 Одделение · цела недела</button>
+            <button class="btn soft" data-view="teacher" aria-pressed="false">👩‍🏫 Наставник · цела недела</button>
+        </div>
+        <div class="class-strip" id="classStrip" role="group" aria-label="Одделение" style="display:none;"></div>
     </div>
 
     <div class="panel" id="gridPanel">
@@ -535,7 +567,15 @@
         return map;
     }
 
-    const view = () => el('view').value;
+    const VIEWS = ['class', 'classweek', 'teacher'];
+    let currentView = 'class';
+    const view = () => currentView;
+
+    function setView(next) {
+        currentView = VIEWS.includes(next) ? next : 'class';
+        el('views').querySelectorAll('[data-view]').forEach((b) =>
+            b.setAttribute('aria-pressed', String(b.dataset.view === currentView)));
+    }
 
     /**
      * The whole week, one row per teacher, the class in the cell.
@@ -765,7 +805,7 @@
         const classWeek = view() === 'classweek';
         el('dayField').style.display = weekly || classWeek ? 'none' : '';
         el('onlyUsedField').style.display = weekly || classWeek ? 'none' : '';
-        el('classField').style.display = classWeek ? '' : 'none';
+        el('classStrip').style.display = classWeek ? '' : 'none';
         el('printWeek').style.display = classWeek ? '' : 'none';
         if (classWeek) {
             drawClasses();
@@ -830,14 +870,66 @@
         return roster.promise;
     }
 
-    function fillClassPicker() {
-        const pick = el('klass');
-        const want = pick.value || new URLSearchParams(window.location.search).get('class') || '';
-        const labels = (data.classes || []).map((c) => c.label);
-        pick.innerHTML = (data.classes || []).map((c) =>
-            `<option value="${esc(c.label)}">${esc(c.label)}${c.description ? ' · ' + esc(c.description) : ''}</option>`).join('')
-            + (labels.length > 1 ? `<option value="${ALL_CLASSES}">— сите одделенија —</option>` : '');
-        pick.value = (want === ALL_CLASSES && labels.length > 1) || labels.includes(want) ? want : (labels[0] || '');
+    let chosenClass = new URLSearchParams(window.location.search).get('class') || '';
+
+    /**
+     * One button per class instead of a dropdown, each saying how many
+     * lessons it has and how many still have no subject. Filling the year in
+     * is working down that second number, and a closed <select> hid it
+     * behind a click per class.
+     */
+    function drawClassStrip() {
+        const classes = data.classes || [];
+        const labels = classes.map((c) => c.label);
+        if (!((chosenClass === ALL_CLASSES && labels.length > 1) || labels.includes(chosenClass))) {
+            chosenClass = labels[0] || '';
+        }
+        const tally = new Map();
+        (data.lessons || []).forEach((l) => {
+            const t = tally.get(l.class) || { total: 0, bare: 0 };
+            t.total++;
+            if (!l.subject) t.bare++;
+            tally.set(l.class, t);
+        });
+        const chip = (value, label, t, title) =>
+            `<button type="button" class="chip" data-class="${esc(value)}"`
+            + ` aria-pressed="${value === chosenClass}" title="${esc(title)}"><b>${esc(label)}</b>`
+            + `<small>${t.total ? `${t.total} ${t.total === 1 ? 'час' : 'часа'}` : 'нема часови'}</small>`
+            + (t.bare ? `<small><span class="bare">${t.bare} без предмет</span></small>` : '')
+            + '</button>';
+        let html = classes.map((c) => chip(c.label, c.label, tally.get(c.label) || { total: 0, bare: 0 },
+            c.label + (c.description ? ' · ' + c.description : ''))).join('');
+        if (labels.length > 1) {
+            const all = { total: 0, bare: 0 };
+            tally.forEach((t) => { all.total += t.total; all.bare += t.bare; });
+            html += chip(ALL_CLASSES, 'Сите', all, 'Сите одделенија, секое на своја страница при печатење');
+        }
+        el('classStrip').innerHTML = html;
+    }
+
+    /** What the subject list is based on, said once under the picker. */
+    function basisText(offer) {
+        return offer.basis === 'oddelenie'
+            ? `Предметите во листата се за ${esc((offer.grades || []).join(', '))} одделение — според запишаните ученици.`
+            : offer.basis === 'label'
+                ? `Предметите во листата се за ${esc((offer.grades || []).join(', '))} одделение — според ознаката.`
+                : 'Во листата се сите предмети — одделението на учениците не е запишано.';
+    }
+
+    /**
+     * The saved value is selected AFTER the options exist. If it is not
+     * among them it is added, never left showing „—": a select that silently
+     * reads blank would send an empty subject with the next teacher change,
+     * and wipe a lesson nobody touched.
+     */
+    function selectOrAdd(select, want) {
+        select.value = want;
+        if (select.value === want) return;
+        const o = document.createElement('option');
+        o.value = want;
+        o.textContent = want;
+        select.insertBefore(o, select.options[1] || null);
+        select.value = want;
     }
 
     function subjectOptionsHtml(offer) {
@@ -900,11 +992,7 @@
         } else if (pupilsHere) {
             pupilsLine = '<p class="cw-meta no-print">Нема ученици запишани во ова одделение за оваа година.</p>';
         }
-        const basis = offer.basis === 'oddelenie'
-            ? `Предметите во листата се за ${esc((offer.grades || []).join(', '))} одделение — според запишаните ученици.`
-            : offer.basis === 'label'
-                ? `Предметите во листата се за ${esc((offer.grades || []).join(', '))} одделение — според ознаката.`
-                : 'Во листата се сите предмети — одделението на учениците не е запишано.';
+        const basis = basisText(offer);
 
         let html = `<section class="cw-sheet" data-sheet="${esc(label)}">`
             + `<h2>${esc(label)} распоред на часови <span class="who">${esc(data.year)}</span></h2>`
@@ -935,7 +1023,7 @@
                     html += `<td class="cw clash" data-class="${esc(label)}" data-day="${esc(d)}" data-ordinal="${p.ordinal}"`
                         + ` title="${esc(where)} — ${here.length} часа во ист термин">`
                         + `<div class="cw-clash no-print">⚠ ${here.length} часа</div>`
-                        + here.map((l) => `<div class="cw-two no-print">${esc(l.subject || '·')} · `
+                        + here.map((l) => `<div class="cw-two no-print">${esc(l.subject || 'без предмет')} · `
                             + `<small>${esc(l.teacher || 'без наставник')}</small></div>`).join('')
                         + `<span class="print-only">${here.map((l) => esc(l.subject || '')).filter(Boolean).join(' / ')}</span>`
                         + '</td>';
@@ -976,8 +1064,8 @@
     let sheetTicket = 0;
     async function drawClassWeek() {
         const mine = ++sheetTicket;
-        fillClassPicker();
-        const chosen = el('klass').value;
+        drawClassStrip();
+        const chosen = chosenClass;
         const classes = (data.classes || []).filter((c) => chosen === ALL_CLASSES || c.label === chosen);
         if (!classes.length) {
             el('grid').innerHTML = '<p class="hint">Нема одделенија за оваа година. Додај едно подолу, под „Одделенија".</p>';
@@ -1010,21 +1098,7 @@
             + Array.from(everything).sort((a, b) => a.localeCompare(b, 'mk')).map((s) => `<option value="${esc(s)}">`).join('')
             + '</datalist>';
 
-        // The saved value is selected AFTER the options exist. If it is not
-        // among them it is added, never left showing „—": a select that
-        // silently reads blank would send an empty subject with the next
-        // teacher change, and wipe a lesson nobody touched.
-        el('grid').querySelectorAll('select[data-current]').forEach((s) => {
-            const want = s.dataset.current;
-            s.value = want;
-            if (s.value !== want) {
-                const o = document.createElement('option');
-                o.value = want;
-                o.textContent = want;
-                s.insertBefore(o, s.options[1] || null);
-                s.value = want;
-            }
-        });
+        el('grid').querySelectorAll('select[data-current]').forEach((s) => selectOrAdd(s, s.dataset.current));
     }
 
     const cwKey = (td) => td.dataset.class + '|' + td.dataset.day + '|' + td.dataset.ordinal;
@@ -1181,13 +1255,16 @@
             + periods().map((p) => `<th>${esc(p.label)}<small>${esc(p.startsAt)}</small></th>`).join('')
             + '</tr></thead><tbody>';
         classes.forEach((c) => {
-            html += `<tr><th>${esc(c.label)}</th>`;
+            html += `<tr><th><button type="button" class="cls-link" data-week="${esc(c.label)}"`
+                + ` title="${esc('Цела недела за ' + c.label)}">${esc(c.label)}</button></th>`;
             periods().forEach((p) => {
                 const list = cells.get(cellKey(c.label, p.ordinal)) || [];
                 const key = cellKey(c.label, p.ordinal);
                 const cls = list.length > 1 ? 'clash' : (list.length ? 'has' : 'empty');
                 const inner = list.length
-                    ? list.map((l) => `<span class="subject">${esc(l.subject || '·')}</span>`
+                    ? list.map((l) => (l.subject
+                        ? `<span class="subject">${esc(l.subject)}</span>`
+                        : '<span class="subject none">без предмет</span>')
                         + `<span class="teacher" title="${esc(l.teacher || '')}">${esc(l.teacher || 'без наставник')}</span>`).join('')
                     : '<span class="teacher">+</span>';
                 html += `<td class="cell ${cls}" data-key="${esc(key)}" data-class="${esc(c.label)}" `
@@ -1213,53 +1290,85 @@
         return Array.from(seen).sort((a, b) => a.localeCompare(b, 'mk'));
     }
 
-    function openCell(label, ordinal) {
+    /**
+     * The panel under the day grid. Its two pickers are the class week's two
+     * pickers — the MON catalogue for THIS class and its own teachers first.
+     * It used to be a text box suggesting only what was already typed this
+     * year, so the first subject of a class could not be picked at all, and
+     * the same lesson was offered as a list in one view and as five
+     * abbreviations in the other.
+     */
+    let editorTicket = 0;
+    async function openCell(label, ordinal) {
+        const mine = ++editorTicket;
         const day = el('day').value;
         const list = (cellsOfDay().get(cellKey(label, ordinal)) || []);
         selected = { day, class: label, ordinal };
         const box = el('editor');
         const period = periods().find((p) => p.ordinal === ordinal);
         const lesson = list[0] || null;
+        const heading = `<h2>${esc(label)} · ${ordinal}. час <span class="who">`
+            + `${esc(day)}${period ? ' · ' + esc(period.startsAt) : ''}</span></h2>`;
 
         box.className = 'panel editor open';
-        box.innerHTML =
-            `<h2>${esc(label)} · ${ordinal}. час <span class="who">`
-            + `${esc(day)}${period ? ' · ' + esc(period.startsAt) : ''}</span></h2>`
-            + (list.length > 1
-                ? `<div class="caution">Овој час има ${list.length} записи за истото одделение. `
-                  + 'Избриши ги вишокот прво — не може да се знае кој од нив е точниот.</div>'
-                  + '<ul class="clash-list">' + list.map((l) =>
-                        `<li>${esc(l.subject || '—')} · ${esc(l.teacher || 'без наставник')} `
-                        + `<button class="btn danger" data-drop="${l.id}">Избриши</button></li>`).join('') + '</ul>'
-                : '<div class="row">'
-                  + '<label class="field"><span>Предмет</span>'
-                  + `<input id="edSubject" list="subjects" value="${esc(lesson ? lesson.subject || '' : '')}"></label>`
-                  + '<label class="field"><span>Наставник</span><select id="edTeacher">'
-                  + '<option value="">— без наставник —</option>'
-                  + (data.teachers || []).map((t) =>
-                        `<option value="${esc(t.name)}"${lesson && lesson.teacher === t.name ? ' selected' : ''}>`
-                        + `${esc(t.name)}${t.subject ? ' · ' + esc(t.subject) : ''}</option>`).join('')
-                  + '</select></label>'
-                  + '<button class="btn" id="edSave">Зачувај</button>'
-                  + '<button class="btn soft" id="edNext">Зачувај и следен →</button>'
-                  + (lesson ? `<button class="btn danger" id="edDrop">Испразни го часот</button>` : '')
-                  + '<button class="btn soft" id="edClose">Откажи</button>'
-                  + '</div>'
-                  + `<datalist id="subjects">${subjectList().map((s) => `<option value="${esc(s)}">`).join('')}</datalist>`
-                  + '<p class="hint" style="margin-top:10px;">Enter зачувува и оди на следниот час, Esc откажува.</p>');
-
         markSelected();
-        // With twenty classes the editor opens below the fold, and a form that
-        // is off screen reads as a click that did nothing.
-        box.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
         if (list.length > 1) {
+            box.innerHTML = heading
+                + `<div class="caution">Овој час има ${list.length} записи за истото одделение. `
+                + 'Избриши ги вишокот прво — не може да се знае кој од нив е точниот.</div>'
+                + '<ul class="clash-list">' + list.map((l) =>
+                    `<li>${esc(l.subject || 'без предмет')} · ${esc(l.teacher || 'без наставник')} `
+                    + `<button class="btn danger" data-drop="${l.id}">Избриши</button></li>`).join('') + '</ul>';
+            box.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
             box.querySelectorAll('[data-drop]').forEach((b) =>
                 b.addEventListener('click', () => dropLesson(Number(b.dataset.drop))));
             return;
         }
+
+        // The previous cell's form goes at once, before the catalogue
+        // arrives: otherwise a quick hand types into the cell it just left.
+        box.innerHTML = heading + '<p class="hint">вчитувам ги предметите…</p>';
+        const offer = await subjectsFor(label);
+        if (mine !== editorTicket) return;
+
+        const everything = new Set(subjectList());
+        (offer.subjects || []).forEach((s) => everything.add(s.subject));
+        box.innerHTML = heading
+            + '<div class="row">'
+            + `<label class="field"><span>Предмет</span><select id="edSubject">${subjectOptionsHtml(offer)}</select></label>`
+            + `<label class="field"><span>Наставник</span><select id="edTeacher">${teacherOptionsHtml(label)}</select></label>`
+            + '<button class="btn" id="edSave">Зачувај</button>'
+            + '<button class="btn soft" id="edNext">Зачувај и следен →</button>'
+            + (lesson ? `<button class="btn danger" id="edDrop">Испразни го часот</button>` : '')
+            + '<button class="btn soft" id="edClose">Откажи</button>'
+            + `<button class="btn soft" id="edWeek" title="Истото одделение, сите пет дена">📅 Цела недела за ${esc(label)}</button>`
+            + '</div>'
+            + '<datalist id="edSubjects">'
+            + Array.from(everything).sort((a, b) => a.localeCompare(b, 'mk')).map((s) => `<option value="${esc(s)}">`).join('')
+            + '</datalist>'
+            + `<p class="basis">${basisText(offer)}</p>`
+            + '<p class="hint" style="margin-top:10px;">Enter зачувува и оди на следниот час, Esc откажува.</p>';
+        selectOrAdd(el('edSubject'), lesson ? lesson.subject || '' : '');
+        selectOrAdd(el('edTeacher'), lesson ? lesson.teacher || '' : '');
+
+        // With twenty classes the editor opens below the fold, and a form that
+        // is off screen reads as a click that did nothing.
+        box.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+        // „✎ друг предмет…": the picker becomes a text field, as in the week.
+        el('edSubject').addEventListener('change', (event) => {
+            if (event.target.value !== OTHER) return;
+            const input = document.createElement('input');
+            input.id = 'edSubject';
+            input.setAttribute('list', 'edSubjects');
+            input.placeholder = 'име на предметот';
+            input.value = lesson ? lesson.subject || '' : '';
+            event.target.replaceWith(input);
+            input.focus();
+            input.select();
+        });
+        el('edWeek').addEventListener('click', () => openClassWeek(label));
         const subject = el('edSubject');
         subject.focus();
-        subject.select();
         el('edSave').addEventListener('click', () => saveCell(false));
         el('edNext').addEventListener('click', () => saveCell(true));
         el('edClose').addEventListener('click', closeEditor);
@@ -1289,6 +1398,10 @@
         const was = list[0] || null;
         const subject = tidy(el('edSubject').value);
         const teacher = tidy(el('edTeacher').value);
+        if (subject === OTHER) {
+            status('Напиши го името на предметот.', 'warn');
+            return;
+        }
         if (!subject && !teacher) {
             // An empty save on an empty cell is not an edit; on a filled one it
             // would be a delete by accident, and deleting has its own button.
@@ -1515,12 +1628,31 @@
         url.searchParams.set(name, value);
         window.history.replaceState(null, '', url);
     };
-    (function initialView() {
-        const want = new URLSearchParams(window.location.search).get('view');
-        if (want && Array.from(el('view').options).some((o) => o.value === want)) el('view').value = want;
-    })();
-    el('view').addEventListener('change', () => { closeEditor(); remember('view', el('view').value); draw(); });
-    el('klass').addEventListener('change', () => { remember('class', el('klass').value); draw(); });
+    setView(new URLSearchParams(window.location.search).get('view'));
+    function goToView(next) {
+        closeEditor();
+        setView(next);
+        remember('view', currentView);
+        draw();
+    }
+    /** From any class name straight to that class's week. */
+    function openClassWeek(label) {
+        chosenClass = label;
+        remember('class', label);
+        goToView('classweek');
+        el('gridPanel').scrollIntoView({ block: 'start', behavior: 'smooth' });
+    }
+    el('views').addEventListener('click', (event) => {
+        const b = event.target.closest('[data-view]');
+        if (b && b.dataset.view !== currentView) goToView(b.dataset.view);
+    });
+    el('classStrip').addEventListener('click', (event) => {
+        const b = event.target.closest('[data-class]');
+        if (!b || b.dataset.class === chosenClass) return;
+        chosenClass = b.dataset.class;
+        remember('class', chosenClass);
+        draw();
+    });
     el('printWeek').addEventListener('click', () => window.print());
     el('refresh').addEventListener('click', () => {
         // A refresh is the person asking for what the database holds NOW,
@@ -1542,6 +1674,8 @@
         if (td) flushCell(td);
     });
     el('grid').addEventListener('click', (event) => {
+        const week = event.target.closest('[data-week]');
+        if (week) { openClassWeek(week.dataset.week); return; }
         const td = event.target.closest('td.cell');
         if (!td) return;
         // The weekly grid edits in place; the day grid opens the panel below it.

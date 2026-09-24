@@ -116,10 +116,35 @@ const run = async () => {
         await page.waitForSelector('#edSubject', { timeout: 4000 });
     };
 
-    console.log('typing into an empty cell writes one lesson, and only one');
+    // The subject is picked from the class's catalogue; anything else goes
+    // through „✎ друг предмет…", which turns the picker into a text field.
+    const typeSubject = async (text) => {
+        await page.selectOption('#edSubject', '__other__');
+        await page.waitForSelector('input#edSubject', { timeout: 2000 });
+        await page.fill('#edSubject', text);
+    };
+
+    console.log('the views are tabs, and the day editor offers the same lists as the week');
+    const tabs = await page.$$eval('#views [data-view]', (b) => b.map((x) => [x.dataset.view, x.getAttribute('aria-pressed')]));
+    checkEq('three view tabs, the day grid chosen', tabs, [['class', 'true'], ['classweek', 'false'], ['teacher', 'false']]);
+    await openCell(2);
+    const dayOffer = await page.$$eval('#edSubject option', (o) => o.map((x) => x.value));
+    check('the day editor offers the MON catalogue, not only what is already typed',
+        dayOffer.includes('Математика') && dayOffer.includes('__other__'), dayOffer.slice(0, 8).join(', '));
+    const teachOffer = await page.$$eval('#edTeacher option', (o) => o.map((x) => x.value));
+    check('and the teachers of the year', teachOffer.includes(TEACHER), teachOffer.join(', '));
+    await page.selectOption('#edSubject', 'Математика');
+    await page.click('#edSave');
+    await page.waitForTimeout(700);
+    checkEq('a subject picked from the list is written as it reads', (await cellIn(year.id, 2))[0]?.subject, 'Математика');
+    await page.click('#edDrop');
+    await page.waitForTimeout(700);
+    checkEq('and emptied again, so the rest of the suite starts from an empty period', (await cellIn(year.id, 2)).length, 0);
+
+    console.log('\ntyping into an empty cell writes one lesson, and only one');
     check('the empty cell is drawn', (await cellText(1))?.cls.includes('empty'), JSON.stringify(await cellText(1)));
     await openCell(1);
-    await page.fill('#edSubject', 'мак.');
+    await typeSubject('мак.');
     await page.selectOption('#edTeacher', TEACHER);
     await page.click('#edSave');
     await page.waitForTimeout(700);
@@ -132,7 +157,7 @@ const run = async () => {
 
     console.log('\none Enter is one write, and it moves to the next period');
     await openCell(3);
-    await page.fill('#edSubject', 'з.о.');
+    await typeSubject('з.о.');
     await page.press('#edSubject', 'Enter');
     await page.waitForTimeout(800);
     rows = await cellIn(year.id, 3);
@@ -145,7 +170,7 @@ const run = async () => {
     await openCell(5);
     await openCell(6);
     await openCell(7);
-    await page.fill('#edSubject', 'физ.');
+    await typeSubject('физ.');
     await page.press('#edSubject', 'Enter');
     await page.waitForTimeout(800);
     checkEq('after opening four cells, one Enter still writes one lesson', (await cellIn(year.id, 7)).length, 1);
@@ -154,7 +179,7 @@ const run = async () => {
 
     console.log('\nediting a filled cell changes it in place');
     await openCell(1);
-    await page.fill('#edSubject', 'мат.');
+    await typeSubject('мат.');
     await page.click('#edSave');
     await page.waitForTimeout(700);
     rows = await cellIn(year.id, 1);
@@ -165,7 +190,7 @@ const run = async () => {
     // Behind the page's back, exactly as a re-import or another machine would.
     await q(`UPDATE lessons SET subject = 'лик.' WHERE id = $1`, [rows[0].id]);
     await openCell(1);
-    await page.fill('#edSubject', 'муз.');
+    await typeSubject('муз.');
     await page.click('#edSave');
     await page.waitForTimeout(700);
     const status = await page.evaluate(() => document.getElementById('status').textContent);
@@ -200,8 +225,8 @@ const run = async () => {
         + `&view=classweek&class=${encodeURIComponent(CLASS)}`);
     await page.waitForSelector('#grid table.cweek', { timeout: 8000 });
     const shape = await page.evaluate(() => ({
-        view: document.getElementById('view').value,
-        klass: document.getElementById('klass').value,
+        view: (document.querySelector('#views [aria-pressed="true"]') || {}).dataset?.view,
+        klass: (document.querySelector('#classStrip [aria-pressed="true"]') || {}).dataset?.class,
         heads: Array.from(document.querySelectorAll('#grid table.cweek thead th')).map((t) => t.textContent.trim()),
         rows: document.querySelectorAll('#grid table.cweek tbody tr').length,
         cells: document.querySelectorAll('#grid td.cw').length
@@ -299,7 +324,22 @@ const run = async () => {
     checkEq('on paper the cell is the subject, not a dropdown',
         [printed.select, printed.shown, printed.text], ['none', 'block', 'Планинарење']);
 
-    await page.selectOption('#view', 'class');
+    const chip = await page.evaluate((label) => {
+        const b = document.querySelector(`#classStrip [data-class="${label}"]`);
+        return b ? b.textContent.replace(/\s+/g, ' ').trim() : null;
+    }, CLASS);
+    check('the class strip says how many lessons the class has', /\d+ час/.test(String(chip)), String(chip));
+
+    await page.click('#views [data-view="class"]');
+    await page.waitForSelector('#grid table.grid.day', { timeout: 4000 });
+    checkEq('the tab puts the view in the address', new URL(page.url()).searchParams.get('view'), 'class');
+
+    console.log('\na class name in the day grid opens the week of that class');
+    await page.click(`#grid [data-week="${CLASS}"]`);
+    await page.waitForSelector('#grid table.cweek', { timeout: 4000 });
+    checkEq('the week of the class that was clicked',
+        await page.evaluate(() => Array.from(document.querySelectorAll('#grid .cw-sheet')).map((x) => x.dataset.sheet)), [CLASS]);
+    await page.click('#views [data-view="class"]');
     await page.waitForSelector('#grid table.grid.day', { timeout: 4000 });
 
     console.log('\nadding a class goes to the server, not to a list in the page');
