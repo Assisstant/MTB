@@ -306,4 +306,4 @@ pCloud — any shared folder or e-mail works the same way.
 Found on the way: the queue writes accepted items by injecting requests into
 its own routes, and the cloud's Google gate refused them (no session cookie,
 no Origin). Injected requests now carry an in-memory secret (lib/internal.ts)
-that the gate and  recognise; nothing outside the process can know it.
+that the gate and `scopeOf` recognise; nothing outside the process can know it.
