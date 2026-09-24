@@ -125,8 +125,27 @@ export async function dataRoutes(server: FastifyInstance) {
         const year = years[0];
 
         const [classes, teachers, therapists, students, studentCandidates, teacherCandidates, therapistCandidates, classCandidates] = await Promise.all([
+            // Beside the label: the year's own description (display only,
+            // migration 031) and what the TIMETABLE says about the class, so
+            // the annual list can show whether the class it lists is the one
+            // the timetable is being filled for. `unlinked_teachers` are
+            // people teaching the class in the timetable whom nobody has
+            // linked to it — the two facts are kept separately on purpose,
+            // and this is where they are seen side by side. All additive.
             pool.query(
-                `SELECT c.id, c.label FROM class_years cy
+                `SELECT c.id, c.label, cy.description,
+                        (SELECT count(*)::int FROM lessons l
+                          WHERE l.class_id = c.id AND l.school_year_id = $1) AS lessons,
+                        (SELECT count(*)::int FROM lessons l
+                          WHERE l.class_id = c.id AND l.school_year_id = $1
+                            AND nullif(btrim(l.subject), '') IS NULL) AS lessons_without_subject,
+                        coalesce((SELECT array_agg(DISTINCT t.name ORDER BY t.name)
+                                    FROM lessons l JOIN teachers t ON t.id = l.teacher_id
+                                   WHERE l.class_id = c.id AND l.school_year_id = $1
+                                     AND NOT EXISTS (SELECT 1 FROM teacher_classes tc
+                                                      WHERE tc.class_id = c.id AND tc.school_year_id = $1
+                                                        AND tc.teacher_id = l.teacher_id)), '{}') AS unlinked_teachers
+                 FROM class_years cy
                  JOIN school_classes c ON c.id = cy.class_id
                  WHERE cy.school_year_id = $1 AND cy.active
                  ORDER BY c.sort_key, c.label`, [year.id]),

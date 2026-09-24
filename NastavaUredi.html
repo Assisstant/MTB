@@ -80,6 +80,7 @@
     }
     .class-strip .chip b { display: block; font-weight: 700; }
     .class-strip .chip small { display: block; font-size: 11px; color: var(--muted); white-space: nowrap; }
+    .class-strip .chip .hr { color: var(--text); font-weight: 600; }
     .class-strip .chip .bare {
         display: inline-block; margin-top: 2px; padding: 0 5px; border-radius: 4px;
         background: var(--warn-bg); color: var(--text); font-weight: 600;
@@ -97,6 +98,8 @@
         cursor: pointer; text-decoration: underline dotted; text-underline-offset: 3px;
     }
     table.grid th .cls-link:hover { text-decoration-style: solid; }
+    /* In одделенска настава a class is known by its homeroom teacher. */
+    table.grid tbody th .hr { display: block; font-size: 11px; font-weight: 400; color: var(--muted); }
 
     td.cell { cursor: pointer; }
     /* Upright: a Macedonian italic turns „предмет" into „ūредмеш". */
@@ -177,6 +180,15 @@
     table.grid.cweek select.cw-subj { font-weight: 600; }
     table.grid.cweek select.cw-teach { margin-top: 3px; font-size: 11px; color: var(--muted); }
     table.grid.cweek td.cw.has select.cw-teach { color: var(--text); }
+    /* The week reads as the door sheet: the subject only. The teacher is a
+       fact to look up, not to read on every lesson (owner, 24 Sep 2026) —
+       it is in the cell's tooltip, and its picker appears when the cell is
+       hovered or reached with Tab. `visibility`, not `display`: the space
+       stays, so the rows do not jump while the mouse crosses the grid. */
+    table.grid.cweek td.cw select.cw-teach { visibility: hidden; }
+    table.grid.cweek td.cw:hover select.cw-teach,
+    table.grid.cweek td.cw:focus-within select.cw-teach,
+    table.grid.cweek td.cw.failed select.cw-teach { visibility: visible; }
     table.grid.cweek input.cw-other {
         width: 100%; font: inherit; font-size: 12px; padding: 3px 4px;
         color: var(--text); background: var(--card); border: 1px solid var(--edit); border-radius: 4px;
@@ -647,6 +659,18 @@
         el('grid').innerHTML = html + '</tbody></table>';
     }
 
+    /**
+     * The homeroom's surname — how a class is known in одделенска настава
+     * („кај Христовска"), shown beside the label, never instead of it.
+     */
+    function homeroomSurname(label) {
+        const t = (data.teachers || []).find((x) =>
+            (x.classes || []).some((c) => c.label === label && c.role === 'homeroom'));
+        if (!t) return '';
+        const parts = String(t.name).trim().split(/\s+/);
+        return parts.length > 1 ? parts.slice(1).join(' ') : parts[0];
+    }
+
     /** The school's own words about a class this year, for the hover and the picker. */
     function classNote(label) {
         const c = (data.classes || []).find((x) => x.label === label);
@@ -897,6 +921,7 @@
         const chip = (value, label, t, title) =>
             `<button type="button" class="chip" data-class="${esc(value)}"`
             + ` aria-pressed="${value === chosenClass}" title="${esc(title)}"><b>${esc(label)}</b>`
+            + (value !== ALL_CLASSES && homeroomSurname(value) ? `<small class="hr">${esc(homeroomSurname(value))}</small>` : '')
             + `<small>${t.total ? `${t.total} ${t.total === 1 ? 'час' : 'часа'}` : 'нема часови'}</small>`
             + (t.bare ? `<small><span class="bare">${t.bare} без предмет</span></small>` : '')
             + '</button>';
@@ -1038,7 +1063,7 @@
                     // What this tab believed was in the cell when it drew it —
                     // sent back as `expected`, so a stale tab cannot overwrite.
                     + (l ? ` data-was-id="${l.id}" data-was-subject="${esc(l.subject || '')}" data-was-teacher="${esc(l.teacher || '')}"` : '')
-                    + ` title="${esc(where + ' (' + p.startsAt + ')')}">`
+                    + ` title="${esc(where + ' (' + p.startsAt + ')' + (l && l.teacher ? ' · ' + l.teacher : ''))}">`
                     + `<select class="cw-subj" data-current="${esc(l ? l.subject || '' : '')}"`
                     + ` aria-label="${esc(where + ' · предмет')}">${subjOpts}</select>`
                     + `<select class="cw-teach" data-current="${esc(l ? l.teacher || '' : '')}"`
@@ -1102,6 +1127,11 @@
             + '</datalist>';
 
         el('grid').querySelectorAll('select[data-current]').forEach((s) => selectOrAdd(s, s.dataset.current));
+        // With the teacher out of sight, a lesson that has no subject yet
+        // would read as a free period. Its empty choice says what it is.
+        el('grid').querySelectorAll('td.cw.has select.cw-subj').forEach((s) => {
+            if (!s.value && s.options[0]) s.options[0].textContent = '— без предмет —';
+        });
     }
 
     const cwKey = (td) => td.dataset.class + '|' + td.dataset.day + '|' + td.dataset.ordinal;
@@ -1259,7 +1289,8 @@
             + '</tr></thead><tbody>';
         classes.forEach((c) => {
             html += `<tr><th><button type="button" class="cls-link" data-week="${esc(c.label)}"`
-                + ` title="${esc('Цела недела за ' + c.label)}">${esc(c.label)}</button></th>`;
+                + ` title="${esc('Цела недела за ' + c.label)}">${esc(c.label)}</button>`
+                + (homeroomSurname(c.label) ? `<span class="hr">${esc(homeroomSurname(c.label))}</span>` : '') + '</th>';
             periods().forEach((p) => {
                 const list = cells.get(cellKey(c.label, p.ordinal)) || [];
                 const key = cellKey(c.label, p.ordinal);

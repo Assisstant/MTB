@@ -194,6 +194,19 @@
     .grid-pick input[type=checkbox] { width: 16px; height: 16px; flex: 0 0 auto; }
     .grid-pick select { width: auto; padding: 2px 4px; font-size: 12px; }
     .class-label { font-weight: 700; white-space: nowrap; }
+    /* Under the label, the rest of how the school names a class — in the
+       Word list it is one cell: „Комбинирана / II, III, IV". Here it is the
+       three facts it is made of, each from its own owner: the year's
+       description, the pupils' own generations, the homeroom beside it. */
+    .class-desc { display: block; font-size: 12px; color: var(--text); margin-top: 2px; }
+    .class-desc.none { color: var(--muted); }
+    .class-gen { display: block; font-size: 12px; color: var(--muted); margin-top: 2px; }
+    .class-checks { list-style: none; margin: 6px 0 0; padding: 0; font-size: 12px; line-height: 1.35; max-width: 260px; }
+    .class-checks li { margin: 2px 0; }
+    .class-checks li.warn { color: var(--warn); }
+    .class-checks li.warn::before { content: '⚠ '; }
+    .class-checks li.info { color: var(--muted); }
+    .class-checks li.info::before { content: 'ℹ '; }
     .class-actions { display: flex; justify-content: flex-end; gap: 6px; }
     .class-actions .btn { white-space: nowrap; }
 
@@ -912,7 +925,7 @@
 
     function fillClassSelect(select, selected) {
         select.innerHTML = '<option value="">— без одделение —</option>'
-            + classLabels().map((l) => `<option value="${esc(l)}"${l === selected ? ' selected' : ''}>${esc(l)}</option>`).join('');
+            + classLabels().map((l) => `<option value="${esc(l)}"${l === selected ? ' selected' : ''}>${esc(classOptionText(l))}</option>`).join('');
     }
 
     // ── годишен состав ─────────────────────────────────────────────────────
@@ -970,7 +983,7 @@
         const selected = item.suggested_grade || '';
         const labels = Array.from(new Set([...allClassLabels(), ...(selected ? [selected] : [])]));
         return '<option value="">— без одделение —</option>'
-            + labels.map((label) => `<option value="${esc(label)}"${label === selected ? ' selected' : ''}>${esc(label)}</option>`).join('');
+            + labels.map((label) => `<option value="${esc(label)}"${label === selected ? ' selected' : ''}>${esc(classOptionText(label))}</option>`).join('');
     }
 
     function drawSuggestions(entity) {
@@ -1535,6 +1548,26 @@
         }));
     }
 
+    /**
+     * „Кај Христовска", не „II-б": во одделенска настава паралелката се
+     * препознава по раководителот (сопственикот, 24 септември). Ознаката
+     * останува вредноста што се зачувува; раководителот е само до неа, за
+     * читање, во секој избирач на паралелка.
+     */
+    function homeroomOf(label) {
+        const t = teachersForClass(label).find((x) => x.role === 'homeroom');
+        return t ? personName(t.name) : '';
+    }
+    const surnameOf = (name) => {
+        const parts = String(name || '').trim().split(/\s+/);
+        return parts.length > 1 ? parts.slice(1).join(' ') : (parts[0] || '');
+    };
+    /** How a class reads in a picker: „II-б · Христовска". */
+    function classOptionText(label) {
+        const hr = homeroomOf(label);
+        return hr ? `${label} · ${surnameOf(hr)}` : label;
+    }
+
     const kindLabelOf = (kind) =>
         (KINDS.find(([value]) => value === (kind || 'internal')) || [])[1] || '';
 
@@ -1554,6 +1587,50 @@
         return byLabel;
     }
 
+    /**
+     * What the class IS this year, and what does not add up — read only.
+     *
+     * Nothing here is parsed out of the description: migration 031 keeps it
+     * display-only, and the generations come from the pupils themselves
+     * (`oddelenie`), never from words in a label. The checks only put side by
+     * side facts that have separate owners, so a person can see where they
+     * disagree and correct the one that is wrong.
+     */
+    function classFactsHtml(c, pupils, homeroom) {
+        const active = pupils.filter((s) => s.active !== false);
+        const gens = new Map();
+        active.forEach((s) => {
+            const g = String(s.oddelenie || '').toUpperCase();
+            if (g) gens.set(g, (gens.get(g) || 0) + 1);
+        });
+        const genList = ROMAN.filter((g) => gens.has(g));
+        let html = c.description
+            ? `<span class="class-desc">${esc(c.description)}</span>`
+            : '<span class="class-desc none">без опис</span>';
+        if (genList.length) {
+            html += `<span class="class-gen">одд. ${genList.map((g) => `${g} (${gens.get(g)})`).join(', ')}</span>`;
+        }
+
+        const checks = [];
+        if (!homeroom) checks.push(['warn', 'нема раководител']);
+        const noGen = active.filter((s) => (s.kind || 'internal') !== 'external' && !s.oddelenie).length;
+        if (noGen) checks.push(['warn', `${noGen} без внесено одделение (генерација)`]);
+        if (genList.length > 1 && !c.description) checks.push(['warn', 'повеќе генерации, а нема опис (на пр. „комбинирана паралелка“)']);
+        if (/[\s,]/.test(c.label)) {
+            checks.push(['warn', 'ознаката е и опис — подобро кратка ознака (на пр. II-б), а описот во „Ознака и опис…“. '
+                + 'Ознаката важи за сите години, описот само за оваа.']);
+        }
+        if (typeof c.lessons === 'number') {
+            if (!c.lessons) checks.push(['info', 'во распоредот на настава: нема часови']);
+            else if (c.lessons_without_subject) checks.push(['info', `во распоредот: ${c.lessons} часа, ${c.lessons_without_subject} без предмет`]);
+            else checks.push(['info', `во распоредот: ${c.lessons} часа`]);
+        }
+        (c.unlinked_teachers || []).forEach((name) =>
+            checks.push(['warn', `${personName(name)} предава во распоредот, а не е поврзан со паралелката`]));
+        if (checks.length) html += '<ul class="class-checks">' + checks.map(([kind, text]) => `<li class="${kind}">${esc(text)}</li>`).join('') + '</ul>';
+        return html;
+    }
+
     function drawClasses() {
         const pupilsOf = pupilsByClass();
 
@@ -1567,7 +1644,7 @@
                 const pupils = pupilsOf.get(c.label) || [];
                 return `<tr data-class="${c.id}">`
                     + rowNumberCell('classes', c.id, index, (data.classes || []).length)
-                    + `<td><span class="class-label">${esc(c.label)}</span></td>`
+                    + `<td><span class="class-label">${esc(c.label)}</span>${classFactsHtml(c, pupils, homeroom)}</td>`
                     + '<td><span class="class-pupils">'
                     + `<span class="count">${pupils.length}</span>`
                     + (pupils.length
@@ -1596,7 +1673,7 @@
                     + '<td class="act"><span class="class-actions">'
                     + `<button class="btn soft" data-edit-class-students="${c.id}">Ученици…</button>`
                     + `<button class="btn soft" data-edit-class-teachers="${c.id}">Наставници…</button>`
-                    + `<button class="btn soft" data-edit-class-label="${c.id}">Смени ознака…</button>`
+                    + `<button class="btn soft" data-edit-class-label="${c.id}">Ознака и опис…</button>`
                     + (data.isCurrentYear ? `<button class="btn soft danger" data-remove-class="${c.id}">Тргни од ${esc(data.year)}</button>` : '')
                     + '</span></td></tr>';
             }).join('')
@@ -1700,7 +1777,7 @@
                     + `<td>${esc(personName(s.name))} <span class="none">· ${esc(kindLabelOf(s.kind))}</span></td>`
                     + '<td class="act"><select data-move-student="' + esc(s.public_id) + '">'
                     + `<option value="">— премести во… —</option>`
-                    + elsewhereLabels.map((label) => `<option value="${esc(label)}">${esc(label)}</option>`).join('')
+                    + elsewhereLabels.map((label) => `<option value="${esc(label)}">${esc(classOptionText(label))}</option>`).join('')
                     + (mayHaveNoClass(s.kind) ? '<option value="__none__">— без одделение —</option>' : '')
                     + '</select></td></tr>').join('')
                   + '</tbody></table>'
@@ -1804,16 +1881,41 @@
         const box = el('classEditor');
         box.className = 'picker open';
         box.innerHTML =
-            `<h3>Смени ознака на ${esc(cls.label)}</h3>`
-            + '<div class="caution"><b>Ова важи за сите учебни години.</b> Користи го само за исправка на ознаката. За промена на раководител користи „Наставници…“.</div>'
+            `<h3>Ознака и опис на ${esc(cls.label)}</h3>`
+            + `<p class="hint">Опис за <b>${esc(data.year)}</b>, со зборовите на училиштето (на пр. „комбинирана паралелка“, „ученици со оштетен слух“). `
+            + 'Генерациите не се пишуваат тука — тие се читаат од одделението на секое дете.</p>'
+            + '<div class="controls"><label class="field" style="flex:1;min-width:280px;"><span>Опис за оваа година</span>'
+            + `<input id="classDescription" value="${esc(cls.description || '')}" data-was="${esc(cls.description || '')}" placeholder="на пр. комбинирана паралелка"></label>`
+            + `<button class="btn" data-apply-class-description="${id}">Зачувај опис</button></div>`
+            + '<div class="caution" style="margin-top:14px;"><b>Ознаката важи за сите учебни години.</b> Користи ја само за исправка — кратка, како во списокот на училиштето (на пр. II-б). За промена на раководител користи „Наставници…“.</div>'
             + '<div class="controls"><label class="field"><span>Нова ознака</span>'
             + `<input id="classRenameLabel" value="${esc(cls.label)}" data-was="${esc(cls.label)}"></label>`
-            + `<button class="btn" data-apply-class-rename="${id}">Смени ознака</button>`
+            + `<button class="btn soft" data-apply-class-rename="${id}">Смени ознака</button>`
             + '<button class="btn soft" data-close-picker>Откажи</button></div>';
+        box.querySelector('[data-apply-class-description]').addEventListener('click', () => saveClassDescription(id));
         box.querySelector('[data-apply-class-rename]').addEventListener('click', () => renameClass(id));
         box.querySelector('[data-close-picker]').addEventListener('click', closePickers);
-        box.querySelector('#classRenameLabel').focus();
+        box.querySelector('#classDescription').focus();
         box.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    }
+
+    /**
+     * The same endpoint Уреди настава writes through, with `expected` = what
+     * this tab read, so a description changed meanwhile somewhere else is
+     * refused rather than overwritten.
+     */
+    async function saveClassDescription(id) {
+        const input = el('classEditor').querySelector('#classDescription');
+        const description = tidy(input.value);
+        if (description === tidy(input.dataset.was)) return status('Нема промена.', 'warn');
+        try {
+            await api('PUT', '/api/teaching/class/' + id + '/description', {
+                year: data.year, description, expected: tidy(input.dataset.was)
+            });
+            closePickers();
+            await load();
+            status('описот е зачуван за ' + data.year, 'ok', { toast: true });
+        } catch (err) { status(err.message, 'error', { toast: true }); }
     }
 
     async function renameClass(id) {

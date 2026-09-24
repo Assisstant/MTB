@@ -244,10 +244,18 @@ const run = async () => {
     checkEq('choosing a subject writes one lesson', rows.map((r) => r.subject), ['Математика']);
     checkEq('with no teacher, because none was chosen', rows[0] && rows[0].teacher, null);
 
+    // The week shows the subject only; the teacher's picker appears on hover.
+    const teachShown = () => page.$eval(`${cw(WED, 2)} select.cw-teach`, (x) => getComputedStyle(x).visibility);
+    await page.mouse.move(0, 0);
+    checkEq('at rest the cell shows only the subject', await teachShown(), 'hidden');
+    await page.hover(`${cw(WED, 2)}`);
+    checkEq('on hover the teacher can be chosen', await teachShown(), 'visible');
     await page.selectOption(`${cw(WED, 2)} select.cw-teach`, TEACHER);
     await page.waitForTimeout(1500);
     rows = await cellOn(WED, 2);
     checkEq('choosing the teacher changes the same row', rows.map((r) => [r.subject, r.teacher]), [['Математика', TEACHER]]);
+    check('and the cell names the teacher on hover', (await page.$eval(cw(WED, 2), (td) => td.title)).includes(TEACHER),
+        await page.$eval(cw(WED, 2), (td) => td.title));
 
     // A closed <select> fires `change` on each arrow key. Without the pause
     // before sending, this would be three writes and three reloads.
@@ -276,6 +284,7 @@ const run = async () => {
     checkEq('after a refresh the cell shows what the database holds',
         await page.$eval(`${cw(WED, 2)} select.cw-subj`, (s) => s.value), 'лик.');
     await page.selectOption(`${cw(WED, 2)} select.cw-subj`, '');
+    await page.hover(`${cw(WED, 2)}`);
     await page.selectOption(`${cw(WED, 2)} select.cw-teach`, '');
     await page.waitForTimeout(1600);
     checkEq('emptying both pickers frees the period', (await cellOn(WED, 2)).length, 0);
