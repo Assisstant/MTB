@@ -726,8 +726,9 @@ read `DATABASE_URL`; never add literal credentials to this public repository.
   `/api/portal/<segments>` — after the same-origin checks — and nothing else.
   So every `/api/portal/` route must check its own session first
   (`signed()` in routes/portal.ts) and must answer only what that colleague
-  may see: their own week, their own pupils, and for a clash the other name
-  and the term. Anything for the administrator goes OUTSIDE `/api/portal/`
+  may see: their own week, their own pupils (a teacher: the children of the
+  classes they teach or lead; a therapist: their caseload), and for a clash
+  the other name and the term. Anything for the administrator goes OUTSIDE `/api/portal/`
   (`/api/staff-accounts`, `/api/staff-notices`), where the gate still holds.
   The administrator's look at a colleague's form is a token the owner's route
   makes, kept in MEMORY for two hours, passed in the address fragment and

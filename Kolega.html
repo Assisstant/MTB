@@ -97,6 +97,14 @@ header.top h1 { flex: 1; min-width: 180px; }
 .badge.done { color: var(--ok); }
 .count { background: var(--danger); color: #fff; border-radius: 999px; padding: 0 7px; font-size: 13px; margin-left: 4px; }
 [hidden] { display: none !important; }
+.klass { font: inherit; font-weight: 800; color: inherit; background: none; border: 0; padding: 0; margin: 0;
+         border-bottom: 2px dotted var(--muted); border-radius: 0; cursor: help;
+         -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }
+.class-card { position: fixed; z-index: 50; background: var(--panel); color: var(--text); border: 1px solid var(--line);
+              border-radius: 10px; padding: 10px 12px; box-shadow: 0 10px 30px rgba(0, 0, 0, .28); font-size: 14px;
+              max-height: 70vh; overflow: auto; }
+.class-card ul { margin: 6px 0 0; padding-left: 18px; }
+.class-card div { margin-top: 3px; }
 .acting { background: var(--warn-bg); border: 1px solid var(--warn); color: var(--text); border-radius: 10px; padding: 10px 12px; margin: 0 0 12px; }
 </style>
 </head>
@@ -181,6 +189,7 @@ header.top h1 { flex: 1; min-width: 180px; }
     <p class="muted" id="homeUser"></p>
   </section>
 </main>
+<div class="class-card" id="classCard" role="tooltip" hidden></div>
 <script>
 (function () {
     'use strict';
@@ -255,6 +264,104 @@ header.top h1 { flex: 1; min-width: 180px; }
         node.className = 'msg' + (kind ? ' ' + kind : '');
     }
 
+    // ── the class, the way the school knows it ───────────────────────────
+    // The owner, 25 Sep: over a class — the mouse resting on it, or a finger
+    // held on it — the same card as in the rest of the system: its words, its
+    // homeroom teacher, who teaches it what, and the children with their
+    // generation. The children come only for one's own classes (the server
+    // sends no others), so a class one merely picks from the list shows the
+    // rest and no names.
+    const ROMAN = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX'];
+    const properName = (value) => {
+        const clean = String(value == null ? '' : value).replace(/\s+/g, ' ').trim();
+        const letters = clean.replace(/[^\p{L}]/gu, '');
+        if (!letters || letters !== letters.toLocaleUpperCase('mk-MK')) return clean;
+        return clean.toLocaleLowerCase('mk-MK').replace(/(^|[\s\-‐‑–—'’])(\p{L})/gu, (_, b, l) => b + l.toLocaleUpperCase('mk-MK'));
+    };
+    const klassChip = (label) =>
+        `<button type="button" class="klass" data-klass="${esc(label)}" aria-expanded="false" aria-controls="classCard">${esc(label)}</button>`;
+
+    function classCardHtml(label) {
+        const c = (week.classes || []).find((x) => x.label === label) || { label };
+        const teachers = new Map();
+        (week.lessons || []).filter((l) => l.class === label && l.teacher).forEach((l) => {
+            if (!teachers.has(l.teacher)) teachers.set(l.teacher, new Set());
+            if (l.subject) teachers.get(l.teacher).add(l.subject);
+        });
+        let html = `<b>${esc(label)}</b>${c.description ? ' — ' + esc(c.description) : ''}`
+            + `<div>Раководител: ${esc(properName(c.homeroom) || 'не е одреден')}</div>`;
+        if (teachers.size) {
+            html += '<div class="muted">Наставници: ' + [...teachers].map(([t, subjects]) =>
+                esc(properName(t)) + (subjects.size ? ` (${esc([...subjects].join(', '))})` : '')).join('; ') + '</div>';
+        }
+        const kids = (week.classPupils || {})[label];
+        if (kids) {
+            const count = new Map();
+            kids.forEach((k) => { const g = String(k.oddelenie || '').toUpperCase(); if (g) count.set(g, (count.get(g) || 0) + 1); });
+            const gens = ROMAN.filter((g) => count.has(g)).map((g) => `${g} (${count.get(g)})`).join(', ');
+            html += `<div>${kids.length} ${kids.length === 1 ? 'ученик' : 'ученици'}${gens ? ' · одд. ' + gens : ''}</div>`
+                + (kids.length ? '<ul>' + kids.map((k) => `<li>${esc(properName(k.name))}${k.oddelenie ? ' — ' + esc(String(k.oddelenie).toUpperCase()) : ''}</li>`).join('') + '</ul>' : '');
+        }
+        return html;
+    }
+
+    const card = el('classCard');
+    let cardFor = null;
+    let pressTimer = null;
+    function showCard(chip) {
+        card.innerHTML = classCardHtml(chip.dataset.klass);
+        card.hidden = false;
+        if (cardFor && cardFor !== chip) cardFor.setAttribute('aria-expanded', 'false');
+        cardFor = chip;
+        chip.setAttribute('aria-expanded', 'true');
+        // Under the word, inside the screen; above it when there is no room below.
+        const r = chip.getBoundingClientRect();
+        const width = Math.min(360, window.innerWidth - 24);
+        card.style.width = width + 'px';
+        card.style.left = Math.min(Math.max(12, r.left), window.innerWidth - width - 12) + 'px';
+        card.style.top = (r.bottom + 6) + 'px';
+        const height = card.offsetHeight;
+        if (r.bottom + 6 + height > window.innerHeight - 8 && r.top - height - 6 > 8) card.style.top = (r.top - height - 6) + 'px';
+    }
+    function hideCard() {
+        clearTimeout(pressTimer);
+        card.hidden = true;
+        if (cardFor) cardFor.setAttribute('aria-expanded', 'false');
+        cardFor = null;
+    }
+    // The mouse: resting on the class shows it, leaving hides it.
+    document.addEventListener('pointerover', (event) => {
+        if (event.pointerType !== 'mouse') return;
+        const chip = event.target.closest && event.target.closest('.klass');
+        if (chip) showCard(chip);
+    });
+    document.addEventListener('pointerout', (event) => {
+        if (event.pointerType !== 'mouse') return;
+        const chip = event.target.closest && event.target.closest('.klass');
+        if (chip && !chip.contains(event.relatedTarget) && !card.contains(event.relatedTarget)) hideCard();
+    });
+    // A finger: held on the class it shows (and the phone's own long-press
+    // menu stays away); a tap shows it too. Tapping anywhere else hides it.
+    document.addEventListener('pointerdown', (event) => {
+        if (event.pointerType === 'mouse') return;
+        const chip = event.target.closest && event.target.closest('.klass');
+        clearTimeout(pressTimer);
+        if (chip) pressTimer = setTimeout(() => showCard(chip), 450);
+    });
+    document.addEventListener('pointerup', () => clearTimeout(pressTimer));
+    document.addEventListener('contextmenu', (event) => {
+        if (event.target.closest && event.target.closest('.klass')) event.preventDefault();
+    });
+    document.addEventListener('click', (event) => {
+        const chip = event.target.closest && event.target.closest('.klass');
+        if (chip) { event.preventDefault(); showCard(chip); return; }
+        if (!card.hidden && !card.contains(event.target)) hideCard();
+    });
+    // The keyboard: the class is a button, so Tab reaches it and Enter shows it; Esc hides.
+    document.addEventListener('keydown', (event) => { if (event.key === 'Escape') hideCard(); });
+    window.addEventListener('resize', hideCard);
+    window.addEventListener('scroll', () => { if (!card.hidden && cardFor) showCard(cardFor); }, true);
+
     // ── the week ──────────────────────────────────────────────────────────
     const myId = () => week && week.me.teacherId;
     const classText = (label) => {
@@ -287,6 +394,7 @@ header.top h1 { flex: 1; min-width: 180px; }
     }
 
     function drawWeek() {
+        hideCard();
         drawTabs();
         drawClashes();
         drawNotices();
@@ -306,9 +414,9 @@ header.top h1 { flex: 1; min-width: 180px; }
             return;
         }
         const homeroomOf = view.tab.startsWith('class:') ? view.tab.slice(6) : '';
-        el('tabHint').textContent = homeroomOf
-            ? `Часовите на ${classText(homeroomOf)}. Изберете час за да го внесете или смените.`
-            : 'Вашите часови: во која паралелка и кој предмет. Изберете час за да го внесете или смените.';
+        el('tabHint').innerHTML = homeroomOf
+            ? `Часовите на ${klassChip(homeroomOf)}${esc(classText(homeroomOf).slice(homeroomOf.length))}. Изберете час за да го внесете или смените.`
+            : 'Вашите часови: во која паралелка и кој предмет. Допрете ја паралелката за децата и наставниците; изберете час за да го внесете или смените.';
         el('periods').innerHTML = (week.periods || []).map((p) => periodHtml(p, homeroomOf)).join('');
         if (editing) {
             const row = el('periods').querySelector(`[data-ordinal="${editing.ordinal}"]`);
@@ -335,7 +443,7 @@ header.top h1 { flex: 1; min-width: 180px; }
         } else {
             const mine = here.filter((l) => l.teacherId === myId());
             if (mine.length) {
-                what = mine.map((l) => `<b>${esc(l.class)}</b> · ${esc(l.subject || 'без предмет')}`).join('<br>');
+                what = mine.map((l) => `${klassChip(l.class)} · ${esc(l.subject || 'без предмет')}`).join('<br>');
                 const others = here.filter((l) => mine.some((m) => m.class === l.class) && l.teacherId != null && l.teacherId !== myId());
                 const against = others.filter((o) => !mine.some((m) => norm(m.subject) === norm(o.subject)));
                 const together = others.filter((o) => mine.some((m) => norm(m.subject) === norm(o.subject)));

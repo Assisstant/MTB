@@ -26,6 +26,11 @@ const TEACHERS = [A, B, H, T];
 const CLASS = 'ПН-1';
 const OTHER = 'ПН-2';
 const DAY = 'понеделник';
+const KIDS = [
+    { id: 'portal-week-1', name: 'Пробно Дете Недела Прво', class: 'ПН-1', odd: 'II' },
+    { id: 'portal-week-2', name: 'Пробно Дете Недела Второ', class: 'ПН-1', odd: 'III' },
+    { id: 'portal-week-3', name: 'Пробно Дете Недела Трето', class: 'ПН-2', odd: 'IV' }
+];
 
 let fails = 0;
 const check = (label: string, ok: boolean, detail = '') => {
@@ -41,6 +46,7 @@ async function cleanup() {
         await q(`DELETE FROM staff_accounts WHERE employee_id = ANY($1::int[])`, [ids]);
     }
     await q(`DELETE FROM school_years WHERE label = $1`, [YEAR]);
+    await q(`DELETE FROM students WHERE public_id LIKE 'portal-week-%'`);
     await q(`DELETE FROM teachers WHERE name = ANY($1::text[])`, [TEACHERS]);
     await q(`DELETE FROM therapists WHERE name = $1`, [R]);
     await q(`DELETE FROM school_classes WHERE label = ANY($1::text[])`, [[CLASS, OTHER]]);
@@ -68,6 +74,10 @@ async function main() {
         cid[label] = c.id;
     }
     await q(`INSERT INTO teacher_classes (school_year_id, teacher_id, class_id, role) VALUES ($1, $2, $3, 'homeroom')`, [y.id, tid[H], cid[CLASS]]);
+    for (const k of KIDS) {
+        const [st] = await q(`INSERT INTO students (public_id, name, grade) VALUES ($1, $2, $3) RETURNING id`, [k.id, k.name, k.class]);
+        await q(`INSERT INTO student_enrollments (student_id, school_year_id, grade, oddelenie) VALUES ($1, $2, $3, $4)`, [st.id, y.id, k.class, k.odd]);
+    }
     // T already teaches the other class on Tuesday, 1st period.
     await q(`INSERT INTO lessons (school_year_id, day, day_order, ordinal, class_id, teacher_id, subject)
              VALUES ($1, 'вторник', 2, 1, $2, $3, 'Музичко')`, [y.id, cid[OTHER], tid[T]]);
@@ -179,7 +189,15 @@ async function main() {
         check('a therapist has no lessons of their own here', (await put(tr, { day: DAY, ordinal: 5, class: CLASS, subject: 'x' })).status === 403);
         const weekR = await call('GET', '/api/portal/week', tr);
         check('and is shown no timetable', weekR.status === 200 && (weekR.body?.lessons || []).length === 0);
-        check('the week names no pupil', !JSON.stringify(weekA.body).includes('public_id') && !('pupils' in (weekA.body || {})));
+        const kidsA = (await call('GET', '/api/portal/week', ta)).body?.classPupils || {};
+        check('a teacher is shown the children of the class they teach, with their generation',
+            JSON.stringify((kidsA[CLASS] || []).map((k: any) => `${k.name}|${k.oddelenie}`).sort())
+                === JSON.stringify([`${KIDS[0].name}|II`, `${KIDS[1].name}|III`].sort()), JSON.stringify(kidsA));
+        check('and not the children of any other class', !(OTHER in kidsA) && !JSON.stringify(kidsA).includes(KIDS[2].name));
+        const kidsT = (await call('GET', '/api/portal/week', tt)).body?.classPupils || {};
+        check('a teacher in two classes sees both', (kidsT[OTHER] || []).length === 1 && (kidsT[CLASS] || []).length === 2, JSON.stringify(Object.keys(kidsT)));
+        check('the week never carries the id of a pupil', !JSON.stringify(weekA.body).includes('portal-week-'));
+        check('a therapist gets no class list of children', JSON.stringify(weekR.body?.classPupils || {}) === '{}');
         check('without a sign-in, nothing', (await call('GET', '/api/portal/week', '')).status === 401);
     } finally {
         await app.close();

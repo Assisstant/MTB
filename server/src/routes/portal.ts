@@ -299,6 +299,24 @@ async function noticeOpen(n: any, lessons: WeekLesson[], teacherId: number | nul
     return (cell.length > 1 && subjects.size > 1) || twice;
 }
 
+/** The children of the classes a teacher teaches or leads, by class — and no other class. */
+async function ownClassPupils(yearId: number, lessons: WeekLesson[], teacherId: number | null, linked: string[]) {
+    const own = [...new Set([
+        ...lessons.filter((l) => teacherId != null && l.teacherId === teacherId).map((l) => l.class),
+        ...linked
+    ])];
+    if (!own.length) return {};
+    const { rows } = await pool.query(
+        `SELECT e.grade AS class, s.name, e.oddelenie
+           FROM student_enrollments e JOIN students s ON s.id = e.student_id
+          WHERE e.school_year_id = $1 AND e.active AND s.active AND e.grade = ANY($2::text[])
+          ORDER BY s.name`, [yearId, own]);
+    const out: Record<string, Array<{ name: string; oddelenie: string | null }>> = {};
+    own.forEach((label) => { out[label] = []; });
+    rows.forEach((r: any) => out[r.class].push({ name: r.name, oddelenie: r.oddelenie }));
+    return out;
+}
+
 /** The notices for this person, each with whether the clash still stands. */
 async function noticesFor(staff: Staff, yearId: number, lessons: WeekLesson[]) {
     const { rows } = await pool.query(
@@ -409,7 +427,14 @@ export async function portalRoutes(server: FastifyInstance, options: { year?: st
      * The person's week. A teacher gets the school's teaching timetable —
      * which is posted in every staff room anyway — so the form can show whose
      * lesson a cell would sit on before anything is saved; the server checks
-     * again on every write. Nobody gets a pupil's name from this route.
+     * again on every write.
+     *
+     * CHILDREN'S NAMES ONLY FOR ONE'S OWN CLASSES (owner, 25 Sep: „кај
+     * мапираните одделенија … кои се деца"). A teacher is shown the children
+     * of the classes they teach or lead — their own pupils, as colleague.ts
+     * already counts them — and nobody else's. This door is on the internet
+     * with a shared initial password, and a class's words say what the
+     * children's needs are; the whole school's list is not a teacher's to see.
      */
     server.get('/api/portal/week', async (req, reply) => {
         const who = await signed(req, reply);
@@ -429,6 +454,8 @@ export async function portalRoutes(server: FastifyInstance, options: { year?: st
             classes: classes.map((c: any) => ({ label: c.label, description: c.description, homeroom: c.homeroom })),
             teachers: teachers.map((t: any) => ({ id: t.id, name: t.name, subject: t.subject })),
             lessons,
+            classPupils: teaching ? await ownClassPupils(who.year.id, lessons, who.staff.teacherId,
+                (role.teacher?.classes || []).map((c: any) => c.label)) : {},
             clashes: teaching ? standingClashes(lessons, who.staff.teacherId, homeroom) : [],
             cabinet: await cabinetWeek(who.staff, who.year),
             notices: await noticesFor(who.staff, who.year.id, lessons)

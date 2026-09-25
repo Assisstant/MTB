@@ -162,7 +162,8 @@ check('no page errors', errors.length === 0, errors.join('\n       '));
             me: { teacherId: 3, therapistId: null, homeroom: ['II-б'], subject: 'Математика' },
             classes: [{ label: 'I-а', description: 'опис', homeroom: 'Колега Це' }, { label: 'II-б', description: 'Комбинирана', homeroom: 'Ана Измислена' }],
             teachers: [{ id: 3, name: 'Ана Измислена' }, { id: 8, name: 'Колега Це' }, { id: 9, name: 'Колега Бе' }],
-            lessons, clashes: [], notices
+            lessons, clashes: [], notices,
+            classPupils: { 'II-б': [{ name: 'ДЕТЕ ИЗМИСЛЕНО ПРВО', oddelenie: 'II' }, { name: 'Дете Измислено Второ', oddelenie: 'III' }] }
         });
         if (url.pathname === '/api/portal/subjects') return json(200, { subjects: ['Математика', 'Физичко', 'Музичко'] });
         if (url.pathname === '/api/portal/my-lesson') {
@@ -206,6 +207,33 @@ check('no page errors', errors.length === 0, errors.join('\n       '));
     check('„Сепак" saves it and says who was told', writes.some((w) => w.path === '/api/portal/my-lesson' && w.body.force === true));
     check('the period now shows the clash', /Физичко/.test(await p.textContent('#periods [data-ordinal="2"]'))
         && await p.getAttribute('#periods [data-ordinal="2"]', 'class') === 'period clash');
+
+    console.log('\nthe class, as the school knows it');
+    const chip = '#periods [data-ordinal="2"] .klass[data-klass="II-б"]';
+    await p.hover(chip);
+    await p.waitForSelector('#classCard:not([hidden])', { timeout: 3000 });
+    const shown = await p.textContent('#classCard');
+    check('resting the mouse on the class shows its card', /II-б — Комбинирана/.test(shown) && /Раководител: Ана Измислена/.test(shown), shown);
+    check('with who teaches it what', /Колега Бе \(/.test(shown) && /Физичко/.test(shown), shown);
+    check('and the children, with their generation, a name in capitals read as a name',
+        /2 ученици · одд\. II \(1\), III \(1\)/.test(shown) && /Дете Измислено Прво — II/.test(shown) && /Дете Измислено Второ — III/.test(shown), shown);
+    await p.mouse.move(5, 5);
+    await p.waitForTimeout(150);
+    check('moving away hides it', await p.isHidden('#classCard'));
+    await p.evaluate((sel) => {
+        document.querySelector(sel).dispatchEvent(new PointerEvent('pointerdown', { pointerType: 'touch', bubbles: true }));
+    }, chip);
+    await p.waitForTimeout(600);
+    check('a finger held on it shows it too', await p.isVisible('#classCard'));
+    await p.evaluate((sel) => {
+        document.querySelector(sel).dispatchEvent(new PointerEvent('pointerup', { pointerType: 'touch', bubbles: true }));
+    }, chip);
+    await p.keyboard.press('Escape');
+    check('and Esc hides it', await p.isHidden('#classCard'));
+    await p.focus(chip);
+    await p.keyboard.press('Enter');
+    check('the keyboard reaches it: Enter on the class shows it', await p.isVisible('#classCard'));
+    await p.keyboard.press('Escape');
 
     console.log('\nnotices, and a homeroom teacher\'s class');
     check('an unseen notice is counted', (await p.textContent('#unseenCount')).trim() === '1');

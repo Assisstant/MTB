@@ -3788,3 +3788,27 @@ and a page that looks generic in the browser.
   become `MTB_CLOUD_ORIGIN` (the same-origin check and the Google callback), so
   it is the owner's decision, not a code change made ahead of it.
 
+### …and the class card in the colleague's form (25 Sep 2026)
+
+The owner asked for the class card of the rest of the system in the
+colleague's form too: over a class — the mouse resting on it, or a finger
+held on it — its words, its homeroom teacher, who teaches it what, and the
+children with their generation.
+
+- In „Мои часови" and on the homeroom tab each class is a button with a
+  dotted underline. A mouse resting on it, a finger held on it (450 ms, the
+  phone's own long-press menu suppressed), a tap, or Enter shows the card.
+  Leaving it, tapping elsewhere or Esc hides it.
+- **The children only for one's own classes.** `GET /api/portal/week` now
+  carries `classPupils`: names and generations for the classes the teacher
+  teaches (has a lesson in) or leads or is linked to, and for no other class.
+  Those are their own pupils as colleague.ts already counts them. The door is
+  on the internet with a shared initial password, and a class's words say
+  what its children's needs are, so the whole school's list is not every
+  teacher's to see. The card of any other class shows its words, homeroom and
+  teachers, and no names. Never an id.
+
+Tests: `test:portal-week` (the teacher sees the children of the classes they
+teach, not another class's, a teacher of two classes sees both, a therapist
+gets none) and `test:kolega` (mouse, held finger, Esc, keyboard).
+
