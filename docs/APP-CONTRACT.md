@@ -43,8 +43,9 @@ but it must not present parallel versions of the same task.
   absences. The rota itself is calculated (`server/src/lib/duty.ts`) and never
   stored.
   - **The rule:** each working day, the first person in line who is in takes
-    it. Somebody away is covered and keeps their place. A closed day moves
-    nobody. The rotation continues across months.
+    it. Somebody away on their day (sick leave) is skipped: the next person
+    takes it and the list goes on from there (owner, 25 Sep 2026). A closed
+    day moves nobody. The rotation continues across months.
   - **Who changes what:** the administrator changes everything, through
     `/api/duty/*` behind the owner's sign-in. A colleague on the list only marks
     their own absence, from today on, through `/api/portal/duty/absence`.

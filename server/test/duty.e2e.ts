@@ -118,7 +118,7 @@ async function main() {
 
         await call('PUT', '/api/duty/absence', { year: YEAR, date: days[0], employeeId: emp.get(A), absent: true });
         m = await month();
-        checkEq('somebody away is covered, and keeps their place', names(m), [B, A, C, B, A, C]);
+        checkEq('somebody away on their day is skipped, and the list goes on', names(m), [B, C, A, B, C, A]);
         check('the cover says whom it covers', m.days[0].how === 'cover' && m.days[0].covers[0]?.name === A,
             JSON.stringify(m.days[0]));
         await call('PUT', '/api/duty/absence', { year: YEAR, date: days[0], employeeId: emp.get(A), absent: false });
@@ -148,7 +148,7 @@ async function main() {
         const mine = await call('PUT', '/api/portal/duty/absence', { date: days[0], absent: true }, tokenA);
         checkEq('marks themselves away on a day', mine.status, 200);
         checkEq('and the rota moves for everyone',
-            (await call('GET', '/api/portal/duty?month=2098-09', undefined, tokenA)).body?.days?.slice(0, 3).map((d: any) => d.name), [B, A, C]);
+            (await call('GET', '/api/portal/duty?month=2098-09', undefined, tokenA)).body?.days?.slice(0, 3).map((d: any) => d.name), [B, C, A]);
         checkEq('the mark says who made it',
             (await q(`SELECT marked_by FROM duty_absences a JOIN school_years y ON y.id = a.school_year_id
                        WHERE y.label = $1 AND a.employee_id = $2`, [YEAR, emp.get(A)]))[0]?.marked_by, A);

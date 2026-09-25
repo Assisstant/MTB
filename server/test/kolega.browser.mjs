@@ -337,7 +337,9 @@ check('no page errors', errors.length === 0, errors.join('\n       '));
     const month = () => ({
         month: '2026-10', startsOn: '2026-09-01', yearStartsOn: '2026-09-01', yearEndsOn: '2027-08-31',
         members: [7, 8, 9].map((id, i) => ({ employeeId: id, name: people[id], position: i + 1, joinedOn: null, leftOn: null })),
-        days: [day('2026-10-01', 4, 7), day('2026-10-02', 5, 8), day('2026-10-05', 1, 9), day('2026-10-06', 2, 7),
+        days: [day('2026-10-01', 4, 7), day('2026-10-02', 5, 8, { how: 'cover', note: 'боледување',
+                covers: [{ employeeId: 9, name: people[9] }], absent: [{ employeeId: 9, name: people[9] }] }),
+            day('2026-10-05', 1, 9), day('2026-10-06', 2, 7),
             day('2026-10-07', 3, null, { closed: true, note: 'излет', how: 'closed' })]
     });
     const CANDIDATES = [
@@ -385,11 +387,17 @@ check('no page errors', errors.length === 0, errors.join('\n       '));
     check('the duty tab is there for somebody on the list', await c.p.isVisible('#tabs [data-tab="duty"]'));
     await c.p.click('#tabs [data-tab="duty"]');
     await c.p.waitForSelector('#duty table.duty-table', { timeout: 6000 });
-    const rows = await c.p.$$eval('#duty tbody tr', (trs) => trs.map((tr) => ({ cls: tr.className,
+    check('the days gone by are folded away', await c.p.isHidden('#duty tr[data-date="2026-10-01"]')
+        && await c.p.isVisible('#duty tr[data-date="2026-10-02"]'));
+    await c.p.click('#duty [data-duty-past]');
+    check('and open when asked', await c.p.isVisible('#duty tr[data-date="2026-10-01"]'));
+    const rows = await c.p.$$eval('#duty tbody tr[data-date]', (trs) => trs.map((tr) => ({ cls: tr.className,
         text: tr.innerText.replace(/\s+/g, ' ').trim(), away: Boolean(tr.querySelector('[data-duty-away]')) })));
     check('the month reads number, person, day', /^1 Ана Измислена чт 01\.10\.2026/.test(rows[0].text), rows[0].text);
     check('their own days are marked', rows[0].cls.includes('mine') && rows[3].cls.includes('mine'), JSON.stringify(rows.map((r) => r.cls)));
     check('a closed day says why', /без дежурство: излет/.test(rows[4].text), rows[4].text);
+    check('a skipped day says whom it was instead of, and why — and not twice',
+        /наместо Горан Измислен — боледување/.test(rows[1].text) && !/отсутни/.test(rows[1].text), rows[1].text);
     check('a day gone by offers nothing to mark', rows[0].away === false);
     check('today and later offer „Не сум тука"', rows[1].away && rows[2].away);
     check('there are no owner\'s controls', !(await c.p.$('#duty .duty-admin')) && !(await c.p.$('#duty [data-duty-open]')));
@@ -430,7 +438,15 @@ check('no page errors', errors.length === 0, errors.join('\n       '));
         && !(await o.p.isVisible('#duty [data-duty-tick="10"]')));
     await o.p.click('#duty .duty-others summary');
     await o.p.check('#duty [data-duty-tick="10"]');
-    await o.p.click('#duty [data-duty-move="3|-1"]');
+    await o.p.uncheck('#duty [data-duty-tick="8"]');
+    check('somebody unticked no longer figures in the list',
+        JSON.stringify(await o.p.$$eval('#dutyList .nm', (n) => n.map((x) => x.firstChild.textContent.trim())))
+        === JSON.stringify(['Ана Измислена', 'Горан Измислен', 'Нова Измислена']));
+    check('nor in the text of the order', !/Вера/.test(await o.p.inputValue('#dutyPaste')));
+    await o.p.focus('#duty [data-duty-grip="3"]');
+    await o.p.keyboard.press('ArrowUp');
+    check('an arrow on ⠿ moves the row, and keeps the focus there',
+        await o.p.evaluate(() => document.activeElement && document.activeElement.dataset.dutyGrip === '3'));
     await o.p.click('#dutySave');
     await o.p.waitForTimeout(500);
     const setup = o.ownerWrites.find((w) => w.path === '/api/duty/setup');
@@ -438,6 +454,9 @@ check('no page errors', errors.length === 0, errors.join('\n       '));
         setup && JSON.stringify(setup.body.members.map((m) => m.employeeId)) === JSON.stringify([7, 8, 10, 9]), JSON.stringify(setup && setup.body));
     check('and somebody added to a running rotation joins from today, not from the start',
         setup && setup.body.members.find((m) => m.employeeId === 10).joinedOn !== null);
+    check('and the one unticked leaves from today, keeping the months before',
+        setup && setup.body.members.find((m) => m.employeeId === 8).leftOn !== null);
+    check('the list folds away once saved', !(await o.p.$eval('#duty .duty-admin', (d) => d.open)));
     check('no page errors for the owner', o.errs.length === 0, o.errs.join('\n       '));
     await o.ctx.close();
 
@@ -457,11 +476,21 @@ check('no page errors', errors.length === 0, errors.join('\n       '));
     check('„Ана Измислена" is two people here, so it is reported, not picked', /Ана Измислена" може да е повеќе луѓе/.test(said), said);
     check('and a line that is nobody is reported', /Психолог" не е меѓу вработените/.test(said) && /Стручен соработник/.test(said), said);
     check('the start is the paper\'s first day', await f.p.inputValue('#dutyStart') === '2026-09-21');
+    const lastGrip = (await f.p.$$('#dutyList [data-duty-grip]')).pop();
+    const firstRow = await f.p.$('#dutyList li');
+    const g = await lastGrip.boundingBox(), top = await firstRow.boundingBox();
+    await f.p.mouse.move(g.x + g.width / 2, g.y + g.height / 2);
+    await f.p.mouse.down();
+    await f.p.mouse.move(g.x + g.width / 2, top.y + 4, { steps: 8 });
+    await f.p.mouse.up();
+    check('dragging ⠿ moves a row to where it is let go',
+        JSON.stringify(await f.p.$$eval('#dutyList .nm', (n) => n.map((x) => x.textContent.trim())))
+        === JSON.stringify(['Горан Измислен', 'Дана Измислена', 'Вера Измислена']));
     await f.p.click('#dutySave');
     await f.p.waitForTimeout(500);
     const pasted = f.ownerWrites.find((w) => w.path === '/api/duty/setup');
-    check('saved in the paper\'s order, surname first or not, from its first day',
-        pasted && JSON.stringify(pasted.body.members.map((m) => m.employeeId)) === JSON.stringify([11, 8, 9]) && pasted.body.startsOn === '2026-09-21'
+    check('saved in the order, surname first or not, from the paper\'s first day',
+        pasted && JSON.stringify(pasted.body.members.map((m) => m.employeeId)) === JSON.stringify([9, 11, 8]) && pasted.body.startsOn === '2026-09-21'
         && pasted.body.members.every((m) => m.joinedOn === null), JSON.stringify(pasted && pasted.body));
     check('no page errors on a fresh list', f.errs.length === 0, f.errs.join('\n       '));
     await f.ctx.close();

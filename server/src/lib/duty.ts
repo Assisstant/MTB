@@ -11,9 +11,11 @@
  *
  *   - each working day, the first person in the queue who is IN that day
  *     takes it, and goes to the back;
- *   - somebody away is skipped and KEEPS their place at the front, so they are
- *     on duty the next working day they are in. Everyone ends the year with the
- *     same number of duties. (The old app gave the away person's turn away.)
+ *   - somebody away on their day (sick leave, mostly) is SKIPPED: their turn
+ *     is gone, the next person on the list takes the day, and the list goes
+ *     on from there. The day says whom it was instead of, and the note why.
+ *     (Owner, 25 Sep 2026, correcting the first version, where the one away
+ *     kept their place and owed the day back: „на боледување се скока".)
  *   - a closed day (a holiday, an excursion) has no duty, and moves nobody;
  *   - a day given to a named person by agreement: that person takes it and goes
  *     to the back; whoever was next is still next. (The old app made the
@@ -104,23 +106,29 @@ export function dutyRota(input: DutyInput): DutyDay[] {
             out.push({ ...day, closed: true, employeeId: null, how: 'closed', covers: [] });
             continue;
         }
+        // Whoever was due and is away loses the turn: to the back, in order.
+        const at = queue.findIndex((id) => !away.has(id));
+        const skip = () => {
+            const skipped = queue.splice(0, at);
+            queue.push(...skipped);
+            return skipped;
+        };
         if (mark?.assigned != null && !away.has(mark.assigned)) {
+            const skipped = at < 0 ? [] : skip();
             const who = mark.assigned;
-            const at = queue.indexOf(who);
-            if (at >= 0) { queue.splice(at, 1); queue.push(who); }
-            out.push({ ...day, closed: false, employeeId: who, how: 'assigned', covers: [] });
+            const was = queue.indexOf(who);
+            if (was >= 0) { queue.splice(was, 1); queue.push(who); }
+            out.push({ ...day, closed: false, employeeId: who, how: 'assigned', covers: skipped });
             continue;
         }
-        const at = queue.findIndex((id) => !away.has(id));
         if (at < 0) {
             out.push({ ...day, closed: false, employeeId: null, how: 'nobody', covers: [] });
             continue;
         }
-        const who = queue[at];
-        const covers = queue.slice(0, at);
-        queue.splice(at, 1);
+        const covers = skip();
+        const who = queue.shift()!;
         queue.push(who);
-        out.push({ ...day, closed: false, employeeId: who, how: at === 0 ? 'rotation' : 'cover', covers });
+        out.push({ ...day, closed: false, employeeId: who, how: covers.length ? 'cover' : 'rotation', covers });
     }
     return out;
 }

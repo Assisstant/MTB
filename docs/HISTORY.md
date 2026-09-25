@@ -3981,3 +3981,24 @@ for it as a tab on the colleagues' page. Its logic had several faults:
   could be two people is reported, never picked (rule 2).
   The names stay in the database: the page is public, so no list is written
   into it.
+- **Sick leave is skipped (owner, the same evening).** The first rule, "the
+  absent one keeps their place and owes the day back", was the owner's answer
+  to a question. Faced with a real case, the owner corrected it: „на
+  боледување се скока" — the one due and away loses the turn, the next on the
+  list takes the day, and the list goes on from there. The day shows „наместо
+  X" and its note (e.g. боледување). A day given by agreement while the one
+  due is away skips them too, so "the next one, by agreement" and a plain
+  absence give the same month. A colleague's own „Не сум тука" follows the
+  same rule.
+- **The page, reworked the same evening:**
+  - the order is dragged by ⠿ with a mouse or a finger. Pointer events are
+    used, not HTML5 drag and drop, which a phone lacks. An arrow key on ⠿
+    moves a row;
+  - the order can also be written as text, pre-filled with the current list;
+    whoever the text leaves out goes, as an untick does;
+  - somebody unticked no longer figures anywhere on the page. In a running
+    rotation their row stays with the day they left, so earlier months keep
+    them;
+  - the settings fold away once saved;
+  - a month begins at the rotation's first day, and the days gone by fold
+    away until asked for. Printing shows them all.

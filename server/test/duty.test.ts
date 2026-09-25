@@ -28,20 +28,22 @@ test('the list goes round, one working day each', () => {
     assert.deepEqual(who(rota({})), [1, 2, 3, 1, 2, 3]);
 });
 
-test('an absent person is covered and keeps their place: they are on duty the next day they are in', () => {
+test('somebody away on their day is skipped: the next one takes it and the list goes on from there', () => {
     const days = rota({ away: [['2026-09-01', [1]]] });
-    assert.deepEqual(who(days), [2, 1, 3, 2, 1, 3]);
+    assert.deepEqual(who(days), [2, 3, 1, 2, 3, 1]);
     assert.equal(days[0].how, 'cover');
     assert.deepEqual(days[0].covers, [1]);
     assert.deepEqual(days[0].absent, [1]);
 });
 
-test('over a whole cycle everyone does the same number of duties, absence or not', () => {
-    const days = rota({ until: '2026-09-30', away: [['2026-09-01', [1]], ['2026-09-02', [1, 2]], ['2026-09-10', [3]]] });
-    const count = (id: number) => days.filter((d) => d.employeeId === id).length;
-    // 22 working days, three people: nobody is more than one duty apart.
-    const counts = [count(1), count(2), count(3)];
-    assert.ok(Math.max(...counts) - Math.min(...counts) <= 1, String(counts));
+test('somebody away on a day that was not theirs changes nothing', () => {
+    assert.deepEqual(who(rota({ away: [['2026-09-01', [3]]] })), [1, 2, 3, 1, 2, 3]);
+});
+
+test('the next one given the day by agreement, while the one due is away: the same as skipping', () => {
+    const days = rota({ days: [['2026-09-01', { assigned: 2 }]], away: [['2026-09-01', [1]]] });
+    assert.deepEqual(who(days), [2, 3, 1, 2, 3, 1]);
+    assert.deepEqual(days[0].covers, [1]);
 });
 
 test('a closed day has no duty and moves nobody', () => {
@@ -62,7 +64,7 @@ test('a day given to somebody who is away falls back to the rotation', () => {
     assert.equal(days[0].employeeId, 1);
 });
 
-test('everyone away: nobody, and the queue waits', () => {
+test('everyone away: nobody, and the list waits', () => {
     const days = rota({ away: [['2026-09-01', [1, 2, 3]]] });
     assert.deepEqual(who(days), [null, 1, 2, 3, 1, 2]);
     assert.equal(days[0].how, 'nobody');

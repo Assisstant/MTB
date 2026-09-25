@@ -129,6 +129,10 @@ header.top h1 { flex: 1; min-width: 180px; }
 .duty-list { list-style: none; margin: 8px 0; padding: 0; display: grid; gap: 6px; }
 .duty-list li { display: flex; gap: 6px; align-items: center; border: 1px solid var(--line); border-radius: 8px;
                 padding: 6px 8px; background: var(--well); }
+.duty-list li.dragging { opacity: .6; border-style: dashed; }
+.duty-list .grip { cursor: grab; touch-action: none; padding: 4px 8px; }
+.duty-table tr.folded { display: none; }
+@media print { body.printing-duty .duty-table tr.folded { display: table-row !important; } }
 .duty-list li .n { width: 26px; text-align: center; font-weight: 800; }
 .duty-list li .nm { flex: 1; }
 .duty-ticks { display: flex; flex-wrap: wrap; gap: 4px 14px; margin: 8px 0; align-items: center; }
@@ -511,16 +515,19 @@ header.top h1 { flex: 1; min-width: 180px; }
     function dutyRowHtml(d) {
         const mine = d.employeeId != null && d.employeeId === myEmployee();
         const past = d.date < todayIso();
-        const cls = [d.closed ? 'closed' : '', mine ? 'mine' : '', past ? 'past' : '', d.date === todayIso() ? 'today' : ''].filter(Boolean).join(' ');
+        const cls = [d.closed ? 'closed' : '', mine ? 'mine' : '', past ? 'past' : '', past && duty.foldPast ? 'folded' : '',
+            d.date === todayIso() ? 'today' : ''].filter(Boolean).join(' ');
         let who;
         if (d.closed) who = `— без дежурство${d.note ? ': ' + esc(d.note) : ''} —`;
         else if (d.employeeId == null) who = d.how === 'nobody' && d.date >= duty.data.startsOn ? '— нема кој: сите се отсутни —' : '—';
         else {
             who = esc(d.name);
-            if (d.how === 'cover') who += `<span class="sub">наместо ${esc(d.covers.map((c) => c.name).join(', '))}</span>`;
             if (d.how === 'assigned') who += '<span class="sub">по договор</span>';
+            if (d.covers.length) who += `<span class="sub">наместо ${esc(d.covers.map((c) => c.name).join(', '))}${d.note ? ' — ' + esc(d.note) : ''}</span>`;
+            else if (d.note) who += `<span class="sub">${esc(d.note)}</span>`;
         }
-        if (d.absent.length) who += `<span class="sub">отсутни: ${esc(d.absent.map((a) => a.name).join(', '))}</span>`;
+        const alsoAway = d.absent.filter((a) => !d.covers.some((c) => c.employeeId === a.employeeId));
+        if (alsoAway.length) who += `<span class="sub">отсутни: ${esc(alsoAway.map((a) => a.name).join(', '))}</span>`;
         const imAway = d.absent.some((a) => a.employeeId === myEmployee());
         let act = '';
         if (duty.owner) act = `<button type="button" class="small" data-duty-open="${d.date}" aria-expanded="${duty.open === d.date}">⋯</button>`;
@@ -539,16 +546,17 @@ header.top h1 { flex: 1; min-width: 180px; }
 
     /** The administrator's controls for one day, under its row. */
     function dutyDayEditor(d) {
-        const members = duty.data.members || [];
+        // Somebody taken off the list is not offered on a day after they left.
+        const members = (duty.data.members || []).filter((m) => (!m.joinedOn || m.joinedOn <= d.date) && (!m.leftOn || m.leftOn > d.date));
         const assigned = d.how === 'assigned' ? d.employeeId : '';
         return `<tr class="no-print"><td></td><td colspan="2"><form class="duty-day" data-duty-day="${d.date}">`
             + `<div><label style="display:flex;align-items:center;gap:6px;font-weight:500;margin:0 0 4px">`
             + `<input type="checkbox" name="closed"${d.closed ? ' checked' : ''} style="width:auto"> Нема дежурство (празник, екскурзија)</label>`
-            + `<input name="note" maxlength="200" placeholder="зошто, на пр. екскурзија" aria-label="Зошто" value="${esc(d.note)}"></div>`
+            + `<input name="note" maxlength="200" placeholder="белешка, на пр. боледување или екскурзија" aria-label="Белешка" value="${esc(d.note)}"></div>`
             + `<label>Го зема по договор<select name="assigned"><option value="">— по редот —</option>`
             + members.map((m) => `<option value="${m.employeeId}"${m.employeeId === assigned ? ' selected' : ''}>${m.position}. ${esc(m.name)}</option>`).join('')
             + '</select></label>'
-            + '<div>Отсутни тој ден:<div class="checks">'
+            + '<div>Отсутни тој ден (се прескокнуваат, дежура следниот):<div class="checks">'
             + members.map((m) => `<label><input type="checkbox" name="away" value="${m.employeeId}"${d.absent.some((a) => a.employeeId === m.employeeId) ? ' checked' : ''}> ${esc(m.name)}</label>`).join('')
             + '</div></div>'
             + '<div class="row"><button class="primary small" type="submit">Зачувај го денот</button>'
@@ -559,7 +567,10 @@ header.top h1 { flex: 1; min-width: 180px; }
      * The administrator's list: its order, who is on it, and when it starts.
      * The duty is the cabinets', so a list never saved starts as exactly the
      * cabinets, checked; everybody else who works this year is one tick away
-     * (owner, 25 Sep 2026). A list on paper can be pasted whole, in its order.
+     * (owner, 25 Sep 2026). The order is dragged (⠿), or written as text,
+     * one name a line. Somebody unticked is not shown: in a running rotation
+     * they stay in the data with the day they left, so the months before keep
+     * them, but they no longer figure anywhere on the page.
      */
     function dutyAdminHtml() {
         const fresh = !duty.data.members.length;
@@ -572,22 +583,23 @@ header.top h1 { flex: 1; min-width: 180px; }
         const all = duty.data.candidates || [];
         const others = all.filter((c) => !c.cabinet);
         const othersOn = others.filter((c) => on.has(c.employeeId)).length;
+        const shown = draft.members.map((m, i) => ({ m, i })).filter(({ m }) => !m.leftOn);
         return `<details class="duty-admin no-print"${duty.adminOpen || fresh ? ' open' : ''}><summary>⚙ Список за дежурства и почеток (${on.size})</summary>`
             + (fresh ? '<p class="duty-note">Предлог, сè уште не е зачуван: сите од кабинетите. Отштиклирајте кој не дежура, '
-                + 'подредете со ▲▼ или залепете го редоследот од хартија, па „Зачувај го списокот".</p>' : '')
+                + 'повлечете ⠿ за редоследот или напишете го како текст, па „Зачувај го списокот".</p>' : '')
             + `<label>Ротацијата почнува на<input type="date" id="dutyStart" value="${esc(draft.startsOn)}" min="${esc(duty.data.yearStartsOn)}" max="${esc(duty.data.yearEndsOn)}"></label>`
-            + '<ol class="duty-list" id="dutyList">' + draft.members.map((m, i) => `<li><span class="n">${i + 1}.</span><span class="nm">${esc(m.name)}`
-                + (m.joinedOn ? ` <span class="muted">од ${dmy(m.joinedOn)}</span>` : '') + (m.leftOn ? ` <span class="muted">до ${dmy(m.leftOn)}</span>` : '') + '</span>'
-                + `<button type="button" class="small" data-duty-move="${i}|-1"${i === 0 ? ' disabled' : ''} aria-label="Нагоре">▲</button>`
-                + `<button type="button" class="small" data-duty-move="${i}|1"${i === draft.members.length - 1 ? ' disabled' : ''} aria-label="Надолу">▼</button>`
+            + '<ol class="duty-list" id="dutyList">' + shown.map(({ m, i }, n) => `<li data-i="${i}">`
+                + `<button type="button" class="small grip" data-duty-grip="${i}" aria-label="${esc(m.name)}: повлечете, или стрелка горе/долу за редот">⠿</button>`
+                + `<span class="n">${n + 1}.</span><span class="nm">${esc(m.name)}`
+                + (m.joinedOn ? ` <span class="muted">од ${dmy(m.joinedOn)}</span>` : '') + '</span>'
                 + `<button type="button" class="small" data-duty-drop="${i}" aria-label="Тргни од списокот">✕</button></li>`).join('') + '</ol>'
             + '<div class="duty-ticks"><b>Кабинети</b>' + all.filter((c) => c.cabinet).map(tick).join('') + '</div>'
             + (others.length ? `<details class="duty-others"${othersOn ? ' open' : ''}><summary>Други вработени (${others.length}${othersOn ? ', штиклирани ' + othersOn : ''})</summary>`
                 + '<div class="duty-ticks">' + others.map(tick).join('') + '</div></details>' : '')
-            + '<details class="duty-paste"><summary>📋 Залепи редослед од хартија</summary>'
-            + '<p class="muted">По еден ред за секого, по редот на хартијата; датумот во редот може да остане. '
-            + 'Најраниот датум станува почеток на ротацијата. Името се пишува како во Вработени.</p>'
-            + '<textarea id="dutyPaste" rows="8" placeholder="Име Презиме   21.09.2026"></textarea>'
+            + `<details class="duty-paste"${duty.textOpen ? ' open' : ''}><summary>✍ Редоследот како текст</summary>`
+            + '<p class="muted">По едно име во ред, по редоследот; може и залепено од хартија, со датумот во редот. '
+            + 'Кој не е напишан, излегува од списокот. Ако има датуми, најраниот станува почеток.</p>'
+            + `<textarea id="dutyPaste" rows="${Math.max(4, shown.length + 1)}" placeholder="Име Презиме">${esc(shown.map(({ m }) => m.name).join('\n'))}</textarea>`
             + '<div class="row"><button type="button" class="small" id="dutyPasteBtn">Примени го редоследот</button></div></details>'
             + '<p class="muted">Редоследот важи од почетокот. Кој е додаден откако ротацијата почнала, влегува на крајот од тој ден; '
             + 'тргнатиот излегува од денес, а поминатите месеци остануваат какви што биле.</p>'
@@ -601,6 +613,12 @@ header.top h1 { flex: 1; min-width: 180px; }
         const [y, m] = duty.month.split('-').map(Number);
         const first = duty.data.yearStartsOn.slice(0, 7);
         const last = duty.data.yearEndsOn.slice(0, 7);
+        // The month begins where the rotation does, and the days gone by fold
+        // away until asked for — unless the whole month is gone. Printing
+        // shows them all.
+        const days = duty.data.days.filter((d) => d.date >= duty.data.startsOn);
+        const gone = days.filter((d) => d.date < todayIso()).length;
+        if (duty.foldPast == null || gone === days.length) duty.foldPast = gone < days.length;
         box.innerHTML = (duty.owner ? dutyAdminHtml() : '')
             + '<div class="duty-head">'
             + `<button type="button" class="small no-print" data-duty-month="${shiftMonth(duty.month, -1)}"${duty.month <= first ? ' disabled' : ''} aria-label="Претходен месец">◀</button>`
@@ -608,10 +626,13 @@ header.top h1 { flex: 1; min-width: 180px; }
             + `<button type="button" class="small no-print" data-duty-month="${shiftMonth(duty.month, 1)}"${duty.month >= last ? ' disabled' : ''} aria-label="Следен месец">▶</button>`
             + '<button type="button" class="small no-print" id="dutyPrint">🖨 Печати</button></div>'
             + (duty.data.members.length ? '' : '<p class="muted">Сè уште нема список за дежурства.</p>')
-            + '<table class="duty-table"><thead><tr><th>Р.бр.</th><th>Стручен соработник</th><th>Ден и датум</th></tr></thead><tbody>'
-            + duty.data.days.map(dutyRowHtml).join('') + '</tbody></table>'
-            + '<p class="muted">Кога некој е отсутен, следниот го покрива денот, а отсутниот дежура првиот нареден ден кога е тука — '
-            + 'никој не губи и никој не добива дежурство.</p>';
+            + (days.length ? '<table class="duty-table"><thead><tr><th>Р.бр.</th><th>Стручен соработник</th><th>Ден и датум</th></tr></thead><tbody>'
+                + (gone ? `<tr class="past-toggle no-print"><td colspan="3"><button type="button" class="small" data-duty-past aria-expanded="${!duty.foldPast}">`
+                    + `${duty.foldPast ? '▸ Прикажи' : '▾ Скриј'} ги изминатите денови (${gone})</button></td></tr>` : '')
+                + days.map(dutyRowHtml).join('') + '</tbody></table>'
+                : `<p class="muted">Ротацијата почнува на ${dmy(duty.data.startsOn)}.</p>`)
+            + '<p class="muted">Кога дежурниот е отсутен (боледување), се прескокнува: тој ден дежура следниот на списокот, '
+            + 'а редот продолжува од него.</p>';
     }
 
     async function showDuty(month) {
@@ -621,7 +642,8 @@ header.top h1 { flex: 1; min-width: 180px; }
 
     el('duty').addEventListener('click', async (event) => {
         const go = event.target.closest('[data-duty-month]');
-        if (go) { duty.open = ''; return showDuty(go.dataset.dutyMonth); }
+        if (go) { duty.open = ''; duty.foldPast = null; return showDuty(go.dataset.dutyMonth); }
+        if (event.target.closest('[data-duty-past]')) { duty.foldPast = !duty.foldPast; return drawDuty(); }
         const open = event.target.closest('[data-duty-open]');
         if (open) { duty.open = open.dataset.dutyOpen === duty.open ? '' : open.dataset.dutyOpen; return drawDuty(); }
         if (event.target.closest('#dutyPrint')) {
@@ -635,19 +657,11 @@ header.top h1 { flex: 1; min-width: 180px; }
             try {
                 await api('PUT', '/api/portal/duty/absence', { date: away.dataset.dutyAway, absent: away.dataset.away === '1' });
                 await showDuty(duty.month);
-                say('weekMsg', away.dataset.away === '1' ? 'Забележано: тој ден ве покрива следниот.' : 'Во ред, дежурате по редот.', 'ok');
+                say('weekMsg', away.dataset.away === '1' ? 'Забележано: тој ден дежура следниот на списокот.' : 'Во ред, дежурате по редот.', 'ok');
             } catch (err) { away.disabled = false; say('weekMsg', err.message, 'error'); }
             return;
         }
         const list = duty.draft && duty.draft.members;
-        const move = event.target.closest('[data-duty-move]');
-        if (move && list) {
-            const [i, by] = move.dataset.dutyMove.split('|').map(Number);
-            const [one] = list.splice(i, 1);
-            list.splice(i + by, 0, one);
-            duty.adminOpen = true;
-            return drawDuty();
-        }
         // A rotation already running keeps its past: somebody taken off leaves
         // from today, somebody added joins at the back from today. On the
         // FIRST list (nothing saved yet) everybody counts from the start date,
@@ -667,6 +681,14 @@ header.top h1 { flex: 1; min-width: 180px; }
             duty.adminOpen = true;
             return drawDuty();
         }
+        // Somebody ticked back: the same entry again, or (never on it) a new
+        // one at the back — never twice, which the server refuses.
+        const bringIn = (c) => {
+            const entry = list.find((p) => p.employeeId === c.employeeId);
+            if (entry) entry.leftOn = null;
+            else list.push({ employeeId: c.employeeId, name: c.name, joinedOn: running() ? todayIso() : null, leftOn: null });
+            return entry || list[list.length - 1];
+        };
         const tick = event.target.closest('[data-duty-tick]');
         if (tick && list) {
             const id = Number(tick.dataset.dutyTick);
@@ -674,7 +696,7 @@ header.top h1 { flex: 1; min-width: 180px; }
             if (!tick.checked && at >= 0) dropAt(at);
             if (tick.checked && at < 0) {
                 const c = (duty.data.candidates || []).find((x) => x.employeeId === id);
-                if (c) list.push({ employeeId: c.employeeId, name: c.name, joinedOn: running() ? todayIso() : null, leftOn: null });
+                if (c) bringIn(c);
             }
             duty.adminOpen = true;
             return drawDuty();
@@ -682,8 +704,12 @@ header.top h1 { flex: 1; min-width: 180px; }
         if (event.target.closest('#dutyPasteBtn') && list) {
             const read = pastedOrder(el('dutyPaste').value, duty.data.candidates || []);
             if (!read.people.length) return say('weekMsg', 'Не препознав ниту едно име од вработените.', 'error');
-            // The paper IS the list: its people, in its order, from its first day.
-            duty.draft.members = read.people.map((c) => ({ employeeId: c.employeeId, name: c.name, joinedOn: null, leftOn: null }));
+            // The text IS the list: its people in its order; whoever it leaves
+            // out goes the way an untick does.
+            const named = new Set(read.people.map((c) => c.employeeId));
+            for (let i = list.length - 1; i >= 0; i -= 1) if (!named.has(list[i].employeeId) && !list[i].leftOn) dropAt(i);
+            const ordered = read.people.map(bringIn);
+            putInOrder(ordered);
             if (read.startsOn && read.startsOn >= duty.data.yearStartsOn && read.startsOn <= duty.data.yearEndsOn) duty.draft.startsOn = read.startsOn;
             duty.adminOpen = true;
             drawDuty();
@@ -698,6 +724,8 @@ header.top h1 { flex: 1; min-width: 180px; }
                 await ownerApi('PUT', '/api/duty/setup', { startsOn: el('dutyStart').value,
                     members: list.map((p) => ({ employeeId: p.employeeId, joinedOn: p.joinedOn || null, leftOn: p.leftOn || null })) });
                 duty.draft = null;
+                duty.adminOpen = false;
+                duty.textOpen = false;
                 await showDuty(duty.month);
                 say('weekMsg', 'Списокот е зачуван.', 'ok');
             } catch (err) { say('weekMsg', err.message, 'error'); }
@@ -708,7 +736,61 @@ header.top h1 { flex: 1; min-width: 180px; }
     });
     el('duty').addEventListener('toggle', (event) => {
         if (event.target.classList && event.target.classList.contains('duty-admin')) duty.adminOpen = event.target.open;
+        if (event.target.classList && event.target.classList.contains('duty-paste')) duty.textOpen = event.target.open;
     }, true);
+
+    /**
+     * The shown people in a new order. Somebody who left keeps their slot, so
+     * the months before still read as they did.
+     */
+    function putInOrder(ordered) {
+        const list = duty.draft.members;
+        const next = ordered[Symbol.iterator]();
+        duty.draft.members = list.map((m) => (m.leftOn ? m : next.next().value));
+        duty.adminOpen = true;
+    }
+    const shownOrder = () => [...el('dutyList').children].map((li) => duty.draft.members[Number(li.dataset.i)]);
+
+    // Dragging ⠿ — a mouse or a finger alike, so no HTML5 drag and drop
+    // (a phone has none). The row follows the pointer; letting go keeps it.
+    let dragging = null;
+    el('duty').addEventListener('pointerdown', (event) => {
+        const grip = event.target.closest('[data-duty-grip]');
+        if (!grip || !duty.draft) return;
+        event.preventDefault();
+        grip.setPointerCapture(event.pointerId);
+        dragging = grip.closest('li');
+        dragging.classList.add('dragging');
+    });
+    el('duty').addEventListener('pointermove', (event) => {
+        if (!dragging) return;
+        const rows = [...dragging.parentElement.children].filter((li) => li !== dragging);
+        const before = rows.find((li) => { const r = li.getBoundingClientRect(); return event.clientY < r.top + r.height / 2; });
+        dragging.parentElement.insertBefore(dragging, before || null);
+    });
+    const letGo = () => {
+        if (!dragging) return;
+        dragging = null;
+        putInOrder(shownOrder());
+        drawDuty();
+    };
+    el('duty').addEventListener('pointerup', letGo);
+    el('duty').addEventListener('pointercancel', letGo);
+    // The keyboard: an arrow on ⠿ moves that one row.
+    el('duty').addEventListener('keydown', (event) => {
+        const grip = event.target.closest && event.target.closest('[data-duty-grip]');
+        if (!grip || (event.key !== 'ArrowUp' && event.key !== 'ArrowDown')) return;
+        event.preventDefault();
+        const li = grip.closest('li');
+        const sibling = event.key === 'ArrowUp' ? li.previousElementSibling : li.nextElementSibling;
+        if (!sibling) return;
+        li.parentElement.insertBefore(li, event.key === 'ArrowUp' ? sibling : sibling.nextElementSibling);
+        putInOrder(shownOrder());
+        const i = li.dataset.i;
+        drawDuty();
+        const again = el('duty').querySelector(`[data-duty-grip="${i}"]`);
+        if (again) again.focus();
+    });
     el('duty').addEventListener('submit', async (event) => {
         const form = event.target.closest('[data-duty-day]');
         if (!form) return;
@@ -756,7 +838,7 @@ header.top h1 { flex: 1; min-width: 180px; }
             el('days').hidden = true;
             el('tabHint').textContent = duty.owner
                 ? 'Дежурства во кабинетите. Вие го поставувате списокот; кај секој ден: ⋯ за празник, договор или отсутни.'
-                : 'Дежурства во кабинетите. Ако некој ден не сте тука, означете го — следниот ве покрива, а вие дежурате првиот нареден ден.';
+                : 'Дежурства во кабинетите. Ако некој ден не сте тука, означете го — тој ден дежура следниот на списокот.';
             if (duty.data) drawDuty(); else showDuty();
             return;
         }
