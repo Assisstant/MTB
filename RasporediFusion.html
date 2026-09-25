@@ -3530,10 +3530,7 @@
                 card.remove();
                 updateRemindTitle();
             });
-            card.querySelector('[data-remind-open]').addEventListener('click', () => {
-                state.panel = 'now';
-                drawPanel();
-            });
+            card.querySelector('[data-remind-open]').addEventListener('click', () => openPanel('now'));
             stack.appendChild(card);
             if (!remindState.shown.has(key) && 'Notification' in window && Notification.permission === 'granted') {
                 try { new Notification('🔔 ' + info.time + ' · ' + info.therapist, { body: info.pupil, tag: key }); }
@@ -3676,11 +3673,33 @@
         const files = el('importFormFile').files;
         if (files && files.length) importScheduleForms(files);
     });
-    document.querySelectorAll('.view-tab[data-panel]').forEach((button) => {
-        button.addEventListener('click', () => {
-            state.panel = button.dataset.panel;
+    /**
+     * A panel the person opened is a step in the browser's history, so
+     * „назад" returns to the panel before it instead of leaving the page; the
+     * panel is in the address too, so a reload keeps it (`app-navigation.js`,
+     * `views`). The day and the day/week switch are not steps: walking back
+     * through five days is not what „назад" is for.
+     */
+    const PANELS = ['schedule', 'now', 'roster', 'lists', 'visits', 'allDays'];
+    let panelHistory = null;
+    function openPanel(panel) {
+        if (!PANELS.includes(panel) || panel === state.panel) return;
+        state.panel = panel;
+        drawPanel();
+        if (panelHistory) panelHistory.step({ panel });
+    }
+    document.addEventListener('DOMContentLoaded', () => {
+        const nav = window.MTBAppNavigation;
+        if (!nav || !nav.views) return;
+        panelHistory = nav.views({ keys: ['panel'], show: (view) => {
+            state.panel = PANELS.includes(view.panel) ? view.panel : 'schedule';
             drawPanel();
-        });
+        } });
+        const wanted = panelHistory.read().panel;
+        if (PANELS.includes(wanted) && wanted !== state.panel) { state.panel = wanted; drawPanel(); }
+    });
+    document.querySelectorAll('.view-tab[data-panel]').forEach((button) => {
+        button.addEventListener('click', () => openPanel(button.dataset.panel));
         button.addEventListener('keydown', (event) => {
             if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
             const tabs = Array.from(document.querySelectorAll('.view-tab[data-panel]'));

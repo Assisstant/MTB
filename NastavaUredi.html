@@ -2182,12 +2182,29 @@
     el('onlyUsed').addEventListener('change', () => draw());
     // The view and the class live in the address, not in browser storage:
     // this page keeps nothing of its own, and a link to „IX-б, цела недела"
-    // is worth being able to send.
+    // is worth being able to send. Each one the person chooses is also a step
+    // in the browser's history (`app-navigation.js`, `views`), so „назад"
+    // returns to the previous view instead of leaving the page.
+    let viewHistory = null;
     const remember = (name, value) => {
+        if (viewHistory) { viewHistory.step({ [name]: value }); return; }
         const url = new URL(window.location.href);
         url.searchParams.set(name, value);
         window.history.replaceState(null, '', url);
     };
+    document.addEventListener('DOMContentLoaded', () => {
+        const nav = window.MTBAppNavigation;
+        if (!nav || !nav.views) return;
+        viewHistory = nav.views({
+            keys: ['view', 'class'],
+            show: (view) => {
+                closeEditor();
+                if (view.class) chosenClass = view.class;
+                setView(view.view);
+                draw();
+            }
+        });
+    });
     setView(new URLSearchParams(window.location.search).get('view'));
     function goToView(next) {
         closeEditor();
@@ -2198,7 +2215,8 @@
     /** From any class name straight to that class's week. */
     function openClassWeek(label) {
         chosenClass = label;
-        remember('class', label);
+        if (viewHistory) viewHistory.step({ class: label, view: 'classweek' });
+        else remember('class', label);
         goToView('classweek');
         el('gridPanel').scrollIntoView({ block: 'start', behavior: 'smooth' });
     }

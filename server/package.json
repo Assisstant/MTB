@@ -76,7 +76,8 @@
     "test:form-replies": "tsx test/form-replies.e2e.ts",
     "test:forms-queue": "node test/forms-queue.browser.mjs",
     "test:one-change": "node test/one-change.browser.mjs",
-    "test:class-cards": "node test/class-cards.browser.mjs"
+    "test:class-cards": "node test/class-cards.browser.mjs",
+    "test:back-forward": "node test/back-forward.browser.mjs"
   },
   "dependencies": {
     "@fastify/cookie": "^11.1.2",

@@ -147,8 +147,8 @@
   $('maSearch').addEventListener('input',renderList);['maActive','maKind','maClass','maGrade','maTherapist','maProfession','maDuty'].forEach(id=>$(id).addEventListener('change',renderList));
   $('maAdd').addEventListener('click',()=>{if(!data||readonly||busy||!canDiscard())return;selected=tab==='pupils'?{name:'',enrollment_type:'internal',boarding:false,programme:'unknown',placement:'unknown',annual_active:true,therapists:[]}:{name:'',identifier:'',additional_roles:[],teacher_kind:'none'};dirty=false;renderList();renderDetail();$('maForm').elements.name.focus();});
   $('maYear').addEventListener('change',()=>{if(canDiscard())load($('maYear').value);else $('maYear').value=year;});
-  $('maReload').addEventListener('click',()=>{if(canDiscard())load(year);});$('maClose').addEventListener('click',close);
-  toggle.addEventListener('click',()=>{root.hidden=false;toggle.setAttribute('aria-expanded','true');if(!data)load();else if(base!==ctx.server())status('Избран е друг сервер. Освежете пред уредување.','error');$('maSearch').focus();});
+  $('maReload').addEventListener('click',()=>{if(canDiscard())load(year);});$('maClose').addEventListener('click',()=>{close();window.MTBWorkspaceHistory?.windows();});
+  toggle.addEventListener('click',()=>{if(!booting)window.MTBWorkspaceHistory?.admin();root.hidden=false;toggle.setAttribute('aria-expanded','true');if(!data)load();else if(base!==ctx.server())status('Избран е друг сервер. Освежете пред уредување.','error');$('maSearch').focus();});
   document.querySelector('#appTabs').addEventListener('click',e=>{if(e.target.closest('[data-app]'))close();});
   window.addEventListener('beforeunload',e=>{if(dirty){e.preventDefault();e.returnValue='';}});
   window.addEventListener('mtb:server-state',e=>{if(e.detail?.mirror?.mode==='readonly'){readonly=true;applyReadonly();status('Локална копија · само читање');}});
@@ -156,5 +156,9 @@
   // се препрочитува, за паралелките и луѓето во паѓачките менија да бидат
   // истите. Не додека тука стои незачуван внес: `dirty` веќе го знае тоа.
   if(nav&&nav.onDataChange)nav.onDataChange(()=>{if(data&&!busy)return load(year);},{busy:()=>dirty||busy,mine:()=>busy,sameWindow:true,ignore:['schedule']});
-  if(new URLSearchParams(location.search).get('view')!=='windows')toggle.click();
+  // First view: „Администрација", unless the address names windows or one window (`app`).
+  // Opening it here is not a step in the history; the person did not choose it.
+  let booting=true;
+  {const q=new URLSearchParams(location.search),app=q.get('app');if(q.get('view')!=='windows'&&(!app||app==='admin'))toggle.click();}
+  booting=false;
 })();

@@ -3594,3 +3594,33 @@ picker above, the label as the value, the homeroom from the teachers' list in
 capitals, and search by teacher and by words. It fails 21 checks on the old
 pages. `test:one-change` and every other invented-data browser suite still
 pass.
+
+## Back and Forward inside the application (25 Sep 2026)
+
+„На back излегувам од апликацијата, нема меморија што отварав." Tabs in
+Податоци, views in Уреди настава and Настава ↔ терапии, panels in Кабинети and
+the workspace's windows all changed in place, and none of it reached the
+browser's history. Back therefore left the whole application.
+
+`MTBAppNavigation.views({ keys, show })` (`app-navigation.js`) is the one
+mechanism for this. A page names the address parameters its view is made of
+(`tab`; `view` and `class`; `view`; `panel`; in the shell, `app`). After a
+change the person made it calls `step()`, which is one `pushState`. `show()`
+draws a view that Back or Forward brought, without stepping again.
+Parameters that are not view keys (`year`, `embed`) are left alone. Because
+the view is in the address, a reload and a bookmark open the same view.
+
+Not every change is a step. The day in Кабинети and Уреди настава, and the
+day/week switch, are left out: walking back through five days is not what Back
+is for. A redraw after a save is not a step either.
+
+In the workspace the shell's steps are the windows and „Администрација"; the
+steps inside a window belong to that frame's document. A browser keeps one
+joint history for a window and its frames, so Back undoes the last thing done
+wherever it was done. Opening a window from the address (`?app=`) and the
+first „Администрација" at start-up are not steps. The person did not choose
+them.
+
+Test: `test:back-forward` (invented API). It fails 15 checks on the old pages.
+Playwright's `goBack` waits only for the top page to navigate, so the
+workspace part presses the browser's own Back through `history.back()`.

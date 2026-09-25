@@ -989,7 +989,50 @@ runStartGate(false).then(()=>{repointFrames();load()});})();
     if (win.mode === 'docked') activeDocked = id;
     if (mobile()) windows.get('directoryWindow').hidden = true;
     focusWindow(win);
+    if (!restoring && shellHistory) shellHistory.step({ app: tab.dataset.app });
   });
+
+  /* ── „Назад" низ прозорците ─────────────────────────────────────────
+   *
+   * Сопственикот, 25 септември: „назад" го напушташе работниот простор, бидејќи
+   * менувањето прозорци не оставаше трага во историјата. Сега секој прозорец
+   * што човекот го отворил, и „Администрација", е чекор (`app-navigation.js`,
+   * `views`): „назад" се враќа на претходниот. Во адресата стои `app`, па
+   * освежувањето го отвора истиот прозорец. Погледите ВО рамките се чекори на
+   * самите рамки, во истата историја.
+   */
+  let restoring = false;
+  const shellNav = window.MTBAppNavigation;
+  const shellHistory = shellNav && shellNav.views ? shellNav.views({ keys: ['app'], show: showView }) : null;
+  function dockedApp() {
+    const tab = tabs.find((t) => appId(t.dataset.app) === activeDocked);
+    return tab ? tab.dataset.app : '';
+  }
+  function showView(view) {
+    restoring = true;
+    try {
+      const admin = document.getElementById('masterAdmin');
+      const adminFirst = new URLSearchParams(location.search).get('view') !== 'windows';
+      if (view.app === 'admin' || (!view.app && adminFirst)) {
+        if (admin && admin.hidden) document.getElementById('openMasterAdmin')?.click();
+        return;
+      }
+      const tab = tabs.find((t) => t.dataset.app === view.app) || tabs.find((t) => appId(t.dataset.app) === 'scheduleWindow');
+      if (tab) tab.click();
+      if (admin && !admin.hidden) document.getElementById('maClose')?.click();
+    } finally { restoring = false; }
+  }
+  // „Администрација" says when the PERSON opened or closed it.
+  window.MTBWorkspaceHistory = {
+    admin: () => { if (!restoring && shellHistory) shellHistory.step({ app: 'admin' }); },
+    windows: () => { if (!restoring && shellHistory) shellHistory.step({ app: dockedApp() }); }
+  };
+  {
+    // A window named in the address opens at once, as after a reload.
+    const wanted = shellHistory ? shellHistory.read().app : '';
+    const tab = wanted && tabs.find((t) => t.dataset.app === wanted);
+    if (tab) { restoring = true; try { tab.click(); } finally { restoring = false; } }
+  }
   // An app inside a window asks for ANOTHER app (see app-navigation.js): open
   // that app's own tab instead of letting the asking window turn into it.
   // Accepted only from this shell's own frames, and only for a file it has a

@@ -248,6 +248,7 @@ npm run test:form-replies            the form review queue, in-process with its 
 npm run test:forms-queue             Податоци → Формулари in a browser; every API call invented
 npm run test:one-change              a write in one window reaches every other one; every API call invented
 npm run test:class-cards             a class reads the same in every picker, whole row on hover; every API call invented
+npm run test:back-forward            Back/Forward walk tabs, views and workspace windows; every API call invented
 npm run test:schedule-form           the cabinet form (all therapists) offline, then into the queue
 npm run test:class-form              the class form AND the teacher's own week from Уреди настава, offline, then in
 npm run test:teaching                the crossing and the workbook writer, needs the server
@@ -698,6 +699,16 @@ read `DATABASE_URL`; never add literal credentials to this public repository.
   the `<select>` `data-class-picker`. The value saved stays the label. Do not
   build class options by hand in a new screen: that is how five pickers
   ended up saying five different things.
+
+- **A view the person chooses is a step in the browser's history.** Tabs,
+  views and workspace windows used to change in place, so Back left the
+  application (owner, 25 Sep 2026). A screen now declares its view keys with
+  `MTBAppNavigation.views({ keys, show })` and calls `step({...})` after a
+  change the PERSON made — never on first load or while showing a view that
+  Back brought. The keys live in the address, so a reload keeps the view.
+  Inside the workspace a frame's steps join the window's history. Playwright's
+  `goBack` waits for the top page only, so a test of a frame's step uses
+  `history.back()`.
 
 ## Conventions
 

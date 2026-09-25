@@ -1487,6 +1487,61 @@
         select.title = chosen && chosen.title ? chosen.title : '';
     }, true));
 
+    /* ── Назад и напред — низ апликацијата, не надвор од неа ────────────
+     *
+     * Сопственикот, 25 септември: „на back излегувам од апликацијата, нема
+     * меморија што отварав". Јазичињата, погледите и прозорците се менуваа
+     * без да оставаат трага во историјата на прелистувачот, па „назад"
+     * ја напушташе цела страница.
+     *
+     * `views({ keys, show })`: страницата кажува кои параметри во адресата
+     * го прават нејзиниот поглед (`tab`, `view`, `class`…) и како се покажува
+     * поглед што стигнал со „назад" или „напред". По секое преминување што го
+     * направил човекот вика `step({...})` — тоа е еден чекор во историјата.
+     * Параметрите остануваат во адресата, па освежување и обележувач го
+     * отвораат истиот поглед. Другите параметри (`year`, `embed`) не се
+     * допираат. Во рамка на работниот простор чекорот е дел од историјата на
+     * целиот прозорец, па „назад" се враќа низ рамките по редот како што биле.
+     */
+    function views(options) {
+        const keys = (options && options.keys) || [];
+        const read = () => {
+            const params = new URLSearchParams(window.location.search);
+            const view = {};
+            keys.forEach((key) => { const value = params.get(key); if (value) view[key] = value; });
+            return view;
+        };
+        const address = (view) => {
+            const url = new URL(window.location.href);
+            keys.forEach((key) => {
+                if (view[key]) url.searchParams.set(key, view[key]);
+                else url.searchParams.delete(key);
+            });
+            return url.pathname + url.search + url.hash;
+        };
+        const same = (a, b) => keys.every((key) => String(a[key] || '') === String(b[key] || ''));
+        window.addEventListener('popstate', (event) => {
+            const view = (event.state && event.state.mtbView) || read();
+            try { options.show(view); } catch (_) { /* the page reports its own failure */ }
+        });
+        return {
+            /** The person moved on: the new view is one step in the history. */
+            step(change) {
+                const next = Object.assign(read(), change || {});
+                keys.forEach((key) => { if (!next[key]) delete next[key]; });
+                if (same(next, read())) return;
+                window.history.pushState({ mtbView: next }, '', address(next));
+            },
+            /** The same place, only said precisely: no new step. */
+            settle(change) {
+                const next = Object.assign(read(), change || {});
+                keys.forEach((key) => { if (!next[key]) delete next[key]; });
+                window.history.replaceState({ mtbView: next }, '', address(next));
+            },
+            read
+        };
+    }
+
     const holdRoots = new WeakSet();
     function holdRepeat(root, selector, handlers) {
         if (!root || holdRoots.has(root)) return;
@@ -1561,6 +1616,8 @@
         // Паралелката онака како што ја кажува училиштето: ознака · раководител
         // · опис, и целиот ред на лебдење. Една копија за секој избирач.
         classes: { index: classIndex, text: classText, hover: classHover, optionsHtml: classOptionsHtml },
+        // „Назад" и „напред" низ погледите на страницата, не надвор од неа.
+        views,
         // Една промена, сите прозорци: страницата кажува како се препрочитува,
         // а школката на работниот простор ги пренесува промените од рамките.
         onDataChange,

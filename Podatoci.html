@@ -1852,7 +1852,7 @@
         el('studentSearch').value = '';
         el('studentKindFilter').value = '';
         drawStudents();
-        setTab('students');
+        goToTab('students');
         const row = el('students').querySelector(`[data-student="${CSS.escape(publicId)}"]`);
         if (!row) return status('Тој ученик не е на списокот за оваа година.', 'warn', { toast: true });
         row.scrollIntoView({ block: 'center', behavior: 'smooth' });
@@ -1860,7 +1860,7 @@
     }
 
     function focusTeacher(id) {
-        setTab('teachers');
+        goToTab('teachers');
         const row = el('teachers').querySelector(`[data-teacher="${id}"]`);
         if (!row) return status('Тој наставник не е на списокот за оваа година.', 'warn', { toast: true });
         row.scrollIntoView({ block: 'center', behavior: 'smooth' });
@@ -2358,13 +2358,29 @@
         if (next === 'forms') loadForms();
     }
 
+    /**
+     * A tab the PERSON chose is a step in the browser's history, so „назад"
+     * returns to the tab before it instead of leaving the page
+     * (`app-navigation.js`, `views`). Drawing a tab for any other reason —
+     * the first load, or „назад" itself — is not a step.
+     */
+    let tabHistory = null;
+    function goToTab(next) {
+        setTab(next);
+        if (tabHistory) tabHistory.step({ tab: next });
+    }
+    document.addEventListener('DOMContentLoaded', () => {
+        const nav = window.MTBAppNavigation;
+        if (nav && nav.views) tabHistory = nav.views({ keys: ['tab'], show: (view) => setTab(view.tab || 'students') });
+    });
+
     function setNumberVisibility() {
         document.body.classList.toggle('hide-list-numbers', !el('showRowNumbers').checked);
     }
 
     // ── wiring ──────────────────────────────────────────────────────────────
     document.querySelectorAll('.tabs .btn').forEach((b) =>
-        b.addEventListener('click', () => setTab(b.dataset.tab)));
+        b.addEventListener('click', () => goToTab(b.dataset.tab)));
     el('showRowNumbers').addEventListener('change', setNumberVisibility);
     el('formsFiles').addEventListener('change', (e) => importFormFiles(e.target.files));
     el('formsRefresh').addEventListener('click', () => loadForms());

@@ -1090,18 +1090,19 @@
             + (rows.length > 60 ? `<p class="meta">…и уште ${rows.length - 60}.</p>` : '');
     }
 
-    function setView(next) {
-        const wasWhole = wholeWeek();
-        view = next;
-        el('viewClass').setAttribute('aria-pressed', String(next === 'class'));
-        el('viewTeacher').setAttribute('aria-pressed', String(next === 'teacher'));
-        el('viewWeek').setAttribute('aria-pressed', String(next === 'week'));
-        el('viewCabinet').setAttribute('aria-pressed', String(next === 'cabinet'));
-        el('viewDays').setAttribute('aria-pressed', String(next === 'days'));
-        el('viewNotice').setAttribute('aria-pressed', String(next === 'notice'));
+    const VIEW_BUTTONS = { class: 'viewClass', teacher: 'viewTeacher', week: 'viewWeek',
+        cabinet: 'viewCabinet', days: 'viewDays', notice: 'viewNotice' };
+    function markView() {
+        Object.entries(VIEW_BUTTONS).forEach(([name, id]) => el(id).setAttribute('aria-pressed', String(view === name)));
         // A day cannot be chosen for a week, and leaving the control live would
         // suggest it still filters something.
         el('day').disabled = wholeWeek();
+    }
+
+    function setView(next) {
+        const wasWhole = wholeWeek();
+        view = VIEW_BUTTONS[next] ? next : 'class';
+        markView();
         // Панелот на клик опишува ќелија што во новиот приказ веќе ја нема —
         // а на листот со известувања стоеше под него како да е дел од листот.
         selected = null;
@@ -1132,12 +1133,23 @@
         document.body.classList.toggle('named', named);
         draw();
     });
-    el('viewClass').addEventListener('click', () => setView('class'));
-    el('viewTeacher').addEventListener('click', () => setView('teacher'));
-    el('viewWeek').addEventListener('click', () => setView('week'));
-    el('viewCabinet').addEventListener('click', () => setView('cabinet'));
-    el('viewDays').addEventListener('click', () => setView('days'));
-    el('viewNotice').addEventListener('click', () => setView('notice'));
+    // A view the person chose is a step in the browser's history, so „назад"
+    // returns to the previous view instead of leaving the page; the view is in
+    // the address too, so a reload keeps it (`app-navigation.js`, `views`).
+    let viewHistory = null;
+    Object.entries(VIEW_BUTTONS).forEach(([name, id]) => el(id).addEventListener('click', () => {
+        if (name === view) return;
+        setView(name);
+        if (viewHistory) viewHistory.step({ view: name });
+    }));
+    document.addEventListener('DOMContentLoaded', () => {
+        const nav = window.MTBAppNavigation;
+        if (nav && nav.views) viewHistory = nav.views({ keys: ['view'], show: (v) => setView(v.view || 'class') });
+    });
+    {
+        const wanted = new URLSearchParams(window.location.search).get('view');
+        if (VIEW_BUTTONS[wanted]) { view = wanted; markView(); }
+    }
     el('grid').addEventListener('click', (event) => {
         const td = event.target.closest('.cell.clickable');
         if (td) show(td.dataset.key);
