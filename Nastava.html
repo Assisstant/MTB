@@ -5,6 +5,10 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Настава ↔ терапии — MTB</title>
 <script src="mtb-theme.js"></script>
+<script>
+    // Before the first paint, so an embedded window never flashes the header.
+    if (new URLSearchParams(window.location.search).has('embed')) document.documentElement.classList.add('embedded');
+</script>
 <!--
     Кој ученик недостига од кој час, и кај кого е.
 
@@ -48,12 +52,33 @@
        maximising the window changed nothing. The page takes the window and
        only the prose is capped, because a 2000px line of explanation is
        what the reading width was ever for. */
-    main { padding: 18px 22px 40px; max-width: none; margin: 0; }
+    main { padding: 14px 18px 40px; max-width: none; margin: 0; }
     .panel p, .panel > .hint { max-width: 105ch; }
-    .controls { display: flex; flex-wrap: wrap; gap: 14px; align-items: flex-end; }
-    .field select { min-width: 190px; }
-    .views { margin: 14px 0 0; }
-    .status { font-size: 13px; color: var(--muted); }
+    /* One compact row (owner, 25 Sep 2026: the screen was too big to move
+       around in). At 1280×720 the controls used to take 456px of it and the
+       grid got 250; the grid is what the page is for. */
+    .panel:first-child { padding: 12px 14px 0; }
+    .controls { display: flex; flex-wrap: wrap; gap: 8px 10px; align-items: flex-end; }
+    .controls .field { gap: 3px; }
+    .controls .field span { font-size: 11px; color: var(--muted); }
+    .controls .field select { min-width: 0; padding: 6px 8px; font-size: 13px; border-width: 1px; }
+    .field[hidden] { display: none !important; }
+    .controls .tools { display: inline-flex; gap: 6px; margin-left: auto; }
+    .controls .btn { min-height: 0; padding: 7px 12px; font-size: 13px; }
+    .chip-toggle { display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px; border: 1px solid var(--toggle-border);
+        border-radius: 999px; background: var(--toggle-bg); color: var(--toggle-text); font-size: 12.5px; font-weight: 600;
+        cursor: pointer; white-space: nowrap; }
+    .chip-toggle:has(input:checked) { border-color: var(--btn-bg); color: var(--text);
+        background: color-mix(in srgb, var(--btn-bg) 14%, var(--card)); }
+    .chip-toggle input { margin: 0; accent-color: var(--btn-bg); }
+    .views { margin: 10px 0 0; }
+    /* Seven views on one strip that slides sideways on a narrow window, as
+       the bar's own links do, instead of three rows of tabs above the grid. */
+    .views.mtb-tabs { margin-bottom: 0; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: thin; }
+    .views.mtb-tabs > .btn { flex: 0 0 auto; white-space: nowrap; }
+    .status { flex-basis: 100%; font-size: 12px; color: var(--muted); }
+    /* Inside the Workspace the window's own title bar already names the page. */
+    html.embedded header { display: none; }
     .status.warn { color: var(--warn); }
     .status.error { color: var(--danger); }
 
@@ -61,20 +86,55 @@
     .swatch { width: 26px; height: 15px; border-radius: 3px; border: 1px solid var(--border); display: inline-block; vertical-align: middle; }
     .bells { margin-left: auto; }
 
-    .scroll { overflow-x: auto; }
+    /* The grid is a window of its own (owner, 25 Sep 2026). It fills the rest
+       of the screen and scrolls INSIDE, so the header row and the first column
+       stay where they are (frozen panes) and the sideways scrollbar is always
+       on screen, instead of at the foot of a table taller than the window.
+       `--grid-h` is measured in `fitGrid()`. Before this, `overflow-x: auto`
+       alone made this box the header's sticky container while the PAGE did
+       the vertical scrolling — so `top: 0` never held and the header left
+       with the rows. The sheets (notices, personal weeks, day by day) are
+       paper and keep the page's own scroll. */
+    .scroll { overflow: auto; max-height: var(--grid-h, 72vh); border: 1px solid var(--border);
+        border-radius: 10px; background: var(--card); scrollbar-width: auto;
+        scrollbar-color: var(--toggle-border) transparent; }
+    .scroll::-webkit-scrollbar { width: 14px; height: 14px; }
+    .scroll::-webkit-scrollbar-thumb { background: var(--toggle-border); border-radius: 8px;
+        border: 3px solid transparent; background-clip: content-box; }
+    .scroll::-webkit-scrollbar-thumb:hover { background-color: var(--muted); }
+    .scroll::-webkit-scrollbar-corner { background: transparent; }
+    body[data-view="notice"] .scroll, body[data-view="personal"] .scroll, body[data-view="days"] .scroll {
+        max-height: none; overflow-y: visible; border: 0; border-radius: 0; background: transparent; }
+    /* ✋ The grid moves under the hand, like a map; a click that did not move
+       is still a click. */
+    .scroll.hand { cursor: grab; }
+    .scroll.hand table.grid { user-select: none; }
+    .scroll.dragging, .scroll.dragging * { cursor: grabbing !important; }
     table.grid { border-collapse: separate; border-spacing: 0; width: 100%; font-size: 13px; }
     table.grid th, table.grid td { border-bottom: 1px solid var(--border); padding: 7px 9px; text-align: left; }
     table.grid thead th {
         position: sticky; top: 0; z-index: 2; background: var(--btn-bg); color: #fff; /* --primary is #818cf8 in the dark theme: 3:1 under white */
-        font-weight: 600; white-space: nowrap;
+        font-weight: 600; white-space: nowrap; box-shadow: inset 0 -1px 0 rgba(255, 255, 255, .22);
     }
+    /* The week has two header rows; the second stops under the first. */
+    table.grid thead tr + tr th { top: var(--head-1, 0px); }
+    /* The corner cell is frozen both ways and sits above both frozen strips. */
+    table.grid thead tr:first-child th:first-child { left: 0; z-index: 4; }
     table.grid thead th small { display: block; font-weight: 400; font-size: 11px; }
     /* One day's grid: seven equal periods. Sized by content, one long subject
        name made its period twice as wide as the rest and pushed the others
        together. A teacher's name keeps to one line. */
     table.grid.day { table-layout: fixed; }
     table.grid.day thead th:first-child { width: 150px; }
-    table.grid tbody th { position: sticky; left: 0; z-index: 1; background: var(--card); font-weight: 700; white-space: nowrap; }
+    table.grid tbody th { position: sticky; left: 0; z-index: 1; background: var(--card); font-weight: 700; white-space: nowrap;
+        box-shadow: 1px 0 0 var(--border), 6px 0 8px -6px rgba(0, 0, 0, .22); }
+    /* Every other row a shade apart, and the row under the pointer lit, so a
+       teacher's line can be followed across a week wider than the screen. */
+    table.grid tbody tr:nth-child(even) th, table.grid tbody tr:nth-child(even) td.free,
+    table.grid tbody tr:nth-child(even) td.heat-0 { background: var(--soft); }
+    table.grid tbody tr:hover th, table.grid tbody tr:hover td.free, table.grid tbody tr:hover td.heat-0 {
+        background: color-mix(in srgb, var(--btn-bg) 12%, var(--card)); }
+    table.grid td.free { color: var(--muted); text-align: center; }
 
     .cell { border-radius: 4px; }
     .cell.clickable { cursor: pointer; }
@@ -98,8 +158,20 @@
     .heat-4 { background: var(--heat-4); color: var(--on-dark); }
     .cell.selected { outline: 2px solid var(--primary); outline-offset: -2px; }
 
+    /* In the week a cell holds a class label; broken over two lines („VIII-"
+       and „а") it read as two things. The grid scrolls and drags now, so a
+       wider column costs nothing. */
+    table.grid:not(.day) td.cell { white-space: nowrap; }
     .detail { display: none; }
-    .detail.open { display: block; }
+    /* The lesson clicked opens OVER the grid, not under it: the grid fills
+       the window now, and a panel below it would open out of sight. */
+    .detail.open { display: block; position: fixed; right: 18px; bottom: 18px; z-index: 40;
+        width: min(430px, calc(100vw - 36px)); max-height: 55vh; overflow: auto; margin: 0;
+        box-shadow: 0 14px 38px rgba(0, 0, 0, .32); border: 1px solid var(--border); }
+    .detail .detail-x { float: right; margin: -4px -6px 0 8px; padding: 2px 8px; border: 0; border-radius: 6px;
+        background: transparent; color: var(--muted); font-size: 18px; cursor: pointer; }
+    .detail .detail-x:hover, .detail .detail-x:focus-visible { background: var(--soft); color: var(--text); outline: none; }
+    @media print { .detail { display: none !important; } }
     .detail h3 { margin: 0 0 4px; font-size: 16px; }
     .detail .meta { color: var(--muted); font-size: 13px; }
     .detail ul { margin: 10px 0 0 18px; padding: 0; }
@@ -119,6 +191,7 @@
     .offline code { font-family: Consolas, monospace; font-size: 13px; }
 
     @media print {
+        .scroll { max-height: none !important; overflow: visible !important; border: 0 !important; }
         header a, .controls, .views, .btn, .edit-week { display: none !important; }
         body { background: #fff; }
         .panel { border: 0; box-shadow: none; padding: 0; }
@@ -240,18 +313,25 @@
                     <option value="0.9">речиси цел час</option>
                 </select>
             </label>
-            <label class="field" style="flex-direction:row;align-items:center;gap:6px;">
+            <label class="chip-toggle" title="Во ќелијата да пишува кое дете и кај кој терапевт, не само колку">
                 <input type="checkbox" id="named">
-                <span>Испиши кој кого зема</span>
+                <span>Кој кого зема</span>
             </label>
-            <label class="field" style="flex-direction:row;align-items:center;gap:6px;">
+            <label class="chip-toggle" title="Картичка со детали кога глувчето ќе застане на ќелија">
                 <input type="checkbox" id="hoverCard" checked>
-                <span>Картичка на лебдење</span>
+                <span>Картичка</span>
             </label>
-            <button class="btn" id="refresh"><span class="ico" aria-hidden="true">↻</span> Освежи</button>
-            <button class="btn soft" onclick="window.print()"><span class="ico" aria-hidden="true">⎙</span> Печати</button>
-            <a class="btn soft" href="NastavaUredi.html"
-               title="Внеси или промени го распоредот на настава"><span class="ico" aria-hidden="true">✏️</span> Уреди настава</a>
+            <label class="chip-toggle"
+                   title="Мрежата се влече со глувчето — лево, десно, горе, долу — наместо со лизгачот. Клик без влечење и понатаму ја отвора ќелијата.">
+                <input type="checkbox" id="hand" checked>
+                <span>✋ Влечи</span>
+            </label>
+            <span class="tools">
+                <button class="btn" id="refresh" title="Освежи од базата" aria-label="Освежи"><span class="ico" aria-hidden="true">↻</span></button>
+                <button class="btn soft" onclick="window.print()"><span class="ico" aria-hidden="true">⎙</span> Печати</button>
+                <a class="btn soft" href="NastavaUredi.html"
+                   title="Внеси или промени го распоредот на настава"><span class="ico" aria-hidden="true">✏️</span> Уреди</a>
+            </span>
             <span class="status" id="status"></span>
         </div>
         <div class="views mtb-tabs">
@@ -260,7 +340,7 @@
             <button class="btn soft" id="viewWeek" aria-pressed="false">📅 Цела недела</button>
             <button class="btn soft" id="viewCabinet" aria-pressed="false">🧩 По кабинет</button>
             <button class="btn soft" id="viewDays" aria-pressed="false">🗓 Ден по ден</button>
-            <button class="btn soft" id="viewNotice" aria-pressed="false">📄 Известувања по одделение</button>
+            <button class="btn soft" id="viewNotice" aria-pressed="false" title="Известувања по одделение — кој, кога и кај кого, по еден лист">📄 Известувања</button>
             <button class="btn soft" id="viewPersonal" aria-pressed="false"
                     title="Неделата на секој наставник, со тоа кој ученик кога оди на третман — за печатење, по еден лист">👤 Личен распоред</button>
         </div>
@@ -515,7 +595,72 @@
         drawExternal();
         markSelected();
         refocus();
+        fitGrid();
     }
+
+    /**
+     * The grid's window: the rest of the screen below the controls, so its
+     * header, first column and scrollbar are all visible without scrolling
+     * the page. Measured, not guessed — the controls wrap onto more lines on
+     * a narrow window, and inside the Workspace the window is a pane.
+     */
+    function fitGrid() {
+        const box = document.querySelector('#gridPanel .scroll');
+        if (!box) return;
+        const top = box.getBoundingClientRect().top + window.scrollY;
+        document.documentElement.style.setProperty('--grid-h', Math.max(240, Math.floor(window.innerHeight - top - 16)) + 'px');
+        const first = box.querySelector('table.grid thead tr');
+        box.style.setProperty('--head-1', (first ? first.getBoundingClientRect().height : 0) + 'px');
+        box.classList.toggle('hand', hand && Boolean(box.querySelector('table.grid')));
+    }
+
+    /**
+     * ✋ Влечи со рака (owner, 25 Sep 2026): the week is wider than any screen,
+     * and a thin scrollbar is hard to hit. With the mouse the grid is dragged
+     * like a map, in both directions. It only takes over after the pointer has
+     * moved a few pixels, so a click that did not move still opens the lesson.
+     * A finger already pans natively, so touch is left alone.
+     */
+    let hand = true;
+    (function installHand() {
+        const box = document.querySelector('#gridPanel .scroll');
+        let drag = null;
+        let moved = false;
+        box.addEventListener('pointerdown', (event) => {
+            moved = false;
+            if (!hand || event.button !== 0 || event.pointerType === 'touch') return;
+            if (!box.querySelector('table.grid')) return;
+            if (event.target.closest('a, button, input, select, textarea, label')) return;
+            drag = { x: event.clientX, y: event.clientY, left: box.scrollLeft, top: box.scrollTop, id: event.pointerId };
+        });
+        box.addEventListener('pointermove', (event) => {
+            if (!drag || event.pointerId !== drag.id) return;
+            const dx = event.clientX - drag.x;
+            const dy = event.clientY - drag.y;
+            if (!moved) {
+                if (Math.abs(dx) + Math.abs(dy) < 6) return;
+                moved = true;
+                box.setPointerCapture(event.pointerId);
+                box.classList.add('dragging');
+                hideTip();
+            }
+            box.scrollLeft = drag.left - dx;
+            box.scrollTop = drag.top - dy;
+        });
+        const release = () => {
+            drag = null;
+            box.classList.remove('dragging');
+        };
+        box.addEventListener('pointerup', release);
+        box.addEventListener('pointercancel', release);
+        // The click that ends a drag is not a click on a lesson.
+        box.addEventListener('click', (event) => {
+            if (!moved) return;
+            moved = false;
+            event.stopPropagation();
+            event.preventDefault();
+        }, true);
+    })();
 
     function periodHeader() {
         const first = (view === 'class' || view === 'days') ? 'Одделение'
@@ -568,7 +713,15 @@
     function classGridHtml(cells, dayKey) {
         const periods = data.bells.teaching || [];
         const { rows: byClass, offList, order } = classRows();
-        cells.forEach((c) => { byClass.get(c.class).set(c.ordinal, c); });
+        // A LIST per period, not one lesson: two teachers can share a class's
+        // period (co-teaching, since 24 Sep 2026), and keeping only the last
+        // lesson hid the other teacher. The pupils out of it are the class's,
+        // so the two lessons carry the same list and it is counted once.
+        cells.forEach((c) => {
+            const row = byClass.get(c.class);
+            if (!row.has(c.ordinal)) row.set(c.ordinal, []);
+            row.get(c.ordinal).push(c);
+        });
 
         let html = '<table class="grid day"><thead>' + periodHeader() + '</thead><tbody>';
         order.forEach((label) => {
@@ -579,21 +732,29 @@
                 + (offList.has(label) ? '<span class="off-staff">не е на списокот оваа година</span>' : '')
                 + '</th>';
             periods.forEach((p) => {
-                const cell = row.get(p.ordinal);
-                if (!cell) { html += '<td class="cell free">—</td>'; return; }
-                const n = cell.awayCount;
+                const list = row.get(p.ordinal) || [];
+                if (!list.length) { html += '<td class="cell free">—</td>'; return; }
+                // One pupil out of the period is one absence, however many
+                // lessons share it — by id, because two pupils share a name.
+                const seen = new Map();
+                list.forEach((c) => (c.away || []).forEach((a) =>
+                    seen.set((a.studentPublicId || a.student) + '|' + a.therapist, a)));
+                const away = Array.from(seen.values());
+                const n = away.length;
+                const joined = (key) => Array.from(new Set(list.map((c) => c[key]).filter(Boolean))).join(' / ');
+                const subjects = joined('subject');
                 const title = [
                     `${label} · ${p.ordinal}. час`,
-                    cell.subject || 'без предмет',
-                    cell.teacher || 'без наставник',
+                    subjects || 'без предмет',
+                    joined('teacher') || 'без наставник',
                     n ? `планирано на третман: ${n}` : 'нема планирано отсуство поради третман'
                 ].join(' · ');
                 html += `<td class="cell ${heat(n)}${n ? ' clickable' : ''}" title="${esc(title)}"`
-                    + focusKeys([cell])
+                    + focusKeys(list)
                     + (n ? ` data-key="${esc((dayKey ? dayKey + '|' : '') + label)}|${p.ordinal}"` : '')
-                    + `>${cell.subject ? esc(cell.subject) : '<span class="nosubj">без предмет</span>'}`
+                    + `>${subjects ? esc(subjects) : '<span class="nosubj">без предмет</span>'}`
                     + (n ? `<span class="count">${n}</span>` : '')
-                    + takenHtml([cell])
+                    + takenHtml([{ away }])
                     + '</td>';
             });
             html += '</tr>';
@@ -1092,7 +1253,8 @@
         const when = wholeWeek() ? esc(cell.day) + ' · ' : '';
         box.className = 'panel detail open';
         box.innerHTML =
-            `<h3>${when}${esc(cell.class)} · ${cell.ordinal}. час${period ? ' · ' + esc(period.startsAt) : ''}</h3>`
+            '<button type="button" class="detail-x" data-close-detail aria-label="Затвори" title="Затвори (Esc)">✕</button>'
+            + `<h3>${when}${esc(cell.class)} · ${cell.ordinal}. час${period ? ' · ' + esc(period.startsAt) : ''}</h3>`
             + `<div class="meta">${esc(cell.subject || 'без предмет')} · ${esc(cell.teacher || 'без наставник')}`
             + (cell.teacherOnStaff === false ? ' · не е на списокот оваа година' : '')
             + '</div>'
@@ -1288,6 +1450,24 @@
         hoverCard = el('hoverCard').checked;
         if (!hoverCard) hideTip();
     });
+    const closeDetail = () => {
+        el('detail').className = 'panel detail';
+        el('detail').innerHTML = '';
+        selected = null;
+        markSelected();
+    };
+    el('detail').addEventListener('click', (event) => {
+        if (event.target.closest('[data-close-detail]')) closeDetail();
+    });
+    document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape' && el('detail').classList.contains('open')) closeDetail();
+    });
+    // Во променлива, не во localStorage — како двете погоре.
+    el('hand').addEventListener('change', () => {
+        hand = el('hand').checked;
+        fitGrid();
+    });
+    window.addEventListener('resize', fitGrid);
     el('named').addEventListener('change', () => {
         named = el('named').checked;
         document.body.classList.toggle('named', named);

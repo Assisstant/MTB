@@ -37,6 +37,15 @@ async function cleanup() {
     await q(`DELETE FROM therapist_students WHERE therapist_id IN (SELECT id FROM therapists WHERE name LIKE $1)`, [`${TAG}%`]);
     await q(`DELETE FROM therapists WHERE name LIKE $1`, [`${TAG}%`]);
     await q(`DELETE FROM students WHERE public_id LIKE $1`, [`${TAG}%`]);
+    // Migration 035 keeps a staff identity when the profile goes, on purpose;
+    // the fixture's must go too, or check:names learns these invented names.
+    await q(`DELETE FROM employees e WHERE e.name ILIKE ANY($1::text[])
+              AND NOT EXISTS (SELECT 1 FROM teachers x WHERE x.employee_id = e.id)
+              AND NOT EXISTS (SELECT 1 FROM therapists x WHERE x.employee_id = e.id)
+              AND NOT EXISTS (SELECT 1 FROM employee_roles x WHERE x.employee_id = e.id)
+              AND NOT EXISTS (SELECT 1 FROM employee_year_details x WHERE x.employee_id = e.id)
+              AND NOT EXISTS (SELECT 1 FROM employee_identity_links x WHERE x.source_id = e.id OR x.target_id = e.id)
+              AND NOT EXISTS (SELECT 1 FROM employees x WHERE x.superseded_by = e.id)`, [[`${TAG}%`]]);
 }
 
 /**
@@ -392,6 +401,95 @@ const run = async () => {
     check('turning it back on restores it',
         await page.evaluate(() => getComputedStyle(document.getElementById('tip')).display !== 'none'));
 
+    console.log('\nмрежата е прозорец: замрзнат ред и колона, лизгач на екранот, влечење со рака');
+    // Owner, 25 Sep 2026: the week is wider than the screen and hard to move
+    // around. Narrow enough here that it certainly overflows both ways.
+    await page.setViewportSize({ width: 900, height: 700 });
+    await page.waitForTimeout(400);
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await page.waitForTimeout(200);
+    const frame = () => page.evaluate(() => {
+        const box = document.querySelector('#gridPanel .scroll');
+        const r = box.getBoundingClientRect();
+        const head = box.querySelector('table.grid thead tr:first-child th:nth-child(2)').getBoundingClientRect();
+        const second = box.querySelector('table.grid thead tr + tr th').getBoundingClientRect();
+        const firstCol = box.querySelector('table.grid tbody tr th').getBoundingClientRect();
+        return { left: box.scrollLeft, top: box.scrollTop, wide: box.scrollWidth > box.clientWidth,
+            tall: box.scrollHeight > box.clientHeight, boxTop: Math.round(r.top), boxLeft: Math.round(r.left),
+            boxBottom: r.bottom, viewport: window.innerHeight, headTop: Math.round(head.top),
+            secondTop: Math.round(second.top), firstRowBottom: Math.round(head.bottom),
+            colLeft: Math.round(firstCol.left) };
+    });
+    let f = await frame();
+    check('the week overflows its window both ways here', f.wide && f.tall, JSON.stringify(f));
+    check('and the window ends on the screen, so its sideways scrollbar is always in reach',
+        f.boxBottom <= f.viewport + 1, JSON.stringify(f));
+    await page.evaluate(() => { const b = document.querySelector('#gridPanel .scroll'); b.scrollTop = 200; b.scrollLeft = 300; });
+    await page.waitForTimeout(200);
+    f = await frame();
+    check('scrolled down, the header row stays at the top of the window', Math.abs(f.headTop - f.boxTop) <= 2, JSON.stringify(f));
+    check('and the second header row stops under the first, not on top of it',
+        Math.abs(f.secondTop - f.firstRowBottom) <= 2, JSON.stringify(f));
+    check('scrolled across, the teachers\' column stays at the left', Math.abs(f.colLeft - f.boxLeft) <= 2, JSON.stringify(f));
+
+    // The fixture teacher's row is near the end of the staff list: bring the
+    // lesson into view first, as a person would, and measure from there.
+    const aim = async () => {
+        await page.evaluate(() => window.scrollTo(0, 0));
+        await page.$eval(`#grid td[data-key="${monKey}"]`, (td) => {
+            const box = document.querySelector('#gridPanel .scroll');
+            box.scrollLeft = 0;
+            box.scrollTop = Math.max(0, td.offsetTop - box.clientHeight / 2);
+        });
+        await page.waitForTimeout(150);
+        return page.$eval(`#grid td[data-key="${monKey}"]`, (td) => {
+            const r = td.getBoundingClientRect();
+            return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+        });
+    };
+    const detailBefore = await page.evaluate(() => document.getElementById('detail').className);
+    let start = await aim();
+    let from = await frame();
+    // Leftwards and DOWN: the row is low in the list, so there is room to go up.
+    await page.mouse.move(start.x, start.y);
+    await page.mouse.down();
+    await page.mouse.move(start.x - 120, start.y + 40, { steps: 6 });
+    await page.mouse.move(start.x - 240, start.y + 80, { steps: 6 });
+    await page.mouse.up();
+    await page.waitForTimeout(200);
+    f = await frame();
+    check('✋ dragging moves the grid under the hand, both ways',
+        f.left - from.left >= 200 && from.top - f.top >= 60, JSON.stringify({ from, to: f }));
+    checkEq('and the drag is not taken for a click on the lesson it started on',
+        await page.evaluate(() => document.getElementById('detail').className), detailBefore);
+    await page.uncheck('#hand');
+    start = await aim();
+    from = await frame();
+    await page.mouse.move(start.x, start.y);
+    await page.mouse.down();
+    await page.mouse.move(start.x - 240, start.y + 80, { steps: 6 });
+    await page.mouse.up();
+    f = await frame();
+    check('switched off, the mouse no longer drags', f.left === from.left && f.top === from.top, JSON.stringify({ from, to: f }));
+    await page.check('#hand');
+
+    check('the teacher picker belongs to the personal sheets only', !(await page.isVisible('#whoField')));
+    await page.click(`#grid td[data-key="${monKey}"]`);
+    await page.waitForTimeout(250);
+    const card = await page.evaluate(() => {
+        const d = document.getElementById('detail');
+        const r = d.getBoundingClientRect();
+        return { open: d.classList.contains('open'), position: getComputedStyle(d).position,
+            onScreen: r.top >= 0 && r.bottom <= window.innerHeight + 1 && r.right <= window.innerWidth + 1 };
+    });
+    checkEq('a clicked lesson opens over the grid, on screen, not below it out of sight', card,
+        { open: true, position: 'fixed', onScreen: true });
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(150);
+    check('and Esc closes it', !(await page.evaluate(() => document.getElementById('detail').classList.contains('open'))));
+    await page.setViewportSize({ width: 1500, height: 1000 });
+    await page.waitForTimeout(300);
+
     console.log('\nизвестувањето по одделение е истиот одговор, во формата што се предава');
     let noticeUrl = null;
     page.on('request', (r) => {
@@ -556,6 +654,10 @@ const run = async () => {
         firstAway && Array.isArray(firstAway.away.slots) && firstAway.away.slots.includes('08:00-08:40'),
         JSON.stringify(firstAway && firstAway.away.slots));
 
+    // The invented week above is still answering for this browser. Кабинети
+    // must read the REAL crossing, the one just checked, or it gets lessons
+    // with no term strings and rightly has nothing to put on the card.
+    await ctx.unroute('**/api/teaching/crossing*');
     const fusion = await ctx.newPage();
     const fusionErrors = [];
     fusion.on('pageerror', (e) => fusionErrors.push(String(e)));

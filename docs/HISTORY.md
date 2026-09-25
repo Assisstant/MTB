@@ -3869,3 +3869,52 @@ Also found:
   - the named-cell check (the class view shows one of the two fixture
     pupils);
   - the Fusion „where is the child" hover card (two checks).
+
+## Настава: a grid you can move around in (25 Sep 2026, later)
+
+The owner found Настава ↔ терапии too big to move around, especially inside
+the Workspace. The header scrolled away, the sideways scrollbar sat at the
+foot of a table taller than the window, and at 1280×720 the controls took
+456px of the 720.
+
+- **Why the header never stayed.** `.scroll { overflow-x: auto }` made that
+  box the header's sticky container. But the PAGE did the vertical scrolling,
+  and that box never scrolled vertically, so `top: 0` held against a box that
+  never moved. The box now scrolls both ways. `fitGrid()` measures where it
+  starts and gives it the rest of the window (at least 240px). Recomputed on
+  every draw and on resize, because the controls wrap on a narrow window.
+  The week's second header row is placed under the first (`--head-1`,
+  measured). The corner cell is frozen both ways and sits above both frozen
+  strips. The sheets (notices, personal weeks, day by day) keep the page's own
+  scroll, because they are paper.
+- **✋ Влечи.** Pointer-drag pans the box. It takes over only after 6px of
+  movement, so a click that did not move still opens the lesson, and the click
+  that ends a drag is swallowed in the capture phase. Touch is left to the
+  browser, which already pans. It is on by default and kept in a variable, not
+  localStorage: this page promises to keep nothing in the browser.
+- **The clicked lesson opens over the grid** (`position: fixed`, ✕ and Esc).
+  Below a full-height grid it would open out of sight.
+- **Compact controls.**
+  - One row, with the three switches as chips.
+  - The tabs on one sliding strip rather than wrapping into three rows. The
+    shared tab size set on 24 Sep is kept; only one label got shorter.
+  - No page header when embedded (`?embed`), since the window has a title bar.
+  - At 1280×720 the grid now starts at 238px.
+- **Two bugs found on the way.**
+  - `.field { display: flex }` beat the `hidden` attribute, so the personal
+    view's teacher picker showed in every view.
+  - The class view kept ONE lesson per period (`Map.set`). Since co-teaching,
+    two teachers can share a class period, and the second disappeared. It now
+    keeps the list, and counts each pupil once, by id.
+
+**Test repairs.**
+- **`test:nastava`'s three old failures.** Two were the test's own doing: the
+  invented week it served Настава was still routed when it opened Кабинети in
+  the same browser context. Кабинети therefore got lessons with no term
+  strings, and rightly drew no card. The third was the one-lesson class view
+  above.
+- **`test:nastava-week`** still used the view dropdown that became tabs on
+  24 Sep. It had never run on WORK, because it ignored the `CHROME` override.
+- **Both suites left their staff identities behind** (the migration 035 trap).
+  The week suite also left them on a crash after seeding. Both now clean up
+  either way.
