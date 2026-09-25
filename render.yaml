@@ -34,6 +34,10 @@ services:
       # database. Set in the dashboard; without it the queue refuses everyone.
       - key: MTB_ADMIN
         sync: false
+      # „изработил …" at the foot of every screen. The name is set here in the
+      # dashboard and never in this public repository (check:names refuses it).
+      - key: MTB_AUTHOR
+        sync: false
       - key: MTB_CLOUD_ORIGIN
         sync: false
       - key: MTB_SERVER_ID

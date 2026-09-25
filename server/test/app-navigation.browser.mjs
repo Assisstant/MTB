@@ -343,6 +343,39 @@ check('the no-server path has no JavaScript error and never exposes the legacy s
     launcherErrors.join(' | '));
 await launcherContext.close();
 
+console.log('\n„изработил …" — from the server, once per window');
+// Owner, 25 Sep 2026: the author's credit on every screen. The name is the
+// server's (`MTB_AUTHOR`), never the code's: check:names refuses real names in
+// this public repository, so the fixture is an invented one.
+let author = 'Измислен Автор';
+const creditContext = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+await creditContext.route('**/api/health', async (route) => {
+    const response = await route.fetch();
+    const json = await response.json();
+    if (author) json.author = author; else delete json.author;
+    await route.fulfill({ json });
+});
+const credited = await creditContext.newPage();
+await credited.goto(`${BASE}/Podatoci.html`, { waitUntil: 'domcontentloaded' });
+await credited.waitForSelector('#mtbCredit', { timeout: 6000 }).catch(() => {});
+check('a screen carries the credit the server names',
+    (await credited.locator('#mtbCredit').textContent().catch(() => '')) === 'изработил Измислен Автор');
+check('and it never stands in the way of a click',
+    await credited.$eval('#mtbCredit', (n) => getComputedStyle(n).pointerEvents).catch(() => '') === 'none');
+await credited.emulateMedia({ media: 'print' });
+check('and it is on the printed page too',
+    await credited.$eval('#mtbCredit', (n) => getComputedStyle(n).display !== 'none').catch(() => false));
+await credited.emulateMedia({ media: 'screen' });
+await credited.goto(`${BASE}/Podatoci.html?embed=1`, { waitUntil: 'domcontentloaded' });
+await credited.waitForTimeout(1500);
+check('a window inside the Workspace leaves it to the shell', await credited.locator('#mtbCredit').count() === 0);
+author = '';
+await credited.goto(`${BASE}/Podatoci.html`, { waitUntil: 'domcontentloaded' });
+await credited.waitForSelector('#mtbAppNav');
+await credited.waitForTimeout(1500);
+check('a server that names nobody shows nothing, not a placeholder', await credited.locator('#mtbCredit').count() === 0);
+await creditContext.close();
+
 await browser.close();
 console.log(fails ? `\n${fails} failed` : '\nall good');
 process.exit(fails ? 1 : 0);

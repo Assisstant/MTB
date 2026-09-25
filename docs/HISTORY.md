@@ -3812,3 +3812,60 @@ Tests: `test:portal-week` (the teacher sees the children of the classes they
 teach, not another class's, a teacher of two classes sees both, a therapist
 gets none) and `test:kolega` (mouse, held finger, Esc, keyboard).
 
+
+## A teacher's personal week, and the author's credit (25 Sep 2026)
+
+The owner liked the forms' weekly picture (`paintGrid` in `mtb-schedule-form.js`)
+and asked for it per teacher in Настава ↔ терапии: printable, and saying
+what a teacher needs, namely when which pupil leaves their lesson and for which
+therapist.
+
+- **„👤 Личен распоред" is a regrouping, like every other view on that page.**
+  The crossing endpoint already returns, per lesson, `away` with the pupil,
+  the therapist and the session's `slots`. The view files the same answer under
+  the teacher, one sheet each. A second calculation in the browser could
+  disagree with the teacher's grid by a minute, and nobody would see it.
+- **One sheet is one printed page.** A named CSS page (`@page personal`,
+  A4 landscape) applies to these sheets only, so the other views keep their
+  portrait pages. „Сите" prints only teachers who have lessons: a teacher
+  with none would be a blank sheet. Chosen by name, they get their sheet
+  anyway, and it says why it is empty.
+- **The sheet uses fixed colours in both themes**, because it is paper. The
+  gradient is a shade darker than the picture's: white 13px text measures 3.7:1
+  on `#667eea` and 4.8:1 on `#5a67d8`.
+- **„🖼 Слика" calls the forms' own `paintGrid`**, so the PNG is the same
+  picture colleagues already get from a form.
+
+**The credit („изработил …") comes from the server, not the code.** The owner
+wants their name at the foot of every screen. This repository is public, and
+`check:names` refuses every real name in it, the author's included. An
+exemption for one name would be the first hole in a guard whose whole point is
+having none. So `/api/health` carries `author` from `MTB_AUTHOR` in each
+installation's `.env` (Render: the dashboard; `render.yaml` names the key with
+no value). The bar draws it, once per window: the Workspace shell carries it,
+not each of its frames. A server without the setting shows nothing rather than
+a placeholder. It is `position: fixed`, so it prints at the foot of every page,
+and `pointer-events: none`, so it never takes a click.
+
+**Linking two staff records needs their annual details to agree first.** The
+staff directory had one person twice: once with a teaching profile and the
+duty „Настава", once with a therapy profile and „Индивидуална
+рехабилитација". `POST /api/workspace/employees/:id/link` refuses when
+profession, title or duties differ in ANY year. That is by design: it will not
+pick one record and drop the other. The way through is:
+1. give both records the same duties (both ticked on both);
+2. do not tick „Учествува во настава" on the therapy record, which would give
+   it a second teaching profile, and linking also refuses two profiles of one
+   kind;
+3. then link.
+
+Also found:
+- **Podatoci at phone width.** Since classes read as the school writes them,
+  the new-pupil class `<select>` widened the page to 467px. The field is now
+  capped at the screen.
+- **`test:nastava` had been failing at its first check** since the ✏️ link was
+  added beside a class name. It now reads the name only.
+- **Three older failures remain**, confirmed on the code before this change:
+  - the named-cell check (the class view shows one of the two fixture
+    pupils);
+  - the Fusion „where is the child" hover card (two checks).

@@ -591,6 +591,48 @@
         window.dispatchEvent(new CustomEvent('mtb:navigation-mounted'));
     }
 
+    /**
+     * „изработил …" — the author's credit, at the foot of every screen and of
+     * every printed page (owner, 25 Sep 2026).
+     *
+     * The NAME comes from the server (`MTB_AUTHOR` in each installation's
+     * .env, and in Render's dashboard), never from this file: this repository
+     * is public and `check:names` refuses every real name in it, the author's
+     * own included — which is the guard working, not in the way. A server
+     * without the setting shows nothing rather than a placeholder.
+     *
+     * Once per window: inside the Workspace the shell carries it, not each of
+     * its windows, or a screen of five windows would say it five times.
+     */
+    let creditNode = null;
+    function showCredit(author) {
+        const text = String(author || '').replace(/\s+/g, ' ').trim();
+        if (embedded() || !text || !document.body) {
+            if (creditNode) creditNode.remove();
+            creditNode = null;
+            return;
+        }
+        if (!document.getElementById('mtbCreditStyle')) {
+            const style = document.createElement('style');
+            style.id = 'mtbCreditStyle';
+            style.textContent = `
+                .mtb-credit { position: fixed; left: 10px; bottom: 6px; z-index: 30; pointer-events: none;
+                    user-select: none; font: 600 11px/1.2 system-ui, -apple-system, 'Segoe UI', sans-serif;
+                    letter-spacing: .02em; color: rgba(45, 50, 80, .55); }
+                html[data-theme="dark"] .mtb-credit { color: rgba(226, 230, 245, .5); }
+                @media print { .mtb-credit { color: #777 !important; } }
+            `;
+            document.head.appendChild(style);
+        }
+        if (!creditNode) {
+            creditNode = document.createElement('div');
+            creditNode.className = 'mtb-credit';
+            creditNode.id = 'mtbCredit';
+        }
+        creditNode.textContent = 'изработил ' + text;
+        if (!creditNode.isConnected) document.body.appendChild(creditNode);
+    }
+
     function closeServerMenu() {
         if (serverMenu && serverMenu.parentNode) serverMenu.parentNode.removeChild(serverMenu);
         serverMenu = null;
@@ -933,6 +975,7 @@
                     mirror && mirror.lastError ? 'последна грешка: ' + String(mirror.lastError) : '',
                     body.warning || ''].filter(Boolean).join(' · ')
             };
+            showCredit(body.author);
             window.dispatchEvent(new CustomEvent('mtb:server-state', { detail: {
                 state: serverState.state,
                 base,

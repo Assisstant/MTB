@@ -130,6 +130,8 @@ async function cyrillicFolds(): Promise<boolean> {
     } catch { return false; }
 }
 
+const AUTHOR = String(process.env.MTB_AUTHOR || '').replace(/\s+/g, ' ').trim().slice(0, 80);
+
 server.get('/api/health', async () => {
     const { rows } = await pool.query('SELECT now() AS db_time, current_database() AS db_name');
     const folds = await cyrillicFolds();
@@ -156,6 +158,10 @@ server.get('/api/health', async () => {
         // Additive deployment capability: pages can become read-only before a
         // signed-out user presses Save, while the API remains the authority.
         signinRequired: process.env.MTB_REQUIRE_SIGNIN === '1',
+        // „изработил …" on every screen (owner, 25 Sep 2026). From each
+        // installation's .env, never from the code: this repository is public
+        // and check:names refuses every real name in it, the author's included.
+        ...(AUTHOR ? { author: AUTHOR } : {}),
         ...(cloudAuthMode() === 'google' ? { cloudAuth: 'google' } : {}),
         ...(mirror ? { mirror } : {}),
         ...(warnings.length ? { warning: warnings.join('; ') } : {})
