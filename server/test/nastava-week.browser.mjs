@@ -51,6 +51,15 @@ async function cleanup() {
     await q('DELETE FROM school_years WHERE label = $1', [YEAR]);
     await q('DELETE FROM school_classes WHERE label IN ($1, $2)', [A, B]);
     await q('DELETE FROM teachers WHERE name LIKE $1', [`${TAG}%`]);
+    // Migration 035 keeps a staff identity when the profile goes, on purpose;
+    // the fixture's must go too, or check:names learns these invented names.
+    await q(`DELETE FROM employees e WHERE e.name ILIKE ANY($1::text[])
+              AND NOT EXISTS (SELECT 1 FROM teachers x WHERE x.employee_id = e.id)
+              AND NOT EXISTS (SELECT 1 FROM therapists x WHERE x.employee_id = e.id)
+              AND NOT EXISTS (SELECT 1 FROM employee_roles x WHERE x.employee_id = e.id)
+              AND NOT EXISTS (SELECT 1 FROM employee_year_details x WHERE x.employee_id = e.id)
+              AND NOT EXISTS (SELECT 1 FROM employee_identity_links x WHERE x.source_id = e.id OR x.target_id = e.id)
+              AND NOT EXISTS (SELECT 1 FROM employees x WHERE x.superseded_by = e.id)`, [[`${TAG}%`]]);
 }
 
 async function seed() {
@@ -105,7 +114,7 @@ async function pickInCell(page, teacher, day, ordinal, value) {
 
 async function run() {
     const { year, teachers } = await seed();
-    const browser = await chromium.launch();
+    const browser = await chromium.launch({ ...(process.env.CHROME ? { executablePath: process.env.CHROME } : {}) });
     const page = await browser.newPage();
     // Only real JavaScript faults. A console listener would also catch the
     // browser's own "Failed to load resource: 409" line from the refusal this
@@ -117,7 +126,8 @@ async function run() {
     try {
         await page.goto(`${BASE}/NastavaUredi.html?year=${encodeURIComponent(YEAR)}`);
         await page.waitForSelector('#grid table', { timeout: 15000 });
-        await page.selectOption('#view', 'teacher');
+        // The views became tabs on 24 Sep 2026; the dropdown is gone.
+        await page.click('[data-view="teacher"]');
         await page.waitForSelector('#grid table.week', { timeout: 15000 });
 
         console.log('\nевери наставник добива ред, дури и без ниту еден час');
@@ -220,4 +230,5 @@ async function run() {
     process.exit(fails ? 1 : 0);
 }
 
-run().catch((err) => { console.error(err); process.exit(1); });
+// A crash after the seed must not leave the invented rows behind.
+run().catch(async (err) => { console.error(err); await cleanup().catch(() => {}); await pool.end().catch(() => {}); process.exit(1); });
