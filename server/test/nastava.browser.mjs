@@ -105,7 +105,9 @@ const run = async () => {
 
     const cellOf = async (ordinal) => page.evaluate(([cls, ord]) => {
         const rows = Array.from(document.querySelectorAll('#grid tbody tr'));
-        const row = rows.find((r) => r.querySelector('th')?.textContent.trim() === cls);
+        // The heading is the class, then a ✏️ link to that class's week; the
+        // class is its first text, not the whole heading.
+        const row = rows.find((r) => r.querySelector('th')?.firstChild?.textContent.trim() === cls);
         if (!row) return null;
         const td = row.querySelectorAll('td')[ord - 1];
         if (!td) return null;
@@ -453,6 +455,58 @@ const run = async () => {
     });
     check('classes with no pull-outs are named rather than left out',
         /Без изземања/.test(quietLine) || quietLine === '', quietLine);
+
+    console.log('\nличниот распоред: истиот одговор, по наставник, по еден лист');
+    // Owner, 25 Sep 2026: the forms' picture, per teacher, with who leaves
+    // which lesson for which therapist — to be printed and handed over.
+    noticeUrl = null;
+    await page.click('#viewPersonal');
+    await page.waitForTimeout(600);
+    check('the personal sheets read the same week and do not ask again', noticeUrl === null, noticeUrl);
+    check('the teacher picker appears with them', await page.isVisible('#whoField'));
+    const sheets = () => page.evaluate(() => Array.from(document.querySelectorAll('#grid .personal')).map((s) => ({
+        title: s.querySelector('h3').textContent.trim(),
+        sub: s.querySelector('.p-sub').textContent,
+        days: Array.from(s.querySelectorAll('thead th')).map((th) => th.textContent.trim()),
+        rows: Array.from(s.querySelectorAll('tbody tr')).map((r) =>
+            // As a person reads it: the lesson and its note are separate lines.
+            Array.from(r.querySelectorAll('td')).map((td) => td.innerText.replace(/\s+/g, ' ').trim()))
+    })));
+    const everyone = await sheets();
+    checkEq('„Сите" prints a sheet only for a teacher who has lessons', everyone.map((s) => s.title),
+        ['Неделен распоред — Пробен Неделен']);
+    await page.selectOption('#who', 'Пробен Неделен');
+    await page.waitForTimeout(300);
+    const [sheet1] = await sheets();
+    checkEq('the week has the days the timetable uses, in the school\'s order', sheet1 && sheet1.days,
+        ['Час', 'Понеделник', 'Среда', 'Петок']);
+    checkEq('Monday\'s first lesson names the lesson, the class, the child and the therapist',
+        sheet1 && sheet1.rows[0][0], 'мат ТЕСТ-Н ↳ Понеделник Дете Пробен Терапевт');
+    checkEq('and Friday\'s its own child', sheet1 && sheet1.rows[0][2], 'мат ТЕСТ-Н ↳ Петок Дете Пробен Терапевт');
+    checkEq('a lesson nobody leaves carries no pull-out line', sheet1 && sheet1.rows[1][1], 'мат ТЕСТ-Н');
+    check('the header counts the lessons and the pull-outs',
+        sheet1 && /3 часа неделно/.test(sheet1.sub) && /2 излегувања на третман/.test(sheet1.sub), sheet1 && sheet1.sub);
+
+    await page.emulateMedia({ media: 'print' });
+    const printed = await page.evaluate(() => {
+        const s = document.querySelector('#grid .personal');
+        const hidden = (sel) => { const n = document.querySelector(sel); return !n || getComputedStyle(n).display === 'none'; };
+        // One sheet here, so it is also the last: no break after it, but it
+        // still prints on the landscape page kept for these sheets.
+        return { page: getComputedStyle(s).page, png: hidden('#grid .personal .p-png'),
+            controls: hidden('.controls'), unplaced: hidden('#unplaced') };
+    });
+    await page.emulateMedia({ media: 'screen' });
+    checkEq('printed, a sheet takes its own landscape page, with only the sheet on it', printed,
+        { page: 'personal', png: true, controls: true, unplaced: true });
+
+    const [download] = await Promise.all([
+        page.waitForEvent('download', { timeout: 5000 }).catch(() => null),
+        page.click('#grid .personal [data-png]')
+    ]);
+    check('„🖼 Слика" gives the same sheet as a picture, named for the teacher',
+        download && download.suggestedFilename() === 'Licen-raspored-Пробен-Неделен.png',
+        download ? download.suggestedFilename() : 'нема преземање');
 
     await page.click('#viewClass');
     await page.waitForTimeout(800);

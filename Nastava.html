@@ -154,6 +154,43 @@
         .notice:last-of-type { page-break-after: auto; break-after: auto; }
         .notice thead th { background: #eee !important; color: #000 !important; }
     }
+    /* Личен распоред: изгледот на сликата од формуларите (`paintGrid`), како
+       лист хартија — со свои, фиксни бои во двете теми, зашто се печати и се
+       дава на човекот. Секој текст ја кажува својата боја (CLAUDE.md, копчето
+       што не ја наследува бојата). Градиентот е малку потемен од сликата: бел
+       ситен текст на #667eea е 3,7:1, на #5a67d8 е 4,8:1. */
+    .personal { margin: 0 0 26px; padding: 14px; border-radius: 12px; background: #ffffff; color: #1a202c;
+        border: 1px solid #d8dbe8; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .personal .p-head { padding: 14px 18px; border-radius: 12px; text-align: center; color: #ffffff;
+        background: linear-gradient(90deg, #5a67d8, #6b46c1); }
+    .personal .p-head h3 { margin: 0; font-size: 22px; color: #ffffff; }
+    .personal .p-sub { margin-top: 4px; font-size: 13px; color: #ffffff; }
+    .personal .p-grid { width: 100%; margin-top: 12px; border-collapse: separate; border-spacing: 2px; table-layout: fixed; font-size: 12.5px; }
+    .personal .p-grid thead th { padding: 8px 6px; background: #4c51bf; color: #ffffff; font-weight: 700; text-align: center; }
+    .personal .p-grid thead th:first-child, .personal .p-grid tbody th { width: 84px; }
+    .personal .p-grid tbody th { padding: 6px; background: #2d3748; color: #ffffff; text-align: center; vertical-align: middle; }
+    .personal .p-grid tbody th b { display: block; font-size: 15px; }
+    .personal .p-grid tbody th small { display: block; color: #cbd5e0; font-size: 11px; }
+    .personal .p-grid td { padding: 4px; vertical-align: top; background: #f7fafc; color: #1a202c; }
+    .personal .p-grid tbody tr:nth-child(even) td { background: #ffffff; }
+    .personal .p-lesson, .personal .p-away { margin: 0 0 3px; padding: 4px 6px 4px 8px; border-radius: 6px; line-height: 1.2; }
+    .personal .p-lesson { background: #e6fffa; border-left: 4px solid #319795; color: #1a202c; }
+    .personal .p-away { background: #fff5e6; border-left: 4px solid #c05621; color: #1a202c; }
+    .personal .p-lesson b, .personal .p-away b { display: block; font-size: 12.5px; color: #1a202c;
+        overflow-wrap: anywhere; }
+    .personal .p-lesson small, .personal .p-away small { display: block; font-size: 11px; color: #4a5568; }
+    .personal .p-away small { color: #7b341e; }
+    .personal .p-foot { display: flex; align-items: center; justify-content: space-between; gap: 10px;
+        margin-top: 8px; font-size: 12px; color: #4a5568; }
+    .personal .quiet { color: #4a5568; }
+    @page personal { size: A4 landscape; margin: 9mm; }
+    @media print {
+        .personal { page: personal; border: 0; padding: 0; margin: 0; break-after: page; page-break-after: always; }
+        .personal:last-of-type { break-after: auto; page-break-after: auto; }
+        .personal .p-foot .btn { display: none !important; }
+        body[data-view="personal"] #detail, body[data-view="personal"] #unplaced,
+        body[data-view="personal"] #external, body[data-view="personal"] #legend { display: none !important; }
+    }
     .off-staff{display:block;font-size:10px;font-weight:600;color:#b45309;margin-top:2px}
     /* Кого земаш, и каде е: името горе, каде да го најдеш под него. */
     .take { display: block; line-height: 1.25; }
@@ -191,6 +228,10 @@
                 <span>Ден</span>
                 <select id="day"></select>
             </label>
+            <label class="field" id="whoField" hidden>
+                <span>Наставник</span>
+                <select id="who"><option value="">Сите наставници</option></select>
+            </label>
             <label class="field">
                 <span>Отсутен ако пропушти</span>
                 <select id="share">
@@ -220,6 +261,8 @@
             <button class="btn soft" id="viewCabinet" aria-pressed="false">🧩 По кабинет</button>
             <button class="btn soft" id="viewDays" aria-pressed="false">🗓 Ден по ден</button>
             <button class="btn soft" id="viewNotice" aria-pressed="false">📄 Известувања по одделение</button>
+            <button class="btn soft" id="viewPersonal" aria-pressed="false"
+                    title="Неделата на секој наставник, со тоа кој ученик кога оди на третман — за печатење, по еден лист">👤 Личен распоред</button>
         </div>
     </div>
 
@@ -255,7 +298,7 @@
     // Two views cross the WHOLE week rather than one day: the weekly grid and
     // the per-class notice sheet. It is the same request either way — the
     // endpoint already answers for the week when no day is named.
-    const wholeWeek = () => view === 'week' || view === 'notice' || view === 'days';
+    const wholeWeek = () => view === 'week' || view === 'notice' || view === 'days' || view === 'personal';
     // Every request carries a number and only the newest one may draw. Without
     // this, changing the day while the first fetch is still running leaves the
     // previous day's grid on screen under the new day's label.
@@ -459,11 +502,12 @@
         hideTip();
         // The heat swatches explain a grid. The notice sheet has no cells to
         // shade, so a legend there would be a key to nothing.
-        if (view === 'notice') el('legend').innerHTML = '';
+        if (view === 'notice' || view === 'personal') el('legend').innerHTML = '';
         else drawLegend();
         if (view === 'week') drawWeek();
         else if (view === 'days') drawDays();
         else if (view === 'notice') drawNotices();
+        else if (view === 'personal') drawPersonal();
         else if (view === 'class') drawByClass();
         else if (view === 'cabinet') drawByTherapist();
         else drawByTeacher();
@@ -919,6 +963,116 @@
         el('grid').innerHTML = html;
     }
 
+    /**
+     * Личен распоред — неделата на ЕДЕН наставник, лист по лист.
+     *
+     * Сопственикот (25 септември): изгледот на сликата од формуларите, но за
+     * секој наставник, со она што му треба нему — кога кој ученик му излегува
+     * од часот и кај кој терапевт. Ова е единствениот приказ на страницата
+     * наменет да се печати и да му се даде на човекот, па еден наставник е
+     * еден лист (A4, положено).
+     *
+     * ПРЕГРУПИРАЊЕ, не второ пресметување. Кој третман на кој час паѓа го
+     * решава `lib/crossing.ts`; тука само се чита истиот одговор по наставник.
+     * „Цела недела" е истото, сите наставници во една мрежа.
+     */
+    const SCHOOL = 'ОУРЦ „Кочо Рацин“ – Битола';
+    const NOBODY = '— без наставник —';
+    const cap = (d) => String(d || '').charAt(0).toUpperCase() + String(d || '').slice(1);
+    const clock = (slots) => (slots || []).join(', ').replace(/-/g, '–');
+
+    function personalWeeks() {
+        const periods = data.bells.teaching || [];
+        const days = DAYS.filter((d) => data.cells.some((c) => c.day === d));
+        const { rows, offStaff, order } = teacherRows();
+        data.cells.forEach((c) => {
+            const slot = rows.get(c.teacher || NOBODY);
+            const at = c.day + '|' + c.ordinal;
+            if (!slot.has(at)) slot.set(at, []);
+            slot.get(at).push(c);
+        });
+        const kindOf = new Map((data.teachers || []).map((t) => [t.name, t.kind]));
+        return { periods, days, rows, offStaff, kindOf, names: order.filter((n) => n !== NOBODY) };
+    }
+
+    /** What one period of one teacher says: the lesson, then who leaves it. */
+    function personalEntries(list) {
+        const out = [];
+        list.forEach((c) => {
+            out.push({ kind: 'lesson', text: c.subject || 'без предмет', sub: c.class });
+            (c.away || []).forEach((a) => out.push({
+                kind: 'away', text: '↳ ' + a.student, sub: a.therapist + (a.slots && a.slots.length ? ' · ' + clock(a.slots) : '')
+            }));
+        });
+        return out;
+    }
+
+    function drawPersonal() {
+        const { periods, days, rows, offStaff, kindOf, names } = personalWeeks();
+        // The choice survives a redraw; a name that is no longer on the list
+        // falls back to everybody rather than to an empty page.
+        const wanted = names.includes(el('who').value) ? el('who').value : '';
+        el('who').innerHTML = '<option value="">Сите наставници</option>'
+            + names.map((n) => `<option value="${esc(n)}"${n === wanted ? ' selected' : ''}>${esc(n)}</option>`).join('');
+        if (!days.length || !periods.length) {
+            el('grid').innerHTML = '<div class="offline"><p>Нема внесени часови за оваа година.</p></div>';
+            return;
+        }
+        // „Сите" is for printing the whole staff room, so a teacher with no
+        // lesson yet would be a blank sheet of paper. Chosen by name, they get
+        // their sheet anyway, and it says why it is empty.
+        const shown = wanted ? [wanted] : names.filter((n) => rows.get(n).size);
+        const printed = new Date().toLocaleDateString('mk-MK');
+        const yearLabel = data.year + (data.isCurrentYear ? '' : ' · архивски приказ');
+
+        el('grid').innerHTML = shown.map((name) => {
+            const slots = rows.get(name);
+            const lessons = Array.from(slots.values()).reduce((n, list) => n + list.length, 0);
+            const away = Array.from(slots.values()).reduce((n, list) => n + list.reduce((m, c) => m + c.awayCount, 0), 0);
+            const kind = kindOf.get(name) === 'odd' ? 'одделенски наставник'
+                : kindOf.get(name) === 'pred' ? 'предметен наставник' : '';
+            const sub = [SCHOOL, 'учебна ' + yearLabel, kind,
+                lessons + (lessons === 1 ? ' час' : ' часа') + ' неделно',
+                away ? away + (away === 1 ? ' излегување на третман' : ' излегувања на третман') : 'никој не излегува на третман',
+                offStaff.has(name) ? 'не е на списокот оваа година' : ''].filter(Boolean).join(' · ');
+            const body = periods.map((p, r) => '<tr>'
+                + `<th><b>${esc(String(p.ordinal))}. час</b><small>${esc(p.startsAt)}</small></th>`
+                + days.map((d) => '<td>' + personalEntries(slots.get(d + '|' + p.ordinal) || []).map((e) =>
+                    `<div class="p-${e.kind}"><b>${esc(e.text)}</b><small>${esc(e.sub)}</small></div>`).join('') + '</td>').join('')
+                + '</tr>').join('');
+            return `<section class="personal" data-teacher="${esc(name)}">`
+                + `<div class="p-head"><h3>Неделен распоред — ${esc(name)}</h3><div class="p-sub">${esc(sub)}</div></div>`
+                + '<table class="p-grid"><thead><tr><th>Час</th>'
+                + days.map((d) => `<th>${esc(cap(d))}</th>`).join('') + '</tr></thead>'
+                + `<tbody>${body}</tbody></table>`
+                + (lessons ? '' : '<p class="quiet">Сè уште нема ниту еден час во распоредот.</p>')
+                + `<div class="p-foot"><span>Настава ↔ терапии · ${esc(printed)}</span>`
+                + (window.MTBScheduleForm ? `<button type="button" class="btn soft p-png" data-png="${esc(name)}">🖼 Слика</button>` : '')
+                + '</div></section>';
+        }).join('') || '<div class="offline"><p>Нема наставник со внесени часови.</p></div>';
+    }
+
+    /**
+     * The same sheet as a PNG, drawn by the forms' own painter
+     * (`mtb-schedule-form.js`), so it is the same picture colleagues already
+     * get from a form — the look the owner asked for.
+     */
+    function personalPicture(name) {
+        const { periods, days, rows } = personalWeeks();
+        const slots = rows.get(name);
+        if (!slots || !window.MTBScheduleForm) return;
+        window.MTBScheduleForm.paintGrid({
+            title: 'Неделен распоред — ' + name,
+            subtitle: SCHOOL + ' · учебна ' + data.year,
+            days,
+            rows: periods.map((p) => ({ label: p.ordinal + '. час', time: p.startsAt })),
+            cells: periods.map((p) => days.map((d) => personalEntries(slots.get(d + '|' + p.ordinal) || [])
+                .map((e) => ({ text: e.text, sub: e.sub })))),
+            footer: 'Настава ↔ терапии · ' + new Date().toLocaleDateString('mk-MK'),
+            file: 'Licen-raspored-' + name.replace(/[\\/:*?"<>|\s]+/g, '-') + '.png'
+        });
+    }
+
     /** Clicking, not hovering: this gets read on a tablet in a staff room. */
     function show(key) {
         const cell = cellForKey(key);
@@ -1091,9 +1245,13 @@
     }
 
     const VIEW_BUTTONS = { class: 'viewClass', teacher: 'viewTeacher', week: 'viewWeek',
-        cabinet: 'viewCabinet', days: 'viewDays', notice: 'viewNotice' };
+        cabinet: 'viewCabinet', days: 'viewDays', notice: 'viewNotice', personal: 'viewPersonal' };
     function markView() {
         Object.entries(VIEW_BUTTONS).forEach(([name, id]) => el(id).setAttribute('aria-pressed', String(view === name)));
+        el('whoField').hidden = view !== 'personal';
+        // The print rules differ per view: a personal sheet prints the sheets
+        // and nothing else from the page.
+        document.body.dataset.view = view;
         // A day cannot be chosen for a week, and leaving the control live would
         // suggest it still filters something.
         el('day').disabled = wholeWeek();
@@ -1122,6 +1280,8 @@
     });
     el('day').addEventListener('change', load);
     el('share').addEventListener('change', load);
+    // Само друго цртање на истиот одговор — нема повторно барање.
+    el('who').addEventListener('change', draw);
     el('refresh').addEventListener('click', load);
     // Само друго цртање на истиот одговор — нема повторно барање.
     el('hoverCard').addEventListener('change', () => {
@@ -1151,6 +1311,8 @@
         if (VIEW_BUTTONS[wanted]) { view = wanted; markView(); }
     }
     el('grid').addEventListener('click', (event) => {
+        const png = event.target.closest('[data-png]');
+        if (png) { personalPicture(png.dataset.png); return; }
         const td = event.target.closest('.cell.clickable');
         if (td) show(td.dataset.key);
     });
@@ -1191,6 +1353,7 @@
     load();
 })();
 </script>
+<script src="mtb-schedule-form.js"></script>
 <script src="app-navigation.js"></script>
 <div id="tip" role="tooltip" aria-hidden="true"></div>
 </body>
