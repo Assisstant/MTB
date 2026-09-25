@@ -131,6 +131,14 @@ header.top h1 { flex: 1; min-width: 180px; }
                 padding: 6px 8px; background: var(--well); }
 .duty-list li .n { width: 26px; text-align: center; font-weight: 800; }
 .duty-list li .nm { flex: 1; }
+.duty-ticks { display: flex; flex-wrap: wrap; gap: 4px 14px; margin: 8px 0; align-items: center; }
+.duty-ticks b { flex-basis: 100%; }
+.duty-ticks label { display: inline-flex; align-items: center; gap: 5px; margin: 0; font-weight: 500; }
+.duty-ticks input { width: auto; }
+.duty-others, .duty-paste { margin: 6px 0; }
+.duty-others summary, .duty-paste summary { cursor: pointer; }
+.duty-paste textarea { width: 100%; box-sizing: border-box; font: inherit; }
+.duty-note { background: var(--warn-bg); border-radius: 8px; padding: 6px 8px; font-size: 14px; }
 .duty-day { margin-top: 6px; display: grid; gap: 6px; font-size: 14px; }
 .duty-day .checks { display: flex; flex-wrap: wrap; gap: 4px 12px; }
 .duty-day .checks label { display: inline-flex; align-items: center; gap: 5px; margin: 0; font-weight: 500; }
@@ -472,6 +480,34 @@ header.top h1 { flex: 1; min-width: 180px; }
     const todayIso = () => (duty.data && duty.data.today) || new Date().toLocaleDateString('en-CA');
     const myEmployee = () => (duty.data && duty.data.me) || (me && me.person && me.person.employeeId);
 
+    /**
+     * A list as it stands on paper — „Име Презиме   21.09.2026" a line — read
+     * into people in that order, and the earliest date as the start. A name is
+     * matched whole, in either order, ignoring case, spacing and dots; one that
+     * could be two people is reported, never picked (rule 2).
+     */
+    function pastedOrder(text, candidates) {
+        const key = (v) => String(v).toLocaleLowerCase('mk-MK').replace(/[.\s]+/g, ' ').trim();
+        const byName = new Map();
+        candidates.forEach((c) => {
+            const words = key(c.name).split(' ');
+            new Set([words.join(' '), [...words].reverse().join(' ')]).forEach((k) => byName.set(k, [...(byName.get(k) || []), c]));
+        });
+        const out = { people: [], unknown: [], twice: [], startsOn: '' };
+        text.split(/\r?\n/).forEach((line) => {
+            const date = /(\d{1,2})\.(\d{1,2})\.(\d{4})/.exec(line);
+            const iso = date ? `${date[3]}-${date[2].padStart(2, '0')}-${date[1].padStart(2, '0')}` : '';
+            const name = line.replace(/\d{1,2}\.\d{1,2}\.\d{4}\.?/g, ' ').replace(/^\s*\d+[.)]?\s+/, '').replace(/[|\t;,]+/g, ' ').trim();
+            if (!name) return;
+            const found = [...new Map((byName.get(key(name)) || []).map((c) => [c.employeeId, c])).values()];
+            if (found.length > 1) out.twice.push(name);
+            else if (!found.length) out.unknown.push(name);
+            else if (!out.people.some((p) => p.employeeId === found[0].employeeId)) out.people.push(found[0]);
+            if (iso && (!out.startsOn || iso < out.startsOn)) out.startsOn = iso;
+        });
+        return out;
+    }
+
     function dutyRowHtml(d) {
         const mine = d.employeeId != null && d.employeeId === myEmployee();
         const past = d.date < todayIso();
@@ -519,22 +555,40 @@ header.top h1 { flex: 1; min-width: 180px; }
             + `<button type="button" class="small" data-duty-open="">Затвори</button></div></form></td></tr>`;
     }
 
-    /** The administrator's list: its order, who is on it, and when it starts. */
+    /**
+     * The administrator's list: its order, who is on it, and when it starts.
+     * The duty is the cabinets', so a list never saved starts as exactly the
+     * cabinets, checked; everybody else who works this year is one tick away
+     * (owner, 25 Sep 2026). A list on paper can be pasted whole, in its order.
+     */
     function dutyAdminHtml() {
-        const draft = duty.draft || { startsOn: duty.data.startsOn, members: duty.data.members.map((m) => ({ employeeId: m.employeeId, name: m.name, joinedOn: m.joinedOn, leftOn: m.leftOn })) };
+        const fresh = !duty.data.members.length;
+        const draft = duty.draft || { startsOn: duty.data.startsOn, members: fresh
+            ? (duty.data.candidates || []).filter((c) => c.cabinet).map((c) => ({ employeeId: c.employeeId, name: c.name, joinedOn: null, leftOn: null }))
+            : duty.data.members.map((m) => ({ employeeId: m.employeeId, name: m.name, joinedOn: m.joinedOn, leftOn: m.leftOn })) };
         duty.draft = draft;
-        const onList = new Set(draft.members.map((m) => m.employeeId));
-        const free = (duty.data.candidates || []).filter((c) => !onList.has(c.employeeId));
-        return `<details class="duty-admin no-print"${duty.adminOpen ? ' open' : ''}><summary>⚙ Список за дежурства и почеток (${draft.members.length})</summary>`
+        const on = new Set(draft.members.filter((m) => !m.leftOn).map((m) => m.employeeId));
+        const tick = (c) => `<label><input type="checkbox" data-duty-tick="${c.employeeId}"${on.has(c.employeeId) ? ' checked' : ''}> ${esc(c.name)}</label>`;
+        const all = duty.data.candidates || [];
+        const others = all.filter((c) => !c.cabinet);
+        const othersOn = others.filter((c) => on.has(c.employeeId)).length;
+        return `<details class="duty-admin no-print"${duty.adminOpen || fresh ? ' open' : ''}><summary>⚙ Список за дежурства и почеток (${on.size})</summary>`
+            + (fresh ? '<p class="duty-note">Предлог, сè уште не е зачуван: сите од кабинетите. Отштиклирајте кој не дежура, '
+                + 'подредете со ▲▼ или залепете го редоследот од хартија, па „Зачувај го списокот".</p>' : '')
             + `<label>Ротацијата почнува на<input type="date" id="dutyStart" value="${esc(draft.startsOn)}" min="${esc(duty.data.yearStartsOn)}" max="${esc(duty.data.yearEndsOn)}"></label>`
             + '<ol class="duty-list" id="dutyList">' + draft.members.map((m, i) => `<li><span class="n">${i + 1}.</span><span class="nm">${esc(m.name)}`
                 + (m.joinedOn ? ` <span class="muted">од ${dmy(m.joinedOn)}</span>` : '') + (m.leftOn ? ` <span class="muted">до ${dmy(m.leftOn)}</span>` : '') + '</span>'
                 + `<button type="button" class="small" data-duty-move="${i}|-1"${i === 0 ? ' disabled' : ''} aria-label="Нагоре">▲</button>`
                 + `<button type="button" class="small" data-duty-move="${i}|1"${i === draft.members.length - 1 ? ' disabled' : ''} aria-label="Надолу">▼</button>`
                 + `<button type="button" class="small" data-duty-drop="${i}" aria-label="Тргни од списокот">✕</button></li>`).join('') + '</ol>'
-            + (free.length ? `<div class="row"><select id="dutyAdd" style="flex:1;min-width:180px"><option value="">— додај колега —</option>`
-                + free.map((c) => `<option value="${c.employeeId}">${esc(c.name)}</option>`).join('') + '</select>'
-                + '<button type="button" class="small" id="dutyAddBtn">+ Додај</button></div>' : '')
+            + '<div class="duty-ticks"><b>Кабинети</b>' + all.filter((c) => c.cabinet).map(tick).join('') + '</div>'
+            + (others.length ? `<details class="duty-others"${othersOn ? ' open' : ''}><summary>Други вработени (${others.length}${othersOn ? ', штиклирани ' + othersOn : ''})</summary>`
+                + '<div class="duty-ticks">' + others.map(tick).join('') + '</div></details>' : '')
+            + '<details class="duty-paste"><summary>📋 Залепи редослед од хартија</summary>'
+            + '<p class="muted">По еден ред за секого, по редот на хартијата; датумот во редот може да остане. '
+            + 'Најраниот датум станува почеток на ротацијата. Името се пишува како во Вработени.</p>'
+            + '<textarea id="dutyPaste" rows="8" placeholder="Име Презиме   21.09.2026"></textarea>'
+            + '<div class="row"><button type="button" class="small" id="dutyPasteBtn">Примени го редоследот</button></div></details>'
             + '<p class="muted">Редоследот важи од почетокот. Кој е додаден откако ротацијата почнала, влегува на крајот од тој ден; '
             + 'тргнатиот излегува од денес, а поминатите месеци остануваат какви што биле.</p>'
             + '<div class="row"><button type="button" class="primary small" id="dutySave">Зачувај го списокот</button>'
@@ -600,24 +654,43 @@ header.top h1 { flex: 1; min-width: 180px; }
         // or setting it up today would leave the weeks before it empty.
         const running = () => duty.data.members.length > 0 && todayIso() > el('dutyStart').value;
         const saved = (id) => duty.data.members.some((m) => m.employeeId === id);
-        const drop = event.target.closest('[data-duty-drop]');
-        if (drop && list) {
-            const i = Number(drop.dataset.dutyDrop);
+        const dropAt = (i) => {
             const person = list[i];
             // Already gone: moving the date would put them back into the days between.
             if (person.leftOn) return;
             if (running() && saved(person.employeeId) && !(person.joinedOn && person.joinedOn >= todayIso())) person.leftOn = todayIso();
             else list.splice(i, 1);
+        };
+        const drop = event.target.closest('[data-duty-drop]');
+        if (drop && list) {
+            dropAt(Number(drop.dataset.dutyDrop));
             duty.adminOpen = true;
             return drawDuty();
         }
-        if (event.target.closest('#dutyAddBtn') && list) {
-            const pick = el('dutyAdd');
-            const c = (duty.data.candidates || []).find((x) => String(x.employeeId) === pick.value);
-            if (!c) return;
-            list.push({ employeeId: c.employeeId, name: c.name, joinedOn: running() ? todayIso() : null, leftOn: null });
+        const tick = event.target.closest('[data-duty-tick]');
+        if (tick && list) {
+            const id = Number(tick.dataset.dutyTick);
+            const at = list.findIndex((p) => p.employeeId === id && !p.leftOn);
+            if (!tick.checked && at >= 0) dropAt(at);
+            if (tick.checked && at < 0) {
+                const c = (duty.data.candidates || []).find((x) => x.employeeId === id);
+                if (c) list.push({ employeeId: c.employeeId, name: c.name, joinedOn: running() ? todayIso() : null, leftOn: null });
+            }
             duty.adminOpen = true;
             return drawDuty();
+        }
+        if (event.target.closest('#dutyPasteBtn') && list) {
+            const read = pastedOrder(el('dutyPaste').value, duty.data.candidates || []);
+            if (!read.people.length) return say('weekMsg', 'Не препознав ниту едно име од вработените.', 'error');
+            // The paper IS the list: its people, in its order, from its first day.
+            duty.draft.members = read.people.map((c) => ({ employeeId: c.employeeId, name: c.name, joinedOn: null, leftOn: null }));
+            if (read.startsOn && read.startsOn >= duty.data.yearStartsOn && read.startsOn <= duty.data.yearEndsOn) duty.draft.startsOn = read.startsOn;
+            duty.adminOpen = true;
+            drawDuty();
+            const problems = [...read.unknown.map((l) => `„${l}" не е меѓу вработените`), ...read.twice.map((l) => `„${l}" може да е повеќе луѓе`)];
+            return say('weekMsg', `Препознаени ${read.people.length}` + (read.startsOn ? `, почеток ${dmy(read.startsOn)}` : '')
+                + (problems.length ? '. Не се ставени: ' + problems.join('; ') + ' — додајте ги во Вработени или штиклирајте ги.' : '. Проверете и зачувајте.'),
+                problems.length ? 'error' : 'ok');
         }
         if (event.target.closest('#dutyUndo')) { duty.draft = null; return drawDuty(); }
         if (event.target.closest('#dutySave') && list) {

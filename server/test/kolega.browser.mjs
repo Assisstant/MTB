@@ -340,7 +340,12 @@ check('no page errors', errors.length === 0, errors.join('\n       '));
         days: [day('2026-10-01', 4, 7), day('2026-10-02', 5, 8), day('2026-10-05', 1, 9), day('2026-10-06', 2, 7),
             day('2026-10-07', 3, null, { closed: true, note: 'излет', how: 'closed' })]
     });
-    const run = async (owner) => {
+    const CANDIDATES = [
+        { employeeId: 7, name: people[7], cabinet: true }, { employeeId: 8, name: people[8], cabinet: true },
+        { employeeId: 9, name: people[9], cabinet: true }, { employeeId: 11, name: 'Дана Измислена', cabinet: true },
+        { employeeId: 10, name: 'Нова Измислена', cabinet: false }, { employeeId: 12, name: 'Ана Измислена', cabinet: false }
+    ];
+    const run = async (owner, fresh = false) => {
         const writes = [];
         const ownerWrites = [];
         const ctx = await browser.newContext({ viewport: { width: 400, height: 800 }, serviceWorkers: 'block' });
@@ -363,7 +368,7 @@ check('no page errors', errors.length === 0, errors.join('\n       '));
             if (url.pathname === '/api/portal/duty/absence') { writes.push(body); return json(200, { ok: true }); }
             if (url.pathname === '/api/duty') {
                 if (!owner) return json(401, { error: 'Authentication required' });
-                return json(200, { year: '2026/2027', ...month(), candidates: [{ employeeId: 10, name: 'Нова Измислена' }] });
+                return json(200, { year: '2026/2027', ...month(), ...(fresh ? { members: [] } : {}), candidates: CANDIDATES });
             }
             if (url.pathname.startsWith('/api/duty/')) { ownerWrites.push({ path: url.pathname, body }); return json(200, { ok: true }); }
             return json(404, { error: 'not in this test' });
@@ -420,8 +425,11 @@ check('no page errors', errors.length === 0, errors.join('\n       '));
     check('and somebody marked away on it', o.ownerWrites.some((w) => w.path === '/api/duty/absence'
         && w.body.employeeId === 8 && w.body.absent === true), JSON.stringify(o.ownerWrites));
     await o.p.evaluate(() => { document.querySelector('#duty .duty-admin').open = true; });
-    await o.p.selectOption('#dutyAdd', '10');
-    await o.p.click('#dutyAddBtn');
+    check('the cabinets are ticked on their own line, the rest folded away',
+        await o.p.isChecked('#duty [data-duty-tick="7"]') && !(await o.p.isChecked('#duty [data-duty-tick="11"]'))
+        && !(await o.p.isVisible('#duty [data-duty-tick="10"]')));
+    await o.p.click('#duty .duty-others summary');
+    await o.p.check('#duty [data-duty-tick="10"]');
     await o.p.click('#duty [data-duty-move="3|-1"]');
     await o.p.click('#dutySave');
     await o.p.waitForTimeout(500);
@@ -432,6 +440,31 @@ check('no page errors', errors.length === 0, errors.join('\n       '));
         setup && setup.body.members.find((m) => m.employeeId === 10).joinedOn !== null);
     check('no page errors for the owner', o.errs.length === 0, o.errs.join('\n       '));
     await o.ctx.close();
+
+    console.log('\nдежурства — a list never saved, and one pasted from paper');
+    const f = await run(true, true);
+    await f.p.click('#tabs [data-tab="duty"]');
+    await f.p.waitForSelector('#duty .duty-admin[open]', { timeout: 6000 });
+    const ticked = await f.p.$$eval('#duty [data-duty-tick]', (n) => n.filter((x) => x.checked).map((x) => Number(x.dataset.dutyTick)));
+    check('it opens with exactly the cabinets ticked, and says it is only a proposal',
+        JSON.stringify(ticked) === JSON.stringify([7, 8, 9, 11]) && /Предлог/.test(await f.p.textContent('#duty .duty-admin')), JSON.stringify(ticked));
+    await f.p.uncheck('#duty [data-duty-tick="9"]');
+    check('unticking takes somebody off', await f.p.$$eval('#dutyList li', (li) => li.length) === 3);
+    await f.p.click('#duty .duty-paste summary');
+    await f.p.fill('#dutyPaste', 'Стручен соработник\tДен\nДана Измислена\t21.09.2026\nизмислена вера  22.09.2026\nПсихолог 23.09.2026\nАна Измислена 24.09.2026\nГоран   Измислен 25.09.2026');
+    await f.p.click('#dutyPasteBtn');
+    const said = await f.p.textContent('#weekMsg');
+    check('„Ана Измислена" is two people here, so it is reported, not picked', /Ана Измислена" може да е повеќе луѓе/.test(said), said);
+    check('and a line that is nobody is reported', /Психолог" не е меѓу вработените/.test(said) && /Стручен соработник/.test(said), said);
+    check('the start is the paper\'s first day', await f.p.inputValue('#dutyStart') === '2026-09-21');
+    await f.p.click('#dutySave');
+    await f.p.waitForTimeout(500);
+    const pasted = f.ownerWrites.find((w) => w.path === '/api/duty/setup');
+    check('saved in the paper\'s order, surname first or not, from its first day',
+        pasted && JSON.stringify(pasted.body.members.map((m) => m.employeeId)) === JSON.stringify([11, 8, 9]) && pasted.body.startsOn === '2026-09-21'
+        && pasted.body.members.every((m) => m.joinedOn === null), JSON.stringify(pasted && pasted.body));
+    check('no page errors on a fresh list', f.errs.length === 0, f.errs.join('\n       '));
+    await f.ctx.close();
 }
 
 await browser.close();

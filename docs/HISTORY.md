@@ -3972,3 +3972,12 @@ for it as a tab on the colleagues' page. Its logic had several faults:
   from today and a removal leaves from today.
 - **Locked from Supabase's REST roles** like 040 and 042, and copied by the
   mirror.
+- **The list starts from the cabinets (owner, same day).** The duty is the
+  cabinets', so a list never saved opens with exactly this year's therapists
+  ticked: a proposal until „Зачувај". Everybody else who works this year is one
+  tick away, and `/api/duty` flags each candidate `cabinet`. The paper's order
+  can be pasted, one line per person, the date allowed on the line. The earliest
+  date becomes the start. A name is matched whole, in either order. One that
+  could be two people is reported, never picked (rule 2).
+  The names stay in the database: the page is public, so no list is written
+  into it.

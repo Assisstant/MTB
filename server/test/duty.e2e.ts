@@ -92,6 +92,10 @@ async function main() {
         check('an empty list first, with everybody who works this year to choose from',
             empty.members.length === 0 && PEOPLE.every((n) => empty.candidates.some((c: any) => c.name === n)),
             JSON.stringify(empty.candidates));
+        const flag = (n: string) => empty.candidates.find((c: any) => c.name === n)?.cabinet;
+        check('the cabinets are marked as such, a teacher is not',
+            THERAPISTS.every((n) => flag(n) === true) && TEACHERS.every((n) => flag(n) === false),
+            JSON.stringify(empty.candidates));
         const setup = await call('PUT', '/api/duty/setup', { year: YEAR, startsOn: '2098-09-01',
             members: [A, B, C].map((n) => ({ employeeId: emp.get(n) })) });
         checkEq('the list is saved in its order', [setup.status, setup.body?.members], [200, 3]);

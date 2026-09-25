@@ -61,18 +61,25 @@ export function dayProblem(date: string, year: { starts_on: string; ends_on: str
     return null;
 }
 
-/** Everyone who works this year, in any role: who can be put on the list. */
+/**
+ * Everyone who works this year, in any role: who can be put on the list.
+ * `cabinet` marks the ones on this year's therapist list — the duty is the
+ * cabinets', so the page starts a new list with exactly them checked and
+ * everybody else one tick away (owner, 25 Sep 2026).
+ */
 async function candidates(yearId: number) {
     const { rows } = await pool.query(
-        `SELECT e.id AS "employeeId", e.name FROM employees e
-          WHERE e.superseded_by IS NULL AND (
-                EXISTS (SELECT 1 FROM teachers t JOIN teacher_years ty ON ty.teacher_id = t.id
-                         WHERE t.employee_id = e.id AND ty.school_year_id = $1 AND ty.active)
-             OR EXISTS (SELECT 1 FROM therapists h JOIN therapist_years hy ON hy.therapist_id = h.id
-                         WHERE h.employee_id = e.id AND hy.school_year_id = $1 AND hy.active)
-             OR EXISTS (SELECT 1 FROM employee_roles r
-                         WHERE r.employee_id = e.id AND r.school_year_id = $1 AND r.active))
-          ORDER BY e.name`, [yearId]);
+        `SELECT id AS "employeeId", name, cabinet FROM (
+           SELECT e.id, e.name,
+                  EXISTS (SELECT 1 FROM therapists h JOIN therapist_years hy ON hy.therapist_id = h.id
+                           WHERE h.employee_id = e.id AND hy.school_year_id = $1 AND hy.active) AS cabinet,
+                  EXISTS (SELECT 1 FROM teachers t JOIN teacher_years ty ON ty.teacher_id = t.id
+                           WHERE t.employee_id = e.id AND ty.school_year_id = $1 AND ty.active)
+               OR EXISTS (SELECT 1 FROM employee_roles r
+                           WHERE r.employee_id = e.id AND r.school_year_id = $1 AND r.active) AS other
+             FROM employees e WHERE e.superseded_by IS NULL) x
+          WHERE cabinet OR other
+          ORDER BY cabinet DESC, name`, [yearId]);
     return rows;
 }
 
