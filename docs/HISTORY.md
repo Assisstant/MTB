@@ -3769,3 +3769,22 @@ Step 4 of the plan: „јас како администратор да можа�
 Tests: `test:portal-week` gained the owner's side (35 checks);
 `test:kolegi-admin` covers the tab and the look (invented API).
 
+### …and a link that looks like nothing in particular (25 Sep 2026)
+
+The owner asked for a link that does not read „mtb-cloud-test.onrender.com"
+and a page that looks generic in the browser.
+
+- `/kolegi` now SHOWS the page (`reply.sendFile('/Kolega.html')`, with the
+  leading slash, because the public-file list is asked about that path too).
+  It used to redirect, so the address a colleague sees stays the one they
+  were given.
+- The page names no system. Its title is „Најава", then „Мој распоред". Its
+  messaging-app preview says „Распоред / Најава за колегите", it has an
+  inline calendar icon (so no favicon request passes the gate), and a
+  `noindex` robots tag.
+- A shortener (TinyURL and the like) changes only the link in the message:
+  after the click the address bar shows where it went. Only a custom domain
+  pointed at Render changes the address bar. That domain would then have to
+  become `MTB_CLOUD_ORIGIN` (the same-origin check and the Google callback), so
+  it is the owner's decision, not a code change made ahead of it.
+

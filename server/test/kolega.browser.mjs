@@ -73,6 +73,10 @@ console.log('the sign-in');
 await page.goto(`${ORIGIN}/Kolega.html`);
 await page.waitForSelector('#login:not([hidden])', { timeout: 8000 });
 check('the page opens on the sign-in', await visible('login') && !(await visible('home')));
+check('under a neutral title that names no system', (await page.title()) === 'Најава' && !/МТБ|MTB/i.test(await page.title()), await page.title());
+check('and a preview for messaging apps that says the same',
+    await page.evaluate(() => document.querySelector('meta[property="og:title"]').content === 'Распоред'
+        && document.querySelector('meta[name="robots"]').content.includes('noindex')));
 await page.fill('#loginForm [name=username]', 'AnaIzmislena');
 await page.fill('#loginForm [name=password]', 'pogresno');
 await page.click('#loginForm button');
@@ -91,6 +95,7 @@ await page.waitForSelector('#home:not([hidden])', { timeout: 6000 });
 check('keeping it goes straight on', await visible('home'));
 check('nothing was changed', !calls.some((c) => c.path === '/api/portal/password'));
 check('the page names the person', (await page.textContent('#homeName')) === 'Ана Измислена');
+check('and the tab reads „Мој распоред"', (await page.title()) === 'Мој распоред', await page.title());
 check('and the roles', /наставник/.test(await page.textContent('#homeRoles')) && /раководител/.test(await page.textContent('#homeRoles')));
 check('and the username in both scripts', /AnaIzmislena/.test(await page.textContent('#homeUser')) && /АнаИзмислена/.test(await page.textContent('#homeUser')));
 

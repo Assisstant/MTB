@@ -320,8 +320,13 @@ const PasswordBody = z.object({ current: z.string().min(1).max(200), next: z.str
 export async function portalRoutes(server: FastifyInstance, options: { year?: string } = {}) {
     yearLabel = options.year;
 
-    /** The short link that is shared with colleagues. */
-    server.get('/kolegi', async (_req, reply) => reply.redirect('/Kolega.html'));
+    /**
+     * The short link that is shared with colleagues. It SHOWS the page rather
+     * than redirecting to it, so the address a colleague sees stays the one
+     * they were given (owner, 25 Sep: „да изгледа генерички").
+     */
+    // With its leading slash: the public-file list is asked about this path too.
+    server.get('/kolegi', async (_req, reply) => (reply as any).sendFile('/Kolega.html'));
 
     server.post('/api/portal/login', async (req, reply) => {
         const parsed = LoginBody.safeParse(req.body);
