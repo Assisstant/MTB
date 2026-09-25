@@ -998,8 +998,9 @@
     function fillClassSelect(select, selected) {
         const labels = classLabels();
         const missing = selected && !labels.includes(selected) ? selected : '';
+        select.dataset.classPicker = '';
         select.innerHTML = '<option value="">— без одделение —</option>'
-            + labels.map((l) => `<option value="${esc(l)}"${l === selected ? ' selected' : ''}>${esc(classOptionText(l))}</option>`).join('')
+            + labels.map((l) => classOption(l, selected)).join('')
             + (missing ? `<option value="${esc(missing)}" selected>${esc(missing)} · неактивна</option>` : '');
     }
 
@@ -1058,7 +1059,7 @@
         const selected = item.suggested_grade || '';
         const labels = Array.from(new Set([...allClassLabels(), ...(selected ? [selected] : [])]));
         return '<option value="">— без одделение —</option>'
-            + labels.map((label) => `<option value="${esc(label)}"${label === selected ? ' selected' : ''}>${esc(classOptionText(label))}</option>`).join('');
+            + labels.map((label) => classOption(label, selected)).join('');
     }
 
     function drawSuggestions(entity) {
@@ -1073,7 +1074,7 @@
             const id = memberId(entity, item);
             const name = entity === 'class' ? item.label : personName(item.name);
             const studentFields = entity === 'student'
-                ? `<select data-candidate-grade>${studentGradeOptions(item)}</select>`
+                ? `<select data-candidate-grade data-class-picker>${studentGradeOptions(item)}</select>`
                   + '<select data-candidate-kind>'
                   + KINDS.map(([value, label]) => `<option value="${value}"${(item.suggested_kind || 'internal') === value ? ' selected' : ''}>${label}</option>`).join('')
                   + '</select>'
@@ -1276,7 +1277,7 @@
         }
         el('students').innerHTML =
             '<table class="list"><thead><tr><th class="row-number" title="Редоследот се менува со стрелките и се памети за оваа учебна година. Новододадените одат на крај додека не ги преместите."><span class="rn">Р.Бр.</span></th><th>Име</th><th style="width:150px;">Вид на ученик</th>'
-            + '<th style="width:170px;">Паралелка · каде учи</th>'
+            + '<th style="width:250px;">Паралелка · каде учи</th>'
             + '<th style="width:130px;">Одделение · генерација</th>'
             + '<th>Терапевти</th><th></th></tr></thead><tbody>'
             + rows.map((s, index) =>
@@ -1442,7 +1443,7 @@
             + '<div class="grid-pick">'
             + classLabels().map((label, index) =>
                 `<label><input type="checkbox" value="${esc(label)}"${has.has(label) ? ' checked' : ''}>`
-                + `<span><span class="list-number">${index + 1}.</span>${esc(label)}</span>`
+                + `<span title="${esc(classOptionTitle(label))}"><span class="list-number">${index + 1}.</span>${esc(classOptionText(label))}</span>`
                 + `<select data-role-for="${esc(label)}">`
                 + `<option value="subject"${has.get(label) === 'homeroom' ? '' : ' selected'}>предава</option>`
                 + `<option value="homeroom"${has.get(label) === 'homeroom' ? ' selected' : ''}>раководител</option>`
@@ -1657,7 +1658,7 @@
     }
 
     /**
-     * „Кај Христовска", не „II-б": во одделенска настава паралелката се
+     * „Кај Измислена", не „II-б": во одделенска настава паралелката се
      * препознава по раководителот (сопственикот, 24 септември). Ознаката
      * останува вредноста што се зачувува; раководителот е само до неа, за
      * читање, во секој избирач на паралелка.
@@ -1670,10 +1671,40 @@
         const parts = String(name || '').trim().split(/\s+/);
         return parts.length > 1 ? parts.slice(1).join(' ') : (parts[0] || '');
     };
-    /** How a class reads in a picker: „II-б · Христовска". */
+    /**
+     * 25 септември, пак сопственикот: и со описот — колоната „Одделение" од
+     * табелата на училиштето („Комбинирана II, III, IV") — и на лебдење со
+     * целиот ред: наставник, одделение, колку деца и кои. Реченицата и
+     * лебдењето се ЕДНА копија, во `app-navigation.js` (`classes`), истата
+     * што ја користат Администрација, десниот панел и формуларот ✏️.
+     */
+    let cardsOf = null;
+    let cards = new Map();
+    function classCards() {
+        const nav = window.MTBAppNavigation;
+        if (!data || !nav || !nav.classes) return new Map();
+        if (cardsOf !== data) {
+            cards = nav.classes.index({ classes: data.classes, teachers: data.teachers, students: data.students });
+            cardsOf = data;
+        }
+        return cards;
+    }
+    /** How a class reads in a picker: „II-б · Ана Измислена · Комбинирана паралелка". */
     function classOptionText(label) {
+        const info = classCards().get(label);
+        if (info) return window.MTBAppNavigation.classes.text(info);
         const hr = homeroomOf(label);
         return hr ? `${label} · ${surnameOf(hr)}` : label;
+    }
+    /** And what it says on hover: the whole row of the school's table. */
+    function classOptionTitle(label) {
+        const info = classCards().get(label);
+        return info ? window.MTBAppNavigation.classes.hover(info) : '';
+    }
+    function classOption(label, selected) {
+        const title = classOptionTitle(label);
+        return `<option value="${esc(label)}"${label === selected ? ' selected' : ''}`
+            + (title ? ` title="${esc(title)}"` : '') + `>${esc(classOptionText(label))}</option>`;
     }
 
     const kindLabelOf = (kind) =>
@@ -1752,7 +1783,7 @@
                 const pupils = pupilsOf.get(c.label) || [];
                 return `<tr data-class="${c.id}">`
                     + rowNumberCell('classes', c.id, index, (data.classes || []).length)
-                    + `<td><span class="class-label">${esc(c.label)}</span>${classFactsHtml(c, pupils, homeroom)}</td>`
+                    + `<td><span class="class-label" title="${esc(classOptionTitle(c.label))}">${esc(c.label)}</span>${classFactsHtml(c, pupils, homeroom)}</td>`
                     + '<td><span class="class-pupils">'
                     + `<span class="count">${pupils.length}</span>`
                     + (pupils.length
@@ -1883,9 +1914,9 @@
                     `<tr data-class-pupil="${esc(s.public_id)}">`
                     + `<td class="row-number"><span class="rn">${index + 1}.</span></td>`
                     + `<td>${esc(personName(s.name))} <span class="none">· ${esc(kindLabelOf(s.kind))}</span></td>`
-                    + '<td class="act"><select data-move-student="' + esc(s.public_id) + '">'
+                    + '<td class="act"><select data-class-picker data-move-student="' + esc(s.public_id) + '">'
                     + `<option value="">— премести во… —</option>`
-                    + elsewhereLabels.map((label) => `<option value="${esc(label)}">${esc(classOptionText(label))}</option>`).join('')
+                    + elsewhereLabels.map((label) => classOption(label, '')).join('')
                     + (mayHaveNoClass(s.kind) ? '<option value="__none__">— без одделение —</option>' : '')
                     + '</select></td></tr>').join('')
                   + '</tbody></table>'

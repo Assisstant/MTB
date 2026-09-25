@@ -241,20 +241,27 @@ function masterRow(kind,item,index,meta){const id=kind==='students'?item.public_
 function classPupils(c){return(data.students||[]).filter(s=>s.active!==false&&s.grade===c.label)}
 function classTeachers(c){return(data.teachers||[]).filter(t=>(t.classes||[]).some(x=>x.label===c.label))}
 function renderClasses(){
-  const rows=(data.classes||[]).filter(c=>!q()||c.label.toLocaleLowerCase('mk-MK').includes(q()));
+  // Паралелката се бара и по наставникот и по описот — име на наставник, „аутизам" —
+  // зашто така се бара во училиштето; редот ја кажува како секое мени.
+  const cards=classCards(),n=window.MTBAppNavigation,text=c=>{const info=cards.get(c.label);return n&&n.classes&&info?n.classes.text(info):c.label};
+  const rows=(data.classes||[]).filter(c=>!q()||text(c).toLocaleLowerCase('mk-MK').includes(q()));
   const c=selected.classes;
   $('content').innerHTML='<div class="split"><section class="master"><div class="master-title">Паралелки · '+rows.length+'</div><div class="list">'
-    +rows.map((x,i)=>masterRow('classes',{...x,name:x.label},i,classPupils(x).length+' ученици')).join('')
+    +rows.map((x,i)=>masterRow('classes',{...x,name:text(x)},i,classPupils(x).length+' ученици')).join('')
     +'</div></section><section class="editor class-composition">'
     +(c?classComposition(c):'<div class="empty">Избери паралелка за составот, одделенијата и наставниците. Изборот на ученик или наставник ги отвора неговите податоци за корекција.</div>')
     +'</section></div>';
   bindMaster('classes');
+  // На лебдење: целиот ред од табелата на училиштето.
+  $('content').querySelectorAll('.master [data-pick]').forEach(b=>{const x=(data.classes||[]).find(k=>String(k.id)===b.dataset.pick);b.title=x?classHoverOf(x.label):''});
 }
+function classHoverOf(label){const n=window.MTBAppNavigation,info=classCards().get(label);return n&&n.classes&&info?n.classes.hover(info):''}
 function classComposition(c){
   const pupils=classPupils(c),teachers=classTeachers(c);
   const generations=ROMAN.filter(g=>pupils.some(s=>String(s.oddelenie||'').toUpperCase()===g));
   const missing=pupils.filter(s=>!s.oddelenie).length;
-  return '<div class="editor-title">Паралелка '+esc(c.label)+' · '+esc(data.year)+'</div>'
+  const n=window.MTBAppNavigation,info=classCards().get(c.label);
+  return '<div class="editor-title">Паралелка '+esc(n&&n.classes&&info?n.classes.text(info):c.label)+' · '+esc(data.year)+'</div>'
     +'<div class="summary"><span class="badge">'+pupils.length+' ученици</span>'
     +generations.map(g=>'<span class="badge">Одделение '+esc(g)+'</span>').join('')+'</div>'
     +'<p class="note">Паралелката е заедничката група во која учат. Одделението е генерацијата на секое дете. Во една паралелка може да има повеќе одделенија.</p>'
@@ -294,9 +301,13 @@ function studentMeta(s){const roman=romanOf(s.grade),odd=String(s.oddelenie||'')
   // Одделението се пишува само кога КАЖУВА нешто ново — инаку секој ред би
   // носел двапати иста работа и разликата што е важна би се изгубила во неа.
   return[s.grade||'',(odd&&odd!==roman)?'одд. '+odd:'',KIND_LABEL[s.kind||'internal']||s.kind||''].filter(Boolean).join(' · ')}function filteredStudents(){const needle=q(),k=$('kindFilter').value;return(data.students||[]).filter(s=>s.active!==false).filter(s=>!k||(s.kind||'internal')===k).filter(s=>!needle||personName(s.name).toLocaleLowerCase('mk-MK').includes(needle)||String(s.grade||'').toLocaleLowerCase('mk-MK').includes(needle))}
-function categoryOptions(kind,id){const held=categoryOf[kind][id]||'';return'<option value="">— без категорија —</option>'+categories.map(c=>'<option value="'+c.id+'"'+(String(c.id)===String(held)?' selected':'')+'>'+esc(c.name)+'</option>').join('')}function classOptions(selectedGrade){const known=(data.classes||[]).some(c=>c.label===selectedGrade);return'<option value="">— без одделение / група —</option>'+(data.classes||[]).map(c=>'<option value="'+esc(c.label)+'"'+(c.label===selectedGrade?' selected':'')+'>'+esc(c.label)+'</option>').join('')
-  // Паралелка што не е на листата за годинава останува видлива, обележана —
-  // инаку ученикот изгледа „без одделение" и „Зачувај" го пишува празното назад.
+function categoryOptions(kind,id){const held=categoryOf[kind][id]||'';return'<option value="">— без категорија —</option>'+categories.map(c=>'<option value="'+c.id+'"'+(String(c.id)===String(held)?' selected':'')+'>'+esc(c.name)+'</option>').join('')}/* Паралелката се пишува како во секое друго мени — ознака · раководител · опис,
+   а на лебдење целиот ред (`app-navigation.js`, `classes`). Паралелка што не е
+   на листата за годинава останува видлива, обележана „неактивна" — инаку
+   ученикот изгледа „без одделение" и „Зачувај" го пишува празното назад. */
+function classCards(){const n=window.MTBAppNavigation;return n&&n.classes&&data?n.classes.index(data):new Map()}
+function classOptions(selectedGrade){const n=window.MTBAppNavigation;if(n&&n.classes)return n.classes.optionsHtml(classCards(),selectedGrade,{empty:'— без одделение / група —'});
+  const known=(data.classes||[]).some(c=>c.label===selectedGrade);return'<option value="">— без одделение / група —</option>'+(data.classes||[]).map(c=>'<option value="'+esc(c.label)+'"'+(c.label===selectedGrade?' selected':'')+'>'+esc(c.label)+'</option>').join('')
   +(selectedGrade&&!known?'<option value="'+esc(selectedGrade)+'" selected>'+esc(selectedGrade)+' · неактивна</option>':'')}
 function renderStudents(){const rows=filteredStudents(),s=selected.students;$('content').innerHTML='<div class="split"><section class="master"><div class="master-title">Ученици · '+rows.length+'</div><div class="list">'+rows.map((x,i)=>masterRow('students',x,i,studentMeta(x))).join('')+'</div></section><section class="editor">'+(s?studentEditor(s):'<div class="empty">Избери ученик за преглед или измена.</div>')+'</section></div>';bindMaster('students');if(s)bindStudentEditor(s)}/* ── Записот за еден ученик ────────────────────────────────────────────
  *
@@ -324,7 +335,7 @@ function studentEditor(s){
       +'<option value="external"'+(s.kind==='external'?' selected':'')+'>екстерен</option></select></div>'
     +'<div class="year-block"><div class="section-label">Оваа учебна година · '+esc(data.year)+'</div>'
       +'<div class="row"><div class="field" style="flex:1"><label>Паралелка · каде учи</label>'
-        +'<select id="sGrade">'+classOptions(s.grade||'')+'</select></div>'
+        +'<select id="sGrade" data-class-picker>'+classOptions(s.grade||'')+'</select></div>'
       +'<div class="field" style="flex:1"><label>Одделение · која генерација</label>'
         +'<select id="sOddelenie">'+gradeOptions(s.oddelenie||'')+'</select></div></div>'
       +'<p class="note'+(split?' hint-split':'')+'" id="splitNote">'
@@ -411,7 +422,7 @@ function teacherEditor(t){
       +'<p class="note" id="tClassSummary">'+classSummary(map)+'</p>'
       +'<div class="class-grid">'+(data.classes||[]).map(c=>{
           const on=map.has(c.label);
-          return'<label class="class-row'+(on?' on':'')+'"><input type="checkbox" data-class="'+esc(c.label)+'"'+(on?' checked':'')+'>'
+          return'<label class="class-row'+(on?' on':'')+'" title="'+esc(classHoverOf(c.label))+'"><input type="checkbox" data-class="'+esc(c.label)+'"'+(on?' checked':'')+'>'
             +'<span>'+esc(c.label)+'</span>'
             +'<select data-role="'+esc(c.label)+'"'+(on?'':' hidden')+'>'
               +'<option value="subject"'+(map.get(c.label)==='homeroom'?'':' selected')+'>предава</option>'

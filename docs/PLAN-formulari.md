@@ -132,7 +132,7 @@ Small steps; each approved, tested with invented data, committed, shipped.
      shown as a conflict and not written in bulk; a stale item refused.
 2. **The cabinet form, version 2.**
    - The therapist dropdown; the full pupil list as a checklist, each pupil
-     labelled with class and homeroom („II-б · Христовска"); add a name.
+     labelled with class and homeroom („II-б · Измислена"); add a name.
    - "🖼 Слика" inside the form (the week drawn to a PNG, as Кабинети does).
    - Version 1 replies still import (rule 4 spirit: an answer already sent
      must not become unreadable).
@@ -192,7 +192,7 @@ Small steps; each approved, tested with invented data, committed, shipped.
 - **Cabinet form, version 2** (`mtb-schedule-form.js`): ONE file for every
   therapist of the year; „Терапевт:" dropdown at the top (preselected when
   one therapist is chosen in Кабинети); the whole year's pupils as a
-  checklist grouped „II-б · Христовска"; only ticked pupils are offered in a
+  checklist grouped „II-б · Измислена"; only ticked pupils are offered in a
   term; unticking a placed pupil asks and takes them out of those terms;
   „🖼 Слика" draws the week to a PNG (`paintGrid`, shared with the class
   form). Each person's draft is kept apart in the browser. The reply adds
@@ -201,7 +201,7 @@ Small steps; each approved, tested with invented data, committed, shipped.
   still lists the pupil and the answer places them in no term — written by
   `DELETE /api/therapists/:name/students/:id` (the link only; history stays).
 - **Class form** (`mtb-class-form.js`, needs `mtb-schedule-form.js` first):
-  ONE file for every class; „Одделение:" dropdown „II-б · Христовска"; the
+  ONE file for every class; „Одделение:" dropdown „II-б · Измислена"; the
   week as periods × days, a subject select per cell (only ticked subjects,
   plus „✎ друг предмет…") and an optional teacher; the full subject list as
   a checklist that only filters (nothing stored); the class's pupils with

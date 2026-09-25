@@ -1361,6 +1361,132 @@
      * arrows stay usable without a mouse. Installed once per root: a page that
      * redraws its lists must not stack a listener per redraw.
      */
+    /* ── Паралелката, онака како што ја кажува училиштето ───────────────
+     *
+     * Сопственикот, 25 септември: во училиштето паралелката се препознава по
+     * НАСТАВНИКОТ и по зборовите од нивната табела — „Комбинирана II, III, IV“,
+     * „ученици со аутизам“ — а не по ознаката што ја изведовме од распоредот.
+     * „Каде учи тоа дете? — Кај наставничката.“ И му требаат сите врски: понекогаш
+     * наставникот, понекогаш одделението, понекогаш децата.
+     *
+     * Затоа секое паѓачко мени за паралелка ја пишува истата реченица:
+     * ознака · раководител · описот за годинава (`class_years.description`,
+     * колоната „Одделение“ од табелата). На лебдење се гледа целиот ред:
+     * наставник, одделение, колку деца, од кои генерации и кои се.
+     * Ознаката останува вредноста што се зачувува и по која се поврзува
+     * распоредот; ова е само како се чита. ЕДНА копија, за паралелката да
+     * изгледа исто каде и да се бира — истата причина како за предметите.
+     */
+    const CLASS_ROMAN = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX'];
+    const oneLine = (value) => String(value == null ? '' : value).replace(/\s+/g, ' ').trim();
+    const escAttr = (value) => String(value == null ? '' : value)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+
+    /** A name written in capitals reads as a name, as on every screen. */
+    function properName(value) {
+        const clean = oneLine(value);
+        const letters = clean.replace(/[^\p{L}]/gu, '');
+        if (!letters || letters !== letters.toLocaleUpperCase('mk-MK')) return clean;
+        return clean.toLocaleLowerCase('mk-MK').replace(/(^|[\s\-‐‑–—'’])(\p{L})/gu,
+            (_, before, letter) => before + letter.toLocaleUpperCase('mk-MK'));
+    }
+
+    /**
+     * label → { label, description, homeroom, pupils }, out of whichever list
+     * the page already holds: `/api/roster` (classes, teachers, students),
+     * `/api/workspace` (classes, pupils) or the timetable (classes, teachers).
+     * A pupil who is not on this year's list is not counted.
+     */
+    function classIndex(source) {
+        const s = source || {};
+        const index = new Map();
+        const people = s.students || s.pupils;
+        (s.classes || []).forEach((c) => {
+            if (!c || !c.label) return;
+            index.set(c.label, {
+                label: c.label,
+                description: oneLine(c.description),
+                homeroom: properName(c.homeroom),
+                pupils: [],
+                pupilsKnown: Array.isArray(people)
+            });
+        });
+        (s.teachers || []).forEach((t) => (t.classes || []).forEach((x) => {
+            const info = index.get(x && x.label);
+            if (info && x.role === 'homeroom' && !info.homeroom) info.homeroom = properName(t.name);
+        }));
+        (people || []).forEach((p) => {
+            const info = p && index.get(p.grade);
+            if (!info || p.annual_active === false) return;
+            info.pupils.push({ name: properName(p.name), oddelenie: oneLine(p.oddelenie).toUpperCase() });
+        });
+        index.forEach((info) => info.pupils.sort((a, b) => a.name.localeCompare(b.name, 'mk')));
+        return index;
+    }
+
+    /** „II-б · Ана Измислена · Комбинирана II, III, IV" — the line in a picker. */
+    function classText(info) {
+        return info ? [info.label, info.homeroom, info.description].filter(Boolean).join(' · ') : '';
+    }
+
+    /** The whole row of the school's table, for hovering over a class. */
+    function classHover(info) {
+        if (!info) return '';
+        const lines = [
+            info.label + (info.description ? ' — ' + info.description : ''),
+            'Раководител: ' + (info.homeroom || 'не е одреден')
+        ];
+        if (info.pupilsKnown) {
+            const count = new Map();
+            info.pupils.forEach((p) => { if (p.oddelenie) count.set(p.oddelenie, (count.get(p.oddelenie) || 0) + 1); });
+            const gens = CLASS_ROMAN.filter((g) => count.has(g)).map((g) => `${g} (${count.get(g)})`).join(', ');
+            const n = info.pupils.length;
+            lines.push(n ? `${n} ${n === 1 ? 'ученик' : 'ученици'}${gens ? ' · одд. ' + gens : ''}` : 'Нема ученици на листата');
+            info.pupils.forEach((p) => lines.push('• ' + p.name + (p.oddelenie ? ' — ' + p.oddelenie : '')));
+        }
+        return lines.join('\n');
+    }
+
+    /**
+     * The <option>s of a class picker, as HTML; the value stays the label.
+     *   empty — the first, empty choice's text, or false for none
+     *   extra — [[value, text], …] right after it (a filter's „Без паралелка")
+     *   more  — [[value, text], …] after the classes (last year's, in a suggestion)
+     * A chosen label that is not on the year's list stays, marked „неактивна",
+     * rather than reading as no class at all. Mark the <select> with
+     * `data-class-picker` and its closed face hovers the same as its line.
+     */
+    function classOptionsHtml(index, selected, options) {
+        const o = options || {};
+        const want = selected == null ? '' : String(selected);
+        const opt = (value, text, title) => `<option value="${escAttr(value)}"${value === want ? ' selected' : ''}`
+            + `${title ? ` title="${escAttr(title)}"` : ''}>${escAttr(text)}</option>`;
+        const offered = new Set();
+        let html = '';
+        if (o.empty !== false) { html += opt('', o.empty || '— без паралелка —'); offered.add(''); }
+        (o.extra || []).forEach(([value, text]) => { html += opt(value, text); offered.add(value); });
+        (index || new Map()).forEach((info) => {
+            if (offered.has(info.label)) return;
+            html += opt(info.label, classText(info), classHover(info));
+            offered.add(info.label);
+        });
+        (o.more || []).forEach(([value, text]) => {
+            if (offered.has(value)) return;
+            html += opt(value, text);
+            offered.add(value);
+        });
+        if (want && !offered.has(want)) html += opt(want, want + ' · неактивна', 'Оваа паралелка не е на листата за годинава.');
+        return html;
+    }
+
+    // A closed class picker says on hover what its chosen line says in the list.
+    ['mouseover', 'focusin', 'change'].forEach((type) => document.addEventListener(type, (event) => {
+        const select = event.target && event.target.closest ? event.target.closest('select[data-class-picker]') : null;
+        if (!select) return;
+        const chosen = select.options[select.selectedIndex];
+        select.title = chosen && chosen.title ? chosen.title : '';
+    }, true));
+
     const holdRoots = new WeakSet();
     function holdRepeat(root, selector, handlers) {
         if (!root || holdRoots.has(root)) return;
@@ -1432,6 +1558,9 @@
             mount: mountSubjectPicker
         },
         holdRepeat,
+        // Паралелката онака како што ја кажува училиштето: ознака · раководител
+        // · опис, и целиот ред на лебдење. Една копија за секој избирач.
+        classes: { index: classIndex, text: classText, hover: classHover, optionsHtml: classOptionsHtml },
         // Една промена, сите прозорци: страницата кажува како се препрочитува,
         // а школката на работниот простор ги пренесува промените од рамките.
         onDataChange,

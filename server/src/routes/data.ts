@@ -134,6 +134,14 @@ export async function dataRoutes(server: FastifyInstance) {
             // and this is where they are seen side by side. All additive.
             pool.query(
                 `SELECT c.id, c.label, cy.description,
+                        -- Who leads it this year: the school says „кај наставничката",
+                        -- not „VII" (owner, 25 Sep 2026). Additive, for the
+                        -- class pickers; the teachers list below says the same.
+                        (SELECT string_agg(t.name, ' и ' ORDER BY t.name)
+                           FROM teacher_classes tc
+                           JOIN teachers t ON t.id = tc.teacher_id
+                           JOIN teacher_years ty ON ty.teacher_id = t.id AND ty.school_year_id = $1 AND ty.active
+                          WHERE tc.class_id = c.id AND tc.school_year_id = $1 AND tc.role = 'homeroom') AS homeroom,
                         (SELECT count(*)::int FROM lessons l
                           WHERE l.class_id = c.id AND l.school_year_id = $1) AS lessons,
                         (SELECT count(*)::int FROM lessons l

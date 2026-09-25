@@ -15,7 +15,7 @@
  *
  * WHY THE FOLDING IS SEPARATE FROM THE EXACT PATH, and this is the whole
  * reason the file exists rather than `bareName` being made cleverer. Folding
- * „ѓ" to „г" makes „Ѓоргиевска" and „Горгиевска" one string — useful for
+ * „ѓ" to „г" makes „Ѓеровска" and „Геровска" one string — useful for
  * OFFERING a candidate, and catastrophic as a rule for deciding, because those
  * really can be two people. The aggressive folding lives here, where nothing
  * it produces can write a row.

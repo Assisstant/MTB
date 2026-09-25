@@ -247,6 +247,7 @@ npm run test:sync-page               Sinhronizacija.html in a browser; serves it
 npm run test:form-replies            the form review queue, in-process with its own MTB_ADMIN, invented year
 npm run test:forms-queue             Податоци → Формулари in a browser; every API call invented
 npm run test:one-change              a write in one window reaches every other one; every API call invented
+npm run test:class-cards             a class reads the same in every picker, whole row on hover; every API call invented
 npm run test:schedule-form           the cabinet form (all therapists) offline, then into the queue
 npm run test:class-form              the class form AND the teacher's own week from Уреди настава, offline, then in
 npm run test:teaching                the crossing and the workbook writer, needs the server
@@ -686,6 +687,17 @@ read `DATABASE_URL`; never add literal credentials to this public repository.
   texts in the same transaction, every year, exact match only. Any NEW place
   that stores a class label as text must be added there — or, better, be a
   `class_id`.
+
+- **A class is one sentence, written in one place.** The school knows a class
+  by its teacher and by the words of its own table („Комбинирана II, III, IV",
+  „ученици со аутизам"), not by the label derived from the timetable — „каде
+  учи? — кај наставничката" (owner, 25 Sep 2026). Every class picker writes
+  `label · homeroom · class_years.description` and hovers the whole row
+  (teacher, words, count by generation, the children), through
+  `MTBAppNavigation.classes` (`index`, `text`, `hover`, `optionsHtml`); mark
+  the `<select>` `data-class-picker`. The value saved stays the label. Do not
+  build class options by hand in a new screen: that is how five pickers
+  ended up saying five different things.
 
 ## Conventions
 

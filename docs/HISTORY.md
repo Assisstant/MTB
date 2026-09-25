@@ -1626,7 +1626,7 @@ endpoint-от што го поседува тој факт, истиот што 
 
 **Агресивното преклопување живее ТУКА, а не во `bareName`, и тоа е целата
 причина за посебна датотека.** Преклопувањето на „ѓ" во „г" ги прави
-„Ѓоргиевска" и „Горгиевска" еден стринг — корисно за да се ПОНУДИ, и
+„Ѓеровска" и „Геровска" еден стринг — корисно за да се ПОНУДИ, и
 катастрофално како правило за одлучување, зашто тие навистина можат да се две
 лица. Тука ништо што ќе произведе не може да запише ред.
 
@@ -3536,3 +3536,61 @@ fail 5 checks against the old server. Its fixture, dead since migration 028 on
 an internal pupil with no class, now uses a placeholder class (`-`) that names
 none, and the whole suite passes again. `npm test` 255/255; every browser suite
 with invented data is green.
+
+## A class is one sentence, from one place (25 Sep 2026)
+
+The owner showed the school's own table of classes. Its columns are the
+teacher, „Одделение" in the school's words („Комбинирана II, III, IV",
+„ученици со аутизам", „IX а ученици со оштетен слух"), the count and the
+children. They asked for exactly that in the pickers: „каде учи тоа дете? —
+кај наставничката", and the label we derived from the timetable matters
+least. On hover, the whole row: „ми значат сите асоцијации — понекогаш
+наставникот, понекогаш одделението, понекогаш децата".
+
+The data was already there. `class_years.description` (031) holds the year's
+words and `teacher_classes` holds the homeroom. HOME had both for every class
+except the preparatory one. Only Podatoci's classes tab ever showed the
+description. The pickers said „II-б", or „II-б · <surname>" in Podatoci, and
+each screen built its options its own way.
+
+- **One sentence.** `MTBAppNavigation.classes` (`app-navigation.js`) turns
+  whatever list a page already holds into cards: `/api/roster`,
+  `/api/workspace` or the timetable. It writes `label · homeroom (full name)
+  · description`, and a name typed in capitals is title-cased. The
+  label comes first so the list still reads in the timetable's order, which is
+  also the school table's order. The value saved is still the label.
+- **The whole row on hover:** the label and words, the homeroom, the count by
+  generation (from `oddelenie`, as 031 intended; the description is not
+  parsed), and the children with their generation. Each `<option>` carries
+  it as `title`. A `<select data-class-picker>` takes its chosen line's title
+  when pointed at, so a closed picker hovers the same.
+- **Where:** Podatoci (a pupil's row, a new pupil, a suggestion, moving a pupil
+  out of a class, a teacher's classes, the class label in its own list); the
+  ✏️ form; „Администрација" (the pupil and the filter); „Заеднички податоци"
+  (the pupil, the class list — searchable by teacher and by words now — and a
+  teacher's classes); Уреди настава („Одделение што го води", the cell
+  picker in a teacher's week, the class buttons, the day grid's rows, the class
+  in a teacher's week). Уреди настава reads the year's list alongside the
+  timetable, only for the children on hover.
+- **Server, additive:** `/api/roster` classes carry `homeroom`; `/api/workspace`
+  classes carry `description` and `homeroom`. Only teachers on the year's list
+  count, the same rule Podatoci always used. Without the new fields a page
+  still takes the homeroom from its teachers' list.
+
+What the table says and the database does not: the combined classes' words
+name their generations („Комбинирана II, III, IV"), while HOME's descriptions
+say only „Комбинирана паралелка". That is data for the owner to type in
+„Ознака и опис…", not something to derive: the table's range and the
+children's generations are not always the same, and the hover shows the
+latter.
+
+Also: real staff surnames had crept into comments as examples of how a class
+reads („кај <surname>"), one full name among them. Every one is now invented.
+`check:names` compares full names only, so a surname alone passes it. That
+is why the example is written invented from the start.
+
+Tests: `test:class-cards` (new, invented API): the same line and hover in every
+picker above, the label as the value, the homeroom from the teachers' list in
+capitals, and search by teacher and by words. It fails 21 checks on the old
+pages. `test:one-change` and every other invented-data browser suite still
+pass.

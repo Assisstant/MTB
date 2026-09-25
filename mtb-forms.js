@@ -287,6 +287,18 @@
         return shell;
     }
 
+    /**
+     * The class the way every picker says it — label · homeroom · the year's
+     * description, the whole row on hover (`app-navigation.js`, `classes`).
+     * Without the shared script it is the plain list, as before.
+     */
+    function classPicker(data, plain, grade) {
+        const nav = window.MTBAppNavigation;
+        if (!nav || !nav.classes) return options(plain, grade);
+        return nav.classes.optionsHtml(nav.classes.index({ classes: data.classes, pupils: data.pupils }), grade,
+            { empty: 'Без локална паралелка' });
+    }
+
     function drawPupil(shell, data, pupil, year) {
         const archived = pupil.globally_active === false;
         const onList = pupil.annual_active === true;
@@ -303,7 +315,7 @@
         shell.body.innerHTML = `<fieldset class="mtb-form__plain"${archived ? ' disabled' : ''}>
             <label>Име и презиме<input type="text" name="name" maxlength="120" value="${esc(pupil.name)}" required></label>
             <div class="mtb-form__grid">
-              <label>Паралелка / група<select name="grade">${options(classes, pupil.grade || '')}</select></label>
+              <label>Паралелка / група<select name="grade" data-class-picker>${classPicker(data, classes, pupil.grade || '')}</select></label>
               <label>Одделение (генерација)<select name="oddelenie">${option('', 'Непотврдено', pupil.oddelenie || '')}${ROMAN.map((r) => option(r, r, pupil.oddelenie || '')).join('')}</select></label>
               <label>Основен статус<select name="enrollmentType">${options({ internal: 'Внатрешен', external: 'Надворешен' }, pupil.enrollment_type || 'internal')}</select></label>
               <label>Програма<select name="programme">${options(PROGRAMMES, pupil.programme || 'unknown')}</select></label>

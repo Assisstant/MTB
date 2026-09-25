@@ -592,8 +592,15 @@
         try {
             await fillYears();
             const year = el('year').value;
-            const body = await api('GET', '/api/teaching/timetable?year=' + encodeURIComponent(year));
+            // The year's list is read alongside, only so a class can name its
+            // children on hover (`classCards`). Without it the hover says the
+            // rest and nothing else changes.
+            const [body, roster] = await Promise.all([
+                api('GET', '/api/teaching/timetable?year=' + encodeURIComponent(year)),
+                api('GET', '/api/roster?year=' + encodeURIComponent(year)).catch(() => null)
+            ]);
             if (mine !== ticket) return;
+            if (roster && Array.isArray(roster.students)) body.rosterStudents = roster.students;
             data = body;
             if (!keepSelection) selected = null;
             await draw();
@@ -739,7 +746,7 @@
                 html += `<td class="cell wk ${l ? 'has' : 'empty'}${i === 0 ? ' daysep' : ''}"`
                     + ` data-teacher="${esc(name)}" data-day="${esc(d)}" data-ordinal="${p.ordinal}"`
                     + ` title="${esc(title)}">`
-                    + (l ? `<span class="cls">${esc(l.class)}</span>`
+                    + (l ? `<span class="cls" title="${esc(classHover(l.class))}">${esc(l.class)}</span>`
                          + `<span class="sub2${l.subject ? '' : ' none'}" data-subject="1">`
                          + `${esc(l.subject || '+ предмет')}</span>`
                        : '<span class="plus">+</span>')
@@ -760,7 +767,7 @@
 
     /**
      * The homeroom's surname — how a class is known in одделенска настава
-     * („кај Христовска"), shown beside the label, never instead of it.
+     * („кај Измислена"), shown beside the label, never instead of it.
      */
     function homeroomSurname(label) {
         const t = (data.teachers || []).find((x) =>
@@ -768,6 +775,35 @@
         if (!t) return '';
         const parts = String(t.name).trim().split(/\s+/);
         return parts.length > 1 ? parts.slice(1).join(' ') : parts[0];
+    }
+
+    /**
+     * A class the way every picker in the package says it — label · homeroom ·
+     * the year's description — and on hover the whole row of the school's
+     * table, with the children when the year's list could be read
+     * (`app-navigation.js`, `classes`; owner, 25 Sep 2026).
+     */
+    let cardsOf = null;
+    let cards = new Map();
+    function classCards() {
+        const nav = window.MTBAppNavigation;
+        if (!data || !nav || !nav.classes) return new Map();
+        if (cardsOf !== data) {
+            cards = nav.classes.index({ classes: data.classes, teachers: data.teachers, students: data.rosterStudents });
+            cardsOf = data;
+        }
+        return cards;
+    }
+    function classHover(label) {
+        const info = classCards().get(label);
+        return info ? window.MTBAppNavigation.classes.hover(info) : label;
+    }
+    const WEEK_HINT = '\n\nКлик: цела недела за ';
+    function classPickerHtml(selected, empty) {
+        const nav = window.MTBAppNavigation;
+        if (nav && nav.classes) return nav.classes.optionsHtml(classCards(), selected, { empty });
+        return `<option value="">${esc(empty)}</option>` + (data.classes || []).map((c) =>
+            `<option value="${esc(c.label)}"${c.label === selected ? ' selected' : ''}>${esc(c.label)}${c.description ? ' · ' + esc(c.description) : ''}</option>`).join('');
     }
 
     /** The school's own words about a class this year, for the hover and the picker. */
@@ -784,11 +820,7 @@
     function openWeekCell(td) {
         if (td.querySelector('select')) return;
         const was = tidy(td.querySelector('.cls') ? td.querySelector('.cls').textContent : '');
-        const options = ['<option value="">— слободен —</option>']
-            .concat((data.classes || []).map((c) =>
-                `<option value="${esc(c.label)}"${c.label === was ? ' selected' : ''}>`
-                + `${esc(c.label)}${c.description ? ' · ' + esc(c.description) : ''}</option>`));
-        td.innerHTML = `<select class="pick">${options.join('')}</select>`;
+        td.innerHTML = `<select class="pick" data-class-picker>${classPickerHtml(was, '— слободен —')}</select>`;
         const pick = td.querySelector('select');
         pick.focus();
 
@@ -1370,7 +1402,7 @@
             + (t.bare ? `<small><span class="bare">${t.bare} без предмет</span></small>` : '')
             + '</button>';
         let html = classes.map((c) => chip(c.label, c.label, tally.get(c.label) || { total: 0, bare: 0 },
-            c.label + (c.description ? ' · ' + c.description : ''))).join('');
+            classHover(c.label))).join('');
         if (labels.length > 1) {
             const all = { total: 0, bare: 0 };
             tally.forEach((t) => { all.total += t.total; all.bare += t.bare; });
@@ -1752,7 +1784,7 @@
             + '</tr></thead><tbody>';
         classes.forEach((c) => {
             html += `<tr><th><button type="button" class="cls-link" data-week="${esc(c.label)}"`
-                + ` title="${esc('Цела недела за ' + c.label)}">${esc(c.label)}</button>`
+                + ` title="${esc(classHover(c.label) + WEEK_HINT + c.label)}">${esc(c.label)}</button>`
                 + (homeroomSurname(c.label) ? `<span class="hr">${esc(homeroomSurname(c.label))}</span>` : '') + '</th>';
             periods().forEach((p) => {
                 const list = cells.get(cellKey(c.label, p.ordinal)) || [];
@@ -2002,7 +2034,6 @@
 
     // ── teachers ────────────────────────────────────────────────────────────
     function drawTeachers() {
-        const classOptions = (data.classes || []).map((c) => c.label);
         el('teachers').innerHTML =
             '<table class="list"><thead><tr><th>Име</th><th>Вид</th><th>Предмет</th><th>Одделение што го води</th><th></th></tr></thead><tbody>'
             + (data.teachers || []).map((t) =>
@@ -2013,10 +2044,7 @@
                 + `<option value="pred"${t.kind === 'pred' ? ' selected' : ''}>предметен</option>`
                 + '</select></td>'
                 + '<td data-subject-cell></td>'
-                + '<td><select class="t-home"><option value="">—</option>'
-                + classOptions.map((label) =>
-                    `<option value="${esc(label)}"${t.homeroom === label ? ' selected' : ''}>${esc(label)}</option>`).join('')
-                + '</select></td>'
+                + '<td><select class="t-home" data-class-picker>' + classPickerHtml(t.homeroom || '', '—') + '</select></td>'
                 + '<td class="act"><button class="btn soft" data-save-teacher="' + t.id + '">Зачувај</button></td></tr>').join('')
             + '</tbody></table>';
 
