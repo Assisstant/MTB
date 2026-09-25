@@ -49,7 +49,7 @@ const SessionBody = z.object({
     expectedStudentPublicId: z.string().min(1).max(80).nullable().optional()
 });
 
-const BlockBody = z.object({
+export const BlockBody = z.object({
     year: z.string().min(1).max(64).optional(),
     day: z.string().min(1).max(40),
     /** The containing cabinet bell, always one 40-minute range. */
@@ -65,7 +65,7 @@ function sameIds(a: string[], b: string[]): boolean {
     return a.length === b.length && a.every((value, index) => value === b[index]);
 }
 
-function blockTimes(label: string): { full: string; halves: [string, string] } | null {
+export function blockTimes(label: string): { full: string; halves: [string, string] } | null {
     const span = slotBell(label);
     if (!span || span.minutes !== 40) return null;
     const start = minutesOf(span.startsAt);
@@ -79,7 +79,7 @@ function blockTimes(label: string): { full: string; halves: [string, string] } |
     };
 }
 
-function semanticBlock(rows: any[], times: { full: string; halves: [string, string] }): string[] | null {
+export function semanticBlock(rows: any[], times: { full: string; halves: [string, string] }): string[] | null {
     const full = rows.find((row) => row.time_slot === times.full)?.student_public_id;
     const halves = times.halves.map((time) =>
         rows.find((row) => row.time_slot === time)?.student_public_id).filter(Boolean);
@@ -95,6 +95,227 @@ async function yearId(label?: string): Promise<number | null> {
         [label ?? null]
     );
     return rows.length ? rows[0].id : null;
+}
+
+export type BlockWrite = {
+    status: number;
+    body: any;
+    /** Sessions of other therapists a forced block now overlaps. */
+    forcedOver?: Array<{ therapistId: number; therapistName: string; time: string; studentPublicId: string; studentName: string }>;
+};
+
+/**
+ * The block writer, ONE copy: Кабинети's cell (the route below) and a
+ * therapist's own form (routes/portal.ts) both write through it. `force` is
+ * the colleague's „сепак запиши" (docs/PLAN-kolegi-online.md): a pupil
+ * already with another therapist then is booked anyway, and the sessions it
+ * overlaps come back so that therapist can be told. Кабинети never forces.
+ */
+export async function writeBlock(body: z.infer<typeof BlockBody>, options: { force?: boolean } = {}): Promise<BlockWrite> {
+    // The route's answers, as a status and a body the caller sends on.
+    const reply = { code: (status: number) => ({ send: (payload: any): BlockWrite => ({ status, body: payload }) }) };
+    const forcedOver: NonNullable<BlockWrite['forcedOver']> = [];
+    const times = blockTimes(body.time);
+    if (!times) return reply.code(400).send({ error: 'a block must name one 40-minute time range' });
+    if (new Set(body.studentPublicIds).size !== body.studentPublicIds.length) {
+        return reply.code(400).send({ error: 'leave the second pupil empty when one pupil owns all 40 minutes' });
+    }
+    const dayOrder = DAY_ORDER[norm(body.day)];
+    if (!dayOrder) return reply.code(400).send({ error: `unknown working day "${body.day}"` });
+
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+        const year = (await client.query(
+            `SELECT id, label, is_current FROM school_years
+             WHERE ($1::text IS NULL AND is_current) OR label = $1 LIMIT 1 FOR SHARE`,
+            [body.year ?? null]
+        )).rows[0];
+        if (!year) {
+            await client.query('ROLLBACK');
+            return reply.code(404).send({ error: `no such school year: ${body.year ?? '(current)'}` });
+        }
+
+        const therapist = (await client.query(
+            `SELECT t.id, t.name FROM therapists t
+             JOIN therapist_years ty ON ty.therapist_id = t.id
+             WHERE t.id = $1 AND ty.school_year_id = $2 AND ty.active`,
+            [body.therapistId, year.id]
+        )).rows[0];
+        if (!therapist) {
+            await client.query('ROLLBACK');
+            return reply.code(404).send({ error: 'that therapist is not active in this school year' });
+        }
+
+        await client.query(
+            `SELECT pg_advisory_xact_lock(hashtext(
+                'fusion-therapist:' || $1::text || ':' || $2 || ':' || $3::text
+            ))`,
+            [year.id, body.day, body.therapistId]
+        );
+
+        const exactTimes = [times.full, ...times.halves];
+        const currentRows = (await client.query(
+            `SELECT sl.time_slot, s.public_id AS student_public_id, s.name AS student_name
+             FROM schedule_slots sl LEFT JOIN students s ON s.id = sl.student_id
+             WHERE sl.school_year_id = $1 AND sl.day = $2 AND sl.therapist_id = $3
+               AND sl.time_slot = ANY($4::text[])
+             ORDER BY sl.time_slot FOR UPDATE OF sl`,
+            [year.id, body.day, body.therapistId, exactTimes]
+        )).rows;
+        const present = semanticBlock(currentRows, times);
+        if (present == null) {
+            await client.query('ROLLBACK');
+            return reply.code(409).send({
+                error: 'that block contains overlapping full and half rows; clear them explicitly first',
+                blockOverlap: true
+            });
+        }
+        if (body.expectedStudentPublicIds !== undefined &&
+            !sameIds(present, body.expectedStudentPublicIds)) {
+            await client.query('ROLLBACK');
+            return reply.code(409).send({
+                error: 'that block changed while you were editing',
+                expectedStudentPublicIds: body.expectedStudentPublicIds,
+                actualStudentPublicIds: present
+            });
+        }
+
+        const fullSpan = slotBell(times.full)!;
+        const otherOwnRows = (await client.query(
+            `SELECT sl.time_slot, s.name AS student_name
+             FROM schedule_slots sl LEFT JOIN students s ON s.id = sl.student_id
+             WHERE sl.school_year_id = $1 AND sl.day = $2 AND sl.therapist_id = $3
+               AND NOT (sl.time_slot = ANY($4::text[]))`,
+            [year.id, body.day, body.therapistId, exactTimes]
+        )).rows;
+        const blockStart = minutesOf(fullSpan.startsAt);
+        const blockEnd = blockStart + fullSpan.minutes;
+        const foreignOverlap = otherOwnRows.find((row) => {
+            const other = slotBell(row.time_slot);
+            if (!other) return false;
+            const start = minutesOf(other.startsAt);
+            return blockStart < start + other.minutes && start < blockEnd;
+        });
+        if (foreignOverlap) {
+            await client.query('ROLLBACK');
+            return reply.code(409).send({
+                error: 'that therapist has another row overlapping this block',
+                therapistOccupied: true, time: foreignOverlap.time_slot,
+                studentName: foreignOverlap.student_name
+            });
+        }
+
+        const students: any[] = [];
+        for (const publicId of body.studentPublicIds) {
+            const student = (await client.query(
+                `SELECT s.id, s.public_id, s.name
+                 FROM students s JOIN student_enrollments e ON e.student_id = s.id
+                 WHERE s.public_id = $1
+                   AND e.school_year_id = $2 AND e.active
+                   AND (s.active OR NOT $3::boolean)`,
+                [publicId, year.id, year.is_current]
+            )).rows[0];
+            if (!student) {
+                await client.query('ROLLBACK');
+                return reply.code(404).send({ error: 'that student is not active in this school year' });
+            }
+            const linked = await client.query(
+                `SELECT 1 FROM therapist_students
+                 WHERE school_year_id = $1 AND therapist_id = $2 AND student_id = $3`,
+                [year.id, body.therapistId, student.id]
+            );
+            if (!linked.rows.length) {
+                await client.query('ROLLBACK');
+                return reply.code(409).send({
+                    error: 'that student is not in this therapist caseload', notInCaseload: true
+                });
+            }
+            students.push(student);
+        }
+
+        for (const publicId of [...body.studentPublicIds].sort()) {
+            await client.query(
+                `SELECT pg_advisory_xact_lock(hashtext(
+                    'fusion-student:' || $1::text || ':' || $2 || ':' || $3
+                ))`,
+                [year.id, body.day, publicId]
+            );
+        }
+
+        const desiredTimes = students.length === 1 ? [times.full] : times.halves.slice(0, students.length);
+        if (students.length) {
+            const conflicts = (await client.query(
+                `SELECT sl.time_slot, s.public_id AS student_public_id,
+                        t.id AS therapist_id, t.name AS therapist_name
+                 FROM schedule_slots sl
+                 JOIN students s ON s.id = sl.student_id
+                 JOIN therapists t ON t.id = sl.therapist_id
+                 WHERE sl.school_year_id = $1 AND sl.day = $2
+                   AND sl.therapist_id <> $3
+                   AND s.public_id = ANY($4::text[])`,
+                [year.id, body.day, body.therapistId, body.studentPublicIds]
+            )).rows;
+            for (let index = 0; index < students.length; index++) {
+                const wanted = slotBell(desiredTimes[index])!;
+                const wantedStart = minutesOf(wanted.startsAt);
+                const wantedEnd = wantedStart + wanted.minutes;
+                const duplicate = conflicts.find((row) => {
+                    if (row.student_public_id !== students[index].public_id) return false;
+                    const other = slotBell(row.time_slot);
+                    if (!other) return false;
+                    const otherStart = minutesOf(other.startsAt);
+                    return wantedStart < otherStart + other.minutes && otherStart < wantedEnd;
+                });
+                if (duplicate) {
+                    if (options.force) {
+                        forcedOver.push({ therapistId: duplicate.therapist_id, therapistName: duplicate.therapist_name,
+                            time: duplicate.time_slot, studentPublicId: students[index].public_id, studentName: students[index].name });
+                        continue;
+                    }
+                    await client.query('ROLLBACK');
+                    return reply.code(409).send({
+                        error: 'that student already has an overlapping session',
+                        doubleBooked: true, therapistId: duplicate.therapist_id,
+                        therapistName: duplicate.therapist_name, time: duplicate.time_slot,
+                        studentPublicId: students[index].public_id, studentName: students[index].name
+                    });
+                }
+            }
+        }
+
+        await client.query(
+            `DELETE FROM schedule_slots
+             WHERE school_year_id = $1 AND day = $2 AND therapist_id = $3
+               AND time_slot = ANY($4::text[])`,
+            [year.id, body.day, body.therapistId, exactTimes]
+        );
+        for (let index = 0; index < students.length; index++) {
+            await client.query(
+                `INSERT INTO schedule_slots
+                    (school_year_id, day, day_order, time_slot, therapist_id, student_id, source)
+                 VALUES ($1, $2, $3, $4, $5, $6, 'api')`,
+                [year.id, body.day, dayOrder, desiredTimes[index], body.therapistId, students[index].id]
+            );
+        }
+        await client.query('COMMIT');
+        return { status: 200, forcedOver, body: {
+            ok: true, year: year.label, day: body.day, time: times.full,
+            therapistId: therapist.id, therapistName: therapist.name,
+            studentPublicIds: students.map((student) => student.public_id),
+            previousStudentPublicIds: present,
+            sessions: students.map((student, index) => ({
+                day: body.day, time: desiredTimes[index], therapist_id: therapist.id,
+                therapist_name: therapist.name, student_public_id: student.public_id,
+                student_name: student.name
+            }))
+        } };
+    } catch (err) {
+        await client.query('ROLLBACK').catch(() => {});
+        throw err;
+    } finally {
+        client.release();
+    }
 }
 
 export async function scheduleWriteRoutes(server: FastifyInstance) {
@@ -148,201 +369,8 @@ export async function scheduleWriteRoutes(server: FastifyInstance) {
         const body = BlockBody.parse(req.body);
         try { assertOwnTherapistId(await scopeOf(req), body.therapistId); }
         catch (err) { return refuseScope(reply, err); }
-        const times = blockTimes(body.time);
-        if (!times) return reply.code(400).send({ error: 'a block must name one 40-minute time range' });
-        if (new Set(body.studentPublicIds).size !== body.studentPublicIds.length) {
-            return reply.code(400).send({ error: 'leave the second pupil empty when one pupil owns all 40 minutes' });
-        }
-        const dayOrder = DAY_ORDER[norm(body.day)];
-        if (!dayOrder) return reply.code(400).send({ error: `unknown working day "${body.day}"` });
-
-        const client = await pool.connect();
-        try {
-            await client.query('BEGIN');
-            const year = (await client.query(
-                `SELECT id, label, is_current FROM school_years
-                 WHERE ($1::text IS NULL AND is_current) OR label = $1 LIMIT 1 FOR SHARE`,
-                [body.year ?? null]
-            )).rows[0];
-            if (!year) {
-                await client.query('ROLLBACK');
-                return reply.code(404).send({ error: `no such school year: ${body.year ?? '(current)'}` });
-            }
-
-            const therapist = (await client.query(
-                `SELECT t.id, t.name FROM therapists t
-                 JOIN therapist_years ty ON ty.therapist_id = t.id
-                 WHERE t.id = $1 AND ty.school_year_id = $2 AND ty.active`,
-                [body.therapistId, year.id]
-            )).rows[0];
-            if (!therapist) {
-                await client.query('ROLLBACK');
-                return reply.code(404).send({ error: 'that therapist is not active in this school year' });
-            }
-
-            await client.query(
-                `SELECT pg_advisory_xact_lock(hashtext(
-                    'fusion-therapist:' || $1::text || ':' || $2 || ':' || $3::text
-                ))`,
-                [year.id, body.day, body.therapistId]
-            );
-
-            const exactTimes = [times.full, ...times.halves];
-            const currentRows = (await client.query(
-                `SELECT sl.time_slot, s.public_id AS student_public_id, s.name AS student_name
-                 FROM schedule_slots sl LEFT JOIN students s ON s.id = sl.student_id
-                 WHERE sl.school_year_id = $1 AND sl.day = $2 AND sl.therapist_id = $3
-                   AND sl.time_slot = ANY($4::text[])
-                 ORDER BY sl.time_slot FOR UPDATE OF sl`,
-                [year.id, body.day, body.therapistId, exactTimes]
-            )).rows;
-            const present = semanticBlock(currentRows, times);
-            if (present == null) {
-                await client.query('ROLLBACK');
-                return reply.code(409).send({
-                    error: 'that block contains overlapping full and half rows; clear them explicitly first',
-                    blockOverlap: true
-                });
-            }
-            if (body.expectedStudentPublicIds !== undefined &&
-                !sameIds(present, body.expectedStudentPublicIds)) {
-                await client.query('ROLLBACK');
-                return reply.code(409).send({
-                    error: 'that block changed while you were editing',
-                    expectedStudentPublicIds: body.expectedStudentPublicIds,
-                    actualStudentPublicIds: present
-                });
-            }
-
-            const fullSpan = slotBell(times.full)!;
-            const otherOwnRows = (await client.query(
-                `SELECT sl.time_slot, s.name AS student_name
-                 FROM schedule_slots sl LEFT JOIN students s ON s.id = sl.student_id
-                 WHERE sl.school_year_id = $1 AND sl.day = $2 AND sl.therapist_id = $3
-                   AND NOT (sl.time_slot = ANY($4::text[]))`,
-                [year.id, body.day, body.therapistId, exactTimes]
-            )).rows;
-            const blockStart = minutesOf(fullSpan.startsAt);
-            const blockEnd = blockStart + fullSpan.minutes;
-            const foreignOverlap = otherOwnRows.find((row) => {
-                const other = slotBell(row.time_slot);
-                if (!other) return false;
-                const start = minutesOf(other.startsAt);
-                return blockStart < start + other.minutes && start < blockEnd;
-            });
-            if (foreignOverlap) {
-                await client.query('ROLLBACK');
-                return reply.code(409).send({
-                    error: 'that therapist has another row overlapping this block',
-                    therapistOccupied: true, time: foreignOverlap.time_slot,
-                    studentName: foreignOverlap.student_name
-                });
-            }
-
-            const students: any[] = [];
-            for (const publicId of body.studentPublicIds) {
-                const student = (await client.query(
-                    `SELECT s.id, s.public_id, s.name
-                     FROM students s JOIN student_enrollments e ON e.student_id = s.id
-                     WHERE s.public_id = $1
-                       AND e.school_year_id = $2 AND e.active
-                       AND (s.active OR NOT $3::boolean)`,
-                    [publicId, year.id, year.is_current]
-                )).rows[0];
-                if (!student) {
-                    await client.query('ROLLBACK');
-                    return reply.code(404).send({ error: 'that student is not active in this school year' });
-                }
-                const linked = await client.query(
-                    `SELECT 1 FROM therapist_students
-                     WHERE school_year_id = $1 AND therapist_id = $2 AND student_id = $3`,
-                    [year.id, body.therapistId, student.id]
-                );
-                if (!linked.rows.length) {
-                    await client.query('ROLLBACK');
-                    return reply.code(409).send({
-                        error: 'that student is not in this therapist caseload', notInCaseload: true
-                    });
-                }
-                students.push(student);
-            }
-
-            for (const publicId of [...body.studentPublicIds].sort()) {
-                await client.query(
-                    `SELECT pg_advisory_xact_lock(hashtext(
-                        'fusion-student:' || $1::text || ':' || $2 || ':' || $3
-                    ))`,
-                    [year.id, body.day, publicId]
-                );
-            }
-
-            const desiredTimes = students.length === 1 ? [times.full] : times.halves.slice(0, students.length);
-            if (students.length) {
-                const conflicts = (await client.query(
-                    `SELECT sl.time_slot, s.public_id AS student_public_id,
-                            t.id AS therapist_id, t.name AS therapist_name
-                     FROM schedule_slots sl
-                     JOIN students s ON s.id = sl.student_id
-                     JOIN therapists t ON t.id = sl.therapist_id
-                     WHERE sl.school_year_id = $1 AND sl.day = $2
-                       AND sl.therapist_id <> $3
-                       AND s.public_id = ANY($4::text[])`,
-                    [year.id, body.day, body.therapistId, body.studentPublicIds]
-                )).rows;
-                for (let index = 0; index < students.length; index++) {
-                    const wanted = slotBell(desiredTimes[index])!;
-                    const wantedStart = minutesOf(wanted.startsAt);
-                    const wantedEnd = wantedStart + wanted.minutes;
-                    const duplicate = conflicts.find((row) => {
-                        if (row.student_public_id !== students[index].public_id) return false;
-                        const other = slotBell(row.time_slot);
-                        if (!other) return false;
-                        const otherStart = minutesOf(other.startsAt);
-                        return wantedStart < otherStart + other.minutes && otherStart < wantedEnd;
-                    });
-                    if (duplicate) {
-                        await client.query('ROLLBACK');
-                        return reply.code(409).send({
-                            error: 'that student already has an overlapping session',
-                            doubleBooked: true, therapistId: duplicate.therapist_id,
-                            therapistName: duplicate.therapist_name, time: duplicate.time_slot
-                        });
-                    }
-                }
-            }
-
-            await client.query(
-                `DELETE FROM schedule_slots
-                 WHERE school_year_id = $1 AND day = $2 AND therapist_id = $3
-                   AND time_slot = ANY($4::text[])`,
-                [year.id, body.day, body.therapistId, exactTimes]
-            );
-            for (let index = 0; index < students.length; index++) {
-                await client.query(
-                    `INSERT INTO schedule_slots
-                        (school_year_id, day, day_order, time_slot, therapist_id, student_id, source)
-                     VALUES ($1, $2, $3, $4, $5, $6, 'api')`,
-                    [year.id, body.day, dayOrder, desiredTimes[index], body.therapistId, students[index].id]
-                );
-            }
-            await client.query('COMMIT');
-            return {
-                ok: true, year: year.label, day: body.day, time: times.full,
-                therapistId: therapist.id, therapistName: therapist.name,
-                studentPublicIds: students.map((student) => student.public_id),
-                previousStudentPublicIds: present,
-                sessions: students.map((student, index) => ({
-                    day: body.day, time: desiredTimes[index], therapist_id: therapist.id,
-                    therapist_name: therapist.name, student_public_id: student.public_id,
-                    student_name: student.name
-                }))
-            };
-        } catch (err) {
-            await client.query('ROLLBACK').catch(() => {});
-            throw err;
-        } finally {
-            client.release();
-        }
+        const result = await writeBlock(body);
+        return reply.code(result.status).send(result.body);
     });
 
     server.put('/api/schedule/session', async (req, reply) => {

@@ -142,21 +142,28 @@ export function noticeSentence(author: string, c: Clash, w: { day: string; ordin
     return `${author} ве стави во ${w.classLabel}, ${when} (${what}), а тогаш имате ${c.class}${c.subject ? ` („${c.subject}")` : ''}.`;
 }
 
+/**
+ * One notice per person a forced write hits — a teacher or a therapist,
+ * found as the EMPLOYEE, so a person who is both hears once. Never the author.
+ */
 export async function addNotices(db: Queryable, n: {
     yearId: number; authorEmployeeId: number; authorName: string; day: string; slot: string; about: string;
-    recipients: Array<{ teacherId: number; sentence: string }>;
+    kind?: 'lesson' | 'term';
+    recipients: Array<{ teacherId?: number; therapistId?: number; sentence: string }>;
 }): Promise<number> {
     let added = 0;
     const seen = new Set<number>();
     for (const r of n.recipients) {
-        const { rows } = await db.query('SELECT employee_id FROM teachers WHERE id = $1', [r.teacherId]);
+        const { rows } = r.therapistId != null
+            ? await db.query('SELECT employee_id FROM therapists WHERE id = $1', [r.therapistId])
+            : await db.query('SELECT employee_id FROM teachers WHERE id = $1', [r.teacherId]);
         const employee = rows[0] && rows[0].employee_id;
         if (!employee || employee === n.authorEmployeeId || seen.has(employee)) continue;
         seen.add(employee);
         await db.query(
             `INSERT INTO schedule_notices (school_year_id, author_employee_id, author_name, recipient_employee_id, kind, day, slot, about, sentence)
-             VALUES ($1, $2, $3, $4, 'lesson', $5, $6, $7, $8)`,
-            [n.yearId, n.authorEmployeeId, n.authorName, employee, n.day, n.slot, n.about, r.sentence]);
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+            [n.yearId, n.authorEmployeeId, n.authorName, employee, n.kind || 'lesson', n.day, n.slot, n.about, r.sentence]);
         added++;
     }
     return added;

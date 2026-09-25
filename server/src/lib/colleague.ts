@@ -266,7 +266,8 @@ const PUBLIC_WRITES = new Set([
     'POST /api/portal/notices/seen',
     'PUT /api/portal/my-lesson',
     'PUT /api/portal/class-lesson',
-    'POST /api/portal/class-lesson/remove'
+    'POST /api/portal/class-lesson/remove',
+    'PUT /api/portal/term'
 ]);
 const DELEGATED_WRITES = new Set([
     'PUT /api/therapists/:name/students/:publicId',

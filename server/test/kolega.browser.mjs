@@ -221,6 +221,77 @@ check('no page errors', errors.length === 0, errors.join('\n       '));
     await ctx.close();
 }
 
+// ── the cabinet: a pupil with another therapist is said before saving ──────
+{
+    console.log('\nthe cabinet');
+    const terms = [];
+    const writes = [];
+    const ctx = await browser.newContext({ viewport: { width: 400, height: 900 }, serviceWorkers: 'block' });
+    await ctx.addInitScript((t) => { try { localStorage.setItem('mtb_portal_token_v1', t); } catch (_) { /* test */ } }, TOKEN);
+    await ctx.route('**/*', async (route) => {
+        const req = route.request(), url = new URL(req.url());
+        const json = (status, body) => route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) });
+        if (url.origin !== ORIGIN) return route.fulfill({ status: 404, body: '' });
+        if (url.pathname === '/Kolega.html') {
+            return route.fulfill({ status: 200, contentType: 'text/html; charset=utf-8', body: await readFile(join(ROOT, 'Kolega.html')) });
+        }
+        const body = req.postData() ? JSON.parse(req.postData()) : null;
+        if (body) writes.push({ path: url.pathname, body });
+        if (url.pathname === '/api/portal/me') return json(200, { person: { employeeId: 8, name: 'Терапевтка Измислена' },
+            usernames: { latin: 'TerapevtkaIzmislena', cyrillic: 'ТерапевткаИзмислена' }, initialPassword: false, year: '2026/2027',
+            roles: ['therapist'], teacher: null, therapist: { id: 5 } });
+        if (url.pathname === '/api/portal/week') return json(200, {
+            year: '2026/2027', days: ['понеделник', 'вторник', 'среда', 'четврток', 'петок'], periods: [],
+            me: { teacherId: null, therapistId: 5, homeroom: [], subject: null }, classes: [], teachers: [], lessons: [], clashes: [], notices: [],
+            cabinet: {
+                bells: [{ ordinal: 1, label: '1', time: '08:00-08:40' }, { ordinal: 2, label: '2', time: '08:45-09:25' }],
+                pupils: [{ publicId: 'p1', name: 'Ученик Измислен', class: 'II-б' }, { publicId: 'p2', name: 'Ученичка Измислена', class: 'I-а' }],
+                terms, names: {},
+                elsewhere: [{ publicId: 'p1', day: 'понеделник', time: '08:00-08:40', therapist: 'Колега Ди' }]
+            }
+        });
+        if (url.pathname === '/api/portal/term') {
+            if (body.pupils.includes('p1') && body.time === '08:00-08:40' && !body.force) {
+                return json(409, { clash: true, error: 'понеделник, 08:00-08:40: „Ученик Измислен" тогаш е кај Колега Ди (08:00-08:40).' });
+            }
+            const i = terms.findIndex((t) => t.day === body.day && t.time === body.time);
+            if (i >= 0) terms.splice(i, 1);
+            if (body.pupils.length) terms.push({ day: body.day, time: body.time, pupils: body.pupils, overlap: false });
+            return json(200, { ok: true, notified: body.force ? 1 : 0 });
+        }
+        return json(404, { error: 'not in this test' });
+    });
+    const p = await ctx.newPage();
+    const cabErrors = [];
+    p.on('pageerror', (e) => cabErrors.push(e.message));
+    await p.goto(`${ORIGIN}/Kolega.html`);
+    await p.waitForSelector('#days [data-day="понеделник"]', { timeout: 8000 });
+    await p.click('#days [data-day="понеделник"]');
+    check('a therapist opens on their cabinet, the 40-minute terms', await p.isVisible('#periods [data-time="08:00-08:40"]'));
+    await p.click('#periods [data-time="08:00-08:40"] [data-edit-term]');
+    await p.selectOption('#periods form.editor select[name=first]', 'p1');
+    const warned = await p.textContent('#periods form.editor .preview');
+    check('choosing a pupil who is with another therapist then says so before saving', /Колега Ди/.test(warned), warned);
+    await p.click('#periods form.editor button[type=submit]');
+    await p.waitForSelector('#periods form.editor .ask:not([hidden])', { timeout: 5000 });
+    await p.click('#periods form.editor [data-act="force"]');
+    await p.waitForFunction(() => /Известени колеги: 1/.test(document.getElementById('weekMsg').textContent), null, { timeout: 5000 });
+    check('„Сепак" books them and says who was told', writes.some((w) => w.path === '/api/portal/term' && w.body.force === true));
+    const booked = await p.textContent('#periods [data-time="08:00-08:40"]');
+    check('the term shows the pupil for 40 minutes, and the clash', /Ученик Измислен/.test(booked) && /40 мин/.test(booked) && /Колега Ди/.test(booked), booked);
+    check('and the clash is listed on its own', /Колега Ди/.test(await p.textContent('#clashesList')));
+    await p.click('#periods [data-time="08:45-09:25"] [data-edit-term]');
+    await p.selectOption('#periods form.editor select[name=first]', 'p1');
+    await p.selectOption('#periods form.editor select[name=second]', 'p2');
+    await p.click('#periods form.editor button[type=submit]');
+    await p.waitForFunction(() => /втори 20/.test((document.querySelector('#periods [data-time="08:45-09:25"]') || {}).textContent || ''),
+        null, { timeout: 5000 }).catch(() => {});
+    const halves = await p.textContent('#periods [data-time="08:45-09:25"]');
+    check('two pupils share a term in halves', /први 20/.test(halves) && /втори 20/.test(halves), halves);
+    check('no page errors in the cabinet', cabErrors.length === 0, cabErrors.join('\n       '));
+    await ctx.close();
+}
+
 await browser.close();
 console.log(fails ? `\n${fails} failed` : '\nall good');
 process.exit(fails ? 1 : 0);

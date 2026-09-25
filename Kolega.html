@@ -254,7 +254,7 @@ header.top h1 { flex: 1; min-width: 180px; }
             view.day = days.includes(today) ? today : days[0];
         }
         el('days').innerHTML = days.map((d) => `<button type="button" data-day="${esc(d)}" aria-pressed="${d === view.day}" title="${esc(d)}">${esc(DAY_SHORT[d] || d)}</button>`).join('');
-        el('days').hidden = view.tab === 'cabinet';
+        el('days').hidden = false;
     }
 
     function drawWeek() {
@@ -267,8 +267,13 @@ header.top h1 { flex: 1; min-width: 180px; }
             return;
         }
         if (view.tab === 'cabinet') {
-            el('tabHint').textContent = 'Распоредот на кабинетот се пополнува во следниот чекор — наскоро тука.';
-            el('periods').innerHTML = '';
+            el('tabHint').textContent = 'Вашиот кабинет: еден ученик за цел час (40 минути), или двајца по 20 минути. '
+                + 'Изберете термин за да го внесете или смените.';
+            el('periods').innerHTML = ((week.cabinet && week.cabinet.bells) || []).map(termHtml).join('');
+            if (editing && editing.time) {
+                const row = el('periods').querySelector(`[data-time="${editing.time}"]`);
+                if (row) openTermEditor(row, editing.time, true);
+            }
             return;
         }
         const homeroomOf = view.tab.startsWith('class:') ? view.tab.slice(6) : '';
@@ -478,12 +483,150 @@ header.top h1 { flex: 1; min-width: 180px; }
         }
     }
 
+    // ── the cabinet ──────────────────────────────────────────────────────
+    const minutesOf = (hhmm) => {
+        const m = /^(\d{1,2}):(\d{2})$/.exec(String(hhmm || '').trim());
+        return m ? Number(m[1]) * 60 + Number(m[2]) : NaN;
+    };
+    const spanOf = (range) => {
+        const [from, to] = String(range || '').split('-');
+        return { from: minutesOf(from), to: minutesOf(to) };
+    };
+    const clock = (total) => String(Math.floor(total / 60)).padStart(2, '0') + ':' + String(total % 60).padStart(2, '0');
+    const pupilName = (id) => {
+        const c = week.cabinet || {};
+        const own = (c.pupils || []).find((p) => p.publicId === id);
+        return own ? own.name : ((c.names || {})[id] || 'ученик');
+    };
+    const termAt = (day, time) => ((week.cabinet && week.cabinet.terms) || []).find((t) => t.day === day && t.time === time);
+    /** The minutes each pupil of a block is there: all 40 for one, the halves for two. */
+    function pupilSpans(time, ids) {
+        const span = spanOf(time);
+        if (ids.length === 1) return [{ id: ids[0], from: span.from, to: span.to }];
+        return ids.map((id, i) => ({ id, from: span.from + 20 * i, to: span.from + 20 * (i + 1) }));
+    }
+    /** Where a pupil is with another therapist at the same time. */
+    function elsewhereOf(day, span) {
+        return ((week.cabinet && week.cabinet.elsewhere) || []).filter((e) => {
+            if (e.publicId !== span.id || e.day !== day) return false;
+            const other = spanOf(e.time);
+            return span.from < other.to && other.from < span.to;
+        });
+    }
+    function cabinetClashes() {
+        const out = [];
+        ((week.cabinet && week.cabinet.terms) || []).forEach((t) => {
+            pupilSpans(t.time, t.pupils).forEach((span) => elsewhereOf(t.day, span).forEach((e) =>
+                out.push({ day: t.day, time: t.time, pupil: pupilName(span.id), therapist: e.therapist, at: e.time })));
+        });
+        return out;
+    }
+
+    function termHtml(bell) {
+        const term = termAt(view.day, bell.time);
+        const ids = term ? term.pupils : [];
+        let what;
+        if (!ids.length) what = '<span class="free">— слободен —</span>';
+        else if (ids.length === 1) what = `<b>${esc(pupilName(ids[0]))}</b> <span class="muted">· 40 мин</span>`;
+        else what = ids.map((id, i) => `<b>${esc(pupilName(id))}</b> <span class="muted">· ${i ? 'втори' : 'први'} 20</span>`).join('<br>');
+        const clashes = [];
+        pupilSpans(bell.time, ids).forEach((span) => elsewhereOf(view.day, span).forEach((e) =>
+            clashes.push(`${pupilName(span.id)} тогаш е и кај ${e.therapist} (${e.time}).`)));
+        const note = clashes.map((c) => `<div class="note warn">⚠ ${esc(c)}</div>`).join('')
+            + (term && term.overlap ? '<div class="note warn">⚠ Стари записи што се преклопуваат — јавете се кај администраторот.</div>' : '');
+        return `<li class="period${clashes.length ? ' clash' : ''}" data-time="${esc(bell.time)}">`
+            + `<div class="head"><span class="when">${esc(bell.time.replace('-', '–'))}</span>`
+            + `<span class="what">${what}</span>`
+            + `<button type="button" class="small" data-edit-term="${esc(bell.time)}">Уреди</button></div>${note}</li>`;
+    }
+
+    function pupilOptions(chosen, empty) {
+        const own = (week.cabinet && week.cabinet.pupils) || [];
+        const list = own.slice();
+        if (chosen && !own.some((p) => p.publicId === chosen)) list.push({ publicId: chosen, name: pupilName(chosen) + ' · не е на вашиот список', class: '' });
+        return `<option value="">${esc(empty)}</option>` + list.map((p) =>
+            `<option value="${esc(p.publicId)}"${p.publicId === chosen ? ' selected' : ''}>${esc(p.name)}${p.class ? ' · ' + esc(p.class) : ''}</option>`).join('');
+    }
+
+    function termPreview(time, form) {
+        const ids = [form.elements.first.value, form.elements.second.value].filter(Boolean);
+        const out = form.querySelector('.preview');
+        const lines = [];
+        if (ids.length === 2 && ids[0] === ids[1]) lines.push('Истиот ученик двапати — изберете само еден за целиот час.');
+        pupilSpans(time, [...new Set(ids)]).forEach((span) => elsewhereOf(view.day, span).forEach((e) =>
+            lines.push(`${pupilName(span.id)} тогаш е кај ${e.therapist} (${e.time}).`)));
+        out.className = 'preview ' + (lines.length ? 'warn' : 'ok');
+        out.textContent = lines.length ? '⚠ ' + lines.join(' ') : (ids.length ? '✓ Нема судир.' : '');
+    }
+
+    function openTermEditor(row, time, keep) {
+        el('periods').querySelectorAll('.editor').forEach((n) => n.remove());
+        editing = { time };
+        const term = termAt(view.day, time);
+        const ids = term ? term.pupils : [];
+        const form = document.createElement('form');
+        form.className = 'editor';
+        form.noValidate = true;
+        const start = spanOf(time).from;
+        form.innerHTML = `<label>Ученик <select name="first">${pupilOptions(ids[0] || '', '— празно —')}</select></label>`
+            + `<label>Втор ученик (${esc(clock(start + 20))}–${esc(clock(start + 40))}) <select name="second">${pupilOptions(ids[1] || '', '— нема, првиот е цели 40 минути —')}</select></label>`
+            + '<p class="preview"></p><div class="row"><button type="submit" class="primary">Зачувај</button>'
+            + '<button type="button" data-act="cancel">Откажи</button></div><div class="ask" hidden></div>';
+        form.dataset.expected = JSON.stringify(ids);
+        ['first', 'second'].forEach((name) => form.elements[name].addEventListener('change', () => termPreview(time, form)));
+        form.addEventListener('submit', (event) => { event.preventDefault(); saveTerm(form, time, false); });
+        form.querySelector('[data-act="cancel"]').addEventListener('click', () => { editing = null; form.remove(); });
+        row.appendChild(form);
+        termPreview(time, form);
+        if (!keep) form.elements.first.focus();
+    }
+
+    async function saveTerm(form, time, force) {
+        const ask = form.querySelector('.ask');
+        const first = form.elements.first.value;
+        const second = form.elements.second.value;
+        if (!first && second) return say('weekMsg', 'Прво изберете го првиот ученик.', 'error');
+        if (first && first === second) return say('weekMsg', 'Истиот ученик двапати — изберете само еден.', 'error');
+        const pupils = [first, second].filter(Boolean);
+        form.querySelectorAll('button').forEach((b) => { b.disabled = true; });
+        try {
+            const answer = await api('PUT', '/api/portal/term', {
+                day: view.day, time, pupils, expected: JSON.parse(form.dataset.expected || '[]'), force
+            });
+            editing = null;
+            say('weekMsg', answer.notified ? `Зачувано. Известени колеги: ${answer.notified}.` : 'Зачувано.', 'ok');
+            await reloadWeek();
+        } catch (err) {
+            form.querySelectorAll('button').forEach((b) => { b.disabled = false; });
+            if (err.payload && err.payload.clash) {
+                ask.hidden = false;
+                ask.innerHTML = `<p><b>Судир.</b> ${esc(err.message)}</p>`
+                    + '<p class="muted">Ако сепак запишете, судирот останува забележан и колегата ќе го види. Може и да изберете друг термин.</p>'
+                    + '<div class="row"><button type="button" class="warn" data-act="force">Сепак запиши</button>'
+                    + '<button type="button" data-act="other">Избери друг термин</button></div>';
+                ask.querySelector('[data-act="force"]').addEventListener('click', () => saveTerm(form, time, true));
+                ask.querySelector('[data-act="other"]').addEventListener('click', () => { editing = null; form.remove(); });
+                return;
+            }
+            if (err.payload && err.payload.stale) {
+                say('weekMsg', err.message, 'error');
+                editing = null;
+                await reloadWeek();
+                return;
+            }
+            say('weekMsg', err.message, 'error');
+        }
+    }
+
     function drawClashes() {
         const list = week.clashes || [];
-        el('clashesCard').hidden = !list.length;
+        const cabinet = cabinetClashes();
+        el('clashesCard').hidden = !list.length && !cabinet.length;
         el('clashesList').innerHTML = list.map((c) => `<li><b>${esc(c.day)}, ${c.ordinal}. час</b> · ${esc(c.class)}: `
             + c.lessons.map((l) => `„${esc(l.subject || 'час')}" кај ${esc(l.teacherId === myId() ? 'вас' : (l.teacher || '—'))}`).join(' и ')
-            + ` <button type="button" class="small" data-go="${esc(c.day)}|${c.ordinal}">Отвори</button></li>`).join('');
+            + ` <button type="button" class="small" data-go="${esc(c.day)}|${c.ordinal}">Отвори</button></li>`).join('')
+            + cabinet.map((c) => `<li><b>${esc(c.day)}, ${esc(c.time)}</b> · ${esc(c.pupil)} е и кај ${esc(c.therapist)} (${esc(c.at)})`
+            + ` <button type="button" class="small" data-go-term="${esc(c.day)}|${esc(c.time)}">Отвори</button></li>`).join('');
     }
 
     function drawNotices() {
@@ -495,7 +638,8 @@ header.top h1 { flex: 1; min-width: 180px; }
             ? list.map((n) => `<li class="${n.seen ? '' : 'unseen'}">`
                 + `<span class="badge ${n.open ? 'open' : 'done'}">${n.open ? 'отворено' : 'решено'}</span> `
                 + `${esc(n.sentence)} <span class="muted">· ${esc(new Date(n.createdAt).toLocaleString('mk-MK', { dateStyle: 'short', timeStyle: 'short' }))}</span>`
-                + (n.kind === 'lesson' ? ` <button type="button" class="small" data-go="${esc(n.day)}|${esc(n.slot)}">Отвори</button>` : '')
+                + (n.kind === 'lesson' ? ` <button type="button" class="small" data-go="${esc(n.day)}|${esc(n.slot)}">Отвори</button>`
+                    : n.kind === 'term' && week.me.therapistId != null ? ` <button type="button" class="small" data-go-term="${esc(n.day)}|${esc(n.slot)}">Отвори</button>` : '')
                 + '</li>').join('')
             : '<li class="muted">Нема известувања.</li>';
     }
@@ -531,6 +675,11 @@ header.top h1 { flex: 1; min-width: 180px; }
         drawWeek();
     });
     el('periods').addEventListener('click', (event) => {
+        const termEdit = event.target.closest('[data-edit-term]');
+        if (termEdit) {
+            openTermEditor(termEdit.closest('.period'), termEdit.dataset.editTerm, false);
+            return;
+        }
         const edit = event.target.closest('[data-edit]');
         if (edit) {
             const ordinal = Number(edit.dataset.edit);
@@ -543,6 +692,17 @@ header.top h1 { flex: 1; min-width: 180px; }
     });
     // „Отвори" from a clash or a notice: that day, that period, in one's own lessons.
     document.addEventListener('click', (event) => {
+        const goTerm = event.target.closest('[data-go-term]');
+        if (goTerm) {
+            const [day, time] = goTerm.dataset.goTerm.split('|');
+            view.day = day;
+            view.tab = 'cabinet';
+            editing = { time };
+            drawWeek();
+            const row = el('periods').querySelector(`[data-time="${time}"]`);
+            if (row) row.scrollIntoView({ block: 'center', behavior: 'smooth' });
+            return;
+        }
         const go = event.target.closest('[data-go]');
         if (!go) return;
         const [day, ordinal] = go.dataset.go.split('|');

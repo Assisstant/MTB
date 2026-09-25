@@ -3718,3 +3718,26 @@ view refused, the notice seen and closing by itself, the homeroom's three
 cases and the removal, and nobody else's class or pupils. `test:kolega` gained
 the week (invented API, a phone's width).
 
+### …and the cabinet (25 Sep 2026)
+
+A therapist's own cabinet is the third role. `PUT /api/portal/term` writes one
+40-minute block (one pupil for all of it, two for its halves) through
+`writeBlock`, the block writer lifted out of `PUT /api/schedule/block`. It
+is ONE copy, so Кабинети and the colleague's form cannot disagree about
+halves, the caseload rule or `expected`. The writer gained `force`, which
+only the portal passes. A pupil already with another therapist then is
+booked anyway, and the overlapped sessions come back so that therapist can be
+told. Кабинети never forces, and its double-booking refusal now also names the
+pupil (additive).
+
+The week carries `cabinet`: the 40-minute bells, the therapist's blocks, their
+own caseload, and, for those pupils only, where they are with somebody else.
+This is the only place the door names a child, and only the therapist's own.
+A `term` notice stays open while the pupil is still with two therapists at
+once that day.
+
+Tests: `test:portal-cabinet` (15 checks, database, invented year) and
+`test:kolega` with the cabinet. `test:fusion` (33 checks, run against a
+temporary server) confirms Кабинети's cell behaves exactly as before the
+writer moved.
+

@@ -22,6 +22,8 @@ import {
     standingClashes, yearClasses, yearLessons, yearTeachers, type Clash, type WeekLesson
 } from '../lib/portal-week.js';
 import { bellsOf, subjectOffer } from './teaching.js';
+import { blockTimes, semanticBlock, writeBlock } from './schedule-write.js';
+import { minutesOf, timeOf } from '../lib/crossing.js';
 import {
     MIN_PASSWORD, PORTAL_TOKEN_HEADER, closeOtherSessions, closeSession, looseKey, nameKeys,
     openSession, passwordMatches, resetAccount, resolveUsername, sessionEmployee, setPassword,
@@ -158,6 +160,89 @@ function clashAnswer(clashes: Clash[], day: string, ordinal: number) {
     };
 }
 
+const TermBody = z.object({
+    day: z.string().min(1).max(20),
+    /** The 40-minute cabinet bell, „08:00-08:40". */
+    time: z.string().min(1).max(20),
+    /** None clears; one pupil owns all 40 minutes; two share it in halves. */
+    pupils: z.array(z.string().min(1).max(80)).max(2),
+    expected: z.array(z.string().min(1).max(80)).max(2).optional(),
+    force: z.boolean().optional()
+});
+
+/** The block writer's refusals, in the staff room's words. */
+function termRefusal(body: any) {
+    const raw = String((body && body.error) || '');
+    if (/changed while you were editing/.test(raw)) {
+        return { stale: true, error: 'Во меѓувреме терминот е сменет. Неделата е освежена: погледнете и обидете се повторно.' };
+    }
+    if (body && body.notInCaseload) return { error: 'Тој ученик не е на вашиот список за годинава.' };
+    if (body && body.therapistOccupied) return { error: 'Имате друг термин што се преклопува со овој.' };
+    if (body && body.blockOverlap) return { error: 'Во овој термин има стари записи што се преклопуваат. Јавете се кај администраторот.' };
+    if (/not active in this school year/.test(raw)) return { error: 'Тој ученик не е на листата за годинава.' };
+    if (/40-minute/.test(raw)) return { error: 'Терминот мора да е еден час во кабинет (40 минути).' };
+    return { error: raw || 'Терминот не е зачуван.' };
+}
+
+/**
+ * A therapist's own cabinet: the 40-minute bells, their blocks, their own
+ * pupils, and — for those pupils only — where they are with somebody else.
+ * The only place this door names a child, and only the therapist's own.
+ */
+async function cabinetWeek(staff: Staff, year: { id: number; label: string }) {
+    if (staff.therapistId == null) return null;
+    const bells = (await bellsOf('kabinet', year.id))
+        .filter((bell) => Number(bell.minutes) === 40 && bell.startsAt)
+        .map((bell) => ({ ordinal: bell.ordinal, label: bell.label,
+            time: `${bell.startsAt}-${timeOf(minutesOf(bell.startsAt) + 40)}` }));
+    const pupils = (await pool.query(
+        `SELECT s.public_id AS "publicId", s.name, e.grade AS class
+           FROM therapist_students ts
+           JOIN students s ON s.id = ts.student_id
+           JOIN student_enrollments e ON e.student_id = s.id AND e.school_year_id = ts.school_year_id AND e.active
+          WHERE ts.therapist_id = $1 AND ts.school_year_id = $2 AND s.active
+          ORDER BY s.name`, [staff.therapistId, year.id])).rows;
+    const rows = (await pool.query(
+        `SELECT sl.day, sl.time_slot, s.public_id AS student_public_id, s.name AS student_name
+           FROM schedule_slots sl LEFT JOIN students s ON s.id = sl.student_id
+          WHERE sl.school_year_id = $1 AND sl.therapist_id = $2`, [year.id, staff.therapistId])).rows;
+    const names: Record<string, string> = {};
+    rows.forEach((r: any) => { if (r.student_public_id) names[r.student_public_id] = r.student_name; });
+    const terms = [];
+    for (const day of TEACHING_DAYS) {
+        for (const bell of bells) {
+            const times = blockTimes(bell.time);
+            if (!times) continue;
+            const here = rows.filter((r: any) => r.day === day && [times.full, ...times.halves].includes(r.time_slot));
+            if (!here.length) continue;
+            const ids = semanticBlock(here, times);
+            terms.push({ day, time: bell.time, pupils: ids ?? here.map((r: any) => r.student_public_id).filter(Boolean), overlap: ids === null });
+        }
+    }
+    const own = pupils.map((p: any) => p.publicId);
+    const elsewhere = own.length ? (await pool.query(
+        `SELECT s.public_id AS "publicId", sl.day, sl.time_slot AS time, t.name AS therapist
+           FROM schedule_slots sl
+           JOIN students s ON s.id = sl.student_id
+           JOIN therapists t ON t.id = sl.therapist_id
+          WHERE sl.school_year_id = $1 AND sl.therapist_id <> $2 AND s.public_id = ANY($3::text[])`,
+        [year.id, staff.therapistId, own])).rows : [];
+    return { bells, pupils, terms, names, elsewhere };
+}
+
+/** Is this pupil still with two therapists at once somewhere on this day? */
+async function pupilStillTwice(yearId: number, day: string, publicId: string): Promise<boolean> {
+    const { rows } = await pool.query(
+        `SELECT sl.time_slot, sl.therapist_id FROM schedule_slots sl JOIN students s ON s.id = sl.student_id
+          WHERE sl.school_year_id = $1 AND sl.day = $2 AND s.public_id = $3`, [yearId, day, publicId]);
+    const spans = rows.map((r: any) => {
+        const [from, to] = String(r.time_slot).split('-');
+        return { therapist: r.therapist_id, from: minutesOf(from), to: minutesOf(to) };
+    }).filter((x: any) => Number.isFinite(x.from) && Number.isFinite(x.to));
+    return spans.some((a: any, i: number) => spans.some((b: any, j: number) =>
+        j > i && a.therapist !== b.therapist && a.from < b.to && b.from < a.to));
+}
+
 /** The notices for this person, each with whether the clash still stands. */
 async function noticesFor(staff: Staff, yearId: number, lessons: WeekLesson[]) {
     const { rows } = await pool.query(
@@ -165,8 +250,10 @@ async function noticesFor(staff: Staff, yearId: number, lessons: WeekLesson[]) {
            FROM schedule_notices
           WHERE recipient_employee_id = $1 AND school_year_id = $2 AND closed_at IS NULL
           ORDER BY created_at DESC LIMIT 100`, [staff.employeeId, yearId]);
-    return rows.map((n: any) => {
+    const out = [];
+    for (const n of rows) {
         let open = false;
+        if (n.kind === 'term') open = await pupilStillTwice(yearId, n.day, String(n.about).replace(/^pupil:/, ''));
         if (n.kind === 'lesson') {
             const label = String(n.about).replace(/^class:/, '');
             const ordinal = Number(n.slot);
@@ -177,8 +264,9 @@ async function noticesFor(staff: Staff, yearId: number, lessons: WeekLesson[]) {
             open = (cell.length > 1 && subjects.size > 1) || twice;
         }
         // bigserial arrives as text from node-postgres; the page counts in numbers.
-        return { ...n, id: Number(n.id), open };
-    });
+        out.push({ ...n, id: Number(n.id), open });
+    }
+    return out;
 }
 
 const LoginBody = z.object({ username: z.string().min(1).max(120), password: z.string().min(1).max(200) });
@@ -290,6 +378,7 @@ export async function portalRoutes(server: FastifyInstance, options: { year?: st
             teachers: teachers.map((t: any) => ({ id: t.id, name: t.name, subject: t.subject })),
             lessons,
             clashes: teaching ? standingClashes(lessons, who.staff.teacherId, homeroom) : [],
+            cabinet: await cabinetWeek(who.staff, who.year),
             notices: await noticesFor(who.staff, who.year.id, lessons)
         };
     });
@@ -468,6 +557,45 @@ export async function portalRoutes(server: FastifyInstance, options: { year?: st
             await client.query('ROLLBACK').catch(() => {});
             throw err;
         } finally { client.release(); }
+    });
+
+    // ── step 2: the cabinet ───────────────────────────────────────────────
+
+    /**
+     * A therapist's own 40-minute block: one pupil for all of it, or two for
+     * its halves — the same writer as Кабинети (`writeBlock`), the same
+     * `expected` check and the same caseload rule. A pupil who is with another
+     * therapist then is a clash said before saving; „сепак запиши" books them
+     * anyway and tells that therapist.
+     */
+    server.put('/api/portal/term', async (req, reply) => {
+        const who = await signed(req, reply);
+        if (!who) return;
+        const therapistId = who.staff.therapistId;
+        if (therapistId == null) return reply.code(403).send({ error: 'Само терапевт има свој кабинет.' });
+        const b = TermBody.parse(req.body);
+        if (!TEACHING_DAYS.includes(b.day)) return reply.code(400).send({ error: 'Непознат ден.' });
+        const result = await writeBlock({
+            year: who.year.label, day: b.day, time: b.time, therapistId,
+            studentPublicIds: b.pupils, expectedStudentPublicIds: b.expected
+        }, { force: Boolean(b.force) });
+        if (result.status === 409 && result.body && result.body.doubleBooked) {
+            const said = `${b.day}, ${b.time}: „${result.body.studentName || 'ученикот'}" тогаш е кај ${result.body.therapistName} (${result.body.time}).`;
+            return reply.code(409).send({ clash: true, error: said,
+                clashes: [{ therapist: result.body.therapistName, time: result.body.time, pupil: result.body.studentName }] });
+        }
+        if (result.status !== 200) return reply.code(result.status).send(termRefusal(result.body));
+        let notified = 0;
+        for (const f of result.forcedOver || []) {
+            notified += await addNotices(pool, {
+                yearId: who.year.id, authorEmployeeId: who.staff.employeeId, authorName: who.staff.name,
+                day: b.day, slot: b.time, about: 'pupil:' + f.studentPublicId, kind: 'term',
+                recipients: [{ therapistId: f.therapistId, sentence:
+                    `${who.staff.name} го закажа „${f.studentName}" во ${b.day}, ${b.time}, кога е кај вас (${f.time}). `
+                    + 'Договорете се кој ќе го помести терминот.' }]
+            });
+        }
+        return { ok: true, notified };
     });
 
     // ── the administrator's side, behind the owner's own sign-in ─────────

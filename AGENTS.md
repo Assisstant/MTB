@@ -257,6 +257,7 @@ npm run test:class-cards             a class reads the same in every picker, who
 npm run test:back-forward            Back/Forward walk tabs, views and workspace windows; every API call invented
 npm run test:portal                  the colleagues' sign-in against the database, in-process, invented year
 npm run test:portal-week             a colleague's own week: clash before saving, „сепак", notices; database, invented year
+npm run test:portal-cabinet          a therapist's own cabinet through the same block writer; database, invented year
 npm run test:kolega                  Kolega.html in a browser; every API call invented
 npm run test:schedule-form           the cabinet form (all therapists) offline, then into the queue
 npm run test:class-form              the class form AND the teacher's own week from Уреди настава, offline, then in
