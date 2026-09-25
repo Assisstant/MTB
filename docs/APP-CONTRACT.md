@@ -36,6 +36,19 @@ but it must not present parallel versions of the same task.
   administration. Its deletes are named: „Тргни од листата“ ends the year's
   membership, and „Избриши — грешка при внес“ is the guarded typo purge.
   Global archiving stays with S-Dnevnik.
+- **Дежурства** (the cabinets' duty rota; owner, 25 September 2026; migration
+  043) lives in the database and is shown on the colleagues' page
+  (`Kolega.html`, tab „🛡 Дежурства“). Its inputs are one ordered list per
+  school year, a start date, closed days, days given by agreement, and
+  absences. The rota itself is calculated (`server/src/lib/duty.ts`) and never
+  stored.
+  - **The rule:** each working day, the first person in line who is in takes
+    it. Somebody away is covered and keeps their place. A closed day moves
+    nobody. The rotation continues across months.
+  - **Who changes what:** the administrator changes everything, through
+    `/api/duty/*` behind the owner's sign-in. A colleague on the list only marks
+    their own absence, from today on, through `/api/portal/duty/absence`.
+  - **Who sees it:** nobody off the list sees it.
 - `Sinhronizacija.html` is the one place that explains where the data stands:
   this browser's S-Dnevnik copy against its server, the WORK↔HOME snapshots,
   and the separate cloud. It only reads (`/api/health`, `/api/sync/status`

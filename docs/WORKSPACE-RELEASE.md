@@ -28,9 +28,25 @@ Migration 041 (24 September, late) lets a teacher's own week be a form answer:
 the `form_replies.kind` check gains `'teacher'`. No row changes. 039 and 040
 were already in the cloud (`8cc595e` deployed as "already current").
 
-The current `deploy:workspace` runner accepts reviewed pending 033–041. Its new
-private recovery schema is `mtb_workspace_recovery_teacher_forms_20260924`
-(041); 040 went in under `mtb_workspace_recovery_form_replies_20260924`, and
+Migration 042 (25 September) adds the colleagues' accounts, sessions and clash
+notices (`staff_accounts`, `staff_sessions`, `schedule_notices`,
+docs/PLAN-kolegi-online.md): three new tables, row-level security on, no rights
+for the REST roles. Its batch name in the code was
+`mtb_workspace_recovery_staff_accounts_20260925`.
+
+Migration 043 (25 September) adds the duty rota for the cabinets
+(`duty_settings`, `duty_members`, `duty_days`, `duty_absences`; `lib/duty.ts`):
+four new tables, row-level security on, no rights for the REST roles, no
+existing row touched. The rota itself is calculated, never stored. The mirror
+copies the four tables, because a read-only copy without them would show nobody
+on duty.
+
+The current `deploy:workspace` runner accepts reviewed pending 033–043. Its new
+private recovery schema is `mtb_workspace_recovery_duty_rota_20260925` (043).
+It is a fresh name whether or not 042 was deployed first. If 042 is still
+pending, both go in together under it. Earlier: 041 under
+`mtb_workspace_recovery_teacher_forms_20260924`, 040 under
+`mtb_workspace_recovery_form_replies_20260924`, and
 `…_caseload_order_20260924` was never used in the cloud; it preserves the earlier snapshots, `mtb_workspace_recovery_20260921` (033–036),
 `mtb_workspace_recovery_staff_20260922` (037) and
 `mtb_workspace_recovery_order_20260922` (038). Both 032→038 and 036→038 are

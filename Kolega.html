@@ -20,7 +20,10 @@
   SELF-CONTAINED ON PURPOSE. In the cloud this is the one page a colleague
   reaches without the owner's Google sign-in, and every file it loaded would
   have to pass that gate too. So it loads nothing: its style and script are
-  here, and it talks only to /api/portal/.
+  here, and it talks only to /api/portal/ — with one deliberate exception.
+  „🛡 Дежурства" asks /api/duty once whether this is the administrator: behind
+  the gate only the owner's own Google sign-in gets an answer, anybody else
+  gets the gate's 401, and the page then shows the rota without the controls.
 
   The sign-in token is kept in this browser (30 days), so a colleague on their
   own phone signs in once. „Одјави се" ends it, for a shared computer.
@@ -106,6 +109,39 @@ header.top h1 { flex: 1; min-width: 180px; }
 .class-card ul { margin: 6px 0 0; padding-left: 18px; }
 .class-card div { margin-top: 3px; }
 .acting { background: var(--warn-bg); border: 1px solid var(--warn); color: var(--text); border-radius: 10px; padding: 10px 12px; margin: 0 0 12px; }
+/* Дежурства: the month as the paper rota had it — number, person, day. */
+.duty-head { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin: 10px 0 8px; }
+.duty-head h2 { flex: 1; min-width: 200px; margin: 0; font-size: 17px; }
+.duty-table { width: 100%; border-collapse: collapse; font-size: 15px; }
+.duty-table th, .duty-table td { border-bottom: 1px solid var(--line); padding: 7px 8px; text-align: left; vertical-align: top; }
+.duty-table thead th { font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+.duty-table td.num { width: 44px; text-align: center; font-weight: 800; }
+.duty-table td.date { white-space: nowrap; width: 1%; font-weight: 600; }
+.duty-table tr.mine td { background: var(--chip); }
+.duty-table tr.mine td.who { font-weight: 800; }
+.duty-table tr.closed td { color: var(--muted); font-style: normal; background: var(--warn-bg); }
+.duty-table tr.past td { opacity: .72; }
+.duty-table tr.today td.date::after { content: 'денес'; display: block; color: var(--accent); font-weight: 800; }
+.duty-table .sub { display: block; font-size: 13px; color: var(--muted); font-weight: 500; }
+.duty-table .act { margin-top: 4px; }
+.duty-admin { border: 1px dashed var(--line); border-radius: 10px; padding: 10px 12px; margin: 8px 0 12px; }
+.duty-admin summary { cursor: pointer; font-weight: 700; }
+.duty-list { list-style: none; margin: 8px 0; padding: 0; display: grid; gap: 6px; }
+.duty-list li { display: flex; gap: 6px; align-items: center; border: 1px solid var(--line); border-radius: 8px;
+                padding: 6px 8px; background: var(--well); }
+.duty-list li .n { width: 26px; text-align: center; font-weight: 800; }
+.duty-list li .nm { flex: 1; }
+.duty-day { margin-top: 6px; display: grid; gap: 6px; font-size: 14px; }
+.duty-day .checks { display: flex; flex-wrap: wrap; gap: 4px 12px; }
+.duty-day .checks label { display: inline-flex; align-items: center; gap: 5px; margin: 0; font-weight: 500; }
+.duty-day .checks input { width: auto; }
+@media print {
+  body.printing-duty main > *:not(#home), body.printing-duty #home > *:not(#weekCard),
+  body.printing-duty #weekCard > *:not(#duty), body.printing-duty .no-print { display: none !important; }
+  body.printing-duty, body.printing-duty .card { background: #fff !important; color: #000 !important; border: 0 !important; }
+  body.printing-duty .duty-table th, body.printing-duty .duty-table td { border-bottom: 1px solid #999 !important; color: #000 !important; opacity: 1 !important; }
+  body.printing-duty .duty-table tr.mine td, body.printing-duty .duty-table tr.closed td { background: #fff !important; }
+}
 </style>
 </head>
 <body>
@@ -171,6 +207,7 @@ header.top h1 { flex: 1; min-width: 180px; }
       <div class="days" id="days" role="group" aria-label="Ден"></div>
       <p class="muted" id="tabHint"></p>
       <ul class="periods" id="periods"></ul>
+      <div id="duty" hidden></div>
       <p class="msg" id="weekMsg" role="status" aria-live="polite"></p>
     </div>
 
@@ -376,8 +413,249 @@ header.top h1 { flex: 1; min-width: 180px; }
         if (week.me.teacherId != null) tabs.push({ id: 'mine', label: 'Мои часови' });
         (week.me.homeroom || []).forEach((label) => tabs.push({ id: 'class:' + label, label: 'Паралелка ' + label }));
         if (week.me.therapistId != null) tabs.push({ id: 'cabinet', label: 'Мој кабинет' });
+        if ((me && me.duty) || duty.owner) tabs.push({ id: 'duty', label: '🛡 Дежурства' });
         return tabs;
     }
+
+    // ── Дежурства (owner, 25 Sep 2026; server/src/lib/duty.ts) ──────────
+    //
+    // The rota is WORKED OUT on the server from the list and the marked days;
+    // this page only shows it and sends the marks. A colleague on the list
+    // sees the month and marks their own „не сум тука", from today on. The
+    // administrator — recognised because /api/duty answers them, which in the
+    // cloud only the owner's own sign-in can make it do — also sets the list,
+    // closes a day, gives a day to somebody and marks anybody away.
+    const MONTHS = ['Јануари', 'Февруари', 'Март', 'Април', 'Мај', 'Јуни', 'Јули', 'Август', 'Септември', 'Октомври', 'Ноември', 'Декември'];
+    const WEEKDAY = ['нд', 'пн', 'вт', 'ср', 'чт', 'пт', 'сб'];
+    const duty = { owner: false, month: '', data: null, open: '', draft: null };
+
+    /** The owner's routes, asked directly: a refusal here only means „not the administrator". */
+    async function ownerApi(method, path, body) {
+        const res = await fetch(path, {
+            method, cache: 'no-store', credentials: 'same-origin',
+            headers: body === undefined ? {} : { 'Content-Type': 'application/json' },
+            body: body === undefined ? undefined : JSON.stringify(body)
+        });
+        let payload = null;
+        try { payload = await res.json(); } catch (_) { /* not JSON: the gate's sign-in page */ }
+        if (!res.ok || !payload) throw Object.assign(new Error((payload && payload.error) || ('Грешка ' + res.status)), { status: res.status });
+        return payload;
+    }
+
+    async function loadDuty(month) {
+        const query = month ? '?month=' + encodeURIComponent(month) : '';
+        // Asked once whether this is the administrator: the owner may be on
+        // the list too, and must still get the controls.
+        if (!duty.ownerChecked || duty.owner) {
+            try {
+                duty.data = await ownerApi('GET', '/api/duty' + query);
+                duty.owner = true;
+                duty.ownerChecked = true;
+                duty.month = duty.data.month;
+                return;
+            } catch (_) {
+                duty.owner = false;
+                duty.ownerChecked = true;
+            }
+        }
+        if (!me.duty) { duty.data = null; return; }
+        duty.data = await api('GET', '/api/portal/duty' + query);
+        duty.month = duty.data.month;
+    }
+
+    const shiftMonth = (month, by) => {
+        const [y, m] = month.split('-').map(Number);
+        const d = new Date(Date.UTC(y, m - 1 + by, 1));
+        return d.toISOString().slice(0, 7);
+    };
+    const dmy = (iso) => { const [y, m, d] = iso.split('-'); return `${d}.${m}.${y}`; };
+    const todayIso = () => (duty.data && duty.data.today) || new Date().toLocaleDateString('en-CA');
+    const myEmployee = () => (duty.data && duty.data.me) || (me && me.person && me.person.employeeId);
+
+    function dutyRowHtml(d) {
+        const mine = d.employeeId != null && d.employeeId === myEmployee();
+        const past = d.date < todayIso();
+        const cls = [d.closed ? 'closed' : '', mine ? 'mine' : '', past ? 'past' : '', d.date === todayIso() ? 'today' : ''].filter(Boolean).join(' ');
+        let who;
+        if (d.closed) who = `— без дежурство${d.note ? ': ' + esc(d.note) : ''} —`;
+        else if (d.employeeId == null) who = d.how === 'nobody' && d.date >= duty.data.startsOn ? '— нема кој: сите се отсутни —' : '—';
+        else {
+            who = esc(d.name);
+            if (d.how === 'cover') who += `<span class="sub">наместо ${esc(d.covers.map((c) => c.name).join(', '))}</span>`;
+            if (d.how === 'assigned') who += '<span class="sub">по договор</span>';
+        }
+        if (d.absent.length) who += `<span class="sub">отсутни: ${esc(d.absent.map((a) => a.name).join(', '))}</span>`;
+        const imAway = d.absent.some((a) => a.employeeId === myEmployee());
+        let act = '';
+        if (duty.owner) act = `<button type="button" class="small" data-duty-open="${d.date}" aria-expanded="${duty.open === d.date}">⋯</button>`;
+        else if (me.duty && !past && !d.closed) {
+            act = `<button type="button" class="small${imAway ? ' warn' : ''}" data-duty-away="${d.date}" data-away="${imAway ? '0' : '1'}">`
+                + (imAway ? 'Сепак сум тука' : 'Не сум тука') + '</button>';
+        }
+        const row = `<tr class="${cls}" data-date="${d.date}">`
+            + `<td class="num">${d.number == null ? '—' : d.number}</td>`
+            // The button sits under the name, not in a column of its own: a
+            // fourth column made the month wider than a phone.
+            + `<td class="who">${who}${act ? `<div class="act no-print">${act}</div>` : ''}</td>`
+            + `<td class="date">${WEEKDAY[d.weekday]} ${dmy(d.date)}</td></tr>`;
+        return row + (duty.owner && duty.open === d.date ? dutyDayEditor(d) : '');
+    }
+
+    /** The administrator's controls for one day, under its row. */
+    function dutyDayEditor(d) {
+        const members = duty.data.members || [];
+        const assigned = d.how === 'assigned' ? d.employeeId : '';
+        return `<tr class="no-print"><td></td><td colspan="2"><form class="duty-day" data-duty-day="${d.date}">`
+            + `<div><label style="display:flex;align-items:center;gap:6px;font-weight:500;margin:0 0 4px">`
+            + `<input type="checkbox" name="closed"${d.closed ? ' checked' : ''} style="width:auto"> Нема дежурство (празник, екскурзија)</label>`
+            + `<input name="note" maxlength="200" placeholder="зошто, на пр. екскурзија" aria-label="Зошто" value="${esc(d.note)}"></div>`
+            + `<label>Го зема по договор<select name="assigned"><option value="">— по редот —</option>`
+            + members.map((m) => `<option value="${m.employeeId}"${m.employeeId === assigned ? ' selected' : ''}>${m.position}. ${esc(m.name)}</option>`).join('')
+            + '</select></label>'
+            + '<div>Отсутни тој ден:<div class="checks">'
+            + members.map((m) => `<label><input type="checkbox" name="away" value="${m.employeeId}"${d.absent.some((a) => a.employeeId === m.employeeId) ? ' checked' : ''}> ${esc(m.name)}</label>`).join('')
+            + '</div></div>'
+            + '<div class="row"><button class="primary small" type="submit">Зачувај го денот</button>'
+            + `<button type="button" class="small" data-duty-open="">Затвори</button></div></form></td></tr>`;
+    }
+
+    /** The administrator's list: its order, who is on it, and when it starts. */
+    function dutyAdminHtml() {
+        const draft = duty.draft || { startsOn: duty.data.startsOn, members: duty.data.members.map((m) => ({ employeeId: m.employeeId, name: m.name, joinedOn: m.joinedOn, leftOn: m.leftOn })) };
+        duty.draft = draft;
+        const onList = new Set(draft.members.map((m) => m.employeeId));
+        const free = (duty.data.candidates || []).filter((c) => !onList.has(c.employeeId));
+        return `<details class="duty-admin no-print"${duty.adminOpen ? ' open' : ''}><summary>⚙ Список за дежурства и почеток (${draft.members.length})</summary>`
+            + `<label>Ротацијата почнува на<input type="date" id="dutyStart" value="${esc(draft.startsOn)}" min="${esc(duty.data.yearStartsOn)}" max="${esc(duty.data.yearEndsOn)}"></label>`
+            + '<ol class="duty-list" id="dutyList">' + draft.members.map((m, i) => `<li><span class="n">${i + 1}.</span><span class="nm">${esc(m.name)}`
+                + (m.joinedOn ? ` <span class="muted">од ${dmy(m.joinedOn)}</span>` : '') + (m.leftOn ? ` <span class="muted">до ${dmy(m.leftOn)}</span>` : '') + '</span>'
+                + `<button type="button" class="small" data-duty-move="${i}|-1"${i === 0 ? ' disabled' : ''} aria-label="Нагоре">▲</button>`
+                + `<button type="button" class="small" data-duty-move="${i}|1"${i === draft.members.length - 1 ? ' disabled' : ''} aria-label="Надолу">▼</button>`
+                + `<button type="button" class="small" data-duty-drop="${i}" aria-label="Тргни од списокот">✕</button></li>`).join('') + '</ol>'
+            + (free.length ? `<div class="row"><select id="dutyAdd" style="flex:1;min-width:180px"><option value="">— додај колега —</option>`
+                + free.map((c) => `<option value="${c.employeeId}">${esc(c.name)}</option>`).join('') + '</select>'
+                + '<button type="button" class="small" id="dutyAddBtn">+ Додај</button></div>' : '')
+            + '<p class="muted">Редоследот важи од почетокот. Кој е додаден откако ротацијата почнала, влегува на крајот од тој ден; '
+            + 'тргнатиот излегува од денес, а поминатите месеци остануваат какви што биле.</p>'
+            + '<div class="row"><button type="button" class="primary small" id="dutySave">Зачувај го списокот</button>'
+            + '<button type="button" class="small" id="dutyUndo">Откажи</button></div></details>';
+    }
+
+    function drawDuty() {
+        const box = el('duty');
+        if (!duty.data) { box.innerHTML = '<p class="muted">Вчитувам…</p>'; return; }
+        const [y, m] = duty.month.split('-').map(Number);
+        const first = duty.data.yearStartsOn.slice(0, 7);
+        const last = duty.data.yearEndsOn.slice(0, 7);
+        box.innerHTML = (duty.owner ? dutyAdminHtml() : '')
+            + '<div class="duty-head">'
+            + `<button type="button" class="small no-print" data-duty-month="${shiftMonth(duty.month, -1)}"${duty.month <= first ? ' disabled' : ''} aria-label="Претходен месец">◀</button>`
+            + `<h2>Распоред на дежурства — ${MONTHS[m - 1].toLowerCase()} ${y}</h2>`
+            + `<button type="button" class="small no-print" data-duty-month="${shiftMonth(duty.month, 1)}"${duty.month >= last ? ' disabled' : ''} aria-label="Следен месец">▶</button>`
+            + '<button type="button" class="small no-print" id="dutyPrint">🖨 Печати</button></div>'
+            + (duty.data.members.length ? '' : '<p class="muted">Сè уште нема список за дежурства.</p>')
+            + '<table class="duty-table"><thead><tr><th>Р.бр.</th><th>Стручен соработник</th><th>Ден и датум</th></tr></thead><tbody>'
+            + duty.data.days.map(dutyRowHtml).join('') + '</tbody></table>'
+            + '<p class="muted">Кога некој е отсутен, следниот го покрива денот, а отсутниот дежура првиот нареден ден кога е тука — '
+            + 'никој не губи и никој не добива дежурство.</p>';
+    }
+
+    async function showDuty(month) {
+        try { await loadDuty(month); drawDuty(); }
+        catch (err) { say('weekMsg', err.message, 'error'); }
+    }
+
+    el('duty').addEventListener('click', async (event) => {
+        const go = event.target.closest('[data-duty-month]');
+        if (go) { duty.open = ''; return showDuty(go.dataset.dutyMonth); }
+        const open = event.target.closest('[data-duty-open]');
+        if (open) { duty.open = open.dataset.dutyOpen === duty.open ? '' : open.dataset.dutyOpen; return drawDuty(); }
+        if (event.target.closest('#dutyPrint')) {
+            document.body.classList.add('printing-duty');
+            window.print();
+            return;
+        }
+        const away = event.target.closest('[data-duty-away]');
+        if (away) {
+            away.disabled = true;
+            try {
+                await api('PUT', '/api/portal/duty/absence', { date: away.dataset.dutyAway, absent: away.dataset.away === '1' });
+                await showDuty(duty.month);
+                say('weekMsg', away.dataset.away === '1' ? 'Забележано: тој ден ве покрива следниот.' : 'Во ред, дежурате по редот.', 'ok');
+            } catch (err) { away.disabled = false; say('weekMsg', err.message, 'error'); }
+            return;
+        }
+        const list = duty.draft && duty.draft.members;
+        const move = event.target.closest('[data-duty-move]');
+        if (move && list) {
+            const [i, by] = move.dataset.dutyMove.split('|').map(Number);
+            const [one] = list.splice(i, 1);
+            list.splice(i + by, 0, one);
+            duty.adminOpen = true;
+            return drawDuty();
+        }
+        // A rotation already running keeps its past: somebody taken off leaves
+        // from today, somebody added joins at the back from today. On the
+        // FIRST list (nothing saved yet) everybody counts from the start date,
+        // or setting it up today would leave the weeks before it empty.
+        const running = () => duty.data.members.length > 0 && todayIso() > el('dutyStart').value;
+        const saved = (id) => duty.data.members.some((m) => m.employeeId === id);
+        const drop = event.target.closest('[data-duty-drop]');
+        if (drop && list) {
+            const i = Number(drop.dataset.dutyDrop);
+            const person = list[i];
+            // Already gone: moving the date would put them back into the days between.
+            if (person.leftOn) return;
+            if (running() && saved(person.employeeId) && !(person.joinedOn && person.joinedOn >= todayIso())) person.leftOn = todayIso();
+            else list.splice(i, 1);
+            duty.adminOpen = true;
+            return drawDuty();
+        }
+        if (event.target.closest('#dutyAddBtn') && list) {
+            const pick = el('dutyAdd');
+            const c = (duty.data.candidates || []).find((x) => String(x.employeeId) === pick.value);
+            if (!c) return;
+            list.push({ employeeId: c.employeeId, name: c.name, joinedOn: running() ? todayIso() : null, leftOn: null });
+            duty.adminOpen = true;
+            return drawDuty();
+        }
+        if (event.target.closest('#dutyUndo')) { duty.draft = null; return drawDuty(); }
+        if (event.target.closest('#dutySave') && list) {
+            try {
+                await ownerApi('PUT', '/api/duty/setup', { startsOn: el('dutyStart').value,
+                    members: list.map((p) => ({ employeeId: p.employeeId, joinedOn: p.joinedOn || null, leftOn: p.leftOn || null })) });
+                duty.draft = null;
+                await showDuty(duty.month);
+                say('weekMsg', 'Списокот е зачуван.', 'ok');
+            } catch (err) { say('weekMsg', err.message, 'error'); }
+        }
+    });
+    el('duty').addEventListener('change', (event) => {
+        if (event.target.id === 'dutyStart' && duty.draft) duty.draft.startsOn = event.target.value;
+    });
+    el('duty').addEventListener('toggle', (event) => {
+        if (event.target.classList && event.target.classList.contains('duty-admin')) duty.adminOpen = event.target.open;
+    }, true);
+    el('duty').addEventListener('submit', async (event) => {
+        const form = event.target.closest('[data-duty-day]');
+        if (!form) return;
+        event.preventDefault();
+        const date = form.dataset.dutyDay;
+        const day = duty.data.days.find((d) => d.date === date);
+        const wantAway = new Set([...form.querySelectorAll('input[name="away"]:checked')].map((n) => Number(n.value)));
+        const wasAway = new Set(day.absent.map((a) => a.employeeId));
+        try {
+            await ownerApi('PUT', '/api/duty/day', { date, closed: form.elements.closed.checked, note: form.elements.note.value,
+                assignedEmployeeId: form.elements.assigned.value ? Number(form.elements.assigned.value) : null });
+            for (const id of new Set([...wantAway, ...wasAway])) {
+                if (wantAway.has(id) !== wasAway.has(id)) await ownerApi('PUT', '/api/duty/absence', { date, employeeId: id, absent: wantAway.has(id) });
+            }
+            duty.open = '';
+            await showDuty(duty.month);
+            say('weekMsg', 'Денот е зачуван.', 'ok');
+        } catch (err) { say('weekMsg', err.message, 'error'); }
+    });
+    window.addEventListener('afterprint', () => document.body.classList.remove('printing-duty'));
 
     function drawTabs() {
         const tabs = tabsOf();
@@ -398,6 +676,17 @@ header.top h1 { flex: 1; min-width: 180px; }
         drawTabs();
         drawClashes();
         drawNotices();
+        const onDuty = view.tab === 'duty';
+        el('duty').hidden = !onDuty;
+        el('periods').hidden = onDuty;
+        if (onDuty) {
+            el('days').hidden = true;
+            el('tabHint').textContent = duty.owner
+                ? 'Дежурства во кабинетите. Вие го поставувате списокот; кај секој ден: ⋯ за празник, договор или отсутни.'
+                : 'Дежурства во кабинетите. Ако некој ден не сте тука, означете го — следниот ве покрива, а вие дежурате првиот нареден ден.';
+            if (duty.data) drawDuty(); else showDuty();
+            return;
+        }
         if (!view.tab) {
             el('tabHint').textContent = 'Не сте на списокот на наставници ниту терапевти за годинава.';
             el('periods').innerHTML = '';
@@ -796,7 +1085,14 @@ header.top h1 { flex: 1; min-width: 180px; }
         el('homeUser').textContent = 'Корисничко име: ' + me.usernames.latin + ' или ' + me.usernames.cyrillic
             + (me.initialPassword ? ' · со почетната лозинка' : '');
         show('home');
-        reloadWeek().catch((err) => say('weekMsg', err.message, 'error'));
+        duty.ownerChecked = false;
+        duty.owner = false;
+        duty.data = null;
+        reloadWeek()
+            // Whether there is a duty tab at all is known only after asking
+            // (the administrator may not be on the list), so it is drawn again.
+            .then(() => loadDuty().then(() => drawWeek(), () => {}))
+            .catch((err) => say('weekMsg', err.message, 'error'));
     }
 
     // ── wiring ───────────────────────────────────────────────────────────

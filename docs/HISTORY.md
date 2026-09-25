@@ -3918,3 +3918,57 @@ foot of a table taller than the window, and at 1280×720 the controls took
 - **Both suites left their staff identities behind** (the migration 035 trap).
   The week suite also left them on a crash after seeding. Both now clean up
   either way.
+
+## Дежурства: a rota worked out, not stored (25 Sep 2026)
+
+The owner brought a separately made app for the cabinets' duty rota and asked
+for it as a tab on the colleagues' page. Its logic had several faults:
+- choosing another month deleted that month's marked days
+  (`generateMonthDays(true)` on every change);
+- each month restarted from a person picked by hand;
+- an absent colleague lost their turn, although its own comment said they kept
+  it;
+- a manual pick cost the displaced person their turn, while the stand-in kept
+  theirs;
+- removing somebody left blank days;
+- everything lived in one browser's localStorage, so each computer showed a
+  different rota and no colleague could see it;
+- real colleagues' names were written in the code.
+
+**The owner's rules** (asked, not assumed):
+- the next person covers, and the absent one keeps their place;
+- colleagues mark their own absence, and the owner changes everything else;
+- one rotation runs from the start of the year.
+
+- **Only the inputs are stored (043):** a start date, the ordered list with
+  optional join and leave dates, marked days (closed with a note, or given to
+  somebody), and absences. `dutyRota()` works out the rest as a queue: each
+  working day, the first person present takes it and goes to the back.
+  Somebody away stays at the front. A closed day moves nobody. A day given by
+  agreement sends that person to the back, and whoever was next is still
+  next. A joiner enters at the back on their day, so months already printed
+  are not rewritten. Pure and unit-tested; the same inputs always give the
+  same month.
+- **Linked identities are followed.** A member later linked into another
+  employee (035) is read through `superseded_by`, so linking two records of
+  one colleague never leaves the rota naming the retired one.
+- **Two sides, like the staff accounts:**
+  - `/api/duty/*` is the owner's, behind the Google gate in the cloud;
+  - `/api/portal/duty` shows the month only to people on the list;
+  - `/api/portal/duty/absence` marks one's OWN absence, today or later. A
+    past day is the owner's to correct, because a colleague changing it would
+    rewrite a month that may be printed.
+- **The page asks `/api/duty` once whether this is the owner.** It is the one
+  request outside `/api/portal/` that `Kolega.html` makes, and the page says
+  so. For anybody but the owner, the gate answers 401 and the page shows the
+  rota without controls. It uses its own fetch, because the page's usual
+  helper treats a 401 as "signed out".
+- **Sign-in asks about the list defensively.** `/api/portal/me` answers `duty:
+  false` on a database without 043 (42P01), rather than failing every sign-in
+  on a machine that pulled the code before migrating.
+- **First list versus a running rotation.** Everybody on the first list counts
+  from the start date. Otherwise building the list on 25 September would have
+  left the 1st to the 24th empty. Once a rotation is running, an addition joins
+  from today and a removal leaves from today.
+- **Locked from Supabase's REST roles** like 040 and 042, and copied by the
+  mirror.

@@ -82,6 +82,7 @@
     "test:portal-week": "tsx test/portal-week.e2e.ts",
     "test:portal-cabinet": "tsx test/portal-cabinet.e2e.ts",
     "test:kolega": "node test/kolega.browser.mjs",
+    "test:duty": "tsx test/duty.e2e.ts",
     "test:kolegi-admin": "node test/kolegi-admin.browser.mjs"
   },
   "dependencies": {

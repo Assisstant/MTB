@@ -25,6 +25,8 @@ import {
 import { bellsOf, subjectOffer } from './teaching.js';
 import { blockTimes, semanticBlock, writeBlock } from './schedule-write.js';
 import { minutesOf, timeOf } from '../lib/crossing.js';
+import { defaultMonth, loadDuty, monthBounds, monthPayload, todayInSkopje } from '../lib/duty.js';
+import { dayProblem, setAbsence } from './duty.js';
 import {
     MIN_PASSWORD, PORTAL_TOKEN_HEADER, closeOtherSessions, closeSession, looseKey, nameKeys,
     openSession, passwordMatches, resetAccount, resolveUsername, sessionEmployee, setPassword,
@@ -334,6 +336,24 @@ async function noticesFor(staff: Staff, yearId: number, lessons: WeekLesson[]) {
 
 const LoginBody = z.object({ username: z.string().min(1).max(120), password: z.string().min(1).max(200) });
 const PasswordBody = z.object({ current: z.string().min(1).max(200), next: z.string().min(1).max(200) });
+const DutyAbsenceBody = z.object({ date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/), absent: z.boolean() });
+
+/**
+ * Is this person on this year's duty list? Asked on every sign-in, so a server
+ * whose database has not had migration 043 yet answers „no" rather than
+ * failing the sign-in itself.
+ */
+async function onDutyList(employeeId: number, yearId: number): Promise<boolean> {
+    try {
+        const { rows } = await pool.query(
+            `SELECT 1 FROM duty_members m JOIN employees e ON e.id = m.employee_id
+              WHERE m.school_year_id = $1 AND coalesce(e.superseded_by, e.id) = $2 LIMIT 1`, [yearId, employeeId]);
+        return rows.length > 0;
+    } catch (err: any) {
+        if (err && err.code === '42P01') return false;
+        throw err;
+    }
+}
 
 export async function portalRoutes(server: FastifyInstance, options: { year?: string } = {}) {
     yearLabel = options.year;
@@ -417,8 +437,54 @@ export async function portalRoutes(server: FastifyInstance, options: { year?: st
             usernames: usernamesOf(who.staff.name),
             initialPassword: !(own.rows[0] && own.rows[0].own),
             year: who.year.label,
+            duty: await onDutyList(who.staff.employeeId, who.year.id),
             ...(await rolesOf(who.staff, who.year.id))
         };
+    });
+
+    // ── дежурства: the rota, and one's own absence (lib/duty.ts) ─────────
+
+    /**
+     * The month's rota, for somebody on it. The people on one list see each
+     * other's names — the rota used to be printed and pinned up for exactly
+     * them — and nobody else sees it.
+     */
+    server.get('/api/portal/duty', async (req, reply) => {
+        const who = await signed(req, reply);
+        if (!who) return;
+        const state = await loadDuty(pool, who.year.id);
+        if (!state.members.some((m) => m.employeeId === who.staff.employeeId)) {
+            return reply.code(403).send({ error: 'Не сте на списокот за дежурства.', notMember: true });
+        }
+        const q = req.query as any;
+        const month = q?.month ? String(q.month) : defaultMonth(state);
+        if (!monthBounds(month)) return reply.code(400).send({ error: 'Месецот се пишува како ГГГГ-ММ.' });
+        return { year: who.year.label, me: who.staff.employeeId, today: todayInSkopje(), ...monthPayload(state, month) };
+    });
+
+    /**
+     * „Не сум тука" on a day: one's OWN absence, from today on (owner, 25 Sep
+     * 2026). The next person covers, and the one away keeps their place. A day
+     * already gone is the administrator's to correct, because changing it
+     * would rewrite a month somebody may already have printed.
+     */
+    server.put('/api/portal/duty/absence', async (req, reply) => {
+        const who = await signed(req, reply);
+        if (!who) return;
+        const parsed = DutyAbsenceBody.safeParse(req.body);
+        if (!parsed.success) return reply.code(400).send({ error: 'Проверете го денот.' });
+        const { date, absent } = parsed.data;
+        const state = await loadDuty(pool, who.year.id);
+        if (!state.members.some((m) => m.employeeId === who.staff.employeeId)) {
+            return reply.code(403).send({ error: 'Не сте на списокот за дежурства.', notMember: true });
+        }
+        const problem = dayProblem(date, { starts_on: state.yearStartsOn, ends_on: state.yearEndsOn });
+        if (problem) return reply.code(400).send({ error: problem });
+        if (date < todayInSkopje() && !who.acting) {
+            return reply.code(400).send({ error: 'Поминат ден може да го поправи само администраторот.' });
+        }
+        await setAbsence(pool, who.year.id, date, who.staff.employeeId, absent, who.author.name);
+        return { ok: true };
     });
 
     // ── step 2: the teaching week ─────────────────────────────────────────

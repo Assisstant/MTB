@@ -123,7 +123,10 @@ check('a good one is set', own === true);
 check('and the page no longer says „почетната"', !/почетната/.test(await page.textContent('#homeUser')));
 
 console.log('\nits own file, and nothing else');
-const others = [...new Set(loaded.filter((p) => !p.startsWith('/api/portal/') && p !== '/Kolega.html'))];
+// One question outside /api/portal/ is on purpose: `/api/duty` asks whether
+// this is the administrator. Behind the cloud's Google gate only the owner's
+// own sign-in gets an answer; anybody else gets the gate's 401.
+const others = [...new Set(loaded.filter((p) => !p.startsWith('/api/portal/') && p !== '/Kolega.html' && p !== '/api/duty'))];
 check('it loads no other file', others.length === 0, others.join(', '));
 const fits = await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth);
 check('it fits a phone, with no sideways scrolling', fits);
@@ -323,6 +326,112 @@ check('no page errors', errors.length === 0, errors.join('\n       '));
     check('two pupils share a term in halves', /први 20/.test(halves) && /втори 20/.test(halves), halves);
     check('no page errors in the cabinet', cabErrors.length === 0, cabErrors.join('\n       '));
     await ctx.close();
+}
+
+// ── дежурства: the month, one's own „не сум тука", and the owner's controls ──
+{
+    console.log('\nдежурства — a colleague on the list');
+    const people = { 7: 'Ана Измислена', 8: 'Вера Измислена', 9: 'Горан Измислен' };
+    const day = (date, weekday, id, extra = {}) => ({ date, weekday, closed: false, note: '', how: 'rotation',
+        employeeId: id, name: id ? people[id] : null, number: id ? [7, 8, 9].indexOf(id) + 1 : null, covers: [], absent: [], ...extra });
+    const month = () => ({
+        month: '2026-10', startsOn: '2026-09-01', yearStartsOn: '2026-09-01', yearEndsOn: '2027-08-31',
+        members: [7, 8, 9].map((id, i) => ({ employeeId: id, name: people[id], position: i + 1, joinedOn: null, leftOn: null })),
+        days: [day('2026-10-01', 4, 7), day('2026-10-02', 5, 8), day('2026-10-05', 1, 9), day('2026-10-06', 2, 7),
+            day('2026-10-07', 3, null, { closed: true, note: 'излет', how: 'closed' })]
+    });
+    const run = async (owner) => {
+        const writes = [];
+        const ownerWrites = [];
+        const ctx = await browser.newContext({ viewport: { width: 400, height: 800 }, serviceWorkers: 'block' });
+        await ctx.addInitScript((t) => localStorage.setItem('mtb_portal_token_v1', t), TOKEN);
+        await ctx.route('**/*', async (route) => {
+            const req = route.request(), url = new URL(req.url());
+            const json = (status, body) => route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) });
+            if (url.origin !== ORIGIN) return route.fulfill({ status: 404, body: '' });
+            if (url.pathname === '/Kolega.html') {
+                return route.fulfill({ status: 200, contentType: 'text/html; charset=utf-8', body: await readFile(join(ROOT, 'Kolega.html')) });
+            }
+            const body = req.postData() ? JSON.parse(req.postData()) : null;
+            if (url.pathname === '/api/portal/me') return json(200, { person: { employeeId: 7, name: people[7] },
+                usernames: { latin: 'AnaIzmislena', cyrillic: 'АнаИзмислена' }, initialPassword: false, year: '2026/2027',
+                roles: ['therapist'], teacher: null, therapist: { id: 4 }, duty: true });
+            if (url.pathname === '/api/portal/week') return json(200, { year: '2026/2027', days: ['понеделник', 'вторник', 'среда', 'четврток', 'петок'],
+                periods: [], me: { teacherId: null, therapistId: 4, homeroom: [] }, classes: [], teachers: [], lessons: [], classPupils: {},
+                clashes: [], cabinet: { bells: [], terms: [], pupils: [] }, notices: [] });
+            if (url.pathname === '/api/portal/duty') return json(200, { year: '2026/2027', me: 7, today: '2026-10-02', ...month() });
+            if (url.pathname === '/api/portal/duty/absence') { writes.push(body); return json(200, { ok: true }); }
+            if (url.pathname === '/api/duty') {
+                if (!owner) return json(401, { error: 'Authentication required' });
+                return json(200, { year: '2026/2027', ...month(), candidates: [{ employeeId: 10, name: 'Нова Измислена' }] });
+            }
+            if (url.pathname.startsWith('/api/duty/')) { ownerWrites.push({ path: url.pathname, body }); return json(200, { ok: true }); }
+            return json(404, { error: 'not in this test' });
+        });
+        const p = await ctx.newPage();
+        const errs = [];
+        p.on('pageerror', (e) => errs.push(String(e)));
+        await p.goto(`${ORIGIN}/Kolega.html`);
+        await p.waitForSelector('#tabs [data-tab="duty"]', { timeout: 6000 }).catch(() => {});
+        return { ctx, p, errs, writes, ownerWrites };
+    };
+
+    const c = await run(false);
+    check('the duty tab is there for somebody on the list', await c.p.isVisible('#tabs [data-tab="duty"]'));
+    await c.p.click('#tabs [data-tab="duty"]');
+    await c.p.waitForSelector('#duty table.duty-table', { timeout: 6000 });
+    const rows = await c.p.$$eval('#duty tbody tr', (trs) => trs.map((tr) => ({ cls: tr.className,
+        text: tr.innerText.replace(/\s+/g, ' ').trim(), away: Boolean(tr.querySelector('[data-duty-away]')) })));
+    check('the month reads number, person, day', /^1 Ана Измислена чт 01\.10\.2026/.test(rows[0].text), rows[0].text);
+    check('their own days are marked', rows[0].cls.includes('mine') && rows[3].cls.includes('mine'), JSON.stringify(rows.map((r) => r.cls)));
+    check('a closed day says why', /без дежурство: излет/.test(rows[4].text), rows[4].text);
+    check('a day gone by offers nothing to mark', rows[0].away === false);
+    check('today and later offer „Не сум тука"', rows[1].away && rows[2].away);
+    check('there are no owner\'s controls', !(await c.p.$('#duty .duty-admin')) && !(await c.p.$('#duty [data-duty-open]')));
+    await c.p.click('#duty tr[data-date="2026-10-05"] [data-duty-away]');
+    await c.p.waitForTimeout(400);
+    check('„Не сум тука" sends only the day and the mark — never whose',
+        JSON.stringify(c.writes) === JSON.stringify([{ date: '2026-10-05', absent: true }]), JSON.stringify(c.writes));
+    check('it fits a phone', await c.p.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth));
+    await c.p.emulateMedia({ media: 'print' });
+    await c.p.evaluate(() => document.body.classList.add('printing-duty'));
+    const printed = await c.p.evaluate(() => ({
+        duty: getComputedStyle(document.getElementById('duty')).display !== 'none',
+        header: getComputedStyle(document.querySelector('header.top')).display === 'none',
+        buttons: [...document.querySelectorAll('#duty .no-print')].every((n) => getComputedStyle(n).display === 'none')
+    }));
+    check('printed: only the month, without the buttons', printed.duty && printed.header && printed.buttons, JSON.stringify(printed));
+    check('no page errors on the duty tab', c.errs.length === 0, c.errs.join('\n       '));
+    await c.ctx.close();
+
+    console.log('\nдежурства — the administrator');
+    const o = await run(true);
+    await o.p.click('#tabs [data-tab="duty"]');
+    await o.p.waitForSelector('#duty .duty-admin', { timeout: 6000 });
+    check('the owner gets the list and every day\'s controls', await o.p.$$eval('#duty [data-duty-open]', (b) => b.length) === 5);
+    await o.p.click('#duty tr[data-date="2026-10-06"] [data-duty-open]');
+    await o.p.check('#duty form[data-duty-day="2026-10-06"] input[name="closed"]');
+    await o.p.fill('#duty form[data-duty-day="2026-10-06"] input[name="note"]', 'празник');
+    await o.p.check('#duty form[data-duty-day="2026-10-06"] input[name="away"][value="8"]');
+    await o.p.click('#duty form[data-duty-day="2026-10-06"] button[type="submit"]');
+    await o.p.waitForTimeout(500);
+    const dayWrite = o.ownerWrites.find((w) => w.path === '/api/duty/day');
+    check('a day is closed with its reason', dayWrite && dayWrite.body.closed === true && dayWrite.body.note === 'празник', JSON.stringify(dayWrite));
+    check('and somebody marked away on it', o.ownerWrites.some((w) => w.path === '/api/duty/absence'
+        && w.body.employeeId === 8 && w.body.absent === true), JSON.stringify(o.ownerWrites));
+    await o.p.evaluate(() => { document.querySelector('#duty .duty-admin').open = true; });
+    await o.p.selectOption('#dutyAdd', '10');
+    await o.p.click('#dutyAddBtn');
+    await o.p.click('#duty [data-duty-move="3|-1"]');
+    await o.p.click('#dutySave');
+    await o.p.waitForTimeout(500);
+    const setup = o.ownerWrites.find((w) => w.path === '/api/duty/setup');
+    check('the list is saved in its new order',
+        setup && JSON.stringify(setup.body.members.map((m) => m.employeeId)) === JSON.stringify([7, 8, 10, 9]), JSON.stringify(setup && setup.body));
+    check('and somebody added to a running rotation joins from today, not from the start',
+        setup && setup.body.members.find((m) => m.employeeId === 10).joinedOn !== null);
+    check('no page errors for the owner', o.errs.length === 0, o.errs.join('\n       '));
+    await o.ctx.close();
 }
 
 await browser.close();

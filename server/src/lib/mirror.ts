@@ -21,6 +21,12 @@ export const MIRROR_TABLES = [
     'class_years',
     'diary_schedule',
     'diary_schedule_history',
+    // Дежурства (043): the list and the marked days are the school's facts; a
+    // read-only copy that lacked them would show nobody on duty.
+    'duty_absences',
+    'duty_days',
+    'duty_members',
+    'duty_settings',
     'employees',
     'employee_roles',
     'employee_identity_links',
