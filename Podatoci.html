@@ -58,6 +58,12 @@
 
     .controls { display: flex; flex-wrap: wrap; gap: 14px; align-items: flex-end; }
     .field select, .field input { min-width: 170px; }
+    /* A class reads as the school writes it now („II комбинирана 2,3,4 · …"),
+       and a <select> is as wide as its longest option: on a phone it widened
+       the whole page. The field keeps to the screen; the open list still
+       shows every label in full. */
+    .field { min-width: 0; max-width: 100%; }
+    .field select { max-width: 100%; }
     .btn.soft.danger { border-color: color-mix(in srgb, var(--danger) 45%, var(--toggle-border)); }
     /* Дали е запишано во базата — на самата контрола, не само горе на екранот.
        docs/MANUAL-DB-SYNC.md вели: копчето станува зелено дури откако серверот
