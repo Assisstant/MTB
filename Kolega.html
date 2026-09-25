@@ -88,6 +88,7 @@ header.top h1 { flex: 1; min-width: 180px; }
 .badge.done { color: var(--ok); }
 .count { background: var(--danger); color: #fff; border-radius: 999px; padding: 0 7px; font-size: 13px; margin-left: 4px; }
 [hidden] { display: none !important; }
+.acting { background: var(--warn-bg); border: 1px solid var(--warn); color: var(--text); border-radius: 10px; padding: 10px 12px; margin: 0 0 12px; }
 </style>
 </head>
 <body>
@@ -125,6 +126,8 @@ header.top h1 { flex: 1; min-width: 180px; }
   </section>
 
   <section id="home" hidden>
+    <p class="acting" id="actingBanner" hidden>Го гледате формуларот како администратор. Што ќе запишете, се бележи како
+       ваше, и колегата се известува. <button type="button" class="small" id="closeActing">Затвори</button></p>
     <header class="top">
       <h1 id="homeName">—</h1>
       <button type="button" id="openNotices" aria-expanded="false">🔔 Известувања<span class="count" id="unseenCount" hidden></span></button>
@@ -186,8 +189,24 @@ header.top h1 { flex: 1; min-width: 180px; }
     let editing = null;         // { ordinal } of the period being edited
     const offers = new Map();   // class label -> subjects offered for it
 
+    // „Отвори го формуларот на…" from Податоци: a two-hour look, for this tab
+    // only, taken out of the address at once so it is not kept in the history.
+    const ACTING_KEY = 'mtb_portal_acting_v1';
+    const actingToken = (() => {
+        const m = /(?:^|[#&])as=([0-9a-f]{64})/.exec(window.location.hash);
+        if (m) {
+            try { sessionStorage.setItem(ACTING_KEY, m[1]); } catch (_) { /* this page load only */ }
+            history.replaceState(null, '', window.location.pathname + window.location.search);
+            return m[1];
+        }
+        try { return sessionStorage.getItem(ACTING_KEY) || ''; } catch (_) { return ''; }
+    })();
+
     const token = {
-        get() { try { return localStorage.getItem(TOKEN_KEY) || ''; } catch (_) { return memory; } },
+        get() {
+            if (actingToken) return actingToken;
+            try { return localStorage.getItem(TOKEN_KEY) || ''; } catch (_) { return memory; }
+        },
         set(value) { memory = value; try { localStorage.setItem(TOKEN_KEY, value); } catch (_) { /* this tab only */ } },
         clear() { memory = ''; try { localStorage.removeItem(TOKEN_KEY); } catch (_) { /* nothing kept */ } }
     };
@@ -650,6 +669,9 @@ header.top h1 { flex: 1; min-width: 180px; }
     }
 
     function drawHome() {
+        el('actingBanner').hidden = !me.acting;
+        el('openPassword').hidden = Boolean(me.acting);
+        el('logout').hidden = Boolean(me.acting);
         el('homeName').textContent = me.person.name;
         el('homeYear').textContent = 'Учебна ' + me.year;
         el('homeRoles').innerHTML = (me.roles || []).map((r) => `<span class="role">${esc(ROLE_NAMES[r] || r)}</span>`).join('');
@@ -791,6 +813,13 @@ header.top h1 { flex: 1; min-width: 180px; }
             el('homeUser').textContent = 'Корисничко име: ' + me.usernames.latin + ' или ' + me.usernames.cyrillic;
             el('passwordCard').hidden = true;
         } catch (err) { say('passwordMsg', err.message, 'error'); }
+    });
+
+    el('closeActing').addEventListener('click', () => {
+        try { sessionStorage.removeItem(ACTING_KEY); } catch (_) { /* nothing kept */ }
+        window.close();
+        // A tab the page did not open cannot be closed by it: say where it ends.
+        document.querySelector('main').innerHTML = '<p class="card narrow">Погледот е затворен. Може да го затворите ова јазиче.</p>';
     });
 
     el('logout').addEventListener('click', async () => {

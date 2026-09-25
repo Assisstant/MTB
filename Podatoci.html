@@ -345,6 +345,7 @@
         <button class="btn soft" data-tab="therapists" aria-pressed="false">🧩 Терапевти</button>
         <button class="btn soft" data-tab="classes" aria-pressed="false">🏫 Одделенија</button>
         <button class="btn soft" data-tab="forms" aria-pressed="false">📥 Формулари</button>
+        <button class="btn soft" data-tab="colleagues" aria-pressed="false">👥 Колеги</button>
         <label class="number-toggle"><input id="showRowNumbers" type="checkbox" checked> Редни броеви</label>
     </div>
 
@@ -458,6 +459,28 @@
     <!-- Answers to the offline forms wait here until the administrator has
          checked them (docs/PLAN-formulari.md). Nothing in an answer reaches the
          schedule before that. -->
+    <div class="panel tab" id="tab-colleagues">
+        <h2>Колеги онлајн</h2>
+        <p class="hint">
+            Секој колега ја пополнува својата недела: наставникот своите часови, раководителот часовите на
+            својата паралелка, терапевтот својот кабинет. Судирот се кажува пред зачувување. Ако сепак се
+            запише, засегнатиот колега добива известување, а судирот се затвора сам кога едната страна ќе се
+            помести. Корисничкото име е името и презимето споени, на кирилица или латиница. Почетната лозинка
+            е <b>ResursenCentar</b>; смената им се нуди, не е задолжителна.
+        </p>
+        <div class="controls">
+            <span class="hint">Линк за колегите:</span> <code id="colleaguesLink">—</code>
+            <button class="btn soft" id="copyColleaguesLink"><span class="ico" aria-hidden="true">📋</span> Копирај</button>
+            <button class="btn soft" id="colleaguesRefresh"><span class="ico" aria-hidden="true">↻</span> Освежи</button>
+        </div>
+        <h3>Отворени судири</h3>
+        <div id="colleaguesClashes"><p class="hint">вчитувам…</p></div>
+        <h3>Известувања</h3>
+        <div class="scroll"><div id="colleaguesNotices"></div></div>
+        <h3>Сметки</h3>
+        <div class="scroll"><div id="colleaguesAccounts"></div></div>
+    </div>
+
     <div class="panel tab" id="tab-forms">
         <h2>Пристигнати формулари</h2>
         <p class="hint">
@@ -512,7 +535,7 @@
     let data = null;
     let years = [];
     const requestedTab = new URLSearchParams(window.location.search).get('tab');
-    let tab = ['students', 'teachers', 'therapists', 'classes', 'forms'].includes(requestedTab) ? requestedTab : 'students';
+    let tab = ['students', 'teachers', 'therapists', 'classes', 'forms', 'colleagues'].includes(requestedTab) ? requestedTab : 'students';
     let rolloverPreview = null;
     const PUBLISHED = window.location.hostname === 'assisstant.github.io';
     const SERVER_DEFAULTS = [
@@ -2356,6 +2379,7 @@
             t.classList.toggle('on', t.id === 'tab-' + next));
         closePickers();
         if (next === 'forms') loadForms();
+        if (next === 'colleagues') loadColleagues();
     }
 
     /**
@@ -2372,6 +2396,95 @@
     document.addEventListener('DOMContentLoaded', () => {
         const nav = window.MTBAppNavigation;
         if (nav && nav.views) tabHistory = nav.views({ keys: ['tab'], show: (view) => setTab(view.tab || 'students') });
+    });
+
+    // ── колеги онлајн (docs/PLAN-kolegi-online.md) ──────────────────────────
+    /**
+     * The owner's side of the colleagues' door: the link to hand out, every
+     * clash standing now, every notice, and every account with its reset.
+     * „Отвори" is a two-hour look at that colleague's own form, with the right
+     * to resolve; what it writes is signed as the administrator and the
+     * colleague is told. Nothing here is a second copy of the timetable: the
+     * clashes are read from it, and resolving one is moving a lesson or a term.
+     */
+    const when2 = (v) => (v ? new Date(v).toLocaleString('mk-MK', { dateStyle: 'short', timeStyle: 'short' }) : '—');
+
+    async function loadColleagues() {
+        const base = apiBase || window.location.origin;
+        el('colleaguesLink').textContent = base.replace(/\/$/, '') + '/kolegi';
+        let accounts;
+        let notices;
+        try {
+            [accounts, notices] = await Promise.all([api('GET', '/api/staff-accounts'), api('GET', '/api/staff-notices')]);
+        } catch (err) {
+            el('colleaguesClashes').innerHTML = `<p class="hint">${esc(err.message)}</p>`;
+            el('colleaguesNotices').innerHTML = '';
+            el('colleaguesAccounts').innerHTML = '';
+            return;
+        }
+        const clashes = [
+            ...(notices.teaching || []).map((c) => `<li><b>${esc(c.day)}, ${c.ordinal}. час · ${esc(c.class)}</b>: ${c.who.map(esc).join(' и ')}</li>`),
+            ...(notices.cabinet || []).map((c) => `<li><b>${esc(c.day)} · ${esc(personName(c.pupil))}</b>: ${c.who.map(esc).join(' и ')}</li>`)
+        ];
+        el('colleaguesClashes').innerHTML = clashes.length
+            ? `<ul class="class-checks">${clashes.join('')}</ul>`
+            : '<p class="hint">Нема судири во распоредите.</p>';
+        const list = notices.notices || [];
+        el('colleaguesNotices').innerHTML = list.length
+            ? '<table class="list"><thead><tr><th>Кога</th><th>До</th><th>Што</th><th>Состојба</th></tr></thead><tbody>'
+              + list.map((n) => `<tr><td>${esc(when2(n.createdAt))}</td><td>${esc(personName(n.recipient))}</td><td>${esc(n.sentence)}</td>`
+                + `<td>${n.open ? '<span class="form-status pending">отворено</span>' : '<span class="form-status accepted">решено</span>'}`
+                + (n.seen ? '' : ' <span class="none">· невидено</span>') + '</td></tr>').join('')
+              + '</tbody></table>'
+            : '<p class="hint">Уште нема известувања.</p>';
+        const rows = accounts.accounts || [];
+        el('colleaguesAccounts').innerHTML = rows.length
+            ? '<table class="list"><thead><tr><th>Колега</th><th>Корисничко име</th><th>Улоги</th><th>Лозинка</th><th>Последна најава</th><th></th></tr></thead><tbody>'
+              + rows.map((a) => `<tr data-account="${a.employeeId}"><td>${esc(personName(a.name))}`
+                + (a.ambiguous ? ' <span class="none">· исто име како друг — не може да се најави</span>' : '') + '</td>'
+                + `<td><code>${esc(a.usernames.latin)}</code><br><code>${esc(a.usernames.cyrillic)}</code></td>`
+                + `<td>${[a.teacher ? 'наставник' : '', a.therapist ? 'терапевт' : ''].filter(Boolean).join(', ')}</td>`
+                + `<td>${a.ownPassword ? 'своја' : 'почетна'}</td>`
+                + `<td>${esc(when2(a.lastLoginAt))}</td>`
+                + '<td class="act">'
+                + `<button class="btn soft" data-open-colleague="${a.employeeId}">Отвори го формуларот</button> `
+                + (a.ownPassword ? `<button class="btn soft danger" data-reset-colleague="${a.employeeId}">Врати почетна лозинка</button>` : '')
+                + '</td></tr>').join('')
+              + '</tbody></table>'
+            : '<p class="hint">Нема наставници ни терапевти на списокот за годинава.</p>';
+    }
+
+    el('colleaguesRefresh').addEventListener('click', () => loadColleagues());
+    el('copyColleaguesLink').addEventListener('click', async () => {
+        try { await navigator.clipboard.writeText(el('colleaguesLink').textContent); status('Линкот е копиран.', 'ok', { toast: true }); }
+        catch (_) { status('Изберете го линкот и копирајте го рачно.', 'warn'); }
+    });
+    el('colleaguesAccounts').addEventListener('click', async (event) => {
+        const open = event.target.closest('[data-open-colleague]');
+        if (open) {
+            // The window first, while the click still counts as the person's:
+            // a window opened after the answer would be blocked as a pop-up.
+            const win = window.open('about:blank', '_blank');
+            try {
+                const answer = await api('POST', `/api/staff-accounts/${open.dataset.openColleague}/open`);
+                const target = (apiBase || window.location.origin).replace(/\/$/, '') + answer.url;
+                if (win) win.location.href = target; else window.location.href = target;
+            } catch (err) {
+                if (win) win.close();
+                status(err.message, 'error', { toast: true });
+            }
+            return;
+        }
+        const reset = event.target.closest('[data-reset-colleague]');
+        if (!reset) return;
+        const row = reset.closest('tr');
+        const name = row ? row.querySelector('td').textContent : '';
+        if (!window.confirm(`${name}: лозинката да се врати на почетната (ResursenCentar)? Сите нејзини/негови најави завршуваат.`)) return;
+        try {
+            await api('POST', `/api/staff-accounts/${reset.dataset.resetColleague}/reset`);
+            status('Лозинката е вратена на почетната.', 'ok', { toast: true });
+            loadColleagues();
+        } catch (err) { status(err.message, 'error', { toast: true }); }
     });
 
     function setNumberVisibility() {

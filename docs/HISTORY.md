@@ -3741,3 +3741,31 @@ Tests: `test:portal-cabinet` (15 checks, database, invented year) and
 temporary server) confirms Кабинети's cell behaves exactly as before the
 writer moved.
 
+### …and the owner's side (25 Sep 2026)
+
+Step 4 of the plan: „јас како администратор да можам да ги гледам личните
+форми на секој со право на разрешување конфликти како суперузер".
+
+- **Податоци → „👥 Колеги"** shows the link to hand out (`/kolegi`), every
+  clash standing now (two subjects in one class and period, a teacher in two
+  classes, a pupil with two therapists at once), every notice with whom it
+  went to and whether it is still open, and every account with its username
+  in both scripts, whether it still uses the initial password, the last
+  sign-in, and a reset. A name two people share is marked, because neither can
+  sign in.
+- **„Отвори го формуларот"** (`POST /api/staff-accounts/:id/open`,
+  owner-only) is a two-hour look at that colleague's own form, with the right
+  to resolve. The token is kept only in the server's memory and is never
+  written. It is passed in the address fragment, which is never sent to a
+  server or logged. Kolega.html takes it out of the address at once and
+  keeps it in that tab's sessionStorage, so the colleague's own sign-in on the
+  same browser is untouched. The banner says it is the administrator's look;
+  the password and sign-out are not offered, and the server refuses a
+  password change from it. What it writes is signed „Администраторот", and
+  the colleague is told as well as anybody the write hits.
+- `/api/staff-notices` and the look are outside `/api/portal/`, so in the cloud
+  the Google gate keeps them the owner's.
+
+Tests: `test:portal-week` gained the owner's side (35 checks);
+`test:kolegi-admin` covers the tab and the look (invented API).
+

@@ -151,6 +151,28 @@ async function main() {
         check('then takes it out and tells that teacher', removed.status === 200 && removed.body?.notified === 1
             && (await lessonsAt(DAY, 3, CLASS)).length === 1, JSON.stringify(removed.body));
 
+        console.log('\nthe owner\'s side');
+        const overview = (await app.inject({ method: 'GET', url: '/api/staff-notices' })).json();
+        check('the owner sees every notice, to whom', (overview.notices || []).length >= 5
+            && overview.notices.some((n: any) => n.recipient === T && n.open === true), JSON.stringify(overview.notices?.map((n: any) => n.recipient)));
+        check('and the clashes standing now: a teacher in two classes at once',
+            (overview.teaching || []).some((c: any) => c.day === 'вторник' && c.ordinal === 1 && c.who.some((w: string) => w.includes(T))),
+            JSON.stringify(overview.teaching));
+        const [aEmployee] = await q(`SELECT employee_id FROM teachers WHERE name = $1`, [A]);
+        const opened = (await app.inject({ method: 'POST', url: `/api/staff-accounts/${aEmployee.employee_id}/open` })).json();
+        const look = String(opened.url || '').replace(/^.*#as=/, '');
+        check('„Отвори го формуларот" gives a look, in the address fragment', /^\/Kolega\.html#as=[0-9a-f]{64}$/.test(opened.url || ''), JSON.stringify(opened));
+        const asA = await call('GET', '/api/portal/me', look);
+        check('which is that colleague\'s form, marked as the administrator\'s look', asA.body?.person?.name === A && asA.body?.acting === true, JSON.stringify(asA.body));
+        check('the password is not the administrator\'s to change',
+            (await call('POST', '/api/portal/password', look, { current: 'ResursenCentar', next: 'туѓа' })).status === 403);
+        const fixed = await put(look, { day: 'среда', ordinal: 1, class: CLASS, subject: 'Математика', expected: { class: null } });
+        check('the administrator writes in it', fixed.status === 200, JSON.stringify(fixed.body));
+        const told = (await call('GET', '/api/portal/week', ta)).body?.notices || [];
+        check('and the colleague is told, by the administrator', told.some((n: any) => n.author === 'Администраторот' && /среда/.test(n.sentence)),
+            JSON.stringify(told.map((n: any) => n.sentence)));
+        check('a made-up look opens nothing', (await call('GET', '/api/portal/me', 'e'.repeat(64))).status === 401);
+
         console.log('\nnobody else\'s class, and no pupils');
         check('a teacher who does not lead the class cannot change it',
             (await cls({ class: CLASS, day: 'среда', ordinal: 1, subject: 'x', teacherId: null }, ta)).status === 403);

@@ -13,6 +13,7 @@
  * make the browser send it, so nothing here can be driven from elsewhere.
  */
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
+import { createHash, randomBytes } from 'node:crypto';
 import { z } from 'zod';
 import { pool } from '../db.js';
 import { assertOwner, refuseScope, scopeOf } from '../lib/colleague.js';
@@ -67,8 +68,39 @@ async function currentYear() {
 }
 
 /** Who is asking, from the portal token — or a 401 already sent. */
-async function signed(req: FastifyRequest, reply: FastifyReply): Promise<{ staff: Staff; year: { id: number; label: string } } | null> {
-    const employeeId = await sessionEmployee(pool, req.headers[PORTAL_TOKEN_HEADER]);
+type Signed = {
+    staff: Staff;
+    year: { id: number; label: string };
+    /** Who a notice names as having done it: the person, or the administrator in their form. */
+    author: { employeeId: number | null; name: string };
+    acting: boolean;
+};
+
+/**
+ * „Отвори го формуларот на…" (owner, 25 Sep): the administrator sees a
+ * colleague's own form, with the right to resolve. Such a sign-in is made
+ * only by the owner's route below, lives in MEMORY for two hours and is
+ * never written anywhere: it is a look, not an account. What it writes is
+ * signed as the administrator, and the colleague is told.
+ */
+const ACTING_HOURS = 2;
+const acting = new Map<string, { employeeId: number; until: number }>();
+const hashToken = (token: string) => createHash('sha256').update(token, 'utf8').digest('hex');
+function actingEmployee(token: unknown): number | null {
+    const value = typeof token === 'string' ? token.trim() : '';
+    if (!/^[0-9a-f]{64}$/.test(value)) return null;
+    const entry = acting.get(hashToken(value));
+    if (!entry) return null;
+    if (entry.until <= Date.now()) { acting.delete(hashToken(value)); return null; }
+    return entry.employeeId;
+}
+const ADMIN_AUTHOR = 'Администраторот';
+
+async function signed(req: FastifyRequest, reply: FastifyReply): Promise<Signed | null> {
+    const token = req.headers[PORTAL_TOKEN_HEADER];
+    const own = await sessionEmployee(pool, token);
+    const asAdmin = own ? null : actingEmployee(token);
+    const employeeId = own || asAdmin;
     const year = await currentYear();
     if (!employeeId || !year) {
         reply.code(401).send({ error: 'Најавата е истечена. Најавете се повторно.', signedOut: true });
@@ -79,7 +111,18 @@ async function signed(req: FastifyRequest, reply: FastifyReply): Promise<{ staff
         reply.code(403).send({ error: 'Не сте на списокот за оваа учебна година. Јавете се кај администраторот.', notOnList: true });
         return null;
     }
-    return { staff, year };
+    return asAdmin
+        ? { staff, year, author: { employeeId: null, name: ADMIN_AUTHOR }, acting: true }
+        : { staff, year, author: { employeeId: staff.employeeId, name: staff.name }, acting: false };
+}
+
+/** When the administrator wrote in somebody's form, that somebody is told too. */
+async function tellIfActing(db: any, who: Signed, where: { day: string; slot: string; about: string; kind: 'lesson' | 'term'; what: string }) {
+    if (!who.acting) return 0;
+    const recipient = who.staff.teacherId != null ? { teacherId: who.staff.teacherId } : { therapistId: who.staff.therapistId as number };
+    return addNotices(db, { yearId: who.year.id, authorEmployeeId: null, authorName: ADMIN_AUTHOR,
+        day: where.day, slot: where.slot, about: where.about, kind: where.kind,
+        recipients: [{ ...recipient, sentence: `${ADMIN_AUTHOR} ја смени вашата недела: ${where.what}` }] });
 }
 
 /** What the person does this year: the roles their form is made of. */
@@ -243,6 +286,19 @@ async function pupilStillTwice(yearId: number, day: string, publicId: string): P
         j > i && a.therapist !== b.therapist && a.from < b.to && b.from < a.to));
 }
 
+/** Is the clash a notice is about still standing? Read from the live timetable. */
+async function noticeOpen(n: any, lessons: WeekLesson[], teacherId: number | null, yearId: number): Promise<boolean> {
+    if (n.kind === 'term') return pupilStillTwice(yearId, n.day, String(n.about).replace(/^pupil:/, ''));
+    if (n.kind !== 'lesson') return false;
+    const label = String(n.about).replace(/^class:/, '');
+    const ordinal = Number(n.slot);
+    const cell = lessons.filter((l) => l.day === n.day && l.ordinal === ordinal && l.class === label && l.teacherId != null);
+    const subjects = new Set(cell.map((l) => String(l.subject || '').toLocaleLowerCase('mk-MK')));
+    const twice = teacherId != null
+        && lessons.filter((l) => l.day === n.day && l.ordinal === ordinal && l.teacherId === teacherId).length > 1;
+    return (cell.length > 1 && subjects.size > 1) || twice;
+}
+
 /** The notices for this person, each with whether the clash still stands. */
 async function noticesFor(staff: Staff, yearId: number, lessons: WeekLesson[]) {
     const { rows } = await pool.query(
@@ -252,18 +308,7 @@ async function noticesFor(staff: Staff, yearId: number, lessons: WeekLesson[]) {
           ORDER BY created_at DESC LIMIT 100`, [staff.employeeId, yearId]);
     const out = [];
     for (const n of rows) {
-        let open = false;
-        if (n.kind === 'term') open = await pupilStillTwice(yearId, n.day, String(n.about).replace(/^pupil:/, ''));
-        if (n.kind === 'lesson') {
-            const label = String(n.about).replace(/^class:/, '');
-            const ordinal = Number(n.slot);
-            const cell = lessons.filter((l) => l.day === n.day && l.ordinal === ordinal && l.class === label && l.teacherId != null);
-            const subjects = new Set(cell.map((l) => String(l.subject || '').toLocaleLowerCase('mk-MK')));
-            const twice = staff.teacherId != null
-                && lessons.filter((l) => l.day === n.day && l.ordinal === ordinal && l.teacherId === staff.teacherId).length > 1;
-            open = (cell.length > 1 && subjects.size > 1) || twice;
-        }
-        // bigserial arrives as text from node-postgres; the page counts in numbers.
+        const open = await noticeOpen(n, lessons, staff.teacherId, yearId);
         out.push({ ...n, id: Number(n.id), open });
     }
     return out;
@@ -324,6 +369,7 @@ export async function portalRoutes(server: FastifyInstance, options: { year?: st
     server.post('/api/portal/password', async (req, reply) => {
         const who = await signed(req, reply);
         if (!who) return;
+        if (who.acting) return reply.code(403).send({ error: 'Лозинката ја менува само колегата.' });
         const parsed = PasswordBody.safeParse(req.body);
         if (!parsed.success) return reply.code(400).send({ error: 'Внесете ја сегашната и новата лозинка.' });
         const next = parsed.data.next.trim();
@@ -344,6 +390,7 @@ export async function portalRoutes(server: FastifyInstance, options: { year?: st
             [who.staff.employeeId]);
         return {
             person: { employeeId: who.staff.employeeId, name: who.staff.name },
+            acting: who.acting,
             usernames: usernamesOf(who.staff.name),
             initialPassword: !(own.rows[0] && own.rows[0].own),
             year: who.year.label,
@@ -444,17 +491,19 @@ export async function portalRoutes(server: FastifyInstance, options: { year?: st
             if (cls && clashes.length) {
                 const when = { day: b.day, ordinal: b.ordinal, classLabel: cls.label, subject };
                 const recipients = clashes.filter((c) => c.teacherId != null)
-                    .map((c) => ({ teacherId: c.teacherId as number, sentence: noticeSentence(who.staff.name, c, when) }));
+                    .map((c) => ({ teacherId: c.teacherId as number, sentence: noticeSentence(who.author.name, c, when) }));
                 if (cls.homeroomId != null && cls.homeroomId !== teacherId
                     && !recipients.some((r) => r.teacherId === cls.homeroomId)) {
                     const first = clashes[0];
                     recipients.push({ teacherId: cls.homeroomId, sentence:
-                        `${who.staff.name} запиша ${subject ? `„${subject}"` : 'час'} во вашата паралелка ${cls.label}, ${b.day}, ${b.ordinal}. час, `
+                        `${who.author.name} запиша ${subject ? `„${subject}"` : 'час'} во вашата паралелка ${cls.label}, ${b.day}, ${b.ordinal}. час, `
                         + `каде веќе има „${first.subject || 'час'}"${first.teacher ? ` кај ${first.teacher}` : ''}.` });
                 }
-                notified = await addNotices(client, { yearId: who.year.id, authorEmployeeId: who.staff.employeeId,
-                    authorName: who.staff.name, day: b.day, slot: String(b.ordinal), about: 'class:' + cls.label, recipients });
+                notified = await addNotices(client, { yearId: who.year.id, authorEmployeeId: who.author.employeeId,
+                    authorName: who.author.name, day: b.day, slot: String(b.ordinal), about: 'class:' + cls.label, recipients });
             }
+            notified += await tellIfActing(client, who, { day: b.day, slot: String(b.ordinal), kind: 'lesson',
+                about: 'class:' + (cls ? cls.label : ''), what: `${b.day}, ${b.ordinal}. час` + (cls ? ` — ${cls.label}${subject ? ` („${subject}")` : ''}` : ' — испразнет') + '.' });
             await client.query('COMMIT');
             return { ok: true, action: written.action, notified };
         } catch (err) {
@@ -511,10 +560,12 @@ export async function portalRoutes(server: FastifyInstance, options: { year?: st
                     : { cellClash: true, error: 'Во овој час паралелката има повеќе часови. Прво тргнете го вишокот.' });
             }
             const when = { day: b.day, ordinal: b.ordinal, classLabel: cls.label, subject, teacher: teacherName };
-            const notified = clashes.length ? await addNotices(client, { yearId: who.year.id, authorEmployeeId: who.staff.employeeId,
-                authorName: who.staff.name, day: b.day, slot: String(b.ordinal), about: 'class:' + cls.label,
+            let notified = clashes.length ? await addNotices(client, { yearId: who.year.id, authorEmployeeId: who.author.employeeId,
+                authorName: who.author.name, day: b.day, slot: String(b.ordinal), about: 'class:' + cls.label,
                 recipients: clashes.filter((c) => c.teacherId != null)
-                    .map((c) => ({ teacherId: c.teacherId as number, sentence: noticeSentence(who.staff.name, c, when) })) }) : 0;
+                    .map((c) => ({ teacherId: c.teacherId as number, sentence: noticeSentence(who.author.name, c, when) })) }) : 0;
+            notified += await tellIfActing(client, who, { day: b.day, slot: String(b.ordinal), kind: 'lesson', about: 'class:' + cls.label,
+                what: `${cls.label}, ${b.day}, ${b.ordinal}. час` + (subject ? ` („${subject}")` : '') + '.' });
             await client.query('COMMIT');
             return { ok: true, action: written.action, notified };
         } catch (err) {
@@ -547,10 +598,12 @@ export async function portalRoutes(server: FastifyInstance, options: { year?: st
                     subject: lesson.subject, why: 'lesson-replaced' }], lesson.day, lesson.ordinal));
             }
             await client.query('DELETE FROM lessons WHERE id = $1', [lesson.id]);
-            const notified = theirs ? await addNotices(client, { yearId: who.year.id, authorEmployeeId: who.staff.employeeId,
-                authorName: who.staff.name, day: lesson.day, slot: String(lesson.ordinal), about: 'class:' + lesson.class,
+            let notified = theirs ? await addNotices(client, { yearId: who.year.id, authorEmployeeId: who.author.employeeId,
+                authorName: who.author.name, day: lesson.day, slot: String(lesson.ordinal), about: 'class:' + lesson.class,
                 recipients: [{ teacherId: lesson.teacherId, sentence:
-                    `${who.staff.name} го тргна вашиот час „${lesson.subject || 'час'}" од ${lesson.class}, ${lesson.day}, ${lesson.ordinal}. час.` }] }) : 0;
+                    `${who.author.name} го тргна вашиот час „${lesson.subject || 'час'}" од ${lesson.class}, ${lesson.day}, ${lesson.ordinal}. час.` }] }) : 0;
+            notified += await tellIfActing(client, who, { day: lesson.day, slot: String(lesson.ordinal), kind: 'lesson', about: 'class:' + lesson.class,
+                what: `од ${lesson.class} е тргнат „${lesson.subject || 'час'}", ${lesson.day}, ${lesson.ordinal}. час.` });
             await client.query('COMMIT');
             return { ok: true, notified };
         } catch (err) {
@@ -588,13 +641,15 @@ export async function portalRoutes(server: FastifyInstance, options: { year?: st
         let notified = 0;
         for (const f of result.forcedOver || []) {
             notified += await addNotices(pool, {
-                yearId: who.year.id, authorEmployeeId: who.staff.employeeId, authorName: who.staff.name,
+                yearId: who.year.id, authorEmployeeId: who.author.employeeId, authorName: who.author.name,
                 day: b.day, slot: b.time, about: 'pupil:' + f.studentPublicId, kind: 'term',
                 recipients: [{ therapistId: f.therapistId, sentence:
-                    `${who.staff.name} го закажа „${f.studentName}" во ${b.day}, ${b.time}, кога е кај вас (${f.time}). `
+                    `${who.author.name} го закажа „${f.studentName}" во ${b.day}, ${b.time}, кога е кај вас (${f.time}). `
                     + 'Договорете се кој ќе го помести терминот.' }]
             });
         }
+        notified += await tellIfActing(pool, who, { day: b.day, slot: b.time, kind: 'term', about: 'pupil:' + (b.pupils[0] || ''),
+            what: `${b.day}, ${b.time}.` });
         return { ok: true, notified };
     });
 
@@ -633,6 +688,87 @@ export async function portalRoutes(server: FastifyInstance, options: { year?: st
                 };
             })
         };
+    });
+
+    /** „Отвори го формуларот на…": a two-hour look at a colleague's own form, for the owner only. */
+    server.post('/api/staff-accounts/:employeeId/open', async (req, reply) => {
+        try { assertOwner(await scopeOf(req), 'формуларите на колегите'); }
+        catch (err) { return refuseScope(reply, err); }
+        const employeeId = Number((req.params as any).employeeId);
+        if (!Number.isInteger(employeeId) || employeeId <= 0) return reply.code(400).send({ error: 'bad employee id' });
+        const year = await currentYear();
+        if (!year) return reply.code(503).send({ error: 'Нема тековна учебна година.' });
+        const staff = (await staffOfYear(pool, year.id)).find((s) => s.employeeId === employeeId);
+        if (!staff) return reply.code(404).send({ error: 'Тој колега не е на списокот за годинава.' });
+        for (const [key, entry] of acting) if (entry.until <= Date.now()) acting.delete(key);
+        const token = randomBytes(32).toString('hex');
+        acting.set(hashToken(token), { employeeId, until: Date.now() + ACTING_HOURS * 3600 * 1000 });
+        // In the fragment, so it is never sent to a server or kept in a log.
+        return { url: '/Kolega.html#as=' + token, name: staff.name, hours: ACTING_HOURS };
+    });
+
+    /** Every notice of the year, and every clash standing now — the owner's overview. */
+    server.get('/api/staff-notices', async (req, reply) => {
+        try { assertOwner(await scopeOf(req), 'известувањата на колегите'); }
+        catch (err) { return refuseScope(reply, err); }
+        const year = await currentYear();
+        if (!year) return reply.code(503).send({ error: 'Нема тековна учебна година.' });
+        const lessons = await yearLessons(pool, year.id);
+        const { rows } = await pool.query(
+            `SELECT n.id, n.created_at AS "createdAt", n.author_name AS author, n.kind, n.day, n.slot, n.about, n.sentence,
+                    n.seen_at IS NOT NULL AS seen, e.name AS recipient,
+                    (SELECT t.id FROM teachers t WHERE t.employee_id = n.recipient_employee_id) AS "recipientTeacherId"
+               FROM schedule_notices n JOIN employees e ON e.id = n.recipient_employee_id
+              WHERE n.school_year_id = $1 AND n.closed_at IS NULL
+              ORDER BY n.created_at DESC LIMIT 500`, [year.id]);
+        const notices = [];
+        for (const n of rows) notices.push({ ...n, id: Number(n.id), open: await noticeOpen(n, lessons, n.recipientTeacherId, year.id) });
+
+        // The teaching timetable: two subjects in one class and period, or one teacher in two classes.
+        const byCell = new Map<string, WeekLesson[]>();
+        const byTeacher = new Map<string, WeekLesson[]>();
+        for (const l of lessons) {
+            const cell = `${l.day}|${l.ordinal}|${l.class}`;
+            if (!byCell.has(cell)) byCell.set(cell, []);
+            byCell.get(cell)!.push(l);
+            if (l.teacherId != null) {
+                const key = `${l.day}|${l.ordinal}|${l.teacherId}`;
+                if (!byTeacher.has(key)) byTeacher.set(key, []);
+                byTeacher.get(key)!.push(l);
+            }
+        }
+        const teaching: any[] = [];
+        for (const list of byCell.values()) {
+            const named = list.filter((l) => l.teacherId != null);
+            if (named.length > 1 && new Set(named.map((l) => String(l.subject || '').toLocaleLowerCase('mk-MK'))).size > 1) {
+                teaching.push({ day: list[0].day, ordinal: list[0].ordinal, class: list[0].class,
+                    who: named.map((l) => `${l.teacher} („${l.subject || 'час'}")`) });
+            }
+        }
+        for (const list of byTeacher.values()) {
+            if (list.length > 1) teaching.push({ day: list[0].day, ordinal: list[0].ordinal, class: list.map((l) => l.class).join(' + '),
+                who: [`${list[0].teacher} во ${list.length} паралелки`] });
+        }
+
+        // The cabinets: one pupil with two therapists at overlapping times.
+        const pairs = (await pool.query(
+            `SELECT a.day, a.time_slot AS a_time, b.time_slot AS b_time, s.name AS pupil,
+                    ta.name AS a_therapist, tb.name AS b_therapist
+               FROM schedule_slots a
+               JOIN schedule_slots b ON b.school_year_id = a.school_year_id AND b.day = a.day
+                                    AND b.student_id = a.student_id AND b.therapist_id > a.therapist_id
+               JOIN students s ON s.id = a.student_id
+               JOIN therapists ta ON ta.id = a.therapist_id
+               JOIN therapists tb ON tb.id = b.therapist_id
+              WHERE a.school_year_id = $1`, [year.id])).rows;
+        const span = (range: string) => { const [f, t] = String(range).split('-'); return [minutesOf(f), minutesOf(t)]; };
+        const cabinet = pairs.filter((r: any) => {
+            const [af, at] = span(r.a_time);
+            const [bf, bt] = span(r.b_time);
+            return af < bt && bf < at;
+        }).map((r: any) => ({ day: r.day, pupil: r.pupil, who: [`${r.a_therapist} (${r.a_time})`, `${r.b_therapist} (${r.b_time})`] }));
+
+        return { year: year.label, notices, teaching, cabinet };
     });
 
     /** Back on the initial password, every sign-in ended. */

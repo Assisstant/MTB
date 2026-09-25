@@ -259,6 +259,7 @@ npm run test:portal                  the colleagues' sign-in against the databas
 npm run test:portal-week             a colleague's own week: clash before saving, „сепак", notices; database, invented year
 npm run test:portal-cabinet          a therapist's own cabinet through the same block writer; database, invented year
 npm run test:kolega                  Kolega.html in a browser; every API call invented
+npm run test:kolegi-admin            Податоци → Колеги and the administrator's look; every API call invented
 npm run test:schedule-form           the cabinet form (all therapists) offline, then into the queue
 npm run test:class-form              the class form AND the teacher's own week from Уреди настава, offline, then in
 npm run test:teaching                the crossing and the workbook writer, needs the server
@@ -727,7 +728,11 @@ read `DATABASE_URL`; never add literal credentials to this public repository.
   (`signed()` in routes/portal.ts) and must answer only what that colleague
   may see: their own week, their own pupils, and for a clash the other name
   and the term. Anything for the administrator goes OUTSIDE `/api/portal/`
-  (`/api/staff-accounts`), where the gate still holds. The page is
+  (`/api/staff-accounts`, `/api/staff-notices`), where the gate still holds.
+  The administrator's look at a colleague's form is a token the owner's route
+  makes, kept in MEMORY for two hours, passed in the address fragment and
+  taken out of it at once; what it writes is signed „Администраторот" and the
+  colleague is told. The page is
   self-contained so no other file has to pass. Tokens are hashed at rest and
   travel in a header, never a cookie. The initial password
   (`ResursenCentar`) stays valid until the colleague changes it — the owner's

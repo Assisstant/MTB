@@ -147,7 +147,7 @@ export function noticeSentence(author: string, c: Clash, w: { day: string; ordin
  * found as the EMPLOYEE, so a person who is both hears once. Never the author.
  */
 export async function addNotices(db: Queryable, n: {
-    yearId: number; authorEmployeeId: number; authorName: string; day: string; slot: string; about: string;
+    yearId: number; authorEmployeeId: number | null; authorName: string; day: string; slot: string; about: string;
     kind?: 'lesson' | 'term';
     recipients: Array<{ teacherId?: number; therapistId?: number; sentence: string }>;
 }): Promise<number> {
