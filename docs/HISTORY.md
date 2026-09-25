@@ -3624,3 +3624,48 @@ them.
 Test: `test:back-forward` (invented API). It fails 15 checks on the old pages.
 Playwright's `goBack` waits only for the top page to navigate, so the
 workspace part presses the browser's own Back through `history.back()`.
+
+## The colleagues' door: accounts and sign-in (25 Sep 2026)
+
+Step 1 of `docs/PLAN-kolegi-online.md`. The owner's decisions are recorded
+there.
+
+- **Migration 042** adds `staff_accounts` (per employee: an own password or
+  none, meaning the initial one), `staff_sessions` (a SHA-256 of the token,
+  never the token) and `schedule_notices` (for step 3). All three are under
+  row-level security and revoked from the Supabase REST roles, as in 036, and
+  kept out of the mirror. The cloud release allows 042 under the recovery
+  schema `mtb_workspace_recovery_staff_accounts_20260925`.
+- **The username is not stored.** It is read from `employees.name`, in
+  Cyrillic, in Latin transliteration (ч→ch, ш→sh, ж→zh, ќ→kj, ѓ→gj, џ→dzh,
+  љ→lj, њ→nj, marks such as č accepted), with the surname first as well. A
+  looser Latin spelling without the digraphs is a second chance, only when it
+  fits one person. A name that fits two people signs nobody in (rule 2): the
+  answer says so and the administrator's list marks both. Only people on this
+  year's teacher or therapist list can sign in.
+- **The initial password**, `ResursenCentar` / `РесурсенЦентар`, is accepted
+  in any letter case while the account has no password of its own. The first
+  sign-in offers a change with „Задржи ја почетната" beside it. A change ends
+  the person's other sign-ins; the administrator's reset
+  (`POST /api/staff-accounts/:id/reset`) ends all of them and restores the
+  initial password.
+- **Limits:** five wrong passwords for one name in ten minutes stop that name,
+  and twenty from one address stop the address. Both are kept in memory, like
+  the PIN limit.
+- **The cloud gate** lets through `/Kolega.html`, `/kolegi` and plain
+  `/api/portal/<segments>` without the owner's Google sign-in. This happens
+  after the same-origin checks, so no other site can post to it. A query or a
+  `..` naming the door opens nothing. Every portal route checks its own
+  session.
+- **`Kolega.html` is self-contained** (style and script inline), so no other
+  file has to pass the gate. The token lives in the browser for 30 days, and
+  „Одјави се" ends it for a shared computer. The page's work area is step 2.
+
+A test seam: `portalRoutes` takes `{ year }`, so `portal.e2e.ts` puts its
+invented people on an invented year's lists rather than on the real one's.
+
+Tests: `staff-accounts.test.ts` (usernames, the initial password),
+`test:portal` (31 checks against the database), `test:kolega` (the page,
+invented API, a phone's width), `cloud-auth.test.ts` (the door and only the
+door, failing without it), and `workspace-release.test.ts` (042, and a
+rollback check that now counts instead of pinning a number).

@@ -13,6 +13,7 @@ import type { FastifyInstance } from 'fastify';
  */
 const PUBLIC_FILES = new Set([
     'AkciskiPlan.html',
+    'Kolega.html',
     'BookmarksPlus.html',
     'ComuniBoard.html',
     'Dnevnik-Rasporedi-SafeSync.html',

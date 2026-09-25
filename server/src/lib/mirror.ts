@@ -66,7 +66,9 @@ export const MIRROR_TABLES = [
  * Never leave the cloud database: credentials, sessions, ledgers and local
  * sync state — and the review inbox of offline form answers (040). An answer's
  * outcome reaches the mirrored tables when it is accepted; the inbox itself is
- * the administrator's work in progress, useless in a read-only copy.
+ * the administrator's work in progress, useless in a read-only copy. The
+ * colleagues' accounts, their sessions and their clash notices (042) are the
+ * same kind of thing: credentials and work in progress.
  */
 export const MIRROR_EXCLUDED_TABLES = [
     'evidence_logins',
@@ -75,7 +77,10 @@ export const MIRROR_EXCLUDED_TABLES = [
     'form_reply_decisions',
     'mirror_sync_attempt',
     'mirror_sync_state',
+    'schedule_notices',
     'schema_migrations',
+    'staff_accounts',
+    'staff_sessions',
     'sync_watermark'
 ] as const;
 

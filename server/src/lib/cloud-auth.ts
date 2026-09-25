@@ -9,6 +9,21 @@ export function cloudRequestLog(req: { method: string; url?: string }) {
     return { method: req.method, url: String(req.url || '').split('?')[0] };
 }
 
+/**
+ * The colleagues' door (docs/PLAN-kolegi-online.md): its one page, the short
+ * link to it, and its API. Every `/api/portal/` route checks its own session
+ * (routes/portal.ts), so this lets through nothing that answers without one.
+ * The page is self-contained on purpose: no other file has to pass the gate.
+ */
+const PORTAL_PAGES = new Set(['/Kolega.html', '/kolegi']);
+export function isPortalRequest(req: { method: string; url?: string }): boolean {
+    const path = String(req.url || '').split('?')[0];
+    // Plain segments only: no `..`, no encoded characters, so the address
+    // cannot name the door and be routed somewhere else.
+    if (/^\/api\/portal\/[a-z0-9-]+(\/[a-z0-9-]+)*$/i.test(path)) return true;
+    return ['GET', 'HEAD'].includes(req.method) && PORTAL_PAGES.has(path);
+}
+
 export function cloudAuthMode(env: NodeJS.ProcessEnv = process.env): 'off' | 'basic' | 'google' {
     const flag = env.MTB_CLOUD_AUTH || 'off';
     // Phase-1 values remain explicit rollback aliases.
@@ -75,6 +90,8 @@ export function installCloudAuth(server: FastifyInstance, env: NodeJS.ProcessEnv
                 (mode === 'google' && !['GET', 'HEAD', 'OPTIONS'].includes(req.method) && req.headers.origin !== origin)) {
                 return reply.code(403).send({ error: 'Same-origin access required' });
             }
+            // The colleagues' own door, AFTER the same-origin checks above.
+            if (isPortalRequest(req)) return;
             if (mode === 'google') {
                 if (['GET', 'HEAD'].includes(req.method) && ['/auth/login', '/auth/google'].includes(route || '')) return;
                 const owner = req.session?.get('owner');

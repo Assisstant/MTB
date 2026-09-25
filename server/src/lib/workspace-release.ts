@@ -13,8 +13,9 @@ const ident=(s:string)=>'"'+s.replace(/"/g,'""')+'"';
 // 038 (roster_order). caseload_order_20260924: 039 (a therapist's own order).
 // form_replies_20260924: 040 (the review queue for offline form answers), and
 // 039 with it wherever 039 had not been deployed yet. teacher_forms_20260924:
-// 041 (a teacher's own week as a third kind of answer).
-export async function workspaceRelease(client:Client,directory:string,log=console.log,recoverySchema='mtb_workspace_recovery_teacher_forms_20260924'){
+// 041 (a teacher's own week as a third kind of answer). staff_accounts_20260925:
+// 042 (colleagues' accounts, their sessions and clash notices).
+export async function workspaceRelease(client:Client,directory:string,log=console.log,recoverySchema='mtb_workspace_recovery_staff_accounts_20260925'){
  if(!/^mtb_workspace_recovery_[a-z0-9_]+$/.test(recoverySchema))throw Error('Invalid recovery schema');
  await client.query('BEGIN ISOLATION LEVEL SERIALIZABLE');
  try{
@@ -25,7 +26,7 @@ export async function workspaceRelease(client:Client,directory:string,log=consol
   const applied=new Set((await client.query('SELECT filename FROM schema_migrations')).rows.map(r=>r.filename));
   if(files.some(f=>Number(f.slice(0,3))<=32&&!applied.has(f))||[...applied].some(f=>!files.includes(f)))throw Error('Unexpected migration baseline');
   const pending=files.filter(f=>!applied.has(f));
-  if(pending.some(f=>!/^0(33|34|35|36|37|38|39|40|41)_/.test(f)))throw Error('Unreviewed migration in release');
+  if(pending.some(f=>!/^0(33|34|35|36|37|38|39|40|41|42)_/.test(f)))throw Error('Unreviewed migration in release');
   if(!pending.length){await client.query('COMMIT');log('Workspace schema already current');return;}
   const tables=(await client.query(`SELECT tablename AS name FROM pg_tables WHERE schemaname=$1 ORDER BY tablename`,[schema])).rows;
   // The recovery schema must be absent. Never overwrite an earlier backup.

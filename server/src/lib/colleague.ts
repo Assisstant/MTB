@@ -258,7 +258,11 @@ const PUBLIC_WRITES = new Set([
     'POST /api/evidence/logout',
     // The route itself applies the stricter first-PIN/admin rule because it
     // needs to know whether a login row already exists.
-    'POST /api/evidence/pin'
+    'POST /api/evidence/pin',
+    // The colleagues' door checks its own session on every route (routes/portal.ts).
+    'POST /api/portal/login',
+    'POST /api/portal/logout',
+    'POST /api/portal/password'
 ]);
 const DELEGATED_WRITES = new Set([
     'PUT /api/therapists/:name/students/:publicId',

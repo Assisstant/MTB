@@ -1,0 +1,256 @@
+<!doctype html>
+<html lang="mk">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="same-origin">
+<title>Колеги · МТБ</title>
+<!--
+  The colleagues' door (docs/PLAN-kolegi-online.md; owner, 25 Sep 2026).
+
+  SELF-CONTAINED ON PURPOSE. In the cloud this is the one page a colleague
+  reaches without the owner's Google sign-in, and every file it loaded would
+  have to pass that gate too. So it loads nothing: its style and script are
+  here, and it talks only to /api/portal/.
+
+  The sign-in token is kept in this browser (30 days), so a colleague on their
+  own phone signs in once. „Одјави се" ends it, for a shared computer.
+-->
+<style>
+:root { --bg:#f4f4fa; --panel:#fff; --line:#d9d9e8; --text:#1d1e33; --muted:#5b5e7a; --accent:#4f5bd5;
+        --accent-text:#fff; --ok:#1d7657; --warn:#8a5300; --danger:#b0253a; --well:#f7f7fc; --focus:#4f5bd5; }
+@media (prefers-color-scheme: dark) {
+  :root { --bg:#121329; --panel:#1b1c39; --line:#34365a; --text:#f2f2fb; --muted:#a8abc8; --accent:#7c86f0;
+          --accent-text:#10112a; --ok:#57d2a6; --warn:#f0b35e; --danger:#ff8f9e; --well:#171832; --focus:#a3abff; }
+}
+* { box-sizing: border-box; }
+body { margin: 0; font-family: Inter, "Segoe UI", system-ui, sans-serif; background: var(--bg); color: var(--text);
+       font-size: 16px; line-height: 1.45; }
+main { max-width: 980px; margin: 0 auto; padding: 18px 16px 40px; }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 20px; }
+.narrow { max-width: 440px; margin: 8vh auto 0; }
+h1 { font-size: 22px; margin: 0 0 6px; }
+h2 { font-size: 19px; margin: 0 0 8px; }
+p { margin: 6px 0 12px; }
+.muted { color: var(--muted); font-size: 14px; }
+label { display: grid; gap: 6px; font-weight: 600; font-size: 14px; margin: 12px 0; }
+input { font: inherit; padding: 11px 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--well); color: var(--text); width: 100%; }
+button { font: inherit; font-weight: 700; border-radius: 8px; padding: 10px 14px; border: 1px solid var(--line);
+         background: var(--well); color: var(--text); cursor: pointer; }
+button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-text); }
+button:disabled { opacity: .6; cursor: default; }
+:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+.row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.msg { min-height: 22px; font-size: 14px; margin: 10px 0 0; }
+.msg.error { color: var(--danger); }
+.msg.ok { color: var(--ok); }
+.names { font-family: ui-monospace, Consolas, monospace; background: var(--well); padding: 1px 6px; border-radius: 5px; }
+header.top { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-bottom: 14px; }
+header.top h1 { flex: 1; min-width: 200px; }
+.roles { display: flex; gap: 6px; flex-wrap: wrap; margin: 4px 0 0; }
+.role { font-size: 13px; padding: 3px 9px; border-radius: 999px; border: 1px solid var(--line); background: var(--well); }
+[hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<main>
+  <section id="login" class="card narrow" hidden>
+    <h1>Најава за колеги</h1>
+    <p class="muted">Корисничкото име е вашето име и презиме, споени, на кирилица или на латиница:
+       <span class="names">ИмеПрезиме</span> или <span class="names">ImePrezime</span>.</p>
+    <form id="loginForm" novalidate>
+      <label>Корисничко име
+        <input name="username" autocomplete="username" autocapitalize="none" spellcheck="false" required>
+      </label>
+      <label>Лозинка
+        <input name="password" type="password" autocomplete="current-password" required>
+      </label>
+      <button class="primary" type="submit">Најави се</button>
+      <p class="msg" id="loginMsg" role="status" aria-live="polite"></p>
+    </form>
+  </section>
+
+  <section id="offer" class="card narrow" hidden>
+    <h2 id="offerHello">Добредојдовте</h2>
+    <p>Се најавивте со почетната лозинка. Може да поставите своја — или да ја задржите почетната.
+       Изборот е ваш.</p>
+    <form id="offerForm" novalidate>
+      <label>Нова лозинка (барем 4 знаци)
+        <input name="next" type="password" autocomplete="new-password" minlength="4">
+      </label>
+      <div class="row">
+        <button class="primary" type="submit">Постави ја</button>
+        <button type="button" id="keepInitial">Задржи ја почетната</button>
+      </div>
+      <p class="msg" id="offerMsg" role="status" aria-live="polite"></p>
+    </form>
+  </section>
+
+  <section id="home" hidden>
+    <header class="top">
+      <h1 id="homeName">—</h1>
+      <button type="button" id="openPassword">Смени лозинка</button>
+      <button type="button" id="logout">Одјави се</button>
+    </header>
+    <div class="card">
+      <p class="muted" id="homeYear"></p>
+      <div class="roles" id="homeRoles"></div>
+      <p class="muted" id="homeUser"></p>
+      <div id="work"></div>
+    </div>
+    <div class="card" id="passwordCard" hidden style="margin-top:14px;">
+      <h2>Смени лозинка</h2>
+      <form id="passwordForm" novalidate>
+        <label>Сегашна лозинка <input name="current" type="password" autocomplete="current-password"></label>
+        <label>Нова лозинка (барем 4 знаци) <input name="next" type="password" autocomplete="new-password" minlength="4"></label>
+        <div class="row">
+          <button class="primary" type="submit">Зачувај</button>
+          <button type="button" id="closePassword">Откажи</button>
+        </div>
+        <p class="msg" id="passwordMsg" role="status" aria-live="polite"></p>
+      </form>
+    </div>
+  </section>
+</main>
+<script>
+(function () {
+    'use strict';
+    const TOKEN_KEY = 'mtb_portal_token_v1';
+    const el = (id) => document.getElementById(id);
+    const ROLE_NAMES = { teacher: 'наставник', homeroom: 'раководител на паралелка', therapist: 'кабинет (терапевт)' };
+    let me = null;
+    let memory = '';            // the token, when this browser keeps nothing
+
+    const token = {
+        get() { try { return localStorage.getItem(TOKEN_KEY) || ''; } catch (_) { return memory; } },
+        set(value) { memory = value; try { localStorage.setItem(TOKEN_KEY, value); } catch (_) { /* this tab only */ } },
+        clear() { memory = ''; try { localStorage.removeItem(TOKEN_KEY); } catch (_) { /* nothing kept */ } }
+    };
+
+    async function api(method, path, body) {
+        let res;
+        try {
+            res = await fetch(path, {
+                method,
+                cache: 'no-store',
+                headers: Object.assign({ 'x-mtb-portal-token': token.get() },
+                    body === undefined ? {} : { 'Content-Type': 'application/json' }),
+                body: body === undefined ? undefined : JSON.stringify(body)
+            });
+        } catch (_) {
+            throw Object.assign(new Error('Серверот не одговара. Проверете ја врската.'), { status: 0 });
+        }
+        let payload = null;
+        try { payload = await res.json(); } catch (_) { /* not JSON */ }
+        if (!res.ok) throw Object.assign(new Error((payload && payload.error) || ('Грешка ' + res.status)), { status: res.status, payload });
+        return payload;
+    }
+
+    function show(which) {
+        ['login', 'offer', 'home'].forEach((id) => { el(id).hidden = id !== which; });
+        const first = el(which).querySelector('input');
+        if (first && which !== 'home') first.focus();
+    }
+    function say(id, text, kind) {
+        const node = el(id);
+        node.textContent = text || '';
+        node.className = 'msg' + (kind ? ' ' + kind : '');
+    }
+
+    function drawHome() {
+        el('homeName').textContent = me.person.name;
+        el('homeYear').textContent = 'Учебна ' + me.year;
+        el('homeRoles').innerHTML = '';
+        (me.roles || []).forEach((r) => {
+            const span = document.createElement('span');
+            span.className = 'role';
+            span.textContent = ROLE_NAMES[r] || r;
+            el('homeRoles').appendChild(span);
+        });
+        el('homeUser').textContent = 'Корисничко име: ' + me.usernames.latin + ' или ' + me.usernames.cyrillic
+            + (me.initialPassword ? ' · со почетната лозинка' : '');
+        el('work').innerHTML = '<p>Вашиот неделен распоред ќе се пополнува тука.</p>';
+        show('home');
+    }
+
+    async function start() {
+        if (!token.get()) return show('login');
+        try {
+            me = await api('GET', '/api/portal/me');
+            drawHome();
+        } catch (err) {
+            if (err.status === 401 || err.status === 403) token.clear();
+            show('login');
+            if (err.status === 403 || err.status === 0) say('loginMsg', err.message, 'error');
+        }
+    }
+
+    el('loginForm').addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const form = event.target;
+        const username = form.elements.username.value.trim();
+        const password = form.elements.password.value;
+        if (!username || !password) return say('loginMsg', 'Внесете корисничко име и лозинка.', 'error');
+        const button = form.querySelector('button');
+        button.disabled = true;
+        say('loginMsg', 'Се најавувам…');
+        try {
+            const answer = await api('POST', '/api/portal/login', { username, password });
+            token.set(answer.token);
+            form.reset();
+            say('loginMsg', '');
+            me = await api('GET', '/api/portal/me');
+            if (answer.initialPassword) {
+                el('offerHello').textContent = 'Добредојдовте, ' + answer.person.name;
+                show('offer');
+            } else drawHome();
+        } catch (err) {
+            say('loginMsg', err.message, 'error');
+            form.elements.password.select();
+        } finally { button.disabled = false; }
+    });
+
+    el('offerForm').addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const next = event.target.elements.next.value;
+        if (next.trim().length < 4) return say('offerMsg', 'Лозинката мора да има барем 4 знаци.', 'error');
+        try {
+            await api('POST', '/api/portal/password', { current: 'ResursenCentar', next });
+            me.initialPassword = false;
+            event.target.reset();
+            drawHome();
+        } catch (err) { say('offerMsg', err.message, 'error'); }
+    });
+    el('keepInitial').addEventListener('click', () => drawHome());
+
+    el('openPassword').addEventListener('click', () => {
+        el('passwordCard').hidden = false;
+        el('passwordForm').elements.current.focus();
+    });
+    el('closePassword').addEventListener('click', () => { el('passwordCard').hidden = true; el('passwordForm').reset(); say('passwordMsg', ''); });
+    el('passwordForm').addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const f = event.target.elements;
+        if (f.next.value.trim().length < 4) return say('passwordMsg', 'Новата лозинка мора да има барем 4 знаци.', 'error');
+        try {
+            await api('POST', '/api/portal/password', { current: f.current.value, next: f.next.value });
+            me.initialPassword = false;
+            event.target.reset();
+            say('passwordMsg', 'Лозинката е сменета.', 'ok');
+            drawHome();
+            el('passwordCard').hidden = true;
+        } catch (err) { say('passwordMsg', err.message, 'error'); }
+    });
+
+    el('logout').addEventListener('click', async () => {
+        try { await api('POST', '/api/portal/logout'); } catch (_) { /* the token goes either way */ }
+        token.clear();
+        me = null;
+        show('login');
+    });
+
+    start();
+})();
+</script>
+</body>
+</html>

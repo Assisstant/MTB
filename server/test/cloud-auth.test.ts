@@ -105,3 +105,33 @@ test('the server writing through its own routes crosses the cloud gate; nobody e
         assert.equal((await app.inject({ method: 'PUT', url: '/api/private-test', headers: { [INTERNAL_HEADER]: '' } })).statusCode, 401);
     } finally { await app.close(); }
 });
+
+test('colleagues reach their own door and nothing else, without the owner signing in', async () => {
+    const app = Fastify();
+    await installCloudAuth(app, env);
+    app.post('/api/portal/login', async () => ({ door: true }));
+    app.get('/api/portal/me', async () => ({ door: true }));
+    app.get('/Kolega.html', async () => 'page');
+    app.get('/kolegi', async (_req, reply) => reply.redirect('/Kolega.html'));
+    app.get('/Podatoci.html', async () => 'the administration');
+    app.get('/api/roster', async () => ({ roster: true }));
+    app.post('/api/portal-lookalike', async () => ({ no: true }));
+    const origin = { origin: env.MTB_CLOUD_ORIGIN };
+    try {
+        assert.equal((await app.inject({ method: 'POST', url: '/api/portal/login', headers: origin, payload: {} })).statusCode, 200);
+        assert.equal((await app.inject({ url: '/api/portal/me' })).statusCode, 200, 'the route itself checks the session');
+        assert.equal((await app.inject({ url: '/Kolega.html' })).statusCode, 200);
+        assert.equal((await app.inject({ method: 'HEAD', url: '/Kolega.html' })).statusCode, 200);
+        assert.equal((await app.inject({ url: '/kolegi' })).statusCode, 302);
+        // Everything else stays behind the owner's sign-in.
+        assert.equal((await app.inject({ url: '/Podatoci.html' })).statusCode, 401);
+        assert.equal((await app.inject({ url: '/api/roster' })).statusCode, 401);
+        assert.equal((await app.inject({ method: 'POST', url: '/api/portal-lookalike', headers: origin })).statusCode, 401);
+        assert.equal((await app.inject({ url: '/Podatoci.html?next=/Kolega.html' })).statusCode, 401, 'naming the door in a query opens nothing');
+        assert.equal((await app.inject({ url: '/api/portal/../roster' })).statusCode, 401, 'nor does walking out of it');
+        assert.equal((await app.inject({ url: '/api/portal/%2e%2e/roster' })).statusCode, 401);
+        // And no other site can post to the door.
+        assert.equal((await app.inject({ method: 'POST', url: '/api/portal/login', headers: { origin: 'https://elsewhere.example' } })).statusCode, 403);
+        assert.equal((await app.inject({ method: 'POST', url: '/api/portal/login', headers: { 'sec-fetch-site': 'cross-site' } })).statusCode, 403);
+    } finally { await app.close(); }
+});

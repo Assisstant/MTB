@@ -62,6 +62,7 @@ the machine's local PostgreSQL database.
 | `NastavaUredi.html` | the school timetable, editable cell by cell — writes the server, stores nothing |
 | `Podatoci.html` | the lists a year is made of: students, teachers, therapists, classes |
 | `AkciskiPlan.html` | евидентен лист: one pupil's development record, filled section by section by the whole team |
+| `Kolega.html` | the colleagues' door: sign in with your own name, your own week — the one page the cloud shows without the owner's Google sign-in |
 | `start.html` | launcher: finds whichever machine is on, sends you to it |
 | `Sinhronizacija.html` | where the data stands: this browser's diary ↔ its server, WORK ↔ HOME, the cloud — reads, never syncs |
 | `server/` | Fastify + TypeScript API over PostgreSQL |
@@ -157,6 +158,8 @@ server/src/routes/evidence.ts        евидентен лист: one score cell
 server/src/routes/evidence-auth.ts   shared sign-in: authorship always, opt-in authorization
 server/src/routes/sync-status.ts     read-only: the sync manifests, migrations, last backup; exports and accepts nothing
 server/src/routes/form-replies.ts    the review queue for offline form answers: stored first, the administrator decides
+server/src/routes/portal.ts          the colleagues' door (/api/portal/*): every route checks its own session
+server/src/lib/staff-accounts.ts     the username is the person's name in either script; the initial password; sessions
 server/src/lib/evidence.ts           the catalogue, the year's columns and one sheet read whole
 server/src/lib/public-static.ts      explicit allowlist for files published by the local server
 server/src/routes/data.ts       read endpoints
@@ -200,6 +203,8 @@ docs/PONEDELNIK-PCW.md          putting the current main into service on PCW:
 docs/PLAN-rabotna-konzola.md    what can still be plugged into MTB-Workspace to make
                                 it the one console, in order of usefulness — and the
                                 short list of CRUD that must never be added there
+docs/PLAN-kolegi-online.md      colleagues online: an account per employee, a personal form,
+                                clashes that reach the other person (owner, 25 Sep 2026)
 docs/PLAN-formulari.md          offline forms for colleagues (кабинет, одделение) and the
                                 review queue their answers wait in before anything is written;
                                 the forms are mtb-schedule-form.js and mtb-class-form.js (class + teacher);
@@ -249,6 +254,8 @@ npm run test:forms-queue             Податоци → Формулари in 
 npm run test:one-change              a write in one window reaches every other one; every API call invented
 npm run test:class-cards             a class reads the same in every picker, whole row on hover; every API call invented
 npm run test:back-forward            Back/Forward walk tabs, views and workspace windows; every API call invented
+npm run test:portal                  the colleagues' sign-in against the database, in-process, invented year
+npm run test:kolega                  Kolega.html in a browser; every API call invented
 npm run test:schedule-form           the cabinet form (all therapists) offline, then into the queue
 npm run test:class-form              the class form AND the teacher's own week from Уреди настава, offline, then in
 npm run test:teaching                the crossing and the workbook writer, needs the server
@@ -709,6 +716,19 @@ read `DATABASE_URL`; never add literal credentials to this public repository.
   Inside the workspace a frame's steps join the window's history. Playwright's
   `goBack` waits for the top page only, so a test of a frame's step uses
   `history.back()`.
+
+- **The colleagues' door is the only thing the cloud shows without the owner.**
+  `cloud-auth.ts` lets through `/Kolega.html`, `/kolegi` and plain
+  `/api/portal/<segments>` — after the same-origin checks — and nothing else.
+  So every `/api/portal/` route must check its own session first
+  (`signed()` in routes/portal.ts) and must answer only what that colleague
+  may see: their own week, their own pupils, and for a clash the other name
+  and the term. Anything for the administrator goes OUTSIDE `/api/portal/`
+  (`/api/staff-accounts`), where the gate still holds. The page is
+  self-contained so no other file has to pass. Tokens are hashed at rest and
+  travel in a header, never a cookie. The initial password
+  (`ResursenCentar`) stays valid until the colleague changes it — the owner's
+  decision, made knowing the username is only a name.
 
 ## Conventions
 
