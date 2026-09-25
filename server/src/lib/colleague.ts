@@ -262,7 +262,11 @@ const PUBLIC_WRITES = new Set([
     // The colleagues' door checks its own session on every route (routes/portal.ts).
     'POST /api/portal/login',
     'POST /api/portal/logout',
-    'POST /api/portal/password'
+    'POST /api/portal/password',
+    'POST /api/portal/notices/seen',
+    'PUT /api/portal/my-lesson',
+    'PUT /api/portal/class-lesson',
+    'POST /api/portal/class-lesson/remove'
 ]);
 const DELEGATED_WRITES = new Set([
     'PUT /api/therapists/:name/students/:publicId',

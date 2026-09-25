@@ -185,7 +185,7 @@ export type TeacherLessonWrite =
 export async function putTeacherLesson(
     client: any,
     key: { yearId: number; day: string; ordinal: number; teacherId: number },
-    value: { classId: number | null; subject: string | null; together?: boolean },
+    value: { classId: number | null; subject: string | null; together?: boolean; force?: boolean },
     expected?: { class: string | null } | undefined
 ): Promise<TeacherLessonWrite> {
     const mine = await teacherCellAt(client, key);
@@ -217,7 +217,9 @@ export async function putTeacherLesson(
     // A lesson nobody has put a name to yet is not somebody else's: a teacher
     // entering it as their own puts their name to it (putLesson updates it).
     const foreign = target.filter((r) => r.teacherId != null && r.teacherId !== key.teacherId);
-    if (foreign.length && !(value.together && foreign.length === 1)) return { ok: false, code: 'taken', here: foreign, class: label };
+    // `force` is a colleague's „сепак запиши" from their own form
+    // (routes/portal.ts): the clash stands, recorded, until one side moves.
+    if (foreign.length && !(value.together && foreign.length === 1) && !value.force) return { ok: false, code: 'taken', here: foreign, class: label };
 
     // Moving a teacher to a different class frees the one they were in.
     const moved = mine.length > 0 && mine[0].classId !== value.classId;

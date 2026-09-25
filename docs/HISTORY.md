@@ -3669,3 +3669,52 @@ Tests: `staff-accounts.test.ts` (usernames, the initial password),
 invented API, a phone's width), `cloud-auth.test.ts` (the door and only the
 door, failing without it), and `workspace-release.test.ts` (042, and a
 rollback check that now counts instead of pinning a number).
+
+## The colleagues' own week: teaching (25 Sep 2026)
+
+Step 2 of `docs/PLAN-kolegi-online.md`, for the two teaching roles. The
+cabinet follows.
+
+- **`GET /api/portal/week`** gives a teacher the school's teaching timetable,
+  which is posted in every staff room anyway. With it the page can say, BEFORE
+  saving, whose lesson a period would sit on. It also gives their homeroom
+  classes, the year's classes and teachers, the clashes standing in their week
+  and their notices. A person who is only a therapist gets no timetable. No
+  pupil is named on this route.
+- **A subject teacher's period** (`PUT /api/portal/my-lesson`) goes through
+  `putTeacherLesson`, the same writer and the same `expected` check as Уреди
+  настава. It is a clash when the class already has a DIFFERENT subject
+  there with another teacher. The same subject is two teachers together
+  (owner, 24 Sep), and a lesson nobody has put a name to is taken over. The
+  writer gained `force`: the colleague's „сепак запиши", decided by the
+  route, which has taken the subject into account.
+- **A homeroom teacher's class** (`PUT /api/portal/class-lesson`) goes through
+  `putLesson`. Taking another teacher's period, or placing a teacher who is
+  in another class then, is a clash. A period that already holds two lessons
+  cannot be overwritten in one go: `POST /api/portal/class-lesson/remove`
+  takes one out, asking first when it is somebody else's. That is how a clash
+  is ended from the class's side.
+- **Notices.** A forced write records one per person it hits: the other
+  teacher, the teacher replaced, the teacher double-booked, and the class's
+  homeroom teacher when a subject teacher forced into their class. None goes
+  to the author. Whether a notice is still OPEN is read from the live
+  timetable, so it closes by itself once one side moves. Nobody has to close
+  anything, which is the owner's condition that clashes must not become his
+  job.
+- Writes to one period take a transaction-level advisory lock, so two
+  colleagues cannot both see a period free and both save into it without a
+  notice.
+- **Kolega.html** shows a day at a time, because it is filled on a phone. A
+  period opens an editor whose class list reads as everywhere else
+  (label · homeroom · words) and whose subjects are the MON offer for that
+  class (`subjectOffer`, now shared with Уреди настава). The preview line
+  says the clash before saving; the server says it again, with „Сепак запиши"
+  and „Избери друг час". Standing clashes and notices each have their own
+  card, and „Отвори" jumps to the period.
+
+Tests: `test:portal-week` (27 checks, database, invented year): the clash
+before saving, „сепак" and who is told, the same subject together, a stale
+view refused, the notice seen and closing by itself, the homeroom's three
+cases and the removal, and nobody else's class or pupils. `test:kolega` gained
+the week (invented API, a phone's width).
+

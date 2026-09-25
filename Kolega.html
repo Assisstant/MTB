@@ -15,40 +15,78 @@
 
   The sign-in token is kept in this browser (30 days), so a colleague on their
   own phone signs in once. „Одјави се" ends it, for a shared computer.
+
+  THE WEEK. A day at a time, a period at a time, because this is filled on a
+  phone. Before anything is saved the page already says whose lesson a period
+  would sit on — the timetable came with the week — and the server says it
+  again on saving. A clash is never saved silently: „Сепак запиши" is offered,
+  and then the colleague it hits is told (the owner's rule).
 -->
 <style>
 :root { --bg:#f4f4fa; --panel:#fff; --line:#d9d9e8; --text:#1d1e33; --muted:#5b5e7a; --accent:#4f5bd5;
-        --accent-text:#fff; --ok:#1d7657; --warn:#8a5300; --danger:#b0253a; --well:#f7f7fc; --focus:#4f5bd5; }
+        --accent-text:#fff; --ok:#1d7657; --warn:#8a5300; --warn-bg:#fff6e5; --danger:#b0253a; --well:#f7f7fc;
+        --focus:#4f5bd5; --chip:#ecebfb; }
 @media (prefers-color-scheme: dark) {
   :root { --bg:#121329; --panel:#1b1c39; --line:#34365a; --text:#f2f2fb; --muted:#a8abc8; --accent:#7c86f0;
-          --accent-text:#10112a; --ok:#57d2a6; --warn:#f0b35e; --danger:#ff8f9e; --well:#171832; --focus:#a3abff; }
+          --accent-text:#10112a; --ok:#57d2a6; --warn:#f0b35e; --warn-bg:#2d2616; --danger:#ff8f9e; --well:#171832;
+          --focus:#a3abff; --chip:#2a2b52; }
 }
 * { box-sizing: border-box; }
 body { margin: 0; font-family: Inter, "Segoe UI", system-ui, sans-serif; background: var(--bg); color: var(--text);
        font-size: 16px; line-height: 1.45; }
-main { max-width: 980px; margin: 0 auto; padding: 18px 16px 40px; }
-.card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 20px; }
+main { max-width: 820px; margin: 0 auto; padding: 16px 16px 48px; }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 18px; margin-top: 14px; }
 .narrow { max-width: 440px; margin: 8vh auto 0; }
-h1 { font-size: 22px; margin: 0 0 6px; }
-h2 { font-size: 19px; margin: 0 0 8px; }
+h1 { font-size: 21px; margin: 0; }
+h2 { font-size: 18px; margin: 0 0 8px; }
 p { margin: 6px 0 12px; }
 .muted { color: var(--muted); font-size: 14px; }
-label { display: grid; gap: 6px; font-weight: 600; font-size: 14px; margin: 12px 0; }
-input { font: inherit; padding: 11px 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--well); color: var(--text); width: 100%; }
-button { font: inherit; font-weight: 700; border-radius: 8px; padding: 10px 14px; border: 1px solid var(--line);
+label { display: grid; gap: 6px; font-weight: 600; font-size: 14px; margin: 10px 0; }
+input, select { font: inherit; padding: 10px 11px; border: 1px solid var(--line); border-radius: 8px; background: var(--well);
+                color: var(--text); width: 100%; }
+button { font: inherit; font-weight: 700; border-radius: 8px; padding: 9px 13px; border: 1px solid var(--line);
          background: var(--well); color: var(--text); cursor: pointer; }
 button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-text); }
+button.warn { background: var(--warn-bg); border-color: var(--warn); color: var(--warn); }
+button.small { padding: 5px 9px; font-size: 14px; }
 button:disabled { opacity: .6; cursor: default; }
 :focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
 .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
-.msg { min-height: 22px; font-size: 14px; margin: 10px 0 0; }
+.msg { min-height: 20px; font-size: 14px; margin: 8px 0 0; }
 .msg.error { color: var(--danger); }
 .msg.ok { color: var(--ok); }
 .names { font-family: ui-monospace, Consolas, monospace; background: var(--well); padding: 1px 6px; border-radius: 5px; }
-header.top { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-bottom: 14px; }
-header.top h1 { flex: 1; min-width: 200px; }
-.roles { display: flex; gap: 6px; flex-wrap: wrap; margin: 4px 0 0; }
+header.top { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+header.top h1 { flex: 1; min-width: 180px; }
+.roles { display: flex; gap: 6px; flex-wrap: wrap; margin: 6px 0 0; }
 .role { font-size: 13px; padding: 3px 9px; border-radius: 999px; border: 1px solid var(--line); background: var(--well); }
+.tabs, .days { display: flex; gap: 6px; flex-wrap: wrap; }
+.tabs button[aria-pressed="true"], .days button[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--accent-text); }
+.days { margin: 12px 0 4px; }
+.days button { padding: 7px 10px; }
+.periods { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 8px; }
+.period { border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; background: var(--well); }
+.period.clash { border-color: var(--warn); background: var(--warn-bg); }
+.period .head { display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; }
+.period .when { font-weight: 800; min-width: 88px; }
+.period .when small { font-weight: 600; color: var(--muted); margin-left: 4px; }
+.period .what { flex: 1; min-width: 150px; }
+.period .what .free { color: var(--muted); }
+.period .note { font-size: 14px; margin-top: 4px; }
+.period .note.warn { color: var(--warn); font-weight: 600; }
+.editor { margin-top: 8px; border-top: 1px dashed var(--line); padding-top: 8px; }
+.preview { font-size: 14px; margin: 6px 0; }
+.preview.warn { color: var(--warn); font-weight: 600; }
+.preview.ok { color: var(--ok); }
+.ask { background: var(--warn-bg); border: 1px solid var(--warn); border-radius: 8px; padding: 10px; margin-top: 8px; }
+.ask p { margin: 0 0 8px; }
+.list { list-style: none; padding: 0; margin: 6px 0 0; display: grid; gap: 8px; }
+.list li { border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; background: var(--well); font-size: 15px; }
+.list li.unseen { border-color: var(--accent); }
+.badge { display: inline-block; font-size: 12px; font-weight: 800; padding: 1px 7px; border-radius: 999px; background: var(--chip); }
+.badge.open { background: var(--warn-bg); color: var(--warn); border: 1px solid var(--warn); }
+.badge.done { color: var(--ok); }
+.count { background: var(--danger); color: #fff; border-radius: 999px; padding: 0 7px; font-size: 13px; margin-left: 4px; }
 [hidden] { display: none !important; }
 </style>
 </head>
@@ -89,16 +127,34 @@ header.top h1 { flex: 1; min-width: 200px; }
   <section id="home" hidden>
     <header class="top">
       <h1 id="homeName">—</h1>
+      <button type="button" id="openNotices" aria-expanded="false">🔔 Известувања<span class="count" id="unseenCount" hidden></span></button>
       <button type="button" id="openPassword">Смени лозинка</button>
       <button type="button" id="logout">Одјави се</button>
     </header>
-    <div class="card">
-      <p class="muted" id="homeYear"></p>
-      <div class="roles" id="homeRoles"></div>
-      <p class="muted" id="homeUser"></p>
-      <div id="work"></div>
+    <p class="muted" id="homeYear"></p>
+    <div class="roles" id="homeRoles"></div>
+
+    <div class="card" id="noticesCard" hidden>
+      <h2>Известувања</h2>
+      <p class="muted">Кога некој ќе запише „сепак" час што се поклопува со ваш, тоа стои тука. Кога едната страна ќе
+         се помести, судирот се затвора сам.</p>
+      <ul class="list" id="noticesList"></ul>
     </div>
-    <div class="card" id="passwordCard" hidden style="margin-top:14px;">
+
+    <div class="card" id="clashesCard" hidden>
+      <h2>⚠ Судири во вашата недела</h2>
+      <ul class="list" id="clashesList"></ul>
+    </div>
+
+    <div class="card" id="weekCard">
+      <div class="tabs" id="tabs" role="group" aria-label="Што пополнувате"></div>
+      <div class="days" id="days" role="group" aria-label="Ден"></div>
+      <p class="muted" id="tabHint"></p>
+      <ul class="periods" id="periods"></ul>
+      <p class="msg" id="weekMsg" role="status" aria-live="polite"></p>
+    </div>
+
+    <div class="card" id="passwordCard" hidden>
       <h2>Смени лозинка</h2>
       <form id="passwordForm" novalidate>
         <label>Сегашна лозинка <input name="current" type="password" autocomplete="current-password"></label>
@@ -110,6 +166,7 @@ header.top h1 { flex: 1; min-width: 200px; }
         <p class="msg" id="passwordMsg" role="status" aria-live="polite"></p>
       </form>
     </div>
+    <p class="muted" id="homeUser"></p>
   </section>
 </main>
 <script>
@@ -117,9 +174,17 @@ header.top h1 { flex: 1; min-width: 200px; }
     'use strict';
     const TOKEN_KEY = 'mtb_portal_token_v1';
     const el = (id) => document.getElementById(id);
+    const esc = (v) => String(v == null ? '' : v).replace(/[&<>"']/g, (c) =>
+        ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    const norm = (v) => String(v == null ? '' : v).replace(/\s+/g, ' ').trim().toLocaleLowerCase('mk-MK');
     const ROLE_NAMES = { teacher: 'наставник', homeroom: 'раководител на паралелка', therapist: 'кабинет (терапевт)' };
+    const DAY_SHORT = { 'понеделник': 'Пон', 'вторник': 'Вто', 'среда': 'Сре', 'четврток': 'Чет', 'петок': 'Пет' };
     let me = null;
+    let week = null;
     let memory = '';            // the token, when this browser keeps nothing
+    const view = { tab: '', day: '' };
+    let editing = null;         // { ordinal } of the period being edited
+    const offers = new Map();   // class label -> subjects offered for it
 
     const token = {
         get() { try { return localStorage.getItem(TOKEN_KEY) || ''; } catch (_) { return memory; } },
@@ -142,6 +207,10 @@ header.top h1 { flex: 1; min-width: 200px; }
         }
         let payload = null;
         try { payload = await res.json(); } catch (_) { /* not JSON */ }
+        if (res.status === 401 && path !== '/api/portal/login') {
+            token.clear();
+            show('login');
+        }
         if (!res.ok) throw Object.assign(new Error((payload && payload.error) || ('Грешка ' + res.status)), { status: res.status, payload });
         return payload;
     }
@@ -157,21 +226,343 @@ header.top h1 { flex: 1; min-width: 200px; }
         node.className = 'msg' + (kind ? ' ' + kind : '');
     }
 
+    // ── the week ──────────────────────────────────────────────────────────
+    const myId = () => week && week.me.teacherId;
+    const classText = (label) => {
+        const c = (week.classes || []).find((x) => x.label === label);
+        return c ? [c.label, c.homeroom, c.description].filter(Boolean).join(' · ') : label;
+    };
+    const lessonsAt = (day, ordinal) => (week.lessons || []).filter((l) => l.day === day && l.ordinal === ordinal);
+    const periodTime = (p) => p.startsAt ? `<small>${esc(p.startsAt)}</small>` : '';
+
+    function tabsOf() {
+        const tabs = [];
+        if (week.me.teacherId != null) tabs.push({ id: 'mine', label: 'Мои часови' });
+        (week.me.homeroom || []).forEach((label) => tabs.push({ id: 'class:' + label, label: 'Паралелка ' + label }));
+        if (week.me.therapistId != null) tabs.push({ id: 'cabinet', label: 'Мој кабинет' });
+        return tabs;
+    }
+
+    function drawTabs() {
+        const tabs = tabsOf();
+        if (!tabs.some((t) => t.id === view.tab)) view.tab = tabs.length ? tabs[0].id : '';
+        el('tabs').innerHTML = tabs.map((t) => `<button type="button" data-tab="${esc(t.id)}" aria-pressed="${t.id === view.tab}">${esc(t.label)}</button>`).join('');
+        el('tabs').hidden = tabs.length < 2;
+        const days = week.days || [];
+        if (!days.includes(view.day)) {
+            const today = ['недела', 'понеделник', 'вторник', 'среда', 'четврток', 'петок', 'сабота'][new Date().getDay()];
+            view.day = days.includes(today) ? today : days[0];
+        }
+        el('days').innerHTML = days.map((d) => `<button type="button" data-day="${esc(d)}" aria-pressed="${d === view.day}" title="${esc(d)}">${esc(DAY_SHORT[d] || d)}</button>`).join('');
+        el('days').hidden = view.tab === 'cabinet';
+    }
+
+    function drawWeek() {
+        drawTabs();
+        drawClashes();
+        drawNotices();
+        if (!view.tab) {
+            el('tabHint').textContent = 'Не сте на списокот на наставници ниту терапевти за годинава.';
+            el('periods').innerHTML = '';
+            return;
+        }
+        if (view.tab === 'cabinet') {
+            el('tabHint').textContent = 'Распоредот на кабинетот се пополнува во следниот чекор — наскоро тука.';
+            el('periods').innerHTML = '';
+            return;
+        }
+        const homeroomOf = view.tab.startsWith('class:') ? view.tab.slice(6) : '';
+        el('tabHint').textContent = homeroomOf
+            ? `Часовите на ${classText(homeroomOf)}. Изберете час за да го внесете или смените.`
+            : 'Вашите часови: во која паралелка и кој предмет. Изберете час за да го внесете или смените.';
+        el('periods').innerHTML = (week.periods || []).map((p) => periodHtml(p, homeroomOf)).join('');
+        if (editing) {
+            const row = el('periods').querySelector(`[data-ordinal="${editing.ordinal}"]`);
+            if (row) openEditor(row, editing.ordinal, homeroomOf, true);
+        }
+    }
+
+    function periodHtml(p, homeroomOf) {
+        const here = lessonsAt(view.day, p.ordinal);
+        let what = '';
+        let note = '';
+        let clash = false;
+        if (homeroomOf) {
+            const mine = here.filter((l) => l.class === homeroomOf);
+            what = mine.length
+                ? mine.map((l) => `<b>${esc(l.subject || 'без предмет')}</b> · ${esc(l.teacher || 'без наставник')}`).join('<br>')
+                : '<span class="free">— празно —</span>';
+            const subjects = new Set(mine.map((l) => norm(l.subject)));
+            if (mine.filter((l) => l.teacherId != null).length > 1 && subjects.size > 1) {
+                clash = true;
+                note = '<div class="note warn">⚠ Два часа во ист термин — договорете се, или тргнете еден.</div>'
+                    + mine.map((l) => `<button type="button" class="small" data-remove="${l.id}">Тргни „${esc(l.subject || 'час')}"</button>`).join(' ');
+            }
+        } else {
+            const mine = here.filter((l) => l.teacherId === myId());
+            if (mine.length) {
+                what = mine.map((l) => `<b>${esc(l.class)}</b> · ${esc(l.subject || 'без предмет')}`).join('<br>');
+                const others = here.filter((l) => mine.some((m) => m.class === l.class) && l.teacherId != null && l.teacherId !== myId());
+                const against = others.filter((o) => !mine.some((m) => norm(m.subject) === norm(o.subject)));
+                const together = others.filter((o) => mine.some((m) => norm(m.subject) === norm(o.subject)));
+                if (mine.length > 1) { clash = true; note = '<div class="note warn">⚠ Во овој час сте во две паралелки.</div>'; }
+                if (against.length) {
+                    clash = true;
+                    note += `<div class="note warn">⚠ Во ${esc(against[0].class)} тогаш има и „${esc(against[0].subject || 'час')}" кај ${esc(against[0].teacher)}.</div>`;
+                }
+                if (together.length) note += `<div class="note">заедно со ${together.map((o) => esc(o.teacher)).join(', ')}</div>`;
+            } else what = '<span class="free">— слободен —</span>';
+        }
+        return `<li class="period${clash ? ' clash' : ''}" data-ordinal="${p.ordinal}">`
+            + `<div class="head"><span class="when">${esc(p.label)}. час ${periodTime(p)}</span>`
+            + `<span class="what">${what}</span>`
+            + `<button type="button" class="small" data-edit="${p.ordinal}">Уреди</button></div>${note}</li>`;
+    }
+
+    async function offerFor(label) {
+        if (!label) return [];
+        if (!offers.has(label)) {
+            offers.set(label, api('GET', '/api/portal/subjects?class=' + encodeURIComponent(label))
+                .then((b) => b.subjects || []).catch(() => []));
+        }
+        return offers.get(label);
+    }
+
+    function subjectOptions(list, chosen) {
+        const own = String(week.me.subject || '').split(',').map((s) => s.trim()).filter(Boolean);
+        const all = [...new Set([...own, ...list, ...(chosen ? [chosen] : [])])];
+        return '<option value="">— предмет —</option>'
+            + all.map((s) => `<option value="${esc(s)}"${norm(s) === norm(chosen) ? ' selected' : ''}>${esc(s)}</option>`).join('')
+            + '<option value="__other">друго…</option>';
+    }
+
+    /** What saving would do, said before saving: the page already has the timetable. */
+    function preview(homeroomOf, ordinal, form) {
+        const out = form.querySelector('.preview');
+        const subject = currentSubject(form);
+        const here = lessonsAt(view.day, ordinal);
+        const lines = [];
+        if (homeroomOf) {
+            const teacherId = form.elements.teacher.value ? Number(form.elements.teacher.value) : null;
+            here.filter((l) => l.class === homeroomOf && l.teacherId != null && l.teacherId !== myId() && l.teacherId !== teacherId)
+                .forEach((l) => lines.push(`Ќе се смени часот „${l.subject || 'час'}" на ${l.teacher}.`));
+            if (teacherId != null) {
+                here.filter((l) => l.teacherId === teacherId && l.class !== homeroomOf)
+                    .forEach((l) => lines.push(`${l.teacher} тогаш има ${l.class}${l.subject ? ` („${l.subject}")` : ''}.`));
+            }
+        } else {
+            const label = form.elements.klass.value;
+            if (label) {
+                here.filter((l) => l.class === label && l.teacherId != null && l.teacherId !== myId() && norm(l.subject) !== norm(subject))
+                    .forEach((l) => lines.push(`Во ${label} тогаш има „${l.subject || 'час'}" кај ${l.teacher}.`));
+            }
+        }
+        out.className = 'preview ' + (lines.length ? 'warn' : 'ok');
+        out.textContent = lines.length ? '⚠ ' + lines.join(' ') : (homeroomOf || form.elements.klass.value ? '✓ Нема судир.' : '');
+    }
+
+    function currentSubject(form) {
+        const other = form.querySelector('input[name=other]');
+        return other ? other.value.trim() : form.elements.subject.value;
+    }
+
+    async function openEditor(row, ordinal, homeroomOf, keep) {
+        el('periods').querySelectorAll('.editor').forEach((n) => n.remove());
+        editing = { ordinal };
+        const here = lessonsAt(view.day, ordinal);
+        const form = document.createElement('form');
+        form.className = 'editor';
+        form.noValidate = true;
+        let current;
+        if (homeroomOf) {
+            current = here.filter((l) => l.class === homeroomOf);
+            const one = current.length === 1 ? current[0] : null;
+            form.innerHTML = `<label>Предмет <select name="subject"></select></label>`
+                + `<label>Наставник <select name="teacher"><option value="">— без наставник —</option>`
+                + (week.teachers || []).map((t) => `<option value="${t.id}"${(one ? one.teacherId === t.id : t.id === myId()) ? ' selected' : ''}>${esc(t.name)}</option>`).join('')
+                + '</select></label>';
+            form.elements.subject.innerHTML = subjectOptions(await offerFor(homeroomOf), one ? one.subject : '');
+            form.dataset.expected = JSON.stringify(one ? { subject: one.subject, teacher: one.teacher } : null);
+        } else {
+            current = here.filter((l) => l.teacherId === myId());
+            const one = current[0] || null;
+            form.innerHTML = `<label>Паралелка <select name="klass"><option value="">— слободен —</option>`
+                + (week.classes || []).map((c) => `<option value="${esc(c.label)}"${one && one.class === c.label ? ' selected' : ''}>${esc(classText(c.label))}</option>`).join('')
+                + '</select></label><label>Предмет <select name="subject"></select></label>';
+            form.elements.subject.innerHTML = subjectOptions(await offerFor(one ? one.class : ''), one ? one.subject : '');
+            form.dataset.expected = JSON.stringify({ class: one ? one.class : null });
+            form.elements.klass.addEventListener('change', async () => {
+                // The list follows the class, unless a subject was typed by hand.
+                const select = form.querySelector('select[name=subject]');
+                if (select) select.innerHTML = subjectOptions(await offerFor(form.elements.klass.value), currentSubject(form));
+                preview(homeroomOf, ordinal, form);
+            });
+        }
+        form.insertAdjacentHTML('beforeend', '<p class="preview"></p><div class="row">'
+            + '<button type="submit" class="primary">Зачувај</button>'
+            + (homeroomOf ? '' : '<button type="button" data-act="clear">Испразни</button>')
+            + '<button type="button" data-act="cancel">Откажи</button></div><div class="ask" hidden></div>');
+        form.elements.subject.addEventListener('change', () => {
+            if (form.elements.subject.value === '__other') {
+                const input = document.createElement('input');
+                input.name = 'other';
+                input.placeholder = 'име на предметот';
+                form.elements.subject.replaceWith(input);
+                input.addEventListener('input', () => preview(homeroomOf, ordinal, form));
+                input.focus();
+            }
+            preview(homeroomOf, ordinal, form);
+        });
+        if (form.elements.teacher) form.elements.teacher.addEventListener('change', () => preview(homeroomOf, ordinal, form));
+        form.addEventListener('submit', (event) => { event.preventDefault(); save(form, homeroomOf, ordinal, false); });
+        form.querySelector('[data-act="cancel"]').addEventListener('click', () => { editing = null; form.remove(); });
+        const clear = form.querySelector('[data-act="clear"]');
+        if (clear) clear.addEventListener('click', () => save(form, homeroomOf, ordinal, false, true));
+        row.appendChild(form);
+        preview(homeroomOf, ordinal, form);
+        if (!keep) (form.querySelector('select') || form).focus();
+    }
+
+    async function save(form, homeroomOf, ordinal, force, clear) {
+        const ask = form.querySelector('.ask');
+        const expected = JSON.parse(form.dataset.expected || 'null');
+        const subject = currentSubject(form) || null;
+        let path;
+        let body;
+        if (homeroomOf) {
+            path = '/api/portal/class-lesson';
+            body = { class: homeroomOf, day: view.day, ordinal, subject, teacherId: form.elements.teacher.value ? Number(form.elements.teacher.value) : null, expected, force };
+        } else {
+            path = '/api/portal/my-lesson';
+            body = { day: view.day, ordinal, class: clear ? null : (form.elements.klass.value || null), subject: clear ? null : subject, expected, force };
+        }
+        form.querySelectorAll('button').forEach((b) => { b.disabled = true; });
+        try {
+            const answer = await api('PUT', path, body);
+            editing = null;
+            say('weekMsg', answer.notified ? `Зачувано. Известени колеги: ${answer.notified}.` : 'Зачувано.', 'ok');
+            await reloadWeek();
+        } catch (err) {
+            form.querySelectorAll('button').forEach((b) => { b.disabled = false; });
+            if (err.payload && err.payload.clash) {
+                ask.hidden = false;
+                ask.innerHTML = `<p><b>Судир.</b> ${esc(err.message)}</p>`
+                    + '<p class="muted">Ако сепак запишете, судирот останува забележан и колегата ќе го види. Може и да изберете друг час.</p>'
+                    + '<div class="row"><button type="button" class="warn" data-act="force">Сепак запиши</button>'
+                    + '<button type="button" data-act="other">Избери друг час</button></div>';
+                ask.querySelector('[data-act="force"]').addEventListener('click', () => save(form, homeroomOf, ordinal, true, clear));
+                ask.querySelector('[data-act="other"]').addEventListener('click', () => { editing = null; form.remove(); });
+                return;
+            }
+            if (err.payload && err.payload.stale) {
+                say('weekMsg', err.message, 'error');
+                editing = null;
+                await reloadWeek();
+                return;
+            }
+            say('weekMsg', err.message, 'error');
+        }
+    }
+
+    async function removeLesson(id, force) {
+        try {
+            const answer = await api('POST', '/api/portal/class-lesson/remove', { lessonId: id, force });
+            say('weekMsg', answer.notified ? 'Часот е тргнат. Колегата е известен.' : 'Часот е тргнат.', 'ok');
+            await reloadWeek();
+        } catch (err) {
+            if (err.payload && err.payload.clash && !force) {
+                if (window.confirm(err.message + '\n\nСепак да се тргне? Колегата ќе биде известен.')) return removeLesson(id, true);
+                return;
+            }
+            say('weekMsg', err.message, 'error');
+        }
+    }
+
+    function drawClashes() {
+        const list = week.clashes || [];
+        el('clashesCard').hidden = !list.length;
+        el('clashesList').innerHTML = list.map((c) => `<li><b>${esc(c.day)}, ${c.ordinal}. час</b> · ${esc(c.class)}: `
+            + c.lessons.map((l) => `„${esc(l.subject || 'час')}" кај ${esc(l.teacherId === myId() ? 'вас' : (l.teacher || '—'))}`).join(' и ')
+            + ` <button type="button" class="small" data-go="${esc(c.day)}|${c.ordinal}">Отвори</button></li>`).join('');
+    }
+
+    function drawNotices() {
+        const list = week.notices || [];
+        const unseen = list.filter((n) => !n.seen).length;
+        el('unseenCount').hidden = !unseen;
+        el('unseenCount').textContent = unseen;
+        el('noticesList').innerHTML = list.length
+            ? list.map((n) => `<li class="${n.seen ? '' : 'unseen'}">`
+                + `<span class="badge ${n.open ? 'open' : 'done'}">${n.open ? 'отворено' : 'решено'}</span> `
+                + `${esc(n.sentence)} <span class="muted">· ${esc(new Date(n.createdAt).toLocaleString('mk-MK', { dateStyle: 'short', timeStyle: 'short' }))}</span>`
+                + (n.kind === 'lesson' ? ` <button type="button" class="small" data-go="${esc(n.day)}|${esc(n.slot)}">Отвори</button>` : '')
+                + '</li>').join('')
+            : '<li class="muted">Нема известувања.</li>';
+    }
+
+    async function reloadWeek() {
+        week = await api('GET', '/api/portal/week');
+        drawWeek();
+    }
+
     function drawHome() {
         el('homeName').textContent = me.person.name;
         el('homeYear').textContent = 'Учебна ' + me.year;
-        el('homeRoles').innerHTML = '';
-        (me.roles || []).forEach((r) => {
-            const span = document.createElement('span');
-            span.className = 'role';
-            span.textContent = ROLE_NAMES[r] || r;
-            el('homeRoles').appendChild(span);
-        });
+        el('homeRoles').innerHTML = (me.roles || []).map((r) => `<span class="role">${esc(ROLE_NAMES[r] || r)}</span>`).join('');
         el('homeUser').textContent = 'Корисничко име: ' + me.usernames.latin + ' или ' + me.usernames.cyrillic
             + (me.initialPassword ? ' · со почетната лозинка' : '');
-        el('work').innerHTML = '<p>Вашиот неделен распоред ќе се пополнува тука.</p>';
         show('home');
+        reloadWeek().catch((err) => say('weekMsg', err.message, 'error'));
     }
+
+    // ── wiring ───────────────────────────────────────────────────────────
+    el('tabs').addEventListener('click', (event) => {
+        const b = event.target.closest('[data-tab]');
+        if (!b) return;
+        view.tab = b.dataset.tab;
+        editing = null;
+        drawWeek();
+    });
+    el('days').addEventListener('click', (event) => {
+        const b = event.target.closest('[data-day]');
+        if (!b) return;
+        view.day = b.dataset.day;
+        editing = null;
+        drawWeek();
+    });
+    el('periods').addEventListener('click', (event) => {
+        const edit = event.target.closest('[data-edit]');
+        if (edit) {
+            const ordinal = Number(edit.dataset.edit);
+            const homeroomOf = view.tab.startsWith('class:') ? view.tab.slice(6) : '';
+            openEditor(edit.closest('.period'), ordinal, homeroomOf, false);
+            return;
+        }
+        const remove = event.target.closest('[data-remove]');
+        if (remove) removeLesson(Number(remove.dataset.remove), false);
+    });
+    // „Отвори" from a clash or a notice: that day, that period, in one's own lessons.
+    document.addEventListener('click', (event) => {
+        const go = event.target.closest('[data-go]');
+        if (!go) return;
+        const [day, ordinal] = go.dataset.go.split('|');
+        view.day = day;
+        if (!view.tab.startsWith('class:') && week.me.teacherId != null) view.tab = 'mine';
+        editing = { ordinal: Number(ordinal) };
+        drawWeek();
+        const row = el('periods').querySelector(`[data-ordinal="${Number(ordinal)}"]`);
+        if (row) row.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    });
+
+    el('openNotices').addEventListener('click', async () => {
+        const open = el('noticesCard').hidden;
+        el('noticesCard').hidden = !open;
+        el('openNotices').setAttribute('aria-expanded', String(open));
+        const unseen = (week && week.notices || []).filter((n) => !n.seen).map((n) => n.id);
+        if (open && unseen.length) {
+            try { await api('POST', '/api/portal/notices/seen', { ids: unseen }); } catch (_) { /* they stay unseen */ }
+        }
+    });
 
     async function start() {
         if (!token.get()) return show('login');
@@ -237,7 +628,7 @@ header.top h1 { flex: 1; min-width: 200px; }
             me.initialPassword = false;
             event.target.reset();
             say('passwordMsg', 'Лозинката е сменета.', 'ok');
-            drawHome();
+            el('homeUser').textContent = 'Корисничко име: ' + me.usernames.latin + ' или ' + me.usernames.cyrillic;
             el('passwordCard').hidden = true;
         } catch (err) { say('passwordMsg', err.message, 'error'); }
     });
@@ -246,6 +637,7 @@ header.top h1 { flex: 1; min-width: 200px; }
         try { await api('POST', '/api/portal/logout'); } catch (_) { /* the token goes either way */ }
         token.clear();
         me = null;
+        week = null;
         show('login');
     });
 

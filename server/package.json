@@ -79,6 +79,7 @@
     "test:class-cards": "node test/class-cards.browser.mjs",
     "test:back-forward": "node test/back-forward.browser.mjs",
     "test:portal": "tsx test/portal.e2e.ts",
+    "test:portal-week": "tsx test/portal-week.e2e.ts",
     "test:kolega": "node test/kolega.browser.mjs"
   },
   "dependencies": {

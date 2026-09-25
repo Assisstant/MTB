@@ -40,7 +40,7 @@ async function schoolYear(label?: string) {
     return rows[0] ?? null;
 }
 
-async function bellsOf(schedule: string, schoolYearId: number): Promise<Bell[]> {
+export async function bellsOf(schedule: string, schoolYearId: number): Promise<Bell[]> {
     const { rows } = await pool.query(
         `SELECT b.id, b.ordinal,
                 coalesce(o.label, b.label, b.ordinal::text) AS label,
@@ -57,6 +57,57 @@ async function bellsOf(schedule: string, schoolYearId: number): Promise<Bell[]> 
     return rows.map((r: any) => ({
         id: r.id, schedule, ordinal: r.ordinal, label: r.label, startsAt: r.starts_at, minutes: r.minutes
     })) as Bell[];
+}
+
+/**
+ * The MON subjects a class may be offered, from the generations of the
+ * children actually in it: one copy, for Уреди настава and for the
+ * colleagues' own form (routes/portal.ts). See the route below for why.
+ */
+export async function subjectOffer(year: { id: number; label: string }, label: string) {
+    const ROMAN = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX'];
+    let grades: string[] = [];
+    let basis: 'oddelenie' | 'label' | 'all' = 'all';
+
+    if (label) {
+        const { rows } = await pool.query(
+            `SELECT DISTINCT btrim(e.oddelenie) AS g
+               FROM student_enrollments e
+               JOIN students s ON s.id = e.student_id
+              WHERE e.school_year_id = $1 AND e.active AND s.active
+                AND lower(btrim(e.grade)) = lower($2)
+                AND e.oddelenie IS NOT NULL AND btrim(e.oddelenie) <> ''`,
+            [year.id, label]
+        );
+        grades = rows.map((r: any) => String(r.g).toUpperCase()).filter((g) => ROMAN.includes(g));
+        if (grades.length) basis = 'oddelenie';
+    }
+    if (!grades.length && label) {
+        // „IV-а" → IV. A combined label carries no numeral and falls through.
+        const match = /^\s*(IX|IV|V?I{0,3})\b/i.exec(label.replace(/[Іі]/g, 'I').replace(/[Хх]/g, 'X'));
+        const guess = match ? match[1].toUpperCase() : '';
+        if (ROMAN.includes(guess)) { grades = [guess]; basis = 'label'; }
+    }
+
+    const { rows: found } = await pool.query(
+        grades.length
+            ? `SELECT subject, min(category) AS category,
+                      array_agg(DISTINCT grade ORDER BY grade) AS grades
+                 FROM teaching_subjects WHERE grade = ANY($1)
+                GROUP BY subject ORDER BY subject`
+            : `SELECT subject, min(category) AS category,
+                      array_agg(DISTINCT grade ORDER BY grade) AS grades
+                 FROM teaching_subjects GROUP BY subject ORDER BY subject`,
+        grades.length ? [grades] : []
+    );
+
+    return {
+        year: year.label,
+        class: label || null,
+        basis,
+        grades: grades.sort((a, b) => ROMAN.indexOf(a) - ROMAN.indexOf(b)),
+        subjects: found
+    };
 }
 
 export async function teachingRoutes(server: FastifyInstance) {
@@ -152,50 +203,7 @@ export async function teachingRoutes(server: FastifyInstance) {
         if (!year) {
             return reply.code(404).send({ error: 'no such school year' });
         }
-
-        const ROMAN = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX'];
-        let grades: string[] = [];
-        let basis: 'oddelenie' | 'label' | 'all' = 'all';
-
-        if (label) {
-            const { rows } = await pool.query(
-                `SELECT DISTINCT btrim(e.oddelenie) AS g
-                   FROM student_enrollments e
-                   JOIN students s ON s.id = e.student_id
-                  WHERE e.school_year_id = $1 AND e.active AND s.active
-                    AND lower(btrim(e.grade)) = lower($2)
-                    AND e.oddelenie IS NOT NULL AND btrim(e.oddelenie) <> ''`,
-                [year.id, label]
-            );
-            grades = rows.map((r: any) => String(r.g).toUpperCase()).filter((g) => ROMAN.includes(g));
-            if (grades.length) basis = 'oddelenie';
-        }
-        if (!grades.length && label) {
-            // „IV-а" → IV. A combined label carries no numeral and falls through.
-            const match = /^\s*(IX|IV|V?I{0,3})\b/i.exec(label.replace(/[Іі]/g, 'I').replace(/[Хх]/g, 'X'));
-            const guess = match ? match[1].toUpperCase() : '';
-            if (ROMAN.includes(guess)) { grades = [guess]; basis = 'label'; }
-        }
-
-        const { rows: found } = await pool.query(
-            grades.length
-                ? `SELECT subject, min(category) AS category,
-                          array_agg(DISTINCT grade ORDER BY grade) AS grades
-                     FROM teaching_subjects WHERE grade = ANY($1)
-                    GROUP BY subject ORDER BY subject`
-                : `SELECT subject, min(category) AS category,
-                          array_agg(DISTINCT grade ORDER BY grade) AS grades
-                     FROM teaching_subjects GROUP BY subject ORDER BY subject`,
-            grades.length ? [grades] : []
-        );
-
-        return {
-            year: year.label,
-            class: label || null,
-            basis,
-            grades: grades.sort((a, b) => ROMAN.indexOf(a) - ROMAN.indexOf(b)),
-            subjects: found
-        };
+        return subjectOffer(year, label);
     });
 
     /**

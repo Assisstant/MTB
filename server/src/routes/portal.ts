@@ -16,6 +16,12 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import { pool } from '../db.js';
 import { assertOwner, refuseScope, scopeOf } from '../lib/colleague.js';
+import { TEACHING_DAYS } from '../lib/teaching.js';
+import {
+    addNotices, classLessonClashes, myLessonClashes, noticeSentence, putLesson, putTeacherLesson,
+    standingClashes, yearClasses, yearLessons, yearTeachers, type Clash, type WeekLesson
+} from '../lib/portal-week.js';
+import { bellsOf, subjectOffer } from './teaching.js';
 import {
     MIN_PASSWORD, PORTAL_TOKEN_HEADER, closeOtherSessions, closeSession, looseKey, nameKeys,
     openSession, passwordMatches, resetAccount, resolveUsername, sessionEmployee, setPassword,
@@ -95,6 +101,84 @@ async function rolesOf(staff: Staff, yearId: number) {
     }
     if (staff.therapistId != null) roles.push('therapist');
     return { roles, teacher, therapist: staff.therapistId != null ? { id: staff.therapistId } : null };
+}
+
+const MyLessonBody = z.object({
+    day: z.string().min(1).max(20),
+    ordinal: z.number().int().min(1).max(12),
+    class: z.string().max(40).nullable(),
+    subject: z.string().max(120).nullable().optional(),
+    expected: z.object({ class: z.string().max(40).nullable().optional() }).nullable().optional(),
+    force: z.boolean().optional()
+});
+const ClassLessonBody = z.object({
+    class: z.string().min(1).max(40),
+    day: z.string().min(1).max(20),
+    ordinal: z.number().int().min(1).max(12),
+    subject: z.string().max(120).nullable().optional(),
+    teacherId: z.number().int().positive().nullable().optional(),
+    expected: z.object({
+        subject: z.string().max(120).nullable().optional(),
+        teacher: z.string().max(200).nullable().optional()
+    }).nullable().optional(),
+    force: z.boolean().optional()
+});
+
+const cleanText = (value: unknown) => {
+    const text = String(value ?? '').replace(/\s+/g, ' ').trim();
+    return text ? text.slice(0, 120) : null;
+};
+
+/** Writes to one period are made one at a time, so two colleagues cannot both see it free. */
+async function lockPeriod(client: any, yearId: number, day: string, ordinal: number) {
+    await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [`portal-lesson|${yearId}|${day}|${ordinal}`]);
+}
+
+/** The class, if the person leads it this year. */
+async function homeroomClass(client: any, who: { staff: Staff; year: { id: number } }, label: string) {
+    if (who.staff.teacherId == null) return undefined;
+    const { rows } = await client.query(
+        `SELECT c.id, c.label FROM teacher_classes tc JOIN school_classes c ON c.id = tc.class_id
+          WHERE tc.teacher_id = $1 AND tc.school_year_id = $2 AND tc.role = 'homeroom' AND c.label = $3`,
+        [who.staff.teacherId, who.year.id, label]);
+    return rows[0] as { id: number; label: string } | undefined;
+}
+
+/** A clash, said before anything is saved: who, which class, which subject. */
+function clashAnswer(clashes: Clash[], day: string, ordinal: number) {
+    const lines = clashes.map((c) => c.why === 'teacher-busy'
+        ? `${c.teacher || 'Наставникот'} во тој час има ${c.class}${c.subject ? ` („${c.subject}")` : ''}.`
+        : c.why === 'lesson-replaced'
+            ? `Во тој час ${c.class} има „${c.subject || 'час'}" кај ${c.teacher || 'друг наставник'} — ќе се смени.`
+            : `Во тој час ${c.class} веќе има „${c.subject || 'час'}" кај ${c.teacher || 'друг наставник'}.`);
+    return {
+        clash: true,
+        error: `${day}, ${ordinal}. час: ` + lines.join(' '),
+        clashes: clashes.map((c) => ({ teacher: c.teacher, class: c.class, subject: c.subject, why: c.why }))
+    };
+}
+
+/** The notices for this person, each with whether the clash still stands. */
+async function noticesFor(staff: Staff, yearId: number, lessons: WeekLesson[]) {
+    const { rows } = await pool.query(
+        `SELECT id, created_at AS "createdAt", author_name AS author, kind, day, slot, about, sentence, seen_at IS NOT NULL AS seen
+           FROM schedule_notices
+          WHERE recipient_employee_id = $1 AND school_year_id = $2 AND closed_at IS NULL
+          ORDER BY created_at DESC LIMIT 100`, [staff.employeeId, yearId]);
+    return rows.map((n: any) => {
+        let open = false;
+        if (n.kind === 'lesson') {
+            const label = String(n.about).replace(/^class:/, '');
+            const ordinal = Number(n.slot);
+            const cell = lessons.filter((l) => l.day === n.day && l.ordinal === ordinal && l.class === label && l.teacherId != null);
+            const subjects = new Set(cell.map((l) => String(l.subject || '').toLocaleLowerCase('mk-MK')));
+            const twice = staff.teacherId != null
+                && lessons.filter((l) => l.day === n.day && l.ordinal === ordinal && l.teacherId === staff.teacherId).length > 1;
+            open = (cell.length > 1 && subjects.size > 1) || twice;
+        }
+        // bigserial arrives as text from node-postgres; the page counts in numbers.
+        return { ...n, id: Number(n.id), open };
+    });
 }
 
 const LoginBody = z.object({ username: z.string().min(1).max(120), password: z.string().min(1).max(200) });
@@ -177,6 +261,213 @@ export async function portalRoutes(server: FastifyInstance, options: { year?: st
             year: who.year.label,
             ...(await rolesOf(who.staff, who.year.id))
         };
+    });
+
+    // ── step 2: the teaching week ─────────────────────────────────────────
+
+    /**
+     * The person's week. A teacher gets the school's teaching timetable —
+     * which is posted in every staff room anyway — so the form can show whose
+     * lesson a cell would sit on before anything is saved; the server checks
+     * again on every write. Nobody gets a pupil's name from this route.
+     */
+    server.get('/api/portal/week', async (req, reply) => {
+        const who = await signed(req, reply);
+        if (!who) return;
+        const role = await rolesOf(who.staff, who.year.id);
+        const homeroom = (role.teacher?.classes || []).filter((c: any) => c.role === 'homeroom').map((c: any) => c.label);
+        const teaching = who.staff.teacherId != null;
+        const [periods, lessons, classes, teachers] = teaching
+            ? await Promise.all([bellsOf('nastava-am', who.year.id), yearLessons(pool, who.year.id),
+                yearClasses(pool, who.year.id), yearTeachers(pool, who.year.id)])
+            : [[], [], [], []] as [any[], WeekLesson[], any[], any[]];
+        return {
+            year: who.year.label,
+            days: TEACHING_DAYS,
+            periods: periods.map((p: any) => ({ ordinal: p.ordinal, label: p.label, startsAt: p.startsAt })),
+            me: { teacherId: who.staff.teacherId, therapistId: who.staff.therapistId, homeroom, subject: role.teacher?.subject || null },
+            classes: classes.map((c: any) => ({ label: c.label, description: c.description, homeroom: c.homeroom })),
+            teachers: teachers.map((t: any) => ({ id: t.id, name: t.name, subject: t.subject })),
+            lessons,
+            clashes: teaching ? standingClashes(lessons, who.staff.teacherId, homeroom) : [],
+            notices: await noticesFor(who.staff, who.year.id, lessons)
+        };
+    });
+
+    /** The MON offer for one class, as Уреди настава has it. */
+    server.get('/api/portal/subjects', async (req, reply) => {
+        const who = await signed(req, reply);
+        if (!who) return;
+        const label = String((req.query as any)?.class ?? '').trim().slice(0, 40);
+        const offer = await subjectOffer(who.year, label);
+        return { subjects: offer.subjects.map((s: any) => s.subject) };
+    });
+
+    server.post('/api/portal/notices/seen', async (req, reply) => {
+        const who = await signed(req, reply);
+        if (!who) return;
+        const ids = z.object({ ids: z.array(z.coerce.number().int().positive()).max(200) }).parse(req.body).ids;
+        await pool.query(
+            `UPDATE schedule_notices SET seen_at = coalesce(seen_at, now())
+              WHERE id = ANY($1::bigint[]) AND recipient_employee_id = $2`, [ids, who.staff.employeeId]);
+        return { ok: true };
+    });
+
+    /** A subject teacher's own period: which class, which subject — or nothing. */
+    server.put('/api/portal/my-lesson', async (req, reply) => {
+        const who = await signed(req, reply);
+        if (!who) return;
+        const teacherId = who.staff.teacherId;
+        if (teacherId == null) return reply.code(403).send({ error: 'Само наставник има свои часови.' });
+        const b = MyLessonBody.parse(req.body);
+        if (!TEACHING_DAYS.includes(b.day)) return reply.code(400).send({ error: 'Непознат ден.' });
+        const subject = cleanText(b.subject);
+        const client = await pool.connect();
+        try {
+            await client.query('BEGIN');
+            await lockPeriod(client, who.year.id, b.day, b.ordinal);
+            const lessons = await yearLessons(client, who.year.id);
+            const classes = await yearClasses(client, who.year.id);
+            const cls = b.class ? classes.find((c) => c.label === b.class) : null;
+            if (b.class && !cls) {
+                await client.query('ROLLBACK');
+                return reply.code(400).send({ error: 'Таа паралелка не е на листата за годинава.' });
+            }
+            const clashes = cls ? myLessonClashes(lessons, { teacherId, day: b.day, ordinal: b.ordinal, classLabel: cls.label, subject }) : [];
+            if (clashes.length && !b.force) {
+                await client.query('ROLLBACK');
+                return reply.code(409).send(clashAnswer(clashes, b.day, b.ordinal));
+            }
+            const written = await putTeacherLesson(client,
+                { yearId: who.year.id, day: b.day, ordinal: b.ordinal, teacherId },
+                // The clash was decided above, with the subject taken into
+                // account; the writer's own refusal of a taken class is not
+                // asked a second time.
+                { classId: cls ? cls.id : null, subject, together: true, force: true },
+                b.expected === undefined ? undefined : { class: b.expected ? b.expected.class ?? null : null });
+            if (!written.ok) {
+                await client.query('ROLLBACK');
+                return reply.code(409).send(written.code === 'conflict'
+                    ? { stale: true, error: 'Во меѓувреме некој го сменил овој час. Неделата е освежена: погледнете и обидете се повторно.' }
+                    : { error: 'Во овој час веќе имате повеќе од еден час. Прво испразнете го вишокот.' });
+            }
+            let notified = 0;
+            if (cls && clashes.length) {
+                const when = { day: b.day, ordinal: b.ordinal, classLabel: cls.label, subject };
+                const recipients = clashes.filter((c) => c.teacherId != null)
+                    .map((c) => ({ teacherId: c.teacherId as number, sentence: noticeSentence(who.staff.name, c, when) }));
+                if (cls.homeroomId != null && cls.homeroomId !== teacherId
+                    && !recipients.some((r) => r.teacherId === cls.homeroomId)) {
+                    const first = clashes[0];
+                    recipients.push({ teacherId: cls.homeroomId, sentence:
+                        `${who.staff.name} запиша ${subject ? `„${subject}"` : 'час'} во вашата паралелка ${cls.label}, ${b.day}, ${b.ordinal}. час, `
+                        + `каде веќе има „${first.subject || 'час'}"${first.teacher ? ` кај ${first.teacher}` : ''}.` });
+                }
+                notified = await addNotices(client, { yearId: who.year.id, authorEmployeeId: who.staff.employeeId,
+                    authorName: who.staff.name, day: b.day, slot: String(b.ordinal), about: 'class:' + cls.label, recipients });
+            }
+            await client.query('COMMIT');
+            return { ok: true, action: written.action, notified };
+        } catch (err) {
+            await client.query('ROLLBACK').catch(() => {});
+            throw err;
+        } finally { client.release(); }
+    });
+
+    /** A homeroom teacher's class: one period, its subject and its teacher. */
+    server.put('/api/portal/class-lesson', async (req, reply) => {
+        const who = await signed(req, reply);
+        if (!who) return;
+        const b = ClassLessonBody.parse(req.body);
+        if (!TEACHING_DAYS.includes(b.day)) return reply.code(400).send({ error: 'Непознат ден.' });
+        const subject = cleanText(b.subject);
+        const client = await pool.connect();
+        try {
+            await client.query('BEGIN');
+            await lockPeriod(client, who.year.id, b.day, b.ordinal);
+            const cls = await homeroomClass(client, who, b.class);
+            if (!cls) {
+                await client.query('ROLLBACK');
+                return reply.code(403).send({ error: 'Може да се менува само паралелката на која сте раководител.' });
+            }
+            let teacherName: string | null = null;
+            if (b.teacherId != null) {
+                const t = (await yearTeachers(client, who.year.id)).find((x) => x.id === b.teacherId);
+                if (!t) {
+                    await client.query('ROLLBACK');
+                    return reply.code(400).send({ error: 'Тој наставник не е на листата за годинава.' });
+                }
+                teacherName = t.name;
+            }
+            const lessons = await yearLessons(client, who.year.id);
+            const here = lessons.filter((l) => l.day === b.day && l.ordinal === b.ordinal && l.class === cls.label);
+            if (here.length > 1) {
+                await client.query('ROLLBACK');
+                return reply.code(409).send({ cellClash: true, error: 'Во овој час паралелката има повеќе часови. Прво тргнете го вишокот.' });
+            }
+            const clashes = classLessonClashes(lessons, { meId: who.staff.teacherId as number, day: b.day, ordinal: b.ordinal,
+                classLabel: cls.label, subject, teacherId: b.teacherId ?? null });
+            if (clashes.length && !b.force) {
+                await client.query('ROLLBACK');
+                return reply.code(409).send(clashAnswer(clashes, b.day, b.ordinal));
+            }
+            const written = await putLesson(client, { yearId: who.year.id, day: b.day, ordinal: b.ordinal, classId: cls.id },
+                { subject, teacherId: b.teacherId ?? null },
+                b.expected === undefined ? undefined
+                    : (b.expected ? { subject: b.expected.subject ?? null, teacher: b.expected.teacher ?? null } : null));
+            if (!written.ok) {
+                await client.query('ROLLBACK');
+                return reply.code(409).send(written.code === 'conflict'
+                    ? { stale: true, error: 'Во меѓувреме некој го сменил овој час. Неделата е освежена: погледнете и обидете се повторно.' }
+                    : { cellClash: true, error: 'Во овој час паралелката има повеќе часови. Прво тргнете го вишокот.' });
+            }
+            const when = { day: b.day, ordinal: b.ordinal, classLabel: cls.label, subject, teacher: teacherName };
+            const notified = clashes.length ? await addNotices(client, { yearId: who.year.id, authorEmployeeId: who.staff.employeeId,
+                authorName: who.staff.name, day: b.day, slot: String(b.ordinal), about: 'class:' + cls.label,
+                recipients: clashes.filter((c) => c.teacherId != null)
+                    .map((c) => ({ teacherId: c.teacherId as number, sentence: noticeSentence(who.staff.name, c, when) })) }) : 0;
+            await client.query('COMMIT');
+            return { ok: true, action: written.action, notified };
+        } catch (err) {
+            await client.query('ROLLBACK').catch(() => {});
+            throw err;
+        } finally { client.release(); }
+    });
+
+    /** A homeroom teacher takes one lesson out of their class — how a clash is ended from that side. */
+    server.post('/api/portal/class-lesson/remove', async (req, reply) => {
+        const who = await signed(req, reply);
+        if (!who) return;
+        const b = z.object({ lessonId: z.number().int().positive(), force: z.boolean().optional() }).parse(req.body);
+        const client = await pool.connect();
+        try {
+            await client.query('BEGIN');
+            const { rows } = await client.query(
+                `SELECT l.id, l.day, l.ordinal, l.subject, l.teacher_id AS "teacherId", t.name AS teacher, c.label AS class
+                   FROM lessons l JOIN school_classes c ON c.id = l.class_id LEFT JOIN teachers t ON t.id = l.teacher_id
+                  WHERE l.id = $1 AND l.school_year_id = $2 FOR UPDATE OF l`, [b.lessonId, who.year.id]);
+            const lesson = rows[0];
+            if (!lesson || !(await homeroomClass(client, who, lesson.class))) {
+                await client.query('ROLLBACK');
+                return reply.code(403).send({ error: 'Може да се менува само паралелката на која сте раководител.' });
+            }
+            const theirs = lesson.teacherId != null && lesson.teacherId !== who.staff.teacherId;
+            if (theirs && !b.force) {
+                await client.query('ROLLBACK');
+                return reply.code(409).send(clashAnswer([{ teacherId: lesson.teacherId, teacher: lesson.teacher, class: lesson.class,
+                    subject: lesson.subject, why: 'lesson-replaced' }], lesson.day, lesson.ordinal));
+            }
+            await client.query('DELETE FROM lessons WHERE id = $1', [lesson.id]);
+            const notified = theirs ? await addNotices(client, { yearId: who.year.id, authorEmployeeId: who.staff.employeeId,
+                authorName: who.staff.name, day: lesson.day, slot: String(lesson.ordinal), about: 'class:' + lesson.class,
+                recipients: [{ teacherId: lesson.teacherId, sentence:
+                    `${who.staff.name} го тргна вашиот час „${lesson.subject || 'час'}" од ${lesson.class}, ${lesson.day}, ${lesson.ordinal}. час.` }] }) : 0;
+            await client.query('COMMIT');
+            return { ok: true, notified };
+        } catch (err) {
+            await client.query('ROLLBACK').catch(() => {});
+            throw err;
+        } finally { client.release(); }
     });
 
     // ── the administrator's side, behind the owner's own sign-in ─────────

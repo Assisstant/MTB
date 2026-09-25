@@ -160,6 +160,7 @@ server/src/routes/sync-status.ts     read-only: the sync manifests, migrations, 
 server/src/routes/form-replies.ts    the review queue for offline form answers: stored first, the administrator decides
 server/src/routes/portal.ts          the colleagues' door (/api/portal/*): every route checks its own session
 server/src/lib/staff-accounts.ts     the username is the person's name in either script; the initial password; sessions
+server/src/lib/portal-week.ts        a colleague's teaching week: what a change clashes with, and the notices it leaves
 server/src/lib/evidence.ts           the catalogue, the year's columns and one sheet read whole
 server/src/lib/public-static.ts      explicit allowlist for files published by the local server
 server/src/routes/data.ts       read endpoints
@@ -255,6 +256,7 @@ npm run test:one-change              a write in one window reaches every other o
 npm run test:class-cards             a class reads the same in every picker, whole row on hover; every API call invented
 npm run test:back-forward            Back/Forward walk tabs, views and workspace windows; every API call invented
 npm run test:portal                  the colleagues' sign-in against the database, in-process, invented year
+npm run test:portal-week             a colleague's own week: clash before saving, „сепак", notices; database, invented year
 npm run test:kolega                  Kolega.html in a browser; every API call invented
 npm run test:schedule-form           the cabinet form (all therapists) offline, then into the queue
 npm run test:class-form              the class form AND the teacher's own week from Уреди настава, offline, then in
