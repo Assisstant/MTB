@@ -4002,3 +4002,20 @@ for it as a tab on the colleagues' page. Its logic had several faults:
   - the settings fold away once saved;
   - a month begins at the rotation's first day, and the days gone by fold
     away until asked for. Printing shows them all.
+- **A swap is a deal, not an order (044, owner, same evening).** "One has
+  something that day and the other does them a favour". The owner drags ⠿
+  on a name onto another day's name, or uses ⋯ → „Замени со ден", and
+  confirms in a popup.
+  - **Stored:** `duty_swaps` holds both days AND both people. The rota is
+    worked out exactly as before, and `applySwaps` trades the two names
+    afterwards, so the order of the list never moves.
+  - **Stale swaps:** if the rota later moves (a sick day, a closed day) and
+    one of those days is no longer that person's, the swap stops applying and
+    is listed for the owner to take back. It is never carried over to
+    whoever now stands there, because the favour was between two named
+    people.
+  - **Recording one:** the route re-checks both people under a table lock
+    and refuses a day that is already swapped.
+  - **Across months:** the rota is worked out as far as the furthest swap
+    touching the month, so a swap over the end of a month shows on both
+    sides.

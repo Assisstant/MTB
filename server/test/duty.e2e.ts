@@ -128,6 +128,29 @@ async function main() {
         checkEq('a day given by agreement: whoever was next is still next', names(m), [C, A, B, C, A, B]);
         await call('PUT', '/api/duty/day', { year: YEAR, date: days[0], closed: false, assignedEmployeeId: null });
 
+        console.log('\na swap between two colleagues');
+        const sw = await call('PUT', '/api/duty/swap', { year: YEAR, note: 'договор',
+            first: { date: days[2], employeeId: emp.get(C) }, second: { date: days[0], employeeId: emp.get(A) } });
+        checkEq('two colleagues trade days', sw.status, 200);
+        m = await month();
+        checkEq('the two days trade names, and the list goes on untouched', names(m), [C, B, A, A, B, C]);
+        check('each day says whom it was traded with, and on which day',
+            m.days[0].how === 'swap' && m.days[0].swap?.name === A && m.days[0].swap?.date === days[2] && m.days[0].swap?.note === 'договор',
+            JSON.stringify(m.days[0]));
+        checkEq('a day already traded is refused', (await call('PUT', '/api/duty/swap', { year: YEAR,
+            first: { date: days[0], employeeId: emp.get(C) }, second: { date: days[1], employeeId: emp.get(B) } })).status, 409);
+        checkEq('a swap stating the wrong person for a day is refused — the deal is between those two',
+            (await call('PUT', '/api/duty/swap', { year: YEAR,
+                first: { date: days[1], employeeId: emp.get(A) }, second: { date: days[4], employeeId: emp.get(B) } })).status, 409);
+        await call('PUT', '/api/duty/absence', { year: YEAR, date: days[0], employeeId: emp.get(A), absent: true });
+        m = await month();
+        check('when the rota moves under it, the swap stops applying and is reported',
+            m.days.every((d: any) => d.how !== 'swap') && m.staleSwaps?.length === 1 && m.staleSwaps[0].first.name === A,
+            JSON.stringify(m.staleSwaps));
+        await call('PUT', '/api/duty/absence', { year: YEAR, date: days[0], employeeId: emp.get(A), absent: false });
+        checkEq('a swap is taken back', (await call('POST', '/api/duty/swap/remove', { year: YEAR, id: sw.body.id })).status, 200);
+        checkEq('and the days are as before', names(await month()), [A, B, C, A, B, C]);
+
         const october = await call('GET', `/api/duty?year=${encodeURIComponent(YEAR)}&month=2098-10`);
         const september = await month();
         const lastSept = september.days[september.days.length - 1].name;

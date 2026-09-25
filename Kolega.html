@@ -130,6 +130,17 @@ header.top h1 { flex: 1; min-width: 180px; }
 .duty-list li { display: flex; gap: 6px; align-items: center; border: 1px solid var(--line); border-radius: 8px;
                 padding: 6px 8px; background: var(--well); }
 .duty-list li.dragging { opacity: .6; border-style: dashed; }
+.swap-grip { cursor: grab; touch-action: none; padding: 2px 7px; margin-right: 4px; vertical-align: baseline; }
+.swap-ghost { position: fixed; z-index: 60; pointer-events: none; background: var(--accent); color: #fff; font-weight: 700;
+              padding: 5px 10px; border-radius: 8px; box-shadow: 0 8px 20px rgba(0, 0, 0, .3); font-size: 14px; }
+.duty-table tr.swap-target td { outline: 2px dashed var(--accent); outline-offset: -2px; }
+.swap-ask { position: fixed; inset: 0; z-index: 70; background: rgba(0, 0, 0, .45); display: flex; align-items: center; justify-content: center; padding: 16px; }
+.swap-card { background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px;
+             max-width: 420px; width: 100%; box-shadow: 0 16px 40px rgba(0, 0, 0, .35); }
+.swap-card h3 { margin: 0 0 8px; font-size: 17px; }
+.swap-card input { width: 100%; box-sizing: border-box; margin: 6px 0 10px; }
+.duty-stale { border: 1px solid var(--warn); background: var(--warn-bg); border-radius: 10px; padding: 8px 12px; margin: 8px 0; font-size: 14px; }
+.duty-stale div { margin-top: 4px; }
 .duty-list .grip { cursor: grab; touch-action: none; padding: 4px 8px; }
 .duty-table tr.folded { display: none; }
 @media print { body.printing-duty .duty-table tr.folded { display: table-row !important; } }
@@ -239,6 +250,7 @@ header.top h1 { flex: 1; min-width: 180px; }
   </section>
 </main>
 <div class="class-card" id="classCard" role="tooltip" hidden></div>
+<div class="swap-ask" id="swapAsk" role="dialog" aria-modal="true" aria-labelledby="swapAskTitle" hidden></div>
 <script>
 (function () {
     'use strict';
@@ -512,6 +524,94 @@ header.top h1 { flex: 1; min-width: 180px; }
         return out;
     }
 
+    // ── замена: two colleagues trade days (044) ─────────────────────────────
+    // A deal between two people, not a change of the list: the rotation is
+    // worked out as before and only the two days trade names. The owner drags
+    // one name onto another (⠿), or picks the other day under ⋯, and confirms.
+    const weekdayOf = (iso) => new Date(iso + 'T00:00:00Z').getUTCDay();
+    const swappable = (d) => d.employeeId != null && !d.closed && !d.swap;
+    const canSwap = (a, b) => a !== b && a.date !== b.date && swappable(a) && swappable(b) && a.employeeId !== b.employeeId;
+    const dayOn = (date) => duty.data.days.find((x) => x.date === date);
+
+    function askSwap(fromDate, toDate) {
+        const a = dayOn(fromDate);
+        const b = dayOn(toDate);
+        if (!a || !b || !canSwap(a, b)) return;
+        const box = el('swapAsk');
+        box.innerHTML = '<div class="swap-card">'
+            + '<h3 id="swapAskTitle">⇄ Замена на дежурства?</h3>'
+            + `<p><b>${esc(a.name)}</b> ќе дежура на <b>${WEEKDAY[b.weekday]} ${dmy(b.date)}</b>, `
+            + `а <b>${esc(b.name)}</b> на <b>${WEEKDAY[a.weekday]} ${dmy(a.date)}</b>.</p>`
+            + '<p class="muted">Ова е договор меѓу двајцата: редоследот на списокот не се менува.</p>'
+            + '<input id="swapNote" maxlength="200" placeholder="белешка, не мора (на пр. лекар)" aria-label="Белешка">'
+            + '<div class="row"><button type="button" class="primary small" id="swapYes">Потврди ја замената</button>'
+            + '<button type="button" class="small" id="swapNo">Откажи</button></div></div>';
+        box.dataset.from = a.date;
+        box.dataset.to = b.date;
+        box.hidden = false;
+        el('swapYes').focus();
+    }
+    const closeSwap = () => { el('swapAsk').hidden = true; };
+    el('swapAsk').addEventListener('click', async (event) => {
+        const box = el('swapAsk');
+        if (event.target === box || event.target.closest('#swapNo')) return closeSwap();
+        const yes = event.target.closest('#swapYes');
+        if (!yes) return;
+        const a = dayOn(box.dataset.from);
+        const b = dayOn(box.dataset.to);
+        yes.disabled = true;
+        try {
+            await ownerApi('PUT', '/api/duty/swap', { first: { date: a.date, employeeId: a.employeeId },
+                second: { date: b.date, employeeId: b.employeeId }, note: el('swapNote').value });
+            closeSwap();
+            duty.open = '';
+            await showDuty(duty.month);
+            say('weekMsg', `Заменето: ${a.name} ↔ ${b.name}.`, 'ok');
+        } catch (err) { yes.disabled = false; closeSwap(); say('weekMsg', err.message, 'error'); }
+    });
+    document.addEventListener('keydown', (event) => { if (event.key === 'Escape' && !el('swapAsk').hidden) closeSwap(); });
+
+    // Dragging a name: a mouse or a finger alike. A copy of the name follows
+    // the pointer; the day under it lights up when it can take the swap.
+    let swapDrag = null;
+    el('duty').addEventListener('pointerdown', (event) => {
+        const grip = event.target.closest('[data-swap-from]');
+        if (!grip) return;
+        event.preventDefault();
+        grip.setPointerCapture(event.pointerId);
+        const from = dayOn(grip.dataset.swapFrom);
+        const ghost = document.createElement('div');
+        ghost.className = 'swap-ghost';
+        ghost.textContent = '⇄ ' + from.name;
+        document.body.appendChild(ghost);
+        swapDrag = { from, ghost, target: null };
+        moveGhost(event);
+    });
+    function moveGhost(event) {
+        swapDrag.ghost.style.left = (event.clientX + 12) + 'px';
+        swapDrag.ghost.style.top = (event.clientY + 12) + 'px';
+        const under = document.elementFromPoint(event.clientX, event.clientY);
+        const row = under && under.closest && under.closest('#duty tr[data-date]');
+        const day = row && dayOn(row.dataset.date);
+        const target = day && canSwap(swapDrag.from, day) ? row : null;
+        if (target !== swapDrag.target) {
+            if (swapDrag.target) swapDrag.target.classList.remove('swap-target');
+            if (target) target.classList.add('swap-target');
+            swapDrag.target = target;
+        }
+    }
+    el('duty').addEventListener('pointermove', (event) => { if (swapDrag) moveGhost(event); });
+    const dropSwap = (event) => {
+        if (!swapDrag) return;
+        const { from, ghost, target } = swapDrag;
+        swapDrag = null;
+        ghost.remove();
+        if (target) target.classList.remove('swap-target');
+        if (target && event.type === 'pointerup') askSwap(from.date, target.dataset.date);
+    };
+    el('duty').addEventListener('pointerup', dropSwap);
+    el('duty').addEventListener('pointercancel', dropSwap);
+
     function dutyRowHtml(d) {
         const mine = d.employeeId != null && d.employeeId === myEmployee();
         const past = d.date < todayIso();
@@ -525,6 +625,11 @@ header.top h1 { flex: 1; min-width: 180px; }
             if (d.how === 'assigned') who += '<span class="sub">по договор</span>';
             if (d.covers.length) who += `<span class="sub">наместо ${esc(d.covers.map((c) => c.name).join(', '))}${d.note ? ' — ' + esc(d.note) : ''}</span>`;
             else if (d.note) who += `<span class="sub">${esc(d.note)}</span>`;
+            if (d.swap) who += `<span class="sub">⇄ замена со ${esc(d.swap.name)} (${WEEKDAY[weekdayOf(d.swap.date)]} ${dmy(d.swap.date)})${d.swap.note ? ' — ' + esc(d.swap.note) : ''}</span>`;
+            if (duty.owner && swappable(d)) {
+                who = `<button type="button" class="small swap-grip no-print" data-swap-from="${d.date}" `
+                    + `aria-label="${esc(d.name)}, ${dmy(d.date)}: повлечете врз друг ден за замена">⠿</button> ` + who;
+            }
         }
         const alsoAway = d.absent.filter((a) => !d.covers.some((c) => c.employeeId === a.employeeId));
         if (alsoAway.length) who += `<span class="sub">отсутни: ${esc(alsoAway.map((a) => a.name).join(', '))}</span>`;
@@ -559,6 +664,11 @@ header.top h1 { flex: 1; min-width: 180px; }
             + '<div>Отсутни тој ден (се прескокнуваат, дежура следниот):<div class="checks">'
             + members.map((m) => `<label><input type="checkbox" name="away" value="${m.employeeId}"${d.absent.some((a) => a.employeeId === m.employeeId) ? ' checked' : ''}> ${esc(m.name)}</label>`).join('')
             + '</div></div>'
+            + (d.swap
+                ? `<div>⇄ Замена со ${esc(d.swap.name)} (${dmy(d.swap.date)}). <button type="button" class="small" data-duty-unswap="${d.swap.id}">Откажи ја замената</button></div>`
+                : swappable(d) ? `<div class="row"><label style="flex:1;margin:0">Замени со ден<select name="swapWith"><option value="">—</option>`
+                    + duty.data.days.filter((o) => canSwap(d, o)).map((o) => `<option value="${o.date}">${WEEKDAY[o.weekday]} ${dmy(o.date)} — ${esc(o.name)}</option>`).join('')
+                    + `</select></label><button type="button" class="small" data-duty-swap-pick="${d.date}">⇄ Замени…</button></div>` : '')
             + '<div class="row"><button class="primary small" type="submit">Зачувај го денот</button>'
             + `<button type="button" class="small" data-duty-open="">Затвори</button></div></form></td></tr>`;
     }
@@ -626,6 +736,10 @@ header.top h1 { flex: 1; min-width: 180px; }
             + `<button type="button" class="small no-print" data-duty-month="${shiftMonth(duty.month, 1)}"${duty.month >= last ? ' disabled' : ''} aria-label="Следен месец">▶</button>`
             + '<button type="button" class="small no-print" id="dutyPrint">🖨 Печати</button></div>'
             + (duty.data.members.length ? '' : '<p class="muted">Сè уште нема список за дежурства.</p>')
+            + (duty.owner && (duty.data.staleSwaps || []).length ? '<div class="duty-stale no-print"><b>⚠ Замена што повеќе не важи</b> — распоредот се смени по договорот, '
+                + 'па тие денови не се повеќе на овие двајца:'
+                + duty.data.staleSwaps.map((sw) => `<div>${esc(sw.first.name)} (${dmy(sw.first.date)}) ⇄ ${esc(sw.second.name)} (${dmy(sw.second.date)}) `
+                    + `<button type="button" class="small" data-duty-unswap="${sw.id}">Откажи ја</button></div>`).join('') + '</div>' : '')
             + (days.length ? '<table class="duty-table"><thead><tr><th>Р.бр.</th><th>Стручен соработник</th><th>Ден и датум</th></tr></thead><tbody>'
                 + (gone ? `<tr class="past-toggle no-print"><td colspan="3"><button type="button" class="small" data-duty-past aria-expanded="${!duty.foldPast}">`
                     + `${duty.foldPast ? '▸ Прикажи' : '▾ Скриј'} ги изминатите денови (${gone})</button></td></tr>` : '')
@@ -644,6 +758,23 @@ header.top h1 { flex: 1; min-width: 180px; }
         const go = event.target.closest('[data-duty-month]');
         if (go) { duty.open = ''; duty.foldPast = null; return showDuty(go.dataset.dutyMonth); }
         if (event.target.closest('[data-duty-past]')) { duty.foldPast = !duty.foldPast; return drawDuty(); }
+        const unswap = event.target.closest('[data-duty-unswap]');
+        if (unswap) {
+            unswap.disabled = true;
+            try {
+                await ownerApi('POST', '/api/duty/swap/remove', { id: Number(unswap.dataset.dutyUnswap) });
+                duty.open = '';
+                await showDuty(duty.month);
+                say('weekMsg', 'Замената е откажана.', 'ok');
+            } catch (err) { unswap.disabled = false; say('weekMsg', err.message, 'error'); }
+            return;
+        }
+        const pick = event.target.closest('[data-duty-swap-pick]');
+        if (pick) {
+            const other = pick.closest('form').elements.swapWith.value;
+            if (!other) return say('weekMsg', 'Изберете со кој ден.', 'error');
+            return askSwap(pick.dataset.dutySwapPick, other);
+        }
         const open = event.target.closest('[data-duty-open]');
         if (open) { duty.open = open.dataset.dutyOpen === duty.open ? '' : open.dataset.dutyOpen; return drawDuty(); }
         if (event.target.closest('#dutyPrint')) {

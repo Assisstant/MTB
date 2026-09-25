@@ -22,6 +22,10 @@
  *     displaced person lose their turn and let the stand-in keep theirs.)
  *   - somebody who joins during the year joins at the back, on that day; somebody
  *     who leaves is taken out. The months before are not rewritten.
+ *   - a SWAP (044) is a deal between two colleagues, not a change of the list:
+ *     the queue runs exactly as without it, and afterwards the two days trade
+ *     names (`applySwaps`). A swap whose days no longer belong to the two who
+ *     agreed it — the rota moved since — is not applied, and is reported.
  *
  * Pure: the same inputs always give the same rota, so a printed month stays
  * true. Nothing here reads the clock or the database; `loadDuty` below does the
@@ -51,7 +55,17 @@ export interface DutyInput {
     absences: Map<string, Set<number>>;
 }
 
-export type DutyHow = 'rotation' | 'cover' | 'assigned' | 'closed' | 'nobody';
+export type DutyHow = 'rotation' | 'cover' | 'assigned' | 'closed' | 'nobody' | 'swap';
+
+/** Two colleagues trading days: on `firstDay` it was `firstEmployeeId`'s turn, on `secondDay` the other's. */
+export interface DutySwap {
+    id: number;
+    firstDay: string;
+    firstEmployeeId: number;
+    secondDay: string;
+    secondEmployeeId: number;
+    note: string;
+}
 
 export interface DutyDay {
     date: string;
@@ -65,6 +79,8 @@ export interface DutyDay {
     covers: number[];
     /** Everybody marked away that day. */
     absent: number[];
+    /** The day was traded: whose turn it was, and the day they took instead. */
+    swap?: { id: number; with: number; date: string; note: string };
 }
 
 const DAY_MS = 86400000;
@@ -133,6 +149,33 @@ export function dutyRota(input: DutyInput): DutyDay[] {
     return out;
 }
 
+/**
+ * The swaps, applied to a rota already worked out. A swap holds only while
+ * both of its days still belong to the two who agreed it, neither day is
+ * closed, and neither of them is away on the day they took. Otherwise it is
+ * returned as `stale` and changes nothing: a deal between A and B is never
+ * carried over to whoever the rota puts there now.
+ */
+export function applySwaps(days: DutyDay[], swaps: DutySwap[]): { days: DutyDay[]; stale: DutySwap[] } {
+    const byDate = new Map(days.map((d, i) => [d.date, i]));
+    const out = days.slice();
+    const stale: DutySwap[] = [];
+    for (const sw of swaps) {
+        const a = byDate.get(sw.firstDay);
+        const b = byDate.get(sw.secondDay);
+        if (a == null || b == null) continue; // outside what was worked out: neither applied nor judged
+        const x = out[a];
+        const y = out[b];
+        const holds = !x.closed && !y.closed && !x.swap && !y.swap
+            && x.employeeId === sw.firstEmployeeId && y.employeeId === sw.secondEmployeeId
+            && !x.absent.includes(sw.secondEmployeeId) && !y.absent.includes(sw.firstEmployeeId);
+        if (!holds) { stale.push(sw); continue; }
+        out[a] = { ...x, employeeId: sw.secondEmployeeId, how: 'swap', swap: { id: sw.id, with: sw.firstEmployeeId, date: sw.secondDay, note: sw.note } };
+        out[b] = { ...y, employeeId: sw.firstEmployeeId, how: 'swap', swap: { id: sw.id, with: sw.secondEmployeeId, date: sw.firstDay, note: sw.note } };
+    }
+    return { days: out, stale };
+}
+
 /** Today in Skopje, as the school counts days — not the server's clock zone. */
 export function todayInSkopje(now = new Date()): string {
     return new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Skopje' }).format(now);
@@ -157,6 +200,7 @@ export interface DutyState {
     days: Map<string, DutyMark>;
     absences: Map<string, Set<number>>;
     names: Map<number, string>;
+    swaps: DutySwap[];
 }
 
 /**
@@ -168,7 +212,7 @@ export interface DutyState {
  */
 export async function loadDuty(db: any, yearId: number): Promise<DutyState> {
     const live = 'coalesce(e.superseded_by, e.id)';
-    const [year, setting, members, days, absences] = await Promise.all([
+    const [year, setting, members, days, absences, swaps] = await Promise.all([
         db.query('SELECT starts_on, ends_on FROM school_years WHERE id = $1', [yearId]),
         db.query('SELECT starts_on FROM duty_settings WHERE school_year_id = $1', [yearId]),
         db.query(`SELECT ${live} AS employee_id, m.position, m.joined_on, m.left_on,
@@ -180,7 +224,8 @@ export async function loadDuty(db: any, yearId: number): Promise<DutyState> {
                     FROM duty_days d WHERE d.school_year_id = $1`, [yearId]),
         db.query(`SELECT a.day, ${live} AS employee_id
                     FROM duty_absences a JOIN employees e ON e.id = a.employee_id
-                   WHERE a.school_year_id = $1`, [yearId])
+                   WHERE a.school_year_id = $1`, [yearId]),
+        readSwaps(db, yearId)
     ]);
     const y = year.rows[0];
     const dayMap = new Map<string, DutyMark>();
@@ -198,7 +243,9 @@ export async function loadDuty(db: any, yearId: number): Promise<DutyState> {
         joinedOn: r.joined_on ? String(r.joined_on) : null, leftOn: r.left_on ? String(r.left_on) : null
     }));
     const names = new Map<number, string>(list.map((m: any) => [m.employeeId, m.name]));
-    const assignedIds = [...dayMap.values()].map((d) => d.assigned).filter((id): id is number => id != null && !names.has(id));
+    const assignedIds = [...new Set([...[...dayMap.values()].map((d) => d.assigned),
+        ...swaps.flatMap((sw) => [sw.firstEmployeeId, sw.secondEmployeeId])])]
+        .filter((id): id is number => id != null && !names.has(id));
     if (assignedIds.length) {
         const { rows } = await db.query('SELECT id, name FROM employees WHERE id = ANY($1::int[])', [assignedIds]);
         rows.forEach((r: any) => names.set(Number(r.id), r.name));
@@ -210,8 +257,34 @@ export async function loadDuty(db: any, yearId: number): Promise<DutyState> {
         members: list,
         days: dayMap,
         absences: awayMap,
-        names
+        names,
+        swaps
     };
+}
+
+/** The year's swaps, read through linked identities like everything else here. */
+export async function readSwaps(db: any, yearId: number): Promise<DutySwap[]> {
+    const { rows } = await db.query(
+        `SELECT s.id, s.first_day, s.second_day, s.note,
+                (SELECT coalesce(e.superseded_by, e.id) FROM employees e WHERE e.id = s.first_employee_id) AS first_employee_id,
+                (SELECT coalesce(e.superseded_by, e.id) FROM employees e WHERE e.id = s.second_employee_id) AS second_employee_id
+           FROM duty_swaps s WHERE s.school_year_id = $1 ORDER BY s.first_day`, [yearId]);
+    return rows.map((r: any) => ({ id: Number(r.id), firstDay: String(r.first_day), secondDay: String(r.second_day),
+        firstEmployeeId: Number(r.first_employee_id), secondEmployeeId: Number(r.second_employee_id), note: r.note || '' }));
+}
+
+/**
+ * The rota from the start to `until`, swaps applied. It is worked out as far
+ * as the furthest swap reaching into the range, so a trade across the end of
+ * a month still shows on both sides of it.
+ */
+export function rotaWithSwaps(state: DutyState, until: string, from = state.startsOn) {
+    const touching = state.swaps.filter((sw) => sw.secondDay >= from && sw.firstDay <= until);
+    const furthest = touching.reduce((max, sw) => (sw.secondDay > max ? sw.secondDay : max), until);
+    const base = dutyRota({ startsOn: state.startsOn, until: furthest, members: state.members,
+        days: state.days, absences: state.absences });
+    const { days, stale } = applySwaps(base, state.swaps);
+    return { days: days.filter((d) => d.date <= until), stale: stale.filter((sw) => touching.includes(sw)) };
 }
 
 /** One month of the rota, worked out from the start so it continues the one before. */
@@ -222,8 +295,7 @@ export function monthOfRota(state: DutyState, month: { first: string; last: stri
             how: 'nobody' as DutyHow, covers: [], absent: []
         }));
     }
-    const all = dutyRota({ startsOn: state.startsOn, until: month.last, members: state.members,
-        days: state.days, absences: state.absences });
+    const all = rotaWithSwaps(state, month.last, month.first).days;
     const before = workingDays(month.first, month.last).filter((d) => d < state.startsOn);
     return [
         ...before.map((date) => ({ date, weekday: dateOf(date).getUTCDay(), closed: false, note: '',
@@ -243,6 +315,7 @@ export function monthPayload(state: DutyState, month: string) {
     if (!bounds) return null;
     const number = new Map(state.members.map((m) => [m.employeeId, m.position]));
     const named = (id: number) => ({ employeeId: id, name: state.names.get(id) || '—' });
+    const stale = state.startsOn <= bounds.last ? rotaWithSwaps(state, bounds.last, bounds.first).stale : [];
     return {
         month,
         startsOn: state.startsOn,
@@ -260,8 +333,12 @@ export function monthPayload(state: DutyState, month: string) {
             name: d.employeeId == null ? null : (state.names.get(d.employeeId) || '—'),
             number: d.employeeId == null ? null : (number.get(d.employeeId) ?? null),
             covers: d.covers.map(named),
-            absent: d.absent.map(named)
-        }))
+            absent: d.absent.map(named),
+            swap: d.swap ? { id: d.swap.id, date: d.swap.date, note: d.swap.note, ...named(d.swap.with) } : null
+        })),
+        // Swaps touching this month that no longer hold: the administrator decides.
+        staleSwaps: stale.map((sw) => ({ id: sw.id, note: sw.note,
+            first: { date: sw.firstDay, ...named(sw.firstEmployeeId) }, second: { date: sw.secondDay, ...named(sw.secondEmployeeId) } }))
     };
 }
 

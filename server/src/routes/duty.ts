@@ -5,6 +5,8 @@
  *   PUT /api/duty/setup                 the list in its order, and the start date
  *   PUT /api/duty/day                   a closed day, or a day given by agreement
  *   PUT /api/duty/absence               anybody away on a day
+ *   PUT /api/duty/swap                  two colleagues trade days (044); the list is untouched
+ *   POST /api/duty/swap/remove          a swap taken back
  *
  * Deliberately NOT under /api/portal/, exactly like /api/staff-accounts: the
  * cloud's Google gate keeps these for the owner, and on a local server the
@@ -18,7 +20,7 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import { pool } from '../db.js';
 import { assertOwner, refuseScope, scopeOf } from '../lib/colleague.js';
-import { defaultMonth, loadDuty, monthBounds, monthPayload } from '../lib/duty.js';
+import { defaultMonth, loadDuty, monthBounds, monthPayload, rotaWithSwaps } from '../lib/duty.js';
 
 const Iso = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 const YearRef = z.string().min(1).max(64).optional();
@@ -39,6 +41,10 @@ const DayBody = z.object({
     note: z.string().max(200).optional(),
     assignedEmployeeId: z.number().int().positive().nullable().optional()
 });
+const SwapSide = z.object({ date: Iso, employeeId: z.number().int().positive() });
+const SwapBody = z.object({ year: YearRef, first: SwapSide, second: SwapSide, note: z.string().max(200).optional() });
+const UnswapBody = z.object({ year: YearRef, id: z.coerce.number().int().positive() });
+
 const AbsenceBody = z.object({
     year: YearRef,
     date: Iso,
@@ -184,6 +190,85 @@ export async function dutyRoutes(server: FastifyInstance) {
         const problem = dayProblem(b.date, year);
         if (problem) return reply.code(400).send({ error: problem });
         await setAbsence(pool, year.id, b.date, b.employeeId, b.absent, 'Администраторот');
+        return { ok: true };
+    });
+
+    await swapRoutes(server);
+}
+
+/**
+ * Two colleagues trade days. Each side says whose day it is AS THE PAGE SHOWED
+ * IT, and the rota is worked out again under a lock to check that it still is:
+ * a deal is made between two people, so if the rota moved in between, the
+ * swap is refused rather than made between somebody else.
+ */
+export async function swapRoutes(server: FastifyInstance) {
+    server.put('/api/duty/swap', async (req, reply) => {
+        if (!await owner(req, reply)) return;
+        const parsed = SwapBody.safeParse(req.body);
+        if (!parsed.success) return reply.code(400).send({ error: 'Проверете ги двата дена на замената.' });
+        const b = parsed.data;
+        const [first, second] = b.first.date < b.second.date ? [b.first, b.second] : [b.second, b.first];
+        if (first.date === second.date) return reply.code(400).send({ error: 'Замената е меѓу два различни дена.' });
+        if (first.employeeId === second.employeeId) return reply.code(400).send({ error: 'Тоа е истиот колега — нема што да се замени.' });
+        const year = await schoolYearOf(pool, b.year);
+        if (!year) return reply.code(404).send({ error: 'Нема таква учебна година.' });
+        for (const side of [first, second]) {
+            const problem = dayProblem(side.date, year);
+            if (problem) return reply.code(400).send({ error: problem });
+        }
+        const client = await pool.connect();
+        try {
+            await client.query('BEGIN');
+            await client.query('LOCK TABLE duty_swaps IN SHARE ROW EXCLUSIVE MODE');
+            const taken = await client.query(
+                `SELECT 1 FROM duty_swaps WHERE school_year_id = $1
+                    AND (first_day = ANY($2::date[]) OR second_day = ANY($2::date[]))`, [year.id, [first.date, second.date]]);
+            if (taken.rowCount) {
+                await client.query('ROLLBACK');
+                return reply.code(409).send({ error: 'Еден од тие денови веќе е заменет. Прво откажете ја таа замена.' });
+            }
+            // Read through the pool: loadDuty asks in parallel, which one client
+            // must not do. The lock above is what keeps the swaps still meanwhile.
+            const state = await loadDuty(pool, year.id);
+            const days = rotaWithSwaps(state, second.date).days;
+            const on = (date: string) => days.find((d) => d.date === date);
+            const x = on(first.date);
+            const y = on(second.date);
+            if (!x || !y || x.closed || y.closed) {
+                await client.query('ROLLBACK');
+                return reply.code(409).send({ error: 'Тој ден нема дежурство.' });
+            }
+            if (x.employeeId !== first.employeeId || y.employeeId !== second.employeeId) {
+                await client.query('ROLLBACK');
+                return reply.code(409).send({ error: 'Распоредот се смени во меѓувреме. Освежете и обидете се пак.' });
+            }
+            if (x.absent.includes(second.employeeId) || y.absent.includes(first.employeeId)) {
+                await client.query('ROLLBACK');
+                return reply.code(409).send({ error: 'Едниот од двајцата е отсутен токму на денот што би го зел.' });
+            }
+            const { rows } = await client.query(
+                `INSERT INTO duty_swaps (school_year_id, first_day, first_employee_id, second_day, second_employee_id, note)
+                 VALUES ($1, $2, $3, $4, $5, $6) RETURNING id`,
+                [year.id, first.date, first.employeeId, second.date, second.employeeId, (b.note || '').replace(/\s+/g, ' ').trim()]);
+            await client.query('COMMIT');
+            return { ok: true, id: Number(rows[0].id) };
+        } catch (err) {
+            await client.query('ROLLBACK').catch(() => {});
+            throw err;
+        } finally {
+            client.release();
+        }
+    });
+
+    server.post('/api/duty/swap/remove', async (req, reply) => {
+        if (!await owner(req, reply)) return;
+        const parsed = UnswapBody.safeParse(req.body);
+        if (!parsed.success) return reply.code(400).send({ error: 'Која замена?' });
+        const year = await schoolYearOf(pool, parsed.data.year);
+        if (!year) return reply.code(404).send({ error: 'Нема таква учебна година.' });
+        const gone = await pool.query('DELETE FROM duty_swaps WHERE school_year_id = $1 AND id = $2', [year.id, parsed.data.id]);
+        if (!gone.rowCount) return reply.code(404).send({ error: 'Таа замена веќе ја нема.' });
         return { ok: true };
     });
 }

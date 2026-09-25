@@ -41,10 +41,16 @@ existing row touched. The rota itself is calculated, never stored. The mirror
 copies the four tables, because a read-only copy without them would show nobody
 on duty.
 
-The current `deploy:workspace` runner accepts reviewed pending 033–043. Its new
-private recovery schema is `mtb_workspace_recovery_duty_rota_20260925` (043).
-It is a fresh name whether or not 042 was deployed first. If 042 is still
-pending, both go in together under it. Earlier: 041 under
+Migration 044 (25 September, evening) adds `duty_swaps`: two colleagues trading
+days, which leaves the list and the rotation alone. It is one new table, with
+row-level security on and no rights for the REST roles; no existing row is
+touched. The mirror copies it.
+
+The current `deploy:workspace` runner accepts reviewed pending 033–044. Its new
+private recovery schema is `mtb_workspace_recovery_duty_swaps_20260925` (044).
+It is a fresh name whether or not 043 was deployed first; if 043 is still
+pending, both go in together under it. 043 alone was named
+`mtb_workspace_recovery_duty_rota_20260925`. Earlier: 041 under
 `mtb_workspace_recovery_teacher_forms_20260924`, 040 under
 `mtb_workspace_recovery_form_replies_20260924`, and
 `…_caseload_order_20260924` was never used in the cloud; it preserves the earlier snapshots, `mtb_workspace_recovery_20260921` (033–036),

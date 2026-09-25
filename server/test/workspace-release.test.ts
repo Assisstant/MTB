@@ -25,7 +25,7 @@ test('release upgrades 032 atomically, retains private recovery, and repeats saf
   assert.equal((await c.query('SELECT count(*)::int AS n FROM schema_migrations')).rows[0].n,32);
   await c.query('DROP TABLE employees');
   await workspaceRelease(c,dir,()=>{},backup);
-  assert.equal((await c.query('SELECT count(*)::int AS n FROM schema_migrations')).rows[0].n,43);
+  assert.equal((await c.query('SELECT count(*)::int AS n FROM schema_migrations')).rows[0].n,44);
   assert.equal((await c.query(`SELECT count(*)::int AS n FROM ${backup}.teachers`)).rows[0].n,1);
   assert.equal((await c.query("SELECT relrowsecurity FROM pg_class WHERE oid='employees'::regclass")).rows[0].relrowsecurity,true);
   assert.equal((await c.query('SELECT count(*)::int AS n FROM employees')).rows[0].n,1);
@@ -49,7 +49,7 @@ test('staff release upgrades 036 without overwriting the previous recovery snaps
   await c.query(`CREATE SCHEMA ${oldBackup}`);await c.query(`CREATE TABLE ${oldBackup}.probe(id integer)`);
   await c.query(`INSERT INTO ${oldBackup}.probe VALUES(1)`);
   await workspaceRelease(c,dir,()=>{},backup);
-  assert.equal((await c.query('SELECT count(*)::int AS n FROM schema_migrations')).rows[0].n,43);
+  assert.equal((await c.query('SELECT count(*)::int AS n FROM schema_migrations')).rows[0].n,44);
   assert.equal((await c.query(`SELECT id FROM ${oldBackup}.probe`)).rows[0].id,1);
   await workspaceRelease(c,dir,()=>{},backup);
   // The NEXT reviewed batch must not be handed this batch's recovery name:
@@ -80,7 +80,7 @@ test('039 lets a therapist\'s own list be ordered, on a database already at 038'
   await c.query("INSERT INTO roster_order VALUES($1,'classes','7',0)",[y]);
   await assert.rejects(c.query("INSERT INTO roster_order VALUES($1,'caseload:5','p-1',0)",[y]),/roster_order_list_check/,'038 alone has no per-therapist list');
   await workspaceRelease(c,dir,()=>{},backup);
-  assert.equal((await c.query('SELECT count(*)::int AS n FROM schema_migrations')).rows[0].n,43);
+  assert.equal((await c.query('SELECT count(*)::int AS n FROM schema_migrations')).rows[0].n,44);
   assert.deepEqual((await c.query('SELECT list,member_key,position FROM roster_order')).rows,[{list:'classes',member_key:'7',position:0}],'no existing row is touched');
   await c.query("INSERT INTO roster_order VALUES($1,'caseload:5','p-1',0)",[y]);
   for(const bad of ['caseload:','caseload:0','caseload:x','caseloads:5','pupils'])
@@ -102,7 +102,7 @@ test('040 adds the form review queue, locked away from the REST roles, on a data
   const y=(await c.query("INSERT INTO school_years(label,starts_on,ends_on,is_current) VALUES('1991/1992-forms','1991-09-01','1992-08-31',false) RETURNING id")).rows[0].id;
   assert.equal((await c.query("SELECT to_regclass('form_replies') AS t")).rows[0].t,null,'039 alone has no queue');
   await workspaceRelease(c,dir,()=>{},backup);
-  assert.equal((await c.query('SELECT count(*)::int AS n FROM schema_migrations')).rows[0].n,43);
+  assert.equal((await c.query('SELECT count(*)::int AS n FROM schema_migrations')).rows[0].n,44);
   assert.equal((await c.query('SELECT count(*)::int AS n FROM school_years WHERE id=$1',[y])).rows[0].n,1,'no existing row is touched');
   for(const t of ['form_replies','form_reply_decisions'])
    assert.equal((await c.query('SELECT relrowsecurity FROM pg_class WHERE oid=$1::regclass',[t])).rows[0].relrowsecurity,true,t);
@@ -129,7 +129,7 @@ test('041 lets a teacher\'s own week be a form answer, on a database at 040', as
   await c.query("INSERT INTO form_replies(kind,school_year_id,about_key,about_name,fingerprint,reply) VALUES('class',$1,'class:ii-б','II-б','t0','{}')",[y]);
   await assert.rejects(c.query("INSERT INTO form_replies(kind,school_year_id,about_key,about_name,fingerprint,reply) VALUES('teacher',$1,'teacher:проба','Проба','t1','{}')",[y]),/form_replies_kind_check/,'040 alone has no teacher answers');
   await workspaceRelease(c,dir,()=>{},backup);
-  assert.equal((await c.query('SELECT count(*)::int AS n FROM schema_migrations')).rows[0].n,43);
+  assert.equal((await c.query('SELECT count(*)::int AS n FROM schema_migrations')).rows[0].n,44);
   assert.equal((await c.query('SELECT count(*)::int AS n FROM form_replies')).rows[0].n,1,'no existing row is touched');
   await c.query("INSERT INTO form_replies(kind,school_year_id,about_key,about_name,fingerprint,reply) VALUES('teacher',$1,'teacher:проба','Проба','t1','{}')",[y]);
   await assert.rejects(c.query("INSERT INTO form_replies(kind,school_year_id,about_key,about_name,fingerprint,reply) VALUES('lesson',$1,'x:yz','X','t2','{}')",[y]),/form_replies_kind_check/);
@@ -151,7 +151,7 @@ test('042 adds the colleague accounts, sessions and clash notices, locked away f
   const y=(await c.query("INSERT INTO school_years(label,starts_on,ends_on,is_current) VALUES('1993/1994-acct','1993-09-01','1994-08-31',false) RETURNING id")).rows[0].id;
   assert.equal((await c.query("SELECT to_regclass('staff_accounts') AS t")).rows[0].t,null,'041 alone has no accounts');
   await workspaceRelease(c,dir,()=>{},backup);
-  assert.equal((await c.query('SELECT count(*)::int AS n FROM schema_migrations')).rows[0].n,43);
+  assert.equal((await c.query('SELECT count(*)::int AS n FROM schema_migrations')).rows[0].n,44);
   assert.equal((await c.query('SELECT count(*)::int AS n FROM employees WHERE id=$1',[e])).rows[0].n,1,'no existing row is touched');
   for(const t of ['staff_accounts','staff_sessions','schedule_notices'])
    assert.equal((await c.query('SELECT relrowsecurity FROM pg_class WHERE oid=$1::regclass',[t])).rows[0].relrowsecurity,true,t);
@@ -178,7 +178,7 @@ test('043 adds the duty rota, locked away from the REST roles, on a database at 
   const y=(await c.query("INSERT INTO school_years(label,starts_on,ends_on,is_current) VALUES('1994/1995-duty','1994-09-01','1995-08-31',false) RETURNING id")).rows[0].id;
   assert.equal((await c.query("SELECT to_regclass('duty_members') AS t")).rows[0].t,null,'042 alone has no rota');
   await workspaceRelease(c,dir,()=>{},backup);
-  assert.equal((await c.query('SELECT count(*)::int AS n FROM schema_migrations')).rows[0].n,43);
+  assert.equal((await c.query('SELECT count(*)::int AS n FROM schema_migrations')).rows[0].n,44);
   assert.equal((await c.query('SELECT count(*)::int AS n FROM employees WHERE id=$1',[e])).rows[0].n,1,'no existing row is touched');
   for(const t of ['duty_settings','duty_members','duty_days','duty_absences'])
    assert.equal((await c.query('SELECT relrowsecurity FROM pg_class WHERE oid=$1::regclass',[t])).rows[0].relrowsecurity,true,t);
@@ -190,5 +190,36 @@ test('043 adds the duty rota, locked away from the REST roles, on a database at 
   await c.query("INSERT INTO duty_absences(school_year_id,day,employee_id,marked_by) VALUES($1,'1994-09-05',$2,'x')",[y,e]);
   await c.query('DELETE FROM school_years WHERE id=$1',[y]);
   assert.equal((await c.query('SELECT count(*)::int AS n FROM duty_members')).rows[0].n,0,'a year takes its rota with it');
+ }finally{await c.query(`DROP SCHEMA IF EXISTS ${backup} CASCADE`);await c.query(`DROP SCHEMA ${schema} CASCADE`);await c.end();}
+});
+
+test('044 adds duty swaps, locked away from the REST roles, on a database at 043', async () => {
+ const url=process.env.TEST_DATABASE_URL||process.env.DATABASE_URL;
+ const c=new pg.Client({connectionString:url});await c.connect();
+ const schema=`duty_swaps_test_${process.pid}`,backup=`mtb_workspace_recovery_duty_swaps_test_${process.pid}`;
+ const dir=resolve(import.meta.dirname,'../../database/migrations');
+ await c.query(`CREATE SCHEMA ${schema}`);await c.query(`SET search_path=${schema}`);
+ try{
+  await c.query('CREATE TABLE schema_migrations(filename text PRIMARY KEY,applied_at timestamptz NOT NULL DEFAULT now())');
+  for(const f of (await readdir(dir)).filter(f=>f.endsWith('.sql')&&Number(f.slice(0,3))<=43).sort()){
+   await c.query(migrationBody(await readFile(resolve(dir,f),'utf8')));await c.query('INSERT INTO schema_migrations(filename) VALUES($1)',[f]);
+  }
+  const [a,b]=(await c.query("INSERT INTO employees(name) VALUES('Пробна Замена Прва'),('Пробна Замена Втора') RETURNING id")).rows.map(r=>r.id);
+  const y=(await c.query("INSERT INTO school_years(label,starts_on,ends_on,is_current) VALUES('1995/1996-swap','1995-09-01','1996-08-31',false) RETURNING id")).rows[0].id;
+  await c.query("INSERT INTO duty_members(school_year_id,employee_id,position) VALUES($1,$2,1)",[y,a]);
+  assert.equal((await c.query("SELECT to_regclass('duty_swaps') AS t")).rows[0].t,null,'043 alone has no swaps');
+  await workspaceRelease(c,dir,()=>{},backup);
+  assert.equal((await c.query('SELECT count(*)::int AS n FROM schema_migrations')).rows[0].n,44);
+  assert.equal((await c.query('SELECT count(*)::int AS n FROM duty_members')).rows[0].n,1,'no existing row is touched');
+  assert.equal((await c.query("SELECT relrowsecurity FROM pg_class WHERE oid='duty_swaps'::regclass")).rows[0].relrowsecurity,true);
+  await c.query("INSERT INTO duty_swaps(school_year_id,first_day,first_employee_id,second_day,second_employee_id) VALUES($1,'1995-09-04',$2,'1995-09-06',$3)",[y,a,b]);
+  await assert.rejects(c.query("INSERT INTO duty_swaps(school_year_id,first_day,first_employee_id,second_day,second_employee_id) VALUES($1,'1995-09-04',$2,'1995-09-08',$3)",[y,a,b]),
+   /duty_swaps_first_day/,'a day is in one swap at most');
+  await assert.rejects(c.query("INSERT INTO duty_swaps(school_year_id,first_day,first_employee_id,second_day,second_employee_id) VALUES($1,'1995-09-12',$2,'1995-09-11',$3)",[y,a,b]),
+   /duty_swaps_check/,'the first day comes first');
+  await assert.rejects(c.query("INSERT INTO duty_swaps(school_year_id,first_day,first_employee_id,second_day,second_employee_id) VALUES($1,'1995-09-11',$2,'1995-09-12',$2)",[y,a]),
+   /duty_swaps_check/,'nobody swaps with themselves');
+  await c.query('DELETE FROM school_years WHERE id=$1',[y]);
+  assert.equal((await c.query('SELECT count(*)::int AS n FROM duty_swaps')).rows[0].n,0,'a year takes its swaps with it');
  }finally{await c.query(`DROP SCHEMA IF EXISTS ${backup} CASCADE`);await c.query(`DROP SCHEMA ${schema} CASCADE`);await c.end();}
 });

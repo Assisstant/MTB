@@ -339,8 +339,9 @@ check('no page errors', errors.length === 0, errors.join('\n       '));
         members: [7, 8, 9].map((id, i) => ({ employeeId: id, name: people[id], position: i + 1, joinedOn: null, leftOn: null })),
         days: [day('2026-10-01', 4, 7), day('2026-10-02', 5, 8, { how: 'cover', note: 'боледување',
                 covers: [{ employeeId: 9, name: people[9] }], absent: [{ employeeId: 9, name: people[9] }] }),
-            day('2026-10-05', 1, 9), day('2026-10-06', 2, 7),
-            day('2026-10-07', 3, null, { closed: true, note: 'излет', how: 'closed' })]
+            day('2026-10-05', 1, 9), day('2026-10-06', 2, 7, { how: 'swap', swap: { id: 3, date: '2026-10-09', note: 'лекар', employeeId: 8, name: people[8] } }),
+            day('2026-10-07', 3, null, { closed: true, note: 'излет', how: 'closed' }), day('2026-10-08', 4, 8)],
+        staleSwaps: [{ id: 4, note: '', first: { date: '2026-10-12', employeeId: 9, name: people[9] }, second: { date: '2026-10-14', employeeId: 7, name: people[7] } }]
     });
     const CANDIDATES = [
         { employeeId: 7, name: people[7], cabinet: true }, { employeeId: 8, name: people[8], cabinet: true },
@@ -399,6 +400,8 @@ check('no page errors', errors.length === 0, errors.join('\n       '));
     check('a skipped day says whom it was instead of, and why — and not twice',
         /наместо Горан Измислен — боледување/.test(rows[1].text) && !/отсутни/.test(rows[1].text), rows[1].text);
     check('a day gone by offers nothing to mark', rows[0].away === false);
+    check('a swapped day says with whom and for which day', /⇄ замена со Вера Измислена \(пт 09\.10\.2026\) — лекар/.test(rows[3].text), rows[3].text);
+    check('a colleague cannot drag a swap, nor sees the stale ones', !(await c.p.$('#duty [data-swap-from]')) && !(await c.p.$('#duty .duty-stale')));
     check('today and later offer „Не сум тука"', rows[1].away && rows[2].away);
     check('there are no owner\'s controls', !(await c.p.$('#duty .duty-admin')) && !(await c.p.$('#duty [data-duty-open]')));
     await c.p.click('#duty tr[data-date="2026-10-05"] [data-duty-away]');
@@ -421,7 +424,7 @@ check('no page errors', errors.length === 0, errors.join('\n       '));
     const o = await run(true);
     await o.p.click('#tabs [data-tab="duty"]');
     await o.p.waitForSelector('#duty .duty-admin', { timeout: 6000 });
-    check('the owner gets the list and every day\'s controls', await o.p.$$eval('#duty [data-duty-open]', (b) => b.length) === 5);
+    check('the owner gets the list and every day\'s controls', await o.p.$$eval('#duty [data-duty-open]', (b) => b.length) === 6);
     await o.p.click('#duty tr[data-date="2026-10-06"] [data-duty-open]');
     await o.p.check('#duty form[data-duty-day="2026-10-06"] input[name="closed"]');
     await o.p.fill('#duty form[data-duty-day="2026-10-06"] input[name="note"]', 'празник');
@@ -457,6 +460,49 @@ check('no page errors', errors.length === 0, errors.join('\n       '));
     check('and the one unticked leaves from today, keeping the months before',
         setup && setup.body.members.find((m) => m.employeeId === 8).leftOn !== null);
     check('the list folds away once saved', !(await o.p.$eval('#duty .duty-admin', (d) => d.open)));
+    console.log('\nдежурства — a swap between two colleagues');
+    check('a swap that no longer holds is shown to the owner, to be taken back',
+        /Замена што повеќе не важи/.test(await o.p.textContent('#duty .duty-stale')) && Boolean(await o.p.$('#duty .duty-stale [data-duty-unswap="4"]')));
+    check('only a day that can be traded has a handle — not a closed one, not one already swapped',
+        Boolean(await o.p.$('#duty tr[data-date="2026-10-05"] [data-swap-from]')) && !(await o.p.$('#duty tr[data-date="2026-10-07"] [data-swap-from]'))
+        && !(await o.p.$('#duty tr[data-date="2026-10-06"] [data-swap-from]')));
+    const drag = async (fromDate, toDate) => {
+        const g = await (await o.p.$(`#duty tr[data-date="${fromDate}"] [data-swap-from]`)).boundingBox();
+        const t = await (await o.p.$(`#duty tr[data-date="${toDate}"] td.who`)).boundingBox();
+        await o.p.mouse.move(g.x + g.width / 2, g.y + g.height / 2);
+        await o.p.mouse.down();
+        await o.p.mouse.move(t.x + t.width / 2, t.y + 10, { steps: 10 });
+        const lit = await o.p.$eval(`#duty tr[data-date="${toDate}"]`, (tr) => tr.classList.contains('swap-target'));
+        await o.p.mouse.up();
+        return lit;
+    };
+    check('dropping a name on the same person\'s other day asks nothing',
+        !(await drag('2026-10-01', '2026-10-06')) && await o.p.isHidden('#swapAsk'));
+    check('dragging a name onto another\'s day lights that day up', await drag('2026-10-05', '2026-10-01'));
+    check('and asks first', await o.p.isVisible('#swapAsk'));
+    const asked = await o.p.textContent('#swapAsk');
+    check('saying who does which day, and that the list stays as it is',
+        /Горан Измислен ќе дежура на чт 01\.10\.2026/.test(asked) && /Ана Измислена на пн 05\.10\.2026/.test(asked) && /редоследот на списокот не се менува/.test(asked), asked);
+    await o.p.keyboard.press('Escape');
+    check('Esc says no, and nothing is sent', await o.p.isHidden('#swapAsk') && !o.ownerWrites.some((w) => w.path === '/api/duty/swap'));
+    await drag('2026-10-05', '2026-10-01');
+    await o.p.fill('#swapNote', 'семинар');
+    await o.p.click('#swapYes');
+    await o.p.waitForTimeout(400);
+    const swapWrite = o.ownerWrites.find((w) => w.path === '/api/duty/swap');
+    check('confirmed, the two days and the two people are sent — and no list',
+        swapWrite && JSON.stringify(swapWrite.body) === JSON.stringify({ first: { date: '2026-10-05', employeeId: 9 },
+            second: { date: '2026-10-01', employeeId: 7 }, note: 'семинар' })
+        && o.ownerWrites.filter((w) => w.path === '/api/duty/setup').length === 1, JSON.stringify(swapWrite));
+    await o.p.click('#duty tr[data-date="2026-10-02"] [data-duty-open]');
+    await o.p.selectOption('#duty form[data-duty-day="2026-10-02"] select[name="swapWith"]', '2026-10-05');
+    await o.p.click('#duty form[data-duty-day="2026-10-02"] [data-duty-swap-pick]');
+    check('without dragging: ⋯ → „Замени со ден" asks the same', /Вера Измислена ќе дежура на пн 05\.10\.2026/.test(await o.p.textContent('#swapAsk')));
+    await o.p.click('#swapNo');
+    await o.p.click('#duty tr[data-date="2026-10-06"] [data-duty-open]');
+    await o.p.click('#duty form[data-duty-day="2026-10-06"] [data-duty-unswap="3"]');
+    await o.p.waitForTimeout(400);
+    check('a swap is taken back from its day', o.ownerWrites.some((w) => w.path === '/api/duty/swap/remove' && w.body.id === 3));
     check('no page errors for the owner', o.errs.length === 0, o.errs.join('\n       '));
     await o.ctx.close();
 

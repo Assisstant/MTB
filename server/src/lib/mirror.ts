@@ -27,6 +27,8 @@ export const MIRROR_TABLES = [
     'duty_days',
     'duty_members',
     'duty_settings',
+    // A swap (044) is the same kind of fact: without it the copy names the wrong person.
+    'duty_swaps',
     'employees',
     'employee_roles',
     'employee_identity_links',

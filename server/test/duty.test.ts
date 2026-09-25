@@ -7,7 +7,7 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { dutyRota, monthBounds, monthOfRota, todayInSkopje, workingDays, type DutyMember, type DutyState } from '../src/lib/duty.js';
+import { applySwaps, dutyRota, monthBounds, rotaWithSwaps, monthOfRota, todayInSkopje, workingDays, type DutyMember, type DutyState } from '../src/lib/duty.js';
 
 const members = (...ids: number[]): DutyMember[] => ids.map((employeeId, i) => ({ employeeId, position: i + 1, joinedOn: null, leftOn: null }));
 const rota = (opts: { members?: DutyMember[]; until?: string; days?: Array<[string, { closed?: boolean; note?: string; assigned?: number | null }]>; away?: Array<[string, number[]]> }) =>
@@ -86,7 +86,7 @@ test('October continues where September ended', () => {
     const state: DutyState = {
         startsOn: '2026-09-01', yearStartsOn: '2026-09-01', yearEndsOn: '2027-08-31',
         members: members(1, 2, 3).map((m) => ({ ...m, name: 'x' })),
-        days: new Map(), absences: new Map(), names: new Map()
+        days: new Map(), absences: new Map(), names: new Map(), swaps: []
     };
     const september = monthOfRota(state, monthBounds('2026-09')!);
     const october = monthOfRota(state, monthBounds('2026-10')!);
@@ -98,7 +98,7 @@ test('October continues where September ended', () => {
 test('before the rotation starts, a month has no duty', () => {
     const state: DutyState = {
         startsOn: '2026-09-15', yearStartsOn: '2026-09-01', yearEndsOn: '2027-08-31',
-        members: members(1, 2).map((m) => ({ ...m, name: 'x' })), days: new Map(), absences: new Map(), names: new Map()
+        members: members(1, 2).map((m) => ({ ...m, name: 'x' })), days: new Map(), absences: new Map(), names: new Map(), swaps: []
     };
     const september = monthOfRota(state, monthBounds('2026-09')!);
     assert.equal(september[0].employeeId, null);
@@ -114,4 +114,50 @@ test('a month is named as YYYY-MM and nothing else', () => {
 test('today is counted in Skopje, not in the server\'s zone', () => {
     // 23:30 UTC on 30 Sep is already 1 October in Skopje (UTC+2 in summer).
     assert.equal(todayInSkopje(new Date('2026-09-30T23:30:00Z')), '2026-10-01');
+});
+
+const swap = (firstDay: string, first: number, secondDay: string, second: number) =>
+    ({ id: 1, firstDay, firstEmployeeId: first, secondDay, secondEmployeeId: second, note: 'договор' });
+
+test('a swap trades two days between two people, and the list goes on as if it had not happened', () => {
+    const base = rota({});
+    const { days, stale } = applySwaps(base, [swap('2026-09-01', 1, '2026-09-03', 3)]);
+    assert.deepEqual(who(days), [3, 2, 1, 1, 2, 3]);
+    assert.deepEqual(stale, []);
+    assert.equal(days[0].how, 'swap');
+    assert.deepEqual(days[0].swap, { id: 1, with: 1, date: '2026-09-03', note: 'договор' });
+    assert.deepEqual(days[2].swap, { id: 1, with: 3, date: '2026-09-01', note: 'договор' });
+});
+
+test('a swap whose days no longer belong to the two who agreed it is not applied, and is reported', () => {
+    // 1 falls sick on the 1st: the rota moves, the 3rd is no longer 3's.
+    const moved = rota({ away: [['2026-09-01', [1]]] });
+    const { days, stale } = applySwaps(moved, [swap('2026-09-01', 1, '2026-09-03', 3)]);
+    assert.deepEqual(who(days), who(moved));
+    assert.equal(stale.length, 1);
+});
+
+test('a swap onto a closed day, or onto a day the taker is away, does not hold', () => {
+    const closed = rota({ days: [['2026-09-03', { closed: true }]] });
+    assert.equal(applySwaps(closed, [swap('2026-09-01', 1, '2026-09-03', 3)]).stale.length, 1);
+    const away = rota({ away: [['2026-09-04', [2]]] });
+    // 2 would take the 4th while marked away on it.
+    assert.equal(applySwaps(rota({}), [swap('2026-09-02', 2, '2026-09-04', 1)]).stale.length, 0);
+    assert.equal(applySwaps(away, [swap('2026-09-02', 2, '2026-09-07', 1)]).stale.length, 1);
+});
+
+test('a swap across the end of a month shows on both sides of it', () => {
+    const state: DutyState = {
+        startsOn: '2026-09-01', yearStartsOn: '2026-09-01', yearEndsOn: '2027-08-31',
+        members: members(1, 2, 3).map((m) => ({ ...m, name: 'x' })), days: new Map(), absences: new Map(), names: new Map(),
+        swaps: []
+    };
+    const plainSep = monthOfRota(state, monthBounds('2026-09')!);
+    const plainOct = monthOfRota(state, monthBounds('2026-10')!);
+    const a = plainSep[plainSep.length - 1];
+    const b = plainOct.find((d) => d.employeeId !== a.employeeId)!;
+    state.swaps = [swap(a.date, a.employeeId!, b.date, b.employeeId!)];
+    assert.equal(monthOfRota(state, monthBounds('2026-09')!).slice(-1)[0].employeeId, b.employeeId);
+    assert.equal(monthOfRota(state, monthBounds('2026-10')!).find((d) => d.date === b.date)!.employeeId, a.employeeId);
+    assert.equal(rotaWithSwaps(state, '2026-09-30').stale.length, 0);
 });
