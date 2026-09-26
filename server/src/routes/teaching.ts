@@ -124,7 +124,7 @@ export async function teachingRoutes(server: FastifyInstance) {
         // would have meant a second, nearly identical endpoint.
         const [classes, teachers, lessons, clashes] = await Promise.all([
             pool.query(
-                `SELECT c.id, c.label, c.sort_key, cy.description FROM class_years cy
+                `SELECT c.id, c.label, c.sort_key, cy.description, cy.alias FROM class_years cy
                  JOIN school_classes c ON c.id = cy.class_id
                  WHERE cy.school_year_id = $1 AND cy.active
                  ORDER BY c.sort_key, c.label`, [year.id]),
@@ -262,7 +262,7 @@ export async function teachingRoutes(server: FastifyInstance) {
         // at once while sitting active in the database. That reads as data
         // loss on the one week it is guaranteed to happen.
         const { rows: classRows } = await pool.query(
-            `SELECT c.id, c.label, cy.description FROM class_years cy
+            `SELECT c.id, c.label, cy.description, cy.alias FROM class_years cy
                JOIN school_classes c ON c.id = cy.class_id
               WHERE cy.school_year_id = $1 AND cy.active
               ORDER BY c.sort_key, c.label`,

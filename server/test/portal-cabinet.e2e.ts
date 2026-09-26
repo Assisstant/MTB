@@ -131,6 +131,34 @@ async function main() {
         const after = (await call('GET', '/api/portal/week', t2)).body?.notices || [];
         check('and the notice closes by itself', after.some((n: any) => n.kind === 'term' && n.open === false), JSON.stringify(after));
 
+        console.log('\none\'s own list, ticked from the year\'s pupils');
+        const tick = (token: string, publicId: string, on: boolean) => call('PUT', '/api/portal/caseload', token, { publicId, on });
+        const early = await call('GET', '/api/portal/caseload', t1);
+        check('the whole list is refused while the initial password stands',
+            early.status === 403 && early.body?.needsPassword === true && !JSON.stringify(early.body).includes(PUPILS[2].name), JSON.stringify(early.body));
+        check('and so is a tick', (await tick(t1, PUPILS[2].id, true)).status === 403);
+        const changed = await call('POST', '/api/portal/password', t1, { current: 'ResursenCentar', next: 'пробна-лозинка' });
+        check('a therapist sets their own password', changed.status === 200, JSON.stringify(changed.body));
+        const list = await call('GET', '/api/portal/caseload', t1);
+        const byId = new Map((list.body?.pupils || []).map((p: any) => [p.publicId, p]));
+        check('then every pupil of the year is listed', list.status === 200 && PUPILS.every((p) => byId.has(p.id)), JSON.stringify(list.body));
+        check('with their own ones ticked', (byId.get(PUPILS[0].id) as any)?.mine === true && (byId.get(PUPILS[2].id) as any)?.mine === false);
+        check('and whether they are internal', (byId.get(PUPILS[2].id) as any)?.type === 'internal');
+        const added = await tick(t1, PUPILS[2].id, true);
+        check('a tick adds a pupil to the list', added.status === 200, JSON.stringify(added.body));
+        const ownNow = ((await call('GET', '/api/portal/week', t1)).body?.cabinet?.pupils || []).map((p: any) => p.publicId);
+        check('and the term picker offers them', ownNow.includes(PUPILS[2].id), JSON.stringify(ownNow));
+        const bookedOff = await tick(t1, PUPILS[1].id, false);
+        check('a pupil with a term in the cabinet cannot be unticked', bookedOff.status === 409 && bookedOff.body?.booked === true, JSON.stringify(bookedOff.body));
+        check('and stays on the list', (await q(`SELECT 1 FROM therapist_students WHERE school_year_id = $1 AND therapist_id = $2 AND student_id = $3`,
+            [y.id, rid[R1], sid[PUPILS[1].id]])).length === 1);
+        const off = await tick(t1, PUPILS[2].id, false);
+        check('one without a term is taken off', off.status === 200 && !((await call('GET', '/api/portal/week', t1)).body?.cabinet?.pupils || [])
+            .some((p: any) => p.publicId === PUPILS[2].id), JSON.stringify(off.body));
+        check('the other therapist\'s list is untouched', (await q(`SELECT 1 FROM therapist_students WHERE school_year_id = $1 AND therapist_id = $2`,
+            [y.id, rid[R2]])).length === 2);
+        check('an unknown pupil is refused', (await tick(t1, `${TAG}-nobody`, true)).status === 404);
+
         console.log('\nnothing for somebody without a cabinet');
         check('a therapist\'s block written by nobody signed in is refused', (await term('', { day: DAY, time: BLOCK, pupils: [] })).status === 401);
     } finally {

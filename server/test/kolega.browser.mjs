@@ -246,6 +246,8 @@ check('no page errors', errors.length === 0, errors.join('\n       '));
     check('and marks them seen', writes.some((w) => w.path === '/api/portal/notices/seen' && w.body.ids.includes(11)));
     await p.click('#tabs [data-tab="class:II-б"]');
     await p.click('#days [data-day="понеделник"]');
+    check('a предметен наставник who leads a class sees its week, but fills only their own lessons',
+        !(await p.$('#periods [data-edit]')) && /„Мои часови"/.test(await p.textContent('#tabHint')));
     const cell = await p.textContent('#periods [data-ordinal="3"]');
     check('the class shows the period with two lessons as a clash', /Математика/.test(cell) && /Музичко/.test(cell) && /⚠/.test(cell), cell);
     await p.click('#periods [data-ordinal="3"] [data-remove="2"]');
@@ -254,6 +256,66 @@ check('no page errors', errors.length === 0, errors.join('\n       '));
         && !lessons.some((l) => l.id === 2));
     check('the week fits a phone', await p.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth));
     check('no page errors in the week', weekErrors.length === 0, weekErrors.join('\n       '));
+    await ctx.close();
+}
+
+// ── an одделенски наставник fills their own class: the subject, nothing else ──
+{
+    console.log('\nan одделенски наставник');
+    const lessons = [{ id: 1, day: 'понеделник', ordinal: 1, classId: 1, class: 'I-а', subject: 'Математика', teacherId: 3, teacher: 'Ана Измислена' }];
+    const writes = [];
+    const ctx = await browser.newContext({ viewport: { width: 400, height: 900 }, serviceWorkers: 'block' });
+    await ctx.addInitScript((t) => { try { localStorage.setItem('mtb_portal_token_v1', t); } catch (_) { /* test */ } }, TOKEN);
+    await ctx.route('**/*', async (route) => {
+        const req = route.request(), url = new URL(req.url());
+        const json = (status, body) => route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) });
+        if (url.origin !== ORIGIN) return route.fulfill({ status: 404, body: '' });
+        if (url.pathname === '/Kolega.html') {
+            return route.fulfill({ status: 200, contentType: 'text/html; charset=utf-8', body: await readFile(join(ROOT, 'Kolega.html')) });
+        }
+        const body = req.postData() ? JSON.parse(req.postData()) : null;
+        if (body) writes.push({ path: url.pathname, body });
+        if (url.pathname === '/api/portal/me') return json(200, { person: { employeeId: 7, name: 'Ана Измислена' },
+            usernames: { latin: 'AnaIzmislena', cyrillic: 'АнаИзмислена' }, initialPassword: false, year: '2026/2027',
+            roles: ['teacher', 'homeroom'], teacher: { id: 3, kind: 'odd', classes: [{ label: 'I-а', role: 'homeroom' }] }, therapist: null, duty: false });
+        if (url.pathname === '/api/portal/week') return json(200, {
+            year: '2026/2027', days: ['понеделник', 'вторник', 'среда', 'четврток', 'петок'],
+            periods: [1, 2].map((n) => ({ ordinal: n, label: String(n), startsAt: `0${7 + n}:00` })),
+            me: { teacherId: 3, therapistId: null, homeroom: ['I-а'], subject: null },
+            classes: [{ label: 'I-а', description: 'опис', homeroom: 'Ана Измислена' }],
+            teachers: [{ id: 3, name: 'Ана Измислена' }, { id: 8, name: 'Колега Це' }],
+            lessons, clashes: [], notices: [], classPupils: {}
+        });
+        if (url.pathname === '/api/portal/subjects') return json(200, { subjects: ['Математика', 'Македонски јазик'] });
+        if (url.pathname === '/api/portal/class-lesson') return json(200, { ok: true, action: 'inserted', notified: 0 });
+        // The administrator's sign-in answers, and there is a list — without this person on it.
+        if (url.pathname === '/api/duty') return json(200, { year: '2026/2027', month: '2026-10', startsOn: '2026-09-01',
+            yearStartsOn: '2026-09-01', yearEndsOn: '2027-08-31', days: [], staleSwaps: [], candidates: [],
+            members: [{ employeeId: 9, name: 'Колега Де', position: 1, joinedOn: null, leftOn: null }] });
+        return json(404, { error: 'not in this test' });
+    });
+    const p = await ctx.newPage();
+    const errs = [];
+    p.on('pageerror', (e) => errs.push(e.message));
+    await p.goto(`${ORIGIN}/Kolega.html`);
+    await p.waitForSelector('#days [data-day="понеделник"]', { timeout: 8000 });
+    await p.waitForTimeout(300);
+    const tabs = await p.$$eval('#tabs [data-tab]', (b) => b.map((x) => x.dataset.tab));
+    check('their week is their class, with no „Мои часови" beside it', JSON.stringify(tabs) === '["class:I-а"]'
+        || (await p.isHidden('#tabs') && await p.isVisible('#periods [data-ordinal="1"]')), JSON.stringify(tabs));
+    check('and no „Дежурства" for somebody not on its list, even under the administrator\'s sign-in', !tabs.includes('duty'));
+    await p.click('#days [data-day="понеделник"]');
+    await p.click('#periods [data-ordinal="2"] [data-edit]');
+    await p.waitForSelector('#periods form.editor select[name=subject]');
+    check('a period asks only for the subject — no teacher to pick', !(await p.$('#periods form.editor select[name=teacher]'))
+        && !(await p.$('#periods form.editor select[name=klass]')));
+    await p.selectOption('#periods form.editor select[name=subject]', 'Македонски јазик');
+    await p.click('#periods form.editor button[type=submit]');
+    await p.waitForFunction(() => /Зачувано/.test(document.getElementById('weekMsg').textContent), null, { timeout: 5000 });
+    const sent = writes.find((w) => w.path === '/api/portal/class-lesson');
+    check('and the lesson is written as theirs', sent && sent.body.class === 'I-а' && sent.body.teacherId === 3
+        && sent.body.subject === 'Македонски јазик', JSON.stringify(sent));
+    check('no page errors for an одделенски наставник', errs.length === 0, errs.join('\n       '));
     await ctx.close();
 }
 
@@ -286,6 +348,16 @@ check('no page errors', errors.length === 0, errors.join('\n       '));
                 elsewhere: [{ publicId: 'p1', day: 'понеделник', time: '08:00-08:40', therapist: 'Колега Ди' }]
             }
         });
+        if (url.pathname === '/api/portal/caseload' && req.method() === 'GET') return json(200, { year: '2026/2027', pupils: [
+            { publicId: 'p1', name: 'Ученик Измислен', class: 'II-б', oddelenie: 'III', type: 'internal', preparatory: false, mine: true },
+            { publicId: 'p2', name: 'Ученичка Измислена', class: 'I-а', oddelenie: 'I', type: 'internal', preparatory: false, mine: true },
+            { publicId: 'p3', name: 'Екстерна Измислена', class: null, oddelenie: null, type: 'external', preparatory: false, mine: false },
+            { publicId: 'p4', name: 'Мала Измислена', class: 'подготвителна', oddelenie: null, type: 'internal', preparatory: true, mine: false }
+        ] });
+        if (url.pathname === '/api/portal/caseload') {
+            if (body.publicId === 'p1' && !body.on) return json(409, { booked: true, error: 'Ученикот има термин кај вас (понеделник 08:00-08:40).' });
+            return json(200, { ok: true });
+        }
         if (url.pathname === '/api/portal/term') {
             if (body.pupils.includes('p1') && body.time === '08:00-08:40' && !body.force) {
                 return json(409, { clash: true, error: 'понеделник, 08:00-08:40: „Ученик Измислен" тогаш е кај Колега Ди (08:00-08:40).' });
@@ -324,6 +396,33 @@ check('no page errors', errors.length === 0, errors.join('\n       '));
         null, { timeout: 5000 }).catch(() => {});
     const halves = await p.textContent('#periods [data-time="08:45-09:25"]');
     check('two pupils share a term in halves', /први 20/.test(halves) && /втори 20/.test(halves), halves);
+
+    console.log('\nthe cabinet — one\'s own list, ticked');
+    check('the list is counted and folded until asked', /Мои ученици: 2/.test(await p.textContent('#caseload')) && !(await p.$('#caseload .ticks')));
+    await p.click('#caseload [data-caseload-toggle]');
+    await p.waitForSelector('#caseload .ticks', { timeout: 5000 });
+    const tabs = await p.$$eval('#caseload [data-caseload-filter]', (b) => b.map((x) => x.textContent));
+    check('with tabs for the kinds of pupil, counted', JSON.stringify(tabs)
+        === JSON.stringify(['Сите (4)', 'Мои (2)', 'Интерни (2)', 'Екстерни (1)', 'Подготвителна (1)']), JSON.stringify(tabs));
+    await p.click('#caseload [data-caseload-filter="external"]');
+    check('a tab shows only its kind', JSON.stringify(await p.$$eval('#caseload .ticks input', (i) => i.map((x) => x.dataset.caseloadPupil))) === '["p3"]');
+    await p.check('#caseload [data-caseload-pupil="p3"]');
+    await p.waitForFunction(() => /додаден/.test(document.getElementById('weekMsg').textContent), null, { timeout: 5000 });
+    check('a tick is sent at once, one pupil', writes.some((w) => w.path === '/api/portal/caseload' && w.body.publicId === 'p3' && w.body.on === true));
+    await p.click('#periods [data-time="08:45-09:25"] [data-edit-term]');
+    const offered = await p.$$eval('#periods form.editor select[name=first] option', (o) => o.map((x) => x.value).filter(Boolean));
+    check('and the term picker offers the one just ticked — and nobody unticked',
+        offered.includes('p3') && !offered.includes('p4'), JSON.stringify(offered));
+    await p.click('#periods form.editor [data-act="cancel"]');
+    await p.click('#caseload [data-caseload-filter="mine"]');
+    await p.uncheck('#caseload [data-caseload-pupil="p1"]');
+    await p.waitForFunction(() => /термин кај вас/.test(document.getElementById('weekMsg').textContent), null, { timeout: 5000 });
+    check('a pupil who still has a term stays ticked, and it says why', await p.isChecked('#caseload [data-caseload-pupil="p1"]'));
+    await p.click('#caseload [data-caseload-filter="all"]');
+    await p.fill('#caseloadQuery', 'подготв');
+    check('a search narrows the list', JSON.stringify(await p.$$eval('#caseload .ticks label:not([hidden]) input',
+        (i) => i.map((x) => x.dataset.caseloadPupil))) === '["p4"]');
+    check('the list fits a phone', await p.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth));
     check('no page errors in the cabinet', cabErrors.length === 0, cabErrors.join('\n       '));
     await ctx.close();
 }
@@ -436,12 +535,15 @@ check('no page errors', errors.length === 0, errors.join('\n       '));
     check('and somebody marked away on it', o.ownerWrites.some((w) => w.path === '/api/duty/absence'
         && w.body.employeeId === 8 && w.body.absent === true), JSON.stringify(o.ownerWrites));
     await o.p.evaluate(() => { document.querySelector('#duty .duty-admin').open = true; });
-    check('the cabinets are ticked on their own line, the rest folded away',
-        await o.p.isChecked('#duty [data-duty-tick="7"]') && !(await o.p.isChecked('#duty [data-duty-tick="11"]'))
-        && !(await o.p.isVisible('#duty [data-duty-tick="10"]')));
+    check('the cabinets on the list are ticked on their own line, the rest folded away',
+        await o.p.isChecked('#duty [data-duty-tick="7"]') && !(await o.p.isVisible('#duty [data-duty-tick="10"]')));
+    check('a cabinet not on the saved list is with the others, not among the cabinets',
+        Boolean(await o.p.$('#duty .duty-others [data-duty-tick="11"]')) && !(await o.p.isChecked('#duty [data-duty-tick="11"]')));
     await o.p.click('#duty .duty-others summary');
     await o.p.check('#duty [data-duty-tick="10"]');
     await o.p.uncheck('#duty [data-duty-tick="8"]');
+    check('one unticked stays where it was clicked until the list is saved',
+        Boolean(await o.p.$('#duty .duty-admin > .duty-ticks [data-duty-tick="8"]')));
     check('somebody unticked no longer figures in the list',
         JSON.stringify(await o.p.$$eval('#dutyList .nm', (n) => n.map((x) => x.firstChild.textContent.trim())))
         === JSON.stringify(['Ана Измислена', 'Горан Измислен', 'Нова Измислена']));

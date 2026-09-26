@@ -253,7 +253,7 @@ export function signerName(scope: Scope): string | null {
 }
 
 const WRITE_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
-const PUBLIC_WRITES = new Set([
+export const PUBLIC_WRITES = new Set([
     'POST /api/evidence/login',
     'POST /api/evidence/logout',
     // The route itself applies the stricter first-PIN/admin rule because it
@@ -267,7 +267,9 @@ const PUBLIC_WRITES = new Set([
     'PUT /api/portal/my-lesson',
     'PUT /api/portal/class-lesson',
     'POST /api/portal/class-lesson/remove',
-    'PUT /api/portal/term'
+    'PUT /api/portal/term',
+    'PUT /api/portal/duty/absence',
+    'PUT /api/portal/caseload'
 ]);
 const DELEGATED_WRITES = new Set([
     'PUT /api/therapists/:name/students/:publicId',

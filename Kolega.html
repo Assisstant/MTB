@@ -158,6 +158,18 @@ header.top h1 { flex: 1; min-width: 180px; }
 .duty-day .checks { display: flex; flex-wrap: wrap; gap: 4px 12px; }
 .duty-day .checks label { display: inline-flex; align-items: center; gap: 5px; margin: 0; font-weight: 500; }
 .duty-day .checks input { width: auto; }
+/* A therapist's own list, ticked from the year's pupils. */
+.caseload { border: 1px dashed var(--line); border-radius: 10px; padding: 10px 12px; margin: 8px 0 4px; }
+.caseload .head { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.caseload .head b { flex: 1; min-width: 160px; }
+.caseload .filters { display: flex; gap: 6px; flex-wrap: wrap; margin: 10px 0 6px; }
+.caseload .filters button[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--accent-text); }
+.caseload input[type="search"] { margin: 4px 0 8px; }
+.caseload .ticks { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 4px 14px; max-height: 50vh; overflow: auto; }
+.caseload .ticks label { display: flex; align-items: center; gap: 6px; margin: 0; font-weight: 500; }
+.caseload .ticks label.on { font-weight: 800; }
+.caseload .ticks input { width: auto; }
+.caseload .ticks small { color: var(--muted); font-weight: 500; }
 @media print {
   body.printing-duty main > *:not(#home), body.printing-duty #home > *:not(#weekCard),
   body.printing-duty #weekCard > *:not(#duty), body.printing-duty .no-print { display: none !important; }
@@ -229,6 +241,7 @@ header.top h1 { flex: 1; min-width: 180px; }
       <div class="tabs" id="tabs" role="group" aria-label="Што пополнувате"></div>
       <div class="days" id="days" role="group" aria-label="Ден"></div>
       <p class="muted" id="tabHint"></p>
+      <div class="caseload" id="caseload" hidden></div>
       <ul class="periods" id="periods"></ul>
       <div id="duty" hidden></div>
       <p class="msg" id="weekMsg" role="status" aria-live="polite"></p>
@@ -339,8 +352,21 @@ header.top h1 { flex: 1; min-width: 180px; }
         if (!letters || letters !== letters.toLocaleUpperCase('mk-MK')) return clean;
         return clean.toLocaleLowerCase('mk-MK').replace(/(^|[\s\-‐‑–—'’])(\p{L})/gu, (_, b, l) => b + l.toLocaleUpperCase('mk-MK'));
     };
+    // A паралелка reads by its name for the year (migration 045), the column
+    // „Одделение" of the school's table; the label is what everything links
+    // by and is shown only where the year has no name for it. The same rule
+    // as app-navigation.js `classes`, copied because this page loads nothing
+    // but itself.
+    const classOf = (label) => ((week && week.classes) || []).find((x) => x.label === label) || null;
+    const nameOf = (label) => { const c = classOf(label); return (c && c.alias) || label; };
+    const shortOf = (label) => {
+        const c = classOf(label);
+        if (!c || !c.alias) return label;
+        const head = c.alias.split(/\s+[–—-]\s+/)[0].trim();
+        return head.replace(/^комбинирана(\s+паралелка)?\s*/iu, 'Комб. ').trim() || c.alias;
+    };
     const klassChip = (label) =>
-        `<button type="button" class="klass" data-klass="${esc(label)}" aria-expanded="false" aria-controls="classCard">${esc(label)}</button>`;
+        `<button type="button" class="klass" data-klass="${esc(label)}" aria-expanded="false" aria-controls="classCard">${esc(shortOf(label))}</button>`;
 
     function classCardHtml(label) {
         const c = (week.classes || []).find((x) => x.label === label) || { label };
@@ -349,7 +375,7 @@ header.top h1 { flex: 1; min-width: 180px; }
             if (!teachers.has(l.teacher)) teachers.set(l.teacher, new Set());
             if (l.subject) teachers.get(l.teacher).add(l.subject);
         });
-        let html = `<b>${esc(label)}</b>${c.description ? ' — ' + esc(c.description) : ''}`
+        let html = `<b>${esc(c.alias || label)}</b>${!c.alias && c.description ? ' — ' + esc(c.description) : ''}`
             + `<div>Раководител: ${esc(properName(c.homeroom) || 'не е одреден')}</div>`;
         if (teachers.size) {
             html += '<div class="muted">Наставници: ' + [...teachers].map(([t, subjects]) =>
@@ -426,18 +452,33 @@ header.top h1 { flex: 1; min-width: 180px; }
     // ── the week ──────────────────────────────────────────────────────────
     const myId = () => week && week.me.teacherId;
     const classText = (label) => {
-        const c = (week.classes || []).find((x) => x.label === label);
-        return c ? [c.label, c.homeroom, c.description].filter(Boolean).join(' · ') : label;
+        const c = classOf(label);
+        if (!c) return label;
+        return c.alias ? [c.alias, c.homeroom].filter(Boolean).join(' · ') : [c.label, c.homeroom, c.description].filter(Boolean).join(' · ');
     };
     const lessonsAt = (day, ordinal) => (week.lessons || []).filter((l) => l.day === day && l.ordinal === ordinal);
     const periodTime = (p) => p.startsAt ? `<small>${esc(p.startsAt)}</small>` : '';
 
+    // Who fills what (owner, 26 Sep 2026): an одделенски наставник fills their
+    // own class and only picks the subject; a предметен наставник fills their
+    // own lessons, class and subject. The teacher is never picked: a lesson
+    // written here is the signed-in person's.
+    const fillsClass = () => Boolean(me && me.teacher && me.teacher.kind === 'odd');
+
     function tabsOf() {
         const tabs = [];
-        if (week.me.teacherId != null) tabs.push({ id: 'mine', label: 'Мои часови' });
-        (week.me.homeroom || []).forEach((label) => tabs.push({ id: 'class:' + label, label: 'Паралелка ' + label }));
+        const homeroom = week.me.homeroom || [];
+        // An одделенски наставник's week IS their class; „Мои часови" is kept
+        // only for lessons they also have somewhere else.
+        const elsewhere = (week.lessons || []).some((l) => l.teacherId === myId() && !homeroom.includes(l.class));
+        if (week.me.teacherId != null && (!fillsClass() || !homeroom.length || elsewhere)) tabs.push({ id: 'mine', label: 'Мои часови' });
+        homeroom.forEach((label) => tabs.push({ id: 'class:' + label, label: 'Паралелка ' + shortOf(label) }));
         if (week.me.therapistId != null) tabs.push({ id: 'cabinet', label: 'Мој кабинет' });
-        if ((me && me.duty) || duty.owner) tabs.push({ id: 'duty', label: '🛡 Дежурства' });
+        // Only for somebody on the duty list. The administrator's sign-in
+        // opens it on anyone's page only while there is no list yet, so the
+        // first one can be made; after that it is where their own name is.
+        const noList = duty.owner && duty.data && !(duty.data.members || []).length;
+        if ((me && me.duty) || noList) tabs.push({ id: 'duty', label: '🛡 Дежурства' });
         return tabs;
     }
 
@@ -691,7 +732,14 @@ header.top h1 { flex: 1; min-width: 180px; }
         const on = new Set(draft.members.filter((m) => !m.leftOn).map((m) => m.employeeId));
         const tick = (c) => `<label><input type="checkbox" data-duty-tick="${c.employeeId}"${on.has(c.employeeId) ? ' checked' : ''}> ${esc(c.name)}</label>`;
         const all = duty.data.candidates || [];
-        const others = all.filter((c) => !c.cabinet);
+        // „Кабинети" holds the cabinets that are on the SAVED list (owner,
+        // 26 Sep): one unticked there moves to „Други вработени" once the list
+        // is saved or the page is opened again — not under the pointer while
+        // ticking, which would move the box that was just clicked.
+        const saved = new Set(fresh ? all.filter((c) => c.cabinet).map((c) => c.employeeId)
+            : duty.data.members.filter((m) => !m.leftOn).map((m) => m.employeeId));
+        const top = all.filter((c) => c.cabinet && saved.has(c.employeeId));
+        const others = all.filter((c) => !top.includes(c));
         const othersOn = others.filter((c) => on.has(c.employeeId)).length;
         const shown = draft.members.map((m, i) => ({ m, i })).filter(({ m }) => !m.leftOn);
         return `<details class="duty-admin no-print"${duty.adminOpen || fresh ? ' open' : ''}><summary>⚙ Список за дежурства и почеток (${on.size})</summary>`
@@ -703,7 +751,7 @@ header.top h1 { flex: 1; min-width: 180px; }
                 + `<span class="n">${n + 1}.</span><span class="nm">${esc(m.name)}`
                 + (m.joinedOn ? ` <span class="muted">од ${dmy(m.joinedOn)}</span>` : '') + '</span>'
                 + `<button type="button" class="small" data-duty-drop="${i}" aria-label="Тргни од списокот">✕</button></li>`).join('') + '</ol>'
-            + '<div class="duty-ticks"><b>Кабинети</b>' + all.filter((c) => c.cabinet).map(tick).join('') + '</div>'
+            + '<div class="duty-ticks"><b>Кабинети</b>' + top.map(tick).join('') + '</div>'
             + (others.length ? `<details class="duty-others"${othersOn ? ' open' : ''}><summary>Други вработени (${others.length}${othersOn ? ', штиклирани ' + othersOn : ''})</summary>`
                 + '<div class="duty-ticks">' + others.map(tick).join('') + '</div></details>' : '')
             + `<details class="duty-paste"${duty.textOpen ? ' open' : ''}><summary>✍ Редоследот како текст</summary>`
@@ -965,6 +1013,7 @@ header.top h1 { flex: 1; min-width: 180px; }
         const onDuty = view.tab === 'duty';
         el('duty').hidden = !onDuty;
         el('periods').hidden = onDuty;
+        el('caseload').hidden = view.tab !== 'cabinet';
         if (onDuty) {
             el('days').hidden = true;
             el('tabHint').textContent = duty.owner
@@ -980,7 +1029,8 @@ header.top h1 { flex: 1; min-width: 180px; }
         }
         if (view.tab === 'cabinet') {
             el('tabHint').textContent = 'Вашиот кабинет: еден ученик за цел час (40 минути), или двајца по 20 минути. '
-                + 'Изберете термин за да го внесете или смените.';
+                + 'Изберете термин за да го внесете или смените. Во изборот се само учениците од вашата листа.';
+            drawCaseload();
             el('periods').innerHTML = ((week.cabinet && week.cabinet.bells) || []).map(termHtml).join('');
             if (editing && editing.time) {
                 const row = el('periods').querySelector(`[data-time="${editing.time}"]`);
@@ -990,7 +1040,9 @@ header.top h1 { flex: 1; min-width: 180px; }
         }
         const homeroomOf = view.tab.startsWith('class:') ? view.tab.slice(6) : '';
         el('tabHint').innerHTML = homeroomOf
-            ? `Часовите на ${klassChip(homeroomOf)}${esc(classText(homeroomOf).slice(homeroomOf.length))}. Изберете час за да го внесете или смените.`
+            ? `Часовите на ${klassChip(homeroomOf)}${esc(classText(homeroomOf).slice(nameOf(homeroomOf).length))}. `
+                + (fillsClass() ? 'Изберете час и предмет — часот се запишува на вас.'
+                    : 'Секој предметен наставник ги внесува своите часови во „Мои часови".')
             : 'Вашите часови: во која паралелка и кој предмет. Допрете ја паралелката за децата и наставниците; изберете час за да го внесете или смените.';
         el('periods').innerHTML = (week.periods || []).map((p) => periodHtml(p, homeroomOf)).join('');
         if (editing) {
@@ -1025,7 +1077,7 @@ header.top h1 { flex: 1; min-width: 180px; }
                 if (mine.length > 1) { clash = true; note = '<div class="note warn">⚠ Во овој час сте во две паралелки.</div>'; }
                 if (against.length) {
                     clash = true;
-                    note += `<div class="note warn">⚠ Во ${esc(against[0].class)} тогаш има и „${esc(against[0].subject || 'час')}" кај ${esc(against[0].teacher)}.</div>`;
+                    note += `<div class="note warn">⚠ Во ${esc(shortOf(against[0].class))} тогаш има и „${esc(against[0].subject || 'час')}" кај ${esc(against[0].teacher)}.</div>`;
                 }
                 if (together.length) note += `<div class="note">заедно со ${together.map((o) => esc(o.teacher)).join(', ')}</div>`;
             } else what = '<span class="free">— слободен —</span>';
@@ -1033,7 +1085,8 @@ header.top h1 { flex: 1; min-width: 180px; }
         return `<li class="period${clash ? ' clash' : ''}" data-ordinal="${p.ordinal}">`
             + `<div class="head"><span class="when">${esc(p.label)}. час ${periodTime(p)}</span>`
             + `<span class="what">${what}</span>`
-            + `<button type="button" class="small" data-edit="${p.ordinal}">Уреди</button></div>${note}</li>`;
+            + (homeroomOf && !fillsClass() ? '' : `<button type="button" class="small" data-edit="${p.ordinal}">Уреди</button>`)
+            + `</div>${note}</li>`;
     }
 
     async function offerFor(label) {
@@ -1060,7 +1113,7 @@ header.top h1 { flex: 1; min-width: 180px; }
         const here = lessonsAt(view.day, ordinal);
         const lines = [];
         if (homeroomOf) {
-            const teacherId = form.elements.teacher.value ? Number(form.elements.teacher.value) : null;
+            const teacherId = myId();
             here.filter((l) => l.class === homeroomOf && l.teacherId != null && l.teacherId !== myId() && l.teacherId !== teacherId)
                 .forEach((l) => lines.push(`Ќе се смени часот „${l.subject || 'час'}" на ${l.teacher}.`));
             if (teacherId != null) {
@@ -1094,10 +1147,7 @@ header.top h1 { flex: 1; min-width: 180px; }
         if (homeroomOf) {
             current = here.filter((l) => l.class === homeroomOf);
             const one = current.length === 1 ? current[0] : null;
-            form.innerHTML = `<label>Предмет <select name="subject"></select></label>`
-                + `<label>Наставник <select name="teacher"><option value="">— без наставник —</option>`
-                + (week.teachers || []).map((t) => `<option value="${t.id}"${(one ? one.teacherId === t.id : t.id === myId()) ? ' selected' : ''}>${esc(t.name)}</option>`).join('')
-                + '</select></label>';
+            form.innerHTML = `<label>Предмет <select name="subject"></select></label>`;
             form.elements.subject.innerHTML = subjectOptions(await offerFor(homeroomOf), one ? one.subject : '');
             form.dataset.expected = JSON.stringify(one ? { subject: one.subject, teacher: one.teacher } : null);
         } else {
@@ -1130,7 +1180,6 @@ header.top h1 { flex: 1; min-width: 180px; }
             }
             preview(homeroomOf, ordinal, form);
         });
-        if (form.elements.teacher) form.elements.teacher.addEventListener('change', () => preview(homeroomOf, ordinal, form));
         form.addEventListener('submit', (event) => { event.preventDefault(); save(form, homeroomOf, ordinal, false); });
         form.querySelector('[data-act="cancel"]').addEventListener('click', () => { editing = null; form.remove(); });
         const clear = form.querySelector('[data-act="clear"]');
@@ -1148,7 +1197,7 @@ header.top h1 { flex: 1; min-width: 180px; }
         let body;
         if (homeroomOf) {
             path = '/api/portal/class-lesson';
-            body = { class: homeroomOf, day: view.day, ordinal, subject, teacherId: form.elements.teacher.value ? Number(form.elements.teacher.value) : null, expected, force };
+            body = { class: homeroomOf, day: view.day, ordinal, subject, teacherId: myId(), expected, force };
         } else {
             path = '/api/portal/my-lesson';
             body = { day: view.day, ordinal, class: clear ? null : (form.elements.klass.value || null), subject: clear ? null : subject, expected, force };
@@ -1330,11 +1379,107 @@ header.top h1 { flex: 1; min-width: 180px; }
         }
     }
 
+    // ── one's own list: ticked from the year's pupils ────────────────────
+    // The owner, 26 Sep 2026: the same kind of check list as Дежурства, with
+    // tabs for the kinds of pupil. Only the ticked ones are offered in a
+    // term's picker. Each tick is saved at once, one pupil at a time.
+    const caseload = { open: false, list: null, filter: 'all', query: '', error: '' };
+    const CASELOAD_FILTERS = [
+        { id: 'all', label: 'Сите', test: () => true },
+        { id: 'mine', label: 'Мои', test: (p) => p.mine },
+        { id: 'internal', label: 'Интерни', test: (p) => p.type !== 'external' && !p.preparatory },
+        { id: 'external', label: 'Екстерни', test: (p) => p.type === 'external' },
+        { id: 'preparatory', label: 'Подготвителна', test: (p) => p.preparatory }
+    ];
+    const pupilLine = (p) => [p.class, p.oddelenie && p.oddelenie !== p.class ? 'одд. ' + p.oddelenie : '', p.type === 'external' ? 'екстерен' : '']
+        .filter(Boolean).join(' · ');
+
+    function drawCaseload() {
+        const box = el('caseload');
+        const count = ((week && week.cabinet && week.cabinet.pupils) || []).length;
+        const head = `<div class="head"><b>📋 Мои ученици: ${count}</b>`
+            + `<button type="button" class="small" data-caseload-toggle aria-expanded="${caseload.open}">${caseload.open ? 'Затвори ја листата' : 'Измени листа'}</button></div>`;
+        if (!caseload.open) { box.innerHTML = head; return; }
+        if (caseload.error) { box.innerHTML = head + `<p class="msg error">${esc(caseload.error)}</p>`; return; }
+        if (!caseload.list) { box.innerHTML = head + '<p class="muted">Вчитувам…</p>'; return; }
+        const list = caseload.list;
+        const filter = CASELOAD_FILTERS.find((f) => f.id === caseload.filter) || CASELOAD_FILTERS[0];
+        box.innerHTML = head
+            + '<p class="muted">Штиклирајте ги учениците со кои работите годинава. Се зачувува веднаш.</p>'
+            + '<div class="filters" role="group" aria-label="Кои ученици">' + CASELOAD_FILTERS.map((f) =>
+                `<button type="button" class="small" data-caseload-filter="${f.id}" aria-pressed="${f.id === filter.id}">${esc(f.label)} (${list.filter(f.test).length})</button>`).join('') + '</div>'
+            + `<input type="search" id="caseloadQuery" placeholder="Барај по име или паралелка" aria-label="Барај ученик" value="${esc(caseload.query)}">`
+            + '<div class="ticks">' + list.filter(filter.test).map((p) =>
+                `<label class="${p.mine ? 'on' : ''}" data-find="${esc(norm(p.name + ' ' + (p.class || '')))}">`
+                + `<input type="checkbox" data-caseload-pupil="${esc(p.publicId)}"${p.mine ? ' checked' : ''}> `
+                + `<span>${esc(p.name)}${pupilLine(p) ? ` <small>${esc(pupilLine(p))}</small>` : ''}</span></label>`).join('')
+            + '</div>';
+        findInCaseload();
+    }
+
+    function findInCaseload() {
+        const q = norm(caseload.query);
+        el('caseload').querySelectorAll('.ticks label').forEach((row) => { row.hidden = Boolean(q) && !row.dataset.find.includes(q); });
+    }
+
+    async function openCaseload() {
+        caseload.open = true;
+        caseload.error = '';
+        drawCaseload();
+        try {
+            caseload.list = (await api('GET', '/api/portal/caseload')).pupils || [];
+        } catch (err) { caseload.error = err.message; }
+        drawCaseload();
+    }
+
+    async function tickPupil(input) {
+        const p = (caseload.list || []).find((x) => x.publicId === input.dataset.caseloadPupil);
+        if (!p) return;
+        const on = input.checked;
+        input.disabled = true;
+        try {
+            await api('PUT', '/api/portal/caseload', { publicId: p.publicId, on });
+            p.mine = on;
+            // The picker reads the week's own list, so it is kept in step here
+            // rather than by reloading the whole week on every tick.
+            const own = week.cabinet.pupils;
+            if (on && !own.some((x) => x.publicId === p.publicId)) {
+                own.push({ publicId: p.publicId, name: p.name, class: p.class });
+                own.sort((a, b) => a.name.localeCompare(b.name, 'mk'));
+            }
+            if (!on) week.cabinet.pupils = own.filter((x) => x.publicId !== p.publicId);
+            say('weekMsg', on ? `${p.name} е додаден на вашата листа.` : `${p.name} е тргнат од вашата листа.`, 'ok');
+            drawCaseload();
+        } catch (err) {
+            input.checked = !on;
+            input.disabled = false;
+            say('weekMsg', err.message, 'error');
+        }
+    }
+
+    el('caseload').addEventListener('click', (event) => {
+        if (event.target.closest('[data-caseload-toggle]')) {
+            if (caseload.open) { caseload.open = false; drawCaseload(); } else openCaseload();
+            return;
+        }
+        const f = event.target.closest('[data-caseload-filter]');
+        if (f) { caseload.filter = f.dataset.caseloadFilter; drawCaseload(); }
+    });
+    el('caseload').addEventListener('change', (event) => {
+        const input = event.target.closest('[data-caseload-pupil]');
+        if (input) tickPupil(input);
+    });
+    el('caseload').addEventListener('input', (event) => {
+        if (event.target.id !== 'caseloadQuery') return;
+        caseload.query = event.target.value;
+        findInCaseload();
+    });
+
     function drawClashes() {
         const list = week.clashes || [];
         const cabinet = cabinetClashes();
         el('clashesCard').hidden = !list.length && !cabinet.length;
-        el('clashesList').innerHTML = list.map((c) => `<li><b>${esc(c.day)}, ${c.ordinal}. час</b> · ${esc(c.class)}: `
+        el('clashesList').innerHTML = list.map((c) => `<li><b>${esc(c.day)}, ${c.ordinal}. час</b> · ${esc(shortOf(c.class))}: `
             + c.lessons.map((l) => `„${esc(l.subject || 'час')}" кај ${esc(l.teacherId === myId() ? 'вас' : (l.teacher || '—'))}`).join(' и ')
             + ` <button type="button" class="small" data-go="${esc(c.day)}|${c.ordinal}">Отвори</button></li>`).join('')
             + cabinet.map((c) => `<li><b>${esc(c.day)}, ${esc(c.time)}</b> · ${esc(c.pupil)} е и кај ${esc(c.therapist)} (${esc(c.at)})`
@@ -1374,6 +1519,8 @@ header.top h1 { flex: 1; min-width: 180px; }
         duty.ownerChecked = false;
         duty.owner = false;
         duty.data = null;
+        caseload.open = false;
+        caseload.list = null;
         reloadWeek()
             // Whether there is a duty tab at all is known only after asking
             // (the administrator may not be on the list), so it is drawn again.

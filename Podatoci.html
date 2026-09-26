@@ -203,6 +203,10 @@
     .grid-pick input[type=checkbox] { width: 16px; height: 16px; flex: 0 0 auto; }
     .grid-pick select { width: auto; padding: 2px 4px; font-size: 12px; }
     .class-label { font-weight: 700; white-space: nowrap; }
+    .class-label.named { white-space: normal; display: block; }
+    .class-internal { display: block; font-size: 11px; color: var(--muted); margin-top: 1px; }
+    .class-count-check { margin-left: 10px; font-size: 13px; }
+    .class-count-check.warn { color: var(--warn, #b7791f); font-weight: 700; }
     /* ── пристигнати формулари ── */
     .form-gate { background: var(--warn-bg); border: 1px solid var(--warn); border-radius: 8px; padding: 12px 14px; margin-bottom: 12px; }
     .form-gate .controls { margin-top: 8px; }
@@ -513,12 +517,14 @@
     <div class="panel tab" id="tab-classes">
         <h2>Одделенија</h2>
         <p class="hint">
-            Раководителот и предметните наставници се менуваат само за избраната учебна
-            година. <b>Смени ознака</b> служи само за исправка на името на одделението и
-            важи во сите години, вклучително и архивските.
+            Секоја паралелка се прикажува со <b>името за годината</b> — колоната „Одделение“ од
+            табелата на училиштето — и се менува во <b>Име и опис…</b>. Раководителот и
+            предметните наставници исто така се менуваат само за избраната учебна година.
+            Внатрешната ознака е за поврзување и важи во сите години, вклучително и архивските.
         </p>
         <div class="annual-bar">
             <strong id="classYearCount"></strong>
+            <span class="class-count-check" id="classCountCheck"></span>
             <button class="btn soft danger" id="clearClasses">Испразни ги одделенијата за оваа година</button>
         </div>
         <div class="controls" style="margin-bottom: 12px;">
@@ -1764,7 +1770,7 @@
      * side facts that have separate owners, so a person can see where they
      * disagree and correct the one that is wrong.
      */
-    function classFactsHtml(c, pupils, homeroom) {
+    function classFactsHtml(c, pupils, homeroom, sharedHomeroom) {
         const active = pupils.filter((s) => s.active !== false);
         const gens = new Map();
         active.forEach((s) => {
@@ -1772,19 +1778,25 @@
             if (g) gens.set(g, (gens.get(g) || 0) + 1);
         });
         const genList = ROMAN.filter((g) => gens.has(g));
-        let html = c.description
-            ? `<span class="class-desc">${esc(c.description)}</span>`
-            : '<span class="class-desc none">без опис</span>';
+        // With a name for the year (migration 045) the school's words are in
+        // the name, and the description is not said a second time under it.
+        let html = c.alias ? ''
+            : c.description
+                ? `<span class="class-desc">${esc(c.description)}</span>`
+                : '<span class="class-desc none">без опис</span>';
         if (genList.length) {
             html += `<span class="class-gen">одд. ${genList.map((g) => `${g} (${gens.get(g)})`).join(', ')}</span>`;
         }
 
         const checks = [];
         if (!homeroom) checks.push(['warn', 'нема раководител']);
+        if (sharedHomeroom) checks.push(['warn', `${personName(homeroom.name)} води и друга паралелка — дали се една (комбинирана)?`]);
+        if (!c.alias && data.isCurrentYear) checks.push(['info', 'нема име за приказ — „Име и опис…“']);
         const noGen = active.filter((s) => (s.kind || 'internal') !== 'external' && !s.oddelenie).length;
         if (noGen) checks.push(['warn', `${noGen} без внесено одделение (генерација)`]);
-        if (genList.length > 1 && !c.description) checks.push(['warn', 'повеќе генерации, а нема опис (на пр. „комбинирана паралелка“)']);
-        if (/[\s,]/.test(c.label)) {
+        if (genList.length > 1 && !c.description && !c.alias) checks.push(['warn', 'повеќе генерации, а нема опис (на пр. „комбинирана паралелка“)']);
+        // The label is internal once the year has a name; how it reads is then nobody's concern.
+        if (!c.alias && /[\s,]/.test(c.label)) {
             checks.push(['warn', 'ознаката е и опис — подобро кратка ознака (на пр. II-б), а описот во „Ознака и опис…“. '
                 + 'Ознаката важи за сите години, описот само за оваа.']);
         }
@@ -1801,6 +1813,14 @@
 
     function drawClasses() {
         const pupilsOf = pupilsByClass();
+        // A паралелка is told apart by its children and its homeroom teacher
+        // (owner, 26 Sep 2026): the same teacher leading two is said on both.
+        const leads = new Map();
+        (data.classes || []).forEach((c) => {
+            const h = teachersForClass(c.label).find((teacher) => teacher.role === 'homeroom');
+            if (h) leads.set(h.id, (leads.get(h.id) || 0) + 1);
+        });
+        drawClassCount();
 
         el('classes').innerHTML =
             '<table class="list"><thead><tr><th class="row-number" title="Редоследот се менува со стрелките и се памети за оваа учебна година. Новододадените одат на крај додека не ги преместите."><span class="rn">Р.Бр.</span></th><th style="width:180px;">Одделение</th><th style="width:280px;">Ученици</th>'
@@ -1812,7 +1832,9 @@
                 const pupils = pupilsOf.get(c.label) || [];
                 return `<tr data-class="${c.id}">`
                     + rowNumberCell('classes', c.id, index, (data.classes || []).length)
-                    + `<td><span class="class-label" title="${esc(classOptionTitle(c.label))}">${esc(c.label)}</span>${classFactsHtml(c, pupils, homeroom)}</td>`
+                    + `<td><span class="class-label${c.alias ? ' named' : ''}" title="${esc(classOptionTitle(c.label))}">${esc(c.alias || c.label)}</span>`
+                    + (c.alias ? `<span class="class-internal" title="Внатрешна ознака: по неа се поврзуваат часовите и учениците. Луѓето го гледаат името.">ознака: ${esc(c.label)}</span>` : '')
+                    + `${classFactsHtml(c, pupils, homeroom, Boolean(homeroom) && leads.get(homeroom.id) > 1)}</td>`
                     + '<td><span class="class-pupils">'
                     + `<span class="count">${pupils.length}</span>`
                     + (pupils.length
@@ -1841,7 +1863,7 @@
                     + '<td class="act"><span class="class-actions">'
                     + `<button class="btn soft" data-edit-class-students="${c.id}">Ученици…</button>`
                     + `<button class="btn soft" data-edit-class-teachers="${c.id}">Наставници…</button>`
-                    + `<button class="btn soft" data-edit-class-label="${c.id}">Ознака и опис…</button>`
+                    + `<button class="btn soft" data-edit-class-label="${c.id}">Име и опис…</button>`
                     + (data.isCurrentYear ? `<button class="btn soft danger" data-remove-class="${c.id}">Тргни од ${esc(data.year)}</button>` : '')
                     + '</span></td></tr>';
             }).join('')
@@ -1862,6 +1884,43 @@
         el('classes').querySelectorAll('[data-goto-teacher]').forEach((button) =>
             button.addEventListener('click', () => focusTeacher(Number(button.dataset.gotoTeacher))));
         attachOrderArrows(el('classes'), 'classes', data.classes || []);
+    }
+
+    /**
+     * How many паралелки the year has by the Годишна програма, beside how many
+     * are entered (migration 045), and the internal pupils who sit in none.
+     */
+    function drawClassCount() {
+        const box = el('classCountCheck');
+        const entered = (data.classes || []).length;
+        const expected = data.classCount;
+        const without = (data.students || []).filter((s) => s.active !== false
+            && (s.kind || 'internal') !== 'external' && !s.grade).length;
+        const parts = [];
+        let warn = false;
+        if (expected == null) parts.push('Годишна програма: бројот не е внесен');
+        else if (expected === entered) parts.push(`✓ ${expected} по Годишна програма`);
+        else { parts.push(`⚠ ${expected} по Годишна програма, ${entered} внесени`); warn = true; }
+        if (without) { parts.push(`⚠ ${without} интерни ученици без паралелка`); warn = true; }
+        box.className = 'class-count-check' + (warn ? ' warn' : '');
+        box.innerHTML = esc(parts.join(' · '))
+            + (data.isCurrentYear ? ' <button class="btn soft" id="editClassCount">Број…</button>' : '');
+        const button = el('editClassCount');
+        if (button) button.addEventListener('click', editClassCount);
+    }
+
+    async function editClassCount() {
+        const answer = window.prompt(`Колку паралелки има ${data.year} според Годишната програма? (празно = не е внесено)`,
+            data.classCount == null ? '' : String(data.classCount));
+        if (answer === null) return;
+        const text = answer.trim();
+        const count = text === '' ? null : Number(text);
+        if (count !== null && (!Number.isInteger(count) || count < 0 || count > 200)) return status('Бројот мора да е цел број.', 'warn');
+        try {
+            await api('PUT', '/api/teaching/class-count', { year: data.year, count });
+            await load();
+            status(count === null ? 'бројот е избришан' : `${data.year}: ${count} паралелки по Годишна програма`, 'ok', { toast: true });
+        } catch (err) { status(err.message, 'error', { toast: true }); }
     }
 
     /**
@@ -2049,21 +2108,28 @@
         const box = el('classEditor');
         box.className = 'picker open';
         box.innerHTML =
-            `<h3>Ознака и опис на ${esc(cls.label)}</h3>`
+            `<h3>Име и опис на ${esc(cls.alias || cls.label)}</h3>`
+            + `<p class="hint">Името за <b>${esc(data.year)}</b> е колоната „Одделение“ од табелата на училиштето — така го гледаат сите. `
+            + 'Римски број со големи букви, цртичка и буква од кирилица (I-а, V-б); паралелките од иста генерација по ред а, б, в; '
+            + 'комбинираната по генерациите („Комбинирана II, III, IV“).</p>'
+            + '<div class="controls"><label class="field" style="flex:1;min-width:280px;"><span>Име за оваа година</span>'
+            + `<input id="classAlias" value="${esc(cls.alias || '')}" data-was="${esc(cls.alias || '')}" placeholder="на пр. V-б – ученици со пречки во психичкиот развој"></label>`
+            + `<button class="btn" data-apply-class-alias="${id}">Зачувај име</button></div>`
             + `<p class="hint">Опис за <b>${esc(data.year)}</b>, со зборовите на училиштето (на пр. „комбинирана паралелка“, „ученици со оштетен слух“). `
             + 'Генерациите не се пишуваат тука — тие се читаат од одделението на секое дете.</p>'
             + '<div class="controls"><label class="field" style="flex:1;min-width:280px;"><span>Опис за оваа година</span>'
             + `<input id="classDescription" value="${esc(cls.description || '')}" data-was="${esc(cls.description || '')}" placeholder="на пр. комбинирана паралелка"></label>`
             + `<button class="btn" data-apply-class-description="${id}">Зачувај опис</button></div>`
-            + '<div class="caution" style="margin-top:14px;"><b>Ознаката важи за сите учебни години.</b> Користи ја само за исправка — кратка, како во списокот на училиштето (на пр. II-б). За промена на раководител користи „Наставници…“.</div>'
-            + '<div class="controls"><label class="field"><span>Нова ознака</span>'
+            + '<div class="caution" style="margin-top:14px;"><b>Внатрешната ознака важи за сите учебни години</b> и по неа се поврзуваат часовите и учениците. Луѓето го гледаат името погоре. Менувај ја само ако мора. За промена на раководител користи „Наставници…“.</div>'
+            + '<div class="controls"><label class="field"><span>Внатрешна ознака</span>'
             + `<input id="classRenameLabel" value="${esc(cls.label)}" data-was="${esc(cls.label)}"></label>`
             + `<button class="btn soft" data-apply-class-rename="${id}">Смени ознака</button>`
             + '<button class="btn soft" data-close-picker>Откажи</button></div>';
+        box.querySelector('[data-apply-class-alias]').addEventListener('click', () => saveClassAlias(id));
         box.querySelector('[data-apply-class-description]').addEventListener('click', () => saveClassDescription(id));
         box.querySelector('[data-apply-class-rename]').addEventListener('click', () => renameClass(id));
         box.querySelector('[data-close-picker]').addEventListener('click', closePickers);
-        box.querySelector('#classDescription').focus();
+        box.querySelector('#classAlias').focus();
         box.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
     }
 
@@ -2072,6 +2138,20 @@
      * this tab read, so a description changed meanwhile somewhere else is
      * refused rather than overwritten.
      */
+    async function saveClassAlias(id) {
+        const input = el('classEditor').querySelector('#classAlias');
+        const alias = tidy(input.value);
+        if (alias === tidy(input.dataset.was)) return status('Нема промена.', 'warn');
+        try {
+            await api('PUT', '/api/teaching/class/' + id + '/alias', {
+                year: data.year, alias, expected: tidy(input.dataset.was)
+            });
+            closePickers();
+            await load();
+            status('името е зачувано за ' + data.year, 'ok', { toast: true });
+        } catch (err) { status(err.message, 'error', { toast: true }); }
+    }
+
     async function saveClassDescription(id) {
         const input = el('classEditor').querySelector('#classDescription');
         const description = tidy(input.value);

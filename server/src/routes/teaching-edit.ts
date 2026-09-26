@@ -13,6 +13,8 @@
  *   POST   /api/teaching/class         add a class
  *   PATCH  /api/teaching/class/:id     rename one, globally and for every year
  *   PUT    /api/teaching/class/:id/description  what it is, THIS year
+ *   PUT    /api/teaching/class/:id/alias  what it is CALLED, THIS year (045)
+ *   PUT    /api/teaching/class-count  how many classes the year has (045)
  *   PUT    /api/teaching/class/:id/teachers   who holds it, THIS year
  *   POST   /api/teaching/teacher       add a teacher
  *   PUT    /api/teaching/teacher/:id   name, subject, kind
@@ -31,7 +33,7 @@ import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { pool } from '../db.js';
 import { TEACHING_DAYS, classSortKey } from '../lib/teaching.js';
-import { copyYearLessons, noteTeacherClass, putLesson, putTeacherLesson, setClassDescription, upsertClass, setClassTeachers, setHomeroom, setTeacherClasses, tidy } from '../lib/teaching-edit.js';
+import { copyYearLessons, noteTeacherClass, putLesson, putTeacherLesson, setClassAlias, setClassDescription, upsertClass, setClassTeachers, setHomeroom, setTeacherClasses, tidy } from '../lib/teaching-edit.js';
 import { personName } from '../lib/import-core.js';
 
 /** `school_years.label` is free text; a limit shorter than the column reads as a missing year. */
@@ -79,6 +81,19 @@ const DescriptionBody = z.object({
     description: z.string().max(200).nullable().optional(),
     /** What the caller believes is written there; null means empty. */
     expected: z.string().max(200).nullable().optional()
+});
+
+const AliasBody = z.object({
+    year: YearRef.optional(),
+    alias: z.string().max(200).nullable().optional(),
+    /** What the caller believes is written there; null means empty. */
+    expected: z.string().max(200).nullable().optional()
+});
+
+const ClassCountBody = z.object({
+    year: YearRef.optional(),
+    /** How many паралелки the Годишна програма gives the year; null forgets it. */
+    count: z.number().int().min(0).max(200).nullable()
 });
 
 const ClassTeachersBody = z.object({
@@ -522,6 +537,59 @@ export async function teachingEditRoutes(server: FastifyInstance) {
         } finally {
             client.release();
         }
+    });
+
+    /**
+     * The name a class is SHOWN by this year (migration 045): the column
+     * „Одделение" of the school's table. Its own route for the same reason
+     * the description has one — renaming the label is global and for every
+     * year, and this is not. The label stays what everything links by.
+     */
+    server.put('/api/teaching/class/:id/alias', async (req, reply) => {
+        const id = Number((req.params as any).id);
+        if (!Number.isInteger(id) || id <= 0) return reply.code(400).send({ error: 'bad class id' });
+        const body = AliasBody.parse(req.body);
+        const client = await pool.connect();
+        try {
+            await client.query('BEGIN');
+            const year = await schoolYear(client, body.year);
+            if (!year) {
+                await client.query('ROLLBACK');
+                return reply.code(404).send({ error: `no such school year: ${body.year ?? '(current)'}` });
+            }
+            const cls = await client.query('SELECT id, label FROM school_classes WHERE id = $1', [id]);
+            if (!cls.rows.length) {
+                await client.query('ROLLBACK');
+                return reply.code(404).send({ error: 'no such class' });
+            }
+            const written = await setClassAlias(client, year.id, id, body.alias ?? null,
+                body.expected === undefined ? undefined : (body.expected ?? null));
+            if (!written.ok) {
+                await client.query('ROLLBACK');
+                if (written.code === 'not-in-year') {
+                    return reply.code(404).send({ error: `${cls.rows[0].label} is not on ${year.label}'s class list`, fix: 'add it to the year first' });
+                }
+                return reply.code(409).send({ error: 'the name is not what you expected', here: written.here });
+            }
+            await client.query('COMMIT');
+            return { ok: true, action: written.action, year: year.label, class: cls.rows[0].label, alias: written.value };
+        } catch (err) {
+            await client.query('ROLLBACK').catch(() => {});
+            throw err;
+        } finally {
+            client.release();
+        }
+    });
+
+    /** How many паралелки the Годишна програма gives the year, to compare the entered ones with. */
+    server.put('/api/teaching/class-count', async (req, reply) => {
+        const body = ClassCountBody.parse(req.body);
+        const { rows } = await pool.query(
+            `UPDATE school_years SET class_count = $2
+              WHERE ($1::text IS NULL AND is_current) OR label = $1
+              RETURNING label, class_count`, [body.year ?? null, body.count]);
+        if (!rows.length) return reply.code(404).send({ error: `no such school year: ${body.year ?? '(current)'}` });
+        return { ok: true, year: rows[0].label, classCount: rows[0].class_count };
     });
 
     /** Replace the teaching staff for one class in one year, atomically. */

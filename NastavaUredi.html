@@ -798,6 +798,14 @@
         const info = classCards().get(label);
         return info ? window.MTBAppNavigation.classes.hover(info) : label;
     }
+    // How a class READS where there is room for a word or two — a grid's head,
+    // a button, a heading: the short form of its name for the year (migration
+    // 045). The label stays in every data-attribute and every write.
+    function classShort(label) {
+        const info = classCards().get(label);
+        const nav = window.MTBAppNavigation;
+        return info && nav && nav.classes && nav.classes.short ? nav.classes.short(info) : label;
+    }
     const WEEK_HINT = '\n\nКлик: цела недела за ';
     function classPickerHtml(selected, empty) {
         const nav = window.MTBAppNavigation;
@@ -1075,7 +1083,7 @@
         }
 
         html += '<table class="grid assign"><thead><tr><th class="who">Наставник</th>'
-            + classes.map((c) => `<th title="${esc(c.label + (c.description ? ' · ' + c.description : ''))}">${esc(c.label)}`
+            + classes.map((c) => `<th title="${esc(classHover(c.label))}">${esc(classShort(c.label))}`
                 + (homeroomSurname(c.label) ? `<small>${esc(homeroomSurname(c.label))}</small>` : '') + '</th>').join('')
             + `<th class="as-sum" title="${esc('Часа неделно. Нормата за полна плата е ' + NORM + '.')}">Σ</th></tr></thead><tbody>`;
 
@@ -1156,7 +1164,7 @@
             .sort((a, b) => a.day_order - b.day_order || a.ordinal - b.ordinal);
         const link = linkOf(name, label);
         const onStaff = !!staffNamed(name);
-        const heading = `<h2>${esc(name)} · ${esc(label)} <span class="who">`
+        const heading = `<h2>${esc(name)} · ${esc(classShort(label))} <span class="who">`
             + `${lessons.length} ${lessons.length === 1 ? 'час' : 'часа'} неделно</span></h2>`;
         box.className = 'panel editor open';
         if (!box.querySelector('#asBulk')) box.innerHTML = heading + '<p class="hint">вчитувам ги предметите…</p>';
@@ -1169,11 +1177,11 @@
         const linkLine = !onStaff
             ? `<span class="hint">${esc(name)} не е на списокот за ${esc(data.year)} — додај го во „Податоци".</span>`
             : link && link.role === 'homeroom'
-                ? `<span class="hint">Раководител на ${esc(label)}.</span>`
+                ? `<span class="hint">Раководител на ${esc(classShort(label))}.</span>`
                 : link
-                    ? `<span class="hint">Запишан во ${esc(label)}.</span>`
-                      + (lessons.length ? '' : ` <button type="button" class="btn soft" id="asUnlink">Отстрани го од ${esc(label)}</button>`)
-                    : `<button type="button" class="btn soft" id="asLink"><span class="ico" aria-hidden="true">🔗</span> Запиши го во ${esc(label)}</button>`;
+                    ? `<span class="hint">Запишан во ${esc(classShort(label))}.</span>`
+                      + (lessons.length ? '' : ` <button type="button" class="btn soft" id="asUnlink">Отстрани го од ${esc(classShort(label))}</button>`)
+                    : `<button type="button" class="btn soft" id="asLink"><span class="ico" aria-hidden="true">🔗</span> Запиши го во ${esc(classShort(label))}</button>`;
 
         box.innerHTML = heading
             + `<p class="basis">Предмети на наставникот: <b>${ownSubjects(name).length ? esc(ownSubjects(name).join(', ')) : 'не се внесени'}</b>`
@@ -1196,7 +1204,7 @@
                   + '</tbody></table>'
                 : '<p class="hint">Нема часови во оваа паралелка.</p>')
             + `<div class="row" style="margin-top:10px;">${linkLine}`
-            + `<button type="button" class="btn soft" id="asWeek"><span class="ico" aria-hidden="true">📅</span> Цела недела за ${esc(label)}</button>`
+            + `<button type="button" class="btn soft" id="asWeek"><span class="ico" aria-hidden="true">📅</span> Цела недела за ${esc(classShort(label))}</button>`
             + '<button type="button" class="btn soft" id="asClose">Затвори</button></div>'
             + '<datalist id="asSubjects">' + subjectList().map((s) => `<option value="${esc(s)}">`).join('') + '</datalist>';
 
@@ -1401,7 +1409,7 @@
             + `<small>${t.total ? `${t.total} ${t.total === 1 ? 'час' : 'часа'}` : 'нема часови'}</small>`
             + (t.bare ? `<small><span class="bare">${t.bare} без предмет</span></small>` : '')
             + '</button>';
-        let html = classes.map((c) => chip(c.label, c.label, tally.get(c.label) || { total: 0, bare: 0 },
+        let html = classes.map((c) => chip(c.label, classShort(c.label), tally.get(c.label) || { total: 0, bare: 0 },
             classHover(c.label))).join('');
         if (labels.length > 1) {
             const all = { total: 0, bare: 0 };
@@ -1478,7 +1486,7 @@
         const offList = Array.from(new Set((data.lessons || [])
             .map((l) => l.teacher).filter((n) => n && !staff.has(n))));
         let html = '<option value="">— наставник —</option>';
-        if (inClass.length) html += `<optgroup label="Во ${esc(label)}">${inClass.join('')}</optgroup>`;
+        if (inClass.length) html += `<optgroup label="Во ${esc(classShort(label))}">${inClass.join('')}</optgroup>`;
         if (rest.length) html += `<optgroup label="${inClass.length ? 'Останати' : 'Наставници'}">${rest.join('')}</optgroup>`;
         if (offList.length) html += `<optgroup label="Не се на списокот за годината">${offList.map((n) => opt(n)).join('')}</optgroup>`;
         return html;
@@ -1513,7 +1521,7 @@
         const basis = basisText(offer);
 
         let html = `<section class="cw-sheet" data-sheet="${esc(label)}">`
-            + `<h2>${esc(label)} распоред на часови <span class="who">${esc(data.year)}</span></h2>`
+            + `<h2>${esc(classShort(label))} распоред на часови <span class="who">${esc(data.year)}</span></h2>`
             + (meta.length ? `<p class="cw-meta">${meta.join(' · ')}</p>` : '')
             + pupilsLine
             + '<table class="grid cweek"><thead><tr><th>Час</th>'
@@ -1784,7 +1792,7 @@
             + '</tr></thead><tbody>';
         classes.forEach((c) => {
             html += `<tr><th><button type="button" class="cls-link" data-week="${esc(c.label)}"`
-                + ` title="${esc(classHover(c.label) + WEEK_HINT + c.label)}">${esc(c.label)}</button>`
+                + ` title="${esc(classHover(c.label) + WEEK_HINT + classShort(c.label))}">${esc(classShort(c.label))}</button>`
                 + (homeroomSurname(c.label) ? `<span class="hr">${esc(homeroomSurname(c.label))}</span>` : '') + '</th>';
             periods().forEach((p) => {
                 const list = cells.get(cellKey(c.label, p.ordinal)) || [];
@@ -1836,7 +1844,7 @@
         const box = el('editor');
         const period = periods().find((p) => p.ordinal === ordinal);
         const lesson = list[0] || null;
-        const heading = `<h2>${esc(label)} · ${ordinal}. час <span class="who">`
+        const heading = `<h2>${esc(classShort(label))} · ${ordinal}. час <span class="who">`
             + `${esc(day)}${period ? ' · ' + esc(period.startsAt) : ''}</span></h2>`;
 
         box.className = 'panel editor open';
@@ -1870,7 +1878,7 @@
             + '<button class="btn soft" id="edNext">Зачувај и следен →</button>'
             + (lesson ? `<button class="btn danger" id="edDrop">Испразни го часот</button>` : '')
             + '<button class="btn soft" id="edClose">Откажи</button>'
-            + `<button class="btn soft" id="edWeek" title="Истото одделение, сите пет дена"><span class="ico" aria-hidden="true">📅</span> Цела недела за ${esc(label)}</button>`
+            + `<button class="btn soft" id="edWeek" title="Истото одделение, сите пет дена"><span class="ico" aria-hidden="true">📅</span> Цела недела за ${esc(classShort(label))}</button>`
             + '</div>'
             + '<datalist id="edSubjects">'
             + Array.from(everything).sort((a, b) => a.localeCompare(b, 'mk')).map((s) => `<option value="${esc(s)}">`).join('')

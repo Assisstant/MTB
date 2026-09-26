@@ -1448,6 +1448,7 @@
             if (!c || !c.label) return;
             index.set(c.label, {
                 label: c.label,
+                alias: oneLine(c.alias),
                 description: oneLine(c.description),
                 homeroom: properName(c.homeroom),
                 pupils: [],
@@ -1467,16 +1468,45 @@
         return index;
     }
 
-    /** „II-б · Ана Измислена · Комбинирана II, III, IV" — the line in a picker. */
+    /*
+     * Сопственикот, 26 септември: паралелката се чита по ИМЕТО ЗА ПРИКАЗ за
+     * годината (`class_years.alias`, миграција 045) — колоната „Одделение“ од
+     * табелата на училиштето. Ознаката е внатрешна: по неа се поврзува сè, но
+     * кога има име, луѓето не ја гледаат. Каде што нема име (архива, година
+     * што уште не е средена), останува како досега: ознака и опис.
+     */
+    /** „Комбинирана II, III, IV“, or the label where the year has no name for it. */
+    function className(info) {
+        return info ? (info.alias || info.label) : '';
+    }
+
+    /**
+     * The name where there is room for a word or two — a grid's head, a chip:
+     * the part before the dash („V-б – ученици со…“ → „V-б“), a combined one
+     * as „Комб. II, III, IV“.
+     */
+    function classShort(info) {
+        if (!info) return '';
+        if (!info.alias) return info.label;
+        const head = info.alias.split(/\s+[–—-]\s+/)[0].trim();
+        return head.replace(/^комбинирана(\s+паралелка)?\s*/iu, 'Комб. ').trim() || info.alias;
+    }
+
+    /** „Комбинирана II, III, IV · Ана Измислена" — the line in a picker. */
     function classText(info) {
-        return info ? [info.label, info.homeroom, info.description].filter(Boolean).join(' · ') : '';
+        if (!info) return '';
+        // The name already carries the school's words, so the description is
+        // not said a second time after it.
+        return info.alias
+            ? [info.alias, info.homeroom].filter(Boolean).join(' · ')
+            : [info.label, info.homeroom, info.description].filter(Boolean).join(' · ');
     }
 
     /** The whole row of the school's table, for hovering over a class. */
     function classHover(info) {
         if (!info) return '';
         const lines = [
-            info.label + (info.description ? ' — ' + info.description : ''),
+            info.alias || (info.label + (info.description ? ' — ' + info.description : '')),
             'Раководител: ' + (info.homeroom || 'не е одреден')
         ];
         if (info.pupilsKnown) {
@@ -1658,7 +1688,7 @@
         holdRepeat,
         // Паралелката онака како што ја кажува училиштето: ознака · раководител
         // · опис, и целиот ред на лебдење. Една копија за секој избирач.
-        classes: { index: classIndex, text: classText, hover: classHover, optionsHtml: classOptionsHtml },
+        classes: { index: classIndex, name: className, short: classShort, text: classText, hover: classHover, optionsHtml: classOptionsHtml },
         // „Назад" и „напред" низ погледите на страницата, не надвор од неа.
         views,
         // Една промена, сите прозорци: страницата кажува како се препрочитува,

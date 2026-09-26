@@ -117,7 +117,7 @@ export async function dataRoutes(server: FastifyInstance) {
     server.get('/api/roster', async (req, reply) => {
         const label = (req.query as any)?.year as string | undefined;
         const { rows: years } = await pool.query(
-            `SELECT id, label, starts_on, is_current FROM school_years
+            `SELECT id, label, starts_on, is_current, class_count FROM school_years
              WHERE ($1::text IS NULL AND is_current) OR label = $1 LIMIT 1`,
             [label ?? null]
         );
@@ -133,7 +133,7 @@ export async function dataRoutes(server: FastifyInstance) {
             // linked to it — the two facts are kept separately on purpose,
             // and this is where they are seen side by side. All additive.
             pool.query(
-                `SELECT c.id, c.label, cy.description,
+                `SELECT c.id, c.label, cy.description, cy.alias,
                         -- Who leads it this year: the school says „кај наставничката",
                         -- not „VII" (owner, 25 Sep 2026). Additive, for the
                         -- class pickers; the teachers list below says the same.
@@ -300,6 +300,9 @@ export async function dataRoutes(server: FastifyInstance) {
         return {
             year: year.label,
             isCurrentYear: year.is_current,
+            // How many паралелки the Годишна програма says the year has
+            // (migration 045); the list below is how many are entered.
+            classCount: year.class_count ?? null,
             caseloadOrder: true,
             classes: arrange(classes.rows, (row: any) => String(row.id), arrangement.get('classes')),
             teachers: arrange(teachers.rows, (row: any) => String(row.id), arrangement.get('teachers')),

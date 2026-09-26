@@ -4019,3 +4019,61 @@ for it as a tab on the colleagues' page. Its logic had several faults:
   - **Across months:** the rota is worked out as far as the furthest swap
     touching the month, so a swap over the end of a month shows on both
     sides.
+
+## A паралелка is read by its name for the year; the label is internal (26 Sep 2026)
+
+The owner: „you name the паралелка in the base as you like and offer an alias
+to display … the ID is not visible for them … you distinguish паралелки by
+the unique set of children and the раководител". Four documents name the same
+class four ways (the Годишна програма „II б", the Word list „Комбинирана II,
+III, IV", the plan „2-б", the timetable draft „6/7/8ᴮ"), and the database had
+a fifth, mixed scheme (II-б and V-в next to bare III and VII for combined
+classes). Renaming the label to match any one of them rewrites the archive,
+because `school_classes.label` is one row for every year and a pupil's class
+is that label as text.
+
+**What was built (migration 045).**
+
+- `class_years.alias`: the name the паралелка is SHOWN by in one year — the
+  column „Одделение" of the school's table. Per year, like the description
+  (031), so this year's name never touches last year's. Display only: nothing
+  links by it, every write still sends the label.
+- `school_years.class_count`: how many паралелки the Годишна програма gives
+  the year. The database counts what is entered; this is what it is compared
+  with, so a missing or extra паралелка is seen rather than assumed.
+- `MTBAppNavigation.classes` gained `name` (alias, else label) and `short` (the
+  part before „ – ", a combined one as „Комб. II, III, IV") — one rule for every
+  picker, grid head and heading. Where a year has no alias (the archive), the
+  old line — label, homeroom, description — is unchanged. Kolega loads no
+  shared script and carries a copy of the same two rules.
+- The naming rule, agreed the same day, for the people who write the names:
+  Roman numeral in capitals, a hyphen, a Cyrillic letter (I-а, V-б); паралелки
+  of one generation in order а, б, в; the only one of a generation has no
+  letter (VIII); a combined one by its generations; „подготвителна". The
+  database does not check it — it is a convention, and a CHECK would refuse
+  the school's own spelling the first year it differs.
+
+**Matched by homeroom teacher, never by label.** `npm run classes:apply`
+(`lib/class-list.ts`) reads the school's table from a local file — it names
+people, so the command refuses a file Git would commit — and finds each row's
+teacher on the year's list by exact name (two with one name is a refusal),
+then the паралелка that teacher leads. Labels differ between installations
+(the cloud had renamed one to „II-б, III-б"), and the owner's own definition of
+a паралелка is its children and its раководител, not its label. A teacher who
+leads none yet is given one only when the row names it (`label`, or `create`
+for a паралелка the database lacks). An employee who is not a teacher becomes
+one only with `addTeacher` and a `kind`, and as the SAME employee: the plain
+add-teacher route would have created a second person under the same name
+through the identity trigger (035) — the duplicate the owner already has to
+merge by hand for one colleague. All or nothing: one row that does not match
+and the transaction is rolled back; a dry run makes the same writes and rolls
+them back, so its report is exact. It never deactivates a паралелка missing
+from the list, never moves a pupil, never renames a label.
+
+**Not done, on purpose, and why.** A pupil still points at the паралелка by
+its label as text (`student_enrollments.grade`); moving that to a `class_id`
+touches the projection, the importers and the JSON contract (rule 4) and is a
+separate step. The other documents' spellings („IV б" in the Годишна програма
+for the one the Word list calls combined III, IV, V) are not stored yet: an
+import alias table is only worth having together with the importers that read
+it, and a table nobody reads is a wish.

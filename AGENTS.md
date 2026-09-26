@@ -234,6 +234,10 @@ npm run check:names                  refuses if a real name is in a tracked file
 npm run check:consistency            is it one system? read-only, no --apply
                                      --mask hides the names, --year picks a year
 npm run copy:teaching -- --from 2025/2026   last year's timetable as this year's start; dry run
+npm run classes:apply -- --file <list.json>  the year's паралелки from the school's table, by homeroom
+                                     teacher; dry run, add --apply. The list names people:
+                                     keep it in backups/ (the command refuses a committable file)
+npm run test:class-list              that command against the database, invented year
 npm run demo:teaching                a GENERATED demo timetable, so the screens have
                                      something to show; dry run, add --apply
                                      --plan "Оштетен слух" picks another teaching plan
@@ -711,6 +715,12 @@ read `DATABASE_URL`; never add literal credentials to this public repository.
   the `<select>` `data-class-picker`. The value saved stays the label. Do not
   build class options by hand in a new screen: that is how five pickers
   ended up saying five different things.
+  Since 26 Sep 2026 (migration 045) a year's паралелка has a NAME,
+  `class_years.alias` — the column „Одделение" of the school's table — and the
+  label is internal: `classes.name` / `classes.short` show it, the label is
+  still what is saved and linked. Never rename a label to make it read well
+  (it rewrites the archive); set the year's name. A паралелка is matched by
+  its homeroom teacher, never by label (`npm run classes:apply`, dry run).
 
 - **A view the person chooses is a step in the browser's history.** Tabs,
   views and workspace windows used to change in place, so Back left the

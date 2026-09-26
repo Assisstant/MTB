@@ -434,41 +434,73 @@ export async function setClassDescription(
     description: string | null,
     expected?: string | null
 ): Promise<DescriptionWrite> {
+    const written = await setClassYearText(client, yearId, classId, 'description', description, expected);
+    return written.ok ? { ok: true, action: written.action, description: written.value } : written;
+}
+
+/**
+ * The name a paralelka is shown by THIS year (migration 045) — the column
+ * „Одделение" of the school's own table. Everything said above about the
+ * description holds for it: per year, display only, `expected` checked,
+ * `not-in-year` for a class that is not on the year's list. The label stays
+ * what every link is made by; this is only how it reads.
+ */
+export async function setClassAlias(
+    client: any,
+    yearId: number,
+    classId: number,
+    alias: string | null,
+    expected?: string | null
+) {
+    return setClassYearText(client, yearId, classId, 'alias', alias, expected);
+}
+
+type YearText = { ok: true; action: 'set' | 'cleared' | 'unchanged'; value: string | null }
+    | { ok: false; code: 'not-in-year' }
+    | { ok: false; code: 'conflict'; here: string | null };
+
+/** One of the paralelka's own words for one year, checked against what the caller saw. */
+async function setClassYearText(
+    client: any,
+    yearId: number,
+    classId: number,
+    field: 'description' | 'alias',
+    value: string | null,
+    expected?: string | null
+): Promise<YearText> {
+    // The column is one of two names fixed here, never the caller's text.
+    const column = field === 'alias' ? 'alias' : 'description';
     // Locked rather than merely read: the comparison with `expected` and the
     // write that follows it are one decision, and a second editor landing
     // between them is exactly what `expected` exists to catch.
     const here = await client.query(
-        `SELECT description FROM class_years
+        `SELECT ${column} AS value FROM class_years
           WHERE school_year_id = $1 AND class_id = $2 AND active
           FOR UPDATE`,
         [yearId, classId]
     );
     // `AND active` and not merely "a row exists": a class taken off this year's
     // list keeps its class_years row with active = false, so without it every
-    // retired class of every past year would still accept a new description —
-    // and the 404 that is supposed to say "that class is not taught this year"
-    // would never fire. Measured: VII-а, off this year's list, accepted one.
+    // retired class of every past year would still accept new words — and the
+    // 404 that is supposed to say "that class is not taught this year" would
+    // never fire. Measured: VII-а, off this year's list, accepted one.
     if (!here.rows.length) return { ok: false, code: 'not-in-year' };
 
-    const now: string | null = here.rows[0].description ?? null;
+    const now: string | null = here.rows[0].value ?? null;
     if (expected !== undefined && !same(tidy(now), tidy(expected))) {
         return { ok: false, code: 'conflict', here: now };
     }
 
-    const wanted = tidy(description);
-    if (same(tidy(now), wanted)) return { ok: true, action: 'unchanged', description: now };
+    const wanted = tidy(value);
+    if (same(tidy(now), wanted)) return { ok: true, action: 'unchanged', value: now };
 
     const { rows } = await client.query(
-        `UPDATE class_years SET description = $3
+        `UPDATE class_years SET ${column} = $3
           WHERE school_year_id = $1 AND class_id = $2
-          RETURNING description`,
+          RETURNING ${column} AS value`,
         [yearId, classId, wanted]
     );
-    return {
-        ok: true,
-        action: wanted === null ? 'cleared' : 'set',
-        description: rows[0].description ?? null
-    };
+    return { ok: true, action: wanted === null ? 'cleared' : 'set', value: rows[0].value ?? null };
 }
 
 export type ClassRole = 'homeroom' | 'subject';

@@ -103,7 +103,7 @@ export async function workspaceRoutes(server: FastifyInstance, options: {pool?: 
             const employees = (await employeeRows(c,y.id)).map(stamp);
             // The year's own words and who leads it, so a class reads the same in
             // this picker as in every other one (app-navigation.js `classes`).
-            const classes = (await c.query(`SELECT c.id,c.label,cy.description,
+            const classes = (await c.query(`SELECT c.id,c.label,cy.description,cy.alias,
               (SELECT string_agg(t.name,' и ' ORDER BY t.name) FROM teacher_classes tc
                  JOIN teachers t ON t.id=tc.teacher_id
                  JOIN teacher_years ty ON ty.teacher_id=t.id AND ty.school_year_id=$1 AND ty.active

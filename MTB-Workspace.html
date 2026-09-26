@@ -305,6 +305,8 @@ function categoryOptions(kind,id){const held=categoryOf[kind][id]||'';return'<op
    а на лебдење целиот ред (`app-navigation.js`, `classes`). Паралелка што не е
    на листата за годинава останува видлива, обележана „неактивна" — инаку
    ученикот изгледа „без одделение" и „Зачувај" го пишува празното назад. */
+// A class reads by the short form of its name for the year (migration 045); the label stays the value.
+function classShortOf(label){const n=window.MTBAppNavigation,info=classCards().get(label);return info&&n&&n.classes&&n.classes.short?n.classes.short(info):label}
 function classCards(){const n=window.MTBAppNavigation;return n&&n.classes&&data?n.classes.index(data):new Map()}
 function classOptions(selectedGrade){const n=window.MTBAppNavigation;if(n&&n.classes)return n.classes.optionsHtml(classCards(),selectedGrade,{empty:'— без одделение / група —'});
   const known=(data.classes||[]).some(c=>c.label===selectedGrade);return'<option value="">— без одделение / група —</option>'+(data.classes||[]).map(c=>'<option value="'+esc(c.label)+'"'+(c.label===selectedGrade?' selected':'')+'>'+esc(c.label)+'</option>').join('')
@@ -423,7 +425,7 @@ function teacherEditor(t){
       +'<div class="class-grid">'+(data.classes||[]).map(c=>{
           const on=map.has(c.label);
           return'<label class="class-row'+(on?' on':'')+'" title="'+esc(classHoverOf(c.label))+'"><input type="checkbox" data-class="'+esc(c.label)+'"'+(on?' checked':'')+'>'
-            +'<span>'+esc(c.label)+'</span>'
+            +'<span>'+esc(classShortOf(c.label))+'</span>'
             +'<select data-role="'+esc(c.label)+'"'+(on?'':' hidden')+'>'
               +'<option value="subject"'+(map.get(c.label)==='homeroom'?'':' selected')+'>предава</option>'
               +'<option value="homeroom"'+(map.get(c.label)==='homeroom'?' selected':'')+'>раководител</option></select></label>'}).join('')

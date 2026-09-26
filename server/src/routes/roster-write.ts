@@ -4,6 +4,7 @@ import { pool } from '../db.js';
 import { norm, asText, stableStudentIdForName } from '../lib/import-core.js';
 import { assertOwner, assertOwnTherapistName, refuseScope, scopeOf } from '../lib/colleague.js';
 import { arrangementAvailable, caseloadList } from '../lib/roster-order.js';
+import { setCaseloadLink } from '../lib/caseload.js';
 
 /**
  * Stage B of moving Rasporedi onto the database: the ROSTER, one person at a
@@ -416,33 +417,9 @@ export async function rosterWriteRoutes(server: FastifyInstance) {
             return reply.code(404).send({ error: `unknown or inactive therapist "${therapistName}" for that school year` });
         }
 
-        const st = await pool.query(
-            `SELECT s.id, s.active FROM students s
-             JOIN student_enrollments e ON e.student_id = s.id
-             WHERE s.public_id = $1 AND e.school_year_id = $2 AND e.active`,
-            [publicId, yid]
-        );
-        if (!st.rows.length) {
-            return reply.code(404).send({ error: `no active student with id "${publicId}" for that school year` });
-        }
-
-        if (add) {
-            // Linking an archived child would put them back on a caseload
-            // without anyone deciding they had returned.
-            if (!st.rows[0].active) {
-                return reply.code(409).send({ error: 'that student is archived in S-Dnevnik', archived: true });
-            }
-            await pool.query(
-                `INSERT INTO therapist_students (school_year_id, therapist_id, student_id)
-                 VALUES ($1, $2, $3) ON CONFLICT DO NOTHING`,
-                [yid, th.rows[0].id, st.rows[0].id]
-            );
-        } else {
-            await pool.query(
-                `DELETE FROM therapist_students
-                 WHERE school_year_id = $1 AND therapist_id = $2 AND student_id = $3`,
-                [yid, th.rows[0].id, st.rows[0].id]
-            );
+        const result = await setCaseloadLink(pool, yid, th.rows[0].id, publicId, add);
+        if (!result.ok) {
+            return reply.code(result.status).send(result.archived ? { error: result.error, archived: true } : { error: result.error });
         }
         return { ok: true, therapist: therapistName, student: publicId, schoolYearId: yid, linked: add };
     }

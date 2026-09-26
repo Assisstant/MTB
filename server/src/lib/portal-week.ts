@@ -44,7 +44,7 @@ export async function yearLessons(db: Queryable, yearId: number): Promise<WeekLe
 
 export async function yearClasses(db: Queryable, yearId: number) {
     const { rows } = await db.query(
-        `SELECT c.id, c.label, cy.description,
+        `SELECT c.id, c.label, cy.description, cy.alias,
                 (SELECT t.id FROM teacher_classes tc JOIN teachers t ON t.id = tc.teacher_id
                   WHERE tc.class_id = c.id AND tc.school_year_id = $1 AND tc.role = 'homeroom'
                   ORDER BY t.name LIMIT 1) AS "homeroomId",
@@ -54,7 +54,7 @@ export async function yearClasses(db: Queryable, yearId: number) {
            FROM class_years cy JOIN school_classes c ON c.id = cy.class_id
           WHERE cy.school_year_id = $1 AND cy.active
           ORDER BY c.sort_key, c.label`, [yearId]);
-    return rows as Array<{ id: number; label: string; description: string | null; homeroomId: number | null; homeroom: string | null }>;
+    return rows as Array<{ id: number; label: string; description: string | null; alias: string | null; homeroomId: number | null; homeroom: string | null }>;
 }
 
 export async function yearTeachers(db: Queryable, yearId: number) {

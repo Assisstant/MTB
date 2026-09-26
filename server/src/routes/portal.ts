@@ -6,8 +6,9 @@
  * paths the Google gate lets through without the owner's sign-in
  * (`cloud-auth.ts`), so nothing may be answered here that a colleague should
  * not see. A colleague gets their own week, the names of their own pupils and
- * — for a clash — the other person's name and the term; never the roster and
- * never anybody else's week.
+ * — for a clash — the other person's name and the term; never anybody else's
+ * week. The one wider list is a therapist's own check list of the year's
+ * pupils (`/api/portal/caseload`), and only behind their own password.
  *
  * The token travels in a header, not a cookie: a page on another site cannot
  * make the browser send it, so nothing here can be driven from elsewhere.
@@ -27,6 +28,7 @@ import { blockTimes, semanticBlock, writeBlock } from './schedule-write.js';
 import { minutesOf, timeOf } from '../lib/crossing.js';
 import { defaultMonth, loadDuty, monthBounds, monthPayload, todayInSkopje } from '../lib/duty.js';
 import { dayProblem, setAbsence } from './duty.js';
+import { setCaseloadLink } from '../lib/caseload.js';
 import {
     MIN_PASSWORD, PORTAL_TOKEN_HEADER, closeOtherSessions, closeSession, looseKey, nameKeys,
     openSession, passwordMatches, resetAccount, resolveUsername, sessionEmployee, setPassword,
@@ -517,7 +519,7 @@ export async function portalRoutes(server: FastifyInstance, options: { year?: st
             days: TEACHING_DAYS,
             periods: periods.map((p: any) => ({ ordinal: p.ordinal, label: p.label, startsAt: p.startsAt })),
             me: { teacherId: who.staff.teacherId, therapistId: who.staff.therapistId, homeroom, subject: role.teacher?.subject || null },
-            classes: classes.map((c: any) => ({ label: c.label, description: c.description, homeroom: c.homeroom })),
+            classes: classes.map((c: any) => ({ label: c.label, alias: c.alias, description: c.description, homeroom: c.homeroom })),
             teachers: teachers.map((t: any) => ({ id: t.id, name: t.name, subject: t.subject })),
             lessons,
             classPupils: teaching ? await ownClassPupils(who.year.id, lessons, who.staff.teacherId,
@@ -749,6 +751,80 @@ export async function portalRoutes(server: FastifyInstance, options: { year?: st
         notified += await tellIfActing(pool, who, { day: b.day, slot: b.time, kind: 'term', about: 'pupil:' + (b.pupils[0] || ''),
             what: `${b.day}, ${b.time}.` });
         return { ok: true, notified };
+    });
+
+    // ── a therapist's own list: who they work with this year ─────────────
+
+    /**
+     * The year's pupils, to tick one's own list from (owner, 26 Sep 2026: a
+     * check list with tabs — internal, external, preparatory). This is the one
+     * place this door names children who are not already one's own, so it is
+     * for a therapist only, and only once they have set their own password:
+     * the initial one is known to the whole staff room, and a name is all a
+     * username is. The administrator's look passes, as everywhere here.
+     */
+    async function pupilListRefusal(who: Signed, reply: FastifyReply): Promise<boolean> {
+        if (who.staff.therapistId == null) {
+            reply.code(403).send({ error: 'Само терапевт има своја листа ученици.' });
+            return true;
+        }
+        if (who.acting) return false;
+        const own = await pool.query('SELECT password_hash IS NOT NULL AS own FROM staff_accounts WHERE employee_id = $1',
+            [who.staff.employeeId]);
+        if (own.rows[0] && own.rows[0].own) return false;
+        reply.code(403).send({ needsPassword: true,
+            error: 'За да ја уредувате листата, прво поставете своја лозинка („Смени лозинка"). Почетната ја знаат сите.' });
+        return true;
+    }
+
+    server.get('/api/portal/caseload', async (req, reply) => {
+        const who = await signed(req, reply);
+        if (!who || await pupilListRefusal(who, reply)) return;
+        const { rows } = await pool.query(
+            `SELECT s.public_id AS "publicId", s.name, e.grade AS class, e.oddelenie,
+                    e.enrollment_type AS type,
+                    (e.placement = 'preparatory' OR e.grade ILIKE 'подготв%') AS preparatory,
+                    EXISTS (SELECT 1 FROM therapist_students ts
+                             WHERE ts.school_year_id = e.school_year_id AND ts.therapist_id = $2
+                               AND ts.student_id = s.id) AS mine
+               FROM student_enrollments e JOIN students s ON s.id = e.student_id
+              WHERE e.school_year_id = $1 AND e.active AND s.active
+              ORDER BY s.name`, [who.year.id, who.staff.therapistId]);
+        return { year: who.year.label, pupils: rows };
+    });
+
+    const CaseloadBody = z.object({ publicId: z.string().min(1).max(80), on: z.boolean() });
+
+    /**
+     * One tick. Per pupil, like Кабинети, so two windows ticking different
+     * boxes cannot undo each other. Taking a pupil off the list while they
+     * still have a term in this cabinet is refused: the week would go on
+     * naming a child who is no longer on it.
+     */
+    server.put('/api/portal/caseload', async (req, reply) => {
+        const who = await signed(req, reply);
+        if (!who || await pupilListRefusal(who, reply)) return;
+        const parsed = CaseloadBody.safeParse(req.body);
+        if (!parsed.success) return reply.code(400).send({ error: 'Непознат ученик.' });
+        const { publicId, on } = parsed.data;
+        const therapistId = who.staff.therapistId as number;
+        if (!on) {
+            const booked = await pool.query(
+                `SELECT sl.day, sl.time_slot FROM schedule_slots sl JOIN students s ON s.id = sl.student_id
+                  WHERE sl.school_year_id = $1 AND sl.therapist_id = $2 AND s.public_id = $3
+                  ORDER BY sl.day_order, sl.time_slot`, [who.year.id, therapistId, publicId]);
+            if (booked.rows.length) {
+                const when = booked.rows.map((r: any) => `${r.day} ${r.time_slot}`).join(', ');
+                return reply.code(409).send({ booked: true,
+                    error: `Ученикот има термин кај вас (${when}). Прво ослободете го терминот, па тргнете го од листата.` });
+            }
+        }
+        const result = await setCaseloadLink(pool, who.year.id, therapistId, publicId, on);
+        if (!result.ok) {
+            return reply.code(result.status).send({ error: result.archived
+                ? 'Тој ученик е архивиран во S-Дневник.' : 'Тој ученик не е на листата за годинава.' });
+        }
+        return { ok: true };
     });
 
     // ── the administrator's side, behind the owner's own sign-in ─────────
