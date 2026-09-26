@@ -34,15 +34,30 @@
   again on saving. A clash is never saved silently: „Сепак запиши" is offered,
   and then the colleague it hits is told (the owner's rule).
 -->
+<!-- Both themes are the page's own. Without saying so, Brave's and Chrome's
+     automatic dark mode repainted the page on top of its dark theme: the
+     accent went navy and the space under the page another grey (owner, 26 Sep). -->
+<meta name="color-scheme" content="light dark">
+<script>
+// ☀/🌙 is a choice of this browser only, set before the first paint so the
+// page does not flash the other theme. Nothing else is kept here.
+try { const t = localStorage.getItem('mtb_kolega_theme'); if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t; } catch (_) { /* the system's */ }
+</script>
 <style>
-:root { --bg:#f4f4fa; --panel:#fff; --line:#d9d9e8; --text:#1d1e33; --muted:#5b5e7a; --accent:#4f5bd5;
+:root { color-scheme: light; --bg:#f4f4fa; --panel:#fff; --line:#d9d9e8; --text:#1d1e33; --muted:#5b5e7a; --accent:#4f5bd5;
         --accent-text:#fff; --ok:#1d7657; --warn:#8a5300; --warn-bg:#fff6e5; --danger:#b0253a; --well:#f7f7fc;
         --focus:#4f5bd5; --chip:#ecebfb; }
 @media (prefers-color-scheme: dark) {
-  :root { --bg:#121329; --panel:#1b1c39; --line:#34365a; --text:#f2f2fb; --muted:#a8abc8; --accent:#7c86f0;
+  :root:not([data-theme="light"]) { color-scheme: dark; --bg:#121329; --panel:#1b1c39; --line:#34365a; --text:#f2f2fb; --muted:#a8abc8; --accent:#7c86f0;
           --accent-text:#10112a; --ok:#57d2a6; --warn:#f0b35e; --warn-bg:#2d2616; --danger:#ff8f9e; --well:#171832;
           --focus:#a3abff; --chip:#2a2b52; }
 }
+:root[data-theme="dark"] { color-scheme: dark; --bg:#121329; --panel:#1b1c39; --line:#34365a; --text:#f2f2fb; --muted:#a8abc8; --accent:#7c86f0;
+        --accent-text:#10112a; --ok:#57d2a6; --warn:#f0b35e; --warn-bg:#2d2616; --danger:#ff8f9e; --well:#171832;
+        --focus:#a3abff; --chip:#2a2b52; }
+html { background: var(--bg); min-height: 100%; }
+.theme-toggle { position: fixed; bottom: 12px; right: 12px; z-index: 40; padding: 6px 10px; font-size: 16px; }
+@media print { .theme-toggle { display: none; } }
 * { box-sizing: border-box; }
 body { margin: 0; font-family: Inter, "Segoe UI", system-ui, sans-serif; background: var(--bg); color: var(--text);
        font-size: 16px; line-height: 1.45; }
@@ -262,6 +277,7 @@ header.top h1 { flex: 1; min-width: 180px; }
     <p class="muted" id="homeUser"></p>
   </section>
 </main>
+<button type="button" class="theme-toggle" id="themeToggle"></button>
 <div class="class-card" id="classCard" role="tooltip" hidden></div>
 <div class="swap-ask" id="swapAsk" role="dialog" aria-modal="true" aria-labelledby="swapAskTitle" hidden></div>
 <script>
@@ -1676,6 +1692,23 @@ header.top h1 { flex: 1; min-width: 180px; }
         week = null;
         show('login');
     });
+
+    // ── ☀/🌙: this browser's own choice, otherwise the system's ─────────
+    const themeNow = () => document.documentElement.dataset.theme
+        || (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+    function drawThemeToggle() {
+        const dark = themeNow() === 'dark';
+        el('themeToggle').textContent = dark ? '☀️' : '🌙';
+        el('themeToggle').title = dark ? 'Светла тема' : 'Темна тема';
+        el('themeToggle').setAttribute('aria-label', el('themeToggle').title);
+    }
+    el('themeToggle').addEventListener('click', () => {
+        const next = themeNow() === 'dark' ? 'light' : 'dark';
+        document.documentElement.dataset.theme = next;
+        try { localStorage.setItem('mtb_kolega_theme', next); } catch (_) { /* this page load only */ }
+        drawThemeToggle();
+    });
+    drawThemeToggle();
 
     start();
 })();

@@ -77,6 +77,20 @@ check('under a neutral title that names no system', (await page.title()) === 'Н
 check('and a preview for messaging apps that says the same',
     await page.evaluate(() => document.querySelector('meta[property="og:title"]').content === 'Распоред'
         && document.querySelector('meta[name="robots"]').content.includes('noindex')));
+console.log('\n☀/🌙');
+check('the page says it has both themes, so a browser\'s automatic dark mode leaves it alone',
+    await page.evaluate(() => document.querySelector('meta[name="color-scheme"]').content === 'light dark'));
+const bg = () => page.evaluate(() => getComputedStyle(document.documentElement).backgroundColor);
+const before = await bg();
+await page.click('#themeToggle');
+const flipped = await page.evaluate(() => document.documentElement.dataset.theme);
+check('the switch changes the theme', flipped && (await bg()) !== before, `${before} → ${await bg()}`);
+await page.reload();
+await page.waitForSelector('#login:not([hidden])', { timeout: 8000 });
+check('and this browser keeps it', await page.evaluate(() => document.documentElement.dataset.theme) === flipped);
+await page.click('#themeToggle');
+check('and switches back', (await bg()) === before);
+
 await page.fill('#loginForm [name=username]', 'AnaIzmislena');
 await page.fill('#loginForm [name=password]', 'pogresno');
 await page.click('#loginForm button');
