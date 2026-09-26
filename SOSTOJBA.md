@@ -60,6 +60,11 @@
    034–037; HOME `therapy_dev` е на 038 од 22 септември. Не се повторува
    стариот увоз и не се допира оригиналната локална `therapy_dev`. Упатството е
    во `docs/SUPABASE-MIRROR.md`; scheduled job не е инсталиран.
+   `scripts\run-mirror-server.ps1` (commit 26 септември) е вториот, read-only
+   сервер врз `therapy_mirror` на своја порта (3001), покрај нормалниот.
+   Бара `MTB_MIRROR_READER_DATABASE_URL` — SELECT-only улога — во `server\.env`
+   и одбива writer улога, база што не е `*_mirror` и портата на нормалниот
+   сервер. Не е пуштен никаде; дел е од пилотот погоре.
 
 2. **Наставниот распоред е делумно внесен** од
    `P:\MTB-sync\Raspored-NASTAVA-2026-2027-POPOLNET.xlsx`.
