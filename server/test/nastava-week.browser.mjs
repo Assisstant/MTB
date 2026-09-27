@@ -113,7 +113,7 @@ async function pickInCell(page, teacher, day, ordinal, value) {
 }
 
 async function run() {
-    const { year, teachers } = await seed();
+    const { year, classes, teachers } = await seed();
     const browser = await chromium.launch({ ...(process.env.CHROME ? { executablePath: process.env.CHROME } : {}) });
     const page = await browser.newPage();
     // Only real JavaScript faults. A console listener would also catch the
@@ -213,10 +213,75 @@ async function run() {
             }
             return out;
         });
-        const schoolish = Object.keys(stored).filter((k) => !/theme|mtb_server|mtb_scale|display/i.test(k));
+        // The author's credit is remembered on purpose (the watermark without a
+        // server, 27 Sep 2026) — named, as in test:podatoci, not matched loosely.
+        const CREDIT = ['mtb_author_v1', 'mtb_author_look_v1'];
+        const schoolish = Object.keys(stored).filter((k) => !/theme|mtb_server|mtb_scale|display/i.test(k) && !CREDIT.includes(k));
         checkEq('ниту еден училишен податок во localStorage', schoolish, []);
 
         check('нема JavaScript грешки на страницата', errors.length === 0, errors.join(' ;; '));
+
+        // Owner, 27 Sep 2026: „Личен распоред" in Настава ↔ терапии takes the
+        // lesson in the cell, as Кабинети does — only while „✏️ Уреди" is on,
+        // and through the same teacher-lesson route as the grid above.
+        console.log('\n✏️ „Личен распоред": часот се избира во ќелијата');
+        const own = await browser.newContext();
+        await own.addInitScript(() => { try { localStorage.setItem('mtb_editing_v1', '1'); } catch (_) { /* test */ } });
+        const np = await own.newPage();
+        const npErrors = [];
+        np.on('pageerror', (e) => npErrors.push(String(e)));
+        np.on('dialog', (d) => d.dismiss());
+        await np.goto(`${BASE}/Nastava.html?year=${encodeURIComponent(YEAR)}&view=personal`);
+        await np.waitForSelector(`#who option[value="${T2}"]`, { state: 'attached', timeout: 15000 });
+        await np.selectOption('#who', T2);
+        const sheet = `.personal[data-teacher="${T2}"]`;
+        await np.waitForSelector(`${sheet} td.p-cell`, { timeout: 15000 });
+        checkEq('со вклучено уредување листот ги има сите пет дена, и празни',
+            await np.locator(`${sheet} thead th`).count(), 6);
+        const cell = (day, ordinal) => `${sheet} td.p-cell[data-day="${day}"][data-ordinal="${ordinal}"]`;
+        const lessonAt = async (day, ordinal) => (await lessons(year.id))
+            .filter((r) => r.teacher === T2 && r.day === day && r.ordinal === ordinal);
+        const settle = async (test) => { for (let i = 0; i < 30 && !(await test()); i++) await np.waitForTimeout(200); };
+
+        check('празен час е еден избор, без предмет', await np.locator(`${cell('петок', 6)} select`).count() === 1);
+        await np.selectOption(`${cell('петок', 6)} select.p-class`, B);
+        await settle(async () => (await lessonAt('петок', 6)).length === 1);
+        checkEq('паралелката е запишана во базата — на тој наставник, тој ден, тој час',
+            (await lessonAt('петок', 6)).map((r) => r.class), [B]);
+        await np.waitForSelector(`${cell('петок', 6)} select.p-subj`, { timeout: 8000 });
+        const subject = await np.$eval(`${cell('петок', 6)} select.p-subj`, (s) => [...s.options].map((o) => o.value).find(Boolean) || '');
+        check('потоа се нуди предмет', Boolean(subject));
+        await np.selectOption(`${cell('петок', 6)} select.p-subj`, subject);
+        await settle(async () => ((await lessonAt('петок', 6))[0] || {}).subject === subject);
+        checkEq('и предметот е во базата', (await lessonAt('петок', 6)).map((r) => r.subject), [subject]);
+        check('во печатење останува текст, не избор', await np.evaluate(() => {
+            const s = [...document.styleSheets].flatMap((x) => { try { return [...x.cssRules]; } catch (_) { return []; } });
+            return s.some((r) => r.media && /print/.test(r.media.mediaText) && /\.p-edit/.test(r.cssText) && /display:\s*none/.test(r.cssText));
+        }));
+
+        // Behind the page's back: the cell it shows as empty is taken meanwhile.
+        await np.waitForSelector(`${cell('четврток', 5)} select.p-class`, { timeout: 8000 });
+        await q(`INSERT INTO lessons (school_year_id, day, day_order, ordinal, class_id, teacher_id, subject)
+                 VALUES ($1, 'четврток', 4, 5, $2, $3, 'од друг прозорец')`, [year.id, classes[B], teachers[T2]]);
+        await np.selectOption(`${cell('четврток', 5)} select.p-class`, A);
+        await np.waitForTimeout(1500);
+        checkEq('сменет во меѓувреме: се одбива, не се презапишува',
+            (await lessonAt('четврток', 5)).map((r) => `${r.class}:${r.subject}`), [`${B}:од друг прозорец`]);
+        check('и листот го покажува тоа што стои сега', await np.$eval(`${cell('четврток', 5)} select.p-class`, (s) => s.value) === B);
+
+        await np.selectOption(`${cell('петок', 6)} select.p-class`, '');
+        await settle(async () => (await lessonAt('петок', 6)).length === 0);
+        checkEq('„— слободен —" го брише часот', (await lessonAt('петок', 6)).length, 0);
+
+        await np.evaluate(() => {
+            localStorage.removeItem('mtb_editing_v1');
+            window.dispatchEvent(new StorageEvent('storage', { key: 'mtb_editing_v1' }));
+        });
+        await np.waitForTimeout(400);
+        check('исклучено уредување: листот е пак хартија, нема што да се притисне',
+            await np.locator(`${sheet} .p-edit`).count() === 0 && await np.locator(sheet).count() === 1);
+        check('нема JavaScript грешки во Личен распоред', npErrors.length === 0, npErrors.join(' ;; '));
+        await own.close();
     } finally {
         await browser.close();
         await cleanup();

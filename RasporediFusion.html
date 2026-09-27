@@ -134,10 +134,13 @@
     /* ── Day tabs, in the S-Dnevnik tab-bar style ───────── */
     .day-tabs-band { background: linear-gradient(to bottom, #1a1a2e 0%, #16213e 100%); border-bottom: 3px solid #0f3460; box-shadow: 0 4px 6px rgba(0,0,0,0.3); }
     .day-tabs-band[hidden] { display: none; }
-    .day-tabs-band .band__inner { display: flex; justify-content: center; gap: 5px; padding: 0 10px; overflow-x: auto; }
+    /* Left, and the suite's one tab size (mtb-look.css: 13px, 10px 20px), like
+       every other strip; it used to be centred and a size larger than the
+       strip under it (owner, 27 Sep 2026: „табовите не се со иста големина"). */
+    .day-tabs-band .band__inner { display: flex; justify-content: flex-start; gap: 5px; padding: 0 10px; overflow-x: auto; }
     .day-tabs-band .band__inner::-webkit-scrollbar { display: none; }
     .day-tab {
-        padding: 12px 30px;
+        padding: 10px 20px;
         border: none;
         background: linear-gradient(to bottom, #2d3748 0%, #1a202c 100%);
         cursor: pointer;

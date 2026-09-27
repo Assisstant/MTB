@@ -188,6 +188,40 @@ header.top h1 { flex: 1; min-width: 180px; }
 .duty-day .checks { display: flex; flex-wrap: wrap; gap: 4px 12px; }
 .duty-day .checks label { display: inline-flex; align-items: center; gap: 5px; margin: 0; font-weight: 500; }
 .duty-day .checks input { width: auto; }
+/* 🗓 Недела: the whole week on one sheet, as Настава's „Личен распоред" draws
+   it (owner, 27 Sep 2026) — paper-white in either theme, because it is what
+   gets printed or saved as a picture and handed on. */
+.days .week-toggle { margin-left: 6px; }
+.week-tools { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin: 10px 0 4px; }
+.week-wrap { overflow-x: auto; margin-top: 8px; }
+.sheet { min-width: 640px; padding: 12px; border-radius: 12px; background: #ffffff; color: #1a202c; border: 1px solid var(--line); }
+.sheet .s-head { padding: 12px 16px; border-radius: 12px; text-align: center; color: #ffffff;
+                 background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+.sheet .s-head h2 { margin: 0; font-size: 20px; color: #ffffff; }
+.sheet .s-sub { margin-top: 3px; font-size: 13px; color: #ffffff; }
+.sheet table { width: 100%; margin-top: 10px; border-collapse: separate; border-spacing: 2px; table-layout: fixed; font-size: 13px; }
+.sheet thead th { padding: 7px 4px; background: #4c51bf; color: #ffffff; font-weight: 700; text-align: center; }
+.sheet thead th:first-child, .sheet tbody th { width: 78px; }
+.sheet tbody th { padding: 6px 4px; background: #2d3748; color: #ffffff; text-align: center; vertical-align: middle; }
+.sheet tbody th b { display: block; font-size: 14px; }
+.sheet tbody th small { display: block; color: #cbd5e0; font-size: 11px; }
+.sheet td { padding: 3px; vertical-align: top; background: #f7fafc; cursor: pointer; }
+.sheet tbody tr:nth-child(even) td { background: #ffffff; }
+.sheet td:hover { outline: 2px solid #4c51bf; outline-offset: -2px; }
+.sheet .s-item { margin: 0 0 3px; padding: 4px 6px 4px 8px; border-radius: 6px; background: #e6fffa; border-left: 4px solid #319795; line-height: 1.2; }
+.sheet .s-item b { display: block; font-size: 13px; color: #1a202c; overflow-wrap: anywhere; }
+.sheet .s-item small { display: block; font-size: 11px; color: #4a5568; }
+.sheet .s-foot { margin-top: 8px; font-size: 12px; color: #4a5568; }
+@page week { size: A4 landscape; margin: 9mm; }
+@media print {
+  body.printing-week main > *:not(#home), body.printing-week #home > *:not(#weekCard),
+  body.printing-week #weekCard > *:not(.week-wrap), body.printing-week .no-print { display: none !important; }
+  body.printing-week, body.printing-week .card { background: #fff !important; border: 0 !important; padding: 0 !important; margin: 0 !important; }
+  body.printing-week .week-wrap { overflow: visible; margin: 0; }
+  body.printing-week .sheet { page: week; min-width: 0; border: 0; padding: 0; }
+  body.printing-week .sheet td:hover { outline: 0; }
+  body.printing-week .sheet * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+}
 /* A therapist's own list, ticked from the year's pupils. */
 .caseload { border: 1px dashed var(--line); border-radius: 10px; padding: 10px 12px; margin: 8px 0 4px; }
 .caseload .head { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
@@ -271,6 +305,11 @@ header.top h1 { flex: 1; min-width: 180px; }
       <div class="tabs" id="tabs" role="group" aria-label="Што пополнувате"></div>
       <div class="days" id="days" role="group" aria-label="Ден"></div>
       <p class="muted" id="tabHint"></p>
+      <div class="week-tools no-print" id="weekTools" hidden>
+        <button type="button" id="printWeek">🖨 Печати</button>
+        <button type="button" id="pngWeek">🖼 Слика</button>
+      </div>
+      <div class="week-wrap" id="weekSheet" hidden></div>
       <div class="caseload" id="caseload" hidden></div>
       <ul class="periods" id="periods"></ul>
       <div id="duty" hidden></div>
@@ -309,7 +348,8 @@ header.top h1 { flex: 1; min-width: 180px; }
     let me = null;
     let week = null;
     let memory = '';            // the token, when this browser keeps nothing
-    const view = { tab: '', day: '' };
+    // `week`: the whole week on one sheet instead of one day's list (🗓 Недела).
+    const view = { tab: '', day: '', week: false };
     let editing = null;         // { ordinal } of the period being edited
     const offers = new Map();   // class label -> subjects offered for it
 
@@ -1055,6 +1095,135 @@ header.top h1 { flex: 1; min-width: 180px; }
     });
     window.addEventListener('afterprint', () => document.body.classList.remove('printing-duty'));
 
+    // ── 🗓 Недела: the week on one sheet, printed or as a picture ─────────
+    //
+    // The same look as Настава's „Личен распоред" (owner, 27 Sep 2026: „да
+    // можат да го испечатат својот личен распоред и да го извезат како слика"),
+    // drawn from the week this page already has — nothing more is asked of
+    // the server, so it shows only what the colleague could already see.
+    function weekModel() {
+        const days = week.days || [];
+        const homeroomOf = view.tab.startsWith('class:') ? view.tab.slice(6) : '';
+        if (view.tab === 'cabinet') {
+            const bells = (week.cabinet && week.cabinet.bells) || [];
+            return {
+                what: 'Кабинет', days,
+                rows: bells.map((b, i) => ({ label: b.label || String(i + 1), time: b.time.replace('-', '–'), go: 'term:' + b.time })),
+                cells: bells.map((b) => days.map((d) => {
+                    const t = termAt(d, b.time);
+                    const ids = t ? t.pupils : [];
+                    return ids.map((id, i) => ({ text: pupilName(id), sub: ids.length === 1 ? '40 минути' : (i ? 'втори 20 мин.' : 'први 20 мин.') }));
+                }))
+            };
+        }
+        const periods = week.periods || [];
+        return {
+            what: homeroomOf ? 'Паралелка ' + nameOf(homeroomOf) : '', days,
+            rows: periods.map((p) => ({ label: p.label + '. час', time: p.startsAt || '', go: 'lesson:' + p.ordinal })),
+            cells: periods.map((p) => days.map((d) => {
+                const here = lessonsAt(d, p.ordinal);
+                return homeroomOf
+                    ? here.filter((l) => l.class === homeroomOf).map((l) => ({ text: l.subject || 'без предмет', sub: properName(l.teacher) || 'без наставник' }))
+                    : here.filter((l) => l.teacherId === myId()).map((l) => ({ text: l.subject || 'без предмет', sub: shortOf(l.class) }));
+            }))
+        };
+    }
+    const cap = (d) => String(d || '').charAt(0).toUpperCase() + String(d || '').slice(1);
+    const sheetTitle = (m) => 'Неделен распоред — ' + me.person.name + (m.what ? ' · ' + m.what : '');
+    const sheetSub = () => 'учебна ' + me.year;
+    function sheetHtml(m) {
+        if (!m.days.length || !m.rows.length) return '<p class="muted">Нема часови за годинава.</p>';
+        const count = m.cells.reduce((n, row) => n + row.reduce((k, list) => k + list.length, 0), 0);
+        const unit = view.tab === 'cabinet' ? (count === 1 ? 'термин' : 'термини') : (count === 1 ? 'час' : 'часа');
+        return '<div class="sheet"><div class="s-head">'
+            + `<h2>${esc(sheetTitle(m))}</h2><div class="s-sub">${esc(sheetSub())} · ${count} ${unit} неделно</div></div>`
+            + '<table><thead><tr><th>' + (view.tab === 'cabinet' ? 'Термин' : 'Час') + '</th>'
+            + m.days.map((d) => `<th>${esc(cap(d))}</th>`).join('') + '</tr></thead><tbody>'
+            + m.rows.map((row, r) => `<tr><th><b>${esc(row.label)}</b><small>${esc(row.time)}</small></th>`
+                + m.days.map((d, i) => `<td data-go-day="${esc(d)}" data-go-at="${esc(row.go)}" title="${esc(cap(d) + ' · ' + row.label + ' — уреди')}">`
+                    + m.cells[r][i].map((e) => `<div class="s-item"><b>${esc(e.text)}</b><small>${esc(e.sub)}</small></div>`).join('')
+                    + '</td>').join('') + '</tr>').join('')
+            + `</tbody></table><div class="s-foot">${esc(new Date().toLocaleDateString('mk-MK'))}</div></div>`;
+    }
+
+    /**
+     * The week as a PNG. A copy of `paintGrid` in mtb-schedule-form.js — the
+     * picture Настава's „🖼 Слика" and the forms give — because this page
+     * loads nothing but itself (see the head of the file). Keep the two alike;
+     * the only addition is `corner`, the word over the first column.
+     */
+    function paintGrid(o) {
+        const M = 36, TIME_W = 150, COL_W = 300, HEAD_H = 104, COLHEAD_H = 50, FOOT_H = 50, GAP = 2;
+        const rowH = o.rows.map((_, r) => Math.max(92, 16 + Math.max(1, ...o.days.map((_, d) => (o.cells[r][d] || []).length)) * 46));
+        const width = M * 2 + TIME_W + o.days.length * COL_W;
+        const height = M + HEAD_H + 16 + COLHEAD_H + rowH.reduce((a, b) => a + b, 0) + FOOT_H;
+        const canvas = document.createElement('canvas');
+        canvas.width = width; canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        const box = (x, y, w, h, r) => {
+            ctx.beginPath(); ctx.moveTo(x + r, y);
+            ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r);
+            ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath(); ctx.fill();
+        };
+        const fit = (text, max) => {
+            let v = String(text == null ? '' : text);
+            if (ctx.measureText(v).width <= max) return v;
+            while (v.length > 1 && ctx.measureText(v + '…').width > max) v = v.slice(0, -1);
+            return v + '…';
+        };
+        ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, width, height);
+        const g = ctx.createLinearGradient(M, M, width - M, M + HEAD_H);
+        g.addColorStop(0, '#667eea'); g.addColorStop(1, '#764ba2');
+        ctx.fillStyle = g; box(M, M, width - M * 2, HEAD_H, 12);
+        ctx.textAlign = 'center'; ctx.fillStyle = '#ffffff';
+        ctx.font = 'bold 34px Arial'; ctx.fillText(fit(o.title, width - M * 4), width / 2, M + 46);
+        ctx.font = '20px Arial'; ctx.fillText(fit(o.subtitle, width - M * 4), width / 2, M + 80);
+        let y = M + HEAD_H + 16;
+        ctx.fillStyle = '#4c51bf'; ctx.fillRect(M, y, TIME_W - GAP, COLHEAD_H);
+        ctx.fillStyle = '#ffffff'; ctx.font = 'bold 20px Arial';
+        ctx.fillText(o.corner || 'Час', M + TIME_W / 2, y + 32);
+        o.days.forEach((day, d) => {
+            const x = M + TIME_W + d * COL_W;
+            ctx.fillStyle = '#4c51bf'; ctx.fillRect(x, y, COL_W - GAP, COLHEAD_H);
+            ctx.fillStyle = '#ffffff'; ctx.fillText(day.charAt(0).toUpperCase() + day.slice(1), x + COL_W / 2, y + 32);
+        });
+        y += COLHEAD_H + GAP;
+        o.rows.forEach((row, r) => {
+            const h = rowH[r] - GAP;
+            ctx.fillStyle = '#2d3748'; ctx.fillRect(M, y, TIME_W - GAP, h);
+            ctx.fillStyle = '#ffffff'; ctx.font = 'bold 26px Arial';
+            ctx.fillText(String(row.label || ''), M + TIME_W / 2, y + h / 2 - 2);
+            ctx.fillStyle = '#cbd5e0'; ctx.font = '15px Arial';
+            ctx.fillText(String(row.time || '').replace('-', ' – '), M + TIME_W / 2, y + h / 2 + 22);
+            o.days.forEach((_, d) => {
+                const x = M + TIME_W + d * COL_W, w = COL_W - GAP;
+                ctx.fillStyle = r % 2 ? '#ffffff' : '#f7fafc'; ctx.fillRect(x, y, w, h);
+                (o.cells[r][d] || []).forEach((entry, i) => {
+                    const ey = y + 8 + i * 46;
+                    ctx.fillStyle = '#e6fffa'; box(x + 8, ey, w - 16, 40, 6);
+                    ctx.fillStyle = '#319795'; ctx.fillRect(x + 8, ey + 2, 4, 36);
+                    ctx.fillStyle = '#1a202c'; ctx.font = 'bold 17px Arial';
+                    ctx.fillText(fit(entry.text, w - 36), x + w / 2 + 2, ey + (entry.sub ? 18 : 26));
+                    if (entry.sub) {
+                        ctx.fillStyle = '#4a5568'; ctx.font = '13px Arial';
+                        ctx.fillText(fit(entry.sub, w - 36), x + w / 2 + 2, ey + 35);
+                    }
+                });
+            });
+            y += rowH[r];
+        });
+        ctx.textAlign = 'left'; ctx.fillStyle = '#4a5568'; ctx.font = '16px Arial';
+        ctx.fillText(o.footer || '', M, height - 20);
+        canvas.toBlob((blob) => {
+            if (!blob) return;
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = o.file;
+            document.body.appendChild(a); a.click(); a.remove();
+            setTimeout(() => URL.revokeObjectURL(a.href), 30000);
+        }, 'image/png');
+    }
+
     function drawTabs() {
         const tabs = tabsOf();
         if (!tabs.some((t) => t.id === view.tab)) view.tab = tabs.length ? tabs[0].id : '';
@@ -1065,7 +1234,8 @@ header.top h1 { flex: 1; min-width: 180px; }
             const today = ['недела', 'понеделник', 'вторник', 'среда', 'четврток', 'петок', 'сабота'][new Date().getDay()];
             view.day = days.includes(today) ? today : days[0];
         }
-        el('days').innerHTML = days.map((d) => `<button type="button" data-day="${esc(d)}" aria-pressed="${d === view.day}" title="${esc(d)}">${esc(DAY_SHORT[d] || d)}</button>`).join('');
+        el('days').innerHTML = days.map((d) => `<button type="button" data-day="${esc(d)}" aria-pressed="${!view.week && d === view.day}" title="${esc(d)}">${esc(DAY_SHORT[d] || d)}</button>`).join('')
+            + (days.length ? `<button type="button" class="week-toggle" data-week="1" aria-pressed="${view.week}" title="Целата недела на еден лист — за печатење или како слика">🗓 Недела</button>` : '');
         el('days').hidden = false;
     }
 
@@ -1075,9 +1245,17 @@ header.top h1 { flex: 1; min-width: 180px; }
         drawClashes();
         drawNotices();
         const onDuty = view.tab === 'duty';
+        const whole = view.week && !onDuty && Boolean(view.tab);
         el('duty').hidden = !onDuty;
-        el('periods').hidden = onDuty;
-        el('caseload').hidden = view.tab !== 'cabinet';
+        el('periods').hidden = onDuty || whole;
+        el('caseload').hidden = view.tab !== 'cabinet' || whole;
+        el('weekSheet').hidden = !whole;
+        el('weekTools').hidden = !whole;
+        if (whole) {
+            el('tabHint').textContent = 'Целата недела. Допрете час за да го внесете или смените — се отвора тој ден.';
+            el('weekSheet').innerHTML = sheetHtml(weekModel());
+            return;
+        }
         if (onDuty) {
             el('days').hidden = true;
             el('tabHint').textContent = duty.owner
@@ -1601,11 +1779,48 @@ header.top h1 { flex: 1; min-width: 180px; }
         drawWeek();
     });
     el('days').addEventListener('click', (event) => {
+        if (event.target.closest('[data-week]')) {
+            view.week = true;
+            editing = null;
+            drawWeek();
+            return;
+        }
         const b = event.target.closest('[data-day]');
         if (!b) return;
         view.day = b.dataset.day;
+        view.week = false;
         editing = null;
         drawWeek();
+    });
+    // A period on the week's sheet opens that day with its editor, as a clash's „Отвори" does.
+    el('weekSheet').addEventListener('click', (event) => {
+        const td = event.target.closest('[data-go-day]');
+        if (!td) return;
+        const go = td.dataset.goAt;
+        const kind = go.slice(0, go.indexOf(':'));
+        const at = go.slice(go.indexOf(':') + 1);
+        view.day = td.dataset.goDay;
+        view.week = false;
+        editing = kind === 'term' ? { time: at } : { ordinal: Number(at) };
+        drawWeek();
+        const row = kind === 'term' ? el('periods').querySelector(`[data-time="${at}"]`)
+            : el('periods').querySelector(`[data-ordinal="${Number(at)}"]`);
+        if (row) row.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    });
+    el('printWeek').addEventListener('click', () => {
+        document.body.classList.add('printing-week');
+        window.print();
+    });
+    window.addEventListener('afterprint', () => document.body.classList.remove('printing-week'));
+    el('pngWeek').addEventListener('click', () => {
+        const m = weekModel();
+        if (!m.days.length || !m.rows.length) return;
+        paintGrid({
+            title: sheetTitle(m), subtitle: sheetSub(), days: m.days, corner: view.tab === 'cabinet' ? 'Термин' : 'Час',
+            rows: m.rows.map((row) => ({ label: row.label, time: row.time })), cells: m.cells,
+            footer: new Date().toLocaleDateString('mk-MK'),
+            file: 'Licen-raspored-' + me.person.name.replace(/[\\/:*?"<>|\s]+/g, '-') + '.png'
+        });
     });
     el('periods').addEventListener('click', (event) => {
         const termEdit = event.target.closest('[data-edit-term]');

@@ -279,6 +279,30 @@ check('no page errors', errors.length === 0, errors.join('\n       '));
     await p.waitForFunction(() => /тргнат/.test(document.getElementById('weekMsg').textContent), null, { timeout: 5000 });
     check('taking one out asks, then does it and tells that teacher', writes.filter((w) => w.path === '/api/portal/class-lesson/remove').length === 2
         && !lessons.some((l) => l.id === 2));
+
+    // Owner, 27 Sep 2026: a colleague prints their own week, or saves it as a
+    // picture, in the look of Настава's „Личен распоред".
+    console.log('\n🗓 the whole week on one sheet');
+    await p.click('#tabs [data-tab="mine"]');
+    await p.click('#days [data-week]');
+    await p.waitForSelector('#weekSheet:not([hidden]) .sheet', { timeout: 3000 });
+    const sheet = await p.textContent('#weekSheet');
+    check('„🗓 Недела" draws the week on one sheet, under the person\'s name',
+        /Неделен распоред — Ана Измислена/.test(sheet) && /Понеделник/.test(sheet) && /Петок/.test(sheet), sheet.slice(0, 160));
+    check('with their own lessons in it, and nobody else\'s', /Математика/.test(sheet) && /II-б/.test(sheet) && !/Музичко/.test(sheet), sheet);
+    check('the day\'s list is put away meanwhile', await p.isHidden('#periods'));
+    check('printing and a picture are offered', await p.isVisible('#printWeek') && await p.isVisible('#pngWeek'));
+    const [download] = await Promise.all([p.waitForEvent('download', { timeout: 5000 }), p.click('#pngWeek')]);
+    check('„🖼 Слика" saves a PNG named for the person', download.suggestedFilename() === 'Licen-raspored-Ана-Измислена.png', download.suggestedFilename());
+    await p.evaluate(() => document.body.classList.add('printing-week'));
+    await p.emulateMedia({ media: 'print' });
+    check('printed, the sheet is all there is on the page', await p.isVisible('#weekSheet .sheet')
+        && await p.isHidden('#tabs') && await p.isHidden('#weekTools') && await p.isHidden('header.top'));
+    await p.emulateMedia({ media: 'screen' });
+    await p.evaluate(() => document.body.classList.remove('printing-week'));
+    await p.click('#weekSheet td[data-go-day="понеделник"][data-go-at="lesson:2"]');
+    check('a period on the sheet opens that day, with its editor',
+        await p.isVisible('#periods form.editor') && await p.getAttribute('#days [data-day="понеделник"]', 'aria-pressed') === 'true');
     check('the week fits a phone', await p.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth));
     check('no page errors in the week', weekErrors.length === 0, weekErrors.join('\n       '));
     await ctx.close();

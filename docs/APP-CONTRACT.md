@@ -24,6 +24,21 @@ but it must not present parallel versions of the same task.
   in `<head>` (key `theme`, S-Dnevnik's since before the suite). Pages style
   from `html[data-theme]`; none follows `prefers-color-scheme` on its own, and
   nothing is stored until the viewer chooses.
+- `mtb-layout.js` is the one behaviour of tab strips, table header rows and
+  sections (owner, 27 September 2026), loaded by `app-navigation.js` on every
+  screen that has the bar, the Workspace's windows included. A strip is one
+  row that slides sideways and carries „📌 Замрзни"; a table's first header
+  cell carries 📌 (the header stays on screen) and ▾ (the rows fold); a
+  `.panel`/`.card` headed by its first child folds on ▾. It stores layout only,
+  per browser, after a click. A new screen gets it by having the bar; it does
+  not build its own sticky header or fold.
+- „👤 Личен распоред" in `Nastava.html` is a sheet to hand out and, only while
+  „✏️ Уреди“ is on, also a way in: each period is a class picker, then a
+  subject picker, written through `PUT /api/teaching/teacher-lesson` with
+  `expected` — the route Уреди настава's teacher week already uses. Off, the
+  page has nothing to press. `Kolega.html` gives a colleague the same sheet of
+  their own week („🗓 Недела“) to print or save as a PNG, drawn from the week
+  the portal already sends and asking the server for nothing more.
 - `mtb-forms.js` is the one form per kind of thing (owner, 24 September 2026;
   `docs/PLAN-eden-urednik.md`). Wherever a thing is shown, a screen may carry
   a ✏️ door that opens its form in a popup. Doors are hidden until the

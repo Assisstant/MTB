@@ -9,6 +9,19 @@
 (function () {
     'use strict';
 
+    // One behaviour for every tab strip, table head and section — pin, fold,
+    // one row of tabs (`mtb-layout.js`). Loaded from here, beside this file,
+    // so every screen that has the bar has it too, inside the Workspace as
+    // well, and no page has to remember to ask for it.
+    (function loadLayout() {
+        if (window.MTBLayout || document.querySelector('script[data-mtb-layout]')) return;
+        const me = document.currentScript;
+        const script = document.createElement('script');
+        script.src = me && me.src ? new URL('mtb-layout.js', me.src).href : 'mtb-layout.js';
+        script.dataset.mtbLayout = '';
+        (document.head || document.documentElement).appendChild(script);
+    })();
+
     const APPS = [
         { file: 'start.html', label: 'Сите', title: 'Сите апликации' },
         { file: 'S-Dnevnik.html', label: 'S-Дневник', title: 'Електронски дневник' },

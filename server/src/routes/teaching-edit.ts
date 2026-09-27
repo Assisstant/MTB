@@ -7,6 +7,12 @@
  * is a different page, and these are the endpoints it uses. Nothing in the
  * read path writes, and nothing here draws.
  *
+ * One door on `Nastava.html` uses this file, and only while the suite's
+ * „✏️ Уреди" switch is on: a period of a teacher's „Личен распоред" is picked
+ * in the cell (owner, 27 Sep 2026), through `teacher-lesson` below with its
+ * `expected` check — the same write as Уреди настава's teacher week, not a
+ * second one. With the switch off the page has nothing to press.
+ *
  *   PUT    /api/teaching/lesson        one cell: (year, day, period, class)
  *   PUT    /api/teaching/teacher-lesson  the same cell: (year, day, period, teacher)
  *   DELETE /api/teaching/lesson/:id    remove one lesson

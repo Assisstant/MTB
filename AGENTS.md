@@ -163,6 +163,8 @@ server/src/lib/staff-accounts.ts     the username is the person's name in either
 server/src/lib/portal-week.ts        a colleague's teaching week: what a change clashes with, and the notices it leaves
 server/src/lib/evidence.ts           the catalogue, the year's columns and one sheet read whole
 server/src/lib/public-static.ts      explicit allowlist for files published by the local server
+mtb-layout.js                        one behaviour for every tab strip, table head and section: one row,
+                                     📌 Замрзни, ▾ fold; app-navigation.js loads it, so no page asks for it
 server/src/routes/data.ts       read endpoints
 server/src/routes/schedule-write.ts  one schedule cell at a time (Stage A, behind a flag that is off)
 server/src/routes/roster-write.ts    students, therapists, caseload links (Stage B/C, same flag; no delete of people)
@@ -268,6 +270,7 @@ npm run test:portal                  the colleagues' sign-in against the databas
 npm run test:portal-week             a colleague's own week: clash before saving, „сепак", notices; database, invented year
 npm run test:portal-cabinet          a therapist's own cabinet through the same block writer; database, invented year
 npm run test:kolega                  Kolega.html in a browser; every API call invented
+npm run test:layout                  mtb-layout.js: pin and fold on strips, table heads, sections; no server
 npm run test:kolegi-admin            Податоци → Колеги and the administrator's look; every API call invented
 npm run test:schedule-form           the cabinet form (all therapists) offline, then into the queue
 npm run test:wbacc                   WBACC.html in a browser: pictograms, bookmarks, offline; every call invented
@@ -738,6 +741,20 @@ read `DATABASE_URL`; never add literal credentials to this public repository.
   Inside the workspace a frame's steps join the window's history. Playwright's
   `goBack` waits for the top page only, so a test of a frame's step uses
   `history.back()`.
+
+- **A strip, a header row or a section behaves the same on every screen, and
+  one file decides how.** The owner (27 Sep 2026): „секоја страница се
+  однесува различно" — Податоци and Уреди настава wrapped their tabs onto a
+  second band, Настава slid them sideways, Кабинети cut them off; one list
+  kept its header on screen and the next did not. `mtb-layout.js`, loaded by
+  `app-navigation.js`, now gives every `.mtb-tabs`/`.view-tabs`/`.tabs` of
+  `.tab`/day band ONE row and „📌 Замрзни", every table with a `<thead>` (and
+  the `.schedule-grid`) 📌 and ▾ in its first header cell, and every
+  `.panel`/`.card` whose first child is its heading a ▾. Do not hand-roll a
+  sticky header or a fold in a new screen; mark a table `data-mtb-plain` if it
+  must be left alone. The glyphs are CSS, so a header's `textContent` does not
+  change — pages and tests read the same words. What it stores is layout only
+  (`mtb_layout_v1`), and only after a click.
 
 - **The colleagues' door is the only thing the cloud shows without the owner.**
   `cloud-auth.ts` lets through `/Kolega.html`, `/kolegi` and plain

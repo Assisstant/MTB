@@ -4077,3 +4077,66 @@ separate step. The other documents' spellings („IV б" in the Годишна �
 for the one the Word list calls combined III, IV, V) are not stored yet: an
 import alias table is only worth having together with the importers that read
 it, and a table nobody reads is a wish.
+
+## One behaviour for strips, header rows and sections (27 Sep 2026)
+
+The owner, looking at four screens side by side: the tab strips were not the
+same size, every page behaved differently, and the editor's „sticky scroll"
+was what he wanted — a checkbox on every tab strip to keep it at the top, an
+option on every table's header row to keep it on screen, and a fold for every
+section. Measured first, because the strips were already meant to be one size
+(24 Sep): standalone they WERE equal, 39px tabs and a 44px lifted one. The
+difference was elsewhere. In a Workspace window Податоци and Уреди настава
+wrapped their tabs onto a second band (96px), Настава slid them sideways,
+Кабинети cut them off; Кабинети's day strip was a size larger and centred; and
+Податоци's reader-size slider (`zoom` on `<body>`) scaled its strip with the
+lists.
+
+**One file, loaded by the bar.** `mtb-layout.js` is loaded by
+`app-navigation.js` from beside itself, so every screen with the bar has it —
+inside the Workspace too — and no page has to remember. It skips the
+Workspace shell, whose windows are pages that load it themselves.
+
+**Strips.** One row, never a second band: `nowrap`, sliding sideways.
+„📌 Замрзни" is the last child, `position: sticky; right: 0` inside the
+sliding strip, so it stays at the right end however far the tabs slide.
+Pinned, the strip is taken out of the flow with a placeholder of its height
+left behind — `position: sticky` alone would stop at the strip's own card,
+which on Настава is only as tall as the controls. Two pinned strips stack.
+
+**Header rows.** A header the page already keeps on screen (a list in its own
+scrolling box, CSS `sticky` — Податоци, Преглед, Настава's grid) starts pinned
+and can be let go. Any other gets a COPY of its header row, placed beside the
+table so the page's own rules still reach it, with the measured widths and
+colours written on for the rules that do not; the copy rides the line under
+any pinned strip, is cut to whatever box scrolls the table sideways, and is
+pushed up by the last rows as in an editor. A click on the copy is sent to the
+same element of the original, so a therapist's name in Кабинети's header still
+focuses. Кабинети's and S-Dnevnik's schedule is a CSS grid of divs
+(`.schedule-grid`, `.schedule-header`) and is treated as a table.
+
+**Why the glyphs are CSS.** 📌 ▾ ▸ are `::before` content. A header cell's
+`textContent` is read by pages and asserted by tests („Р.Бр."); written as text
+they would have changed every one of them.
+
+**What is kept.** `mtb_layout_v1`, per browser, only after a click, only
+`frozen`/`folded` per page and element. A table is known by the nearest id and
+its first header word, not the whole row: a header carrying counts
+(„22 ученици") would otherwise forget the choice when a number changed, and
+all teachers' sheets on Личен распоред share one choice.
+
+**Личен распоред becomes a way in, while „✏️ Уреди" is on.** The owner wanted
+to change a teacher's week in the cell, as in Кабинети, with the pickers the
+colleagues' page already has. Настава stays the page with nothing to press:
+the pickers exist only in edit mode, go through `PUT /api/teaching/
+teacher-lesson` with `expected` — Уреди настава's teacher-week write — and a
+cell changed meanwhile is refused and redrawn from the database. Edit mode
+shows all five days and every teacher on the list, because a blank sheet is
+where a new week is typed. Printed, the sheet is text again. The crossing's
+staff list now carries each teacher's `subject`, offered first.
+
+**Kolega: the week on one sheet.** „🗓 Недела" beside the day buttons draws
+the week in Личен распоред's look, prints it alone (A4 landscape) and saves it
+as a PNG with a copy of `paintGrid` — the page loads nothing but itself. It is
+drawn from the week the portal already sends, so it cannot show a colleague
+anything the day view did not.

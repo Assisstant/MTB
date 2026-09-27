@@ -36,6 +36,8 @@ const PUBLIC_FILES = new Set([
     'start.html',
     'РаспоредТерапевти.html',
     'app-navigation.js',
+    // Pin and fold for every strip, table head and section; app-navigation.js loads it.
+    'mtb-layout.js',
     'mtb-theme.js',
     'mtb-document.js',
     'mtb-look.css',

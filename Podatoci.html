@@ -45,6 +45,9 @@
     }
 
     body { font-size: 15px; zoom: var(--ui); }
+    /* The reader's size is for the lists, not for the strip: at any other size
+       the tabs stood taller or shorter than on every other screen. */
+    .tabs.mtb-tabs { zoom: calc(1 / var(--ui)); }
     button, input, select { letter-spacing: 0; }
     header .links { margin-left: auto; display: flex; gap: 14px; }
 
@@ -94,6 +97,12 @@
         color: var(--muted); background: var(--card); font-size: 13px; cursor: pointer;
     }
     .number-toggle input { width: 16px; height: 16px; margin: 0; accent-color: var(--accent); }
+    /* On the strip it is a chip of the dark band, like „📌 Замрзни" beside it
+       (mtb-layout.js) — a white card there stood taller than the tabs. */
+    .mtb-tabs > .number-toggle { flex: 0 0 auto; margin: 5px 0 5px auto; padding: 4px 10px; border-color: #4a5568;
+        border-radius: 999px; background: #16213e; color: #cbd5e0; font-size: 12px; font-weight: 600; white-space: nowrap; }
+    .mtb-tabs > .number-toggle input { width: auto; height: auto; accent-color: #818cf8; }
+    .mtb-tabs > .number-toggle + .mtb-pin { margin-left: 6px !important; }
     .tab { display: none; }
     .tab.on { display: block; }
 

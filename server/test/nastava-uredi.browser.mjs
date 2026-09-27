@@ -584,10 +584,15 @@ const run = async () => {
 
     console.log('\nthe page keeps nothing of its own');
     // The header claims this: no local copy, no queue, nothing "for later".
-    const stored = await page.evaluate(() => {
-        try { return { local: localStorage.length, session: sessionStorage.length }; }
-        catch (e) { return { local: -1, session: -1 }; }
-    });
+    // Except the author's credit, remembered on purpose so the watermark shows
+    // with no server (app-navigation.js, 27 Sep 2026) — the same two keys
+    // test:podatoci names. Named, so any other key still fails.
+    const stored = await page.evaluate((credit) => {
+        try {
+            const keys = Object.keys(localStorage).filter((k) => !credit.includes(k));
+            return { local: keys.length, session: sessionStorage.length };
+        } catch (e) { return { local: -1, session: -1 }; }
+    }, ['mtb_author_v1', 'mtb_author_look_v1']);
     checkEq('nothing was written to browser storage', stored, { local: 0, session: 0 });
 
     console.log('\nand it is honest when the server is gone');

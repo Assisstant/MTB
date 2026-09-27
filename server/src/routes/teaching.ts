@@ -248,7 +248,9 @@ export async function teachingRoutes(server: FastifyInstance) {
         // data loss, and it WAS — the two screens disagreed by everybody who
         // had not been given a lesson.
         const { rows: staffRows } = await pool.query(
-            `SELECT t.id, t.name, t.kind FROM teachers t
+            // `subject` is what the teacher teaches: Личен распоред offers it
+            // first when a lesson is typed in there (owner, 27 Sep 2026).
+            `SELECT t.id, t.name, t.kind, t.subject FROM teachers t
                JOIN teacher_years ty
                  ON ty.teacher_id = t.id AND ty.school_year_id = $1 AND ty.active
               ORDER BY t.kind, t.name`,
