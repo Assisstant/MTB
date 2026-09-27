@@ -100,7 +100,13 @@
     .scroll { overflow-x: auto; }
     table.list { border-collapse: collapse; width: 100%; font-size: 13px; }
     table.list th, table.list td { border-bottom: 1px solid var(--border); padding: 6px 9px; text-align: left; vertical-align: middle; }
-    table.list thead th { background: var(--soft); font-weight: 600; white-space: nowrap; position: sticky; top: 0; }
+    table.list thead th { background: var(--soft); font-weight: 600; white-space: nowrap; position: sticky; top: 0; z-index: 2; }
+    /* Frozen first row (owner, 28 Sep 2026): a list scrolls in its own box, both
+       ways, so the sticky header row above has a box to stick to. */
+    .panel.tab > .scroll { max-height: calc(100vh - 170px); overflow: auto; }
+    /* A class's pupils as one set: a row per class with its own ▲▼. */
+    table.list tr.group-row > td { background: var(--soft); font-weight: 700; padding-top: 9px; }
+    table.list tr.group-row .ord { margin-right: 8px; }
     table.list input, table.list select {
         padding: 5px 7px; border: 1px solid var(--border); border-radius: 5px;
         background: var(--card); color: var(--text); font-size: 13px; width: 100%;
@@ -1356,6 +1362,9 @@
             && (!q || s.name.toLowerCase().includes(q)
                || String(s.grade || '').toLowerCase().includes(q)
                || kindLabel(s.kind).includes(q)));
+        // The sets can be moved only on the whole list: filtered, „above" would
+        // mean above a class the person cannot see.
+        const grouping = !q && !wantedKind;
         if (!rows.length) {
             el('students').innerHTML = '<p class="hint">'
                 + ((data.students || []).length ? 'Никој не одговара на избраната листа/барањето.' : 'Нема запишани ученици за оваа година.')
@@ -1367,8 +1376,8 @@
             + '<th style="width:250px;">Паралелка · каде учи</th>'
             + '<th style="width:130px;">Одделение · генерација</th>'
             + '<th>Терапевти</th><th></th></tr></thead><tbody>'
-            + rows.map((s, index) =>
-                `<tr data-student="${esc(s.public_id)}"${s.active ? '' : ' class="archived"'}>`
+            + rows.map((s, index) => groupRowBefore(rows, index, grouping)
+                + `<tr data-student="${esc(s.public_id)}"${s.active ? '' : ' class="archived"'}>`
                 + rowNumberCell('students', s.public_id, index, rows.length)
                 + `<td><span class="with-door"><input class="s-name" value="${esc(personName(s.name))}"${s.active ? '' : ' disabled'}>`
                 + `${window.MTBForms ? window.MTBForms.doorHtml('pupil', s.public_id, data.year, personName(s.name)) : ''}</span></td>`
@@ -1404,6 +1413,57 @@
         });
         markSubmittable(el('students'), 'data-student', 'data-save-student');
         attachOrderArrows(el('students'), 'students', rows);
+        el('students').querySelectorAll('[data-move-group]').forEach((b) =>
+            b.addEventListener('click', () => moveGroup(Number(b.dataset.groupAt), Number(b.dataset.moveGroup))));
+    }
+
+    /**
+     * A class's pupils as one set (owner, 28 Sep 2026: „that selected set can be
+     * moved up … sets of одделенија above sets of паралелки"). A set is a run of
+     * pupils with the same class, as the list stands; ▲▼ swap it with the run
+     * above or below and save the whole pupil order once, exactly as the row
+     * arrows do — so every screen that reads the year's list follows.
+     */
+    const classTitle = (label) => {
+        if (!label) return '— без паралелка —';
+        const cls = (data.classes || []).find((c) => c.label === label);
+        return cls ? (cls.alias || cls.label) : label + ' · неактивна';
+    };
+    function runsOf(rows) {
+        const runs = [];
+        rows.forEach((s, i) => {
+            if (!i || String(s.grade || '') !== String(rows[i - 1].grade || '')) runs.push({ start: i, end: i + 1 });
+            else runs[runs.length - 1].end = i + 1;
+        });
+        return runs;
+    }
+    function groupRowBefore(rows, index, grouping) {
+        const runs = runsOf(rows);
+        const at = runs.findIndex((run) => run.start === index);
+        if (at < 0) return '';
+        const run = runs[at];
+        const arrow = (delta, sign, off, label) =>
+            `<button type="button" class="ord-btn" data-move-group="${delta}" data-group-at="${at}"${off ? ' disabled' : ''}`
+            + ` title="${label}" aria-label="${label}">${sign}</button>`;
+        return `<tr class="group-row"><td colspan="7">`
+            + (grouping ? '<span class="ord">' + arrow(-1, '\u25B2', at === 0, 'Помести ја целата паралелка нагоре')
+                + arrow(1, '\u25BC', at === runs.length - 1, 'Помести ја целата паралелка надолу') + '</span>' : '')
+            + `${esc(classTitle(rows[index].grade))} <span class="none">· ${run.end - run.start}</span></td></tr>`;
+    }
+    async function moveGroup(at, delta) {
+        if (el('students').querySelector('tr.dirty')) {
+            status('Има ред со незачувана измена. Зачувај го или освежи, па поместувај.', 'warn', { toast: true });
+            return;
+        }
+        const rows = data.students || [];
+        const runs = runsOf(rows);
+        const other = at + delta;
+        if (!runs[at] || !runs[other]) return;
+        const [first, second] = delta < 0 ? [runs[other], runs[at]] : [runs[at], runs[other]];
+        data.students = [...rows.slice(0, first.start), ...rows.slice(second.start, second.end),
+            ...rows.slice(first.start, first.end), ...rows.slice(second.end)];
+        drawStudents();
+        await saveOrder({ moveList: 'students', moveKey: '', move: delta });
     }
 
     async function saveStudent(publicId) {

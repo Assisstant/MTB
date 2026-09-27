@@ -570,6 +570,44 @@ const run = async () => {
     checkEq('and the display size is the only thing remembered at all',
         stored.local.filter((k) => ALLOWED.includes(k)), ['mtb.ui-size']);
 
+    console.log('\na class\'s pupils move as one set; the header row stays in view (owner, 28 Sep 2026)');
+    {
+        const setsCtx = await browser.newContext({ viewport: { width: 1400, height: 800 } });
+        const orders = [];
+        // The save is answered here and never reaches the database.
+        await setsCtx.route('**/api/roster/order', (route) => {
+            if (route.request().method() !== 'PUT') return route.continue();
+            orders.push(route.request().postDataJSON());
+            return route.fulfill({ json: { ok: true } });
+        });
+        const sp = await setsCtx.newPage();
+        await sp.goto(`${BASE}/Podatoci.html?tab=students`, { waitUntil: 'domcontentloaded' });
+        await sp.waitForSelector('#students tr.group-row', { timeout: 15000 }).catch(() => {});
+        const sets = await sp.$$eval('#students tr.group-row', (rows) => rows.map((r) => Number((r.textContent.match(/· (\d+)\s*$/) || [])[1])));
+        const ids = await sp.$$eval('#students tr[data-student]', (rows) => rows.map((r) => r.dataset.student));
+        checkEq('every run of one class has its own row', sets.length > 1 && sets.every((n) => n > 0), true);
+        if (sets.length > 1) {
+            await sp.click('#students tr.group-row >> nth=0 >> [data-move-group="1"]');
+            await sp.waitForTimeout(800);
+            const [a, b] = sets;
+            checkEq('▼ on a set swaps it with the next set, and the whole order is saved once',
+                JSON.stringify((orders[0] || {}).order), JSON.stringify([...ids.slice(a, a + b), ...ids.slice(0, a), ...ids.slice(a + b)]));
+        }
+        await sp.fill('#studentSearch', 'а');
+        await sp.waitForTimeout(300);
+        checkEq('filtered, the sets have no arrows: „above" would mean a class out of sight',
+            await sp.locator('#students [data-move-group]').count(), 0);
+        await sp.fill('#studentSearch', '');
+        await sp.evaluate(() => { document.querySelector('#tab-students > .scroll').scrollTop = 1500; });
+        await sp.waitForTimeout(300);
+        checkEq('scrolled down, the header row is still at the top of the list', await sp.evaluate(() => {
+            const th = document.querySelector('#students thead th');
+            const box = document.querySelector('#tab-students > .scroll');
+            return Math.abs(th.getBoundingClientRect().top - box.getBoundingClientRect().top) < 3;
+        }), true);
+        await setsCtx.close();
+    }
+
     console.log('\nthe published page chooses explicitly between the two authorized databases');
     const remoteCtx = await browser.newContext({ viewport: { width: 1200, height: 900 } });
     const published = await remoteCtx.newPage();

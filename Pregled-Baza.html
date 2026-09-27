@@ -67,6 +67,15 @@ dialog::backdrop { background: rgba(0,0,0,.5); }
 .students-tools { display: flex; gap: 10px; align-items: center; margin-bottom: 10px; }
 .students-tools input[type="search"] { flex: 1; min-width: 0; }
 .students-tools label { white-space: nowrap; font-size: 13px; color: var(--muted); display: flex; gap: 6px; align-items: center; }
+/* Folding (owner, 28 Sep 2026: "optional … chaotic, all the sets of data
+   displayed"): a section folds on its title, and this browser remembers it. */
+.fold-tools { display: flex; gap: 8px; justify-content: flex-end; margin-bottom: 10px; }
+.fold-tools button { font-size: 13px; padding: 5px 12px; }
+.fold-head { cursor: pointer; user-select: none; }
+.fold-head::before { content: '▾ '; color: var(--muted); }
+.card.folded > .fold-head::before { content: '▸ '; }
+.card.folded > :not(.fold-head) { display: none; }
+.card.folded { padding-bottom: 4px; }
 td.num, th.num { width: 1%; text-align: right; color: var(--muted); font-variant-numeric: tabular-nums; }
 </style>
 </head>
@@ -83,22 +92,27 @@ td.num, th.num { width: 1%; text-align: right; color: var(--muted); font-variant
 
 <div class="tiles" id="tiles"></div>
 
-<div class="card">
+<div class="fold-tools">
+    <button type="button" onclick="foldAll(true)">▸ Собери сè</button>
+    <button type="button" onclick="foldAll(false)">▾ Отвори сè</button>
+</div>
+
+<div class="card" data-fold="conflicts">
     <h2>⚠️ Ученици кај двајца терапевти во ист термин</h2>
     <div id="conflicts" class="scroll">…</div>
 </div>
 
-<div class="card">
+<div class="card" data-fold="unscheduled">
     <h2>🗓️ Без закажан термин</h2>
     <div id="unscheduled">…</div>
 </div>
 
-<div class="card">
+<div class="card" data-fold="therapists">
     <h2>👩‍⚕️ Терапевти</h2>
     <div id="therapists" class="scroll">…</div>
 </div>
 
-<div class="card">
+<div class="card" data-fold="students">
     <h2>🎓 Ученици <span class="muted" id="studentCount"></span></h2>
     <div class="students-tools">
         <input id="q" type="search" placeholder="Пребарај по име или одделение…" oninput="renderStudents()">
@@ -355,6 +369,34 @@ async function openStudent(publicId) {
         document.getElementById('dlgBody').innerHTML = '<p class="err">' + esc(e.message) + '</p>';
     }
 }
+
+// ── folding: each section on its title, remembered in this browser ──
+const FOLD_KEY = 'mtb_pregled_folded_v1';
+let folded = new Set();
+try { folded = new Set(JSON.parse(localStorage.getItem(FOLD_KEY) || '[]')); } catch (_) { /* all open */ }
+function drawFolds() {
+    document.querySelectorAll('.card[data-fold]').forEach((card) => {
+        const shut = folded.has(card.dataset.fold);
+        card.classList.toggle('folded', shut);
+        card.querySelector(':scope > h2').setAttribute('aria-expanded', String(!shut));
+    });
+}
+function keepFolds() { try { localStorage.setItem(FOLD_KEY, JSON.stringify([...folded])); } catch (_) { /* this visit only */ } }
+function toggleFold(key) { folded.has(key) ? folded.delete(key) : folded.add(key); keepFolds(); drawFolds(); }
+function foldAll(shut) {
+    document.querySelectorAll('.card[data-fold]').forEach((card) => (shut ? folded.add(card.dataset.fold) : folded.delete(card.dataset.fold)));
+    keepFolds();
+    drawFolds();
+}
+document.querySelectorAll('.card[data-fold] > h2').forEach((h) => {
+    const key = h.parentElement.dataset.fold;
+    h.classList.add('fold-head');
+    h.tabIndex = 0;
+    h.setAttribute('role', 'button');
+    h.addEventListener('click', () => toggleFold(key));
+    h.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleFold(key); } });
+});
+drawFolds();
 
 loadAll();
 </script>
