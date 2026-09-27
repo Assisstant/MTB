@@ -14,7 +14,21 @@ import type { FastifyInstance } from 'fastify';
 import { pool } from '../db.js';
 import { nextGrade } from '../lib/year-rollover.js';
 import { orderPupils } from '../lib/teaching.js';
-import { arrange, caseloadList, readArrangement } from '../lib/roster-order.js';
+import { arrange, caseloadList, classRank, classRankFor, readArrangement } from '../lib/roster-order.js';
+
+/**
+ * A pupil list in the order Podatoci arranged it: pupils a person placed,
+ * then the rest by the arranged class order (owner, 28 Sep 2026: a combined
+ * class where it belongs), then by name — the same answer `/api/roster`
+ * gives, so Преглед на базата and Podatoci cannot list the year two ways.
+ */
+async function inArrangedOrder<T extends { public_id: string; grade?: string | null; name?: string | null }>(rows: T[], yearLabel?: string): Promise<T[]> {
+    const year = (await pool.query(
+        `SELECT id FROM school_years WHERE ($1::text IS NULL AND is_current) OR label = $1 LIMIT 1`, [yearLabel ?? null])).rows[0];
+    if (!year) return orderPupils(rows);
+    const arrangement = await readArrangement(pool, year.id);
+    return arrange(orderPupils(rows, await classRankFor(pool, year.id, arrangement)), (row) => String(row.public_id), arrangement.get('students'));
+}
 
 export async function dataRoutes(server: FastifyInstance) {
 
@@ -69,7 +83,7 @@ export async function dataRoutes(server: FastifyInstance) {
                  ORDER BY coalesce(e.grade, latest.grade) NULLS LAST, s.name`,
                 [year ?? null]
             );
-            return orderPupils(rows);
+            return inArrangedOrder(rows, year);
         }
         const { rows } = await pool.query(
             `WITH y AS (
@@ -92,7 +106,7 @@ export async function dataRoutes(server: FastifyInstance) {
              ORDER BY e.grade NULLS LAST, s.name`,
             [year ?? null]
         );
-        return orderPupils(rows);
+        return inArrangedOrder(rows, year);
     });
 
     /**
@@ -287,7 +301,8 @@ export async function dataRoutes(server: FastifyInstance) {
         // the year's pupil list. The tab, the printed list and the picker in a
         // schedule cell all take this order as given — three screens used to
         // sort one list three ways. `caseloadOrder` tells a screen it may.
-        const pupils = arrange(orderPupils(students.rows), (row: any) => String(row.public_id), arrangement.get('students'));
+        const pupils = arrange(orderPupils(students.rows, classRank(classes.rows, arrangement.get('classes'))),
+            (row: any) => String(row.public_id), arrangement.get('students'));
         const pupilAt = new Map(pupils.map((row: any, index: number) => [String(row.public_id), index]));
         const byPupilList = (a: string, b: string) =>
             (pupilAt.get(a) ?? Number.MAX_SAFE_INTEGER) - (pupilAt.get(b) ?? Number.MAX_SAFE_INTEGER) || a.localeCompare(b);

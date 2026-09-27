@@ -1,4 +1,5 @@
 import type { Pool } from 'pg';
+import { compareClassLabels } from './teaching.js';
 
 /**
  * The order a person arranged one year's four lists in (migration 038).
@@ -63,4 +64,23 @@ export function arrange<T>(rows: T[], keyOf: (row: T) => string, positions?: Map
     if (!positions?.size) return rows;
     const at = (row: T) => positions.get(keyOf(row)) ?? Number.MAX_SAFE_INTEGER;
     return rows.slice().sort((a, b) => at(a) - at(b));
+}
+
+/**
+ * Each class label's place in the year's class list as arranged (migration
+ * 038, list `classes`, keyed by class id): placed classes first, in their
+ * order, then the rest by label. A pupil carries the class LABEL, so this is
+ * what lets a pupil list follow the arranged classes (`orderPupils`).
+ */
+export function classRank(classes: { id: number | string; label: string }[], positions?: Map<string, number>): Map<string, number> {
+    const byLabel = classes.slice().sort((a, b) => compareClassLabels(a.label, b.label));
+    return new Map(arrange(byLabel, (c) => String(c.id), positions).map((c, i) => [c.label, i]));
+}
+
+/** The same, read for one year — for a list that does not already hold the classes. */
+export async function classRankFor(pool: Pool, yearId: number, arrangement?: Arrangement): Promise<Map<string, number>> {
+    const { rows } = await pool.query(
+        `SELECT c.id, c.label FROM class_years cy JOIN school_classes c ON c.id = cy.class_id
+          WHERE cy.school_year_id = $1 AND cy.active`, [yearId]);
+    return classRank(rows, (arrangement ?? await readArrangement(pool, yearId)).get('classes'));
 }

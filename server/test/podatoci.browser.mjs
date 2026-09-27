@@ -534,6 +534,11 @@ const run = async () => {
     // adds a legitimate display preference. Name what is allowed instead, so a
     // school-data key still fails loudly and a reader's font size does not.
     const ALLOWED = ['mtb.ui-size'];
+    // The author's credit, remembered on purpose so the watermark shows with no
+    // server (app-navigation.js, 27 Sep 2026): the author's name and the look
+    // the administrator set — not the school's data. Named, so any other key
+    // still fails below.
+    const CREDIT = ['mtb_author_v1', 'mtb_author_look_v1'];
 
     // Move it first, or the key is never written and the check below proves
     // nothing. This also checks the thing the slider exists for: `--ui` drives
@@ -560,7 +565,7 @@ const run = async () => {
         } catch (e) { return { local: ['<unreadable>'], session: ['<unreadable>'] }; }
     });
     checkEq('no school data is written to browser storage',
-        { local: stored.local.filter((k) => !ALLOWED.includes(k)), session: stored.session },
+        { local: stored.local.filter((k) => !ALLOWED.includes(k) && !CREDIT.includes(k)), session: stored.session },
         { local: [], session: [] });
     checkEq('and the display size is the only thing remembered at all',
         stored.local.filter((k) => ALLOWED.includes(k)), ['mtb.ui-size']);

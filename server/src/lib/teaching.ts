@@ -281,8 +281,14 @@ export function classSortKey(label: string): string {
  * rule `compareClassLabels` already owns; sorting here keeps one owner and
  * every reader of these endpoints gets the same order.
  */
-export function orderPupils<T extends { grade?: string | null; name?: string | null }>(rows: T[]): T[] {
+export function orderPupils<T extends { grade?: string | null; name?: string | null }>(rows: T[], classRank?: Map<string, number>): T[] {
+    // With `classRank` (label → place, lib/roster-order.ts `classRank`) the
+    // classes stand in the order a person arranged them in Податоци — a
+    // combined class where it belongs, not where its label sorts (owner,
+    // 28 Sep 2026); a class nobody placed follows, by its label.
+    const at = (grade: string | null | undefined) => classRank?.get(grade ?? '') ?? Number.MAX_SAFE_INTEGER;
     return rows.sort((a, b) =>
-        compareClassLabels(a.grade ?? '', b.grade ?? '')
+        (classRank ? at(a.grade) - at(b.grade) : 0)
+        || compareClassLabels(a.grade ?? '', b.grade ?? '')
         || String(a.name ?? '').localeCompare(String(b.name ?? ''), 'mk'));
 }
