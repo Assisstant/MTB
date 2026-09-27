@@ -58,6 +58,7 @@
             opacity: 0;
             transition: opacity 0.3s;
         }
+        a.tab { text-decoration: none; display: inline-flex; align-items: center; }
         .tab:hover {
             background: linear-gradient(to bottom, #4a5568 0%, #2d3748 100%);
             color: #e2e8f0;
@@ -1876,6 +1877,9 @@
         <button class="tab" onclick="switchTab('dosie')">📂 Досие</button>
         <button class="tab" onclick="switchTab('audiogramsApp')">Аудиограми</button>
         <button class="tab" onclick="switchTab('generator')">📄 Генератор</button>
+        <!-- A door, not a tab of the diary: WBACC keeps its drawings in its own
+             storage and is 8 MB, so it opens beside the diary, not inside it. -->
+        <a class="tab" href="WBACC.html" target="_blank" rel="noopener" title="WBACC Studio — цртање, пиктограми и обележувачи; се отвора во нов таб">🎨 WBACC Studio ↗</a>
     </div>
     
     <div class="content">
