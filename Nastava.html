@@ -1250,9 +1250,23 @@
         if (cardsOf !== data) { cards = nav.classes.index({ classes: data.classes, teachers: data.teachers }); cardsOf = data; }
         return cards;
     }
-    function classOptions(selected) {
+    function classOptions(selected, teacher) {
         const nav = window.MTBAppNavigation;
-        if (nav && nav.classes) return nav.classes.optionsHtml(classCards(), selected, { empty: '— слободен —' });
+        // A teacher's own паралелки (ticked on Kolega, or given in Податоци), and
+        // the one already in the cell; every class while none is recorded.
+        const t = (data.teachers || []).find((x) => x.name === teacher);
+        const mine = t && Array.isArray(t.classes) ? t.classes : [];
+        if (nav && nav.classes) {
+            if (!mine.length) return nav.classes.optionsHtml(classCards(), selected, { empty: '— слободен —' });
+            // Theirs first, as their own group; the rest under „Други".
+            const all = Array.from(classCards());
+            const own = new Map(all.filter(([label]) => mine.includes(label)));
+            const rest = new Map(all.filter(([label]) => !mine.includes(label)));
+            const inRest = rest.has(selected);
+            return `<option value=""${selected ? '' : ' selected'}>— слободен —</option>`
+                + `<optgroup label="${esc('Паралелки на ' + teacher)}">${nav.classes.optionsHtml(own, inRest ? '' : selected, { empty: false })}</optgroup>`
+                + (rest.size ? `<optgroup label="Други паралелки">${nav.classes.optionsHtml(rest, inRest ? selected : '', { empty: false })}</optgroup>` : '');
+        }
         return '<option value="">— слободен —</option>' + (data.classes || []).map((c) =>
             `<option value="${esc(c.label)}"${c.label === selected ? ' selected' : ''}>${esc(c.alias || c.label)}</option>`).join('');
     }
@@ -1281,13 +1295,14 @@
         const fixed = fixedClass(teacher);
         // A предметен наставник's list is their own subjects; the catalogue
         // only while none is recorded. An одделенски's is the class's catalogue.
-        const own = fixed ? [] : ownSubjects(teacher);
-        const offered = own.length ? [] : (offers.get(data.year + '|' + label) || []).slice();
+        // What the teacher ticked comes first; the rest of the catalogue under „Други".
+        const own = ownSubjects(teacher);
+        const offered = (offers.get(data.year + '|' + label) || []).filter((x) => !own.includes(x));
         if (chosen && !own.includes(chosen) && !offered.includes(chosen)) offered.unshift(chosen);
         const opt = (s) => `<option value="${esc(s)}"${s === chosen ? ' selected' : ''}>${esc(s)}</option>`;
         return `<option value="">${held ? '— без предмет —' : '— избери предмет —'}</option>`
-            + (own.length ? `<optgroup label="${esc('Предмети на ' + teacher)}">${own.map(opt).join('')}</optgroup>` : '')
-            + (offered.length ? `<optgroup label="${esc(fixed ? 'Предмети во ' + label : 'Предмети')}">${offered.map(opt).join('')}</optgroup>` : '')
+            + (own.length ? `<optgroup label="${esc((fixed ? 'Предмети во ' + label + ' — ' : 'Предмети на ') + teacher)}">${own.map(opt).join('')}</optgroup>` : '')
+            + (offered.length ? `<optgroup label="${esc(own.length ? 'Други предмети' : fixed ? 'Предмети во ' + label : 'Предмети')}">${offered.map(opt).join('')}</optgroup>` : '')
             + (held ? '<option value="__clear">✕ слободен час (избриши)</option>' : '');
     }
 
@@ -1310,7 +1325,7 @@
                 + '</div>';
         }
         return `<div class="p-edit">`
-            + `<select class="p-class${cls ? ' has' : ''}" data-class-picker aria-label="${esc('Паралелка — ' + where)}"${two ? ' disabled' : ''}>${classOptions(cls)}</select>`
+            + `<select class="p-class${cls ? ' has' : ''}" data-class-picker aria-label="${esc('Паралелка — ' + where)}"${two ? ' disabled' : ''}>${classOptions(cls, name)}</select>`
             // The subject only once there is a class to teach it in: an empty
             // period is one picker, not two, so the week stays readable.
             + (cls ? `<select class="p-subj${subj ? '' : ' none'}" aria-label="${esc('Предмет — ' + where)}"${two ? ' disabled' : ''}>${subjectOptions(name, cls, subj, true)}</select>` : '')

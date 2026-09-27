@@ -39,6 +39,15 @@ but it must not present parallel versions of the same task.
   page has nothing to press. `Kolega.html` gives a colleague the same sheet of
   their own week („🗓 Недела“) to print or save as a PNG, drawn from the week
   the portal already sends and asking the server for nothing more.
+- Who picks what in a teacher's week (owner, 27 September 2026), the same in
+  Уреди настава, Личен распоред and `Kolega.html`: an одделенски наставник's
+  class is their homeroom, fixed, and they pick the subject; a предметен
+  наставник picks the паралелка and teaches their own subjects. Each teacher's
+  subjects (`teachers.subject`) and паралелки (`teacher_classes`, never the
+  homeroom) are ticked on Kolega („📚 Мои предмети", one tick per request,
+  `/api/portal/my-subject`, `/api/portal/my-class`) or set in Податоци. Kolega
+  offers only what is ticked; the administrator's screens offer it first, the
+  rest under „Други", because a lesson placed there links its class anyway.
 - `mtb-forms.js` is the one form per kind of thing (owner, 24 September 2026;
   `docs/PLAN-eden-urednik.md`). Wherever a thing is shown, a screen may carry
   a ✏️ door that opens its form in a popup. Doors are hidden until the

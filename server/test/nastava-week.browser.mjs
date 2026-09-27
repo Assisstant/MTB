@@ -322,10 +322,52 @@ async function run() {
         await up.waitForSelector(`#grid td.wk[data-teacher="${T3}"][data-day="четврток"][data-ordinal="6"] select.pick.subj`, { timeout: 8000 });
         const predOptions = await up.$eval(`#grid td.wk[data-teacher="${T3}"][data-day="четврток"][data-ordinal="6"] select.pick.subj`,
             (sel) => [...sel.options].map((o) => o.value).filter((v) => v && v !== '__clear'));
-        checkEq('со два свои предмети, изборот се отвора сам — и нуди само нив', predOptions, ['Математика', 'Физика']);
+        checkEq('со два свои предмети, изборот се отвора сам — и ги нуди прво нив', predOptions.slice(0, 2), ['Математика', 'Физика']);
         await up.selectOption(`#grid td.wk[data-teacher="${T3}"][data-day="четврток"][data-ordinal="6"] select.pick.subj`, 'Физика');
         await wait(async () => ((await byWho(T3, 'четврток', 6))[0] || {}).subject === 'Физика');
         checkEq('и е запишан во базата', (await byWho(T3, 'четврток', 6)).map((r) => `${r.class}:${r.subject}`), [`${B}:Физика`]);
+
+        // Owner, 27 Sep 2026: the two kinds apart, the ticked lists in the
+        // pickers, and a lock with a hand that drags the week.
+        await q("UPDATE teachers SET subject = 'Музичко' WHERE id = $1", [teachers[T1]]);
+        await up.reload();
+        await up.waitForSelector('#grid table', { timeout: 15000 });
+        await up.click('[data-view="teacher"]');
+        await up.waitForSelector(`#grid td.wk[data-teacher="${T3}"]`, { timeout: 15000 });
+        const groups = await up.$$eval('#grid h3.week-group', (h) => h.map((x) => x.textContent));
+        check('две табели: одделенски, па предметни', groups.length === 2 && /Одделенски/.test(groups[0]) && /Предметни/.test(groups[1]), groups.join(' | '));
+        check('секој наставник во својата', await up.$eval(`#grid td.wk[data-teacher="${T1}"]`, (td, g) => {
+            const tables = [...document.querySelectorAll('#grid table.week')];
+            return tables.indexOf(td.closest('table')) === 0;
+        }) && await up.$eval(`#grid td.wk[data-teacher="${T3}"]`, (td) => [...document.querySelectorAll('#grid table.week')].indexOf(td.closest('table')) === 1));
+
+        await cellOf(up, T3, 'петок', 5).click();
+        await up.locator('#grid td.wk select.pick').waitFor({ state: 'visible' });
+        checkEq('предметниот ги гледа прво своите паралелки, како своја група', await up.$eval('#grid td.wk select.pick',
+            (sel) => [...sel.querySelectorAll('optgroup')[0].querySelectorAll('option')].map((o) => o.value)), [B]);
+        check('другите се под „Други паралелки"', await up.$eval('#grid td.wk select.pick',
+            (sel) => [...sel.querySelectorAll('optgroup')].map((g) => g.label).join('|')) === `Паралелки на ${T3}|Други паралелки`);
+        await up.keyboard.press('Escape');
+        await cellOf(up, T1, 'петок', 5).click();
+        await up.locator('#grid td.wk select.pick.subj').waitFor({ state: 'visible' });
+        checkEq('одделенскиот ги гледа прво штиклираните предмети', await up.$eval('#grid td.wk select.pick.subj',
+            (sel) => [...sel.querySelectorAll('optgroup')[0].querySelectorAll('option')].map((o) => o.value)), ['Музичко']);
+        await up.keyboard.press('Escape');
+
+        await up.check('#lockEdit');
+        await cellOf(up, T1, 'петок', 4).click();
+        await up.waitForTimeout(300);
+        check('🔒 заклучен внес: клик не отвора ништо', await up.locator('#grid td.wk select').count() === 0);
+        check('и покажувачот е рака', await up.$eval('#gridPanel .scroll', (b) => b.classList.contains('locked') && getComputedStyle(b).cursor === 'grab'));
+        await up.setViewportSize({ width: 700, height: 500 });
+        await up.waitForTimeout(300);
+        const box = await up.$eval('#gridPanel .scroll', (b) => { b.scrollIntoView({ block: 'start' }); const r = b.getBoundingClientRect(); return { x: r.left + 400, y: r.top + 80, left: b.scrollLeft }; });
+        await up.mouse.move(box.x, box.y);
+        await up.mouse.down();
+        await up.mouse.move(box.x + 200, box.y, { steps: 8 });
+        await up.mouse.up();
+        const moved = await up.$eval('#gridPanel .scroll', (b) => ({ left: b.scrollLeft, sw: b.scrollWidth, cw: b.clientWidth, top: Math.round(b.getBoundingClientRect().top), h: b.clientHeight }));
+        check('✋ влечење ја поместува неделата', moved.left < box.left - 100, JSON.stringify({ box, moved }));
         await up.close();
 
         const sheetCtx = await browser.newContext();

@@ -194,6 +194,8 @@ check('no page errors', errors.length === 0, errors.join('\n       '));
             classPupils: { 'II-б': [{ name: 'ДЕТЕ ИЗМИСЛЕНО ПРВО', oddelenie: 'II' }, { name: 'Дете Измислено Второ', oddelenie: 'III' }] }
         });
         if (url.pathname === '/api/portal/subjects') return json(200, { subjects: ['Математика', 'Физичко', 'Музичко'] });
+        if (url.pathname === '/api/portal/my-subject') return json(200, { ok: true, subjects: body.on ? ['Математика', body.subject] : ['Математика'] });
+        if (url.pathname === '/api/portal/my-class') return json(200, { ok: true });
         if (url.pathname === '/api/portal/my-lesson') {
             if (body.class === 'II-б' && body.ordinal === 2 && body.subject !== 'Физичко' && !body.force) {
                 return json(409, { clash: true, error: 'понеделник, 2. час: Во тој час II-б веќе има „Физичко" кај Колега Бе.', clashes: [] });
@@ -303,6 +305,33 @@ check('no page errors', errors.length === 0, errors.join('\n       '));
     await p.click('#weekSheet td[data-go-day="понеделник"][data-go-at="lesson:2"]');
     check('a period on the sheet opens that day, with its editor',
         await p.isVisible('#periods form.editor') && await p.getAttribute('#days [data-day="понеделник"]', 'aria-pressed') === 'true');
+    // Owner, 27 Sep 2026: one's own subjects and паралелки are ticked from the
+    // lists, as the duty list is made, and the pickers then offer those.
+    console.log('\n📚 one\'s own subjects and паралелки, ticked');
+    check('„📚 Мои предмети" stands on „Мои часови"', await p.isVisible('#myLists'));
+    await p.click('#myLists [data-lists-toggle]');
+    await p.waitForSelector('#myLists [data-my-subject="Физичко"]', { timeout: 5000 });
+    check('with the subjects and the паралелки to tick', await p.$$eval('#myLists [data-my-class]', (n) => n.length) === 2);
+    await p.check('#myLists [data-my-subject="Физичко"]');
+    await p.waitForFunction(() => /Зачувано/.test(document.getElementById('weekMsg').textContent), null, { timeout: 5000 });
+    check('a tick sends that one subject, and nothing else', writes.filter((w) => w.path === '/api/portal/my-subject')
+        .map((w) => `${w.body.subject}:${w.body.on}`).join() === 'Физичко:true');
+    await p.check('#myLists [data-my-class="I-а"]');
+    await p.waitForFunction(() => { const n = document.querySelector('#myLists [data-my-class="I-а"]'); return n && n.checked && !n.disabled; },
+        null, { timeout: 5000 });
+    check('and a паралелка the same way', writes.some((w) => w.path === '/api/portal/my-class' && w.body.class === 'I-а' && w.body.on === true));
+    check('the homeroom is ticked and cannot be unticked here',
+        await p.$eval('#myLists [data-my-class="II-б"]', (n) => n.checked && n.disabled));
+    await p.click('#periods [data-ordinal="4"] [data-edit]');
+    await p.waitForSelector('#periods form.editor select[name=klass]');
+    const offeredClasses = await p.$$eval('#periods form.editor select[name=klass] option', (o) => o.map((x) => x.value));
+    check('the class picker offers only the ticked паралелки', JSON.stringify(offeredClasses) === JSON.stringify(['', 'I-а']), JSON.stringify(offeredClasses));
+    await p.selectOption('#periods form.editor select[name=klass]', 'I-а');
+    await p.waitForTimeout(200);
+    const offeredSubjects = await p.$$eval('#periods form.editor select[name=subject] option', (o) => o.map((x) => x.value).filter((v) => v && v !== '__other'));
+    check('and the subject picker only one\'s own subjects', JSON.stringify(offeredSubjects) === JSON.stringify(['Математика', 'Физичко']), JSON.stringify(offeredSubjects));
+    await p.click('#periods form.editor [data-act="cancel"]');
+
     check('the week fits a phone', await p.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth));
     check('no page errors in the week', weekErrors.length === 0, weekErrors.join('\n       '));
     await ctx.close();

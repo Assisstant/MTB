@@ -234,6 +234,8 @@ header.top h1 { flex: 1; min-width: 180px; }
 .caseload .ticks label.on { font-weight: 800; }
 .caseload .ticks input { width: auto; }
 .caseload .ticks small { color: var(--muted); font-weight: 500; }
+.caseload h3 { margin: 12px 0 6px; font-size: 15px; }
+.caseload .ticks input:disabled + span { color: var(--muted); }
 @media print {
   body.printing-duty main > *:not(#home), body.printing-duty #home > *:not(#weekCard),
   body.printing-duty #weekCard > *:not(#duty), body.printing-duty .no-print { display: none !important; }
@@ -311,6 +313,7 @@ header.top h1 { flex: 1; min-width: 180px; }
       </div>
       <div class="week-wrap" id="weekSheet" hidden></div>
       <div class="caseload" id="caseload" hidden></div>
+      <div class="caseload" id="myLists" hidden></div>
       <ul class="periods" id="periods"></ul>
       <div id="duty" hidden></div>
       <p class="msg" id="weekMsg" role="status" aria-live="polite"></p>
@@ -1249,6 +1252,8 @@ header.top h1 { flex: 1; min-width: 180px; }
         el('duty').hidden = !onDuty;
         el('periods').hidden = onDuty || whole;
         el('caseload').hidden = view.tab !== 'cabinet' || whole;
+        el('myLists').hidden = !listsTab() || whole;
+        if (listsTab() && !whole) drawMyLists();
         el('weekSheet').hidden = !whole;
         el('weekTools').hidden = !whole;
         if (whole) {
@@ -1344,6 +1349,82 @@ header.top h1 { flex: 1; min-width: 180px; }
     // (`ownOnly`) the list is those, and the class's catalogue only while none
     // is recorded; „друго…" stays for the exception (owner, 27 Sep 2026).
     // An одделенски picks from everything their class learns.
+    // ── 📚 one's own subjects and паралелки, ticked (owner, 27 Sep 2026) ──
+    //
+    // „Од листата се чекира", as the duty list is made. A предметен наставник
+    // ticks their subjects and the паралелки they teach in; an одделенски only
+    // the subjects they teach in their own class, which is fixed. The pickers
+    // below offer what is ticked; while nothing is, they offer everything.
+    const mySubjects = () => String((week && week.me.subject) || '').split(',').map((x) => x.trim()).filter(Boolean);
+    const myClasses = () => (week && week.me.classes) || [];
+    const lists = { open: false, catalogue: null, error: '' };
+    const listsTab = () => view.tab === 'mine' || (view.tab.startsWith('class:') && fillsClass());
+
+    function drawMyLists() {
+        const box = el('myLists');
+        const homeroom = week.me.homeroom || [];
+        const odd = fillsClass() && homeroom.length > 0;
+        const subjects = mySubjects();
+        const classes = myClasses();
+        const head = `<div class="head"><b>📚 Мои предмети: ${subjects.length}${odd ? '' : ` · паралелки: ${classes.length}`}</b>`
+            + `<button type="button" class="small" data-lists-toggle aria-expanded="${lists.open}">${lists.open ? 'Затвори' : 'Измени'}</button></div>`;
+        if (!lists.open) { box.innerHTML = head; return; }
+        if (lists.error) { box.innerHTML = head + `<p class="msg error">${esc(lists.error)}</p>`; return; }
+        if (!lists.catalogue) { box.innerHTML = head + '<p class="muted">Вчитувам…</p>'; return; }
+        const offered = [...new Set([...subjects, ...lists.catalogue])];
+        let html = head + '<p class="muted">' + (odd
+            ? `Паралелката е ваша (${esc(homeroom.map(shortOf).join(', '))}). Штиклирајте ги предметите што ги предавате во неа — само тие ќе се нудат при внес.`
+            : 'Штиклирајте ги предметите што ги предавате и паралелките каде што предавате — само тие ќе се нудат при внес.')
+            + ' Се зачувува веднаш.</p>'
+            + '<h3>Предмети</h3><div class="ticks">' + offered.map((name) => {
+                const on = subjects.some((x) => norm(x) === norm(name));
+                return `<label class="${on ? 'on' : ''}"><input type="checkbox" data-my-subject="${esc(name)}"${on ? ' checked' : ''}> <span>${esc(name)}</span></label>`;
+            }).join('') + '</div>';
+        if (!odd) {
+            html += '<h3>Паралелки</h3><div class="ticks">' + (week.classes || []).map((c) => {
+                const lead = homeroom.includes(c.label);
+                const on = lead || classes.includes(c.label);
+                return `<label class="${on ? 'on' : ''}"><input type="checkbox" data-my-class="${esc(c.label)}"${on ? ' checked' : ''}${lead ? ' disabled' : ''}> `
+                    + `<span>${esc(classText(c.label))}${lead ? ' <small>· раководител</small>' : ''}</span></label>`;
+            }).join('') + '</div>';
+        }
+        box.innerHTML = html;
+    }
+
+    async function openMyLists() {
+        lists.open = true;
+        lists.error = '';
+        drawMyLists();
+        try {
+            const homeroom = week.me.homeroom || [];
+            // An одделенски: what their own class learns. A предметен: the whole catalogue.
+            lists.catalogue = fillsClass() && homeroom.length ? await offerFor(homeroom[0])
+                : ((await api('GET', '/api/portal/subjects')).subjects || []);
+        } catch (err) { lists.error = err.message; }
+        drawMyLists();
+    }
+
+    async function tickMine(input) {
+        const on = input.checked;
+        input.disabled = true;
+        try {
+            if (input.dataset.mySubject) {
+                const answer = await api('PUT', '/api/portal/my-subject', { subject: input.dataset.mySubject, on });
+                week.me.subject = (answer.subjects || []).join(', ') || null;
+            } else {
+                const label = input.dataset.myClass;
+                await api('PUT', '/api/portal/my-class', { class: label, on });
+                const now = myClasses().filter((c) => c !== label);
+                week.me.classes = on ? [...now, label] : now;
+            }
+            say('weekMsg', 'Зачувано.', 'ok');
+        } catch (err) {
+            input.checked = !on;
+            say('weekMsg', err.message, 'error');
+        }
+        drawMyLists();
+    }
+
     function subjectOptions(list, chosen, ownOnly) {
         const own = String(week.me.subject || '').split(',').map((s) => s.trim()).filter(Boolean);
         const all = [...new Set([...own, ...(ownOnly && own.length ? [] : list), ...(chosen ? [chosen] : [])])];
@@ -1394,13 +1475,15 @@ header.top h1 { flex: 1; min-width: 180px; }
             current = here.filter((l) => l.class === homeroomOf);
             const one = current.length === 1 ? current[0] : null;
             form.innerHTML = `<label>Предмет <select name="subject"></select></label>`;
-            form.elements.subject.innerHTML = subjectOptions(await offerFor(homeroomOf), one ? one.subject : '');
+            form.elements.subject.innerHTML = subjectOptions(await offerFor(homeroomOf), one ? one.subject : '', true);
             form.dataset.expected = JSON.stringify(one ? { subject: one.subject, teacher: one.teacher } : null);
         } else {
             current = here.filter((l) => l.teacherId === myId());
             const one = current[0] || null;
+            const ticked = myClasses();
+            const offered = (week.classes || []).filter((c) => !ticked.length || ticked.includes(c.label) || (one && one.class === c.label));
             form.innerHTML = `<label>Паралелка <select name="klass"><option value="">— слободен —</option>`
-                + (week.classes || []).map((c) => `<option value="${esc(c.label)}"${one && one.class === c.label ? ' selected' : ''}>${esc(classText(c.label))}</option>`).join('')
+                + offered.map((c) => `<option value="${esc(c.label)}"${one && one.class === c.label ? ' selected' : ''}>${esc(classText(c.label))}</option>`).join('')
                 + '</select></label><label>Предмет <select name="subject"></select></label>';
             form.elements.subject.innerHTML = subjectOptions(await offerFor(one ? one.class : ''), one ? one.subject : '', true);
             form.dataset.expected = JSON.stringify({ class: one ? one.class : null });
@@ -1703,6 +1786,14 @@ header.top h1 { flex: 1; min-width: 180px; }
         }
     }
 
+    el('myLists').addEventListener('click', (event) => {
+        if (!event.target.closest('[data-lists-toggle]')) return;
+        if (lists.open) { lists.open = false; drawMyLists(); } else openMyLists();
+    });
+    el('myLists').addEventListener('change', (event) => {
+        const input = event.target.closest('[data-my-subject], [data-my-class]');
+        if (input) tickMine(input);
+    });
     el('caseload').addEventListener('click', (event) => {
         if (event.target.closest('[data-caseload-toggle]')) {
             if (caseload.open) { caseload.open = false; drawCaseload(); } else openCaseload();

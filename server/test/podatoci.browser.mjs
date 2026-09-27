@@ -492,7 +492,9 @@ const run = async () => {
     checkEq('a classroom teacher still SEES what is stored',
         (await lockedRow.locator('.mtb-subj').allTextContents()).map((t) => t.replace('\u2715', '')),
         ['ЛИК.']);
-    check('and cannot edit it from here', await lockedRow.locator('select.mtb-subj-add').count() === 0);
+    // Owner, 27 Sep 2026: an одделенски has subjects too — the ones taught in
+    // their own class — so the field is no longer locked for them.
+    check('and can edit it here, as the subjects taught in their own class', await lockedRow.locator('select.mtb-subj-add').count() === 1);
     await lockedRow.locator('[data-save-teacher]').click();
     await page.waitForTimeout(900);
     checkEq('saving the row leaves the subject alone',

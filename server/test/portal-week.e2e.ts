@@ -199,6 +199,40 @@ async function main() {
         check('the week never carries the id of a pupil', !JSON.stringify(weekA.body).includes('portal-week-'));
         check('a therapist gets no class list of children', JSON.stringify(weekR.body?.classPupils || {}) === '{}');
         check('without a sign-in, nothing', (await call('GET', '/api/portal/week', '')).status === 401);
+
+        // Owner, 27 Sep 2026: one's own subjects and паралелки, ticked one at a time.
+        console.log('\none\'s own subjects and паралелки, ticked');
+        const subjectOf = async (name: string) => (await q('SELECT subject FROM teachers WHERE id = $1', [tid[name]]))[0].subject;
+        const s1 = await call('PUT', '/api/portal/my-subject', tt, { subject: 'Физика', on: true });
+        const s2 = await call('PUT', '/api/portal/my-subject', tt, { subject: 'Хемија', on: true });
+        check('a ticked subject joins one\'s own, in order', s1.status === 200 && s2.status === 200 && await subjectOf(T) === 'Физика, Хемија',
+            String(await subjectOf(T)));
+        await call('PUT', '/api/portal/my-subject', tt, { subject: 'физика', on: false });
+        check('unticked, it leaves — whatever the case of its letters', await subjectOf(T) === 'Хемија', String(await subjectOf(T)));
+        check('and nobody else\'s subjects moved', await subjectOf(A) === null && await subjectOf(B) === null);
+        check('a subject with a comma in it is refused (the list is comma-separated)',
+            (await call('PUT', '/api/portal/my-subject', tt, { subject: 'Физика, Хемија', on: true })).status === 400);
+        const linksOf = async (name: string) => (await q(
+            `SELECT c.label, tc.role FROM teacher_classes tc JOIN school_classes c ON c.id = tc.class_id
+              WHERE tc.school_year_id = $1 AND tc.teacher_id = $2 ORDER BY c.label`, [y.id, tid[name]])).map((r: any) => `${r.label}:${r.role}`);
+        const c1 = await call('PUT', '/api/portal/my-class', ta, { class: OTHER, on: true });
+        check('a ticked паралелка becomes one\'s own for the year', c1.status === 200 && (await linksOf(A)).includes(`${OTHER}:subject`), JSON.stringify(await linksOf(A)));
+        const lead = await call('PUT', '/api/portal/my-class', th, { class: CLASS, on: false });
+        check('one\'s homeroom cannot be unticked here — the administrator changes it', lead.status === 409 && (await linksOf(H)).includes(`${CLASS}:homeroom`),
+            JSON.stringify(lead.body));
+        const held = await call('PUT', '/api/portal/my-class', tt, { class: OTHER, on: false });
+        check('a паралелка one still has lessons in cannot be unticked, and says why', held.status === 409 && held.body?.held === 1,
+            JSON.stringify(held.body));
+        const off = await call('PUT', '/api/portal/my-class', ta, { class: OTHER, on: false });
+        check('one without lessons can', off.status === 200 && !(await linksOf(A)).includes(`${OTHER}:subject`), JSON.stringify(await linksOf(A)));
+        check('a паралелка not on the year\'s list is refused',
+            (await call('PUT', '/api/portal/my-class', ta, { class: 'НЕМА-ТАКВА', on: true })).status === 404);
+        await call('PUT', '/api/portal/my-class', ta, { class: OTHER, on: true });
+        const mine = (await call('GET', '/api/portal/week', ta)).body?.me;
+        check('the week says what kind of teacher, and which паралелки are theirs', mine?.kind === 'pred' && (mine?.classes || []).includes(OTHER),
+            JSON.stringify(mine));
+        check('a therapist has no subjects to tick', (await call('PUT', '/api/portal/my-subject', tr, { subject: 'Физика', on: true })).status === 403);
+        check('and without a sign-in, nothing is ticked', (await call('PUT', '/api/portal/my-subject', '', { subject: 'Физика', on: true })).status === 401);
     } finally {
         await app.close();
         await cleanup();

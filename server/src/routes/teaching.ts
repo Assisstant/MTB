@@ -254,7 +254,11 @@ export async function teachingRoutes(server: FastifyInstance) {
             // and only the subject is picked.
             `SELECT t.id, t.name, t.kind, t.subject,
                     (SELECT min(c.label) FROM teacher_classes tc JOIN school_classes c ON c.id = tc.class_id
-                      WHERE tc.teacher_id = t.id AND tc.school_year_id = $1 AND tc.role = 'homeroom') AS homeroom
+                      WHERE tc.teacher_id = t.id AND tc.school_year_id = $1 AND tc.role = 'homeroom') AS homeroom,
+                    -- every паралелка of theirs this year: a предметен picks only among these
+                    coalesce((SELECT json_agg(c.label ORDER BY c.sort_key, c.label) FROM teacher_classes tc
+                               JOIN school_classes c ON c.id = tc.class_id
+                              WHERE tc.teacher_id = t.id AND tc.school_year_id = $1), '[]') AS classes
                FROM teachers t
                JOIN teacher_years ty
                  ON ty.teacher_id = t.id AND ty.school_year_id = $1 AND ty.active

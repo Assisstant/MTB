@@ -528,7 +528,11 @@ export async function portalRoutes(server: FastifyInstance, options: { year?: st
             year: who.year.label,
             days: TEACHING_DAYS,
             periods: periods.map((p: any) => ({ ordinal: p.ordinal, label: p.label, startsAt: p.startsAt })),
-            me: { teacherId: who.staff.teacherId, therapistId: who.staff.therapistId, homeroom, subject: role.teacher?.subject || null },
+            me: { teacherId: who.staff.teacherId, therapistId: who.staff.therapistId, homeroom, subject: role.teacher?.subject || null,
+                // The ticked lists (owner, 27 Sep 2026): what kind of teacher,
+                // and every паралелка of theirs this year, the homeroom first.
+                kind: role.teacher?.kind || null,
+                classes: (role.teacher?.classes || []).map((c: any) => c.label) },
             classes: classes.map((c: any) => ({ label: c.label, alias: c.alias, description: c.description, homeroom: c.homeroom })),
             teachers: teachers.map((t: any) => ({ id: t.id, name: t.name, subject: t.subject })),
             lessons,
@@ -834,6 +838,85 @@ export async function portalRoutes(server: FastifyInstance, options: { year?: st
             return reply.code(result.status).send({ error: result.archived
                 ? 'Тој ученик е архивиран во S-Дневник.' : 'Тој ученик не е на листата за годинава.' });
         }
+        return { ok: true };
+    });
+
+    // ── one's own subjects and classes, ticked (owner, 27 Sep 2026) ───────
+    //
+    // „Од листата се чекира", as the duty list is made: a предметен наставник
+    // ticks the subjects they teach and the паралелки they teach in; an
+    // одделенски ticks the subjects they teach in their own class, which is
+    // fixed. The week's pickers then offer those. One tick per request, like
+    // the caseload, so two windows ticking different boxes cannot undo each
+    // other. Only one's own row — the teacher id comes from the session.
+    const MySubjectBody = z.object({ subject: z.string().trim().min(1).max(120), on: z.boolean() });
+    const MyClassBody = z.object({ class: z.string().trim().min(1).max(40), on: z.boolean() });
+
+    server.put('/api/portal/my-subject', async (req, reply) => {
+        const who = await signed(req, reply);
+        if (!who) return;
+        if (who.staff.teacherId == null) return reply.code(403).send({ error: 'Не сте на списокот на наставници.' });
+        const parsed = MySubjectBody.safeParse(req.body);
+        if (!parsed.success || parsed.data.subject.includes(',')) return reply.code(400).send({ error: 'Непознат предмет.' });
+        const { subject, on } = parsed.data;
+        const client = await pool.connect();
+        try {
+            await client.query('BEGIN');
+            const row = (await client.query('SELECT subject FROM teachers WHERE id = $1 FOR UPDATE', [who.staff.teacherId])).rows[0];
+            const list = String(row?.subject || '').split(',').map((s: string) => s.trim()).filter(Boolean);
+            const has = list.findIndex((s: string) => s.toLowerCase() === subject.toLowerCase());
+            if (on && has < 0) list.push(subject);
+            if (!on && has >= 0) list.splice(has, 1);
+            await client.query('UPDATE teachers SET subject = $2 WHERE id = $1', [who.staff.teacherId, list.length ? list.join(', ') : null]);
+            await client.query('COMMIT');
+            return { ok: true, subjects: list };
+        } catch (err) {
+            await client.query('ROLLBACK').catch(() => {});
+            throw err;
+        } finally {
+            client.release();
+        }
+    });
+
+    /**
+     * A паралелка of one's own this year. Never the homeroom: that is the
+     * administrator's (Податоци), and unticking it here would take a class
+     * away from its teacher. Unticking a class one still has lessons in is
+     * refused, as the caseload refuses a pupil with a term.
+     */
+    server.put('/api/portal/my-class', async (req, reply) => {
+        const who = await signed(req, reply);
+        if (!who) return;
+        if (who.staff.teacherId == null) return reply.code(403).send({ error: 'Не сте на списокот на наставници.' });
+        const parsed = MyClassBody.safeParse(req.body);
+        if (!parsed.success) return reply.code(400).send({ error: 'Непозната паралелка.' });
+        const { class: label, on } = parsed.data;
+        const cls = (await pool.query(
+            `SELECT c.id FROM school_classes c JOIN class_years cy ON cy.class_id = c.id AND cy.school_year_id = $1 AND cy.active
+              WHERE c.label = $2`, [who.year.id, label])).rows[0];
+        if (!cls) return reply.code(404).send({ error: 'Таа паралелка не е на листата за годинава.' });
+        const link = (await pool.query(
+            'SELECT role FROM teacher_classes WHERE school_year_id = $1 AND teacher_id = $2 AND class_id = $3',
+            [who.year.id, who.staff.teacherId, cls.id])).rows[0];
+        if (link && link.role === 'homeroom') {
+            return reply.code(409).send({ error: 'Тоа е вашата паралелка (раководител) — ја менува администраторот.' });
+        }
+        if (on) {
+            await pool.query(
+                `INSERT INTO teacher_classes (school_year_id, teacher_id, class_id, role) VALUES ($1, $2, $3, 'subject')
+                 ON CONFLICT (school_year_id, teacher_id, class_id) DO NOTHING`, [who.year.id, who.staff.teacherId, cls.id]);
+            return { ok: true };
+        }
+        const held = (await pool.query(
+            `SELECT count(*)::int AS n FROM lessons WHERE school_year_id = $1 AND teacher_id = $2 AND class_id = $3`,
+            [who.year.id, who.staff.teacherId, cls.id])).rows[0].n;
+        if (held) {
+            return reply.code(409).send({ held,
+                error: `Имате ${held} ${held === 1 ? 'час' : 'часа'} во ${label}. Прво испразнете ги, па тргнете ја паралелката.` });
+        }
+        await pool.query(
+            `DELETE FROM teacher_classes WHERE school_year_id = $1 AND teacher_id = $2 AND class_id = $3 AND role = 'subject'`,
+            [who.year.id, who.staff.teacherId, cls.id]);
         return { ok: true };
     });
 

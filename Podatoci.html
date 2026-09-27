@@ -1569,14 +1569,11 @@
         const row = el('teachers').querySelector(`[data-teacher="${id}"]`);
         const kind = row.querySelector('.t-kind').value;
         const body = { name: personName(row.querySelector('.t-name').value), kind };
-        // Три случаи, и серверот ги разликува сите три од почеток — `PUT
-        // /api/teaching/teacher/:id` гради SET список наместо COALESCE, па
-        // отсутно и `null` не значат исто:
-        //   предметен                 → тоа што пишува во редот
-        //   штотуку стана одделенски  → `null`, изречно, и редот го кажа тоа
-        //   веќе беше одделенски      → полето воопшто не се праќа
-        if (kind === 'pred') body.subject = tidy(row.querySelector('.t-subject').value) || null;
-        else if (row.dataset.kindWas !== 'odd') body.subject = null;
+        // Since 27 Sep 2026 (owner) an одделенски has subjects too — the ones
+        // taught in their own class — so the row says what it holds, for both
+        // kinds; the field is shown and editable for both, so what is sent is
+        // what the person sees (the old lock cleared a saved subject unseen).
+        body.subject = tidy(row.querySelector('.t-subject').value) || null;
         try {
             await api('PUT', '/api/teaching/teacher/' + id, body);
             await load();
@@ -2328,23 +2325,21 @@
         window.MTBAppNavigation.subjects.mount(cell, {
             value: value || '',
             year: data.year,
-            className: 't-subject',
-            disabled: classroom
+            // Од 27 септември 2026 (сопственикот) и одделенскиот ги има своите
+            // предмети: оние што ги предава во својата паралелка — англискиот,
+            // на пример, го држи предметен. Само тие се нудат при внес на часот.
+            className: 't-subject'
         });
         if (!classroom) return;
         const note = document.createElement('span');
         note.className = 'none';
-        // Што ќе се случи при зачувување, кажано ПРЕД да се притисне.
-        note.textContent = row.dataset.kindWas === 'odd'
-            ? '\u00b7 заклучено'
-            : '\u00b7 со зачувување се брише';
+        note.textContent = '· во својата паралелка';
         cell.appendChild(note);
     }
 
     function syncNewTeacherKind() {
-        const classroom = el('newTeacherKind').value === 'odd';
-        el('newTeacherSubject').disabled = classroom;
-        if (classroom) el('newTeacherSubject').value = '';
+        // An одделенски has subjects too now: the ones taught in their own class.
+        el('newTeacherSubject').disabled = false;
     }
 
     function syncStudentKind(row) {
@@ -2857,7 +2852,7 @@
         try {
             await api('POST', '/api/teaching/teacher', {
                 name, kind,
-                subject: kind === 'pred' ? (tidy(el('newTeacherSubject').value) || null) : null,
+                subject: tidy(el('newTeacherSubject').value) || null,
                 year: data ? data.year : undefined
             });
             el('newTeacher').value = '';

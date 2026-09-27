@@ -126,6 +126,25 @@
     table.grid.day thead th:first-child { width: 150px; }
     table.grid.day td.cell .teacher { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     table.grid.week { width: auto; min-width: 100%; font-size: 12px; }
+    /* The teacher week is a window of its own (owner, 27 Sep 2026), as in
+       Настава: it fills the rest of the screen and scrolls inside, so the
+       header rows and the names stay put while the days pass under them,
+       and ✋ can drag it in all four directions. `--grid-h` is measured. */
+    body.teacher-week #gridPanel .scroll { overflow: auto; max-height: var(--grid-h, 72vh); }
+    table.grid.week thead tr + tr th { top: var(--head-1, 25px); }
+    .week-group { margin: 14px 0 6px; font-size: 15px; }
+    /* An одделенски's empty period says „+ предмет" on one line, as tall as „+". */
+    table.grid.week td.wk .plus { white-space: nowrap; font-size: 11px; }
+    .week-group:first-child { margin-top: 0; }
+    .week-group small { color: var(--muted); font-weight: 400; }
+    .lock-toggle { display: inline-flex; align-items: center; gap: 6px; align-self: flex-end; padding: 6px 10px;
+        border: 1px solid var(--toggle-border); border-radius: 999px; background: var(--toggle-bg); color: var(--toggle-text);
+        font-size: 12.5px; font-weight: 600; cursor: pointer; white-space: nowrap; }
+    .lock-toggle:has(input:checked) { border-color: var(--btn-bg); color: var(--text); background: color-mix(in srgb, var(--btn-bg) 14%, var(--card)); }
+    .lock-toggle input { margin: 0; min-width: 0; accent-color: var(--btn-bg); }
+    .scroll.locked, .scroll.locked td.cell, .scroll.locked td.cell * { cursor: grab; }
+    .scroll.locked td.cell:hover .box { box-shadow: none; }
+    .scroll.dragging, .scroll.dragging * { cursor: grabbing !important; user-select: none; }
     table.grid.week th.who {
         position: sticky; left: 0; z-index: 3;
         /* --panel does not exist in this page's palette, so the corner cell
@@ -308,6 +327,10 @@
             <label class="field" id="dayField">
                 <span>Ден</span>
                 <select id="day"></select>
+            </label>
+            <label class="lock-toggle" id="lockField" title="Клик не отвора ништо; мрежата се влече со рака — лево, десно, горе, долу — како PDF">
+                <input type="checkbox" id="lockEdit">
+                <span>🔒 Заклучи внес · ✋ влечи</span>
             </label>
             <label class="field" id="onlyUsedField" style="flex-direction: row; align-items: center; gap: 6px;">
                 <input type="checkbox" id="onlyUsed" style="min-width: auto;">
@@ -733,6 +756,17 @@
             perTeacher.set(name, (perTeacher.get(name) || 0) + 1);
         });
 
+        // Two tables (owner, 27 Sep 2026): одделенски наставници and предметни
+        // наставници are filled differently — one picks subjects in a fixed
+        // class, the other picks classes — so they are read apart. A name
+        // the timetable carries that is not on the list goes with the
+        // предметни, and the row without a teacher last.
+        const kindOf = new Map((data.teachers || []).map((t) => [t.name, t.kind]));
+        const groups = [
+            ['Одделенски наставници', Array.from(rows.keys()).filter((n) => kindOf.get(n) === 'odd')],
+            ['Предметни наставници', Array.from(rows.keys()).filter((n) => kindOf.get(n) !== 'odd')]
+        ].filter(([, names]) => names.length);
+
         let head = '<tr><th class="who">Наставник</th>';
         DAYS.forEach((d) => {
             head += `<th class="daysep" colspan="${ps.length}">${esc(d)}</th>`;
@@ -744,8 +778,11 @@
         }));
         head += '</tr>';
 
-        let html = '<table class="grid week"><thead>' + head + '</thead><tbody>';
-        Array.from(rows.keys()).forEach((name) => {
+        let html = '';
+        groups.forEach(([title, names]) => {
+        html += `<h3 class="week-group">${esc(title)} <small>· ${names.length}</small></h3>`
+            + '<table class="grid week"><thead>' + head.replace('>Наставник<', '>' + esc(title.split(' ')[0]) + '<') + '</thead><tbody>';
+        names.forEach((name) => {
             const own = ownSubjects(name);
             html += `<tr><th class="who">${esc(name)}`
                 + (own.length ? `<small class="own">${esc(own.join(', '))}</small>` : '')
@@ -769,7 +806,9 @@
             }));
             html += sumCell(perTeacher.get(name) || 0, 'wsum') + '</tr>';
         });
-        el('grid').innerHTML = html + '</tbody></table>';
+        html += '</tbody></table>';
+        });
+        el('grid').innerHTML = html;
     }
 
     /** A teacher's week in one number, with the norm beside it when it is not reached. */
@@ -822,9 +861,27 @@
         return info && nav && nav.classes && nav.classes.short ? nav.classes.short(info) : label;
     }
     const WEEK_HINT = '\n\nКлик: цела недела за ';
-    function classPickerHtml(selected, empty) {
+    /** A teacher's паралелки this year (Податоци, or ticked by them on Kolega). */
+    function teacherClasses(name) {
+        const t = (data.teachers || []).find((x) => x.name === name);
+        return t ? (t.classes || []).map((c) => c.label) : [];
+    }
+    function classPickerHtml(selected, empty, teacher) {
         const nav = window.MTBAppNavigation;
-        if (nav && nav.classes) return nav.classes.optionsHtml(classCards(), selected, { empty });
+        const mine = teacher ? teacherClasses(teacher) : [];
+        if (nav && nav.classes) {
+            if (!mine.length) return nav.classes.optionsHtml(classCards(), selected, { empty });
+            // Theirs first, as their own group; the rest under „Други" — this
+            // is the administrator's screen, and a new class for somebody is
+            // typed here as often as it is ticked on Kolega.
+            const all = Array.from(classCards());
+            const own = new Map(all.filter(([label]) => mine.includes(label)));
+            const rest = new Map(all.filter(([label]) => !mine.includes(label)));
+            const inRest = rest.has(selected);
+            return `<option value=""${selected ? '' : ' selected'}>${esc(empty)}</option>`
+                + `<optgroup label="${esc('Паралелки на ' + teacher)}">${nav.classes.optionsHtml(own, inRest ? '' : selected, { empty: false })}</optgroup>`
+                + (rest.size ? `<optgroup label="Други паралелки">${nav.classes.optionsHtml(rest, inRest ? selected : '', { empty: false })}</optgroup>` : '');
+        }
         return `<option value="">${esc(empty)}</option>` + (data.classes || []).map((c) =>
             `<option value="${esc(c.label)}"${c.label === selected ? ' selected' : ''}>${esc(c.label)}${c.description ? ' · ' + esc(c.description) : ''}</option>`).join('');
     }
@@ -843,7 +900,7 @@
     function openWeekCell(td) {
         if (td.querySelector('select')) return;
         const was = tidy(td.querySelector('.cls') ? td.querySelector('.cls').textContent : '');
-        td.innerHTML = `<select class="pick" data-class-picker>${classPickerHtml(was, '— слободен —')}</select>`;
+        td.innerHTML = `<select class="pick" data-class-picker>${classPickerHtml(was, '— слободен —', td.dataset.teacher)}</select>`;
         const pick = td.querySelector('select');
         pick.focus();
 
@@ -921,14 +978,16 @@
         // A предметен наставник teaches their own subjects, and the list is
         // those; the catalogue is there only while none is recorded for them.
         // An одделенски teaches everything their class learns: the catalogue.
-        const names = fixed || !own.length ? catalogue.filter((n) => !own.includes(n)) : [];
-        const mine = fixed ? [] : own;
+        // Either way, what the teacher ticked comes first, as their own
+        // group; the rest of the catalogue under „Други" for the exception.
+        const names = catalogue.filter((n) => !own.includes(n));
+        const mine = own;
         if (was && !names.includes(was) && !mine.includes(was)) names.unshift(was);
 
         const opt = (n) => `<option value="${esc(n)}"${n === was ? ' selected' : ''}>${esc(n)}</option>`;
         const options = (inCell ? '<option value="">— без предмет —</option>' : '<option value="">— избери предмет —</option>')
-            + (mine.length ? `<optgroup label="${esc('Предмети на ' + td.dataset.teacher)}">${mine.map(opt).join('')}</optgroup>` : '')
-            + (names.length ? `<optgroup label="${fixed ? 'Предмети во ' + label : 'Предмети'}">${names.map(opt).join('')}</optgroup>` : '')
+            + (mine.length ? `<optgroup label="${esc((fixed ? 'Предмети во ' + label + ' — ' : 'Предмети на ') + td.dataset.teacher)}">${mine.map(opt).join('')}</optgroup>` : '')
+            + (names.length ? `<optgroup label="${esc(mine.length ? 'Други предмети' : fixed ? 'Предмети во ' + label : 'Предмети')}">${names.map(opt).join('')}</optgroup>` : '')
             + (inCell ? '<option value="__clear">✕ слободен час (избриши)</option>' : '');
         slot.outerHTML = `<select class="pick subj">${options}</select>`;
         const pick = td.querySelector('select');
@@ -1007,6 +1066,69 @@
         }
     }
 
+    /**
+     * The teacher week's window: the rest of the screen below the controls,
+     * measured (the controls wrap on a narrow window, and in the Workspace
+     * the window is a pane). The second header row stops under the first.
+     */
+    function fitWeek() {
+        const box = document.querySelector('#gridPanel .scroll');
+        if (!box || view() !== 'teacher') return;
+        const top = box.getBoundingClientRect().top + window.scrollY;
+        document.documentElement.style.setProperty('--grid-h', Math.max(260, Math.floor(window.innerHeight - top - 16)) + 'px');
+        const first = box.querySelector('table.grid.week thead tr');
+        if (first) box.style.setProperty('--head-1', first.getBoundingClientRect().height + 'px');
+        box.classList.toggle('locked', locked);
+    }
+    window.addEventListener('resize', () => { if (data) fitWeek(); });
+
+    /**
+     * 🔒 Заклучи внес · ✋ влечи (owner, 27 Sep 2026): „како кај whiteboard или
+     * PDF" — with the input locked a click opens nothing and the hand drags
+     * the week in all four directions. Unlocked, a drag still moves it (after
+     * a few pixels) and a click that did not move still opens the cell.
+     * Kept for this visit only: this page stores nothing in the browser.
+     */
+    let locked = false;
+    el('lockEdit').addEventListener('change', () => {
+        locked = el('lockEdit').checked;
+        fitWeek();
+    });
+    (function installHand() {
+        const box = document.querySelector('#gridPanel .scroll');
+        let drag = null;
+        let moved = false;
+        box.addEventListener('pointerdown', (event) => {
+            moved = false;
+            if (view() !== 'teacher' || event.button !== 0 || event.pointerType === 'touch') return;
+            if (event.target.closest('select, input, button, a, textarea')) return;
+            drag = { x: event.clientX, y: event.clientY, left: box.scrollLeft, top: box.scrollTop, id: event.pointerId };
+        });
+        box.addEventListener('pointermove', (event) => {
+            if (!drag || event.pointerId !== drag.id) return;
+            const dx = event.clientX - drag.x;
+            const dy = event.clientY - drag.y;
+            if (!moved) {
+                if (Math.abs(dx) + Math.abs(dy) < 6) return;
+                moved = true;
+                box.setPointerCapture(event.pointerId);
+                box.classList.add('dragging');
+            }
+            box.scrollLeft = drag.left - dx;
+            box.scrollTop = drag.top - dy;
+        });
+        const release = () => { drag = null; box.classList.remove('dragging'); };
+        box.addEventListener('pointerup', release);
+        box.addEventListener('pointercancel', release);
+        // The click that ends a drag, or any click while locked, opens nothing.
+        box.addEventListener('click', (event) => {
+            if (!moved && !(locked && view() === 'teacher')) return;
+            moved = false;
+            event.stopPropagation();
+            event.preventDefault();
+        }, true);
+    })();
+
     function draw() {
         if (!data) return;
         // The side lists are drawn again below, so nothing typed in them is
@@ -1019,6 +1141,8 @@
         el('onlyUsedField').style.display = weekly || classWeek || assign ? 'none' : '';
         el('classStrip').style.display = classWeek ? '' : 'none';
         el('printWeek').style.display = classWeek ? '' : 'none';
+        el('lockField').style.display = weekly ? '' : 'none';
+        document.body.classList.toggle('teacher-week', weekly);
         if (assign) {
             drawAssign();
             drawClasses();
@@ -1041,6 +1165,7 @@
             drawTeachers();
             drawBells();
             drawClashes();
+            fitWeek();
             return;
         }
         drawGrid();

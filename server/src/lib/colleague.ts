@@ -269,7 +269,10 @@ export const PUBLIC_WRITES = new Set([
     'POST /api/portal/class-lesson/remove',
     'PUT /api/portal/term',
     'PUT /api/portal/duty/absence',
-    'PUT /api/portal/caseload'
+    'PUT /api/portal/caseload',
+    // One's own subjects and паралелки, ticked (owner, 27 Sep 2026).
+    'PUT /api/portal/my-subject',
+    'PUT /api/portal/my-class'
 ]);
 const DELEGATED_WRITES = new Set([
     'PUT /api/therapists/:name/students/:publicId',
