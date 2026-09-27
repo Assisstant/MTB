@@ -7,7 +7,7 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { applySwaps, dutyRota, monthBounds, rotaWithSwaps, monthOfRota, todayInSkopje, workingDays, type DutyMember, type DutyState } from '../src/lib/duty.js';
+import { applySwaps, dutyRota, monthBounds, rotaWithSwaps, monthOfRota, todayInSkopje, windowPayload, isIsoDate, workingDays, type DutyMember, type DutyState } from '../src/lib/duty.js';
 
 const members = (...ids: number[]): DutyMember[] => ids.map((employeeId, i) => ({ employeeId, position: i + 1, joinedOn: null, leftOn: null }));
 const rota = (opts: { members?: DutyMember[]; until?: string; days?: Array<[string, { closed?: boolean; note?: string; assigned?: number | null }]>; away?: Array<[string, number[]]> }) =>
@@ -160,4 +160,36 @@ test('a swap across the end of a month shows on both sides of it', () => {
     assert.equal(monthOfRota(state, monthBounds('2026-09')!).slice(-1)[0].employeeId, b.employeeId);
     assert.equal(monthOfRota(state, monthBounds('2026-10')!).find((d) => d.date === b.date)!.employeeId, a.employeeId);
     assert.equal(rotaWithSwaps(state, '2026-09-30').stale.length, 0);
+});
+
+test('around a day: one turn of the list back and one forward, across the month (owner, 28 Sep 2026)', () => {
+    const state: DutyState = {
+        startsOn: '2026-09-01', yearStartsOn: '2026-09-01', yearEndsOn: '2027-08-31',
+        members: members(1, 2, 3, 4, 5, 6, 7, 8).map((m) => ({ ...m, name: 'x' })),
+        days: new Map(), absences: new Map([['2026-09-30', new Set([6])]]), names: new Map(), swaps: [] // 30.09 is day 22: the sixth is due
+    };
+    const w = windowPayload(state, '2026-09-28');
+    assert.equal(w.cycle, 8, 'a turn is as long as the list');
+    assert.deepEqual([w.from, w.to], ['2026-09-16', '2026-10-08'], 'eight working days either side of Monday 28 September');
+    assert.deepEqual([w.prevAround, w.nextAround], ['2026-09-16', '2026-10-08'], '◀ ▶ move by one turn');
+    // The same rota the month view shows, day for day, on both sides of the month's end.
+    const months = [...monthOfRota(state, monthBounds('2026-09')!), ...monthOfRota(state, monthBounds('2026-10')!)];
+    for (const d of w.days) assert.equal(d.employeeId, months.find((m) => m.date === d.date)!.employeeId, d.date);
+    const sick = w.days.find((d) => d.date === '2026-09-30')!;
+    assert.deepEqual(sick.covers.map((c) => c.employeeId), [6], 'the next one covers, shown covering the one away');
+    assert.equal(sick.employeeId, 7);
+});
+
+test('the window stays inside the school year, and a day is a real date', () => {
+    const state: DutyState = {
+        startsOn: '2026-09-01', yearStartsOn: '2026-09-01', yearEndsOn: '2027-08-31',
+        members: members(1, 2, 3).map((m) => ({ ...m, name: 'x' })),
+        days: new Map(), absences: new Map(), names: new Map(), swaps: []
+    };
+    const w = windowPayload(state, '2026-09-02');
+    assert.equal(w.from, '2026-09-01', 'never before the year');
+    assert.equal(w.cycle, 5, 'a short list still shows a working week either side');
+    assert.equal(windowPayload(state, '2025-01-01').around, '2026-09-01');
+    assert.equal(isIsoDate('2026-02-30'), false);
+    assert.equal(isIsoDate('2026-09-28'), true);
 });

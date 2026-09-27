@@ -313,11 +313,52 @@ export function monthOfRota(state: DutyState, month: { first: string; last: stri
 export function monthPayload(state: DutyState, month: string) {
     const bounds = monthBounds(month);
     if (!bounds) return null;
+    return { month, ...rangePayload(state, bounds) };
+}
+
+/** The working day `count` working days from `iso` (negative: back). */
+function stepWorkingDays(iso: string, count: number): string {
+    let t = dateOf(iso).getTime();
+    for (let left = Math.abs(count); left > 0;) {
+        t += Math.sign(count) * DAY_MS;
+        const wd = new Date(t).getUTCDay();
+        if (wd !== 0 && wd !== 6) left--;
+    }
+    return isoOf(new Date(t));
+}
+
+/**
+ * Around a day rather than inside a month (owner, 28 Sep 2026): one turn of
+ * the list back and one forward, so the end of a month and the start of the
+ * next read as the continuous rota they are. A turn is as many working days
+ * as there are people on the list that day. ◀ ▶ move by one turn.
+ */
+export function windowPayload(state: DutyState, around: string) {
+    const clamp = (iso: string) => (iso < state.yearStartsOn ? state.yearStartsOn : iso > state.yearEndsOn ? state.yearEndsOn : iso);
+    const day = clamp(around);
+    const cycle = Math.max(5, state.members.filter((m) => activeOn(m, day)).length);
+    const first = clamp(stepWorkingDays(day, -cycle));
+    const last = clamp(stepWorkingDays(day, cycle));
+    return {
+        month: day.slice(0, 7),
+        around: day,
+        from: first,
+        to: last,
+        cycle,
+        prevAround: clamp(stepWorkingDays(day, -cycle)),
+        nextAround: clamp(stepWorkingDays(day, cycle)),
+        ...rangePayload(state, { first, last })
+    };
+}
+
+export const isIsoDate = (v: unknown): v is string =>
+    typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v) && !Number.isNaN(dateOf(v).getTime()) && isoOf(dateOf(v)) === v;
+
+function rangePayload(state: DutyState, bounds: { first: string; last: string }) {
     const number = new Map(state.members.map((m) => [m.employeeId, m.position]));
     const named = (id: number) => ({ employeeId: id, name: state.names.get(id) || '—' });
     const stale = state.startsOn <= bounds.last ? rotaWithSwaps(state, bounds.last, bounds.first).stale : [];
     return {
-        month,
         startsOn: state.startsOn,
         yearStartsOn: state.yearStartsOn,
         yearEndsOn: state.yearEndsOn,

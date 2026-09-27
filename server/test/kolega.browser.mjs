@@ -669,6 +669,62 @@ check('no page errors', errors.length === 0, errors.join('\n       '));
     await f.ctx.close();
 }
 
+// ── дежурства around today: one turn back and one forward, across the month ──
+{
+    console.log('\nдежурства — around today, across the end of a month (owner, 28 Sep 2026)');
+    const people = { 7: 'Ана Измислена', 8: 'Вера Измислена', 9: 'Горан Измислен' };
+    const day = (date, weekday, id, extra = {}) => ({ date, weekday, closed: false, note: '', how: 'rotation',
+        employeeId: id, name: people[id], number: [7, 8, 9].indexOf(id) + 1, covers: [], absent: [], ...extra });
+    const asked = [];
+    const ctx = await browser.newContext({ viewport: { width: 400, height: 800 }, serviceWorkers: 'block' });
+    await ctx.addInitScript((t) => localStorage.setItem('mtb_portal_token_v1', t), TOKEN);
+    await ctx.route('**/*', async (route) => {
+        const url = new URL(route.request().url());
+        const json = (status, body) => route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) });
+        if (url.origin !== ORIGIN) return route.fulfill({ status: 404, body: '' });
+        if (url.pathname === '/Kolega.html') return route.fulfill({ status: 200, contentType: 'text/html; charset=utf-8', body: await readFile(join(ROOT, 'Kolega.html')) });
+        if (url.pathname === '/api/portal/me') return json(200, { person: { employeeId: 7, name: people[7] },
+            usernames: { latin: 'AnaIzmislena', cyrillic: 'АнаИзмислена' }, initialPassword: false, year: '2026/2027',
+            roles: ['therapist'], teacher: null, therapist: { id: 4 }, duty: true });
+        if (url.pathname === '/api/portal/week') return json(200, { year: '2026/2027', days: ['понеделник', 'вторник', 'среда', 'четврток', 'петок'],
+            periods: [], me: { teacherId: null, therapistId: 4, homeroom: [] }, classes: [], teachers: [], lessons: [], classPupils: {},
+            clashes: [], cabinet: { bells: [], terms: [], pupils: [] }, notices: [] });
+        if (url.pathname === '/api/portal/duty') {
+            asked.push(url.search);
+            const common = { year: '2026/2027', me: 7, today: '2026-10-01', startsOn: '2026-09-01', yearStartsOn: '2026-09-01', yearEndsOn: '2027-08-31',
+                members: [7, 8, 9].map((id, i) => ({ employeeId: id, name: people[id], position: i + 1, joinedOn: null, leftOn: null })), staleSwaps: [] };
+            if (url.searchParams.has('month')) return json(200, { ...common, month: url.searchParams.get('month'), days: [day('2026-10-01', 4, 7)] });
+            return json(200, { ...common, month: '2026-10', around: '2026-10-01', from: '2026-09-29', to: '2026-10-02', cycle: 3,
+                prevAround: '2026-09-28', nextAround: '2026-10-06',
+                days: [day('2026-09-29', 2, 9), day('2026-09-30', 3, 7, { how: 'assigned', note: 'боледување',
+                        covers: [{ employeeId: 8, name: people[8] }], absent: [{ employeeId: 8, name: people[8] }] }),
+                    day('2026-10-01', 4, 9), day('2026-10-02', 5, 7)] });
+        }
+        return json(404, { error: 'not invented here' });
+    });
+    const p = await ctx.newPage();
+    await p.goto(`${ORIGIN}/Kolega.html`);
+    await p.click('[data-tab="duty"]').catch(() => {});
+    await p.waitForSelector('.duty-table', { timeout: 6000 }).catch(() => {});
+    check('the rota opens around today, not on a calendar month', asked[0] && asked[0].startsWith('?around='), asked.join(' '));
+    check('its title names the days it shows', /29\.09\.2026 – 02\.10\.2026/.test(await p.textContent('.duty-head h2').catch(() => '')));
+    const seps = await p.$$eval('.duty-month-sep', (rows) => rows.map((r) => r.textContent.trim()));
+    check('where September ends and October begins, the table says so', JSON.stringify(seps) === JSON.stringify(['Септември 2026', 'Октомври 2026']), JSON.stringify(seps));
+    check('the turn gone by is shown, not folded away', await p.isVisible('.duty-table tr.past'));
+    const row = await p.textContent('.duty-table tbody').catch(() => '');
+    check('the one covering is shown in place of the one away — without „по договор"',
+        row.includes('наместо Вера Измислена — боледување') && !row.includes('по договор'));
+    await p.click('[data-duty-around="2026-10-06"]');
+    await p.waitForTimeout(400);
+    check('▶ moves by one turn of the list', asked[asked.length - 1] === '?around=2026-10-06', asked.join(' '));
+    await p.click('[data-duty-view="month"]');
+    await p.waitForTimeout(400);
+    check('„📅 Цел месец" is the calendar month, for print', asked[asked.length - 1] === '?month=2026-10'
+        && /октомври 2026/.test(await p.textContent('.duty-head h2')), asked.join(' '));
+    check('and „⟳ Околу денес" goes back', await p.isVisible('[data-duty-view="around"]'));
+    await ctx.close();
+}
+
 await browser.close();
 console.log(fails ? `\n${fails} failed` : '\nall good');
 process.exit(fails ? 1 : 0);

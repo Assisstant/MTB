@@ -20,7 +20,7 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import { pool } from '../db.js';
 import { assertOwner, refuseScope, scopeOf } from '../lib/colleague.js';
-import { defaultMonth, loadDuty, monthBounds, monthPayload, rotaWithSwaps } from '../lib/duty.js';
+import { defaultMonth, isIsoDate, loadDuty, monthBounds, monthPayload, rotaWithSwaps, todayInSkopje, windowPayload } from '../lib/duty.js';
 
 const Iso = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 const YearRef = z.string().min(1).max(64).optional();
@@ -102,6 +102,10 @@ export async function dutyRoutes(server: FastifyInstance) {
         const year = await schoolYearOf(pool, q?.year ? String(q.year) : undefined);
         if (!year) return reply.code(404).send({ error: 'Нема таква учебна година.' });
         const state = await loadDuty(pool, year.id);
+        if (q?.around !== undefined) {
+            if (!isIsoDate(q.around)) return reply.code(400).send({ error: 'Денот се пишува како ГГГГ-ММ-ДД.' });
+            return { year: year.label, today: todayInSkopje(), ...windowPayload(state, q.around), candidates: await candidates(year.id) };
+        }
         const month = q?.month ? String(q.month) : defaultMonth(state);
         if (!monthBounds(month)) return reply.code(400).send({ error: 'Месецот се пишува како ГГГГ-ММ.' });
         return { year: year.label, ...monthPayload(state, month), candidates: await candidates(year.id) };

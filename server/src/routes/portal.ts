@@ -26,7 +26,7 @@ import {
 import { bellsOf, subjectOffer } from './teaching.js';
 import { blockTimes, semanticBlock, writeBlock } from './schedule-write.js';
 import { minutesOf, timeOf } from '../lib/crossing.js';
-import { defaultMonth, loadDuty, monthBounds, monthPayload, todayInSkopje } from '../lib/duty.js';
+import { defaultMonth, isIsoDate, loadDuty, monthBounds, monthPayload, todayInSkopje, windowPayload } from '../lib/duty.js';
 import { dayProblem, setAbsence } from './duty.js';
 import { setCaseloadLink } from '../lib/caseload.js';
 import { authorName, creditLook, lookCss } from '../lib/author.js';
@@ -464,6 +464,11 @@ export async function portalRoutes(server: FastifyInstance, options: { year?: st
             return reply.code(403).send({ error: 'Не сте на списокот за дежурства.', notMember: true });
         }
         const q = req.query as any;
+        // ?around=ГГГГ-ММ-ДД: one turn of the list either side of that day.
+        if (q?.around !== undefined) {
+            if (!isIsoDate(q.around)) return reply.code(400).send({ error: 'Денот се пишува како ГГГГ-ММ-ДД.' });
+            return { year: who.year.label, me: who.staff.employeeId, today: todayInSkopje(), ...windowPayload(state, q.around) };
+        }
         const month = q?.month ? String(q.month) : defaultMonth(state);
         if (!monthBounds(month)) return reply.code(400).send({ error: 'Месецот се пишува како ГГГГ-ММ.' });
         return { year: who.year.label, me: who.staff.employeeId, today: todayInSkopje(), ...monthPayload(state, month) };

@@ -172,6 +172,7 @@ header.top h1 { flex: 1; min-width: 180px; }
 .duty-stale div { margin-top: 4px; }
 .duty-list .grip { cursor: grab; touch-action: none; padding: 4px 8px; }
 .duty-table tr.folded { display: none; }
+.duty-table tr.duty-month-sep td { font-weight: 800; color: var(--accent); padding-top: 14px; border-bottom: 2px solid var(--line); }
 @media print { body.printing-duty .duty-table tr.folded { display: table-row !important; } }
 .duty-list li .n { width: 26px; text-align: center; font-weight: 800; }
 .duty-list li .nm { flex: 1; }
@@ -523,7 +524,9 @@ header.top h1 { flex: 1; min-width: 180px; }
     // closes a day, gives a day to somebody and marks anybody away.
     const MONTHS = ['Јануари', 'Февруари', 'Март', 'Април', 'Мај', 'Јуни', 'Јули', 'Август', 'Септември', 'Октомври', 'Ноември', 'Декември'];
     const WEEKDAY = ['нд', 'пн', 'вт', 'ср', 'чт', 'пт', 'сб'];
-    const duty = { owner: false, month: '', data: null, open: '', draft: null };
+    // `around`: one turn of the list either side of a day, across months —
+    // the default (owner, 28 Sep 2026); `month`: the calendar month, for print.
+    const duty = { owner: false, month: '', data: null, open: '', draft: null, view: 'around', around: '' };
 
     /** The owner's routes, asked directly: a refusal here only means „not the administrator". */
     async function ownerApi(method, path, body) {
@@ -538,8 +541,11 @@ header.top h1 { flex: 1; min-width: 180px; }
         return payload;
     }
 
+    const localToday = () => new Date().toLocaleDateString('en-CA');
     async function loadDuty(month) {
-        const query = month ? '?month=' + encodeURIComponent(month) : '';
+        const query = duty.view === 'month'
+            ? (month ? '?month=' + encodeURIComponent(month) : '')
+            : '?around=' + encodeURIComponent(duty.around || localToday());
         // Asked once whether this is the administrator: the owner may be on
         // the list too, and must still get the controls.
         if (!duty.ownerChecked || duty.owner) {
@@ -548,6 +554,7 @@ header.top h1 { flex: 1; min-width: 180px; }
                 duty.owner = true;
                 duty.ownerChecked = true;
                 duty.month = duty.data.month;
+                if (duty.data.around) duty.around = duty.data.around;
                 return;
             } catch (_) {
                 duty.owner = false;
@@ -557,6 +564,7 @@ header.top h1 { flex: 1; min-width: 180px; }
         if (!me.duty) { duty.data = null; return; }
         duty.data = await api('GET', '/api/portal/duty' + query);
         duty.month = duty.data.month;
+        if (duty.data.around) duty.around = duty.data.around;
     }
 
     const shiftMonth = (month, by) => {
@@ -694,7 +702,6 @@ header.top h1 { flex: 1; min-width: 180px; }
         else if (d.employeeId == null) who = d.how === 'nobody' && d.date >= duty.data.startsOn ? '— нема кој: сите се отсутни —' : '—';
         else {
             who = esc(d.name);
-            if (d.how === 'assigned') who += '<span class="sub">по договор</span>';
             if (d.covers.length) who += `<span class="sub">наместо ${esc(d.covers.map((c) => c.name).join(', '))}${d.note ? ' — ' + esc(d.note) : ''}</span>`;
             else if (d.note) who += `<span class="sub">${esc(d.note)}</span>`;
             if (d.swap) who += `<span class="sub">⇄ замена со ${esc(d.swap.name)} (${WEEKDAY[weekdayOf(d.swap.date)]} ${dmy(d.swap.date)})${d.swap.note ? ' — ' + esc(d.swap.note) : ''}</span>`;
@@ -807,12 +814,28 @@ header.top h1 { flex: 1; min-width: 180px; }
         // shows them all.
         const days = duty.data.days.filter((d) => d.date >= duty.data.startsOn);
         const gone = days.filter((d) => d.date < todayIso()).length;
-        if (duty.foldPast == null || gone === days.length) duty.foldPast = gone < days.length;
+        // Around a day, the turn gone by is the point of the view, so it is
+        // shown; a month still folds its past away until asked for.
+        const windowed = Boolean(duty.data.from);
+        if (duty.foldPast == null || gone === days.length) duty.foldPast = windowed ? false : gone < days.length;
+        const head = windowed
+            ? `<button type="button" class="small no-print" data-duty-around="${duty.data.prevAround}"${duty.data.prevAround === duty.data.around ? ' disabled' : ''} aria-label="Претходен круг">◀</button>`
+              + `<h2>Распоред на дежурства — ${dmy(duty.data.from)} – ${dmy(duty.data.to)}</h2>`
+              + `<button type="button" class="small no-print" data-duty-around="${duty.data.nextAround}"${duty.data.nextAround === duty.data.around ? ' disabled' : ''} aria-label="Следен круг">▶</button>`
+              + '<button type="button" class="small no-print" data-duty-view="month">📅 Цел месец</button>'
+            : `<button type="button" class="small no-print" data-duty-month="${shiftMonth(duty.month, -1)}"${duty.month <= first ? ' disabled' : ''} aria-label="Претходен месец">◀</button>`
+              + `<h2>Распоред на дежурства — ${MONTHS[m - 1].toLowerCase()} ${y}</h2>`
+              + `<button type="button" class="small no-print" data-duty-month="${shiftMonth(duty.month, 1)}"${duty.month >= last ? ' disabled' : ''} aria-label="Следен месец">▶</button>`
+              + (duty.view === 'month' ? '<button type="button" class="small no-print" data-duty-view="around">⟳ Околу денес</button>' : '');
+        // Where one month ends and the next begins, the table says so.
+        const rows = days.map((d, i) => {
+            const opens = windowed && (i === 0 || d.date.slice(0, 7) !== days[i - 1].date.slice(0, 7));
+            const [yy, mm] = d.date.split('-').map(Number);
+            const folded = d.date < todayIso() && duty.foldPast ? ' folded' : '';
+            return (opens ? `<tr class="duty-month-sep${folded}"><td colspan="3">${MONTHS[mm - 1]} ${yy}</td></tr>` : '') + dutyRowHtml(d);
+        }).join('');
         box.innerHTML = (duty.owner ? dutyAdminHtml() : '')
-            + '<div class="duty-head">'
-            + `<button type="button" class="small no-print" data-duty-month="${shiftMonth(duty.month, -1)}"${duty.month <= first ? ' disabled' : ''} aria-label="Претходен месец">◀</button>`
-            + `<h2>Распоред на дежурства — ${MONTHS[m - 1].toLowerCase()} ${y}</h2>`
-            + `<button type="button" class="small no-print" data-duty-month="${shiftMonth(duty.month, 1)}"${duty.month >= last ? ' disabled' : ''} aria-label="Следен месец">▶</button>`
+            + '<div class="duty-head">' + head
             + '<button type="button" class="small no-print" id="dutyPrint">🖨 Печати</button></div>'
             + (duty.data.members.length ? '' : '<p class="muted">Сè уште нема список за дежурства.</p>')
             + (duty.owner && (duty.data.staleSwaps || []).length ? '<div class="duty-stale no-print"><b>⚠ Замена што повеќе не важи</b> — распоредот се смени по договорот, '
@@ -822,7 +845,7 @@ header.top h1 { flex: 1; min-width: 180px; }
             + (days.length ? '<table class="duty-table"><thead><tr><th>Р.бр.</th><th>Стручен соработник</th><th>Ден и датум</th></tr></thead><tbody>'
                 + (gone ? `<tr class="past-toggle no-print"><td colspan="3"><button type="button" class="small" data-duty-past aria-expanded="${!duty.foldPast}">`
                     + `${duty.foldPast ? '▸ Прикажи' : '▾ Скриј'} ги изминатите денови (${gone})</button></td></tr>` : '')
-                + days.map(dutyRowHtml).join('') + '</tbody></table>'
+                + rows + '</tbody></table>'
                 : `<p class="muted">Ротацијата почнува на ${dmy(duty.data.startsOn)}.</p>`)
             + '<p class="muted">Кога дежурниот е отсутен (боледување), се прескокнува: тој ден дежура следниот на списокот, '
             + 'а редот продолжува од него.</p>';
@@ -835,7 +858,17 @@ header.top h1 { flex: 1; min-width: 180px; }
 
     el('duty').addEventListener('click', async (event) => {
         const go = event.target.closest('[data-duty-month]');
-        if (go) { duty.open = ''; duty.foldPast = null; return showDuty(go.dataset.dutyMonth); }
+        if (go) { duty.open = ''; duty.foldPast = null; duty.view = 'month'; return showDuty(go.dataset.dutyMonth); }
+        const turn = event.target.closest('[data-duty-around]');
+        if (turn) { duty.open = ''; duty.foldPast = null; duty.view = 'around'; duty.around = turn.dataset.dutyAround; return showDuty(); }
+        const view = event.target.closest('[data-duty-view]');
+        if (view) {
+            duty.open = '';
+            duty.foldPast = null;
+            duty.view = view.dataset.dutyView;
+            if (duty.view === 'around') duty.around = localToday();
+            return showDuty(duty.month);
+        }
         if (event.target.closest('[data-duty-past]')) { duty.foldPast = !duty.foldPast; return drawDuty(); }
         const unswap = event.target.closest('[data-duty-unswap]');
         if (unswap) {
