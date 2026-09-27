@@ -1230,6 +1230,17 @@
         const own = ownSubjects(name);
         return own.length === 1 ? own[0] : '';
     }
+    /**
+     * Who picks what (owner, 27 Sep 2026; the same rule as Уреди настава's
+     * teacher week and the colleagues' page): an одделенски наставник's class
+     * is their own and fixed, and only the subject is picked, out of all the
+     * class learns; a предметен наставник picks the паралелка, and the subject
+     * is one of their own. An одделенски with no homeroom yet picks a class.
+     */
+    function fixedClass(name) {
+        const t = (data.teachers || []).find((x) => x.name === name);
+        return t && t.kind === 'odd' && t.homeroom ? t.homeroom : '';
+    }
 
     let cardsOf = null;
     let cards = new Map();
@@ -1266,14 +1277,18 @@
                     && !(document.activeElement && document.activeElement.closest && document.activeElement.closest('.p-edit'))) draw();
             });
     }
-    function subjectOptions(teacher, label, chosen) {
-        const own = ownSubjects(teacher);
-        const offered = (offers.get(data.year + '|' + label) || []).filter((s) => !own.includes(s));
+    function subjectOptions(teacher, label, chosen, held) {
+        const fixed = fixedClass(teacher);
+        // A предметен наставник's list is their own subjects; the catalogue
+        // only while none is recorded. An одделенски's is the class's catalogue.
+        const own = fixed ? [] : ownSubjects(teacher);
+        const offered = own.length ? [] : (offers.get(data.year + '|' + label) || []).slice();
         if (chosen && !own.includes(chosen) && !offered.includes(chosen)) offered.unshift(chosen);
         const opt = (s) => `<option value="${esc(s)}"${s === chosen ? ' selected' : ''}>${esc(s)}</option>`;
-        return `<option value="">${label ? '— без предмет —' : '— прво паралелка —'}</option>`
+        return `<option value="">${held ? '— без предмет —' : '— избери предмет —'}</option>`
             + (own.length ? `<optgroup label="${esc('Предмети на ' + teacher)}">${own.map(opt).join('')}</optgroup>` : '')
-            + (offered.length ? `<optgroup label="${own.length ? 'Други предмети' : 'Предмети'}">${offered.map(opt).join('')}</optgroup>` : '');
+            + (offered.length ? `<optgroup label="${esc(fixed ? 'Предмети во ' + label : 'Предмети')}">${offered.map(opt).join('')}</optgroup>` : '')
+            + (held ? '<option value="__clear">✕ слободен час (избриши)</option>' : '');
     }
 
     /** One period of one teacher, as the two pickers. Two lessons at once is a clash no picker can mend. */
@@ -1283,11 +1298,22 @@
         const subj = one ? tidy(one.subject) : '';
         const where = `${name} · ${day} · ${p.ordinal}. час`;
         const two = list.length > 1;
+        const fixed = fixedClass(name);
+        if (fixed) {
+            // The class is theirs: one picker, the subject. A lesson already
+            // standing in another class (an old entry) keeps its own class.
+            const inClass = cls || fixed;
+            return `<div class="p-edit">`
+                + `<select class="p-subj${cls ? ' has' : ' none'}" aria-label="${esc('Предмет во ' + inClass + ' — ' + where)}"`
+                + ` title="${esc(inClass)}"${two ? ' disabled' : ''}>${subjectOptions(name, inClass, subj, Boolean(cls))}</select>`
+                + (two ? '<span class="p-warn">⚠ Два часа во ист термин — исправи во „Уреди настава"</span>' : '')
+                + '</div>';
+        }
         return `<div class="p-edit">`
             + `<select class="p-class${cls ? ' has' : ''}" data-class-picker aria-label="${esc('Паралелка — ' + where)}"${two ? ' disabled' : ''}>${classOptions(cls)}</select>`
             // The subject only once there is a class to teach it in: an empty
             // period is one picker, not two, so the week stays readable.
-            + (cls ? `<select class="p-subj${subj ? '' : ' none'}" aria-label="${esc('Предмет — ' + where)}"${two ? ' disabled' : ''}>${subjectOptions(name, cls, subj)}</select>` : '')
+            + (cls ? `<select class="p-subj${subj ? '' : ' none'}" aria-label="${esc('Предмет — ' + where)}"${two ? ' disabled' : ''}>${subjectOptions(name, cls, subj, true)}</select>` : '')
             + (two ? '<span class="p-warn">⚠ Два часа во ист термин — исправи во „Уреди настава"</span>' : '')
             + '</div>';
     }
@@ -1309,12 +1335,20 @@
         const ordinal = Number(td.dataset.ordinal);
         const was = td.dataset.class || '';
         const wasSubject = td.dataset.subject || '';
-        const cls = td.querySelector('.p-class').value;
+        const fixed = fixedClass(teacher);
+        const picked = changed.classList.contains('p-subj') ? changed.value : '';
+        // „✕ слободен час" empties the period; an одделенски's period is in
+        // their own class; a предметен picks the class, then the subject.
+        const cls = picked === '__clear' ? ''
+            : fixed ? (was || fixed)
+            : td.querySelector('.p-class').value;
         // A new class keeps the subject the period had, or the teacher's only
         // one; a subject is chosen for the class already in the cell.
-        const subject = changed.classList.contains('p-class')
-            ? (cls ? wasSubject || autoSubject(teacher) : '')
-            : (td.querySelector('.p-subj') || { value: '' }).value;
+        const subject = picked === '__clear' ? ''
+            : changed.classList.contains('p-class') ? (cls ? wasSubject || autoSubject(teacher) : '')
+            : picked;
+        // An одделенски's empty period is written only once a subject is chosen.
+        if (fixed && !was && !subject && picked !== '__clear') return;
         td.classList.add('saving');
         td.querySelectorAll('select').forEach((s) => { s.disabled = true; });
         const saying = `${teacher} · ${day} · ${ordinal}. час`;

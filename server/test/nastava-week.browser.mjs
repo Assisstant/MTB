@@ -35,6 +35,7 @@ const A = 'ПРОБНА-НЕД-А';
 const B = 'ПРОБНА-НЕД-Б';
 const T1 = `${TAG} Прва Пробна`;
 const T2 = `${TAG} Втора Пробна`;
+const T3 = `${TAG} Трета Пробна`;
 const DESC_A = 'ученици со проба';
 
 const pool = new pg.Pool({ connectionString: DB });
@@ -282,6 +283,66 @@ async function run() {
             await np.locator(`${sheet} .p-edit`).count() === 0 && await np.locator(sheet).count() === 1);
         check('нема JavaScript грешки во Личен распоред', npErrors.length === 0, npErrors.join(' ;; '));
         await own.close();
+
+        // Owner, 27 Sep 2026: an одделенски наставник's class is fixed and only
+        // the subject is picked; a предметен наставник picks the паралелка and
+        // the subject is one of their own.
+        console.log('\nкој што бира: одделенскиот само предмет, предметниот паралелка');
+        await q(`INSERT INTO teacher_classes (school_year_id, teacher_id, class_id, role)
+                 VALUES ($1, $2, $3, 'homeroom')
+                 ON CONFLICT (school_year_id, teacher_id, class_id) DO UPDATE SET role = 'homeroom'`, [year.id, teachers[T1], classes[A]]);
+        const [t3] = await q("INSERT INTO teachers (name, kind, subject) VALUES ($1, 'pred', 'Математика, Физика') RETURNING id", [T3]);
+        await q('INSERT INTO teacher_years (school_year_id, teacher_id, active) VALUES ($1, $2, true)', [year.id, t3.id]);
+        const up = await browser.newPage();
+        up.on('pageerror', (e) => errors.push(String(e)));
+        await up.goto(`${BASE}/NastavaUredi.html?year=${encodeURIComponent(YEAR)}`);
+        await up.waitForSelector('#grid table', { timeout: 15000 });
+        await up.click('[data-view="teacher"]');
+        await up.waitForSelector(`#grid td.wk[data-teacher="${T3}"]`, { timeout: 15000 });
+        const byWho = async (who, day, ordinal) => (await lessons(year.id))
+            .filter((r) => r.teacher === who && r.day === day && r.ordinal === ordinal);
+        const wait = async (test) => { for (let i = 0; i < 30 && !(await test()); i++) await up.waitForTimeout(200); };
+
+        check('празниот час на одделенскиот вели „+ предмет", не „+"',
+            /\+ предмет/.test(await cellOf(up, T1, 'четврток', 6).textContent()));
+        await cellOf(up, T1, 'четврток', 6).click();
+        await up.locator('#grid td.wk select.pick').waitFor({ state: 'visible' });
+        check('одделенскиот не бира паралелка — се отвора изборот на предмет',
+            await up.locator('#grid td.wk select.pick.subj').count() === 1 && await up.locator('#grid td.wk select.pick:not(.subj)').count() === 0);
+        const oddSubject = await up.$eval('#grid td.wk select.pick.subj', (sel) => [...sel.options].map((o) => o.value).find((v) => v && v !== '__clear'));
+        await up.selectOption('#grid td.wk select.pick.subj', oddSubject);
+        await wait(async () => (await byWho(T1, 'четврток', 6)).length === 1);
+        checkEq('часот е во неговата паралелка, со избраниот предмет',
+            (await byWho(T1, 'четврток', 6)).map((r) => `${r.class}:${r.subject}`), [`${A}:${oddSubject}`]);
+
+        await cellOf(up, T3, 'четврток', 6).click();
+        await up.locator('#grid td.wk select.pick').waitFor({ state: 'visible' });
+        check('предметниот бира паралелка', await up.locator('#grid td.wk select.pick:not(.subj)').count() === 1);
+        await up.selectOption('#grid td.wk select.pick', B);
+        await up.waitForSelector(`#grid td.wk[data-teacher="${T3}"][data-day="четврток"][data-ordinal="6"] select.pick.subj`, { timeout: 8000 });
+        const predOptions = await up.$eval(`#grid td.wk[data-teacher="${T3}"][data-day="четврток"][data-ordinal="6"] select.pick.subj`,
+            (sel) => [...sel.options].map((o) => o.value).filter((v) => v && v !== '__clear'));
+        checkEq('со два свои предмети, изборот се отвора сам — и нуди само нив', predOptions, ['Математика', 'Физика']);
+        await up.selectOption(`#grid td.wk[data-teacher="${T3}"][data-day="четврток"][data-ordinal="6"] select.pick.subj`, 'Физика');
+        await wait(async () => ((await byWho(T3, 'четврток', 6))[0] || {}).subject === 'Физика');
+        checkEq('и е запишан во базата', (await byWho(T3, 'четврток', 6)).map((r) => `${r.class}:${r.subject}`), [`${B}:Физика`]);
+        await up.close();
+
+        const sheetCtx = await browser.newContext();
+        await sheetCtx.addInitScript(() => { try { localStorage.setItem('mtb_editing_v1', '1'); } catch (_) { /* test */ } });
+        const sp = await sheetCtx.newPage();
+        await sp.goto(`${BASE}/Nastava.html?year=${encodeURIComponent(YEAR)}&view=personal`);
+        await sp.waitForSelector(`#who option[value="${T1}"]`, { state: 'attached', timeout: 15000 });
+        await sp.selectOption('#who', T1);
+        await sp.waitForSelector(`.personal[data-teacher="${T1}"] td.p-cell`, { timeout: 15000 });
+        const t1cell = `.personal[data-teacher="${T1}"] td.p-cell[data-day="среда"][data-ordinal="2"]`;
+        check('и во Личен распоред одделенскиот има само избор на предмет',
+            await sp.locator(`${t1cell} select`).count() === 1 && await sp.locator(`${t1cell} select.p-subj`).count() === 1);
+        await sp.selectOption('#who', T3);
+        await sp.waitForSelector(`.personal[data-teacher="${T3}"] td.p-cell`, { timeout: 15000 });
+        check('а предметниот ја бира паралелката',
+            await sp.locator(`.personal[data-teacher="${T3}"] td.p-cell[data-day="среда"][data-ordinal="2"] select.p-class`).count() === 1);
+        await sheetCtx.close();
     } finally {
         await browser.close();
         await cleanup();

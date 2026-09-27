@@ -680,6 +680,20 @@
     }
 
     /**
+     * Who picks what (owner, 27 Sep 2026 — the same rule as the colleagues'
+     * page, Kolega.html `fillsClass`):
+     *   одделенски наставник — the class is THEIRS and fixed (the homeroom);
+     *       they pick only the subject, out of everything that class learns.
+     *   предметен наставник — they pick the паралелка; the subject is their
+     *       own (one is filled in, two or more are picked from their own).
+     * An одделенски with no homeroom yet has no fixed class, and picks one.
+     */
+    function fixedClass(name) {
+        const t = (data.teachers || []).find((x) => x.name === name);
+        return t && t.kind === 'odd' && t.homeroom ? t.homeroom : '';
+    }
+
+    /**
      * The whole week, one row per teacher, the class in the cell.
      *
      * This is the axis a NEW timetable is actually filled along — down the
@@ -749,6 +763,7 @@
                     + (l ? `<span class="cls" title="${esc(classHover(l.class))}">${esc(l.class)}</span>`
                          + `<span class="sub2${l.subject ? '' : ' none'}" data-subject="1">`
                          + `${esc(l.subject || '+ предмет')}</span>`
+                       : fixedClass(name) ? '<span class="plus" data-subject="1">+ предмет</span>'
                        : '<span class="plus">+</span>')
                     + '</td>';
             }));
@@ -890,23 +905,31 @@
      */
     async function openWeekSubject(td) {
         if (td.querySelector('select')) return;
-        const label = tidy(td.querySelector('.cls') ? td.querySelector('.cls').textContent : '');
+        const inCell = tidy(td.querySelector('.cls') ? td.querySelector('.cls').textContent : '');
+        const fixed = fixedClass(td.dataset.teacher);
+        // An одделенски's period is in their own class, whether or not it has a lesson yet.
+        const label = inCell || fixed;
         if (!label) return openWeekCell(td);
+        td.dataset.was = inCell;
         const slot = td.querySelector('[data-subject]');
-        const was = slot && !slot.classList.contains('none') ? tidy(slot.textContent) : '';
+        const was = slot && !slot.classList.contains('none') && inCell ? tidy(slot.textContent) : '';
 
         slot.textContent = '…';
         const body = await subjectsFor(label);
-        // The teacher's own subjects first: that is what they teach, and the
-        // catalogue below is for the day it is not.
         const own = ownSubjects(td.dataset.teacher);
-        const names = (body.subjects || []).map((x) => x.subject).filter((n) => !own.includes(n));
-        if (was && !names.includes(was) && !own.includes(was)) names.unshift(was);
+        const catalogue = (body.subjects || []).map((x) => x.subject);
+        // A предметен наставник teaches their own subjects, and the list is
+        // those; the catalogue is there only while none is recorded for them.
+        // An одделенски teaches everything their class learns: the catalogue.
+        const names = fixed || !own.length ? catalogue.filter((n) => !own.includes(n)) : [];
+        const mine = fixed ? [] : own;
+        if (was && !names.includes(was) && !mine.includes(was)) names.unshift(was);
 
         const opt = (n) => `<option value="${esc(n)}"${n === was ? ' selected' : ''}>${esc(n)}</option>`;
-        const options = '<option value="">— без предмет —</option>'
-            + (own.length ? `<optgroup label="${esc('Предмети на ' + td.dataset.teacher)}">${own.map(opt).join('')}</optgroup>` : '')
-            + (names.length ? `<optgroup label="${own.length ? 'Други предмети' : 'Предмети'}">${names.map(opt).join('')}</optgroup>` : '');
+        const options = (inCell ? '<option value="">— без предмет —</option>' : '<option value="">— избери предмет —</option>')
+            + (mine.length ? `<optgroup label="${esc('Предмети на ' + td.dataset.teacher)}">${mine.map(opt).join('')}</optgroup>` : '')
+            + (names.length ? `<optgroup label="${fixed ? 'Предмети во ' + label : 'Предмети'}">${names.map(opt).join('')}</optgroup>` : '')
+            + (inCell ? '<option value="__clear">✕ слободен час (избриши)</option>' : '');
         slot.outerHTML = `<select class="pick subj">${options}</select>`;
         const pick = td.querySelector('select');
         pick.title = body.basis === 'oddelenie'
@@ -920,7 +943,10 @@
         const finish = (commit) => {
             if (done) return;
             done = true;
-            if (commit && tidy(pick.value) !== was) saveWeekSubject(td, label, tidy(pick.value));
+            const now = tidy(pick.value);
+            if (commit && now === '__clear') saveWeekCell(td, inCell, '');
+            // A new period of an одделенски is written only once a subject is chosen.
+            else if (commit && now !== was && (inCell || now)) saveWeekSubject(td, label, now);
             else drawAndKeep();
         };
         pick.addEventListener('change', () => finish(true));
@@ -940,7 +966,7 @@
                 teacher: td.dataset.teacher,
                 class: label,
                 subject: subject || null,
-                expected: { class: label }
+                expected: { class: td.dataset.was || null }
             });
             await load(true);
             status(`${td.dataset.teacher} · ${td.dataset.day} · ${td.dataset.ordinal}. час — `
@@ -968,6 +994,13 @@
             await load(true);
             status(`${td.dataset.teacher} · ${td.dataset.day} · ${td.dataset.ordinal}. час — `
                 + (now ? now + (subject ? ' · ' + subject : '') + ' — зачувано' : 'слободен'), 'ok');
+            // Two or more subjects of their own: which one is theirs to say, so
+            // the subject picker opens at once instead of leaving „+ предмет".
+            if (now && !subject && ownSubjects(td.dataset.teacher).length > 1) {
+                const again = el('grid').querySelector(`td.wk[data-teacher="${CSS.escape(td.dataset.teacher)}"]`
+                    + `[data-day="${CSS.escape(td.dataset.day)}"][data-ordinal="${td.dataset.ordinal}"]`);
+                if (again) openWeekSubject(again);
+            }
         } catch (err) {
             status(err.message, 'error');
             drawAndKeep();
@@ -2269,7 +2302,7 @@
         if (!td) return;
         // The weekly grid edits in place; the day grid opens the panel below it.
         if (td.classList.contains('wk')) {
-            if (event.target.closest('[data-subject]')) openWeekSubject(td);
+            if (event.target.closest('[data-subject]') || fixedClass(td.dataset.teacher)) openWeekSubject(td);
             else openWeekCell(td);
         }
         else openCell(td.dataset.class, Number(td.dataset.ordinal));

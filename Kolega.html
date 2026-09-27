@@ -1340,9 +1340,13 @@ header.top h1 { flex: 1; min-width: 180px; }
         return offers.get(label);
     }
 
-    function subjectOptions(list, chosen) {
+    // A предметен наставник teaches their own subjects, so in „Мои часови"
+    // (`ownOnly`) the list is those, and the class's catalogue only while none
+    // is recorded; „друго…" stays for the exception (owner, 27 Sep 2026).
+    // An одделенски picks from everything their class learns.
+    function subjectOptions(list, chosen, ownOnly) {
         const own = String(week.me.subject || '').split(',').map((s) => s.trim()).filter(Boolean);
-        const all = [...new Set([...own, ...list, ...(chosen ? [chosen] : [])])];
+        const all = [...new Set([...own, ...(ownOnly && own.length ? [] : list), ...(chosen ? [chosen] : [])])];
         return '<option value="">— предмет —</option>'
             + all.map((s) => `<option value="${esc(s)}"${norm(s) === norm(chosen) ? ' selected' : ''}>${esc(s)}</option>`).join('')
             + '<option value="__other">друго…</option>';
@@ -1398,12 +1402,12 @@ header.top h1 { flex: 1; min-width: 180px; }
             form.innerHTML = `<label>Паралелка <select name="klass"><option value="">— слободен —</option>`
                 + (week.classes || []).map((c) => `<option value="${esc(c.label)}"${one && one.class === c.label ? ' selected' : ''}>${esc(classText(c.label))}</option>`).join('')
                 + '</select></label><label>Предмет <select name="subject"></select></label>';
-            form.elements.subject.innerHTML = subjectOptions(await offerFor(one ? one.class : ''), one ? one.subject : '');
+            form.elements.subject.innerHTML = subjectOptions(await offerFor(one ? one.class : ''), one ? one.subject : '', true);
             form.dataset.expected = JSON.stringify({ class: one ? one.class : null });
             form.elements.klass.addEventListener('change', async () => {
                 // The list follows the class, unless a subject was typed by hand.
                 const select = form.querySelector('select[name=subject]');
-                if (select) select.innerHTML = subjectOptions(await offerFor(form.elements.klass.value), currentSubject(form));
+                if (select) select.innerHTML = subjectOptions(await offerFor(form.elements.klass.value), currentSubject(form), true);
                 preview(homeroomOf, ordinal, form);
             });
         }

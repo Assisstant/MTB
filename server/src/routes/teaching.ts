@@ -250,7 +250,12 @@ export async function teachingRoutes(server: FastifyInstance) {
         const { rows: staffRows } = await pool.query(
             // `subject` is what the teacher teaches: Личен распоред offers it
             // first when a lesson is typed in there (owner, 27 Sep 2026).
-            `SELECT t.id, t.name, t.kind, t.subject FROM teachers t
+            // `homeroom`: an одделенски наставник's own class is fixed there,
+            // and only the subject is picked.
+            `SELECT t.id, t.name, t.kind, t.subject,
+                    (SELECT min(c.label) FROM teacher_classes tc JOIN school_classes c ON c.id = tc.class_id
+                      WHERE tc.teacher_id = t.id AND tc.school_year_id = $1 AND tc.role = 'homeroom') AS homeroom
+               FROM teachers t
                JOIN teacher_years ty
                  ON ty.teacher_id = t.id AND ty.school_year_id = $1 AND ty.active
               ORDER BY t.kind, t.name`,
