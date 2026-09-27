@@ -211,6 +211,9 @@ header.top h1 { flex: 1; min-width: 180px; }
 .sheet .s-item { margin: 0 0 3px; padding: 4px 6px 4px 8px; border-radius: 6px; background: #e6fffa; border-left: 4px solid #319795; line-height: 1.2; }
 .sheet .s-item b { display: block; font-size: 13px; color: #1a202c; overflow-wrap: anywhere; }
 .sheet .s-item small { display: block; font-size: 11px; color: #4a5568; }
+.sheet .s-item.away { background: #fff5e6; border-left-color: #c05621; }
+.sheet .s-item.away small { color: #7b341e; }
+.period .note.away { color: var(--muted); }
 .sheet .s-foot { margin-top: 8px; font-size: 12px; color: #4a5568; }
 @page week { size: A4 landscape; margin: 9mm; }
 @media print {
@@ -534,6 +537,11 @@ header.top h1 { flex: 1; min-width: 180px; }
         return c.alias ? [c.alias, c.homeroom].filter(Boolean).join(' · ') : [c.label, c.homeroom, c.description].filter(Boolean).join(' · ');
     };
     const lessonsAt = (day, ordinal) => (week.lessons || []).filter((l) => l.day === day && l.ordinal === ordinal);
+    // Who leaves that lesson for which cabinet, and when (owner, 27 Sep 2026) —
+    // sent only for one's own classes, as the children's names are.
+    const awayAt = (day, ordinal, label) => ((week.classAway || []).find((x) =>
+        x.day === day && x.ordinal === ordinal && x.class === label) || { away: [] }).away;
+    const awayText = (a) => `${properName(a.student)} → ${a.therapist}${a.slots && a.slots.length ? ' · ' + a.slots.join(', ').replace(/-/g, '–') : ''}`;
     const periodTime = (p) => p.startsAt ? `<small>${esc(p.startsAt)}</small>` : '';
 
     // Who fills what (owner, 26 Sep 2026): an одделенски наставник fills their
@@ -1127,9 +1135,19 @@ header.top h1 { flex: 1; min-width: 180px; }
             rows: periods.map((p) => ({ label: p.label + '. час', time: p.startsAt || '', go: 'lesson:' + p.ordinal })),
             cells: periods.map((p) => days.map((d) => {
                 const here = lessonsAt(d, p.ordinal);
-                return homeroomOf
-                    ? here.filter((l) => l.class === homeroomOf).map((l) => ({ text: l.subject || 'без предмет', sub: properName(l.teacher) || 'без наставник' }))
-                    : here.filter((l) => l.teacherId === myId()).map((l) => ({ text: l.subject || 'без предмет', sub: shortOf(l.class) }));
+                const lessons = homeroomOf
+                    ? here.filter((l) => l.class === homeroomOf).map((l) => ({ text: l.subject || 'без предмет', sub: properName(l.teacher) || 'без наставник', label: l.class }))
+                    : here.filter((l) => l.teacherId === myId()).map((l) => ({ text: l.subject || 'без предмет', sub: shortOf(l.class), label: l.class }));
+                const out = [];
+                lessons.forEach((l) => {
+                    out.push({ text: l.text, sub: l.sub });
+                    if (!out.some((x) => x.label === l.label)) awayAt(d, p.ordinal, l.label).forEach((a) => out.push({
+                        text: '↳ ' + properName(a.student),
+                        sub: a.therapist + (a.slots && a.slots.length ? ' · ' + a.slots.join(', ').replace(/-/g, '–') : ''),
+                        away: true, label: l.label
+                    }));
+                });
+                return out;
             }))
         };
     }
@@ -1146,7 +1164,7 @@ header.top h1 { flex: 1; min-width: 180px; }
             + m.days.map((d) => `<th>${esc(cap(d))}</th>`).join('') + '</tr></thead><tbody>'
             + m.rows.map((row, r) => `<tr><th><b>${esc(row.label)}</b><small>${esc(row.time)}</small></th>`
                 + m.days.map((d, i) => `<td data-go-day="${esc(d)}" data-go-at="${esc(row.go)}" title="${esc(cap(d) + ' · ' + row.label + ' — уреди')}">`
-                    + m.cells[r][i].map((e) => `<div class="s-item"><b>${esc(e.text)}</b><small>${esc(e.sub)}</small></div>`).join('')
+                    + m.cells[r][i].map((e) => `<div class="s-item${e.away ? ' away' : ''}"><b>${esc(e.text)}</b><small>${esc(e.sub)}</small></div>`).join('')
                     + '</td>').join('') + '</tr>').join('')
             + `</tbody></table><div class="s-foot">${esc(new Date().toLocaleDateString('mk-MK'))}</div></div>`;
     }
@@ -1331,6 +1349,10 @@ header.top h1 { flex: 1; min-width: 180px; }
                 if (together.length) note += `<div class="note">заедно со ${together.map((o) => esc(o.teacher)).join(', ')}</div>`;
             } else what = '<span class="free">— слободен —</span>';
         }
+        const labels = homeroomOf ? [homeroomOf] : [...new Set(here.filter((l) => l.teacherId === myId()).map((l) => l.class))];
+        labels.forEach((label) => awayAt(view.day, p.ordinal, label).forEach((a) => {
+            note += `<div class="note away">↳ ${esc(awayText(a))}</div>`;
+        }));
         return `<li class="period${clash ? ' clash' : ''}" data-ordinal="${p.ordinal}">`
             + `<div class="head"><span class="when">${esc(p.label)}. час ${periodTime(p)}</span>`
             + `<span class="what">${what}</span>`

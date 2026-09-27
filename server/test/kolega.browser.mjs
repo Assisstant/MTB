@@ -191,7 +191,10 @@ check('no page errors', errors.length === 0, errors.join('\n       '));
             classes: [{ label: 'I-а', description: 'опис', homeroom: 'Колега Це' }, { label: 'II-б', description: 'Комбинирана', homeroom: 'Ана Измислена' }],
             teachers: [{ id: 3, name: 'Ана Измислена' }, { id: 8, name: 'Колега Це' }, { id: 9, name: 'Колега Бе' }],
             lessons, clashes: [], notices,
-            classPupils: { 'II-б': [{ name: 'ДЕТЕ ИЗМИСЛЕНО ПРВО', oddelenie: 'II' }, { name: 'Дете Измислено Второ', oddelenie: 'III' }] }
+            classPupils: { 'II-б': [{ name: 'ДЕТЕ ИЗМИСЛЕНО ПРВО', oddelenie: 'II' }, { name: 'Дете Измислено Второ', oddelenie: 'III' }] },
+            // Owner, 27 Sep 2026: who leaves a lesson of one's own class, for which cabinet, when.
+            classAway: [{ day: 'понеделник', ordinal: 2, class: 'II-б',
+                away: [{ student: 'ДЕТЕ ИЗМИСЛЕНО ПРВО', therapist: 'Терапевт Измислен', slots: ['08:45-09:25'] }] }]
         });
         if (url.pathname === '/api/portal/subjects') return json(200, { subjects: ['Математика', 'Физичко', 'Музичко'] });
         if (url.pathname === '/api/portal/my-subject') return json(200, { ok: true, subjects: body.on ? ['Математика', body.subject] : ['Математика'] });
@@ -292,6 +295,8 @@ check('no page errors', errors.length === 0, errors.join('\n       '));
     check('„🗓 Недела" draws the week on one sheet, under the person\'s name',
         /Неделен распоред — Ана Измислена/.test(sheet) && /Понеделник/.test(sheet) && /Петок/.test(sheet), sheet.slice(0, 160));
     check('with their own lessons in it, and nobody else\'s', /Математика/.test(sheet) && /II-б/.test(sheet) && !/Музичко/.test(sheet), sheet);
+    check('under a lesson of one\'s class: who leaves it, for which cabinet, and when',
+        /↳ Дете Измислено Прво/.test(sheet) && /Терапевт Измислен · 08:45–09:25/.test(sheet), sheet);
     check('the day\'s list is put away meanwhile', await p.isHidden('#periods'));
     check('printing and a picture are offered', await p.isVisible('#printWeek') && await p.isVisible('#pngWeek'));
     const [download] = await Promise.all([p.waitForEvent('download', { timeout: 5000 }), p.click('#pngWeek')]);
@@ -303,6 +308,8 @@ check('no page errors', errors.length === 0, errors.join('\n       '));
     await p.emulateMedia({ media: 'screen' });
     await p.evaluate(() => document.body.classList.remove('printing-week'));
     await p.click('#weekSheet td[data-go-day="понеделник"][data-go-at="lesson:2"]');
+    check('and the day\'s list says it under the lesson too',
+        /Дете Измислено Прво → Терапевт Измислен · 08:45–09:25/.test(await p.textContent('#periods [data-ordinal="2"]')));
     check('a period on the sheet opens that day, with its editor',
         await p.isVisible('#periods form.editor') && await p.getAttribute('#days [data-day="понеделник"]', 'aria-pressed') === 'true');
     // Owner, 27 Sep 2026: one's own subjects and паралелки are ticked from the

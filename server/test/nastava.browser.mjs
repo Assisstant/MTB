@@ -108,70 +108,41 @@ const run = async () => {
     page.on('dialog', (d) => d.dismiss());
 
     await page.goto(`${BASE}/Nastava.html?year=${encodeURIComponent(year.label)}`);
-    await page.waitForTimeout(1200);
-    await page.selectOption('#day', DAY);
     await page.waitForTimeout(1500);
+    // Owner, 27 Sep 2026: the class's week is the first view — each lesson,
+    // and under it which child leaves it, for which cabinet, and when.
+    check('it opens on the class\'s week', await page.getAttribute('#viewClassWeek', 'aria-pressed') === 'true');
+    check('with no day to pick: every view is a week', await page.locator('#day').count() === 0);
+    await page.selectOption('#klass', label);
+    await page.waitForTimeout(500);
+    const dayCol = await page.evaluate((d) => Array.from(document.querySelectorAll('#grid .personal thead th'))
+        .map((th) => th.textContent.trim().toLowerCase()).indexOf(d), DAY);
+    // As a person reads it: the lesson and its lines, one after the other.
+    const cellOf = async (ordinal) => page.evaluate(([ord, col]) => {
+        const row = document.querySelectorAll('#grid .personal tbody tr')[ord - 1];
+        const td = row && row.querySelectorAll('td')[col - 1];
+        return td ? td.innerText.replace(/\s+/g, ' ').trim() : null;
+    }, [ordinal, dayCol]);
 
-    const cellOf = async (ordinal) => page.evaluate(([cls, ord]) => {
-        const rows = Array.from(document.querySelectorAll('#grid tbody tr'));
-        // The heading is the class, then a ✏️ link to that class's week; the
-        // class is its first text, not the whole heading.
-        const row = rows.find((r) => r.querySelector('th')?.firstChild?.textContent.trim() === cls);
-        if (!row) return null;
-        const td = row.querySelectorAll('td')[ord - 1];
-        if (!td) return null;
-        return {
-            text: td.textContent.trim(),
-            count: Number(td.querySelector('.count')?.textContent || 0),
-            heat: (td.className.match(/heat-\d/) || [''])[0],
-            title: td.getAttribute('title') || ''
-        };
-    }, [label, ordinal]);
-
-    const firstHeader = await page.evaluate(() => document.querySelector('#grid thead th:nth-child(2) small')?.textContent.trim());
+    const firstHeader = await page.evaluate(() => document.querySelector('#grid .personal tbody tr th small')?.textContent.trim());
     checkEq('the first bell matches the selected school year', firstHeader, aligned ? '08:00' : '07:30');
 
     console.log('the year-specific crossing, on screen');
-    const first = await cellOf(1);
-    const second = await cellOf(2);
-    check('the grid drew the class', !!first && !!second, JSON.stringify({ first, second }));
-    const firstSession = aligned ? first : second;
-    check(`the ${aligned ? 'FIRST' : 'SECOND'} lesson shows somebody missing`, firstSession.count >= 1);
-    check('and the occupied lesson is shaded', /^heat-\d$/.test(firstSession.heat), firstSession.heat);
-    check('the tooltip names the subject and the teacher',
-        /·/.test(firstSession.title) && firstSession.title.includes(label), firstSession.title);
-    check('the tooltip describes planned treatment rather than actual attendance',
-        firstSession.title.includes('планирано на третман'), firstSession.title);
-    check('an external pupil with a teaching group is not labelled as therapy-only',
-        !(await page.locator('#external').innerText()).includes('Прв Пробен'));
-
+    check('the sheet has the day the fixture uses', dayCol > 0, String(dayCol));
+    const firstLesson = await cellOf(aligned ? 1 : 2);
+    check(`the ${aligned ? 'FIRST' : 'SECOND'} lesson names the child who leaves it`,
+        (firstLesson || '').includes('Прв Пробен'), firstLesson);
+    check('and the cabinet that takes them, and when', /Терапевт/.test(firstLesson || '') && /08:00–08:40/.test(firstLesson || ''), firstLesson);
+    const firstNeighbour = await cellOf(aligned ? 2 : 1);
+    check('the 08:00 child is not in the neighbouring lesson', !(firstNeighbour || '').includes('Прв Пробен'), firstNeighbour);
     const laterOrdinal = aligned ? 3 : 4;
     const laterNeighbour = aligned ? 4 : 3;
-
-    const detailOf = async (ordinal) => {
-        const cell = page.locator(`#grid td[data-key="${label}|${ordinal}"]`);
-        if (await cell.count() === 0) return { open: false, text: '' };
-        await cell.click();
-        await page.waitForTimeout(200);
-        return page.evaluate(() => {
-            const box = document.getElementById('detail');
-            return {
-                open: box.classList.contains('open'),
-                text: box.textContent.replace(/\s+/g, ' ').trim()
-            };
-        });
-    };
-
-    const firstDetail = await detailOf(aligned ? 1 : 2);
-    check('the 08:00 child is in the correct lesson', firstDetail.text.includes('Прв Пробен'), firstDetail.text);
-    const firstNeighbourDetail = await detailOf(aligned ? 2 : 1);
-    check('the 08:00 child is not in the neighbouring lesson',
-        !firstNeighbourDetail.text.includes('Прв Пробен'), firstNeighbourDetail.text);
-    const laterDetail = await detailOf(laterOrdinal);
-    check(`the 09:40 child is in lesson ${laterOrdinal}`, laterDetail.text.includes('Втор Пробен'), laterDetail.text);
-    const laterNeighbourDetail = await detailOf(laterNeighbour);
-    check('the 09:40 child is not in its neighbouring lesson',
-        !laterNeighbourDetail.text.includes('Втор Пробен'), laterNeighbourDetail.text);
+    const later = await cellOf(laterOrdinal);
+    check(`the 09:40 child is in lesson ${laterOrdinal}`, (later || '').includes('Втор Пробен'), later);
+    const laterNext = await cellOf(laterNeighbour);
+    check('the 09:40 child is not in its neighbouring lesson', !(laterNext || '').includes('Втор Пробен'), laterNext);
+    check('an external pupil with a teaching group is not labelled as therapy-only',
+        !(await page.locator('#external').innerText()).includes('Прв Пробен'));
 
     console.log('\nthe screen agrees with the database');
     const dbCount = await q(
@@ -181,17 +152,32 @@ const run = async () => {
         [year.id, DAY, `${TAG}%`]
     );
     checkEq('two sessions were seeded', dbCount[0].n, 2);
-    const onScreen = await page.evaluate(() => Array.from(document.querySelectorAll('#grid .count'))
-        .reduce((n, el) => n + Number(el.textContent || 0), 0));
-    check('every seeded session is visible somewhere in the grid', onScreen >= 2, `grid total ${onScreen}`);
+    const sheetText = await page.evaluate(() => document.querySelector('#grid .personal').innerText);
+    check('every seeded session is on the class\'s sheet', /Прв Пробен/.test(sheetText) && /Втор Пробен/.test(sheetText));
 
-    console.log('\nclicking a cell names the children and the therapist');
-    const detail = await detailOf(aligned ? 1 : 2);
+    console.log('\nthe overview counts them, and a click names the child and the therapist');
+    await page.click('#viewWeek');
+    await page.waitForTimeout(800);
+    const overKey = `${DAY}|${label}|${aligned ? 1 : 2}`;
+    const over = await page.evaluate((key) => {
+        const td = document.querySelector(`#grid td[data-key="${key}"]`);
+        return td ? { count: Number(td.querySelector('.count')?.textContent || 0), heat: (td.className.match(/heat-\d/) || [''])[0] } : null;
+    }, overKey);
+    check('the lesson counts somebody missing, and is shaded', over && over.count >= 1 && /^heat-[1-4]$/.test(over.heat), JSON.stringify(over));
+    await page.click(`#grid td[data-key="${overKey}"]`);
+    await page.waitForTimeout(300);
+    const detail = await page.evaluate(() => {
+        const box = document.getElementById('detail');
+        return { open: box.classList.contains('open'), text: box.textContent.replace(/\s+/g, ' ').trim() };
+    });
     check('the panel opened', detail.open);
     check('it names the child', detail.text.includes('Прв Пробен'), detail.text);
     check('it names the therapist', detail.text.includes('Терапевт'), detail.text);
     check('and it says how much of the lesson they miss',
         new RegExp((aligned ? 40 : 25) + ' мин').test(detail.text), detail.text);
+    await page.keyboard.press('Escape');
+    await page.click('#viewClassWeek');
+    await page.waitForTimeout(500);
 
     console.log('\nnothing is quietly folded');
     // A child whose class the timetable does not know must be listed, not hidden.
@@ -227,7 +213,7 @@ const run = async () => {
     await page.screenshot({ path: 'nastava-page.png', fullPage: true });
     console.log('  →   screenshot at server/nastava-page.png');
 
-    console.log('\nthe teacher view marks off-staff staff while keeping their names visible');
+    console.log('\nthe overview marks off-staff staff while keeping their names visible');
     await ctx.route('**/api/teaching/crossing*', async (route) => {
         const response = await route.fetch();
         const json = await response.json();
@@ -245,7 +231,7 @@ const run = async () => {
     });
     await page.click('#refresh');
     await page.waitForTimeout(1000);
-    await page.click('#viewTeacher');
+    await page.click('#viewWeek');
     await page.waitForTimeout(600);
 
     const teacherHeaders = await page.evaluate(() => {
@@ -265,7 +251,7 @@ const run = async () => {
     check('a teacher who is on the list has no marker',
         onTeacher && onTeacher.badge === null, JSON.stringify(onTeacher));
 
-    console.log('\nthe teacher view lists the STAFF, not a reading of the timetable');
+    console.log('\nthe overview lists the STAFF, not a reading of the timetable');
     await ctx.unroute('**/api/teaching/crossing*');
     await ctx.route('**/api/teaching/crossing*', async (route) => {
         const response = await route.fetch();
@@ -287,7 +273,7 @@ const run = async () => {
     });
     await page.click('#refresh');
     await page.waitForTimeout(1000);
-    await page.click('#viewTeacher');
+    await page.click('#viewWeek');
     await page.waitForTimeout(600);
 
     const staffRows = await page.evaluate(() =>
@@ -328,13 +314,14 @@ const run = async () => {
         await route.fulfill({ json });
     });
 
+    // Every view is a week now, so changing views asks nothing: the refresh
+    // is what brings this invented week in.
     await page.click('#viewWeek');
+    await page.click('#refresh');
     await page.waitForTimeout(1000);
 
     check('the weekly view asks the server for every day at once',
         weekUrl && !/[?&]day=/.test(weekUrl), weekUrl);
-    check('the day picker is disabled while a whole week is shown',
-        await page.evaluate(() => document.getElementById('day').disabled));
 
     const dayHeads = await page.evaluate(() =>
         Array.from(document.querySelectorAll('#grid thead th.wk-day')).map((th) => th.textContent.trim()));
@@ -490,69 +477,52 @@ const run = async () => {
     await page.setViewportSize({ width: 1500, height: 1000 });
     await page.waitForTimeout(300);
 
-    console.log('\nизвестувањето по одделение е истиот одговор, во формата што се предава');
+    console.log('\nнеделата на паралелката: кое дете, во кој кабинет, на кој час');
     let noticeUrl = null;
     page.on('request', (r) => {
         if (r.url().includes('/api/teaching/crossing')) noticeUrl = r.url();
     });
-    // Through the daily view on purpose: week -> notice is the SAME request and
-    // must not refetch, so going straight there would prove nothing about the
-    // day parameter. Both halves are asserted.
-    await page.click('#viewClass');
-    await page.waitForTimeout(800);
-    check('the daily view asks for one day', /[?&]day=/.test(noticeUrl || ''), noticeUrl);
-    noticeUrl = null;
-    await page.click('#viewNotice');
-    await page.waitForTimeout(1000);
-
-    check('the notice sheet also asks for the whole week at once',
-        noticeUrl && !/[?&]day=/.test(noticeUrl), noticeUrl);
-
-    noticeUrl = null;
-    await page.click('#viewWeek');
+    await page.click('#viewClassWeek');
     await page.waitForTimeout(600);
-    check('switching between two week-wide views does not ask again',
-        noticeUrl === null, noticeUrl);
-    await page.click('#viewNotice');
-    await page.waitForTimeout(600);
-    check('the day picker stays disabled on the notice sheet',
-        await page.evaluate(() => document.getElementById('day').disabled));
-
-    const sheet = await page.evaluate(() => {
-        const s = Array.from(document.querySelectorAll('.notice'))
-            .find((n) => n.querySelector('h3').textContent.includes('ТЕСТ-Н'));
-        if (!s) return null;
-        return {
-            meta: s.querySelector('.meta').textContent.replace(/\s+/g, ' ').trim(),
-            rows: Array.from(s.querySelectorAll('tbody tr')).map((r) =>
-                Array.from(r.children).map((c) => c.textContent.replace(/\s+/g, ' ').trim()))
-        };
+    check('the overview and the class\'s week are one answer drawn twice, not a second request', noticeUrl === null, noticeUrl);
+    check('the class chooser appears with it', await page.isVisible('#klassField'));
+    const classSheets = () => page.evaluate(() => Array.from(document.querySelectorAll('#grid .personal')).map((s) => ({
+        title: s.querySelector('h3').textContent.trim(),
+        sub: s.querySelector('.p-sub').textContent,
+        days: Array.from(s.querySelectorAll('thead th')).map((th) => th.textContent.trim()),
+        rows: Array.from(s.querySelectorAll('tbody tr')).map((r) =>
+            Array.from(r.querySelectorAll('td')).map((td) => td.innerText.replace(/\s+/g, ' ').trim()))
+    })));
+    await page.selectOption('#klass', '');
+    await page.waitForTimeout(300);
+    checkEq('„Сите паралелки" is a sheet for each class that has lessons', (await classSheets()).map((s) => s.title),
+        ['Паралелка ТЕСТ-Н — неделен распоред']);
+    const [classSheet] = await classSheets();
+    checkEq('the week has the days the timetable uses, in the school\'s order', classSheet && classSheet.days,
+        ['Час', 'Понеделник', 'Среда', 'Петок']);
+    checkEq('Monday\'s first lesson names the lesson, its teacher, the child and the cabinet',
+        classSheet && classSheet.rows[0][0], 'мат Пробен Неделен ↳ Понеделник Дете Пробен Терапевт');
+    checkEq('and Friday\'s its own child', classSheet && classSheet.rows[0][2], 'мат Пробен Неделен ↳ Петок Дете Пробен Терапевт');
+    checkEq('a lesson nobody leaves carries no pull-out line', classSheet && classSheet.rows[1][1], 'мат Пробен Неделен');
+    check('the header counts the lessons, the pupils and the pull-outs',
+        classSheet && /3 часа неделно/.test(classSheet.sub) && /2 ученици/.test(classSheet.sub) && /2 излегувања/.test(classSheet.sub),
+        classSheet && classSheet.sub);
+    await page.emulateMedia({ media: 'print' });
+    const classPrinted = await page.evaluate(() => {
+        const s = document.querySelector('#grid .personal');
+        const hidden = (sel) => { const n = document.querySelector(sel); return !n || getComputedStyle(n).display === 'none'; };
+        return { page: getComputedStyle(s).page, png: hidden('#grid .personal .p-png'),
+            controls: hidden('.controls'), unplaced: hidden('#unplaced') };
     });
-    check('the class gets a sheet of its own', !!sheet, 'нема лист за ТЕСТ-Н');
-    check('one line per pull-out, both days', sheet && sheet.rows.length === 2,
-        JSON.stringify(sheet && sheet.rows));
-    // The whole point of the sheet: the teacher reads day, period, child, cabinet.
-    check('the line carries the day, the period, the child and the cabinet',
-        sheet && /Понеделник/.test(sheet.rows[0][0]) && /^1\. час/.test(sheet.rows[0][1])
-            && sheet.rows[0][2] === 'Понеделник Дете' && sheet.rows[0][4] === 'Пробен Терапевт',
-        JSON.stringify(sheet && sheet.rows[0]));
-    // Колку минути од часот трае третманот е анализа, не порака до одделението.
-    // Бројката е во мрежата и во картичката на лебдење; на листот нема место.
-    check('and NOT how many minutes of the lesson the treatment takes',
-        sheet && sheet.rows.every((r) => r.length === 5), JSON.stringify(sheet && sheet.rows[0]));
-    check('the days are in the school\'s own order, Monday before Friday',
-        sheet && /Петок/.test(sheet.rows[1][0]), JSON.stringify(sheet && sheet.rows[1]));
-    check('the sheet counts its own pupils and pull-outs',
-        sheet && /2 ученици/.test(sheet.meta) && /2 изземања/.test(sheet.meta), sheet && sheet.meta);
-
-    // A class with a lesson and nobody taken out must be NAMED as quiet. An
-    // absent class reads as a sheet that failed to print.
-    const quietLine = await page.evaluate(() => {
-        const p = document.querySelector('#grid p.quiet');
-        return p ? p.textContent : '';
-    });
-    check('classes with no pull-outs are named rather than left out',
-        /Без изземања/.test(quietLine) || quietLine === '', quietLine);
+    await page.emulateMedia({ media: 'screen' });
+    checkEq('printed, the class gets its own landscape page, with only the sheet on it', classPrinted,
+        { page: 'personal', png: true, controls: true, unplaced: true });
+    const [classPng] = await Promise.all([
+        page.waitForEvent('download', { timeout: 5000 }).catch(() => null),
+        page.click('#grid .personal [data-png-class]')
+    ]);
+    check('„🖼 Слика" gives the class\'s sheet as a picture',
+        classPng && classPng.suggestedFilename() === 'Paralelka-ТЕСТ-Н.png', classPng ? classPng.suggestedFilename() : 'нема преземање');
 
     console.log('\nличниот распоред: истиот одговор, по наставник, по еден лист');
     // Owner, 25 Sep 2026: the forms' picture, per teacher, with who leaves
@@ -606,10 +576,8 @@ const run = async () => {
         download && download.suggestedFilename() === 'Licen-raspored-Пробен-Неделен.png',
         download ? download.suggestedFilename() : 'нема преземање');
 
-    await page.click('#viewClass');
+    await page.click('#viewWeek');
     await page.waitForTimeout(800);
-    check('leaving the sheet re-enables the day picker',
-        await page.evaluate(() => !document.getElementById('day').disabled));
 
     console.log('\nќелиите можат да го испишат кој кого зема');
     check('by default a cell shows a count, not a list',
@@ -683,45 +651,6 @@ const run = async () => {
     check('no page errors in the cabinet schedule', fusionErrors.length === 0, fusionErrors.join('\n       '));
     await fusion.close();
 
-    console.log('\nден по ден — истата недела, читана надолу');
-    let askedForDays = null;
-    page.on('request', (r) => { if (r.url().includes('/api/teaching/crossing')) askedForDays = r.url(); });
-    await page.click('#viewWeek');
-    await page.waitForTimeout(800);
-    askedForDays = null;
-    await page.click('#viewDays');
-    await page.waitForSelector('.dayblock');
-    check('week ↔ ден по ден is the same answer drawn twice, not a second request',
-        askedForDays === null, String(askedForDays));
-
-    const dayBlocks = await page.evaluate(() => Array.from(document.querySelectorAll('.dayblock')).map((b) => ({
-        day: b.querySelector('h3').firstChild.textContent.trim(),
-        grids: b.querySelectorAll('table.grid').length,
-        key: (b.querySelector('td.cell.clickable') || {}).dataset?.key || null
-    })));
-    check('one block per day, in the school\'s own order and not alphabetical',
-        dayBlocks.length > 0 && dayBlocks[0].day.toLowerCase().startsWith('пон'), JSON.stringify(dayBlocks.map((d) => d.day)));
-    check('each block carries its own grid', dayBlocks.every((d) => d.grids === 1));
-    // The risk this guards is the one the weekly grid already paid for: the
-    // same class and period exist five times, so a key without the day opens
-    // Monday's lesson from a Wednesday cell and looks entirely plausible.
-    check('every cell key carries the day of its own block',
-        dayBlocks.filter((d) => d.key).every((d) => d.key.startsWith(d.day.toLowerCase() + '|')),
-        JSON.stringify(dayBlocks.map((d) => d.key)));
-
-    const withKey = dayBlocks.find((d) => d.key);
-    if (withKey) {
-        await page.click(`#grid td[data-key="${withKey.key}"]`);
-        await page.waitForTimeout(300);
-        const head = await page.evaluate(() => document.querySelector('#detail h3')?.textContent || '');
-        check('and the panel names WHICH day it is describing',
-            head.toLowerCase().includes(withKey.day.toLowerCase()), head);
-    }
-    check('the day picker is disabled here too, because a day cannot be chosen for a week',
-        await page.evaluate(() => document.getElementById('day').disabled));
-    await page.click('#viewClass');
-    await page.waitForTimeout(800);
-
     console.log('\nthe tab is honest when the server is gone');
     await ctx.route('**/api/teaching/**', (r) => r.abort());
     await page.click('#refresh');
@@ -742,4 +671,5 @@ const run = async () => {
     process.exit(fails ? 1 : 0);
 };
 
-run().catch(async (e) => { console.error(e); await pool.end().catch(() => {}); process.exit(1); });
+// A crash after the seed must not leave the invented pupils in the real year.
+run().catch(async (e) => { console.error(e); await cleanup().catch(() => {}); await pool.end().catch(() => {}); process.exit(1); });

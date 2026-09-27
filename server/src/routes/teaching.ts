@@ -110,6 +110,237 @@ export async function subjectOffer(year: { id: number; label: string }, label: s
     };
 }
 
+/**
+ * For each class and teaching period: what is on, and who is not there — the
+ * crossing of the therapy schedule with the teaching timetable. ONE copy, for
+ * `/api/teaching/crossing` and for a colleague's week on Kolega
+ * (routes/portal.ts), so the two can never disagree about the same child.
+ */
+export async function crossingOf(year: { id: number; label: string; is_current?: boolean }, day: string | null, minShare = 0.5) {
+    const [teachBells, cabinetBells] = await Promise.all([
+        bellsOf('nastava-am', year.id), bellsOf('kabinet', year.id)
+    ]);
+
+    const { rows: lessonRows } = await pool.query(
+        `SELECT l.day, l.day_order, l.ordinal, c.label AS class, l.subject, t.name AS teacher,
+                (t.id IS NULL OR ty.teacher_id IS NOT NULL) AS teacher_on_staff
+         FROM lessons l
+         JOIN school_classes c ON c.id = l.class_id
+         LEFT JOIN teachers t  ON t.id = l.teacher_id
+         LEFT JOIN teacher_years ty
+                ON ty.teacher_id = t.id AND ty.school_year_id = $2 AND ty.active
+         WHERE l.school_year_id = $2
+           AND ($1::text IS NULL OR l.day = $1)
+         ORDER BY l.day_order, l.ordinal, c.sort_key`,
+        [day, year.id]
+    );
+
+    // Everyone on the year's staff list, including whoever has no lesson
+    // yet. „По наставник" is a list of the STAFF, not a reading of the
+    // timetable: a teacher Podatoci shows and this page does not reads as
+    // data loss, and it WAS — the two screens disagreed by everybody who
+    // had not been given a lesson.
+    const { rows: staffRows } = await pool.query(
+        // `subject` is what the teacher teaches: Личен распоред offers it
+        // first when a lesson is typed in there (owner, 27 Sep 2026).
+        // `homeroom`: an одделенски наставник's own class is fixed there,
+        // and only the subject is picked.
+        `SELECT t.id, t.name, t.kind, t.subject,
+                (SELECT min(c.label) FROM teacher_classes tc JOIN school_classes c ON c.id = tc.class_id
+                  WHERE tc.teacher_id = t.id AND tc.school_year_id = $1 AND tc.role = 'homeroom') AS homeroom,
+                -- every паралелка of theirs this year: a предметен picks only among these
+                coalesce((SELECT json_agg(c.label ORDER BY c.sort_key, c.label) FROM teacher_classes tc
+                           JOIN school_classes c ON c.id = tc.class_id
+                          WHERE tc.teacher_id = t.id AND tc.school_year_id = $1), '[]') AS classes
+           FROM teachers t
+           JOIN teacher_years ty
+             ON ty.teacher_id = t.id AND ty.school_year_id = $1 AND ty.active
+          ORDER BY t.kind, t.name`,
+        [year.id]
+    );
+
+    // And the same for classes, for the same reason and against the same
+    // failure. „По одделение" was built from the LESSONS, so a class with
+    // no lesson yet did not exist on this page — and the morning a year's
+    // invalid timetable is thrown away to be retyped, every class vanishes
+    // at once while sitting active in the database. That reads as data
+    // loss on the one week it is guaranteed to happen.
+    const { rows: classRows } = await pool.query(
+        `SELECT c.id, c.label, cy.description, cy.alias FROM class_years cy
+           JOIN school_classes c ON c.id = cy.class_id
+          WHERE cy.school_year_id = $1 AND cy.active
+          ORDER BY c.sort_key, c.label`,
+        [year.id]
+    );
+
+    // Every therapy session, with the class its student is recorded in.
+    const { rows: sessionRows } = await pool.query(
+        `SELECT sl.day, sl.day_order, sl.time_slot, th.name AS therapist,
+                st.name AS student, st.public_id AS student_public_id,
+                coalesce(e.grade, '') AS grade,
+                coalesce(e.kind, 'internal') AS kind
+         FROM schedule_slots sl
+         JOIN therapists th ON th.id = sl.therapist_id
+         JOIN therapist_years thy
+              ON thy.therapist_id = th.id AND thy.school_year_id = sl.school_year_id AND thy.active
+         JOIN students   st ON st.id = sl.student_id
+         JOIN student_enrollments e
+              ON e.student_id = st.id AND e.school_year_id = sl.school_year_id AND e.active
+         WHERE sl.school_year_id = $2
+           AND st.active
+           AND sl.student_id IS NOT NULL
+           AND ($1::text IS NULL OR sl.day = $1)
+         ORDER BY sl.day_order, sl.time_slot`,
+        [day, year.id]
+    );
+
+    const known = new Set(lessonRows.map((r: any) => normalizeClassLabel(r.class)));
+    // The year's own class list, which is a DIFFERENT question from what the
+    // timetable names — and telling the two apart is the whole difference
+    // between a message somebody can act on and a dead end. „II-а is not in
+    // the timetable" reads as a fault in the pupil's record when in fact the
+    // class is formed, on the list, and simply has no lessons typed in yet.
+    const onTheList = new Set(classRows.map((r: any) => normalizeClassLabel(r.label)));
+
+    // `slots` carries the RAW time_slot strings this session was assembled
+    // from. A caller that draws the cabinet's own week — RasporediFusion —
+    // holds exactly those strings and can therefore say "at THIS term the
+    // child is in that lesson" by string equality, with no second copy of
+    // the overlap arithmetic and no matching on a name: two pupils really
+    // do share one (rule 2), which is why the public id travels too.
+    type Absence = {
+        therapist: string; student: string; studentPublicId: string;
+        minutes: number; slots: string[];
+    };
+    const absences = new Map<string, Map<string, Absence>>();   // day|ordinal|class -> student|therapist
+    const unplaced: any[] = [];
+    // An external pupil without a local class may attend therapy only.
+    // Keep that case apart from missing internal class assignments, without
+    // inferring that every external pupil attends no local teaching.
+    const external: any[] = [];
+
+    // The schedule stores one row per twenty-minute half, so the rows are
+    // gathered into the sessions they actually are before any arithmetic.
+    // Doing it the other way round splits one session across two lessons
+    // and understates both — see mergeAdjacent.
+    const bySession = new Map<string, { row: any; spans: Bell[]; slots: string[] }>();
+    for (const s of sessionRows) {
+        const span = slotBell(s.time_slot);
+        if (!span) {
+            unplaced.push({ ...s, reasonCode: 'unreadable-slot', reason: `the term "${s.time_slot}" does not name a time range` });
+            continue;
+        }
+        const key = `${s.day}|${s.therapist}|${s.student_public_id}`;
+        if (!bySession.has(key)) bySession.set(key, { row: s, spans: [], slots: [] });
+        bySession.get(key)!.spans.push(span);
+        bySession.get(key)!.slots.push(s.time_slot);
+    }
+
+    for (const { row: s, spans, slots } of bySession.values()) {
+        const label = normalizeClassLabel(s.grade);
+        if (!label) {
+            // The class decides placement; the kind only decides how a
+            // MISSING class is reported. So correcting somebody's kind can
+            // never change a number that was already right.
+            if (s.kind === 'external') {
+                external.push({ ...s, reasonCode: 'external', reason: 'the external student has no local class or group recorded' });
+            } else {
+                unplaced.push({ ...s, reasonCode: 'no-class', reason: 'the student has no class recorded' });
+            }
+            continue;
+        }
+        if (!known.has(label)) {
+            // Two different jobs for a person, so two different answers.
+            // NOTE what is deliberately NOT offered here: the nearest other
+            // label. „II-б" is one letter from „II-а" and is a different
+            // room with different children — for a NAME a near match is a
+            // typo worth showing, for a class it is an invitation to put a
+            // child somewhere they have never been (rule 2).
+            unplaced.push(onTheList.has(label)
+                ? { ...s, reasonCode: 'class-not-timetabled',
+                    reason: `class "${s.grade}" is on this year's list but has no lessons yet` }
+                : { ...s, reasonCode: 'unknown-class',
+                    reason: `class "${s.grade}" is neither timetabled nor on this year's class list` });
+            continue;
+        }
+
+        let placed = 0;
+        for (const session of mergeAdjacent(spans)) {
+            for (const hit of disruptedBy(session, teachBells, minShare)) {
+                placed++;
+                const key = `${s.day}|${hit.ordinal}|${label}`;
+                if (!absences.has(key)) absences.set(key, new Map());
+                const seat = absences.get(key)!;
+                // Two separate sessions can still touch one lesson. One
+                // child out of one lesson is ONE absence; keep the longer.
+                // By public id, not by name: two pupils share one name in
+                // this school, and keyed by name the second one would be
+                // dropped from the lesson they are genuinely out of.
+                const who = `${s.student_public_id}|${s.therapist}`;
+                const before = seat.get(who);
+                if (!before || before.minutes < hit.minutes) {
+                    seat.set(who, {
+                        therapist: s.therapist, student: s.student,
+                        studentPublicId: s.student_public_id,
+                        minutes: hit.minutes, slots
+                    });
+                }
+            }
+        }
+        if (!placed) {
+            unplaced.push({ ...s, reasonCode: 'outside-teaching', reason: `the term "${s.time_slot}" falls outside the teaching day` });
+        }
+    }
+
+    const cells = lessonRows.map((r: any) => {
+        const label = normalizeClassLabel(r.class);
+        const away = Array.from((absences.get(`${r.day}|${r.ordinal}|${label}`) || new Map()).values())
+            .sort((a, b) => a.student.localeCompare(b.student, 'mk'));
+        return {
+            day: r.day,
+            dayOrder: r.day_order,
+            ordinal: r.ordinal,
+            class: r.class,
+            subject: r.subject,
+            teacher: r.teacher,
+            teacherOnStaff: r.teacher_on_staff !== false,
+            away,
+            awayCount: away.length
+        };
+    });
+
+    // Same session, seen from the cabinet: which lessons it costs.
+    const blocks = cabinetBells.map((b) => ({
+        ...b,
+        covers: overlapsFor(b, teachBells).map((o) => ({ ordinal: o.ordinal, minutes: o.minutes, share: o.share }))
+    }));
+
+    return {
+        year: year.label,
+        isCurrentYear: year.is_current,
+        day,
+        minShare,
+        bells: { teaching: teachBells, cabinet: blocks },
+        teachers: staffRows,
+        classes: classRows,
+        cells,
+        unplaced,
+        external,
+        summary: {
+            // Sessions, not rows: two halves of one term are one session.
+            sessions: bySession.size,
+            placed: bySession.size - unplaced.length - external.length,
+            unplaced: unplaced.length,
+            external: external.length,
+            // Distinct children out of a lesson, not rows: the same child
+            // in both halves of one term is one absence.
+            absences: cells.reduce((n, c) => n + c.awayCount, 0),
+            lessonsDisrupted: cells.filter((c) => c.awayCount > 0).length,
+            offStaffLessons: cells.filter((c) => !c.teacherOnStaff).length
+        }
+    };
+}
+
 export async function teachingRoutes(server: FastifyInstance) {
 
     server.get('/api/teaching/timetable', async (req, reply) => {
@@ -223,229 +454,7 @@ export async function teachingRoutes(server: FastifyInstance) {
         if (!year) {
             return reply.code(404).send({ error: `no such school year: ${q.year}` });
         }
-
-        const [teachBells, cabinetBells] = await Promise.all([
-            bellsOf('nastava-am', year.id), bellsOf('kabinet', year.id)
-        ]);
-
-        const { rows: lessonRows } = await pool.query(
-            `SELECT l.day, l.day_order, l.ordinal, c.label AS class, l.subject, t.name AS teacher,
-                    (t.id IS NULL OR ty.teacher_id IS NOT NULL) AS teacher_on_staff
-             FROM lessons l
-             JOIN school_classes c ON c.id = l.class_id
-             LEFT JOIN teachers t  ON t.id = l.teacher_id
-             LEFT JOIN teacher_years ty
-                    ON ty.teacher_id = t.id AND ty.school_year_id = $2 AND ty.active
-             WHERE l.school_year_id = $2
-               AND ($1::text IS NULL OR l.day = $1)
-             ORDER BY l.day_order, l.ordinal, c.sort_key`,
-            [q.day ?? null, year.id]
-        );
-
-        // Everyone on the year's staff list, including whoever has no lesson
-        // yet. „По наставник" is a list of the STAFF, not a reading of the
-        // timetable: a teacher Podatoci shows and this page does not reads as
-        // data loss, and it WAS — the two screens disagreed by everybody who
-        // had not been given a lesson.
-        const { rows: staffRows } = await pool.query(
-            // `subject` is what the teacher teaches: Личен распоред offers it
-            // first when a lesson is typed in there (owner, 27 Sep 2026).
-            // `homeroom`: an одделенски наставник's own class is fixed there,
-            // and only the subject is picked.
-            `SELECT t.id, t.name, t.kind, t.subject,
-                    (SELECT min(c.label) FROM teacher_classes tc JOIN school_classes c ON c.id = tc.class_id
-                      WHERE tc.teacher_id = t.id AND tc.school_year_id = $1 AND tc.role = 'homeroom') AS homeroom,
-                    -- every паралелка of theirs this year: a предметен picks only among these
-                    coalesce((SELECT json_agg(c.label ORDER BY c.sort_key, c.label) FROM teacher_classes tc
-                               JOIN school_classes c ON c.id = tc.class_id
-                              WHERE tc.teacher_id = t.id AND tc.school_year_id = $1), '[]') AS classes
-               FROM teachers t
-               JOIN teacher_years ty
-                 ON ty.teacher_id = t.id AND ty.school_year_id = $1 AND ty.active
-              ORDER BY t.kind, t.name`,
-            [year.id]
-        );
-
-        // And the same for classes, for the same reason and against the same
-        // failure. „По одделение" was built from the LESSONS, so a class with
-        // no lesson yet did not exist on this page — and the morning a year's
-        // invalid timetable is thrown away to be retyped, every class vanishes
-        // at once while sitting active in the database. That reads as data
-        // loss on the one week it is guaranteed to happen.
-        const { rows: classRows } = await pool.query(
-            `SELECT c.id, c.label, cy.description, cy.alias FROM class_years cy
-               JOIN school_classes c ON c.id = cy.class_id
-              WHERE cy.school_year_id = $1 AND cy.active
-              ORDER BY c.sort_key, c.label`,
-            [year.id]
-        );
-
-        // Every therapy session, with the class its student is recorded in.
-        const { rows: sessionRows } = await pool.query(
-            `SELECT sl.day, sl.day_order, sl.time_slot, th.name AS therapist,
-                    st.name AS student, st.public_id AS student_public_id,
-                    coalesce(e.grade, '') AS grade,
-                    coalesce(e.kind, 'internal') AS kind
-             FROM schedule_slots sl
-             JOIN therapists th ON th.id = sl.therapist_id
-             JOIN therapist_years thy
-                  ON thy.therapist_id = th.id AND thy.school_year_id = sl.school_year_id AND thy.active
-             JOIN students   st ON st.id = sl.student_id
-             JOIN student_enrollments e
-                  ON e.student_id = st.id AND e.school_year_id = sl.school_year_id AND e.active
-             WHERE sl.school_year_id = $2
-               AND st.active
-               AND sl.student_id IS NOT NULL
-               AND ($1::text IS NULL OR sl.day = $1)
-             ORDER BY sl.day_order, sl.time_slot`,
-            [q.day ?? null, year.id]
-        );
-
-        const known = new Set(lessonRows.map((r: any) => normalizeClassLabel(r.class)));
-        // The year's own class list, which is a DIFFERENT question from what the
-        // timetable names — and telling the two apart is the whole difference
-        // between a message somebody can act on and a dead end. „II-а is not in
-        // the timetable" reads as a fault in the pupil's record when in fact the
-        // class is formed, on the list, and simply has no lessons typed in yet.
-        const onTheList = new Set(classRows.map((r: any) => normalizeClassLabel(r.label)));
-
-        // `slots` carries the RAW time_slot strings this session was assembled
-        // from. A caller that draws the cabinet's own week — RasporediFusion —
-        // holds exactly those strings and can therefore say "at THIS term the
-        // child is in that lesson" by string equality, with no second copy of
-        // the overlap arithmetic and no matching on a name: two pupils really
-        // do share one (rule 2), which is why the public id travels too.
-        type Absence = {
-            therapist: string; student: string; studentPublicId: string;
-            minutes: number; slots: string[];
-        };
-        const absences = new Map<string, Map<string, Absence>>();   // day|ordinal|class -> student|therapist
-        const unplaced: any[] = [];
-        // An external pupil without a local class may attend therapy only.
-        // Keep that case apart from missing internal class assignments, without
-        // inferring that every external pupil attends no local teaching.
-        const external: any[] = [];
-
-        // The schedule stores one row per twenty-minute half, so the rows are
-        // gathered into the sessions they actually are before any arithmetic.
-        // Doing it the other way round splits one session across two lessons
-        // and understates both — see mergeAdjacent.
-        const bySession = new Map<string, { row: any; spans: Bell[]; slots: string[] }>();
-        for (const s of sessionRows) {
-            const span = slotBell(s.time_slot);
-            if (!span) {
-                unplaced.push({ ...s, reasonCode: 'unreadable-slot', reason: `the term "${s.time_slot}" does not name a time range` });
-                continue;
-            }
-            const key = `${s.day}|${s.therapist}|${s.student_public_id}`;
-            if (!bySession.has(key)) bySession.set(key, { row: s, spans: [], slots: [] });
-            bySession.get(key)!.spans.push(span);
-            bySession.get(key)!.slots.push(s.time_slot);
-        }
-
-        for (const { row: s, spans, slots } of bySession.values()) {
-            const label = normalizeClassLabel(s.grade);
-            if (!label) {
-                // The class decides placement; the kind only decides how a
-                // MISSING class is reported. So correcting somebody's kind can
-                // never change a number that was already right.
-                if (s.kind === 'external') {
-                    external.push({ ...s, reasonCode: 'external', reason: 'the external student has no local class or group recorded' });
-                } else {
-                    unplaced.push({ ...s, reasonCode: 'no-class', reason: 'the student has no class recorded' });
-                }
-                continue;
-            }
-            if (!known.has(label)) {
-                // Two different jobs for a person, so two different answers.
-                // NOTE what is deliberately NOT offered here: the nearest other
-                // label. „II-б" is one letter from „II-а" and is a different
-                // room with different children — for a NAME a near match is a
-                // typo worth showing, for a class it is an invitation to put a
-                // child somewhere they have never been (rule 2).
-                unplaced.push(onTheList.has(label)
-                    ? { ...s, reasonCode: 'class-not-timetabled',
-                        reason: `class "${s.grade}" is on this year's list but has no lessons yet` }
-                    : { ...s, reasonCode: 'unknown-class',
-                        reason: `class "${s.grade}" is neither timetabled nor on this year's class list` });
-                continue;
-            }
-
-            let placed = 0;
-            for (const session of mergeAdjacent(spans)) {
-                for (const hit of disruptedBy(session, teachBells, minShare)) {
-                    placed++;
-                    const key = `${s.day}|${hit.ordinal}|${label}`;
-                    if (!absences.has(key)) absences.set(key, new Map());
-                    const seat = absences.get(key)!;
-                    // Two separate sessions can still touch one lesson. One
-                    // child out of one lesson is ONE absence; keep the longer.
-                    // By public id, not by name: two pupils share one name in
-                    // this school, and keyed by name the second one would be
-                    // dropped from the lesson they are genuinely out of.
-                    const who = `${s.student_public_id}|${s.therapist}`;
-                    const before = seat.get(who);
-                    if (!before || before.minutes < hit.minutes) {
-                        seat.set(who, {
-                            therapist: s.therapist, student: s.student,
-                            studentPublicId: s.student_public_id,
-                            minutes: hit.minutes, slots
-                        });
-                    }
-                }
-            }
-            if (!placed) {
-                unplaced.push({ ...s, reasonCode: 'outside-teaching', reason: `the term "${s.time_slot}" falls outside the teaching day` });
-            }
-        }
-
-        const cells = lessonRows.map((r: any) => {
-            const label = normalizeClassLabel(r.class);
-            const away = Array.from((absences.get(`${r.day}|${r.ordinal}|${label}`) || new Map()).values())
-                .sort((a, b) => a.student.localeCompare(b.student, 'mk'));
-            return {
-                day: r.day,
-                dayOrder: r.day_order,
-                ordinal: r.ordinal,
-                class: r.class,
-                subject: r.subject,
-                teacher: r.teacher,
-                teacherOnStaff: r.teacher_on_staff !== false,
-                away,
-                awayCount: away.length
-            };
-        });
-
-        // Same session, seen from the cabinet: which lessons it costs.
-        const blocks = cabinetBells.map((b) => ({
-            ...b,
-            covers: overlapsFor(b, teachBells).map((o) => ({ ordinal: o.ordinal, minutes: o.minutes, share: o.share }))
-        }));
-
-        return {
-            year: year.label,
-            isCurrentYear: year.is_current,
-            day: q.day ?? null,
-            minShare,
-            bells: { teaching: teachBells, cabinet: blocks },
-            teachers: staffRows,
-            classes: classRows,
-            cells,
-            unplaced,
-            external,
-            summary: {
-                // Sessions, not rows: two halves of one term are one session.
-                sessions: bySession.size,
-                placed: bySession.size - unplaced.length - external.length,
-                unplaced: unplaced.length,
-                external: external.length,
-                // Distinct children out of a lesson, not rows: the same child
-                // in both halves of one term is one absence.
-                absences: cells.reduce((n, c) => n + c.awayCount, 0),
-                lessonsDisrupted: cells.filter((c) => c.awayCount > 0).length,
-                offStaffLessons: cells.filter((c) => !c.teacherOnStaff).length
-            }
-        };
+        return crossingOf(year, q.day ?? null, minShare);
     });
 
 }

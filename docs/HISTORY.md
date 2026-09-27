@@ -4140,3 +4140,23 @@ the week in Личен распоред's look, prints it alone (A4 landscape) a
 as a PNG with a copy of `paintGrid` — the page loads nothing but itself. It is
 drawn from the week the portal already sends, so it cannot show a colleague
 anything the day view did not.
+
+## Настава ↔ терапии: seven views became three (27 Sep 2026)
+
+The owner could not tell what „По кабинет" and „Ден по ден" were for, and
+suspected repetition. He was right: every view on the page was the one
+crossing (which therapy session lands in which lesson, `lib/crossing.ts`)
+drawn again — a day at a time („По одделение", „По наставник"), the same
+five times („Ден по ден"), a list without the week („Известувања"), and the
+cabinet's side without the class („По кабинет"). What a class actually needs
+is its week with, under each lesson, which child leaves for which cabinet and
+when; that is „🏫 Паралелка · недела", with „Сите паралелки" printing one
+sheet per class — the notice that is handed over. The teacher's week and the
+administrator's overview stay. The day chooser went with the single-day
+views, so every view is one request for the whole week.
+
+Kolega shows the same answer to a colleague for their own classes — the
+classes they teach or lead, the same set whose children's names they may see
+— as `classAway` on `/api/portal/week`, never with a pupil id. The crossing's
+arithmetic moved out of the route into `crossingOf` (routes/teaching.ts) so
+the two cannot disagree about the same child.

@@ -23,7 +23,7 @@ import {
     addNotices, classLessonClashes, myLessonClashes, noticeSentence, putLesson, putTeacherLesson,
     standingClashes, yearClasses, yearLessons, yearTeachers, type Clash, type WeekLesson
 } from '../lib/portal-week.js';
-import { bellsOf, subjectOffer } from './teaching.js';
+import { bellsOf, crossingOf, subjectOffer } from './teaching.js';
 import { blockTimes, semanticBlock, writeBlock } from './schedule-write.js';
 import { minutesOf, timeOf } from '../lib/crossing.js';
 import { defaultMonth, isIsoDate, loadDuty, monthBounds, monthPayload, todayInSkopje, windowPayload } from '../lib/duty.js';
@@ -305,11 +305,33 @@ async function noticeOpen(n: any, lessons: WeekLesson[], teacherId: number | nul
 }
 
 /** The children of the classes a teacher teaches or leads, by class — and no other class. */
-async function ownClassPupils(yearId: number, lessons: WeekLesson[], teacherId: number | null, linked: string[]) {
-    const own = [...new Set([
+/** The classes a teacher teaches or leads: whose children, and whose crossing, they may see. */
+function ownClassLabels(lessons: WeekLesson[], teacherId: number | null, linked: string[]) {
+    return [...new Set([
         ...lessons.filter((l) => teacherId != null && l.teacherId === teacherId).map((l) => l.class),
         ...linked
     ])];
+}
+
+/**
+ * Who leaves which lesson of one's OWN classes, for which cabinet and when
+ * (owner, 27 Sep 2026: „неделен распоред кој кабинет кое дете го зема на кој
+ * час" — the sheet a class needs). The same crossing Настава reads
+ * (`crossingOf`), cut to the classes this teacher teaches or leads, and
+ * without pupil ids: the door on the internet never carries one.
+ */
+async function classAwayOf(year: { id: number; label: string }, own: string[]) {
+    if (!own.length) return [];
+    const mine = new Set(own);
+    const crossing = await crossingOf(year, null);
+    return crossing.cells.filter((c: any) => mine.has(c.class) && c.awayCount).map((c: any) => ({
+        day: c.day, ordinal: c.ordinal, class: c.class,
+        away: c.away.map((a: any) => ({ student: a.student, therapist: a.therapist, slots: a.slots }))
+    }));
+}
+
+async function ownClassPupils(yearId: number, lessons: WeekLesson[], teacherId: number | null, linked: string[]) {
+    const own = ownClassLabels(lessons, teacherId, linked);
     if (!own.length) return {};
     const { rows } = await pool.query(
         `SELECT e.grade AS class, s.name, e.oddelenie
@@ -538,6 +560,8 @@ export async function portalRoutes(server: FastifyInstance, options: { year?: st
             lessons,
             classPupils: teaching ? await ownClassPupils(who.year.id, lessons, who.staff.teacherId,
                 (role.teacher?.classes || []).map((c: any) => c.label)) : {},
+            classAway: teaching ? await classAwayOf(who.year, ownClassLabels(lessons, who.staff.teacherId,
+                (role.teacher?.classes || []).map((c: any) => c.label))) : [],
             clashes: teaching ? standingClashes(lessons, who.staff.teacherId, homeroom) : [],
             cabinet: await cabinetWeek(who.staff, who.year),
             notices: await noticesFor(who.staff, who.year.id, lessons)

@@ -232,6 +232,27 @@ async function main() {
         check('the week says what kind of teacher, and which паралелки are theirs', mine?.kind === 'pred' && (mine?.classes || []).includes(OTHER),
             JSON.stringify(mine));
         check('a therapist has no subjects to tick', (await call('PUT', '/api/portal/my-subject', tr, { subject: 'Физика', on: true })).status === 403);
+
+        // Owner, 27 Sep 2026: the class's week says which cabinet takes which
+        // child out of which lesson — for one's own classes only, as the names.
+        console.log('\nwho leaves one\'s own class\'s lessons, for which cabinet');
+        const [bell] = await q(`SELECT to_char(starts_at, 'HH24:MI') AS at FROM bell_periods WHERE schedule = 'nastava-am' AND ordinal = 2`);
+        const [h2, m2] = String(bell.at).split(':').map(Number);
+        const end = `${String(h2 + Math.floor((m2 + 40) / 60)).padStart(2, '0')}:${String((m2 + 40) % 60).padStart(2, '0')}`;
+        const [kid] = await q(`SELECT id FROM students WHERE public_id = $1`, [KIDS[0].id]);
+        const [cabinet] = await q(`SELECT id FROM therapists WHERE name = $1`, [R]);
+        await q(`INSERT INTO schedule_slots (school_year_id, day, day_order, time_slot, therapist_id, student_id)
+                 VALUES ($1, $2, 1, $3, $4, $5)`, [y.id, DAY, `${bell.at}-${end}`, cabinet.id, kid.id]);
+        const awayA = (await call('GET', '/api/portal/week', ta)).body?.classAway || [];
+        const here = awayA.find((x: any) => x.day === DAY && x.ordinal === 2 && x.class === CLASS);
+        check('the teacher of that class sees the child, the cabinet and the time',
+            Boolean(here) && here.away.some((a: any) => a.student === KIDS[0].name && a.therapist === R && a.slots.length === 1),
+            JSON.stringify(awayA));
+        check('and never the pupil\'s id', !JSON.stringify(awayA).includes('portal-week-'));
+        // Every teacher in this fixture has been put in that class by now; the
+        // therapist teaches none, so their week carries no class's crossing.
+        const awayR = (await call('GET', '/api/portal/week', tr)).body?.classAway;
+        check('somebody who teaches no class sees none of it', Array.isArray(awayR) && awayR.length === 0, JSON.stringify(awayR));
         check('and without a sign-in, nothing is ticked', (await call('PUT', '/api/portal/my-subject', '', { subject: 'Физика', on: true })).status === 401);
     } finally {
         await app.close();

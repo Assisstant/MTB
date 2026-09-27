@@ -32,7 +32,16 @@ but it must not present parallel versions of the same task.
   `.panel`/`.card` headed by its first child folds on ▾. It stores layout only,
   per browser, after a click. A new screen gets it by having the bar; it does
   not build its own sticky header or fold.
-- „👤 Личен распоред" in `Nastava.html` is a sheet to hand out and, only while
+- `Nastava.html` has three views since 27 September 2026 (owner), each a week:
+  „🏫 Паралелка · недела" (a class's lessons and, under each, which child
+  leaves it for which cabinet and when — the sheet handed to the class),
+  „👤 Наставник · недела" and „📊 Преглед · недела" (the count and heat for
+  the administrator). „По одделение", „По наставник", „Ден по ден",
+  „Известувања" and „По кабинет" were the same crossing cut smaller and are
+  gone; an old `?view=` lands on what replaced it. Kolega's week carries the
+  same crossing (`classAway`) for the colleague's own classes only, without
+  pupil ids, from the one `crossingOf` the route also uses.
+- „👤 Наставник · недела" in `Nastava.html` is a sheet to hand out and, only while
   „✏️ Уреди“ is on, also a way in: each period is a class picker, then a
   subject picker, written through `PUT /api/teaching/teacher-lesson` with
   `expected` — the route Уреди настава's teacher week already uses. Off, the

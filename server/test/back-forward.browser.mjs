@@ -139,12 +139,13 @@ const param = (page, key) => page.evaluate((k) => new URLSearchParams(location.s
     await page.waitForSelector('#viewWeek', { timeout: 8000 });
     await page.waitForTimeout(400);
     const pressed = () => page.evaluate(() => [...document.querySelectorAll('[id^="view"][aria-pressed="true"]')].map((b) => b.id).join(','));
+    // Three views since 27 Sep 2026: the class's week, the teacher's, the overview.
     await page.click('#viewWeek');
-    await page.click('#viewNotice');
+    await page.click('#viewPersonal');
     await page.goBack(); await settle(page);
     check('Back returns to the week', await pressed() === 'viewWeek', await pressed());
     await page.goBack(); await settle(page);
-    check('and to the class view', await pressed() === 'viewClass', await pressed());
+    check('and to the week of the class', await pressed() === 'viewClassWeek', await pressed());
     await page.reload();
     await page.waitForTimeout(600);
     await page.goForward(); await settle(page);
