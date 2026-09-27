@@ -29,6 +29,7 @@ import { creditLookRoutes } from './routes/credit-look.js';
 import { bookmarkRoutes } from './routes/bookmarks.js';
 import { resolveServerIdentity } from './lib/server-identity.js';
 import { authorName, creditLook, lookCss } from './lib/author.js';
+import { updateStatus } from './lib/update-status.js';
 import { installColleagueBoundary } from './lib/colleague.js';
 import { installMirrorWriteBoundary } from './lib/mirror-boundary.js';
 import { installPublicStatic } from './lib/public-static.js';
@@ -166,6 +167,12 @@ server.get('/api/health', async () => {
         // installation's .env, never from the code: this repository is public
         // and check:names refuses every real name in it, the author's included.
         ...(AUTHOR ? { author: AUTHOR, authorLook: lookCss(await creditLook()) } : {}),
+        // Only when something waits: the screens then say so before anyone
+        // works on an installation that is behind (lib/update-status.ts).
+        ...(await (async () => {
+            const update = await updateStatus(path.resolve(__dirname, '..', '..'));
+            return update.pendingMigrations || update.behind ? { update } : {};
+        })()),
         ...(cloudAuthMode() === 'google' ? { cloudAuth: 'google' } : {}),
         ...(mirror ? { mirror } : {}),
         ...(warnings.length ? { warning: warnings.join('; ') } : {})

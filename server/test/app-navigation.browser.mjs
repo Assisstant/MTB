@@ -473,6 +473,44 @@ check('„Почетен изглед" puts the defaults back in the preview, un
     await lookPage.inputValue('#lookLightText') === '50' && lookPuts.length === 1);
 await lookContext.close();
 
+console.log('\n⚠ an installation that is behind says so before anyone works on it');
+// Owner, 28 Sep 2026. The server only reports; the fix is the desktop shortcut.
+let behind = { pendingMigrations: 2, behind: 3 };
+const updateContext = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+await updateContext.route('**/api/health', async (route) => {
+    const response = await route.fetch();
+    const json = await response.json();
+    if (behind) json.update = behind; else delete json.update;
+    await route.fulfill({ json });
+});
+const upd = await updateContext.newPage();
+await upd.goto(`${BASE}/Podatoci.html`, { waitUntil: 'domcontentloaded' });
+await upd.waitForSelector('#mtbUpdateNotice', { timeout: 6000 }).catch(() => {});
+const notice = await upd.textContent('#mtbUpdateNotice').catch(() => '');
+check('a window covers the screen and says what waits', /2 промени на базата/.test(notice) && /3 нови промени/.test(notice), notice.slice(0, 120));
+check('and exactly what to do: the shortcut on that computer', notice.includes('MTB - Azuriraj'));
+check('it is in front of the work: a click on the page reaches the window, not the page',
+    await upd.evaluate(() => document.elementFromPoint(innerWidth / 2, 30)?.closest('#mtbUpdateNotice') != null));
+await upd.click('#mtbUpdateNotice button');
+check('„Разбрав" lets the person in', await upd.locator('#mtbUpdateNotice').count() === 0);
+await upd.goto(`${BASE}/Nastava.html`, { waitUntil: 'domcontentloaded' });
+await upd.waitForSelector('#mtbAppNav');
+await upd.waitForTimeout(1500);
+check('moving to another screen in the same session does not ask again', await upd.locator('#mtbUpdateNotice').count() === 0);
+behind = { pendingMigrations: 3, behind: 3 };
+await upd.reload({ waitUntil: 'domcontentloaded' });
+await upd.waitForSelector('#mtbUpdateNotice', { timeout: 6000 }).catch(() => {});
+check('but something new waiting asks again', await upd.locator('#mtbUpdateNotice').count() === 1);
+await upd.goto(`${BASE}/Podatoci.html?embed=1`, { waitUntil: 'domcontentloaded' });
+await upd.waitForTimeout(1500);
+check('a window inside the Workspace leaves it to the shell', await upd.locator('#mtbUpdateNotice').count() === 0);
+behind = null;
+await upd.goto(`${BASE}/Podatoci.html`, { waitUntil: 'domcontentloaded' });
+await upd.waitForSelector('#mtbAppNav');
+await upd.waitForTimeout(1500);
+check('an installation that is up to date shows nothing', await upd.locator('#mtbUpdateNotice').count() === 0);
+await updateContext.close();
+
 await browser.close();
 console.log(fails ? `\n${fails} failed` : '\nall good');
 process.exit(fails ? 1 : 0);

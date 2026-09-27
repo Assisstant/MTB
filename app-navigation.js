@@ -714,6 +714,64 @@
         if (!creditNode.isConnected) document.body.appendChild(creditNode);
     }
 
+    /**
+     * „Ажурирај" — before anyone works on an installation that is behind
+     * (owner, 28 Sep 2026: "a popup before I enter the app, so it's a must I
+     * do it if action is needed"). The server only says what waits
+     * (lib/update-status.ts); the fix is the „MTB - Azuriraj" shortcut on that
+     * machine, never a button here — a page that could make its server pull
+     * and migrate would be a door for anyone who reaches it.
+     *
+     * It covers the page until acknowledged, once per browser session for the
+     * same state: moving between screens does not nag, a new day asks again
+     * while the action is still needed. A window of the Workspace leaves it
+     * to the shell, as with the credit.
+     */
+    const UPDATE_SEEN_KEY = 'mtb_update_seen_v1';
+    function showUpdateNotice(update) {
+        const migrations = Number(update && update.pendingMigrations) || 0;
+        const commits = Number(update && update.behind) || 0;
+        if (embedded() || !document.body || (!migrations && !commits)) return;
+        const key = migrations + ':' + commits;
+        try { if (sessionStorage.getItem(UPDATE_SEEN_KEY) === key) return; } catch (_) { /* ask every time, then */ }
+        if (document.getElementById('mtbUpdateNotice')) return;
+        const dark = document.documentElement.dataset.theme === 'dark' || document.body.classList.contains('dark-mode');
+        const box = document.createElement('div');
+        box.id = 'mtbUpdateNotice';
+        box.setAttribute('role', 'alertdialog');
+        box.setAttribute('aria-modal', 'true');
+        box.setAttribute('aria-labelledby', 'mtbUpdateTitle');
+        box.style.cssText = 'position:fixed;inset:0;z-index:10050;display:flex;align-items:center;justify-content:center;'
+            + 'padding:16px;background:rgba(15,17,35,.55)';
+        const card = document.createElement('div');
+        card.style.cssText = 'max-width:460px;width:100%;border-radius:12px;padding:18px 20px;font:15px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif;'
+            + 'box-shadow:0 18px 50px rgba(0,0,0,.35);'
+            + (dark ? 'background:#1b1c39;color:#f2f2fb;border:1px solid #34365a' : 'background:#fff;color:#1d1e33;border:1px solid #d9d9e8');
+        const line = (text, extra) => { const p = document.createElement('p'); p.style.margin = '0 0 10px'; if (extra) p.style.cssText += extra; p.textContent = text; return p; };
+        const title = document.createElement('h2');
+        title.id = 'mtbUpdateTitle';
+        title.style.cssText = 'margin:0 0 10px;font-size:18px';
+        title.textContent = '⚠ Оваа инсталација треба да се ажурира';
+        card.appendChild(title);
+        if (migrations) card.appendChild(line(`${migrations} ${migrations === 1 ? 'промена на базата (миграција) чека' : 'промени на базата (миграции) чекаат'} — екраните може да не работат правилно додека не се применат.`));
+        if (commits) card.appendChild(line(`${commits} ${commits === 1 ? 'нова промена' : 'нови промени'} во апликациите се на GitHub.`));
+        card.appendChild(line('На овој компјутер: затвори ги апликациите и двоен клик на „MTB - Azuriraj“ на работната површина. '
+            + 'Кратенката „MTB“ го прави истото секое утро. Бекапот на базата се прави пред секоја миграција.'));
+        card.appendChild(line('Ако не си администратор: кажи му на администраторот.', 'opacity:.75;font-size:13px'));
+        const ok = document.createElement('button');
+        ok.type = 'button';
+        ok.textContent = 'Разбрав';
+        ok.style.cssText = 'margin-top:4px;padding:8px 18px;border-radius:8px;border:0;cursor:pointer;font:600 15px system-ui,sans-serif;background:#4f5bd5;color:#fff';
+        ok.addEventListener('click', () => {
+            try { sessionStorage.setItem(UPDATE_SEEN_KEY, key); } catch (_) { /* this page only */ }
+            box.remove();
+        });
+        card.appendChild(ok);
+        box.appendChild(card);
+        document.body.appendChild(box);
+        ok.focus();
+    }
+
     function closeServerMenu() {
         if (serverMenu && serverMenu.parentNode) serverMenu.parentNode.removeChild(serverMenu);
         serverMenu = null;
@@ -1059,6 +1117,7 @@
             creditLookNow = rememberLook(body.authorLook);
             rememberAuthor(body.author);
             showCredit(body.author);
+            showUpdateNotice(body.update);
             window.dispatchEvent(new CustomEvent('mtb:server-state', { detail: {
                 state: serverState.state,
                 base,
