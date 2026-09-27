@@ -61,6 +61,22 @@ console.log('WBACC Studio — Excalidraw, one file, offline');
 check('the canvas opens from the one file', await page.isVisible('.excalidraw'));
 check('with the author\'s watermark', (await page.textContent('.mtb-credit').catch(() => '')) === 'изработил Измислен Автор');
 
+console.log('\nlanguage: English by default, Macedonian on request');
+check('English by default — Excalidraw\'s tools and WBACC\'s own buttons',
+    await page.getAttribute('[data-testid="toolbar-rectangle"]', 'aria-label') === 'Rectangle'
+        && await page.isVisible('button:has-text("Pictograms")'));
+await page.click('.dropdown-menu-button');
+check('the menu offers exactly English and Macedonian',
+    JSON.stringify(await page.$$eval('.wbacc-lang option', (o) => o.map((x) => x.value))) === JSON.stringify(['en', 'mk-MK']));
+await page.selectOption('.wbacc-lang', 'mk-MK');
+await page.waitForFunction(() => document.querySelector('[data-testid="toolbar-rectangle"]')?.getAttribute('aria-label') === 'Правоаголник', null, { timeout: 5000 }).catch(() => {});
+await page.keyboard.press('Escape');
+check('Macedonian: Excalidraw\'s own tools in our translation, and WBACC\'s buttons',
+    await page.getAttribute('[data-testid="toolbar-rectangle"]', 'aria-label') === 'Правоаголник'
+        && await page.isVisible('button:has-text("Пиктограми")'));
+check('and what is not translated falls back to English, never to a key',
+    !(await page.textContent('body')).match(/\b(toolBar|labels|buttons)\.[a-zA-Z]+/));
+
 const scene = () => page.evaluate(() => new Promise((res) => {
     const r = indexedDB.open('wbacc-studio');
     r.onsuccess = () => { const g = r.result.transaction('kv').objectStore('kv').get('scene-v1'); g.onsuccess = () => res(((g.result && g.result.elements) || []).filter((e) => !e.isDeleted)); };

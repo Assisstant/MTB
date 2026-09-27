@@ -5,6 +5,7 @@ import Credit from './Credit.jsx';
 import Pictograms from './Pictograms.jsx';
 import Bookmarks from './Bookmarks.jsx';
 import { wordsToSpeak } from './scene.js';
+import { LangContext, translator } from './i18n.js';
 
 const SCENE_KEY = 'scene-v1';
 const LANG_KEY = 'wbacc-lang';
@@ -12,11 +13,13 @@ const SAVE_DELAY = 800;
 // What of the view is worth keeping between visits; the rest is Excalidraw's.
 const KEEP = ['viewBackgroundColor', 'theme', 'gridModeEnabled', 'scrollX', 'scrollY', 'zoom'];
 
-// Excalidraw has no Macedonian interface; these read closest, English first.
-const LANGS = ['en', 'bg-BG', 'ru-RU', 'uk-UA'];
+// English for the owner, Macedonian on request (owner, 28 Sep 2026). Excalidraw
+// has no Macedonian of its own: `mk-MK` is our translation, added at build
+// time (vite.config.js); what it lacks falls back to English.
+const LANGS = ['en', 'mk-MK'];
 
 function storedLang() {
-    try { return localStorage.getItem(LANG_KEY) || 'en'; } catch { return 'en'; }
+    try { const l = localStorage.getItem(LANG_KEY); return LANGS.includes(l) ? l : 'en'; } catch { return 'en'; }
 }
 
 export default function App() {
@@ -71,6 +74,7 @@ export default function App() {
         speechSynthesis.speak(say);
     };
     const toggle = (name) => setPanel((now) => (now === name ? '' : name));
+    const t = useMemo(() => translator(lang), [lang]);
 
     const chooseLang = (code) => {
         setLang(code);
@@ -78,14 +82,15 @@ export default function App() {
     };
 
     return (
+        <LangContext.Provider value={t}>
         <div className="wbacc">
             <Excalidraw initialData={initialData} onChange={onChange} langCode={lang} name="WBACC Studio"
                         excalidrawAPI={setExcalidraw}
                         renderTopRightUI={() => (
                             <div className="wbacc-tools">
-                                <button type="button" className={panel === 'pictos' ? 'on' : ''} onClick={() => toggle('pictos')} title="Пиктограми (ARASAAC)">🖼 Пиктограми</button>
-                                <button type="button" className={panel === 'bookmarks' ? 'on' : ''} onClick={() => toggle('bookmarks')} title="Обележувачи">🔖 Обележувачи</button>
-                                <button type="button" onClick={speak} title="Изговори го означениот текст">🔊</button>
+                                <button type="button" className={panel === 'pictos' ? 'on' : ''} onClick={() => toggle('pictos')} title={t('Пиктограми (ARASAAC)')}>{t('🖼 Пиктограми')}</button>
+                                <button type="button" className={panel === 'bookmarks' ? 'on' : ''} onClick={() => toggle('bookmarks')} title={t('Обележувачи')}>{t('🔖 Обележувачи')}</button>
+                                <button type="button" onClick={speak} title={t('Изговори го означениот текст')}>🔊</button>
                             </div>
                         )}>
                 <MainMenu>
@@ -98,7 +103,7 @@ export default function App() {
                     <MainMenu.DefaultItems.ToggleTheme />
                     <MainMenu.DefaultItems.ChangeCanvasBackground />
                     <MainMenu.ItemCustom>
-                        <select className="wbacc-lang" aria-label="Јазик" value={lang} onChange={(e) => chooseLang(e.target.value)}>
+                        <select className="wbacc-lang" aria-label={t('Јазик')} value={lang} onChange={(e) => chooseLang(e.target.value)}>
                             {LANGS.map((code) => {
                                 const known = languages.find((l) => l.code === code);
                                 return <option key={code} value={code}>{known ? known.label : code}</option>;
@@ -108,7 +113,7 @@ export default function App() {
                 </MainMenu>
             </Excalidraw>
             {panel && (
-                <aside className={'wbacc-panel' + (dark ? ' dark' : '')} aria-label={panel === 'pictos' ? 'Пиктограми' : 'Обележувачи'}>
+                <aside className={'wbacc-panel' + (dark ? ' dark' : '')} aria-label={t(panel === 'pictos' ? 'Пиктограми' : 'Обележувачи')}>
                     {panel === 'pictos'
                         ? <Pictograms api={excalidraw} onClose={() => setPanel('')} />
                         : <Bookmarks api={excalidraw} onClose={() => setPanel('')} />}
@@ -116,5 +121,6 @@ export default function App() {
             )}
             <Credit dark={dark} />
         </div>
+        </LangContext.Provider>
     );
 }

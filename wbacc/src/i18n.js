@@ -1,0 +1,96 @@
+import { createContext, useContext } from 'react';
+
+// WBACC's own words (the panels, its buttons) follow the same switch as
+// Excalidraw's menus: English by default, Macedonian on request (owner,
+// 28 Sep 2026). The Macedonian text is the key, so the source reads as the
+// school reads it; this table is only the English.
+const EN = {
+    '🖼 Пиктограми': '🖼 Pictograms',
+    '🔖 Обележувачи': '🔖 Bookmarks',
+    'Пиктограми': 'Pictograms',
+    'Обележувачи': 'Bookmarks',
+    'Пиктограми (ARASAAC)': 'Pictograms (ARASAAC)',
+    'Изговори го означениот текст': 'Read the selected text aloud',
+    'Јазик': 'Language',
+    'Затвори': 'Close',
+    '⏳ Барам…': '⏳ Searching…',
+    'Нема пиктограм за „{0}“.': 'No pictogram for “{0}”.',
+    'Пиктограмите бараат интернет — ARASAAC не одговара.': 'Pictograms need the Internet — ARASAAC is not answering.',
+    '⏳ Го преземам пиктограмот…': '⏳ Fetching the pictogram…',
+    '✓ Картичката е во цртежот.': '✓ The card is in the drawing.',
+    'Сликата не се презеде — провери го интернетот.': 'The picture did not download — check the Internet.',
+    'збор, пр. куќа, јаде, мачка': 'a word, e.g. house, eat, cat',
+    'Барај пиктограм': 'Search for a pictogram',
+    'Барај': 'Search',
+    'Збор на картичката': 'Word on the card',
+    'текстот над сликата': 'text above the picture',
+    '➕ Во цртежот': '➕ Into the drawing',
+    'Пиктограми: Sergio Palao / ARASAAC (arasaac.org), Влада на Арагон, лиценца CC BY-NC-SA — само за некомерцијална употреба.':
+        'Pictograms: Sergio Palao / ARASAAC (arasaac.org), Government of Aragon, licence CC BY-NC-SA — non-commercial use only.',
+    'Мои обележувачи': 'My bookmarks',
+    'Општо': 'General',
+    'Ова не е извоз од BookmarksPlus.': 'This is not a BookmarksPlus export.',
+    'Вчитувам…': 'Loading…',
+    'Копијата во прелистувачот не се зачува.': 'The copy in this browser was not saved.',
+    'Обележувачите на серверот ги гледа само администраторот — најави се.': 'Only the administrator sees the bookmarks on the server — sign in.',
+    '✓ На серверот · верзија {0}': '✓ On the server · version {0}',
+    '⏳ Зачувано во прелистувачот · чека сервер': '⏳ Saved in this browser · waiting for the server',
+    '⏳ Без сервер — работиш на копијата во прелистувачот': '⏳ No server — working on the copy in this browser',
+    '✓ Поврзано — уште нема обележувачи': '✓ Connected — no bookmarks yet',
+    '⚠ И тука и на серверот има промени. Одлучи која верзија важи.': '⚠ There are changes both here and on the server. Choose which version stands.',
+    '⚠ Обележувачите се сменети од друго место во меѓувреме.': '⚠ The bookmarks were changed elsewhere in the meantime.',
+    '⏳ Се зачувува…': '⏳ Saving…',
+    'Име на новата табла:': 'Name of the new board:',
+    'Ново име на таблата:': 'New name of the board:',
+    'Ова е единствената табла.': 'This is the only board.',
+    'Таблата има картички — прво премести ги или избриши ги.': 'The board has cards — move or delete them first.',
+    'Да се избрише таблата „{0}“?': 'Delete the board “{0}”?',
+    'Име на новата колона:': 'Name of the new column:',
+    'Ново име на колоната:': 'New name of the column:',
+    'Таблата мора да има барем една колона.': 'A board needs at least one column.',
+    'Колоната има картички — прво премести ги или избриши ги.': 'The column has cards — move or delete them first.',
+    'Линкот мора да почнува со http или https.': 'A link must start with http or https.',
+    'Да се избрише „{0}“?': 'Delete “{0}”?',
+    'Увоз: {0} табли, {1} картички.\nОвие ги ЗАМЕНУВААТ сегашните обележувачи. Продолжи?':
+        'Import: {0} boards, {1} cards.\nThese REPLACE the current bookmarks. Continue?',
+    'Датотеката не може да се прочита.': 'The file cannot be read.',
+    '✓ Земени од серверот · верзија {0}': '✓ Taken from the server · version {0}',
+    'Верзијата на серверот ќе биде заменета со оваа. Продолжи?': 'The server\'s version will be replaced by this one. Continue?',
+    'Кој си': 'Who you are',
+    'Најави се': 'Sign in',
+    '⬇ Земи ги од серверот': '⬇ Take the server\'s',
+    '⬆ Препиши го серверот': '⬆ Overwrite the server',
+    'Табла': 'Board',
+    'Нова табла': 'New board',
+    'Преименувај': 'Rename',
+    'Избриши празна табла': 'Delete an empty board',
+    'барај по наслов, линк, ознака…': 'search title, link, tag…',
+    'Нова картичка': 'New card',
+    'Избриши празна колона': 'Delete an empty column',
+    'Закачено': 'Pinned',
+    'Во цртежот': 'Into the drawing',
+    'Измени': 'Edit',
+    'Избриши': 'Delete',
+    '➕ Колона': '➕ Column',
+    'Линк': 'Link',
+    'Наслов': 'Title',
+    'Ознаки (со запирка)': 'Tags (comma separated)',
+    'Белешка': 'Note',
+    'Колона': 'Column',
+    '📌 закачи горе': '📌 pin to the top',
+    '💾 Зачувај': '💾 Save',
+    'Откажи': 'Cancel',
+    '📥 Увези од BookmarksPlus': '📥 Import from BookmarksPlus',
+    '📤 Извези': '📤 Export'
+};
+
+export function translator(lang) {
+    return (text, ...args) => {
+        let out = lang === 'mk-MK' ? text : (EN[text] ?? text);
+        args.forEach((value, i) => { out = out.replace('{' + i + '}', value); });
+        return out;
+    };
+}
+
+export const LangContext = createContext(translator('en'));
+export const useT = () => useContext(LangContext);

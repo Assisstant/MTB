@@ -30,8 +30,47 @@ function inlineFonts() {
     };
 }
 
+/**
+ * Macedonian for Excalidraw's own menus (owner, 28 Sep 2026: English for him,
+ * Macedonian as a switch, „not perfect is ok"). Excalidraw offers no way to add
+ * a language from outside, so its list and its loader get one entry each:
+ * `mk-MK`, whose strings are src/mk-MK.json. Anything not translated there
+ * falls back to English, as Excalidraw does for every language.
+ */
+const MK = 'virtual:wbacc-mk';
+function macedonian() {
+    return {
+        name: 'wbacc-macedonian',
+        enforce: 'pre',
+        resolveId: (id) => (id === MK ? '\0' + MK : null),
+        // Excalidraw reads a language's groups as NAMED exports (toolBar,
+        // labels…), as its own locale files provide them, not from `default`.
+        load(id) {
+            if (id !== '\0' + MK) return null;
+            const mk = JSON.parse(readFileSync(join(process.cwd(), 'src', 'mk-MK.json'), 'utf8'));
+            return Object.keys(mk).map((group) => `export const ${group} = ${JSON.stringify(mk[group])};`).join('\n')
+                + `\nexport default { ${Object.keys(mk).join(', ')} };`;
+        },
+        transform(code, id) {
+            if (!id.replace(/\\/g, '/').endsWith('/@excalidraw/excalidraw/dist/prod/index.js')) return null;
+            const loader = '({"./locales/ar-SA.json":';
+            const listed = '{code:"bg-BG",label:';
+            // Excalidraw lists only languages translated past 85 %; ours is
+            // partial on purpose, so it passes by name.
+            const kept = /\.filter\(e=>(\w+)\[e\.code\]>=VT\)/;
+            if (!code.includes(loader) || !code.includes(listed) || !kept.test(code)) {
+                throw new Error('WBACC: Excalidraw\'s language list changed shape; the Macedonian entry needs updating.');
+            }
+            return code
+                .replace(loader, `({"./locales/mk-MK.json":()=>import(${JSON.stringify(MK)}),"./locales/ar-SA.json":`)
+                .replace(listed, `{code:"mk-MK",label:"Македонски"},${listed}`)
+                .replace(kept, (all, pct) => `.filter(e=>e.code==="mk-MK"||${pct}[e.code]>=VT)`);
+        }
+    };
+}
+
 export default defineConfig({
-    plugins: [inlineFonts(), react(), viteSingleFile()],
+    plugins: [inlineFonts(), macedonian(), react(), viteSingleFile()],
     define: { 'process.env.IS_PREACT': JSON.stringify('false') },
     build: { outDir: 'dist', emptyOutDir: true, chunkSizeWarningLimit: 20000 }
 });

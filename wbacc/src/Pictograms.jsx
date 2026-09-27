@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { insertCard, readAsDataURL } from './scene.js';
+import { useT } from './i18n.js';
 
 // ARASAAC pictograms, as ComuniBoard searched them: Macedonian first, then
 // English. Searching needs the Internet by nature; a card once made keeps its
@@ -21,6 +22,7 @@ const wordOf = (p, fallback) => {
 };
 
 export default function Pictograms({ api, onClose }) {
+    const t = useT();
     const [query, setQuery] = useState('');
     const [results, setResults] = useState([]);
     const [status, setStatus] = useState('');
@@ -32,16 +34,16 @@ export default function Pictograms({ api, onClose }) {
         e?.preventDefault();
         const word = query.trim();
         if (!word) return;
-        setStatus('⏳ Барам…');
+        setStatus(t('⏳ Барам…'));
         setResults([]);
         setPicked(null);
         try {
             let found = await search('mk', word);
             if (!found.length) found = await search('en', word);
             setResults(found.slice(0, 60));
-            setStatus(found.length ? '' : 'Нема пиктограм за „' + word + '“.');
+            setStatus(found.length ? '' : t('Нема пиктограм за „{0}“.', word));
         } catch {
-            setStatus('Пиктограмите бараат интернет — ARASAAC не одговара.');
+            setStatus(t('Пиктограмите бараат интернет — ARASAAC не одговара.'));
         }
     };
 
@@ -52,26 +54,26 @@ export default function Pictograms({ api, onClose }) {
 
     const insert = async () => {
         if (!picked || !api) return;
-        setStatus('⏳ Го преземам пиктограмот…');
+        setStatus(t('⏳ Го преземам пиктограмот…'));
         try {
             const blob = await (await fetch(imageUrl(picked._id))).blob();
             insertCard(api, { dataURL: await readAsDataURL(blob), mimeType: blob.type || 'image/png', label, labelOnTop: onTop });
-            setStatus('✓ Картичката е во цртежот.');
+            setStatus(t('✓ Картичката е во цртежот.'));
         } catch {
-            setStatus('Сликата не се презеде — провери го интернетот.');
+            setStatus(t('Сликата не се презеде — провери го интернетот.'));
         }
     };
 
     return (
         <div className="wbacc-panel__body">
             <div className="wbacc-panel__head">
-                <strong>🖼 Пиктограми</strong>
-                <button type="button" className="wbacc-x" onClick={onClose} aria-label="Затвори">✕</button>
+                <strong>{t('🖼 Пиктограми')}</strong>
+                <button type="button" className="wbacc-x" onClick={onClose} aria-label={t('Затвори')}>✕</button>
             </div>
             <form className="wbacc-row" onSubmit={run}>
-                <input type="search" placeholder="збор, пр. куќа, јаде, мачка" value={query}
-                       onChange={(e) => setQuery(e.target.value)} aria-label="Барај пиктограм" autoFocus />
-                <button type="submit">Барај</button>
+                <input type="search" placeholder={t('збор, пр. куќа, јаде, мачка')} value={query}
+                       onChange={(e) => setQuery(e.target.value)} aria-label={t('Барај пиктограм')} autoFocus />
+                <button type="submit">{t('Барај')}</button>
             </form>
             {status && <p className="wbacc-status">{status}</p>}
             <div className="wbacc-pictos">
@@ -84,16 +86,16 @@ export default function Pictograms({ api, onClose }) {
             </div>
             {picked && (
                 <div className="wbacc-card-form">
-                    <label>Збор на картичката
+                    <label>{t('Збор на картичката')}
                         <input value={label} onChange={(e) => setLabel(e.target.value)} />
                     </label>
                     <label className="wbacc-check">
-                        <input type="checkbox" checked={onTop} onChange={(e) => setOnTop(e.target.checked)} /> текстот над сликата
+                        <input type="checkbox" checked={onTop} onChange={(e) => setOnTop(e.target.checked)} /> {t('текстот над сликата')}
                     </label>
-                    <button type="button" className="wbacc-primary" onClick={insert}>➕ Во цртежот</button>
+                    <button type="button" className="wbacc-primary" onClick={insert}>{t('➕ Во цртежот')}</button>
                 </div>
             )}
-            <p className="wbacc-fine">Пиктограми: Sergio Palao / ARASAAC (arasaac.org), Влада на Арагон, лиценца CC BY-NC-SA — само за некомерцијална употреба.</p>
+            <p className="wbacc-fine">{t('Пиктограми: Sergio Palao / ARASAAC (arasaac.org), Влада на Арагон, лиценца CC BY-NC-SA — само за некомерцијална употреба.')}</p>
         </div>
     );
 }
