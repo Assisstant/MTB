@@ -256,9 +256,28 @@
                 height: calc(100vh - 112px);
             }
         }
+
+        /* „изработил …" — the same watermark as app-navigation.js
+           `.mtb-credit`, once for the window, over both frames (they are
+           drawn from the templates below, so a mark inside one of them
+           showed on the cards only). */
+        .mtb-credit {
+            position: fixed;
+            right: 15px;
+            bottom: 10px;
+            z-index: 30;
+            font: 600 11px/1.2 system-ui, -apple-system, 'Segoe UI', sans-serif;
+            letter-spacing: .02em;
+            color: rgba(79, 91, 213, .62);
+            text-shadow: 0 0 3px rgba(255, 255, 255, .85);
+            pointer-events: none;
+            user-select: none;
+        }
+        @media print { .mtb-credit { color: #777 !important; text-shadow: none !important; } }
     </style>
 </head>
 <body>
+    <div class="mtb-credit" id="mtbCredit" hidden></div>
     <nav class="top-nav">
         <div class="brand">WBACC Studio</div>
         <button class="nav-tab" data-target="card">🃏 Картички</button>
@@ -864,15 +883,6 @@
         .picto-item.selected { border-color: var(--primary-color); box-shadow: 0 0 0 2px var(--primary-color); }
         .picto-item img { width: 100%; height: auto; display: block; border-radius: 6px; }
 
-        .credit-watermark {
-            position: fixed;
-            bottom: 10px;
-            right: 15px;
-            font-size: 10px;
-            color: rgba(102, 126, 234, 0.4);
-            font-weight: 500;
-            pointer-events: none;
-        }
     </style>
 </head>
 <body>
@@ -1034,7 +1044,6 @@
         </section>
     </main>
 
-    <div class="credit-watermark">MTB local application</div>
 
     <script>
     // ============ EMOJI DATABASE ============
@@ -6607,6 +6616,32 @@
             }, '*');
             activateTab('whiteboard');
         });
+    </script>
+    <script>
+    // „изработил …", as on every MTB screen. This page loads nothing shared,
+    // so it reads what app-navigation.js remembers (`mtb_author_v1`) and asks
+    // its own server when it has one; the name is never in this public file.
+    (function () {
+        var node = document.getElementById('mtbCredit');
+        function show(name) {
+            var text = String(name || '').replace(/\s+/g, ' ').trim();
+            node.textContent = text ? 'изработил ' + text : '';
+            node.hidden = !text;
+        }
+        try { show(localStorage.getItem('mtb_author_v1')); } catch (_) { /* no storage: the server may still say */ }
+        if (!/^https?:$/.test(location.protocol)) return;
+        fetch('/api/health', { cache: 'no-store' })
+            .then(function (r) { return r.ok ? r.json() : null; })
+            .then(function (body) {
+                if (!body || body.ok !== true) return;
+                try {
+                    if (body.author) localStorage.setItem('mtb_author_v1', body.author);
+                    else localStorage.removeItem('mtb_author_v1');
+                } catch (_) { /* per-browser nicety */ }
+                show(body.author);
+            })
+            .catch(function () { /* a published copy has no server: the remembered name stays */ });
+    })();
     </script>
 </body>
 </html>

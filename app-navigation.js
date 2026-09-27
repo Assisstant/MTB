@@ -586,24 +586,45 @@
             document.body.insertBefore(nav, document.body.firstChild);
         }
         render();
+        showCredit(rememberedAuthor());
         checkHealth();
         checkUser();
         window.dispatchEvent(new CustomEvent('mtb:navigation-mounted'));
     }
 
     /**
-     * „изработил …" — the author's credit, at the foot of every screen and of
-     * every printed page (owner, 25 Sep 2026).
+     * „изработил …" — the author's credit, a watermark on every screen and on
+     * every printed page (owner, 25 Sep 2026; S-Dnevnik's style, 27 Sep 2026).
      *
      * The NAME comes from the server (`MTB_AUTHOR` in each installation's
      * .env, and in Render's dashboard), never from this file: this repository
      * is public and `check:names` refuses every real name in it, the author's
      * own included — which is the guard working, not in the way. A server
-     * without the setting shows nothing rather than a placeholder.
+     * that answers without the setting shows nothing rather than a placeholder.
+     *
+     * Ever present, which a credit that waits for the server is not: the
+     * browser keeps the last name the server gave, and shows it while the
+     * server cannot be asked — a published copy, a machine that is off. The
+     * server still decides: answering without a name takes it away again.
+     *
+     * Bottom right, where S-Dnevnik's own watermark always stood; the bottom
+     * left belongs to its status strip, and a credit drawn there sat on it.
      *
      * Once per window: inside the Workspace the shell carries it, not each of
      * its windows, or a screen of five windows would say it five times.
      */
+    const AUTHOR_KEY = 'mtb_author_v1';
+    function rememberedAuthor() {
+        try { return String(localStorage.getItem(AUTHOR_KEY) || ''); } catch (_) { return ''; }
+    }
+    function rememberAuthor(author) {
+        const text = String(author || '').replace(/\s+/g, ' ').trim();
+        try {
+            if (text) localStorage.setItem(AUTHOR_KEY, text);
+            else localStorage.removeItem(AUTHOR_KEY);
+        } catch (_) { /* a per-browser nicety; the server's answer still shows */ }
+    }
+
     let creditNode = null;
     function showCredit(author) {
         const text = String(author || '').replace(/\s+/g, ' ').trim();
@@ -615,12 +636,16 @@
         if (!document.getElementById('mtbCreditStyle')) {
             const style = document.createElement('style');
             style.id = 'mtbCreditStyle';
+            // A watermark: transparent enough to stay out of the work, with a
+            // faint halo so it still reads over a table or a gradient.
             style.textContent = `
-                .mtb-credit { position: fixed; left: 10px; bottom: 6px; z-index: 30; pointer-events: none;
+                .mtb-credit { position: fixed; right: 15px; bottom: 10px; z-index: 30; pointer-events: none;
                     user-select: none; font: 600 11px/1.2 system-ui, -apple-system, 'Segoe UI', sans-serif;
-                    letter-spacing: .02em; color: rgba(45, 50, 80, .55); }
-                html[data-theme="dark"] .mtb-credit { color: rgba(226, 230, 245, .5); }
-                @media print { .mtb-credit { color: #777 !important; } }
+                    letter-spacing: .02em; color: rgba(79, 91, 213, .62);
+                    text-shadow: 0 0 3px rgba(255, 255, 255, .85); }
+                html[data-theme="dark"] .mtb-credit, body.dark-mode .mtb-credit {
+                    color: rgba(165, 180, 252, .6); text-shadow: 0 0 3px rgba(10, 12, 30, .85); }
+                @media print { .mtb-credit { color: #777 !important; text-shadow: none !important; } }
             `;
             document.head.appendChild(style);
         }
@@ -975,6 +1000,7 @@
                     mirror && mirror.lastError ? 'последна грешка: ' + String(mirror.lastError) : '',
                     body.warning || ''].filter(Boolean).join(' · ')
             };
+            rememberAuthor(body.author);
             showCredit(body.author);
             window.dispatchEvent(new CustomEvent('mtb:server-state', { detail: {
                 state: serverState.state,

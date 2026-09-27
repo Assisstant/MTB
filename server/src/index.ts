@@ -26,6 +26,7 @@ import { formReplyRoutes } from './routes/form-replies.js';
 import { portalRoutes } from './routes/portal.js';
 import { dutyRoutes } from './routes/duty.js';
 import { resolveServerIdentity } from './lib/server-identity.js';
+import { authorName } from './lib/author.js';
 import { installColleagueBoundary } from './lib/colleague.js';
 import { installMirrorWriteBoundary } from './lib/mirror-boundary.js';
 import { installPublicStatic } from './lib/public-static.js';
@@ -131,7 +132,7 @@ async function cyrillicFolds(): Promise<boolean> {
     } catch { return false; }
 }
 
-const AUTHOR = String(process.env.MTB_AUTHOR || '').replace(/\s+/g, ' ').trim().slice(0, 80);
+const AUTHOR = authorName();
 
 server.get('/api/health', async () => {
     const { rows } = await pool.query('SELECT now() AS db_time, current_database() AS db_name');

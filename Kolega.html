@@ -57,7 +57,13 @@ try { const t = localStorage.getItem('mtb_kolega_theme'); if (t === 'light' || t
         --focus:#a3abff; --chip:#2a2b52; }
 html { background: var(--bg); min-height: 100%; }
 .theme-toggle { position: fixed; bottom: 12px; right: 12px; z-index: 40; padding: 6px 10px; font-size: 16px; }
-@media print { .theme-toggle { display: none; } }
+/* „изработил …", the watermark every MTB screen carries (app-navigation.js
+   `.mtb-credit`), just left of the ☀/🌙 switch that owns this corner. */
+.mtb-credit { position: fixed; right: 64px; bottom: 21px; z-index: 30; pointer-events: none; user-select: none;
+              font: 600 11px/1.2 system-ui, -apple-system, 'Segoe UI', sans-serif; letter-spacing: .02em;
+              color: var(--accent); opacity: .7; text-shadow: 0 0 3px var(--bg); }
+@media print { .theme-toggle { display: none; }
+               .mtb-credit { right: 15px; bottom: 10px; color: #777 !important; opacity: 1; text-shadow: none; } }
 * { box-sizing: border-box; }
 body { margin: 0; font-family: Inter, "Segoe UI", system-ui, sans-serif; background: var(--bg); color: var(--text);
        font-size: 16px; line-height: 1.45; }
@@ -278,6 +284,7 @@ header.top h1 { flex: 1; min-width: 180px; }
   </section>
 </main>
 <button type="button" class="theme-toggle" id="themeToggle"></button>
+<div class="mtb-credit" id="mtbCredit" hidden></div>
 <div class="class-card" id="classCard" role="tooltip" hidden></div>
 <div class="swap-ask" id="swapAsk" role="dialog" aria-modal="true" aria-labelledby="swapAskTitle" hidden></div>
 <script>
@@ -1613,6 +1620,7 @@ header.top h1 { flex: 1; min-width: 180px; }
         if (!token.get()) return show('login');
         try {
             me = await api('GET', '/api/portal/me');
+            creditFrom(me);
             drawHome();
         } catch (err) {
             if (err.status === 401 || err.status === 403) token.clear();
@@ -1636,6 +1644,7 @@ header.top h1 { flex: 1; min-width: 180px; }
             form.reset();
             say('loginMsg', '');
             me = await api('GET', '/api/portal/me');
+            creditFrom(me);
             if (answer.initialPassword) {
                 el('offerHello').textContent = 'Добредојдовте, ' + answer.person.name;
                 show('offer');
@@ -1709,6 +1718,27 @@ header.top h1 { flex: 1; min-width: 180px; }
         drawThemeToggle();
     });
     drawThemeToggle();
+
+    // ── „изработил …": the name comes with the session (/api/portal/me) ──
+    // In the cloud this page cannot ask /api/health, and the name is never in
+    // this public file. The browser keeps the last one, so the sign-in screen
+    // carries it too; a session that names nobody takes it away (as in
+    // app-navigation.js, whose key this is).
+    const AUTHOR_KEY = 'mtb_author_v1';
+    function showCredit(name) {
+        const text = String(name || '').replace(/\s+/g, ' ').trim();
+        el('mtbCredit').textContent = text ? 'изработил ' + text : '';
+        el('mtbCredit').hidden = !text;
+    }
+    function creditFrom(answer) {
+        const text = String(answer && answer.author || '').replace(/\s+/g, ' ').trim();
+        try {
+            if (text) localStorage.setItem(AUTHOR_KEY, text);
+            else localStorage.removeItem(AUTHOR_KEY);
+        } catch (_) { /* this page load only */ }
+        showCredit(text);
+    }
+    try { showCredit(localStorage.getItem(AUTHOR_KEY)); } catch (_) { /* no storage: the session will say */ }
 
     start();
 })();

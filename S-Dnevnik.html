@@ -768,20 +768,7 @@
             line-height: 1.4;
             white-space: nowrap;
         }
-        .credit-watermark {
-            position: fixed;
-            bottom: 10px;
-            right: 15px;
-            font-size: 10px;
-            color: rgba(102, 126, 234, 0.4);
-            font-weight: 500;
-            z-index: 10;
-            pointer-events: none;
-            user-select: none;
-        }
-        body.dark-mode .credit-watermark {
-            color: rgba(129, 140, 248, 0.3);
-        }
+         /* The watermark is the shared „изработил …" (app-navigation.js). */
          /* Dark Mode Toggle */
         /* The switch is pinned to the header, not to the page: with the shared
            bar drawn above the header, "top of the page" is under that bar and
@@ -1853,7 +1840,10 @@
         body.dark-mode .sdn-backup-select { background: #2d3748; color: #e2e8f0; border-color: #4a5568; }
         @media (max-width: 768px) {
             .sdn-status-strip { left: 8px; right: 8px; bottom: 8px; text-align: center; }
-            .credit-watermark { display: none; }
+            /* On a phone the strip spans the whole foot; the watermark stands
+               just above it instead of on it. `body` outranks the shared rule,
+               which is added later. */
+            body .mtb-credit { bottom: 50px; }
         }
 
    </style>
@@ -12136,7 +12126,6 @@
     })();
     </script>
 
-    <div class="credit-watermark">MTB local application</div>
     <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
 <script src="home-button.js"></script>
 <script src="app-navigation.js"></script>

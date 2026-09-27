@@ -348,8 +348,10 @@ console.log('\n„изработил …" — from the server, once per window')
 // server's (`MTB_AUTHOR`), never the code's: check:names refuses real names in
 // this public repository, so the fixture is an invented one.
 let author = 'Измислен Автор';
+let healthDown = false;
 const creditContext = await browser.newContext({ viewport: { width: 1280, height: 800 } });
 await creditContext.route('**/api/health', async (route) => {
+    if (healthDown) return route.abort();
     const response = await route.fetch();
     const json = await response.json();
     if (author) json.author = author; else delete json.author;
@@ -362,6 +364,13 @@ check('a screen carries the credit the server names',
     (await credited.locator('#mtbCredit').textContent().catch(() => '')) === 'изработил Измислен Автор');
 check('and it never stands in the way of a click',
     await credited.$eval('#mtbCredit', (n) => getComputedStyle(n).pointerEvents).catch(() => '') === 'none');
+// Owner, 27 Sep 2026: S-Dnevnik's watermark, everywhere — bottom right. The
+// bottom left is S-Dnevnik's status strip, which a credit drawn there sat on.
+check('a watermark in the bottom-right corner, where S-Dnevnik kept its own',
+    await credited.$eval('#mtbCredit', (n) => {
+        const box = n.getBoundingClientRect();
+        return box.right > innerWidth - 40 && box.bottom > innerHeight - 40;
+    }).catch(() => false));
 await credited.emulateMedia({ media: 'print' });
 check('and it is on the printed page too',
     await credited.$eval('#mtbCredit', (n) => getComputedStyle(n).display !== 'none').catch(() => false));
@@ -369,11 +378,27 @@ await credited.emulateMedia({ media: 'screen' });
 await credited.goto(`${BASE}/Podatoci.html?embed=1`, { waitUntil: 'domcontentloaded' });
 await credited.waitForTimeout(1500);
 check('a window inside the Workspace leaves it to the shell', await credited.locator('#mtbCredit').count() === 0);
+// Ever present: a credit that waits for the server vanishes exactly when the
+// server cannot be asked — a published copy, a machine that is switched off.
+healthDown = true;
+await credited.goto(`${BASE}/Podatoci.html`, { waitUntil: 'domcontentloaded' });
+await credited.waitForSelector('#mtbAppNav');
+await credited.waitForTimeout(1500);
+check('with the server unreachable, the browser still shows the name it was given',
+    (await credited.locator('#mtbCredit').textContent().catch(() => '')) === 'изработил Измислен Автор');
+healthDown = false;
 author = '';
 await credited.goto(`${BASE}/Podatoci.html`, { waitUntil: 'domcontentloaded' });
 await credited.waitForSelector('#mtbAppNav');
 await credited.waitForTimeout(1500);
 check('a server that names nobody shows nothing, not a placeholder', await credited.locator('#mtbCredit').count() === 0);
+healthDown = true;
+await credited.goto(`${BASE}/Podatoci.html`, { waitUntil: 'domcontentloaded' });
+await credited.waitForSelector('#mtbAppNav');
+await credited.waitForTimeout(1500);
+check('and the server’s „nobody“ is remembered too: nothing comes back offline',
+    await credited.locator('#mtbCredit').count() === 0);
+healthDown = false;
 await creditContext.close();
 
 await browser.close();

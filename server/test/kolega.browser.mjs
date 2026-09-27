@@ -47,7 +47,7 @@ await context.route('**/*', async (route) => {
     const token = req.headers()['x-mtb-portal-token'] || '';
     calls.push({ method: req.method(), path: url.pathname, body, token });
     const me = { person: { employeeId: 7, name: 'Ана Измислена' }, usernames: { latin: 'AnaIzmislena', cyrillic: 'АнаИзмислена' },
-        initialPassword: !own, year: '2026/2027', roles: ['teacher', 'homeroom'], teacher: { id: 3, kind: 'odd', classes: [] }, therapist: null };
+        author: 'Измислен Автор', initialPassword: !own, year: '2026/2027', roles: ['teacher', 'homeroom'], teacher: { id: 3, kind: 'odd', classes: [] }, therapist: null };
     if (url.pathname === '/api/portal/login') {
         const right = body.password === (own ? 'моја1' : 'ResursenCentar');
         if (!['AnaIzmislena', 'АнаИзмислена'].includes(body.username) || !right) return json(401, { error: 'Погрешно корисничко име или лозинка.' });
@@ -107,6 +107,15 @@ check('the offer greets the person', /Ана Измислена/.test(await page
 await page.click('#keepInitial');
 await page.waitForSelector('#home:not([hidden])', { timeout: 6000 });
 check('keeping it goes straight on', await visible('home'));
+// Owner, 27 Sep 2026: the watermark on every screen, this one included. In the
+// cloud this page cannot ask /api/health, so the name comes with the session.
+check('the watermark names the author the session names',
+    (await page.textContent('#mtbCredit').catch(() => '')) === 'изработил Измислен Автор' && await page.isVisible('#mtbCredit'));
+check('and stands beside the ☀/🌙 switch, not on it', await page.evaluate(() => {
+    const a = document.getElementById('mtbCredit').getBoundingClientRect();
+    const b = document.getElementById('themeToggle').getBoundingClientRect();
+    return a.right <= b.left && a.bottom > innerHeight - 60;
+}));
 check('nothing was changed', !calls.some((c) => c.path === '/api/portal/password'));
 check('the page names the person', (await page.textContent('#homeName')) === 'Ана Измислена');
 check('and the tab reads „Мој распоред"', (await page.title()) === 'Мој распоред', await page.title());
