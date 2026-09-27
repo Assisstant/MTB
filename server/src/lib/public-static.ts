@@ -30,6 +30,8 @@ const PUBLIC_FILES = new Set([
     'ScanArtisAtelierSolak.html',
     'Sinhronizacija.html',
     'TabelaSoDokazi_.html',
+    // WBACC Studio, built from wbacc/ into this one file; wbacc/ itself stays private.
+    'WBACC.html',
     'index.html',
     'start.html',
     'РаспоредТерапевти.html',

@@ -25,8 +25,10 @@ import { syncStatusRoutes } from './routes/sync-status.js';
 import { formReplyRoutes } from './routes/form-replies.js';
 import { portalRoutes } from './routes/portal.js';
 import { dutyRoutes } from './routes/duty.js';
+import { creditLookRoutes } from './routes/credit-look.js';
+import { bookmarkRoutes } from './routes/bookmarks.js';
 import { resolveServerIdentity } from './lib/server-identity.js';
-import { authorName } from './lib/author.js';
+import { authorName, creditLook, lookCss } from './lib/author.js';
 import { installColleagueBoundary } from './lib/colleague.js';
 import { installMirrorWriteBoundary } from './lib/mirror-boundary.js';
 import { installPublicStatic } from './lib/public-static.js';
@@ -163,7 +165,7 @@ server.get('/api/health', async () => {
         // „изработил …" on every screen (owner, 25 Sep 2026). From each
         // installation's .env, never from the code: this repository is public
         // and check:names refuses every real name in it, the author's included.
-        ...(AUTHOR ? { author: AUTHOR } : {}),
+        ...(AUTHOR ? { author: AUTHOR, authorLook: lookCss(await creditLook()) } : {}),
         ...(cloudAuthMode() === 'google' ? { cloudAuth: 'google' } : {}),
         ...(mirror ? { mirror } : {}),
         ...(warnings.length ? { warning: warnings.join('; ') } : {})
@@ -190,6 +192,8 @@ server.register(evidenceRoutes);
 server.register(formReplyRoutes);
 server.register(portalRoutes);
 server.register(dutyRoutes);
+server.register(creditLookRoutes);
+server.register(bookmarkRoutes);
 
 server.listen(listenOptions())
     .then(async () => {

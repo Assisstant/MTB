@@ -60,8 +60,16 @@ html { background: var(--bg); min-height: 100%; }
 /* „изработил …", the watermark every MTB screen carries (app-navigation.js
    `.mtb-credit`), just left of the ☀/🌙 switch that owns this corner. */
 .mtb-credit { position: fixed; right: 64px; bottom: 21px; z-index: 30; pointer-events: none; user-select: none;
-              font: 600 11px/1.2 system-ui, -apple-system, 'Segoe UI', sans-serif; letter-spacing: .02em;
-              color: var(--accent); opacity: .56; text-shadow: 0 0 3px var(--bg); }
+              font-family: system-ui, -apple-system, 'Segoe UI', sans-serif; font-weight: 600; line-height: 1.2;
+              font-size: var(--mtb-credit-size, 11px); letter-spacing: .02em;
+              color: var(--mtb-credit-light-text, rgba(79, 91, 213, .5));
+              text-shadow: 0 0 3px var(--mtb-credit-light-halo, rgba(255, 255, 255, .68)); }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .mtb-credit { color: var(--mtb-credit-dark-text, rgba(165, 180, 252, .48));
+              text-shadow: 0 0 3px var(--mtb-credit-dark-halo, rgba(10, 12, 30, .68)); }
+}
+:root[data-theme="dark"] .mtb-credit { color: var(--mtb-credit-dark-text, rgba(165, 180, 252, .48));
+              text-shadow: 0 0 3px var(--mtb-credit-dark-halo, rgba(10, 12, 30, .68)); }
 @media print { .theme-toggle { display: none; }
                .mtb-credit { right: 15px; bottom: 10px; color: #777 !important; opacity: 1; text-shadow: none; } }
 * { box-sizing: border-box; }
@@ -1724,21 +1732,44 @@ header.top h1 { flex: 1; min-width: 180px; }
     // this public file. The browser keeps the last one, so the sign-in screen
     // carries it too; a session that names nobody takes it away (as in
     // app-navigation.js, whose key this is).
+    // Its look is the administrator's, once for everybody (Податоци → „🎨
+    // Изглед"), handed out as CSS values; anything else keeps the defaults.
     const AUTHOR_KEY = 'mtb_author_v1';
-    function showCredit(name) {
+    const LOOK_KEY = 'mtb_author_look_v1';
+    const LOOK_VARS = { size: '--mtb-credit-size', lightText: '--mtb-credit-light-text', lightHalo: '--mtb-credit-light-halo',
+        darkText: '--mtb-credit-dark-text', darkHalo: '--mtb-credit-dark-halo' };
+    function cleanLook(css) {
+        if (!css || typeof css !== 'object') return null;
+        const out = {};
+        for (const key of Object.keys(LOOK_VARS)) {
+            const value = String(css[key] || '');
+            if (!(key === 'size' ? /^\d{1,2}px$/ : /^rgba\(\d{1,3}, \d{1,3}, \d{1,3}, (?:0|1|0?\.\d+)\)$/).test(value)) return null;
+            out[key] = value;
+        }
+        return out;
+    }
+    function showCredit(name, look) {
         const text = String(name || '').replace(/\s+/g, ' ').trim();
         el('mtbCredit').textContent = text ? 'изработил ' + text : '';
         el('mtbCredit').hidden = !text;
+        Object.entries(LOOK_VARS).forEach(([key, property]) => {
+            if (look) el('mtbCredit').style.setProperty(property, look[key]);
+            else el('mtbCredit').style.removeProperty(property);
+        });
     }
     function creditFrom(answer) {
         const text = String(answer && answer.author || '').replace(/\s+/g, ' ').trim();
+        const look = cleanLook(answer && answer.authorLook);
         try {
             if (text) localStorage.setItem(AUTHOR_KEY, text);
             else localStorage.removeItem(AUTHOR_KEY);
+            if (look) localStorage.setItem(LOOK_KEY, JSON.stringify(look));
+            else localStorage.removeItem(LOOK_KEY);
         } catch (_) { /* this page load only */ }
-        showCredit(text);
+        showCredit(text, look);
     }
-    try { showCredit(localStorage.getItem(AUTHOR_KEY)); } catch (_) { /* no storage: the session will say */ }
+    try { showCredit(localStorage.getItem(AUTHOR_KEY), cleanLook(JSON.parse(localStorage.getItem(LOOK_KEY) || 'null'))); }
+    catch (_) { /* no storage: the session will say */ }
 
     start();
 })();

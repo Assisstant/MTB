@@ -210,6 +210,21 @@
     /* ── пристигнати формулари ── */
     .form-gate { background: var(--warn-bg); border: 1px solid var(--warn); border-radius: 8px; padding: 12px 14px; margin-bottom: 12px; }
     .form-gate .controls { margin-top: 8px; }
+    /* „🎨 Изглед": the watermark's look, previewed on both themes' own ground. */
+    .look-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 14px; margin: 10px 0 14px; }
+    .look-side { border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; margin: 0; min-width: 0; }
+    .look-side legend { font-weight: 700; padding: 0 6px; }
+    .look-side .field, .look-size .field { display: grid; grid-template-columns: 7.5em 1fr 3.5em; align-items: center; gap: 8px; margin: 6px 0; }
+    .look-side input[type="range"], .look-size input[type="range"] { width: 100%; min-width: 0; }
+    .look-side input[type="color"] { width: 3.2em; height: 2em; padding: 0; border: 1px solid var(--border); border-radius: 6px; background: none; }
+    .look-side output, .look-size output { font-variant-numeric: tabular-nums; text-align: right; }
+    .look-preview { position: relative; height: 92px; border-radius: 8px; margin-top: 10px; overflow: hidden;
+                    padding: 10px 12px; font-size: 12px; line-height: 1.7; }
+    .look-preview.light { background: #f4f4fa; color: #5b5e7a; border: 1px solid #d9d9e8; }
+    .look-preview.dark { background: #1a202c; color: #a0aec0; border: 1px solid #2d3748; }
+    .look-sample { position: absolute; right: 12px; bottom: 8px; font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+                   font-weight: 600; line-height: 1.2; letter-spacing: .02em; pointer-events: none; }
+    .look-size { max-width: 520px; }
     .form-results { list-style: none; padding: 0; margin: 0 0 12px; font-size: 13px; }
     .form-results li { padding: 3px 0; }
     .form-results .ok { color: var(--ok); }
@@ -356,6 +371,7 @@
         <button class="btn soft" data-tab="classes" aria-pressed="false">🏫 Одделенија</button>
         <button class="btn soft" data-tab="forms" aria-pressed="false">📥 Формулари</button>
         <button class="btn soft" data-tab="colleagues" aria-pressed="false">👥 Колеги</button>
+        <button class="btn soft" data-tab="look" aria-pressed="false">🎨 Изглед</button>
         <label class="number-toggle"><input id="showRowNumbers" type="checkbox" checked> Редни броеви</label>
     </div>
 
@@ -514,6 +530,39 @@
         </details>
     </div>
 
+    <div class="panel tab" id="tab-look">
+        <h2>Изглед на водениот жиг</h2>
+        <p class="hint">
+            „изработил …“ стои долу десно на секој екран, кај секој колега и во облакот. Изгледот го
+            поставува <b>само администраторот</b> и важи за сите. Лизгачите само го прикажуваат; ништо не се
+            менува на другите екрани до <b>„Зачувај за сите“</b>.
+        </p>
+        <div id="lookGate"></div>
+        <div class="look-grid">
+            <fieldset class="look-side">
+                <legend>☀️ Светла тема</legend>
+                <label class="field"><span>Боја</span><input type="color" id="lookLightColor"><span></span></label>
+                <label class="field"><span>Букви</span><input type="range" id="lookLightText" min="10" max="100"><output id="lookLightTextOut"></output></label>
+                <label class="field"><span>Обруб</span><input type="range" id="lookLightHalo" min="0" max="100"><output id="lookLightHaloOut"></output></label>
+                <div class="look-preview light" aria-hidden="true">Понеделник · 08:00 · Кабинет 1<br>Вторник · 09:40 · Кабинет 2<span class="look-sample" id="lookSampleLight"></span></div>
+            </fieldset>
+            <fieldset class="look-side">
+                <legend>🌙 Темна тема</legend>
+                <label class="field"><span>Боја</span><input type="color" id="lookDarkColor"><span></span></label>
+                <label class="field"><span>Букви</span><input type="range" id="lookDarkText" min="10" max="100"><output id="lookDarkTextOut"></output></label>
+                <label class="field"><span>Обруб</span><input type="range" id="lookDarkHalo" min="0" max="100"><output id="lookDarkHaloOut"></output></label>
+                <div class="look-preview dark" aria-hidden="true">Понеделник · 08:00 · Кабинет 1<br>Вторник · 09:40 · Кабинет 2<span class="look-sample" id="lookSampleDark"></span></div>
+            </fieldset>
+        </div>
+        <div class="look-size">
+            <label class="field"><span>Големина</span><input type="range" id="lookSize" min="9" max="16"><output id="lookSizeOut"></output></label>
+        </div>
+        <div class="controls">
+            <button class="btn" id="lookSave"><span class="ico" aria-hidden="true">💾</span> Зачувај за сите</button>
+            <button class="btn soft" id="lookReset"><span class="ico" aria-hidden="true">↺</span> Почетен изглед</button>
+        </div>
+    </div>
+
     <div class="panel tab" id="tab-classes">
         <h2>Одделенија</h2>
         <p class="hint">
@@ -547,7 +596,7 @@
     let data = null;
     let years = [];
     const requestedTab = new URLSearchParams(window.location.search).get('tab');
-    let tab = ['students', 'teachers', 'therapists', 'classes', 'forms', 'colleagues'].includes(requestedTab) ? requestedTab : 'students';
+    let tab = ['students', 'teachers', 'therapists', 'classes', 'forms', 'colleagues', 'look'].includes(requestedTab) ? requestedTab : 'students';
     let rolloverPreview = null;
     const PUBLISHED = window.location.hostname === 'assisstant.github.io';
     const SERVER_DEFAULTS = [
@@ -877,6 +926,9 @@
             // A year change is a different queue.
             formsReviewId = null;
             if (tab === 'forms') loadForms();
+            // Opened straight onto „🎨 Изглед" from GitHub Pages, the first
+            // try came before the server was known.
+            if (tab === 'look' && !lookDraft) loadLook();
         } catch (err) {
             if (mine !== ticket) return;
             data = null;
@@ -2257,24 +2309,26 @@
     let formsReviewId = null;
     const when = (v) => (v ? new Date(v).toLocaleString('mk-MK', { dateStyle: 'short', timeStyle: 'short' }) : '—');
 
-    async function formSignIn() {
-        const who = el('formsWho').value.split(':');
-        const pin = tidy(el('formsPin').value);
+    /**
+     * The administrator's door, drawn into `gate` under the id prefix `key`:
+     * sign in with the PIN, or — when the server names no administrator —
+     * what to put in server/.env. One door for every administrator-only tab
+     * („📥 Формулари", „🎨 Изглед"); `after` runs once signed in.
+     */
+    async function adminSignIn(key, after) {
+        const who = el(key + 'Who').value.split(':');
+        const pin = tidy(el(key + 'Pin').value);
         if (!/^\d{4}$/.test(pin)) return status('Внеси точно 4 цифри.', 'warn');
         try {
             const res = await api('POST', '/api/evidence/login', { kind: who[0], personId: Number(who[1]), pin });
             try { localStorage.setItem(FORM_TOKEN_KEY, res.token); } catch (_) { /* the shared bar reads the same key */ }
             window.dispatchEvent(new CustomEvent('mtb:auth-changed'));
             status('Добредојде, ' + personName(res.person.name) + '.', 'ok');
-            await loadForms();
+            await after();
         } catch (err) { status(err.message, 'error'); }
     }
 
-    async function drawFormGate(err) {
-        const gate = el('formsGate');
-        el('formsTools').style.display = 'none';
-        el('formsList').innerHTML = '';
-        el('formsReview').innerHTML = '';
+    async function drawAdminGate(gate, key, err, refused, purpose, after) {
         if (err.payload && err.payload.noAdmin) {
             gate.innerHTML = '<div class="form-gate"><b>Нема поставен администратор.</b> ' + esc(err.message) + '</div>';
             return;
@@ -2282,14 +2336,104 @@
         let people = [];
         try { people = (await api('GET', '/api/evidence/people')).people || []; } catch (_) { /* the message below still helps */ }
         gate.innerHTML = '<div class="form-gate">'
-            + (err.status === 403 ? '<b>Пристигнатите формулари ги прегледува само администраторот.</b> Најави се како администратор.'
-                                  : '<b>Најави се како администратор</b> за да ги видиш пристигнатите формулари.')
-            + '<div class="controls"><label class="field"><span>Кој си</span><select id="formsWho">'
+            + (err.status === 403 ? '<b>' + esc(refused) + '</b> Најави се како администратор.'
+                                  : '<b>Најави се како администратор</b> ' + esc(purpose))
+            + `<div class="controls"><label class="field"><span>Кој си</span><select id="${key}Who">`
             + people.map((p) => `<option value="${esc(p.kind + ':' + p.id)}">${esc(personName(p.name))}${p.kind === 'teacher' ? ' · наставник' : ''}</option>`).join('')
-            + '</select></label><label class="field"><span>PIN</span><input id="formsPin" type="password" inputmode="numeric" maxlength="4" style="max-width:110px;"></label>'
-            + '<button class="btn" id="formsSignIn">Најави се</button></div></div>';
-        el('formsSignIn').addEventListener('click', formSignIn);
-        el('formsPin').addEventListener('keydown', (e) => { if (e.key === 'Enter') formSignIn(); });
+            + `</select></label><label class="field"><span>PIN</span><input id="${key}Pin" type="password" inputmode="numeric" maxlength="4" style="max-width:110px;"></label>`
+            + `<button class="btn" id="${key}SignIn">Најави се</button></div></div>`;
+        el(key + 'SignIn').addEventListener('click', () => adminSignIn(key, after));
+        el(key + 'Pin').addEventListener('keydown', (e) => { if (e.key === 'Enter') adminSignIn(key, after); });
+    }
+
+    async function drawFormGate(err) {
+        el('formsTools').style.display = 'none';
+        el('formsList').innerHTML = '';
+        el('formsReview').innerHTML = '';
+        await drawAdminGate(el('formsGate'), 'forms', err, 'Пристигнатите формулари ги прегледува само администраторот.',
+            'за да ги видиш пристигнатите формулари.', loadForms);
+    }
+
+    // ── изгледот на водениот жиг (046) ──────────────────────────────────────
+    /**
+     * „изработил …" on every screen; its look is the administrator's, once for
+     * everybody (owner, 27 Sep 2026). The sliders only preview — on both
+     * themes' own ground, since a look that reads on one can vanish on the
+     * other. Nothing reaches the other screens before „Зачувај за сите",
+     * which the server refuses to anyone but the administrator.
+     */
+    const LOOK_SIDES = { light: 'Light', dark: 'Dark' };
+    const LOOK_HALO = { light: '#ffffff', dark: '#0a0c1e' };
+    let lookDraft = null;
+    let lookDefaults = null;
+    let lookAuthor = '';
+    const lookRgba = (hex, percent) =>
+        'rgba(' + [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16)).join(', ') + ', ' + percent / 100 + ')';
+
+    function drawLook() {
+        if (!lookDraft) return;
+        Object.entries(LOOK_SIDES).forEach(([side, name]) => {
+            const s = lookDraft[side];
+            el('look' + name + 'Color').value = s.color;
+            el('look' + name + 'Text').value = s.text;
+            el('look' + name + 'Halo').value = s.halo;
+            el('look' + name + 'TextOut').textContent = s.text + ' %';
+            el('look' + name + 'HaloOut').textContent = s.halo + ' %';
+            const sample = el('lookSample' + name);
+            sample.textContent = 'изработил ' + (lookAuthor || 'Име Презиме');
+            sample.style.color = lookRgba(s.color, s.text);
+            sample.style.textShadow = '0 0 3px ' + lookRgba(LOOK_HALO[side], s.halo);
+            sample.style.fontSize = lookDraft.size + 'px';
+        });
+        el('lookSize').value = lookDraft.size;
+        el('lookSizeOut').textContent = lookDraft.size + ' px';
+    }
+
+    async function loadLook() {
+        let body;
+        try { body = await api('GET', '/api/credit-look'); }
+        catch (err) { el('lookGate').innerHTML = '<p class="hint">' + esc(err.message) + '</p>'; return; }
+        lookDefaults = body.defaults;
+        lookAuthor = body.author || '';
+        lookDraft = JSON.parse(JSON.stringify(body.look));
+        el('lookGate').innerHTML = lookAuthor ? ''
+            : '<div class="form-gate"><b>Името не е поставено на овој сервер.</b> Во server/.env додај '
+              + '<code>MTB_AUTHOR=Име Презиме</code> и рестартирај го серверот — дотогаш жигот не се гледа.</div>';
+        drawLook();
+    }
+
+    async function saveLook() {
+        if (!lookDraft) return;
+        try {
+            const body = await api('PUT', '/api/credit-look', lookDraft);
+            lookDraft = body.look;
+            drawLook();
+            el('lookGate').innerHTML = '';
+            if (window.MTBAppNavigation && window.MTBAppNavigation.creditLook) window.MTBAppNavigation.creditLook(body.css);
+            status('Изгледот е зачуван — важи за сите екрани и за колегите.', 'ok');
+        } catch (err) {
+            if (err.status === 401 || err.status === 403) {
+                return drawAdminGate(el('lookGate'), 'look', err, 'Изгледот на водениот жиг го менува само администраторот.',
+                    'за да го зачуваш изгледот.', saveLook);
+            }
+            status(err.message, 'error');
+        }
+    }
+
+    function wireLook() {
+        Object.entries(LOOK_SIDES).forEach(([side, name]) => {
+            el('look' + name + 'Color').addEventListener('input', (e) => { lookDraft[side].color = e.target.value; drawLook(); });
+            el('look' + name + 'Text').addEventListener('input', (e) => { lookDraft[side].text = Number(e.target.value); drawLook(); });
+            el('look' + name + 'Halo').addEventListener('input', (e) => { lookDraft[side].halo = Number(e.target.value); drawLook(); });
+        });
+        el('lookSize').addEventListener('input', (e) => { lookDraft.size = Number(e.target.value); drawLook(); });
+        el('lookSave').addEventListener('click', saveLook);
+        el('lookReset').addEventListener('click', () => {
+            if (!lookDefaults) return;
+            lookDraft = JSON.parse(JSON.stringify(lookDefaults));
+            drawLook();
+            status('Почетниот изглед е во прегледот — „Зачувај за сите“ за да важи.', 'ok');
+        });
     }
 
     async function loadForms() {
@@ -2466,6 +2610,7 @@
         closePickers();
         if (next === 'forms') loadForms();
         if (next === 'colleagues') loadColleagues();
+        if (next === 'look') loadLook();
     }
 
     /**
@@ -2583,6 +2728,7 @@
     el('showRowNumbers').addEventListener('change', setNumberVisibility);
     el('formsFiles').addEventListener('change', (e) => importFormFiles(e.target.files));
     el('formsRefresh').addEventListener('click', () => loadForms());
+    wireLook();
     document.querySelector('label[for="formsFiles"]').addEventListener('keydown', (e) => {
         if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); el('formsFiles').click(); }
     });

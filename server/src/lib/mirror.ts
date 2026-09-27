@@ -19,6 +19,8 @@ export const MIRROR_TABLES = [
     'bell_period_overrides',
     'bell_periods',
     'class_years',
+    // The watermark's look (046): a read-only copy should look like the cloud.
+    'credit_look',
     'diary_schedule',
     'diary_schedule_history',
     // Дежурства (043): the list and the marked days are the school's facts; a
@@ -79,6 +81,8 @@ export const MIRROR_TABLES = [
  * same kind of thing: credentials and work in progress.
  */
 export const MIRROR_EXCLUDED_TABLES = [
+    // The administrator's own bookmarks (047): personal, not the school's data.
+    'bookmark_state',
     'evidence_logins',
     'evidence_sessions',
     'form_replies',

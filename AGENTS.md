@@ -206,6 +206,10 @@ docs/PLAN-rabotna-konzola.md    what can still be plugged into MTB-Workspace to 
                                 short list of CRUD that must never be added there
 docs/PLAN-kolegi-online.md      colleagues online: an account per employee, a personal form,
                                 clashes that reach the other person (owner, 25 Sep 2026)
+docs/PLAN-wbacc.md              WBACC Studio: Excalidraw (MIT, not tldraw) built from wbacc/ into ONE
+                                offline file, WBACC.html; pictograms; the administrator's bookmarks (047)
+wbacc/                          its source (Vite + React); `npm run build` there writes ../WBACC.html.
+                                Never served: only WBACC.html is on the public list
 docs/PLAN-formulari.md          offline forms for colleagues (кабинет, одделение) and the
                                 review queue their answers wait in before anything is written;
                                 the forms are mtb-schedule-form.js and mtb-class-form.js (class + teacher);
@@ -266,6 +270,7 @@ npm run test:portal-cabinet          a therapist's own cabinet through the same 
 npm run test:kolega                  Kolega.html in a browser; every API call invented
 npm run test:kolegi-admin            Податоци → Колеги and the administrator's look; every API call invented
 npm run test:schedule-form           the cabinet form (all therapists) offline, then into the queue
+npm run test:wbacc                   WBACC.html in a browser: pictograms, bookmarks, offline; every call invented
 npm run test:class-form              the class form AND the teacher's own week from Уреди настава, offline, then in
 npm run test:teaching                the crossing and the workbook writer, needs the server
 npm run rollover -- --to 2026/2027   dry run; add --apply

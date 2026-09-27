@@ -1,0 +1,73 @@
+.wbacc { position: fixed; inset: 0; }
+
+/* The watermark: the same rules and defaults as app-navigation.js .mtb-credit.
+   Above Excalidraw's bottom bar (zoom, undo, help), never in its way. */
+.mtb-credit {
+    position: fixed; right: 15px; bottom: 64px; z-index: 30; pointer-events: none; user-select: none;
+    font-family: system-ui, -apple-system, 'Segoe UI', sans-serif; font-weight: 600; line-height: 1.2;
+    font-size: var(--mtb-credit-size, 11px); letter-spacing: .02em;
+    color: var(--mtb-credit-light-text, rgba(79, 91, 213, .5));
+    text-shadow: 0 0 3px var(--mtb-credit-light-halo, rgba(255, 255, 255, .68));
+}
+.mtb-credit.dark {
+    color: var(--mtb-credit-dark-text, rgba(165, 180, 252, .48));
+    text-shadow: 0 0 3px var(--mtb-credit-dark-halo, rgba(10, 12, 30, .68));
+}
+@media print { .mtb-credit { color: #777 !important; text-shadow: none !important; } }
+
+.wbacc-lang { width: 100%; padding: 6px 8px; border-radius: 6px; font: inherit;
+              background: var(--island-bg-color, #fff); color: var(--text-primary-color, #1b1b1f);
+              border: 1px solid var(--default-border-color, #ccc); }
+
+/* The two panels: a drawer on the right, over the canvas, under Excalidraw's dialogs. */
+.wbacc-tools { display: flex; gap: 6px; }
+.wbacc-tools button { border: 0; border-radius: 8px; padding: 8px 10px; cursor: pointer; font: 500 13px system-ui, sans-serif;
+                      background: var(--color-surface-low, #ececf4); color: var(--color-on-surface, #1b1b1f); }
+.wbacc-tools button.on { background: var(--color-primary-light, #e0dfff); color: var(--color-primary, #6965db); }
+.wbacc-panel { position: fixed; top: 64px; right: 12px; bottom: 96px; width: min(380px, calc(100vw - 24px)); z-index: 20;
+               overflow: auto; border-radius: 10px; background: #fff; color: #1b1b1f;
+               box-shadow: 0 8px 30px rgba(0, 0, 0, .18); border: 1px solid #e3e3ee; font: 14px/1.4 system-ui, sans-serif; }
+.wbacc-panel.dark { background: #232329; color: #e3e3e8; border-color: #3a3a44; }
+.wbacc-panel__body { padding: 12px 14px; display: grid; gap: 10px; }
+.wbacc-panel__head { display: flex; justify-content: space-between; align-items: center; font-size: 15px; }
+.wbacc-panel input, .wbacc-panel select, .wbacc-panel textarea, .wbacc-panel button {
+    font: inherit; color: inherit; background: transparent; border: 1px solid #c9c9d6; border-radius: 6px; padding: 6px 8px; }
+.wbacc-panel.dark input, .wbacc-panel.dark select, .wbacc-panel.dark textarea, .wbacc-panel.dark button { border-color: #4a4a56; }
+.wbacc-panel.dark select option { background: #232329; }
+.wbacc-panel button { cursor: pointer; }
+.wbacc-panel .wbacc-primary { background: #6965db; border-color: #6965db; color: #fff; }
+.wbacc-x { border: 0 !important; font-size: 16px; }
+.wbacc-row { display: flex; gap: 6px; align-items: center; }
+.wbacc-row > input, .wbacc-row > select { flex: 1; min-width: 0; }
+.wbacc-status { margin: 0; font-size: 13px; opacity: .85; }
+.wbacc-status.bad { color: #c0392b; opacity: 1; }
+.wbacc-status.ok { color: #2e7d32; }
+.wbacc-panel.dark .wbacc-status.bad { color: #ff8f8f; }
+.wbacc-panel.dark .wbacc-status.ok { color: #7bd88f; }
+.wbacc-pictos { display: grid; grid-template-columns: repeat(auto-fill, minmax(76px, 1fr)); gap: 6px; }
+.wbacc-picto { padding: 4px !important; background: #fff !important; border-radius: 8px !important; }
+.wbacc-picto.on { outline: 3px solid #6965db; }
+.wbacc-picto img { width: 100%; display: block; }
+.wbacc-card-form, .wbacc-edit { display: grid; gap: 8px; padding: 10px; border-radius: 8px; background: rgba(105, 101, 219, .08); }
+.wbacc-card-form label, .wbacc-edit label { display: grid; gap: 4px; font-size: 13px; }
+.wbacc-check { display: flex !important; align-items: center; gap: 6px; }
+.wbacc-fine { margin: 0; font-size: 11px; opacity: .7; }
+.wbacc-gate, .wbacc-conflict { display: flex; flex-wrap: wrap; gap: 6px; padding: 8px; border-radius: 8px; background: rgba(240, 179, 94, .18); }
+.wbacc-gate select { flex: 1; min-width: 0; }
+.wbacc-gate input { width: 70px; }
+.wbacc-cols { display: grid; gap: 10px; }
+.wbacc-col header { display: flex; justify-content: space-between; align-items: center; font-weight: 600; margin-bottom: 6px; }
+.wbacc-col header small { opacity: .6; font-weight: 400; }
+.wbacc-col header button { border: 0 !important; padding: 2px 4px !important; }
+.wbacc-bm { display: flex; gap: 8px; padding: 8px; border-radius: 8px; border: 1px solid rgba(128, 128, 150, .25); margin-bottom: 6px; }
+.wbacc-thumb { width: 72px; height: 40px; object-fit: cover; border-radius: 4px; flex: none; }
+.wbacc-bm__text { flex: 1; min-width: 0; display: grid; gap: 2px; overflow-wrap: anywhere; }
+.wbacc-bm__text a { color: #5b57d1; text-decoration: none; font-weight: 600; }
+.wbacc-panel.dark .wbacc-bm__text a { color: #a8a5ff; }
+.wbacc-host, .wbacc-tags, .wbacc-notes { opacity: .7; font-size: 12px; }
+.wbacc-notes { white-space: pre-wrap; }
+.wbacc-bm__acts { display: flex; flex-direction: column; gap: 2px; }
+.wbacc-bm__acts button { border: 0 !important; padding: 2px 4px !important; }
+.wbacc-foot { justify-content: space-between; flex-wrap: wrap; }
+.wbacc-file { cursor: pointer; border: 1px solid #c9c9d6; border-radius: 6px; padding: 6px 8px; font-size: 13px; }
+@media (max-width: 600px) { .wbacc-tools button { padding: 6px 7px; font-size: 12px; } }

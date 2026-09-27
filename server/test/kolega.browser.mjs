@@ -47,7 +47,8 @@ await context.route('**/*', async (route) => {
     const token = req.headers()['x-mtb-portal-token'] || '';
     calls.push({ method: req.method(), path: url.pathname, body, token });
     const me = { person: { employeeId: 7, name: 'Ана Измислена' }, usernames: { latin: 'AnaIzmislena', cyrillic: 'АнаИзмислена' },
-        author: 'Измислен Автор', initialPassword: !own, year: '2026/2027', roles: ['teacher', 'homeroom'], teacher: { id: 3, kind: 'odd', classes: [] }, therapist: null };
+        author: 'Измислен Автор', authorLook: { size: '13px', lightText: 'rgba(170, 0, 17, 0.8)', lightHalo: 'rgba(255, 255, 255, 0.68)',
+            darkText: 'rgba(255, 255, 255, 0.9)', darkHalo: 'rgba(10, 12, 30, 0.68)' }, initialPassword: !own, year: '2026/2027', roles: ['teacher', 'homeroom'], teacher: { id: 3, kind: 'odd', classes: [] }, therapist: null };
     if (url.pathname === '/api/portal/login') {
         const right = body.password === (own ? 'моја1' : 'ResursenCentar');
         if (!['AnaIzmislena', 'АнаИзмислена'].includes(body.username) || !right) return json(401, { error: 'Погрешно корисничко име или лозинка.' });
@@ -111,6 +112,7 @@ check('keeping it goes straight on', await visible('home'));
 // cloud this page cannot ask /api/health, so the name comes with the session.
 check('the watermark names the author the session names',
     (await page.textContent('#mtbCredit').catch(() => '')) === 'изработил Измислен Автор' && await page.isVisible('#mtbCredit'));
+check('in the look the administrator set (046)', await page.$eval('#mtbCredit', (n) => getComputedStyle(n).fontSize === '13px'));
 check('and stands beside the ☀/🌙 switch, not on it', await page.evaluate(() => {
     const a = document.getElementById('mtbCredit').getBoundingClientRect();
     const b = document.getElementById('themeToggle').getBoundingClientRect();

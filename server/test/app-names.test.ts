@@ -29,6 +29,11 @@ const NAMES: Record<string, string> = {
     'Pregled-Baza.html': 'Преглед на базата',
     'Sinhronizacija.html': 'Синхронизација'
 };
+// Independent tools the MTB screens link to: the tool's own name, without „— MTB“.
+const TOOLS: Record<string, string> = {
+    'ComuniBoard.html': 'WBACC Unified Studio',
+    'WBACC.html': 'WBACC Studio'
+};
 const esc = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 test('every MTB app has its name as the browser-tab title', () => {
@@ -36,11 +41,14 @@ test('every MTB app has its name as the browser-tab title', () => {
         const title = /<title>([^<]*)<\/title>/.exec(read(file))?.[1];
         assert.equal(title, `${name} — MTB`, file);
     }
+    for (const [file, name] of Object.entries(TOOLS)) {
+        assert.equal(/<title>([^<]*)<\/title>/.exec(read(file))?.[1], name, file);
+    }
 });
 
 test('EduHub cards use the same names', () => {
     const hub = read('index.html');
-    for (const [file, name] of Object.entries(NAMES)) {
+    for (const [file, name] of Object.entries({ ...NAMES, ...TOOLS })) {
         const found = new RegExp(`'${esc(file)}': \\{ name: '([^']*)'`).exec(hub)?.[1];
         assert.equal(found, name, `index.html FILE_MAPPINGS for ${file}`);
     }
@@ -50,7 +58,7 @@ test('the start page uses the same names for what it lists', () => {
     const start = read('start.html');
     const listed = [...start.matchAll(/file:'([^']+)',\s*name:'([^']*)'/g)];
     assert.ok(listed.length >= 7, 'start.html lists its apps');
-    for (const [, file, name] of listed) assert.equal(name, NAMES[file], `start.html for ${file}`);
+    for (const [, file, name] of listed) assert.equal(name, NAMES[file] ?? TOOLS[file], `start.html for ${file}`);
 });
 
 test('the workspace tabs use the same names', () => {

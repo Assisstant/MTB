@@ -29,7 +29,7 @@ import { minutesOf, timeOf } from '../lib/crossing.js';
 import { defaultMonth, loadDuty, monthBounds, monthPayload, todayInSkopje } from '../lib/duty.js';
 import { dayProblem, setAbsence } from './duty.js';
 import { setCaseloadLink } from '../lib/caseload.js';
-import { authorName } from '../lib/author.js';
+import { authorName, creditLook, lookCss } from '../lib/author.js';
 import {
     MIN_PASSWORD, PORTAL_TOKEN_HEADER, closeOtherSessions, closeSession, looseKey, nameKeys,
     openSession, passwordMatches, resetAccount, resolveUsername, sessionEmployee, setPassword,
@@ -439,7 +439,7 @@ export async function portalRoutes(server: FastifyInstance, options: { year?: st
             person: { employeeId: who.staff.employeeId, name: who.staff.name },
             // The watermark on the colleagues' page: in the cloud this page
             // cannot ask /api/health, so the credit travels with the session.
-            ...(author ? { author } : {}),
+            ...(author ? { author, authorLook: lookCss(await creditLook()) } : {}),
             acting: who.acting,
             usernames: usernamesOf(who.staff.name),
             initialPassword: !(own.rows[0] && own.rows[0].own),

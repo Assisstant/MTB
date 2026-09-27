@@ -85,7 +85,8 @@
     "test:portal-cabinet": "tsx test/portal-cabinet.e2e.ts",
     "test:kolega": "node test/kolega.browser.mjs",
     "test:duty": "tsx test/duty.e2e.ts",
-    "test:kolegi-admin": "node test/kolegi-admin.browser.mjs"
+    "test:kolegi-admin": "node test/kolegi-admin.browser.mjs",
+    "test:wbacc": "node test/wbacc.browser.mjs"
   },
   "dependencies": {
     "@fastify/cookie": "^11.1.2",

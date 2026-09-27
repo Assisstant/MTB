@@ -348,6 +348,7 @@ console.log('\n„изработил …" — from the server, once per window')
 // server's (`MTB_AUTHOR`), never the code's: check:names refuses real names in
 // this public repository, so the fixture is an invented one.
 let author = 'Измислен Автор';
+let look = null;
 let healthDown = false;
 const creditContext = await browser.newContext({ viewport: { width: 1280, height: 800 } });
 await creditContext.route('**/api/health', async (route) => {
@@ -355,6 +356,7 @@ await creditContext.route('**/api/health', async (route) => {
     const response = await route.fetch();
     const json = await response.json();
     if (author) json.author = author; else delete json.author;
+    if (look) json.authorLook = look; else delete json.authorLook;
     await route.fulfill({ json });
 });
 const credited = await creditContext.newPage();
@@ -371,6 +373,25 @@ check('a watermark in the bottom-right corner, where S-Dnevnik kept its own',
         const box = n.getBoundingClientRect();
         return box.right > innerWidth - 40 && box.bottom > innerHeight - 40;
     }).catch(() => false));
+// 046: the administrator's look reaches every screen through /api/health.
+look = { size: '14px', lightText: 'rgba(170, 0, 17, 0.8)', lightHalo: 'rgba(255, 255, 255, 0.2)',
+    darkText: 'rgba(255, 255, 255, 0.9)', darkHalo: 'rgba(10, 12, 30, 0.5)' };
+await credited.goto(`${BASE}/Podatoci.html`, { waitUntil: 'domcontentloaded' });
+await credited.waitForSelector('#mtbAppNav');
+await credited.waitForTimeout(1500);
+check('the look the administrator set is the look every screen draws',
+    await credited.$eval('#mtbCredit', (n) => {
+        const s = getComputedStyle(n);
+        return s.fontSize === '14px' && s.color === 'rgba(170, 0, 17, 0.8)';
+    }).catch(() => false));
+look = { ...look, size: '14px; background: red' };
+await credited.goto(`${BASE}/Podatoci.html`, { waitUntil: 'domcontentloaded' });
+await credited.waitForSelector('#mtbAppNav');
+await credited.waitForTimeout(1500);
+check('and a look that is not plain CSS values is ignored, not applied',
+    await credited.$eval('#mtbCredit', (n) => getComputedStyle(n).fontSize === '11px' && !n.style.cssText.includes('red'))
+        .catch(() => false));
+look = null;
 await credited.emulateMedia({ media: 'print' });
 check('and it is on the printed page too',
     await credited.$eval('#mtbCredit', (n) => getComputedStyle(n).display !== 'none').catch(() => false));
@@ -400,6 +421,57 @@ check('and the server’s „nobody“ is remembered too: nothing comes back off
     await credited.locator('#mtbCredit').count() === 0);
 healthDown = false;
 await creditContext.close();
+
+console.log('\n„🎨 Изглед" — the administrator sets the watermark for everybody');
+// Every call the tab makes is invented: nothing here reaches the database.
+const DEFAULT_LOOK = { size: 11, light: { color: '#4f5bd5', text: 50, halo: 68 }, dark: { color: '#a5b4fc', text: 48, halo: 68 } };
+let lookSignedIn = false;
+const lookPuts = [];
+const lookContext = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+await lookContext.route('**/api/credit-look', async (route) => {
+    if (route.request().method() === 'GET') {
+        return route.fulfill({ json: { author: 'Измислен Автор', look: DEFAULT_LOOK, defaults: DEFAULT_LOOK } });
+    }
+    if (!lookSignedIn) {
+        return route.fulfill({ status: 403, json: { error: 'Изгледот на водениот жиг го менува само администраторот.', needsAdmin: true } });
+    }
+    const body = route.request().postDataJSON();
+    lookPuts.push(body);
+    return route.fulfill({ json: { ok: true, look: body, css: { size: '15px', lightText: 'rgba(170, 0, 17, 0.8)',
+        lightHalo: 'rgba(255, 255, 255, 0.68)', darkText: 'rgba(165, 180, 252, 0.48)', darkHalo: 'rgba(10, 12, 30, 0.68)' } } });
+});
+await lookContext.route('**/api/evidence/people', (route) =>
+    route.fulfill({ json: { people: [{ kind: 'therapist', id: 9, name: 'Измислен Автор' }] } }));
+await lookContext.route('**/api/evidence/login', (route) => {
+    lookSignedIn = true;
+    return route.fulfill({ json: { token: 'invented-admin-token', person: { name: 'Измислен Автор' } } });
+});
+const lookPage = await lookContext.newPage();
+await lookPage.goto(`${BASE}/Podatoci.html?tab=look`, { waitUntil: 'domcontentloaded' });
+await lookPage.waitForFunction(() => document.getElementById('lookLightText').value === '50', null, { timeout: 8000 }).catch(() => {});
+check('the tab opens on the saved look, both themes previewed',
+    await lookPage.isVisible('#tab-look') && await lookPage.inputValue('#lookLightText') === '50'
+        && (await lookPage.textContent('#lookSampleDark')) === 'изработил Измислен Автор');
+await lookPage.$eval('#lookLightText', (n) => { n.value = '80'; n.dispatchEvent(new Event('input', { bubbles: true })); });
+await lookPage.$eval('#lookSize', (n) => { n.value = '15'; n.dispatchEvent(new Event('input', { bubbles: true })); });
+check('a slider changes the preview at once',
+    await lookPage.$eval('#lookSampleLight', (n) => n.style.color === 'rgba(79, 91, 213, 0.8)' && n.style.fontSize === '15px'));
+check('and nothing is saved by moving it', lookPuts.length === 0);
+await lookPage.click('#lookSave');
+await lookPage.waitForSelector('#lookPin', { timeout: 5000 }).catch(() => {});
+check('saving without the administrator asks for the sign-in, and says why',
+    await lookPage.isVisible('#lookPin') && /само администраторот/.test(await lookPage.textContent('#lookGate')));
+await lookPage.fill('#lookPin', '0000');
+await lookPage.click('#lookSignIn');
+await lookPage.waitForFunction(() => !document.getElementById('lookPin'), null, { timeout: 5000 }).catch(() => {});
+check('signed in, the same look is saved — the one on the sliders',
+    lookPuts.length === 1 && lookPuts[0].light.text === 80 && lookPuts[0].size === 15 && lookPuts[0].dark.text === 48);
+check('and this window\'s own watermark takes it at once',
+    await lookPage.$eval('#mtbCredit', (n) => getComputedStyle(n).fontSize === '15px').catch(() => false));
+await lookPage.click('#lookReset');
+check('„Почетен изглед" puts the defaults back in the preview, unsaved',
+    await lookPage.inputValue('#lookLightText') === '50' && lookPuts.length === 1);
+await lookContext.close();
 
 await browser.close();
 console.log(fails ? `\n${fails} failed` : '\nall good');

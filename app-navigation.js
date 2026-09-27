@@ -223,6 +223,9 @@
     }
 
     function heardChange(topic, local) {
+        // The watermark's look (046) is not a list any screen draws: this
+        // module re-reads it for itself, and no page reloads because of it.
+        if (topic === 'credit-look') { if (!local) checkHealth(); return; }
         const mine = (l) => { try { return Boolean(l.mine()); } catch (_) { return false; } };
         const wanted = changeListeners.filter((l) =>
             (!local || (l.sameWindow && !mine(l))) && !l.ignore.includes(topic));
@@ -586,6 +589,7 @@
             document.body.insertBefore(nav, document.body.firstChild);
         }
         render();
+        creditLookNow = rememberedLook();
         showCredit(rememberedAuthor());
         checkHealth();
         checkUser();
@@ -625,6 +629,55 @@
         } catch (_) { /* a per-browser nicety; the server's answer still shows */ }
     }
 
+    /**
+     * Its LOOK is the administrator's, once for everybody (046; Податоци →
+     * „🎨 Изглед"): the server hands it out already as CSS values
+     * (`lib/author.ts` `lookCss`), and it is remembered beside the name so a
+     * screen without its server still looks the way it was set. Anything that
+     * is not a plain size or rgba() colour is ignored — the CSS below keeps
+     * its own defaults, which are the look before the setting existed.
+     */
+    const LOOK_KEY = 'mtb_author_look_v1';
+    const LOOK_VARS = {
+        size: '--mtb-credit-size',
+        lightText: '--mtb-credit-light-text',
+        lightHalo: '--mtb-credit-light-halo',
+        darkText: '--mtb-credit-dark-text',
+        darkHalo: '--mtb-credit-dark-halo'
+    };
+    function cleanLook(css) {
+        if (!css || typeof css !== 'object') return null;
+        const out = {};
+        for (const key of Object.keys(LOOK_VARS)) {
+            const value = String(css[key] || '');
+            const ok = key === 'size'
+                ? /^\d{1,2}px$/.test(value)
+                : /^rgba\(\d{1,3}, \d{1,3}, \d{1,3}, (?:0|1|0?\.\d+)\)$/.test(value);
+            if (!ok) return null;
+            out[key] = value;
+        }
+        return out;
+    }
+    function rememberedLook() {
+        try { return cleanLook(JSON.parse(localStorage.getItem(LOOK_KEY) || 'null')); } catch (_) { return null; }
+    }
+    function rememberLook(css) {
+        const look = cleanLook(css);
+        try {
+            if (look) localStorage.setItem(LOOK_KEY, JSON.stringify(look));
+            else localStorage.removeItem(LOOK_KEY);
+        } catch (_) { /* a per-browser nicety, like the name */ }
+        return look;
+    }
+    let creditLookNow = null;
+    function applyCreditLook() {
+        if (!creditNode) return;
+        Object.entries(LOOK_VARS).forEach(([key, property]) => {
+            if (creditLookNow) creditNode.style.setProperty(property, creditLookNow[key]);
+            else creditNode.style.removeProperty(property);
+        });
+    }
+
     let creditNode = null;
     function showCredit(author) {
         const text = String(author || '').replace(/\s+/g, ' ').trim();
@@ -640,11 +693,13 @@
             // faint halo so it still reads over a table or a gradient.
             style.textContent = `
                 .mtb-credit { position: fixed; right: 15px; bottom: 10px; z-index: 30; pointer-events: none;
-                    user-select: none; font: 600 11px/1.2 system-ui, -apple-system, 'Segoe UI', sans-serif;
-                    letter-spacing: .02em; color: rgba(79, 91, 213, .5);
-                    text-shadow: 0 0 3px rgba(255, 255, 255, .68); }
+                    user-select: none; font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+                    font-weight: 600; line-height: 1.2; font-size: var(--mtb-credit-size, 11px); letter-spacing: .02em;
+                    color: var(--mtb-credit-light-text, rgba(79, 91, 213, .5));
+                    text-shadow: 0 0 3px var(--mtb-credit-light-halo, rgba(255, 255, 255, .68)); }
                 html[data-theme="dark"] .mtb-credit, body.dark-mode .mtb-credit {
-                    color: rgba(165, 180, 252, .48); text-shadow: 0 0 3px rgba(10, 12, 30, .68); }
+                    color: var(--mtb-credit-dark-text, rgba(165, 180, 252, .48));
+                    text-shadow: 0 0 3px var(--mtb-credit-dark-halo, rgba(10, 12, 30, .68)); }
                 @media print { .mtb-credit { color: #777 !important; text-shadow: none !important; } }
             `;
             document.head.appendChild(style);
@@ -655,6 +710,7 @@
             creditNode.id = 'mtbCredit';
         }
         creditNode.textContent = 'изработил ' + text;
+        applyCreditLook();
         if (!creditNode.isConnected) document.body.appendChild(creditNode);
     }
 
@@ -1000,6 +1056,7 @@
                     mirror && mirror.lastError ? 'последна грешка: ' + String(mirror.lastError) : '',
                     body.warning || ''].filter(Boolean).join(' · ')
             };
+            creditLookNow = rememberLook(body.authorLook);
             rememberAuthor(body.author);
             showCredit(body.author);
             window.dispatchEvent(new CustomEvent('mtb:server-state', { detail: {
@@ -1680,6 +1737,10 @@
     window.MTBAppNavigation = {
         refresh: render, checkHealth, checkUser, logout: logoutUser,
         reportDataState, toast: showToast, hideToast,
+        // The watermark's look, as the server hands it out (`lookCss`): the
+        // administrator's „🎨 Изглед" shows a saved look at once in its own
+        // window; the other windows take it from their next health check.
+        creditLook: (css) => { creditLookNow = rememberLook(css); applyCreditLook(); },
         /**
          * Where this page's API calls should go.
          *

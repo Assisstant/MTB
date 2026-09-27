@@ -42,8 +42,8 @@
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import { pool } from '../db.js';
-import { isAdmin, refuseScope, scopeOf } from '../lib/colleague.js';
-import { Refused, whoIsSigned } from '../lib/evidence.js';
+import { refuseScope } from '../lib/colleague.js';
+import { administrator as adminOnly } from '../lib/administrator.js';
 import { internalHeaders } from '../lib/internal.js';
 import {
     cabinetContext, cabinetItems, classContext, classItems, describeReply, fingerprintOf, personKey, selfApplies, settleNewest,
@@ -58,19 +58,8 @@ const DecideBody = z.object({
     reject: z.array(z.string().min(1).max(300)).max(500).default([])
 });
 
-async function administrator(req: FastifyRequest): Promise<string> {
-    const scope = await scopeOf(req);
-    if (!scope.open && scope.service) return 'service';
-    if (!(process.env.MTB_ADMIN || '').trim()) {
-        throw new Refused(403, 'Нема поставен администратор. Во server/.env додај MTB_ADMIN=therapist:Име Презиме '
-            + '(или teacher:Име Презиме) и рестартирај го серверот.', { needsAdmin: true, noAdmin: true });
-    }
-    const signed = await whoIsSigned(req.headers['x-mtb-evidence-token']);
-    if (!isAdmin(signed)) {
-        throw new Refused(403, 'Пристигнатите формулари ги прегледува само администраторот.', { needsAdmin: true });
-    }
-    return signed.name;
-}
+const administrator = (req: FastifyRequest): Promise<string> =>
+    adminOnly(req, 'Пристигнатите формулари ги прегледува само администраторот.');
 
 async function yearByLabel(label: string | undefined) {
     return (await pool.query(

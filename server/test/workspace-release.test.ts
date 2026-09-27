@@ -250,3 +250,45 @@ test('045 adds a per-year alias and the year\'s class count, touching no existin
   await assert.rejects(c.query('UPDATE school_years SET class_count=-1 WHERE id=$1',[y]),/school_years_class_count_check/,'a count is never negative');
  }finally{await c.query(`DROP SCHEMA IF EXISTS ${backup} CASCADE`);await c.query(`DROP SCHEMA ${schema} CASCADE`);await c.end();}
 });
+
+test('046 adds the watermark\'s look, one row at most, locked away from the REST roles, on a database at 045', async () => {
+ const url=process.env.TEST_DATABASE_URL||process.env.DATABASE_URL;
+ const c=new pg.Client({connectionString:url});await c.connect();
+ const schema=`credit_look_test_${process.pid}`,backup=`mtb_workspace_recovery_credit_look_test_${process.pid}`;
+ const dir=resolve(import.meta.dirname,'../../database/migrations');
+ await c.query(`CREATE SCHEMA ${schema}`);await c.query(`SET search_path=${schema}`);
+ try{
+  await c.query('CREATE TABLE schema_migrations(filename text PRIMARY KEY,applied_at timestamptz NOT NULL DEFAULT now())');
+  for(const f of (await readdir(dir)).filter(f=>f.endsWith('.sql')&&Number(f.slice(0,3))<=45).sort()){
+   await c.query(migrationBody(await readFile(resolve(dir,f),'utf8')));await c.query('INSERT INTO schema_migrations(filename) VALUES($1)',[f]);
+  }
+  assert.equal((await c.query("SELECT to_regclass('credit_look') AS t")).rows[0].t,null,'045 alone has no look');
+  await workspaceRelease(c,dir,()=>{},backup);
+  assert.equal((await c.query('SELECT count(*)::int AS n FROM schema_migrations')).rows[0].n,ALL);
+  assert.equal((await c.query("SELECT relrowsecurity FROM pg_class WHERE oid='credit_look'::regclass")).rows[0].relrowsecurity,true);
+  assert.equal((await c.query('SELECT count(*)::int AS n FROM credit_look')).rows[0].n,0,'no look is written until the administrator saves one');
+  await c.query(`INSERT INTO credit_look(look) VALUES('{"size":11}')`);
+  await assert.rejects(c.query(`INSERT INTO credit_look(look) VALUES('{"size":12}')`),/credit_look_pkey/,'one look for everybody');
+  await assert.rejects(c.query(`INSERT INTO credit_look(id,look) VALUES(false,'{}')`),/credit_look_id_check/,'and never a second one beside it');
+ }finally{await c.query(`DROP SCHEMA IF EXISTS ${backup} CASCADE`);await c.query(`DROP SCHEMA ${schema} CASCADE`);await c.end();}
+});
+
+test('047 adds the administrator\'s bookmarks, one versioned document, locked away from the REST roles, on a database at 046', async () => {
+ const url=process.env.TEST_DATABASE_URL||process.env.DATABASE_URL;
+ const c=new pg.Client({connectionString:url});await c.connect();
+ const schema=`bookmarks_test_${process.pid}`,backup=`mtb_workspace_recovery_bookmarks_test_${process.pid}`;
+ const dir=resolve(import.meta.dirname,'../../database/migrations');
+ await c.query(`CREATE SCHEMA ${schema}`);await c.query(`SET search_path=${schema}`);
+ try{
+  await c.query('CREATE TABLE schema_migrations(filename text PRIMARY KEY,applied_at timestamptz NOT NULL DEFAULT now())');
+  for(const f of (await readdir(dir)).filter(f=>f.endsWith('.sql')&&Number(f.slice(0,3))<=46).sort()){
+   await c.query(migrationBody(await readFile(resolve(dir,f),'utf8')));await c.query('INSERT INTO schema_migrations(filename) VALUES($1)',[f]);
+  }
+  await workspaceRelease(c,dir,()=>{},backup);
+  assert.equal((await c.query('SELECT count(*)::int AS n FROM schema_migrations')).rows[0].n,ALL);
+  assert.equal((await c.query("SELECT relrowsecurity FROM pg_class WHERE oid='bookmark_state'::regclass")).rows[0].relrowsecurity,true);
+  await c.query(`INSERT INTO bookmark_state(doc,revision) VALUES('{}',1)`);
+  await assert.rejects(c.query(`INSERT INTO bookmark_state(doc,revision) VALUES('{}',1)`),/bookmark_state_pkey/,'one document');
+  await assert.rejects(c.query(`UPDATE bookmark_state SET revision=0`),/bookmark_state_revision_check/,'a stored revision starts at 1');
+ }finally{await c.query(`DROP SCHEMA IF EXISTS ${backup} CASCADE`);await c.query(`DROP SCHEMA ${schema} CASCADE`);await c.end();}
+});
