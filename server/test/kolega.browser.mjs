@@ -530,7 +530,7 @@ check('no page errors', errors.length === 0, errors.join('\n       '));
         days: [day('2026-10-01', 4, 7), day('2026-10-02', 5, 8, { how: 'cover', note: 'боледување',
                 covers: [{ employeeId: 9, name: people[9] }], absent: [{ employeeId: 9, name: people[9] }] }),
             day('2026-10-05', 1, 9), day('2026-10-06', 2, 7, { how: 'swap', swap: { id: 3, date: '2026-10-09', note: 'лекар', employeeId: 8, name: people[8] } }),
-            day('2026-10-07', 3, null, { closed: true, note: 'излет', how: 'closed' }), day('2026-10-08', 4, 8)],
+            day('2026-10-07', 3, null, { closed: true, note: 'излет', how: 'closed' }), day('2026-10-08', 4, 8, { note: 'празник' })],
         staleSwaps: [{ id: 4, note: '', first: { date: '2026-10-12', employeeId: 9, name: people[9] }, second: { date: '2026-10-14', employeeId: 7, name: people[7] } }]
     });
     const CANDIDATES = [
@@ -587,7 +587,8 @@ check('no page errors', errors.length === 0, errors.join('\n       '));
     check('the month reads number, person, day', /^1 Ана Измислена чт 01\.10\.2026/.test(rows[0].text), rows[0].text);
     check('their own days are marked', rows[0].cls.includes('mine') && rows[3].cls.includes('mine'), JSON.stringify(rows.map((r) => r.cls)));
     check('a closed day says why', /без дежурство: излет/.test(rows[4].text), rows[4].text);
-    check('a skipped day says whom it was instead of, and why — and not twice',
+    check('a colleague is not told to close a day', !/сè уште е во дежурствата/.test(rows[5].text), rows[5].text);
+    check('a stand-in day says whom it was instead of, and why — and not twice',
         /наместо Горан Измислен — боледување/.test(rows[1].text) && !/отсутни/.test(rows[1].text), rows[1].text);
     check('a day gone by offers nothing to mark', rows[0].away === false);
     check('a swapped day says with whom and for which day', /⇄ замена со Вера Измислена \(пт 09\.10\.2026\) — лекар/.test(rows[3].text), rows[3].text);
@@ -615,14 +616,18 @@ check('no page errors', errors.length === 0, errors.join('\n       '));
     await o.p.click('#tabs [data-tab="duty"]');
     await o.p.waitForSelector('#duty .duty-admin', { timeout: 6000 });
     check('the owner gets the list and every day\'s controls', await o.p.$$eval('#duty [data-duty-open]', (b) => b.length) === 6);
+    check('a working day whose note says празник warns the owner that the rota still runs through it',
+        /сè уште е во дежурствата/.test(await o.p.innerText('#duty tr[data-date="2026-10-08"]')));
     await o.p.click('#duty tr[data-date="2026-10-06"] [data-duty-open]');
-    await o.p.check('#duty form[data-duty-day="2026-10-06"] input[name="closed"]');
-    await o.p.fill('#duty form[data-duty-day="2026-10-06"] input[name="note"]', 'празник');
+    check('a working day starts as „Дежурство по списокот"',
+        await o.p.isChecked('#duty form[data-duty-day="2026-10-06"] input[name="kind"][value="work"]'));
+    await o.p.check('#duty form[data-duty-day="2026-10-06"] input[name="kind"][value="praznik"]');
     await o.p.check('#duty form[data-duty-day="2026-10-06"] input[name="away"][value="8"]');
     await o.p.click('#duty form[data-duty-day="2026-10-06"] button[type="submit"]');
     await o.p.waitForTimeout(500);
     const dayWrite = o.ownerWrites.find((w) => w.path === '/api/duty/day');
-    check('a day is closed with its reason', dayWrite && dayWrite.body.closed === true && dayWrite.body.note === 'празник', JSON.stringify(dayWrite));
+    check('„Празник" closes the day, and says so without a note being typed',
+        dayWrite && dayWrite.body.closed === true && dayWrite.body.note === 'празник', JSON.stringify(dayWrite));
     check('and somebody marked away on it', o.ownerWrites.some((w) => w.path === '/api/duty/absence'
         && w.body.employeeId === 8 && w.body.absent === true), JSON.stringify(o.ownerWrites));
     await o.p.evaluate(() => { document.querySelector('#duty .duty-admin').open = true; });
@@ -692,6 +697,8 @@ check('no page errors', errors.length === 0, errors.join('\n       '));
     await o.p.click('#duty form[data-duty-day="2026-10-02"] [data-duty-swap-pick]');
     check('without dragging: ⋯ → „Замени со ден" asks the same', /Вера Измислена ќе дежура на пн 05\.10\.2026/.test(await o.p.textContent('#swapAsk')));
     await o.p.click('#swapNo');
+    check('a working day whose note says празник warns the owner that the rota still runs through it',
+        /сè уште е во дежурствата/.test(await o.p.innerText('#duty tr[data-date="2026-10-08"]')));
     await o.p.click('#duty tr[data-date="2026-10-06"] [data-duty-open]');
     await o.p.click('#duty form[data-duty-day="2026-10-06"] [data-duty-unswap="3"]');
     await o.p.waitForTimeout(400);

@@ -498,7 +498,8 @@ export async function portalRoutes(server: FastifyInstance, options: { year?: st
 
     /**
      * „Не сум тука" on a day: one's OWN absence, from today on (owner, 25 Sep
-     * 2026). The next person covers, and the one away keeps their place. A day
+     * 2026). The next person on the list covers that one day and the list order
+     * is unchanged (owner, 27 Sep 2026; lib/duty.ts). A day
      * already gone is the administrator's to correct, because changing it
      * would rewrite a month somebody may already have printed.
      */

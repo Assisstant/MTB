@@ -152,6 +152,7 @@ header.top h1 { flex: 1; min-width: 180px; }
 .duty-table tr.past td { opacity: .72; }
 .duty-table tr.today td.date::after { content: 'денес'; display: block; color: var(--accent); font-weight: 800; }
 .duty-table .sub { display: block; font-size: 13px; color: var(--muted); font-weight: 500; }
+.duty-table .sub.warn-note { color: var(--warn); }
 .duty-table .act { margin-top: 4px; }
 .duty-admin { border: 1px dashed var(--line); border-radius: 10px; padding: 10px 12px; margin: 8px 0 12px; }
 .duty-admin summary { cursor: pointer; font-weight: 700; }
@@ -662,6 +663,8 @@ header.top h1 { flex: 1; min-width: 180px; }
     // worked out as before and only the two days trade names. The owner drags
     // one name onto another (⠿), or picks the other day under ⋯, and confirms.
     const weekdayOf = (iso) => new Date(iso + 'T00:00:00Z').getUTCDay();
+    const HOLIDAY_WORDS = /празник|распуст|неработ/i;
+    const ACTIVITY_WORDS = /екскурз|излет|активност|натпревар|посета/i;
     const swappable = (d) => d.employeeId != null && !d.closed && !d.swap;
     const canSwap = (a, b) => a !== b && a.date !== b.date && swappable(a) && swappable(b) && a.employeeId !== b.employeeId;
     const dayOn = (date) => duty.data.days.find((x) => x.date === date);
@@ -756,7 +759,12 @@ header.top h1 { flex: 1; min-width: 180px; }
         else {
             who = esc(d.name);
             if (d.covers.length) who += `<span class="sub">наместо ${esc(d.covers.map((c) => c.name).join(', '))}${d.note ? ' — ' + esc(d.note) : ''}</span>`;
-            else if (d.note) who += `<span class="sub">${esc(d.note)}</span>`;
+            else if (d.note) {
+                who += `<span class="sub">${esc(d.note)}</span>`;
+                if (duty.owner && (HOLIDAY_WORDS.test(d.note) || ACTIVITY_WORDS.test(d.note))) {
+                    who += '<span class="sub warn-note no-print">⚠ Денот сè уште е во дежурствата. ⋯ → „Празник“ или „Екскурзија“, па списокот продолжува следниот ден.</span>';
+                }
+            }
             if (d.swap) who += `<span class="sub">⇄ замена со ${esc(d.swap.name)} (${WEEKDAY[weekdayOf(d.swap.date)]} ${dmy(d.swap.date)})${d.swap.note ? ' — ' + esc(d.swap.note) : ''}</span>`;
             if (duty.owner && swappable(d)) {
                 who = `<button type="button" class="small swap-grip no-print" data-swap-from="${d.date}" `
@@ -786,14 +794,23 @@ header.top h1 { flex: 1; min-width: 180px; }
         // Somebody taken off the list is not offered on a day after they left.
         const members = (duty.data.members || []).filter((m) => (!m.joinedOn || m.joinedOn <= d.date) && (!m.leftOn || m.leftOn > d.date));
         const assigned = d.how === 'assigned' ? d.employeeId : '';
+        // What kind of day it is comes first and is a choice, not a checkbox
+        // beside the note: „празник" typed into the note alone left the day
+        // on the rota (owner, 27 Sep 2026).
+        const kind = !d.closed ? 'work' : ACTIVITY_WORDS.test(d.note) ? 'aktivnost' : 'praznik';
+        const radio = (value, text) => `<label style="display:flex;align-items:center;gap:6px;margin:0">`
+            + `<input type="radio" name="kind" value="${value}"${kind === value ? ' checked' : ''} style="width:auto"> ${text}</label>`;
         return `<tr class="no-print"><td></td><td colspan="2"><form class="duty-day" data-duty-day="${d.date}">`
-            + `<div><label style="display:flex;align-items:center;gap:6px;font-weight:500;margin:0 0 4px">`
-            + `<input type="checkbox" name="closed"${d.closed ? ' checked' : ''} style="width:auto"> Нема дежурство (празник, екскурзија)</label>`
-            + `<input name="note" maxlength="200" placeholder="белешка, на пр. боледување или екскурзија" aria-label="Белешка" value="${esc(d.note)}"></div>`
+            + `<div style="display:flex;flex-wrap:wrap;gap:4px 16px;margin:0 0 4px">`
+            + radio('work', 'Дежурство по списокот')
+            + radio('praznik', '🎌 Празник — нема дежурство')
+            + radio('aktivnost', '🚌 Екскурзија / активност — нема дежурство')
+            + '</div>'
+            + `<div><input name="note" maxlength="200" placeholder="белешка, на пр. Ден на востанието, боледување" aria-label="Белешка" value="${esc(d.note)}"></div>`
             + `<label>Го зема по договор<select name="assigned"><option value="">— по редот —</option>`
             + members.map((m) => `<option value="${m.employeeId}"${m.employeeId === assigned ? ' selected' : ''}>${m.position}. ${esc(m.name)}</option>`).join('')
             + '</select></label>'
-            + '<div>Отсутни тој ден (се прескокнуваат, дежура следниот):<div class="checks">'
+            + '<div>Отсутни тој ден (боледување): го заменува следниот на списокот, редоследот не се менува<div class="checks">'
             + members.map((m) => `<label><input type="checkbox" name="away" value="${m.employeeId}"${d.absent.some((a) => a.employeeId === m.employeeId) ? ' checked' : ''}> ${esc(m.name)}</label>`).join('')
             + '</div></div>'
             + (d.swap
@@ -1096,7 +1113,9 @@ header.top h1 { flex: 1; min-width: 180px; }
         const wantAway = new Set([...form.querySelectorAll('input[name="away"]:checked')].map((n) => Number(n.value)));
         const wasAway = new Set(day.absent.map((a) => a.employeeId));
         try {
-            await ownerApi('PUT', '/api/duty/day', { date, closed: form.elements.closed.checked, note: form.elements.note.value,
+            const kind = form.elements.kind.value;
+            const note = form.elements.note.value.trim() || { praznik: 'празник', aktivnost: 'екскурзија' }[kind] || '';
+            await ownerApi('PUT', '/api/duty/day', { date, closed: kind !== 'work', note,
                 assignedEmployeeId: form.elements.assigned.value ? Number(form.elements.assigned.value) : null });
             for (const id of new Set([...wantAway, ...wasAway])) {
                 if (wantAway.has(id) !== wasAway.has(id)) await ownerApi('PUT', '/api/duty/absence', { date, employeeId: id, absent: wantAway.has(id) });

@@ -3990,6 +3990,25 @@ for it as a tab on the colleagues' page. Its logic had several faults:
   due is away skips them too, so "the next one, by agreement" and a plain
   absence give the same month. A colleague's own „Не сум тука" follows the
   same rule.
+- **Sick leave is a substitution, and the list order is unchanged (owner,
+  27 Sep 2026).** The rule above moved every later date up one working day
+  behind each sick day, so a printed month stopped being true. The owner:
+  "in case of boleduvanje we have next on the list and we have substitution
+  but list order is unchanged". Now the day is still the one due's, and their
+  turn is used up; the next person on the list who is in stands in for that
+  day only, and keeps their own day too (so they may have two in a row).
+  Every other date is exactly as without the absence. A day given by
+  agreement while the one due is away is the same substitution, with the
+  stand-in named. `lib/duty.ts` and both test files carry the rule.
+- **A holiday is a choice, not a note (27 Sep 2026).** A closed day already
+  stopped the rota and let the list continue on the next working day, but on
+  the owner's screen 12.10 carried „празник" as a NOTE with the checkbox
+  beside it unticked, so the rota ran through it. The day editor now starts
+  with three choices — Дежурство по списокот / 🎌 Празник / 🚌 Екскурзија —
+  and a closed day with no note typed is saved as „празник" or „екскурзија".
+  A working day whose note reads like a holiday or an outing shows the owner
+  a warning; it is not closed automatically, because a word in a note is not
+  a decision.
 - **The page, reworked the same evening:**
   - the order is dragged by ⠿ with a mouse or a finger. Pointer events are
     used, not HTML5 drag and drop, which a phone lacks. An arrow key on ⠿

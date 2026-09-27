@@ -11,15 +11,22 @@
  *
  *   - each working day, the first person in the queue who is IN that day
  *     takes it, and goes to the back;
- *   - somebody away on their day (sick leave, mostly) is SKIPPED: their turn
- *     is gone, the next person on the list takes the day, and the list goes
- *     on from there. The day says whom it was instead of, and the note why.
- *     (Owner, 25 Sep 2026, correcting the first version, where the one away
- *     kept their place and owed the day back: „на боледување се скока".)
- *   - a closed day (a holiday, an excursion) has no duty, and moves nobody;
+ *   - somebody away on their day (sick leave, mostly) is SUBSTITUTED: the
+ *     next person on the list who is in covers that one day, and the list
+ *     order is unchanged — the one away's turn is used up, and everybody
+ *     else keeps the day they already had, the substitute included. The day
+ *     says whom it was instead of, and the note why. (Owner, 27 Sep 2026:
+ *     "we have substitution but list order is unchanged". Two earlier
+ *     versions each moved the dates: first the one away owed the day back,
+ *     then, from 25 Sep, the whole list moved up a day behind every sick
+ *     day, so a printed month stopped being true.)
+ *   - a closed day (a holiday, an excursion) has no duty, and moves nobody:
+ *     the list continues on the next working day;
  *   - a day given to a named person by agreement: that person takes it and goes
  *     to the back; whoever was next is still next. (The old app made the
  *     displaced person lose their turn and let the stand-in keep theirs.)
+ *     When the one due that day is away, the named person is their
+ *     substitute instead, as above, and nobody moves.
  *   - somebody who joins during the year joins at the back, on that day; somebody
  *     who leaves is taken out. The months before are not rewritten.
  *   - a SWAP (044) is a deal between two colleagues, not a change of the list:
@@ -122,29 +129,38 @@ export function dutyRota(input: DutyInput): DutyDay[] {
             out.push({ ...day, closed: true, employeeId: null, how: 'closed', covers: [] });
             continue;
         }
-        // Whoever was due and is away loses the turn: to the back, in order.
-        const at = queue.findIndex((id) => !away.has(id));
-        const skip = () => {
-            const skipped = queue.splice(0, at);
-            queue.push(...skipped);
-            return skipped;
-        };
+        // A named stand-in for somebody away is still a substitution: the
+        // one away's turn is used up, and the stand-in keeps their own day.
+        if (mark?.assigned != null && !away.has(mark.assigned) && queue.length && away.has(queue[0])) {
+            const due = queue.shift()!;
+            queue.push(due);
+            out.push({ ...day, closed: false, employeeId: mark.assigned, how: 'cover', covers: [due] });
+            continue;
+        }
         if (mark?.assigned != null && !away.has(mark.assigned)) {
-            const skipped = at < 0 ? [] : skip();
             const who = mark.assigned;
             const was = queue.indexOf(who);
             if (was >= 0) { queue.splice(was, 1); queue.push(who); }
-            out.push({ ...day, closed: false, employeeId: who, how: 'assigned', covers: skipped });
+            out.push({ ...day, closed: false, employeeId: who, how: 'assigned', covers: [] });
             continue;
         }
-        if (at < 0) {
+        if (!queue.length) {
             out.push({ ...day, closed: false, employeeId: null, how: 'nobody', covers: [] });
             continue;
         }
-        const covers = skip();
-        const who = queue.shift()!;
-        queue.push(who);
-        out.push({ ...day, closed: false, employeeId: who, how: covers.length ? 'cover' : 'rotation', covers });
+        // The day is the head's, whether or not they are in: absence never
+        // moves anybody's date. Somebody away is stood in for by the next one
+        // on the list who is in, who still keeps their own day after it.
+        const due = queue.shift()!;
+        queue.push(due);
+        if (!away.has(due)) {
+            out.push({ ...day, closed: false, employeeId: due, how: 'rotation', covers: [] });
+            continue;
+        }
+        const stand = queue.find((id) => !away.has(id));
+        out.push(stand == null
+            ? { ...day, closed: false, employeeId: null, how: 'nobody', covers: [due] }
+            : { ...day, closed: false, employeeId: stand, how: 'cover', covers: [due] });
     }
     return out;
 }
