@@ -1,4 +1,4 @@
-# Carry BOTH the code and the database between HOME and WORK through GitHub.
+﻿# Carry BOTH the code and the database between HOME and WORK through GitHub.
 #
 #   The public repository (Assisstant/MTB) carries code, migrations and tests.
 #   A second, PRIVATE repository carries the PostgreSQL snapshots. It must stay

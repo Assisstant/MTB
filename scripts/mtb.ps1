@@ -33,7 +33,7 @@
 #   a failed publish must not leave the server running.
 
 param(
-    [ValidateSet('run', 'start', 'stop', 'status')]
+    [ValidateSet('run', 'start', 'stop', 'status', 'update')]
     [string] $Action = 'run',
     [int] $Port = 3000,
     [switch] $Stay
@@ -72,8 +72,9 @@ function Write-Result {
 }
 
 function Invoke-Phase {
-    param([string] $Phase, [switch] $StopOnFail)
+    param([string] $Phase, [switch] $StopOnFail, [string[]] $Only)
     $procedures = @(Get-MtbProcedures -ScriptsDir $PSScriptRoot -Phase $Phase)
+    if ($Only) { $procedures = @($procedures | Where-Object { $Only -contains $_.Label }) }
     Write-Host ("  ({0} процедури во procedures\{1})" -f $procedures.Count, $Phase) -ForegroundColor DarkGray
     if (-not $procedures.Count) {
         throw "Ниедна процедура не е најдена во $(Join-Path $PSScriptRoot ('procedures\' + $Phase))"
@@ -101,6 +102,23 @@ function Invoke-Main {
         return 0
     }
 
+    if ($Action -eq 'update') {
+        # „MTB - Azuriraj": the same pull and update the day starts with, in the
+        # middle of the day — code, packages, backup + migrations, restart.
+        Write-Host 'Ажурирам' -ForegroundColor Cyan
+        $results = Invoke-Phase -Phase 'start' -StopOnFail -Only @('repo', 'update')
+        $bad = @($results | Where-Object { $_.Status -eq 'FAIL' })
+        Write-Host ''
+        if ($bad.Count) {
+            Show-Popup ("Ажурирањето застана." + [Environment]::NewLine + [Environment]::NewLine +
+                        "$($bad[0].Label): $($bad[0].Message)" + $(if ($bad[0].Fix) { [Environment]::NewLine + $bad[0].Fix } else { '' })) 'Error'
+            return 1
+        }
+        Write-Host ('  ' + (Get-MtbHealth -Ctx $Ctx).Line) -ForegroundColor Cyan
+        Write-Host ''
+        Read-Host 'Enter за затворање' | Out-Null
+        return 0
+    }
     if ($Action -eq 'stop') {
         Write-Host 'Затворам го денот' -ForegroundColor Cyan
         $results = Invoke-Phase -Phase 'stop'          # без -StopOnFail, намерно

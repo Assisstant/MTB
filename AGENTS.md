@@ -281,6 +281,8 @@ From the repo root:
 
 ```
 powershell -ExecutionPolicy Bypass -File scripts\verify-setup.ps1        health check
+powershell -ExecutionPolicy Bypass -File scripts\mtb.ps1 -Action update  pull, packages, backup THEN migrations, restart
+                                         (the „MTB - Azuriraj" shortcut; the „MTB" front door does the same every morning)
 powershell -ExecutionPolicy Bypass -File scripts\setup-home-postgres.ps1 new machine
 powershell -ExecutionPolicy Bypass -File scripts\backup-db.ps1           dump + JSON
 powershell -ExecutionPolicy Bypass -File scripts\manual-db-sync.ps1 -Mode Compare -Dir P:\MTB-sync -Me work -PeerName home

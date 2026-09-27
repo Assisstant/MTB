@@ -36,4 +36,6 @@ $head = (& $git -C $Ctx.RepoRoot log --oneline -1 2>&1) -join ''
 if ($out -match 'Already up to date') {
     return [pscustomobject]@{ Status = 'OK'; Message = "во тек — $head" }
 }
+# New code arrived: 15-update restarts a server that is already running on the old one.
+$Ctx.CodeChanged = $true
 return [pscustomobject]@{ Status = 'OK'; Message = "повлечено — $head" }
