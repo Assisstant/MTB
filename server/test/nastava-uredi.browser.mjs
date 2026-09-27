@@ -123,44 +123,51 @@ const run = async () => {
         return td ? { text: td.textContent.replace(/\s+/g, ' ').trim(), cls: td.className } : null;
     }, [`${CLASS}|${ordinal}`]);
 
+    // Owner, 27 Sep 2026: every grid is edited in the cell. A click turns
+    // the day grid's period into the class week's two pickers — subject and
+    // teacher — written through the class week's own path.
+    const dayCell = (ordinal) => `#grid td.cell[data-key="${CLASS}|${ordinal}"]`;
     const openCell = async (ordinal) => {
-        await page.click(`#grid td.cell[data-key="${CLASS}|${ordinal}"]`);
-        await page.waitForSelector('#edSubject', { timeout: 4000 });
+        await page.click(dayCell(ordinal));
+        await page.waitForSelector(`${dayCell(ordinal)} select.cw-subj`, { timeout: 4000 });
+    };
+    const settle = () => page.waitForTimeout(1400);
+    // Anything the list lacks goes through „✎ друг предмет…", which turns the
+    // picker into a text field; Enter writes it.
+    const typeSubject = async (ordinal, text) => {
+        await page.selectOption(`${dayCell(ordinal)} select.cw-subj`, '__other__');
+        await page.waitForSelector(`${dayCell(ordinal)} input.cw-other`, { timeout: 2000 });
+        await page.fill(`${dayCell(ordinal)} input.cw-other`, text);
+        await page.press(`${dayCell(ordinal)} input.cw-other`, 'Enter');
+        await settle();
     };
 
-    // The subject is picked from the class's catalogue; anything else goes
-    // through „✎ друг предмет…", which turns the picker into a text field.
-    const typeSubject = async (text) => {
-        await page.selectOption('#edSubject', '__other__');
-        await page.waitForSelector('input#edSubject', { timeout: 2000 });
-        await page.fill('#edSubject', text);
-    };
-
-    console.log('the views are tabs, and the day editor offers the same lists as the week');
+    console.log('the views are tabs, and a click on a day cell opens its pickers in the cell');
     const tabs = await page.$$eval('#views [data-view]', (b) => b.map((x) => [x.dataset.view, x.getAttribute('aria-pressed')]));
     checkEq('four view tabs, the day grid chosen', tabs,
         [['class', 'true'], ['classweek', 'false'], ['teacher', 'false'], ['assign', 'false']]);
     await openCell(2);
-    const dayOffer = await page.$$eval('#edSubject option', (o) => o.map((x) => x.value));
-    check('the day editor offers the MON catalogue, not only what is already typed',
+    check('the pickers open in the cell, not in a panel below', await page.locator('#editor #edSubject').count() === 0);
+    const dayOffer = await page.$$eval(`${dayCell(2)} select.cw-subj option`, (o) => o.map((x) => x.value));
+    check('the day cell offers the MON catalogue, and a way to add another',
         dayOffer.includes('Математика') && dayOffer.includes('__other__'), dayOffer.slice(0, 8).join(', '));
-    const teachOffer = await page.$$eval('#edTeacher option', (o) => o.map((x) => x.value));
+    const teachOffer = await page.$$eval(`${dayCell(2)} select.cw-teach option`, (o) => o.map((x) => x.value));
     check('and the teachers of the year', teachOffer.includes(TEACHER), teachOffer.join(', '));
-    await page.selectOption('#edSubject', 'Математика');
-    await page.click('#edSave');
-    await page.waitForTimeout(700);
+    await page.selectOption(`${dayCell(2)} select.cw-subj`, 'Математика');
+    await settle();
     checkEq('a subject picked from the list is written as it reads', (await cellIn(year.id, 2))[0]?.subject, 'Математика');
-    await page.click('#edDrop');
-    await page.waitForTimeout(700);
+    await openCell(2);
+    await page.selectOption(`${dayCell(2)} select.cw-subj`, '');
+    await settle();
     checkEq('and emptied again, so the rest of the suite starts from an empty period', (await cellIn(year.id, 2)).length, 0);
 
     console.log('\ntyping into an empty cell writes one lesson, and only one');
     check('the empty cell is drawn', (await cellText(1))?.cls.includes('empty'), JSON.stringify(await cellText(1)));
     await openCell(1);
-    await typeSubject('мак.');
-    await page.selectOption('#edTeacher', TEACHER);
-    await page.click('#edSave');
-    await page.waitForTimeout(700);
+    await page.selectOption(`${dayCell(1)} select.cw-teach`, TEACHER);
+    await settle();
+    await openCell(1);
+    await typeSubject(1, 'мак.');
     let rows = await cellIn(year.id, 1);
     checkEq('the database has the lesson', rows.length, 1);
     checkEq('with the subject that was typed', rows[0].subject, 'мак.');
@@ -168,33 +175,28 @@ const run = async () => {
     checkEq('day_order is filled in, so it sorts with the rest of the week', rows[0].day_order, 2);
     check('and the grid now shows it', (await cellText(1))?.text.includes('мак.'), JSON.stringify(await cellText(1)));
 
-    console.log('\none Enter is one write, and it moves to the next period');
+    console.log('\nEnter sends the choice and opens the next period');
     await openCell(3);
-    await typeSubject('з.о.');
-    await page.press('#edSubject', 'Enter');
-    await page.waitForTimeout(800);
+    await page.selectOption(`${dayCell(3)} select.cw-subj`, 'Математика');
+    await page.press(`${dayCell(3)} select.cw-subj`, 'Enter');
+    await settle();
     rows = await cellIn(year.id, 3);
     checkEq('exactly one lesson landed', rows.length, 1);
-    const heading = await page.evaluate(() => document.querySelector('#editor h2')?.textContent.replace(/\s+/g, ' ').trim());
-    check('the editor moved on to the next period', /4\. час/.test(String(heading)), String(heading));
+    check('and the next period is open for input', await page.locator(`${dayCell(4)} select.cw-subj`).count() === 1);
 
-    // The stacking bug this is really about: open several cells, then press
-    // Enter ONCE. A handler added per redraw would fire once per cell opened.
+    // Several cells open at once, one of them changed: only that one is written.
     await openCell(5);
     await openCell(6);
     await openCell(7);
-    await typeSubject('физ.');
-    await page.press('#edSubject', 'Enter');
-    await page.waitForTimeout(800);
-    checkEq('after opening four cells, one Enter still writes one lesson', (await cellIn(year.id, 7)).length, 1);
-    checkEq('and it did not also write the cells passed through', (await cellIn(year.id, 5)).length, 0);
+    await page.selectOption(`${dayCell(7)} select.cw-subj`, 'Математика');
+    await settle();
+    checkEq('with four cells open, the one changed is the one written', (await cellIn(year.id, 7)).length, 1);
+    checkEq('and not the cells passed through', (await cellIn(year.id, 5)).length, 0);
     checkEq('nor the other one', (await cellIn(year.id, 6)).length, 0);
 
     console.log('\nediting a filled cell changes it in place');
     await openCell(1);
-    await typeSubject('мат.');
-    await page.click('#edSave');
-    await page.waitForTimeout(700);
+    await typeSubject(1, 'мат.');
     rows = await cellIn(year.id, 1);
     checkEq('still one row, not a second', rows.length, 1);
     checkEq('with the new subject', rows[0].subject, 'мат.');
@@ -203,9 +205,7 @@ const run = async () => {
     // Behind the page's back, exactly as a re-import or another machine would.
     await q(`UPDATE lessons SET subject = 'лик.' WHERE id = $1`, [rows[0].id]);
     await openCell(1);
-    await typeSubject('муз.');
-    await page.click('#edSave');
-    await page.waitForTimeout(700);
+    await typeSubject(1, 'муз.');
     const status = await page.evaluate(() => document.getElementById('status').textContent);
     check('the page says somebody else changed it, in Macedonian',
         /Некој друг/.test(status), status);
@@ -215,10 +215,18 @@ const run = async () => {
     await page.click('#refresh');
     await page.waitForTimeout(700);
     await openCell(1);
-    await page.click('#edDrop');
-    await page.waitForTimeout(700);
+    await page.selectOption(`${dayCell(1)} select.cw-subj`, '');
+    await page.selectOption(`${dayCell(1)} select.cw-teach`, '');
+    await settle();
     checkEq('the lesson is gone from the database', (await cellIn(year.id, 1)).length, 0);
     check('and the cell is drawn empty again', (await cellText(1))?.cls.includes('empty'), JSON.stringify(await cellText(1)));
+
+    console.log('\n🔒 locked, the grid reads like a PDF');
+    await page.check('#lockEdit');
+    await page.click(dayCell(2));
+    await page.waitForTimeout(400);
+    check('a click opens nothing', await page.locator(`${dayCell(2)} select`).count() === 0);
+    await page.uncheck('#lockEdit');
 
     console.log('\nthe class week: periods down, days across, a dropdown in every cell');
     const WED = 'среда';

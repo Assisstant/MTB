@@ -354,6 +354,21 @@ async function run() {
             (sel) => [...sel.querySelectorAll('optgroup')[0].querySelectorAll('option')].map((o) => o.value)), ['Музичко']);
         await up.keyboard.press('Escape');
 
+        // A subject the lists lack (owner, 27 Sep 2026): typed once, kept as the teacher's own.
+        await cellOf(up, T3, 'петок', 3).click();
+        await up.locator('#grid td.wk select.pick').waitFor({ state: 'visible' });
+        await up.selectOption('#grid td.wk select.pick', B);
+        const t3cell = `#grid td.wk[data-teacher="${T3}"][data-day="петок"][data-ordinal="3"]`;
+        await up.waitForSelector(`${t3cell} select.pick.subj`, { timeout: 8000 });
+        await up.selectOption(`${t3cell} select.pick.subj`, '__other__');
+        await up.waitForSelector(`${t3cell} input.subj-other`, { timeout: 4000 });
+        await up.fill(`${t3cell} input.subj-other`, 'Астрономија');
+        await up.press(`${t3cell} input.subj-other`, 'Enter');
+        await wait(async () => ((await byWho(T3, 'петок', 3))[0] || {}).subject === 'Астрономија');
+        checkEq('„✎ друг предмет…" writes the typed subject', (await byWho(T3, 'петок', 3)).map((r) => r.subject), ['Астрономија']);
+        checkEq('and keeps it as the teacher\'s own, for next time',
+            (await q('SELECT subject FROM teachers WHERE id = $1', [t3.id]))[0].subject, 'Математика, Физика, Астрономија');
+
         await up.check('#lockEdit');
         await cellOf(up, T1, 'петок', 4).click();
         await up.waitForTimeout(300);
@@ -384,6 +399,18 @@ async function run() {
         await sp.waitForSelector(`.personal[data-teacher="${T3}"] td.p-cell`, { timeout: 15000 });
         check('а предметниот ја бира паралелката',
             await sp.locator(`.personal[data-teacher="${T3}"] td.p-cell[data-day="среда"][data-ordinal="2"] select.p-class`).count() === 1);
+        const t3sheet = `.personal[data-teacher="${T3}"] td.p-cell[data-day="среда"][data-ordinal="2"]`;
+        await sp.selectOption(`${t3sheet} select.p-class`, B);
+        await sp.waitForSelector(`${t3sheet} select.p-subj`, { timeout: 8000 });
+        await sp.selectOption(`${t3sheet} select.p-subj`, '__other');
+        await sp.waitForSelector(`${t3sheet} input.p-other`, { timeout: 4000 });
+        await sp.fill(`${t3sheet} input.p-other`, 'Геологија');
+        await sp.press(`${t3sheet} input.p-other`, 'Enter');
+        for (let i = 0; i < 30 && ((await byWho(T3, 'среда', 2))[0] || {}).subject !== 'Геологија'; i++) await sp.waitForTimeout(200);
+        checkEq('и во Личен распоред „✎ друг предмет…" го запишува внесениот предмет',
+            (await byWho(T3, 'среда', 2)).map((r) => `${r.class}:${r.subject}`), [`${B}:Геологија`]);
+        check('и наставникот го добива во своите предмети',
+            /Геологија/.test((await q('SELECT subject FROM teachers WHERE id = $1', [t3.id]))[0].subject));
         await sheetCtx.close();
     } finally {
         await browser.close();

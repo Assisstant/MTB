@@ -130,7 +130,9 @@
        Настава: it fills the rest of the screen and scrolls inside, so the
        header rows and the names stay put while the days pass under them,
        and ✋ can drag it in all four directions. `--grid-h` is measured. */
-    body.teacher-week #gridPanel .scroll { overflow: auto; max-height: var(--grid-h, 72vh); }
+    body.grid-window #gridPanel .scroll { overflow: auto; max-height: var(--grid-h, 72vh); }
+    /* Paper has no window: the whole sheet prints. */
+    @media print { body.grid-window #gridPanel .scroll { max-height: none; overflow: visible; } }
     table.grid.week thead tr + tr th { top: var(--head-1, 25px); }
     .week-group { margin: 14px 0 6px; font-size: 15px; }
     /* An одделенски's empty period says „+ предмет" on one line, as tall as „+". */
@@ -142,7 +144,14 @@
         font-size: 12.5px; font-weight: 600; cursor: pointer; white-space: nowrap; }
     .lock-toggle:has(input:checked) { border-color: var(--btn-bg); color: var(--text); background: color-mix(in srgb, var(--btn-bg) 14%, var(--card)); }
     .lock-toggle input { margin: 0; min-width: 0; accent-color: var(--btn-bg); }
-    .scroll.locked, .scroll.locked td.cell, .scroll.locked td.cell * { cursor: grab; }
+    .scroll.locked, .scroll.locked td, .scroll.locked td * { cursor: grab; }
+    .scroll.locked select { pointer-events: none; appearance: none; -webkit-appearance: none;
+        background: transparent !important; border-color: transparent !important; }
+    /* The day grid's cell, open for input: the class week's two pickers. */
+    table.grid.day td.cw .day-edit { display: grid; gap: 3px; padding: 3px; }
+    table.grid.day td.cw select { width: 100%; min-width: 0; padding: 4px 5px; font-size: 12px; border: 1px solid var(--edit);
+        border-radius: 5px; background: var(--card); color: var(--text); }
+    table.grid.week td.wk input.subj-other { width: 100%; min-width: 110px; font-size: 12px; padding: 3px 5px; }
     .scroll.locked td.cell:hover .box { box-shadow: none; }
     .scroll.dragging, .scroll.dragging * { cursor: grabbing !important; user-select: none; }
     table.grid.week th.who {
@@ -988,6 +997,7 @@
         const options = (inCell ? '<option value="">— без предмет —</option>' : '<option value="">— избери предмет —</option>')
             + (mine.length ? `<optgroup label="${esc((fixed ? 'Предмети во ' + label + ' — ' : 'Предмети на ') + td.dataset.teacher)}">${mine.map(opt).join('')}</optgroup>` : '')
             + (names.length ? `<optgroup label="${esc(mine.length ? 'Други предмети' : fixed ? 'Предмети во ' + label : 'Предмети')}">${names.map(opt).join('')}</optgroup>` : '')
+            + `<option value="${OTHER}">✎ друг предмет…</option>`
             + (inCell ? '<option value="__clear">✕ слободен час (избриши)</option>' : '');
         slot.outerHTML = `<select class="pick subj">${options}</select>`;
         const pick = td.querySelector('select');
@@ -1003,6 +1013,7 @@
             if (done) return;
             done = true;
             const now = tidy(pick.value);
+            if (commit && now === OTHER) { typeWeekSubject(td, label, was); return; }
             if (commit && now === '__clear') saveWeekCell(td, inCell, '');
             // A new period of an одделенски is written only once a subject is chosen.
             else if (commit && now !== was && (inCell || now)) saveWeekSubject(td, label, now);
@@ -1013,6 +1024,48 @@
         pick.addEventListener('keydown', (e) => {
             if (e.key === 'Escape') { e.preventDefault(); finish(false); }
         });
+    }
+
+    /**
+     * A subject the lists do not have yet (owner, 27 Sep 2026: „рачно да може
+     * во базата да внесе предмет ако сум пропуштил"): typed once, written into
+     * the lesson, and added to that teacher's own subjects, so it is offered
+     * from then on — here and on Kolega.
+     */
+    function typeWeekSubject(td, label, was) {
+        const select = td.querySelector('select.pick.subj');
+        const input = document.createElement('input');
+        input.className = 'pick subj-other';
+        input.setAttribute('list', 'cwAllSubjects');
+        input.placeholder = 'нов предмет';
+        input.value = was || '';
+        select.replaceWith(input);
+        input.focus();
+        let done = false;
+        const finish = async (commit) => {
+            if (done) return;
+            done = true;
+            const typed = tidy(input.value);
+            if (!commit || !typed) { drawAndKeep(); return; }
+            await addOwnSubject(td.dataset.teacher, typed);
+            saveWeekSubject(td, label, typed);
+        };
+        input.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') { e.preventDefault(); finish(true); }
+            if (e.key === 'Escape') { e.preventDefault(); finish(false); }
+        });
+        input.addEventListener('blur', () => finish(true));
+    }
+
+    /** One more subject on a teacher's own list (Податоци's field), if it is not there yet. */
+    async function addOwnSubject(name, subject) {
+        const t = (data.teachers || []).find((x) => x.name === name);
+        const own = ownSubjects(name);
+        if (!t || !t.id || own.some((x) => x.toLowerCase() === subject.toLowerCase())) return;
+        try {
+            await api('PUT', '/api/teaching/teacher/' + t.id, { subject: own.concat(subject).join(', ') });
+            t.subject = own.concat(subject).join(', ');
+        } catch (err) { status(err.message, 'warn'); }
     }
 
     async function saveWeekSubject(td, label, subject) {
@@ -1073,10 +1126,10 @@
      */
     function fitWeek() {
         const box = document.querySelector('#gridPanel .scroll');
-        if (!box || view() !== 'teacher') return;
+        if (!box || view() === 'assign') return;
         const top = box.getBoundingClientRect().top + window.scrollY;
         document.documentElement.style.setProperty('--grid-h', Math.max(260, Math.floor(window.innerHeight - top - 16)) + 'px');
-        const first = box.querySelector('table.grid.week thead tr');
+        const first = box.querySelector('table.grid thead tr');
         if (first) box.style.setProperty('--head-1', first.getBoundingClientRect().height + 'px');
         box.classList.toggle('locked', locked);
     }
@@ -1100,7 +1153,7 @@
         let moved = false;
         box.addEventListener('pointerdown', (event) => {
             moved = false;
-            if (view() !== 'teacher' || event.button !== 0 || event.pointerType === 'touch') return;
+            if (view() === 'assign' || event.button !== 0 || event.pointerType === 'touch') return;
             if (event.target.closest('select, input, button, a, textarea')) return;
             drag = { x: event.clientX, y: event.clientY, left: box.scrollLeft, top: box.scrollTop, id: event.pointerId };
         });
@@ -1122,7 +1175,7 @@
         box.addEventListener('pointercancel', release);
         // The click that ends a drag, or any click while locked, opens nothing.
         box.addEventListener('click', (event) => {
-            if (!moved && !(locked && view() === 'teacher')) return;
+            if (!moved && !(locked && view() !== 'assign')) return;
             moved = false;
             event.stopPropagation();
             event.preventDefault();
@@ -1141,8 +1194,11 @@
         el('onlyUsedField').style.display = weekly || classWeek || assign ? 'none' : '';
         el('classStrip').style.display = classWeek ? '' : 'none';
         el('printWeek').style.display = classWeek ? '' : 'none';
-        el('lockField').style.display = weekly ? '' : 'none';
-        document.body.classList.toggle('teacher-week', weekly);
+        // One principle for every table (owner, 27 Sep 2026): 🔒 locked, it
+        // reads like a PDF and the hand drags it; unlocked, a click is a
+        // dropdown. The distribution keeps its side panel and page scroll.
+        el('lockField').style.display = assign ? 'none' : '';
+        document.body.classList.toggle('grid-window', !assign);
         if (assign) {
             drawAssign();
             drawClasses();
@@ -1157,7 +1213,7 @@
             drawTeachers();
             drawBells();
             drawClashes();
-            return drawClassWeek();
+            return drawClassWeek().then(fitWeek);
         }
         if (weekly) {
             drawTeacherWeek();
@@ -1173,6 +1229,7 @@
         drawTeachers();
         drawBells();
         drawClashes();
+        fitWeek();
     }
 
     // ── распределба: кој наставник, во која паралелка, со кој предмет ───────
@@ -1971,6 +2028,44 @@
         markSelected();
     }
 
+    /**
+     * The day grid, edited IN the cell (owner, 27 Sep 2026: every table the
+     * same — a click on a cell is a dropdown of the chosen values, with a way
+     * to add a new one). The cell becomes the class week's two pickers,
+     * subject and teacher, and is written through the class week's own path
+     * (`saveClassCell`, with `expected`), so there is one writer for a class's
+     * period whichever view it is typed in. A period that holds two lessons
+     * still opens the panel below: which of the two is right is a person's
+     * decision, made where either can be deleted.
+     */
+    async function openDayCell(td) {
+        if (td.querySelector('select, input')) return;
+        const label = td.dataset.class;
+        const ordinal = Number(td.dataset.ordinal);
+        const day = el('day').value;
+        const list = cellsOfDay().get(cellKey(label, ordinal)) || [];
+        if (list.length > 1) return openCell(label, ordinal);
+        closeEditor();
+        const l = list[0] || null;
+        const offer = await subjectsFor(label);
+        if (!td.isConnected || td.querySelector('select, input')) return;
+        td.classList.add('cw');
+        td.dataset.day = day;
+        if (l) {
+            td.dataset.wasId = l.id;
+            td.dataset.wasSubject = l.subject || '';
+            td.dataset.wasTeacher = l.teacher || '';
+        }
+        const where = `${label} · ${day} · ${ordinal}. час`;
+        td.innerHTML = '<div class="day-edit">'
+            + `<select class="cw-subj" aria-label="${esc(where + ' · предмет')}">${subjectOptionsHtml(offer, l ? l.teacher : '')}</select>`
+            + `<select class="cw-teach" aria-label="${esc(where + ' · наставник')}">${teacherOptionsHtml(label)}</select>`
+            + '</div>';
+        selectOrAdd(td.querySelector('select.cw-subj'), l ? l.subject || '' : '');
+        selectOrAdd(td.querySelector('select.cw-teach'), l ? l.teacher || '' : '');
+        td.querySelector('select.cw-subj').focus();
+    }
+
     function markSelected() {
         const key = selected ? cellKey(selected.class, selected.ordinal) : null;
         document.querySelectorAll('#grid td.cell').forEach((td) => {
@@ -2413,6 +2508,18 @@
         if (sel.value === OTHER) { openOtherSubject(td); return; }
         queueCell(td);
     });
+    el('grid').addEventListener('keydown', (event) => {
+        const td = event.target.closest && event.target.closest('table.grid.day td.cw');
+        if (!td || event.key !== 'Enter' || event.target.matches('input')) return;
+        event.preventDefault();
+        const at = `table.grid.day td.cell[data-class="${CSS.escape(td.dataset.class)}"][data-ordinal="${Number(td.dataset.ordinal) + 1}"]`;
+        flushCell(td);
+        // After the write and its redraw, or the redraw closes what was opened.
+        writing.then(() => {
+            const next = el('grid').querySelector(at);
+            if (next) openDayCell(next);
+        });
+    });
     el('grid').addEventListener('focusout', (event) => {
         const td = event.target.closest && event.target.closest('td.cw');
         if (td) flushCell(td);
@@ -2425,12 +2532,12 @@
         if (event.target.closest('#asLinkAll')) { linkAll(); return; }
         const td = event.target.closest('td.cell');
         if (!td) return;
-        // The weekly grid edits in place; the day grid opens the panel below it.
+        // Every grid edits in the cell; only a period with two lessons opens the panel.
         if (td.classList.contains('wk')) {
             if (event.target.closest('[data-subject]') || fixedClass(td.dataset.teacher)) openWeekSubject(td);
             else openWeekCell(td);
         }
-        else openCell(td.dataset.class, Number(td.dataset.ordinal));
+        else if (!td.querySelector('select, input')) openDayCell(td);
     });
     el('editor').addEventListener('keydown', (event) => {
         if (!selected || !el('edSubject')) return;

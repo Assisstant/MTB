@@ -320,6 +320,12 @@ check('no page errors', errors.length === 0, errors.join('\n       '));
     await p.waitForFunction(() => { const n = document.querySelector('#myLists [data-my-class="I-а"]'); return n && n.checked && !n.disabled; },
         null, { timeout: 5000 });
     check('and a паралелка the same way', writes.some((w) => w.path === '/api/portal/my-class' && w.body.class === 'I-а' && w.body.on === true));
+    await p.fill('#myLists [data-add-subject] input', 'Роботика');
+    await p.click('#myLists [data-add-subject] button');
+    await p.waitForSelector('#myLists [data-my-subject="Роботика"]', { timeout: 5000 });
+    check('a subject the list lacks is added by hand, and ticked',
+        writes.some((w) => w.path === '/api/portal/my-subject' && w.body.subject === 'Роботика' && w.body.on === true)
+        && await p.isChecked('#myLists [data-my-subject="Роботика"]'));
     check('the homeroom is ticked and cannot be unticked here',
         await p.$eval('#myLists [data-my-class="II-б"]', (n) => n.checked && n.disabled));
     await p.click('#periods [data-ordinal="4"] [data-edit]');
@@ -329,7 +335,7 @@ check('no page errors', errors.length === 0, errors.join('\n       '));
     await p.selectOption('#periods form.editor select[name=klass]', 'I-а');
     await p.waitForTimeout(200);
     const offeredSubjects = await p.$$eval('#periods form.editor select[name=subject] option', (o) => o.map((x) => x.value).filter((v) => v && v !== '__other'));
-    check('and the subject picker only one\'s own subjects', JSON.stringify(offeredSubjects) === JSON.stringify(['Математика', 'Физичко']), JSON.stringify(offeredSubjects));
+    check('and the subject picker only one\'s own subjects', JSON.stringify(offeredSubjects) === JSON.stringify(['Математика', 'Роботика']), JSON.stringify(offeredSubjects));
     await p.click('#periods form.editor [data-act="cancel"]');
 
     check('the week fits a phone', await p.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth));

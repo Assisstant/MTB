@@ -274,6 +274,8 @@
     .personal .p-edit select:disabled { opacity: .55; cursor: default; }
     .personal .p-edit select:hover:not(:disabled) { border-color: #4c51bf; }
     .personal .p-edit select:focus-visible { outline: 2px solid #4c51bf; outline-offset: 1px; }
+    .personal .p-edit input.p-other { width: 100%; min-width: 0; padding: 4px 6px; border: 1px solid #4c51bf; border-radius: 6px;
+        background: #ffffff; color: #1a202c; font-family: inherit; font-size: 12px; }
     .personal .p-cell.saving { opacity: .55; }
     .personal .p-warn { display: block; color: #9c4221; font-size: 11px; font-weight: 600; }
     .personal.editing .p-lesson { display: none; }
@@ -1303,7 +1305,50 @@
         return `<option value="">${held ? '— без предмет —' : '— избери предмет —'}</option>`
             + (own.length ? `<optgroup label="${esc((fixed ? 'Предмети во ' + label + ' — ' : 'Предмети на ') + teacher)}">${own.map(opt).join('')}</optgroup>` : '')
             + (offered.length ? `<optgroup label="${esc(own.length ? 'Други предмети' : fixed ? 'Предмети во ' + label : 'Предмети')}">${offered.map(opt).join('')}</optgroup>` : '')
+            + '<option value="__other">✎ друг предмет…</option>'
             + (held ? '<option value="__clear">✕ слободен час (избриши)</option>' : '');
+    }
+
+    /**
+     * A subject the lists do not have yet (owner, 27 Sep 2026): typed once in
+     * the cell, written into the lesson, and added to that teacher's own
+     * subjects (Податоци's field) so it is offered from then on — here, in
+     * Уреди настава and on Kolega.
+     */
+    function typeSubject(td, select) {
+        const input = document.createElement('input');
+        input.className = 'p-other';
+        input.placeholder = 'нов предмет';
+        input.setAttribute('aria-label', select.getAttribute('aria-label') || 'предмет');
+        select.replaceWith(input);
+        input.focus();
+        let done = false;
+        const finish = async (commit) => {
+            if (done) return;
+            done = true;
+            const typed = tidy(input.value);
+            if (!commit || !typed) { draw(); return; }
+            await addOwnSubject(td.dataset.teacher, typed);
+            savePersonal(td, input, false, typed);
+        };
+        input.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') { e.preventDefault(); finish(true); }
+            if (e.key === 'Escape') { e.preventDefault(); finish(false); }
+        });
+        input.addEventListener('blur', () => finish(true));
+    }
+
+    async function addOwnSubject(name, subject) {
+        const t = (data.teachers || []).find((x) => x.name === name);
+        const own = ownSubjects(name);
+        if (!t || !t.id || own.some((x) => x.toLowerCase() === subject.toLowerCase())) return;
+        try {
+            const res = await fetch(apiBase() + '/api/teaching/teacher/' + t.id, {
+                method: 'PUT', cache: 'no-store', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ subject: own.concat(subject).join(', ') })
+            });
+            if (res.ok) t.subject = own.concat(subject).join(', ');
+        } catch (_) { /* the lesson is still written; the list can be filled in Податоци */ }
     }
 
     /** One period of one teacher, as the two pickers. Two lessons at once is a clash no picker can mend. */
@@ -1344,14 +1389,14 @@
         return (body && body.error) || ('HTTP ' + (res ? res.status : '?'));
     }
 
-    async function savePersonal(td, changed, together) {
+    async function savePersonal(td, changed, together, typed) {
         const teacher = td.dataset.teacher;
         const day = td.dataset.day;
         const ordinal = Number(td.dataset.ordinal);
         const was = td.dataset.class || '';
         const wasSubject = td.dataset.subject || '';
         const fixed = fixedClass(teacher);
-        const picked = changed.classList.contains('p-subj') ? changed.value : '';
+        const picked = typed !== undefined ? typed : changed.classList.contains('p-subj') ? changed.value : '';
         // „✕ слободен час" empties the period; an одделенски's period is in
         // their own class; a предметен picks the class, then the subject.
         const cls = picked === '__clear' ? ''
@@ -1360,7 +1405,7 @@
         // A new class keeps the subject the period had, or the teacher's only
         // one; a subject is chosen for the class already in the cell.
         const subject = picked === '__clear' ? ''
-            : changed.classList.contains('p-class') ? (cls ? wasSubject || autoSubject(teacher) : '')
+            : typed === undefined && changed.classList.contains('p-class') ? (cls ? wasSubject || autoSubject(teacher) : '')
             : picked;
         // An одделенски's empty period is written only once a subject is chosen.
         if (fixed && !was && !subject && picked !== '__clear') return;
@@ -1393,7 +1438,7 @@
             // person says so; the server still allows only one other teacher.
             if (!together && err.body && err.body.code === 'class-taken' && (err.body.here || []).length === 1
                 && window.confirm(err.message + '\n\nДа се запише како заеднички час (двајца наставници во иста паралелка)?')) {
-                return savePersonal(td, changed, true);
+                return savePersonal(td, changed, true, typed);
             }
             window.dispatchEvent(new CustomEvent('mtb:data-state', { detail: { state: 'error', text: err.message } }));
             if (window.MTBAppNavigation && window.MTBAppNavigation.toast) window.MTBAppNavigation.toast(err.message, 'error');
@@ -1747,7 +1792,9 @@
         const pick = event.target.closest('.p-edit select');
         if (!pick) return;
         const td = pick.closest('.p-cell');
-        if (td) savePersonal(td, pick);
+        if (!td) return;
+        if (pick.value === '__other') { typeSubject(td, pick); return; }
+        savePersonal(td, pick);
     });
     // The switch in the bar (or the Workspace's top bar) turns the pickers on
     // and off; nothing else on this page changes with it.

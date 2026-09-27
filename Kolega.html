@@ -235,6 +235,8 @@ header.top h1 { flex: 1; min-width: 180px; }
 .caseload .ticks input { width: auto; }
 .caseload .ticks small { color: var(--muted); font-weight: 500; }
 .caseload h3 { margin: 12px 0 6px; font-size: 15px; }
+.caseload .add-subject { margin: 8px 0 2px; flex-wrap: nowrap; }
+.caseload .add-subject input { flex: 1; min-width: 0; }
 .caseload .ticks input:disabled + span { color: var(--muted); }
 @media print {
   body.printing-duty main > *:not(#home), body.printing-duty #home > *:not(#weekCard),
@@ -1379,7 +1381,11 @@ header.top h1 { flex: 1; min-width: 180px; }
             + '<h3>Предмети</h3><div class="ticks">' + offered.map((name) => {
                 const on = subjects.some((x) => norm(x) === norm(name));
                 return `<label class="${on ? 'on' : ''}"><input type="checkbox" data-my-subject="${esc(name)}"${on ? ' checked' : ''}> <span>${esc(name)}</span></label>`;
-            }).join('') + '</div>';
+            }).join('') + '</div>'
+            // A subject the list does not have (owner, 27 Sep 2026): typed once, ticked at once.
+            + '<form class="row add-subject" data-add-subject novalidate>'
+            + '<input name="subject" placeholder="друг предмет што го нема во листата" aria-label="Нов предмет" maxlength="120">'
+            + '<button type="submit" class="small">＋ Додај</button></form>';
         if (!odd) {
             html += '<h3>Паралелки</h3><div class="ticks">' + (week.classes || []).map((c) => {
                 const lead = homeroom.includes(c.label);
@@ -1401,6 +1407,18 @@ header.top h1 { flex: 1; min-width: 180px; }
             lists.catalogue = fillsClass() && homeroom.length ? await offerFor(homeroom[0])
                 : ((await api('GET', '/api/portal/subjects')).subjects || []);
         } catch (err) { lists.error = err.message; }
+        drawMyLists();
+    }
+
+    async function addMySubject(form) {
+        const name = form.elements.subject.value.replace(/\s+/g, ' ').trim();
+        if (!name) return;
+        if (name.includes(',')) { say('weekMsg', 'Еден предмет, без запирка.', 'error'); return; }
+        try {
+            const answer = await api('PUT', '/api/portal/my-subject', { subject: name, on: true });
+            week.me.subject = (answer.subjects || []).join(', ') || null;
+            say('weekMsg', `„${name}" е додаден во вашите предмети.`, 'ok');
+        } catch (err) { say('weekMsg', err.message, 'error'); }
         drawMyLists();
     }
 
@@ -1535,6 +1553,12 @@ header.top h1 { flex: 1; min-width: 180px; }
         try {
             const answer = await api('PUT', path, body);
             editing = null;
+            if (subject && !clear && form.querySelector('input[name=other]') && !mySubjects().some((x) => norm(x) === norm(subject))) {
+                try {
+                    const kept = await api('PUT', '/api/portal/my-subject', { subject, on: true });
+                    week.me.subject = (kept.subjects || []).join(', ') || null;
+                } catch (_) { /* the lesson is saved; the list can be ticked by hand */ }
+            }
             say('weekMsg', answer.notified ? `Зачувано. Известени колеги: ${answer.notified}.` : 'Зачувано.', 'ok');
             await reloadWeek();
         } catch (err) {
@@ -1789,6 +1813,12 @@ header.top h1 { flex: 1; min-width: 180px; }
     el('myLists').addEventListener('click', (event) => {
         if (!event.target.closest('[data-lists-toggle]')) return;
         if (lists.open) { lists.open = false; drawMyLists(); } else openMyLists();
+    });
+    el('myLists').addEventListener('submit', (event) => {
+        const form = event.target.closest('[data-add-subject]');
+        if (!form) return;
+        event.preventDefault();
+        addMySubject(form);
     });
     el('myLists').addEventListener('change', (event) => {
         const input = event.target.closest('[data-my-subject], [data-my-class]');
