@@ -641,10 +641,10 @@
             style.textContent = `
                 .mtb-credit { position: fixed; right: 15px; bottom: 10px; z-index: 30; pointer-events: none;
                     user-select: none; font: 600 11px/1.2 system-ui, -apple-system, 'Segoe UI', sans-serif;
-                    letter-spacing: .02em; color: rgba(79, 91, 213, .62);
-                    text-shadow: 0 0 3px rgba(255, 255, 255, .85); }
+                    letter-spacing: .02em; color: rgba(79, 91, 213, .5);
+                    text-shadow: 0 0 3px rgba(255, 255, 255, .68); }
                 html[data-theme="dark"] .mtb-credit, body.dark-mode .mtb-credit {
-                    color: rgba(165, 180, 252, .6); text-shadow: 0 0 3px rgba(10, 12, 30, .85); }
+                    color: rgba(165, 180, 252, .48); text-shadow: 0 0 3px rgba(10, 12, 30, .68); }
                 @media print { .mtb-credit { color: #777 !important; text-shadow: none !important; } }
             `;
             document.head.appendChild(style);
