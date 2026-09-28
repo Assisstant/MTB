@@ -4210,3 +4210,39 @@ The write is `PUT /api/teaching/teacher-lesson` with `expected`, the route
 asserts what the page SENDS (class, subject, expected) for both kinds of
 teacher, that locked means not one picker, and that Настава draws the same
 sheet from the same file.
+
+## Duty administration from a phone or a shared link (28 Sep 2026)
+
+The owner opened Kolega in Messenger on a phone, signed in as a colleague,
+and saw the ordinary duty view without swap controls. A colleague login does
+not confer the owner's cloud session, and an in-app browser need not share
+the main browser's cookies. The owner requested a direct entry in Податоци
+and an admin-rights link that can also be shared with trusted colleagues.
+
+Податоци → Колеги now keeps the ordinary sharing link and adds a distinct
+duty-administrator entry: open, copy a link with a chosen lifetime, and revoke
+all links. Every recipient still signs in with their own colleague account.
+Kolega labels the delegated mode with its expiry and offers „Исклучи“ to return
+to ordinary permissions. Expired/revoked links remove controls; a refused
+write is never retried as an owner write. An expired colleague session asks
+for sign-in again. A trusted colleague need not be a member of the rota.
+
+This is a narrow capability, not a second administrator account or a permanent
+role. Only the owner-side `/api/duty/delegations` creates/revokes it. The new
+`/api/portal/duty-admin/*` routes require both an ordinary active staff session
+and that capability on every request, including reads. They call the existing
+duty handlers, so the list, dates, absences and swaps keep one writer. Absence
+marks name the signed-in colleague. The link cannot administer staff accounts,
+grant general MTB access, or create other admin links.
+
+Tokens are random 256-bit values. Only their SHA-256 hashes are held in server
+memory; the raw token is returned once, in a URL fragment that is immediately
+removed by Kolega and retained only in sessionStorage. Lifetimes are 2/8/24
+hours or 7 days; all links also die on a server restart. That limitation and
+the fact that any active colleague receiving a forwarded link can use it are
+stated beside the controls. No migration, cloud-setting change, or new public
+asset is required. This change is local code until explicitly deployed.
+
+Regression coverage includes token expiry/revocation, both cloud and inner
+authorization boundaries, all revoked write paths, the active-staff check,
+phone-sized open/copy/sign-in/exit flows and stale UI after permission loss.

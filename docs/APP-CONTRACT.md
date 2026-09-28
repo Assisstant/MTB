@@ -84,7 +84,20 @@ but it must not present parallel versions of the same task.
   - **Who changes what:** the administrator changes everything, through
     `/api/duty/*` behind the owner's sign-in. A colleague on the list only marks
     their own absence, from today on, through `/api/portal/duty/absence`.
-  - **Who sees it:** nobody off the list sees it.
+    **Owner decision, 28 September 2026:** Податоци → Колеги also creates a
+    separate temporary admin link for the owner on a phone or a trusted
+    colleague. It grants only duty administration, not other MTB administration.
+    Every `/api/portal/duty-admin/*` call requires BOTH a normal active colleague
+    session and the link capability, and reuses the same duty handlers. Only
+    the owner can create/revoke links through `/api/duty/delegations`.
+    Links expire after the chosen 2/8/24 hours or 7 days, or sooner on owner
+    revocation/server restart. They live hashed in server memory; the browser
+    removes the fragment immediately and keeps the capability only in its tab.
+  - **Who sees it:** ordinary colleagues see it only when on the list. An
+    explicitly delegated duty administrator may see/manage it without being
+    on that rota, but must still be active staff this year. Leaving admin mode
+    restores ordinary permissions. Anyone receiving a forwarded admin link can
+    use it with their own active colleague account; share only with trusted staff.
 - `Sinhronizacija.html` is the one place that explains where the data stands:
   this browser's S-Dnevnik copy against its server, the WORK↔HOME snapshots,
   and the separate cloud. It only reads (`/api/health`, `/api/sync/status`

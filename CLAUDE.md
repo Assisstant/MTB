@@ -768,6 +768,12 @@ read `DATABASE_URL`; never add literal credentials to this public repository.
   classes they teach or lead; a therapist: their caseload), and for a clash
   the other name and the term. Anything for the administrator goes OUTSIDE `/api/portal/`
   (`/api/staff-accounts`, `/api/staff-notices`), where the gate still holds.
+  The owner's 28 Sep exception is duty-only delegation: `/api/duty/delegations`
+  creates/revokes expiring links behind that gate; `/api/portal/duty-admin/*`
+  checks BOTH a normal active colleague session and the separate capability on
+  EVERY request, then reuses the duty handlers. It grants no other admin access
+  and cannot mint more links. Capabilities are hashed in memory, invalidated by
+  restart/revocation/expiry, passed in fragments and kept only in the browser tab.
   The administrator's look at a colleague's form is a token the owner's route
   makes, kept in MEMORY for two hours, passed in the address fragment and
   taken out of it at once; what it writes is signed „Администраторот" and the

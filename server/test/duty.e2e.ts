@@ -16,6 +16,9 @@ import 'dotenv/config';
 import { portalRoutes } from '../src/routes/portal.js';
 import { dutyRoutes } from '../src/routes/duty.js';
 import { workingDays } from '../src/lib/duty.js';
+import { installColleagueBoundary } from '../src/lib/colleague.js';
+import { installCloudAuth } from '../src/lib/cloud-auth.js';
+import { revokeDutyAdminLinks } from '../src/lib/duty-delegation.js';
 
 const DB = process.env.DATABASE_URL;
 if (!DB) throw new Error('DATABASE_URL is required; configure it in server/.env.');
@@ -30,6 +33,10 @@ const OUT = 'Надвор Дежурен';
 const THERAPISTS = [A, B, C];
 const TEACHERS = [OUT];
 const PEOPLE = [...THERAPISTS, ...TEACHERS];
+const CLOUD = { MTB_CLOUD_AUTH: 'basic', MTB_CLOUD_USER: 'invented-duty-owner',
+    MTB_CLOUD_PASSWORD: 'invented-duty-password-only-for-tests', MTB_CLOUD_ORIGIN: 'https://duty.example' };
+const AUTHORIZATION = 'Basic ' + Buffer.from(`${CLOUD.MTB_CLOUD_USER}:${CLOUD.MTB_CLOUD_PASSWORD}`).toString('base64');
+const SERVICE = 'invented-duty-service-key-only-for-tests';
 
 let fails = 0;
 const check = (label: string, ok: boolean, detail = '') => {
@@ -58,6 +65,10 @@ async function cleanup() {
 }
 
 async function main() {
+    const previousSignin = process.env.MTB_REQUIRE_SIGNIN;
+    const previousService = process.env.MTB_SERVICE_KEY;
+    delete process.env.MTB_REQUIRE_SIGNIN;
+    process.env.MTB_SERVICE_KEY = SERVICE;
     await cleanup();
     const [y] = await q(`INSERT INTO school_years (label, starts_on, ends_on, is_current)
                          VALUES ($1, '2098-09-01', '2099-08-31', false) RETURNING id`, [YEAR]);
@@ -73,11 +84,19 @@ async function main() {
         .map((r: any) => [r.name, Number(r.id)]));
 
     const app = Fastify({ trustProxy: false });
+    await installCloudAuth(app, CLOUD);
+    installColleagueBoundary(app);
     await app.register(portalRoutes, { year: YEAR });
-    await app.register(dutyRoutes);
-    const call = async (method: string, url: string, body?: unknown, token?: string) => {
+    await app.register(dutyRoutes, { year: YEAR });
+    const call = async (method: string, url: string, body?: unknown, token?: string, dutyAdminToken?: string) => {
         const res = await app.inject({ method: method as any, url, payload: body as any,
-            headers: token ? { 'x-mtb-portal-token': token } : {} });
+            headers: {
+                origin: CLOUD.MTB_CLOUD_ORIGIN,
+                // Only the simulated owner's calls carry the outer credentials.
+                ...(!token && !dutyAdminToken ? { authorization: AUTHORIZATION, 'x-mtb-service-key': SERVICE } : {}),
+                ...(token ? { 'x-mtb-portal-token': token } : {}),
+                ...(dutyAdminToken ? { 'x-mtb-duty-admin-token': dutyAdminToken } : {})
+            } });
         let json: any = null;
         try { json = res.json(); } catch { /* not JSON */ }
         return { status: res.statusCode, body: json };
@@ -168,6 +187,55 @@ async function main() {
         checkEq('and knows which days are theirs', seen.body?.me, emp.get(A));
         check('does not get the list of everybody who could be on it', seen.body && !('candidates' in seen.body));
 
+        console.log('\na short-lived duty-administrator link');
+        process.env.MTB_REQUIRE_SIGNIN = '1';
+        const made = await call('POST', '/api/duty/delegations', { hours: 2 });
+        const capability = String(made.body?.url || '').match(/#duty-admin=([A-Za-z0-9_-]{43})$/)?.[1] || '';
+        check('the owner can create a link whose token stays in the URL fragment',
+            made.status === 200 && Boolean(capability) && made.body?.link?.expiresAt, JSON.stringify(made.body));
+        const listed = await call('GET', '/api/duty/delegations');
+        check('the server lists its lifetime but never returns the raw token again',
+            listed.body?.links?.length === 1 && !JSON.stringify(listed.body).includes(capability), JSON.stringify(listed.body));
+        checkEq('the capability alone is not a sign-in',
+            (await call('GET', '/api/portal/duty-admin?month=2098-09', undefined, undefined, capability)).status, 401);
+        checkEq('an ordinary colleague session alone is not an administrator',
+            (await call('GET', '/api/portal/duty-admin?month=2098-09', undefined, tokenA)).status, 403);
+        for (const method of ['GET', 'POST', 'DELETE']) {
+            checkEq(`a colleague cannot ${method} the owner's links`,
+                (await call(method, '/api/duty/delegations', method === 'POST' ? { hours: 168 } : undefined, tokenA, capability)).status, 401);
+        }
+        checkEq('the capability grants no access to account administration',
+            (await call('GET', '/api/staff-accounts', undefined, tokenA, capability)).status, 401);
+        // Even with the owner's outer cloud cookie, an enforced installation
+        // still requires its separate inner administrator identity.
+        checkEq('outer credentials and a duty link cannot mint further admin links',
+            (await app.inject({ method: 'POST', url: '/api/duty/delegations', payload: { hours: 168 },
+                headers: { authorization: AUTHORIZATION, origin: CLOUD.MTB_CLOUD_ORIGIN,
+                    'x-mtb-portal-token': tokenA, 'x-mtb-duty-admin-token': capability } })).statusCode, 401);
+        const delegatedMonth = await call('GET', '/api/portal/duty-admin?month=2098-09', undefined, tokenA, capability);
+        check('together they open only the duty administrator view', delegatedMonth.status === 200
+            && delegatedMonth.body?.adminMode?.kind === 'link' && delegatedMonth.body?.candidates?.length === PEOPLE.length,
+            JSON.stringify(delegatedMonth.body));
+        const delegatedSwap = await call('PUT', '/api/portal/duty-admin/swap', { year: YEAR, note: 'временски линк',
+            first: { date: days[0], employeeId: emp.get(A) }, second: { date: days[2], employeeId: emp.get(C) } }, tokenA, capability);
+        checkEq('the delegated administrator can make a swap', delegatedSwap.status, 200);
+        checkEq('and can take that same swap back', (await call('POST', '/api/portal/duty-admin/swap/remove',
+            { year: YEAR, id: delegatedSwap.body?.id }, tokenA, capability)).status, 200);
+        await call('PUT', '/api/portal/duty-admin/absence',
+            { year: YEAR, date: days[0], employeeId: emp.get(B), absent: true }, tokenA, capability);
+        checkEq('delegated absence changes name the colleague who made them',
+            (await q('SELECT marked_by FROM duty_absences WHERE school_year_id = $1 AND employee_id = $2', [y.id, emp.get(B)]))[0]?.marked_by, A);
+        await call('PUT', '/api/portal/duty-admin/absence',
+            { year: YEAR, date: days[0], employeeId: emp.get(B), absent: false }, tokenA, capability);
+        const revoked = await call('DELETE', '/api/duty/delegations');
+        checkEq('the owner can revoke every shared link immediately', revoked.body?.revoked, 1);
+        checkEq('a revoked link stops at the server even if the browser kept it',
+            (await call('GET', '/api/portal/duty-admin?month=2098-09', undefined, tokenA, capability)).status, 403);
+        for (const [method, path] of [['PUT', 'setup'], ['PUT', 'day'], ['PUT', 'absence'], ['PUT', 'swap'], ['POST', 'swap/remove']]) {
+            checkEq(`a revoked link cannot write ${path}`, (await call(method, '/api/portal/duty-admin/' + path,
+                { year: YEAR }, tokenA, capability)).status, 403);
+        }
+
         const mine = await call('PUT', '/api/portal/duty/absence', { date: days[0], absent: true }, tokenA);
         checkEq('marks themselves away on a day', mine.status, 200);
         checkEq('and everybody sees the stand-in, the rest of the list in place',
@@ -188,9 +256,21 @@ async function main() {
         checkEq('is told they are not on the duty list', (await call('GET', '/api/portal/me', undefined, tokenOut)).body?.duty, false);
         checkEq('and cannot read it', (await call('GET', '/api/portal/duty?month=2098-09', undefined, tokenOut)).status, 403);
         checkEq('nor mark anything in it', (await call('PUT', '/api/portal/duty/absence', { date: days[2], absent: true }, tokenOut)).status, 403);
+        const trusted = await call('POST', '/api/duty/delegations', { hours: 2 });
+        const trustedToken = trusted.body.url.split('#duty-admin=')[1];
+        checkEq('an explicit admin link lets a trusted colleague outside the rota manage it',
+            (await call('GET', '/api/portal/duty-admin?month=2098-09', undefined, tokenOut, trustedToken)).status, 200);
+        await q('UPDATE teacher_years SET active = false WHERE school_year_id = $1', [y.id]);
+        checkEq('the link does not outlive the colleague\'s active employment this year',
+            (await call('GET', '/api/portal/duty-admin?month=2098-09', undefined, tokenOut, trustedToken)).status, 403);
         checkEq('without a sign-in, nothing', (await call('GET', '/api/portal/duty?month=2098-09')).status, 401);
     } finally {
         await app.close();
+        revokeDutyAdminLinks();
+        if (previousSignin === undefined) delete process.env.MTB_REQUIRE_SIGNIN;
+        else process.env.MTB_REQUIRE_SIGNIN = previousSignin;
+        if (previousService === undefined) delete process.env.MTB_SERVICE_KEY;
+        else process.env.MTB_SERVICE_KEY = previousService;
         await cleanup();
         await pool.end();
     }

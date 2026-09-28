@@ -22,8 +22,9 @@
   have to pass that gate too. So it loads nothing: its style and script are
   here, and it talks only to /api/portal/ — with one deliberate exception.
   „🛡 Дежурства" asks /api/duty once whether this is the administrator: behind
-  the gate only the owner's own Google sign-in gets an answer, anybody else
-  gets the gate's 401, and the page then shows the rota without the controls.
+  the gate only the owner's own Google sign-in gets an answer. A short-lived
+  duty-only link made in Податоци may instead use /api/portal/duty-admin/*;
+  every call checks both that capability and the person's normal portal session.
 
   The sign-in token is kept in this browser (30 days), so a colleague on their
   own phone signs in once. „Одјави се" ends it, for a shared computer.
@@ -362,18 +363,35 @@ header.top h1 { flex: 1; min-width: 180px; }
     let editing = null;         // { ordinal } of the period being edited
     const offers = new Map();   // class label -> subjects offered for it
 
-    // „Отвори го формуларот на…" from Податоци: a two-hour look, for this tab
-    // only, taken out of the address at once so it is not kept in the history.
+    // Links from Податоци are for this tab only and are taken out of the
+    // address at once. `as` opens a colleague's form; `duty-admin` delegates
+    // only the duty controls and still requires an ordinary colleague login.
     const ACTING_KEY = 'mtb_portal_acting_v1';
+    const DUTY_ADMIN_KEY = 'mtb_duty_admin_v1';
+    const hash = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+    const actingFromHash = hash.get('as') || '';
+    const dutyAdminFromHash = hash.get('duty-admin') || '';
+    if (/^[0-9a-f]{64}$/.test(actingFromHash)) {
+        try { sessionStorage.setItem(ACTING_KEY, actingFromHash); sessionStorage.removeItem(DUTY_ADMIN_KEY); } catch (_) { /* this page load only */ }
+    }
+    if (/^[A-Za-z0-9_-]{43}$/.test(dutyAdminFromHash)) {
+        try { sessionStorage.setItem(DUTY_ADMIN_KEY, dutyAdminFromHash); sessionStorage.removeItem(ACTING_KEY); } catch (_) { /* this page load only */ }
+    }
+    if (actingFromHash || dutyAdminFromHash) history.replaceState(null, '', window.location.pathname + window.location.search);
     const actingToken = (() => {
-        const m = /(?:^|[#&])as=([0-9a-f]{64})/.exec(window.location.hash);
-        if (m) {
-            try { sessionStorage.setItem(ACTING_KEY, m[1]); } catch (_) { /* this page load only */ }
-            history.replaceState(null, '', window.location.pathname + window.location.search);
-            return m[1];
-        }
+        if (/^[0-9a-f]{64}$/.test(actingFromHash)) return actingFromHash;
         try { return sessionStorage.getItem(ACTING_KEY) || ''; } catch (_) { return ''; }
     })();
+    let dutyAdminMemory = /^[A-Za-z0-9_-]{43}$/.test(dutyAdminFromHash) ? dutyAdminFromHash : '';
+    const dutyAdminToken = {
+        get() {
+            try { return sessionStorage.getItem(DUTY_ADMIN_KEY) || dutyAdminMemory; } catch (_) { return dutyAdminMemory; }
+        },
+        clear() {
+            dutyAdminMemory = '';
+            try { sessionStorage.removeItem(DUTY_ADMIN_KEY); } catch (_) { /* already gone for this tab */ }
+        }
+    };
 
     const token = {
         get() {
@@ -564,7 +582,7 @@ header.top h1 { flex: 1; min-width: 180px; }
         // opens it on anyone's page only while there is no list yet, so the
         // first one can be made; after that it is where their own name is.
         const noList = duty.owner && duty.data && !(duty.data.members || []).length;
-        if ((me && me.duty) || noList) tabs.push({ id: 'duty', label: '🛡 Дежурства' });
+        if ((me && me.duty) || noList || duty.delegated) tabs.push({ id: 'duty', label: '🛡 Дежурства' });
         return tabs;
     }
 
@@ -580,18 +598,57 @@ header.top h1 { flex: 1; min-width: 180px; }
     const WEEKDAY = ['нд', 'пн', 'вт', 'ср', 'чт', 'пт', 'сб'];
     // `around`: one turn of the list either side of a day, across months —
     // the default (owner, 28 Sep 2026); `month`: the calendar month, for print.
-    const duty = { owner: false, month: '', data: null, open: '', draft: null, view: 'around', around: '' };
+    const duty = { owner: false, delegated: false, ownerChecked: false, month: '', data: null, open: '', draft: null, view: 'around', around: '' };
 
-    /** The owner's routes, asked directly: a refusal here only means „not the administrator". */
-    async function ownerApi(method, path, body) {
-        const res = await fetch(path, {
+    /** Owner route, or its narrowly delegated /api/portal counterpart. */
+    async function ownerApi(method, path, body, throughLink = duty.delegated) {
+        const offered = throughLink ? dutyAdminToken.get() : '';
+        const routed = throughLink ? path.replace(/^\/api\/duty/, '/api/portal/duty-admin') : path;
+        const headers = body === undefined ? {} : { 'Content-Type': 'application/json' };
+        if (throughLink) {
+            headers['x-mtb-portal-token'] = token.get();
+            headers['x-mtb-duty-admin-token'] = offered;
+        } else {
+            // The same optional PIN session used by the rest of the suite.
+            try { const pin = localStorage.getItem('evidence_token_v1'); if (pin) headers['x-mtb-evidence-token'] = pin; } catch (_) { /* cloud cookie only */ }
+        }
+        const res = await fetch(routed, {
             method, cache: 'no-store', credentials: 'same-origin',
-            headers: body === undefined ? {} : { 'Content-Type': 'application/json' },
+            headers,
             body: body === undefined ? undefined : JSON.stringify(body)
         });
         let payload = null;
         try { payload = await res.json(); } catch (_) { /* not JSON: the gate's sign-in page */ }
-        if (!res.ok || !payload) throw Object.assign(new Error((payload && payload.error) || ('Грешка ' + res.status)), { status: res.status });
+        if (!res.ok || !payload) {
+            if (throughLink && res.status === 401) {
+                token.clear();
+                duty.owner = false;
+                duty.delegated = false;
+                duty.data = null;
+                el('duty').replaceChildren();
+                closeSwap();
+                show('login');
+                say('loginMsg', (payload && payload.error) || 'Најавете се повторно.', 'error');
+            }
+            if (throughLink && payload && payload.needsDutyAdminLink) {
+                dutyAdminToken.clear();
+                duty.owner = false;
+                duty.delegated = false;
+                duty.ownerChecked = true;
+                duty.open = '';
+                duty.draft = null;
+                duty.data = null;
+                el('duty').replaceChildren();
+                closeSwap();
+                // A stale page must lose its controls even when revocation is
+                // first discovered by a write. Never retry that write.
+                if (method !== 'GET') {
+                    if (me && me.duty) showDuty(duty.month);
+                    else drawWeek();
+                }
+            }
+            throw Object.assign(new Error((payload && payload.error) || ('Грешка ' + res.status)), { status: res.status, payload });
+        }
         return payload;
     }
 
@@ -600,18 +657,40 @@ header.top h1 { flex: 1; min-width: 180px; }
         const query = duty.view === 'month'
             ? (month ? '?month=' + encodeURIComponent(month) : '')
             : '?around=' + encodeURIComponent(duty.around || localToday());
-        // Asked once whether this is the administrator: the owner may be on
-        // the list too, and must still get the controls.
-        if (!duty.ownerChecked || duty.owner) {
+        // A link is tried first. It works in Messenger too because it does not
+        // rely on the owner's Google cookie, but it still needs this person's
+        // portal sign-in. An expired/revoked link is forgotten in this tab.
+        if (dutyAdminToken.get()) {
             try {
-                duty.data = await ownerApi('GET', '/api/duty' + query);
+                duty.data = await ownerApi('GET', '/api/duty' + query, undefined, true);
                 duty.owner = true;
+                duty.delegated = true;
+                duty.ownerChecked = true;
+                duty.month = duty.data.month;
+                if (duty.data.around) duty.around = duty.data.around;
+                return;
+            } catch (err) {
+                duty.owner = false;
+                duty.delegated = false;
+                duty.data = null;
+                if (!err.payload || !err.payload.needsDutyAdminLink) throw err;
+                say('weekMsg', err.message, 'error');
+            }
+        }
+        // Asked once whether this browser has the owner's cloud session: the
+        // owner may be on the list too, and must still get the controls.
+        if (!duty.ownerChecked || (duty.owner && !duty.delegated)) {
+            try {
+                duty.data = await ownerApi('GET', '/api/duty' + query, undefined, false);
+                duty.owner = true;
+                duty.delegated = false;
                 duty.ownerChecked = true;
                 duty.month = duty.data.month;
                 if (duty.data.around) duty.around = duty.data.around;
                 return;
             } catch (_) {
                 duty.owner = false;
+                duty.delegated = false;
                 duty.ownerChecked = true;
             }
         }
@@ -904,7 +983,12 @@ header.top h1 { flex: 1; min-width: 180px; }
             const folded = d.date < todayIso() && duty.foldPast ? ' folded' : '';
             return (opens ? `<tr class="duty-month-sep${folded}"><td colspan="3">${MONTHS[mm - 1]} ${yy}</td></tr>` : '') + dutyRowHtml(d);
         }).join('');
-        box.innerHTML = (duty.owner ? dutyAdminHtml() : '')
+        const delegated = duty.delegated
+            ? `<div class="duty-note no-print"><b>🔑 Администраторски режим за дежурствата</b>`
+              + (duty.data.adminMode && duty.data.adminMode.expiresAt ? ` · важи до ${esc(new Date(duty.data.adminMode.expiresAt).toLocaleString('mk-MK', { dateStyle: 'short', timeStyle: 'short' }))}` : '')
+              + ' <button type="button" class="small" data-duty-admin-exit>Исклучи</button></div>'
+            : '';
+        box.innerHTML = delegated + (duty.owner ? dutyAdminHtml() : '')
             + '<div class="duty-head">' + head
             + '<button type="button" class="small no-print" id="dutyPrint">🖨 Печати</button></div>'
             + (duty.data.members.length ? '' : '<p class="muted">Сè уште нема список за дежурства.</p>')
@@ -922,11 +1006,28 @@ header.top h1 { flex: 1; min-width: 180px; }
     }
 
     async function showDuty(month) {
-        try { await loadDuty(month); drawDuty(); }
+        try {
+            await loadDuty(month);
+            if (!duty.data) drawWeek();
+            else drawDuty();
+        }
         catch (err) { say('weekMsg', err.message, 'error'); }
     }
 
     el('duty').addEventListener('click', async (event) => {
+        if (event.target.closest('[data-duty-admin-exit]')) {
+            dutyAdminToken.clear();
+            duty.owner = false;
+            duty.delegated = false;
+            duty.ownerChecked = true;
+            duty.data = null;
+            duty.open = '';
+            duty.draft = null;
+            el('duty').replaceChildren();
+            try { await loadDuty(duty.month); }
+            catch (err) { say('weekMsg', err.message, 'error'); }
+            return drawWeek();
+        }
         const go = event.target.closest('[data-duty-month]');
         if (go) { duty.open = ''; duty.foldPast = null; duty.view = 'month'; return showDuty(go.dataset.dutyMonth); }
         const turn = event.target.closest('[data-duty-around]');
@@ -1303,7 +1404,8 @@ header.top h1 { flex: 1; min-width: 180px; }
         if (onDuty) {
             el('days').hidden = true;
             el('tabHint').textContent = duty.owner
-                ? 'Дежурства во кабинетите. Вие го поставувате списокот; кај секој ден: ⋯ за празник, договор или отсутни.'
+                ? (duty.delegated ? 'Администраторски режим преку временски линк. Можете да го менувате списокот и секој ден.'
+                    : 'Дежурства во кабинетите. Вие го поставувате списокот; кај секој ден: ⋯ за празник, договор или отсутни.')
                 : 'Дежурства во кабинетите. Ако некој ден не сте тука, означете го — тој ден дежура следниот на списокот.';
             if (duty.data) drawDuty(); else showDuty();
             return;
@@ -1926,13 +2028,18 @@ header.top h1 { flex: 1; min-width: 180px; }
         show('home');
         duty.ownerChecked = false;
         duty.owner = false;
+        duty.delegated = false;
         duty.data = null;
+        duty.draft = null;
         caseload.open = false;
         caseload.list = null;
         reloadWeek()
             // Whether there is a duty tab at all is known only after asking
             // (the administrator may not be on the list), so it is drawn again.
-            .then(() => loadDuty().then(() => drawWeek(), () => {}))
+            .then(() => loadDuty().then(() => {
+                if (duty.delegated) view.tab = 'duty';
+                drawWeek();
+            }, (err) => say('weekMsg', err.message, 'error')))
             .catch((err) => say('weekMsg', err.message, 'error'));
     }
 
@@ -2119,6 +2226,7 @@ header.top h1 { flex: 1; min-width: 180px; }
     el('logout').addEventListener('click', async () => {
         try { await api('POST', '/api/portal/logout'); } catch (_) { /* the token goes either way */ }
         token.clear();
+        dutyAdminToken.clear();
         me = null;
         week = null;
         show('login');
