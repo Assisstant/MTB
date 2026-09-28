@@ -165,6 +165,8 @@ server/src/lib/evidence.ts           the catalogue, the year's columns and one s
 server/src/lib/public-static.ts      explicit allowlist for files published by the local server
 mtb-layout.js                        one behaviour for every tab strip, table head and section: one row,
                                      📌 Замрзни, ▾ fold; app-navigation.js loads it, so no page asks for it
+mtb-teacher-week.js                  one teacher's week as a sheet, read or edited in the cell, 🔒/🔓 beside 📌;
+                                     the одделенски/предметен rule lives ONLY here — Настава and Податоци both load it
 server/src/routes/data.ts       read endpoints
 server/src/routes/schedule-write.ts  one schedule cell at a time (Stage A, behind a flag that is off)
 server/src/routes/roster-write.ts    students, therapists, caseload links (Stage B/C, same flag; no delete of people)
@@ -272,6 +274,7 @@ npm run test:portal-cabinet          a therapist's own cabinet through the same 
 npm run test:kolega                  Kolega.html in a browser; every API call invented
 npm run test:layout                  mtb-layout.js: pin and fold on strips, table heads, sections; no server
 npm run test:kolegi-admin            Податоци → Колеги and the administrator's look; every API call invented
+npm run test:teacher-week            Податоци → 🗓️ Распоред and Настава's teacher week, 🔒/🔓; every API call invented
 npm run test:schedule-form           the cabinet form (all therapists) offline, then into the queue
 npm run test:wbacc                   WBACC.html in a browser: pictograms, bookmarks, offline; every call invented
 npm run test:class-form              the class form AND the teacher's own week from Уреди настава, offline, then in

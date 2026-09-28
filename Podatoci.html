@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Податоци — MTB</title>
 <script src="mtb-theme.js"></script>
+<script src="mtb-teacher-week.js"></script>
 <!--
     Списоците врз кои стојат распоредите: ученици, наставници, терапевти,
     одделенија — и мапирањето меѓу нив, за ИЗБРАНАТА учебна година.
@@ -384,6 +385,7 @@
         <button class="btn soft" data-tab="teachers" aria-pressed="false">👩‍🏫 Наставници</button>
         <button class="btn soft" data-tab="therapists" aria-pressed="false">🧩 Терапевти</button>
         <button class="btn soft" data-tab="classes" aria-pressed="false">🏫 Одделенија</button>
+        <button class="btn soft" data-tab="week" aria-pressed="false">🗓️ Распоред</button>
         <button class="btn soft" data-tab="forms" aria-pressed="false">📥 Формулари</button>
         <button class="btn soft" data-tab="colleagues" aria-pressed="false">👥 Колеги</button>
         <button class="btn soft" data-tab="look" aria-pressed="false">🎨 Изглед</button>
@@ -578,6 +580,23 @@
         </div>
     </div>
 
+    <!-- A teacher's own week, the same sheet Настава draws and the same pickers
+         a colleague gets on /kolegi (mtb-teacher-week.js). 🔒/🔓 in the corner of
+         the table is the suite's one edit switch. -->
+    <div class="panel tab" id="tab-week">
+        <h2>Личен распоред на наставник</h2>
+        <p class="hint">
+            <b>🔒 Заклучено</b> — се чита и печати. <b>🔓 Отворено за внес</b> — копчето е во аголот на табелата,
+            до 📌. <b>Одделенски</b> наставник: паралелката е негова, во ќелијата се бира само <b>предметот</b>
+            (сите што ги учи паралелката). <b>Предметен</b> наставник: прво <b>паралелката</b> (неговите прво, другите
+            под „Други"), па <b>предметот</b> од неговите предмети. Се запишува веднаш во базата, со проверка на судир.
+        </p>
+        <div class="controls">
+            <label class="field"><span>Наставник</span><select id="weekTeacher"></select></label>
+        </div>
+        <div id="weekSheet"><p class="hint">вчитувам…</p></div>
+    </div>
+
     <div class="panel tab" id="tab-classes">
         <h2>Одделенија</h2>
         <p class="hint">
@@ -611,7 +630,7 @@
     let data = null;
     let years = [];
     const requestedTab = new URLSearchParams(window.location.search).get('tab');
-    let tab = ['students', 'teachers', 'therapists', 'classes', 'forms', 'colleagues', 'look'].includes(requestedTab) ? requestedTab : 'students';
+    let tab = ['students', 'teachers', 'therapists', 'classes', 'week', 'forms', 'colleagues', 'look'].includes(requestedTab) ? requestedTab : 'students';
     let rolloverPreview = null;
     const PUBLISHED = window.location.hostname === 'assisstant.github.io';
     const SERVER_DEFAULTS = [
@@ -944,6 +963,7 @@
             // Opened straight onto „🎨 Изглед" from GitHub Pages, the first
             // try came before the server was known.
             if (tab === 'look' && !lookDraft) loadLook();
+            if (tab === 'week') loadWeek();
         } catch (err) {
             if (mine !== ticket) return;
             data = null;
@@ -2674,6 +2694,7 @@
         closePickers();
         if (next === 'forms') loadForms();
         if (next === 'colleagues') loadColleagues();
+        if (next === 'week') loadWeek();
         if (next === 'look') loadLook();
     }
 
@@ -2692,6 +2713,67 @@
         const nav = window.MTBAppNavigation;
         if (nav && nav.views) tabHistory = nav.views({ keys: ['tab'], show: (view) => setTab(view.tab || 'students') });
     });
+
+    // ── 🗓️ Распоред: a teacher's own week (owner, 28 Sep 2026) ─────────────
+    /**
+     * „Во Податоци да постои истата можност како кај колеги — личен распоред
+     * со CRUD, заклучен и отворен за внес." The sheet, its pickers and the
+     * rules of who picks what are mtb-teacher-week.js — the same copy Настава
+     * uses, so the одделенски/предметен rule cannot be right in one screen and
+     * wrong in the other. It reads the crossing, so under a lesson it still
+     * says which child leaves it for a therapy.
+     */
+    let weekData = null;
+    let weekTicket = 0;
+    async function loadWeek() {
+        const W = window.MTBTeacherWeek;
+        if (!W) { el('weekSheet').innerHTML = '<p class="hint">mtb-teacher-week.js не е вчитан.</p>'; return; }
+        const mine = ++weekTicket;
+        try {
+            await fillYears();
+            const body = await api('GET', '/api/teaching/crossing?year=' + encodeURIComponent(el('year').value));
+            if (mine !== weekTicket) return;
+            weekData = body;
+            drawWeekTab();
+        } catch (err) {
+            if (mine !== weekTicket) return;
+            weekData = null;
+            el('weekSheet').innerHTML = `<p class="hint">${esc(err.message)}</p>`;
+        }
+    }
+    function drawWeekTab() {
+        const W = window.MTBTeacherWeek;
+        if (!W || !weekData) return;
+        const w = W.week(weekData);
+        // One person at a time: the choice survives a redraw, and the first on
+        // the list is shown rather than an empty page.
+        const wanted = w.names.includes(el('weekTeacher').value) ? el('weekTeacher').value : (w.names[0] || '');
+        const kind = (name) => ({ odd: 'одделенски', pred: 'предметен' }[w.kindOf.get(name)] || '');
+        el('weekTeacher').innerHTML = w.names.map((n) =>
+            `<option value="${esc(n)}"${n === wanted ? ' selected' : ''}>${esc(n)}${kind(n) ? ' · ' + kind(n) : ''}</option>`).join('')
+            || '<option value="">— нема наставници на списокот —</option>';
+        if (!wanted) {
+            el('weekSheet').innerHTML = '<p class="hint">Нема наставници на списокот за оваа година — додадете ги во „Наставници".</p>';
+            return;
+        }
+        if (!w.periods.length) {
+            el('weekSheet').innerHTML = '<p class="hint">Нема ѕвонење за настава за оваа година — внесете го во „Уреди настава".</p>';
+            return;
+        }
+        const editing = W.editing();
+        if (editing) W.loadOffers(weekData, apiBase, () => { if (tab === 'week' && W.editing() && !W.choosing()) drawWeekTab(); });
+        el('weekSheet').innerHTML = W.sheetHtml(w, weekData, wanted, {
+            editing, allDays: true, footer: 'Податоци · ' + new Date().toLocaleDateString('mk-MK')
+        });
+    }
+    el('weekTeacher').addEventListener('change', drawWeekTab);
+    if (window.MTBTeacherWeek) {
+        window.MTBTeacherWeek.attach(el('weekSheet'), {
+            data: () => weekData, reload: loadWeek, redraw: drawWeekTab, apiBase: () => apiBase, status
+        });
+    }
+    // 🔒/🔓 here, the ✏️ switch anywhere else, or another window: one mode.
+    window.addEventListener('mtb:editing', () => { if (tab === 'week') drawWeekTab(); });
 
     // ── колеги онлајн (docs/PLAN-kolegi-online.md) ──────────────────────────
     /**
@@ -2932,7 +3014,8 @@
      * пишува; освежувањето чека (`app-navigation.js`) и доаѓа само по неа.
      */
     const workingHere = () => Boolean(
-        document.querySelector('tr.dirty, .picker.open, [data-candidate-id]:checked')
+        document.querySelector('tr.dirty, .picker.open, [data-candidate-id]:checked, .personal input.p-other')
+        || (tab === 'week' && window.MTBTeacherWeek && window.MTBTeacherWeek.choosing())
         || (tab === 'forms' && formsReviewId));
     // `app-navigation.js` is loaded after this script, so it is asked once
     // the page is parsed.

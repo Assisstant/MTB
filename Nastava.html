@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Настава ↔ терапии — MTB</title>
 <script src="mtb-theme.js"></script>
+<script src="mtb-teacher-week.js"></script>
 <script>
     // Before the first paint, so an embedded window never flashes the header.
     if (new URLSearchParams(window.location.search).has('embed')) document.documentElement.classList.add('embedded');
@@ -233,62 +234,10 @@
         .notice:last-of-type { page-break-after: auto; break-after: auto; }
         .notice thead th { background: #eee !important; color: #000 !important; }
     }
-    /* Личен распоред: изгледот на сликата од формуларите (`paintGrid`), како
-       лист хартија — со свои, фиксни бои во двете теми, зашто се печати и се
-       дава на човекот. Секој текст ја кажува својата боја (CLAUDE.md, копчето
-       што не ја наследува бојата). Градиентот е малку потемен од сликата: бел
-       ситен текст на #667eea е 3,7:1, на #5a67d8 е 4,8:1. */
-    .personal { margin: 0 0 26px; padding: 14px; border-radius: 12px; background: #ffffff; color: #1a202c;
-        border: 1px solid #d8dbe8; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-    .personal .p-head { padding: 14px 18px; border-radius: 12px; text-align: center; color: #ffffff;
-        background: linear-gradient(90deg, #5a67d8, #6b46c1); }
-    .personal .p-head h3 { margin: 0; font-size: 22px; color: #ffffff; }
-    .personal .p-sub { margin-top: 4px; font-size: 13px; color: #ffffff; }
-    .personal .p-grid { width: 100%; margin-top: 12px; border-collapse: separate; border-spacing: 2px; table-layout: fixed; font-size: 12.5px; }
-    .personal .p-grid thead th { padding: 8px 6px; background: #4c51bf; color: #ffffff; font-weight: 700; text-align: center; }
-    .personal .p-grid thead th:first-child, .personal .p-grid tbody th { width: 84px; }
-    .personal .p-grid tbody th { padding: 6px; background: #2d3748; color: #ffffff; text-align: center; vertical-align: middle; }
-    .personal .p-grid tbody th b { display: block; font-size: 15px; }
-    .personal .p-grid tbody th small { display: block; color: #cbd5e0; font-size: 11px; }
-    .personal .p-grid td { padding: 4px; vertical-align: top; background: #f7fafc; color: #1a202c; }
-    .personal .p-grid tbody tr:nth-child(even) td { background: #ffffff; }
-    .personal .p-lesson, .personal .p-away { margin: 0 0 3px; padding: 4px 6px 4px 8px; border-radius: 6px; line-height: 1.2; }
-    .personal .p-lesson { background: #e6fffa; border-left: 4px solid #319795; color: #1a202c; }
-    .personal .p-away { background: #fff5e6; border-left: 4px solid #c05621; color: #1a202c; }
-    .personal .p-lesson b, .personal .p-away b { display: block; font-size: 12.5px; color: #1a202c;
-        overflow-wrap: anywhere; }
-    .personal .p-lesson small, .personal .p-away small { display: block; font-size: 11px; color: #4a5568; }
-    .personal .p-away small { color: #7b341e; }
-    .personal .p-foot { display: flex; align-items: center; justify-content: space-between; gap: 10px;
-        margin-top: 8px; font-size: 12px; color: #4a5568; }
-    .personal .quiet { color: #4a5568; }
-    /* ✏️ Уредување (owner, 27 Sep 2026): the lesson is chosen IN the cell, as in
-       Кабинети — a class, then a subject — only while „✏️ Уреди" is on. The
-       sheet itself stays paper: printed, it shows the lesson as text again. */
-    .personal .p-edit { display: grid; gap: 3px; margin: 0 0 3px; }
-    .personal .p-edit select { width: 100%; min-width: 0; padding: 4px 6px; border: 1px dashed #a0aec0; border-radius: 6px;
-        background: #ffffff; color: #1a202c; font-family: inherit; font-size: 12px; font-weight: 600; line-height: 1.25; cursor: pointer; }
-    .personal .p-edit select.has { border: 1px solid #81e6d9; border-left: 4px solid #319795; background: #e6fffa; }
-    .personal .p-edit select.p-subj { font-weight: 500; }
-    .personal .p-edit select.p-subj.none { color: #4a5568; }
-    .personal .p-edit select:disabled { opacity: .55; cursor: default; }
-    .personal .p-edit select:hover:not(:disabled) { border-color: #4c51bf; }
-    .personal .p-edit select:focus-visible { outline: 2px solid #4c51bf; outline-offset: 1px; }
-    .personal .p-edit input.p-other { width: 100%; min-width: 0; padding: 4px 6px; border: 1px solid #4c51bf; border-radius: 6px;
-        background: #ffffff; color: #1a202c; font-family: inherit; font-size: 12px; }
-    .personal .p-cell.saving { opacity: .55; }
-    .personal .p-warn { display: block; color: #9c4221; font-size: 11px; font-weight: 600; }
-    .personal.editing .p-lesson { display: none; }
-    .personal .p-edithint { margin: 8px 2px 0; color: #4a5568; font-size: 12.5px; }
+    /* Личен распоред and Паралелка · недела are sheets of paper; their look
+       lives in mtb-teacher-week.js with the teacher's week it draws, so
+       Податоци draws the same sheet. What stays here is this page's own print. */
     @media print {
-        .personal .p-edit, .personal .p-edithint { display: none !important; }
-        .personal.editing .p-lesson { display: block; }
-    }
-    @page personal { size: A4 landscape; margin: 9mm; }
-    @media print {
-        .personal { page: personal; border: 0; padding: 0; margin: 0; break-after: page; page-break-after: always; }
-        .personal:last-of-type { break-after: auto; page-break-after: auto; }
-        .personal .p-foot .btn { display: none !important; }
         body[data-view="personal"] #detail, body[data-view="personal"] #unplaced,
         body[data-view="personal"] #external, body[data-view="personal"] #legend,
         body[data-view="classweek"] #detail, body[data-view="classweek"] #unplaced,
@@ -728,16 +677,7 @@
      * all, and reads as data loss.
      */
     function teacherRows() {
-        const rows = new Map();
-        (data.teachers || []).forEach((t) => rows.set(t.name, new Map()));
-        const offStaff = new Set();
-        data.cells.forEach((c) => {
-            const name = c.teacher || '— без наставник —';
-            if (c.teacher && c.teacherOnStaff === false) offStaff.add(c.teacher);
-            if (!rows.has(name)) rows.set(name, new Map());
-        });
-        const order = Array.from(rows.keys()).sort((a, b) => a.localeCompare(b, 'mk'));
-        return { rows, offStaff, order };
+        return window.MTBTeacherWeek.teacherRows(data);
     }
 
     /**
@@ -850,285 +790,31 @@
     const cap = (d) => String(d || '').charAt(0).toUpperCase() + String(d || '').slice(1);
     const clock = (slots) => (slots || []).join(', ').replace(/-/g, '–');
 
-    function personalWeeks() {
-        const periods = data.bells.teaching || [];
-        const days = DAYS.filter((d) => data.cells.some((c) => c.day === d));
-        const { rows, offStaff, order } = teacherRows();
-        data.cells.forEach((c) => {
-            const slot = rows.get(c.teacher || NOBODY);
-            const at = c.day + '|' + c.ordinal;
-            if (!slot.has(at)) slot.set(at, []);
-            slot.get(at).push(c);
-        });
-        const kindOf = new Map((data.teachers || []).map((t) => [t.name, t.kind]));
-        return { periods, days, rows, offStaff, kindOf, names: order.filter((n) => n !== NOBODY) };
-    }
-
-    /** What one period of one teacher says: the lesson, then who leaves it. */
-    function personalEntries(list) {
-        const out = [];
-        list.forEach((c) => {
-            out.push({ kind: 'lesson', text: c.subject || 'без предмет', sub: c.class });
-            (c.away || []).forEach((a) => out.push({
-                kind: 'away', text: '↳ ' + a.student, sub: a.therapist + (a.slots && a.slots.length ? ' · ' + clock(a.slots) : '')
-            }));
-        });
-        return out;
-    }
-
-    // ── ✏️ Уредување на Личен распоред (owner, 27 Sep 2026) ──────────────
-    //
-    // „Да се менува директно во ќелијата, како во Кабинети": with „✏️ Уреди"
-    // on, each period of a teacher's sheet is two pickers — the class, then
-    // the subject — the same two a colleague gets for their own week on the
-    // colleagues' page. Off, the sheet is what it always was: paper that can
-    // be handed to a teacher or to the director, with nothing to press.
-    //
-    // NO SECOND WRITER. A change goes to `PUT /api/teaching/teacher-lesson`,
-    // the route Уреди настава's „Наставник · цела недела" already writes
-    // through, with the class the cell showed as `expected` — so a lesson
-    // somebody changed in the meantime is refused, not overwritten.
-    const editOn = () => Boolean(window.MTBForms && window.MTBForms.editing());
-    const tidy = (v) => String(v == null ? '' : v).replace(/\s+/g, ' ').trim();
-
-    function ownSubjects(name) {
-        const t = (data.teachers || []).find((x) => x.name === name);
-        return t && t.subject ? String(t.subject).split(',').map(tidy).filter(Boolean) : [];
-    }
-    /** Only one subject of their own is a default; with two, it is the person's choice. */
-    function autoSubject(name) {
-        const own = ownSubjects(name);
-        return own.length === 1 ? own[0] : '';
-    }
-    /**
-     * Who picks what (owner, 27 Sep 2026; the same rule as Уреди настава's
-     * teacher week and the colleagues' page): an одделенски наставник's class
-     * is their own and fixed, and only the subject is picked, out of all the
-     * class learns; a предметен наставник picks the паралелка, and the subject
-     * is one of their own. An одделенски with no homeroom yet picks a class.
-     */
-    function fixedClass(name) {
-        const t = (data.teachers || []).find((x) => x.name === name);
-        return t && t.kind === 'odd' && t.homeroom ? t.homeroom : '';
-    }
-
-    let cardsOf = null;
-    let cards = new Map();
-    function classCards() {
-        const nav = window.MTBAppNavigation;
-        if (!nav || !nav.classes) return new Map();
-        if (cardsOf !== data) { cards = nav.classes.index({ classes: data.classes, teachers: data.teachers }); cardsOf = data; }
-        return cards;
-    }
-    function classOptions(selected, teacher) {
-        const nav = window.MTBAppNavigation;
-        // A teacher's own паралелки (ticked on Kolega, or given in Податоци), and
-        // the one already in the cell; every class while none is recorded.
-        const t = (data.teachers || []).find((x) => x.name === teacher);
-        const mine = t && Array.isArray(t.classes) ? t.classes : [];
-        if (nav && nav.classes) {
-            if (!mine.length) return nav.classes.optionsHtml(classCards(), selected, { empty: '— слободен —' });
-            // Theirs first, as their own group; the rest under „Други".
-            const all = Array.from(classCards());
-            const own = new Map(all.filter(([label]) => mine.includes(label)));
-            const rest = new Map(all.filter(([label]) => !mine.includes(label)));
-            const inRest = rest.has(selected);
-            return `<option value=""${selected ? '' : ' selected'}>— слободен —</option>`
-                + `<optgroup label="${esc('Паралелки на ' + teacher)}">${nav.classes.optionsHtml(own, inRest ? '' : selected, { empty: false })}</optgroup>`
-                + (rest.size ? `<optgroup label="Други паралелки">${nav.classes.optionsHtml(rest, inRest ? selected : '', { empty: false })}</optgroup>` : '');
-        }
-        return '<option value="">— слободен —</option>' + (data.classes || []).map((c) =>
-            `<option value="${esc(c.label)}"${c.label === selected ? ' selected' : ''}>${esc(c.alias || c.label)}</option>`).join('');
-    }
-
-    // What the catalogue offers for a class, per year: read once when the
-    // pickers first appear, so opening a cell never waits on the network.
-    const offers = new Map();
-    let offersFor = '';
-    function loadOffers() {
-        if (!data || offersFor === data.year) return;
-        offersFor = data.year;
-        const year = data.year;
-        const labels = (data.classes || []).map((c) => c.label);
-        Promise.all(labels.map((label) => fetch(apiBase() + '/api/teaching/subjects?year=' + encodeURIComponent(year)
-            + '&class=' + encodeURIComponent(label), { cache: 'no-store' })
-            .then((r) => (r.ok ? r.json() : { subjects: [] }))
-            .then((b) => offers.set(year + '|' + label, (b.subjects || []).map((x) => x.subject)))
-            .catch(() => {})))
-            .then(() => {
-                // Not under a picker that is open or being chosen in.
-                if (data && data.year === year && view === 'personal' && editOn()
-                    && !(document.activeElement && document.activeElement.closest && document.activeElement.closest('.p-edit'))) draw();
-            });
-    }
-    function subjectOptions(teacher, label, chosen, held) {
-        const fixed = fixedClass(teacher);
-        // A предметен наставник's list is their own subjects; the catalogue
-        // only while none is recorded. An одделенски's is the class's catalogue.
-        // What the teacher ticked comes first; the rest of the catalogue under „Други".
-        const own = ownSubjects(teacher);
-        const offered = (offers.get(data.year + '|' + label) || []).filter((x) => !own.includes(x));
-        if (chosen && !own.includes(chosen) && !offered.includes(chosen)) offered.unshift(chosen);
-        const opt = (s) => `<option value="${esc(s)}"${s === chosen ? ' selected' : ''}>${esc(s)}</option>`;
-        return `<option value="">${held ? '— без предмет —' : '— избери предмет —'}</option>`
-            + (own.length ? `<optgroup label="${esc((fixed ? 'Предмети во ' + label + ' — ' : 'Предмети на ') + teacher)}">${own.map(opt).join('')}</optgroup>` : '')
-            + (offered.length ? `<optgroup label="${esc(own.length ? 'Други предмети' : fixed ? 'Предмети во ' + label : 'Предмети')}">${offered.map(opt).join('')}</optgroup>` : '')
-            + '<option value="__other">✎ друг предмет…</option>'
-            + (held ? '<option value="__clear">✕ слободен час (избриши)</option>' : '');
-    }
-
-    /**
-     * A subject the lists do not have yet (owner, 27 Sep 2026): typed once in
-     * the cell, written into the lesson, and added to that teacher's own
-     * subjects (Податоци's field) so it is offered from then on — here, in
-     * Уреди настава and on Kolega.
-     */
-    function typeSubject(td, select) {
-        const input = document.createElement('input');
-        input.className = 'p-other';
-        input.placeholder = 'нов предмет';
-        input.setAttribute('aria-label', select.getAttribute('aria-label') || 'предмет');
-        select.replaceWith(input);
-        input.focus();
-        let done = false;
-        const finish = async (commit) => {
-            if (done) return;
-            done = true;
-            const typed = tidy(input.value);
-            if (!commit || !typed) { draw(); return; }
-            await addOwnSubject(td.dataset.teacher, typed);
-            savePersonal(td, input, false, typed);
-        };
-        input.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter') { e.preventDefault(); finish(true); }
-            if (e.key === 'Escape') { e.preventDefault(); finish(false); }
-        });
-        input.addEventListener('blur', () => finish(true));
-    }
-
-    async function addOwnSubject(name, subject) {
-        const t = (data.teachers || []).find((x) => x.name === name);
-        const own = ownSubjects(name);
-        if (!t || !t.id || own.some((x) => x.toLowerCase() === subject.toLowerCase())) return;
-        try {
-            const res = await fetch(apiBase() + '/api/teaching/teacher/' + t.id, {
-                method: 'PUT', cache: 'no-store', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ subject: own.concat(subject).join(', ') })
-            });
-            if (res.ok) t.subject = own.concat(subject).join(', ');
-        } catch (_) { /* the lesson is still written; the list can be filled in Податоци */ }
-    }
-
-    /** One period of one teacher, as the two pickers. Two lessons at once is a clash no picker can mend. */
-    function editCellHtml(name, day, p, list) {
-        const one = list[0] || null;
-        const cls = one ? one.class || '' : '';
-        const subj = one ? tidy(one.subject) : '';
-        const where = `${name} · ${day} · ${p.ordinal}. час`;
-        const two = list.length > 1;
-        const fixed = fixedClass(name);
-        if (fixed) {
-            // The class is theirs: one picker, the subject. A lesson already
-            // standing in another class (an old entry) keeps its own class.
-            const inClass = cls || fixed;
-            return `<div class="p-edit">`
-                + `<select class="p-subj${cls ? ' has' : ' none'}" aria-label="${esc('Предмет во ' + inClass + ' — ' + where)}"`
-                + ` title="${esc(inClass)}"${two ? ' disabled' : ''}>${subjectOptions(name, inClass, subj, Boolean(cls))}</select>`
-                + (two ? '<span class="p-warn">⚠ Два часа во ист термин — исправи во „Уреди настава"</span>' : '')
-                + '</div>';
-        }
-        return `<div class="p-edit">`
-            + `<select class="p-class${cls ? ' has' : ''}" data-class-picker aria-label="${esc('Паралелка — ' + where)}"${two ? ' disabled' : ''}>${classOptions(cls, name)}</select>`
-            // The subject only once there is a class to teach it in: an empty
-            // period is one picker, not two, so the week stays readable.
-            + (cls ? `<select class="p-subj${subj ? '' : ' none'}" aria-label="${esc('Предмет — ' + where)}"${two ? ' disabled' : ''}>${subjectOptions(name, cls, subj, true)}</select>` : '')
-            + (two ? '<span class="p-warn">⚠ Два часа во ист термин — исправи во „Уреди настава"</span>' : '')
-            + '</div>';
-    }
-
-    /** The server's refusal, in the sentence the staff room reads. */
-    function sorry(res, body) {
-        if (body && body.code === 'teacher-clash') return 'Овој наставник веќе има два часа во тој термин. Избриши го едниот во „Уреди настава".';
-        if (body && body.code === 'class-taken') {
-            const who = (body.here || []).map((h) => h.teacher).filter(Boolean).join(', ');
-            return `${body.class || 'Паралелката'} веќе има час во тој термин${who ? ', кај ' + who : ''}.`;
-        }
-        if (body && body.code === 'stale') return 'Некој друг го смени овој час во меѓувреме — прикажано е што стои сега.';
-        return (body && body.error) || ('HTTP ' + (res ? res.status : '?'));
-    }
-
-    async function savePersonal(td, changed, together, typed) {
-        const teacher = td.dataset.teacher;
-        const day = td.dataset.day;
-        const ordinal = Number(td.dataset.ordinal);
-        const was = td.dataset.class || '';
-        const wasSubject = td.dataset.subject || '';
-        const fixed = fixedClass(teacher);
-        const picked = typed !== undefined ? typed : changed.classList.contains('p-subj') ? changed.value : '';
-        // „✕ слободен час" empties the period; an одделенски's period is in
-        // their own class; a предметен picks the class, then the subject.
-        const cls = picked === '__clear' ? ''
-            : fixed ? (was || fixed)
-            : td.querySelector('.p-class').value;
-        // A new class keeps the subject the period had, or the teacher's only
-        // one; a subject is chosen for the class already in the cell.
-        const subject = picked === '__clear' ? ''
-            : typed === undefined && changed.classList.contains('p-class') ? (cls ? wasSubject || autoSubject(teacher) : '')
-            : picked;
-        // An одделенски's empty period is written only once a subject is chosen.
-        if (fixed && !was && !subject && picked !== '__clear') return;
-        td.classList.add('saving');
-        td.querySelectorAll('select').forEach((s) => { s.disabled = true; });
-        const saying = `${teacher} · ${day} · ${ordinal}. час`;
-        window.dispatchEvent(new CustomEvent('mtb:data-state', { detail: { state: 'saving', text: 'Се запишува: ' + saying } }));
-        try {
-            const res = await fetch(apiBase() + '/api/teaching/teacher-lesson', {
-                method: 'PUT',
-                cache: 'no-store',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    year: data.year, day, ordinal, teacher,
-                    class: cls || null, subject: subject || null,
-                    expected: { class: was || null },
-                    ...(together ? { together: true } : {})
-                })
-            });
-            let body = null;
-            try { body = await res.json(); } catch (_) { /* not JSON */ }
-            if (!res.ok) throw Object.assign(new Error(sorry(res, body)), { body });
-            await load();
-            const done = cls ? `${saying} — ${classCards().has(cls) && window.MTBAppNavigation ? window.MTBAppNavigation.classes.short(classCards().get(cls)) : cls}${subject ? ' · ' + subject : ''}` : `${saying} — слободен`;
-            if (window.MTBAppNavigation && window.MTBAppNavigation.toast) window.MTBAppNavigation.toast('Зачувано: ' + done, 'synced');
-            window.dispatchEvent(new CustomEvent('mtb:data-state', { detail: { state: 'synced', text: 'Зачувано во базата: ' + done } }));
-        } catch (err) {
-            // Two teachers in one class at one hour is allowed when it is
-            // co-teaching (physical education in the lower classes) — the
-            // person says so; the server still allows only one other teacher.
-            if (!together && err.body && err.body.code === 'class-taken' && (err.body.here || []).length === 1
-                && window.confirm(err.message + '\n\nДа се запише како заеднички час (двајца наставници во иста паралелка)?')) {
-                return savePersonal(td, changed, true, typed);
-            }
-            window.dispatchEvent(new CustomEvent('mtb:data-state', { detail: { state: 'error', text: err.message } }));
-            if (window.MTBAppNavigation && window.MTBAppNavigation.toast) window.MTBAppNavigation.toast(err.message, 'error');
-            status(err.message, 'error');
-            // Stale or refused: what is in the database now, never the guess.
-            if (err.body && err.body.code === 'stale') await load(); else draw();
-        }
-    }
+    // ── 👤 Наставник · недела ───────────────────────────────────────────
+    // The sheet, its pickers and the rules of who picks what (одделенски: the
+    // subject in their own class; предметен: the class, then one of their
+    // subjects) are ONE copy in mtb-teacher-week.js, shared with Податоци's
+    // „🗓️ Распоред". A second copy here would be corrected once and not twice.
+    const TW = () => window.MTBTeacherWeek;
+    const personalWeeks = () => TW().week(data);
+    const personalEntries = (list) => TW().entries(list);
+    const editOn = () => TW().editing();
 
     function drawPersonal() {
-        const { periods, days: lessonDays, rows, offStaff, kindOf, names } = personalWeeks();
+        const W = TW();
+        const w = personalWeeks();
         const editing = editOn();
         // Typing a new week in needs every day on the sheet, not only the days
         // that already have a lesson.
-        const days = editing ? DAYS : lessonDays;
-        if (editing) loadOffers();
+        const days = editing ? W.DAYS : w.days;
+        // Not under a picker that is open or being chosen in.
+        if (editing) W.loadOffers(data, apiBase(), () => { if (data && view === 'personal' && editOn() && !W.choosing()) draw(); });
         // The choice survives a redraw; a name that is no longer on the list
         // falls back to everybody rather than to an empty page.
-        const wanted = names.includes(el('who').value) ? el('who').value : '';
+        const wanted = w.names.includes(el('who').value) ? el('who').value : '';
         el('who').innerHTML = '<option value="">Сите наставници</option>'
-            + names.map((n) => `<option value="${esc(n)}"${n === wanted ? ' selected' : ''}>${esc(n)}</option>`).join('');
-        if (!days.length || !periods.length) {
+            + w.names.map((n) => `<option value="${esc(n)}"${n === wanted ? ' selected' : ''}>${esc(n)}</option>`).join('');
+        if (!days.length || !w.periods.length) {
             el('grid').innerHTML = '<div class="offline"><p>Нема внесени часови за оваа година.</p></div>';
             return;
         }
@@ -1136,45 +822,10 @@
         // lesson yet would be a blank sheet of paper. Chosen by name, they get
         // their sheet anyway, and it says why it is empty. While editing,
         // everybody on the list: that blank sheet is where their week goes.
-        const shown = wanted ? [wanted] : editing ? names : names.filter((n) => rows.get(n).size);
-        const printed = new Date().toLocaleDateString('mk-MK');
-        const yearLabel = data.year + (data.isCurrentYear ? '' : ' · архивски приказ');
-
-        el('grid').innerHTML = shown.map((name) => {
-            const slots = rows.get(name);
-            const lessons = Array.from(slots.values()).reduce((n, list) => n + list.length, 0);
-            const away = Array.from(slots.values()).reduce((n, list) => n + list.reduce((m, c) => m + c.awayCount, 0), 0);
-            const kind = kindOf.get(name) === 'odd' ? 'одделенски наставник'
-                : kindOf.get(name) === 'pred' ? 'предметен наставник' : '';
-            const sub = [SCHOOL, 'учебна ' + yearLabel, kind,
-                lessons + (lessons === 1 ? ' час' : ' часа') + ' неделно',
-                away ? away + (away === 1 ? ' излегување на третман' : ' излегувања на третман') : 'никој не излегува на третман',
-                offStaff.has(name) ? 'не е на списокот оваа година' : ''].filter(Boolean).join(' · ');
-            const body = periods.map((p, r) => '<tr>'
-                + `<th><b>${esc(String(p.ordinal))}. час</b><small>${esc(p.startsAt)}</small></th>`
-                + days.map((d) => {
-                    const list = slots.get(d + '|' + p.ordinal) || [];
-                    const one = list[0] || null;
-                    const read = personalEntries(list).map((e) =>
-                        `<div class="p-${e.kind}"><b>${esc(e.text)}</b><small>${esc(e.sub)}</small></div>`).join('');
-                    if (!editing) return '<td>' + read + '</td>';
-                    return `<td class="p-cell" data-teacher="${esc(name)}" data-day="${esc(d)}" data-ordinal="${p.ordinal}"`
-                        + ` data-class="${esc(one ? one.class || '' : '')}" data-subject="${esc(one ? tidy(one.subject) : '')}">`
-                        + editCellHtml(name, d, p, list) + read + '</td>';
-                }).join('')
-                + '</tr>').join('');
-            return `<section class="personal${editing ? ' editing' : ''}" data-teacher="${esc(name)}">`
-                + `<div class="p-head"><h3>Неделен распоред — ${esc(name)}</h3><div class="p-sub">${esc(sub)}</div></div>`
-                + '<table class="p-grid"><thead><tr><th>Час</th>'
-                + days.map((d) => `<th>${esc(cap(d))}</th>`).join('') + '</tr></thead>'
-                + `<tbody>${body}</tbody></table>`
-                + (lessons || editing ? '' : '<p class="quiet">Сè уште нема ниту еден час во распоредот.</p>')
-                + (editing ? '<p class="p-edithint">✏️ Уредување: изберете паралелка, па предмет — се запишува веднаш во базата, '
-                    + 'исто како во „Уреди настава". „— слободен —" го брише часот. Под часот останува кој ученик излегува на третман.</p>' : '')
-                + `<div class="p-foot"><span>Настава ↔ терапии · ${esc(printed)}</span>`
-                + (window.MTBScheduleForm ? `<button type="button" class="btn soft p-png" data-png="${esc(name)}">🖼 Слика</button>` : '')
-                + '</div></section>';
-        }).join('') || '<div class="offline"><p>Нема наставник со внесени часови.</p></div>';
+        const shown = wanted ? [wanted] : editing ? w.names : w.names.filter((n) => w.rows.get(n).size);
+        const footer = 'Настава ↔ терапии · ' + new Date().toLocaleDateString('mk-MK');
+        el('grid').innerHTML = shown.map((name) => W.sheetHtml(w, data, name, { editing, footer, png: true })).join('')
+            || '<div class="offline"><p>Нема наставник со внесени часови.</p></div>';
     }
 
     /**
@@ -1559,15 +1210,9 @@
         // Always: the tab, the chooser beside it and the print rules follow the view.
         markView();
     }
-    // ✏️ A picker in Личен распоред: written at once, one period at a time.
-    el('grid').addEventListener('change', (event) => {
-        const pick = event.target.closest('.p-edit select');
-        if (!pick) return;
-        const td = pick.closest('.p-cell');
-        if (!td) return;
-        if (pick.value === '__other') { typeSubject(td, pick); return; }
-        savePersonal(td, pick);
-    });
+    // ✏️ A picker in Личен распоред: written at once, one period at a time,
+    // and 🔒/🔓 in the sheet's corner — both handled by mtb-teacher-week.js.
+    TW().attach(el('grid'), { data: () => data, reload: load, redraw: draw, apiBase, status });
     // The switch in the bar (or the Workspace's top bar) turns the pickers on
     // and off; nothing else on this page changes with it.
     window.addEventListener('mtb:editing', () => { if (data && view === 'personal') draw(); });

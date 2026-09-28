@@ -4179,3 +4179,34 @@ classes they teach or lead, the same set whose children's names they may see
 — as `classAway` on `/api/portal/week`, never with a pupil id. The crossing's
 arithmetic moved out of the route into `crossingOf` (routes/teaching.ts) so
 the two cannot disagree about the same child.
+
+## Личниот распоред на наставникот, на едно место (28 Sep 2026)
+
+The owner asked for the colleagues' own-week editor inside Податоци: a
+teacher's week with create/change/delete in the cell, a LOCKED and an OPEN
+mode, and the switch beside the 📌 that freezes the header. And said, for the
+third time, that одделенски and предметен teachers differ: the first has one
+class and all its subjects, the second one or a few subjects across several
+classes.
+
+That rule had been written once, on 27 September, in Nastava.html's
+„Наставник · недела" (`fixedClass`, `ownSubjects`, the two pickers). It was
+right; it just lived in one page. A second copy in Податоци would have been
+corrected in one screen and not the other — the shape of mistake this project
+keeps paying for — so the sheet, the pickers, the save and the refusals moved
+UNCHANGED into `mtb-teacher-week.js`, and both pages draw from it. Kolega
+keeps its own copy on purpose: it is self-contained so that nothing else has
+to pass the cloud's gate (see the colleagues' door in CLAUDE.md).
+
+🔒/🔓 is not a new mode. It is `mtb-forms.js`'s „✏️ Уреди" switch, drawn in
+the table's corner beside 📌 ▾, so a sheet locked in Податоци is locked in
+Настава and the bar says the same. Its glyph is CSS and it carries the
+`mtb-ui` class, because `mtb-layout.js` remembers the 📌 choice by the
+header's own text; a lock that changed that text would make the table forget
+whether it was frozen every time the mode flipped.
+
+The write is `PUT /api/teaching/teacher-lesson` with `expected`, the route
+Уреди настава and Kolega already use — no second writer. `test:teacher-week`
+asserts what the page SENDS (class, subject, expected) for both kinds of
+teacher, that locked means not one picker, and that Настава draws the same
+sheet from the same file.
