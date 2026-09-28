@@ -149,10 +149,10 @@ check('a good one is set', own === true);
 check('and the page no longer says „почетната"', !/почетната/.test(await page.textContent('#homeUser')));
 
 console.log('\nits own file, and nothing else');
-// One question outside /api/portal/ is on purpose: `/api/duty` asks whether
-// this is the administrator. Behind the cloud's Google gate only the owner's
-// own sign-in gets an answer; anybody else gets the gate's 401.
-const others = [...new Set(loaded.filter((p) => !p.startsWith('/api/portal/') && p !== '/Kolega.html' && p !== '/api/duty'))];
+// Owner capability probes outside /api/portal/ are deliberate. Neither sends
+// school-wide pupil data to an ordinary colleague: the cloud Google gate
+// and, when enforced, the inner owner guard protect both endpoints.
+const others = [...new Set(loaded.filter((p) => !p.startsWith('/api/portal/') && !['/Kolega.html','/api/duty','/api/attendance/transport/access'].includes(p)))];
 check('it loads no other file', others.length === 0, others.join(', '));
 const fits = await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth);
 check('it fits a phone, with no sideways scrolling', fits);

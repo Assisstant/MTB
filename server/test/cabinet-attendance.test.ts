@@ -119,3 +119,56 @@ test('portal scope, validation, immutable snapshots, races and diary isolation',
     assert.equal((await call('PUT',one,mark(saved))).status,400,'closed days cannot be marked');
     assert.equal((await read()).body.days[0].sessions.length,2,'calendar edit does not erase history');
 });
+
+test('transport: external annual membership, distinct days across cabinets, corrections and owner-only access', async () => {
+    const serviceKey = 'transport-test-only-service-key-123456789';
+    process.env.MTB_SERVICE_KEY = serviceKey;
+    const ownerHeaders = { 'x-mtb-service-key': serviceKey };
+    const url = '/api/attendance/transport?month=1921-09&year=1921%2F1922-att';
+    const { isPortalRequest } = await import('../src/lib/cloud-auth.js');
+    assert.equal(isPortalRequest({method:'GET',url}),false,'cloud owner gate must protect the cross-cabinet report');
+    assert.equal(isPortalRequest({method:'GET',url:'/api/attendance/transport/access'}),false);
+    for (const path of [url, '/api/attendance/transport/access']) {
+        for (const headers of [{}, {'x-mtb-portal-token':one}, {'x-mtb-portal-token':two,'x-mtb-duty-admin-token':'not-a-transport-permission'}]) {
+            assert.equal((await app.inject({method:'GET',url:path,headers})).statusCode,401);
+        }
+    }
+    assert.equal((await app.inject({method:'GET',url:'/api/attendance/transport/access',headers:ownerHeaders})).statusCode,200);
+    assert.equal((await app.inject({method:'GET',url:'/api/portal/attendance/transport',headers:{'x-mtb-portal-token':one}})).statusCode,404);
+    const ids = (await db.query("SELECT id,public_id FROM students WHERE public_id LIKE 'att-%' ORDER BY public_id")).rows;
+    const [alpha,beta,internal] = ids.map(r=>r.id);
+    await db.query("UPDATE student_enrollments SET enrollment_type='external',grade='VI-тест' WHERE school_year_id=$1 AND student_id=ANY($2::int[])",[year,[alpha,beta]]);
+    const twin = (await db.query("INSERT INTO students(public_id,name,grade) SELECT 'att-twin',name,'ТЕСТ' FROM students WHERE id=$1 RETURNING id",[alpha])).rows[0].id;
+    await db.query("INSERT INTO student_enrollments(student_id,school_year_id,enrollment_type,grade) VALUES($1,$2,'external','VII-тест')",[twin,year]);
+    const save = async (therapist:number,date:string,items:[number,string|null][]) => {
+        const plan=items.map(([id],i)=>({key:`${id}|slot-${i}`,studentId:id}));
+        const marks=Object.fromEntries(items.map(([id,s],i)=>[`${id}|slot-${i}`,s]).filter(([,s])=>s));
+        await db.query('INSERT INTO cabinet_attendance_days(school_year_id,therapist_id,day,plan,marks) VALUES($1,$2,$3,$4,$5)',[year,therapist,date,JSON.stringify(plan),JSON.stringify(marks)]);
+        for(const id of new Set(items.map(([id])=>id))) await db.query('INSERT INTO cabinet_attendance_pupils(school_year_id,therapist_id,day,student_id) VALUES($1,$2,$3,$4)',[year,therapist,date,id]);
+    };
+    await save(a,'1921-09-06',[[alpha,'present'],[alpha,'present'],[beta,'absent'],[internal,'present'],[twin,null]]);
+    await save(b,'1921-09-06',[[alpha,'present'],[beta,'present']]);
+    await save(a,'1921-09-07',[[alpha,'absent'],[beta,null]]);
+    await save(b,'1921-09-08',[[alpha,'present']]);
+    await save(b,'1921-10-03',[[alpha,'present']]);
+    // Persisted records from another school year must not leak into this year.
+    const otherYear=(await db.query("INSERT INTO school_years(label,starts_on,ends_on) VALUES('1921/1922-other','1921-09-01','1922-08-31') RETURNING id")).rows[0].id;
+    await db.query("INSERT INTO cabinet_attendance_days(school_year_id,therapist_id,day,plan,marks) VALUES($1,$2,'1921-09-09',$3,$4)",[otherYear,a,JSON.stringify([{key:'other',studentId:alpha}]),JSON.stringify({other:'present'})]);
+    await db.query("INSERT INTO cabinet_attendance_pupils VALUES($1,$2,'1921-09-09',$3)",[otherYear,a,alpha]);
+    const fetch = async () => {
+        const r=await app.inject({method:'GET',url,headers:ownerHeaders}); assert.equal(r.statusCode,200,r.body);
+        assert.equal(r.headers['cache-control'],'no-store'); return r.json();
+    };
+    let data=await fetch();
+    assert.equal(data.pupils.length,3,'internal pupil excluded; same-name external pupils not merged');
+    assert.deepEqual(data.pupils.find((p:any)=>p.studentId===alpha).dates,['1921-09-06','1921-09-08']);
+    assert.equal(data.pupils.find((p:any)=>p.studentId===alpha).daysPresent,2,'three sessions across two cabinets on one date count once');
+    assert.equal(data.pupils.find((p:any)=>p.studentId===beta).daysPresent,1,'present wins over another cabinet absence');
+    assert.equal(data.pupils.find((p:any)=>p.studentId===twin).daysPresent,0,'unmarked never means attended');
+    await db.query("UPDATE student_enrollments SET active=false WHERE school_year_id=$1 AND student_id=$2",[year,alpha]);
+    await db.query("UPDATE cabinet_attendance_days SET marks='{}' WHERE school_year_id=$1 AND day='1921-09-08'",[year]);
+    data=await fetch();
+    assert.equal(data.pupils.find((p:any)=>p.studentId===alpha).daysPresent,1,'correction recomputes count; inactive pupil retains confirmed history');
+    for(const month of ['1921-13','1920-09']) assert.equal((await app.inject({method:'GET',url:url.replace('1921-09',month),headers:ownerHeaders})).statusCode,400);
+    delete process.env.MTB_SERVICE_KEY;
+});

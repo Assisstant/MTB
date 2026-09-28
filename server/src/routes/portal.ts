@@ -2,13 +2,14 @@
  * The colleagues' door: sign in with your own name, see your own week
  * (docs/PLAN-kolegi-online.md; owner, 25 Sep 2026).
  *
- * EVERY ROUTE HERE CHECKS ITS OWN SESSION. In the cloud these are the only API
+ * EVERY /api/portal ROUTE HERE CHECKS ITS OWN SESSION. In the cloud these are the only API
  * paths the Google gate lets through without the owner's sign-in
  * (`cloud-auth.ts`), so nothing may be answered here that a colleague should
  * not see. A colleague gets their own week, the names of their own pupils and
  * — for a clash — the other person's name and the term; never anybody else's
  * week. The one wider list is a therapist's own check list of the year's
- * pupils (`/api/portal/caseload`), and only behind their own password.
+ * pupils (`/api/portal/caseload`), and only behind their own password. The separate
+ * /api/attendance/transport owner report never bypasses the cloud owner gate.
  *
  * The token travels in a header, not a cookie: a page on another site cannot
  * make the browser send it, so nothing here can be driven from elsewhere.
@@ -16,6 +17,7 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { createHash, randomBytes } from 'node:crypto';
 import { AttendanceError, readAttendance, writeAttendance } from '../lib/cabinet-attendance.js';
+import { transportAttendance } from '../lib/transport-attendance.js';
 import { z } from 'zod';
 import { pool } from '../db.js';
 import { assertOwner, refuseScope, scopeOf } from '../lib/colleague.js';
@@ -28,7 +30,7 @@ import { bellsOf, crossingOf, subjectOffer } from './teaching.js';
 import { blockTimes, semanticBlock, writeBlock } from './schedule-write.js';
 import { minutesOf, timeOf } from '../lib/crossing.js';
 import { defaultMonth, isIsoDate, loadDuty, monthBounds, monthPayload, todayInSkopje, windowPayload } from '../lib/duty.js';
-import { dayProblem, setAbsence } from './duty.js';
+import { dayProblem, setAbsence, schoolYearOf } from './duty.js';
 import { setCaseloadLink } from '../lib/caseload.js';
 import { authorName, creditLook, lookCss } from '../lib/author.js';
 import {
@@ -383,6 +385,25 @@ async function onDutyList(employeeId: number, yearId: number): Promise<boolean> 
 
 export async function portalRoutes(server: FastifyInstance, options: { year?: string } = {}) {
     yearLabel = options.year;
+
+    // School-wide reports stay OUTSIDE the public portal prefix. A duty-only
+    // capability and a colleague's normal token grant no transport access.
+    server.get('/api/attendance/transport/access', async (req, reply) => {
+        try { assertOwner(await scopeOf(req), 'заедничкиот извештај за превоз'); return { allowed: true }; }
+        catch (e) { return refuseScope(reply, e); }
+    });
+    server.get('/api/attendance/transport', async (req, reply) => {
+        try { assertOwner(await scopeOf(req), 'заедничкиот извештај за превоз'); }
+        catch (e) { return refuseScope(reply, e); }
+        const parsed = z.object({ month: z.string().regex(/^\d{4}-\d{2}$/), year: z.string().max(64).optional() }).strict().safeParse(req.query);
+        if (!parsed.success) return reply.code(400).send({ error: 'Изберете месец и учебна година.' });
+        const year = await schoolYearOf(pool, parsed.data.year ?? options.year);
+        if (!year) return reply.code(404).send({ error: 'Нема таква учебна година.' });
+        try {
+            reply.header('Cache-Control', 'no-store');
+            return await transportAttendance(pool, year, parsed.data.month);
+        } catch (e) { if (e instanceof AttendanceError) return reply.code(e.status).send({ error: e.message }); throw e; }
+    });
 
     const AttendanceBody = z.object({ date: z.string().max(10), key: z.string().min(1).max(200),
         status: z.enum(['present', 'absent']).nullable(), expected: z.enum(['present', 'absent']).nullable(),

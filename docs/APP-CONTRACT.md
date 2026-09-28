@@ -106,6 +106,22 @@ but it must not present parallel versions of the same task.
     on that rota, but must still be active staff this year. Leaving admin mode
     restores ordinary permissions. Anyone receiving a forwarded admin link can
     use it with their own active colleague account; share only with trusted staff.
+- **Cabinet attendance and transport** (owner, 28 September 2026): Kolega's
+  attendance tab records each signed-in cabinet's own dated treatment marks.
+  The school-wide transport view is a read-only owner report, not another
+  attendance writer. It includes annual `enrollment_type='external'` pupils,
+  regardless of class/programme, and counts DISTINCT pupil id + date with at
+  least one saved `present` mark across cabinets. Several sessions count once;
+  absent, unmarked and planned-only sessions never count as a visit. An inactive
+  annual pupil with confirmed visits remains in that month's report. External
+  status follows the selected year's current roster, not a guessed historical
+  category. The personal S-Dnevnik is not merged into this report.
+  Its `/api/attendance/transport` endpoints stay behind the cloud owner gate and
+  existing inner owner guard (local compatibility mode remains unchanged).
+  Neither an ordinary portal account nor a duty-admin capability grants these
+  rights. Printable per-pupil confirmations re-read saved marks and list the
+  counted dates; staff check and sign them. They do not decide payment eligibility.
+  Author watermarks are hidden on Kolega printouts, retained on screen.
 - `Sinhronizacija.html` is the one place that explains where the data stands:
   this browser's S-Dnevnik copy against its server, the WORK↔HOME snapshots,
   and the separate cloud. It only reads (`/api/health`, `/api/sync/status`

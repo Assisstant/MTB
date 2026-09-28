@@ -219,6 +219,7 @@ header.top h1 { flex: 1; min-width: 180px; }
 .sheet .s-foot { margin-top: 8px; font-size: 12px; color: #4a5568; }
 @page week { size: A4 landscape; margin: 9mm; }
 @media print {
+  #mtbCredit { display: none !important; }
   body.printing-week main > *:not(#home), body.printing-week #home > *:not(#weekCard),
   body.printing-week #weekCard > *:not(.week-wrap), body.printing-week .no-print { display: none !important; }
   body.printing-week, body.printing-week .card { background: #fff !important; border: 0 !important; padding: 0 !important; margin: 0 !important; }
@@ -268,7 +269,20 @@ header.top h1 { flex: 1; min-width: 180px; }
 .attendance-table.month .attendance-mark { padding: 5px; min-width: 26px; }
 .attendance-warning { color: var(--text); border-left: 4px solid #d28a00; padding: 8px; }
 @page attendance-report { size: A4 landscape; margin: 10mm; }
+@page transport-certificate { size: A4 portrait; margin: 20mm; }
 @media print {
+  body.printing-transport-certificate { page: transport-certificate; }
+  body.printing-transport-certificate main > *:not(#home),
+  body.printing-transport-certificate #home > *:not(#weekCard),
+  body.printing-transport-certificate #weekCard > *:not(#transportCertificate),
+  body.printing-transport-certificate .no-print { display: none !important; }
+  body.printing-transport-certificate, body.printing-transport-certificate .card {
+    background: #fff !important; color: #000 !important; border: 0 !important; padding: 0; margin: 0;
+  }
+  body.printing-transport-certificate main { max-width: none; margin: 0; padding: 0; }
+  #transportCertificate { font-size: 12pt; line-height: 1.8; }
+  #transportCertificate h1 { font-size: 17pt; text-align: center; margin: 25mm 0 15mm; }
+  #transportCertificate .certificate-sign { margin-top: 20mm; text-align: right; }
   body.printing-attendance { page: attendance-report; }
   body.printing-attendance main > *:not(#home), body.printing-attendance #home > *:not(#weekCard),
   body.printing-attendance #weekCard > *:not(#attendance), body.printing-attendance .no-print,
@@ -359,6 +373,7 @@ header.top h1 { flex: 1; min-width: 180px; }
       <ul class="periods" id="periods"></ul>
       <div id="duty" hidden></div>
       <div id="attendance" hidden></div>
+      <div id="transportCertificate" hidden></div>
       <p class="msg" id="weekMsg" role="status" aria-live="polite"></p>
     </div>
 
@@ -619,7 +634,7 @@ header.top h1 { flex: 1; min-width: 180px; }
         // first one can be made; after that it is where their own name is.
         const noList = duty.owner && duty.data && !(duty.data.members || []).length;
         if ((me && me.duty) || noList || duty.delegated) tabs.push({ id: 'duty', label: '🛡 Дежурства' });
-        if (week.me.therapistId != null) tabs.push({ id: 'attendance', label: '✓ Присуство' });
+        if (week.me.therapistId != null || attendance.transportAllowed) tabs.push({ id: 'attendance', label: '✓ Присуство' });
         return tabs;
     }
 
@@ -636,7 +651,7 @@ header.top h1 { flex: 1; min-width: 180px; }
     // `around`: one turn of the list either side of a day, across months —
     // the default (owner, 28 Sep 2026); `month`: the calendar month, for print.
     const duty = { owner: false, delegated: false, ownerChecked: false, month: '', data: null, open: '', draft: null, view: 'around', around: '' };
-    const attendance = { mode: 'week', date: '', data: null, busy: false, request: 0 };
+    const attendance = { mode: 'week', date: '', data: null, busy: false, request: 0, scope: 'cabinet', transportAllowed: false };
     const attendanceText = { present: '✓ Присутен', absent: '× Отсутен', blank: '· Неозначено' };
     const isoShift = (date, n) => new Date(Date.parse(date + 'T00:00:00Z') + n * 86400000).toISOString().slice(0, 10);
     function attendanceRange() {
@@ -656,7 +671,9 @@ header.top h1 { flex: 1; min-width: 180px; }
         attendance.busy = true;
         drawAttendance();
         try {
-            const data = await api('GET', '/api/portal/attendance?from=' + range.from + '&to=' + range.to);
+            const data = attendance.scope === 'transport'
+                ? await ownerApi('GET', '/api/attendance/transport?month=' + range.from.slice(0,7) + '&year=' + encodeURIComponent(me.year), undefined, false)
+                : await api('GET', '/api/portal/attendance?from=' + range.from + '&to=' + range.to);
             if (request !== attendance.request) return;
             attendance.data = data;
             attendance.busy = false;
@@ -689,6 +706,48 @@ header.top h1 { flex: 1; min-width: 180px; }
         return { title, subtitle, note, columns: ['Термин', ...ds.map(d => cap(d.dayName) + '\n' + dmy(d.date) + (d.frozen ? ' ●' : ''))],
             rows: times.map(time => ({ label: time.replace('-', '–'), cells: ds.map(d => ({ day: d, sessions: d.sessions.filter(s => s.time === time) })), totals: [] })) };
     }
+    function transportReport() {
+        const d = attendance.data;
+        const dates = []; for (let date=d.from; date<=d.to; date=isoShift(date,1)) dates.push(date);
+        return { title:'Надворешни ученици — доаѓања за превоз', subtitle:d.month + ' · учебна ' + d.year + ' · сите кабинети',
+            note:d.note + ' Проверете ја евиденцијата пред потпис. Изготвено: ' + new Date(d.generatedAt).toLocaleString('mk-MK'),
+            columns:['Ученик',...dates.map(date=>date.slice(8)),'Денови'],
+            rows:d.pupils.map(p=>[p.name + (p.grade ? '\n'+p.grade : ''),...dates.map(date=>p.dates.includes(date)?'✓':'—'),String(p.daysPresent)]) };
+    }
+    function drawTransport() {
+        const m=transportReport();
+        el('attendanceSheet').innerHTML=`<h2>${esc(m.title)}</h2><p>${esc(m.subtitle)}</p><p>${esc(m.note)}</p>`
+            + '<p>Еден ученик + еден датум = еден ден, независно од бројот на кабинети. „—“ = нема потврдено присуство.</p>'
+            + (m.rows.length ? '<div class="attendance-scroll"><table class="attendance-table month"><thead><tr>'
+                + m.columns.map(c=>`<th>${esc(c)}</th>`).join('') + '</tr></thead><tbody>'
+                + m.rows.map((r,i)=>'<tr><th>'+esc(r[0])+`<button class="no-print" data-transport-certificate="${attendance.data.pupils[i].studentId}"${attendance.data.pupils[i].daysPresent ? '' : ' disabled'}>Потврда</button></th>`
+                    + r.slice(1).map(c=>`<td>${esc(c)}</td>`).join('')+'</tr>').join('')+'</tbody></table></div>'
+                : '<p>Нема надворешни ученици во избраниот годишен список.</p>');
+    }
+    async function printTransportCertificate(studentId) {
+        // Re-read the report, so a corrected mark is reflected before issuing.
+        const sessionMe=me, request=++attendance.request;
+        const month=attendance.data.month;
+        attendance.busy=true; drawAttendance();
+        try {
+            const data=await ownerApi('GET','/api/attendance/transport?month='+month+'&year='+encodeURIComponent(sessionMe.year),undefined,false);
+            if(me!==sessionMe || request!==attendance.request) return;
+            attendance.data=data;
+            const pupil=data.pupils.find(p=>p.studentId===studentId);
+            if (!pupil || !pupil.daysPresent) throw Error('Нема потврдени денови за оваа потврда.');
+            el('transportCertificate').innerHTML='<p>ОУРЦ „Кочо Рацин“ — Битола</p><p>Број: ____________________</p>'
+                + '<h1>ПОТВРДА ЗА ЕВИДЕНТИРАНО ПРИСУСТВО</h1>'
+                + `<p>За ученикот/ученичката <strong>${esc(pupil.name)}</strong>, надворешен ученик во учебната ${esc(data.year)}, `
+                + `за месец <strong>${esc(data.month)}</strong> во евиденцијата на кабинетите се запишани <strong>${pupil.daysPresent} различни денови на присуство</strong>.</p>`
+                + '<p>Датуми: '+pupil.dates.map(dmy).join(', ')+'.</p>'
+                + '<p>Присуството во повеќе кабинети на ист датум се брои како еден ден. Потврдата е наменета за документацијата за превоз.</p>'
+                + `<p>Извод од евиденцијата: ${esc(new Date(data.generatedAt).toLocaleString('mk-MK'))}.</p>`
+                + '<p>Датум на издавање: ____________________</p><p class="certificate-sign">Овластено лице: ____________________<br><br>Потпис и печат: ____________________</p>'
+                + '<p class="no-print">Проверете ги податоците пред потпишување. Во Print исклучете „Headers and footers“ за да нема адреса и датум од прелистувачот.</p>';
+            el('transportCertificate').hidden=false; document.body.classList.add('printing-transport-certificate'); window.print();
+        } catch (err) { say('weekMsg',err.message,'error'); }
+        finally { if(me===sessionMe && request===attendance.request) { attendance.busy=false; drawAttendance(); } }
+    }
     function attendanceButton(s, d) {
         const label = attendanceText[s.status || 'blank'];
         const text = attendance.mode === 'month' ? (s.status === 'present' ? '✓' : s.status === 'absent' ? '×' : '?') : s.name + '\n' + label;
@@ -700,7 +759,8 @@ header.top h1 { flex: 1; min-width: 180px; }
         const range = attendanceRange(), data = attendance.data;
         const disabled = attendance.busy ? ' disabled' : '';
         el('attendance').innerHTML = '<div class="row no-print attendance-tools">'
-            + `<button data-att-mode="week" aria-pressed="${attendance.mode === 'week'}"${disabled}>Недела</button>`
+            + (attendance.transportAllowed ? `<label>Извештај<select id="attendanceScope"${disabled}>${me.therapist ? '<option value="cabinet">Мој кабинет — третмани</option>' : ''}<option value="transport"${attendance.scope==='transport'?' selected':''}>Надворешни — превоз, сите кабинети</option></select></label>` : '')
+            + `<button data-att-mode="week" aria-pressed="${attendance.mode === 'week'}"${disabled || attendance.scope==='transport' ? ' disabled' : ''}>Недела</button>`
             + `<button data-att-mode="month" aria-pressed="${attendance.mode === 'month'}"${disabled}>Месечен извештај</button>`
             + `<button data-att-step="-1" aria-label="Претходен период"${disabled}>◀</button>`
             + `<label>Период<input id="attendanceDate" type="${attendance.mode === 'month' ? 'month' : 'date'}" value="${attendance.mode === 'month' ? range.from.slice(0, 7) : range.from}"${disabled}></label>`
@@ -710,6 +770,7 @@ header.top h1 { flex: 1; min-width: 180px; }
             + (attendance.busy ? '<p role="status">Се вчитува / зачувува…</p>' : '')
             + '<div id="attendanceSheet"></div>';
         if (!data || attendance.busy) return;
+        if (attendance.scope==='transport') return drawTransport();
         const m = attendanceReport();
         const warnings = data.days.filter(d => (d.closed && d.closed !== 'Викенд') || d.conflict).map(d => dmy(d.date) + ': ' + (d.closed || 'Преклопени термини — исправете го распоредот.'));
         el('attendanceSheet').innerHTML = `<h2>${esc(m.title)}</h2><p>${esc(m.subtitle)}</p>`
@@ -724,6 +785,11 @@ header.top h1 { flex: 1; min-width: 180px; }
                         + r.totals.map(t => `<td>${t}</td>`).join('') + '</tr>').join('') + '</tbody></table></div>');
     }
     el('attendance').addEventListener('change', event => {
+        if (event.target.id==='attendanceScope' && !attendance.busy) {
+            attendance.scope=event.target.value; attendance.data=null;
+            if(attendance.scope==='transport') attendance.mode='month';
+            return loadAttendance();
+        }
         if (event.target.id !== 'attendanceDate' || attendance.busy || !event.target.value) return;
         attendance.date = event.target.value + (attendance.mode === 'month' ? '-01' : '');
         loadAttendance();
@@ -731,6 +797,7 @@ header.top h1 { flex: 1; min-width: 180px; }
     el('attendance').addEventListener('click', async event => {
         if (attendance.busy) return;
         const b = event.target.closest('button'); if (!b) return;
+        if (b.dataset.transportCertificate) return printTransportCertificate(Number(b.dataset.transportCertificate));
         if (b.hasAttribute('data-att-mode')) { attendance.mode = b.dataset.attMode; return loadAttendance(); }
         if (b.hasAttribute('data-att-step')) {
             const range = attendanceRange(), step = Number(b.dataset.attStep);
@@ -740,6 +807,7 @@ header.top h1 { flex: 1; min-width: 180px; }
         if (b.hasAttribute('data-att-refresh')) return loadAttendance();
         if (b.hasAttribute('data-att-print')) { document.body.classList.add('printing-attendance'); window.print(); return; }
         if (b.hasAttribute('data-att-png')) {
+            if(attendance.scope==='transport') return paintReport({...transportReport(),file:'Prevoz-'+attendance.data.month,compact:true});
             const m = attendanceReport();
             const rows = m.rows.map(r => [r.label, ...r.cells.map(c => c.sessions.map(s =>
                 (attendance.mode === 'week' ? s.name + '\n' : '') + (s.status === 'present' ? '✓' : s.status === 'absent' ? '×' : '?')).join('\n') || '—'), ...r.totals.map(String)]);
@@ -758,6 +826,7 @@ header.top h1 { flex: 1; min-width: 180px; }
         await loadAttendance();
     });
     window.addEventListener('afterprint', () => document.body.classList.remove('printing-attendance'));
+    window.addEventListener('afterprint', () => { document.body.classList.remove('printing-transport-certificate'); el('transportCertificate').hidden=true; });
 
     /** Owner route, or its narrowly delegated /api/portal counterpart. */
     async function ownerApi(method, path, body, throughLink = duty.delegated) {
@@ -1622,7 +1691,9 @@ header.top h1 { flex: 1; min-width: 180px; }
         el('weekTools').hidden = !whole;
         if (onAttendance) {
             el('days').hidden = true;
-            el('tabHint').textContent = 'Присуство на учениците на третман во вашиот кабинет.';
+            el('tabHint').textContent = attendance.transportAllowed
+                ? 'Присуство во вашиот кабинет или заеднички месечен извештај за превоз на надворешните ученици.'
+                : 'Присуство на учениците на третман во вашиот кабинет.';
             loadAttendance();
             return;
         }
@@ -2263,6 +2334,15 @@ header.top h1 { flex: 1; min-width: 180px; }
         attendance.request++;
         attendance.data = null;
         attendance.busy = false;
+        attendance.scope = 'cabinet';
+        attendance.transportAllowed = false;
+        const sessionMe=me;
+        ownerApi('GET','/api/attendance/transport/access',undefined,false).then(answer=>{
+            if (me!==sessionMe || !answer.allowed) return;
+            attendance.transportAllowed=true;
+            if(!me.therapist) { attendance.scope='transport'; attendance.mode='month'; }
+            if(week) drawWeek();
+        }).catch(()=>{});
         duty.draft = null;
         caseload.open = false;
         caseload.list = null;

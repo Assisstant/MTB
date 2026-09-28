@@ -4234,6 +4234,46 @@ purge, colleague authorization, Fusion API/UI, navigation and HTTP privacy
 checks all passed. Live application tables are never used for the fixtures. No cloud deployment
 or live migration was performed as part of this code publication.
 
+### Transport report: unique external-pupil visit dates (28 Sep 2026)
+
+Owner follow-up: remove the author credit from printouts and provide a monthly
+external-pupil attendance sheet across all cabinets for transport documentation.
+`transport-attendance.ts` derives DISTINCT student id + date from persisted
+positive cabinet marks and their protected pupil references. Multiple sessions
+or cabinets on one date count once; one positive mark wins over another cabinet's
+absence. Empty marks and timetable projections do not count. Corrections are
+reflected on the next read. No personal diary data is imported or rewritten.
+
+External status belongs to `student_enrollments.enrollment_type` in the selected
+school year, independent of grade or programme; pupils with the same name remain
+separate. Active external pupils appear even with zero visits; inactive annual
+pupils remain if they have confirmed visits in that month. This uses the current
+annual classification, not a historical category snapshot. Month, year and
+today bound the query. No new migration or live database mutation is involved.
+
+The owner-only read routes are `/api/attendance/transport/access` and
+`/api/attendance/transport`, deliberately outside the cloud's public portal
+prefix. Existing `scopeOf`/`assertOwner` guards apply as well. An ordinary colleague
+session or duty capability cannot grant access. Local enforcement-off compatibility
+mode retains its existing access rules. No new sharing capability is introduced.
+
+In Kolega, authorized users choose „Надворешни — превоз, сите кабинети“ under
+Присуство. The monthly grid supports print/PNG. A pupil's „Потврда“ rereads the
+server, refuses zero confirmed days, and prints an A4 portrait statement listing
+dates and their count, with blank document number, issue date and authorized
+signature/stamp. It is evidence for staff review, not an automatic decision on
+payment eligibility. The author credit remains on screen but is hidden in every
+Kolega printout. Browser-added headers/footers are controlled in the print dialog.
+
+Verification: **308/308** tests passed, production TypeScript compiled, both
+Kolega browser suites passed. Added coverage exercises duplicate dates across
+cabinets, mixed present/absent marks, zero/unmarked, internal exclusion, external
+pupils with classes, same-name identities, month/year isolation, corrections,
+inactive history and owner/cloud boundaries. Browser checks cover access gating,
+fresh-read certificates, print isolation, hidden credit and PNG outputs. QA files
+contain invented pupils and remain in ignored `backups/test-artifacts/`.
+The previously documented test-file typecheck limitation is unchanged.
+
 ## Личниот распоред на наставникот, на едно место (28 Sep 2026)
 
 The owner asked for the colleagues' own-week editor inside Податоци: a
