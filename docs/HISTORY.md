@@ -4222,6 +4222,18 @@ checks persistence after reload, failed saves, two appointments per date,
 monthly totals, phone width, print/PDF and all three PNG exports. Private QA
 artifacts are under ignored `backups/test-artifacts/`.
 
+Publication check: integrated GitHub main through `0f8ad8d`, preserving duty
+delegation; attendance was numbered 049 because upstream already owns 048.
+After integration, `npm test` passed **307/307**, both Kolega browser suites
+passed, and production TypeScript compilation passed. The full test-file
+typecheck still reports five existing implicit-any errors in
+`test/class-form.test.ts`, which this feature does not modify. Name privacy
+checks passed. Broader acceptance runs through
+`node test/cabinet-attendance-regressions.mjs` on a disposable schema/server;
+purge, colleague authorization, Fusion API/UI, navigation and HTTP privacy
+checks all passed. Live application tables are never used for the fixtures. No cloud deployment
+or live migration was performed as part of this code publication.
+
 ## Личниот распоред на наставникот, на едно место (28 Sep 2026)
 
 The owner asked for the colleagues' own-week editor inside Податоци: a
