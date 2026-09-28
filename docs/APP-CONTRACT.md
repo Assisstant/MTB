@@ -405,6 +405,39 @@ A schedule or navigation change is not complete until all of these hold:
    approved app shell loads while local configuration and repository internals
    return 404.
 
+## Cabinet attendance in Kolega (owner, 28 September 2026)
+
+`Kolega.html` has „Присуство“ beside „Дежурства“, for a signed-in therapist's
+own cabinet only. Weekly dated marks and the monthly pupil sheet are one
+record, not a second schedule app. The interaction is S-Dnevnik's three-state
+cycle: unmarked → present → absent → unmarked; an unmarked treatment is never
+reported as an absence. Separate same-day treatments count separately.
+
+Ownership is explicit: `cabinet_attendance_days` owns shared cabinet attendance,
+`cabinet_attendance_pupils` protects the pupils in its frozen plan, and
+`cabinet_attendance_changes` records authorship (049). The personal diary's
+`attendance`, IndexedDB and derived clinical progress remain unchanged. There
+is no implicit migration or matching of old diary marks to other cabinets.
+
+The recurring Fusion schedule supplies a PREVIEW until the first mark on a
+date freezes that whole day's plan. Later schedule edits never rewrite that
+snapshot, even after all its marks are cleared. Days without a snapshot are
+labelled projections from the current schedule, not historical proof. This is
+not general effective-dated timetable versioning. Every write checks the
+session's therapist, school year, valid working date, plan fingerprint, day
+revision and previous mark; competing first writes are serialized. Future
+attendance and overlapping cabinet sessions are refused.
+
+The saved S-Dnevnik `schoolCalendar`, only when it matches this school's year,
+is read for holidays/breaks. `praznik`/`raspust` block writes; `aktivnost` does
+not. With no matching saved calendar, the page warns that holidays are not
+confirmed; weekends and year bounds still apply. No holiday dates are invented.
+
+Attendance, duty rota and the existing weekly schedule can each be printed or
+saved as PNG. Only the signed-in person's permitted data reaches the report;
+image generation is local, self-contained and sends nothing to a third party.
+Long attendance reports become numbered images rather than truncated text.
+
 ## Two catalogues, one engine
 
 `AkciskiPlan.html` renders TWO documents out of one set of tables. Sections

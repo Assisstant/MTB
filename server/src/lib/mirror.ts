@@ -18,6 +18,10 @@ export const MIRROR_TABLES = [
     'audiograms',
     'bell_period_overrides',
     'bell_periods',
+    // Cabinet attendance and its authorship history (049) are school records.
+    'cabinet_attendance_days',
+    'cabinet_attendance_changes',
+    'cabinet_attendance_pupils',
     'class_years',
     // The watermark's look (046): a read-only copy should look like the cloud.
     'credit_look',

@@ -15,6 +15,7 @@
  */
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { createHash, randomBytes } from 'node:crypto';
+import { AttendanceError, readAttendance, writeAttendance } from '../lib/cabinet-attendance.js';
 import { z } from 'zod';
 import { pool } from '../db.js';
 import { assertOwner, refuseScope, scopeOf } from '../lib/colleague.js';
@@ -382,6 +383,37 @@ async function onDutyList(employeeId: number, yearId: number): Promise<boolean> 
 
 export async function portalRoutes(server: FastifyInstance, options: { year?: string } = {}) {
     yearLabel = options.year;
+
+    const AttendanceBody = z.object({ date: z.string().max(10), key: z.string().min(1).max(200),
+        status: z.enum(['present', 'absent']).nullable(), expected: z.enum(['present', 'absent']).nullable(),
+        revision: z.number().int().nonnegative(), planToken: z.string().regex(/^[a-f0-9]{64}$/) }).strict();
+    server.get('/api/portal/attendance', async (req, reply) => {
+        const who = await signed(req, reply);
+        if (!who) return;
+        if (who.staff.therapistId == null) return reply.code(403).send({ error: 'Немате кабинет.' });
+        const query = z.object({ from: z.string(), to: z.string() }).strict().safeParse(req.query);
+        if (!query.success) return reply.code(400).send({ error: 'Изберете период.' });
+        try { return await readAttendance(pool, who.year.id, who.staff.therapistId, query.data.from, query.data.to); }
+        catch (e) { if (e instanceof AttendanceError) return reply.code(e.status).send({ error: e.message }); throw e; }
+    });
+    server.put('/api/portal/attendance', async (req, reply) => {
+        const who = await signed(req, reply);
+        if (!who) return;
+        if (who.staff.therapistId == null) return reply.code(403).send({ error: 'Немате кабинет.' });
+        const parsed = AttendanceBody.safeParse(req.body);
+        if (!parsed.success) return reply.code(400).send({ error: 'Невалидна ознака за присуство.' });
+        const client = await pool.connect();
+        try {
+            await client.query('BEGIN');
+            const answer = await writeAttendance(client, who.year.id, who.staff.therapistId, who.author.name, parsed.data);
+            await client.query('COMMIT');
+            return answer;
+        } catch (e) {
+            await client.query('ROLLBACK');
+            if (e instanceof AttendanceError) return reply.code(e.status).send({ error: e.message });
+            throw e;
+        } finally { client.release(); }
+    });
 
     /**
      * The short link that is shared with colleagues. It SHOWS the page rather

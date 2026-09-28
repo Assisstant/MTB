@@ -4179,3 +4179,45 @@ classes they teach or lead, the same set whose children's names they may see
 — as `classAway` on `/api/portal/week`, never with a pupil id. The crossing's
 arithmetic moved out of the route into `crossingOf` (routes/teaching.ts) so
 the two cannot disagree about the same child.
+
+## Kolega: cabinet attendance and printable reports (28 Sep 2026)
+
+The owner requested the personal diary's click-to-mark attendance interaction
+for every signed-in cabinet in Kolega, beside duty rota, with monthly reports
+and print/image output for attendance, duties and schedule. This is an additive
+portal feature, not a fork of Fusion or a rewrite of the tested personal diary.
+
+Migration 049 stores a dated day-plan snapshot, its marks, protected pupil
+references and an append-only mark change trail. Therapist/year always come
+from the existing portal session; the client cannot choose another cabinet.
+The first mark freezes the day's plan. GET never writes, and a changed recurring
+schedule never alters a frozen day. Days never recorded are explicitly a
+current-plan projection, including in prints/images; general historical
+schedule versioning remains out of scope. Separate 20-minute treatments and
+multiple appointments on a date keep their own marks and counts. Blank is not
+absence. A pupil's stable database id groups the report without matching names.
+
+Per-day revision, previous status and a fixed-projection SHA-256 guard against
+stale tabs, timetable changes and competing first inserts. JSONB's object-key
+order is deliberately excluded from the fingerprint. A row lock covers the
+first insert too. All failures roll back, and the UI rereads after a conflict
+instead of displaying an unsaved mark. Pupil foreign keys and roster-purge's
+explicit blockers preserve frozen history even when all marks were cleared.
+
+The school-year-matched calendar saved by S-Dnevnik is read only; breaks and
+holidays block marking, activities do not. No matching calendar produces a
+visible warning, not guessed holiday dates. Weekends, year bounds and future
+attendance are checked server-side. The original personal attendance/progress
+tables are untouched, and there is no automatic import of personal records.
+
+The self-contained page generates attendance and duty PNGs locally with wrapped
+text; long exports use numbered images. The existing schedule print/PNG remains.
+The optional mirror includes all three new business tables, but is not enabled
+by this change. The cloud release runner has a fresh 049 recovery schema.
+
+Verification uses invented people and disposable schemas only. New API tests
+cover authorization, first-write races, stale plans, mark cycling, immutable
+history, pupil deletion guards, RLS and diary isolation. The new browser test
+checks persistence after reload, failed saves, two appointments per date,
+monthly totals, phone width, print/PDF and all three PNG exports. Private QA
+artifacts are under ignored `backups/test-artifacts/`.

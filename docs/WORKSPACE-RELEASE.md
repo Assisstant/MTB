@@ -1,5 +1,28 @@
 # Master administration release — 21 September 2026
 
+## Cabinet attendance — 28 September 2026, code only, NOT deployed
+
+Migration **049** adds cabinet attendance snapshots, pupil reference protection
+and a mark audit trail. No existing row changes, and S-Dnevnik's attendance is
+not imported or overwritten. All three tables use RLS and revoke the browser
+REST roles; authenticated portal handlers derive the cabinet from the session.
+The tables are included in the optional read-only mirror, without activating it.
+
+The current runner accepts reviewed migrations **033–049** and uses the fresh
+recovery schema `mtb_workspace_recovery_cabinet_attendance_20260928`.
+Older batch/version statements below are historical. Deployment must run
+`npm run deploy:workspace` using Render's existing configured database, then
+start the new server. Do not bypass this with pasted SQL or migrate the live
+database merely to try the UI. Migration 049 has only been applied in isolated
+test schemas during development.
+
+After the owner approves/publishes this release: sign into `/kolegi` with two
+different cabinets, verify only each one's own treatments, mark a real treatment
+only if its attendance is known, refresh, check monthly totals, and try Print/
+Image on attendance, duties and the weekly schedule. Confirm the saved school
+calendar before relying on holiday exclusions. Unfrozen past days are explicitly
+projections, not a reconstruction of past timetables.
+
 ## Staff form update — 22 September, code ready, NOT deployed
 
 Migration 037 adds `employee_year_details` for annual profession, job title and

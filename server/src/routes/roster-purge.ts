@@ -121,6 +121,7 @@ export const PURGE: Record<string, PurgeSpec> = {
         refuse: {
             schedule_slots: 'student_id',
             attendance: 'student_id',
+            cabinet_attendance_pupils: 'student_id',
             student_plan_progress: 'student_id',
             student_records: 'student_id',
             assessments: 'student_id',
@@ -151,6 +152,7 @@ export const PURGE: Record<string, PurgeSpec> = {
         sweep: { therapist_years: 'therapist_id' },
         refuse: {
             schedule_slots: 'therapist_id',
+            cabinet_attendance_days: 'therapist_id',
             therapist_students: 'therapist_id',
             evidence_logins: 'therapist_id',
             evidence_sessions: 'therapist_id',
