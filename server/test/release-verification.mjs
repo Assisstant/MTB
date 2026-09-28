@@ -6,6 +6,11 @@ import {resolve} from 'node:path';
 import {spawn} from 'node:child_process';
 import assert from 'node:assert/strict';
 const cwd=resolve(import.meta.dirname,'..');
+const suites=['test/fusion-schedule.e2e.ts','test/fusion.browser.mjs','test/app-navigation.browser.mjs','test/workspace.browser.mjs','test/podatoci.browser.mjs','test/sdnevnik-compat.browser.mjs','test/colleague.e2e.ts'];
+// A failed/stalled browser suite can be retried independently, with exactly
+// the same isolation and live-data fingerprint checks as the complete run.
+const requested=process.argv.slice(2);
+if(requested.some(file=>!suites.includes(file)))throw Error('Unknown release-verification suite');
 const database=process.env.TEST_DATABASE_URL||process.env.DATABASE_URL;
 if(!database)throw Error('An explicit local test connection is required');
 const schema=`release_qa_${process.pid}`;
@@ -30,7 +35,7 @@ try{
  if(!ready)throw Error('Isolated server did not start');
  for(const file of ['MTB-Workspace.html','workspace-admin.js','workspace-admin.css'])assert.equal((await fetch(env.API+'/'+file)).status,200);
  for(const file of ['server/.env','.git/config','database/migrations/035_staff_identity.sql'])assert.equal((await fetch(env.API+'/'+file)).status,404);
- for(const file of ['test/fusion-schedule.e2e.ts','test/fusion.browser.mjs','test/app-navigation.browser.mjs','test/workspace.browser.mjs','test/podatoci.browser.mjs','test/sdnevnik-compat.browser.mjs','test/colleague.e2e.ts'])await run(file);
+ for(const file of requested.length?requested:suites)await run(file);
 }finally{
  if(service){service.kill();await new Promise(r=>service.once('exit',r));}
  await original.query(`DROP SCHEMA "${schema}" CASCADE`);

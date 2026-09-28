@@ -4246,3 +4246,32 @@ asset is required. This change is local code until explicitly deployed.
 Regression coverage includes token expiry/revocation, both cloud and inner
 authorization boundaries, all revoked write paths, the active-staff check,
 phone-sized open/copy/sign-in/exit flows and stale UI after permission loss.
+
+### Owner follow-up: permanent links and an optional pause for events (28 Sep 2026)
+
+The owner explicitly chose permanent duty-admin links and asked to publish
+the change for his Render deployment. Permanence includes restarts, so an
+in-memory token map no longer fits. Migration 048 stores only SHA-256 token
+hashes in `duty_admin_links`; a null expiry means valid until the owner revokes
+it. The UI defaults to „Без рок — до поништување“, with the earlier temporary
+options still available. Every use still checks the person's own active staff
+session. No permanent general-administrator role is created. This table is
+denied to Supabase REST roles and excluded from the mirror as credentials.
+The guarded release uses its own new recovery-schema name and verifies that
+every pre-existing table's content remains unchanged.
+
+The second clarification overrides the 27 Sep three-choice day editor: an
+excursion or other event does not mean nobody is on duty. Event/note and the
+explicit pause are now independent. „Има дежурен“ keeps the normal next turn;
+„Нема дежурен — пауза“ consumes no turn, so the same next colleague is due on
+the next working day. Existing `duty_days.closed` and `note` already represent
+these facts, so no new event store or change to rota arithmetic is needed.
+Existing closed days stay closed until edited. Words in the note no longer
+produce a warning implying that a pause is required. The misleading old
+absence explanation is corrected: a substitute covers only that day; other
+dates stay unchanged.
+
+Tests cover persistent hashes through independent connections, immediate
+revocation, optional expiry, a private 047→048 upgrade, event counting with
+and without a pause across a month boundary, and both choices through the
+API and phone-sized day editor. Real duty records are not rewritten.

@@ -9,7 +9,7 @@
  *   POST /api/duty/swap/remove          a swap taken back
  *
  * The original routes and /api/duty/delegations remain behind the owner's
- * gate. The owner may also issue a temporary duty-only link (28 Sep 2026):
+ * gate. The owner may also issue a revocable duty-only link (28 Sep 2026):
  * /api/portal/duty-admin/* calls these same handlers, after checking BOTH
  * an ordinary active colleague session and the separate capability on every
  * request. Without a link, colleagues mark only their OWN absence through
@@ -26,7 +26,7 @@ import { defaultMonth, isIsoDate, loadDuty, monthBounds, monthPayload, rotaWithS
 import { PORTAL_TOKEN_HEADER, sessionEmployee, staffOfYear } from '../lib/staff-accounts.js';
 import {
     DUTY_ADMIN_HOURS, DUTY_ADMIN_TOKEN_HEADER, acceptDutyAdminLink, createDutyAdminLink,
-    dutyAdminLinks, revokeDutyAdminLinks, type DutyAdminLink
+    dutyAdminLinks, revokeDutyAdminLinks, type DutyAdminLink, type DutyLinkDatabase
 } from '../lib/duty-delegation.js';
 
 const Iso = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
@@ -61,7 +61,7 @@ const AbsenceBody = z.object({
 const DelegationBody = z.object({ hours: z.union([
     z.literal(DUTY_ADMIN_HOURS[0]), z.literal(DUTY_ADMIN_HOURS[1]),
     z.literal(DUTY_ADMIN_HOURS[2]), z.literal(DUTY_ADMIN_HOURS[3])
-]) });
+]).nullable().optional() });
 
 export async function schoolYearOf(db: any, label?: string) {
     const { rows } = await db.query(
@@ -113,8 +113,8 @@ async function owner(req: FastifyRequest, reply: FastifyReply): Promise<DutyAdmi
     }
 }
 
-/** A normal colleague session plus the separate, short-lived duty capability. */
-async function delegated(req: FastifyRequest, reply: FastifyReply, yearLabel?: string): Promise<DutyAdminAccess | null> {
+/** A normal colleague session plus the separate, revocable duty capability. */
+async function delegated(req: FastifyRequest, reply: FastifyReply, yearLabel?: string, linksDb: DutyLinkDatabase = pool): Promise<DutyAdminAccess | null> {
     const employeeId = await sessionEmployee(pool, req.headers[PORTAL_TOKEN_HEADER]);
     if (!employeeId) {
         reply.code(401).send({ error: 'Најавете се со својата сметка за колеги.', signedOut: true });
@@ -126,7 +126,7 @@ async function delegated(req: FastifyRequest, reply: FastifyReply, yearLabel?: s
         reply.code(403).send({ error: 'Не сте на списокот на вработени за тековната година.' });
         return null;
     }
-    const link = acceptDutyAdminLink(req.headers[DUTY_ADMIN_TOKEN_HEADER]);
+    const link = await acceptDutyAdminLink(linksDb, req.headers[DUTY_ADMIN_TOKEN_HEADER]);
     if (!link) {
         reply.code(403).send({ error: 'Администраторскиот линк е истечен или поништен.', needsDutyAdminLink: true });
         return null;
@@ -134,20 +134,21 @@ async function delegated(req: FastifyRequest, reply: FastifyReply, yearLabel?: s
     return { by: staff.name, link };
 }
 
-export async function dutyRoutes(server: FastifyInstance, options: { year?: string } = {}) {
-    const delegatedHere: DutyAdminAuthorizer = (req, reply) => delegated(req, reply, options.year);
+export async function dutyRoutes(server: FastifyInstance, options: { year?: string; delegationDb?: DutyLinkDatabase } = {}) {
+    const linksDb = options.delegationDb || pool;
+    const delegatedHere: DutyAdminAuthorizer = (req, reply) => delegated(req, reply, options.year, linksDb);
     /** The owner creates/revokes links; the raw capability is returned once. */
     server.get('/api/duty/delegations', async (req, reply) => {
         if (!await owner(req, reply)) return;
         reply.header('Cache-Control', 'no-store');
-        return { links: dutyAdminLinks() };
+        return { links: await dutyAdminLinks(linksDb) };
     });
     server.post('/api/duty/delegations', async (req, reply) => {
         if (!await owner(req, reply)) return;
         reply.header('Cache-Control', 'no-store');
         const parsed = DelegationBody.safeParse(req.body);
         if (!parsed.success) return reply.code(400).send({ error: 'Изберете колку време да важи линкот.' });
-        const made = createDutyAdminLink(parsed.data.hours);
+        const made = await createDutyAdminLink(linksDb, parsed.data.hours ?? null);
         return {
             url: `/kolegi#duty-admin=${made.token}`,
             link: { id: made.id, createdAt: made.createdAt, expiresAt: made.expiresAt }
@@ -155,7 +156,7 @@ export async function dutyRoutes(server: FastifyInstance, options: { year?: stri
     });
     server.delete('/api/duty/delegations', async (req, reply) => {
         if (!await owner(req, reply)) return;
-        return { ok: true, revoked: revokeDutyAdminLinks() };
+        return { ok: true, revoked: await revokeDutyAdminLinks(linksDb) };
     });
 
     const readDuty = (authorize: DutyAdminAuthorizer) => async (req: FastifyRequest, reply: FastifyReply) => {

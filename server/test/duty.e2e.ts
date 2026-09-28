@@ -13,16 +13,18 @@
 import pg from 'pg';
 import Fastify from 'fastify';
 import 'dotenv/config';
+import { readFile } from 'node:fs/promises';
 import { portalRoutes } from '../src/routes/portal.js';
 import { dutyRoutes } from '../src/routes/duty.js';
 import { workingDays } from '../src/lib/duty.js';
 import { installColleagueBoundary } from '../src/lib/colleague.js';
 import { installCloudAuth } from '../src/lib/cloud-auth.js';
-import { revokeDutyAdminLinks } from '../src/lib/duty-delegation.js';
 
 const DB = process.env.DATABASE_URL;
 if (!DB) throw new Error('DATABASE_URL is required; configure it in server/.env.');
 const pool = new pg.Pool({ connectionString: DB });
+const tokenDb = new pg.Client({ connectionString: DB });
+const tokenSchema = `duty_link_routes_test_${process.pid}`;
 const q = async (text: string, args: unknown[] = []) => (await pool.query(text, args)).rows;
 
 const YEAR = '2098/2099-duty';
@@ -69,6 +71,11 @@ async function main() {
     const previousService = process.env.MTB_SERVICE_KEY;
     delete process.env.MTB_REQUIRE_SIGNIN;
     process.env.MTB_SERVICE_KEY = SERVICE;
+    // Test new credentials only in a disposable schema, not this installation.
+    await tokenDb.connect();
+    await tokenDb.query(`CREATE SCHEMA ${tokenSchema}`);
+    await tokenDb.query(`SET search_path=${tokenSchema}`);
+    await tokenDb.query(await readFile(new URL('../../database/migrations/048_duty_admin_links.sql', import.meta.url), 'utf8'));
     await cleanup();
     const [y] = await q(`INSERT INTO school_years (label, starts_on, ends_on, is_current)
                          VALUES ($1, '2098-09-01', '2099-08-31', false) RETURNING id`, [YEAR]);
@@ -87,7 +94,7 @@ async function main() {
     await installCloudAuth(app, CLOUD);
     installColleagueBoundary(app);
     await app.register(portalRoutes, { year: YEAR });
-    await app.register(dutyRoutes, { year: YEAR });
+    await app.register(dutyRoutes, { year: YEAR, delegationDb: tokenDb });
     const call = async (method: string, url: string, body?: unknown, token?: string, dutyAdminToken?: string) => {
         const res = await app.inject({ method: method as any, url, payload: body as any,
             headers: {
@@ -126,14 +133,17 @@ async function main() {
                 members: [{ employeeId: emp.get(A) }, { employeeId: emp.get(A) }] })).status, 400);
 
         console.log('\nclosed days, days given away, anybody away');
+        await call('PUT', '/api/duty/day', { year: YEAR, date: days[1], closed: false, note: 'екскурзија' });
+        checkEq('an excursion with duty keeps the normal count', names(await month()), [A, B, C, A, B, C]);
         await call('PUT', '/api/duty/day', { year: YEAR, date: days[1], closed: true, note: 'екскурзија' });
         m = await month();
         checkEq('a closed day has no duty and moves nobody', names(m), [A, null, B, C, A, B]);
         checkEq('and says why', m.days[1].note, 'екскурзија');
         checkEq('a weekend is refused', (await call('PUT', '/api/duty/day',
             { year: YEAR, date: '2098-09-06', closed: true })).status, 400);
-        await call('PUT', '/api/duty/day', { year: YEAR, date: days[1], closed: false });
-        checkEq('clearing it puts the day back', names(await month()), [A, B, C, A, B, C]);
+        await call('PUT', '/api/duty/day', { year: YEAR, date: days[1], closed: false, note: 'екскурзија' });
+        checkEq('removing only the pause restores normal counting while retaining the event', names(await month()), [A, B, C, A, B, C]);
+        checkEq('the event note is unchanged when duty resumes', (await month()).days[1].note, 'екскурзија');
 
         await call('PUT', '/api/duty/absence', { year: YEAR, date: days[0], employeeId: emp.get(A), absent: true });
         m = await month();
@@ -187,13 +197,14 @@ async function main() {
         checkEq('and knows which days are theirs', seen.body?.me, emp.get(A));
         check('does not get the list of everybody who could be on it', seen.body && !('candidates' in seen.body));
 
-        console.log('\na short-lived duty-administrator link');
+        console.log('\na permanent, revocable duty-administrator link');
         process.env.MTB_REQUIRE_SIGNIN = '1';
-        const made = await call('POST', '/api/duty/delegations', { hours: 2 });
+        const made = await call('POST', '/api/duty/delegations', { hours: null });
         const capability = String(made.body?.url || '').match(/#duty-admin=([A-Za-z0-9_-]{43})$/)?.[1] || '';
         check('the owner can create a link whose token stays in the URL fragment',
-            made.status === 200 && Boolean(capability) && made.body?.link?.expiresAt, JSON.stringify(made.body));
+            made.status === 200 && Boolean(capability) && Boolean(made.body?.link?.id));
         const listed = await call('GET', '/api/duty/delegations');
+        checkEq('the permanent link has no expiry', made.body?.link?.expiresAt, null);
         check('the server lists its lifetime but never returns the raw token again',
             listed.body?.links?.length === 1 && !JSON.stringify(listed.body).includes(capability), JSON.stringify(listed.body));
         checkEq('the capability alone is not a sign-in',
@@ -266,7 +277,8 @@ async function main() {
         checkEq('without a sign-in, nothing', (await call('GET', '/api/portal/duty?month=2098-09')).status, 401);
     } finally {
         await app.close();
-        revokeDutyAdminLinks();
+        await tokenDb.query(`DROP SCHEMA ${tokenSchema} CASCADE`);
+        await tokenDb.end();
         if (previousSignin === undefined) delete process.env.MTB_REQUIRE_SIGNIN;
         else process.env.MTB_REQUIRE_SIGNIN = previousSignin;
         if (previousService === undefined) delete process.env.MTB_SERVICE_KEY;
@@ -278,4 +290,11 @@ async function main() {
     process.exit(fails ? 1 : 0);
 }
 
-main().catch(async (err) => { console.error(err); await cleanup().catch(() => {}); await pool.end().catch(() => {}); process.exit(1); });
+main().catch(async (err) => {
+    console.error(err);
+    await tokenDb.query(`DROP SCHEMA IF EXISTS ${tokenSchema} CASCADE`).catch(() => {});
+    await tokenDb.end().catch(() => {});
+    await cleanup().catch(() => {});
+    await pool.end().catch(() => {});
+    process.exit(1);
+});

@@ -569,7 +569,7 @@ check('no page errors', errors.length === 0, errors.join('\n       '));
                 if (!delegated || req.headers()['x-mtb-portal-token'] !== TOKEN
                     || req.headers()['x-mtb-duty-admin-token'] !== DUTY_ADMIN) return json(403, { error: 'bad duty link' });
                 return json(200, { year: '2026/2027', ...month(), ...(fresh ? { members: [] } : {}), candidates: CANDIDATES,
-                    adminMode: { kind: 'link', expiresAt: '2026-10-03T12:00:00Z' } });
+                    adminMode: { kind: 'link', expiresAt: null } });
             }
             if (url.pathname.startsWith('/api/portal/duty-admin/')) {
                 ownerWrites.push({ path: url.pathname, body, portal: req.headers()['x-mtb-portal-token'], duty: req.headers()['x-mtb-duty-admin-token'] });
@@ -634,6 +634,7 @@ check('no page errors', errors.length === 0, errors.join('\n       '));
     check('the capability leaves the address and stays in this tab only', !d.p.url().includes(DUTY_ADMIN)
         && await d.p.evaluate((t) => sessionStorage.getItem('mtb_duty_admin_v1') === t, DUTY_ADMIN));
     check('it clearly says this is the delegated administrator mode', /Администраторски режим/.test(await d.p.textContent('#duty .duty-note')));
+    check('the mode says the link is permanent until revoked', /постојан линк, до поништување/.test(await d.p.textContent('#duty .duty-note')));
     check('the delegated mode gets the same day and swap controls', await d.p.$$eval('#duty [data-duty-open]', (b) => b.length) === 6
         && Boolean(await d.p.$('#duty [data-swap-from]')));
     await d.p.click('#duty tr[data-date="2026-10-02"] [data-duty-open]');
@@ -689,17 +690,22 @@ check('no page errors', errors.length === 0, errors.join('\n       '));
     await o.p.click('#tabs [data-tab="duty"]');
     await o.p.waitForSelector('#duty .duty-admin', { timeout: 6000 });
     check('the owner gets the list and every day\'s controls', await o.p.$$eval('#duty [data-duty-open]', (b) => b.length) === 6);
-    check('a working day whose note says празник warns the owner that the rota still runs through it',
-        /сè уште е во дежурствата/.test(await o.p.innerText('#duty tr[data-date="2026-10-08"]')));
+    check('an event note is not presented as a mistake or an instruction to pause',
+        !(await o.p.$('#duty tr[data-date="2026-10-08"] .warn-note')));
     await o.p.click('#duty tr[data-date="2026-10-06"] [data-duty-open]');
     check('a working day starts as „Дежурство по списокот"',
         await o.p.isChecked('#duty form[data-duty-day="2026-10-06"] input[name="kind"][value="work"]'));
-    await o.p.check('#duty form[data-duty-day="2026-10-06"] input[name="kind"][value="praznik"]');
+    await o.p.fill('#duty form[data-duty-day="2026-10-06"] input[name="note"]', 'празник');
+    check('typing an event does not change the duty choice',
+        await o.p.isChecked('#duty form[data-duty-day="2026-10-06"] input[name="kind"][value="work"]'));
+    await o.p.check('#duty form[data-duty-day="2026-10-06"] input[name="kind"][value="pause"]');
+    check('a paused day cannot also be assigned to a colleague',
+        await o.p.isDisabled('#duty form[data-duty-day="2026-10-06"] select[name="assigned"]'));
     await o.p.check('#duty form[data-duty-day="2026-10-06"] input[name="away"][value="8"]');
     await o.p.click('#duty form[data-duty-day="2026-10-06"] button[type="submit"]');
     await o.p.waitForTimeout(500);
     const dayWrite = o.ownerWrites.find((w) => w.path === '/api/duty/day');
-    check('„Празник" closes the day, and says so without a note being typed',
+    check('the explicit pause closes the day and keeps its event note',
         dayWrite && dayWrite.body.closed === true && dayWrite.body.note === 'празник', JSON.stringify(dayWrite));
     check('and somebody marked away on it', o.ownerWrites.some((w) => w.path === '/api/duty/absence'
         && w.body.employeeId === 8 && w.body.absent === true), JSON.stringify(o.ownerWrites));
@@ -770,12 +776,28 @@ check('no page errors', errors.length === 0, errors.join('\n       '));
     await o.p.click('#duty form[data-duty-day="2026-10-02"] [data-duty-swap-pick]');
     check('without dragging: ⋯ → „Замени со ден" asks the same', /Вера Измислена ќе дежура на пн 05\.10\.2026/.test(await o.p.textContent('#swapAsk')));
     await o.p.click('#swapNo');
-    check('a working day whose note says празник warns the owner that the rota still runs through it',
-        /сè уште е во дежурствата/.test(await o.p.innerText('#duty tr[data-date="2026-10-08"]')));
+    check('the event note is still shown on an ordinary duty day',
+        /празник/.test(await o.p.innerText('#duty tr[data-date="2026-10-08"]')));
     await o.p.click('#duty tr[data-date="2026-10-06"] [data-duty-open]');
     await o.p.click('#duty form[data-duty-day="2026-10-06"] [data-duty-unswap="3"]');
     await o.p.waitForTimeout(400);
     check('a swap is taken back from its day', o.ownerWrites.some((w) => w.path === '/api/duty/swap/remove' && w.body.id === 3));
+    await o.p.click('#duty tr[data-date="2026-10-07"] [data-duty-open]');
+    check('a previously closed excursion keeps its explicit pause when reopened',
+        await o.p.isChecked('#duty form[data-duty-day="2026-10-07"] input[name="kind"][value="pause"]'));
+    await o.p.fill('#duty form[data-duty-day="2026-10-07"] input[name="note"]', 'екскурзија');
+    await o.p.check('#duty form[data-duty-day="2026-10-07"] input[name="kind"][value="work"]');
+    await o.p.click('#duty form[data-duty-day="2026-10-07"] button[type="submit"]');
+    await o.p.waitForTimeout(300);
+    check('an excursion can be saved with normal duty', o.ownerWrites.some((w) => w.path === '/api/duty/day'
+        && w.body.date === '2026-10-07' && w.body.closed === false && w.body.note === 'екскурзија'));
+    await o.p.click('#duty tr[data-date="2026-10-07"] [data-duty-open]');
+    await o.p.fill('#duty form[data-duty-day="2026-10-07"] input[name="note"]', 'екскурзија');
+    await o.p.check('#duty form[data-duty-day="2026-10-07"] input[name="kind"][value="pause"]');
+    await o.p.click('#duty form[data-duty-day="2026-10-07"] button[type="submit"]');
+    await o.p.waitForTimeout(300);
+    check('the same excursion can instead be saved as a pause', o.ownerWrites.some((w) => w.path === '/api/duty/day'
+        && w.body.date === '2026-10-07' && w.body.closed === true && w.body.note === 'екскурзија'));
     check('no page errors for the owner', o.errs.length === 0, o.errs.join('\n       '));
     await o.ctx.close();
 

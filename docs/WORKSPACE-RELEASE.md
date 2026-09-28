@@ -1,5 +1,31 @@
 # Master administration release — 21 September 2026
 
+## Current update — 28 September: permanent duty-admin links (048)
+
+The owner requested a GitHub push so he can manually deploy Render.
+Migration `048_duty_admin_links.sql` adds one credential table, containing
+only hashes and optional expiry times. It creates no link, changes no existing
+row, and is inaccessible through Supabase REST. It is excluded from mirrors.
+The event/pause UI reuses `duty_days.closed` and `note`; existing dates and
+pauses are preserved without any data rewrite.
+
+The current guarded runner accepts reviewed pending **033–048**, using the
+fresh recovery schema `mtb_workspace_recovery_duty_admin_links_20260928`.
+Keep the existing Render startup command:
+
+```
+npm run deploy:workspace --prefix server && npm start --prefix server
+```
+
+After Manual Deploy of the latest `main`, the migration ledger should contain
+48 entries. A repeat deploy is a no-op. Check Податоци → Колеги: the default
+link is „Без рок — до поништување“. Recipients still use their own colleague
+login. Under Дежурства → ⋯, an event note and the normal-duty/pause choice are
+separate. This code push does not itself restart or migrate the local PC;
+use its existing backup-and-update workflow when putting it into service.
+
+The dated sections below are historical, not the current migration ceiling.
+
 ## Staff form update — 22 September, code ready, NOT deployed
 
 Migration 037 adds `employee_year_details` for annual profession, job title and

@@ -520,9 +520,10 @@
             <span class="hint"><b>Администраторски режим само за 🛡 Дежурства:</b></span>
             <label class="hint">важи
                 <select id="dutyAdminHours">
+                    <option value="0" selected>Без рок — до поништување</option>
                     <option value="2">2 часа</option>
                     <option value="8">8 часа</option>
-                    <option value="24" selected>24 часа</option>
+                    <option value="24">24 часа</option>
                     <option value="168">7 дена</option>
                 </select>
             </label>
@@ -533,7 +534,8 @@
         <p class="hint" id="dutyAdminState">вчитувам…</p>
         <p class="hint">Споделувајте го само со доверливи колеги: секој колега што го има линкот може да го користи.
             Лицето мора да се најави со својата сметка за колеги.
-            Може да ги менува дежурствата до истекот, поништување или рестарт на серверот.</p>
+            Постојаниот линк важи до поништување, и по рестарт на серверот.
+            Може да изберете и временски линк.</p>
         <code id="dutyAdminLink" style="overflow-wrap:anywhere" hidden></code>
         <h3>Отворени судири</h3>
         <div id="colleaguesClashes"><p class="hint">вчитувам…</p></div>
@@ -2810,8 +2812,11 @@
         el('openDutyAdmin').disabled = false;
         el('copyDutyAdmin').disabled = false;
         el('revokeDutyAdmins').disabled = active.length === 0;
+        const permanent = active.filter((link) => !link.expiresAt).length;
+        const temporary = active.filter((link) => link.expiresAt);
         el('dutyAdminState').textContent = active.length
-            ? `Активни администраторски линкови: ${active.length}. Најдоцниот важи до ${when2(active[active.length - 1].expiresAt)}.`
+            ? `Активни администраторски линкови: ${active.length}. Без рок: ${permanent}.`
+                + (temporary.length ? ` Временски: ${temporary.length}; најдоцниот до ${when2(temporary[temporary.length - 1].expiresAt)}.` : '')
             : 'Нема активен администраторски линк.';
     }
 
@@ -2830,7 +2835,7 @@
     async function newDutyAdminLink() {
         el('dutyAdminLink').hidden = true;
         el('dutyAdminLink').textContent = '';
-        const answer = await api('POST', '/api/duty/delegations', { hours: Number(el('dutyAdminHours').value) });
+        const answer = await api('POST', '/api/duty/delegations', { hours: Number(el('dutyAdminHours').value) || null });
         const target = (apiBase || window.location.origin).replace(/\/$/, '') + answer.url;
         el('dutyAdminLink').textContent = target;
         el('dutyAdminLink').hidden = false;

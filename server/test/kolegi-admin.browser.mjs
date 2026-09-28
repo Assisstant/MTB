@@ -10,7 +10,7 @@
  *   3. „Отвори го формуларот" opens that colleague's form in a new tab, as the
  *      administrator's look: the banner says so, the password and sign-out are
  *      not offered, and the look is taken out of the address at once.
- *   4. The normal link stays normal; a separate expiring, revocable link opens
+ *   4. The normal link stays normal; a separate permanent, revocable link opens
  *      the duty-only administrator mode and keeps its capability in that tab.
  *
  *   node test/kolegi-admin.browser.mjs
@@ -54,7 +54,8 @@ await context.route('**/*', async (route) => {
         if (p === '/api/categories/holders') return json(200, { therapists: [], teachers: [] });
         if (p === '/api/duty/delegations' && req.method() === 'GET') return json(200, { links: dutyAdminLinks });
         if (p === '/api/duty/delegations' && req.method() === 'POST') {
-            const link = { id: 'duty-link-1', createdAt: '2026-09-28T08:00:00Z', expiresAt: '2026-09-29T08:00:00Z' };
+            const link = { id: 'duty-link-1', createdAt: '2026-09-28T08:00:00Z',
+                expiresAt: req.postDataJSON().hours == null ? null : '2026-09-29T08:00:00Z' };
             dutyAdminLinks = [link];
             return json(200, { url: '/kolegi#duty-admin=' + DUTY_ADMIN, link });
         }
@@ -113,7 +114,7 @@ await page.waitForTimeout(300);
 check('„Врати почетна лозинка" asks, then resets', writes.some((w) => w.path === '/api/staff-accounts/7/reset'));
 
 console.log('\nthe duty-only administrator link');
-await page.selectOption('#dutyAdminHours', '24');
+check('new links are permanent by default', await page.inputValue('#dutyAdminHours') === '0');
 const [dutyPopup] = await Promise.all([
     context.waitForEvent('page'),
     page.click('#openDutyAdmin')
@@ -121,11 +122,11 @@ const [dutyPopup] = await Promise.all([
 dutyPopup.on('pageerror', (e) => errors.push('Duty link: ' + e.message));
 await dutyPopup.waitForSelector('#login:not([hidden])', { timeout: 8000 });
 check('creating it sends the chosen lifetime', writes.some((w) => w.path === '/api/duty/delegations'
-    && w.method === 'POST' && JSON.parse(writes.find((x) => x.path === '/api/duty/delegations' && x.method === 'POST').body || '{}').hours === 24));
+    && w.method === 'POST' && JSON.parse(writes.find((x) => x.path === '/api/duty/delegations' && x.method === 'POST').body || '{}').hours === null));
 check('the link requires the recipient to sign in normally', await dutyPopup.isVisible('#login'));
 check('its capability is taken out of the address and kept only in that tab', !dutyPopup.url().includes(DUTY_ADMIN)
     && await dutyPopup.evaluate((t) => sessionStorage.getItem('mtb_duty_admin_v1') === t, DUTY_ADMIN));
-check('Податоци reports the active link', /Активни администраторски линкови: 1/.test(await page.textContent('#dutyAdminState')));
+check('Податоци reports the permanent link without inventing an expiry', /Активни администраторски линкови: 1\. Без рок: 1/.test(await page.textContent('#dutyAdminState')));
 await page.click('#revokeDutyAdmins');
 await page.waitForTimeout(200);
 check('the owner can revoke the shared link', writes.some((w) => w.path === '/api/duty/delegations' && w.method === 'DELETE')

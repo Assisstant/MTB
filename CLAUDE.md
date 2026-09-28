@@ -769,11 +769,15 @@ read `DATABASE_URL`; never add literal credentials to this public repository.
   the other name and the term. Anything for the administrator goes OUTSIDE `/api/portal/`
   (`/api/staff-accounts`, `/api/staff-notices`), where the gate still holds.
   The owner's 28 Sep exception is duty-only delegation: `/api/duty/delegations`
-  creates/revokes expiring links behind that gate; `/api/portal/duty-admin/*`
+  creates/revokes links behind that gate; `/api/portal/duty-admin/*`
   checks BOTH a normal active colleague session and the separate capability on
   EVERY request, then reuses the duty handlers. It grants no other admin access
-  and cannot mint more links. Capabilities are hashed in memory, invalidated by
-  restart/revocation/expiry, passed in fragments and kept only in the browser tab.
+  and cannot mint more links. The owner's follow-up makes links permanent by
+  default: hashes live in `duty_admin_links` (048), survive restart, and stay
+  valid until revoked. Optional expiring links remain available. Credentials
+  are excluded from mirrors and Supabase REST, passed in fragments and kept
+  only in the browser tab. Duty event notes NEVER decide a pause: the explicit
+  closed flag does; an excursion may equally keep normal duty counting.
   The administrator's look at a colleague's form is a token the owner's route
   makes, kept in MEMORY for two hours, passed in the address fragment and
   taken out of it at once; what it writes is signed „Администраторот" and the

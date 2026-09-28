@@ -5,10 +5,34 @@ import {readFile,readdir} from 'node:fs/promises';
 import {resolve} from 'node:path';
 import {workspaceRelease} from '../src/lib/workspace-release.js';
 import {migrationBody} from '../src/lib/migrations.js';
+import {MIRROR_EXCLUDED_TABLES} from '../src/lib/mirror.js';
 import 'dotenv/config';
 // Every migration in the folder: a release applies whatever is pending, so the
 // count after one is the whole folder, and a new batch must not edit it here.
 const ALL=(await readdir(resolve(import.meta.dirname,'../../database/migrations'))).filter(f=>f.endsWith('.sql')).length;
+test('048 persists duty capabilities privately, upgrading 047 without changing existing data', async () => {
+ const c=new pg.Client({connectionString:process.env.TEST_DATABASE_URL||process.env.DATABASE_URL});await c.connect();
+ const schema=`duty_links_release_test_${process.pid}`,backup=`mtb_workspace_recovery_duty_links_test_${process.pid}`;
+ const dir=resolve(import.meta.dirname,'../../database/migrations');
+ await c.query(`CREATE SCHEMA ${schema}`);await c.query(`SET search_path=${schema}`);
+ try{
+  await c.query('CREATE TABLE schema_migrations(filename text PRIMARY KEY,applied_at timestamptz NOT NULL DEFAULT now())');
+  for(const f of (await readdir(dir)).filter(f=>f.endsWith('.sql')&&Number(f.slice(0,3))<=47).sort()){
+   await c.query(migrationBody(await readFile(resolve(dir,f),'utf8')));await c.query('INSERT INTO schema_migrations(filename) VALUES($1)',[f]);
+  }
+  await workspaceRelease(c,dir,()=>{},backup);
+  assert.equal((await c.query('SELECT count(*)::int AS n FROM schema_migrations')).rows[0].n,ALL);
+  assert.equal((await c.query("SELECT relrowsecurity FROM pg_class WHERE oid='duty_admin_links'::regclass")).rows[0].relrowsecurity,true);
+  assert.equal((await c.query('SELECT count(*)::int AS n FROM duty_admin_links')).rows[0].n,0,'deploy creates no admin credential');
+  for(const role of ['anon','authenticated']){
+   if((await c.query('SELECT 1 FROM pg_roles WHERE rolname=$1',[role])).rowCount){
+    assert.equal((await c.query("SELECT has_table_privilege($1, 'duty_admin_links', 'SELECT,INSERT,UPDATE,DELETE') AS allowed",[role])).rows[0].allowed,false);
+   }
+  }
+  assert.ok(MIRROR_EXCLUDED_TABLES.includes('duty_admin_links'),'credentials never enter a mirror');
+  await workspaceRelease(c,dir,()=>{},backup); // repeated deploy is a no-op
+ }finally{await c.query(`DROP SCHEMA IF EXISTS ${backup} CASCADE`);await c.query(`DROP SCHEMA ${schema} CASCADE`);await c.end();}
+});
 test('release upgrades 032 atomically, retains private recovery, and repeats safely',async()=>{
  const url=process.env.TEST_DATABASE_URL||process.env.DATABASE_URL||'postgres://therapy:therapy_local@localhost:5432/therapy_dev';
  const c=new pg.Client({connectionString:url});await c.connect();

@@ -583,7 +583,9 @@ const run = async () => {
             return route.fulfill({ json: { ok: true } });
         });
         const sp = await setsCtx.newPage();
-        await sp.goto(`${BASE}/Podatoci.html?tab=students`, { waitUntil: 'domcontentloaded' });
+        // Stay in our invented year. The installation's current year may be
+        // empty (isolated release QA), and real pupils are not test fixtures.
+        await sp.goto(`${BASE}/Podatoci.html?tab=students&year=${encodeURIComponent(NEW_YEAR)}`, { waitUntil: 'domcontentloaded' });
         await sp.waitForSelector('#students tr.group-row', { timeout: 15000 }).catch(() => {});
         const sets = await sp.$$eval('#students tr.group-row', (rows) => rows.map((r) => Number((r.textContent.match(/· (\d+)\s*$/) || [])[1])));
         const ids = await sp.$$eval('#students tr[data-student]', (rows) => rows.map((r) => r.dataset.student));

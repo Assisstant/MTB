@@ -83,6 +83,8 @@ export const MIRROR_TABLES = [
 export const MIRROR_EXCLUDED_TABLES = [
     // The administrator's own bookmarks (047): personal, not the school's data.
     'bookmark_state',
+    // Duty-admin capabilities (048) are credentials, never copied to a mirror.
+    'duty_admin_links',
     'evidence_logins',
     'evidence_sessions',
     'form_replies',
