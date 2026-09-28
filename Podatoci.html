@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Податоци — MTB</title>
 <script src="mtb-theme.js"></script>
+<script src="mtb-teacher-week.js"></script>
 <!--
     Списоците врз кои стојат распоредите: ученици, наставници, терапевти,
     одделенија — и мапирањето меѓу нив, за ИЗБРАНАТА учебна година.
@@ -384,6 +385,7 @@
         <button class="btn soft" data-tab="teachers" aria-pressed="false">👩‍🏫 Наставници</button>
         <button class="btn soft" data-tab="therapists" aria-pressed="false">🧩 Терапевти</button>
         <button class="btn soft" data-tab="classes" aria-pressed="false">🏫 Одделенија</button>
+        <button class="btn soft" data-tab="week" aria-pressed="false">🗓️ Распоред</button>
         <button class="btn soft" data-tab="forms" aria-pressed="false">📥 Формулари</button>
         <button class="btn soft" data-tab="colleagues" aria-pressed="false">👥 Колеги</button>
         <button class="btn soft" data-tab="look" aria-pressed="false">🎨 Изглед</button>
@@ -510,10 +512,31 @@
             е <b>ResursenCentar</b>; смената им се нуди, не е задолжителна.
         </p>
         <div class="controls">
-            <span class="hint">Линк за колегите:</span> <code id="colleaguesLink">—</code>
+            <span class="hint">Линк за колегите:</span> <code id="colleaguesLink" style="overflow-wrap:anywhere;min-width:0">—</code>
             <button class="btn soft" id="copyColleaguesLink"><span class="ico" aria-hidden="true">📋</span> Копирај</button>
             <button class="btn soft" id="colleaguesRefresh"><span class="ico" aria-hidden="true">↻</span> Освежи</button>
         </div>
+        <div class="controls" style="margin-top:10px">
+            <span class="hint"><b>Администраторски режим само за 🛡 Дежурства:</b></span>
+            <label class="hint">важи
+                <select id="dutyAdminHours">
+                    <option value="0" selected>Без рок — до поништување</option>
+                    <option value="2">2 часа</option>
+                    <option value="8">8 часа</option>
+                    <option value="24">24 часа</option>
+                    <option value="168">7 дена</option>
+                </select>
+            </label>
+            <button class="btn soft" id="openDutyAdmin" disabled>🔑 Отвори</button>
+            <button class="btn soft" id="copyDutyAdmin" disabled>📋 Копирај админ-линк</button>
+            <button class="btn soft danger" id="revokeDutyAdmins" disabled>Поништи ги линковите</button>
+        </div>
+        <p class="hint" id="dutyAdminState">вчитувам…</p>
+        <p class="hint">Споделувајте го само со доверливи колеги: секој колега што го има линкот може да го користи.
+            Лицето мора да се најави со својата сметка за колеги.
+            Постојаниот линк важи до поништување, и по рестарт на серверот.
+            Може да изберете и временски линк.</p>
+        <code id="dutyAdminLink" style="overflow-wrap:anywhere" hidden></code>
         <h3>Отворени судири</h3>
         <div id="colleaguesClashes"><p class="hint">вчитувам…</p></div>
         <h3>Известувања</h3>
@@ -578,6 +601,23 @@
         </div>
     </div>
 
+    <!-- A teacher's own week, the same sheet Настава draws and the same pickers
+         a colleague gets on /kolegi (mtb-teacher-week.js). 🔒/🔓 in the corner of
+         the table is the suite's one edit switch. -->
+    <div class="panel tab" id="tab-week">
+        <h2>Личен распоред на наставник</h2>
+        <p class="hint">
+            <b>🔒 Заклучено</b> — се чита и печати. <b>🔓 Отворено за внес</b> — копчето е во аголот на табелата,
+            до 📌. <b>Одделенски</b> наставник: паралелката е негова, во ќелијата се бира само <b>предметот</b>
+            (сите што ги учи паралелката). <b>Предметен</b> наставник: прво <b>паралелката</b> (неговите прво, другите
+            под „Други"), па <b>предметот</b> од неговите предмети. Се запишува веднаш во базата, со проверка на судир.
+        </p>
+        <div class="controls">
+            <label class="field"><span>Наставник</span><select id="weekTeacher"></select></label>
+        </div>
+        <div id="weekSheet"><p class="hint">вчитувам…</p></div>
+    </div>
+
     <div class="panel tab" id="tab-classes">
         <h2>Одделенија</h2>
         <p class="hint">
@@ -611,7 +651,7 @@
     let data = null;
     let years = [];
     const requestedTab = new URLSearchParams(window.location.search).get('tab');
-    let tab = ['students', 'teachers', 'therapists', 'classes', 'forms', 'colleagues', 'look'].includes(requestedTab) ? requestedTab : 'students';
+    let tab = ['students', 'teachers', 'therapists', 'classes', 'week', 'forms', 'colleagues', 'look'].includes(requestedTab) ? requestedTab : 'students';
     let rolloverPreview = null;
     const PUBLISHED = window.location.hostname === 'assisstant.github.io';
     const SERVER_DEFAULTS = [
@@ -944,6 +984,7 @@
             // Opened straight onto „🎨 Изглед" from GitHub Pages, the first
             // try came before the server was known.
             if (tab === 'look' && !lookDraft) loadLook();
+            if (tab === 'week') loadWeek();
         } catch (err) {
             if (mine !== ticket) return;
             data = null;
@@ -2674,6 +2715,7 @@
         closePickers();
         if (next === 'forms') loadForms();
         if (next === 'colleagues') loadColleagues();
+        if (next === 'week') loadWeek();
         if (next === 'look') loadLook();
     }
 
@@ -2693,6 +2735,67 @@
         if (nav && nav.views) tabHistory = nav.views({ keys: ['tab'], show: (view) => setTab(view.tab || 'students') });
     });
 
+    // ── 🗓️ Распоред: a teacher's own week (owner, 28 Sep 2026) ─────────────
+    /**
+     * „Во Податоци да постои истата можност како кај колеги — личен распоред
+     * со CRUD, заклучен и отворен за внес." The sheet, its pickers and the
+     * rules of who picks what are mtb-teacher-week.js — the same copy Настава
+     * uses, so the одделенски/предметен rule cannot be right in one screen and
+     * wrong in the other. It reads the crossing, so under a lesson it still
+     * says which child leaves it for a therapy.
+     */
+    let weekData = null;
+    let weekTicket = 0;
+    async function loadWeek() {
+        const W = window.MTBTeacherWeek;
+        if (!W) { el('weekSheet').innerHTML = '<p class="hint">mtb-teacher-week.js не е вчитан.</p>'; return; }
+        const mine = ++weekTicket;
+        try {
+            await fillYears();
+            const body = await api('GET', '/api/teaching/crossing?year=' + encodeURIComponent(el('year').value));
+            if (mine !== weekTicket) return;
+            weekData = body;
+            drawWeekTab();
+        } catch (err) {
+            if (mine !== weekTicket) return;
+            weekData = null;
+            el('weekSheet').innerHTML = `<p class="hint">${esc(err.message)}</p>`;
+        }
+    }
+    function drawWeekTab() {
+        const W = window.MTBTeacherWeek;
+        if (!W || !weekData) return;
+        const w = W.week(weekData);
+        // One person at a time: the choice survives a redraw, and the first on
+        // the list is shown rather than an empty page.
+        const wanted = w.names.includes(el('weekTeacher').value) ? el('weekTeacher').value : (w.names[0] || '');
+        const kind = (name) => ({ odd: 'одделенски', pred: 'предметен' }[w.kindOf.get(name)] || '');
+        el('weekTeacher').innerHTML = w.names.map((n) =>
+            `<option value="${esc(n)}"${n === wanted ? ' selected' : ''}>${esc(n)}${kind(n) ? ' · ' + kind(n) : ''}</option>`).join('')
+            || '<option value="">— нема наставници на списокот —</option>';
+        if (!wanted) {
+            el('weekSheet').innerHTML = '<p class="hint">Нема наставници на списокот за оваа година — додадете ги во „Наставници".</p>';
+            return;
+        }
+        if (!w.periods.length) {
+            el('weekSheet').innerHTML = '<p class="hint">Нема ѕвонење за настава за оваа година — внесете го во „Уреди настава".</p>';
+            return;
+        }
+        const editing = W.editing();
+        if (editing) W.loadOffers(weekData, apiBase, () => { if (tab === 'week' && W.editing() && !W.choosing()) drawWeekTab(); });
+        el('weekSheet').innerHTML = W.sheetHtml(w, weekData, wanted, {
+            editing, allDays: true, footer: 'Податоци · ' + new Date().toLocaleDateString('mk-MK')
+        });
+    }
+    el('weekTeacher').addEventListener('change', drawWeekTab);
+    if (window.MTBTeacherWeek) {
+        window.MTBTeacherWeek.attach(el('weekSheet'), {
+            data: () => weekData, reload: loadWeek, redraw: drawWeekTab, apiBase: () => apiBase, status
+        });
+    }
+    // 🔒/🔓 here, the ✏️ switch anywhere else, or another window: one mode.
+    window.addEventListener('mtb:editing', () => { if (tab === 'week') drawWeekTab(); });
+
     // ── колеги онлајн (docs/PLAN-kolegi-online.md) ──────────────────────────
     /**
      * The owner's side of the colleagues' door: the link to hand out, every
@@ -2704,6 +2807,42 @@
      */
     const when2 = (v) => (v ? new Date(v).toLocaleString('mk-MK', { dateStyle: 'short', timeStyle: 'short' }) : '—');
 
+    function drawDutyAdminLinks(links) {
+        const active = links || [];
+        el('openDutyAdmin').disabled = false;
+        el('copyDutyAdmin').disabled = false;
+        el('revokeDutyAdmins').disabled = active.length === 0;
+        const permanent = active.filter((link) => !link.expiresAt).length;
+        const temporary = active.filter((link) => link.expiresAt);
+        el('dutyAdminState').textContent = active.length
+            ? `Активни администраторски линкови: ${active.length}. Без рок: ${permanent}.`
+                + (temporary.length ? ` Временски: ${temporary.length}; најдоцниот до ${when2(temporary[temporary.length - 1].expiresAt)}.` : '')
+            : 'Нема активен администраторски линк.';
+    }
+
+    async function loadDutyAdminLinks() {
+        try {
+            const answer = await api('GET', '/api/duty/delegations');
+            drawDutyAdminLinks(answer.links || []);
+        } catch (err) {
+            el('openDutyAdmin').disabled = true;
+            el('copyDutyAdmin').disabled = true;
+            el('revokeDutyAdmins').disabled = true;
+            el('dutyAdminState').textContent = err.message;
+        }
+    }
+
+    async function newDutyAdminLink() {
+        el('dutyAdminLink').hidden = true;
+        el('dutyAdminLink').textContent = '';
+        const answer = await api('POST', '/api/duty/delegations', { hours: Number(el('dutyAdminHours').value) || null });
+        const target = (apiBase || window.location.origin).replace(/\/$/, '') + answer.url;
+        el('dutyAdminLink').textContent = target;
+        el('dutyAdminLink').hidden = false;
+        await loadDutyAdminLinks();
+        return target;
+    }
+
     async function loadColleagues() {
         const base = apiBase || window.location.origin;
         el('colleaguesLink').textContent = base.replace(/\/$/, '') + '/kolegi';
@@ -2712,6 +2851,9 @@
         try {
             [accounts, notices] = await Promise.all([api('GET', '/api/staff-accounts'), api('GET', '/api/staff-notices')]);
         } catch (err) {
+            el('openDutyAdmin').disabled = true;
+            el('copyDutyAdmin').disabled = true;
+            el('revokeDutyAdmins').disabled = true;
             el('colleaguesClashes').innerHTML = `<p class="hint">${esc(err.message)}</p>`;
             el('colleaguesNotices').innerHTML = '';
             el('colleaguesAccounts').innerHTML = '';
@@ -2747,12 +2889,44 @@
                 + '</td></tr>').join('')
               + '</tbody></table>'
             : '<p class="hint">Нема наставници ни терапевти на списокот за годинава.</p>';
+        await loadDutyAdminLinks();
     }
 
     el('colleaguesRefresh').addEventListener('click', () => loadColleagues());
     el('copyColleaguesLink').addEventListener('click', async () => {
         try { await navigator.clipboard.writeText(el('colleaguesLink').textContent); status('Линкот е копиран.', 'ok', { toast: true }); }
         catch (_) { status('Изберете го линкот и копирајте го рачно.', 'warn'); }
+    });
+    el('openDutyAdmin').addEventListener('click', async () => {
+        // Open while the click still counts as a user gesture; waiting for the
+        // server first makes phone browsers block the new tab as a popup.
+        const win = window.open('about:blank', '_blank');
+        try {
+            const target = await newDutyAdminLink();
+            if (win) win.location.href = target; else window.location.href = target;
+        } catch (err) {
+            if (win) win.close();
+            status(err.message, 'error', { toast: true });
+        }
+    });
+    el('copyDutyAdmin').addEventListener('click', async () => {
+        try {
+            const target = await newDutyAdminLink();
+            await navigator.clipboard.writeText(target);
+            status('Администраторскиот линк е копиран.', 'ok', { toast: true });
+        } catch (err) {
+            status(el('dutyAdminLink').hidden ? err.message : 'Линкот е прикажан — допрете го и копирајте го рачно.', 'warn');
+        }
+    });
+    el('revokeDutyAdmins').addEventListener('click', async () => {
+        if (!window.confirm('Да се поништат сите активни администраторски линкови за дежурствата?')) return;
+        try {
+            const answer = await api('DELETE', '/api/duty/delegations');
+            el('dutyAdminLink').hidden = true;
+            el('dutyAdminLink').textContent = '';
+            await loadDutyAdminLinks();
+            status(`Поништени линкови: ${answer.revoked}.`, 'ok', { toast: true });
+        } catch (err) { status(err.message, 'error', { toast: true }); }
     });
     el('colleaguesAccounts').addEventListener('click', async (event) => {
         const open = event.target.closest('[data-open-colleague]');
@@ -2932,7 +3106,8 @@
      * пишува; освежувањето чека (`app-navigation.js`) и доаѓа само по неа.
      */
     const workingHere = () => Boolean(
-        document.querySelector('tr.dirty, .picker.open, [data-candidate-id]:checked')
+        document.querySelector('tr.dirty, .picker.open, [data-candidate-id]:checked, .personal input.p-other')
+        || (tab === 'week' && window.MTBTeacherWeek && window.MTBTeacherWeek.choosing())
         || (tab === 'forms' && formsReviewId));
     // `app-navigation.js` is loaded after this script, so it is asked once
     // the page is parsed.

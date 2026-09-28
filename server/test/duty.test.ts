@@ -69,6 +69,21 @@ test('a closed day has no duty and moves nobody: the list continues the next wor
     assert.equal(days[1].note, 'екскурзија');
 });
 
+test('the same event can keep normal counting or explicitly pause it, including across months', () => {
+    for (const note of ['екскурзија', 'приредба', 'празник']) {
+        const plain = rota({ until: '2026-10-05' });
+        const active = rota({ until: '2026-10-05', days: [['2026-09-30', { closed: false, note }]] });
+        assert.deepEqual(who(active), who(plain), `${note} alone does not change anybody's turn`);
+        const paused = rota({ until: '2026-10-05', days: [['2026-09-30', { closed: true, note }]] });
+        const index = plain.findIndex((day) => day.date === '2026-09-30');
+        assert.equal(paused[index].employeeId, null);
+        assert.equal(paused[index].note, note);
+        assert.equal(paused[index + 1].date, '2026-10-01');
+        assert.equal(paused[index + 1].employeeId, plain[index].employeeId, 'nobody uses a turn during the pause');
+        assert.deepEqual(who(paused).slice(0, index), who(plain).slice(0, index));
+    }
+});
+
 test('a day given by agreement: the stand-in goes to the back, whoever was next is still next', () => {
     const days = rota({ days: [['2026-09-01', { assigned: 3 }]] });
     assert.deepEqual(who(days), [3, 1, 2, 3, 1, 2]);

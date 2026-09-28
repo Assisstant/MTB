@@ -20,8 +20,9 @@
  *     versions each moved the dates: first the one away owed the day back,
  *     then, from 25 Sep, the whole list moved up a day behind every sick
  *     day, so a printed month stopped being true.)
- *   - a closed day (a holiday, an excursion) has no duty, and moves nobody:
- *     the list continues on the next working day;
+ *   - an explicitly closed day has no duty and moves nobody: the list
+ *     continues on the next working day. An excursion or other event can
+ *     equally keep normal duty; only the closed flag pauses the rotation;
  *   - a day given to a named person by agreement: that person takes it and goes
  *     to the back; whoever was next is still next. (The old app made the
  *     displaced person lose their turn and let the stand-in keep theirs.)

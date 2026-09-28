@@ -21,6 +21,7 @@ import { chromium } from 'playwright';
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const ORIGIN = 'http://localhost:3990';
 const TOKEN = 'a'.repeat(64);
+const DUTY_ADMIN = 'd'.repeat(43);
 
 let fails = 0;
 const check = (label, ok, detail = '') => {
@@ -538,9 +539,10 @@ check('no page errors', errors.length === 0, errors.join('\n       '));
         { employeeId: 9, name: people[9], cabinet: true }, { employeeId: 11, name: 'Дана Измислена', cabinet: true },
         { employeeId: 10, name: 'Нова Измислена', cabinet: false }, { employeeId: 12, name: 'Ана Измислена', cabinet: false }
     ];
-    const run = async (owner, fresh = false) => {
+    const run = async (owner, fresh = false, delegated = false, onList = true) => {
         const writes = [];
         const ownerWrites = [];
+        const access = { revoked: false, signedOut: false };
         const ctx = await browser.newContext({ viewport: { width: 400, height: 800 }, serviceWorkers: 'block' });
         await ctx.addInitScript((t) => localStorage.setItem('mtb_portal_token_v1', t), TOKEN);
         await ctx.route('**/*', async (route) => {
@@ -553,12 +555,26 @@ check('no page errors', errors.length === 0, errors.join('\n       '));
             const body = req.postData() ? JSON.parse(req.postData()) : null;
             if (url.pathname === '/api/portal/me') return json(200, { person: { employeeId: 7, name: people[7] },
                 usernames: { latin: 'AnaIzmislena', cyrillic: 'АнаИзмислена' }, initialPassword: false, year: '2026/2027',
-                roles: ['therapist'], teacher: null, therapist: { id: 4 }, duty: true });
+                roles: ['therapist'], teacher: null, therapist: { id: 4 }, duty: onList });
             if (url.pathname === '/api/portal/week') return json(200, { year: '2026/2027', days: ['понеделник', 'вторник', 'среда', 'четврток', 'петок'],
                 periods: [], me: { teacherId: null, therapistId: 4, homeroom: [] }, classes: [], teachers: [], lessons: [], classPupils: {},
                 clashes: [], cabinet: { bells: [], terms: [], pupils: [] }, notices: [] });
             if (url.pathname === '/api/portal/duty') return json(200, { year: '2026/2027', me: 7, today: '2026-10-02', ...month() });
             if (url.pathname === '/api/portal/duty/absence') { writes.push(body); return json(200, { ok: true }); }
+            if (url.pathname.startsWith('/api/portal/duty-admin')) {
+                if (access.signedOut) return json(401, { error: 'Најавете се повторно.', signedOut: true });
+                if (access.revoked) return json(403, { error: 'Линкот е поништен.', needsDutyAdminLink: true });
+            }
+            if (url.pathname === '/api/portal/duty-admin') {
+                if (!delegated || req.headers()['x-mtb-portal-token'] !== TOKEN
+                    || req.headers()['x-mtb-duty-admin-token'] !== DUTY_ADMIN) return json(403, { error: 'bad duty link' });
+                return json(200, { year: '2026/2027', ...month(), ...(fresh ? { members: [] } : {}), candidates: CANDIDATES,
+                    adminMode: { kind: 'link', expiresAt: null } });
+            }
+            if (url.pathname.startsWith('/api/portal/duty-admin/')) {
+                ownerWrites.push({ path: url.pathname, body, portal: req.headers()['x-mtb-portal-token'], duty: req.headers()['x-mtb-duty-admin-token'] });
+                return json(200, { ok: true, id: 19 });
+            }
             if (url.pathname === '/api/duty') {
                 if (!owner) return json(401, { error: 'Authentication required' });
                 return json(200, { year: '2026/2027', ...month(), ...(fresh ? { members: [] } : {}), candidates: CANDIDATES });
@@ -569,9 +585,9 @@ check('no page errors', errors.length === 0, errors.join('\n       '));
         const p = await ctx.newPage();
         const errs = [];
         p.on('pageerror', (e) => errs.push(String(e)));
-        await p.goto(`${ORIGIN}/Kolega.html`);
+        await p.goto(`${ORIGIN}/Kolega.html${delegated ? '#duty-admin=' + DUTY_ADMIN : ''}`);
         await p.waitForSelector('#tabs [data-tab="duty"]', { timeout: 6000 }).catch(() => {});
-        return { ctx, p, errs, writes, ownerWrites };
+        return { ctx, p, errs, writes, ownerWrites, access };
     };
 
     const c = await run(false);
@@ -611,22 +627,85 @@ check('no page errors', errors.length === 0, errors.join('\n       '));
     check('no page errors on the duty tab', c.errs.length === 0, c.errs.join('\n       '));
     await c.ctx.close();
 
+    console.log('\nдежурства — administrator mode from a shared link');
+    const d = await run(false, false, true);
+    await d.p.click('#tabs [data-tab="duty"]');
+    await d.p.waitForSelector('#duty .duty-admin', { timeout: 6000 });
+    check('the capability leaves the address and stays in this tab only', !d.p.url().includes(DUTY_ADMIN)
+        && await d.p.evaluate((t) => sessionStorage.getItem('mtb_duty_admin_v1') === t, DUTY_ADMIN));
+    check('it clearly says this is the delegated administrator mode', /Администраторски режим/.test(await d.p.textContent('#duty .duty-note')));
+    check('the mode says the link is permanent until revoked', /постојан линк, до поништување/.test(await d.p.textContent('#duty .duty-note')));
+    check('the delegated mode gets the same day and swap controls', await d.p.$$eval('#duty [data-duty-open]', (b) => b.length) === 6
+        && Boolean(await d.p.$('#duty [data-swap-from]')));
+    await d.p.click('#duty tr[data-date="2026-10-02"] [data-duty-open]');
+    await d.p.selectOption('#duty form[data-duty-day="2026-10-02"] select[name="swapWith"]', '2026-10-05');
+    await d.p.click('#duty form[data-duty-day="2026-10-02"] [data-duty-swap-pick]');
+    await d.p.click('#swapYes');
+    await d.p.waitForTimeout(300);
+    const delegatedWrite = d.ownerWrites.find((w) => w.path === '/api/portal/duty-admin/swap');
+    check('a swap uses the scoped route with both the colleague session and capability', delegatedWrite
+        && delegatedWrite.portal === TOKEN && delegatedWrite.duty === DUTY_ADMIN, JSON.stringify(delegatedWrite));
+    await d.p.click('#duty [data-duty-admin-exit]');
+    await d.p.waitForTimeout(300);
+    check('„Исклучи" returns this tab to the regular colleague mode', !(await d.p.$('#duty .duty-admin'))
+        && Boolean(await d.p.$('#duty [data-duty-away]'))
+        && await d.p.evaluate(() => sessionStorage.getItem('mtb_duty_admin_v1') === null));
+    check('no page errors through delegated mode', d.errs.length === 0, d.errs.join('\n       '));
+    await d.ctx.close();
+
+    for (const failure of ['revoked', 'signedOut']) {
+        const stale = await run(false, false, true);
+        await stale.p.waitForSelector('#duty .duty-admin');
+        await stale.p.click('#duty tr[data-date="2026-10-02"] [data-duty-open]');
+        await stale.p.selectOption('#duty form[data-duty-day="2026-10-02"] select[name="swapWith"]', '2026-10-05');
+        await stale.p.click('#duty form[data-duty-day="2026-10-02"] [data-duty-swap-pick]');
+        stale.access[failure] = true;
+        await stale.p.click('#swapYes');
+        await stale.p.waitForTimeout(300);
+        check(`${failure}: a refused swap is never retried through the owner's route`, stale.ownerWrites.length === 0);
+        check(`${failure}: stale administrator controls and the confirmation disappear`,
+            !(await stale.p.$('#duty .duty-admin')) && await stale.p.isHidden('#swapAsk'));
+        if (failure === 'revoked') {
+            check('revoked: regular mode returns and the warning remains visible',
+                await stale.p.isVisible('#duty [data-duty-away]')
+                && /поништен/.test(await stale.p.textContent('#weekMsg'))
+                && await stale.p.evaluate(() => sessionStorage.getItem('mtb_duty_admin_v1') === null));
+        } else {
+            check('signed out: the page asks for the colleague login again', await stale.p.isVisible('#login')
+                && /повторно/.test(await stale.p.textContent('#loginMsg')));
+        }
+        check(`${failure}: no page errors`, stale.errs.length === 0, stale.errs.join('\n       '));
+        await stale.ctx.close();
+    }
+    const offList = await run(false, false, true, false);
+    await offList.p.waitForSelector('#duty .duty-admin');
+    check('a trusted colleague outside the rota can open its admin mode', await offList.p.isVisible('#duty'));
+    await offList.p.click('#duty [data-duty-admin-exit]');
+    check('leaving delegated mode removes the duty tab for somebody outside the rota',
+        !(await offList.p.$('#tabs [data-tab="duty"]')) && offList.errs.length === 0, offList.errs.join('\n       '));
+    await offList.ctx.close();
+
     console.log('\nдежурства — the administrator');
     const o = await run(true);
     await o.p.click('#tabs [data-tab="duty"]');
     await o.p.waitForSelector('#duty .duty-admin', { timeout: 6000 });
     check('the owner gets the list and every day\'s controls', await o.p.$$eval('#duty [data-duty-open]', (b) => b.length) === 6);
-    check('a working day whose note says празник warns the owner that the rota still runs through it',
-        /сè уште е во дежурствата/.test(await o.p.innerText('#duty tr[data-date="2026-10-08"]')));
+    check('an event note is not presented as a mistake or an instruction to pause',
+        !(await o.p.$('#duty tr[data-date="2026-10-08"] .warn-note')));
     await o.p.click('#duty tr[data-date="2026-10-06"] [data-duty-open]');
     check('a working day starts as „Дежурство по списокот"',
         await o.p.isChecked('#duty form[data-duty-day="2026-10-06"] input[name="kind"][value="work"]'));
-    await o.p.check('#duty form[data-duty-day="2026-10-06"] input[name="kind"][value="praznik"]');
+    await o.p.fill('#duty form[data-duty-day="2026-10-06"] input[name="note"]', 'празник');
+    check('typing an event does not change the duty choice',
+        await o.p.isChecked('#duty form[data-duty-day="2026-10-06"] input[name="kind"][value="work"]'));
+    await o.p.check('#duty form[data-duty-day="2026-10-06"] input[name="kind"][value="pause"]');
+    check('a paused day cannot also be assigned to a colleague',
+        await o.p.isDisabled('#duty form[data-duty-day="2026-10-06"] select[name="assigned"]'));
     await o.p.check('#duty form[data-duty-day="2026-10-06"] input[name="away"][value="8"]');
     await o.p.click('#duty form[data-duty-day="2026-10-06"] button[type="submit"]');
     await o.p.waitForTimeout(500);
     const dayWrite = o.ownerWrites.find((w) => w.path === '/api/duty/day');
-    check('„Празник" closes the day, and says so without a note being typed',
+    check('the explicit pause closes the day and keeps its event note',
         dayWrite && dayWrite.body.closed === true && dayWrite.body.note === 'празник', JSON.stringify(dayWrite));
     check('and somebody marked away on it', o.ownerWrites.some((w) => w.path === '/api/duty/absence'
         && w.body.employeeId === 8 && w.body.absent === true), JSON.stringify(o.ownerWrites));
@@ -697,12 +776,28 @@ check('no page errors', errors.length === 0, errors.join('\n       '));
     await o.p.click('#duty form[data-duty-day="2026-10-02"] [data-duty-swap-pick]');
     check('without dragging: ⋯ → „Замени со ден" asks the same', /Вера Измислена ќе дежура на пн 05\.10\.2026/.test(await o.p.textContent('#swapAsk')));
     await o.p.click('#swapNo');
-    check('a working day whose note says празник warns the owner that the rota still runs through it',
-        /сè уште е во дежурствата/.test(await o.p.innerText('#duty tr[data-date="2026-10-08"]')));
+    check('the event note is still shown on an ordinary duty day',
+        /празник/.test(await o.p.innerText('#duty tr[data-date="2026-10-08"]')));
     await o.p.click('#duty tr[data-date="2026-10-06"] [data-duty-open]');
     await o.p.click('#duty form[data-duty-day="2026-10-06"] [data-duty-unswap="3"]');
     await o.p.waitForTimeout(400);
     check('a swap is taken back from its day', o.ownerWrites.some((w) => w.path === '/api/duty/swap/remove' && w.body.id === 3));
+    await o.p.click('#duty tr[data-date="2026-10-07"] [data-duty-open]');
+    check('a previously closed excursion keeps its explicit pause when reopened',
+        await o.p.isChecked('#duty form[data-duty-day="2026-10-07"] input[name="kind"][value="pause"]'));
+    await o.p.fill('#duty form[data-duty-day="2026-10-07"] input[name="note"]', 'екскурзија');
+    await o.p.check('#duty form[data-duty-day="2026-10-07"] input[name="kind"][value="work"]');
+    await o.p.click('#duty form[data-duty-day="2026-10-07"] button[type="submit"]');
+    await o.p.waitForTimeout(300);
+    check('an excursion can be saved with normal duty', o.ownerWrites.some((w) => w.path === '/api/duty/day'
+        && w.body.date === '2026-10-07' && w.body.closed === false && w.body.note === 'екскурзија'));
+    await o.p.click('#duty tr[data-date="2026-10-07"] [data-duty-open]');
+    await o.p.fill('#duty form[data-duty-day="2026-10-07"] input[name="note"]', 'екскурзија');
+    await o.p.check('#duty form[data-duty-day="2026-10-07"] input[name="kind"][value="pause"]');
+    await o.p.click('#duty form[data-duty-day="2026-10-07"] button[type="submit"]');
+    await o.p.waitForTimeout(300);
+    check('the same excursion can instead be saved as a pause', o.ownerWrites.some((w) => w.path === '/api/duty/day'
+        && w.body.date === '2026-10-07' && w.body.closed === true && w.body.note === 'екскурзија'));
     check('no page errors for the owner', o.errs.length === 0, o.errs.join('\n       '));
     await o.ctx.close();
 

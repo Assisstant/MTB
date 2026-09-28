@@ -8,10 +8,12 @@
  *   PUT /api/duty/swap                  two colleagues trade days (044); the list is untouched
  *   POST /api/duty/swap/remove          a swap taken back
  *
- * Deliberately NOT under /api/portal/, exactly like /api/staff-accounts: the
- * cloud's Google gate keeps these for the owner, and on a local server the
- * colleague boundary does. Colleagues see the rota and mark only their OWN
- * absence, through /api/portal/duty (routes/portal.ts).
+ * The original routes and /api/duty/delegations remain behind the owner's
+ * gate. The owner may also issue a revocable duty-only link (28 Sep 2026):
+ * /api/portal/duty-admin/* calls these same handlers, after checking BOTH
+ * an ordinary active colleague session and the separate capability on every
+ * request. Without a link, colleagues mark only their OWN absence through
+ * /api/portal/duty (routes/portal.ts).
  *
  * Nothing here stores who is on duty. That is worked out from these inputs
  * every time (lib/duty.ts), so changing one day cannot leave another stale.
@@ -21,6 +23,11 @@ import { z } from 'zod';
 import { pool } from '../db.js';
 import { assertOwner, refuseScope, scopeOf } from '../lib/colleague.js';
 import { defaultMonth, isIsoDate, loadDuty, monthBounds, monthPayload, rotaWithSwaps, todayInSkopje, windowPayload } from '../lib/duty.js';
+import { PORTAL_TOKEN_HEADER, sessionEmployee, staffOfYear } from '../lib/staff-accounts.js';
+import {
+    DUTY_ADMIN_HOURS, DUTY_ADMIN_TOKEN_HEADER, acceptDutyAdminLink, createDutyAdminLink,
+    dutyAdminLinks, revokeDutyAdminLinks, type DutyAdminLink, type DutyLinkDatabase
+} from '../lib/duty-delegation.js';
 
 const Iso = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 const YearRef = z.string().min(1).max(64).optional();
@@ -51,6 +58,10 @@ const AbsenceBody = z.object({
     employeeId: z.number().int().positive(),
     absent: z.boolean()
 });
+const DelegationBody = z.object({ hours: z.union([
+    z.literal(DUTY_ADMIN_HOURS[0]), z.literal(DUTY_ADMIN_HOURS[1]),
+    z.literal(DUTY_ADMIN_HOURS[2]), z.literal(DUTY_ADMIN_HOURS[3])
+]).nullable().optional() });
 
 export async function schoolYearOf(db: any, label?: string) {
     const { rows } = await db.query(
@@ -89,31 +100,89 @@ async function candidates(yearId: number) {
     return rows;
 }
 
-async function owner(req: FastifyRequest, reply: FastifyReply): Promise<boolean> {
-    try { assertOwner(await scopeOf(req), 'дежурствата'); return true; }
-    catch (err) { refuseScope(reply, err); return false; }
+type DutyAdminAccess = { by: string; link: DutyAdminLink | null };
+type DutyAdminAuthorizer = (req: FastifyRequest, reply: FastifyReply) => Promise<DutyAdminAccess | null>;
+
+async function owner(req: FastifyRequest, reply: FastifyReply): Promise<DutyAdminAccess | null> {
+    try {
+        assertOwner(await scopeOf(req), 'дежурствата');
+        return { by: 'Администраторот', link: null };
+    } catch (err) {
+        refuseScope(reply, err);
+        return null;
+    }
 }
 
-export async function dutyRoutes(server: FastifyInstance) {
+/** A normal colleague session plus the separate, revocable duty capability. */
+async function delegated(req: FastifyRequest, reply: FastifyReply, yearLabel?: string, linksDb: DutyLinkDatabase = pool): Promise<DutyAdminAccess | null> {
+    const employeeId = await sessionEmployee(pool, req.headers[PORTAL_TOKEN_HEADER]);
+    if (!employeeId) {
+        reply.code(401).send({ error: 'Најавете се со својата сметка за колеги.', signedOut: true });
+        return null;
+    }
+    const year = await schoolYearOf(pool, yearLabel);
+    const staff = year ? (await staffOfYear(pool, year.id)).find((person) => person.employeeId === employeeId) : null;
+    if (!staff) {
+        reply.code(403).send({ error: 'Не сте на списокот на вработени за тековната година.' });
+        return null;
+    }
+    const link = await acceptDutyAdminLink(linksDb, req.headers[DUTY_ADMIN_TOKEN_HEADER]);
+    if (!link) {
+        reply.code(403).send({ error: 'Администраторскиот линк е истечен или поништен.', needsDutyAdminLink: true });
+        return null;
+    }
+    return { by: staff.name, link };
+}
 
-    server.get('/api/duty', async (req, reply) => {
+export async function dutyRoutes(server: FastifyInstance, options: { year?: string; delegationDb?: DutyLinkDatabase } = {}) {
+    const linksDb = options.delegationDb || pool;
+    const delegatedHere: DutyAdminAuthorizer = (req, reply) => delegated(req, reply, options.year, linksDb);
+    /** The owner creates/revokes links; the raw capability is returned once. */
+    server.get('/api/duty/delegations', async (req, reply) => {
         if (!await owner(req, reply)) return;
+        reply.header('Cache-Control', 'no-store');
+        return { links: await dutyAdminLinks(linksDb) };
+    });
+    server.post('/api/duty/delegations', async (req, reply) => {
+        if (!await owner(req, reply)) return;
+        reply.header('Cache-Control', 'no-store');
+        const parsed = DelegationBody.safeParse(req.body);
+        if (!parsed.success) return reply.code(400).send({ error: 'Изберете колку време да важи линкот.' });
+        const made = await createDutyAdminLink(linksDb, parsed.data.hours ?? null);
+        return {
+            url: `/kolegi#duty-admin=${made.token}`,
+            link: { id: made.id, createdAt: made.createdAt, expiresAt: made.expiresAt }
+        };
+    });
+    server.delete('/api/duty/delegations', async (req, reply) => {
+        if (!await owner(req, reply)) return;
+        return { ok: true, revoked: await revokeDutyAdminLinks(linksDb) };
+    });
+
+    const readDuty = (authorize: DutyAdminAuthorizer) => async (req: FastifyRequest, reply: FastifyReply) => {
+        const access = await authorize(req, reply);
+        if (!access) return;
         const q = req.query as any;
-        const year = await schoolYearOf(pool, q?.year ? String(q.year) : undefined);
+        const year = await schoolYearOf(pool, q?.year ? String(q.year) : options.year);
         if (!year) return reply.code(404).send({ error: 'Нема таква учебна година.' });
         const state = await loadDuty(pool, year.id);
+        const adminMode = access.link
+            ? { kind: 'link', expiresAt: access.link.expiresAt }
+            : { kind: 'owner' };
         if (q?.around !== undefined) {
             if (!isIsoDate(q.around)) return reply.code(400).send({ error: 'Денот се пишува како ГГГГ-ММ-ДД.' });
-            return { year: year.label, today: todayInSkopje(), ...windowPayload(state, q.around), candidates: await candidates(year.id) };
+            return { year: year.label, today: todayInSkopje(), ...windowPayload(state, q.around), candidates: await candidates(year.id), adminMode };
         }
         const month = q?.month ? String(q.month) : defaultMonth(state);
         if (!monthBounds(month)) return reply.code(400).send({ error: 'Месецот се пишува како ГГГГ-ММ.' });
-        return { year: year.label, ...monthPayload(state, month), candidates: await candidates(year.id) };
-    });
+        return { year: year.label, ...monthPayload(state, month), candidates: await candidates(year.id), adminMode };
+    };
+    server.get('/api/duty', readDuty(owner));
+    server.get('/api/portal/duty-admin', readDuty(delegatedHere));
 
     /** The list, replaced as a whole in its order, and the day the rotation starts. */
-    server.put('/api/duty/setup', async (req, reply) => {
-        if (!await owner(req, reply)) return;
+    const setupDuty = (authorize: DutyAdminAuthorizer) => async (req: FastifyRequest, reply: FastifyReply) => {
+        if (!await authorize(req, reply)) return;
         const parsed = SetupBody.safeParse(req.body);
         if (!parsed.success) return reply.code(400).send({ error: 'Проверете го списокот и датумот на почеток.' });
         const b = parsed.data;
@@ -157,11 +226,13 @@ export async function dutyRoutes(server: FastifyInstance) {
             client.release();
         }
         return { ok: true, year: year.label, members: ids.length };
-    });
+    };
+    server.put('/api/duty/setup', setupDuty(owner));
+    server.put('/api/portal/duty-admin/setup', setupDuty(delegatedHere));
 
     /** Closed (no duty, nobody moves), or given to a named person by agreement, or neither. */
-    server.put('/api/duty/day', async (req, reply) => {
-        if (!await owner(req, reply)) return;
+    const putDay = (authorize: DutyAdminAuthorizer) => async (req: FastifyRequest, reply: FastifyReply) => {
+        if (!await authorize(req, reply)) return;
         const parsed = DayBody.safeParse(req.body);
         if (!parsed.success) return reply.code(400).send({ error: 'Проверете го денот.' });
         const b = parsed.data;
@@ -181,11 +252,14 @@ export async function dutyRoutes(server: FastifyInstance) {
                 SET closed = EXCLUDED.closed, note = EXCLUDED.note, assigned_employee_id = EXCLUDED.assigned_employee_id`,
             [year.id, b.date, b.closed, note, assigned]);
         return { ok: true };
-    });
+    };
+    server.put('/api/duty/day', putDay(owner));
+    server.put('/api/portal/duty-admin/day', putDay(delegatedHere));
 
     /** Anybody away on a day — the administrator's version of a colleague's own mark. */
-    server.put('/api/duty/absence', async (req, reply) => {
-        if (!await owner(req, reply)) return;
+    const putAbsence = (authorize: DutyAdminAuthorizer) => async (req: FastifyRequest, reply: FastifyReply) => {
+        const access = await authorize(req, reply);
+        if (!access) return;
         const parsed = AbsenceBody.safeParse(req.body);
         if (!parsed.success) return reply.code(400).send({ error: 'Проверете го денот и колегата.' });
         const b = parsed.data;
@@ -193,11 +267,13 @@ export async function dutyRoutes(server: FastifyInstance) {
         if (!year) return reply.code(404).send({ error: 'Нема таква учебна година.' });
         const problem = dayProblem(b.date, year);
         if (problem) return reply.code(400).send({ error: problem });
-        await setAbsence(pool, year.id, b.date, b.employeeId, b.absent, 'Администраторот');
+        await setAbsence(pool, year.id, b.date, b.employeeId, b.absent, access.by);
         return { ok: true };
-    });
+    };
+    server.put('/api/duty/absence', putAbsence(owner));
+    server.put('/api/portal/duty-admin/absence', putAbsence(delegatedHere));
 
-    await swapRoutes(server);
+    await swapRoutes(server, delegatedHere);
 }
 
 /**
@@ -206,9 +282,10 @@ export async function dutyRoutes(server: FastifyInstance) {
  * a deal is made between two people, so if the rota moved in between, the
  * swap is refused rather than made between somebody else.
  */
-export async function swapRoutes(server: FastifyInstance) {
-    server.put('/api/duty/swap', async (req, reply) => {
-        if (!await owner(req, reply)) return;
+export async function swapRoutes(server: FastifyInstance,
+    delegatedAuthorize: DutyAdminAuthorizer = (req, reply) => delegated(req, reply)) {
+    const putSwap = (authorize: DutyAdminAuthorizer) => async (req: FastifyRequest, reply: FastifyReply) => {
+        if (!await authorize(req, reply)) return;
         const parsed = SwapBody.safeParse(req.body);
         if (!parsed.success) return reply.code(400).send({ error: 'Проверете ги двата дена на замената.' });
         const b = parsed.data;
@@ -263,10 +340,12 @@ export async function swapRoutes(server: FastifyInstance) {
         } finally {
             client.release();
         }
-    });
+    };
+    server.put('/api/duty/swap', putSwap(owner));
+    server.put('/api/portal/duty-admin/swap', putSwap(delegatedAuthorize));
 
-    server.post('/api/duty/swap/remove', async (req, reply) => {
-        if (!await owner(req, reply)) return;
+    const removeSwap = (authorize: DutyAdminAuthorizer) => async (req: FastifyRequest, reply: FastifyReply) => {
+        if (!await authorize(req, reply)) return;
         const parsed = UnswapBody.safeParse(req.body);
         if (!parsed.success) return reply.code(400).send({ error: 'Која замена?' });
         const year = await schoolYearOf(pool, parsed.data.year);
@@ -274,7 +353,9 @@ export async function swapRoutes(server: FastifyInstance) {
         const gone = await pool.query('DELETE FROM duty_swaps WHERE school_year_id = $1 AND id = $2', [year.id, parsed.data.id]);
         if (!gone.rowCount) return reply.code(404).send({ error: 'Таа замена веќе ја нема.' });
         return { ok: true };
-    });
+    };
+    server.post('/api/duty/swap/remove', removeSwap(owner));
+    server.post('/api/portal/duty-admin/swap/remove', removeSwap(delegatedAuthorize));
 }
 
 /** One person away (or back) on one day. Shared with the colleague's own route. */

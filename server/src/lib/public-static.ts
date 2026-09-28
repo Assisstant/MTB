@@ -44,6 +44,8 @@ const PUBLIC_FILES = new Set([
     'mtb-schedule-form.js',
     'mtb-class-form.js',
     'mtb-forms.js',
+    // One teacher's week, read or edited in the cell: Настава and Податоци.
+    'mtb-teacher-week.js',
     'workspace-admin.js',
     'workspace-admin.css',
     'mtb-runtime.js',

@@ -269,6 +269,13 @@ export const PUBLIC_WRITES = new Set([
     'POST /api/portal/class-lesson/remove',
     'PUT /api/portal/term',
     'PUT /api/portal/duty/absence',
+    // A signed-in colleague holding a short-lived, duty-only capability link.
+    // These routes validate both tokens themselves (routes/duty.ts).
+    'PUT /api/portal/duty-admin/setup',
+    'PUT /api/portal/duty-admin/day',
+    'PUT /api/portal/duty-admin/absence',
+    'PUT /api/portal/duty-admin/swap',
+    'POST /api/portal/duty-admin/swap/remove',
     'PUT /api/portal/caseload',
     // One's own subjects and паралелки, ticked (owner, 27 Sep 2026).
     'PUT /api/portal/my-subject',

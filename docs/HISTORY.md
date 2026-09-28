@@ -4221,3 +4221,99 @@ history, pupil deletion guards, RLS and diary isolation. The new browser test
 checks persistence after reload, failed saves, two appointments per date,
 monthly totals, phone width, print/PDF and all three PNG exports. Private QA
 artifacts are under ignored `backups/test-artifacts/`.
+
+## Личниот распоред на наставникот, на едно место (28 Sep 2026)
+
+The owner asked for the colleagues' own-week editor inside Податоци: a
+teacher's week with create/change/delete in the cell, a LOCKED and an OPEN
+mode, and the switch beside the 📌 that freezes the header. And said, for the
+third time, that одделенски and предметен teachers differ: the first has one
+class and all its subjects, the second one or a few subjects across several
+classes.
+
+That rule had been written once, on 27 September, in Nastava.html's
+„Наставник · недела" (`fixedClass`, `ownSubjects`, the two pickers). It was
+right; it just lived in one page. A second copy in Податоци would have been
+corrected in one screen and not the other — the shape of mistake this project
+keeps paying for — so the sheet, the pickers, the save and the refusals moved
+UNCHANGED into `mtb-teacher-week.js`, and both pages draw from it. Kolega
+keeps its own copy on purpose: it is self-contained so that nothing else has
+to pass the cloud's gate (see the colleagues' door in CLAUDE.md).
+
+🔒/🔓 is not a new mode. It is `mtb-forms.js`'s „✏️ Уреди" switch, drawn in
+the table's corner beside 📌 ▾, so a sheet locked in Податоци is locked in
+Настава and the bar says the same. Its glyph is CSS and it carries the
+`mtb-ui` class, because `mtb-layout.js` remembers the 📌 choice by the
+header's own text; a lock that changed that text would make the table forget
+whether it was frozen every time the mode flipped.
+
+The write is `PUT /api/teaching/teacher-lesson` with `expected`, the route
+Уреди настава and Kolega already use — no second writer. `test:teacher-week`
+asserts what the page SENDS (class, subject, expected) for both kinds of
+teacher, that locked means not one picker, and that Настава draws the same
+sheet from the same file.
+
+## Duty administration from a phone or a shared link (28 Sep 2026)
+
+The owner opened Kolega in Messenger on a phone, signed in as a colleague,
+and saw the ordinary duty view without swap controls. A colleague login does
+not confer the owner's cloud session, and an in-app browser need not share
+the main browser's cookies. The owner requested a direct entry in Податоци
+and an admin-rights link that can also be shared with trusted colleagues.
+
+Податоци → Колеги now keeps the ordinary sharing link and adds a distinct
+duty-administrator entry: open, copy a link with a chosen lifetime, and revoke
+all links. Every recipient still signs in with their own colleague account.
+Kolega labels the delegated mode with its expiry and offers „Исклучи“ to return
+to ordinary permissions. Expired/revoked links remove controls; a refused
+write is never retried as an owner write. An expired colleague session asks
+for sign-in again. A trusted colleague need not be a member of the rota.
+
+This is a narrow capability, not a second administrator account or a permanent
+role. Only the owner-side `/api/duty/delegations` creates/revokes it. The new
+`/api/portal/duty-admin/*` routes require both an ordinary active staff session
+and that capability on every request, including reads. They call the existing
+duty handlers, so the list, dates, absences and swaps keep one writer. Absence
+marks name the signed-in colleague. The link cannot administer staff accounts,
+grant general MTB access, or create other admin links.
+
+Tokens are random 256-bit values. Only their SHA-256 hashes are held in server
+memory; the raw token is returned once, in a URL fragment that is immediately
+removed by Kolega and retained only in sessionStorage. Lifetimes are 2/8/24
+hours or 7 days; all links also die on a server restart. That limitation and
+the fact that any active colleague receiving a forwarded link can use it are
+stated beside the controls. No migration, cloud-setting change, or new public
+asset is required. This change is local code until explicitly deployed.
+
+Regression coverage includes token expiry/revocation, both cloud and inner
+authorization boundaries, all revoked write paths, the active-staff check,
+phone-sized open/copy/sign-in/exit flows and stale UI after permission loss.
+
+### Owner follow-up: permanent links and an optional pause for events (28 Sep 2026)
+
+The owner explicitly chose permanent duty-admin links and asked to publish
+the change for his Render deployment. Permanence includes restarts, so an
+in-memory token map no longer fits. Migration 048 stores only SHA-256 token
+hashes in `duty_admin_links`; a null expiry means valid until the owner revokes
+it. The UI defaults to „Без рок — до поништување“, with the earlier temporary
+options still available. Every use still checks the person's own active staff
+session. No permanent general-administrator role is created. This table is
+denied to Supabase REST roles and excluded from the mirror as credentials.
+The guarded release uses its own new recovery-schema name and verifies that
+every pre-existing table's content remains unchanged.
+
+The second clarification overrides the 27 Sep three-choice day editor: an
+excursion or other event does not mean nobody is on duty. Event/note and the
+explicit pause are now independent. „Има дежурен“ keeps the normal next turn;
+„Нема дежурен — пауза“ consumes no turn, so the same next colleague is due on
+the next working day. Existing `duty_days.closed` and `note` already represent
+these facts, so no new event store or change to rota arithmetic is needed.
+Existing closed days stay closed until edited. Words in the note no longer
+produce a warning implying that a pause is required. The misleading old
+absence explanation is corrected: a substitute covers only that day; other
+dates stay unchanged.
+
+Tests cover persistent hashes through independent connections, immediate
+revocation, optional expiry, a private 047→048 upgrade, event counting with
+and without a pause across a month boundary, and both choices through the
+API and phone-sized day editor. Real duty records are not rewritten.

@@ -12,6 +12,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import Fastify from 'fastify';
 import { portalRoutes } from '../src/routes/portal.js';
+import { dutyRoutes } from '../src/routes/duty.js';
 import { PUBLIC_WRITES } from '../src/lib/colleague.js';
 
 test('every write route under /api/portal/ is on the boundary\'s list', async () => {
@@ -23,8 +24,9 @@ test('every write route under /api/portal/ is on the boundary\'s list', async ()
             .forEach((m) => { if (route.url.startsWith('/api/portal/')) writes.push(`${m} ${route.url}`); });
     });
     await app.register(portalRoutes);
+    await app.register(dutyRoutes);
     await app.ready();
-    assert.ok(writes.length >= 8, `found ${writes.length} portal writes`);
+    assert.ok(writes.length >= 13, `found ${writes.length} portal writes`);
     const missing = writes.filter((key) => !PUBLIC_WRITES.has(key));
     assert.deepEqual(missing, [], 'a portal write the boundary would refuse');
     await app.close();

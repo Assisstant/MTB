@@ -20,6 +20,7 @@ const ident=(s:string)=>'"'+s.replace(/"/g,'""')+'"';
 // class_alias_20260926: 045 (a паралелка's name per year, and the year's count).
 // credit_look_20260927: 046 (the watermark's look, set by the administrator)
 // and 047 (the administrator's bookmarks in WBACC Studio) — one batch.
+// duty_admin_links_20260928: 048, persistent revocable duty-only capabilities.
 // cabinet_attendance_20260928: 049, independent of the personal diary.
 export async function workspaceRelease(client:Client,directory:string,log=console.log,recoverySchema='mtb_workspace_recovery_cabinet_attendance_20260928'){
  if(!/^mtb_workspace_recovery_[a-z0-9_]+$/.test(recoverySchema))throw Error('Invalid recovery schema');
