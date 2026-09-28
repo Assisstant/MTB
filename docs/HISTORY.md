@@ -4274,6 +4274,26 @@ fresh-read certificates, print isolation, hidden credit and PNG outputs. QA file
 contain invented pupils and remain in ignored `backups/test-artifacts/`.
 The previously documented test-file typecheck limitation is unchanged.
 
+Owner's immediate follow-up clarified the credit: print „Изработил:“ using
+the signed-in person's name in a normal header, not the configured app-author
+watermark over the table. Certificates also identify their preparer separately
+from the blank authorized signature. Print-only compact typography and inline
+monthly marks reduce cell height; a beforeprint measurement scales the complete
+attendance/transport, duty or weekly sheet into one A4 page without clipping.
+The browser regression counts actual PDF page objects: a 35-pupil monthly grid,
+a month of duty rows, a weekly grid, transport sheet and certificate each fit
+one page. The mark's symbol remains, with subtle green/pink cell shading; mixed
+treatment marks in one cell are amber. PNG reports retain these shades too.
+
+The click-refresh effect was caused by clearing and rebuilding the entire
+attendance view both before PUT and again before its follow-up GET. A successful
+write now consumes the server acknowledgement/revision, updates the existing
+button, frozen-day heading and totals in place, preserving the table and focus.
+Pending saves have a dotted outline and reject duplicate clicks; no positive
+mark is shown until acknowledged. Conflict/error recovery still rereads the
+server, with the existing table left visible while waiting. The browser tests
+assert DOM identity and no GET on a successful toggle, plus correction recovery.
+
 ## Личниот распоред на наставникот, на едно место (28 Sep 2026)
 
 The owner asked for the colleagues' own-week editor inside Податоци: a

@@ -261,16 +261,24 @@ header.top h1 { flex: 1; min-width: 180px; }
 .attendance-table tbody th { text-align: left; min-width: 115px; }
 .attendance-table.month tbody th { min-width: 180px; }
 .attendance-table .closed { background: #e6e8ef; color: #25324a; }
+.attendance-table td.mark-present { background: #e8f5ec; color: #153c25; }
+.attendance-table td.mark-absent { background: #fcecec; color: #672323; }
+.attendance-table td.mark-mixed { background: #fff4d6; color: #533e12; }
 .attendance-mark { display: block; width: 100%; margin: 3px 0; padding: 8px; white-space: pre-line; }
 .attendance-mark.present { background: #dcfce7; color: #14532d; border-color: #15803d; }
 .attendance-mark.absent { background: #fee2e2; color: #7f1d1d; border-color: #b91c1c; }
 .attendance-mark.blank { background: #edf0f8; color: #25324a; border-color: #68738b; }
 .attendance-mark:disabled { opacity: 1; cursor: default; }
+.attendance-mark[aria-busy="true"] { outline: 2px dotted #68738b; cursor: progress; }
 .attendance-table.month .attendance-mark { padding: 5px; min-width: 26px; }
 .attendance-warning { color: var(--text); border-left: 4px solid #d28a00; padding: 8px; }
+.print-preparer { display: none; }
 @page attendance-report { size: A4 landscape; margin: 10mm; }
+@page duty-report { size: A4 portrait; margin: 10mm; }
 @page transport-certificate { size: A4 portrait; margin: 20mm; }
 @media print {
+  .print-preparer { display: block; font: bold 9pt Arial, sans-serif; color: #000; background: #f3f4f6; padding: 3mm; margin: 0 0 3mm; }
+  body.printing-week { page: week; }
   body.printing-transport-certificate { page: transport-certificate; }
   body.printing-transport-certificate main > *:not(#home),
   body.printing-transport-certificate #home > *:not(#weekCard),
@@ -298,6 +306,30 @@ header.top h1 { flex: 1; min-width: 180px; }
   body.printing-attendance tr { break-inside: avoid; }
   body.printing-attendance h2 { font-size: 13pt; }
   body.printing-attendance p { font-size: 8pt; }
+  body.printing-attendance .card, body.printing-duty .card { padding: 0 !important; margin: 0 !important; }
+  body.printing-attendance .attendance-table { font-family: Arial, sans-serif; line-height: 1.15; }
+  body.printing-attendance .attendance-table.month { font-size: 7pt; }
+  body.printing-attendance .attendance-table th, body.printing-attendance .attendance-table td {
+    height: 5mm; padding: 1px 2px; border: 0.5pt solid #888; color: #000 !important; background: #fff !important;
+  }
+  body.printing-attendance .attendance-table th:first-child { width: 19%; }
+  body.printing-attendance .attendance-table td.mark-present { background: #e8f5ec !important; }
+  body.printing-attendance .attendance-table td.mark-absent { background: #fcecec !important; }
+  body.printing-attendance .attendance-table td.mark-mixed { background: #fff4d6 !important; }
+  body.printing-attendance .attendance-table { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+  body.printing-attendance .attendance-table.month .attendance-mark {
+    display: inline-block; width: auto; min-width: 0; margin: 0 1px; padding: 0; line-height: 1; outline: none;
+  }
+  body.printing-attendance h2 { margin: 0 0 3mm; font-size: 11pt; }
+  body.printing-attendance p { margin: 1mm 0 2mm; font-size: 7pt; line-height: 1.15; }
+  body.printing-attendance .print-preparer { font-size: 9pt; }
+  body.printing-attendance main, body.printing-week main { width: 277mm; max-width: none; margin: 0; padding: 0; }
+  body.printing-duty { page: duty-report; }
+  body.printing-duty main { width: 190mm; max-width: none; margin: 0; padding: 0; }
+  body.printing-duty .duty-table { font-size: 9pt; line-height: 1.15; }
+  body.printing-duty .duty-table th, body.printing-duty .duty-table td { padding: 3px 5px; }
+  body.printing-duty h2 { font-size: 13pt; }
+  body.printing-duty p { font-size: 8pt; margin: 2mm 0; }
 }
 </style>
 </head>
@@ -665,11 +697,11 @@ header.top h1 { flex: 1; min-width: 180px; }
         const from = isoShift(date, wd === 0 ? -6 : 1 - wd);
         return { from, to: isoShift(from, 4) };
     }
-    async function loadAttendance() {
+    async function loadAttendance({ quiet = false } = {}) {
         const request = ++attendance.request;
         const range = attendanceRange();
         attendance.busy = true;
-        drawAttendance();
+        if (!quiet) drawAttendance();
         try {
             const data = attendance.scope === 'transport'
                 ? await ownerApi('GET', '/api/attendance/transport?month=' + range.from.slice(0,7) + '&year=' + encodeURIComponent(me.year), undefined, false)
@@ -721,7 +753,7 @@ header.top h1 { flex: 1; min-width: 180px; }
             + (m.rows.length ? '<div class="attendance-scroll"><table class="attendance-table month"><thead><tr>'
                 + m.columns.map(c=>`<th>${esc(c)}</th>`).join('') + '</tr></thead><tbody>'
                 + m.rows.map((r,i)=>'<tr><th>'+esc(r[0])+`<button class="no-print" data-transport-certificate="${attendance.data.pupils[i].studentId}"${attendance.data.pupils[i].daysPresent ? '' : ' disabled'}>Потврда</button></th>`
-                    + r.slice(1).map(c=>`<td>${esc(c)}</td>`).join('')+'</tr>').join('')+'</tbody></table></div>'
+                    + r.slice(1).map(c=>`<td${c==='✓'?' class="mark-present"':''}>${esc(c)}</td>`).join('')+'</tr>').join('')+'</tbody></table></div>'
                 : '<p>Нема надворешни ученици во избраниот годишен список.</p>');
     }
     async function printTransportCertificate(studentId) {
@@ -742,6 +774,7 @@ header.top h1 { flex: 1; min-width: 180px; }
                 + '<p>Датуми: '+pupil.dates.map(dmy).join(', ')+'.</p>'
                 + '<p>Присуството во повеќе кабинети на ист датум се брои како еден ден. Потврдата е наменета за документацијата за превоз.</p>'
                 + `<p>Извод од евиденцијата: ${esc(new Date(data.generatedAt).toLocaleString('mk-MK'))}.</p>`
+                + `<p>Изработил: ${esc(sessionMe.person.name)}</p>`
                 + '<p>Датум на издавање: ____________________</p><p class="certificate-sign">Овластено лице: ____________________<br><br>Потпис и печат: ____________________</p>'
                 + '<p class="no-print">Проверете ги податоците пред потпишување. Во Print исклучете „Headers and footers“ за да нема адреса и датум од прелистувачот.</p>';
             el('transportCertificate').hidden=false; document.body.classList.add('printing-transport-certificate'); window.print();
@@ -754,6 +787,10 @@ header.top h1 { flex: 1; min-width: 180px; }
         return `<button type="button" class="attendance-mark ${s.status || 'blank'}" data-att-date="${d.date}" data-att-key="${esc(s.key)}"`
             + ` title="${esc(s.name + ' · ' + s.time + ' · ' + label)}" aria-label="${esc(dmy(d.date) + ' · ' + s.name + ' · ' + s.time + ' · ' + label)}"`
             + ((attendance.busy || d.closed || d.future || d.conflict) ? ' disabled' : '') + `>${esc(text)}</button>`;
+    }
+    function attendanceCellShade(sessions) {
+        const present=sessions.some(s=>s.status==='present'), absent=sessions.some(s=>s.status==='absent');
+        return present && absent ? 'mark-mixed' : present ? 'mark-present' : absent ? 'mark-absent' : '';
     }
     function drawAttendance() {
         const range = attendanceRange(), data = attendance.data;
@@ -780,7 +817,7 @@ header.top h1 { flex: 1; min-width: 180px; }
             + (warnings.length ? `<p class="attendance-warning">${esc(warnings.join(' · '))}</p>` : '')
             + (!m.rows.length ? '<p>Нема закажани третмани во овој период.</p>'
                 : `<div class="attendance-scroll"><table class="attendance-table ${attendance.mode}"><thead><tr>${m.columns.map(c => `<th>${esc(c)}</th>`).join('')}</tr></thead><tbody>`
-                    + m.rows.map(r => `<tr><th>${esc(r.label)}</th>` + r.cells.map(c => `<td class="${c.day.closed ? 'closed' : ''}">`
+                    + m.rows.map(r => `<tr><th>${esc(r.label)}</th>` + r.cells.map(c => `<td class="${c.day.closed ? 'closed' : ''} ${attendanceCellShade(c.sessions)}">`
                         + (c.sessions.length ? c.sessions.map(s => attendanceButton(s, c.day)).join('') : '—') + '</td>').join('')
                         + r.totals.map(t => `<td>${t}</td>`).join('') + '</tr>').join('') + '</tbody></table></div>');
     }
@@ -807,24 +844,71 @@ header.top h1 { flex: 1; min-width: 180px; }
         if (b.hasAttribute('data-att-refresh')) return loadAttendance();
         if (b.hasAttribute('data-att-print')) { document.body.classList.add('printing-attendance'); window.print(); return; }
         if (b.hasAttribute('data-att-png')) {
-            if(attendance.scope==='transport') return paintReport({...transportReport(),file:'Prevoz-'+attendance.data.month,compact:true});
+            if(attendance.scope==='transport') return paintReport({...transportReport(),file:'Prevoz-'+attendance.data.month,compact:true,attendance:true});
             const m = attendanceReport();
             const rows = m.rows.map(r => [r.label, ...r.cells.map(c => c.sessions.map(s =>
                 (attendance.mode === 'week' ? s.name + '\n' : '') + (s.status === 'present' ? '✓' : s.status === 'absent' ? '×' : '?')).join('\n') || '—'), ...r.totals.map(String)]);
-            return paintReport({ ...m, rows, file: 'Prisustvo-' + attendance.data.from, compact: attendance.mode === 'month' });
+            return paintReport({ ...m, rows, file: 'Prisustvo-' + attendance.data.from, compact: attendance.mode === 'month', attendance:true });
         }
         if (!b.dataset.attKey) return;
         const d = attendance.data.days.find(d => d.date === b.dataset.attDate);
         const s = d?.sessions.find(s => s.key === b.dataset.attKey);
         if (!s || d.closed || d.future || d.conflict) return;
-        attendance.busy = true; drawAttendance();
+        const data = attendance.data, request = attendance.request;
+        const status = !s.status ? 'present' : s.status === 'present' ? 'absent' : null;
+        attendance.busy = true; b.setAttribute('aria-busy','true');
         try {
-            await api('PUT', '/api/portal/attendance', { date: d.date, key: s.key, expected: s.status,
-                status: !s.status ? 'present' : s.status === 'present' ? 'absent' : null, revision: d.revision, planToken: d.planToken });
+            const answer = await api('PUT', '/api/portal/attendance', { date: d.date, key: s.key, expected: s.status,
+                status, revision: d.revision, planToken: d.planToken });
+            if (data !== attendance.data || request !== attendance.request) return;
+            s.status = status; d.revision = answer.revision; d.frozen = true;
+            attendance.busy = false;
+            // Keep the table, scroll position and focused button alive. The
+            // server ack is authoritative; no whole-table GET/redraw per click.
+            const label = attendanceText[status || 'blank'];
+            b.className = 'attendance-mark ' + (status || 'blank');
+            b.textContent = attendance.mode === 'month' ? (status === 'present' ? '✓' : status === 'absent' ? '×' : '?') : s.name + '\n' + label;
+            b.title = s.name + ' · ' + s.time + ' · ' + label;
+            b.setAttribute('aria-label', dmy(d.date) + ' · ' + s.name + ' · ' + s.time + ' · ' + label);
+            b.removeAttribute('aria-busy'); b.disabled = false;
+            const report = attendanceReport(), table = el('attendanceSheet').querySelector('table');
+            report.columns.forEach((text,i) => { table.tHead.rows[0].cells[i].textContent = text; });
+            report.rows.forEach((row,i)=>row.cells.forEach((cell,j)=>{
+                table.tBodies[0].rows[i].cells[j+1].className=(cell.day.closed ? 'closed ' : '')+attendanceCellShade(cell.sessions);
+            }));
+            if (attendance.mode === 'month') report.rows.forEach((row,i) => {
+                const cells=table.tBodies[0].rows[i].cells;
+                row.totals.forEach((total,j)=>{ cells[cells.length-4+j].textContent=total; });
+            });
             say('weekMsg', 'Присуството е зачувано во базата.', 'ok');
-        } catch (err) { say('weekMsg', err.message + ' Листата се освежува; проверете пред повторен клик.', 'error'); }
-        await loadAttendance();
+        } catch (err) {
+            if (data !== attendance.data || request !== attendance.request) return;
+            say('weekMsg', err.message + ' Листата се освежува; проверете пред повторен клик.', 'error');
+            await loadAttendance({ quiet: true });
+        }
     });
+    // Print media lays out the complete compact table first. Scale the whole
+    // report only if necessary, preserving every row rather than clipping it.
+    let fittedPrint = null;
+    window.addEventListener('beforeprint', () => {
+        const kind = ['attendance','duty','week'].find(k=>document.body.classList.contains('printing-'+k));
+        if (!kind) return;
+        const target = el(kind === 'week' ? 'weekSheet' : kind);
+        const heading = kind === 'week' ? target.querySelector('.sheet') : kind === 'attendance' ? el('attendanceSheet') : target;
+        let preparer = heading.querySelector('.print-preparer');
+        if(!preparer) { preparer=document.createElement('p'); preparer.className='print-preparer'; heading.prepend(preparer); }
+        preparer.textContent = 'Изработил: ' + me.person.name;
+        target.style.zoom = '';
+        const pxPerMm = 96 / 25.4;
+        const width = (kind === 'duty' ? 190 : 277) * pxPerMm;
+        // Leave room for font/row rounding and collapsed outer margins in
+        // Chromium's paginated layout (different from screen-media metrics).
+        const height = (kind === 'duty' ? 277 : 190) * pxPerMm - 32;
+        const scale = Math.min(1, width / target.scrollWidth, height / target.scrollHeight);
+        target.style.zoom = String(scale);
+        fittedPrint = target;
+    });
+    window.addEventListener('afterprint', () => { if(fittedPrint) fittedPrint.style.zoom=''; fittedPrint=null; });
     window.addEventListener('afterprint', () => document.body.classList.remove('printing-attendance'));
     window.addEventListener('afterprint', () => { document.body.classList.remove('printing-transport-certificate'); el('transportCertificate').hidden=true; });
 
@@ -1567,7 +1651,10 @@ header.top h1 { flex: 1; min-width: 180px; }
             function row(cells, h, head, index) {
                 let x = 24;
                 cells.forEach((cell, i) => {
-                    ctx.fillStyle = head ? '#5147b8' : index % 2 ? '#f2f4fa' : '#fff'; ctx.fillRect(x, y, widths[i], h);
+                    const present=o.attendance && i>0 && cell.some(line=>line.includes('✓'));
+                    const absent=o.attendance && i>0 && cell.some(line=>line.includes('×'));
+                    ctx.fillStyle = head ? '#5147b8' : present && absent ? '#fff4d6' : present ? '#e8f5ec' : absent ? '#fcecec' : index % 2 ? '#f2f4fa' : '#fff';
+                    ctx.fillRect(x, y, widths[i], h);
                     ctx.strokeStyle = '#d7dbea'; ctx.strokeRect(x, y, widths[i], h);
                     ctx.fillStyle = head ? '#fff' : '#172139'; ctx.font = (head ? 'bold ' : '') + '18px Arial';
                     cell.forEach((line, j) => ctx.fillText(line, x + 8, y + 25 + j * 23)); x += widths[i];

@@ -7,7 +7,7 @@ const root = resolve(import.meta.dirname, '../..'), origin = 'http://localhost:3
 const browser = await chromium.launch({ ...(process.env.CHROME ? { executablePath: process.env.CHROME } : {}) });
 const context = await browser.newContext({ viewport:{width:1400,height:1000},serviceWorkers:'block' });
 const marks = new Map(), revisions = new Map(), errors = [], writes = [];
-let failWrite = false, transportAllowed = true, transportReads = 0;
+let failWrite = false, transportAllowed = true, transportReads = 0, attendanceReads = 0;
 await context.addInitScript(() => {
     localStorage.setItem('mtb_portal_token_v1','a'.repeat(64));
     window.print = () => { window.printClasses = document.body.className; };
@@ -37,9 +37,11 @@ await context.route('**/*', async route => {
         assert.equal(req.headers()['x-mtb-portal-token'],'a'.repeat(64));
         if (req.method() === 'PUT') {
             const b = req.postDataJSON(); writes.push(b);
+            await new Promise(resolve=>setTimeout(resolve,120));
             if (failWrite) { failWrite=false; return json(409,{error:'Пробен судир: освежете.'}); }
-            marks.set(b.date+'|'+b.key,b.status); revisions.set(b.date,(revisions.get(b.date)||0)+1); return json(200,{ok:true});
+            marks.set(b.date+'|'+b.key,b.status); revisions.set(b.date,(revisions.get(b.date)||0)+1); return json(200,{ok:true,revision:revisions.get(b.date)});
         }
+        attendanceReads++;
         const from=u.searchParams.get('from'), to=u.searchParams.get('to'), result=[];
         for(let time=Date.parse(from+'T00:00:00Z');time<=Date.parse(to+'T00:00:00Z');time+=86400000){
             const date=new Date(time).toISOString().slice(0,10), wd=new Date(time).getUTCDay();
@@ -53,20 +55,32 @@ await context.route('**/*', async route => {
 });
 const p = await context.newPage(); p.on('pageerror',e=>errors.push(e.message));
 const ready = () => p.waitForSelector('#attendanceSheet table');
+const saved = () => p.waitForFunction(()=>!document.querySelector('.attendance-mark[aria-busy="true"]'));
+const onePagePdf = async path => {
+    const pdf=await p.pdf({path,preferCSSPageSize:true,printBackground:true});
+    assert.equal((pdf.toString('latin1').match(/\/Type\s*\/Page\b/g)||[]).length,1,'complete report fits one PDF page: '+path);
+};
 try {
     await p.goto(origin+'/Kolega.html');
     await p.click('[data-tab="attendance"]');
     await p.locator('#attendanceDate').fill('2026-09-28'); await ready();
     const cell = p.locator('[data-att-date="2026-09-28"]').first();
     for(const status of ['present','absent',null]){
-        await cell.click(); await ready();
+        await p.evaluate(()=>{window.originalAttendanceTable=document.querySelector('.attendance-table');window.originalAttendanceButton=document.querySelector('[data-att-date="2026-09-28"]');});
+        const readsBefore=attendanceReads;
+        await cell.click();
+        assert.equal(await p.evaluate(()=>document.querySelector('.attendance-table')===window.originalAttendanceTable),true,'table stays visible during server save');
+        await saved();
         assert.equal(writes.at(-1).status,status);
         assert.equal(await cell.getAttribute('class'),'attendance-mark '+(status||'blank'));
+        assert.equal(await cell.locator('..').getAttribute('class'),status ? 'mark-'+status : '','cell shade follows confirmed status');
+        assert.equal(attendanceReads,readsBefore,'successful toggle needs no full table reload');
+        assert.equal(await p.evaluate(()=>document.querySelector('[data-att-date="2026-09-28"]')===window.originalAttendanceButton),true,'focused cell is not replaced');
     }
-    failWrite=true; await cell.click(); await ready();
+    failWrite=true; await cell.click(); await saved(); await ready();
     assert.match(await p.locator('#weekMsg').innerText(),/Пробен судир/);
     assert.match(await cell.getAttribute('class'),/blank/,'failed mark never shown as saved');
-    await cell.click(); await ready();
+    await cell.click(); await saved(); await ready();
     await p.reload(); await p.click('[data-tab="attendance"]');
     await p.locator('#attendanceDate').fill('2026-09-28'); await ready();
     assert.match(await cell.getAttribute('class'),/present/,'mark survives reload');
@@ -74,17 +88,26 @@ try {
     assert.equal(await p.locator('.attendance-table tbody tr').count(),1);
     const totals = await p.locator('.attendance-table tbody tr td').allTextContents();
     assert.deepEqual(totals.slice(-4),['8','1','0','7'],'two treatments per date counted separately');
+    const secondCell=p.locator('[data-att-date="2026-09-28"]').nth(1);
+    await secondCell.click();await saved();await secondCell.click();await saved();
+    assert.match(await secondCell.locator('..').getAttribute('class'),/mark-mixed/,'mixed treatment statuses keep both symbols and an amber cell');
     const [attPng] = await Promise.all([p.waitForEvent('download'),p.click('[data-att-png]')]);
     assert.match(attPng.suggestedFilename(),/^Prisustvo-.*\.png$/);
     const artifacts=resolve(root,'backups/test-artifacts');await mkdir(artifacts,{recursive:true});
     await attPng.saveAs(resolve(artifacts,'attendance-month.png'));
+    await p.evaluate(()=>{
+        const body=document.querySelector('.attendance-table tbody'),row=body.rows[0];
+        for(let i=2;i<=35;i++){const copy=row.cloneNode(true);copy.cells[0].textContent='Измислен Ученик '+i+'\nVIII-тест';body.append(copy);}
+    });
     await p.click('[data-att-print]'); assert.match(await p.evaluate(()=>window.printClasses),/printing-attendance/);
     await p.emulateMedia({media:'print'});
+    await p.evaluate(()=>window.dispatchEvent(new Event('beforeprint')));
     assert.equal(await p.locator('#days').isVisible(),false);
     assert.equal(await p.locator('#attendanceSheet').isVisible(),true);
     assert.equal(await p.locator('#mtbCredit').isVisible(),false,'author watermark never appears in printed reports');
+    assert.equal(await p.locator('#attendanceSheet .print-preparer').innerText(),'Изработил: Измислен Терапевт','print attribution uses signed-in person, not configured app author');
     await p.screenshot({path:resolve(artifacts,'attendance-print.png'),fullPage:true});
-    await p.pdf({path:resolve(artifacts,'attendance-print.pdf'),preferCSSPageSize:true,printBackground:true});
+    await onePagePdf(resolve(artifacts,'attendance-print.pdf'));
     await p.evaluate(()=>window.dispatchEvent(new Event('afterprint')));await p.emulateMedia({media:'screen'});
     await p.selectOption('#attendanceScope','transport'); await ready();
     assert.equal(await p.locator('.attendance-table tbody tr').count(),2);
@@ -103,7 +126,7 @@ try {
     assert.equal(await p.locator('#transportCertificate').isVisible(),true);
     assert.equal(await p.locator('#mtbCredit').isVisible(),false);
     await p.screenshot({path:resolve(artifacts,'transport-certificate.png'),fullPage:true});
-    await p.pdf({path:resolve(artifacts,'transport-certificate.pdf'),preferCSSPageSize:true,printBackground:true});
+    await onePagePdf(resolve(artifacts,'transport-certificate.pdf'));
     await p.evaluate(()=>window.dispatchEvent(new Event('afterprint')));await p.emulateMedia({media:'screen'});
     const [transportPng]=await Promise.all([p.waitForEvent('download'),p.click('[data-att-png]')]);
     assert.match(transportPng.suggestedFilename(),/^Prevoz-/);
@@ -111,7 +134,7 @@ try {
     await p.click('[data-att-print]');await p.emulateMedia({media:'print'});
     assert.equal(await p.locator('#transportCertificate').isVisible(),false);
     assert.equal(await p.locator('[data-transport-certificate="11"]').isVisible(),false);
-    await p.pdf({path:resolve(artifacts,'transport-month.pdf'),preferCSSPageSize:true,printBackground:true});
+    await onePagePdf(resolve(artifacts,'transport-month.pdf'));
     await p.evaluate(()=>window.dispatchEvent(new Event('afterprint')));await p.emulateMedia({media:'screen'});
     await p.setViewportSize({width:400,height:850});
     assert.ok(await p.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),'mobile page does not overflow; table scrolls inside');
@@ -119,11 +142,20 @@ try {
     const [dutyPng] = await Promise.all([p.waitForEvent('download'),p.click('#dutyPng')]);
     await dutyPng.saveAs(resolve(artifacts,'duty.png'));
     await p.click('#dutyPrint'); assert.match(await p.evaluate(()=>window.printClasses),/printing-duty/);
+    await p.emulateMedia({media:'print'});
+    await p.evaluate(()=>{
+        const body=document.querySelector('.duty-table tbody'),row=body.querySelector('tr:not(.no-print)');
+        for(let i=0;i<30;i++) body.append(row.cloneNode(true));
+    });
+    await onePagePdf(resolve(artifacts,'duty-print.pdf'));
     await p.evaluate(()=>window.dispatchEvent(new Event('afterprint')));
+    await p.emulateMedia({media:'screen'});
     await p.click('[data-tab="cabinet"]');await p.click('[data-week]');
     const [weekPng] = await Promise.all([p.waitForEvent('download'),p.click('#pngWeek')]);
     assert.match(weekPng.suggestedFilename(),/Licen-raspored/);
     await p.click('#printWeek');assert.match(await p.evaluate(()=>window.printClasses),/printing-week/);
+    await p.emulateMedia({media:'print'});await onePagePdf(resolve(artifacts,'week-print.pdf'));
+    await p.emulateMedia({media:'screen'});
     transportAllowed=false;
     await p.reload();await p.click('[data-tab="attendance"]');await ready();
     assert.equal(await p.locator('#attendanceScope').count(),0,'ordinary colleague sees no school-wide filter');

@@ -121,7 +121,13 @@ but it must not present parallel versions of the same task.
   Neither an ordinary portal account nor a duty-admin capability grants these
   rights. Printable per-pupil confirmations re-read saved marks and list the
   counted dates; staff check and sign them. They do not decide payment eligibility.
-  Author watermarks are hidden on Kolega printouts, retained on screen.
+  Author watermarks are hidden on Kolega printouts, retained on screen. Printed
+  reports instead say „Изработил:“ with the signed-in person's name, never the
+  configured app author's name. Compact cells and print-time scaling fit the
+  complete tables onto one A4 page. Marks retain their symbols plus subtle
+  green/red shading; mixed treatment statuses use amber, not a false all-present.
+  Successful toggles update the cell and totals after server acknowledgement,
+  without replacing the table or reloading it; conflicts still trigger a reread.
 - `Sinhronizacija.html` is the one place that explains where the data stands:
   this browser's S-Dnevnik copy against its server, the WORK↔HOME snapshots,
   and the separate cloud. It only reads (`/api/health`, `/api/sync/status`
