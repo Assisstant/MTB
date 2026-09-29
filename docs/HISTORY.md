@@ -4294,6 +4294,17 @@ mark is shown until acknowledged. Conflict/error recovery still rereads the
 server, with the existing table left visible while waiting. The browser tests
 assert DOM identity and no GET on a successful toggle, plus correction recovery.
 
+### Transport table clarified to name + dates only (29 Sep 2026)
+
+The owner asked for the external-pupil report as a simple list, not another
+calendar grid: two columns, pupil name and the confirmed visit dates. The same
+two-column model now feeds screen, print and PNG. It omits class and count
+columns; a pupil with no saved presence shows a dash. The server's stable-id,
+distinct-date aggregation and permissions are unchanged. The individual
+confirmation still includes dates and their count. The normal cabinet month
+grid remains available for marking treatments. The browser regression checks
+the exact column labels and dates and still verifies single-page PDFs.
+
 ## Личниот распоред на наставникот, на едно место (28 Sep 2026)
 
 The owner asked for the colleagues' own-week editor inside Податоци: a

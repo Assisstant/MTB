@@ -111,7 +111,8 @@ try {
     await p.evaluate(()=>window.dispatchEvent(new Event('afterprint')));await p.emulateMedia({media:'screen'});
     await p.selectOption('#attendanceScope','transport'); await ready();
     assert.equal(await p.locator('.attendance-table tbody tr').count(),2);
-    assert.deepEqual(await p.locator('.attendance-table tbody tr td:last-child').allTextContents(),['2','0']);
+    assert.deepEqual(await p.locator('.attendance-table thead th').allTextContents(),['Ученик','Датуми на присуство во училиштето'],'transport report has only name and confirmed dates, no calendar or count columns');
+    assert.deepEqual(await p.locator('.attendance-table tbody tr td:last-child').allTextContents(),['07.09.2026, 14.09.2026','—']);
     assert.equal(await p.locator('.attendance-mark').count(),0,'transport report is read-only');
     assert.equal(await p.locator('[data-att-mode="week"]').isDisabled(),true);
     assert.equal(await p.locator('[data-transport-certificate="12"]').isDisabled(),true,'zero days cannot issue attendance certificate');

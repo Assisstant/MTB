@@ -128,6 +128,11 @@ but it must not present parallel versions of the same task.
   green/red shading; mixed treatment statuses use amber, not a false all-present.
   Successful toggles update the cell and totals after server acknowledgement,
   without replacing the table or reloading it; conflicts still trigger a reread.
+  **29 September clarification:** the external-pupil transport table is only
+  pupil name + confirmed attendance dates, once per date across all cabinets;
+  no calendar grid, class label or total column in that table (screen/print/PNG).
+  A pupil with no confirmed visit shows a dash. The separate signed confirmation
+  retains its date list and day count; the cabinet's own monthly grid is unchanged.
 - `Sinhronizacija.html` is the one place that explains where the data stands:
   this browser's S-Dnevnik copy against its server, the WORK↔HOME snapshots,
   and the separate cloud. It only reads (`/api/health`, `/api/sync/status`

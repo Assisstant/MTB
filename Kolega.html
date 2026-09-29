@@ -256,6 +256,10 @@ header.top h1 { flex: 1; min-width: 180px; }
 .attendance-scroll { overflow-x: auto; }
 .attendance-table { border-collapse: collapse; width: 100%; min-width: 740px; }
 .attendance-table.month { min-width: 1700px; }
+.attendance-table.transport-dates { min-width: 0; table-layout: fixed; }
+.attendance-table.transport-dates th:first-child { width: 30%; }
+.attendance-table.transport-dates th, .attendance-table.transport-dates td { text-align: left; overflow-wrap: anywhere; }
+.attendance-table.transport-dates .no-print { display: block; margin-top: 5px; }
 .attendance-table th, .attendance-table td { border: 1px solid var(--line, #ccd0e0); padding: 5px; text-align: center; white-space: pre-line; }
 .attendance-table thead th { background: #5048ac; color: #fff; }
 .attendance-table tbody th { text-align: left; min-width: 115px; }
@@ -313,6 +317,7 @@ header.top h1 { flex: 1; min-width: 180px; }
     height: 5mm; padding: 1px 2px; border: 0.5pt solid #888; color: #000 !important; background: #fff !important;
   }
   body.printing-attendance .attendance-table th:first-child { width: 19%; }
+  body.printing-attendance .attendance-table.transport-dates th:first-child { width: 30%; }
   body.printing-attendance .attendance-table td.mark-present { background: #e8f5ec !important; }
   body.printing-attendance .attendance-table td.mark-absent { background: #fcecec !important; }
   body.printing-attendance .attendance-table td.mark-mixed { background: #fff4d6 !important; }
@@ -740,20 +745,19 @@ header.top h1 { flex: 1; min-width: 180px; }
     }
     function transportReport() {
         const d = attendance.data;
-        const dates = []; for (let date=d.from; date<=d.to; date=isoShift(date,1)) dates.push(date);
         return { title:'Надворешни ученици — доаѓања за превоз', subtitle:d.month + ' · учебна ' + d.year + ' · сите кабинети',
             note:d.note + ' Проверете ја евиденцијата пред потпис. Изготвено: ' + new Date(d.generatedAt).toLocaleString('mk-MK'),
-            columns:['Ученик',...dates.map(date=>date.slice(8)),'Денови'],
-            rows:d.pupils.map(p=>[p.name + (p.grade ? '\n'+p.grade : ''),...dates.map(date=>p.dates.includes(date)?'✓':'—'),String(p.daysPresent)]) };
+            columns:['Ученик','Датуми на присуство во училиштето'],
+            rows:d.pupils.map(p=>[p.name,p.dates.map(dmy).join(', ') || '—']) };
     }
     function drawTransport() {
         const m=transportReport();
         el('attendanceSheet').innerHTML=`<h2>${esc(m.title)}</h2><p>${esc(m.subtitle)}</p><p>${esc(m.note)}</p>`
             + '<p>Еден ученик + еден датум = еден ден, независно од бројот на кабинети. „—“ = нема потврдено присуство.</p>'
-            + (m.rows.length ? '<div class="attendance-scroll"><table class="attendance-table month"><thead><tr>'
+            + (m.rows.length ? '<div class="attendance-scroll"><table class="attendance-table transport-dates"><thead><tr>'
                 + m.columns.map(c=>`<th>${esc(c)}</th>`).join('') + '</tr></thead><tbody>'
                 + m.rows.map((r,i)=>'<tr><th>'+esc(r[0])+`<button class="no-print" data-transport-certificate="${attendance.data.pupils[i].studentId}"${attendance.data.pupils[i].daysPresent ? '' : ' disabled'}>Потврда</button></th>`
-                    + r.slice(1).map(c=>`<td${c==='✓'?' class="mark-present"':''}>${esc(c)}</td>`).join('')+'</tr>').join('')+'</tbody></table></div>'
+                    + `<td${attendance.data.pupils[i].daysPresent?' class="mark-present"':''}>${esc(r[1])}</td></tr>`).join('')+'</tbody></table></div>'
                 : '<p>Нема надворешни ученици во избраниот годишен список.</p>');
     }
     async function printTransportCertificate(studentId) {
@@ -844,7 +848,7 @@ header.top h1 { flex: 1; min-width: 180px; }
         if (b.hasAttribute('data-att-refresh')) return loadAttendance();
         if (b.hasAttribute('data-att-print')) { document.body.classList.add('printing-attendance'); window.print(); return; }
         if (b.hasAttribute('data-att-png')) {
-            if(attendance.scope==='transport') return paintReport({...transportReport(),file:'Prevoz-'+attendance.data.month,compact:true,attendance:true});
+            if(attendance.scope==='transport') return paintReport({...transportReport(),file:'Prevoz-'+attendance.data.month,dateList:true});
             const m = attendanceReport();
             const rows = m.rows.map(r => [r.label, ...r.cells.map(c => c.sessions.map(s =>
                 (attendance.mode === 'week' ? s.name + '\n' : '') + (s.status === 'present' ? '✓' : s.status === 'absent' ? '×' : '?')).join('\n') || '—'), ...r.totals.map(String)]);
@@ -1617,7 +1621,7 @@ header.top h1 { flex: 1; min-width: 180px; }
      */
     /** Text is wrapped, not cropped. Long reports become numbered PNG pages. */
     function paintReport(o) {
-        const widths = o.columns.map((_, i) => o.compact ? (i === 0 ? 260 : 56) : (i === 0 ? 180 : 330));
+        const widths = o.columns.map((_, i) => o.dateList ? (i === 0 ? 320 : 1050) : o.compact ? (i === 0 ? 260 : 56) : (i === 0 ? 180 : 330));
         const width = widths.reduce((a, b) => a + b, 0) + 48;
         const probe = document.createElement('canvas').getContext('2d'); probe.font = '18px Arial';
         function wrap(value, width) {
