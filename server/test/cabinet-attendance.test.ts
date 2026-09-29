@@ -120,6 +120,33 @@ test('portal scope, validation, immutable snapshots, races and diary isolation',
     assert.equal((await read()).body.days[0].sessions.length,2,'calendar edit does not erase history');
 });
 
+test('owner account picker reuses protected list and acting grants; ordinary staff cannot impersonate', async () => {
+    const serviceKey='owner-picker-test-service-key-123456789';
+    process.env.MTB_SERVICE_KEY=serviceKey;
+    const headers={'x-mtb-service-key':serviceKey};
+    try {
+        const { isPortalRequest }=await import('../src/lib/cloud-auth.js');
+        assert.equal(isPortalRequest({method:'GET',url:'/api/staff-accounts'}),false);
+        const list=await app.inject({method:'GET',url:'/api/staff-accounts',headers});
+        assert.equal(list.statusCode,200);
+        const account=list.json().accounts.find((x:any)=>x.therapist);
+        assert.ok(account);
+        const url='/api/staff-accounts/'+account.employeeId+'/open';
+        assert.equal(isPortalRequest({method:'POST',url}),false);
+        for(const staffHeaders of [{'x-mtb-portal-token':one},{'x-mtb-portal-token':two,'x-mtb-duty-admin-token':'not-a-general-admin'}]) {
+            assert.equal((await app.inject({method:'GET',url:'/api/staff-accounts',headers:staffHeaders})).statusCode,401);
+            assert.equal((await app.inject({method:'POST',url,headers:staffHeaders,payload:{}})).statusCode,401);
+        }
+        const grant=await app.inject({method:'POST',url,headers,payload:{}});
+        assert.equal(grant.statusCode,200);
+        const actingToken=grant.json().url.split('#as=')[1];
+        const view=await app.inject({method:'GET',url:'/api/portal/me',headers:{'x-mtb-portal-token':actingToken}});
+        assert.equal(view.statusCode,200);assert.equal(view.json().acting,true);
+        assert.equal(view.json().person.employeeId,account.employeeId);
+        assert.equal((await app.inject({method:'GET',url:'/api/staff-accounts',headers:{'x-mtb-portal-token':actingToken}})).statusCode,401,'acting grant cannot grant more owner views');
+    } finally { delete process.env.MTB_SERVICE_KEY; }
+});
+
 test('transport: external annual membership, distinct days across cabinets, corrections and owner-only access', async () => {
     const serviceKey = 'transport-test-only-service-key-123456789';
     process.env.MTB_SERVICE_KEY = serviceKey;

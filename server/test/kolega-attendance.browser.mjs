@@ -62,6 +62,7 @@ const onePagePdf = async path => {
 };
 try {
     await p.goto(origin+'/Kolega.html');
+    await p.click('#welcomeContinue');
     await p.click('[data-tab="attendance"]');
     await p.locator('#attendanceDate').fill('2026-09-28'); await ready();
     const cell = p.locator('[data-att-date="2026-09-28"]').first();
@@ -81,7 +82,7 @@ try {
     assert.match(await p.locator('#weekMsg').innerText(),/Пробен судир/);
     assert.match(await cell.getAttribute('class'),/blank/,'failed mark never shown as saved');
     await cell.click(); await saved(); await ready();
-    await p.reload(); await p.click('[data-tab="attendance"]');
+    await p.reload(); await p.click('#welcomeContinue'); await p.click('[data-tab="attendance"]');
     await p.locator('#attendanceDate').fill('2026-09-28'); await ready();
     assert.match(await cell.getAttribute('class'),/present/,'mark survives reload');
     await p.click('[data-att-mode="month"]'); await ready();
@@ -188,7 +189,7 @@ try {
     await p.emulateMedia({media:'print'});await onePagePdf(resolve(artifacts,'week-print.pdf'));
     await p.emulateMedia({media:'screen'});
     transportAllowed=false;
-    await p.reload();await p.click('[data-tab="attendance"]');await ready();
+    await p.reload();await p.click('#welcomeContinue');await p.click('[data-tab="attendance"]');await ready();
     assert.equal(await p.locator('#attendanceScope').count(),0,'ordinary colleague sees no school-wide filter');
     assert.deepEqual(errors,[]);
     console.log('PASS: attendance cycle, conflict, reload, monthly totals, mobile, owner-only transport filter, certificate refresh, watermark-free print/PDF and PNG exports.');

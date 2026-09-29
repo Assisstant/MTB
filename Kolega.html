@@ -43,6 +43,10 @@
 // ☀/🌙 is a choice of this browser only, set before the first paint so the
 // page does not flash the other theme. Nothing else is kept here.
 try { const t = localStorage.getItem('mtb_kolega_theme'); if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t; } catch (_) { /* the system's */ }
+try {
+  const a=localStorage.getItem('mtb_kolega_accent'); if(['blue','violet','teal'].includes(a)) document.documentElement.dataset.accent=a;
+  if(localStorage.getItem('mtb_kolega_text')==='large') document.documentElement.dataset.text='large';
+} catch (_) { /* device preferences are optional */ }
 </script>
 <style>
 :root { color-scheme: light; --bg:#f4f4fa; --panel:#fff; --line:#d9d9e8; --text:#1d1e33; --muted:#5b5e7a; --accent:#4f5bd5;
@@ -385,10 +389,66 @@ header.top h1 { flex: 1; min-width: 180px; }
   body.printing-transport-list .print-preparer { font-size: 10pt; }
 }
 </style>
+<style>
+/* Familiar conversation-app proportions, with MTB's own identity. No remote
+   fonts, tracking, or Messenger account connection is needed. Print stays plain. */
+@media screen {
+  :root { --chat-start:#0866df; --chat-end:#7451df; }
+  :root[data-accent="violet"] { --chat-start:#7138c6; --chat-end:#a52a88; }
+  :root[data-accent="teal"] { --chat-start:#08796e; --chat-end:#146da8; }
+  body { font-family: system-ui, -apple-system, "Segoe UI", sans-serif; }
+  .card { border-radius: 22px; box-shadow: 0 6px 24px #17245108; }
+  button { min-height: 44px; border-radius: 16px; touch-action: manipulation; }
+  input, select { min-height: 48px; border-radius: 14px; font-size: 16px; }
+  button.primary, #tabs button[aria-pressed="true"], #days button[aria-pressed="true"] {
+    background: linear-gradient(120deg,var(--chat-start),var(--chat-end)); color: #fff; border-color: transparent;
+  }
+  #tabs, #days { gap: 8px; }
+  #tabs button { border-radius: 18px; }
+  .narrow { max-width: 470px; margin: 5vh auto 0; padding: 26px; }
+  .welcome-kicker { color: var(--muted); font-size: 14px; margin: 0 0 6px; }
+  .welcome-name { font-size: 26px; line-height: 1.25; overflow-wrap: anywhere; margin: 8px 0; }
+  .welcome-avatar, .login-mark { display: grid; place-items: center; width: 64px; height: 64px;
+    border-radius: 23px; margin-bottom: 18px; font-size: 23px; font-weight: 750;
+    background: linear-gradient(135deg,var(--chat-start),var(--chat-end)); color: white; }
+  .login-mark { border-radius: 23px 23px 23px 6px; font-size: 28px; }
+  .welcome-note { background: var(--well); border: 1px solid var(--line); border-radius: 18px 18px 18px 5px; padding: 14px; }
+  .welcome-actions { display: grid; gap: 10px; margin: 20px 0; }
+  .welcome-actions button, #loginForm > button { width: 100%; min-height: 50px; font-size: 16px; }
+  .remember-choice { display:flex; gap:10px; align-items:flex-start; font-weight:400; margin:18px 0; }
+  .remember-choice input { width:22px; height:22px; min-height:22px; flex:0 0 22px; margin:2px 0; accent-color:var(--chat-start); }
+  .remember-choice small { display:block; font-size:13px; color:var(--muted); margin-top:3px; }
+  .welcome-preferences { border-top:1px solid var(--line); padding-top:16px; }
+  .welcome-preferences h3 { font-size:15px; margin:0 0 10px; }
+  .accent-options { display:flex; gap:8px; flex-wrap:wrap; }
+  .accent-options button { min-height:44px; padding:8px 12px; }
+  .accent-options button[aria-pressed="true"] { outline:2px solid var(--focus); outline-offset:2px; }
+  .accent-dot { display:inline-block; width:12px; height:12px; border-radius:50%; margin-right:6px; background:var(--swatch); }
+  #welcomeTheme { width:100%; margin:12px 0 0; }
+  .owner-door { border:1px solid var(--line); background:var(--well); border-radius:18px; padding:14px; margin:18px 0; }
+  .owner-door h2 { font-size:18px; margin:0 0 8px; }
+  .owner-accounts { display:grid; gap:8px; max-height:350px; overflow:auto; margin-top:12px; }
+  .owner-accounts button { display:flex; flex-direction:column; align-items:flex-start; text-align:left; min-height:58px; padding:10px 12px; }
+  .owner-accounts small { color:var(--muted); font-weight:400; }
+  .welcome-role { display:inline-block; border-radius:999px; padding:6px 12px; background:var(--chip); font-size:13px; }
+  :root[data-text="large"] body { font-size:18px; }
+  :root[data-text="large"] input, :root[data-text="large"] select,
+  :root[data-text="large"] .transport-dates { font-size:18px; }
+  @media (max-width:600px) {
+    main { padding:12px 12px 72px; }
+    .narrow { margin:18px auto 0; padding:22px; }
+    #home > header.top { gap:8px; }
+    #home > header.top h1 { flex-basis:100%; }
+    #home > header.top button { flex:1 1 auto; }
+  }
+}
+</style>
 </head>
 <body>
 <main>
   <section id="login" class="card narrow" hidden>
+    <div class="login-mark" aria-hidden="true">К</div>
+    <p class="welcome-kicker">Вашиот простор за работа</p>
     <h1>Најава за колеги</h1>
     <p class="muted">Корисничкото име е вашето име и презиме, споени, на кирилица или на латиница:
        <span class="names">ИмеПрезиме</span> или <span class="names">ImePrezime</span>.</p>
@@ -399,9 +459,47 @@ header.top h1 { flex: 1; min-width: 180px; }
       <label>Лозинка
         <input name="password" type="password" autocomplete="current-password" required>
       </label>
+      <label class="remember-choice"><input id="rememberSession" type="checkbox" checked><span>Запомни ме на овој уред<small>До 30 дена. Исклучете на заеднички уред. Лозинката не се зачувува во апликацијата.</small></span></label>
       <button class="primary" type="submit">Најави се</button>
       <p class="msg" id="loginMsg" role="status" aria-live="polite"></p>
     </form>
+  </section>
+
+  <section id="welcome" class="card narrow" hidden aria-labelledby="welcomeName">
+    <div class="welcome-avatar" id="welcomeAvatar" aria-hidden="true"></div>
+    <p class="welcome-kicker">Добредојдовте во Колеги</p>
+    <h1 class="welcome-name" id="welcomeName"></h1>
+    <p class="muted" id="welcomeYear"></p>
+    <span class="welcome-role" id="welcomeRole">Колега · сопствени податоци</span>
+    <p class="welcome-note" id="welcomeNote"></p>
+    <div class="welcome-actions">
+      <button class="primary" id="welcomeContinue" type="button">Продолжи</button>
+      <button id="welcomeSwitch" type="button">Не сум јас · друга најава</button>
+    </div>
+    <p class="msg" id="welcomeMsg" role="status" aria-live="polite"></p>
+    <details class="transport-explanation" id="ownerHelp">
+      <summary>Сопственички пристап</summary>
+      <p>За списокот на сите колеги, најавете се како сопственик во MTB во истиот прелистувач, па проверете го пристапот тука. Споделениот линк сам не дава овие права.</p>
+      <p><a href="/MTB-Workspace.html" target="_blank" rel="noopener">Отвори ја сопственичката најава ↗</a></p>
+      <button type="button" id="ownerRefresh">Провери сопственички пристап</button>
+    </details>
+    <section class="owner-door" id="ownerDoor" hidden aria-labelledby="ownerDoorTitle">
+      <h2 id="ownerDoorTitle">Сите колеги</h2>
+      <p class="muted">Изберете колега за администраторски преглед, без негова лозинка. Измените се бележат како администраторски.</p>
+      <label>Најди колега<input id="ownerAccountSearch" type="search" autocomplete="off" placeholder="Име или презиме"></label>
+      <div class="owner-accounts" id="ownerAccounts"></div>
+      <p class="msg" id="ownerOpenMsg" role="status" aria-live="polite"></p>
+    </section>
+    <div class="welcome-preferences">
+      <h3>Направете го просторот ваш</h3>
+      <div class="accent-options" role="group" aria-label="Боја на темата">
+        <button type="button" data-accent="blue"><span class="accent-dot" style="--swatch:#0866df" aria-hidden="true"></span>Сина</button>
+        <button type="button" data-accent="violet"><span class="accent-dot" style="--swatch:#7138c6" aria-hidden="true"></span>Виолетова</button>
+        <button type="button" data-accent="teal"><span class="accent-dot" style="--swatch:#08796e" aria-hidden="true"></span>Тиркизна</button>
+      </div>
+      <button type="button" id="welcomeTheme">Светла / темна тема</button>
+      <label>Големина на текст<select id="welcomeText"><option value="standard">Стандарден</option><option value="large">Поголем</option></select></label>
+    </div>
   </section>
 
   <section id="offer" class="card narrow" hidden>
@@ -425,6 +523,7 @@ header.top h1 { flex: 1; min-width: 180px; }
        ваше, и колегата се известува. <button type="button" class="small" id="closeActing">Затвори</button></p>
     <header class="top">
       <h1 id="homeName">—</h1>
+      <button type="button" id="openWelcome">Мој простор</button>
       <button type="button" id="openNotices" aria-expanded="false">🔔 Известувања<span class="count" id="unseenCount" hidden></span></button>
       <button type="button" id="openPassword">Смени лозинка</button>
       <button type="button" id="logout">Одјави се</button>
@@ -492,6 +591,7 @@ header.top h1 { flex: 1; min-width: 180px; }
     const ROLE_NAMES = { teacher: 'наставник', homeroom: 'раководител на паралелка', therapist: 'кабинет (терапевт)' };
     const DAY_SHORT = { 'понеделник': 'Пон', 'вторник': 'Вто', 'среда': 'Сре', 'четврток': 'Чет', 'петок': 'Пет' };
     let me = null;
+    let ownerAccounts = [], welcomeOwnerRequest = 0;
     let week = null;
     let memory = '';            // the token, when this browser keeps nothing
     // `week`: the whole week on one sheet instead of one day's list (🗓 Недела).
@@ -514,7 +614,7 @@ header.top h1 { flex: 1; min-width: 180px; }
         try { sessionStorage.setItem(DUTY_ADMIN_KEY, dutyAdminFromHash); sessionStorage.removeItem(ACTING_KEY); } catch (_) { /* this page load only */ }
     }
     if (actingFromHash || dutyAdminFromHash) history.replaceState(null, '', window.location.pathname + window.location.search);
-    const actingToken = (() => {
+    let actingToken = (() => {
         if (/^[0-9a-f]{64}$/.test(actingFromHash)) return actingFromHash;
         try { return sessionStorage.getItem(ACTING_KEY) || ''; } catch (_) { return ''; }
     })();
@@ -532,10 +632,20 @@ header.top h1 { flex: 1; min-width: 180px; }
     const token = {
         get() {
             if (actingToken) return actingToken;
-            try { return localStorage.getItem(TOKEN_KEY) || ''; } catch (_) { return memory; }
+            try { return sessionStorage.getItem(TOKEN_KEY) || localStorage.getItem(TOKEN_KEY) || memory; } catch (_) { return memory; }
         },
-        set(value) { memory = value; try { localStorage.setItem(TOKEN_KEY, value); } catch (_) { /* this tab only */ } },
-        clear() { memory = ''; try { localStorage.removeItem(TOKEN_KEY); } catch (_) { /* nothing kept */ } }
+        set(value) {
+            memory = value;
+            try {
+                localStorage.removeItem(TOKEN_KEY); sessionStorage.removeItem(TOKEN_KEY);
+                (el('rememberSession').checked ? localStorage : sessionStorage).setItem(TOKEN_KEY,value);
+            } catch (_) { /* this page only */ }
+        },
+        clear() {
+            // An expired preview must not sign the owner out in every tab.
+            if(actingToken) { actingToken=''; try { sessionStorage.removeItem(ACTING_KEY); } catch (_) { /* this page only */ } return; }
+            memory = ''; try { localStorage.removeItem(TOKEN_KEY); sessionStorage.removeItem(TOKEN_KEY); } catch (_) { /* nothing kept */ }
+        }
     };
 
     async function api(method, path, body) {
@@ -562,7 +672,9 @@ header.top h1 { flex: 1; min-width: 180px; }
     }
 
     function show(which) {
-        ['login', 'offer', 'home'].forEach((id) => { el(id).hidden = id !== which; });
+        if(which !== 'welcome') welcomeOwnerRequest++;
+        if(which === 'login') { ownerAccounts=[]; el('ownerAccounts').replaceChildren(); el('ownerDoor').hidden=true; }
+        ['login', 'welcome', 'offer', 'home'].forEach((id) => { el(id).hidden = id !== which; });
         document.title = which === 'home' ? 'Мој распоред' : 'Најава';
         const first = el(which).querySelector('input');
         if (first && which !== 'home') first.focus();
@@ -2461,6 +2573,7 @@ header.top h1 { flex: 1; min-width: 180px; }
     }
 
     function drawHome() {
+        el('openWelcome').hidden = Boolean(me.acting);
         el('actingBanner').hidden = !me.acting;
         el('openPassword').hidden = Boolean(me.acting);
         el('logout').hidden = Boolean(me.acting);
@@ -2601,14 +2714,99 @@ header.top h1 { flex: 1; min-width: 180px; }
         }
     });
 
+    function drawWelcome() {
+        if(me.acting) return drawHome();
+        el('welcomeName').textContent=me.person.name;
+        el('welcomeAvatar').textContent=me.person.name.split(/\s+/).filter(Boolean).slice(0,2).map(n=>n[0]).join('');
+        el('welcomeYear').textContent='Учебна '+me.year;
+        el('welcomeNote').textContent=dutyAdminToken.get()
+            ? 'Отворивте линк за управување со дежурствата. При продолжување ќе го провериме пристапот.'
+            : 'Вашата најава е потврдена. Продолжете кон вашиот распоред, присуство и достапните екрани.';
+        el('welcomeContinue').textContent=dutyAdminToken.get() ? 'Продолжи кон дежурствата' : 'Отвори го мојот простор';
+        drawPreferences(); say('welcomeMsg',''); show('welcome');
+        loadOwnerAccounts();
+    }
+    async function loadOwnerAccounts() {
+        const person=me, request=++welcomeOwnerRequest;
+        ownerAccounts=[]; el('ownerDoor').hidden=true; el('ownerAccounts').replaceChildren();
+        el('welcomeRole').textContent='Колега · сопствени податоци';
+        try {
+            // The existing owner gate, never a display name or a duty link,
+            // decides whether this account picker can be read and used.
+            const data=await ownerApi('GET','/api/staff-accounts',undefined,false);
+            if(me!==person || request!==welcomeOwnerRequest || el('welcome').hidden) return;
+            ownerAccounts=data.accounts || [];
+            el('welcomeRole').textContent='Суперадминистратор · сопственички пристап';
+            el('ownerAccountSearch').value=''; el('ownerDoor').hidden=false;
+            say('ownerOpenMsg',''); drawOwnerAccounts();
+        } catch (_) { /* an ordinary colleague sees only their own door */ }
+    }
+    function drawOwnerAccounts() {
+        const query=norm(el('ownerAccountSearch').value);
+        const rows=ownerAccounts.filter(a=>norm(a.name).includes(query));
+        el('ownerAccounts').innerHTML=rows.length ? rows.map(a=>`<button type="button" data-open-account="${a.employeeId}"><strong>${esc(a.name)}</strong><small>${esc([a.teacher?'Настава':'',a.therapist?'Кабинет':''].filter(Boolean).join(' · ') || 'Колега')} · Отвори преглед ↗</small></button>`).join('') : '<p>Нема совпаѓање.</p>';
+    }
+    el('ownerAccountSearch').addEventListener('input',drawOwnerAccounts);
+    el('ownerRefresh').addEventListener('click',loadOwnerAccounts);
+    el('ownerAccounts').addEventListener('click',async event=>{
+        const button=event.target.closest('[data-open-account]'); if(!button) return;
+        const id=Number(button.dataset.openAccount);
+        if(!ownerAccounts.some(a=>a.employeeId===id)) return;
+        // Open during the gesture so touch browsers do not block the tab.
+        // Nothing private is rendered there until the server grants the view.
+        const tab=window.open('about:blank','_blank');
+        if(!tab) return say('ownerOpenMsg','Дозволете отворање ново јазиче за овој сајт.','error');
+        tab.opener=null; button.disabled=true;
+        try {
+            const answer=await ownerApi('POST','/api/staff-accounts/'+id+'/open',{},false);
+            if(!/^\/Kolega\.html#as=[0-9a-f]{64}$/.test(answer.url)) throw Error('Невалиден адресен одговор.');
+            tab.location.replace(answer.url);
+            say('ownerOpenMsg','Администраторскиот преглед е отворен во ново јазиче.','ok');
+        } catch(err) {
+            tab.close(); say('ownerOpenMsg',err.message,'error');
+            if(err.status===401 || err.status===403) { ownerAccounts=[]; el('ownerAccounts').replaceChildren(); el('ownerDoor').hidden=true; el('welcomeRole').textContent='Колега · сопствени податоци'; say('welcomeMsg','Сопственичкиот пристап не е потврден. Пристапете повторно преку вашата сопственичка најава.','error'); }
+        } finally { button.disabled=false; }
+    });
+    function drawPreferences() {
+        const accent=document.documentElement.dataset.accent || 'blue';
+        el('welcome').querySelectorAll('[data-accent]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.accent===accent)));
+        el('welcomeText').value=document.documentElement.dataset.text || 'standard';
+    }
+    el('openWelcome').addEventListener('click',drawWelcome);
+    el('welcomeContinue').addEventListener('click',async()=>{
+        const button=el('welcomeContinue'); button.disabled=true; el('welcomeSwitch').disabled=true;
+        try { me=await api('GET','/api/portal/me'); creditFrom(me); drawHome(); }
+        catch(err) { say(el('welcome').hidden?'loginMsg':'welcomeMsg',err.message,'error'); }
+        finally { button.disabled=false; el('welcomeSwitch').disabled=false; }
+    });
+    el('welcomeSwitch').addEventListener('click',async()=>{
+        const button=el('welcomeSwitch'); button.disabled=true; el('welcomeContinue').disabled=true;
+        try { await api('POST','/api/portal/logout'); } catch (_) { /* always clear this device */ }
+        token.clear(); me=null; week=null;
+        el('loginForm').reset(); show('login'); button.disabled=false; el('welcomeContinue').disabled=false;
+        // Keep only this tab's offered duty link, so the next account must
+        // still pass its own active-staff and capability checks.
+    });
+    el('welcome').addEventListener('click',event=>{
+        const b=event.target.closest('[data-accent]'); if(!b) return;
+        document.documentElement.dataset.accent=b.dataset.accent;
+        try { localStorage.setItem('mtb_kolega_accent',b.dataset.accent); } catch (_) { /* optional */ }
+        drawPreferences();
+    });
+    el('welcomeText').addEventListener('change',event=>{
+        document.documentElement.dataset.text=event.target.value;
+        try { localStorage.setItem('mtb_kolega_text',event.target.value); } catch (_) { /* optional */ }
+    });
+    el('welcomeTheme').addEventListener('click',()=>el('themeToggle').click());
+
     async function start() {
         if (!token.get()) return show('login');
         try {
             me = await api('GET', '/api/portal/me');
             creditFrom(me);
-            drawHome();
+            drawWelcome();
         } catch (err) {
-            if (err.status === 401 || err.status === 403) token.clear();
+            if (err.status === 403) token.clear(); // api() already clears a 401
             show('login');
             if (err.status === 403 || err.status === 0) say('loginMsg', err.message, 'error');
         }
@@ -2633,7 +2831,7 @@ header.top h1 { flex: 1; min-width: 180px; }
             if (answer.initialPassword) {
                 el('offerHello').textContent = 'Добредојдовте, ' + answer.person.name;
                 show('offer');
-            } else drawHome();
+            } else drawWelcome();
         } catch (err) {
             say('loginMsg', err.message, 'error');
             form.elements.password.select();
@@ -2648,10 +2846,10 @@ header.top h1 { flex: 1; min-width: 180px; }
             await api('POST', '/api/portal/password', { current: 'ResursenCentar', next });
             me.initialPassword = false;
             event.target.reset();
-            drawHome();
+            drawWelcome();
         } catch (err) { say('offerMsg', err.message, 'error'); }
     });
-    el('keepInitial').addEventListener('click', () => drawHome());
+    el('keepInitial').addEventListener('click', () => drawWelcome());
 
     el('openPassword').addEventListener('click', () => {
         el('passwordCard').hidden = false;

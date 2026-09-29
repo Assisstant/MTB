@@ -4325,6 +4325,52 @@ remains legible in both themes. Browser checks cover 360/400px overflow, touch
 target sizes, vertical dates, print type/zoom, a 15-pupil one-page PDF and long
 multi-page date lists. Only invented pupils appear in ignored QA artifacts.
 
+### Colleague welcome and owner account picker (29 Sep 2026)
+
+The owner clarified that the shared colleague link should feel familiar on touch
+phones, with a messaging-inspired visual style and remembered login. The same
+self-contained Kolega page now shows sign-in → verified-person welcome → workspace.
+Continue revalidates the session, so an expired remembered token cannot enter.
+The existing 30-day staff token is kept in localStorage when Remember is checked,
+or sessionStorage when unchecked. Passwords never enter app storage; browser
+password-manager autocomplete remains native. Logout clears the session and
+the tab's duty capability; switching accounts keeps only the offered duty link,
+which still requires the next person's own active account. Initial-password
+choice remains unchanged. Acting views bypass the welcome screen deliberately.
+
+Rounded cards, blue/violet/teal gradients, system fonts, touch targets, light/dark
+and normal/large text provide the new feel without new files/assets, external
+requests, Messenger trademarks or Facebook authentication. Print styles are not
+themed. The existing watermark behavior remains distinct from report attribution.
+
+The follow-up asked for an owner/superadministrator picker without colleague
+password prompts. This reuses `/api/staff-accounts` and its existing owner-only
+`POST /:employeeId/open`: no new role, identity guessing, password reset or
+authorization bypass. The screen says Superadministrator only after the protected
+list answers. An ordinary colleague stays scoped to their own portal screens;
+duty-only links retain only their deliberately delegated duty powers. Cloud owner
+Google sign-in and enabled inner guards remain authoritative; local enforcement-
+off compatibility is unchanged. A help disclosure opens the existing owner entry
+point and allows retrying the permission check in the same browser.
+
+Selecting a person requests a new temporary acting view, opens it in a separate
+tab and shows the existing administrator banner and authorship. The server checks
+owner rights again on each selection; a refused grant closes the blank tab and
+removes stale owner controls, never retries with a colleague/duty token. Grant
+URLs are accepted only in the existing same-origin fragment format. The raw
+acting token stays tab-only. Fixed an existing isolation issue: an expired acting
+view used to clear the owner's normal token too; it now clears only its own
+acting credential (including the previous double-clear in start's 401 handler).
+
+Verification: 309/309 unit/integration tests, `test:kolega-landing`, `test:kolega`,
+`test:kolega-attendance`, `test:kolegi-admin`. Added isolated DB coverage verifies
+ordinary/duty token denial, owner grants and non-escalating acting credentials.
+Browser tests cover remembered and tab-only sessions, new-tab isolation, expiry,
+account switching, palette/font persistence, owner-only searching/opening,
+revoked rights, and expiry of a preview without losing the owner's own session.
+Screenshots use invented accounts in ignored backups. No live auth settings,
+database migration or cloud deployment was performed.
+
 ## Личниот распоред на наставникот, на едно место (28 Sep 2026)
 
 The owner asked for the colleagues' own-week editor inside Податоци: a

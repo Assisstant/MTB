@@ -13,6 +13,26 @@ but it must not present parallel versions of the same task.
 - `start.html` is the entry point and server chooser.
 - `app-navigation.js` is the shared movement and status bar.
 - `RasporediFusion.html` is the only user-facing schedule application.
+- **Kolega landing, 29 September 2026:** the ordinary shared `/kolegi` link
+  opens sign-in, then a verified-person welcome screen, then the person's own
+  workspace via Continue. Existing sessions reach the welcome screen without a
+  password prompt. Remember stores only the existing 30-day session token;
+  opting out keeps it in this tab's sessionStorage. No password is persisted by
+  the app. Session validation and expiry remain server-owned. Switching accounts
+  clears the ordinary session; logout also clears this tab's duty capability.
+  Three accent palettes, existing light/dark theme and text size are local
+  preferences. The visual style is messaging-inspired, without external fonts,
+  tracking, Messenger branding or a Facebook login.
+  The welcome screen's **superadministrator** label means the EXISTING owner
+  authorization, not a new role assigned by a display name or shared URL.
+  Protected `/api/staff-accounts` and `/:id/open` provide its searchable list and
+  temporary acting views. Selection opens a labelled admin view in another tab,
+  never asks for the colleague password, and retains administrator attribution.
+  Ordinary portal/duty tokens cannot open the picker. Owner Google sign-in in
+  the same browser (and the existing inner owner guard where enabled) is still
+  required. Acting-preview expiry must not erase the owner's ordinary session.
+  Local enforcement-off compatibility access is unchanged; no live account,
+  auth setting, or permission migration is implied by the UI label.
 - `Rasporedi.html` is a compatibility and recovery file for legacy JSON. Keep
   it loadable, but never list it in `start.html`, the shared navigation, or the
   EduHub application grid.
