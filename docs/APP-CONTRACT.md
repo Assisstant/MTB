@@ -133,6 +133,11 @@ but it must not present parallel versions of the same task.
   no calendar grid, class label or total column in that table (screen/print/PNG).
   A pupil with no confirmed visit shows a dash. The separate signed confirmation
   retains its date list and day count; the cabinet's own monthly grid is unchanged.
+  **Readability follow-up, 29 September:** transport uses one spacious pupil row
+  with dates listed vertically in the second column. It prints A4 portrait at
+  11pt, with repeated column headings; long lists paginate rather than inherit
+  the calendar grid's shrink-to-one-page rule. Attendance controls adapt to
+  narrow touch screens with at least 44px touch targets and 16px input text.
 - `Sinhronizacija.html` is the one place that explains where the data stands:
   this browser's S-Dnevnik copy against its server, the WORK↔HOME snapshots,
   and the separate cloud. It only reads (`/api/health`, `/api/sync/status`

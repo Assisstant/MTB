@@ -4305,6 +4305,26 @@ confirmation still includes dates and their count. The normal cabinet month
 grid remains available for marking treatments. The browser regression checks
 the exact column labels and dates and still verifies single-page PDFs.
 
+### Transport readability and touch layout (29 Sep 2026)
+
+The owner's print screenshot showed that the two-column list still inherited
+the tiny calendar-grid typography. Its separate print style now uses A4 portrait,
+11pt body type and padded pupil rows; dates are one per line in the second column
+in screen, print and PNG. Long lists paginate with repeated table headers instead
+of shrinking to fit one page. This deliberately refines the earlier one-page
+preference for transport only; the cabinet calendar/duty/week fit rules remain.
+The long calculation explanation is in an optional screen-only disclosure,
+while the printed sheet keeps a short, explicit confirmed-date/blank legend.
+
+Attendance controls use a two-column narrow-screen layout with full-width report
+and period pickers, paired navigation/print buttons, 48px controls and 16px input
+type. Calendar mark targets are at least 44px on narrow screens, without affecting
+compact print cells. Table row headers, column scopes and named certificate
+buttons improve keyboard/screen-reader navigation; green confirmed-date shading
+remains legible in both themes. Browser checks cover 360/400px overflow, touch
+target sizes, vertical dates, print type/zoom, a 15-pupil one-page PDF and long
+multi-page date lists. Only invented pupils appear in ignored QA artifacts.
+
 ## Личниот распоред на наставникот, на едно место (28 Sep 2026)
 
 The owner asked for the colleagues' own-week editor inside Податоци: a

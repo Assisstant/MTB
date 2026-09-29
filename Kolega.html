@@ -260,6 +260,40 @@ header.top h1 { flex: 1; min-width: 180px; }
 .attendance-table.transport-dates th:first-child { width: 30%; }
 .attendance-table.transport-dates th, .attendance-table.transport-dates td { text-align: left; overflow-wrap: anywhere; }
 .attendance-table.transport-dates .no-print { display: block; margin-top: 5px; }
+.attendance-table.transport-dates { font-size: 17px; line-height: 1.55; }
+.attendance-table.transport-dates th, .attendance-table.transport-dates td { padding: 14px 16px; vertical-align: top; }
+.attendance-table.transport-dates th:first-child { width: 42%; }
+.attendance-table.transport-dates tbody th { background: var(--well); font-weight: 650; }
+.attendance-table.transport-dates tbody tr { border-bottom: 2px solid var(--line); }
+.transport-explanation { margin: 12px 0; color: var(--muted); font-size: 14px; }
+.transport-explanation summary { min-height: 44px; padding: 10px 0; cursor: pointer; }
+@media screen {
+  #tabs button, .attendance-tools button, .attendance-tools input, .attendance-tools select,
+  .transport-dates button { min-height: 48px; touch-action: manipulation; }
+  .attendance-tools input, .attendance-tools select { font-size: 16px; }
+  #attendance button:focus-visible, #attendance input:focus-visible, #attendance select:focus-visible {
+    outline: 3px solid var(--focus); outline-offset: 3px;
+  }
+}
+@media screen and (max-width: 600px) {
+  .attendance-tools { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 10px; align-items: end; }
+  .attendance-tools > * { min-width: 0; width: 100%; }
+  .attendance-tools label:has(#attendanceScope) { grid-column: 1 / -1; order: 0; }
+  .attendance-tools [data-att-mode="week"] { order: 1; }
+  .attendance-tools [data-att-mode="month"] { order: 2; }
+  .attendance-tools label:has(#attendanceDate) { grid-column: 1 / -1; order: 3; }
+  .attendance-tools [data-att-step="-1"] { order: 4; }
+  .attendance-tools [data-att-step="1"] { order: 5; }
+  .attendance-tools [data-att-refresh] { order: 6; grid-column: 1 / -1; }
+  .attendance-tools [data-att-print] { order: 7; }
+  .attendance-tools [data-att-png] { order: 8; }
+  .attendance-tools button { white-space: normal; padding: 10px 8px; }
+  .attendance-tools input, .attendance-tools select { width: 100%; min-width: 0; }
+  .attendance-table.transport-dates { font-size: 16px; }
+  .attendance-table.transport-dates th, .attendance-table.transport-dates td { padding: 12px 8px; min-width: 0; }
+  .attendance-table.transport-dates .no-print { max-width: 100%; padding: 8px; }
+  .attendance-table.month .attendance-mark { min-width: 44px; min-height: 44px; }
+}
 .attendance-table th, .attendance-table td { border: 1px solid var(--line, #ccd0e0); padding: 5px; text-align: center; white-space: pre-line; }
 .attendance-table thead th { background: #5048ac; color: #fff; }
 .attendance-table tbody th { text-align: left; min-width: 115px; }
@@ -280,6 +314,7 @@ header.top h1 { flex: 1; min-width: 180px; }
 @page attendance-report { size: A4 landscape; margin: 10mm; }
 @page duty-report { size: A4 portrait; margin: 10mm; }
 @page transport-certificate { size: A4 portrait; margin: 20mm; }
+@page transport-list { size: A4 portrait; margin: 12mm; }
 @media print {
   .print-preparer { display: block; font: bold 9pt Arial, sans-serif; color: #000; background: #f3f4f6; padding: 3mm; margin: 0 0 3mm; }
   body.printing-week { page: week; }
@@ -335,6 +370,19 @@ header.top h1 { flex: 1; min-width: 180px; }
   body.printing-duty .duty-table th, body.printing-duty .duty-table td { padding: 3px 5px; }
   body.printing-duty h2 { font-size: 13pt; }
   body.printing-duty p { font-size: 8pt; margin: 2mm 0; }
+  /* The two-column transport list is a document, not a 31-column grid.
+     Keep readable type and paginate long date lists instead of shrinking. */
+  body.printing-transport-list { page: transport-list; }
+  body.printing-transport-list main { width: 186mm; }
+  body.printing-transport-list #attendance { zoom: 1 !important; }
+  body.printing-transport-list .attendance-table.transport-dates { font-size: 11pt; line-height: 1.35; }
+  body.printing-transport-list .attendance-table.transport-dates th,
+  body.printing-transport-list .attendance-table.transport-dates td { padding: 2.5mm 3mm; height: 8mm; vertical-align: top; }
+  body.printing-transport-list .attendance-table.transport-dates th:first-child { width: 42%; }
+  body.printing-transport-list .attendance-table thead { display: table-header-group; }
+  body.printing-transport-list h2 { font-size: 15pt; line-height: 1.3; margin: 3mm 0; }
+  body.printing-transport-list p { font-size: 10pt; line-height: 1.4; margin: 2mm 0; }
+  body.printing-transport-list .print-preparer { font-size: 10pt; }
 }
 </style>
 </head>
@@ -748,15 +796,16 @@ header.top h1 { flex: 1; min-width: 180px; }
         return { title:'Надворешни ученици — доаѓања за превоз', subtitle:d.month + ' · учебна ' + d.year + ' · сите кабинети',
             note:d.note + ' Проверете ја евиденцијата пред потпис. Изготвено: ' + new Date(d.generatedAt).toLocaleString('mk-MK'),
             columns:['Ученик','Датуми на присуство во училиштето'],
-            rows:d.pupils.map(p=>[p.name,p.dates.map(dmy).join(', ') || '—']) };
+            rows:d.pupils.map(p=>[p.name,p.dates.map(dmy).join('\n') || '—']) };
     }
     function drawTransport() {
         const m=transportReport();
-        el('attendanceSheet').innerHTML=`<h2>${esc(m.title)}</h2><p>${esc(m.subtitle)}</p><p>${esc(m.note)}</p>`
-            + '<p>Еден ученик + еден датум = еден ден, независно од бројот на кабинети. „—“ = нема потврдено присуство.</p>'
+        el('attendanceSheet').innerHTML=`<h2>${esc(m.title)}</h2><p>${esc(m.subtitle)}</p>`
+            + '<p>Потврдени датуми од сите кабинети, без повторување. „—“ = нема запишано присуство.</p>'
+            + `<details class="transport-explanation no-print"><summary>Како се добива списокот?</summary><p>${esc(m.note)}</p></details>`
             + (m.rows.length ? '<div class="attendance-scroll"><table class="attendance-table transport-dates"><thead><tr>'
-                + m.columns.map(c=>`<th>${esc(c)}</th>`).join('') + '</tr></thead><tbody>'
-                + m.rows.map((r,i)=>'<tr><th>'+esc(r[0])+`<button class="no-print" data-transport-certificate="${attendance.data.pupils[i].studentId}"${attendance.data.pupils[i].daysPresent ? '' : ' disabled'}>Потврда</button></th>`
+                + m.columns.map(c=>`<th scope="col">${esc(c)}</th>`).join('') + '</tr></thead><tbody>'
+                + m.rows.map((r,i)=>'<tr><th scope="row">'+esc(r[0])+`<button class="no-print" aria-label="Потврда за ${esc(r[0])}" data-transport-certificate="${attendance.data.pupils[i].studentId}"${attendance.data.pupils[i].daysPresent ? '' : ' disabled'}>Потврда</button></th>`
                     + `<td${attendance.data.pupils[i].daysPresent?' class="mark-present"':''}>${esc(r[1])}</td></tr>`).join('')+'</tbody></table></div>'
                 : '<p>Нема надворешни ученици во избраниот годишен список.</p>');
     }
@@ -897,12 +946,15 @@ header.top h1 { flex: 1; min-width: 180px; }
     window.addEventListener('beforeprint', () => {
         const kind = ['attendance','duty','week'].find(k=>document.body.classList.contains('printing-'+k));
         if (!kind) return;
+        const transport = kind === 'attendance' && attendance.scope === 'transport';
+        document.body.classList.toggle('printing-transport-list',transport);
         const target = el(kind === 'week' ? 'weekSheet' : kind);
         const heading = kind === 'week' ? target.querySelector('.sheet') : kind === 'attendance' ? el('attendanceSheet') : target;
         let preparer = heading.querySelector('.print-preparer');
         if(!preparer) { preparer=document.createElement('p'); preparer.className='print-preparer'; heading.prepend(preparer); }
         preparer.textContent = 'Изработил: ' + me.person.name;
         target.style.zoom = '';
+        if(transport) return;
         const pxPerMm = 96 / 25.4;
         const width = (kind === 'duty' ? 190 : 277) * pxPerMm;
         // Leave room for font/row rounding and collapsed outer margins in
@@ -913,7 +965,7 @@ header.top h1 { flex: 1; min-width: 180px; }
         fittedPrint = target;
     });
     window.addEventListener('afterprint', () => { if(fittedPrint) fittedPrint.style.zoom=''; fittedPrint=null; });
-    window.addEventListener('afterprint', () => document.body.classList.remove('printing-attendance'));
+    window.addEventListener('afterprint', () => document.body.classList.remove('printing-attendance','printing-transport-list'));
     window.addEventListener('afterprint', () => { document.body.classList.remove('printing-transport-certificate'); el('transportCertificate').hidden=true; });
 
     /** Owner route, or its narrowly delegated /api/portal counterpart. */

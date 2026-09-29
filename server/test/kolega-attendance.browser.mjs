@@ -112,7 +112,7 @@ try {
     await p.selectOption('#attendanceScope','transport'); await ready();
     assert.equal(await p.locator('.attendance-table tbody tr').count(),2);
     assert.deepEqual(await p.locator('.attendance-table thead th').allTextContents(),['Ученик','Датуми на присуство во училиштето'],'transport report has only name and confirmed dates, no calendar or count columns');
-    assert.deepEqual(await p.locator('.attendance-table tbody tr td:last-child').allTextContents(),['07.09.2026, 14.09.2026','—']);
+    assert.deepEqual(await p.locator('.attendance-table tbody tr td:last-child').allTextContents(),['07.09.2026\n14.09.2026','—'],'confirmed dates form a vertical column in the pupil row');
     assert.equal(await p.locator('.attendance-mark').count(),0,'transport report is read-only');
     assert.equal(await p.locator('[data-att-mode="week"]').isDisabled(),true);
     assert.equal(await p.locator('[data-transport-certificate="12"]').isDisabled(),true,'zero days cannot issue attendance certificate');
@@ -132,10 +132,40 @@ try {
     const [transportPng]=await Promise.all([p.waitForEvent('download'),p.click('[data-att-png]')]);
     assert.match(transportPng.suggestedFilename(),/^Prevoz-/);
     await transportPng.saveAs(resolve(artifacts,'transport.png'));
+    for(const width of [360,400]) {
+        await p.setViewportSize({width,height:850});
+        assert.ok(await p.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),'transport list and controls fit narrow phones');
+        for(const control of ['#attendanceDate','#attendanceScope','[data-att-print]','[data-att-png]','[data-transport-certificate="11"]']) {
+            assert.ok((await p.locator(control).boundingBox()).height>=44,'touch target at least 44px: '+control);
+        }
+    }
+    await p.screenshot({path:resolve(artifacts,'transport-mobile.png'),fullPage:true});
+    await p.evaluate(()=>document.documentElement.dataset.theme='dark');
+    await p.screenshot({path:resolve(artifacts,'transport-mobile-dark.png'),fullPage:true});
+    await p.evaluate(()=>document.documentElement.dataset.theme='light');
+    await p.setViewportSize({width:1400,height:1000});
     await p.click('[data-att-print]');await p.emulateMedia({media:'print'});
+    await p.evaluate(()=>window.dispatchEvent(new Event('beforeprint')));
     assert.equal(await p.locator('#transportCertificate').isVisible(),false);
     assert.equal(await p.locator('[data-transport-certificate="11"]').isVisible(),false);
+    assert.ok(await p.locator('.transport-dates td').first().evaluate(n=>parseFloat(getComputedStyle(n).fontSize)>=14),'print body type stays at least 10.5pt, not calendar-size text');
+    assert.equal(await p.locator('#attendance').evaluate(n=>getComputedStyle(n).zoom),'1','transport list is never auto-shrunk');
+    await p.evaluate(()=>{
+        const body=document.querySelector('.transport-dates tbody'),row=body.rows[1];
+        for(let i=3;i<=15;i++){const copy=row.cloneNode(true);copy.cells[0].textContent='Измислен Ученик '+i;body.append(copy);}
+    });
+    await p.screenshot({path:resolve(artifacts,'transport-readable-print.png'),fullPage:true});
     await onePagePdf(resolve(artifacts,'transport-month.pdf'));
+    await p.evaluate(()=>window.dispatchEvent(new Event('afterprint')));await p.emulateMedia({media:'screen'});
+    // A full month for several pupils must paginate, not reduce the font.
+    await p.click('[data-att-print]');await p.emulateMedia({media:'print'});
+    await p.evaluate(()=>{
+        document.querySelectorAll('.transport-dates tbody td').forEach(td=>{
+            td.textContent=Array.from({length:22},(_,i)=>String(i+1).padStart(2,'0')+'.09.2026').join('\n');
+        });
+    });
+    const longPdf=await p.pdf({path:resolve(artifacts,'transport-long.pdf'),preferCSSPageSize:true,printBackground:true});
+    assert.ok((longPdf.toString('latin1').match(/\/Type\s*\/Page\b/g)||[]).length>1,'long lists continue on another page at readable size');
     await p.evaluate(()=>window.dispatchEvent(new Event('afterprint')));await p.emulateMedia({media:'screen'});
     await p.setViewportSize({width:400,height:850});
     assert.ok(await p.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),'mobile page does not overflow; table scrolls inside');
