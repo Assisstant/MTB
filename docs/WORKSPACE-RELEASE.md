@@ -1,6 +1,24 @@
 # Master administration release — 21 September 2026
 
-## Cabinet attendance — 28 September 2026, code only, NOT deployed
+## Read-only colleagues — 29 September 2026, code only, NOT deployed
+
+Migration **050** adds `staff_accounts.read_only`, false for every existing
+account. It changes no passwords, people, schedules or attendance. The current
+guarded runner accepts **033–050**, using a new recovery schema:
+`mtb_workspace_recovery_staff_read_only_20260929`. Keep the existing Render
+`npm run deploy:workspace` startup sequence. Do not apply 050 to a live database
+just to try the page; development checks use disposable schemas.
+
+After deployment, the owner uses Податоци → Колеги → „Само преглед“, choosing
+an existing employee or creating a new administration/specialist profile.
+No live account has been assigned by this development session. Check the
+selected account through `/kolegi`: colleague selector, pupil lists, cabinet
+attendance and transport, print/PNG/Word, with no editable controls. Access
+changes end previous sessions, and a duty-admin link cannot override read-only.
+Removing access from administration-only staff prevents their next login;
+removing it from teachers/therapists restores their ordinary editing role.
+
+## Earlier batch: cabinet attendance — 28 September 2026
 
 Migration **049** adds cabinet attendance snapshots, pupil reference protection
 and a mark audit trail. No existing row changes, and S-Dnevnik's attendance is
@@ -8,7 +26,7 @@ not imported or overwritten. All three tables use RLS and revoke the browser
 REST roles; authenticated portal handlers derive the cabinet from the session.
 The tables are included in the optional read-only mirror, without activating it.
 
-The current runner accepts reviewed migrations **033–049** and uses the fresh
+That batch's runner accepted reviewed migrations **033–049** and used the fresh
 recovery schema `mtb_workspace_recovery_cabinet_attendance_20260928`.
 Older batch/version statements below are historical. Deployment must run
 `npm run deploy:workspace` using Render's existing configured database, then

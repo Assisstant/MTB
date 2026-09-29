@@ -214,6 +214,9 @@ header.top h1 { flex: 1; min-width: 180px; }
 .sheet td { padding: 3px; vertical-align: top; background: #f7fafc; cursor: pointer; }
 .sheet tbody tr:nth-child(even) td { background: #ffffff; }
 .sheet td:hover { outline: 2px solid #4c51bf; outline-offset: -2px; }
+.reader-mode .sheet td { cursor: default; overflow-wrap: anywhere; }
+.reader-mode .sheet td:hover { outline: none; }
+.reader-mode .reader-list-table th:first-child { width: 35px; }
 .sheet .s-item { margin: 0 0 3px; padding: 4px 6px 4px 8px; border-radius: 6px; background: #e6fffa; border-left: 4px solid #319795; line-height: 1.2; }
 .sheet .s-item b { display: block; font-size: 13px; color: #1a202c; overflow-wrap: anywhere; }
 .sheet .s-item small { display: block; font-size: 11px; color: #4a5568; }
@@ -550,12 +553,17 @@ header.top h1 { flex: 1; min-width: 180px; }
     </div>
 
     <div class="card" id="weekCard">
+      <div id="readerControls" class="no-print" hidden>
+        <p class="acting">🔒 Само преглед — распоредите, списоците и присуството може да се печатат и извезуваат.</p>
+        <label>Распоред / кабинет<select id="readerStaff"></select></label>
+      </div>
       <div class="tabs" id="tabs" role="group" aria-label="Што пополнувате"></div>
       <div class="days" id="days" role="group" aria-label="Ден"></div>
       <p class="muted" id="tabHint"></p>
       <div class="week-tools no-print" id="weekTools" hidden>
         <button type="button" id="printWeek">🖨 Печати</button>
         <button type="button" id="pngWeek">🖼 Слика</button>
+        <button type="button" id="docxWeek" hidden>Word (.docx)</button>
       </div>
       <div class="week-wrap" id="weekSheet" hidden></div>
       <div class="caseload" id="caseload" hidden></div>
@@ -655,6 +663,9 @@ header.top h1 { flex: 1; min-width: 180px; }
     };
 
     async function api(method, path, body) {
+        if (me && me.readOnly && !['GET', 'HEAD'].includes(method) && !['/api/portal/login', '/api/portal/logout', '/api/portal/password'].includes(path)) {
+            throw new Error('Имате пристап само за преглед.');
+        }
         let res;
         try {
             res = await fetch(path, {
@@ -822,8 +833,54 @@ header.top h1 { flex: 1; min-width: 180px; }
     // own lessons, class and subject. The teacher is never picked: a lesson
     // written here is the signed-in person's.
     const fillsClass = () => Boolean(me && me.teacher && me.teacher.kind === 'odd');
+    const reader = { staff: [], employeeId: '', pupils: [], class: '', type: '', cabinet: '', request: 0 };
+    const viewedName = () => me.readOnly && week && week.viewedPerson ? week.viewedPerson.name : me.person.name;
+    const readerQuery = () => me.readOnly && reader.employeeId ? '?employeeId=' + encodeURIComponent(reader.employeeId) : '';
+    const transportData = month => me.readOnly
+        ? api('GET', '/api/portal/read-only/transport?month=' + month)
+        : ownerApi('GET', '/api/attendance/transport?month=' + month + '&year=' + encodeURIComponent(me.year), undefined, false);
+
+    function readerListReport() {
+        const typeName = t => t === 'external' ? 'Надворешен' : t === 'internal' ? 'Внатрешен' : (t || '—');
+        const pupils = reader.pupils.filter(p => (!reader.class || p.class === reader.class) && (!reader.type || p.type === reader.type)
+            && (!reader.cabinet || p.therapists.some(t => String(t.employeeId) === reader.cabinet)));
+        const cabinet = reader.staff.find(s => String(s.employeeId) === reader.cabinet);
+        return { title: 'Список на ученици', subtitle: 'Учебна ' + me.year + ' · ' + pupils.length + ' ученици'
+            + (reader.class ? ' · ' + (pupils[0]?.className || reader.class) : '') + (reader.type ? ' · ' + typeName(reader.type) : '')
+            + (cabinet ? ' · ' + cabinet.name : ''),
+            columns: ['Бр.', 'Ученик', 'Паралелка', 'Одделение', 'Упис', 'Кабинети'],
+            rows: pupils.map((p,i) => [String(i+1), p.name, p.className || p.class || '—', p.oddelenie || '—', typeName(p.type), p.therapists.map(t => t.name).join('\n') || '—']) };
+    }
+    function drawReaderList() {
+        const m = readerListReport(), classes = new Map(reader.pupils.filter(p => p.class).map(p => [p.class,p.className || p.class]));
+        const options = (items, current) => '<option value="">Сите</option>' + items.map(([id,name]) => `<option value="${esc(id)}"${String(id)===current?' selected':''}>${esc(name)}</option>`).join('');
+        el('weekSheet').innerHTML = '<div class="row no-print">'
+            + `<label>Паралелка<select data-reader-filter="class">${options([...classes],reader.class)}</select></label>`
+            + `<label>Упис<select data-reader-filter="type">${options([['internal','Внатрешни'],['external','Надворешни']],reader.type)}</select></label>`
+            + `<label>Кабинет<select data-reader-filter="cabinet">${options(reader.staff.filter(s=>s.therapist).map(s=>[s.employeeId,s.name]),reader.cabinet)}</select></label></div>`
+            + `<div class="sheet"><h2>${esc(m.title)}</h2><p>${esc(m.subtitle)}</p><table class="reader-list-table"><thead><tr>${m.columns.map(c=>'<th>'+esc(c)+'</th>').join('')}</tr></thead><tbody>`
+            + m.rows.map(r=>'<tr>'+r.map(c=>'<td style="white-space:pre-line">'+esc(c)+'</td>').join('')+'</tr>').join('') + '</tbody></table></div>';
+    }
+    el('weekSheet').addEventListener('change', event => {
+        const field = event.target.dataset.readerFilter;
+        if (!me.readOnly || !['class','type','cabinet'].includes(field)) return;
+        reader[field] = event.target.value; drawReaderList();
+    });
+    el('readerStaff').addEventListener('change', async event => {
+        reader.employeeId = event.target.value; editing = null; attendance.request++; attendance.data = null;
+        const target = reader.staff.find(s=>String(s.employeeId)===reader.employeeId);
+        if(!target?.therapist) { attendance.scope='transport'; attendance.mode='month'; }
+        else attendance.scope='cabinet';
+        try { await reloadWeek(); } catch(err) { say('weekMsg',err.message,'error'); }
+    });
 
     function tabsOf() {
+        if (me.readOnly) return [
+            ...(week.me.teacherId != null ? [{ id: 'mine', label: 'Часови на наставникот' }] : []),
+            ...(week.me.homeroom || []).map(label => ({ id: 'class:' + label, label: 'Паралелка ' + shortOf(label) })),
+            ...(week.me.therapistId != null ? [{ id: 'cabinet', label: 'Распоред на кабинетот' }] : []),
+            { id: 'reader-list', label: '📋 Списоци' }, { id: 'attendance', label: '✓ Присуство' }
+        ];
         const tabs = [];
         const homeroom = week.me.homeroom || [];
         // An одделенски наставник's week IS their class; „Мои часови" is kept
@@ -875,8 +932,8 @@ header.top h1 { flex: 1; min-width: 180px; }
         if (!quiet) drawAttendance();
         try {
             const data = attendance.scope === 'transport'
-                ? await ownerApi('GET', '/api/attendance/transport?month=' + range.from.slice(0,7) + '&year=' + encodeURIComponent(me.year), undefined, false)
-                : await api('GET', '/api/portal/attendance?from=' + range.from + '&to=' + range.to);
+                ? await transportData(range.from.slice(0,7))
+                : await api('GET', '/api/portal/attendance?from=' + range.from + '&to=' + range.to + (me.readOnly && reader.employeeId ? '&employeeId=' + encodeURIComponent(reader.employeeId) : ''));
             if (request !== attendance.request) return;
             attendance.data = data;
             attendance.busy = false;
@@ -889,7 +946,7 @@ header.top h1 { flex: 1; min-width: 180px; }
     }
     function attendanceReport() {
         const data = attendance.data, ds = data.days;
-        const title = (attendance.mode === 'month' ? 'Месечно присуство' : 'Неделно присуство') + ' — ' + me.person.name;
+        const title = (attendance.mode === 'month' ? 'Месечно присуство' : 'Неделно присуство') + ' — ' + viewedName();
         const subtitle = data.from + ' – ' + data.to + ' · учебна ' + data.year;
         const note = '✓ присутен · × отсутен · ? неозначено · — нема термин · ● зачуван дневен распоред. Незачуваните денови се проекција од сегашниот распоред, не потврдена историја.'
             + (!data.calendarAvailable ? ' ⚠ Календарот за оваа година не е потврден на серверот.' : '');
@@ -916,6 +973,28 @@ header.top h1 { flex: 1; min-width: 180px; }
             columns:['Ученик','Датуми на присуство во училиштето'],
             rows:d.pupils.map(p=>[p.name,p.dates.map(dmy).join('\n') || '—']) };
     }
+    function flatAttendanceReport() {
+        const m = attendanceReport();
+        return { ...m, rows: m.rows.map(r => [r.label, ...r.cells.map(c => c.sessions.map(s =>
+            (attendance.mode === 'week' ? s.name + '\n' : '') + (s.status === 'present' ? '✓' : s.status === 'absent' ? '×' : '?')).join('\n') || '—'), ...r.totals.map(String)]) };
+    }
+    function saveReportDocx(report, file) {
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(transportDocxBlob(report, me.person.name, true));
+        a.download = file + '.docx'; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 30000);
+    }
+    async function downloadReaderAttendance() {
+        if (!me.readOnly || !attendance.data || attendance.busy) return;
+        const person=me, target=reader.employeeId, request=++attendance.request, range=attendanceRange();
+        attendance.busy=true; drawAttendance();
+        try {
+            const data=await api('GET','/api/portal/attendance?from='+range.from+'&to='+range.to+'&employeeId='+encodeURIComponent(target));
+            if(me!==person || reader.employeeId!==target || attendance.request!==request) return;
+            attendance.data=data;
+            saveReportDocx(flatAttendanceReport(),'Prisustvo-'+range.from);
+        } catch(err) { say('weekMsg',err.message,'error'); }
+        finally { if(me===person && attendance.request===request) { attendance.busy=false; drawAttendance(); } }
+    }
     // Read down four dates, then continue in the next column. Never truncate.
     function transportDateColumns(value) {
         const dates=String(value).split('\n'), columns=[];
@@ -936,14 +1015,14 @@ header.top h1 { flex: 1; min-width: 180px; }
     }
     // A small, uncompressed OPC ZIP keeps this public page self-contained:
     // no CDN, upload of pupil data, HTML renamed .doc, macros or remote parts.
-    function transportDocxBlob(report, preparer) {
+    function transportDocxBlob(report, preparer, generic = false) {
         const xml=s=>String(s).replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/g,'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&apos;'}[c]));
         const run=(s,bold=false)=>'<w:r><w:rPr>'+(bold?'<w:b/>':'')+'</w:rPr><w:t xml:space="preserve">'+xml(s)+'</w:t></w:r>';
         const p=(s,style='')=>'<w:p><w:pPr>'+(style?'<w:pStyle w:val="'+style+'"/>':'')+'</w:pPr>'+run(s)+'</w:p>';
         const cell=(content,width,fill)=>'<w:tc><w:tcPr><w:tcW w:w="'+width+'" w:type="dxa"/><w:vAlign w:val="center"/>'+(fill?'<w:shd w:fill="'+fill+'"/>':'')+'</w:tcPr>'+content+'</w:tc>';
         const row=(a,b,head=false,fill='')=>'<w:tr><w:trPr><w:cantSplit/>'+(head?'<w:tblHeader/>':'')+'</w:trPr>'+cell(a,3800,head?'F1F3F5':'')+cell(b,11678,head?'F1F3F5':fill)+'</w:tr>';
         const bold=s=>'<w:p>'+run(s,true)+'</w:p>';
-        const rows=report.rows.map(r=>{
+        const rows=(generic ? [] : report.rows).map(r=>{
             const cols=transportDateColumns(r[1]);
             const lines=Array.from({length:Math.min(4,cols[0].length)},(_,i)=>
                 '<w:p><w:pPr><w:tabs>'+Array.from({length:7},(_,j)=>'<w:tab w:val="left" w:pos="'+((j+1)*1430)+'"/>').join('')+'</w:tabs></w:pPr>'
@@ -965,6 +1044,17 @@ header.top h1 { flex: 1; min-width: 180px; }
                 +row(bold(report.columns[0]),bold(report.columns[1]),true)+rows+'</w:tbl>'+p('')
                 +'<w:sectPr><w:pgSz w:w="16839" w:h="11907" w:orient="landscape"/><w:pgMar w:top="680" w:right="680" w:bottom="680" w:left="680" w:header="0" w:footer="0" w:gutter="0"/></w:sectPr></w:body></w:document>'
         };
+        if (generic) {
+            const n=report.columns.length, widths=Array.from({length:n},(_,i)=> n>10 ? (i===0?2800:Math.floor(12678/(n-1))) : Math.floor(15478/n));
+            const tableRow=(values,head=false)=>'<w:tr><w:trPr>'+(head?'<w:tblHeader/>':'')+'</w:trPr>'+values.map((s,i)=>
+                cell(String(s).split('\n').map(line=>'<w:p>'+run(line,head)+'</w:p>').join(''),widths[i],head?'F1F3F5':'')).join('')+'</w:tr>';
+            files['word/document.xml']='<w:document xmlns:w="'+ns+'"><w:body>'+p('Изработил: '+preparer)+p(report.title,'Title')+p(report.subtitle)+p(report.note || '')+p('')
+                +'<w:tbl><w:tblPr><w:tblW w:w="15478" w:type="dxa"/><w:tblLayout w:type="fixed"/><w:tblBorders>'
+                +['top','left','bottom','right','insideH','insideV'].map(edge=>'<w:'+edge+' w:val="single" w:sz="4" w:color="D9D9D9"/>').join('')+'</w:tblBorders></w:tblPr><w:tblGrid>'
+                +widths.map(w=>'<w:gridCol w:w="'+w+'"/>').join('')+'</w:tblGrid>'+tableRow(report.columns,true)+report.rows.map(r=>tableRow(r)).join('')+'</w:tbl>'+p('')
+                +'<w:sectPr><w:pgSz w:w="16839" w:h="11907" w:orient="landscape"/><w:pgMar w:top="680" w:right="680" w:bottom="680" w:left="680" w:header="0" w:footer="0" w:gutter="0"/></w:sectPr></w:body></w:document>';
+            if(n>10) files['word/styles.xml']=files['word/styles.xml'].replace('<w:sz w:val="22"/>','<w:sz w:val="14"/>');
+        }
         const encoder=new TextEncoder(), local=[], central=[]; let offset=0;
         for(const [name,source] of Object.entries(files)) {
             const n=encoder.encode(name), data=encoder.encode('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'+source);
@@ -988,7 +1078,7 @@ header.top h1 { flex: 1; min-width: 180px; }
         const sessionMe=me, request=++attendance.request, month=attendance.data.month;
         attendance.busy=true; drawAttendance();
         try {
-            const data=await ownerApi('GET','/api/attendance/transport?month='+month+'&year='+encodeURIComponent(sessionMe.year),undefined,false);
+            const data=await transportData(month);
             if(me!==sessionMe || request!==attendance.request) return;
             attendance.data=data;
             const blob=transportDocxBlob(transportReport(),sessionMe.person.name), a=document.createElement('a');
@@ -1004,7 +1094,7 @@ header.top h1 { flex: 1; min-width: 180px; }
         const month=attendance.data.month;
         attendance.busy=true; drawAttendance();
         try {
-            const data=await ownerApi('GET','/api/attendance/transport?month='+month+'&year='+encodeURIComponent(sessionMe.year),undefined,false);
+            const data=await transportData(month);
             if(me!==sessionMe || request!==attendance.request) return;
             attendance.data=data;
             const pupil=data.pupils.find(p=>p.studentId===studentId);
@@ -1028,7 +1118,7 @@ header.top h1 { flex: 1; min-width: 180px; }
         const text = attendance.mode === 'month' ? (s.status === 'present' ? '✓' : s.status === 'absent' ? '×' : '?') : s.name + '\n' + label;
         return `<button type="button" class="attendance-mark ${s.status || 'blank'}" data-att-date="${d.date}" data-att-key="${esc(s.key)}"`
             + ` title="${esc(s.name + ' · ' + s.time + ' · ' + label)}" aria-label="${esc(dmy(d.date) + ' · ' + s.name + ' · ' + s.time + ' · ' + label)}"`
-            + ((attendance.busy || d.closed || d.future || d.conflict) ? ' disabled' : '') + `>${esc(text)}</button>`;
+            + ((me.readOnly || attendance.data?.readOnly || attendance.busy || d.closed || d.future || d.conflict) ? ' disabled' : '') + `>${esc(text)}</button>`;
     }
     function attendanceCellShade(sessions) {
         const present=sessions.some(s=>s.status==='present'), absent=sessions.some(s=>s.status==='absent');
@@ -1038,7 +1128,7 @@ header.top h1 { flex: 1; min-width: 180px; }
         const range = attendanceRange(), data = attendance.data;
         const disabled = attendance.busy ? ' disabled' : '';
         el('attendance').innerHTML = '<div class="row no-print attendance-tools">'
-            + (attendance.transportAllowed ? `<label>Извештај<select id="attendanceScope"${disabled}>${me.therapist ? '<option value="cabinet">Мој кабинет — третмани</option>' : ''}<option value="transport"${attendance.scope==='transport'?' selected':''}>Надворешни — превоз, сите кабинети</option></select></label>` : '')
+            + (attendance.transportAllowed ? `<label>Извештај<select id="attendanceScope"${disabled}>${(me.readOnly ? week?.me.therapistId != null : me.therapist) ? '<option value="cabinet">'+(me.readOnly ? 'Избраниот кабинет — третмани' : 'Мој кабинет — третмани')+'</option>' : ''}<option value="transport"${attendance.scope==='transport'?' selected':''}>Надворешни — превоз, сите кабинети</option></select></label>` : '')
             + `<button data-att-mode="week" aria-pressed="${attendance.mode === 'week'}"${disabled || attendance.scope==='transport' ? ' disabled' : ''}>Недела</button>`
             + `<button data-att-mode="month" aria-pressed="${attendance.mode === 'month'}"${disabled}>Месечен извештај</button>`
             + `<button data-att-step="-1" aria-label="Претходен период"${disabled}>◀</button>`
@@ -1046,7 +1136,7 @@ header.top h1 { flex: 1; min-width: 180px; }
             + `<button data-att-step="1" aria-label="Следен период"${disabled}>▶</button>`
             + `<button data-att-refresh${disabled}>Освежи</button><button data-att-print${disabled || !data ? ' disabled' : ''}>🖨 Печати</button>`
             + `<button data-att-png${disabled || !data ? ' disabled' : ''}>🖼 Слика</button>`
-            + (attendance.scope==='transport' ? `<button data-att-docx${disabled || !data ? ' disabled' : ''}>Word (.docx)</button>` : '') + '</div>'
+            + (attendance.scope==='transport' || me.readOnly ? `<button data-att-docx${disabled || !data ? ' disabled' : ''}>Word (.docx)</button>` : '') + '</div>'
             + (attendance.busy ? '<p role="status">Се вчитува / зачувува…</p>' : '')
             + '<div id="attendanceSheet"></div>';
         if (!data || attendance.busy) return;
@@ -1054,7 +1144,7 @@ header.top h1 { flex: 1; min-width: 180px; }
         const m = attendanceReport();
         const warnings = data.days.filter(d => (d.closed && d.closed !== 'Викенд') || d.conflict).map(d => dmy(d.date) + ': ' + (d.closed || 'Преклопени термини — исправете го распоредот.'));
         el('attendanceSheet').innerHTML = `<h2>${esc(m.title)}</h2><p>${esc(m.subtitle)}</p>`
-            + '<p class="attendance-legend">Клик: неозначено → присутен → отсутен → неозначено. Се зачувува веднаш во базата. ● = зачуван дневен распоред.</p>'
+            + (me.readOnly ? '<p class="attendance-legend">Само преглед — ознаките не може да се менуваат.</p>' : '<p class="attendance-legend">Клик: неозначено → присутен → отсутен → неозначено. Се зачувува веднаш во базата. ● = зачуван дневен распоред.</p>')
             + `<p>${esc(m.note)}</p>`
             + (!data.calendarAvailable ? '<p class="attendance-warning">⚠ Нема зачуван календар за оваа година од S-Дневник на серверот. Празниците и распустите не се потврдени; проверете го календарот пред внесување.</p>' : '')
             + (warnings.length ? `<p class="attendance-warning">${esc(warnings.join(' · '))}</p>` : '')
@@ -1085,7 +1175,7 @@ header.top h1 { flex: 1; min-width: 180px; }
             return loadAttendance();
         }
         if (b.hasAttribute('data-att-refresh')) return loadAttendance();
-        if (b.hasAttribute('data-att-docx')) return downloadTransportDocx();
+        if (b.hasAttribute('data-att-docx')) return attendance.scope === 'transport' ? downloadTransportDocx() : downloadReaderAttendance();
         if (b.hasAttribute('data-att-print')) { document.body.classList.add('printing-attendance'); window.print(); return; }
         if (b.hasAttribute('data-att-png')) {
             if(attendance.scope==='transport') return paintReport({...transportReport(),file:'Prevoz-'+attendance.data.month,dateList:true});
@@ -1094,7 +1184,7 @@ header.top h1 { flex: 1; min-width: 180px; }
                 (attendance.mode === 'week' ? s.name + '\n' : '') + (s.status === 'present' ? '✓' : s.status === 'absent' ? '×' : '?')).join('\n') || '—'), ...r.totals.map(String)]);
             return paintReport({ ...m, rows, file: 'Prisustvo-' + attendance.data.from, compact: attendance.mode === 'month', attendance:true });
         }
-        if (!b.dataset.attKey) return;
+        if (me.readOnly || !b.dataset.attKey) return;
         const d = attendance.data.days.find(d => d.date === b.dataset.attDate);
         const s = d?.sessions.find(s => s.key === b.dataset.attKey);
         if (!s || d.closed || d.future || d.conflict) return;
@@ -1839,7 +1929,7 @@ header.top h1 { flex: 1; min-width: 180px; }
         };
     }
     const cap = (d) => String(d || '').charAt(0).toUpperCase() + String(d || '').slice(1);
-    const sheetTitle = (m) => 'Неделен распоред — ' + me.person.name + (m.what ? ' · ' + m.what : '');
+    const sheetTitle = (m) => 'Неделен распоред — ' + viewedName() + (m.what ? ' · ' + m.what : '');
     const sheetSub = () => 'учебна ' + me.year;
     function sheetHtml(m) {
         if (!m.days.length || !m.rows.length) return '<p class="muted">Нема часови за годинава.</p>';
@@ -1850,7 +1940,7 @@ header.top h1 { flex: 1; min-width: 180px; }
             + '<table><thead><tr><th>' + (view.tab === 'cabinet' ? 'Термин' : 'Час') + '</th>'
             + m.days.map((d) => `<th>${esc(cap(d))}</th>`).join('') + '</tr></thead><tbody>'
             + m.rows.map((row, r) => `<tr><th><b>${esc(row.label)}</b><small>${esc(row.time)}</small></th>`
-                + m.days.map((d, i) => `<td data-go-day="${esc(d)}" data-go-at="${esc(row.go)}" title="${esc(cap(d) + ' · ' + row.label + ' — уреди')}">`
+                + m.days.map((d, i) => `<td${me.readOnly ? '' : ` data-go-day="${esc(d)}" data-go-at="${esc(row.go)}" title="${esc(cap(d) + ' · ' + row.label + ' — уреди')}"`}>`
                     + m.cells[r][i].map((e) => `<div class="s-item${e.away ? ' away' : ''}"><b>${esc(e.text)}</b><small>${esc(e.sub)}</small></div>`).join('')
                     + '</td>').join('') + '</tr>').join('')
             + `</tbody></table><div class="s-foot">${esc(new Date().toLocaleDateString('mk-MK'))}</div></div>`;
@@ -2016,6 +2106,22 @@ header.top h1 { flex: 1; min-width: 180px; }
     function drawWeek() {
         hideCard();
         drawTabs();
+        if (me.readOnly) {
+            editing = null; view.week = true;
+            ['days','periods','caseload','myLists','duty','clashesCard','noticesCard','openNotices'].forEach(id => { el(id).hidden = true; });
+            const onAttendance = view.tab === 'attendance';
+            el('attendance').hidden = !onAttendance;
+            el('weekSheet').hidden = onAttendance;
+            el('weekTools').hidden = onAttendance;
+            el('docxWeek').hidden = false;
+            el('tabHint').textContent = 'Само преглед · учебна ' + me.year;
+            if (onAttendance) { loadAttendance(); return; }
+            if (view.tab === 'reader-list') drawReaderList();
+            else el('weekSheet').innerHTML = sheetHtml(weekModel());
+            return;
+        }
+        el('docxWeek').hidden = true;
+        el('openNotices').hidden = false;
         drawClashes();
         drawNotices();
         const onDuty = view.tab === 'duty';
@@ -2653,18 +2759,22 @@ header.top h1 { flex: 1; min-width: 180px; }
     }
 
     async function reloadWeek() {
-        week = await api('GET', '/api/portal/week');
+        const request = ++reader.request, person = me;
+        const next = await api('GET', '/api/portal/week' + readerQuery());
+        if (request !== reader.request || me !== person) return;
+        week = next;
         drawWeek();
     }
 
     function drawHome() {
+        document.body.classList.toggle('reader-mode', Boolean(me.readOnly));
         el('openWelcome').hidden = Boolean(me.acting);
         el('actingBanner').hidden = !me.acting;
         el('openPassword').hidden = Boolean(me.acting);
         el('logout').hidden = Boolean(me.acting);
         el('homeName').textContent = me.person.name;
         el('homeYear').textContent = 'Учебна ' + me.year;
-        el('homeRoles').innerHTML = (me.roles || []).map((r) => `<span class="role">${esc(ROLE_NAMES[r] || r)}</span>`).join('');
+        el('homeRoles').innerHTML = me.readOnly ? '<span class="role">🔒 Само преглед</span>' : (me.roles || []).map((r) => `<span class="role">${esc(ROLE_NAMES[r] || r)}</span>`).join('');
         el('homeUser').textContent = 'Корисничко име: ' + me.usernames.latin + ' или ' + me.usernames.cyrillic
             + (me.initialPassword ? ' · со почетната лозинка' : '');
         show('home');
@@ -2678,6 +2788,22 @@ header.top h1 { flex: 1; min-width: 180px; }
         attendance.scope = 'cabinet';
         attendance.transportAllowed = false;
         const sessionMe=me;
+        el('readerControls').hidden = !me.readOnly;
+        if (me.readOnly) {
+            week = null; reader.pupils = []; reader.class = ''; reader.type = ''; reader.cabinet = '';
+            el('weekSheet').replaceChildren(); el('attendance').replaceChildren();
+            ['periods','caseload','myLists','clashesCard','noticesCard','openNotices','days','weekTools','tabs','duty'].forEach(id=>{el(id).hidden=true;});
+            attendance.transportAllowed = true; view.week = true;
+            Promise.all([api('GET','/api/portal/read-only/staff'), api('GET','/api/portal/read-only/pupils')]).then(async ([list,pupils]) => {
+                if (me !== sessionMe) return;
+                reader.staff = list.staff; reader.pupils = pupils.pupils;
+                reader.employeeId = String(reader.staff[0]?.employeeId || '');
+                el('readerStaff').innerHTML = reader.staff.length ? reader.staff.map(s=>`<option value="${s.employeeId}">${esc(s.name)} · ${s.therapist?'Кабинет':'Настава'}</option>`).join('') : '<option value="">Нема распоредени вработени</option>';
+                if (!reader.staff[0]?.therapist) { attendance.scope='transport'; attendance.mode='month'; }
+                await reloadWeek();
+            }).catch(err => { if(me === sessionMe) say('weekMsg',err.message,'error'); });
+            return;
+        }
         ownerApi('GET','/api/attendance/transport/access',undefined,false).then(answer=>{
             if (me!==sessionMe || !answer.allowed) return;
             attendance.transportAllowed=true;
@@ -2721,6 +2847,7 @@ header.top h1 { flex: 1; min-width: 180px; }
     });
     // A period on the week's sheet opens that day with its editor, as a clash's „Отвори" does.
     el('weekSheet').addEventListener('click', (event) => {
+        if (me.readOnly) return;
         const td = event.target.closest('[data-go-day]');
         if (!td) return;
         const go = td.dataset.goAt;
@@ -2740,6 +2867,7 @@ header.top h1 { flex: 1; min-width: 180px; }
     });
     window.addEventListener('afterprint', () => document.body.classList.remove('printing-week'));
     el('pngWeek').addEventListener('click', () => {
+        if (me.readOnly && view.tab === 'reader-list') return paintReport({ ...readerListReport(), file: 'Spisok-ucenici' });
         const m = weekModel();
         if (!m.days.length || !m.rows.length) return;
         paintGrid({
@@ -2749,7 +2877,27 @@ header.top h1 { flex: 1; min-width: 180px; }
             file: 'Licen-raspored-' + me.person.name.replace(/[\\/:*?"<>|\s]+/g, '-') + '.png'
         });
     });
+    el('docxWeek').addEventListener('click', async () => {
+        if (!me.readOnly || !week) return;
+        const person=me, target=reader.employeeId, tab=view.tab;
+        el('docxWeek').disabled=true;
+        try {
+            if (tab==='reader-list') {
+                const data=await api('GET','/api/portal/read-only/pupils');
+                if(me!==person || view.tab!==tab) return;
+                reader.pupils=data.pupils; drawReaderList(); saveReportDocx(readerListReport(),'Spisok-ucenici');
+            } else {
+                await reloadWeek();
+                if(me!==person || reader.employeeId!==target || view.tab!==tab) return;
+                const m=weekModel();
+                saveReportDocx({title:sheetTitle(m),subtitle:sheetSub(),columns:['Термин',...m.days.map(cap)],
+                    rows:m.rows.map((r,i)=>[r.label+'\n'+r.time,...m.cells[i].map(c=>c.map(e=>[e.text,e.sub].filter(Boolean).join('\n')).join('\n\n') || '—')])},'Raspored');
+            }
+        } catch(err) { say('weekMsg',err.message,'error'); }
+        finally { el('docxWeek').disabled=false; }
+    });
     el('periods').addEventListener('click', (event) => {
+        if (me.readOnly) return;
         const termEdit = event.target.closest('[data-edit-term]');
         if (termEdit) {
             openTermEditor(termEdit.closest('.period'), termEdit.dataset.editTerm, false);
@@ -2814,7 +2962,8 @@ header.top h1 { flex: 1; min-width: 180px; }
     async function loadOwnerAccounts() {
         const person=me, request=++welcomeOwnerRequest;
         ownerAccounts=[]; el('ownerDoor').hidden=true; el('ownerAccounts').replaceChildren();
-        el('welcomeRole').textContent='Колега · сопствени податоци';
+        el('welcomeRole').textContent=me.readOnly ? '🔒 Само преглед · распореди, списоци и присуство' : 'Колега · сопствени податоци';
+        if (me.readOnly) return;
         try {
             // The existing owner gate, never a display name or a duty link,
             // decides whether this account picker can be read and used.

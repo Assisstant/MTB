@@ -44,6 +44,7 @@ import { pool } from '../db.js';
 import { Refused, whoIsSigned, type Signed } from './evidence.js';
 import { normalizeClassLabel } from './crossing.js';
 import { isInternal } from './internal.js';
+import { PORTAL_TOKEN_HEADER, sessionEmployee } from './staff-accounts.js';
 
 type Queryable = Pick<PoolClient, 'query'>;
 
@@ -97,6 +98,9 @@ function serviceKeyMatches(req: FastifyRequest): boolean {
  * required to send one, so failing on it would be a new way to break a script.
  */
 export async function scopeOf(req: FastifyRequest): Promise<Scope> {
+    // Portal credentials never open the owner's APIs, including on an open
+    // local installation. The colleague page has its own explicit read routes.
+    if (!enforcing() && req.headers[PORTAL_TOKEN_HEADER]) throw new Refused(403, 'Овој пристап е само преку Колега.', { needsAdmin: true });
     // The server writing through its own routes: the administrator who
     // started it was checked already.
     if (enforcing() && isInternal(req)) return { open: false, signed: null, admin: true, service: true };
@@ -316,9 +320,16 @@ const DELEGATED_WRITES = new Set([
  */
 export function installColleagueBoundary(server: FastifyInstance): void {
     server.addHook('onRequest', async (req, reply) => {
-        if (!enforcing() || !WRITE_METHODS.has(req.method)) return;
+        if (!WRITE_METHODS.has(req.method)) return;
         const route = req.routeOptions.url;
         const key = `${req.method} ${route}`;
+        if (req.headers[PORTAL_TOKEN_HEADER] && !['POST /api/portal/login', 'POST /api/portal/logout', 'POST /api/portal/password'].includes(key)) {
+            const employeeId = await sessionEmployee(pool, req.headers[PORTAL_TOKEN_HEADER]);
+            if (employeeId && (await pool.query('SELECT read_only FROM staff_accounts WHERE employee_id=$1', [employeeId])).rows[0]?.read_only) {
+                return reply.code(403).send({ error: 'Имате пристап само за преглед. Податоците не се менуваат.', readOnly: true });
+            }
+        }
+        if (!enforcing()) return;
         // This is only the outer cloud session's logout, never a data mutation.
         if (key === 'POST /auth/logout') return;
         if (PUBLIC_WRITES.has(key)) return;

@@ -126,6 +126,9 @@ async function delegated(req: FastifyRequest, reply: FastifyReply, yearLabel?: s
         reply.code(403).send({ error: 'Не сте на списокот на вработени за тековната година.' });
         return null;
     }
+    if (staff.readOnly) {
+        reply.code(403).send({ error: 'Имате пристап само за преглед.', readOnly: true }); return null;
+    }
     const link = await acceptDutyAdminLink(linksDb, req.headers[DUTY_ADMIN_TOKEN_HEADER]);
     if (!link) {
         reply.code(403).send({ error: 'Администраторскиот линк е истечен или поништен.', needsDutyAdminLink: true });

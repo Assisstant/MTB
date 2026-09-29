@@ -760,6 +760,13 @@ read `DATABASE_URL`; never add literal credentials to this public repository.
   (`mtb_layout_v1`), and only after a click.
 
 - **The colleagues' door is the only thing the cloud shows without the owner.**
+  Owner exception, 29 Sep 2026: explicitly assigned `staff_accounts.read_only`
+  (050) may read any current colleague's week, pupil lists and attendance
+  reports in Kolega. Administration-only employees are eligible when assigned;
+  job roles never grant access by themselves. Business writes are refused,
+  including duty delegation; access changes revoke sessions and acting views.
+  Podatoci assigns access and creates new profiles through the existing
+  Workspace employee writer. See the read-only section in APP-CONTRACT.md.
   `cloud-auth.ts` lets through `/Kolega.html`, `/kolegi` and plain
   `/api/portal/<segments>` — after the same-origin checks — and nothing else.
   So every `/api/portal/` route must check its own session first

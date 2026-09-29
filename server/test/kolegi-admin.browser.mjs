@@ -36,6 +36,7 @@ const check = (label, ok, detail = '') => {
 
 const writes = [];
 let dutyAdminLinks = [];
+let readerProfile = null, readerEnabled = false;
 const browser = await chromium.launch({ ...(process.env.CHROME ? { executablePath: process.env.CHROME } : {}) });
 const context = await browser.newContext({ viewport: { width: 1400, height: 1000 }, serviceWorkers: 'block' });
 await context.route('**/*', async (route) => {
@@ -64,11 +65,20 @@ await context.route('**/*', async (route) => {
             dutyAdminLinks = [];
             return json(200, { ok: true, revoked });
         }
-        if (p === '/api/staff-accounts') return json(200, { year: YEAR, accounts: [
+        if (p === '/api/workspace/employees' && req.method() === 'POST') {
+            const body=req.postDataJSON();
+            if(body.identifier!==null || body.roles[0]!=='administration' || body.teacherKind!=='none') throw Error('New reader must use the directory writer without a teaching profile');
+            readerProfile={employeeId:9,name:body.name,usernames:{latin:'IzmislenCitatel',cyrillic:'ИзмисленЧитател'},readOnly:false};
+            return json(200,{employee:{id:9}});
+        }
+        if (p === '/api/staff-accounts/9/access') { readerEnabled=req.postDataJSON().readOnly;return json(200,{ok:true}); }
+        if (p === '/api/staff-accounts') return json(200, { year: YEAR,
+            candidates: [{employeeId:7,name:'Ана Измислена'},...(readerProfile?[{...readerProfile,readOnly:readerEnabled}]:[])], accounts: [
             { employeeId: 7, name: 'Ана Измислена', usernames: { latin: 'AnaIzmislena', cyrillic: 'АнаИзмислена' }, teacher: true, therapist: false,
               ownPassword: true, lastLoginAt: '2026-09-25T07:00:00Z', ambiguous: false },
             { employeeId: 8, name: 'Двојно Име', usernames: { latin: 'DvojnoIme', cyrillic: 'ДвојноИме' }, teacher: false, therapist: true,
-              ownPassword: false, lastLoginAt: null, ambiguous: true }
+              ownPassword: false, lastLoginAt: null, ambiguous: true },
+            ...(readerEnabled?[{...readerProfile,readOnly:true}]:[])
         ] });
         if (p === '/api/staff-notices') return json(200, { year: YEAR,
             notices: [{ id: 1, createdAt: '2026-09-25T08:00:00Z', recipient: 'Ана Измислена', author: 'Колега Бе', kind: 'lesson', day: 'понеделник',
@@ -112,6 +122,18 @@ check('a name two people share is marked', /исто име/.test(accountsText))
 await page.click('[data-reset-colleague="7"]');
 await page.waitForTimeout(300);
 check('„Врати почетна лозинка" asks, then resets', writes.some((w) => w.path === '/api/staff-accounts/7/reset'));
+
+check('new reader form starts closed', !(await page.isVisible('#newReaderForm')));
+await page.click('#newReaderToggle');await page.fill('#newReaderName','Измислен Читател');
+await page.click('#newReaderForm button[type="submit"]');
+await page.waitForSelector('[data-remove-reader="9"]');
+check('new administration profile receives read-only access', readerEnabled && /Само преглед/.test(await page.textContent('[data-account="9"]')));
+await page.click('[data-remove-reader="9"]');
+await page.waitForFunction(()=>!document.querySelector('[data-account="9"]'));
+check('removing a staff-only reader preserves them in the employee picker', await page.locator('#readOnlyEmployee option[value="9"]').count()===1);
+await page.selectOption('#readOnlyEmployee','9');await page.click('#readOnlyGrant button[type="submit"]');
+await page.waitForSelector('[data-remove-reader="9"]');
+check('existing administrative employee can be granted again', readerEnabled && writes.filter(w=>w.path==='/api/workspace/employees').length===1);
 
 console.log('\nthe duty-only administrator link');
 check('new links are permanent by default', await page.inputValue('#dutyAdminHours') === '0');

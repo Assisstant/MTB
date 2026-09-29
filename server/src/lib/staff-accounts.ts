@@ -102,25 +102,30 @@ export type Staff = {
     name: string;
     teacherId: number | null;
     therapistId: number | null;
+    readOnly?: boolean;
 };
 
 /**
- * The employees who can sign in this year: somebody on this year's teacher or
- * therapist list. One who is on no list has no week to fill in.
+ * Active annual teachers/therapists can sign in as before. Other active annual
+ * employees can sign in only with an explicit read-only grant. Candidate mode
+ * also returns those employees to the owner's picker; job roles grant no access.
  */
-export async function staffOfYear(db: Queryable, schoolYearId: number): Promise<Staff[]> {
+export async function staffOfYear(db: Queryable, schoolYearId: number, includeCandidates = false): Promise<Staff[]> {
     const { rows } = await db.query(
-        `SELECT e.id AS employee_id, e.name,
+        `SELECT e.id AS employee_id, e.name, coalesce(a.read_only, false) AS read_only,
+                EXISTS (SELECT 1 FROM employee_roles r WHERE r.employee_id = e.id
+                         AND r.school_year_id = $1 AND r.active) AS other_active,
                 (SELECT t.id FROM teachers t JOIN teacher_years ty ON ty.teacher_id = t.id
                   WHERE t.employee_id = e.id AND ty.school_year_id = $1 AND ty.active) AS teacher_id,
                 (SELECT t.id FROM therapists t JOIN therapist_years ty ON ty.therapist_id = t.id
                   WHERE t.employee_id = e.id AND ty.school_year_id = $1 AND ty.active) AS therapist_id
-           FROM employees e
+           FROM employees e LEFT JOIN staff_accounts a ON a.employee_id = e.id
           WHERE e.superseded_by IS NULL
           ORDER BY e.name`, [schoolYearId]);
     return rows
-        .filter((r: any) => r.teacher_id != null || r.therapist_id != null)
-        .map((r: any) => ({ employeeId: r.employee_id, name: r.name, teacherId: r.teacher_id, therapistId: r.therapist_id }));
+        .filter((r: any) => r.teacher_id != null || r.therapist_id != null || (r.other_active && (includeCandidates || r.read_only)))
+        .map((r: any) => ({ employeeId: r.employee_id, name: r.name, teacherId: r.teacher_id, therapistId: r.therapist_id,
+            readOnly: r.read_only }));
 }
 
 export type Resolved =
@@ -215,4 +220,3 @@ export async function resetAccount(db: Queryable, employeeId: number): Promise<v
             SET password_salt = NULL, password_hash = NULL, changed_at = NULL, reset_at = now()`, [employeeId]);
     await db.query('DELETE FROM staff_sessions WHERE employee_id = $1', [employeeId]);
 }
-

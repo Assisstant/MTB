@@ -487,6 +487,32 @@ A schedule or navigation change is not complete until all of these hold:
 
 ## Cabinet attendance in Kolega (owner, 28 September 2026)
 
+**Read-only access, owner 29 September 2026:** Податоци → Колеги assigns
+`staff_accounts.read_only` (050) to an active annual employee, including
+administration/specialist staff without teaching or therapy profiles. The same
+screen can create a new administration/specialist identity through the existing
+Workspace employee writer, then assign access. A failed grant leaves that
+identity visible for retry; it never fabricates a cabinet or administrator role.
+Usernames and the initial `ResursenCentar` password follow the existing account
+contract. Existing personal passwords are preserved.
+
+An explicitly assigned reader may choose any current teacher/cabinet's week,
+view/filter the annual pupil list, read cabinet attendance and the school-wide
+transport report, and print/export PNG or DOCX. These are views in Kolega, not
+a new schedule app. Only these report fields are exposed; clinical records and
+other people's notices/account credentials are excluded. The ordinary colleague
+still cannot select another employee or read these school-wide portal reports.
+
+Read-only overrides an employee's editing roles, including delegated duty
+administration. Server guards reject business mutations; changing their own
+password and signing out remain available. Every request checks current annual
+eligibility. Grant/removal ends existing sessions and acting previews; removing
+the grant restores ordinary teaching/therapy access, or removes portal access
+entirely for staff without those profiles. The account flag is private, excluded
+with staff credentials from mirrors/REST, and is owned by the existing owner
+guard. Compatibility-open local APIs remain the documented deployment mode;
+the public cloud owner boundary remains in place.
+
 `Kolega.html` has „Присуство“ beside „Дежурства“, for a signed-in therapist's
 own cabinet only. Weekly dated marks and the monthly pupil sheet are one
 record, not a second schedule app. The interaction is S-Dnevnik's three-state

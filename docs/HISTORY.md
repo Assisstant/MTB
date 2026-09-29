@@ -9,6 +9,51 @@ move. Where the current state is needed, read `SOSTOJBA.md` first.
 
 Add new feature history here, not to `CLAUDE.md`.
 
+## Explicit read-only colleagues, including administration (29 Sep 2026)
+
+The owner requested selected staff accounts that can read schedules, pupil
+lists and attendance, and print/export pictures and DOCX without changing
+records. A follow-up explicitly included administration and creating a new
+profile. Migration 050 adds a false-by-default flag to the private account
+table. Annual directory membership still determines eligibility, and job titles
+never infer authority. New profiles reuse POST /api/workspace/employees;
+granting read-only is a separate owner request. If granting fails after creation,
+the page retains the identity in the picker and explains how to retry.
+
+Podatoci owns the grant/removal UI. The endpoint checks the expected previous
+flag under an employee row lock, preserves passwords, and revokes normal
+sessions and temporary acting views. Staff without an active teaching/therapy
+profile can log in only with the explicit grant and an active annual staff role.
+The standard name-derived username and shared initial password remain in use.
+Readers may change their own password and sign out; business mutations are
+denied at the server boundary and within portal/duty handlers. A duty capability
+does not override this role. Local compatibility mode is still open when no
+credentials are supplied, as documented; this feature does not reconfigure it.
+
+Kolega reuses its existing week and attendance renderers with a checked
+employee selector. The new read-only pupil and transport routes require the
+explicit grant on every call. Ordinary accounts retain their previous scope.
+The pupil list contains annual class/generation/enrolment and cabinet links,
+never clinical records. Its filters apply to print/PNG/DOCX too. DOCX generation
+reuses the self-contained OPC ZIP writer and rereads the relevant data before
+download. Attendance remains shared cabinet attendance from 049; the personal
+diary is unchanged. A reader's selected colleague is not the export preparer:
+the signed-in reader remains named under „Изработил“.
+
+Validation: 313/313 unit/in-process database tests, production TypeScript,
+Kolega/read-only/landing/attendance/admin browser suites, and the isolated
+regression harness (colleague compatibility/enforced, Fusion API/browser,
+navigation, purge and HTTP/static privacy checks). New tests exercise profile
+creation, grant, stale grant, removal, password reset, session revocation,
+deactivation and every registered portal mutation. Browser tests prove no
+business mutation from reads/exports, filtered lists, both schedule types,
+attendance and transport DOCX, and mobile light/dark layout. Generated DOCX
+ZIP/XML is valid; no claim of a new Word desktop visual QA is made.
+Only disposable schemas and invented fixtures were changed. Migration 050
+is prepared for the next guarded release under
+`mtb_workspace_recovery_staff_read_only_20260929`; no live deployment or account
+assignment was performed.
+
 ## Moving Rasporedi onto the database
 
 Rasporedi cannot be shared as it stands: every save replaces the whole week, so

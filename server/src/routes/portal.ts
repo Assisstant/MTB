@@ -7,7 +7,9 @@
  * (`cloud-auth.ts`), so nothing may be answered here that a colleague should
  * not see. A colleague gets their own week, the names of their own pupils and
  * — for a clash — the other person's name and the term; never anybody else's
- * week. The one wider list is a therapist's own check list of the year's
+ * week, unless explicitly assigned read-only by the owner (050). Those accounts
+ * can select another colleague for reads and see the annual pupil/attendance
+ * reports, but cannot write business data. The ordinary wider list is a therapist's check list of the year's
  * pupils (`/api/portal/caseload`), and only behind their own password. The separate
  * /api/attendance/transport owner report never bypasses the cloud owner gate.
  *
@@ -119,9 +121,25 @@ async function signed(req: FastifyRequest, reply: FastifyReply): Promise<Signed 
         reply.code(403).send({ error: 'Не сте на списокот за оваа учебна година. Јавете се кај администраторот.', notOnList: true });
         return null;
     }
+    if (staff.readOnly && !['GET', 'HEAD'].includes(req.method) && req.routeOptions.url !== '/api/portal/password') {
+        reply.code(403).send({ error: 'Имате пристап само за преглед. Податоците не се менуваат.', readOnly: true });
+        return null;
+    }
     return asAdmin
         ? { staff, year, author: { employeeId: null, name: ADMIN_AUTHOR }, acting: true }
         : { staff, year, author: { employeeId: staff.employeeId, name: staff.name }, acting: false };
+}
+
+/** A read-only account may select a colleague for GETs; ordinary accounts
+ * remain scoped to themselves even if a client invents the query parameter. */
+async function viewedStaff(who: Signed, employeeId: number | undefined, reply: FastifyReply): Promise<Staff | null> {
+    if (employeeId === undefined) return who.staff;
+    if (!who.staff.readOnly) {
+        reply.code(403).send({ error: 'Немате пристап за преглед на друг колега.' }); return null;
+    }
+    const target = (await staffOfYear(pool, who.year.id)).find(s => s.employeeId === employeeId && (s.teacherId != null || s.therapistId != null));
+    if (!target) { reply.code(404).send({ error: 'Колегата нема распоред во тековната година.' }); return null; }
+    return target;
 }
 
 /** When the administrator wrote in somebody's form, that somebody is told too. */
@@ -386,6 +404,44 @@ async function onDutyList(employeeId: number, yearId: number): Promise<boolean> 
 export async function portalRoutes(server: FastifyInstance, options: { year?: string } = {}) {
     yearLabel = options.year;
 
+    async function reader(req: FastifyRequest, reply: FastifyReply) {
+        const who = await signed(req, reply);
+        if (!who) return null;
+        if (!who.staff.readOnly) { reply.code(403).send({ error: 'Овој преглед го доделува администраторот.' }); return null; }
+        reply.header('Cache-Control', 'no-store');
+        return who;
+    }
+    server.get('/api/portal/read-only/staff', async (req, reply) => {
+        const who = await reader(req, reply); if (!who) return;
+        return { staff: (await staffOfYear(pool, who.year.id)).filter(s => s.teacherId != null || s.therapistId != null)
+            .map(s => ({ employeeId: s.employeeId, name: s.name, teacher: s.teacherId != null, therapist: s.therapistId != null })) };
+    });
+    server.get('/api/portal/read-only/pupils', async (req, reply) => {
+        const who = await reader(req, reply); if (!who) return;
+        const pupils = (await pool.query(
+            `SELECT s.name, e.grade AS class, e.oddelenie, e.enrollment_type AS type,
+                    coalesce(cy.alias, e.grade, '') AS "className",
+                    coalesce((SELECT json_agg(json_build_object('employeeId', t.employee_id, 'name', t.name) ORDER BY t.name)
+                       FROM therapist_students ts JOIN therapists t ON t.id=ts.therapist_id
+                       JOIN therapist_years ty ON ty.therapist_id=t.id AND ty.school_year_id=ts.school_year_id AND ty.active
+                      WHERE ts.student_id=s.id AND ts.school_year_id=e.school_year_id), '[]') AS therapists
+               FROM student_enrollments e JOIN students s ON s.id=e.student_id
+               LEFT JOIN school_classes c ON c.label=e.grade
+               LEFT JOIN class_years cy ON cy.class_id=c.id AND cy.school_year_id=e.school_year_id
+               LEFT JOIN roster_order ro ON ro.school_year_id=e.school_year_id AND ro.list='students' AND ro.member_key=s.public_id
+              WHERE e.school_year_id=$1 AND e.active AND s.active ORDER BY ro.position NULLS LAST, s.name`, [who.year.id])).rows;
+        return { year: who.year.label, pupils };
+    });
+    server.get('/api/portal/read-only/transport', async (req, reply) => {
+        const who = await reader(req, reply); if (!who) return;
+        const q = z.object({ month: z.string().regex(/^\d{4}-\d{2}$/) }).strict().safeParse(req.query);
+        if (!q.success) return reply.code(400).send({ error: 'Изберете месец.' });
+        const year = await schoolYearOf(pool, who.year.label);
+        if (!year) return reply.code(404).send({ error: 'Нема таква учебна година.' });
+        try { return await transportAttendance(pool, year, q.data.month); }
+        catch (e) { if (e instanceof AttendanceError) return reply.code(e.status).send({ error: e.message }); throw e; }
+    });
+
     // School-wide reports stay OUTSIDE the public portal prefix. A duty-only
     // capability and a colleague's normal token grant no transport access.
     server.get('/api/attendance/transport/access', async (req, reply) => {
@@ -411,10 +467,11 @@ export async function portalRoutes(server: FastifyInstance, options: { year?: st
     server.get('/api/portal/attendance', async (req, reply) => {
         const who = await signed(req, reply);
         if (!who) return;
-        if (who.staff.therapistId == null) return reply.code(403).send({ error: 'Немате кабинет.' });
-        const query = z.object({ from: z.string(), to: z.string() }).strict().safeParse(req.query);
+        const query = z.object({ from: z.string(), to: z.string(), employeeId: z.coerce.number().int().positive().optional() }).strict().safeParse(req.query);
         if (!query.success) return reply.code(400).send({ error: 'Изберете период.' });
-        try { return await readAttendance(pool, who.year.id, who.staff.therapistId, query.data.from, query.data.to); }
+        const target = await viewedStaff(who, query.data.employeeId, reply); if (!target) return;
+        if (target.therapistId == null) return reply.code(403).send({ error: 'Изберете кабинет.' });
+        try { return { ...await readAttendance(pool, who.year.id, target.therapistId, query.data.from, query.data.to), readOnly: Boolean(who.staff.readOnly) }; }
         catch (e) { if (e instanceof AttendanceError) return reply.code(e.status).send({ error: e.message }); throw e; }
     });
     server.put('/api/portal/attendance', async (req, reply) => {
@@ -516,6 +573,7 @@ export async function portalRoutes(server: FastifyInstance, options: { year?: st
             // cannot ask /api/health, so the credit travels with the session.
             ...(author ? { author, authorLook: lookCss(await creditLook()) } : {}),
             acting: who.acting,
+            readOnly: Boolean(who.staff.readOnly),
             usernames: usernamesOf(who.staff.name),
             initialPassword: !(own.rows[0] && own.rows[0].own),
             year: who.year.label,
@@ -593,6 +651,11 @@ export async function portalRoutes(server: FastifyInstance, options: { year?: st
     server.get('/api/portal/week', async (req, reply) => {
         const who = await signed(req, reply);
         if (!who) return;
+        const query = z.object({ employeeId: z.coerce.number().int().positive().optional() }).strict().safeParse(req.query);
+        if (!query.success) return reply.code(400).send({ error: 'Изберете колега.' });
+        const viewer = who.staff;
+        const target = await viewedStaff(who, query.data.employeeId, reply); if (!target) return;
+        who.staff = target;
         const role = await rolesOf(who.staff, who.year.id);
         const homeroom = (role.teacher?.classes || []).filter((c: any) => c.role === 'homeroom').map((c: any) => c.label);
         const teaching = who.staff.teacherId != null;
@@ -602,6 +665,8 @@ export async function portalRoutes(server: FastifyInstance, options: { year?: st
             : [[], [], [], []] as [any[], WeekLesson[], any[], any[]];
         return {
             year: who.year.label,
+            readOnly: Boolean(viewer.readOnly),
+            viewedPerson: { employeeId: target.employeeId, name: target.name },
             days: TEACHING_DAYS,
             periods: periods.map((p: any) => ({ ordinal: p.ordinal, label: p.label, startsAt: p.startsAt })),
             me: { teacherId: who.staff.teacherId, therapistId: who.staff.therapistId, homeroom, subject: role.teacher?.subject || null,
@@ -618,7 +683,7 @@ export async function portalRoutes(server: FastifyInstance, options: { year?: st
                 (role.teacher?.classes || []).map((c: any) => c.label))) : [],
             clashes: teaching ? standingClashes(lessons, who.staff.teacherId, homeroom) : [],
             cabinet: await cabinetWeek(who.staff, who.year),
-            notices: await noticesFor(who.staff, who.year.id, lessons)
+            notices: viewer.readOnly ? [] : await noticesFor(who.staff, who.year.id, lessons)
         };
     });
 
@@ -856,6 +921,7 @@ export async function portalRoutes(server: FastifyInstance, options: { year?: st
      * username is. The administrator's look passes, as everywhere here.
      */
     async function pupilListRefusal(who: Signed, reply: FastifyReply): Promise<boolean> {
+        if (who.staff.readOnly) { reply.code(403).send({ error: 'Користете го јазичето Списоци.', readOnly: true }); return true; }
         if (who.staff.therapistId == null) {
             reply.code(403).send({ error: 'Само терапевт има своја листа ученици.' });
             return true;
@@ -1008,7 +1074,8 @@ export async function portalRoutes(server: FastifyInstance, options: { year?: st
         catch (err) { return refuseScope(reply, err); }
         const year = await currentYear();
         if (!year) return reply.code(503).send({ error: 'Нема тековна учебна година.' });
-        const staff = await staffOfYear(pool, year.id);
+        const candidates = await staffOfYear(pool, year.id, true);
+        const staff = candidates.filter(s => s.teacherId != null || s.therapistId != null || s.readOnly);
         const accounts = new Map((await pool.query(
             `SELECT employee_id, password_hash IS NOT NULL AS own, changed_at, reset_at, last_login_at FROM staff_accounts`
         )).rows.map((r: any) => [r.employee_id, r]));
@@ -1017,6 +1084,7 @@ export async function portalRoutes(server: FastifyInstance, options: { year?: st
         staff.forEach((s) => nameKeys(s.name).strict.forEach((k) => holders.set(k, (holders.get(k) || 0) + 1)));
         return {
             year: year.label,
+            candidates: candidates.map(s => ({ employeeId: s.employeeId, name: s.name, readOnly: Boolean(s.readOnly) })),
             accounts: staff.map((s) => {
                 const a: any = accounts.get(s.employeeId) || {};
                 return {
@@ -1025,6 +1093,7 @@ export async function portalRoutes(server: FastifyInstance, options: { year?: st
                     usernames: usernamesOf(s.name),
                     teacher: s.teacherId != null,
                     therapist: s.therapistId != null,
+                    readOnly: Boolean(s.readOnly),
                     ownPassword: Boolean(a.own),
                     changedAt: a.changed_at || null,
                     resetAt: a.reset_at || null,
@@ -1033,6 +1102,34 @@ export async function portalRoutes(server: FastifyInstance, options: { year?: st
                 };
             })
         };
+    });
+
+    server.put('/api/staff-accounts/:employeeId/access', async (req, reply) => {
+        try { assertOwner(await scopeOf(req), 'пристапот на колегите'); }
+        catch (err) { return refuseScope(reply, err); }
+        const employeeId = Number((req.params as any).employeeId);
+        const parsed = z.object({ readOnly: z.boolean(), expected: z.boolean() }).strict().safeParse(req.body);
+        if (!Number.isInteger(employeeId) || employeeId <= 0 || !parsed.success) return reply.code(400).send({ error: 'Проверете го избраниот профил.' });
+        const year = await currentYear();
+        if (!year) return reply.code(503).send({ error: 'Нема тековна учебна година.' });
+        const client = await pool.connect();
+        try {
+            await client.query('BEGIN');
+            await client.query('SELECT id FROM employees WHERE id=$1 FOR UPDATE', [employeeId]);
+            const staff = (await staffOfYear(client, year.id, true)).find(s => s.employeeId === employeeId);
+            if (!staff) { await client.query('ROLLBACK'); return reply.code(404).send({ error: 'Вработениот не е активен во тековната година.' }); }
+            if (Boolean(staff.readOnly) !== parsed.data.expected) {
+                await client.query('ROLLBACK'); return reply.code(409).send({ error: 'Пристапот е сменет во меѓувреме. Освежете го списокот.' });
+            }
+            await client.query(`INSERT INTO staff_accounts(employee_id,read_only) VALUES($1,$2)
+                ON CONFLICT(employee_id) DO UPDATE SET read_only=EXCLUDED.read_only`, [employeeId, parsed.data.readOnly]);
+            // A role grant/removal cannot silently upgrade an old browser token.
+            await client.query('DELETE FROM staff_sessions WHERE employee_id=$1', [employeeId]);
+            await client.query('COMMIT');
+            for (const [key, entry] of acting) if (entry.employeeId === employeeId) acting.delete(key);
+            return { ok: true, readOnly: parsed.data.readOnly };
+        } catch (err) { await client.query('ROLLBACK'); throw err; }
+        finally { client.release(); }
     });
 
     /** „Отвори го формуларот на…": a two-hour look at a colleague's own form, for the owner only. */

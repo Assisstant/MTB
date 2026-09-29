@@ -68,6 +68,10 @@
        shows every label in full. */
     .field { min-width: 0; max-width: 100%; }
     .field select { max-width: 100%; }
+    #readOnlyGrant, #newReaderForm { display: flex; flex-wrap: wrap; gap: 10px; align-items: end; margin: 12px 0; }
+    #newReaderForm[hidden] { display: none; }
+    #readOnlyGrant label, #newReaderForm label { display: grid; gap: 5px; max-width: 100%; min-width: 0; }
+    #readOnlyEmployee { max-width: 100%; }
     .btn.soft.danger { border-color: color-mix(in srgb, var(--danger) 45%, var(--toggle-border)); }
     /* Дали е запишано во базата — на самата контрола, не само горе на екранот.
        docs/MANUAL-DB-SYNC.md вели: копчето станува зелено дури откако серверот
@@ -542,6 +546,20 @@
         <h3>Известувања</h3>
         <div class="scroll"><div id="colleaguesNotices"></div></div>
         <h3>Сметки</h3>
+        <p class="hint">„Само преглед“ ги отвора распоредите, списоците и присуството од тековната година, со печатење, слика и Word.
+            Не дозволува менување податоци, ни преку линк за дежурства. Корисничкото име е споеното име и презиме;
+            почетната лозинка е ResursenCentar. Промена на пристапот ги завршува постојните најави.</p>
+        <form id="readOnlyGrant" class="row">
+            <label>Вработен (и администрација)<select id="readOnlyEmployee" required><option value="">Изберете вработен</option></select></label>
+            <button class="btn soft" type="submit">Додели „Само преглед“</button>
+            <button class="btn soft" type="button" id="newReaderToggle">＋ Нов профил</button>
+        </form>
+        <form id="newReaderForm" class="row" hidden>
+            <label>Име и презиме<input id="newReaderName" required maxlength="120" autocomplete="off"></label>
+            <label>Годишен список<select id="newReaderRole"><option value="administration">Администрација</option><option value="specialist">Стручна служба</option></select></label>
+            <button class="btn" type="submit">Создај профил со „Само преглед“</button>
+        </form>
+        <p id="readerAccessMsg" class="hint" role="status"></p>
         <div class="scroll"><div id="colleaguesAccounts"></div></div>
     </div>
 
@@ -2843,6 +2861,7 @@
         return target;
     }
 
+    let colleagueCandidates = [], colleagueYear = '';
     async function loadColleagues() {
         const base = apiBase || window.location.origin;
         el('colleaguesLink').textContent = base.replace(/\/$/, '') + '/kolegi';
@@ -2875,22 +2894,57 @@
               + '</tbody></table>'
             : '<p class="hint">Уште нема известувања.</p>';
         const rows = accounts.accounts || [];
+        colleagueYear = accounts.year;
+        colleagueCandidates = accounts.candidates || rows;
+        el('readOnlyEmployee').innerHTML = '<option value="">Изберете вработен</option>' + colleagueCandidates.filter(a => !a.readOnly)
+            .map(a => `<option value="${a.employeeId}">${esc(personName(a.name))}</option>`).join('');
         el('colleaguesAccounts').innerHTML = rows.length
             ? '<table class="list"><thead><tr><th>Колега</th><th>Корисничко име</th><th>Улоги</th><th>Лозинка</th><th>Последна најава</th><th></th></tr></thead><tbody>'
               + rows.map((a) => `<tr data-account="${a.employeeId}"><td>${esc(personName(a.name))}`
                 + (a.ambiguous ? ' <span class="none">· исто име како друг — не може да се најави</span>' : '') + '</td>'
                 + `<td><code>${esc(a.usernames.latin)}</code><br><code>${esc(a.usernames.cyrillic)}</code></td>`
-                + `<td>${[a.teacher ? 'наставник' : '', a.therapist ? 'терапевт' : ''].filter(Boolean).join(', ')}</td>`
+                + `<td>${[a.readOnly ? '🔒 Само преглед' : '', a.teacher ? 'наставник' : '', a.therapist ? 'терапевт' : ''].filter(Boolean).join(', ') || 'вработен'}</td>`
                 + `<td>${a.ownPassword ? 'своја' : 'почетна'}</td>`
                 + `<td>${esc(when2(a.lastLoginAt))}</td>`
                 + '<td class="act">'
                 + `<button class="btn soft" data-open-colleague="${a.employeeId}">Отвори го формуларот</button> `
+                + (a.readOnly ? `<button class="btn soft" data-remove-reader="${a.employeeId}" data-has-profile="${Boolean(a.teacher || a.therapist)}">Отстрани „Само преглед“</button> ` : '')
                 + (a.ownPassword ? `<button class="btn soft danger" data-reset-colleague="${a.employeeId}">Врати почетна лозинка</button>` : '')
                 + '</td></tr>').join('')
               + '</tbody></table>'
             : '<p class="hint">Нема наставници ни терапевти на списокот за годинава.</p>';
         await loadDutyAdminLinks();
     }
+
+    async function grantReader(employeeId, readOnly, expected) {
+        await api('PUT', `/api/staff-accounts/${employeeId}/access`, { readOnly, expected });
+        el('readerAccessMsg').textContent = readOnly ? 'Зачувано: само преглед. Најавата е преку истиот линк за колегите.' : 'Пристапот е променет. Потребна е нова најава.';
+        await loadColleagues();
+    }
+    el('readOnlyGrant').addEventListener('submit', async event => {
+        event.preventDefault(); const id = Number(el('readOnlyEmployee').value); if (!id) return;
+        const button = event.submitter; button.disabled = true;
+        try { await grantReader(id, true, false); }
+        catch (err) { el('readerAccessMsg').textContent = err.message; }
+        finally { button.disabled = false; }
+    });
+    el('newReaderToggle').addEventListener('click', () => { el('newReaderForm').hidden = !el('newReaderForm').hidden; });
+    el('newReaderForm').addEventListener('submit', async event => {
+        event.preventDefault(); const name = el('newReaderName').value.trim(); if (!name || !colleagueYear) return;
+        const same = colleagueCandidates.filter(a => a.name.trim().toLocaleLowerCase('mk-MK') === name.toLocaleLowerCase('mk-MK'));
+        if (same.length) { el('readerAccessMsg').textContent = 'Веќе има вработен со ова име. Изберете го од списокот; исто корисничко име не може да се користи за две лица.'; return; }
+        const button = event.submitter; button.disabled = true; let created = false;
+        try {
+            // Employee identity still has one writer: the existing directory API.
+            const answer = await api('POST', '/api/workspace/employees', { year: colleagueYear, name, identifier: null,
+                roles: [el('newReaderRole').value], teacherKind: 'none' });
+            created = true; el('newReaderName').value = ''; el('newReaderForm').hidden = true;
+            await grantReader(answer.employee.id, true, false);
+        } catch (err) {
+            if (created) await loadColleagues().catch(() => {});
+            el('readerAccessMsg').textContent = (created ? 'Профилот е создаден. Изберете го од списокот за да доделите пристап. ' : '') + err.message;
+        } finally { button.disabled = false; }
+    });
 
     el('colleaguesRefresh').addEventListener('click', () => loadColleagues());
     el('copyColleaguesLink').addEventListener('click', async () => {
@@ -2929,6 +2983,16 @@
         } catch (err) { status(err.message, 'error', { toast: true }); }
     });
     el('colleaguesAccounts').addEventListener('click', async (event) => {
+        const removeReader = event.target.closest('[data-remove-reader]');
+        if (removeReader) {
+            const consequence = removeReader.dataset.hasProfile === 'true'
+                ? 'Ќе се врати редовното уредување на сопствениот распоред и список.' : 'Лицето веќе нема да може да се најави во Колега.';
+            if (!window.confirm('Да се отстрани „Само преглед“? ' + consequence)) return;
+            removeReader.disabled = true;
+            try { await grantReader(Number(removeReader.dataset.removeReader), false, true); }
+            catch (err) { el('readerAccessMsg').textContent = err.message; removeReader.disabled = false; }
+            return;
+        }
         const open = event.target.closest('[data-open-colleague]');
         if (open) {
             // The window first, while the click still counts as the person's:
