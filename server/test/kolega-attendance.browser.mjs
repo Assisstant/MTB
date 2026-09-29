@@ -7,7 +7,7 @@ const root = resolve(import.meta.dirname, '../..'), origin = 'http://localhost:3
 const browser = await chromium.launch({ ...(process.env.CHROME ? { executablePath: process.env.CHROME } : {}) });
 const context = await browser.newContext({ viewport:{width:1400,height:1000},serviceWorkers:'block' });
 const marks = new Map(), revisions = new Map(), errors = [], writes = [];
-let failWrite = false, transportAllowed = true, transportReads = 0, attendanceReads = 0;
+let failWrite = false, transportAllowed = true, transportReads = 0, attendanceReads = 0, extendedTransport = false, denyTransport = false;
 await context.addInitScript(() => {
     localStorage.setItem('mtb_portal_token_v1','a'.repeat(64));
     window.print = () => { window.printClasses = document.body.className; };
@@ -22,7 +22,14 @@ await context.route('**/*', async route => {
     if (u.pathname === '/api/attendance/transport') {
         assert.equal(req.method(),'GET'); transportReads++;
         assert.equal(req.headers()['x-mtb-duty-admin-token'],undefined);
+        if(denyTransport) return json(403,{error:'Пробно одбиен пристап.'});
         const month=u.searchParams.get('month');
+        if(extendedTransport) return json(200,{month,year:'2026/2027',generatedAt:'2026-09-28T12:00:00Z',note:'Само потврдени различни датуми.',pupils:
+            Array.from({length:15},(_,i)=>{
+                const count=[0,4,5,8,9,22,31][i%7];
+                return {studentId:100+i,name:'Измислен Ученик '+(i+1)+' & <тест>',daysPresent:count,
+                    dates:Array.from({length:count},(_,j)=>month+'-'+String(j+1).padStart(2,'0'))};
+            })});
         return json(200,{month,from:month+'-01',to:month+'-30',year:'2026/2027',generatedAt:'2026-09-28T12:00:00Z',note:'Само потврдени различни датуми.',pupils:[
             {studentId:11,name:'Измислен Надворешен Алфа',grade:'VI-тест',dates:[month+'-07',month+'-14'],daysPresent:2},
             {studentId:12,name:'Измислен Надворешен Бета',grade:'',dates:[],daysPresent:0}]});
@@ -56,6 +63,15 @@ await context.route('**/*', async route => {
 const p = await context.newPage(); p.on('pageerror',e=>errors.push(e.message));
 const ready = () => p.waitForSelector('#attendanceSheet table');
 const saved = () => p.waitForFunction(()=>!document.querySelector('.attendance-mark[aria-busy="true"]'));
+const docxParts = bytes => {
+    const parts={};let offset=0;
+    while(bytes.readUInt32LE(offset)===0x04034b50) {
+        const size=bytes.readUInt32LE(offset+18),n=bytes.readUInt16LE(offset+26),extra=bytes.readUInt16LE(offset+28);
+        const start=offset+30+n+extra;
+        parts[bytes.subarray(offset+30,offset+30+n).toString()]=bytes.subarray(start,start+size).toString();offset=start+size;
+    }
+    return parts;
+};
 const onePagePdf = async path => {
     const pdf=await p.pdf({path,preferCSSPageSize:true,printBackground:true});
     assert.equal((pdf.toString('latin1').match(/\/Type\s*\/Page\b/g)||[]).length,1,'complete report fits one PDF page: '+path);
@@ -133,10 +149,28 @@ try {
     const [transportPng]=await Promise.all([p.waitForEvent('download'),p.click('[data-att-png]')]);
     assert.match(transportPng.suggestedFilename(),/^Prevoz-/);
     await transportPng.saveAs(resolve(artifacts,'transport.png'));
+    const readsBeforeDocx=transportReads;
+    const [word]=await Promise.all([p.waitForEvent('download'),p.click('[data-att-docx]')]);
+    await word.saveAs(resolve(artifacts,'transport.docx'));
+    assert.equal(word.suggestedFilename(),'Prevoz-2026-09.docx');
+    assert.equal(transportReads,readsBeforeDocx+1,'Word export rechecks owner rights and refreshes data');
+    const bytes=await readFile(resolve(artifacts,'transport.docx'));
+    const parts=docxParts(bytes);
+    assert.ok(parts['[Content_Types].xml'],'real zipped DOCX, not renamed HTML');
+    assert.match(parts['word/document.xml'],/w:orient="landscape"/);
+    assert.match(parts['word/document.xml'],/Изработил: Измислен Терапевт/);
+    assert.match(parts['word/document.xml'],/<w:tblHeader\/>/);
+    assert.ok(!parts['word/document.xml'].includes('Измислен Автор'),'no app-author watermark');
+    assert.ok(!Object.values(parts).join('').includes('TargetMode="External"'),'no external references');
+    for(const xml of Object.values(parts)) assert.equal(await p.evaluate(text=>new DOMParser().parseFromString(text,'application/xml').querySelector('parsererror')?.textContent||'',xml),'');
+    denyTransport=true;
+    let deniedDownload=false;const onDeniedDownload=()=>{deniedDownload=true;};p.on('download',onDeniedDownload);
+    await p.click('[data-att-docx]');await p.waitForFunction(()=>document.querySelector('#weekMsg').textContent.includes('Пробно одбиен'));
+    p.off('download',onDeniedDownload);assert.equal(deniedDownload,false,'revoked access never exports cached data');denyTransport=false;
     for(const width of [360,400]) {
         await p.setViewportSize({width,height:850});
         assert.ok(await p.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),'transport list and controls fit narrow phones');
-        for(const control of ['#attendanceDate','#attendanceScope','[data-att-print]','[data-att-png]','[data-transport-certificate="11"]']) {
+        for(const control of ['#attendanceDate','#attendanceScope','[data-att-print]','[data-att-png]','[data-att-docx]','[data-transport-certificate="11"]']) {
             assert.ok((await p.locator(control).boundingBox()).height>=44,'touch target at least 44px: '+control);
         }
     }
@@ -158,13 +192,42 @@ try {
     await p.screenshot({path:resolve(artifacts,'transport-readable-print.png'),fullPage:true});
     await onePagePdf(resolve(artifacts,'transport-month.pdf'));
     await p.evaluate(()=>window.dispatchEvent(new Event('afterprint')));await p.emulateMedia({media:'screen'});
-    // A full month for several pupils must paginate, not reduce the font.
-    await p.click('[data-att-print]');await p.emulateMedia({media:'print'});
-    await p.evaluate(()=>{
-        document.querySelectorAll('.transport-dates tbody td').forEach(td=>{
-            td.textContent=Array.from({length:22},(_,i)=>String(i+1).padStart(2,'0')+'.09.2026').join('\n');
+    // Dates fill columns of four, including partial and full months, without loss.
+    extendedTransport=true;
+    await p.locator('#attendanceDate').fill('2026-10');await ready();
+    assert.equal(await p.locator('.transport-dates tbody tr').count(),15);
+    assert.deepEqual(await p.locator('.transport-dates tbody tr').nth(2).locator('.transport-date-column').allTextContents(),['01.10.2026\n02.10.2026\n03.10.2026\n04.10.2026','05.10.2026']);
+    assert.equal(await p.locator('.transport-dates tbody tr').nth(6).locator('.transport-date-column').count(),8,'31 dates use eight columns');
+    assert.ok(await p.locator('.transport-date-column').evaluateAll(cols=>cols.every(c=>c.textContent.split('\n').length<=4)));
+    const [longWord]=await Promise.all([p.waitForEvent('download'),p.click('[data-att-docx]')]);
+    await longWord.saveAs(resolve(artifacts,'transport-columns.docx'));
+    const longXml=docxParts(await readFile(resolve(artifacts,'transport-columns.docx')))['word/document.xml'];
+    const wordRows=await p.evaluate(xml=>{
+        const doc=new DOMParser().parseFromString(xml,'application/xml');
+        if(doc.querySelector('parsererror')) throw Error('Malformed Word XML');
+        return [...doc.getElementsByTagName('w:tr')].slice(1).map(tr=>{
+            const cells=tr.getElementsByTagName('w:tc');
+            return {name:cells[0].textContent,lines:cells[1].getElementsByTagName('w:p').length,
+                dates:[...cells[1].getElementsByTagName('w:t')].map(n=>n.textContent).filter(s=>s && s!=='—').sort()};
         });
+    },longXml);
+    assert.equal(wordRows.length,15);
+    wordRows.forEach((row,i)=>{
+        const count=[0,4,5,8,9,22,31][i%7];
+        assert.equal(row.name,'Измислен Ученик '+(i+1)+' & <тест>','names escaped without altering content');
+        assert.ok(row.lines<=4,'Word pupil row has at most four date lines');
+        assert.deepEqual(row.dates,Array.from({length:count},(_,j)=>String(j+1).padStart(2,'0')+'.10.2026'),'all confirmed dates exported exactly once');
     });
+    for(const width of [360,400]) {
+        await p.setViewportSize({width,height:850});
+        assert.ok(await p.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),'many date columns scroll inside the cell on phones');
+    }
+    await p.screenshot({path:resolve(artifacts,'transport-columns-mobile.png'),fullPage:true});
+    await p.setViewportSize({width:1400,height:1000});
+    // Several full months paginate without reducing the readable type.
+    await p.click('[data-att-print]');await p.emulateMedia({media:'print'});
+    await p.evaluate(()=>window.dispatchEvent(new Event('beforeprint')));
+    assert.ok(await p.locator('.transport-date-columns').evaluateAll(cells=>cells.every(c=>c.scrollWidth<=c.clientWidth+1)),'all date columns fit landscape print width');
     const longPdf=await p.pdf({path:resolve(artifacts,'transport-long.pdf'),preferCSSPageSize:true,printBackground:true});
     assert.ok((longPdf.toString('latin1').match(/\/Type\s*\/Page\b/g)||[]).length>1,'long lists continue on another page at readable size');
     await p.evaluate(()=>window.dispatchEvent(new Event('afterprint')));await p.emulateMedia({media:'screen'});

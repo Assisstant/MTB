@@ -269,6 +269,8 @@ header.top h1 { flex: 1; min-width: 180px; }
 .attendance-table.transport-dates th:first-child { width: 42%; }
 .attendance-table.transport-dates tbody th { background: var(--well); font-weight: 650; }
 .attendance-table.transport-dates tbody tr { border-bottom: 2px solid var(--line); }
+.transport-date-columns { display: flex; gap: 1.25em; overflow-x: auto; white-space: normal; }
+.transport-date-column { flex: 0 0 auto; white-space: pre; }
 .transport-explanation { margin: 12px 0; color: var(--muted); font-size: 14px; }
 .transport-explanation summary { min-height: 44px; padding: 10px 0; cursor: pointer; }
 @media screen {
@@ -291,6 +293,7 @@ header.top h1 { flex: 1; min-width: 180px; }
   .attendance-tools [data-att-refresh] { order: 6; grid-column: 1 / -1; }
   .attendance-tools [data-att-print] { order: 7; }
   .attendance-tools [data-att-png] { order: 8; }
+  .attendance-tools [data-att-docx] { order: 9; grid-column: 1 / -1; }
   .attendance-tools button { white-space: normal; padding: 10px 8px; }
   .attendance-tools input, .attendance-tools select { width: 100%; min-width: 0; }
   .attendance-table.transport-dates { font-size: 16px; }
@@ -318,7 +321,7 @@ header.top h1 { flex: 1; min-width: 180px; }
 @page attendance-report { size: A4 landscape; margin: 10mm; }
 @page duty-report { size: A4 portrait; margin: 10mm; }
 @page transport-certificate { size: A4 portrait; margin: 20mm; }
-@page transport-list { size: A4 portrait; margin: 12mm; }
+@page transport-list { size: A4 landscape; margin: 12mm; }
 @media print {
   .print-preparer { display: block; font: bold 9pt Arial, sans-serif; color: #000; background: #f3f4f6; padding: 3mm; margin: 0 0 3mm; }
   body.printing-week { page: week; }
@@ -377,12 +380,15 @@ header.top h1 { flex: 1; min-width: 180px; }
   /* The two-column transport list is a document, not a 31-column grid.
      Keep readable type and paginate long date lists instead of shrinking. */
   body.printing-transport-list { page: transport-list; }
-  body.printing-transport-list main { width: 186mm; }
+  html:has(body.printing-transport-list) { background: #fff; min-height: 0; overflow: visible; }
+  body.printing-transport-list { min-height: 0; overflow: visible; }
+  body.printing-transport-list main { width: 273mm; }
   body.printing-transport-list #attendance { zoom: 1 !important; }
-  body.printing-transport-list .attendance-table.transport-dates { font-size: 11pt; line-height: 1.35; }
+  body.printing-transport-list .attendance-table.transport-dates { font: 11pt/1.2 "Times New Roman", Times, serif; }
   body.printing-transport-list .attendance-table.transport-dates th,
-  body.printing-transport-list .attendance-table.transport-dates td { padding: 2.5mm 3mm; height: 8mm; vertical-align: top; }
-  body.printing-transport-list .attendance-table.transport-dates th:first-child { width: 42%; }
+  body.printing-transport-list .attendance-table.transport-dates td { padding: 1mm 2mm; height: auto; vertical-align: middle; }
+  body.printing-transport-list .attendance-table.transport-dates th:first-child { width: 25%; }
+  body.printing-transport-list .transport-date-columns { gap: 3mm; overflow: visible; }
   body.printing-transport-list .attendance-table thead { display: table-header-group; }
   body.printing-transport-list h2 { font-size: 15pt; line-height: 1.3; margin: 3mm 0; }
   body.printing-transport-list p { font-size: 10pt; line-height: 1.4; margin: 2mm 0; }
@@ -910,16 +916,87 @@ header.top h1 { flex: 1; min-width: 180px; }
             columns:['Ученик','Датуми на присуство во училиштето'],
             rows:d.pupils.map(p=>[p.name,p.dates.map(dmy).join('\n') || '—']) };
     }
+    // Read down four dates, then continue in the next column. Never truncate.
+    function transportDateColumns(value) {
+        const dates=String(value).split('\n'), columns=[];
+        for(let i=0;i<dates.length;i+=4) columns.push(dates.slice(i,i+4));
+        return columns;
+    }
     function drawTransport() {
         const m=transportReport();
         el('attendanceSheet').innerHTML=`<h2>${esc(m.title)}</h2><p>${esc(m.subtitle)}</p>`
             + '<p>Потврдени датуми од сите кабинети, без повторување. „—“ = нема запишано присуство.</p>'
+            + '<p class="no-print">Датумите се читаат надолу, по 4 во колона. На телефон повлечете ги датумите лево за да ги видите останатите.</p>'
             + `<details class="transport-explanation no-print"><summary>Како се добива списокот?</summary><p>${esc(m.note)}</p></details>`
             + (m.rows.length ? '<div class="attendance-scroll"><table class="attendance-table transport-dates"><thead><tr>'
                 + m.columns.map(c=>`<th scope="col">${esc(c)}</th>`).join('') + '</tr></thead><tbody>'
                 + m.rows.map((r,i)=>'<tr><th scope="row">'+esc(r[0])+`<button class="no-print" aria-label="Потврда за ${esc(r[0])}" data-transport-certificate="${attendance.data.pupils[i].studentId}"${attendance.data.pupils[i].daysPresent ? '' : ' disabled'}>Потврда</button></th>`
-                    + `<td${attendance.data.pupils[i].daysPresent?' class="mark-present"':''}>${esc(r[1])}</td></tr>`).join('')+'</tbody></table></div>'
+                    + `<td${attendance.data.pupils[i].daysPresent?' class="mark-present"':''}><div class="transport-date-columns">${transportDateColumns(r[1]).map(c=>'<span class="transport-date-column">'+esc(c.join('\n'))+'</span>').join('')}</div></td></tr>`).join('')+'</tbody></table></div>'
                 : '<p>Нема надворешни ученици во избраниот годишен список.</p>');
+    }
+    // A small, uncompressed OPC ZIP keeps this public page self-contained:
+    // no CDN, upload of pupil data, HTML renamed .doc, macros or remote parts.
+    function transportDocxBlob(report, preparer) {
+        const xml=s=>String(s).replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/g,'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&apos;'}[c]));
+        const run=(s,bold=false)=>'<w:r><w:rPr>'+(bold?'<w:b/>':'')+'</w:rPr><w:t xml:space="preserve">'+xml(s)+'</w:t></w:r>';
+        const p=(s,style='')=>'<w:p><w:pPr>'+(style?'<w:pStyle w:val="'+style+'"/>':'')+'</w:pPr>'+run(s)+'</w:p>';
+        const cell=(content,width,fill)=>'<w:tc><w:tcPr><w:tcW w:w="'+width+'" w:type="dxa"/><w:vAlign w:val="center"/>'+(fill?'<w:shd w:fill="'+fill+'"/>':'')+'</w:tcPr>'+content+'</w:tc>';
+        const row=(a,b,head=false,fill='')=>'<w:tr><w:trPr><w:cantSplit/>'+(head?'<w:tblHeader/>':'')+'</w:trPr>'+cell(a,3800,head?'F1F3F5':'')+cell(b,11678,head?'F1F3F5':fill)+'</w:tr>';
+        const bold=s=>'<w:p>'+run(s,true)+'</w:p>';
+        const rows=report.rows.map(r=>{
+            const cols=transportDateColumns(r[1]);
+            const lines=Array.from({length:Math.min(4,cols[0].length)},(_,i)=>
+                '<w:p><w:pPr><w:tabs>'+Array.from({length:7},(_,j)=>'<w:tab w:val="left" w:pos="'+((j+1)*1430)+'"/>').join('')+'</w:tabs></w:pPr>'
+                +cols.map(c=>run(c[i]||'')).join('<w:r><w:tab/></w:r>')+'</w:p>').join('');
+            return row(bold(r[0]),lines,false,r[1]==='—'?'':'E8F5EC');
+        }).join('');
+        const ns='http://schemas.openxmlformats.org/wordprocessingml/2006/main';
+        const files={
+            '[Content_Types].xml':'<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/><Override PartName="/word/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/></Types>',
+            '_rels/.rels':'<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>',
+            'word/_rels/document.xml.rels':'<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>',
+            'word/styles.xml':'<w:styles xmlns:w="'+ns+'"><w:docDefaults><w:rPrDefault><w:rPr><w:rFonts w:ascii="Times New Roman" w:hAnsi="Times New Roman" w:cs="Times New Roman"/><w:sz w:val="22"/><w:color w:val="000000"/><w:lang w:val="mk-MK"/></w:rPr></w:rPrDefault><w:pPrDefault><w:pPr><w:spacing w:before="0" w:after="0" w:line="240" w:lineRule="auto"/></w:pPr></w:pPrDefault></w:docDefaults><w:style w:type="paragraph" w:default="1" w:styleId="Normal"><w:name w:val="Normal"/></w:style><w:style w:type="paragraph" w:styleId="Title"><w:name w:val="Title"/><w:basedOn w:val="Normal"/><w:pPr><w:keepNext/><w:spacing w:before="120" w:after="100"/></w:pPr><w:rPr><w:b/><w:sz w:val="28"/></w:rPr></w:style></w:styles>',
+            'word/document.xml':'<w:document xmlns:w="'+ns+'"><w:body>'
+                +p('Изработил: '+preparer)+p('Надворешни ученици за превоз','Title')+p(report.subtitle)
+                +p('Потврдени датуми од сите кабинети, без повторување. „—“ = нема запишано присуство.')+p('')
+                +'<w:tbl><w:tblPr><w:tblW w:w="15478" w:type="dxa"/><w:tblLayout w:type="fixed"/><w:tblBorders>'
+                +['top','left','bottom','right','insideH','insideV'].map(edge=>'<w:'+edge+' w:val="single" w:sz="4" w:color="D9D9D9"/>').join('')
+                +'</w:tblBorders><w:tblCellMar><w:top w:w="56" w:type="dxa"/><w:left w:w="113" w:type="dxa"/><w:bottom w:w="56" w:type="dxa"/><w:right w:w="113" w:type="dxa"/></w:tblCellMar></w:tblPr><w:tblGrid><w:gridCol w:w="3800"/><w:gridCol w:w="11678"/></w:tblGrid>'
+                +row(bold(report.columns[0]),bold(report.columns[1]),true)+rows+'</w:tbl>'+p('')
+                +'<w:sectPr><w:pgSz w:w="16839" w:h="11907" w:orient="landscape"/><w:pgMar w:top="680" w:right="680" w:bottom="680" w:left="680" w:header="0" w:footer="0" w:gutter="0"/></w:sectPr></w:body></w:document>'
+        };
+        const encoder=new TextEncoder(), local=[], central=[]; let offset=0;
+        for(const [name,source] of Object.entries(files)) {
+            const n=encoder.encode(name), data=encoder.encode('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'+source);
+            let crc=0xffffffff;
+            for(const byte of data) { crc^=byte; for(let i=0;i<8;i++) crc=(crc>>>1)^((crc&1)?0xedb88320:0); }
+            crc=(crc^0xffffffff)>>>0;
+            const header=new Uint8Array(30), h=new DataView(header.buffer);
+            h.setUint32(0,0x04034b50,true);h.setUint16(4,20,true);h.setUint16(12,33,true);
+            h.setUint32(14,crc,true);h.setUint32(18,data.length,true);h.setUint32(22,data.length,true);h.setUint16(26,n.length,true);
+            const directory=new Uint8Array(46), d=new DataView(directory.buffer);
+            d.setUint32(0,0x02014b50,true);d.setUint16(4,20,true);d.setUint16(6,20,true);d.setUint16(14,33,true);
+            d.setUint32(16,crc,true);d.setUint32(20,data.length,true);d.setUint32(24,data.length,true);d.setUint16(28,n.length,true);d.setUint32(42,offset,true);
+            local.push(header,n,data);central.push(directory,n);offset+=header.length+n.length+data.length;
+        }
+        const end=new Uint8Array(22), e=new DataView(end.buffer), count=Object.keys(files).length;
+        e.setUint32(0,0x06054b50,true);e.setUint16(8,count,true);e.setUint16(10,count,true);e.setUint32(12,central.reduce((n,a)=>n+a.length,0),true);e.setUint32(16,offset,true);
+        return new Blob([...local,...central,end],{type:'application/vnd.openxmlformats-officedocument.wordprocessingml.document'});
+    }
+    async function downloadTransportDocx() {
+        if(attendance.scope!=='transport' || !attendance.transportAllowed || !attendance.data) return;
+        const sessionMe=me, request=++attendance.request, month=attendance.data.month;
+        attendance.busy=true; drawAttendance();
+        try {
+            const data=await ownerApi('GET','/api/attendance/transport?month='+month+'&year='+encodeURIComponent(sessionMe.year),undefined,false);
+            if(me!==sessionMe || request!==attendance.request) return;
+            attendance.data=data;
+            const blob=transportDocxBlob(transportReport(),sessionMe.person.name), a=document.createElement('a');
+            a.href=URL.createObjectURL(blob);a.download='Prevoz-'+data.month+'.docx';a.click();
+            setTimeout(()=>URL.revokeObjectURL(a.href),30000);
+            say('weekMsg','Word документот е создаден од свежо прочитаната евиденција. Измените во Word не ја менуваат базата.','ok');
+        } catch(err) { say('weekMsg',err.message,'error'); }
+        finally { if(me===sessionMe && request===attendance.request) { attendance.busy=false;drawAttendance(); } }
     }
     async function printTransportCertificate(studentId) {
         // Re-read the report, so a corrected mark is reflected before issuing.
@@ -968,7 +1045,8 @@ header.top h1 { flex: 1; min-width: 180px; }
             + `<label>Период<input id="attendanceDate" type="${attendance.mode === 'month' ? 'month' : 'date'}" value="${attendance.mode === 'month' ? range.from.slice(0, 7) : range.from}"${disabled}></label>`
             + `<button data-att-step="1" aria-label="Следен период"${disabled}>▶</button>`
             + `<button data-att-refresh${disabled}>Освежи</button><button data-att-print${disabled || !data ? ' disabled' : ''}>🖨 Печати</button>`
-            + `<button data-att-png${disabled || !data ? ' disabled' : ''}>🖼 Слика</button></div>`
+            + `<button data-att-png${disabled || !data ? ' disabled' : ''}>🖼 Слика</button>`
+            + (attendance.scope==='transport' ? `<button data-att-docx${disabled || !data ? ' disabled' : ''}>Word (.docx)</button>` : '') + '</div>'
             + (attendance.busy ? '<p role="status">Се вчитува / зачувува…</p>' : '')
             + '<div id="attendanceSheet"></div>';
         if (!data || attendance.busy) return;
@@ -1007,6 +1085,7 @@ header.top h1 { flex: 1; min-width: 180px; }
             return loadAttendance();
         }
         if (b.hasAttribute('data-att-refresh')) return loadAttendance();
+        if (b.hasAttribute('data-att-docx')) return downloadTransportDocx();
         if (b.hasAttribute('data-att-print')) { document.body.classList.add('printing-attendance'); window.print(); return; }
         if (b.hasAttribute('data-att-png')) {
             if(attendance.scope==='transport') return paintReport({...transportReport(),file:'Prevoz-'+attendance.data.month,dateList:true});
@@ -1803,7 +1882,11 @@ header.top h1 { flex: 1; min-width: 180px; }
         const lines = values => values.map((v, i) => wrap(v, widths[i]));
         const header = lines(o.columns), headH = Math.max(...header.map(l => l.length)) * 23 + 20;
         const note = wrap(o.note || '', width - 48);
-        const rows = o.rows.map(row => { const cells = lines(row); return { cells, h: Math.max(...cells.map(l => l.length)) * 23 + 20 }; });
+        const rows = o.rows.map(row => {
+            const cells = lines(row);
+            if(o.dateList) cells[1]=transportDateColumns(row[1]);
+            return { cells, h: Math.max(...cells.map((l,i) => o.dateList && i===1 ? l[0].length : l.length)) * 23 + 20 };
+        });
         const pages = [[]]; let height = 0;
         rows.forEach(row => { if (height + row.h > 6500 && pages.at(-1).length) { pages.push([]); height = 0; } pages.at(-1).push(row); height += row.h; });
         pages.forEach((pageRows, pageIndex) => {
@@ -1825,7 +1908,9 @@ header.top h1 { flex: 1; min-width: 180px; }
                     ctx.fillRect(x, y, widths[i], h);
                     ctx.strokeStyle = '#d7dbea'; ctx.strokeRect(x, y, widths[i], h);
                     ctx.fillStyle = head ? '#fff' : '#172139'; ctx.font = (head ? 'bold ' : '') + '18px Arial';
-                    cell.forEach((line, j) => ctx.fillText(line, x + 8, y + 25 + j * 23)); x += widths[i];
+                    if(o.dateList && !head && i===1) cell.forEach((col,k)=>col.forEach((line,j)=>ctx.fillText(line,x+8+k*130,y+25+j*23)));
+                    else cell.forEach((line, j) => ctx.fillText(line, x + 8, y + 25 + j * 23));
+                    x += widths[i];
                 });
                 y += h;
             }

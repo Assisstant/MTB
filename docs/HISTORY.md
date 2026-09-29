@@ -4325,6 +4325,36 @@ remains legible in both themes. Browser checks cover 360/400px overflow, touch
 target sizes, vertical dates, print type/zoom, a 15-pupil one-page PDF and long
 multi-page date lists. Only invented pupils appear in ignored QA artifacts.
 
+### Transport landscape and editable Word export (29 Sep 2026)
+
+The owner refined the print example: use the horizontal space, with a maximum
+of four date lines per pupil and additional columns within the dates cell.
+The screen, PNG and A4 landscape print now share that grouping; narrow phones
+scroll dates inside the cell, with an explanatory hint. Body type remains 11pt
+on paper, and large lists paginate with repeated headings instead of shrinking.
+The normal cabinet calendar, duty rota and individual certificate are unchanged.
+
+The transport-only Word button rereads the same protected owner report (no duty
+delegation), rejects failed/expired access instead of exporting a cached copy,
+and creates a real OPC/OOXML `.docx` locally in the browser. A small stored ZIP
+writer avoids a CDN/dependency or publishing an additional public script. The
+document is a native editable two-column table, landscape, Times New Roman 11pt,
+with tab-aligned date columns, repeating headers, non-splitting pupil rows,
+subtle presence shading and the current person's preparer line. It has no macros,
+external relationships, author watermark or database write/import behavior.
+
+Verification: 309/309 tests. Browser regression covers 0/4/5/8/9/22/31 dates,
+all dates exactly once in Word XML, special-character names, at most four date
+paragraphs per row, fresh owner reads, denied access (no download), narrow touch
+layouts and PDF page counts. Independent Python ZIP CRC + python-docx parsing
+passed. The packaged render_docx.py could not run because this Windows runtime
+has no bundled LibreOffice. Fallback QA used a hidden Microsoft Word instance
+to open only invented-data test documents read-only and export PDFs; Poppler
+rendered them and every page was inspected. The short Word test is one page,
+the 15-pupil many-dates stress test two pages, with all dates visible. QA files
+remain ignored in backups/test-artifacts. No live data, schema or cloud deployment
+was changed.
+
 ### Colleague welcome and owner account picker (29 Sep 2026)
 
 The owner clarified that the shared colleague link should feel familiar on touch
