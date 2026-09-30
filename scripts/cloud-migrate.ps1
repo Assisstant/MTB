@@ -102,7 +102,11 @@ Write-Host ('  {0:N0} KB' -f ((Get-Item $dump).Length / 1KB))
 Write-Host ''
 Write-Host 'npm run deploy:workspace' -ForegroundColor Cyan
 $previous = $env:DATABASE_URL
-$env:DATABASE_URL = $url
+# node-postgres reads sslmode=require as verify-full, and Supabase's pooler
+# certificate is not in Node's trust store („self-signed certificate in
+# certificate chain"). libpq compatibility gives psql's meaning — encrypted,
+# the same as the pg_dump above. psql itself would refuse this parameter.
+$env:DATABASE_URL = $url + '&uselibpqcompat=true'
 try {
     $ErrorActionPreference = 'Continue'
     Push-Location (Join-Path $repo 'server')
