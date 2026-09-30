@@ -4084,6 +4084,45 @@ for it as a tab on the colleagues' page. Its logic had several faults:
     touching the month, so a swap over the end of a month shows on both
     sides.
 
+## Duty cycles: skip absence, consume a turn once (30 Sep 2026)
+
+The owner explicitly confirmed the examples: A absent in A/B/C/D gives B/C/D;
+if B exchanges with D after that skip, the remaining cycle reads D/C/B. The
+canonical ordered list is fixed, not the dates. This supersedes the 27 Sep
+substitution rule above, which deliberately let the stand-in retain their
+regular day and therefore produced the repetition now rejected by the owner.
+
+`dutyRota` now tracks the unconsumed turns of each cycle. Absence consumes a
+turn with no debt, service consumes one turn, and a finished cycle refills in
+canonical order. Each colleague can occur once per cycle. The cycle number is
+additive response metadata, shown beside list position, and does not reset on
+the first of the month. Closed days consume nothing, including absences marked
+on those days. Cover by another school service means closed for the cabinet
+rota: no outside employee is assigned to it. The director decides the pause;
+event words do not decide it automatically.
+
+Two-date swaps must stay in one cycle, also after an absence skip. The server
+refuses cross-cycle swaps, the picker/drag filter excludes them, and existing
+ones that no longer hold are reported stale without being deleted. New
+one-sided assignments are no longer offered/accepted; existing ones can be
+retained or cleared. A legacy assignment consumes only an unconsumed turn;
+otherwise it is flagged and ignored, never silently granting a second duty.
+The response carries its stored id separately so editing a note on a swapped
+or covered day does not accidentally overwrite that fact.
+
+Validation: 319/319 server tests passed, including 30 pure duty tests, and
+TypeScript passed. Includes an
+invented eight-member scenario with a swap, sick last member, legacy override
+and closed day across September/October. After a temporary approval-limit
+block, the owner requested full verification and a GitHub push. Duty API tests
+passed in a fresh disposable local schema, removed afterwards; Kolega,
+attendance/print/PDF/Word, read-only and landing browser regressions passed.
+Desktop/mobile cycle labels were visually checked with invented data.
+No production data, identity or migration was changed; publication is code
+only, not a Render deployment. This is a calculated rota,
+not historical snapshots: applying the new algorithm recomputes from startsOn
+and may change earlier derived dates; review old agreements/printouts on release.
+
 ## A паралелка is read by its name for the year; the label is internal (26 Sep 2026)
 
 The owner: „you name the паралелка in the base as you like and offer an alias

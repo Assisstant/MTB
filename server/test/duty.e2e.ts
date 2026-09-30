@@ -147,14 +147,20 @@ async function main() {
 
         await call('PUT', '/api/duty/absence', { year: YEAR, date: days[0], employeeId: emp.get(A), absent: true });
         m = await month();
-        checkEq('somebody away on their day: the next stands in, and no other day moves', names(m), [B, B, C, A, B, C]);
+        checkEq('somebody away is skipped and the next uses their own turn once', names(m), [B, C, A, B, C, A]);
         check('the cover says whom it covers', m.days[0].how === 'cover' && m.days[0].covers[0]?.name === A,
             JSON.stringify(m.days[0]));
         await call('PUT', '/api/duty/absence', { year: YEAR, date: days[0], employeeId: emp.get(A), absent: false });
 
-        await call('PUT', '/api/duty/day', { year: YEAR, date: days[0], closed: false, assignedEmployeeId: emp.get(C) });
+        checkEq('a new one-sided agreement is refused in favour of a two-date swap',
+            (await call('PUT', '/api/duty/day', { year: YEAR, date: days[0], closed: false, assignedEmployeeId: emp.get(C) })).status, 400);
+        // An existing installation may still carry this legacy shape.
+        await q('INSERT INTO duty_days(school_year_id,day,closed,assigned_employee_id) VALUES($1,$2,false,$3)', [y.id, days[0], emp.get(C)]);
+        checkEq('a stored legacy assignment may be retained when editing its note',
+            (await call('PUT', '/api/duty/day', { year: YEAR, date: days[0], closed: false, assignedEmployeeId: emp.get(C), note: 'стар запис' })).status, 200);
         m = await month();
-        checkEq('a day given by agreement: whoever was next is still next', names(m), [C, A, B, C, A, B]);
+        checkEq('the legacy assignment consumes its turn; next cycle uses the original list', names(m), [C, A, B, A, B, C]);
+        checkEq('the stored assignment is returned independently of its displayed name', m.days[0].assignedEmployeeId, emp.get(C));
         await call('PUT', '/api/duty/day', { year: YEAR, date: days[0], closed: false, assignedEmployeeId: null });
 
         console.log('\na swap between two colleagues');
@@ -179,6 +185,16 @@ async function main() {
         await call('PUT', '/api/duty/absence', { year: YEAR, date: days[0], employeeId: emp.get(A), absent: false });
         checkEq('a swap is taken back', (await call('POST', '/api/duty/swap/remove', { year: YEAR, id: sw.body.id })).status, 200);
         checkEq('and the days are as before', names(await month()), [A, B, C, A, B, C]);
+        checkEq('a swap across cycles cannot introduce a duplicate colleague',
+            (await call('PUT', '/api/duty/swap', { year: YEAR,
+                first: { date: days[1], employeeId: emp.get(B) }, second: { date: days[3], employeeId: emp.get(A) } })).status, 409);
+        await call('PUT', '/api/duty/absence', { year: YEAR, date: days[0], employeeId: emp.get(A), absent: true });
+        const afterAbsence = await call('PUT', '/api/duty/swap', { year: YEAR,
+            first: { date: days[0], employeeId: emp.get(B) }, second: { date: days[1], employeeId: emp.get(C) } });
+        checkEq('the next colleague after a skip can exchange within that cycle', afterAbsence.status, 200);
+        checkEq('neither colleague is repeated by that exchange', names(await month()), [C, B, A, B, C, A]);
+        await call('POST', '/api/duty/swap/remove', { year: YEAR, id: afterAbsence.body.id });
+        await call('PUT', '/api/duty/absence', { year: YEAR, date: days[0], employeeId: emp.get(A), absent: false });
 
         const october = await call('GET', `/api/duty?year=${encodeURIComponent(YEAR)}&month=2098-10`);
         const september = await month();
@@ -249,8 +265,8 @@ async function main() {
 
         const mine = await call('PUT', '/api/portal/duty/absence', { date: days[0], absent: true }, tokenA);
         checkEq('marks themselves away on a day', mine.status, 200);
-        checkEq('and everybody sees the stand-in, the rest of the list in place',
-            (await call('GET', '/api/portal/duty?month=2098-09', undefined, tokenA)).body?.days?.slice(0, 3).map((d: any) => d.name), [B, B, C]);
+        checkEq('and everybody sees the skipped turn with no duplicate stand-in',
+            (await call('GET', '/api/portal/duty?month=2098-09', undefined, tokenA)).body?.days?.slice(0, 3).map((d: any) => d.name), [B, C, A]);
         checkEq('the mark says who made it',
             (await q(`SELECT marked_by FROM duty_absences a JOIN school_years y ON y.id = a.school_year_id
                        WHERE y.label = $1 AND a.employee_id = $2`, [YEAR, emp.get(A)]))[0]?.marked_by, A);

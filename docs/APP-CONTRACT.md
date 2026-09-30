@@ -106,9 +106,14 @@ but it must not present parallel versions of the same task.
   school year, a start date, closed days, days given by agreement, and
   absences. The rota itself is calculated (`server/src/lib/duty.ts`) and never
   stored.
-  - **The rule:** each working day, the first person in line who is in takes
-    it. Somebody away on their day is covered by the next person for that
-    day only; all other duty dates stay unchanged (owner, 27 Sep 2026).
+  - **The rule (owner confirmation, 30 Sep 2026; supersedes 27 Sep):**
+    the ordered list stays unchanged, but dates move when somebody is absent.
+    An absent head loses that cycle's turn, with no catch-up day. The next
+    available colleague takes and consumes their own turn once, then the list
+    continues after them. A/B/C/D with A away gives B/C/D, not B/B/C.
+    Each person appears at most once per traversal (cycle); a completed cycle
+    restarts in the canonical list order, independently of calendar months.
+    Absence is checked again on the person's next cycle, not repaid on return.
     An explicitly closed day moves nobody. **Owner clarification, 28 Sep:**
     an excursion, holiday or other event is a note, independent of counting.
     Choose either normal duty (use the next turn as usual) or a pause (no
@@ -116,7 +121,17 @@ but it must not present parallel versions of the same task.
     Opening an existing day preserves its stored pause flag; never infer a
     pause from words in the note. A swap (044) trades two days between two colleagues
     and leaves the list and the rotation alone. It holds only while both
-    days are still those two people's. The rotation continues across months.
+    days are still those two people's and in the SAME cycle (which may span
+    two months). The colleague next after a sick-leave skip may also swap.
+    Cross-cycle swaps would repeat a person in one cycle and are refused;
+    existing incompatible swaps are reported as stale, not silently reassigned.
+    **Other-service coverage means no cabinet duty and a paused queue**, by
+    the director's decision; do not assign a person from the other service.
+    New agreements use the two-date swap, not one-sided assignments. Legacy
+    assignments consume an unconsumed turn only; repeated/unavailable ones
+    are reported and ignored. They remain stored and may be cleared explicitly.
+    No duty records are migrated: this changes the calculated rota from its
+    configured start, so previously printed dates need review before release.
   - **Who changes what:** the administrator changes everything, through
     `/api/duty/*` behind the owner's sign-in. A colleague on the list only marks
     their own absence, from today on, through `/api/portal/duty/absence`.

@@ -245,6 +245,14 @@ export async function dutyRoutes(server: FastifyInstance, options: { year?: stri
         if (problem) return reply.code(400).send({ error: problem });
         const note = (b.note || '').replace(/\s+/g, ' ').trim();
         const assigned = b.closed ? null : (b.assignedEmployeeId ?? null);
+        // Keep old records editable, but do not create another one-sided
+        // agreement. A new exchange must name BOTH dates through /swap.
+        if (assigned != null) {
+            const prior = await pool.query('SELECT assigned_employee_id FROM duty_days WHERE school_year_id=$1 AND day=$2', [year.id, b.date]);
+            if (Number(prior.rows[0]?.assigned_employee_id) !== assigned) {
+                return reply.code(400).send({ error: 'За договорена смена користете „Замени со ден“ — се разменуваат два термина, без дополнително дежурство.' });
+            }
+        }
         if (!b.closed && assigned == null && !note) {
             await pool.query('DELETE FROM duty_days WHERE school_year_id = $1 AND day = $2', [year.id, b.date]);
             return { ok: true, cleared: true };
@@ -326,6 +334,10 @@ export async function swapRoutes(server: FastifyInstance,
             if (x.employeeId !== first.employeeId || y.employeeId !== second.employeeId) {
                 await client.query('ROLLBACK');
                 return reply.code(409).send({ error: 'Распоредот се смени во меѓувреме. Освежете и обидете се пак.' });
+            }
+            if (x.cycle !== y.cycle) {
+                await client.query('ROLLBACK');
+                return reply.code(409).send({ error: 'Изберете два термина од истиот циклус. Замена меѓу различни циклуси би повторила колега во еден циклус.' });
             }
             if (x.absent.includes(second.employeeId) || y.absent.includes(first.employeeId)) {
                 await client.query('ROLLBACK');

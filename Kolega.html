@@ -1461,7 +1461,7 @@ header.top h1 { flex: 1; min-width: 180px; }
     // one name onto another (⠿), or picks the other day under ⋯, and confirms.
     const weekdayOf = (iso) => new Date(iso + 'T00:00:00Z').getUTCDay();
     const swappable = (d) => d.employeeId != null && !d.closed && !d.swap;
-    const canSwap = (a, b) => a !== b && a.date !== b.date && swappable(a) && swappable(b) && a.employeeId !== b.employeeId;
+    const canSwap = (a, b) => a !== b && a.date !== b.date && swappable(a) && swappable(b) && a.employeeId !== b.employeeId && a.cycle === b.cycle;
     const dayOn = (date) => duty.data.days.find((x) => x.date === date);
 
     function askSwap(fromDate, toDate) {
@@ -1575,7 +1575,7 @@ header.top h1 { flex: 1; min-width: 180px; }
         const row = `<tr class="${cls}" data-date="${d.date}">`
             + `<td class="date">${WEEKDAY[d.weekday]} ${dmy(d.date)}</td>`
             + `<td class="who"><div class="duty-person">${grip}<span class="person-text">${who}</span>${act ? `<div class="act no-print">${act}</div>` : ''}</div></td>`
-            + `<td class="num">${d.number == null ? '—' : d.number}</td></tr>`;
+            + `<td class="num">${d.number == null ? '—' : d.number}${d.cycle && !d.closed ? `<span class="sub">круг ${d.cycle}</span>` : ''}</td></tr>`;
         return row + (duty.owner && duty.open === d.date ? dutyDayEditor(d) : '');
     }
 
@@ -1583,7 +1583,7 @@ header.top h1 { flex: 1; min-width: 180px; }
     function dutyDayEditor(d) {
         // Somebody taken off the list is not offered on a day after they left.
         const members = (duty.data.members || []).filter((m) => (!m.joinedOn || m.joinedOn <= d.date) && (!m.leftOn || m.leftOn > d.date));
-        const assigned = d.how === 'assigned' ? d.employeeId : '';
+        const assigned = d.assignedEmployeeId ?? (d.how === 'assigned' ? d.employeeId : '');
         // An event is not a closure. The owner explicitly decides whether the
         // rota runs or pauses; existing days retain their stored closed flag.
         const kind = d.closed ? 'pause' : 'work';
@@ -1594,17 +1594,18 @@ header.top h1 { flex: 1; min-width: 180px; }
             + radio('work', 'Има дежурен — списокот продолжува нормално')
             + radio('pause', 'Нема дежурен — пауза на списокот за овој ден')
             + '</div>'
-            + '<p class="muted" style="margin:0">Екскурзија, празник или друг настан сам по себе не го паузира списокот. Со пауза, следниот работен ден останува редот на истиот колега.</p>'
+            + '<p class="muted" style="margin:0">Директорката одлучува дали има дежурство за настанот. Ако покрива друга служба, изберете „Нема дежурен — пауза“: нема дежурен од кабинетите и редицата мирува.</p>'
             + `<label>Настан / белешка<input name="note" maxlength="200" placeholder="на пр. екскурзија, приредба, празник, боледување" aria-label="Белешка" value="${esc(d.note)}"></label>`
-            + `<label>Го зема по договор<select name="assigned"${d.closed ? ' disabled' : ''}><option value="">— по редот —</option>`
-            + members.map((m) => `<option value="${m.employeeId}"${m.employeeId === assigned ? ' selected' : ''}>${m.position}. ${esc(m.name)}</option>`).join('')
+            + `<label${assigned ? '' : ' hidden'}>Постоечко поединечно доделување<select name="assigned"${d.closed ? ' disabled' : ''}><option value="">— по редот —</option>`
+            + (assigned ? `<option value="${assigned}" selected>${esc((members.find((m) => m.employeeId === assigned) || {}).name || 'Претходно доделениот колега')}</option>` : '')
             + '</select></label>'
-            + '<div>Отсутни тој ден (боледување): го заменува следниот на списокот, редоследот не се менува<div class="checks">'
+            + (assigned ? '<p class="muted">За нова договорена смена отстранете го поединечното доделување, зачувајте, па изберете „Замени со ден“.</p>' : '')
+            + '<div>Отсутни тој ден (боледување): се прескокнуваат без да должат ден; следниот го користи својот ред, па редицата продолжува по него.<div class="checks">'
             + members.map((m) => `<label><input type="checkbox" name="away" value="${m.employeeId}"${d.absent.some((a) => a.employeeId === m.employeeId) ? ' checked' : ''}> ${esc(m.name)}</label>`).join('')
             + '</div></div>'
             + (d.swap
                 ? `<div>⇄ Замена со ${esc(d.swap.name)} (${dmy(d.swap.date)}). <button type="button" class="small" data-duty-unswap="${d.swap.id}">Откажи ја замената</button></div>`
-                : swappable(d) ? `<div class="row"><label style="flex:1;margin:0">Замени со ден<select name="swapWith"><option value="">—</option>`
+                : swappable(d) ? `<div class="row"><label style="flex:1;margin:0">Замени со ден (ист циклус)<select name="swapWith"><option value="">—</option>`
                     + duty.data.days.filter((o) => canSwap(d, o)).map((o) => `<option value="${o.date}">${WEEKDAY[o.weekday]} ${dmy(o.date)} — ${esc(o.name)}</option>`).join('')
                     + `</select></label><button type="button" class="small" data-duty-swap-pick="${d.date}">⇄ Замени…</button></div>` : '')
             + '<div class="row"><button class="primary small" type="submit">Зачувај го денот</button>'
@@ -1704,16 +1705,18 @@ header.top h1 { flex: 1; min-width: 180px; }
             + '<button type="button" class="small no-print" id="dutyPng">🖼 Слика</button></div>'
             + (duty.data.members.length ? '' : '<p class="muted">Сè уште нема список за дежурства.</p>')
             + (duty.owner && (duty.data.staleSwaps || []).length ? '<div class="duty-stale no-print"><b>⚠ Замена што повеќе не важи</b> — распоредот се смени по договорот, '
-                + 'па тие денови не се повеќе на овие двајца:'
+                + 'па двата термина веќе не одговараат на колегите или не се во истиот циклус:'
                 + duty.data.staleSwaps.map((sw) => `<div>${esc(sw.first.name)} (${dmy(sw.first.date)}) ⇄ ${esc(sw.second.name)} (${dmy(sw.second.date)}) `
                     + `<button type="button" class="small" data-duty-unswap="${sw.id}">Откажи ја</button></div>`).join('') + '</div>' : '')
-            + (days.length ? '<table class="duty-table"><thead><tr><th scope="col">Ден и датум</th><th scope="col">Стручен соработник</th><th scope="col" title="Позиција во ротацијата, не реден број на датумот">Ред во циклус</th></tr></thead><tbody>'
+            + (duty.owner && days.some((d) => d.assignmentStale) ? '<div class="duty-stale no-print">⚠ Старо поединечно доделување не е применето: колегата веќе го искористил редот, е отсутен или не е во списокот. Проверете го денот и отстранете го доделувањето: '
+                + days.filter((d) => d.assignmentStale).map((d) => `<button type="button" class="small" data-duty-open="${d.date}">${dmy(d.date)}</button>`).join(' ') + '</div>' : '')
+            + (days.length ? '<table class="duty-table"><thead><tr><th scope="col">Ден и датум</th><th scope="col">Стручен соработник</th><th scope="col" title="Позиција во основниот список; кругот продолжува и во следниот месец">Ред во циклус</th></tr></thead><tbody>'
                 + (gone ? `<tr class="past-toggle no-print"><td colspan="3"><button type="button" class="small" data-duty-past aria-expanded="${!duty.foldPast}">`
                     + `${duty.foldPast ? '▸ Прикажи' : '▾ Скриј'} ги изминатите денови (${gone})</button></td></tr>` : '')
                 + rows + '</tbody></table>'
                 : `<p class="muted">Ротацијата почнува на ${dmy(duty.data.startsOn)}.</p>`)
-            + '<p class="muted">Кога дежурниот е отсутен, следниот го заменува само тој ден; другите дежурства не се поместуваат. '
-            + 'Само ден означен „Нема дежурен — пауза“ го запира броењето за тој ден.</p>';
+            + '<p class="muted">Отсутниот се прескокнува; следниот дежура еднаш и редицата продолжува по него. Основниот список не се менува, но датумите се поместуваат. '
+            + 'Договорената смена разменува два термина во истиот круг. Покривање од друга служба = „Нема дежурен — пауза“ за кабинетите.</p>';
     }
 
     async function showDuty(month) {

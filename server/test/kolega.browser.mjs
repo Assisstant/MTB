@@ -531,7 +531,7 @@ check('no page errors', errors.length === 0, errors.join('\n       '));
 {
     console.log('\nдежурства — a colleague on the list');
     const people = { 7: 'Ана Измислена', 8: 'Вера Измислена', 9: 'Горан Измислен' };
-    const day = (date, weekday, id, extra = {}) => ({ date, weekday, closed: false, note: '', how: 'rotation',
+    const day = (date, weekday, id, extra = {}) => ({ date, weekday, cycle: date <= '2026-10-05' ? 1 : 2, closed: false, note: '', how: 'rotation',
         employeeId: id, name: id ? people[id] : null, number: id ? [7, 8, 9].indexOf(id) + 1 : null, covers: [], absent: [], ...extra });
     const month = () => ({
         month: '2026-10', startsOn: '2026-09-01', yearStartsOn: '2026-09-01', yearEndsOn: '2027-08-31',
@@ -702,6 +702,10 @@ check('no page errors', errors.length === 0, errors.join('\n       '));
     check('an event note is not presented as a mistake or an instruction to pause',
         !(await o.p.$('#duty tr[data-date="2026-10-08"] .warn-note')));
     await o.p.click('#duty tr[data-date="2026-10-06"] [data-duty-open]');
+    check('new one-sided assignments are not offered',
+        await o.p.isHidden('#duty form[data-duty-day="2026-10-06"] select[name="assigned"]'));
+    check('other-service coverage is explained as a pause of the cabinet rota',
+        /покрива друга служба/.test(await o.p.textContent('#duty form[data-duty-day="2026-10-06"]')));
     check('a working day starts as „Дежурство по списокот"',
         await o.p.isChecked('#duty form[data-duty-day="2026-10-06"] input[name="kind"][value="work"]'));
     await o.p.fill('#duty form[data-duty-day="2026-10-06"] input[name="note"]', 'празник');
@@ -782,6 +786,8 @@ check('no page errors', errors.length === 0, errors.join('\n       '));
         && o.ownerWrites.filter((w) => w.path === '/api/duty/setup').length === 1, JSON.stringify(swapWrite));
     await o.p.click('#duty tr[data-date="2026-10-02"] [data-duty-open]');
     await o.p.selectOption('#duty form[data-duty-day="2026-10-02"] select[name="swapWith"]', '2026-10-05');
+    check('the swap picker offers no date from a different cycle',
+        !(await o.p.$('#duty form[data-duty-day="2026-10-02"] select[name="swapWith"] option[value="2026-10-08"]')));
     await o.p.click('#duty form[data-duty-day="2026-10-02"] [data-duty-swap-pick]');
     check('without dragging: ⋯ → „Замени со ден" asks the same', /Вера Измислена ќе дежура на пн 05\.10\.2026/.test(await o.p.textContent('#swapAsk')));
     await o.p.click('#swapNo');

@@ -28,36 +28,34 @@ test('the list goes round, one working day each', () => {
     assert.deepEqual(who(rota({})), [1, 2, 3, 1, 2, 3]);
 });
 
-test('somebody away on their day: the next on the list stands in, and no other day moves', () => {
+test('somebody away loses the turn; the next uses their own turn once, then the list continues', () => {
     const days = rota({ away: [['2026-09-01', [1]]] });
-    // 2 covers the 1st and still has the 2nd: the list is exactly as without the sick day.
-    assert.deepEqual(who(days), [2, 2, 3, 1, 2, 3]);
+    assert.deepEqual(who(days), [2, 3, 1, 2, 3, 1]);
+    assert.deepEqual(days.map((d) => d.cycle), [1, 1, 2, 2, 2, 3]);
     assert.equal(days[0].how, 'cover');
     assert.deepEqual(days[0].covers, [1]);
     assert.deepEqual(days[0].absent, [1]);
 });
 
-test('a sick day in the middle changes that day only', () => {
-    const plain = who(rota({ until: '2026-09-18' }));
-    const sick = rota({ until: '2026-09-18', away: [['2026-09-08', [3]], ['2026-09-09', [1]]] });
-    const changed = plain.map((id, i) => (id === sick[i].employeeId ? null : sick[i].date)).filter(Boolean);
-    assert.deepEqual(changed, ['2026-09-08', '2026-09-09']);
-    // 3 away on the 8th: 1 stands in; 1 away on the 9th: 2 stands in.
-    assert.deepEqual([sick[5].employeeId, sick[6].employeeId], [1, 2]);
+test('a sick day in the middle moves following dates, not preceding dates or list order', () => {
+    const sick = rota({ until: '2026-09-11', away: [['2026-09-08', [3]], ['2026-09-09', [1]]] });
+    assert.deepEqual(who(sick), [1, 2, 3, 1, 2, 1, 2, 3, 1]);
 });
 
 test('the stand-in is the next on the list who is in', () => {
-    assert.deepEqual(who(rota({ away: [['2026-09-01', [1, 2]]] })), [3, 2, 3, 1, 2, 3]);
+    const days = rota({ away: [['2026-09-01', [1, 2]]] });
+    assert.deepEqual(who(days), [3, 1, 2, 3, 1, 2]);
+    assert.deepEqual(days[0].covers, [1, 2]);
 });
 
 test('somebody away on a day that was not theirs changes nothing', () => {
     assert.deepEqual(who(rota({ away: [['2026-09-01', [3]]] })), [1, 2, 3, 1, 2, 3]);
 });
 
-test('a named stand-in for the one due who is away: a substitution, nobody moves', () => {
+test('a legacy named stand-in consumes their own turn, including after absence', () => {
     const days = rota({ days: [['2026-09-01', { assigned: 3 }]], away: [['2026-09-01', [1]]] });
-    assert.deepEqual(who(days), [3, 2, 3, 1, 2, 3]);
-    assert.equal(days[0].how, 'cover');
+    assert.deepEqual(who(days), [3, 2, 1, 2, 3, 1]);
+    assert.equal(days[0].how, 'assigned');
     assert.deepEqual(days[0].covers, [1]);
 });
 
@@ -84,9 +82,9 @@ test('the same event can keep normal counting or explicitly pause it, including 
     }
 });
 
-test('a day given by agreement: the stand-in goes to the back, whoever was next is still next', () => {
+test('a legacy assignment consumes one turn and next cycle restarts in the canonical order', () => {
     const days = rota({ days: [['2026-09-01', { assigned: 3 }]] });
-    assert.deepEqual(who(days), [3, 1, 2, 3, 1, 2]);
+    assert.deepEqual(who(days), [3, 1, 2, 1, 2, 3]);
     assert.equal(days[0].how, 'assigned');
 });
 
@@ -95,11 +93,11 @@ test('a day given to somebody who is away falls back to the rotation', () => {
     assert.equal(days[0].employeeId, 1);
 });
 
-test('everyone away: nobody on duty, and the day is still used up', () => {
+test('everyone away: no infinite loop; the rest of the cycle is skipped with no day owed', () => {
     const days = rota({ away: [['2026-09-01', [1, 2, 3]]] });
-    assert.deepEqual(who(days), [null, 2, 3, 1, 2, 3]);
+    assert.deepEqual(who(days), [null, 1, 2, 3, 1, 2]);
     assert.equal(days[0].how, 'nobody');
-    assert.deepEqual(days[0].covers, [1]);
+    assert.deepEqual(days[0].covers, [1, 2, 3]);
 });
 
 test('somebody joining during the year joins at the back and does not rewrite the days before', () => {
@@ -151,6 +149,59 @@ test('today is counted in Skopje, not in the server\'s zone', () => {
 const swap = (firstDay: string, first: number, secondDay: string, second: number) =>
     ({ id: 1, firstDay, firstEmployeeId: first, secondDay, secondEmployeeId: second, note: 'договор' });
 
+test('after A is skipped, B and D may exchange: D/C/B, once each', () => {
+    const base = rota({ members: members(1, 2, 3, 4), away: [['2026-09-01', [1]]] });
+    const result = applySwaps(base, [swap('2026-09-01', 2, '2026-09-03', 4)]);
+    assert.deepEqual(who(result.days), [4, 3, 2, 1, 2, 3]);
+    assert.deepEqual(result.stale, []);
+    assert.deepEqual(result.days[0].covers, [1]);
+});
+
+test('a cross-cycle swap is stale even when the named people and dates still match', () => {
+    const base = rota({});
+    const result = applySwaps(base, [swap('2026-09-02', 2, '2026-09-04', 1)]);
+    assert.deepEqual(who(result.days), who(base));
+    assert.equal(result.stale.length, 1);
+});
+
+test('a repeated legacy assignment is ignored and reported, never a second turn in one cycle', () => {
+    const days = rota({ days: [['2026-09-01', { assigned: 3 }], ['2026-09-02', { assigned: 3 }]] });
+    assert.deepEqual(who(days), [3, 1, 2, 1, 2, 3]);
+    assert.equal(days[1].assignmentStale, true);
+});
+
+test('sick leave is checked on every return, with no catch-up duty after returning', () => {
+    const days = rota({ away: [['2026-09-01', [1]], ['2026-09-03', [1]]] });
+    assert.deepEqual(who(days), [2, 3, 2, 3, 1, 2]);
+});
+
+test('other-service coverage pauses the queue, even when the head is marked absent that day', () => {
+    const days = rota({ days: [['2026-09-01', { closed: true, note: 'покрива друга служба' }]], away: [['2026-09-01', [1]]] });
+    assert.deepEqual(who(days), [null, 1, 2, 3, 1, 2]);
+});
+
+test('an eight-person cycle, a swap, a sick last member and an override span September/October without repeats', () => {
+    const state: DutyState = {
+        startsOn: '2026-09-21', yearStartsOn: '2026-09-01', yearEndsOn: '2027-08-31',
+        members: members(1, 2, 3, 4, 5, 6, 7, 8).map((m) => ({ ...m, name: 'Invented' })),
+        days: new Map([['2026-09-30', { closed: false, note: '', assigned: 2 }],
+            ['2026-10-01', { closed: true, note: 'покрива друга служба', assigned: null }]]),
+        absences: new Map([['2026-09-30', new Set([8])]]), names: new Map(),
+        swaps: [swap('2026-09-22', 2, '2026-09-24', 4)]
+    };
+    const result = rotaWithSwaps(state, '2026-10-13');
+    assert.deepEqual(who(result.days).slice(0, 12), [1, 4, 3, 2, 5, 6, 7, 2, null, 1, 3, 4]);
+    assert.deepEqual(result.stale, []);
+    const seen = new Set<string>();
+    for (const day of result.days) if (day.employeeId != null) {
+        const key = `${day.cycle}:${day.employeeId}`;
+        assert.ok(!seen.has(key), `${day.date}: duplicate turn ${key}`);
+        seen.add(key);
+    }
+    assert.equal(result.days.find((d) => d.date === '2026-09-30')!.cycle, 2);
+    assert.equal(result.days.find((d) => d.date === '2026-10-05')!.employeeId, 3);
+});
+
 test('a swap trades two days between two people, and the list goes on as if it had not happened', () => {
     const base = rota({});
     const { days, stale } = applySwaps(base, [swap('2026-09-01', 1, '2026-09-03', 3)]);
@@ -174,7 +225,7 @@ test('a swap onto a closed day, or onto a day the taker is away, does not hold',
     assert.equal(applySwaps(closed, [swap('2026-09-01', 1, '2026-09-03', 3)]).stale.length, 1);
     const away = rota({ away: [['2026-09-04', [2]]] });
     // 2 would take the 4th while marked away on it.
-    assert.equal(applySwaps(rota({}), [swap('2026-09-02', 2, '2026-09-04', 1)]).stale.length, 0);
+    assert.equal(applySwaps(rota({}), [swap('2026-09-02', 2, '2026-09-03', 3)]).stale.length, 0);
     assert.equal(applySwaps(away, [swap('2026-09-02', 2, '2026-09-07', 1)]).stale.length, 1);
 });
 

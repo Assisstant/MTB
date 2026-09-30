@@ -38,8 +38,8 @@ await context.route('**/*', async route => {
         cabinet:{bells:[{ordinal:1,label:'I',time:'08:00-08:40'}],pupils:[{publicId:'fake',name:'Измислен Ученик',class:'Тест'}],names:{},elsewhere:[],terms:[{day:days[0],time:'08:00-08:40',pupils:['fake']}]}});
     if (u.pathname === '/api/duty') return json(403,{});
     if (u.pathname === '/api/portal/duty') return json(200,{year:'2026/2027',month:'2026-09',today:'2026-09-28',startsOn:'2026-09-01',yearStartsOn:'2026-09-01',yearEndsOn:'2027-08-31',members:[{employeeId:7,name:'Измислен Терапевт',position:1}],days:[
-        {date:'2026-09-07',weekday:1,name:'Измислен Терапевт',employeeId:7,closed:false,how:'rotation',note:'',covers:[],absent:[]},
-        {date:'2026-09-28',weekday:1,name:'Измислен Терапевт',employeeId:7,closed:false,how:'rotation',note:'',covers:[],absent:[]}],staleSwaps:[]});
+        {date:'2026-09-07',weekday:1,name:'Измислен Терапевт',employeeId:7,cycle:1,closed:false,how:'rotation',note:'',covers:[],absent:[]},
+        {date:'2026-09-28',weekday:1,name:'Измислен Терапевт',employeeId:7,cycle:2,closed:false,how:'rotation',note:'',covers:[],absent:[]}],staleSwaps:[]});
     if (u.pathname === '/api/portal/attendance') {
         assert.equal(req.headers()['x-mtb-portal-token'],'a'.repeat(64));
         if (req.method() === 'PUT') {

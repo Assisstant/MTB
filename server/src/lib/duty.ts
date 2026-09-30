@@ -10,33 +10,28 @@
  * A QUEUE, and the owner's rules are what it does:
  *
  *   - each working day, the first person in the queue who is IN that day
- *     takes it, and goes to the back;
- *   - somebody away on their day (sick leave, mostly) is SUBSTITUTED: the
- *     next person on the list who is in covers that one day, and the list
- *     order is unchanged — the one away's turn is used up, and everybody
- *     else keeps the day they already had, the substitute included. The day
- *     says whom it was instead of, and the note why. (Owner, 27 Sep 2026:
- *     "we have substitution but list order is unchanged". Two earlier
- *     versions each moved the dates: first the one away owed the day back,
- *     then, from 25 Sep, the whole list moved up a day behind every sick
- *     day, so a printed month stopped being true.)
+ *     takes it and consumes their turn; a completed cycle refills in list order;
+ *   - somebody away when their turn comes is SKIPPED, with no day owed.
+ *     The next available person takes AND USES their own turn, then the
+ *     queue continues after them. List order stays fixed, not calendar dates.
+ *     Owner confirmed 30 Sep 2026: A away in A/B/C/D => B/C/D, not B/B/C.
+ *     Absence is checked again when A comes around in the next cycle.
  *   - an explicitly closed day has no duty and moves nobody: the list
  *     continues on the next working day. An excursion or other event can
  *     equally keep normal duty; only the closed flag pauses the rotation;
- *   - a day given to a named person by agreement: that person takes it and goes
- *     to the back; whoever was next is still next. (The old app made the
- *     displaced person lose their turn and let the stand-in keep theirs.)
- *     When the one due that day is away, the named person is their
- *     substitute instead, as above, and nobody moves.
+ *   - legacy named assignments consume the named person's turn too, after
+ *     skipping any absent people at the head. They are not two-date swaps;
+ *     new agreements use the explicit swap operation below.
  *   - somebody who joins during the year joins at the back, on that day; somebody
  *     who leaves is taken out. The months before are not rewritten.
  *   - a SWAP (044) is a deal between two colleagues, not a change of the list:
  *     the queue runs exactly as without it, and afterwards the two days trade
  *     names (`applySwaps`). A swap whose days no longer belong to the two who
- *     agreed it — the rota moved since — is not applied, and is reported.
+ *     agreed it — or now cross cycle boundaries — is not applied, and is reported.
  *
- * Pure: the same inputs always give the same rota, so a printed month stays
- * true. Nothing here reads the clock or the database; `loadDuty` below does the
+ * Pure: the same inputs always give the same rota. Correcting an absence can
+ * change later derived dates; the rota is not a historical snapshot.
+ * Nothing here reads the clock or the database; `loadDuty` below does the
  * reading, and the routes decide who may change what.
  */
 
@@ -77,6 +72,10 @@ export interface DutySwap {
 
 export interface DutyDay {
     date: string;
+    /** A list traversal, independent of calendar months. Zero before the rota. */
+    cycle: number;
+    /** A legacy assignment cannot give somebody a second turn in this cycle. */
+    assignmentStale?: boolean;
     /** 1 = Monday … 5 = Friday. */
     weekday: number;
     closed: boolean;
@@ -113,55 +112,53 @@ export function dutyRota(input: DutyInput): DutyDay[] {
     const members = [...input.members].sort((a, b) => a.position - b.position);
     const queue: number[] = [];
     const out: DutyDay[] = [];
+    let cycle = 0;
+    let previousActive = new Set<number>();
     for (const date of workingDays(input.startsOn, input.until)) {
-        // Who is in the rotation today. On the first day everybody present
-        // enters in the list's order; a later joiner enters at the back.
-        for (const m of members) {
-            const at = queue.indexOf(m.employeeId);
-            if (activeOn(m, date)) { if (at < 0) queue.push(m.employeeId); }
-            else if (at >= 0) queue.splice(at, 1);
-        }
+        const active = members.filter((m) => activeOn(m, date)).map((m) => m.employeeId);
+        const activeSet = new Set(active);
+        // The queue contains unconsumed turns only. Never re-add somebody
+        // merely because they already served; refill in the canonical order
+        // only when that cycle is complete. A new member joins at the back.
+        for (let i = queue.length - 1; i >= 0; i--) if (!activeSet.has(queue[i])) queue.splice(i, 1);
+        if (queue.length) for (const id of active) if (!previousActive.has(id)) queue.push(id);
+        previousActive = activeSet;
+        const nextCycle = () => { queue.push(...active); cycle++; };
         const mark = input.days.get(date);
         const away = input.absences.get(date) || new Set<number>();
-        const absent = [...away].filter((id) => queue.includes(id));
+        const absent = [...away].filter((id) => activeSet.has(id));
         const day = { date, weekday: dateOf(date).getUTCDay(), note: mark?.note || '', absent };
 
         if (mark?.closed) {
-            out.push({ ...day, closed: true, employeeId: null, how: 'closed', covers: [] });
+            out.push({ ...day, cycle, closed: true, employeeId: null, how: 'closed', covers: [] });
             continue;
         }
-        // A named stand-in for somebody away is still a substitution: the
-        // one away's turn is used up, and the stand-in keeps their own day.
-        if (mark?.assigned != null && !away.has(mark.assigned) && queue.length && away.has(queue[0])) {
-            const due = queue.shift()!;
-            queue.push(due);
-            out.push({ ...day, closed: false, employeeId: mark.assigned, how: 'cover', covers: [due] });
+        if (!queue.length && active.length) nextCycle();
+        // Only the leading absentees lose a turn: somebody away whose turn
+        // is later in the queue is not skipped early. Bound the scan to one
+        // cycle so an all-absent day terminates without changing list order.
+        const covers: number[] = [];
+        if (!active.length || active.every((id) => away.has(id))) {
+            covers.push(...queue);
+            queue.length = 0;
+            out.push({ ...day, cycle, closed: false, employeeId: null, how: 'nobody', covers,
+                assignmentStale: mark?.assigned != null });
             continue;
         }
-        if (mark?.assigned != null && !away.has(mark.assigned)) {
+        while (away.has(queue[0])) {
+            covers.push(queue.shift()!);
+            if (!queue.length) nextCycle();
+        }
+        if (mark?.assigned != null && !away.has(mark.assigned) && queue.includes(mark.assigned)) {
             const who = mark.assigned;
-            const was = queue.indexOf(who);
-            if (was >= 0) { queue.splice(was, 1); queue.push(who); }
-            out.push({ ...day, closed: false, employeeId: who, how: 'assigned', covers: [] });
+            queue.splice(queue.indexOf(who), 1);
+            out.push({ ...day, cycle, closed: false, employeeId: who, how: 'assigned', covers });
             continue;
         }
-        if (!queue.length) {
-            out.push({ ...day, closed: false, employeeId: null, how: 'nobody', covers: [] });
-            continue;
-        }
-        // The day is the head's, whether or not they are in: absence never
-        // moves anybody's date. Somebody away is stood in for by the next one
-        // on the list who is in, who still keeps their own day after it.
+        // The person actually taking the day uses their turn exactly once.
         const due = queue.shift()!;
-        queue.push(due);
-        if (!away.has(due)) {
-            out.push({ ...day, closed: false, employeeId: due, how: 'rotation', covers: [] });
-            continue;
-        }
-        const stand = queue.find((id) => !away.has(id));
-        out.push(stand == null
-            ? { ...day, closed: false, employeeId: null, how: 'nobody', covers: [due] }
-            : { ...day, closed: false, employeeId: stand, how: 'cover', covers: [due] });
+        out.push({ ...day, cycle, closed: false, employeeId: due, how: covers.length ? 'cover' : 'rotation', covers,
+            assignmentStale: mark?.assigned != null });
     }
     return out;
 }
@@ -169,7 +166,8 @@ export function dutyRota(input: DutyInput): DutyDay[] {
 /**
  * The swaps, applied to a rota already worked out. A swap holds only while
  * both of its days still belong to the two who agreed it, neither day is
- * closed, and neither of them is away on the day they took. Otherwise it is
+ * closed, both dates are in the same cycle, and neither person is away on
+ * the day they took. Otherwise it is
  * returned as `stale` and changes nothing: a deal between A and B is never
  * carried over to whoever the rota puts there now.
  */
@@ -183,7 +181,7 @@ export function applySwaps(days: DutyDay[], swaps: DutySwap[]): { days: DutyDay[
         if (a == null || b == null) continue; // outside what was worked out: neither applied nor judged
         const x = out[a];
         const y = out[b];
-        const holds = !x.closed && !y.closed && !x.swap && !y.swap
+        const holds = !x.closed && !y.closed && !x.swap && !y.swap && x.cycle === y.cycle
             && x.employeeId === sw.firstEmployeeId && y.employeeId === sw.secondEmployeeId
             && !x.absent.includes(sw.secondEmployeeId) && !y.absent.includes(sw.firstEmployeeId);
         if (!holds) { stale.push(sw); continue; }
@@ -308,14 +306,14 @@ export function rotaWithSwaps(state: DutyState, until: string, from = state.star
 export function monthOfRota(state: DutyState, month: { first: string; last: string }): DutyDay[] {
     if (month.last < state.startsOn) {
         return workingDays(month.first, month.last).map((date) => ({
-            date, weekday: dateOf(date).getUTCDay(), closed: false, note: '', employeeId: null,
+            date, cycle: 0, weekday: dateOf(date).getUTCDay(), closed: false, note: '', employeeId: null,
             how: 'nobody' as DutyHow, covers: [], absent: []
         }));
     }
     const all = rotaWithSwaps(state, month.last, month.first).days;
     const before = workingDays(month.first, month.last).filter((d) => d < state.startsOn);
     return [
-        ...before.map((date) => ({ date, weekday: dateOf(date).getUTCDay(), closed: false, note: '',
+        ...before.map((date) => ({ date, cycle: 0, weekday: dateOf(date).getUTCDay(), closed: false, note: '',
             employeeId: null, how: 'nobody' as DutyHow, covers: [], absent: [] })),
         ...all.filter((d) => d.date >= month.first)
     ];
@@ -383,10 +381,15 @@ function rangePayload(state: DutyState, bounds: { first: string; last: string })
             joinedOn: m.joinedOn, leftOn: m.leftOn })),
         days: monthOfRota(state, bounds).map((d) => ({
             date: d.date,
+            cycle: d.cycle,
             weekday: d.weekday,
             closed: d.closed,
             note: d.note,
             how: d.how,
+            // Preserve the stored legacy override when editing a note/absence,
+            // including when a later two-date swap changes the displayed name.
+            assignedEmployeeId: state.days.get(d.date)?.assigned ?? null,
+            assignmentStale: Boolean(d.assignmentStale),
             employeeId: d.employeeId,
             name: d.employeeId == null ? null : (state.names.get(d.employeeId) || '—'),
             number: d.employeeId == null ? null : (number.get(d.employeeId) ?? null),
