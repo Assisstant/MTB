@@ -1,7 +1,7 @@
 ﻿# Облак: миграциите на Supabase од овој компјутер, без да се паметат чекорите.
 #
 # Истиот пат како на 26 септември (SOSTOJBA.md): адресата на базата во облакот
-# е во ..\MTB-cloude.env (НАДВОР од репото, никогаш во git), прво снимка со
+# е во MTB\cloud.env (во .gitignore) или ..\MTB-cloude.env (надвор од репото), прво снимка со
 # pg_dump во backups\, па `npm run deploy:workspace` — истиот runner што го
 # пушта Render при deploy. Тој сам прави и приватна recovery шема и одбива
 # непрегледана миграција, па двата пата не можат да се разминат.
@@ -13,7 +13,7 @@
 # ја применил миграцијата, скриптата вели „нема што да се примени" и завршува.
 param(
     [switch]$Apply,
-    [string]$EnvFile = (Join-Path (Split-Path -Parent (Split-Path -Parent $PSScriptRoot)) 'MTB-cloude.env')
+    [string]$EnvFile = ''
 )
 $ErrorActionPreference = 'Stop'
 $repo = Split-Path -Parent $PSScriptRoot
@@ -25,8 +25,25 @@ function Stop-WithMessage([string]$Text) {
     exit 1
 }
 
+# The address: MTB\cloud.env (gitignored) first, then the older ..\MTB-cloude.env
+# beside the repo. Either holds one line: DATABASE_URL=postgresql://...
+if (-not $EnvFile) {
+    $EnvFile = @((Join-Path $repo 'cloud.env'), (Join-Path (Split-Path -Parent $repo) 'MTB-cloude.env')) |
+        Where-Object { Test-Path $_ } | Select-Object -First 1
+    if (-not $EnvFile) { $EnvFile = Join-Path $repo 'cloud.env' }
+}
+if ((Split-Path -Parent $EnvFile) -eq $repo) {
+    Push-Location $repo
+    $ErrorActionPreference = 'Continue'
+    & git check-ignore -q -- (Split-Path -Leaf $EnvFile) 2>$null
+    $ignored = ($LASTEXITCODE -eq 0)
+    $ErrorActionPreference = 'Stop'
+    Pop-Location
+    if (-not $ignored) { Stop-WithMessage "$EnvFile НЕ е во .gitignore — со лозинката би отишол на GitHub. Прво git pull (новиот .gitignore)." }
+}
+
 # ── адресата ──────────────────────────────────────────────────────────────
-if (-not (Test-Path $EnvFile)) { Stop-WithMessage "Ја нема $EnvFile — таму оди редот DATABASE_URL=... за облакот." }
+if (-not (Test-Path $EnvFile)) { Stop-WithMessage "Ја нема $EnvFile — направете ја со еден ред: DATABASE_URL=postgresql://... (Supabase → Connect → Session pooler)." }
 $line = Get-Content -LiteralPath $EnvFile -Encoding UTF8 | Where-Object { $_ -match '^\s*DATABASE_URL\s*=' } | Select-Object -First 1
 if (-not $line) { Stop-WithMessage "Во $EnvFile нема DATABASE_URL=..." }
 $url = ($line -replace '^\s*DATABASE_URL\s*=\s*', '').Trim().Trim('"')

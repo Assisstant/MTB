@@ -1,6 +1,11 @@
 .claude/
 backups/
 
+# the cloud database's address and password (scripts/cloud-migrate.ps1).
+# This repository is PUBLIC: it must never be committed.
+cloud.env
+*.env
+
 # real annual roster corrections stay on the machine, never in public Git
 scripts/roster-*.local.json
 
