@@ -49,9 +49,9 @@ try {
 } catch (_) { /* device preferences are optional */ }
 </script>
 <style>
-:root { color-scheme: light; --bg:#f4f4fa; --panel:#fff; --line:#d9d9e8; --text:#1d1e33; --muted:#5b5e7a; --accent:#4f5bd5;
+:root { color-scheme: light; --bg:#f5f5f5; --panel:#fff; --line:#e0e0e0; --text:#242424; --muted:#616161; --accent:#0f6cbd;
         --accent-text:#fff; --ok:#1d7657; --warn:#8a5300; --warn-bg:#fff6e5; --danger:#b0253a; --well:#f7f7fc;
-        --focus:#4f5bd5; --chip:#ecebfb; }
+        --focus:#0f6cbd; --chip:#ebf3fc; }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) { color-scheme: dark; --bg:#121329; --panel:#1b1c39; --line:#34365a; --text:#f2f2fb; --muted:#a8abc8; --accent:#7c86f0;
           --accent-text:#10112a; --ok:#57d2a6; --warn:#f0b35e; --warn-bg:#2d2616; --danger:#ff8f9e; --well:#171832;
@@ -399,21 +399,65 @@ header.top h1 { flex: 1; min-width: 180px; }
 }
 </style>
 <style>
-/* Familiar conversation-app proportions, with MTB's own identity. No remote
-   fonts, tracking, or Messenger account connection is needed. Print stays plain. */
+/* Fluent 2-inspired native controls. Keep the public colleague door standalone;
+   screen tokens must not alter the deliberately separate paper/Word layouts. */
 @media screen {
   :root { --chat-start:#0866df; --chat-end:#7451df; }
   :root[data-accent="violet"] { --chat-start:#7138c6; --chat-end:#a52a88; }
   :root[data-accent="teal"] { --chat-start:#08796e; --chat-end:#146da8; }
-  body { font-family: system-ui, -apple-system, "Segoe UI", sans-serif; }
-  .card { border-radius: 22px; box-shadow: 0 6px 24px #17245108; }
-  button { min-height: 44px; border-radius: 16px; touch-action: manipulation; }
-  input, select { min-height: 48px; border-radius: 14px; font-size: 16px; }
+  body { font: 16px/1.5 "Segoe UI", system-ui, -apple-system, sans-serif; }
+  main { max-width: 1320px; padding: 24px 28px 72px; }
+  .card { border-radius: 8px; box-shadow: 0 2px 6px #17245108; }
+  button, button.small { min-height: 40px; border-radius: 6px; font-size: 15px; font-weight: 600; padding: 8px 14px; touch-action: manipulation; }
+  input, select { min-height: 40px; border-radius: 6px; font-size: 16px; }
   button.primary, #tabs button[aria-pressed="true"], #days button[aria-pressed="true"] {
-    background: linear-gradient(120deg,var(--chat-start),var(--chat-end)); color: #fff; border-color: transparent;
+    background: var(--chat-start); color: #fff; border-color: transparent;
   }
   #tabs, #days { gap: 8px; }
-  #tabs button { border-radius: 18px; }
+  #tabs { border-bottom: 1px solid var(--line); padding-bottom: 12px; margin-bottom: 8px; }
+  #tabs button { border-radius: 6px; }
+  #home > header.top { align-items: center; gap: 8px; margin-bottom: 12px; }
+  #home > header.top h1 { font-size: 24px; line-height: 32px; font-weight: 600; }
+  #home h2 { font-size: 20px; line-height: 28px; font-weight: 600; }
+  #tabHint, .muted { font-size: 14px; line-height: 1.5; }
+  #weekCard { padding: 20px 24px; }
+  .duty-table { font-size: 16px; }
+  .duty-table th, .duty-table td { padding: 12px; vertical-align: middle; }
+  .duty-table thead th { text-transform: none; letter-spacing: normal; font-size: 14px; font-weight: 600; background: var(--well); }
+  .duty-table td.num { width: 100px; font-weight: 400; color: var(--muted); }
+  .duty-table td.date { width: 150px; font-variant-numeric: tabular-nums; }
+  .duty-table tr.past td { opacity: 1; }
+  .duty-table tr.today td.date { box-shadow: inset 3px 0 var(--chat-start); }
+  .duty-person { display: flex; align-items: center; gap: 12px; }
+  .duty-person .person-text { flex: 1; min-width: 0; }
+  .duty-person .act { margin: 0; flex: 0 0 auto; }
+  .duty-person .swap-grip { margin: 0; }
+  .duty-table .sub { margin-top: 2px; font-size: 14px; }
+  .attendance-table thead th { background: var(--well); color: var(--text); font-weight: 600; }
+  .duty-note { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 10px 12px; font-size: 14px; }
+  .duty-note button { margin-left: auto; }
+  .duty-admin { border-style: solid; border-radius: 6px; }
+  .duty-head { gap: 8px; margin: 20px 0 12px; }
+  .duty-head h2 { flex-basis: 100%; margin: 0 0 4px; order: -1; }
+  .duty-head #dutyPrint { margin-left: auto; }
+  .attendance-tools { display: flex; flex-direction: column; align-items: stretch; gap: 12px; padding: 12px 0 20px; border-bottom: 1px solid var(--line); margin-bottom: 20px; }
+  .report-filters, .report-commands, .period-controls, .report-exports, .view-modes { display: flex; align-items: end; gap: 8px; }
+  .report-filters, .report-commands { flex-wrap: wrap; }
+  .report-filters > label { width: min(100%,380px); }
+  .report-filters select { width: 100%; }
+  .view-modes { margin-left: auto; align-self: end; }
+  .view-modes [aria-pressed="true"] { background: var(--chip); color: var(--text); border-color: var(--chat-start); box-shadow: inset 0 -2px var(--chat-start); }
+  .report-exports { margin-left: auto; }
+  .period-controls { flex-wrap: nowrap; }
+  .period-controls input { width: 200px; }
+  .attendance-tools button, .attendance-tools input, .attendance-tools select { min-height: 40px; }
+  .access-help { border: 1px solid var(--warn); background: var(--warn-bg); border-radius: 6px; padding: 16px; }
+  .access-help a { color: var(--text); font-weight: 600; text-decoration: underline; }
+  button:focus-visible, a:focus-visible, summary:focus-visible { outline: 2px solid var(--focus); outline-offset: 3px; }
+  :root[data-text="large"] #home, :root[data-text="large"] .duty-table { font-size: 18px; }
+  @media (max-width: 800px), (pointer: coarse) {
+    button, button.small, input, select, .attendance-tools button, .attendance-tools input, .attendance-tools select { min-height: 48px; }
+  }
   .narrow { max-width: 470px; margin: 5vh auto 0; padding: 26px; }
   .welcome-kicker { color: var(--muted); font-size: 14px; margin: 0 0 6px; }
   .welcome-name { font-size: 26px; line-height: 1.25; overflow-wrap: anywhere; margin: 8px 0; }
@@ -449,6 +493,26 @@ header.top h1 { flex: 1; min-width: 180px; }
     #home > header.top { gap:8px; }
     #home > header.top h1 { flex-basis:100%; }
     #home > header.top button { flex:1 1 auto; }
+    #weekCard { padding: 16px 12px; }
+    .attendance-tools > * { width: auto; }
+    .report-filters > label { width: 100%; }
+    .view-modes { margin-left: 0; width: 100%; }
+    .view-modes button { flex: 1; }
+    .report-commands { display: grid; grid-template-columns: minmax(0,1fr); }
+    .report-commands > *, .period-controls > * { order: 0 !important; grid-column: auto !important; }
+    .period-controls { display: grid; grid-template-columns: 48px minmax(0,1fr) 48px; align-items: end; }
+    .period-controls label { min-width: 0; }
+    .period-controls input { width: 100%; }
+    .report-exports { display: flex; flex-wrap: wrap; margin-left: 0; }
+    .report-exports button { flex: 1 1 100px; }
+    .duty-head #dutyPrint { margin-left: 0; }
+    .duty-table th, .duty-table td { padding: 8px 5px; }
+    .duty-table td.date { width: 85px; white-space: normal; font-size: 14px; }
+    .duty-table td.num { width: 44px; }
+    .duty-person { flex-wrap: wrap; gap: 6px; }
+    .duty-person .person-text { flex-basis: calc(100% - 54px); overflow-wrap: anywhere; }
+    .duty-person .act { margin-left: auto; }
+    .duty-table .sub { font-size: 13px; }
   }
 }
 </style>
@@ -929,7 +993,8 @@ header.top h1 { flex: 1; min-width: 180px; }
         const request = ++attendance.request;
         const range = attendanceRange();
         attendance.busy = true;
-        if (!quiet) drawAttendance();
+        attendance.accessError = false;
+        if (!quiet) { say('weekMsg',''); drawAttendance(); }
         try {
             const data = attendance.scope === 'transport'
                 ? await transportData(range.from.slice(0,7))
@@ -940,8 +1005,10 @@ header.top h1 { flex: 1; min-width: 180px; }
             drawAttendance();
         } catch (err) {
             if (request !== attendance.request) return;
-            attendance.data = null; attendance.busy = false; drawAttendance();
-            say('weekMsg', err.message, 'error');
+            attendance.data = null; attendance.busy = false;
+            attendance.accessError = attendance.scope === 'transport' && !me?.readOnly && (err.status === 401 || err.status === 403 || err.status === 200);
+            drawAttendance();
+            say('weekMsg', attendance.accessError ? 'Потребна е сопственичка најава за извештајот за превоз. Линкот за Дежурства не го дава овој пристап.' : err.message, 'error');
         }
     }
     function attendanceReport() {
@@ -1127,17 +1194,19 @@ header.top h1 { flex: 1; min-width: 180px; }
     function drawAttendance() {
         const range = attendanceRange(), data = attendance.data;
         const disabled = attendance.busy ? ' disabled' : '';
-        el('attendance').innerHTML = '<div class="row no-print attendance-tools">'
+        el('attendance').innerHTML = '<div class="no-print attendance-tools"><div class="report-filters" role="group" aria-label="Избор на извештај">'
             + (attendance.transportAllowed ? `<label>Извештај<select id="attendanceScope"${disabled}>${(me.readOnly ? week?.me.therapistId != null : me.therapist) ? '<option value="cabinet">'+(me.readOnly ? 'Избраниот кабинет — третмани' : 'Мој кабинет — третмани')+'</option>' : ''}<option value="transport"${attendance.scope==='transport'?' selected':''}>Надворешни — превоз, сите кабинети</option></select></label>` : '')
-            + `<button data-att-mode="week" aria-pressed="${attendance.mode === 'week'}"${disabled || attendance.scope==='transport' ? ' disabled' : ''}>Недела</button>`
-            + `<button data-att-mode="month" aria-pressed="${attendance.mode === 'month'}"${disabled}>Месечен извештај</button>`
+            + '<div class="view-modes" role="group" aria-label="Приказ на присуство">'
+            + (attendance.scope==='transport' ? '<span class="muted">Месечен извештај</span>' : `<button data-att-mode="week" aria-pressed="${attendance.mode === 'week'}"${disabled}>Недела</button><button data-att-mode="month" aria-pressed="${attendance.mode === 'month'}"${disabled}>Месец</button>`)
+            + '</div></div><div class="report-commands"><div class="period-controls" role="group" aria-label="Период">'
             + `<button data-att-step="-1" aria-label="Претходен период"${disabled}>◀</button>`
             + `<label>Период<input id="attendanceDate" type="${attendance.mode === 'month' ? 'month' : 'date'}" value="${attendance.mode === 'month' ? range.from.slice(0, 7) : range.from}"${disabled}></label>`
             + `<button data-att-step="1" aria-label="Следен период"${disabled}>▶</button>`
-            + `<button data-att-refresh${disabled}>Освежи</button><button data-att-print${disabled || !data ? ' disabled' : ''}>🖨 Печати</button>`
+            + `</div><button data-att-refresh${disabled}>Освежи</button><div class="report-exports" role="group" aria-label="Печатење и извоз"><button data-att-print${disabled || !data ? ' disabled' : ''}>Печати</button>`
             + `<button data-att-png${disabled || !data ? ' disabled' : ''}>🖼 Слика</button>`
-            + (attendance.scope==='transport' || me.readOnly ? `<button data-att-docx${disabled || !data ? ' disabled' : ''}>Word (.docx)</button>` : '') + '</div>'
+            + (attendance.scope==='transport' || me.readOnly ? `<button data-att-docx${disabled || !data ? ' disabled' : ''}>Word (.docx)</button>` : '') + '</div></div></div>'
             + (attendance.busy ? '<p role="status">Се вчитува / зачувува…</p>' : '')
+            + (attendance.accessError ? '<div class="access-help no-print" role="alert"><strong>Најавете се како сопственик</strong><p>Отворете MTB во истиот прелистувач, најавете се, па вратете се тука и притиснете „Освежи“. Вашата најава за Колеги останува зачувана.</p><a href="/MTB-Workspace.html" target="_blank" rel="noopener">Отвори сопственичка најава ↗</a></div>' : '')
             + '<div id="attendanceSheet"></div>';
         if (!data || attendance.busy) return;
         if (attendance.scope==='transport') return drawTransport();
@@ -1479,7 +1548,7 @@ header.top h1 { flex: 1; min-width: 180px; }
         const past = d.date < todayIso();
         const cls = [d.closed ? 'closed' : '', mine ? 'mine' : '', past ? 'past' : '', past && duty.foldPast ? 'folded' : '',
             d.date === todayIso() ? 'today' : ''].filter(Boolean).join(' ');
-        let who;
+        let who, grip = '';
         if (d.closed) who = `— без дежурство${d.note ? ': ' + esc(d.note) : ''} —`;
         else if (d.employeeId == null) who = d.how === 'nobody' && d.date >= duty.data.startsOn ? '— нема кој: сите се отсутни —' : '—';
         else {
@@ -1490,25 +1559,23 @@ header.top h1 { flex: 1; min-width: 180px; }
             }
             if (d.swap) who += `<span class="sub">⇄ замена со ${esc(d.swap.name)} (${WEEKDAY[weekdayOf(d.swap.date)]} ${dmy(d.swap.date)})${d.swap.note ? ' — ' + esc(d.swap.note) : ''}</span>`;
             if (duty.owner && swappable(d)) {
-                who = `<button type="button" class="small swap-grip no-print" data-swap-from="${d.date}" `
-                    + `aria-label="${esc(d.name)}, ${dmy(d.date)}: повлечете врз друг ден за замена">⠿</button> ` + who;
+                grip = `<button type="button" class="small swap-grip no-print" data-swap-from="${d.date}" `
+                    + `aria-label="${esc(d.name)}, ${dmy(d.date)}: повлечете врз друг ден за замена">⠿</button>`;
             }
         }
         const alsoAway = d.absent.filter((a) => !d.covers.some((c) => c.employeeId === a.employeeId));
         if (alsoAway.length) who += `<span class="sub">отсутни: ${esc(alsoAway.map((a) => a.name).join(', '))}</span>`;
         const imAway = d.absent.some((a) => a.employeeId === myEmployee());
         let act = '';
-        if (duty.owner) act = `<button type="button" class="small" data-duty-open="${d.date}" aria-expanded="${duty.open === d.date}">⋯</button>`;
+        if (duty.owner) act = `<button type="button" class="small" data-duty-open="${d.date}" aria-label="Уреди дежурство: ${dmy(d.date)}" aria-expanded="${duty.open === d.date}">⋯</button>`;
         else if (me.duty && !past && !d.closed) {
             act = `<button type="button" class="small${imAway ? ' warn' : ''}" data-duty-away="${d.date}" data-away="${imAway ? '0' : '1'}">`
                 + (imAway ? 'Сепак сум тука' : 'Не сум тука') + '</button>';
         }
         const row = `<tr class="${cls}" data-date="${d.date}">`
-            + `<td class="num">${d.number == null ? '—' : d.number}</td>`
-            // The button sits under the name, not in a column of its own: a
-            // fourth column made the month wider than a phone.
-            + `<td class="who">${who}${act ? `<div class="act no-print">${act}</div>` : ''}</td>`
-            + `<td class="date">${WEEKDAY[d.weekday]} ${dmy(d.date)}</td></tr>`;
+            + `<td class="date">${WEEKDAY[d.weekday]} ${dmy(d.date)}</td>`
+            + `<td class="who"><div class="duty-person">${grip}<span class="person-text">${who}</span>${act ? `<div class="act no-print">${act}</div>` : ''}</div></td>`
+            + `<td class="num">${d.number == null ? '—' : d.number}</td></tr>`;
         return row + (duty.owner && duty.open === d.date ? dutyDayEditor(d) : '');
     }
 
@@ -1522,7 +1589,7 @@ header.top h1 { flex: 1; min-width: 180px; }
         const kind = d.closed ? 'pause' : 'work';
         const radio = (value, text) => `<label style="display:flex;align-items:center;gap:6px;margin:0">`
             + `<input type="radio" name="kind" value="${value}"${kind === value ? ' checked' : ''} style="width:auto"> ${text}</label>`;
-        return `<tr class="no-print"><td></td><td colspan="2"><form class="duty-day" data-duty-day="${d.date}">`
+        return `<tr class="no-print"><td colspan="3"><form class="duty-day" data-duty-day="${d.date}">`
             + `<div style="display:flex;flex-wrap:wrap;gap:4px 16px;margin:0 0 4px">`
             + radio('work', 'Има дежурен — списокот продолжува нормално')
             + radio('pause', 'Нема дежурен — пауза на списокот за овој ден')
@@ -1640,7 +1707,7 @@ header.top h1 { flex: 1; min-width: 180px; }
                 + 'па тие денови не се повеќе на овие двајца:'
                 + duty.data.staleSwaps.map((sw) => `<div>${esc(sw.first.name)} (${dmy(sw.first.date)}) ⇄ ${esc(sw.second.name)} (${dmy(sw.second.date)}) `
                     + `<button type="button" class="small" data-duty-unswap="${sw.id}">Откажи ја</button></div>`).join('') + '</div>' : '')
-            + (days.length ? '<table class="duty-table"><thead><tr><th>Р.бр.</th><th>Стручен соработник</th><th>Ден и датум</th></tr></thead><tbody>'
+            + (days.length ? '<table class="duty-table"><thead><tr><th scope="col">Ден и датум</th><th scope="col">Стручен соработник</th><th scope="col" title="Позиција во ротацијата, не реден број на датумот">Ред во циклус</th></tr></thead><tbody>'
                 + (gone ? `<tr class="past-toggle no-print"><td colspan="3"><button type="button" class="small" data-duty-past aria-expanded="${!duty.foldPast}">`
                     + `${duty.foldPast ? '▸ Прикажи' : '▾ Скриј'} ги изминатите денови (${gone})</button></td></tr>` : '')
                 + rows + '</tbody></table>'
@@ -2828,6 +2895,7 @@ header.top h1 { flex: 1; min-width: 180px; }
         const b = event.target.closest('[data-tab]');
         if (!b) return;
         view.tab = b.dataset.tab;
+        say('weekMsg','');
         editing = null;
         drawWeek();
     });

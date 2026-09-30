@@ -609,7 +609,7 @@ check('no page errors', errors.length === 0, errors.join('\n       '));
     check('and open when asked', await c.p.isVisible('#duty tr[data-date="2026-10-01"]'));
     const rows = await c.p.$$eval('#duty tbody tr[data-date]', (trs) => trs.map((tr) => ({ cls: tr.className,
         text: tr.innerText.replace(/\s+/g, ' ').trim(), away: Boolean(tr.querySelector('[data-duty-away]')) })));
-    check('the month reads number, person, day', /^1 Ана Измислена чт 01\.10\.2026/.test(rows[0].text), rows[0].text);
+    check('the month reads date, person, rotation position', /^чт 01\.10\.2026 Ана Измислена 1/.test(rows[0].text), rows[0].text);
     check('their own days are marked', rows[0].cls.includes('mine') && rows[3].cls.includes('mine'), JSON.stringify(rows.map((r) => r.cls)));
     check('a closed day says why', /без дежурство: излет/.test(rows[4].text), rows[4].text);
     check('a colleague is not told to close a day', !/сè уште е во дежурствата/.test(rows[5].text), rows[5].text);

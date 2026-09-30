@@ -79,6 +79,7 @@ const onePagePdf = async path => {
 try {
     await p.goto(origin+'/Kolega.html');
     await p.click('#welcomeContinue');
+    assert.ok((await p.locator('main').boundingBox()).width>=1200,'desktop workspace uses available width');
     await p.click('[data-tab="attendance"]');
     await p.locator('#attendanceDate').fill('2026-09-28'); await ready();
     const cell = p.locator('[data-att-date="2026-09-28"]').first();
@@ -131,7 +132,7 @@ try {
     assert.deepEqual(await p.locator('.attendance-table thead th').allTextContents(),['Ученик','Датуми на присуство во училиштето'],'transport report has only name and confirmed dates, no calendar or count columns');
     assert.deepEqual(await p.locator('.attendance-table tbody tr td:last-child').allTextContents(),['07.09.2026\n14.09.2026','—'],'confirmed dates form a vertical column in the pupil row');
     assert.equal(await p.locator('.attendance-mark').count(),0,'transport report is read-only');
-    assert.equal(await p.locator('[data-att-mode="week"]').isDisabled(),true);
+    assert.equal(await p.locator('[data-att-mode="week"]').count(),0,'monthly-only transport does not show an unusable week switch');
     assert.equal(await p.locator('[data-transport-certificate="12"]').isDisabled(),true,'zero days cannot issue attendance certificate');
     const beforeReads=transportReads;
     await p.click('[data-transport-certificate="11"]');
@@ -149,6 +150,9 @@ try {
     const [transportPng]=await Promise.all([p.waitForEvent('download'),p.click('[data-att-png]')]);
     assert.match(transportPng.suggestedFilename(),/^Prevoz-/);
     await transportPng.saveAs(resolve(artifacts,'transport.png'));
+    await p.screenshot({path:resolve(artifacts,'kolega-fluent-desktop.png'),fullPage:true});
+    const nav=await p.locator('.period-controls > *').evaluateAll(nodes=>nodes.map(n=>({x:n.getBoundingClientRect().x,b:n.getBoundingClientRect().bottom})));
+    assert.ok(nav[0].x<nav[1].x && nav[1].x<nav[2].x && Math.max(...nav.map(n=>n.b))-Math.min(...nav.map(n=>n.b))<2,'arrows bracket and align with the period');
     const readsBeforeDocx=transportReads;
     const [word]=await Promise.all([p.waitForEvent('download'),p.click('[data-att-docx]')]);
     await word.saveAs(resolve(artifacts,'transport.docx'));
@@ -167,9 +171,17 @@ try {
     let deniedDownload=false;const onDeniedDownload=()=>{deniedDownload=true;};p.on('download',onDeniedDownload);
     await p.click('[data-att-docx]');await p.waitForFunction(()=>document.querySelector('#weekMsg').textContent.includes('Пробно одбиен'));
     p.off('download',onDeniedDownload);assert.equal(deniedDownload,false,'revoked access never exports cached data');denyTransport=false;
+    denyTransport=true;await p.click('[data-att-refresh]');await p.waitForSelector('.access-help');
+    assert.match(await p.locator('#weekMsg').innerText(),/сопственичка најава/);
+    assert.equal(await p.locator('.access-help a').getAttribute('href'),'/MTB-Workspace.html');
+    assert.equal(await p.locator('[data-att-print]').isDisabled(),true,'no cached export after refused report read');
+    denyTransport=false;await p.click('[data-att-refresh]');await ready();
+    assert.equal(await p.locator('.access-help').count(),0,'successful retry clears access help');
     for(const width of [360,400]) {
         await p.setViewportSize({width,height:850});
         assert.ok(await p.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),'transport list and controls fit narrow phones');
+        const mobileNav=await p.locator('.period-controls > *').evaluateAll(nodes=>nodes.map(n=>n.getBoundingClientRect().x));
+        assert.ok(mobileNav[0]<mobileNav[1] && mobileNav[1]<mobileNav[2],'phone keeps previous, period, next in order');
         for(const control of ['#attendanceDate','#attendanceScope','[data-att-print]','[data-att-png]','[data-att-docx]','[data-transport-certificate="11"]']) {
             assert.ok((await p.locator(control).boundingBox()).height>=44,'touch target at least 44px: '+control);
         }
@@ -234,6 +246,10 @@ try {
     await p.setViewportSize({width:400,height:850});
     assert.ok(await p.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),'mobile page does not overflow; table scrolls inside');
     await p.click('[data-tab="duty"]'); await p.waitForSelector('#dutyPng');
+    assert.deepEqual(await p.locator('.duty-table thead th').allTextContents(),['Ден и датум','Стручен соработник','Ред во циклус']);
+    await p.screenshot({path:resolve(artifacts,'kolega-fluent-duty-mobile.png'),fullPage:true});
+    await p.setViewportSize({width:1400,height:1000});
+    await p.screenshot({path:resolve(artifacts,'kolega-fluent-duty-desktop.png'),fullPage:true});
     const [dutyPng] = await Promise.all([p.waitForEvent('download'),p.click('#dutyPng')]);
     await dutyPng.saveAs(resolve(artifacts,'duty.png'));
     await p.click('#dutyPrint'); assert.match(await p.evaluate(()=>window.printClasses),/printing-duty/);

@@ -7,6 +7,17 @@ server selection, or database sync. Longer design history belongs in
 
 ## One product, one schedule
 
+**Kolega visual refinement, 30 September:** apply Fluent 2-inspired typography,
+spacing and grouped commands in the existing self-contained page, not a React
+rewrite or another app. The desktop workspace grows to 1320px; login stays
+narrow. Screen-only styling preserves print/Word rules, themes and large text.
+Attendance period navigation is one previous/input/next group, exports another;
+transport is month-only without a disabled week selector. Duty rows show date,
+person with inline actions, then explicitly labelled rotation position. Existing
+drag-to-swap and accessible day-editor alternatives remain; no rotation changes.
+Owner report access failures offer the existing owner sign-in and explicit retry,
+never broaden a duty link or replace read-only account permissions.
+
 The user works in one connected MTB suite. The suite has several task screens,
 but it must not present parallel versions of the same task.
 

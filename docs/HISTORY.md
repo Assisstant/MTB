@@ -4370,6 +4370,34 @@ remains legible in both themes. Browser checks cover 360/400px overflow, touch
 target sizes, vertical dates, print type/zoom, a 15-pupil one-page PDF and long
 multi-page date lists. Only invented pupils appear in ignored QA artifacts.
 
+### Kolega Fluent 2 refinement (30 Sep 2026)
+
+After reviewing phone-like desktop screenshots, the owner approved a Fluent 2
+direction. The existing standalone page now uses a 1320px workspace (login still
+narrow), Segoe UI/system typography, semibold hierarchy, smaller corner radii,
+solid selected actions and neutral table headings. No library or external assets
+were added. Reference: https://fluent2.microsoft.design/typography and
+https://fluent2.microsoft.design/components/web/react/core/toolbar/usage .
+
+Attendance separates report/view choice from period and export commands; previous
+and next stay beside the period on desktop and phone. Transport no longer offers
+an impossible week view. Touch controls remain 48px; desktop report commands are
+40px. Duty columns now read date, person/actions and rotation position. Its number
+is explicitly labelled, not renumbered after swaps. Existing drag-to-swap and the
+day editor are retained, with actions inline on desktop and wrapped on phones.
+
+A failed owner transport read clears cached report data and offers the existing
+owner login in a new tab, plus Refresh, without discarding the colleague session.
+401/403 or an HTML login response gets a Macedonian explanation; this is recovery
+UX, not proof of the historical live error's cause or a changed permission rule.
+Stale status messages clear on explicit report refresh and tab selection. The
+050 read-only portal paths and all business guards are unchanged.
+
+Checks: full 313-test suite; colleague/attendance/landing/read-only browser tests,
+desktop width, phone overflow and control order, access denial/retry, preserved
+date grouping, print/PDF counts and PNG/DOCX exports. Screenshots use invented
+people in ignored backups. No live database/schema/deployment was changed.
+
 ### Transport landscape and editable Word export (29 Sep 2026)
 
 The owner refined the print example: use the horizontal space, with a maximum
