@@ -291,6 +291,9 @@ powershell -ExecutionPolicy Bypass -File scripts\mtb.ps1 -Action update  pull, p
                                          (the „MTB - Azuriraj" shortcut; the „MTB" front door does the same every morning)
 powershell -ExecutionPolicy Bypass -File scripts\setup-home-postgres.ps1 new machine
 powershell -ExecutionPolicy Bypass -File scripts\backup-db.ps1           dump + JSON
+powershell -ExecutionPolicy Bypass -File scripts\cloud-migrate.ps1       the CLOUD's pending migrations: pg_dump, then
+                                         deploy:workspace; address in ..\MTB-cloude.env (outside the repo),
+                                         asks DA first („MTB - Oblak migracii“). Local DB: „MTB - Azuriraj“
 powershell -ExecutionPolicy Bypass -File scripts\manual-db-sync.ps1 -Mode Compare -Dir P:\MTB-sync -Me work -PeerName home
 powershell -ExecutionPolicy Bypass -File scripts\run-server.ps1          supervised server
 powershell -ExecutionPolicy Bypass -File scripts\sync-peer.ps1           report; -Apply to sync
