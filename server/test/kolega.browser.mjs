@@ -298,7 +298,7 @@ check('no page errors', errors.length === 0, errors.join('\n       '));
     await p.click('#tabs [data-tab="mine"]');
     await p.click('#days [data-week]');
     await p.waitForSelector('#weekSheet:not([hidden]) .sheet', { timeout: 3000 });
-    const sheet = await p.textContent('#weekSheet');
+    const sheet = (await p.textContent('#weekSheet')).replace(/\u2060/g, '');
     check('„🗓 Недела" draws the week on one sheet, under the person\'s name',
         /Неделен распоред — Ана Измислена/.test(sheet) && /Понеделник/.test(sheet) && /Петок/.test(sheet), sheet.slice(0, 160));
     check('with their own lessons in it, and nobody else\'s', /Математика/.test(sheet) && /II-б/.test(sheet) && !/Музичко/.test(sheet), sheet);
@@ -314,6 +314,25 @@ check('no page errors', errors.length === 0, errors.join('\n       '));
         && await p.isHidden('#tabs') && await p.isHidden('#weekTools') && await p.isHidden('header.top'));
     await p.emulateMedia({ media: 'screen' });
     await p.evaluate(() => document.body.classList.remove('printing-week'));
+    // Owner, 30 Sep 2026: the subjects alone, the cabinets alone, or both on two pages.
+    check('the sheet offers what to show', await p.isVisible('#sheetModes [data-sheet-mode="subjects"]'));
+    await p.click('#sheetModes [data-sheet-mode="subjects"]');
+    const subjectsOnly = await p.textContent('#weekSheet');
+    check('„Само предмети" leaves the pupils going to cabinets out', /Математика/.test(subjectsOnly) && !/↳/.test(subjectsOnly), subjectsOnly);
+    await p.click('#sheetModes [data-sheet-mode="cabinets"]');
+    const byCabinet = await p.textContent('#weekSheet');
+    check('„Кабинети" lists who takes which child of the class, and when, by cabinet',
+        /Кабинети — кога ги земаат учениците/.test(byCabinet) && /Терапевт Измислен/.test(byCabinet)
+        && /Дете Измислено Прво/.test(byCabinet) && /08:45–09:25/.test(byCabinet) && !/Математика/.test(byCabinet), byCabinet);
+    await p.click('#sheetModes [data-sheet-mode="both"]');
+    check('„Предмети + кабинети" draws two sheets', await p.$$eval('#weekSheet .sheet', (x) => x.length) === 2);
+    await p.evaluate(() => document.body.classList.add('printing-week'));
+    await p.emulateMedia({ media: 'print' });
+    check('printed, the second sheet starts its own page',
+        await p.$eval('#weekSheet .sheet + .sheet', (x) => getComputedStyle(x).breakBefore) === 'page');
+    await p.emulateMedia({ media: 'screen' });
+    await p.evaluate(() => document.body.classList.remove('printing-week'));
+    await p.click('#sheetModes [data-sheet-mode="all"]');
     await p.click('#weekSheet td[data-go-day="понеделник"][data-go-at="lesson:2"]');
     check('and the day\'s list says it under the lesson too',
         /Дете Измислено Прво → Терапевт Измислен · 08:45–09:25/.test(await p.textContent('#periods [data-ordinal="2"]')));
@@ -539,7 +558,11 @@ check('no page errors', errors.length === 0, errors.join('\n       '));
         days: [day('2026-10-01', 4, 7), day('2026-10-02', 5, 8, { how: 'cover', note: 'боледување',
                 covers: [{ employeeId: 9, name: people[9] }], absent: [{ employeeId: 9, name: people[9] }] }),
             day('2026-10-05', 1, 9), day('2026-10-06', 2, 7, { how: 'swap', swap: { id: 3, date: '2026-10-09', note: 'лекар', employeeId: 8, name: people[8] } }),
-            day('2026-10-07', 3, null, { closed: true, note: 'излет', how: 'closed' }), day('2026-10-08', 4, 8, { note: 'празник' })],
+            day('2026-10-07', 3, null, { closed: true, note: 'излет', how: 'closed' }),
+            // Owner, 30 Sep 2026: somebody else actually served — a second duty in that cycle.
+            day('2026-10-08', 4, 8, { note: 'празник', insteadOf: { employeeId: 9, name: people[9] }, servedEmployeeId: 8, turnInCycle: 2 })],
+        cycleCounts: [{ cycle: 2, from: '2026-10-06', to: '2026-10-08', people: [{ employeeId: 8, name: people[8], count: 2, sick: false }, { employeeId: 9, name: people[9], count: 0, sick: false }] }],
+        standIns: [{ employeeId: 8, name: people[8], net: 1 }, { employeeId: 9, name: people[9], net: -1 }],
         staleSwaps: [{ id: 4, note: '', first: { date: '2026-10-12', employeeId: 9, name: people[9] }, second: { date: '2026-10-14', employeeId: 7, name: people[7] } }]
     });
     const CANDIDATES = [
@@ -616,6 +639,12 @@ check('no page errors', errors.length === 0, errors.join('\n       '));
     check('a stand-in day says whom it was instead of, and why — and not twice',
         /наместо Горан Измислен — боледување/.test(rows[1].text) && !/отсутни/.test(rows[1].text), rows[1].text);
     check('a day gone by offers nothing to mark', rows[0].away === false);
+    const corrected = rows.find((r) => /08\.10\.2026/.test(r.text)).text;
+    check('a day somebody else served says whom they replaced, and that it is their second in the cycle',
+        /✎ наместо Горан Измислен/.test(corrected) && /2× во кругот/.test(corrected), corrected);
+    check('and under the table: who has two and who none in that cycle, and who owes',
+        /Круг 2.*Вера Измислена — 2.*Горан Измислен — 0/.test(await c.p.innerText('#duty .duty-counts'))
+        && /должи 1/.test(await c.p.innerText('#duty .duty-counts')), await c.p.innerText('#duty .duty-counts'));
     check('a swapped day says with whom and for which day', /⇄ замена со Вера Измислена \(пт 09\.10\.2026\) — лекар/.test(rows[3].text), rows[3].text);
     check('a colleague cannot drag a swap, nor sees the stale ones', !(await c.p.$('#duty [data-swap-from]')) && !(await c.p.$('#duty .duty-stale')));
     check('today and later offer „Не сум тука"', rows[1].away && rows[2].away);
@@ -813,6 +842,27 @@ check('no page errors', errors.length === 0, errors.join('\n       '));
     await o.p.waitForTimeout(300);
     check('the same excursion can instead be saved as a pause', o.ownerWrites.some((w) => w.path === '/api/duty/day'
         && w.body.date === '2026-10-07' && w.body.closed === true && w.body.note === 'екскурзија'));
+    // Owner, 30 Sep 2026: a day gone by is corrected — who actually served —
+    // and the one replaced can take the stand-in's next own turn.
+    await o.p.click('#duty tr[data-date="2026-10-01"] [data-duty-open]');
+    const servedSel = '#duty form[data-duty-day="2026-10-01"] select[name="served"]';
+    check('a past day offers „Кој навистина дежурал", starting at the rota person',
+        await o.p.isVisible(servedSel) && /по распоред: Ана Измислена/.test(await o.p.textContent(servedSel)));
+    check('evening it out is offered only once somebody else is chosen',
+        await o.p.isHidden('#duty form[data-duty-day="2026-10-01"] .repay'));
+    await o.p.selectOption(servedSel, '9');
+    check('then it is', await o.p.isVisible('#duty form[data-duty-day="2026-10-01"] .repay'));
+    await o.p.check('#duty form[data-duty-day="2026-10-01"] input[name="repay"]');
+    await o.p.click('#duty form[data-duty-day="2026-10-01"] button[type="submit"]');
+    await o.p.waitForTimeout(400);
+    const servedWrite = o.ownerWrites.find((w) => w.path === '/api/duty/day' && w.body.date === '2026-10-01');
+    check('the day is sent with who served and the request to even it out',
+        servedWrite && servedWrite.body.servedEmployeeId === 9 && servedWrite.body.repay === true && servedWrite.body.closed === false, JSON.stringify(servedWrite));
+    await o.p.click('#duty tr[data-date="2026-10-08"] [data-duty-open]');
+    check('a corrected day opens with its correction chosen, and names the rota person',
+        await o.p.$eval('#duty form[data-duty-day="2026-10-08"] select[name="served"]', (s) => s.value) === '8'
+        && /по распоред: Горан Измислен/.test(await o.p.textContent('#duty form[data-duty-day="2026-10-08"] select[name="served"]')));
+    check('a corrected day has no swap handle', !(await o.p.$('#duty tr[data-date="2026-10-08"] [data-swap-from]')));
     check('no page errors for the owner', o.errs.length === 0, o.errs.join('\n       '));
     await o.ctx.close();
 

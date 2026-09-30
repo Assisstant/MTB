@@ -178,6 +178,10 @@ header.top h1 { flex: 1; min-width: 180px; }
 .swap-card input { width: 100%; box-sizing: border-box; margin: 6px 0 10px; }
 .duty-stale { border: 1px solid var(--warn); background: var(--warn-bg); border-radius: 10px; padding: 8px 12px; margin: 8px 0; font-size: 14px; }
 .duty-stale div { margin-top: 4px; }
+.duty-served { display: grid; gap: 4px; border-left: 3px solid var(--accent); padding-left: 8px; }
+.duty-counts { border: 1px solid var(--line); border-radius: 10px; padding: 8px 12px; margin: 10px 0; font-size: 14px; }
+.duty-counts div { margin-top: 3px; }
+.duty-table .sub.twice { color: var(--warn); font-weight: 700; }
 .duty-list .grip { cursor: grab; touch-action: none; padding: 4px 8px; }
 .duty-table tr.folded { display: none; }
 .duty-table tr.duty-month-sep td { font-weight: 800; color: var(--accent); padding-top: 14px; border-bottom: 2px solid var(--line); }
@@ -202,16 +206,19 @@ header.top h1 { flex: 1; min-width: 180px; }
 .days .week-toggle { margin-left: 6px; }
 .week-tools { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin: 10px 0 4px; }
 .week-wrap { overflow-x: auto; margin-top: 8px; }
-.sheet { min-width: 640px; padding: 12px; border-radius: 12px; background: #ffffff; color: #1a202c; border: 1px solid var(--line); }
-.sheet .s-head { padding: 12px 16px; border-radius: 12px; text-align: center; color: #ffffff;
-                 background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
-.sheet .s-head h2 { margin: 0; font-size: 20px; color: #ffffff; }
-.sheet .s-sub { margin-top: 3px; font-size: 13px; color: #ffffff; }
-.sheet table { width: 100%; margin-top: 10px; border-collapse: separate; border-spacing: 2px; table-layout: fixed; font-size: 13px; }
-.sheet thead th { padding: 7px 4px; background: #4c51bf; color: #ffffff; font-weight: 700; text-align: center; }
-.sheet thead th:first-child, .sheet tbody th { width: 78px; }
-.sheet tbody th { padding: 6px 4px; background: #2d3748; color: #ffffff; text-align: center; vertical-align: middle; }
-.sheet tbody th b { display: block; font-size: 14px; }
+.sheet { min-width: 760px; padding: 12px; border-radius: 12px; background: #ffffff; color: #1a202c; border: 1px solid var(--line); }
+.sheet + .sheet { margin-top: 14px; }
+.sheet .s-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 2px 16px;
+                 padding: 9px 14px; border-radius: 10px; color: #ffffff; background: linear-gradient(135deg, #4c51bf 0%, #6b46c1 100%); }
+.sheet .s-head h2 { margin: 0; font-size: 18px; color: #ffffff; }
+.sheet .s-sub { font-size: 12.5px; color: #ffffff; opacity: .92; }
+.sheet table { width: 100%; margin-top: 8px; border-collapse: separate; border-spacing: 2px; table-layout: fixed; font-size: 12.5px; }
+.sheet thead th { padding: 6px 4px; background: #434190; color: #ffffff; font-weight: 700; text-align: center; border-radius: 4px 4px 0 0; }
+.sheet thead th:first-child, .sheet tbody th { width: 70px; }
+.sheet.by-cabinet thead th:first-child, .sheet.by-cabinet tbody th { width: 150px; }
+.sheet tbody th { padding: 5px 4px; background: #2d3748; color: #ffffff; text-align: center; vertical-align: middle; }
+.sheet.by-cabinet tbody th { text-align: left; padding-left: 8px; }
+.sheet tbody th b { display: block; font-size: 13.5px; }
 .sheet tbody th small { display: block; color: #cbd5e0; font-size: 11px; }
 .sheet td { padding: 3px; vertical-align: top; background: #f7fafc; cursor: pointer; }
 .sheet tbody tr:nth-child(even) td { background: #ffffff; }
@@ -219,21 +226,36 @@ header.top h1 { flex: 1; min-width: 180px; }
 .reader-mode .sheet td { cursor: default; overflow-wrap: anywhere; }
 .reader-mode .sheet td:hover { outline: none; }
 .reader-mode .reader-list-table th:first-child { width: 35px; }
-.sheet .s-item { margin: 0 0 3px; padding: 4px 6px 4px 8px; border-radius: 6px; background: #e6fffa; border-left: 4px solid #319795; line-height: 1.2; }
-.sheet .s-item b { display: block; font-size: 13px; color: #1a202c; overflow-wrap: anywhere; }
+.sheet .s-item { margin: 0 0 3px; padding: 3px 6px 3px 7px; border-radius: 5px; background: #e6fffa; border-left: 4px solid #319795; line-height: 1.2; }
+.sheet .s-item b { display: block; font-size: 12.5px; color: #1a202c; overflow-wrap: anywhere; }
 .sheet .s-item small { display: block; font-size: 11px; color: #4a5568; }
-.sheet .s-item.away { background: #fff5e6; border-left-color: #c05621; }
-.sheet .s-item.away small { color: #7b341e; }
+/* A pupil going to a cabinet: one compact line under the lesson, not a second card. */
+.sheet .s-item.away { background: #fff7ed; border-left: 3px solid #c05621; padding: 2px 6px 2px 7px; }
+.sheet .s-item.away b { display: inline; font-size: 11.5px; font-weight: 700; }
+.sheet .s-item.away small { display: inline; color: #7b341e; font-size: 11px; }
+.sheet .s-item.away small::before { content: ' · '; }
+.sheet.by-cabinet .s-item.away b { display: block; font-size: 12.5px; }
+.sheet.by-cabinet .s-item.away small { display: block; font-size: 12px; color: #1a202c; }
+.sheet.by-cabinet .s-item.away b { color: #7b341e; }
+.sheet.by-cabinet .s-item.away small::before { content: ''; }
+.sheet .s-empty { margin: 16px 0 6px; text-align: center; color: #4a5568; }
+.sheet-modes { display: inline-flex; flex-wrap: wrap; gap: 0; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; margin-right: 6px; }
+.sheet-modes button { border: 0; border-radius: 0; border-right: 1px solid var(--line); min-height: 36px; padding: 6px 12px; }
+.sheet-modes button:last-child { border-right: 0; }
+.sheet-modes button[aria-pressed="true"] { background: var(--accent); color: #ffffff; font-weight: 700; }
 .period .note.away { color: var(--muted); }
 .sheet .s-foot { margin-top: 8px; font-size: 12px; color: #4a5568; }
 @page week { size: A4 landscape; margin: 9mm; }
 @media print {
   #mtbCredit { display: none !important; }
+  /* Below a short last page the root's own background shows; paper is white. */
+  html { background: #fff !important; }
   body.printing-week main > *:not(#home), body.printing-week #home > *:not(#weekCard),
   body.printing-week #weekCard > *:not(.week-wrap), body.printing-week .no-print { display: none !important; }
   body.printing-week, body.printing-week .card { background: #fff !important; border: 0 !important; padding: 0 !important; margin: 0 !important; }
   body.printing-week .week-wrap { overflow: visible; margin: 0; }
   body.printing-week .sheet { page: week; min-width: 0; border: 0; padding: 0; }
+  body.printing-week .sheet + .sheet { break-before: page; margin-top: 0; }
   body.printing-week .sheet td:hover { outline: 0; }
   body.printing-week .sheet * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 }
@@ -630,6 +652,12 @@ header.top h1 { flex: 1; min-width: 180px; }
       <div class="days" id="days" role="group" aria-label="Ден"></div>
       <p class="muted" id="tabHint"></p>
       <div class="week-tools no-print" id="weekTools" hidden>
+        <div class="sheet-modes" id="sheetModes" role="group" aria-label="Што да се прикаже" hidden>
+          <button type="button" data-sheet-mode="all">Часови и кабинети</button>
+          <button type="button" data-sheet-mode="subjects">Само предмети</button>
+          <button type="button" data-sheet-mode="cabinets">Кабинети за паралелката</button>
+          <button type="button" data-sheet-mode="both">Предмети + кабинети (2 листа)</button>
+        </div>
         <button type="button" id="printWeek">🖨 Печати</button>
         <button type="button" id="pngWeek">🖼 Слика</button>
         <button type="button" id="docxWeek" hidden>Word (.docx)</button>
@@ -960,8 +988,11 @@ header.top h1 { flex: 1; min-width: 180px; }
         // Only for somebody on the duty list. The administrator's sign-in
         // opens it on anyone's page only while there is no list yet, so the
         // first one can be made; after that it is where their own name is.
+        // A teacher's page never shows it unless they are on the list themselves
+        // (owner, 30 Sep 2026): the rota is the cabinets'.
+        const teacherOnly = week.me.teacherId != null && week.me.therapistId == null;
         const noList = duty.owner && duty.data && !(duty.data.members || []).length;
-        if ((me && me.duty) || noList || duty.delegated) tabs.push({ id: 'duty', label: '🛡 Дежурства' });
+        if ((me && me.duty) || (!teacherOnly && (noList || duty.delegated))) tabs.push({ id: 'duty', label: '🛡 Дежурства' });
         if (week.me.therapistId != null || attendance.transportAllowed) tabs.push({ id: 'attendance', label: '✓ Присуство' });
         return tabs;
     }
@@ -1310,6 +1341,16 @@ header.top h1 { flex: 1; min-width: 180px; }
         target.style.zoom = '';
         if(transport) return;
         const pxPerMm = 96 / 25.4;
+        if (kind === 'week') {
+            // Each sheet on its own A4 landscape page, scaled down only if needed.
+            fittedPrint = [...target.querySelectorAll('.sheet')];
+            fittedPrint.forEach((sheet) => {
+                sheet.style.zoom = '';
+                const scale = Math.min(1, 277 * pxPerMm / sheet.scrollWidth, (190 * pxPerMm - 32) / sheet.scrollHeight);
+                sheet.style.zoom = String(scale);
+            });
+            return;
+        }
         const width = (kind === 'duty' ? 190 : 277) * pxPerMm;
         // Leave room for font/row rounding and collapsed outer margins in
         // Chromium's paginated layout (different from screen-media metrics).
@@ -1318,7 +1359,7 @@ header.top h1 { flex: 1; min-width: 180px; }
         target.style.zoom = String(scale);
         fittedPrint = target;
     });
-    window.addEventListener('afterprint', () => { if(fittedPrint) fittedPrint.style.zoom=''; fittedPrint=null; });
+    window.addEventListener('afterprint', () => { [].concat(fittedPrint || []).forEach((t) => { t.style.zoom = ''; }); fittedPrint=null; });
     window.addEventListener('afterprint', () => document.body.classList.remove('printing-attendance','printing-transport-list'));
     window.addEventListener('afterprint', () => { document.body.classList.remove('printing-transport-certificate'); el('transportCertificate').hidden=true; });
 
@@ -1464,7 +1505,7 @@ header.top h1 { flex: 1; min-width: 180px; }
     // worked out as before and only the two days trade names. The owner drags
     // one name onto another (⠿), or picks the other day under ⋯, and confirms.
     const weekdayOf = (iso) => new Date(iso + 'T00:00:00Z').getUTCDay();
-    const swappable = (d) => d.employeeId != null && !d.closed && !d.swap;
+    const swappable = (d) => d.employeeId != null && !d.closed && !d.swap && !d.insteadOf;
     const canSwap = (a, b) => a !== b && a.date !== b.date && swappable(a) && swappable(b) && a.employeeId !== b.employeeId && a.cycle === b.cycle;
     const dayOn = (date) => duty.data.days.find((x) => x.date === date);
 
@@ -1557,8 +1598,10 @@ header.top h1 { flex: 1; min-width: 180px; }
         else if (d.employeeId == null) who = d.how === 'nobody' && d.date >= duty.data.startsOn ? '— нема кој: сите се отсутни —' : '—';
         else {
             who = esc(d.name);
-            if (d.covers.length) who += `<span class="sub">наместо ${esc(d.covers.map((c) => c.name).join(', '))}${d.note ? ' — ' + esc(d.note) : ''}</span>`;
-            else if (d.note) {
+            // Who actually served (051): the rota named somebody else; the queue did not move.
+            if (d.insteadOf) who += `<span class="sub">✎ наместо ${esc(d.insteadOf.name || 'никого по распоред')}${d.note ? ' — ' + esc(d.note) : ''}</span>`;
+            if (d.covers.length) who += `<span class="sub">${d.insteadOf ? 'прескокнат (отсуство): ' : 'наместо '}${esc(d.covers.map((c) => c.name).join(', '))}${d.note && !d.insteadOf ? ' — ' + esc(d.note) : ''}</span>`;
+            else if (d.note && !d.insteadOf) {
                 who += `<span class="sub">${esc(d.note)}</span>`;
             }
             if (d.swap) who += `<span class="sub">⇄ замена со ${esc(d.swap.name)} (${WEEKDAY[weekdayOf(d.swap.date)]} ${dmy(d.swap.date)})${d.swap.note ? ' — ' + esc(d.swap.note) : ''}</span>`;
@@ -1579,7 +1622,8 @@ header.top h1 { flex: 1; min-width: 180px; }
         const row = `<tr class="${cls}" data-date="${d.date}">`
             + `<td class="date">${WEEKDAY[d.weekday]} ${dmy(d.date)}</td>`
             + `<td class="who"><div class="duty-person">${grip}<span class="person-text">${who}</span>${act ? `<div class="act no-print">${act}</div>` : ''}</div></td>`
-            + `<td class="num">${d.number == null ? '—' : d.number}${d.cycle && !d.closed ? `<span class="sub">круг ${d.cycle}</span>` : ''}</td></tr>`;
+            + `<td class="num">${d.number == null ? '—' : d.number}${d.cycle && !d.closed ? `<span class="sub">круг ${d.cycle}</span>` : ''}`
+            + (d.turnInCycle > 1 ? `<span class="sub twice" title="${d.turnInCycle}. дежурство во овој круг">${d.turnInCycle}× во кругот</span>` : '') + '</td></tr>';
         return row + (duty.owner && duty.open === d.date ? dutyDayEditor(d) : '');
     }
 
@@ -1604,6 +1648,7 @@ header.top h1 { flex: 1; min-width: 180px; }
             + (assigned ? `<option value="${assigned}" selected>${esc((members.find((m) => m.employeeId === assigned) || {}).name || 'Претходно доделениот колега')}</option>` : '')
             + '</select></label>'
             + (assigned ? '<p class="muted">За нова договорена смена отстранете го поединечното доделување, зачувајте, па изберете „Замени со ден“.</p>' : '')
+            + dutyServedHtml(d, members)
             + '<div>Отсутни тој ден (боледување): се прескокнуваат без да должат ден; следниот го користи својот ред, па редицата продолжува по него.<div class="checks">'
             + members.map((m) => `<label><input type="checkbox" name="away" value="${m.employeeId}"${d.absent.some((a) => a.employeeId === m.employeeId) ? ' checked' : ''}> ${esc(m.name)}</label>`).join('')
             + '</div></div>'
@@ -1614,6 +1659,41 @@ header.top h1 { flex: 1; min-width: 180px; }
                     + `</select></label><button type="button" class="small" data-duty-swap-pick="${d.date}">⇄ Замени…</button></div>` : '')
             + '<div class="row"><button class="primary small" type="submit">Зачувај го денот</button>'
             + `<button type="button" class="small" data-duty-open="">Затвори</button></div></form></td></tr>`;
+    }
+
+    /**
+     * „Дежурал/а" (051; owner, 30 Sep 2026): who actually served, on any day,
+     * past ones included. A correction of the name, never of the queue — the
+     * following days stay where they are. The one who stepped in then has two
+     * duties in that cycle; „врати" gives the replaced colleague the stand-in's
+     * next own turn, so the next cycle evens it out.
+     */
+    function dutyServedHtml(d, members) {
+        if (d.closed) return '';
+        const rotaName = d.insteadOf ? (d.insteadOf.name || '') : (d.name || '');
+        const current = d.servedEmployeeId ?? '';
+        return '<div class="duty-served"><label style="margin:0">Кој навистина дежурал'
+            + `<select name="served"><option value="">— по распоред${rotaName ? ': ' + esc(rotaName) : ''} —</option>`
+            + members.map((m) => `<option value="${m.employeeId}"${m.employeeId === current ? ' selected' : ''}>${esc(m.name)}</option>`).join('')
+            + '</select></label>'
+            + `<label class="repay" hidden style="display:flex;align-items:center;gap:6px;margin:0;font-weight:500"><input type="checkbox" name="repay" style="width:auto"> `
+            + `${rotaName ? esc(rotaName) : 'Заменетиот'} го враќа: го зема следниот термин на избраниот колега (следниот круг)</label>`
+            + '<p class="muted" style="margin:0">Се менува само името на овој ден; следните денови не се поместуваат. Кој ја заменил има 2 дежурства во кругот. '
+            + 'Ако заменетиот всушност дошол, прво отштиклирајте го од отсутните подолу.</p></div>';
+    }
+
+    /** Per cycle, who does not have simply one duty; and who still owes whom. */
+    function dutyCountsHtml() {
+        const cycles = duty.data.cycleCounts || [];
+        const owed = duty.data.standIns || [];
+        if (!cycles.length && !owed.length) return '';
+        const person = (p) => `${esc(p.name)} — <b>${p.count}</b>${p.count === 0 ? ' (заменет/а)' : ''}`;
+        return '<div class="duty-counts">'
+            + (cycles.length ? '<b>Дежурства по круг</b> (секој има по едно; тука се само отстапувањата):'
+                + cycles.map((c) => `<div>Круг ${c.cycle}${c.from ? ` (${dmy(c.from)} – ${dmy(c.to)})` : ''}: ${c.people.map(person).join(' · ')}</div>`).join('') : '')
+            + (owed.length ? '<div class="owed"><b>Салдо на замени во годината:</b> '
+                + owed.map((p) => `${esc(p.name)} ${p.net > 0 ? '+' + p.net + ' (дежурал/а повеќе)' : p.net + ' (должи ' + (-p.net) + ')'}`).join(' · ') + '</div>' : '')
+            + '</div>';
     }
 
     /**
@@ -1717,7 +1797,7 @@ header.top h1 { flex: 1; min-width: 180px; }
             + (days.length ? '<table class="duty-table"><thead><tr><th scope="col">Ден и датум</th><th scope="col">Стручен соработник</th><th scope="col" title="Позиција во основниот список; кругот продолжува и во следниот месец">Ред во циклус</th></tr></thead><tbody>'
                 + (gone ? `<tr class="past-toggle no-print"><td colspan="3"><button type="button" class="small" data-duty-past aria-expanded="${!duty.foldPast}">`
                     + `${duty.foldPast ? '▸ Прикажи' : '▾ Скриј'} ги изминатите денови (${gone})</button></td></tr>` : '')
-                + rows + '</tbody></table>'
+                + rows + '</tbody></table>' + dutyCountsHtml()
                 : `<p class="muted">Ротацијата почнува на ${dmy(duty.data.startsOn)}.</p>`)
             + '<p class="muted">Отсутниот се прескокнува; следниот дежура еднаш и редицата продолжува по него. Основниот список не се менува, но датумите се поместуваат. '
             + 'Договорената смена разменува два термина во истиот круг. Покривање од друга служба = „Нема дежурен — пауза“ за кабинетите.</p>';
@@ -1738,7 +1818,7 @@ header.top h1 { flex: 1; min-width: 180px; }
             return paintReport({ title: 'Распоред на дежурства', subtitle: 'учебна ' + me.year,
                 columns: ['Датум', 'Стручен соработник', 'Забелешка'],
                 rows: days.map(d => [dmy(d.date), d.closed ? 'Неработен ден' : d.name || '—',
-                    [d.note, ...(d.covers || []).map(c => 'Замена за ' + (c.name || duty.data.members.find(m => m.employeeId === c)?.name || '—')),
+                    [d.note, d.insteadOf ? 'Наместо ' + (d.insteadOf.name || '—') : '', ...(d.covers || []).map(c => 'Замена за ' + (c.name || duty.data.members.find(m => m.employeeId === c)?.name || '—')),
                         d.swap ? 'Замена со ' + d.swap.name + ' · ' + dmy(d.swap.date) : ''].filter(Boolean).join('\n')]),
                 note: 'Сите денови од избраниот приказ, вклучувајќи ги скриените изминати денови.', file: 'Dezurstva-' + (duty.data.from || duty.month) });
         }
@@ -1877,6 +1957,13 @@ header.top h1 { flex: 1; min-width: 180px; }
         if (event.target.name === 'kind') {
             const form = event.target.closest('[data-duty-day]');
             if (form) form.elements.assigned.disabled = form.elements.kind.value === 'pause';
+            if (form && form.elements.served) form.elements.served.disabled = form.elements.kind.value === 'pause';
+        }
+        if (event.target.name === 'served') {
+            const form = event.target.closest('[data-duty-day]');
+            const day = form && duty.data.days.find((d) => d.date === form.dataset.dutyDay);
+            const box = form && form.querySelector('.repay');
+            if (box) box.hidden = !event.target.value || Number(event.target.value) === (day && day.servedEmployeeId);
         }
     });
     el('duty').addEventListener('toggle', (event) => {
@@ -1947,14 +2034,21 @@ header.top h1 { flex: 1; min-width: 180px; }
         try {
             const kind = form.elements.kind.value;
             const note = form.elements.note.value.trim();
-            await ownerApi('PUT', '/api/duty/day', { date, closed: kind === 'pause', note,
-                assignedEmployeeId: kind === 'work' && form.elements.assigned.value ? Number(form.elements.assigned.value) : null });
+            // Absences first: whom a stand-in replaced is worked out from them.
             for (const id of new Set([...wantAway, ...wasAway])) {
                 if (wantAway.has(id) !== wasAway.has(id)) await ownerApi('PUT', '/api/duty/absence', { date, employeeId: id, absent: wantAway.has(id) });
             }
+            const served = form.elements.served ? form.elements.served.value : '';
+            const repay = Boolean(form.elements.repay && form.elements.repay.checked && !form.querySelector('.repay').hidden);
+            const saved = await ownerApi('PUT', '/api/duty/day', { date, closed: kind === 'pause', note,
+                assignedEmployeeId: kind === 'work' && form.elements.assigned.value ? Number(form.elements.assigned.value) : null,
+                ...(form.elements.served ? { servedEmployeeId: kind === 'work' && served ? Number(served) : null } : {}),
+                ...(repay ? { repay: true } : {}) });
             duty.open = '';
             await showDuty(duty.month);
-            say('weekMsg', 'Денот е зачуван.', 'ok');
+            if (repay && saved && saved.repaid) say('weekMsg', `Денот е зачуван. Враќање: ${dmy(saved.repaid)}.`, 'ok');
+            else if (repay) say('weekMsg', 'Денот е зачуван, но нема следен термин за враќање во оваа година.', 'error');
+            else say('weekMsg', 'Денот е зачуван.', 'ok');
         } catch (err) { say('weekMsg', err.message, 'error'); }
     });
     window.addEventListener('afterprint', () => document.body.classList.remove('printing-duty'));
@@ -1965,7 +2059,68 @@ header.top h1 { flex: 1; min-width: 180px; }
     // можат да го испечатат својот личен распоред и да го извезат како слика"),
     // drawn from the week this page already has — nothing more is asked of
     // the server, so it shows only what the colleague could already see.
-    function weekModel() {
+    // What the class sheet shows (owner, 30 Sep 2026): lessons with the pupils
+    // going to cabinets under them, the subjects alone, the cabinets alone —
+    // who takes which child of this class when — or the last two as two pages.
+    const sheetMode = { value: 'all' };
+    try { sheetMode.value = localStorage.getItem('kolega_sheet_mode_v1') || 'all'; } catch (_) { /* per viewer only */ }
+    const hasSheetModes = () => view.tab === 'mine' || view.tab.startsWith('class:');
+    function sheetModels() {
+        if (!hasSheetModes()) return [weekModel()];
+        const mode = ['all', 'subjects', 'cabinets', 'both'].includes(sheetMode.value) ? sheetMode.value : 'all';
+        if (mode === 'subjects') return [weekModel(false)];
+        if (mode === 'cabinets') return [cabinetModel()];
+        if (mode === 'both') return [weekModel(false), cabinetModel()];
+        return [weekModel()];
+    }
+    function drawSheetModes() {
+        el('sheetModes').hidden = !hasSheetModes();
+        el('sheetModes').querySelectorAll('[data-sheet-mode]').forEach((b) => {
+            b.setAttribute('aria-pressed', String(b.dataset.sheetMode === sheetMode.value));
+            if (b.dataset.sheetMode === 'cabinets') b.textContent = view.tab === 'mine' ? 'Кабинети за моите паралелки' : 'Кабинети за паралелката';
+        });
+    }
+    el('sheetModes').addEventListener('click', (event) => {
+        const b = event.target.closest('[data-sheet-mode]');
+        if (!b) return;
+        sheetMode.value = b.dataset.sheetMode;
+        try { localStorage.setItem('kolega_sheet_mode_v1', sheetMode.value); } catch (_) { /* per viewer only */ }
+        drawWeek();
+    });
+    /**
+     * Which cabinet takes which child of this class, when: a row per
+     * therapist, a column per day, each visit with its time. The same
+     * crossing the lesson sheet shows under each lesson, gathered once — a
+     * session spanning two lessons is listed once.
+     */
+    function cabinetModel() {
+        const days = week.days || [];
+        const homeroomOf = view.tab.startsWith('class:') ? view.tab.slice(6) : '';
+        const labels = homeroomOf ? [homeroomOf]
+            : [...new Set((week.lessons || []).filter((l) => l.teacherId === myId()).map((l) => l.class))];
+        const seen = new Set();
+        const byCabinet = new Map();
+        (week.classAway || []).filter((x) => labels.includes(x.class)).forEach((x) => x.away.forEach((a) => {
+            const i = days.indexOf(x.day);
+            const time = (a.slots || []).join(', ').replace(/-/g, '–');
+            const key = [x.day, a.student, a.therapist, time].join('|');
+            if (i < 0 || seen.has(key)) return;
+            seen.add(key);
+            if (!byCabinet.has(a.therapist)) byCabinet.set(a.therapist, days.map(() => []));
+            // The time first: the sheet is read down a day, by the clock.
+            byCabinet.get(a.therapist)[i].push({ text: time || '—', sub: properName(a.student) + (labels.length > 1 ? ' · ' + shortOf(x.class) : ''), time, away: true });
+        }));
+        const names = [...byCabinet.keys()].sort((a, b) => String(a).localeCompare(String(b), 'mk'));
+        names.forEach((n) => byCabinet.get(n).forEach((list) => list.sort((a, b) => a.time.localeCompare(b.time))));
+        return {
+            kind: 'cabinets', corner: 'Кабинет',
+            title: 'Кабинети — кога ги земаат учениците · ' + (homeroomOf ? 'Паралелка ' + nameOf(homeroomOf) : viewedName()),
+            what: '', days,
+            rows: names.map((n) => ({ label: n, time: '' })),
+            cells: names.map((n) => byCabinet.get(n))
+        };
+    }
+    function weekModel(withAway = true) {
         const days = week.days || [];
         const homeroomOf = view.tab.startsWith('class:') ? view.tab.slice(6) : '';
         if (view.tab === 'cabinet') {
@@ -1992,9 +2147,10 @@ header.top h1 { flex: 1; min-width: 180px; }
                 const out = [];
                 lessons.forEach((l) => {
                     out.push({ text: l.text, sub: l.sub });
-                    if (!out.some((x) => x.label === l.label)) awayAt(d, p.ordinal, l.label).forEach((a) => out.push({
+                    if (withAway && !out.some((x) => x.label === l.label)) awayAt(d, p.ordinal, l.label).forEach((a) => out.push({
                         text: '↳ ' + properName(a.student),
-                        sub: a.therapist + (a.slots && a.slots.length ? ' · ' + a.slots.join(', ').replace(/-/g, '–') : ''),
+                        // A time range never breaks at its dash (U+2060 holds it together).
+                        sub: a.therapist + (a.slots && a.slots.length ? ' · ' + a.slots.join(', ').replace(/-/g, '\u2060–\u2060') : ''),
                         away: true, label: l.label
                     }));
                 });
@@ -2002,19 +2158,31 @@ header.top h1 { flex: 1; min-width: 180px; }
             }))
         };
     }
+    /** Periods after the last one with anything in them do not take a row. */
+    function trimmed(m) {
+        if (m.kind === 'cabinets' || view.tab === 'cabinet') return m;
+        let last = m.cells.length;
+        while (last > 1 && m.cells[last - 1].every((list) => !list.length)) last--;
+        return { ...m, rows: m.rows.slice(0, last), cells: m.cells.slice(0, last) };
+    }
     const cap = (d) => String(d || '').charAt(0).toUpperCase() + String(d || '').slice(1);
-    const sheetTitle = (m) => 'Неделен распоред — ' + viewedName() + (m.what ? ' · ' + m.what : '');
+    const sheetTitle = (m) => m.title || ('Неделен распоред — ' + viewedName() + (m.what ? ' · ' + m.what : ''));
     const sheetSub = () => 'учебна ' + me.year;
+    const sheetsHtml = () => sheetModels().map(sheetHtml).join('');
     function sheetHtml(m) {
-        if (!m.days.length || !m.rows.length) return '<p class="muted">Нема часови за годинава.</p>';
-        const count = m.cells.reduce((n, row) => n + row.reduce((k, list) => k + list.length, 0), 0);
-        const unit = view.tab === 'cabinet' ? (count === 1 ? 'термин' : 'термини') : (count === 1 ? 'час' : 'часа');
-        return '<div class="sheet"><div class="s-head">'
-            + `<h2>${esc(sheetTitle(m))}</h2><div class="s-sub">${esc(sheetSub())} · ${count} ${unit} неделно</div></div>`
-            + '<table><thead><tr><th>' + (view.tab === 'cabinet' ? 'Термин' : 'Час') + '</th>'
+        m = trimmed(m);
+        const cabinets = m.kind === 'cabinets';
+        if (!m.days.length || (!m.rows.length && !cabinets)) return '<p class="muted">Нема часови за годинава.</p>';
+        const count = m.cells.reduce((n, row) => n + row.reduce((k, list) => k + list.filter((e) => cabinets || !e.away).length, 0), 0);
+        const unit = cabinets ? (count === 1 ? 'излегување' : 'излегувања')
+            : view.tab === 'cabinet' ? (count === 1 ? 'термин' : 'термини') : (count === 1 ? 'час' : 'часа');
+        const head = `<div class="s-head"><h2>${esc(sheetTitle(m))}</h2><div class="s-sub">${esc(sheetSub())} · ${count} ${unit} неделно</div></div>`;
+        if (cabinets && !m.rows.length) return `<div class="sheet by-cabinet">${head}<p class="s-empty">Ниту еден кабинет не зема ученици од оваа паралелка.</p></div>`;
+        return `<div class="sheet${cabinets ? ' by-cabinet' : ''}">` + head
+            + '<table><thead><tr><th>' + esc(m.corner || (view.tab === 'cabinet' ? 'Термин' : 'Час')) + '</th>'
             + m.days.map((d) => `<th>${esc(cap(d))}</th>`).join('') + '</tr></thead><tbody>'
-            + m.rows.map((row, r) => `<tr><th><b>${esc(row.label)}</b><small>${esc(row.time)}</small></th>`
-                + m.days.map((d, i) => `<td${me.readOnly ? '' : ` data-go-day="${esc(d)}" data-go-at="${esc(row.go)}" title="${esc(cap(d) + ' · ' + row.label + ' — уреди')}"`}>`
+            + m.rows.map((row, r) => `<tr><th><b>${esc(row.label)}</b>${row.time ? `<small>${esc(row.time)}</small>` : ''}</th>`
+                + m.days.map((d, i) => `<td${me.readOnly || !row.go ? '' : ` data-go-day="${esc(d)}" data-go-at="${esc(row.go)}" title="${esc(cap(d) + ' · ' + row.label + ' — уреди')}"`}>`
                     + m.cells[r][i].map((e) => `<div class="s-item${e.away ? ' away' : ''}"><b>${esc(e.text)}</b><small>${esc(e.sub)}</small></div>`).join('')
                     + '</td>').join('') + '</tr>').join('')
             + `</tbody></table><div class="s-foot">${esc(new Date().toLocaleDateString('mk-MK'))}</div></div>`;
@@ -2129,8 +2297,8 @@ header.top h1 { flex: 1; min-width: 180px; }
         o.rows.forEach((row, r) => {
             const h = rowH[r] - GAP;
             ctx.fillStyle = '#2d3748'; ctx.fillRect(M, y, TIME_W - GAP, h);
-            ctx.fillStyle = '#ffffff'; ctx.font = 'bold 26px Arial';
-            ctx.fillText(String(row.label || ''), M + TIME_W / 2, y + h / 2 - 2);
+            ctx.fillStyle = '#ffffff'; ctx.font = row.time ? 'bold 26px Arial' : 'bold 17px Arial';
+            ctx.fillText(fit(String(row.label || ''), TIME_W - 14), M + TIME_W / 2, y + h / 2 + (row.time ? -2 : 6));
             ctx.fillStyle = '#cbd5e0'; ctx.font = '15px Arial';
             ctx.fillText(String(row.time || '').replace('-', ' – '), M + TIME_W / 2, y + h / 2 + 22);
             o.days.forEach((_, d) => {
@@ -2138,8 +2306,8 @@ header.top h1 { flex: 1; min-width: 180px; }
                 ctx.fillStyle = r % 2 ? '#ffffff' : '#f7fafc'; ctx.fillRect(x, y, w, h);
                 (o.cells[r][d] || []).forEach((entry, i) => {
                     const ey = y + 8 + i * 46;
-                    ctx.fillStyle = '#e6fffa'; box(x + 8, ey, w - 16, 40, 6);
-                    ctx.fillStyle = '#319795'; ctx.fillRect(x + 8, ey + 2, 4, 36);
+                    ctx.fillStyle = entry.away ? '#fff7ed' : '#e6fffa'; box(x + 8, ey, w - 16, 40, 6);
+                    ctx.fillStyle = entry.away ? '#c05621' : '#319795'; ctx.fillRect(x + 8, ey + 2, 4, 36);
                     ctx.fillStyle = '#1a202c'; ctx.font = 'bold 17px Arial';
                     ctx.fillText(fit(entry.text, w - 36), x + w / 2 + 2, ey + (entry.sub ? 18 : 26));
                     if (entry.sub) {
@@ -2190,8 +2358,8 @@ header.top h1 { flex: 1; min-width: 180px; }
             el('docxWeek').hidden = false;
             el('tabHint').textContent = 'Само преглед · учебна ' + me.year;
             if (onAttendance) { loadAttendance(); return; }
-            if (view.tab === 'reader-list') drawReaderList();
-            else el('weekSheet').innerHTML = sheetHtml(weekModel());
+            if (view.tab === 'reader-list') { el('sheetModes').hidden = true; drawReaderList(); }
+            else { drawSheetModes(); el('weekSheet').innerHTML = sheetsHtml(); }
             return;
         }
         el('docxWeek').hidden = true;
@@ -2219,7 +2387,8 @@ header.top h1 { flex: 1; min-width: 180px; }
         }
         if (whole) {
             el('tabHint').textContent = 'Целата недела. Допрете час за да го внесете или смените — се отвора тој ден.';
-            el('weekSheet').innerHTML = sheetHtml(weekModel());
+            drawSheetModes();
+            el('weekSheet').innerHTML = sheetsHtml();
             return;
         }
         if (onDuty) {
@@ -2943,13 +3112,14 @@ header.top h1 { flex: 1; min-width: 180px; }
     window.addEventListener('afterprint', () => document.body.classList.remove('printing-week'));
     el('pngWeek').addEventListener('click', () => {
         if (me.readOnly && view.tab === 'reader-list') return paintReport({ ...readerListReport(), file: 'Spisok-ucenici' });
-        const m = weekModel();
-        if (!m.days.length || !m.rows.length) return;
-        paintGrid({
-            title: sheetTitle(m), subtitle: sheetSub(), days: m.days, corner: view.tab === 'cabinet' ? 'Термин' : 'Час',
-            rows: m.rows.map((row) => ({ label: row.label, time: row.time })), cells: m.cells,
-            footer: new Date().toLocaleDateString('mk-MK'),
-            file: 'Licen-raspored-' + me.person.name.replace(/[\\/:*?"<>|\s]+/g, '-') + '.png'
+        sheetModels().map(trimmed).forEach((m, n) => {
+            if (!m.days.length || !m.rows.length) return;
+            paintGrid({
+                title: sheetTitle(m), subtitle: sheetSub(), days: m.days, corner: m.corner || (view.tab === 'cabinet' ? 'Термин' : 'Час'),
+                rows: m.rows.map((row) => ({ label: row.label, time: row.time })), cells: m.cells,
+                footer: new Date().toLocaleDateString('mk-MK'),
+                file: (m.kind === 'cabinets' ? 'Kabineti-' : 'Licen-raspored-') + me.person.name.replace(/[\\/:*?"<>|\s]+/g, '-') + '.png'
+            });
         });
     });
     el('docxWeek').addEventListener('click', async () => {
@@ -2964,9 +3134,10 @@ header.top h1 { flex: 1; min-width: 180px; }
             } else {
                 await reloadWeek();
                 if(me!==person || reader.employeeId!==target || view.tab!==tab) return;
-                const m=weekModel();
-                saveReportDocx({title:sheetTitle(m),subtitle:sheetSub(),columns:['Термин',...m.days.map(cap)],
-                    rows:m.rows.map((r,i)=>[r.label+'\n'+r.time,...m.cells[i].map(c=>c.map(e=>[e.text,e.sub].filter(Boolean).join('\n')).join('\n\n') || '—')])},'Raspored');
+                const models=sheetModels().map(trimmed), m=models[0];
+                const rowsOf=(x)=>x.rows.map((r,i)=>[[r.label,r.time].filter(Boolean).join('\n'),...x.cells[i].map(c=>c.map(e=>[e.text,e.sub].filter(Boolean).join('\n')).join('\n\n') || '—')]);
+                saveReportDocx({title:sheetTitle(m),subtitle:sheetSub(),columns:[m.corner||'Термин',...m.days.map(cap)],
+                    rows:[...rowsOf(m),...models.slice(1).flatMap(x=>[[sheetTitle(x),...x.days.map(()=>'')],[x.corner||'',...x.days.map(cap)],...rowsOf(x)])]},'Raspored');
             }
         } catch(err) { say('weekMsg',err.message,'error'); }
         finally { el('docxWeek').disabled=false; }

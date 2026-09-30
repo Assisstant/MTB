@@ -23,7 +23,8 @@ const ident=(s:string)=>'"'+s.replace(/"/g,'""')+'"';
 // duty_admin_links_20260928: 048, persistent revocable duty-only capabilities.
 // cabinet_attendance_20260928: 049, independent of the personal diary.
 // staff_read_only_20260929: 050, owner-assigned portal read access.
-export async function workspaceRelease(client:Client,directory:string,log=console.log,recoverySchema='mtb_workspace_recovery_staff_read_only_20260929'){
+// duty_served_20260930: 051, who actually served a duty day (queue untouched).
+export async function workspaceRelease(client:Client,directory:string,log=console.log,recoverySchema='mtb_workspace_recovery_duty_served_20260930'){
  if(!/^mtb_workspace_recovery_[a-z0-9_]+$/.test(recoverySchema))throw Error('Invalid recovery schema');
  await client.query('BEGIN ISOLATION LEVEL SERIALIZABLE');
  try{
@@ -34,7 +35,7 @@ export async function workspaceRelease(client:Client,directory:string,log=consol
   const applied=new Set((await client.query('SELECT filename FROM schema_migrations')).rows.map(r=>r.filename));
   if(files.some(f=>Number(f.slice(0,3))<=32&&!applied.has(f))||[...applied].some(f=>!files.includes(f)))throw Error('Unexpected migration baseline');
   const pending=files.filter(f=>!applied.has(f));
-  if(pending.some(f=>!/^0(33|34|35|36|37|38|39|40|41|42|43|44|45|46|47|48|49|50)_/.test(f)))throw Error('Unreviewed migration in release');
+  if(pending.some(f=>!/^0(33|34|35|36|37|38|39|40|41|42|43|44|45|46|47|48|49|50|51)_/.test(f)))throw Error('Unreviewed migration in release');
   if(!pending.length){await client.query('COMMIT');log('Workspace schema already current');return;}
   const tables=(await client.query(`SELECT tablename AS name FROM pg_tables WHERE schemaname=$1 ORDER BY tablename`,[schema])).rows;
   // The recovery schema must be absent. Never overwrite an earlier backup.

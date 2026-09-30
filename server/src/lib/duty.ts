@@ -28,6 +28,13 @@
  *     the queue runs exactly as without it, and afterwards the two days trade
  *     names (`applySwaps`). A swap whose days no longer belong to the two who
  *     agreed it — or now cross cycle boundaries — is not applied, and is reported.
+ *   - WHO ACTUALLY SERVED (051; owner, 30 Sep 2026) is a correction of the name
+ *     on one day, never of the queue: somebody marked sick came in after all
+ *     and a colleague had already stepped in. The rota runs exactly as without
+ *     it (`applyServed` comes last), so the next days do not move; what moves
+ *     is the count per cycle — the one who stepped in has two duties in that
+ *     cycle, the one replaced none (`cycleTally`). Evening it out is a second
+ *     correction in a later cycle, which the administrator chooses.
  *
  * Pure: the same inputs always give the same rota. Correcting an absence can
  * change later derived dates; the rota is not a historical snapshot.
@@ -46,6 +53,8 @@ export interface DutyMark {
     closed: boolean;
     note: string;
     assigned: number | null;
+    /** Who actually served, when not the rota person (051). The queue ignores it. */
+    served?: number | null;
 }
 
 export interface DutyInput {
@@ -88,6 +97,8 @@ export interface DutyDay {
     absent: number[];
     /** The day was traded: whose turn it was, and the day they took instead. */
     swap?: { id: number; with: number; date: string; note: string };
+    /** Somebody else actually served (051): the rota person it was, or null if nobody was due. */
+    insteadOf?: number | null;
 }
 
 const DAY_MS = 86400000;
@@ -191,6 +202,36 @@ export function applySwaps(days: DutyDay[], swaps: DutySwap[]): { days: DutyDay[
     return { days: out, stale };
 }
 
+/**
+ * Who actually served, laid over a rota already worked out, swaps included.
+ * Last on purpose: the queue has already run, so a correction on one day can
+ * never move another. A closed day takes no correction.
+ */
+export function applyServed(days: DutyDay[], marks: Map<string, DutyMark>): DutyDay[] {
+    return days.map((d) => {
+        const served = marks.get(d.date)?.served;
+        if (served == null || d.closed || served === d.employeeId) return d;
+        return { ...d, employeeId: served, insteadOf: d.employeeId };
+    });
+}
+
+/**
+ * Duties per person per cycle. With the rota alone everybody has one per
+ * cycle (none when skipped for sick leave); a correction makes it two for the
+ * one who stepped in and none for the one replaced, and that is what the
+ * page shows so the next cycle can even it out (owner, 30 Sep 2026).
+ */
+export function cycleTally(days: DutyDay[]): Map<number, Map<number, number>> {
+    const out = new Map<number, Map<number, number>>();
+    for (const d of days) {
+        if (!d.cycle || d.closed || d.employeeId == null) continue;
+        if (!out.has(d.cycle)) out.set(d.cycle, new Map());
+        const c = out.get(d.cycle)!;
+        c.set(d.employeeId, (c.get(d.employeeId) || 0) + 1);
+    }
+    return out;
+}
+
 /** Today in Skopje, as the school counts days — not the server's clock zone. */
 export function todayInSkopje(now = new Date()): string {
     return new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Skopje' }).format(now);
@@ -235,7 +276,8 @@ export async function loadDuty(db: any, yearId: number): Promise<DutyState> {
                     FROM duty_members m JOIN employees e ON e.id = m.employee_id
                    WHERE m.school_year_id = $1 ORDER BY m.position`, [yearId]),
         db.query(`SELECT d.day, d.closed, d.note,
-                         (SELECT ${live} FROM employees e WHERE e.id = d.assigned_employee_id) AS assigned
+                         (SELECT ${live} FROM employees e WHERE e.id = d.assigned_employee_id) AS assigned,
+                         (SELECT ${live} FROM employees e WHERE e.id = d.served_employee_id) AS served
                     FROM duty_days d WHERE d.school_year_id = $1`, [yearId]),
         db.query(`SELECT a.day, ${live} AS employee_id
                     FROM duty_absences a JOIN employees e ON e.id = a.employee_id
@@ -245,7 +287,8 @@ export async function loadDuty(db: any, yearId: number): Promise<DutyState> {
     const y = year.rows[0];
     const dayMap = new Map<string, DutyMark>();
     days.rows.forEach((r: any) => dayMap.set(String(r.day), {
-        closed: r.closed, note: r.note || '', assigned: r.assigned == null ? null : Number(r.assigned)
+        closed: r.closed, note: r.note || '', assigned: r.assigned == null ? null : Number(r.assigned),
+        served: r.served == null ? null : Number(r.served)
     }));
     const awayMap = new Map<string, Set<number>>();
     absences.rows.forEach((r: any) => {
@@ -258,7 +301,7 @@ export async function loadDuty(db: any, yearId: number): Promise<DutyState> {
         joinedOn: r.joined_on ? String(r.joined_on) : null, leftOn: r.left_on ? String(r.left_on) : null
     }));
     const names = new Map<number, string>(list.map((m: any) => [m.employeeId, m.name]));
-    const assignedIds = [...new Set([...[...dayMap.values()].map((d) => d.assigned),
+    const assignedIds = [...new Set([...[...dayMap.values()].flatMap((d) => [d.assigned, d.served ?? null]),
         ...swaps.flatMap((sw) => [sw.firstEmployeeId, sw.secondEmployeeId])])]
         .filter((id): id is number => id != null && !names.has(id));
     if (assignedIds.length) {
@@ -302,6 +345,12 @@ export function rotaWithSwaps(state: DutyState, until: string, from = state.star
     return { days: days.filter((d) => d.date <= until), stale: stale.filter((sw) => touching.includes(sw)) };
 }
 
+/** The rota as it was actually served: swaps, then who stood in (051). */
+export function servedRota(state: DutyState, until: string, from = state.startsOn) {
+    const { days, stale } = rotaWithSwaps(state, until, from);
+    return { days: applyServed(days, state.days), stale };
+}
+
 /** One month of the rota, worked out from the start so it continues the one before. */
 export function monthOfRota(state: DutyState, month: { first: string; last: string }): DutyDay[] {
     if (month.last < state.startsOn) {
@@ -310,7 +359,7 @@ export function monthOfRota(state: DutyState, month: { first: string; last: stri
             how: 'nobody' as DutyHow, covers: [], absent: []
         }));
     }
-    const all = rotaWithSwaps(state, month.last, month.first).days;
+    const all = servedRota(state, month.last, month.first).days;
     const before = workingDays(month.first, month.last).filter((d) => d < state.startsOn);
     return [
         ...before.map((date) => ({ date, cycle: 0, weekday: dateOf(date).getUTCDay(), closed: false, note: '',
@@ -373,6 +422,7 @@ function rangePayload(state: DutyState, bounds: { first: string; last: string })
     const number = new Map(state.members.map((m) => [m.employeeId, m.position]));
     const named = (id: number) => ({ employeeId: id, name: state.names.get(id) || '—' });
     const stale = state.startsOn <= bounds.last ? rotaWithSwaps(state, bounds.last, bounds.first).stale : [];
+    const counts = countsFor(state, bounds);
     return {
         startsOn: state.startsOn,
         yearStartsOn: state.yearStartsOn,
@@ -395,12 +445,65 @@ function rangePayload(state: DutyState, bounds: { first: string; last: string })
             number: d.employeeId == null ? null : (number.get(d.employeeId) ?? null),
             covers: d.covers.map(named),
             absent: d.absent.map(named),
-            swap: d.swap ? { id: d.swap.id, date: d.swap.date, note: d.swap.note, ...named(d.swap.with) } : null
+            swap: d.swap ? { id: d.swap.id, date: d.swap.date, note: d.swap.note, ...named(d.swap.with) } : null,
+            // Whose turn it was, when somebody else actually served (051).
+            servedEmployeeId: state.days.get(d.date)?.served ?? null,
+            insteadOf: d.insteadOf === undefined ? null : d.insteadOf == null ? { employeeId: null, name: null } : named(d.insteadOf),
+            // This person's n-th duty in this cycle, counting this day: 2 means once more than the list gives.
+            turnInCycle: d.employeeId == null || !d.cycle || d.closed ? null : (counts.nth.get(d.date) ?? null)
         })),
+        // Per cycle shown here: who does not have simply one duty in it.
+        // Somebody skipped for sick leave has none and owes none.
+        cycleCounts: counts.cycles,
+        // Across the year: who stood in for whom, net. Positive = served for others.
+        standIns: counts.balance,
         // Swaps touching this month that no longer hold: the administrator decides.
         staleSwaps: stale.map((sw) => ({ id: sw.id, note: sw.note,
             first: { date: sw.firstDay, ...named(sw.firstEmployeeId) }, second: { date: sw.secondDay, ...named(sw.secondEmployeeId) } }))
     };
+}
+
+/**
+ * The counts behind the page: worked out over the whole configured year, so a
+ * cycle that crosses the edge of the range is still counted whole.
+ */
+function countsFor(state: DutyState, bounds: { first: string; last: string }) {
+    const nth = new Map<string, number>();
+    type Person = { employeeId: number; name: string; count: number; sick: boolean };
+    const empty = { nth, cycles: [] as Array<{ cycle: number; from: string | null; to: string | null; people: Person[] }>,
+        balance: [] as Array<{ employeeId: number; name: string; net: number }> };
+    if (state.startsOn > bounds.last) return empty;
+    const days = servedRota(state, state.yearEndsOn).days;
+    const seen = new Map<string, number>();
+    for (const d of days) {
+        if (!d.cycle || d.closed || d.employeeId == null) continue;
+        const key = d.cycle + ':' + d.employeeId;
+        seen.set(key, (seen.get(key) || 0) + 1);
+        nth.set(d.date, seen.get(key)!);
+    }
+    const tally = cycleTally(days);
+    const inRange = new Set(days.filter((d) => d.date >= bounds.first && d.date <= bounds.last && d.cycle).map((d) => d.cycle));
+    const name = (id: number) => state.names.get(id) || '—';
+    const cycles = [...inRange].sort((a, b) => a - b).map((cycle) => {
+        const ofCycle = days.filter((d) => d.cycle === cycle);
+        const counts = tally.get(cycle) || new Map<number, number>();
+        const replaced = new Set(ofCycle.filter((d) => d.insteadOf != null).map((d) => d.insteadOf!));
+        const skipped = new Set(ofCycle.flatMap((d) => d.covers));
+        // Only what is not simply one each: two, or none because replaced.
+        const people = [...new Set([...counts.keys(), ...replaced])]
+            .map((id) => ({ employeeId: id, name: name(id), count: counts.get(id) || 0, sick: skipped.has(id) }))
+            .filter((p) => p.count > 1 || (p.count === 0 && replaced.has(p.employeeId)));
+        return { cycle, from: ofCycle[0]?.date || null, to: ofCycle[ofCycle.length - 1]?.date || null, people };
+    }).filter((c) => c.people.length);
+    const net = new Map<number, number>();
+    for (const d of days) {
+        if (d.insteadOf === undefined || d.employeeId == null) continue;
+        net.set(d.employeeId, (net.get(d.employeeId) || 0) + 1);
+        if (d.insteadOf != null) net.set(d.insteadOf, (net.get(d.insteadOf) || 0) - 1);
+    }
+    const balance = [...net].filter(([, n]) => n !== 0).map(([id, n]) => ({ employeeId: id, name: name(id), net: n }))
+        .sort((a, b) => b.net - a.net || a.name.localeCompare(b.name, 'mk'));
+    return { nth, cycles, balance };
 }
 
 /** The month to show when none is asked for: this one, kept inside the school year. */

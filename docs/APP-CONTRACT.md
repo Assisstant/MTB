@@ -132,6 +132,19 @@ but it must not present parallel versions of the same task.
     are reported and ignored. They remain stored and may be cleared explicitly.
     No duty records are migrated: this changes the calculated rota from its
     configured start, so previously printed dates need review before release.
+  - **Who actually served (051; owner, 30 Sep 2026).** The administrator may
+    correct any day, past ones included: „Кој навистина дежурал“. It changes
+    the name on that day only — never the queue, so no later date moves.
+    The stand-in then has two duties in that cycle and the replaced colleague
+    none; the page shows each cycle's deviations and a yearly net balance.
+    „Врати“ gives the replaced colleague the stand-in's next own turn in a
+    later cycle (a second correction, chosen by the administrator, never
+    automatic). A corrected day cannot be swapped, and a closed day takes no
+    correction. If the replaced colleague was marked absent but came, the
+    absence is unticked first — sick leave still owes nothing.
+  - **Only the cabinets' pages show it** (owner, 30 Sep 2026): a teacher who
+    is not on the list does not get the tab, even with a duty-admin link or
+    the owner's sign-in; therapists and administration keep the earlier rule.
   - **Who changes what:** the administrator changes everything, through
     `/api/duty/*` behind the owner's sign-in. A colleague on the list only marks
     their own absence, from today on, through `/api/portal/duty/absence`.
@@ -152,6 +165,14 @@ but it must not present parallel versions of the same task.
     on that rota, but must still be active staff this year. Leaving admin mode
     restores ordinary permissions. Anyone receiving a forwarded admin link can
     use it with their own active colleague account; share only with trusted staff.
+- **A class's week on one landscape sheet** (owner, 30 Sep 2026): on
+  „Мои часови“ and „Паралелка …“, 🗓 Недела offers „Часови и кабинети“
+  (lessons with the pupils going out under them), „Само предмети“,
+  „Кабинети за паралелката“ (a row per therapist, a column per day: when
+  each child of the class is taken) and both as two pages. Print fits each
+  sheet to its own A4 landscape page; PNG and read-only Word follow the
+  choice. Empty trailing periods are not drawn. Reads the same `classAway`
+  the page already had — nothing new is asked of the server.
 - **Cabinet attendance and transport** (owner, 28 September 2026): Kolega's
   attendance tab records each signed-in cabinet's own dated treatment marks.
   The school-wide transport view is a read-only owner report, not another

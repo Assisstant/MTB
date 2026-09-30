@@ -3,7 +3,7 @@
  *
  *   GET /api/duty?year=&month=YYYY-MM   the month, the list and who can be on it
  *   PUT /api/duty/setup                 the list in its order, and the start date
- *   PUT /api/duty/day                   a closed day, or a day given by agreement
+ *   PUT /api/duty/day                   a closed day, a note, or who actually served (051)
  *   PUT /api/duty/absence               anybody away on a day
  *   PUT /api/duty/swap                  two colleagues trade days (044); the list is untouched
  *   POST /api/duty/swap/remove          a swap taken back
@@ -22,7 +22,7 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import { pool } from '../db.js';
 import { assertOwner, refuseScope, scopeOf } from '../lib/colleague.js';
-import { defaultMonth, isIsoDate, loadDuty, monthBounds, monthPayload, rotaWithSwaps, todayInSkopje, windowPayload } from '../lib/duty.js';
+import { defaultMonth, isIsoDate, loadDuty, monthBounds, monthPayload, rotaWithSwaps, servedRota, todayInSkopje, windowPayload } from '../lib/duty.js';
 import { PORTAL_TOKEN_HEADER, sessionEmployee, staffOfYear } from '../lib/staff-accounts.js';
 import {
     DUTY_ADMIN_HOURS, DUTY_ADMIN_TOKEN_HEADER, acceptDutyAdminLink, createDutyAdminLink,
@@ -46,7 +46,11 @@ const DayBody = z.object({
     date: Iso,
     closed: z.boolean(),
     note: z.string().max(200).optional(),
-    assignedEmployeeId: z.number().int().positive().nullable().optional()
+    assignedEmployeeId: z.number().int().positive().nullable().optional(),
+    // Who actually served (051). Absent = keep what is stored; null = the rota person.
+    servedEmployeeId: z.number().int().positive().nullable().optional(),
+    // Even it out: the replaced colleague serves the stand-in's next own turn.
+    repay: z.boolean().optional()
 });
 const SwapSide = z.object({ date: Iso, employeeId: z.number().int().positive() });
 const SwapBody = z.object({ year: YearRef, first: SwapSide, second: SwapSide, note: z.string().max(200).optional() });
@@ -253,16 +257,49 @@ export async function dutyRoutes(server: FastifyInstance, options: { year?: stri
                 return reply.code(400).send({ error: 'За договорена смена користете „Замени со ден“ — се разменуваат два термина, без дополнително дежурство.' });
             }
         }
-        if (!b.closed && assigned == null && !note) {
-            await pool.query('DELETE FROM duty_days WHERE school_year_id = $1 AND day = $2', [year.id, b.date]);
-            return { ok: true, cleared: true };
+        // Who actually served: a correction of the name on this day, any day
+        // including past ones; the queue does not move (lib/duty.ts applyServed).
+        const state = await loadDuty(pool, year.id);
+        let served = b.servedEmployeeId === undefined ? (state.days.get(b.date)?.served ?? null) : b.servedEmployeeId;
+        if (b.closed) served = null;
+        let insteadOf: number | null = null;
+        if (served != null) {
+            const member = state.members.find((m) => m.employeeId === served);
+            if (!member || (member.joinedOn && member.joinedOn > b.date) || (member.leftOn && member.leftOn <= b.date)) {
+                return reply.code(400).send({ error: 'Тој колега не е на списокот за дежурства на тој ден.' });
+            }
+            // Measured against the rota WITHOUT this day's correction.
+            const plain = new Map(state.days);
+            plain.set(b.date, { closed: false, note, assigned, served: null });
+            const day = servedRota({ ...state, days: plain }, b.date).days.find((d) => d.date === b.date);
+            insteadOf = day ? day.employeeId : null;
+            if (insteadOf === served) served = null; // the rota already names them
         }
+        if (!b.closed && assigned == null && served == null && !note) {
+            await pool.query('DELETE FROM duty_days WHERE school_year_id = $1 AND day = $2', [year.id, b.date]);
+        } else {
+            await pool.query(
+                `INSERT INTO duty_days (school_year_id, day, closed, note, assigned_employee_id, served_employee_id) VALUES ($1, $2, $3, $4, $5, $6)
+                 ON CONFLICT (school_year_id, day) DO UPDATE
+                    SET closed = EXCLUDED.closed, note = EXCLUDED.note, assigned_employee_id = EXCLUDED.assigned_employee_id,
+                        served_employee_id = EXCLUDED.served_employee_id`,
+                [year.id, b.date, b.closed, note, assigned, served]);
+        }
+        if (!b.repay || served == null || insteadOf == null) return { ok: true, cleared: !b.closed && assigned == null && served == null && !note };
+        // Even it out: the stand-in's next OWN turn, in a later cycle, goes to
+        // the colleague who was replaced. Found on the rota as it now stands.
+        const after = await loadDuty(pool, year.id);
+        const rota = servedRota(after, after.yearEndsOn).days;
+        const here = rota.find((d) => d.date === b.date);
+        const next = rota.find((d) => d.date > b.date && here && d.cycle > here.cycle && !d.closed
+            && d.employeeId === served && d.insteadOf === undefined && !d.absent.includes(insteadOf!));
+        if (!next) return { ok: true, repaid: null, error: 'Нема следен термин за враќање во оваа учебна година.' };
+        const mark = after.days.get(next.date);
         await pool.query(
-            `INSERT INTO duty_days (school_year_id, day, closed, note, assigned_employee_id) VALUES ($1, $2, $3, $4, $5)
-             ON CONFLICT (school_year_id, day) DO UPDATE
-                SET closed = EXCLUDED.closed, note = EXCLUDED.note, assigned_employee_id = EXCLUDED.assigned_employee_id`,
-            [year.id, b.date, b.closed, note, assigned]);
-        return { ok: true };
+            `INSERT INTO duty_days (school_year_id, day, closed, note, assigned_employee_id, served_employee_id) VALUES ($1, $2, false, $3, $4, $5)
+             ON CONFLICT (school_year_id, day) DO UPDATE SET served_employee_id = EXCLUDED.served_employee_id`,
+            [year.id, next.date, mark?.note || '', mark?.assigned ?? null, insteadOf]);
+        return { ok: true, repaid: next.date };
     };
     server.put('/api/duty/day', putDay(owner));
     server.put('/api/portal/duty-admin/day', putDay(delegatedHere));
@@ -334,6 +371,10 @@ export async function swapRoutes(server: FastifyInstance,
             if (x.employeeId !== first.employeeId || y.employeeId !== second.employeeId) {
                 await client.query('ROLLBACK');
                 return reply.code(409).send({ error: 'Распоредот се смени во меѓувреме. Освежете и обидете се пак.' });
+            }
+            if (state.days.get(first.date)?.served != null || state.days.get(second.date)?.served != null) {
+                await client.query('ROLLBACK');
+                return reply.code(409).send({ error: 'На еден од деновите е запишано кој навистина дежурал. Прво тргнете ја таа исправка.' });
             }
             if (x.cycle !== y.cycle) {
                 await client.query('ROLLBACK');

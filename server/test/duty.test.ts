@@ -7,7 +7,7 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { applySwaps, dutyRota, monthBounds, rotaWithSwaps, monthOfRota, todayInSkopje, windowPayload, isIsoDate, workingDays, type DutyMember, type DutyState } from '../src/lib/duty.js';
+import { applyServed, applySwaps, cycleTally, dutyRota, monthBounds, rotaWithSwaps, monthOfRota, todayInSkopje, windowPayload, isIsoDate, workingDays, type DutyMark, type DutyMember, type DutyState } from '../src/lib/duty.js';
 
 const members = (...ids: number[]): DutyMember[] => ids.map((employeeId, i) => ({ employeeId, position: i + 1, joinedOn: null, leftOn: null }));
 const rota = (opts: { members?: DutyMember[]; until?: string; days?: Array<[string, { closed?: boolean; note?: string; assigned?: number | null }]>; away?: Array<[string, number[]]> }) =>
@@ -275,4 +275,40 @@ test('the window stays inside the school year, and a day is a real date', () => 
     assert.equal(windowPayload(state, '2025-01-01').around, '2026-09-01');
     assert.equal(isIsoDate('2026-02-30'), false);
     assert.equal(isIsoDate('2026-09-28'), true);
+});
+
+test('who actually served corrects one name, never the queue, and shows as two/none in the cycle (owner, 30 Sep 2026)', () => {
+    // Eight on the list from Monday 21 September: 30.09 is the eighth's turn,
+    // 01.10 is closed, the second cycle starts 02.10 with the first.
+    const state = (served: Array<[string, number]>): DutyState => ({
+        startsOn: '2026-09-21', yearStartsOn: '2026-09-01', yearEndsOn: '2026-10-31',
+        members: members(1, 2, 3, 4, 5, 6, 7, 8).map((m) => ({ ...m, name: 'П' + m.employeeId })),
+        days: new Map<string, DutyMark>([['2026-10-01', { closed: true, note: 'екскурзија', assigned: null }],
+            ...served.map(([d, id]): [string, DutyMark] => [d, { closed: false, note: '', assigned: null, served: id }])]),
+        absences: new Map(), names: new Map([1, 2, 3, 4, 5, 6, 7, 8].map((id) => [id, 'П' + id])), swaps: []
+    });
+    const plain = monthOfRota(state([]), monthBounds('2026-10')!).map((d) => d.employeeId);
+    const once = state([['2026-09-30', 2]]);
+    const days = applyServed(rotaWithSwaps(once, '2026-10-31').days, once.days);
+    const d30 = days.find((d) => d.date === '2026-09-30')!;
+    assert.equal(d30.employeeId, 2, 'the one who came is named');
+    assert.equal(d30.insteadOf, 8, 'instead of the rota person');
+    assert.deepEqual(monthOfRota(once, monthBounds('2026-10')!).map((d) => d.employeeId), plain, 'October does not move');
+    const tally = cycleTally(days);
+    assert.equal(tally.get(1)!.get(2), 2, 'two duties in the first cycle for the stand-in');
+    assert.equal(tally.get(1)!.get(8) || 0, 0, 'none for the one replaced');
+    const w = windowPayload(once, '2026-09-30');
+    assert.equal(w.days.find((d) => d.date === '2026-09-30')!.turnInCycle, 2);
+    assert.deepEqual(w.cycleCounts.find((c) => c.cycle === 1)!.people.map((p) => [p.employeeId, p.count]), [[2, 2], [8, 0]]);
+    assert.deepEqual(w.standIns.map((p) => [p.employeeId, p.net]), [[2, 1], [8, -1]]);
+    // Evened out in the next cycle: the one replaced takes the stand-in's own turn (05.10).
+    const both = state([['2026-09-30', 2], ['2026-10-05', 8]]);
+    const w2 = windowPayload(both, '2026-10-02');
+    assert.equal(w2.days.find((d) => d.date === '2026-10-05')!.employeeId, 8);
+    assert.deepEqual(w2.cycleCounts.find((c) => c.cycle === 2)!.people.map((p) => [p.employeeId, p.count]), [[8, 2], [2, 0]]);
+    assert.deepEqual(w2.standIns, [], 'nobody owes anybody any more');
+    // A closed day takes no correction.
+    const closed = state([['2026-10-01', 3]]);
+    closed.days.set('2026-10-01', { closed: true, note: '', assigned: null, served: 3 });
+    assert.equal(applyServed(rotaWithSwaps(closed, '2026-10-02').days, closed.days).find((d) => d.date === '2026-10-01')!.employeeId, null);
 });

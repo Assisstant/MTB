@@ -316,3 +316,27 @@ test('047 adds the administrator\'s bookmarks, one versioned document, locked aw
   await assert.rejects(c.query(`UPDATE bookmark_state SET revision=0`),/bookmark_state_revision_check/,'a stored revision starts at 1');
  }finally{await c.query(`DROP SCHEMA IF EXISTS ${backup} CASCADE`);await c.query(`DROP SCHEMA ${schema} CASCADE`);await c.end();}
 });
+
+test('051 records who actually served a duty day, touching no existing day, on a database at 050', async () => {
+ const url=process.env.TEST_DATABASE_URL||process.env.DATABASE_URL;
+ const c=new pg.Client({connectionString:url});await c.connect();
+ const schema=`duty_served_test_${process.pid}`,backup=`mtb_workspace_recovery_duty_served_test_${process.pid}`;
+ const dir=resolve(import.meta.dirname,'../../database/migrations');
+ await c.query(`CREATE SCHEMA ${schema}`);await c.query(`SET search_path=${schema}`);
+ try{
+  await c.query('CREATE TABLE schema_migrations(filename text PRIMARY KEY,applied_at timestamptz NOT NULL DEFAULT now())');
+  for(const f of (await readdir(dir)).filter(f=>f.endsWith('.sql')&&Number(f.slice(0,3))<=50).sort()){
+   await c.query(migrationBody(await readFile(resolve(dir,f),'utf8')));await c.query('INSERT INTO schema_migrations(filename) VALUES($1)',[f]);
+  }
+  const [a,b]=(await c.query("INSERT INTO employees(name) VALUES('Пробна Дежурна Прва'),('Пробна Дежурна Втора') RETURNING id")).rows.map(r=>r.id);
+  const y=(await c.query("INSERT INTO school_years(label,starts_on,ends_on,is_current) VALUES('1996/1997-served','1996-09-01','1997-08-31',false) RETURNING id")).rows[0].id;
+  await c.query("INSERT INTO duty_days(school_year_id,day,closed,note) VALUES($1,'1996-09-02',false,'белешка')",[y]);
+  await workspaceRelease(c,dir,()=>{},backup);
+  assert.equal((await c.query('SELECT count(*)::int AS n FROM schema_migrations')).rows[0].n,ALL);
+  assert.equal((await c.query('SELECT served_employee_id FROM duty_days WHERE school_year_id=$1',[y])).rows[0].served_employee_id,null,'an existing day keeps its rota person');
+  await c.query("INSERT INTO duty_days(school_year_id,day,closed,served_employee_id) VALUES($1,'1996-09-03',false,$2)",[y,a]);
+  await assert.rejects(c.query("INSERT INTO duty_days(school_year_id,day,closed,served_employee_id) VALUES($1,'1996-09-04',true,$2)",[y,b]),
+   /duty_days_served_open/,'nobody serves on a closed day');
+  await c.query('DELETE FROM school_years WHERE id=$1',[y]);
+ }finally{await c.query(`DROP SCHEMA IF EXISTS ${backup} CASCADE`);await c.query(`DROP SCHEMA ${schema} CASCADE`);await c.end();}
+});

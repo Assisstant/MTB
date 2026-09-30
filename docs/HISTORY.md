@@ -9,6 +9,41 @@ move. Where the current state is needed, read `SOSTOJBA.md` first.
 
 Add new feature history here, not to `CLAUDE.md`.
 
+## Who actually served a duty day; a class's sheet by subjects and by cabinet (30 Sep 2026)
+
+A colleague marked on sick leave came in after all, and another had already
+covered her day. The rota could only express absence (skip, no debt) or a
+same-cycle swap; neither says "X served instead of Y" on a day already gone,
+and a swap across cycles is refused because it repeats a person in a cycle.
+The owner's rule: the stand-in has two duties in that cycle, the count is per
+cycle, and the replaced colleague will probably take the stand-in's place
+later. So migration 051 adds `duty_days.served_employee_id`, applied LAST
+(`applyServed`, after swaps): the queue never sees it, no later date moves,
+and `cycleCounts`/`standIns` in the payload show the two/none per cycle and
+the yearly net. „Врати“ is a second correction on the stand-in's next own turn
+in a later cycle, computed by the server after the first is written. The page
+saves absences before the day, because whom the stand-in replaced is worked
+out from them. A corrected day refuses a swap (the swap would validate
+against a name nobody sees). Teachers who are not on the list no longer get
+the Дежурства tab through a duty link or the owner's sign-in.
+
+The class sheet in Kolega: the owner wanted it to fit landscape, to print the
+subjects alone, and to see which cabinet takes which child of the class when.
+`sheetModels()` gives lessons+pupils, subjects, cabinets or both; the cabinet
+sheet is gathered from the same `classAway` rows (a session spanning two
+lessons is listed once). Print scales EACH sheet to its own landscape page
+(the old fit scaled the whole wrapper, which would shrink two sheets onto one).
+A white `html` background in print stops the root colour showing under a
+short last page. U+2060 keeps a time range from breaking at its dash.
+
+Validation: 321/321 server tests (2 new: the pure correction/count rules and
+051 in the guarded runner), TypeScript, `test:duty` in a disposable schema
+with every migration (served, repay, refusals, clearing), and the Kolega,
+read-only, attendance, landing, admin and layout browser suites; two new
+browser blocks cover the correction editor and the four sheet modes, with
+the printed page break. Visual check with invented data, screen and PDF.
+No live data changed; 051 is for the next guarded release.
+
 ## Kolega theme control on every screen (30 Sep 2026)
 
 The existing bottom-corner icon was easy to miss. It now lives in a shared

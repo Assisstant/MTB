@@ -1,10 +1,21 @@
 # Master administration release — 21 September 2026
 
-## Read-only colleagues — 29 September 2026, code only, NOT deployed
+## Who actually served a duty day — 30 September 2026, code only, NOT deployed
+
+Migration **051** adds the nullable `duty_days.served_employee_id` and a check
+that a closed day has none. Every existing day keeps NULL, so the rota reads
+exactly as before until the owner records a correction. The guarded runner
+accepts **033–051** with the new recovery schema
+`mtb_workspace_recovery_duty_served_20260930`; keep the existing Render
+`npm run deploy:workspace` sequence. After deployment: Kolega → Дежурства →
+⋯ on the day → „Кој навистина дежурал“ (and untick the absence if the
+colleague came after all), optionally „врати“ for the next cycle.
+
+## Earlier batch: read-only colleagues — 29 September 2026
 
 Migration **050** adds `staff_accounts.read_only`, false for every existing
-account. It changes no passwords, people, schedules or attendance. The current
-guarded runner accepts **033–050**, using a new recovery schema:
+account. It changes no passwords, people, schedules or attendance. That batch's
+guarded runner accepted **033–050**, using a new recovery schema:
 `mtb_workspace_recovery_staff_read_only_20260929`. Keep the existing Render
 `npm run deploy:workspace` startup sequence. Do not apply 050 to a live database
 just to try the page; development checks use disposable schemas.

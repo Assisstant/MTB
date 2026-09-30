@@ -196,6 +196,31 @@ async function main() {
         await call('POST', '/api/duty/swap/remove', { year: YEAR, id: afterAbsence.body.id });
         await call('PUT', '/api/duty/absence', { year: YEAR, date: days[0], employeeId: emp.get(A), absent: false });
 
+        console.log('\nwho actually served (051)');
+        const stood = await call('PUT', '/api/duty/day', { year: YEAR, date: days[2], closed: false, servedEmployeeId: emp.get(B), repay: true });
+        checkEq('a colleague who stood in is recorded, and the replaced one takes the stand-in\'s next own turn',
+            [stood.status, stood.body?.repaid], [200, days[4]]);
+        m = await month();
+        checkEq('only those two names change; the queue does not move', names(m), [A, B, B, A, C, C]);
+        check('the day says whom it replaced, and that it is the second in the cycle',
+            m.days[2].insteadOf?.name === C && m.days[2].turnInCycle === 2 && m.days[2].servedEmployeeId === emp.get(B), JSON.stringify(m.days[2]));
+        checkEq('the cycles show two and none, then the reverse',
+            m.cycleCounts.map((c: any) => [c.cycle, c.people.map((p: any) => [p.name, p.count])]),
+            [[1, [[B, 2], [C, 0]]], [2, [[C, 2], [B, 0]]]]);
+        checkEq('and nobody owes anybody once it is evened out', m.standIns, []);
+        checkEq('somebody not on the list cannot be recorded as serving',
+            (await call('PUT', '/api/duty/day', { year: YEAR, date: days[3], closed: false, servedEmployeeId: emp.get(OUT) })).status, 400);
+        checkEq('a corrected day cannot be swapped',
+            (await call('PUT', '/api/duty/swap', { year: YEAR,
+                first: { date: days[2], employeeId: emp.get(C) }, second: { date: days[0], employeeId: emp.get(A) } })).status, 409);
+        await call('PUT', '/api/duty/day', { year: YEAR, date: days[2], closed: false, note: 'белешка' });
+        checkEq('editing a note keeps the correction', (await month()).days[2].name, B);
+        await call('PUT', '/api/duty/day', { year: YEAR, date: days[2], closed: false, servedEmployeeId: null });
+        await call('PUT', '/api/duty/day', { year: YEAR, date: days[4], closed: false, servedEmployeeId: null });
+        m = await month();
+        checkEq('removing both corrections restores the rota', names(m), [A, B, C, A, B, C]);
+        checkEq('and leaves nothing stored', (await q('SELECT count(*)::int AS n FROM duty_days WHERE school_year_id=$1', [y.id]))[0].n, 1);
+
         const october = await call('GET', `/api/duty?year=${encodeURIComponent(YEAR)}&month=2098-10`);
         const september = await month();
         const lastSept = september.days[september.days.length - 1].name;
