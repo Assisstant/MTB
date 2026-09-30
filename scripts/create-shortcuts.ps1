@@ -39,6 +39,7 @@ $shortcuts = @(
     # something is being debugged and a whole procedure is in the way.
     @{ Name = 'MTB';                 Script = Join-Path $root 'scripts\mtb.ps1'; Args = ''; Icon = 'shell32.dll,44'; Description = 'MTB - open the day' },
     @{ Name = 'MTB - Azuriraj';      Script = Join-Path $root 'scripts\mtb.ps1'; Args = '-Action update'; Icon = 'shell32.dll,238'; Description = 'MTB - pull the code, backup, migrations, restart' },
+    @{ Name = 'MTB - Oblak migracii'; Script = Join-Path $root 'scripts\cloud-migrate.ps1'; Args = ''; Icon = 'shell32.dll,13'; Description = 'MTB - cloud (Supabase): backup, then the pending migrations' },
     @{ Name = 'MTB - Zavrshi den';   Script = Join-Path $root 'scripts\mtb.ps1'; Args = '-Action stop'; Icon = 'shell32.dll,46'; Description = 'MTB - backup, publish to pCloud, stop the server' },
     @{ Name = 'MTB Server - Start';  Script = $control; Args = 'start -Wait';  Icon = 'shell32.dll,137'; Description = 'Therapy server - start' },
     @{ Name = 'MTB Server - Stop';   Script = $control; Args = 'stop -Wait';   Icon = 'shell32.dll,109'; Description = 'Therapy server - stop' },
