@@ -117,10 +117,10 @@ check('keeping it goes straight on', await visible('home'));
 check('the watermark names the author the session names',
     (await page.textContent('#mtbCredit').catch(() => '')) === 'изработил Измислен Автор' && await page.isVisible('#mtbCredit'));
 check('in the look the administrator set (046)', await page.$eval('#mtbCredit', (n) => getComputedStyle(n).fontSize === '13px'));
-check('and stands beside the ☀/🌙 switch, not on it', await page.evaluate(() => {
+check('and stays at the bottom, separate from the top theme switch', await page.evaluate(() => {
     const a = document.getElementById('mtbCredit').getBoundingClientRect();
     const b = document.getElementById('themeToggle').getBoundingClientRect();
-    return a.right <= b.left && a.bottom > innerHeight - 60;
+    return a.top > b.bottom && a.bottom > innerHeight - 60;
 }));
 check('nothing was changed', !calls.some((c) => c.path === '/api/portal/password'));
 check('the page names the person', (await page.textContent('#homeName')) === 'Ана Измислена');
@@ -834,6 +834,7 @@ check('no page errors', errors.length === 0, errors.join('\n       '));
     check('the start is the paper\'s first day', await f.p.inputValue('#dutyStart') === '2026-09-21');
     const lastGrip = (await f.p.$$('#dutyList [data-duty-grip]')).pop();
     const firstRow = await f.p.$('#dutyList li');
+    await f.p.locator('#dutyList').evaluate(n => n.scrollIntoView({ block: 'center' }));
     const g = await lastGrip.boundingBox(), top = await firstRow.boundingBox();
     await f.p.mouse.move(g.x + g.width / 2, g.y + g.height / 2);
     await f.p.mouse.down();

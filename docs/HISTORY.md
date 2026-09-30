@@ -9,6 +9,16 @@ move. Where the current state is needed, read `SOSTOJBA.md` first.
 
 Add new feature history here, not to `CLAUDE.md`.
 
+## Kolega theme control on every screen (30 Sep 2026)
+
+The existing bottom-corner icon was easy to miss. It now lives in a shared
+sticky top bar outside the individual screens, with an explicit target-theme
+label and a 48px touch target. The same handler and browser preference remain;
+the welcome shortcut still delegates to it. The bar occupies normal layout
+space and is excluded from print; scroll padding keeps focused content clear.
+No data, permission or server changes. Browser regression coverage checks
+login/welcome/workspace visibility, scroll reachability, persistence and print.
+
 ## Explicit read-only colleagues, including administration (29 Sep 2026)
 
 The owner requested selected staff accounts that can read schedules, pupil

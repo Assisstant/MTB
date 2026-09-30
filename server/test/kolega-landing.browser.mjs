@@ -39,11 +39,24 @@ const login=async remember=>{
   await p.click('#loginForm button[type=submit]');
   await p.waitForSelector('#welcome:not([hidden])');
 };
+async function checkThemeControl() {
+  assert.equal(await p.locator('#themeToggle').count(),1);
+  assert.match(await p.locator('#themeToggle').innerText(),/Светла тема|Темна тема/);
+  await p.evaluate(()=>window.scrollTo(0,document.documentElement.scrollHeight));
+  assert.ok(await p.locator('#themeToggle').evaluate(n=>{
+    const r=n.getBoundingClientRect();
+    return r.top>=0 && r.top<20 && r.right<=innerWidth && r.height>=48
+      && document.elementFromPoint(r.x+r.width/2,r.y+r.height/2)===n;
+  }),'theme switch stays reachable at the top, with a touch-sized target');
+  await p.evaluate(()=>window.scrollTo(0,0));
+}
 try {
   await p.goto(origin+'/kolegi');
   await p.waitForSelector('#login:not([hidden])');
+  await checkThemeControl();
   await p.screenshot({path:resolve(artifacts,'kolega-login-mobile.png'),fullPage:true});
   await login(true);
+  await checkThemeControl();
   assert.equal(await p.locator('#home').isVisible(),false);
   assert.equal(await p.locator('#ownerDoor').isVisible(),false);
   assert.equal(await p.locator('#welcomeName').innerText(),'Измислен Корисник');
@@ -60,8 +73,13 @@ try {
   await p.screenshot({path:resolve(artifacts,'kolega-welcome-dark.png'),fullPage:true});
   await p.click('#welcomeTheme');await p.click('[data-accent="blue"]');
   await p.selectOption('#welcomeText','standard');
+  await p.evaluate(()=>window.scrollTo(0,0));
   await p.screenshot({path:resolve(artifacts,'kolega-welcome-light.png'),fullPage:true});
   await p.click('#welcomeContinue');await p.waitForSelector('#home:not([hidden])');
+  await checkThemeControl();
+  await p.emulateMedia({media:'print'});
+  assert.equal(await p.locator('.theme-bar').isVisible(),false,'theme controls do not enter printouts');
+  await p.emulateMedia({media:'screen'});
   await p.click('#openWelcome');await p.click('#welcomeSwitch');
   await p.waitForSelector('#login:not([hidden])');
   assert.equal(await p.evaluate(()=>localStorage.getItem('mtb_portal_token_v1')),null);
