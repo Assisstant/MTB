@@ -12522,6 +12522,9 @@
             el('planSyncModal').classList.remove('active');
             if (!state.past && state.loaded) markSeen();
             state.past = null; state.focus = ''; state.results = {};
+            // Извештајот на „Усогласи сè" не смее да кажува „2 термини се
+            // разликуваат" откако токму тука се решени.
+            if (window.SdnRun && typeof window.SdnRun.planChanged === 'function') window.SdnRun.planChanged();
         }
 
         /** Зошто Кабинети одбива — со истите зборови како во Кабинети. */
@@ -12740,6 +12743,7 @@
         'use strict';
 
         var running = false;
+        var lastRun = null;
         function el(id) { return document.getElementById(id); }
         function esc(v) {
             return String(v == null ? '' : v).replace(/[&<>"']/g, function (c) {
@@ -12876,8 +12880,22 @@
                     : done.some(function (r) { return r.status === 'warn'; }) ? 'има што да се погледне' : 'сè е усогласено';
                 el('sdnRunWhen').textContent = 'последно: ' + String(now.getHours()).padStart(2, '0') + ':' +
                     String(now.getMinutes()).padStart(2, '0') + ' — ' + worst;
+                lastRun = done;
                 return done;
             });
+        }
+
+        /** Прозорецот „Дневник ↔ Кабинети" се затвори: редот за планот се чита одново, другите остануваат. */
+        function planChanged() {
+            var row = (lastRun || []).filter(function (r) { return r.id === 'plan'; })[0];
+            if (!row || running) return;
+            Promise.resolve().then(steps[steps.length - 1].run).then(function (answer) {
+                row.status = answer.status; row.said = answer.said; row.action = answer.action;
+                paint(lastRun);
+                var worst = lastRun.some(function (r) { return r.status === 'fail'; }) ? 'застана'
+                    : lastRun.some(function (r) { return r.status === 'warn'; }) ? 'има што да се погледне' : 'сè е усогласено';
+                el('sdnRunWhen').textContent = el('sdnRunWhen').textContent.replace(/ — .*$/, ' — ' + worst);
+            }).catch(function () { /* редот останува каков што беше */ });
         }
 
         function start() {
@@ -12887,7 +12905,7 @@
             });
         }
 
-        window.SdnRun = { run: run };
+        window.SdnRun = { run: run, planChanged: planChanged };
         document.addEventListener('DOMContentLoaded', start);
         if (document.readyState !== 'loading') start();
     })();

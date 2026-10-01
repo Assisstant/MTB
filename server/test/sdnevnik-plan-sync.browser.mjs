@@ -286,12 +286,18 @@ try {
     checkEq('nor both', await rowsStep(false, false), 'warn');
     check('and the sentence says the edits stay here', /остануваат тука/.test(await page.textContent('[data-run-step="rows"]')));
 
+    await rowsStep(true, true);      // back to a clean run: only the plan is left to look at
     const sent = blocks.length;
     await page.click('[data-run-action="plan"]');
     await waitOpen();
     check('and its button opens the list', (await rowsShown()).length > 0);
     checkEq('the procedure itself wrote nothing to Кабинети', blocks.length, sent);
+    // Resolve everything in the popup: the report behind it must not keep saying it differs.
+    await page.evaluate(() => { window.schedule.wednesday[2] = []; window.schedule.friday[0] = []; });
+    sessions = sessions.filter((s) => !(s.therapist_id === 7 && s.day === 'петок' && s.time === '08:00-08:40'));
     await page.click('#planSyncClose');
+    await page.waitForFunction(() => document.querySelector('[data-run-step="plan"]').dataset.runStatus === 'ok');
+    check('closing the popup re-reads the plan line of the report', /сè е усогласено/.test(await page.textContent('#sdnRunWhen')));
     if (process.env.PLAN_SHOTS) await page.screenshot({ path: path.join(process.env.PLAN_SHOTS, 'data-tab.png') });
 
     // ── a backup in the browser is a state, not an event ─────────────────────
