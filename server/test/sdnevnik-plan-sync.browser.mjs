@@ -80,6 +80,7 @@ const context = await browser.newContext({ viewport: { width: 1280, height: 900 
 const writes = [];            // every non-GET the page sends
 const blocks = [];            // the bodies sent to the block writer
 let refuseNext = null;        // what the block writer answers next, when not 200
+let health = null;            // what /api/health answers; null = the server is down
 const dialogs = [];
 const errors = [];
 
@@ -96,6 +97,7 @@ await context.route('**/*', async (route) => {
         if (req.method() !== 'GET') writes.push(`${req.method()} ${url.pathname}`);
         if (url.pathname === '/api/schedule/sessions') return json({ year: roster.year, sessions });
         if (url.pathname === '/api/roster') return json(roster);
+        if (url.pathname === '/api/health') return health ? json(health) : json({ error: 'down' }, 503);
         if (url.pathname === '/api/schedule/block' && req.method() === 'PUT') {
             const body = req.postDataJSON();
             blocks.push(body);
@@ -238,6 +240,43 @@ try {
     checkEq('„Постојано" moves it into the live plan', await live('tuesday', 1), [1002]);
     checkEq('and into Кабинети, with what Кабинети held', blocks[blocks.length - 1],
         { day: 'вторник', time: '08:45-09:25', therapistId: 7, studentPublicIds: ['p-b'], expectedStudentPublicIds: ['p-b', 'p-d'] });
+
+    // ── the tab „Податоци": the procedure on top, the files at the bottom ─────
+    console.log('\nthe data tab and „Усогласи сè"');
+    await page.evaluate(() => { window.changeWeek(1); window.switchTab('data'); });
+    await page.waitForSelector('#sdnLocalSrvPanel'); await page.waitForSelector('#sdnYearPanel'); await page.waitForSelector('#sdnStorageV3Panel');
+    const tops = await page.evaluate(() => ['sdnRunPanel', 'sdnLocalSrvPanel', 'sdnYearPanel', 'sdnStorageV3Panel', 'sdnFilesPanel']
+        .map((id) => Math.round(document.getElementById(id).getBoundingClientRect().top)));
+    check('the panels are in the order the work needs, whatever order the scripts added them in',
+        tops.every((top, i) => i === 0 || top > tops[i - 1]), JSON.stringify(tops));
+    check('the procedure is visible without scrolling', tops[0] < 900 && tops[1] < 900, JSON.stringify(tops));
+    check('the file buttons are ordinary buttons, not full-width bars', await page.$$eval('#sdnFilesPanel button',
+        (buttons) => buttons.length === 3 && buttons.every((b) => b.getBoundingClientRect().height < 46 && b.getBoundingClientRect().width < 420)));
+
+    const report = () => page.$$eval('#sdnRunReport .line', (lines) => lines.map((l) => [l.dataset.runStep, l.dataset.runStatus]));
+    const runAll = async () => { await page.click('#sdnRunBtn'); await page.waitForFunction(() => !document.getElementById('sdnRunBtn').disabled); };
+    await runAll();
+    checkEq('with no server it stops at the first step and runs nothing after it', await report(), [['server', 'fail']]);
+
+    health = { ok: true, database: 'therapy_probe', server: { label: 'ПРОБНА' } };
+    await runAll();
+    const second = await report();
+    check('with a server, the diary is synchronised next; a failure there stops the procedure too',
+        second[0][1] === 'ok' && second[1][0] === 'document' && (second[1][1] !== 'fail' || second.length === 2), JSON.stringify(second));
+
+    // The diary's own sync is tested elsewhere; here it answers „исто" so the rest of the order is seen.
+    await page.evaluate(() => { window.SdnLocalSrv.sync = () => Promise.resolve('insync'); });
+    await runAll();
+    const third = await report();
+    checkEq('all four steps run in order', third.map((r) => r[0]), ['server', 'document', 'rows', 'plan']);
+    checkEq('a difference with Кабинети is a thing to look at, never changed by the procedure', third[3][1], 'warn');
+    const sent = blocks.length;
+    await page.click('[data-run-action="plan"]');
+    await waitOpen();
+    check('and its button opens the list', (await rowsShown()).length > 0);
+    checkEq('the procedure itself wrote nothing to Кабинети', blocks.length, sent);
+    await page.click('#planSyncClose');
+    if (process.env.PLAN_SHOTS) await page.screenshot({ path: path.join(process.env.PLAN_SHOTS, 'data-tab.png') });
 
     check('the past week was unlocked through the diary\'s own warning', dialogs.some((d) => /отклучена/.test(d)));
     checkEq('no page errors', errors, []);

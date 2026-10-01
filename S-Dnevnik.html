@@ -1748,6 +1748,30 @@
             color: #2d3748;
             font-size: 1.05em;
         }
+        /* Табот „Податоци": усогласувањето горе, датотеките долу (сопственикот,
+           1 октомври 2026). Панелите ги додаваат четири различни скрипти во
+           различно време, па редоследот е тука, на едно место. */
+        #data.active { display: flex; flex-direction: column; }
+        #data > * { order: 50; }
+        #data > #sdnRunPanel { order: 1; margin-top: 0; }
+        #data > #sdnLocalSrvPanel { order: 2; }
+        #data > #sdnYearPanel { order: 3; }
+        #data > #sdnStorageV3Panel { order: 4; }
+        #data > #sdnFilesPanel { order: 5; }
+        #data .sdn-system-panel { margin-top: 14px; padding: 14px 16px; }
+        .sdn-run-report { margin-top: 10px; font-size: 13px; }
+        .sdn-run-report .line { display: flex; gap: 10px; align-items: baseline; padding: 5px 0; border-top: 1px solid rgba(128, 128, 128, .25); flex-wrap: wrap; }
+        .sdn-run-report .mark { flex: 0 0 62px; font-weight: 800; font-size: 12px; }
+        .sdn-run-report .mark.ok { color: #2f855a; }
+        .sdn-run-report .mark.warn { color: #c05621; }
+        .sdn-run-report .mark.fail { color: #c53030; }
+        .sdn-run-report .mark.wait { color: #718096; }
+        .sdn-run-report .what { flex: 0 0 190px; font-weight: 700; }
+        .sdn-run-report .said { flex: 1 1 260px; }
+        body.dark-mode .sdn-run-report .mark.ok { color: #9ae6b4; }
+        body.dark-mode .sdn-run-report .mark.warn { color: #fbd38d; }
+        body.dark-mode .sdn-run-report .mark.fail { color: #feb2b2; }
+        body.dark-mode .sdn-run-report .mark.wait { color: #cbd5e0; }
         .sdn-system-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
@@ -2199,16 +2223,32 @@
 
         <!-- Data Tab -->
         <div id="data" class="tab-content">
-            <div class="section-header">Експорт / Импорт</div>
-            <button class="btn btn-success btn-full" onclick="exportData()">⬇ Експортирај Backup (JSON)</button>
-            <button class="btn btn-primary btn-full" onclick="document.getElementById('importFile').click()">Импортирај JSON</button>
-            <input type="file" id="importFile" accept=".json" style="display: none;" onchange="importData(event)">
-            
-            <div class="section-header" style="margin-top: 30px;">Поправка на податоци</div>
-            <button class="btn btn-full" style="background: #f59e0b; color: white;" onclick="rebuildAllProgress()">🔄 Реконструирај Напредок</button>
-            <p style="text-align: center; color: #718096; font-size: 13px; margin-top: 10px;">
-                Ова ќе ги синхронизира податоците за напредок со присутноста. Користете го ако видите несовпаѓање помеѓу бројот на сесии и чекирани активности.
-            </p>
+            <!-- Редоследот на панелите го кажува CSS (`order`), не редот по кој
+                 скриптите ги додаваат: усогласувањето е горе, датотеките долу. -->
+            <div id="sdnRunPanel" class="sdn-system-panel">
+                <h3>⚡ Усогласи сè</h3>
+                <div style="font-size:12px;opacity:.85;">
+                    Еден клик ги извршува чекорите по ред: серверот, дневникот со серверот, присуството и записите,
+                    планот со Кабинети. Запира каде што треба одлука и кажува што да се направи.
+                </div>
+                <div class="sdn-actions-row" style="align-items:center;">
+                    <button type="button" class="sdn-mini-btn primary" id="sdnRunBtn" onclick="SdnRun.run()">▶ Усогласи сè</button>
+                    <span id="sdnRunWhen" style="font-size:12px;opacity:.8;">уште не е пуштено во оваа сесија</span>
+                </div>
+                <div id="sdnRunReport" class="sdn-run-report" role="status" aria-live="polite"></div>
+            </div>
+            <div id="sdnFilesPanel" class="sdn-system-panel">
+                <h3>📁 Датотеки и поправка</h3>
+                <div class="sdn-actions-row">
+                    <button type="button" class="sdn-mini-btn success" onclick="exportData()">⬇ Експортирај Backup (JSON)</button>
+                    <button type="button" class="sdn-mini-btn primary" onclick="document.getElementById('importFile').click()">Импортирај JSON</button>
+                    <button type="button" class="sdn-mini-btn warn" onclick="rebuildAllProgress()">🔄 Реконструирај Напредок</button>
+                </div>
+                <input type="file" id="importFile" accept=".json" style="display: none;" onchange="importData(event)">
+                <div style="font-size:12px;opacity:.8;margin-top:10px;">
+                    „Реконструирај Напредок“ го пресметува напредокот од присуството. Користете го ако бројот на сесии и чекираните активности не се совпаѓаат.
+                </div>
+            </div>
         </div>
     </div>
     
@@ -12641,8 +12681,182 @@
             }, 1500);
         }
 
-        window.SdnPlanSync = { open: open, edited: edited, refresh: function () { if (usable()) check(); } };
+        window.SdnPlanSync = {
+            open: open, edited: edited, refresh: function () { if (usable()) check(); },
+            /** За „Усогласи сè": колку термини се разликуваат, без да отвора ништо. */
+            count: function () {
+                if (!usable()) return Promise.resolve({ skipped: 'нема сервер' });
+                if (!getLocalTherapistName()) return Promise.resolve({ skipped: 'не е избран терапевт на овој дневник' });
+                return check().then(function (result) {
+                    return (!result || result.error) ? { error: (result && result.error) || 'не може да се прочита' }
+                        : { differences: state.rows.length };
+                });
+            }
+        };
 
+        document.addEventListener('DOMContentLoaded', start);
+        if (document.readyState !== 'loading') start();
+    })();
+    </script>
+
+    <script>
+    // ═══════════════════════════════════════════════════════════════════════
+    // „УСОГЛАСИ СÈ" — една постапка наместо четири копчиња по сеќавање
+    // (сопственикот, 1 октомври 2026), по урнекот на „MTB - Azuriraj":
+    // чекорите одат по ред, секој кажува една реченица, и постапката запира
+    // таму каде што следниот чекор би работел врз непроверена состојба.
+    //
+    // Не воведува ниту едно ново дејство. Секој чекор го вика она што веќе
+    // постои и веќе е тестирано (`SdnLocalSrv.sync`, `SDiary`, `SdnPlanSync`),
+    // со нивните сопствени заштити — оваа постапка е само редоследот.
+    //
+    // ШТО НЕ ПРАВИ САМА: не избира насока кога и двете страни се сменети, и
+    // не го менува планот во Кабинети. Тие две бараат човек; постапката
+    // застанува и го нуди копчето.
+    // ═══════════════════════════════════════════════════════════════════════
+    (function () {
+        'use strict';
+
+        var running = false;
+        function el(id) { return document.getElementById(id); }
+        function esc(v) {
+            return String(v == null ? '' : v).replace(/[&<>"']/g, function (c) {
+                return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+            });
+        }
+        function base() {
+            var srv = window.SdnLocalSrv;
+            return (srv && typeof srv.getUrl === 'function') ? srv.getUrl() : '';
+        }
+
+        var MARK = { ok: 'ВО РЕД', warn: 'ПОГЛЕД', fail: 'ЗАСТАНА', wait: '…' };
+        function line(step) {
+            return '<div class="line" data-run-step="' + step.id + '" data-run-status="' + step.status + '">' +
+                '<span class="mark ' + step.status + '">' + MARK[step.status] + '</span>' +
+                '<span class="what">' + esc(step.label) + '</span>' +
+                '<span class="said">' + esc(step.said || '') +
+                (step.action ? ' <button type="button" class="sdn-mini-btn" data-run-action="' + step.action.id + '">' + esc(step.action.text) + '</button>' : '') +
+                '</span></div>';
+        }
+
+        var steps = [
+            {
+                id: 'server', label: 'Сервер',
+                run: function () {
+                    if (!base()) return { status: 'fail', said: 'Нема поставен сервер. Внесете ја адресата во панелот „Сервер“ подолу.' };
+                    return fetch(base() + '/api/health', { cache: 'no-store' }).then(function (r) {
+                        return r.json().catch(function () { return {}; }).then(function (h) {
+                            if (!r.ok || !h.ok) return { status: 'fail', said: 'Серверот на ' + base() + ' одговори со грешка ' + r.status + '.' };
+                            var label = (h.server && h.server.label) ? h.server.label + ' · ' : '';
+                            return { status: 'ok', said: label + 'база ' + (h.database || '?') };
+                        });
+                    }).catch(function () {
+                        return { status: 'fail', said: 'Серверот на ' + base() + ' не одговара. Измените остануваат во овој прелистувач и ќе се пратат кога ќе се врати.' };
+                    });
+                }
+            },
+            {
+                id: 'document', label: 'Дневник ↔ сервер',
+                run: function () {
+                    var srv = window.SdnLocalSrv;
+                    if (!srv || typeof srv.sync !== 'function') return { status: 'warn', said: 'Синхронизацијата не е вчитана.' };
+                    return srv.sync({ auto: true }).then(function (state) {
+                        var said = {
+                            insync: ['ok', 'Исто од двете страни.'],
+                            pushed: ['ok', 'Измените од тука се пратени на серверот.'],
+                            pulled: ['ok', 'Земена е поновата состојба од серверот.'],
+                            readonly: ['ok', 'Копија само за читање — ништо не се праќа.'],
+                            'pushed-warn': ['warn', 'Пратено, но серверот пријави забелешка. Видете го панелот „Сервер“.'],
+                            empty: ['warn', 'И дневникот и серверот се празни — нема што да се усогласи.'],
+                            busy: ['warn', 'Синхронизацијата токму сега работи. Пуштете повторно за неколку секунди.'],
+                            conflict: ['fail', 'И тука и на серверот има измени. Одлучете во панелот „Сервер“: „Вчитај од сервер“ или „Зачувај на сервер“.'],
+                            offline: ['fail', 'Серверот не е достапен.'],
+                            invalid: ['fail', 'Состојбата на дневникот не може да се собере.'],
+                            error: ['fail', 'Синхронизацијата не успеа. Видете го панелот „Сервер“.']
+                        }[state] || ['warn', 'Непознат одговор: ' + state];
+                        return { status: said[0], said: said[1] };
+                    });
+                }
+            },
+            {
+                id: 'rows', label: 'Присуство и записи',
+                run: function () {
+                    var d = window.SDiary;
+                    if (!d || typeof d.enabled !== 'function' || !d.enabled()) {
+                        return { status: 'ok', said: 'Одат заедно со дневникот (запис по ред не е вклучен на оваа адреса).' };
+                    }
+                    return Promise.resolve().then(function () { return d.flush(); })
+                        .then(function () { return d.hydrate(); })
+                        .then(function () { return { status: 'ok', said: 'Пратено и прочитано од базата, ред по ред.' }; })
+                        .catch(function (err) { return { status: 'warn', said: 'Не помина целосно: ' + (err && err.message ? err.message : err) }; });
+                }
+            },
+            {
+                id: 'plan', label: 'План ↔ Кабинети',
+                run: function () {
+                    var p = window.SdnPlanSync;
+                    if (!p || typeof p.count !== 'function') return { status: 'warn', said: 'Споредбата не е вчитана.' };
+                    return p.count().then(function (answer) {
+                        if (answer.skipped) return { status: 'warn', said: 'Не е споредено: ' + answer.skipped + '.' };
+                        if (answer.error) return { status: 'warn', said: 'Кабинети не може да се прочита: ' + answer.error + '.' };
+                        if (!answer.differences) return { status: 'ok', said: 'Истиот план на двете места.' };
+                        return {
+                            status: 'warn',
+                            said: answer.differences + (answer.differences === 1 ? ' термин се разликува.' : ' термини се разликуваат.') + ' Вие одлучувате што важи.',
+                            action: { id: 'plan', text: 'Отвори ја листата' }
+                        };
+                    });
+                }
+            }
+        ];
+
+        function paint(done) {
+            el('sdnRunReport').innerHTML = done.map(line).join('');
+        }
+
+        /** По ред; запира на првиот чекор што застанал, како „Azuriraj". */
+        function run() {
+            if (running) return Promise.resolve(null);
+            running = true;
+            var button = el('sdnRunBtn');
+            button.disabled = true; button.textContent = '⏳ Усогласувам…';
+            var done = [];
+            var stopped = false;
+            var chain = Promise.resolve();
+            steps.forEach(function (step) {
+                chain = chain.then(function () {
+                    if (stopped) return;
+                    var row = { id: step.id, label: step.label, status: 'wait', said: 'работам…' };
+                    done.push(row); paint(done);
+                    return Promise.resolve().then(step.run).catch(function (err) {
+                        return { status: 'fail', said: (err && err.message) ? err.message : String(err) };
+                    }).then(function (answer) {
+                        row.status = answer.status; row.said = answer.said; row.action = answer.action;
+                        if (answer.status === 'fail') stopped = true;
+                        paint(done);
+                    });
+                });
+            });
+            return chain.then(function () {
+                running = false;
+                button.disabled = false; button.textContent = '▶ Усогласи сè';
+                var now = new Date();
+                var worst = done.some(function (r) { return r.status === 'fail'; }) ? 'застана'
+                    : done.some(function (r) { return r.status === 'warn'; }) ? 'има што да се погледне' : 'сè е усогласено';
+                el('sdnRunWhen').textContent = 'последно: ' + String(now.getHours()).padStart(2, '0') + ':' +
+                    String(now.getMinutes()).padStart(2, '0') + ' — ' + worst;
+                return done;
+            });
+        }
+
+        function start() {
+            el('sdnRunReport').addEventListener('click', function (event) {
+                var action = event.target.getAttribute && event.target.getAttribute('data-run-action');
+                if (action === 'plan' && window.SdnPlanSync) window.SdnPlanSync.open();
+            });
+        }
+
+        window.SdnRun = { run: run };
         document.addEventListener('DOMContentLoaded', start);
         if (document.readyState !== 'loading') start();
     })();

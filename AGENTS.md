@@ -847,6 +847,10 @@ read `DATABASE_URL`; never add literal credentials to this public repository.
   with its reason and left to „⬇ Земи од базата". An unlocked past week's
   edit stays a record unless „Постојано" is chosen.
   `docs/PLAN-rasporedot-i-nedelata.md` has the dated change of mind.
+  The diary's Податоци tab opens with „⚡ Усогласи сè" (`SdnRun`): the same
+  existing actions in a fixed order, stopping at the first that fails. It adds
+  no action of its own. The tab's panel order is CSS `order` on `#data`,
+  because four scripts append their panels at different times.
 
 - **One flat look, opted into per page (1 Oct 2026).** `html.mtb-flat` in
   mtb-look.css is the button — a PILL, 34px high, `6px 14px`, 14px bold, fully
