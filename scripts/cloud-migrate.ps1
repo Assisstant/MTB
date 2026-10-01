@@ -25,71 +25,16 @@ function Stop-WithMessage([string]$Text) {
     exit 1
 }
 
-# The address: MTB\cloud.env (gitignored) first, then the older ..\MTB-cloude.env
-# beside the repo. Either holds one line: DATABASE_URL=postgresql://...
-if (-not $EnvFile) {
-    $EnvFile = @((Join-Path $repo 'cloud.env'), (Join-Path (Split-Path -Parent $repo) 'MTB-cloude.env')) |
-        Where-Object { Test-Path $_ } | Select-Object -First 1
-    # Neither is here: the other machine may have left the file in the pCloud
-    # folder the two PCs already share (P:\MTB-sync, or SYNC_DIR in server\.env).
-    # It is copied beside the repo once, so the next run needs no pCloud.
-    if (-not $EnvFile) {
-        $shared = 'P:\MTB-sync'
-        $serverEnv = Join-Path $repo 'server\.env'
-        if (Test-Path $serverEnv) {
-            $dirLine = Get-Content -LiteralPath $serverEnv -Encoding UTF8 | Where-Object { $_ -match '^\s*SYNC_DIR\s*=' } | Select-Object -First 1
-            if ($dirLine) { $shared = ($dirLine -replace '^\s*SYNC_DIR\s*=\s*', '').Trim().Trim('"') }
-        }
-        $left = Join-Path $shared 'MTB-cloude.env'
-        if (Test-Path -LiteralPath $left) {
-            $EnvFile = Join-Path (Split-Path -Parent $repo) 'MTB-cloude.env'
-            Copy-Item -LiteralPath $left -Destination $EnvFile
-            Write-Host "  (адресата на облакот е преземена од $left)" -ForegroundColor Yellow
-        }
-    }
-    if (-not $EnvFile) { $EnvFile = Join-Path $repo 'cloud.env' }
-}
-if ((Split-Path -Parent $EnvFile) -eq $repo) {
-    Push-Location $repo
-    $ErrorActionPreference = 'Continue'
-    & git check-ignore -q -- (Split-Path -Leaf $EnvFile) 2>$null
-    $ignored = ($LASTEXITCODE -eq 0)
-    $ErrorActionPreference = 'Stop'
-    Pop-Location
-    if (-not $ignored) { Stop-WithMessage "$EnvFile НЕ е во .gitignore — со лозинката би отишол на GitHub. Прво git pull (новиот .gitignore)." }
-}
-
-# ── адресата ──────────────────────────────────────────────────────────────
-if (-not (Test-Path $EnvFile)) { Stop-WithMessage "Ја нема $EnvFile — направете ја со еден ред: DATABASE_URL=postgresql://... (Supabase → Connect → Session pooler)." }
-$line = Get-Content -LiteralPath $EnvFile -Encoding UTF8 | Where-Object { $_ -match '^\s*DATABASE_URL\s*=' } | Select-Object -First 1
-if (-not $line) { Stop-WithMessage "Во $EnvFile нема DATABASE_URL=..." }
-$url = ($line -replace '^\s*DATABASE_URL\s*=\s*', '').Trim().Trim('"')
-if ($url -notmatch '^(postgres(?:ql)?://[^@/]+@)(.+)$') { Stop-WithMessage 'DATABASE_URL не изгледа како postgresql://корисник:лозинка@хост:порта/база.' }
-$userPart = $Matches[1]
-$hostPart = $Matches[2]
-# Датотеката на двете машини е пресечена по „aws-0-eu-central" (26 Sep).
-# Дополни ја со познатиот session pooler, наместо да падне.
-if ($hostPart -eq 'aws-0-eu-central') {
-    $hostPart = 'aws-0-eu-central-1.pooler.supabase.com:5432/postgres'
-    Write-Host "  (адресата во $EnvFile е пресечена — дополнета со session pooler aws-0-eu-central-1:5432)" -ForegroundColor Yellow
-}
-if ($hostPart -notmatch '^[^/]+\.[^/]+(:\d+)?/\w+') { Stop-WithMessage "Хостот во DATABASE_URL е нецелосен: $hostPart" }
-if ($hostPart -notmatch 'supabase\.(com|co)') { Stop-WithMessage "Ова не е базата во облакот (Supabase): $hostPart. Локалната база се ажурира со „MTB - Azuriraj“." }
-$url = $userPart + $hostPart
-if ($url -notmatch 'sslmode=') { $url += $(if ($url.Contains('?')) { '&' } else { '?' }) + 'sslmode=require' }
-
-# ── алатките ──────────────────────────────────────────────────────────────
-$bin = Get-ChildItem 'C:\Program Files\PostgreSQL\*\bin\pg_dump.exe' -ErrorAction SilentlyContinue |
-    Sort-Object { [int]($_.Directory.Parent.Name -replace '\D', '') } -Descending | Select-Object -First 1
-if (-not $bin) { Stop-WithMessage 'Не најдов pg_dump.exe под C:\Program Files\PostgreSQL.' }
-$pgDump = $bin.FullName
-$psql = Join-Path $bin.DirectoryName 'psql.exe'
-$env:PGCLIENTENCODING = 'UTF8'
-$env:PGCONNECT_TIMEOUT = '20'
+# The address and the tools: one decision, shared with cloud-cleanup.ps1.
+. (Join-Path $PSScriptRoot 'cloud-lib.ps1')
+try { $cloud = Get-MtbCloud -Repo $repo -EnvFile $EnvFile } catch { Stop-WithMessage $_.Exception.Message }
+$url = $cloud.Url
+$pgDump = $cloud.PgDump
+$psql = $cloud.Psql
 
 Write-Host ''
 Write-Host 'MTB · миграции во облакот (Supabase)' -ForegroundColor Cyan
-Write-Host ('  ' + ($hostPart -replace '/.*$', ''))
+Write-Host ('  ' + $cloud.Host)
 
 # ── што чека ──────────────────────────────────────────────────────────────
 $ErrorActionPreference = 'Continue'
@@ -163,5 +108,8 @@ if ($code -ne 0) {
     Stop-WithMessage "Миграцијата е одбиена и вратена (rollback). Облакот е како пред неа; снимката е во $dump."
 }
 Write-Host 'Готово. Следниот Render deploy ќе рече „Workspace schema already current".' -ForegroundColor Green
+# Секоја група миграции остава своја recovery копија во облакот; постарите се
+# тргаат (со архива тука) со кратенката „MTB - Oblak chistenje".
+Write-Host 'Старите recovery копии во облакот: кратенката MTB - Oblak chistenje.' -ForegroundColor DarkGray
 if (-not $Apply) { Read-Host 'Enter за затворање' | Out-Null }
 exit 0

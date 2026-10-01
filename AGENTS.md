@@ -297,6 +297,9 @@ powershell -ExecutionPolicy Bypass -File scripts\backup-db.ps1           dump + 
 powershell -ExecutionPolicy Bypass -File scripts\cloud-migrate.ps1       the CLOUD's pending migrations: pg_dump, then
                                          deploy:workspace; address in ..\MTB-cloude.env (outside the repo),
                                          asks DA first („MTB - Oblak migracii“). Local DB: „MTB - Azuriraj“
+powershell -ExecutionPolicy Bypass -File scripts\cloud-cleanup.ps1       the CLOUD's old recovery schemas: all but the newest 3
+                                         are archived into backups\ (verified), THEN dropped; -List only shows
+                                         („MTB - Oblak chistenje“). The address logic is scripts\cloud-lib.ps1
 powershell -ExecutionPolicy Bypass -File scripts\manual-db-sync.ps1 -Mode Compare -Dir P:\MTB-sync -Me work -PeerName home
 powershell -ExecutionPolicy Bypass -File scripts\run-server.ps1          supervised server
 powershell -ExecutionPolicy Bypass -File scripts\sync-peer.ps1           report; -Apply to sync
