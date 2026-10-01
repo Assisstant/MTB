@@ -43,8 +43,10 @@
     // band in both themes already, so the tabs need no dark variant. The
     // colours are `!important` on purpose: this is their one owner, and a
     // page's own dark rule („body.dark-mode .x > .btn") must not win again.
-    const STRIP = '.mtb-tabs, .view-tabs, .tabs:has(> .tab), .day-tabs-band, .app-tabs';
-    const TAB = '.mtb-tabs > .btn, .view-tabs > .view-tab, .tabs > .tab, .day-tabs-band .day-tab, .app-tabs > button';
+    // `.mtb-tabs-flat` is a page's own row of plain tab buttons (mtb-look.css,
+    // owner 1 Oct 2026): it keeps the one row and the 📌, not the dark band.
+    const STRIP = '.mtb-tabs:not(.mtb-tabs-flat), .view-tabs, .tabs:has(> .tab), .day-tabs-band, .app-tabs';
+    const TAB = '.mtb-tabs:not(.mtb-tabs-flat) > .btn, .view-tabs > .view-tab, .tabs > .tab, .day-tabs-band .day-tab, .app-tabs > button';
     const ON = '.active, [aria-pressed="true"], [aria-selected="true"]';
     function addTabLook() {
         if (document.getElementById('mtbTabLook')) return;
@@ -121,6 +123,13 @@
                 letter-spacing: 0; text-transform: none; white-space: nowrap; cursor: pointer; user-select: none;
             }
             .mtb-pin::after { content: '📌 Замрзни'; }
+            /* On a phone the strip is narrower than its tabs, and a pin riding
+               at the right edge sat ON the tabs: it had to be scrolled away to
+               reach the one under it (owner, 1 Oct 2026). There it is the last
+               thing on the strip, reached by sliding to the end. */
+            @media (max-width: 720px) {
+                .mtb-pin { position: static; box-shadow: none; }
+            }
             .mtb-pin input { width: auto; height: auto; margin: 0; accent-color: #818cf8; cursor: pointer; }
             .mtb-pin:has(input:checked) { background: #4c51bf; border-color: #818cf8; color: #fff; }
             .mtb-pin:has(input:focus-visible) { outline: 2px solid #f6c453; outline-offset: 1px; }

@@ -263,6 +263,60 @@ table .btn { padding: 6px 12px; min-height: 0; font-size: 13px; border-radius: 8
 /* A tab is not a card: the strip above states its own shape. */
 .mtb-tabs > .btn { min-height: 0; box-shadow: none; }
 
+/* The flat button (owner, 1 Oct 2026: „this Firefox design" — the look of the
+   colleagues' page): a plain rounded rectangle, a thin border, no shadow, no
+   lift, no icon tile; the main action filled in one blue. A page opts in with
+   `<html class="mtb-flat">`. Кабинети, Настава ↔ терапии, Уреди настава and
+   S-Дневник do not: the owner asked for those to stay as they are. */
+:root { --mtb-flat: #0f6cbd; --mtb-flat-on: #ffffff; --mtb-flat-well: #f7f7fc; --mtb-flat-line: #c9ced8; }
+:root[data-theme="dark"] { --mtb-flat: #1f6feb; --mtb-flat-on: #ffffff; --mtb-flat-well: #1b2130; --mtb-flat-line: #46506a; }
+html.mtb-flat .btn {
+    padding: 9px 14px; min-height: 40px;
+    border: 1px solid var(--mtb-flat); border-radius: 8px;
+    background: var(--mtb-flat); color: var(--mtb-flat-on);
+    font-size: 15px; font-weight: 700;
+    box-shadow: none; transition: background .15s, border-color .15s;
+}
+html.mtb-flat .btn:hover:not(:disabled) { transform: none; box-shadow: none; filter: brightness(.93); }
+html.mtb-flat .btn:where(.soft) {
+    background: var(--mtb-flat-well); color: var(--text); border-color: var(--mtb-flat-line); box-shadow: none;
+}
+html.mtb-flat .btn:where(.soft):hover:not(:disabled) { filter: none; border-color: var(--mtb-flat); box-shadow: none; }
+html.mtb-flat .btn-danger, html.mtb-flat .btn.danger { background: var(--danger-dark); border-color: var(--danger-dark); color: #fff; }
+html.mtb-flat .btn:where(.soft.danger) { background: var(--mtb-flat-well); border-color: var(--mtb-flat-line); color: var(--danger); }
+html.mtb-flat .btn[aria-pressed="true"], html.mtb-flat .btn.soft[aria-pressed="true"] {
+    background: var(--mtb-flat); border-color: var(--mtb-flat); color: var(--mtb-flat-on);
+}
+html.mtb-flat .btn .ico, html.mtb-flat .btn:not(.soft) .ico, html.mtb-flat .btn[aria-pressed="true"] .ico {
+    width: auto; height: auto; margin-left: 0; border-radius: 0; background: none; color: inherit; font-size: 1em;
+}
+html.mtb-flat table .btn { padding: 5px 10px; min-height: 0; font-size: 14px; }
+
+/* A page's OWN tabs, as plain buttons on the page: unlike the dark slanted
+   band of the workspace's row above them, so the two rows cannot be mistaken
+   for one another. mtb-layout.js still gives the strip one row and its 📌. */
+.mtb-tabs.mtb-tabs-flat {
+    align-items: center; gap: 6px; padding: 0 0 10px;
+    background: none; border-bottom: 1px solid var(--border); border-radius: 0; box-shadow: none;
+}
+.mtb-tabs.mtb-tabs-flat > .btn, .mtb-tabs.mtb-tabs-flat > .btn:hover:not(:disabled) {
+    margin-top: 0; padding: 9px 14px;
+    border: 1px solid var(--mtb-flat-line); border-radius: 8px;
+    background: var(--mtb-flat-well); color: var(--text);
+    font-size: 15px; font-weight: 700; text-transform: none; letter-spacing: 0;
+    clip-path: none;
+}
+.mtb-tabs.mtb-tabs-flat > .btn:hover:not(:disabled) { border-color: var(--mtb-flat); }
+.mtb-tabs.mtb-tabs-flat > .btn[aria-pressed="true"], .mtb-tabs.mtb-tabs-flat > .btn[aria-pressed="true"]:hover:not(:disabled) {
+    margin-top: 0; padding: 9px 14px;
+    border: 1px solid var(--mtb-flat); background: var(--mtb-flat); color: var(--mtb-flat-on);
+}
+html .mtb-tabs.mtb-tabs-flat > .mtb-pin {
+    /* Last on the strip, never riding over a tab: nine tabs do not fit a laptop either. */
+    position: static; border-color: var(--mtb-flat-line); background: var(--card); color: var(--text); box-shadow: none;
+}
+html .mtb-tabs.mtb-tabs-flat > .mtb-pin:has(input:checked) { background: var(--mtb-flat); border-color: var(--mtb-flat); color: var(--mtb-flat-on); }
+
 /* Fields — S-Dnevnik's `.form-group`. */
 .field { display: flex; flex-direction: column; gap: 6px; font-size: 13px; font-weight: 600; color: var(--text); }
 .field select, .field input, .field textarea {
