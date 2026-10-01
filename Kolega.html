@@ -1569,7 +1569,8 @@ header.top h1 { flex: 1; min-width: 180px; }
     // worked out as before and only the two days trade names. The owner drags
     // one name onto another (⠿), or picks the other day under ⋯, and confirms.
     const weekdayOf = (iso) => new Date(iso + 'T00:00:00Z').getUTCDay();
-    const swappable = (d) => d.employeeId != null && !d.closed && !d.swap && !d.insteadOf;
+    // A day already swapped can be swapped again (054); the record keeps every step.
+    const swappable = (d) => d.employeeId != null && !d.closed && !d.insteadOf;
     // Two cycles may trade (owner, 1 Oct 2026): the one who moves has two duties in that cycle, and it is recorded.
     const canSwap = (a, b) => a !== b && a.date !== b.date && swappable(a) && swappable(b) && a.employeeId !== b.employeeId;
     const dayOn = (date) => duty.data.days.find((x) => x.date === date);
@@ -1657,7 +1658,7 @@ header.top h1 { flex: 1; min-width: 180px; }
         const why = over.closed ? 'На тој ден нема дежурство.'
             : over.employeeId == null ? 'На тој ден нема дежурен за замена.'
             : over.employeeId === from.employeeId ? 'Тоа е истиот колега.'
-            : over.swap || over.insteadOf ? 'Тој ден веќе има замена или запишан дежурен.'
+            : over.insteadOf ? 'На тој ден е запишано кој навистина дежурал.'
             : 'Тие два дена не можат да се заменат.';
         say('weekMsg', `${why} Ако некој дежурал наместо друг: ⋯ на тој ден → „Кој навистина дежурал“.`, 'error');
     };
@@ -1680,8 +1681,11 @@ header.top h1 { flex: 1; min-width: 180px; }
             else if (d.note && !d.insteadOf) {
                 who += `<span class="sub">${esc(d.note)}</span>`;
             }
-            if (d.swap) who += `<span class="sub">⇄ замена со ${esc(d.swap.name)} (${WEEKDAY[weekdayOf(d.swap.date)]} ${dmy(d.swap.date)}`
-                + `${d.swap.cycle && d.swap.cycle !== d.cycle ? ', круг ' + d.swap.cycle : ''})${d.swap.note ? ' — ' + esc(d.swap.note) : ''}</span>`;
+            // Every step of a chain, oldest first: the day says how it got its name.
+            (d.swaps && d.swaps.length ? d.swaps : d.swap ? [d.swap] : []).forEach((s) => {
+                who += `<span class="sub">⇄ замена со ${esc(s.name)} (${WEEKDAY[weekdayOf(s.date)]} ${dmy(s.date)}`
+                    + `${s.cycle && s.cycle !== d.cycle ? ', круг ' + s.cycle : ''})${s.note ? ' — ' + esc(s.note) : ''}</span>`;
+            });
             if (duty.owner && swappable(d)) {
                 grip = `<button type="button" class="small swap-grip no-print" data-swap-from="${d.date}" `
                     + `aria-label="${esc(d.name)}, ${dmy(d.date)}: повлечете врз друг ден за замена">⠿</button>`;
@@ -1730,8 +1734,9 @@ header.top h1 { flex: 1; min-width: 180px; }
             + members.map((m) => `<label><input type="checkbox" name="away" value="${m.employeeId}"${d.absent.some((a) => a.employeeId === m.employeeId) ? ' checked' : ''}> ${esc(m.name)}</label>`).join('')
             + '</div></div>'
             + (d.swap
-                ? `<div>⇄ Замена со ${esc(d.swap.name)} (${dmy(d.swap.date)}). <button type="button" class="small" data-duty-unswap="${d.swap.id}">Откажи ја замената</button></div>`
-                : swappable(d) ? `<div class="row"><label style="flex:1;margin:0">Замени со ден (ист циклус)<select name="swapWith"><option value="">—</option>`
+                ? `<div>⇄ Замена со ${esc(d.swap.name)} (${dmy(d.swap.date)}). <button type="button" class="small" data-duty-unswap="${d.swap.id}">Откажи ја ${d.swaps && d.swaps.length > 1 ? 'последната замена' : 'замената'}</button></div>`
+                : '')
+            + (swappable(d) ? `<div class="row"><label style="flex:1;margin:0">${d.swap ? 'Уште една замена со ден' : 'Замени со ден'}<select name="swapWith"><option value="">—</option>`
                     + duty.data.days.filter((o) => canSwap(d, o)).map((o) => `<option value="${o.date}">${WEEKDAY[o.weekday]} ${dmy(o.date)} — ${esc(o.name)}</option>`).join('')
                     + `</select></label><button type="button" class="small" data-duty-swap-pick="${d.date}">⇄ Замени…</button></div>` : '')
             + '<div class="row"><button class="primary small" type="submit">Зачувај го денот</button>'
@@ -1763,15 +1768,15 @@ header.top h1 { flex: 1; min-width: 180px; }
     function dutyCountsHtml() {
         const cycles = duty.data.cycleCounts || [];
         const owed = duty.data.standIns || [];
-        const cross = duty.data.crossSwaps || [];
+        const cross = duty.data.swapLog || [];
         if (!cycles.length && !owed.length && !cross.length) return '';
         const person = (p) => `${esc(p.name)} — <b>${p.count}</b>${p.count === 0 ? ' (заменет/а)' : ''}`;
         const side = (x) => `<b>${esc(x.name)}</b> дежура ${WEEKDAY[weekdayOf(x.date)]} ${dmy(x.date)} (круг ${x.cycle})`;
         return '<div class="duty-counts">'
             + (cycles.length ? '<b>Дежурства по круг</b> (секој има по едно; тука се само отстапувањата):'
                 + cycles.map((c) => `<div>Круг ${c.cycle}${c.from ? ` (${dmy(c.from)} – ${dmy(c.to)})` : ''}: ${c.people.map(person).join(' · ')}</div>`).join('') : '')
-            + (cross.length ? '<div class="cross-swaps"><b>Замени меѓу кругови:</b>'
-                + cross.map((s) => `<div>${side(s.first)} ⇄ ${side(s.second)}${s.note ? ' — ' + esc(s.note) : ''}</div>`).join('') + '</div>' : '')
+            + (cross.length ? '<div class="cross-swaps"><b>Евиденција на замени</b> (по редот како се правени):'
+                + cross.map((s, i) => `<div>${i + 1}. ${side(s.first)} ⇄ ${side(s.second)}${s.cross ? ' · <b>меѓу кругови</b>' : ''}${s.note ? ' — ' + esc(s.note) : ''}</div>`).join('') + '</div>' : '')
             + (owed.length ? '<div class="owed"><b>Салдо на замени во годината:</b> '
                 + owed.map((p) => `${esc(p.name)} ${p.net > 0 ? '+' + p.net + ' (дежурал/а повеќе)' : p.net + ' (должи ' + (-p.net) + ')'}`).join(' · ') + '</div>' : '')
             + '</div>';

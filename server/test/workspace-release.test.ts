@@ -240,8 +240,9 @@ test('044 adds duty swaps, locked away from the REST roles, on a database at 043
   assert.equal((await c.query('SELECT count(*)::int AS n FROM duty_members')).rows[0].n,1,'no existing row is touched');
   assert.equal((await c.query("SELECT relrowsecurity FROM pg_class WHERE oid='duty_swaps'::regclass")).rows[0].relrowsecurity,true);
   await c.query("INSERT INTO duty_swaps(school_year_id,first_day,first_employee_id,second_day,second_employee_id) VALUES($1,'1995-09-04',$2,'1995-09-06',$3)",[y,a,b]);
-  await assert.rejects(c.query("INSERT INTO duty_swaps(school_year_id,first_day,first_employee_id,second_day,second_employee_id) VALUES($1,'1995-09-04',$2,'1995-09-08',$3)",[y,a,b]),
-   /duty_swaps_first_day/,'a day is in one swap at most');
+  // 054, in the same run: a day may be in more than one swap, applied in the order made.
+  await c.query("INSERT INTO duty_swaps(school_year_id,first_day,first_employee_id,second_day,second_employee_id) VALUES($1,'1995-09-04',$2,'1995-09-08',$3)",[y,b,a]);
+  assert.ok(!/UNIQUE/i.test((await c.query("SELECT indexdef FROM pg_indexes WHERE schemaname=current_schema() AND indexname='duty_swaps_first_day'")).rows[0].indexdef),'the index stays, no longer unique');
   await assert.rejects(c.query("INSERT INTO duty_swaps(school_year_id,first_day,first_employee_id,second_day,second_employee_id) VALUES($1,'1995-09-12',$2,'1995-09-11',$3)",[y,a,b]),
    /duty_swaps_check/,'the first day comes first');
   await assert.rejects(c.query("INSERT INTO duty_swaps(school_year_id,first_day,first_employee_id,second_day,second_employee_id) VALUES($1,'1995-09-11',$2,'1995-09-12',$2)",[y,a]),

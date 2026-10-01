@@ -172,6 +172,23 @@ test('a swap between two cycles holds, and is counted: two in one cycle, none in
     assert.equal(tally.get(late.cycle)!.get(2), 2);
 });
 
+test('a swapped day can be swapped again: the chain is applied in the order made, and every step is kept (owner, 1 Oct 2026)', () => {
+    const base = rota({});                                   // 1 2 3 | 1 2 3
+    const first = swap('2026-09-03', 3, '2026-09-07', 2);    // 3 and 2 trade across cycles
+    const second = { ...swap('2026-09-04', 1, '2026-09-07', 3), id: 2 }; // then 3 trades the day she got with 1
+    for (const order of [[first, second], [second, first]]) {
+        const result = applySwaps(base, order);
+        assert.deepEqual(result.stale, [], 'the order they are handed in does not matter, the order made does');
+        assert.deepEqual(who(result.days), [1, 2, 2, 3, 1, 3]);
+        const last = result.days[4];
+        assert.deepEqual(last.swaps!.map((s) => [s.id, s.with, s.date]), [[1, 2, '2026-09-03'], [2, 3, '2026-09-04']]);
+        assert.equal(last.swap!.id, 2, 'the last step is the one shown first');
+        assert.equal(last.swapOf, 2, 'and whose turn the rota gave that day is kept');
+        assert.deepEqual(result.applied.map((a) => [a.swap.id, a.firstCycle, a.secondCycle]), [[1, 1, 2], [2, 2, 2]]);
+    }
+    assert.equal(applySwaps(base, [second]).stale.length, 1, 'without the first step the second trades names that are not there');
+});
+
 test('a repeated legacy assignment is ignored and reported, never a second turn in one cycle', () => {
     const days = rota({ days: [['2026-09-01', { assigned: 3 }], ['2026-09-02', { assigned: 3 }]] });
     assert.deepEqual(who(days), [3, 1, 2, 1, 2, 3]);

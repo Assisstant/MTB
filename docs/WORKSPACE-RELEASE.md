@@ -1,5 +1,14 @@
 # Master administration release — 21 September 2026
 
+## A swapped duty day swapped again — 1 October 2026, code only, NOT deployed
+
+Migration **054** replaces the two UNIQUE indexes on `duty_swaps`
+(`first_day`, `second_day` per year) with plain ones, so one day can be in
+more than one swap; no row changes. The guarded runner accepts **033–054**
+under a new recovery schema, `mtb_workspace_recovery_duty_swap_chain_20261001`
+(053 goes with it wherever 053 was not deployed yet). Code that meets a
+database without 054 refuses a second swap of a day and says why.
+
 ## An old link back in use — 1 October 2026, code only, NOT deployed
 
 Migration **053** adds `portal_links.allowed` and `allowed_at` (false for every

@@ -172,8 +172,20 @@ async function main() {
         check('each day says whom it was traded with, and on which day',
             m.days[0].how === 'swap' && m.days[0].swap?.name === A && m.days[0].swap?.date === days[2] && m.days[0].swap?.note === 'договор',
             JSON.stringify(m.days[0]));
-        checkEq('a day already traded is refused', (await call('PUT', '/api/duty/swap', { year: YEAR,
-            first: { date: days[0], employeeId: emp.get(C) }, second: { date: days[1], employeeId: emp.get(B) } })).status, 409);
+        // Owner, 1 Oct 2026: a swapped day may be swapped again — once the database has 054.
+        const chained = (await q(`SELECT indexdef FROM pg_indexes WHERE indexname = 'duty_swaps_first_day' AND schemaname = current_schema()`))[0];
+        const chain = await call('PUT', '/api/duty/swap', { year: YEAR,
+            first: { date: days[0], employeeId: emp.get(C) }, second: { date: days[1], employeeId: emp.get(B) } });
+        if (/UNIQUE/i.test(chained?.indexdef || '')) {
+            checkEq('without 054 a second swap of a day is refused, and says why', [chain.status, /054/.test(chain.body?.error || '')], [409, true]);
+        } else {
+            checkEq('a day already traded can be traded again', chain.status, 200);
+            m = await month();
+            checkEq('the chain reads as two steps', [names(m), m.days[0].swaps.length, m.swapLog.length], [[B, C, A, A, B, C], 2, 2]);
+            checkEq('an earlier step cannot be taken back before the later one',
+                (await call('POST', '/api/duty/swap/remove', { year: YEAR, id: sw.body.id })).status, 409);
+            checkEq('the last step is taken back first', (await call('POST', '/api/duty/swap/remove', { year: YEAR, id: chain.body.id })).status, 200);
+        }
         checkEq('a swap stating the wrong person for a day is refused — the deal is between those two',
             (await call('PUT', '/api/duty/swap', { year: YEAR,
                 first: { date: days[1], employeeId: emp.get(A) }, second: { date: days[4], employeeId: emp.get(B) } })).status, 409);
@@ -195,10 +207,10 @@ async function main() {
             m.cycleCounts.map((c: any) => [c.cycle, c.people.map((p: any) => [p.name, p.count])]),
             [[1, [[A, 2], [B, 0]]], [2, [[B, 2], [A, 0]]]]);
         checkEq('and the swap is listed with both days and their cycles',
-            m.crossSwaps.map((s: any) => [s.first.name, s.first.date, s.first.cycle, s.second.name, s.second.date, s.second.cycle]),
-            [[A, days[1], 1, B, days[3], 2]]);
+            m.swapLog.map((s: any) => [s.cross, s.first.name, s.first.date, s.first.cycle, s.second.name, s.second.date, s.second.cycle]),
+            [[true, A, days[1], 1, B, days[3], 2]]);
         await call('POST', '/api/duty/swap/remove', { year: YEAR, id: across.body.id });
-        checkEq('taken back, nothing is left of it', [names(await month()), (await month()).crossSwaps], [[A, B, C, A, B, C], []]);
+        checkEq('taken back, nothing is left of it', [names(await month()), (await month()).swapLog], [[A, B, C, A, B, C], []]);
         await call('PUT', '/api/duty/absence', { year: YEAR, date: days[0], employeeId: emp.get(A), absent: true });
         const afterAbsence = await call('PUT', '/api/duty/swap', { year: YEAR,
             first: { date: days[0], employeeId: emp.get(B) }, second: { date: days[1], employeeId: emp.get(C) } });

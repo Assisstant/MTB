@@ -651,3 +651,7 @@ other date stay as they are. The colleague who moves has two duties (or more)
 in the cycle moved into and none in their own; the page says so before
 confirming, on the day, per cycle, and in a list of swaps between cycles
 naming both people, both dates and both cycles. The code evens nothing out.
+
+A day that was already swapped may be swapped again. Swaps apply in the order
+they were made and every step stays on record: on the day, and in the numbered
+record of swaps under the table. A chain is taken back from its last step.

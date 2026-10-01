@@ -353,13 +353,8 @@ export async function swapRoutes(server: FastifyInstance,
         try {
             await client.query('BEGIN');
             await client.query('LOCK TABLE duty_swaps IN SHARE ROW EXCLUSIVE MODE');
-            const taken = await client.query(
-                `SELECT 1 FROM duty_swaps WHERE school_year_id = $1
-                    AND (first_day = ANY($2::date[]) OR second_day = ANY($2::date[]))`, [year.id, [first.date, second.date]]);
-            if (taken.rowCount) {
-                await client.query('ROLLBACK');
-                return reply.code(409).send({ error: 'Еден од тие денови веќе е заменет. Прво откажете ја таа замена.' });
-            }
+            // A day already swapped may be swapped again (054): the two names
+            // below are checked against the rota as the earlier swaps left it.
             // Read through the pool: loadDuty asks in parallel, which one client
             // must not do. The lock above is what keeps the swaps still meanwhile.
             const state = await loadDuty(pool, year.id);
@@ -391,8 +386,12 @@ export async function swapRoutes(server: FastifyInstance,
                 [year.id, first.date, first.employeeId, second.date, second.employeeId, (b.note || '').replace(/\s+/g, ' ').trim()]);
             await client.query('COMMIT');
             return { ok: true, id: Number(rows[0].id) };
-        } catch (err) {
+        } catch (err: any) {
             await client.query('ROLLBACK').catch(() => {});
+            // A database without 054 still allows a day in one swap only.
+            if (err && err.code === '23505' && /duty_swaps_(first|second)_day/.test(String(err.constraint || err.message))) {
+                return reply.code(409).send({ error: 'Тој ден веќе има замена, а базата уште ја нема миграцијата 054 за втора замена на ист ден. Пуштете го ажурирањето.' });
+            }
             throw err;
         } finally {
             client.release();
@@ -407,6 +406,13 @@ export async function swapRoutes(server: FastifyInstance,
         if (!parsed.success) return reply.code(400).send({ error: 'Која замена?' });
         const year = await schoolYearOf(pool, parsed.data.year);
         if (!year) return reply.code(404).send({ error: 'Нема таква учебна година.' });
+        // In a chain the last step is taken back first: removing an earlier one
+        // would leave the later swap trading names that are no longer there.
+        const later = await pool.query(
+            `SELECT 1 FROM duty_swaps s JOIN duty_swaps l ON l.school_year_id = s.school_year_id AND l.id > s.id
+                AND (l.first_day IN (s.first_day, s.second_day) OR l.second_day IN (s.first_day, s.second_day))
+              WHERE s.school_year_id = $1 AND s.id = $2 LIMIT 1`, [year.id, parsed.data.id]);
+        if (later.rowCount) return reply.code(409).send({ error: 'Еден од тие два дена има подоцнежна замена. Прво откажете ја неа.' });
         const gone = await pool.query('DELETE FROM duty_swaps WHERE school_year_id = $1 AND id = $2', [year.id, parsed.data.id]);
         if (!gone.rowCount) return reply.code(404).send({ error: 'Таа замена веќе ја нема.' });
         return { ok: true };

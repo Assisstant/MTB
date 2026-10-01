@@ -4717,3 +4717,23 @@ applies — the stored row has not changed, the rule has.
 
 „Кој навистина дежурал" (051) stays the tool for one name on one day with
 nothing given in return; the swap is the tool when two people trade days.
+
+## A swapped duty day can be swapped again (1 Oct 2026, migration 054)
+
+The same evening the owner used the cross-cycle swap and asked for the next
+step: the colleague who got a day by a swap trades THAT day with a third.
+044 had made a day part of one swap only — two unique indexes and a refusal
+in the route — and `applySwaps` skipped any day that already carried one.
+
+Swaps are now applied in the order they were made (`id`), each against the
+names as the earlier ones left them, and the stored row is unchanged: the two
+dates and the two people as they stood when it was agreed. So a chain is two
+rows and reads as two steps. A day keeps every step (`swaps`, oldest first),
+`swapOf` keeps whose turn the rota gave it, and `swapLog` lists the swaps in
+order with both cycles. `rotaWithSwaps` now works the rota out as far as any
+chain reaches: a swap inside the range may trade what one further out left.
+
+A chain is taken back from its last step. Removing an earlier one would leave
+the later swap naming people who no longer hold those days; it would be
+reported stale, which is correct and reads like a fault. The route refuses
+and says which to cancel first.

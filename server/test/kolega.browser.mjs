@@ -563,7 +563,7 @@ check('no page errors', errors.length === 0, errors.join('\n       '));
             day('2026-10-08', 4, 8, { note: 'празник', insteadOf: { employeeId: 9, name: people[9] }, servedEmployeeId: 8, turnInCycle: 2 }),
             // An ordinary day of the second cycle: a swap with it crosses cycles (owner, 1 Oct 2026).
             day('2026-10-09', 5, 7)],
-        crossSwaps: [{ id: 5, note: 'договор', first: { employeeId: 9, name: people[9], date: '2026-09-30', cycle: 1 },
+        swapLog: [{ id: 5, note: 'договор', cross: true, first: { employeeId: 9, name: people[9], date: '2026-09-30', cycle: 1 },
             second: { employeeId: 8, name: people[8], date: '2026-10-13', cycle: 2 } }],
         cycleCounts: [{ cycle: 2, from: '2026-10-06', to: '2026-10-08', people: [{ employeeId: 8, name: people[8], count: 2, sick: false }, { employeeId: 9, name: people[9], count: 0, sick: false }] }],
         standIns: [{ employeeId: 8, name: people[8], net: 1 }, { employeeId: 9, name: people[9], net: -1 }],
@@ -786,9 +786,10 @@ check('no page errors', errors.length === 0, errors.join('\n       '));
     console.log('\nдежурства — a swap between two colleagues');
     check('a swap that no longer holds is shown to the owner, to be taken back',
         /Замена што повеќе не важи/.test(await o.p.textContent('#duty .duty-stale')) && Boolean(await o.p.$('#duty .duty-stale [data-duty-unswap="4"]')));
-    check('only a day that can be traded has a handle — not a closed one, not one already swapped',
+    check('only a day that can be traded has a handle — not a closed one, not one where somebody else served; a swapped day still has it',
         Boolean(await o.p.$('#duty tr[data-date="2026-10-05"] [data-swap-from]')) && !(await o.p.$('#duty tr[data-date="2026-10-07"] [data-swap-from]'))
-        && !(await o.p.$('#duty tr[data-date="2026-10-06"] [data-swap-from]')));
+        && !(await o.p.$('#duty tr[data-date="2026-10-08"] [data-swap-from]'))
+        && Boolean(await o.p.$('#duty tr[data-date="2026-10-06"] [data-swap-from]')));
     const drag = async (fromDate, toDate) => {
         const g = await (await o.p.$(`#duty tr[data-date="${fromDate}"] [data-swap-from]`)).boundingBox();
         const t = await (await o.p.$(`#duty tr[data-date="${toDate}"] td.who`)).boundingBox();
@@ -833,8 +834,11 @@ check('no page errors', errors.length === 0, errors.join('\n       '));
         /Замена меѓу два круга \(круг 1 ↔ круг 2\)/.test(acrossAsk) && /Вера Измислена ќе има 2 дежурства во круг 2 и ниедно во круг 1/.test(acrossAsk), acrossAsk);
     await o.p.click('#swapNo');
     const crossText = await o.p.innerText('#duty .cross-swaps');
-    check('under the table: every swap between cycles, who serves when and in which cycle',
-        /Горан Измислен дежура ср 30\.09\.2026 \(круг 1\) ⇄ Вера Измислена дежура вт 13\.10\.2026 \(круг 2\) — договор/.test(crossText), crossText);
+    check('under the table: the record of swaps, who serves when and in which cycle',
+        /Евиденција на замени/.test(crossText)
+        && /1\. Горан Измислен дежура ср 30\.09\.2026 \(круг 1\) ⇄ Вера Измислена дежура вт 13\.10\.2026 \(круг 2\) · меѓу кругови — договор/.test(crossText), crossText);
+    check('a day already swapped keeps its grip and offers one more swap',
+        Boolean(await o.p.$('#duty tr[data-date="2026-10-06"] [data-swap-from]')));
     check('the event note is still shown on an ordinary duty day',
         /празник/.test(await o.p.innerText('#duty tr[data-date="2026-10-08"]')));
     await o.p.click('#duty tr[data-date="2026-10-06"] [data-duty-open]');
