@@ -1,5 +1,20 @@
 # Master administration release — 21 September 2026
 
+## The door under the owner's control — 1 October 2026, code only, NOT deployed
+
+Migration **052** adds `portal_security`, `portal_links`, `portal_security_log`
+and four columns on `staff_accounts` (`locked`, `locked_at`, `tester`, `owner`),
+all false/empty for every existing account. Deploying it closes nothing: no
+maintenance, no lock, and the plain `/kolegi` link keeps working until the
+owner makes the first coded link. The guarded runner accepts **033–052** under
+a new recovery schema, `mtb_workspace_recovery_portal_security_20261001`
+(051 goes with it wherever 051 was not deployed yet). Keep the existing Render
+`npm run deploy:workspace` sequence, or `scripts\cloud-migrate.ps1`.
+After deployment, in Податоци → „🔐 Безбедност": mark „Моја сметка" FIRST,
+then testers, and only then maintenance or „Нов линк". Optional emergency
+switch in Render → Environment: `MTB_MAINTENANCE=1` (needs a restart, and
+cannot be switched off from the page).
+
 ## Who actually served a duty day — 30 September 2026, code only, NOT deployed
 
 Migration **051** adds the nullable `duty_days.served_employee_id` and a check

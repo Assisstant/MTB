@@ -392,6 +392,7 @@
         <button class="btn soft" data-tab="week" aria-pressed="false">🗓️ Распоред</button>
         <button class="btn soft" data-tab="forms" aria-pressed="false">📥 Формулари</button>
         <button class="btn soft" data-tab="colleagues" aria-pressed="false">👥 Колеги</button>
+        <button class="btn soft" data-tab="security" aria-pressed="false">🔐 Безбедност</button>
         <button class="btn soft" data-tab="look" aria-pressed="false">🎨 Изглед</button>
         <label class="number-toggle"><input id="showRowNumbers" type="checkbox" checked> Редни броеви</label>
     </div>
@@ -563,6 +564,71 @@
         <div class="scroll"><div id="colleaguesAccounts"></div></div>
     </div>
 
+    <!-- The colleagues' door under the owner's control (migration 052):
+         maintenance, a lock per account, testers, the shared link and its
+         archive, and the record of every change. -->
+    <div class="panel tab" id="tab-security">
+        <h2>Безбедност на пристапот</h2>
+        <p class="hint">
+            Овде се одлучува кој може да влезе преку линкот за колегите. Вашата сопственичка најава
+            (Google) не зависи од ништо на оваа страница. Сè што ќе смените тука се запишува во
+            „Запис на промени“ подолу.
+        </p>
+        <div class="controls">
+            <button class="btn soft" id="securityRefresh"><span class="ico" aria-hidden="true">↻</span> Освежи</button>
+            <span class="hint" id="securityMsg" role="status"></span>
+        </div>
+        <div id="securityBody" hidden>
+            <h3>Режим на одржување</h3>
+            <p class="hint">
+                Додека е вклучен, влегуваат само вашата сметка и означените тестери. Сите други гледаат
+                учтива порака. Нивните најави не се бришат: кога ќе го исклучите, продолжуваат каде што биле.
+            </p>
+            <p id="securityState" role="status"></p>
+            <label class="field" style="display:block;max-width:640px">
+                <span>Порака за колегите (може да остане празно)</span>
+                <textarea id="securityMessage" rows="2" maxlength="400" style="width:100%"></textarea>
+            </label>
+            <div class="controls">
+                <button class="btn" id="securityOn">🛠️ Вклучи одржување</button>
+                <button class="btn soft" id="securityOff">Исклучи одржување</button>
+                <button class="btn soft" id="securitySaveMessage">Зачувај ја пораката</button>
+            </div>
+
+            <h3 style="margin-top:22px">Линк за колегите</h3>
+            <p class="hint">
+                „Нов линк“ го заменува сегашниот: стариот веднаш престанува да работи и оди во архивата,
+                а сите колеги се одјавуваат и треба да го добијат новиот линк. Линкот ја отвора само
+                најавата; корисничкото име и лозинката и понатаму се потребни.
+            </p>
+            <p><code id="securityLink" style="overflow-wrap:anywhere">—</code></p>
+            <div class="controls">
+                <input id="securityLinkNote" maxlength="200" placeholder="Белешка (зошто се менува)" style="min-width:220px;padding:7px 10px;border:1px solid var(--border);border-radius:6px;background:var(--card);color:var(--text);font:inherit">
+                <button class="btn" id="securityNewLink">🔗 Нов линк</button>
+                <button class="btn soft" id="securityCopyLink"><span class="ico" aria-hidden="true">📋</span> Копирај</button>
+                <button class="btn soft danger" id="securityNoLink">Врати обичен линк (без код)</button>
+            </div>
+            <details style="margin-top:10px">
+                <summary><b>Архива на стари линкови</b> <span class="hint" id="securityArchiveCount"></span></summary>
+                <div class="scroll"><div id="securityArchive"></div></div>
+            </details>
+
+            <h3 style="margin-top:22px">Сметки</h3>
+            <p class="hint">
+                <b>Заклучи</b> — сметката не може да се најави, и нејзините најави завршуваат веднаш.
+                <b>Тестер</b> — влегува и додека трае одржувањето. <b>Моја сметка</b> — вашата сметка за
+                колеги: никогаш не се заклучува и не ја запира одржувањето.
+            </p>
+            <div class="controls">
+                <button class="btn soft" id="securityUnlockAll">🔓 Отклучи ги сите</button>
+            </div>
+            <div class="scroll"><div id="securityAccounts"></div></div>
+
+            <h3 style="margin-top:22px">Запис на промени</h3>
+            <div class="scroll"><div id="securityLog"></div></div>
+        </div>
+    </div>
+
     <div class="panel tab" id="tab-forms">
         <h2>Пристигнати формулари</h2>
         <p class="hint">
@@ -669,7 +735,7 @@
     let data = null;
     let years = [];
     const requestedTab = new URLSearchParams(window.location.search).get('tab');
-    let tab = ['students', 'teachers', 'therapists', 'classes', 'week', 'forms', 'colleagues', 'look'].includes(requestedTab) ? requestedTab : 'students';
+    let tab = ['students', 'teachers', 'therapists', 'classes', 'week', 'forms', 'colleagues', 'security', 'look'].includes(requestedTab) ? requestedTab : 'students';
     let rolloverPreview = null;
     const PUBLISHED = window.location.hostname === 'assisstant.github.io';
     const SERVER_DEFAULTS = [
@@ -2733,6 +2799,7 @@
         closePickers();
         if (next === 'forms') loadForms();
         if (next === 'colleagues') loadColleagues();
+        if (next === 'security') loadSecurity();
         if (next === 'week') loadWeek();
         if (next === 'look') loadLook();
     }
@@ -2863,8 +2930,9 @@
 
     let colleagueCandidates = [], colleagueYear = '';
     async function loadColleagues() {
-        const base = apiBase || window.location.origin;
-        el('colleaguesLink').textContent = base.replace(/\/$/, '') + '/kolegi';
+        el('colleaguesLink').textContent = colleaguesShareLink(null);
+        // The link may carry a code (🔐 Безбедност); a server without 052 has the plain one.
+        api('GET', '/api/staff-security').then((s) => { el('colleaguesLink').textContent = colleaguesShareLink(s.link); }, () => {});
         let accounts;
         let notices;
         try {
@@ -3020,6 +3088,148 @@
         } catch (err) { status(err.message, 'error', { toast: true }); }
     });
 
+    // ── 🔐 Безбедност: maintenance, locks, testers, the shared link (052) ───
+    /**
+     * The owner's control of the colleagues' door. Every button is one request
+     * and then a re-read: the page shows what the server holds, never what it
+     * hopes was saved. `colleaguesShareLink` is the same address the „Колеги"
+     * tab shows, so the two tabs cannot hand out different links.
+     */
+    let security = null;
+    const SECURITY_ACTIONS = {
+        maintenance_on: 'Одржување вклучено', maintenance_off: 'Одржување исклучено',
+        lock: 'Заклучена сметка', unlock: 'Отклучена сметка', unlock_all: 'Отклучени сите сметки',
+        tester_on: 'Означен тестер', tester_off: 'Тргнат тестер',
+        owner_on: 'Означена сопственичка сметка', owner_off: 'Тргната сопственичка сметка',
+        link_new: 'Нов линк', link_off: 'Вратен обичен линк',
+        refused_locked: 'Одбиена најава на заклучена сметка'
+    };
+    const shareBase = () => (apiBase || window.location.origin).replace(/\/$/, '');
+    const colleaguesShareLink = (link) => shareBase() + '/kolegi' + (link && link.code ? '/' + link.code : '');
+
+    function drawSecurity() {
+        const s = security;
+        el('securityBody').hidden = !s;
+        if (!s) return;
+        const m = s.maintenance;
+        const held = s.accounts.filter((a) => !a.owner && !a.tester).length;
+        el('securityState').innerHTML = m.on
+            ? `<span class="form-status pending">🛠️ Одржувањето е ВКЛУЧЕНО</span> — запрени сметки: ${held}.`
+              + (m.forced ? ' <b>Вклучено е преку поставката MTB_MAINTENANCE на серверот и не се исклучува оттука.</b>' : '')
+            : '<span class="form-status done">Одржувањето е исклучено</span> — колегите влегуваат нормално.';
+        if (document.activeElement !== el('securityMessage')) el('securityMessage').value = m.message || '';
+        el('securityMessage').placeholder = m.defaultMessage || '';
+        el('securityOn').disabled = m.on;
+        el('securityOff').disabled = !m.on || m.forced;
+        if (m.on && !s.accounts.some((a) => a.owner)) {
+            el('securityState').innerHTML += '<br><span class="form-status pending">⚠ Не е означена „Моја сметка“: и вашата сметка за колеги е запрена.</span>';
+        }
+
+        el('securityLink').textContent = colleaguesShareLink(s.link);
+        el('securityNoLink').disabled = !s.link;
+        el('securityArchiveCount').textContent = s.archive.length ? `(${s.archive.length})` : '(празна)';
+        el('securityArchive').innerHTML = s.archive.length
+            ? '<table class="list"><thead><tr><th>Линк</th><th>Важел од</th><th>Запрен</th><th>Обиди по запирањето</th><th>Белешка</th></tr></thead><tbody>'
+              + s.archive.map((l) => `<tr><td><code>/kolegi/${esc(l.code)}</code></td><td>${esc(when2(l.createdAt))}</td><td>${esc(when2(l.retiredAt))}</td>`
+                + `<td>${l.refused ? `${l.refused} · последен ${esc(when2(l.lastRefusedAt))}` : '—'}</td><td>${esc(l.note || '')}</td></tr>`).join('')
+              + '</tbody></table>'
+            : '<p class="hint">Уште нема заменет линк.</p>';
+
+        el('securityUnlockAll').disabled = !s.accounts.some((a) => a.locked);
+        el('securityAccounts').innerHTML = s.accounts.length
+            ? '<table class="list"><thead><tr><th>Колега</th><th>Состојба</th><th>Активни најави</th><th>Последна најава</th><th></th></tr></thead><tbody>'
+              + s.accounts.map((a) => {
+                  const state = a.owner ? '<span class="form-status done">★ моја сметка</span>'
+                      : a.locked ? `<span class="form-status pending">🔒 заклучена</span> <span class="none">од ${esc(when2(a.lockedAt))}</span>`
+                      : m.on && !a.tester ? '<span class="form-status pending">запрена (одржување)</span>'
+                      : '<span class="form-status done">влегува</span>';
+                  return `<tr data-security-account="${a.employeeId}"><td>${esc(personName(a.name))}</td>`
+                    + `<td>${state}${a.tester && !a.owner ? ' <span class="form-status done">· тестер</span>' : ''}</td>`
+                    + `<td>${a.sessions}</td><td>${esc(when2(a.lastLoginAt))}</td><td class="act">`
+                    + (a.owner ? '' : `<button class="btn soft${a.locked ? '' : ' danger'}" data-security-set="locked" data-value="${!a.locked}">${a.locked ? '🔓 Отклучи' : '🔒 Заклучи'}</button> `)
+                    + (a.owner ? '' : `<button class="btn soft" data-security-set="tester" data-value="${!a.tester}">${a.tester ? 'Тргни тестер' : 'Тестер'}</button> `)
+                    + `<button class="btn soft" data-security-set="owner" data-value="${!a.owner}">${a.owner ? 'Не е моја сметка' : 'Моја сметка'}</button>`
+                    + '</td></tr>';
+              }).join('') + '</tbody></table>'
+            : '<p class="hint">Нема колеги на списокот за годинава.</p>';
+
+        el('securityLog').innerHTML = s.log.length
+            ? '<table class="list"><thead><tr><th>Кога</th><th>Што</th><th>Сметка</th><th>Белешка</th><th>Кој</th></tr></thead><tbody>'
+              + s.log.map((l) => `<tr><td>${esc(when2(l.at))}</td><td>${esc(SECURITY_ACTIONS[l.action] || l.action)}</td>`
+                + `<td>${l.name ? esc(personName(l.name)) : '—'}</td><td>${esc(l.detail || '')}</td><td>${esc(l.actor || '—')}</td></tr>`).join('')
+              + '</tbody></table>'
+            : '<p class="hint">Уште нема промени.</p>';
+    }
+
+    async function loadSecurity() {
+        try {
+            security = await api('GET', '/api/staff-security');
+            el('securityMsg').textContent = '';
+        } catch (err) {
+            security = null;
+            el('securityMsg').textContent = err.message;
+        }
+        drawSecurity();
+    }
+
+    /** One change, then the truth from the server. */
+    async function securityChange(button, work, done) {
+        if (button) button.disabled = true;
+        try {
+            await work();
+            await loadSecurity();
+            if (done) status(done, 'ok', { toast: true });
+        } catch (err) {
+            status(err.message, 'error', { toast: true });
+            await loadSecurity();
+        } finally { if (button) button.disabled = false; drawSecurity(); }
+    }
+
+    function wireSecurity() {
+        const message = () => el('securityMessage').value.trim() || null;
+        el('securityRefresh').addEventListener('click', () => loadSecurity());
+        el('securityOn').addEventListener('click', (event) => {
+            const held = security ? security.accounts.filter((a) => !a.owner && !a.tester).length : 0;
+            if (!window.confirm(`Да се вклучи одржување? ${held} сметки нема да можат да влезат додека не го исклучите.`)) return;
+            securityChange(event.currentTarget, () => api('PUT', '/api/staff-security/maintenance', { on: true, message: message() }), 'Одржувањето е вклучено.');
+        });
+        el('securityOff').addEventListener('click', (event) =>
+            securityChange(event.currentTarget, () => api('PUT', '/api/staff-security/maintenance', { on: false, message: message() }), 'Одржувањето е исклучено.'));
+        el('securitySaveMessage').addEventListener('click', (event) =>
+            securityChange(event.currentTarget, () => api('PUT', '/api/staff-security/maintenance',
+                { on: Boolean(security && security.maintenance.on && !security.maintenance.forced), message: message() }), 'Пораката е зачувана.'));
+        el('securityNewLink').addEventListener('click', (event) => {
+            if (!window.confirm('Да се направи нов линк? Сегашниот линк веднаш престанува да работи и сите колеги се одјавуваат.')) return;
+            const note = el('securityLinkNote').value.trim() || null;
+            securityChange(event.currentTarget, async () => { await api('POST', '/api/staff-security/link', { note }); el('securityLinkNote').value = ''; },
+                'Новиот линк е готов. Копирајте го и пратете им го на колегите.');
+        });
+        el('securityNoLink').addEventListener('click', (event) => {
+            if (!window.confirm('Да се врати обичниот линк /kolegi? Сегашниот линк со код оди во архивата и секој што ја знае адресата повторно ја гледа најавата.')) return;
+            securityChange(event.currentTarget, () => api('DELETE', '/api/staff-security/link'), 'Важи обичниот линк.');
+        });
+        el('securityCopyLink').addEventListener('click', async () => {
+            try { await navigator.clipboard.writeText(el('securityLink').textContent); status('Линкот е копиран.', 'ok', { toast: true }); }
+            catch (_) { status('Изберете го линкот и копирајте го рачно.', 'warn'); }
+        });
+        el('securityUnlockAll').addEventListener('click', (event) => {
+            if (!window.confirm('Да се отклучат сите заклучени сметки?')) return;
+            securityChange(event.currentTarget, () => api('POST', '/api/staff-security/unlock-all', {}), 'Сметките се отклучени.');
+        });
+        el('securityAccounts').addEventListener('click', (event) => {
+            const button = event.target.closest('[data-security-set]');
+            if (!button) return;
+            const row = button.closest('tr');
+            const id = Number(row.dataset.securityAccount);
+            const field = button.dataset.securitySet;
+            const value = button.dataset.value === 'true';
+            const name = row.querySelector('td').textContent;
+            if (field === 'locked' && value && !window.confirm(`${name}: да се заклучи сметката? Најавите завршуваат веднаш.`)) return;
+            if (field === 'owner' && value && !window.confirm(`${name}: ова е вашата сметка за колеги? Таа нема да се заклучува ниту да ја запира одржувањето.`)) return;
+            securityChange(button, () => api('PUT', `/api/staff-security/accounts/${id}`, { [field]: value }));
+        });
+    }
+
     function setNumberVisibility() {
         document.body.classList.toggle('hide-list-numbers', !el('showRowNumbers').checked);
     }
@@ -3031,6 +3241,7 @@
     el('formsFiles').addEventListener('change', (e) => importFormFiles(e.target.files));
     el('formsRefresh').addEventListener('click', () => loadForms());
     wireLook();
+    wireSecurity();
     document.querySelector('label[for="formsFiles"]').addEventListener('keydown', (e) => {
         if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); el('formsFiles').click(); }
     });

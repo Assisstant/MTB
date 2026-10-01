@@ -4653,3 +4653,46 @@ Tests cover persistent hashes through independent connections, immediate
 revocation, optional expiry, a private 047→048 upgrade, event counting with
 and without a pause across a month boundary, and both choices through the
 API and phone-sized day editor. Real duty records are not rewritten.
+
+## The door under the owner's control (1 Oct 2026, migration 052)
+
+The owner asked for a maintenance mode that stops every colleague except the
+ones approved for testing and the owner's own account; for locking chosen
+accounts; for a shared link that can be replaced so the old one dies; for a
+record of all of it; and for a page to do it from.
+
+**Why a code in the link.** The username is a name and the initial password
+is shared, so the address was the only thing an outsider did not have — and
+it was guessable. The code makes it a real third thing. It is deliberately
+NOT a defence against a colleague who forwards the new link with their own
+password: that is what the per-account lock and the password reset are for,
+and the page says so by keeping both beside the link.
+
+**Why the code is stored readable.** The first design kept only a hash, like
+the duty links. But a duty link is a capability; this is an address thirty
+people already hold, and an owner who cannot read the current link again has
+to replace it and message everyone. The database that holds it also holds
+everything the door protects. The tables are closed to the REST roles and
+excluded from the mirror.
+
+**Why maintenance keeps sessions and a lock does not.** Maintenance is
+temporary and for everybody: ending thirty sign-ins to end them again an hour
+later is a cost with no gain, so the hook refuses and the session waits. A
+lock is about one person, and a remembered session is exactly what it is
+meant to end. A new link ends them too — a session that came in through the
+old link must not outlive it.
+
+**Why one hook.** The door's routes live in `routes/portal.ts` and
+`routes/duty.ts`. `portal-security.test.ts` walks every registered
+`/api/portal/` route with a held colleague's token and expects 423 from each,
+so a route added later in a third file is covered or the test says so.
+
+**Why 423.** 401 already means „sign in again" to Kolega.html and clears the
+token; 403 means „not yours". Neither is „come back later", and reusing one
+would have thrown away the sign-in maintenance is careful to keep.
+
+The address is `/kolegi/<code>`, not a fragment, because that is what the
+owner was shown and agreed to; `cloudRequestLog` keeps the code out of the
+server's log. Tests: `portal-security.test.ts` (own schema, in `npm test`),
+`test:door` (browser, both themes, phone width), the 052 release test, and
+the cloud gate test for the coded address.

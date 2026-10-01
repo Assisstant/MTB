@@ -22,7 +22,11 @@ import { AttendanceError, readAttendance, writeAttendance } from '../lib/cabinet
 import { transportAttendance } from '../lib/transport-attendance.js';
 import { z } from 'zod';
 import { pool } from '../db.js';
-import { assertOwner, refuseScope, scopeOf } from '../lib/colleague.js';
+import { assertOwner, refuseScope, scopeOf, signerName } from '../lib/colleague.js';
+import {
+    DOOR_STATUS, accountRefusal, doorNotice, logChange, newLink, retireLink, securityOverview, setAccount,
+    setActingCheck, setMaintenance, unlockAll
+} from '../lib/portal-security.js';
 import { TEACHING_DAYS } from '../lib/teaching.js';
 import {
     addNotices, classLessonClashes, myLessonClashes, noticeSentence, putLesson, putTeacherLesson,
@@ -403,6 +407,8 @@ async function onDutyList(employeeId: number, yearId: number): Promise<boolean> 
 
 export async function portalRoutes(server: FastifyInstance, options: { year?: string } = {}) {
     yearLabel = options.year;
+    // The owner's look is the owner: it passes the door's link, locks and maintenance.
+    setActingCheck((token) => actingEmployee(token) != null);
 
     async function reader(req: FastifyRequest, reply: FastifyReply) {
         const who = await signed(req, reply);
@@ -500,6 +506,15 @@ export async function portalRoutes(server: FastifyInstance, options: { year?: st
      */
     // With its leading slash: the public-file list is asked about this path too.
     server.get('/kolegi', async (_req, reply) => (reply as any).sendFile('/Kolega.html'));
+    // The shared link with its code (052). The page is the same for any code:
+    // whether the code is the current one is answered by the API, on every call.
+    server.get('/kolegi/:code', async (_req, reply) => (reply as any).sendFile('/Kolega.html'));
+
+    /** How the door stands, for a page with no sign-in yet. A retired link never gets this far. */
+    server.get('/api/portal/door', async (_req, reply) => {
+        reply.header('Cache-Control', 'no-store');
+        return doorNotice(pool);
+    });
 
     server.post('/api/portal/login', async (req, reply) => {
         const parsed = LoginBody.safeParse(req.body);
@@ -528,6 +543,12 @@ export async function portalRoutes(server: FastifyInstance, options: { year?: st
             return reply.code(401).send({ error: WRONG });
         }
         failures.delete(nameKey);
+        // Only after the password: a stranger is not told whose account is locked.
+        const closed = await accountRefusal(pool, found.staff.employeeId);
+        if (closed) {
+            if (closed.door === 'locked') await logChange(pool, 'refused_locked', null, found.staff.employeeId);
+            return reply.code(DOOR_STATUS).send(closed);
+        }
         const session = await openSession(pool, found.staff.employeeId);
         return {
             token: session.token,
@@ -1223,5 +1244,107 @@ export async function portalRoutes(server: FastifyInstance, options: { year?: st
         if (!known.rows.length) return reply.code(404).send({ error: 'no such employee' });
         await resetAccount(pool, employeeId);
         return { ok: true };
+    });
+
+    // ── безбедност: maintenance, locks, testers, the shared link (052) ──
+    // Outside /api/portal/, like the routes above: the owner's alone.
+
+    const actorOf = async (req: FastifyRequest) => signerName(await scopeOf(req)) || 'Администраторот';
+    async function ownerOnly(req: FastifyRequest, reply: FastifyReply): Promise<boolean> {
+        try { assertOwner(await scopeOf(req), 'безбедноста на пристапот'); return true; }
+        catch (err) { refuseScope(reply, err); return false; }
+    }
+    /** One change, one transaction: the mark and its line in the record land together. */
+    async function change<T>(work: (client: any) => Promise<T>): Promise<T> {
+        const client = await pool.connect();
+        try {
+            await client.query('BEGIN');
+            const answer = await work(client);
+            await client.query('COMMIT');
+            return answer;
+        } catch (err) { await client.query('ROLLBACK'); throw err; }
+        finally { client.release(); }
+    }
+
+    server.get('/api/staff-security', async (req, reply) => {
+        if (!(await ownerOnly(req, reply))) return;
+        const year = await currentYear();
+        if (!year) return reply.code(503).send({ error: 'Нема тековна учебна година.' });
+        let overview;
+        try { overview = await securityOverview(pool); }
+        catch (err: any) {
+            if (err && (err.code === '42P01' || err.code === '42703')) {
+                return reply.code(503).send({ error: 'Базата уште ја нема миграцијата 052. Пуштете го ажурирањето, па освежете.', needsMigration: true });
+            }
+            throw err;
+        }
+        const { marks, ...rest } = overview;
+        reply.header('Cache-Control', 'no-store');
+        return {
+            year: year.label,
+            ...rest,
+            accounts: (await staffOfYear(pool, year.id)).map((s) => {
+                const m = marks.get(s.employeeId) || {};
+                return {
+                    employeeId: s.employeeId, name: s.name,
+                    teacher: s.teacherId != null, therapist: s.therapistId != null, readOnly: Boolean(s.readOnly),
+                    locked: Boolean(m.locked), lockedAt: m.locked_at || null,
+                    tester: Boolean(m.tester), owner: Boolean(m.owner),
+                    lastLoginAt: m.last_login_at || null, sessions: m.sessions || 0
+                };
+            })
+        };
+    });
+
+    server.put('/api/staff-security/maintenance', async (req, reply) => {
+        if (!(await ownerOnly(req, reply))) return;
+        const parsed = z.object({ on: z.boolean(), message: z.string().max(400).nullable().optional() }).strict().safeParse(req.body);
+        if (!parsed.success) return reply.code(400).send({ error: 'Пораката може да има најмногу 400 знаци.' });
+        const message = String(parsed.data.message ?? '').replace(/\s+/g, ' ').trim() || null;
+        const actor = await actorOf(req);
+        await change((client) => setMaintenance(client, parsed.data.on, message, actor));
+        return { ok: true };
+    });
+
+    server.put('/api/staff-security/accounts/:employeeId', async (req, reply) => {
+        if (!(await ownerOnly(req, reply))) return;
+        const employeeId = Number((req.params as any).employeeId);
+        const parsed = z.object({ locked: z.boolean().optional(), tester: z.boolean().optional(), owner: z.boolean().optional() })
+            .strict().safeParse(req.body);
+        if (!Number.isInteger(employeeId) || employeeId <= 0 || !parsed.success) return reply.code(400).send({ error: 'Проверете ја избраната сметка.' });
+        const year = await currentYear();
+        if (!year) return reply.code(503).send({ error: 'Нема тековна учебна година.' });
+        if (!(await staffOfYear(pool, year.id)).some((s) => s.employeeId === employeeId)) {
+            return reply.code(404).send({ error: 'Тој колега не е на списокот за годинава.' });
+        }
+        const actor = await actorOf(req);
+        const answer = await change((client) => setAccount(client, employeeId, parsed.data, actor));
+        if (!answer.ok) return reply.code(409).send({ error: answer.error });
+        // A lock also ends the owner's open look at that account.
+        if (parsed.data.locked) for (const [key, entry] of acting) if (entry.employeeId === employeeId) acting.delete(key);
+        return { ok: true };
+    });
+
+    server.post('/api/staff-security/unlock-all', async (req, reply) => {
+        if (!(await ownerOnly(req, reply))) return;
+        const actor = await actorOf(req);
+        return { ok: true, unlocked: await change((client) => unlockAll(client, actor)) };
+    });
+
+    const LinkBody = z.object({ note: z.string().max(200).nullable().optional() }).strict();
+    server.post('/api/staff-security/link', async (req, reply) => {
+        if (!(await ownerOnly(req, reply))) return;
+        const parsed = LinkBody.safeParse(req.body ?? {});
+        if (!parsed.success) return reply.code(400).send({ error: 'Белешката може да има најмногу 200 знаци.' });
+        const note = String(parsed.data.note ?? '').replace(/\s+/g, ' ').trim() || null;
+        const actor = await actorOf(req);
+        const code = await change((client) => newLink(client, note, actor));
+        return { ok: true, code, url: '/kolegi/' + code };
+    });
+
+    server.delete('/api/staff-security/link', async (req, reply) => {
+        if (!(await ownerOnly(req, reply))) return;
+        const actor = await actorOf(req);
+        return { ok: true, retired: await change((client) => retireLink(client, actor)) };
     });
 }

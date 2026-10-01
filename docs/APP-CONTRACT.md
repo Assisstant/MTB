@@ -619,3 +619,22 @@ keeps it visible. Prescribed sections stay shared and are not category-gated.
 Manual overrides are stored as deviations only. Never persist the full section
 list for a sheet: that freezes the sheet at creation and stops it following the
 caseload.
+
+## The colleagues' door: maintenance, locks and the shared link (owner, 1 October 2026)
+
+- The owner alone decides who may come in through the colleagues' door, in
+  Податоци → „🔐 Безбедност". The owner's Google sign-in depends on none of it.
+- **Maintenance** stops every colleague except the account marked „Моја
+  сметка" and the accounts marked „Тестер". Their sign-ins are kept and carry
+  on when it ends. `MTB_MAINTENANCE=1` on the server forces it on.
+- **A locked account** cannot sign in and its sign-ins end at once. The
+  owner's own account cannot be locked.
+- **One shared link**, `/kolegi/<code>`. „Нов линк" replaces it: the old one
+  stops at once, goes to the archive, and everybody but the owner is signed
+  out. The link opens only the sign-in form; name and password are still
+  required. Until a first link is made, plain `/kolegi` works.
+- A colleague who is stopped reads a polite message saying which of the three
+  it is, never an error.
+- Every change, and every refused sign-in of a locked account, is recorded
+  and shown to the owner. The archive shows how often a retired link was
+  still tried.

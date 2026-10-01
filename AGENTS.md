@@ -160,6 +160,7 @@ server/src/routes/sync-status.ts     read-only: the sync manifests, migrations, 
 server/src/routes/form-replies.ts    the review queue for offline form answers: stored first, the administrator decides
 server/src/routes/portal.ts          the colleagues' door (/api/portal/*): every route checks its own session
 server/src/lib/staff-accounts.ts     the username is the person's name in either script; the initial password; sessions
+server/src/lib/portal-security.ts    the door's one hook: the shared link's code, maintenance, locked accounts, the record (052)
 server/src/lib/portal-week.ts        a colleague's teaching week: what a change clashes with, and the notices it leaves
 server/src/lib/evidence.ts           the catalogue, the year's columns and one sheet read whole
 server/src/lib/public-static.ts      explicit allowlist for files published by the local server
@@ -274,6 +275,7 @@ npm run test:portal-cabinet          a therapist's own cabinet through the same 
 npm run test:kolega                  Kolega.html in a browser; every API call invented
 npm run test:layout                  mtb-layout.js: pin and fold on strips, table heads, sections; no server
 npm run test:kolegi-admin            Податоци → Колеги and the administrator's look; every API call invented
+npm run test:door                    the polite popup in Kolega and Податоци → Безбедност; every API call invented
 npm run test:teacher-week            Податоци → 🗓️ Распоред and Настава's teacher week, 🔒/🔓; every API call invented
 npm run test:schedule-form           the cabinet form (all therapists) offline, then into the queue
 npm run test:wbacc                   WBACC.html in a browser: pictograms, bookmarks, offline; every call invented
@@ -796,6 +798,27 @@ read `DATABASE_URL`; never add literal credentials to this public repository.
   travel in a header, never a cookie. The initial password
   (`ResursenCentar`) stays valid until the colleague changes it — the owner's
   decision, made knowing the username is only a name.
+
+- **The colleagues' door closes in ONE hook, and the owner holds the switch
+  (1 Oct 2026, migration 052).** `lib/portal-security.ts` `installPortalDoor`
+  runs on the root instance for every `/api/portal/` path, in whichever file
+  the route lives: the shared link's code (`/kolegi/<code>`, header
+  `x-mtb-portal-key`), maintenance (`portal_security`, or `MTB_MAINTENANCE=1`
+  as the switch that works when the page does not), and a locked account
+  (`staff_accounts.locked`). A refusal is **423** with `door: link |
+  maintenance | locked`, which Kolega.html shows as a polite popup. Do not
+  add a per-route check: the door's routes are in two files already. Sign-in
+  is the one exception — the account is known only after the password, so the
+  login route calls `accountRefusal` itself, and a wrong password is told
+  nothing. Maintenance does NOT delete sessions (they carry on when it ends);
+  a lock and a new link do. `tester` passes maintenance; `owner` (the owner's
+  own colleague account, marked in the database, never by name here) passes
+  maintenance and cannot be locked; the owner's two-hour look passes all of
+  it. With no row in `portal_links` the plain `/kolegi` works as before, and
+  a database without 052 behaves as before — the code may arrive a start
+  ahead of its migration. The page is Податоци → „🔐 Безбедност"
+  (`/api/staff-security`, outside `/api/portal/`); every change there lands
+  in `portal_security_log`. The three tables never enter a mirror.
 
 ## Conventions
 

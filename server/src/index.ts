@@ -31,6 +31,7 @@ import { resolveServerIdentity } from './lib/server-identity.js';
 import { authorName, creditLook, lookCss } from './lib/author.js';
 import { updateStatus } from './lib/update-status.js';
 import { installColleagueBoundary } from './lib/colleague.js';
+import { installPortalDoor } from './lib/portal-security.js';
 import { installMirrorWriteBoundary } from './lib/mirror-boundary.js';
 import { installPublicStatic } from './lib/public-static.js';
 import { cloudAuthMode, cloudRequestLog, installCloudAuth, listenOptions } from './lib/cloud-auth.js';
@@ -103,6 +104,10 @@ installMirrorWriteBoundary(server);
 // around it; this perimeter must see every mutating API route, including ones
 // added later.
 installColleagueBoundary(server);
+
+// The colleagues' door: the shared link's code, maintenance and locked
+// accounts, for every /api/portal/ route in whichever file it lives (052).
+installPortalDoor(server);
 
 /**
  * A value unique to this running server, so a caller can tell two machines

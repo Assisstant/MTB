@@ -114,6 +114,13 @@ if ($code -ne 0 -or -not (Test-Path $dump) -or (Get-Item $dump).Length -lt 1024)
     Stop-WithMessage ("Снимката не успеа — миграцијата НЕ е пуштена.`n" + (($dumpOut | Out-String).Trim()))
 }
 Write-Host ('  {0:N0} KB' -f ((Get-Item $dump).Length / 1KB))
+# Пет состојби се доволни (сопственикот, 1 октомври 2026): постарите снимки
+# на облакот се бришат дури откако новата е проверена дека постои.
+$oldDumps = @(Get-ChildItem -LiteralPath $backups -File |
+    Where-Object { $_.Name -match '^supabase-before-[\w-]+-\d{8}-\d{6}\.dump$' } |
+    Sort-Object LastWriteTime -Descending | Select-Object -Skip 5)
+foreach ($old in $oldDumps) { Remove-Item -LiteralPath $old.FullName -Force -Confirm:$false }
+if ($oldDumps.Count) { Write-Host "  избришани постари снимки на облакот: $($oldDumps.Count) (остануваат последните 5)" -ForegroundColor Yellow }
 
 # ── миграцијата: истиот runner како Render ────────────────────────────────
 Write-Host ''

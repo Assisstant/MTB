@@ -85,6 +85,18 @@ body { margin: 0; font-family: Inter, "Segoe UI", system-ui, sans-serif; backgro
 main { max-width: 820px; margin: 0 auto; padding: 16px 16px 48px; }
 .card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 18px; margin-top: 14px; }
 .narrow { max-width: 440px; margin: 8vh auto 0; }
+/* The door is closed (052): maintenance, a replaced link, a locked account. */
+.door-veil { position: fixed; inset: 0; z-index: 60; display: grid; place-items: center; padding: 16px;
+             background: rgba(10, 12, 30, .62); }
+.door-veil[hidden] { display: none; }
+.door-box { width: 100%; max-width: 420px; background: var(--panel); color: var(--text); border: 1px solid var(--line);
+            border-radius: 16px; padding: 24px 20px 18px; text-align: center; box-shadow: 0 18px 48px rgba(0, 0, 0, .28); }
+.door-box .door-icon { font-size: 40px; line-height: 1; }
+.door-box h2 { margin: 12px 0 8px; font-size: 20px; }
+.door-box p { margin: 0 0 16px; color: var(--text); overflow-wrap: anywhere; }
+.door-box .row { justify-content: center; }
+.door-box button { min-height: 48px; }
+@media print { .door-veil { display: none; } }
 h1 { font-size: 21px; margin: 0; }
 h2 { font-size: 18px; margin: 0 0 8px; }
 p { margin: 6px 0 12px; }
@@ -690,6 +702,17 @@ header.top h1 { flex: 1; min-width: 180px; }
 <div class="mtb-credit" id="mtbCredit" hidden></div>
 <div class="class-card" id="classCard" role="tooltip" hidden></div>
 <div class="swap-ask" id="swapAsk" role="dialog" aria-modal="true" aria-labelledby="swapAskTitle" hidden></div>
+<div class="door-veil" id="doorVeil" hidden>
+  <div class="door-box" role="alertdialog" aria-modal="true" aria-labelledby="doorTitle" aria-describedby="doorText">
+    <div class="door-icon" id="doorIcon" aria-hidden="true">🛠️</div>
+    <h2 id="doorTitle"></h2>
+    <p id="doorText"></p>
+    <div class="row">
+      <button type="button" class="primary" id="doorRetry">Обиди се повторно</button>
+      <button type="button" id="doorPass" hidden>Имам дозвола — најава</button>
+    </div>
+  </div>
+</div>
 <script>
 (function () {
     'use strict';
@@ -739,6 +762,44 @@ header.top h1 { flex: 1; min-width: 180px; }
         }
     };
 
+    // The shared link is /kolegi/<code> (052). The code is kept on this device,
+    // so a bookmark of the plain address keeps working until the link is replaced.
+    const DOOR_KEY = 'mtb_portal_key_v1';
+    const doorKey = (() => {
+        const fromPath = (/^\/kolegi\/([a-z0-9-]{1,40})\/?$/i.exec(window.location.pathname) || [])[1] || '';
+        if (fromPath) {
+            try { localStorage.setItem(DOOR_KEY, fromPath.toLowerCase()); } catch (_) { /* this page load only */ }
+            return fromPath.toLowerCase();
+        }
+        try { return localStorage.getItem(DOOR_KEY) || ''; } catch (_) { return ''; }
+    })();
+
+    /**
+     * The door is closed, said politely: the link was replaced, the system is
+     * in maintenance, or this account is stopped. The sign-in is NOT thrown
+     * away — when maintenance ends, „Обиди се повторно" carries on.
+     */
+    const DOOR_TEXT = {
+        link: ['🔗', 'Линкот е променет'],
+        maintenance: ['🛠️', 'Системот се одржува'],
+        locked: ['🔒', 'Пристапот е запрен']
+    };
+    function showDoor(kind, text, mayPass) {
+        const [icon, title] = DOOR_TEXT[kind] || DOOR_TEXT.maintenance;
+        el('doorIcon').textContent = icon;
+        el('doorTitle').textContent = title;
+        el('doorText').textContent = text || '';
+        el('doorPass').hidden = !mayPass;
+        el('doorVeil').hidden = false;
+        el('doorRetry').focus();
+    }
+    el('doorRetry').addEventListener('click', () => window.location.reload());
+    el('doorPass').addEventListener('click', () => {
+        el('doorVeil').hidden = true;
+        const first = el('login').querySelector('input');
+        if (first) first.focus();
+    });
+
     const token = {
         get() {
             if (actingToken) return actingToken;
@@ -767,7 +828,7 @@ header.top h1 { flex: 1; min-width: 180px; }
             res = await fetch(path, {
                 method,
                 cache: 'no-store',
-                headers: Object.assign({ 'x-mtb-portal-token': token.get() },
+                headers: Object.assign({ 'x-mtb-portal-token': token.get() }, doorKey ? { 'x-mtb-portal-key': doorKey } : {},
                     body === undefined ? {} : { 'Content-Type': 'application/json' }),
                 body: body === undefined ? undefined : JSON.stringify(body)
             });
@@ -780,6 +841,7 @@ header.top h1 { flex: 1; min-width: 180px; }
             token.clear();
             show('login');
         }
+        if (res.status === 423 && payload && payload.door) showDoor(payload.door, payload.error, false);
         if (!res.ok) throw Object.assign(new Error((payload && payload.error) || ('Грешка ' + res.status)), { status: res.status, payload });
         return payload;
     }
@@ -1371,6 +1433,7 @@ header.top h1 { flex: 1; min-width: 180px; }
         if (throughLink) {
             headers['x-mtb-portal-token'] = token.get();
             headers['x-mtb-duty-admin-token'] = offered;
+            if (doorKey) headers['x-mtb-portal-key'] = doorKey;
         } else {
             // The same optional PIN session used by the rest of the suite.
             try { const pin = localStorage.getItem('evidence_token_v1'); if (pin) headers['x-mtb-evidence-token'] = pin; } catch (_) { /* cloud cookie only */ }
@@ -1383,6 +1446,7 @@ header.top h1 { flex: 1; min-width: 180px; }
         let payload = null;
         try { payload = await res.json(); } catch (_) { /* not JSON: the gate's sign-in page */ }
         if (!res.ok || !payload) {
+            if (throughLink && res.status === 423 && payload && payload.door) showDoor(payload.door, payload.error, false);
             if (throughLink && res.status === 401) {
                 token.clear();
                 duty.owner = false;
@@ -3279,8 +3343,16 @@ header.top h1 { flex: 1; min-width: 180px; }
     });
     el('welcomeTheme').addEventListener('click',()=>el('themeToggle').click());
 
+    /** Before anybody types a password: is the door in maintenance? A replaced link is refused by the same call. */
+    async function askDoor() {
+        try {
+            const door = await api('GET', '/api/portal/door');
+            if (door && door.maintenance) showDoor('maintenance', door.message, true);
+        } catch (_) { /* a replaced link has already said so; an older server has no such route */ }
+    }
+
     async function start() {
-        if (!token.get()) return show('login');
+        if (!token.get()) { show('login'); return askDoor(); }
         try {
             me = await api('GET', '/api/portal/me');
             creditFrom(me);
@@ -3289,6 +3361,7 @@ header.top h1 { flex: 1; min-width: 180px; }
             if (err.status === 403) token.clear(); // api() already clears a 401
             show('login');
             if (err.status === 403 || err.status === 0) say('loginMsg', err.message, 'error');
+            if (err.status === 401) askDoor();
         }
     }
 

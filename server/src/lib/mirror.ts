@@ -95,6 +95,10 @@ export const MIRROR_EXCLUDED_TABLES = [
     'form_reply_decisions',
     'mirror_sync_attempt',
     'mirror_sync_state',
+    // The door's link, maintenance switch and record (052): authorization, not school data.
+    'portal_links',
+    'portal_security',
+    'portal_security_log',
     'schedule_notices',
     'schema_migrations',
     'staff_accounts',

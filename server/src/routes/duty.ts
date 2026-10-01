@@ -24,6 +24,7 @@ import { pool } from '../db.js';
 import { assertOwner, refuseScope, scopeOf } from '../lib/colleague.js';
 import { defaultMonth, isIsoDate, loadDuty, monthBounds, monthPayload, rotaWithSwaps, servedRota, todayInSkopje, windowPayload } from '../lib/duty.js';
 import { PORTAL_TOKEN_HEADER, sessionEmployee, staffOfYear } from '../lib/staff-accounts.js';
+import { doorState } from '../lib/portal-security.js';
 import {
     DUTY_ADMIN_HOURS, DUTY_ADMIN_TOKEN_HEADER, acceptDutyAdminLink, createDutyAdminLink,
     dutyAdminLinks, revokeDutyAdminLinks, type DutyAdminLink, type DutyLinkDatabase
@@ -156,8 +157,10 @@ export async function dutyRoutes(server: FastifyInstance, options: { year?: stri
         const parsed = DelegationBody.safeParse(req.body);
         if (!parsed.success) return reply.code(400).send({ error: 'Изберете колку време да важи линкот.' });
         const made = await createDutyAdminLink(linksDb, parsed.data.hours ?? null);
+        const door = await doorState(pool);
         return {
-            url: `/kolegi#duty-admin=${made.token}`,
+            // With the shared link's code (052), so it opens on a device that has never had the link.
+            url: `/kolegi${door && door.code ? '/' + door.code : ''}#duty-admin=${made.token}`,
             link: { id: made.id, createdAt: made.createdAt, expiresAt: made.expiresAt }
         };
     });

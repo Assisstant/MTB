@@ -18,7 +18,7 @@
 
 param(
     [ValidateRange(1, 2147483647)]
-    [int]$KeepDumps = 14,     # how many dumps for this database to retain
+    [int]$KeepDumps = 5,      # how many states to retain: dumps, and each JSON export
     [switch]$SkipJson         # database dump only
 )
 
@@ -86,6 +86,21 @@ try {
     }
     if ($old.Count) {
         Write-Host "Removed $($old.Count) dump(s) for $database older than the last $KeepDumps." -ForegroundColor Yellow
+    }
+    # The JSON exports are the same states in another form (owner, 1 Oct 2026:
+    # five are enough). Only after an export that just succeeded, and only the
+    # timestamped names this script's export writes: a hand-named file stays.
+    if (-not $SkipJson) {
+        foreach ($app in 'UnifiedSync', 'SDnevnik') {
+            $ownJsonPattern = '^' + $app + '-from-postgres-\d{4}(?:-\d{2}){5}\.json$'
+            $oldJson = @(Get-ChildItem -LiteralPath $backupDir -File |
+                Where-Object { $_.Name -match $ownJsonPattern } |
+                Sort-Object LastWriteTime -Descending | Select-Object -Skip $KeepDumps)
+            foreach ($file in $oldJson) { Remove-Item -LiteralPath $file.FullName -Force -Confirm:$false }
+            if ($oldJson.Count) {
+                Write-Host "Removed $($oldJson.Count) $app JSON export(s) older than the last $KeepDumps." -ForegroundColor Yellow
+            }
+        }
     }
 
     Add-Content -LiteralPath $logFile -Value "$(Get-Date -Format 's')  OK      $([System.IO.Path]::GetFileName($dumpFile))  $sizeMb MB  $objectCount objects"

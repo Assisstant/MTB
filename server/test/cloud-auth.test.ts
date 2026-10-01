@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import Fastify from 'fastify';
 import { fileURLToPath } from 'node:url';
-import { installCloudAuth, listenOptions } from '../src/lib/cloud-auth.js';
+import { cloudRequestLog, installCloudAuth, listenOptions } from '../src/lib/cloud-auth.js';
 import { installPublicStatic } from '../src/lib/public-static.js';
 import { migrationBody } from '../src/lib/migrations.js';
 import { installColleagueBoundary } from '../src/lib/colleague.js';
@@ -113,6 +113,7 @@ test('colleagues reach their own door and nothing else, without the owner signin
     app.get('/api/portal/me', async () => ({ door: true }));
     app.get('/Kolega.html', async () => 'page');
     app.get('/kolegi', async (_req, reply) => reply.redirect('/Kolega.html'));
+    app.get('/kolegi/:code', async () => 'page');
     app.get('/Podatoci.html', async () => 'the administration');
     app.get('/api/roster', async () => ({ roster: true }));
     app.post('/api/portal-lookalike', async () => ({ no: true }));
@@ -123,6 +124,12 @@ test('colleagues reach their own door and nothing else, without the owner signin
         assert.equal((await app.inject({ url: '/Kolega.html' })).statusCode, 200);
         assert.equal((await app.inject({ method: 'HEAD', url: '/Kolega.html' })).statusCode, 200);
         assert.equal((await app.inject({ url: '/kolegi' })).statusCode, 302);
+        // The shared link with its code (052): the same page, one plain segment.
+        assert.equal((await app.inject({ url: '/kolegi/abcd-2345' })).statusCode, 200);
+        assert.equal((await app.inject({ method: 'POST', url: '/kolegi/abcd-2345', headers: origin })).statusCode, 401);
+        assert.equal((await app.inject({ url: '/kolegi/abcd-2345/Podatoci.html' })).statusCode, 401);
+        assert.equal((await app.inject({ url: '/kolegi/..%2fPodatoci.html' })).statusCode, 401);
+        assert.equal(cloudRequestLog({ method: 'GET', url: '/kolegi/abcd-2345?x=1' }).url, '/kolegi/…', 'the code stays out of the log');
         // Everything else stays behind the owner's sign-in.
         assert.equal((await app.inject({ url: '/Podatoci.html' })).statusCode, 401);
         assert.equal((await app.inject({ url: '/api/roster' })).statusCode, 401);

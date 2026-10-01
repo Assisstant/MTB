@@ -340,3 +340,36 @@ test('051 records who actually served a duty day, touching no existing day, on a
   await c.query('DELETE FROM school_years WHERE id=$1',[y]);
  }finally{await c.query(`DROP SCHEMA IF EXISTS ${backup} CASCADE`);await c.query(`DROP SCHEMA ${schema} CASCADE`);await c.end();}
 });
+
+test('052 puts the door under the owner\'s control without changing one account, on a database at 051', async () => {
+ const url=process.env.TEST_DATABASE_URL||process.env.DATABASE_URL;
+ const c=new pg.Client({connectionString:url});await c.connect();
+ const schema=`portal_security_release_test_${process.pid}`,backup=`mtb_workspace_recovery_portal_security_test_${process.pid}`;
+ const dir=resolve(import.meta.dirname,'../../database/migrations');
+ await c.query(`CREATE SCHEMA ${schema}`);await c.query(`SET search_path=${schema}`);
+ try{
+  await c.query('CREATE TABLE schema_migrations(filename text PRIMARY KEY,applied_at timestamptz NOT NULL DEFAULT now())');
+  for(const f of (await readdir(dir)).filter(f=>f.endsWith('.sql')&&Number(f.slice(0,3))<=51).sort()){
+   await c.query(migrationBody(await readFile(resolve(dir,f),'utf8')));await c.query('INSERT INTO schema_migrations(filename) VALUES($1)',[f]);
+  }
+  const [a,b]=(await c.query("INSERT INTO employees(name) VALUES('Пробна Врата Прва'),('Пробна Врата Втора') RETURNING id")).rows.map(r=>r.id);
+  await c.query('INSERT INTO staff_accounts(employee_id,read_only) VALUES($1,true)',[a]);
+  await workspaceRelease(c,dir,()=>{},backup);
+  assert.equal((await c.query('SELECT count(*)::int AS n FROM schema_migrations')).rows[0].n,ALL);
+  assert.deepEqual((await c.query('SELECT read_only,locked,tester,owner FROM staff_accounts WHERE employee_id=$1',[a])).rows[0],
+   {read_only:true,locked:false,tester:false,owner:false},'an existing account is neither locked nor exempt');
+  for(const table of ['portal_security','portal_links','portal_security_log']){
+   assert.equal((await c.query('SELECT relrowsecurity FROM pg_class WHERE oid=$1::regclass',[table])).rows[0].relrowsecurity,true,table);
+   assert.equal((await c.query(`SELECT count(*)::int AS n FROM ${table}`)).rows[0].n,0,'deploy closes nothing and makes no link');
+   assert.ok(MIRROR_EXCLUDED_TABLES.includes(table as any),'authorization never enters a mirror');
+   for(const role of ['anon','authenticated']) if((await c.query('SELECT 1 FROM pg_roles WHERE rolname=$1',[role])).rowCount)
+    assert.equal((await c.query("SELECT has_table_privilege($1,$2,'SELECT,INSERT,UPDATE,DELETE') AS allowed",[role,table])).rows[0].allowed,false);
+  }
+  await c.query('UPDATE staff_accounts SET owner=true WHERE employee_id=$1',[a]);
+  await assert.rejects(c.query('UPDATE staff_accounts SET locked=true WHERE employee_id=$1',[a]),/staff_accounts_owner_unlocked/,'the owner is never locked');
+  await assert.rejects(c.query('INSERT INTO staff_accounts(employee_id,owner) VALUES($1,true)',[b]),/staff_accounts_one_owner/,'one owner');
+  await c.query("INSERT INTO portal_links(code) VALUES('abcd-2345')");
+  await assert.rejects(c.query("INSERT INTO portal_links(code) VALUES('efgh-6789')"),/portal_links_one_current/,'one current link');
+  await assert.rejects(c.query("INSERT INTO portal_security(id) VALUES(false)"),/portal_security_id_check/,'one row');
+ }finally{await c.query(`DROP SCHEMA IF EXISTS ${backup} CASCADE`);await c.query(`DROP SCHEMA ${schema} CASCADE`);await c.end();}
+});

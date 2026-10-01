@@ -6,7 +6,8 @@ import { mirrorExportRequest, mirrorMode } from './mirror-config.js';
 import { isInternal } from './internal.js';
 
 export function cloudRequestLog(req: { method: string; url?: string }) {
-    return { method: req.method, url: String(req.url || '').split('?')[0] };
+    // The shared link's code (052) is not a thing to keep in a log.
+    return { method: req.method, url: String(req.url || '').split('?')[0].replace(/^\/kolegi\/.*/, '/kolegi/…') };
 }
 
 /**
@@ -21,7 +22,9 @@ export function isPortalRequest(req: { method: string; url?: string }): boolean 
     // Plain segments only: no `..`, no encoded characters, so the address
     // cannot name the door and be routed somewhere else.
     if (/^\/api\/portal\/[a-z0-9-]+(\/[a-z0-9-]+)*$/i.test(path)) return true;
-    return ['GET', 'HEAD'].includes(req.method) && PORTAL_PAGES.has(path);
+    if (!['GET', 'HEAD'].includes(req.method)) return false;
+    // The shared link carries a code (052): the same page, one plain segment.
+    return PORTAL_PAGES.has(path) || /^\/kolegi\/[a-z0-9-]{1,40}$/i.test(path);
 }
 
 export function cloudAuthMode(env: NodeJS.ProcessEnv = process.env): 'off' | 'basic' | 'google' {
