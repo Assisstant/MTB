@@ -370,6 +370,9 @@ test('052 puts the door under the owner\'s control without changing one account,
   await assert.rejects(c.query('INSERT INTO staff_accounts(employee_id,owner) VALUES($1,true)',[b]),/staff_accounts_one_owner/,'one owner');
   await c.query("INSERT INTO portal_links(code) VALUES('abcd-2345')");
   await assert.rejects(c.query("INSERT INTO portal_links(code) VALUES('efgh-6789')"),/portal_links_one_current/,'one current link');
+  // 053, in the same run: an archived link may be allowed again, the current one has no such mark.
+  await assert.rejects(c.query("UPDATE portal_links SET allowed=true WHERE code='abcd-2345'"),/portal_links_allowed_archived/);
+  await c.query("UPDATE portal_links SET retired_at=now(),allowed=true WHERE code='abcd-2345'");
   await assert.rejects(c.query("INSERT INTO portal_security(id) VALUES(false)"),/portal_security_id_check/,'one row');
  }finally{await c.query(`DROP SCHEMA IF EXISTS ${backup} CASCADE`);await c.query(`DROP SCHEMA ${schema} CASCADE`);await c.end();}
 });

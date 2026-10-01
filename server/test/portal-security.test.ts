@@ -168,10 +168,37 @@ test('a new link stops the old address, signs everybody out but the owner, and t
     assert.equal(page.archive[0].refused, 2); assert.ok(page.archive[0].lastRefusedAt);
     assert.deepEqual(page.log.filter((l: any) => l.action === 'link_new').length, 2);
 
+    // The owner puts the old link back in use by hand, and stops it again.
+    const old = (allowed: boolean) => ownerCall('PUT', `/api/staff-security/links/${first.code}`, { allowed });
+    assert.equal(page.archive[0].allowed, false, 'nothing comes back by itself');
+    assert.equal((await old(true)).statusCode, 200);
+    assert.equal((await old(true)).statusCode, 409, 'a stale page cannot do it twice');
+    const viaOld = await login('Измислен Колега Врата');
+    assert.equal(viaOld.statusCode, 200, 'the old link works again');
+    key = second.code;
+    const viaNew = await tokenOf('Измислен Тестер Врата');
+    assert.equal((await call('GET', '/api/portal/me', viaNew)).statusCode, 200, 'and the current one still does');
+    const shown = (await ownerCall('GET', '/api/staff-security')).json();
+    assert.equal(shown.link.code, second.code, 'the link to hand out is still the current one');
+    assert.equal(shown.archive[0].allowed, true); assert.ok(shown.archive[0].allowedAt);
+    assert.equal((await old(false)).statusCode, 200);
+    key = first.code;
+    assert.equal((await call('GET', '/api/portal/me', viaOld.json().token)).statusCode, 423, 'stopped again, the old link is dead');
+    key = second.code;
+    assert.equal((await call('GET', '/api/portal/me', viaOld.json().token)).statusCode, 401, 'and whoever was in signs in again');
+    assert.equal((await ownerCall('PUT', '/api/staff-security/links/zzzz-9999', { allowed: true })).statusCode, 409);
+    assert.equal((await ownerCall('PUT', `/api/staff-security/links/${second.code}`, { allowed: true })).statusCode, 409, 'the current link has no such switch');
+    assert.equal((await call('PUT', `/api/staff-security/links/${first.code}`, viaNew, { allowed: true })).statusCode, 401, "the owner's alone");
+
     key = second.code.toUpperCase();
-    assert.equal((await login('Измислен Колега Врата')).statusCode, 200, 'the code is not case-sensitive');
+    const through = await login('Измислен Колега Врата');
+    assert.equal(through.statusCode, 200, 'the code is not case-sensitive');
+    const mineAgain = await tokenOf('Измислен Сопственик Врата');
     assert.equal((await ownerCall('DELETE', '/api/staff-security/link')).json().retired, true);
     key = '';
+    assert.equal((await call('GET', '/api/portal/me', through.json().token)).statusCode, 401, 'taking the link away signs its colleagues out');
+    assert.equal((await call('GET', '/api/portal/me', mineAgain)).statusCode, 200, 'but not the owner');
+    assert.equal((await ownerCall('DELETE', '/api/staff-security/link')).json().retired, false, 'nothing to take away twice');
     assert.equal((await login('Измислен Колега Врата')).statusCode, 200, 'back to the plain address');
     const end = (await ownerCall('GET', '/api/staff-security')).json();
     assert.equal(end.link, null); assert.equal(end.archive.length, 2);
@@ -181,7 +208,7 @@ test('a new link stops the old address, signs everybody out but the owner, and t
 test('every change is in the record, with who it was about', async () => {
     const log = (await ownerCall('GET', '/api/staff-security')).json().log;
     const actions = new Set(log.map((l: any) => l.action));
-    for (const action of ['maintenance_on', 'maintenance_off', 'lock', 'unlock_all', 'tester_on', 'owner_on', 'link_new', 'link_off', 'refused_locked']) {
+    for (const action of ['link_allow', 'link_stop', 'maintenance_on', 'maintenance_off', 'lock', 'unlock_all', 'tester_on', 'owner_on', 'link_new', 'link_off', 'refused_locked']) {
         assert.ok(actions.has(action), action);
     }
     assert.equal(log.find((l: any) => l.action === 'lock').name, 'Измислен Колега Врата');

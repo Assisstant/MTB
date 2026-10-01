@@ -1,6 +1,16 @@
 # Master administration release — 21 September 2026
 
-## The door under the owner's control — 1 October 2026, code only, NOT deployed
+## An old link back in use — 1 October 2026, code only, NOT deployed
+
+Migration **053** adds `portal_links.allowed` and `allowed_at` (false for every
+existing link) and a check that only an archived link carries the mark. The
+guarded runner accepts **033–053** under a new recovery schema,
+`mtb_workspace_recovery_portal_old_links_20261001`. 052 is already in the
+cloud (deployed 1 October under `…portal_security_20261001`). Code that meets
+a database still at 052 keeps the door closed as configured; only the
+„Врати во функција" button fails until 053 is applied.
+
+## The door under the owner's control — 1 October 2026, deployed
 
 Migration **052** adds `portal_security`, `portal_links`, `portal_security_log`
 and four columns on `staff_accounts` (`locked`, `locked_at`, `tester`, `owner`),

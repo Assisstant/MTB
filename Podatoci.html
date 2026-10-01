@@ -599,7 +599,8 @@
             <p class="hint">
                 „Нов линк“ го заменува сегашниот: стариот веднаш престанува да работи и оди во архивата,
                 а сите колеги се одјавуваат и треба да го добијат новиот линк. Линкот ја отвора само
-                најавата; корисничкото име и лозинката и понатаму се потребни.
+                најавата; корисничкото име и лозинката и понатаму се потребни. Стар линк може рачно
+                да се врати во функција од архивата и пак да се запре.
             </p>
             <p><code id="securityLink" style="overflow-wrap:anywhere">—</code></p>
             <div class="controls">
@@ -3102,6 +3103,7 @@
         tester_on: 'Означен тестер', tester_off: 'Тргнат тестер',
         owner_on: 'Означена сопственичка сметка', owner_off: 'Тргната сопственичка сметка',
         link_new: 'Нов линк', link_off: 'Вратен обичен линк',
+        link_allow: 'Стар линк вратен во функција', link_stop: 'Стар линк запрен',
         refused_locked: 'Одбиена најава на заклучена сметка'
     };
     const shareBase = () => (apiBase || window.location.origin).replace(/\/$/, '');
@@ -3127,11 +3129,15 @@
 
         el('securityLink').textContent = colleaguesShareLink(s.link);
         el('securityNoLink').disabled = !s.link;
-        el('securityArchiveCount').textContent = s.archive.length ? `(${s.archive.length})` : '(празна)';
+        const back = s.archive.filter((l) => l.allowed).length;
+        el('securityArchiveCount').textContent = s.archive.length ? `(${s.archive.length}${back ? ` · повторно важат: ${back}` : ''})` : '(празна)';
         el('securityArchive').innerHTML = s.archive.length
-            ? '<table class="list"><thead><tr><th>Линк</th><th>Важел од</th><th>Запрен</th><th>Обиди по запирањето</th><th>Белешка</th></tr></thead><tbody>'
-              + s.archive.map((l) => `<tr><td><code>/kolegi/${esc(l.code)}</code></td><td>${esc(when2(l.createdAt))}</td><td>${esc(when2(l.retiredAt))}</td>`
-                + `<td>${l.refused ? `${l.refused} · последен ${esc(when2(l.lastRefusedAt))}` : '—'}</td><td>${esc(l.note || '')}</td></tr>`).join('')
+            ? '<table class="list"><thead><tr><th>Линк</th><th>Состојба</th><th>Важел од</th><th>Запрен</th><th>Обиди по запирањето</th><th>Белешка</th><th></th></tr></thead><tbody>'
+              + s.archive.map((l) => `<tr data-old-link="${esc(l.code)}"><td><code>${esc(shareBase())}/kolegi/${esc(l.code)}</code></td>`
+                + `<td>${l.allowed ? `<span class="form-status done">важи повторно</span> <span class="none">од ${esc(when2(l.allowedAt))}</span>` : '<span class="form-status pending">запрен</span>'}</td>`
+                + `<td>${esc(when2(l.createdAt))}</td><td>${esc(when2(l.retiredAt))}</td>`
+                + `<td>${l.refused ? `${l.refused} · последен ${esc(when2(l.lastRefusedAt))}` : '—'}</td><td>${esc(l.note || '')}</td>`
+                + `<td class="act"><button class="btn soft${l.allowed ? ' danger' : ''}" data-old-link-allow="${!l.allowed}">${l.allowed ? 'Запри' : 'Врати во функција'}</button></td></tr>`).join('')
               + '</tbody></table>'
             : '<p class="hint">Уште нема заменет линк.</p>';
 
@@ -3205,12 +3211,23 @@
                 'Новиот линк е готов. Копирајте го и пратете им го на колегите.');
         });
         el('securityNoLink').addEventListener('click', (event) => {
-            if (!window.confirm('Да се врати обичниот линк /kolegi? Сегашниот линк со код оди во архивата и секој што ја знае адресата повторно ја гледа најавата.')) return;
-            securityChange(event.currentTarget, () => api('DELETE', '/api/staff-security/link'), 'Важи обичниот линк.');
+            if (!window.confirm('Да се врати обичниот линк /kolegi? Сегашниот линк со код оди во архивата, сите колеги се одјавуваат и секој што ја знае адресата повторно ја гледа најавата.')) return;
+            securityChange(event.currentTarget, () => api('DELETE', '/api/staff-security/link'), 'Важи обичниот линк. Колегите се одјавени.');
         });
         el('securityCopyLink').addEventListener('click', async () => {
             try { await navigator.clipboard.writeText(el('securityLink').textContent); status('Линкот е копиран.', 'ok', { toast: true }); }
             catch (_) { status('Изберете го линкот и копирајте го рачно.', 'warn'); }
+        });
+        el('securityArchive').addEventListener('click', (event) => {
+            const button = event.target.closest('[data-old-link-allow]');
+            if (!button) return;
+            const code = button.closest('tr').dataset.oldLink;
+            const allowed = button.dataset.oldLinkAllow === 'true';
+            if (!window.confirm(allowed
+                ? `Линкот /kolegi/${code} повторно да важи? Секој што го има ќе ја гледа најавата. Тековниот линк останува ист.`
+                : `Да се запре линкот /kolegi/${code}? Сите колеги се одјавуваат и се најавуваат повторно.`)) return;
+            securityChange(button, () => api('PUT', `/api/staff-security/links/${code}`, { allowed }),
+                allowed ? 'Стариот линк повторно важи.' : 'Стариот линк е запрен.');
         });
         el('securityUnlockAll').addEventListener('click', (event) => {
             if (!window.confirm('Да се отклучат сите заклучени сметки?')) return;

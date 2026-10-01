@@ -36,7 +36,7 @@ const check = (label, ok, detail = '') => {
 };
 
 // The invented server: one door, changed by the test and by the page's own writes.
-const door = { maintenance: false, message: '', code: CODE, locked: false };
+const door = { maintenance: false, message: '', code: CODE, locked: false, also: [] };
 const state = {
     maintenance: { on: false, forced: false, message: '', defaultMessage: 'Системот моментално се одржува.', changedAt: null },
     link: { code: CODE, note: null, createdAt: '2026-10-01T08:00:00Z', retiredAt: null, refused: 0, lastRefusedAt: null },
@@ -61,7 +61,7 @@ async function context(options = {}) {
         const p = url.pathname, h = req.headers();
         if (p.startsWith('/api/portal/')) {
             calls.push({ path: p, key: h['x-mtb-portal-key'] || '', token: h['x-mtb-portal-token'] || '' });
-            if (door.code && (h['x-mtb-portal-key'] || '') !== door.code) return json(423, { door: 'link', error: 'Линкот за колегите е променет и овој повеќе не важи.' });
+            if (door.code && ![door.code, ...door.also].includes(h['x-mtb-portal-key'] || '')) return json(423, { door: 'link', error: 'Линкот за колегите е променет и овој повеќе не важи.' });
             if (p === '/api/portal/door') return json(200, door.maintenance ? { ok: true, maintenance: true, message: door.message } : { ok: true, maintenance: false });
             if (p === '/api/portal/login') {
                 if (door.locked) return json(423, { door: 'locked', error: 'Пристапот со оваа сметка е привремено запрен.' });
@@ -89,6 +89,11 @@ async function context(options = {}) {
                 return json(200, { ok: true });
             }
             if (p === '/api/staff-security/accounts/7') { Object.assign(state.accounts[1], req.postDataJSON()); return json(200, { ok: true }); }
+            if (p === '/api/staff-security/links/' + OLD) {
+                const old = state.archive.find((l) => l.code === OLD);
+                old.allowed = req.postDataJSON().allowed; old.allowedAt = old.allowed ? '2026-10-01T11:00:00Z' : null;
+                return json(200, { ok: true });
+            }
             if (p === '/api/staff-security/unlock-all') { state.accounts.forEach((a) => { a.locked = false; }); return json(200, { ok: true, unlocked: 1 }); }
             if (p === '/api/staff-security/link' && req.method() === 'POST') {
                 state.archive.unshift({ ...state.link, retiredAt: '2026-10-01T10:00:00Z' });
@@ -189,7 +194,11 @@ await page.click('#loginForm button[type="submit"]');
 await page.waitForSelector('#doorVeil:not([hidden])');
 check('a locked account says so and where to turn', (await page.textContent('#doorTitle')) === 'Пристапот е запрен'
     && /запрен/.test(await page.textContent('#doorText')));
-door.locked = false;
+door.locked = false; door.also = [OLD];
+await page.goto(`${ORIGIN}/kolegi/${OLD}`);
+await page.waitForSelector('#login:not([hidden])');
+check('an old link the owner allowed again opens the sign-in', !(await page.isVisible('#doorVeil')));
+door.also = [];
 await page.goto(`${ORIGIN}/kolegi/${OLD}`);
 await page.waitForSelector('#doorVeil:not([hidden])');
 check('a replaced link says the link changed', (await page.textContent('#doorTitle')) === 'Линкот е променет' && !(await page.isVisible('#doorPass')));
@@ -204,7 +213,7 @@ await page.goto(`${ORIGIN}/Podatoci.html?tab=security`);
 await page.waitForSelector('#securityAccounts table', { timeout: 8000 });
 check('the current link, with its code', (await page.textContent('#securityLink')) === `${ORIGIN}/kolegi/${CODE}`, await page.textContent('#securityLink'));
 const archive = await page.textContent('#securityArchive');
-check('the archive: the old link, why, and that it was still tried', archive.includes('/kolegi/' + OLD) && archive.includes('по забрана') && /3 · последен/.test(archive), archive);
+check('the archive: the old link, why, and that it was still tried', archive.includes(ORIGIN + '/kolegi/' + OLD) && archive.includes('по забрана') && /3 · последен/.test(archive), archive);
 const accounts = await page.textContent('#securityAccounts');
 check('each account with its state', /моја сметка/.test(accounts) && /заклучена/.test(accounts) && /влегува/.test(accounts), accounts);
 check('the owner\'s account cannot be locked from here', await page.locator('[data-security-account="1"] [data-security-set="locked"]').count() === 0);
@@ -227,6 +236,15 @@ await page.click('#securityNewLink');
 await page.waitForFunction(() => document.getElementById('securityLink').textContent.endsWith('/kolegi/mnpq-2468'));
 check('„Нов линк" sends the note, shows the new link and archives the old one', writes.at(-1).path === '/api/staff-security/link'
     && writes.at(-1).body.note === 'споделен надвор' && (await page.textContent('#securityArchive')).includes('/kolegi/' + CODE));
+await page.evaluate(() => { document.querySelector('#securityArchive').closest('details').open = true; });
+await page.click(`[data-old-link="${OLD}"] [data-old-link-allow="true"]`);
+await page.waitForFunction((code) => /важи повторно/.test(document.querySelector(`[data-old-link="${code}"]`).textContent), OLD);
+check('an archived link is put back in use by hand, as one change', JSON.stringify(writes.at(-1)) === JSON.stringify({ method: 'PUT', path: '/api/staff-security/links/' + OLD, body: { allowed: true } })
+    && /повторно важат: 1/.test(await page.textContent('#securityArchiveCount')), JSON.stringify(writes.at(-1)));
+check('while the link to hand out stays the current one', (await page.textContent('#securityLink')).endsWith('/kolegi/mnpq-2468'));
+await page.click(`[data-old-link="${OLD}"] [data-old-link-allow="false"]`);
+await page.waitForFunction((code) => /запрен/.test(document.querySelector(`[data-old-link="${code}"] td:nth-child(2)`).textContent), OLD);
+check('and stopped again', writes.at(-1).body.allowed === false);
 await page.click('#securityUnlockAll');
 await page.waitForFunction(() => document.getElementById('securityUnlockAll').disabled);
 check('„Отклучи ги сите"', writes.at(-1).path === '/api/staff-security/unlock-all');

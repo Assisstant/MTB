@@ -24,7 +24,7 @@ import { z } from 'zod';
 import { pool } from '../db.js';
 import { assertOwner, refuseScope, scopeOf, signerName } from '../lib/colleague.js';
 import {
-    DOOR_STATUS, accountRefusal, doorNotice, logChange, newLink, retireLink, securityOverview, setAccount,
+    DOOR_STATUS, accountRefusal, allowOldLink, doorNotice, logChange, newLink, retireLink, securityOverview, setAccount,
     setActingCheck, setMaintenance, unlockAll
 } from '../lib/portal-security.js';
 import { TEACHING_DAYS } from '../lib/teaching.js';
@@ -1340,6 +1340,18 @@ export async function portalRoutes(server: FastifyInstance, options: { year?: st
         const actor = await actorOf(req);
         const code = await change((client) => newLink(client, note, actor));
         return { ok: true, code, url: '/kolegi/' + code };
+    });
+
+    /** An archived link back in use, or stopped again — by its code, from the archive. */
+    server.put('/api/staff-security/links/:code', async (req, reply) => {
+        if (!(await ownerOnly(req, reply))) return;
+        const code = String((req.params as any).code || '').toLowerCase();
+        const parsed = z.object({ allowed: z.boolean() }).strict().safeParse(req.body);
+        if (!/^[a-z0-9]{4}-[a-z0-9]{4}$/.test(code) || !parsed.success) return reply.code(400).send({ error: 'Проверете го избраниот линк.' });
+        const actor = await actorOf(req);
+        const changed = await change((client) => allowOldLink(client, code, parsed.data.allowed, actor));
+        if (!changed) return reply.code(409).send({ error: 'Линкот е сменет во меѓувреме. Освежете ја страницата.' });
+        return { ok: true };
     });
 
     server.delete('/api/staff-security/link', async (req, reply) => {

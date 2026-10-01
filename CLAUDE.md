@@ -811,7 +811,9 @@ read `DATABASE_URL`; never add literal credentials to this public repository.
   is the one exception — the account is known only after the password, so the
   login route calls `accountRefusal` itself, and a wrong password is told
   nothing. Maintenance does NOT delete sessions (they carry on when it ends);
-  a lock and a new link do. `tester` passes maintenance; `owner` (the owner's
+  a lock, a new link, taking the link away and stopping a re-allowed old
+  link do. An archived link can be put back in use by hand (`portal_links.allowed`,
+  053): it opens the door beside the current one, which stays the link handed out. `tester` passes maintenance; `owner` (the owner's
   own colleague account, marked in the database, never by name here) passes
   maintenance and cannot be locked; the owner's two-hour look passes all of
   it. With no row in `portal_links` the plain `/kolegi` works as before, and

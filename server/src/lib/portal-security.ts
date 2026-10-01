@@ -51,7 +51,8 @@ export const maintenanceForced = (env: NodeJS.ProcessEnv = process.env) => env.M
 
 const missing = (err: any) => err && (err.code === '42P01' || err.code === '42703');
 
-type DoorState = { maintenance: boolean; message: string | null; code: string | null };
+/** `also`: archived links the owner put back in use (053). They open the door only while a current link exists. */
+type DoorState = { maintenance: boolean; message: string | null; code: string | null; also: string[] };
 
 /** The door as it stands, or null on a database that has no 052 yet. */
 export async function doorState(db: Queryable = pool): Promise<DoorState | null> {
@@ -60,7 +61,12 @@ export async function doorState(db: Queryable = pool): Promise<DoorState | null>
             `SELECT (SELECT maintenance FROM portal_security) AS maintenance,
                     (SELECT message FROM portal_security) AS message,
                     (SELECT code FROM portal_links WHERE retired_at IS NULL) AS code`);
-        return { maintenance: Boolean(rows[0].maintenance) || maintenanceForced(), message: rows[0].message || null, code: rows[0].code || null };
+        // A database at 052 without 053 has no `allowed`. That must not open
+        // the door: it only means no archived link is back in use.
+        let also: string[] = [];
+        try { also = (await db.query('SELECT code FROM portal_links WHERE retired_at IS NOT NULL AND allowed')).rows.map((r: any) => r.code); }
+        catch (err) { if (!missing(err)) throw err; }
+        return { maintenance: Boolean(rows[0].maintenance) || maintenanceForced(), message: rows[0].message || null, code: rows[0].code || null, also };
     } catch (err) {
         if (missing(err)) return null;
         throw err;
@@ -107,6 +113,20 @@ async function noteRetiredUse(db: Queryable, offered: string): Promise<void> {
           WHERE code = $1 AND retired_at IS NOT NULL`, [offered]);
 }
 
+/**
+ * An archived link put back in use, or stopped again. Stopping it is taking a
+ * link away, so the colleagues sign in again, as with the other two buttons.
+ */
+export async function allowOldLink(db: Queryable, code: string, allowed: boolean, actor: string | null): Promise<boolean> {
+    const { rows } = await db.query(
+        `UPDATE portal_links SET allowed = $2, allowed_at = CASE WHEN $2 THEN now() ELSE NULL END
+          WHERE code = $1 AND retired_at IS NOT NULL AND allowed <> $2 RETURNING id`, [code, allowed]);
+    if (!rows.length) return false;
+    if (!allowed) await endSessions(db);
+    await logChange(db, allowed ? 'link_allow' : 'link_stop', actor, null, '/kolegi/' + code);
+    return true;
+}
+
 export async function doorRefusal(req: FastifyRequest, db: Queryable = pool): Promise<DoorRefusal | null> {
     const path = String(req.url || '').split('?')[0];
     if (!path.startsWith('/api/portal/') || req.method === 'OPTIONS') return null;
@@ -119,7 +139,7 @@ export async function doorRefusal(req: FastifyRequest, db: Queryable = pool): Pr
     if (!state) return null;
     if (state.code) {
         const offered = String(req.headers[PORTAL_KEY_HEADER] || '').trim().toLowerCase();
-        if (!same(offered, state.code)) {
+        if (!same(offered, state.code) && !state.also.some((code) => same(offered, code))) {
             if (offered) await noteRetiredUse(db, offered);
             return { door: 'link', error: MESSAGES.link };
         }
@@ -196,15 +216,23 @@ export async function newLink(db: Queryable, note: string | null, actor: string 
     let code = newCode();
     while ((await db.query('SELECT 1 FROM portal_links WHERE code = $1', [code])).rows.length) code = newCode();
     await db.query('INSERT INTO portal_links (code, note) VALUES ($1, $2)', [code, note]);
-    await db.query('DELETE FROM staff_sessions WHERE employee_id NOT IN (SELECT employee_id FROM staff_accounts WHERE owner)');
+    await endSessions(db);
     await logChange(db, 'link_new', actor, null, note);
     return code;
 }
 
-/** Back to the plain /kolegi address: the current link is archived and none replaces it. */
+async function endSessions(db: Queryable): Promise<void> {
+    await db.query('DELETE FROM staff_sessions WHERE employee_id NOT IN (SELECT employee_id FROM staff_accounts WHERE owner)');
+}
+
+/**
+ * Back to the plain /kolegi address: the current link is archived and none
+ * replaces it. Whoever came in through it signs in again (owner, 1 Oct 2026):
+ * taking a link away ends what it opened, whichever button took it away.
+ */
 export async function retireLink(db: Queryable, actor: string | null): Promise<boolean> {
     const { rows } = await db.query('UPDATE portal_links SET retired_at = now() WHERE retired_at IS NULL RETURNING id');
-    if (rows.length) await logChange(db, 'link_off', actor);
+    if (rows.length) { await endSessions(db); await logChange(db, 'link_off', actor); }
     return rows.length > 0;
 }
 
@@ -212,7 +240,8 @@ export async function retireLink(db: Queryable, actor: string | null): Promise<b
 export async function securityOverview(db: Queryable) {
     const state = (await db.query('SELECT maintenance, message, changed_at FROM portal_security')).rows[0];
     const links = (await db.query(
-        `SELECT code, note, created_at AS "createdAt", retired_at AS "retiredAt", refused, last_refused_at AS "lastRefusedAt"
+        `SELECT code, note, created_at AS "createdAt", retired_at AS "retiredAt", refused, last_refused_at AS "lastRefusedAt",
+                allowed, allowed_at AS "allowedAt"
            FROM portal_links ORDER BY created_at DESC, id DESC LIMIT 200`)).rows;
     const log = (await db.query(
         `SELECT l.at, l.action, l.detail, l.actor, e.name

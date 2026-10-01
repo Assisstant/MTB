@@ -632,7 +632,12 @@ caseload.
 - **One shared link**, `/kolegi/<code>`. „Нов линк" replaces it: the old one
   stops at once, goes to the archive, and everybody but the owner is signed
   out. The link opens only the sign-in form; name and password are still
-  required. Until a first link is made, plain `/kolegi` works.
+  required. Until a first link is made, plain `/kolegi` works. Returning to
+  the plain link also signs everybody but the owner out.
+- **An old link can be put back in use by hand**, from the archive, and
+  stopped again. It works beside the current link; the current one stays the
+  link that is handed out. Nothing comes back by itself, and stopping it
+  signs everybody but the owner out.
 - A colleague who is stopped reads a polite message saying which of the three
   it is, never an error.
 - Every change, and every refused sign-in of a locked account, is recorded
