@@ -276,6 +276,7 @@ npm run test:kolega                  Kolega.html in a browser; every API call in
 npm run test:layout                  mtb-layout.js: pin and fold on strips, table heads, sections; no server
 npm run test:kolegi-admin            Податоци → Колеги and the administrator's look; every API call invented
 npm run test:door                    the polite popup in Kolega, Податоци → Безбедност and → Предмети; every API call invented
+npm run test:plan-sync               S-Dnevnik's „⇄ Кабинети": the diary's plan and Кабинети, term by term; every API call invented
 npm run test:teacher-week            Податоци → 🗓️ Распоред and Настава's teacher week, 🔒/🔓; every API call invented
 npm run test:schedule-form           the cabinet form (all therapists) offline, then into the queue
 npm run test:wbacc                   WBACC.html in a browser: pictograms, bookmarks, offline; every call invented
@@ -832,6 +833,20 @@ read `DATABASE_URL`; never add literal credentials to this public repository.
   name they were written with. The page is Податоци → „📚 Предмети". A name
   may not contain a comma. Any NEW place that stores a subject as text must be
   added to that function.
+
+- **The diary's plan and Кабинети are kept equal by asking, through ONE
+  writer (owner, 1 Oct 2026).** `SdnPlanSync` in S-Dnevnik.html compares the
+  diary's live template with its therapist's sessions in Кабинети, term by
+  term, and shows a popup: „Запиши во Кабинети", „Земи од Кабинети" or
+  „Остави". It opens after an edit (called from INSIDE `assignStudents`, undo
+  and redo — not a wrapper), when a difference nobody has seen appears, and
+  from „⇄ Кабинети". Кабинети is written only through `PUT /api/schedule/block`
+  with `expected`, so the clash check stays in one place; never give the
+  diary a second way to write `schedule_slots`. A pupil is matched by the
+  bridge or by `sdnevnik_id`, never by name; what cannot be matched is shown
+  with its reason and left to „⬇ Земи од базата". An unlocked past week's
+  edit stays a record unless „Постојано" is chosen.
+  `docs/PLAN-rasporedot-i-nedelata.md` has the dated change of mind.
 
 - **One flat look, opted into per page (1 Oct 2026).** `html.mtb-flat` in
   mtb-look.css is the button — a PILL, 34px high, `6px 14px`, 14px bold, fully

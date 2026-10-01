@@ -1914,6 +1914,8 @@
                 <button class="btn btn-success" onclick="manualSave()">Зачувај</button>
                 <button class="btn" onclick="seedScheduleFromDatabase()"
                         title="Го зема планот од базата — истиот што го гради Rasporedi Fusion">⬇ Земи од базата</button>
+                <button id="planSyncBtn" class="btn" onclick="SdnPlanSync.open()"
+                        title="Го споредува неделниот план во дневникот со Кабинети и прашува што да важи">⇄ Кабинети</button>
                 <button id="undoBtn" class="btn" style="background: #718096; color: white;" onclick="undoLastChange()" disabled>↶ Undo</button>
                 <button id="redoBtn" class="btn" style="background: #718096; color: white;" onclick="redoLastChange()" disabled>↷ Redo</button>
                 <button id="lockToggleBtn" class="btn" style="background: #e53e3e; color: white; margin-left: auto;" onclick="togglePastWeekLock()">
@@ -4147,6 +4149,7 @@
             saveData();
             renderAll();
             if (typeof renderAnnualRosterPicker === 'function') renderAnnualRosterPicker();
+            if (window.SdnPlanSync) window.SdnPlanSync.refresh();
         }
 
         function reconstructScheduleFromAttendance(weekStartDate) {
@@ -5090,6 +5093,8 @@
     renderStudentListSimple();
     updateStats();
     closeModal('assignModal');
+    // Планот го држи и Кабинети: по секоја измена се прашува дали важи и таму.
+    if (window.SdnPlanSync) window.SdnPlanSync.edited({ day: currentSlot.day, timeIdx: currentSlot.timeIdx, isPastWeek: isPastWeek, weekKey: weekKey });
 }
         
         function saveUndoState(action) {
@@ -5131,11 +5136,12 @@
                 if (!action.isPastWeek) {
                     schedule[action.day][action.timeIdx] = action.oldValue.slice();
                 }
-                
+
                 saveData();
                 renderSchedule();
                 renderStudentListSimple();
                 updateStats();
+                if (window.SdnPlanSync) window.SdnPlanSync.edited(action);
             }
             
             updateUndoRedoButtons();
@@ -5165,11 +5171,12 @@
                 if (!action.isPastWeek) {
                     schedule[action.day][action.timeIdx] = action.newValue.slice();
                 }
-                
+
                 saveData();
                 renderSchedule();
                 renderStudentListSimple();
                 updateStats();
+                if (window.SdnPlanSync) window.SdnPlanSync.edited(action);
             }
             
             updateUndoRedoButtons();
@@ -12127,6 +12134,517 @@
         document.addEventListener('visibilitychange', function () {
             if (document.visibilityState === 'visible' && enabled()) hydrate();
         });
+    })();
+    </script>
+
+    <!-- Дневник ↔ Кабинети: еден прозорец што прашува што да важи. -->
+    <style>
+        .plan-sync-content { max-width: 880px; }
+        .plan-sync-content h3 { margin: 0 0 8px; }
+        .plan-sync-lead, .plan-sync-note { margin: 0 0 12px; font-size: 14px; line-height: 1.5; }
+        .plan-sync-note { margin-top: 12px; opacity: .8; }
+        .plan-sync-all { display: flex; align-items: center; gap: 8px; margin: 0 0 10px; font-size: 14px; }
+        .plan-sync-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+        .plan-sync-table th, .plan-sync-table td { text-align: left; vertical-align: top; padding: 8px 10px; border-bottom: 1px solid rgba(128, 128, 128, .35); }
+        .plan-sync-table th { font-size: 13px; }
+        .plan-sync-table tr.focus td { background: rgba(102, 126, 234, .14); }
+        .plan-sync-table small { display: block; opacity: .75; }
+        .plan-sync-content select { font: inherit; font-size: 14px; min-height: 34px; padding: 4px 10px; border-radius: 999px;
+            border: 1px solid #a0aec0; background: #fff; color: #1a202c; max-width: 100%; }
+        body.dark-mode .plan-sync-content select { background: #1a202c; color: #f7fafc; border-color: #718096; }
+        .plan-sync-why { margin-top: 4px; font-size: 12.5px; opacity: .8; }
+        .plan-sync-result { margin-top: 4px; font-size: 13px; font-weight: 700; }
+        .plan-sync-result.ok { color: #2f855a; }
+        .plan-sync-result.bad { color: #c53030; }
+        body.dark-mode .plan-sync-result.ok { color: #9ae6b4; }
+        body.dark-mode .plan-sync-result.bad { color: #feb2b2; }
+        .plan-sync-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px; flex-wrap: wrap; }
+        .plan-sync-actions .btn { min-height: 34px; border-radius: 999px; padding: 6px 14px; font-size: 14px; font-weight: 700; }
+        #planSyncBtn.differs { background: #dd6b20; color: #fff; }
+        @media (max-width: 640px) {
+            .plan-sync-table thead { display: none; }
+            .plan-sync-table tr { display: block; padding: 8px 0; border-bottom: 1px solid rgba(128, 128, 128, .35); }
+            .plan-sync-table td { display: block; border: 0; padding: 3px 0; }
+            .plan-sync-table td[data-label]::before { content: attr(data-label) ': '; font-weight: 700; }
+        }
+    </style>
+    <div id="planSyncModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="planSyncTitle">
+        <div class="modal-content plan-sync-content">
+            <h3 id="planSyncTitle">Дневник ↔ Кабинети</h3>
+            <p id="planSyncLead" class="plan-sync-lead"></p>
+            <div id="planSyncBody"></div>
+            <p id="planSyncNote" class="plan-sync-note"></p>
+            <div class="plan-sync-actions">
+                <button type="button" class="btn btn-primary" id="planSyncApply">Примени</button>
+                <button type="button" class="btn" id="planSyncClose">Затвори</button>
+            </div>
+        </div>
+    </div>
+    <script>
+    // ═══════════════════════════════════════════════════════════════════════
+    // ДНЕВНИК ↔ КАБИНЕТИ — планот на исто место, со прашање пред секоја промена
+    // (сопственикот, 1 октомври 2026).
+    //
+    // ЗОШТО. Неделниот план живее на две места: во овој дневник (документ) и во
+    // Кабинети (`schedule_slots`). Никогаш не читаа од исто место, па се
+    // разидуваа по конструкција. „⬇ Земи од базата" го заменува целиот план
+    // одеднаш; ова го прави истото ТЕРМИН ПО ТЕРМИН и во двете насоки.
+    //
+    // ШТО ПРАВИ. Ги споредува живиот шаблон на дневникот и термините на овој
+    // терапевт во Кабинети. За секој термин што се разликува човекот избира:
+    // „Запиши во Кабинети" (постојано), „Земи од Кабинети", или „Остави".
+    // Ништо не се менува без „Примени".
+    //
+    // КОЈ ПИШУВА ВО КАБИНЕТИ. Само `PUT /api/schedule/block` — истиот писател
+    // и истата проверка како ќелијата во Кабинети и формуларот на колегите:
+    // исто дете во два кабинета во ист термин се одбива и се кажува кај кого е.
+    // Дневникот НЕ станува втор писател со свои правила; тој е уште еден
+    // повикувач на единствениот. `expected` значи дека промена направена таму
+    // во меѓувреме се пријавува, не се прегазува.
+    //
+    // МИНАТА НЕДЕЛА. Записот на отклучена мината недела останува запис. По
+    // измената се прашува дали истото важи и од сега — тогаш оди и во живиот
+    // шаблон и во Кабинети. Без тој избор Кабинети не се допира.
+    //
+    // ШТО НЕ ПРАВИ. Не поврзува ученици по име и не додава ученици: тоа го
+    // прави „⬇ Земи од базата", со своја потврда. Термин со ученик што не е
+    // поврзан се прикажува со причината и останува за рачно.
+    // ═══════════════════════════════════════════════════════════════════════
+    (function () {
+        'use strict';
+
+        var DAY_MK = ['понеделник', 'вторник', 'среда', 'четврток', 'петок'];
+        var SEEN_KEY = 'sdn_plan_sync_seen_v1';
+        var state = { rows: [], outside: 0, therapistId: null, me: '', loaded: false, focus: '', past: null, results: {}, busy: false };
+        var lastAuto = 0;
+
+        function el(id) { return document.getElementById(id); }
+        function esc(v) {
+            return String(v == null ? '' : v).replace(/[&<>"']/g, function (c) {
+                return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+            });
+        }
+        function toast(msg) { if (typeof window.showToast === 'function') window.showToast(msg); }
+        function norm(v) {
+            return String(v == null ? '' : v).normalize('NFKC').trim().replace(/\s+/g, ' ').toLocaleLowerCase('mk-MK');
+        }
+        function flat(t) { return String(t || '').replace(/\s+/g, '').replace(/[–—]/g, '-'); }
+        function base() {
+            var srv = window.SdnLocalSrv;
+            return (srv && typeof srv.getUrl === 'function') ? srv.getUrl() : '';
+        }
+        function usable() { return window.MTB_MIRROR_READONLY !== true && !!base(); }
+        function isOpen() { return el('planSyncModal').classList.contains('active'); }
+
+        /** Полн термин или една од двете половини: 0 = цел час, 1 и 2 = половините. */
+        function slotOf(time) {
+            var t = flat(time);
+            for (var i = 0; i < timeSlots.length; i++) {
+                if (t === flat(timeSlots[i].time)) return { slot: i, half: 0 };
+                if (t === flat(timeSlots[i].half1)) return { slot: i, half: 1 };
+                if (t === flat(timeSlots[i].half2)) return { slot: i, half: 2 };
+            }
+            return null;
+        }
+
+        function getJson(path) {
+            return fetch(base() + path, { cache: 'no-store' }).then(function (r) {
+                return r.json().catch(function () { return {}; }).then(function (body) {
+                    if (!r.ok) throw new Error((body && body.error) || ('HTTP ' + r.status));
+                    return body;
+                });
+            });
+        }
+
+        function names(list) {
+            return list.length ? list.map(function (x) { return esc(x.name); }).join(' + ') : '<i>— празно —</i>';
+        }
+
+        /**
+         * Двете страни, термин по термин. Ученик се препознава само по мостот
+         * (`rasporediStudentId`) или по бројот на дневникот што базата го чува
+         * (`sdnevnik_id`) — никогаш по име (правило 2).
+         */
+        function build(sessionsBody, rosterBody, me) {
+            var sessions = (sessionsBody && Array.isArray(sessionsBody.sessions)) ? sessionsBody.sessions : [];
+            var roster = (rosterBody && Array.isArray(rosterBody.students)) ? rosterBody.students : [];
+            var therapists = (rosterBody && Array.isArray(rosterBody.therapists)) ? rosterBody.therapists : [];
+            var mine = sessions.filter(function (x) { return norm(x.therapist_name) === norm(me); });
+
+            var therapistId = null;
+            therapists.forEach(function (t) { if (t && norm(t.name) === norm(me) && t.id != null) therapistId = t.id; });
+            if (therapistId == null && mine.length) therapistId = mine[0].therapist_id;
+
+            var nameOfPid = {}, pidBySdn = {};
+            roster.forEach(function (row) {
+                if (!row || !row.public_id) return;
+                nameOfPid[row.public_id] = row.name;
+                if (row.sdnevnik_id != null) pidBySdn[String(row.sdnevnik_id)] = String(row.public_id);
+            });
+            mine.forEach(function (x) {
+                if (x.student_public_id && !nameOfPid[x.student_public_id]) nameOfPid[x.student_public_id] = x.student_name;
+            });
+
+            var pidOfDiary = {}, diaryOfPid = {};
+            (window.students || []).forEach(function (s) {
+                if (!s) return;
+                var pid = s.rasporediStudentId ? String(s.rasporediStudentId) : (pidBySdn[String(s.id)] || '');
+                if (pid && !diaryOfPid[pid]) { pidOfDiary[s.id] = pid; diaryOfPid[pid] = s; }
+            });
+
+            var blocks = {}, outside = 0;
+            mine.forEach(function (x) {
+                if (!x.student_public_id) return;
+                var di = DAY_MK.indexOf(norm(x.day));
+                var at = slotOf(x.time);
+                if (di < 0 || !at) { outside++; return; }
+                var key = di + '|' + at.slot;
+                var b = blocks[key] || (blocks[key] = { full: '', h1: '', h2: '' });
+                b[at.half === 0 ? 'full' : (at.half === 1 ? 'h1' : 'h2')] = String(x.student_public_id);
+            });
+            var kabinetiAt = function (key) {
+                var b = blocks[key];
+                if (!b) return [];
+                var ids = b.full ? [b.full] : ((b.h1 && b.h1 === b.h2) ? [b.h1] : [b.h1, b.h2].filter(Boolean));
+                return ids.map(function (pid) { return { pid: pid, name: nameOfPid[pid] || pid, student: diaryOfPid[pid] || null }; });
+            };
+            var diaryList = function (ids) {
+                return (ids || []).map(function (id) {
+                    var s = getStudentById(id);
+                    return { id: id, pid: pidOfDiary[id] || '', name: s ? s.name : ('#' + id) };
+                });
+            };
+
+            var rows = [];
+            for (var di = 0; di < daysEng.length; di++) {
+                for (var ti = 0; ti < timeSlots.length; ti++) {
+                    var key = di + '|' + ti;
+                    var diary = diaryList(schedule[daysEng[di]] && schedule[daysEng[di]][ti]);
+                    var kab = kabinetiAt(key);
+                    var same = diary.length === kab.length && diary.every(function (d, i) { return d.pid && d.pid === kab[i].pid; });
+                    if (same) continue;
+                    rows.push({
+                        key: key, day: di, slot: ti, diary: diary, kab: kab,
+                        pushWhy: therapistId == null ? 'не сте на списокот на стручни лица во Кабинети за годинава'
+                            : diary.length > 2 ? 'во Кабинети во еден час може најмногу двајца'
+                            : diary.some(function (d) { return !d.pid; }) ? 'има ученик што не е поврзан со базата — „⬇ Земи од базата“ го поврзува'
+                            : '',
+                        takeWhy: kab.some(function (k) { return !k.student; })
+                            ? 'има ученик што го нема во „Мои ученици“ — „⬇ Земи од базата“ го додава' : ''
+                    });
+                }
+            }
+            return { rows: rows, outside: outside, therapistId: therapistId, me: me, kabinetiAt: kabinetiAt, pidOfDiary: pidOfDiary, diaryList: diaryList };
+        }
+
+        function read() {
+            var me = getLocalTherapistName();
+            if (!me || !usable()) return Promise.resolve(null);
+            return Promise.all([getJson('/api/schedule/sessions'), getJson('/api/roster')])
+                .then(function (answers) { return build(answers[0], answers[1], me); });
+        }
+
+        function signature(rows) {
+            return rows.map(function (r) {
+                return r.key + ':' + r.diary.map(function (d) { return d.pid || ('#' + d.id); }).join(',') +
+                    '>' + r.kab.map(function (k) { return k.pid; }).join(',');
+            }).join(';');
+        }
+        function seen() { try { return localStorage.getItem(SEEN_KEY) || ''; } catch (e) { return ''; } }
+        function markSeen() { try { localStorage.setItem(SEEN_KEY, signature(state.rows)); } catch (e) { /* storage unavailable */ } }
+
+        function paintButton() {
+            var button = el('planSyncBtn');
+            if (!button) return;
+            var n = state.rows.length;
+            button.classList.toggle('differs', state.loaded && n > 0);
+            button.textContent = !state.loaded ? '⇄ Кабинети'
+                : n ? ('⇄ Кабинети: ' + n + (n === 1 ? ' разлика' : ' разлики')) : '⇄ Кабинети: исто';
+        }
+
+        function take(result) {
+            state.rows = result.rows; state.outside = result.outside; state.therapistId = result.therapistId;
+            state.me = result.me; state.loaded = true; state.last = result;
+            paintButton();
+        }
+
+        /** Чита и ги пресметува разликите. Враќа null кога не може да се прочита. */
+        function check() {
+            return read().then(function (result) {
+                if (!result) { state.loaded = false; paintButton(); return null; }
+                take(result);
+                return result;
+            }).catch(function (err) {
+                state.loaded = false; paintButton();
+                return { error: err && err.message ? err.message : String(err) };
+            });
+        }
+
+        function label(row) {
+            return days[row.day] + ' · ' + timeSlots[row.slot].label + '<small>' + esc(timeSlots[row.slot].time) + '</small>';
+        }
+
+        function choiceSelect(row) {
+            var focus = row.key === state.focus;
+            var chosen = focus && !row.pushWhy ? 'push' : 'leave';
+            var option = function (value, text, why) {
+                return '<option value="' + value + '"' + (why ? ' disabled' : '') + (value === chosen ? ' selected' : '') + '>' + text + '</option>';
+            };
+            return '<select data-plan-choice="' + row.key + '" aria-label="Одлука за ' + esc(days[row.day] + ' ' + timeSlots[row.slot].label) + '">' +
+                option('leave', 'Остави како што е', '') +
+                option('push', 'Запиши во Кабинети (постојано)', row.pushWhy) +
+                option('take', 'Земи од Кабинети во дневникот', row.takeWhy) + '</select>' +
+                (row.pushWhy ? '<div class="plan-sync-why">Не може во Кабинети: ' + esc(row.pushWhy) + '.</div>' : '') +
+                (row.takeWhy ? '<div class="plan-sync-why">Не може во дневникот: ' + esc(row.takeWhy) + '.</div>' : '');
+        }
+
+        function resultHtml(key) {
+            var r = state.results[key];
+            return r ? '<div class="plan-sync-result ' + (r.ok ? 'ok' : 'bad') + '">' + esc(r.text) + '</div>' : '';
+        }
+
+        function render() {
+            if (state.past) return renderPast();
+            var n = state.rows.length;
+            el('planSyncTitle').textContent = 'Дневник ↔ Кабинети';
+            el('planSyncApply').style.display = n ? '' : 'none';
+            if (!n) {
+                el('planSyncLead').textContent = 'Неделниот план во дневникот и во Кабинети е ист за ' + state.me + '.';
+                el('planSyncBody').innerHTML = Object.keys(state.results).map(resultHtml).join('');
+            } else {
+                el('planSyncLead').textContent = 'Планот во дневникот и во Кабинети се разликува во ' + n +
+                    (n === 1 ? ' термин' : ' термини') + ' (' + state.me + '). Ништо не се менува додека не кликнете „Примени“.';
+                el('planSyncBody').innerHTML =
+                    (n > 1 ? '<label class="plan-sync-all">За сите: <select id="planSyncAll">' +
+                        '<option value="">— изберете —</option><option value="push">Запиши во Кабинети</option>' +
+                        '<option value="take">Земи од Кабинети</option><option value="leave">Остави</option></select></label>' : '') +
+                    '<table class="plan-sync-table"><thead><tr><th>Термин</th><th>Во дневникот</th><th>Во Кабинети</th><th>Одлука</th></tr></thead><tbody>' +
+                    state.rows.map(function (row) {
+                        return '<tr data-plan-row="' + row.key + '"' + (row.key === state.focus ? ' class="focus"' : '') + '>' +
+                            '<td>' + label(row) + '</td>' +
+                            '<td data-label="Во дневникот">' + names(row.diary) + '</td>' +
+                            '<td data-label="Во Кабинети">' + names(row.kab) + '</td>' +
+                            '<td>' + choiceSelect(row) + resultHtml(row.key) + '</td></tr>';
+                    }).join('') + '</tbody></table>';
+            }
+            el('planSyncNote').textContent = state.outside
+                ? 'Кабинети има уште ' + state.outside + ' термин(и) во час што дневникот го нема (по V час); тие не се споредуваат.'
+                : '';
+        }
+
+        function renderPast() {
+            var p = state.past;
+            var monday = new Date(p.weekKey);
+            var date = String(monday.getDate()).padStart(2, '0') + '.' + String(monday.getMonth() + 1).padStart(2, '0') + '.' + monday.getFullYear();
+            el('planSyncTitle').textContent = 'Измена во мината недела';
+            el('planSyncApply').style.display = '';
+            el('planSyncLead').textContent = 'Го сменивте записот за неделата од ' + date + '. Записот е зачуван. ' +
+                'Дали истото да важи и од сега натаму?';
+            el('planSyncBody').innerHTML =
+                '<table class="plan-sync-table"><thead><tr><th>Термин</th><th>Во таа недела</th><th>Сега во дневникот</th><th>Во Кабинети</th></tr></thead><tbody>' +
+                '<tr class="focus"><td>' + label(p) + '</td>' +
+                '<td data-label="Во таа недела">' + names(p.record) + '</td>' +
+                '<td data-label="Сега во дневникот">' + names(p.live) + '</td>' +
+                '<td data-label="Во Кабинети">' + names(p.kab) + '</td></tr></tbody></table>' +
+                '<label class="plan-sync-all" style="margin-top:12px;">Одлука: <select id="planSyncPast">' +
+                '<option value="only" selected>Само таа недела (запис)</option>' +
+                '<option value="permanent"' + (p.pushWhy ? ' disabled' : '') + '>Постојано — во дневникот од оваа недела и во Кабинети</option>' +
+                '</select></label>' +
+                (p.pushWhy ? '<div class="plan-sync-why">Не може постојано: ' + esc(p.pushWhy) + '.</div>' : '') +
+                resultHtml(p.key);
+            el('planSyncNote').textContent = '';
+        }
+
+        function show() { render(); el('planSyncModal').classList.add('active'); }
+        function close() {
+            el('planSyncModal').classList.remove('active');
+            if (!state.past && state.loaded) markSeen();
+            state.past = null; state.focus = ''; state.results = {};
+        }
+
+        /** Зошто Кабинети одбива — со истите зборови како во Кабинети. */
+        function refusal(status, body) {
+            if (body && body.doubleBooked) return (body.studentName || 'Ученикот') + ' веќе е кај ' + body.therapistName + ' во ' + body.time + '.';
+            if (body && body.therapistOccupied) return 'Во Кабинети веќе имате сесија што се преклопува со овој термин (' + body.time + ').';
+            if (body && body.notInCaseload) return 'Ученикот не е во вашиот годишен список во Кабинети („Ученици по терапевт“).';
+            if (body && body.actualStudentPublicIds) return 'Кабинети се смени во меѓувреме. Погледнете ја новата состојба и изберете повторно.';
+            if (body && body.blockOverlap) return 'Во Кабинети терминот има и цел час и половини. Исчистете го таму.';
+            if (status === 401 || status === 403) return 'Немате дозвола за запис во Кабинети од оваа најава.';
+            if (status === 404 && body && /student/.test(body.error || '')) return 'Ученикот не е на годишниот список во базата за годинава.';
+            return (body && body.error) || ('Кабинети одговори со грешка ' + status + '.');
+        }
+
+        function pushBlock(day, slot, pids, expected) {
+            return fetch(base() + '/api/schedule/block', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    day: DAY_MK[day], time: timeSlots[slot].time, therapistId: state.therapistId,
+                    studentPublicIds: pids, expectedStudentPublicIds: expected
+                })
+            }).then(function (r) {
+                return r.json().catch(function () { return {}; }).then(function (body) {
+                    return r.ok ? { ok: true, text: 'Запишано во Кабинети.' } : { ok: false, text: refusal(r.status, body) };
+                });
+            }).catch(function () { return { ok: false, text: 'Серверот не е достапен — не е запишано во Кабинети.' }; });
+        }
+
+        function redrawDiary() {
+            saveData();
+            ['renderSchedule', 'renderStudentListSimple', 'updateStats'].forEach(function (fn) {
+                if (typeof window[fn] === 'function') { try { window[fn](); } catch (e) { /* екран што не е отворен */ } }
+            });
+        }
+
+        function setBusy(on) {
+            state.busy = on;
+            el('planSyncApply').disabled = on;
+            el('planSyncApply').textContent = on ? 'Запишувам…' : 'Примени';
+        }
+
+        function applyDiff() {
+            var choices = {};
+            Array.prototype.forEach.call(document.querySelectorAll('[data-plan-choice]'), function (s) { choices[s.getAttribute('data-plan-choice')] = s.value; });
+            var takes = state.rows.filter(function (r) { return choices[r.key] === 'take' && !r.takeWhy; });
+            var pushes = state.rows.filter(function (r) { return choices[r.key] === 'push' && !r.pushWhy; });
+            if (!takes.length && !pushes.length) { close(); return; }
+
+            setBusy(true);
+            var results = {};
+            takes.forEach(function (r) {
+                schedule[daysEng[r.day]][r.slot] = r.kab.map(function (k) { return k.student.id; });
+                results[r.key] = { ok: true, text: days[r.day] + ' ' + timeSlots[r.slot].label + ': земено од Кабинети.' };
+            });
+            if (takes.length) redrawDiary();
+
+            var chain = Promise.resolve();
+            pushes.forEach(function (r) {
+                chain = chain.then(function () {
+                    return pushBlock(r.day, r.slot, r.diary.map(function (d) { return d.pid; }), r.kab.map(function (k) { return k.pid; }));
+                }).then(function (answer) {
+                    results[r.key] = { ok: answer.ok, text: (answer.ok ? days[r.day] + ' ' + timeSlots[r.slot].label + ': ' : '') + answer.text };
+                });
+            });
+            chain.then(check).then(function () {
+                setBusy(false);
+                state.results = results; state.focus = '';
+                var failed = Object.keys(results).some(function (k) { return !results[k].ok; });
+                if (!state.rows.length && !failed) { close(); toast('Дневникот и Кабинети се исти.'); return; }
+                render();
+            });
+        }
+
+        function applyPast() {
+            var p = state.past;
+            if (el('planSyncPast').value !== 'permanent' || p.pushWhy) { close(); return; }
+            setBusy(true);
+            schedule[daysEng[p.day]][p.slot] = p.record.map(function (d) { return d.id; });
+            redrawDiary();
+            var pids = p.record.map(function (d) { return d.pid; });
+            var expected = p.kab.map(function (k) { return k.pid; });
+            var sameAlready = pids.length === expected.length && pids.every(function (pid, i) { return pid === expected[i]; });
+            (sameAlready ? Promise.resolve({ ok: true, text: 'Кабинети веќе го има истото.' }) : pushBlock(p.day, p.slot, pids, expected))
+                .then(function (answer) {
+                    return check().then(function () {
+                        setBusy(false);
+                        if (answer.ok) { close(); toast('Важи постојано: во дневникот и во Кабинети.'); return; }
+                        // Дневникот е сменет, Кабинети одби: тоа е обична разлика и се решава таму.
+                        state.past = null; state.focus = p.key; state.results = {};
+                        state.results[p.key] = { ok: false, text: answer.text };
+                        render();
+                    });
+                });
+        }
+
+        // ── влезови ────────────────────────────────────────────────────────
+
+        /** Копчето „⇄ Кабинети": секогаш ја покажува состојбата, и кога нема разлика. */
+        function open() {
+            if (window.MTB_MIRROR_READONLY === true) { alert('Ова е копија само за читање. Планот се усогласува во облакот.'); return; }
+            if (!base()) { alert('Нема поставен сервер.'); return; }
+            if (!getLocalTherapistName()) { chooseLocalTherapist(base(), open); return; }
+            state.past = null; state.focus = ''; state.results = {};
+            check().then(function (result) {
+                if (!result || result.error) {
+                    alert('Не можам да ги прочитам Кабинети: ' + ((result && result.error) || 'серверот не е достапен') + '.');
+                    return;
+                }
+                show();
+            });
+        }
+
+        /** По измена во дневникот (assignStudents, undo, redo). */
+        function edited(change) {
+            if (!usable() || !getLocalTherapistName() || !change) return;
+            var di = daysEng.indexOf(change.day);
+            var ti = Number(change.timeIdx);
+            if (di < 0 || !(ti >= 0)) return;
+            var key = di + '|' + ti;
+            check().then(function (result) {
+                if (!result || result.error) {
+                    toast('Кабинети не е достапен — измената е само во дневникот. „⇄ Кабинети“ ќе ја понуди подоцна.');
+                    return;
+                }
+                if (change.isPastWeek) {
+                    var week = scheduleHistory[change.weekKey];
+                    var record = result.diaryList(week && week[change.day] ? week[change.day][ti] : []);
+                    var live = result.diaryList(schedule[change.day][ti]);
+                    var kab = result.kabinetiAt(key);
+                    var ids = function (list) { return list.map(function (x) { return x.pid || ('#' + x.id); }).join(','); };
+                    if (ids(record) === ids(live) && ids(record) === kab.map(function (k) { return k.pid; }).join(',')) return;
+                    state.past = {
+                        key: key, day: di, slot: ti, weekKey: change.weekKey, record: record, live: live, kab: kab,
+                        pushWhy: result.therapistId == null ? 'не сте на списокот на стручни лица во Кабинети за годинава'
+                            : record.length > 2 ? 'во Кабинети во еден час може најмногу двајца'
+                            : record.some(function (d) { return !d.pid; }) ? 'има ученик што не е поврзан со базата' : ''
+                    };
+                    state.results = {};
+                    show();
+                    return;
+                }
+                if (!state.rows.some(function (r) { return r.key === key; })) return;   // исто како во Кабинети
+                state.past = null; state.focus = key; state.results = {};
+                show();
+            });
+        }
+
+        /** При отворање и при промена од друг прозорец: се јавува само за разлика што уште не е видена. */
+        function auto() {
+            if (!usable() || isOpen() || state.busy) return;
+            if (base() !== window.location.origin) return;      // само кога страницата ја служи нејзиниот сервер
+            if (Date.now() - lastAuto < 15000) return;
+            lastAuto = Date.now();
+            check().then(function (result) {
+                if (!result || result.error || isOpen()) return;
+                if (state.rows.length && signature(state.rows) !== seen()) { state.past = null; state.focus = ''; state.results = {}; show(); }
+            });
+        }
+
+        function start() {
+            el('planSyncApply').addEventListener('click', function () { if (!state.busy) (state.past ? applyPast : applyDiff)(); });
+            el('planSyncClose').addEventListener('click', function () { if (!state.busy) close(); });
+            el('planSyncBody').addEventListener('change', function (event) {
+                if (event.target.id !== 'planSyncAll' || !event.target.value) return;
+                Array.prototype.forEach.call(document.querySelectorAll('[data-plan-choice]'), function (s) {
+                    var wanted = s.querySelector('option[value="' + event.target.value + '"]');
+                    if (wanted && !wanted.disabled) s.value = event.target.value;
+                });
+            });
+            document.addEventListener('keydown', function (event) { if (event.key === 'Escape' && isOpen() && !state.busy) close(); });
+            // По синхронизацијата со серверот (2 s) и читањето на присуството (2,4 s),
+            // за да се споредува вчитан дневник, а не празен.
+            setTimeout(auto, 5000);
+            document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'visible') auto(); });
+            setTimeout(function () {
+                var nav = window.MTBAppNavigation;
+                if (nav && typeof nav.onDataChange === 'function') nav.onDataChange(function () { lastAuto = 0; auto(); }, { busy: isOpen });
+            }, 1500);
+        }
+
+        window.SdnPlanSync = { open: open, edited: edited, refresh: function () { if (usable()) check(); } };
+
+        document.addEventListener('DOMContentLoaded', start);
+        if (document.readyState !== 'loading') start();
     })();
     </script>
 

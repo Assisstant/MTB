@@ -91,6 +91,7 @@
     "test:duty": "tsx test/duty.e2e.ts",
     "test:kolegi-admin": "node test/kolegi-admin.browser.mjs",
     "test:door": "node test/door.browser.mjs",
+    "test:plan-sync": "node test/sdnevnik-plan-sync.browser.mjs",
     "test:teacher-week": "node test/teacher-week.browser.mjs",
     "test:wbacc": "node test/wbacc.browser.mjs",
     "migrate:pending": "tsx scripts/migrations-pending.ts"
