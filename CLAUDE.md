@@ -852,6 +852,14 @@ read `DATABASE_URL`; never add literal credentials to this public repository.
   no action of its own. The tab's panel order is CSS `order` on `#data`,
   because four scripts append their panels at different times.
 
+- **A backup is a state, not a run (owner, 1 Oct 2026).** Every start, update
+  and end of day calls `backup-db.ps1`, so "keep the last 5 files" became five
+  copies of one afternoon. It now skips the dump when the database fingerprint
+  equals the last dump's (and that file is intact), and keeps the newest 5
+  states plus the last state of each of the last 5 days. The diary's browser
+  backups confirm an identical state instead of adding it. A new backup or
+  retention rule must ask "is this a different state?" before "how many?".
+
 - **One flat look, opted into per page (1 Oct 2026).** `html.mtb-flat` in
   mtb-look.css is the button — a PILL, 34px high, `6px 14px`, 14px bold, fully
   rounded (2 Oct), the same for a tab and for the pin; `.mtb-tabs-flat` on a strip makes its tabs plain

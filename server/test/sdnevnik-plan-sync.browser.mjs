@@ -278,6 +278,20 @@ try {
     await page.click('#planSyncClose');
     if (process.env.PLAN_SHOTS) await page.screenshot({ path: path.join(process.env.PLAN_SHOTS, 'data-tab.png') });
 
+    // ── a backup in the browser is a state, not an event ─────────────────────
+    console.log('\nbackups in the browser');
+    const backupCount = async () => (await page.evaluate(() => window.SdnV3.getBackups())).length;
+    const backup = async (reason) => { await page.evaluate((r) => window.SdnV3.createBackup(r), reason); await page.waitForTimeout(400); };
+    await backup('first');
+    const held = await backupCount();
+    await backup('again');
+    await backup('and again');
+    checkEq('the same state backed up three times is one backup', await backupCount(), held);
+    check('and it says when it was last confirmed', Boolean((await page.evaluate(() => window.SdnV3.getBackups()))[0].confirmedAt));
+    await page.evaluate(() => { window.schedule.friday[4] = [1001]; });
+    await backup('after a change');
+    checkEq('a changed state is a new backup', await backupCount(), held + 1);
+
     check('the past week was unlocked through the diary\'s own warning', dialogs.some((d) => /отклучена/.test(d)));
     checkEq('no page errors', errors, []);
 } finally {

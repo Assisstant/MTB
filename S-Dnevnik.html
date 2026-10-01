@@ -9630,6 +9630,21 @@
         return idbGet(BACKUP_LIST_KEY).then(function (raw) {
             var list = raw ? parseJson(raw, 'S-Dnevnik backups') : [];
             if (!Array.isArray(list)) list = [];
+            // Резерва е СОСТОЈБА, не настан (сопственикот, 1 октомври 2026).
+            // Секое вчитување од серверот и секој увоз прават резерва, па осумте
+            // места се полнеа со осум копии од истото и вистински постара
+            // состојба испаѓаше. Ако содржината е иста како во најновата
+            // резерва (без `_meta`, што се менува при секое зачувување), таа
+            // само се потврдува со нов датум.
+            if (list[0] && list[0].payloadText) {
+                try {
+                    var content = function (payload) { var copy = Object.assign({}, payload); delete copy._meta; return JSON.stringify(copy); };
+                    if (content(JSON.parse(list[0].payloadText)) === content(data)) {
+                        list[0].confirmedAt = nowIso();
+                        return idbSet(BACKUP_LIST_KEY, JSON.stringify(list)).then(function () { return true; });
+                    }
+                } catch (e) { /* нечитлива стара резерва: се додава нова */ }
+            }
             list.unshift({
                 id: Date.now() + '_' + Math.random().toString(16).slice(2),
                 createdAt: nowIso(),
