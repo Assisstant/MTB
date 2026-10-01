@@ -1,5 +1,15 @@
 # Master administration release — 21 September 2026
 
+## Which link a sign-in came through — 1 October 2026, code only, NOT deployed
+
+Migration **055** adds the nullable `staff_sessions.link_id` (a reference to
+`portal_links`) and a partial index; no row changes. The guarded runner accepts
+**033–055** under a new recovery schema,
+`mtb_workspace_recovery_session_link_20261001` (053 and 054 go with it wherever
+they were not deployed yet). With it, „Запри" on an archived link ends only the
+sign-ins that came in through that link. Code that meets a database without
+055 signs everybody but the owner out, as before.
+
 ## A swapped duty day swapped again — 1 October 2026, code only, NOT deployed
 
 Migration **054** replaces the two UNIQUE indexes on `duty_swaps`

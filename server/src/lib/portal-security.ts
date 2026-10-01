@@ -114,17 +114,38 @@ async function noteRetiredUse(db: Queryable, offered: string): Promise<void> {
 }
 
 /**
- * An archived link put back in use, or stopped again. Stopping it is taking a
- * link away, so the colleagues sign in again, as with the other two buttons.
+ * An archived link put back in use, or stopped again. Stopping it ends the
+ * sign-ins that came in through it and nobody else's (owner, 1 Oct 2026; 055):
+ * whoever uses the current link has nothing to do with the one taken away.
  */
 export async function allowOldLink(db: Queryable, code: string, allowed: boolean, actor: string | null): Promise<boolean> {
     const { rows } = await db.query(
-        `UPDATE portal_links SET allowed = $2, allowed_at = CASE WHEN $2 THEN now() ELSE NULL END
-          WHERE code = $1 AND retired_at IS NOT NULL AND allowed <> $2 RETURNING id`, [code, allowed]);
+        `SELECT id, allowed_at FROM portal_links
+          WHERE code = $1 AND retired_at IS NOT NULL AND allowed <> $2 FOR UPDATE`, [code, allowed]);
     if (!rows.length) return false;
-    if (!allowed) await endSessions(db);
+    await db.query('UPDATE portal_links SET allowed = $2, allowed_at = CASE WHEN $2 THEN now() ELSE NULL END WHERE id = $1',
+        [rows[0].id, allowed]);
+    if (!allowed) await endSessionsThrough(db, rows[0].id, rows[0].allowed_at);
     await logChange(db, allowed ? 'link_allow' : 'link_stop', actor, null, '/kolegi/' + code);
     return true;
+}
+
+/**
+ * A sign-in with no link recorded (made before 055) can have come through an
+ * archived link only after that link was put back in use — every earlier one
+ * ended when the link was replaced — so those go too, and older ones stay.
+ * A database without 055 knows nobody's link: everybody signs in again, as
+ * before. The column is asked for first because this runs inside a
+ * transaction, where a failed statement would undo the stop itself.
+ */
+async function endSessionsThrough(db: Queryable, linkId: number, since: Date | null): Promise<void> {
+    const recorded = (await db.query(
+        `SELECT 1 FROM pg_attribute WHERE attrelid = to_regclass('staff_sessions') AND attname = 'link_id' AND NOT attisdropped`)).rows.length;
+    if (!recorded) return endSessions(db);
+    await db.query(
+        `DELETE FROM staff_sessions
+          WHERE (link_id = $1 OR (link_id IS NULL AND created_at >= $2))
+            AND employee_id NOT IN (SELECT employee_id FROM staff_accounts WHERE owner)`, [linkId, since]);
 }
 
 export async function doorRefusal(req: FastifyRequest, db: Queryable = pool): Promise<DoorRefusal | null> {

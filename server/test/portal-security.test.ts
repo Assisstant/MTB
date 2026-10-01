@@ -185,7 +185,23 @@ test('a new link stops the old address, signs everybody out but the owner, and t
     key = first.code;
     assert.equal((await call('GET', '/api/portal/me', viaOld.json().token)).statusCode, 423, 'stopped again, the old link is dead');
     key = second.code;
-    assert.equal((await call('GET', '/api/portal/me', viaOld.json().token)).statusCode, 401, 'and whoever was in signs in again');
+    assert.equal((await call('GET', '/api/portal/me', viaOld.json().token)).statusCode, 401, 'and whoever came in through it signs in again');
+    assert.equal((await call('GET', '/api/portal/me', viaNew)).statusCode, 200, 'whoever came in through the current link stays in (055)');
+    // A sign-in from before 055 has no link recorded. Made after the old link
+    // was put back in use, it may have come through it; made before, it cannot have.
+    const unrecorded = async (made: string) => {
+        const token = await tokenOf('Измислен Тестер Врата');
+        await db.query(`UPDATE staff_sessions SET link_id = NULL, created_at = now() + $1::interval WHERE link_id IS NOT NULL
+                         AND created_at = (SELECT max(created_at) FROM staff_sessions)`, [made]);
+        return token;
+    };
+    const earlier = await unrecorded('-1 hour');
+    assert.equal((await old(true)).statusCode, 200);
+    const later = await unrecorded('1 hour');
+    assert.equal((await old(false)).statusCode, 200);
+    assert.equal((await call('GET', '/api/portal/me', earlier)).statusCode, 200, 'older than the link being back: not through it');
+    assert.equal((await call('GET', '/api/portal/me', later)).statusCode, 401, 'unrecorded and newer: out, to be safe');
+    assert.equal((await call('GET', '/api/portal/me', viaNew)).statusCode, 200);
     assert.equal((await ownerCall('PUT', '/api/staff-security/links/zzzz-9999', { allowed: true })).statusCode, 409);
     assert.equal((await ownerCall('PUT', `/api/staff-security/links/${second.code}`, { allowed: true })).statusCode, 409, 'the current link has no such switch');
     assert.equal((await call('PUT', `/api/staff-security/links/${first.code}`, viaNew, { allowed: true })).statusCode, 401, "the owner's alone");

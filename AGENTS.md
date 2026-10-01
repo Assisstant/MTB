@@ -811,8 +811,9 @@ read `DATABASE_URL`; never add literal credentials to this public repository.
   is the one exception — the account is known only after the password, so the
   login route calls `accountRefusal` itself, and a wrong password is told
   nothing. Maintenance does NOT delete sessions (they carry on when it ends);
-  a lock, a new link, taking the link away and stopping a re-allowed old
-  link do. An archived link can be put back in use by hand (`portal_links.allowed`,
+  a lock, a new link and taking the link away do. Stopping a re-allowed old
+  link ends only the sign-ins that came in through it (`staff_sessions.link_id`,
+  055; without 055 it ends everybody's). An archived link can be put back in use by hand (`portal_links.allowed`,
   053): it opens the door beside the current one, which stays the link handed out. `tester` passes maintenance; `owner` (the owner's
   own colleague account, marked in the database, never by name here) passes
   maintenance and cannot be locked; the owner's two-hour look passes all of
@@ -835,8 +836,9 @@ read `DATABASE_URL`; never add literal credentials to this public repository.
 - **One flat look, opted into per page (1 Oct 2026).** `html.mtb-flat` in
   mtb-look.css is the button — a PILL, 34px high, `6px 14px`, 14px bold, fully
   rounded (2 Oct), the same for a tab and for the pin; `.mtb-tabs-flat` on a strip makes its tabs plain
-  buttons and takes it out of mtb-layout.js's forced dark band. Кабинети and
-  Евидентен лист do not load mtb-look.css and carry a copy of the numbers.
+  buttons and takes it out of mtb-layout.js's forced dark band. Кабинети,
+  Евидентен лист, Колега and the workspace's two side panels do not load
+  mtb-look.css and carry a copy of the numbers; Колега keeps 48px on a phone.
   The workspace's top row and S-Дневник keep the dark slanted tabs on the
   owner's word — do not „finish" them.
 

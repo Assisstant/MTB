@@ -251,7 +251,7 @@ header.top h1 { flex: 1; min-width: 180px; }
 .sheet.by-cabinet .s-item.away b { color: #7b341e; }
 .sheet.by-cabinet .s-item.away small::before { content: ''; }
 .sheet .s-empty { margin: 16px 0 6px; text-align: center; color: #4a5568; }
-.sheet-modes { display: inline-flex; flex-wrap: wrap; gap: 0; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; margin-right: 6px; }
+.sheet-modes { display: inline-flex; flex-wrap: wrap; gap: 0; border: 1px solid var(--line); border-radius: 18px; overflow: hidden; margin-right: 6px; }
 .sheet-modes button { border: 0; border-radius: 0; border-right: 1px solid var(--line); min-height: 36px; padding: 6px 12px; }
 .sheet-modes button:last-child { border-right: 0; }
 .sheet-modes button[aria-pressed="true"] { background: var(--accent); color: #ffffff; font-weight: 700; }
@@ -444,14 +444,21 @@ header.top h1 { flex: 1; min-width: 180px; }
   body { font: 16px/1.5 "Segoe UI", system-ui, -apple-system, sans-serif; }
   main { max-width: 1320px; padding: 24px 28px 72px; }
   .card { border-radius: 8px; box-shadow: 0 2px 6px #17245108; }
-  button, button.small { min-height: 40px; border-radius: 6px; font-size: 15px; font-weight: 600; padding: 8px 14px; touch-action: manipulation; }
+  /* The pill of the other screens (owner, 1 Oct 2026): 34px, 6px 14px, 14px
+     bold, fully rounded; 28px in a table. This page does not load
+     mtb-look.css, so the numbers are copied. A phone keeps 48px to touch. */
+  button, button.small { min-height: 34px; border-radius: 999px; font-size: 14px; font-weight: 700; padding: 6px 14px; touch-action: manipulation; }
+  .attendance-mark, .owner-accounts button { border-radius: 10px; }
+  @media (min-width: 801px) and (pointer: fine) {
+    table button.small { min-height: 28px; padding: 4px 12px; font-size: 13px; }
+    #tabs button, .attendance-tools button, .transport-dates button { min-height: 34px; }
+  }
   input, select { min-height: 40px; border-radius: 6px; font-size: 16px; }
   button.primary, #tabs button[aria-pressed="true"], #days button[aria-pressed="true"] {
     background: var(--chat-start); color: #fff; border-color: transparent;
   }
   #tabs, #days { gap: 8px; }
   #tabs { border-bottom: 1px solid var(--line); padding-bottom: 12px; margin-bottom: 8px; }
-  #tabs button { border-radius: 6px; }
   #home > header.top { align-items: center; gap: 8px; margin-bottom: 12px; }
   #home > header.top h1 { font-size: 24px; line-height: 32px; font-weight: 600; }
   #home h2 { font-size: 20px; line-height: 28px; font-weight: 600; }
@@ -486,7 +493,7 @@ header.top h1 { flex: 1; min-width: 180px; }
   .report-exports { margin-left: auto; }
   .period-controls { flex-wrap: nowrap; }
   .period-controls input { width: 200px; }
-  .attendance-tools button, .attendance-tools input, .attendance-tools select { min-height: 40px; }
+  .attendance-tools input, .attendance-tools select { min-height: 40px; }
   .access-help { border: 1px solid var(--warn); background: var(--warn-bg); border-radius: 6px; padding: 16px; }
   .access-help a { color: var(--text); font-weight: 600; text-decoration: underline; }
   button:focus-visible, a:focus-visible, summary:focus-visible { outline: 2px solid var(--focus); outline-offset: 3px; }

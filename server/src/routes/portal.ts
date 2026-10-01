@@ -24,7 +24,7 @@ import { z } from 'zod';
 import { pool } from '../db.js';
 import { assertOwner, refuseScope, scopeOf, signerName } from '../lib/colleague.js';
 import {
-    DOOR_STATUS, accountRefusal, allowOldLink, doorNotice, logChange, newLink, retireLink, securityOverview, setAccount,
+    DOOR_STATUS, PORTAL_KEY_HEADER, accountRefusal, allowOldLink, doorNotice, logChange, newLink, retireLink, securityOverview, setAccount,
     setActingCheck, setMaintenance, unlockAll
 } from '../lib/portal-security.js';
 import { TEACHING_DAYS } from '../lib/teaching.js';
@@ -549,7 +549,8 @@ export async function portalRoutes(server: FastifyInstance, options: { year?: st
             if (closed.door === 'locked') await logChange(pool, 'refused_locked', null, found.staff.employeeId);
             return reply.code(DOOR_STATUS).send(closed);
         }
-        const session = await openSession(pool, found.staff.employeeId);
+        const session = await openSession(pool, found.staff.employeeId,
+            String(req.headers[PORTAL_KEY_HEADER] || '').trim().toLowerCase() || null);
         return {
             token: session.token,
             expiresAt: session.expiresAt,

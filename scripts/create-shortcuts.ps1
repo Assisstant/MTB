@@ -86,6 +86,12 @@ foreach ($s in $shortcuts) {
     $lnk.WindowStyle = if ($s.ContainsKey('Minimised') -and $s.Minimised) { 7 } else { 1 }
     $lnk.Save()
     Write-Host "sozdadeno: $path" -ForegroundColor Green
+    # In a folder, the same shortcut loose on the Desktop is the older copy of
+    # this one (the name is ours): one place to click, not two.
+    if ($Folder) {
+        $loose = Join-Path $desktop ($s.Name + '.lnk')
+        if (Test-Path -LiteralPath $loose) { Remove-Item -LiteralPath $loose -Force; Write-Host "premesteno vo papkata: $($s.Name)" }
+    }
 }
 
 Write-Host ''

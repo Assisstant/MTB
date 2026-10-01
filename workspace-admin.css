@@ -7,6 +7,11 @@
 #masterAdmin button,#masterAdmin select,#masterAdmin input{border:1px solid var(--line);border-radius:10px;color:var(--text);background:var(--panel2);padding:9px 11px;max-width:100%;font:inherit}
 #masterAdmin button:hover{border-color:var(--accent2);box-shadow:0 0 0 1px var(--accent2)}#masterAdmin button:disabled{opacity:.5;cursor:not-allowed}
 #masterAdmin button[aria-pressed=true],#masterAdmin .ma-save{background:var(--accent);border-color:var(--accent2);color:white}
+/* The pill of the other screens (owner, 1 Oct 2026); a row of the list is a card, not a button to press. */
+#masterAdmin button{min-height:34px;border-radius:999px;padding:6px 14px;font-weight:700}
+#masterAdmin .ma-list>button{border-radius:10px;padding:9px 11px;font-weight:400}
+/* The chosen row keeps the panel's own background, so it keeps the panel's text colour: white was unreadable in the light theme. */
+#masterAdmin .ma-list>button[aria-pressed=true]{color:var(--text)}
 #masterAdmin input[type=checkbox]{width:18px;height:18px;accent-color:var(--accent)}
 #masterAdmin :focus-visible{outline:3px solid var(--accent2);outline-offset:2px}
 .ma-bar{padding:10px 24px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}.ma-bar [role=status]{flex:1;min-width:180px;color:var(--muted)}

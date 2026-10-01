@@ -30,6 +30,23 @@ function Stop-WithMessage([string]$Text) {
 if (-not $EnvFile) {
     $EnvFile = @((Join-Path $repo 'cloud.env'), (Join-Path (Split-Path -Parent $repo) 'MTB-cloude.env')) |
         Where-Object { Test-Path $_ } | Select-Object -First 1
+    # Neither is here: the other machine may have left the file in the pCloud
+    # folder the two PCs already share (P:\MTB-sync, or SYNC_DIR in server\.env).
+    # It is copied beside the repo once, so the next run needs no pCloud.
+    if (-not $EnvFile) {
+        $shared = 'P:\MTB-sync'
+        $serverEnv = Join-Path $repo 'server\.env'
+        if (Test-Path $serverEnv) {
+            $dirLine = Get-Content -LiteralPath $serverEnv -Encoding UTF8 | Where-Object { $_ -match '^\s*SYNC_DIR\s*=' } | Select-Object -First 1
+            if ($dirLine) { $shared = ($dirLine -replace '^\s*SYNC_DIR\s*=\s*', '').Trim().Trim('"') }
+        }
+        $left = Join-Path $shared 'MTB-cloude.env'
+        if (Test-Path -LiteralPath $left) {
+            $EnvFile = Join-Path (Split-Path -Parent $repo) 'MTB-cloude.env'
+            Copy-Item -LiteralPath $left -Destination $EnvFile
+            Write-Host "  (адресата на облакот е преземена од $left)" -ForegroundColor Yellow
+        }
+    }
     if (-not $EnvFile) { $EnvFile = Join-Path $repo 'cloud.env' }
 }
 if ((Split-Path -Parent $EnvFile) -eq $repo) {

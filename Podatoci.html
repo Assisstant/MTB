@@ -3245,7 +3245,7 @@
             const allowed = button.dataset.oldLinkAllow === 'true';
             if (!window.confirm(allowed
                 ? `Линкот /kolegi/${code} повторно да важи? Секој што го има ќе ја гледа најавата. Тековниот линк останува ист.`
-                : `Да се запре линкот /kolegi/${code}? Сите колеги се одјавуваат и се најавуваат повторно.`)) return;
+                : `Да се запре линкот /kolegi/${code}? Се одјавуваат само колегите што влегле преку него; другите остануваат најавени.`)) return;
             securityChange(button, () => api('PUT', `/api/staff-security/links/${code}`, { allowed }),
                 allowed ? 'Стариот линк повторно важи.' : 'Стариот линк е запрен.');
         });

@@ -470,7 +470,11 @@ const run = async () => {
     console.log('\nthe page keeps no copy of the record');
     const stored = await page.evaluate(() => Object.fromEntries(
         Object.keys(localStorage).map((k) => [k, String(localStorage.getItem(k)).slice(0, 24)])));
-    const allowed = new Set(['evidence_token_v1', 'evidence_theme_v1', 'theme', 'mtb_podatoci_server_v1', 'mtb_servers_v1']);
+    // The author's credit is remembered on purpose so the watermark shows with
+    // no server (app-navigation.js, 27 Sep 2026): a name and a look, not the
+    // record. Named, as in podatoci.browser.mjs, so any other key still fails.
+    const allowed = new Set(['evidence_token_v1', 'evidence_theme_v1', 'theme', 'mtb_podatoci_server_v1', 'mtb_servers_v1',
+        'mtb_author_v1', 'mtb_author_look_v1']);
     checkEq('localStorage holds only the sign-in, the server and the theme',
         Object.keys(stored).filter((k) => !allowed.has(k)), []);
     checkEq('and sessionStorage holds nothing at all',

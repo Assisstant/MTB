@@ -31,6 +31,9 @@
 .topbar > .soft { background: rgba(15, 18, 40, .32); border-color: rgba(255, 255, 255, .3); color: #fff; }
 .topbar > .soft:hover, .topbar > .primary:hover { border-color: #fff; box-shadow: 0 0 0 1px rgba(255, 255, 255, .55); }
 .topbar > .primary { background: #4c51bf; border-color: rgba(255, 255, 255, .45); }
+/* The side panel's buttons are the same pill as the pages inside the frames
+   (owner, 1 Oct 2026): 34px, 6px 14px, 14px bold, fully rounded. */
+.directory .soft, .directory .primary, .directory .danger, .panel-toggle { min-height: 34px; border-radius: 999px; padding: 6px 14px; font-size: 14px; font-weight: 700; }
 .topbar .year-wrap select { border-radius: 10px; }
 .main { --directory-width: 560px; --rail: 72px; display: block; position: relative; overflow: hidden; isolation: isolate; }
 .workspace-window { position: absolute; min-width: 0; min-height: 0; overflow: hidden; background: var(--panel); }

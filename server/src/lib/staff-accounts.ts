@@ -179,13 +179,27 @@ export async function setPassword(db: Queryable, employeeId: number, password: s
 
 const tokenHash = (token: string) => createHash('sha256').update(token, 'utf8').digest('hex');
 
-export async function openSession(db: Queryable, employeeId: number): Promise<{ token: string; expiresAt: string }> {
+/**
+ * `linkCode` is the shared link the sign-in came in through (055), so that
+ * stopping that link can end this sign-in and nobody else's. Not inside a
+ * transaction: a database without 055 refuses the second statement, and the
+ * session it has just opened must stand.
+ */
+export async function openSession(db: Queryable, employeeId: number, linkCode: string | null = null): Promise<{ token: string; expiresAt: string }> {
     await db.query('DELETE FROM staff_sessions WHERE expires_at < now()');
     const token = randomBytes(32).toString('hex');
     const { rows } = await db.query(
         `INSERT INTO staff_sessions (token_hash, employee_id, expires_at)
          VALUES ($1, $2, now() + make_interval(days => $3::int)) RETURNING expires_at`,
         [tokenHash(token), employeeId, PORTAL_SESSION_DAYS]);
+    if (linkCode) {
+        try {
+            await db.query('UPDATE staff_sessions SET link_id = (SELECT id FROM portal_links WHERE code = $2) WHERE token_hash = $1',
+                [tokenHash(token), linkCode]);
+        } catch (err: any) {
+            if (err?.code !== '42703' && err?.code !== '42P01') throw err;
+        }
+    }
     await db.query(
         `INSERT INTO staff_accounts (employee_id, last_login_at) VALUES ($1, now())
          ON CONFLICT (employee_id) DO UPDATE SET last_login_at = now()`, [employeeId]);

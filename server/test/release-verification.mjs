@@ -6,7 +6,7 @@ import {resolve} from 'node:path';
 import {spawn} from 'node:child_process';
 import assert from 'node:assert/strict';
 const cwd=resolve(import.meta.dirname,'..');
-const suites=['test/fusion-schedule.e2e.ts','test/fusion.browser.mjs','test/app-navigation.browser.mjs','test/workspace.browser.mjs','test/podatoci.browser.mjs','test/sdnevnik-compat.browser.mjs','test/colleague.e2e.ts'];
+const suites=['test/fusion-schedule.e2e.ts','test/fusion.browser.mjs','test/app-navigation.browser.mjs','test/workspace.browser.mjs','test/podatoci.browser.mjs','test/sdnevnik-compat.browser.mjs','test/colleague.e2e.ts','test/evidence.browser.mjs'];
 // A failed/stalled browser suite can be retried independently, with exactly
 // the same isolation and live-data fingerprint checks as the complete run.
 const requested=process.argv.slice(2);

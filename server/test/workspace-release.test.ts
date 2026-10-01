@@ -375,5 +375,11 @@ test('052 puts the door under the owner\'s control without changing one account,
   await assert.rejects(c.query("UPDATE portal_links SET allowed=true WHERE code='abcd-2345'"),/portal_links_allowed_archived/);
   await c.query("UPDATE portal_links SET retired_at=now(),allowed=true WHERE code='abcd-2345'");
   await assert.rejects(c.query("INSERT INTO portal_security(id) VALUES(false)"),/portal_security_id_check/,'one row');
+  // 055, in the same run: a sign-in may name the link it came in through; none has to.
+  const link=(await c.query("SELECT id FROM portal_links WHERE code='abcd-2345'")).rows[0].id;
+  await c.query("INSERT INTO staff_sessions(token_hash,employee_id,expires_at) VALUES('plain',$1,now()+interval '1 day')",[b]);
+  await c.query("INSERT INTO staff_sessions(token_hash,employee_id,expires_at,link_id) VALUES('through',$1,now()+interval '1 day',$2)",[b,link]);
+  assert.equal((await c.query("SELECT link_id FROM staff_sessions WHERE token_hash='plain'")).rows[0].link_id,null);
+  await assert.rejects(c.query("UPDATE staff_sessions SET link_id=-1 WHERE token_hash='plain'"),/staff_sessions_link_id_fkey/,'only a real link');
  }finally{await c.query(`DROP SCHEMA IF EXISTS ${backup} CASCADE`);await c.query(`DROP SCHEMA ${schema} CASCADE`);await c.end();}
 });

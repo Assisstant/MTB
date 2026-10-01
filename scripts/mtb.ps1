@@ -106,7 +106,7 @@ function Invoke-Main {
         # „MTB - Azuriraj": the same pull and update the day starts with, in the
         # middle of the day — code, packages, backup + migrations, restart.
         Write-Host 'Ажурирам' -ForegroundColor Cyan
-        $results = Invoke-Phase -Phase 'start' -StopOnFail -Only @('repo', 'update')
+        $results = Invoke-Phase -Phase 'start' -StopOnFail -Only @('repo', 'shortcuts', 'update')
         $bad = @($results | Where-Object { $_.Status -eq 'FAIL' })
         Write-Host ''
         if ($bad.Count) {
