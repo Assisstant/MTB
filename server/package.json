@@ -26,6 +26,8 @@
     "test:recovery": "node test/rslots-recovery.browser.mjs",
     "test:hydrate": "node test/hydrate.browser.mjs",
     "check:names": "tsx scripts/check-names.ts",
+    "docs:toc": "tsx scripts/doc-toc.ts",
+    "check:toc": "tsx scripts/doc-toc.ts --check",
     "check:consistency": "tsx scripts/check-consistency.ts",
     "check:organization": "tsx scripts/check-organization.ts",
     "check:lists": "tsx scripts/check-lists.ts",

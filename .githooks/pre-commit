@@ -17,6 +17,16 @@ set -u
 
 repo=$(git rev-parse --show-toplevel) || exit 1
 
+# CLAUDE.md and AGENTS.md are one memory under two names. The rule to copy one
+# over the other was prose, and they have drifted before. Needs nothing but
+# cmp, so it runs even on a clone with no packages installed.
+if ! cmp -s "$repo/CLAUDE.md" "$repo/AGENTS.md"; then
+    echo "pre-commit: refused. CLAUDE.md and AGENTS.md differ."
+    echo "            They are the same file under two names: copy the one you"
+    echo "            edited over the other, stage both, and commit again."
+    exit 1
+fi
+
 # A clone nobody has installed yet cannot check anything — and is also the
 # case with no database to check against. Say so, and let the commit through.
 if [ ! -e "$repo/server/node_modules/.bin/tsx" ]; then
@@ -33,6 +43,16 @@ if ! command -v npm >/dev/null 2>&1; then
 fi
 
 cd "$repo/server" || exit 1
+
+# The index at the top of each long reference file is derived from its
+# headings. A stale one tells an agent the file holds something else.
+if ! npm run --silent check:toc; then
+    echo ""
+    echo "pre-commit: refused. Run 'npm run docs:toc' in server/, stage the"
+    echo "            rewritten files, and commit again."
+    exit 1
+fi
+
 npm run --silent check:names && exit 0
 
 cat <<'WHY'
