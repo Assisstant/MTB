@@ -298,7 +298,9 @@ powershell -ExecutionPolicy Bypass -File scripts\cloud-migrate.ps1       the CLO
                                          deploy:workspace; address in ..\MTB-cloude.env (outside the repo),
                                          asks DA first („MTB - Oblak migracii“). Local DB: „MTB - Azuriraj“
 powershell -ExecutionPolicy Bypass -File scripts\cloud-cleanup.ps1       the CLOUD's old recovery schemas: all but the newest 3
-                                         are archived into backups\ (verified), THEN dropped; -List only shows
+                                         are archived into backups\, RESTORED locally and compared table by
+                                         table with the cloud, THEN dropped; -List only shows; -RehearseOn <url>
+                                         runs the same procedure against another database
                                          („MTB - Oblak chistenje“). The address logic is scripts\cloud-lib.ps1
 powershell -ExecutionPolicy Bypass -File scripts\manual-db-sync.ps1 -Mode Compare -Dir P:\MTB-sync -Me work -PeerName home
 powershell -ExecutionPolicy Bypass -File scripts\run-server.ps1          supervised server
@@ -678,6 +680,19 @@ read `DATABASE_URL`; never add literal credentials to this public repository.
   'Stop'` those THROW — so a guard that works kills the script that verifies
   it, and the failure reads like a crash rather than a catch. Set
   `$ErrorActionPreference = 'Continue'` around the call and read `$LASTEXITCODE`.
+- **Windows PowerShell eats the double quotes in an argument it hands to a
+  native program.** `psql -c 'ORDER BY x COLLATE "C"'` arrives as `COLLATE C`,
+  which PostgreSQL lower-cases and refuses: *collation "c" does not exist*.
+  A quoted identifier (`DROP SCHEMA "name"`) loses its quotes the same way and
+  only works while the name happens to be lower-case. Write SQL for `-c` with
+  no double quotes at all — order by `convert_to(text, 'UTF8')` for a
+  byte-wise sort, validate names against `[a-z0-9_]` instead of quoting them —
+  or pass the statement in a file. Found by rehearsing `cloud-cleanup.ps1`
+  against a local database before it ever touched the cloud; and the lesson
+  beside it: **"the archive lists every table" is not "the archive restores"**
+  (`pg_restore --list` reads only the table of contents). Before deleting the
+  only other copy of something, restore the backup and compare the contents.
+
 - **A grandchild `powershell.exe -File` can fail before printing its first
   line, and say nothing about why.** `git-sync.ps1` spawns
   `manual-db-sync.ps1` as a nested process. Run standalone it worked every

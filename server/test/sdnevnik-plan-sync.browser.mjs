@@ -270,6 +270,22 @@ try {
     const third = await report();
     checkEq('all four steps run in order', third.map((r) => r[0]), ['server', 'document', 'rows', 'plan']);
     checkEq('a difference with Кабинети is a thing to look at, never changed by the procedure', third[3][1], 'warn');
+    // flush() and hydrate() answer false without throwing; that must never read as „во ред".
+    const rowsStep = async (flush, hydrate) => {
+        await page.evaluate(([f, h]) => {
+            window.SDiary.enabled = () => true;
+            window.SDiary.flush = () => Promise.resolve(f);
+            window.SDiary.hydrate = () => Promise.resolve(h);
+        }, [flush, hydrate]);
+        await runAll();
+        return (await report()).find((r) => r[0] === 'rows')[1];
+    };
+    checkEq('rows sent and read: in order', await rowsStep(true, true), 'ok');
+    checkEq('a send that was not confirmed is not reported as done', await rowsStep(false, true), 'warn');
+    checkEq('nor a read that was not confirmed', await rowsStep(true, false), 'warn');
+    checkEq('nor both', await rowsStep(false, false), 'warn');
+    check('and the sentence says the edits stay here', /остануваат тука/.test(await page.textContent('[data-run-step="rows"]')));
+
     const sent = blocks.length;
     await page.click('[data-run-action="plan"]');
     await waitOpen();
@@ -288,6 +304,14 @@ try {
     await backup('and again');
     checkEq('the same state backed up three times is one backup', await backupCount(), held);
     check('and it says when it was last confirmed', Boolean((await page.evaluate(() => window.SdnV3.getBackups()))[0].confirmedAt));
+    // What a pull from the server does: jsonb returns the same content with its keys in another order.
+    await page.evaluate(() => {
+        const reversed = (o) => Object.fromEntries(Object.entries(o).reverse());
+        window.students = window.students.map(reversed);
+        window.plans = window.plans.map(reversed);
+    });
+    await backup('same content, keys in another order');
+    checkEq('the same content with its keys reordered is still one backup', await backupCount(), held);
     await page.evaluate(() => { window.schedule.friday[4] = [1001]; });
     await backup('after a change');
     checkEq('a changed state is a new backup', await backupCount(), held + 1);

@@ -9635,10 +9635,17 @@
             // места се полнеа со осум копии од истото и вистински постара
             // состојба испаѓаше. Ако содржината е иста како во најновата
             // резерва (без `_meta`, што се менува при секое зачувување), таа
-            // само се потврдува со нов датум.
+            // само се потврдува со нов датум. Клучевите се подредуваат:
+            // серверот го чува документот како jsonb и ги прередува, а
+            // резерва се прави токму пред вчитување од серверот.
             if (list[0] && list[0].payloadText) {
                 try {
-                    var content = function (payload) { var copy = Object.assign({}, payload); delete copy._meta; return JSON.stringify(copy); };
+                    var sorted = function (value) {
+                        if (value === null || typeof value !== 'object') return JSON.stringify(value === undefined ? null : value);
+                        if (Array.isArray(value)) return '[' + value.map(sorted).join(',') + ']';
+                        return '{' + Object.keys(value).sort().map(function (k) { return JSON.stringify(k) + ':' + sorted(value[k]); }).join(',') + '}';
+                    };
+                    var content = function (payload) { var copy = Object.assign({}, payload); delete copy._meta; return sorted(copy); };
                     if (content(JSON.parse(list[0].payloadText)) === content(data)) {
                         list[0].confirmedAt = nowIso();
                         return idbSet(BACKUP_LIST_KEY, JSON.stringify(list)).then(function () { return true; });
@@ -12800,9 +12807,18 @@
                     if (!d || typeof d.enabled !== 'function' || !d.enabled()) {
                         return { status: 'ok', said: 'Одат заедно со дневникот (запис по ред не е вклучен на оваа адреса).' };
                     }
+                    // И двете враќаат `false` без да фрлат грешка — кога серверот
+                    // молчи, кога нешто е одбиено, или кога токму работат. „Во
+                    // ред" се кажува само за одговор што не е `false`.
+                    var sent;
                     return Promise.resolve().then(function () { return d.flush(); })
-                        .then(function () { return d.hydrate(); })
-                        .then(function () { return { status: 'ok', said: 'Пратено и прочитано од базата, ред по ред.' }; })
+                        .then(function (answer) { sent = answer; return d.hydrate(); })
+                        .then(function (read) {
+                            if (sent === false && read === false) return { status: 'warn', said: 'Не е потврдено ниту праќањето ниту читањето. Измените остануваат тука; пуштете повторно за неколку секунди.' };
+                            if (sent === false) return { status: 'warn', said: 'Прочитано од базата, но праќањето не е потврдено. Измените остануваат тука; пуштете повторно.' };
+                            if (read === false) return { status: 'warn', said: 'Пратено, но читањето од базата не е потврдено. Пуштете повторно.' };
+                            return { status: 'ok', said: 'Пратено и прочитано од базата, ред по ред.' };
+                        })
                         .catch(function (err) { return { status: 'warn', said: 'Не помина целосно: ' + (err && err.message ? err.message : err) }; });
                 }
             },

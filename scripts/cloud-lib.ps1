@@ -47,6 +47,29 @@ function Get-MtbCloudEnvFile {
     return $EnvFile
 }
 
+function Get-MtbPostgresTools {
+    $bin = Get-ChildItem 'C:\Program Files\PostgreSQL\*\bin\pg_dump.exe' -ErrorAction SilentlyContinue |
+        Sort-Object { [int]($_.Directory.Parent.Name -replace '\D', '') } -Descending | Select-Object -First 1
+    if (-not $bin) { throw 'Не најдов pg_dump.exe под C:\Program Files\PostgreSQL.' }
+    $env:PGCLIENTENCODING = 'UTF8'
+    $env:PGCONNECT_TIMEOUT = '20'
+    return [pscustomobject]@{
+        PgDump    = $bin.FullName
+        Psql      = Join-Path $bin.DirectoryName 'psql.exe'
+        PgRestore = Join-Path $bin.DirectoryName 'pg_restore.exe'
+    }
+}
+
+# This machine's own database, from server\.env — where an archive is restored to be checked.
+function Get-MtbLocalUrl {
+    param([string]$Repo)
+    $serverEnv = Join-Path $Repo 'server\.env'
+    if (-not (Test-Path $serverEnv)) { throw "Ја нема $serverEnv." }
+    $line = Get-Content -LiteralPath $serverEnv -Encoding UTF8 | Where-Object { $_ -match '^\s*DATABASE_URL\s*=' } | Select-Object -First 1
+    if (-not $line) { throw "Во $serverEnv нема DATABASE_URL=..." }
+    return ($line -replace '^\s*DATABASE_URL\s*=\s*', '').Trim().Trim('"')
+}
+
 # The address, checked to be the cloud and nothing else, and the tools.
 function Get-MtbCloud {
     param([string]$Repo, [string]$EnvFile = '')
@@ -70,18 +93,13 @@ function Get-MtbCloud {
     $url = $userPart + $hostPart
     if ($url -notmatch 'sslmode=') { $url += $(if ($url.Contains('?')) { '&' } else { '?' }) + 'sslmode=require' }
 
-    $bin = Get-ChildItem 'C:\Program Files\PostgreSQL\*\bin\pg_dump.exe' -ErrorAction SilentlyContinue |
-        Sort-Object { [int]($_.Directory.Parent.Name -replace '\D', '') } -Descending | Select-Object -First 1
-    if (-not $bin) { throw 'Не најдов pg_dump.exe под C:\Program Files\PostgreSQL.' }
-    $env:PGCLIENTENCODING = 'UTF8'
-    $env:PGCONNECT_TIMEOUT = '20'
-
+    $tools = Get-MtbPostgresTools
     return [pscustomobject]@{
         Url       = $url
         Host      = ($hostPart -replace '/.*$', '')
         EnvFile   = $EnvFile
-        PgDump    = $bin.FullName
-        Psql      = Join-Path $bin.DirectoryName 'psql.exe'
-        PgRestore = Join-Path $bin.DirectoryName 'pg_restore.exe'
+        PgDump    = $tools.PgDump
+        Psql      = $tools.Psql
+        PgRestore = $tools.PgRestore
     }
 }
