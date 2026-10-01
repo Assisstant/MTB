@@ -19,14 +19,16 @@ select, input {
     font: inherit; padding: 7px 10px; border-radius: 6px;
     border: 2px solid var(--line); background: var(--card); color: var(--text);
 }
-/* S-Dnevnik's buttons: grey and bold, the main one filled. */
+/* The suite's flat button (mtb-look.css, owner 1 Oct 2026): a thin border,
+   no lift, the main one filled in the one blue. */
 button {
-    font: inherit; font-size: 14px; font-weight: 700; padding: 8px 16px; border-radius: 6px; cursor: pointer;
-    border: 1px solid var(--toggle-border); background: var(--toggle-bg); color: var(--toggle-text);
-    transition: all .3s;
+    font: inherit; font-size: 15px; font-weight: 700; padding: 9px 14px; border-radius: 8px; cursor: pointer;
+    border: 1px solid var(--mtb-flat-line); background: var(--mtb-flat-well); color: var(--text);
+    transition: border-color .15s;
 }
-button:hover { transform: translateY(-1px); box-shadow: 0 4px 8px rgba(0,0,0,.15); filter: brightness(.95); }
-button.primary { background: var(--btn-bg); color: #fff; border-color: transparent; }
+button:hover { border-color: var(--mtb-flat); }
+button.primary { background: var(--mtb-flat); color: var(--mtb-flat-on); border-color: var(--mtb-flat); }
+button.primary:hover { filter: brightness(.93); }
 .card { background: var(--card); border: 2px solid var(--line); border-radius: 8px; padding: 14px; margin-bottom: 12px; }
 .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 10px; margin-bottom: 12px; }
 .tile { background: var(--card); border: 2px solid var(--line); border-radius: 8px; padding: 12px; }

@@ -39,6 +39,7 @@ import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { pool } from '../db.js';
 import { TEACHING_DAYS, classSortKey } from '../lib/teaching.js';
+import { renameSubject, subjectNames } from '../lib/teaching-edit.js';
 import { copyYearLessons, noteTeacherClass, putLesson, putTeacherLesson, setClassAlias, setClassDescription, upsertClass, setClassTeachers, setHomeroom, setTeacherClasses, tidy } from '../lib/teaching-edit.js';
 import { personName } from '../lib/import-core.js';
 
@@ -156,6 +157,8 @@ const CopyBody = z.object({
     replace: z.boolean().optional(),
     apply: z.boolean().optional()
 });
+
+const SubjectRenameBody = z.object({ year: YearRef.optional(), from: z.string().min(1).max(120), to: z.string().min(1).max(120) }).strict();
 
 const BellBody = z.object({
     year: YearRef.optional(),
@@ -1061,5 +1064,42 @@ export async function teachingEditRoutes(server: FastifyInstance) {
             ordinal: effective.ordinal,
             ...rows[0]
         };
+    });
+
+    // ── the name of a subject (lib/teaching-edit.ts `renameSubject`) ─────────
+
+    /** Every subject name in use this year: in lessons, on teachers' lists, in the offer. */
+    server.get('/api/teaching/subject-names', async (req, reply) => {
+        const year = await schoolYear(pool, (req.query as any)?.year || undefined);
+        if (!year) return reply.code(404).send({ error: 'Нема таква учебна година.' });
+        return { year: year.label, subjects: await subjectNames(pool, year.id) };
+    });
+
+    /** One name becomes another, everywhere it is written for this year, or nowhere. */
+    server.post('/api/teaching/subject-rename', async (req, reply) => {
+        const parsed = SubjectRenameBody.safeParse(req.body);
+        if (!parsed.success) return reply.code(400).send({ error: 'Внесете го старото и новото име на предметот.' });
+        const from = parsed.data.from.trim();
+        const to = tidy(parsed.data.to);
+        if (!to) return reply.code(400).send({ error: 'Новото име не може да биде празно.' });
+        // A comma separates the subjects on a teacher's own list.
+        if (to.includes(',')) return reply.code(400).send({ error: 'Името на предмет не може да содржи запирка.' });
+        if (to === from) return reply.code(400).send({ error: 'Новото име е исто со старото.' });
+        const client = await pool.connect();
+        try {
+            await client.query('BEGIN');
+            const year = await schoolYear(client, parsed.data.year);
+            if (!year) { await client.query('ROLLBACK'); return reply.code(404).send({ error: 'Нема таква учебна година.' }); }
+            const done = await renameSubject(client, year.id, from, to);
+            if (!done.lessons && !done.teachers && !done.offered) {
+                await client.query('ROLLBACK');
+                return reply.code(404).send({ error: `Нема предмет „${from}“. Освежете го списокот.` });
+            }
+            await client.query('COMMIT');
+            return { ok: true, year: year.label, from, to, ...done };
+        } catch (err) {
+            await client.query('ROLLBACK').catch(() => {});
+            throw err;
+        } finally { client.release(); }
     });
 }

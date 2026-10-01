@@ -104,6 +104,16 @@
         .personal .p-edit, .personal .p-edithint, .personal .p-lock { display: none !important; }
         .personal.editing .p-lesson { display: block; }
     }
+    /* What the sheet shows (owner, 1 Oct 2026, as on the colleagues' page):
+       lessons and who leaves for a cabinet, only the lessons, or only the cabinets. */
+    .personal .p-modes { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0 8px; }
+    .personal .p-modes button { font: 700 13px/1.2 system-ui, -apple-system, 'Segoe UI', sans-serif; padding: 7px 12px;
+        border: 1px solid #c9ced8; border-radius: 8px; background: #f7f7fc; color: #1a202c; cursor: pointer; }
+    .personal .p-modes button:hover { border-color: #0f6cbd; }
+    .personal .p-modes button[aria-pressed="true"] { background: #0f6cbd; border-color: #0f6cbd; color: #ffffff; }
+    .personal.show-subjects .p-away { display: none !important; }
+    .personal.show-cabinets .p-lesson { display: none !important; }
+    @media print { .personal .p-modes { display: none !important; } }
     @page personal { size: A4 landscape; margin: 9mm; }
     @media print {
         .personal { page: personal; border: 0; padding: 0; margin: 0; break-after: page; page-break-after: always; }
@@ -271,6 +281,27 @@
      * o.png       a „🖼 Слика" button (data-png) for the page to handle
      * o.lock      🔒/🔓 in the corner (default: when mtb-forms.js is loaded)
      */
+    // The viewer's choice of what the sheet shows: layout only, kept in this browser.
+    const MODE_KEY = 'mtb_teacher_week_mode_v1';
+    const MODES = [['all', 'Часови и кабинети'], ['subjects', 'Само предмети'], ['cabinets', 'Само кабинети']];
+    function mode() {
+        try { const m = localStorage.getItem(MODE_KEY); return MODES.some(([k]) => k === m) ? m : 'all'; } catch (_) { return 'all'; }
+    }
+    function setMode(next) {
+        if (!MODES.some(([k]) => k === next)) return;
+        try { if (next === 'all') localStorage.removeItem(MODE_KEY); else localStorage.setItem(MODE_KEY, next); } catch (_) { /* this visit only */ }
+        // Every sheet on the page at once: „Сите наставници" prints one per person.
+        document.querySelectorAll('.personal').forEach((sheet) => {
+            MODES.forEach(([k]) => sheet.classList.toggle('show-' + k, k === next));
+            sheet.querySelectorAll('[data-p-mode]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.pMode === next)));
+        });
+    }
+    // On the document, once: a page that only reads the sheet never calls attach().
+    document.addEventListener('click', (event) => {
+        const pick = event.target.closest && event.target.closest('.personal [data-p-mode]');
+        if (pick) setMode(pick.dataset.pMode);
+    });
+
     function sheetHtml(w, data, name, o) {
         o = o || {};
         const on = o.editing === undefined ? editing() : Boolean(o.editing);
@@ -311,8 +342,12 @@
                   + 'Се запишува веднаш во базата; „✕ слободен час" го брише часот.</p>'
                 : '<p class="p-edithint">🔓 Отворено за внес. Предметен наставник: изберете паралелка (своите прво), па предмет од своите. '
                   + 'Се запишува веднаш во базата; „— слободен —" го брише часот. Под часот останува кој ученик излегува на третман.</p>';
-        return `<section class="personal${on ? ' editing' : ''}" data-teacher="${esc(name)}">`
+        const shown = mode();
+        const modes = '<div class="p-modes mtb-ui" role="group" aria-label="Што се прикажува">'
+            + MODES.map(([k, label]) => `<button type="button" data-p-mode="${k}" aria-pressed="${k === shown}">${label}</button>`).join('') + '</div>';
+        return `<section class="personal show-${shown}${on ? ' editing' : ''}" data-teacher="${esc(name)}">`
             + `<div class="p-head"><h3>Неделен распоред — ${esc(name)}</h3><div class="p-sub">${esc(sub)}</div></div>`
+            + modes
             + `<table class="p-grid${lock ? ' lockable' : ''}"><thead><tr><th>${lock}Час</th>`
             + days.map((d) => `<th>${esc(cap(d))}</th>`).join('') + '</tr></thead>'
             + `<tbody>${body}</tbody></table>`

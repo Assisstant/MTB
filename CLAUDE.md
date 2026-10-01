@@ -275,7 +275,7 @@ npm run test:portal-cabinet          a therapist's own cabinet through the same 
 npm run test:kolega                  Kolega.html in a browser; every API call invented
 npm run test:layout                  mtb-layout.js: pin and fold on strips, table heads, sections; no server
 npm run test:kolegi-admin            Податоци → Колеги and the administrator's look; every API call invented
-npm run test:door                    the polite popup in Kolega and Податоци → Безбедност; every API call invented
+npm run test:door                    the polite popup in Kolega, Податоци → Безбедност and → Предмети; every API call invented
 npm run test:teacher-week            Податоци → 🗓️ Распоред and Настава's teacher week, 🔒/🔓; every API call invented
 npm run test:schedule-form           the cabinet form (all therapists) offline, then into the queue
 npm run test:wbacc                   WBACC.html in a browser: pictograms, bookmarks, offline; every call invented
@@ -821,6 +821,23 @@ read `DATABASE_URL`; never add literal credentials to this public repository.
   ahead of its migration. The page is Податоци → „🔐 Безбедност"
   (`/api/staff-security`, outside `/api/portal/`); every change there lands
   in `portal_security_log`. The three tables never enter a mirror.
+
+- **A subject's name is text in three places, and they move together.**
+  `lessons.subject` (each lesson), `teachers.subject` (a teacher's own list,
+  comma separated) and `teaching_subjects` (the offer every picker reads).
+  Renaming one copy leaves the pickers offering a name no lesson has — the
+  class-label trap again. `renameSubject` (lib/teaching-edit.ts) moves all
+  three in one transaction for the chosen year; other years' lessons keep the
+  name they were written with. The page is Податоци → „📚 Предмети". A name
+  may not contain a comma. Any NEW place that stores a subject as text must be
+  added to that function.
+
+- **One flat look, opted into per page (1 Oct 2026).** `html.mtb-flat` in
+  mtb-look.css is the button; `.mtb-tabs-flat` on a strip makes its tabs plain
+  buttons and takes it out of mtb-layout.js's forced dark band. Кабинети and
+  Евидентен лист do not load mtb-look.css and carry a copy of the numbers.
+  The workspace's top row and S-Дневник keep the dark slanted tabs on the
+  owner's word — do not „finish" them.
 
 ## Conventions
 

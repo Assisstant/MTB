@@ -45,8 +45,8 @@
     // page's own dark rule („body.dark-mode .x > .btn") must not win again.
     // `.mtb-tabs-flat` is a page's own row of plain tab buttons (mtb-look.css,
     // owner 1 Oct 2026): it keeps the one row and the 📌, not the dark band.
-    const STRIP = '.mtb-tabs:not(.mtb-tabs-flat), .view-tabs, .tabs:has(> .tab), .day-tabs-band, .app-tabs';
-    const TAB = '.mtb-tabs:not(.mtb-tabs-flat) > .btn, .view-tabs > .view-tab, .tabs > .tab, .day-tabs-band .day-tab, .app-tabs > button';
+    const STRIP = '.mtb-tabs:not(.mtb-tabs-flat), .view-tabs:not(.mtb-tabs-flat), .tabs:has(> .tab):not(.mtb-tabs-flat), .day-tabs-band:not(.mtb-tabs-flat), .app-tabs';
+    const TAB = '.mtb-tabs:not(.mtb-tabs-flat) > .btn, .view-tabs:not(.mtb-tabs-flat) > .view-tab, .tabs:not(.mtb-tabs-flat) > .tab, .day-tabs-band:not(.mtb-tabs-flat) .day-tab, .app-tabs > button';
     const ON = '.active, [aria-pressed="true"], [aria-selected="true"]';
     function addTabLook() {
         if (document.getElementById('mtbTabLook')) return;
@@ -54,7 +54,7 @@
         style.id = 'mtbTabLook';
         style.textContent = `
             html body :is(${STRIP}) { background: linear-gradient(to bottom, #1a1a2e 0%, #16213e 100%) !important; border-bottom-color: #0f3460 !important; }
-            html body .day-tabs-band .band__inner { background: transparent !important; }
+            html body .day-tabs-band:not(.mtb-tabs-flat) .band__inner { background: transparent !important; }
             html body :is(${TAB}) {
                 background: linear-gradient(to bottom, #2d3748 0%, #1a202c 100%) !important; color: #a0aec0 !important; border-top-color: #4a5568 !important;
             }

@@ -48,6 +48,8 @@ const state = {
     ],
     log: [{ at: '2026-10-01T08:30:00Z', action: 'lock', detail: null, actor: 'Администраторот', name: 'Бојан Измислен' }]
 };
+const subjects = [{ subject: 'Македонски / Албански јазик', lessons: 12, teachers: 3, offered: true },
+    { subject: 'Математика', lessons: 20, teachers: 4, offered: true }, { subject: 'Изборен предмет', lessons: 0, teachers: 1, offered: false }];
 const calls = [];
 const writes = [];
 
@@ -82,6 +84,12 @@ async function context(options = {}) {
                 candidates: { students: [], teachers: [], therapists: [], classes: [] } });
             if (p === '/api/categories') return json(200, { categories: [] });
             if (p === '/api/categories/holders') return json(200, { therapists: [], teachers: [] });
+            if (p === '/api/teaching/subject-names') return json(200, { year: YEAR, subjects });
+            if (p === '/api/teaching/subject-rename') {
+                const body = req.postDataJSON();
+                subjects.find((x) => x.subject === body.from).subject = body.to;
+                return json(200, { ok: true, year: YEAR, from: body.from, to: body.to, lessons: 12, teachers: 3, offered: 9 });
+            }
             if (p === '/api/staff-security' && req.method() === 'GET') return json(200, { year: YEAR, ...state });
             if (p === '/api/staff-security/maintenance') {
                 const body = req.postDataJSON();
@@ -208,7 +216,7 @@ console.log('\nПодатоци → Безбедност');
 ctx = await context();
 page = await ctx.newPage();
 page.on('pageerror', (e) => errors.push('Podatoci: ' + e.message));
-page.on('dialog', (d) => d.accept());
+page.on('dialog', (d) => (d.type() === 'prompt' ? d.accept('  Македонски   јазик ') : d.accept()));
 await page.goto(`${ORIGIN}/Podatoci.html?tab=security`);
 await page.waitForSelector('#securityAccounts table', { timeout: 8000 });
 check('the current link, with its code', (await page.textContent('#securityLink')) === `${ORIGIN}/kolegi/${CODE}`, await page.textContent('#securityLink'));
@@ -260,6 +268,16 @@ if (process.env.DOOR_SHOTS) for (const theme of ['light', 'dark']) {
 await page.click('.tabs [data-tab="colleagues"]');
 await page.waitForFunction((want) => document.getElementById('colleaguesLink').textContent === want, `${ORIGIN}/kolegi/mnpq-2468`, { timeout: 5000 }).catch(() => {});
 check('„Колеги" hands out the same link', (await page.textContent('#colleaguesLink')) === `${ORIGIN}/kolegi/mnpq-2468`, await page.textContent('#colleaguesLink'));
+console.log('\nПодатоци → Предмети');
+await page.click('.tabs [data-tab="subjects"]');
+await page.waitForSelector('#subjectsList table');
+const subjectsText = await page.textContent('#subjectsList');
+check('every name in use, with where it is used', subjectsText.includes('Македонски / Албански јазик') && subjectsText.includes('само внесен рачно'), subjectsText);
+await page.click('#subjectsList tr[data-subject="Македонски / Албански јазик"] [data-subject-rename]');
+await page.waitForSelector('#subjectsList tr[data-subject="Македонски јазик"]');
+check('„Преименувај" asks for the name, confirms, and sends one rename for the year',
+    JSON.stringify(writes.at(-1)) === JSON.stringify({ method: 'POST', path: '/api/teaching/subject-rename',
+        body: { year: YEAR, from: 'Македонски / Албански јазик', to: 'Македонски јазик' } }), JSON.stringify(writes.at(-1)));
 check('no page errors', errors.length === 0, errors.join('\n       '));
 
 await browser.close();

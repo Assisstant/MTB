@@ -170,6 +170,17 @@ try {
     check('one mode for the suite, not a second one', await page.evaluate(() => localStorage.getItem('mtb_editing_v1') === null));
 
     console.log('\nНастава → 👤 Наставник · недела, од истата датотека');
+    // What the sheet shows: the three buttons, as on the colleagues' page (owner, 1 Oct 2026).
+    check('the sheet offers „Часови и кабинети", „Само предмети" and „Само кабинети"',
+        (await page.$$eval('#weekSheet .personal [data-p-mode]', (bs) => bs.map((b) => b.textContent).join('|'))) === 'Часови и кабинети|Само предмети|Само кабинети'
+        && await page.$eval('#weekSheet .personal', (n) => n.classList.contains('show-all')));
+    await page.click('#weekSheet .personal [data-p-mode="subjects"]');
+    check('„Само предмети" hides who leaves for a cabinet, without asking the server',
+        await page.$eval('#weekSheet .personal', (n) => n.classList.contains('show-subjects') && !n.classList.contains('show-all'))
+        && (await page.getAttribute('#weekSheet .personal [data-p-mode="subjects"]', 'aria-pressed')) === 'true'
+        && await page.evaluate(() => localStorage.getItem('mtb_teacher_week_mode_v1') === 'subjects'));
+    await page.click('#weekSheet .personal [data-p-mode="all"]');
+    check('and „Часови и кабинети" puts both back, remembering nothing', await page.evaluate(() => localStorage.getItem('mtb_teacher_week_mode_v1') === null));
     await page.goto(`${ORIGIN}/Nastava.html?view=personal`);
     await page.waitForSelector('#grid .personal', { timeout: 8000 });
     await page.selectOption('#who', ODD);

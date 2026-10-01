@@ -690,3 +690,58 @@ export async function upsertClass(client: any, label: string): Promise<{ id: num
     );
     return { id: rows[0].id, label: rows[0].label, created: !before.rows.length };
 }
+
+// ── the name of a subject (owner, 1 Oct 2026) ───────────────────────────────
+/**
+ * A subject's name is text in THREE places: each lesson (`lessons.subject`),
+ * each teacher's own list (`teachers.subject`, comma separated) and the
+ * offer the pickers read (`teaching_subjects`). The offer came with the
+ * ministry's wording — „Македонски / Албански / Турски / Српски / Босански
+ * јазик" — where the school says „Македонски јазик". Renaming one copy would
+ * leave the pickers offering a name no lesson has, which is the label trap
+ * of a class rename over again; so all three move in one transaction.
+ *
+ * The lessons of OTHER years keep the name they were written with: an
+ * archived timetable reads as it was.
+ */
+type Queryable = { query: (text: string, values?: unknown[]) => Promise<{ rows: any[]; rowCount: number | null }> };
+
+export async function subjectNames(db: Queryable, yearId: number) {
+    const lessons = (await db.query(
+        `SELECT subject, count(*)::int AS lessons FROM lessons
+          WHERE school_year_id = $1 AND subject IS NOT NULL AND btrim(subject) <> '' GROUP BY subject`, [yearId])).rows;
+    const lists = (await db.query(
+        `SELECT t.subject FROM teachers t JOIN teacher_years ty ON ty.teacher_id = t.id
+          WHERE ty.school_year_id = $1 AND ty.active AND t.subject IS NOT NULL`, [yearId])).rows;
+    const offered = (await db.query('SELECT DISTINCT subject FROM teaching_subjects')).rows;
+    const out = new Map<string, { subject: string; lessons: number; teachers: number; offered: boolean }>();
+    const row = (name: string) => {
+        if (!out.has(name)) out.set(name, { subject: name, lessons: 0, teachers: 0, offered: false });
+        return out.get(name)!;
+    };
+    lessons.forEach((r: any) => { row(r.subject).lessons = r.lessons; });
+    lists.forEach((r: any) => String(r.subject).split(',').map((s) => s.trim()).filter(Boolean).forEach((s) => { row(s).teachers++; }));
+    offered.forEach((r: any) => { row(r.subject).offered = true; });
+    return [...out.values()].sort((a, b) => a.subject.localeCompare(b.subject, 'mk'));
+}
+
+export async function renameSubject(db: Queryable, yearId: number, from: string, to: string) {
+    const same = (a: string, b: string) => a.toLocaleLowerCase('mk-MK') === b.toLocaleLowerCase('mk-MK');
+    const moved = await db.query('UPDATE lessons SET subject = $3 WHERE school_year_id = $1 AND subject = $2', [yearId, from, to]);
+    let teachers = 0;
+    const lists = (await db.query('SELECT id, subject FROM teachers WHERE subject IS NOT NULL FOR UPDATE')).rows;
+    for (const t of lists) {
+        const list = String(t.subject).split(',').map((s) => s.trim()).filter(Boolean);
+        if (!list.some((s) => same(s, from))) continue;
+        // Renamed in place; a teacher who already listed the new name keeps it once.
+        const next = list.map((s) => (same(s, from) ? to : s)).filter((s, i, all) => all.findIndex((x) => same(x, s)) === i);
+        await db.query('UPDATE teachers SET subject = $2 WHERE id = $1', [t.id, next.join(', ')]);
+        teachers++;
+    }
+    // The offer is unique per (plan, subject, grade): where the new name is already offered, the old row goes.
+    await db.query(
+        `DELETE FROM teaching_subjects a USING teaching_subjects b
+          WHERE a.subject = $1 AND b.subject = $2 AND a.plan = b.plan AND a.grade = b.grade`, [from, to]);
+    const offer = await db.query('UPDATE teaching_subjects SET subject = $2 WHERE subject = $1', [from, to]);
+    return { lessons: moved.rowCount || 0, teachers, offered: offer.rowCount || 0 };
+}

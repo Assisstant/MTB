@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="mk">
+<html lang="mk" class="mtb-flat">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -768,6 +768,43 @@
     #whereTip .where-meta { opacity: .7; }
     body.dark-mode #whereTip { background: #1a202c; color: #e2e8f0; border-color: #4a5568; }
     @media print { #whereTip { display: none !important; } }
+    /* The flat look (owner, 1 Oct 2026; mtb-look.css `html.mtb-flat`, copied:
+       this page does not load it). Buttons are plain rounded rectangles with a
+       thin border, the main action in one blue; the day strip and the view
+       strip are rows of the same buttons instead of the dark slanted band. */
+    html.mtb-flat { --flat: #0f6cbd; --flat-well: #f7f7fc; --flat-line: #c9ced8; --flat-text: #2d3748; --flat-rule: #e2e8f0; --flat-band: #f7fafc; }
+    html.mtb-flat:has(body.dark-mode) { --flat: #1f6feb; --flat-well: #1b2130; --flat-line: #46506a; --flat-text: #e2e8f0; --flat-rule: #4a5568; --flat-band: #2d3748; }
+    html.mtb-flat .btn {
+        padding: 9px 14px; min-height: 40px; border-radius: 8px; border: 1px solid var(--flat-line);
+        background: var(--flat-well); color: var(--flat-text); font-size: 15px; font-weight: 700; box-shadow: none;
+    }
+    html.mtb-flat .btn:hover { border-color: var(--flat); box-shadow: none; }
+    html.mtb-flat .btn-primary, html.mtb-flat .btn-primary:hover { background: var(--flat); border-color: var(--flat); color: #fff; box-shadow: none; }
+    html.mtb-flat .btn-primary:hover { filter: brightness(.93); }
+    html.mtb-flat .btn .ico, html.mtb-flat .btn-primary .ico, html.mtb-flat .btn-success .ico {
+        width: auto; height: auto; margin-left: 0; border-radius: 0; background: none; color: inherit; font-size: 1em;
+    }
+    html.mtb-flat .icon-btn { padding: 0; }
+    html.mtb-flat body .day-tabs-band.mtb-tabs-flat, html.mtb-flat body .view-tabs.mtb-tabs-flat {
+        background: none; border-bottom: 1px solid var(--flat-rule); border-radius: 0; box-shadow: none;
+    }
+    /* The band spans the window over the page's gradient: it needs a surface of its own. */
+    html.mtb-flat body .day-tabs-band.mtb-tabs-flat { background: var(--flat-band); }
+    html.mtb-flat body .view-tabs.mtb-tabs-flat { align-items: center; gap: 6px; padding: 0 0 10px; }
+    html.mtb-flat body .day-tabs-band.mtb-tabs-flat .band__inner { align-items: center; gap: 6px; padding-top: 10px; padding-bottom: 10px; }
+    html.mtb-flat body .mtb-tabs-flat .day-tab, html.mtb-flat body .mtb-tabs-flat > .view-tab {
+        margin-top: 0; padding: 9px 14px; border: 1px solid var(--flat-line); border-radius: 8px;
+        background: var(--flat-well); color: var(--flat-text); box-shadow: none;
+        font-size: 15px; font-weight: 700; text-transform: none; letter-spacing: 0; clip-path: none; transition: border-color .15s;
+    }
+    html.mtb-flat body .mtb-tabs-flat .day-tab::before { display: none; }
+    html.mtb-flat body .mtb-tabs-flat .day-tab:hover, html.mtb-flat body .mtb-tabs-flat > .view-tab:hover { border-color: var(--flat); }
+    html.mtb-flat body .mtb-tabs-flat .day-tab[aria-pressed="true"], html.mtb-flat body .mtb-tabs-flat > .view-tab[aria-selected="true"] {
+        margin-top: 0; padding: 9px 14px; border: 1px solid var(--flat); background: var(--flat); color: #fff; box-shadow: none;
+    }
+    html.mtb-flat body .mtb-tabs-flat > .mtb-pin, html.mtb-flat body .mtb-tabs-flat .band__inner > .mtb-pin {
+        position: static; box-shadow: none; border-color: var(--flat-line); background: var(--flat-well); color: var(--flat-text);
+    }
 </style>
 </head>
 <body>
@@ -835,14 +872,14 @@
     </div>
 </section>
 
-<section class="band day-tabs-band schedule-only" id="dayTabsBand">
+<section class="band day-tabs-band mtb-tabs-flat schedule-only" id="dayTabsBand">
     <div class="band__inner" id="dayTabs" aria-label="Работен ден"></div>
 </section>
 
 <div class="notice" id="notice" role="alert"></div>
 
 <main class="content">
-    <div class="view-tabs" role="tablist" aria-label="Приказ на распоредот">
+    <div class="view-tabs mtb-tabs-flat" role="tablist" aria-label="Приказ на распоредот">
         <button class="view-tab" id="scheduleTab" type="button" role="tab" aria-selected="true"
             aria-controls="schedulePanel" data-panel="schedule">Термини</button>
         <button class="view-tab" id="nowTab" type="button" role="tab" aria-selected="false"
