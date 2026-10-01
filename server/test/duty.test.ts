@@ -157,11 +157,19 @@ test('after A is skipped, B and D may exchange: D/C/B, once each', () => {
     assert.deepEqual(result.days[0].covers, [1]);
 });
 
-test('a cross-cycle swap is stale even when the named people and dates still match', () => {
+test('a swap between two cycles holds, and is counted: two in one cycle, none in the other (owner, 1 Oct 2026)', () => {
     const base = rota({});
     const result = applySwaps(base, [swap('2026-09-02', 2, '2026-09-04', 1)]);
-    assert.deepEqual(who(result.days), who(base));
-    assert.equal(result.stale.length, 1);
+    assert.deepEqual(result.stale, []);
+    assert.deepEqual(who(result.days).slice(0, 4), [who(base)[0], 1, who(base)[2], 2], 'only the two days trade names');
+    const [early, late] = [result.days[1], result.days[3]];
+    assert.notEqual(early.cycle, late.cycle);
+    assert.equal(early.swap!.cycle, late.cycle, 'each day says which cycle the other one is in');
+    assert.equal(late.swap!.cycle, early.cycle);
+    const tally = cycleTally(result.days);
+    assert.equal(tally.get(early.cycle)!.get(1), 2, 'the one who moved in has two there');
+    assert.equal(tally.get(early.cycle)!.get(2) || 0, 0, 'and the other none');
+    assert.equal(tally.get(late.cycle)!.get(2), 2);
 });
 
 test('a repeated legacy assignment is ignored and reported, never a second turn in one cycle', () => {
@@ -208,8 +216,8 @@ test('a swap trades two days between two people, and the list goes on as if it h
     assert.deepEqual(who(days), [3, 2, 1, 1, 2, 3]);
     assert.deepEqual(stale, []);
     assert.equal(days[0].how, 'swap');
-    assert.deepEqual(days[0].swap, { id: 1, with: 1, date: '2026-09-03', note: 'договор' });
-    assert.deepEqual(days[2].swap, { id: 1, with: 3, date: '2026-09-01', note: 'договор' });
+    assert.deepEqual(days[0].swap, { id: 1, with: 1, date: '2026-09-03', note: 'договор', cycle: 1 });
+    assert.deepEqual(days[2].swap, { id: 1, with: 3, date: '2026-09-01', note: 'договор', cycle: 1 });
 });
 
 test('a swap whose days no longer belong to the two who agreed it is not applied, and is reported', () => {

@@ -1570,7 +1570,8 @@ header.top h1 { flex: 1; min-width: 180px; }
     // one name onto another (⠿), or picks the other day under ⋯, and confirms.
     const weekdayOf = (iso) => new Date(iso + 'T00:00:00Z').getUTCDay();
     const swappable = (d) => d.employeeId != null && !d.closed && !d.swap && !d.insteadOf;
-    const canSwap = (a, b) => a !== b && a.date !== b.date && swappable(a) && swappable(b) && a.employeeId !== b.employeeId && a.cycle === b.cycle;
+    // Two cycles may trade (owner, 1 Oct 2026): the one who moves has two duties in that cycle, and it is recorded.
+    const canSwap = (a, b) => a !== b && a.date !== b.date && swappable(a) && swappable(b) && a.employeeId !== b.employeeId;
     const dayOn = (date) => duty.data.days.find((x) => x.date === date);
 
     function askSwap(fromDate, toDate) {
@@ -1583,6 +1584,8 @@ header.top h1 { flex: 1; min-width: 180px; }
             + `<p><b>${esc(a.name)}</b> ќе дежура на <b>${WEEKDAY[b.weekday]} ${dmy(b.date)}</b>, `
             + `а <b>${esc(b.name)}</b> на <b>${WEEKDAY[a.weekday]} ${dmy(a.date)}</b>.</p>`
             + '<p class="muted">Ова е договор меѓу двајцата: редоследот на списокот не се менува.</p>'
+            + (a.cycle !== b.cycle ? `<p class="muted"><b>Замена меѓу два круга</b> (круг ${a.cycle} ↔ круг ${b.cycle}): `
+                + `${esc(a.name)} ќе има 2 дежурства во круг ${b.cycle} и ниедно во круг ${a.cycle}; ${esc(b.name)} обратно. Се запишува под табелата.</p>` : '')
             + '<input id="swapNote" maxlength="200" placeholder="белешка, не мора (на пр. лекар)" aria-label="Белешка">'
             + '<div class="row"><button type="button" class="primary small" id="swapYes">Потврди ја замената</button>'
             + '<button type="button" class="small" id="swapNo">Откажи</button></div></div>';
@@ -1634,6 +1637,7 @@ header.top h1 { flex: 1; min-width: 180px; }
         const row = under && under.closest && under.closest('#duty tr[data-date]');
         const day = row && dayOn(row.dataset.date);
         const target = day && canSwap(swapDrag.from, day) ? row : null;
+        swapDrag.over = day || null;
         if (target !== swapDrag.target) {
             if (swapDrag.target) swapDrag.target.classList.remove('swap-target');
             if (target) target.classList.add('swap-target');
@@ -1643,11 +1647,19 @@ header.top h1 { flex: 1; min-width: 180px; }
     el('duty').addEventListener('pointermove', (event) => { if (swapDrag) moveGhost(event); });
     const dropSwap = (event) => {
         if (!swapDrag) return;
-        const { from, ghost, target } = swapDrag;
+        const { from, ghost, target, over } = swapDrag;
         swapDrag = null;
         ghost.remove();
         if (target) target.classList.remove('swap-target');
-        if (target && event.type === 'pointerup') askSwap(from.date, target.dataset.date);
+        if (target && event.type === 'pointerup') return askSwap(from.date, target.dataset.date);
+        // A drop that cannot be a swap used to do nothing, which reads as broken.
+        if (event.type !== 'pointerup' || !over || over.date === from.date) return;
+        const why = over.closed ? 'На тој ден нема дежурство.'
+            : over.employeeId == null ? 'На тој ден нема дежурен за замена.'
+            : over.employeeId === from.employeeId ? 'Тоа е истиот колега.'
+            : over.swap || over.insteadOf ? 'Тој ден веќе има замена или запишан дежурен.'
+            : 'Тие два дена не можат да се заменат.';
+        say('weekMsg', `${why} Ако некој дежурал наместо друг: ⋯ на тој ден → „Кој навистина дежурал“.`, 'error');
     };
     el('duty').addEventListener('pointerup', dropSwap);
     el('duty').addEventListener('pointercancel', dropSwap);
@@ -1668,7 +1680,8 @@ header.top h1 { flex: 1; min-width: 180px; }
             else if (d.note && !d.insteadOf) {
                 who += `<span class="sub">${esc(d.note)}</span>`;
             }
-            if (d.swap) who += `<span class="sub">⇄ замена со ${esc(d.swap.name)} (${WEEKDAY[weekdayOf(d.swap.date)]} ${dmy(d.swap.date)})${d.swap.note ? ' — ' + esc(d.swap.note) : ''}</span>`;
+            if (d.swap) who += `<span class="sub">⇄ замена со ${esc(d.swap.name)} (${WEEKDAY[weekdayOf(d.swap.date)]} ${dmy(d.swap.date)}`
+                + `${d.swap.cycle && d.swap.cycle !== d.cycle ? ', круг ' + d.swap.cycle : ''})${d.swap.note ? ' — ' + esc(d.swap.note) : ''}</span>`;
             if (duty.owner && swappable(d)) {
                 grip = `<button type="button" class="small swap-grip no-print" data-swap-from="${d.date}" `
                     + `aria-label="${esc(d.name)}, ${dmy(d.date)}: повлечете врз друг ден за замена">⠿</button>`;
@@ -1750,11 +1763,15 @@ header.top h1 { flex: 1; min-width: 180px; }
     function dutyCountsHtml() {
         const cycles = duty.data.cycleCounts || [];
         const owed = duty.data.standIns || [];
-        if (!cycles.length && !owed.length) return '';
+        const cross = duty.data.crossSwaps || [];
+        if (!cycles.length && !owed.length && !cross.length) return '';
         const person = (p) => `${esc(p.name)} — <b>${p.count}</b>${p.count === 0 ? ' (заменет/а)' : ''}`;
+        const side = (x) => `<b>${esc(x.name)}</b> дежура ${WEEKDAY[weekdayOf(x.date)]} ${dmy(x.date)} (круг ${x.cycle})`;
         return '<div class="duty-counts">'
             + (cycles.length ? '<b>Дежурства по круг</b> (секој има по едно; тука се само отстапувањата):'
                 + cycles.map((c) => `<div>Круг ${c.cycle}${c.from ? ` (${dmy(c.from)} – ${dmy(c.to)})` : ''}: ${c.people.map(person).join(' · ')}</div>`).join('') : '')
+            + (cross.length ? '<div class="cross-swaps"><b>Замени меѓу кругови:</b>'
+                + cross.map((s) => `<div>${side(s.first)} ⇄ ${side(s.second)}${s.note ? ' — ' + esc(s.note) : ''}</div>`).join('') + '</div>' : '')
             + (owed.length ? '<div class="owed"><b>Салдо на замени во годината:</b> '
                 + owed.map((p) => `${esc(p.name)} ${p.net > 0 ? '+' + p.net + ' (дежурал/а повеќе)' : p.net + ' (должи ' + (-p.net) + ')'}`).join(' · ') + '</div>' : '')
             + '</div>';

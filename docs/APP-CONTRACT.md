@@ -643,3 +643,11 @@ caseload.
 - Every change, and every refused sign-in of a locked account, is recorded
   and shown to the owner. The archive shows how often a retired link was
   still tried.
+
+## Duty swaps between cycles (owner, 1 October 2026)
+
+A swap of two duty days may be between two cycles. The list order and every
+other date stay as they are. The colleague who moves has two duties (or more)
+in the cycle moved into and none in their own; the page says so before
+confirming, on the day, per cycle, and in a list of swaps between cycles
+naming both people, both dates and both cycles. The code evens nothing out.

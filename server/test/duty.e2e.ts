@@ -185,9 +185,20 @@ async function main() {
         await call('PUT', '/api/duty/absence', { year: YEAR, date: days[0], employeeId: emp.get(A), absent: false });
         checkEq('a swap is taken back', (await call('POST', '/api/duty/swap/remove', { year: YEAR, id: sw.body.id })).status, 200);
         checkEq('and the days are as before', names(await month()), [A, B, C, A, B, C]);
-        checkEq('a swap across cycles cannot introduce a duplicate colleague',
-            (await call('PUT', '/api/duty/swap', { year: YEAR,
-                first: { date: days[1], employeeId: emp.get(B) }, second: { date: days[3], employeeId: emp.get(A) } })).status, 409);
+        // Owner, 1 Oct 2026: a swap between two cycles is allowed and recorded.
+        const across = await call('PUT', '/api/duty/swap', { year: YEAR,
+            first: { date: days[1], employeeId: emp.get(B) }, second: { date: days[3], employeeId: emp.get(A) } });
+        checkEq('a swap between two cycles is accepted', across.status, 200);
+        m = await month();
+        checkEq('only the two days trade names', names(m), [A, A, C, B, B, C]);
+        checkEq('each cycle says who has two and who none',
+            m.cycleCounts.map((c: any) => [c.cycle, c.people.map((p: any) => [p.name, p.count])]),
+            [[1, [[A, 2], [B, 0]]], [2, [[B, 2], [A, 0]]]]);
+        checkEq('and the swap is listed with both days and their cycles',
+            m.crossSwaps.map((s: any) => [s.first.name, s.first.date, s.first.cycle, s.second.name, s.second.date, s.second.cycle]),
+            [[A, days[1], 1, B, days[3], 2]]);
+        await call('POST', '/api/duty/swap/remove', { year: YEAR, id: across.body.id });
+        checkEq('taken back, nothing is left of it', [names(await month()), (await month()).crossSwaps], [[A, B, C, A, B, C], []]);
         await call('PUT', '/api/duty/absence', { year: YEAR, date: days[0], employeeId: emp.get(A), absent: true });
         const afterAbsence = await call('PUT', '/api/duty/swap', { year: YEAR,
             first: { date: days[0], employeeId: emp.get(B) }, second: { date: days[1], employeeId: emp.get(C) } });

@@ -379,10 +379,8 @@ export async function swapRoutes(server: FastifyInstance,
                 await client.query('ROLLBACK');
                 return reply.code(409).send({ error: 'На еден од деновите е запишано кој навистина дежурал. Прво тргнете ја таа исправка.' });
             }
-            if (x.cycle !== y.cycle) {
-                await client.query('ROLLBACK');
-                return reply.code(409).send({ error: 'Изберете два термина од истиот циклус. Замена меѓу различни циклуси би повторила колега во еден циклус.' });
-            }
+            // Two cycles are allowed (owner, 1 Oct 2026): the one who moves has
+            // two duties in that cycle, and the page records it (lib/duty.ts).
             if (x.absent.includes(second.employeeId) || y.absent.includes(first.employeeId)) {
                 await client.query('ROLLBACK');
                 return reply.code(409).send({ error: 'Едниот од двајцата е отсутен токму на денот што би го зел.' });

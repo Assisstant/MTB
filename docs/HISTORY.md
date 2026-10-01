@@ -4696,3 +4696,24 @@ owner was shown and agreed to; `cloudRequestLog` keeps the code out of the
 server's log. Tests: `portal-security.test.ts` (own schema, in `npm test`),
 `test:door` (browser, both themes, phone width), the 052 release test, and
 the cloud gate test for the coded address.
+
+## Duty swaps may cross cycles (1 Oct 2026, replacing the 30 Sep rule)
+
+On 30 September the owner confirmed that a swap is between two dates of the
+same cycle, and the code refused anything else so that nobody appeared twice
+in one cycle. A day later the real case arrived: a colleague of the second
+cycle had already served a day of the first. The owner's decision: allow it,
+and RECORD it — „ако некој се менува од еден во друг круг, во другиот круг ќе
+дежура два пати… ама сето тоа да биде уредно забележано".
+
+So `applySwaps` no longer compares cycles and the route no longer refuses.
+Nothing is evened out by the code: the queue runs as without the swap and the
+two days trade names. What changed is what is said. Each swapped day carries
+the cycle of the day given in exchange; `countsFor` lists, per cycle, who has
+two or more and who has none because their turn moved out; and `crossSwaps`
+lists every such swap with both people, both dates and both cycles. A swap
+that was stored earlier and reported stale ONLY for crossing cycles now
+applies — the stored row has not changed, the rule has.
+
+„Кој навистина дежурал" (051) stays the tool for one name on one day with
+nothing given in return; the swap is the tool when two people trade days.

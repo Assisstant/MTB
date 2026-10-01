@@ -560,7 +560,11 @@ check('no page errors', errors.length === 0, errors.join('\n       '));
             day('2026-10-05', 1, 9), day('2026-10-06', 2, 7, { how: 'swap', swap: { id: 3, date: '2026-10-09', note: 'лекар', employeeId: 8, name: people[8] } }),
             day('2026-10-07', 3, null, { closed: true, note: 'излет', how: 'closed' }),
             // Owner, 30 Sep 2026: somebody else actually served — a second duty in that cycle.
-            day('2026-10-08', 4, 8, { note: 'празник', insteadOf: { employeeId: 9, name: people[9] }, servedEmployeeId: 8, turnInCycle: 2 })],
+            day('2026-10-08', 4, 8, { note: 'празник', insteadOf: { employeeId: 9, name: people[9] }, servedEmployeeId: 8, turnInCycle: 2 }),
+            // An ordinary day of the second cycle: a swap with it crosses cycles (owner, 1 Oct 2026).
+            day('2026-10-09', 5, 7)],
+        crossSwaps: [{ id: 5, note: 'договор', first: { employeeId: 9, name: people[9], date: '2026-09-30', cycle: 1 },
+            second: { employeeId: 8, name: people[8], date: '2026-10-13', cycle: 2 } }],
         cycleCounts: [{ cycle: 2, from: '2026-10-06', to: '2026-10-08', people: [{ employeeId: 8, name: people[8], count: 2, sick: false }, { employeeId: 9, name: people[9], count: 0, sick: false }] }],
         standIns: [{ employeeId: 8, name: people[8], net: 1 }, { employeeId: 9, name: people[9], net: -1 }],
         staleSwaps: [{ id: 4, note: '', first: { date: '2026-10-12', employeeId: 9, name: people[9] }, second: { date: '2026-10-14', employeeId: 7, name: people[7] } }]
@@ -673,7 +677,7 @@ check('no page errors', errors.length === 0, errors.join('\n       '));
         && await d.p.evaluate((t) => sessionStorage.getItem('mtb_duty_admin_v1') === t, DUTY_ADMIN));
     check('it clearly says this is the delegated administrator mode', /Администраторски режим/.test(await d.p.textContent('#duty .duty-note')));
     check('the mode says the link is permanent until revoked', /постојан линк, до поништување/.test(await d.p.textContent('#duty .duty-note')));
-    check('the delegated mode gets the same day and swap controls', await d.p.$$eval('#duty [data-duty-open]', (b) => b.length) === 6
+    check('the delegated mode gets the same day and swap controls', await d.p.$$eval('#duty [data-duty-open]', (b) => b.length) === 7
         && Boolean(await d.p.$('#duty [data-swap-from]')));
     await d.p.click('#duty tr[data-date="2026-10-02"] [data-duty-open]');
     await d.p.selectOption('#duty form[data-duty-day="2026-10-02"] select[name="swapWith"]', '2026-10-05');
@@ -727,7 +731,7 @@ check('no page errors', errors.length === 0, errors.join('\n       '));
     const o = await run(true);
     await o.p.click('#tabs [data-tab="duty"]');
     await o.p.waitForSelector('#duty .duty-admin', { timeout: 6000 });
-    check('the owner gets the list and every day\'s controls', await o.p.$$eval('#duty [data-duty-open]', (b) => b.length) === 6);
+    check('the owner gets the list and every day\'s controls', await o.p.$$eval('#duty [data-duty-open]', (b) => b.length) === 7);
     check('an event note is not presented as a mistake or an instruction to pause',
         !(await o.p.$('#duty tr[data-date="2026-10-08"] .warn-note')));
     await o.p.click('#duty tr[data-date="2026-10-06"] [data-duty-open]');
@@ -815,11 +819,22 @@ check('no page errors', errors.length === 0, errors.join('\n       '));
         && o.ownerWrites.filter((w) => w.path === '/api/duty/setup').length === 1, JSON.stringify(swapWrite));
     await o.p.click('#duty tr[data-date="2026-10-02"] [data-duty-open]');
     await o.p.selectOption('#duty form[data-duty-day="2026-10-02"] select[name="swapWith"]', '2026-10-05');
-    check('the swap picker offers no date from a different cycle',
-        !(await o.p.$('#duty form[data-duty-day="2026-10-02"] select[name="swapWith"] option[value="2026-10-08"]')));
+    check('the swap picker offers a day of another cycle too, and still no day that already has a correction',
+        Boolean(await o.p.$('#duty form[data-duty-day="2026-10-02"] select[name="swapWith"] option[value="2026-10-09"]'))
+        && !(await o.p.$('#duty form[data-duty-day="2026-10-02"] select[name="swapWith"] option[value="2026-10-08"]')));
     await o.p.click('#duty form[data-duty-day="2026-10-02"] [data-duty-swap-pick]');
-    check('without dragging: ⋯ → „Замени со ден" asks the same', /Вера Измислена ќе дежура на пн 05\.10\.2026/.test(await o.p.textContent('#swapAsk')));
+    check('without dragging: ⋯ → „Замени со ден" asks the same', /Вера Измислена ќе дежура на пн 05\.10\.2026/.test(await o.p.textContent('#swapAsk'))
+        && !/меѓу два круга/.test(await o.p.textContent('#swapAsk')));
     await o.p.click('#swapNo');
+    await o.p.selectOption('#duty form[data-duty-day="2026-10-02"] select[name="swapWith"]', '2026-10-09');
+    await o.p.click('#duty form[data-duty-day="2026-10-02"] [data-duty-swap-pick]');
+    const acrossAsk = await o.p.textContent('#swapAsk');
+    check('a swap between two cycles says so before it is confirmed: who gets two and where',
+        /Замена меѓу два круга \(круг 1 ↔ круг 2\)/.test(acrossAsk) && /Вера Измислена ќе има 2 дежурства во круг 2 и ниедно во круг 1/.test(acrossAsk), acrossAsk);
+    await o.p.click('#swapNo');
+    const crossText = await o.p.innerText('#duty .cross-swaps');
+    check('under the table: every swap between cycles, who serves when and in which cycle',
+        /Горан Измислен дежура ср 30\.09\.2026 \(круг 1\) ⇄ Вера Измислена дежура вт 13\.10\.2026 \(круг 2\) — договор/.test(crossText), crossText);
     check('the event note is still shown on an ordinary duty day',
         /празник/.test(await o.p.innerText('#duty tr[data-date="2026-10-08"]')));
     await o.p.click('#duty tr[data-date="2026-10-06"] [data-duty-open]');
