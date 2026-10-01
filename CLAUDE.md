@@ -833,7 +833,8 @@ read `DATABASE_URL`; never add literal credentials to this public repository.
   added to that function.
 
 - **One flat look, opted into per page (1 Oct 2026).** `html.mtb-flat` in
-  mtb-look.css is the button; `.mtb-tabs-flat` on a strip makes its tabs plain
+  mtb-look.css is the button — a PILL, 34px high, `6px 14px`, 14px bold, fully
+  rounded (2 Oct), the same for a tab and for the pin; `.mtb-tabs-flat` on a strip makes its tabs plain
   buttons and takes it out of mtb-layout.js's forced dark band. Кабинети and
   Евидентен лист do not load mtb-look.css and carry a copy of the numbers.
   The workspace's top row and S-Дневник keep the dark slanted tabs on the

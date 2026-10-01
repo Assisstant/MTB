@@ -83,17 +83,18 @@ textarea{min-height:56px;resize:vertical;width:100%;}
    the one blue; the tabs are plain buttons, not the dark slanted band. */
 :root{--flat:#0f6cbd;--flat-well:#f7f7fc;--flat-line:#c9ced8;}
 body.dark{--flat:#1f6feb;--flat-well:#1b2130;--flat-line:#46506a;}
-.btn{padding:9px 14px;border-radius:8px;font-size:15px;background:var(--flat-well);border-color:var(--flat-line);transition:border-color .15s;}
+.btn{padding:6px 14px;min-height:34px;border-radius:999px;font-size:14px;background:var(--flat-well);border-color:var(--flat-line);transition:border-color .15s;}
+.hdr-btn{min-height:34px;padding:6px 14px;border-radius:999px;font-size:14px;font-weight:700;}
 .btn:hover:not([disabled]){transform:none;box-shadow:none;}
 .btn:where(:not(.btn-p,.btn-g,.btn-r,.btn-b)):hover:not([disabled]){border-color:var(--flat);box-shadow:none;}
-.btn-sm{padding:5px 10px;font-size:13px;}
+.btn-sm{padding:4px 12px;min-height:28px;font-size:13px;border-radius:999px;}
 .btn-p{background:var(--flat);border-color:var(--flat);color:#fff;}
 .tabs.mtb-tabs-flat{align-items:center;gap:6px;padding:10px 8px;background:var(--card);border-bottom:1px solid var(--border);}
-.tabs.mtb-tabs-flat > .tab,.tabs.mtb-tabs-flat > .tab:hover{margin-top:0;padding:9px 14px;border:1px solid var(--flat-line);border-radius:8px;
-  background:var(--flat-well);color:var(--text);font-size:15px;font-weight:700;letter-spacing:0;text-transform:none;clip-path:none;}
+.tabs.mtb-tabs-flat > .tab,.tabs.mtb-tabs-flat > .tab:hover{margin-top:0;padding:6px 14px;min-height:34px;border:1px solid var(--flat-line);border-radius:999px;
+  background:var(--flat-well);color:var(--text);font-size:14px;font-weight:700;letter-spacing:0;text-transform:none;clip-path:none;}
 .tabs.mtb-tabs-flat > .tab:hover{border-color:var(--flat);}
-.tabs.mtb-tabs-flat > .tab.active,.tabs.mtb-tabs-flat > .tab.active:hover{margin-top:0;padding:9px 14px;border:1px solid var(--flat);background:var(--flat);color:#fff;}
-.tabs.mtb-tabs-flat > .mtb-pin{position:static;box-shadow:none;border-color:var(--flat-line);background:var(--flat-well);color:var(--text);}
+.tabs.mtb-tabs-flat > .tab.active,.tabs.mtb-tabs-flat > .tab.active:hover{margin-top:0;padding:6px 14px;border:1px solid var(--flat);background:var(--flat);color:#fff;}
+.tabs.mtb-tabs-flat > .mtb-pin{position:static;box-shadow:none;border-color:var(--flat-line);background:var(--flat-well);color:var(--text);min-height:34px;padding:6px 12px;margin-top:0 !important;margin-bottom:0 !important;font-size:13px;font-weight:700;box-sizing:border-box;}
 
 /* Layout */
 .wrap{display:grid;grid-template-columns:264px minmax(0,1fr);gap:14px;padding:14px;align-items:start;}

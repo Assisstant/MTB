@@ -270,11 +270,14 @@ table .btn { padding: 6px 12px; min-height: 0; font-size: 13px; border-radius: 8
    S-Дневник do not: the owner asked for those to stay as they are. */
 :root { --mtb-flat: #0f6cbd; --mtb-flat-on: #ffffff; --mtb-flat-well: #f7f7fc; --mtb-flat-line: #c9ced8; }
 :root[data-theme="dark"] { --mtb-flat: #1f6feb; --mtb-flat-on: #ffffff; --mtb-flat-well: #1b2130; --mtb-flat-line: #46506a; }
+/* The shape is a PILL, 34px high (owner, 2 Oct 2026: „this design everywhere" —
+   the shape and height of „Редни броеви" and „📌 Замрзни"). The numbers are
+   these three: 34px, 6px 14px, 14px. Pages that carry a copy use the same. */
 html.mtb-flat .btn {
-    padding: 9px 14px; min-height: 40px;
-    border: 1px solid var(--mtb-flat); border-radius: 8px;
+    padding: 6px 14px; min-height: 34px;
+    border: 1px solid var(--mtb-flat); border-radius: 999px;
     background: var(--mtb-flat); color: var(--mtb-flat-on);
-    font-size: 15px; font-weight: 700;
+    font-size: 14px; font-weight: 700;
     box-shadow: none; transition: background .15s, border-color .15s;
 }
 html.mtb-flat .btn:hover:not(:disabled) { transform: none; box-shadow: none; filter: brightness(.93); }
@@ -290,7 +293,7 @@ html.mtb-flat .btn[aria-pressed="true"], html.mtb-flat .btn.soft[aria-pressed="t
 html.mtb-flat .btn .ico, html.mtb-flat .btn:not(.soft) .ico, html.mtb-flat .btn[aria-pressed="true"] .ico {
     width: auto; height: auto; margin-left: 0; border-radius: 0; background: none; color: inherit; font-size: 1em;
 }
-html.mtb-flat table .btn { padding: 5px 10px; min-height: 0; font-size: 14px; }
+html.mtb-flat table .btn { padding: 4px 12px; min-height: 28px; font-size: 13px; border-radius: 999px; }
 
 /* A page's OWN tabs, as plain buttons on the page: unlike the dark slanted
    band of the workspace's row above them, so the two rows cannot be mistaken
@@ -300,21 +303,31 @@ html.mtb-flat table .btn { padding: 5px 10px; min-height: 0; font-size: 14px; }
     background: none; border-bottom: 1px solid var(--border); border-radius: 0; box-shadow: none;
 }
 .mtb-tabs.mtb-tabs-flat > .btn, .mtb-tabs.mtb-tabs-flat > .btn:hover:not(:disabled) {
-    margin-top: 0; padding: 9px 14px;
-    border: 1px solid var(--mtb-flat-line); border-radius: 8px;
+    margin-top: 0; padding: 6px 14px; min-height: 34px;
+    border: 1px solid var(--mtb-flat-line); border-radius: 999px;
     background: var(--mtb-flat-well); color: var(--text);
-    font-size: 15px; font-weight: 700; text-transform: none; letter-spacing: 0;
+    font-size: 14px; font-weight: 700; text-transform: none; letter-spacing: 0;
     clip-path: none;
 }
 .mtb-tabs.mtb-tabs-flat > .btn:hover:not(:disabled) { border-color: var(--mtb-flat); }
 .mtb-tabs.mtb-tabs-flat > .btn[aria-pressed="true"], .mtb-tabs.mtb-tabs-flat > .btn[aria-pressed="true"]:hover:not(:disabled) {
-    margin-top: 0; padding: 9px 14px;
+    margin-top: 0; padding: 6px 14px;
     border: 1px solid var(--mtb-flat); background: var(--mtb-flat); color: var(--mtb-flat-on);
 }
 html .mtb-tabs.mtb-tabs-flat > .mtb-pin {
     /* Last on the strip, never riding over a tab: nine tabs do not fit a laptop either. */
     position: static; border-color: var(--mtb-flat-line); background: var(--card); color: var(--text); box-shadow: none;
+    /* The same pill as the tabs beside it: one height on the strip. */
+    min-height: 34px; padding: 6px 12px; margin-top: 0 !important; margin-bottom: 0 !important;
+    font-size: 13px; font-weight: 700; box-sizing: border-box;
 }
+/* A switch on the strip („Редни броеви") is the same pill as the pin. */
+html .mtb-tabs.mtb-tabs-flat > .number-toggle {
+    min-height: 34px; padding: 6px 12px; margin-top: 0; margin-bottom: 0; box-sizing: border-box;
+    border: 1px solid var(--mtb-flat-line); border-radius: 999px; background: var(--card); color: var(--text);
+    font-size: 13px; font-weight: 700;
+}
+html .mtb-tabs.mtb-tabs-flat > .number-toggle:has(input:checked) { background: var(--mtb-flat); border-color: var(--mtb-flat); color: var(--mtb-flat-on); }
 html .mtb-tabs.mtb-tabs-flat > .mtb-pin:has(input:checked) { background: var(--mtb-flat); border-color: var(--mtb-flat); color: var(--mtb-flat-on); }
 
 /* Fields — S-Dnevnik's `.form-group`. */

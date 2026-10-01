@@ -775,8 +775,8 @@
     html.mtb-flat { --flat: #0f6cbd; --flat-well: #f7f7fc; --flat-line: #c9ced8; --flat-text: #2d3748; --flat-rule: #e2e8f0; --flat-band: #f7fafc; }
     html.mtb-flat:has(body.dark-mode) { --flat: #1f6feb; --flat-well: #1b2130; --flat-line: #46506a; --flat-text: #e2e8f0; --flat-rule: #4a5568; --flat-band: #2d3748; }
     html.mtb-flat .btn {
-        padding: 9px 14px; min-height: 40px; border-radius: 8px; border: 1px solid var(--flat-line);
-        background: var(--flat-well); color: var(--flat-text); font-size: 15px; font-weight: 700; box-shadow: none;
+        padding: 6px 14px; min-height: 34px; border-radius: 999px; border: 1px solid var(--flat-line);
+        background: var(--flat-well); color: var(--flat-text); font-size: 14px; font-weight: 700; box-shadow: none;
     }
     html.mtb-flat .btn:hover { border-color: var(--flat); box-shadow: none; }
     html.mtb-flat .btn-primary, html.mtb-flat .btn-primary:hover { background: var(--flat); border-color: var(--flat); color: #fff; box-shadow: none; }
@@ -784,7 +784,12 @@
     html.mtb-flat .btn .ico, html.mtb-flat .btn-primary .ico, html.mtb-flat .btn-success .ico {
         width: auto; height: auto; margin-left: 0; border-radius: 0; background: none; color: inherit; font-size: 1em;
     }
-    html.mtb-flat .icon-btn { padding: 0; }
+    html.mtb-flat .icon-btn { padding: 0; width: 34px; }
+    /* Who is signed in, and signing out: the same pill, side by side. */
+    html.mtb-flat .user-name, html.mtb-flat .btn.btn-xs {
+        display: inline-flex; align-items: center; min-height: 34px; padding: 6px 14px; border-radius: 999px;
+        font-size: 14px; font-weight: 700; box-sizing: border-box;
+    }
     html.mtb-flat body .day-tabs-band.mtb-tabs-flat, html.mtb-flat body .view-tabs.mtb-tabs-flat {
         background: none; border-bottom: 1px solid var(--flat-rule); border-radius: 0; box-shadow: none;
     }
@@ -793,17 +798,18 @@
     html.mtb-flat body .view-tabs.mtb-tabs-flat { align-items: center; gap: 6px; padding: 0 0 10px; }
     html.mtb-flat body .day-tabs-band.mtb-tabs-flat .band__inner { align-items: center; gap: 6px; padding-top: 10px; padding-bottom: 10px; }
     html.mtb-flat body .mtb-tabs-flat .day-tab, html.mtb-flat body .mtb-tabs-flat > .view-tab {
-        margin-top: 0; padding: 9px 14px; border: 1px solid var(--flat-line); border-radius: 8px;
+        margin-top: 0; padding: 6px 14px; min-height: 34px; border: 1px solid var(--flat-line); border-radius: 999px;
         background: var(--flat-well); color: var(--flat-text); box-shadow: none;
-        font-size: 15px; font-weight: 700; text-transform: none; letter-spacing: 0; clip-path: none; transition: border-color .15s;
+        font-size: 14px; font-weight: 700; text-transform: none; letter-spacing: 0; clip-path: none; transition: border-color .15s;
     }
     html.mtb-flat body .mtb-tabs-flat .day-tab::before { display: none; }
     html.mtb-flat body .mtb-tabs-flat .day-tab:hover, html.mtb-flat body .mtb-tabs-flat > .view-tab:hover { border-color: var(--flat); }
     html.mtb-flat body .mtb-tabs-flat .day-tab[aria-pressed="true"], html.mtb-flat body .mtb-tabs-flat > .view-tab[aria-selected="true"] {
-        margin-top: 0; padding: 9px 14px; border: 1px solid var(--flat); background: var(--flat); color: #fff; box-shadow: none;
+        margin-top: 0; padding: 6px 14px; border: 1px solid var(--flat); background: var(--flat); color: #fff; box-shadow: none;
     }
     html.mtb-flat body .mtb-tabs-flat > .mtb-pin, html.mtb-flat body .mtb-tabs-flat .band__inner > .mtb-pin {
         position: static; box-shadow: none; border-color: var(--flat-line); background: var(--flat-well); color: var(--flat-text);
+        min-height: 34px; padding: 6px 12px; margin-top: 0 !important; margin-bottom: 0 !important; font-size: 13px; font-weight: 700; box-sizing: border-box;
     }
 </style>
 </head>

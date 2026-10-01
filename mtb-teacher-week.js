@@ -107,8 +107,8 @@
     /* What the sheet shows (owner, 1 Oct 2026, as on the colleagues' page):
        lessons and who leaves for a cabinet, only the lessons, or only the cabinets. */
     .personal .p-modes { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0 8px; }
-    .personal .p-modes button { font: 700 13px/1.2 system-ui, -apple-system, 'Segoe UI', sans-serif; padding: 7px 12px;
-        border: 1px solid #c9ced8; border-radius: 8px; background: #f7f7fc; color: #1a202c; cursor: pointer; }
+    .personal .p-modes button { font: 700 14px/1.2 system-ui, -apple-system, 'Segoe UI', sans-serif; padding: 6px 14px; min-height: 34px;
+        border: 1px solid #c9ced8; border-radius: 999px; background: #f7f7fc; color: #1a202c; cursor: pointer; }
     .personal .p-modes button:hover { border-color: #0f6cbd; }
     .personal .p-modes button[aria-pressed="true"] { background: #0f6cbd; border-color: #0f6cbd; color: #ffffff; }
     .personal.show-subjects .p-away { display: none !important; }
