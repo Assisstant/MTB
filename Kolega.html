@@ -1672,34 +1672,46 @@ header.top h1 { flex: 1; min-width: 180px; }
     el('duty').addEventListener('pointerup', dropSwap);
     el('duty').addEventListener('pointercancel', dropSwap);
 
+    /**
+     * One day in words: who, and every line under the name. The table, the
+     * print and „🖼 Слика" all read it from here, so the picture cannot say
+     * less than the sheet (owner, 1 Oct 2026: it named one swap of two, and
+     * without the weekday and the round).
+     */
+    function dutyDayText(d) {
+        const notes = [];
+        let who;
+        if (d.closed) who = `— без дежурство${d.note ? ': ' + d.note : ''} —`;
+        else if (d.employeeId == null) who = d.how === 'nobody' && d.date >= duty.data.startsOn ? '— нема кој: сите се отсутни —' : '—';
+        else {
+            who = d.name;
+            // Who actually served (051): the rota named somebody else; the queue did not move.
+            if (d.insteadOf) notes.push(`✎ наместо ${d.insteadOf.name || 'никого по распоред'}${d.note ? ' — ' + d.note : ''}`);
+            if (d.covers.length) notes.push(`${d.insteadOf ? 'прескокнат (отсуство): ' : 'наместо '}${d.covers.map((c) => c.name).join(', ')}${d.note && !d.insteadOf ? ' — ' + d.note : ''}`);
+            else if (d.note && !d.insteadOf) notes.push(d.note);
+            // Every step of a chain, oldest first: the day says how it got its name.
+            (d.swaps && d.swaps.length ? d.swaps : d.swap ? [d.swap] : []).forEach((s) => {
+                notes.push(`⇄ замена со ${s.name} (${WEEKDAY[weekdayOf(s.date)]} ${dmy(s.date)}`
+                    + `${s.cycle && s.cycle !== d.cycle ? ', круг ' + s.cycle : ''})${s.note ? ' — ' + s.note : ''}`);
+            });
+        }
+        const alsoAway = (d.absent || []).filter((a) => !(d.covers || []).some((c) => c.employeeId === a.employeeId));
+        if (alsoAway.length) notes.push('отсутни: ' + alsoAway.map((a) => a.name).join(', '));
+        return { who, notes };
+    }
+
     function dutyRowHtml(d) {
         const mine = d.employeeId != null && d.employeeId === myEmployee();
         const past = d.date < todayIso();
         const cls = [d.closed ? 'closed' : '', mine ? 'mine' : '', past ? 'past' : '', past && duty.foldPast ? 'folded' : '',
             d.date === todayIso() ? 'today' : ''].filter(Boolean).join(' ');
-        let who, grip = '';
-        if (d.closed) who = `— без дежурство${d.note ? ': ' + esc(d.note) : ''} —`;
-        else if (d.employeeId == null) who = d.how === 'nobody' && d.date >= duty.data.startsOn ? '— нема кој: сите се отсутни —' : '—';
-        else {
-            who = esc(d.name);
-            // Who actually served (051): the rota named somebody else; the queue did not move.
-            if (d.insteadOf) who += `<span class="sub">✎ наместо ${esc(d.insteadOf.name || 'никого по распоред')}${d.note ? ' — ' + esc(d.note) : ''}</span>`;
-            if (d.covers.length) who += `<span class="sub">${d.insteadOf ? 'прескокнат (отсуство): ' : 'наместо '}${esc(d.covers.map((c) => c.name).join(', '))}${d.note && !d.insteadOf ? ' — ' + esc(d.note) : ''}</span>`;
-            else if (d.note && !d.insteadOf) {
-                who += `<span class="sub">${esc(d.note)}</span>`;
-            }
-            // Every step of a chain, oldest first: the day says how it got its name.
-            (d.swaps && d.swaps.length ? d.swaps : d.swap ? [d.swap] : []).forEach((s) => {
-                who += `<span class="sub">⇄ замена со ${esc(s.name)} (${WEEKDAY[weekdayOf(s.date)]} ${dmy(s.date)}`
-                    + `${s.cycle && s.cycle !== d.cycle ? ', круг ' + s.cycle : ''})${s.note ? ' — ' + esc(s.note) : ''}</span>`;
-            });
-            if (duty.owner && swappable(d)) {
-                grip = `<button type="button" class="small swap-grip no-print" data-swap-from="${d.date}" `
-                    + `aria-label="${esc(d.name)}, ${dmy(d.date)}: повлечете врз друг ден за замена">⠿</button>`;
-            }
+        let grip = '';
+        const said = dutyDayText(d);
+        const who = esc(said.who) + said.notes.map((n) => `<span class="sub">${esc(n)}</span>`).join('');
+        if (!d.closed && d.employeeId != null && duty.owner && swappable(d)) {
+            grip = `<button type="button" class="small swap-grip no-print" data-swap-from="${d.date}" `
+                + `aria-label="${esc(d.name)}, ${dmy(d.date)}: повлечете врз друг ден за замена">⠿</button>`;
         }
-        const alsoAway = d.absent.filter((a) => !d.covers.some((c) => c.employeeId === a.employeeId));
-        if (alsoAway.length) who += `<span class="sub">отсутни: ${esc(alsoAway.map((a) => a.name).join(', '))}</span>`;
         const imAway = d.absent.some((a) => a.employeeId === myEmployee());
         let act = '';
         if (duty.owner) act = `<button type="button" class="small" data-duty-open="${d.date}" aria-label="Уреди дежурство: ${dmy(d.date)}" aria-expanded="${duty.open === d.date}">⋯</button>`;
@@ -1908,12 +1920,20 @@ header.top h1 { flex: 1; min-width: 180px; }
     el('duty').addEventListener('click', async (event) => {
         if (event.target.closest('#dutyPng')) {
             const days = duty.data.days.filter(d => d.date >= duty.data.startsOn);
-            return paintReport({ title: 'Распоред на дежурства', subtitle: 'учебна ' + me.year,
-                columns: ['Датум', 'Стручен соработник', 'Забелешка'],
-                rows: days.map(d => [dmy(d.date), d.closed ? 'Неработен ден' : d.name || '—',
-                    [d.note, d.insteadOf ? 'Наместо ' + (d.insteadOf.name || '—') : '', ...(d.covers || []).map(c => 'Замена за ' + (c.name || duty.data.members.find(m => m.employeeId === c)?.name || '—')),
-                        d.swap ? 'Замена со ' + d.swap.name + ' · ' + dmy(d.swap.date) : ''].filter(Boolean).join('\n')]),
-                note: 'Сите денови од избраниот приказ, вклучувајќи ги скриените изминати денови.', file: 'Dezurstva-' + (duty.data.from || duty.month) });
+            // The same words as the sheet: the day with its weekday, every line
+            // under the name, the place in the round, and the record below.
+            const counts = document.createElement('div');
+            counts.innerHTML = dutyCountsHtml().replace(/<div/g, '\n<div');
+            return paintReport({ title: 'Распоред на дежурства', subtitle: 'учебна ' + me.year + ' · изработил: ' + me.person.name,
+                columns: ['Ден и датум', 'Стручен соработник', 'Ред во циклус'], widths: [170, 640, 150],
+                rows: days.map((d) => {
+                    const said = dutyDayText(d);
+                    return [`${WEEKDAY[d.weekday]} ${dmy(d.date)}`, [said.who, ...said.notes].join('\n'),
+                        [d.number == null ? '—' : String(d.number), d.cycle && !d.closed ? 'круг ' + d.cycle : '',
+                            d.turnInCycle > 1 ? d.turnInCycle + '× во кругот' : ''].filter(Boolean).join('\n')];
+                }),
+                note: [counts.textContent.trim(), 'Сите денови од избраниот приказ, вклучувајќи ги скриените изминати денови.'].filter(Boolean).join('\n'),
+                file: 'Dezurstva-' + (duty.data.from || duty.month) });
         }
         if (event.target.closest('[data-duty-admin-exit]')) {
             dutyAdminToken.clear();
@@ -2289,17 +2309,26 @@ header.top h1 { flex: 1; min-width: 180px; }
      */
     /** Text is wrapped, not cropped. Long reports become numbered PNG pages. */
     function paintReport(o) {
-        const widths = o.columns.map((_, i) => o.dateList ? (i === 0 ? 320 : 1050) : o.compact ? (i === 0 ? 260 : 56) : (i === 0 ? 180 : 330));
+        const widths = o.widths || o.columns.map((_, i) => o.dateList ? (i === 0 ? 320 : 1050) : o.compact ? (i === 0 ? 260 : 56) : (i === 0 ? 180 : 330));
         const width = widths.reduce((a, b) => a + b, 0) + 48;
         const probe = document.createElement('canvas').getContext('2d'); probe.font = '18px Arial';
         function wrap(value, width) {
             const result = [];
+            // Between words, so a date or a name is never cut in two („0" on one
+            // line and „5.10.2026" on the next). Only a single word wider than
+            // the cell is broken inside.
+            const fits = (text) => probe.measureText(text).width <= width - 20;
             String(value ?? '').split('\n').forEach(line => {
                 let part = '';
-                for (const char of line) {
-                    if (probe.measureText(part + char).width > width - 20 && part) { result.push(part); part = ''; }
-                    part += char;
-                }
+                line.split(' ').forEach((word) => {
+                    const joined = part ? part + ' ' + word : word;
+                    if (fits(joined)) { part = joined; return; }
+                    if (part) { result.push(part); part = ''; }
+                    for (const char of word) {
+                        if (!fits(part + char) && part) { result.push(part); part = ''; }
+                        part += char;
+                    }
+                });
                 result.push(part);
             });
             return result;

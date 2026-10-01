@@ -650,6 +650,21 @@ check('no page errors', errors.length === 0, errors.join('\n       '));
         /Круг 2.*Вера Измислена — 2.*Горан Измислен — 0/.test(await c.p.innerText('#duty .duty-counts'))
         && /должи 1/.test(await c.p.innerText('#duty .duty-counts')), await c.p.innerText('#duty .duty-counts'));
     check('a swapped day says with whom and for which day', /⇄ замена со Вера Измислена \(пт 09\.10\.2026\) — лекар/.test(rows[3].text), rows[3].text);
+    // „🖼 Слика" says what the sheet says: every line the canvas is asked to write is collected.
+    await c.p.evaluate(() => {
+        window.__drawn = [];
+        const original = CanvasRenderingContext2D.prototype.fillText;
+        CanvasRenderingContext2D.prototype.fillText = function (text, ...rest) { window.__drawn.push(String(text)); return original.call(this, text, ...rest); };
+    });
+    const [dutyPicture] = await Promise.all([c.p.waitForEvent('download', { timeout: 5000 }), c.p.click('#dutyPng')]);
+    await dutyPicture.saveAs(join(import.meta.dirname, '../../backups/test-artifacts/duty-picture.png'));
+    const drawn = await c.p.evaluate(() => window.__drawn);
+    check('the picture names the swap as the sheet does: with whom, the weekday, the day',
+        drawn.some((t) => /⇄ замена со Вера Измислена \(пт 09\.10\.2026\) — лекар/.test(t)), JSON.stringify(drawn.filter((t) => /замена/.test(t))));
+    check('and the day with its weekday', drawn.some((t) => /^(пн|вт|ср|чт|пт) \d{2}\.\d{2}\.\d{4}$/.test(t)));
+    const cut = (t) => /^\d?\.\d{2}\.\d{4}/.test(t.trim()) || /\d{2}\.\d?$/.test(t.trim()) || /\.\d{2}\.\d{0,3}$/.test(t.trim());
+    check('no date is cut in two between lines', !drawn.some(cut), JSON.stringify(drawn.filter(cut)));
+    check('and it carries the record under the table', drawn.some((t) => /Дежурства по круг/.test(t)) && drawn.some((t) => /должи 1/.test(t)));
     check('a colleague cannot drag a swap, nor sees the stale ones', !(await c.p.$('#duty [data-swap-from]')) && !(await c.p.$('#duty .duty-stale')));
     check('today and later offer „Не сум тука"', rows[1].away && rows[2].away);
     check('there are no owner\'s controls', !(await c.p.$('#duty .duty-admin')) && !(await c.p.$('#duty [data-duty-open]')));
@@ -666,6 +681,13 @@ check('no page errors', errors.length === 0, errors.join('\n       '));
         buttons: [...document.querySelectorAll('#duty .no-print')].every((n) => getComputedStyle(n).display === 'none')
     }));
     check('printed: only the month, without the buttons', printed.duty && printed.header && printed.buttons, JSON.stringify(printed));
+    // The sheet itself: upright A4, and the browser is not left to pick an
+    // orientation from another report's @page rule.
+    const dutyPdf = (await c.p.pdf({ preferCSSPageSize: true })).toString('latin1');
+    const boxes = [...dutyPdf.matchAll(/\/MediaBox\s*\[\s*([\d.]+)\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)\s*\]/g)].map((m) => [Math.round(m[3]), Math.round(m[4])]);
+    const rotated = [...dutyPdf.matchAll(/\/Rotate\s+(\d+)/g)].map((m) => Number(m[1])).filter(Boolean);
+    check('the duty sheet prints as upright A4, not turned', boxes.length > 0 && boxes.every(([w, h]) => w < h) && !rotated.length,
+        JSON.stringify({ boxes, rotated }));
     check('no page errors on the duty tab', c.errs.length === 0, c.errs.join('\n       '));
     await c.ctx.close();
 
