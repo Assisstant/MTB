@@ -2650,7 +2650,8 @@
             var value = row ? row.sdnevnik_id : null;
             if (value == null || String(value).trim() === '') return null;
             var raw = Number(value);
-            return Number.isFinite(raw) ? raw : null;
+            // Ниту 0 не е број на дневник: серверот го одбива (`asSdnId`).
+            return Number.isFinite(raw) && raw > 0 ? raw : null;
         }
 
         function sameAnnualStudent(student, row) {
@@ -4837,7 +4838,13 @@
                 }
             }
             
+            // Само последното цртање ги закачува ракувачите. Две цртања во ист
+            // миг (вчитување од сервер, па `renderAll`) оставаа два ракувача на
+            // секое квадратче: еден клик се броеше двапати и од празно одеше
+            // право на „отсутен".
+            var renderSeq = renderSchedule.seq = (renderSchedule.seq || 0) + 1;
             setTimeout(function() {
+                if (renderSeq !== renderSchedule.seq) return;
                 // Select ALL attendance indicators
                 var indicators = document.querySelectorAll('.attendance-indicator');
                 console.log('Found ' + indicators.length + ' attendance indicators to attach handlers');
@@ -5491,6 +5498,86 @@
             if (!Array.isArray(window.audiogramRecords)) window.audiogramRecords = [];
             if (!Array.isArray(window.assessments)) window.assessments = [];
             if (!Array.isArray(window.scaleTemplates)) window.scaleTemplates = [];
+        }
+
+        /**
+         * Ученик со дневнички id 0 добива вистински број.
+         *
+         * Таков ученик е остаток од `Number(null)` во `annualRosterStudentId`:
+         * додаден е од годишниот список додека базата немаше `sdnevnik_id` за
+         * него. Се гледа во распоредот, но квадратчето за присуство го одбива
+         * („Missing data for this slot"), а и серверот не прима 0 како број на
+         * дневникот — па неговото присуство не може да се запише никаде.
+         *
+         * Се поместува САМО кога е еден. Двајца со 0 значат дека не се знае
+         * чии се термините и ознаките под тој број; тоа не се погодува
+         * (правило 2), туку се пријавува и се остава.
+         *
+         * Враќа true ако нешто е сменето. Тогаш и зачувува, зашто новиот број
+         * е `Date.now()`: без запис, секое вчитување би дало друг.
+         */
+        function repairUnusableStudentIds() {
+            var isZero = function (id) { return id === 0 || id === '0'; };
+            var lists = [window.students, window.formerCaseloadStudents, window.archivedStudents];
+            var broken = [];
+            var used = {};
+            lists.forEach(function (list) {
+                (Array.isArray(list) ? list : []).forEach(function (s) {
+                    if (!s || typeof s !== 'object') return;
+                    if (isZero(s.id)) broken.push(s);
+                    else if (s.id != null) used[String(s.id)] = true;
+                });
+            });
+            if (!broken.length) return false;
+            if (broken.length > 1) {
+                console.warn('S-Dnevnik: ' + broken.length + ' ученици носат id 0 — не се знае чии се записите под тој број, па ништо не е сменето.');
+                return false;
+            }
+
+            var newId = Date.now();
+            while (used[String(newId)]) newId++;
+            broken[0].id = newId;
+
+            var moveWeek = function (week) {
+                if (!week || typeof week !== 'object') return;
+                Object.keys(week).forEach(function (day) {
+                    if (!Array.isArray(week[day])) return;
+                    week[day].forEach(function (slot, i) {
+                        if (!Array.isArray(slot)) return;
+                        week[day][i] = slot.map(function (id) { return isZero(id) ? newId : id; });
+                    });
+                });
+            };
+            moveWeek(window.schedule);
+            if (window.scheduleHistory && typeof window.scheduleHistory === 'object') {
+                Object.keys(window.scheduleHistory).forEach(function (weekKey) { moveWeek(window.scheduleHistory[weekKey]); });
+            }
+
+            var moveKey = function (holder) {
+                if (!holder || typeof holder !== 'object' || !hasOwn(holder, '0')) return;
+                holder[newId] = holder['0'];
+                delete holder['0'];
+            };
+            if (window.attendance && typeof window.attendance === 'object') {
+                Object.keys(window.attendance).forEach(function (date) { moveKey(window.attendance[date]); });
+            }
+            moveKey(window.studentProgress);
+            if (window.progressArchive && typeof window.progressArchive === 'object') {
+                Object.keys(window.progressArchive).forEach(function (year) { moveKey(window.progressArchive[year]); });
+            }
+            [window.assessments, window.trijazenTestovi].forEach(function (list) {
+                (Array.isArray(list) ? list : []).forEach(function (r) {
+                    if (r && isZero(r.studentId)) r.studentId = newId;
+                });
+            });
+
+            setTimeout(function () {
+                if (typeof window.saveData === 'function') window.saveData();
+                if (typeof window.showToast === 'function') {
+                    window.showToast('„' + (broken[0].name || 'Ученик') + '" имаше неисправен број во дневникот — поправен е.');
+                }
+            }, 0);
+            return true;
         }
 
         function ensureStudentProgressStructure() {
@@ -6781,6 +6868,7 @@
 
             if (!scheduleHistory) scheduleHistory = {};
             ensureUnifiedCollections();
+            repairUnusableStudentIds();
             ensureStudentProgressStructure();
             syncUnifiedDataToEmbedded(false);
             isDataDirty = false;
@@ -6860,6 +6948,7 @@
                     if (Array.isArray(data.scaleTemplates)) window.scaleTemplates = data.scaleTemplates;
 
                     ensureUnifiedCollections();
+                    repairUnusableStudentIds();
                     ensureStudentProgressStructure();
                     syncUnifiedDataToEmbedded(true);
 
@@ -9614,6 +9703,7 @@
         if (Array.isArray(data.scaleTemplates)) window.scaleTemplates = data.scaleTemplates;
 
         if (typeof window.ensureUnifiedCollections === 'function') window.ensureUnifiedCollections();
+        if (typeof window.repairUnusableStudentIds === 'function') window.repairUnusableStudentIds();
         if (typeof window.ensureStudentProgressStructure === 'function') window.ensureStudentProgressStructure();
         if (typeof window.syncUnifiedDataToEmbedded === 'function') window.syncUnifiedDataToEmbedded(false);
         if (typeof window.renderAll === 'function') window.renderAll();

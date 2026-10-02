@@ -54,6 +54,7 @@
     "test:fusion-reports": "node test/fusion-reports.browser.mjs",
     "test:fusion-order": "node test/fusion-caseload-order.browser.mjs",
     "test:fusion-now": "node test/fusion-now.browser.mjs",
+    "test:fusion-mine": "node test/fusion-my-therapist.browser.mjs",
     "test:navigation": "node test/app-navigation.browser.mjs",
     "test:sync-page": "node test/sync-page.browser.mjs",
     "test:workspace": "node test/workspace.browser.mjs",
@@ -94,6 +95,8 @@
     "test:kolegi-admin": "node test/kolegi-admin.browser.mjs",
     "test:door": "node test/door.browser.mjs",
     "test:plan-sync": "node test/sdnevnik-plan-sync.browser.mjs",
+    "test:zero-id": "node test/sdnevnik-zero-id.browser.mjs",
+    "diary:merge": "tsx scripts/merge-diary-pupils.ts",
     "test:teacher-week": "node test/teacher-week.browser.mjs",
     "test:wbacc": "node test/wbacc.browser.mjs",
     "migrate:pending": "tsx scripts/migrations-pending.ts"

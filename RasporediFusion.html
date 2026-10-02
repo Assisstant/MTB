@@ -1438,6 +1438,26 @@
         });
     }
 
+    /**
+     * The therapist this browser's person is, or ''.
+     *
+     * Only a DEFAULT for a view nobody has chosen yet: the signed-in therapist,
+     * else the name S-Dnevnik keeps on the same origin (`my_therapist_v1`).
+     * Without it the week opened on whoever is first in the year's list, and
+     * the owner picked themselves again on every visit. It decides nothing
+     * about who may write, and the list keeps its own order.
+     */
+    function myTherapistId() {
+        const all = (state.roster && state.roster.therapists) || [];
+        if (state.me && state.me.kind === 'therapist' &&
+            all.some((therapist) => String(therapist.id) === String(state.me.id))) return String(state.me.id);
+        let name = '';
+        try { name = localStorage.getItem('my_therapist_v1') || ''; } catch (_) { name = ''; }
+        const key = (value) => String(value || '').normalize('NFKC').trim().replace(/\s+/g, ' ').toLocaleLowerCase('mk-MK');
+        const mine = name ? all.filter((therapist) => key(therapist.name) === key(name)) : [];
+        return mine.length === 1 ? String(mine[0].id) : '';
+    }
+
     function drawFocus() {
         const select = el('focus');
         const weekly = state.view === 'week' && state.panel !== 'allDays';
@@ -1450,10 +1470,12 @@
             (allowed.map((therapist) =>
                 '<option value="' + therapist.id + '">' + esc(therapist.name) + '</option>'
             ).join(''));
+        const offered = (value) => Boolean(value) && Array.from(select.options).some((option) => option.value === value);
         const hasPrevious = Array.from(select.options).some((option) => option.value === previous);
+        const mine = myTherapistId();
         state.focus = hasPrevious
             ? previous
-            : (weekly && select.options.length ? select.options[0].value : '');
+            : (weekly && select.options.length ? (offered(mine) ? mine : select.options[0].value) : '');
         select.value = state.focus;
         el('focusLabel').textContent = weekly ? 'Терапевт' : 'Кабинети';
         select.disabled = isRestrictedTherapist();
@@ -1607,7 +1629,7 @@
         select.innerHTML = therapists.map((therapist) =>
             '<option value="' + therapist.id + '">' + esc(therapist.name) + '</option>'
         ).join('');
-        const preferred = state.rosterTherapist || state.focus;
+        const preferred = state.rosterTherapist || state.focus || myTherapistId();
         state.rosterTherapist = therapists.some((therapist) => String(therapist.id) === String(preferred))
             ? String(preferred)
             : (therapists[0] ? String(therapists[0].id) : '');

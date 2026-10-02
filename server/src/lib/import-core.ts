@@ -814,8 +814,61 @@ export async function writeAll(
     if (sdnDoc) await writeDiary(client, sdnDoc, studentIdBySdnId, report);
 }
 
+/**
+ * Gives a roster row its diary number, by the bridge the diary already carries.
+ *
+ * `students.sdnevnik_id` was only ever written by the Rasporedi/Unified
+ * projection. Since the roster became database-first, a pupil the diary admits
+ * from the annual list arrives WITH the row's `public_id` (`rasporediStudentId`)
+ * and a fresh diary id -- and nothing told the database that id. Every term and
+ * mark of such a pupil stayed in the blob and never reached the tables, behind
+ * a note advising a save from an application nobody opens any more. Seen in the
+ * cloud on 2 Oct 2026: 8 of 22 pupils, 14 of 25 terms.
+ *
+ * The bridge is the strongest identity tier (rule 2), so this is not a guess.
+ * It only FILLS an empty link. A row that already holds another diary number,
+ * or a number that already sits on another row, is two answers to one
+ * question: reported and left alone, never moved.
+ */
+async function linkDiaryStudentsByBridge(client: any, sdnDoc: any, report: Report) {
+    for (const s of asArray(sdnDoc.students)) {
+        const bridge = asText(s?.rasporediStudentId);
+        const sdnId = Number(s?.id);
+        // 0 is not a diary id: it is what `Number(null)` once produced.
+        if (!bridge || s?.id == null || !Number.isSafeInteger(sdnId) || sdnId <= 0) continue;
+
+        const row = (await client.query(
+            'SELECT id, sdnevnik_id FROM students WHERE public_id = $1', [bridge]
+        )).rows[0];
+        if (!row) continue;
+        if (row.sdnevnik_id != null) {
+            if (Number(row.sdnevnik_id) !== sdnId) {
+                report.problems.push(
+                    `"${asText(s.name) ?? ''}" is diary id ${sdnId} here while the roster row "${bridge}" ` +
+                    `already holds diary id ${row.sdnevnik_id}. Left untouched; a human has to say which is which.`
+                );
+            }
+            continue;
+        }
+        const taken = (await client.query(
+            'SELECT public_id FROM students WHERE sdnevnik_id = $1', [sdnId]
+        )).rows[0];
+        if (taken) {
+            report.problems.push(
+                `"${asText(s.name) ?? ''}" points at roster row "${bridge}" while diary id ${sdnId} ` +
+                `is already on "${taken.public_id}". Left untouched; a human has to say which is which.`
+            );
+            continue;
+        }
+        await client.query('UPDATE students SET sdnevnik_id = $2, updated_at = now() WHERE id = $1', [row.id, sdnId]);
+        report.notes.push(`"${asText(s.name) ?? ''}" is now linked to the diary (id ${sdnId}) through "${bridge}".`);
+    }
+}
+
 /** Diary-only projection: used when S-Dnevnik saves on its own. */
 export async function writeDiaryForKnownStudents(client: any, sdnDoc: any, report: Report) {
+    await linkDiaryStudentsByBridge(client, sdnDoc, report);
+
     const { rows } = await client.query('SELECT id, sdnevnik_id FROM students WHERE sdnevnik_id IS NOT NULL');
     const map = new Map<number, number>(rows.map((r: any) => [Number(r.sdnevnik_id), r.id]));
 
