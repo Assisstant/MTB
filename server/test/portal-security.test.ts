@@ -89,6 +89,9 @@ test('maintenance stops everybody but the owner\'s account and the testers, on e
     assert.equal(me.statusCode, 423); assert.equal(me.json().door, 'maintenance'); assert.equal(me.json().error, 'Се враќаме во 14 часот.');
     assert.equal((await call('GET', '/api/portal/me', tester)).statusCode, 200);
     assert.equal((await call('GET', '/api/portal/me', mine)).statusCode, 200);
+    // Only the owner's own account is told so: the page offers it the way to the work space.
+    assert.equal((await call('GET', '/api/portal/me', mine)).json().owner, true);
+    assert.equal((await call('GET', '/api/portal/me', tester)).json().owner, false);
 
     // Every route of the door, in both files, present and future.
     const open = ['/api/portal/login', '/api/portal/logout', '/api/portal/door'];

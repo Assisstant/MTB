@@ -30,6 +30,7 @@ const check = (label, ok, detail = '') => {
 };
 
 let own = false;
+let asOwner = false;      // what /api/portal/me says about the account: the owner's own, or a colleague's
 let signedIn = false;
 const calls = [];
 const loaded = [];
@@ -49,7 +50,7 @@ await context.route('**/*', async (route) => {
     calls.push({ method: req.method(), path: url.pathname, body, token });
     const me = { person: { employeeId: 7, name: 'Ана Измислена' }, usernames: { latin: 'AnaIzmislena', cyrillic: 'АнаИзмислена' },
         author: 'Измислен Автор', authorLook: { size: '13px', lightText: 'rgba(170, 0, 17, 0.8)', lightHalo: 'rgba(255, 255, 255, 0.68)',
-            darkText: 'rgba(255, 255, 255, 0.9)', darkHalo: 'rgba(10, 12, 30, 0.68)' }, initialPassword: !own, year: '2026/2027', roles: ['teacher', 'homeroom'], teacher: { id: 3, kind: 'odd', classes: [] }, therapist: null };
+            darkText: 'rgba(255, 255, 255, 0.9)', darkHalo: 'rgba(10, 12, 30, 0.68)' }, initialPassword: !own, owner: asOwner, year: '2026/2027', roles: ['teacher', 'homeroom'], teacher: { id: 3, kind: 'odd', classes: [] }, therapist: null };
     if (url.pathname === '/api/portal/login') {
         const right = body.password === (own ? 'моја1' : 'ResursenCentar');
         if (!['AnaIzmislena', 'АнаИзмислена'].includes(body.username) || !right) return json(401, { error: 'Погрешно корисничко име или лозинка.' });
@@ -161,6 +162,15 @@ const others = [...new Set(loaded.filter((p) => !p.startsWith('/api/portal/') &&
 check('it loads no other file', others.length === 0, others.join(', '));
 const fits = await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth);
 check('it fits a phone, with no sideways scrolling', fits);
+// The way to the work space is the owner's alone: colleagues have this page and nothing else.
+check('a colleague is offered no way out of this page', await page.$eval('#openWorkspace', (a) => a.hidden));
+asOwner = true;
+await page.click('#openWelcome');
+await page.click('#welcomeContinue');      // „Продолжи" asks who this is again
+await page.waitForFunction(() => !document.getElementById('openWorkspace').hidden, null, { timeout: 8000 }).catch(() => {});
+check('the owner\'s own account is offered the work space',
+    await page.$eval('#openWorkspace', (a) => !a.hidden && a.getAttribute('href') === '/MTB-Workspace.html'));
+asOwner = false;
 check('no page errors', errors.length === 0, errors.join('\n       '));
 
 // ── the week: a clash said before saving, „сепак", notices, a homeroom's class ──

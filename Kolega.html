@@ -461,6 +461,9 @@ header.top h1 { flex: 1; min-width: 180px; }
      mtb-look.css, so the numbers are copied. A phone keeps 48px to touch. */
   button, button.small { min-height: 34px; border-radius: 999px; font-size: 14px; font-weight: 700; padding: 6px 14px; touch-action: manipulation; }
   .attendance-mark, .owner-accounts button { border-radius: 10px; }
+  .top-link { display: inline-flex; align-items: center; min-height: 34px; padding: 6px 14px; border-radius: 999px;
+    border: 1px solid var(--chat-start); background: var(--chat-start); color: #fff; font-size: 14px; font-weight: 700; text-decoration: none; }
+  .top-link[hidden] { display: none; }
   @media (min-width: 801px) and (pointer: fine) {
     table button.small { min-height: 28px; padding: 4px 12px; font-size: 13px; }
     #tabs button, .attendance-tools button, .transport-dates button { min-height: 34px; }
@@ -654,6 +657,10 @@ header.top h1 { flex: 1; min-width: 180px; }
        ваше, и колегата се известува. <button type="button" class="small" id="closeActing">Затвори</button></p>
     <header class="top">
       <h1 id="homeName">—</h1>
+      <!-- Only on the owner's own account (owner, 2 Oct 2026): colleagues have
+           this page and nothing else, and a way out to screens they cannot
+           open would only confuse them. -->
+      <a class="top-link" id="openWorkspace" href="/MTB-Workspace.html" hidden>MTB работен простор ↗</a>
       <button type="button" id="openWelcome">Мој простор</button>
       <button type="button" id="openNotices" aria-expanded="false">🔔 Известувања<span class="count" id="unseenCount" hidden></span></button>
       <button type="button" id="openPassword">Смени лозинка</button>
@@ -3167,6 +3174,7 @@ header.top h1 { flex: 1; min-width: 180px; }
         el('openPassword').hidden = Boolean(me.acting);
         el('logout').hidden = Boolean(me.acting);
         el('homeName').textContent = me.person.name;
+        el('openWorkspace').hidden = !me.owner;
         el('homeYear').textContent = 'Учебна ' + me.year;
         el('homeRoles').innerHTML = me.readOnly ? '<span class="role">🔒 Само преглед</span>' : (me.roles || []).map((r) => `<span class="role">${esc(ROLE_NAMES[r] || r)}</span>`).join('');
         el('homeUser').textContent = 'Корисничко име: ' + me.usernames.latin + ' или ' + me.usernames.cyrillic

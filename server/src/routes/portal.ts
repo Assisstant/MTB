@@ -586,8 +586,11 @@ export async function portalRoutes(server: FastifyInstance, options: { year?: st
     server.get('/api/portal/me', async (req, reply) => {
         const who = await signed(req, reply);
         if (!who) return;
-        const own = await pool.query('SELECT password_hash IS NOT NULL AS own FROM staff_accounts WHERE employee_id = $1',
-            [who.staff.employeeId]);
+        // `owner` is read through to_jsonb so a database without 052 (no such
+        // column) answers false instead of failing the whole sign-in.
+        const own = await pool.query(
+            `SELECT password_hash IS NOT NULL AS own, coalesce((to_jsonb(a) ->> 'owner')::boolean, false) AS owner
+               FROM staff_accounts a WHERE employee_id = $1`, [who.staff.employeeId]);
         const author = authorName();
         return {
             person: { employeeId: who.staff.employeeId, name: who.staff.name },
@@ -596,6 +599,10 @@ export async function portalRoutes(server: FastifyInstance, options: { year?: st
             ...(author ? { author, authorLook: lookCss(await creditLook()) } : {}),
             acting: who.acting,
             readOnly: Boolean(who.staff.readOnly),
+            // The owner's own colleague account: the page then offers the way
+            // to the work space. Only a mark — the work space is still behind
+            // the owner's Google sign-in, and never true for an acting look.
+            owner: !who.acting && Boolean(own.rows[0] && own.rows[0].owner),
             usernames: usernamesOf(who.staff.name),
             initialPassword: !(own.rows[0] && own.rows[0].own),
             year: who.year.label,
