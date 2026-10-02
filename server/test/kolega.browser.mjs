@@ -618,6 +618,10 @@ check('no page errors', errors.length === 0, errors.join('\n       '));
             return json(404, { error: 'not in this test' });
         });
         const p = await ctx.newPage();
+        // The rota below is written around 1 October 2026. Without a fixed
+        // „today" the suite passes on that day and fails the next morning,
+        // when its first row becomes a past day and is folded away.
+        await p.clock.setFixedTime(new Date('2026-10-01T09:00:00'));
         const errs = [];
         p.on('pageerror', (e) => errs.push(String(e)));
         await p.goto(`${ORIGIN}/Kolega.html${delegated ? '#duty-admin=' + DUTY_ADMIN : ''}`);
@@ -683,11 +687,19 @@ check('no page errors', errors.length === 0, errors.join('\n       '));
     check('printed: only the month, without the buttons', printed.duty && printed.header && printed.buttons, JSON.stringify(printed));
     // The sheet itself: upright A4, and the browser is not left to pick an
     // orientation from another report's @page rule.
-    const dutyPdf = (await c.p.pdf({ preferCSSPageSize: true })).toString('latin1');
+    // As a real print does it: the fit runs first, and the printer's own
+    // paper lies on its side (PDF24 did) — any page the sheet does not name
+    // would come out landscape and betray itself in the boxes below.
+    await c.p.evaluate(() => window.dispatchEvent(new Event('beforeprint')));
+    const dutyPdf = (await c.p.pdf({ preferCSSPageSize: true, landscape: true })).toString('latin1');
     const boxes = [...dutyPdf.matchAll(/\/MediaBox\s*\[\s*([\d.]+)\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)\s*\]/g)].map((m) => [Math.round(m[3]), Math.round(m[4])]);
     const rotated = [...dutyPdf.matchAll(/\/Rotate\s+(\d+)/g)].map((m) => Number(m[1])).filter(Boolean);
     check('the duty sheet prints as upright A4, not turned', boxes.length > 0 && boxes.every(([w, h]) => w < h) && !rotated.length,
         JSON.stringify({ boxes, rotated }));
+    // A stray empty page takes the PRINTER's own orientation; on a landscape
+    // printer (PDF24) Chrome then turns the real page to match it.
+    const dutyPages = (dutyPdf.match(/\/Type\s*\/Page(?![s\w])/g) || []).length;
+    check('and as one page, with no empty page after it', dutyPages === 1, 'pages: ' + dutyPages);
     check('no page errors on the duty tab', c.errs.length === 0, c.errs.join('\n       '));
     await c.ctx.close();
 
@@ -904,6 +916,20 @@ check('no page errors', errors.length === 0, errors.join('\n       '));
         await o.p.$eval('#duty form[data-duty-day="2026-10-08"] select[name="served"]', (s) => s.value) === '8'
         && /по распоред: Горан Измислен/.test(await o.p.textContent('#duty form[data-duty-day="2026-10-08"] select[name="served"]')));
     check('a corrected day has no swap handle', !(await o.p.$('#duty tr[data-date="2026-10-08"] [data-swap-from]')));
+    // The owner's own sheet, printed from a desk, in the order a real print
+    // happens: the button, the browser's „before print", and only then the
+    // print layout. The printer's paper lies on its side, as PDF24's did.
+    await o.p.setViewportSize({ width: 1400, height: 900 });
+    await o.p.evaluate(() => { document.body.classList.add('printing-duty'); window.dispatchEvent(new Event('beforeprint')); });
+    await o.p.emulateMedia({ media: 'print' });
+    const fit = await o.p.evaluate(() => Number(document.getElementById('duty').style.zoom || 1));
+    const ownerPdf = (await o.p.pdf({ preferCSSPageSize: true, landscape: true })).toString('latin1');
+    const ownerBoxes = [...ownerPdf.matchAll(/\/MediaBox\s*\[\s*([\d.]+)\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)\s*\]/g)].map((m) => [Math.round(m[3]), Math.round(m[4])]);
+    check('the owner\'s duty sheet is one upright page even when the printer\'s paper lies on its side',
+        ownerBoxes.length === 1 && ownerBoxes[0][0] < ownerBoxes[0][1], JSON.stringify(ownerBoxes));
+    check('and it is not shrunk to fit a width it only has on the screen', fit >= 0.9, 'zoom ' + fit);
+    await o.p.evaluate(() => window.dispatchEvent(new Event('afterprint')));
+    await o.p.emulateMedia({ media: 'screen' });
     check('no page errors for the owner', o.errs.length === 0, o.errs.join('\n       '));
     await o.ctx.close();
 

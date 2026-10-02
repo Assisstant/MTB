@@ -253,11 +253,15 @@ try {
     const [dutyPng] = await Promise.all([p.waitForEvent('download'),p.click('#dutyPng')]);
     await dutyPng.saveAs(resolve(artifacts,'duty.png'));
     await p.click('#dutyPrint'); assert.match(await p.evaluate(()=>window.printClasses),/printing-duty/);
-    await p.emulateMedia({media:'print'});
+    // A full month first (23 working days is the most a month has), then the
+    // print layout: the sheet is fitted when the browser switches to print, as
+    // in a real print. It is not shrunk below what reads, so this is a month,
+    // not an arbitrary pile of rows.
     await p.evaluate(()=>{
-        const body=document.querySelector('.duty-table tbody'),row=body.querySelector('tr:not(.no-print)');
-        for(let i=0;i<30;i++) body.append(row.cloneNode(true));
+        const body=document.querySelector('.duty-table tbody'),row=body.querySelector('tr[data-date]');
+        while(body.querySelectorAll('tr[data-date]').length<23) body.append(row.cloneNode(true));
     });
+    await p.emulateMedia({media:'print'});
     await onePagePdf(resolve(artifacts,'duty-print.pdf'));
     await p.evaluate(()=>window.dispatchEvent(new Event('afterprint')));
     await p.emulateMedia({media:'screen'});

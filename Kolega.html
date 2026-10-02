@@ -410,6 +410,18 @@ header.top h1 { flex: 1; min-width: 180px; }
   body.printing-attendance p { margin: 1mm 0 2mm; font-size: 7pt; line-height: 1.15; }
   body.printing-attendance .print-preparer { font-size: 9pt; }
   body.printing-attendance main, body.printing-week main { width: 277mm; max-width: none; margin: 0; padding: 0; }
+  /* EVERY page of a report carries the report's name, the root included. A
+     page nobody named takes the printer's own paper: on a printer whose paper
+     lies on its side (PDF24) that stray page came out landscape, and Chrome
+     then turned the real, upright sheet to match it (owner, 2 Oct 2026). The
+     root also loses its screen height, which is what made the stray page. */
+  html:has(body.printing-duty) { page: duty-report; }
+  html:has(body.printing-week) { page: week; }
+  html:has(body.printing-attendance) { page: attendance-report; }
+  html:has(body.printing-transport-list) { page: transport-list; }
+  html:has(body.printing-transport-certificate) { page: transport-certificate; }
+  html:has(body[class*="printing-"]) { min-height: 0; height: auto; overflow: visible; background: #fff; }
+  body[class*="printing-"] { min-height: 0; height: auto; overflow: visible; }
   body.printing-duty { page: duty-report; }
   body.printing-duty main { width: 190mm; max-width: none; margin: 0; padding: 0; }
   body.printing-duty .duty-table { font-size: 9pt; line-height: 1.15; }
@@ -1420,12 +1432,29 @@ header.top h1 { flex: 1; min-width: 180px; }
             });
             return;
         }
+        // The duty sheet is fitted once the PRINT layout is in place (below):
+        // here the page is still laid out for the screen, and at a desk that
+        // is 1300px wide — measured against 190mm of paper it shrank the
+        // sheet to 59% and printed a table nobody could read.
+        if (kind === 'duty') { fittedPrint = target; return; }
         const width = (kind === 'duty' ? 190 : 277) * pxPerMm;
         // Leave room for font/row rounding and collapsed outer margins in
         // Chromium's paginated layout (different from screen-media metrics).
         const height = (kind === 'duty' ? 277 : 190) * pxPerMm - 32;
         const scale = Math.min(1, width / target.scrollWidth, height / target.scrollHeight);
         target.style.zoom = String(scale);
+        fittedPrint = target;
+    });
+    // Once the browser has switched to the print layout, the sheet has its
+    // paper width and print type. Only its HEIGHT can still be too much; it is
+    // scaled down just enough to stay on one page, and never below what reads.
+    window.matchMedia('print').addEventListener('change', (query) => {
+        if (!query.matches || !document.body.classList.contains('printing-duty')) return;
+        const target = el('duty');
+        target.style.zoom = '';
+        const room = 277 * (96 / 25.4) - 32;
+        const scale = Math.min(1, room / target.scrollHeight);
+        if (scale < 1) target.style.zoom = String(Math.max(0.7, scale));
         fittedPrint = target;
     });
     window.addEventListener('afterprint', () => { [].concat(fittedPrint || []).forEach((t) => { t.style.zoom = ''; }); fittedPrint=null; });
