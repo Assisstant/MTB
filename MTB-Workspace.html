@@ -31,6 +31,21 @@
 .topbar > .soft { background: rgba(15, 18, 40, .32); border-color: rgba(255, 255, 255, .3); color: #fff; }
 .topbar > .soft:hover, .topbar > .primary:hover { border-color: #fff; box-shadow: 0 0 0 1px rgba(255, 255, 255, .55); }
 .topbar > .primary { background: #4c51bf; border-color: rgba(255, 255, 255, .45); }
+/* The bar can be put away like a browser's bookmarks bar (owner, 2 Oct 2026):
+   the daily work is one app, and the bar is for the days it is not. What is
+   left is one thin strip in the bar's own row — not something floating over
+   the work — and the docked window's title row goes with it. */
+.workspace.bar-hidden .topbar { min-height: 0; padding: 0; }
+.workspace.bar-hidden .topbar > :not(#showBar) { display: none !important; }
+.workspace.bar-hidden .workspace-window[data-mode="docked"] > .window-titlebar { display: none; }
+/* With the side panel put away too, its rail of sections goes as well: the
+   one app has the whole window. „▾ MTB лента" brings everything back. */
+.workspace.bar-hidden .main.panel-hidden { --rail: 0px; }
+.workspace.bar-hidden .main.panel-hidden .activity-rail { display: none; }
+#showBar { flex: 1; border: 0; border-radius: 0; padding: 1px 12px; min-height: 18px; background: transparent; color: #fff; font-size: 11.5px; font-weight: 700; text-align: left; letter-spacing: .3px; }
+#showBar:hover { background: rgba(255, 255, 255, .16); }
+#showBar[hidden] { display: none; }
+.topbar > #setHome[aria-pressed="true"] { background: #4c51bf; border-color: rgba(255, 255, 255, .7); }
 /* The side panel's buttons are the same pill as the pages inside the frames
    (owner, 1 Oct 2026): 34px, 6px 14px, 14px bold, fully rounded. */
 .directory .soft, .directory .primary, .directory .danger, .panel-toggle { min-height: 34px; border-radius: 999px; padding: 6px 14px; font-size: 14px; font-weight: 700; }
@@ -148,7 +163,7 @@ button:focus-visible, .window-titlebar:focus-visible, #dockDivider:focus-visible
 </head>
 <body>
 <div class="workspace">
-<header class="topbar"><div class="brand">MTB <small>работен простор</small></div><div class="app-tabs" id="appTabs"><button data-app="RasporediFusion.html" class="active">Кабинети</button><button data-app="Nastava.html">Настава ↔ терапии</button><button data-app="NastavaUredi.html">Уреди настава</button><button data-app="Podatoci.html">Податоци</button><button data-app="AkciskiPlan.html">Евидентен лист</button><button data-app="S-Dnevnik.html">S-Дневник</button><button data-app="Pregled-Baza.html">Преглед на базата</button></div><div class="year-wrap"><span>Година</span><select id="year" aria-label="Учебна година"></select></div><button class="soft compact" id="refresh" aria-label="Освежи податоци">↻</button><div class="dbrole" id="dbrole" title="Која база се запишува">БАЗА: —</div><div class="status" id="status">Се поврзувам…</div><button class="soft compact" id="editingToggle"></button><button class="soft compact" id="themeToggle" data-mtb-theme-control></button><button class="soft compact" id="resetLayout" title="Врати ги прозорците каде што беа на почетокот" aria-label="Почетен изглед">Почетен изглед</button><button class="soft compact" id="hidePanel" aria-controls="directoryWindow" aria-expanded="true">Скриј податоци</button></header>
+<header class="topbar"><div class="brand">MTB <small>работен простор</small></div><div class="app-tabs" id="appTabs"><button data-app="RasporediFusion.html" class="active">Кабинети</button><button data-app="Nastava.html">Настава ↔ терапии</button><button data-app="NastavaUredi.html">Уреди настава</button><button data-app="Podatoci.html">Податоци</button><button data-app="AkciskiPlan.html">Евидентен лист</button><button data-app="S-Dnevnik.html">S-Дневник</button><button data-app="Pregled-Baza.html">Преглед на базата</button></div><div class="year-wrap"><span>Година</span><select id="year" aria-label="Учебна година"></select></div><button class="soft compact" id="refresh" aria-label="Освежи податоци">↻</button><div class="dbrole" id="dbrole" title="Која база се запишува">БАЗА: —</div><div class="status" id="status">Се поврзувам…</div><button class="soft compact" id="editingToggle"></button><button class="soft compact" id="themeToggle" data-mtb-theme-control></button><button class="soft compact" id="resetLayout" title="Врати ги прозорците каде што беа на почетокот" aria-label="Почетен изглед">Почетен изглед</button><button class="soft compact" id="hidePanel" aria-controls="directoryWindow" aria-expanded="true">Скриј податоци</button><button class="soft compact" id="setHome" aria-pressed="false" title="Запамети го овој прозорец како почетен на овој прелистувач">⭐ Почетна</button><button class="soft compact" id="hideBar" title="Скриј ја лентата на MTB; останува тенка лента за враќање">▴ Скриј лента</button><button type="button" id="showBar" hidden title="Прикажи ја лентата на MTB">▾ MTB лента</button></header>
 <div class="main" id="main"><section class="workspace-window app-window" id="scheduleWindow" aria-label="Кабинети"><div class="window-titlebar" tabindex="0"><span class="window-title">Кабинети</span><div class="window-actions"></div></div><iframe id="appFrame" data-app-file="RasporediFusion.html" src="RasporediFusion.html?embed=1" title="Кабинети"></iframe></section><div id="dockDivider" role="separator" tabindex="0" aria-label="Ширина на заедничките податоци" aria-orientation="vertical" aria-controls="directoryWindow"></div><aside class="workspace-window directory" id="directoryWindow" aria-label="Заеднички податоци"><div class="dir-head"><div class="window-titlebar" tabindex="0"><span class="window-title">Заеднички податоци</span><div class="window-actions"></div></div><div class="dir-description">Истата база · уредување без напуштање на работата</div></div><div class="tools"><input id="search" type="search" placeholder="Пребарај…" aria-label="Пребарај податоци"><select id="kindFilter"><option value="">Сите</option><option value="internal">Интерни</option><option value="boarding">Интернатски</option><option value="external">Екстерни</option></select></div><div class="directory-content" id="content"></div></aside><nav class="activity-rail" id="dirTabs" aria-label="Заеднички податоци — делови"><button data-dir="students" class="active" title="Ученици"><span class="ico" aria-hidden="true">🎒</span><span class="lbl">Ученици</span></button><button data-dir="teachers" title="Наставници"><span class="ico" aria-hidden="true">👩‍🏫</span><span class="lbl">Наставници</span></button><button data-dir="therapists" title="Стручни лица / терапевти"><span class="ico" aria-hidden="true">🧩</span><span class="lbl">Стручни</span></button><button data-dir="classes" title="Паралелки"><span class="ico" aria-hidden="true">🏫</span><span class="lbl">Паралелки</span></button></nav></div>
 <div class="sr-only" id="windowAnnouncement" role="status" aria-live="polite"></div>
 <p class="sr-only" id="windowHelp">Влечи го насловот за преместување или користи ги стрелките кога насловот е избран. Двоен клик го максимизира прозорецот. Менувај големина од рабовите. Секогаш напред важи во овој работен простор.</p>
@@ -745,7 +760,8 @@ runStartGate(false).then(()=>{repointFrames();load()});})();
       if (saved.windows?.[id]) preferences[id] = saved.windows[id];
     }
     for (const [id, win] of windows) {
-      preferences[id] = { mode: win.mode, pinned: win.pinned, maximized: win.maximized, rect: win.rect };
+      preferences[id] = { mode: win.mode, pinned: win.pinned, maximized: win.maximized, rect: win.rect,
+        ...(id === 'directoryWindow' && !mobile() ? { hidden: win.hidden } : {}) };
     }
     saved = { version: 1, dockWidth, windows: preferences };
     try { localStorage.setItem(layoutKey, JSON.stringify(saved)); } catch (_) { /* Layout still works without storage. */ }
@@ -846,7 +862,9 @@ runStartGate(false).then(()=>{repointFrames();load()});})();
     const pref = saved.windows?.[id];
     const win = { el, id, title, mode: pref?.mode === 'floating' ? 'floating' : 'docked',
       pinned: pref?.mode === 'floating' && pref?.pinned === true, maximized: pref?.mode === 'floating' && pref?.maximized === true,
-      rect: readRect(pref?.rect, defaultRect(id)), hidden: id === 'directoryWindow' && mobile() };
+      // The side panel stays put away once the person put it away (owner, 2 Oct
+      // 2026): it used to come back on every load.
+      rect: readRect(pref?.rect, defaultRect(id)), hidden: id === 'directoryWindow' && (mobile() || pref?.hidden === true) };
     windows.set(id, win);
     order.push(id);
     el.dataset.windowId = id;
@@ -1018,11 +1036,14 @@ runStartGate(false).then(()=>{repointFrames();load()});})();
     try {
       const admin = document.getElementById('masterAdmin');
       const adminFirst = new URLSearchParams(location.search).get('view') !== 'windows';
-      if (view.app === 'admin' || (!view.app && adminFirst)) {
+      // With no window named, the remembered start window stands in for it.
+      const home = (window.MTBWorkspaceHome && window.MTBWorkspaceHome()) || '';
+      const wanted = view.app || home;
+      if (wanted === 'admin' || (!wanted && adminFirst)) {
         if (admin && admin.hidden) document.getElementById('openMasterAdmin')?.click();
         return;
       }
-      const tab = tabs.find((t) => t.dataset.app === view.app) || tabs.find((t) => appId(t.dataset.app) === 'scheduleWindow');
+      const tab = tabs.find((t) => t.dataset.app === wanted) || tabs.find((t) => appId(t.dataset.app) === 'scheduleWindow');
       if (tab) tab.click();
       if (admin && !admin.hidden) document.getElementById('maClose')?.click();
     } finally { restoring = false; }
@@ -1054,6 +1075,7 @@ runStartGate(false).then(()=>{repointFrames();load()});})();
     const win = windows.get('directoryWindow');
     win.hidden = !win.hidden;
     if (!win.hidden) focusWindow(win); else render();
+    persist();
   });
   // The activity bar: a section opens the panel on it; the section already
   // open folds the panel away. Capture phase, so "was it the open one?" is
@@ -1062,13 +1084,68 @@ runStartGate(false).then(()=>{repointFrames();load()});})();
     const button = event.target.closest('button[data-dir]');
     if (!button) return;
     const win = windows.get('directoryWindow');
-    if (win.hidden) { win.hidden = false; focusWindow(win); return; }
+    if (win.hidden) { win.hidden = false; focusWindow(win); persist(); return; }
     if (button.classList.contains('active')) {
       event.stopPropagation();
       win.hidden = true;
-      render();
+      render(); persist();
     }
   }, true);
+
+  /* ── почетен прозорец и лентата (сопственикот, 2 октомври 2026) ───────────
+   *
+   * Секојдневната работа е во еден прозорец; другите се за денот кога требаат.
+   * „⭐ Почетна" го памети прозорецот што е отворен сега (и „Администрација")
+   * како почетен НА ОВОЈ ПРЕЛИСТУВАЧ. Адреса што именува прозорец (`?app=…`)
+   * секогаш победува; без запаметен почеток сè е како досега.
+   * „▴ Скриј лента" е како лентата со обележувачи во прелистувачот: останува
+   * тенка лента во истиот ред, не нешто што лебди врз работата.
+   */
+  const homeKey = 'mtb_workspace_home_v1', barKey = 'mtb_workspace_bar_v1';
+  const readPref = (key) => { try { return localStorage.getItem(key) || ''; } catch (_) { return ''; } };
+  const writePref = (key, value) => { try { value ? localStorage.setItem(key, value) : localStorage.removeItem(key); } catch (_) { /* works without storage */ } };
+  const shell = document.querySelector('.workspace');
+  const homeButton = document.getElementById('setHome');
+  const adminOpen = () => { const admin = document.getElementById('masterAdmin'); return Boolean(admin && !admin.hidden); };
+  const here = () => adminOpen() ? 'admin' : dockedApp();
+  const nameOf = (app) => app === 'admin' ? 'Администрација' : (tabs.find((t) => t.dataset.app === app)?.textContent || app);
+  function paintHome() {
+    const home = readPref(homeKey);
+    homeButton.setAttribute('aria-pressed', String(Boolean(home) && home === here()));
+    homeButton.title = home ? `Почетен прозорец на овој прелистувач: ${nameOf(home)}. Клик го менува на прозорецот што е отворен.`
+      : 'Запамети го овој прозорец како почетен на овој прелистувач';
+    document.getElementById('showBar').textContent = '▾ MTB лента · ' + nameOf(here());
+  }
+  homeButton.addEventListener('click', () => {
+    const now = here();
+    const next = readPref(homeKey) === now ? '' : now;
+    writePref(homeKey, next);
+    paintHome();
+    announce(next ? `Почетен прозорец: ${nameOf(next)}.` : 'Почетниот прозорец повеќе не е запаметен.');
+    homeButton.textContent = next ? '⭐ Почетна ✓' : '⭐ Почетна';
+    setTimeout(() => { homeButton.textContent = '⭐ Почетна'; }, 2500);
+  });
+  function setBar(hidden) {
+    shell.classList.toggle('bar-hidden', hidden);
+    document.getElementById('showBar').hidden = !hidden;
+    writePref(barKey, hidden ? 'hidden' : '');
+    paintHome(); render();
+  }
+  document.getElementById('hideBar').addEventListener('click', () => setBar(true));
+  document.getElementById('showBar').addEventListener('click', () => setBar(false));
+  if (readPref(barKey) === 'hidden') setBar(true);
+  /** For workspace-admin.js, which decides whether „Администрација" opens first. */
+  window.MTBWorkspaceHome = () => readPref(homeKey);
+  window.MTBWorkspaceChrome = { paint: paintHome };
+  document.getElementById('appTabs').addEventListener('click', () => setTimeout(paintHome, 0));
+  {
+    // No window named in the address: the remembered one, if any.
+    const home = readPref(homeKey);
+    const named = new URLSearchParams(location.search).get('app');
+    const tab = !named && home && home !== 'admin' && tabs.find((t) => t.dataset.app === home);
+    if (tab) { restoring = true; try { tab.click(); } finally { restoring = false; } }
+  }
+  paintHome();
   document.getElementById('resetLayout').addEventListener('click', () => {
     saved = {}; dockWidth = 560;
     if (windows.has(focused) && focused !== 'directoryWindow') activeDocked = focused;

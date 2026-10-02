@@ -112,6 +112,43 @@ try{
   await page.evaluate(()=>window.dispatchEvent(new CustomEvent('mtb:server-state',{detail:{mirror:{mode:'readonly'}}})));
   assert.equal(await page.locator('[name=professionCode]').isDisabled(),true);
   assert.equal(writes,8);assert.deepEqual(errors,[]);
+  if(width>=760){
+   /* The start window, the side panel and the bar are this browser's own
+    * choices (owner, 2 Oct 2026). Without a choice nothing changed above:
+    * „Администрација" still opened first. */
+   const w=await context.newPage();w.on('pageerror',e=>errors.push(e.message));
+   const adminHidden=()=>w.locator('#masterAdmin').evaluate(n=>n.hidden);
+   const activeTab=()=>w.locator('#appTabs button.active').textContent();
+   const panelHidden=()=>w.locator('#main').evaluate(n=>n.classList.contains('panel-hidden'));
+   await w.goto(base+'/MTB-Workspace.html');await w.locator('#maClose').click();
+   await w.locator('#appTabs [data-app="S-Dnevnik.html"]').click();
+   assert.equal(await panelHidden(),false,'the side panel is open until the person puts it away');
+   await w.locator('#hidePanel').click();await w.locator('#setHome').click();
+   assert.equal(await w.locator('#setHome').getAttribute('aria-pressed'),'true');
+   await w.goto(base+'/MTB-Workspace.html');await w.waitForFunction(()=>document.querySelector('#appTabs button.active'));
+   assert.equal(await adminHidden(),true,'the remembered start window opens instead of Администрација');
+   assert.equal(await activeTab(),'S-Дневник');
+   assert.equal(await panelHidden(),true,'the side panel stays put away');
+   await w.goto(base+'/MTB-Workspace.html?app=admin');await w.locator('#maSearch').waitFor();
+   assert.equal(await adminHidden(),false,'a window named in the address still wins');
+   await w.goto(base+'/MTB-Workspace.html?app=Podatoci.html');await w.waitForFunction(()=>document.querySelector('#appTabs button.active')?.dataset.app==='Podatoci.html');
+   // The bar, put away like a bookmarks bar: one thin strip in its own row.
+   await w.locator('#hideBar').click();
+   assert.equal(await w.locator('#appTabs').isVisible(),false);assert.equal(await w.locator('#showBar').isVisible(),true);
+   assert.ok((await w.locator('.topbar').boundingBox()).height<=24,'what is left of the bar is a thin strip');
+   assert.match(await w.locator('#showBar').textContent(),/Податоци/,'the strip says which window is open');
+   await w.screenshot({path:resolve(root,'backups/workspace-release-qa/bar-hidden.png')});
+   await w.reload();await w.locator('#showBar').waitFor();
+   assert.equal(await w.locator('#appTabs').isVisible(),false,'and it stays away after a reload');
+   await w.locator('#showBar').click();assert.equal(await w.locator('#appTabs').isVisible(),true);
+   // „⭐ Почетна" pressed again on the start window forgets it.
+   await w.goto(base+'/MTB-Workspace.html');await w.waitForFunction(()=>document.querySelector('#appTabs button.active')?.dataset.app==='S-Dnevnik.html');
+   await w.locator('#setHome').click();
+   await w.goto(base+'/MTB-Workspace.html');await w.locator('#maSearch').waitFor();
+   assert.equal(await adminHidden(),false,'with no start window remembered, Администрација opens first as before');
+   assert.equal(await w.evaluate(()=>Object.values(localStorage).some(v=>/Измислен|invented-a/.test(v))),false,'only the layout is remembered, never a record');
+   assert.deepEqual(errors,[]);await w.close();
+  }
   await context.close();console.log(`PASS master administration at ${width}px: save, conflict, drafts, caseload, history, teaching profile, layout, privacy`);
  }
 }finally{await browser.close();await new Promise(r=>server.close(r));}

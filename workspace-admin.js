@@ -156,9 +156,12 @@
   // се препрочитува, за паралелките и луѓето во паѓачките менија да бидат
   // истите. Не додека тука стои незачуван внес: `dirty` веќе го знае тоа.
   if(nav&&nav.onDataChange)nav.onDataChange(()=>{if(data&&!busy)return load(year);},{busy:()=>dirty||busy,mine:()=>busy,sameWindow:true,ignore:['schedule']});
-  // First view: „Администрација", unless the address names windows or one window (`app`).
+  // First view: „Администрација", unless the address names windows or one window (`app`),
+  // or this browser remembers another start window („⭐ Почетна", 2 Oct 2026).
   // Opening it here is not a step in the history; the person did not choose it.
   let booting=true;
-  {const q=new URLSearchParams(location.search),app=q.get('app');if(q.get('view')!=='windows'&&(!app||app==='admin'))toggle.click();}
+  {const q=new URLSearchParams(location.search),app=q.get('app')||(window.MTBWorkspaceHome&&window.MTBWorkspaceHome())||'';if(q.get('view')!=='windows'&&(!app||app==='admin'))toggle.click();}
   booting=false;
+  // The bar's own words follow „Администрација" being opened or closed.
+  toggle.addEventListener('click',()=>window.MTBWorkspaceChrome?.paint());$('maClose').addEventListener('click',()=>window.MTBWorkspaceChrome?.paint());
 })();
