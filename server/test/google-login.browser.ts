@@ -39,7 +39,7 @@ test('browser Google redirect, secure cookie, visible workspace logout and mobil
         await page.waitForURL(origin + '/auth/login');
         assert.equal(new URL(page.url()).pathname, '/auth/login');
         await page.getByRole('link', { name: 'Sign in with Google' }).click();
-        await page.waitForURL(origin + '/MTB-Workspace.html');
+        await page.waitForURL(origin + '/MTB-Workspace.html?app=S-Dnevnik.html');
         await page.locator('#mtbCloudLogout').waitFor({ state: 'visible' });
         assert.equal(await page.evaluate(async () => (await fetch('/api/private-test')).status), 200);
         assert.ok(!(await page.evaluate(() => document.cookie)).includes(COOKIE));

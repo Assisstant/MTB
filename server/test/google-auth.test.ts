@@ -37,7 +37,7 @@ test('approved identity: rotated session, pages/API, CSRF, inner permissions, lo
         const attempt = await f.start();
         const response = await f.callback(attempt);
         assert.equal(response.statusCode, 302, response.body);
-        assert.equal(response.headers.location, '/MTB-Workspace.html');
+        assert.equal(response.headers.location, '/MTB-Workspace.html?app=S-Dnevnik.html');
         const cookie = sessionCookie(response);
         assert.ok(cookie && cookie !== attempt.cookie);
         const auth = { ...headers, cookie };

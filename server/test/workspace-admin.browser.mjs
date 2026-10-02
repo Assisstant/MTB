@@ -48,7 +48,7 @@ try{
    return route.continue();
   });
   const page=await context.newPage();page.on('pageerror',e=>errors.push(e.message));
-  await page.goto(base+'/MTB-Workspace.html');await page.locator('[data-ma-id="invented-a"]').click();
+  await page.goto(base+'/MTB-Workspace.html?app=admin');await page.locator('[data-ma-id="invented-a"]').click();
   await page.locator('#maForm input[name=name]').fill('Измислен Нов Алфа');
   fail=true;await page.locator('#maForm button[type=submit]').click();await page.getByText('Конфликт · внесот е задржан',{exact:true}).waitFor();
   assert.equal(await page.locator('#maForm input[name=name]').inputValue(),'Измислен Нов Алфа');
@@ -114,16 +114,17 @@ try{
   assert.equal(writes,8);assert.deepEqual(errors,[]);
   if(width>=760){
    /* The start window, the side panel and the bar are this browser's own
-    * choices (owner, 2 Oct 2026). Without a choice nothing changed above:
-    * „Администрација" still opened first. */
+    * choices (owner, 2 Oct 2026). S-Дневник opens without setup;
+    * administration remains available by explicit link. */
    const w=await context.newPage();w.on('pageerror',e=>errors.push(e.message));
    const adminHidden=()=>w.locator('#masterAdmin').evaluate(n=>n.hidden);
    const activeTab=()=>w.locator('#appTabs button.active').textContent();
    const panelHidden=()=>w.locator('#main').evaluate(n=>n.classList.contains('panel-hidden'));
-   await w.goto(base+'/MTB-Workspace.html');await w.locator('#maClose').click();
+   await w.goto(base+'/MTB-Workspace.html');await w.waitForFunction(()=>document.querySelector('#appTabs button.active')?.dataset.app==='S-Dnevnik.html');
+   assert.equal(await adminHidden(),true,'S-Дневник opens by default without setup');
    await w.locator('#appTabs [data-app="S-Dnevnik.html"]').click();
    assert.equal(await panelHidden(),false,'the side panel is open until the person puts it away');
-   await w.locator('#hidePanel').click();await w.locator('#setHome').click();
+   await w.locator('#hidePanel').click();
    assert.equal(await w.locator('#setHome').getAttribute('aria-pressed'),'true');
    await w.goto(base+'/MTB-Workspace.html');await w.waitForFunction(()=>document.querySelector('#appTabs button.active'));
    assert.equal(await adminHidden(),true,'the remembered start window opens instead of Администрација');
@@ -132,22 +133,50 @@ try{
    await w.goto(base+'/MTB-Workspace.html?app=admin');await w.locator('#maSearch').waitFor();
    assert.equal(await adminHidden(),false,'a window named in the address still wins');
    await w.goto(base+'/MTB-Workspace.html?app=Podatoci.html');await w.waitForFunction(()=>document.querySelector('#appTabs button.active')?.dataset.app==='Podatoci.html');
-   // The bar, put away like a bookmarks bar: one thin strip in its own row.
+   assert.equal(await w.locator('#hideBar').isVisible(),false,'other apps have no diary-only toggle');
+   await w.goto(base+'/MTB-Workspace.html?app=S-Dnevnik.html');
+   const frame=w.locator('#app-S-Dnevnik iframe');
+   await frame.waitFor();
+   await w.frameLocator('#app-S-Dnevnik iframe').locator('#fixtureDraft').fill('unsaved layout test');
+   const before=await frame.boundingBox();
    await w.locator('#hideBar').click();
+   const after=await frame.boundingBox();
+   assert.ok(after.height>=before.height && after.height>500,'hiding the toolbar preserves the full diary viewport');
+   assert.equal(await w.locator('#app-S-Dnevnik > .window-titlebar').isVisible(),true,'window controls stay visible');
+   assert.equal(await w.locator('.activity-rail').isVisible(),true,'side rail stays visible');
+   assert.equal(await w.frameLocator('#app-S-Dnevnik iframe').locator('#fixtureDraft').inputValue(),'unsaved layout test','toggle preserves the iframe and draft');
    assert.equal(await w.locator('#appTabs').isVisible(),false);assert.equal(await w.locator('#showBar').isVisible(),true);
    assert.ok((await w.locator('.topbar').boundingBox()).height<=24,'what is left of the bar is a thin strip');
-   assert.match(await w.locator('#showBar').textContent(),/Податоци/,'the strip says which window is open');
+   assert.match(await w.locator('#showBar').textContent(),/Прикажи MTB лента/);
    await w.screenshot({path:resolve(root,'backups/workspace-release-qa/bar-hidden.png')});
    await w.reload();await w.locator('#showBar').waitFor();
    assert.equal(await w.locator('#appTabs').isVisible(),false,'and it stays away after a reload');
    await w.locator('#showBar').click();assert.equal(await w.locator('#appTabs').isVisible(),true);
-   // „⭐ Почетна" pressed again on the start window forgets it.
+   await w.locator('#hideBar').click();
+   await w.goto(base+'/MTB-Workspace.html?app=Podatoci.html');
+   assert.equal(await w.locator('#appTabs').isVisible(),true,'diary preference never hides another app toolbar');
+   await w.goto(base+'/MTB-Workspace.html?app=admin');await w.locator('#maSearch').waitFor();
+   assert.equal(await w.locator('#appTabs').isVisible(),true,'administration toolbar stays visible');
+   // Forgetting a custom start returns to S-Дневник.
+
    await w.goto(base+'/MTB-Workspace.html');await w.waitForFunction(()=>document.querySelector('#appTabs button.active')?.dataset.app==='S-Dnevnik.html');
+   if(await w.locator('#showBar').isVisible())await w.locator('#showBar').click();
    await w.locator('#setHome').click();
-   await w.goto(base+'/MTB-Workspace.html');await w.locator('#maSearch').waitFor();
-   assert.equal(await adminHidden(),false,'with no start window remembered, Администрација opens first as before');
+   await w.locator('#setHome').click();
+   await w.goto(base+'/MTB-Workspace.html');await w.waitForFunction(()=>document.querySelector('#appTabs button.active')?.dataset.app==='S-Dnevnik.html');
+   assert.equal(await adminHidden(),true,'with no custom start, the diary remains the default');
    assert.equal(await w.evaluate(()=>Object.values(localStorage).some(v=>/Измислен|invented-a/.test(v))),false,'only the layout is remembered, never a record');
-   assert.deepEqual(errors,[]);await w.close();
+   assert.deepEqual(errors,[]);
+   // Render the actual empty diary as well: a stub alone missed the collapsed iframe.
+   await w.route('**/S-Dnevnik.html*',async route=>route.fulfill({contentType:'text/html',body:await readFile(resolve(root,'S-Dnevnik.html'),'utf8')}));
+   await w.goto(base+'/MTB-Workspace.html?app=S-Dnevnik.html');
+   await w.frameLocator('#app-S-Dnevnik iframe').locator('.schedule-grid').waitFor();
+   await w.locator('#hideBar').click();
+   assert.ok((await w.locator('#app-S-Dnevnik iframe').boundingBox()).height>500,'actual diary retains usable height');
+   await w.screenshot({path:resolve(root,'backups/workspace-release-qa/diary-toolbar-hidden.png')});
+   await w.locator('#showBar').click();
+   await w.screenshot({path:resolve(root,'backups/workspace-release-qa/diary-toolbar-visible.png')});
+   await w.close();
   }
   await context.close();console.log(`PASS master administration at ${width}px: save, conflict, drafts, caseload, history, teaching profile, layout, privacy`);
  }

@@ -78,7 +78,7 @@ full.
   - A subject's name is text in three places, and they move together
   - The diary's plan and Кабинети are kept equal by asking, through ONE
   - A backup is a state, not a run (owner, 1 Oct 2026)
-  - The work space's start window, side panel and bar are the browser's own
+  - The workspace opens S-Дневник after owner login (2 Oct 2026 clarification)
   - One flat look, opted into per page (1 Oct 2026)
 - Conventions
 - Од каде се работи (9 Sep 2026, одлука на сопственикот)
@@ -958,15 +958,15 @@ read `DATABASE_URL`; never add literal credentials to this public repository.
   backups confirm an identical state instead of adding it. A new backup or
   retention rule must ask "is this a different state?" before "how many?".
 
-- **The work space's start window, side panel and bar are the browser's own
-  choices (owner, 2 Oct 2026).** „⭐ Почетна" remembers the open window as the
-  start (`mtb_workspace_home_v1`); the side panel stays put away
-  (`hidden` in `mtb_workspace_layout_v1`); „▴ Скриј лента" leaves one thin
-  strip in the bar's own row (`mtb_workspace_bar_v1`). A window named in the
-  address (`?app=`) always wins, and with nothing remembered „Администрација"
-  still opens first — which is what every test that opens the work space
-  assumes. Layout only: never a record. Kolega links to the work space only
-  on the account marked as the owner's (`owner` in `/api/portal/me`).
+- **The workspace opens S-Дневник after owner login (2 Oct 2026 clarification).**
+  Google login redirects to `?app=S-Dnevnik.html`; without a named app or
+  custom start, the diary is the default. Explicit links still win.
+  „Скриј лента“ hides ONLY the top toolbar and only in S-Дневник, remembered
+  by `mtb_workspace_sdn_bar_v1`. Ignore the former global hide preference.
+  Keep window controls, the side rail and iframe height intact. Hiding the
+  titlebar without removing its 38px grid row collapsed the iframe into it.
+  The side panel and optional custom home remain browser layout preferences.
+  Kolega's workspace link remains owner-only.
 
 - **One flat look, opted into per page (1 Oct 2026).** `html.mtb-flat` in
   mtb-look.css is the button — a PILL, 34px high, `6px 14px`, 14px bold, fully

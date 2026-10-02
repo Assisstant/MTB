@@ -111,7 +111,7 @@ export async function installGoogleLogin(server: FastifyInstance, origin: string
             req.session.options({ maxAge: EIGHT_HOURS });
             req.session.set('owner', { sub: claims.sub, email: settings.email, expiresAt: Date.now() + EIGHT_HOURS });
             await req.session.save();
-            return reply.redirect('/MTB-Workspace.html');
+            return reply.redirect('/MTB-Workspace.html?app=S-Dnevnik.html');
         } catch {
             // Never log provider errors, codes, tokens, or identity claims.
             return reply.code(403).type('text/html').send(loginPage(true));

@@ -177,7 +177,7 @@ const param = (page, key) => page.evaluate((k) => new URLSearchParams(location.s
     console.log('\nthe workspace');
     const page = await context.newPage();
     page.on('pageerror', (e) => errors.push('Workspace: ' + e.message));
-    await page.goto(`${ORIGIN}/MTB-Workspace.html`);
+    await page.goto(`${ORIGIN}/MTB-Workspace.html?app=admin`);
     await page.waitForSelector('#masterAdmin:not([hidden])', { timeout: 10000 });
     const adminOpen = () => page.evaluate(() => !document.getElementById('masterAdmin').hidden);
     const podatociOpen = () => page.evaluate(() => {
