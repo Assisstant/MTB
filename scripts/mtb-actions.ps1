@@ -41,6 +41,7 @@ function Get-MtbActions {
         # MTB_CLOUD_URL in server\.env — the cloud's address is not written in
         # this public repository — and the tile asks for it once if it is not there.
         @{ Group = 'day'; Name = 'Oblak - rabotna povrshina'; UrlKey = 'MTB_CLOUD_URL'; Glyph = 0xE774; Color = '#1F5FD1'; CardColor = '#1F5FD1'
+           UrlPrompt = 'Адресата на облачниот работен простор, на пример https://…/MTB-Workspace.html'
            Title = 'Облак — работен простор'
            Text = 'Го отвора MTB работниот простор во облакот (Render), во прелистувачот. Таму се работи секој ден; локалната база е резервен режим кога нема Интернет.'
            When = 'Секој ден, за работа.' },
@@ -85,7 +86,14 @@ function Get-MtbActions {
            Description = 'MTB - cloud (Supabase): archive the old recovery copies here, then remove them there'; Glyph = 0xE74D; Color = '#E0752D'; CardColor = '#E0752D'
            Title = 'Чистење на облакот'
            Text = 'Ги остава последните 3 recovery копии. Постарите ги презема во backups\, ги враќа и споредува локално, и дури тогаш ги брише во облакот. Прашува „DA“.'
-           When = 'Само сопственикот, ретко — кога ќе се насоберат.' }
+           When = 'Само сопственикот, ретко — кога ќе се насоберат.' },
+        # The cloud server's settings page in Render. Its address names the
+        # service, so like the work space's it lives in server\.env, not here.
+        @{ Group = 'careful'; Name = 'Render - postavki'; UrlKey = 'MTB_RENDER_URL'; Glyph = 0xE713; Color = '#3C3C3C'; CardColor = '#111111'
+           UrlPrompt = 'Адресата на страницата со поставки (Environment) на облачниот сервер во Render, на пример https://dashboard.render.com/web/…/env'
+           Title = 'Render — поставки'
+           Text = 'Ја отвора страницата Environment на облачниот сервер во Render: адресите и клучевите на облакот. Секоја промена таму го рестартира серверот. Тука е и Manual Deploy.'
+           When = 'Само сопственикот, кога треба да се смени поставка на облакот.' }
     )
 }
 

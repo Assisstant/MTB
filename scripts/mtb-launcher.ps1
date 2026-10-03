@@ -80,7 +80,7 @@ if (-not $LayoutFile) {
 }
 
 $palette = @('#2F6FE4', '#1F5FD1', '#0C8CE9', '#0097A7', '#1E9E8B', '#2E9B4F', '#7CB342',
-             '#E0A21B', '#E0752D', '#D64545', '#D6457E', '#8E44AD', '#6B4FD8', '#5B6B82')
+             '#E0A21B', '#E0752D', '#D64545', '#D6457E', '#8E44AD', '#6B4FD8', '#5B6B82', '#111111')
 
 $themes = @{
     light = @{
@@ -314,10 +314,14 @@ function Get-CardColour([hashtable] $A) {
     return $c
 }
 
+function Test-SolidCard([string] $Hex) { return $Hex -eq '#111111' }
+
 # A coloured card is the colour mixed into the theme's card, not the colour
 # itself: strong enough to tell nine apart at a glance, while the text on it
 # keeps the contrast it has on a plain card, in either theme.
 function Get-CardFill([string] $Hex) {
+    # Black is the one colour taken whole: tinted, it would only be grey.
+    if (Test-SolidCard $Hex) { return $Hex }
     $T = $themes[$script:theme]
     $c = Get-Colour $Hex; $b = Get-Colour $T.CardBase; $m = $T.CardMix
     $mix = { param($x, $y) [byte][Math]::Round($y + ($x - $y) * $m) }
@@ -454,6 +458,8 @@ function New-Tile([hashtable] $A) {
     $card.CornerRadius = [Windows.CornerRadius]::new(18)
     $cardColour = Get-CardColour $A
     $card.Background = Get-Brush $(if ($cardColour) { Get-CardFill $cardColour } else { $T.Card })
+    # On a black card the words take the dark theme's colours, whatever the theme.
+    $TT = if (Test-SolidCard $cardColour) { $themes.dark } else { $T }
     $card.BorderBrush = Get-Brush $T.Border
     $card.BorderThickness = Get-Thick 1.5 1.5 1.5 1.5
     $card.Cursor = [Windows.Input.Cursors]::Hand
@@ -475,9 +481,9 @@ function New-Tile([hashtable] $A) {
     $when.CornerRadius = [Windows.CornerRadius]::new(10)
     $when.Padding = Get-Thick 10 6 10 6
     $when.Margin = Get-Thick 0 10 6 0
-    $tint = (Get-Brush $colour).Clone(); $tint.Opacity = $T.Tint
+    $tint = (Get-Brush $colour).Clone(); $tint.Opacity = $TT.Tint
     $when.Background = $tint
-    $when.Child = New-Text ('Кога: ' + $A.When) 12.5 $T.When 'SemiBold'
+    $when.Child = New-Text ('Кога: ' + $A.When) 12.5 $TT.When 'SemiBold'
     [Windows.Controls.DockPanel]::SetDock($when, 'Bottom')
     [void]$dock.Children.Add($when)
 
@@ -514,7 +520,7 @@ function New-Tile([hashtable] $A) {
     $names = New-Object Windows.Controls.StackPanel
     $names.Margin = Get-Thick 14 1 4 0
     $names.VerticalAlignment = 'Center'
-    [void]$names.Children.Add((New-Text $A.Title 17.5 $T.Title 'Bold'))
+    [void]$names.Children.Add((New-Text $A.Title 17.5 $TT.Title 'Bold'))
     if ($A.UrlKey) {
         $url = Get-EnvValue $A.UrlKey
         $where = if ($url -match '^https?://([^/]+)') { 'во прелистувач · ' + $Matches[1] } else { 'во прелистувач · адресата се внесува при прв клик' }
@@ -523,11 +529,11 @@ function New-Tile([hashtable] $A) {
     }
     # The section a tile used to sit in is now a word on it.
     $where += ' · ' + $groupWord[$A.Group]
-    [void]$names.Children.Add((New-Text $where 11.5 $T.Small))
+    [void]$names.Children.Add((New-Text $where 11.5 $TT.Small))
     [void]$head.Children.Add($names)
     [void]$stack.Children.Add($head)
 
-    $body = New-Text $A.Text 13.5 $T.Body
+    $body = New-Text $A.Text 13.5 $TT.Body
     $body.Margin = Get-Thick 0 14 6 0
     $body.LineHeight = 20
     [void]$stack.Children.Add($body)
@@ -588,7 +594,7 @@ function Open-Page([hashtable] $A) {
     if (-not $url) {
         Add-Type -AssemblyName Microsoft.VisualBasic
         $url = [Microsoft.VisualBasic.Interaction]::InputBox(
-            'Адресата на облачниот работен простор, на пример https://…/MTB-Workspace.html' + [Environment]::NewLine + [Environment]::NewLine +
+            [string]$A.UrlPrompt + [Environment]::NewLine + [Environment]::NewLine +
             'Се запишува во server\.env на овој компјутер (' + $A.UrlKey + '), не во репото.', 'MTB — ' + $A.Title, '').Trim()
         if (-not $url) { return }
         if ($url -notmatch '^https://[^/\s]+') {
@@ -800,7 +806,7 @@ try {
             $window.Close()
         }
     })
-    if ($Snapshot) { $window.Height = 1300 }
+    if ($Snapshot) { $window.Height = 1600 }
     [void]$window.ShowDialog()
 } catch {
     [void][MtbLauncher.Native]::ShowWindow($console, 5)
