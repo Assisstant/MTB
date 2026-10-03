@@ -63,7 +63,21 @@ foreach ($g in Get-MtbActionGroups) { $groupWord[$g.Key] = $g.Word }
 $defaults = @(Get-MtbActions)
 $byName = @{}
 foreach ($a in $defaults) { $byName[$a.Name] = $a }
-if (-not $LayoutFile) { $LayoutFile = Join-Path $env:LOCALAPPDATA 'MTB\kontrolna-tabla.json' }
+# The layout is kept twice: on this computer, and in the pCloud folder both
+# PCs already share (SYNC_DIR in server\.env, or P:\MTB-sync), so HOME and
+# WORK show the same panel (owner, 3 Oct 2026). The newer of the two is read;
+# both are written. Without pCloud the local copy alone carries on — and a
+# check with -LayoutFile never touches either.
+$sharedLayout = ''
+if (-not $LayoutFile) {
+    $LayoutFile = Join-Path $env:LOCALAPPDATA 'MTB\kontrolna-tabla.json'
+    $syncDir = 'P:\MTB-sync'
+    if (Test-Path -LiteralPath $serverEnv) {
+        $line = Get-Content -LiteralPath $serverEnv -Encoding UTF8 | Where-Object { $_ -match '^\s*SYNC_DIR\s*=' } | Select-Object -First 1
+        if ($line) { $syncDir = ($line -replace '^\s*SYNC_DIR\s*=\s*', '').Trim().Trim('"') }
+    }
+    $sharedLayout = Join-Path $syncDir 'kontrolna-tabla.json'
+}
 
 $palette = @('#2F6FE4', '#1F5FD1', '#0C8CE9', '#0097A7', '#1E9E8B', '#2E9B4F', '#7CB342',
              '#E0A21B', '#E0752D', '#D64545', '#D6457E', '#8E44AD', '#6B4FD8', '#5B6B82')
@@ -125,7 +139,9 @@ function Get-SystemTheme {
 
 function Read-Layout {
     $j = $null
-    try { if (Test-Path -LiteralPath $LayoutFile) { $j = Get-Content -LiteralPath $LayoutFile -Raw -Encoding UTF8 | ConvertFrom-Json } } catch { }
+    $from = @($LayoutFile, $sharedLayout) | Where-Object { $_ -and (Test-Path -LiteralPath $_) } |
+        Sort-Object { (Get-Item -LiteralPath $_).LastWriteTimeUtc } -Descending | Select-Object -First 1
+    try { if ($from) { $j = Get-Content -LiteralPath $from -Raw -Encoding UTF8 | ConvertFrom-Json } } catch { }
 
     # What the file names, in its order; an action it does not know yet (added
     # since) goes in at its own place in the default list, not at the end.
@@ -149,7 +165,7 @@ function Read-Layout {
     $script:gridLocked = ($j.locked -eq $true)
     $script:colours = $colours
     $cards = @{}
-    if ($j.cardColors) { foreach ($p in $j.cardColors.PSObject.Properties) { if ($byName.ContainsKey($p.Name) -and $p.Value -match '^#[0-9A-Fa-f]{6}$') { $cards[$p.Name] = [string]$p.Value } } }
+    if ($j.cardColors) { foreach ($p in $j.cardColors.PSObject.Properties) { if ($byName.ContainsKey($p.Name) -and $p.Value -match '^(#[0-9A-Fa-f]{6}|none)$') { $cards[$p.Name] = [string]$p.Value } } }
     $script:cardColours = $cards
     $script:theme = if ($j.theme -in @('light', 'dark')) { [string]$j.theme } else { Get-SystemTheme }
 }
@@ -157,8 +173,14 @@ function Read-Layout {
 function Save-Layout {
     try {
         New-Item -ItemType Directory -Force -Path (Split-Path -Parent $LayoutFile) | Out-Null
-        @{ order = @($script:order); pinned = $script:pinned; locked = [bool]$script:gridLocked; colors = $script:colours; cardColors = $script:cardColours; theme = $script:theme } |
-            ConvertTo-Json | Set-Content -LiteralPath $LayoutFile -Encoding UTF8
+        $json = @{ order = @($script:order); pinned = $script:pinned; locked = [bool]$script:gridLocked; colors = $script:colours; cardColors = $script:cardColours; theme = $script:theme } |
+            ConvertTo-Json
+        Set-Content -LiteralPath $LayoutFile -Value $json -Encoding UTF8
+        # pCloud may be away (offline, not mounted): the local copy is then the
+        # record, and the next save that reaches pCloud brings it level.
+        if ($sharedLayout -and (Test-Path -LiteralPath (Split-Path -Parent $sharedLayout))) {
+            try { Set-Content -LiteralPath $sharedLayout -Value $json -Encoding UTF8 } catch { }
+        }
     } catch {
         $footer.Text = 'Распоредот не е зачуван: ' + $_.Exception.Message
     }
@@ -229,7 +251,13 @@ function Set-TileColour([string] $Name, [string] $Hex, [string] $Target = 'icon'
 }
 
 function Get-TileColour([hashtable] $A) { if ($script:colours.ContainsKey($A.Name)) { $script:colours[$A.Name] } else { $A.Color } }
-function Get-CardColour([hashtable] $A) { if ($script:cardColours.ContainsKey($A.Name)) { $script:cardColours[$A.Name] } else { '' } }
+# A card's own choice wins; 'none' is a choice too (a plain card), and with no
+# choice the card has the colour mtb-actions.ps1 gives it.
+function Get-CardColour([hashtable] $A) {
+    $c = if ($script:cardColours.ContainsKey($A.Name)) { $script:cardColours[$A.Name] } else { [string]$A.CardColor }
+    if ($c -eq 'none') { return '' }
+    return $c
+}
 
 # A coloured card is the colour mixed into the theme's card, not the colour
 # itself: strong enough to tell nine apart at a glance, while the text on it
@@ -307,7 +335,22 @@ function Add-PaletteRow($Column, $Popup, [string] $Name, [string] $Target, [stri
     $back.Cursor = [Windows.Input.Cursors]::Hand
     $back.Tag = @{ Name = $Name; Hex = ''; Target = $Target; Popup = $Popup }
     $back.add_MouseLeftButtonUp({ param($s, $e) $e.Handled = $true; Select-Swatch $s.Tag })
-    [void]$Column.Children.Add($back)
+    if ($Target -eq 'card') {
+        # A card has a colour of its own from the start, so „none" is a choice
+        # of its own, beside going back to that first colour.
+        $row = New-Object Windows.Controls.StackPanel
+        $row.Orientation = 'Horizontal'
+        [void]$row.Children.Add($back)
+        $plain = New-Text 'Без боја' 12.5 $T.BtnFg 'SemiBold'
+        $plain.Margin = Get-Thick 18 0 0 0
+        $plain.Cursor = [Windows.Input.Cursors]::Hand
+        $plain.Tag = @{ Name = $Name; Hex = 'none'; Target = $Target; Popup = $Popup }
+        $plain.add_MouseLeftButtonUp({ param($s, $e) $e.Handled = $true; Select-Swatch $s.Tag })
+        [void]$row.Children.Add($plain)
+        [void]$Column.Children.Add($row)
+    } else {
+        [void]$Column.Children.Add($back)
+    }
 }
 
 function Select-Swatch([hashtable] $Pick) {
@@ -335,7 +378,7 @@ function Show-Palette([string] $Name, $Anchor) {
     $box.Effect = $shadow
     $col = New-Object Windows.Controls.StackPanel
     Add-PaletteRow $col $pop $Name 'icon' 'Боја на иконата' (Get-TileColour $byName[$Name]) 'Почетна боја на иконата'
-    Add-PaletteRow $col $pop $Name 'card' 'Боја на картичката' (Get-CardColour $byName[$Name]) 'Картичка без боја'
+    Add-PaletteRow $col $pop $Name 'card' 'Боја на картичката' (Get-CardColour $byName[$Name]) 'Почетна боја на картичката'
     $box.Child = $col
     $pop.Child = $box
     $pop.IsOpen = $true

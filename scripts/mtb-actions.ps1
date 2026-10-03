@@ -11,17 +11,26 @@
 #   Icon         shell32.dll index for the .lnk
 #   Description  the .lnk tooltip (ASCII, same reason)
 #   Glyph/Color  the tile's icon (Segoe MDL2 Assets, present on Windows 10 and 11)
+#   CardColor    the card's own tint at first; either colour is changed on the tile
 #   Title/Text/When   what a person reads on the tile and in PROCITAJ
 #   Confirm      asked before the tile runs it; the shortcut itself never asks
 #   UrlKey       instead of Script: a page, its address read from that key in
 #                server\.env. Such an action is a tile and a PROCITAJ entry, no .lnk
 
+# The order and the colours carry the logic (owner, 3 Oct 2026: „by kinship,
+# by some logic — importance, order"). Three groups of three, one row each in
+# the panel, from the most used to the one that needs care:
+#   day      blue    the day's work, most important;
+#   often    green   now and then, safe — nothing is stopped or changed;
+#   careful  warm    stops or changes something, and asks first.
+# Within a group each tile has its own shade of the family, so a row reads
+# as one kind of thing and each tile can still be told apart.
 function Get-MtbActionGroups {
     @(
         # Title heads a section of PROCITAJ; Word is the same on a tile, which has no sections.
-        @{ Key = 'day';    Title = 'Секој ден, и по потреба';              Word = 'секој ден' },
-        @{ Key = 'cloud';  Title = 'Облак (Supabase) — само сопственикот'; Word = 'облак, само сопственикот' },
-        @{ Key = 'repair'; Title = 'За поправки — прават само една работа'; Word = 'за поправки' }
+        @{ Key = 'day';     Title = 'Секој ден — најважните';                      Word = 'секој ден' },
+        @{ Key = 'often';   Title = 'По потреба — безбедни, ништо не гасат';       Word = 'по потреба' },
+        @{ Key = 'careful'; Title = 'Внимателно — гасат или менуваат, прашуваат'; Word = 'внимателно' }
     )
 }
 
@@ -31,52 +40,52 @@ function Get-MtbActions {
         # tile only, no .lnk: it opens the browser, not a script. Its address is
         # MTB_CLOUD_URL in server\.env — the cloud's address is not written in
         # this public repository — and the tile asks for it once if it is not there.
-        @{ Group = 'day'; Name = 'Oblak - rabotna povrshina'; UrlKey = 'MTB_CLOUD_URL'; Glyph = 0xE774; Color = '#1F5FD1'
+        @{ Group = 'day'; Name = 'Oblak - rabotna povrshina'; UrlKey = 'MTB_CLOUD_URL'; Glyph = 0xE774; Color = '#1F5FD1'; CardColor = '#1F5FD1'
            Title = 'Облак — работен простор'
            Text = 'Го отвора MTB работниот простор во облакот (Render), во прелистувачот. Таму се работи секој ден; локалната база е резервен режим кога нема Интернет.'
            When = 'Секој ден, за работа.' },
         @{ Group = 'day'; Name = 'MTB'; Script = 'mtb.ps1'; Args = ''; Icon = 'shell32.dll,44'
-           Description = 'MTB - open the day'; Glyph = 0xE80F; Color = '#2F6FE4'
+           Description = 'MTB - open the day'; Glyph = 0xE80F; Color = '#0C8CE9'; CardColor = '#0C8CE9'
            Title = 'Отвори го денот'
            Text = 'Влече нов код, прави резерва па ја ажурира базата, го вклучува серверот, ја проверува машината и го отвора S-Дневник. Ако нешто не е во ред, застанува пред да ги отвори апликациите и кажува зошто.'
            When = 'Секое утро.' },
         @{ Group = 'day'; Name = 'MTB - Zavrshi den'; Script = 'mtb.ps1'; Args = '-Action stop'; Icon = 'shell32.dll,46'
-           Description = 'MTB - backup, publish to pCloud, stop the server'; Glyph = 0xE708; Color = '#6B4FD8'
+           Description = 'MTB - backup, publish to pCloud, stop the server'; Glyph = 0xE708; Color = '#6B4FD8'; CardColor = '#6B4FD8'
            Title = 'Заврши го денот'
            Text = 'Резерва на локалната база, снимка во pCloud, па го гаси серверот. Секој чекор се обидува и кога претходниот не успеал, и на крај кажува што не поминало.'
            When = 'На крај од работниот ден.'
            Confirm = 'Да го затворам денот? Ќе направам резерва и снимка во pCloud, па ќе го исклучам серверот.' },
-        @{ Group = 'day'; Name = 'MTB - Azuriraj'; Script = 'mtb.ps1'; Args = '-Action update'; Icon = 'shell32.dll,238'
-           Description = 'MTB - pull the code, backup, migrations, restart'; Glyph = 0xE895; Color = '#1E9E8B'
+        @{ Group = 'often'; Name = 'MTB - Azuriraj'; Script = 'mtb.ps1'; Args = '-Action update'; Icon = 'shell32.dll,238'
+           Description = 'MTB - pull the code, backup, migrations, restart'; Glyph = 0xE895; Color = '#1E9E8B'; CardColor = '#1E9E8B'
            Title = 'Ажурирај среде ден'
            Text = 'Истото ажурирање како утринското — код, пакети, резерва па миграции, рестарт на серверот — без да ги отвора апликациите.'
            When = 'Кога е пуштена промена од другиот компјутер.' },
-        @{ Group = 'cloud'; Name = 'MTB - Oblak migracii'; Script = 'cloud-migrate.ps1'; Args = ''; Icon = 'shell32.dll,13'
-           Description = 'MTB - cloud (Supabase): backup, then the pending migrations'; Glyph = 0xE753; Color = '#0C8CE9'
-           Title = 'Миграции во облакот'
-           Text = 'Резерва на облачната база во backups\, па миграциите што облакот уште ги нема. Прашува „DA“ пред да смени нешто. Не е deploy на кодот — тоа е Render → Manual Deploy.'
-           When = 'Кога сакаш резерва кај себе пред надградба на облакот.' },
-        @{ Group = 'cloud'; Name = 'MTB - Oblak chistenje'; Script = 'cloud-cleanup.ps1'; Args = ''; Icon = 'shell32.dll,31'
-           Description = 'MTB - cloud (Supabase): archive the old recovery copies here, then remove them there'; Glyph = 0xE74D; Color = '#E0752D'
-           Title = 'Чистење на облакот'
-           Text = 'Ги остава последните 3 recovery копии. Постарите ги презема во backups\, ги враќа и споредува локално, и дури тогаш ги брише во облакот. Прашува „DA“.'
-           When = 'Ретко — кога ќе се насоберат.' },
-        @{ Group = 'repair'; Name = 'MTB Server - Start'; Script = 'server-control.ps1'; Args = 'start -Wait'; Icon = 'shell32.dll,137'
-           Description = 'Therapy server - start'; Glyph = 0xE768; Color = '#2E9B4F'
+        @{ Group = 'often'; Name = 'MTB Server - Status'; Script = 'server-control.ps1'; Args = 'status -Wait'; Icon = 'shell32.dll,23'
+           Description = 'Therapy server - status'; Glyph = 0xE9D9; Color = '#0097A7'; CardColor = '#0097A7'
+           Title = 'Состојба на серверот'
+           Text = 'Дали серверот работи, на која адреса и со која база. Само кажува, ништо не менува.'
+           When = 'Кога не си сигурен дали е вклучен.' },
+        @{ Group = 'often'; Name = 'MTB Server - Start'; Script = 'server-control.ps1'; Args = 'start -Wait'; Icon = 'shell32.dll,137'
+           Description = 'Therapy server - start'; Glyph = 0xE768; Color = '#2E9B4F'; CardColor = '#2E9B4F'
            Title = 'Вклучи сервер'
            Text = 'Само го вклучува серверот и чека да одговори. Без ажурирање, без отворање на апликациите.'
            When = 'Кога нешто се поправа. Секојдневно е „Отвори го денот“.' },
-        @{ Group = 'repair'; Name = 'MTB Server - Stop'; Script = 'server-control.ps1'; Args = 'stop -Wait'; Icon = 'shell32.dll,109'
-           Description = 'Therapy server - stop'; Glyph = 0xE71A; Color = '#D64545'
+        @{ Group = 'careful'; Name = 'MTB Server - Stop'; Script = 'server-control.ps1'; Args = 'stop -Wait'; Icon = 'shell32.dll,109'
+           Description = 'Therapy server - stop'; Glyph = 0xE71A; Color = '#D64545'; CardColor = '#D64545'
            Title = 'Исклучи сервер'
            Text = 'Само го гаси серверот — БЕЗ резерва. Апликациите во прелистувачот работат и потоа, само не се зачувуваат на серверот.'
            When = 'Кога нешто се поправа. За крај на денот е „Заврши го денот“.'
            Confirm = 'Да го исклучам серверот, без резерва?' },
-        @{ Group = 'repair'; Name = 'MTB Server - Status'; Script = 'server-control.ps1'; Args = 'status -Wait'; Icon = 'shell32.dll,23'
-           Description = 'Therapy server - status'; Glyph = 0xE9D9; Color = '#5B6B82'
-           Title = 'Состојба на серверот'
-           Text = 'Дали серверот работи, на која адреса и со која база.'
-           When = 'Кога не си сигурен дали е вклучен.' }
+        @{ Group = 'careful'; Name = 'MTB - Oblak migracii'; Script = 'cloud-migrate.ps1'; Args = ''; Icon = 'shell32.dll,13'
+           Description = 'MTB - cloud (Supabase): backup, then the pending migrations'; Glyph = 0xE753; Color = '#E0A21B'; CardColor = '#E0A21B'
+           Title = 'Миграции во облакот'
+           Text = 'Резерва на облачната база во backups\, па миграциите што облакот уште ги нема. Прашува „DA“ пред да смени нешто. Не е deploy на кодот — тоа е Render → Manual Deploy.'
+           When = 'Само сопственикот: резерва кај себе пред надградба на облакот.' },
+        @{ Group = 'careful'; Name = 'MTB - Oblak chistenje'; Script = 'cloud-cleanup.ps1'; Args = ''; Icon = 'shell32.dll,31'
+           Description = 'MTB - cloud (Supabase): archive the old recovery copies here, then remove them there'; Glyph = 0xE74D; Color = '#E0752D'; CardColor = '#E0752D'
+           Title = 'Чистење на облакот'
+           Text = 'Ги остава последните 3 recovery копии. Постарите ги презема во backups\, ги враќа и споредува локално, и дури тогаш ги брише во облакот. Прашува „DA“.'
+           When = 'Само сопственикот, ретко — кога ќе се насоберат.' }
     )
 }
 
