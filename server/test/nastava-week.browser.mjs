@@ -205,6 +205,19 @@ async function run() {
              WHERE cy.school_year_id = $1 AND c.label = $2`, [year.id, A]);
         checkEq('новиот опис е во базата', saved.description, 'сменет опис');
 
+        console.log('\nимето за годината е истото што го пишува Податоци (class_years.alias)');
+        await page.locator(`#classes input[data-alias-id]`).first().fill('Измислена паралелка');
+        await page.locator('#classes [data-savedesc]').first().click();
+        await page.waitForTimeout(900);
+        const [named] = await q(
+            `SELECT cy.alias, cy.description FROM class_years cy
+             JOIN school_classes c ON c.id = cy.class_id
+             WHERE cy.school_year_id = $1 AND c.label = $2`, [year.id, A]);
+        checkEq('името е во истата колона', named.alias, 'Измислена паралелка');
+        checkEq('а описот не е допрен', named.description, 'сменет опис');
+        const shown = await page.locator('#classes tbody tr').first().textContent();
+        check('ознаката останува, само се прикажува под името', shown.includes('ознака: ' + A), shown);
+
         console.log('\nстраницата не чува ништо свое');
         const stored = await page.evaluate(() => {
             const out = {};

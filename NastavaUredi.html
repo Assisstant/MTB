@@ -403,20 +403,21 @@
 
     <div class="panel">
         <details class="section" id="classSection">
-            <summary>🏫 Одделенија</summary>
+            <summary>🏫 Паралелки</summary>
             <p class="hint">
-                Одделение не може да се брише: архивските години покажуваат на истиот ред и
-                мора да се читаат и понатаму. За да го тргнеш од оваа година, испразни му ги часовите.
+                Истиот список како <a href="Podatoci.html?tab=classes">Податоци → Одделенија</a>, од истите
+                табели и по истиот редослед: <strong>името за годината</strong> (колоната „Одделение“ од
+                табелата на училиштето) и описот се менуваат тука или таму, и другиот екран го гледа веднаш.
+                Двете важат само за избраната учебна година.
             </p>
             <p class="hint">
-                <strong>Описот важи само за избраната учебна година.</strong> Ознаката (на пр. VIII-б)
-                се повторува од година в година и не значи исто нешто секој пат, па „комбинирана
-                паралелка" запишано овде не ја менува ланската. Опфатените одделенија не се пишуваат
-                тука — тие се читаат од самите деца.
+                Ознаката (на пр. VIII-б) е внатрешна: по неа се поврзани часовите и децата, во сите години,
+                па не се менува за да се чита убаво. Паралелка не може да се брише; за да ја тргнеш од
+                оваа година, испразни ѝ ги часовите.
             </p>
             <div class="controls" style="margin-bottom: 12px;">
                 <label class="field">
-                    <span>Ново одделение</span>
+                    <span>Нова паралелка (ознака)</span>
                     <input id="newClass" placeholder="на пр. IV-б">
                 </label>
                 <button class="btn" id="addClass">+ Додај</button>
@@ -633,6 +634,9 @@
             ]);
             if (mine !== ticket) return;
             if (roster && Array.isArray(roster.students)) body.rosterStudents = roster.students;
+            // The year's classes in the order Податоци arranged them (038):
+            // one list, read the same on both screens.
+            if (roster && Array.isArray(roster.classes)) body.rosterClasses = roster.classes;
             data = body;
             if (!keepSelection) selected = null;
             await draw();
@@ -2249,48 +2253,59 @@
     function drawClasses() {
         const used = new Map();
         (data.lessons || []).forEach((l) => used.set(l.class, (used.get(l.class) || 0) + 1));
+        // Podatoci's order (`/api/roster`, the one place it is applied);
+        // a class it does not list yet keeps the timetable's order, after.
+        const rank = new Map((data.rosterClasses || []).map((c, i) => [Number(c.id), i]));
+        const at = (c) => rank.has(Number(c.id)) ? rank.get(Number(c.id)) : Number.MAX_SAFE_INTEGER;
+        const list = (data.classes || []).slice().sort((a, b) => at(a) - at(b));
+        const card = (label) => classCards().get(label) || {};
         el('classes').innerHTML =
-            '<table class="list"><thead><tr><th>Одделение</th><th>Што е тоа, оваа година</th>'
-            + '<th>Часови</th><th></th></tr></thead><tbody>'
-            + (data.classes || []).map((c) =>
-                `<tr><td><input value="${esc(c.label)}" data-class-id="${c.id}"></td>`
+            `<table class="list"><thead><tr><th>Р.бр.</th><th>Паралелка за ${esc(data.year)}</th>`
+            + '<th>Опис</th><th>Раководител</th><th>Часови</th><th></th></tr></thead><tbody>'
+            + list.map((c, i) =>
+                `<tr data-class-row="${c.id}"><td>${i + 1}.</td>`
+                + `<td><input value="${esc(c.alias || '')}" data-alias-id="${c.id}"`
+                + ` data-alias-was="${esc(c.alias || '')}" placeholder="на пр. Комбинирана II, III, IV">`
+                + `<div class="hint class-label" title="${esc(classHover(c.label))}">ознака: ${esc(c.label)}</div></td>`
                 + `<td><input value="${esc(c.description || '')}" data-desc-id="${c.id}"`
                 + ` data-desc-was="${esc(c.description || '')}"`
                 + ' placeholder="на пр. ученици со оштетен слух"></td>'
+                + `<td>${esc(card(c.label).homeroom || '—')}</td>`
                 + `<td>${used.get(c.label) || 0}</td>`
                 + '<td class="act">'
-                + `<button class="btn soft" data-rename="${c.id}">Преименувај</button> `
-                + `<button class="btn soft" data-savedesc="${c.id}">Зачувај опис</button>`
+                + `<button class="btn soft" data-savedesc="${c.id}">Зачувај</button>`
                 + '</td></tr>').join('')
             + '</tbody></table>';
-        el('classes').querySelectorAll('[data-rename]').forEach((b) => b.addEventListener('click', async () => {
-            const id = Number(b.dataset.rename);
-            const input = el('classes').querySelector(`[data-class-id="${id}"]`);
-            try {
-                const answer = await api('PATCH', '/api/teaching/class/' + id, { label: tidy(input.value) });
-                await load(true);
-                // The pupils move with the label on the server (teaching-edit.ts).
-                status('одделението е преименувано'
-                    + (answer && answer.moved && answer.moved.enrolments ? ', заедно со учениците во него' : ''), 'ok');
-            } catch (err) { status(err.message, 'error'); }
-        }));
-        // The description belongs to the SELECTED YEAR, not to the class for
-        // ever — which is why it is a different button from „Преименувај",
-        // and why `expected` carries what this tab last read.
+        // The name and the description belong to the SELECTED YEAR — the same
+        // two writers Податоци uses, each with `expected` = what this tab last
+        // read, so whichever screen saves second is told rather than winning.
         el('classes').querySelectorAll('[data-savedesc]').forEach((b) => b.addEventListener('click', async () => {
             const id = Number(b.dataset.savedesc);
-            const input = el('classes').querySelector(`[data-desc-id="${id}"]`);
+            const alias = el('classes').querySelector(`[data-alias-id="${id}"]`);
+            const desc = el('classes').querySelector(`[data-desc-id="${id}"]`);
+            const writes = [];
+            if (tidy(alias.value) !== tidy(alias.dataset.aliasWas)) writes.push(['alias', 'името', alias.value, alias.dataset.aliasWas]);
+            if (tidy(desc.value) !== tidy(desc.dataset.descWas)) writes.push(['description', 'описот', desc.value, desc.dataset.descWas]);
+            if (!writes.length) return status('нема промена', 'warn');
             status('запишувам…');
             try {
-                await api('PUT', '/api/teaching/class/' + id + '/description', {
-                    year: data.year,
-                    description: tidy(input.value),
-                    expected: tidy(input.dataset.descWas)
-                });
+                for (const [field, , value, was] of writes) {
+                    await api('PUT', '/api/teaching/class/' + id + '/' + field, {
+                        year: data.year, [field]: tidy(value), expected: tidy(was)
+                    });
+                }
                 await load(true);
-                status('описот е зачуван', 'ok');
+                status(writes.length > 1 ? 'името и описот се зачувани'
+                    : writes[0][0] === 'alias' ? 'името е зачувано' : 'описот е зачуван', 'ok');
             } catch (err) { status(err.message, 'error'); }
         }));
+    }
+    /** An unsaved name or description: a reload would throw it away. */
+    function classesEdited() {
+        const box = el('classes');
+        if (!box) return false;
+        return [...box.querySelectorAll('[data-alias-id]')].some((i) => tidy(i.value) !== tidy(i.dataset.aliasWas))
+            || [...box.querySelectorAll('[data-desc-id]')].some((i) => tidy(i.value) !== tidy(i.dataset.descWas));
     }
 
     // ── teachers ────────────────────────────────────────────────────────────
@@ -2767,7 +2782,7 @@
         const nav = window.MTBAppNavigation;
         if (nav && nav.onDataChange) {
             nav.onDataChange(() => { if (data) return load(true); },
-                { busy: () => sideEdited, ignore: ['schedule', 'state'] });
+                { busy: () => sideEdited || classesEdited(), ignore: ['schedule', 'state'] });
         }
     });
 
