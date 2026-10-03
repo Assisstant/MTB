@@ -153,6 +153,17 @@ try {
     c = await cell('среда', 2);
     checkEq('Wed III: no lesson for the class says so', [c.lesson, c.none], ['3. час · нема час', true]);
 
+    // One height for every cell: the two 20′ sessions of Tue II split it, they do not grow it.
+    const heights = await page.locator('#scheduleGrid .schedule-cell').evaluateAll((cs) =>
+        [...new Set(cs.map((c) => Math.round(c.getBoundingClientRect().height)))]);
+    checkEq('every cell has one height, two sessions included', heights.length, 1);
+    const slotFont = await page.locator('#scheduleGrid .student-slot').evaluateAll((ss) =>
+        [...new Set(ss.map((s) => getComputedStyle(s).fontSize))]);
+    checkEq('and one text size, two sessions included', slotFont.length, 1);
+    const lineHeights = await page.locator('#scheduleGrid .lesson-line').evaluateAll((ls) =>
+        [...new Set(ls.map((l) => Math.round(l.getBoundingClientRect().height)))]);
+    checkEq('every lesson line is one line, a long subject included', lineHeights.length, 1);
+
     // SHOT=<folder>: pictures of the tab in both themes, for looking at it.
     if (process.env.SHOT) {
         await page.screenshot({ path: path.join(process.env.SHOT, 'class-week-light.png'), fullPage: true });

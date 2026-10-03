@@ -849,7 +849,7 @@
             const key = (a.studentPublicId || a.student) + '|' + a.therapist;
             if (seen.has(key)) return;
             seen.add(key);
-            out.push({ kind: 'away', text: '↳ ' + a.student, sub: a.therapist + (a.slots && a.slots.length ? ' · ' + clock(a.slots) : '') });
+            out.push({ kind: 'away', text: '↳ ' + a.student, sub: a.therapist + (a.slots && a.slots.length ? ' · ' + clock(a.slots) : ''), who: a.therapist });
         }));
         return out;
     }
@@ -896,13 +896,16 @@
                 away ? `${pupils.size} ${pupils.size === 1 ? 'ученик' : 'ученици'} · ${away} ${away === 1 ? 'излегување' : 'излегувања'} на третман`
                     : 'никој не излегува на третман',
                 offList.has(label) ? 'не е на списокот оваа година' : ''].filter(Boolean).join(' · ');
+            // The teacher's sheet's own cell and switch (mtb-teacher-week.js): one
+            // fixed size, the therapies side by side, hidden to a coloured strip.
+            const W = TW();
             const body = periods.map((p) => '<tr>'
                 + `<th><b>${esc(String(p.ordinal))}. час</b><small>${esc(p.startsAt)}</small></th>`
-                + days.map((d) => '<td>' + classEntries(slots.get(label + '|' + d + '|' + p.ordinal) || []).map((e) =>
-                    `<div class="p-${e.kind}"><b>${esc(e.text)}</b><small>${esc(e.sub)}</small></div>`).join('') + '</td>').join('')
+                + days.map((d) => '<td>' + W.readCellHtml(classEntries(slots.get(label + '|' + d + '|' + p.ordinal) || []), data) + '</td>').join('')
                 + '</tr>').join('');
-            return `<section class="personal" data-class="${esc(label)}">`
+            return `<section class="personal show-${W.mode()}" data-class="${esc(label)}">`
                 + `<div class="p-head"><h3>Паралелка ${esc(classShort(label))} — неделен распоред</h3><div class="p-sub">${esc(sub)}</div></div>`
+                + W.modesHtml()
                 + '<table class="p-grid"><thead><tr><th>Час</th>'
                 + days.map((d) => `<th>${esc(cap(d))}</th>`).join('') + '</tr></thead>'
                 + `<tbody>${body}</tbody></table>`

@@ -113,6 +113,22 @@
     .personal .p-modes button[aria-pressed="true"] { background: #0f6cbd; border-color: #0f6cbd; color: #ffffff; }
     .personal.show-subjects .p-away { display: none !important; }
     .personal.show-cabinets .p-lesson { display: none !important; }
+    /* The fixed cell (readCellHtml). Height is the cell's, whatever it holds:
+       a lesson line, and one row of therapies side by side. */
+    .personal:not(.editing) .p-grid td { height: 82px; padding: 3px; }
+    .personal.show-subjects:not(.editing) .p-grid td { height: 54px; } /* the lesson and its strip */
+    .personal.show-cabinets:not(.editing) .p-grid td { height: 50px; }
+    .personal .p-box { display: flex; flex-direction: column; gap: 3px; height: 100%; min-width: 0; }
+    .personal .p-row { display: flex; gap: 3px; min-width: 0; }
+    .personal .p-row > div { flex: 1 1 0; min-width: 0; margin: 0; }
+    .personal .p-row b, .personal .p-row small { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; overflow-wrap: normal; }
+    .personal .p-row .p-away { border-left-color: var(--who, #c05621); padding-left: 6px; }
+    .personal .p-row .p-more { flex: 0 0 auto; display: flex; align-items: center; padding: 0 6px; border-radius: 6px;
+        background: #edf2f7; color: #2d3748; font-weight: 700; font-size: 12px; cursor: default; }
+    .personal .p-strip { display: none; gap: 2px; height: 7px; margin-top: auto; border-radius: 4px; overflow: hidden; }
+    .personal .p-strip i { flex: 1 1 0; }
+    .personal.show-subjects .p-strip { display: flex; }
+    .personal.show-subjects .p-aways, .personal.show-cabinets .p-lessons { display: none !important; }
     @media print { .personal .p-modes { display: none !important; } }
     @page personal { size: A4 landscape; margin: 9mm; }
     @media print {
@@ -164,10 +180,65 @@
         list.forEach((c) => {
             out.push({ kind: 'lesson', text: c.subject || 'без предмет', sub: c.class });
             (c.away || []).forEach((a) => out.push({
-                kind: 'away', text: '↳ ' + a.student, sub: a.therapist + (a.slots && a.slots.length ? ' · ' + clock(a.slots) : '')
+                kind: 'away', text: '↳ ' + a.student, sub: a.therapist + (a.slots && a.slots.length ? ' · ' + clock(a.slots) : ''),
+                who: a.therapist
             }));
         });
         return out;
+    }
+
+    /*
+     * One read-only cell, the same size whatever is in it (owner, 3 Oct 2026):
+     * „fixed cell size is always cool". The lesson on top; the children who
+     * leave it side by side in equal columns under it, never stacked, so two
+     * or three therapies do not make the row taller. Text is cut to its column
+     * and said whole on hover, as a browser does with its tabs. With the
+     * therapies hidden („Само предмети") a thin strip stays at the bottom, one
+     * segment per therapy in its therapist's colour: the lesson still shows
+     * that somebody leaves it, and for whom.
+     *
+     * The colour is the therapist's place among every therapist the year's
+     * crossing names, in alphabetical order: the same person has the same
+     * colour on every sheet of the page, nothing is stored, and up to ten
+     * therapists never share one. (A colour folded out of the name alone
+     * gave two of three therapists the same green the first time it was
+     * looked at.) The hover says who is who regardless.
+     */
+    const COLUMNS = 3;
+    const TINTS = ['#c05621', '#2b6cb0', '#2f855a', '#6b46c1', '#b83280', '#0f766e', '#975a16', '#c53030', '#4c51bf', '#718096'];
+    let tintsOf = null;
+    let tintMap = new Map();
+    function tints(data) {
+        if (data && data !== tintsOf) {
+            const names = new Set();
+            (data.cells || []).forEach((c) => (c.away || []).forEach((a) => { if (a.therapist) names.add(a.therapist); }));
+            tintMap = new Map(Array.from(names).sort((a, b) => a.localeCompare(b, 'mk'))
+                .map((n, i) => [n, TINTS[i % TINTS.length]]));
+            tintsOf = data;
+        }
+        return tintMap;
+    }
+    const tintOf = (name) => tintMap.get(name) || TINTS[0];
+    const whole = (e) => String(e.text || '').replace(/^↳\s*/, '') + (e.sub ? ' — ' + e.sub : '');
+    /** `data` (the crossing) gives the therapists their colours; without it the last one read is used. */
+    function readCellHtml(list, data) {
+        if (data) tints(data);
+        const lessons = list.filter((e) => e.kind === 'lesson');
+        const aways = list.filter((e) => e.kind === 'away');
+        const card = (e) => `<div class="p-${e.kind}" title="${esc(whole(e))}"`
+            + (e.kind === 'away' ? ` style="--who:${tintOf(e.who)}"` : '') + `><b>${esc(e.text)}</b><small>${esc(e.sub)}</small></div>`;
+        const row = (items, cls) => {
+            if (!items.length) return '';
+            const more = items.length - COLUMNS;
+            return `<div class="p-row ${cls}">` + items.slice(0, COLUMNS).map(card).join('')
+                + (more > 0 ? `<div class="p-more" title="${esc(items.slice(COLUMNS).map(whole).join('\n'))}">+${more}</div>` : '')
+                + '</div>';
+        };
+        const strip = aways.length
+            ? `<div class="p-strip" title="${esc(aways.length + (aways.length === 1 ? ' излегува на третман: ' : ' излегуваат на третман:\n') + aways.map(whole).join('\n'))}">`
+              + aways.map((e) => `<i style="background:${tintOf(e.who)}"></i>`).join('') + '</div>'
+            : '';
+        return '<div class="p-box">' + row(lessons, 'p-lessons') + row(aways, 'p-aways') + strip + '</div>';
     }
 
     // ── who picks what ──────────────────────────────────────────────────────
@@ -302,6 +373,13 @@
         if (pick) setMode(pick.dataset.pMode);
     });
 
+    /** The switch of what a sheet shows; a class sheet (Настава) puts the same one on its own. */
+    function modesHtml() {
+        const shown = mode();
+        return '<div class="p-modes mtb-ui" role="group" aria-label="Што се прикажува">'
+            + MODES.map(([k, label]) => `<button type="button" data-p-mode="${k}" aria-pressed="${k === shown}">${label}</button>`).join('') + '</div>';
+    }
+
     function sheetHtml(w, data, name, o) {
         o = o || {};
         const on = o.editing === undefined ? editing() : Boolean(o.editing);
@@ -328,9 +406,11 @@
             + days.map((d) => {
                 const list = slots.get(d + '|' + p.ordinal) || [];
                 const one = list[0] || null;
+                if (!on) return '<td>' + readCellHtml(entries(list), data) + '</td>';
+                // While typing a week in, the cell grows with its pickers: room
+                // to choose matters more there than a level row.
                 const read = entries(list).map((e) =>
                     `<div class="p-${e.kind}"><b>${esc(e.text)}</b><small>${esc(e.sub)}</small></div>`).join('');
-                if (!on) return '<td>' + read + '</td>';
                 return `<td class="p-cell" data-teacher="${esc(name)}" data-day="${esc(d)}" data-ordinal="${p.ordinal}"`
                     + ` data-class="${esc(one ? one.class || '' : '')}" data-subject="${esc(one ? tidy(one.subject) : '')}">`
                     + editCellHtml(data, name, d, p, list) + read + '</td>';
@@ -343,8 +423,7 @@
                 : '<p class="p-edithint">🔓 Отворено за внес. Предметен наставник: изберете паралелка (своите прво), па предмет од своите. '
                   + 'Се запишува веднаш во базата; „— слободен —" го брише часот. Под часот останува кој ученик излегува на третман.</p>';
         const shown = mode();
-        const modes = '<div class="p-modes mtb-ui" role="group" aria-label="Што се прикажува">'
-            + MODES.map(([k, label]) => `<button type="button" data-p-mode="${k}" aria-pressed="${k === shown}">${label}</button>`).join('') + '</div>';
+        const modes = modesHtml();
         return `<section class="personal show-${shown}${on ? ' editing' : ''}" data-teacher="${esc(name)}">`
             + `<div class="p-head"><h3>Неделен распоред — ${esc(name)}</h3><div class="p-sub">${esc(sub)}</div></div>`
             + modes
@@ -506,6 +585,7 @@
 
     window.MTBTeacherWeek = {
         DAYS, SCHOOL, NOBODY,
-        week, teacherRows, entries, sheetHtml, attach, loadOffers, choosing, editing
+        week, teacherRows, entries, sheetHtml, attach, loadOffers, choosing, editing,
+        readCellHtml, modesHtml, mode, tints
     };
 })();
