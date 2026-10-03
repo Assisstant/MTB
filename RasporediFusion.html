@@ -247,6 +247,34 @@
     body[data-panel="lists"] .schedule-only, body[data-panel="visits"] .schedule-only { display: none !important; }
     body[data-panel="allDays"] .field.view, body[data-panel="allDays"] #exportImage { display: none !important; }
     body[data-panel="now"] .schedule-only { display: none !important; }
+    /* „По одделение" is always one therapist's week: the day/week switch says
+       nothing there, and the print and the pictures are of the plain week. */
+    body[data-panel="classWeek"] .field.view, body[data-panel="classWeek"] #printSheet,
+    body[data-panel="classWeek"] #exportImage, body[data-panel="classWeek"] #exportWord { display: none !important; }
+    .class-week-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; margin: 0 0 12px; }
+    .class-week-bar[hidden] { display: none; } /* `display: flex` would otherwise win over `hidden` */
+    .class-week-bar label { display: flex; align-items: center; gap: 8px; font-weight: 700; color: #2d3748; }
+    .class-week-bar select { min-width: 260px; max-width: 100%; padding: 7px 10px; border: 1px solid #cbd5e0; border-radius: 8px; font: inherit; font-weight: 600; background: #fff; color: #1a202c; }
+    .class-week-note { color: #4a5568; font-size: 13px; }
+    .class-week-note b { color: #1a202c; }
+    /* The class's lesson at that period: one line on top of the therapy cell. */
+    .lesson-line { display: flex; align-items: baseline; gap: 6px; min-width: 0; margin: 0 2px 3px; padding: 3px 8px;
+        border-radius: 6px; background: #fff7e6; border: 1px solid #f6d58e; color: #744210; font-size: 13px; line-height: 1.3; }
+    .lesson-line .lesson-subject { font-weight: 700; overflow-wrap: anywhere; }
+    .lesson-line .lesson-teacher { color: #8a5a14; font-size: 12px; overflow-wrap: anywhere; }
+    .lesson-line.none { background: transparent; border-style: dashed; border-color: #cbd5e0; color: #5f6b7d; font-weight: 600; }
+    /* A pupil of the chosen class: this child misses that lesson. */
+    .student-slot.in-class { border-left-color: #dd6b20; box-shadow: inset 0 0 0 2px #f6ad55; }
+    .student-slot.in-class .slot-class { color: #c05621; }
+    body.dark-mode .class-week-bar label { color: #e2e8f0; }
+    body.dark-mode .class-week-bar select { background: #2d3748; border-color: #4a5568; color: #e2e8f0; }
+    body.dark-mode .class-week-note { color: #cbd5e0; }
+    body.dark-mode .class-week-note b { color: #f7fafc; }
+    body.dark-mode .lesson-line { background: #3b2f1a; border-color: #8a6420; color: #fbd38d; }
+    body.dark-mode .lesson-line .lesson-teacher { color: #f6c97a; }
+    body.dark-mode .lesson-line.none { background: transparent; border-color: #4a5568; color: #a0aec0; }
+    body.dark-mode .student-slot.in-class { border-left-color: #f6ad55; box-shadow: inset 0 0 0 2px #dd6b20; }
+    body.dark-mode .student-slot.in-class .slot-class { color: #fbd38d; }
     .now-summary { font-size: 16px; margin: 4px 0 12px; }
     .now-table { width: 100%; min-width: 620px; border-collapse: collapse; font-size: 14px; }
     .now-table th, .now-table td { text-align: left; padding: 9px 10px; border-bottom: 1px solid #cbd5e0; vertical-align: top; }
@@ -888,6 +916,9 @@
     <div class="view-tabs mtb-tabs-flat" role="tablist" aria-label="Приказ на распоредот">
         <button class="view-tab" id="scheduleTab" type="button" role="tab" aria-selected="true"
             aria-controls="schedulePanel" data-panel="schedule">Термини</button>
+        <button class="view-tab" id="classWeekTab" type="button" role="tab" aria-selected="false"
+            aria-controls="schedulePanel" data-panel="classWeek"
+            title="Неделата на терапевтот со часовите на избраната паралелка во истите ќелии">По одделение</button>
         <button class="view-tab" id="nowTab" type="button" role="tab" aria-selected="false"
             aria-controls="nowPanel" data-panel="now">🔔 Сега</button>
         <button class="view-tab" id="rosterTab" type="button" role="tab" aria-selected="false"
@@ -904,6 +935,12 @@
                 <span id="scheduleMeta"></span>
             </div>
             <p class="workflow-hint">Еден ученик: 40 минути. Со „+“ терминот се дели на два последователни третмани по 20 минути. Истовремен групен третман сè уште не може да се внесе.</p>
+            <div class="class-week-bar" id="classWeekBar" hidden>
+                <label for="classWeekClass">Паралелка
+                    <select id="classWeekClass" data-class-picker></select>
+                </label>
+                <span class="class-week-note" id="classWeekNote"></span>
+            </div>
             <div class="scrollable-container" id="scheduleGrid">
                 <div class="empty-state">Се вчитува распоредот…</div>
             </div>
@@ -1073,6 +1110,7 @@
     const REQUESTED_YEAR = new URLSearchParams(window.location.search).get('year') || '';
     const state = {
         years: [], year: '', day: DAYS[0], focus: '', view: 'day', panel: 'schedule', roster: null,
+        classWeekClass: '', crossing: null,
         rosterTherapist: '', reportTherapists: { lists: '', visits: '' }, token: '', me: null, authRequired: false,
         bells: [], sessions: new Map(), pending: new Set(), expandedBlocks: new Set(), ticket: 0,
         pollTicket: 0, sessionVersion: 0,
@@ -1460,7 +1498,8 @@
 
     function drawFocus() {
         const select = el('focus');
-        const weekly = state.view === 'week' && state.panel !== 'allDays';
+        // „По одделение" is always one therapist's week, whatever the day/week switch says.
+        const weekly = (state.view === 'week' && state.panel !== 'allDays') || state.panel === 'classWeek';
         const previous = state.focus;
         const allowed = isRestrictedTherapist()
             ? ((state.roster && state.roster.therapists) || []).filter((therapist) =>
@@ -1498,7 +1537,9 @@
         el('nowPanel').hidden = !nowActive;
         el('rosterPanel').hidden = !rosterActive;
         el('reportPanel').hidden = !reportActive;
-        el('schedulePanel').setAttribute('aria-labelledby', state.panel === 'allDays' ? 'allDaysTab' : 'scheduleTab');
+        el('schedulePanel').setAttribute('aria-labelledby',
+            state.panel === 'allDays' ? 'allDaysTab' : state.panel === 'classWeek' ? 'classWeekTab' : 'scheduleTab');
+        el('classWeekBar').hidden = state.panel !== 'classWeek';
         document.querySelectorAll('.view-tab[data-panel]').forEach((button) => {
             const selected = button.dataset.panel === state.panel;
             button.setAttribute('aria-selected', String(selected));
@@ -2464,6 +2505,9 @@
                     });
                 });
                 state.whereabouts = map;
+                // „По одделение" reads the same answer: every lesson, and which
+                // lessons each 40′ block covers.
+                state.crossing = { cells: data.cells || [], blocks: (data.bells && data.bells.cabinet) || [] };
             })
             .catch(() => { /* без настава нема што да се вкрсти */ });
     }
@@ -2659,7 +2703,7 @@
         });
     }
 
-    function cellHtml(day, bell, rowIndex, therapist, students, conflicts) {
+    function cellHtml(day, bell, rowIndex, therapist, students, conflicts, top) {
         const block = blockState(day, bell, therapist);
         const fullKey = cellKey(day, block.fullTime, therapist.id);
         const keys = [fullKey].concat(block.parts.map((part) => cellKey(day, part.time, therapist.id)));
@@ -2677,7 +2721,7 @@
             controls += blockSlotHtml(block, day, therapist, students, 0, showSecond, conflicts);
             if (showSecond) controls += blockSlotHtml(block, day, therapist, students, 1, true, conflicts);
         }
-        return '<div class="' + classes.join(' ') + '" data-bell="' + esc(block.fullTime) + '">' + controls + '</div>';
+        return '<div class="' + classes.join(' ') + '" data-bell="' + esc(block.fullTime) + '">' + (top || '') + controls + '</div>';
     }
 
     function timeCellHtml(bell) {
@@ -2736,7 +2780,8 @@
             ', minmax(0, 1fr)); min-width: ' + minWidth + 'px;">';
     }
 
-    function drawWeeklySchedule(therapist, students, conflicts) {
+    /** `topOf(day, bell)`: an extra line on top of each cell („По одделение"), or nothing. */
+    function drawWeeklySchedule(therapist, students, conflicts, topOf) {
         el('scheduleTitle').textContent = 'Неделен распоред · ' + therapist.name;
         el('scheduleMeta').textContent = state.year + ' · 1 ученик = 40′ · 2 ученици = 20′ + 20′';
         let html = gridOpen(DAYS.length, 190);
@@ -2747,13 +2792,118 @@
         });
         state.bells.forEach((bell, rowIndex) => {
             html += timeCellHtml(bell);
-            DAYS.forEach((day) => { html += cellHtml(day, bell, rowIndex, therapist, students, conflicts); });
+            DAYS.forEach((day) => {
+                html += cellHtml(day, bell, rowIndex, therapist, students, conflicts, topOf ? topOf(day, bell) : '');
+            });
         });
         html += '</div>';
         el('scheduleGrid').innerHTML = html;
         bindScheduleCells();
         drawMetrics();
         refocus();
+    }
+
+    /* ── „По одделение": the therapist's week with one class's lessons in it ──
+     *
+     * The owner, 3 Oct 2026: the same „Неделен · по терапевт", but each cell
+     * also says what the chosen паралелка has at that period, so a session can
+     * be weighed against the lesson it takes a child out of — and edited right
+     * there. One паралелка at a time; the picker offers the classes this
+     * therapist's booked pupils belong to.
+     *
+     * NOTHING IS WORKED OUT HERE either. Which lesson a 40′ block falls on is
+     * the crossing's answer (`bells.cabinet[].covers`, lib/crossing.ts, the one
+     * copy), already fetched for „Каде е детето". Only lessons 1–6 are shown:
+     * the therapy day has six blocks, and a seventh lesson has no cell (owner).
+     * The cells, their editing and their saves are the plain week's own — this
+     * tab adds a line on top and a mark, never a second way to write.
+     */
+    function classInfoIndex() {
+        const nav = window.MTBAppNavigation;
+        return nav && nav.classes && state.roster ? nav.classes.index(state.roster) : new Map();
+    }
+
+    /** label → how many of this therapist's booked pupils are in it, in the year's class order. */
+    function classWeekClasses(therapist, students) {
+        const pupils = new Map();
+        state.sessions.forEach((session) => {
+            if (String(session.therapist_id) !== String(therapist.id) || !session.student_public_id) return;
+            const pupil = students.get(session.student_public_id);
+            const grade = pupil && pupil.grade;
+            if (!grade) return;
+            if (!pupils.has(grade)) pupils.set(grade, new Set());
+            pupils.get(grade).add(session.student_public_id);
+        });
+        const ordered = new Map();
+        classInfoIndex().forEach((info, label) => { if (pupils.has(label)) ordered.set(label, pupils.get(label).size); });
+        // A class label no longer on the year's list still has children booked: kept, last.
+        pupils.forEach((set, label) => { if (!ordered.has(label)) ordered.set(label, set.size); });
+        return ordered;
+    }
+
+    function classLessonLine(day, bell, label) {
+        const crossing = state.crossing;
+        if (!crossing || !label) return '';
+        const block = (crossing.blocks || []).find((b) =>
+            b.startsAt === bell.startsAt && Number(b.minutes) === Number(bell.minutes));
+        const cover = block ? (block.covers || [])
+            .filter((c) => Number(c.ordinal) <= 6)
+            .sort((a, b) => b.minutes - a.minutes)[0] : null;
+        const lessons = cover ? (crossing.cells || []).filter((cell) =>
+            cell.day === day && Number(cell.ordinal) === Number(cover.ordinal) && cell.class === label) : [];
+        if (!lessons.length) {
+            return '<div class="lesson-line none">' + (cover ? cover.ordinal + '. час · ' : '') + 'нема час</div>';
+        }
+        // Two rows for one period are a class taught in groups: both are said.
+        return '<div class="lesson-line" title="' + esc(cover.ordinal + '. час · ' + lessons.map((l) =>
+                (l.subject || 'без предмет') + ' · ' + (l.teacher || 'без наставник')).join(' / ')) + '">' +
+            '<span class="lesson-subject">' + esc(cover.ordinal + '. ' + lessons.map((l) => l.subject || 'без предмет').join(' / ')) + '</span> ' +
+            '<span class="lesson-teacher">' + esc(lessons.map((l) => l.teacher || 'без наставник').join(' / ')) + '</span></div>';
+    }
+
+    function drawClassWeek(therapist, students, conflicts) {
+        const nav = window.MTBAppNavigation;
+        const index = classInfoIndex();
+        const offered = classWeekClasses(therapist, students);
+        if (!offered.has(state.classWeekClass)) state.classWeekClass = offered.size ? offered.keys().next().value : '';
+        const label = state.classWeekClass;
+
+        const select = el('classWeekClass');
+        const shown = new Map();
+        offered.forEach((count, l) => { if (index.has(l)) shown.set(l, index.get(l)); });
+        select.innerHTML = nav && nav.classes
+            ? nav.classes.optionsHtml(shown, label, {
+                empty: offered.size ? false : '— нема закажани ученици —',
+                more: Array.from(offered.keys()).filter((l) => !index.has(l)).map((l) => [l, l + ' · неактивна'])
+            })
+            : Array.from(offered.keys()).map((l) => '<option value="' + esc(l) + '">' + esc(l) + '</option>').join('');
+        select.value = label;
+        select.disabled = !offered.size;
+
+        drawWeeklySchedule(therapist, students, conflicts, (day, bell) => classLessonLine(day, bell, label));
+
+        const info = index.get(label);
+        const name = info && nav && nav.classes ? nav.classes.name(info) : label;
+        el('scheduleTitle').textContent = 'По одделение · ' + therapist.name + (label ? ' · ' + name : '');
+        const count = offered.get(label) || 0;
+        const hasLessons = Boolean(state.crossing) && (state.crossing.cells || []).some((cell) => cell.class === label);
+        el('classWeekNote').innerHTML = !offered.size
+            ? 'Овој терапевт уште нема закажани ученици во неделата.'
+            : !state.crossing
+                ? 'Часовите на паралелката не се вчитани — нема внесена настава за годинава, или серверот не одговори. Терапиите се уредуваат и без нив.'
+                : !hasLessons
+                    ? 'Паралелката <b>' + esc(name) + '</b> нема внесени часови оваа година (Уреди настава).'
+                    : '<b>' + count + '</b> ' + (count === 1 ? 'твој ученик' : 'твои ученици') + ' од паралелката се обележани. ' +
+                      'Горниот ред во ќелијата е часот на паралелката (1–6); часовите се уредуваат во „Уреди настава“.';
+
+        // The mark goes on what the select holds, so it follows every redraw
+        // and every save without a second notion of who is in the cell.
+        const ofClass = new Set();
+        students.forEach((pupil, id) => { if (pupil && pupil.grade === label) ofClass.add(id); });
+        el('scheduleGrid').querySelectorAll('select.slot-select').forEach((s) => {
+            const slot = s.closest('.student-slot');
+            if (slot && s.value && ofClass.has(s.value)) slot.classList.add('in-class');
+        });
     }
 
     function drawSchedule() {
@@ -2771,6 +2921,10 @@
             return;
         }
 
+        if (state.panel === 'classWeek') {
+            drawClassWeek(therapists[0], students, conflicts);
+            return;
+        }
         if (state.view === 'week' && state.panel !== 'allDays') {
             drawWeeklySchedule(therapists[0], students, conflicts);
             return;
@@ -3748,7 +3902,7 @@
      * `views`). The day and the day/week switch are not steps: walking back
      * through five days is not what „назад" is for.
      */
-    const PANELS = ['schedule', 'now', 'roster', 'lists', 'visits', 'allDays'];
+    const PANELS = ['schedule', 'classWeek', 'now', 'roster', 'lists', 'visits', 'allDays'];
     let panelHistory = null;
     function openPanel(panel) {
         if (!PANELS.includes(panel) || panel === state.panel) return;
@@ -3756,14 +3910,25 @@
         drawPanel();
         if (panelHistory) panelHistory.step({ panel });
     }
+    // The паралелка chosen in „По одделение" is a view too: a step, and in the address.
+    el('classWeekClass').addEventListener('change', () => {
+        state.classWeekClass = el('classWeekClass').value;
+        drawSchedule();
+        if (panelHistory) panelHistory.step({ class: state.classWeekClass });
+    });
     document.addEventListener('DOMContentLoaded', () => {
         const nav = window.MTBAppNavigation;
         if (!nav || !nav.views) return;
-        panelHistory = nav.views({ keys: ['panel'], show: (view) => {
+        panelHistory = nav.views({ keys: ['panel', 'class'], show: (view) => {
             state.panel = PANELS.includes(view.panel) ? view.panel : 'schedule';
+            // A step without a class is the tab's first look: its default class,
+            // not whichever class was chosen after it.
+            state.classWeekClass = view.class || '';
             drawPanel();
         } });
-        const wanted = panelHistory.read().panel;
+        const read = panelHistory.read();
+        if (read.class) state.classWeekClass = read.class;
+        const wanted = read.panel;
         if (PANELS.includes(wanted) && wanted !== state.panel) { state.panel = wanted; drawPanel(); }
     });
     document.querySelectorAll('.view-tab[data-panel]').forEach((button) => {

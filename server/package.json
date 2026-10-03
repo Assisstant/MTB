@@ -55,6 +55,7 @@
     "test:fusion-order": "node test/fusion-caseload-order.browser.mjs",
     "test:fusion-now": "node test/fusion-now.browser.mjs",
     "test:fusion-mine": "node test/fusion-my-therapist.browser.mjs",
+    "test:class-week": "node test/fusion-class-week.browser.mjs",
     "test:navigation": "node test/app-navigation.browser.mjs",
     "test:sync-page": "node test/sync-page.browser.mjs",
     "test:workspace": "node test/workspace.browser.mjs",
