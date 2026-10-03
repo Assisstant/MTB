@@ -12,9 +12,17 @@
 # reports is where it always was. The actions and their words come from
 # mtb-actions.ps1 — the shortcuts and PROCITAJ read the same list.
 #
-# The order of the tiles is this computer's own layout
-# (%LOCALAPPDATA%\MTB\kontrolna-tabla.json), never data: drag a tile onto
-# another to move it. One grid, three to a row — no sections, no pins.
+# THE LAYOUT is this computer's own (%LOCALAPPDATA%\MTB\kontrolna-tabla.json),
+# never data. One grid, three to a row, every row full before the next — the
+# owner turned down sections because a short one left a row half empty. In it:
+#   drag    a tile onto another takes that one's place;
+#   pin     (one tile) keeps it in the very place it is: it cannot be dragged,
+#           nothing is dropped on it, and the free tiles move around it;
+#   lock    (the whole grid) nothing moves at all until it is unlocked;
+#   colour  click a tile's icon;
+#   theme   light or dark, the first time as Windows is set.
+# (Owner, 3 Oct 2026: „locked — all stay where they are; pinned — that one
+# does not change its place, the others in free mode change places".)
 #
 #   powershell -ExecutionPolicy Bypass -File scripts\mtb-launcher.ps1
 
@@ -57,7 +65,28 @@ $byName = @{}
 foreach ($a in $defaults) { $byName[$a.Name] = $a }
 if (-not $LayoutFile) { $LayoutFile = Join-Path $env:LOCALAPPDATA 'MTB\kontrolna-tabla.json' }
 
+$palette = @('#2F6FE4', '#1F5FD1', '#0C8CE9', '#0097A7', '#1E9E8B', '#2E9B4F', '#7CB342',
+             '#E0A21B', '#E0752D', '#D64545', '#D6457E', '#8E44AD', '#6B4FD8', '#5B6B82')
+
+$themes = @{
+    light = @{
+        Bg = @('#DCE8FB', '#ECE7FA', '#D3F0E4'); Card = '#EEFFFFFF'; Border = '#162F6FE4'
+        Title = '#1B2A4E'; Body = '#3B4663'; Small = '#7D88A3'; When = '#33405E'; Tint = 0.10
+        Pill = '#F2FFFFFF'; PillText = '#2B3655'; BtnBg = '#E6EEFC'; BtnBorder = '#C9D8F5'; BtnFg = '#2563D9'
+        Heading = '#2563D9'; Sub = '#56627F'; Footer = '#6A7590'; Icon = '#AAB3C5'; IconHover = '#E9EEF8'
+        Shadow = '#2A4A8F'; ShadowOp = 0.10; ShadowHover = 0.22; Popup = '#FFFFFF'; PopupBorder = '#D5DEEF'
+    }
+    dark = @{
+        Bg = @('#101624', '#181530', '#0E211D'); Card = '#F21C2438'; Border = '#2E3F62'
+        Title = '#EAF0FF'; Body = '#B9C4DE'; Small = '#8796B6'; When = '#DCE4F7'; Tint = 0.24
+        Pill = '#EE1C2438'; PillText = '#DCE4F7'; BtnBg = '#26355A'; BtnBorder = '#3A4C7C'; BtnFg = '#A9C4FF'
+        Heading = '#86AEFF'; Sub = '#A3AFCB'; Footer = '#8796B6'; Icon = '#66738F'; IconHover = '#2A3656'
+        Shadow = '#000000'; ShadowOp = 0.35; ShadowHover = 0.60; Popup = '#1C2438'; PopupBorder = '#33456A'
+    }
+}
+
 function Get-Brush([string] $Hex) { [Windows.Media.BrushConverter]::new().ConvertFromString($Hex) }
+function Get-Colour([string] $Hex) { [Windows.Media.ColorConverter]::ConvertFromString($Hex) }
 function Get-Thick([double] $L, [double] $T, [double] $R, [double] $B) { [Windows.Thickness]::new($L, $T, $R, $B) }
 
 function New-Text([string] $Text, [double] $Size, [string] $Colour, [string] $Weight = 'Normal') {
@@ -85,69 +114,239 @@ function Add-EnvValue([string] $Key, [string] $Value) {
     [IO.File]::AppendAllText($serverEnv, "$lead$Key=$Value`r`n", (New-Object Text.UTF8Encoding($false)))
 }
 
-# ── the layout: one order, per computer ─────────────────────────────────────
-function Read-Layout {
-    $savedOrder = @()
+# ── the layout ──────────────────────────────────────────────────────────────
+function Get-SystemTheme {
     try {
-        if (Test-Path -LiteralPath $LayoutFile) {
-            $j = Get-Content -LiteralPath $LayoutFile -Raw -Encoding UTF8 | ConvertFrom-Json
-            $savedOrder = @($j.order)
-        }
+        $v = Get-ItemPropertyValue 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize' -Name AppsUseLightTheme
+        if ($v -eq 0) { return 'dark' }
     } catch { }
+    return 'light'
+}
+
+function Read-Layout {
+    $j = $null
+    try { if (Test-Path -LiteralPath $LayoutFile) { $j = Get-Content -LiteralPath $LayoutFile -Raw -Encoding UTF8 | ConvertFrom-Json } } catch { }
+
     # What the file names, in its order; an action it does not know yet (added
     # since) goes in at its own place in the default list, not at the end.
     $order = New-Object Collections.ArrayList
-    foreach ($n in $savedOrder) { if ($byName.ContainsKey($n) -and -not $order.Contains($n)) { [void]$order.Add($n) } }
+    foreach ($n in @($j.order)) { if ($n -and $byName.ContainsKey($n) -and -not $order.Contains($n)) { [void]$order.Add($n) } }
     for ($i = 0; $i -lt $defaults.Count; $i++) {
         $n = $defaults[$i].Name
         if (-not $order.Contains($n)) { $order.Insert([Math]::Min($i, $order.Count), $n) }
     }
+    # pinned: tile → the place it holds. An older file kept a plain list here;
+    # that meant something else, and is dropped rather than misread.
+    $pinned = @{}
+    if ($j.pinned -is [Management.Automation.PSCustomObject]) {
+        foreach ($p in $j.pinned.PSObject.Properties) { if ($byName.ContainsKey($p.Name)) { $pinned[$p.Name] = [int]$p.Value } }
+    }
+    $colours = @{}
+    if ($j.colors) { foreach ($p in $j.colors.PSObject.Properties) { if ($byName.ContainsKey($p.Name) -and $p.Value -match '^#[0-9A-Fa-f]{6}$') { $colours[$p.Name] = [string]$p.Value } } }
+
     $script:order = $order
+    $script:pinned = $pinned
+    $script:gridLocked = ($j.locked -eq $true)
+    $script:colours = $colours
+    $script:theme = if ($j.theme -in @('light', 'dark')) { [string]$j.theme } else { Get-SystemTheme }
 }
 
 function Save-Layout {
     try {
         New-Item -ItemType Directory -Force -Path (Split-Path -Parent $LayoutFile) | Out-Null
-        @{ order = @($script:order) } | ConvertTo-Json | Set-Content -LiteralPath $LayoutFile -Encoding UTF8
+        @{ order = @($script:order); pinned = $script:pinned; locked = [bool]$script:gridLocked; colors = $script:colours; theme = $script:theme } |
+            ConvertTo-Json | Set-Content -LiteralPath $LayoutFile -Encoding UTF8
     } catch {
         $footer.Text = 'Распоредот не е зачуван: ' + $_.Exception.Message
     }
 }
 
-# Dropping $From on $To puts it where $To is, anywhere in the grid. The owner
-# (3 Oct 2026): no sections and no pins — one grid, three to a row, filled in
-# order, and the order is whatever the tiles were dragged into.
+# Where each tile is shown. A pinned tile holds its own place; every other
+# place is filled by the free tiles in order — so the grid stays three full
+# rows whatever is pinned.
+function Get-Places {
+    $count = $script:order.Count
+    $places = New-Object 'string[]' $count
+    foreach ($n in @($script:pinned.Keys | Sort-Object { $script:pinned[$_] })) {
+        $i = [Math]::Max(0, [Math]::Min([int]$script:pinned[$n], $count - 1))
+        while ($places[$i]) { $i = ($i + 1) % $count }
+        $places[$i] = $n
+    }
+    $free = @($script:order | Where-Object { -not $script:pinned.ContainsKey($_) })
+    $k = 0
+    for ($i = 0; $i -lt $count; $i++) { if (-not $places[$i]) { $places[$i] = $free[$k]; $k++ } }
+    return $places
+}
+
+function Update-Tiles { Save-Layout; Show-Tiles }
+
 function Move-Tile([string] $From, [string] $To) {
-    if ($From -eq $To) { return }
-    $wasBefore = $script:order.IndexOf($From) -lt $script:order.IndexOf($To)
+    if ($From -eq $To -or $script:gridLocked -or $script:pinned.ContainsKey($From)) { return }
+    if ($script:pinned.ContainsKey($To)) {
+        $footer.Text = '„' + $byName[$To].Title + '“ е закачена — нејзиното место не се зема.'
+        return
+    }
+    $places = @(Get-Places)
+    $wasBefore = [Array]::IndexOf($places, $From) -lt [Array]::IndexOf($places, $To)
     $script:order.Remove($From)
     $at = $script:order.IndexOf($To)
     if ($wasBefore) { $at++ }
     $script:order.Insert($at, $From)
+    Update-Tiles
+}
+
+function Switch-Pin([string] $Name) {
+    if ($script:gridLocked) { $footer.Text = 'Распоредот е заклучен — прво „Отклучи“.'; return }
+    $places = @(Get-Places)
+    $here = [Array]::IndexOf($places, $Name)
+    if ($script:pinned.ContainsKey($Name)) {
+        # Unpinned, it rejoins the free tiles where it stood: before the next
+        # free one, so nothing visibly jumps.
+        $script:pinned.Remove($Name)
+        $script:order.Remove($Name)
+        $next = @()
+        if ($here -lt $places.Count - 1) { $next = @($places[($here + 1)..($places.Count - 1)] | Where-Object { $_ -and -not $script:pinned.ContainsKey($_) } | Select-Object -First 1) }
+        if ($next.Count) { $script:order.Insert($script:order.IndexOf($next[0]), $Name) } else { [void]$script:order.Add($Name) }
+    } else {
+        $script:pinned[$Name] = $here
+    }
+    Update-Tiles
+}
+
+function Switch-GridLock {
+    $script:gridLocked = -not $script:gridLocked
     Save-Layout
-    Show-Tiles
+    $window.Dispatcher.BeginInvoke([Action]{ Show-Page; Update-Status }) | Out-Null
+}
+
+function Set-TileColour([string] $Name, [string] $Hex) {
+    if ($Hex) { $script:colours[$Name] = $Hex } else { $script:colours.Remove($Name) }
+    Update-Tiles
+}
+
+function Get-TileColour([hashtable] $A) { if ($script:colours.ContainsKey($A.Name)) { $script:colours[$A.Name] } else { $A.Color } }
+
+# ── small round buttons on a tile: pin, lock, and the icon that picks a colour
+# A click is handled here, so the tile under it does not run as well; what it
+# does is deferred, because the redraw replaces this very button.
+function Invoke-TileButton {
+    $b = $script:tileClick
+    switch ($b.Kind) {
+        'pin'    { Switch-Pin $b.Name }
+        'colour' { Show-Palette $b.Name $b.Element }
+    }
+}
+
+function New-TileButton([string] $Kind, [string] $Name, [int] $Glyph, [bool] $On, [string] $Colour, [string] $Tip) {
+    $T = $themes[$script:theme]
+    $b = New-Object Windows.Controls.Border
+    $b.Width = 28; $b.Height = 28
+    $b.Margin = Get-Thick 4 0 0 0
+    $b.CornerRadius = [Windows.CornerRadius]::new(14)
+    $b.VerticalAlignment = 'Top'
+    $b.Background = Get-Brush $(if ($On) { $Colour } else { '#00000000' })
+    $b.ToolTip = $Tip
+    $g = New-Text ([string][char]$Glyph) 13 $(if ($On) { '#FFFFFF' } else { $T.Icon })
+    $g.FontFamily = 'Segoe MDL2 Assets'
+    $g.HorizontalAlignment = 'Center'; $g.VerticalAlignment = 'Center'
+    $b.Child = $g
+    $b.Tag = @{ Kind = $Kind; Name = $Name; On = $On }
+    $b.add_MouseEnter({ param($s, $e) if (-not $s.Tag.On) { $s.Background = Get-Brush $themes[$script:theme].IconHover } })
+    $b.add_MouseLeave({ param($s, $e) if (-not $s.Tag.On) { $s.Background = Get-Brush '#00000000' } })
+    $b.add_MouseLeftButtonUp({
+        param($s, $e)
+        $e.Handled = $true
+        $script:tileClick = @{ Kind = $s.Tag.Kind; Name = $s.Tag.Name; Element = $s }
+        $window.Dispatcher.BeginInvoke([Action]{ Invoke-TileButton }) | Out-Null
+    })
+    return $b
+}
+
+# The colour palette: a row of swatches under the icon, and the tile's own colour.
+function Show-Palette([string] $Name, $Anchor) {
+    $T = $themes[$script:theme]
+    $pop = New-Object Windows.Controls.Primitives.Popup
+    $pop.PlacementTarget = $Anchor
+    $pop.Placement = 'Bottom'
+    $pop.StaysOpen = $false
+    $pop.AllowsTransparency = $true
+    $box = New-Object Windows.Controls.Border
+    $box.Background = Get-Brush $T.Popup
+    $box.BorderBrush = Get-Brush $T.PopupBorder
+    $box.BorderThickness = Get-Thick 1 1 1 1
+    $box.CornerRadius = [Windows.CornerRadius]::new(14)
+    $box.Padding = Get-Thick 12 10 12 10
+    $box.Margin = Get-Thick 0 6 8 8
+    $shadow = New-Object Windows.Media.Effects.DropShadowEffect
+    $shadow.BlurRadius = 16; $shadow.ShadowDepth = 2; $shadow.Opacity = 0.25
+    $box.Effect = $shadow
+    $col = New-Object Windows.Controls.StackPanel
+    $col.Children.Add((New-Text 'Боја на плочката' 12.5 $T.Small 'SemiBold')) | Out-Null
+    $grid = New-Object Windows.Controls.Primitives.UniformGrid
+    $grid.Columns = 7
+    $grid.Margin = Get-Thick 0 8 0 6
+    $current = Get-TileColour $byName[$Name]
+    foreach ($hex in $palette) {
+        $sw = New-Object Windows.Controls.Border
+        $sw.Width = 26; $sw.Height = 26
+        $sw.Margin = Get-Thick 3 3 3 3
+        $sw.CornerRadius = [Windows.CornerRadius]::new(13)
+        $sw.Background = Get-Brush $hex
+        $sw.Cursor = [Windows.Input.Cursors]::Hand
+        if ($hex -eq $current) { $sw.BorderBrush = Get-Brush $T.Title; $sw.BorderThickness = Get-Thick 2.5 2.5 2.5 2.5 }
+        $sw.Tag = @{ Name = $Name; Hex = $hex; Popup = $pop }
+        $sw.add_MouseLeftButtonUp({
+            param($s, $e)
+            $e.Handled = $true
+            $s.Tag.Popup.IsOpen = $false
+            $script:colourPick = $s.Tag
+            $window.Dispatcher.BeginInvoke([Action]{ Set-TileColour $script:colourPick.Name $script:colourPick.Hex }) | Out-Null
+        })
+        [void]$grid.Children.Add($sw)
+    }
+    [void]$col.Children.Add($grid)
+    $back = New-Text 'Почетна боја' 12.5 $T.BtnFg 'SemiBold'
+    $back.Cursor = [Windows.Input.Cursors]::Hand
+    $back.Tag = @{ Name = $Name; Hex = ''; Popup = $pop }
+    $back.add_MouseLeftButtonUp({
+        param($s, $e)
+        $e.Handled = $true
+        $s.Tag.Popup.IsOpen = $false
+        $script:colourPick = $s.Tag
+        $window.Dispatcher.BeginInvoke([Action]{ Set-TileColour $script:colourPick.Name $script:colourPick.Hex }) | Out-Null
+    })
+    [void]$col.Children.Add($back)
+    $box.Child = $col
+    $pop.Child = $box
+    $pop.IsOpen = $true
 }
 
 # ── one tile ────────────────────────────────────────────────────────────────
-$idleBorder = '#162F6FE4'
-
 function New-Tile([hashtable] $A) {
+    $T = $themes[$script:theme]
+    $colour = Get-TileColour $A
+    $isPinned = $script:pinned.ContainsKey($A.Name)
+    # Held in place: pinned, or the whole grid locked.
+    $isLocked = $isPinned -or $script:gridLocked
+
     $card = New-Object Windows.Controls.Border
     $card.Height = 272
     $card.Margin = Get-Thick 0 0 18 18
-    $card.Padding = Get-Thick 22 20 18 18
+    $card.Padding = Get-Thick 22 20 16 18
     $card.CornerRadius = [Windows.CornerRadius]::new(18)
-    $card.Background = Get-Brush '#EEFFFFFF'
-    $card.BorderBrush = Get-Brush $idleBorder
+    $card.Background = Get-Brush $T.Card
+    $card.BorderBrush = Get-Brush $T.Border
     $card.BorderThickness = Get-Thick 1.5 1.5 1.5 1.5
     $card.Cursor = [Windows.Input.Cursors]::Hand
-    $card.ToolTip = 'Клик: се пушта. Повлечи врз друга плочка: се преместува.'
+    $card.ToolTip = if ($script:gridLocked) { 'Клик: се пушта. Распоредот е заклучен.' }
+                    elseif ($isPinned) { 'Клик: се пушта. Закачена — останува на ова место.' }
+                    else { 'Клик: се пушта. Повлечи врз друга плочка: се преместува.' }
     $card.AllowDrop = $true
     $shadow = New-Object Windows.Media.Effects.DropShadowEffect
-    $shadow.BlurRadius = 22; $shadow.ShadowDepth = 3; $shadow.Opacity = 0.10
-    $shadow.Color = [Windows.Media.ColorConverter]::ConvertFromString('#2A4A8F')
+    $shadow.BlurRadius = 22; $shadow.ShadowDepth = 3; $shadow.Opacity = $T.ShadowOp
+    $shadow.Color = Get-Colour $T.Shadow
     $card.Effect = $shadow
-    $card.Tag = $A
+    $card.Tag = @{ Action = $A; Colour = $colour; Locked = $isLocked }
 
     $dock = New-Object Windows.Controls.DockPanel
     $dock.LastChildFill = $true
@@ -156,40 +355,47 @@ function New-Tile([hashtable] $A) {
     $when = New-Object Windows.Controls.Border
     $when.CornerRadius = [Windows.CornerRadius]::new(10)
     $when.Padding = Get-Thick 10 6 10 6
-    $when.Margin = Get-Thick 0 10 4 0
-    $tint = (Get-Brush $A.Color).Clone(); $tint.Opacity = 0.10
+    $when.Margin = Get-Thick 0 10 6 0
+    $tint = (Get-Brush $colour).Clone(); $tint.Opacity = $T.Tint
     $when.Background = $tint
-    $when.Child = New-Text ('Кога: ' + $A.When) 12.5 '#33405E' 'SemiBold'
+    $when.Child = New-Text ('Кога: ' + $A.When) 12.5 $T.When 'SemiBold'
     [Windows.Controls.DockPanel]::SetDock($when, 'Bottom')
     [void]$dock.Children.Add($when)
 
     $stack = New-Object Windows.Controls.StackPanel
     $head = New-Object Windows.Controls.DockPanel
 
-    # A grip in the corner says the tile can be dragged; it does nothing itself.
-    $grip = New-Text ([string][char]0xE700) 14 '#B4BCCD'
-    $grip.FontFamily = 'Segoe MDL2 Assets'
-    $grip.VerticalAlignment = 'Top'
-    $grip.Margin = Get-Thick 6 4 0 0
-    $grip.ToolTip = 'Повлечи врз друга плочка за да ја преместиш'
-    [Windows.Controls.DockPanel]::SetDock($grip, 'Right')
-    [void]$head.Children.Add($grip)
+    $tools = New-Object Windows.Controls.StackPanel
+    $tools.Orientation = 'Horizontal'
+    $tools.VerticalAlignment = 'Top'
+    [void]$tools.Children.Add((New-TileButton 'pin' $A.Name 0xE718 $isPinned $colour $(if ($isPinned) { 'Откачи: пак се мести слободно' } else { 'Закачи: останува на ова место, другите се местат околу неа' })))
+    [Windows.Controls.DockPanel]::SetDock($tools, 'Right')
+    [void]$head.Children.Add($tools)
 
+    # The icon is also where its colour is chosen.
     $chip = New-Object Windows.Controls.Border
     $chip.Width = 48; $chip.Height = 48
     $chip.CornerRadius = [Windows.CornerRadius]::new(14)
-    $chip.Background = Get-Brush $A.Color
+    $chip.Background = Get-Brush $colour
+    $chip.ToolTip = 'Клик: избери боја'
     $glyph = New-Text ([string][char]$A.Glyph) 21 '#FFFFFF'
     $glyph.FontFamily = 'Segoe MDL2 Assets'
     $glyph.HorizontalAlignment = 'Center'; $glyph.VerticalAlignment = 'Center'
     $chip.Child = $glyph
+    $chip.Tag = @{ Kind = 'colour'; Name = $A.Name }
+    $chip.add_MouseLeftButtonUp({
+        param($s, $e)
+        $e.Handled = $true
+        $script:tileClick = @{ Kind = 'colour'; Name = $s.Tag.Name; Element = $s }
+        $window.Dispatcher.BeginInvoke([Action]{ Invoke-TileButton }) | Out-Null
+    })
     [Windows.Controls.DockPanel]::SetDock($chip, 'Left')
     [void]$head.Children.Add($chip)
 
     $names = New-Object Windows.Controls.StackPanel
     $names.Margin = Get-Thick 14 1 4 0
     $names.VerticalAlignment = 'Center'
-    [void]$names.Children.Add((New-Text $A.Title 17.5 '#1B2A4E' 'Bold'))
+    [void]$names.Children.Add((New-Text $A.Title 17.5 $T.Title 'Bold'))
     if ($A.UrlKey) {
         $url = Get-EnvValue $A.UrlKey
         $where = if ($url -match '^https?://([^/]+)') { 'во прелистувач · ' + $Matches[1] } else { 'во прелистувач · адресата се внесува при прв клик' }
@@ -198,59 +404,63 @@ function New-Tile([hashtable] $A) {
     }
     # The section a tile used to sit in is now a word on it.
     $where += ' · ' + $groupWord[$A.Group]
-    [void]$names.Children.Add((New-Text $where 11.5 '#7D88A3'))
+    [void]$names.Children.Add((New-Text $where 11.5 $T.Small))
     [void]$head.Children.Add($names)
     [void]$stack.Children.Add($head)
 
-    $body = New-Text $A.Text 13.5 '#3B4663'
-    $body.Margin = Get-Thick 0 14 4 0
+    $body = New-Text $A.Text 13.5 $T.Body
+    $body.Margin = Get-Thick 0 14 6 0
     $body.LineHeight = 20
     [void]$stack.Children.Add($body)
     [void]$dock.Children.Add($stack)
     $card.Child = $dock
 
-    $card.add_MouseEnter({ param($s, $e) $s.BorderBrush = Get-Brush $s.Tag.Color; $s.Effect.Opacity = 0.22 })
-    $card.add_MouseLeave({ param($s, $e) $s.BorderBrush = Get-Brush $idleBorder; $s.Effect.Opacity = 0.10 })
+    $card.add_MouseEnter({ param($s, $e) $s.BorderBrush = Get-Brush $s.Tag.Colour; $s.Effect.Opacity = $themes[$script:theme].ShadowHover })
+    $card.add_MouseLeave({ param($s, $e) $s.BorderBrush = Get-Brush $themes[$script:theme].Border; $s.Effect.Opacity = $themes[$script:theme].ShadowOp })
 
-    # A click runs it; a press that moves more than a few pixels is a drag.
+    # A click runs it; a press that moves more than a few pixels is a drag —
+    # unless the tile is locked, which stays a click however the mouse moves.
     $card.add_PreviewMouseLeftButtonDown({
         param($s, $e)
         $script:pressAt = $e.GetPosition($window); $script:pressed = $s; $script:dragged = $false
     })
     $card.add_PreviewMouseMove({
         param($s, $e)
-        if ($e.LeftButton -ne 'Pressed' -or $script:pressed -ne $s -or $script:dragged) { return }
+        if ($e.LeftButton -ne 'Pressed' -or $script:pressed -ne $s -or $script:dragged -or $s.Tag.Locked) { return }
         $now = $e.GetPosition($window)
         if ([Math]::Abs($now.X - $script:pressAt.X) -lt 8 -and [Math]::Abs($now.Y - $script:pressAt.Y) -lt 8) { return }
         $script:dragged = $true
         $s.Opacity = 0.45
-        [void][Windows.DragDrop]::DoDragDrop($s, [Windows.DataObject]::new('mtb-tile', $s.Tag.Name), 'Move')
+        [void][Windows.DragDrop]::DoDragDrop($s, [Windows.DataObject]::new('mtb-tile', $s.Tag.Action.Name), 'Move')
         $s.Opacity = 1
         $script:pressed = $null
     })
     $card.add_MouseLeftButtonUp({
         param($s, $e)
-        if ($script:pressed -eq $s -and -not $script:dragged) { $script:pressed = $null; Start-Action $s.Tag }
+        if ($script:pressed -eq $s -and -not $script:dragged) { $script:pressed = $null; Start-Action $s.Tag.Action }
     })
-    $card.add_DragEnter({ param($s, $e) $s.BorderBrush = Get-Brush '#2563D9'; $s.BorderThickness = Get-Thick 3 3 3 3 })
-    $card.add_DragLeave({ param($s, $e) $s.BorderBrush = Get-Brush $idleBorder; $s.BorderThickness = Get-Thick 1.5 1.5 1.5 1.5 })
+    $card.add_DragOver({
+        param($s, $e)
+        $e.Effects = if ($s.Tag.Locked) { 'None' } else { 'Move' }
+        $e.Handled = $true
+    })
+    $card.add_DragEnter({
+        param($s, $e)
+        if ($s.Tag.Locked) { return }
+        $s.BorderBrush = Get-Brush $themes[$script:theme].Heading; $s.BorderThickness = Get-Thick 3 3 3 3
+    })
+    $card.add_DragLeave({ param($s, $e) $s.BorderBrush = Get-Brush $themes[$script:theme].Border; $s.BorderThickness = Get-Thick 1.5 1.5 1.5 1.5 })
     $card.add_Drop({
         param($s, $e)
         $e.Handled = $true
         $script:dropFrom = [string]$e.Data.GetData('mtb-tile')
-        $script:dropTo = $s.Tag.Name
+        $script:dropTo = $s.Tag.Action.Name
         # The redraw replaces every tile, this one too: it must not happen
         # inside the drag loop that still holds the dragged tile. Not a
         # GetNewClosure(): a closure no longer sees this script's functions.
         $window.Dispatcher.BeginInvoke([Action]{ Move-Tile $script:dropFrom $script:dropTo }) | Out-Null
     })
     return $card
-}
-
-# ── the tiles: one grid, three to a row, in this computer's order ──────────
-function Show-Tiles {
-    $tiles.Children.Clear()
-    foreach ($n in $script:order) { [void]$tiles.Children.Add((New-Tile $byName[$n])) }
 }
 
 # ── running one ─────────────────────────────────────────────────────────────
@@ -304,43 +514,52 @@ function Update-Status {
     }
 }
 
-function New-PillButton([string] $Text) {
-    $b = New-Object Windows.Controls.Button
-    $b.Content = $Text
-    $b.Padding = Get-Thick 12 4 12 4
-    $b.Margin = Get-Thick 0 0 4 0
-    $b.Background = Get-Brush '#E6EEFC'; $b.BorderBrush = Get-Brush '#C9D8F5'
-    $b.Foreground = Get-Brush '#2563D9'; $b.Cursor = [Windows.Input.Cursors]::Hand
+# ── the page: built again whole when the theme changes ─────────────────────
+function New-PillButton([string] $Text, [string] $Tip, [scriptblock] $OnClick) {
+    $T = $themes[$script:theme]
+    $b = New-Object Windows.Controls.Border
+    $b.CornerRadius = [Windows.CornerRadius]::new(14)
+    $b.Padding = Get-Thick 12 5 12 5
+    $b.Margin = Get-Thick 4 0 0 0
+    $b.Background = Get-Brush $T.BtnBg
+    $b.BorderBrush = Get-Brush $T.BtnBorder
+    $b.BorderThickness = Get-Thick 1 1 1 1
+    $b.Cursor = [Windows.Input.Cursors]::Hand
+    $b.ToolTip = $Tip
+    $b.Child = New-Text $Text 12.5 $T.BtnFg 'SemiBold'
+    $b.add_MouseLeftButtonUp($OnClick)
     return $b
 }
 
-try {
-    Read-Layout
+function Show-Tiles {
+    $tiles.Children.Clear()
+    foreach ($n in Get-Places) { [void]$tiles.Children.Add((New-Tile $byName[$n])) }
+}
 
-    $window = New-Object Windows.Window
-    $window.Title = 'MTB — Контролна табла'
-    $window.Width = 1140; $window.Height = [Math]::Min(940, [Windows.SystemParameters]::WorkArea.Height - 40)
-    $window.MinWidth = 1000; $window.MinHeight = 400
-    $window.WindowStartupLocation = 'CenterScreen'
-    $window.FontFamily = 'Segoe UI'
+function Show-Page {
+    $T = $themes[$script:theme]
     $bg = New-Object Windows.Media.LinearGradientBrush
     $bg.StartPoint = [Windows.Point]::new(0, 0); $bg.EndPoint = [Windows.Point]::new(1, 1)
-    foreach ($stop in @(@('#DCE8FB', 0), @('#ECE7FA', 0.55), @('#D3F0E4', 1))) {
-        $bg.GradientStops.Add([Windows.Media.GradientStop]::new([Windows.Media.ColorConverter]::ConvertFromString($stop[0]), $stop[1]))
-    }
+    $stops = $T.Bg
+    $bg.GradientStops.Add([Windows.Media.GradientStop]::new((Get-Colour $stops[0]), 0))
+    $bg.GradientStops.Add([Windows.Media.GradientStop]::new((Get-Colour $stops[1]), 0.55))
+    $bg.GradientStops.Add([Windows.Media.GradientStop]::new((Get-Colour $stops[2]), 1))
+    $window.Background = Get-Brush $stops[0]
 
     $scroll = New-Object Windows.Controls.ScrollViewer
     $scroll.VerticalScrollBarVisibility = 'Auto'
     $scroll.Background = $bg
     $page = New-Object Windows.Controls.StackPanel
     $page.Margin = Get-Thick 36 34 18 30
-    $page.MaxWidth = 1040
+    $page.MaxWidth = 1060
     $page.HorizontalAlignment = 'Center'
 
-    $heading = New-Text 'MTB — Контролна табла' 32 '#2563D9' 'Bold'
+    $heading = New-Text 'MTB — Контролна табла' 32 $T.Heading 'Bold'
     $heading.HorizontalAlignment = 'Center'
     [void]$page.Children.Add($heading)
-    $sub = New-Text 'Клик на плочка ја пушта. Повлечи ја врз друга за да ја преместиш — редоследот се памети на овој компјутер.' 14 '#56627F'
+    $subText = if ($script:gridLocked) { 'Распоредот е заклучен: плочките стојат каде што се. Клик на плочка ја пушта; клик на иконата: боја.' }
+               else { 'Клик на плочка ја пушта. Повлечи ја врз друга за да ја преместиш. Игла: плочката останува на своето место. Клик на иконата: боја.' }
+    $sub = New-Text $subText 14 $T.Sub
     $sub.HorizontalAlignment = 'Center'; $sub.TextAlignment = 'Center'
     $sub.Margin = Get-Thick 0 8 18 0
     [void]$page.Children.Add($sub)
@@ -348,49 +567,66 @@ try {
     # The status pill: one look before a click says which machine this is.
     $pill = New-Object Windows.Controls.Border
     $pill.CornerRadius = [Windows.CornerRadius]::new(20)
-    $pill.Background = Get-Brush '#F2FFFFFF'
+    $pill.Background = Get-Brush $T.Pill
     $pill.Padding = Get-Thick 16 8 8 8
     $pill.Margin = Get-Thick 0 18 18 8
     $pill.HorizontalAlignment = 'Center'
     $pillRow = New-Object Windows.Controls.StackPanel
     $pillRow.Orientation = 'Horizontal'
-    $dot = New-Object Windows.Shapes.Ellipse
+    $script:dot = New-Object Windows.Shapes.Ellipse
     $dot.Width = 11; $dot.Height = 11; $dot.VerticalAlignment = 'Center'
     $dot.Fill = Get-Brush '#9AA4B8'
     [void]$pillRow.Children.Add($dot)
-    $status = New-Text 'Проверувам го серверот…' 13.5 '#2B3655' 'SemiBold'
-    $status.Margin = Get-Thick 10 0 12 0; $status.VerticalAlignment = 'Center'
+    $script:status = New-Text 'Проверувам го серверот…' 13.5 $T.PillText 'SemiBold'
+    $status.Margin = Get-Thick 10 0 8 0; $status.VerticalAlignment = 'Center'
     [void]$pillRow.Children.Add($status)
-    $again = New-PillButton 'Освежи'
-    $again.add_Click({ Update-Status })
-    [void]$pillRow.Children.Add($again)
-    $reset = New-PillButton 'Почетен распоред'
-    $reset.ToolTip = 'Редоследот како што беше на почеток'
-    $reset.add_Click({
+    [void]$pillRow.Children.Add((New-PillButton 'Освежи' 'Провери го серверот пак' { Update-Status }))
+    $themeText = if ($script:theme -eq 'dark') { 'Светла тема' } else { 'Темна тема' }
+    [void]$pillRow.Children.Add((New-PillButton $themeText 'Светла или темна; се памети на овој компјутер' {
+        $script:theme = if ($script:theme -eq 'dark') { 'light' } else { 'dark' }
+        Save-Layout
+        $window.Dispatcher.BeginInvoke([Action]{ Show-Page; Update-Status }) | Out-Null
+    }))
+    $lockText = if ($script:gridLocked) { 'Отклучи распоред' } else { 'Заклучи распоред' }
+    [void]$pillRow.Children.Add((New-PillButton $lockText 'Заклучен: ниедна плочка не се мести' { Switch-GridLock }))
+    [void]$pillRow.Children.Add((New-PillButton 'Почетен распоред' 'Редоследот, иглите и боите како на почеток' {
+        if ($script:gridLocked) { $footer.Text = 'Распоредот е заклучен — прво „Отклучи“.'; return }
         $script:order = New-Object Collections.ArrayList
         foreach ($a in $defaults) { [void]$script:order.Add($a.Name) }
-        Save-Layout
-        Show-Tiles
+        $script:pinned = @{}
+        $script:colours = @{}
+        Update-Tiles
         $footer.Text = 'Распоредот е вратен на почетниот.'
-    })
-    [void]$pillRow.Children.Add($reset)
+    }))
     $pill.Child = $pillRow
     [void]$page.Children.Add($pill)
 
     # Three columns whatever the window's width (it cannot get narrower than
     # three tiles), so a row is full before the next one starts.
-    $tiles = New-Object Windows.Controls.Primitives.UniformGrid
+    $script:tiles = New-Object Windows.Controls.Primitives.UniformGrid
     $tiles.Columns = 3
     $tiles.Margin = Get-Thick 0 18 0 0
     [void]$page.Children.Add($tiles)
 
-    $footer = New-Text 'Описот е и во „PROCITAJ - sto pravi sekoja kratenka.txt“ во папката MTB.' 12.5 '#6A7590'
+    $script:footer = New-Text 'Описот е и во „PROCITAJ - sto pravi sekoja kratenka.txt“ во папката MTB.' 12.5 $T.Footer
     $footer.Margin = Get-Thick 2 12 18 0
     [void]$page.Children.Add($footer)
 
     Show-Tiles
     $scroll.Content = $page
     $window.Content = $scroll
+}
+
+try {
+    Read-Layout
+
+    $window = New-Object Windows.Window
+    $window.Title = 'MTB — Контролна табла'
+    $window.Width = 1160; $window.Height = [Math]::Min(940, [Windows.SystemParameters]::WorkArea.Height - 40)
+    $window.MinWidth = 1000; $window.MinHeight = 400
+    $window.WindowStartupLocation = 'CenterScreen'
+    $window.FontFamily = 'Segoe UI'
+    Show-Page
 
     # A started action changes what the pill should say (the day opened, the
     # server stopped); look again once it has had time to do it.
@@ -411,7 +647,7 @@ try {
             $window.Close()
         }
     })
-    if ($Snapshot) { $window.Height = 1800 }
+    if ($Snapshot) { $window.Height = 1300 }
     [void]$window.ShowDialog()
 } catch {
     [void][MtbLauncher.Native]::ShowWindow($console, 5)
