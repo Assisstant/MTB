@@ -174,13 +174,16 @@ function Use-Layout($j) {
     if ($j.cardColors) { foreach ($p in $j.cardColors.PSObject.Properties) { if ($byName.ContainsKey($p.Name) -and $p.Value -match '^(#[0-9A-Fa-f]{6}|none)$') { $cards[$p.Name] = [string]$p.Value } } }
     $script:cardColours = $cards
     $script:theme = if ($j.theme -in @('light', 'dark')) { [string]$j.theme } else { Get-SystemTheme }
+    # Open until somebody folds it: a first look should show what is there.
+    $script:controlsOpen = -not ($j.controlsOpen -eq $false)
 }
 
 function Get-LayoutJson {
     # kind/version mark an exported file, so an import can tell it from any other JSON.
     @{ kind = 'mtb-kontrolna-tabla'; version = 1
        order = @($script:order); pinned = $script:pinned; locked = [bool]$script:gridLocked
-       colors = $script:colours; cardColors = $script:cardColours; theme = $script:theme } | ConvertTo-Json
+       colors = $script:colours; cardColors = $script:cardColours; theme = $script:theme
+       controlsOpen = [bool]$script:controlsOpen } | ConvertTo-Json
 }
 
 # ── settings as a file the person keeps and carries (owner, 3 Oct 2026) ────
@@ -212,7 +215,7 @@ function Import-Layout {
         return
     }
     # Another kind of JSON, or one with none of the settings in it, changes nothing.
-    $known = @('order', 'pinned', 'locked', 'colors', 'cardColors', 'theme') | Where-Object { $j.PSObject.Properties.Name -contains $_ }
+    $known = @('order', 'pinned', 'locked', 'colors', 'cardColors', 'theme', 'controlsOpen') | Where-Object { $j.PSObject.Properties.Name -contains $_ }
     if (($j.kind -and $j.kind -ne 'mtb-kontrolna-tabla') -or -not $known.Count) {
         [void][Windows.MessageBox]::Show($window, 'Ова не се поставки на контролната табла. Ништо не е сменето.', 'MTB', 'OK', 'Warning')
         return
@@ -647,6 +650,19 @@ function New-PillButton([string] $Text, [string] $Tip, [scriptblock] $OnClick) {
     return $b
 }
 
+# Folding the controls only shows or hides them: nothing is rebuilt, so a
+# click there never redraws the tiles.
+function Set-ControlsShown {
+    $controls.Visibility = if ($script:controlsOpen) { 'Visible' } else { 'Collapsed' }
+    $barButton.Child.Text = if ($script:controlsOpen) { 'Скриј ▲' } else { 'Контроли ▼' }
+}
+
+function Switch-Controls {
+    $script:controlsOpen = -not $script:controlsOpen
+    Set-ControlsShown
+    Save-Layout
+}
+
 function Show-Tiles {
     $tiles.Children.Clear()
     foreach ($n in Get-Places) { [void]$tiles.Children.Add((New-Tile $byName[$n])) }
@@ -673,19 +689,14 @@ function Show-Page {
     $heading = New-Text 'MTB — Контролна табла' 32 $T.Heading 'Bold'
     $heading.HorizontalAlignment = 'Center'
     [void]$page.Children.Add($heading)
-    $subText = if ($script:gridLocked) { 'Распоредот е заклучен: плочките стојат каде што се. Клик на плочка ја пушта; клик на иконата: бои.' }
-               else { 'Клик на плочка ја пушта. Повлечи ја врз друга за да ја преместиш. Игла: плочката останува на своето место. Клик на иконата: боја на иконата и на картичката.' }
-    $sub = New-Text $subText 14 $T.Sub
-    $sub.HorizontalAlignment = 'Center'; $sub.TextAlignment = 'Center'
-    $sub.Margin = Get-Thick 0 8 18 0
-    [void]$page.Children.Add($sub)
-
-    # The status pill: one look before a click says which machine this is.
+    # The bar: what is always shown is the server's state and one button; the
+    # help and every control fold away under it, as in the apps (owner,
+    # 3 Oct 2026). Whether it is open is kept with the rest of the layout.
     $pill = New-Object Windows.Controls.Border
     $pill.CornerRadius = [Windows.CornerRadius]::new(20)
     $pill.Background = Get-Brush $T.Pill
-    $pill.Padding = Get-Thick 16 8 8 8
-    $pill.Margin = Get-Thick 0 18 18 8
+    $pill.Padding = Get-Thick 16 6 6 6
+    $pill.Margin = Get-Thick 0 16 18 0
     $pill.HorizontalAlignment = 'Center'
     $pillRow = New-Object Windows.Controls.StackPanel
     $pillRow.Orientation = 'Horizontal'
@@ -694,18 +705,35 @@ function Show-Page {
     $dot.Fill = Get-Brush '#9AA4B8'
     [void]$pillRow.Children.Add($dot)
     $script:status = New-Text 'Проверувам го серверот…' 13.5 $T.PillText 'SemiBold'
-    $status.Margin = Get-Thick 10 0 8 0; $status.VerticalAlignment = 'Center'
+    $status.Margin = Get-Thick 10 0 10 0; $status.VerticalAlignment = 'Center'
     [void]$pillRow.Children.Add($status)
-    [void]$pillRow.Children.Add((New-PillButton 'Освежи' 'Провери го серверот пак' { Update-Status }))
+    $script:barButton = New-PillButton '' 'Покажи или скриј ги контролите' { Switch-Controls }
+    [void]$pillRow.Children.Add($barButton)
+    $pill.Child = $pillRow
+    [void]$page.Children.Add($pill)
+
+    $script:controls = New-Object Windows.Controls.StackPanel
+    $controls.Margin = Get-Thick 0 10 18 0
+
+    $subText = if ($script:gridLocked) { 'Распоредот е заклучен: плочките стојат каде што се. Клик на плочка ја пушта; клик на иконата: бои.' }
+               else { 'Клик на плочка ја пушта. Повлечи ја врз друга за да ја преместиш. Игла: плочката останува на своето место. Клик на иконата: боја на иконата и на картичката.' }
+    $sub = New-Text $subText 13.5 $T.Sub
+    $sub.HorizontalAlignment = 'Center'; $sub.TextAlignment = 'Center'
+    [void]$controls.Children.Add($sub)
+
+    $buttons = New-Object Windows.Controls.WrapPanel
+    $buttons.HorizontalAlignment = 'Center'
+    $buttons.Margin = Get-Thick 0 10 0 0
+    [void]$buttons.Children.Add((New-PillButton 'Освежи' 'Провери го серверот пак' { Update-Status }))
     $themeText = if ($script:theme -eq 'dark') { 'Светла тема' } else { 'Темна тема' }
-    [void]$pillRow.Children.Add((New-PillButton $themeText 'Светла или темна; се памети на овој компјутер' {
+    [void]$buttons.Children.Add((New-PillButton $themeText 'Светла или темна; се памети на овој компјутер' {
         $script:theme = if ($script:theme -eq 'dark') { 'light' } else { 'dark' }
         Save-Layout
         $window.Dispatcher.BeginInvoke([Action]{ Show-Page; Update-Status }) | Out-Null
     }))
     $lockText = if ($script:gridLocked) { 'Отклучи распоред' } else { 'Заклучи распоред' }
-    [void]$pillRow.Children.Add((New-PillButton $lockText 'Заклучен: ниедна плочка не се мести' { Switch-GridLock }))
-    [void]$pillRow.Children.Add((New-PillButton 'Почетен распоред' 'Редоследот, иглите и боите како на почеток' {
+    [void]$buttons.Children.Add((New-PillButton $lockText 'Заклучен: ниедна плочка не се мести' { Switch-GridLock }))
+    [void]$buttons.Children.Add((New-PillButton 'Почетен распоред' 'Редоследот, иглите и боите како на почеток' {
         if ($script:gridLocked) { $footer.Text = 'Распоредот е заклучен — прво „Отклучи“.'; return }
         $script:order = New-Object Collections.ArrayList
         foreach ($a in $defaults) { [void]$script:order.Add($a.Name) }
@@ -715,21 +743,16 @@ function Show-Page {
         Update-Tiles
         $footer.Text = 'Распоредот е вратен на почетниот.'
     }))
-    $pill.Child = $pillRow
-    [void]$page.Children.Add($pill)
-
     # The settings as a file: kept and carried by hand, beside pCloud.
-    $fileRow = New-Object Windows.Controls.StackPanel
-    $fileRow.Orientation = 'Horizontal'
-    $fileRow.HorizontalAlignment = 'Center'
-    $fileRow.Margin = Get-Thick 0 2 18 0
-    [void]$fileRow.Children.Add((New-PillButton 'Извези поставки' 'Зачувај ги редоследот, иглите, боите и темата во JSON фајл' {
+    [void]$buttons.Children.Add((New-PillButton 'Извези поставки' 'Зачувај ги редоследот, иглите, боите и темата во JSON фајл' {
         $window.Dispatcher.BeginInvoke([Action]{ Export-Layout }) | Out-Null
     }))
-    [void]$fileRow.Children.Add((New-PillButton 'Увези поставки' 'Вчитај поставки од JSON фајл што си го извезол' {
+    [void]$buttons.Children.Add((New-PillButton 'Увези поставки' 'Вчитај поставки од JSON фајл што си го извезол' {
         $window.Dispatcher.BeginInvoke([Action]{ Import-Layout }) | Out-Null
     }))
-    [void]$page.Children.Add($fileRow)
+    [void]$controls.Children.Add($buttons)
+    [void]$page.Children.Add($controls)
+    Set-ControlsShown
 
     # Three columns whatever the window's width (it cannot get narrower than
     # three tiles), so a row is full before the next one starts.
