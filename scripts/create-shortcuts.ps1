@@ -60,11 +60,20 @@ if ($ManualSync) {
 # half-created set from an older run.
 $legacyNames = @('Сервер — Вклучи', 'Сервер — Исклучи', 'Сервер — Состојба', 'MTB Database - Manual Sync')
 
+# What each shortcut does, in words, beside them (owner, 3 Oct 2026). A .lnk
+# Description is a tooltip nobody hovers; a text file in the folder is read.
+# Its name is ASCII for the reason above; its text lives in the repository, so
+# both machines get the same one with the next pull.
+$guideSource = Join-Path $PSScriptRoot 'MTB-kratenki.txt'
+$guideName = 'PROCITAJ - sto pravi sekoja kratenka.txt'
+
 if ($Remove) {
     foreach ($n in (@($shortcuts | ForEach-Object { $_.Name }) + $legacyNames)) {
         $path = Join-Path $target ($n + '.lnk')
         if (Test-Path $path) { Remove-Item $path -Force; Write-Host "izbrishano: $n" }
     }
+    $guide = Join-Path $target $guideName
+    if ($Folder -and (Test-Path -LiteralPath $guide)) { Remove-Item -LiteralPath $guide -Force; Write-Host "izbrishano: $guideName" }
     exit 0
 }
 
@@ -93,6 +102,12 @@ foreach ($s in $shortcuts) {
         $loose = Join-Path $desktop ($s.Name + '.lnk')
         if (Test-Path -LiteralPath $loose) { Remove-Item -LiteralPath $loose -Force; Write-Host "premesteno vo papkata: $($s.Name)" }
     }
+}
+
+# Only into the folder: loose on the Desktop it would be one more icon there.
+if ($Folder -and (Test-Path -LiteralPath $guideSource)) {
+    Copy-Item -LiteralPath $guideSource -Destination (Join-Path $target $guideName) -Force
+    Write-Host "sozdadeno: $(Join-Path $target $guideName)" -ForegroundColor Green
 }
 
 Write-Host ''
