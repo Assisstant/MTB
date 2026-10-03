@@ -12,9 +12,9 @@
 # reports is where it always was. The actions and their words come from
 # mtb-actions.ps1 — the shortcuts and PROCITAJ read the same list.
 #
-# The order of the tiles and which are pinned to the top are this computer's
-# own layout (%LOCALAPPDATA%\MTB\kontrolna-tabla.json), never data: drag a
-# tile onto another to move it, the pin on a tile puts it under „Закачени".
+# The order of the tiles is this computer's own layout
+# (%LOCALAPPDATA%\MTB\kontrolna-tabla.json), never data: drag a tile onto
+# another to move it. One grid, three to a row — no sections, no pins.
 #
 #   powershell -ExecutionPolicy Bypass -File scripts\mtb-launcher.ps1
 
@@ -49,6 +49,8 @@ $console = [MtbLauncher.Native]::GetConsoleWindow()
 $root = Split-Path -Parent $PSScriptRoot
 $serverEnv = Join-Path $root 'server\.env'
 . (Join-Path $PSScriptRoot 'mtb-actions.ps1')
+$groupWord = @{}
+foreach ($g in Get-MtbActionGroups) { $groupWord[$g.Key] = $g.Word }
 
 $defaults = @(Get-MtbActions)
 $byName = @{}
@@ -83,13 +85,13 @@ function Add-EnvValue([string] $Key, [string] $Value) {
     [IO.File]::AppendAllText($serverEnv, "$lead$Key=$Value`r`n", (New-Object Text.UTF8Encoding($false)))
 }
 
-# ── the layout: an order and a set of pins, per computer ────────────────────
+# ── the layout: one order, per computer ─────────────────────────────────────
 function Read-Layout {
-    $savedOrder = @(); $savedPins = @()
+    $savedOrder = @()
     try {
         if (Test-Path -LiteralPath $LayoutFile) {
             $j = Get-Content -LiteralPath $LayoutFile -Raw -Encoding UTF8 | ConvertFrom-Json
-            $savedOrder = @($j.order); $savedPins = @($j.pinned)
+            $savedOrder = @($j.order)
         }
     } catch { }
     # What the file names, in its order; an action it does not know yet (added
@@ -100,41 +102,23 @@ function Read-Layout {
         $n = $defaults[$i].Name
         if (-not $order.Contains($n)) { $order.Insert([Math]::Min($i, $order.Count), $n) }
     }
-    $pins = New-Object Collections.ArrayList
-    foreach ($n in $savedPins) { if ($byName.ContainsKey($n) -and -not $pins.Contains($n)) { [void]$pins.Add($n) } }
     $script:order = $order
-    $script:pins = $pins
 }
 
 function Save-Layout {
     try {
         New-Item -ItemType Directory -Force -Path (Split-Path -Parent $LayoutFile) | Out-Null
-        @{ order = @($script:order); pinned = @($script:pins) } | ConvertTo-Json |
-            Set-Content -LiteralPath $LayoutFile -Encoding UTF8
+        @{ order = @($script:order) } | ConvertTo-Json | Set-Content -LiteralPath $LayoutFile -Encoding UTF8
     } catch {
         $footer.Text = 'Распоредот не е зачуван: ' + $_.Exception.Message
     }
 }
 
-function Switch-Pin([string] $Name) {
-    if ($script:pins.Contains($Name)) { $script:pins.Remove($Name) } else { [void]$script:pins.Add($Name) }
-    Save-Layout
-    Show-Tiles
-}
-
-# Dropping $From on $To puts it where $To is. Between „Закачени" and a section
-# that is a pin or an unpin; between two sections it is refused, because a
-# section says what kind of action it is and a move cannot change that.
+# Dropping $From on $To puts it where $To is, anywhere in the grid. The owner
+# (3 Oct 2026): no sections and no pins — one grid, three to a row, filled in
+# order, and the order is whatever the tiles were dragged into.
 function Move-Tile([string] $From, [string] $To) {
     if ($From -eq $To) { return }
-    $fromPinned = $script:pins.Contains($From)
-    $toPinned = $script:pins.Contains($To)
-    if (-not $toPinned -and $byName[$From].Group -ne $byName[$To].Group) {
-        $footer.Text = 'Плочката се мести во својот дел или меѓу „Закачени“ — не во друг дел.'
-        return
-    }
-    if ($toPinned -and -not $fromPinned) { [void]$script:pins.Add($From) }
-    if (-not $toPinned -and $fromPinned) { $script:pins.Remove($From) }
     $wasBefore = $script:order.IndexOf($From) -lt $script:order.IndexOf($To)
     $script:order.Remove($From)
     $at = $script:order.IndexOf($To)
@@ -148,9 +132,7 @@ function Move-Tile([string] $From, [string] $To) {
 $idleBorder = '#162F6FE4'
 
 function New-Tile([hashtable] $A) {
-    $pinned = $script:pins.Contains($A.Name)
     $card = New-Object Windows.Controls.Border
-    $card.Width = 322
     $card.Height = 272
     $card.Margin = Get-Thick 0 0 18 18
     $card.Padding = Get-Thick 22 20 18 18
@@ -184,24 +166,14 @@ function New-Tile([hashtable] $A) {
     $stack = New-Object Windows.Controls.StackPanel
     $head = New-Object Windows.Controls.DockPanel
 
-    # The pin: a Border, not a Button, so it carries no chrome of its own; it
-    # marks its click handled, so the tile under it does not run as well.
-    $pin = New-Object Windows.Controls.Border
-    $pin.Width = 30; $pin.Height = 30
-    $pin.CornerRadius = [Windows.CornerRadius]::new(15)
-    $pin.VerticalAlignment = 'Top'
-    $pin.Background = Get-Brush $(if ($pinned) { $A.Color } else { '#00FFFFFF' })
-    $pin.ToolTip = if ($pinned) { 'Откачи' } else { 'Закачи горе, под „Закачени“' }
-    $pinGlyph = New-Text ([string][char]0xE718) 14 $(if ($pinned) { '#FFFFFF' } else { '#9AA4B8' })
-    $pinGlyph.FontFamily = 'Segoe MDL2 Assets'
-    $pinGlyph.HorizontalAlignment = 'Center'; $pinGlyph.VerticalAlignment = 'Center'
-    $pin.Child = $pinGlyph
-    $pin.Tag = $A.Name
-    $pin.add_MouseEnter({ param($s, $e) if (-not $script:pins.Contains($s.Tag)) { $s.Background = Get-Brush '#E9EEF8' } })
-    $pin.add_MouseLeave({ param($s, $e) if (-not $script:pins.Contains($s.Tag)) { $s.Background = Get-Brush '#00FFFFFF' } })
-    $pin.add_MouseLeftButtonUp({ param($s, $e) $e.Handled = $true; $script:pinName = $s.Tag; $window.Dispatcher.BeginInvoke([Action]{ Switch-Pin $script:pinName }) | Out-Null })
-    [Windows.Controls.DockPanel]::SetDock($pin, 'Right')
-    [void]$head.Children.Add($pin)
+    # A grip in the corner says the tile can be dragged; it does nothing itself.
+    $grip = New-Text ([string][char]0xE700) 14 '#B4BCCD'
+    $grip.FontFamily = 'Segoe MDL2 Assets'
+    $grip.VerticalAlignment = 'Top'
+    $grip.Margin = Get-Thick 6 4 0 0
+    $grip.ToolTip = 'Повлечи врз друга плочка за да ја преместиш'
+    [Windows.Controls.DockPanel]::SetDock($grip, 'Right')
+    [void]$head.Children.Add($grip)
 
     $chip = New-Object Windows.Controls.Border
     $chip.Width = 48; $chip.Height = 48
@@ -224,6 +196,8 @@ function New-Tile([hashtable] $A) {
     } else {
         $where = 'кратенка: ' + $A.Name
     }
+    # The section a tile used to sit in is now a word on it.
+    $where += ' · ' + $groupWord[$A.Group]
     [void]$names.Children.Add((New-Text $where 11.5 '#7D88A3'))
     [void]$head.Children.Add($names)
     [void]$stack.Children.Add($head)
@@ -273,23 +247,10 @@ function New-Tile([hashtable] $A) {
     return $card
 }
 
-# ── the tiles, in sections ──────────────────────────────────────────────────
-function Add-Section([string] $Title, [string[]] $Names) {
-    if (-not $Names.Count) { return }
-    $gt = New-Text $Title.ToUpper() 13 '#5A6785' 'Bold'
-    $gt.Margin = Get-Thick 2 22 0 12
-    [void]$tiles.Children.Add($gt)
-    $wrap = New-Object Windows.Controls.WrapPanel
-    foreach ($n in $Names) { [void]$wrap.Children.Add((New-Tile $byName[$n])) }
-    [void]$tiles.Children.Add($wrap)
-}
-
+# ── the tiles: one grid, three to a row, in this computer's order ──────────
 function Show-Tiles {
     $tiles.Children.Clear()
-    Add-Section 'Закачени' @($script:order | Where-Object { $script:pins.Contains($_) })
-    foreach ($g in Get-MtbActionGroups) {
-        Add-Section $g.Title @($script:order | Where-Object { -not $script:pins.Contains($_) -and $byName[$_].Group -eq $g.Key })
-    }
+    foreach ($n in $script:order) { [void]$tiles.Children.Add((New-Tile $byName[$n])) }
 }
 
 # ── running one ─────────────────────────────────────────────────────────────
@@ -359,7 +320,7 @@ try {
     $window = New-Object Windows.Window
     $window.Title = 'MTB — Контролна табла'
     $window.Width = 1140; $window.Height = [Math]::Min(940, [Windows.SystemParameters]::WorkArea.Height - 40)
-    $window.MinWidth = 420; $window.MinHeight = 400
+    $window.MinWidth = 1000; $window.MinHeight = 400
     $window.WindowStartupLocation = 'CenterScreen'
     $window.FontFamily = 'Segoe UI'
     $bg = New-Object Windows.Media.LinearGradientBrush
@@ -379,7 +340,7 @@ try {
     $heading = New-Text 'MTB — Контролна табла' 32 '#2563D9' 'Bold'
     $heading.HorizontalAlignment = 'Center'
     [void]$page.Children.Add($heading)
-    $sub = New-Text 'Клик на плочка ја пушта. Повлечи ја врз друга за да ја преместиш; иглата ја закачува горе.' 14 '#56627F'
+    $sub = New-Text 'Клик на плочка ја пушта. Повлечи ја врз друга за да ја преместиш — редоследот се памети на овој компјутер.' 14 '#56627F'
     $sub.HorizontalAlignment = 'Center'; $sub.TextAlignment = 'Center'
     $sub.Margin = Get-Thick 0 8 18 0
     [void]$page.Children.Add($sub)
@@ -404,11 +365,10 @@ try {
     $again.add_Click({ Update-Status })
     [void]$pillRow.Children.Add($again)
     $reset = New-PillButton 'Почетен распоред'
-    $reset.ToolTip = 'Редоследот и закачените како што беа на почеток'
+    $reset.ToolTip = 'Редоследот како што беше на почеток'
     $reset.add_Click({
         $script:order = New-Object Collections.ArrayList
         foreach ($a in $defaults) { [void]$script:order.Add($a.Name) }
-        $script:pins = New-Object Collections.ArrayList
         Save-Layout
         Show-Tiles
         $footer.Text = 'Распоредот е вратен на почетниот.'
@@ -417,7 +377,11 @@ try {
     $pill.Child = $pillRow
     [void]$page.Children.Add($pill)
 
-    $tiles = New-Object Windows.Controls.StackPanel
+    # Three columns whatever the window's width (it cannot get narrower than
+    # three tiles), so a row is full before the next one starts.
+    $tiles = New-Object Windows.Controls.Primitives.UniformGrid
+    $tiles.Columns = 3
+    $tiles.Margin = Get-Thick 0 18 0 0
     [void]$page.Children.Add($tiles)
 
     $footer = New-Text 'Описот е и во „PROCITAJ - sto pravi sekoja kratenka.txt“ во папката MTB.' 12.5 '#6A7590'

@@ -18,9 +18,10 @@
 
 function Get-MtbActionGroups {
     @(
-        @{ Key = 'day';    Title = 'Секој ден, и по потреба' },
-        @{ Key = 'cloud';  Title = 'Облак (Supabase) — само сопственикот' },
-        @{ Key = 'repair'; Title = 'За поправки — прават само една работа' }
+        # Title heads a section of PROCITAJ; Word is the same on a tile, which has no sections.
+        @{ Key = 'day';    Title = 'Секој ден, и по потреба';              Word = 'секој ден' },
+        @{ Key = 'cloud';  Title = 'Облак (Supabase) — само сопственикот'; Word = 'облак, само сопственикот' },
+        @{ Key = 'repair'; Title = 'За поправки — прават само една работа'; Word = 'за поправки' }
     )
 }
 
