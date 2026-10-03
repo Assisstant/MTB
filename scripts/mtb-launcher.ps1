@@ -142,7 +142,13 @@ function Read-Layout {
     $from = @($LayoutFile, $sharedLayout) | Where-Object { $_ -and (Test-Path -LiteralPath $_) } |
         Sort-Object { (Get-Item -LiteralPath $_).LastWriteTimeUtc } -Descending | Select-Object -First 1
     try { if ($from) { $j = Get-Content -LiteralPath $from -Raw -Encoding UTF8 | ConvertFrom-Json } } catch { }
+    Use-Layout $j
+}
 
+# One reading of a layout, whether it comes from this computer, from pCloud or
+# from a file the person imports: what it does not know is left out, never
+# guessed, and what it lacks falls back to the defaults.
+function Use-Layout($j) {
     # What the file names, in its order; an action it does not know yet (added
     # since) goes in at its own place in the default list, not at the end.
     $order = New-Object Collections.ArrayList
@@ -170,11 +176,57 @@ function Read-Layout {
     $script:theme = if ($j.theme -in @('light', 'dark')) { [string]$j.theme } else { Get-SystemTheme }
 }
 
+function Get-LayoutJson {
+    # kind/version mark an exported file, so an import can tell it from any other JSON.
+    @{ kind = 'mtb-kontrolna-tabla'; version = 1
+       order = @($script:order); pinned = $script:pinned; locked = [bool]$script:gridLocked
+       colors = $script:colours; cardColors = $script:cardColours; theme = $script:theme } | ConvertTo-Json
+}
+
+# ── settings as a file the person keeps and carries (owner, 3 Oct 2026) ────
+function Export-Layout {
+    $dlg = New-Object Microsoft.Win32.SaveFileDialog
+    $dlg.Title = 'Извези ги поставките на контролната табла'
+    $dlg.Filter = 'Поставки (*.json)|*.json'
+    $dlg.FileName = 'MTB-kontrolna-tabla-' + (Get-Date -Format 'yyyy-MM-dd') + '.json'
+    $dlg.InitialDirectory = [Environment]::GetFolderPath('MyDocuments')
+    if (-not $dlg.ShowDialog($window)) { return }
+    try {
+        Set-Content -LiteralPath $dlg.FileName -Value (Get-LayoutJson) -Encoding UTF8
+        $footer.Text = 'Поставките се извезени во ' + $dlg.FileName
+    } catch {
+        $footer.Text = 'Не се извезени: ' + $_.Exception.Message
+    }
+}
+
+function Import-Layout {
+    $dlg = New-Object Microsoft.Win32.OpenFileDialog
+    $dlg.Title = 'Увези поставки на контролната табла'
+    $dlg.Filter = 'Поставки (*.json)|*.json'
+    $dlg.InitialDirectory = [Environment]::GetFolderPath('MyDocuments')
+    if (-not $dlg.ShowDialog($window)) { return }
+    try {
+        $j = Get-Content -LiteralPath $dlg.FileName -Raw -Encoding UTF8 | ConvertFrom-Json
+    } catch {
+        [void][Windows.MessageBox]::Show($window, 'Фајлот не е JSON што може да се прочита. Ништо не е сменето.', 'MTB', 'OK', 'Warning')
+        return
+    }
+    # Another kind of JSON, or one with none of the settings in it, changes nothing.
+    $known = @('order', 'pinned', 'locked', 'colors', 'cardColors', 'theme') | Where-Object { $j.PSObject.Properties.Name -contains $_ }
+    if (($j.kind -and $j.kind -ne 'mtb-kontrolna-tabla') -or -not $known.Count) {
+        [void][Windows.MessageBox]::Show($window, 'Ова не се поставки на контролната табла. Ништо не е сменето.', 'MTB', 'OK', 'Warning')
+        return
+    }
+    Use-Layout $j
+    Save-Layout
+    $footer.Text = 'Поставките се увезени од ' + $dlg.FileName
+    $window.Dispatcher.BeginInvoke([Action]{ Show-Page; Update-Status; $footer.Text = 'Поставките се увезени.' }) | Out-Null
+}
+
 function Save-Layout {
     try {
         New-Item -ItemType Directory -Force -Path (Split-Path -Parent $LayoutFile) | Out-Null
-        $json = @{ order = @($script:order); pinned = $script:pinned; locked = [bool]$script:gridLocked; colors = $script:colours; cardColors = $script:cardColours; theme = $script:theme } |
-            ConvertTo-Json
+        $json = Get-LayoutJson
         Set-Content -LiteralPath $LayoutFile -Value $json -Encoding UTF8
         # pCloud may be away (offline, not mounted): the local copy is then the
         # record, and the next save that reaches pCloud brings it level.
@@ -665,6 +717,19 @@ function Show-Page {
     }))
     $pill.Child = $pillRow
     [void]$page.Children.Add($pill)
+
+    # The settings as a file: kept and carried by hand, beside pCloud.
+    $fileRow = New-Object Windows.Controls.StackPanel
+    $fileRow.Orientation = 'Horizontal'
+    $fileRow.HorizontalAlignment = 'Center'
+    $fileRow.Margin = Get-Thick 0 2 18 0
+    [void]$fileRow.Children.Add((New-PillButton 'Извези поставки' 'Зачувај ги редоследот, иглите, боите и темата во JSON фајл' {
+        $window.Dispatcher.BeginInvoke([Action]{ Export-Layout }) | Out-Null
+    }))
+    [void]$fileRow.Children.Add((New-PillButton 'Увези поставки' 'Вчитај поставки од JSON фајл што си го извезол' {
+        $window.Dispatcher.BeginInvoke([Action]{ Import-Layout }) | Out-Null
+    }))
+    [void]$page.Children.Add($fileRow)
 
     # Three columns whatever the window's width (it cannot get narrower than
     # three tiles), so a row is full before the next one starts.
