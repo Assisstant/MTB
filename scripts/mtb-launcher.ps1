@@ -70,14 +70,14 @@ $palette = @('#2F6FE4', '#1F5FD1', '#0C8CE9', '#0097A7', '#1E9E8B', '#2E9B4F', '
 
 $themes = @{
     light = @{
-        Bg = @('#DCE8FB', '#ECE7FA', '#D3F0E4'); Card = '#EEFFFFFF'; Border = '#162F6FE4'
+        Bg = @('#DCE8FB', '#ECE7FA', '#D3F0E4'); Card = '#EEFFFFFF'; Border = '#162F6FE4'; CardBase = '#FFFFFF'; CardMix = 0.24
         Title = '#1B2A4E'; Body = '#3B4663'; Small = '#7D88A3'; When = '#33405E'; Tint = 0.10
         Pill = '#F2FFFFFF'; PillText = '#2B3655'; BtnBg = '#E6EEFC'; BtnBorder = '#C9D8F5'; BtnFg = '#2563D9'
         Heading = '#2563D9'; Sub = '#56627F'; Footer = '#6A7590'; Icon = '#AAB3C5'; IconHover = '#E9EEF8'
         Shadow = '#2A4A8F'; ShadowOp = 0.10; ShadowHover = 0.22; Popup = '#FFFFFF'; PopupBorder = '#D5DEEF'
     }
     dark = @{
-        Bg = @('#101624', '#181530', '#0E211D'); Card = '#F21C2438'; Border = '#2E3F62'
+        Bg = @('#101624', '#181530', '#0E211D'); Card = '#F21C2438'; Border = '#2E3F62'; CardBase = '#1C2438'; CardMix = 0.30
         Title = '#EAF0FF'; Body = '#B9C4DE'; Small = '#8796B6'; When = '#DCE4F7'; Tint = 0.24
         Pill = '#EE1C2438'; PillText = '#DCE4F7'; BtnBg = '#26355A'; BtnBorder = '#3A4C7C'; BtnFg = '#A9C4FF'
         Heading = '#86AEFF'; Sub = '#A3AFCB'; Footer = '#8796B6'; Icon = '#66738F'; IconHover = '#2A3656'
@@ -148,13 +148,16 @@ function Read-Layout {
     $script:pinned = $pinned
     $script:gridLocked = ($j.locked -eq $true)
     $script:colours = $colours
+    $cards = @{}
+    if ($j.cardColors) { foreach ($p in $j.cardColors.PSObject.Properties) { if ($byName.ContainsKey($p.Name) -and $p.Value -match '^#[0-9A-Fa-f]{6}$') { $cards[$p.Name] = [string]$p.Value } } }
+    $script:cardColours = $cards
     $script:theme = if ($j.theme -in @('light', 'dark')) { [string]$j.theme } else { Get-SystemTheme }
 }
 
 function Save-Layout {
     try {
         New-Item -ItemType Directory -Force -Path (Split-Path -Parent $LayoutFile) | Out-Null
-        @{ order = @($script:order); pinned = $script:pinned; locked = [bool]$script:gridLocked; colors = $script:colours; theme = $script:theme } |
+        @{ order = @($script:order); pinned = $script:pinned; locked = [bool]$script:gridLocked; colors = $script:colours; cardColors = $script:cardColours; theme = $script:theme } |
             ConvertTo-Json | Set-Content -LiteralPath $LayoutFile -Encoding UTF8
     } catch {
         $footer.Text = 'Распоредот не е зачуван: ' + $_.Exception.Message
@@ -219,12 +222,24 @@ function Switch-GridLock {
     $window.Dispatcher.BeginInvoke([Action]{ Show-Page; Update-Status }) | Out-Null
 }
 
-function Set-TileColour([string] $Name, [string] $Hex) {
-    if ($Hex) { $script:colours[$Name] = $Hex } else { $script:colours.Remove($Name) }
+function Set-TileColour([string] $Name, [string] $Hex, [string] $Target = 'icon') {
+    $map = if ($Target -eq 'card') { $script:cardColours } else { $script:colours }
+    if ($Hex) { $map[$Name] = $Hex } else { $map.Remove($Name) }
     Update-Tiles
 }
 
 function Get-TileColour([hashtable] $A) { if ($script:colours.ContainsKey($A.Name)) { $script:colours[$A.Name] } else { $A.Color } }
+function Get-CardColour([hashtable] $A) { if ($script:cardColours.ContainsKey($A.Name)) { $script:cardColours[$A.Name] } else { '' } }
+
+# A coloured card is the colour mixed into the theme's card, not the colour
+# itself: strong enough to tell nine apart at a glance, while the text on it
+# keeps the contrast it has on a plain card, in either theme.
+function Get-CardFill([string] $Hex) {
+    $T = $themes[$script:theme]
+    $c = Get-Colour $Hex; $b = Get-Colour $T.CardBase; $m = $T.CardMix
+    $mix = { param($x, $y) [byte][Math]::Round($y + ($x - $y) * $m) }
+    return '#{0:X2}{1:X2}{2:X2}' -f (& $mix $c.R $b.R), (& $mix $c.G $b.G), (& $mix $c.B $b.B)
+}
 
 # ── small round buttons on a tile: pin, lock, and the icon that picks a colour
 # A click is handled here, so the tile under it does not run as well; what it
@@ -262,7 +277,45 @@ function New-TileButton([string] $Kind, [string] $Name, [int] $Glyph, [bool] $On
     return $b
 }
 
-# The colour palette: a row of swatches under the icon, and the tile's own colour.
+# The palette: two rows under the icon — the icon's colour and the card's.
+# Separate on purpose (owner, 3 Oct 2026): the whole card coloured is what
+# tells nine tiles apart at a glance, and the two may be combined.
+function Add-PaletteRow($Column, $Popup, [string] $Name, [string] $Target, [string] $Title, [string] $Current, [string] $ResetText) {
+    $T = $themes[$script:theme]
+    $label = New-Text $Title 12.5 $T.Small 'SemiBold'
+    if ($Column.Children.Count) { $label.Margin = Get-Thick 0 10 0 0 }
+    [void]$Column.Children.Add($label)
+    $grid = New-Object Windows.Controls.Primitives.UniformGrid
+    $grid.Columns = 7
+    $grid.Margin = Get-Thick 0 6 0 4
+    foreach ($hex in $palette) {
+        $sw = New-Object Windows.Controls.Border
+        $sw.Width = 26; $sw.Height = 26
+        $sw.Margin = Get-Thick 3 3 3 3
+        $sw.CornerRadius = [Windows.CornerRadius]::new($(if ($Target -eq 'card') { 7 } else { 13 }))
+        # A card swatch shows the card as it would be, an icon swatch the icon.
+        $sw.Background = Get-Brush $(if ($Target -eq 'card') { Get-CardFill $hex } else { $hex })
+        $sw.BorderBrush = Get-Brush $(if ($hex -eq $Current) { $T.Title } else { $hex })
+        $sw.BorderThickness = $(if ($hex -eq $Current) { Get-Thick 2.5 2.5 2.5 2.5 } else { Get-Thick 1.5 1.5 1.5 1.5 })
+        $sw.Cursor = [Windows.Input.Cursors]::Hand
+        $sw.Tag = @{ Name = $Name; Hex = $hex; Target = $Target; Popup = $Popup }
+        $sw.add_MouseLeftButtonUp({ param($s, $e) $e.Handled = $true; Select-Swatch $s.Tag })
+        [void]$grid.Children.Add($sw)
+    }
+    [void]$Column.Children.Add($grid)
+    $back = New-Text $ResetText 12.5 $T.BtnFg 'SemiBold'
+    $back.Cursor = [Windows.Input.Cursors]::Hand
+    $back.Tag = @{ Name = $Name; Hex = ''; Target = $Target; Popup = $Popup }
+    $back.add_MouseLeftButtonUp({ param($s, $e) $e.Handled = $true; Select-Swatch $s.Tag })
+    [void]$Column.Children.Add($back)
+}
+
+function Select-Swatch([hashtable] $Pick) {
+    $Pick.Popup.IsOpen = $false
+    $script:colourPick = $Pick
+    $window.Dispatcher.BeginInvoke([Action]{ Set-TileColour $script:colourPick.Name $script:colourPick.Hex $script:colourPick.Target }) | Out-Null
+}
+
 function Show-Palette([string] $Name, $Anchor) {
     $T = $themes[$script:theme]
     $pop = New-Object Windows.Controls.Primitives.Popup
@@ -281,41 +334,8 @@ function Show-Palette([string] $Name, $Anchor) {
     $shadow.BlurRadius = 16; $shadow.ShadowDepth = 2; $shadow.Opacity = 0.25
     $box.Effect = $shadow
     $col = New-Object Windows.Controls.StackPanel
-    $col.Children.Add((New-Text 'Боја на плочката' 12.5 $T.Small 'SemiBold')) | Out-Null
-    $grid = New-Object Windows.Controls.Primitives.UniformGrid
-    $grid.Columns = 7
-    $grid.Margin = Get-Thick 0 8 0 6
-    $current = Get-TileColour $byName[$Name]
-    foreach ($hex in $palette) {
-        $sw = New-Object Windows.Controls.Border
-        $sw.Width = 26; $sw.Height = 26
-        $sw.Margin = Get-Thick 3 3 3 3
-        $sw.CornerRadius = [Windows.CornerRadius]::new(13)
-        $sw.Background = Get-Brush $hex
-        $sw.Cursor = [Windows.Input.Cursors]::Hand
-        if ($hex -eq $current) { $sw.BorderBrush = Get-Brush $T.Title; $sw.BorderThickness = Get-Thick 2.5 2.5 2.5 2.5 }
-        $sw.Tag = @{ Name = $Name; Hex = $hex; Popup = $pop }
-        $sw.add_MouseLeftButtonUp({
-            param($s, $e)
-            $e.Handled = $true
-            $s.Tag.Popup.IsOpen = $false
-            $script:colourPick = $s.Tag
-            $window.Dispatcher.BeginInvoke([Action]{ Set-TileColour $script:colourPick.Name $script:colourPick.Hex }) | Out-Null
-        })
-        [void]$grid.Children.Add($sw)
-    }
-    [void]$col.Children.Add($grid)
-    $back = New-Text 'Почетна боја' 12.5 $T.BtnFg 'SemiBold'
-    $back.Cursor = [Windows.Input.Cursors]::Hand
-    $back.Tag = @{ Name = $Name; Hex = ''; Popup = $pop }
-    $back.add_MouseLeftButtonUp({
-        param($s, $e)
-        $e.Handled = $true
-        $s.Tag.Popup.IsOpen = $false
-        $script:colourPick = $s.Tag
-        $window.Dispatcher.BeginInvoke([Action]{ Set-TileColour $script:colourPick.Name $script:colourPick.Hex }) | Out-Null
-    })
-    [void]$col.Children.Add($back)
+    Add-PaletteRow $col $pop $Name 'icon' 'Боја на иконата' (Get-TileColour $byName[$Name]) 'Почетна боја на иконата'
+    Add-PaletteRow $col $pop $Name 'card' 'Боја на картичката' (Get-CardColour $byName[$Name]) 'Картичка без боја'
     $box.Child = $col
     $pop.Child = $box
     $pop.IsOpen = $true
@@ -334,7 +354,8 @@ function New-Tile([hashtable] $A) {
     $card.Margin = Get-Thick 0 0 18 18
     $card.Padding = Get-Thick 22 20 16 18
     $card.CornerRadius = [Windows.CornerRadius]::new(18)
-    $card.Background = Get-Brush $T.Card
+    $cardColour = Get-CardColour $A
+    $card.Background = Get-Brush $(if ($cardColour) { Get-CardFill $cardColour } else { $T.Card })
     $card.BorderBrush = Get-Brush $T.Border
     $card.BorderThickness = Get-Thick 1.5 1.5 1.5 1.5
     $card.Cursor = [Windows.Input.Cursors]::Hand
@@ -557,8 +578,8 @@ function Show-Page {
     $heading = New-Text 'MTB — Контролна табла' 32 $T.Heading 'Bold'
     $heading.HorizontalAlignment = 'Center'
     [void]$page.Children.Add($heading)
-    $subText = if ($script:gridLocked) { 'Распоредот е заклучен: плочките стојат каде што се. Клик на плочка ја пушта; клик на иконата: боја.' }
-               else { 'Клик на плочка ја пушта. Повлечи ја врз друга за да ја преместиш. Игла: плочката останува на своето место. Клик на иконата: боја.' }
+    $subText = if ($script:gridLocked) { 'Распоредот е заклучен: плочките стојат каде што се. Клик на плочка ја пушта; клик на иконата: бои.' }
+               else { 'Клик на плочка ја пушта. Повлечи ја врз друга за да ја преместиш. Игла: плочката останува на своето место. Клик на иконата: боја на иконата и на картичката.' }
     $sub = New-Text $subText 14 $T.Sub
     $sub.HorizontalAlignment = 'Center'; $sub.TextAlignment = 'Center'
     $sub.Margin = Get-Thick 0 8 18 0
@@ -595,6 +616,7 @@ function Show-Page {
         foreach ($a in $defaults) { [void]$script:order.Add($a.Name) }
         $script:pinned = @{}
         $script:colours = @{}
+        $script:cardColours = @{}
         Update-Tiles
         $footer.Text = 'Распоредот е вратен на почетниот.'
     }))
