@@ -13,6 +13,8 @@
 #   Glyph/Color  the tile's icon (Segoe MDL2 Assets, present on Windows 10 and 11)
 #   Title/Text/When   what a person reads on the tile and in PROCITAJ
 #   Confirm      asked before the tile runs it; the shortcut itself never asks
+#   UrlKey       instead of Script: a page, its address read from that key in
+#                server\.env. Such an action is a tile and a PROCITAJ entry, no .lnk
 
 function Get-MtbActionGroups {
     @(
@@ -24,6 +26,14 @@ function Get-MtbActionGroups {
 
 function Get-MtbActions {
     @(
+        # Daily work is written in the cloud (23 Sep 2026), so it comes first. A
+        # tile only, no .lnk: it opens the browser, not a script. Its address is
+        # MTB_CLOUD_URL in server\.env — the cloud's address is not written in
+        # this public repository — and the tile asks for it once if it is not there.
+        @{ Group = 'day'; Name = 'Oblak - rabotna povrshina'; UrlKey = 'MTB_CLOUD_URL'; Glyph = 0xE774; Color = '#1F5FD1'
+           Title = 'Облак — работен простор'
+           Text = 'Го отвора MTB работниот простор во облакот (Render), во прелистувачот. Таму се работи секој ден; локалната база е резервен режим кога нема Интернет.'
+           When = 'Секој ден, за работа.' },
         @{ Group = 'day'; Name = 'MTB'; Script = 'mtb.ps1'; Args = ''; Icon = 'shell32.dll,44'
            Description = 'MTB - open the day'; Glyph = 0xE80F; Color = '#2F6FE4'
            Title = 'Отвори го денот'

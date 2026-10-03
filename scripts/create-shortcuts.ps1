@@ -38,7 +38,7 @@ $target = if ($Folder) { Join-Path $desktop $Folder } else { $desktop }
 # the way.
 . (Join-Path $PSScriptRoot 'mtb-actions.ps1')
 $actions = @(Get-MtbActions)
-$shortcuts = @(@(Get-MtbLauncherShortcut) + $actions | ForEach-Object {
+$shortcuts = @(@(Get-MtbLauncherShortcut) + @($actions | Where-Object { $_.Script }) | ForEach-Object {
     $s = $_.Clone()
     $s.Script = Join-Path $PSScriptRoot $s.Script
     $s
@@ -110,7 +110,8 @@ if ($Folder) {
     foreach ($g in Get-MtbActionGroups) {
         $text += $nl + $nl + $g.Title.ToUpper() + $nl + ('-' * $g.Title.Length) + $nl
         foreach ($a in @($actions | Where-Object { $_.Group -eq $g.Key })) {
-            $text += $nl + $a.Name + '  —  ' + $a.Title + $nl + '    ' + $a.Text + $nl + '    Кога: ' + $a.When + $nl
+            $label = if ($a.Script) { $a.Name } else { 'Kontrolna tabla' }
+            $text += $nl + $label + '  —  ' + $a.Title + $nl + '    ' + $a.Text + $nl + '    Кога: ' + $a.When + $nl
         }
     }
     $text += $nl + $nl + 'Ако некоја кратенка исчезне — „MTB“ ги враќа.' + $nl

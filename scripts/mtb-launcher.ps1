@@ -12,12 +12,18 @@
 # reports is where it always was. The actions and their words come from
 # mtb-actions.ps1 — the shortcuts and PROCITAJ read the same list.
 #
+# The order of the tiles and which are pinned to the top are this computer's
+# own layout (%LOCALAPPDATA%\MTB\kontrolna-tabla.json), never data: drag a
+# tile onto another to move it, the pin on a tile puts it under „Закачени".
+#
 #   powershell -ExecutionPolicy Bypass -File scripts\mtb-launcher.ps1
 
 param(
     [int] $Port = 3000,
     # Render the window to a PNG and close: how its look is checked without a click.
-    [string] $Snapshot = ''
+    [string] $Snapshot = '',
+    # Another layout file, so a check never touches the person's own.
+    [string] $LayoutFile = ''
 )
 
 $ErrorActionPreference = 'Stop'
@@ -41,7 +47,13 @@ $console = [MtbLauncher.Native]::GetConsoleWindow()
 [void][MtbLauncher.Native]::ShowWindow($console, 0)
 
 $root = Split-Path -Parent $PSScriptRoot
+$serverEnv = Join-Path $root 'server\.env'
 . (Join-Path $PSScriptRoot 'mtb-actions.ps1')
+
+$defaults = @(Get-MtbActions)
+$byName = @{}
+foreach ($a in $defaults) { $byName[$a.Name] = $a }
+if (-not $LayoutFile) { $LayoutFile = Join-Path $env:LOCALAPPDATA 'MTB\kontrolna-tabla.json' }
 
 function Get-Brush([string] $Hex) { [Windows.Media.BrushConverter]::new().ConvertFromString($Hex) }
 function Get-Thick([double] $L, [double] $T, [double] $R, [double] $B) { [Windows.Thickness]::new($L, $T, $R, $B) }
@@ -56,19 +68,99 @@ function New-Text([string] $Text, [double] $Size, [string] $Colour, [string] $We
     return $t
 }
 
+# ── server\.env: the one place a page's address is kept ─────────────────────
+function Get-EnvValue([string] $Key) {
+    if (-not (Test-Path -LiteralPath $serverEnv)) { return '' }
+    $line = Get-Content -LiteralPath $serverEnv -Encoding UTF8 | Where-Object { $_ -match "^\s*$Key\s*=" } | Select-Object -First 1
+    if (-not $line) { return '' }
+    return ($line -replace "^\s*$Key\s*=\s*", '').Trim().Trim('"')
+}
+
+function Add-EnvValue([string] $Key, [string] $Value) {
+    $text = if (Test-Path -LiteralPath $serverEnv) { [IO.File]::ReadAllText($serverEnv) } else { '' }
+    $lead = if ($text -and -not $text.EndsWith("`n")) { "`r`n" } else { '' }
+    # No BOM: dotenv reads the file, and a BOM in the middle of it is a character.
+    [IO.File]::AppendAllText($serverEnv, "$lead$Key=$Value`r`n", (New-Object Text.UTF8Encoding($false)))
+}
+
+# ── the layout: an order and a set of pins, per computer ────────────────────
+function Read-Layout {
+    $savedOrder = @(); $savedPins = @()
+    try {
+        if (Test-Path -LiteralPath $LayoutFile) {
+            $j = Get-Content -LiteralPath $LayoutFile -Raw -Encoding UTF8 | ConvertFrom-Json
+            $savedOrder = @($j.order); $savedPins = @($j.pinned)
+        }
+    } catch { }
+    # What the file names, in its order; an action it does not know yet (added
+    # since) goes in at its own place in the default list, not at the end.
+    $order = New-Object Collections.ArrayList
+    foreach ($n in $savedOrder) { if ($byName.ContainsKey($n) -and -not $order.Contains($n)) { [void]$order.Add($n) } }
+    for ($i = 0; $i -lt $defaults.Count; $i++) {
+        $n = $defaults[$i].Name
+        if (-not $order.Contains($n)) { $order.Insert([Math]::Min($i, $order.Count), $n) }
+    }
+    $pins = New-Object Collections.ArrayList
+    foreach ($n in $savedPins) { if ($byName.ContainsKey($n) -and -not $pins.Contains($n)) { [void]$pins.Add($n) } }
+    $script:order = $order
+    $script:pins = $pins
+}
+
+function Save-Layout {
+    try {
+        New-Item -ItemType Directory -Force -Path (Split-Path -Parent $LayoutFile) | Out-Null
+        @{ order = @($script:order); pinned = @($script:pins) } | ConvertTo-Json |
+            Set-Content -LiteralPath $LayoutFile -Encoding UTF8
+    } catch {
+        $footer.Text = 'Распоредот не е зачуван: ' + $_.Exception.Message
+    }
+}
+
+function Switch-Pin([string] $Name) {
+    if ($script:pins.Contains($Name)) { $script:pins.Remove($Name) } else { [void]$script:pins.Add($Name) }
+    Save-Layout
+    Show-Tiles
+}
+
+# Dropping $From on $To puts it where $To is. Between „Закачени" and a section
+# that is a pin or an unpin; between two sections it is refused, because a
+# section says what kind of action it is and a move cannot change that.
+function Move-Tile([string] $From, [string] $To) {
+    if ($From -eq $To) { return }
+    $fromPinned = $script:pins.Contains($From)
+    $toPinned = $script:pins.Contains($To)
+    if (-not $toPinned -and $byName[$From].Group -ne $byName[$To].Group) {
+        $footer.Text = 'Плочката се мести во својот дел или меѓу „Закачени“ — не во друг дел.'
+        return
+    }
+    if ($toPinned -and -not $fromPinned) { [void]$script:pins.Add($From) }
+    if (-not $toPinned -and $fromPinned) { $script:pins.Remove($From) }
+    $wasBefore = $script:order.IndexOf($From) -lt $script:order.IndexOf($To)
+    $script:order.Remove($From)
+    $at = $script:order.IndexOf($To)
+    if ($wasBefore) { $at++ }
+    $script:order.Insert($at, $From)
+    Save-Layout
+    Show-Tiles
+}
+
 # ── one tile ────────────────────────────────────────────────────────────────
+$idleBorder = '#162F6FE4'
+
 function New-Tile([hashtable] $A) {
+    $pinned = $script:pins.Contains($A.Name)
     $card = New-Object Windows.Controls.Border
     $card.Width = 322
     $card.Height = 272
     $card.Margin = Get-Thick 0 0 18 18
-    $card.Padding = Get-Thick 22 20 22 18
+    $card.Padding = Get-Thick 22 20 18 18
     $card.CornerRadius = [Windows.CornerRadius]::new(18)
     $card.Background = Get-Brush '#EEFFFFFF'
-    $card.BorderBrush = Get-Brush '#162F6FE4'
+    $card.BorderBrush = Get-Brush $idleBorder
     $card.BorderThickness = Get-Thick 1.5 1.5 1.5 1.5
     $card.Cursor = [Windows.Input.Cursors]::Hand
-    $card.ToolTip = 'Кликни за да се пушти „' + $A.Name + '“'
+    $card.ToolTip = 'Клик: се пушта. Повлечи врз друга плочка: се преместува.'
+    $card.AllowDrop = $true
     $shadow = New-Object Windows.Media.Effects.DropShadowEffect
     $shadow.BlurRadius = 22; $shadow.ShadowDepth = 3; $shadow.Opacity = 0.10
     $shadow.Color = [Windows.Media.ColorConverter]::ConvertFromString('#2A4A8F')
@@ -82,17 +174,34 @@ function New-Tile([hashtable] $A) {
     $when = New-Object Windows.Controls.Border
     $when.CornerRadius = [Windows.CornerRadius]::new(10)
     $when.Padding = Get-Thick 10 6 10 6
-    $when.Margin = Get-Thick 0 10 0 0
+    $when.Margin = Get-Thick 0 10 4 0
     $tint = (Get-Brush $A.Color).Clone(); $tint.Opacity = 0.10
     $when.Background = $tint
-    $whenText = New-Text ('Кога: ' + $A.When) 12.5 '#33405E' 'SemiBold'
-    $when.Child = $whenText
+    $when.Child = New-Text ('Кога: ' + $A.When) 12.5 '#33405E' 'SemiBold'
     [Windows.Controls.DockPanel]::SetDock($when, 'Bottom')
     [void]$dock.Children.Add($when)
 
     $stack = New-Object Windows.Controls.StackPanel
-    $head = New-Object Windows.Controls.StackPanel
-    $head.Orientation = 'Horizontal'
+    $head = New-Object Windows.Controls.DockPanel
+
+    # The pin: a Border, not a Button, so it carries no chrome of its own; it
+    # marks its click handled, so the tile under it does not run as well.
+    $pin = New-Object Windows.Controls.Border
+    $pin.Width = 30; $pin.Height = 30
+    $pin.CornerRadius = [Windows.CornerRadius]::new(15)
+    $pin.VerticalAlignment = 'Top'
+    $pin.Background = Get-Brush $(if ($pinned) { $A.Color } else { '#00FFFFFF' })
+    $pin.ToolTip = if ($pinned) { 'Откачи' } else { 'Закачи горе, под „Закачени“' }
+    $pinGlyph = New-Text ([string][char]0xE718) 14 $(if ($pinned) { '#FFFFFF' } else { '#9AA4B8' })
+    $pinGlyph.FontFamily = 'Segoe MDL2 Assets'
+    $pinGlyph.HorizontalAlignment = 'Center'; $pinGlyph.VerticalAlignment = 'Center'
+    $pin.Child = $pinGlyph
+    $pin.Tag = $A.Name
+    $pin.add_MouseEnter({ param($s, $e) if (-not $script:pins.Contains($s.Tag)) { $s.Background = Get-Brush '#E9EEF8' } })
+    $pin.add_MouseLeave({ param($s, $e) if (-not $script:pins.Contains($s.Tag)) { $s.Background = Get-Brush '#00FFFFFF' } })
+    $pin.add_MouseLeftButtonUp({ param($s, $e) $e.Handled = $true; $script:pinName = $s.Tag; $window.Dispatcher.BeginInvoke([Action]{ Switch-Pin $script:pinName }) | Out-Null })
+    [Windows.Controls.DockPanel]::SetDock($pin, 'Right')
+    [void]$head.Children.Add($pin)
 
     $chip = New-Object Windows.Controls.Border
     $chip.Width = 48; $chip.Height = 48
@@ -102,49 +211,117 @@ function New-Tile([hashtable] $A) {
     $glyph.FontFamily = 'Segoe MDL2 Assets'
     $glyph.HorizontalAlignment = 'Center'; $glyph.VerticalAlignment = 'Center'
     $chip.Child = $glyph
+    [Windows.Controls.DockPanel]::SetDock($chip, 'Left')
     [void]$head.Children.Add($chip)
 
     $names = New-Object Windows.Controls.StackPanel
-    $names.Margin = Get-Thick 14 1 0 0
+    $names.Margin = Get-Thick 14 1 4 0
     $names.VerticalAlignment = 'Center'
-    $title = New-Text $A.Title 17.5 '#1B2A4E' 'Bold'
-    $short = New-Text ('кратенка: ' + $A.Name) 11.5 '#7D88A3'
-    [void]$names.Children.Add($title)
-    [void]$names.Children.Add($short)
+    [void]$names.Children.Add((New-Text $A.Title 17.5 '#1B2A4E' 'Bold'))
+    if ($A.UrlKey) {
+        $url = Get-EnvValue $A.UrlKey
+        $where = if ($url -match '^https?://([^/]+)') { 'во прелистувач · ' + $Matches[1] } else { 'во прелистувач · адресата се внесува при прв клик' }
+    } else {
+        $where = 'кратенка: ' + $A.Name
+    }
+    [void]$names.Children.Add((New-Text $where 11.5 '#7D88A3'))
     [void]$head.Children.Add($names)
     [void]$stack.Children.Add($head)
 
     $body = New-Text $A.Text 13.5 '#3B4663'
-    $body.Margin = Get-Thick 0 14 0 0
+    $body.Margin = Get-Thick 0 14 4 0
     $body.LineHeight = 20
     [void]$stack.Children.Add($body)
     [void]$dock.Children.Add($stack)
     $card.Child = $dock
 
-    $card.add_MouseEnter({
+    $card.add_MouseEnter({ param($s, $e) $s.BorderBrush = Get-Brush $s.Tag.Color; $s.Effect.Opacity = 0.22 })
+    $card.add_MouseLeave({ param($s, $e) $s.BorderBrush = Get-Brush $idleBorder; $s.Effect.Opacity = 0.10 })
+
+    # A click runs it; a press that moves more than a few pixels is a drag.
+    $card.add_PreviewMouseLeftButtonDown({
         param($s, $e)
-        $s.BorderBrush = Get-Brush $s.Tag.Color
-        $s.Effect.Opacity = 0.22
+        $script:pressAt = $e.GetPosition($window); $script:pressed = $s; $script:dragged = $false
     })
-    $card.add_MouseLeave({
+    $card.add_PreviewMouseMove({
         param($s, $e)
-        $s.BorderBrush = Get-Brush '#162F6FE4'
-        $s.Effect.Opacity = 0.10
+        if ($e.LeftButton -ne 'Pressed' -or $script:pressed -ne $s -or $script:dragged) { return }
+        $now = $e.GetPosition($window)
+        if ([Math]::Abs($now.X - $script:pressAt.X) -lt 8 -and [Math]::Abs($now.Y - $script:pressAt.Y) -lt 8) { return }
+        $script:dragged = $true
+        $s.Opacity = 0.45
+        [void][Windows.DragDrop]::DoDragDrop($s, [Windows.DataObject]::new('mtb-tile', $s.Tag.Name), 'Move')
+        $s.Opacity = 1
+        $script:pressed = $null
     })
-    $card.add_MouseLeftButtonUp({ param($s, $e) Start-Action $s.Tag })
+    $card.add_MouseLeftButtonUp({
+        param($s, $e)
+        if ($script:pressed -eq $s -and -not $script:dragged) { $script:pressed = $null; Start-Action $s.Tag }
+    })
+    $card.add_DragEnter({ param($s, $e) $s.BorderBrush = Get-Brush '#2563D9'; $s.BorderThickness = Get-Thick 3 3 3 3 })
+    $card.add_DragLeave({ param($s, $e) $s.BorderBrush = Get-Brush $idleBorder; $s.BorderThickness = Get-Thick 1.5 1.5 1.5 1.5 })
+    $card.add_Drop({
+        param($s, $e)
+        $e.Handled = $true
+        $script:dropFrom = [string]$e.Data.GetData('mtb-tile')
+        $script:dropTo = $s.Tag.Name
+        # The redraw replaces every tile, this one too: it must not happen
+        # inside the drag loop that still holds the dragged tile. Not a
+        # GetNewClosure(): a closure no longer sees this script's functions.
+        $window.Dispatcher.BeginInvoke([Action]{ Move-Tile $script:dropFrom $script:dropTo }) | Out-Null
+    })
     return $card
 }
 
+# ── the tiles, in sections ──────────────────────────────────────────────────
+function Add-Section([string] $Title, [string[]] $Names) {
+    if (-not $Names.Count) { return }
+    $gt = New-Text $Title.ToUpper() 13 '#5A6785' 'Bold'
+    $gt.Margin = Get-Thick 2 22 0 12
+    [void]$tiles.Children.Add($gt)
+    $wrap = New-Object Windows.Controls.WrapPanel
+    foreach ($n in $Names) { [void]$wrap.Children.Add((New-Tile $byName[$n])) }
+    [void]$tiles.Children.Add($wrap)
+}
+
+function Show-Tiles {
+    $tiles.Children.Clear()
+    Add-Section 'Закачени' @($script:order | Where-Object { $script:pins.Contains($_) })
+    foreach ($g in Get-MtbActionGroups) {
+        Add-Section $g.Title @($script:order | Where-Object { -not $script:pins.Contains($_) -and $byName[$_].Group -eq $g.Key })
+    }
+}
+
 # ── running one ─────────────────────────────────────────────────────────────
+function Open-Page([hashtable] $A) {
+    $url = Get-EnvValue $A.UrlKey
+    if (-not $url) {
+        Add-Type -AssemblyName Microsoft.VisualBasic
+        $url = [Microsoft.VisualBasic.Interaction]::InputBox(
+            'Адресата на облачниот работен простор, на пример https://…/MTB-Workspace.html' + [Environment]::NewLine + [Environment]::NewLine +
+            'Се запишува во server\.env на овој компјутер (' + $A.UrlKey + '), не во репото.', 'MTB — ' + $A.Title, '').Trim()
+        if (-not $url) { return }
+        if ($url -notmatch '^https://[^/\s]+') {
+            [void][Windows.MessageBox]::Show($window, 'Тоа не е адреса што почнува со https:// — ништо не е запишано.', 'MTB', 'OK', 'Warning')
+            return
+        }
+        Add-EnvValue $A.UrlKey $url
+        Show-Tiles
+    }
+    Start-Process $url
+    $footer.Text = 'Отворено во прелистувачот: ' + $url
+}
+
 function Start-Action([hashtable] $A) {
     if ($A.Confirm) {
         $answer = [Windows.MessageBox]::Show($window, $A.Confirm, $A.Title, 'YesNo', 'Question')
         if ($answer -ne 'Yes') { return }
     }
-    $script = Join-Path $PSScriptRoot $A.Script
-    $argv = @('-ExecutionPolicy', 'Bypass', '-File', "`"$script`"")
-    if ($A.Args) { $argv += @($A.Args -split ' ' | Where-Object { $_ }) }
     try {
+        if ($A.UrlKey) { Open-Page $A; return }
+        $script = Join-Path $PSScriptRoot $A.Script
+        $argv = @('-ExecutionPolicy', 'Bypass', '-File', "`"$script`"")
+        if ($A.Args) { $argv += @($A.Args -split ' ' | Where-Object { $_ }) }
         Start-Process powershell.exe -ArgumentList $argv -WorkingDirectory $root
         $footer.Text = 'Пуштено: „' + $A.Title + '“ — во свој прозорец. Таму се гледа што прави и што прашува.'
         $refresh.Stop(); $refresh.Start()
@@ -159,14 +336,26 @@ function Update-Status {
         $h = Invoke-RestMethod -Uri "http://127.0.0.1:$Port/api/health" -TimeoutSec 2
         $label = if ($h.server.label) { $h.server.label } else { 'СЕРВЕР' }
         $dot.Fill = Get-Brush $(if ($h.ok) { '#2E9B4F' } else { '#E0A21B' })
-        $status.Text = "Серверот работи · $label · база $($h.database)"
+        $status.Text = "Локалниот сервер работи · $label · база $($h.database)"
     } catch {
         $dot.Fill = Get-Brush '#D64545'
-        $status.Text = 'Серверот не е вклучен — „Отвори го денот“ го вклучува.'
+        $status.Text = 'Локалниот сервер не е вклучен — „Отвори го денот“ го вклучува.'
     }
 }
 
+function New-PillButton([string] $Text) {
+    $b = New-Object Windows.Controls.Button
+    $b.Content = $Text
+    $b.Padding = Get-Thick 12 4 12 4
+    $b.Margin = Get-Thick 0 0 4 0
+    $b.Background = Get-Brush '#E6EEFC'; $b.BorderBrush = Get-Brush '#C9D8F5'
+    $b.Foreground = Get-Brush '#2563D9'; $b.Cursor = [Windows.Input.Cursors]::Hand
+    return $b
+}
+
 try {
+    Read-Layout
+
     $window = New-Object Windows.Window
     $window.Title = 'MTB — Контролна табла'
     $window.Width = 1140; $window.Height = [Math]::Min(940, [Windows.SystemParameters]::WorkArea.Height - 40)
@@ -190,7 +379,7 @@ try {
     $heading = New-Text 'MTB — Контролна табла' 32 '#2563D9' 'Bold'
     $heading.HorizontalAlignment = 'Center'
     [void]$page.Children.Add($heading)
-    $sub = New-Text 'Секоја плочка е една кратенка од папката MTB. Кликни за да ја пуштиш — се отвора во свој прозорец.' 14 '#56627F'
+    $sub = New-Text 'Клик на плочка ја пушта. Повлечи ја врз друга за да ја преместиш; иглата ја закачува горе.' 14 '#56627F'
     $sub.HorizontalAlignment = 'Center'; $sub.TextAlignment = 'Center'
     $sub.Margin = Get-Thick 0 8 18 0
     [void]$page.Children.Add($sub)
@@ -211,32 +400,31 @@ try {
     $status = New-Text 'Проверувам го серверот…' 13.5 '#2B3655' 'SemiBold'
     $status.Margin = Get-Thick 10 0 12 0; $status.VerticalAlignment = 'Center'
     [void]$pillRow.Children.Add($status)
-    $again = New-Object Windows.Controls.Button
-    $again.Content = 'Освежи'
-    $again.Padding = Get-Thick 12 4 12 4
-    $again.Background = Get-Brush '#E6EEFC'; $again.BorderBrush = Get-Brush '#C9D8F5'
-    $again.Foreground = Get-Brush '#2563D9'; $again.Cursor = [Windows.Input.Cursors]::Hand
+    $again = New-PillButton 'Освежи'
     $again.add_Click({ Update-Status })
     [void]$pillRow.Children.Add($again)
+    $reset = New-PillButton 'Почетен распоред'
+    $reset.ToolTip = 'Редоследот и закачените како што беа на почеток'
+    $reset.add_Click({
+        $script:order = New-Object Collections.ArrayList
+        foreach ($a in $defaults) { [void]$script:order.Add($a.Name) }
+        $script:pins = New-Object Collections.ArrayList
+        Save-Layout
+        Show-Tiles
+        $footer.Text = 'Распоредот е вратен на почетниот.'
+    })
+    [void]$pillRow.Children.Add($reset)
     $pill.Child = $pillRow
     [void]$page.Children.Add($pill)
 
-    $actions = @(Get-MtbActions)
-    foreach ($g in Get-MtbActionGroups) {
-        $members = @($actions | Where-Object { $_.Group -eq $g.Key })
-        if (-not $members.Count) { continue }
-        $gt = New-Text $g.Title.ToUpper() 13 '#5A6785' 'Bold'
-        $gt.Margin = Get-Thick 2 22 0 12
-        [void]$page.Children.Add($gt)
-        $wrap = New-Object Windows.Controls.WrapPanel
-        foreach ($a in $members) { [void]$wrap.Children.Add((New-Tile $a)) }
-        [void]$page.Children.Add($wrap)
-    }
+    $tiles = New-Object Windows.Controls.StackPanel
+    [void]$page.Children.Add($tiles)
 
-    $footer = New-Text 'Описот е и во „PROCITAJ - sto pravi sekoja kratenka.txt“ во истата папка.' 12.5 '#6A7590'
+    $footer = New-Text 'Описот е и во „PROCITAJ - sto pravi sekoja kratenka.txt“ во папката MTB.' 12.5 '#6A7590'
     $footer.Margin = Get-Thick 2 12 18 0
     [void]$page.Children.Add($footer)
 
+    Show-Tiles
     $scroll.Content = $page
     $window.Content = $scroll
 
@@ -259,7 +447,7 @@ try {
             $window.Close()
         }
     })
-    if ($Snapshot) { $window.Height = 1500 }
+    if ($Snapshot) { $window.Height = 1800 }
     [void]$window.ShowDialog()
 } catch {
     [void][MtbLauncher.Native]::ShowWindow($console, 5)
