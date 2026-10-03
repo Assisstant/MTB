@@ -1,8 +1,6 @@
-﻿# create-shortcuts.ps1 — three clickable shortcuts on the Desktop:
-#
-#   Сервер — Вклучи     starts it, waits until it really answers
-#   Сервер — Исклучи    stops it (task, supervisor and server, in that order)
-#   Сервер — Состојба   says whether it is running, and on which address
+﻿# create-shortcuts.ps1 — the MTB shortcuts on the Desktop, one per action in
+# mtb-actions.ps1, plus „MTB - Kontrolna tabla", which shows the same actions
+# as tiles, and (with -Folder) a PROCITAJ text saying what each one does.
 #
 #   powershell -ExecutionPolicy Bypass -File scripts\create-shortcuts.ps1
 #   ... -Remove     deletes them again
@@ -32,20 +30,19 @@ $target = if ($Folder) { Join-Path $desktop $Folder } else { $desktop }
 # Cyrillic one, so "Сервер — Вклучи" became "?????? — ??????" and Save() threw
 # FileNotFoundException. The shortcut's own text is what the user sees, so it
 # cannot be worked around with a Description; the file name must be safe.
-$shortcuts = @(
-    # The front door. It runs the start procedures, opens the apps itself, and
-    # stays open so there is something to close — see docs/PLAN-start-stop.md.
-    # The three server shortcuts below stay: they are the right tool when
-    # something is being debugged and a whole procedure is in the way.
-    @{ Name = 'MTB';                 Script = Join-Path $root 'scripts\mtb.ps1'; Args = ''; Icon = 'shell32.dll,44'; Description = 'MTB - open the day' },
-    @{ Name = 'MTB - Azuriraj';      Script = Join-Path $root 'scripts\mtb.ps1'; Args = '-Action update'; Icon = 'shell32.dll,238'; Description = 'MTB - pull the code, backup, migrations, restart' },
-    @{ Name = 'MTB - Oblak migracii'; Script = Join-Path $root 'scripts\cloud-migrate.ps1'; Args = ''; Icon = 'shell32.dll,13'; Description = 'MTB - cloud (Supabase): backup, then the pending migrations' },
-    @{ Name = 'MTB - Oblak chistenje'; Script = Join-Path $root 'scripts\cloud-cleanup.ps1'; Args = ''; Icon = 'shell32.dll,31'; Description = 'MTB - cloud (Supabase): archive the old recovery copies here, then remove them there' },
-    @{ Name = 'MTB - Zavrshi den';  Script = Join-Path $root 'scripts\mtb.ps1'; Args = '-Action stop'; Icon = 'shell32.dll,46'; Description = 'MTB - backup, publish to pCloud, stop the server' },
-    @{ Name = 'MTB Server - Start';  Script = $control; Args = 'start -Wait';  Icon = 'shell32.dll,137'; Description = 'Therapy server - start' },
-    @{ Name = 'MTB Server - Stop';   Script = $control; Args = 'stop -Wait';   Icon = 'shell32.dll,109'; Description = 'Therapy server - stop' },
-    @{ Name = 'MTB Server - Status'; Script = $control; Args = 'status -Wait'; Icon = 'shell32.dll,23';  Description = 'Therapy server - status' }
-)
+# The actions, their words and their commands are written once, in
+# mtb-actions.ps1, which the tiles of mtb-launcher.ps1 read too. The front
+# door („MTB") runs the start procedures and opens the apps itself — see
+# docs/PLAN-start-stop.md; the three server shortcuts stay because they are
+# the right tool when something is being debugged and a whole procedure is in
+# the way.
+. (Join-Path $PSScriptRoot 'mtb-actions.ps1')
+$actions = @(Get-MtbActions)
+$shortcuts = @(@(Get-MtbLauncherShortcut) + $actions | ForEach-Object {
+    $s = $_.Clone()
+    $s.Script = Join-Path $PSScriptRoot $s.Script
+    $s
+})
 if ($ManualSync) {
     $shortcuts += @{
         Name = 'MTB Database - Manual Sync'
@@ -62,9 +59,8 @@ $legacyNames = @('Сервер — Вклучи', 'Сервер — Исклуч
 
 # What each shortcut does, in words, beside them (owner, 3 Oct 2026). A .lnk
 # Description is a tooltip nobody hovers; a text file in the folder is read.
-# Its name is ASCII for the reason above; its text lives in the repository, so
-# both machines get the same one with the next pull.
-$guideSource = Join-Path $PSScriptRoot 'MTB-kratenki.txt'
+# Its name is ASCII for the reason above; its words are the tiles' words, from
+# mtb-actions.ps1, so the text and the tiles cannot come to disagree.
 $guideName = 'PROCITAJ - sto pravi sekoja kratenka.txt'
 
 if ($Remove) {
@@ -105,8 +101,22 @@ foreach ($s in $shortcuts) {
 }
 
 # Only into the folder: loose on the Desktop it would be one more icon there.
-if ($Folder -and (Test-Path -LiteralPath $guideSource)) {
-    Copy-Item -LiteralPath $guideSource -Destination (Join-Path $target $guideName) -Force
+if ($Folder) {
+    $nl = [Environment]::NewLine
+    $text = 'MTB — што прави секоја кратенка' + $nl + '================================' + $nl + $nl +
+            'Најлесно: „MTB - Kontrolna tabla“ — сите се таму како плочки, со истиот опис.' + $nl +
+            'Овој фајл се пишува сам при секое „MTB“ (од scripts\mtb-actions.ps1);' + $nl +
+            'промена направена тука ќе биде заменета.' + $nl
+    foreach ($g in Get-MtbActionGroups) {
+        $text += $nl + $nl + $g.Title.ToUpper() + $nl + ('-' * $g.Title.Length) + $nl
+        foreach ($a in @($actions | Where-Object { $_.Group -eq $g.Key })) {
+            $text += $nl + $a.Name + '  —  ' + $a.Title + $nl + '    ' + $a.Text + $nl + '    Кога: ' + $a.When + $nl
+        }
+    }
+    $text += $nl + $nl + 'Ако некоја кратенка исчезне — „MTB“ ги враќа.' + $nl
+    # UTF-8 with a BOM, which Windows PowerShell's UTF8 is: Notepad on any
+    # codepage then reads the Cyrillic as Cyrillic.
+    Set-Content -LiteralPath (Join-Path $target $guideName) -Value $text -Encoding UTF8 -NoNewline
     Write-Host "sozdadeno: $(Join-Path $target $guideName)" -ForegroundColor Green
 }
 
