@@ -212,7 +212,7 @@ try {
         console.log(`  ${year.label} ПО ВРАЌАЊЕ: ${describe(snap.lessons)}`);
 
         if (!apply) {
-            console.log('\n  Проба. Ништо не е запишано. Додади --apply за да се врати.\n');
+            console.log('\n  Проба. Ништо не е запишано. Додај --apply за да се врати.\n');
         } else {
             await client.query('BEGIN');
             const gone = await client.query('DELETE FROM lessons WHERE school_year_id = $1', [year.id]);

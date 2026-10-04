@@ -13,10 +13,10 @@
  *     shown in words and leaves the popup open;
  *   - a pupil is recognised by the bridge or by the diary number the database
  *     keeps, never by name: an unlinked pupil cannot be sent, and a pupil the
- *     diary does not have is not taken until „+ Додади"'s route puts them on
+ *     diary does not have is not taken until „+ Додај"'s route puts them on
  *     „Мои ученици";
  *   - every choice is on screen and names what changes, where and to whom
- *     (Додади / Тргни), and „тргни ги сите" empties Кабинети before the diary;
+ *     (Додај / Тргни), and „тргни ги сите" empties Кабинети before the diary;
  *   - an edit of an unlocked past week stays a record unless „Постојано" is
  *     chosen, and only then reaches the live plan and Кабинети.
  */
@@ -104,7 +104,7 @@ await context.route('**/*', async (route) => {
         if (url.pathname === '/api/schedule/sessions') return json({ year: roster.year, sessions });
         if (url.pathname === '/api/roster') return json(roster);
         if (url.pathname === '/api/health') return health ? json(health) : json({ error: 'down' }, 503);
-        // „+ Додади" on the therapist's list in the base (SdnCaseload.join).
+        // „+ Додај" on the therapist's list in the base (SdnCaseload.join).
         const joined = url.pathname.match(/^\/api\/therapists\/([^/]+)\/students\/([^/]+)$/);
         if (joined && req.method() === 'PUT') {
             const t = roster.therapists.find((x) => x.name === decodeURIComponent(joined[1]));
@@ -185,10 +185,10 @@ try {
         await page.$$eval('[data-plan-choice="4|0"] label', (o) => o.map((x) => x.textContent)),
         ['Остави засега — ништо не се менува',
          'Кабинети: тргни го Пробен Непознат (терминот останува празен)',
-         'Дневник: додади го Пробен Непознат — прво на списокот „Мои ученици“']);
+         'Дневник: додај го Пробен Непознат — прво на списокот „Мои ученици“']);
     checkEq('and the other way round',
         await page.$$eval('[data-plan-choice="3|2"] label', (o) => o.map((x) => x.textContent)),
-        ['Остави засега — ништо не се менува', 'Кабинети: тргни го Пробен Делта (терминот останува празен)', 'Дневник: додади го Пробен Делта']);
+        ['Остави засега — ништо не се менува', 'Кабинети: тргни го Пробен Делта (терминот останува празен)', 'Дневник: додај го Пробен Делта']);
     // PLAN_SHOTS=<folder> keeps a picture of the popup in both themes (invented people only).
     if (process.env.PLAN_SHOTS) {
         await page.screenshot({ path: path.join(process.env.PLAN_SHOTS, 'plan-sync-light.png') });
@@ -294,7 +294,7 @@ try {
     await choose('4|0', 'admit');
     await apply();
     await page.waitForFunction(() => !document.querySelector('[data-plan-row="4|0"]'));
-    checkEq('the pupil goes onto the list in the base through the same route as „+ Додади“', listWrites(),
+    checkEq('the pupil goes onto the list in the base through the same route as „+ Додај“', listWrites(),
         [`PUT /api/therapists/${encodeURIComponent(ME)}/students/p-x`]);
     const friday = await live('friday', 0);
     checkEq('and into the diary\'s term', await page.evaluate((ids) => ids.map((id) => window.getStudentById(id).name), friday), ['Пробен Непознат']);

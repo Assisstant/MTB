@@ -194,7 +194,7 @@ try {
     plan.problems.forEach((p) => console.log('\n  ⚠ ' + p));
 
     if (!apply) {
-        console.log('\n  Проба. Додади --apply за да се запише.\n');
+        console.log('\n  Проба. Додај --apply за да се запише.\n');
         await client.query('ROLLBACK');
         process.exit(0);
     }

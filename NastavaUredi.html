@@ -1383,7 +1383,7 @@
                 ? `<span class="hint">Раководител на ${esc(classShort(label))}.</span>`
                 : link
                     ? `<span class="hint">Запишан во ${esc(classShort(label))}.</span>`
-                      + (lessons.length ? '' : ` <button type="button" class="btn soft" id="asUnlink">Отстрани го од ${esc(classShort(label))}</button>`)
+                      + (lessons.length ? '' : ` <button type="button" class="btn soft" id="asUnlink">Тргни го од ${esc(classShort(label))}</button>`)
                     : `<button type="button" class="btn soft" id="asLink"><span class="ico" aria-hidden="true">🔗</span> Запиши го во ${esc(classShort(label))}</button>`;
 
         box.innerHTML = heading

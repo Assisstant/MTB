@@ -146,7 +146,7 @@ button:focus-visible, .window-titlebar:focus-visible, .resize-handle:focus-visib
     <div class="foot">
       <span class="msg" id="startGateMsg">Скенирам…</span>
       <button class="soft compact" id="startGateAgain">Скенирај повторно</button>
-      <a class="soft compact" href="start.html" style="text-decoration:none;display:inline-block">Измени адреси</a>
+      <a class="soft compact" href="start.html" style="text-decoration:none;display:inline-block">Уреди адреси</a>
     </div>
   </div>
 </div>
@@ -311,7 +311,7 @@ async function runStartGate(force){
   }
   if(!list.length){
     $('startGateList').innerHTML='';
-    $('startGateMsg').textContent='Нема запишани адреси. Отвори „Измени адреси".';
+    $('startGateMsg').textContent='Нема запишани адреси. Отвори „Уреди адреси".';
     showGate(true);return;
   }
   $('startGateList').innerHTML=list.map(b=>gateRow(b,'',"проверувам…")).join('');

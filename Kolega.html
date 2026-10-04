@@ -2662,7 +2662,7 @@ header.top h1 { flex: 1; min-width: 180px; }
         const subjects = mySubjects();
         const classes = myClasses();
         const head = `<div class="head"><b>📚 Мои предмети: ${subjects.length}${odd ? '' : ` · паралелки: ${classes.length}`}</b>`
-            + `<button type="button" class="small" data-lists-toggle aria-expanded="${lists.open}">${lists.open ? 'Затвори' : 'Измени'}</button></div>`;
+            + `<button type="button" class="small" data-lists-toggle aria-expanded="${lists.open}">${lists.open ? 'Затвори' : 'Уреди'}</button></div>`;
         if (!lists.open) { box.innerHTML = head; return; }
         if (lists.error) { box.innerHTML = head + `<p class="msg error">${esc(lists.error)}</p>`; return; }
         if (!lists.catalogue) { box.innerHTML = head + '<p class="muted">Вчитувам…</p>'; return; }
@@ -3044,7 +3044,7 @@ header.top h1 { flex: 1; min-width: 180px; }
         const box = el('caseload');
         const count = ((week && week.cabinet && week.cabinet.pupils) || []).length;
         const head = `<div class="head"><b>📋 Мои ученици: ${count}</b>`
-            + `<button type="button" class="small" data-caseload-toggle aria-expanded="${caseload.open}">${caseload.open ? 'Затвори ја листата' : 'Измени листа'}</button></div>`;
+            + `<button type="button" class="small" data-caseload-toggle aria-expanded="${caseload.open}">${caseload.open ? 'Затвори ја листата' : 'Уреди листа'}</button></div>`;
         if (!caseload.open) { box.innerHTML = head; return; }
         if (caseload.error) { box.innerHTML = head + `<p class="msg error">${esc(caseload.error)}</p>`; return; }
         if (!caseload.list) { box.innerHTML = head + '<p class="muted">Вчитувам…</p>'; return; }

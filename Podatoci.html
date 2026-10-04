@@ -1008,7 +1008,7 @@
             return 'Интерен и интернатски ученик мора да има одделение. Премести го во друго одделение '
                  + 'наместо да го оставиш без; ако навистина е надворешен, смени му го видот во „Ученици“.';
         }
-        if (body && body.inactiveThisYear) return 'Записот не е активен во оваа учебна година. Додади го од „Предлози од претходни години“.';
+        if (body && body.inactiveThisYear) return 'Записот не е активен во оваа учебна година. Додај го од „Предлози од претходни години“.';
         if (res && res.status === 409 && /renamed while you were editing/.test(raw)) {
             return 'Некој го преименува во меѓувреме. Освежи и погледни што стои сега.';
         }
@@ -1356,7 +1356,7 @@
         target.innerHTML = `<details${wasOpen ? ' open' : ''}><summary>`
             + `Предлози од претходни години (${candidates.length})</summary>`
             + '<div class="suggestion-tools"><label><input type="checkbox" data-select-all> Избери ги сите</label>'
-            + `<button class="btn" data-add-candidates>Додади избрани во ${esc(data.year)}</button></div>`
+            + `<button class="btn" data-add-candidates>Додај ги избраните во ${esc(data.year)}</button></div>`
             + `<div class="suggestion-list">${rows}</div></details>`;
 
         target.querySelector('[data-select-all]').addEventListener('change', (event) => {
@@ -3076,7 +3076,7 @@
                 + `<td>${esc(when2(a.lastLoginAt))}</td>`
                 + '<td class="act">'
                 + `<button class="btn soft" data-open-colleague="${a.employeeId}">Отвори го формуларот</button> `
-                + (a.readOnly ? `<button class="btn soft" data-remove-reader="${a.employeeId}" data-has-profile="${Boolean(a.teacher || a.therapist)}">Отстрани „Само преглед“</button> ` : '')
+                + (a.readOnly ? `<button class="btn soft" data-remove-reader="${a.employeeId}" data-has-profile="${Boolean(a.teacher || a.therapist)}">Тргни „Само преглед“</button> ` : '')
                 + (a.ownPassword ? `<button class="btn soft danger" data-reset-colleague="${a.employeeId}">Врати почетна лозинка</button>` : '')
                 + '</td></tr>').join('')
               + '</tbody></table>'
@@ -3155,7 +3155,7 @@
         if (removeReader) {
             const consequence = removeReader.dataset.hasProfile === 'true'
                 ? 'Ќе се врати редовното уредување на сопствениот распоред и список.' : 'Лицето веќе нема да може да се најави во Колега.';
-            if (!window.confirm('Да се отстрани „Само преглед“? ' + consequence)) return;
+            if (!window.confirm('Да се тргне „Само преглед“? ' + consequence)) return;
             removeReader.disabled = true;
             try { await grantReader(Number(removeReader.dataset.removeReader), false, true); }
             catch (err) { el('readerAccessMsg').textContent = err.message; removeReader.disabled = false; }

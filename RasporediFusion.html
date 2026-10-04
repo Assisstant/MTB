@@ -963,7 +963,7 @@
                 </div>
                 <span style="display:flex;gap:8px;flex-wrap:wrap;">
                     <button class="btn" id="caseloadRuleOrderBtn" type="button" title="Подготвителна, одделенска (I–V), предметна (VI–IX), па екстерни. Комбинирана паралелка оди со најмладото одделение.">↺ По правило</button>
-                    <button class="btn btn-primary" id="openCaseloadBtn" type="button"><span class="ico" aria-hidden="true">✓</span> Измени список на ученици</button>
+                    <button class="btn btn-primary" id="openCaseloadBtn" type="button"><span class="ico" aria-hidden="true">✓</span> Уреди список на ученици</button>
                 </span>
             </div>
             <p class="workflow-hint">Овде го избираш списокот од веќе запишаните ученици. Нов ученик додава администраторот во „Податоци“.</p>
@@ -3468,8 +3468,8 @@
         const body = error && error.body;
         if (body && body.doubleBooked) return 'Ученикот веќе е закажан кај ' + body.therapistName + ' во истиот термин.';
         if (body && body.therapistOccupied) return 'Кабинетот веќе има сесија што се преклопува со овој термин.';
-        if (body && body.blockOverlap) return 'Во часот има стар цел термин и половина во исто време. Исчисти ги означените записи поединечно.';
-        if (body && body.notInCaseload) return 'Ученикот не е во годишниот список на овој терапевт. Отвори „Ученици по терапевт“ → „Измени список на ученици“.';
+        if (body && body.blockOverlap) return 'Во часот има стар цел термин и половина во исто време. Испразни ги означените записи поединечно.';
+        if (body && body.notInCaseload) return 'Ученикот не е во годишниот список на овој терапевт. Отвори „Ученици по терапевт“ → „Уреди список на ученици“.';
         if (error && error.status === 409 && body && Object.prototype.hasOwnProperty.call(body, 'actualStudentPublicId')) {
             return 'Терминот бил сменет од друг уред. Прикажана е состојбата од базата.';
         }

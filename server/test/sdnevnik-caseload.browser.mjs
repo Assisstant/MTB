@@ -20,7 +20,7 @@
  *   - a child not on the list goes to former with its records, unless it is
  *     booked with this therapist in Кабинети — then it stays and is reported,
  *     with „Стави го на списокот";
- *   - „Додади", „Тргни" and the arrows write the database's list through the
+ *   - „Додај", „Тргни" and the arrows write the database's list through the
  *     same routes as Кабинети, and a refusal (a booked child) is shown and
  *     changes nothing;
  *   - an empty list, or a list with none of the diary's children (the wrong
@@ -284,7 +284,7 @@ try {
     check('„Не се исти" is remembered and not asked again', await page.evaluate(() => window.likelyDuplicates({}).length === 0)
         && (await ids()).includes(2008) && (await ids()).includes(2009));
 
-    // A pair the names do not give away is merged by hand, from „Измени".
+    // A pair the names do not give away is merged by hand, from „✏️ Уреди".
     await page.evaluate(() => window.editStudent(window.students.findIndex((s) => s.id === 2008)));
     await page.selectOption('#studentMergeWith', '2009');
     await page.evaluate(() => window.saveStudent());
@@ -323,14 +323,14 @@ try {
     checkEq('an arrow swaps the two in the diary', (await ids()).slice(0, 2), [order0[1], order0[0]]);
     checkEq('and in the base\'s list, in the same order', lists[ME].slice(0, 2), ['c-b', 'c-n']);
 
-    // „Додади" from the annual list: into the base's list first.
+    // „Додај" from the annual list: into the base's list first.
     await page.evaluate(() => window.showAddStudentModal());
     check('no hand-typed pupil while the diary follows the base', await page.$eval('#studentAddManualMode', (b) => getComputedStyle(b).display === 'none'));
-    check('and the picker says where „Додади" writes', await page.isVisible('#annualRosterFromBase'));
+    check('and the picker says where „Додај" writes', await page.isVisible('#annualRosterFromBase'));
     await page.evaluate(() => window.closeModal('addStudentModal'));
     await page.evaluate((row) => window.addStudentFromAnnualRoster(row), rows.find((r) => r.public_id === 'c-q'));
     await page.waitForFunction(() => window.students.some((s) => s.rasporediStudentId === 'c-q'));
-    check('„Додади" puts the child on the base\'s list, and the diary takes it from there', lists[ME].includes('c-q'));
+    check('„Додај" puts the child on the base\'s list, and the diary takes it from there', lists[ME].includes('c-q'));
 
     // The name and class of a pupil from the base are changed there.
     await page.evaluate(() => window.editStudent(0));

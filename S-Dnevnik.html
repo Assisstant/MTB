@@ -1927,7 +1927,7 @@
     <div class="content">
         <!-- Students Tab -->
         <div id="students" class="tab-content">
-            <button class="btn btn-primary btn-full" onclick="showAddStudentModal()">+ Додади од годишниот список</button>
+            <button class="btn btn-primary btn-full" onclick="showAddStudentModal()">+ Додај од годишниот список</button>
             
             <div id="studentListSimple" class="student-list-simple"></div>
             
@@ -2006,7 +2006,7 @@
             
             <!-- Useful Links Section -->
             <div style="margin-top: 30px; padding-top: 20px; border-top: 2px solid #e2e8f0;">
-                <button class="btn btn-success btn-full" onclick="showAddLinkModal()">+ Додади Линк</button>
+                <button class="btn btn-success btn-full" onclick="showAddLinkModal()">+ Додај линк</button>
                 <div id="linksList" style="margin-top: 20px;"></div>
             </div>
         </div>
@@ -2130,7 +2130,7 @@
                 <button class="btn btn-primary btn-full" onclick="showTemplateEditor(null)" style="margin-bottom:15px;">+ Нов шаблон</button>
                 <div id="procenkaTemplatesList"></div>
                 <div id="templateEditorPanel" style="display:none; margin-top:20px; background:#f7fafc; border:2px solid #667eea; border-radius:10px; padding:20px;">
-                    <h3 style="margin-bottom:15px;color:#2d3748;" id="templateEditorTitle">Измени шаблон</h3>
+                    <h3 style="margin-bottom:15px;color:#2d3748;" id="templateEditorTitle">Уреди шаблон</h3>
                     <div style="display:grid;grid-template-columns:1fr 1fr;gap:15px;margin-bottom:15px;">
                         <div class="form-group"><label>Име на шаблон:</label><input type="text" id="tmplName" placeholder="пр. Глув/Наглув - модифициран"></div>
                         <div class="form-group"><label>Категорија:</label>
@@ -2273,7 +2273,7 @@
     <!-- Add Student Modal -->
     <div id="addStudentModal" class="modal">
         <div class="modal-content student-modal-content">
-            <h2 style="margin-bottom: 15px;">Додади Ученик</h2>
+            <h2 style="margin-bottom: 15px;">Додај ученик</h2>
             <div id="studentAddMode" class="student-add-mode">
                 <button id="studentAddRosterMode" type="button" onclick="setStudentAddMode('roster')">Годишен список</button>
                 <button id="studentAddManualMode" type="button" onclick="setStudentAddMode('manual')">Рачен внес</button>
@@ -2286,7 +2286,7 @@
                 </div>
                 <div id="annualRosterSummary" class="annual-roster-summary"></div>
                 <div id="annualRosterFromBase" class="caseload-hint" style="display:none;">
-                    „Додади“ го става ученикот на вашиот список во базата — истиот што го гледате во Кабинети → „Ученици по терапевт“.
+                    „Додај“ го става ученикот на вашиот список во базата — истиот што го гледате во Кабинети → „Ученици по терапевт“.
                     Ученик што го нема на годишниот список го додава администраторот во „Податоци“.
                 </div>
                 <div id="annualRosterList" class="annual-roster-list"></div>
@@ -2368,7 +2368,7 @@
     <!-- Add Link Modal -->
     <div id="addLinkModal" class="modal">
         <div class="modal-content">
-            <h2 style="margin-bottom: 15px;">Додади Линк</h2>
+            <h2 style="margin-bottom: 15px;">Додај линк</h2>
             <div class="form-group">
                 <label>Име на Линк</label>
                 <input type="text" id="linkName" placeholder="пр. Документи">
@@ -2824,7 +2824,7 @@
                 action.type = 'button';
                 action.className = 'annual-roster-action';
                 action.disabled = activeIndex >= 0;
-                action.textContent = activeIndex >= 0 ? 'Додаден' : (formerIndex >= 0 ? 'Врати' : 'Додади');
+                action.textContent = activeIndex >= 0 ? 'Додаден' : (formerIndex >= 0 ? 'Врати' : 'Додај');
                 action.onclick = function () { addStudentFromAnnualRoster(row); };
                 line.appendChild(action);
                 list.appendChild(line);
@@ -2832,7 +2832,7 @@
         }
 
         function addStudentFromAnnualRoster(row) {
-            // Поврзан дневник: „Додади" го става ученикот на вашиот список во
+            // Поврзан дневник: „Додај" го става ученикот на вашиот список во
             // базата, а дневникот го зема оттаму — едно место за списокот.
             if (window.SdnCaseload && window.SdnCaseload.connected()) {
                 window.SdnCaseload.add(row);
@@ -2852,7 +2852,7 @@
 
         /**
          * Го става ученикот од годишниот список во „Мои ученици", без да
-         * зачувува и без да црта. Го користат и копчето „Додади" и „⬇ Земи од
+         * зачувува и без да црта. Го користат и копчето „Додај" и „⬇ Земи од
          * базата", кое додава повеќе ученици одеднаш и зачувува еднаш — една
          * копија на тоа како изгледа ученик додаден од базата, не две.
          *
@@ -2910,7 +2910,7 @@
             document.getElementById('studentAssessmentTemplate').innerHTML = '<option value="">-- Автоматски од тип --</option>';
             populateAssessmentTemplateDropdown('');
             document.getElementById('studentNeedsTrijazen').checked = false;
-            document.getElementById('addStudentModal').querySelector('h2').textContent = 'Додади ученик';
+            document.getElementById('addStudentModal').querySelector('h2').textContent = 'Додај ученик';
             document.getElementById('studentAddMode').style.display = '';
             // Поврзан дневник: нема рачен внес — дете што не е во базата не
             // може да биде на списокот, а следењето би го тргнало веднаш.
@@ -2941,7 +2941,7 @@
             var plan = plans[idx];
             document.getElementById('planName').value = plan.name;
             document.getElementById('planActivities').value = plan.activities.join('\n');
-            document.getElementById('addPlanModal').querySelector('h2').textContent = 'Измени План';
+            document.getElementById('addPlanModal').querySelector('h2').textContent = 'Уреди план';
             document.getElementById('addPlanModal').classList.add('active');
         }
         
@@ -3159,7 +3159,7 @@
                     '<p>План: ' + (plan ? plan.name : 'N/A') + ' | ' + sessionDisplay + '</p>' +
                     '</div>' +
                     '<div class="student-item-actions">' +
-                    '<button class="btn btn-primary" style="padding: 10px 20px; margin: 0;" onclick="editStudent(' + actualIndex + ')">Измени</button>' +
+                    '<button class="btn btn-primary" style="padding: 10px 20px; margin: 0;" onclick="editStudent(' + actualIndex + ')">✏️ Уреди</button>' +
                     '<button class="btn btn-danger" style="padding: 10px 20px; margin: 0;" onclick="deleteStudent(' + actualIndex + ')">Тргни</button>' +
                     '</div>';
                 list.appendChild(item);
@@ -3206,7 +3206,7 @@
             document.getElementById('studentDisabilityType').value = s.disabilityType || '';
             populateAssessmentTemplateDropdown(s.assessmentTemplateId || '');
             document.getElementById('studentNeedsTrijazen').checked = s.needsTrijazen || false;
-            document.getElementById('addStudentModal').querySelector('h2').textContent = 'Измени ученик';
+            document.getElementById('addStudentModal').querySelector('h2').textContent = 'Уреди ученик';
             document.getElementById('studentAddMode').style.display = 'none';
             lockStudentNameFields(!!(window.SdnCaseload && window.SdnCaseload.connected() && s.rasporediStudentId));
             var mergeWith = document.getElementById('studentMergeWith');
@@ -3671,7 +3671,7 @@
                 div.style.borderLeft = '4px solid #667eea';
                 div.innerHTML = '<h4 style="margin-bottom:12px;font-size:16px;" class="dk-text"><strong>' + p.name + '</strong> <span class="dk-sub" style="font-size:14px;">(' + p.activities.length + ' активности)</span></h4>' +
                     '<div style="display: flex; gap: 10px;">' +
-                    '<button class="btn btn-primary" onclick="editPlan(' + i + ')">Измени</button>' +
+                    '<button class="btn btn-primary" onclick="editPlan(' + i + ')">✏️ Уреди</button>' +
                     '<button class="btn" style="background: #f56565; color: white;" onclick="deletePlan(' + i + ')">Избриши</button>' +
                     '</div>';
                 container.appendChild(div);
@@ -3701,7 +3701,7 @@
                     '</div>' +
                     '<div style="display: flex; gap: 10px; margin-left: 15px; flex-shrink: 0;">' +
                     '<a href="' + link.url + '" target="_blank" rel="noopener noreferrer" class="btn btn-success" style="text-decoration: none;">Отвори</a>' +
-                    '<button class="btn btn-primary" onclick="editLink(' + i + ')">Измени</button>' +
+                    '<button class="btn btn-primary" onclick="editLink(' + i + ')">✏️ Уреди</button>' +
                     '<button class="btn" style="background: #f56565; color: white;" onclick="deleteLink(' + i + ')">Избриши</button>' +
                     '</div>';
                 container.appendChild(div);
@@ -3719,7 +3719,7 @@
             editingLink = null;
             document.getElementById('linkName').value = '';
             document.getElementById('linkUrl').value = '';
-            document.getElementById('addLinkModal').querySelector('h2').textContent = 'Додади Линк';
+            document.getElementById('addLinkModal').querySelector('h2').textContent = 'Додај линк';
             document.getElementById('addLinkModal').classList.add('active');
         }
         
@@ -3728,7 +3728,7 @@
             var link = links[idx];
             document.getElementById('linkName').value = link.name;
             document.getElementById('linkUrl').value = link.url;
-            document.getElementById('addLinkModal').querySelector('h2').textContent = 'Измени Линк';
+            document.getElementById('addLinkModal').querySelector('h2').textContent = 'Уреди линк';
             document.getElementById('addLinkModal').classList.add('active');
         }
         
@@ -4033,7 +4033,7 @@
          * пријавува, не се погодува.
          *
          * Ученик што го нема никаде во дневникот се додава од годишниот список,
-         * преку истиот `admitAnnualStudent` како копчето „Додади". Но ако некој
+         * преку истиот `admitAnnualStudent` како копчето „Додај". Но ако некој
          * во архивата или меѓу поранешните носи исто име, тоа можеби е истото
          * дете под друг број. Тогаш НЕ се додава: втора копија би ги поделила
          * присуството и досието на едно дете на двајца. Се пријавува за рачно.
@@ -6502,7 +6502,7 @@
         // ── Templates Editor ──
         function renderTemplatesList() { var container = document.getElementById('procenkaTemplatesList'); var html = ''; if (window.scaleTemplates.length === 0) { html = '<p style="text-align:center;color:#a0aec0;padding:20px;">Нема шаблони. Кликнете „+ Нов шаблон" или отворете го табот Проценка за автоматско додавање.</p>'; } else { for (var i = 0; i < window.scaleTemplates.length; i++) { var ct = window.scaleTemplates[i]; html += '<div style="background:#f0fff4;padding:14px;margin:8px 0;border-radius:8px;border-left:4px solid #48bb78;display:flex;justify-content:space-between;align-items:center;"><div><strong>' + ct.name + '</strong> <span style="color:#718096;font-size:13px;">(' + ct.indicators.length + ' показатели)</span></div><div style="display:flex;gap:6px;"><button class="btn btn-primary" style="padding:6px 14px;font-size:12px;" onclick="showTemplateEditor(\'' + ct.id + '\')">✏️</button><button class="btn" style="background:#e53e3e;color:white;padding:6px 14px;font-size:12px;" onclick="deleteTemplate(\'' + ct.id + '\')">🗑</button></div></div>'; } } container.innerHTML = html; }
         function duplicateDefaultTemplate(key) { var src = DEFAULT_SCALE_TEMPLATES[key]; _editingTemplateId = null; document.getElementById('tmplName').value = src.name + ' (копија)'; document.getElementById('tmplCategory').value = key; document.getElementById('templateEditorTitle').textContent = 'Нов шаблон (копија)'; renderIndicatorEditor(JSON.parse(JSON.stringify(src.indicators))); populatePickFromDropdown(); document.getElementById('templateEditorPanel').style.display = 'block'; document.getElementById('templateEditorPanel').scrollIntoView({ behavior: 'smooth' }); }
-        function showTemplateEditor(id) { var panel = document.getElementById('templateEditorPanel'); if (id) { _editingTemplateId = id; var tmpl = null; for (var i = 0; i < window.scaleTemplates.length; i++) { if (window.scaleTemplates[i].id === id) { tmpl = window.scaleTemplates[i]; break; } } if (!tmpl) return; document.getElementById('tmplName').value = tmpl.name; document.getElementById('tmplCategory').value = tmpl.category || 'custom'; document.getElementById('templateEditorTitle').textContent = 'Измени: ' + tmpl.name; renderIndicatorEditor(JSON.parse(JSON.stringify(tmpl.indicators))); } else { _editingTemplateId = null; document.getElementById('tmplName').value = ''; document.getElementById('tmplCategory').value = 'custom'; document.getElementById('templateEditorTitle').textContent = 'Нов шаблон'; renderIndicatorEditor([{ id: 'ind_' + Date.now(), label: '', levels: ['не покажува', 'со целосна помош', 'со делумна помош', 'самостојно', 'генерализира'] }]); } populatePickFromDropdown(); panel.style.display = 'block'; panel.scrollIntoView({ behavior: 'smooth' }); }
+        function showTemplateEditor(id) { var panel = document.getElementById('templateEditorPanel'); if (id) { _editingTemplateId = id; var tmpl = null; for (var i = 0; i < window.scaleTemplates.length; i++) { if (window.scaleTemplates[i].id === id) { tmpl = window.scaleTemplates[i]; break; } } if (!tmpl) return; document.getElementById('tmplName').value = tmpl.name; document.getElementById('tmplCategory').value = tmpl.category || 'custom'; document.getElementById('templateEditorTitle').textContent = 'Уреди: ' + tmpl.name; renderIndicatorEditor(JSON.parse(JSON.stringify(tmpl.indicators))); } else { _editingTemplateId = null; document.getElementById('tmplName').value = ''; document.getElementById('tmplCategory').value = 'custom'; document.getElementById('templateEditorTitle').textContent = 'Нов шаблон'; renderIndicatorEditor([{ id: 'ind_' + Date.now(), label: '', levels: ['не покажува', 'со целосна помош', 'со делумна помош', 'самостојно', 'генерализира'] }]); } populatePickFromDropdown(); panel.style.display = 'block'; panel.scrollIntoView({ behavior: 'smooth' }); }
         function hideTemplateEditor() { document.getElementById('templateEditorPanel').style.display = 'none'; _editingTemplateId = null; }
         var CAT_NAMES = { general: 'Општа', autism: 'Аутизам', deaf: 'Глувост', down: 'Даун', literacy: 'Писменост', slow: 'Споро учење', psychosocial: 'Психосоц.', custom: 'Прилагоден' };
 
@@ -10130,7 +10130,7 @@
                         // истото дејство не се повторува тука.
                         '<button class="btn btn-success" onclick="SdnV3.createBackup(\'manual\')">+ Направи backup</button>' +
                         '<button class="btn" style="background:#dd6b20;color:white;" onclick="SdnV2.validateCurrentData()">🔎 Провери структура</button>' +
-                        '<button class="btn btn-danger" onclick="SdnV3.clearBackups()">Исчисти backup-и</button>' +
+                        '<button class="btn btn-danger" onclick="SdnV3.clearBackups()">Избриши ги backup-ите</button>' +
                     '</div>' +
                     '<select id="sdnV3BackupSelect" style="width:100%;padding:10px;border-radius:6px;margin:8px 0;">' + options + '</select>' +
                     '<div style="display:flex;gap:8px;flex-wrap:wrap;">' +
@@ -12688,10 +12688,10 @@
     //
     // МОЖНОСТИ (сопственикот, 4 октомври 2026: „ист метод насекаде"). Секоја
     // кажува што се менува, каде и кому, со глаголите на „Мои ученици":
-    //   Кабинети: додади го X / тргни го Y   — Кабинети да биде како дневникот;
-    //   Дневник:  додади го X / тргни го Y   — дневникот да биде како Кабинети;
+    //   Кабинети: додај го X / тргни го Y   — Кабинети да биде како дневникот;
+    //   Дневник:  додај го X / тргни го Y   — дневникот да биде како Кабинети;
     //   ученик од Кабинети што го нема во „Мои ученици“ прво оди на списокот во
-    //   базата по патот на „+ Додади“ (`SdnCaseload.join`), па во терминот;
+    //   базата по патот на „+ Додај“ (`SdnCaseload.join`), па во терминот;
     //   „Тргни ги сите од терминот“ — на двете места, Кабинети прво;
     //   „Остави засега“.
     //
@@ -12752,8 +12752,8 @@
         function him(list) { return list.length > 1 ? 'ги' : 'го'; }
 
         /**
-         * Што точно прави едно дејство, со имиња: „додади го X, тргни го Y".
-         * Истите глаголи како „Мои ученици" (Додади / Тргни), за дневникот и
+         * Што точно прави едно дејство, со имиња: „додај го X, тргни го Y".
+         * Истите глаголи како „Мои ученици" (Додај / Тргни), за дневникот и
          * за Кабинети, па изборот се чита како резултат, а не како насока.
          */
         function effect(target, before) {
@@ -12762,7 +12762,7 @@
             var added = target.filter(function (x) { return had.indexOf(key(x)) < 0; });
             var removed = before.filter(function (x) { return will.indexOf(key(x)) < 0; });
             var parts = [];
-            if (added.length) parts.push('додади ' + him(added) + ' ' + who(added));
+            if (added.length) parts.push('додај ' + him(added) + ' ' + who(added));
             if (removed.length) parts.push('тргни ' + him(removed) + ' ' + who(removed));
             if (!parts.length) return 'подреди ги како на другото место';
             return parts.join(', ') + (target.length ? '' : ' (терминот останува празен)');
@@ -12923,7 +12923,7 @@
                 '</div>' +
                 (row.pushWhy ? '<div class="plan-sync-why">Кабинети не може да се смени оттука: ' + esc(row.pushWhy) + '.</div>' : '') +
                 (row.missing.length ? '<div class="plan-sync-why">' + esc(row.takeWhy) +
-                    ' — се додава на вашиот список во базата (истото како „+ Додади“), па во терминот.</div>' : '');
+                    ' — се додава на вашиот список во базата (истото како „+ Додај“), па во терминот.</div>' : '');
         }
 
         function resultHtml(key) {
@@ -13075,7 +13075,7 @@
                 });
             });
             // Ученик од Кабинети што го нема во „Мои ученици“: на списокот во базата
-            // по патот на „+ Додади“ (SdnCaseload), дневникот го зема, па терминот.
+            // по патот на „+ Додај“ (SdnCaseload), дневникот го зема, па терминот.
             admits.forEach(function (r) {
                 r.missing.forEach(function (k) {
                     chain = chain.then(function () {
@@ -13241,7 +13241,7 @@
     // „списокот да се чита од едно место и да се менува на едно место").
     //
     // ЗОШТО. Дневникот имаше свој список, а Кабинети свој (`therapist_students`).
-    // „Додади"/„Тргни" во едниот не стигаа до другиот и ништо не тргаше од
+    // „Додај"/„Тргни" во едниот не стигаа до другиот и ништо не тргаше од
     // дневникот, па таму се собираа стари записи, двојници и деца што веќе не
     // се ваши — 20 во дневникот наспроти 15 во Кабинети, кај ист терапевт.
     //
@@ -13252,12 +13252,12 @@
     //     од двете страни (правило 2) — инаку се пријавува, не се погодува;
     //   - име, одделение и вид се земаат од базата;
     //   - дете од списокот што го нема во дневникот се додава или се враќа од
-    //     поранешните (`admitAnnualStudent`, истото како „Додади");
+    //     поранешните (`admitAnnualStudent`, истото како „Додај");
     //   - дете во дневникот што не е на списокот оди меѓу поранешните, со сите
     //     записи, како при „Тргни" — освен ако има термин кај вас во Кабинети:
     //     тогаш останува и се кажува, а вие одлучувате;
     //   - редоследот е оној на списокот.
-    // „Додади", „Тргни" и стрелките пишуваат во базата по истите рути и со
+    // „Додај", „Тргни" и стрелките пишуваат во базата по истите рути и со
     // истите правила како Кабинети (дете со термин не се тргнува), па
     // дневникот го следи. Без сервер (копијата од GitHub Pages) дневникот
     // работи како порано.
@@ -13527,7 +13527,7 @@
 
         /**
          * Еден ученик на вашиот список во базата, па дневникот го зема. Единствениот
-         * пат: „+ Додади“ и „Дневник ↔ Кабинети“ го викаат истото.
+         * пат: „+ Додај“ и „Дневник ↔ Кабинети“ го викаат истото.
          */
         function join(publicId) {
             if (!publicId) return Promise.resolve({ ok: false, text: 'нема ученик' });
@@ -13540,7 +13540,7 @@
             });
         }
 
-        /** „Додади" од годишниот список. */
+        /** „Додај" од годишниот список. */
         function add(row) {
             if (!row || !row.public_id) return Promise.resolve();
             return join(row.public_id).then(function (r) {
@@ -13659,7 +13659,7 @@
                     '<button type="button" data-caseload="choose">Избери</button>';
             } else {
                 html = '📋 Списокот е од базата — истиот како во Кабинети → „Ученици по терапевт“ (' + esc(me) +
-                    (state.listed != null ? ', ' + state.listed + ' деца' : '') + '). „Додади“, „Тргни“ и стрелките важат и таму.' +
+                    (state.listed != null ? ', ' + state.listed + ' деца' : '') + '). „Додај“, „Тргни“ и стрелките важат и таму.' +
                     (state.read ? ' <span class="caseload-when">Прочитано во ' + hhmm(state.read) + '.</span>' : '') +
                     ' <button type="button" data-caseload="refresh">↻ Прочитај</button>';
                 if (state.error) {
@@ -13668,7 +13668,7 @@
                 }
                 if (state.notice === 'empty') {
                     warn = true;
-                    html += '<div class="caseload-issue">Вашиот список во базата е празен — дневникот не е менуван. Додајте ученици со „+ Додади“ или во Кабинети.</div>';
+                    html += '<div class="caseload-issue">Вашиот список во базата е празен — дневникот не е менуван. Додајте ученици со „+ Додај“ или во Кабинети.</div>';
                 }
                 if (state.notice === 'suspicious') {
                     warn = true;

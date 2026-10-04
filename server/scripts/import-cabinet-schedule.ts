@@ -77,11 +77,11 @@ try {
     list('· Кабинет поврзан по СКРАТЕНО име на категорија — провери', plan.byPrefix);
     list('✗ Кабинет без стручен работник — целата колона се прескокнува', plan.unresolvedCabinets);
     if (plan.unresolvedCabinets.length) {
-        console.log('      Направи мапа: { "Логопед": "Име Презиме", … } и додади --map <патека>.');
+        console.log('      Направи мапа: { "Логопед": "Име Презиме", … } и додај --map <патека>.');
     }
     list('✗ Имиња што ги нема на годишниот список', plan.unknownPupils);
     if (plan.unknownPupils.length) {
-        console.log('      Додади ги во Податоци; оваа скрипта намерно не создава ученици.');
+        console.log('      Додај ги во Податоци; оваа скрипта намерно не создава ученици.');
     }
     list('✗ Име што значи повеќе од едно дете — не погодувам (правило 2)', plan.ambiguousPupils);
 
@@ -95,7 +95,7 @@ try {
                 console.log(`          ${c.name}   (${c.publicId}, оддалеченост ${c.distance})`);
             }
         }
-        console.log('\n      Кога ќе одлучиш, запиши го во датотека и додади --names <патека>:');
+        console.log('\n      Кога ќе одлучиш, запиши го во датотека и додај --names <патека>:');
         console.log('      {');
         console.log(plan.suggestions.map((s) =>
             `        "${s.pupil}": "${s.candidates[0].publicId}"`).join(',\n'));
@@ -107,11 +107,11 @@ try {
     if (plan.missingCaseload.length) {
         list('✗ Детето не е во каталогот на тој кабинет — блокот ќе биде одбиен',
             plan.missingCaseload.map((m) => `${m.therapistName} → ${m.pupil} (${m.publicId})`));
-        console.log('      Или чекни ги во Fusion/Податоци, или додади --caseload за да ги запише сега.');
+        console.log('      Или чекни ги во Fusion/Податоци, или додај --caseload за да ги запише сега.');
     }
 
     if (!apply) {
-        console.log('\n  Проба. Ништо не е запишано. Додади --apply за да се запише.\n');
+        console.log('\n  Проба. Ништо не е запишано. Додај --apply за да се запише.\n');
     } else {
         if (caseload && plan.missingCaseload.length) {
             const link = await linkCaseload(plan, BASE);
