@@ -211,6 +211,13 @@ const run = async () => {
     await q(`UPDATE student_enrollments SET oddelenie = 'IV'
               WHERE school_year_id = $1 AND student_id = (SELECT id FROM students WHERE public_id = $2)`,
         [year.id, `${TAG}-b`]);
+    // „П" = подготвително одделение (owner, 4 Oct 2026): a generation, before I.
+    await q(`UPDATE class_years SET alias = 'подготвителна'
+              WHERE school_year_id = $1 AND class_id = (SELECT id FROM school_classes WHERE label = $2)`,
+        [year.id, CLASS_B]);
+    await q(`UPDATE student_enrollments SET oddelenie = 'П'
+              WHERE school_year_id = $1 AND student_id = (SELECT id FROM students WHERE public_id = $2)`,
+        [year.id, `${TAG}-c`]);
     // The tab is in the address (a view is a history step), so the reload
     // comes back on „Одделенија“ by itself.
     await page.reload();
@@ -220,9 +227,24 @@ const run = async () => {
         rowA.includes('името вели II, III, а 1 дете е во IV одделение'), rowA);
     check('and so is a generation the name says with no child in it',
         rowA.includes('името вели и II, III, а нема дете од тие одделенија'), rowA);
+    const rowB = await page.locator('#classes tbody tr')
+        .filter({ has: page.locator('.class-label', { hasText: /^подготвителна$/ }) }).textContent();
+    check('a preparatory pupil counts as „подг.", not as a missing generation', rowB.includes('одд. подг. (1)'), rowB);
+    check('the pupil still without one is told to choose „подготвително"',
+        rowB.includes('1 без внесено одделение (генерација) — во „Ученици“ избери „подготвително“'), rowB);
+    check('and the name „подготвителна" agrees with a preparatory child', !rowB.includes('името вели'), rowB);
     const rowC = await page.locator(`#classes tr[data-class="${classC.id}"]`).textContent();
     check('a class with no pupils and no lessons asks whether it exists this year',
         rowC.includes('нема ниту ученици ниту часови'), rowC);
+
+    await page.click('[data-tab="students"]');
+    await page.waitForSelector('#students select.s-oddelenie');
+    const offered = await page.locator('#students select.s-oddelenie').first().locator('option')
+        .evaluateAll((os) => os.map((o) => [o.value, o.textContent.trim()]));
+    check('the generation list offers „подготвително" first, stored as „П"',
+        JSON.stringify(offered.slice(0, 3)) === JSON.stringify([['', '— не е внесено —'], ['П', 'подготвително'], ['I', 'I']]),
+        JSON.stringify(offered.slice(0, 3)));
+    await page.click('[data-tab="classes"]');
 
     console.log('\nand the chip is readable in BOTH themes, measured');
     for (const scheme of ['dark', 'light']) {

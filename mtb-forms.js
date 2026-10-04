@@ -31,7 +31,9 @@
     if (window.MTBForms) return;
 
     const MODE_KEY = 'mtb_editing_v1';
-    const ROMAN = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX'];
+    // „П" = подготвително одделение, before I (owner, 4 Oct 2026).
+    const ROMAN = ['П', 'I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX'];
+    const genName = (g) => (g === 'П' ? 'подготвително' : g);
     // The same words the Workspace's administration has always used, so a
     // pupil reads the same in both places.
     const PROGRAMMES = { unknown: 'Непотврдено', standard: 'Стандардна', modified: 'Модифицирана' };
@@ -316,7 +318,7 @@
             <label>Име и презиме<input type="text" name="name" maxlength="120" value="${esc(pupil.name)}" required></label>
             <div class="mtb-form__grid">
               <label>Паралелка / група<select name="grade" data-class-picker>${classPicker(data, classes, pupil.grade || '')}</select></label>
-              <label>Одделение (генерација)<select name="oddelenie">${option('', 'Непотврдено', pupil.oddelenie || '')}${ROMAN.map((r) => option(r, r, pupil.oddelenie || '')).join('')}</select></label>
+              <label>Одделение (генерација)<select name="oddelenie">${option('', 'Непотврдено', pupil.oddelenie || '')}${ROMAN.map((r) => option(r, genName(r), pupil.oddelenie || '')).join('')}</select></label>
               <label>Основен статус<select name="enrollmentType">${options({ internal: 'Внатрешен', external: 'Надворешен' }, pupil.enrollment_type || 'internal')}</select></label>
               <label>Програма<select name="programme">${options(PROGRAMMES, pupil.programme || 'unknown')}</select></label>
               <label>Локална настава / поставеност<select name="placement">${options(PLACEMENTS, pupil.placement || 'unknown')}</select></label>

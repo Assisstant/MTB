@@ -1382,9 +1382,16 @@
      * изгледаше како обична и разликата немаше каде да се види.
      */
     const ROMAN = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX'];
+    /** „П“ = подготвително одделение, пред I (сопственикот, 4 октомври). */
+    const PREP = 'П';
+    const GENERATIONS = [PREP, ...ROMAN];
+    const genName = (g) => (g === PREP ? 'подготвително' : g);
+    const genShort = (g) => (g === PREP ? 'подг.' : g);
+    const PREP_WORDS = /^\s*подготвит/iu;
 
     /** Римскиот број во ознаката на паралелката, ако таа носи таков. */
     function romanOf(label) {
+        if (PREP_WORDS.test(String(label || ''))) return PREP;
         const m = /^\s*(IX|IV|V?I{0,3})\b/i.exec(
             String(label || '').replace(/[Іі]/g, 'I').replace(/[Хх]/g, 'X'));
         const g = m ? m[1].toUpperCase() : '';
@@ -1394,12 +1401,12 @@
     /** Се пишува САМО кога кажува нешто ново — инаку е двапати иста работа. */
     function generationNote(student) {
         const odd = String(student.oddelenie || '').toUpperCase();
-        return odd && odd !== romanOf(student.grade) ? odd : '';
+        return odd && odd !== romanOf(student.grade) ? genShort(odd) : '';
     }
 
     function fillOddelenieSelect(select, selected) {
         select.innerHTML = '<option value="">— не е внесено —</option>'
-            + ROMAN.map((g) => `<option value="${g}"${g === String(selected || '').toUpperCase() ? ' selected' : ''}>${g}</option>`).join('');
+            + GENERATIONS.map((g) => `<option value="${g}"${g === String(selected || '').toUpperCase() ? ' selected' : ''}>${genName(g)}</option>`).join('');
     }
 
     // ── редослед на списоците ───────────────────────────────
@@ -2040,6 +2047,7 @@
      * „Комбинирана паралелка“) — then there is nothing to compare.
      */
     function nameGenerations(alias) {
+        if (PREP_WORDS.test(String(alias || ''))) return [PREP];
         const head = String(alias || '').split(/\s+[–—-]\s+/)[0];
         const said = head.split(/[\s,\-–—]+/).filter((t) => ROMAN.includes(t));
         return said.length ? ROMAN.filter((g) => said.includes(g)) : null;
@@ -2052,7 +2060,7 @@
             const g = String(s.oddelenie || '').toUpperCase();
             if (g) gens.set(g, (gens.get(g) || 0) + 1);
         });
-        const genList = ROMAN.filter((g) => gens.has(g));
+        const genList = GENERATIONS.filter((g) => gens.has(g));
         // With a name for the year (migration 045) the school's words are in
         // the name, and the description is not said a second time under it.
         let html = c.alias ? ''
@@ -2060,7 +2068,7 @@
                 ? `<span class="class-desc">${esc(c.description)}</span>`
                 : '<span class="class-desc none">без опис</span>';
         if (genList.length) {
-            html += `<span class="class-gen">одд. ${genList.map((g) => `${g} (${gens.get(g)})`).join(', ')}</span>`;
+            html += `<span class="class-gen">одд. ${genList.map((g) => `${genShort(g)} (${gens.get(g)})`).join(', ')}</span>`;
         }
 
         const checks = [];
@@ -2068,7 +2076,9 @@
         if (sharedHomeroom) checks.push(['warn', `${personName(homeroom.name)} води и друга паралелка — дали се една (комбинирана)?`]);
         if (!c.alias && data.isCurrentYear) checks.push(['info', 'нема име за приказ — „Име и опис…“']);
         const noGen = active.filter((s) => (s.kind || 'internal') !== 'external' && !s.oddelenie).length;
-        if (noGen) checks.push(['warn', `${noGen} без внесено одделение (генерација)`]);
+        const prepClass = romanOf(c.label) === PREP || String(nameGenerations(c.alias)) === PREP;
+        if (noGen) checks.push(['warn', `${noGen} без внесено одделение (генерација)`
+            + (prepClass ? ' — во „Ученици“ избери „подготвително“' : '')]);
         if (genList.length > 1 && !c.description && !c.alias) checks.push(['warn', 'повеќе генерации, а нема опис (на пр. „комбинирана паралелка“)']);
         // The name and the children, side by side (owner, 4 Oct 2026: „да ги
         // мапираме со постоечките податоци"). The generations still come from
@@ -2077,10 +2087,11 @@
         if (claimed && active.length) {
             genList.filter((g) => !claimed.includes(g)).forEach((g) => {
                 const n = gens.get(g);
-                checks.push(['warn', `името вели ${claimed.join(', ')}, а ${n} ${n === 1 ? 'дете е' : 'деца се'} во ${g} одделение`]);
+                checks.push(['warn', `името вели ${claimed.map(genName).join(', ')}, а ${n} ${n === 1 ? 'дете е' : 'деца се'} во ${genName(g)} одделение`]);
             });
             const none = claimed.filter((g) => !gens.has(g));
-            if (none.length) checks.push(['info', `името вели и ${none.join(', ')}, а нема дете од ${none.length === 1 ? 'тоа одделение' : 'тие одделенија'}`]);
+            // While some children have no generation yet, a missing one may be theirs.
+            if (none.length && !noGen) checks.push(['info', `името вели и ${none.map(genName).join(', ')}, а нема дете од ${none.length === 1 ? 'тоа одделение' : 'тие одделенија'}`]);
         }
         if (!active.length && typeof c.lessons === 'number' && !c.lessons) {
             checks.push(['warn', 'нема ниту ученици ниту часови — дали оваа паралелка ја има годинава?']);

@@ -1732,7 +1732,7 @@
         let pupilsLine = '';
         if (pupilsHere && pupilsHere.length) {
             pupilsLine = `<p class="cw-meta no-print">Ученици (${pupilsHere.length}): `
-                + pupilsHere.map((s) => esc(s.name) + (s.oddelenie ? ` <small>(${esc(s.oddelenie)})</small>` : '')).join(', ')
+                + pupilsHere.map((s) => esc(s.name) + (s.oddelenie ? ` <small>(${esc(s.oddelenie === 'П' ? 'подг.' : s.oddelenie)})</small>` : '')).join(', ')
                 + '</p>';
         } else if (pupilsHere) {
             pupilsLine = '<p class="cw-meta no-print">Нема ученици запишани во ова одделение за оваа година.</p>';
@@ -2654,7 +2654,7 @@
                 lessons, doubled,
                 offered: (offered[i].subjects || []).map((s) => s.subject),
                 pupils: (students || []).filter((s) => tidy(s.grade) === c.label)
-                    .map((s) => ({ name: s.name, generation: s.oddelenie || '' }))
+                    .map((s) => ({ name: s.name, generation: s.oddelenie === 'П' ? 'подготвително' : (s.oddelenie || '') }))
                     .sort((a, b) => a.name.localeCompare(b.name, 'mk'))
             };
         });

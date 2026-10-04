@@ -893,7 +893,9 @@ header.top h1 { flex: 1; min-width: 180px; }
     // generation. The children come only for one's own classes (the server
     // sends no others), so a class one merely picks from the list shows the
     // rest and no names.
-    const ROMAN = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX'];
+    // „П" = подготвително одделение, before I (owner, 4 Oct 2026).
+    const ROMAN = ['П', 'I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX'];
+    const genName = (g) => (g === 'П' ? 'подготвително' : g);
     const properName = (value) => {
         const clean = String(value == null ? '' : value).replace(/\s+/g, ' ').trim();
         const letters = clean.replace(/[^\p{L}]/gu, '');
@@ -933,9 +935,9 @@ header.top h1 { flex: 1; min-width: 180px; }
         if (kids) {
             const count = new Map();
             kids.forEach((k) => { const g = String(k.oddelenie || '').toUpperCase(); if (g) count.set(g, (count.get(g) || 0) + 1); });
-            const gens = ROMAN.filter((g) => count.has(g)).map((g) => `${g} (${count.get(g)})`).join(', ');
+            const gens = ROMAN.filter((g) => count.has(g)).map((g) => `${g === 'П' ? 'подг.' : g} (${count.get(g)})`).join(', ');
             html += `<div>${kids.length} ${kids.length === 1 ? 'ученик' : 'ученици'}${gens ? ' · одд. ' + gens : ''}</div>`
-                + (kids.length ? '<ul>' + kids.map((k) => `<li>${esc(properName(k.name))}${k.oddelenie ? ' — ' + esc(String(k.oddelenie).toUpperCase()) : ''}</li>`).join('') + '</ul>' : '');
+                + (kids.length ? '<ul>' + kids.map((k) => `<li>${esc(properName(k.name))}${k.oddelenie ? ' — ' + esc(genName(String(k.oddelenie).toUpperCase())) : ''}</li>`).join('') + '</ul>' : '');
         }
         return html;
     }
@@ -1033,7 +1035,7 @@ header.top h1 { flex: 1; min-width: 180px; }
             + (reader.class ? ' · ' + (pupils[0]?.className || reader.class) : '') + (reader.type ? ' · ' + typeName(reader.type) : '')
             + (cabinet ? ' · ' + cabinet.name : ''),
             columns: ['Бр.', 'Ученик', 'Паралелка', 'Одделение', 'Упис', 'Кабинети'],
-            rows: pupils.map((p,i) => [String(i+1), p.name, p.className || p.class || '—', p.oddelenie || '—', typeName(p.type), p.therapists.map(t => t.name).join('\n') || '—']) };
+            rows: pupils.map((p,i) => [String(i+1), p.name, p.className || p.class || '—', (p.oddelenie === 'П' ? 'подготвително' : p.oddelenie) || '—', typeName(p.type), p.therapists.map(t => t.name).join('\n') || '—']) };
     }
     function drawReaderList() {
         const m = readerListReport(), classes = new Map(reader.pupils.filter(p => p.class).map(p => [p.class,p.className || p.class]));
@@ -3035,7 +3037,7 @@ header.top h1 { flex: 1; min-width: 180px; }
         { id: 'external', label: 'Екстерни', test: (p) => p.type === 'external' },
         { id: 'preparatory', label: 'Подготвителна', test: (p) => p.preparatory }
     ];
-    const pupilLine = (p) => [p.class, p.oddelenie && p.oddelenie !== p.class ? 'одд. ' + p.oddelenie : '', p.type === 'external' ? 'екстерен' : '']
+    const pupilLine = (p) => [p.class, p.oddelenie && p.oddelenie !== p.class ? 'одд. ' + (p.oddelenie === 'П' ? 'подготвително' : p.oddelenie) : '', p.type === 'external' ? 'екстерен' : '']
         .filter(Boolean).join(' · ');
 
     function drawCaseload() {

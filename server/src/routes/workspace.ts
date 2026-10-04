@@ -13,7 +13,8 @@ const Name = z.string().trim().min(1).max(120);
 const Expected = z.string().regex(/^[a-f0-9]{64}$/);
 const Pupil = z.object({
     year: Year, name: Name, grade: z.string().max(40).nullable(),
-    oddelenie: z.enum(['I','II','III','IV','V','VI','VII','VIII','IX']).nullable(),
+    // „П" = подготвително одделение (owner, 4 Oct 2026): a generation like the others.
+    oddelenie: z.enum(['П','I','II','III','IV','V','VI','VII','VIII','IX']).nullable(),
     enrollmentType: z.enum(['internal','external']), boarding: z.boolean(),
     programme: z.enum(['unknown','standard','modified']),
     placement: z.enum(['unknown','regular','preparatory','observation','none']),

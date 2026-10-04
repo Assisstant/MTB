@@ -238,7 +238,7 @@ button:focus-visible, .window-titlebar:focus-visible, #dockDivider:focus-visible
 </div>
 <script src="app-navigation.js"></script>
 <script>
-(function(){'use strict';const $=id=>document.getElementById(id),esc=v=>String(v==null?'':v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'),tidy=v=>String(v==null?'':v).replace(/\s+/g,' ').trim(),personName=value=>{const clean=tidy(value),letters=clean.replace(/[^\p{L}]/gu,'');if(!letters||letters!==letters.toLocaleUpperCase('mk-MK'))return clean;return clean.toLocaleLowerCase('mk-MK').replace(/(^|[\s\-‐‑–—'’])(\p{L})/gu,(_,b,l)=>b+l.toLocaleUpperCase('mk-MK'))};const PUBLISHED=location.hostname==='assisstant.github.io',SERVER_KEY='mtb_podatoci_server_v1',ROMAN=['I','II','III','IV','V','VI','VII','VIII','IX'];let apiBase='',years=[],data=null,categories=[],categoryOf={teacher:{},therapist:{}},dir='students',selected={students:null,teachers:null,therapists:null,classes:null},draftCaseload=new Set(),caseloadOriginal=new Set(),returnTherapist=null,ticket=0,dirEdited=false,writing=0;
+(function(){'use strict';const $=id=>document.getElementById(id),esc=v=>String(v==null?'':v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'),tidy=v=>String(v==null?'':v).replace(/\s+/g,' ').trim(),personName=value=>{const clean=tidy(value),letters=clean.replace(/[^\p{L}]/gu,'');if(!letters||letters!==letters.toLocaleUpperCase('mk-MK'))return clean;return clean.toLocaleLowerCase('mk-MK').replace(/(^|[\s\-‐‑–—'’])(\p{L})/gu,(_,b,l)=>b+l.toLocaleUpperCase('mk-MK'))};const PUBLISHED=location.hostname==='assisstant.github.io',SERVER_KEY='mtb_podatoci_server_v1',ROMAN=['I','II','III','IV','V','VI','VII','VIII','IX'],GENERATIONS=['П',...ROMAN],genName=g=>g==='П'?'подготвително':g;/* „П“ = подготвително одделение, пред I (сопственикот, 4 окт 2026) */let apiBase='',years=[],data=null,categories=[],categoryOf={teacher:{},therapist:{}},dir='students',selected={students:null,teachers:null,therapists:null,classes:null},draftCaseload=new Set(),caseloadOriginal=new Set(),returnTherapist=null,ticket=0,dirEdited=false,writing=0;
 function setStatus(text,kind){const n=$('status');n.textContent=text||'';n.className='status'+(kind?' '+kind:'')}function activeServer(){if(!PUBLISHED)return /^https?:$/.test(location.protocol)?location.origin:'';try{const raw=localStorage.getItem(SERVER_KEY)||'';if(!raw)return'';const u=new URL(raw);if(u.protocol!=='https:'||!u.hostname.endsWith('.ts.net'))return'';return u.origin}catch(_){return''}}async function api(method,path,body,forAdmin){if(!apiBase)throw new Error('Не е избрана PostgreSQL база.');
   // Only this panel's OWN writes are counted: „Администрација" writes through here too (MTBWorkspaceContext), and the panel must hear those.
   const write=method!=='GET'&&!forAdmin;if(write)writing++;let res;try{res=await fetch(apiBase+path,{method,cache:'no-store',headers:body===undefined?undefined:{'Content-Type':'application/json'},body:body===undefined?undefined:JSON.stringify(body)})}finally{if(write)writing--}let out=null;try{out=await res.json()}catch(_){}if(!res.ok)throw new Error(out&&(out.error||out.message)||'HTTP '+res.status);return out}
@@ -270,16 +270,16 @@ function renderClasses(){
 function classHoverOf(label){const n=window.MTBAppNavigation,info=classCards().get(label);return n&&n.classes&&info?n.classes.hover(info):''}
 function classComposition(c){
   const pupils=classPupils(c),teachers=classTeachers(c);
-  const generations=ROMAN.filter(g=>pupils.some(s=>String(s.oddelenie||'').toUpperCase()===g));
+  const generations=GENERATIONS.filter(g=>pupils.some(s=>String(s.oddelenie||'').toUpperCase()===g));
   const missing=pupils.filter(s=>!s.oddelenie).length;
   const n=window.MTBAppNavigation,info=classCards().get(c.label);
   return '<div class="editor-title">Паралелка '+esc(n&&n.classes&&info?n.classes.text(info):c.label)+' · '+esc(data.year)+'</div>'
     +'<div class="summary"><span class="badge">'+pupils.length+' ученици</span>'
-    +generations.map(g=>'<span class="badge">Одделение '+esc(g)+'</span>').join('')+'</div>'
+    +generations.map(g=>'<span class="badge">Одделение '+esc(genName(g))+'</span>').join('')+'</div>'
     +'<p class="note">Паралелката е заедничката група во која учат. Одделението е генерацијата на секое дете. Во една паралелка може да има повеќе одделенија.</p>'
     +(missing?'<p class="note">Невнесено одделение: '+missing+'. Отвори го ученикот за проверка; не се погодува од ознаката на паралелката.</p>':'')
     +'<h3>Ученици · отвори за корекција</h3>'
-    +(pupils.map((s,i)=>'<button type="button" class="person" data-related-person="students" data-person-id="'+esc(s.public_id)+'"><span class="num">'+(i+1)+'.</span><span class="name">'+esc(personName(s.name))+'</span><span class="meta">Одделение: '+esc(s.oddelenie||'не е внесено')+'</span></button>').join('')||'<p class="note">Нема ученици во оваа паралелка.</p>')
+    +(pupils.map((s,i)=>'<button type="button" class="person" data-related-person="students" data-person-id="'+esc(s.public_id)+'"><span class="num">'+(i+1)+'.</span><span class="name">'+esc(personName(s.name))+'</span><span class="meta">Одделение: '+esc(s.oddelenie?genName(String(s.oddelenie).toUpperCase()):'не е внесено')+'</span></button>').join('')||'<p class="note">Нема ученици во оваа паралелка.</p>')
     +'<h3>Наставници · отвори за корекција</h3>'
     +(teachers.map((t,i)=>'<button type="button" class="person" data-related-person="teachers" data-person-id="'+t.id+'"><span class="num">'+(i+1)+'.</span><span class="name">'+esc(personName(t.name))+'</span><span class="meta">'+((t.classes||[]).some(x=>x.label===c.label&&x.role==='homeroom')?'Раководител':'Наставник')+'</span></button>').join('')||'<p class="note">Нема доделен наставник. Доделувањето се уредува во неговите податоци.</p>');
 }
@@ -312,7 +312,7 @@ $('content').addEventListener('click',event=>{
 function studentMeta(s){const roman=romanOf(s.grade),odd=String(s.oddelenie||'').toUpperCase();
   // Одделението се пишува само кога КАЖУВА нешто ново — инаку секој ред би
   // носел двапати иста работа и разликата што е важна би се изгубила во неа.
-  return[s.grade||'',(odd&&odd!==roman)?'одд. '+odd:'',KIND_LABEL[s.kind||'internal']||s.kind||''].filter(Boolean).join(' · ')}function filteredStudents(){const needle=q(),k=$('kindFilter').value;return(data.students||[]).filter(s=>s.active!==false).filter(s=>!k||(s.kind||'internal')===k).filter(s=>!needle||personName(s.name).toLocaleLowerCase('mk-MK').includes(needle)||String(s.grade||'').toLocaleLowerCase('mk-MK').includes(needle))}
+  return[s.grade||'',(odd&&odd!==roman)?'одд. '+genName(odd):'',KIND_LABEL[s.kind||'internal']||s.kind||''].filter(Boolean).join(' · ')}function filteredStudents(){const needle=q(),k=$('kindFilter').value;return(data.students||[]).filter(s=>s.active!==false).filter(s=>!k||(s.kind||'internal')===k).filter(s=>!needle||personName(s.name).toLocaleLowerCase('mk-MK').includes(needle)||String(s.grade||'').toLocaleLowerCase('mk-MK').includes(needle))}
 function categoryOptions(kind,id){const held=categoryOf[kind][id]||'';return'<option value="">— без категорија —</option>'+categories.map(c=>'<option value="'+c.id+'"'+(String(c.id)===String(held)?' selected':'')+'>'+esc(c.name)+'</option>').join('')}/* Паралелката се пишува како во секое друго мени — ознака · раководител · опис,
    а на лебдење целиот ред (`app-navigation.js`, `classes`). Паралелка што не е
    на листата за годинава останува видлива, обележана „неактивна" — инаку
@@ -332,8 +332,8 @@ function renderStudents(){const rows=filteredStudents(),s=selected.students;$('c
  * покажува, никој не се прашува зошто менувањето на паралелката не ја менува
  * архивската година.
  */
-function romanOf(label){const m=/^\s*(IX|IV|V?I{0,3})\b/i.exec(String(label||'').replace(/[Іі]/g,'I').replace(/[Хх]/g,'X'));const g=m?m[1].toUpperCase():'';return ROMAN.includes(g)?g:''}
-function gradeOptions(value){return'<option value="">— не е внесено —</option>'+ROMAN.map(g=>'<option value="'+g+'"'+(g===String(value||'').toUpperCase()?' selected':'')+'>'+g+'</option>').join('')}
+function romanOf(label){if(/^\s*подготвит/iu.test(String(label||'')))return'П';const m=/^\s*(IX|IV|V?I{0,3})\b/i.exec(String(label||'').replace(/[Іі]/g,'I').replace(/[Хх]/g,'X'));const g=m?m[1].toUpperCase():'';return ROMAN.includes(g)?g:''}
+function gradeOptions(value){return'<option value="">— не е внесено —</option>'+GENERATIONS.map(g=>'<option value="'+g+'"'+(g===String(value||'').toUpperCase()?' selected':'')+'>'+genName(g)+'</option>').join('')}
 function studentEditor(s){
   const mine=(s.therapists||[]);
   const roman=romanOf(s.grade), odd=String(s.oddelenie||'').toUpperCase();

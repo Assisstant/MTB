@@ -1575,7 +1575,15 @@
      * распоредот; ова е само како се чита. ЕДНА копија, за паралелката да
      * изгледа исто каде и да се бира — истата причина како за предметите.
      */
-    const CLASS_ROMAN = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX'];
+    /*
+     * Генерацијата на детето (`student_enrollments.oddelenie`): „П“ е
+     * подготвителното одделение, пред I (сопственикот, 4 октомври) — тоа е
+     * генерација како другите, не празно поле. Се чува „П“, се чита
+     * „подготвително“, а каде нема место „подг.“.
+     */
+    const CLASS_ROMAN = ['П', 'I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX'];
+    const generationName = (g) => (g === 'П' ? 'подготвително' : g);
+    const generationShort = (g) => (g === 'П' ? 'подг.' : g);
     const oneLine = (value) => String(value == null ? '' : value).replace(/\s+/g, ' ').trim();
     const escAttr = (value) => String(value == null ? '' : value)
         .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -1667,10 +1675,10 @@
         if (info.pupilsKnown) {
             const count = new Map();
             info.pupils.forEach((p) => { if (p.oddelenie) count.set(p.oddelenie, (count.get(p.oddelenie) || 0) + 1); });
-            const gens = CLASS_ROMAN.filter((g) => count.has(g)).map((g) => `${g} (${count.get(g)})`).join(', ');
+            const gens = CLASS_ROMAN.filter((g) => count.has(g)).map((g) => `${generationShort(g)} (${count.get(g)})`).join(', ');
             const n = info.pupils.length;
             lines.push(n ? `${n} ${n === 1 ? 'ученик' : 'ученици'}${gens ? ' · одд. ' + gens : ''}` : 'Нема ученици на листата');
-            info.pupils.forEach((p) => lines.push('• ' + p.name + (p.oddelenie ? ' — ' + p.oddelenie : '')));
+            info.pupils.forEach((p) => lines.push('• ' + p.name + (p.oddelenie ? ' — ' + generationName(p.oddelenie) : '')));
         }
         return lines.join('\n');
     }
@@ -1848,6 +1856,8 @@
         // Паралелката онака како што ја кажува училиштето: ознака · раководител
         // · опис, и целиот ред на лебдење. Една копија за секој избирач.
         classes: { index: classIndex, name: className, short: classShort, text: classText, hover: classHover, optionsHtml: classOptionsHtml },
+        // The pupil's generation: the list in order, and how a value reads.
+        generations: { list: CLASS_ROMAN.slice(), name: generationName, short: generationShort },
         // „Назад" и „напред" низ погледите на страницата, не надвор од неа.
         views,
         // Една промена, сите прозорци: страницата кажува како се препрочитува,
