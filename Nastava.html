@@ -286,56 +286,57 @@
     .print-menu button:hover, .print-menu button:focus-visible { background: var(--soft); }
     .print-menu small { display: block; margin-top: 2px; color: var(--muted); font-size: 11.5px; line-height: 1.35; white-space: normal; }
 
-    /* The poster: the week by teacher, одделенска and предметна настава apart,
-       sized in millimetres for A2 landscape (594 × 420), or the same poster cut
-       into four A4 landscape sheets that overlap by 1 cm. Paper is white in
-       either theme, so its colours are its own, not the page's tokens; the
-       four absence colours are the grid's. Built only when printed. */
+    /* The poster: the school's own printed timetable (owner, 4 Oct 2026, a
+       photo of the staff-room board) — black lines on white, names in
+       capitals, РЕД. БР. · ИМЕ И ПРЕЗИМЕ · ОДД, then the days with their
+       periods, „/" for a free period. Two tables: одделенска настава, whose
+       cells are the SUBJECT (the class is the teacher's own, said once), and
+       предметна, whose cells are the CLASS (the subject is said once). No
+       colours and no counts: this is the timetable, not who is out of it.
+       Sized in millimetres for A2 landscape (594 × 420), or the same poster cut
+       into four A4 landscape sheets that overlap by 1 cm. Built only when printed. */
     #poster { display: none; }
     #poster.measure { display: block; position: fixed; left: -30000px; top: 0; visibility: hidden; }
     #poster, #poster * { box-sizing: border-box; }
-    #poster { -webkit-print-color-adjust: exact; print-color-adjust: exact; color: #1b2433;
-        font-family: "Segoe UI", system-ui, sans-serif; background: #fff;
-        --h1: #1E9E8B; --h2: #E0A21B; --h3: #E0752D; --h4: #D64545; --pz-line: #c9cfdc; --pz-head: #5966d6; }
+    #poster { -webkit-print-color-adjust: exact; print-color-adjust: exact; color: #000; background: #fff;
+        font-family: "Times New Roman", Times, serif; }
     .pz-page { position: relative; overflow: hidden; background: #fff; break-after: page; page-break-after: always; }
     .pz-page:last-child { break-after: auto; page-break-after: auto; }
     .pz-page.a2 { width: 594mm; height: 420mm; }
     .pz-page.tile { width: 297mm; height: 210mm; }
     .pz-view { position: absolute; left: 10mm; top: 10mm; overflow: hidden; }
     .pz-page.a2 .pz-view { width: 574mm; height: 400mm; }
-    .pz-page.tile .pz-view { width: 277mm; height: 190mm; outline: 0.2mm dashed #9aa3b5; }
+    .pz-page.tile .pz-view { width: 277mm; height: 190mm; outline: 0.2mm dashed #888; }
     .pz-area { position: absolute; left: 0; top: 0; }
-    .pz-note { position: absolute; left: 10mm; right: 10mm; bottom: 3mm; font-size: 7.5pt; color: #6a7590;
+    .pz-note { position: absolute; left: 10mm; right: 10mm; bottom: 3mm; font: 7.5pt "Segoe UI", sans-serif; color: #555;
         display: flex; justify-content: space-between; }
     .poster { transform-origin: 0 0; }
-    .pz-head h1 { margin: 0; font-size: 20pt; }
-    .pz-meta { margin-top: 1.5mm; font-size: 10pt; color: #4a5568; }
-    .pz-legend { margin-top: 3mm; display: flex; gap: 4mm; align-items: center; flex-wrap: wrap; font-size: 9.5pt; color: #4a5568; }
-    .pz-legend i { display: inline-block; width: 9mm; height: 4.5mm; vertical-align: middle; margin-right: 1.2mm;
-        border: 0.25mm solid var(--pz-line); border-radius: 1mm; }
-    .pz-legend .bells { margin-left: auto; }
+    .pz-head { display: flex; align-items: flex-end; gap: 8mm; }
+    .pz-title { flex: 1; }
+    .pz-title .school { font-size: 12pt; font-weight: 700; text-transform: uppercase; }
+    .pz-title h1 { margin: 1mm 0 0; font-size: 22pt; text-transform: uppercase; letter-spacing: 0.3mm; }
+    .pz-title .year { font-size: 30pt; font-weight: 700; line-height: 1; margin-top: 2mm; }
+    .pz-bells { border-collapse: collapse; font-size: 9pt; font-weight: 700; }
+    .pz-bells th, .pz-bells td { border: 0.35mm solid #000; padding: 0.8mm 1.6mm; text-align: center; white-space: nowrap; }
+    .pz-bells th { background: #ececec; }
+    .pz-bells .rest { font-weight: 400; font-style: italic; }
     .pz-sec { margin-top: 6mm; }
-    .pz-sec h2 { margin: 0 0 2mm; font-size: 14pt; }
-    .pz-sec h2 small { font-weight: 400; font-size: 10pt; color: #6a7590; margin-left: 3mm; }
-    .pz-table { width: 100%; table-layout: fixed; border-collapse: separate; border-spacing: 0; font-size: 9pt; }
-    .pz-table th, .pz-table td { border-bottom: 0.25mm solid var(--pz-line); padding: 1.6mm 1mm; vertical-align: middle; }
+    .pz-sec h2 { margin: 0 0 1.5mm; font-size: 15pt; text-transform: uppercase; letter-spacing: 0.3mm; }
+    .pz-table { width: 100%; table-layout: fixed; border-collapse: collapse; font-size: 10pt; font-weight: 700; }
+    .pz-table th, .pz-table td { border: 0.35mm solid #000; padding: 1.4mm 0.6mm; text-align: center; vertical-align: middle; }
     /* The rows grow to fill the sheet (fitPoster); the head stays as it is. */
-    .pz-table tbody th, .pz-table tbody td { padding-top: var(--pz-pad, 1.6mm); padding-bottom: var(--pz-pad, 1.6mm); }
+    .pz-table tbody th, .pz-table tbody td { padding-top: var(--pz-pad, 1.4mm); padding-bottom: var(--pz-pad, 1.4mm); }
+    .pz-table thead th { background: #ececec; font-size: 9pt; text-transform: uppercase; }
+    .pz-table thead th.day { font-size: 11pt; letter-spacing: 0.3mm; }
+    .pz-table .edge { border-left-width: 0.9mm; }
+    .pz-table .lead { border-right-width: 0.9mm; }
+    .pz-table tbody th.name { text-align: center; text-transform: uppercase; font-size: 10pt; line-height: 1.15; }
+    .pz-table tbody td.odd { font-size: 9pt; line-height: 1.15; overflow-wrap: anywhere; }
+    .pz-table small { display: block; font-size: 7pt; font-weight: 400; text-transform: none; }
+    .pz-table td.free { font-weight: 400; }
     .pz-c { white-space: nowrap; }
-    .pz-table thead th { background: var(--pz-head); color: #fff; font-weight: 700; text-align: left; border-bottom: 0.25mm solid #fff; }
-    .pz-table thead th small { display: block; font-weight: 400; font-size: 7.5pt; opacity: .9; }
-    .pz-table thead th.day { text-align: center; font-size: 10pt; }
-    .pz-table tbody th { text-align: left; font-size: 9.5pt; line-height: 1.2; background: #f4f6fb; }
-    .pz-table tbody th small { display: block; font-weight: 400; font-size: 7.5pt; color: #6a7590; }
-    .pz-table .edge { border-left: 0.6mm solid #8a93a8; }
-    .pz-table tbody tr:nth-child(even) td.pz-free { background: #fafbfd; }
-    .pz-table td.pz-free { color: #a3abbd; text-align: center; }
-    .pz-table td.pz-h { background: color-mix(in srgb, var(--h) 26%, #fff); box-shadow: inset 1.3mm 0 0 var(--h); font-weight: 600; }
-    .pz-h1 { --h: var(--h1); } .pz-h2 { --h: var(--h2); } .pz-h3 { --h: var(--h3); } .pz-h4 { --h: var(--h4); }
-    .pz-legend i.pz-h { background: color-mix(in srgb, var(--h) 26%, #fff); border-color: var(--h); }
-    .pz-count { display: inline-block; min-width: 4.2mm; margin-left: 1mm; padding: 0 1mm; border-radius: 2.2mm;
-        background: #fff; box-shadow: inset 0 0 0 0.4mm var(--h); text-align: center; font-size: 8pt; font-weight: 700; }
-    .pz-off { display: block; font-size: 7pt; color: #b45309; font-weight: 600; }
+    .pz-off { display: block; font-size: 7pt; font-weight: 400; text-transform: none; font-style: italic; }
+    .pz-foot { margin-top: 3mm; font: 8pt "Segoe UI", sans-serif; color: #444; display: flex; justify-content: space-between; }
     @media print {
         body[data-print] > *:not(#poster) { display: none !important; }
         body[data-print] { background: #fff !important; margin: 0 !important; padding: 0 !important; }
@@ -846,15 +847,22 @@
 
     // ── ⎙ the week as a wall poster ───────────────────────────────────────
     /**
-     * The owner (4 Oct 2026): the overview by teacher, printed big — one A2
-     * sheet, or A2 cut into four A4 sheets glued together — with одделенска
-     * and предметна настава in separate tables. The same answer the grid draws
-     * (`awayCount` from lib/crossing.ts); nothing is counted again here.
+     * The owner (4 Oct 2026): the week by teacher, printed big — one A2 sheet,
+     * or A2 cut into four A4 sheets glued together — in the look of the
+     * school's own printed timetable on the staff-room board. Two tables:
+     *
+     *   одделенска — one teacher, ONE class (their own) all week: the class is
+     *     said once, in ОДД, and each period says the SUBJECT;
+     *   предметна  — one teacher, ONE subject, many classes: the subject is
+     *     said once, and each period says the CLASS.
+     *
+     * The cell holds what changes; what does not change is said once at the
+     * head of the row. No counts and no colours: the poster is the timetable,
+     * not who is out of it. Classes as the database has them (VI-а, VIII-б).
      *
      * Millimetres throughout, and the browser's own „Save as PDF": the PDF is
-     * vector, so it is sharp at A2 or at whatever a print shop enlarges it to.
-     * If the staff list ever outgrows the sheet, the poster is scaled down to
-     * fit rather than cut.
+     * vector, sharp at A2 or larger. The rows grow to fill the sheet; a staff
+     * list that outgrows it is scaled down rather than cut.
      */
     const POSTER = {
         a2: { page: [594, 420], area: [574, 400] },
@@ -863,32 +871,69 @@
         tiles: { page: [297, 210], view: [277, 190], overlap: 10 }
     };
 
-    function posterTableHtml(names, periods, days, byTeacher, offStaff, labelOf) {
-        const head = '<tr><th rowspan="2">Наставник</th>'
-            + days.map((d) => `<th class="day edge" colspan="${periods.length}">${esc(cap(d))}</th>`).join('')
+    /**
+     * A subject as the board writes it: short, small letters, no closing dot
+     * („мак.“ → „мак“, „П.Н.“ → „п.н“). A whole name the timetable was typed
+     * with is shortened by the same habit: two words → the first three letters
+     * of the first („Македонски јазик“ → „мак“), more → the initials
+     * („Физичко и здравствено образование“ → „фзо“), one → its first three.
+     */
+    function shortSubject(subject) {
+        const s = String(subject || '').replace(/\s+/g, ' ').trim();
+        if (!s) return '';
+        const lower = s.toLocaleLowerCase('mk-MK');
+        if (s.length <= 8 || s.includes('.')) return lower.replace(/\.+$/, '');
+        const words = lower.split(' ').filter((w) => w.length > 2);
+        if (words.length <= 1) return (words[0] || lower).slice(0, 3);
+        if (words.length === 2) return words[0].slice(0, 3);
+        return words.map((w) => w[0]).join('');
+    }
+
+    /** The bells as the board has them: each period, and the break after it. */
+    function bellsHtml(periods) {
+        const mins = (t) => { const [h, m] = String(t || '').split(':').map(Number); return h * 60 + m; };
+        const clockOf = (m) => String(Math.floor(m / 60)).padStart(2, '0') + ':' + String(m % 60).padStart(2, '0');
+        const heads = [];
+        const times = [];
+        periods.forEach((p, i) => {
+            const start = mins(p.startsAt);
+            const end = start + Number(p.minutes || 0);
+            heads.push(`<th>${esc(String(p.ordinal))} час</th>`);
+            times.push(`<td>${clockOf(start)}–${clockOf(end)}</td>`);
+            const next = periods[i + 1] ? mins(periods[i + 1].startsAt) : NaN;
+            if (Number.isFinite(next) && next > end) {
+                heads.push('<th class="rest">одмор</th>');
+                times.push(`<td class="rest">${clockOf(end)}–${clockOf(next)}</td>`);
+            }
+        });
+        return periods.length ? `<table class="pz-bells"><tr>${heads.join('')}</tr><tr>${times.join('')}</tr></table>` : '';
+    }
+
+    /**
+     * One table of the poster. `lead(name)` is what is said once at the head
+     * of the row; `cell(list, name)` what each period says.
+     */
+    function posterTableHtml(names, periods, days, byTeacher, offStaff, leadHead, lead, cell) {
+        const head = '<tr><th rowspan="2">Ред. бр.</th><th rowspan="2">Име и презиме</th>'
+            + `<th rowspan="2" class="lead">${esc(leadHead)}</th>`
+            + days.map((d) => `<th class="day edge" colspan="${periods.length}">${esc(d)}</th>`).join('')
             + '</tr><tr>'
             + days.map(() => periods.map((p, i) =>
-                `<th${i === 0 ? ' class="edge"' : ''}>${esc(String(p.ordinal))}.<small>${esc(p.startsAt)}</small></th>`).join('')).join('')
+                `<th${i === 0 ? ' class="edge"' : ''}>${esc(String(p.ordinal))}</th>`).join('')).join('')
             + '</tr>';
-        const body = names.map((name) => {
-            const line = labelOf(name);
-            let row = `<tr><th>${esc(name)}${line ? `<small>${esc(line)}</small>` : ''}`
-                + (offStaff.has(name) ? '<span class="pz-off">не е на списокот оваа година</span>' : '') + '</th>';
+        const body = names.map((name, n) => {
+            let row = `<tr><td>${n + 1}.</td><th class="name">${esc(name)}`
+                + (offStaff.has(name) ? '<span class="pz-off">не е на списокот оваа година</span>' : '') + '</th>'
+                + `<td class="odd lead">${lead(name)}</td>`;
             days.forEach((d) => periods.forEach((p, i) => {
                 const edge = i === 0 ? ' edge' : '';
                 const list = (byTeacher.get(name) && byTeacher.get(name).get(d + '|' + p.ordinal)) || [];
-                if (!list.length) { row += `<td class="pz-free${edge}">—</td>`; return; }
-                const away = list.reduce((n, c) => n + c.awayCount, 0);
-                const level = Math.min(4, away);
-                // A label and its count never part; two lessons may break at the slash.
-                const labels = list.map((c) => `<span class="pz-c">${esc(c.class)}`);
-                labels[labels.length - 1] += away ? `<span class="pz-count">${away}</span>` : '';
-                row += `<td class="${away ? `pz-h pz-h${level}` : ''}${edge}">${labels.join('</span> / ')}</span></td>`;
+                row += list.length ? `<td class="${edge.trim()}">${cell(list, name)}</td>` : `<td class="free${edge}">/</td>`;
             }));
             return row + '</tr>';
         }).join('');
-        // The name column is a fixed share; the periods share the rest.
-        const cols = '<colgroup><col style="width:44mm">' + days.map(() => periods.map(() => '<col>').join('')).join('') + '</colgroup>';
+        const cols = '<colgroup><col style="width:11mm"><col style="width:50mm"><col style="width:27mm">'
+            + days.map(() => periods.map(() => '<col>').join('')).join('') + '</colgroup>';
         return `<table class="pz-table">${cols}<thead>${head}</thead><tbody>${body}</tbody></table>`;
     }
 
@@ -902,36 +947,57 @@
             if (!slot.has(at)) slot.set(at, []);
             slot.get(at).push(c);
         });
-        const teacher = (name) => (data.teachers || []).find((t) => t.name === name);
-        // Одделенски in the order of their classes (the server's sort_key, so IX
-        // follows VIII), предметни by name; anyone with neither goes last.
+        const teacher = (name) => (data.teachers || []).find((t) => t.name === name) || {};
+        // In the order of the classes (the server's sort_key, so IX follows
+        // VIII): одделенски by their own class; among the предметни the
+        // класни раководители first, as on the board, then the rest by name.
         const classAt = new Map((data.classes || []).map((c, i) => [c.label, i]));
-        const odd = order.filter((n) => (teacher(n) || {}).kind === 'odd')
-            .sort((a, b) => (classAt.get(teacher(a).homeroom) ?? 999) - (classAt.get(teacher(b).homeroom) ?? 999) || a.localeCompare(b, 'mk'));
-        const pred = order.filter((n) => (teacher(n) || {}).kind === 'pred');
+        const byClass = (a, b) => (classAt.get(teacher(a).homeroom) ?? 999) - (classAt.get(teacher(b).homeroom) ?? 999)
+            || a.localeCompare(b, 'mk');
+        const odd = order.filter((n) => teacher(n).kind === 'odd').sort(byClass);
+        const pred = order.filter((n) => teacher(n).kind === 'pred').sort(byClass);
         const rest = order.filter((n) => !odd.includes(n) && !pred.includes(n));
-        const homeroomLine = (name) => { const t = teacher(name); return t && t.homeroom ? classShort(t.homeroom) : ''; };
-        const subjectLine = (name) => {
-            const t = teacher(name) || {};
-            return [t.subject ? String(t.subject) : '', t.homeroom ? 'раководител ' + classShort(t.homeroom) : ''].filter(Boolean).join(' · ');
+
+        // Одделенска: ОДД is the teacher's own class; a period says the subject,
+        // and the class too on the rare lesson in somebody else's.
+        const ownClass = (name) => esc(teacher(name).homeroom || '—');
+        const subjectCell = (list, name) => list.map((c) => esc(shortSubject(c.subject) || '—')
+            + (c.class !== teacher(name).homeroom ? `<small>${esc(c.class)}</small>` : '')).join(' / ');
+        // Предметна: the subject is said once; a period says the class.
+        // From the teacher's own list; where nobody typed one there, the subject
+        // the timetable has them teaching most often.
+        const taught = (name) => {
+            const count = new Map();
+            byTeacher.get(name).forEach((list) => list.forEach((c) => {
+                const s = shortSubject(c.subject);
+                if (s) count.set(s, (count.get(s) || 0) + 1);
+            }));
+            const top = [...count].sort((a, b) => b[1] - a[1])[0];
+            return top ? top[0] : '';
         };
-        const section = (title, names, labelOf) => names.length
-            ? `<section class="pz-sec"><h2>${esc(title)}<small>${names.length} ${names.length === 1 ? 'наставник' : 'наставници'}</small></h2>`
-                + posterTableHtml(names, periods, days, byTeacher, offStaff, labelOf) + '</section>'
+        const ownSubject = (name) => {
+            const t = teacher(name);
+            let subjects = String(t.subject || '').split(',').map(shortSubject).filter(Boolean);
+            if (!subjects.length && taught(name)) subjects = [taught(name)];
+            subjects = subjects.map((s) => s.toLocaleUpperCase('mk-MK'));
+            return esc(subjects.join(', ') || '—') + (t.homeroom ? `<small>раков. ${esc(t.homeroom)}</small>` : '');
+        };
+        const classCell = (list) => list.map((c) => `<span class="pz-c">${esc(c.class)}</span>`).join(' / ');
+
+        const section = (title, names, leadHead, lead, cell) => names.length
+            ? `<section class="pz-sec"><h2>${esc(title)}</h2>`
+                + posterTableHtml(names, periods, days, byTeacher, offStaff, leadHead, lead, cell) + '</section>'
             : '';
-        const covers = (data.bells.cabinet || []).map((b) =>
-            `${b.label} ${b.startsAt}→${(b.covers || []).map((c) => c.ordinal + '.').join('+') || '—'}`).join(' · ');
-        const share = el('share').selectedOptions[0] ? el('share').selectedOptions[0].textContent : '';
         return '<div class="poster">'
-            + '<header class="pz-head"><h1>Настава ↔ терапии — преглед на неделата</h1>'
-            + `<div class="pz-meta">${esc(SCHOOL)} · учебна ${esc(data.year)} · отсутен ако пропушти: ${esc(share)}`
-            + ` · отпечатено ${esc(new Date().toLocaleDateString('mk-MK'))}</div>`
-            + '<div class="pz-legend"><span>Отсутни од часот:</span>'
-            + [0, 1, 2, 3, 4].map((n) => `<span><i class="${n ? 'pz-h pz-h' + n : ''}"></i>${n === 4 ? '4+' : n}</span>`).join('')
-            + (covers ? `<span class="bells">Кабинет → наставен час: ${esc(covers)}</span>` : '') + '</div></header>'
-            + section('Одделенска настава', odd, homeroomLine)
-            + section('Предметна настава', pred, subjectLine)
-            + section('Други', rest, () => '')
+            + '<header class="pz-head"><div class="pz-title">'
+            + `<div class="school">${esc(SCHOOL)}</div><h1>Распоред на часови</h1>`
+            + `<div class="year">${esc(data.year)} год.</div></div>`
+            + bellsHtml(periods) + '</header>'
+            + section('Одделенска настава', odd, 'Одд', ownClass, subjectCell)
+            + section('Предметна настава', pred, 'Предмет', ownSubject, classCell)
+            + section('Други', rest, 'Предмет', ownSubject, classCell)
+            + '<div class="pz-foot"><span>/ слободен час · — час без внесен предмет</span>'
+            + `<span>Отпечатено ${esc(new Date().toLocaleDateString('mk-MK'))} · MTB</span></div>`
             + '</div>';
     }
 

@@ -311,6 +311,11 @@ const run = async () => {
             { title: 'Одделенска настава', names: ['Пробен Соchas'] },
             { title: 'Предметна настава', names: ['Пробен Безчас', 'Пробен Празен'] },
             { title: 'Други', names: ['Пробен Отстранет'] }]), JSON.stringify(a2.sections));
+    const cells = await page.evaluate(() => [...document.querySelectorAll('#poster .pz-sec')].map((s) =>
+        [...s.querySelectorAll('tbody td')].map((td) => td.textContent.trim()).filter((t) => t && t !== '/' && !/^\d+\.$/.test(t))));
+    check('одделенска says the SUBJECT in the period, предметна the CLASS, and no counts',
+        cells[0].includes('тестТЕСТ-С') && cells[2].includes('ТЕСТ-О')
+        && await page.evaluate(() => !document.querySelector('#poster .pz-count')), JSON.stringify(cells));
     check('and the print dialog was opened', a2.printed === 1);
     await page.evaluate(() => window.dispatchEvent(new Event('afterprint')));
     check('after printing the page is itself again',
