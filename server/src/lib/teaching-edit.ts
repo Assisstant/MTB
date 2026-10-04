@@ -768,23 +768,36 @@ export interface SubjectFill {
  * and a teacher with none listed is fixed once, in their row in Податоци,
  * after which their lessons can be filled.
  *
- * `lock`, inside a transaction: the empty lessons are taken FOR UPDATE and
- * their teachers FOR SHARE, so neither a lesson nor a teacher's list can
- * change between this read and the write that follows it.
+ * `lock`, inside a transaction: the empty lessons are taken FOR UPDATE, then
+ * the teachers OF THOSE LOCKED LESSONS FOR SHARE, and only then is the plan
+ * read — so neither a lesson nor its teacher's list can change between this
+ * read and the write that follows it. The order is the point. Teachers first
+ * (the first version) locked the teachers the lessons had a moment earlier: a
+ * lesson moved to another teacher in between was read with a teacher nobody
+ * had locked, whose subject could then change under the write. A locked
+ * lesson cannot change teacher, so the teachers locked next are exactly the
+ * ones read. Lessons-then-teachers is also `renameSubject`'s order, so the
+ * two cannot deadlock each other.
  */
 export async function subjectFillPlan(db: Queryable, yearId: number, lock = false): Promise<SubjectFill> {
+    let only: number[] | null = null;
     if (lock) {
-        await db.query(
-            `SELECT id FROM teachers WHERE id IN (
-                SELECT teacher_id FROM lessons
-                 WHERE school_year_id = $1 AND teacher_id IS NOT NULL AND (subject IS NULL OR btrim(subject) = ''))
-             ORDER BY id FOR SHARE`, [yearId]);
+        const locked = (await db.query(
+            `SELECT id, teacher_id FROM lessons
+              WHERE school_year_id = $1 AND (subject IS NULL OR btrim(subject) = '')
+              ORDER BY id FOR UPDATE`, [yearId])).rows;
+        only = locked.map((r: any) => r.id);
+        const teachers = [...new Set(locked.map((r: any) => r.teacher_id).filter((x: unknown) => x != null))];
+        if (teachers.length) await db.query('SELECT id FROM teachers WHERE id = ANY($1::int[]) ORDER BY id FOR SHARE', [teachers]);
     }
+    // Under lock, only the lessons that ARE locked: one that became empty a
+    // moment ago is not held, so it is not part of this decision.
     const { rows } = await db.query(
         `SELECT l.id, l.teacher_id AS "teacherId", t.name AS teacher, t.kind, t.subject AS own
            FROM lessons l LEFT JOIN teachers t ON t.id = l.teacher_id
           WHERE l.school_year_id = $1 AND (l.subject IS NULL OR btrim(l.subject) = '')
-          ORDER BY t.name, l.id${lock ? ' FOR UPDATE OF l' : ''}`, [yearId]);
+                ${only ? 'AND l.id = ANY($2::int[])' : ''}
+          ORDER BY t.name, l.id`, only ? [yearId, only] : [yearId]);
     const out: SubjectFill = { empty: rows.length, filled: [], homeroom: [], unlisted: [], several: [], noTeacher: 0 };
     const byTeacher = new Map<number, { teacher: string; kind: string; own: string[]; ids: number[] }>();
     for (const r of rows) {

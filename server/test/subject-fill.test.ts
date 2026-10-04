@@ -144,3 +144,43 @@ test('sending the same thing again changes nothing; the next preview fills the r
     const end = await lib.subjectFillPlan(db, year);
     assert.deepEqual([end.empty, end.filled.length], [4, 0]);
 });
+
+test('a lesson moved to another teacher while the fill takes its locks: the teacher it is read with is held too', async () => {
+    // The nasty case: the other teacher has the SAME one subject, so the shown
+    // lesson still matches after the move, and only the lock can stop the
+    // subject changing under the write.
+    id.three = (await db.query("INSERT INTO teachers(name,kind,subject) VALUES('Измислен Предметен Трет','pred','Ликовно') RETURNING id")).rows[0].id;
+    id.moving = await lesson(year, 9, id.one, null);
+    const was = await shown();
+    assert.deepEqual(was, [{ id: id.moving, subject: 'Ликовно' }]);
+    const a = await db.connect(), b = await db.connect();
+    const attempt = async (sql: string, args: unknown[]) => {
+        await b.query('BEGIN'); await b.query("SET LOCAL lock_timeout = '300ms'");
+        try { await b.query(sql, args); await b.query('COMMIT'); return 'written'; }
+        catch (err: any) { await b.query('ROLLBACK'); return err.code; }
+    };
+    // After each statement the fill sends, the other connection makes the next
+    // move: first the lesson to the other teacher, then that teacher's subject.
+    const tried: string[] = [];
+    let step = 0;
+    const interfering = {
+        query: async (text: string, values?: unknown[]) => {
+            const result = await a.query(text, values);
+            step++;
+            if (step === 1) tried.push('move ' + await attempt('UPDATE lessons SET teacher_id = $2 WHERE id = $1', [id.moving, id.three]));
+            else tried.push('subject ' + await attempt(
+                "UPDATE teachers SET subject = 'Музичко' WHERE id = (SELECT teacher_id FROM lessons WHERE id = $1)", [id.moving]));
+            return result;
+        }
+    };
+    try {
+        await a.query('BEGIN');
+        const done = await lib.applySubjectFill(interfering, year, was);
+        await a.query(done.ok ? 'COMMIT' : 'ROLLBACK');
+    } finally { a.release(); b.release(); }
+    const end = (await db.query(
+        'SELECT l.subject, t.subject AS own FROM lessons l JOIN teachers t ON t.id = l.teacher_id WHERE l.id = $1', [id.moving])).rows[0];
+    assert.ok(end.subject === null || end.subject === lib.tidy(end.own),
+        `„${end.subject}" was written for a teacher who teaches „${end.own}" (${tried.join(', ')})`);
+    assert.ok(tried.length >= 3 && tried.every((t) => t.endsWith('55P03')), `every move after the first lock waits: ${tried.join(', ')}`);
+});
