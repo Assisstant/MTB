@@ -31,7 +31,7 @@
  *   PUT    /api/teaching/bell/:id      when a period rings
  *   GET    /api/teaching/subject-names  every subject name in use; POST …/subject-rename moves one
  *   GET    /api/teaching/subject-fill   lessons with no subject: what a teacher's only subject fills
- *   POST   /api/teaching/subject-fill   that fill, current year only, if the count is still what was shown
+ *   POST   /api/teaching/subject-fill   exactly the lessons that were shown, current year only, or nothing
  *
  * There is no DELETE for a class or a teacher, and that is not an oversight —
  * see the header of `lib/teaching-edit.ts`. Archived years point at both rows
@@ -42,7 +42,7 @@ import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { pool } from '../db.js';
 import { TEACHING_DAYS, classSortKey } from '../lib/teaching.js';
-import { fillOwnSubjects, renameSubject, subjectNames } from '../lib/teaching-edit.js';
+import { applySubjectFill, renameSubject, subjectFillPlan, subjectNames } from '../lib/teaching-edit.js';
 import { copyYearLessons, noteTeacherClass, putLesson, putTeacherLesson, setClassAlias, setClassDescription, upsertClass, setClassTeachers, setHomeroom, setTeacherClasses, tidy } from '../lib/teaching-edit.js';
 import { personName } from '../lib/import-core.js';
 
@@ -162,8 +162,11 @@ const CopyBody = z.object({
 });
 
 const SubjectRenameBody = z.object({ year: YearRef.optional(), from: z.string().min(1).max(120), to: z.string().min(1).max(120) }).strict();
-/** `expected`: how many lessons the person was shown would be filled. */
-const SubjectFillBody = z.object({ year: YearRef.optional(), expected: z.number().int().min(0).max(100000) }).strict();
+/** The lessons the person was shown would be filled, each with its subject. */
+const SubjectFillBody = z.object({
+    year: YearRef.optional(),
+    lessons: z.array(z.object({ id: z.number().int().positive(), subject: z.string().min(1).max(400) }).strict()).min(1).max(20000)
+}).strict();
 
 const BellBody = z.object({
     year: YearRef.optional(),
@@ -1114,14 +1117,15 @@ export async function teachingEditRoutes(server: FastifyInstance) {
     server.get('/api/teaching/subject-fill', async (req, reply) => {
         const year = await schoolYear(pool, (req.query as any)?.year || undefined);
         if (!year) return reply.code(404).send({ error: 'Нема таква учебна година.' });
-        return { year: year.label, current: Boolean(year.is_current), ...(await fillOwnSubjects(pool, year.id, false)) };
+        return { year: year.label, current: Boolean(year.is_current), ...(await subjectFillPlan(pool, year.id)) };
     });
 
     /**
      * The fill itself, for the CURRENT year only: a teacher's list says what
-     * they teach now, and an archived year must read as it was. `expected` is
-     * how many lessons the person was shown; if that is no longer the number,
-     * nothing is written and the new preview is returned.
+     * they teach now, and an archived year must read as it was. `lessons` is
+     * what the person was shown — each lesson and its subject — and exactly
+     * that is written, or nothing (`applySubjectFill`): if any of it changed,
+     * 409 with the new preview.
      */
     server.post('/api/teaching/subject-fill', async (req, reply) => {
         const parsed = SubjectFillBody.safeParse(req.body);
@@ -1135,15 +1139,14 @@ export async function teachingEditRoutes(server: FastifyInstance) {
                 await client.query('ROLLBACK');
                 return reply.code(400).send({ error: 'Само тековната учебна година: предметите на наставниците кажуваат што предаваат сега.' });
             }
-            const now = await fillOwnSubjects(client, year.id, false);
-            const count = now.filled.reduce((n, x) => n + x.lessons, 0);
-            if (count !== parsed.data.expected) {
+            const done = await applySubjectFill(client, year.id, parsed.data.lessons);
+            if (!done.ok) {
                 await client.query('ROLLBACK');
-                return reply.code(409).send({ error: 'Во меѓувреме нешто се сменило — погледнете го новиот преглед.', year: year.label, current: true, ...now });
+                return reply.code(409).send({ error: 'Во меѓувреме нешто се сменило — ништо не е запишано. Погледнете го новиот преглед.',
+                    year: year.label, current: true, changed: done.changed, ...done.plan });
             }
-            const done = await fillOwnSubjects(client, year.id, true);
             await client.query('COMMIT');
-            return { ok: true, year: year.label, current: true, ...done };
+            return { ok: true, year: year.label, written: done.written };
         } catch (err) {
             await client.query('ROLLBACK').catch(() => {});
             throw err;

@@ -747,37 +747,45 @@ export async function renameSubject(db: Queryable, yearId: number, from: string,
 }
 
 export interface SubjectFill {
-    /** Lessons of the year with no subject, before anything is written. */
+    /** Lessons of the year with no subject. */
     empty: number;
-    /** A предметен teacher with exactly one subject of their own: that subject. */
-    filled: Array<{ teacherId: number; teacher: string; subject: string; lessons: number }>;
+    /** A предметен teacher with exactly one subject of their own: that subject, and which lessons. */
+    filled: Array<{ teacherId: number; teacher: string; subject: string; lessons: number; lessonIds: number[] }>;
     /** Left for a person, and why: each is a choice no default may make. */
     homeroom: Array<{ teacherId: number; teacher: string; lessons: number }>;
     unlisted: Array<{ teacherId: number; teacher: string; lessons: number }>;
     several: Array<{ teacherId: number; teacher: string; subjects: string[]; lessons: number }>;
     noTeacher: number;
-    written: number;
 }
 
 /**
- * The year's lessons that have no subject, filled where the answer is already
- * known: a предметен teacher who lists exactly ONE subject of their own teaches
- * that subject. It is the same rule as the teacher week's default
+ * The year's lessons that have no subject, and which of them already have
+ * their answer: a предметен teacher who lists exactly ONE subject of their own
+ * teaches that subject. It is the same rule as the teacher week's default
  * (`autoSubject` in mtb-teacher-week.js), applied to lessons entered before it
  * existed. Everything else is reported, not guessed: an одделенски teaches
  * every subject of their class, two listed subjects are the person's choice,
  * and a teacher with none listed is fixed once, in their row in Податоци,
- * after which this fills their lessons. Only an empty subject is ever
- * written — the UPDATE says so itself, in case a person filled one meanwhile.
- * Dry run unless `apply`.
+ * after which their lessons can be filled.
+ *
+ * `lock`, inside a transaction: the empty lessons are taken FOR UPDATE and
+ * their teachers FOR SHARE, so neither a lesson nor a teacher's list can
+ * change between this read and the write that follows it.
  */
-export async function fillOwnSubjects(db: Queryable, yearId: number, apply: boolean): Promise<SubjectFill> {
+export async function subjectFillPlan(db: Queryable, yearId: number, lock = false): Promise<SubjectFill> {
+    if (lock) {
+        await db.query(
+            `SELECT id FROM teachers WHERE id IN (
+                SELECT teacher_id FROM lessons
+                 WHERE school_year_id = $1 AND teacher_id IS NOT NULL AND (subject IS NULL OR btrim(subject) = ''))
+             ORDER BY id FOR SHARE`, [yearId]);
+    }
     const { rows } = await db.query(
         `SELECT l.id, l.teacher_id AS "teacherId", t.name AS teacher, t.kind, t.subject AS own
            FROM lessons l LEFT JOIN teachers t ON t.id = l.teacher_id
           WHERE l.school_year_id = $1 AND (l.subject IS NULL OR btrim(l.subject) = '')
-          ORDER BY t.name, l.id`, [yearId]);
-    const out: SubjectFill = { empty: rows.length, filled: [], homeroom: [], unlisted: [], several: [], noTeacher: 0, written: 0 };
+          ORDER BY t.name, l.id${lock ? ' FOR UPDATE OF l' : ''}`, [yearId]);
+    const out: SubjectFill = { empty: rows.length, filled: [], homeroom: [], unlisted: [], several: [], noTeacher: 0 };
     const byTeacher = new Map<number, { teacher: string; kind: string; own: string[]; ids: number[] }>();
     for (const r of rows) {
         if (r.teacherId == null) { out.noTeacher++; continue; }
@@ -792,15 +800,43 @@ export async function fillOwnSubjects(db: Queryable, yearId: number, apply: bool
         if (t.kind === 'odd') out.homeroom.push({ teacherId, teacher: t.teacher, lessons });
         else if (!t.own.length) out.unlisted.push({ teacherId, teacher: t.teacher, lessons });
         else if (t.own.length > 1) out.several.push({ teacherId, teacher: t.teacher, subjects: t.own, lessons });
-        else {
-            out.filled.push({ teacherId, teacher: t.teacher, subject: t.own[0], lessons });
-            if (apply) {
-                const done = await db.query(
-                    `UPDATE lessons SET subject = $2
-                      WHERE id = ANY($1::int[]) AND (subject IS NULL OR btrim(subject) = '')`, [t.ids, t.own[0]]);
-                out.written += done.rowCount || 0;
-            }
-        }
+        else out.filled.push({ teacherId, teacher: t.teacher, subject: t.own[0], lessons, lessonIds: t.ids });
     }
     return out;
+}
+
+/** Every lesson a plan would fill, with the subject it would get. */
+export const subjectFillLessons = (plan: SubjectFill) =>
+    plan.filled.flatMap((f) => f.lessonIds.map((id) => ({ id, subject: f.subject })));
+
+export type SubjectFillWrite =
+    | { ok: true; written: number; plan: SubjectFill }
+    | { ok: false; changed: number; plan: SubjectFill };
+
+/**
+ * Exactly the lessons the person was shown, each with the subject they were
+ * shown, or nothing. Run inside a transaction. The plan is read again under
+ * lock; if any shown lesson no longer stands as shown — a person gave it a
+ * subject, its teacher's list changed — nothing is written and the new plan
+ * is returned to be shown instead. A lesson that became fillable in the
+ * meantime is NOT written: nobody has seen it yet, so it waits for the next
+ * preview. (Comparing only a count let one appear and another go, and wrote
+ * a lesson nobody was shown.)
+ */
+export async function applySubjectFill(db: Queryable, yearId: number, shown: Array<{ id: number; subject: string }>): Promise<SubjectFillWrite> {
+    const plan = await subjectFillPlan(db, yearId, true);
+    const now = new Map(subjectFillLessons(plan).map((l) => [l.id, l.subject]));
+    const wanted = new Map(shown.map((l) => [l.id, l.subject]));
+    const changed = [...wanted].filter(([id, subject]) => now.get(id) !== subject).length;
+    if (!wanted.size || changed) return { ok: false, changed, plan };
+    const bySubject = new Map<string, number[]>();
+    wanted.forEach((subject, id) => { if (!bySubject.has(subject)) bySubject.set(subject, []); bySubject.get(subject)!.push(id); });
+    let written = 0;
+    for (const [subject, ids] of bySubject) {
+        const done = await db.query(
+            `UPDATE lessons SET subject = $2
+              WHERE id = ANY($1::int[]) AND school_year_id = $3 AND (subject IS NULL OR btrim(subject) = '')`, [ids, subject, yearId]);
+        written += done.rowCount || 0;
+    }
+    return { ok: true, written, plan };
 }

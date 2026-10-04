@@ -51,10 +51,12 @@ const state = {
 const subjects = [{ subject: 'Македонски / Албански јазик', lessons: 12, teachers: 3, offered: true },
     { subject: 'Математика', lessons: 20, teachers: 4, offered: true }, { subject: 'Изборен предмет', lessons: 0, teachers: 1, offered: false }];
 // Lessons with no subject (4 Oct 2026): what the server's preview says, and what a fill leaves.
-const fill = { year: YEAR, current: true, empty: 7, noTeacher: 0, written: 0, several: [],
-    filled: [{ teacherId: 31, teacher: 'Измислена Ликовна', subject: 'Ликовно', lessons: 3 }],
+const fill = { year: YEAR, current: true, empty: 7, noTeacher: 0, several: [],
+    filled: [{ teacherId: 31, teacher: 'Измислена Ликовна', subject: 'Ликовно', lessons: 3, lessonIds: [501, 502, 503] }],
     homeroom: [{ teacherId: 32, teacher: 'Измислен Одделенски', lessons: 2 }],
     unlisted: [{ teacherId: 33, teacher: 'Измислена Без Предмет', lessons: 2 }] };
+let fillFails = 0;
+let dismissNext = false;
 const calls = [];
 const writes = [];
 
@@ -92,9 +94,9 @@ async function context(options = {}) {
             if (p === '/api/teaching/subject-names') return json(200, { year: YEAR, subjects });
             if (p === '/api/teaching/subject-fill' && req.method() === 'GET') return json(200, fill);
             if (p === '/api/teaching/subject-fill') {
-                if (req.postDataJSON().expected !== 3) return json(409, { error: 'Во меѓувреме нешто се сменило.', ...fill });
-                Object.assign(fill, { empty: 4, filled: [], written: 0 });
-                return json(200, { ...fill, ok: true, written: 3 });
+                if (fillFails) { fillFails--; return json(500, { error: 'Серверот не можеше да запише.' }); }
+                Object.assign(fill, { empty: 4, filled: [] });
+                return json(200, { ok: true, year: YEAR, written: 3 });
             }
             if (p === '/api/teaching/subject-rename') {
                 const body = req.postDataJSON();
@@ -227,7 +229,10 @@ console.log('\nПодатоци → Безбедност');
 ctx = await context();
 page = await ctx.newPage();
 page.on('pageerror', (e) => errors.push('Podatoci: ' + e.message));
-page.on('dialog', (d) => (d.type() === 'prompt' ? d.accept('  Македонски   јазик ') : d.accept()));
+page.on('dialog', (d) => {
+    if (dismissNext) { dismissNext = false; return d.dismiss(); }
+    return d.type() === 'prompt' ? d.accept('  Македонски   јазик ') : d.accept();
+});
 await page.goto(`${ORIGIN}/Podatoci.html?tab=security`);
 await page.waitForSelector('#securityAccounts table', { timeout: 8000 });
 check('the current link, with its code', (await page.textContent('#securityLink')) === `${ORIGIN}/kolegi/${CODE}`, await page.textContent('#securityLink'));
@@ -294,10 +299,22 @@ check('lessons with no subject: how many, which can be filled, and why the rest 
     fillText.includes(`Часови без предмет — ${YEAR}: 7`) && fillText.includes('Измислена Ликовна · 3 × „Ликовно“')
     && /без внесен предмет/.test(fillText) && /одделенска настава/.test(fillText), fillText);
 if (process.env.DOOR_SHOTS) await page.locator('#tab-subjects').screenshot({ path: join(process.env.DOOR_SHOTS, 'subjects-before.png') });
+const fillWrites = () => writes.filter((w) => w.path === '/api/teaching/subject-fill').length;
+dismissNext = true;
+await page.click('#subjectsFillGo');
+await page.waitForTimeout(300);
+check('„Откажи" on the question sends nothing', fillWrites() === 0 && await page.isEnabled('#subjectsFillGo'));
+fillFails = 1;
+await page.click('#subjectsFillGo');
+await page.waitForFunction(() => /не можеше да запише/.test(document.getElementById('status').textContent), null, { timeout: 5000 }).catch(() => {});
+check('a failed request says so, and the button is there to try again',
+    fillWrites() === 1 && /не можеше да запише/.test(await page.textContent('#status')) && await page.isEnabled('#subjectsFillGo'),
+    await page.textContent('#status'));
 await page.click('#subjectsFillGo');
 await page.waitForFunction(() => !document.getElementById('subjectsFillGo'));
-check('„Пополни ги 3" sends the count it showed, for the year',
-    JSON.stringify(writes.at(-1)) === JSON.stringify({ method: 'POST', path: '/api/teaching/subject-fill', body: { year: YEAR, expected: 3 } }), JSON.stringify(writes.at(-1)));
+const shownLessons = [501, 502, 503].map((id) => ({ id, subject: 'Ликовно' }));
+check('the retry sends exactly the lessons it showed, each with its subject, for the year',
+    JSON.stringify(writes.at(-1)) === JSON.stringify({ method: 'POST', path: '/api/teaching/subject-fill', body: { year: YEAR, lessons: shownLessons } }), JSON.stringify(writes.at(-1)));
 check('and the box reads again', (await page.textContent('#subjectsFill')).includes(': 4'));
 for (const theme of ['light', 'dark']) {
     await page.evaluate((t) => { document.documentElement.dataset.theme = t; document.body.dataset.theme = t; }, theme);

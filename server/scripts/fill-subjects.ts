@@ -16,7 +16,7 @@
  */
 
 import { pool } from '../src/db.js';
-import { fillOwnSubjects } from '../src/lib/teaching-edit.js';
+import { applySubjectFill, subjectFillLessons, subjectFillPlan } from '../src/lib/teaching-edit.js';
 
 const apply = process.argv.includes('--apply');
 
@@ -25,7 +25,8 @@ try {
     await client.query('BEGIN');
     const year = (await client.query('SELECT id, label FROM school_years WHERE is_current LIMIT 1')).rows[0];
     if (!year) throw new Error('No current school year.');
-    const r = await fillOwnSubjects(client, year.id, apply);
+    // With --apply the plan is read under lock, so what is printed is what is written.
+    const r = await subjectFillPlan(client, year.id, apply);
     const sum = (list: Array<{ lessons: number }>) => list.reduce((n, x) => n + x.lessons, 0);
 
     console.log(`${year.label}: ${r.empty} lessons without a subject.\n`);
@@ -43,9 +44,14 @@ try {
     if (!apply) {
         await client.query('ROLLBACK');
         console.log('\nDry run — nothing was written. Add --apply.');
+    } else if (!r.filled.length) {
+        await client.query('ROLLBACK');
+        console.log('\nNothing to fill.');
     } else {
+        const done = await applySubjectFill(client, year.id, subjectFillLessons(r));
+        if (!done.ok) throw new Error(`${done.changed} lessons changed while being written; nothing was written.`);
         await client.query('COMMIT');
-        console.log(`\nWritten: ${r.written} lessons.`);
+        console.log(`\nWritten: ${done.written} lessons.`);
     }
 } catch (err) {
     await client.query('ROLLBACK').catch(() => {});

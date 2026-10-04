@@ -3368,12 +3368,13 @@
         box.innerHTML = html;
     }
     async function runSubjectFill(button) {
-        const expected = subjectFill ? subjectFill.filled.reduce((n, x) => n + x.lessons, 0) : 0;
-        if (!expected) return;
-        if (!window.confirm(`Да се запише предметот во ${expected} часа од ${data.year}? Само празните — ниту еден внесен предмет не се менува.`)) return;
+        // Exactly what this box shows, lesson by lesson: the server writes that or nothing.
+        const lessons = subjectFill ? subjectFill.filled.flatMap((x) => (x.lessonIds || []).map((id) => ({ id, subject: x.subject }))) : [];
+        if (!lessons.length) return;
+        if (!window.confirm(`Да се запише предметот во ${lessons.length} часа од ${data.year}? Само празните — ниту еден внесен предмет не се менува.`)) return;
         button.disabled = true;
         try {
-            const done = await api('POST', '/api/teaching/subject-fill', { year: data.year, expected });
+            const done = await api('POST', '/api/teaching/subject-fill', { year: data.year, lessons });
             status(`Пополнети: ${done.written} часа.`, 'ok', { toast: true });
         } catch (err) {
             status(err.message, err.status === 409 ? 'warn' : 'error', { toast: true });
