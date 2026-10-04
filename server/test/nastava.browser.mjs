@@ -340,29 +340,74 @@ const run = async () => {
         JSON.stringify(tiles));
     await page.evaluate(() => window.dispatchEvent(new Event('afterprint')));
 
-    // ⬇ PDF: the file is made by the page, so its pages are exactly A2 / A4
-    // whatever printer is installed. The two libraries come from cdnjs; with
-    // no connection the page says so, and so does this check, without failing.
-    for (const [kind, sizes] of [['a2', ['594x420']], ['tiles', ['297x210', '297x210', '297x210', '297x210']]]) {
+    // ⬇ PDF: the look is chosen first („Изглед на PDF"), then the FILE is made
+    // by the page, so its pages are exactly the paper chosen whatever printer
+    // is installed. The two libraries come from cdnjs; with no connection the
+    // window says so, and so does this check, without failing.
+    console.log('\n⬇ PDF: „Изглед на PDF", then a file of exactly the chosen paper');
+    const fsMod = await import('node:fs');
+    const openLook = async () => {
         await page.click('#printBtn');
-        // Every racer settles quietly: a waiter left behind must not reject later.
-        const got = await Promise.race([
-            page.waitForEvent('download', { timeout: 60000 }).catch(() => null),
-            page.waitForFunction(() => /не може да се вчита/.test(document.getElementById('status').textContent), null, { timeout: 60000 })
-                .then(() => null, () => null),
-            page.click(`[data-pdf="${kind}"]`).then(() => new Promise(() => {}), () => null)
-        ]);
-        if (!got) { console.log(`  skip ⬇ PDF ${kind}: no connection to cdnjs`); continue; }
-        const file = await got.path();
-        const text = (await import('node:fs')).readFileSync(file).toString('latin1');
-        const boxes = [...text.matchAll(/\/MediaBox \[0 0 ([\d.]+) ([\d.]+)\]/g)]
-            .map((m) => `${Math.round(m[1] * 25.4 / 72)}x${Math.round(m[2] * 25.4 / 72)}`);
-        check(`⬇ PDF ${kind}: a real PDF with pages of exactly ${sizes[0]} mm, named after the timetable`,
-            text.startsWith('%PDF') && JSON.stringify(boxes) === JSON.stringify(sizes)
-            && /^Распоред на часови /.test(got.suggestedFilename()), JSON.stringify([boxes, got.suggestedFilename()]));
-        check(`⬇ PDF ${kind}: the page is itself again afterwards`,
-            await page.waitForFunction(() => !document.getElementById('poster').innerHTML && document.getElementById('pdfCover').hidden,
-                null, { timeout: 5000 }).then(() => true, () => false));
+        await page.click('[data-pdf="poster"]');
+        await page.waitForSelector('.mtb-pdf', { timeout: 5000 });
+        // The preview is drawn, or it says why it cannot be.
+        return page.waitForFunction(() => {
+            const d = document.querySelector('.mtb-pdf');
+            if (!d) return 'gone';
+            if (/не може/.test(d.querySelector('.say').textContent)) return 'offline';
+            return d.querySelector('.wait').hidden ? 'drawn' : false;
+        }, null, { timeout: 60000 }).then((h) => h.jsonValue(), () => 'timeout');
+    };
+    const first = await openLook();
+    const look = await page.evaluate(() => ({
+        formats: [...document.querySelectorAll('.mtb-pdf input[name=format]')].map((i) => i.value),
+        parts: document.querySelectorAll('.mtb-pdf [data-part]').length,
+        footer: !!document.querySelector('.mtb-pdf [data-k="footer.text"]') && !!document.querySelector('.mtb-pdf [data-k="footer.pages"]'),
+        title: (document.querySelector('.mtb-pdf [data-k="title.text"]') || {}).value
+    }));
+    check('the window offers the paper, the title, what is on the sheet, the footer and the letters',
+        JSON.stringify(look.formats) === JSON.stringify(['a2', 'a3', 'a4', 'a2-4', 'a3-2'])
+        && look.parts === 6 && look.footer && look.title === 'Распоред на часови', JSON.stringify(look));
+    if (first === 'offline') {
+        console.log('  skip ⬇ PDF: no connection to cdnjs');
+        await page.click('.mtb-pdf [data-close]');
+    } else {
+        check('and draws a preview of the sheet', first === 'drawn', first);
+        const download = async (format) => {
+            await page.check(`.mtb-pdf input[name=format][value="${format}"]`);
+            const [got] = await Promise.all([page.waitForEvent('download', { timeout: 60000 }), page.click('.mtb-pdf [data-make]')]);
+            const text = fsMod.readFileSync(await got.path()).toString('latin1');
+            return {
+                name: got.suggestedFilename(), pdf: text.startsWith('%PDF'),
+                boxes: [...text.matchAll(/\/MediaBox \[0 0 ([\d.]+) ([\d.]+)\]/g)]
+                    .map((m) => `${Math.round(m[1] * 25.4 / 72)}x${Math.round(m[2] * 25.4 / 72)}`)
+            };
+        };
+        const a2 = await download('a2');
+        check('A2: one page of exactly 594 × 420 mm, named after the timetable',
+            a2.pdf && JSON.stringify(a2.boxes) === '["594x420"]' && /^Распоред на часови .* — A2\.pdf$/.test(a2.name), JSON.stringify(a2));
+        check('the window closes and the page is itself again', await page.waitForFunction(() =>
+            !document.querySelector('.mtb-pdf') && !document.getElementById('poster').innerHTML, null, { timeout: 5000 }).then(() => true, () => false));
+        await openLook();
+        // A changed title names the file; an unticked table stays unticked next time.
+        await page.fill('.mtb-pdf [data-k="title.text"]', 'Тест распоред');
+        await page.uncheck('.mtb-pdf [data-part="pred"]');
+        const tiles = await download('a2-4');
+        check('A2 on four A4: four pages of exactly 297 × 210 mm, with the chosen title in the name',
+            tiles.pdf && JSON.stringify(tiles.boxes) === JSON.stringify(['297x210', '297x210', '297x210', '297x210'])
+            && /^Тест распоред .* — A2 на 4 листа A4\.pdf$/.test(tiles.name), JSON.stringify(tiles));
+        await openLook();
+        const again = await page.evaluate(() => ({
+            format: (document.querySelector('.mtb-pdf input[name=format]:checked') || {}).value,
+            pred: document.querySelector('.mtb-pdf [data-part="pred"]').checked,
+            title: document.querySelector('.mtb-pdf [data-k="title.text"]').value,
+            shared: Object.keys(JSON.parse(localStorage.getItem('mtb_print_v1') || '{}'))
+        }));
+        check('the window remembers the choice; the footer and the letters are kept for every print',
+            again.format === 'a2-4' && again.pred === false && again.title === 'Тест распоред'
+            && JSON.stringify(again.shared) === '["footer","letters"]', JSON.stringify(again));
+        await page.click('.mtb-pdf [data-close]');
+        await page.evaluate(() => { localStorage.removeItem('mtb_print_v1'); localStorage.removeItem('mtb_print_v1:nastava-poster'); });
     }
 
     console.log('\nthe weekly view crosses the whole week and keeps the days apart');
