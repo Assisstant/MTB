@@ -46,6 +46,8 @@ const PUBLIC_FILES = new Set([
     'mtb-forms.js',
     // One teacher's week, read or edited in the cell: Настава and Податоци.
     'mtb-teacher-week.js',
+    // A PDF made by the page itself, the same whatever printer is installed.
+    'mtb-pdf.js',
     'workspace-admin.js',
     'workspace-admin.css',
     'mtb-runtime.js',

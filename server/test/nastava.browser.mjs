@@ -340,6 +340,31 @@ const run = async () => {
         JSON.stringify(tiles));
     await page.evaluate(() => window.dispatchEvent(new Event('afterprint')));
 
+    // ⬇ PDF: the file is made by the page, so its pages are exactly A2 / A4
+    // whatever printer is installed. The two libraries come from cdnjs; with
+    // no connection the page says so, and so does this check, without failing.
+    for (const [kind, sizes] of [['a2', ['594x420']], ['tiles', ['297x210', '297x210', '297x210', '297x210']]]) {
+        await page.click('#printBtn');
+        // Every racer settles quietly: a waiter left behind must not reject later.
+        const got = await Promise.race([
+            page.waitForEvent('download', { timeout: 60000 }).catch(() => null),
+            page.waitForFunction(() => /не може да се вчита/.test(document.getElementById('status').textContent), null, { timeout: 60000 })
+                .then(() => null, () => null),
+            page.click(`[data-pdf="${kind}"]`).then(() => new Promise(() => {}), () => null)
+        ]);
+        if (!got) { console.log(`  skip ⬇ PDF ${kind}: no connection to cdnjs`); continue; }
+        const file = await got.path();
+        const text = (await import('node:fs')).readFileSync(file).toString('latin1');
+        const boxes = [...text.matchAll(/\/MediaBox \[0 0 ([\d.]+) ([\d.]+)\]/g)]
+            .map((m) => `${Math.round(m[1] * 25.4 / 72)}x${Math.round(m[2] * 25.4 / 72)}`);
+        check(`⬇ PDF ${kind}: a real PDF with pages of exactly ${sizes[0]} mm, named after the timetable`,
+            text.startsWith('%PDF') && JSON.stringify(boxes) === JSON.stringify(sizes)
+            && /^Распоред на часови /.test(got.suggestedFilename()), JSON.stringify([boxes, got.suggestedFilename()]));
+        check(`⬇ PDF ${kind}: the page is itself again afterwards`,
+            await page.waitForFunction(() => !document.getElementById('poster').innerHTML && document.getElementById('pdfCover').hidden,
+                null, { timeout: 5000 }).then(() => true, () => false));
+    }
+
     console.log('\nthe weekly view crosses the whole week and keeps the days apart');
     let weekUrl = '';
     await ctx.unroute('**/api/teaching/crossing*');

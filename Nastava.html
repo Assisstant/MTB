@@ -6,6 +6,7 @@
 <title>Настава ↔ терапии — MTB</title>
 <script src="mtb-theme.js"></script>
 <script src="mtb-teacher-week.js"></script>
+<script src="mtb-pdf.js"></script>
 <script>
     // Before the first paint, so an embedded window never flashes the header.
     if (new URLSearchParams(window.location.search).has('embed')) document.documentElement.classList.add('embedded');
@@ -286,6 +287,12 @@
     .print-menu button:hover, .print-menu button:focus-visible { background: var(--soft); }
     .print-menu .print-tip { display: block; margin: 4px 10px 4px; padding-top: 8px; border-top: 1px solid var(--border);
         color: var(--muted); font-size: 11.5px; line-height: 1.4; }
+    .print-menu .print-tip .print-link { display: inline; width: auto; padding: 0 2px; color: var(--primary, #4f5bd5);
+        text-decoration: underline; font-size: 11.5px; }
+    #pdfCover { position: fixed; inset: 0; z-index: 10000; display: flex; align-items: center; justify-content: center;
+        background: rgba(255, 255, 255, .92); color: #1b2433; font: 600 16px "Segoe UI", sans-serif; }
+    #pdfCover[hidden] { display: none; }
+    #poster.stage { display: block; position: absolute; left: 0; top: 0; z-index: 9999; }
     .print-menu small { display: block; margin-top: 2px; color: var(--muted); font-size: 11.5px; line-height: 1.35; white-space: normal; }
 
     /* The poster: the school's own printed timetable (owner, 4 Oct 2026, a
@@ -320,7 +327,8 @@
     .pz-banner { border: 0.9mm solid #000; padding: 2mm 0 1mm; text-align: center;
         font-family: "Ruslan Display", "Times New Roman", serif; font-weight: 400; color: #a3352b;
         font-size: 46pt; line-height: 1.05; letter-spacing: 1.5mm; text-transform: uppercase; margin: 0; }
-    .pz-head { display: flex; align-items: flex-end; gap: 8mm; margin-top: 3mm; }
+    /* A <div>, not a <header>: the suite's header bar style would paint it. */
+    .pz-head { display: flex; align-items: flex-end; gap: 8mm; margin-top: 3mm; background: none; color: #000; }
     .pz-title { flex: 1; }
     .pz-title .school { font-size: 12pt; font-weight: 700; text-transform: uppercase; }
     .pz-title .year { font-size: 26pt; font-weight: 700; line-height: 1; margin-top: 1.5mm; }
@@ -411,11 +419,14 @@
                     <span class="print-menu" id="printMenu" role="menu" hidden>
                         <button type="button" role="menuitem" data-print="screen"><b>⎙ Како на екранот</b>
                             <small>Мрежата онаква каква што е, на листовите што ќе ги избере печатачот.</small></button>
-                        <button type="button" role="menuitem" data-print="a2"><b>📐 Постер A2, една страница</b>
-                            <small>Одделенска и предметна настава во посебни табели. „Зачувај како PDF“ дава векторски PDF, јасен во секоја големина.</small></button>
-                        <button type="button" role="menuitem" data-print="tiles"><b>🧩 A2 на 4 листа A4</b>
+                        <button type="button" role="menuitem" data-pdf="a2"><b>⬇ PDF — постер A2, една страница</b>
+                            <small>Распоредот на часови: одделенска и предметна настава во посебни табели. Готов PDF-фајл, 300 dpi, без прозорец за печатење.</small></button>
+                        <button type="button" role="menuitem" data-pdf="tiles"><b>⬇ PDF — A2 на 4 листа A4</b>
                             <small>Истиот постер во четири дела; соседните се преклопуваат 1 cm за лепење.</small></button>
-                        <span class="print-tip">Во прозорецот за печатење: <b>Save as PDF</b>, а „Headers and footers“ исклучено — тогаш горе и долу нема адреса ни наслов.</span>
+                        <span class="print-tip">PDF-от го прави страницата: секоја страница е точно A2 или A4, без датум, наслов и адреса, ист во секоја програма и на секој печатач.
+                            Печати го директно наместо тоа:
+                            <button type="button" class="print-link" data-print="a2">A2</button> ·
+                            <button type="button" class="print-link" data-print="tiles">4 × A4</button></span>
                     </span>
                 </span>
                 <a class="btn soft" href="NastavaUredi.html"
@@ -443,6 +454,7 @@
     <div class="panel unplaced" id="external" style="display:none;"></div>
 </main>
 <div id="poster" aria-hidden="true"></div>
+<div id="pdfCover" role="status" hidden>Се прави PDF…</div>
 
 <script>
 (function () {
@@ -921,7 +933,7 @@
                 times.push(`<td class="rest">${clockOf(end)}–${clockOf(next)}</td>`);
             }
         });
-        return periods.length ? `<table class="pz-bells"><tr>${heads.join('')}</tr><tr>${times.join('')}</tr></table>` : '';
+        return periods.length ? `<table class="pz-bells" data-mtb-plain><tr>${heads.join('')}</tr><tr>${times.join('')}</tr></table>` : '';
     }
 
     /**
@@ -951,7 +963,7 @@
         }).join('');
         const cols = '<colgroup><col style="width:11mm"><col style="width:57mm"><col style="width:27mm">'
             + days.map(() => periods.map(() => '<col>').join('')).join('') + '</colgroup>';
-        return `<table class="pz-table">${cols}<thead>${head}</thead><tbody>${body}</tbody></table>`;
+        return `<table class="pz-table" data-mtb-plain>${cols}<thead>${head}</thead><tbody>${body}</tbody></table>`;
     }
 
     function posterHtml() {
@@ -1008,10 +1020,10 @@
             : '';
         return '<div class="poster">'
             + '<h1 class="pz-banner">Распоред на часови</h1>'
-            + '<header class="pz-head"><div class="pz-title">'
+            + '<div class="pz-head"><div class="pz-title">'
             + `<div class="school">${esc(SCHOOL)}</div>`
             + `<div class="year">${esc(data.year)} год.</div></div>`
-            + bellsHtml(periods) + '</header>'
+            + bellsHtml(periods) + '</div>'
             + section('Одделенска настава', odd, 'Одд', ownClass, subjectCell)
             + section('Предметна настава', pred, 'Предмет', ownSubject, classCell)
             + section('Други', rest, 'Предмет', ownSubject, classCell)
@@ -1148,7 +1160,62 @@
         el('printMenu').hidden = !open;
         el('printBtn').setAttribute('aria-expanded', String(open));
     });
+    /**
+     * ⬇ PDF: the same poster, but the FILE is made here (mtb-pdf.js), so its
+     * pages are exactly A2 or A4 and carry nothing the browser or a PDF
+     * printer would add — the owner's PDF24 put a date, a title and the
+     * address on every sheet and cut the poster to its own paper. The poster
+     * is laid out once, on screen under a cover, drawn, and taken away again.
+     */
+    async function makePdf(kind) {
+        el('printMenu').hidden = true;
+        el('printBtn').setAttribute('aria-expanded', 'false');
+        if (!data) return;
+        const cover = el('pdfCover');
+        cover.hidden = false;
+        status('се прави PDF…');
+        const file = 'Распоред на часови ' + String(data.year).replace(/\//g, '-') + (kind === 'tiles' ? ' — 4 листа A4' : ' — A2');
+        try {
+            await Promise.all([loadBannerFont(), window.MTBPdf.load()]);
+            const box = el('poster');
+            const content = posterHtml();
+            box.className = 'stage';
+            if (kind === 'a2') {
+                const k = POSTER.a2;
+                box.innerHTML = `<div class="pz-page a2"><div class="pz-view"><div class="pz-area">${content}</div></div></div>`;
+                fitPoster(box, k.area);
+                await window.MTBPdf.page(box.querySelector('.pz-page'), { size: k.page, file });
+            } else {
+                const k = POSTER.tiles;
+                const step = [k.view[0] - k.overlap, k.view[1] - k.overlap];
+                const area = [step[0] + k.view[0], step[1] + k.view[1]];
+                box.innerHTML = `<div class="pz-page" style="width:${area[0]}mm;height:${area[1]}mm"><div class="pz-area">${content}</div></div>`;
+                fitPoster(box, area);
+                const where = ['горе лево', 'горе десно', 'долу лево', 'долу десно'];
+                const notes = where.map((w, n) => {
+                    const col = n % 2, row = Math.floor(n / 2);
+                    const glue = [col === 0 ? 'десниот раб оди под дел ' + (n + 2) : '', row === 0 ? 'долниот раб оди под дел ' + (n + 3) : '']
+                        .filter(Boolean).join(' · ');
+                    return `Дел ${n + 1} од 4 · ${w}${glue ? ' — ' + glue + ' (1 cm се преклопува)' : ''} · сечи по испрекинатата линија`;
+                });
+                await window.MTBPdf.tiles(box.querySelector('.pz-page'), {
+                    size: area, sheet: k.page, view: k.view, step, margin: (k.page[0] - k.view[0]) / 2, notes, file
+                });
+            }
+            status('PDF-от е преземен: „' + file + '.pdf“', 'ok');
+        } catch (err) {
+            status('PDF не може да се направи (' + (err && err.message ? err.message : err)
+                + '). Без интернет: „Печати директно“ под менито, па „Save as PDF“.', 'error');
+        } finally {
+            el('poster').className = '';
+            el('poster').innerHTML = '';
+            cover.hidden = true;
+        }
+    }
+
     el('printMenu').addEventListener('click', (event) => {
+        const pdf = event.target.closest('[data-pdf]');
+        if (pdf) { makePdf(pdf.dataset.pdf); return; }
         const choice = event.target.closest('[data-print]');
         if (choice) printAs(choice.dataset.print);
     });
