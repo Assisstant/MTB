@@ -2033,6 +2033,18 @@
      * side facts that have separate owners, so a person can see where they
      * disagree and correct the one that is wrong.
      */
+    /**
+     * The generations a year's name says, by the school's own rule (the hint
+     * in „Име и опис…“): „V-б – …“ is V, „VIII – …“ is VIII, „Комбинирана
+     * II, III, IV“ is all three. null when the name says none („подготвителна“,
+     * „Комбинирана паралелка“) — then there is nothing to compare.
+     */
+    function nameGenerations(alias) {
+        const head = String(alias || '').split(/\s+[–—-]\s+/)[0];
+        const said = head.split(/[\s,\-–—]+/).filter((t) => ROMAN.includes(t));
+        return said.length ? ROMAN.filter((g) => said.includes(g)) : null;
+    }
+
     function classFactsHtml(c, pupils, homeroom, sharedHomeroom) {
         const active = pupils.filter((s) => s.active !== false);
         const gens = new Map();
@@ -2058,6 +2070,21 @@
         const noGen = active.filter((s) => (s.kind || 'internal') !== 'external' && !s.oddelenie).length;
         if (noGen) checks.push(['warn', `${noGen} без внесено одделение (генерација)`]);
         if (genList.length > 1 && !c.description && !c.alias) checks.push(['warn', 'повеќе генерации, а нема опис (на пр. „комбинирана паралелка“)']);
+        // The name and the children, side by side (owner, 4 Oct 2026: „да ги
+        // мапираме со постоечките податоци"). The generations still come from
+        // the pupils; the name is only read to see whether it AGREES with them.
+        const claimed = nameGenerations(c.alias);
+        if (claimed && active.length) {
+            genList.filter((g) => !claimed.includes(g)).forEach((g) => {
+                const n = gens.get(g);
+                checks.push(['warn', `името вели ${claimed.join(', ')}, а ${n} ${n === 1 ? 'дете е' : 'деца се'} во ${g} одделение`]);
+            });
+            const none = claimed.filter((g) => !gens.has(g));
+            if (none.length) checks.push(['info', `името вели и ${none.join(', ')}, а нема дете од ${none.length === 1 ? 'тоа одделение' : 'тие одделенија'}`]);
+        }
+        if (!active.length && typeof c.lessons === 'number' && !c.lessons) {
+            checks.push(['warn', 'нема ниту ученици ниту часови — дали оваа паралелка ја има годинава?']);
+        }
         // The label is internal once the year has a name; how it reads is then nobody's concern.
         if (!c.alias && /[\s,]/.test(c.label)) {
             checks.push(['warn', 'ознаката е и опис — подобро кратка ознака (на пр. II-б), а описот во „Ознака и опис…“. '

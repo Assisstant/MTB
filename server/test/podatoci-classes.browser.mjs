@@ -102,7 +102,7 @@ async function seed() {
         await q(`INSERT INTO student_enrollments (student_id, school_year_id, grade, kind, active)
                  VALUES ($1, $2, $3, $4, true)`, [s.id, year.id, grade, kind]);
     }
-    return { year, teacher, classA: classes.get(CLASS_A) };
+    return { year, teacher, classA: classes.get(CLASS_A), classC: classes.get(CLASS_C) };
 }
 
 const gradeOf = async (yearId, pid) => (await q(
@@ -115,7 +115,7 @@ const patch = (pid, body) => fetch(`${BASE}/api/students/${encodeURIComponent(pi
 });
 
 const run = async () => {
-    const { year, teacher, classA } = await seed();
+    const { year, teacher, classA, classC } = await seed();
     console.log(`„Одделенија“ in a browser — ${YEAR}\n`);
 
     const browser = await chromium.launch({ ...(process.env.CHROME ? { executablePath: process.env.CHROME } : {}) });
@@ -204,6 +204,25 @@ const run = async () => {
     const external = await patch(`${TAG}-d`, { grade: null, year: YEAR });
     check('while an EXTERNAL pupil may still have no class at all', external.status === 200,
         `got ${external.status}`);
+
+    console.log('\nthe year\'s name is put beside the children\'s generations');
+    await q(`UPDATE class_years SET alias = 'Комбинирана II, III' WHERE school_year_id = $1 AND class_id = $2`,
+        [year.id, classA.id]);
+    await q(`UPDATE student_enrollments SET oddelenie = 'IV'
+              WHERE school_year_id = $1 AND student_id = (SELECT id FROM students WHERE public_id = $2)`,
+        [year.id, `${TAG}-b`]);
+    // The tab is in the address (a view is a history step), so the reload
+    // comes back on „Одделенија“ by itself.
+    await page.reload();
+    await page.waitForSelector(`#classes tr[data-class="${classA.id}"]`, { timeout: 8000 });
+    const rowA = await page.locator(`#classes tr[data-class="${classA.id}"]`).textContent();
+    check('a child in a generation the name does not say is pointed out',
+        rowA.includes('името вели II, III, а 1 дете е во IV одделение'), rowA);
+    check('and so is a generation the name says with no child in it',
+        rowA.includes('името вели и II, III, а нема дете од тие одделенија'), rowA);
+    const rowC = await page.locator(`#classes tr[data-class="${classC.id}"]`).textContent();
+    check('a class with no pupils and no lessons asks whether it exists this year',
+        rowC.includes('нема ниту ученици ниту часови'), rowC);
 
     console.log('\nand the chip is readable in BOTH themes, measured');
     for (const scheme of ['dark', 'light']) {
