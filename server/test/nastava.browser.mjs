@@ -296,8 +296,12 @@ const run = async () => {
     await page.click('#printBtn');
     check('in the overview, „Печати" offers a choice first', await page.isVisible('#printMenu'));
     await page.click('[data-print="a2"]');
+    // The banner's face is waited for (2.5 s at most) before the dialog opens.
+    await page.waitForFunction(() => window.__printed >= 1, null, { timeout: 6000 });
     const a2 = await page.evaluate(() => ({
         printed: window.__printed,
+        title: document.title,
+        banner: (document.querySelector('#poster .pz-banner') || {}).textContent,
         page: (document.getElementById('posterPage') || {}).textContent || '',
         pages: document.querySelectorAll('#poster .pz-page.a2').length,
         sections: [...document.querySelectorAll('#poster .pz-sec')].map((s) => ({
@@ -317,11 +321,15 @@ const run = async () => {
         cells[0].includes('тестТЕСТ-С') && cells[2].includes('ТЕСТ-О')
         && await page.evaluate(() => !document.querySelector('#poster .pz-count')), JSON.stringify(cells));
     check('and the print dialog was opened', a2.printed === 1);
+    check('the heading is „Распоред на часови", and so is the title the browser prints and names the PDF by',
+        a2.banner === 'Распоред на часови' && /^Распоред на часови \d{4}-\d{4}/.test(a2.title), JSON.stringify([a2.banner, a2.title]));
     await page.evaluate(() => window.dispatchEvent(new Event('afterprint')));
     check('after printing the page is itself again',
-        await page.evaluate(() => !document.body.dataset.print && !document.getElementById('posterPage')));
+        await page.evaluate(() => !document.body.dataset.print && !document.getElementById('posterPage')
+            && !document.title.startsWith('Распоред на часови')));
     await page.click('#printBtn');
     await page.click('[data-print="tiles"]');
+    await page.waitForFunction(() => window.__printed >= 2, null, { timeout: 6000 });
     const tiles = await page.evaluate(() => ({
         page: (document.getElementById('posterPage') || {}).textContent || '',
         pages: [...document.querySelectorAll('#poster .pz-page.tile')].map((p) => p.querySelector('.pz-area').style.transform)
