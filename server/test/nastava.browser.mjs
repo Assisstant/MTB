@@ -291,6 +291,42 @@ const run = async () => {
     check('nobody is listed twice',
         new Set(staffRows).size === staffRows.length, JSON.stringify(staffRows));
 
+    console.log('\n⎙ the week as a poster: A2, or A2 on four A4 sheets');
+    await page.evaluate(() => { window.print = () => { window.__printed = (window.__printed || 0) + 1; }; });
+    await page.click('#printBtn');
+    check('in the overview, „Печати" offers a choice first', await page.isVisible('#printMenu'));
+    await page.click('[data-print="a2"]');
+    const a2 = await page.evaluate(() => ({
+        printed: window.__printed,
+        page: (document.getElementById('posterPage') || {}).textContent || '',
+        pages: document.querySelectorAll('#poster .pz-page.a2').length,
+        sections: [...document.querySelectorAll('#poster .pz-sec')].map((s) => ({
+            title: s.querySelector('h2').firstChild.textContent,
+            names: [...s.querySelectorAll('tbody th')].map((th) => th.firstChild.textContent)
+        }))
+    }));
+    check('one A2 landscape page', a2.pages === 1 && a2.page.includes('594mm 420mm'), JSON.stringify(a2));
+    check('одделенска and предметна настава in separate tables, anyone else apart',
+        JSON.stringify(a2.sections) === JSON.stringify([
+            { title: 'Одделенска настава', names: ['Пробен Соchas'] },
+            { title: 'Предметна настава', names: ['Пробен Безчас', 'Пробен Празен'] },
+            { title: 'Други', names: ['Пробен Отстранет'] }]), JSON.stringify(a2.sections));
+    check('and the print dialog was opened', a2.printed === 1);
+    await page.evaluate(() => window.dispatchEvent(new Event('afterprint')));
+    check('after printing the page is itself again',
+        await page.evaluate(() => !document.body.dataset.print && !document.getElementById('posterPage')));
+    await page.click('#printBtn');
+    await page.click('[data-print="tiles"]');
+    const tiles = await page.evaluate(() => ({
+        page: (document.getElementById('posterPage') || {}).textContent || '',
+        pages: [...document.querySelectorAll('#poster .pz-page.tile')].map((p) => p.querySelector('.pz-area').style.transform)
+    }));
+    check('four A4 landscape sheets, each a quarter, overlapping by 1 cm',
+        tiles.page.includes('297mm 210mm') && JSON.stringify(tiles.pages) === JSON.stringify([
+            'translate(0mm, 0mm)', 'translate(-267mm, 0mm)', 'translate(0mm, -180mm)', 'translate(-267mm, -180mm)']),
+        JSON.stringify(tiles));
+    await page.evaluate(() => window.dispatchEvent(new Event('afterprint')));
+
     console.log('\nthe weekly view crosses the whole week and keeps the days apart');
     let weekUrl = '';
     await ctx.unroute('**/api/teaching/crossing*');
