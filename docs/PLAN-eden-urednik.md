@@ -16,6 +16,12 @@
   below remain the historical 24 September audit; references to Панел no
   longer describe a current screen. Администрација's broader fields and A1
   remain separate work; this change does not replace its editors.
+- **One set of rules per fact (4 October, later):** Податоци saves a pupil
+  through the form's route; Уреди настава's teacher section only reads;
+  a booked child stays on a therapist's list from every door. See
+  APP-CONTRACT.md, „One set of rules per fact". Still open: A1, and step 5
+  (the therapist's-list form) — the rule is now one, the screens are still
+  three (Кабинети, Податоци → Терапевти, the pupil form).
 
 **Status, 24 September 2026:**
 - **The map** (part 3) was read from the code on `main` (`d9d6fe6`), not from

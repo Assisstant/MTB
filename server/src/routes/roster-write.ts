@@ -419,7 +419,8 @@ export async function rosterWriteRoutes(server: FastifyInstance) {
 
         const result = await setCaseloadLink(pool, yid, th.rows[0].id, publicId, add);
         if (!result.ok) {
-            return reply.code(result.status).send(result.archived ? { error: result.error, archived: true } : { error: result.error });
+            return reply.code(result.status).send(result.archived ? { error: result.error, archived: true }
+                : result.booked ? { error: result.error, booked: result.booked } : { error: result.error });
         }
         return { ok: true, therapist: therapistName, student: publicId, schoolYearId: yid, linked: add };
     }

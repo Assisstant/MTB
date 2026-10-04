@@ -2086,6 +2086,19 @@
             return;
         }
 
+        // A pupil who still has a term with this therapist cannot leave the
+        // list (lib/caseload.ts, the same answer as the pupil form and Колега).
+        // Said before anything is written, so the list is never half-saved.
+        const stillBooked = strayBookings({ id: therapist.id, students: Array.from(now) });
+        const blocked = drop.filter((p) => stillBooked.has(p));
+        if (blocked.length) {
+            const names = studentsById();
+            showNotice('Не е зачувано. ' + blocked.map((p) => ((names.get(p) && names.get(p).name) || p)
+                + ' има термин (' + slotText(stillBooked.get(p)) + ')').join('; ')
+                + ' — прво испразнете го терминот во „Термини“, па тргнете го од списокот.', 'error');
+            return;
+        }
+
         const name = encodeURIComponent(therapist.name);
         const year = '?year=' + encodeURIComponent(state.year);
         el('saveCaseloadBtn').disabled = true;
@@ -2107,16 +2120,7 @@
             closeCaseloadModal();
             drawTherapistRoster();
             drawSchedule();
-            // Taking a pupil off the list leaves their booked slots where
-            // they are (see strayBookings), so say which, and where.
-            const saved = (roster.therapists || []).find((item) => String(item.id) === String(therapist.id));
-            const left = saved ? strayBookings(saved) : new Map();
-            const byId = studentsById();
-            const kept = drop.filter((p) => left.has(p)).map((p) =>
-                ((byId.get(p) && byId.get(p).name) || p) + ' (' + slotText(left.get(p)) + ')');
-            showNotice(`Зачувано: +${add.length} / −${drop.length} ученици во списокот.`
-                + (kept.length ? ` Терминот во распоредот остана за: ${kept.join('; ')} — испразнете го во „Термини“.` : ''),
-                kept.length ? 'warn' : 'ok');
+            showNotice(`Зачувано: +${add.length} / −${drop.length} ученици во списокот.`, 'ok');
             setConnection(true, 'Зачувано');
         } catch (err) {
             // Row writes are intentionally atomic one by one, so an error can

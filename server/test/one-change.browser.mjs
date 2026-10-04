@@ -58,9 +58,11 @@ const roster = () => ({
     classes: db.classes.map((c) => ({ ...c, description: null, lessons: 0, lessons_without_subject: 0, unlinked_teachers: [] })),
     candidates: { students: [], teachers: [], therapists: [], classes: [] }
 });
+// As routes/workspace.ts answers: `kind` beside the two fields it is made of.
 const pupil = (s) => ({
-    public_id: s.public_id, name: s.name, grade: s.grade, oddelenie: s.oddelenie,
-    enrollment_type: 'internal', boarding: false, programme: 'unknown', placement: 'unknown',
+    public_id: s.public_id, name: s.name, grade: s.grade, oddelenie: s.oddelenie, kind: s.kind || 'internal',
+    enrollment_type: s.kind === 'external' ? 'external' : 'internal', boarding: s.kind === 'boarding',
+    programme: 'unknown', placement: 'unknown',
     globally_active: true, annual_active: true, enrolled: true, therapists: [], expected: 'e'.repeat(64)
 });
 
@@ -110,15 +112,12 @@ async function serve(context) {
             const pupilPut = /^\/api\/workspace\/pupils\/([^/]+)$/.exec(p);
             if (pupilPut && method === 'PUT') {
                 const s = db.students.find((x) => x.public_id === decodeURIComponent(pupilPut[1]));
-                Object.assign(s, { name: body.name, grade: body.grade, oddelenie: body.oddelenie });
+                Object.assign(s, { name: body.name, grade: body.grade, oddelenie: body.oddelenie,
+                    kind: body.enrollmentType === 'external' ? 'external' : body.boarding ? 'boarding' : 'internal' });
                 return json(200, { pupil: pupil(s) });
             }
-            const student = /^\/api\/students\/([^/]+)$/.exec(p);
-            if (student && method === 'PATCH') {
-                const s = db.students.find((x) => x.public_id === decodeURIComponent(student[1]));
-                Object.assign(s, { name: body.name, kind: body.kind, grade: body.grade, oddelenie: body.oddelenie });
-                return json(200, { ok: true, student: s, enrolled: true });
-            }
+            // No PATCH /api/students here: Податоци saves a pupil through the
+            // route above only (4 Oct 2026); a call to the old one is a 404.
             return json(404, { error: 'not in this test' });
         }
         const file = decodeURIComponent(p.replace(/^\//, ''));

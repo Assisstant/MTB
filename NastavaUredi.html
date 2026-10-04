@@ -430,27 +430,11 @@
         <details class="section" id="teacherSection">
             <summary>👩‍🏫 Наставници</summary>
             <p class="hint">
-                Работната книга на училиштето не го кажува предметот на предметен наставник што
-                води и одделение — тоа се внесува тука еднаш и повторен увоз не го брише.
+                Кој предава оваа година — за читање додека се гради распоредот. Името, видот
+                (одделенски / предметен), предметите и паралелката што ја води се менуваат на едно место:
+                <a href="Podatoci.html?tab=teachers">Податоци → Наставници</a>. Таму се додава и нов наставник.
+                Предметот на предметен наставник што води и одделение се внесува таму еднаш и повторен увоз не го брише.
             </p>
-            <div class="controls" style="margin-bottom: 12px;">
-                <label class="field">
-                    <span>Име и презиме</span>
-                    <input id="newTeacher" placeholder="ново име">
-                </label>
-                <label class="field">
-                    <span>Вид</span>
-                    <select id="newTeacherKind">
-                        <option value="odd">одделенски</option>
-                        <option value="pred" selected>предметен</option>
-                    </select>
-                </label>
-                <label class="field">
-                    <span>Предмет</span>
-                    <input id="newTeacherSubject" class="narrow" placeholder="на пр. АНГ.">
-                </label>
-                <button class="btn" id="addTeacher">+ Додај</button>
-            </div>
             <div class="scroll"><div id="teachers"></div></div>
         </details>
     </div>
@@ -2309,72 +2293,25 @@
     }
 
     // ── teachers ────────────────────────────────────────────────────────────
+    /**
+     * Who teaches this year, to read while building the timetable — and only
+     * to read (4 Oct 2026). A teacher's name, type, subjects and homeroom are
+     * edited in ONE place, Податоци → Наставници; this section used to be a
+     * second editor of the same four facts, the duplication the Workspace's
+     * „Заеднички податоци" panel was removed for the same day.
+     */
     function drawTeachers() {
-        el('teachers').innerHTML =
-            '<table class="list"><thead><tr><th>Име</th><th>Вид</th><th>Предмет</th><th>Одделение што го води</th><th></th></tr></thead><tbody>'
-            + (data.teachers || []).map((t) =>
-                `<tr data-teacher="${t.id}">`
-                + `<td><input class="t-name" value="${esc(t.name)}"></td>`
-                + '<td><select class="t-kind">'
-                + `<option value="odd"${t.kind === 'odd' ? ' selected' : ''}>одделенски</option>`
-                + `<option value="pred"${t.kind === 'pred' ? ' selected' : ''}>предметен</option>`
-                + '</select></td>'
-                + '<td data-subject-cell></td>'
-                + '<td><select class="t-home" data-class-picker>' + classPickerHtml(t.homeroom || '', '—') + '</select></td>'
-                + '<td class="act"><button class="btn soft" data-save-teacher="' + t.id + '">Зачувај</button></td></tr>').join('')
-            + '</tbody></table>';
-
-        // Предметот се избира од каталогот на МОН, и може да биде ПОВЕЌЕ од
-        // еден — некои наставници навистина држат два и три. Избирачот е ЕДНА
-        // копија, во `app-navigation.js`, истиот што го цртаат Податоци и
-        // работниот простор; тука само се закачува на ќелијата. Тој остава
-        // скриено `.t-subject` внатре, па зачувувањето подолу не се менува.
-        el('teachers').querySelectorAll('tr[data-teacher]').forEach((row) => {
-            const teacher = (data.teachers || []).find((t) => t.id === Number(row.dataset.teacher));
-            window.MTBAppNavigation.subjects.mount(row.querySelector('[data-subject-cell]'), {
-                value: teacher ? teacher.subject : '',
-                year: data.year,
-                className: 't-subject'
-            });
-        });
-
-        el('teachers').querySelectorAll('[data-save-teacher]').forEach((b) => b.addEventListener('click', async () => {
-            const id = Number(b.dataset.saveTeacher);
-            const row = el('teachers').querySelector(`[data-teacher="${id}"]`);
-            const was = (data.teachers || []).find((t) => t.id === id);
-            const name = tidy(row.querySelector('.t-name').value);
-            const homeroom = tidy(row.querySelector('.t-home').value) || null;
-            const hadHomeroom = (was && was.homeroom) || null;
-            try {
-                await api('PUT', '/api/teaching/teacher/' + id, {
-                    name,
-                    kind: row.querySelector('.t-kind').value,
-                    subject: tidy(row.querySelector('.t-subject').value) || null
-                });
-                // Одделението што го води е факт на ГОДИНАТА, не на наставникот,
-                // па има своја рута. Порано се праќаше како поле на наставникот,
-                // кое серверот го нема — и тивко се губеше.
-                let said = 'наставникот е зачуван';
-                if (homeroom !== hadHomeroom) {
-                    const answer = await api('PUT', `/api/teaching/teacher/${id}/homeroom`, {
-                        year: data.year, class: homeroom, expected: hadHomeroom
-                    });
-                    said = (homeroom ? `${name} е раководител на ${homeroom}` : `${name} повеќе не води одделение`)
-                        + (answer.replaced || []).map((r) => `; ${r.teacher} повеќе не е раководител на ${r.class}`
-                            + (r.kept === 'subject' ? ' (останува како предметен, таму има часови)' : '')).join('');
-                }
-                await load(true);
-                status(said, 'ok');
-            } catch (err) {
-                if (err.status === 409 && err.payload && 'current' in err.payload) {
-                    // Некој друг го сменил во меѓувреме. Се прикажува тоа што
-                    // е сега, а не тоа што оваа картичка мислеше.
-                    await load(true);
-                    status(`Раководството не е зачувано: во меѓувреме е сменето и сега е `
-                        + `${err.payload.current || 'без одделение'}. Одбери повторно ако треба.`, 'error');
-                } else status(err.message, 'error');
-            }
-        }));
+        const kindName = { odd: 'одделенски', pred: 'предметен' };
+        const rows = data.teachers || [];
+        const subjects = (t) => String(t.subject || '').split(',').map((s) => s.trim()).filter(Boolean).join(', ');
+        el('teachers').innerHTML = rows.length
+            ? '<table class="list" data-teachers-readonly><thead><tr><th>Име</th><th>Вид</th><th>Предмети</th><th>Раководител на</th></tr></thead><tbody>'
+              + rows.map((t) => `<tr data-teacher="${t.id}"><td>${esc(t.name)}</td>`
+                + `<td>${esc(kindName[t.kind] || '—')}</td>`
+                + `<td>${subjects(t) ? esc(subjects(t)) : '<span class="none">не е внесен</span>'}</td>`
+                + `<td>${t.homeroom ? esc(classShort(t.homeroom)) : '—'}</td></tr>`).join('')
+              + '</tbody></table>'
+            : '<p class="hint">Нема наставници на списокот за оваа година.</p>';
     }
 
     // ── bells ───────────────────────────────────────────────────────────────
@@ -2572,22 +2509,6 @@
             el('newClass').value = '';
             await load(true);
             status(`одделението ${label} е додадено`, 'ok');
-        } catch (err) { status(err.message, 'error'); }
-    });
-    el('addTeacher').addEventListener('click', async () => {
-        const name = tidy(el('newTeacher').value);
-        if (!name) return status('Внеси име на наставникот.', 'warn');
-        try {
-            await api('POST', '/api/teaching/teacher', {
-                name,
-                kind: el('newTeacherKind').value,
-                subject: tidy(el('newTeacherSubject').value) || null,
-                year: data ? data.year : undefined
-            });
-            el('newTeacher').value = '';
-            el('newTeacherSubject').value = '';
-            await load(true);
-            status(`${name} е додаден`, 'ok');
         } catch (err) { status(err.message, 'error'); }
     });
 

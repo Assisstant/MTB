@@ -505,9 +505,7 @@ const run = async () => {
         (await q(`SELECT count(*)::int AS n FROM class_years cy JOIN school_classes c ON c.id = cy.class_id
                    WHERE c.label = $1 AND cy.school_year_id <> $2`, [NEW_CLASS, year.id]))[0].n, 0);
 
-    console.log('\nthe homeroom picked on a teacher\'s row is saved');
-    // Until 24 Sep 2026 this dropdown went to a route with no such field: it
-    // was dropped without an error, and the reload quietly put the old one back.
+    console.log('\nthe teacher list reads; a teacher is edited in Податоци');
     const [{ id: teacherId }] = await q(`SELECT id FROM teachers WHERE name = $1`, [TEACHER]);
     const [{ id: classId }] = await q(`SELECT id FROM school_classes WHERE label = $1`, [CLASS]);
     const [{ id: newClassId }] = await q(`SELECT id FROM school_classes WHERE label = $1`, [NEW_CLASS]);
@@ -521,47 +519,19 @@ const run = async () => {
              SELECT $1, $2, 2, 9, $3, $4, 'мак.'
               WHERE NOT EXISTS (SELECT 1 FROM lessons WHERE school_year_id = $1 AND class_id = $3 AND teacher_id = $4)`,
         [year.id, DAY, classId, teacherId]);
-    const links = async () => (await q(
-        `SELECT t.name, c.label, tc.role FROM teacher_classes tc
-           JOIN teachers t ON t.id = tc.teacher_id JOIN school_classes c ON c.id = tc.class_id
-          WHERE tc.school_year_id = $1 AND tc.teacher_id = ANY($2::int[]) ORDER BY t.name, c.label`,
-        [year.id, [teacherId, other.id]])).map((r) => `${r.name === TEACHER ? 'T' : 'O'}:${r.label}:${r.role}`);
+    // Since 4 Oct 2026 this section only READS: a teacher's name, type,
+    // subjects and homeroom are edited in Податоци → Наставници alone. The
+    // homeroom route it used keeps its own tests (teaching-edit.e2e.ts).
     const teacherRow = `#teachers tr[data-teacher="${teacherId}"]`;
-    const reopenTeachers = async () => {
-        await page.click('#refresh');
-        await page.waitForTimeout(800);
-        await page.evaluate(() => { document.getElementById('teacherSection').open = true; });
-    };
-    await reopenTeachers();
-    checkEq('the row shows the homeroom the database holds', await page.$eval(`${teacherRow} .t-home`, (s) => s.value), CLASS);
-    await page.selectOption(`${teacherRow} .t-home`, NEW_CLASS);
-    await page.click(`${teacherRow} [data-save-teacher]`);
-    await page.waitForTimeout(900);
-    checkEq('the teacher now holds the new class, and keeps the old one as a subject class because they teach there; '
-        + 'the homeroom it replaced, who teaches nothing there, is let go',
-        await links(), ['T:' + CLASS + ':subject', 'T:' + NEW_CLASS + ':homeroom']);
-    const said = await page.evaluate(() => document.getElementById('status').textContent);
-    check('and the page says whom it replaced', said.includes(OTHER), said);
-    await reopenTeachers();
-    checkEq('after a reload the row still shows it', await page.$eval(`${teacherRow} .t-home`, (s) => s.value), NEW_CLASS);
-
-    // Somebody else moves it back, behind this tab's back.
-    await q(`UPDATE teacher_classes SET role = 'subject' WHERE school_year_id = $1 AND teacher_id = $2 AND class_id = $3`, [year.id, teacherId, newClassId]);
-    await q(`UPDATE teacher_classes SET role = 'homeroom' WHERE school_year_id = $1 AND teacher_id = $2 AND class_id = $3`, [year.id, teacherId, classId]);
-    const behindTheBack = await links();
-    await page.selectOption(`${teacherRow} .t-home`, '');
-    await page.click(`${teacherRow} [data-save-teacher]`);
-    await page.waitForTimeout(900);
-    checkEq('a stale tab cannot overwrite it', await links(), behindTheBack);
-    const refused = await page.evaluate(() => document.getElementById('status').textContent);
-    check('and it says what is there now', /во меѓувреме/.test(refused) && refused.includes(CLASS), refused);
-
-    await reopenTeachers();
-    await page.selectOption(`${teacherRow} .t-home`, '');
-    await page.click(`${teacherRow} [data-save-teacher]`);
-    await page.waitForTimeout(900);
-    checkEq('„—" leaves no homeroom, and a subject link only where one was already',
-        await links(), ['T:' + CLASS + ':subject', 'T:' + NEW_CLASS + ':subject']);
+    await page.click('#refresh');
+    await page.waitForTimeout(800);
+    await page.evaluate(() => { document.getElementById('teacherSection').open = true; });
+    check('the teacher list shows the homeroom the database holds',
+        (await page.textContent(`${teacherRow} td:nth-child(4)`)).includes(CLASS), await page.textContent(teacherRow));
+    check('and offers nothing to edit there: no field, no picker, no save, no „+ Додај"',
+        await page.locator('#teachers input, #teachers select, #teachers button, #addTeacher, #newTeacher').count() === 0);
+    check('it says where a teacher is edited',
+        (await page.getAttribute('#teacherSection a[href*="Podatoci.html?tab=teachers"]', 'href')) !== null);
 
     console.log('\ncopying last year is shown before it is done');
     await page.evaluate(() => { document.getElementById('copySection').open = true; });

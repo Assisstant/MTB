@@ -995,18 +995,13 @@ export async function portalRoutes(server: FastifyInstance, options: { year?: st
         if (!parsed.success) return reply.code(400).send({ error: 'Непознат ученик.' });
         const { publicId, on } = parsed.data;
         const therapistId = who.staff.therapistId as number;
-        if (!on) {
-            const booked = await pool.query(
-                `SELECT sl.day, sl.time_slot FROM schedule_slots sl JOIN students s ON s.id = sl.student_id
-                  WHERE sl.school_year_id = $1 AND sl.therapist_id = $2 AND s.public_id = $3
-                  ORDER BY sl.day_order, sl.time_slot`, [who.year.id, therapistId, publicId]);
-            if (booked.rows.length) {
-                const when = booked.rows.map((r: any) => `${r.day} ${r.time_slot}`).join(', ');
-                return reply.code(409).send({ booked: true,
-                    error: `Ученикот има термин кај вас (${when}). Прво ослободете го терминот, па тргнете го од листата.` });
-            }
-        }
+        // The "still has a term" refusal is the shared one (lib/caseload.ts),
+        // said here in the colleague's own words.
         const result = await setCaseloadLink(pool, who.year.id, therapistId, publicId, on);
+        if (!result.ok && result.booked) {
+            return reply.code(409).send({ booked: true,
+                error: `Ученикот има термин кај вас (${result.booked.join(', ')}). Прво ослободете го терминот, па тргнете го од листата.` });
+        }
         if (!result.ok) {
             return reply.code(result.status).send({ error: result.archived
                 ? 'Тој ученик е архивиран во S-Дневник.' : 'Тој ученик не е на листата за годинава.' });

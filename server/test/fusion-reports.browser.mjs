@@ -108,7 +108,8 @@ try {
     therapists[1].students = [];
     await page.setViewportSize({ width: 1440, height: 1000 });
     await page.reload();
-    await page.locator('#scheduleGrid .schedule-grid').waitFor();
+    // A reload keeps the open tab (the view is in the address since 25 Sep), so the grid is there but hidden.
+    await page.locator('#scheduleGrid .schedule-grid').waitFor({ state: 'attached' });
     await page.click('#listsTab');
     await page.selectOption('#reportTherapist', '2');
     const listB = page.locator('[data-report-therapist="2"]');

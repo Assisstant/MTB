@@ -1636,35 +1636,61 @@
         await saveOrder({ moveList: 'students', moveKey: '', move: delta });
     }
 
+    /**
+     * ONE route for a pupil's facts (4 Oct 2026): `PUT /api/workspace/pupils`,
+     * the one the ✏️ form and Администрација use. This page used to save
+     * through `PATCH /api/students`, which checked less (not whether the class
+     * is active that year, not programme and placement) — so the same change
+     * could be refused in the form and accepted here. That route stays for the
+     * legacy Rasporedi.html (rule 4); nothing on this page calls it.
+     *
+     * The route takes the whole row with its fingerprint, so the row is read
+     * fresh and only `change` is put on it. Before that, what THIS tab showed
+     * must still be what the database holds: a change made in another window
+     * since the list was drawn is not undone, it is reported and redrawn.
+     */
+    async function savePupil(publicId, change) {
+        const was = (data.students || []).find((s) => s.public_id === publicId);
+        const all = await api('GET', '/api/workspace?year=' + encodeURIComponent(data.year));
+        const now = (all.pupils || []).find((p) => p.public_id === publicId);
+        if (!was || !now) throw new Error('Ученикот не е најден во базата. Освежете ја листата.');
+        const shown = (s) => [tidy(s.name).toLowerCase(), tidy(s.grade), tidy(s.oddelenie), s.kind || 'internal'].join('|');
+        if (shown(was) !== shown(now)) {
+            await load();
+            throw new Error('Ученикот е сменет во друг прозорец по вчитувањето — сега е прикажано тоа што е во базата. Проверете и зачувајте пак.');
+        }
+        const kind = change.kind || now.kind || 'internal';
+        const body = {
+            year: data.year, name: now.name, grade: now.grade || null, oddelenie: now.oddelenie || null,
+            enrollmentType: kind === 'external' ? 'external' : 'internal', boarding: kind === 'boarding',
+            programme: now.programme || 'unknown', placement: now.placement || 'unknown',
+            active: Boolean(now.annual_active), expected: now.expected
+        };
+        ['name', 'grade', 'oddelenie'].forEach((k) => { if (k in change) body[k] = change[k]; });
+        return api('PUT', '/api/workspace/pupils/' + encodeURIComponent(publicId), body);
+    }
+
     async function saveStudent(publicId) {
         const row = el('students').querySelector(`[data-student="${CSS.escape(publicId)}"]`);
-        const was = (data.students || []).find((s) => s.public_id === publicId);
-        const kind = row.querySelector('.s-kind').value;
         try {
-            const answer = await api('PATCH', '/api/students/' + encodeURIComponent(publicId), {
+            await savePupil(publicId, {
                 name: personName(row.querySelector('.s-name').value),
-                kind,
+                kind: row.querySelector('.s-kind').value,
                 grade: tidy(row.querySelector('.s-grade').value) || null,
                 // Испратено ИЗРЕЧНО: полето се полни од зачуваното, па кога
                 // никој не го допрел се враќа истото. `null` овде значи
                 // „нема генерација", не „не менувај" — серверот ги разликува.
-                oddelenie: tidy(row.querySelector('.s-oddelenie').value) || null,
-                year: data.year,
-                // What this tab believed the name was. A second machine that
-                // renamed the child in the meantime must not be undone.
-                expected: was ? was.name : undefined
+                oddelenie: tidy(row.querySelector('.s-oddelenie').value) || null
             });
             await load();
-            const enrolled = answer.enrolled !== false;
-            const where = '[data-save-student="' + CSS.escape(publicId) + '"]';
-            status(enrolled
-                ? 'ученикот е зачуван'
-                : 'Зачувано, но ученикот не е запишан во оваа година — одделението не се смени.',
-                enrolled ? 'ok' : 'warn', { toast: true });
-            flash(where, enrolled ? 'ok' : 'warn', enrolled ? '\u2713 Зачувано' : '\u2713 Зачувано · без одделение');
+            status('ученикот е зачуван', 'ok', { toast: true });
+            flash('[data-save-student="' + CSS.escape(publicId) + '"]', 'ok', '\u2713 Зачувано');
         } catch (err) {
-            status(err.message, 'error', { toast: true });
-            flash('[data-save-student="' + CSS.escape(publicId) + '"]', 'error', '\u2715 Не е зачувано');
+            // Programme and placement are not on this row; the one pupil form has them.
+            const where = /програма|подготвителна|опсервација|локална настава/.test(err.message)
+                ? ' Програмата и поставеноста се избираат во ✏️ формуларот (вклучете „✏️ Уреди“).' : '';
+            status(err.message + where, 'error', { toast: true });
+            flash('[data-save-student="' + CSS.escape(publicId) + '"]', 'error','\u2715 Не е зачувано');
         }
     }
 
@@ -1949,8 +1975,10 @@
         const name = encodeURIComponent(therapist.name);
         const year = '?year=' + encodeURIComponent(data.year);
         try {
-            for (const p of add) await api('PUT', `/api/therapists/${name}/students/${encodeURIComponent(p)}${year}`);
+            // Removals first: one refused because the child still has a term
+            // here (lib/caseload.ts) stops the save before anything is added.
             for (const p of drop) await api('DELETE', `/api/therapists/${name}/students/${encodeURIComponent(p)}${year}`);
+            for (const p of add) await api('PUT', `/api/therapists/${name}/students/${encodeURIComponent(p)}${year}`);
             await load();
             status(`зачувано: +${add.length} / −${drop.length}`, 'ok', { toast: true });
         } catch (err) {
@@ -2344,14 +2372,8 @@
         if (!was) return;
         const from = was.grade;
         try {
-            await api('PATCH', '/api/students/' + encodeURIComponent(publicId), {
-                grade: label,
-                year: data.year,
-                // What this tab believed the name was, exactly as „Ученици“
-                // sends it: a rename made on another machine must not be
-                // undone by a class change made here.
-                expected: was.name
-            });
+            // The same one route as „Ученици“ and the ✏️ form (`savePupil`).
+            await savePupil(publicId, { grade: label });
             await load();
             if (classId != null) openClassStudents(classId);
             status(label

@@ -189,10 +189,11 @@ const errors = [];
 
     console.log('\nУреди настава');
     await page.goto(`${ORIGIN}/NastavaUredi.html`);
-    const lead = await picker(page, '#teachers tr[data-teacher="2"] .t-home');
-    check('„which class a teacher leads" says the same line', lead.text === LINE, lead.text);
-    check('with the same hover, children included', hoverHas(lead.title), lead.title);
-    check('and the class is chosen', lead.value === 'II-б', lead.value);
+    // The teacher list only reads since 4 Oct 2026 (edited in Податоци): the
+    // class a teacher leads is named, with no picker of its own.
+    const lead = await page.textContent('#teachers tr[data-teacher="2"]');
+    check('„which class a teacher leads" is named on the teacher\'s row', /II-б|Втора/.test(lead || ''), lead);
+    check('and there is no second class picker for it', await page.locator('#teachers select').count() === 0);
     const rowHead = await page.locator('#grid button.cls-link[data-week="II-б"]').getAttribute('title').catch(() => '');
     check('the day grid\'s row hovers the whole row too', hoverHas(rowHead || ''), rowHead);
     await context.close();

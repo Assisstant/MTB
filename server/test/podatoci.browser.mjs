@@ -277,11 +277,24 @@ const run = async () => {
         await page.locator(`${rowOf(`${TAG}-a`)} .s-grade`).isEnabled());
     checkEq('changing kind does not clear the chosen group',
         await page.inputValue(`${rowOf(`${TAG}-a`)} .s-grade`), CLASS_C);
-    await page.click(`${rowOf(`${TAG}-a`)} [data-save-student]`);
-    await page.waitForTimeout(800);
     const kindIn = async (yearId, pid) => (await q(
         `SELECT e.kind FROM student_enrollments e JOIN students s ON s.id = e.student_id
           WHERE e.school_year_id = $1 AND s.public_id = $2`, [yearId, pid]))[0]?.kind ?? null;
+    // One route for a pupil (4 Oct 2026): the row saves through the ✏️ form's
+    // route, so it keeps the owner's rule (8 Sep) the row used to skip — an
+    // external pupil in a local class has a modified programme, a preparatory
+    // group or observation. The row has no such field, so it says where it is.
+    await page.click(`${rowOf(`${TAG}-a`)} [data-save-student]`);
+    await page.waitForTimeout(800);
+    checkEq('external in a class with no programme or placement is refused, as in the form',
+        await kindIn(newYear.id, `${TAG}-a`), 'internal');
+    check('and the page says where it is chosen', /✏️ формуларот/.test(await page.textContent('#status')),
+        await page.textContent('#status'));
+    // What the ✏️ form does: the placement, on this year's enrolment.
+    await q(`UPDATE student_enrollments SET placement = 'preparatory'
+              WHERE school_year_id = $1 AND student_id = (SELECT id FROM students WHERE public_id = $2)`, [newYear.id, `${TAG}-a`]);
+    await page.click(`${rowOf(`${TAG}-a`)} [data-save-student]`);
+    await page.waitForTimeout(800);
     checkEq('this year says external', await kindIn(newYear.id, `${TAG}-a`), 'external');
     checkEq('the external pupil retains the assigned class after saving', await gradeIn(newYear.id, `${TAG}-a`), CLASS_C);
     checkEq('last year is untouched by it', await kindIn(oldYear.id, `${TAG}-a`), 'internal');

@@ -101,7 +101,8 @@ try {
     await page.clock.fastForward('00:30');
     eq(await page.locator('#remindStack .remind-card').count(), 0, 'a dismissed reminder does not come back on the next tick');
     await page.reload();
-    await page.locator('#scheduleGrid .schedule-grid').waitFor();
+    // A reload keeps the open tab (the view is in the address since 25 Sep), so the grid is there but hidden.
+    await page.locator('#scheduleGrid .schedule-grid').waitFor({ state: 'attached' });
     eq(await page.locator('#remindStack .remind-card').count(), 0, 'nor after a reload');
     await page.click('#nowTab');
     ok(await page.locator('input[data-remind="1"]').isChecked(), 'the ticked therapist is remembered in this browser');

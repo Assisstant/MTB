@@ -274,6 +274,19 @@ async function main() {
         assert.equal(linked.rowCount, 1);
     });
 
+    // The child has the term written above with this therapist: they stay on
+    // the list until it is freed (4 Oct 2026, lib/caseload.ts), as from every
+    // other door. A booking with no caseload is how „my pupils" and „my
+    // timetable" came to disagree.
+    const booked = await call('DELETE', `/api/therapists/${encodeURIComponent(T_RENAMED)}/students/${encodeURIComponent(PUBLIC_ID)}`);
+    check('unticking a child who still has a term here is refused, naming the term', () => {
+        assert.equal(booked.status, 409);
+        assert.ok(Array.isArray(booked.body.booked) && booked.body.booked.length === 1, JSON.stringify(booked.body));
+    });
+    await pool.query(
+        `DELETE FROM schedule_slots WHERE student_id = (SELECT id FROM students WHERE public_id = $1)
+            AND therapist_id = (SELECT id FROM therapists WHERE name = $2)`, [PUBLIC_ID, T_RENAMED]);
+
     const unlink = await call('DELETE', `/api/therapists/${encodeURIComponent(T_RENAMED)}/students/${encodeURIComponent(PUBLIC_ID)}`);
     const gone = await pool.query(
         `SELECT 1 FROM therapist_students ts JOIN therapists t ON t.id = ts.therapist_id

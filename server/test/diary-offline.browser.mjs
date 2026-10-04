@@ -54,7 +54,13 @@ async function setUp() {
     const where = (await db.query('SELECT current_schema() AS s')).rows[0].s;
     if (where !== SCHEMA) throw new Error(`refusing: connections resolve to ${where}, not ${SCHEMA}`);
     const dir = resolve(SERVER_DIR, '../database/migrations');
-    for (const f of readdirSync(dir).filter((f) => f.endsWith('.sql')).sort()) await db.query(readFileSync(resolve(dir, f), 'utf8'));
+    // Recorded as applied, as the installer does, or the server reports them pending and
+    // every page opens behind its update notice.
+    await db.query('CREATE TABLE IF NOT EXISTS schema_migrations (filename text PRIMARY KEY, applied_at timestamptz NOT NULL DEFAULT now())');
+    for (const f of readdirSync(dir).filter((f) => f.endsWith('.sql')).sort()) {
+        await db.query(readFileSync(resolve(dir, f), 'utf8'));
+        await db.query('INSERT INTO schema_migrations (filename) VALUES ($1)', [f]);
+    }
     // The roster rows the sample diary's pupils link to, as diary-write.browser.mjs seeds them.
     const year = (await db.query('SELECT id FROM school_years WHERE is_current')).rows[0].id;
     for (const s of FIXTURE.students) {

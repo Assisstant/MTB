@@ -3,11 +3,18 @@
  * taken away. Two doors write it: Кабинети (roster-write.ts, the owner) and a
  * therapist's own list on the colleagues' page (portal.ts). The rules live
  * here once so the two cannot drift.
+ *
+ * A child who still has a term with this therapist is NOT taken off the list
+ * (4 Oct 2026). The pupil form and Администрация (workspace.ts) and Колега
+ * already refused it; Кабинети and Податоци did not, and left a booking with
+ * no caseload behind — the week went on naming a child who was no longer on
+ * the list, and „my pupils" and „my timetable" disagreed. One answer now,
+ * from every door: free the term in „Термини", then take the child off.
  */
 
 export type LinkResult =
     | { ok: true }
-    | { ok: false; status: number; error: string; archived?: boolean };
+    | { ok: false; status: number; error: string; archived?: boolean; booked?: string[] };
 
 export async function setCaseloadLink(
     db: any, yearId: number, therapistId: number, publicId: string, add: boolean
@@ -33,6 +40,16 @@ export async function setCaseloadLink(
             [yearId, therapistId, st.rows[0].id]
         );
     } else {
+        const booked = (await db.query(
+            `SELECT day, time_slot FROM schedule_slots
+              WHERE school_year_id = $1 AND therapist_id = $2 AND student_id = $3
+              ORDER BY day_order, time_slot`,
+            [yearId, therapistId, st.rows[0].id]
+        )).rows.map((r: any) => `${r.day} ${r.time_slot}`);
+        if (booked.length) {
+            return { ok: false, status: 409, booked,
+                error: `Ученикот има термин кај овој терапевт (${booked.join(', ')}). Прво ослободете го терминот во „Термини“, па тргнете го од листата.` };
+        }
         await db.query(
             `DELETE FROM therapist_students
              WHERE school_year_id = $1 AND therapist_id = $2 AND student_id = $3`,
