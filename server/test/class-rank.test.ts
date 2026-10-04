@@ -21,6 +21,25 @@ test('with nothing arranged, the order is the one by label, as before', () => {
     assert.deepEqual(orderPupils(pupils(), classRank(classes)).map((p) => p.name), orderPupils(pupils()).map((p) => p.name));
 });
 
+test('a therapist\'s list reads подготвителна, одделенска, предметна, then the externals (owner, 4 Oct 2026)', () => {
+    const list = [
+        { name: 'Екстерна', grade: null, kind: 'external' },
+        { name: 'Комбинирана', grade: 'Комбинирана II, III, IV', kind: 'internal' },
+        { name: 'Седмо', grade: 'VII', kind: 'internal' },
+        { name: 'Петто', grade: 'V-а', kind: 'internal' },
+        { name: 'Подготвителна', grade: 'подготвителна', kind: 'internal' },
+        { name: 'Екстерна во одделение', grade: 'II-а', kind: 'external' },
+        { name: 'Без одделение', grade: null, kind: 'internal' }
+    ];
+    const classesNow = [{ id: 1, label: 'V-а' }, { id: 2, label: 'Комбинирана II, III, IV' }, { id: 3, label: 'VII' },
+        { id: 4, label: 'подготвителна' }, { id: 5, label: 'II-а' }];
+    for (const rank of [undefined, classRank(classesNow)]) {
+        assert.deepEqual(orderPupils(list.slice(), rank).map((p) => p.name),
+            ['Подготвителна', 'Комбинирана', 'Петто', 'Седмо', 'Без одделение', 'Екстерна во одделение', 'Екстерна'],
+            'a combined class goes up with its youngest grade; externals last whatever their class, by class among them');
+    }
+});
+
 test('a class nobody placed follows the placed ones, by its label', () => {
     const rank = classRank(classes, new Map([['4', 0]]));
     assert.equal(orderPupils(pupils(), rank)[0].name, 'Ана', 'IV was placed first');

@@ -13,7 +13,7 @@
 import type { FastifyInstance } from 'fastify';
 import { pool } from '../db.js';
 import { nextGrade } from '../lib/year-rollover.js';
-import { orderPupils } from '../lib/teaching.js';
+import { compareClassLabels, orderPupils } from '../lib/teaching.js';
 import { arrange, caseloadList, classRank, classRankFor, readArrangement } from '../lib/roster-order.js';
 
 /**
@@ -319,7 +319,12 @@ export async function dataRoutes(server: FastifyInstance) {
             // (migration 045); the list below is how many are entered.
             classCount: year.class_count ?? null,
             caseloadOrder: true,
-            classes: arrange(classes.rows, (row: any) => String(row.id), arrangement.get('classes')),
+            // By label as `compareClassLabels` reads it, not by the stored
+            // sort_key: a combined class („Комбинирана II, III, IV") counts as
+            // its youngest grade since 4 Oct 2026, and older rows keep the key
+            // they were written with.
+            classes: arrange(classes.rows.slice().sort((a: any, b: any) => compareClassLabels(a.label, b.label)),
+                (row: any) => String(row.id), arrangement.get('classes')),
             teachers: arrange(teachers.rows, (row: any) => String(row.id), arrangement.get('teachers')),
             therapists: arrange(therapistRows, (row: any) => String(row.id), arrangement.get('therapists')),
             students: pupils,

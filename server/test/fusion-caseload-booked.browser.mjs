@@ -20,6 +20,7 @@ const students = [
 const therapist = { id: 7, name: 'Терапевт Листа', students: ['bk-a', 'bk-b'] };
 const sessions = [{ day: 'среда', time: '08:00-08:40', therapist_id: 7, student_public_id: 'bk-a' }];
 const writes = [];
+const bodies = [];
 
 const browser = await chromium.launch({ ...(process.env.CHROME ? { executablePath: process.env.CHROME } : {}) });
 try {
@@ -29,6 +30,7 @@ try {
         const req = route.request(), path = decodeURIComponent(new URL(req.url()).pathname);
         if (req.method() !== 'GET') {
             writes.push(req.method() + ' ' + path);
+            bodies.push(req.postData() ? req.postDataJSON() : null);
             if (req.method() === 'DELETE') therapist.students = therapist.students.filter((id) => !path.endsWith('/' + id));
             return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true }) });
         }
@@ -68,6 +70,13 @@ try {
     await page.click('#saveCaseloadBtn');
     await page.waitForTimeout(500);
     assert.deepEqual(writes, [`DELETE /api/therapists/${therapist.name}/students/bk-b`], 'a child with no term leaves the list as before');
+    // „↺ По правило": the arrows' order forgotten, through the arrows' own route (owner, 4 Oct 2026).
+    if (await page.isVisible('#caseloadModal')) await page.keyboard.press('Escape');
+    page.once('dialog', (d) => d.accept());
+    await page.click('#caseloadRuleOrderBtn');
+    await page.waitForTimeout(500);
+    assert.equal(writes.at(-1), `PUT /api/therapists/${therapist.name}/students-order`, 'the rule order goes through the order route');
+    assert.deepEqual(bodies.at(-1), { order: [] }, 'an empty arrangement: the list is read by the rule again');
     assert.deepEqual(errors, []);
     console.log('Fusion caseload: a booked child stays on the list and the page says which term; an unbooked one leaves — passed.');
 } finally { await browser.close(); }

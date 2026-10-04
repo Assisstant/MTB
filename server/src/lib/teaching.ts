@@ -247,7 +247,29 @@ const ROMAN: Record<string, number> = { I: 1, II: 2, III: 3, IV: 4, V: 5, VI: 6,
 function gradeNumber(head: string): number {
     const word = head.trim();
     if (/^подготвител/i.test(word)) return 0;
-    return ROMAN[word.toUpperCase()] ?? 99;
+    const exact = ROMAN[word.toUpperCase()];
+    if (exact != null) return exact;
+    // A combined class („Комбинирана II, III, IV") counts as its YOUNGEST
+    // grade: children of different ages, and the class goes up the list with
+    // the youngest (owner, 4 Oct 2026). Roman or Arabic, I–IX only.
+    const grades = (word.toUpperCase().match(/[IVXІХ]+|\d+/g) || [])
+        .map((t) => (/^\d+$/.test(t) ? Number(t) : ROMAN[t]))
+        .filter((n): n is number => n != null && n >= 1 && n <= 9);
+    return grades.length ? Math.min(...grades) : 99;
+}
+
+/**
+ * The four parts a therapist reads a list in (owner, 4 Oct 2026):
+ * подготвителна, одделенска настава (I–V), предметна (VI–IX), and the
+ * external pupils last. A pupil whose class says nothing goes before the
+ * externals, after everyone placed.
+ */
+export function pupilStage(grade: string | null | undefined, kind?: string | null): number {
+    if (kind === 'external') return 4;
+    const label = String(grade ?? '');
+    const cut = label.indexOf('-');
+    const n = gradeNumber(cut < 0 ? label : label.slice(0, cut));
+    return n === 0 ? 0 : n <= 5 ? 1 : n <= 9 ? 2 : 3;
 }
 
 /** II before X, подготвителна before both, and IV-а before IV-б. */
@@ -281,14 +303,17 @@ export function classSortKey(label: string): string {
  * rule `compareClassLabels` already owns; sorting here keeps one owner and
  * every reader of these endpoints gets the same order.
  */
-export function orderPupils<T extends { grade?: string | null; name?: string | null }>(rows: T[], classRank?: Map<string, number>): T[] {
-    // With `classRank` (label → place, lib/roster-order.ts `classRank`) the
-    // classes stand in the order a person arranged them in Податоци — a
-    // combined class where it belongs, not where its label sorts (owner,
-    // 28 Sep 2026); a class nobody placed follows, by its label.
+export function orderPupils<T extends { grade?: string | null; name?: string | null; kind?: string | null }>(rows: T[], classRank?: Map<string, number>): T[] {
+    // First the four parts (`pupilStage`): подготвителна, одделенска,
+    // предметна, external (owner, 4 Oct 2026). Inside a part, with
+    // `classRank` (label → place, lib/roster-order.ts `classRank`) the classes
+    // stand in the order a person arranged them in Податоци — a combined
+    // class where it belongs (owner, 28 Sep 2026); a class nobody placed
+    // follows, by its label.
     const at = (grade: string | null | undefined) => classRank?.get(grade ?? '') ?? Number.MAX_SAFE_INTEGER;
     return rows.sort((a, b) =>
-        (classRank ? at(a.grade) - at(b.grade) : 0)
+        pupilStage(a.grade, a.kind) - pupilStage(b.grade, b.kind)
+        || (classRank ? at(a.grade) - at(b.grade) : 0)
         || compareClassLabels(a.grade ?? '', b.grade ?? '')
         || String(a.name ?? '').localeCompare(String(b.name ?? ''), 'mk'));
 }

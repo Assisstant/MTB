@@ -106,7 +106,7 @@ try {
     const softLight = await contrast('#studentTwins [data-twin-not]');
     await page.emulateMedia({ colorScheme: 'dark' });
     await page.evaluate(() => { delete document.documentElement.dataset.theme; delete document.body.dataset.theme; });
-    await page.waitForTimeout(100);
+    await page.waitForTimeout(600);   // the buttons fade their colours over .3s (mtb-look.css)
     const dark = await contrast('#studentTwins .twin-card .facts');
     const softDark = await contrast('#studentTwins [data-twin-not]');
     if (process.env.TWINS_SHOTS) await page.screenshot({ path: join(process.env.TWINS_SHOTS, 'twins-dark.png') });

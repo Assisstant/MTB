@@ -961,7 +961,10 @@
                     <h2 id="rosterTitle">Ученици по терапевт</h2>
                     <span id="therapistRosterCount">0 ученици</span>
                 </div>
-                <button class="btn btn-primary" id="openCaseloadBtn" type="button"><span class="ico" aria-hidden="true">✓</span> Измени список на ученици</button>
+                <span style="display:flex;gap:8px;flex-wrap:wrap;">
+                    <button class="btn" id="caseloadRuleOrderBtn" type="button" title="Подготвителна, одделенска (I–V), предметна (VI–IX), па екстерни. Комбинирана паралелка оди со најмладото одделение.">↺ По правило</button>
+                    <button class="btn btn-primary" id="openCaseloadBtn" type="button"><span class="ico" aria-hidden="true">✓</span> Измени список на ученици</button>
+                </span>
             </div>
             <p class="workflow-hint">Овде го избираш списокот од веќе запишаните ученици. Нов ученик додава администраторот во „Податоци“.</p>
             <div class="roster-controls">
@@ -1786,9 +1789,9 @@
             await api('/api/therapists/' + encodeURIComponent(therapist.name) + '/students-order' + year, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ order: therapist.students || [] })
+                body: JSON.stringify({ order: info.order || therapist.students || [] })
             });
-            setConnection(true, 'Зачувано');
+            setConnection(true, info.order ? 'Подредено по правилото' : 'Зачувано');
         } catch (err) {
             showNotice(err.body && err.body.needsMigration
                 ? 'Редоследот не е зачуван: оваа база сè уште нема надградба ' + err.body.needsMigration + '.'
@@ -1802,9 +1805,24 @@
         drawTherapistRoster();
         drawSchedule();
         if (state.panel === 'lists') drawReports();
+        if (!info.caseloadKey) return;
         const again = el('therapistRosterRows').querySelector(
             '[data-caseload-key="' + CSS.escape(info.caseloadKey) + '"][data-caseload-move="' + info.caseloadMove + '"]');
         if (again && !again.disabled) again.focus();
+    }
+
+    /**
+     * „↺ По правило": the arrows' order forgotten, the list read by the rule
+     * again — подготвителна, одделенска, предметна, then externals (owner,
+     * 4 Oct 2026; `pupilStage` on the server). An empty order through the same
+     * route the arrows use: nobody's list changes, only how it is read.
+     */
+    async function resetCaseloadOrder() {
+        const therapist = rosterTherapist();
+        if (!therapist || !mayEditTherapist(therapist.id)) return;
+        if (!window.confirm('Редоследот на „' + therapist.name + '“ да се подреди по правилото?\n\n'
+            + 'Подготвителна, одделенска (I–V), предметна (VI–IX), па екстерни. Рачниот редослед со стрелките се заборава.')) return;
+        await saveCaseloadOrder({ order: [] });
     }
 
     function drawTherapistRoster() {
@@ -1815,6 +1833,7 @@
         const therapists = (state.roster && state.roster.therapists) || [];
         const therapist = therapists.find((item) => String(item.id) === String(state.rosterTherapist));
         el('openCaseloadBtn').disabled = !therapist || !mayEditTherapist(therapist && therapist.id);
+        el('caseloadRuleOrderBtn').disabled = el('openCaseloadBtn').disabled;
         const students = studentsById();
         if (!therapist) {
             el('therapistRosterCount').textContent = '0 ученици';
@@ -3972,6 +3991,7 @@
     // Caseload modal event listeners
     const openCaseloadBtn = el('openCaseloadBtn');
     if (openCaseloadBtn) openCaseloadBtn.addEventListener('click', openCaseloadModal);
+    el('caseloadRuleOrderBtn').addEventListener('click', resetCaseloadOrder);
     const closeCaseloadModalBtn = el('closeCaseloadModal');
     if (closeCaseloadModalBtn) closeCaseloadModalBtn.addEventListener('click', closeCaseloadModal);
     const cancelCaseloadBtn = el('cancelCaseloadBtn');
