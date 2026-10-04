@@ -227,6 +227,10 @@ try {
     const again = await diary();
     await page.evaluate(() => window.SdnCaseload.follow({ afterSync: true, force: true }));
     checkEq('reading it again changes nothing', await diary(), again);
+    const both = await page.evaluate(() => Promise.all([
+        window.SdnCaseload.follow({ afterSync: true, force: true }), window.SdnCaseload.follow({ afterSync: true, force: true })]));
+    check('a read asked for while one is running gets that answer, not „не е прочитан"',
+        !both[1].skipped && both[1].listed === both[0].listed, JSON.stringify(both));
 
     // Readable in both themes: the note carries text over its own background.
     const contrast = () => page.$eval('#sdnCaseloadNote', (el) => {

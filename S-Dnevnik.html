@@ -13374,13 +13374,15 @@
             opts = opts || {};
             if (!served()) return Promise.resolve({ skipped: 'нема сервер' });
             if (!getLocalTherapistName()) { redraw(); return Promise.resolve({ skipped: 'не е избран терапевт на овој дневник' }); }
-            if (state.busy) return Promise.resolve({ skipped: 'списокот токму сега се чита' });
+            // Едно читање веќе тече (на пр. автоматското при отворање): истиот
+            // одговор и за овој повик, наместо „не е прочитан".
+            if (state.busy && state.running) return state.running;
             if (!opts.force && modalOpen()) return Promise.resolve({ skipped: 'отворен е прозорец' });
             state.busy = true;
             var me = getLocalTherapistName();
             var srv = window.SdnLocalSrv;
             var ready = (opts.afterSync || !srv || typeof srv.sync !== 'function') ? Promise.resolve('insync') : srv.sync({ auto: true });
-            return ready.then(function (sync) {
+            state.running = ready.then(function (sync) {
                 if (!SETTLED[sync]) {
                     return { error: sync === 'conflict' ? 'дневникот и серверот се разидени — прво решете го тоа во „Податоци → Сервер“'
                         : sync === 'offline' ? 'серверот не е достапен'
@@ -13412,10 +13414,12 @@
                 return { error: err && err.message ? err.message : String(err) };
             }).then(function (answer) {
                 state.busy = false;
+                state.running = null;
                 if (answer && answer.error) state.error = answer.error;
                 redraw();
                 return answer;
             });
+            return state.running;
         }
 
         function failed(what, r) {
