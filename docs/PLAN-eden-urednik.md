@@ -6,6 +6,13 @@
   - `mtb-forms.js`, the „✏️ Уреди“ switch, and the pupil form;
   - the first doors are in Податоци · Ученици and in Кабинети · Ученици по
     терапевт.
+- **Step 3 has begun** (4 October): Настава has the pupil's door in
+  „Неповрзани третмани“, „Екстерни без доделено одделение“ and a lesson's
+  panel — where a session with no class, or an unknown one, is fixed on the
+  pupil (`test:nastava-doors`). Still to come: Уреди настава, Евидентен лист.
+  The Панел and Администрација keep their inline editors until A1 is
+  decided: the shared form is a modal over the whole Workspace, the Панел is
+  not, so replacing one with the other is the owner's choice, not a detail.
 
 **Status, 24 September 2026:**
 - **The map** (part 3) was read from the code on `main` (`d9d6fe6`), not from
@@ -111,7 +118,7 @@ stay there.
 | **Администрација** | `MTB-Workspace.html`: the „Администрација“ button (`workspace-admin.js`), for pupils and employees |
 | **Кабинети** | `RasporediFusion.html` |
 | **Уреди настава** | `NastavaUredi.html`: four timetable tabs, plus the sections Одделенија, Наставници, Ѕвона, Земи од друга година |
-| **Настава** | `Nastava.html`: read-only, six views |
+| **Настава** | `Nastava.html`: six views when this was mapped, three since 27 September; under „✏️ Уреди" the teacher week edits lessons and pupils carry their door |
 | **S-Дневник** | `S-Dnevnik.html`: personal; its tabs include Ученици, Распоред, Податоци |
 | **Евидентен лист** | `AkciskiPlan.html` |
 | **Преглед** | `Pregled-Baza.html`: read-only |

@@ -1456,7 +1456,7 @@
             + (cell.teacherOnStaff === false ? ' · не е на списокот оваа година' : '')
             + '</div>'
             + `<ul>${cell.away.map((a) =>
-                `<li><b>${esc(a.student)}</b> — ${esc(a.therapist)} <span class="meta">(${a.minutes} мин од часот)</span></li>`
+                `<li><b>${esc(a.student)}</b>${pupilDoor(a.studentPublicId, a.student)} — ${esc(a.therapist)} <span class="meta">(${a.minutes} мин од часот)</span></li>`
               ).join('')}</ul>`;
         markSelected();
     }
@@ -1518,6 +1518,15 @@
      * this list and put children in rooms they were never in, so nothing is
      * folded and the work stays visible.
      */
+    /**
+     * The pupil's ✏️ (`mtb-forms.js`, docs/PLAN-eden-urednik.md step 3): the
+     * one pupil form, hidden until „✏️ Уреди" is on. Here it is where the work
+     * is — a session with no class or an unknown one is fixed on the pupil.
+     */
+    function pupilDoor(publicId, name) {
+        return window.MTBForms && publicId && data ? window.MTBForms.doorHtml('pupil', publicId, data.year, name) : '';
+    }
+
     function reasonText(row) {
         switch (row.reasonCode) {
             case 'no-class':      return 'ученикот нема запишано одделение';
@@ -1551,7 +1560,8 @@
             if (!jobs.has(key)) jobs.set(key, { row: r, terms: 0, pupils: new Set() });
             const job = jobs.get(key);
             job.terms++;
-            job.pupils.add(r.studentPublicId || r.student);
+            // By id: two pupils share a name in this school (rule 2).
+            job.pupils.add(r.student_public_id || r.student);
         });
         return [...jobs.values()].sort((a, b) => b.terms - a.terms);
     }
@@ -1574,7 +1584,7 @@
                 + '</span></li>').join('') + '</ul>'
             + '<table><thead><tr><th>Ученик</th><th>Одделение</th><th>Термин</th><th>Терапевт</th><th>Причина</th></tr></thead><tbody>'
             + rows.slice(0, 60).map((r) =>
-                `<tr><td>${esc(r.student)}</td><td>${esc(r.grade || '—')}</td><td>${esc(r.time_slot)}</td>`
+                `<tr><td>${esc(r.student)}${pupilDoor(r.student_public_id, r.student)}</td><td>${esc(r.grade || '—')}</td><td>${esc(r.time_slot)}</td>`
                 + `<td>${esc(r.therapist)}</td><td class="why">${esc(reasonText(r))}</td></tr>`
               ).join('')
             + '</tbody></table>'
@@ -1598,7 +1608,7 @@
             + `${rows.length} ${rows.length === 1 ? 'термин' : 'термини'} вкупно.</p>`
             + '<table><thead><tr><th>Ученик</th><th>Термин</th><th>Терапевт</th></tr></thead><tbody>'
             + rows.slice(0, 60).map((r) =>
-                `<tr><td>${esc(r.student)}</td><td>${esc(r.time_slot)}</td><td>${esc(r.therapist)}</td></tr>`).join('')
+                `<tr><td>${esc(r.student)}${pupilDoor(r.student_public_id, r.student)}</td><td>${esc(r.time_slot)}</td><td>${esc(r.therapist)}</td></tr>`).join('')
             + '</tbody></table>'
             + (rows.length > 60 ? `<p class="meta">…и уште ${rows.length - 60}.</p>` : '');
     }
@@ -1701,6 +1711,14 @@
     document.addEventListener('DOMContentLoaded', () => {
         if (window.MTBForms) window.MTBForms.bindSwitch(el('personalEdit'));
         else el('personalEdit').remove();
+        // A fast first answer may have drawn the lists before the form was here.
+        if (data && window.MTBForms) { drawUnplaced(); drawExternal(); }
+    });
+    // A pupil saved through the ✏️ form in THIS window: read the crossing again.
+    window.addEventListener('mtb:saved', async () => {
+        const open = selected;
+        await load();
+        if (open && data) show(open);
     });
     el('grid').addEventListener('click', (event) => {
         const png = event.target.closest('[data-png]');
