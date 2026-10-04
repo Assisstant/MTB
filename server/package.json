@@ -35,6 +35,7 @@
     "import:teaching": "tsx scripts/import-teaching.ts",
     "import:cabinets": "tsx scripts/import-cabinet-schedule.ts",
     "copy:teaching": "tsx scripts/copy-teaching-year.ts",
+    "subjects:fill": "tsx scripts/fill-subjects.ts",
     "classes:apply": "tsx scripts/apply-class-list.ts",
     "test:class-list": "tsx test/class-list.e2e.ts",
     "demo:teaching": "tsx scripts/demo-timetable.ts",

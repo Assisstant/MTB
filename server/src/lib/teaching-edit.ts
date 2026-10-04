@@ -745,3 +745,62 @@ export async function renameSubject(db: Queryable, yearId: number, from: string,
     const offer = await db.query('UPDATE teaching_subjects SET subject = $2 WHERE subject = $1', [from, to]);
     return { lessons: moved.rowCount || 0, teachers, offered: offer.rowCount || 0 };
 }
+
+export interface SubjectFill {
+    /** Lessons of the year with no subject, before anything is written. */
+    empty: number;
+    /** A предметен teacher with exactly one subject of their own: that subject. */
+    filled: Array<{ teacherId: number; teacher: string; subject: string; lessons: number }>;
+    /** Left for a person, and why: each is a choice no default may make. */
+    homeroom: Array<{ teacherId: number; teacher: string; lessons: number }>;
+    unlisted: Array<{ teacherId: number; teacher: string; lessons: number }>;
+    several: Array<{ teacherId: number; teacher: string; subjects: string[]; lessons: number }>;
+    noTeacher: number;
+    written: number;
+}
+
+/**
+ * The year's lessons that have no subject, filled where the answer is already
+ * known: a предметен teacher who lists exactly ONE subject of their own teaches
+ * that subject. It is the same rule as the teacher week's default
+ * (`autoSubject` in mtb-teacher-week.js), applied to lessons entered before it
+ * existed. Everything else is reported, not guessed: an одделенски teaches
+ * every subject of their class, two listed subjects are the person's choice,
+ * and a teacher with none listed is fixed once, in their row in Податоци,
+ * after which this fills their lessons. Only an empty subject is ever
+ * written — the UPDATE says so itself, in case a person filled one meanwhile.
+ * Dry run unless `apply`.
+ */
+export async function fillOwnSubjects(db: Queryable, yearId: number, apply: boolean): Promise<SubjectFill> {
+    const { rows } = await db.query(
+        `SELECT l.id, l.teacher_id AS "teacherId", t.name AS teacher, t.kind, t.subject AS own
+           FROM lessons l LEFT JOIN teachers t ON t.id = l.teacher_id
+          WHERE l.school_year_id = $1 AND (l.subject IS NULL OR btrim(l.subject) = '')
+          ORDER BY t.name, l.id`, [yearId]);
+    const out: SubjectFill = { empty: rows.length, filled: [], homeroom: [], unlisted: [], several: [], noTeacher: 0, written: 0 };
+    const byTeacher = new Map<number, { teacher: string; kind: string; own: string[]; ids: number[] }>();
+    for (const r of rows) {
+        if (r.teacherId == null) { out.noTeacher++; continue; }
+        if (!byTeacher.has(r.teacherId)) {
+            const own = String(r.own ?? '').split(',').map((s) => tidy(s)).filter((s): s is string => !!s);
+            byTeacher.set(r.teacherId, { teacher: r.teacher, kind: r.kind, own, ids: [] });
+        }
+        byTeacher.get(r.teacherId)!.ids.push(r.id);
+    }
+    for (const [teacherId, t] of byTeacher) {
+        const lessons = t.ids.length;
+        if (t.kind === 'odd') out.homeroom.push({ teacherId, teacher: t.teacher, lessons });
+        else if (!t.own.length) out.unlisted.push({ teacherId, teacher: t.teacher, lessons });
+        else if (t.own.length > 1) out.several.push({ teacherId, teacher: t.teacher, subjects: t.own, lessons });
+        else {
+            out.filled.push({ teacherId, teacher: t.teacher, subject: t.own[0], lessons });
+            if (apply) {
+                const done = await db.query(
+                    `UPDATE lessons SET subject = $2
+                      WHERE id = ANY($1::int[]) AND (subject IS NULL OR btrim(subject) = '')`, [t.ids, t.own[0]]);
+                out.written += done.rowCount || 0;
+            }
+        }
+    }
+    return out;
+}

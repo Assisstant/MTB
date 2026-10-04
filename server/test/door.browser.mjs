@@ -50,6 +50,11 @@ const state = {
 };
 const subjects = [{ subject: 'Македонски / Албански јазик', lessons: 12, teachers: 3, offered: true },
     { subject: 'Математика', lessons: 20, teachers: 4, offered: true }, { subject: 'Изборен предмет', lessons: 0, teachers: 1, offered: false }];
+// Lessons with no subject (4 Oct 2026): what the server's preview says, and what a fill leaves.
+const fill = { year: YEAR, current: true, empty: 7, noTeacher: 0, written: 0, several: [],
+    filled: [{ teacherId: 31, teacher: 'Измислена Ликовна', subject: 'Ликовно', lessons: 3 }],
+    homeroom: [{ teacherId: 32, teacher: 'Измислен Одделенски', lessons: 2 }],
+    unlisted: [{ teacherId: 33, teacher: 'Измислена Без Предмет', lessons: 2 }] };
 const calls = [];
 const writes = [];
 
@@ -85,6 +90,12 @@ async function context(options = {}) {
             if (p === '/api/categories') return json(200, { categories: [] });
             if (p === '/api/categories/holders') return json(200, { therapists: [], teachers: [] });
             if (p === '/api/teaching/subject-names') return json(200, { year: YEAR, subjects });
+            if (p === '/api/teaching/subject-fill' && req.method() === 'GET') return json(200, fill);
+            if (p === '/api/teaching/subject-fill') {
+                if (req.postDataJSON().expected !== 3) return json(409, { error: 'Во меѓувреме нешто се сменило.', ...fill });
+                Object.assign(fill, { empty: 4, filled: [], written: 0 });
+                return json(200, { ...fill, ok: true, written: 3 });
+            }
             if (p === '/api/teaching/subject-rename') {
                 const body = req.postDataJSON();
                 subjects.find((x) => x.subject === body.from).subject = body.to;
@@ -278,6 +289,24 @@ await page.waitForSelector('#subjectsList tr[data-subject="Македонски 
 check('„Преименувај" asks for the name, confirms, and sends one rename for the year',
     JSON.stringify(writes.at(-1)) === JSON.stringify({ method: 'POST', path: '/api/teaching/subject-rename',
         body: { year: YEAR, from: 'Македонски / Албански јазик', to: 'Македонски јазик' } }), JSON.stringify(writes.at(-1)));
+const fillText = await page.textContent('#subjectsFill');
+check('lessons with no subject: how many, which can be filled, and why the rest cannot',
+    fillText.includes(`Часови без предмет — ${YEAR}: 7`) && fillText.includes('Измислена Ликовна · 3 × „Ликовно“')
+    && /без внесен предмет/.test(fillText) && /одделенска настава/.test(fillText), fillText);
+if (process.env.DOOR_SHOTS) await page.locator('#tab-subjects').screenshot({ path: join(process.env.DOOR_SHOTS, 'subjects-before.png') });
+await page.click('#subjectsFillGo');
+await page.waitForFunction(() => !document.getElementById('subjectsFillGo'));
+check('„Пополни ги 3" sends the count it showed, for the year',
+    JSON.stringify(writes.at(-1)) === JSON.stringify({ method: 'POST', path: '/api/teaching/subject-fill', body: { year: YEAR, expected: 3 } }), JSON.stringify(writes.at(-1)));
+check('and the box reads again', (await page.textContent('#subjectsFill')).includes(': 4'));
+for (const theme of ['light', 'dark']) {
+    await page.evaluate((t) => { document.documentElement.dataset.theme = t; document.body.dataset.theme = t; }, theme);
+    const ratio = await contrast(page, '#subjectsFill p');
+    check(`the box is readable in the ${theme} theme`, ratio >= 4.5, ratio.toFixed(1));
+    if (process.env.DOOR_SHOTS) await page.locator('#tab-subjects').screenshot({ path: join(process.env.DOOR_SHOTS, `subjects-${theme}.png`) });
+}
+await page.click('#subjectsFill [data-goto-teacher="33"]');
+check('a name opens „Наставници"', await page.isVisible('#tab-teachers'));
 check('no page errors', errors.length === 0, errors.join('\n       '));
 
 await browser.close();

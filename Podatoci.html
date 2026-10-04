@@ -285,6 +285,14 @@
     .class-checks li.warn::before { content: '⚠ '; }
     .class-checks li.info { color: var(--muted); }
     .class-checks li.info::before { content: 'ℹ '; }
+    /* 📚 Предмети: the year's lessons with no subject, and what fills them. */
+    .subject-fill { margin: 12px 0 14px; padding: 10px 14px; max-width: 105ch;
+        border: 1px solid var(--toggle-border); border-radius: 10px; background: var(--soft); }
+    .subject-fill[hidden] { display: none; }
+    .subject-fill h3 { margin: 0 0 6px; font-size: 14px; }
+    .subject-fill p { margin: 8px 0 4px; font-size: 13px; }
+    .subject-fill ul { margin: 0; padding: 0; list-style: none; display: flex; flex-wrap: wrap; gap: 6px; }
+    .subject-fill .act { margin-top: 10px; }
     .class-actions { display: flex; justify-content: flex-end; gap: 6px; }
     .class-actions .btn { white-space: nowrap; }
 
@@ -669,6 +677,7 @@
             <button class="btn soft" id="subjectsRefresh"><span class="ico" aria-hidden="true">↻</span> Освежи</button>
             <span class="hint" id="subjectsMsg" role="status"></span>
         </div>
+        <div id="subjectsFill" class="subject-fill" hidden></div>
         <div class="scroll"><div id="subjectsList"></div></div>
     </div>
 
@@ -3319,9 +3328,67 @@
                 + '<td class="act"><button class="btn soft" data-subject-rename>✎ Преименувај</button></td></tr>').join('')
               + '</tbody></table>'
             : '<p class="hint">Нема предмети за оваа година.</p>';
+        await loadSubjectFill();
     }
+
+    /**
+     * The year's lessons with no subject (4 Oct 2026). A предметен teacher
+     * with ONE subject of their own teaches that subject, so their lessons can
+     * be filled at once (`fillOwnSubjects` on the server, the teacher week's
+     * own default). The rest is said with the reason and the place it is
+     * fixed — a teacher with no subject listed is ONE field in „Наставници",
+     * after which their lessons can be filled here.
+     */
+    let subjectFill = null;
+    async function loadSubjectFill() {
+        try { drawSubjectFill(await api('GET', '/api/teaching/subject-fill?year=' + encodeURIComponent(data.year))); }
+        catch (_) { el('subjectsFill').hidden = true; }
+    }
+    function drawSubjectFill(r) {
+        subjectFill = r;
+        const box = el('subjectsFill');
+        box.hidden = false;
+        if (!r.empty) { box.innerHTML = `<h3>Часови без предмет — ${esc(r.year)}</h3><p>Сите часови имаат предмет.</p>`; return; }
+        const sum = (list) => list.reduce((n, x) => n + x.lessons, 0);
+        const who = (list, more) => '<ul>' + list.map((x) => `<li><button type="button" class="chip link" data-goto-teacher="${x.teacherId}" title="Отвори го во „Наставници“">`
+            + `${esc(personName(x.teacher))} · ${x.lessons}${more ? esc(more(x)) : ''}</button></li>`).join('') + '</ul>';
+        const fillable = sum(r.filled);
+        let html = `<h3>Часови без предмет — ${esc(r.year)}: ${r.empty}</h3>`;
+        if (fillable) {
+            html += `<p><b>${fillable}</b> може да се пополнат сега: наставникот има само еден свој предмет.</p>`
+                + who(r.filled, (x) => ` × „${x.subject}“`)
+                + (r.current
+                    ? `<div class="act"><button type="button" class="btn" id="subjectsFillGo">Пополни ги ${fillable}</button></div>`
+                    : '<p class="hint">Се пополнува само во тековната учебна година.</p>');
+        }
+        if (r.unlisted.length) html += `<p><b>${sum(r.unlisted)}</b> кај наставници без внесен предмет. Внесете им го предметот во „Наставници“ (клик на името) — потоа ќе може да се пополнат овде.</p>` + who(r.unlisted);
+        if (r.several.length) html += `<p><b>${sum(r.several)}</b> кај наставници со повеќе предмети — се бира час по час, во „Уреди настава“.</p>` + who(r.several, (x) => ` (${x.subjects.join(', ')})`);
+        if (r.homeroom.length) html += `<p><b>${sum(r.homeroom)}</b> одделенска настава — предметот се бира во неделата на паралелката, во „Уреди настава“.</p>` + who(r.homeroom);
+        if (r.noTeacher) html += `<p><b>${r.noTeacher}</b> без наставник — во „Уреди настава“.</p>`;
+        box.innerHTML = html;
+    }
+    async function runSubjectFill(button) {
+        const expected = subjectFill ? subjectFill.filled.reduce((n, x) => n + x.lessons, 0) : 0;
+        if (!expected) return;
+        if (!window.confirm(`Да се запише предметот во ${expected} часа од ${data.year}? Само празните — ниту еден внесен предмет не се менува.`)) return;
+        button.disabled = true;
+        try {
+            const done = await api('POST', '/api/teaching/subject-fill', { year: data.year, expected });
+            status(`Пополнети: ${done.written} часа.`, 'ok', { toast: true });
+        } catch (err) {
+            status(err.message, err.status === 409 ? 'warn' : 'error', { toast: true });
+        }
+        await loadSubjects();
+    }
+
     function wireSubjects() {
         el('subjectsRefresh').addEventListener('click', () => loadSubjects());
+        el('subjectsFill').addEventListener('click', (event) => {
+            const go = event.target.closest('#subjectsFillGo');
+            if (go) return runSubjectFill(go);
+            const teacher = event.target.closest('[data-goto-teacher]');
+            if (teacher) focusTeacher(Number(teacher.dataset.gotoTeacher));
+        });
         el('subjectsList').addEventListener('click', async (event) => {
             const button = event.target.closest('[data-subject-rename]');
             if (!button) return;
