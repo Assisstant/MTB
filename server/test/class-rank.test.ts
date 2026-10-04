@@ -1,4 +1,9 @@
-/** Pupils follow the arranged class order (owner, 28 Sep 2026). Pure. */
+/**
+ * The order a pupil list is read in. Pure.
+ * Owner, 28 Sep 2026: the classes as arranged in Податоци. Owner, 4 Oct 2026:
+ * the grade first — a combined class as its YOUNGEST — and the arrangement
+ * only among classes of one grade.
+ */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { orderPupils } from '../src/lib/teaching.js';
@@ -10,11 +15,18 @@ const pupils = () => [
     { name: 'Горан', grade: 'I-а' }, { name: 'Дана', grade: 'III' }, { name: 'Ѓорѓи', grade: null }
 ];
 
-test('a combined class stands where it was placed — here after III, before IV', () => {
-    // Podatoci → Одделенија: I-а, III, then the combined class, then IV.
+test('a combined class goes with its youngest grade, wherever it was placed (owner, 4 Oct 2026)', () => {
+    // Podatoci → Одделенија placed it after III; it is II-б, III-б, so it is II.
     const rank = classRank(classes, new Map([['1', 0], ['3', 1], ['2', 2], ['4', 3]]));
-    assert.deepEqual(orderPupils(pupils(), rank).map((p) => p.name), ['Горан', 'Вера', 'Дана', 'Бојан', 'Ана', 'Ѓорѓи'],
+    assert.deepEqual(orderPupils(pupils(), rank).map((p) => p.name), ['Горан', 'Бојан', 'Вера', 'Дана', 'Ана', 'Ѓорѓи'],
         'the class\'s pupils move together, by name inside it; nobody without a class goes first');
+});
+
+test('Комбинирана II, III, IV placed after V-а still comes before it — the owner\'s own list', () => {
+    const now = [{ id: 1, label: 'V-а' }, { id: 2, label: 'Комбинирана II, III, IV' }, { id: 3, label: 'VI-а' }];
+    const rank = classRank(now, new Map([['1', 0], ['2', 1], ['3', 2]]));
+    const list = [{ name: 'Јана', grade: 'V-а' }, { name: 'Азире', grade: 'Комбинирана II, III, IV' }, { name: 'Алмедина', grade: 'VI-а' }];
+    assert.deepEqual(orderPupils(list, rank).map((p) => p.name), ['Азире', 'Јана', 'Алмедина']);
 });
 
 test('with nothing arranged, the order is the one by label, as before', () => {
@@ -40,7 +52,9 @@ test('a therapist\'s list reads подготвителна, одделенска
     }
 });
 
-test('a class nobody placed follows the placed ones, by its label', () => {
-    const rank = classRank(classes, new Map([['4', 0]]));
-    assert.equal(orderPupils(pupils(), rank)[0].name, 'Ана', 'IV was placed first');
+test('among classes of ONE grade, the placed one comes first', () => {
+    const fifth = [{ id: 1, label: 'V-а' }, { id: 2, label: 'V-б' }];
+    const list = [{ name: 'Ана', grade: 'V-а' }, { name: 'Бојан', grade: 'V-б' }];
+    assert.deepEqual(orderPupils(list.slice(), classRank(fifth, new Map([['2', 0]]))).map((p) => p.name), ['Бојан', 'Ана'], 'V-б was placed first');
+    assert.deepEqual(orderPupils(list.slice(), classRank(fifth)).map((p) => p.name), ['Ана', 'Бојан'], 'nobody placed: by label');
 });

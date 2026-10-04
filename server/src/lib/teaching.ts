@@ -266,10 +266,15 @@ function gradeNumber(head: string): number {
  */
 export function pupilStage(grade: string | null | undefined, kind?: string | null): number {
     if (kind === 'external') return 4;
+    const n = youngestGrade(grade);
+    return n === 0 ? 0 : n <= 5 ? 1 : n <= 9 ? 2 : 3;
+}
+
+/** A class label's grade: 0 подготвителна, 1–9, a combined class its youngest, 99 unknown. */
+export function youngestGrade(grade: string | null | undefined): number {
     const label = String(grade ?? '');
     const cut = label.indexOf('-');
-    const n = gradeNumber(cut < 0 ? label : label.slice(0, cut));
-    return n === 0 ? 0 : n <= 5 ? 1 : n <= 9 ? 2 : 3;
+    return gradeNumber(cut < 0 ? label : label.slice(0, cut));
 }
 
 /** II before X, подготвителна before both, and IV-а before IV-б. */
@@ -305,14 +310,16 @@ export function classSortKey(label: string): string {
  */
 export function orderPupils<T extends { grade?: string | null; name?: string | null; kind?: string | null }>(rows: T[], classRank?: Map<string, number>): T[] {
     // First the four parts (`pupilStage`): подготвителна, одделенска,
-    // предметна, external (owner, 4 Oct 2026). Inside a part, with
-    // `classRank` (label → place, lib/roster-order.ts `classRank`) the classes
-    // stand in the order a person arranged them in Податоци — a combined
-    // class where it belongs (owner, 28 Sep 2026); a class nobody placed
-    // follows, by its label.
+    // предметна, external; then the grade, a combined class as its YOUNGEST
+    // (owner, 4 Oct 2026: „Комбинирана II, III, IV" is II, so before V-а —
+    // this replaced the 28 Sep arrangement deciding where a combined class
+    // stands). Only classes of ONE grade (V-а, V-б) are then in the order a
+    // person arranged them in Податоци (`classRank`), a class nobody placed
+    // after, by its label.
     const at = (grade: string | null | undefined) => classRank?.get(grade ?? '') ?? Number.MAX_SAFE_INTEGER;
     return rows.sort((a, b) =>
         pupilStage(a.grade, a.kind) - pupilStage(b.grade, b.kind)
+        || youngestGrade(a.grade) - youngestGrade(b.grade)
         || (classRank ? at(a.grade) - at(b.grade) : 0)
         || compareClassLabels(a.grade ?? '', b.grade ?? '')
         || String(a.name ?? '').localeCompare(String(b.name ?? ''), 'mk'));
