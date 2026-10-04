@@ -74,12 +74,25 @@ async function setUp() {
     serverProcess = spawn(process.execPath, ['--import', 'tsx', 'src/index.ts'], {
         cwd: SERVER_DIR,
         env: { ...process.env, DATABASE_URL: scoped.href, PORT: String(PORT), HOST: '127.0.0.1', MTB_CLOUD_AUTH: 'off', MTB_REQUIRE_SIGNIN: '' },
-        stdio: ['ignore', 'ignore', 'pipe']
+        stdio: ['ignore', 'pipe', 'pipe']
     });
-    let said = '';
+    let said = '', output = '', listening = false;
     serverProcess.stderr.on('data', (d) => { said += d; });
+    // A healthy port might belong to somebody else's server. Only probe it
+    // after OUR child reports that it successfully bound this exact address.
+    serverProcess.stdout.on('data', (d) => {
+        output += d;
+        let end;
+        while ((end = output.indexOf('\n')) >= 0) {
+            const line = output.slice(0, end); output = output.slice(end + 1);
+            try {
+                const log = JSON.parse(line);
+                if (log.pid === serverProcess.pid && log.msg === 'Server listening at ' + BASE) listening = true;
+            } catch { /* only structured startup messages establish ownership */ }
+        }
+    });
     for (let i = 0; i < 60; i++) {
-        try { if ((await fetch(BASE + '/api/health')).ok) return; } catch { /* not up yet */ }
+        try { if (listening && serverProcess.exitCode === null && (await fetch(BASE + '/api/health')).ok) return; } catch { /* not up yet */ }
         if (serverProcess.exitCode !== null) break;
         await new Promise((r) => setTimeout(r, 500));
     }

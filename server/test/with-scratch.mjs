@@ -56,13 +56,27 @@ try {
     server = spawn(process.execPath, ['--import', 'tsx', 'src/index.ts'], {
         cwd: SERVER_DIR,
         env: { ...process.env, DATABASE_URL: scoped.href, PORT: String(PORT), HOST: '127.0.0.1', MTB_CLOUD_AUTH: 'off', MTB_REQUIRE_SIGNIN: '' },
-        stdio: ['ignore', 'ignore', 'pipe']
+        stdio: ['ignore', 'pipe', 'pipe']
     });
-    let said = '';
+    let said = '', output = '', listening = false;
     server.stderr.on('data', (d) => { said += d; });
+    // A healthy port might belong to somebody else's server. Only probe it
+    // after OUR child reports that it successfully bound this exact address.
+    server.stdout.on('data', (d) => {
+        output += d;
+        let end;
+        while ((end = output.indexOf('\n')) >= 0) {
+            const line = output.slice(0, end); output = output.slice(end + 1);
+            try {
+                const log = JSON.parse(line);
+                if (log.pid === server.pid && log.msg === 'Server listening at ' + BASE) listening = true;
+            } catch { /* only structured startup messages establish ownership */ }
+        }
+    });
     let up = false;
     for (let i = 0; i < 60 && !up; i++) {
-        try { up = (await fetch(BASE + '/api/health')).ok; } catch { /* not yet */ }
+        if (server.exitCode !== null) break;
+        try { up = listening && (await fetch(BASE + '/api/health')).ok; } catch { /* not yet */ }
         if (!up) await new Promise((r) => setTimeout(r, 500));
     }
     if (!up) throw new Error('the scratch server did not start:\n' + said.slice(-2000));

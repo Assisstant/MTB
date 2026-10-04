@@ -17,6 +17,27 @@ export type LinkResult =
     | { ok: false; status: number; error: string; archived?: boolean; booked?: string[] };
 
 export async function setCaseloadLink(
+    pool: any, yearId: number, therapistId: number, publicId: string, add: boolean
+): Promise<LinkResult> {
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+        // Cabinet block/session writers hold this year's row FOR SHARE until
+        // their booking commits. Checking for terms and removing membership
+        // must be one transaction, excluding bookings throughout the check.
+        await client.query('SELECT id FROM school_years WHERE id = $1 FOR UPDATE', [yearId]);
+        const result = await writeCaseloadLink(client, yearId, therapistId, publicId, add);
+        await client.query(result.ok ? 'COMMIT' : 'ROLLBACK');
+        return result;
+    } catch (err) {
+        await client.query('ROLLBACK').catch(() => {});
+        throw err;
+    } finally {
+        client.release();
+    }
+}
+
+async function writeCaseloadLink(
     db: any, yearId: number, therapistId: number, publicId: string, add: boolean
 ): Promise<LinkResult> {
     const st = await db.query(

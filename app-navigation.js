@@ -578,8 +578,11 @@
             const file = appFileOf(link);
             if (!file || window.parent === window) return;
             event.preventDefault();
-            // A file name only; the shell checks the sender is one of its own frames.
-            window.parent.postMessage({ type: 'mtb:open-app', file }, '*');
+            // Only a public view identifier may travel with the filename; never
+            // copy the whole query (which may carry a person, year or token).
+            const tab = new URL(link.href, location.href).searchParams.get('tab');
+            const view = tab && /^[a-z-]{1,40}$/.test(tab) ? { tab } : undefined;
+            window.parent.postMessage({ type: 'mtb:open-app', file, view }, '*');
         });
     }
 
@@ -1761,7 +1764,7 @@
             const view = (event.state && event.state.mtbView) || read();
             try { options.show(view); } catch (_) { /* the page reports its own failure */ }
         });
-        return {
+        const controller = {
             /** The person moved on: the new view is one step in the history. */
             step(change) {
                 const next = Object.assign(read(), change || {});
@@ -1777,6 +1780,14 @@
             },
             read
         };
+        window.addEventListener('message', (event) => {
+            if (window.parent === window || event.source !== window.parent || event.data?.type !== 'mtb:open-view') return;
+            const tab = event.data.view?.tab;
+            if (!keys.includes('tab') || typeof tab !== 'string' || !/^[a-z-]{1,40}$/.test(tab)) return;
+            controller.step({ tab });
+            options.show(controller.read());
+        });
+        return controller;
     }
 
     const holdRoots = new WeakSet();

@@ -18,7 +18,7 @@
  */
 
 import {
-    upsertDossier, upsertScaleTemplate, upsertAssessment, upsertTriage, upsertAudiogram
+    upsertDossier, upsertScaleTemplate, upsertAssessment, upsertTriage, upsertAudiogram, audiogramStudentMap
 } from './records.js';
 
 /** Both apps carry a non-student placeholder at the top of the list. */
@@ -1094,12 +1094,7 @@ export async function writeDiary(client: any, sdnDoc: any, studentIdBySdnId: Map
          */
         const audiograms = asArray(sdnDoc.audiograms);
         if (audiograms.length > 0) {
-            const dbIdByBareName = new Map<string, number>();
-            const allStudents = await client.query('SELECT id, name FROM students');
-            for (const s of allStudents.rows) {
-                const key = bareName(s.name);
-                if (key && !dbIdByBareName.has(key)) dbIdByBareName.set(key, s.id);
-            }
+            const dbIdByBareName = await audiogramStudentMap(client);
             for (const s of asArray(sdnDoc.students)) {
                 const dbId = studentIdBySdnId.get(Number(s?.id));
                 if (dbId) dbIdByBareName.set(bareName(s?.name), dbId);   // payload wins

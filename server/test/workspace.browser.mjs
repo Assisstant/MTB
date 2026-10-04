@@ -74,6 +74,8 @@ try {
     const action = name => page.locator(`#app-S-Dnevnik [data-window-action="${name}"]`);
     await action('minimize').click();
     assert.equal(await page.locator('#app-S-Dnevnik').isVisible(), false);
+    await page.locator('#resetLayout').click();
+    assert.equal(await page.locator('#app-S-Dnevnik').isVisible(), true, 'reset restores a minimized selected window');
     await select('S-Dnevnik.html', 'app-S-Dnevnik');
     assert.equal(await diary.locator('#draft').inputValue(), 'unsaved diary');
     await page.locator('#resetLayout').click();

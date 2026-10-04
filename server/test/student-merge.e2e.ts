@@ -23,6 +23,7 @@
 import pg from 'pg';
 import 'dotenv/config';
 import { pupilTables, SAME_FACT, namesLookAlike } from '../src/lib/student-merge.js';
+import { audiogramStudentId, audiogramStudentMap, upsertAudiogram } from '../src/lib/records.js';
 
 if (process.env.MTB_SCRATCH_DB !== '1') {
     console.error('Refusing: this suite rewrites the diary document. Run it with `npm run test:scratch -- test/student-merge.e2e.ts`.');
@@ -52,6 +53,7 @@ const api = async (method: string, path: string, body?: unknown) => {
 };
 
 async function cleanup() {
+    await q(`DELETE FROM audiograms WHERE student_id IN (SELECT id FROM students WHERE public_id LIKE $1)`, [`${TAG}%`]);
     await q(`DELETE FROM attendance WHERE student_id IN (SELECT id FROM students WHERE public_id LIKE $1)`, [`${TAG}%`]);
     await q('DELETE FROM school_years WHERE label IN ($1, $2)', [YEAR, PRIOR]);
     await q(`DELETE FROM student_records WHERE student_id IN (SELECT id FROM students WHERE public_id LIKE $1)`, [`${TAG}%`]);
@@ -133,9 +135,11 @@ async function run() {
             '1914-10-06': { 9100001: { 'tuesday-0': { status: 'present' } }, 9100002: { 'tuesday-0': { status: 'absent' } } },
             '1914-10-07': { 9100002: { 'wednesday-0': { status: 'present' } } }
         },
-        studentProgress: { 9100002: { 5: [{ index: 0 }] } },
+        studentProgress: { 9100001: { 5: [0] }, 9100002: { 5: [1] } },
+        audiograms: [{ subjectName: 'Измислен Петкоски', date: '1914-10-07', recordType: 'test', rightAir: { 1000: 25 } }],
         student_records: [{ id: 9100002, address: 'Измислена 1' }]
     };
+    await upsertAudiogram(pool, doc.audiograms[0], G.id);
     const before = (await q(`SELECT version, payload FROM app_state WHERE app = 'sdnevnik'`))[0];
     await q(`INSERT INTO app_state (app, version, payload) VALUES ('sdnevnik', 7, $1)
              ON CONFLICT (app) DO UPDATE SET version = 7, payload = EXCLUDED.payload`, [JSON.stringify(doc)]);
@@ -196,6 +200,13 @@ async function run() {
         same('marks: the kept one where they clashed, the other one moved', after.payload.attendance,
             { '1914-10-06': { 9100001: { 'tuesday-0': { status: 'present' } } }, '1914-10-07': { 9100001: { 'wednesday-0': { status: 'present' } } } });
         same('progress and dossier follow', [Object.keys(after.payload.studentProgress), after.payload.student_records.map((r: any) => r.id)], [['9100001'], [9100001]]);
+        same('both completed activities in the same plan survive', after.payload.studentProgress['9100001']['5'], [0, 1]);
+        const audio = after.payload.audiograms[0];
+        const audioId = await audiogramStudentId(pool, audio.subjectName);
+        same('the audiogram endpoint resolves the original clinical name to the kept pupil', audioId, K.id);
+        same('the document projection uses the same identity', (await audiogramStudentMap(pool)).get('измислен петкоски'), K.id);
+        await upsertAudiogram(pool, audio, audioId);
+        same('saving it again keeps one audiogram on the kept pupil', await q('SELECT student_id FROM audiograms WHERE subject_name=$1', [audio.subjectName]), [{ student_id: K.id }]);
         same('the diary reads the kept number\'s marks from the table',
             Object.keys((await api('GET', '/api/diary/attendance?from=1914-10-01&to=1914-10-31')).body['1914-10-07'] || {}), ['9100001']);
 

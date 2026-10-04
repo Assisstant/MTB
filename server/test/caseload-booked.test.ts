@@ -56,3 +56,48 @@ test('once the term is freed, the child can leave the list', async () => {
     assert.equal(res.statusCode, 200, res.body);
     assert.equal(await linked(), 0);
 });
+
+test('a booking arriving during removal cannot leave a term without a caseload link', async () => {
+    await db.query('INSERT INTO therapist_students(school_year_id,therapist_id,student_id) VALUES($1,$2,$3)', [year, therapist, pupil]);
+    const { setCaseloadLink } = await import('../src/lib/caseload.js');
+    const { writeBlock } = await import('../src/routes/schedule-write.js');
+    let resume!: () => void, reached!: () => void;
+    const gate = new Promise<void>(r => { resume = r; });
+    const paused = new Promise<void>(r => { reached = r; });
+    let removalPid = 0;
+    const query = (client: any) => async (sql: string, args?: any[]) => {
+        const out = await client.query(sql, args);
+        if (sql.includes('SELECT day, time_slot FROM schedule_slots')) { reached(); await gate; }
+        return out;
+    };
+    const wrapped = {
+        query: query(db),
+        connect: async () => {
+            const client = await db.connect();
+            removalPid = (await client.query('SELECT pg_backend_pid() AS pid')).rows[0].pid;
+            return { query: query(client), release: () => client.release() };
+        }
+    };
+    const removing = setCaseloadLink(wrapped, year, therapist, P, false);
+    let booking: ReturnType<typeof writeBlock> | undefined;
+    try {
+        await paused;
+        let done = false;
+        booking = writeBlock({ year: YEAR, day: 'среда', time: '08:00-08:40', therapistId: therapist, studentPublicIds: [P], expectedStudentPublicIds: [] });
+        booking.then(() => { done = true; }, () => { done = true; });
+        let blocked = false;
+        for (let i = 0; i < 200 && !done && !blocked; i++) {
+            blocked = (await admin.query('SELECT EXISTS(SELECT 1 FROM pg_stat_activity WHERE $1 = ANY(pg_blocking_pids(pid))) AS yes', [removalPid])).rows[0].yes;
+            if (!done && !blocked) await new Promise(r => setTimeout(r, 10));
+        }
+        assert.ok(done || blocked, 'the booking either completed or reached the removal lock');
+        resume();
+        assert.equal((await removing).ok, true);
+        const result = await booking;
+        assert.equal(result.status, 409, 'a booking must recheck the list after the removal');
+        assert.equal(await linked(), 0);
+        assert.equal((await db.query('SELECT count(*)::int AS n FROM schedule_slots WHERE student_id=$1', [pupil])).rows[0].n, 0);
+    } finally {
+        resume(); await removing; if (booking) await booking;
+    }
+});

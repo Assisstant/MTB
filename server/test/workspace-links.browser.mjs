@@ -23,14 +23,17 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const ORIGIN = 'http://localhost:3995';
 const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'application/javascript', '.css': 'text/css' };
 const STUBS = ['RasporediFusion.html', 'Nastava.html', 'NastavaUredi.html', 'Podatoci.html', 'AkciskiPlan.html', 'S-Dnevnik.html', 'Pregled-Baza.html'];
-const REAL = new Set(['MTB-Workspace.html', 'app-navigation.js', 'mtb-theme.js', 'workspace-admin.js', 'workspace-admin.css', 'mtb-runtime.js', 'home-button.js']);
+const REAL = new Set(['MTB-Workspace.html', 'app-navigation.js', 'mtb-theme.js', 'workspace-admin.js', 'workspace-admin.css', 'mtb-runtime.js', 'home-button.js', 'mtb-forms.js', 'mtb-teacher-week.js', 'mtb-layout.js']);
 
 const stub = (file) => `<!doctype html><html><meta charset="utf-8"><title>${file}</title><body data-app="${file}">
   <p id="who">${file}</p>
   <a id="toNastava" href="Nastava.html?year=2026%2F2027">Настава</a>
   <a id="toPodatoci" href="/Podatoci.html">Податоци</a>
+  <a id="toTeachers" href="Podatoci.html?tab=teachers">Податоци → Наставници</a>
   <a id="toOther" href="Sinhronizacija.html">not a workspace tab</a>
-  <script src="app-navigation.js"></script></body></html>`;
+  <input id="draft">
+  <script src="app-navigation.js"></script>
+  <script>window.addEventListener('DOMContentLoaded', () => MTBAppNavigation.views({ keys: ['tab'], show: v => document.body.dataset.tab = v.tab }));</script></body></html>`;
 
 let fails = 0;
 const check = (label, ok, detail = '') => {
@@ -50,7 +53,7 @@ await context.route('**/*', async (route) => {
         if (req.method() !== 'GET') return json(405, { error: 'read-only fixture' });
         if (url.pathname === '/api/health') return json(200, { ok: true, server: { label: 'Пробна база' } });
         if (url.pathname === '/api/years') return json(200, [{ id: 1, label: '2026/2027', is_current: true }]);
-        if (url.pathname === '/api/roster') return json(200, { year: '2026/2027', students: [], therapists: [], teachers: [], classes: [] });
+        if (url.pathname === '/api/roster') return json(200, { year: '2026/2027', isCurrentYear: true, students: [], therapists: [], teachers: [], classes: [], candidates: { students: [], therapists: [], teachers: [], classes: [] } });
         return json(404, {});
     }
     if (STUBS.includes(file)) return route.fulfill({ status: 200, contentType: TYPES['.html'], body: stub(file) });
@@ -86,6 +89,12 @@ try {
     await page.locator('#app-Podatoci iframe').waitFor({ timeout: 5000 }).catch(() => {});
     check('„/Podatoci.html" also opens its tab', await visible('app-Podatoci'));
     check('…and Распоред is still Fusion', await pathOf('#appFrame') === 'RasporediFusion.html');
+    await page.frameLocator('#app-Podatoci iframe').locator('#draft').fill('unsaved teacher draft');
+    await page.click('#appTabs [data-app="RasporediFusion.html"]');
+    await scheduleFrame().locator('#toTeachers').click();
+    await page.waitForTimeout(400);
+    check('a teachers link reaches the requested sub-tab', await page.$eval('#app-Podatoci iframe', f => new URLSearchParams(f.contentWindow.location.search).get('tab')) === 'teachers');
+    check('and keeps the existing editor draft', await page.frameLocator('#app-Podatoci iframe').locator('#draft').inputValue() === 'unsaved teacher draft');
     await page.click('#appTabs [data-app="RasporediFusion.html"]');
     await scheduleFrame().locator('#toOther').click();
     await page.waitForTimeout(600);
@@ -103,6 +112,18 @@ try {
     await page.waitForTimeout(400);
     const after = await page.$$eval('#main section.app-window', (s) => s.map((x) => x.id).sort().join(','));
     check('is ignored — only the shell\'s own frames may ask', before === after, `${before} -> ${after}`);
+
+    console.log('\na named link on first open, with the real Податоци page');
+    const cold = await context.newPage();
+    cold.on('pageerror', e => errors.push(e.message));
+    const realPodatoci = await readFile(join(ROOT, 'Podatoci.html'));
+    await cold.route('**/Podatoci.html?*', route => route.fulfill({ status: 200, contentType: TYPES['.html'], body: realPodatoci }));
+    await cold.goto(ORIGIN + '/MTB-Workspace.html?view=windows');
+    await cold.frameLocator('#appFrame').locator('#toTeachers').click();
+    const pupils = cold.frameLocator('#app-Podatoci iframe');
+    await pupils.locator('[data-tab="teachers"][aria-pressed="true"]').waitFor();
+    check('the real teachers screen opens, even before its iframe existed', await pupils.locator('#tab-teachers').isVisible());
+    await cold.close();
 
     check('no page errors', errors.length === 0, errors.join('\n'));
 } finally {

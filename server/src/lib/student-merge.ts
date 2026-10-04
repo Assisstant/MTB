@@ -239,7 +239,11 @@ export function mergeInDiaryDocument(doc: any, o: { from: string | null; to: str
         const moving = holder[from] || {};
         delete holder[from];
         const into = (holder[to] ||= {});
-        for (const [plan, entries] of Object.entries(moving)) if (!list(into[plan]).length) into[plan] = entries;
+        // Completed activity indices are a set, as in the offline diary merge.
+        // Both pupils can have different completed activities in the SAME plan.
+        for (const [plan, entries] of Object.entries(moving)) {
+            into[plan] = [...new Set([...list(into[plan]), ...list(entries)])];
+        }
     };
     progress(doc.studentProgress);
     for (const byPupil of Object.values(doc.progressArchive || {})) progress(byPupil);
@@ -261,8 +265,11 @@ export function mergeInDiaryDocument(doc: any, o: { from: string | null; to: str
  */
 export async function mergeStudents(client: any, keepPublicId: string, foldPublicId: string, updatedBy: string): Promise<MergeOutcome> {
     if (!keepPublicId || !foldPublicId || keepPublicId === foldPublicId) refuse('two different pupils are needed');
-    // Both rows, locked in id order: an insert that points at either waits
-    // (FOR KEY SHARE conflicts with FOR UPDATE) and is then moved with the rest.
+    // Same order as state.ts: diary first, pupils second. The advisory lock
+    // covers a first save too, when there is no app_state row to lock yet.
+    await client.query(`SELECT pg_advisory_xact_lock(hashtext('app_state:sdnevnik'))`);
+    const state = (await client.query(`SELECT version, payload FROM app_state WHERE app = 'sdnevnik' FOR UPDATE`)).rows[0];
+    // Lock the identity rows in id order before reading their related records.
     const rows = (await client.query(
         `SELECT id, public_id, sdnevnik_id::text AS sdn, plan_id, name, active FROM students
           WHERE public_id = ANY($1) ORDER BY id FOR UPDATE`, [[keepPublicId, foldPublicId]])).rows;
@@ -373,7 +380,6 @@ export async function mergeStudents(client: any, keepPublicId: string, foldPubli
           WHERE a.student_id = $1 ORDER BY a.day_order, a.time_slot`, [k.id])).rows.map((r: any) => `${r.day} ${r.time_slot}`);
 
     // The diary's document, so the browser that holds it pulls the same picture.
-    const state = (await client.query(`SELECT version, payload FROM app_state WHERE app = 'sdnevnik' FOR UPDATE`)).rows[0];
     if (state && state.payload && typeof state.payload === 'object') {
         const doc = structuredClone(state.payload);
         const before = JSON.stringify(doc);

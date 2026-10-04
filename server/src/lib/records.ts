@@ -173,9 +173,30 @@ export async function upsertTriage(client: any, studentId: number, t: any) {
 export async function audiogramStudentId(client: any, subjectName: unknown): Promise<number | null> {
     const key = bareName(subjectName);
     if (!key) return null;
-    const { rows } = await client.query('SELECT id, name FROM students ORDER BY id');
-    for (const s of rows) if (bareName(s.name) === key) return s.id;
-    return null;
+    return (await audiogramStudentMap(client)).get(key) ?? null;
+}
+
+/** Both save paths follow an explicit merge, without rewriting a clinical name. */
+export async function audiogramStudentMap(client: any): Promise<Map<string, number | null>> {
+    const { rows } = await client.query('SELECT id, public_id, name, left_reason FROM students ORDER BY id');
+    const byPublicId = new Map<string, any>(rows.map((s: any) => [s.public_id, s]));
+    const names = new Map<string, number | null>();
+    for (const s of rows) {
+        const key = bareName(s.name);
+        if (!key) continue;
+        let target = s;
+        const seen = new Set<number>();
+        while (target && String(target.left_reason || '').startsWith('merged:')) {
+            if (seen.has(target.id)) { target = null; break; }
+            seen.add(target.id);
+            target = byPublicId.get(target.left_reason.slice('merged:'.length));
+        }
+        const id = target?.id ?? null;
+        // Two different children with one name remain unlinked. Two aliases
+        // explicitly merged into the same child are no longer ambiguous.
+        names.set(key, names.has(key) && names.get(key) !== id ? null : id);
+    }
+    return names;
 }
 
 export async function upsertAudiogram(client: any, a: any, studentId: number | null) {
@@ -197,6 +218,5 @@ export async function upsertAudiogram(client: any, a: any, studentId: number | n
     );
     return id;
 }
-
 
 

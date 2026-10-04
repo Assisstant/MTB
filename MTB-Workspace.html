@@ -491,7 +491,8 @@ runStartGate(false).then(()=>{repointFrames();load()});})();
     if (win.hidden) tabs.find(tab => appId(tab.dataset.app) === win.id)?.focus();
   }
   function wireFrame(win, frame) {
-    const loaded = () => {
+    const loaded = (event) => {
+      if (event) win.loaded = true;
       try {
         const doc = frame.contentDocument;
         const nav = doc?.getElementById('mtbAppNav');
@@ -638,6 +639,7 @@ runStartGate(false).then(()=>{repointFrames();load()});})();
         const where = frame.contentWindow.location;
         const here = where.protocol === 'about:' ? '' : decodeURIComponent((where.pathname || '').split('/').pop());
         if (here && here.toLowerCase() !== tab.dataset.app.toLowerCase()) {
+          win.loaded = false;
           frame.src = (window.MTBWorkspaceAppSrc || ((f) => f))(tab.dataset.app);
         }
       } catch (_) { /* another origin: cannot be read, and is not re-pointed on a guess */ }
@@ -705,7 +707,17 @@ runStartGate(false).then(()=>{repointFrames();load()});})();
     const fromOwnFrame = [...document.querySelectorAll('#main iframe')].some((f) => f.contentWindow === event.source);
     if (!fromOwnFrame) return;
     const tab = tabs.find((t) => t.dataset.app.toLowerCase() === msg.file.toLowerCase());
-    if (tab) tab.click();
+    if (tab) {
+      tab.click();
+      // A named sub-tab is a view change, never a reload of an editor's draft.
+      const view = msg.view;
+      if (view && typeof view.tab === 'string' && /^[a-z-]{1,40}$/.test(view.tab)) {
+        const win = windows.get(appId(tab.dataset.app));
+        const frame = win.el.querySelector('iframe');
+        const send = () => frame.contentWindow?.postMessage({ type: 'mtb:open-view', view: { tab: view.tab } }, new URL(frame.src, location.href).origin);
+        if (win.loaded) send(); else frame.addEventListener('load', send, { once: true });
+      }
+    }
   });
   /* ── почетен прозорец и лентата (сопственикот, 2 октомври 2026) ───────────
    *
@@ -772,6 +784,7 @@ runStartGate(false).then(()=>{repointFrames();load()});})();
       win.mode = 'docked'; win.pinned = false; win.maximized = false;
       win.hidden = win.id !== activeDocked; win.rect = defaultRect(win.id);
     }
+    render();
     focusWindow(windows.get(activeDocked)); persist();
     announce('Вратен е почетниот распоред. Отворените податоци се задржани.');
   });
