@@ -13,7 +13,10 @@
  *     shown in words and leaves the popup open;
  *   - a pupil is recognised by the bridge or by the diary number the database
  *     keeps, never by name: an unlinked pupil cannot be sent, and a pupil the
- *     diary does not have cannot be taken;
+ *     diary does not have is not taken until „+ Додади"'s route puts them on
+ *     „Мои ученици";
+ *   - every choice is on screen and names what changes, where and to whom
+ *     (Додади / Тргни), and „тргни ги сите" empties Кабинети before the diary;
  *   - an edit of an unlocked past week stays a record unless „Постојано" is
  *     chosen, and only then reaches the live plan and Кабинети.
  */
@@ -101,6 +104,13 @@ await context.route('**/*', async (route) => {
         if (url.pathname === '/api/schedule/sessions') return json({ year: roster.year, sessions });
         if (url.pathname === '/api/roster') return json(roster);
         if (url.pathname === '/api/health') return health ? json(health) : json({ error: 'down' }, 503);
+        // „+ Додади" on the therapist's list in the base (SdnCaseload.join).
+        const joined = url.pathname.match(/^\/api\/therapists\/([^/]+)\/students\/([^/]+)$/);
+        if (joined && req.method() === 'PUT') {
+            const t = roster.therapists.find((x) => x.name === decodeURIComponent(joined[1]));
+            if (t && !t.students.includes(joined[2])) t.students.push(joined[2]);
+            return json({ ok: true });
+        }
         if (url.pathname === '/api/schedule/block' && req.method() === 'PUT') {
             const body = req.postDataJSON();
             blocks.push(body);
@@ -131,7 +141,9 @@ page.on('dialog', (d) => { dialogs.push(d.message()); d.accept(); });
 const modalOpen = () => page.$eval('#planSyncModal', (m) => m.classList.contains('active'));
 const rowsShown = () => page.$$eval('[data-plan-row]', (rows) => rows.map((r) => r.getAttribute('data-plan-row')));
 const live = (day, slot) => page.evaluate(([d, s]) => window.schedule[d][s].slice(), [day, slot]);
-const choose = (key, value) => page.selectOption(`[data-plan-choice="${key}"]`, value);
+const choose = (key, value) => page.check(`[data-plan-choice="${key}"] input[value="${value}"]`);
+const chosen = (key) => page.$eval(`[data-plan-choice="${key}"]`, (g) => (g.querySelector('input:checked') || {}).value);
+const choiceText = (key, value) => page.$eval(`[data-plan-choice="${key}"] input[value="${value}"]`, (i) => i.closest('label').textContent);
 const apply = () => page.click('#planSyncApply');
 const waitClosed = () => page.waitForFunction(() => !document.getElementById('planSyncModal').classList.contains('active'));
 const waitOpen = () => page.waitForFunction(() => document.getElementById('planSyncModal').classList.contains('active'));
@@ -163,11 +175,20 @@ try {
     check('a bell the diary does not have is counted, not compared',
         /уште 1 термин/.test(await page.textContent('#planSyncNote')));
     check('an unlinked pupil cannot be sent to Кабинети, and the popup says why',
-        await page.$eval('[data-plan-choice="2|2"] option[value="push"]', (o) => o.disabled)
+        await page.$eval('[data-plan-choice="2|2"] input[value="push"]', (o) => o.disabled)
         && /не е поврзан со базата/.test(await page.textContent('[data-plan-row="2|2"]')));
-    check('a pupil the diary does not have cannot be taken, and the popup says why',
-        await page.$eval('[data-plan-choice="4|0"] option[value="take"]', (o) => o.disabled)
-        && /го нема во „Мои ученици“/.test(await page.textContent('[data-plan-row="4|0"]')));
+    check('a pupil the diary does not have is not simply taken: the choice adds them to „Мои ученици“ first, and says so',
+        !(await page.$('[data-plan-choice="4|0"] input[value="take"]'))
+        && /прво на списокот „Мои ученици“/.test(await choiceText('4|0', 'admit'))
+        && /Пробен Непознат го нема во „Мои ученици“/.test(await page.textContent('[data-plan-row="4|0"]')));
+    checkEq('every choice names what changes, where and to whom',
+        await page.$$eval('[data-plan-choice="4|0"] label', (o) => o.map((x) => x.textContent)),
+        ['Остави засега — ништо не се менува',
+         'Кабинети: тргни го Пробен Непознат (терминот останува празен)',
+         'Дневник: додади го Пробен Непознат — прво на списокот „Мои ученици“']);
+    checkEq('and the other way round',
+        await page.$$eval('[data-plan-choice="3|2"] label', (o) => o.map((x) => x.textContent)),
+        ['Остави засега — ништо не се менува', 'Кабинети: тргни го Пробен Делта (терминот останува празен)', 'Дневник: додади го Пробен Делта']);
     // PLAN_SHOTS=<folder> keeps a picture of the popup in both themes (invented people only).
     if (process.env.PLAN_SHOTS) {
         await page.screenshot({ path: path.join(process.env.PLAN_SHOTS, 'plan-sync-light.png') });
@@ -175,7 +196,7 @@ try {
         await page.screenshot({ path: path.join(process.env.PLAN_SHOTS, 'plan-sync-dark.png') });
         await page.evaluate(() => document.body.classList.remove('dark-mode'));
     }
-    checkEq('every decision starts at „Остави"', await page.$$eval('[data-plan-choice]', (s) => s.map((x) => x.value)), ['leave', 'leave', 'leave']);
+    checkEq('every decision starts at „Остави"', await page.$$eval('[data-plan-choice]', (s) => s.map((g) => (g.querySelector('input:checked') || {}).value)), ['leave', 'leave', 'leave']);
     await apply();
     await waitClosed();
     checkEq('„Остави" writes nothing', writes, []);
@@ -202,8 +223,8 @@ try {
     console.log('\nan edit in the current week');
     await edit('monday', 0, [1004]);
     await waitOpen();
-    checkEq('the edited term is offered as permanent', await page.$eval('[data-plan-choice="0|0"]', (s) => s.value), 'push');
-    checkEq('the other differences stay at „Остави"', await page.$eval('[data-plan-choice="2|2"]', (s) => s.value), 'leave');
+    checkEq('the edited term is offered as permanent', await chosen('0|0'), 'push');
+    checkEq('the other differences stay at „Остави"', await chosen('2|2'), 'leave');
     refuseNext = { error: 'that student already has an overlapping session', doubleBooked: true,
         therapistId: 8, therapistName: 'Друг Терапевт', time: '08:00-08:20', studentPublicId: 'p-d', studentName: 'Пробен Делта' };
     await apply();
@@ -243,6 +264,42 @@ try {
     checkEq('„Постојано" moves it into the live plan', await live('tuesday', 1), [1002]);
     checkEq('and into Кабинети, with what Кабинети held', blocks[blocks.length - 1],
         { day: 'вторник', time: '08:45-09:25', therapistId: 7, studentPublicIds: ['p-b'], expectedStudentPublicIds: ['p-b', 'p-d'] });
+
+    // ── „Тргни ги сите од терминот": both places, Кабинети first ──────────────
+    console.log('\nemptying a term in both places');
+    await page.evaluate(() => { window.schedule.friday[3] = [1001]; });
+    sessions.push(session('петок', '10:25-11:05', 'p-d', 'Пробен Делта'));
+    await page.click('#planSyncBtn');
+    await waitOpen();
+    check('a term that differs with somebody on both sides offers to empty it in both',
+        /и во дневникот и во Кабинети/.test(await choiceText('4|3', 'clear')));
+    check('a term empty on one side does not repeat it', !(await page.$('[data-plan-choice="4|0"] input[value="clear"]')));
+    refuseNext = { error: 'changed', actualStudentPublicIds: ['p-a'] };
+    await choose('4|3', 'clear');
+    await apply();
+    await page.waitForSelector('[data-plan-row="4|3"] .plan-sync-result.bad');
+    checkEq('a refusal from Кабинети leaves the diary as it was', await live('friday', 3), [1001]);
+    await choose('4|3', 'clear');
+    await apply();
+    await page.waitForFunction(() => !document.querySelector('[data-plan-row="4|3"]'));
+    checkEq('Кабинети is emptied through the block writer, with what it held', blocks[blocks.length - 1],
+        { day: 'петок', time: '10:25-11:05', therapistId: 7, studentPublicIds: [], expectedStudentPublicIds: ['p-d'] });
+    checkEq('and the diary term is empty too', await live('friday', 3), []);
+
+    // ── a pupil only Кабинети has: onto „Мои ученици“, then into the term ─────
+    console.log('\nadding a pupil from Кабинети to „Мои ученици“');
+    // The diary's own sync is tested elsewhere; here it answers „исто".
+    await page.evaluate(() => { window.SdnLocalSrv.sync = () => Promise.resolve('insync'); });
+    const listWrites = () => writes.filter((w) => w.startsWith('PUT /api/therapists/'));
+    await choose('4|0', 'admit');
+    await apply();
+    await page.waitForFunction(() => !document.querySelector('[data-plan-row="4|0"]'));
+    checkEq('the pupil goes onto the list in the base through the same route as „+ Додади“', listWrites(),
+        [`PUT /api/therapists/${encodeURIComponent(ME)}/students/p-x`]);
+    const friday = await live('friday', 0);
+    checkEq('and into the diary\'s term', await page.evaluate((ids) => ids.map((id) => window.getStudentById(id).name), friday), ['Пробен Непознат']);
+    check('and into „Мои ученици“, with the bridge', await page.evaluate(() => window.students.some((s) => s.rasporediStudentId === 'p-x')));
+    await page.click('#planSyncClose');
 
     // ── the tab „Податоци": the procedure on top, the files at the bottom ─────
     console.log('\nthe data tab and „Усогласи сè"');

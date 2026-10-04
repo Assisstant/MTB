@@ -12626,6 +12626,12 @@
         .plan-sync-content select { font: inherit; font-size: 14px; min-height: 34px; padding: 4px 10px; border-radius: 999px;
             border: 1px solid #a0aec0; background: #fff; color: #1a202c; max-width: 100%; }
         body.dark-mode .plan-sync-content select { background: #1a202c; color: #f7fafc; border-color: #718096; }
+        .plan-sync-choices { display: flex; flex-direction: column; gap: 2px; }
+        .plan-sync-choice { display: flex; gap: 8px; align-items: flex-start; padding: 3px 6px; border-radius: 8px; cursor: pointer; line-height: 1.35; }
+        .plan-sync-choice:hover { background: rgba(102, 126, 234, .10); }
+        .plan-sync-choice input { margin-top: 3px; flex: none; accent-color: #5a67d8; }
+        .plan-sync-choice.off { opacity: .5; cursor: default; }
+        .plan-sync-choice.off:hover { background: none; }
         .plan-sync-why { margin-top: 4px; font-size: 12.5px; opacity: .8; }
         .plan-sync-result { margin-top: 4px; font-size: 13px; font-weight: 700; }
         .plan-sync-result.ok { color: #2f855a; }
@@ -12680,9 +12686,17 @@
     // измената се прашува дали истото важи и од сега — тогаш оди и во живиот
     // шаблон и во Кабинети. Без тој избор Кабинети не се допира.
     //
-    // ШТО НЕ ПРАВИ. Не поврзува ученици по име и не додава ученици: тоа го
-    // прави „⬇ Земи од базата", со своја потврда. Термин со ученик што не е
-    // поврзан се прикажува со причината и останува за рачно.
+    // МОЖНОСТИ (сопственикот, 4 октомври 2026: „ист метод насекаде"). Секоја
+    // кажува што се менува, каде и кому, со глаголите на „Мои ученици":
+    //   Кабинети: додади го X / тргни го Y   — Кабинети да биде како дневникот;
+    //   Дневник:  додади го X / тргни го Y   — дневникот да биде како Кабинети;
+    //   ученик од Кабинети што го нема во „Мои ученици“ прво оди на списокот во
+    //   базата по патот на „+ Додади“ (`SdnCaseload.join`), па во терминот;
+    //   „Тргни ги сите од терминот“ — на двете места, Кабинети прво;
+    //   „Остави засега“.
+    //
+    // ШТО НЕ ПРАВИ. Не поврзува ученици по име. Термин со ученик од дневникот
+    // што не е поврзан не може во Кабинети; се прикажува со причината.
     // ═══════════════════════════════════════════════════════════════════════
     (function () {
         'use strict';
@@ -12732,6 +12746,26 @@
 
         function names(list) {
             return list.length ? list.map(function (x) { return esc(x.name); }).join(' + ') : '<i>— празно —</i>';
+        }
+        /** „Михаил", „Михаил и Ана" — за реченица, без HTML. */
+        function who(list) { return list.map(function (x) { return x.name; }).join(' и '); }
+        function him(list) { return list.length > 1 ? 'ги' : 'го'; }
+
+        /**
+         * Што точно прави едно дејство, со имиња: „додади го X, тргни го Y".
+         * Истите глаголи како „Мои ученици" (Додади / Тргни), за дневникот и
+         * за Кабинети, па изборот се чита како резултат, а не како насока.
+         */
+        function effect(target, before) {
+            var key = function (x) { return x.pid || ('#' + x.id); };
+            var had = before.map(key), will = target.map(key);
+            var added = target.filter(function (x) { return had.indexOf(key(x)) < 0; });
+            var removed = before.filter(function (x) { return will.indexOf(key(x)) < 0; });
+            var parts = [];
+            if (added.length) parts.push('додади ' + him(added) + ' ' + who(added));
+            if (removed.length) parts.push('тргни ' + him(removed) + ' ' + who(removed));
+            if (!parts.length) return 'подреди ги како на другото место';
+            return parts.join(', ') + (target.length ? '' : ' (терминот останува празен)');
         }
 
         /**
@@ -12797,14 +12831,17 @@
                     var kab = kabinetiAt(key);
                     var same = diary.length === kab.length && diary.every(function (d, i) { return d.pid && d.pid === kab[i].pid; });
                     if (same) continue;
+                    var missing = kab.filter(function (k) { return !k.student; });
                     rows.push({
-                        key: key, day: di, slot: ti, diary: diary, kab: kab,
+                        key: key, day: di, slot: ti, diary: diary, kab: kab, missing: missing,
                         pushWhy: therapistId == null ? 'не сте на списокот на стручни лица во Кабинети за годинава'
                             : diary.length > 2 ? 'во Кабинети во еден час може најмногу двајца'
                             : diary.some(function (d) { return !d.pid; }) ? 'има ученик што не е поврзан со базата — „⬇ Земи од базата“ го поврзува'
                             : '',
-                        takeWhy: kab.some(function (k) { return !k.student; })
-                            ? 'има ученик што го нема во „Мои ученици“ — „⬇ Земи од базата“ го додава' : ''
+                        takeWhy: missing.length
+                            ? who(missing) + ' ' + (missing.length > 1 ? 'ги нема' : 'го нема') + ' во „Мои ученици“' : '',
+                        // Празнењето праќа празен термин, па врска и број на ученици не се прашуваат.
+                        clearWhy: therapistId == null ? 'не сте на списокот на стручни лица во Кабинети за годинава' : ''
                     });
                 }
             }
@@ -12858,18 +12895,35 @@
             return days[row.day] + ' · ' + timeSlots[row.slot].label + '<small>' + esc(timeSlots[row.slot].time) + '</small>';
         }
 
+        /** Избраното во еден ред (или во „За сите"): вредноста на означеното копче. */
+        function chosenIn(group) {
+            var on = group.querySelector('input:checked');
+            return on ? on.value : 'leave';
+        }
+
         function choiceSelect(row) {
             var focus = row.key === state.focus;
             var chosen = focus && !row.pushWhy ? 'push' : 'leave';
-            var option = function (value, text, why) {
-                return '<option value="' + value + '"' + (why ? ' disabled' : '') + (value === chosen ? ' selected' : '') + '>' + text + '</option>';
+            // Сите можности се на екранот, не во паѓачко мени: секоја кажува
+            // ШТО се менува, КАДЕ и КОМУ, па нема „насока" за толкување.
+            var option = function (value, where, text, why) {
+                return '<label class="plan-sync-choice' + (why ? ' off' : '') + '"><input type="radio" name="plan-' + row.key + '" value="' + value + '"' +
+                    (why ? ' disabled' : '') + (value === chosen ? ' checked' : '') + '><span>' +
+                    (where ? '<b>' + where + ':</b> ' : '') + text + '</span></label>';
             };
-            return '<select data-plan-choice="' + row.key + '" aria-label="Одлука за ' + esc(days[row.day] + ' ' + timeSlots[row.slot].label) + '">' +
-                option('leave', 'Остави како што е', '') +
-                option('push', 'Запиши во Кабинети (постојано)', row.pushWhy) +
-                option('take', 'Земи од Кабинети во дневникот', row.takeWhy) + '</select>' +
-                (row.pushWhy ? '<div class="plan-sync-why">Не може во Кабинети: ' + esc(row.pushWhy) + '.</div>' : '') +
-                (row.takeWhy ? '<div class="plan-sync-why">Не може во дневникот: ' + esc(row.takeWhy) + '.</div>' : '');
+            var both = row.diary.length && row.kab.length;
+            return '<div class="plan-sync-choices" role="radiogroup" data-plan-choice="' + row.key + '" aria-label="Одлука за ' + esc(days[row.day] + ' ' + timeSlots[row.slot].label) + '">' +
+                option('leave', '', 'Остави засега — ништо не се менува', '') +
+                option('push', 'Кабинети', esc(effect(row.diary, row.kab)), row.pushWhy) +
+                (row.missing.length
+                    ? option('admit', 'Дневник', esc(effect(row.kab, row.diary)) + ' — ' +
+                        (row.missing.length === row.kab.length ? '' : esc(who(row.missing)) + ' ') + 'прво на списокот „Мои ученици“', row.clearWhy)
+                    : option('take', 'Дневник', esc(effect(row.kab, row.diary)), '')) +
+                (both ? option('clear', 'На двете места', 'тргни ги сите од терминот — и во дневникот и во Кабинети', row.clearWhy) : '') +
+                '</div>' +
+                (row.pushWhy ? '<div class="plan-sync-why">Кабинети не може да се смени оттука: ' + esc(row.pushWhy) + '.</div>' : '') +
+                (row.missing.length ? '<div class="plan-sync-why">' + esc(row.takeWhy) +
+                    ' — се додава на вашиот список во базата (истото како „+ Додади“), па во терминот.</div>' : '');
         }
 
         function resultHtml(key) {
@@ -12890,8 +12944,8 @@
                     (n === 1 ? ' термин' : ' термини') + ' (' + state.me + '). Ништо не се менува додека не кликнете „Примени“.';
                 el('planSyncBody').innerHTML =
                     (n > 1 ? '<label class="plan-sync-all">За сите: <select id="planSyncAll">' +
-                        '<option value="">— изберете —</option><option value="push">Запиши во Кабинети</option>' +
-                        '<option value="take">Земи од Кабинети</option><option value="leave">Остави</option></select></label>' : '') +
+                        '<option value="">— изберете —</option><option value="push">Кабинети да биде како дневникот</option>' +
+                        '<option value="take">Дневникот да биде како Кабинети</option><option value="leave">Остави засега</option></select></label>' : '') +
                     '<table class="plan-sync-table"><thead><tr><th>Термин</th><th>Во дневникот</th><th>Во Кабинети</th><th>Одлука</th></tr></thead><tbody>' +
                     state.rows.map(function (row) {
                         return '<tr data-plan-row="' + row.key + '"' + (row.key === state.focus ? ' class="focus"' : '') + '>' +
@@ -12981,25 +13035,70 @@
 
         function applyDiff() {
             var choices = {};
-            Array.prototype.forEach.call(document.querySelectorAll('[data-plan-choice]'), function (s) { choices[s.getAttribute('data-plan-choice')] = s.value; });
-            var takes = state.rows.filter(function (r) { return choices[r.key] === 'take' && !r.takeWhy; });
-            var pushes = state.rows.filter(function (r) { return choices[r.key] === 'push' && !r.pushWhy; });
-            if (!takes.length && !pushes.length) { close(); return; }
+            Array.prototype.forEach.call(document.querySelectorAll('[data-plan-choice]'), function (s) { choices[s.getAttribute('data-plan-choice')] = chosenIn(s); });
+            var pick = function (value, why) {
+                return state.rows.filter(function (r) { return choices[r.key] === value && !r[why]; });
+            };
+            var takes = pick('take', 'takeWhy');
+            var pushes = pick('push', 'pushWhy');
+            var clears = pick('clear', 'clearWhy');
+            var admits = pick('admit', 'clearWhy');
+            if (!takes.length && !pushes.length && !clears.length && !admits.length) { close(); return; }
 
             setBusy(true);
             var results = {};
+            var at = function (r) { return days[r.day] + ' ' + timeSlots[r.slot].label + ': '; };
+            var done = function (r, text) { results[r.key] = { ok: true, text: at(r) + text }; };
+            var kabPids = function (r) { return r.kab.map(function (k) { return k.pid; }); };
             takes.forEach(function (r) {
                 schedule[daysEng[r.day]][r.slot] = r.kab.map(function (k) { return k.student.id; });
-                results[r.key] = { ok: true, text: days[r.day] + ' ' + timeSlots[r.slot].label + ': земено од Кабинети.' };
+                done(r, 'во дневникот — ' + effect(r.kab, r.diary) + '.');
             });
             if (takes.length) redrawDiary();
 
             var chain = Promise.resolve();
             pushes.forEach(function (r) {
                 chain = chain.then(function () {
-                    return pushBlock(r.day, r.slot, r.diary.map(function (d) { return d.pid; }), r.kab.map(function (k) { return k.pid; }));
+                    return pushBlock(r.day, r.slot, r.diary.map(function (d) { return d.pid; }), kabPids(r));
                 }).then(function (answer) {
-                    results[r.key] = { ok: answer.ok, text: (answer.ok ? days[r.day] + ' ' + timeSlots[r.slot].label + ': ' : '') + answer.text };
+                    if (answer.ok) done(r, 'во Кабинети — ' + effect(r.diary, r.kab) + '.');
+                    else results[r.key] = answer;
+                });
+            });
+            // Двете места: прво Кабинети (може да одбие), дневникот само ако Кабинети прифати.
+            clears.forEach(function (r) {
+                chain = chain.then(function () { return pushBlock(r.day, r.slot, [], kabPids(r)); }).then(function (answer) {
+                    if (!answer.ok) { results[r.key] = answer; return; }
+                    schedule[daysEng[r.day]][r.slot] = [];
+                    redrawDiary();
+                    done(r, 'терминот е празен и во дневникот и во Кабинети.');
+                });
+            });
+            // Ученик од Кабинети што го нема во „Мои ученици“: на списокот во базата
+            // по патот на „+ Додади“ (SdnCaseload), дневникот го зема, па терминот.
+            admits.forEach(function (r) {
+                r.missing.forEach(function (k) {
+                    chain = chain.then(function () {
+                        if (results[r.key] && !results[r.key].ok) return;
+                        return window.SdnCaseload.join(k.pid).then(function (answer) {
+                            if (!answer.ok) results[r.key] = { ok: false, text: k.name + ' не е додаден во „Мои ученици“: ' + answer.text };
+                        });
+                    });
+                });
+                chain = chain.then(function () {
+                    if (results[r.key]) return;
+                    return check().then(function () {
+                        var now = state.rows.filter(function (x) { return x.key === r.key; })[0];
+                        if (!now) { done(r, 'исто е на двете места.'); return; }
+                        if (now.missing.length) {
+                            results[r.key] = { ok: false, text: who(now.missing) + ' е на вашиот список во базата, но дневникот уште не ' +
+                                him(now.missing) + ' зема — погледнете ја белешката над „Мои ученици“.' };
+                            return;
+                        }
+                        schedule[daysEng[now.day]][now.slot] = now.kab.map(function (k) { return k.student.id; });
+                        redrawDiary();
+                        done(r, who(r.missing) + ' во „Мои ученици“; во дневникот — ' + effect(now.kab, now.diary) + '.');
+                    });
                 });
             });
             chain.then(check).then(function () {
@@ -13103,8 +13202,8 @@
             el('planSyncBody').addEventListener('change', function (event) {
                 if (event.target.id !== 'planSyncAll' || !event.target.value) return;
                 Array.prototype.forEach.call(document.querySelectorAll('[data-plan-choice]'), function (s) {
-                    var wanted = s.querySelector('option[value="' + event.target.value + '"]');
-                    if (wanted && !wanted.disabled) s.value = event.target.value;
+                    var wanted = s.querySelector('input[value="' + event.target.value + '"]');
+                    if (wanted && !wanted.disabled) wanted.checked = true;
                 });
             });
             document.addEventListener('keydown', function (event) { if (event.key === 'Escape' && isOpen() && !state.busy) close(); });
@@ -13426,16 +13525,28 @@
             alert(what + ': ' + ((r.body && r.body.error) || ('грешка ' + r.status)));
         }
 
-        /** „Додади" од годишниот список: во вашиот список во базата, па дневникот го зема. */
-        function add(row) {
-            if (!row || !row.public_id) return Promise.resolve();
-            return send('PUT', listPath() + '/students/' + encodeURIComponent(row.public_id)).then(function (r) {
-                if (!r.ok) { failed('Не е додаден', r); return; }
+        /**
+         * Еден ученик на вашиот список во базата, па дневникот го зема. Единствениот
+         * пат: „+ Додади“ и „Дневник ↔ Кабинети“ го викаат истото.
+         */
+        function join(publicId) {
+            if (!publicId) return Promise.resolve({ ok: false, text: 'нема ученик' });
+            return send('PUT', listPath() + '/students/' + encodeURIComponent(publicId)).then(function (r) {
+                if (!r.ok) return { ok: false, text: (r.body && r.body.error) || ('грешка ' + r.status) };
                 return follow({ force: true }).then(function (answer) {
                     if (typeof window.renderAnnualRosterPicker === 'function') window.renderAnnualRosterPicker();
-                    toast(answer && answer.applied ? 'Ученикот е на вашиот список — во базата и во дневникот.'
-                        : 'Ученикот е на вашиот список во базата; дневникот ќе го земе при следното читање.');
+                    return { ok: true, inDiary: !!(answer && answer.applied), answer: answer };
                 });
+            });
+        }
+
+        /** „Додади" од годишниот список. */
+        function add(row) {
+            if (!row || !row.public_id) return Promise.resolve();
+            return join(row.public_id).then(function (r) {
+                if (!r.ok) { alert('Не е додаден: ' + r.text); return; }
+                toast(r.inDiary ? 'Ученикот е на вашиот список — во базата и во дневникот.'
+                    : 'Ученикот е на вашиот список во базата; дневникот ќе го земе при следното читање.');
             });
         }
 
@@ -13622,7 +13733,7 @@
         }, 1500);
 
         window.SdnCaseload = {
-            connected: connected, follow: follow, add: add, remove: remove, move: move, note: note, merge: merge,
+            connected: connected, follow: follow, add: add, join: join, remove: remove, move: move, note: note, merge: merge,
             /** За „Усогласи сè": колку можни двојници чекаат одлука. */
             duplicates: function () { return likelyDuplicates(state.onList).length; }
         };
