@@ -34,25 +34,23 @@
     /* Palette, header, buttons and fields are the suite's one look
        (mtb-look.css, taken from S-Dnevnik). Only this page's heat scale is
        its own. */
-    /* How many children are out of a lesson, as four DIFFERENT colours rather
-       than four shades of one (owner, 4 Oct 2026) — teal, amber, orange, red,
-       from the control panel's palette: one is ordinary, four is a lesson
-       half empty. The cell takes a tint of it over the card, so the text stays
-       the page's own colour in both themes; the full colour is the bar on the
-       left and the ring round the number. */
+    /* How many children are out of a lesson: four different hues, as the
+       owner asked (4 Oct 2026), but quiet ones — sage, sand, clay, rose — and
+       nothing else: no bar, no ring. The number is the same hue, darker, so
+       the cell says how many in one place. Saturated colours with bars and
+       rings were tried the same day and read as noise in a grid looked at all
+       day. Text stays the page's own colour in both themes. */
     :root {
-        --heat-1: #1E9E8B;
-        --heat-2: #E0A21B;
-        --heat-3: #E0752D;
-        --heat-4: #D64545;
-        --heat-mix: 24%;
+        --heat-1: #E2EDE6; --heat-1-ink: #2F6B55;
+        --heat-2: #F3E8CF; --heat-2-ink: #8A6516;
+        --heat-3: #F1DACB; --heat-3-ink: #9A4A22;
+        --heat-4: #EECACB; --heat-4-ink: #96303A;
     }
     :root[data-theme="dark"] {
-        --heat-1: #2BB8A3;
-        --heat-2: #F0B43A;
-        --heat-3: #F08A45;
-        --heat-4: #EE6464;
-        --heat-mix: 30%;
+        --heat-1: #263A32; --heat-1-ink: #93D3B8;
+        --heat-2: #3A3426; --heat-2-ink: #E6C67E;
+        --heat-3: #3E2E26; --heat-3-ink: #EFA47C;
+        --heat-4: #43292C; --heat-4-ink: #F29DA3;
     }
 
     body { font-size: 15px; }
@@ -164,17 +162,19 @@
     .edit-week { margin-left: 6px; font-size: 12px; text-decoration: none; color: inherit; opacity: .8; }
     .edit-week:hover { opacity: 1; }
     .heat-0 { background: transparent; }
-    .heat-1 { --heat: var(--heat-1); }
-    .heat-2 { --heat: var(--heat-2); }
-    .heat-3 { --heat: var(--heat-3); }
-    .heat-4 { --heat: var(--heat-4); }
-    .heat-1, .heat-2, .heat-3, .heat-4 {
-        background: color-mix(in srgb, var(--heat) var(--heat-mix), var(--card));
-        box-shadow: inset 4px 0 0 var(--heat);
-        color: var(--text);
-    }
-    .heat-1 .count, .heat-2 .count, .heat-3 .count, .heat-4 .count { box-shadow: inset 0 0 0 2px var(--heat); }
-    .swatch.heat-1, .swatch.heat-2, .swatch.heat-3, .swatch.heat-4 { border-color: var(--heat); }
+    .heat-1 { --heat: var(--heat-1); --heat-ink: var(--heat-1-ink); }
+    .heat-2 { --heat: var(--heat-2); --heat-ink: var(--heat-2-ink); }
+    .heat-3 { --heat: var(--heat-3); --heat-ink: var(--heat-3-ink); }
+    .heat-4 { --heat: var(--heat-4); --heat-ink: var(--heat-4-ink); }
+    .heat-1, .heat-2, .heat-3, .heat-4 { background: var(--heat); color: var(--text); }
+    .heat-1 .count, .heat-2 .count, .heat-3 .count, .heat-4 .count {
+        background: transparent; color: var(--heat-ink); min-width: 0; padding: 0; margin-left: 5px; font-size: 12px; font-weight: 800; }
+    .swatch.heat-1, .swatch.heat-2, .swatch.heat-3, .swatch.heat-4 { border-color: transparent; }
+    /* Every teacher's line the same height (owner, 4 Oct 2026): nothing in a
+       counted cell wraps. „Кој кого зема" lists names and is allowed to grow. */
+    body:not(.named) table.grid:not(.day) tbody tr { height: 34px; }
+    body:not(.named) table.grid:not(.day) tbody td.cell { white-space: nowrap; padding-top: 0; padding-bottom: 0; }
+    body:not(.named) table.grid:not(.day) .off-staff { display: inline; margin: 0 0 0 6px; }
     .cell.selected { outline: 2px solid var(--primary); outline-offset: -2px; }
 
     /* In the week a cell holds a class label; broken over two lines („VIII-"
@@ -324,8 +324,14 @@
     .pz-sec h2 { margin: 0 0 1.5mm; font-size: 15pt; text-transform: uppercase; letter-spacing: 0.3mm; }
     .pz-table { width: 100%; table-layout: fixed; border-collapse: collapse; font-size: 10pt; font-weight: 700; }
     .pz-table th, .pz-table td { border: 0.35mm solid #000; padding: 1.4mm 0.6mm; text-align: center; vertical-align: middle; }
-    /* The rows grow to fill the sheet (fitPoster); the head stays as it is. */
-    .pz-table tbody th, .pz-table tbody td { padding-top: var(--pz-pad, 1.4mm); padding-bottom: var(--pz-pad, 1.4mm); }
+    /* Every row ONE height (owner, 4 Oct 2026), and the rows together fill the
+       sheet (fitPoster). Nothing in a row may make it taller: a long name is
+       set smaller on one line, a long class or a second lesson on two small
+       lines that the row already has room for. */
+    .pz-table tbody tr { height: var(--pz-row, 9mm); }
+    .pz-table tbody th, .pz-table tbody td { padding: 0 0.6mm; }
+    .pz-table tbody th.name { white-space: nowrap; overflow: hidden; }
+    .pz-table .tight { font-size: 7.5pt; line-height: 1.05; }
     .pz-table thead th { background: #ececec; font-size: 9pt; text-transform: uppercase; }
     .pz-table thead th.day { font-size: 11pt; letter-spacing: 0.3mm; }
     .pz-table .edge { border-left-width: 0.9mm; }
@@ -922,17 +928,19 @@
                 `<th${i === 0 ? ' class="edge"' : ''}>${esc(String(p.ordinal))}</th>`).join('')).join('')
             + '</tr>';
         const body = names.map((name, n) => {
-            let row = `<tr><td>${n + 1}.</td><th class="name">${esc(name)}`
+            // A long name is set smaller, never on a second line.
+            const size = name.length > 20 ? Math.max(6.5, 10 * 20 / name.length).toFixed(1) : '';
+            let row = `<tr><td>${n + 1}.</td><th class="name"${size ? ` style="font-size:${size}pt"` : ''}>${esc(name)}`
                 + (offStaff.has(name) ? '<span class="pz-off">не е на списокот оваа година</span>' : '') + '</th>'
                 + `<td class="odd lead">${lead(name)}</td>`;
             days.forEach((d) => periods.forEach((p, i) => {
                 const edge = i === 0 ? ' edge' : '';
                 const list = (byTeacher.get(name) && byTeacher.get(name).get(d + '|' + p.ordinal)) || [];
-                row += list.length ? `<td class="${edge.trim()}">${cell(list, name)}</td>` : `<td class="free${edge}">/</td>`;
+                row += list.length ? `<td class="${(list.length > 1 ? 'tight' : '') + edge}">${cell(list, name)}</td>` : `<td class="free${edge}">/</td>`;
             }));
             return row + '</tr>';
         }).join('');
-        const cols = '<colgroup><col style="width:11mm"><col style="width:50mm"><col style="width:27mm">'
+        const cols = '<colgroup><col style="width:11mm"><col style="width:57mm"><col style="width:27mm">'
             + days.map(() => periods.map(() => '<col>').join('')).join('') + '</colgroup>';
         return `<table class="pz-table">${cols}<thead>${head}</thead><tbody>${body}</tbody></table>`;
     }
@@ -960,7 +968,7 @@
 
         // Одделенска: ОДД is the teacher's own class; a period says the subject,
         // and the class too on the rare lesson in somebody else's.
-        const ownClass = (name) => esc(teacher(name).homeroom || '—');
+        const ownClass = (name) => { const label = teacher(name).homeroom || '—'; return label.length > 8 ? `<span class="tight">${esc(label)}</span>` : esc(label); };
         const subjectCell = (list, name) => list.map((c) => esc(shortSubject(c.subject) || '—')
             + (c.class !== teacher(name).homeroom ? `<small>${esc(c.class)}</small>` : '')).join(' / ');
         // Предметна: the subject is said once; a period says the class.
@@ -980,7 +988,8 @@
             let subjects = String(t.subject || '').split(',').map(shortSubject).filter(Boolean);
             if (!subjects.length && taught(name)) subjects = [taught(name)];
             subjects = subjects.map((s) => s.toLocaleUpperCase('mk-MK'));
-            return esc(subjects.join(', ') || '—') + (t.homeroom ? `<small>раков. ${esc(t.homeroom)}</small>` : '');
+            const said = subjects.join(', ') || '—';
+            return (said.length > 8 ? `<span class="tight">${esc(said)}</span>` : esc(said)) + (t.homeroom ? `<small>раков. ${esc(t.homeroom)}</small>` : '');
         };
         const classCell = (list) => list.map((c) => `<span class="pz-c">${esc(c.class)}</span>`).join(' / ');
 
@@ -1010,12 +1019,12 @@
         const mm = 96 / 25.4;
         const inner = box.querySelector('.poster');
         inner.style.width = area[0] + 'mm';
-        inner.style.removeProperty('--pz-pad');
+        inner.style.removeProperty('--pz-row');
         // Room to spare: the rows take it, up to a comfortable height, so a
         // short staff list does not sit on the top half of the sheet.
         const rows = inner.querySelectorAll('.pz-table tbody tr').length;
         const spare = area[1] - inner.scrollHeight / mm;
-        if (rows && spare > 0) inner.style.setProperty('--pz-pad', Math.min(1.6 + spare / rows / 2 * 0.92, 5).toFixed(2) + 'mm');
+        if (rows && spare > 0) inner.style.setProperty('--pz-row', Math.min(9 + spare / rows * 0.95, 16).toFixed(2) + 'mm');
         let scale = 1;
         for (let i = 0; i < 3; i++) {
             inner.style.width = (area[0] / scale) + 'mm';
@@ -1047,7 +1056,7 @@
             box.innerHTML = `<div class="pz-page"><div class="pz-area">${content}</div></div>`;
             const scale = fitPoster(box, area);
             const width = box.querySelector('.poster').style.width;
-            const pad = box.querySelector('.poster').style.getPropertyValue('--pz-pad');
+            const pad = box.querySelector('.poster').style.getPropertyValue('--pz-row');
             const where = ['горе лево', 'горе десно', 'долу лево', 'долу десно'];
             box.innerHTML = [0, 1, 2, 3].map((n) => {
                 const col = n % 2, row = Math.floor(n / 2);
@@ -1060,7 +1069,7 @@
             }).join('');
             box.querySelectorAll('.poster').forEach((p) => {
                 p.style.width = width;
-                if (pad) p.style.setProperty('--pz-pad', pad);
+                if (pad) p.style.setProperty('--pz-row', pad);
                 p.style.transform = scale < 1 ? `scale(${scale})` : '';
             });
             box.dataset.scale = String(scale);
