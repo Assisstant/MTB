@@ -212,6 +212,24 @@
         .student-list-simple {
             background: white;
         }
+        /* „Мои ученици" од базата (SdnCaseload): од каде е списокот и што е за
+           проверка. Секој елемент со позадина ја кажува и својата боја. */
+        .caseload-note {
+            margin: 0 0 12px; padding: 10px 12px; border-radius: 10px;
+            font-size: 13px; line-height: 1.5;
+            background: #eef2ff; color: #1e2a4a; border: 1px solid #c7d2fe;
+        }
+        .caseload-note.warn { background: #fff7e6; color: #4a3200; border-color: #f0c36b; }
+        .caseload-note .caseload-issue { margin-top: 6px; }
+        .caseload-note .caseload-when { opacity: .8; }
+        .caseload-note button {
+            margin-left: 4px; padding: 3px 12px; border: 0; border-radius: 999px;
+            background: #4f46e5; color: #ffffff; font-weight: 700; font-size: 12px; cursor: pointer;
+        }
+        .caseload-hint { margin: 8px 0 12px; font-size: 12px; line-height: 1.45; color: #4a5568; }
+        body.dark-mode .caseload-note { background: #262b4d; color: #e8ebff; border-color: #464d85; }
+        body.dark-mode .caseload-note.warn { background: #3b2f12; color: #ffe9b8; border-color: #8a6a1f; }
+        body.dark-mode .caseload-hint { color: #cbd5e0; }
         .student-list-toolbar {
             display: flex;
             flex-wrap: wrap;
@@ -2267,6 +2285,10 @@
                     <div id="annualRosterFilters" class="student-filter-group"></div>
                 </div>
                 <div id="annualRosterSummary" class="annual-roster-summary"></div>
+                <div id="annualRosterFromBase" class="caseload-hint" style="display:none;">
+                    „Додади“ го става ученикот на вашиот список во базата — истиот што го гледате во Кабинети → „Ученици по терапевт“.
+                    Ученик што го нема на годишниот список го додава администраторот во „Податоци“.
+                </div>
                 <div id="annualRosterList" class="annual-roster-list"></div>
                 <div style="display:flex;justify-content:flex-end;margin-top:12px;">
                     <button class="btn" style="background:#718096;color:white;margin:0;" onclick="closeModal('addStudentModal')">Затвори</button>
@@ -2281,6 +2303,14 @@
                 <div class="form-group">
                     <label>Одделение</label>
                     <input type="text" id="studentGrade" placeholder="пр. IV-а">
+                </div>
+                <div id="studentNameFromBase" class="caseload-hint" style="display:none;">
+                    Името и одделението се читаат од базата. Се менуваат во „Податоци“ или во ✏️ формуларот на ученикот.
+                </div>
+                <div class="form-group" id="studentMergeGroup" style="display:none;">
+                    <label>Истото дете е запишано уште еднаш како</label>
+                    <select id="studentMergeWith"><option value="">— не —</option></select>
+                    <div class="caseload-hint">Изберете го другиот запис и „Зачувај“: двата стануваат еден, со сите записи. Пред тоа се прашува.</div>
                 </div>
                 <div class="form-group">
                     <label>План</label>
@@ -2802,6 +2832,12 @@
         }
 
         function addStudentFromAnnualRoster(row) {
+            // Поврзан дневник: „Додади" го става ученикот на вашиот список во
+            // базата, а дневникот го зема оттаму — едно место за списокот.
+            if (window.SdnCaseload && window.SdnCaseload.connected()) {
+                window.SdnCaseload.add(row);
+                return;
+            }
             var result = admitAnnualStudent(row);
             if (result === 'archived') {
                 alert('Овој ученик е во архивата. Врати го од „Податоци → Учебна година".');
@@ -2876,6 +2912,14 @@
             document.getElementById('studentNeedsTrijazen').checked = false;
             document.getElementById('addStudentModal').querySelector('h2').textContent = 'Додади ученик';
             document.getElementById('studentAddMode').style.display = '';
+            // Поврзан дневник: нема рачен внес — дете што не е во базата не
+            // може да биде на списокот, а следењето би го тргнало веднаш.
+            var fromBase = !!(window.SdnCaseload && window.SdnCaseload.connected());
+            document.getElementById('studentAddManualMode').style.display = fromBase ? 'none' : '';
+            document.getElementById('annualRosterFromBase').style.display = fromBase ? '' : 'none';
+            lockStudentNameFields(false);
+            document.getElementById('studentMergeGroup').style.display = 'none';
+            document.getElementById('studentMergeWith').value = '';
             annualRosterState.filter = 'all';
             annualRosterState.search = '';
             document.getElementById('annualRosterSearch').value = '';
@@ -2951,6 +2995,10 @@
                 return;
             }
 
+            var mergeSelect = document.getElementById('studentMergeWith');
+            var mergeWithId = editingStudent !== null && mergeSelect ? mergeSelect.value : '';
+            var editedId = editingStudent !== null && students[editingStudent] ? students[editingStudent].id : null;
+
             if (editingStudent !== null) {
                 students[editingStudent].name = name;
                 students[editingStudent].grade = grade;
@@ -2971,6 +3019,8 @@
             updateStats();
             updateProgressStudentList();
             closeModal('addStudentModal');
+            // „Истото дете е запишано уште еднаш" — по зачувувањето, со прашање.
+            if (mergeWithId && editedId != null && window.SdnCaseload) window.SdnCaseload.merge(editedId, mergeWithId);
         }
         
         function savePlan() {
@@ -3018,6 +3068,9 @@
             filters.appendChild(makeFilterButton('Екстерни', 'external', counts.external, studentListFilter === 'external', setStudentListFilter));
             toolbar.appendChild(filters);
             list.appendChild(toolbar);
+            // Од каде е списокот и што е за проверка (SdnCaseload).
+            var origin = window.SdnCaseload ? window.SdnCaseload.note() : null;
+            if (origin) list.appendChild(origin);
 
             var visible = [];
             for (var sourceIndex = 0; sourceIndex < students.length; sourceIndex++) {
@@ -3115,10 +3168,16 @@
         
         function moveStudent(idx, direction) {
             var newIdx = idx + direction;
-            
+
             // Validate bounds
             if (newIdx < 0 || newIdx >= students.length) return;
-            
+
+            // Поврзан дневник: редоследот е оној на списокот во базата.
+            if (window.SdnCaseload && window.SdnCaseload.connected()) {
+                window.SdnCaseload.move(idx, newIdx);
+                return;
+            }
+
             // Swap students in array
             var temp = students[idx];
             students[idx] = students[newIdx];
@@ -3149,14 +3208,40 @@
             document.getElementById('studentNeedsTrijazen').checked = s.needsTrijazen || false;
             document.getElementById('addStudentModal').querySelector('h2').textContent = 'Измени ученик';
             document.getElementById('studentAddMode').style.display = 'none';
+            lockStudentNameFields(!!(window.SdnCaseload && window.SdnCaseload.connected() && s.rasporediStudentId));
+            var mergeWith = document.getElementById('studentMergeWith');
+            mergeWith.innerHTML = '<option value="">— не —</option>' +
+                students.concat(window.formerCaseloadStudents || []).filter(function (o) { return o && o !== s; }).map(function (o) {
+                    var former = students.indexOf(o) < 0 ? ' · поранешен' : '';
+                    return '<option value="' + String(o.id).replace(/"/g, '') + '">' +
+                        String(o.name || '').replace(/</g, '&lt;') + ' (' + String(o.grade || '—').replace(/</g, '&lt;') + former + ')</option>';
+                }).join('');
+            document.getElementById('studentMergeGroup').style.display = '';
             setStudentAddMode('manual');
             document.getElementById('addStudentModal').classList.add('active');
+        }
+
+        /** Името и одделението на ученик од базата се менуваат таму, не тука. */
+        function lockStudentNameFields(locked) {
+            ['studentName', 'studentGrade'].forEach(function (id) {
+                var input = document.getElementById(id);
+                input.readOnly = locked;
+                input.style.opacity = locked ? '0.7' : '';
+            });
+            document.getElementById('studentNameFromBase').style.display = locked ? '' : 'none';
         }
         
         function deleteStudent(idx) {
             var student = students[idx];
             if (!student) return;
             var name = student.ime || student.name || student.id;
+
+            // Поврзан дневник: списокот е во базата, па „Тргни" се пишува таму
+            // (истото правило како во Кабинети), а дневникот го следи.
+            if (window.SdnCaseload && window.SdnCaseload.connected() && student.rasporediStudentId) {
+                window.SdnCaseload.remove(student);
+                return;
+            }
 
             var ok = confirm(
                 'Да се тргне „' + name + '" од „Мои ученици"?\n\n' +
@@ -3167,8 +3252,20 @@
             );
             if (!ok) return;
 
+            retireFromCaseload(student);
+            saveData();
+            renderAll();
+        }
+
+        /**
+         * Од „Мои ученици" меѓу поранешните: од живиот распоред надвор,
+         * записите остануваат. Не зачувува и не црта — „Тргни" и следењето
+         * на списокот од базата (`SdnCaseload`) го викаат истото.
+         */
+        function retireFromCaseload(student) {
             var studentId = student.id;
-            students.splice(idx, 1);
+            var at = students.indexOf(student);
+            if (at >= 0) students.splice(at, 1);
             for (var day in schedule) {
                 for (var i = 0; i < schedule[day].length; i++) {
                     schedule[day][i] = schedule[day][i].filter(function(sid) { return sid !== studentId; });
@@ -3179,8 +3276,6 @@
             if (!window.formerCaseloadStudents.some(function (s) { return s && s.id === studentId; })) {
                 window.formerCaseloadStudents.push(student);
             }
-            saveData();
-            renderAll();
         }
         
         function updateStats() {
@@ -5578,6 +5673,212 @@
                 }
             }, 0);
             return true;
+        }
+
+        /**
+         * ДВА ЗАПИСА ЗА ЕДНО ДЕТЕ (сопственикот, 4 октомври 2026): „да имаме
+         * две деца, односно два записи, е многу поголем проблем" од грешка во
+         * презимето, која лесно се поправа потоа.
+         *
+         * `goneId` се влева во `keepId`: присуство, напредок, термини (и во
+         * снимките на минатите недели), досие, проценки, тријажни тестови,
+         * аудиограми. Каде двата имаат нешто на исто место, останува она на
+         * `keepId`; ништо не се брише без да се пренесе. Записот `goneId`
+         * исчезнува од трите списоци. Ознаките стигнуваат до базата преку
+         * обичното праќање ознака по ознака: новите под `keepId`, а под `goneId`
+         * се празнат.
+         *
+         * Не одлучува СЕКОГАШ сам дали е истото дете — само кога човекот рекол
+         * „Спои". Не зачувува и не црта. Враќа што е пренесено, или null.
+         */
+        function mergeDiaryStudents(keepId, goneId) {
+            var lists = [window.students, window.formerCaseloadStudents, window.archivedStudents];
+            var locate = function (id) {
+                for (var l = 0; l < lists.length; l++) {
+                    var list = Array.isArray(lists[l]) ? lists[l] : [];
+                    for (var i = 0; i < list.length; i++) if (list[i] && String(list[i].id) === String(id)) return { list: list, s: list[i] };
+                }
+                return null;
+            };
+            var keep = locate(keepId), gone = locate(goneId);
+            if (!keep || !gone || keep.s === gone.s) return null;
+            var K = keep.s.id, G = gone.s.id;
+            var empty = function (v) { return v == null || v === ''; };
+            var moved = { marks: 0, terms: 0, records: 0 };
+
+            ['planId', 'disabilityType', 'assessmentTemplateId', 'rasporediStudentId'].forEach(function (f) {
+                if (empty(keep.s[f]) && !empty(gone.s[f])) keep.s[f] = gone.s[f];
+            });
+            if (!keep.s.needsTrijazen && gone.s.needsTrijazen) keep.s.needsTrijazen = true;
+
+            var moveWeek = function (week) {
+                if (!week || typeof week !== 'object') return;
+                Object.keys(week).forEach(function (day) {
+                    if (!Array.isArray(week[day])) return;
+                    week[day].forEach(function (slot, i) {
+                        if (!Array.isArray(slot) || !slot.some(function (id) { return String(id) === String(G); })) return;
+                        var out = [];
+                        slot.forEach(function (id) {
+                            var v = String(id) === String(G) ? K : id;
+                            if (!out.some(function (x) { return String(x) === String(v); })) out.push(v);
+                        });
+                        week[day][i] = out;
+                        moved.terms++;
+                    });
+                });
+            };
+            moveWeek(window.schedule);
+            Object.keys(window.scheduleHistory || {}).forEach(function (w) { moveWeek(window.scheduleHistory[w]); });
+
+            Object.keys(window.attendance || {}).forEach(function (date) {
+                var day = window.attendance[date];
+                if (!day || typeof day !== 'object' || !hasOwn(day, String(G))) return;
+                var from = day[G];
+                if (!hasOwn(day, String(K))) { day[K] = from; moved.marks += Object.keys(from || {}).length; }
+                else if (from && typeof from === 'object' && day[K] && typeof day[K] === 'object') {
+                    Object.keys(from).forEach(function (slot) {
+                        if (!hasOwn(day[K], slot)) { day[K][slot] = from[slot]; moved.marks++; }
+                    });
+                }
+                delete day[G];
+            });
+
+            var mergeProgress = function (holder) {
+                if (!holder || typeof holder !== 'object' || !hasOwn(holder, String(G))) return;
+                var from = holder[G] || {};
+                var into = holder[K] && typeof holder[K] === 'object' ? holder[K] : (holder[K] = {});
+                Object.keys(from).forEach(function (plan) {
+                    var list = Array.isArray(into[plan]) ? into[plan] : [];
+                    (Array.isArray(from[plan]) ? from[plan] : []).forEach(function (x) { if (list.indexOf(x) < 0) list.push(x); });
+                    into[plan] = list;
+                });
+                delete holder[G];
+            };
+            mergeProgress(window.studentProgress);
+            Object.keys(window.progressArchive || {}).forEach(function (y) { mergeProgress(window.progressArchive[y]); });
+
+            [window.assessments, window.trijazenTestovi].forEach(function (list) {
+                (Array.isArray(list) ? list : []).forEach(function (r) {
+                    if (r && String(r.studentId) === String(G)) { r.studentId = K; moved.records++; }
+                });
+            });
+            // Досието го носи бројот на ученикот како свој id.
+            var records = Array.isArray(window.studentRecords) ? window.studentRecords : [];
+            var dossierOf = function (id) { return records.filter(function (r) { return r && String(r.id) === String(id); })[0]; };
+            var dk = dossierOf(K), dg = dossierOf(G);
+            if (dg) {
+                if (!dk) dg.id = K;
+                else {
+                    Object.keys(dg).forEach(function (f) { if (f !== 'id' && empty(dk[f]) && !empty(dg[f])) dk[f] = dg[f]; });
+                    records.splice(records.indexOf(dg), 1);
+                }
+                moved.records++;
+            }
+            // Аудиограмите се врзани за името што е запишано во нив.
+            (Array.isArray(window.audiogramRecords) ? window.audiogramRecords : []).forEach(function (a) {
+                if (a && gone.s.name && a.subjectName === gone.s.name && keep.s.name) { a.subjectName = keep.s.name; moved.records++; }
+            });
+
+            gone.list.splice(gone.list.indexOf(gone.s), 1);
+            try { rebuildStudentProgress(K); } catch (e) { /* ученик без план или меѓу поранешните */ }
+            return moved;
+        }
+
+        /** Колку букви треба да се сменат од едното во другото. */
+        function nameDistance(a, b) {
+            if (a === b) return 0;
+            var prev = [], cur = [];
+            for (var j = 0; j <= b.length; j++) prev[j] = j;
+            for (var i = 1; i <= a.length; i++) {
+                cur = [i];
+                for (var k = 1; k <= b.length; k++) {
+                    cur[k] = Math.min(prev[k] + 1, cur[k - 1] + 1, prev[k - 1] + (a[i - 1] === b[k - 1] ? 0 : 1));
+                }
+                prev = cur;
+            }
+            return prev[b.length];
+        }
+
+        /**
+         * Дали две имиња можеби се истото дете: исто име, или име што се
+         * разликува за по една буква во делот (Станкоски / Станковски), со
+         * барем еден дел ист. Само прашува — спојува човекот.
+         */
+        function namesLookAlike(a, b) {
+            var ta = pupilNameKey(a).split(' ').filter(Boolean);
+            var tb = pupilNameKey(b).split(' ').filter(Boolean);
+            if (!ta.length || ta.length !== tb.length) return false;
+            if (ta.join(' ') === tb.join(' ')) return true;
+            var close = function (x, y) {
+                var total = 0, exact = 0;
+                for (var i = 0; i < x.length; i++) {
+                    var d = nameDistance(x[i], y[i]);
+                    if (d === 0) { exact++; continue; }
+                    if (d > 1 || Math.min(x[i].length, y[i].length) < 4) return false;
+                    total += d;
+                }
+                return exact > 0 && total <= 2;
+            };
+            return close(ta, tb) || (tb.length === 2 && close(ta, [tb[1], tb[0]]));
+        }
+
+        var NOT_SAME_KEY = 'sdn_not_same_child_v1';
+        function notSamePairs() {
+            try { return JSON.parse(localStorage.getItem(NOT_SAME_KEY) || '[]') || []; } catch (e) { return []; }
+        }
+        function pairKey(a, b) { return [String(a), String(b)].sort().join('|'); }
+        function markNotSame(a, b) {
+            var list = notSamePairs();
+            if (list.indexOf(pairKey(a, b)) < 0) list.push(pairKey(a, b));
+            try { localStorage.setItem(NOT_SAME_KEY, JSON.stringify(list)); } catch (e) { /* ќе праша пак */ }
+        }
+
+        /** Колку ознаки за присуство има ученикот. */
+        function marksOf(id) {
+            var n = 0;
+            Object.keys(window.attendance || {}).forEach(function (date) {
+                var day = window.attendance[date];
+                if (day && day[id] && typeof day[id] === 'object') n += Object.keys(day[id]).length;
+            });
+            return n;
+        }
+
+        /**
+         * Можните двојници меѓу „Мои ученици" и поранешните, најверојатниот
+         * што останува прв. `onList` (public_id → true) е списокот во базата,
+         * кога е познат: дете на него секогаш останува.
+         */
+        /** Кој од двата записа останува: тој на списокот во базата, активниот, поврзаниот, тој со повеќе ознаки. */
+        function mergeSurvivor(x, y, onList) {
+            onList = onList || {};
+            var score = function (s) {
+                return (s.rasporediStudentId && onList[s.rasporediStudentId] ? 1000 : 0) +
+                    ((window.students || []).indexOf(s) >= 0 ? 100 : 0) +
+                    (s.rasporediStudentId ? 10 : 0) + marksOf(s.id);
+            };
+            return score(x) >= score(y) ? { keep: x, gone: y } : { keep: y, gone: x };
+        }
+
+        function likelyDuplicates(onList) {
+            onList = onList || {};
+            var pool = (window.students || []).map(function (s) { return { s: s, active: true }; })
+                .concat((window.formerCaseloadStudents || []).map(function (s) { return { s: s, active: false }; }));
+            var dismissed = notSamePairs();
+            var pairs = [];
+            for (var i = 0; i < pool.length; i++) {
+                for (var j = i + 1; j < pool.length; j++) {
+                    var a = pool[i], b = pool[j];
+                    if (!a.s || !b.s || String(a.s.id) === String(b.s.id)) continue;
+                    if (dismissed.indexOf(pairKey(a.s.id, b.s.id)) >= 0) continue;
+                    if (!namesLookAlike(a.s.name, b.s.name)) continue;
+                    // Двајца на списокот во базата како два ученика: тоа се две
+                    // деца за базата; спојување тука би донело трето.
+                    var ba = a.s.rasporediStudentId, bb = b.s.rasporediStudentId;
+                    if (ba && bb && ba !== bb && onList[ba] && onList[bb]) continue;
+                    pairs.push(mergeSurvivor(a.s, b.s, onList));
+                }
+            }
+            return pairs;
         }
 
         function ensureStudentProgressStructure() {
@@ -10556,6 +10857,10 @@
                 return 'error';
             }).then(function (result) {
                 busy = false;
+                // Кој чека дневникот и серверот да се согласат пред да пишува
+                // (списокот од базата, SdnCaseload) го слуша ова.
+                try { window.dispatchEvent(new CustomEvent('sdn:synced', { detail: { result: result, auto: auto } })); }
+                catch (e) { /* стар прелистувач: нема настан, нема автоматско следење */ }
                 return result;
             }, function (err) {
                 busy = false;
@@ -12816,6 +13121,493 @@
 
     <script>
     // ═══════════════════════════════════════════════════════════════════════
+    // „МОИ УЧЕНИЦИ" = ВАШИОТ СПИСОК ВО БАЗАТА (сопственикот, 4 октомври 2026:
+    // „списокот да се чита од едно место и да се менува на едно место").
+    //
+    // ЗОШТО. Дневникот имаше свој список, а Кабинети свој (`therapist_students`).
+    // „Додади"/„Тргни" во едниот не стигаа до другиот и ништо не тргаше од
+    // дневникот, па таму се собираа стари записи, двојници и деца што веќе не
+    // се ваши — 20 во дневникот наспроти 15 во Кабинети, кај ист терапевт.
+    //
+    // ШТО ПРАВИ. Кога дневникот е поврзан со својот сервер и знае кој терапевт
+    // е, „Мои ученици" е вашиот список во базата:
+    //   - дете од списокот се наоѓа во дневникот по мостот или по бројот на
+    //     дневникот што базата го чува; по име САМО кога името е единствено и
+    //     од двете страни (правило 2) — инаку се пријавува, не се погодува;
+    //   - име, одделение и вид се земаат од базата;
+    //   - дете од списокот што го нема во дневникот се додава или се враќа од
+    //     поранешните (`admitAnnualStudent`, истото како „Додади");
+    //   - дете во дневникот што не е на списокот оди меѓу поранешните, со сите
+    //     записи, како при „Тргни" — освен ако има термин кај вас во Кабинети:
+    //     тогаш останува и се кажува, а вие одлучувате;
+    //   - редоследот е оној на списокот.
+    // „Додади", „Тргни" и стрелките пишуваат во базата по истите рути и со
+    // истите правила како Кабинети (дете со термин не се тргнува), па
+    // дневникот го следи. Без сервер (копијата од GitHub Pages) дневникот
+    // работи како порано.
+    //
+    // КОГА. По секое усогласување на дневникот со серверот (`sdn:synced`), при
+    // промена од друг прозорец (Кабинети, Податоци) и во „Усогласи сè". Никогаш
+    // пред тоа: промена врз застарен документ е „и двете страни се сменија".
+    //
+    // ШТО НЕ ПРАВИ. Не брише ништо. Не пишува во списокот на базата сам од
+    // себе. Празен список во базата не го празни дневникот, а список без ниту
+    // едно дете од дневникот (погрешен терапевт?) не се применува без прашање.
+    // ═══════════════════════════════════════════════════════════════════════
+    (function () {
+        'use strict';
+
+        var state = { busy: false, read: 0, error: '', notice: '', issues: [], last: null, listed: null, onList: {} };
+        var lastAuto = 0;
+        var SETTLED = { insync: 1, pulled: 1, pushed: 1, 'pushed-warn': 1, empty: 1 };
+
+        function base() {
+            var srv = window.SdnLocalSrv;
+            return (srv && typeof srv.getUrl === 'function') ? srv.getUrl() : '';
+        }
+        function served() { return !!base() && window.MTB_MIRROR_READONLY !== true; }
+        function connected() { return served() && !!getLocalTherapistName(); }
+        function norm(v) {
+            return String(v == null ? '' : v).normalize('NFKC').trim().replace(/\s+/g, ' ').toLocaleLowerCase('mk-MK');
+        }
+        function esc(v) {
+            return String(v == null ? '' : v).replace(/[&<>"']/g, function (c) {
+                return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+            });
+        }
+        function hhmm(t) {
+            var d = new Date(t);
+            return String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
+        }
+        function toast(msg) { if (typeof window.showToast === 'function') window.showToast(msg); }
+        function bridgeOf(s) { return s && s.rasporediStudentId ? String(s.rasporediStudentId) : ''; }
+        function modalOpen() {
+            return ['planSyncModal', 'addStudentModal'].some(function (id) {
+                var m = document.getElementById(id);
+                return !!(m && m.classList.contains('active'));
+            });
+        }
+        function getJson(path) {
+            return fetch(base() + path, { cache: 'no-store' }).then(function (r) {
+                return r.json().catch(function () { return {}; }).then(function (body) {
+                    if (!r.ok) throw new Error((body && body.error) || ('HTTP ' + r.status));
+                    return body;
+                });
+            });
+        }
+        function send(method, path, body) {
+            return fetch(base() + path, {
+                method: method,
+                headers: body ? { 'Content-Type': 'application/json' } : {},
+                body: body ? JSON.stringify(body) : undefined
+            }).then(function (r) {
+                return r.json().catch(function () { return {}; }).then(function (b) { return { ok: r.ok, status: r.status, body: b || {} }; });
+            }, function () { return { ok: false, status: 0, body: { error: 'серверот не е достапен' } }; });
+        }
+        function listPath() { return '/api/therapists/' + encodeURIComponent(getLocalTherapistName()); }
+
+        /** Само одлучува; ништо не менува. */
+        function plan(rosterBody, sessionsBody, me) {
+            var therapists = (rosterBody && Array.isArray(rosterBody.therapists)) ? rosterBody.therapists : [];
+            var mine = therapists.filter(function (t) { return t && norm(t.name) === norm(me); })[0];
+            if (!mine) {
+                return { refused: 'терапевтот „' + me + '“ не е на списокот на стручни лица во базата за годинава' };
+            }
+
+            var rows = {}, pidBySdn = {}, nameCount = {};
+            ((rosterBody && rosterBody.students) || []).forEach(function (row) {
+                if (!row || !row.public_id || rows[row.public_id]) return;
+                rows[String(row.public_id)] = row;
+                var sdn = annualRosterStudentId(row);
+                if (sdn != null) pidBySdn[String(sdn)] = String(row.public_id);
+                var k = pupilNameKey(row.name);
+                nameCount[k] = (nameCount[k] || 0) + 1;
+            });
+            var listed = (Array.isArray(mine.students) ? mine.students : []).map(String).filter(function (pid) { return rows[pid]; });
+            var onList = {};
+            listed.forEach(function (pid) { onList[pid] = true; });
+            var booked = {};
+            ((sessionsBody && sessionsBody.sessions) || []).forEach(function (x) {
+                if (!x || !x.student_public_id) return;
+                if (String(x.therapist_id) === String(mine.id) || norm(x.therapist_name) === norm(me)) booked[String(x.student_public_id)] = true;
+            });
+
+            var active = window.students || [];
+            var former = window.formerCaseloadStudents || [];
+            var archived = window.archivedStudents || [];
+            var claimed = {}, hold = {};
+            var out = { listed: listed, matched: [], admit: [], unclear: [], drop: [], bookedOff: [] };
+            var unclear = function (row, why) {
+                out.unclear.push({ name: row.name, publicId: String(row.public_id), why: why });
+                var key = pupilNameKey(row.name);
+                active.forEach(function (s) { if (pupilNameKey(s.name) === key) hold[s.id] = true; });
+            };
+
+            listed.forEach(function (pid) {
+                var row = rows[pid];
+                var key = pupilNameKey(row.name);
+                var sdn = annualRosterStudentId(row);
+                // Мост или број — сигурно. Два записа со ист мост (двојник во
+                // дневникот): останува оној чиј број го чува базата.
+                var byBridge = active.filter(function (s) { return !claimed[s.id] && bridgeOf(s) === pid; });
+                var byNumber = sdn == null ? [] : active.filter(function (s) { return !claimed[s.id] && Number(s.id) === sdn; });
+                var known = byNumber.filter(function (s) { return byBridge.indexOf(s) >= 0; })[0] || byBridge[0] || byNumber[0];
+                if (known) {
+                    var was = bridgeOf(known);
+                    if (was && was !== pid && onList[was]) {
+                        unclear(row, 'во дневникот е поврзан со друго дете од вашиот список — проверете рачно');
+                        return;
+                    }
+                    claimed[known.id] = pid;
+                    out.matched.push({ student: known, row: row });
+                    return;
+                }
+                if (findAnnualStudent(archived, row) >= 0) {
+                    unclear(row, 'е во архивата на дневникот — вратете го од „Податоци → Учебна година“');
+                    return;
+                }
+                if (findAnnualStudent(former, row) >= 0) { out.admit.push(row); return; }
+
+                // Име — само кога е единствено и од двете страни, и само за запис
+                // што не е веќе нечиј друг од списокот.
+                var hits = active.filter(function (s) {
+                    var b = bridgeOf(s);
+                    var numberSays = pidBySdn[String(s.id)];
+                    return !claimed[s.id] && pupilNameKey(s.name) === key &&
+                        (!b || !onList[b]) && (!numberSays || numberSays === pid);
+                });
+                if (hits.length > 1 || (hits.length === 1 && (nameCount[key] || 0) > 1)) {
+                    unclear(row, 'повеќе записи со тоа име во дневникот — ако се исто дете, спојте ги подолу');
+                    return;
+                }
+                if (hits.length === 1) {
+                    claimed[hits[0].id] = pid;
+                    out.matched.push({ student: hits[0], row: row });
+                    return;
+                }
+                if (former.some(function (s) { return pupilNameKey(s.name) === key && !bridgeOf(s); })) {
+                    unclear(row, 'меѓу поранешните во дневникот има дете со исто име — можеби е истото, проверете');
+                    return;
+                }
+                if (archived.some(function (s) { return pupilNameKey(s.name) === key; })) {
+                    unclear(row, 'во архивата на дневникот има дете со исто име — проверете');
+                    return;
+                }
+                out.admit.push(row);
+            });
+
+            active.forEach(function (s) {
+                if (claimed[s.id] || hold[s.id]) return;
+                var pid = bridgeOf(s) || pidBySdn[String(s.id)] || '';
+                if (pid && booked[pid]) {
+                    out.bookedOff.push({ name: s.name, publicId: pid, enrolled: !!rows[pid] });
+                    return;
+                }
+                out.drop.push(s);
+            });
+            out.empty = !listed.length;
+            out.suspicious = active.length > 0 && !out.matched.length && out.drop.length > 0;
+            return out;
+        }
+
+        function apply(p) {
+            var changed = false, added = [], dropped = [];
+            var fill = function (s, row) {
+                var kind = studentKind(row);
+                var grade = row.grade || (kind === 'external' ? 'екстерен' : '');
+                if (bridgeOf(s) !== String(row.public_id)) { s.rasporediStudentId = String(row.public_id); changed = true; }
+                if (row.name && s.name !== row.name) { s.name = row.name; changed = true; }
+                if (s.grade !== grade) { s.grade = grade; changed = true; }
+                if (s.kind !== kind) { s.kind = kind; changed = true; }
+            };
+            p.matched.forEach(function (m) { fill(m.student, m.row); });
+            p.admit.forEach(function (row) {
+                var st = admitAnnualStudent(row);
+                if (st && typeof st === 'object') { fill(st, row); added.push(st.name); changed = true; }
+            });
+            p.drop.forEach(function (s) { retireFromCaseload(s); dropped.push(s.name); changed = true; });
+
+            // Редоследот на списокот; тие што се за проверка остануваат на крајот.
+            var byPid = {};
+            students.forEach(function (s) { var b = bridgeOf(s); if (b && !byPid[b]) byPid[b] = s; });
+            var ordered = [];
+            p.listed.forEach(function (pid) { if (byPid[pid] && ordered.indexOf(byPid[pid]) < 0) ordered.push(byPid[pid]); });
+            students.forEach(function (s) { if (ordered.indexOf(s) < 0) ordered.push(s); });
+            if (ordered.some(function (s, i) { return students[i] !== s; })) {
+                students.length = 0;
+                Array.prototype.push.apply(students, ordered);
+                changed = true;
+            }
+            return { changed: changed, added: added, dropped: dropped };
+        }
+
+        function redraw() {
+            if (typeof window.renderStudentListSimple === 'function') {
+                try { window.renderStudentListSimple(); } catch (e) { /* табот не е нацртан */ }
+            }
+        }
+
+        /**
+         * Го чита списокот и го применува. opts.afterSync: дневникот штотуку се
+         * усогласи со серверот; инаку прво се усогласува. opts.force: и кога е
+         * отворен прозорец. opts.confirmed: список без ниту едно дете од
+         * дневникот, потврден од човек.
+         */
+        function follow(opts) {
+            opts = opts || {};
+            if (!served()) return Promise.resolve({ skipped: 'нема сервер' });
+            if (!getLocalTherapistName()) { redraw(); return Promise.resolve({ skipped: 'не е избран терапевт на овој дневник' }); }
+            if (state.busy) return Promise.resolve({ skipped: 'списокот токму сега се чита' });
+            if (!opts.force && modalOpen()) return Promise.resolve({ skipped: 'отворен е прозорец' });
+            state.busy = true;
+            var me = getLocalTherapistName();
+            var srv = window.SdnLocalSrv;
+            var ready = (opts.afterSync || !srv || typeof srv.sync !== 'function') ? Promise.resolve('insync') : srv.sync({ auto: true });
+            return ready.then(function (sync) {
+                if (!SETTLED[sync]) {
+                    return { error: sync === 'conflict' ? 'дневникот и серверот се разидени — прво решете го тоа во „Податоци → Сервер“'
+                        : sync === 'offline' ? 'серверот не е достапен'
+                        : 'дневникот не е усогласен со серверот (' + sync + ')' };
+                }
+                return Promise.all([getJson('/api/roster'), getJson('/api/schedule/sessions')]).then(function (answers) {
+                    var p = plan(answers[0], answers[1], me);
+                    if (p.refused) return { error: p.refused };
+                    state.read = Date.now();
+                    state.error = '';
+                    state.listed = p.listed.length;
+                    state.onList = {};
+                    p.listed.forEach(function (pid) { state.onList[pid] = true; });
+                    if (p.empty) { state.notice = 'empty'; state.issues = []; return { empty: true }; }
+                    if (p.suspicious && !opts.confirmed) { state.notice = 'suspicious'; return { suspicious: true }; }
+                    state.notice = '';
+                    var done = apply(p);
+                    state.issues = p.bookedOff.map(function (b) { return { kind: 'booked', name: b.name, publicId: b.publicId, enrolled: b.enrolled }; })
+                        .concat(p.unclear.map(function (u) { return { kind: 'unclear', name: u.name, why: u.why }; }));
+                    if (done.added.length || done.dropped.length) state.last = { at: Date.now(), added: done.added, dropped: done.dropped };
+                    if (done.changed) {
+                        saveData();
+                        if (typeof window.renderAll === 'function') window.renderAll();
+                        if (window.SdnPlanSync && typeof window.SdnPlanSync.refresh === 'function') window.SdnPlanSync.refresh();
+                    }
+                    return { applied: done, listed: p.listed.length, issues: state.issues.length };
+                });
+            }).catch(function (err) {
+                return { error: err && err.message ? err.message : String(err) };
+            }).then(function (answer) {
+                state.busy = false;
+                if (answer && answer.error) state.error = answer.error;
+                redraw();
+                return answer;
+            });
+        }
+
+        function failed(what, r) {
+            alert(what + ': ' + ((r.body && r.body.error) || ('грешка ' + r.status)));
+        }
+
+        /** „Додади" од годишниот список: во вашиот список во базата, па дневникот го зема. */
+        function add(row) {
+            if (!row || !row.public_id) return Promise.resolve();
+            return send('PUT', listPath() + '/students/' + encodeURIComponent(row.public_id)).then(function (r) {
+                if (!r.ok) { failed('Не е додаден', r); return; }
+                return follow({ force: true }).then(function (answer) {
+                    if (typeof window.renderAnnualRosterPicker === 'function') window.renderAnnualRosterPicker();
+                    toast(answer && answer.applied ? 'Ученикот е на вашиот список — во базата и во дневникот.'
+                        : 'Ученикот е на вашиот список во базата; дневникот ќе го земе при следното читање.');
+                });
+            });
+        }
+
+        /** „Тргни": од вашиот список во базата — дете со термин кај вас базата го одбива. */
+        function remove(student) {
+            var name = student.name || student.id;
+            if (!confirm('Да се тргне „' + name + '“ од вашиот список?\n\n' +
+                'Се тргнува од списокот во базата (Кабинети → „Ученици по терапевт“) и од „Мои ученици“.\n' +
+                'Досието, проценките, присуството и напредокот остануваат зачувани.\n\n' +
+                'Ова НЕ го означува ученикот како отпишан од училиштето.')) return Promise.resolve();
+            return send('DELETE', listPath() + '/students/' + encodeURIComponent(student.rasporediStudentId)).then(function (r) {
+                if (!r.ok) { failed('Не е тргнат', r); return; }
+                return follow({ force: true });
+            });
+        }
+
+        /** Стрелките: редоследот на вашиот список во базата. */
+        function move(from, to) {
+            var next = students.slice();
+            var t = next[from]; next[from] = next[to]; next[to] = t;
+            var order = [];
+            next.forEach(function (s) { var b = bridgeOf(s); if (b && order.indexOf(b) < 0) order.push(b); });
+            return send('PUT', listPath() + '/students-order', { order: order }).then(function (r) {
+                if (!r.ok) { failed('Редоследот не е зачуван', r); return; }
+                students[from] = next[from];
+                students[to] = next[to];
+                saveData();
+                redraw();
+                if (typeof window.updateProgressStudentList === 'function') window.updateProgressStudentList();
+            });
+        }
+
+        /** Над „Мои ученици": од каде е списокот, што е за проверка, и можните двојници. */
+        function note() {
+            var wrap = document.createElement('div');
+            var origin = originNote();
+            if (origin) wrap.appendChild(origin);
+            var dupes = duplicatesNote();
+            if (dupes) wrap.appendChild(dupes);
+            return wrap.childNodes.length ? wrap : null;
+        }
+
+        function describe(s) {
+            var former = (window.students || []).indexOf(s) < 0;
+            var sessions = 0;
+            Object.keys(window.schedule || {}).forEach(function (day) {
+                (window.schedule[day] || []).forEach(function (slot) {
+                    if (Array.isArray(slot) && slot.some(function (id) { return String(id) === String(s.id); })) sessions++;
+                });
+            });
+            return [s.grade || '', sessions ? sessions + ' термин(и)' : 'нема термини', marksOf(s.id) + ' ознаки',
+                former ? 'меѓу поранешните' : '', s.rasporediStudentId && state.onList[s.rasporediStudentId] ? 'на списокот во базата' : '']
+                .filter(Boolean).join(' · ');
+        }
+
+        /** Две евиденции за едно дете се полош проблем од погрешно презиме — затоа прашува. */
+        function duplicatesNote() {
+            var pairs = likelyDuplicates(state.onList);
+            if (!pairs.length) return null;
+            var box = document.createElement('div');
+            box.id = 'sdnDuplicatesNote';
+            box.className = 'caseload-note warn';
+            box.innerHTML = '<b>Можеби се исто дете запишано двапати.</b> Ако е така, спојте ги — сите записи (присуство, напредок, досие, проценки, термини) остануваат на еден. Презимето потоа лесно се поправа.' +
+                pairs.map(function (p) {
+                    return '<div class="caseload-issue" data-duplicate="' + esc(p.keep.id) + '|' + esc(p.gone.id) + '">' +
+                        '<b>' + esc(p.keep.name) + '</b> <span class="caseload-when">(' + esc(describe(p.keep)) + ')</span> и ' +
+                        '<b>' + esc(p.gone.name) + '</b> <span class="caseload-when">(' + esc(describe(p.gone)) + ')</span> ' +
+                        '<button type="button" data-caseload="merge" data-keep="' + esc(p.keep.id) + '" data-gone="' + esc(p.gone.id) + '">Спои ги</button>' +
+                        '<button type="button" data-caseload="not-same" data-keep="' + esc(p.keep.id) + '" data-gone="' + esc(p.gone.id) + '">Не се исти</button></div>';
+                }).join('');
+            return box;
+        }
+
+        function byId(id) {
+            return (window.students || []).concat(window.formerCaseloadStudents || [], window.archivedStudents || [])
+                .filter(function (s) { return s && String(s.id) === String(id); })[0] || null;
+        }
+
+        /**
+         * Спојува два записа, по прашање. Кој останува го одлучува
+         * `mergeSurvivor` (тој на списокот во базата), не редот на кликот.
+         */
+        function merge(aId, bId) {
+            var a = byId(aId), b = byId(bId);
+            if (!a || !b || a === b) return false;
+            var pick = mergeSurvivor(a, b, state.onList);
+            if (!confirm('Да се спојат во еден запис?\n\n' +
+                'Останува:  ' + pick.keep.name + '  (' + describe(pick.keep) + ')\n' +
+                'Се влева во него:  ' + pick.gone.name + '  (' + describe(pick.gone) + ')\n\n' +
+                'Присуството, напредокот, термините, досието, проценките и аудиограмите на вториот преминуваат кај првиот. ' +
+                'Името и одделението остануваат од првиот — ако презимето е погрешно, поправете го во Податоци.')) return false;
+            var moved = mergeDiaryStudents(pick.keep.id, pick.gone.id);
+            if (!moved) { alert('Спојувањето не успеа — записите не се најдени.'); return false; }
+            saveData();
+            if (typeof window.renderAll === 'function') window.renderAll();
+            toast('Споено во „' + pick.keep.name + '“: ' + moved.marks + ' ознаки, ' + moved.terms + ' термини, ' + moved.records + ' записи пренесени.');
+            if (connected()) follow({ force: true });
+            return true;
+        }
+
+        function originNote() {
+            if (!served()) return null;
+            var me = getLocalTherapistName();
+            var box = document.createElement('div');
+            box.id = 'sdnCaseloadNote';
+            var warn = false, html;
+            if (!me) {
+                warn = true;
+                html = 'Изберете кој терапевт сте, за „Мои ученици“ да се чита од вашиот список во базата. ' +
+                    '<button type="button" data-caseload="choose">Избери</button>';
+            } else {
+                html = '📋 Списокот е од базата — истиот како во Кабинети → „Ученици по терапевт“ (' + esc(me) +
+                    (state.listed != null ? ', ' + state.listed + ' деца' : '') + '). „Додади“, „Тргни“ и стрелките важат и таму.' +
+                    (state.read ? ' <span class="caseload-when">Прочитано во ' + hhmm(state.read) + '.</span>' : '') +
+                    ' <button type="button" data-caseload="refresh">↻ Прочитај</button>';
+                if (state.error) {
+                    warn = true;
+                    html += '<div class="caseload-issue">Не е прочитан сега: ' + esc(state.error) + '. Ова е списокот од последното читање.</div>';
+                }
+                if (state.notice === 'empty') {
+                    warn = true;
+                    html += '<div class="caseload-issue">Вашиот список во базата е празен — дневникот не е менуван. Додајте ученици со „+ Додади“ или во Кабинети.</div>';
+                }
+                if (state.notice === 'suspicious') {
+                    warn = true;
+                    html += '<div class="caseload-issue">Вашиот список во базата нема ниту едно дете од овој дневник. Дали терапевтот „' + esc(me) +
+                        '“ е точен? Дневникот не е менуван. <button type="button" data-caseload="confirm">Земи го списокот од базата сепак</button></div>';
+                }
+                state.issues.forEach(function (issue) {
+                    warn = true;
+                    if (issue.kind === 'booked') {
+                        html += '<div class="caseload-issue" data-caseload-issue="booked"><b>' + esc(issue.name) + '</b> има термин кај вас во Кабинети, а не е на вашиот список. ' +
+                            (issue.enrolled
+                                ? '<button type="button" data-caseload="add" data-pid="' + esc(issue.publicId) + '">Стави го на списокот</button> или испразнете го терминот во Кабинети.'
+                                : 'Не е на годишниот список за годинава — испразнете го терминот во Кабинети.') + '</div>';
+                    } else {
+                        html += '<div class="caseload-issue" data-caseload-issue="unclear"><b>' + esc(issue.name) + '</b> (на списокот во базата): ' + esc(issue.why) + '.</div>';
+                    }
+                });
+                if (state.last) {
+                    html += '<div class="caseload-issue caseload-last">Промена во ' + hhmm(state.last.at) + ': ' +
+                        [state.last.added.length ? 'додадени од базата — ' + state.last.added.map(esc).join(', ') : '',
+                         state.last.dropped.length ? 'тргнати меѓу поранешните, бидејќи не се на списокот (записите им остануваат) — ' + state.last.dropped.map(esc).join(', ') : '']
+                            .filter(Boolean).join('; ') + '.</div>';
+                }
+            }
+            box.className = 'caseload-note' + (warn ? ' warn' : '');
+            box.innerHTML = html;
+            return box;
+        }
+
+        document.addEventListener('click', function (event) {
+            var button = event.target && event.target.closest ? event.target.closest('#sdnCaseloadNote [data-caseload], #sdnDuplicatesNote [data-caseload]') : null;
+            if (!button) return;
+            var what = button.getAttribute('data-caseload');
+            if (what === 'merge') merge(button.getAttribute('data-keep'), button.getAttribute('data-gone'));
+            if (what === 'not-same') {
+                markNotSame(button.getAttribute('data-keep'), button.getAttribute('data-gone'));
+                redraw();
+            }
+            if (what === 'choose') chooseLocalTherapist(base(), function () { follow({ force: true }); });
+            if (what === 'refresh') follow({ force: true });
+            if (what === 'confirm' && confirm('„Мои ученици“ ќе биде вашиот список од базата. Децата што не се на него одат меѓу поранешните — записите им остануваат. Да продолжам?')) {
+                follow({ force: true, confirmed: true });
+            }
+            if (what === 'add') add({ public_id: button.getAttribute('data-pid') });
+        });
+
+        // По усогласувањето на дневникот со серверот — само тогаш е безбедно да се менува.
+        window.addEventListener('sdn:synced', function (event) {
+            var d = event.detail || {};
+            if (!SETTLED[d.result]) return;
+            if (base() !== window.location.origin) return;      // само кога страницата ја служи нејзиниот сервер
+            if (Date.now() - lastAuto < 20000) return;
+            lastAuto = Date.now();
+            follow({ afterSync: true });
+        });
+        document.addEventListener('visibilitychange', function () {
+            if (document.visibilityState === 'visible' && state.read && Date.now() - state.read > 60000) follow({});
+        });
+        setTimeout(function () {
+            var nav = window.MTBAppNavigation;
+            if (nav && typeof nav.onDataChange === 'function') nav.onDataChange(function () { if (state.read) follow({}); }, { busy: modalOpen });
+        }, 1500);
+
+        window.SdnCaseload = {
+            connected: connected, follow: follow, add: add, remove: remove, move: move, note: note, merge: merge,
+            /** За „Усогласи сè": колку можни двојници чекаат одлука. */
+            duplicates: function () { return likelyDuplicates(state.onList).length; }
+        };
+    })();
+
+    // ═══════════════════════════════════════════════════════════════════════
     // „УСОГЛАСИ СÈ" — една постапка наместо четири копчиња по сеќавање
     // (сопственикот, 1 октомври 2026), по урнекот на „MTB - Azuriraj":
     // чекорите одат по ред, секој кажува една реченица, и постапката запира
@@ -12917,6 +13709,31 @@
                 }
             },
             {
+                id: 'list', label: 'Мои ученици ↔ база',
+                run: function () {
+                    var c = window.SdnCaseload;
+                    if (!c) return { status: 'warn', said: 'Списокот не е вчитан.' };
+                    // Претходниот чекор штотуку го усогласи дневникот со серверот.
+                    return c.follow({ afterSync: true, force: true }).then(function (a) {
+                        a = a || {};
+                        if (a.skipped) return { status: 'warn', said: 'Не е прочитан: ' + a.skipped + '.' };
+                        if (a.error) return { status: 'warn', said: 'Не е прочитан: ' + a.error + '.' };
+                        if (a.empty) return { status: 'warn', said: 'Вашиот список во базата е празен — дневникот не е менуван.' };
+                        if (a.suspicious) {
+                            return { status: 'warn', said: 'Списокот во базата нема ниту едно дете од дневникот — дневникот не е менуван.', action: { id: 'list', text: 'Погледни' } };
+                        }
+                        var done = a.applied || { added: [], dropped: [] };
+                        var said = a.listed + ' на списокот' +
+                            (done.added.length ? ' · додадени ' + done.added.length : '') +
+                            (done.dropped.length ? ' · тргнати меѓу поранешните ' + done.dropped.length : '');
+                        var dupes = typeof c.duplicates === 'function' ? c.duplicates() : 0;
+                        if (dupes) said += ' · ' + dupes + (dupes === 1 ? ' можен двојник' : ' можни двојници');
+                        if (a.issues || dupes) return { status: 'warn', said: said + (a.issues ? ' · ' + a.issues + ' за проверка' : '') + '.', action: { id: 'list', text: 'Погледни' } };
+                        return { status: 'ok', said: said + ' — исто како во Кабинети.' };
+                    });
+                }
+            },
+            {
                 id: 'plan', label: 'План ↔ Кабинети',
                 run: function () {
                     var p = window.SdnPlanSync;
@@ -12992,6 +13809,7 @@
             el('sdnRunReport').addEventListener('click', function (event) {
                 var action = event.target.getAttribute && event.target.getAttribute('data-run-action');
                 if (action === 'plan' && window.SdnPlanSync) window.SdnPlanSync.open();
+                if (action === 'list' && typeof window.switchTab === 'function') window.switchTab('students');
             });
         }
 

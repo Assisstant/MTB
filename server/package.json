@@ -103,6 +103,7 @@
     "test:door": "node test/door.browser.mjs",
     "test:plan-sync": "node test/sdnevnik-plan-sync.browser.mjs",
     "test:zero-id": "node test/sdnevnik-zero-id.browser.mjs",
+    "test:diary-list": "node test/sdnevnik-caseload.browser.mjs",
     "diary:merge": "tsx scripts/merge-diary-pupils.ts",
     "diary:check": "tsx scripts/diary-check.ts",
     "test:teacher-week": "node test/teacher-week.browser.mjs",

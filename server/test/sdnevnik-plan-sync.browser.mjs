@@ -59,12 +59,15 @@ let sessions = [
 ];
 const roster = {
     year: '1901/1902-plan',
-    therapists: [{ id: 7, name: ME }, { id: 8, name: 'Друг Терапевт' }],
+    // „Мои ученици" follows this list in „Усогласи сè" (SdnCaseload); the
+    // same four the diary holds, so the plan is what this suite looks at.
+    therapists: [{ id: 7, name: ME, students: ['p-a', 'p-b', 'p-d', 'p-g'] }, { id: 8, name: 'Друг Терапевт', students: [] }],
     students: [
-        { public_id: 'p-a', sdnevnik_id: '1001', name: 'Пробен Алфа' },
-        { public_id: 'p-b', sdnevnik_id: '1002', name: 'Пробен Бета' },
-        { public_id: 'p-d', sdnevnik_id: null, name: 'Пробен Делта' },
-        { public_id: 'p-x', sdnevnik_id: null, name: 'Пробен Непознат' }
+        { public_id: 'p-a', sdnevnik_id: '1001', name: 'Пробен Алфа', grade: 'V', kind: 'internal' },
+        { public_id: 'p-b', sdnevnik_id: '1002', name: 'Пробен Бета', grade: 'V', kind: 'internal' },
+        { public_id: 'p-d', sdnevnik_id: null, name: 'Пробен Делта', grade: 'VI', kind: 'internal' },
+        { public_id: 'p-g', sdnevnik_id: null, name: 'Пробен Гама', grade: 'VI', kind: 'internal' },
+        { public_id: 'p-x', sdnevnik_id: null, name: 'Пробен Непознат', grade: 'VI', kind: 'internal' }
     ]
 };
 
@@ -268,8 +271,9 @@ try {
     await page.evaluate(() => { window.SdnLocalSrv.sync = () => Promise.resolve('insync'); });
     await runAll();
     const third = await report();
-    checkEq('all four steps run in order', third.map((r) => r[0]), ['server', 'document', 'rows', 'plan']);
-    checkEq('a difference with Кабинети is a thing to look at, never changed by the procedure', third[3][1], 'warn');
+    checkEq('all five steps run in order', third.map((r) => r[0]), ['server', 'document', 'rows', 'list', 'plan']);
+    checkEq('„Мои ученици" is the same list as in the base', third[3][1], 'ok');
+    checkEq('a difference with Кабинети is a thing to look at, never changed by the procedure', third[4][1], 'warn');
     // flush() and hydrate() answer false without throwing; that must never read as „во ред".
     const rowsStep = async (flush, hydrate) => {
         await page.evaluate(([f, h]) => {
