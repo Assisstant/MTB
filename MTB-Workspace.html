@@ -8,8 +8,7 @@
 <script src="mtb-forms.js"></script>
 <link rel="stylesheet" href="workspace-admin.css">
 <style>
-:root{--bg:#f3f3f9;--panel:#ffffff;--panel2:#eeeef7;--line:#d8d8e8;--text:#1d1e33;--muted:#595c78;--accent:#5a67d8;--accent2:#667eea;--ok:#1d7657;--warn:#94580c;--danger:#bf3348;--input:#ffffff;--topbar:#e8e8f3;--stage:#e2e2ee;--hover:#ececf6;--selected:#e3e0fb;--selected-line:#8a82e0;--line-strong:#b0b0cc;--badge-bg:#e5e3fb;--badge-text:#383283;--well:#f7f7fc;--well2:#f4f4fb;--heading:#2c2e4d;--icon:#5b4fd6;--icon-hover:#2c2590;--danger-text:#b0253a;--danger-line:#e3a4ae;--ok-line:#9ccfbb;--warn-line:#e3c088;--warn-text:#855400;--titlebar:#e9e9f4;--titlebar-focus:#dcdaf4;--btn-hover:#dadaec;--pressed:#5a67d8;--pinned:#5a67d8;--float-line:#b0acd8;--float-shadow:0 14px 40px rgba(30,30,70,.22),0 2px 8px rgba(30,30,70,.12);--overlay:rgba(40,42,72,.55);--gate-shadow:0 24px 60px rgba(30,30,70,.25);--dim:#a9abc6;--down:#e0a3ad;--year-bg:#f7f6fd;--chip-line:#c6c3ec;--chip-hover:#7166e6;--on-row:#8a82e0;--on-row-bg:#ebe8fd}:root[data-theme=dark]{--bg:#121329;--panel:#1b1c39;--panel2:#222342;--line:#343659;--text:#f2f2fb;--muted:#a5a8c5;--accent:#5a67d8;--accent2:#818cf8;--ok:#4fc69d;--warn:#e8ad55;--danger:#f17888;--input:#171832;--topbar:#17182f;--stage:#0d0e20;--hover:#242644;--selected:#2b2d52;--selected-line:#615ba5;--line-strong:#686b99;--badge-bg:#30325a;--badge-text:#dfe0ff;--well:#171832;--well2:#20213e;--heading:#d7d8ea;--icon:#beb9ff;--icon-hover:#fff;--danger-text:#ff9ba8;--danger-line:#8b4050;--ok-line:#2f6b56;--warn-line:#7a5a22;--warn-text:#ffd48a;--titlebar:#242541;--titlebar-focus:#303052;--btn-hover:#35365a;--pressed:#6256c0;--pinned:#bbb4ff;--float-line:#65618d;--float-shadow:0 14px 48px #0008,0 2px 8px #0005;--overlay:rgba(10,11,26,.92);--gate-shadow:0 24px 60px rgba(0,0,0,.5);--dim:#585b85;--down:#6b3141;--year-bg:#1a1b38;--chip-line:#4a4c7e;--chip-hover:#8f8af0;--on-row:#6f68c9;--on-row-bg:#252a52}*{box-sizing:border-box}html,body{height:100%;margin:0}body{font-family:Inter,Segoe UI,system-ui,sans-serif;background:var(--bg);color:var(--text);overflow:hidden}#mtbAppNav{display:none!important}button,input,select{font:inherit}button{cursor:pointer}.workspace{height:100vh;display:grid;grid-template-rows:54px 1fr;min-width:0}.topbar{display:flex;align-items:center;gap:10px;padding:8px 12px;background:var(--topbar);border-bottom:1px solid var(--line)}.brand{font-weight:800;white-space:nowrap}.brand small{font-weight:600;color:var(--muted);margin-left:6px}.app-tabs{display:flex;gap:4px;overflow-x:auto;min-width:0;flex:1}.app-tabs button,.dir-tabs button,.soft,.primary,.danger{border:1px solid var(--line);border-radius:7px;background:var(--panel2);color:var(--text);padding:8px 10px;font-weight:700}.app-tabs button.active,.dir-tabs button.active{background:var(--accent);border-color:var(--accent2);color:#fff}.soft:hover,.app-tabs button:hover,.dir-tabs button:hover{border-color:var(--line-strong)}.primary{background:var(--accent);border-color:var(--accent2);color:#fff}.danger{background:transparent;color:var(--danger-text);border-color:var(--danger-line)}.compact{padding:6px 8px;font-size:12px}.year-wrap{display:flex;align-items:center;gap:6px;color:var(--muted);font-size:12px;white-space:nowrap}.year-wrap select{background:var(--input);border:1px solid var(--line);color:var(--text);border-radius:6px;padding:7px}.dbrole{font-size:11px;font-weight:800;padding:5px 8px;border:1px solid var(--line);border-radius:6px;background:var(--panel2);color:var(--muted);white-space:nowrap}.dbrole[data-state=online]{color:var(--ok);border-color:var(--ok-line)}.dbrole[data-state=warning]{color:var(--warn);border-color:var(--warn-line)}.dbrole[data-state=offline]{color:var(--danger-text);border-color:var(--danger-line)}.status{font-size:12px;color:var(--muted);max-width:280px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.status.ok{color:var(--ok)}.status.error{color:var(--danger-text)}.status.warn{color:var(--warn)}.main{display:grid;grid-template-columns:minmax(0,1fr) 640px;min-height:0}.main.panel-hidden{grid-template-columns:minmax(0,1fr) 0}.stage{position:relative;min-width:0;background:var(--stage)}.stage iframe{width:100%;height:100%;border:0;background:var(--bg)}.directory{min-width:0;background:var(--panel);border-left:1px solid var(--line);display:grid;grid-template-rows:auto auto auto minmax(0,1fr);overflow:hidden}.main.panel-hidden .directory{display:none}.dir-head{display:flex;align-items:center;gap:8px;padding:10px 12px;border-bottom:1px solid var(--line)}.dir-head h2{font-size:15px;margin:0;flex:1}.dir-head span{font-size:11px;color:var(--muted)}.dir-tabs{display:flex;gap:5px;padding:8px 10px;border-bottom:1px solid var(--line)}.dir-tabs button{flex:1;padding:7px;font-size:12px}.tools{display:flex;gap:7px;padding:8px 10px;border-bottom:1px solid var(--line)}.tools input,.tools select,.editor input,.editor select{width:100%;background:var(--input);border:1px solid var(--line);border-radius:6px;color:var(--text);padding:8px}.tools input{flex:1}.tools select{width:150px}.directory-content{min-height:0;overflow:hidden}.split{height:100%;display:grid;grid-template-columns:42% 58%;min-height:0}.master{min-height:0;border-right:1px solid var(--line);display:grid;grid-template-rows:auto minmax(0,1fr)}.master-title,.editor-title{padding:9px 10px;font-size:12px;font-weight:800;color:var(--heading);border-bottom:1px solid var(--line)}.list{overflow:auto;min-height:0;padding:5px}.person{display:grid;grid-template-columns:24px minmax(0,1fr) auto;gap:6px;align-items:center;width:100%;border:1px solid transparent;border-radius:6px;background:transparent;color:var(--text);padding:7px;text-align:left}.person:hover{background:var(--hover)}.person.active{background:var(--selected);border-color:var(--selected-line)}.person .num{font-size:11px;color:var(--muted);text-align:right}.person .name{min-width:0;font-size:12px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.person .meta{font-size:10px;color:var(--muted);white-space:nowrap}.editor{overflow:auto;min-height:0;padding:10px}.empty{color:var(--muted);font-size:13px;padding:22px;text-align:center}.field{display:grid;gap:5px;margin-bottom:10px}.field label,.section-label{font-size:11px;color:var(--muted);font-weight:700}.row{display:flex;gap:8px;align-items:center}.row>*{min-width:0}.actions{display:flex;gap:7px;flex-wrap:wrap;margin:10px 0 14px}.note{font-size:11px;color:var(--muted);line-height:1.45}.badge{display:inline-flex;padding:2px 6px;border-radius:999px;background:var(--badge-bg);color:var(--badge-text);font-size:10px}.class-grid{display:grid;grid-template-columns:1fr 1fr;gap:5px;max-height:250px;overflow:auto;padding:4px 0}.class-row{display:grid;grid-template-columns:18px 1fr 92px;gap:5px;align-items:center;background:var(--well2);border:1px solid var(--line);border-radius:6px;padding:6px;font-size:11px}.class-row select{padding:5px;font-size:10px}.caseload{border-top:1px solid var(--line);margin-top:12px;padding-top:10px}.caseload-head{display:flex;align-items:center;gap:8px;margin-bottom:8px}.caseload-head b{font-size:12px;flex:1}.caseload-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;min-height:0}.pick-box{border:1px solid var(--line);border-radius:7px;background:var(--well);display:grid;grid-template-rows:auto minmax(0,1fr);height:330px;overflow:hidden}.pick-head{padding:7px 8px;border-bottom:1px solid var(--line);font-size:11px;font-weight:800;display:flex;align-items:center;gap:6px}.pick-head input{min-width:0;flex:1;background:var(--bg);border:1px solid var(--line);color:var(--text);border-radius:5px;padding:5px}.pick-list{overflow:auto;padding:4px}.pick-row{display:grid;grid-template-columns:18px minmax(0,1fr) auto;gap:5px;align-items:center;padding:5px;border-radius:5px;font-size:11px}.pick-row:hover{background:var(--hover)}.pick-row .pname{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.icon{border:0;background:transparent;color:var(--icon);padding:2px 4px;font-weight:900}.icon:hover{color:var(--icon-hover)}.save-state{font-size:11px;min-height:16px;color:var(--muted)}.save-state.ok{color:var(--ok)}.save-state.error{color:var(--danger-text)}.back{display:none;margin-bottom:8px}.back.show{display:inline-flex}.panel-toggle{position:absolute;right:10px;top:10px;z-index:20;border:1px solid var(--line);background:var(--panel);color:var(--text);border-radius:6px;padding:6px 8px}.main:not(.panel-hidden) .panel-toggle{display:none}@media(max-width:1200px){.main{grid-template-columns:minmax(0,1fr) 520px}.split{grid-template-columns:38% 62%}}@media(max-width:900px){body{overflow:auto}.workspace{height:auto;min-height:100vh}.main{display:block}.stage{height:58vh}.directory{height:78vh;border-left:0;border-top:1px solid var(--line)}.main.panel-hidden .directory{display:none}.split{grid-template-columns:1fr}.master{max-height:240px;border-right:0;border-bottom:1px solid var(--line)}.caseload-grid{grid-template-columns:1fr}.pick-box{height:220px}.status{display:none}.year-wrap{margin-left:auto}}
-</style>
+:root{--bg:#f3f3f9;--panel:#ffffff;--panel2:#eeeef7;--line:#d8d8e8;--text:#1d1e33;--muted:#595c78;--accent:#5a67d8;--accent2:#667eea;--ok:#1d7657;--warn:#94580c;--danger:#bf3348;--input:#ffffff;--topbar:#e8e8f3;--stage:#e2e2ee;--hover:#ececf6;--selected:#e3e0fb;--selected-line:#8a82e0;--line-strong:#b0b0cc;--badge-bg:#e5e3fb;--badge-text:#383283;--well:#f7f7fc;--well2:#f4f4fb;--heading:#2c2e4d;--icon:#5b4fd6;--icon-hover:#2c2590;--danger-text:#b0253a;--danger-line:#e3a4ae;--ok-line:#9ccfbb;--warn-line:#e3c088;--warn-text:#855400;--titlebar:#e9e9f4;--titlebar-focus:#dcdaf4;--btn-hover:#dadaec;--pressed:#5a67d8;--pinned:#5a67d8;--float-line:#b0acd8;--float-shadow:0 14px 40px rgba(30,30,70,.22),0 2px 8px rgba(30,30,70,.12);--overlay:rgba(40,42,72,.55);--gate-shadow:0 24px 60px rgba(30,30,70,.25);--dim:#a9abc6;--down:#e0a3ad;--year-bg:#f7f6fd;--chip-line:#c6c3ec;--chip-hover:#7166e6;--on-row:#8a82e0;--on-row-bg:#ebe8fd}:root[data-theme=dark]{--bg:#121329;--panel:#1b1c39;--panel2:#222342;--line:#343659;--text:#f2f2fb;--muted:#a5a8c5;--accent:#5a67d8;--accent2:#818cf8;--ok:#4fc69d;--warn:#e8ad55;--danger:#f17888;--input:#171832;--topbar:#17182f;--stage:#0d0e20;--hover:#242644;--selected:#2b2d52;--selected-line:#615ba5;--line-strong:#686b99;--badge-bg:#30325a;--badge-text:#dfe0ff;--well:#171832;--well2:#20213e;--heading:#d7d8ea;--icon:#beb9ff;--icon-hover:#fff;--danger-text:#ff9ba8;--danger-line:#8b4050;--ok-line:#2f6b56;--warn-line:#7a5a22;--warn-text:#ffd48a;--titlebar:#242541;--titlebar-focus:#303052;--btn-hover:#35365a;--pressed:#6256c0;--pinned:#bbb4ff;--float-line:#65618d;--float-shadow:0 14px 48px #0008,0 2px 8px #0005;--overlay:rgba(10,11,26,.92);--gate-shadow:0 24px 60px rgba(0,0,0,.5);--dim:#585b85;--down:#6b3141;--year-bg:#1a1b38;--chip-line:#4a4c7e;--chip-hover:#8f8af0;--on-row:#6f68c9;--on-row-bg:#252a52}*{box-sizing:border-box}html,body{height:100%;margin:0}body{font-family:Inter,Segoe UI,system-ui,sans-serif;background:var(--bg);color:var(--text);overflow:hidden}#mtbAppNav{display:none!important}button,input,select{font:inherit}button{cursor:pointer}.workspace{height:100vh;display:grid;grid-template-rows:54px 1fr;min-width:0}.topbar{display:flex;align-items:center;gap:10px;padding:8px 12px;background:var(--topbar);border-bottom:1px solid var(--line)}.brand{font-weight:800;white-space:nowrap}.brand small{font-weight:600;color:var(--muted);margin-left:6px}.app-tabs{display:flex;gap:4px;overflow-x:auto;min-width:0;flex:1}.app-tabs button,.soft,.primary,.danger{border:1px solid var(--line);border-radius:7px;background:var(--panel2);color:var(--text);padding:8px 10px;font-weight:700}.app-tabs button.active{background:var(--accent);border-color:var(--accent2);color:#fff}.soft:hover,.app-tabs button:hover{border-color:var(--line-strong)}.primary{background:var(--accent);border-color:var(--accent2);color:#fff}.danger{background:transparent;color:var(--danger-text);border-color:var(--danger-line)}.compact{padding:6px 8px;font-size:12px}.year-wrap{display:flex;align-items:center;gap:6px;color:var(--muted);font-size:12px;white-space:nowrap}.year-wrap select{background:var(--input);border:1px solid var(--line);color:var(--text);border-radius:6px;padding:7px}.dbrole{font-size:11px;font-weight:800;padding:5px 8px;border:1px solid var(--line);border-radius:6px;background:var(--panel2);color:var(--muted);white-space:nowrap}.dbrole[data-state=online]{color:var(--ok);border-color:var(--ok-line)}.dbrole[data-state=warning]{color:var(--warn);border-color:var(--warn-line)}.dbrole[data-state=offline]{color:var(--danger-text);border-color:var(--danger-line)}.status{font-size:12px;color:var(--muted);max-width:280px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.status.ok{color:var(--ok)}.status.error{color:var(--danger-text)}.status.warn{color:var(--warn)}</style>
 <style>
 /* Windows retain their DOM when docked, floated or hidden so drafts stay put. */
 .workspace { height: 100dvh; grid-template-rows: auto minmax(0, 1fr); grid-template-columns: minmax(0, 1fr); }
@@ -32,7 +31,7 @@
 .topbar > .soft:hover, .topbar > .primary:hover { border-color: #fff; box-shadow: 0 0 0 1px rgba(255, 255, 255, .55); }
 .topbar > .primary { background: #4c51bf; border-color: rgba(255, 255, 255, .45); }
 /* Only S-Dnevnik may hide the workspace toolbar. Window controls and the
-   side rail keep their layout; hiding a grid child must not shrink its iframe. */
+   iframe keep their layout; hiding a grid child must not shrink its iframe. */
 .workspace.bar-hidden .topbar { min-height: 0; padding: 0; }
 .workspace.bar-hidden .topbar > :not(#showBar) { display: none !important; }
 #hideBar[hidden] { display: none; }
@@ -40,19 +39,11 @@
 #showBar:hover { background: rgba(255, 255, 255, .16); }
 #showBar[hidden] { display: none; }
 .topbar > #setHome[aria-pressed="true"] { background: #4c51bf; border-color: rgba(255, 255, 255, .7); }
-/* The side panel's buttons are the same pill as the pages inside the frames
-   (owner, 1 Oct 2026): 34px, 6px 14px, 14px bold, fully rounded. */
-.directory .soft, .directory .primary, .directory .danger, .panel-toggle { min-height: 34px; border-radius: 999px; padding: 6px 14px; font-size: 14px; font-weight: 700; }
 .topbar .year-wrap select { border-radius: 10px; }
-.main { --directory-width: 560px; --rail: 72px; display: block; position: relative; overflow: hidden; isolation: isolate; }
+.main { min-height: 0; min-width: 0; display: block; position: relative; overflow: hidden; isolation: isolate; }
 .workspace-window { position: absolute; min-width: 0; min-height: 0; overflow: hidden; background: var(--panel); }
-.app-window { inset: 0 calc(var(--directory-width) + var(--rail)) 0 0; display: grid; grid-template-rows: 38px minmax(0, 1fr); }
+.app-window { inset: 0; display: grid; grid-template-rows: 38px minmax(0, 1fr); }
 .app-window iframe { display: block; width: 100%; height: 100%; min-height: 0; border: 0; background: var(--bg); }
-.directory { inset: 0 var(--rail) 0 auto; width: var(--directory-width); height: auto; grid-template-rows: auto auto minmax(0, 1fr); }
-.directory .dir-head { display: grid; padding: 0; }
-.directory .dir-description { padding: 0 10px 8px; font-size: 11px; color: var(--muted); }
-.main.directory-undocked { --directory-width: 0px !important; }
-.main.panel-hidden { --directory-width: 0px !important; }
 .workspace-window[hidden] { display: none !important; }
 .window-titlebar { display: flex; align-items: center; gap: 8px; min-height: 38px; padding: 4px 6px 4px 12px; background: var(--titlebar); border-bottom: 1px solid var(--line); cursor: grab; touch-action: none; user-select: none; }
 .window-titlebar:active { cursor: grabbing; }
@@ -62,25 +53,13 @@
 .window-actions button { width: 29px; height: 28px; padding: 0; display: grid; place-items: center; border: 1px solid transparent; border-radius: 5px; color: var(--muted); background: transparent; }
 .window-actions svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; pointer-events: none; }
 .window-actions button:hover { background: var(--btn-hover); color: var(--text); }
-button:focus-visible, .window-titlebar:focus-visible, #dockDivider:focus-visible, .resize-handle:focus-visible { outline: 2px solid var(--accent2); outline-offset: -2px; }
+button:focus-visible, .window-titlebar:focus-visible, .resize-handle:focus-visible { outline: 2px solid var(--accent2); outline-offset: -2px; }
 .window-actions button[aria-pressed="true"] { color: #fff; background: var(--pressed); }
-.workspace-window.is-focused > .window-titlebar, .workspace-window.is-focused > .dir-head > .window-titlebar { background: var(--titlebar-focus); }
+.workspace-window.is-focused > .window-titlebar { background: var(--titlebar-focus); }
 .workspace-window[data-pinned="true"] .window-title::after { content: ' · Прикачено'; font-size: 10px; color: var(--pinned); }
 .workspace-window[data-mode="floating"] { inset: auto; border: 1px solid var(--float-line); border-radius: 9px; box-shadow: var(--float-shadow); }
 .workspace-window[data-mode="floating"].is-focused { border-color: var(--accent2); }
 .workspace-window[data-maximized="true"] { inset: 0 !important; width: auto !important; height: auto !important; border-radius: 0; }
-.directory { container: directory / inline-size; }
-@container directory (max-width: 510px) {
-  .split { grid-template-columns: 1fr; grid-template-rows: minmax(110px, 30%) minmax(0, 1fr); }
-  .master { max-height: none; border-right: 0; border-bottom: 1px solid var(--line); }
-  .caseload-grid { grid-template-columns: 1fr 1fr; }
-  .pick-box { height: 250px; }
-  .dir-description { display: none; }
-}
-#dockDivider { position: absolute; top: 0; bottom: 0; right: calc(var(--directory-width) + var(--rail) - 4px); width: 8px; z-index: 3; cursor: col-resize; touch-action: none; }
-#dockDivider::after { content: ''; position: absolute; inset: 0 3px; background: var(--line); }
-#dockDivider:hover::after, #dockDivider:focus-visible::after { background: var(--accent2); }
-.main.directory-undocked #dockDivider, .main.panel-hidden #dockDivider { display: none; }
 .resize-handle { display: none; position: absolute; z-index: 5; padding: 0; border: 0; background: transparent; touch-action: none; }
 [data-mode="floating"]:not([data-maximized="true"]) > .resize-handle { display: block; }
 .resize-handle[data-edge="n"], .resize-handle[data-edge="s"] { left: 10px; right: 10px; height: 7px; cursor: ns-resize; }
@@ -95,28 +74,6 @@ button:focus-visible, .window-titlebar:focus-visible, #dockDivider:focus-visible
 .main.is-arranging iframe { pointer-events: none; }
 .main.is-arranging { user-select: none; }
 .app-tabs button.is-open::after { content: ''; display: inline-block; width: 4px; height: 4px; border-radius: 50%; background: currentColor; margin-left: 5px; vertical-align: middle; }
-/* VS Code's activity bar, on the right because the panel is on the right.
-   The sections used to be a row of four buttons INSIDE the panel, so a
-   narrow panel squeezed them until „Стручни / терапевти" stood in a column
-   of syllables. Here they never share width with anything: an icon and a
-   short word, always visible, and the panel opens beside them. Clicking the
-   chosen section again folds the panel away, as VS Code does. */
-.activity-rail { position: absolute; top: 0; right: 0; bottom: 0; width: var(--rail); z-index: 4; display: flex; flex-direction: column; gap: 2px; padding: 6px 0; background: linear-gradient(to bottom, #1a1a2e 0%, #16213e 100%); border-left: 1px solid #0f3460; }
-.activity-rail button { position: relative; display: flex; flex-direction: column; align-items: center; gap: 4px; width: 100%; padding: 10px 2px 9px; border: 0; border-radius: 0; background: transparent; color: #a0aec0; font-size: 10.5px; font-weight: 700; letter-spacing: .2px; }
-.activity-rail .ico { font-size: 21px; line-height: 1; }
-.activity-rail .lbl { font-size: 10px; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.activity-rail button:hover { color: #e2e8f0; background: rgba(255, 255, 255, .06); }
-.activity-rail button.active { color: #fff; background: rgba(102, 126, 234, .24); }
-.activity-rail button.active::before { content: ''; position: absolute; left: 0; top: 6px; bottom: 6px; width: 3px; border-radius: 0 2px 2px 0; background: #818cf8; }
-.main.panel-hidden .activity-rail button.active { background: transparent; color: #a0aec0; }
-.main.panel-hidden .activity-rail button.active::before { display: none; }
-/* A row in the list: the class and status on their own line under the name,
-   so the name has the whole width. Beside it, they took the width and a name
-   broke anywhere — „Ке / Му" — which is what the owner saw. It still wraps,
-   but only between words. */
-.person { grid-template-columns: 24px minmax(0, 1fr); align-items: start; }
-.person .meta { grid-column: 2; white-space: normal; }
-.person .name { white-space: normal; overflow-wrap: normal; }
 /* The app tabs: S-Dnevnik's strip, the side walls standing straighter.
    The chosen tab is lifted, never taller: 5 + 2 + 10 = 0 + 3 + 14. A tab one
    pixel taller than the rest resized the top bar whenever focus moved to the
@@ -137,19 +94,8 @@ button:focus-visible, .window-titlebar:focus-visible, #dockDivider:focus-visible
   .app-tabs button { flex-shrink: 0; font-size: 12px; }
   .year-wrap { margin-left: auto; }
   .year-wrap > span { display: none; }
-  .main { --directory-width: 0px !important; }
-  .directory { inset: 0 0 58px 0; width: 100%; border-left: 0; border-top: 0; }
-  .app-window { inset: 0 0 58px 0; }
-  .activity-rail { top: auto; left: 0; width: auto; height: 58px; flex-direction: row; padding: 0 6px; border-left: 0; border-top: 1px solid #0f3460; }
-  .activity-rail button { flex: 1; padding: 8px 2px; }
-  .activity-rail button.active::before { left: 6px; right: 6px; top: 0; bottom: auto; width: auto; height: 3px; border-radius: 0 0 2px 2px; }
-  #dockDivider { display: none; }
+  .app-window { inset: 0; }
   .window-actions button { width: 28px; }
-  .directory .dir-description { display: none; }
-  .split { grid-template-columns: 1fr; grid-template-rows: minmax(110px, 30%) minmax(0, 1fr); }
-  .master { max-height: none; }
-  .caseload-grid { grid-template-columns: 1fr 1fr; }
-  .pick-box { height: 220px; }
   #resetLayout { font-size: 0; }
   #resetLayout::before { content: '▥'; font-size: 16px; }
 }
@@ -157,8 +103,8 @@ button:focus-visible, .window-titlebar:focus-visible, #dockDivider:focus-visible
 </head>
 <body>
 <div class="workspace">
-<header class="topbar"><div class="brand">MTB <small>работен простор</small></div><div class="app-tabs" id="appTabs"><button data-app="RasporediFusion.html" class="active">Кабинети</button><button data-app="Nastava.html">Настава ↔ терапии</button><button data-app="NastavaUredi.html">Уреди настава</button><button data-app="Podatoci.html">Податоци</button><button data-app="AkciskiPlan.html">Евидентен лист</button><button data-app="S-Dnevnik.html">S-Дневник</button><button data-app="Pregled-Baza.html">Преглед на базата</button></div><div class="year-wrap"><span>Година</span><select id="year" aria-label="Учебна година"></select></div><button class="soft compact" id="refresh" aria-label="Освежи податоци">↻</button><div class="dbrole" id="dbrole" title="Која база се запишува">БАЗА: —</div><div class="status" id="status">Се поврзувам…</div><button class="soft compact" id="editingToggle"></button><button class="soft compact" id="themeToggle" data-mtb-theme-control></button><button class="soft compact" id="resetLayout" title="Врати ги прозорците каде што беа на почетокот" aria-label="Почетен изглед">Почетен изглед</button><button class="soft compact" id="hidePanel" aria-controls="directoryWindow" aria-expanded="true">Скриј податоци</button><button class="soft compact" id="setHome" aria-pressed="false" title="Запамети го овој прозорец како почетен на овој прелистувач">⭐ Почетна</button><button class="soft compact" id="hideBar" title="Скриј ја MTB лентата само во S-Дневник" aria-controls="appTabs" aria-expanded="true">▴ Скриј лента</button><button type="button" id="showBar" hidden title="Прикажи ја лентата на MTB">▾ MTB лента</button></header>
-<div class="main" id="main"><section class="workspace-window app-window" id="scheduleWindow" aria-label="Кабинети"><div class="window-titlebar" tabindex="0"><span class="window-title">Кабинети</span><div class="window-actions"></div></div><iframe id="appFrame" data-app-file="RasporediFusion.html" src="RasporediFusion.html?embed=1" title="Кабинети"></iframe></section><div id="dockDivider" role="separator" tabindex="0" aria-label="Ширина на заедничките податоци" aria-orientation="vertical" aria-controls="directoryWindow"></div><aside class="workspace-window directory" id="directoryWindow" aria-label="Заеднички податоци"><div class="dir-head"><div class="window-titlebar" tabindex="0"><span class="window-title">Заеднички податоци</span><div class="window-actions"></div></div><div class="dir-description">Истата база · уредување без напуштање на работата</div></div><div class="tools"><input id="search" type="search" placeholder="Пребарај…" aria-label="Пребарај податоци"><select id="kindFilter"><option value="">Сите</option><option value="internal">Интерни</option><option value="boarding">Интернатски</option><option value="external">Екстерни</option></select></div><div class="directory-content" id="content"></div></aside><nav class="activity-rail" id="dirTabs" aria-label="Заеднички податоци — делови"><button data-dir="students" class="active" title="Ученици"><span class="ico" aria-hidden="true">🎒</span><span class="lbl">Ученици</span></button><button data-dir="teachers" title="Наставници"><span class="ico" aria-hidden="true">👩‍🏫</span><span class="lbl">Наставници</span></button><button data-dir="therapists" title="Стручни лица / терапевти"><span class="ico" aria-hidden="true">🧩</span><span class="lbl">Стручни</span></button><button data-dir="classes" title="Паралелки"><span class="ico" aria-hidden="true">🏫</span><span class="lbl">Паралелки</span></button></nav></div>
+<header class="topbar"><div class="brand">MTB <small>работен простор</small></div><div class="app-tabs" id="appTabs"><button data-app="RasporediFusion.html" class="active">Кабинети</button><button data-app="Nastava.html">Настава ↔ терапии</button><button data-app="NastavaUredi.html">Уреди настава</button><button data-app="Podatoci.html">Податоци</button><button data-app="AkciskiPlan.html">Евидентен лист</button><button data-app="S-Dnevnik.html">S-Дневник</button><button data-app="Pregled-Baza.html">Преглед на базата</button></div><div class="year-wrap"><span>Година</span><select id="year" aria-label="Учебна година"></select></div><button class="soft compact" id="refresh" aria-label="Освежи податоци">↻</button><div class="dbrole" id="dbrole" title="Која база се запишува">БАЗА: —</div><div class="status" id="status">Се поврзувам…</div><button class="soft compact" id="editingToggle"></button><button class="soft compact" id="themeToggle" data-mtb-theme-control></button><button class="soft compact" id="resetLayout" title="Врати ги прозорците каде што беа на почетокот" aria-label="Почетен изглед">Почетен изглед</button><button class="soft compact" id="setHome" aria-pressed="false" title="Запамети го овој прозорец како почетен на овој прелистувач">⭐ Почетна</button><button class="soft compact" id="hideBar" title="Скриј ја MTB лентата само во S-Дневник" aria-controls="appTabs" aria-expanded="true">▴ Скриј лента</button><button type="button" id="showBar" hidden title="Прикажи ја лентата на MTB">▾ MTB лента</button></header>
+<div class="main" id="main"><section class="workspace-window app-window" id="scheduleWindow" aria-label="Кабинети"><div class="window-titlebar" tabindex="0"><span class="window-title">Кабинети</span><div class="window-actions"></div></div><iframe id="appFrame" data-app-file="RasporediFusion.html" src="RasporediFusion.html?embed=1" title="Кабинети"></iframe></section></div>
 <div class="sr-only" id="windowAnnouncement" role="status" aria-live="polite"></div>
 <p class="sr-only" id="windowHelp">Влечи го насловот за преместување или користи ги стрелките кога насловот е избран. Двоен клик го максимизира прозорецот. Менувај големина од рабовите. Секогаш напред важи во овој работен простор.</p>
 </div>
@@ -189,40 +135,8 @@ button:focus-visible, .window-titlebar:focus-visible, #dockDivider:focus-visible
 #startGate .foot a{color:var(--accent2)}
 #startGate .msg{font-size:12px;color:var(--muted);flex:1;min-width:180px}
 #dbrole[data-clickable]{cursor:pointer}
-/* Фактите за годината стојат заедно и видливо одделени од фактите за човекот:
-   менувањето паралелка важи за оваа година, а името не. */
-.year-block{border:1px solid var(--line);border-left:3px solid var(--accent);
-  border-radius:8px;padding:10px 12px;margin:12px 0;background:var(--year-bg)}
-.year-block .section-label{margin-bottom:6px}
-.hint-split{color:var(--warn-text)}
-.chips{display:flex;flex-wrap:wrap;gap:6px}
-.chip{border:1px solid var(--chip-line);cursor:pointer}
-.chip:hover{border-color:var(--chip-hover);color:var(--text)}
-/* Чекнатото одделение се гледа од метар; неизбраните остануваат читливи, а не
-   исчезнуваат — да се види ШТО СЀ постои, не само што е избрано. */
-.class-row.on{border-color:var(--on-row);background:var(--on-row-bg)}
-.class-row select[hidden]{display:none}
-/* Ознаките се кратки и ролната е тесна; без minmax(0,…) селектот излегуваше
-   надвор од панелот и ознаката се сечеше на средина. */
-.class-grid{grid-template-columns:repeat(auto-fill,minmax(165px,1fr))}
-.class-row{grid-template-columns:16px minmax(0,1fr) auto;gap:6px}
-.class-row>span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.class-row select{width:auto;max-width:92px}
-.quiet-note{opacity:.7}
-#tSubjectNote{margin:-4px 0 10px}
-.related-work{margin-top:16px;padding-top:12px;border-top:1px solid var(--line)}
-.related-work h3,.class-composition h3{margin:8px 0;font-size:13px}
-.related-work .actions{margin-bottom:6px}
-.class-composition .person{grid-template-columns:24px minmax(0,1fr);align-items:start}
-.class-composition .person .meta{grid-column:2;white-space:normal}
-.class-composition .person .name,.person .name{white-space:normal;overflow:visible;overflow-wrap:anywhere}
-.class-composition .summary{display:flex;gap:6px;flex-wrap:wrap;margin:10px 0}
-.class-composition .badge{font-size:12px;padding:4px 8px}
-.dir-tabs{flex-wrap:wrap}
-.dir-tabs button{min-width:100px}
-.class-composition .note{font-size:12px}
 @media(min-width:901px){.app-tabs{order:2;flex:1 0 100%;flex-wrap:wrap;overflow:visible}}
-@media(max-width:900px){.dir-tabs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}.dir-tabs button{min-width:0}}
+
 </style>
 <div id="startGate" role="dialog" aria-modal="true" aria-labelledby="startGateTitle">
   <div class="card">
@@ -238,267 +152,31 @@ button:focus-visible, .window-titlebar:focus-visible, #dockDivider:focus-visible
 </div>
 <script src="app-navigation.js"></script>
 <script>
-(function(){'use strict';const $=id=>document.getElementById(id),esc=v=>String(v==null?'':v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'),tidy=v=>String(v==null?'':v).replace(/\s+/g,' ').trim(),personName=value=>{const clean=tidy(value),letters=clean.replace(/[^\p{L}]/gu,'');if(!letters||letters!==letters.toLocaleUpperCase('mk-MK'))return clean;return clean.toLocaleLowerCase('mk-MK').replace(/(^|[\s\-‐‑–—'’])(\p{L})/gu,(_,b,l)=>b+l.toLocaleUpperCase('mk-MK'))};const PUBLISHED=location.hostname==='assisstant.github.io',SERVER_KEY='mtb_podatoci_server_v1',ROMAN=['I','II','III','IV','V','VI','VII','VIII','IX'],GENERATIONS=['П',...ROMAN],genName=g=>g==='П'?'подготвително':g;/* „П“ = подготвително одделение, пред I (сопственикот, 4 окт 2026) */let apiBase='',years=[],data=null,categories=[],categoryOf={teacher:{},therapist:{}},dir='students',selected={students:null,teachers:null,therapists:null,classes:null},draftCaseload=new Set(),caseloadOriginal=new Set(),returnTherapist=null,ticket=0,dirEdited=false,writing=0;
-function setStatus(text,kind){const n=$('status');n.textContent=text||'';n.className='status'+(kind?' '+kind:'')}function activeServer(){if(!PUBLISHED)return /^https?:$/.test(location.protocol)?location.origin:'';try{const raw=localStorage.getItem(SERVER_KEY)||'';if(!raw)return'';const u=new URL(raw);if(u.protocol!=='https:'||!u.hostname.endsWith('.ts.net'))return'';return u.origin}catch(_){return''}}async function api(method,path,body,forAdmin){if(!apiBase)throw new Error('Не е избрана PostgreSQL база.');
-  // Only this panel's OWN writes are counted: „Администрација" writes through here too (MTBWorkspaceContext), and the panel must hear those.
-  const write=method!=='GET'&&!forAdmin;if(write)writing++;let res;try{res=await fetch(apiBase+path,{method,cache:'no-store',headers:body===undefined?undefined:{'Content-Type':'application/json'},body:body===undefined?undefined:JSON.stringify(body)})}finally{if(write)writing--}let out=null;try{out=await res.json()}catch(_){}if(!res.ok)throw new Error(out&&(out.error||out.message)||'HTTP '+res.status);return out}
-async function load(preferYear){const mine=++ticket;apiBase=activeServer();if(!apiBase){data=null;render();setStatus('Избери база во start.html','warn');return}setStatus('Вчитувам од базата…');try{years=await api('GET','/api/years');if(mine!==ticket)return;const current=years.find(y=>y.is_current)||years[0],wanted=preferYear||$('year').value||current&&current.label||'';$('year').innerHTML=years.map(y=>'<option value="'+esc(y.label)+'"'+(y.label===wanted?' selected':'')+'>'+esc(y.label)+(y.is_current?' · тековна':' · архива')+'</option>').join('');const year=$('year').value||wanted,[roster,cats,holders]=await Promise.all([api('GET','/api/roster?year='+encodeURIComponent(year)),api('GET','/api/categories').catch(()=>({categories:[]})),api('GET','/api/categories/holders?year='+encodeURIComponent(year)).catch(()=>({teachers:[],therapists:[]}))]);if(mine!==ticket)return;data=roster;categories=cats.categories||[];categoryOf={teacher:{},therapist:{}};(holders.teachers||[]).forEach(x=>categoryOf.teacher[x.personId]=x.categoryId);(holders.therapists||[]).forEach(x=>categoryOf.therapist[x.personId]=x.categoryId);preserveSelection();render();setStatus(roster.year+' · '+roster.students.length+' ученици · '+roster.teachers.length+' наставници · '+roster.therapists.length+' стручни/терапевти','ok')}catch(err){data=null;render();setStatus(err.message,'error')}}
-function preserveSelection(){for(const key of ['students','teachers','therapists','classes']){const old=selected[key];if(!old)continue;const id=key==='students'?old.public_id:old.id,next=(data[key]||[]).find(x=>(key==='students'?x.public_id:x.id)===id);selected[key]=next||null}if(selected.therapists){caseloadOriginal=new Set(selected.therapists.students||[]);draftCaseload=new Set(caseloadOriginal)}}function render(){dirEdited=false;$('kindFilter').style.display=dir==='students'?'':'none';if(!data){$('content').innerHTML='<div class="empty">Нема вчитани податоци од базата.</div>';return}dir==='students'?renderStudents():dir==='teachers'?renderTeachers():dir==='classes'?renderClasses():renderTherapists();renderRelatedActions()}function q(){return tidy($('search').value).toLocaleLowerCase('mk-MK')}
-function masterRow(kind,item,index,meta){const id=kind==='students'?item.public_id:item.id,active=selected[kind]&&(kind==='students'?selected[kind].public_id:selected[kind].id)===id;return'<button class="person'+(active?' active':'')+'" data-pick="'+esc(String(id))+'"><span class="num">'+(index+1)+'.</span><span class="name">'+esc(personName(item.name))+'</span><span class="meta">'+esc(meta||'')+'</span></button>'}function bindMaster(kind){document.querySelectorAll('[data-pick]').forEach(b=>b.addEventListener('click',()=>{const raw=b.dataset.pick;selected[kind]=(data[kind]||[]).find(x=>String(kind==='students'?x.public_id:x.id)===raw)||null;if(kind==='therapists'){caseloadOriginal=new Set(selected.therapists?.students||[]);draftCaseload=new Set(caseloadOriginal)}
-  // Истиот клик што го отвора записот го осветлува човекот во прозорците.
-  setFocus(kind==='classes'?'':(kind==='students'?'student:':kind==='teachers'?'teacher:':'therapist:')+raw);
-  render()}))}const KIND_LABEL={internal:'интерен',boarding:'интернатски',external:'екстерен'};
-// Class membership comes from this year's enrolment, and generation only from
-// the pupil's explicit oddelenie. A combined class label is not a grade parser.
-function classPupils(c){return(data.students||[]).filter(s=>s.active!==false&&s.grade===c.label)}
-function classTeachers(c){return(data.teachers||[]).filter(t=>(t.classes||[]).some(x=>x.label===c.label))}
-function renderClasses(){
-  // Паралелката се бара и по наставникот и по описот — име на наставник, „аутизам" —
-  // зашто така се бара во училиштето; редот ја кажува како секое мени.
-  const cards=classCards(),n=window.MTBAppNavigation,text=c=>{const info=cards.get(c.label);return n&&n.classes&&info?n.classes.text(info):c.label};
-  const rows=(data.classes||[]).filter(c=>!q()||text(c).toLocaleLowerCase('mk-MK').includes(q()));
-  const c=selected.classes;
-  $('content').innerHTML='<div class="split"><section class="master"><div class="master-title">Паралелки · '+rows.length+'</div><div class="list">'
-    +rows.map((x,i)=>masterRow('classes',{...x,name:text(x)},i,classPupils(x).length+' ученици')).join('')
-    +'</div></section><section class="editor class-composition">'
-    +(c?classComposition(c):'<div class="empty">Избери паралелка за составот, одделенијата и наставниците. Изборот на ученик или наставник ги отвора неговите податоци за корекција.</div>')
-    +'</section></div>';
-  bindMaster('classes');
-  // На лебдење: целиот ред од табелата на училиштето.
-  $('content').querySelectorAll('.master [data-pick]').forEach(b=>{const x=(data.classes||[]).find(k=>String(k.id)===b.dataset.pick);b.title=x?classHoverOf(x.label):''});
+(function(){'use strict';
+const $=id=>document.getElementById(id), esc=v=>String(v==null?'':v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+const PUBLISHED=location.hostname==='assisstant.github.io', SERVER_KEY='mtb_podatoci_server_v1';
+let apiBase='', ticket=0;
+function setStatus(text,kind){const n=$('status');n.textContent=text||'';n.className='status'+(kind?' '+kind:'')}
+function activeServer(){if(!PUBLISHED)return /^https?:$/.test(location.protocol)?location.origin:'';try{const raw=localStorage.getItem(SERVER_KEY)||'';if(!raw)return '';const u=new URL(raw);return u.protocol==='https:'&&u.hostname.endsWith('.ts.net')?u.origin:''}catch(_){return ''}}
+async function api(method,path,body){
+  if(!apiBase)throw new Error('Не е избрана PostgreSQL база.');
+  const res=await fetch(apiBase+path,{method,cache:'no-store',headers:body===undefined?undefined:{'Content-Type':'application/json'},body:body===undefined?undefined:JSON.stringify(body)});
+  let out=null;try{out=await res.json()}catch(_){}
+  if(!res.ok)throw new Error(out&&(out.error||out.message)||'HTTP '+res.status);
+  return out;
 }
-function classHoverOf(label){const n=window.MTBAppNavigation,info=classCards().get(label);return n&&n.classes&&info?n.classes.hover(info):''}
-function classComposition(c){
-  const pupils=classPupils(c),teachers=classTeachers(c);
-  const generations=GENERATIONS.filter(g=>pupils.some(s=>String(s.oddelenie||'').toUpperCase()===g));
-  const missing=pupils.filter(s=>!s.oddelenie).length;
-  const n=window.MTBAppNavigation,info=classCards().get(c.label);
-  return '<div class="editor-title">Паралелка '+esc(n&&n.classes&&info?n.classes.text(info):c.label)+' · '+esc(data.year)+'</div>'
-    +'<div class="summary"><span class="badge">'+pupils.length+' ученици</span>'
-    +generations.map(g=>'<span class="badge">Одделение '+esc(genName(g))+'</span>').join('')+'</div>'
-    +'<p class="note">Паралелката е заедничката група во која учат. Одделението е генерацијата на секое дете. Во една паралелка може да има повеќе одделенија.</p>'
-    +(missing?'<p class="note">Невнесено одделение: '+missing+'. Отвори го ученикот за проверка; не се погодува од ознаката на паралелката.</p>':'')
-    +'<h3>Ученици · отвори за корекција</h3>'
-    +(pupils.map((s,i)=>'<button type="button" class="person" data-related-person="students" data-person-id="'+esc(s.public_id)+'"><span class="num">'+(i+1)+'.</span><span class="name">'+esc(personName(s.name))+'</span><span class="meta">Одделение: '+esc(s.oddelenie?genName(String(s.oddelenie).toUpperCase()):'не е внесено')+'</span></button>').join('')||'<p class="note">Нема ученици во оваа паралелка.</p>')
-    +'<h3>Наставници · отвори за корекција</h3>'
-    +(teachers.map((t,i)=>'<button type="button" class="person" data-related-person="teachers" data-person-id="'+t.id+'"><span class="num">'+(i+1)+'.</span><span class="name">'+esc(personName(t.name))+'</span><span class="meta">'+((t.classes||[]).some(x=>x.label===c.label&&x.role==='homeroom')?'Раководител':'Наставник')+'</span></button>').join('')||'<p class="note">Нема доделен наставник. Доделувањето се уредува во неговите податоци.</p>');
+async function load(preferYear){
+  const mine=++ticket;apiBase=activeServer();
+  if(!apiBase){setStatus('Избери база во start.html','warn');return}
+  setStatus('Вчитувам од базата…');
+  try{
+    const years=await api('GET','/api/years');if(mine!==ticket)return;
+    const current=years.find(y=>y.is_current)||years[0],wanted=preferYear||$('year').value||current?.label||'';
+    $('year').innerHTML=years.map(y=>'<option value="'+esc(y.label)+'"'+(y.label===wanted?' selected':'')+'>'+esc(y.label)+(y.is_current?' · тековна':' · архива')+'</option>').join('');
+    setStatus(($('year').value||wanted)+' · Вчитано од базата','ok');
+  }catch(err){if(mine===ticket)setStatus(err.message,'error')}
 }
-function renderRelatedActions(){
-  const editor=$('content').querySelector('.editor');
-  if(!editor||!selected[dir])return;
-  const teaching=dir==='teachers'||dir==='classes';
-  editor.insertAdjacentHTML('beforeend','<section class="related-work"><h3>Поврзана работа</h3>'
-    +'<div class="actions"><button type="button" class="soft compact" data-open-app="'+(teaching?'NastavaUredi.html':'RasporediFusion.html')+'">'+(teaching?'Уреди наставни часови':'Термини во кабинети')+'</button>'
-    +'<button type="button" class="soft compact" data-open-app="Nastava.html">Настава ↔ терапии</button>'
-    +(dir==='classes'?'<button type="button" class="soft compact" data-open-app="Podatoci.html">Уреди паралелки / списоци</button>':'')+'</div>'
-    +'<p class="note">Нов прозорец почнува со '+esc(data.year)+'. Веќе отворените прозорци ја задржуваат својата година и незачуваниот внес.</p></section>');
-}
-$('content').addEventListener('click',event=>{
-  const link=event.target.closest('[data-open-app]');
-  if(link){
-    const tab=[...document.querySelectorAll('#appTabs [data-app]')].find(b=>b.dataset.app===link.dataset.openApp);
-    if(tab)tab.click();
-    return;
-  }
-  const person=event.target.closest('[data-related-person]');
-  if(!person)return;
-  const kind=person.dataset.relatedPerson;
-  if(!['students','teachers'].includes(kind))return;
-  const found=(data[kind]||[]).find(x=>String(kind==='students'?x.public_id:x.id)===person.dataset.personId);
-  if(!found)return;
-  dir=kind;selected[kind]=found;returnTherapist=null;$('search').value='';$('kindFilter').value='';
-  selectDirButton();setFocus((kind==='students'?'student:':'teacher:')+person.dataset.personId);render();
-});
-function studentMeta(s){const roman=romanOf(s.grade),odd=String(s.oddelenie||'').toUpperCase();
-  // Одделението се пишува само кога КАЖУВА нешто ново — инаку секој ред би
-  // носел двапати иста работа и разликата што е важна би се изгубила во неа.
-  return[s.grade||'',(odd&&odd!==roman)?'одд. '+genName(odd):'',KIND_LABEL[s.kind||'internal']||s.kind||''].filter(Boolean).join(' · ')}function filteredStudents(){const needle=q(),k=$('kindFilter').value;return(data.students||[]).filter(s=>s.active!==false).filter(s=>!k||(s.kind||'internal')===k).filter(s=>!needle||personName(s.name).toLocaleLowerCase('mk-MK').includes(needle)||String(s.grade||'').toLocaleLowerCase('mk-MK').includes(needle))}
-function categoryOptions(kind,id){const held=categoryOf[kind][id]||'';return'<option value="">— без категорија —</option>'+categories.map(c=>'<option value="'+c.id+'"'+(String(c.id)===String(held)?' selected':'')+'>'+esc(c.name)+'</option>').join('')}/* Паралелката се пишува како во секое друго мени — ознака · раководител · опис,
-   а на лебдење целиот ред (`app-navigation.js`, `classes`). Паралелка што не е
-   на листата за годинава останува видлива, обележана „неактивна" — инаку
-   ученикот изгледа „без одделение" и „Зачувај" го пишува празното назад. */
-// A class reads by the short form of its name for the year (migration 045); the label stays the value.
-function classShortOf(label){const n=window.MTBAppNavigation,info=classCards().get(label);return info&&n&&n.classes&&n.classes.short?n.classes.short(info):label}
-function classCards(){const n=window.MTBAppNavigation;return n&&n.classes&&data?n.classes.index(data):new Map()}
-function classOptions(selectedGrade){const n=window.MTBAppNavigation;if(n&&n.classes)return n.classes.optionsHtml(classCards(),selectedGrade,{empty:'— без одделение / група —'});
-  const known=(data.classes||[]).some(c=>c.label===selectedGrade);return'<option value="">— без одделение / група —</option>'+(data.classes||[]).map(c=>'<option value="'+esc(c.label)+'"'+(c.label===selectedGrade?' selected':'')+'>'+esc(c.label)+'</option>').join('')
-  +(selectedGrade&&!known?'<option value="'+esc(selectedGrade)+'" selected>'+esc(selectedGrade)+' · неактивна</option>':'')}
-function renderStudents(){const rows=filteredStudents(),s=selected.students;$('content').innerHTML='<div class="split"><section class="master"><div class="master-title">Ученици · '+rows.length+'</div><div class="list">'+rows.map((x,i)=>masterRow('students',x,i,studentMeta(x))).join('')+'</div></section><section class="editor">'+(s?studentEditor(s):'<div class="empty">Избери ученик за преглед или измена.</div>')+'</section></div>';bindMaster('students');if(s)bindStudentEditor(s)}/* ── Записот за еден ученик ────────────────────────────────────────────
- *
- * Подреден по СОПСТВЕНИК НА ФАКТОТ, не по редослед на полиња. Горе е она што
- * важи за човекот без разлика на годината (име, статус); долу е она што е факт
- * за ОВАА учебна година (паралелка, одделение, кај кои терапевти). Тоа е истата
- * поделба поради која `student_enrollments` воопшто постои, и кога екранот ја
- * покажува, никој не се прашува зошто менувањето на паралелката не ја менува
- * архивската година.
- */
-function romanOf(label){if(/^\s*подготвит/iu.test(String(label||'')))return'П';const m=/^\s*(IX|IV|V?I{0,3})\b/i.exec(String(label||'').replace(/[Іі]/g,'I').replace(/[Хх]/g,'X'));const g=m?m[1].toUpperCase():'';return ROMAN.includes(g)?g:''}
-function gradeOptions(value){return'<option value="">— не е внесено —</option>'+GENERATIONS.map(g=>'<option value="'+g+'"'+(g===String(value||'').toUpperCase()?' selected':'')+'>'+genName(g)+'</option>').join('')}
-function studentEditor(s){
-  const mine=(s.therapists||[]);
-  const roman=romanOf(s.grade), odd=String(s.oddelenie||'').toUpperCase();
-  // Не е грешка кога се разликуваат — кај комбинирана паралелка тоа е точно.
-  // Затоа е белешка, не предупредување.
-  const split=roman&&odd&&roman!==odd;
-  return'<button class="soft compact back'+(returnTherapist?' show':'')+'" id="backToCaseload">← Назад кон листата</button>'
-    +'<div class="editor-title">Ученик</div>'
-    +'<div class="field"><label>Име и презиме</label><input id="sName" value="'+esc(s.name)+'"></div>'
-    +'<div class="field"><label>Статус</label><select id="sKind">'
-      +'<option value="internal"'+((s.kind||'internal')==='internal'?' selected':'')+'>интерен</option>'
-      +'<option value="boarding"'+(s.kind==='boarding'?' selected':'')+'>интернатски</option>'
-      +'<option value="external"'+(s.kind==='external'?' selected':'')+'>екстерен</option></select></div>'
-    +'<div class="year-block"><div class="section-label">Оваа учебна година · '+esc(data.year)+'</div>'
-      +'<div class="row"><div class="field" style="flex:1"><label>Паралелка · каде учи</label>'
-        +'<select id="sGrade" data-class-picker>'+classOptions(s.grade||'')+'</select></div>'
-      +'<div class="field" style="flex:1"><label>Одделение · која генерација</label>'
-        +'<select id="sOddelenie">'+gradeOptions(s.oddelenie||'')+'</select></div></div>'
-      +'<p class="note'+(split?' hint-split':'')+'" id="splitNote">'
-        +(split
-          ? 'Паралелка <b>'+esc(s.grade)+'</b>, одделение <b>'+esc(odd)+'</b> — тоа е во ред кај комбинирана паралелка. Понудата на предмети се гради од одделението.'
-          : 'Кај комбинирана паралелка овие две не се исти: детето учи во една паралелка и е во друго одделение. Понудата на предмети се гради од одделението.')
-        +'</p>'
-      +'<div class="section-label" style="margin-top:10px">Кај кои терапевти е</div>'
-      +(mine.length
-        ? '<div class="chips">'+mine.map(n=>'<button type="button" class="badge chip" data-go-therapist="'+esc(n)+'">'+esc(personName(n))+'</button>').join('')+'</div>'
-        : '<p class="note">Не е на ниту еден список. Се додава во „Стручни / терапевти“.</p>')
-    +'</div>'
-    +'<div class="actions"><button class="primary" id="saveStudent">Зачувај ученик</button></div>'
-    +'<div class="save-state" id="editorState"></div>'
-    +'<p class="note">Ова ги менува заедничките податоци во PostgreSQL. Не создава копија во овој работен простор.</p>'}
-function bindStudentEditor(s){
-  // Белешката се менува додека се бира, не дури по зачувување: разликата меѓу
-  // паралелка и одделение се објаснува токму кога човекот ја прави.
-  const note=()=>{const roman=romanOf($('sGrade').value),odd=String($('sOddelenie').value||'').toUpperCase(),n=$('splitNote');if(!n)return;
-    const split=roman&&odd&&roman!==odd;n.classList.toggle('hint-split',!!split);
-    n.innerHTML=split
-      ?'Паралелка <b>'+esc($('sGrade').value)+'</b>, одделение <b>'+esc(odd)+'</b> — тоа е во ред кај комбинирана паралелка. Понудата на предмети се гради од одделението.'
-      :'Кај комбинирана паралелка овие две не се исти: детето учи во една паралелка и е во друго одделение. Понудата на предмети се гради од одделението.'};
-  $('sGrade').addEventListener('change',note);$('sOddelenie').addEventListener('change',note);
-  document.querySelectorAll('[data-go-therapist]').forEach(b=>b.addEventListener('click',()=>{
-    const t=(data.therapists||[]).find(x=>tidy(x.name)===tidy(b.dataset.goTherapist));
-    if(!t)return;dir='therapists';returnTherapist=null;selected.therapists=t;
-    caseloadOriginal=new Set(t.students||[]);draftCaseload=new Set(caseloadOriginal);
-    selectDirButton();setFocus('therapist:'+t.id);render()}));
-  $('saveStudent').addEventListener('click',async()=>{
-    const body={name:tidy($('sName').value),kind:$('sKind').value,grade:tidy($('sGrade').value)||null,
-                oddelenie:tidy($('sOddelenie').value)||null,year:data.year,expected:s.name};
-    const same=body.name===tidy(s.name)&&body.kind===(s.kind||'internal')
-      &&body.grade===(tidy(s.grade)||null)&&body.oddelenie===(tidy(s.oddelenie)||null);
-    if(same){state('Нема промена.');return}
-    const btn=$('saveStudent');btn.disabled=true;state('Зачувувам…');
-    try{await api('PATCH','/api/students/'+encodeURIComponent(s.public_id),body);await load(data.year);selectStudent(s.public_id);state('Зачувано во базата.','ok')}
-    catch(e){state(e.message,'error')}finally{btn.disabled=false}});if($('backToCaseload'))$('backToCaseload').addEventListener('click',()=>{const id=returnTherapist;returnTherapist=null;dir='therapists';selectDirButton();selected.therapists=(data.therapists||[]).find(t=>t.id===id)||selected.therapists;if(selected.therapists){caseloadOriginal=new Set(selected.therapists.students||[]);draftCaseload=new Set(caseloadOriginal)}render()})}function selectStudent(id){selected.students=(data.students||[]).find(x=>x.public_id===id)||null;render()}function state(text,kind){const n=$('editorState');if(!n)return;n.textContent=text||'';n.className='save-state'+(kind?' '+kind:'')}
-function filteredPeople(kind){const needle=q();return(data[kind]||[]).filter(x=>!needle||personName(x.name).toLocaleLowerCase('mk-MK').includes(needle)||String(x.subject||'').toLocaleLowerCase('mk-MK').includes(needle))}function renderTeachers(){const rows=filteredPeople('teachers'),t=selected.teachers;$('content').innerHTML='<div class="split"><section class="master"><div class="master-title">Наставници · '+rows.length+'</div><div class="list">'+rows.map((x,i)=>masterRow('teachers',x,i,x.kind==='odd'?'одделенски':x.subject||'предметен')).join('')+'</div></section><section class="editor">'+(t?teacherEditor(t):'<div class="empty">Избери наставник за измена.</div>')+'</section></div>';bindMaster('teachers');if(t)bindTeacherEditor(t)}/* ── Наставникот: што предава, и каде ─────────────────────────────────
- *
- * Двете полиња што досега беа најслаби на овој екран. „Предмет" беше празно
- * поле за пишување, а каталогот на МОН веќе стои во `teaching_subjects` и веќе
- * се нуди во НаставаУреди — истата понуда тука ги врзува двете страни на едно
- * место. ПОНУДА, НЕ ОГРАНИЧУВАЊЕ: `teachers.subject` останува слободен текст,
- * зашто работната книга на училиштето пишува во него кратенки (`ФЗО.`) што
- * серверот ги разбира, и еден избор од мени не смее тивко да ги избрише.
- *
- * И ПОВЕЌЕ ОД ЕДЕН. Каталогот, разделувачот и избирачот се една копија во
- * `app-navigation.js`; овој екран ја имаше своја, а трите копии се разидуваат
- * за едно зборче.
- */
-
-function classSummary(map){
-  const home=[...map].filter(([,r])=>r==='homeroom').map(([l])=>l);
-  const teach=[...map].filter(([,r])=>r!=='homeroom').map(([l])=>l);
-  if(!map.size)return'<span class="quiet-note">Нема доделено ниту едно одделение оваа година.</span>';
-  return(home.length?'<b>Раководител:</b> '+esc(home.join(', ')):'')
-    +(home.length&&teach.length?' &nbsp;·&nbsp; ':'')
-    +(teach.length?'<b>Предава во:</b> '+esc(teach.join(', ')):'');
-}
-
-function teacherEditor(t){
-  const map=new Map((t.classes||[]).map(c=>[c.label,c.role])),odd=t.kind==='odd';
-  return'<div class="editor-title">Наставник</div>'
-    +'<div class="field"><label>Име и презиме</label><input id="tName" value="'+esc(personName(t.name))+'"></div>'
-    +'<div class="row"><div class="field" style="flex:1"><label>Улога</label><select id="tKind">'
-      +'<option value="odd"'+(odd?' selected':'')+'>одделенски наставник</option>'
-      +'<option value="pred"'+(t.kind==='pred'?' selected':'')+'>предметен наставник</option></select></div>'
-    +'<div class="field" style="flex:1"><label>Предмети</label>'
-      // Полето го покажува ЗАЧУВАНОТО и кога е заклучено. Порано се празнеше
-      // при отворање, па кратенката од работната книга исчезнуваше од екранот
-      // и следното „Зачувај" ја бришеше од базата — истата грешка како со
-      // препишаното спелување на име.
-      //
-      // Избирачот е ЕДНА копија, во `app-navigation.js`: повеќе предмети се
-      // чипови, а „друго…" ја прима кратенката од работната книга онака како
-      // што е напишана.
-      +'<div id="tSubjectCell"></div></div></div>'
-    +'<p class="note" id="tSubjectNote">'+(odd
-        ? 'Одделенскиот наставник ги држи сите предмети, па полето е заклучено. Зачуваното останува како што е.'
-        : 'Понуда од каталогот на МОН. Кратенка како „ФЗО." останува како што е напишана — серверот ја разбира.')+'</p>'
-    +'<div class="field"><label>Стручна категорија</label><select id="tCategory">'+categoryOptions('teacher',t.id)+'</select></div>'
-    +'<div class="year-block"><div class="section-label">Одделенија · '+esc(data.year)+'</div>'
-      +'<p class="note" id="tClassSummary">'+classSummary(map)+'</p>'
-      +'<div class="class-grid">'+(data.classes||[]).map(c=>{
-          const on=map.has(c.label);
-          return'<label class="class-row'+(on?' on':'')+'" title="'+esc(classHoverOf(c.label))+'"><input type="checkbox" data-class="'+esc(c.label)+'"'+(on?' checked':'')+'>'
-            +'<span>'+esc(classShortOf(c.label))+'</span>'
-            +'<select data-role="'+esc(c.label)+'"'+(on?'':' hidden')+'>'
-              +'<option value="subject"'+(map.get(c.label)==='homeroom'?'':' selected')+'>предава</option>'
-              +'<option value="homeroom"'+(map.get(c.label)==='homeroom'?' selected':'')+'>раководител</option></select></label>'}).join('')
-      +'</div>'
-      +'<p class="note">Списокот се запишува како ЦЕЛИНА: тоа што е чекнато е тоа што важи за оваа година.</p></div>'
-    +'<div class="actions"><button class="primary" id="saveTeacher">Зачувај наставник</button></div>'
-    +'<div class="save-state" id="editorState"></div>'}
-
-function bindTeacherEditor(t){
-  // Со каква улога е ОТВОРЕН записот. Само изречна промена на улогата го
-  // брише предметот; обичното отворање и зачувување не смее.
-  const openedKind=t.kind;
-  const mountSubjects=(value,odd)=>window.MTBAppNavigation.subjects.mount($('tSubjectCell'),
-    {value:value||'',year:data.year,id:'tSubject',disabled:odd});
-  const syncRole=()=>{
-    const odd=$('tKind').value==='odd';
-    // Прецртано со ОНА ШТО СТОИ СЕГА, не со зачуваното: инаку менувањето улога
-    // напред-назад би ги вратило чиповите на состојбата од отворањето.
-    const now=$('tSubject')?$('tSubject').value:(t.subject||'');
-    mountSubjects(now,odd);
-    $('tSubjectNote').textContent=odd
-      ? 'Одделенскиот наставник ги држи сите предмети, па полето е заклучено.'
-        +(openedKind==='pred'?' Со зачувување предметот ќе се тргне.':' Зачуваното останува како што е.')
-      : 'Понуда од каталогот на МОН. Кратенка како „ФЗО." останува како што е напишана — серверот ја разбира.';
-  };
-  $('tKind').addEventListener('change',syncRole);syncRole();
-  const syncClasses=()=>{
-    const map=new Map();
-    document.querySelectorAll('[data-class]').forEach(b=>{
-      const sel=document.querySelector('[data-role="'+CSS.escape(b.dataset.class)+'"]');
-      sel.hidden=!b.checked;b.closest('.class-row').classList.toggle('on',b.checked);
-      if(b.checked)map.set(b.dataset.class,sel.value);
-    });
-    $('tClassSummary').innerHTML=classSummary(map);
-  };
-  document.querySelectorAll('[data-class]').forEach(b=>b.addEventListener('change',syncClasses));
-  document.querySelectorAll('[data-role]').forEach(sel=>sel.addEventListener('change',syncClasses));
-  $('tCategory').addEventListener('change',()=>saveCategory('teacher',t.id,$('tCategory').value));
-  $('saveTeacher').addEventListener('click',async()=>{
-    const btn=$('saveTeacher');btn.disabled=true;state('Зачувувам…');
-    try{
-      const kind=$('tKind').value;
-      const body={name:personName($('tName').value),kind};
-      // Отсутно поле значи „остави го", `null` значи „тргни го" — серверот ги
-      // разликува, па тука се одлучува намерно: предметен → она што пишува;
-      // станал одделенски сега → се брише; веќе бил одделенски → не се допира.
-      if(kind==='pred')body.subject=tidy($('tSubject').value)||null;
-      else if(openedKind==='pred')body.subject=null;
-      await api('PUT','/api/teaching/teacher/'+t.id,body);
-      const classes=Array.from(document.querySelectorAll('[data-class]')).filter(x=>x.checked)
-        .map(x=>({label:x.dataset.class,role:document.querySelector('[data-role="'+CSS.escape(x.dataset.class)+'"]').value}));
-      await api('PUT','/api/teaching/teacher/'+t.id+'/classes',{year:data.year,classes});
-      await load(data.year);selected.teachers=(data.teachers||[]).find(x=>x.id===t.id)||null;render();
-      state('Зачувано во базата.','ok')}
-    catch(e){state(e.message,'error')}finally{btn.disabled=false}})}
-async function saveCategory(kind,id,value){state('Ја зачувувам категоријата…');try{await api('PUT','/api/categories/holder',{year:data.year,kind,personId:id,categoryId:value?Number(value):null});categoryOf[kind][id]=value?Number(value):null;state('Категоријата е зачувана.','ok')}catch(e){state(e.message,'error');await load(data.year)}}
-function renderTherapists(){const rows=filteredPeople('therapists'),t=selected.therapists;$('content').innerHTML='<div class="split"><section class="master"><div class="master-title">Стручни / терапевти · '+rows.length+'</div><div class="list">'+rows.map((x,i)=>masterRow('therapists',x,i,(x.students||[]).length+' ученици')).join('')+'</div></section><section class="editor">'+(t?therapistEditor(t):'<div class="empty">Избери лице за податоци и список на ученици.</div>')+'</section></div>';bindMaster('therapists');if(t)bindTherapistEditor(t)}function therapistEditor(t){return'<div class="editor-title">Стручен соработник / терапевт</div><div class="field"><label>Име и презиме</label><input id="thName" value="'+esc(t.name)+'"></div><div class="field"><label>Стручна категорија</label><select id="thCategory">'+categoryOptions('therapist',t.id)+'</select></div><div class="actions"><button class="primary" id="saveTherapist">Зачувај податоци</button></div><div class="save-state" id="editorState"></div><div class="caseload"><div class="caseload-head"><b>Ученици кај '+esc(personName(t.name))+'</b><span class="badge" id="selectedCount">'+draftCaseload.size+' избрани</span></div><div class="caseload-grid"><div class="pick-box"><div class="pick-head"><span>Сите ученици</span><input id="caseloadSearch" placeholder="барај"></div><div class="pick-list" id="allStudents"></div></div><div class="pick-box"><div class="pick-head"><span>Избрани</span><span class="badge" id="selectedCount2">'+draftCaseload.size+'</span></div><div class="pick-list" id="selectedStudents"></div></div></div><div class="actions"><button class="primary" id="saveCaseload">Зачувај список</button><button class="soft" id="resetCaseload">Врати</button></div><p class="note">Левата и десната листа се скролаат независно. ✎ отвора податоци за ученикот без да се напушти работниот простор.</p></div>'}
-function bindTherapistEditor(t){$('thCategory').addEventListener('change',()=>saveCategory('therapist',t.id,$('thCategory').value));$('saveTherapist').addEventListener('click',async()=>{const to=tidy($('thName').value),from=t.name;if(!to||to===from){state('Нема промена.');return}const btn=$('saveTherapist');btn.disabled=true;state('Зачувувам…');try{await api('PATCH','/api/therapists/'+encodeURIComponent(from),{name:to});await load(data.year);selected.therapists=(data.therapists||[]).find(x=>tidy(x.name)===to)||selected.therapists;if(selected.therapists){caseloadOriginal=new Set(selected.therapists.students||[]);draftCaseload=new Set(caseloadOriginal)}render();state('Зачувано во базата.','ok')}catch(e){state(e.message,'error')}finally{btn.disabled=false}});$('caseloadSearch').addEventListener('input',drawCaseloadLists);$('resetCaseload').addEventListener('click',()=>{draftCaseload=new Set(caseloadOriginal);drawCaseloadLists()});$('saveCaseload').addEventListener('click',()=>saveCaseload(t));drawCaseloadLists()}function caseloadCandidates(){const needle=tidy($('caseloadSearch')?.value||'').toLocaleLowerCase('mk-MK');return(data.students||[]).filter(s=>s.active!==false).filter(s=>!needle||personName(s.name).toLocaleLowerCase('mk-MK').includes(needle)||String(s.grade||'').toLocaleLowerCase('mk-MK').includes(needle))}
-function drawCaseloadLists(){const all=$('allStudents'),chosen=$('selectedStudents');if(!all||!chosen)return;const rows=caseloadCandidates();all.innerHTML=rows.map(s=>'<label class="pick-row"><input type="checkbox" data-caseload-id="'+esc(s.public_id)+'"'+(draftCaseload.has(s.public_id)?' checked':'')+'><span class="pname">'+esc(personName(s.name))+(s.grade?' · '+esc(s.grade):'')+'</span><button type="button" class="icon" data-edit-student="'+esc(s.public_id)+'" title="Уреди ученик">✎</button></label>').join('');const selectedRows=(data.students||[]).filter(s=>draftCaseload.has(s.public_id));chosen.innerHTML=selectedRows.length?selectedRows.map(s=>'<div class="pick-row"><span></span><span class="pname">'+esc(personName(s.name))+(s.grade?' · '+esc(s.grade):'')+'</span><span><button type="button" class="icon" data-edit-student="'+esc(s.public_id)+'" title="Уреди ученик">✎</button><button type="button" class="icon" data-drop-student="'+esc(s.public_id)+'" title="Тргни од избрани">×</button></span></div>').join(''):'<div class="empty">Нема избрани.</div>';document.querySelectorAll('[data-caseload-id]').forEach(c=>c.addEventListener('change',()=>{c.checked?draftCaseload.add(c.dataset.caseloadId):draftCaseload.delete(c.dataset.caseloadId);drawCaseloadLists()}));document.querySelectorAll('[data-drop-student]').forEach(b=>b.addEventListener('click',()=>{draftCaseload.delete(b.dataset.dropStudent);drawCaseloadLists()}));document.querySelectorAll('[data-edit-student]').forEach(b=>b.addEventListener('click',()=>openStudentFromCaseload(b.dataset.editStudent)));if($('selectedCount'))$('selectedCount').textContent=draftCaseload.size+' избрани';if($('selectedCount2'))$('selectedCount2').textContent=draftCaseload.size}function openStudentFromCaseload(id){returnTherapist=selected.therapists?.id||null;dir='students';selected.students=(data.students||[]).find(s=>s.public_id===id)||null;selectDirButton();render()}
-async function saveCaseload(t){const add=[...draftCaseload].filter(x=>!caseloadOriginal.has(x)),drop=[...caseloadOriginal].filter(x=>!draftCaseload.has(x));if(!add.length&&!drop.length){state('Нема промена.');return}const btn=$('saveCaseload');btn.disabled=true;state('Зачувувам список…');const name=encodeURIComponent(t.name),year='?year='+encodeURIComponent(data.year);try{for(const id of add)await api('PUT','/api/therapists/'+name+'/students/'+encodeURIComponent(id)+year);for(const id of drop)await api('DELETE','/api/therapists/'+name+'/students/'+encodeURIComponent(id)+year);const therapistId=t.id;await load(data.year);selected.therapists=(data.therapists||[]).find(x=>x.id===therapistId)||null;if(selected.therapists){caseloadOriginal=new Set(selected.therapists.students||[]);draftCaseload=new Set(caseloadOriginal)}render();state('Списокот е зачуван: +'+add.length+' / −'+drop.length,'ok')}catch(e){state(e.message,'error');await load(data.year);selected.therapists=(data.therapists||[]).find(x=>x.id===t.id)||null;if(selected.therapists){caseloadOriginal=new Set(selected.therapists.students||[]);draftCaseload=new Set(caseloadOriginal)}render()}finally{btn.disabled=false}}
-function selectDirButton(){document.querySelectorAll('#dirTabs button').forEach(b=>b.classList.toggle('active',b.dataset.dir===dir));$('kindFilter').style.display=dir==='students'?'':'none'}document.querySelectorAll('#dirTabs button').forEach(b=>b.addEventListener('click',()=>{dir=b.dataset.dir;returnTherapist=null;$('search').value='';selectDirButton();render()}));$('search').addEventListener('input',render);$('kindFilter').addEventListener('change',render);$('year').addEventListener('change',()=>load($('year').value));$('refresh').addEventListener('click',()=>load($('year').value));window.addEventListener('mtb:server-state',e=>{const n=$('dbrole');if(!n)return;const d=e.detail||{};
+$('year').addEventListener('change',()=>load($('year').value));$('refresh').addEventListener('click',()=>load($('year').value));window.addEventListener('mtb:server-state',e=>{const n=$('dbrole');if(!n)return;const d=e.detail||{};
   // The installation's own label when it has one; otherwise the machine name,
   // because „БАЗА: —" on a working connection reads as a fault. The role is
   // the one signal a two-computer system may never hide.
@@ -546,7 +224,7 @@ function appSrc(file){const base=activeServer(),root=base&&base!==location.origi
 // The window manager below opens new tabs; it must build the same address.
 window.MTBWorkspaceAppSrc=appSrc;
 window.MTBWorkspaceContext={
-  request:(method,path,body)=>{apiBase=activeServer();return api(method,path,body,true)},
+  request:(method,path,body)=>{apiBase=activeServer();return api(method,path,body)},
   server:activeServer,
   focus:value=>setFocus(value),
   year:()=>$('year').value,
@@ -685,30 +363,15 @@ window.addEventListener('message',e=>{
   if(![...document.querySelectorAll('#main iframe')].some(f=>f.contentWindow===e.source))return;
   const topic=m.topic.slice(0,40),n=nav();passChange(topic,e.source);if(n&&n.dataChanged)n.dataChanged(topic)});
 window.addEventListener('mtb:data-announced',e=>passChange(String((e.detail&&e.detail.topic)||''),null));
-// Панелот се препрочитува кога нешто е запишано на друго место — во рамка
-// или во „Администрација" покрај него — но не додека во неговиот уредувач
-// стои незачуван внес. Скролот на листата и на уредувачот останува.
-['input','change'].forEach(t=>$('content').addEventListener(t,e=>{if(!e.target.closest('#tCategory,#thCategory,#caseloadSearch'))dirEdited=true}));
-async function reloadDirectory(){
-  if(!data)return;
-  const keep=[...$('content').querySelectorAll('.list,.editor')].map(n=>n.scrollTop);
-  await load(data.year);
-  $('content').querySelectorAll('.list,.editor').forEach((n,i)=>{if(keep[i])n.scrollTop=keep[i]});
-}
-{const n=nav();if(n&&n.onDataChange)n.onDataChange(reloadDirectory,{busy:()=>dirEdited,mine:()=>writing>0,sameWindow:true,ignore:['schedule']})}
-
 runStartGate(false).then(()=>{repointFrames();load()});})();
 </script>
 <script>
 (() => {
   'use strict';
   const desktop = document.getElementById('main');
-  const divider = document.getElementById('dockDivider');
-  const panelToggle = document.getElementById('hidePanel');
   const tabs = [...document.querySelectorAll('#appTabs button')];
   const windows = new Map();
   const layoutKey = 'mtb_workspace_layout_v1';
-  const mobile = () => desktop.clientWidth <= 700;
   const finite = (n) => typeof n === 'number' && Number.isFinite(n);
   const clamp = (n, min, max) => Math.min(Math.max(n, min), Math.max(min, max));
   let saved = {};
@@ -716,7 +379,6 @@ runStartGate(false).then(()=>{repointFrames();load()});})();
     const value = JSON.parse(localStorage.getItem(layoutKey));
     if (value?.version === 1 && value.windows && typeof value.windows === 'object') saved = value;
   } catch (_) { /* A blocked or obsolete preference must not block the workspace. */ }
-  let dockWidth = finite(saved.dockWidth) ? saved.dockWidth : 560;
   let activeDocked = 'scheduleWindow';
   let focused = 'scheduleWindow';
   let order = [];
@@ -738,9 +400,8 @@ runStartGate(false).then(()=>{repointFrames();load()});})();
   }
   function defaultRect(id) {
     const area = bounds();
-    const directory = id === 'directoryWindow';
-    const width = directory ? Math.min(600, area.width - 32) : Math.min(960, area.width * .78);
-    return constrain({ x: directory ? area.width - width - 24 : 28 + windows.size * 18, y: 24 + windows.size * 12, width, height: area.height * .84 });
+    const width = Math.min(960, area.width * .78);
+    return constrain({ x: 28 + windows.size * 18, y: 24 + windows.size * 12, width, height: area.height * .84 });
   }
   function readRect(value, fallback) {
     return value && ['x', 'y', 'width', 'height'].every(k => finite(value[k])) && value.width > 0 && value.height > 0
@@ -754,36 +415,23 @@ runStartGate(false).then(()=>{repointFrames();load()});})();
       if (saved.windows?.[id]) preferences[id] = saved.windows[id];
     }
     for (const [id, win] of windows) {
-      preferences[id] = { mode: win.mode, pinned: win.pinned, maximized: win.maximized, rect: win.rect,
-        ...(id === 'directoryWindow' && !mobile() ? { hidden: win.hidden } : {}) };
+      preferences[id] = { mode: win.mode, pinned: win.pinned, maximized: win.maximized, rect: win.rect };
     }
-    saved = { version: 1, dockWidth, windows: preferences };
+    saved = { version: 1, windows: preferences };
     try { localStorage.setItem(layoutKey, JSON.stringify(saved)); } catch (_) { /* Layout still works without storage. */ }
   }
   function announce(text) { document.getElementById('windowAnnouncement').textContent = text; }
   function render() {
-    const directory = windows.get('directoryWindow');
-    // 360, not 260: below it the pupil list wrapped names into two lines.
-    const maxDock = Math.max(360, desktop.clientWidth - 320 - 72);
-    dockWidth = clamp(dockWidth, 360, maxDock);
-    desktop.style.setProperty('--directory-width', dockWidth + 'px');
-    desktop.classList.toggle('panel-hidden', Boolean(directory?.hidden));
-    desktop.classList.toggle('directory-undocked', directory?.mode === 'floating');
-    panelToggle.textContent = directory?.hidden ? 'Податоци' : 'Скриј податоци';
-    panelToggle.setAttribute('aria-expanded', String(!directory?.hidden));
-    divider.setAttribute('aria-valuemin', '360');
-    divider.setAttribute('aria-valuemax', String(maxDock));
-    divider.setAttribute('aria-valuenow', String(Math.round(dockWidth)));
     for (const [id, win] of windows) {
       const el = win.el;
-      const visible = !win.hidden && (id === 'directoryWindow' || win.mode === 'floating' || id === activeDocked);
+      const visible = !win.hidden && (win.mode === 'floating' || id === activeDocked);
       el.hidden = !visible;
       el.dataset.mode = win.mode;
       el.dataset.pinned = String(win.pinned);
       el.dataset.maximized = String(win.maximized);
       el.classList.toggle('is-focused', focused === id);
       // Pinning is a separate layer; focusing an ordinary window cannot overtake it.
-      el.style.zIndex = String(win.mode === 'docked' ? (id === 'directoryWindow' ? 2 : 1) : (win.pinned ? 100 : 10) + order.indexOf(id));
+      el.style.zIndex = String(win.mode === 'docked' ? 1 : (win.pinned ? 100 : 10) + order.indexOf(id));
       if (win.mode === 'floating') {
         win.rect = constrain(win.rect);
         Object.assign(el.style, { left: win.rect.x + 'px', top: win.rect.y + 'px', width: win.rect.width + 'px', height: win.rect.height + 'px' });
@@ -808,6 +456,8 @@ runStartGate(false).then(()=>{repointFrames();load()});})();
     }
   }
   function focusWindow(win) {
+    // Late autofocus from a hidden iframe must never steal the selected tab.
+    if (win.hidden || win.el.hidden) return;
     focused = win.id;
     order = order.filter(id => id !== win.id).concat(win.id);
     render();
@@ -821,7 +471,7 @@ runStartGate(false).then(()=>{repointFrames();load()});})();
     if (action === 'float') {
       win.mode = win.mode === 'docked' ? 'floating' : 'docked';
       win.maximized = false;
-      if (win.mode === 'docked') { win.pinned = false; if (win.id !== 'directoryWindow') activeDocked = win.id; }
+      if (win.mode === 'docked') { win.pinned = false; activeDocked = win.id; }
     } else if (action === 'pin') {
       floatWindow(win);
       win.pinned = !win.pinned;
@@ -830,15 +480,15 @@ runStartGate(false).then(()=>{repointFrames();load()});})();
       if (!win.maximized) { win.beforeMaxMode = win.mode; floatWindow(win); win.maximized = true; }
       else {
         win.maximized = false; win.mode = win.pinned ? 'floating' : win.beforeMaxMode || 'floating';
-        if (win.mode === 'docked' && win.id !== 'directoryWindow') activeDocked = win.id;
+        if (win.mode === 'docked') activeDocked = win.id;
       }
     } else if (action === 'minimize') {
       win.hidden = true;
       announce(win.title + ' е скриен. Отвори го повторно од горната лента.');
     }
-    focusWindow(win);
+    if (win.hidden) render(); else focusWindow(win);
     persist();
-    if (win.hidden) (win.id === 'directoryWindow' ? panelToggle : tabs.find(tab => appId(tab.dataset.app) === win.id))?.focus();
+    if (win.hidden) tabs.find(tab => appId(tab.dataset.app) === win.id)?.focus();
   }
   function wireFrame(win, frame) {
     const loaded = () => {
@@ -857,9 +507,7 @@ runStartGate(false).then(()=>{repointFrames();load()});})();
     const pref = saved.windows?.[id];
     const win = { el, id, title, mode: pref?.mode === 'floating' ? 'floating' : 'docked',
       pinned: pref?.mode === 'floating' && pref?.pinned === true, maximized: pref?.mode === 'floating' && pref?.maximized === true,
-      // The side panel stays put away once the person put it away (owner, 2 Oct
-      // 2026): it used to come back on every load.
-      rect: readRect(pref?.rect, defaultRect(id)), hidden: id === 'directoryWindow' && (mobile() || pref?.hidden === true) };
+      rect: readRect(pref?.rect, defaultRect(id)), hidden: false };
     windows.set(id, win);
     order.push(id);
     el.dataset.windowId = id;
@@ -923,7 +571,7 @@ runStartGate(false).then(()=>{repointFrames();load()});})();
     target.focus({ preventScroll: true });
     const rect = win ? { ...win.rect } : null;
     gesture = { win, edge, target, pointerId: event.pointerId, x: event.clientX, y: event.clientY, rect, originalRect: rect,
-      mode: win?.mode, maximized: win?.maximized, dockWidth, started: false };
+      mode: win?.mode, maximized: win?.maximized, started: false };
     target.setPointerCapture(event.pointerId);
     desktop.classList.add('is-arranging');
   }
@@ -939,8 +587,7 @@ runStartGate(false).then(()=>{repointFrames();load()});})();
       g.rect = constrain({ ...g.win.rect, x: g.x - area.left - g.win.rect.width * ratio, y: g.y - area.top - 19 });
     }
     g.started = true;
-    if (!g.win) dockWidth = g.dockWidth - dx;
-    else if (g.edge === 'move') g.win.rect = constrain({ ...g.rect, x: g.rect.x + dx, y: g.rect.y + dy });
+    if (g.edge === 'move') g.win.rect = constrain({ ...g.rect, x: g.rect.x + dx, y: g.rect.y + dy });
     else resize(g.win, g.rect, g.edge, dx, dy);
     render();
   });
@@ -949,7 +596,6 @@ runStartGate(false).then(()=>{repointFrames();load()});})();
     if (!g) return;
     gesture = null;
     if (cancel) {
-      dockWidth = g.dockWidth;
       if (g.win) { g.win.mode = g.mode; g.win.maximized = g.maximized; g.win.rect = g.originalRect || g.rect; }
     }
     if (g.target.hasPointerCapture(g.pointerId)) g.target.releasePointerCapture(g.pointerId);
@@ -960,18 +606,8 @@ runStartGate(false).then(()=>{repointFrames();load()});})();
   desktop.addEventListener('pointercancel', () => finishGesture(true));
   desktop.addEventListener('lostpointercapture', () => finishGesture(true));
   document.addEventListener('keydown', event => { if (event.key === 'Escape' && gesture) { event.preventDefault(); finishGesture(true); } });
-  divider.addEventListener('pointerdown', event => startGesture(event, null, 'dock', divider));
-  divider.addEventListener('keydown', event => {
-    if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
-    event.preventDefault();
-    if (event.key === 'Home') dockWidth = 360;
-    else if (event.key === 'End') dockWidth = desktop.clientWidth - 320 - 72;
-    else dockWidth += (event.key === 'ArrowLeft' ? 1 : -1) * (event.shiftKey ? 48 : 16);
-    render(); persist();
-  });
   function appId(file) { return file === 'RasporediFusion.html' ? 'scheduleWindow' : 'app-' + file.replace(/\.html$/, ''); }
   register(document.getElementById('scheduleWindow'), 'scheduleWindow', 'Кабинети');
-  register(document.getElementById('directoryWindow'), 'directoryWindow', 'Заеднички податоци');
   for (const tab of tabs) tab.addEventListener('click', () => {
     const id = appId(tab.dataset.app);
     let win = windows.get(id);
@@ -1006,9 +642,11 @@ runStartGate(false).then(()=>{repointFrames();load()});})();
         }
       } catch (_) { /* another origin: cannot be read, and is not re-pointed on a guess */ }
     }
-    win.hidden = false;
-    if (win.mode === 'docked') activeDocked = id;
-    if (mobile()) windows.get('directoryWindow').hidden = true;
+    // An explicit tab choice wins over a saved floating, maximized or pinned
+    // window. Keep every iframe and its draft; only its visibility changes.
+    for (const other of windows.values()) other.hidden = other !== win;
+    activeDocked = id;
+    win.el.hidden = false;
     focusWindow(win);
     if (!restoring && shellHistory) shellHistory.step({ app: tab.dataset.app });
   });
@@ -1069,27 +707,6 @@ runStartGate(false).then(()=>{repointFrames();load()});})();
     const tab = tabs.find((t) => t.dataset.app.toLowerCase() === msg.file.toLowerCase());
     if (tab) tab.click();
   });
-  panelToggle.addEventListener('click', () => {
-    const win = windows.get('directoryWindow');
-    win.hidden = !win.hidden;
-    if (!win.hidden) focusWindow(win); else render();
-    persist();
-  });
-  // The activity bar: a section opens the panel on it; the section already
-  // open folds the panel away. Capture phase, so "was it the open one?" is
-  // read before the section handler marks the click as the open one.
-  document.getElementById('dirTabs').addEventListener('click', (event) => {
-    const button = event.target.closest('button[data-dir]');
-    if (!button) return;
-    const win = windows.get('directoryWindow');
-    if (win.hidden) { win.hidden = false; focusWindow(win); persist(); return; }
-    if (button.classList.contains('active')) {
-      event.stopPropagation();
-      win.hidden = true;
-      render(); persist();
-    }
-  }, true);
-
   /* ── почетен прозорец и лентата (сопственикот, 2 октомври 2026) ───────────
    *
    * Секојдневната работа е во еден прозорец; другите се за денот кога требаат.
@@ -1149,11 +766,11 @@ runStartGate(false).then(()=>{repointFrames();load()});})();
   }
   paintHome();
   document.getElementById('resetLayout').addEventListener('click', () => {
-    saved = {}; dockWidth = 560;
-    if (windows.has(focused) && focused !== 'directoryWindow') activeDocked = focused;
+    saved = {};
+    if (windows.has(focused)) activeDocked = focused;
     for (const win of windows.values()) {
       win.mode = 'docked'; win.pinned = false; win.maximized = false;
-      win.hidden = win.id === 'directoryWindow' && mobile(); win.rect = defaultRect(win.id);
+      win.hidden = win.id !== activeDocked; win.rect = defaultRect(win.id);
     }
     focusWindow(windows.get(activeDocked)); persist();
     announce('Вратен е почетниот распоред. Отворените податоци се задржани.');

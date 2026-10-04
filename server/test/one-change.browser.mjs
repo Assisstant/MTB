@@ -16,7 +16,7 @@
  *   3. A pupil whose class is not on the year's list shows that class, marked
  *      „неактивна", instead of „— без одделение —".
  *   4. In the workspace, a class added in the Податоци window reaches
- *      „Администрација" and „Заеднички податоци" in the shell, and a pupil
+ *      „Администрација" in the shell (the duplicate directory is gone), and a pupil
  *      saved in „Администрација" reaches the Податоци window without
  *      „Администрација" redrawing over its own „Зачувано". This part runs
  *      with BroadcastChannel removed, so the only way through is the shell
@@ -234,7 +234,7 @@ const browser = await chromium.launch({ ...(process.env.CHROME ? { executablePat
     await frame.locator('#addClass').click();
     await page.waitForTimeout(1600);
     check('„Администрација" read its list again', countReads('shell', '/api/workspace', 'MTB-Workspace.html') > adminBefore);
-    check('„Заеднички податоци" read its list again too', countReads('shell', '/api/roster', 'MTB-Workspace.html') > dirBefore);
+    check('the shell no longer reads a duplicate directory', countReads('shell', '/api/roster', 'MTB-Workspace.html') === 0 && dirBefore === 0);
     await page.click('#openMasterAdmin');
     const filter = await page.$$eval('#maClass option', (os) => os.map((o) => o.value));
     check('„Администрација" offers the class in its filter', filter.includes('VI-д'), filter.join(', '));

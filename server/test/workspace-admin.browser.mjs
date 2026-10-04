@@ -119,17 +119,15 @@ try{
    const w=await context.newPage();w.on('pageerror',e=>errors.push(e.message));
    const adminHidden=()=>w.locator('#masterAdmin').evaluate(n=>n.hidden);
    const activeTab=()=>w.locator('#appTabs button.active').textContent();
-   const panelHidden=()=>w.locator('#main').evaluate(n=>n.classList.contains('panel-hidden'));
    await w.goto(base+'/MTB-Workspace.html');await w.waitForFunction(()=>document.querySelector('#appTabs button.active')?.dataset.app==='S-Dnevnik.html');
    assert.equal(await adminHidden(),true,'S-Дневник opens by default without setup');
    await w.locator('#appTabs [data-app="S-Dnevnik.html"]').click();
-   assert.equal(await panelHidden(),false,'the side panel is open until the person puts it away');
-   await w.locator('#hidePanel').click();
+   assert.equal(await w.locator('#directoryWindow,#hidePanel,.activity-rail').count(),0,'the duplicate directory is removed');
    assert.equal(await w.locator('#setHome').getAttribute('aria-pressed'),'true');
    await w.goto(base+'/MTB-Workspace.html');await w.waitForFunction(()=>document.querySelector('#appTabs button.active'));
    assert.equal(await adminHidden(),true,'the remembered start window opens instead of Администрација');
    assert.equal(await activeTab(),'S-Дневник');
-   assert.equal(await panelHidden(),true,'the side panel stays put away');
+   assert.equal(await w.locator('#directoryWindow').count(),0,'reload does not recreate the retired panel');
    await w.goto(base+'/MTB-Workspace.html?app=admin');await w.locator('#maSearch').waitFor();
    assert.equal(await adminHidden(),false,'a window named in the address still wins');
    await w.goto(base+'/MTB-Workspace.html?app=Podatoci.html');await w.waitForFunction(()=>document.querySelector('#appTabs button.active')?.dataset.app==='Podatoci.html');
@@ -143,7 +141,7 @@ try{
    const after=await frame.boundingBox();
    assert.ok(after.height>=before.height && after.height>500,'hiding the toolbar preserves the full diary viewport');
    assert.equal(await w.locator('#app-S-Dnevnik > .window-titlebar').isVisible(),true,'window controls stay visible');
-   assert.equal(await w.locator('.activity-rail').isVisible(),true,'side rail stays visible');
+   assert.equal(await w.locator('.activity-rail').count(),0,'the retired panel has no side rail');
    assert.equal(await w.frameLocator('#app-S-Dnevnik iframe').locator('#fixtureDraft').inputValue(),'unsaved layout test','toggle preserves the iframe and draft');
    assert.equal(await w.locator('#appTabs').isVisible(),false);assert.equal(await w.locator('#showBar').isVisible(),true);
    assert.ok((await w.locator('.topbar').boundingBox()).height<=24,'what is left of the bar is a thin strip');

@@ -10,9 +10,12 @@
   „Неповрзани третмани“, „Екстерни без доделено одделение“ and a lesson's
   panel — where a session with no class, or an unknown one, is fixed on the
   pupil (`test:nastava-doors`). Still to come: Уреди настава, Евидентен лист.
-  The Панел and Администрација keep their inline editors until A1 is
-  decided: the shared form is a modal over the whole Workspace, the Панел is
-  not, so replacing one with the other is the owner's choice, not a detail.
+- **Owner decision, 4 October:** remove the detachable „Заеднички податоци“
+  panel and its duplicate editors. Its functions already live in Податоци,
+  Кабинети and the shared pupil form (mapping in APP-CONTRACT.md). The tables
+  below remain the historical 24 September audit; references to Панел no
+  longer describe a current screen. Администрација's broader fields and A1
+  remain separate work; this change does not replace its editors.
 
 **Status, 24 September 2026:**
 - **The map** (part 3) was read from the code on `main` (`d9d6fe6`), not from

@@ -177,27 +177,7 @@ const errors = [];
     check('with the same hover', hoverHas(admin.title), admin.title);
     check('and the pupil\'s class is chosen', admin.value === 'II-б', admin.value);
 
-    console.log('\n„Заеднички податоци"');
-    await page.click('#maClose');
-    // The section that is already open folds the panel away, so it is
-    // pressed only when the panel is not showing.
-    if (!(await page.isVisible('#content'))) await page.click('#dirTabs [data-dir="students"]');
-    await page.waitForSelector('#content [data-pick="p2"]', { timeout: 8000 });
-    await page.click('#content [data-pick="p2"]');
-    const panel = await picker(page, '#sGrade');
-    check('the pupil\'s class says the same line', panel.text === LINE, panel.text);
-    check('with the same hover', hoverHas(panel.title), panel.title);
-    await page.click('#dirTabs [data-dir="classes"]');
-    await page.waitForSelector('#content .master [data-pick="2"]', { timeout: 8000 });
-    const listed = await page.$eval('#content .master [data-pick="2"]', (b) => ({ text: b.querySelector('.name').textContent, title: b.title }));
-    check('a class in the list says the same line', listed.text === LINE, listed.text);
-    check('and hovers the whole row', hoverHas(listed.title), listed.title);
-    await page.fill('#search', 'Втора');
-    const found = await page.$$eval('#content .master [data-pick]', (bs) => bs.map((b) => b.dataset.pick));
-    check('a class is found by its teacher', found.length === 1 && found[0] === '2', found.join(', '));
-    await page.fill('#search', 'аутизам');
-    const byWords = await page.$$eval('#content .master [data-pick]', (bs) => bs.map((b) => b.dataset.pick));
-    check('and by its words', byWords.length === 1 && byWords[0] === '1', byWords.join(', '));
+    check('the retired duplicate directory is absent', await page.locator('#directoryWindow').count() === 0);
     await context.close();
 }
 
