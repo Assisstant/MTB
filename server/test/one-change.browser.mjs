@@ -217,7 +217,8 @@ const browser = await chromium.launch({ ...(process.env.CHROME ? { executablePat
     const errors = [];
     page.on('pageerror', (e) => errors.push(e.message));
     watch(page, 'shell');
-    await page.goto(`${ORIGIN}/MTB-Workspace.html`);
+    // The bare workspace opens S-Дневник (2 Oct 2026); this part starts in „Администрација".
+    await page.goto(`${ORIGIN}/MTB-Workspace.html?app=admin`);
     await page.waitForSelector('#maList [data-ma-id="p-ana"]', { timeout: 10000 });
 
     console.log('\nthe workspace, with the channel taken away');

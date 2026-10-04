@@ -491,9 +491,10 @@
         const node = el('status');
         node.textContent = text || '';
         node.className = 'status' + (kind ? ' ' + kind : '');
-        let dataState = kind === 'error' ? 'error' : kind === 'warn' ? 'warning' : 'readonly';
-        if (/вчитув|проверув/i.test(text || '')) dataState = 'loading';
-        const detail = { state: dataState, text: text || 'Само читање од базата' };
+        // Not „само читање": the unlocked teacher week writes lessons from here.
+        let dataState = kind === 'error' ? 'error' : kind === 'warn' ? 'warning' : 'synced';
+        if (/вчитув|проверув|подготвув/i.test(text || '')) dataState = 'loading';
+        const detail = { state: dataState, text: text || 'Вчитано од базата' };
         window.__MTB_DATA_STATE__ = detail;
         window.dispatchEvent(new CustomEvent('mtb:data-state', { detail }));
     }

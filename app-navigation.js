@@ -46,7 +46,8 @@
     const HEALTH_INTERVAL = 15000;
     const TOKEN_KEY = 'evidence_token_v1';
     const LOCAL_FIRST = new Set(['s-dnevnik.html', 'rasporedi.html']);
-    const READ_ONLY = new Set(['nastava.html', 'pregled-baza.html', 'sinhronizacija.html']);
+    // Not Nastava: its unlocked teacher week (🔓, mtb-teacher-week.js) writes lessons.
+    const READ_ONLY = new Set(['pregled-baza.html', 'sinhronizacija.html']);
 
     let healthTimer = null;
     let healthRequest = 0;

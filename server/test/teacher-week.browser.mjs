@@ -190,6 +190,9 @@ try {
     await page.waitForSelector('#grid td.p-cell select.p-subj', { timeout: 5000 }).catch(() => {});
     check('and the same 🔓 opens its pickers', (await page.$$('#grid select.p-subj')).length > 0);
     check('the bar\'s ✏️ switch agrees', (await page.getAttribute('#personalEdit', 'aria-pressed')) === 'true');
+    // A page that writes lessons must not call itself read-only in the shared bar.
+    const said = await page.evaluate(() => window.__MTB_DATA_STATE__ || {});
+    check('and the bar does not say „само читање"', said.state !== 'readonly' && !/само читање/i.test(said.text || ''), JSON.stringify(said));
     await page.click('#personalEdit');
 } finally {
     check('no page errors', errors.length === 0, errors.join('\n       '));

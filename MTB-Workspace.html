@@ -994,10 +994,13 @@ runStartGate(false).then(()=>{repointFrames();load()});})();
     // the tab used to leave it wherever it had gone, highlighted as something
     // it no longer was. Only a same-origin frame can be read; a frame from
     // another machine is left alone rather than guessed about.
+    // A frame that has not loaded yet is still about:blank — not a window that
+    // wandered. Re-pointing it then started the same app a second time.
     const frame = win.el.querySelector('iframe[data-app-file]');
     if (frame) {
       try {
-        const here = decodeURIComponent((frame.contentWindow.location.pathname || '').split('/').pop());
+        const where = frame.contentWindow.location;
+        const here = where.protocol === 'about:' ? '' : decodeURIComponent((where.pathname || '').split('/').pop());
         if (here && here.toLowerCase() !== tab.dataset.app.toLowerCase()) {
           frame.src = (window.MTBWorkspaceAppSrc || ((f) => f))(tab.dataset.app);
         }

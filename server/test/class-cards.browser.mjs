@@ -165,7 +165,8 @@ const errors = [];
     page.on('pageerror', (e) => errors.push(e.message));
 
     console.log('\n„Администрација"');
-    await page.goto(`${ORIGIN}/MTB-Workspace.html`);
+    // The bare workspace opens S-Дневник (2 Oct 2026); this part starts in „Администрација".
+    await page.goto(`${ORIGIN}/MTB-Workspace.html?app=admin`);
     await page.waitForSelector('#maList [data-ma-id="p2"]', { timeout: 10000 });
     const filter = await picker(page, '#maClass');
     check('the class filter says the same line', filter.text === LINE, filter.text);

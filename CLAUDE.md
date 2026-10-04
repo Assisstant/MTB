@@ -138,7 +138,7 @@ the machine's local PostgreSQL database.
 | `Rasporedi.html` | legacy JSON compatibility/recovery only; never advertise it as an app |
 | `S-Dnevnik.html` | one therapist's diary: attendance, plans, dossiers, assessments, audiograms |
 | `Pregled-Baza.html` | read-only overview of the database |
-| `Nastava.html` | who is missing from which lesson — reads the server, stores nothing |
+| `Nastava.html` | who is missing from which lesson — reads the server; its unlocked teacher week (🔓) writes lessons; it keeps no data of its own |
 | `NastavaUredi.html` | the school timetable, editable cell by cell — writes the server, stores nothing |
 | `Podatoci.html` | the lists a year is made of: students, teachers, therapists, classes |
 | `AkciskiPlan.html` | евидентен лист: one pupil's development record, filled section by section by the whole team |
