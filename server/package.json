@@ -104,6 +104,8 @@
     "test:plan-sync": "node test/sdnevnik-plan-sync.browser.mjs",
     "test:zero-id": "node test/sdnevnik-zero-id.browser.mjs",
     "test:diary-list": "node test/sdnevnik-caseload.browser.mjs",
+    "test:twins": "node test/podatoci-twins.browser.mjs",
+    "test:merge": "node test/with-scratch.mjs test/student-merge.e2e.ts",
     "diary:merge": "tsx scripts/merge-diary-pupils.ts",
     "diary:check": "tsx scripts/diary-check.ts",
     "test:teacher-week": "node test/teacher-week.browser.mjs",

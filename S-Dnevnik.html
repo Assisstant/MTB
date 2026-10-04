@@ -11733,6 +11733,14 @@
                         }).then(function (res) {
                             if (res.status === 409) {
                                 return res.json().catch(function () { return {}; }).then(function (b) {
+                                    // Базата веќе го држи токму тоа што го праќаме (на пр. по
+                                    // спојување на двојник ознаката е преместена таму): тоа е
+                                    // согласност, не судир — се памети и не се пријавува.
+                                    if ((b.actual || null) === (job.mark ? job.mark.s : null)) {
+                                        if (job.mark) seen[job.key] = job.mark; else delete seen[job.key];
+                                        saveSeen();
+                                        return true;
+                                    }
                                     say('Ознаката за ' + at.date + ' е сменета на друго место — таму стои „' +
                                         (b.actual || 'ништо') + '". Синхронизирај пред да продолжиш.');
                                     return true;             // не запирај заради една
@@ -11740,6 +11748,9 @@
                             }
                             if (res.status === 404) {
                                 return res.json().catch(function () { return {}; }).then(function (b) {
+                                    // Бришење ознака на број што базата не го знае (спојан
+                                    // двојник): нема што да се брише никаде — се заборава.
+                                    if (!job.mark && b && b.unlinked) { delete seen[job.key]; saveSeen(); return true; }
                                     say((b && b.error) || 'ученикот сè уште не е поврзан со базата');
                                     return true;
                                 });
@@ -11880,6 +11891,12 @@
                         }).then(function (res) {
                             if (res.status === 409) {
                                 return res.json().catch(function () { return {}; }).then(function (b) {
+                                    // Базата веќе го има истиот термин: согласност, се памети.
+                                    if (b && Array.isArray(b.actual) && sameSlot(b.actual.map(String), job.students)) {
+                                        slotsSeen[job.key] = job.students.slice();
+                                        saveSlotsSeen();
+                                        return true;
+                                    }
                                     say('Терминот ' + parts[0] + ' #' + (parseInt(parts[1], 10) + 1) +
                                         ' е сменет на друго место. Синхронизирај пред да продолжиш.');
                                     return true;

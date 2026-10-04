@@ -293,6 +293,14 @@
     .subject-fill p { margin: 8px 0 4px; font-size: 13px; }
     .subject-fill ul { margin: 0; padding: 0; list-style: none; display: flex; flex-wrap: wrap; gap: 6px; }
     .subject-fill .act { margin-top: 10px; }
+    /* 👥 Ученици: one child held twice, the two rows side by side (4 Oct 2026). */
+    .twin-pair { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--toggle-border); }
+    .twin-pair:first-of-type { border-top: 0; padding-top: 0; }
+    .twin-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 8px; }
+    .twin-card { padding: 8px 10px; border: 1px solid var(--toggle-border); border-radius: 8px; font-size: 13px; color: var(--text); background: var(--card); }
+    .twin-card b { font-size: 14px; }
+    .twin-card .facts { margin: 4px 0 8px; color: var(--muted); line-height: 1.45; }
+    .twin-card.suggested { border-width: 2px; }
     .class-actions { display: flex; justify-content: flex-end; gap: 6px; }
     .class-actions .btn { white-space: nowrap; }
 
@@ -452,6 +460,7 @@
             <button class="btn" id="addStudent">+ Додај</button>
         </div>
         <p class="hint">Екстерен ученик може да посетува подготвителна или модифицирана настава кај нас. Избери го неговото одделение/група; остави празно ако доаѓа само на третмани.</p>
+        <div id="studentTwins" class="subject-fill" hidden></div>
         <div class="scroll"><div id="students"></div></div>
         <div class="suggestions" id="studentCandidates"></div>
     </div>
@@ -1086,6 +1095,7 @@
             data = body;
             closePickers();
             draw();
+            loadTwins();
             status((PUBLISHED ? serverName(apiBase) + ' · ' : '')
                  + `${body.year}${body.isCurrentYear ? '' : ' · архивска година'} · `
                  + `${body.students.length} ученици · ${body.teachers.length} наставници · `
@@ -3430,6 +3440,81 @@
         });
     }
 
+    /**
+     * One child, two rows (owner, 4 Oct 2026): „да имаме две деца, односно два
+     * записи, е многу поголем проблем" than a misspelt surname. The server
+     * lists rows whose names match or differ by a letter per part; the person
+     * picks which row stays, and EVERYTHING of the other moves onto it
+     * (lib/student-merge.ts). „Не се исти" is remembered in this browser.
+     */
+    const NOT_SAME_KEY = 'mtb_podatoci_not_same_v1';
+    const notSame = () => { try { return JSON.parse(localStorage.getItem(NOT_SAME_KEY) || '[]') || []; } catch (_) { return []; } };
+    const pairKey = (a, b) => [a, b].sort().join('|');
+    let twins = [];
+    async function loadTwins() {
+        const box = el('studentTwins');
+        try {
+            const r = await api('GET', '/api/roster/look-alike?year=' + encodeURIComponent(data.year));
+            const skip = notSame();
+            twins = (r.pairs || []).filter((p) => !skip.includes(pairKey(p.a.public_id, p.b.public_id)));
+        } catch (_) { twins = []; }
+        if (!twins.length) { box.hidden = true; box.innerHTML = ''; return; }
+        // The likelier keeper: on this year's list, then whichever holds more.
+        const weight = (x) => (x.enrolled ? 1000 : 0) + x.terms * 10 + x.marks + x.records + (x.diary ? 5 : 0) + x.therapists.length;
+        const card = (x, other, suggested) => {
+            const facts = [
+                x.enrolled ? `на списокот ${esc(data.year)}${x.grade ? ' · ' + esc(x.grade) : ''}` : `не е на списокот годинава${x.last_year ? ' (последно ' + esc(x.last_year) + ')' : ''}`,
+                x.therapists.length ? 'кај ' + x.therapists.map((t) => esc(personName(t))).join(', ') : 'без терапевт',
+                `${x.terms} термин(и) · ${x.marks} ознаки · ${x.records} записи`,
+                x.diary ? 'поврзан со дневникот' : ''
+            ].filter(Boolean).join('<br>');
+            return `<div class="twin-card${suggested ? ' suggested' : ''}"><b>${esc(personName(x.name))}</b>${suggested ? ' <span class="hint">· предлог</span>' : ''}`
+                + `<div class="facts">${facts}</div>`
+                + `<button type="button" class="btn" data-twin-keep="${esc(x.public_id)}" data-twin-fold="${esc(other.public_id)}">Спои — остави го овој</button></div>`;
+        };
+        box.hidden = false;
+        box.innerHTML = `<h3>Можеби исто дете запишано двапати — ${twins.length}</h3>`
+            + '<p>Ако е истото дете, спојте ги: сите записи (упис, терапевти, термини, присуство, досие, проценки, евидентен лист, дневник) преминуваат на редот што го оставате. Името потоа лесно се поправа.</p>'
+            + twins.map((p) => {
+                const aFirst = weight(p.a) >= weight(p.b);
+                return `<div class="twin-pair" data-twin="${esc(pairKey(p.a.public_id, p.b.public_id))}"><div class="twin-cards">`
+                    + card(p.a, p.b, aFirst) + card(p.b, p.a, !aFirst) + '</div>'
+                    + `<div class="act"><button type="button" class="btn soft" data-twin-not="${esc(pairKey(p.a.public_id, p.b.public_id))}">Не се исти</button></div></div>`;
+            }).join('');
+    }
+    async function mergeTwin(button) {
+        const keep = button.dataset.twinKeep, fold = button.dataset.twinFold;
+        const pair = twins.find((p) => [p.a.public_id, p.b.public_id].includes(keep) && [p.a.public_id, p.b.public_id].includes(fold));
+        if (!pair) return;
+        const k = pair.a.public_id === keep ? pair.a : pair.b, f = pair.a.public_id === keep ? pair.b : pair.a;
+        if (!window.confirm(`Да се спојат во еден ученик?\n\nОстанува:  ${personName(k.name)}${k.grade ? ' (' + k.grade + ')' : ''}\n`
+            + `Се влева во него:  ${personName(f.name)}${f.grade ? ' (' + f.grade + ')' : ''}\n\n`
+            + 'Уписот, терапевтите, термините, присуството, досието, проценките, евидентниот лист и записите во дневникот на вториот преминуваат кај првиот. '
+            + 'Вториот ред останува во базата, неактивен, со белешка каде е споен — не се брише.')) return;
+        button.disabled = true;
+        try {
+            const done = await api('POST', '/api/roster/merge', { keep, fold });
+            const kept = Object.values(done.sameFact || {}).reduce((n, x) => n + x, 0);
+            status(`Споено во „${personName(k.name)}“.`
+                + (kept ? ` ${kept} записи ги имаа двата — останаа оние на „${personName(k.name)}“.` : '')
+                + (done.clashes && done.clashes.length ? ` Сега има два термина во исто време: ${done.clashes.join(', ')} — испразнете еден во Кабинети.` : ''),
+                done.clashes && done.clashes.length ? 'warn' : 'ok', { toast: true });
+        } catch (err) {
+            status('Не е споено: ' + err.message, err.status === 409 ? 'warn' : 'error', { toast: true });
+        }
+        await load();
+    }
+    function wireTwins() {
+        el('studentTwins').addEventListener('click', (event) => {
+            const merge = event.target.closest('[data-twin-keep]');
+            if (merge) return mergeTwin(merge);
+            const no = event.target.closest('[data-twin-not]');
+            if (!no) return;
+            try { localStorage.setItem(NOT_SAME_KEY, JSON.stringify(notSame().concat(no.dataset.twinNot))); } catch (_) { /* ќе праша пак */ }
+            loadTwins();
+        });
+    }
+
     function setNumberVisibility() {
         document.body.classList.toggle('hide-list-numbers', !el('showRowNumbers').checked);
     }
@@ -3442,6 +3527,7 @@
     el('formsRefresh').addEventListener('click', () => loadForms());
     wireLook();
     wireSecurity();
+    wireTwins();
     wireSubjects();
     document.querySelector('label[for="formsFiles"]').addEventListener('keydown', (e) => {
         if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); el('formsFiles').click(); }
