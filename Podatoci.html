@@ -245,6 +245,13 @@
     .look-sample { position: absolute; right: 12px; bottom: 8px; font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
                    font-weight: 600; line-height: 1.2; letter-spacing: .02em; pointer-events: none; }
     .look-size { max-width: 520px; }
+    /* Колеги → „Линкови и пристап": one card per kind of access, side by side. */
+    .access-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px; margin: 8px 0 18px; }
+    .access-card { border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; background: var(--card); min-width: 0; }
+    .access-card h4 { margin: 0 0 6px; font-size: 1.02em; }
+    .access-card .controls { flex-wrap: wrap; }
+    .access-list { margin: 4px 0 8px 18px; padding: 0; }
+    .access-list li { margin: 2px 0; }
     .form-results { list-style: none; padding: 0; margin: 0 0 12px; font-size: 13px; }
     .form-results li { padding: 3px 0; }
     .form-results .ok { color: var(--ok); }
@@ -528,46 +535,64 @@
     <div class="panel tab" id="tab-colleagues">
         <h2>Колеги онлајн</h2>
         <p class="hint">
-            Секој колега ја пополнува својата недела: наставникот своите часови, раководителот часовите на
-            својата паралелка, терапевтот својот кабинет. Судирот се кажува пред зачувување. Ако сепак се
-            запише, засегнатиот колега добива известување, а судирот се затвора сам кога едната страна ќе се
-            помести. Корисничкото име е името и презимето споени, на кирилица или латиница. Почетната лозинка
-            е <b>ResursenCentar</b>; смената им се нуди, не е задолжителна.
+            Секој колега ја пополнува својата недела во Колега: наставникот своите часови, раководителот часовите
+            на својата паралелка, терапевтот својот кабинет. Судирот се кажува пред зачувување.
         </p>
-        <div class="controls">
-            <span class="hint">Линк за колегите:</span> <code id="colleaguesLink" style="overflow-wrap:anywhere;min-width:0">—</code>
-            <button class="btn soft" id="copyColleaguesLink"><span class="ico" aria-hidden="true">📋</span> Копирај</button>
-            <button class="btn soft" id="colleaguesRefresh"><span class="ico" aria-hidden="true">↻</span> Освежи</button>
+
+        <!-- Owner, 5 Oct 2026: „помалку збунувачки линкови". There is ONE link
+             for every colleague; what a person may do is their ACCOUNT, not the
+             link. The owner needs no link at all. The duty link is the only
+             other one, and it adds duty administration and nothing else. -->
+        <h3>Линкови и пристап</h3>
+        <div class="access-cards">
+            <section class="access-card">
+                <h4>🔗 Линк за сите колеги</h4>
+                <p class="hint">Еден линк за сите. Секој се најавува со своето име и лозинка, а <b>сметката</b> одлучува што смее:</p>
+                <ul class="hint access-list">
+                    <li><b>✏️ наставник / терапевт</b> — го уредува својот распоред, кабинетот, присуството и своето отсуство од дежурство;</li>
+                    <li><b>👁 Само преглед</b> — гледа распореди, списоци и присуство, не менува ништо. Се доделува подолу, во „Сметки“.</li>
+                </ul>
+                <div class="controls">
+                    <code id="colleaguesLink" style="overflow-wrap:anywhere;min-width:0">—</code>
+                    <button class="btn soft" id="copyColleaguesLink"><span class="ico" aria-hidden="true">📋</span> Копирај</button>
+                    <button class="btn soft" id="colleaguesRefresh"><span class="ico" aria-hidden="true">↻</span> Освежи</button>
+                </div>
+                <p class="hint">Корисничко име: името и презимето споени (кирилица или латиница). Почетна лозинка:
+                    <b>ResursenCentar</b>. Ако линкот протече: <button type="button" class="btn soft" data-goto-tab="security">🔐 Замени го во „Безбедност“</button></p>
+            </section>
+            <section class="access-card">
+                <h4>👤 Вие — без линк</h4>
+                <p class="hint">Не ви треба посебен линк. Во „Сметки“ подолу, кај колегата, <b>„Отвори го формуларот“</b>
+                    ја отвора неговата страница во Колега, 2 часа, во овој прелистувач. Може да гледате и да менувате;
+                    се запишува како „Администраторот“ и колегата добива известување.</p>
+                <p class="hint">Вашата најава (Google) е клучот: без неа ниту едно копче на оваа страница не работи.</p>
+            </section>
+            <section class="access-card">
+                <h4>🛡 Дежурства — за доверлив колега</h4>
+                <p class="hint">Само ако некој друг го води распоредот на дежурства. Колегата се најавува со <b>својата</b> сметка,
+                    а линкот му додава само уредување на дежурствата — ништо друго.</p>
+                <div class="controls">
+                    <label class="hint">важи
+                        <select id="dutyAdminHours">
+                            <option value="0" selected>Без рок — до поништување</option>
+                            <option value="2">2 часа</option>
+                            <option value="8">8 часа</option>
+                            <option value="24">24 часа</option>
+                            <option value="168">7 дена</option>
+                        </select>
+                    </label>
+                    <button class="btn soft" id="openDutyAdmin" disabled>🔑 Отвори</button>
+                    <button class="btn soft" id="copyDutyAdmin" disabled>📋 Копирај админ-линк</button>
+                    <button class="btn soft danger" id="revokeDutyAdmins" disabled>Поништи ги линковите</button>
+                </div>
+                <p class="hint" id="dutyAdminState">вчитувам…</p>
+                <code id="dutyAdminLink" style="overflow-wrap:anywhere" hidden></code>
+            </section>
         </div>
-        <div class="controls" style="margin-top:10px">
-            <span class="hint"><b>Администраторски режим само за 🛡 Дежурства:</b></span>
-            <label class="hint">важи
-                <select id="dutyAdminHours">
-                    <option value="0" selected>Без рок — до поништување</option>
-                    <option value="2">2 часа</option>
-                    <option value="8">8 часа</option>
-                    <option value="24">24 часа</option>
-                    <option value="168">7 дена</option>
-                </select>
-            </label>
-            <button class="btn soft" id="openDutyAdmin" disabled>🔑 Отвори</button>
-            <button class="btn soft" id="copyDutyAdmin" disabled>📋 Копирај админ-линк</button>
-            <button class="btn soft danger" id="revokeDutyAdmins" disabled>Поништи ги линковите</button>
-        </div>
-        <p class="hint" id="dutyAdminState">вчитувам…</p>
-        <p class="hint">Споделувајте го само со доверливи колеги: секој колега што го има линкот може да го користи.
-            Лицето мора да се најави со својата сметка за колеги.
-            Постојаниот линк важи до поништување, и по рестарт на серверот.
-            Може да изберете и временски линк.</p>
-        <code id="dutyAdminLink" style="overflow-wrap:anywhere" hidden></code>
-        <h3>Отворени судири</h3>
-        <div id="colleaguesClashes"><p class="hint">вчитувам…</p></div>
-        <h3>Известувања</h3>
-        <div class="scroll"><div id="colleaguesNotices"></div></div>
-        <h3>Сметки</h3>
-        <p class="hint">„Само преглед“ ги отвора распоредите, списоците и присуството од тековната година, со печатење, слика и Word.
-            Не дозволува менување податоци, ни преку линк за дежурства. Корисничкото име е споеното име и презиме;
-            почетната лозинка е ResursenCentar. Промена на пристапот ги завршува постојните најави.</p>
+
+        <h3>Сметки — кој што смее</h3>
+        <p class="hint">„✏️“ — уредува свое. „👁 Само преглед“ — само гледа, ни преку линкот за дежурства не менува.
+            Промена на пристапот ги завршува постојните најави на тоа лице.</p>
         <form id="readOnlyGrant" class="row">
             <label>Вработен (и администрација)<select id="readOnlyEmployee" required><option value="">Изберете вработен</option></select></label>
             <button class="btn soft" type="submit">Додели „Само преглед“</button>
@@ -580,6 +605,10 @@
         </form>
         <p id="readerAccessMsg" class="hint" role="status"></p>
         <div class="scroll"><div id="colleaguesAccounts"></div></div>
+        <h3>Отворени судири</h3>
+        <div id="colleaguesClashes"><p class="hint">вчитувам…</p></div>
+        <h3>Известувања</h3>
+        <div class="scroll"><div id="colleaguesNotices"></div></div>
     </div>
 
     <!-- The colleagues' door under the owner's control (migration 052):
@@ -614,6 +643,8 @@
             </div>
 
             <h3 style="margin-top:22px">Линк за колегите</h3>
+            <p class="hint">Истиот линк што „👥 Колеги“ го дава за копирање — тука само се заменува.
+            </p>
             <p class="hint">
                 „Нов линк“ го заменува сегашниот: стариот веднаш престанува да работи и оди во архивата,
                 а сите колеги се одјавуваат и треба да го добијат новиот линк. Линкот ја отвора само
@@ -3067,11 +3098,14 @@
         el('readOnlyEmployee').innerHTML = '<option value="">Изберете вработен</option>' + colleagueCandidates.filter(a => !a.readOnly)
             .map(a => `<option value="${a.employeeId}">${esc(personName(a.name))}</option>`).join('');
         el('colleaguesAccounts').innerHTML = rows.length
-            ? '<table class="list"><thead><tr><th>Колега</th><th>Корисничко име</th><th>Улоги</th><th>Лозинка</th><th>Последна најава</th><th></th></tr></thead><tbody>'
+            ? '<table class="list"><thead><tr><th>Колега</th><th>Корисничко име</th><th>Што смее</th><th>Лозинка</th><th>Последна најава</th><th></th></tr></thead><tbody>'
               + rows.map((a) => `<tr data-account="${a.employeeId}"><td>${esc(personName(a.name))}`
                 + (a.ambiguous ? ' <span class="none">· исто име како друг — не може да се најави</span>' : '') + '</td>'
                 + `<td><code>${esc(a.usernames.latin)}</code><br><code>${esc(a.usernames.cyrillic)}</code></td>`
-                + `<td>${[a.readOnly ? '🔒 Само преглед' : '', a.teacher ? 'наставник' : '', a.therapist ? 'терапевт' : ''].filter(Boolean).join(', ') || 'вработен'}</td>`
+                // What the account may do, in the cards' words: a reader only looks, whatever else the person is.
+                + `<td>${a.readOnly ? '👁 Само преглед' : (a.teacher || a.therapist)
+                    ? '✏️ уредува свое <span class="none">· ' + [a.teacher ? 'наставник' : '', a.therapist ? 'терапевт' : ''].filter(Boolean).join(', ') + '</span>'
+                    : '<span class="none">вработен — нема што да уредува</span>'}</td>`
                 + `<td>${a.ownPassword ? 'своја' : 'почетна'}</td>`
                 + `<td>${esc(when2(a.lastLoginAt))}</td>`
                 + '<td class="act">'
@@ -3115,6 +3149,10 @@
     });
 
     el('colleaguesRefresh').addEventListener('click', () => loadColleagues());
+    // „🔐 Замени го во Безбедност": the same tab button a person would press.
+    document.querySelectorAll('[data-goto-tab]').forEach((b) => b.addEventListener('click', () => {
+        document.querySelector(`button[data-tab="${b.dataset.gotoTab}"]`)?.click();
+    }));
     el('copyColleaguesLink').addEventListener('click', async () => {
         try { await navigator.clipboard.writeText(el('colleaguesLink').textContent); status('Линкот е копиран.', 'ok', { toast: true }); }
         catch (_) { status('Изберете го линкот и копирајте го рачно.', 'warn'); }

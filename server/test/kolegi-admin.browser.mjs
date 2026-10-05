@@ -134,6 +134,14 @@ check('removing a staff-only reader preserves them in the employee picker', awai
 await page.selectOption('#readOnlyEmployee','9');await page.click('#readOnlyGrant button[type="submit"]');
 await page.waitForSelector('[data-remove-reader="9"]');
 check('existing administrative employee can be granted again', readerEnabled && writes.filter(w=>w.path==='/api/workspace/employees').length===1);
+// Owner, 5 Oct 2026: one link for everybody, the account decides; the owner needs none.
+check('the access cards say who each kind of access is for', await page.evaluate(() => {
+    const cards = [...document.querySelectorAll('#tab-colleagues .access-card h4')].map((h) => h.textContent);
+    return cards.length === 3 && /сите колеги/.test(cards[0]) && /без линк/.test(cards[1]) && /Дежурства/.test(cards[2]);
+}));
+check('an account says what it may do', /👁 Само преглед/.test(await page.textContent('[data-account="9"]'))
+    && /Што смее/.test(await page.textContent('#colleaguesAccounts thead')));
+if (process.env.SHOT) await page.screenshot({ path: join(process.env.SHOT, 'kolegi-access.png'), fullPage: true });
 
 console.log('\nthe duty-only administrator link');
 check('new links are permanent by default', await page.inputValue('#dutyAdminHours') === '0');
