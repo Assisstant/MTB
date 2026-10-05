@@ -10944,11 +10944,13 @@
         }
 
         function srvFetch(path, opts) {
-            return fetch(getUrl() + path, Object.assign({ cache: 'no-store' }, opts || {})).then(function (res) {
+            var controller = new AbortController();
+            var timeout = setTimeout(function () { controller.abort(); }, 20000);
+            return fetch(getUrl() + path, Object.assign({ cache: 'no-store' }, opts || {}, { signal: controller.signal })).then(function (res) {
                 return res.json().catch(function () { return null; }).then(function (body) {
                     return { res: res, body: body };
                 });
-            });
+            }).finally(function () { clearTimeout(timeout); });
         }
 
         function check() {
@@ -11111,6 +11113,7 @@
         var AUTO_KEY = 'sdn_local_server_autosync_v1';
         var PENDING_KEY = 'sdn_local_server_pending_v1';
         var AUTO_DELAY = 5000;
+        var AUTO_REFRESH = 30000;
 
         // Дали овој прелистувач воопшто има свој дневник? Мора да се прочита
         // веднаш: првото зачувување го создава овој клуч, па подоцна одговорот
@@ -11206,7 +11209,9 @@
 
         function setAuto(on) {
             localStorage.setItem(AUTO_KEY, on ? '1' : '0');
+            if (!on && pushTimer) { clearTimeout(pushTimer); pushTimer = null; }
             toast(on ? 'Автоматска синхронизација: вклучена.' : 'Автоматска синхронизација: исклучена.');
+            if (on) resumeSync();
         }
 
         function getAgreement() {
@@ -11243,7 +11248,7 @@
             if (!autoEnabled()) return;
             if (!hasChosenServer()) return;
             if (pushTimer) clearTimeout(pushTimer);
-            pushTimer = setTimeout(function () { pushTimer = null; sync({ auto: true }); }, AUTO_DELAY);
+            pushTimer = setTimeout(function () { pushTimer = null; resumeSync(); }, AUTO_DELAY);
         }
 
         function complain(message, chip) {
@@ -11312,7 +11317,17 @@
                     localChanged = !FRESH_DEVICE;
                 }
 
-                if (serverChanged && !localChanged) return doPull(server, serverHash);
+                if (serverChanged && !localChanged) {
+                    // Unsubmitted form fields are not yet in currentPayload.
+                    // Leave them on screen until the person finishes editing.
+                    var focused = document.activeElement;
+                    if (auto && (document.querySelector('.modal.active, dialog[open]') ||
+                        (focused && (focused.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(focused.tagName))))) {
+                        setStatus('🟠 нова серверска состојба · чека да завршите со формуларот');
+                        return 'editing';
+                    }
+                    return doPull(server, serverHash);
+                }
                 if (localChanged && !serverChanged) return doPush(localPayload, localHash, server.version, auto, 'локални измени');
 
                 if (!localChanged && !serverChanged) {
@@ -11337,7 +11352,7 @@
 
             }).catch(function (err) {
                 console.error('SdnLocalSrv.sync:', err);
-                var offline = (err instanceof TypeError) || /fetch|network/i.test(String(err && err.message));
+                var offline = (err instanceof TypeError) || (err && err.name === 'AbortError') || /fetch|network/i.test(String(err && err.message));
                 if (offline) {
                     setStatus(hasPending()
                         ? '🟠 серверот не е достапен · локалните промени чекаат'
@@ -11363,16 +11378,30 @@
         // serverHash мора да е пресметан ПРЕД примената — applyPayload ја менува
         // состојбата што ја добива.
         function doPull(server, serverHash) {
+            var beforeHash = contentHash(window.SdnV3.currentPayload('before_auto_sync'));
+            var appliedHash;
             suspend = true;
             return window.SdnV3.backup('before_auto_sync').then(function () {
+                // The backup is asynchronous: typing while it is being saved
+                // must not be overwritten by a background refresh.
+                if (contentHash(window.SdnV3.currentPayload('before_auto_sync')) !== beforeHash) {
+                    setPending(true);
+                    return false;
+                }
                 // [Stage D] Истото како кај рачното вчитување — и уште поважно
                 // тука, зашто ова се случува само по себе при секое отворање.
                 window.SdnV3.applyPayload(keepOwned(server.payload));
+                appliedHash = contentHash(window.SdnV3.currentPayload('after_auto_sync'));
                 return window.SdnV3.saveFullPayload(window.SdnV3.currentPayload('after_auto_sync'), 'after_auto_sync');
-            }).then(function () {
+            }).then(function (saved) {
+                if (saved === false) return 'local-change';
                 if (typeof window.renderAll === 'function') window.renderAll();
                 setVersion(server.version);
-                setAgreement(contentHash(window.SdnV3.currentPayload('after_auto_sync')), serverHash, server.version);
+                setAgreement(appliedHash, serverHash, server.version);
+                if (contentHash(window.SdnV3.currentPayload('after_auto_sync')) !== appliedHash) {
+                    setPending(true);
+                    return 'local-change';
+                }
                 setPending(false);
                 setStatus('🟢 вчитано од серверот • верзија ' + server.version + ' • ' + stampTime(server.updated_at));
                 toast('Вчитана е поновата состојба од серверот (верзија ' + server.version + ').');
@@ -11403,6 +11432,13 @@
                     return 'pushed-warn';
                 }
 
+                // A PUT acknowledges the captured payload, not edits made
+                // while it was in flight. Their first timer may already have
+                // fired while busy, so arrange another send explicitly.
+                if (contentHash(window.SdnV3.currentPayload('after_push')) !== localHash) {
+                    noteLocalChange();
+                    return 'pushed-pending';
+                }
                 setPending(false);
                 setStatus('🟢 синхронизирано • верзија ' + version + ' • ' + stampTime(new Date().toISOString()));
                 toast('Синхронизирано (' + why + ') · верзија ' + version + '.');
@@ -11448,7 +11484,7 @@
                     '<div style="font-size:13px;margin-bottom:6px;">Терапевт на овој дневник: <b id="sdnLocalSrvMe">—</b> ' +
                         '<button class="sdn-mini-btn" id="sdnLocalSrvMeBtn">смени</button></div>' +
                     '<div style="font-size:12px;opacity:.8;margin-bottom:8px;">' +
-                        'Секоја измена прво се чува во овој прелистувач, па сама се праќа на серверот — при отворање и 5 секунди по измена. ' +
+                        'Секоја измена прво се чува во овој прелистувач, па сама се праќа на серверот — 5 секунди по измена и по враќање на врската. Додека дневникот е отворен, проверува за нови измени на секои 30 секунди. ' +
                         'Пред вчитување од серверот автоматски се прави backup во IndexedDB. ' +
                         '<a href="Sinhronizacija.html">Преглед на сите синхронизации и резерви →</a>' +
                     '</div>' +
@@ -11526,7 +11562,14 @@
             if (wrapped) window.SdnV3.__syncHooked = true;
         }
 
+        function resumeSync() {
+            if (autoEnabled() && hasChosenServer() && !suspend) sync({ auto: true });
+        }
+
+        var syncStarted = false;
         function start() {
+            if (syncStarted) return;
+            syncStarted = true;
             setTimeout(render, 400);
             setTimeout(hookLocalSaves, 500);
             if (window.MTB_MIRROR_READONLY === true && hasChosenServer()) {
@@ -11543,12 +11586,20 @@
             // тајмерот. Без ова, затворање пред истекот на одложувањето значи
             // измена што останала само тука.
             document.addEventListener('visibilitychange', function () {
-                if (document.visibilityState === 'hidden' && pushTimer) {
+                if (document.visibilityState === 'visible') resumeSync();
+                else if (pushTimer && autoEnabled()) {
                     clearTimeout(pushTimer);
                     pushTimer = null;
                     sync({ auto: true });
                 }
             });
+            window.addEventListener('online', resumeSync);
+            // The browser may stay online while the server restarts, so the
+            // online event alone cannot recover a failed send. This also
+            // receives work from another device without reopening the diary.
+            setInterval(function () {
+                if (document.visibilityState === 'visible') resumeSync();
+            }, AUTO_REFRESH);
         }
 
         document.addEventListener('DOMContentLoaded', start);
@@ -14303,6 +14354,9 @@
                             pulled: ['ok', 'Земена е поновата состојба од серверот.'],
                             readonly: ['ok', 'Копија само за читање — ништо не се праќа.'],
                             'pushed-warn': ['warn', 'Пратено, но серверот пријави забелешка. Видете го панелот „Сервер“.'],
+                            'pushed-pending': ['warn', 'Претходната измена е пратена; поновата чека автоматско праќање.'],
+                            'local-change': ['warn', 'Внесовте измена додека траеше проверката. Задржана е тука и чека нова проверка.'],
+                            editing: ['warn', 'Отворен е формулар за измена. Новата серверска состојба ќе се преземе кога ќе завршите.'],
                             empty: ['warn', 'И дневникот и серверот се празни — нема што да се усогласи.'],
                             busy: ['warn', 'Синхронизацијата токму сега работи. Пуштете повторно за неколку секунди.'],
                             conflict: ['fail', 'И тука и на серверот има измени. Одлучете во панелот „Сервер“: „Вчитај од сервер“ или „Зачувај на сервер“.'],

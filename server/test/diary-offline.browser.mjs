@@ -1,8 +1,10 @@
 /**
  * S-Дневник without its server, and back (4 Oct 2026, the reviewer's „diary
  * reliability" check): an edit made offline is kept, SAID to be waiting, kept
- * through a reopen, sent once the server answers, and then the server's
- * document, its tables and a second device all hold the same thing.
+ * through a reopen, sent automatically once the connection returns, and then the server's
+ * document, its tables and an already open second device all hold the same thing.
+ * Also exercises in-flight edits, backup races, form deferral, stalled requests
+ * and conflicts. No test writes a live diary.
  *
  * Self-contained, so it cannot reach real data by construction: it makes its
  * own schema in the configured database, applies every migration there,
@@ -176,10 +178,14 @@ async function run() {
 
     console.log('\nthe server answers again');
     await ctx.unroute('**/api/**');
-    await page.click('.mtb-app-nav__retry');
+    await page.evaluate(() => window.dispatchEvent(new Event('online')));
     await page.waitForFunction(() => localStorage.getItem('sdn_local_server_pending_v1') !== '1', null, { timeout: 15000 }).catch(() => {});
     now = await said(page);
-    check('↻ sends it, and the waiting is over', !now.pending && now.state === 'synced', JSON.stringify(now));
+    check('reconnecting sends it automatically, and the waiting is over', !now.pending && now.state === 'synced', JSON.stringify(now));
+    // Continue the other assertions on the old implementation too, so a failure
+    // of reconnect does not obscure document/table or duplicate-write checks.
+    if (now.pending) await page.click('.mtb-app-nav__retry');
+    await page.waitForFunction(() => localStorage.getItem('sdn_local_server_pending_v1') !== '1');
     const after = await stored();
     const docMark = after.payload.attendance?.[TARGET]?.[String(PUPIL)]?.[SLOT];
     check('the server\'s document has the mark, in one new version',
@@ -207,6 +213,97 @@ async function run() {
     await other.waitForFunction(() => /вчитано|синхронизирано/.test((window.__MTB_DATA_STATE__ || {}).text || ''), null, { timeout: 15000 }).catch(() => {});
     check('a new device pulls the diary with the mark', (await markInPage(other)) === 'present', JSON.stringify(await said(other)));
     check('without writing anything back', (await stored()).version === after.version);
+
+    console.log('\nan edit while the previous send is still waiting for its acknowledgement');
+    let acknowledge;
+    const held = new Promise((resolve) => { acknowledge = resolve; });
+    let received;
+    const requestSeen = new Promise((resolve) => { received = resolve; });
+    await page.route('**/api/state/sdnevnik', async (route) => {
+        if (route.request().method() !== 'PUT') return route.continue();
+        const response = await route.fetch();
+        received();
+        await held;
+        await route.fulfill({ response });
+    });
+    await page.evaluate(([d, p, k]) => {
+        attendance[d][p][k] = { status: 'absent' };
+        saveData();
+        window.__sendingDiary = SdnLocalSrv.sync({ auto: true });
+    }, [TARGET, PUPIL, SLOT]);
+    await requestSeen;
+    await page.evaluate(([d, p, k]) => {
+        attendance[d][p][k] = { status: 'present' };
+        saveData();
+    }, [TARGET, PUPIL, SLOT]);
+    // Let the five-second save timer fire while sync is busy.
+    await page.waitForTimeout(5500);
+    acknowledge();
+    await page.evaluate(() => window.__sendingDiary);
+    check('the acknowledgement of the older edit does not mark the newer edit as saved', (await said(page)).pending);
+    await page.unroute('**/api/state/sdnevnik');
+    await page.waitForFunction(() => localStorage.getItem('sdn_local_server_pending_v1') !== '1', null, { timeout: 12000 }).catch(() => {});
+    check('the edit made during the send is sent automatically too',
+        !((await said(page)).pending) && (await markInTable())[0]?.status === 'present');
+
+    console.log('\nan already open second device follows the server without reopening');
+    await page.evaluate(([d, p, k]) => {
+        attendance[d][p][k] = { status: 'absent' };
+        saveData();
+    }, [TARGET, PUPIL, SLOT]);
+    await page.waitForFunction(() => localStorage.getItem('sdn_local_server_pending_v1') !== '1', null, { timeout: 15000 });
+    await other.waitForFunction(([d, p, k]) => attendance[d]?.[p]?.[k]?.status === 'absent', [TARGET, PUPIL, SLOT], { timeout: 40000 }).catch(() => {});
+    check('the open second device receives the edit automatically', (await markInPage(other)) === 'absent');
+
+    console.log('\na local edit while a background pull is making its backup');
+    await page.evaluate(() => SdnLocalSrv.setAuto(false));
+    await other.evaluate(() => SdnLocalSrv.setAuto(false));
+    await other.evaluate(async ([d, p, k]) => {
+        attendance[d][p][k] = { status: 'present' };
+        saveData();
+        await SdnLocalSrv.sync();
+    }, [TARGET, PUPIL, SLOT]);
+    const deferred = await page.evaluate(async () => {
+        const modal = document.getElementById('addStudentModal');
+        modal.classList.add('active');
+        const result = await SdnLocalSrv.sync({ auto: true });
+        modal.classList.remove('active');
+        return result;
+    });
+    check('background refresh waits for an open edit form', deferred === 'editing' && (await markInPage(page)) === 'absent');
+    await page.evaluate(() => {
+        const original = SdnV3.backup;
+        SdnV3.backup = async (...args) => {
+            await original(...args);
+            await new Promise((resolve) => { window.__finishPullBackup = resolve; });
+            SdnV3.backup = original;
+        };
+        window.__pullingDiary = SdnLocalSrv.sync({ auto: true });
+    });
+    await page.waitForFunction(() => typeof window.__finishPullBackup === 'function');
+    await page.evaluate(([d, p, k]) => {
+        delete attendance[d][p][k];
+        saveData();
+        window.__finishPullBackup();
+    }, [TARGET, PUPIL, SLOT]);
+    await page.evaluate(() => window.__pullingDiary);
+    check('a new local edit survives the asynchronous backup and stays pending',
+        (await markInPage(page)) === null && (await said(page)).pending);
+    const remoteVersion = (await stored()).version;
+    await page.evaluate(() => window.dispatchEvent(new Event('online')));
+    await page.waitForTimeout(1000);
+    check('automatic sync switched off remains off on reconnect', (await stored()).version === remoteVersion);
+    const conflict = await page.evaluate(() => SdnLocalSrv.sync({ auto: true }));
+    check('different edits on both devices still stop as a conflict', conflict === 'conflict');
+    check('neither side is overwritten by the conflict',
+        (await markInPage(page)) === null && (await markInTable())[0]?.status === 'present');
+
+    console.log('\na server which accepts a connection but never answers');
+    await page.route('**/api/state/sdnevnik', () => {});
+    const timedOut = await page.evaluate(() => SdnLocalSrv.sync({ auto: true }));
+    check('a stalled request times out and leaves the local work pending', timedOut === 'offline' && (await said(page)).pending);
+    await page.unroute('**/api/state/sdnevnik');
+    check('the next attempt is not stuck busy', (await page.evaluate(() => SdnLocalSrv.sync({ auto: true }))) === 'conflict');
 
     check('no page errors', errors.length === 0, errors.join('\n       '));
 }
