@@ -1141,9 +1141,13 @@ header.top h1 { flex: 1; min-width: 180px; }
         return out;
     }
     async function ensureAttendanceClasses() {
-        if (attendance.classes) return;
-        try { attendance.classes = (await api('GET', '/api/portal/class-attendance/classes')).classes || []; }
-        catch (_) { attendance.classes = []; }      // a server before 057: the class view is simply not offered
+        if (!attendance.classes) {
+            try { attendance.classes = (await api('GET', '/api/portal/class-attendance/classes')).classes || []; }
+            catch (_) { attendance.classes = []; }      // a server before 057: the class view is simply not offered
+        }
+        // The person's own first: their cabinet, then their classes, then the
+        // school-wide reports. The owner's sign-in no longer jumps a teacher's
+        // page to the transport report (owner, 5 Oct 2026: „за нејзините деца").
         const scopes = attendanceScopes().map(([v]) => v);
         if (!scopes.includes(attendance.scope) && scopes.length) {
             attendance.scope = scopes[0];
@@ -3358,7 +3362,6 @@ header.top h1 { flex: 1; min-width: 180px; }
         ownerApi('GET','/api/attendance/transport/access',undefined,false).then(answer=>{
             if (me!==sessionMe || !answer.allowed) return;
             attendance.transportAllowed=true;
-            if(!me.therapist) { attendance.scope='transport'; attendance.mode='month'; }
             if(week) drawWeek();
         }).catch(()=>{});
         duty.draft = null;

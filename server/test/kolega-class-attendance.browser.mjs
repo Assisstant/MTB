@@ -138,6 +138,11 @@ try {
         const options = await p.$$eval('#attendanceScope option', (o) => o.map((x) => x.value));
         assert.deepEqual(options, ['class:21', 'class:22', 'meals', 'transport']);
     });
+    await step('and the owner\'s look at a teacher still opens on HER class, not on transport', async () => {
+        await settled();
+        assert.equal(await p.$eval('#attendanceScope', (s) => s.value), 'class:21');
+        assert.match(await p.textContent('#attendanceSheet h2'), /Изм\. А/);
+    });
     await step('one day, per class and in total, with the unmarked named as such', async () => {
         await p.selectOption('#attendanceScope', 'meals'); await settled();
         assert.match(await p.textContent('.meals-total'), /Присутни: 5/);
