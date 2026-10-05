@@ -429,7 +429,8 @@ check('no page errors', errors.length === 0, errors.join('\n       '));
     await p.waitForSelector('#days [data-day="понеделник"]', { timeout: 8000 });
     await p.waitForTimeout(300);
     const tabs = await p.$$eval('#tabs [data-tab]', (b) => b.map((x) => x.dataset.tab));
-    check('their week is their class, with no „Мои часови" beside it', JSON.stringify(tabs) === '["class:I-а"]'
+    // „✓ Присуство" beside it since 5 Oct 2026: the class's pupils by day, for the meals (057).
+    check('their week is their class, with no „Мои часови" beside it', JSON.stringify(tabs) === '["class:I-а","attendance"]'
         || (await p.isHidden('#tabs') && await p.isVisible('#periods [data-ordinal="1"]')), JSON.stringify(tabs));
     check('and no „Дежурства" for somebody not on its list, even under the administrator\'s sign-in', !tabs.includes('duty'));
     await p.click('#days [data-day="понеделник"]');

@@ -20,6 +20,7 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { createHash, randomBytes } from 'node:crypto';
 import { AttendanceError, readAttendance, writeAttendance } from '../lib/cabinet-attendance.js';
 import { transportAttendance } from '../lib/transport-attendance.js';
+import { allClassesOf, classAccessOf, classAttendanceSummary, readClassAttendance, writeClassAttendance } from '../lib/class-attendance.js';
 import { z } from 'zod';
 import { pool } from '../db.js';
 import { assertOwner, refuseScope, scopeOf, signerName } from '../lib/colleague.js';
@@ -497,6 +498,71 @@ export async function portalRoutes(server: FastifyInstance, options: { year?: st
             if (e instanceof AttendanceError) return reply.code(e.status).send({ error: e.message });
             throw e;
         } finally { client.release(); }
+    });
+
+    // ── Присуство по паралелка (057; owner, 5 Oct 2026): for the meals ────
+    // A teacher sees the classes they lead or teach; a read-only account sees
+    // every class and marks none. What may be marked on which day is decided
+    // in lib/class-attendance.ts, for the read and the write alike.
+    async function classesFor(who: Signed) {
+        return who.staff.readOnly ? allClassesOf(pool, who.year.id) : classAccessOf(pool, who.year.id, who.staff.teacherId);
+    }
+    server.get('/api/portal/class-attendance/classes', async (req, reply) => {
+        const who = await signed(req, reply); if (!who) return;
+        reply.header('Cache-Control', 'no-store');
+        return { classes: await classesFor(who), readOnly: Boolean(who.staff.readOnly) };
+    });
+    server.get('/api/portal/class-attendance', async (req, reply) => {
+        const who = await signed(req, reply); if (!who) return;
+        const q = z.object({ classId: z.coerce.number().int().positive(), from: z.string().max(10), to: z.string().max(10) }).strict().safeParse(req.query);
+        if (!q.success) return reply.code(400).send({ error: 'Изберете паралелка и период.' });
+        const access = (await classesFor(who)).find((c) => c.classId === q.data.classId);
+        if (!access) return reply.code(403).send({ error: 'Оваа паралелка не е ваша.' });
+        reply.header('Cache-Control', 'no-store');
+        try {
+            return { ...await readClassAttendance(pool, who.year.id, q.data.classId, q.data.from, q.data.to, who.staff.readOnly ? null : access),
+                readOnly: Boolean(who.staff.readOnly) };
+        } catch (e) { if (e instanceof AttendanceError) return reply.code(e.status).send({ error: e.message }); throw e; }
+    });
+    const ClassMarkValue = z.enum(['present', 'absent']).nullable();
+    const ClassAttendanceBody = z.object({ classId: z.number().int().positive(), date: z.string().max(10),
+        marks: z.array(z.object({ studentId: z.number().int().positive(), status: ClassMarkValue, expected: ClassMarkValue }).strict()).min(1).max(200) }).strict();
+    server.put('/api/portal/class-attendance', async (req, reply) => {
+        const who = await signed(req, reply); if (!who) return;
+        const parsed = ClassAttendanceBody.safeParse(req.body);
+        if (!parsed.success) return reply.code(400).send({ error: 'Невалиден внес на присуство.' });
+        const access = (await classAccessOf(pool, who.year.id, who.staff.teacherId)).find((c) => c.classId === parsed.data.classId) || null;
+        const client = await pool.connect();
+        try {
+            await client.query('BEGIN');
+            const answer = await writeClassAttendance(client, who.year.id, parsed.data.classId, who.author.name, access, parsed.data);
+            await client.query('COMMIT');
+            return answer;
+        } catch (e) {
+            await client.query('ROLLBACK');
+            if (e instanceof AttendanceError) return reply.code(e.status).send({ error: e.message });
+            throw e;
+        } finally { client.release(); }
+    });
+    const SummaryQuery = z.object({ date: z.string().max(10), year: z.string().max(64).optional() }).strict();
+    server.get('/api/portal/read-only/class-summary', async (req, reply) => {
+        const who = await reader(req, reply); if (!who) return;
+        const q = SummaryQuery.omit({ year: true }).safeParse(req.query);
+        if (!q.success) return reply.code(400).send({ error: 'Изберете ден.' });
+        try { return await classAttendanceSummary(pool, who.year.id, q.data.date); }
+        catch (e) { if (e instanceof AttendanceError) return reply.code(e.status).send({ error: e.message }); throw e; }
+    });
+    // The owner's copy, outside the public prefix like the transport report.
+    server.get('/api/attendance/class-summary', async (req, reply) => {
+        try { assertOwner(await scopeOf(req), 'присуството по паралелки'); }
+        catch (e) { return refuseScope(reply, e); }
+        const q = SummaryQuery.safeParse(req.query);
+        if (!q.success) return reply.code(400).send({ error: 'Изберете ден.' });
+        const year = await schoolYearOf(pool, q.data.year ?? options.year);
+        if (!year) return reply.code(404).send({ error: 'Нема таква учебна година.' });
+        reply.header('Cache-Control', 'no-store');
+        try { return await classAttendanceSummary(pool, year.id, q.data.date); }
+        catch (e) { if (e instanceof AttendanceError) return reply.code(e.status).send({ error: e.message }); throw e; }
     });
 
     /**

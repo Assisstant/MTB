@@ -284,7 +284,9 @@ export const PUBLIC_WRITES = new Set([
     // One's own subjects and паралелки, ticked (owner, 27 Sep 2026).
     'PUT /api/portal/my-subject',
     'PUT /api/portal/my-class',
-    'PUT /api/portal/attendance'
+    'PUT /api/portal/attendance',
+    // Class attendance by day (057): the route checks the class and the weekday itself.
+    'PUT /api/portal/class-attendance'
 ]);
 const DELEGATED_WRITES = new Set([
     'PUT /api/therapists/:name/students/:publicId',

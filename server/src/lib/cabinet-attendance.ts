@@ -43,11 +43,16 @@ export function overlaps(plan: Session[]) {
 /** The calendar already saved by S-Dnevnik is read, never edited here.
  * An older year's calendar must not close dates in this one. No personal
  * diary records leave this query. A missing calendar is visible, not invented. */
-export async function attendanceContext(db: DB, yearId: number, therapistId: number) {
+export async function calendarContext(db: DB, yearId: number) {
     const year = (await db.query('SELECT starts_on, ends_on, label FROM school_years WHERE id=$1', [yearId])).rows[0];
     const stored = (await db.query("SELECT payload->'schoolCalendar' AS calendar FROM app_state WHERE app='sdnevnik'")).rows[0]?.calendar;
     const calendar = stored && isIsoDate(stored.yearStart) && isIsoDate(stored.yearEnd)
         && stored.yearStart >= year.starts_on && stored.yearEnd <= year.ends_on ? stored : null;
+    return { year, calendar, today: todayInSkopje() };
+}
+
+export async function attendanceContext(db: DB, yearId: number, therapistId: number) {
+    const { year, calendar } = await calendarContext(db, yearId);
     const rows = (await db.query(`SELECT sl.day, sl.time_slot, s.id AS student_id, s.public_id, s.name, coalesce(e.grade,s.grade,'') AS grade
         FROM schedule_slots sl JOIN students s ON s.id=sl.student_id
         LEFT JOIN student_enrollments e ON e.student_id=s.id AND e.school_year_id=sl.school_year_id

@@ -349,6 +349,13 @@ header.top h1 { flex: 1; min-width: 180px; }
 .attendance-table td.mark-absent { background: #fcecec; color: #672323; }
 .attendance-table td.mark-mixed { background: #fff4d6; color: #533e12; }
 .attendance-mark { display: block; width: 100%; margin: 3px 0; padding: 8px; white-space: pre-line; }
+.attendance-table.class-days td { min-width: 52px; }
+.attendance-table.class-days .attendance-mark { min-height: 40px; font-size: 18px; font-weight: 700; }
+.attendance-table.class-days th.today { box-shadow: inset 0 -4px 0 #f6ad55; }
+.attendance-table.class-days thead button { margin-top: 4px; white-space: nowrap; }
+.attendance-table tr.class-total th, .attendance-table tr.class-total td { font-weight: 700; background: var(--well, #f1f3f8); }
+.attendance-table.meals td { font-size: 17px; }
+.meals-total { font-size: 19px; }
 .attendance-mark.present { background: #dcfce7; color: #14532d; border-color: #15803d; }
 .attendance-mark.absent { background: #fee2e2; color: #7f1d1d; border-color: #b91c1c; }
 .attendance-mark.blank { background: #edf0f8; color: #25324a; border-color: #68738b; }
@@ -1083,7 +1090,8 @@ header.top h1 { flex: 1; min-width: 180px; }
         const teacherOnly = week.me.teacherId != null && week.me.therapistId == null;
         const noList = duty.owner && duty.data && !(duty.data.members || []).length;
         if ((me && me.duty) || (!teacherOnly && (noList || duty.delegated))) tabs.push({ id: 'duty', label: '🛡 Дежурства' });
-        if (week.me.therapistId != null || attendance.transportAllowed) tabs.push({ id: 'attendance', label: '✓ Присуство' });
+        // A teacher has it too: the classes they lead or teach, by day (057).
+        if (week.me.therapistId != null || week.me.teacherId != null || attendance.transportAllowed) tabs.push({ id: 'attendance', label: '✓ Присуство' });
         return tabs;
     }
 
@@ -1100,11 +1108,13 @@ header.top h1 { flex: 1; min-width: 180px; }
     // `around`: one turn of the list either side of a day, across months —
     // the default (owner, 28 Sep 2026); `month`: the calendar month, for print.
     const duty = { owner: false, delegated: false, ownerChecked: false, month: '', data: null, open: '', draft: null, view: 'around', around: '' };
-    const attendance = { mode: 'week', date: '', data: null, busy: false, request: 0, scope: 'cabinet', transportAllowed: false };
+    const attendance = { mode: 'week', date: '', data: null, busy: false, request: 0, scope: 'cabinet', transportAllowed: false, classes: null };
     const attendanceText = { present: '✓ Присутен', absent: '× Отсутен', blank: '· Неозначено' };
     const isoShift = (date, n) => new Date(Date.parse(date + 'T00:00:00Z') + n * 86400000).toISOString().slice(0, 10);
     function attendanceRange() {
         const date = attendance.date || localToday();
+        // The kitchen's count is one day: today, or the day chosen.
+        if (attendance.scope === 'meals') return { from: date, to: date };
         if (attendance.mode === 'month') {
             const first = date.slice(0, 7) + '-01';
             const next = new Date(first + 'T00:00:00Z'); next.setUTCMonth(next.getUTCMonth() + 1);
@@ -1114,16 +1124,49 @@ header.top h1 { flex: 1; min-width: 180px; }
         const from = isoShift(date, wd === 0 ? -6 : 1 - wd);
         return { from, to: isoShift(from, 4) };
     }
+    // ── Присуство по паралелка, по ден (057; owner, 5 Oct 2026) ─────────
+    // For the meals: who is in school today, so tomorrow's food can be
+    // ordered. Not the transport report and not a lesson register. A teacher
+    // marks the classes they lead (any day) or teach (on that weekday); the
+    // server decides, this page only greys out what it was told.
+    const hasCabinet = () => me.readOnly ? week?.me.therapistId != null : Boolean(me.therapist);
+    const classScope = () => attendance.scope.startsWith('class:') ? Number(attendance.scope.slice(6)) : null;
+    const className = (c) => c.alias || shortOf(c.label);
+    function attendanceScopes() {
+        const out = [];
+        if (hasCabinet()) out.push(['cabinet', me.readOnly ? 'Избраниот кабинет — третмани' : 'Мој кабинет — третмани']);
+        (attendance.classes || []).forEach((c) => out.push(['class:' + c.classId, 'Паралелка ' + className(c) + ' — присуство (за храна)']));
+        if (me.readOnly || attendance.transportAllowed) out.push(['meals', 'Присутни по паралелки — за храна']);
+        if (attendance.transportAllowed) out.push(['transport', 'Надворешни — превоз, сите кабинети']);
+        return out;
+    }
+    async function ensureAttendanceClasses() {
+        if (attendance.classes) return;
+        try { attendance.classes = (await api('GET', '/api/portal/class-attendance/classes')).classes || []; }
+        catch (_) { attendance.classes = []; }      // a server before 057: the class view is simply not offered
+        const scopes = attendanceScopes().map(([v]) => v);
+        if (!scopes.includes(attendance.scope) && scopes.length) {
+            attendance.scope = scopes[0];
+            if (attendance.scope === 'transport') attendance.mode = 'month';
+        }
+    }
+    function attendanceRequest(range) {
+        if (attendance.scope === 'transport') return transportData(range.from.slice(0,7));
+        if (attendance.scope === 'meals') return me.readOnly
+            ? api('GET', '/api/portal/read-only/class-summary?date=' + range.from)
+            : ownerApi('GET', '/api/attendance/class-summary?date=' + range.from + '&year=' + encodeURIComponent(me.year), undefined, false);
+        if (classScope()) return api('GET', '/api/portal/class-attendance?classId=' + classScope() + '&from=' + range.from + '&to=' + range.to);
+        return api('GET', '/api/portal/attendance?from=' + range.from + '&to=' + range.to + (me.readOnly && reader.employeeId ? '&employeeId=' + encodeURIComponent(reader.employeeId) : ''));
+    }
     async function loadAttendance({ quiet = false } = {}) {
+        await ensureAttendanceClasses();
         const request = ++attendance.request;
         const range = attendanceRange();
         attendance.busy = true;
         attendance.accessError = false;
         if (!quiet) { say('weekMsg',''); drawAttendance(); }
         try {
-            const data = attendance.scope === 'transport'
-                ? await transportData(range.from.slice(0,7))
-                : await api('GET', '/api/portal/attendance?from=' + range.from + '&to=' + range.to + (me.readOnly && reader.employeeId ? '&employeeId=' + encodeURIComponent(reader.employeeId) : ''));
+            const data = await attendanceRequest(range);
             if (request !== attendance.request) return;
             attendance.data = data;
             attendance.busy = false;
@@ -1131,7 +1174,7 @@ header.top h1 { flex: 1; min-width: 180px; }
         } catch (err) {
             if (request !== attendance.request) return;
             attendance.data = null; attendance.busy = false;
-            attendance.accessError = attendance.scope === 'transport' && !me?.readOnly && (err.status === 401 || err.status === 403 || err.status === 200);
+            attendance.accessError = ['transport', 'meals'].includes(attendance.scope) && !me?.readOnly && (err.status === 401 || err.status === 403 || err.status === 200);
             drawAttendance();
             say('weekMsg', attendance.accessError ? 'Потребна е сопственичка најава за извештајот за превоз. Линкот за Дежурства не го дава овој пристап.' : err.message, 'error');
         }
@@ -1204,6 +1247,100 @@ header.top h1 { flex: 1; min-width: 180px; }
                 + m.rows.map((r,i)=>'<tr><th scope="row">'+esc(r[0])+`<button class="no-print" aria-label="Потврда за ${esc(r[0])}" data-transport-certificate="${attendance.data.pupils[i].studentId}"${attendance.data.pupils[i].daysPresent ? '' : ' disabled'}>Потврда</button></th>`
                     + `<td${attendance.data.pupils[i].daysPresent?' class="mark-present"':''}><div class="transport-date-columns">${transportDateColumns(r[1]).map(c=>'<span class="transport-date-column">'+esc(c.join('\n'))+'</span>').join('')}</div></td></tr>`).join('')+'</tbody></table></div>'
                 : '<p>Нема надворешни ученици во избраниот годишен список.</p>');
+    }
+    const classMarkText = { present: '✓', absent: '×', blank: '·' };
+    function classAttendanceReport() {
+        const d = attendance.data, days = d.days.filter((day) => day.closed !== 'Викенд');
+        const marked = (day, status) => d.pupils.filter((p) => day.marks[p.studentId] === status).length;
+        return { title: 'Присуство — паралелка ' + (d.class.alias || shortOf(d.class.label)), subtitle: d.from + ' – ' + d.to + ' · учебна ' + d.year,
+            note: '✓ присутен, × отсутен, · неозначено. Неозначено не значи отсутен. Ова присуство е за храната; не влегува во извештајот за превоз.',
+            columns: ['Ученик', ...days.map((day) => (attendance.mode === 'month' ? day.date.slice(8) : cap(day.dayName) + '\n' + dmy(day.date)))],
+            rows: [...d.pupils.map((p) => [p.name, ...days.map((day) => day.closed ? '—' : classMarkText[day.marks[p.studentId] || 'blank'])]),
+                ['Присутни', ...days.map((day) => day.closed ? '—' : String(marked(day, 'present')))]], days };
+    }
+    function drawClassAttendance() {
+        const d = attendance.data, m = classAttendanceReport(), busy = attendance.busy;
+        const head = m.days.map((day) => {
+            const blank = d.pupils.some((p) => !day.marks[p.studentId]);
+            return `<th${day.date === d.today ? ' class="today"' : ''}>${esc(m.columns[m.days.indexOf(day) + 1])}`
+                + (day.closed ? `<br><small>${esc(day.closed)}</small>`
+                    : day.mayMark && blank ? `<br><button type="button" class="small no-print" data-class-all="${day.date}"${busy ? ' disabled' : ''}>✓ Сите присутни</button>` : '')
+                + '</th>';
+        }).join('');
+        const cell = (p, day) => {
+            if (day.closed) return '<td class="closed">—</td>';
+            const status = day.marks[p.studentId] || null, label = attendanceText[status || 'blank'];
+            return `<td class="${status === 'present' ? 'mark-present' : status === 'absent' ? 'mark-absent' : ''}">`
+                + `<button type="button" class="attendance-mark ${status || 'blank'}" data-class-mark="${day.date}|${p.studentId}"`
+                + ` aria-label="${esc(dmy(day.date) + ' · ' + p.name + ' · ' + label)}" title="${esc(p.name + ' · ' + label)}"`
+                + (!day.mayMark || busy || d.readOnly ? ' disabled' : '') + `>${classMarkText[status || 'blank']}</button></td>`;
+        };
+        const nobody = !m.days.some((day) => day.mayMark);
+        el('attendanceSheet').innerHTML = `<h2>${esc(m.title)}</h2><p>${esc(m.subtitle)}</p>`
+            + (d.readOnly ? '<p class="attendance-legend">Само преглед — ознаките не може да се менуваат.</p>'
+                : '<p class="attendance-legend">Клик: неозначено → присутен → отсутен → неозначено. „✓ Сите присутни“ ги означува неозначените, па поправете ги отсутните. Се зачувува веднаш во базата.</p>')
+            + `<p>${esc(m.note)}</p>`
+            + (!d.readOnly && nobody ? '<p class="attendance-warning">Во овој период немате час во оваа паралелка, па не можете да бележите. Бележи раководителот, или наставникот што има час тој ден.</p>' : '')
+            + (!d.calendarAvailable ? '<p class="attendance-warning">⚠ Нема зачуван календар за оваа година од S-Дневник на серверот. Празниците и распустите не се потврдени.</p>' : '')
+            + (!d.pupils.length ? '<p>Нема ученици во оваа паралелка на годишниот список.</p>'
+                : `<div class="attendance-scroll"><table class="attendance-table class-days ${attendance.mode}"><thead><tr><th>Ученик</th>${head}</tr></thead><tbody>`
+                    + d.pupils.map((p) => `<tr><th>${esc(p.name)}</th>` + m.days.map((day) => cell(p, day)).join('') + '</tr>').join('')
+                    + `<tr class="class-total"><th>Присутни</th>${m.rows[m.rows.length - 1].slice(1).map((n) => `<td><b>${esc(n)}</b></td>`).join('')}</tr>`
+                    + '</tbody></table></div>');
+    }
+    /** One click or „✓ Сите присутни": what this page saw is sent as `expected`, all or nothing. */
+    async function markClass(b) {
+        const d = attendance.data;
+        if (!d || attendance.busy || d.readOnly) return;
+        let date, marks;
+        if (b.dataset.classAll) {
+            date = b.dataset.classAll;
+            const day = d.days.find((x) => x.date === date);
+            marks = d.pupils.filter((p) => !day.marks[p.studentId]).map((p) => ({ studentId: p.studentId, status: 'present', expected: null }));
+        } else {
+            const [when, id] = b.dataset.classMark.split('|');
+            date = when;
+            const day = d.days.find((x) => x.date === date), now = day.marks[id] || null;
+            marks = [{ studentId: Number(id), status: !now ? 'present' : now === 'present' ? 'absent' : null, expected: now }];
+        }
+        if (!marks.length) return;
+        const request = attendance.request, focus = b.dataset.classMark || '';
+        attendance.busy = true; b.setAttribute('aria-busy', 'true');
+        try {
+            await api('PUT', '/api/portal/class-attendance', { classId: d.class.id, date, marks });
+            if (d !== attendance.data || request !== attendance.request) return;
+            const day = d.days.find((x) => x.date === date);
+            marks.forEach((m) => { if (m.status) day.marks[m.studentId] = m.status; else delete day.marks[m.studentId]; });
+            attendance.busy = false;
+            drawClassAttendance();
+            if (focus) el('attendanceSheet').querySelector(`[data-class-mark="${focus}"]`)?.focus();
+            say('weekMsg', marks.length > 1 ? `Означени ${marks.length} присутни.` : 'Присуството е зачувано во базата.', 'ok');
+        } catch (err) {
+            if (d !== attendance.data || request !== attendance.request) return;
+            attendance.busy = false;
+            say('weekMsg', err.message + ' Листата се освежува; проверете пред повторен клик.', 'error');
+            await loadAttendance({ quiet: true });
+        }
+    }
+    function mealsReport() {
+        const d = attendance.data;
+        return { title: 'Присутни ученици по паралелки', subtitle: dmy(d.date) + ' · учебна ' + d.year,
+            note: 'За нарачката на храната. Неозначено не значи отсутен — проверете ги паралелките што уште не се означени.',
+            columns: ['Паралелка', 'На список', '✓ Присутни', '× Отсутни', '· Неозначени', 'Бележеле'],
+            rows: [...d.classes.map((c) => [c.alias || shortOf(c.label), c.pupils, c.present, c.absent, c.unmarked, (c.markedBy || []).join(', ') || '—'].map(String)),
+                ['Вкупно', d.totals.pupils, d.totals.present, d.totals.absent, d.totals.unmarked, ''].map(String)] };
+    }
+    function drawMeals() {
+        const d = attendance.data, m = mealsReport();
+        el('attendanceSheet').innerHTML = `<h2>${esc(m.title)}</h2><p>${esc(m.subtitle)}</p>`
+            + (d.closed ? `<p class="attendance-warning">${esc(dmy(d.date) + ': ' + d.closed)} — нема настава.</p>` : '')
+            + `<p class="meals-total"><b>Присутни: ${d.totals.present}</b>`
+            + (d.totals.unmarked ? ` · уште ${d.totals.unmarked} неозначени (ако дојдат, вкупно до ${d.totals.present + d.totals.unmarked})` : ' · сите паралелки се означени') + '</p>'
+            + `<p>${esc(m.note)}</p>`
+            + '<div class="attendance-scroll"><table class="attendance-table meals"><thead><tr>' + m.columns.map((c) => `<th>${esc(c)}</th>`).join('') + '</tr></thead><tbody>'
+            + m.rows.map((r, i) => `<tr${i === m.rows.length - 1 ? ' class="class-total"' : ''}><th>${esc(r[0])}</th>` + r.slice(1).map((v, j) =>
+                `<td${j === 3 && Number(v) > 0 && i < m.rows.length - 1 ? ' class="mark-mixed"' : ''}>${esc(v)}</td>`).join('') + '</tr>').join('')
+            + '</tbody></table></div>';
     }
     // A small, uncompressed OPC ZIP keeps this public page self-contained:
     // no CDN, upload of pupil data, HTML renamed .doc, macros or remote parts.
@@ -1320,21 +1457,23 @@ header.top h1 { flex: 1; min-width: 180px; }
         const range = attendanceRange(), data = attendance.data;
         const disabled = attendance.busy ? ' disabled' : '';
         el('attendance').innerHTML = '<div class="no-print attendance-tools"><div class="report-filters" role="group" aria-label="Избор на извештај">'
-            + (attendance.transportAllowed ? `<label>Извештај<select id="attendanceScope"${disabled}>${(me.readOnly ? week?.me.therapistId != null : me.therapist) ? '<option value="cabinet">'+(me.readOnly ? 'Избраниот кабинет — третмани' : 'Мој кабинет — третмани')+'</option>' : ''}<option value="transport"${attendance.scope==='transport'?' selected':''}>Надворешни — превоз, сите кабинети</option></select></label>` : '')
+            + (attendanceScopes().length > 1 ? `<label>Извештај<select id="attendanceScope"${disabled}>${attendanceScopes().map(([v, t]) => `<option value="${v}"${attendance.scope === v ? ' selected' : ''}>${esc(t)}</option>`).join('')}</select></label>` : '')
             + '<div class="view-modes" role="group" aria-label="Приказ на присуство">'
-            + (attendance.scope==='transport' ? '<span class="muted">Месечен извештај</span>' : `<button data-att-mode="week" aria-pressed="${attendance.mode === 'week'}"${disabled}>Недела</button><button data-att-mode="month" aria-pressed="${attendance.mode === 'month'}"${disabled}>Месец</button>`)
+            + (attendance.scope==='transport' ? '<span class="muted">Месечен извештај</span>' : attendance.scope==='meals' ? '<span class="muted">Еден ден</span>' : `<button data-att-mode="week" aria-pressed="${attendance.mode === 'week'}"${disabled}>Недела</button><button data-att-mode="month" aria-pressed="${attendance.mode === 'month'}"${disabled}>Месец</button>`)
             + '</div></div><div class="report-commands"><div class="period-controls" role="group" aria-label="Период">'
             + `<button data-att-step="-1" aria-label="Претходен период"${disabled}>◀</button>`
-            + `<label>Период<input id="attendanceDate" type="${attendance.mode === 'month' ? 'month' : 'date'}" value="${attendance.mode === 'month' ? range.from.slice(0, 7) : range.from}"${disabled}></label>`
+            + `<label>${attendance.scope === 'meals' ? 'Ден' : 'Период'}<input id="attendanceDate" type="${attendance.mode === 'month' && attendance.scope !== 'meals' ? 'month' : 'date'}" value="${attendance.mode === 'month' && attendance.scope !== 'meals' ? range.from.slice(0, 7) : range.from}"${disabled}></label>`
             + `<button data-att-step="1" aria-label="Следен период"${disabled}>▶</button>`
             + `</div><button data-att-refresh${disabled}>Освежи</button><div class="report-exports" role="group" aria-label="Печатење и извоз"><button data-att-print${disabled || !data ? ' disabled' : ''}>Печати</button>`
             + `<button data-att-png${disabled || !data ? ' disabled' : ''}>🖼 Слика</button>`
-            + (attendance.scope==='transport' || me.readOnly ? `<button data-att-docx${disabled || !data ? ' disabled' : ''}>Word (.docx)</button>` : '') + '</div></div></div>'
+            + (attendance.scope==='transport' || (me.readOnly && attendance.scope==='cabinet') ? `<button data-att-docx${disabled || !data ? ' disabled' : ''}>Word (.docx)</button>` : '') + '</div></div></div>'
             + (attendance.busy ? '<p role="status">Се вчитува / зачувува…</p>' : '')
             + (attendance.accessError ? '<div class="access-help no-print" role="alert"><strong>Најавете се како сопственик</strong><p>Отворете MTB во истиот прелистувач, најавете се, па вратете се тука и притиснете „Освежи“. Вашата најава за Колеги останува зачувана.</p><a href="/MTB-Workspace.html" target="_blank" rel="noopener">Отвори сопственичка најава ↗</a></div>' : '')
             + '<div id="attendanceSheet"></div>';
         if (!data || attendance.busy) return;
         if (attendance.scope==='transport') return drawTransport();
+        if (attendance.scope==='meals') return drawMeals();
+        if (classScope()) return drawClassAttendance();
         const m = attendanceReport();
         const warnings = data.days.filter(d => (d.closed && d.closed !== 'Викенд') || d.conflict).map(d => dmy(d.date) + ': ' + (d.closed || 'Преклопени термини — исправете го распоредот.'));
         el('attendanceSheet').innerHTML = `<h2>${esc(m.title)}</h2><p>${esc(m.subtitle)}</p>`
@@ -1352,10 +1491,11 @@ header.top h1 { flex: 1; min-width: 180px; }
         if (event.target.id==='attendanceScope' && !attendance.busy) {
             attendance.scope=event.target.value; attendance.data=null;
             if(attendance.scope==='transport') attendance.mode='month';
+            else if(attendance.scope.startsWith('class:')) attendance.mode='week';
             return loadAttendance();
         }
         if (event.target.id !== 'attendanceDate' || attendance.busy || !event.target.value) return;
-        attendance.date = event.target.value + (attendance.mode === 'month' ? '-01' : '');
+        attendance.date = event.target.value + (attendance.mode === 'month' && attendance.scope !== 'meals' ? '-01' : '');
         loadAttendance();
     });
     el('attendance').addEventListener('click', async event => {
@@ -1365,7 +1505,8 @@ header.top h1 { flex: 1; min-width: 180px; }
         if (b.hasAttribute('data-att-mode')) { attendance.mode = b.dataset.attMode; return loadAttendance(); }
         if (b.hasAttribute('data-att-step')) {
             const range = attendanceRange(), step = Number(b.dataset.attStep);
-            attendance.date = attendance.mode === 'week' ? isoShift(range.from, 7 * step) : shiftMonth(range.from.slice(0, 7), step) + '-01';
+            attendance.date = attendance.scope === 'meals' ? isoShift(range.from, step)
+                : attendance.mode === 'week' ? isoShift(range.from, 7 * step) : shiftMonth(range.from.slice(0, 7), step) + '-01';
             return loadAttendance();
         }
         if (b.hasAttribute('data-att-refresh')) return loadAttendance();
@@ -1373,11 +1514,14 @@ header.top h1 { flex: 1; min-width: 180px; }
         if (b.hasAttribute('data-att-print')) { document.body.classList.add('printing-attendance'); window.print(); return; }
         if (b.hasAttribute('data-att-png')) {
             if(attendance.scope==='transport') return paintReport({...transportReport(),file:'Prevoz-'+attendance.data.month,dateList:true});
+            if(attendance.scope==='meals') return paintReport({...mealsReport(),file:'Prisutni-'+attendance.data.date});
+            if(classScope()) return paintReport({...classAttendanceReport(),file:'Prisustvo-paralelka-'+attendance.data.from,compact:attendance.mode==='month'});
             const m = attendanceReport();
             const rows = m.rows.map(r => [r.label, ...r.cells.map(c => c.sessions.map(s =>
                 (attendance.mode === 'week' ? s.name + '\n' : '') + (s.status === 'present' ? '✓' : s.status === 'absent' ? '×' : '?')).join('\n') || '—'), ...r.totals.map(String)]);
             return paintReport({ ...m, rows, file: 'Prisustvo-' + attendance.data.from, compact: attendance.mode === 'month', attendance:true });
         }
+        if (b.dataset.classMark || b.dataset.classAll) return markClass(b);
         if (me.readOnly || !b.dataset.attKey) return;
         const d = attendance.data.days.find(d => d.date === b.dataset.attDate);
         const s = d?.sessions.find(s => s.key === b.dataset.attKey);
@@ -2540,8 +2684,10 @@ header.top h1 { flex: 1; min-width: 180px; }
         if (onAttendance) {
             el('days').hidden = true;
             el('tabHint').textContent = attendance.transportAllowed
-                ? 'Присуство во вашиот кабинет или заеднички месечен извештај за превоз на надворешните ученици.'
-                : 'Присуство на учениците на третман во вашиот кабинет.';
+                ? 'Присуство во кабинетот, по паралелки (за храната) или месечен извештај за превоз на надворешните ученици.'
+                : week.me.therapistId != null && week.me.teacherId == null
+                ? 'Присуство на учениците на третман во вашиот кабинет.'
+                : 'Кои ученици се во училиште денес — за планирање на храната. Не е извештајот за превоз.';
             loadAttendance();
             return;
         }
@@ -3191,6 +3337,7 @@ header.top h1 { flex: 1; min-width: 180px; }
         attendance.busy = false;
         attendance.scope = 'cabinet';
         attendance.transportAllowed = false;
+        attendance.classes = null;
         const sessionMe=me;
         el('readerControls').hidden = !me.readOnly;
         if (me.readOnly) {

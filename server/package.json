@@ -96,6 +96,7 @@
     "test:kolega": "node test/kolega.browser.mjs",
     "test:kolega-landing": "node test/kolega-landing.browser.mjs",
     "test:kolega-attendance": "node test/kolega-attendance.browser.mjs",
+    "test:kolega-class-attendance": "node test/kolega-class-attendance.browser.mjs",
     "test:kolega-read-only": "node test/kolega-read-only.browser.mjs",
     "test:layout": "node test/layout.browser.mjs",
     "test:duty": "tsx test/duty.e2e.ts",

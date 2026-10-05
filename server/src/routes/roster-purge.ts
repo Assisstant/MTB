@@ -122,6 +122,8 @@ export const PURGE: Record<string, PurgeSpec> = {
             schedule_slots: 'student_id',
             attendance: 'student_id',
             cabinet_attendance_pupils: 'student_id',
+            class_attendance: 'student_id',
+            class_attendance_changes: 'student_id',
             student_plan_progress: 'student_id',
             student_records: 'student_id',
             assessments: 'student_id',
@@ -166,7 +168,9 @@ export const PURGE: Record<string, PurgeSpec> = {
         sweep: { class_years: 'class_id' },
         refuse: {
             lessons: 'class_id',
-            teacher_classes: 'class_id'
+            teacher_classes: 'class_id',
+            class_attendance: 'class_id',
+            class_attendance_changes: 'class_id'
         },
         instead: 'take it off the year with PUT /api/roster/memberships instead'
     }
