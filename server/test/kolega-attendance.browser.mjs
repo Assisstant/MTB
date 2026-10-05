@@ -278,6 +278,14 @@ try {
     // „Ред на листата" says what it is, and „✍ Изработил" is chosen once for every document (owner, 5 Oct 2026).
     assert.match(await p.locator('.duty-table tbody td.num').first().innerText(),/\d+\. од \d+/,'the place reads „N. од M"');
     assert.match(await p.locator('.duty-legend').innerText(),/круг/,'a legend says what a round is');
+    // „Задебели го моето име": on by default, off for a neutral sheet, kept when the sheet is drawn again.
+    const ownWeight=()=>p.evaluate(()=>getComputedStyle(document.querySelector('.duty-table tr.mine td.who')).fontWeight);
+    assert.equal(await ownWeight(),'800','one\'s own name is bold by default');
+    await p.uncheck('#dutyBoldMine');
+    assert.equal(await ownWeight(),'400','and plain when switched off');
+    await p.click('[data-duty-past]');
+    assert.equal(await p.isChecked('#dutyBoldMine'),false); assert.equal(await ownWeight(),'400','the choice stays when the sheet is drawn again');
+    await p.check('#dutyBoldMine'); await p.click('[data-duty-past]');
     const preparerText=()=>p.evaluate(()=>{window.dispatchEvent(new Event('beforeprint'));const n=document.querySelector('.print-preparer');return n&&!n.hidden?n.textContent:'';});
     assert.equal(await preparerText(),'Изработил: Измислен Терапевт','by default the signed-in person');
     await p.click('#duty [data-preparer]'); await p.waitForSelector('#preparerDialog[open]');

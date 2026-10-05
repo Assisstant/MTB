@@ -836,6 +836,8 @@ check('no page errors', errors.length === 0, errors.join('\n       '));
         && !(await o.p.$('#duty tr[data-date="2026-10-08"] [data-swap-from]'))
         && Boolean(await o.p.$('#duty tr[data-date="2026-10-06"] [data-swap-from]')));
     const drag = async (fromDate, toDate) => {
+        // The mouse reaches only what is on the screen: the table first, as a person would scroll to it.
+        await o.p.$eval('#duty .duty-table', (t) => t.scrollIntoView({ block: 'start' }));
         const g = await (await o.p.$(`#duty tr[data-date="${fromDate}"] [data-swap-from]`)).boundingBox();
         const t = await (await o.p.$(`#duty tr[data-date="${toDate}"] td.who`)).boundingBox();
         await o.p.mouse.move(g.x + g.width / 2, g.y + g.height / 2);

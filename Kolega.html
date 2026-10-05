@@ -167,6 +167,11 @@ header.top h1 { flex: 1; min-width: 180px; }
 .duty-table td.date { white-space: nowrap; width: 1%; font-weight: 600; }
 .duty-table tr.mine td { background: var(--chip); }
 .duty-table tr.mine td.who { font-weight: 800; }
+/* Switched off: one's own days read like everybody else's, on screen and on paper. */
+#duty.plain-mine .duty-table tr.mine td { background: transparent; }
+#duty.plain-mine .duty-table tr.mine td.who { font-weight: inherit; }
+.bold-mine { display: inline-flex; align-items: center; gap: 6px; font-size: 14px; white-space: nowrap; }
+.bold-mine input { width: auto; margin: 0; }
 .duty-table tr.closed td { color: var(--muted); font-style: normal; background: var(--warn-bg); }
 .duty-table tr.past td { opacity: .72; }
 .duty-table tr.today td.date::after { content: 'денес'; display: block; color: var(--accent); font-weight: 800; }
@@ -515,7 +520,7 @@ header.top h1 { flex: 1; min-width: 180px; }
   .duty-admin { border-style: solid; border-radius: 6px; }
   .duty-head { gap: 8px; margin: 20px 0 12px; }
   .duty-head h2 { flex-basis: 100%; margin: 0 0 4px; order: -1; }
-  .duty-head #dutyPrint { margin-left: auto; }
+  .duty-head .bold-mine { margin-left: auto; }
   .attendance-tools { display: flex; flex-direction: column; align-items: stretch; gap: 12px; padding: 12px 0 20px; border-bottom: 1px solid var(--line); margin-bottom: 20px; }
   .report-filters, .report-commands, .period-controls, .report-exports, .view-modes { display: flex; align-items: end; gap: 8px; }
   .report-filters, .report-commands { flex-wrap: wrap; }
@@ -581,7 +586,7 @@ header.top h1 { flex: 1; min-width: 180px; }
     .period-controls input { width: 100%; }
     .report-exports { display: flex; flex-wrap: wrap; margin-left: 0; }
     .report-exports button { flex: 1 1 100px; }
-    .duty-head #dutyPrint { margin-left: 0; }
+    .duty-head .bold-mine { margin-left: 0; }
     .duty-table th, .duty-table td { padding: 8px 5px; }
     .duty-table td.date { width: 85px; white-space: normal; font-size: 14px; }
     .duty-table td.num { width: 44px; }
@@ -2121,8 +2126,14 @@ header.top h1 { flex: 1; min-width: 180px; }
             + '<button type="button" class="small" id="dutyUndo">Откажи</button></div></details>';
     }
 
+    // „Задебели го моето име" (owner, 5 Oct 2026): one's own days stand out on
+    // the screen and on paper — unless switched off, e.g. for a sheet that goes
+    // on the notice board. This browser only; layout, never data.
+    const BOLD_MINE_KEY = 'mtb_kolega_bold_mine_v1';
+    const boldMine = () => { try { return localStorage.getItem(BOLD_MINE_KEY) !== 'off'; } catch (_) { return true; } };
     function drawDuty() {
         const box = el('duty');
+        box.classList.toggle('plain-mine', !boldMine());
         if (!duty.data) { box.innerHTML = '<p class="muted">Вчитувам…</p>'; return; }
         const [y, m] = duty.month.split('-').map(Number);
         const first = duty.data.yearStartsOn.slice(0, 7);
@@ -2159,6 +2170,7 @@ header.top h1 { flex: 1; min-width: 180px; }
             : '';
         box.innerHTML = delegated + (duty.owner ? dutyAdminHtml() : '')
             + '<div class="duty-head">' + head
+            + `<label class="bold-mine no-print"><input type="checkbox" id="dutyBoldMine"${boldMine() ? ' checked' : ''}> Задебели го моето име</label>`
             + '<button type="button" class="small no-print" id="dutyPrint">🖨 Печати</button>'
             + '<button type="button" class="small no-print" id="dutyPng">🖼 Слика</button>'
             + '<button type="button" class="small no-print" id="dutyPdf" title="Точно A4, без адреса, датум и број на страница од прелистувачот">⬇ PDF</button>'
@@ -2338,6 +2350,11 @@ header.top h1 { flex: 1; min-width: 180px; }
         }
     });
     el('duty').addEventListener('change', (event) => {
+        if (event.target.id === 'dutyBoldMine') {
+            try { localStorage.setItem(BOLD_MINE_KEY, event.target.checked ? 'on' : 'off'); } catch (_) { /* this browser keeps nothing */ }
+            el('duty').classList.toggle('plain-mine', !event.target.checked);
+            return;
+        }
         if (event.target.id === 'dutyStart' && duty.draft) duty.draft.startsOn = event.target.value;
         if (event.target.name === 'kind') {
             const form = event.target.closest('[data-duty-day]');
