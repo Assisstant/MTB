@@ -104,6 +104,7 @@
     "test:door": "node test/door.browser.mjs",
     "test:plan-sync": "node test/sdnevnik-plan-sync.browser.mjs",
     "test:zero-id": "node test/sdnevnik-zero-id.browser.mjs",
+    "test:weeks": "node test/sdnevnik-weeks.browser.mjs",
     "test:diary-list": "node test/sdnevnik-caseload.browser.mjs",
     "test:twins": "node test/podatoci-twins.browser.mjs",
     "test:merge": "node test/with-scratch.mjs test/student-merge.e2e.ts",

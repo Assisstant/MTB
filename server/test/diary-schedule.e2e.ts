@@ -88,7 +88,7 @@ async function cleanup() {
     // section 6 asserts, and the reason this row has to go with the rest of the
     // fixture. Without it the suite passes once and fails ever after, because
     // "created: true" can only be true the first time.
-    await pool.query('DELETE FROM diary_schedule_history WHERE week_of = $1', ['2026-05-11']);
+    await pool.query('DELETE FROM diary_schedule_history WHERE week_of = ANY($1::date[])', [['2026-05-11', '2026-05-18']]);
     // The rehearsal year, and whatever it dragged with it.
     await pool.query('DELETE FROM diary_schedule WHERE school_year_id IN (SELECT id FROM school_years WHERE label = $1)', [NEXT_YEAR]);
     await pool.query('UPDATE school_years SET is_current = false WHERE label = $1', [NEXT_YEAR]);
@@ -200,6 +200,14 @@ async function main() {
         hist.body?.['2026-05-11']?.monday?.[0], [9001]);
     const badWeek = await call('PUT', '/api/diary/schedule/history/not-a-date', { payload: {} });
     checkEq('a key that is not a week start is refused', badWeek.status, 400);
+    // First write wins, so an empty copy stored first would hide that week for
+    // ever -- 28.09.2026 in the cloud, with eight attendance marks under it.
+    const emptySnap = await call('PUT', '/api/diary/schedule/history/2026-05-18', {
+        payload: { monday: [[], [], [], [], []] }
+    });
+    checkEq('an empty week is not stored', emptySnap.body?.created, false);
+    const histAfter = await call('GET', '/api/diary/schedule/history');
+    check('and nothing is there for it', !('2026-05-18' in (histAfter.body || {})));
 
     // ── 7. September, both ways round ────────────────────────────────────────
     //

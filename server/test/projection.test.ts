@@ -282,6 +282,32 @@ test('diary data attaches to students already on the roster', async () => {
 });
 
 /**
+ * Seen in the cloud on 5 Oct 2026: paging forward with an empty plan had left an
+ * empty copy of every week up to 2028, and the past one covered eight
+ * attendance marks. An empty copy says nothing; it is neither stored nor kept.
+ */
+test('an empty week copy is neither stored nor kept', async () => {
+    const payload: any = fullPayload(14);
+    payload.sdnevnik = { students: [{ id: 5001, name: 'Ученик 1', grade: 'I-а', rasporediStudentId: 'RS-test-1' }] };
+    await project(payload);
+    const yid = (await db().query('SELECT id FROM school_years WHERE is_current')).rows[0].id;
+    await db().query(
+        `INSERT INTO diary_schedule_history (school_year_id, week_of, payload) VALUES ($1, '2026-02-16', $2)`,
+        [yid, JSON.stringify({ monday: [[], [], [], [], []] })]);
+
+    const week = (first: number[] = []) => ({ monday: [first, [], [], [], []], tuesday: [[], [], [], [], []] });
+    const result = await project({
+        students: [{ id: 5001, name: 'Ученик 1', grade: 'I-а', planId: null }],
+        plans: [], attendance: {}, studentProgress: {}, audiograms: [],
+        schedule: week([5001]),
+        scheduleHistory: { '2026-02-23': week([5001]), '2026-03-02': week() }
+    });
+    assert.equal(result.kind, 'sdnevnik');
+    const weeks = (await db().query('SELECT week_of::text AS w FROM diary_schedule_history ORDER BY 1')).rows.map((r) => r.w);
+    assert.deepEqual(weeks, ['2026-02-23'], 'the full week is stored; the empty one and the one left earlier are not');
+});
+
+/**
  * Regression, seen in the cloud on 2 Oct 2026: a pupil the diary admitted from
  * the annual list carries the roster row's public_id and a fresh diary id, and
  * nothing gave the row that id. The blob saved, the therapist saw the term and

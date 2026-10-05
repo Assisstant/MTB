@@ -892,6 +892,13 @@ export async function writeDiaryForKnownStudents(client: any, sdnDoc: any, repor
  * state changed. Absent means "nothing has moved", so every existing export and
  * both old apps project exactly as before -- rule 4.
  */
+/** Does a diary week ({ monday: [[id], …], … }) hold at least one term? */
+export function weekHasTerms(week: unknown): boolean {
+    if (!week || typeof week !== 'object' || Array.isArray(week)) return false;
+    return Object.values(week as Record<string, unknown>).some((slots) =>
+        Array.isArray(slots) && slots.some((slot) => Array.isArray(slot) && slot.length > 0));
+}
+
 export function rowWritten(sdnDoc: any, collection: string): boolean {
     const list = (sdnDoc?._meta as any)?.rowWrites;
     return Array.isArray(list) && list.includes(collection);
@@ -1149,8 +1156,22 @@ export async function writeDiary(client: any, sdnDoc: any, studentIdBySdnId: Map
                 }
             }
 
+            /**
+             * An EMPTY snapshot says nothing, and it hid what was there: the
+             * diary used to copy every week it was paged past, so paging
+             * forward with an empty plan left empty weeks up to 2028, and the
+             * past one among them covered that week's attendance marks. The
+             * diary drops them on load now (5 Oct 2026); the table drops them
+             * here, and never stores a new one.
+             */
+            await client.query(
+                `DELETE FROM diary_schedule_history
+                  WHERE school_year_id = $1 AND NOT jsonb_path_exists(payload, '$.*[*][*]')`,
+                [yearId]
+            );
             for (const [weekOf, payload] of Object.entries(sdnDoc.scheduleHistory || {})) {
                 if (!/^\d{4}-\d{2}-\d{2}$/.test(weekOf)) continue;
+                if (!weekHasTerms(payload)) continue;
                 await client.query(
                     `INSERT INTO diary_schedule_history (school_year_id, week_of, payload)
                      VALUES ($1, $2, $3)

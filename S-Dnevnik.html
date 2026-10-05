@@ -1960,6 +1960,10 @@
                         title="Го споредува неделниот план во дневникот со Кабинети и прашува што да важи">⇄ Кабинети</button>
                 <button id="undoBtn" class="btn" style="background: #718096; color: white;" onclick="undoLastChange()" disabled>↶ Undo</button>
                 <button id="redoBtn" class="btn" style="background: #718096; color: white;" onclick="redoLastChange()" disabled>↷ Redo</button>
+                <button id="weekCopyBtn" class="btn" onclick="copyShownWeek()"
+                        title="Ги копира сите термини од прикажаната недела, за да се залепат во друга">📋 Копирај ја неделата</button>
+                <button id="weekPasteBtn" class="btn" style="display: none;" onclick="pasteWeek()"
+                        title="Ја залепува копираната недела во прикажаната. Во оваа или идна недела прашува дали важи и за наредните.">📥 Залепи</button>
                 <button id="lockToggleBtn" class="btn" style="background: #e53e3e; color: white; margin-left: auto;" onclick="togglePastWeekLock()">
                     🔒 Измината седмица е заклучена
                 </button>
@@ -2425,6 +2429,10 @@
         var links = [];
         var studentProgress = {};
         var scheduleHistory = {}; // Historical schedule snapshots
+        // Распоред подготвен однапред: „од оваа недела натаму важи ова“,
+        // клуч = понеделникот. Само за недели што уште не почнале; кога ќе
+        // дојде неделата, при првото зачувување станува `schedule` (`promoteDuePlans`).
+        var planFrom = {};
         window.studentRecords = window.studentRecords || []; // Imported StudentRecords payload
         window.audiogramRecords = window.audiogramRecords || []; // Imported audiogram payload
         
@@ -3266,11 +3274,15 @@
             var studentId = student.id;
             var at = students.indexOf(student);
             if (at >= 0) students.splice(at, 1);
-            for (var day in schedule) {
-                for (var i = 0; i < schedule[day].length; i++) {
-                    schedule[day][i] = schedule[day][i].filter(function(sid) { return sid !== studentId; });
+            // Од живиот план и од распоредите залепени однапред за идни недели.
+            [schedule].concat(Object.keys(planFrom || {}).map(function (k) { return planFrom[k]; })).forEach(function (week) {
+                for (var day in week) {
+                    if (!Array.isArray(week[day])) continue;
+                    for (var i = 0; i < week[day].length; i++) {
+                        week[day][i] = (week[day][i] || []).filter(function(sid) { return sid !== studentId; });
+                    }
                 }
-            }
+            });
             if (!Array.isArray(window.formerCaseloadStudents)) window.formerCaseloadStudents = [];
             student._formerCaseload = { year: (window.schoolCalendar && window.schoolCalendar.label) || '', at: new Date().toISOString() };
             if (!window.formerCaseloadStudents.some(function (s) { return s && s.id === studentId; })) {
@@ -3783,23 +3795,12 @@
         }
         
         function changeWeek(dir) {
-            // Save snapshot of current week before leaving (if it's current or future)
-            var oldWeekKey = getWeekKey();
-            var now = new Date();
-            var todayStart = new Date();
-            todayStart.setHours(0, 0, 0, 0);
-            var currentMondayStart = new Date(todayStart);
-            currentMondayStart.setTime(mondayOf(todayStart).getTime());
-            var oldWeekDate = new Date(oldWeekKey);
-            
-            // Only save snapshot if we're leaving current or future week
-            if (oldWeekDate >= currentMondayStart) {
-                if (!scheduleHistory[oldWeekKey]) {
-                    scheduleHistory[oldWeekKey] = JSON.parse(JSON.stringify(schedule));
-                    saveData();
-                }
-            }
-            
+            // Прелистувањето НЕ зачувува снимка. Порано „Следна →“ ја копираше
+            // секоја тековна и идна недела што ќе ја напушти, со планот каков
+            // што е во тој миг — па прелистување напред со празен план остави
+            // празни снимки до 2028, а празната снимка на минатата недела ги
+            // криеше и ознаките за присуство. Снимката сега ја прави само
+            // измената на планот (`recordPlanChange`).
             currentWeek += dir;
             
             // Auto-lock when switching weeks (safety feature)
@@ -3848,28 +3849,237 @@
             return year + '-' + month + '-' + date;
         }
         
+        // ── Минатите недели ───────────────────────────────────────────────
+        // Сопственикот (5 октомври 2026): „распоредот треба да постои и да
+        // биде ист … и да се чува отсутен присутен“. Минатата недела 28.09
+        // во облакот имаше ПРАЗНА снимка, а 8 ознаки за присуство — и празната
+        // снимка ги криеше. Три правила, сите тука:
+        //
+        //   1. Празна снимка не кажува ништо. Не се црта, не се чува
+        //      (`dropEmptyWeekSnapshots`) и не се брои како измена при
+        //      синхронизација (`contentHash`).
+        //   2. Недела без снимка во оваа учебна година го покажува првиот
+        //      зачуван план ПОСЛЕ неа, а ако нема — сегашниот. Снимка се прави
+        //      само кога планот се менува (`recordPlanChange`), значи недела
+        //      без снимка е недела во која планот не се сменил.
+        //   3. Секоја ознака за присуство се гледа. Ученик означен во термин
+        //      што снимката не го има се додава во терминот: ознаката е факт,
+        //      снимката е само план.
+
+        var lastWeekSource = 'live';   // 'saved' | 'carried' | 'marks' — за белешката над неделата
+
+        /** „ГГГГ-ММ-ДД“ на понеделникот од денешната недела. */
+        function thisWeekKey() { return calText(mondayOf(new Date())); }
+
+        /** Понеделникот на првата недела од учебната година, како клуч. */
+        function schoolYearFirstWeekKey() {
+            return schoolCalendar && schoolCalendar.yearStart ? calText(mondayOf(schoolCalendar.yearStart)) : '';
+        }
+
+        function weekHasTerms(week) {
+            if (!week || typeof week !== 'object') return false;
+            return Object.keys(week).some(function (day) {
+                return Array.isArray(week[day]) && week[day].some(function (slot) {
+                    return Array.isArray(slot) && slot.length > 0;
+                });
+            });
+        }
+
+        function copyWeek(week) { return JSON.parse(JSON.stringify(week || {})); }
+
+        /** Ги брише празните снимки; враќа колку. */
+        function dropEmptyWeekSnapshots(history) {
+            if (!history || typeof history !== 'object') return 0;
+            var dropped = 0;
+            Object.keys(history).forEach(function (k) {
+                if (!weekHasTerms(history[k])) { delete history[k]; dropped++; }
+            });
+            return dropped;
+        }
+
+        // Планот каков што бил при последното вчитување или запишување на
+        // снимка. Без ова, при зачувување не се знае дали планот е сменет —
+        // а снимката на претходната недела мора да го носи планот ПРЕД
+        // измената, не по неа.
+        var planAsLoaded = null;
+
+        function rememberPlanAsLoaded() {
+            try { planAsLoaded = JSON.stringify(schedule || null); } catch (e) { planAsLoaded = null; }
+        }
+
+        /**
+         * При зачувување: ако планот е сменет од последното вчитување,
+         * претходната недела добива снимка од стариот план (ако ја нема), а
+         * оваа недела од новиот. Снимки за идни недели не постојат — неделата
+         * уште не се случила — па старите такви се бришат.
+         *
+         * Се повикува од `saveData`/`manualSave`, не од синхронизацијата:
+         * таа само споредува, и снимка запишана таму би изгледала како
+         * локална измена секој понеделник.
+         */
+        function shiftWeekKey(key, weeks) {
+            var d = calDate(key);
+            d.setDate(d.getDate() + 7 * weeks);
+            return calText(d);
+        }
+
+        function sameWeek(a, b) {
+            var flat = function (week) {
+                return daysEng.map(function (day) {
+                    var slots = (week && Array.isArray(week[day])) ? week[day] : [];
+                    // Празни термини на крајот не се разлика.
+                    var out = slots.map(function (s) { return (Array.isArray(s) ? s : []).map(String).join(','); });
+                    while (out.length && out[out.length - 1] === '') out.pop();
+                    return out.join('|');
+                }).join('/');
+            };
+            return flat(a) === flat(b);
+        }
+
+        /**
+         * Планот што важи во неделата `weekKey` (оваа или идна): последниот
+         * подготвен однапред што почнал до неа, инаку живиот `schedule`.
+         * Враќа РЕФЕРЕНЦА — измената на таа недела го менува тој план.
+         */
+        function planForWeek(weekKey) {
+            var keys = Object.keys(planFrom || {}).filter(function (k) { return k <= weekKey; }).sort();
+            return keys.length ? planFrom[keys[keys.length - 1]] : schedule;
+        }
+
+        /** Подготвен план што е ист како оној пред него е вишок — се брише. */
+        function compactPlanFrom() {
+            var before = schedule;
+            Object.keys(planFrom || {}).sort().forEach(function (k) {
+                if (sameWeek(planFrom[k], before)) delete planFrom[k];
+                else before = planFrom[k];
+            });
+        }
+
+        /**
+         * Подготвен план чија недела дошла станува живиот `schedule`.
+         *
+         * Само при зачувување (од `recordPlanChange`), никогаш при вчитување:
+         * промена при отворање е „локална измена“ без ничија работа, а тоа е
+         * точно она што завршува со „ЗАСТАНА“. До првото зачувување неделата
+         * сепак се црта точно, зашто `planForWeek` го гледа подготвениот план.
+         *
+         * Минатите недели што поминале по него добиваат снимка — тие се
+         * одржаа по него, а не по стариот план.
+         */
+        function promoteDuePlans() {
+            if (!planFrom || typeof planFrom !== 'object') { planFrom = {}; return false; }
+            var current = thisWeekKey();
+            var due = Object.keys(planFrom).filter(function (k) { return k <= current; }).sort();
+            if (!due.length) return false;
+            var yearOpens = schoolYearFirstWeekKey();
+            var before = copyWeek(schedule);
+            due.forEach(function (k) {
+                var week = planFrom[k];
+                var prev = shiftWeekKey(k, -1);
+                if (prev < current && prev >= yearOpens && !weekHasTerms(scheduleHistory[prev]) && weekHasTerms(before)) {
+                    scheduleHistory[prev] = copyWeek(before);
+                }
+                if (k < current && !weekHasTerms(scheduleHistory[k]) && weekHasTerms(week)) {
+                    scheduleHistory[k] = copyWeek(week);
+                }
+                before = copyWeek(week);
+                delete planFrom[k];
+            });
+            var lastWeek = shiftWeekKey(current, -1);
+            if (due[due.length - 1] < current && !weekHasTerms(scheduleHistory[lastWeek]) && weekHasTerms(before)) {
+                scheduleHistory[lastWeek] = copyWeek(before);
+            }
+            daysEng.forEach(function (day) { schedule[day] = Array.isArray(before[day]) ? before[day] : timeSlots.map(function () { return []; }); });
+            return true;
+        }
+
+        function recordPlanChange() {
+            if (!scheduleHistory || typeof scheduleHistory !== 'object') scheduleHistory = {};
+            promoteDuePlans();
+            var now;
+            try { now = JSON.stringify(schedule || null); } catch (e) { return false; }
+            if (planAsLoaded === null) { planAsLoaded = now; return false; }
+            if (now === planAsLoaded) return false;
+
+            var current = thisWeekKey();
+            var prev = mondayOf(new Date());
+            prev.setDate(prev.getDate() - 7);
+            var previous = calText(prev);
+            var before = JSON.parse(planAsLoaded);
+            if (!weekHasTerms(scheduleHistory[previous]) && previous >= schoolYearFirstWeekKey() && weekHasTerms(before)) {
+                scheduleHistory[previous] = before;
+            }
+            if (weekHasTerms(schedule)) scheduleHistory[current] = copyWeek(schedule);
+            else delete scheduleHistory[current];
+            Object.keys(scheduleHistory).forEach(function (k) { if (k > current) delete scheduleHistory[k]; });
+            planAsLoaded = now;
+            return true;
+        }
+
+        /**
+         * Планот на минатата недела, без ознаките: нејзината снимка, или
+         * (во оваа учебна година) првата снимка по неа, или живиот план.
+         */
+        function pastWeekBase(weekKey) {
+            if (weekHasTerms(scheduleHistory[weekKey])) return { base: scheduleHistory[weekKey], source: 'saved' };
+            if (weekKey < schoolYearFirstWeekKey()) return { base: null, source: 'marks' };
+            var current = thisWeekKey();
+            var later = Object.keys(scheduleHistory).filter(function (k) {
+                return k > weekKey && k <= current && weekHasTerms(scheduleHistory[k]);
+            }).sort();
+            var base = later.length ? scheduleHistory[later[0]] : schedule;
+            return weekHasTerms(base) ? { base: base, source: 'carried' } : { base: null, source: 'marks' };
+        }
+
+        /**
+         * Пред да се смени снимката на минатата недела `key`: неделата пред
+         * неа, ако нема своја, го позајмува планот од `key` — па би се
+         * сменила и таа, без никој да ја допре. Добива своја, со тоа што
+         * покажува сега.
+         */
+        function keepWeekBeforeAsShown(key) {
+            var prev = shiftWeekKey(key, -1);
+            if (prev < schoolYearFirstWeekKey() || weekHasTerms(scheduleHistory[prev])) return;
+            var shown = pastWeekBase(prev).base;
+            if (weekHasTerms(shown)) scheduleHistory[prev] = copyWeek(shown);
+        }
+
         function getScheduleForWeek(weekKey) {
-            // Calculate if this week is in the past
-            var now = new Date();
-            var todayStart = new Date();
-            todayStart.setHours(0, 0, 0, 0);
-            var currentMondayStart = new Date(todayStart);
-            currentMondayStart.setTime(mondayOf(currentMondayStart).getTime());
-            
-            var weekDate = new Date(weekKey);
-            
-            // For current and future weeks, ALWAYS use the live schedule (editable)
-            if (weekDate >= currentMondayStart) {
-                return schedule; // Live template - editable
-            }
-            
-            // For past weeks, use historical snapshot if exists, otherwise reconstruct from attendance
-            if (scheduleHistory[weekKey]) {
-                return scheduleHistory[weekKey];
-            }
-            
-            // If no snapshot exists, reconstruct from attendance records
-            return reconstructScheduleFromAttendance(weekKey);
+            var current = thisWeekKey();
+            // Оваа и идните недели: планот што важи тогаш (живиот, или
+            // подготвениот однапред) — референца, за да се уредува.
+            if (weekKey >= current) { lastWeekSource = 'live'; return planForWeek(weekKey); }
+
+            var marks = reconstructScheduleFromAttendance(weekKey);
+            var found = pastWeekBase(weekKey);
+            var base = found.base;
+            lastWeekSource = found.source;
+            if (!base) return marks;
+
+            var out = copyWeek(base);
+            Object.keys(marks).forEach(function (day) {
+                if (!Array.isArray(out[day])) out[day] = [];
+                marks[day].forEach(function (ids, t) {
+                    while (out[day].length <= t) out[day].push([]);
+                    if (!Array.isArray(out[day][t])) out[day][t] = [];
+                    var have = out[day][t].map(String);
+                    ids.forEach(function (id) {
+                        if (have.indexOf(String(id)) === -1) { out[day][t].push(id); have.push(String(id)); }
+                    });
+                });
+            });
+            return out;
+        }
+
+        function pastWeekNoticeHtml() {
+            var source = {
+                saved: 'Распоредот е зачуваниот за таа недела, а ознаките се од присуството.',
+                carried: 'За таа недела нема посебно зачуван распоред — важеше истиот како подоцна, па тој е прикажан. Ознаките се од присуството.',
+                marks: 'Распоредот е реконструиран од записите за присутност.'
+            }[lastWeekSource] || 'Распоредот е реконструиран од записите за присутност.';
+            return '<span class="icon">🔒</span>' +
+                '<span><strong>Гледате историска недела.</strong> ' +
+                'Податоците се заштитени и не можат да се менуваат. ' + source + '</span>';
         }
         
         /**
@@ -4251,6 +4461,10 @@
                     odd.map(function (k) { return k + (plan.odd[k] > 1 ? ' ×' + plan.odd[k] : ''); }).join(', ') +
                     ') — дневникот има часови ' + timeSlots[0].label + '–' + timeSlots[timeSlots.length - 1].label + '.');
             }
+            var prepared = Object.keys(planFrom || {}).length;
+            if (prepared) {
+                lines.push('', '• Распоредите залепени однапред за идни недели (' + prepared + ') се бришат.');
+            }
             lines.push('', 'Ова го заменува распоредот за оваа и идните недели.',
                 'Снимките на минатите недели остануваат недопрени.', '', 'Да продолжам?');
             return lines.join('\n');
@@ -4274,6 +4488,8 @@
             });
 
             var DAY_KEYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'];
+            // „За оваа и идните недели“ — па и наместо оние залепени однапред.
+            Object.keys(planFrom || {}).forEach(function (k) { delete planFrom[k]; });
             DAY_KEYS.forEach(function (d) { schedule[d] = timeSlots.map(function () { return []; }); });
             plan.cells.forEach(function (c) {
                 var id = idOf[c.publicId];
@@ -4621,7 +4837,15 @@
             var lockBtn = document.getElementById('lockToggleBtn');
             var undoBtn = document.getElementById('undoBtn');
             var redoBtn = document.getElementById('redoBtn');
-            
+            // „📥 Залепи“ се нуди кога има копирана недела, и не на истата.
+            var pasteBtn = document.getElementById('weekPasteBtn');
+            if (pasteBtn) {
+                var clip = readWeekClip();
+                var viewedKey = calText(monday);
+                pasteBtn.style.display = clip && clip.from !== viewedKey ? 'inline-block' : 'none';
+                if (clip) pasteBtn.textContent = '📥 Залепи (од ' + weekLabel(clip.from).replace(/\.\d{4}$/, '') + ')';
+            }
+
             if (monday < currentMondayStart) {
                 // Viewing past week - show lock button
                 lockBtn.style.display = 'block';
@@ -4653,6 +4877,230 @@
             }
         }
         
+        // ── Копирај / залепи недела ───────────────────────────────────────
+        /**
+         * Сопственикот (5 октомври 2026): „ако имам некоја недела сите третмани
+         * да ги ископирам и на некоја минатa да го пастирам; ако пастирам во
+         * идна, сите наредни — да прашаш дали да се изменат според неа“.
+         *
+         * „📋 Копирај ја неделата“ ја зема неделата КАКО ШТО Е НАЦРТАНА
+         * (минатата: снимка или пренесен план, плус означените ученици; оваа
+         * и идните: планот што важи тогаш). Се чува во овој прелистувач
+         * (`WEEK_CLIP_KEY`), не во документот: копирањето не е измена.
+         *
+         * „📥 Залепи“:
+         *   - во МИНАТА недела: таа недела го добива залепениот распоред како
+         *     своја снимка. Ознаките за присуство не се допираат и се гледаат
+         *     и понатаму. Бара отклучена минатата недела, како секоја измена таму.
+         *   - во ОВАА или ИДНА недела: прашува „само оваа недела“ или „оваа и
+         *     сите наредни“. „Само оваа“ значи: таа недела залепениот, а од
+         *     следната повторно она што важело дотогаш. Идна недела не го
+         *     менува живиот план — се чува во `planFrom` додека не дојде.
+         *
+         * Пред секое залепување се прави резерва. Во оваа/идна недела се
+         * ставаат само ученици од „Мои ученици“ (друг би бил термин за дете
+         * што повеќе не е тука); во минатата и секој што дневникот го знае,
+         * и архивиран, зашто тоа е запис. Кабинети не се пишуваат —
+         * „⇄ Кабинети“ ја покажува разликата, како по секоја измена на планот.
+         */
+        var WEEK_CLIP_KEY = 'sdnevnik_week_clipboard_v1';
+
+        function readWeekClip() {
+            try {
+                var clip = JSON.parse(localStorage.getItem(WEEK_CLIP_KEY) || 'null');
+                return clip && clip.week && typeof clip.week === 'object' && clip.from ? clip : null;
+            } catch (e) { return null; }
+        }
+
+        function weekLabel(key) {
+            var monday = calDate(key);
+            if (!monday) return String(key);
+            var friday = new Date(monday);
+            friday.setDate(monday.getDate() + 4);
+            var two = function (n) { return String(n).padStart(2, '0'); };
+            return two(monday.getDate()) + '.' + two(monday.getMonth() + 1) + '–' +
+                two(friday.getDate()) + '.' + two(friday.getMonth() + 1) + '.' + friday.getFullYear();
+        }
+
+        function weekTerms(week) {
+            var n = 0;
+            daysEng.forEach(function (day) {
+                (week && Array.isArray(week[day]) ? week[day] : []).forEach(function (slot) { n += Array.isArray(slot) ? slot.length : 0; });
+            });
+            return n;
+        }
+
+        function copyShownWeek() {
+            var key = getWeekKey();
+            var week = copyWeek(getScheduleForWeek(key));
+            try {
+                localStorage.setItem(WEEK_CLIP_KEY, JSON.stringify({ from: key, week: week, at: new Date().toISOString() }));
+            } catch (e) {
+                alert('Неделата не може да се копира: ' + e.message);
+                return;
+            }
+            updateWeekDisplay();
+            if (typeof window.showToast === 'function') {
+                window.showToast('Копирана е неделата ' + weekLabel(key) + ' (' + weekTerms(week) +
+                    ' ученици во термини). Отвори друга недела и стисни „📥 Залепи“.');
+            }
+        }
+
+        /** Прашање со повеќе одговори, во изгледот на дневникот. Враќа избраната вредност или null. */
+        function askWeekChoice(title, text, choices) {
+            return new Promise(function (resolve) {
+                var old = document.getElementById('weekChoiceModal');
+                if (old) old.remove();
+                var modal = document.createElement('div');
+                modal.id = 'weekChoiceModal';
+                modal.className = 'modal active';
+                modal.setAttribute('role', 'dialog');
+                modal.setAttribute('aria-modal', 'true');
+                var box = document.createElement('div');
+                box.className = 'modal-content';
+                var heading = document.createElement('h2');
+                heading.style.marginBottom = '12px';
+                heading.textContent = title;
+                var body = document.createElement('div');
+                body.style.cssText = 'white-space: pre-line; line-height: 1.5; margin-bottom: 16px;';
+                body.textContent = text;
+                var row = document.createElement('div');
+                row.style.cssText = 'display: flex; flex-direction: column; gap: 8px;';
+                var onKey = function (e) { if (e.key === 'Escape') done(null); };
+                var done = function (value) {
+                    modal.remove();
+                    document.removeEventListener('keydown', onKey);
+                    resolve(value);
+                };
+                choices.concat([{ value: null, label: 'Откажи', cancel: true }]).forEach(function (c) {
+                    var b = document.createElement('button');
+                    b.type = 'button';
+                    b.className = c.cancel ? 'btn' : 'btn btn-primary';
+                    if (c.cancel) b.style.cssText = 'background: #718096; color: white;';
+                    b.dataset.choice = c.value == null ? '' : c.value;
+                    b.textContent = c.label;
+                    b.addEventListener('click', function () { done(c.value); });
+                    row.appendChild(b);
+                });
+                box.appendChild(heading);
+                box.appendChild(body);
+                box.appendChild(row);
+                modal.appendChild(box);
+                modal.addEventListener('click', function (e) { if (e.target === modal) done(null); });
+                document.addEventListener('keydown', onKey);
+                document.body.appendChild(modal);
+                var first = row.querySelector('button');
+                if (first) first.focus();
+            });
+        }
+
+        function pasteWeek() {
+            if (window.MTB_MIRROR_READONLY === true) {
+                alert('Ова е копија само за читање. Распоредот се менува во облакот.');
+                return Promise.resolve(false);
+            }
+            var clip = readWeekClip();
+            if (!clip) {
+                alert('Нема копирана недела. Отвори ја неделата што ја сакаш и стисни „📋 Копирај ја неделата“.');
+                return Promise.resolve(false);
+            }
+            var key = getWeekKey();
+            var current = thisWeekKey();
+            var isPast = key < current;
+            if (key === clip.from) {
+                alert('Ова е истата недела што е копирана. Отвори друга недела, па залепи.');
+                return Promise.resolve(false);
+            }
+            if (isPast && !pastWeeksUnlocked) {
+                alert('Минатата недела е заклучена.\n\nКликнете на „🔒 Измината седмица е заклучена“ за да ја отклучите, па залепете повторно.');
+                return Promise.resolve(false);
+            }
+
+            // Кои ученици смеат во таа недела.
+            var known = {};
+            var admit = function (list) {
+                (list || []).forEach(function (s) { if (s && s.id != null && !known[String(s.id)]) known[String(s.id)] = s; });
+            };
+            admit(students);
+            if (isPast) { admit(window.formerCaseloadStudents); admit(window.archivedStudents); }
+            var left = {};
+            var pasted = {};
+            daysEng.forEach(function (day) {
+                var from = Array.isArray(clip.week[day]) ? clip.week[day] : [];
+                var length = Math.max(timeSlots.length, from.length);
+                pasted[day] = [];
+                for (var t = 0; t < length; t++) {
+                    var ids = [];
+                    (Array.isArray(from[t]) ? from[t] : []).forEach(function (id) {
+                        var s = known[String(id)];
+                        if (!s) { left[String(id)] = true; return; }
+                        if (ids.indexOf(s.id) === -1) ids.push(s.id);
+                    });
+                    pasted[day].push(ids);
+                }
+            });
+            var leftCount = Object.keys(left).length;
+            var target = getScheduleForWeek(key);
+            var laterPlans = Object.keys(planFrom || {}).filter(function (k) { return k > key; });
+            // Минатата се споредува со нејзиниот распоред, без учениците што се
+            // нацртани само заради ознака — тие и онака остануваат.
+            var stored = isPast ? (pastWeekBase(key).base || {}) : target;
+            if (sameWeek(pasted, stored) && (isPast || !laterPlans.length)) {
+                alert('Неделата ' + weekLabel(key) + ' е веќе иста како копираната.');
+                return Promise.resolve(false);
+            }
+
+            var head = 'Од неделата ' + weekLabel(clip.from) + ' во ' + weekLabel(key) + '.\n' +
+                'Ученици во термини: сега ' + weekTerms(target) + ', по залепувањето ' + weekTerms(pasted) + '.' +
+                (leftCount ? '\n' + leftCount + ' ученик(ци) ' + (isPast ? 'што дневникот повеќе не ги знае' : 'што не се во „Мои ученици“') + ' не се ставени.' : '');
+            var ask = isPast
+                ? askWeekChoice('Залепи во минатата недела', head +
+                    '\n\nТаа недела го добива копираниот распоред. Ознаките за присуство остануваат какви што се и се гледаат и понатаму.' +
+                    '\nПред тоа се прави резервна копија.',
+                    [{ value: 'past', label: 'Залепи во ' + weekLabel(key) }])
+                : askWeekChoice('Залепи ја неделата', head +
+                    '\n\nДа важи само за оваа недела, или и за сите наредни?' +
+                    '\nПред тоа се прави резервна копија. Минатите недели не се менуваат, ниту Кабинети — „⇄ Кабинети“ ќе ја покаже разликата.',
+                    [{ value: 'only', label: 'Само неделата ' + weekLabel(key) },
+                     { value: 'onward', label: 'Оваа и сите наредни недели' }]);
+
+            return ask.then(function (choice) {
+                if (!choice) return false;
+                var backup = (window.SdnV3 && typeof window.SdnV3.backup === 'function')
+                    ? window.SdnV3.backup('before_week_paste') : Promise.resolve();
+                return Promise.resolve(backup).catch(function (e) {
+                    console.warn('S-Dnevnik: резервата пред залепувањето не успеа:', e);
+                    if (!confirm('Резервната копија не успеа. Да залепам и без неа?')) throw e;
+                }).then(function () {
+                    if (choice === 'past') {
+                        keepWeekBeforeAsShown(key);
+                        scheduleHistory[key] = pasted;
+                    } else {
+                        var next = shiftWeekKey(key, 1);
+                        var after = copyWeek(planForWeek(next));      // што важело од следната, пред залепувањето
+                        if (choice === 'onward') {
+                            Object.keys(planFrom).forEach(function (k) { if (k >= key) delete planFrom[k]; });
+                        }
+                        if (key === current) daysEng.forEach(function (day) { schedule[day] = pasted[day]; });
+                        else planFrom[key] = pasted;
+                        if (choice === 'only' && !planFrom[next]) planFrom[next] = after;
+                        compactPlanFrom();
+                    }
+                    saveData();
+                    renderSchedule();
+                    renderStudentListSimple();
+                    updateStats();
+                    if (!isPast && window.SdnPlanSync) window.SdnPlanSync.refresh();
+                    if (typeof window.showToast === 'function') {
+                        window.showToast(choice === 'onward' ? 'Залепено: од ' + weekLabel(key) + ' натаму важи копираната недела.'
+                            : choice === 'only' ? 'Залепено само во ' + weekLabel(key) + '; од следната важи претходниот распоред.'
+                            : 'Залепено во минатата недела ' + weekLabel(key) + '.');
+                    }
+                    return true;
+                });
+            }).catch(function () { return false; });
+        }
+
         function updateLockButtonAppearance() {
             var lockBtn = document.getElementById('lockToggleBtn');
             if (pastWeeksUnlocked) {
@@ -4758,10 +5206,6 @@
             var notice = document.createElement('div');
             notice.id = 'pastWeekNotice';
             notice.className = 'past-week-notice';
-            notice.innerHTML = '<span class="icon">🔒</span>' +
-                '<span><strong>Гледате историска недела.</strong> ' +
-                'Податоците се заштитени и не можат да се менуваат. ' +
-                'Распоредот е реконструиран од записите за присутност.</span>';
             var weekNav = scheduleContainer.querySelector('.week-nav');
             scheduleContainer.insertBefore(notice, weekNav);
         }
@@ -4774,7 +5218,26 @@
     // Get the schedule for the week we're viewing
     var weekKey = getWeekKey();
     var weekSchedule = getScheduleForWeek(weekKey);
-    
+    // Белешката кажува од каде е распоредот, а тоа се знае дури по читањето.
+    var pastNotice = document.getElementById('pastWeekNotice');
+    if (pastNotice) pastNotice.innerHTML = pastWeekNoticeHtml();
+    // Оваа/идна недела со распоред подготвен однапред: да се знае дека е друг.
+    var planNotice = document.getElementById('planFromNotice');
+    var preparedFrom = isPastWeek ? '' : (Object.keys(planFrom || {}).filter(function (k) { return k <= weekKey; }).sort().pop() || '');
+    if (preparedFrom) {
+        if (!planNotice) {
+            planNotice = document.createElement('div');
+            planNotice.id = 'planFromNotice';
+            planNotice.className = 'past-week-notice';
+            scheduleContainer.insertBefore(planNotice, scheduleContainer.querySelector('.week-nav'));
+        }
+        planNotice.textContent = '📌 ' + (preparedFrom === weekKey
+            ? 'Од оваа недела важи залепениот распоред, подготвен однапред.'
+            : 'Важи распоредот подготвен од неделата ' + weekLabel(preparedFrom) + '.');
+    } else if (planNotice) {
+        planNotice.remove();
+    }
+
             var grid = document.getElementById('scheduleGrid');
             grid.innerHTML = '';
             grid.className = 'schedule-grid';
@@ -5125,7 +5588,9 @@
             viewingWeekStart.setHours(0, 0, 0, 0);
             
             var isPastWeek = viewingWeekStart < currentMondayStart;
-            var sourceSchedule = isPastWeek && scheduleHistory[weekKey] ? scheduleHistory[weekKey] : schedule;
+            // Неделата онаква каква што е нацртана: минатата (снимка, план и
+            // ознаки), или планот што важи во оваа/идната.
+            var sourceSchedule = getScheduleForWeek(weekKey);
             
             var current = sourceSchedule[day][timeIdx];
             checkOrder = current.slice(); // Copy current order
@@ -5196,19 +5661,18 @@
     // Determine which schedule to modify
     var targetSchedule;
     if (isPastWeek) {
-        // Editing past week - modify historical schedule
-        if (!scheduleHistory[weekKey]) {
-            scheduleHistory[weekKey] = JSON.parse(JSON.stringify(schedule));
+        // Минатата недела добива своја снимка од тоа што е нацртано — не од
+        // сегашниот план, кој можеби не важел тогаш.
+        if (!weekHasTerms(scheduleHistory[weekKey])) {
+            keepWeekBeforeAsShown(weekKey);
+            scheduleHistory[weekKey] = copyWeek(getScheduleForWeek(weekKey));
         }
         targetSchedule = scheduleHistory[weekKey];
     } else {
-        // Editing current/future week - modify live schedule
-        targetSchedule = schedule;
-        
-        // Save snapshot before making changes
-        if (!scheduleHistory[weekKey]) {
-            scheduleHistory[weekKey] = JSON.parse(JSON.stringify(schedule));
-        }
+        // Оваа или идна недела: планот што важи тогаш — живиот, или
+        // подготвениот однапред од некоја идна недела. Снимката ја прави
+        // `saveData` (`recordPlanChange`), по измената, за сите патишта одеднаш.
+        targetSchedule = planForWeek(weekKey);
     }
     
     // Save state for undo
@@ -5224,12 +5688,7 @@
     
     // Apply the change
     targetSchedule[currentSlot.day][currentSlot.timeIdx] = checkOrder.slice();
-    
-    // If editing live schedule, ensure it's reflected
-    if (!isPastWeek) {
-        schedule[currentSlot.day][currentSlot.timeIdx] = checkOrder.slice();
-    }
-    
+
     saveData();
     renderSchedule();
     renderStudentListSimple();
@@ -5265,19 +5724,14 @@
                 if (action.isPastWeek) {
                     targetSchedule = scheduleHistory[action.weekKey];
                 } else {
-                    targetSchedule = schedule;
+                    targetSchedule = planForWeek(action.weekKey);
                 }
-                
+
                 // Save current state to redo stack
                 redoStack.push(action);
-                
+
                 // Restore old value
                 targetSchedule[action.day][action.timeIdx] = action.oldValue.slice();
-                
-                // If live schedule, update it
-                if (!action.isPastWeek) {
-                    schedule[action.day][action.timeIdx] = action.oldValue.slice();
-                }
 
                 saveData();
                 renderSchedule();
@@ -5300,19 +5754,14 @@
                 if (action.isPastWeek) {
                     targetSchedule = scheduleHistory[action.weekKey];
                 } else {
-                    targetSchedule = schedule;
+                    targetSchedule = planForWeek(action.weekKey);
                 }
-                
+
                 // Save back to undo stack
                 undoStack.push(action);
-                
+
                 // Reapply new value
                 targetSchedule[action.day][action.timeIdx] = action.newValue.slice();
-                
-                // If live schedule, update it
-                if (!action.isPastWeek) {
-                    schedule[action.day][action.timeIdx] = action.newValue.slice();
-                }
 
                 saveData();
                 renderSchedule();
@@ -5647,6 +6096,7 @@
             if (window.scheduleHistory && typeof window.scheduleHistory === 'object') {
                 Object.keys(window.scheduleHistory).forEach(function (weekKey) { moveWeek(window.scheduleHistory[weekKey]); });
             }
+            Object.keys(window.planFrom || {}).forEach(function (weekKey) { moveWeek(window.planFrom[weekKey]); });
 
             var moveKey = function (holder) {
                 if (!holder || typeof holder !== 'object' || !hasOwn(holder, '0')) return;
@@ -5729,6 +6179,7 @@
             };
             moveWeek(window.schedule);
             Object.keys(window.scheduleHistory || {}).forEach(function (w) { moveWeek(window.scheduleHistory[w]); });
+            Object.keys(window.planFrom || {}).forEach(function (w) { moveWeek(window.planFrom[w]); });
 
             Object.keys(window.attendance || {}).forEach(function (date) {
                 var day = window.attendance[date];
@@ -7104,6 +7555,7 @@
                 schoolCalendar: calendarToStored(schoolCalendar),
                 schedule: schedule,
                 scheduleHistory: scheduleHistory,
+                planFrom: planFrom || {},
                 attendance: attendance,
                 plans: plans,
                 links: links,
@@ -7137,6 +7589,7 @@
                     if (data.links) links = data.links;
                     if (data.studentProgress) studentProgress = data.studentProgress;
                     if (data.scheduleHistory) scheduleHistory = data.scheduleHistory;
+                    if (data.planFrom && typeof data.planFrom === 'object') planFrom = data.planFrom;
                     if (Array.isArray(data.archivedStudents)) window.archivedStudents = data.archivedStudents;
                     if (Array.isArray(data.formerCaseloadStudents)) window.formerCaseloadStudents = data.formerCaseloadStudents;
                     if (typeof data.rasporediMark === 'string') window.rasporediMark = data.rasporediMark;
@@ -7168,6 +7621,8 @@
             }
 
             if (!scheduleHistory) scheduleHistory = {};
+            dropEmptyWeekSnapshots(scheduleHistory);
+            rememberPlanAsLoaded();
             ensureUnifiedCollections();
             repairUnusableStudentIds();
             ensureStudentProgressStructure();
@@ -7206,6 +7661,9 @@
                     if (data.schedule) schedule = data.schedule;
                     if (data.scheduleHistory) scheduleHistory = data.scheduleHistory;
                     if (!scheduleHistory) scheduleHistory = {};
+                    if (data.planFrom && typeof data.planFrom === 'object') planFrom = data.planFrom;
+                    dropEmptyWeekSnapshots(scheduleHistory);
+                    rememberPlanAsLoaded();
                     if (data.attendance) attendance = data.attendance;
                     if (data.plans) plans = data.plans;
                     if (data.links) links = data.links;
@@ -9363,6 +9821,9 @@
             if (data.schedule) window.schedule = data.schedule;
             if (data.scheduleHistory) window.scheduleHistory = data.scheduleHistory;
             if (!window.scheduleHistory) window.scheduleHistory = {};
+            if (data.planFrom && typeof data.planFrom === 'object') window.planFrom = data.planFrom;
+            if (typeof window.dropEmptyWeekSnapshots === 'function') window.dropEmptyWeekSnapshots(window.scheduleHistory);
+            if (typeof window.rememberPlanAsLoaded === 'function') window.rememberPlanAsLoaded();
             if (data.attendance) window.attendance = data.attendance;
             if (data.plans) window.plans = data.plans;
             if (data.links) window.links = data.links;
@@ -9940,6 +10401,12 @@
         if (data.schedule) window.schedule = data.schedule;
         if (data.scheduleHistory) window.scheduleHistory = data.scheduleHistory;
         if (!window.scheduleHistory) window.scheduleHistory = {};
+        // Подготвените идни недели: се заменуваат само кога документот ги носи.
+        // Стар документ без ова поле не кажува „нема“, туку ништо.
+        if (data.planFrom && typeof data.planFrom === 'object') window.planFrom = data.planFrom;
+        // Празна снимка не кажува ништо, а ја криеше и недела со ознаки.
+        if (typeof window.dropEmptyWeekSnapshots === 'function') window.dropEmptyWeekSnapshots(window.scheduleHistory);
+        if (typeof window.rememberPlanAsLoaded === 'function') window.rememberPlanAsLoaded();
         if (data.attendance) window.attendance = data.attendance;
         if (data.plans) window.plans = data.plans;
         if (data.links) window.links = data.links;
@@ -10184,12 +10651,22 @@
         if (e && e.target) e.target.value = '';
     }
 
+    // Секоја измена на планот завршува тука, па снимката на неделата се
+    // прави тука — еднаш, наместо во секој пат што го менува планот.
+    function notePlanChange() {
+        if (typeof window.recordPlanChange === 'function') {
+            try { window.recordPlanChange(); } catch (e) { console.warn('S-Dnevnik: снимката на неделата не е запишана:', e); }
+        }
+    }
+
     window.saveData = function () {
+        notePlanChange();
         var data = currentPayload('save');
         return saveFullPayload(data, 'save');
     };
 
     window.manualSave = function () {
+        notePlanChange();
         saveFullPayload(currentPayload('manual_save'), 'manual_save').then(function () {
             showToast('Зачувано во IndexedDB.');
         }).catch(function () { /* mirror refusal is already shown */ });
@@ -10673,10 +11150,25 @@
 
         // Сè освен _meta: таму се savedAt, reason и броевите, кои се менуваат при
         // секое зачувување и без ниту една вистинска измена.
+        //
+        // Празните снимки на недели исто така се надвор: дневникот ги брише
+        // при вчитување (`dropEmptyWeekSnapshots`), а серверот ги чува додека
+        // некој не зачува. Ако се бројат, самото бришење би изгледало како
+        // локална измена, и двете страни „сменети“ → „ЗАСТАНА“ без ничија работа.
         function contentHash(payload) {
             if (!payload || typeof payload !== 'object') return '0';
             var copy = {};
             Object.keys(payload).forEach(function (k) { if (k !== '_meta') copy[k] = payload[k]; });
+            if (copy.scheduleHistory && typeof copy.scheduleHistory === 'object' && typeof window.weekHasTerms === 'function') {
+                var kept = {};
+                Object.keys(copy.scheduleHistory).forEach(function (w) {
+                    if (window.weekHasTerms(copy.scheduleHistory[w])) kept[w] = copy.scheduleHistory[w];
+                });
+                copy.scheduleHistory = kept;
+            }
+            // Празно `planFrom` е исто што и документ без него (сите пред 5 октомври):
+            // инаку првото зачувување по надградбата би изгледало како измена.
+            if (copy.planFrom && typeof copy.planFrom === 'object' && !Object.keys(copy.planFrom).length) delete copy.planFrom;
             return fingerprint(stableStringify(copy));
         }
 
@@ -11150,14 +11642,18 @@
         }
 
         function removeFromSchedule(studentId) {
-            var sched = window.schedule || {};
-            Object.keys(sched).forEach(function (day) {
-                if (!Array.isArray(sched[day])) return;
-                for (var i = 0; i < sched[day].length; i++) {
-                    if (Array.isArray(sched[day][i])) {
-                        sched[day][i] = sched[day][i].filter(function (sid) { return sid !== studentId; });
+            // Од живиот план и од распоредите залепени однапред за идни недели.
+            var plans = [window.schedule || {}];
+            Object.keys(window.planFrom || {}).forEach(function (k) { plans.push(window.planFrom[k]); });
+            plans.forEach(function (sched) {
+                Object.keys(sched || {}).forEach(function (day) {
+                    if (!Array.isArray(sched[day])) return;
+                    for (var i = 0; i < sched[day].length; i++) {
+                        if (Array.isArray(sched[day][i])) {
+                            sched[day][i] = sched[day][i].filter(function (sid) { return sid !== studentId; });
+                        }
                     }
-                }
+                });
             });
         }
 

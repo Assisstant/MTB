@@ -227,6 +227,8 @@ export function mergeInDiaryDocument(doc: any, o: { from: string | null; to: str
     };
     week(doc.schedule);
     for (const w of Object.values(doc.scheduleHistory || {})) week(w);
+    // Weeks pasted ahead of time (5 Oct 2026): a plan, like `schedule`.
+    for (const w of Object.values(doc.planFrom || {})) week(w);
 
     for (const byPupil of Object.values(doc.attendance || {}) as any[]) {
         if (!byPupil || typeof byPupil !== 'object' || !(from in byPupil)) continue;

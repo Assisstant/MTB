@@ -83,6 +83,8 @@ function renumber(doc: any, from: unknown, to: number) {
     };
     week(doc.schedule);
     for (const w of Object.values(doc.scheduleHistory || {})) week(w);
+    // Weeks pasted ahead of time (5 Oct 2026): a plan, like `schedule`.
+    for (const w of Object.values(doc.planFrom || {})) week(w);
 
     // A key that exists under both numbers is two answers; merge only what cannot clash.
     const moveKey = (holder: any, where: string, merge: (mine: any, theirs: any, at: string) => any) => {

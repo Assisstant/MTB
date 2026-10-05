@@ -2,6 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { pool } from '../db.js';
 import { deriveProgress } from '../lib/progress.js';
+import { weekHasTerms } from '../lib/import-core.js';
 
 /**
  * Stage D of moving the apps onto the database: S-Dnevnik's ATTENDANCE, one
@@ -457,6 +458,9 @@ export async function diaryWriteRoutes(server: FastifyInstance) {
             return reply.code(400).send({ error: `"${weekOf}" is not a week start date` });
         }
         const body = HistoryBody.parse(req.body);
+        // An empty week is not "how the week looked" -- it is a copy taken
+        // before there was a plan, and stored first it would win for ever.
+        if (!weekHasTerms(body.payload)) return { ok: true, weekOf, created: false, empty: true };
 
         const yr = await pool.query('SELECT id FROM school_years WHERE is_current');
         if (!yr.rows.length) return reply.code(409).send({ error: 'no current school year is set' });
