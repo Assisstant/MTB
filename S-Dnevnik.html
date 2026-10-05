@@ -397,6 +397,13 @@
             font-size: 12px;
             color: #718096;
         }
+        .schedule-pickers { width:100%; min-width:0; max-width:230px; padding:8px; background:var(--surface, #fff); color:var(--text, #1a202c); border:1px solid #a0aec0; border-radius:6px; }
+        .schedule-pickers label { display:block; font-size:12px; margin:4px 0; }
+        .schedule-pickers select { display:block; width:100%; min-width:0; padding:6px; font:inherit; color:inherit; background:inherit; }
+        .schedule-pickers button { font:inherit; color:inherit; padding:4px 6px; margin:4px 3px 0 0; cursor:pointer; }
+        body.dark-mode .schedule-pickers { background:#1a202c; color:#f7fafc; }
+        .schedule-pick-button { color:inherit; background:transparent; border:0; cursor:pointer; font-size:13px; align-self:flex-end; }
+        @media print { .schedule-pickers, .schedule-pick-button { display:none !important; } }
         .time-selector {
             margin-top: 8px;
         }
@@ -2384,18 +2391,6 @@
             <div style="display: flex; gap: 10px;">
                 <button class="btn btn-success" style="flex: 1;" onclick="saveLink()">Зачувај</button>
                 <button class="btn" style="flex: 1; background: #718096; color: white;" onclick="closeModal('addLinkModal')">Откажи</button>
-            </div>
-        </div>
-    </div>
-    
-    <!-- Assign Modal -->
-    <div id="assignModal" class="modal">
-        <div class="modal-content">
-            <h2 style="margin-bottom: 15px;">Доделете Ученици</h2>
-            <div id="checkboxList" class="checkbox-list"></div>
-            <div style="margin-top: 20px; display: flex; gap: 10px;">
-                <button class="btn btn-success" style="flex: 1;" onclick="assignStudents()">Зачувај</button>
-                <button class="btn" style="flex: 1; background: #718096; color: white;" onclick="closeModal('assignModal')">Откажи</button>
             </div>
         </div>
     </div>
@@ -4900,8 +4895,9 @@
          * Пред секое залепување се прави резерва. Во оваа/идна недела се
          * ставаат само ученици од „Мои ученици“ (друг би бил термин за дете
          * што повеќе не е тука); во минатата и секој што дневникот го знае,
-         * и архивиран, зашто тоа е запис. Кабинети не се пишуваат —
-         * „⇄ Кабинети“ ја покажува разликата, како по секоја измена на планот.
+         * и архивиран, зашто тоа е запис. „Од оваа недела натаму“ бара
+         * посебна потврда и атомски го запишува и заедничкиот распоред.
+         * За постојан план се дозволени само активни ученици.
          */
         var WEEK_CLIP_KEY = 'sdnevnik_week_clipboard_v1';
 
@@ -5045,10 +5041,7 @@
             // Минатата се споредува со нејзиниот распоред, без учениците што се
             // нацртани само заради ознака — тие и онака остануваат.
             var stored = isPast ? (pastWeekBase(key).base || {}) : target;
-            if (sameWeek(pasted, stored) && (isPast || !laterPlans.length)) {
-                alert('Неделата ' + weekLabel(key) + ' е веќе иста како копираната.');
-                return Promise.resolve(false);
-            }
+            var unchanged = sameWeek(pasted, stored) && (isPast || !laterPlans.length);
 
             var head = 'Од неделата ' + weekLabel(clip.from) + ' во ' + weekLabel(key) + '.\n' +
                 'Ученици во термини: сега ' + weekTerms(target) + ', по залепувањето ' + weekTerms(pasted) + '.' +
@@ -5057,15 +5050,21 @@
                 ? askWeekChoice('Залепи во минатата недела', head +
                     '\n\nТаа недела го добива копираниот распоред. Ознаките за присуство остануваат какви што се и се гледаат и понатаму.' +
                     '\nПред тоа се прави резервна копија.',
-                    [{ value: 'past', label: 'Залепи во ' + weekLabel(key) }])
+                    [{ value: 'past', label: 'Само неделата ' + weekLabel(key) },
+                     { value: 'onward', label: 'Од оваа недела натаму — Дневник, Кабинети и Колега' }])
                 : askWeekChoice('Залепи ја неделата', head +
                     '\n\nДа важи само за оваа недела, или и за сите наредни?' +
-                    '\nПред тоа се прави резервна копија. Минатите недели не се менуваат, ниту Кабинети — „⇄ Кабинети“ ќе ја покаже разликата.',
+                    '\n„Само неделата“ го менува само дневникот. „Натаму“ го менува и вашиот распоред во Кабинети и Колега, по потврда. Претходните недели и присуството остануваат. Пред тоа се прави резервна копија.',
                     [{ value: 'only', label: 'Само неделата ' + weekLabel(key) },
-                     { value: 'onward', label: 'Оваа и сите наредни недели' }]);
+                     { value: 'onward', label: 'Од оваа недела натаму — Дневник, Кабинети и Колега' }]);
 
             return ask.then(function (choice) {
                 if (!choice) return false;
+                if (choice === 'onward') return window.SdnPlanSync.publishWeek(pasted, key);
+                if (unchanged) {
+                    alert('Неделата ' + weekLabel(key) + ' е веќе иста како копираната.');
+                    return false;
+                }
                 var backup = (window.SdnV3 && typeof window.SdnV3.backup === 'function')
                     ? window.SdnV3.backup('before_week_paste') : Promise.resolve();
                 return Promise.resolve(backup).catch(function (e) {
@@ -5078,9 +5077,6 @@
                     } else {
                         var next = shiftWeekKey(key, 1);
                         var after = copyWeek(planForWeek(next));      // што важело од следната, пред залепувањето
-                        if (choice === 'onward') {
-                            Object.keys(planFrom).forEach(function (k) { if (k >= key) delete planFrom[k]; });
-                        }
                         if (key === current) daysEng.forEach(function (day) { schedule[day] = pasted[day]; });
                         else planFrom[key] = pasted;
                         if (choice === 'only' && !planFrom[next]) planFrom[next] = after;
@@ -5092,8 +5088,7 @@
                     updateStats();
                     if (!isPast && window.SdnPlanSync) window.SdnPlanSync.refresh();
                     if (typeof window.showToast === 'function') {
-                        window.showToast(choice === 'onward' ? 'Залепено: од ' + weekLabel(key) + ' натаму важи копираната недела.'
-                            : choice === 'only' ? 'Залепено само во ' + weekLabel(key) + '; од следната важи претходниот распоред.'
+                        window.showToast(choice === 'only' ? 'Залепено само во ' + weekLabel(key) + '; од следната важи претходниот распоред.'
                             : 'Залепено во минатата недела ' + weekLabel(key) + '.');
                     }
                     return true;
@@ -5395,6 +5390,20 @@
                     grid.appendChild(cell);
                 }
             }
+
+            if (window.MTB_MIRROR_READONLY !== true && (!isPastWeek || pastWeeksUnlocked)) {
+                grid.querySelectorAll('.schedule-cell[data-day], .schedule-cell-half[data-day]').forEach(function (cell) {
+                    var at = Number(cell.dataset.time);
+                    var indices = cell.classList.contains('merged') && at + 1 < timeSlots.length ? [at, at + 1] : [at];
+                    indices.forEach(function (ti) {
+                        var pick = document.createElement('button'); pick.type = 'button'; pick.className = 'schedule-pick-button';
+                        pick.textContent = '▾' + (indices.length > 1 ? ' ' + timeSlots[ti].label : '');
+                        pick.setAttribute('aria-label', 'Избери ученици · ' + days[daysEng.indexOf(cell.dataset.day)] + ' · ' + timeSlots[ti].time);
+                        pick.addEventListener('click', function (e) { e.stopPropagation(); openSchedulePicker(cell.dataset.day, ti); });
+                        cell.appendChild(pick);
+                    });
+                });
+            }
             
             // Само последното цртање ги закачува ракувачите. Две цртања во ист
             // миг (вчитување од сервер, па `renderAll`) оставаа два ракувача на
@@ -5511,7 +5520,7 @@
                         if (!isStudentSlotClick) {
                             var day = this.dataset.day;
                             var timeIdx = parseInt(this.dataset.time);
-                            openAssignModal(day, timeIdx);
+                            openSchedulePicker(day, timeIdx);
                         }
                     });
                 }
@@ -5537,7 +5546,7 @@
                         if (!isStudentSlotClick) {
                             var day = this.dataset.day;
                             var timeIdx = parseInt(this.dataset.time);
-                            openAssignModal(day, timeIdx);
+                            openSchedulePicker(day, timeIdx);
                         }
                     });
                 }
@@ -5563,75 +5572,73 @@
                         if (!isStudentSlotClick) {
                             var day = this.dataset.day;
                             var timeIdx = parseInt(this.dataset.time);
-                            openAssignModal(day, timeIdx);
+                            openSchedulePicker(day, timeIdx);
                         }
                     });
                 }
             }, 0);
         }
         
-        function openAssignModal(day, timeIdx) {
-            currentSlot = { day: day, timeIdx: timeIdx };
-            var list = document.getElementById('checkboxList');
-            list.innerHTML = '';
-            
-            // Determine which schedule to read from
-            var weekKey = getWeekKey();
-            var now = new Date();
-            var todayStart = new Date();
-            todayStart.setHours(0, 0, 0, 0);
-            var currentMondayStart = new Date(todayStart);
-            currentMondayStart.setTime(mondayOf(todayStart).getTime());
-            
-            var viewingWeekStart = new Date(now);
-            viewingWeekStart.setTime(mondayOfWeekOffset(now, currentWeek).getTime());
-            viewingWeekStart.setHours(0, 0, 0, 0);
-            
-            var isPastWeek = viewingWeekStart < currentMondayStart;
-            // Неделата онаква каква што е нацртана: минатата (снимка, план и
-            // ознаки), или планот што важи во оваа/идната.
-            var sourceSchedule = getScheduleForWeek(weekKey);
-            
-            var current = sourceSchedule[day][timeIdx];
-            checkOrder = current.slice(); // Copy current order
-            
-            for (var i = 0; i < students.length; i++) {
-                var s = students[i];
-                var item = document.createElement('div');
-                item.className = 'checkbox-item';
-                var checked = current.indexOf(s.id) !== -1 ? 'checked' : '';
-                item.innerHTML = '<input type="checkbox" id="cb-' + s.id + '" value="' + s.id + '" ' + checked + '>' +
-                    '<label for="cb-' + s.id + '">' + s.grade + ' - ' + s.name + '</label>';
-                list.appendChild(item);
+        function openSchedulePicker(day, timeIdx) {
+            if (window.MTB_MIRROR_READONLY === true) return;
+            var key = getWeekKey();
+            if (key < thisWeekKey() && !pastWeeksUnlocked) {
+                alert('Минатата недела е заклучена. Прво отклучете ја за да го смените терминот.');
+                return;
             }
-            
-            // Add event listeners to track check order
-            setTimeout(function() {
-                var checkboxes = document.querySelectorAll('#checkboxList input[type="checkbox"]');
-                for (var i = 0; i < checkboxes.length; i++) {
-                    checkboxes[i].addEventListener('change', function() {
-                        var id = parseInt(this.value);
-                        if (this.checked) {
-                            // Add to order if not already there
-                            if (checkOrder.indexOf(id) === -1) {
-                                checkOrder.push(id);
-                            }
-                        } else {
-                            // Remove from order
-                            var idx = checkOrder.indexOf(id);
-                            if (idx !== -1) {
-                                checkOrder.splice(idx, 1);
-                            }
-                        }
-                    });
+            document.querySelectorAll('.schedule-pickers').forEach(function (e) { e.remove(); });
+            var current = (getScheduleForWeek(key)[day] || [])[timeIdx] || [];
+            currentSlot = { day: day, timeIdx: timeIdx, weekKey: key, expected: current.slice() };
+            var cell = document.querySelector('.schedule-cell[data-day="' + day + '"][data-time="' + timeIdx + '"], .schedule-cell-half[data-day="' + day + '"][data-time="' + timeIdx + '"]');
+            if (!cell && timeIdx > 0) cell = document.querySelector('.schedule-cell.merged[data-day="' + day + '"][data-time="' + (timeIdx - 1) + '"]');
+            if (!cell) return;
+            var editor = document.createElement('div'); editor.className = 'schedule-pickers';
+            editor.addEventListener('click', function (e) { e.stopPropagation(); });
+            editor.addEventListener('keydown', function (e) { if (e.key === 'Escape') { e.stopPropagation(); editor.remove(); } });
+            var title = document.createElement('b'); title.textContent = timeSlots[timeIdx].time; editor.appendChild(title);
+            var choices = students.slice();
+            // Keep an already recorded former pupil available without adding
+            // them to the current caseload or changing their attendance.
+            current.forEach(function (id) {
+                if (!choices.some(function (s) { return String(s.id) === String(id); })) {
+                    var s = getStudentById(id); if (s) choices.push(s);
                 }
-            }, 0);
-            
-            document.getElementById('assignModal').classList.add('active');
+            });
+            for (var i = 0; i < Math.max(2, current.length); i++) {
+                var label = document.createElement('label');
+                label.textContent = i === 0 ? 'Ученик' : i === 1 ? 'Втор ученик · по 20 минути' : 'Ученик ' + (i + 1);
+                var select = document.createElement('select'); select.dataset.pupilPosition = String(i);
+                select.setAttribute('aria-label', label.textContent);
+                var blank = document.createElement('option'); blank.value = ''; blank.textContent = '— празно —'; select.appendChild(blank);
+                choices.forEach(function (s) {
+                    var option = document.createElement('option'); option.value = String(s.id);
+                    option.textContent = (s.grade ? s.grade + ' · ' : '') + s.name; select.appendChild(option);
+                });
+                select.value = current[i] == null ? '' : String(current[i]);
+                label.appendChild(select); editor.appendChild(label);
+            }
+            var save = document.createElement('button'); save.type = 'button'; save.textContent = 'Зачувај'; save.dataset.saveSlot = '1';
+            save.addEventListener('click', function () {
+                checkOrder = Array.from(editor.querySelectorAll('select')).map(function (e) { return e.value; }).filter(Boolean).map(Number);
+                if (new Set(checkOrder).size !== checkOrder.length) { alert('Изберете различни ученици; еден ученик го користи целиот термин.'); return; }
+                assignStudents();
+            });
+            var cancel = document.createElement('button'); cancel.type = 'button'; cancel.textContent = 'Откажи';
+            cancel.addEventListener('click', function () { editor.remove(); });
+            var list = document.createElement('button'); list.type = 'button'; list.textContent = 'Мои ученици →';
+            list.addEventListener('click', function () { editor.remove(); switchTab('students'); });
+            editor.appendChild(save); editor.appendChild(cancel); editor.appendChild(list); cell.appendChild(editor);
+            editor.querySelector('select').focus();
         }
-        
+
        function assignStudents() {
     if (!currentSlot) return;
+    if (window.MTB_MIRROR_READONLY === true) return;
+    if (currentSlot.weekKey && (currentSlot.weekKey !== getWeekKey() ||
+        JSON.stringify((getScheduleForWeek(getWeekKey())[currentSlot.day] || [])[currentSlot.timeIdx] || []) !== JSON.stringify(currentSlot.expected))) {
+        alert('Неделата или терминот е сменет во меѓувреме. Изберете повторно.');
+        renderSchedule(); return;
+    }
     
     // CHECK IF EDITING PAST WEEK
     var now = new Date();
@@ -5651,7 +5658,7 @@
               'Измината седмица е заштитена за да се зачуваат точните записи.\n\n' +
               'Промените можат да се прават само за тековната и идните недели.\n\n' +
               'Кликнете на "🔒 Измината седмица е заклучена" за да ја отклучите.');
-        closeModal('assignModal');
+        document.querySelectorAll('.schedule-pickers').forEach(function (e) { e.remove(); });
         return;
     }
     
@@ -5693,7 +5700,7 @@
     renderSchedule();
     renderStudentListSimple();
     updateStats();
-    closeModal('assignModal');
+    document.querySelectorAll('.schedule-pickers').forEach(function (e) { e.remove(); });
     // Планот го држи и Кабинети: по секоја измена се прашува дали важи и таму.
     if (window.SdnPlanSync) window.SdnPlanSync.edited({ day: currentSlot.day, timeIdx: currentSlot.timeIdx, isPastWeek: isPastWeek, weekKey: weekKey });
 }
@@ -11112,6 +11119,7 @@
         var AGREED_KEY = 'sdn_local_server_agreed_v1';
         var AUTO_KEY = 'sdn_local_server_autosync_v1';
         var PENDING_KEY = 'sdn_local_server_pending_v1';
+        var ONGOING_KEY = 'sdn_confirmed_ongoing_plan_v1';
         var AUTO_DELAY = 5000;
         var AUTO_REFRESH = 30000;
 
@@ -11256,6 +11264,68 @@
             if (lastComplaint !== message) { lastComplaint = message; toast(message); }
         }
 
+        function pendingOngoing() {
+            try { return JSON.parse(localStorage.getItem(ONGOING_KEY) || 'null'); }
+            catch (e) { return null; }
+        }
+
+        function sendOngoing(auto) {
+            var pending = pendingOngoing();
+            if (pending.server !== getUrl()) {
+                complain('Потврдениот план чека на друг сервер. Вратете ја претходната адреса за да се доврши.', '🟠 конфликт — сменет сервер');
+                return Promise.resolve('conflict');
+            }
+            return srvFetch('/api/diary/ongoing-plan', {
+                method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(pending.body)
+            }).then(function (answer) {
+                if (!answer.res.ok) {
+                    if (answer.res.status >= 500) throw new Error('серверот врати ' + answer.res.status);
+                    localStorage.removeItem(ONGOING_KEY);
+                    var problem = answer.body || {};
+                    var text = problem.doubleBooked ? 'Ученикот веќе е кај ' + problem.therapistName + ' во ' + problem.time + '.'
+                        : problem.actualStudentPublicIds ? 'Кабинети се смени во меѓувреме. Потврдете го планот повторно.'
+                        : answer.res.status === 404 ? 'Планот не е применет. Проверете ја врската на учениците и дали серверот е ажуриран.'
+                        : problem.error || 'Планот не е применет.';
+                    complain(text + ' Ниту една недела не е заменета.', '🟠 конфликт — постојаниот план не е применет');
+                    if (!auto) alert(text + '\n\nНиту една недела не е заменета.');
+                    return 'conflict';
+                }
+                // The server stores the same request UUID, so retrying after a
+                // lost acknowledgement cannot apply it twice.
+                localStorage.removeItem(ONGOING_KEY);
+                if (getUrl() !== pending.server || contentHash(window.SdnV3.currentPayload('ongoing_ack')) !== pending.localHash) {
+                    setPending(true);
+                    setStatus('🟠 разидување — планот е запишан, поновиот внес е задржан тука');
+                    return 'conflict';
+                }
+                return doPull(answer.body, contentHash(answer.body.payload)).then(function (r) {
+                    if (r !== 'pulled') return r;
+                    toast(answer.body.scheduled ? 'Потврдено: распоредот ќе важи на сите три екрани од ' + pending.body.fromWeek + '.'
+                        : 'Распоредот е запишан во Дневник, Кабинети и Колега.');
+                    return 'pulled';
+                });
+            });
+        }
+
+        function publishOngoing(details) {
+            if (pendingOngoing()) {
+                alert('Претходно потврдениот план уште чека одговор. Прво синхронизирајте.');
+                return Promise.resolve(false);
+            }
+            var beforeHash = contentHash(window.SdnV3.currentPayload('before_ongoing_week'));
+            var beforeVersion = getVersion(), beforeServer = getUrl();
+            return window.SdnV3.backup('before_ongoing_week').then(function () {
+                if (beforeHash !== contentHash(window.SdnV3.currentPayload('ongoing_backup_done')) ||
+                    beforeVersion !== getVersion() || beforeServer !== getUrl()) {
+                    throw new Error('Дневникот или серверот се смени додека се правеше резервата. Потврдете повторно.');
+                }
+                var body = Object.assign({}, details, { id: crypto.randomUUID(), baseVersion: beforeVersion });
+                localStorage.setItem(ONGOING_KEY, JSON.stringify({ body: body, server: beforeServer, localHash: beforeHash }));
+                setPending(true);
+                return sync({ auto: false }).then(function (r) { return r === 'pulled'; });
+            }).catch(function (e) { alert('Планот не е пратен: ' + e.message); return false; });
+        }
+
         function sync(opts) {
             opts = opts || {};
             if (window.MTB_MIRROR_READONLY === true) return pull();
@@ -11264,7 +11334,7 @@
             busy = true;
             if (!auto) setStatus('⏳ синхронизирам…');
 
-            return srvFetch('/api/state/' + APP_KEY).then(function (probe) {
+            return (pendingOngoing() ? sendOngoing(auto) : srvFetch('/api/state/' + APP_KEY).then(function (probe) {
                 var server = null;
                 if (probe.res.status !== 404) {
                     if (!probe.res.ok || !probe.body) throw new Error('серверот врати ' + probe.res.status);
@@ -11321,7 +11391,7 @@
                     // Unsubmitted form fields are not yet in currentPayload.
                     // Leave them on screen until the person finishes editing.
                     var focused = document.activeElement;
-                    if (auto && (document.querySelector('.modal.active, dialog[open]') ||
+                    if (auto && (document.querySelector('.modal.active, dialog[open], .schedule-pickers') ||
                         (focused && (focused.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(focused.tagName))))) {
                         setStatus('🟠 нова серверска состојба · чека да завршите со формуларот');
                         return 'editing';
@@ -11350,7 +11420,7 @@
                 else alert(message);
                 return 'conflict';
 
-            }).catch(function (err) {
+            })).catch(function (err) {
                 console.error('SdnLocalSrv.sync:', err);
                 var offline = (err instanceof TypeError) || (err && err.name === 'AbortError') || /fetch|network/i.test(String(err && err.message));
                 if (offline) {
@@ -11529,6 +11599,7 @@
         window.SdnLocalSrv = {
             check: check, pull: pull, push: push, setUrl: setUrl, render: render,
             sync: sync, setAuto: setAuto,
+            publishOngoing: publishOngoing,
             // Изложено за SDiary (Stage D). Каде е серверот е ЕДНА одлука и
             // редоследот во неа е важен (потеклото на серверска страница пред
             // зачувана адреса); своја копија таму би значела два одговора на
@@ -13431,11 +13502,76 @@
             return read().then(function (result) {
                 if (!result) { state.loaded = false; paintButton(); return null; }
                 take(result);
+                refreshScheduled();
                 return result;
             }).catch(function (err) {
                 state.loaded = false; paintButton();
                 return { error: err && err.message ? err.message : String(err) };
             });
+        }
+
+        function refreshScheduled() {
+            return getJson('/api/diary/ongoing-plan').then(function (body) {
+                var button = el('planSyncBtn');
+                if (!button) return;
+                var note = el('ongoingPlanStatus');
+                if (!note) {
+                    note = document.createElement('span'); note.id = 'ongoingPlanStatus';
+                    note.style.cssText = 'display:block;font-size:13px;margin:6px 0;';
+                    button.parentNode.appendChild(note);
+                }
+                note.textContent = (body.plans || []).map(function (p) {
+                    return p.status === 'blocked' ? '⚠ Планот од ' + p.from_week + ' не е применет во Кабинети: ' +
+                        refusal(409, p.problem) + ' Копирајте ја подготвената недела и потврдете повторно.'
+                        : '🗓 Закажано: од ' + p.from_week + ' истиот план во Дневник, Кабинети и Колега.';
+                }).join(' ');
+            }).catch(function () { /* An older server still supports the manual comparison. */ });
+        }
+
+        function publishWeek(week, fromWeek) {
+            if (!usable() || !getLocalTherapistName()) {
+                alert('Прво поврзете го дневникот со серверот и изберете го вашиот терапевт.');
+                return Promise.resolve(false);
+            }
+            var chosenServer = base();
+            return window.SdnLocalSrv.sync({ auto: true }).then(function (synced) {
+                if (chosenServer !== base() || ['insync', 'pushed', 'pulled'].indexOf(synced) < 0) {
+                    alert('Прво усогласете го дневникот со серверот. Постојаниот план не е сменет.');
+                    return false;
+                }
+                return check().then(function (result) {
+                    if (!result || result.error || result.therapistId == null) {
+                        alert('Не можам да го прочитам вашиот распоред во Кабинети. Ништо не е сменето.');
+                        return false;
+                    }
+                    var expected = {}, count = 0;
+                    daysEng.forEach(function (d, di) {
+                        expected[d] = timeSlots.map(function (_, ti) {
+                            var ids = result.kabinetiAt(di + '|' + ti).map(function (p) { return p.pid; });
+                            count += ids.length; return ids;
+                        });
+                    });
+                    return askWeekChoice('Потврди постојан распоред',
+                        'За ' + result.me + ', од ' + weekLabel(fromWeek) + ' натаму.\n\n' +
+                        'Дневник, Кабинети и Колега ќе го користат копираниот план: ' + weekTerms(week) +
+                        ' ученици во термини (сега во Кабинети: ' + count + ').\n' +
+                        'Се заменуваат плановите од таа недела натаму. Претходните недели и сите ознаки за присуство остануваат. ' +
+                        'Другите кабинети не се менуваат.' + (result.outside ? '\nТермините по V час остануваат како што се.' : '') +
+                        (fromWeek > thisWeekKey() ? '\nСерверот ќе го активира кога ќе дојде неделата, и со затворен дневник. Ако тогаш има судир или нова измена, ќе застане и ќе пријави.' : '') +
+                        '\nПред замената се чува резервна копија.',
+                        [{ value: 'confirm', label: 'Потврди — од оваа недела натаму на сите три екрани' }])
+                        .then(function (choice) {
+                            if (!choice) return false;
+                            if (chosenServer !== base()) {
+                                alert('Серверот се смени. Отворете го планот повторно пред потврда.');
+                                return false;
+                            }
+                            return window.SdnLocalSrv.publishOngoing({ fromWeek: fromWeek, week: week,
+                                therapistId: result.therapistId, expected: expected,
+                                times: timeSlots.map(function (t) { return t.time; }) });
+                        });
+                });
+            }).then(function (ok) { if (ok) check(); return ok; });
         }
 
         function label(row) {
@@ -13733,7 +13869,7 @@
 
         /** При отворање и при промена од друг прозорец: се јавува само за разлика што уште не е видена. */
         function auto() {
-            if (!usable() || isOpen() || state.busy) return;
+            if (!usable() || isOpen() || state.busy || document.querySelector('.modal.active, .schedule-pickers')) return;
             if (base() !== window.location.origin) return;      // само кога страницата ја служи нејзиниот сервер
             if (Date.now() - lastAuto < 15000) return;
             lastAuto = Date.now();
@@ -13765,6 +13901,7 @@
         }
 
         window.SdnPlanSync = {
+            publishWeek: publishWeek,
             open: open, edited: edited, refresh: function () { if (usable()) check(); },
             /** За „Усогласи сè": колку термини се разликуваат, без да отвора ништо. */
             count: function () {

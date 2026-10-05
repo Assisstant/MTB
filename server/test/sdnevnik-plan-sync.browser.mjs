@@ -147,12 +147,16 @@ const choiceText = (key, value) => page.$eval(`[data-plan-choice="${key}"] input
 const apply = () => page.click('#planSyncApply');
 const waitClosed = () => page.waitForFunction(() => !document.getElementById('planSyncModal').classList.contains('active'));
 const waitOpen = () => page.waitForFunction(() => document.getElementById('planSyncModal').classList.contains('active'));
-/** The diary's own edit path: the assign popup, a tick, „Зачувај". */
+/** The diary's own edit path: inline pupil dropdowns, then „Зачувај“. */
 const edit = async (day, slot, toggleIds) => {
-    await page.evaluate(([d, s]) => window.openAssignModal(d, s), [day, slot]);
-    await page.waitForTimeout(50);       // the popup attaches its listeners on the next tick
-    for (const id of toggleIds) await page.click(`#cb-${id}`);
-    await page.evaluate(() => window.assignStudents());
+    await page.evaluate(([d, s]) => { switchTab('schedule'); window.openSchedulePicker(d, s); }, [day, slot]);
+    const selected = await page.locator('.schedule-pickers select').evaluateAll(els => els.map(e=>e.value).filter(Boolean));
+    for (const id of toggleIds) {
+        const at=selected.indexOf(String(id));
+        if (at<0) selected.push(String(id)); else selected.splice(at,1);
+    }
+    for (let i=0;i<await page.locator('.schedule-pickers select').count();i++) await page.locator('.schedule-pickers select').nth(i).selectOption(selected[i]||'');
+    await page.click('.schedule-pickers [data-save-slot]');
 };
 
 try {

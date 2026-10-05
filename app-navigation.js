@@ -222,7 +222,7 @@
         const parts = pathname.split('/').filter(Boolean);
         if (parts[0] !== 'api' || !parts[1]) return null;
         if (parts[1] === 'evidence') return null;
-        if (parts[1] === 'diary') return parts[2] === 'schedule' ? 'schedule' : null;
+        if (parts[1] === 'diary') return ['schedule', 'ongoing-plan'].includes(parts[2]) ? 'schedule' : null;
         return parts[1];
     }
 

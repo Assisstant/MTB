@@ -10,6 +10,28 @@ import 'dotenv/config';
 // Every migration in the folder: a release applies whatever is pending, so the
 // count after one is the whole folder, and a new batch must not edit it here.
 const ALL=(await readdir(resolve(import.meta.dirname,'../../database/migrations'))).filter(f=>f.endsWith('.sql')).length;
+test('058 adds private confirmed plans to 057 without changing existing diary or timetable rows', async () => {
+ const c=new pg.Client({connectionString:process.env.TEST_DATABASE_URL||process.env.DATABASE_URL});await c.connect();
+ const schema=`ongoing_release_test_${process.pid}`,backup=`mtb_workspace_recovery_ongoing_test_${process.pid}`;
+ const dir=resolve(import.meta.dirname,'../../database/migrations');
+ await c.query(`CREATE SCHEMA ${schema}`);await c.query(`SET search_path=${schema}`);
+ try{
+  await c.query('CREATE TABLE schema_migrations(filename text PRIMARY KEY,applied_at timestamptz NOT NULL DEFAULT now())');
+  for(const f of (await readdir(dir)).filter(f=>f.endsWith('.sql')&&Number(f.slice(0,3))<=57).sort()){
+   await c.query(migrationBody(await readFile(resolve(dir,f),'utf8')));await c.query('INSERT INTO schema_migrations(filename) VALUES($1)',[f]);
+  }
+  // workspaceRelease compares every pre-existing table's full contents with
+  // its recovery copy, including app_state and schedule_slots.
+  await workspaceRelease(c,dir,()=>{},backup);
+  assert.equal((await c.query("SELECT relrowsecurity FROM pg_class WHERE oid='diary_cabinet_changes'::regclass")).rows[0].relrowsecurity,true);
+  assert.equal((await c.query('SELECT count(*)::int AS n FROM diary_cabinet_changes')).rows[0].n,0,'migration schedules no changes');
+  for(const role of ['anon','authenticated']) if((await c.query('SELECT 1 FROM pg_roles WHERE rolname=$1',[role])).rowCount){
+   assert.equal((await c.query("SELECT has_table_privilege($1, 'diary_cabinet_changes', 'SELECT,INSERT,UPDATE,DELETE') AS allowed",[role])).rows[0].allowed,false);
+  }
+  await workspaceRelease(c,dir,()=>{},backup);
+ }finally{await c.query(`DROP SCHEMA IF EXISTS ${backup} CASCADE`);await c.query(`DROP SCHEMA ${schema} CASCADE`);await c.end();}
+});
+
 test('056 guards merged pupils when upgrading 055 without rewriting existing history', async () => {
  const c=new pg.Client({connectionString:process.env.TEST_DATABASE_URL||process.env.DATABASE_URL});await c.connect();
  const schema=`merged_release_test_${process.pid}`,backup=`mtb_workspace_recovery_merged_test_${process.pid}`;

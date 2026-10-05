@@ -501,6 +501,7 @@ check('no page errors', errors.length === 0, errors.join('\n       '));
     const p = await ctx.newPage();
     const cabErrors = [];
     p.on('pageerror', (e) => cabErrors.push(e.message));
+    await p.clock.install();
     await p.goto(`${ORIGIN}/Kolega.html`);
     await p.click('#welcomeContinue');
     await p.waitForSelector('#days [data-day="понеделник"]', { timeout: 8000 });
@@ -526,6 +527,23 @@ check('no page errors', errors.length === 0, errors.join('\n       '));
         null, { timeout: 5000 }).catch(() => {});
     const halves = await p.textContent('#periods [data-time="08:45-09:25"]');
     check('two pupils share a term in halves', /први 20/.test(halves) && /втори 20/.test(halves), halves);
+
+    // A shared timetable can change with this page already open. The timer
+    // re-reads it without a write, but waits for an unfinished cell editor.
+    const writeCount = writes.length;
+    terms[0].pupils = ['p2'];
+    await p.clock.runFor(20001);
+    await p.waitForFunction(() => /Ученичка Измислена/.test(document.querySelector('#periods [data-time="08:00-08:40"]').textContent));
+    check('an open colleague page receives another screen’s timetable', /Ученичка Измислена/.test(await p.textContent('#periods [data-time="08:00-08:40"]')));
+    await p.click('#periods [data-time="08:00-08:40"] [data-edit-term]');
+    await p.selectOption('#periods form.editor select[name=first]', 'p2');
+    terms[0].pupils = ['p1'];
+    await p.clock.runFor(20001);
+    check('refresh preserves the open editor', await p.inputValue('#periods form.editor select[name=first]') === 'p2');
+    await p.click('#periods form.editor [data-act="cancel"]');
+    await p.clock.runFor(20001);
+    await p.waitForFunction(() => /Ученик Измислен/.test(document.querySelector('#periods [data-time="08:00-08:40"]').textContent));
+    check('refresh catches up after cancel without writing back', writes.length === writeCount);
 
     console.log('\nthe cabinet — one\'s own list, ticked');
     check('the list is counted and folded until asked', /Мои ученици: 2/.test(await p.textContent('#caseload')) && !(await p.$('#caseload .ticks')));

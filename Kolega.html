@@ -870,7 +870,7 @@ header.top h1 { flex: 1; min-width: 180px; }
         }
     };
 
-    async function api(method, path, body) {
+    async function api(method, path, body, signal) {
         if (me && me.readOnly && !['GET', 'HEAD'].includes(method) && !['/api/portal/login', '/api/portal/logout', '/api/portal/password'].includes(path)) {
             throw new Error('Имате пристап само за преглед.');
         }
@@ -878,6 +878,7 @@ header.top h1 { flex: 1; min-width: 180px; }
         try {
             res = await fetch(path, {
                 method,
+                signal,
                 cache: 'no-store',
                 headers: Object.assign({ 'x-mtb-portal-token': token.get() }, doorKey ? { 'x-mtb-portal-key': doorKey } : {},
                     body === undefined ? {} : { 'Content-Type': 'application/json' }),
@@ -3486,6 +3487,32 @@ header.top h1 { flex: 1; min-width: 180px; }
         week = next;
         drawWeek();
     }
+
+    // Another screen (or a dated plan activated by the server) can change the
+    // same week. Re-read while viewing, but never redraw an unfinished editor.
+    let refreshingWeek = false;
+    function canRefreshWeek() {
+        return me && week && !el('home').hidden && !document.hidden && !editing &&
+            !caseload.open && !duty.draft && !attendance.busy &&
+            !['duty', 'attendance'].includes(view.tab) &&
+            !document.querySelector('dialog[open], #swapAsk:not([hidden]), #doorVeil:not([hidden])') &&
+            !document.activeElement?.matches('input, select, textarea, [contenteditable="true"]');
+    }
+    async function refreshOpenWeek() {
+        if (refreshingWeek || !canRefreshWeek()) return;
+        refreshingWeek = true;
+        const request = reader.request, person = me, query = readerQuery();
+        const controller = new AbortController(), timeout = setTimeout(() => controller.abort(), 20000);
+        try {
+            const next = await api('GET', '/api/portal/week' + query, undefined, controller.signal);
+            if (request !== reader.request || me !== person || query !== readerQuery() || !canRefreshWeek()) return;
+            if (JSON.stringify(next) !== JSON.stringify(week)) { week = next; drawWeek(); }
+        } catch (_) { /* Keep the visible week; reconnect will retry. */ }
+        finally { clearTimeout(timeout); refreshingWeek = false; }
+    }
+    setInterval(refreshOpenWeek, 20000);
+    document.addEventListener('visibilitychange', refreshOpenWeek);
+    window.addEventListener('online', refreshOpenWeek);
 
     function drawHome() {
         document.body.classList.toggle('reader-mode', Boolean(me.readOnly));

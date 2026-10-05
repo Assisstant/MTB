@@ -90,6 +90,7 @@ async function serve(context) {
             const method = req.method();
             const body = req.postData() ? JSON.parse(req.postData()) : null;
             if (p === '/api/health') return json(200, { ok: true, server: { label: 'Пробна база' } });
+            if (p === '/api/diary/ongoing-plan' && method === 'PUT') return json(200, { ok: true });
             if (p === '/api/years') return json(200, [{ id: 1, label: YEAR, is_current: true }]);
             if (p === '/api/roster') return json(200, roster());
             if (p === '/api/categories') return json(200, { categories: [] });
@@ -160,6 +161,14 @@ const browser = await chromium.launch({ ...(process.env.CHROME ? { executablePat
     await c.waitForSelector('#classes table', { state: 'attached', timeout: 8000 });
     await a.waitForTimeout(300);
     await a.evaluate(() => { window.__stayed = true; });
+
+    await c.evaluate(() => {
+        window.__ongoingRefresh = 0;
+        MTBAppNavigation.onDataChange(() => { window.__ongoingRefresh++; }, { ignore: ['state'] });
+    });
+    await b.evaluate(() => fetch('/api/diary/ongoing-plan', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: '{}' }));
+    await c.waitForTimeout(1600);
+    check('a confirmed diary plan notifies schedule listeners in other windows', await c.evaluate(() => window.__ongoingRefresh === 1));
 
     console.log('\na class added in one tab');
     const aBefore = countReads('a', '/api/roster');

@@ -10,6 +10,7 @@ import { dataRoutes } from './routes/data.js';
 import { scheduleWriteRoutes } from './routes/schedule-write.js';
 import { rosterWriteRoutes } from './routes/roster-write.js';
 import { diaryWriteRoutes } from './routes/diary-write.js';
+import { diaryCabinetPlanRoutes, installOngoingActivation } from './routes/diary-cabinet-plan.js';
 import { recordWriteRoutes } from './routes/record-write.js';
 import { teachingRoutes } from './routes/teaching.js';
 import { teachingEditRoutes } from './routes/teaching-edit.js';
@@ -114,6 +115,7 @@ installColleagueBoundary(server);
 // The colleagues' door: the shared link's code, maintenance and locked
 // accounts, for every /api/portal/ route in whichever file it lives (052).
 installPortalDoor(server);
+installOngoingActivation(server);
 
 /**
  * A value unique to this running server, so a caller can tell two machines
@@ -198,6 +200,7 @@ server.register(dataRoutes);
 server.register(scheduleWriteRoutes);
 server.register(rosterWriteRoutes);
 server.register(diaryWriteRoutes);
+server.register(diaryCabinetPlanRoutes);
 server.register(recordWriteRoutes);
 server.register(teachingRoutes);
 server.register(teachingEditRoutes);

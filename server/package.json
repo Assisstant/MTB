@@ -71,6 +71,7 @@
     "test:nastava": "node test/nastava.browser.mjs",
     "test:nastava-doors": "node test/nastava-doors.browser.mjs",
     "test:diary-offline": "tsx test/diary-offline.browser.mjs",
+    "test:ongoing": "node test/with-scratch.mjs test/diary-ongoing.e2e.ts",
     "test:scratch": "node test/with-scratch.mjs",
     "test:fusion-caseload-booked": "node test/fusion-caseload-booked.browser.mjs",
     "test:nastava-week": "node test/nastava-week.browser.mjs",

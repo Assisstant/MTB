@@ -207,7 +207,7 @@ try {
         await page.click(`#weekChoiceModal button[data-choice="${choice || ''}"]`);
         await page.waitForSelector('#weekChoiceModal', { state: 'detached' });
         await page.waitForTimeout(150);               // the backup is written first
-        return { asked, text };
+        return { asked, text, alert: dialogs[0] || '' };
     };
     const theOldPlan = await live();                  // monday-0 1001, tuesday-1 1002, wednesday-2 1003, thursday-3 1001
 
@@ -242,6 +242,11 @@ try {
     // ── into a coming week, and every one after it ────────────────────────────
     await goTo(4);                                    // 02.11
     r = await paste('onward');
+    check('sharing onward refuses an unconnected diary instead of changing only one screen', /Прво поврзете/.test(r.alert));
+    checkEq('the refusal leaves future plans unchanged', Object.keys(await planFrom()).sort(), ['2026-10-19', '2026-10-26']);
+    // Server-confirmed onward is covered with real PostgreSQL in diary-ongoing.
+    // Seed that accepted future plan here to retain the rendering/promotion checks.
+    await page.evaluate(() => { planFrom['2026-11-02']=copyWeek(planFrom['2026-10-19']); saveData(); });
     pf = await planFrom();
     checkEq('every week from 02.11 on takes the copy', Object.keys(pf).sort(), ['2026-10-19', '2026-10-26', '2026-11-02']);
     checkEq('so does a week far ahead', (await weekAt(9)).monday[0], [1003]);
@@ -289,7 +294,7 @@ try {
     check('and its attendance mark is still drawn', view.cells.includes('monday-4:1003'), view.cells.join(' '));
     checkEq('the week before it is left as it was', h[OLDER].monday[0], [1003]);
     r = await paste('past');
-    check('pasting the same again changes nothing and says so', !r.asked && /веќе иста/.test(r.alert), r.alert);
+    check('pasting the same record again changes nothing; onward is still offered', r.asked && /веќе иста/.test(r.alert), r.alert);
     await page.evaluate(() => { pastWeeksUnlocked = false; updateWeekDisplay(); });
 
     // ── an empty copy on the server is not a difference ───────────────────────
