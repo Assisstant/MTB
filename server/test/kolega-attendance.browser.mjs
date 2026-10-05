@@ -76,6 +76,24 @@ const onePagePdf = async path => {
     const pdf=await p.pdf({path,preferCSSPageSize:true,printBackground:true});
     assert.equal((pdf.toString('latin1').match(/\/Type\s*\/Page\b/g)||[]).length,1,'complete report fits one PDF page: '+path);
 };
+// „⬇ PDF" (owner, 5 Oct 2026): a file the page writes itself. It must be a
+// real PDF — every cross-reference pointing at its object — on pages of exactly
+// A4, with nothing on them but the drawing: no address, date or page number.
+const cleanA4Pdf = async (download, landscape, label) => {
+    assert.match(download.suggestedFilename(), /\.pdf$/, label);
+    const bytes = Buffer.from(await (await import('node:fs/promises')).readFile(await download.path()));
+    const text = bytes.toString('latin1');
+    assert.ok(text.startsWith('%PDF-1.4') && text.trimEnd().endsWith('%%EOF'), label + ': a PDF file');
+    const start = Number(/startxref\n(\d+)/.exec(text)[1]);
+    assert.equal(text.slice(start, start + 4), 'xref', label + ': startxref points at the table');
+    const entries = text.slice(start).split('\n').slice(2).filter((l) => / 00000 n $/.test(l)).map((l) => Number(l.slice(0, 10)));
+    entries.forEach((offset, i) => assert.equal(text.slice(offset, offset + `${i + 1} 0 obj`.length), `${i + 1} 0 obj`, label + ': object ' + (i + 1)));
+    const boxes = [...text.matchAll(/\/MediaBox\[0 0 ([\d.]+) ([\d.]+)\]/g)].map((m) => [Math.round(m[1]), Math.round(m[2])]);
+    assert.ok(boxes.length >= 1, label + ': at least one page');
+    boxes.forEach((b) => assert.deepEqual(b, landscape ? [842, 595] : [595, 842], label + ': A4'));
+    assert.ok(!/https?:|localhost|Мој распоред|\/Font/.test(text), label + ': no address, title or text from the browser on the page');
+    return boxes.length;
+};
 try {
     await p.goto(origin+'/Kolega.html');
     await p.click('#welcomeContinue');
@@ -113,6 +131,8 @@ try {
     assert.match(attPng.suggestedFilename(),/^Prisustvo-.*\.png$/);
     const artifacts=resolve(root,'backups/test-artifacts');await mkdir(artifacts,{recursive:true});
     await attPng.saveAs(resolve(artifacts,'attendance-month.png'));
+    const [attPdf] = await Promise.all([p.waitForEvent('download'),p.click('[data-att-pdf]')]);
+    assert.match(attPdf.suggestedFilename(),/^Prisustvo-.*\.pdf$/); await cleanA4Pdf(attPdf,true,'attendance PDF');
     await p.evaluate(()=>{
         const body=document.querySelector('.attendance-table tbody'),row=body.rows[0];
         for(let i=2;i<=35;i++){const copy=row.cloneNode(true);copy.cells[0].textContent='Измислен Ученик '+i+'\nVIII-тест';body.append(copy);}
@@ -252,6 +272,8 @@ try {
     await p.screenshot({path:resolve(artifacts,'kolega-fluent-duty-desktop.png'),fullPage:true});
     const [dutyPng] = await Promise.all([p.waitForEvent('download'),p.click('#dutyPng')]);
     await dutyPng.saveAs(resolve(artifacts,'duty.png'));
+    const [dutyPdf] = await Promise.all([p.waitForEvent('download'),p.click('#dutyPdf')]);
+    await cleanA4Pdf(dutyPdf,false,'duty PDF'); await dutyPdf.saveAs(resolve(artifacts,'duty-clean.pdf'));
     await p.click('#dutyPrint'); assert.match(await p.evaluate(()=>window.printClasses),/printing-duty/);
     // A full month first (23 working days is the most a month has), then the
     // print layout: the sheet is fitted when the browser switches to print, as
@@ -268,6 +290,8 @@ try {
     await p.click('[data-tab="cabinet"]');await p.click('[data-week]');
     const [weekPng] = await Promise.all([p.waitForEvent('download'),p.click('#pngWeek')]);
     assert.match(weekPng.suggestedFilename(),/Licen-raspored/);
+    const [weekPdf] = await Promise.all([p.waitForEvent('download'),p.click('#pdfWeek')]);
+    assert.match(weekPdf.suggestedFilename(),/^Licen-raspored-.*\.pdf$/); await cleanA4Pdf(weekPdf,true,'week PDF');
     await p.click('#printWeek');assert.match(await p.evaluate(()=>window.printClasses),/printing-week/);
     await p.emulateMedia({media:'print'});await onePagePdf(resolve(artifacts,'week-print.pdf'));
     await p.emulateMedia({media:'screen'});
@@ -275,5 +299,5 @@ try {
     await p.reload();await p.click('#welcomeContinue');await p.click('[data-tab="attendance"]');await ready();
     assert.equal(await p.locator('#attendanceScope').count(),0,'ordinary colleague sees no school-wide filter');
     assert.deepEqual(errors,[]);
-    console.log('PASS: attendance cycle, conflict, reload, monthly totals, mobile, owner-only transport filter, certificate refresh, watermark-free print/PDF and PNG exports.');
+    console.log('PASS: attendance cycle, conflict, reload, monthly totals, mobile, owner-only transport filter, certificate refresh, watermark-free print/PDF and PNG exports, clean A4 PDF files.');
 } finally { await browser.close(); }

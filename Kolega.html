@@ -705,6 +705,7 @@ header.top h1 { flex: 1; min-width: 180px; }
         </div>
         <button type="button" id="printWeek">🖨 Печати</button>
         <button type="button" id="pngWeek">🖼 Слика</button>
+        <button type="button" id="pdfWeek" title="Точно A4, без адреса, датум и број на страница од прелистувачот">⬇ PDF</button>
         <button type="button" id="docxWeek" hidden>Word (.docx)</button>
       </div>
       <div class="week-wrap" id="weekSheet" hidden></div>
@@ -1470,6 +1471,7 @@ header.top h1 { flex: 1; min-width: 180px; }
             + `<button data-att-step="1" aria-label="Следен период"${disabled}>▶</button>`
             + `</div><button data-att-refresh${disabled}>Освежи</button><div class="report-exports" role="group" aria-label="Печатење и извоз"><button data-att-print${disabled || !data ? ' disabled' : ''}>Печати</button>`
             + `<button data-att-png${disabled || !data ? ' disabled' : ''}>🖼 Слика</button>`
+            + `<button data-att-pdf${disabled || !data ? ' disabled' : ''} title="Точно A4, без адреса, датум и број на страница од прелистувачот">⬇ PDF</button>`
             + (attendance.scope==='transport' || (me.readOnly && attendance.scope==='cabinet') ? `<button data-att-docx${disabled || !data ? ' disabled' : ''}>Word (.docx)</button>` : '') + '</div></div></div>'
             + (attendance.busy ? '<p role="status">Се вчитува / зачувува…</p>' : '')
             + (attendance.accessError ? '<div class="access-help no-print" role="alert"><strong>Најавете се како сопственик</strong><p>Отворете MTB во истиот прелистувач, најавете се, па вратете се тука и притиснете „Освежи“. Вашата најава за Колеги останува зачувана.</p><a href="/MTB-Workspace.html" target="_blank" rel="noopener">Отвори сопственичка најава ↗</a></div>' : '')
@@ -1516,14 +1518,16 @@ header.top h1 { flex: 1; min-width: 180px; }
         if (b.hasAttribute('data-att-refresh')) return loadAttendance();
         if (b.hasAttribute('data-att-docx')) return attendance.scope === 'transport' ? downloadTransportDocx() : downloadReaderAttendance();
         if (b.hasAttribute('data-att-print')) { document.body.classList.add('printing-attendance'); window.print(); return; }
-        if (b.hasAttribute('data-att-png')) {
-            if(attendance.scope==='transport') return paintReport({...transportReport(),file:'Prevoz-'+attendance.data.month,dateList:true});
-            if(attendance.scope==='meals') return paintReport({...mealsReport(),file:'Prisutni-'+attendance.data.date});
-            if(classScope()) return paintReport({...classAttendanceReport(),file:'Prisustvo-paralelka-'+attendance.data.from,compact:attendance.mode==='month'});
+        if (b.hasAttribute('data-att-png') || b.hasAttribute('data-att-pdf')) {
+            // One drawing, two ways out: a picture, or a clean A4 PDF.
+            const out = b.hasAttribute('data-att-pdf') ? (o) => reportPdf(o, true) : paintReport;
+            if(attendance.scope==='transport') return out({...transportReport(),file:'Prevoz-'+attendance.data.month,dateList:true});
+            if(attendance.scope==='meals') return out({...mealsReport(),file:'Prisutni-'+attendance.data.date});
+            if(classScope()) return out({...classAttendanceReport(),file:'Prisustvo-paralelka-'+attendance.data.from,compact:attendance.mode==='month'});
             const m = attendanceReport();
             const rows = m.rows.map(r => [r.label, ...r.cells.map(c => c.sessions.map(s =>
                 (attendance.mode === 'week' ? s.name + '\n' : '') + (s.status === 'present' ? '✓' : s.status === 'absent' ? '×' : '?')).join('\n') || '—'), ...r.totals.map(String)]);
-            return paintReport({ ...m, rows, file: 'Prisustvo-' + attendance.data.from, compact: attendance.mode === 'month', attendance:true });
+            return out({ ...m, rows, file: 'Prisustvo-' + attendance.data.from, compact: attendance.mode === 'month', attendance:true });
         }
         if (b.dataset.classMark || b.dataset.classAll) return markClass(b);
         if (me.readOnly || !b.dataset.attKey) return;
@@ -2077,7 +2081,8 @@ header.top h1 { flex: 1; min-width: 180px; }
         box.innerHTML = delegated + (duty.owner ? dutyAdminHtml() : '')
             + '<div class="duty-head">' + head
             + '<button type="button" class="small no-print" id="dutyPrint">🖨 Печати</button>'
-            + '<button type="button" class="small no-print" id="dutyPng">🖼 Слика</button></div>'
+            + '<button type="button" class="small no-print" id="dutyPng">🖼 Слика</button>'
+            + '<button type="button" class="small no-print" id="dutyPdf" title="Точно A4, без адреса, датум и број на страница од прелистувачот">⬇ PDF</button></div>'
             + (duty.data.members.length ? '' : '<p class="muted">Сè уште нема список за дежурства.</p>')
             + (duty.owner && (duty.data.staleSwaps || []).length ? '<div class="duty-stale no-print"><b>⚠ Замена што повеќе не важи</b> — распоредот се смени по договорот, '
                 + 'па двата термина веќе не одговараат на колегите или не се во истиот циклус:'
@@ -2104,13 +2109,14 @@ header.top h1 { flex: 1; min-width: 180px; }
     }
 
     el('duty').addEventListener('click', async (event) => {
-        if (event.target.closest('#dutyPng')) {
+        if (event.target.closest('#dutyPng') || event.target.closest('#dutyPdf')) {
+            const out = event.target.closest('#dutyPdf') ? (o) => reportPdf(o, false) : paintReport;
             const days = duty.data.days.filter(d => d.date >= duty.data.startsOn);
             // The same words as the sheet: the day with its weekday, every line
             // under the name, the place in the round, and the record below.
             const counts = document.createElement('div');
             counts.innerHTML = dutyCountsHtml().replace(/<div/g, '\n<div');
-            return paintReport({ title: 'Распоред на дежурства', subtitle: 'учебна ' + me.year + ' · изработил: ' + me.person.name,
+            return out({ title: 'Распоред на дежурства', subtitle: 'учебна ' + me.year + ' · изработил: ' + me.person.name,
                 columns: ['Ден и датум', 'Стручен соработник', 'Ред во циклус'], widths: [170, 640, 150],
                 rows: days.map((d) => {
                     const said = dutyDayText(d);
@@ -2494,6 +2500,60 @@ header.top h1 { flex: 1; min-width: 180px; }
      * the only addition is `corner`, the word over the first column.
      */
     /** Text is wrapped, not cropped. Long reports become numbered PNG pages. */
+    /**
+     * „⬇ PDF" (owner, 5 Oct 2026): the same drawing as „🖼 Слика", on pages of
+     * exactly A4, and nothing else on them — no address, date, title or „1/2"
+     * from the browser, which a page cannot switch off in the print dialog
+     * (CLAUDE.md, „A page cannot switch the browser's print header and footer
+     * off"). Настава does this with mtb-pdf.js and two libraries from cdnjs;
+     * this page is the one the cloud shows alone and loads nothing but itself,
+     * so it writes the few PDF objects by hand, as it writes its .docx.
+     * „🖨 Печати" stays as it was; this is the other choice.
+     */
+    function pdfFromCanvases(canvases, landscape) {
+        const pt = (mm) => mm * 72 / 25.4, W = pt(landscape ? 297 : 210), H = pt(landscape ? 210 : 297), M = pt(10);
+        const enc = new TextEncoder(), parts = [], offsets = [];
+        let length = 0;
+        const put = (x) => { const b = typeof x === 'string' ? enc.encode(x) : x; parts.push(b); length += b.length; };
+        const obj = (n, body, stream) => {
+            offsets[n] = length; put(n + ' 0 obj\n' + body);
+            if (stream) { put('\nstream\n'); put(stream); put('\nendstream'); }
+            put('\nendobj\n');
+        };
+        const f = (v) => v.toFixed(2), count = canvases.length;
+        // The second line is the usual binary marker: bytes above 127, so no tool takes the file for text.
+        put('%PDF-1.4\n%âãÏÓ\n');
+        obj(1, '<</Type/Catalog/Pages 2 0 R>>');
+        obj(2, '<</Type/Pages/Count ' + count + '/Kids[' + canvases.map((_, i) => (3 + 3 * i) + ' 0 R').join(' ') + ']>>');
+        canvases.forEach((c, i) => {
+            const jpeg = Uint8Array.from(atob(c.toDataURL('image/jpeg', 0.92).split(',')[1]), (ch) => ch.charCodeAt(0));
+            const k = Math.min((W - 2 * M) / c.width, (H - 2 * M) / c.height), w = c.width * k, h = c.height * k;
+            const n = 3 + 3 * i, draw = `q ${f(w)} 0 0 ${f(h)} ${f((W - w) / 2)} ${f(H - M - h)} cm /Im0 Do Q`;
+            obj(n, `<</Type/Page/Parent 2 0 R/MediaBox[0 0 ${f(W)} ${f(H)}]/Resources<</XObject<</Im0 ${n + 2} 0 R>>>>/Contents ${n + 1} 0 R>>`);
+            obj(n + 1, '<</Length ' + draw.length + '>>', draw);
+            obj(n + 2, `<</Type/XObject/Subtype/Image/Width ${c.width}/Height ${c.height}/ColorSpace/DeviceRGB/BitsPerComponent 8/Filter/DCTDecode/Length ${jpeg.length}>>`, jpeg);
+        });
+        const xref = length, size = 3 + 3 * count;
+        // Each cross-reference line is exactly 20 bytes, as the format asks.
+        put('xref\n0 ' + size + '\n0000000000 65535 f \n' + offsets.slice(1).map((o) => String(o).padStart(10, '0') + ' 00000 n \n').join(''));
+        put('trailer\n<</Size ' + size + '/Root 1 0 R>>\nstartxref\n' + xref + '\n%%EOF\n');
+        return new Blob(parts, { type: 'application/pdf' });
+    }
+    function savePdf(canvases, landscape, file) {
+        if (!canvases.length) return say('weekMsg', 'Нема што да се стави во PDF.', 'error');
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(pdfFromCanvases(canvases, landscape));
+        a.download = file + '.pdf';
+        document.body.appendChild(a); a.click(); a.remove();
+        setTimeout(() => URL.revokeObjectURL(a.href), 30000);
+        say('weekMsg', 'PDF е зачуван: точно A4, без адреса, датум и број на страница од прелистувачот.', 'ok');
+    }
+    // The content area of an A4 page, height to width, for breaking rows by the page.
+    const A4_PORTRAIT = 277 / 190, A4_LANDSCAPE = 190 / 277;
+    /** The report „🖼 Слика" draws, as a PDF on A4. */
+    const reportPdf = (o, landscape) => paintReport({ ...o, pageAspect: landscape ? A4_LANDSCAPE : A4_PORTRAIT,
+        sink: (canvases) => savePdf(canvases, landscape, o.file) });
+
     function paintReport(o) {
         const widths = o.widths || o.columns.map((_, i) => o.dateList ? (i === 0 ? 320 : 1050) : o.compact ? (i === 0 ? 260 : 56) : (i === 0 ? 180 : 330));
         const width = widths.reduce((a, b) => a + b, 0) + 48;
@@ -2527,14 +2587,22 @@ header.top h1 { flex: 1; min-width: 180px; }
             if(o.dateList) cells[1]=transportDateColumns(row[1]);
             return { cells, h: Math.max(...cells.map((l,i) => o.dateList && i===1 ? l[0].length : l.length)) * 23 + 20 };
         });
+        // For a PDF (`o.sink`): rows break where an A4 page ends, never inside a
+        // row, and the note is said once, on the last page. Drawn at twice the
+        // size, so the letters stay sharp on paper.
+        const S = o.sink ? 2 : 1;
+        const title = wrap(o.title, width - 48), subtitle = wrap(o.subtitle, width - 48);
+        const top = 35 + (title.length + subtitle.length) * 26;
+        const limit = o.pageAspect ? Math.max(120, width * o.pageAspect - top - headH - note.length * 23 - 70) : 6500;
         const pages = [[]]; let height = 0;
-        rows.forEach(row => { if (height + row.h > 6500 && pages.at(-1).length) { pages.push([]); height = 0; } pages.at(-1).push(row); height += row.h; });
+        rows.forEach(row => { if (height + row.h > limit && pages.at(-1).length) { pages.push([]); height = 0; } pages.at(-1).push(row); height += row.h; });
+        const canvases = [];
         pages.forEach((pageRows, pageIndex) => {
-            const canvas = document.createElement('canvas'); canvas.width = width;
-            const title = wrap(o.title, width - 48), subtitle = wrap(o.subtitle, width - 48);
-            const top = 35 + (title.length + subtitle.length) * 26;
-            canvas.height = top + headH + pageRows.reduce((sum, r) => sum + r.h, 0) + note.length * 23 + 70;
-            const ctx = canvas.getContext('2d'); ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, width, canvas.height);
+            const canvas = document.createElement('canvas');
+            const noteHere = !o.sink || pageIndex === pages.length - 1 ? note : [];
+            const H = top + headH + pageRows.reduce((sum, r) => sum + r.h, 0) + noteHere.length * 23 + 70;
+            canvas.width = width * S; canvas.height = H * S;
+            const ctx = canvas.getContext('2d'); ctx.scale(S, S); ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, width, H);
             ctx.fillStyle = '#24245c'; ctx.font = 'bold 18px Arial';
             title.forEach((line, i) => ctx.fillText(line, 24, 28 + i * 26));
             ctx.font = '18px Arial'; subtitle.forEach((line, i) => ctx.fillText(line, 24, 28 + (title.length + i) * 26));
@@ -2556,8 +2624,9 @@ header.top h1 { flex: 1; min-width: 180px; }
             }
             row(header, headH, true, 0); pageRows.forEach((r, i) => row(r.cells, r.h, false, i));
             ctx.fillStyle = '#172139'; ctx.font = '18px Arial';
-            note.forEach((line, i) => ctx.fillText(line, 24, y + 30 + i * 23));
-            ctx.fillText(`${pageIndex + 1}/${pages.length}`, 24, canvas.height - 16);
+            noteHere.forEach((line, i) => ctx.fillText(line, 24, y + 30 + i * 23));
+            ctx.fillText(`${pageIndex + 1}/${pages.length}`, 24, H - 16);
+            if (o.sink) { canvases.push(canvas); return; }
             canvas.toBlob(blob => {
                 if (!blob) return say('weekMsg', 'Сликата не може да се создаде.', 'error');
                 const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
@@ -2565,15 +2634,16 @@ header.top h1 { flex: 1; min-width: 180px; }
                 a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 30000);
             }, 'image/png');
         });
+        if (o.sink) o.sink(canvases);
     }
     function paintGrid(o) {
         const M = 36, TIME_W = 150, COL_W = 300, HEAD_H = 104, COLHEAD_H = 50, FOOT_H = 50, GAP = 2;
         const rowH = o.rows.map((_, r) => Math.max(92, 16 + Math.max(1, ...o.days.map((_, d) => (o.cells[r][d] || []).length)) * 46));
         const width = M * 2 + TIME_W + o.days.length * COL_W;
         const height = M + HEAD_H + 16 + COLHEAD_H + rowH.reduce((a, b) => a + b, 0) + FOOT_H;
-        const canvas = document.createElement('canvas');
-        canvas.width = width; canvas.height = height;
-        const ctx = canvas.getContext('2d');
+        const canvas = document.createElement('canvas'), S = o.sink ? 2 : 1;
+        canvas.width = width * S; canvas.height = height * S;
+        const ctx = canvas.getContext('2d'); ctx.scale(S, S);
         const box = (x, y, w, h, r) => {
             ctx.beginPath(); ctx.moveTo(x + r, y);
             ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r);
@@ -2628,6 +2698,7 @@ header.top h1 { flex: 1; min-width: 180px; }
         });
         ctx.textAlign = 'left'; ctx.fillStyle = '#4a5568'; ctx.font = '16px Arial';
         ctx.fillText(o.footer || '', M, height - 20);
+        if (o.sink) return o.sink(canvas);
         canvas.toBlob((blob) => {
             if (!blob) return;
             const a = document.createElement('a');
@@ -3421,18 +3492,27 @@ header.top h1 { flex: 1; min-width: 180px; }
         window.print();
     });
     window.addEventListener('afterprint', () => document.body.classList.remove('printing-week'));
-    el('pngWeek').addEventListener('click', () => {
-        if (me.readOnly && view.tab === 'reader-list') return paintReport({ ...readerListReport(), file: 'Spisok-ucenici' });
-        sheetModels().map(trimmed).forEach((m, n) => {
-            if (!m.days.length || !m.rows.length) return;
+    function weekPicture(pdf) {
+        const name = me.person.name.replace(/[\\/:*?"<>|\s]+/g, '-');
+        if (me.readOnly && view.tab === 'reader-list') {
+            const list = { ...readerListReport(), file: 'Spisok-ucenici' };
+            return pdf ? reportPdf(list, true) : paintReport(list);
+        }
+        // Every sheet of the week on its own landscape A4 page of one PDF.
+        const pages = [], models = sheetModels().map(trimmed).filter((m) => m.days.length && m.rows.length);
+        models.forEach((m) => {
             paintGrid({
+                sink: pdf ? (canvas) => pages.push(canvas) : null,
                 title: sheetTitle(m), subtitle: sheetSub(), days: m.days, corner: m.corner || (view.tab === 'cabinet' ? 'Термин' : 'Час'),
                 rows: m.rows.map((row) => ({ label: row.label, time: row.time })), cells: m.cells,
                 footer: new Date().toLocaleDateString('mk-MK'),
-                file: (m.kind === 'cabinets' ? 'Kabineti-' : 'Licen-raspored-') + me.person.name.replace(/[\\/:*?"<>|\s]+/g, '-') + '.png'
+                file: (m.kind === 'cabinets' ? 'Kabineti-' : 'Licen-raspored-') + name + '.png'
             });
         });
-    });
+        if (pdf) savePdf(pages, true, (models[0]?.kind === 'cabinets' ? 'Kabineti-' : 'Licen-raspored-') + name);
+    }
+    el('pngWeek').addEventListener('click', () => weekPicture(false));
+    el('pdfWeek').addEventListener('click', () => weekPicture(true));
     el('docxWeek').addEventListener('click', async () => {
         if (!me.readOnly || !week) return;
         const person=me, target=reader.employeeId, tab=view.tab;
