@@ -271,11 +271,14 @@ export async function mergeStudents(client: any, keepPublicId: string, foldPubli
     const state = (await client.query(`SELECT version, payload FROM app_state WHERE app = 'sdnevnik' FOR UPDATE`)).rows[0];
     // Lock the identity rows in id order before reading their related records.
     const rows = (await client.query(
-        `SELECT id, public_id, sdnevnik_id::text AS sdn, plan_id, name, active FROM students
+        `SELECT id, public_id, sdnevnik_id::text AS sdn, plan_id, name, active, left_reason FROM students
           WHERE public_id = ANY($1) ORDER BY id FOR UPDATE`, [[keepPublicId, foldPublicId]])).rows;
     const k = rows.find((r: any) => r.public_id === keepPublicId);
     const g = rows.find((r: any) => r.public_id === foldPublicId);
     if (!k || !g) refuse('one of the two pupils is not in the database');
+    if ([k, g].some(r => String(r.left_reason || '').startsWith('merged:'))) {
+        refuse('Еден од записите веќе е споен. Освежете го списокот пред повторно спојување.');
+    }
 
     const out: MergeOutcome = { kept: k.public_id, folded: g.public_id, moved: {}, sameFact: {}, marksDiffered: 0, diaryNumber: null, diary: '', clashes: [] };
     const tables = pupilTables();

@@ -7,6 +7,7 @@ import { assertOwner, scopeOf, refuseScope } from '../lib/colleague.js';
 import { sha256 } from '../lib/mirror.js';
 import { pupilDetailsProblem, validAnnualClass } from '../lib/pupil-membership.js';
 import { STAFF_PROFESSIONS, STAFF_DUTIES } from '../lib/staff-details.js';
+import { writeConflict } from '../lib/write-conflict.js';
 
 const Year = z.string().min(1).max(64);
 const Name = z.string().trim().min(1).max(120);
@@ -84,6 +85,8 @@ export async function workspaceRoutes(server: FastifyInstance, options: {pool?: 
             const out = await fn(c); await c.query('COMMIT'); return out;
         } catch(error: any) {
             await c.query('ROLLBACK').catch(()=>{});
+            const conflict = writeConflict(error);
+            if (conflict) throw new Problem(409, conflict.error);
             if (['40001','40P01','23505'].includes(error.code)) throw new Problem(409,
                 'Записот е изменет или веќе постои. Освежете и проверете го идентитетот.');
             if (['23514','23503','23502'].includes(error.code)) throw new Problem(400,

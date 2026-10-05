@@ -8,7 +8,7 @@
 <script src="mtb-forms.js"></script>
 <link rel="stylesheet" href="workspace-admin.css">
 <style>
-:root{--bg:#f3f3f9;--panel:#ffffff;--panel2:#eeeef7;--line:#d8d8e8;--text:#1d1e33;--muted:#595c78;--accent:#5a67d8;--accent2:#667eea;--ok:#1d7657;--warn:#94580c;--danger:#bf3348;--input:#ffffff;--topbar:#e8e8f3;--stage:#e2e2ee;--hover:#ececf6;--selected:#e3e0fb;--selected-line:#8a82e0;--line-strong:#b0b0cc;--badge-bg:#e5e3fb;--badge-text:#383283;--well:#f7f7fc;--well2:#f4f4fb;--heading:#2c2e4d;--icon:#5b4fd6;--icon-hover:#2c2590;--danger-text:#b0253a;--danger-line:#e3a4ae;--ok-line:#9ccfbb;--warn-line:#e3c088;--warn-text:#855400;--titlebar:#e9e9f4;--titlebar-focus:#dcdaf4;--btn-hover:#dadaec;--pressed:#5a67d8;--pinned:#5a67d8;--float-line:#b0acd8;--float-shadow:0 14px 40px rgba(30,30,70,.22),0 2px 8px rgba(30,30,70,.12);--overlay:rgba(40,42,72,.55);--gate-shadow:0 24px 60px rgba(30,30,70,.25);--dim:#a9abc6;--down:#e0a3ad;--year-bg:#f7f6fd;--chip-line:#c6c3ec;--chip-hover:#7166e6;--on-row:#8a82e0;--on-row-bg:#ebe8fd}:root[data-theme=dark]{--bg:#121329;--panel:#1b1c39;--panel2:#222342;--line:#343659;--text:#f2f2fb;--muted:#a5a8c5;--accent:#5a67d8;--accent2:#818cf8;--ok:#4fc69d;--warn:#e8ad55;--danger:#f17888;--input:#171832;--topbar:#17182f;--stage:#0d0e20;--hover:#242644;--selected:#2b2d52;--selected-line:#615ba5;--line-strong:#686b99;--badge-bg:#30325a;--badge-text:#dfe0ff;--well:#171832;--well2:#20213e;--heading:#d7d8ea;--icon:#beb9ff;--icon-hover:#fff;--danger-text:#ff9ba8;--danger-line:#8b4050;--ok-line:#2f6b56;--warn-line:#7a5a22;--warn-text:#ffd48a;--titlebar:#242541;--titlebar-focus:#303052;--btn-hover:#35365a;--pressed:#6256c0;--pinned:#bbb4ff;--float-line:#65618d;--float-shadow:0 14px 48px #0008,0 2px 8px #0005;--overlay:rgba(10,11,26,.92);--gate-shadow:0 24px 60px rgba(0,0,0,.5);--dim:#585b85;--down:#6b3141;--year-bg:#1a1b38;--chip-line:#4a4c7e;--chip-hover:#8f8af0;--on-row:#6f68c9;--on-row-bg:#252a52}*{box-sizing:border-box}html,body{height:100%;margin:0}body{font-family:Inter,Segoe UI,system-ui,sans-serif;background:var(--bg);color:var(--text);overflow:hidden}#mtbAppNav{display:none!important}button,input,select{font:inherit}button{cursor:pointer}.workspace{height:100vh;display:grid;grid-template-rows:54px 1fr;min-width:0}.topbar{display:flex;align-items:center;gap:10px;padding:8px 12px;background:var(--topbar);border-bottom:1px solid var(--line)}.brand{font-weight:800;white-space:nowrap}.brand small{font-weight:600;color:var(--muted);margin-left:6px}.app-tabs{display:flex;gap:4px;overflow-x:auto;min-width:0;flex:1}.app-tabs button,.soft,.primary,.danger{border:1px solid var(--line);border-radius:7px;background:var(--panel2);color:var(--text);padding:8px 10px;font-weight:700}.app-tabs button.active{background:var(--accent);border-color:var(--accent2);color:#fff}.soft:hover,.app-tabs button:hover{border-color:var(--line-strong)}.primary{background:var(--accent);border-color:var(--accent2);color:#fff}.danger{background:transparent;color:var(--danger-text);border-color:var(--danger-line)}.compact{padding:6px 8px;font-size:12px}.year-wrap{display:flex;align-items:center;gap:6px;color:var(--muted);font-size:12px;white-space:nowrap}.year-wrap select{background:var(--input);border:1px solid var(--line);color:var(--text);border-radius:6px;padding:7px}.dbrole{font-size:11px;font-weight:800;padding:5px 8px;border:1px solid var(--line);border-radius:6px;background:var(--panel2);color:var(--muted);white-space:nowrap}.dbrole[data-state=online]{color:var(--ok);border-color:var(--ok-line)}.dbrole[data-state=warning]{color:var(--warn);border-color:var(--warn-line)}.dbrole[data-state=offline]{color:var(--danger-text);border-color:var(--danger-line)}.status{font-size:12px;color:var(--muted);max-width:280px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.status.ok{color:var(--ok)}.status.error{color:var(--danger-text)}.status.warn{color:var(--warn)}</style>
+:root{--bg:#f3f3f9;--panel:#ffffff;--panel2:#eeeef7;--line:#d8d8e8;--text:#1d1e33;--muted:#595c78;--accent:#5a67d8;--accent2:#667eea;--ok:#1d7657;--warn:#94580c;--danger:#bf3348;--input:#ffffff;--topbar:#e8e8f3;--stage:#e2e2ee;--hover:#ececf6;--selected:#e3e0fb;--selected-line:#8a82e0;--line-strong:#b0b0cc;--badge-bg:#e5e3fb;--badge-text:#383283;--well:#f7f7fc;--well2:#f4f4fb;--heading:#2c2e4d;--icon:#5b4fd6;--icon-hover:#2c2590;--danger-text:#b0253a;--danger-line:#e3a4ae;--ok-line:#9ccfbb;--warn-line:#e3c088;--warn-text:#855400;--titlebar:#e9e9f4;--titlebar-focus:#dcdaf4;--btn-hover:#dadaec;--pressed:#5a67d8;--float-line:#b0acd8;--float-shadow:0 14px 40px rgba(30,30,70,.22),0 2px 8px rgba(30,30,70,.12);--overlay:rgba(40,42,72,.55);--gate-shadow:0 24px 60px rgba(30,30,70,.25);--dim:#a9abc6;--down:#e0a3ad;--year-bg:#f7f6fd;--chip-line:#c6c3ec;--chip-hover:#7166e6;--on-row:#8a82e0;--on-row-bg:#ebe8fd}:root[data-theme=dark]{--bg:#121329;--panel:#1b1c39;--panel2:#222342;--line:#343659;--text:#f2f2fb;--muted:#a5a8c5;--accent:#5a67d8;--accent2:#818cf8;--ok:#4fc69d;--warn:#e8ad55;--danger:#f17888;--input:#171832;--topbar:#17182f;--stage:#0d0e20;--hover:#242644;--selected:#2b2d52;--selected-line:#615ba5;--line-strong:#686b99;--badge-bg:#30325a;--badge-text:#dfe0ff;--well:#171832;--well2:#20213e;--heading:#d7d8ea;--icon:#beb9ff;--icon-hover:#fff;--danger-text:#ff9ba8;--danger-line:#8b4050;--ok-line:#2f6b56;--warn-line:#7a5a22;--warn-text:#ffd48a;--titlebar:#242541;--titlebar-focus:#303052;--btn-hover:#35365a;--pressed:#6256c0;--float-line:#65618d;--float-shadow:0 14px 48px #0008,0 2px 8px #0005;--overlay:rgba(10,11,26,.92);--gate-shadow:0 24px 60px rgba(0,0,0,.5);--dim:#585b85;--down:#6b3141;--year-bg:#1a1b38;--chip-line:#4a4c7e;--chip-hover:#8f8af0;--on-row:#6f68c9;--on-row-bg:#252a52}*{box-sizing:border-box}html,body{height:100%;margin:0}body{font-family:Inter,Segoe UI,system-ui,sans-serif;background:var(--bg);color:var(--text);overflow:hidden}#mtbAppNav{display:none!important}button,input,select{font:inherit}button{cursor:pointer}.workspace{height:100vh;display:grid;grid-template-rows:54px 1fr;min-width:0}.topbar{display:flex;align-items:center;gap:10px;padding:8px 12px;background:var(--topbar);border-bottom:1px solid var(--line)}.brand{font-weight:800;white-space:nowrap}.brand small{font-weight:600;color:var(--muted);margin-left:6px}.app-tabs{display:flex;gap:4px;overflow-x:auto;min-width:0;flex:1}.app-tabs button,.soft,.primary,.danger{border:1px solid var(--line);border-radius:7px;background:var(--panel2);color:var(--text);padding:8px 10px;font-weight:700}.app-tabs button.active{background:var(--accent);border-color:var(--accent2);color:#fff}.soft:hover,.app-tabs button:hover{border-color:var(--line-strong)}.primary{background:var(--accent);border-color:var(--accent2);color:#fff}.danger{background:transparent;color:var(--danger-text);border-color:var(--danger-line)}.compact{padding:6px 8px;font-size:12px}.year-wrap{display:flex;align-items:center;gap:6px;color:var(--muted);font-size:12px;white-space:nowrap}.year-wrap select{background:var(--input);border:1px solid var(--line);color:var(--text);border-radius:6px;padding:7px}.dbrole{font-size:11px;font-weight:800;padding:5px 8px;border:1px solid var(--line);border-radius:6px;background:var(--panel2);color:var(--muted);white-space:nowrap}.dbrole[data-state=online]{color:var(--ok);border-color:var(--ok-line)}.dbrole[data-state=warning]{color:var(--warn);border-color:var(--warn-line)}.dbrole[data-state=offline]{color:var(--danger-text);border-color:var(--danger-line)}.status{font-size:12px;color:var(--muted);max-width:280px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.status.ok{color:var(--ok)}.status.error{color:var(--danger-text)}.status.warn{color:var(--warn)}</style>
 <style>
 /* Windows retain their DOM when docked, floated or hidden so drafts stay put. */
 .workspace { height: 100dvh; grid-template-rows: auto minmax(0, 1fr); grid-template-columns: minmax(0, 1fr); }
@@ -50,18 +50,15 @@
 .window-title { flex: 1; min-width: 0; font-size: 12px; font-weight: 750; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .window-title::before { content: '⠿'; color: var(--muted); margin-right: 7px; }
 .window-actions { display: flex; gap: 3px; flex: 0 0 auto; }
-.window-actions button { width: 29px; height: 28px; padding: 0; display: grid; place-items: center; border: 1px solid transparent; border-radius: 5px; color: var(--muted); background: transparent; }
-.window-actions svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; pointer-events: none; }
+.window-actions button { min-width: 100px; height: 28px; padding: 0 8px; font-size: 12px; white-space: nowrap; display: grid; place-items: center; border: 1px solid transparent; border-radius: 5px; color: var(--muted); background: transparent; }
 .window-actions button:hover { background: var(--btn-hover); color: var(--text); }
 button:focus-visible, .window-titlebar:focus-visible, .resize-handle:focus-visible { outline: 2px solid var(--accent2); outline-offset: -2px; }
 .window-actions button[aria-pressed="true"] { color: #fff; background: var(--pressed); }
 .workspace-window.is-focused > .window-titlebar { background: var(--titlebar-focus); }
-.workspace-window[data-pinned="true"] .window-title::after { content: ' · Прикачено'; font-size: 10px; color: var(--pinned); }
 .workspace-window[data-mode="floating"] { inset: auto; border: 1px solid var(--float-line); border-radius: 9px; box-shadow: var(--float-shadow); }
 .workspace-window[data-mode="floating"].is-focused { border-color: var(--accent2); }
-.workspace-window[data-maximized="true"] { inset: 0 !important; width: auto !important; height: auto !important; border-radius: 0; }
 .resize-handle { display: none; position: absolute; z-index: 5; padding: 0; border: 0; background: transparent; touch-action: none; }
-[data-mode="floating"]:not([data-maximized="true"]) > .resize-handle { display: block; }
+[data-mode="floating"] > .resize-handle { display: block; }
 .resize-handle[data-edge="n"], .resize-handle[data-edge="s"] { left: 10px; right: 10px; height: 7px; cursor: ns-resize; }
 .resize-handle[data-edge="n"] { top: 0; } .resize-handle[data-edge="s"] { bottom: 0; }
 .resize-handle[data-edge="e"], .resize-handle[data-edge="w"] { top: 10px; bottom: 10px; width: 7px; cursor: ew-resize; }
@@ -95,7 +92,7 @@ button:focus-visible, .window-titlebar:focus-visible, .resize-handle:focus-visib
   .year-wrap { margin-left: auto; }
   .year-wrap > span { display: none; }
   .app-window { inset: 0; }
-  .window-actions button { width: 28px; }
+  .window-actions button { min-width: 100px; }
   #resetLayout { font-size: 0; }
   #resetLayout::before { content: '▥'; font-size: 16px; }
 }
@@ -106,7 +103,7 @@ button:focus-visible, .window-titlebar:focus-visible, .resize-handle:focus-visib
 <header class="topbar"><div class="brand">MTB <small>работен простор</small></div><div class="app-tabs" id="appTabs"><button data-app="RasporediFusion.html" class="active">Кабинети</button><button data-app="Nastava.html">Настава ↔ терапии</button><button data-app="NastavaUredi.html">Уреди настава</button><button data-app="Podatoci.html">Податоци</button><button data-app="AkciskiPlan.html">Евидентен лист</button><button data-app="S-Dnevnik.html">S-Дневник</button><button data-app="Pregled-Baza.html">Преглед на базата</button></div><div class="year-wrap"><span>Година</span><select id="year" aria-label="Учебна година"></select></div><button class="soft compact" id="refresh" aria-label="Освежи податоци">↻</button><div class="dbrole" id="dbrole" title="Која база се запишува">БАЗА: —</div><div class="status" id="status">Се поврзувам…</div><button class="soft compact" id="editingToggle"></button><button class="soft compact" id="themeToggle" data-mtb-theme-control></button><button class="soft compact" id="resetLayout" title="Врати ги прозорците каде што беа на почетокот" aria-label="Почетен изглед">Почетен изглед</button><button class="soft compact" id="setHome" aria-pressed="false" title="Запамети го овој прозорец како почетен на овој прелистувач">⭐ Почетна</button><button class="soft compact" id="hideBar" title="Скриј ја MTB лентата само во S-Дневник" aria-controls="appTabs" aria-expanded="true">▴ Скриј лента</button><button type="button" id="showBar" hidden title="Прикажи ја лентата на MTB">▾ MTB лента</button></header>
 <div class="main" id="main"><section class="workspace-window app-window" id="scheduleWindow" aria-label="Кабинети"><div class="window-titlebar" tabindex="0"><span class="window-title">Кабинети</span><div class="window-actions"></div></div><iframe id="appFrame" data-app-file="RasporediFusion.html" src="RasporediFusion.html?embed=1" title="Кабинети"></iframe></section></div>
 <div class="sr-only" id="windowAnnouncement" role="status" aria-live="polite"></div>
-<p class="sr-only" id="windowHelp">Влечи го насловот за преместување или користи ги стрелките кога насловот е избран. Двоен клик го максимизира прозорецот. Менувај големина од рабовите. Секогаш напред важи во овој работен простор.</p>
+<p class="sr-only" id="windowHelp">Влечи го насловот за преместување или користи ги стрелките кога насловот е избран. Помал прозорец / Цел простор ја менува големината; истото го прави двоен клик на насловот. Менувај големина од рабовите. Друго јазиче ги задржува незачуваните измени.</p>
 </div>
 <style>
 /* Почетната процедура: кој компјутер е вклучен, пред да се работи.
@@ -381,15 +378,8 @@ runStartGate(false).then(()=>{repointFrames();load()});})();
   } catch (_) { /* A blocked or obsolete preference must not block the workspace. */ }
   let activeDocked = 'scheduleWindow';
   let focused = 'scheduleWindow';
-  let order = [];
   let gesture = null;
-  const icons = {
-    float: '<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M14 3v18M14 8h7"/>',
-    pin: '<path d="m9 3 6 0-1 6 4 4v2H6v-2l4-4-1-6ZM12 15v6"/>',
-    maximize: '<rect x="4" y="4" width="16" height="16" rx="1"/>',
-    minimize: '<path d="M5 17h14"/>'
-  };
-  const labels = { float: 'Оддели прозорец', pin: 'Секогаш напред во работниот простор', maximize: 'Максимизирај', minimize: 'Скриј прозорец' };
+  const sizeLabel = win => win.mode === 'floating' ? 'Цел простор' : 'Помал прозорец';
 
   function bounds() { return { width: desktop.clientWidth, height: desktop.clientHeight }; }
   function constrain(rect) {
@@ -412,10 +402,10 @@ runStartGate(false).then(()=>{repointFrames();load()});})();
     // Only layout is saved. Never retain directory contents or iframe state here.
     for (const tab of tabs) {
       const id = appId(tab.dataset.app);
-      if (saved.windows?.[id]) preferences[id] = saved.windows[id];
+      if (saved.windows?.[id]) preferences[id] = { mode: saved.windows[id].maximized ? 'docked' : saved.windows[id].mode, rect: saved.windows[id].rect };
     }
     for (const [id, win] of windows) {
-      preferences[id] = { mode: win.mode, pinned: win.pinned, maximized: win.maximized, rect: win.rect };
+      preferences[id] = { mode: win.mode, rect: win.rect };
     }
     saved = { version: 1, windows: preferences };
     try { localStorage.setItem(layoutKey, JSON.stringify(saved)); } catch (_) { /* Layout still works without storage. */ }
@@ -427,25 +417,19 @@ runStartGate(false).then(()=>{repointFrames();load()});})();
       const visible = !win.hidden && (win.mode === 'floating' || id === activeDocked);
       el.hidden = !visible;
       el.dataset.mode = win.mode;
-      el.dataset.pinned = String(win.pinned);
-      el.dataset.maximized = String(win.maximized);
       el.classList.toggle('is-focused', focused === id);
-      // Pinning is a separate layer; focusing an ordinary window cannot overtake it.
-      el.style.zIndex = String(win.mode === 'docked' ? 1 : (win.pinned ? 100 : 10) + order.indexOf(id));
+      el.style.zIndex = '1';
       if (win.mode === 'floating') {
         win.rect = constrain(win.rect);
         Object.assign(el.style, { left: win.rect.x + 'px', top: win.rect.y + 'px', width: win.rect.width + 'px', height: win.rect.height + 'px' });
       } else {
         for (const key of ['left', 'top', 'width', 'height']) el.style.removeProperty(key);
       }
-      for (const action of ['float', 'pin', 'maximize']) {
-        const button = el.querySelector(`[data-window-action="${action}"]`);
-        const label = action === 'float' && win.mode === 'floating' ? 'Врати во распоредот'
-          : action === 'maximize' && win.maximized ? 'Врати ја големината' : labels[action];
-        button.title = label;
-        button.setAttribute('aria-label', label);
-        button.setAttribute('aria-pressed', String(action === 'pin' ? win.pinned : action === 'maximize' ? win.maximized : win.mode === 'floating'));
-      }
+      const button = el.querySelector('[data-window-action="size"]');
+      button.textContent = sizeLabel(win);
+      button.title = sizeLabel(win);
+      button.setAttribute('aria-label', sizeLabel(win));
+      button.setAttribute('aria-pressed', String(win.mode === 'floating'));
     }
     window.MTBWorkspaceChrome?.paint();
     for (const tab of tabs) {
@@ -459,7 +443,6 @@ runStartGate(false).then(()=>{repointFrames();load()});})();
     // Late autofocus from a hidden iframe must never steal the selected tab.
     if (win.hidden || win.el.hidden) return;
     focused = win.id;
-    order = order.filter(id => id !== win.id).concat(win.id);
     render();
   }
   function floatWindow(win) {
@@ -468,27 +451,11 @@ runStartGate(false).then(()=>{repointFrames();load()});})();
     win.rect = constrain(win.rect);
   }
   function act(win, action) {
-    if (action === 'float') {
-      win.mode = win.mode === 'docked' ? 'floating' : 'docked';
-      win.maximized = false;
-      if (win.mode === 'docked') { win.pinned = false; activeDocked = win.id; }
-    } else if (action === 'pin') {
-      floatWindow(win);
-      win.pinned = !win.pinned;
-      announce(win.title + (win.pinned ? ' е секогаш напред во работниот простор.' : ' повеќе не е прикачен.'));
-    } else if (action === 'maximize') {
-      if (!win.maximized) { win.beforeMaxMode = win.mode; floatWindow(win); win.maximized = true; }
-      else {
-        win.maximized = false; win.mode = win.pinned ? 'floating' : win.beforeMaxMode || 'floating';
-        if (win.mode === 'docked') activeDocked = win.id;
-      }
-    } else if (action === 'minimize') {
-      win.hidden = true;
-      announce(win.title + ' е скриен. Отвори го повторно од горната лента.');
-    }
-    if (win.hidden) render(); else focusWindow(win);
+    if (action !== 'size') return;
+    win.mode = win.mode === 'docked' ? 'floating' : 'docked';
+    activeDocked = win.id;
+    focusWindow(win);
     persist();
-    if (win.hidden) tabs.find(tab => appId(tab.dataset.app) === win.id)?.focus();
   }
   function wireFrame(win, frame) {
     const loaded = (event) => {
@@ -506,32 +473,29 @@ runStartGate(false).then(()=>{repointFrames();load()});})();
   }
   function register(el, id, title) {
     const pref = saved.windows?.[id];
-    const win = { el, id, title, mode: pref?.mode === 'floating' ? 'floating' : 'docked',
-      pinned: pref?.mode === 'floating' && pref?.pinned === true, maximized: pref?.mode === 'floating' && pref?.maximized === true,
+    const win = { el, id, title, mode: pref?.mode === 'floating' && !pref?.maximized ? 'floating' : 'docked',
       rect: readRect(pref?.rect, defaultRect(id)), hidden: false };
     windows.set(id, win);
-    order.push(id);
     el.dataset.windowId = id;
     const titlebar = el.querySelector('.window-titlebar');
     titlebar.setAttribute('aria-label', 'Премести: ' + title);
     titlebar.setAttribute('aria-describedby', 'windowHelp');
-    titlebar.title = 'Влечи за преместување · двоен клик за максимизирање';
-    el.querySelector('.window-actions').innerHTML = Object.entries(icons).map(([action, svg]) =>
-      `<button type="button" data-window-action="${action}" title="${labels[action]}" aria-label="${labels[action]}"><svg viewBox="0 0 24 24" aria-hidden="true">${svg}</svg></button>`).join('');
+    titlebar.title = 'Влечи за преместување · двоен клик за промена на големината';
+    el.querySelector('.window-actions').innerHTML = '<button type="button" data-window-action="size"></button>';
     el.addEventListener('pointerdown', () => focusWindow(win), true);
     el.addEventListener('focusin', () => focusWindow(win));
     el.querySelector('.window-actions').addEventListener('click', event => {
       const button = event.target.closest('button[data-window-action]');
       if (button) act(win, button.dataset.windowAction);
     });
-    titlebar.addEventListener('dblclick', event => { if (!event.target.closest('button')) act(win, 'maximize'); });
+    titlebar.addEventListener('dblclick', event => { if (!event.target.closest('button')) act(win, 'size'); });
     titlebar.addEventListener('pointerdown', event => {
       if (!event.target.closest('button')) startGesture(event, win, 'move', titlebar);
     });
     titlebar.addEventListener('keydown', event => {
       if (event.target !== titlebar || !event.key.startsWith('Arrow')) return;
       event.preventDefault();
-      floatWindow(win); win.maximized = false;
+      floatWindow(win);
       const step = event.shiftKey ? 48 : 16;
       win.rect = constrain({ ...win.rect, x: win.rect.x + (event.key === 'ArrowRight' ? step : event.key === 'ArrowLeft' ? -step : 0),
         y: win.rect.y + (event.key === 'ArrowDown' ? step : event.key === 'ArrowUp' ? -step : 0) });
@@ -572,7 +536,7 @@ runStartGate(false).then(()=>{repointFrames();load()});})();
     target.focus({ preventScroll: true });
     const rect = win ? { ...win.rect } : null;
     gesture = { win, edge, target, pointerId: event.pointerId, x: event.clientX, y: event.clientY, rect, originalRect: rect,
-      mode: win?.mode, maximized: win?.maximized, started: false };
+      mode: win?.mode, started: false };
     target.setPointerCapture(event.pointerId);
     desktop.classList.add('is-arranging');
   }
@@ -581,10 +545,10 @@ runStartGate(false).then(()=>{repointFrames();load()});})();
     if (!g || event.pointerId !== g.pointerId) return;
     const dx = event.clientX - g.x, dy = event.clientY - g.y;
     if (!g.started && Math.abs(dx) + Math.abs(dy) < 4) return;
-    if (!g.started && g.win && g.edge === 'move' && (g.win.mode === 'docked' || g.win.maximized)) {
+    if (!g.started && g.win && g.edge === 'move' && g.win.mode === 'docked') {
       const box = g.win.el.getBoundingClientRect(), area = desktop.getBoundingClientRect();
       const ratio = clamp((g.x - box.left) / box.width, 0, 1);
-      floatWindow(g.win); g.win.maximized = false;
+      floatWindow(g.win);
       g.rect = constrain({ ...g.win.rect, x: g.x - area.left - g.win.rect.width * ratio, y: g.y - area.top - 19 });
     }
     g.started = true;
@@ -597,7 +561,7 @@ runStartGate(false).then(()=>{repointFrames();load()});})();
     if (!g) return;
     gesture = null;
     if (cancel) {
-      if (g.win) { g.win.mode = g.mode; g.win.maximized = g.maximized; g.win.rect = g.originalRect || g.rect; }
+      if (g.win) { g.win.mode = g.mode; g.win.rect = g.originalRect || g.rect; }
     }
     if (g.target.hasPointerCapture(g.pointerId)) g.target.releasePointerCapture(g.pointerId);
     desktop.classList.remove('is-arranging'); render();
@@ -781,7 +745,7 @@ runStartGate(false).then(()=>{repointFrames();load()});})();
     saved = {};
     if (windows.has(focused)) activeDocked = focused;
     for (const win of windows.values()) {
-      win.mode = 'docked'; win.pinned = false; win.maximized = false;
+      win.mode = 'docked';
       win.hidden = win.id !== activeDocked; win.rect = defaultRect(win.id);
     }
     render();

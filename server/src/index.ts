@@ -38,6 +38,7 @@ import { installPublicStatic } from './lib/public-static.js';
 import { cloudAuthMode, cloudRequestLog, installCloudAuth, listenOptions } from './lib/cloud-auth.js';
 import { mirrorMode, mirrorSourceLabel } from './lib/mirror-config.js';
 import { mirrorStatus } from './lib/mirror.js';
+import { writeConflict } from './lib/write-conflict.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -50,6 +51,10 @@ const server = Fastify({
     },
     trustProxy: cloudAuthMode() === 'google', // Render terminates HTTPS; callbacks use configured origin only.
     bodyLimit: 50 * 1024 * 1024 // Unified JSON with dossiers can be large
+});
+server.setErrorHandler((error, _req, reply) => {
+    const conflict = writeConflict(error);
+    return conflict ? reply.code(409).send(conflict) : reply.send(error);
 });
 await installCloudAuth(server);
 

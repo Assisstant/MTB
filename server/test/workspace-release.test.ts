@@ -10,6 +10,25 @@ import 'dotenv/config';
 // Every migration in the folder: a release applies whatever is pending, so the
 // count after one is the whole folder, and a new batch must not edit it here.
 const ALL=(await readdir(resolve(import.meta.dirname,'../../database/migrations'))).filter(f=>f.endsWith('.sql')).length;
+test('056 guards merged pupils when upgrading 055 without rewriting existing history', async () => {
+ const c=new pg.Client({connectionString:process.env.TEST_DATABASE_URL||process.env.DATABASE_URL});await c.connect();
+ const schema=`merged_release_test_${process.pid}`,backup=`mtb_workspace_recovery_merged_test_${process.pid}`;
+ const dir=resolve(import.meta.dirname,'../../database/migrations');
+ await c.query(`CREATE SCHEMA ${schema}`);await c.query(`SET search_path=${schema}`);
+ try{
+  await c.query('CREATE TABLE schema_migrations(filename text PRIMARY KEY,applied_at timestamptz NOT NULL DEFAULT now())');
+  for(const f of (await readdir(dir)).filter(f=>f.endsWith('.sql')&&Number(f.slice(0,3))<=55).sort()){
+   await c.query(migrationBody(await readFile(resolve(dir,f),'utf8')));await c.query('INSERT INTO schema_migrations(filename) VALUES($1)',[f]);
+  }
+  const id=(await c.query("INSERT INTO students(public_id,name,active,left_reason) VALUES('release-alias','Invented Alias',false,'merged:release-kept') RETURNING id")).rows[0].id;
+  await c.query("INSERT INTO attendance(student_id,date,slot_key,status) VALUES($1,'1941-10-06','monday-0','present')",[id]);
+  await workspaceRelease(c,dir,()=>{},backup);
+  assert.equal((await c.query('SELECT count(*)::int AS n FROM attendance WHERE student_id=$1',[id])).rows[0].n,1,'upgrade preserves even pre-existing stale history for explicit review');
+  await assert.rejects(c.query("INSERT INTO attendance(student_id,date,slot_key,status) VALUES($1,'1941-10-07','tuesday-0','present')",[id]),(e:any)=>e.constraint==='students_merged_reference');
+  await workspaceRelease(c,dir,()=>{},backup);
+ }finally{await c.query(`DROP SCHEMA IF EXISTS ${backup} CASCADE`);await c.query(`DROP SCHEMA ${schema} CASCADE`);await c.end();}
+});
+
 test('048 persists duty capabilities privately, upgrading 047 without changing existing data', async () => {
  const c=new pg.Client({connectionString:process.env.TEST_DATABASE_URL||process.env.DATABASE_URL});await c.connect();
  const schema=`duty_links_release_test_${process.pid}`,backup=`mtb_workspace_recovery_duty_links_test_${process.pid}`;
