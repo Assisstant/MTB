@@ -38,8 +38,8 @@ await context.route('**/*', async route => {
         cabinet:{bells:[{ordinal:1,label:'I',time:'08:00-08:40'}],pupils:[{publicId:'fake',name:'Измислен Ученик',class:'Тест'}],names:{},elsewhere:[],terms:[{day:days[0],time:'08:00-08:40',pupils:['fake']}]}});
     if (u.pathname === '/api/duty') return json(403,{});
     if (u.pathname === '/api/portal/duty') return json(200,{year:'2026/2027',month:'2026-09',today:'2026-09-28',startsOn:'2026-09-01',yearStartsOn:'2026-09-01',yearEndsOn:'2027-08-31',members:[{employeeId:7,name:'Измислен Терапевт',position:1}],days:[
-        {date:'2026-09-07',weekday:1,name:'Измислен Терапевт',employeeId:7,cycle:1,closed:false,how:'rotation',note:'',covers:[],absent:[]},
-        {date:'2026-09-28',weekday:1,name:'Измислен Терапевт',employeeId:7,cycle:2,closed:false,how:'rotation',note:'',covers:[],absent:[]}],staleSwaps:[]});
+        {date:'2026-09-07',weekday:1,name:'Измислен Терапевт',employeeId:7,number:1,cycle:1,closed:false,how:'rotation',note:'',covers:[],absent:[]},
+        {date:'2026-09-28',weekday:1,name:'Измислен Терапевт',employeeId:7,number:1,cycle:2,closed:false,how:'rotation',note:'',covers:[],absent:[]}],staleSwaps:[]});
     if (u.pathname === '/api/portal/attendance') {
         assert.equal(req.headers()['x-mtb-portal-token'],'a'.repeat(64));
         if (req.method() === 'PUT') {
@@ -266,7 +266,7 @@ try {
     await p.setViewportSize({width:400,height:850});
     assert.ok(await p.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),'mobile page does not overflow; table scrolls inside');
     await p.click('[data-tab="duty"]'); await p.waitForSelector('#dutyPng');
-    assert.deepEqual(await p.locator('.duty-table thead th').allTextContents(),['Ден и датум','Стручен соработник','Ред во циклус']);
+    assert.deepEqual(await p.locator('.duty-table thead th').allTextContents(),['Ден и датум','Стручен соработник','Ред на листата']);
     await p.screenshot({path:resolve(artifacts,'kolega-fluent-duty-mobile.png'),fullPage:true});
     await p.setViewportSize({width:1400,height:1000});
     await p.screenshot({path:resolve(artifacts,'kolega-fluent-duty-desktop.png'),fullPage:true});
@@ -275,6 +275,21 @@ try {
     const [dutyPdf] = await Promise.all([p.waitForEvent('download'),p.click('#dutyPdf')]);
     await cleanA4Pdf(dutyPdf,false,'duty PDF'); await dutyPdf.saveAs(resolve(artifacts,'duty-clean.pdf'));
     await p.click('#dutyPrint'); assert.match(await p.evaluate(()=>window.printClasses),/printing-duty/);
+    // „Ред на листата" says what it is, and „✍ Изработил" is chosen once for every document (owner, 5 Oct 2026).
+    assert.match(await p.locator('.duty-table tbody td.num').first().innerText(),/\d+\. од \d+/,'the place reads „N. од M"');
+    assert.match(await p.locator('.duty-legend').innerText(),/круг/,'a legend says what a round is');
+    const preparerText=()=>p.evaluate(()=>{window.dispatchEvent(new Event('beforeprint'));const n=document.querySelector('.print-preparer');return n&&!n.hidden?n.textContent:'';});
+    assert.equal(await preparerText(),'Изработил: Измислен Терапевт','by default the signed-in person');
+    await p.click('#duty [data-preparer]'); await p.waitForSelector('#preparerDialog[open]');
+    await p.selectOption('#preparerDialog select[name="word"]','Изготвил');
+    await p.fill('#preparerDialog input[name="name"]','Стручна служба');
+    assert.match(await p.locator('#preparerDialog .preparer-sample').innerText(),/Изготвил: Стручна служба/,'the dialog shows what will be written');
+    await p.click('#preparerDialog button[value="save"]');
+    assert.equal(await preparerText(),'Изготвил: Стручна служба','the choice reaches the printed sheet');
+    await p.click('#duty [data-preparer]'); await p.uncheck('#preparerDialog input[name="show"]'); await p.click('#preparerDialog button[value="save"]');
+    assert.equal(await preparerText(),'','and can be switched off');
+    await p.click('#duty [data-preparer]'); await p.check('#preparerDialog input[name="show"]'); await p.fill('#preparerDialog input[name="name"]',''); await p.selectOption('#preparerDialog select[name="word"]','Изработил'); await p.click('#preparerDialog button[value="save"]');
+    await p.evaluate(()=>window.dispatchEvent(new Event('afterprint')));
     // A full month first (23 working days is the most a month has), then the
     // print layout: the sheet is fitted when the browser switches to print, as
     // in a real print. It is not shrunk below what reads, so this is a month,

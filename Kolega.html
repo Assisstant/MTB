@@ -364,6 +364,17 @@ header.top h1 { flex: 1; min-width: 180px; }
 .attendance-table.month .attendance-mark { padding: 5px; min-width: 26px; }
 .attendance-warning { color: var(--text); border-left: 4px solid #d28a00; padding: 8px; }
 .print-preparer { display: none; }
+.print-preparer[hidden] { display: none !important; }
+.preparer-dialog { border: 1px solid var(--line, #ccd0e0); border-radius: 12px; padding: 18px 20px; max-width: 420px; width: calc(100% - 32px);
+  background: var(--card, #fff); color: var(--text, #172139); }
+.preparer-dialog::backdrop { background: rgba(10, 12, 30, .45); }
+.preparer-dialog h3 { margin: 0 0 6px; }
+.preparer-dialog label { display: block; margin: 10px 0 0; }
+.preparer-dialog label.check { display: flex; gap: 8px; align-items: center; }
+.preparer-dialog label.check input { width: auto; }
+.preparer-dialog select, .preparer-dialog input:not([type="checkbox"]) { display: block; width: 100%; margin-top: 4px; }
+.preparer-dialog .row { margin-top: 14px; gap: 8px; }
+.duty-legend { margin-top: 6px; }
 @page attendance-report { size: A4 landscape; margin: 10mm; }
 @page duty-report { size: A4 portrait; margin: 10mm; }
 @page transport-certificate { size: A4 portrait; margin: 20mm; }
@@ -706,6 +717,7 @@ header.top h1 { flex: 1; min-width: 180px; }
         <button type="button" id="printWeek">🖨 Печати</button>
         <button type="button" id="pngWeek">🖼 Слика</button>
         <button type="button" id="pdfWeek" title="Точно A4, без адреса, датум и број на страница од прелистувачот">⬇ PDF</button>
+        <button type="button" data-preparer title="Кој пишува дека го изработил документот">✍ Изработил</button>
         <button type="button" id="docxWeek" hidden>Word (.docx)</button>
       </div>
       <div class="week-wrap" id="weekSheet" hidden></div>
@@ -1111,6 +1123,72 @@ header.top h1 { flex: 1; min-width: 180px; }
     const duty = { owner: false, delegated: false, ownerChecked: false, month: '', data: null, open: '', draft: null, view: 'around', around: '' };
     const attendance = { mode: 'week', date: '', data: null, busy: false, request: 0, scope: 'cabinet', transportAllowed: false, classes: null };
     const attendanceText = { present: '✓ Присутен', absent: '× Отсутен', blank: '· Неозначено' };
+
+    // „Ред на листата" (owner, 5 Oct 2026: the column must say what is what):
+    // „5. од 8" is the fifth on the duty list of eight, „круг 2" the second time
+    // the list is gone through from its first name this year.
+    const dutyListSize = () => (duty.data?.members || []).filter((m) => !m.leftOn).length;
+    const DUTY_LEGEND = () => '„Ред на листата“: на пример „5. од 8“ = петти од осум на листата за дежурства. '
+        + '„Круг“ = кој пат листата се поминува од почеток. „2× во кругот“ = второ дежурство во истиот круг (по замена или покривање).';
+
+    // ── „✍ Изработил" (owner, 5 Oct 2026): what every print, picture, PDF and
+    // Word file of this page says about who made it. One choice for all of
+    // them, kept in this browser only (layout, never data): shown or not, the
+    // word, the name (the signed-in person unless another is written, e.g.
+    // „Стручна служба") and, if wanted, the date it was made.
+    const PREPARER_KEY = 'mtb_kolega_preparer_v1';
+    const PREPARER_WORDS = ['Изработил', 'Изработила', 'Изготвил', 'Подготвил'];
+    function preparerPref() {
+        let p = {};
+        try { p = JSON.parse(localStorage.getItem(PREPARER_KEY) || '{}') || {}; } catch (_) { /* no storage: the default */ }
+        return { show: p.show !== false, word: PREPARER_WORDS.includes(p.word) ? p.word : PREPARER_WORDS[0],
+            name: typeof p.name === 'string' ? p.name.slice(0, 120) : '', date: p.date === true };
+    }
+    /** „Изработил: Име · 05.10.2026", or '' when it is switched off. */
+    function preparerLine() {
+        const p = preparerPref();
+        if (!p.show) return '';
+        const name = p.name.trim() || me?.person?.name || '';
+        return name ? p.word + ': ' + name + (p.date ? ' · ' + new Date().toLocaleDateString('mk-MK') : '') : '';
+    }
+    const withPreparer = (subtitle) => [subtitle, preparerLine()].filter(Boolean).join(' · ');
+    function openPreparer() {
+        let box = document.getElementById('preparerDialog');
+        if (!box) {
+            box = document.createElement('dialog');
+            box.id = 'preparerDialog';
+            box.className = 'preparer-dialog';
+            document.body.appendChild(box);
+            // On submit, not on close: „close" arrives a moment later, and a print
+            // pressed straight after „Зачувај" would still read the old choice.
+            box.addEventListener('submit', (event) => { if (event.submitter?.value === 'save') savePreparer(box); });
+        }
+        const p = preparerPref();
+        box.innerHTML = '<form method="dialog"><h3>✍ Изработил</h3>'
+            + '<p class="muted">Важи за печатење, слика, PDF и Word на сите извештаи на оваа страница. Се памети во овој прелистувач.</p>'
+            + `<label class="check"><input type="checkbox" name="show"${p.show ? ' checked' : ''}> Прикажи на документот</label>`
+            + `<label>Збор<select name="word">${PREPARER_WORDS.map((w) => `<option${w === p.word ? ' selected' : ''}>${w}</option>`).join('')}</select></label>`
+            + `<label>Име <span class="muted">(празно = ${esc(me?.person?.name || 'вашето име')})</span><input name="name" maxlength="120" value="${esc(p.name)}" placeholder="${esc(me?.person?.name || '')}"></label>`
+            + `<label class="check"><input type="checkbox" name="date"${p.date ? ' checked' : ''}> Со датум на изработка</label>`
+            + '<p class="preparer-sample muted"></p>'
+            + '<div class="row"><button value="save" class="primary">Зачувај</button><button value="cancel">Откажи</button></div></form>';
+        const sample = () => {
+            const f = box.querySelector('form').elements, name = f.name.value.trim() || me?.person?.name || '';
+            box.querySelector('.preparer-sample').textContent = f.show.checked
+                ? 'Ќе пишува: „' + f.word.value + ': ' + name + (f.date.checked ? ' · ' + new Date().toLocaleDateString('mk-MK') : '') + '“'
+                : 'Документите ќе бидат без „' + f.word.value + '“.';
+        };
+        box.querySelector('form').addEventListener('input', sample);
+        sample();
+        box.showModal();
+    }
+    function savePreparer(box) {
+        const f = box.querySelector('form').elements;
+        const value = { show: f.show.checked, word: f.word.value, name: f.name.value.trim(), date: f.date.checked };
+        try { localStorage.setItem(PREPARER_KEY, JSON.stringify(value)); } catch (_) { /* this browser keeps nothing; the default stays */ }
+        say('weekMsg', value.show ? 'Зачувано: „' + preparerLine() + '“.' : 'Зачувано: документите се без „Изработил“.', 'ok');
+    }
+    document.addEventListener('click', (event) => { if (event.target.closest('[data-preparer]')) openPreparer(); });
     const isoShift = (date, n) => new Date(Date.parse(date + 'T00:00:00Z') + n * 86400000).toISOString().slice(0, 10);
     function attendanceRange() {
         const date = attendance.date || localToday();
@@ -1370,7 +1448,7 @@ header.top h1 { flex: 1; min-width: 180px; }
             'word/_rels/document.xml.rels':'<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>',
             'word/styles.xml':'<w:styles xmlns:w="'+ns+'"><w:docDefaults><w:rPrDefault><w:rPr><w:rFonts w:ascii="Times New Roman" w:hAnsi="Times New Roman" w:cs="Times New Roman"/><w:sz w:val="22"/><w:color w:val="000000"/><w:lang w:val="mk-MK"/></w:rPr></w:rPrDefault><w:pPrDefault><w:pPr><w:spacing w:before="0" w:after="0" w:line="240" w:lineRule="auto"/></w:pPr></w:pPrDefault></w:docDefaults><w:style w:type="paragraph" w:default="1" w:styleId="Normal"><w:name w:val="Normal"/></w:style><w:style w:type="paragraph" w:styleId="Title"><w:name w:val="Title"/><w:basedOn w:val="Normal"/><w:pPr><w:keepNext/><w:spacing w:before="120" w:after="100"/></w:pPr><w:rPr><w:b/><w:sz w:val="28"/></w:rPr></w:style></w:styles>',
             'word/document.xml':'<w:document xmlns:w="'+ns+'"><w:body>'
-                +p('Изработил: '+preparer)+p('Надворешни ученици за превоз','Title')+p(report.subtitle)
+                +(preparerLine()?p(preparerLine()):'')+p('Надворешни ученици за превоз','Title')+p(report.subtitle)
                 +p('Потврдени датуми од сите кабинети, без повторување. „—“ = нема запишано присуство.')+p('')
                 +'<w:tbl><w:tblPr><w:tblW w:w="15478" w:type="dxa"/><w:tblLayout w:type="fixed"/><w:tblBorders>'
                 +['top','left','bottom','right','insideH','insideV'].map(edge=>'<w:'+edge+' w:val="single" w:sz="4" w:color="D9D9D9"/>').join('')
@@ -1382,7 +1460,7 @@ header.top h1 { flex: 1; min-width: 180px; }
             const n=report.columns.length, widths=Array.from({length:n},(_,i)=> n>10 ? (i===0?2800:Math.floor(12678/(n-1))) : Math.floor(15478/n));
             const tableRow=(values,head=false)=>'<w:tr><w:trPr>'+(head?'<w:tblHeader/>':'')+'</w:trPr>'+values.map((s,i)=>
                 cell(String(s).split('\n').map(line=>'<w:p>'+run(line,head)+'</w:p>').join(''),widths[i],head?'F1F3F5':'')).join('')+'</w:tr>';
-            files['word/document.xml']='<w:document xmlns:w="'+ns+'"><w:body>'+p('Изработил: '+preparer)+p(report.title,'Title')+p(report.subtitle)+p(report.note || '')+p('')
+            files['word/document.xml']='<w:document xmlns:w="'+ns+'"><w:body>'+(preparerLine()?p(preparerLine()):'')+p(report.title,'Title')+p(report.subtitle)+p(report.note || '')+p('')
                 +'<w:tbl><w:tblPr><w:tblW w:w="15478" w:type="dxa"/><w:tblLayout w:type="fixed"/><w:tblBorders>'
                 +['top','left','bottom','right','insideH','insideV'].map(edge=>'<w:'+edge+' w:val="single" w:sz="4" w:color="D9D9D9"/>').join('')+'</w:tblBorders></w:tblPr><w:tblGrid>'
                 +widths.map(w=>'<w:gridCol w:w="'+w+'"/>').join('')+'</w:tblGrid>'+tableRow(report.columns,true)+report.rows.map(r=>tableRow(r)).join('')+'</w:tbl>'+p('')
@@ -1440,7 +1518,7 @@ header.top h1 { flex: 1; min-width: 180px; }
                 + '<p>Датуми: '+pupil.dates.map(dmy).join(', ')+'.</p>'
                 + '<p>Присуството во повеќе кабинети на ист датум се брои како еден ден. Потврдата е наменета за документацијата за превоз.</p>'
                 + `<p>Извод од евиденцијата: ${esc(new Date(data.generatedAt).toLocaleString('mk-MK'))}.</p>`
-                + `<p>Изработил: ${esc(sessionMe.person.name)}</p>`
+                + (preparerLine() ? `<p>${esc(preparerLine())}</p>` : '')
                 + '<p>Датум на издавање: ____________________</p><p class="certificate-sign">Овластено лице: ____________________<br><br>Потпис и печат: ____________________</p>'
                 + '<p class="no-print">Проверете ги податоците пред потпишување. Во Print исклучете „Headers and footers“ за да нема адреса и датум од прелистувачот.</p>';
             el('transportCertificate').hidden=false; document.body.classList.add('printing-transport-certificate'); window.print();
@@ -1472,6 +1550,7 @@ header.top h1 { flex: 1; min-width: 180px; }
             + `</div><button data-att-refresh${disabled}>Освежи</button><div class="report-exports" role="group" aria-label="Печатење и извоз"><button data-att-print${disabled || !data ? ' disabled' : ''}>Печати</button>`
             + `<button data-att-png${disabled || !data ? ' disabled' : ''}>🖼 Слика</button>`
             + `<button data-att-pdf${disabled || !data ? ' disabled' : ''} title="Точно A4, без адреса, датум и број на страница од прелистувачот">⬇ PDF</button>`
+            + '<button type="button" data-preparer title="Кој пишува дека го изработил документот">✍ Изработил</button>'
             + (attendance.scope==='transport' || (me.readOnly && attendance.scope==='cabinet') ? `<button data-att-docx${disabled || !data ? ' disabled' : ''}>Word (.docx)</button>` : '') + '</div></div></div>'
             + (attendance.busy ? '<p role="status">Се вчитува / зачувува…</p>' : '')
             + (attendance.accessError ? '<div class="access-help no-print" role="alert"><strong>Најавете се како сопственик</strong><p>Отворете MTB во истиот прелистувач, најавете се, па вратете се тука и притиснете „Освежи“. Вашата најава за Колеги останува зачувана.</p><a href="/MTB-Workspace.html" target="_blank" rel="noopener">Отвори сопственичка најава ↗</a></div>' : '')
@@ -1579,7 +1658,7 @@ header.top h1 { flex: 1; min-width: 180px; }
         const heading = kind === 'week' ? target.querySelector('.sheet') : kind === 'attendance' ? el('attendanceSheet') : target;
         let preparer = heading.querySelector('.print-preparer');
         if(!preparer) { preparer=document.createElement('p'); preparer.className='print-preparer'; heading.prepend(preparer); }
-        preparer.textContent = 'Изработил: ' + me.person.name;
+        preparer.textContent = preparerLine(); preparer.hidden = !preparer.textContent;
         target.style.zoom = '';
         if(transport) return;
         const pxPerMm = 96 / 25.4;
@@ -1912,7 +1991,7 @@ header.top h1 { flex: 1; min-width: 180px; }
         const row = `<tr class="${cls}" data-date="${d.date}">`
             + `<td class="date">${WEEKDAY[d.weekday]} ${dmy(d.date)}</td>`
             + `<td class="who"><div class="duty-person">${grip}<span class="person-text">${who}</span>${act ? `<div class="act no-print">${act}</div>` : ''}</div></td>`
-            + `<td class="num">${d.number == null ? '—' : d.number}${d.cycle && !d.closed ? `<span class="sub">круг ${d.cycle}</span>` : ''}`
+            + `<td class="num">${d.number == null ? '—' : d.number + '. од ' + dutyListSize()}${d.cycle && !d.closed ? `<span class="sub">круг ${d.cycle}</span>` : ''}`
             + (d.turnInCycle > 1 ? `<span class="sub twice" title="${d.turnInCycle}. дежурство во овој круг">${d.turnInCycle}× во кругот</span>` : '') + '</td></tr>';
         return row + (duty.owner && duty.open === d.date ? dutyDayEditor(d) : '');
     }
@@ -2082,7 +2161,8 @@ header.top h1 { flex: 1; min-width: 180px; }
             + '<div class="duty-head">' + head
             + '<button type="button" class="small no-print" id="dutyPrint">🖨 Печати</button>'
             + '<button type="button" class="small no-print" id="dutyPng">🖼 Слика</button>'
-            + '<button type="button" class="small no-print" id="dutyPdf" title="Точно A4, без адреса, датум и број на страница од прелистувачот">⬇ PDF</button></div>'
+            + '<button type="button" class="small no-print" id="dutyPdf" title="Точно A4, без адреса, датум и број на страница од прелистувачот">⬇ PDF</button>'
+            + '<button type="button" class="small no-print" data-preparer title="Кој пишува дека го изработил документот">✍ Изработил</button></div>'
             + (duty.data.members.length ? '' : '<p class="muted">Сè уште нема список за дежурства.</p>')
             + (duty.owner && (duty.data.staleSwaps || []).length ? '<div class="duty-stale no-print"><b>⚠ Замена што повеќе не важи</b> — распоредот се смени по договорот, '
                 + 'па двата термина веќе не одговараат на колегите или не се во истиот циклус:'
@@ -2090,10 +2170,10 @@ header.top h1 { flex: 1; min-width: 180px; }
                     + `<button type="button" class="small" data-duty-unswap="${sw.id}">Откажи ја</button></div>`).join('') + '</div>' : '')
             + (duty.owner && days.some((d) => d.assignmentStale) ? '<div class="duty-stale no-print">⚠ Старо поединечно доделување не е применето: колегата веќе го искористил редот, е отсутен или не е во списокот. Проверете го денот и отстранете го доделувањето: '
                 + days.filter((d) => d.assignmentStale).map((d) => `<button type="button" class="small" data-duty-open="${d.date}">${dmy(d.date)}</button>`).join(' ') + '</div>' : '')
-            + (days.length ? '<table class="duty-table"><thead><tr><th scope="col">Ден и датум</th><th scope="col">Стручен соработник</th><th scope="col" title="Позиција во основниот список; кругот продолжува и во следниот месец">Ред во циклус</th></tr></thead><tbody>'
+            + (days.length ? '<table class="duty-table"><thead><tr><th scope="col">Ден и датум</th><th scope="col">Стручен соработник</th><th scope="col" title="Кој по ред е на листата за дежурства, и во кој круг">Ред на листата</th></tr></thead><tbody>'
                 + (gone ? `<tr class="past-toggle no-print"><td colspan="3"><button type="button" class="small" data-duty-past aria-expanded="${!duty.foldPast}">`
                     + `${duty.foldPast ? '▸ Прикажи' : '▾ Скриј'} ги изминатите денови (${gone})</button></td></tr>` : '')
-                + rows + '</tbody></table>' + dutyCountsHtml()
+                + rows + '</tbody></table>' + `<p class="muted duty-legend">${esc(DUTY_LEGEND())}</p>` + dutyCountsHtml()
                 : `<p class="muted">Ротацијата почнува на ${dmy(duty.data.startsOn)}.</p>`)
             + '<p class="muted">Отсутниот се прескокнува; следниот дежура еднаш и редицата продолжува по него. Основниот список не се менува, но датумите се поместуваат. '
             + 'Договорената смена разменува два термина во истиот круг. Покривање од друга служба = „Нема дежурен — пауза“ за кабинетите.</p>';
@@ -2116,15 +2196,15 @@ header.top h1 { flex: 1; min-width: 180px; }
             // under the name, the place in the round, and the record below.
             const counts = document.createElement('div');
             counts.innerHTML = dutyCountsHtml().replace(/<div/g, '\n<div');
-            return out({ title: 'Распоред на дежурства', subtitle: 'учебна ' + me.year + ' · изработил: ' + me.person.name,
-                columns: ['Ден и датум', 'Стручен соработник', 'Ред во циклус'], widths: [170, 640, 150],
+            return out({ title: 'Распоред на дежурства', subtitle: 'учебна ' + me.year,
+                columns: ['Ден и датум', 'Стручен соработник', 'Ред на листата'], widths: [170, 640, 150],
                 rows: days.map((d) => {
                     const said = dutyDayText(d);
                     return [`${WEEKDAY[d.weekday]} ${dmy(d.date)}`, [said.who, ...said.notes].join('\n'),
-                        [d.number == null ? '—' : String(d.number), d.cycle && !d.closed ? 'круг ' + d.cycle : '',
+                        [d.number == null ? '—' : d.number + '. од ' + dutyListSize(), d.cycle && !d.closed ? 'круг ' + d.cycle : '',
                             d.turnInCycle > 1 ? d.turnInCycle + '× во кругот' : ''].filter(Boolean).join('\n')];
                 }),
-                note: [counts.textContent.trim(), 'Сите денови од избраниот приказ, вклучувајќи ги скриените изминати денови.'].filter(Boolean).join('\n'),
+                note: [DUTY_LEGEND(), counts.textContent.trim(), 'Сите денови од избраниот приказ, вклучувајќи ги скриените изминати денови.'].filter(Boolean).join('\n'),
                 file: 'Dezurstva-' + (duty.data.from || duty.month) });
         }
         if (event.target.closest('[data-duty-admin-exit]')) {
@@ -2591,7 +2671,7 @@ header.top h1 { flex: 1; min-width: 180px; }
         // row, and the note is said once, on the last page. Drawn at twice the
         // size, so the letters stay sharp on paper.
         const S = o.sink ? 2 : 1;
-        const title = wrap(o.title, width - 48), subtitle = wrap(o.subtitle, width - 48);
+        const title = wrap(o.title, width - 48), subtitle = wrap(withPreparer(o.subtitle), width - 48);
         const top = 35 + (title.length + subtitle.length) * 26;
         const limit = o.pageAspect ? Math.max(120, width * o.pageAspect - top - headH - note.length * 23 - 70) : 6500;
         const pages = [[]]; let height = 0;
@@ -3505,7 +3585,7 @@ header.top h1 { flex: 1; min-width: 180px; }
                 sink: pdf ? (canvas) => pages.push(canvas) : null,
                 title: sheetTitle(m), subtitle: sheetSub(), days: m.days, corner: m.corner || (view.tab === 'cabinet' ? 'Термин' : 'Час'),
                 rows: m.rows.map((row) => ({ label: row.label, time: row.time })), cells: m.cells,
-                footer: new Date().toLocaleDateString('mk-MK'),
+                footer: withPreparer(new Date().toLocaleDateString('mk-MK')),
                 file: (m.kind === 'cabinets' ? 'Kabineti-' : 'Licen-raspored-') + name + '.png'
             });
         });
