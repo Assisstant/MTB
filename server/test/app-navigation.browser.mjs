@@ -12,7 +12,7 @@ const APPS = [
     ['RasporediFusion.html', 'Кабинети'],
     ['Nastava.html', 'Настава ↔ терапии'],
     ['NastavaUredi.html', 'Уреди настава'],
-    ['Podatoci.html', 'Податоци'],
+    ['Podatoci.html', 'Списоци и пристап'],
     ['AkciskiPlan.html', 'Евидентен лист']
 ];
 const TOOLS = [

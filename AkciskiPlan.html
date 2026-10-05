@@ -235,7 +235,7 @@ body.dark .at tr.ev td{color:#a3b0f7;}
     </div>
     <div class="foot">
       <a class="btn btn-sm" id="schoolDirectory" href="Podatoci.html" style="text-decoration:none;"
-         title="Администраторот ги додава учениците и го уредува училишниот список во Податоци">Училишен список · администратор</a>
+         title="Администраторот ги додава учениците и го уредува училишниот список во „Списоци и пристап“">Училишен список · администратор</a>
       <button class="btn btn-sm" id="btnNewSheet" disabled>+ Отвори лист</button>
     </div>
     <div class="plist" id="plist"></div>
@@ -569,7 +569,7 @@ body.dark .at tr.ev td{color:#a3b0f7;}
     function saySorry(res, body) {
         const raw = (body && (body.error || body.message)) || ('HTTP ' + (res ? res.status : '?'));
         if (body && body.signedOut) return 'Најавата истече — најави се повторно.';
-        if (body && body.inactiveThisYear) return 'Ученикот не е на списокот за оваа година. Додај го во „Податоци".';
+        if (body && body.inactiveThisYear) return 'Ученикот не е на списокот за оваа година. Додај го во „Списоци и пристап".';
         if (body && body.deactivate) {
             return 'Ставката веќе носи ' + body.scores + ' оценки, па не се брише — сокриј ја наместо тоа.';
         }
@@ -1080,13 +1080,13 @@ body.dark .at tr.ev td{color:#a3b0f7;}
             + '<option value="primary"' + (s.school_type === 'primary' ? ' selected' : '') + '>Основно</option>'
             + '<option value="secondary"' + (s.school_type === 'secondary' ? ' selected' : '') + '>Средно</option></select></div>'
             + '<div class="fl"><label>Одделение / година</label>'
-            + '<input value="' + esc(s.grade || '') + '" disabled title="Одделението се менува во Податоци"></div>'
+            + '<input value="' + esc(s.grade || '') + '" disabled title="Одделението се менува во Списоци и пристап"></div>'
             + '<div class="fl"><label>Паралелка</label>'
             + '<input value="' + esc(s.class_section || '') + '" disabled title="Паралелката доаѓа од запишувањето"></div>'
             + '<div class="fl"><label>Учебна година</label><input value="' + esc(el('year').value) + '" disabled></div>'
             + '</div>'
             + '<p style="font-size:11.5px;color:var(--sub);margin:-2px 0 10px;">Одделението и паралелката ги држи '
-            + '<a href="Podatoci.html" style="color:var(--brand1);">Податоци</a> — тука се само прикажани, '
+            + '<a href="Podatoci.html" style="color:var(--brand1);">Списоци и пристап</a> — тука се само прикажани, '
             + 'за да не се разидат двете места.</p>'
             + (s.school_type === 'secondary'
                 ? '<div class="rw r2">' + field('vocation', 'Струка', s.vocation)
@@ -1708,7 +1708,7 @@ body.dark .at tr.ev td{color:#a3b0f7;}
             // caseload changed. Generating an outward report is what freezes it.
             derived = '<div class="card"><h3>🧩 Стручни лица на овој ученик · ' + esc(el('year').value) + '</h3>'
                 + '<p class="hint">Ова се чита од годишните списоци и не се пишува тука — се менува во '
-                + '„Податоци“. Во табелата подолу впишувај само лица што базата ги нема '
+                + '„Списоци и пристап“. Во табелата подолу впишувај само лица што базата ги нема '
                 + '(лекар, аудиолог од клиника, надворешен стручњак).</p>'
                 + (pupilTeam.length
                     ? '<div class="tw"><table class="at"><thead><tr><th>#</th><th>Име и презиме</th>'
@@ -1716,7 +1716,7 @@ body.dark .at tr.ev td{color:#a3b0f7;}
                       + pupilTeam.map((t, index) => '<tr><td>' + (index + 1) + '.</td><td>' + esc(t.name)
                           + '</td><td>' + (t.kind === 'teacher' ? 'наставник' : 'терапевт') + '</td><td>'
                           + (t.profession ? esc(t.profession)
-                              : '<span class="dim">категоријата не е внесена во Податоци</span>')
+                              : '<span class="dim">категоријата не е внесена во „Списоци и пристап“</span>')
                           + '</td></tr>').join('')
                       + '</tbody></table></div>'
                     : '<div class="note note-warn">Нема стручно лице поврзано со ученикот преку '
@@ -1814,7 +1814,7 @@ body.dark .at tr.ev td{color:#a3b0f7;}
 
             + '<div class="card"><h3>🎯 Акциски план · секции по категорија</h3>'
             + '<p style="font-size:12.5px;color:var(--sub);margin-bottom:10px;">Секоја секција мора да има категорија. '
-            + 'Кој ја држи категоријата за учебната година се задава во „Податоци“; целите и скалата ги внесува '
+            + 'Кој ја држи категоријата за учебната година се задава во „Списоци и пристап“; целите и скалата ги внесува '
             + 'стручното лице што ја држи. Секциите не се мешаат со пропишаниот образец.</p>'
             + '<div class="tw"><table class="at"><thead><tr><th>Секција</th><th>Категорија</th><th>Скала</th>'
             + '<th>Ставки</th><th>Се користи</th><th></th></tr></thead><tbody>'
@@ -1826,7 +1826,7 @@ body.dark .at tr.ev td{color:#a3b0f7;}
                   + '</select><input id="newActionTitle" placeholder="назив на акциската секција…" style="flex:1;min-width:200px;">'
                   + '<select id="newActionScale"><option value="level">1 · 2 · 3</option><option value="mark">√ / X</option></select>'
                   + '<button class="btn btn-sm btn-p" id="btnAddActionSection">+ Додај во акциски план</button></div>'
-                : '<div class="note note-warn" style="margin-top:10px;">Нема активни категории. Провери во „Податоци“.</div>')
+                : '<div class="note note-warn" style="margin-top:10px;">Нема активни категории. Провери во „Списоци и пристап“.</div>')
             + '</div>'
 
             + '<div class="card"><h3>🔐 Најава</h3>'

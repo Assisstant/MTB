@@ -1915,7 +1915,7 @@
         <button class="tab" onclick="switchTab('plans')">Планови</button>
         <button class="tab" onclick="switchTab('trijazen')">Тријажни тестови</button>
         <button class="tab" onclick="switchTab('procenka')">📊 Проценка</button>
-        <button class="tab" onclick="switchTab('data')">Податоци</button>
+        <button class="tab" onclick="switchTab('data')">⚙️ Сервер и резерви</button>
         <button class="tab" onclick="switchTab('dosie')">📂 Досие</button>
         <button class="tab" onclick="switchTab('audiogramsApp')">Аудиограми</button>
         <button class="tab" onclick="switchTab('generator')">📄 Генератор</button>
@@ -2291,7 +2291,7 @@
                 <div id="annualRosterSummary" class="annual-roster-summary"></div>
                 <div id="annualRosterFromBase" class="caseload-hint" style="display:none;">
                     „Додај“ го става ученикот на вашиот список во базата — истиот што го гледате во Кабинети → „Ученици по терапевт“.
-                    Ученик што го нема на годишниот список го додава администраторот во „Податоци“.
+                    Ученик што го нема на годишниот список го додава администраторот во „Списоци и пристап“.
                 </div>
                 <div id="annualRosterList" class="annual-roster-list"></div>
                 <div style="display:flex;justify-content:flex-end;margin-top:12px;">
@@ -2309,7 +2309,7 @@
                     <input type="text" id="studentGrade" placeholder="пр. IV-а">
                 </div>
                 <div id="studentNameFromBase" class="caseload-hint" style="display:none;">
-                    Името и одделението се читаат од базата. Се менуваат во „Податоци“ или во ✏️ формуларот на ученикот.
+                    Името и одделението се читаат од базата. Се менуваат во „Списоци и пристап“ или во ✏️ формуларот на ученикот.
                 </div>
                 <div class="form-group" id="studentMergeGroup" style="display:none;">
                     <label>Истото дете е запишано уште еднаш како</label>
@@ -2848,7 +2848,7 @@
             }
             var result = admitAnnualStudent(row);
             if (result === 'archived') {
-                alert('Овој ученик е во архивата. Врати го од „Податоци → Учебна година".');
+                alert('Овој ученик е во архивата. Врати го од „Сервер и резерви → Учебна година".');
                 return;
             }
             if (!result || typeof result !== 'object') return;
@@ -8326,7 +8326,7 @@
             if (allStudents.length === 0) {
                 container.innerHTML = '<div style="color:#718096;font-size:13px;padding:8px 0;">' +
                     '⚠️ Нема ученици. Прво додадете ученици во табот <strong>Ученици</strong>, ' +
-                    'или импортирајте JSON во табот <strong>Податоци</strong>.</div>';
+                    'или импортирајте JSON во табот <strong>Сервер и резерви</strong>.</div>';
                 return;
             }
             for (var i = 0; i < allStudents.length; i++) {
@@ -13875,7 +13875,7 @@
                     return;
                 }
                 if (findAnnualStudent(archived, row) >= 0) {
-                    unclear(row, 'е во архивата на дневникот — вратете го од „Податоци → Учебна година“');
+                    unclear(row, 'е во архивата на дневникот — вратете го од „Сервер и резерви → Учебна година“');
                     return;
                 }
                 if (findAnnualStudent(former, row) >= 0) { out.admit.push(row); return; }
@@ -13979,7 +13979,7 @@
             var ready = (opts.afterSync || !srv || typeof srv.sync !== 'function') ? Promise.resolve('insync') : srv.sync({ auto: true });
             state.running = ready.then(function (sync) {
                 if (!SETTLED[sync]) {
-                    return { error: sync === 'conflict' ? 'дневникот и серверот се разидени — прво решете го тоа во „Податоци → Сервер“'
+                    return { error: sync === 'conflict' ? 'дневникот и серверот се разидени — прво решете го тоа во „Сервер и резерви“'
                         : sync === 'offline' ? 'серверот не е достапен'
                         : 'дневникот не е усогласен со серверот (' + sync + ')' };
                 }
@@ -14133,7 +14133,7 @@
                 'Останува:  ' + pick.keep.name + '  (' + describe(pick.keep) + ')\n' +
                 'Се влева во него:  ' + pick.gone.name + '  (' + describe(pick.gone) + ')\n\n' +
                 'Присуството, напредокот, термините, досието, проценките и аудиограмите на вториот преминуваат кај првиот. ' +
-                'Името и одделението остануваат од првиот — ако презимето е погрешно, поправете го во Податоци.')) return false;
+                'Името и одделението остануваат од првиот — ако презимето е погрешно, поправете го во „Списоци и пристап“.')) return false;
             var moved = mergeDiaryStudents(pick.keep.id, pick.gone.id);
             if (!moved) { alert('Спојувањето не успеа — записите не се најдени.'); return false; }
             saveData();

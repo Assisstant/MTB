@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Податоци — MTB</title>
+<title>Списоци и пристап — MTB</title>
 <script src="mtb-theme.js"></script>
 <script src="mtb-teacher-week.js"></script>
 <!--
@@ -349,7 +349,7 @@
 </head>
 <body>
 <header>
-    <h1>🗂️ Податоци</h1>
+    <h1>🗂️ Списоци и пристап</h1>
     <span class="sub">ученици, наставници, терапевти и одделенија — по учебна година</span>
     <div class="links">
         <label class="ui-size" title="Големина на приказот">
@@ -3000,7 +3000,7 @@
         const editing = W.editing();
         if (editing) W.loadOffers(weekData, apiBase, () => { if (tab === 'week' && W.editing() && !W.choosing()) drawWeekTab(); });
         el('weekSheet').innerHTML = W.sheetHtml(w, weekData, wanted, {
-            editing, allDays: true, footer: 'Податоци · ' + new Date().toLocaleDateString('mk-MK')
+            editing, allDays: true, footer: 'Списоци и пристап · ' + new Date().toLocaleDateString('mk-MK')
         });
     }
     el('weekTeacher').addEventListener('change', drawWeekTab);

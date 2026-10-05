@@ -423,7 +423,7 @@ export function classItems(reply: any, ctx: ClassContext): { errors: string[]; c
     }
     for (const r of planned.reports) {
         items.push({ key: `report:${personKey('pupil', r.name)}`, type: 'report', state: 'report', name: r.name, generation: r.generation, text: r.text,
-                     reasons: ['се поправа рачно во Податоци → Ученици; од тука не се менува ништо'] });
+                     reasons: ['се поправа рачно во Списоци и пристап → Ученици; од тука не се менува ништо'] });
     }
     return { errors: [], class: planned.class, note: planned.note, unchanged: planned.unchanged, items };
 }

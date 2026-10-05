@@ -143,7 +143,7 @@ the machine's local PostgreSQL database.
 | `Pregled-Baza.html` | read-only overview of the database |
 | `Nastava.html` | who is missing from which lesson — reads the server; its unlocked teacher week (🔓) writes lessons; it keeps no data of its own |
 | `NastavaUredi.html` | the school timetable, editable cell by cell — writes the server, stores nothing |
-| `Podatoci.html` | the lists a year is made of: students, teachers, therapists, classes |
+| `Podatoci.html` | **„Списоци и пристап“** (named „Податоци“ until 5 Oct 2026; the file keeps its name): the lists a year is made of — students, teachers, therapists, classes — and who gets into Колега how. S-Дневник's own tab of that old name is now „⚙️ Сервер и резерви“. New text names the app „Списоци и пристап“ |
 | `AkciskiPlan.html` | евидентен лист: one pupil's development record, filled section by section by the whole team |
 | `Kolega.html` | the colleagues' door: sign in with your own name, your own week — the one page the cloud shows without the owner's Google sign-in |
 | `start.html` | launcher: finds whichever machine is on, sends you to it |

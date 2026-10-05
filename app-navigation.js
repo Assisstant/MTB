@@ -28,7 +28,7 @@
         { file: 'RasporediFusion.html', label: 'Кабинети', title: 'Распоред на терапевтски кабинети' },
         { file: 'Nastava.html', label: 'Настава ↔ терапии', title: 'Настава и терапии — кој е отсутен од кој час' },
         { file: 'NastavaUredi.html', label: 'Уреди настава', title: 'Внесување и менување на распоредот на настава' },
-        { file: 'Podatoci.html', label: 'Податоци', title: 'Поставување на учебната година и списоците' },
+        { file: 'Podatoci.html', label: 'Списоци и пристап', title: 'Годишните списоци (ученици, наставници, терапевти, одделенија) и кој како влегува' },
         { file: 'AkciskiPlan.html', label: 'Евидентен лист', title: 'Евидентен лист и акциски план — следење на развојот, и кварталниот план по категории' }
     ];
     const PUBLISHED_HOST = 'assisstant.github.io';

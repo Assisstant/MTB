@@ -143,7 +143,7 @@ export async function workspaceRoutes(server: FastifyInstance, options: {pool?: 
                 // Do not guess same-name identity: warn/refuse; an administrator
                 // reviews the existing records before intentionally adding a namesake.
                 const duplicate=(await c.query('SELECT 1 FROM students WHERE lower(btrim(name))=lower($1)',[b.name])).rowCount;
-                if(duplicate) throw new Problem(409,'Веќе има ученик со ова име. Проверете го постојниот запис во Податоци пред додавање истоимен ученик.');
+                if(duplicate) throw new Problem(409,'Веќе има ученик со ова име. Проверете го постојниот запис во „Списоци и пристап“ пред додавање истоимен ученик.');
                 sid=(await c.query('INSERT INTO students(public_id,name,grade) VALUES($1,$2,$3) RETURNING id',
                     [publicId,b.name,b.grade])).rows[0].id;
             }

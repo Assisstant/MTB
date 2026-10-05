@@ -27,5 +27,5 @@ export async function transportAttendance(db: any, year: { id: number; label: st
         [year.id,bounds.first,bounds.last,year.starts_on,year.ends_on,today]);
     return { month, from: bounds.first, to: bounds.last, year: year.label, generatedAt: new Date().toISOString(),
         pupils: rows.map((r: any) => ({ ...r, daysPresent: r.dates.length })),
-        note: 'Се бројат единствени датуми со зачувано присуство во барем еден кабинет. Нема ознака не значи отсуство. Статусот „надворешен“ е според годишниот список во Податоци.' };
+        note: 'Се бројат единствени датуми со зачувано присуство во барем еден кабинет. Нема ознака не значи отсуство. Статусот „надворешен“ е според годишниот список во „Списоци и пристап“.' };
 }

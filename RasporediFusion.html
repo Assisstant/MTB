@@ -891,7 +891,7 @@
             </select>
         </label>
         <div class="actions">
-            <a class="btn" href="Podatoci.html" data-server-link="Podatoci.html"><span class="ico" aria-hidden="true">📁</span> Податоци</a>
+            <a class="btn" href="Podatoci.html" data-server-link="Podatoci.html"><span class="ico" aria-hidden="true">📁</span> Списоци и пристап</a>
             <a class="btn" href="Nastava.html" data-server-link="Nastava.html" title="Настава ↔ терапии"><span class="ico" aria-hidden="true">🏫</span> Настава</a>
             <button class="btn schedule-only" id="whereToggle" type="button" aria-pressed="true"
                     title="Прикажи каде е детето во тој термин, на лебдење"><span class="ico" aria-hidden="true">📍</span> Каде е детето</button>
@@ -900,7 +900,7 @@
             <button class="btn schedule-only" id="exportImage" type="button" title="Зачувај го распоредот како слика" aria-label="Зачувај го распоредот како слика"><span class="ico" aria-hidden="true">📸</span> Слика</button>
             <button class="btn schedule-only" id="exportWord" type="button" title="Word документ: неделниот распоред на избраниот терапевт, или на секој терапевт на своја страница" aria-label="Зачувај го распоредот како Word документ"><span class="ico" aria-hidden="true">📄</span> Word</button>
             <button class="btn schedule-only" id="exportForm" type="button" title="Формулар за колегите: сите терапевти во една датотека што се пополнува без апликацијата; секој го избира своето име" aria-label="Зачувај формулар за терапевтите"><span class="ico" aria-hidden="true">📤</span> Формулар</button>
-            <button class="btn schedule-only" id="importForm" type="button" title="Внеси еден или повеќе одговори (.json) — се чуваат за преглед во Податоци → Формулари; ништо не се запишува веднаш" aria-label="Внеси одговор од формулар"><span class="ico" aria-hidden="true">📥</span> Внеси формулар</button>
+            <button class="btn schedule-only" id="importForm" type="button" title="Внеси еден или повеќе одговори (.json) — се чуваат за преглед во Списоци и пристап → Формулари; ништо не се запишува веднаш" aria-label="Внеси одговор од формулар"><span class="ico" aria-hidden="true">📥</span> Внеси формулар</button>
             <input type="file" id="importFormFile" accept=".json,application/json" multiple hidden>
         </div>
     </div>
@@ -966,7 +966,7 @@
                     <button class="btn btn-primary" id="openCaseloadBtn" type="button"><span class="ico" aria-hidden="true">✓</span> Уреди список на ученици</button>
                 </span>
             </div>
-            <p class="workflow-hint">Овде го избираш списокот од веќе запишаните ученици. Нов ученик додава администраторот во „Податоци“.</p>
+            <p class="workflow-hint">Овде го избираш списокот од веќе запишаните ученици. Нов ученик додава администраторот во „Списоци и пристап“.</p>
             <div class="roster-controls">
                 <label class="roster-field">
                     <span>Терапевт</span>
@@ -1292,7 +1292,7 @@
             error.discovery = true;
             throw error;
         }
-        const error = new Error('Повеќе сервери одговараат — отвори преку start.html или Податоци и избери една база.');
+        const error = new Error('Повеќе сервери одговараат — отвори преку start.html или „Списоци и пристап“ и избери една база.');
         error.discovery = true;
         throw error;
     }
@@ -2441,7 +2441,7 @@
         if (results.some((r) => r.applied)) {
             await loadAll().catch(() => {});
         }
-        lines.push('', 'Чистото е запишано веднаш, во името на тој што го пополнил. Судирите и новите деца чекаат во Податоци → 📥 Формулари.');
+        lines.push('', 'Чистото е запишано веднаш, во името на тој што го пополнил. Судирите и новите деца чекаат во Списоци и пристап → 📥 Формулари.');
         showLongNotice(['Одговори од формулари:'].concat(lines), results.some((r) => r.outcome === 'refused') ? 'error' : 'ok');
         const link = document.createElement('a');
         link.href = 'Podatoci.html?tab=forms&year=' + encodeURIComponent(state.year);
@@ -3886,7 +3886,7 @@
                 showNotice('Отвори ја апликацијата преку <a href="start.html">start.html</a>.', 'error', true);
             } else if (error.discovery) {
                 showNotice(esc(error.message)
-                    + ' <a href="start.html">Отвори start.html</a> · <a href="Podatoci.html">Провери во Податоци</a>',
+                    + ' <a href="start.html">Отвори start.html</a> · <a href="Podatoci.html">Провери во „Списоци и пристап“</a>',
                     'error', true);
             } else showNotice(error.message, 'error');
         } finally {

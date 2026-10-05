@@ -208,7 +208,7 @@ const run = async () => {
     check('with a reason a person can act on, in Macedonian',
         /не е ни во распоредот, ни на списокот паралелки/.test(unplaced), unplaced.slice(0, 300));
     check('and it says WHERE to fix that one',
-        /провери го одделението во „Податоци"/.test(unplaced), unplaced.slice(0, 400));
+        /провери го одделението во „Списоци и пристап"/.test(unplaced), unplaced.slice(0, 400));
 
     await page.screenshot({ path: 'nastava-page.png', fullPage: true });
     console.log('  →   screenshot at server/nastava-page.png');

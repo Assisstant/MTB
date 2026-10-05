@@ -32,7 +32,7 @@ export async function studentMergeRoutes(server: FastifyInstance) {
         const client = await pool.connect();
         try {
             await client.query('BEGIN');
-            const outcome = await mergeStudents(client, parsed.data.keep, parsed.data.fold, 'Податоци · спојување');
+            const outcome = await mergeStudents(client, parsed.data.keep, parsed.data.fold, 'Списоци и пристап · спојување');
             await client.query('COMMIT');
             return { ok: true, ...outcome };
         } catch (err) {

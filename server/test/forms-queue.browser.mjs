@@ -43,7 +43,7 @@ const classReview = {
         { key: 'lesson:понеделник|1', type: 'lesson', state: 'clean', day: 'понеделник', ordinal: 1,
           fromCell: { subject: 'Математика', teacher: 'Наставничка Измислена' }, toCell: { subject: 'Ликовно образование', teacher: null }, reasons: [] },
         { key: 'report:pupil:ана', type: 'report', state: 'report', name: 'Ана Измислена', generation: 'II', text: 'е во III-а',
-          reasons: ['се поправа рачно во Податоци → Ученици; од тука не се менува ништо'] }
+          reasons: ['се поправа рачно во Списоци и пристап → Ученици; од тука не се менува ништо'] }
     ]
 };
 const review = {

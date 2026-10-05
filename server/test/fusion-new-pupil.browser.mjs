@@ -70,7 +70,7 @@ async function open() {
             if (m === 'POST' && p === '/api/workspace/pupils') {
                 const key = String(body.name).trim().toLocaleLowerCase('mk-MK');
                 if (db.hiddenNames.includes(key) || db.students.some((s) => s.name.toLocaleLowerCase('mk-MK') === key)) {
-                    return json(409, { error: 'Веќе има ученик со ова име. Проверете го постојниот запис во Податоци пред додавање истоимен ученик.' });
+                    return json(409, { error: 'Веќе има ученик со ова име. Проверете го постојниот запис во „Списоци и пристап“ пред додавање истоимен ученик.' });
                 }
                 const pupil = { public_id: 'pupil-new-' + db.nextId++, name: body.name, grade: null, kind: 'external', active: true };
                 db.students.push(pupil);

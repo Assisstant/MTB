@@ -353,7 +353,7 @@
             <button class="btn soft" id="exportClassForm"
                     title="Формулар по одделение, за одделенските и класните раководители: сите одделенија во една датотека; секој го избира своето одделение"><span class="ico" aria-hidden="true">📤</span> Формулар · одделенија</button>
             <button class="btn soft" id="importClassForm"
-                    title="Внеси еден или повеќе одговори (.json) — се чуваат за преглед во Податоци → Формулари; ништо не се запишува веднаш"><span class="ico" aria-hidden="true">📥</span> Внеси формулар</button>
+                    title="Внеси еден или повеќе одговори (.json) — се чуваат за преглед во Списоци и пристап → Формулари; ништо не се запишува веднаш"><span class="ico" aria-hidden="true">📥</span> Внеси формулар</button>
             <input type="file" id="importClassFormFile" accept=".json,application/json" multiple hidden>
             <span class="status" id="status"></span>
         </div>
@@ -405,7 +405,7 @@
         <details class="section" id="classSection">
             <summary>🏫 Паралелки</summary>
             <p class="hint">
-                Истиот список како <a href="Podatoci.html?tab=classes">Податоци → Одделенија</a>, од истите
+                Истиот список како <a href="Podatoci.html?tab=classes">Списоци и пристап → Одделенија</a>, од истите
                 табели и по истиот редослед: <strong>името за годината</strong> (колоната „Одделение“ од
                 табелата на училиштето) и описот се менуваат тука или таму, и другиот екран го гледа веднаш.
                 Двете важат само за избраната учебна година.
@@ -432,7 +432,7 @@
             <p class="hint">
                 Кој предава оваа година — за читање додека се гради распоредот. Името, видот
                 (одделенски / предметен), предметите и паралелката што ја води се менуваат на едно место:
-                <a href="Podatoci.html?tab=teachers">Податоци → Наставници</a>. Таму се додава и нов наставник.
+                <a href="Podatoci.html?tab=teachers">Списоци и пристап → Наставници</a>. Таму се додава и нов наставник.
                 Предметот на предметен наставник што води и одделение се внесува таму еднаш и повторен увоз не го брише.
             </p>
             <div class="scroll"><div id="teachers"></div></div>
@@ -741,7 +741,7 @@
 
         if (!rows.size) {
             el('grid').innerHTML = '<p class="hint">Нема наставници на списокот за оваа година. '
-                + 'Додај ги во „Податоци", па врати се овде.</p>';
+                + 'Додај ги во „Списоци и пристап", па врати се овде.</p>';
             return;
         }
 
@@ -1378,7 +1378,7 @@
         const bare = lessons.filter((l) => !l.subject).length;
         const time = (ordinal) => { const p = periods().find((x) => x.ordinal === ordinal); return p ? p.startsAt : ''; };
         const linkLine = !onStaff
-            ? `<span class="hint">${esc(name)} не е на списокот за ${esc(data.year)} — додај го во „Податоци".</span>`
+            ? `<span class="hint">${esc(name)} не е на списокот за ${esc(data.year)} — додај го во „Списоци и пристап".</span>`
             : link && link.role === 'homeroom'
                 ? `<span class="hint">Раководител на ${esc(classShort(label))}.</span>`
                 : link
@@ -2673,7 +2673,7 @@
         }
         formReport(['Одговори од формулари:'].concat(results.map((r) => '• ' + r.fileName + (r.about ? ' (' + r.about + ')' : '') + ': '
             + formOutcome(r)), unreadable,
-            ['', 'Чистото е запишано веднаш, во името на тој што го пополнил. Судирите чекаат во Податоци → 📥 Формулари.']),
+            ['', 'Чистото е запишано веднаш, во името на тој што го пополнил. Судирите чекаат во Списоци и пристап → 📥 Формулари.']),
             'Podatoci.html?tab=forms&year=' + encodeURIComponent(data ? data.year : ''));
     }
 
