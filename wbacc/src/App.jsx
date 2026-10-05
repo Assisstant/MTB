@@ -5,6 +5,7 @@ import Credit from './Credit.jsx';
 import Pictograms from './Pictograms.jsx';
 import Bookmarks from './Bookmarks.jsx';
 import { wordsToSpeak } from './scene.js';
+import { exportDrawingImage } from './image.js';
 import { LangContext, translator } from './i18n.js';
 
 const SCENE_KEY = 'scene-v1';
@@ -76,6 +77,20 @@ export default function App() {
     const toggle = (name) => setPanel((now) => (now === name ? '' : name));
     const t = useMemo(() => translator(lang), [lang]);
 
+    const saveImage = async () => {
+        if (!excalidraw) return;
+        try {
+            const done = await exportDrawingImage(excalidraw);
+            const message = done.empty ? t('Цртежот е празен — нема што да се зачува.')
+                : (done.partial ? t('📷 Означеното е зачувано како слика.') : t('📷 Цртежот е зачуван како слика.')) +
+                  (done.embeds ? ' ' + t('Вградените веб-страници се во сликата само како рамка.') : '');
+            excalidraw.setToast({ message, duration: done.embeds ? 6000 : 3000 });
+        } catch (err) {
+            console.warn('WBACC: the picture was not made', err);
+            excalidraw.setToast({ message: t('Сликата не се направи: {0}', err && err.message ? err.message : String(err)), duration: 6000 });
+        }
+    };
+
     const chooseLang = (code) => {
         setLang(code);
         try { localStorage.setItem(LANG_KEY, code); } catch { /* this visit only */ }
@@ -90,6 +105,7 @@ export default function App() {
                             <div className="wbacc-tools">
                                 <button type="button" className={panel === 'pictos' ? 'on' : ''} onClick={() => toggle('pictos')} title={t('Пиктограми (ARASAAC)')}>{t('🖼 Пиктограми')}</button>
                                 <button type="button" className={panel === 'bookmarks' ? 'on' : ''} onClick={() => toggle('bookmarks')} title={t('Обележувачи')}>{t('🔖 Обележувачи')}</button>
+                                <button type="button" onClick={saveImage} title={t('Зачувај слика (PNG): означеното, или целиот цртеж')}>{t('📷 Слика')}</button>
                                 <button type="button" onClick={speak} title={t('Изговори го означениот текст')}>🔊</button>
                             </div>
                         )}>

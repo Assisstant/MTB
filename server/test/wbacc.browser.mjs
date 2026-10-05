@@ -52,7 +52,7 @@ await context.route('**/*', async (route) => {
 
 const page = await context.newPage();
 const errors = [];
-page.on('pageerror', (e) => errors.push(String(e).slice(0, 200)));
+page.on('pageerror', (e) => errors.push(String(e.stack || e).slice(0, 400)));
 page.on('dialog', (d) => d.accept());
 await page.goto(`${ORIGIN}/WBACC.html`);
 await page.waitForSelector('.excalidraw', { timeout: 20000 });
@@ -147,6 +147,30 @@ check('a BookmarksPlus export imports, its ids made safe for the server',
 check('a file kept in that browser travels as its name, not as a file',
     imported.cards.some((c) => c.notes.includes('📎 upatstvo.pdf') && c.url === ''));
 check('and a link that is not http(s) is dropped, not stored', imported.cards.every((c) => c.url === '' || /^https?:/.test(c.url)));
+
+console.log('\n📷 the drawing as a picture');
+// The board now holds the card and the video: a picture of all of it, with
+// nothing selected. Escape twice: once for the panel's focus, once for the selection.
+await page.click('.wbacc-panel button[title="Затвори"]').catch(() => {});
+await page.keyboard.press('Escape');
+await page.keyboard.press('Escape');
+check('„📷 Слика“ sits beside the panels\' buttons', await page.isVisible('.wbacc-tools button:has-text("📷")'));
+const [download] = await Promise.all([
+    page.waitForEvent('download', { timeout: 10000 }).catch(() => null),
+    page.click('.wbacc-tools button:has-text("📷")')
+]);
+const png = download ? readFileSync(await download.path()) : Buffer.alloc(0);
+check('one click saves a PNG, named for the moment', Boolean(download && /^WBACC-\d{4}-\d{2}-\d{2}-\d{4}\.png$/.test(download.suggestedFilename())
+    && png.subarray(1, 4).toString() === 'PNG'), download ? download.suggestedFilename() : 'no download');
+const pngWidth = png.length > 24 ? png.readUInt32BE(16) : 0;
+check('of the whole drawing, at twice its size', pngWidth > 1000, `width ${pngWidth}`);
+const toast = await page.waitForSelector('.Toast', { timeout: 3000 }).then((n) => n.textContent(), () => '');
+check('and says an embedded page is only a frame in it', /рамка/.test(toast), toast);
+if (process.env.SHOT) {
+    const { writeFileSync } = await import('node:fs');
+    writeFileSync(join(process.env.SHOT, 'wbacc-export.png'), png);
+    await page.screenshot({ path: join(process.env.SHOT, 'wbacc-button.png') });
+}
 
 console.log('');
 check('no request left the page that the test did not invent (offline)', unexpected.length === 0, unexpected.join(' ; '));
