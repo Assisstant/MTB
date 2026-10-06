@@ -212,9 +212,9 @@ async function run() {
         response.url().endsWith('/api/schedule/block') && response.request().method() === 'PUT');
     await page.selectOption(secondCell, fixture.students[0].public_id);
     check('double booking is refused', (await refused).status() === 409);
-    await page.waitForSelector('#notice.on.error');
+    await page.waitForSelector('.cell-failure');
     check('the refusal is explained on screen',
-        /веќе е закажан/.test(await page.textContent('#notice')));
+        /веќе е закажан/.test(await page.textContent('.cell-failure')));
     checkEq('the refused cell returns to empty', await page.inputValue(secondCell), '');
     checkEq('the refused write did not create a second row', (await storedSessions()).length, 1);
 

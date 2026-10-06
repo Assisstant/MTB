@@ -130,6 +130,23 @@
     .metric span { color: #4a5568; font-size: 12px; } /* #718096 was 3.8:1 on the band */
     .metric.warn strong { color: #dd6b20; }
     .metric.bad strong { color: #e53e3e; }
+    button.metric { background: transparent; font: inherit; text-align: left; cursor: pointer; border: 0; color: inherit; }
+    .conflict-help { margin: 4px auto; padding: 0 20px; font-size: 12px; }
+    #conflictDialog { inset: 0; margin: auto; width: min(720px, calc(100vw - 32px)); max-height: 85vh; box-sizing: border-box; border: 1px solid #718096; border-radius: 10px; padding: 20px; color: #1a202c; background: white; }
+    #conflictDialog::backdrop { background: #0008; }
+    #conflictDialog .btn { color: inherit; background: transparent; border: 1px solid #a0aec0; }
+    #conflictDialog .btn:disabled { opacity: .55; cursor: not-allowed; }
+    .conflict-group { border-top: 1px solid #a0aec0; padding: 12px 0; }
+    .conflict-group h4 { margin: 0 0 8px; }
+    .conflict-pair { display: flex; flex-wrap: wrap; gap: 8px; padding: 6px 0; }
+    .conflict-pair > div { flex: 1 1 240px; }
+    .cell-failure, .cell-irregular { white-space: normal; padding: 8px; font-size: 13px; background: #fff5f5; color: #9b2c2c; border: 1px solid #c53030; border-radius: 4px; }
+    .cell-failure button { color: inherit; background: transparent; border: 1px solid currentColor; margin-top: 6px; cursor: pointer; }
+    .cell-irregular { background: #fffaf0; color: #744210; border-color: #b7791f; }
+    .schedule-cell.conflict-target { outline: 3px solid #3182ce; outline-offset: -3px; }
+    body.dark-mode #conflictDialog { background: #1a202c; color: #e2e8f0; }
+    body.dark-mode .cell-failure { background: #451a1a; color: #fed7d7; }
+    body.dark-mode .cell-irregular { background: #44331a; color: #feebc8; }
 
     /* ── Day tabs, in the S-Dnevnik tab-bar style ───────── */
     .day-tabs-band { background: linear-gradient(to bottom, #1a1a2e 0%, #16213e 100%); border-bottom: 3px solid #0f3460; box-shadow: 0 4px 6px rgba(0,0,0,0.3); }
@@ -405,7 +422,11 @@
        flow: there the class sits above the name and needs the second line. */
     .schedule-grid:not(.compact) .schedule-cell { height: 96px; min-height: 0; }
     .schedule-grid.with-lessons:not(.compact) .schedule-cell { height: 124px; }
+    /* A refusal or contradictory legacy rows must remain readable below the editor. */
+    .schedule-grid:not(.compact) .schedule-cell:has(.cell-failure, .cell-irregular) { height: auto; min-height: 96px; }
+    .schedule-cell:has(.cell-failure, .cell-irregular) > * { flex-shrink: 0; }
     .schedule-grid:not(.compact) .schedule-cell .student-slot { min-height: 0; margin: 2px 0; }
+    .schedule-grid:not(.compact) .schedule-cell:has(.cell-failure, .cell-irregular) .student-slot { min-height: 36px; }
     .schedule-cell.odd-row { background: #f8fafc; }
     .schedule-cell:hover { background: #edf2f7; }
     .schedule-cell.saving { background: #ebf8ff; }
@@ -786,7 +807,7 @@
         @page { size: landscape; margin: 9mm; }
         body { background: #fff; }
         .mtb-app-nav, .toolbar-band, .metrics-band, .day-tabs-band, .view-tabs, .roster-tool,
-        .notice, .busy-layer, .theme-switch-wrapper, .header-state, .credit-watermark, .modal-overlay, .workflow-hint { display: none !important; }
+        .notice, .busy-layer, .theme-switch-wrapper, .header-state, .credit-watermark, .modal-overlay, .workflow-hint, #conflictDialog, .cell-failure { display: none !important; }
         .header { background: #fff; color: #000; padding: 6px 0; }
         .content { background: #fff; padding: 0; min-height: 0; }
         .workspace { display: block; }
@@ -912,9 +933,17 @@
         <div class="metric"><strong id="metricSessions">0</strong><span>сесии неделно</span></div>
         <div class="metric"><strong id="metricScheduled">0</strong><span>закажани ученици</span></div>
         <div class="metric warn"><strong id="metricWaiting">0</strong><span>без сесија</span></div>
-        <div class="metric bad"><strong id="metricConflicts">0</strong><span>конфликти</span></div>
+        <button class="metric bad" id="openConflicts" type="button" aria-haspopup="dialog" aria-describedby="conflictHelp"><strong id="metricConflicts">—</strong><span>Ученици со преклоп</span></button>
     </div>
+    <p class="conflict-help" id="conflictHelp">За избраниот приказ; ист ученик во два дена се брои двапати.</p>
 </section>
+
+<dialog id="conflictDialog" aria-labelledby="conflictTitle">
+    <div class="modal-header"><h3 id="conflictTitle">Ученици со преклоп</h3><button class="btn" id="closeConflicts" type="button">Затвори</button></div>
+    <p id="conflictScope"></p>
+    <p id="conflictStatus" role="status"></p>
+    <div id="conflictList"></div>
+</dialog>
 
 <section class="band day-tabs-band mtb-tabs-flat schedule-only" id="dayTabsBand">
     <div class="band__inner" id="dayTabs" aria-label="Работен ден"></div>
@@ -1126,7 +1155,8 @@
         classWeekClass: '', crossing: null,
         rosterTherapist: '', reportTherapists: { lists: '', visits: '' }, token: '', me: null, authRequired: false,
         bells: [], sessions: new Map(), pending: new Set(), expandedBlocks: new Set(), ticket: 0,
-        pollTicket: 0, sessionVersion: 0,
+        pollTicket: 0, sessionVersion: 0, sessionsReady: false, sessionsStale: false,
+        cellFailures: new Map(),
         // ден|термин|public_id -> каде е детето во тој термин. Полни се од
         // /api/teaching/crossing, одделно и без да го држи распоредот.
         whereabouts: new Map(), whereTicket: 0, whereOn: true, whereCell: null,
@@ -1439,36 +1469,95 @@
         return Math.max(r1.start, r2.start) < Math.min(r1.end, r2.end);
     }
 
-    function sessionConflicts() {
-        const conflicts = new Set();
+    function conflictPairs() {
+        const pairs = [];
         const entries = Array.from(state.sessions.entries()).filter(([_, s]) => Boolean(s.student_public_id));
         for (let i = 0; i < entries.length; i++) {
             const [k1, s1] = entries[i];
             for (let j = i + 1; j < entries.length; j++) {
                 const [k2, s2] = entries[j];
-                if (s1.student_public_id === s2.student_public_id && s1.day === s2.day && timesOverlap(s1.time, s2.time)) {
-                    conflicts.add(k1);
-                    conflicts.add(k2);
+                if (s1.student_public_id === s2.student_public_id && s1.day === s2.day &&
+                    String(s1.therapist_id) !== String(s2.therapist_id) && timesOverlap(s1.time, s2.time)) {
+                    pairs.push({ keys: [k1, k2], sessions: [s1, s2] });
                 }
             }
         }
-        return conflicts;
+        return pairs;
     }
 
-    function sessionConflictCount() {
-        const groups = new Set();
-        const entries = Array.from(state.sessions.values()).filter((session) => Boolean(session.student_public_id));
-        for (let i = 0; i < entries.length; i++) {
-            for (let j = i + 1; j < entries.length; j++) {
-                const first = entries[i];
-                const second = entries[j];
-                if (first.student_public_id === second.student_public_id && first.day === second.day &&
-                    timesOverlap(first.time, second.time)) {
-                    groups.add(first.day + '|' + first.student_public_id);
-                }
-            }
+    function sessionConflicts() {
+        return new Set(conflictPairs().flatMap((pair) => pair.keys));
+    }
+
+    function visibleConflictGroups() {
+        const groups = new Map();
+        conflictPairs().forEach((pair) => {
+            const s = pair.sessions[0];
+            if (state.panel !== 'classWeek' && state.view === 'day' && s.day !== state.day) return;
+            if (state.focus && !pair.sessions.some((item) => String(item.therapist_id) === String(state.focus))) return;
+            const key = s.day + '|' + s.student_public_id;
+            if (!groups.has(key)) groups.set(key, { day: s.day, pupil: s.student_public_id, name: s.student_name, pairs: [] });
+            groups.get(key).pairs.push(pair);
+        });
+        return Array.from(groups.values()).sort((a, b) => DAYS.indexOf(a.day) - DAYS.indexOf(b.day) ||
+            String(a.pupil).localeCompare(String(b.pupil)));
+    }
+
+    function drawConflictList() {
+        if (!el('conflictDialog').open) return;
+        const who = state.focus ? activeTherapists().map((t) => t.name).join(', ') : 'Сите кабинети';
+        el('conflictScope').textContent = state.year + ' · ' + who + ' · ' +
+            (state.panel === 'classWeek' || state.view === 'week' ? 'Понеделник–петок' : capitalise(state.day));
+        el('conflictStatus').textContent = !state.sessionsReady ? 'Распоредот не е вчитан.' : state.sessionsStale
+            ? 'Не успеа освежувањето. Прикажана е последната вчитана состојба.' : 'За избраниот приказ; ист ученик во два дена се брои двапати.';
+        const groups = state.sessionsReady ? visibleConflictGroups() : [];
+        el('conflictList').innerHTML = groups.map((group) => '<section class="conflict-group"><h4>' +
+            esc(capitalise(group.day) + ' · ' + (studentsById().has(group.pupil) ? studentLabel(studentsById().get(group.pupil)) : group.name || 'Непознат ученик')) + '</h4>' +
+            group.pairs.map((pair) => '<div class="conflict-pair">' + pair.sessions.map((s) => {
+                const name = s.therapist_name || state.roster?.therapists.find((t) => String(t.id) === String(s.therapist_id))?.name || 'Кабинет';
+                const locked = isRestrictedTherapist() && String(s.therapist_id) !== String(state.me.id);
+                return '<div>' + esc(name + ' · ' + spaced(s.time)) + ' <button class="btn" type="button" data-open-conflict="' +
+                    esc(encodeURIComponent(JSON.stringify({ day: s.day, time: s.time, therapist: String(s.therapist_id) }))) + '"' +
+                    (locked ? ' disabled title="Може да го отворите само сопствениот распоред"' : '') + '>Отвори</button></div>';
+            }).join('') + '</div>').join('') + '</section>').join('') ||
+            (state.sessionsReady && !state.sessionsStale ? '<p>Нема преклопи во избраниот приказ.</p>' : '');
+    }
+
+    function scheduleView() {
+        return { panel: state.panel, class: state.classWeekClass, period: state.view, cabinet: state.focus || 'all', day: state.day };
+    }
+
+    function openConflictTerm(term) {
+        if (isRestrictedTherapist() && String(term.therapist) !== String(state.me.id)) return;
+        if (panelHistory) panelHistory.settle(scheduleView());
+        el('conflictDialog').close();
+        state.panel = 'schedule';
+        state.day = term.day;
+        state.view = isRestrictedTherapist() ? 'week' : 'day';
+        state.focusMode = state.view;
+        state.focus = term.therapist;
+        drawDays();
+        drawPanel();
+        if (panelHistory) panelHistory.step(scheduleView());
+        const select = Array.from(el('scheduleGrid').querySelectorAll('select')).find((s) =>
+            s.dataset.sessionDay === term.day && s.dataset.therapistId === term.therapist &&
+            (s.dataset.sessionTime === term.time || (s.dataset.blockTime && timesOverlap(s.dataset.sessionTime, term.time))));
+        const cell = select?.closest('.schedule-cell');
+        if (cell) {
+            cell.classList.add('conflict-target');
+            cell.tabIndex = -1;
+            cell.focus();
+            cell.scrollIntoView({ block: 'center', inline: 'center' });
+            setTimeout(() => cell.classList.remove('conflict-target'), 2500);
         }
-        return groups.size;
+    }
+
+    function showCellFailure(key, message) {
+        state.cellFailures.set(key, message);
+        drawSchedule();
+        const box = Array.from(el('scheduleGrid').querySelectorAll('.cell-failure')).find((node) => node.dataset.failureKey === key);
+        if (box) { box.focus(); box.scrollIntoView({ block: 'center', inline: 'center' }); }
+        else showNotice(message, 'error');
     }
 
     function authEnforced() {
@@ -1707,7 +1796,10 @@
             sum + Array.from(therapistSessionCounts(therapist.id).values()).reduce((n, count) => n + count, 0), 0));
         el('metricScheduled').textContent = String(scheduled.size);
         el('metricWaiting').textContent = String(waiting.length);
-        el('metricConflicts').textContent = String(sessionConflictCount());
+        el('metricConflicts').textContent = state.sessionsReady && !state.sessionsStale ? String(visibleConflictGroups().length) : '—';
+        el('conflictHelp').textContent = state.sessionsStale ? 'Освежувањето не успеа; списокот е последната вчитана состојба.' :
+            'За избраниот приказ; ист ученик во два дена се брои двапати.';
+        drawConflictList();
     }
 
     function drawRosterTherapists() {
@@ -2212,7 +2304,11 @@
             const schedule = await api('/api/schedule/sessions' + query);
             if (ticket !== state.pollTicket || year !== state.year || version !== state.sessionVersion ||
                 state.pending.size || document.hidden) return;
+            if (!schedule || !Array.isArray(schedule.sessions)) throw new Error('Распоредот не е вчитан.');
             if (schedule && Array.isArray(schedule.sessions)) {
+                const recovered = state.sessionsStale;
+                state.sessionsReady = true;
+                state.sessionsStale = false;
                 const fresh = new Map();
                 schedule.sessions.forEach((s) => fresh.set(cellKey(s.day, s.time, s.therapist_id), s));
                 let changed = fresh.size !== state.sessions.size;
@@ -2229,8 +2325,14 @@
                     drawMetrics();
                     tickNow();
                 }
+                if (recovered) drawMetrics();
             }
-        } catch (_) {}
+        } catch (_) {
+            if (ticket === state.pollTicket && year === state.year) {
+                state.sessionsStale = true;
+                drawMetrics();
+            }
+        }
     }
 
     function optionsFor(therapist, selectedId, students, excludedId) {
@@ -2728,12 +2830,16 @@
         const other = block.ids[index === 0 ? 1 : 0] || '';
         const firstLabel = block.ids.length === 2 ? '1/2' : (block.partialLabel || '40′');
         const label = index === 0 ? firstLabel : '2/2';
-        const displayTime = index === 0 && block.ids.length === 2 ? block.parts[0].time
+        const displayTime = index === 0 && block.partialLabel ? block.parts[block.halves[0] ? 0 : 1].time
+            : index === 0 && block.ids.length === 2 ? block.parts[0].time
             : (index === 0 ? block.fullTime : block.parts[1].time);
         const expected = encodeURIComponent(JSON.stringify(block.ids));
         const blockKey = cellKey(day, block.fullTime, therapist.id);
         const conflicted = [block.fullTime].concat(block.parts.map((part) => part.time))
-            .some((slot) => conflicts.has(cellKey(day, slot, therapist.id))) && Boolean(selected);
+            .some((slot) => {
+                const key = cellKey(day, slot, therapist.id);
+                return conflicts.has(key) && state.sessions.get(key)?.student_public_id === selected && timesOverlap(slot, displayTime);
+            }) && Boolean(selected);
 
         let action = '';
         if (index === 0 && !showSecond) {
@@ -2782,6 +2888,7 @@
 
         let controls = '';
         if (block.invalidOverlap) {
+            controls += '<p class="cell-irregular">Преклопени записи во овој кабинет: цел термин и половина. Испразни го погрешниот запис.</p>';
             controls += legacySlotHtml(day, block.fullTime, '40′', therapist, students, conflicts);
             controls += block.parts.map((part) =>
                 legacySlotHtml(day, part.time, part.label, therapist, students, conflicts)).join('');
@@ -2790,7 +2897,10 @@
             controls += blockSlotHtml(block, day, therapist, students, 0, showSecond, conflicts);
             if (showSecond) controls += blockSlotHtml(block, day, therapist, students, 1, true, conflicts);
         }
-        return '<div class="' + classes.join(' ') + '" data-bell="' + esc(block.fullTime) + '">' + (top || '') + controls + '</div>';
+        const failures = keys.filter((key) => state.cellFailures.has(key)).map((key) =>
+            '<div class="cell-failure" tabindex="-1" role="alert" data-failure-key="' + esc(key) + '">' +
+            esc(state.cellFailures.get(key)) + '<br><button type="button" data-dismiss-failure="' + esc(key) + '">Затвори</button></div>').join('');
+        return '<div class="' + classes.join(' ') + '" data-bell="' + esc(block.fullTime) + '">' + (top || '') + controls + failures + '</div>';
     }
 
     function timeCellHtml(bell) {
@@ -2803,6 +2913,15 @@
     }
 
     function bindScheduleCells() {
+        el('scheduleGrid').querySelectorAll('[data-dismiss-failure]').forEach((button) => {
+            button.addEventListener('click', () => {
+                state.cellFailures.delete(button.dataset.dismissFailure);
+                const cell = button.closest('.schedule-cell');
+                button.closest('.cell-failure').remove();
+                cell.tabIndex = -1;
+                cell.focus();
+            });
+        });
         el('scheduleGrid').querySelectorAll('[data-block-time]').forEach((select) => {
             if (select.tagName !== 'SELECT') return;
             select.addEventListener('change', () =>
@@ -3510,11 +3629,14 @@
 
     function readableError(error) {
         const body = error && error.body;
-        if (body && body.doubleBooked) return 'Ученикот веќе е закажан кај ' + body.therapistName + ' во истиот термин.';
+        if (error instanceof TypeError && !error.status) return 'Нема врска со серверот. Обиди се повторно кога ќе се врати врската.';
+        if (body && body.doubleBooked) return 'Ученикот веќе е закажан кај ' + body.therapistName +
+            (body.time ? ' во ' + spaced(body.time) : ' во истиот термин') + (body.studentName ? ' (' + body.studentName + ')' : '') + '.';
         if (body && body.therapistOccupied) return 'Кабинетот веќе има сесија што се преклопува со овој термин.';
         if (body && body.blockOverlap) return 'Во часот има стар цел термин и половина во исто време. Испразни ги означените записи поединечно.';
         if (body && body.notInCaseload) return 'Ученикот не е во годишниот список на овој терапевт. Отвори „Ученици по терапевт“ → „Уреди список на ученици“.';
-        if (error && error.status === 409 && body && Object.prototype.hasOwnProperty.call(body, 'actualStudentPublicId')) {
+        if (error && error.status === 409 && body && (Object.prototype.hasOwnProperty.call(body, 'actualStudentPublicId') ||
+            Object.prototype.hasOwnProperty.call(body, 'actualStudentPublicIds'))) {
             return 'Терминот бил сменет од друг уред. Прикажана е состојбата од базата.';
         }
         return error && error.message ? error.message : 'Промената не е зачувана.';
@@ -3577,6 +3699,7 @@
 
         const key = cellKey(day, time, therapistId);
         const partTimes = blockPartTimes(time);
+        [key, ...partTimes.map((slot) => cellKey(day, slot, therapistId))].forEach((k) => state.cellFailures.delete(k));
         let reload = false;
         let failureMessage = '';
         state.pending.add(key);
@@ -3605,12 +3728,12 @@
         } catch (error) {
             reload = Boolean(error && error.status === 409);
             setConnection(false, 'Промената е одбиена');
-            failureMessage = readableError(error);
+            failureMessage = readableError(error) + ' Промената не е зачувана.';
         } finally {
             state.pending.delete(key);
             if (reload) await loadAll();
             else drawSchedule();
-            if (failureMessage) showNotice(failureMessage, 'error');
+            if (failureMessage) showCellFailure(key, failureMessage);
         }
     }
 
@@ -3621,6 +3744,9 @@
         const previous = select.dataset.previous || null;
         const wanted = select.value || null;
         const key = cellKey(day, time, therapistId);
+        state.cellFailures.delete(key);
+        let failureMessage = '';
+        let reload = false;
         if (wanted === previous) return;
         if (!mayEditTherapist(therapistId)) {
             drawSchedule();
@@ -3664,10 +3790,13 @@
                 } else state.sessions.delete(key);
             }
             setConnection(false, 'Промената е одбиена');
-            showNotice(readableError(error), 'error');
+            reload = Boolean(error && error.status === 409);
+            failureMessage = readableError(error) + ' Промената не е зачувана.';
         } finally {
             state.pending.delete(key);
-            drawSchedule();
+            if (reload) await loadAll();
+            else drawSchedule();
+            if (failureMessage) showCellFailure(key, failureMessage);
         }
     }
 
@@ -3931,7 +4060,10 @@
                 api('/api/schedule/sessions' + query)
             ]);
             if (ticket !== state.ticket) return;
+            if (!schedule || !Array.isArray(schedule.sessions)) throw new Error('Распоредот не е вчитан.');
             state.roster = roster;
+            state.sessionsReady = true;
+            state.sessionsStale = false;
             applyUserConstraints();
             state.bells = ((timetable.bells && timetable.bells.kabinet) || [])
                 .filter((bell) => Number(bell.minutes) === 40 && bellTime(bell));
@@ -3952,7 +4084,10 @@
             loadWhereabouts().then(() => { if (ticket === state.ticket) drawSchedule(); });
             setConnection(true, 'База: ' + (state.serverLabel || serverName(apiBase() || window.location.origin)));
         } catch (error) {
-            if (ticket !== state.ticket || quiet) return;
+            if (ticket !== state.ticket) return;
+            state.sessionsStale = true;
+            drawMetrics();
+            if (quiet) return;
             state.roster = null;
             el('scheduleGrid').innerHTML = '<div class="empty-state">Распоредот не е достапен.</div>';
             drawPanel();
@@ -3971,6 +4106,9 @@
 
     el('year').addEventListener('change', () => {
         state.year = el('year').value;
+        state.sessionsReady = false;
+        state.cellFailures.clear();
+        drawMetrics();
         state.focus = null;
         state.weekFocus = null;
         state.rosterTherapist = '';
@@ -3995,6 +4133,12 @@
         drawSchedule();
     });
     el('refresh').addEventListener('click', loadAll);
+    el('openConflicts').addEventListener('click', () => { el('conflictDialog').showModal(); drawConflictList(); });
+    el('closeConflicts').addEventListener('click', () => el('conflictDialog').close());
+    el('conflictList').addEventListener('click', (event) => {
+        const button = event.target.closest('[data-open-conflict]');
+        if (button && !button.disabled) openConflictTerm(JSON.parse(decodeURIComponent(button.dataset.openConflict)));
+    });
     el('printSheet').addEventListener('click', printSchedule);
     el('exportImage').addEventListener('click', exportScheduleImage);
     el('exportWord').addEventListener('click', exportScheduleWord);
@@ -4042,14 +4186,24 @@
     document.addEventListener('DOMContentLoaded', () => {
         const nav = window.MTBAppNavigation;
         if (!nav || !nav.views) return;
-        panelHistory = nav.views({ keys: ['panel', 'class'], show: (view) => {
+        const restoreScheduleView = (view) => {
             state.panel = panelOf(view.panel);
+            if (view.period === 'day' || view.period === 'week') {
+                state.view = view.period;
+                state.focusMode = state.panel === 'classWeek' ? 'class' : state.view;
+                state.focus = view.cabinet === 'all' ? '' : view.cabinet || '';
+                if (DAYS.includes(view.day)) state.day = view.day;
+                applyUserConstraints();
+                drawDays();
+            }
             // A step without a class is the tab's first look: its default class,
             // not whichever class was chosen after it.
             state.classWeekClass = view.class || '';
             drawPanel();
-        } });
+        };
+        panelHistory = nav.views({ keys: ['panel', 'class', 'period', 'cabinet', 'day'], show: restoreScheduleView });
         const read = panelHistory.read();
+        if (read.period) restoreScheduleView(read);
         if (read.class) state.classWeekClass = read.class;
         const wanted = read.panel;
         if (wanted === 'allDays') { state.panel = panelOf(wanted); drawPanel(); }

@@ -75,6 +75,7 @@
     "test:scratch": "node test/with-scratch.mjs",
     "test:fusion-caseload-booked": "node test/fusion-caseload-booked.browser.mjs",
     "test:fusion-undo": "node test/fusion-undo.browser.mjs",
+    "test:fusion-conflicts": "node test/fusion-conflicts.browser.mjs",
     "test:nastava-week": "node test/nastava-week.browser.mjs",
     "test:evidence": "tsx test/evidence.e2e.ts",
     "test:evidence-ui": "node test/evidence.browser.mjs",
