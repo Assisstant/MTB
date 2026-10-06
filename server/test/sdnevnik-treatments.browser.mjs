@@ -185,6 +185,48 @@ try {
         await page.$$eval('#treatBody .plan-sync-choices > label', (l) => l.length) === 6
         && new RegExp(`Уште ${first.length - 6} можности`).test(await page.textContent('.treat-rest summary'))
         && !(await page.isVisible('#treatBody input[value="1|1"]')));
+
+    console.log('\n+1: the choice drawn on the week');
+    const cellAt = (row, col) => `#treatViz tbody tr:nth-child(${row}) td:nth-child(${col})`;   // col 2 = Monday / the first therapist
+    const cellClass = (sel) => page.$eval(sel, (c) => c.className);
+    check('the therapist\'s own week is drawn, and it is not given the page\'s pin and fold',
+        await page.$eval('#treatViz table', (t) => t.getAttribute('data-treat-grid') === 'week' && t.hasAttribute('data-mtb-plain')));
+    check('the suggestion is marked on it, with the pupil in the bell',
+        (await cellClass('[data-treat-cell="2|0"]')) === 'tv-pick' && /\+ Пробен Алфа/.test(await page.textContent('[data-treat-cell="2|0"]')));
+    check('the pupil\'s own term is framed and cannot be picked',
+        /tv-own/.test(await cellClass(cellAt(1, 2))) && !(await page.$eval(cellAt(1, 2), (c) => c.hasAttribute('data-treat-cell'))));
+    check('a bell the pupil spends with another therapist is marked, with whose',
+        /tv-no/.test(await cellClass(cellAt(1, 3))) && new RegExp(`кај ${OTHER}`).test(await page.textContent(cellAt(1, 3))));
+    check('a full bell and a bell the two places disagree on are neither offered nor marked',
+        (await cellClass(cellAt(4, 5))) === '' && (await cellClass(cellAt(3, 4))) === '');
+    writes.length = 0;
+    await page.click('[data-treat-cell="3|1"]');
+    check('a click on a marked bell chooses it in the list, and the mark moves',
+        await page.$eval('#treatBody input[value="3|1"]', (i) => i.checked)
+        && (await cellClass('[data-treat-cell="3|1"]')) === 'tv-pick' && (await cellClass('[data-treat-cell="2|0"]')) === 'tv-can');
+    await page.click('[data-treat-cell="1|1"]');
+    check('a bell from the folded rest opens the fold; a shared bell shows both pupils',
+        await page.isVisible('#treatBody input[value="1|1"]') && await page.$eval('#treatBody input[value="1|1"]', (i) => i.checked)
+        && /Пробен Бета\+ Пробен Алфа \(20′\)/.test(await page.textContent('[data-treat-cell="1|1"]')));
+
+    console.log('\n+1: every therapist, for the day of the choice');
+    await page.click('[data-treat-view="day"]');
+    check('the switch names the day of the choice', /Сите терапевти · вторник/.test(await page.textContent('[data-treat-view="day"]')));
+    checkEq('a column for each therapist, the person\'s own marked',
+        await page.$$eval('#treatViz thead th', (h) => h.map((x) => x.textContent + (x.classList.contains('tv-on') ? ' *' : ''))),
+        ['Час', `${OTHER}`, `${ME}вие *`]);
+    check('the pupil is seen where they are with the other therapist that day',
+        /tv-own/.test(await cellClass(cellAt(1, 2))) && /Пробен Алфа 20′/.test(await page.textContent(cellAt(1, 2))));
+    check('and the choice is in the person\'s own column', (await cellClass('[data-treat-cell="1|1"]')) === 'tv-pick');
+    await page.check('#treatBody input[value="2|0"]');
+    check('choosing a bell on another day turns the picture to that day',
+        /Сите терапевти · среда/.test(await page.textContent('[data-treat-view="day"]'))
+        && /Туѓ Ученик/.test(await page.textContent(cellAt(1, 2))) && (await cellClass('[data-treat-cell="2|0"]')) === 'tv-pick');
+    if (process.env.SHOT) await page.screenshot({ path: path.join(process.env.SHOT, 'treatments-day-light.png') });
+    check('the view is remembered for this browser, as a look and nothing else',
+        await page.evaluate(() => localStorage.getItem('sdn_treat_view_v1')) === 'day');
+    await page.click('[data-treat-view="week"]');
+    checkEq('looking and choosing wrote nothing', writes, []);
     if (process.env.SHOT) {
         await page.screenshot({ path: path.join(process.env.SHOT, 'treatments-more-light.png') });
         await page.evaluate(() => document.body.classList.add('dark-mode'));
@@ -241,6 +283,9 @@ try {
     await page.click('#treatApply');
     check('without a choice nothing is written', writes.length === 0 && /Изберете термин/.test(await page.textContent('#treatResult')));
     await page.check('#treatBody input[value="1|1"]');
+    check('the term to take off is marked on the week, the pupil struck out and the other left',
+        (await page.$eval('[data-treat-cell="1|1"]', (c) => c.className)) === 'tv-drop'
+        && await page.$eval('[data-treat-cell="1|1"]', (c) => [...c.querySelectorAll('div')].map((d) => d.textContent + (d.classList.contains('tv-strike') ? ' ✗' : '')).join(', ')) === 'Пробен Бета, Пробен Алфа ✗');
     await page.click('#treatApply');
     await waitClosed();
     checkEq('Кабинети keeps the other pupil, with what it held as expected', blocks[0],

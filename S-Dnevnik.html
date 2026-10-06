@@ -13950,6 +13950,42 @@
         .treat-option small { display: block; opacity: .8; font-size: 12.5px; }
         .treat-option .treat-star { font-size: 12px; font-weight: 700; color: #2f855a; margin-left: 6px; }
         body.dark-mode .treat-option .treat-star { color: #9ae6b4; }
+        /* Изборот нацртан на распоредот: мојата недела, или сите терапевти за денот на изборот. */
+        .treat-content { max-width: 1120px; }
+        .treat-viz-bar { display: flex; gap: 6px; flex-wrap: wrap; margin: 0 0 8px; }
+        .treat-view { min-height: 32px; padding: 4px 12px; border-radius: 999px; border: 1px solid #a0aec0; background: #fff; color: #2d3748;
+            font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; }
+        .treat-view.on { background: #5a67d8; border-color: #5a67d8; color: #fff; }
+        body.dark-mode .treat-view { background: #1a202c; color: #e2e8f0; border-color: #718096; }
+        body.dark-mode .treat-view.on { background: #5a67d8; border-color: #5a67d8; color: #fff; }
+        .treat-viz { overflow-x: auto; margin: 0 0 12px; }
+        .treat-grid { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: 12.5px; color: #1a202c; }
+        .treat-grid.all { min-width: 880px; }
+        body.dark-mode .treat-grid { color: #f7fafc; }
+        .treat-grid th, .treat-grid td { border: 1px solid rgba(128, 128, 128, .4); padding: 4px 6px; text-align: center; vertical-align: middle;
+            line-height: 1.25; height: 40px; overflow-wrap: anywhere; }
+        .treat-grid thead th { background: rgba(102, 126, 234, .18); font-size: 12px; }
+        .treat-grid thead th:first-child { width: 78px; }
+        .treat-grid tbody th { background: rgba(128, 128, 128, .12); }
+        .treat-grid small.tv-half { display: inline; }
+        .treat-legend .lg-can { background: rgba(72, 187, 120, .5); }
+        .treat-legend .lg-pick { background: #276749; }
+        .treat-legend .lg-no { background: rgba(229, 62, 62, .45); }
+        .treat-legend .lg-drop { background: #9b2c2c; }
+        .treat-legend .lg-own { box-shadow: inset 0 0 0 2px #5a67d8; }
+        .treat-grid small { display: block; font-weight: 400; font-size: 11px; opacity: .85; }
+        .treat-grid thead th.tv-on { background: #5a67d8; color: #fff; }
+        .treat-grid td.tv-can { background: rgba(72, 187, 120, .16); cursor: pointer; outline: 1px dashed rgba(47, 133, 90, .8); outline-offset: -3px; }
+        .treat-grid td.tv-no { background: rgba(229, 62, 62, .14); }
+        .treat-grid td.tv-own { box-shadow: inset 0 0 0 2px #5a67d8; }
+        .treat-grid td.tv-pick { background: #276749; color: #fff; outline: none; }
+        .treat-grid td.tv-drop { background: #9b2c2c; color: #fff; outline: none; }
+        .treat-grid .tv-him { font-weight: 700; }
+        .treat-grid .tv-strike { text-decoration: line-through; }
+        .treat-grid .tv-free { font-style: italic; opacity: .8; }
+        .treat-legend { margin: 6px 0 0; font-size: 12px; opacity: .85; }
+        .treat-legend i { display: inline-block; width: 12px; height: 12px; border-radius: 3px; vertical-align: -2px; margin: 0 4px 0 10px; }
+        .treat-legend i:first-child { margin-left: 0; }
         .treat-rest { margin-top: 4px; }
         .treat-rest summary, .treat-blocked summary { cursor: pointer; font-size: 13px; font-weight: 700; padding: 3px 6px; }
         .treat-blocked { margin-top: 10px; font-size: 13px; }
@@ -13960,9 +13996,14 @@
         }
     </style>
     <div id="treatModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="treatTitle">
-        <div class="modal-content plan-sync-content">
+        <div class="modal-content plan-sync-content treat-content">
             <h3 id="treatTitle">Третмани неделно</h3>
             <p id="treatLead" class="plan-sync-lead"></p>
+            <div class="treat-viz-bar" role="group" aria-label="Приказ на распоредот">
+                <button type="button" class="treat-view" data-treat-view="week">Мојата недела</button>
+                <button type="button" class="treat-view" data-treat-view="day">Сите терапевти · <span id="treatDayName"></span></button>
+            </div>
+            <div id="treatViz" class="treat-viz"></div>
             <div id="treatBody"></div>
             <p id="treatNote" class="plan-sync-note"></p>
             <div class="plan-sync-actions">
@@ -13998,7 +14039,8 @@
         'use strict';
 
         var DAY_FULL = ['понеделник', 'вторник', 'среда', 'четврток', 'петок'];
-        var state = { mode: '', student: null, pid: '', snapshot: null, options: [], busy: false };
+        var VIEW_KEY = 'sdn_treat_view_v1';      // само изглед: кој приказ е отворен
+        var state = { mode: '', student: null, pid: '', snapshot: null, options: [], busy: false, found: null, view: 'week', vizDay: 0 };
 
         function el(id) { return document.getElementById(id); }
         function esc(v) {
@@ -14106,7 +14148,7 @@
 
         function drawMore() {
             var s = state.student, found = suggest(state.pid, state.snapshot.therapistId, cellsOf(state.snapshot), state.snapshot.sessions);
-            state.options = found.options;
+            state.options = found.options; state.found = found;
             var mine = cellsOf(state.snapshot).filter(function (c) { return c.mine.some(function (p) { return p.pid === state.pid; }); }).length;
             var others = state.snapshot.sessions.filter(function (x) {
                 return String(x.student_public_id || '') === state.pid && String(x.therapist_id) !== String(state.snapshot.therapistId);
@@ -14159,7 +14201,7 @@
 
         function drawLess() {
             var s = state.student, terms = termsOf(s);
-            state.options = terms;
+            state.options = terms; state.found = null;
             el('treatTitle').textContent = '−1 третман — ' + s.name;
             el('treatApply').textContent = 'Тргни';
             el('treatApply').style.display = terms.length ? '' : 'none';
@@ -14182,7 +14224,113 @@
             el('treatNote').textContent = '';
         }
 
-        function show() { el('treatModal').classList.add('active'); }
+        // ── изборот нацртан на распоредот (сопственикот, 6 октомври 2026) ──────
+        // Листата кажува ШТО може; ова покажува КАДЕ е тоа во неделата и, на
+        // прекинувачот, што имаат сите терапевти тој ден. Само цртање од веќе
+        // прочитаното — не чита и не пишува ништо свое.
+
+        /** Кои часови можат да се изберат (can) и кои се зафатени кај друг терапевт (no), по клуч „ден|час". */
+        function marks() {
+            var can = {}, no = {};
+            state.options.forEach(function (o) { can[o.key] = o; });
+            if (state.found) state.found.blocked.forEach(function (o) { no[o.key] = o; });
+            return { can: can, no: no };
+        }
+
+        function rowHead(ti) { return '<th>' + esc(timeSlots[ti].label) + '<small>' + esc(timeSlots[ti].time) + '</small></th>'; }
+
+        /** Една ќелија од МОЈОТ распоред: што има сега и што би се сменило со изборот. */
+        function myCell(key, pick, m) {
+            var s = state.student, more = state.mode === 'more';
+            var here = state.snapshot.kabinetiAt(key).map(function (p) { return { name: p.name, him: p.pid === state.pid }; });
+            // „−" ги чита термините од дневникот: ученик што Кабинети го нема во часот сепак се гледа.
+            if (!more && m.can[key] && !here.some(function (p) { return p.him; })) here.push({ name: s.name, him: true });
+            var picked = !!pick && pick.key === key;
+            var cls = picked ? (more ? 'tv-pick' : 'tv-drop')
+                : [m.can[key] ? 'tv-can' : '', m.no[key] ? 'tv-no' : '', here.some(function (p) { return p.him; }) ? 'tv-own' : ''].filter(Boolean).join(' ');
+            var html = here.map(function (p) {
+                return '<div' + (p.him ? ' class="tv-him' + (picked && !more ? ' tv-strike' : '') + '"' : '') + '>' + esc(p.name) + '</div>';
+            }).join('');
+            if (more && picked) html += '<div class="tv-him">+ ' + esc(s.name) + (pick.share ? ' (20′)' : '') + '</div>';
+            else if (more && m.can[key] && !here.length) html += '<span class="tv-free">слободно</span>';
+            if (m.no[key] && !picked) html += '<small>кај ' + esc(m.no[key].clash.therapist) + '</small>';
+            return '<td' + (cls ? ' class="' + cls + '"' : '') + (m.can[key] ? ' data-treat-cell="' + key + '"' : '') + '>' + html + '</td>';
+        }
+
+        function weekHtml(pick) {
+            var m = marks();
+            var head = '<tr><th>Час</th>' + days.map(function (d, di) {
+                return '<th' + (pick && pick.day === di ? ' class="tv-on"' : '') + '>' + esc(d) + '</th>';
+            }).join('') + '</tr>';
+            var body = timeSlots.map(function (_, ti) {
+                return '<tr>' + rowHead(ti) + daysEng.map(function (_, di) { return myCell(di + '|' + ti, pick, m); }).join('') + '</tr>';
+            }).join('');
+            return '<table class="treat-grid" data-mtb-plain data-treat-grid="week"><thead>' + head + '</thead><tbody>' + body + '</tbody></table>';
+        }
+
+        /** Сите терапевти за еден ден: колона по терапевт, ред по час; вашата колона е истата ќелија како во неделата. */
+        function dayHtml(pick) {
+            var m = marks(), day = state.vizDay, me = String(state.snapshot.therapistId);
+            var nameOf = {};
+            state.snapshot.sessions.forEach(function (x) { if (x.therapist_id != null) nameOf[String(x.therapist_id)] = x.therapist_name; });
+            if (!nameOf[me]) nameOf[me] = state.snapshot.me;
+            var ids = Object.keys(nameOf).sort(function (a, b) { return String(nameOf[a]).localeCompare(String(nameOf[b]), 'mk'); });
+            var bells = timeSlots.map(function (t) { return span(t.time); });
+            var grid = {}, later = [];      // „ред|терапевт" → сесии; later = часови по петтиот, со своето време
+            state.snapshot.sessions.forEach(function (x) {
+                if (!x.student_public_id || DAY_FULL.indexOf(norm(x.day)) !== day) return;
+                var at = span(x.time);
+                if (!at) return;
+                var row = -1;
+                bells.forEach(function (b, i) { if (row < 0 && at.start < b.end && b.start < at.end) row = i; });
+                if (row < 0) {
+                    var hit = later.filter(function (e) { return at.start < e.end && e.start < at.end; })[0];
+                    if (!hit) { hit = { start: at.start, end: Math.max(at.end, at.start + 40), id: 'x' + at.start }; later.push(hit); }
+                    row = hit.id;
+                }
+                var k = row + '|' + x.therapist_id;
+                (grid[k] || (grid[k] = [])).push({ start: at.start, name: x.student_name,
+                    him: String(x.student_public_id) === state.pid, half: at.end - at.start <= 20 });
+            });
+            later.sort(function (a, b) { return a.start - b.start; });
+            var clock = function (n) { return String(Math.floor(n / 60)).padStart(2, '0') + ':' + String(n % 60).padStart(2, '0'); };
+            var rows = timeSlots.map(function (_, i) { return { id: i, slot: i, head: rowHead(i) }; })
+                .concat(later.map(function (e) { return { id: e.id, slot: -1, head: '<th>' + clock(e.start) + '<small>по V час</small></th>' }; }));
+            var head = '<tr><th>Час</th>' + ids.map(function (id) {
+                return '<th' + (id === me ? ' class="tv-on"' : '') + '>' + esc(nameOf[id]) + (id === me ? '<small>вие</small>' : '') + '</th>';
+            }).join('') + '</tr>';
+            var body = rows.map(function (r) {
+                return '<tr>' + r.head + ids.map(function (id) {
+                    if (id === me && r.slot >= 0) return myCell(day + '|' + r.slot, pick, m);
+                    var list = (grid[r.id + '|' + id] || []).sort(function (a, b) { return a.start - b.start; });
+                    return '<td' + (list.some(function (p) { return p.him; }) ? ' class="tv-own"' : '') + '>' + list.map(function (p) {
+                        return '<div' + (p.him ? ' class="tv-him"' : '') + '>' + esc(p.name) + (p.half ? ' <small class="tv-half">20′</small>' : '') + '</div>';
+                    }).join('') + '</td>';
+                }).join('') + '</tr>';
+            }).join('');
+            return '<table class="treat-grid all" data-mtb-plain data-treat-grid="day"><thead>' + head + '</thead><tbody>' + body + '</tbody></table>';
+        }
+
+        function legend() {
+            return '<p class="treat-legend">' + (state.mode === 'more'
+                ? '<i class="lg-can"></i>може<i class="lg-pick"></i>избрано<i class="lg-no"></i>ученикот е кај друг терапевт'
+                : '<i class="lg-drop"></i>се трга') +
+                '<i class="lg-own"></i>' + esc(state.student.name) + ' веќе е тука · клик на обележан час го избира</p>';
+        }
+
+        function paintViz() {
+            var pick = chosen();
+            if (pick) state.vizDay = pick.day;
+            el('treatViz').innerHTML = (state.view === 'day' ? dayHtml(pick) : weekHtml(pick)) + legend();
+            el('treatDayName').textContent = DAY_FULL[state.vizDay];
+            Array.prototype.forEach.call(el('treatModal').querySelectorAll('[data-treat-view]'), function (b) {
+                var on = b.getAttribute('data-treat-view') === state.view;
+                b.classList.toggle('on', on);
+                b.setAttribute('aria-pressed', on ? 'true' : 'false');
+            });
+        }
+
+        function show() { paintViz(); el('treatModal').classList.add('active'); }
         function close() { el('treatModal').classList.remove('active'); state.mode = ''; state.options = []; }
         function setBusy(on) {
             state.busy = on;
@@ -14239,6 +14387,8 @@
                 if (!snapshot) return;
                 state.mode = mode;
                 (mode === 'more' ? drawMore : drawLess)();
+                try { state.view = localStorage.getItem(VIEW_KEY) === 'day' ? 'day' : 'week'; } catch (e) { state.view = 'week'; }
+                state.vizDay = state.options.length ? state.options[0].day : 0;
                 show();
             });
         }
@@ -14247,6 +14397,27 @@
             el('treatApply').addEventListener('click', function () { if (!state.busy) apply(); });
             el('treatClose').addEventListener('click', function () { if (!state.busy) close(); });
             document.addEventListener('keydown', function (event) { if (event.key === 'Escape' && isOpen() && !state.busy) close(); });
+            // Изборот во листата се црта на распоредот; клик на обележан час го избира во листата.
+            el('treatBody').addEventListener('change', function (event) {
+                if (event.target && event.target.name === 'treat-option') paintViz();
+            });
+            el('treatViz').addEventListener('click', function (event) {
+                var cell = event.target.closest ? event.target.closest('[data-treat-cell]') : null;
+                if (!cell || state.busy) return;
+                var input = el('treatBody').querySelector('input[name="treat-option"][value="' + cell.getAttribute('data-treat-cell') + '"]');
+                if (!input) return;
+                var fold = input.closest('details');
+                if (fold) fold.open = true;
+                input.checked = true;
+                paintViz();
+            });
+            el('treatModal').querySelector('.treat-viz-bar').addEventListener('click', function (event) {
+                var button = event.target.closest ? event.target.closest('[data-treat-view]') : null;
+                if (!button || state.busy) return;
+                state.view = button.getAttribute('data-treat-view') === 'day' ? 'day' : 'week';
+                try { localStorage.setItem(VIEW_KEY, state.view); } catch (e) { /* storage unavailable */ }
+                paintViz();
+            });
         }
 
         window.SdnTreatments = {
