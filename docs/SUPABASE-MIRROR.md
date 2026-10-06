@@ -43,6 +43,29 @@ Bearer key само на `GET /api/mirror/snapshot`. Тој key не отвор�
 
 ## Безбедна подготовка (не е дозвола за live промена)
 
+### HOME reader — одобрена подготовка, 6 октомври 2026
+
+Постојната HOME mirror база е стара (38 миграции, копија од 22 септември).
+Нов reader не ја прави ажурирана. За веќе подготвена mirror-база и посебни
+reader/writer URL во игнорираниот `server/.env`:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\setup-mirror-reader.ps1
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\setup-mirror-reader.ps1 -Apply
+```
+
+Првата команда проверува без промени. Втората приватно ја бара **локалната
+PostgreSQL postgres лозинка**, не лозинката за MTB/Google. Не ја чува во
+датотека и не ја печати. Создава нов SELECT-only reader и RLS политики само
+на постојните mirror деловни табели и трите migration/status ledgers;
+одбива да менува веќе постојна сметка. Проверува читање на сите редови,
+отсуство на права за пишување/создавање објекти и нова најава. Credentials
+и session табели не добиваат SELECT. Не прави миграции, преземање, apply на
+snapshot, сервер или автоматска задача. `therapy_dev` останува недопрена.
+Потребна е superuser најава бидејќи постојните app/sync улоги немаат CREATEROLE.
+Ова е еднократна подготовка: по идно проширување на шемата, новите grants
+се разгледуваат одделно, не се доделуваат автоматски на сите идни табели.
+
 Пред пилот треба посебно одобрение за: Render env,
 создавање локална база/roles и првото `--apply`.
 
