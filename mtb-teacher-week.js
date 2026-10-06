@@ -452,6 +452,20 @@
     const say = (state, text) => window.dispatchEvent(new CustomEvent('mtb:data-state', { detail: { state, text } }));
     const toast = (text, kind) => { const n = window.MTBAppNavigation; if (n && n.toast) n.toast(text, kind); };
 
+    /** One period through the one route; a refusal is thrown as the sentence `sorry` makes of it. */
+    async function putLesson(base, payload) {
+        const res = await fetch(base + '/api/teaching/teacher-lesson', {
+            method: 'PUT',
+            cache: 'no-store',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        let body = null;
+        try { body = await res.json(); } catch (_) { /* not JSON */ }
+        if (!res.ok) throw Object.assign(new Error(sorry(res, body)), { body });
+        return body;
+    }
+
     async function save(ctx, td, changed, together, typed) {
         const data = ctx.data();
         const base = ctx.apiBase();
@@ -479,22 +493,33 @@
         const saying = `${teacher} · ${day} · ${ordinal}. час`;
         say('saving', 'Се запишува: ' + saying);
         try {
-            const res = await fetch(base + '/api/teaching/teacher-lesson', {
-                method: 'PUT',
-                cache: 'no-store',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    year: data.year, day, ordinal, teacher,
-                    class: cls || null, subject: subject || null,
-                    expected: { class: was || null },
-                    ...(together ? { together: true } : {})
-                })
+            const lesson = { year: data.year, day, ordinal, teacher };
+            await putLesson(base, {
+                ...lesson, class: cls || null, subject: subject || null,
+                expected: { class: was || null },
+                ...(together ? { together: true } : {})
             });
-            let body = null;
-            try { body = await res.json(); } catch (_) { /* not JSON */ }
-            if (!res.ok) throw Object.assign(new Error(sorry(res, body)), { body });
             await ctx.reload();
             const nav = window.MTBAppNavigation;
+            // „Врати": the same route, the other way round, with what THIS
+            // write left as `expected` — a period somebody changed since is
+            // refused, not overwritten. A period that was co-taught before
+            // is not forced back; the refusal says the class is taken.
+            if (nav && nav.undo) {
+                const turn = async (to, from) => {
+                    await putLesson(base, {
+                        ...lesson, class: to.cls || null, subject: to.subject || null,
+                        expected: { class: from || null },
+                        ...(to.together ? { together: true } : {})
+                    });
+                    await ctx.reload();
+                };
+                nav.undo.record({
+                    label: saying,
+                    undo: () => turn({ cls: was, subject: wasSubject }, cls),
+                    redo: () => turn({ cls, subject, together }, was)
+                });
+            }
             const now = ctx.data() || data;
             const label = cls && nav && nav.classes && classCards(now).has(cls) ? nav.classes.short(classCards(now).get(cls)) : cls;
             const done = cls ? `${saying} — ${label}${subject ? ' · ' + subject : ''}` : `${saying} — слободен`;

@@ -3476,6 +3476,36 @@
         return error && error.message ? error.message : 'Промената не е зачувана.';
     }
 
+    /**
+     * „Врати" / „Повтори" за еден час (сопственикот, 6 октомври 2026). Истиот
+     * писател, обратно, со она што ОВАА измена го оставила како `expected`:
+     * час што некој го сменил во меѓувреме се одбива, не се прегазува. Потоа
+     * се чита базата — така екранот е точен и ако годината е сменета.
+     */
+    function rememberBlockForUndo(block, before, after) {
+        const nav = window.MTBAppNavigation;
+        if (!nav || !nav.undo) return;
+        const therapist = ((state.roster && state.roster.therapists) || []).find((t) => Number(t.id) === Number(block.therapistId));
+        const turn = async (to, from) => {
+            try {
+                await api('/api/schedule/block', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ ...block, studentPublicIds: to, expectedStudentPublicIds: from })
+                });
+            } catch (error) {
+                if (error && error.status === 409) await loadAll();
+                throw new Error(readableError(error));
+            }
+            await loadAll();
+        };
+        nav.undo.record({
+            label: [therapist ? therapist.name : '', block.day, block.time].filter(Boolean).join(' · '),
+            undo: () => turn(before, after),
+            redo: () => turn(after, before)
+        });
+    }
+
     async function saveBlock(select) {
         const cell = select.closest('.schedule-cell');
         const controls = Array.from(cell.querySelectorAll('[data-block-part]'))
@@ -3527,6 +3557,7 @@
             });
             if (wanted.length < 2) state.expandedBlocks.delete(key);
             setConnection(true, 'Зачувано');
+            rememberBlockForUndo({ year: state.year, day, time, therapistId }, expected, wanted);
         } catch (error) {
             reload = Boolean(error && error.status === 409);
             setConnection(false, 'Промената е одбиена');

@@ -54,6 +54,7 @@ const crossing = () => ({
 });
 
 const writes = [];
+let refuseNext = null;        // what the lesson route answers next, when not 200
 const browser = await chromium.launch({ ...(process.env.CHROME ? { executablePath: process.env.CHROME } : {}) });
 const context = await browser.newContext({ viewport: { width: 1500, height: 1000 }, serviceWorkers: 'block' });
 await context.route('**/*', async (route) => {
@@ -65,6 +66,7 @@ await context.route('**/*', async (route) => {
         if (p === '/api/teaching/teacher-lesson' && req.method() === 'PUT') {
             const b = JSON.parse(req.postData() || '{}');
             writes.push(b);
+            if (refuseNext) { const answer = refuseNext; refuseNext = null; return json(409, answer); }
             // What the server would now hold, so the reload shows it.
             const at = cells.findIndex((c) => c.teacher === b.teacher && c.day === b.day && c.ordinal === b.ordinal);
             if (at >= 0) cells.splice(at, 1);
@@ -162,6 +164,51 @@ try {
     const w3 = writes[2] || {};
     check('„✕ слободен час" frees the period, against what was there',
         w3.class === null && w3.expected && w3.expected.class === 'VI-б', JSON.stringify(w3));
+
+    // „Врати" / „Повтори" (owner, 6 Oct 2026): the last writes of this window,
+    // taken back through the SAME route with what each left as `expected`.
+    console.log('\n↶ Врати / ↷ Повтори');
+    const undoBtn = '.mtb-undo [data-mtb-undo="undo"]', redoBtn = '.mtb-undo [data-mtb-undo="redo"]';
+    const pill = () => page.$$eval('.mtb-undo button', (bs) => bs.map((b) => b.textContent + (b.disabled ? ' off' : '')));
+    const toastText = () => page.$eval('.mtb-toast', (t) => t.dataset.kind + ': ' + t.textContent).catch(() => '');
+    check('three writes, three steps to take back, nothing to repeat', JSON.stringify(await pill()) === JSON.stringify(['↶ Врати (3)', '↷ Повтори off']), JSON.stringify(await pill()));
+    check('the button says which change it would take back', /Врати: .*Пре Предметна · вторник · 2\. час/.test(await page.getAttribute(undoBtn, 'title')));
+    await page.click(undoBtn);
+    await waitWrites(4);
+    const u1 = writes[3] || {};
+    check('„Врати" writes the period back as it was, through the same route',
+        u1.teacher === PRED && u1.day === 'вторник' && u1.ordinal === 2 && u1.class === 'VI-б' && u1.subject === 'Англиски јазик', JSON.stringify(u1));
+    check('against what the change left there', u1.expected && u1.expected.class === null, JSON.stringify(u1.expected));
+    await page.waitForFunction((s) => (document.querySelector(s) || { dataset: {} }).dataset.class === 'VI-б', cell('вторник', 2), { timeout: 5000 }).catch(() => {});
+    check('the sheet is read again and shows it', (await page.$eval(cell('вторник', 2), (td) => td.dataset.class)) === 'VI-б');
+    check('and it is said', /^synced: .*Вратено: .*вторник · 2\. час/.test(await toastText()), await toastText());
+    check('one step less to take back, one to repeat', JSON.stringify(await pill()) === JSON.stringify(['↶ Врати (2)', '↷ Повтори (1)']), JSON.stringify(await pill()));
+    await page.click(redoBtn);
+    await waitWrites(5);
+    const r1 = writes[4] || {};
+    check('„Повтори" makes the change again, against what „Врати" put back', r1.class === null && r1.expected && r1.expected.class === 'VI-б', JSON.stringify(r1));
+    // While a step is being written both buttons are off; the key waits for it like a click does.
+    await page.waitForFunction((s) => !document.querySelector(s).disabled, undoBtn, { timeout: 5000 });
+    await page.locator(undoBtn).focus();
+    await page.keyboard.press('Control+z');
+    await waitWrites(6);
+    await page.waitForFunction((s) => !document.querySelector(s).disabled, undoBtn, { timeout: 5000 });
+    check('Ctrl+Z is the same „Врати"', (writes[5] || {}).class === 'VI-б' && JSON.stringify(await pill()) === JSON.stringify(['↶ Врати (2)', '↷ Повтори (1)']), JSON.stringify(writes[5]));
+    // Somebody changed that period since: the server refuses, nothing is forced.
+    refuseNext = { error: 'changed', code: 'stale' };
+    await page.click(undoBtn);
+    await waitWrites(7);
+    await page.waitForFunction(() => (document.querySelector('.mtb-toast') || { dataset: {} }).dataset.kind === 'error', null, { timeout: 5000 }).catch(() => {});
+    check('a period somebody changed since is not forced back: the refusal is said', /^error: .*Не е вратено — .*среда · 1\. час: Некој друг го смени/.test(await toastText()), await toastText());
+    check('that step is dropped, the others stay', JSON.stringify(await pill()) === JSON.stringify(['↶ Врати (1)', '↷ Повтори (1)']), JSON.stringify(await pill()));
+    check('ten steps are kept, the oldest forgotten', await page.evaluate(() => {
+        const u = window.MTBAppNavigation.undo;
+        for (let i = 0; i < 12; i++) u.record({ label: 'проба ' + i, undo: async () => {}, redo: async () => {} });
+        const kept = u.depth();
+        u.clear();
+        return kept.undo === 10 && kept.redo === 0 && u.depth().undo === 0;
+    }));
+    check('with nothing to take back the control is out of the way', await page.$eval('.mtb-undo', (n) => n.hidden));
 
     console.log('\n🔒 заклучено пак');
     await page.click(sheet + ' thead th:first-child [data-p-lock]');

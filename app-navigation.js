@@ -484,6 +484,22 @@
             a.mtb-app-nav__menu-row { box-sizing: border-box; margin-top: 6px; text-decoration: none; border-top: 1px solid #33414f; border-radius: 0 0 7px 7px; }
             .mtb-app-nav__menu-note { font-size: 10px; opacity: .55; padding: 7px 9px 3px; }
             @media print { .mtb-app-nav__menu { display: none !important; } }
+            .mtb-undo {
+                position: fixed; left: 50%; bottom: 18px; transform: translateX(-50%); z-index: 9400;
+                display: flex; gap: 6px; padding: 5px; border-radius: 999px;
+                background: #18202c; border: 1px solid #303b4b;
+                box-shadow: 0 8px 26px rgba(0, 0, 0, .34);
+            }
+            .mtb-undo[hidden] { display: none; }
+            .mtb-undo button {
+                min-height: 32px; padding: 4px 14px; border-radius: 999px; border: 1px solid #3b4a5e;
+                background: #243244; color: #eef3f8; cursor: pointer; white-space: nowrap;
+                font: 700 13px/1.2 system-ui, -apple-system, "Segoe UI", sans-serif;
+            }
+            .mtb-undo button:hover:not(:disabled) { background: #2f4460; }
+            .mtb-undo button:disabled { opacity: .45; cursor: default; }
+            @media (max-width: 620px) { .mtb-undo { bottom: 64px; } }
+            @media print { .mtb-undo { display: none !important; } }
             .mtb-toast {
                 position: fixed; right: 18px; bottom: 18px; z-index: 9500;
                 max-width: min(430px, calc(100vw - 36px));
@@ -1826,9 +1842,123 @@
         });
     }
 
+    /**
+     * „Врати" и „Повтори" — едно за сите екрани (owner, 6 Oct 2026: „yesterday
+     * I entered a timetable into another teacher's week, on the wrong day — it
+     * is nice to have undo up to 10 steps, and redo").
+     *
+     * A screen that writes one fact at a time says how that write is taken
+     * back: `undo.record({ label, undo, redo })` after the server accepted it.
+     * Ten steps each way, kept in this window's memory only — after a reload
+     * the page no longer knows what the steps rested on, and a stale undo is
+     * worse than none.
+     *
+     * NOT a rollback. The database is shared: by the time „Врати" is pressed a
+     * colleague may have changed the same cell. So a step's `undo` is an
+     * ordinary write through the screen's own route, carrying `expected` =
+     * what this window's change left behind. If that is no longer there the
+     * server refuses, the refusal is shown in its own words and the step is
+     * dropped — nobody's later work is overwritten to restore mine.
+     *
+     * The control is a pill of its own, not part of the bar: inside the
+     * workspace a page has no bar, and this still has to be within reach.
+     * Ctrl+Z / Ctrl+Y work when the cursor is not in a field (there the
+     * browser's own text undo keeps its meaning).
+     */
+    const UNDO_LIMIT = 10;
+    const undoing = { done: [], undone: [], busy: false, node: null };
+
+    function paintUndo() {
+        if (!document.body) return;
+        const any = undoing.done.length + undoing.undone.length > 0;
+        if (!undoing.node) {
+            if (!any) return;
+            addStyles();
+            const node = document.createElement('div');
+            node.className = 'mtb-undo';
+            node.setAttribute('role', 'group');
+            node.setAttribute('aria-label', 'Врати или повтори ја последната измена');
+            for (const which of ['undo', 'redo']) {
+                const button = document.createElement('button');
+                button.type = 'button';
+                button.dataset.mtbUndo = which;
+                button.addEventListener('click', () => runUndo(which));
+                node.appendChild(button);
+            }
+            document.body.appendChild(node);
+            undoing.node = node;
+        }
+        undoing.node.hidden = !any;
+        for (const which of ['undo', 'redo']) {
+            const stack = which === 'undo' ? undoing.done : undoing.undone;
+            const button = undoing.node.querySelector(`[data-mtb-undo="${which}"]`);
+            const next = stack[stack.length - 1];
+            button.disabled = undoing.busy || !next;
+            button.textContent = (which === 'undo' ? '↶ Врати' : '↷ Повтори') + (stack.length ? ` (${stack.length})` : '');
+            button.title = next ? (which === 'undo' ? 'Врати: ' : 'Повтори: ') + next.label
+                : which === 'undo' ? 'Нема што да се врати' : 'Нема што да се повтори';
+        }
+    }
+
+    /** After a write the server accepted: how to take it back, and how to make it again. */
+    function recordUndo(step) {
+        // A write made BY „Врати" is not a new step.
+        if (undoing.busy || !step || typeof step.undo !== 'function') return;
+        undoing.done.push({ label: String(step.label || 'измена'), undo: step.undo, redo: step.redo });
+        if (undoing.done.length > UNDO_LIMIT) undoing.done.shift();
+        undoing.undone = [];
+        paintUndo();
+    }
+
+    async function runUndo(which) {
+        const back = which !== 'redo';
+        const from = back ? undoing.done : undoing.undone;
+        const to = back ? undoing.undone : undoing.done;
+        if (undoing.busy || !from.length) return false;
+        const step = from.pop();
+        undoing.busy = true;
+        paintUndo();
+        try {
+            const act = back ? step.undo : step.redo;
+            if (typeof act !== 'function') throw new Error('овој чекор не може да се повтори');
+            await act();
+            to.push(step);
+            if (to.length > UNDO_LIMIT) to.shift();
+            showToast((back ? 'Вратено: ' : 'Повторено: ') + step.label, 'synced');
+            return true;
+        } catch (error) {
+            // The step no longer fits what the database holds. It is dropped;
+            // the others stay, and each will check itself the same way.
+            showToast((back ? 'Не е вратено — ' : 'Не е повторено — ') + step.label + ': ' +
+                (error && error.message ? error.message : 'серверот одби'), 'error');
+            return false;
+        } finally {
+            undoing.busy = false;
+            paintUndo();
+        }
+    }
+
+    function clearUndo() { undoing.done = []; undoing.undone = []; paintUndo(); }
+
+    document.addEventListener('keydown', (event) => {
+        if (!(event.ctrlKey || event.metaKey) || event.altKey) return;
+        const key = String(event.key || '').toLowerCase();
+        const which = key === 'z' ? (event.shiftKey ? 'redo' : 'undo') : key === 'y' ? 'redo' : '';
+        if (!which) return;
+        const at = event.target;
+        if (at && (at.isContentEditable || /^(input|textarea|select)$/i.test(at.tagName || ''))) return;
+        if (!(which === 'undo' ? undoing.done : undoing.undone).length) return;
+        event.preventDefault();
+        runUndo(which);
+    });
+
     window.MTBAppNavigation = {
         refresh: render, checkHealth, checkUser, logout: logoutUser,
         reportDataState, toast: showToast, hideToast,
+        // „Врати" / „Повтори": a screen records how its last write is taken
+        // back; ten steps each way, in this window, checked by the server.
+        undo: { record: recordUndo, run: runUndo, clear: clearUndo, limit: UNDO_LIMIT,
+            depth: () => ({ undo: undoing.done.length, redo: undoing.undone.length }) },
         // The watermark's look, as the server hands it out (`lookCss`): the
         // administrator's „🎨 Изглед" shows a saved look at once in its own
         // window; the other windows take it from their next health check.
