@@ -87,7 +87,7 @@ try {
     const bad=await call('/api/diary/ongoing-plan',{...first,id:randomUUID(),baseVersion:0});
     check('stale diary cannot be overwritten',bad.status===409 && bad.body.diaryConflict);
     console.log('\nThe real diary: in-cell dropdowns and the confirmed onward choice');
-    browser=await chromium.launch();
+    browser=await chromium.launch({...(process.env.CHROME?{executablePath:process.env.CHROME}:{})});
     const context=await browser.newContext({viewport:{width:1440,height:1000}});
     await context.addInitScript(()=>{
         localStorage.setItem('my_therapist_v1','Измислен Терапевт Неделен');

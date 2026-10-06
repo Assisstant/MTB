@@ -1971,6 +1971,8 @@
                         title="Ги копира сите термини од прикажаната недела, за да се залепат во друга">📋 Копирај ја неделата</button>
                 <button id="weekPasteBtn" class="btn" style="display: none;" onclick="pasteWeek()"
                         title="Ја залепува копираната недела во прикажаната. Во оваа или идна недела прашува дали важи и за наредните.">📥 Залепи</button>
+                <button id="weekPasteManyBtn" class="btn" style="display: none;" onclick="openWeekPastePicker()"
+                        title="Календар на неделите од учебната година: изберете во кои да се залепи копираната недела, со можност и за сите наредни.">📅 Залепи во избрани недели</button>
                 <button id="lockToggleBtn" class="btn" style="background: #e53e3e; color: white; margin-left: auto;" onclick="togglePastWeekLock()">
                     🔒 Измината седмица е заклучена
                 </button>
@@ -4850,6 +4852,9 @@
                 var viewedKey = calText(monday);
                 pasteBtn.style.display = clip && clip.from !== viewedKey ? 'inline-block' : 'none';
                 if (clip) pasteBtn.textContent = '📥 Залепи (од ' + weekLabel(clip.from).replace(/\.\d{4}$/, '') + ')';
+                // Календарот се нуди штом има копирана недела — и на самата копирана.
+                var manyBtn = document.getElementById('weekPasteManyBtn');
+                if (manyBtn) manyBtn.style.display = clip && window.MTB_MIRROR_READONLY !== true ? 'inline-block' : 'none';
             }
 
             if (monday < currentMondayStart) {
@@ -5001,28 +5006,11 @@
             });
         }
 
-        function pasteWeek() {
-            if (window.MTB_MIRROR_READONLY === true) {
-                alert('Ова е копија само за читање. Распоредот се менува во облакот.');
-                return Promise.resolve(false);
-            }
-            var clip = readWeekClip();
-            if (!clip) {
-                alert('Нема копирана недела. Отвори ја неделата што ја сакаш и стисни „📋 Копирај ја неделата“.');
-                return Promise.resolve(false);
-            }
-            var key = getWeekKey();
-            var current = thisWeekKey();
-            var isPast = key < current;
-            if (key === clip.from) {
-                alert('Ова е истата недела што е копирана. Отвори друга недела, па залепи.');
-                return Promise.resolve(false);
-            }
-            if (isPast && !pastWeeksUnlocked) {
-                alert('Минатата недела е заклучена.\n\nКликнете на „🔒 Измината седмица е заклучена“ за да ја отклучите, па залепете повторно.');
-                return Promise.resolve(false);
-            }
-
+        /**
+         * Копираната недела како распоред за една целна недела: само учениците
+         * што смеат таму (минатата: и поранешните и архивираните — тоа е запис).
+         */
+        function pastedFromClip(clip, isPast) {
             // Кои ученици смеат во таа недела.
             var known = {};
             var admit = function (list) {
@@ -5046,7 +5034,54 @@
                     pasted[day].push(ids);
                 }
             });
-            var leftCount = Object.keys(left).length;
+            return { pasted: pasted, leftCount: Object.keys(left).length };
+        }
+
+        /**
+         * Една недела го добива залепениот распоред, „само таа": минатата како
+         * своја снимка; оваа или идна — а од следната важи што важело дотогаш.
+         * Не зачувува и не црта; `pasted` станува сопственост на таа недела.
+         */
+        function putPastedWeek(key, pasted) {
+            var current = thisWeekKey();
+            if (key < current) {
+                keepWeekBeforeAsShown(key);
+                scheduleHistory[key] = pasted;
+                return;
+            }
+            var next = shiftWeekKey(key, 1);
+            var after = copyWeek(planForWeek(next));      // што важело од следната, пред залепувањето
+            if (key === current) daysEng.forEach(function (day) { schedule[day] = pasted[day]; });
+            else planFrom[key] = pasted;
+            if (!planFrom[next]) planFrom[next] = after;
+            compactPlanFrom();
+        }
+
+        function pasteWeek() {
+            if (window.MTB_MIRROR_READONLY === true) {
+                alert('Ова е копија само за читање. Распоредот се менува во облакот.');
+                return Promise.resolve(false);
+            }
+            var clip = readWeekClip();
+            if (!clip) {
+                alert('Нема копирана недела. Отвори ја неделата што ја сакаш и стисни „📋 Копирај ја неделата“.');
+                return Promise.resolve(false);
+            }
+            var key = getWeekKey();
+            var current = thisWeekKey();
+            var isPast = key < current;
+            if (key === clip.from) {
+                alert('Ова е истата недела што е копирана. Отвори друга недела, па залепи.');
+                return Promise.resolve(false);
+            }
+            if (isPast && !pastWeeksUnlocked) {
+                alert('Минатата недела е заклучена.\n\nКликнете на „🔒 Измината седмица е заклучена“ за да ја отклучите, па залепете повторно.');
+                return Promise.resolve(false);
+            }
+
+            var built = pastedFromClip(clip, isPast);
+            var pasted = built.pasted;
+            var leftCount = built.leftCount;
             var target = getScheduleForWeek(key);
             var laterPlans = Object.keys(planFrom || {}).filter(function (k) { return k > key; });
             // Минатата се споредува со нејзиниот распоред, без учениците што се
@@ -5082,17 +5117,7 @@
                     console.warn('S-Dnevnik: резервата пред залепувањето не успеа:', e);
                     if (!confirm('Резервната копија не успеа. Да залепам и без неа?')) throw e;
                 }).then(function () {
-                    if (choice === 'past') {
-                        keepWeekBeforeAsShown(key);
-                        scheduleHistory[key] = pasted;
-                    } else {
-                        var next = shiftWeekKey(key, 1);
-                        var after = copyWeek(planForWeek(next));      // што важело од следната, пред залепувањето
-                        if (key === current) daysEng.forEach(function (day) { schedule[day] = pasted[day]; });
-                        else planFrom[key] = pasted;
-                        if (choice === 'only' && !planFrom[next]) planFrom[next] = after;
-                        compactPlanFrom();
-                    }
+                    putPastedWeek(key, pasted);       // „past" во минатата, „only" во оваа или идна
                     saveData();
                     renderSchedule();
                     renderStudentListSimple();
@@ -5105,6 +5130,192 @@
                     return true;
                 });
             }).catch(function () { return false; });
+        }
+
+        // ── Залепи во избрани недели — календар ───────────────────────────
+        /**
+         * Сопственикот (6 октомври 2026): „кога имаме копирана недела, да даде
+         * календар со недели за да можам да селектирам каде да се залепи — на
+         * кои избрани недели, или со опција за идните и така натаму“.
+         *
+         * „📅 Залепи во избрани недели“ ги покажува неделите од учебната година
+         * по месеци. Секоја избрана недела го добива копираниот распоред „само
+         * таа“ — по истото правило како „📥 Залепи“ (`putPastedWeek`), недела
+         * по недела, од најраната. Со „и сите наредни“ последната избрана оди по
+         * потврдениот пат „Од оваа недела натаму — Дневник, Кабинети и Колега“
+         * (`SdnPlanSync.publishWeek`), со неговата посебна потврда.
+         *
+         * Копираната недела и заклучените минати недели не можат да се изберат.
+         * Една резерва пред сè; недела што е веќе иста се прескокнува и се брои.
+         */
+        var MONTHS_MK = ['Јануари', 'Февруари', 'Март', 'Април', 'Мај', 'Јуни', 'Јули', 'Август', 'Септември', 'Октомври', 'Ноември', 'Декември'];
+
+        /** Понеделниците на учебната година, како клучеви, по ред. */
+        function schoolYearWeekKeys() {
+            var keys = [];
+            if (!schoolCalendar || !schoolCalendar.yearStart || !schoolCalendar.yearEnd) return keys;
+            var cur = mondayOf(schoolCalendar.yearStart);
+            while (cur < schoolCalendar.yearEnd && keys.length < 60) {
+                keys.push(calText(cur));
+                cur.setDate(cur.getDate() + 7);
+            }
+            return keys;
+        }
+
+        function pasteIntoWeeks(keys, onward) {
+            var clip = readWeekClip();
+            if (!clip || !keys.length) return Promise.resolve(false);
+            var current = thisWeekKey();
+            var sorted = keys.slice().sort();
+            var last = onward ? sorted[sorted.length - 1] : '';
+            var singles = onward ? sorted.slice(0, -1) : sorted;
+            var past = pastedFromClip(clip, true).pasted, live = pastedFromClip(clip, false).pasted;
+            var forWeek = function (k) { return k < current ? past : live; };
+            var todo = singles.filter(function (k) {
+                var stored = k < current ? (pastWeekBase(k).base || {}) : planForWeek(k);
+                return !sameWeek(forWeek(k), stored);
+            });
+            var same = singles.length - todo.length;
+            if (!todo.length && !onward) {
+                alert(singles.length === 1 ? 'Неделата ' + weekLabel(singles[0]) + ' е веќе иста како копираната.'
+                    : 'Избраните недели се веќе исти како копираната.');
+                return Promise.resolve(false);
+            }
+            var backup = (todo.length && window.SdnV3 && typeof window.SdnV3.backup === 'function')
+                ? window.SdnV3.backup('before_week_paste') : Promise.resolve();
+            return Promise.resolve(backup).catch(function (e) {
+                console.warn('S-Dnevnik: резервата пред залепувањето не успеа:', e);
+                if (!confirm('Резервната копија не успеа. Да залепам и без неа?')) throw e;
+            }).then(function () {
+                // Од најраната: „само таа“ на една недела го чува она што важело по неа.
+                todo.forEach(function (k) { putPastedWeek(k, copyWeek(forWeek(k))); });
+                if (todo.length) {
+                    saveData();
+                    renderSchedule();
+                    renderStudentListSimple();
+                    updateStats();
+                    if (window.SdnPlanSync && todo.some(function (k) { return k >= current; })) window.SdnPlanSync.refresh();
+                }
+                var said = todo.length ? 'Залепено во ' + todo.length + (todo.length === 1 ? ' недела' : ' недели') +
+                    (same ? '; ' + same + ' веќе ' + (same === 1 ? 'беше иста' : 'беа исти') : '') + '.' : '';
+                if (!onward) {
+                    if (typeof window.showToast === 'function') window.showToast(said);
+                    return true;
+                }
+                // Постојаниот план: само активни ученици, и неговата посебна потврда.
+                return window.SdnPlanSync.publishWeek(copyWeek(live), last).then(function (ok) {
+                    if (typeof window.showToast === 'function') {
+                        window.showToast((said ? said + ' ' : '') + (ok ? 'Од ' + weekLabel(last) + ' натаму: потврдено за Дневник, Кабинети и Колега.'
+                            : 'Постојаниот план од ' + weekLabel(last) + ' НЕ е потврден — таа недела и наредните се како пред тоа.'));
+                    }
+                    return ok || todo.length > 0;
+                });
+            }).catch(function () { return false; });
+        }
+
+        function openWeekPastePicker() {
+            if (window.MTB_MIRROR_READONLY === true) { alert('Ова е копија само за читање. Распоредот се менува во облакот.'); return; }
+            var clip = readWeekClip();
+            if (!clip) { alert('Нема копирана недела. Отвори ја неделата што ја сакаш и стисни „📋 Копирај ја неделата“.'); return; }
+            var old = document.getElementById('weekPickModal');
+            if (old) old.remove();
+
+            var current = thisWeekKey(), shown = getWeekKey();
+            var weeks = schoolYearWeekKeys();
+            var chosen = {};
+            var short = function (k) { return weekLabel(k).replace(/\.\d{4}$/, ''); };
+            var esc = function (v) { return String(v == null ? '' : v).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); };
+            var canPick = function (k) { return k !== clip.from && (k >= current || pastWeeksUnlocked); };
+            if (weeks.indexOf(shown) >= 0 && canPick(shown)) chosen[shown] = true;
+
+            var modal = document.createElement('div');
+            modal.id = 'weekPickModal';
+            modal.className = 'modal active';
+            modal.setAttribute('role', 'dialog');
+            modal.setAttribute('aria-modal', 'true');
+            modal.setAttribute('aria-labelledby', 'weekPickTitle');
+            var box = document.createElement('div');
+            box.className = 'modal-content week-pick-content';
+            modal.appendChild(box);
+
+            var busy = false;
+            var onKey = function (e) { if (e.key === 'Escape' && !busy) close(); };
+            function close() { modal.remove(); document.removeEventListener('keydown', onKey); }
+
+            function draw() {
+                var picked = weeks.filter(function (k) { return chosen[k]; });
+                var hasLockedPast = !pastWeeksUnlocked && weeks.some(function (k) { return k < current && k !== clip.from; });
+                var onwardOn = !!(box.querySelector('#weekPickOnward') || {}).checked;
+                var left = pastedFromClip(clip, false).leftCount;
+                var month = '', html = '';
+                weeks.forEach(function (k) {
+                    var monday = calDate(k), info = getSchoolWeekInfo(monday);
+                    var m = MONTHS_MK[monday.getMonth()] + ' ' + monday.getFullYear();
+                    if (m !== month) { html += (month ? '</div>' : '') + '<h4 class="wk-month">' + m + '</h4><div class="wk-row">'; month = m; }
+                    var isPast = k < current, source = k === clip.from, locked = isPast && !pastWeeksUnlocked && !source;
+                    var own = isPast ? weekHasTerms(scheduleHistory[k]) : !!(planFrom && planFrom[k]);
+                    var cls = ['wk', isPast ? 'past' : (k === current ? 'now' : 'next'), chosen[k] ? 'on' : '', source ? 'source' : '', locked ? 'locked' : ''].filter(Boolean).join(' ');
+                    var note = source ? 'копирана' : k === current ? 'оваа недела' : info.isHoliday ? 'распуст' : info.week ? 'седмица ' + info.week : '';
+                    var why = source ? 'Ова е копираната недела.' : locked ? 'Минатите недели се заклучени.' : '';
+                    html += '<button type="button" class="' + cls + '" data-week="' + k + '" aria-pressed="' + (chosen[k] ? 'true' : 'false') + '"' +
+                        (source || locked ? ' disabled' : '') + (why ? ' title="' + why + '"' : '') + '>' +
+                        '<b>' + esc(short(k)) + '</b><small>' + (locked ? '🔒 ' : '') + esc(note) + (own ? ' ●' : '') + '</small></button>';
+                });
+                if (month) html += '</div>';
+                var lastPicked = picked.length ? picked[picked.length - 1] : '';
+                box.innerHTML =
+                    '<h3 id="weekPickTitle">Залепи во избрани недели</h3>' +
+                    '<p class="wk-lead">Копирана е неделата <b>' + esc(weekLabel(clip.from)) + '</b> (' + weekTerms(clip.week) + ' ученици во термини). ' +
+                    'Кликнете на неделите што треба да го добијат истиот распоред.</p>' +
+                    (weeks.length ? '<div class="wk-calendar">' + html + '</div>' : '<p class="wk-lead">Учебната година нема внесен почеток и крај (Сервер и резерви → Учебна година).</p>') +
+                    '<p class="wk-legend"><i class="lg-past"></i>мината<i class="lg-now"></i>оваа недела<i class="lg-next"></i>идна' +
+                    '<i class="lg-on"></i>избрана · ● има свој зачуван распоред</p>' +
+                    (hasLockedPast ? '<p class="wk-note">🔒 Минатите недели се заклучени. <button type="button" class="btn" id="weekPickUnlock">🔓 Отклучи ги</button></p>' : '') +
+                    '<label class="wk-onward"><input type="checkbox" id="weekPickOnward"' + (onwardOn ? ' checked' : '') + (picked.length ? '' : ' disabled') + '>' +
+                    '<span>… и сите наредни: од ' + (lastPicked ? esc(short(lastPicked)) : 'последната избрана недела') +
+                    ' натаму — Дневник, Кабинети и Колега (со посебна потврда)</span></label>' +
+                    '<p class="wk-note" id="weekPickSummary">' + (picked.length
+                        ? 'Избрани: ' + picked.length + (picked.length === 1 ? ' недела' : ' недели') + ' — ' + picked.map(short).map(esc).join(', ') + '. ' +
+                          'Секоја го добива копираниот распоред само за себе; ознаките за присуство остануваат. Пред тоа се прави резервна копија.'
+                        : 'Нема избрана недела.') +
+                    (left ? ' ' + left + ' ученик(ци) што не се во „Мои ученици“ не се ставаат во оваа и во идните недели.' : '') + '</p>' +
+                    '<div class="plan-sync-actions">' +
+                    '<button type="button" class="btn" id="weekPickClear"' + (picked.length ? '' : ' disabled') + '>Испразни го изборот</button>' +
+                    '<button type="button" class="btn btn-primary" id="weekPickApply"' + (picked.length ? '' : ' disabled') + '>Залепи' +
+                    (picked.length ? ' во ' + picked.length + (picked.length === 1 ? ' недела' : ' недели') : '') + '</button>' +
+                    '<button type="button" class="btn" id="weekPickClose">Откажи</button></div>';
+            }
+
+            box.addEventListener('click', function (e) {
+                if (busy || !e.target.closest) return;
+                var tile = e.target.closest('[data-week]');
+                if (tile && !tile.disabled) {
+                    var k = tile.getAttribute('data-week');
+                    if (chosen[k]) delete chosen[k]; else chosen[k] = true;
+                    var top = box.querySelector('.wk-calendar').scrollTop;
+                    draw();
+                    box.querySelector('.wk-calendar').scrollTop = top;
+                    return;
+                }
+                var id = (e.target.closest('button') || {}).id;
+                if (id === 'weekPickClose') close();
+                else if (id === 'weekPickClear') { chosen = {}; draw(); }
+                else if (id === 'weekPickUnlock') { if (!pastWeeksUnlocked) togglePastWeekLock(); draw(); }
+                else if (id === 'weekPickApply') {
+                    var keys = weeks.filter(function (k) { return chosen[k]; });
+                    var onward = box.querySelector('#weekPickOnward').checked;
+                    if (!keys.length) return;
+                    busy = true;
+                    close();
+                    pasteIntoWeeks(keys, onward);
+                }
+            });
+            modal.addEventListener('click', function (e) { if (e.target === modal && !busy) close(); });
+            document.addEventListener('keydown', onKey);
+            draw();
+            document.body.appendChild(modal);
+            var focus = box.querySelector('.wk.on') || box.querySelector('.wk:not([disabled])');
+            if (focus) { focus.focus(); if (focus.scrollIntoView) focus.scrollIntoView({ block: 'center' }); }
         }
 
         function updateLockButtonAppearance() {
@@ -13950,6 +14161,41 @@
         .treat-option small { display: block; opacity: .8; font-size: 12.5px; }
         .treat-option .treat-star { font-size: 12px; font-weight: 700; color: #2f855a; margin-left: 6px; }
         body.dark-mode .treat-option .treat-star { color: #9ae6b4; }
+        /* „Залепи во избрани недели": календар на неделите од учебната година (openWeekPastePicker). */
+        .week-pick-content { max-width: 860px; }
+        .week-pick-content h3 { margin: 0 0 8px; }
+        .wk-lead, .wk-note { margin: 0 0 10px; font-size: 14px; line-height: 1.5; }
+        .wk-calendar { max-height: 44vh; overflow-y: auto; border: 1px solid rgba(128, 128, 128, .4); border-radius: 10px; padding: 8px 10px; margin-bottom: 8px; }
+        .wk-month { margin: 10px 0 4px; font-size: 13px; }
+        .wk-month:first-child { margin-top: 0; }
+        .wk-row { display: flex; flex-wrap: wrap; gap: 6px; }
+        .wk { min-width: 116px; padding: 6px 10px; border-radius: 10px; border: 1px solid #a0aec0; background: #fff; color: #1a202c;
+            font: inherit; font-size: 13px; line-height: 1.25; text-align: center; cursor: pointer; }
+        .wk small { display: block; font-size: 11px; opacity: .85; }
+        .wk.past { background: #edf2f7; }
+        .wk.next { background: #f0fff4; }
+        .wk.now { border-color: #dd6b20; box-shadow: inset 0 0 0 1px #dd6b20; }
+        .wk.source { border-style: dashed; }
+        .wk.on { background: #5a67d8; border-color: #5a67d8; color: #fff; box-shadow: none; }
+        .wk:disabled { opacity: .5; cursor: default; }
+        body.dark-mode .wk { background: #1a202c; color: #f7fafc; border-color: #718096; }
+        body.dark-mode .wk.past { background: #232b3a; }
+        body.dark-mode .wk.next { background: #1c3a2c; }
+        body.dark-mode .wk.now { border-color: #ed8936; box-shadow: inset 0 0 0 1px #ed8936; }
+        body.dark-mode .wk.on { background: #5a67d8; border-color: #5a67d8; color: #fff; box-shadow: none; }
+        .wk-legend { margin: 0 0 10px; font-size: 12px; opacity: .9; }
+        .wk-legend i { display: inline-block; width: 12px; height: 12px; border-radius: 3px; border: 1px solid #a0aec0; vertical-align: -2px; margin: 0 4px 0 10px; }
+        .wk-legend i:first-child { margin-left: 0; }
+        .wk-legend .lg-past { background: #edf2f7; }
+        .wk-legend .lg-next { background: #f0fff4; }
+        .wk-legend .lg-now { border-color: #dd6b20; box-shadow: inset 0 0 0 1px #dd6b20; }
+        .wk-legend .lg-on { background: #5a67d8; border-color: #5a67d8; }
+        body.dark-mode .wk-legend .lg-past { background: #232b3a; }
+        body.dark-mode .wk-legend .lg-next { background: #1c3a2c; }
+        .wk-onward { display: flex; gap: 8px; align-items: flex-start; margin: 0 0 10px; font-size: 14px; line-height: 1.4; cursor: pointer; }
+        .wk-onward input { margin-top: 3px; flex: none; accent-color: #5a67d8; }
+        .wk-note .btn { min-height: 30px; border-radius: 999px; padding: 3px 12px; font-size: 13px; font-weight: 700; margin-left: 6px; }
+
         /* Изборот нацртан на распоредот: мојата недела, или сите терапевти за денот на изборот. */
         .treat-content { max-width: 1120px; }
         .treat-viz-bar { display: flex; gap: 6px; flex-wrap: wrap; margin: 0 0 8px; }
