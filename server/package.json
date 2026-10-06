@@ -109,6 +109,7 @@
     "test:zero-id": "node test/sdnevnik-zero-id.browser.mjs",
     "test:weeks": "node test/sdnevnik-weeks.browser.mjs",
     "test:week-picker": "node test/sdnevnik-week-picker.browser.mjs",
+    "test:class-lessons": "node test/sdnevnik-class-lessons.browser.mjs",
     "test:diary-list": "node test/sdnevnik-caseload.browser.mjs",
     "test:twins": "node test/podatoci-twins.browser.mjs",
     "test:merge": "node test/with-scratch.mjs test/student-merge.e2e.ts",

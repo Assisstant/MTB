@@ -1973,6 +1973,9 @@
                         title="Ја залепува копираната недела во прикажаната. Во оваа или идна недела прашува дали важи и за наредните.">📥 Залепи</button>
                 <button id="weekPasteManyBtn" class="btn" style="display: none;" onclick="openWeekPastePicker()"
                         title="Календар на неделите од учебната година: изберете во кои да се залепи копираната недела, со можност и за сите наредни.">📅 Залепи во избрани недели</button>
+                <label id="lessonClassWrap" class="lesson-class" style="display: none;"
+                       title="Во секој термин го покажува часот што избраната паралелка го има тогаш (1–6), според внесената настава. Учениците од таа паралелка се обележани.">Паралелка
+                    <select id="lessonClass" data-class-picker></select></label>
                 <button id="lockToggleBtn" class="btn" style="background: #e53e3e; color: white; margin-left: auto;" onclick="togglePastWeekLock()">
                     🔒 Измината седмица е заклучена
                 </button>
@@ -14142,6 +14145,202 @@
 
         document.addEventListener('DOMContentLoaded', start);
         if (document.readyState !== 'loading') start();
+    })();
+    </script>
+
+    <!-- Часовите на една паралелка во термините на распоредот (како „По одделение" во Кабинети). -->
+    <style>
+        .lesson-class { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 700; color: #2d3748; }
+        .lesson-class select { font: inherit; font-size: 13px; min-height: 34px; max-width: 320px; padding: 4px 10px; border-radius: 999px;
+            border: 1px solid #a0aec0; background: #fff; color: #1a202c; }
+        body.dark-mode .lesson-class { color: #e2e8f0; }
+        body.dark-mode .lesson-class select { background: #1a202c; color: #f7fafc; border-color: #718096; }
+        .sdn-lesson-line { display: flex; align-items: baseline; gap: 6px; min-width: 0; margin: 0 2px 3px; padding: 3px 8px;
+            border-radius: 6px; background: #fff7e6; border: 1px solid #f6d58e; color: #744210; font-size: 12.5px; line-height: 1.3;
+            white-space: nowrap; overflow: hidden; align-self: stretch; cursor: default; }
+        .sdn-lesson-line b { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+        .sdn-lesson-line span { flex: 1 1 0; min-width: 0; overflow: hidden; text-overflow: ellipsis; font-size: 11.5px; color: #8a5a14; }
+        .sdn-lesson-line.none { background: transparent; border-style: dashed; border-color: #cbd5e0; color: #5f6b7d; font-weight: 600; }
+        body.dark-mode .sdn-lesson-line { background: #3b2f1a; border-color: #8a6420; color: #fbd38d; }
+        body.dark-mode .sdn-lesson-line span { color: #f6c97a; }
+        body.dark-mode .sdn-lesson-line.none { background: transparent; border-color: #4a5568; color: #a0aec0; }
+        /* Ученик од избраната паралелка: тој го пропушта тој час. */
+        .student-slot.in-lesson-class { box-shadow: inset 0 0 0 2px #f6ad55; }
+        @media print { .lesson-class { display: none !important; } }
+    </style>
+    <script>
+    // ═══════════════════════════════════════════════════════════════════════
+    // ЧАСОВИТЕ НА ПАРАЛЕЛКАТА ВО ТЕРМИНИТЕ (сопственикот, 6 октомври 2026: „при
+    // уредувањето да одберам паралелка, за да имам увид третманот на кој час
+    // е — како решението што го имам“, т.е. Кабинети → „По одделение“).
+    //
+    // ШТО ПРАВИ. Во лентата на распоредот се избира паралелка; над секој
+    // термин стои часот што таа го има тогаш (1–6: предмет и наставник), а
+    // учениците од паралелката се обележани — тие го пропуштаат тој час.
+    //
+    // НИШТО НЕ СЕ ПРЕСМЕТУВА ТУКА. На кој час паѓа 40-минутен термин е одговор
+    // на вкрстувањето (`bells.cabinet[].covers` од /api/teaching/crossing,
+    // lib/crossing.ts — единствената копија), истото што го чита Кабинети.
+    // Се нудат паралелките на „Мои ученици“. Само приказ: не запишува ништо и
+    // не го допира распоредот — редот се додава по секое цртање на мрежата.
+    // Наставата нема недели, па часот е според СЕГАШНИОТ распоред и за мината.
+    // Без сервер изборот не се нуди.
+    // ═══════════════════════════════════════════════════════════════════════
+    (function () {
+        'use strict';
+
+        var KEY = 'sdn_lesson_class_v1';          // само изглед: која паралелка е избрана
+        var DAY_FULL = ['понеделник', 'вторник', 'среда', 'четврток', 'петок'];
+        var state = { label: '', crossing: null, index: new Map(), loading: null, failed: false };
+
+        function el(id) { return document.getElementById(id); }
+        function esc(v) {
+            return String(v == null ? '' : v).replace(/[&<>"']/g, function (c) {
+                return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+            });
+        }
+        function base() {
+            var srv = window.SdnLocalSrv;
+            return (srv && typeof srv.getUrl === 'function') ? srv.getUrl() : '';
+        }
+        function getJson(path) {
+            return fetch(base() + path, { cache: 'no-store' }).then(function (r) {
+                if (!r.ok) throw new Error('HTTP ' + r.status);
+                return r.json();
+            });
+        }
+
+        function load(again) {
+            if (!base()) return Promise.resolve(false);
+            if (state.loading) return state.loading;
+            if (state.crossing && !again) return Promise.resolve(true);
+            state.loading = Promise.all([getJson('/api/teaching/crossing'), getJson('/api/roster').catch(function () { return null; })])
+                .then(function (answers) {
+                    var nav = window.MTBAppNavigation;
+                    state.crossing = { cells: answers[0].cells || [], blocks: (answers[0].bells && answers[0].bells.cabinet) || [] };
+                    state.index = answers[1] && nav && nav.classes ? nav.classes.index(answers[1]) : new Map();
+                    state.failed = false;
+                    return true;
+                })
+                .catch(function () { state.failed = true; return false; })
+                .then(function (ok) { state.loading = null; return ok; });
+            return state.loading;
+        }
+
+        /** Паралелките на „Мои ученици", по редот на годишниот список. */
+        function offered() {
+            var mine = {};
+            (window.students || []).forEach(function (s) { if (s && s.grade) mine[String(s.grade)] = true; });
+            var shown = new Map();
+            state.index.forEach(function (info, label) { if (mine[label]) shown.set(label, info); });
+            return shown;
+        }
+
+        function paintPicker() {
+            var wrap = el('lessonClassWrap'), select = el('lessonClass');
+            if (!wrap || !select) return;
+            var shown = offered();
+            wrap.style.display = base() && shown.size ? 'inline-flex' : 'none';
+            if (state.label && !shown.has(state.label)) state.label = '';
+            var nav = window.MTBAppNavigation;
+            select.innerHTML = nav && nav.classes
+                ? nav.classes.optionsHtml(shown, state.label, { empty: '— без часови —' })
+                : '<option value="">— без часови —</option>';
+            select.value = state.label;
+        }
+
+        /** Часот на паралелката во еден термин: редот над ќелијата. */
+        function lineFor(dayIndex, slotIndex) {
+            var want = String(timeSlots[slotIndex].time).split('-')[0].trim();
+            var block = state.crossing.blocks.filter(function (b) { return b.startsAt === want && Number(b.minutes) === 40; })[0];
+            var cover = block ? (block.covers || []).filter(function (c) { return Number(c.ordinal) <= 6; })
+                .sort(function (a, b) { return b.minutes - a.minutes; })[0] : null;
+            var lessons = cover ? state.crossing.cells.filter(function (c) {
+                return c.day === DAY_FULL[dayIndex] && Number(c.ordinal) === Number(cover.ordinal) && c.class === state.label;
+            }) : [];
+            var line = document.createElement('div');
+            line.className = 'sdn-lesson-line' + (lessons.length ? '' : ' none');
+            line.dataset.lessonLine = dayIndex + '|' + slotIndex;
+            if (!lessons.length) {
+                line.textContent = (cover ? cover.ordinal + '. час · ' : '') + 'нема час';
+                return line;
+            }
+            // Два реда за еден час се паралелка што учи во групи: се кажуваат двата.
+            var subject = lessons.map(function (l) { return l.subject || 'без предмет'; }).join(' / ');
+            var teacher = lessons.map(function (l) { return l.teacher || 'без наставник'; }).join(' / ');
+            line.title = cover.ordinal + '. час · ' + subject + ' · ' + teacher;
+            line.innerHTML = '<b>' + esc(cover.ordinal + '. ' + subject) + '</b><span>' + esc(teacher) + '</span>';
+            return line;
+        }
+
+        /** По секое цртање на мрежата: редовите на часовите и ознаката на учениците. */
+        function decorate() {
+            var grid = el('scheduleGrid');
+            if (!grid) return;
+            Array.prototype.forEach.call(grid.querySelectorAll('.sdn-lesson-line'), function (n) { n.remove(); });
+            Array.prototype.forEach.call(grid.querySelectorAll('.student-slot.in-lesson-class'), function (n) { n.classList.remove('in-lesson-class'); });
+            if (!state.label || !state.crossing) return;
+            Array.prototype.forEach.call(grid.querySelectorAll('.schedule-cell[data-day], .schedule-cell-half[data-day]'), function (cell) {
+                // Средниот дел на поделена ќелија припаѓа на двата термина; редот го носат половините.
+                if (cell.classList.contains('schedule-cell') && cell.parentElement && cell.parentElement.classList.contains('schedule-cell-split')) return;
+                var di = daysEng.indexOf(cell.dataset.day), ti = Number(cell.dataset.time);
+                if (di < 0 || !(ti >= 0) || !timeSlots[ti]) return;
+                var slots = cell.classList.contains('merged') && timeSlots[ti + 1] ? [ti + 1, ti] : [ti];
+                slots.forEach(function (t) { cell.insertBefore(lineFor(di, t), cell.firstChild); });
+            });
+            var ofClass = {};
+            (window.students || []).forEach(function (s) { if (s && String(s.grade) === state.label) ofClass[String(s.id)] = true; });
+            Array.prototype.forEach.call(grid.querySelectorAll('.student-slot[data-sid]'), function (slot) {
+                if (ofClass[slot.dataset.sid]) slot.classList.add('in-lesson-class');
+            });
+        }
+
+        function choose(label) {
+            state.label = label || '';
+            try { if (state.label) localStorage.setItem(KEY, state.label); else localStorage.removeItem(KEY); } catch (e) { /* storage unavailable */ }
+            if (!state.label) { decorate(); return; }
+            load().then(function (ok) {
+                if (!ok && typeof window.showToast === 'function') window.showToast('Часовите на паралелката не се вчитани — серверот не одговори.');
+                decorate();
+            });
+        }
+
+        function start() {
+            var grid = el('scheduleGrid'), select = el('lessonClass');
+            if (!grid || !select) return;
+            try { state.label = localStorage.getItem(KEY) || ''; } catch (e) { state.label = ''; }
+            select.addEventListener('change', function () { choose(select.value); });
+            // Мрежата се црта од многу места; редовите се враќаат по секое од нив.
+            // Сопствените измени (додаден ред) не се „ново цртање": тие не го менуваат бројот на ќелии.
+            var busy = false;
+            new MutationObserver(function (changes) {
+                if (busy) return;
+                var redrawn = changes.some(function (c) { return c.target === grid; });
+                if (!redrawn) return;
+                busy = true;
+                try { paintPicker(); decorate(); } finally { setTimeout(function () { busy = false; }, 0); }
+                // Серверот може да е поставен подоцна: тогаш часовите се читаат при првото цртање по тоа.
+                if (base() && !state.crossing && !state.loading && !state.failed) first();
+            }).observe(grid, { childList: true });
+            // Списокот на паралелки треба годишниот список; се чита еднаш, кога има сервер.
+            var first = function () {
+                if (!base()) return;
+                load().then(function () { paintPicker(); if (state.label) decorate(); });
+            };
+            // По вчитувањето на дневникот и на заедничката лента (како „⇄ Кабинети").
+            setTimeout(function () {
+                first();
+                var nav = window.MTBAppNavigation;
+                if (nav && typeof nav.onDataChange === 'function') {
+                    nav.onDataChange(function () { load(true).then(function () { paintPicker(); decorate(); }); },
+                        { busy: function () { return !!document.querySelector('.modal.active, .schedule-pickers'); } });
+                }
+            }, 2500);
+        }
+
+        window.SdnClassLessons = { choose: choose, refresh: function () { return load(true).then(function () { paintPicker(); decorate(); }); } };
+
+        if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start); else start();
     })();
     </script>
 
