@@ -1463,14 +1463,27 @@ header.top h1 { flex: 1; min-width: 180px; }
                 +'<w:sectPr><w:pgSz w:w="16839" w:h="11907" w:orient="landscape"/><w:pgMar w:top="680" w:right="680" w:bottom="680" w:left="680" w:header="0" w:footer="0" w:gutter="0"/></w:sectPr></w:body></w:document>'
         };
         if (generic) {
-            const n=report.columns.length, widths=Array.from({length:n},(_,i)=> n>10 ? (i===0?2800:Math.floor(12678/(n-1))) : Math.floor(15478/n));
-            const tableRow=(values,head=false)=>'<w:tr><w:trPr>'+(head?'<w:tblHeader/>':'')+'</w:trPr>'+values.map((s,i)=>
+            // A report may ask for an upright sheet, its own column shares and
+            // its note under the table (the duty rota); the others stay as they were.
+            const n=report.columns.length, total=report.portrait ? 10547 : 15478;
+            const share=Array.isArray(report.widths) && report.widths.length===n ? report.widths.reduce((a,b)=>a+b,0) : 0;
+            const widths=share ? report.widths.map(w=>Math.floor(total*w/share))
+                : Array.from({length:n},(_,i)=> n>10 ? (i===0?2800:Math.floor(12678/(n-1))) : Math.floor(total/n));
+            const tableRow=(values,head=false)=>'<w:tr><w:trPr>'+(report.portrait?'<w:cantSplit/>':'')+(head?'<w:tblHeader/>':'')+'</w:trPr>'+values.map((s,i)=>
                 cell(String(s).split('\n').map(line=>'<w:p>'+run(line,head)+'</w:p>').join(''),widths[i],head?'F1F3F5':'')).join('')+'</w:tr>';
-            files['word/document.xml']='<w:document xmlns:w="'+ns+'"><w:body>'+(preparerLine()?p(preparerLine()):'')+p(report.title,'Title')+p(report.subtitle)+p(report.note || '')+p('')
-                +'<w:tbl><w:tblPr><w:tblW w:w="15478" w:type="dxa"/><w:tblLayout w:type="fixed"/><w:tblBorders>'
-                +['top','left','bottom','right','insideH','insideV'].map(edge=>'<w:'+edge+' w:val="single" w:sz="4" w:color="D9D9D9"/>').join('')+'</w:tblBorders></w:tblPr><w:tblGrid>'
+            const noteLines=String(report.note || '').split('\n').map(line=>line.trim()).filter(Boolean);
+            const note=report.noteAfter ? noteLines.map(line=>p(line)).join('') : p(report.note || '');
+            files['word/document.xml']='<w:document xmlns:w="'+ns+'"><w:body>'+(preparerLine()?p(preparerLine()):'')+p(report.title,'Title')+p(report.subtitle)+(report.noteAfter ? '' : note)+p('')
+                +'<w:tbl><w:tblPr><w:tblW w:w="'+total+'" w:type="dxa"/><w:tblLayout w:type="fixed"/><w:tblBorders>'
+                +['top','left','bottom','right','insideH','insideV'].map(edge=>'<w:'+edge+' w:val="single" w:sz="4" w:color="D9D9D9"/>').join('')+'</w:tblBorders>'
+                +(report.portrait ? '<w:tblCellMar><w:top w:w="56" w:type="dxa"/><w:left w:w="113" w:type="dxa"/><w:bottom w:w="56" w:type="dxa"/><w:right w:w="113" w:type="dxa"/></w:tblCellMar>' : '')
+                +'</w:tblPr><w:tblGrid>'
                 +widths.map(w=>'<w:gridCol w:w="'+w+'"/>').join('')+'</w:tblGrid>'+tableRow(report.columns,true)+report.rows.map(r=>tableRow(r)).join('')+'</w:tbl>'+p('')
-                +'<w:sectPr><w:pgSz w:w="16839" w:h="11907" w:orient="landscape"/><w:pgMar w:top="680" w:right="680" w:bottom="680" w:left="680" w:header="0" w:footer="0" w:gutter="0"/></w:sectPr></w:body></w:document>';
+                +(report.noteAfter ? note : '')
+                +(report.portrait
+                    ? '<w:sectPr><w:pgSz w:w="11907" w:h="16839"/><w:pgMar w:top="680" w:right="680" w:bottom="680" w:left="680" w:header="0" w:footer="0" w:gutter="0"/></w:sectPr>'
+                    : '<w:sectPr><w:pgSz w:w="16839" w:h="11907" w:orient="landscape"/><w:pgMar w:top="680" w:right="680" w:bottom="680" w:left="680" w:header="0" w:footer="0" w:gutter="0"/></w:sectPr>')
+                +'</w:body></w:document>';
             if(n>10) files['word/styles.xml']=files['word/styles.xml'].replace('<w:sz w:val="22"/>','<w:sz w:val="14"/>');
         }
         const encoder=new TextEncoder(), local=[], central=[]; let offset=0;
@@ -2175,6 +2188,7 @@ header.top h1 { flex: 1; min-width: 180px; }
             + '<button type="button" class="small no-print" id="dutyPrint">🖨 Печати</button>'
             + '<button type="button" class="small no-print" id="dutyPng">🖼 Слика</button>'
             + '<button type="button" class="small no-print" id="dutyPdf" title="Точно A4, без адреса, датум и број на страница од прелистувачот">⬇ PDF</button>'
+            + '<button type="button" class="small no-print" id="dutyDocx" title="Истиот распоред како Word документ, за дотерување на рака. Измените во Word не ја менуваат базата.">Word (.docx)</button>'
             + '<button type="button" class="small no-print" data-preparer title="Кој пишува дека го изработил документот">✍ Изработил</button></div>'
             + (duty.data.members.length ? '' : '<p class="muted">Сè уште нема список за дежурства.</p>')
             + (duty.owner && (duty.data.staleSwaps || []).length ? '<div class="duty-stale no-print"><b>⚠ Замена што повеќе не важи</b> — распоредот се смени по договорот, '
@@ -2201,24 +2215,42 @@ header.top h1 { flex: 1; min-width: 180px; }
         catch (err) { say('weekMsg', err.message, 'error'); }
     }
 
+    /**
+     * The rota as one report — the picture, the PDF and the Word file say the
+     * same words as the sheet: the day with its weekday, every line under the
+     * name, the place in the round, and the record below.
+     */
+    function dutyReport() {
+        const days = duty.data.days.filter(d => d.date >= duty.data.startsOn);
+        const counts = document.createElement('div');
+        counts.innerHTML = dutyCountsHtml().replace(/<div/g, '\n<div');
+        return { title: 'Распоред на дежурства', subtitle: 'учебна ' + me.year,
+            columns: ['Ден и датум', 'Стручен соработник', 'Ред на листата'], widths: [170, 640, 150],
+            rows: days.map((d) => {
+                const said = dutyDayText(d);
+                return [`${WEEKDAY[d.weekday]} ${dmy(d.date)}`, [said.who, ...said.notes].join('\n'),
+                    [d.number == null ? '—' : d.number + '. од ' + dutyListSize(), d.cycle && !d.closed ? 'круг ' + d.cycle : '',
+                        d.turnInCycle > 1 ? d.turnInCycle + '× во кругот' : ''].filter(Boolean).join('\n')];
+            }),
+            note: [DUTY_LEGEND(), counts.textContent.trim(), 'Сите денови од избраниот приказ, вклучувајќи ги скриените изминати денови.'].filter(Boolean).join('\n'),
+            file: 'Dezurstva-' + (duty.data.from || duty.month) };
+    }
+
     el('duty').addEventListener('click', async (event) => {
         if (event.target.closest('#dutyPng') || event.target.closest('#dutyPdf')) {
             const out = event.target.closest('#dutyPdf') ? (o) => reportPdf(o, false) : paintReport;
-            const days = duty.data.days.filter(d => d.date >= duty.data.startsOn);
-            // The same words as the sheet: the day with its weekday, every line
-            // under the name, the place in the round, and the record below.
-            const counts = document.createElement('div');
-            counts.innerHTML = dutyCountsHtml().replace(/<div/g, '\n<div');
-            return out({ title: 'Распоред на дежурства', subtitle: 'учебна ' + me.year,
-                columns: ['Ден и датум', 'Стручен соработник', 'Ред на листата'], widths: [170, 640, 150],
-                rows: days.map((d) => {
-                    const said = dutyDayText(d);
-                    return [`${WEEKDAY[d.weekday]} ${dmy(d.date)}`, [said.who, ...said.notes].join('\n'),
-                        [d.number == null ? '—' : d.number + '. од ' + dutyListSize(), d.cycle && !d.closed ? 'круг ' + d.cycle : '',
-                            d.turnInCycle > 1 ? d.turnInCycle + '× во кругот' : ''].filter(Boolean).join('\n')];
-                }),
-                note: [DUTY_LEGEND(), counts.textContent.trim(), 'Сите денови од избраниот приказ, вклучувајќи ги скриените изминати денови.'].filter(Boolean).join('\n'),
-                file: 'Dezurstva-' + (duty.data.from || duty.month) });
+            return out(dutyReport());
+        }
+        // Word, за дотерување на рака (сопственикот, 6 октомври 2026): истиот
+        // извештај како сликата и PDF, исправен лист, белешките под табелата.
+        // Тоа е копија за уредување — измените во Word не ја менуваат базата.
+        if (event.target.closest('#dutyDocx')) {
+            const report = dutyReport();
+            const blob = transportDocxBlob({ ...report, portrait: true, noteAfter: true }, me.person.name, true);
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob); a.download = report.file + '.docx'; a.click();
+            setTimeout(() => URL.revokeObjectURL(a.href), 30000);
+            return say('weekMsg', 'Word документот е создаден од распоредот што се гледа. Измените во Word не ја менуваат базата.', 'ok');
         }
         if (event.target.closest('[data-duty-admin-exit]')) {
             dutyAdminToken.clear();

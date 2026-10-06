@@ -274,6 +274,27 @@ try {
     await dutyPng.saveAs(resolve(artifacts,'duty.png'));
     const [dutyPdf] = await Promise.all([p.waitForEvent('download'),p.click('#dutyPdf')]);
     await cleanA4Pdf(dutyPdf,false,'duty PDF'); await dutyPdf.saveAs(resolve(artifacts,'duty-clean.pdf'));
+    // „Word (.docx)" for the rota (owner, 6 Oct 2026): the same report as the picture and the PDF, to be edited by hand.
+    const dutySheet = await p.evaluate(()=>({
+        days:[...document.querySelectorAll('.duty-table tbody tr:not(.past-toggle)')].length,
+        firstDay:document.querySelector('.duty-table tbody tr:not(.past-toggle) td').innerText.split('\n')[0].trim(),
+        legend:document.querySelector('.duty-legend').innerText.trim() }));
+    const [dutyWord] = await Promise.all([p.waitForEvent('download'),p.click('#dutyDocx')]);
+    assert.match(dutyWord.suggestedFilename(),/^Dezurstva-.+\.docx$/,'the Word file is named like the picture and the PDF');
+    await dutyWord.saveAs(resolve(artifacts,'duty.docx'));
+    const dutyParts=docxParts(await readFile(resolve(artifacts,'duty.docx')));
+    assert.deepEqual(Object.keys(dutyParts).sort(),['[Content_Types].xml','_rels/.rels','word/_rels/document.xml.rels','word/document.xml','word/styles.xml'],'a plain document: no macros, pictures or remote parts');
+    const dutyXml=dutyParts['word/document.xml'];
+    const dutyText=dutyXml.replace(/<\/w:p>/g,'\n').replace(/<[^>]+>/g,'').replace(/&quot;/g,'"').replace(/&amp;/g,'&');
+    assert.match(dutyText,/Распоред на дежурства/,'the title');
+    for(const head of ['Ден и датум','Стручен соработник','Ред на листата']) assert.ok(dutyText.includes(head),'the column „'+head+'“');
+    assert.ok(dutyText.includes(dutySheet.firstDay),'the first day of the sheet is in the document: '+dutySheet.firstDay);
+    assert.ok((dutyXml.match(/<w:tr>/g)||[]).length>=dutySheet.days,'a row for every day on the sheet, and the heading');
+    assert.match(dutyXml,/<w:tblHeader\/>/,'the heading row repeats on a second page');
+    assert.match(dutyXml,/<w:pgSz w:w="11907" w:h="16839"\/>/,'an upright A4 sheet, like the PDF');
+    assert.match(dutyXml,/<w:gridCol w:w="1867"\/><w:gridCol w:w="7031"\/><w:gridCol w:w="1647"\/>/,'the name has the wide column');
+    assert.ok(dutyXml.indexOf('</w:tbl>')<dutyXml.indexOf(dutySheet.legend.slice(0,20)),'the legend stands under the table, as on the sheet');
+    assert.match(await p.locator('#weekMsg').innerText(),/Измените во Word не ја менуваат базата/,'and it is said that the file is a copy');
     await p.click('#dutyPrint'); assert.match(await p.evaluate(()=>window.printClasses),/printing-duty/);
     // „Ред на листата" says what it is, and „✍ Изработил" is chosen once for every document (owner, 5 Oct 2026).
     assert.match(await p.locator('.duty-table tbody td.num').first().innerText(),/\d+\. од \d+/,'the place reads „N. од M"');
