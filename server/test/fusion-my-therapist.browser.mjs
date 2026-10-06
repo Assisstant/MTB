@@ -41,7 +41,7 @@ const browser = await chromium.launch({ ...(process.env.CHROME ? { executablePat
 const errors = [], writes = [];
 
 /** A fresh browser profile each time: what it remembers is the thing under test. */
-const open = async (myName, view = 'week') => {
+const open = async (myName, view = 'week', query = '') => {
     const context = await browser.newContext({ viewport: { width: 1280, height: 900 }, serviceWorkers: 'block' });
     if (myName) await context.addInitScript((name) => localStorage.setItem('my_therapist_v1', name), myName);
     await context.route('**/*', async (route) => {
@@ -68,10 +68,10 @@ const open = async (myName, view = 'week') => {
     });
     const page = await context.newPage();
     page.on('pageerror', (e) => errors.push(e.message));
-    await page.goto(`${SERVED}/RasporediFusion.html`);
-    await page.locator('#scheduleGrid .schedule-grid').waitFor();
-    await page.selectOption('#viewMode', view);
-    await page.locator('#scheduleGrid .schedule-grid').waitFor();
+    await page.goto(`${SERVED}/RasporediFusion.html${query}`);
+    await page.locator('#scheduleGrid .schedule-grid').first().waitFor();
+    if (view) await page.selectOption('#viewMode', view);
+    await page.locator('#scheduleGrid .schedule-grid').first().waitFor();
     return { page, context };
 };
 const seen = (page) => page.evaluate(() => ({
@@ -90,11 +90,48 @@ try {
     ({ page, context } = await open('  терапевт  пример Б '));
     let now = await seen(page);
     checkEq('known from the diary: the week opens on that therapist', now.focus, '2');
-    checkEq('the list keeps its own order', now.order, ['1', '2', '3']);
+    checkEq('the list keeps its own order, after „Сите кабинети"', now.order, ['', '1', '2', '3']);
     await page.selectOption('#focus', '3');
     await page.selectOption('#viewMode', 'day');
+    // „Дневен · сите кабинети" with one name chosen beside it is what the owner
+    // called pointless (6 Oct 2026): the week's therapist stays with the week.
+    checkEq('the week\'s therapist does not narrow the day', (await seen(page)).focus, '');
+    checkEq('the day/week box says the period only',
+        await page.locator('#viewMode option').allTextContents(), ['Дневен', 'Неделен']);
+    checkEq('and the box beside it says who',
+        await page.locator('#focus option:checked').textContent(), 'Сите кабинети');
+    checkEq('so the day draws every cabinet', await page.locator('.schedule-header[data-focus^="therapist:"]').count(), 3);
     await page.selectOption('#viewMode', 'week');
     checkEq('a therapist the person picked stays picked', (await seen(page)).focus, '3');
+    await page.selectOption('#viewMode', 'day');
+    await page.selectOption('#focus', '1');
+    checkEq('the day can still be narrowed by hand', await page.locator('.schedule-header[data-focus^="therapist:"]').count(), 1);
+    await page.selectOption('#viewMode', 'week');
+    checkEq('and that choice follows into the week', (await seen(page)).focus, '1');
+
+    // The fourth of the four: the week of every cabinet, Monday to Friday one
+    // under another. It was the tab „Сите денови"; it is a choice like the rest.
+    await page.selectOption('#focus', '');
+    checkEq('the week of every cabinet is the five days, one under another',
+        await page.locator('#scheduleGrid .day-section > h3').allTextContents(),
+        ['Понеделник', 'Вторник', 'Среда', 'Четврток', 'Петок']);
+    checkEq('every cabinet on every day', await page.locator('.schedule-header[data-focus^="therapist:"]').count(), 15);
+    await page.selectOption('#viewMode', 'day');
+    await page.selectOption('#viewMode', 'week');
+    checkEq('chosen, it is the week\'s choice like a name is', (await seen(page)).focus, '');
+    await page.click('#classWeekTab');
+    check('„По одделение" is still one therapist\'s week', (await seen(page)).focus !== '');
+    await page.click('#scheduleTab');
+    checkEq('and the week is on every cabinet again after it', (await seen(page)).focus, '');
+    await page.selectOption('#focus', '2');
+    checkEq('one name is the week grid again', await page.locator('#scheduleGrid .day-section').count(), 0);
+    await context.close();
+
+    // An address kept from when „Сите денови" was a tab opens the same screen.
+    ({ page, context } = await open('Терапевт Пример Б', null, '?panel=allDays'));
+    checkEq('the old tab\'s address opens „Неделен"', await page.locator('#viewMode').inputValue(), 'week');
+    checkEq('on every cabinet', (await seen(page)).focus, '');
+    checkEq('the five days', await page.locator('#scheduleGrid .day-section').count(), 5);
     await context.close();
 
     // Day by day shows every cabinet, so there the list of pupils is where it matters.

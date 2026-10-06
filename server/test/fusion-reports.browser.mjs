@@ -84,7 +84,14 @@ try {
     assert.equal(await page.locator('#reportContent tbody tr').count(), 2);
     await mkdir('../backups/fusion-reports-qa', { recursive: true });
     await page.screenshot({ path: '../backups/fusion-reports-qa/visits.png', fullPage: true });
-    await page.click('#allDaysTab');
+    // „Сите денови" was a tab of its own until 6 Oct 2026: it is the week of
+    // every cabinet now, chosen in the same two boxes as the other three screens.
+    assert.equal(await page.locator('#allDaysTab').count(), 0);
+    await page.click('#scheduleTab');
+    await page.selectOption('#viewMode', 'week');
+    await page.selectOption('#focus', '');
+    assert.equal(await page.locator('#scheduleTitle').textContent(), 'Неделен распоред · сите кабинети');
+    assert.equal(await page.locator('#exportImage').isVisible(), false);
     assert.equal(await page.locator('#scheduleGrid .day-section').count(), 5);
     assert.deepEqual(await page.locator('#scheduleGrid .day-section > h3').allTextContents(), ['Понеделник', 'Вторник', 'Среда', 'Четврток', 'Петок']);
     assert.equal(await page.locator('#dayTabsBand').isVisible(), false);
@@ -110,6 +117,11 @@ try {
     await page.reload();
     // A reload keeps the open tab (the view is in the address since 25 Sep), so the grid is there but hidden.
     await page.locator('#scheduleGrid .schedule-grid').waitFor({ state: 'attached' });
+    // „Неделен" is remembered, „Сите кабинети" is not: a week nobody has chosen
+    // for opens on one therapist, also when the tab is drawn before the lists arrive.
+    assert.equal(await page.locator('#viewMode').inputValue(), 'week');
+    assert.notEqual(await page.locator('#focus').inputValue(), '');
+    assert.equal(await page.locator('#scheduleGrid .day-section').count(), 0);
     await page.click('#listsTab');
     await page.selectOption('#reportTherapist', '2');
     const listB = page.locator('[data-report-therapist="2"]');
