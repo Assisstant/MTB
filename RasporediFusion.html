@@ -107,16 +107,16 @@
         justify-content: center;
         gap: 8px;
     }
-    .btn:hover { border-color: #667eea; box-shadow: 0 0 0 1px #667eea; }
-    /* White on #667eea is 3.7:1; the suite's filled buttons use #5a67d8 (4.8:1). */
-    .btn-primary { background: #5a67d8; border-color: transparent; color: white; }
-    .btn-primary:hover { background: #4c51bf; border-color: transparent; box-shadow: 0 4px 8px rgba(0,0,0,.15); }
+    .btn:hover { border-color: #1DA3E2; box-shadow: 0 0 0 1px #1DA3E2; }
+    /* The suite's blue scale (mtb-look.css, 7 Oct 2026): white is 6.1:1 on its 700. */
+    .btn-primary { background: #136990; border-color: transparent; color: white; }
+    .btn-primary:hover { background: #0D4B68; border-color: transparent; box-shadow: 0 4px 8px rgba(0,0,0,.15); }
     .btn-success { background: #2f855a; border-color: transparent; color: white; }
     .btn-success:hover { background: #276749; border-color: transparent; }
     .btn .ico {
         display: inline-grid; place-items: center; flex: 0 0 auto;
         width: 26px; height: 26px; margin-left: -6px; border-radius: 7px;
-        background: #eceffd; color: #4c51bf; font-size: 15px; line-height: 1; font-weight: 400;
+        background: #E8F6FC; color: #136990; font-size: 15px; line-height: 1; font-weight: 400;
     }
     .btn-primary .ico, .btn-success .ico { background: rgba(0, 0, 0, .2); color: #fff; }
     .icon-btn { width: 44px; padding: 0; font-size: 19px; }
@@ -148,8 +148,8 @@
     body.dark-mode .cell-failure { background: #451a1a; color: #fed7d7; }
     body.dark-mode .cell-irregular { background: #44331a; color: #feebc8; }
 
-    /* ── Day tabs, in the S-Dnevnik tab-bar style ───────── */
-    .day-tabs-band { background: linear-gradient(to bottom, #1a1a2e 0%, #16213e 100%); border-bottom: 3px solid #0f3460; box-shadow: 0 4px 6px rgba(0,0,0,0.3); }
+    /* ── Day tabs, in the S-Dnevnik tab-bar style: the suite's blue band (mtb-layout.js) ── */
+    .day-tabs-band { background: #1DA3E2; border-bottom: 3px solid #1886B9; box-shadow: 0 2px 5px rgba(8,46,63,0.25); }
     .day-tabs-band[hidden] { display: none; }
     /* Left, and the suite's one tab size (mtb-look.css: 13px, 10px 20px), like
        every other strip; it used to be centred and a size larger than the
@@ -159,18 +159,18 @@
     .day-tab {
         padding: 10px 20px;
         border: none;
-        background: linear-gradient(to bottom, #2d3748 0%, #1a202c 100%);
+        background: #46B4E7;
         cursor: pointer;
         transition: all 0.3s;
         font-size: 13px;
-        color: #a0aec0;
+        color: #082E3F;
         font-weight: 600;
         text-transform: uppercase;
         letter-spacing: .8px;
         position: relative;
         clip-path: polygon(5px 0, 100% 0, calc(100% - 5px) 100%, 0 100%);
         margin-top: 5px;
-        border-top: 2px solid #4a5568;
+        border-top: 2px solid #89CFF0;
         white-space: nowrap;
     }
     .day-tab::before {
@@ -178,26 +178,21 @@
         position: absolute;
         top: 0; left: 0; right: 0;
         height: 2px;
-        background: linear-gradient(90deg, transparent, #667eea, transparent);
+        background: linear-gradient(90deg, transparent, #E8F6FC, transparent);
         opacity: 0;
         transition: opacity 0.3s;
     }
-    .day-tab:hover { background: linear-gradient(to bottom, #4a5568 0%, #2d3748 100%); color: #e2e8f0; }
+    .day-tab:hover { background: #89CFF0; color: #031017; }
     .day-tab:hover::before { opacity: 1; }
     .day-tab[aria-pressed="true"] {
-        background: linear-gradient(to bottom, #667eea 0%, #5568d3 100%);
+        background: #0D4B68;
         color: #ffffff;
         font-weight: bold;
         margin-top: 0;
         padding-top: 14px; /* 5 + 2 + 10 = 0 + 3 + 14: lifted, not taller */
-        border-top: 3px solid #818cf8;
-        box-shadow: 0 0 20px rgba(102, 126, 234, 0.5);
+        border-top: 3px solid #E8F6FC;
     }
     .day-tab[aria-pressed="true"]::before { opacity: 1; background: linear-gradient(90deg, transparent, #ffffff, transparent); }
-    body.dark-mode .day-tabs-band { background: #2d3748; border-bottom-color: #4a5568; }
-    body.dark-mode .day-tab { background: linear-gradient(to bottom, #1a202c 0%, #0f1419 100%); color: #a0aec0; border-top-color: #2d3748; }
-    body.dark-mode .day-tab:hover { background: linear-gradient(to bottom, #2d3748 0%, #1a202c 100%); color: #cbd5e0; }
-    body.dark-mode .day-tab[aria-pressed="true"] { background: linear-gradient(to bottom, #5a67d8 0%, #4c51bf 100%); color: #ffffff; border-top-color: #a5b4fc; }
 
     .notice {
         display: none;
@@ -230,10 +225,10 @@
         gap: 5px;
         padding: 0 10px;
         margin-bottom: 16px;
-        background: linear-gradient(to bottom, #1a1a2e 0%, #16213e 100%);
-        border-bottom: 3px solid #0f3460;
+        background: #1DA3E2;
+        border-bottom: 3px solid #1886B9;
         border-radius: 8px 8px 0 0;
-        box-shadow: 0 4px 6px rgba(0, 0, 0, .3);
+        box-shadow: 0 2px 5px rgba(8, 46, 63, .25);
         overflow-x: auto;
     }
     .view-tab {
@@ -241,9 +236,9 @@
         padding: 10px 20px; /* the suite's one tab size (mtb-look.css) */
         margin-top: 5px;
         border: 0;
-        border-top: 2px solid #4a5568;
-        background: linear-gradient(to bottom, #2d3748 0%, #1a202c 100%);
-        color: #a0aec0;
+        border-top: 2px solid #89CFF0;
+        background: #46B4E7;
+        color: #082E3F;
         font-size: 13px;
         font-weight: 600;
         text-transform: uppercase;
@@ -252,11 +247,11 @@
         clip-path: polygon(5px 0, 100% 0, calc(100% - 5px) 100%, 0 100%);
         transition: all .3s;
     }
-    .view-tab:hover { background: linear-gradient(to bottom, #4a5568 0%, #2d3748 100%); color: #e2e8f0; }
+    .view-tab:hover { background: #89CFF0; color: #031017; }
     .view-tab[aria-selected="true"] {
-        background: linear-gradient(to bottom, #667eea 0%, #5568d3 100%);
+        background: #0D4B68;
         color: #fff; font-weight: 700;
-        margin-top: 0; padding-top: 14px; border-top: 3px solid #818cf8; /* lifted, not taller */
+        margin-top: 0; padding-top: 14px; border-top: 3px solid #E8F6FC; /* lifted, not taller */
     }
     .view-tab:focus-visible { outline: 2px solid #f6c453; outline-offset: -2px; }
     .workflow-hint { margin: 12px 0 16px; color: #4a5568; font-size: 13px; line-height: 1.5; }
@@ -677,18 +672,14 @@
     }
     body.dark-mode .content { background: #1a202c; }
     body.dark-mode .band { background: #2d3748; border-bottom-color: #4a5568; }
-    body.dark-mode .view-tabs { background: #2d3748; border-bottom-color: #4a5568; }
-    body.dark-mode .view-tab { background: linear-gradient(to bottom, #1a202c 0%, #0f1419 100%); color: #a0aec0; border-top-color: #2d3748; }
-    body.dark-mode .view-tab:hover { background: linear-gradient(to bottom, #2d3748 0%, #1a202c 100%); color: #cbd5e0; }
-    body.dark-mode .view-tab[aria-selected="true"] { background: linear-gradient(to bottom, #5a67d8 0%, #4c51bf 100%); color: #fff; border-top-color: #a5b4fc; }
     body.dark-mode .workflow-hint { color: #cbd5e0; }
     body.dark-mode .field span { color: #a0aec0; }
     body.dark-mode .field select { background: #2d3748; border-color: #4a5568; color: #e2e8f0; }
     body.dark-mode .btn { background: #1f2635; color: #e2e8f0; border-color: #4a5568; }
-    body.dark-mode .btn:hover { border-color: #818cf8; box-shadow: 0 0 0 1px #818cf8; }
-    body.dark-mode .btn .ico { background: #2c3553; color: #a5b4fc; }
-    body.dark-mode .btn-primary { background: #5a67d8; color: #fff; border-color: transparent; }
-    body.dark-mode .btn-primary:hover { background: #4c51bf; }
+    body.dark-mode .btn:hover { border-color: #46B4E7; box-shadow: 0 0 0 1px #46B4E7; }
+    body.dark-mode .btn .ico { background: #0D4B68; color: #C0E5F7; }
+    body.dark-mode .btn-primary { background: #136990; color: #fff; border-color: transparent; }
+    body.dark-mode .btn-primary:hover { background: #0D4B68; }
     body.dark-mode .btn-primary .ico { background: rgba(0, 0, 0, .2); color: #fff; }
     body.dark-mode .metric { border-right-color: #4a5568; }
     body.dark-mode .metric strong { color: #e2e8f0; }
@@ -761,8 +752,8 @@
     /* ── User badge & Modals ── */
     .user-badge { display: flex; align-items: center; gap: 8px; font-size: 13px; }
     .user-name { font-weight: 600; color: #fff; background: rgba(255,255,255,0.16); padding: 5px 10px; border-radius: 6px; }
-    .user-btn { background: #4c51bf; color: #fff; border: 1px solid #667eea; }
-    .user-btn:hover { background: #5a67d8; }
+    .user-btn { background: #0D4B68; color: #fff; border: 1px solid #46B4E7; }
+    .user-btn:hover { background: #136990; }
     .btn-xs { padding: 4px 8px; font-size: 11px; border-radius: 4px; background: rgba(255,255,255,0.18); color: #fff; border: none; cursor: pointer; }
     .btn-xs:hover { background: rgba(255,255,255,0.3); }
 
@@ -831,14 +822,14 @@
        this page does not load it). Buttons are plain rounded rectangles with a
        thin border, the main action in one blue; the day strip and the view
        strip are rows of the same buttons instead of the dark slanted band. */
-    html.mtb-flat { --flat: #0f6cbd; --flat-well: #f7f7fc; --flat-line: #c9ced8; --flat-text: #2d3748; --flat-rule: #e2e8f0; --flat-band: #f7fafc; }
-    html.mtb-flat:has(body.dark-mode) { --flat: #1f6feb; --flat-well: #1b2130; --flat-line: #46506a; --flat-text: #e2e8f0; --flat-rule: #4a5568; --flat-band: #2d3748; }
+    html.mtb-flat { --flat: #136990; --flat-on: #ffffff; --tab: #46B4E7; --tab-text: #082E3F; --tab-line: #1DA3E2; --tab-hover: #89CFF0; --tab-on: #0D4B68; --tab-on-text: #ffffff; --flat-well: #f7f7fc; --flat-line: #c9ced8; --flat-text: #2d3748; --flat-rule: #e2e8f0; --flat-band: #f7fafc; }
+    html.mtb-flat:has(body.dark-mode) { --flat: #1DA3E2; --flat-on: #031017; --tab: #0D4B68; --tab-text: #C0E5F7; --tab-line: #136990; --tab-hover: #136990; --tab-on: #46B4E7; --tab-on-text: #031017; --flat-well: #1b2130; --flat-line: #46506a; --flat-text: #e2e8f0; --flat-rule: #4a5568; --flat-band: #2d3748; }
     html.mtb-flat .btn {
         padding: 6px 14px; min-height: 34px; border-radius: 999px; border: 1px solid var(--flat-line);
         background: var(--flat-well); color: var(--flat-text); font-size: 14px; font-weight: 700; box-shadow: none;
     }
     html.mtb-flat .btn:hover { border-color: var(--flat); box-shadow: none; }
-    html.mtb-flat .btn-primary, html.mtb-flat .btn-primary:hover { background: var(--flat); border-color: var(--flat); color: #fff; box-shadow: none; }
+    html.mtb-flat .btn-primary, html.mtb-flat .btn-primary:hover { background: var(--flat); border-color: var(--flat); color: var(--flat-on); box-shadow: none; }
     html.mtb-flat .btn-primary:hover { filter: brightness(.93); }
     html.mtb-flat .btn .ico, html.mtb-flat .btn-primary .ico, html.mtb-flat .btn-success .ico {
         width: auto; height: auto; margin-left: 0; border-radius: 0; background: none; color: inherit; font-size: 1em;
@@ -857,14 +848,14 @@
     html.mtb-flat body .view-tabs.mtb-tabs-flat { align-items: center; gap: 6px; padding: 0 0 10px; }
     html.mtb-flat body .day-tabs-band.mtb-tabs-flat .band__inner { align-items: center; gap: 6px; padding-top: 10px; padding-bottom: 10px; }
     html.mtb-flat body .mtb-tabs-flat .day-tab, html.mtb-flat body .mtb-tabs-flat > .view-tab {
-        margin-top: 0; padding: 6px 14px; min-height: 34px; border: 1px solid var(--flat-line); border-radius: 999px;
-        background: var(--flat-well); color: var(--flat-text); box-shadow: none;
-        font-size: 14px; font-weight: 700; text-transform: none; letter-spacing: 0; clip-path: none; transition: border-color .15s;
+        margin-top: 0; padding: 6px 14px; min-height: 34px; border: 1px solid var(--tab-line); border-radius: 999px;
+        background: var(--tab); color: var(--tab-text); box-shadow: none;
+        font-size: 14px; font-weight: 700; text-transform: none; letter-spacing: 0; clip-path: none; transition: background .15s;
     }
     html.mtb-flat body .mtb-tabs-flat .day-tab::before { display: none; }
-    html.mtb-flat body .mtb-tabs-flat .day-tab:hover, html.mtb-flat body .mtb-tabs-flat > .view-tab:hover { border-color: var(--flat); }
+    html.mtb-flat body .mtb-tabs-flat .day-tab:hover, html.mtb-flat body .mtb-tabs-flat > .view-tab:hover { background: var(--tab-hover); }
     html.mtb-flat body .mtb-tabs-flat .day-tab[aria-pressed="true"], html.mtb-flat body .mtb-tabs-flat > .view-tab[aria-selected="true"] {
-        margin-top: 0; padding: 6px 14px; border: 1px solid var(--flat); background: var(--flat); color: #fff; box-shadow: none;
+        margin-top: 0; padding: 6px 14px; border: 1px solid var(--tab-on); background: var(--tab-on); color: var(--tab-on-text); box-shadow: none;
     }
     html.mtb-flat body .mtb-tabs-flat > .mtb-pin, html.mtb-flat body .mtb-tabs-flat .band__inner > .mtb-pin {
         position: static; box-shadow: none; border-color: var(--flat-line); background: var(--flat-well); color: var(--flat-text);

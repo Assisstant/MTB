@@ -32,7 +32,7 @@
   --hover:#edf2f7; --green:#48bb78; --red:#e53e3e; --amber:#dd8b1f; --blue:#3182ce;
   /* Filled buttons carry white text: the next shade of S-Dnevnik's palette,
      as in mtb-look.css, because white on #667eea / #48bb78 is under 4.5:1. */
-  --btn-bg:#5a67d8; --btn-green:#2f855a; --btn-red:#c53030; --btn-blue:#2b6cb0;
+  --btn-bg:#136990; --btn-green:#2f855a; --btn-red:#c53030; --btn-blue:#2b6cb0;
   --radius:8px; --shadow:0 1px 3px rgba(16,24,40,.08),0 1px 2px rgba(16,24,40,.06);
   --font:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;
 }
@@ -54,11 +54,11 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);font-size:14
 .who{background:rgba(255,255,255,.22);padding:4px 11px;border-radius:14px;font-size:12px;font-weight:700;}
 
 /* Tabs — S-Dnevnik's clipped dark strip */
-.tabs{display:flex;background:linear-gradient(to bottom,#1a1a2e,#16213e);border-bottom:3px solid #0f3460;padding:0 8px;gap:4px;overflow-x:auto;scrollbar-width:none;}
+.tabs{display:flex;background:#1DA3E2;border-bottom:3px solid #1886B9;padding:0 8px;gap:4px;overflow-x:auto;scrollbar-width:none;}
 .tabs::-webkit-scrollbar{display:none;}
-.tab{padding:10px 20px;border:none;background:linear-gradient(to bottom,#2d3748,#1a202c);cursor:pointer;font-size:13px;color:#a0aec0;font-weight:600;letter-spacing:.8px;text-transform:uppercase;white-space:nowrap;clip-path:polygon(5px 0,100% 0,calc(100% - 5px) 100%,0 100%);margin-top:5px;border-top:2px solid #4a5568;font-family:var(--font);}
-.tab:hover{background:linear-gradient(to bottom,#4a5568,#2d3748);color:#e2e8f0;}
-.tab.active{background:linear-gradient(to bottom,var(--brand1),#5568d3);color:#fff;margin-top:0;padding-top:14px;border-top:3px solid #818cf8;}
+.tab{padding:10px 20px;border:none;background:#46B4E7;cursor:pointer;font-size:13px;color:#082E3F;font-weight:600;letter-spacing:.8px;text-transform:uppercase;white-space:nowrap;clip-path:polygon(5px 0,100% 0,calc(100% - 5px) 100%,0 100%);margin-top:5px;border-top:2px solid #89CFF0;font-family:var(--font);}
+.tab:hover{background:#89CFF0;color:#031017;}
+.tab.active{background:#0D4B68;color:#fff;margin-top:0;padding-top:14px;border-top:3px solid #E8F6FC;}
 
 /* Toolbar: year, pupil, actions */
 .bar{background:var(--card);border-bottom:1px solid var(--border);padding:9px 14px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
@@ -81,19 +81,19 @@ textarea{min-height:56px;resize:vertical;width:100%;}
 /* The suite's flat look (mtb-look.css `html.mtb-flat`, owner 1 Oct 2026; copied,
    this page does not load that file): thin border, no lift, the main action in
    the one blue; the tabs are plain buttons, not the dark slanted band. */
-:root{--flat:#0f6cbd;--flat-well:#f7f7fc;--flat-line:#c9ced8;}
-body.dark{--flat:#1f6feb;--flat-well:#1b2130;--flat-line:#46506a;}
+:root{--flat:#136990;--flat-on:#fff;--flat-well:#f7f7fc;--flat-line:#c9ced8;--tab:#46B4E7;--tab-text:#082E3F;--tab-line:#1DA3E2;--tab-hover:#89CFF0;--tab-on:#0D4B68;--tab-on-text:#fff;}
+body.dark{--flat:#1DA3E2;--flat-on:#031017;--tab:#0D4B68;--tab-text:#C0E5F7;--tab-line:#136990;--tab-hover:#136990;--tab-on:#46B4E7;--tab-on-text:#031017;--flat-well:#1b2130;--flat-line:#46506a;}
 .btn{padding:6px 14px;min-height:34px;border-radius:999px;font-size:14px;background:var(--flat-well);border-color:var(--flat-line);transition:border-color .15s;}
 .hdr-btn{min-height:34px;padding:6px 14px;border-radius:999px;font-size:14px;font-weight:700;}
 .btn:hover:not([disabled]){transform:none;box-shadow:none;}
 .btn:where(:not(.btn-p,.btn-g,.btn-r,.btn-b)):hover:not([disabled]){border-color:var(--flat);box-shadow:none;}
 .btn-sm{padding:4px 12px;min-height:28px;font-size:13px;border-radius:999px;}
-.btn-p{background:var(--flat);border-color:var(--flat);color:#fff;}
+.btn-p{background:var(--flat);border-color:var(--flat);color:var(--flat-on);}
 .tabs.mtb-tabs-flat{align-items:center;gap:6px;padding:10px 8px;background:var(--card);border-bottom:1px solid var(--border);}
-.tabs.mtb-tabs-flat > .tab,.tabs.mtb-tabs-flat > .tab:hover{margin-top:0;padding:6px 14px;min-height:34px;border:1px solid var(--flat-line);border-radius:999px;
-  background:var(--flat-well);color:var(--text);font-size:14px;font-weight:700;letter-spacing:0;text-transform:none;clip-path:none;}
-.tabs.mtb-tabs-flat > .tab:hover{border-color:var(--flat);}
-.tabs.mtb-tabs-flat > .tab.active,.tabs.mtb-tabs-flat > .tab.active:hover{margin-top:0;padding:6px 14px;border:1px solid var(--flat);background:var(--flat);color:#fff;}
+.tabs.mtb-tabs-flat > .tab,.tabs.mtb-tabs-flat > .tab:hover{margin-top:0;padding:6px 14px;min-height:34px;border:1px solid var(--tab-line);border-radius:999px;
+  background:var(--tab);color:var(--tab-text);font-size:14px;font-weight:700;letter-spacing:0;text-transform:none;clip-path:none;}
+.tabs.mtb-tabs-flat > .tab:hover{background:var(--tab-hover);}
+.tabs.mtb-tabs-flat > .tab.active,.tabs.mtb-tabs-flat > .tab.active:hover{margin-top:0;padding:6px 14px;border:1px solid var(--tab-on);background:var(--tab-on);color:var(--tab-on-text);}
 .tabs.mtb-tabs-flat > .mtb-pin{position:static;box-shadow:none;border-color:var(--flat-line);background:var(--flat-well);color:var(--text);min-height:34px;padding:6px 12px;margin-top:0 !important;margin-bottom:0 !important;font-size:13px;font-weight:700;box-sizing:border-box;}
 
 /* Layout */

@@ -109,8 +109,8 @@
     .personal .p-modes { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0 8px; }
     .personal .p-modes button { font: 700 14px/1.2 system-ui, -apple-system, 'Segoe UI', sans-serif; padding: 6px 14px; min-height: 34px;
         border: 1px solid #c9ced8; border-radius: 999px; background: #f7f7fc; color: #1a202c; cursor: pointer; }
-    .personal .p-modes button:hover { border-color: #0f6cbd; }
-    .personal .p-modes button[aria-pressed="true"] { background: #0f6cbd; border-color: #0f6cbd; color: #ffffff; }
+    .personal .p-modes button:hover { border-color: #1886B9; }
+    .personal .p-modes button[aria-pressed="true"] { background: #136990; border-color: #136990; color: #ffffff; }
     .personal.show-subjects .p-away { display: none !important; }
     .personal.show-cabinets .p-lesson { display: none !important; }
     /* The fixed cell (readCellHtml). Height is the cell's, whatever it holds:

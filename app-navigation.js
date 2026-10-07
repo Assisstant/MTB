@@ -798,7 +798,7 @@
         const ok = document.createElement('button');
         ok.type = 'button';
         ok.textContent = 'Разбрав';
-        ok.style.cssText = 'margin-top:4px;padding:8px 18px;border-radius:8px;border:0;cursor:pointer;font:600 15px system-ui,sans-serif;background:#4f5bd5;color:#fff';
+        ok.style.cssText = 'margin-top:4px;padding:8px 18px;border-radius:8px;border:0;cursor:pointer;font:600 15px system-ui,sans-serif;background:#136990;color:#fff';
         ok.addEventListener('click', () => {
             try { sessionStorage.setItem(UPDATE_SEEN_KEY, key); } catch (_) { /* this page only */ }
             box.remove();

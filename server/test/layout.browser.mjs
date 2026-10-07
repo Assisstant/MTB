@@ -94,7 +94,9 @@ const strip = await page.$eval('#strip', (s) => ({ h: s.offsetHeight, wraps: get
 check('seven tabs on a phone stay ONE row that slides', strip.wraps === 'nowrap' && strip.overflow === 'auto' && strip.h < 70, JSON.stringify(strip));
 await page.evaluate(() => document.body.classList.add('dark-mode'));
 check("one look for every tab, in either theme — the page's own black dark tabs do not win",
-    await page.$eval('#strip .btn:not([aria-pressed="true"])', (b) => getComputedStyle(b).backgroundImage).then((bg) => /45, 55, 72/.test(bg)));
+    // #46B4E7, the blue scale's 400 (7 Oct 2026); the words on it are its 900.
+    await page.$eval('#strip .btn:not([aria-pressed="true"])', (b) => getComputedStyle(b).backgroundColor + ' / ' + getComputedStyle(b).color)
+        .then((look) => look === 'rgb(70, 180, 231) / rgb(8, 46, 63)'));
 await page.evaluate(() => document.body.classList.remove('dark-mode'));
 check('„📌 Замрзни" sits at its right end', await page.$eval('#strip', (s) => s.lastElementChild.classList.contains('mtb-pin')));
 check('nothing is stored before anybody clicks', await page.evaluate(() => localStorage.getItem('mtb_layout_v1')) === null);

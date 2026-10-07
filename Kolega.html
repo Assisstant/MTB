@@ -49,17 +49,17 @@ try {
 } catch (_) { /* device preferences are optional */ }
 </script>
 <style>
-:root { color-scheme: light; --bg:#f5f5f5; --panel:#fff; --line:#e0e0e0; --text:#242424; --muted:#616161; --accent:#0f6cbd;
+:root { color-scheme: light; --bg:#f5f5f5; --panel:#fff; --line:#e0e0e0; --text:#242424; --muted:#616161; --accent:#136990;
         --accent-text:#fff; --ok:#1d7657; --warn:#8a5300; --warn-bg:#fff6e5; --danger:#b0253a; --well:#f7f7fc;
-        --focus:#0f6cbd; --chip:#ebf3fc; }
+        --focus:#136990; --chip:#E8F6FC; }
 @media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) { color-scheme: dark; --bg:#121329; --panel:#1b1c39; --line:#34365a; --text:#f2f2fb; --muted:#a8abc8; --accent:#7c86f0;
-          --accent-text:#10112a; --ok:#57d2a6; --warn:#f0b35e; --warn-bg:#2d2616; --danger:#ff8f9e; --well:#171832;
-          --focus:#a3abff; --chip:#2a2b52; }
+  :root:not([data-theme="light"]) { color-scheme: dark; --bg:#121329; --panel:#1b1c39; --line:#34365a; --text:#f2f2fb; --muted:#a8abc8; --accent:#46B4E7;
+          --accent-text:#031017; --ok:#57d2a6; --warn:#f0b35e; --warn-bg:#2d2616; --danger:#ff8f9e; --well:#171832;
+          --focus:#89CFF0; --chip:#0D4B68; }
 }
-:root[data-theme="dark"] { color-scheme: dark; --bg:#121329; --panel:#1b1c39; --line:#34365a; --text:#f2f2fb; --muted:#a8abc8; --accent:#7c86f0;
-        --accent-text:#10112a; --ok:#57d2a6; --warn:#f0b35e; --warn-bg:#2d2616; --danger:#ff8f9e; --well:#171832;
-        --focus:#a3abff; --chip:#2a2b52; }
+:root[data-theme="dark"] { color-scheme: dark; --bg:#121329; --panel:#1b1c39; --line:#34365a; --text:#f2f2fb; --muted:#a8abc8; --accent:#46B4E7;
+        --accent-text:#031017; --ok:#57d2a6; --warn:#f0b35e; --warn-bg:#2d2616; --danger:#ff8f9e; --well:#171832;
+        --focus:#89CFF0; --chip:#0D4B68; }
 html { background: var(--bg); min-height: 100%; scroll-padding-top: 72px; }
 .theme-bar { position: sticky; top: 0; z-index: 40; display: flex; justify-content: flex-end;
              padding: 8px 16px; background: var(--bg); border-bottom: 1px solid var(--line); }

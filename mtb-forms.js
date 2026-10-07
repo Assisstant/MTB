@@ -477,12 +477,12 @@
         @media print { .mtb-door { display: none !important; } }
 
         .mtb-form { --f-bg: #ffffff; --f-text: #1d1e33; --f-muted: #555872; --f-line: #d3d4e4; --f-input: #ffffff;
-            --f-accent: #4c51bf; --f-on-accent: #ffffff; --f-ok: #1a6b4f; --f-err: #b0243a; --f-ask: #fff4d6;
+            --f-accent: #136990; --f-on-accent: #ffffff; --f-ok: #1a6b4f; --f-err: #b0243a; --f-ask: #fff4d6;
             padding: 0; border: 1px solid var(--f-line); border-radius: 12px; background: var(--f-bg); color: var(--f-text);
             width: min(560px, calc(100vw - 32px)); max-height: calc(100vh - 32px);
             box-shadow: 0 18px 50px rgba(0, 0, 0, .35); font: 14px/1.45 system-ui, -apple-system, 'Segoe UI', sans-serif; }
         html[data-theme="dark"] .mtb-form { --f-bg: #1f2233; --f-text: #e8e9f5; --f-muted: #b6b9d2; --f-line: #41466a;
-            --f-input: #2a2e46; --f-accent: #5b61d6; --f-on-accent: #ffffff; --f-ok: #73d6ab; --f-err: #ffa3b0; --f-ask: #3b3322; }
+            --f-input: #2a2e46; --f-accent: #1DA3E2; --f-on-accent: #031017; --f-ok: #73d6ab; --f-err: #ffa3b0; --f-ask: #3b3322; }
         .mtb-form::backdrop { background: rgba(10, 12, 24, .55); }
         .mtb-form__card { display: flex; flex-direction: column; max-height: calc(100vh - 34px); margin: 0; }
         .mtb-form header { display: flex; align-items: center; gap: 8px; padding: 14px 16px 2px; }

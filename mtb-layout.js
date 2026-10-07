@@ -39,12 +39,16 @@
     // ONE look for every tab, in both themes (owner, 27 Sep 2026: „овие се
     // црни, овие се сиви"). Кабинети and S-Dnevnik turned their tabs black on
     // a grey band in the dark theme while every other strip, and the
-    // Workspace's own row, stayed grey on the dark band. The strip is a dark
-    // band in both themes already, so the tabs need no dark variant. The
+    // Workspace's own row, stayed grey on the dark band. The strip is the same
+    // band in both themes, so the tabs need no dark variant. The
     // colours are `!important` on purpose: this is their one owner, and a
     // page's own dark rule („body.dark-mode .x > .btn") must not win again.
+    // The colours are the owner's blue scale (7 Oct 2026): the band #1DA3E2,
+    // a tab #46B4E7, the chosen one #0D4B68. White on the band or on a tab is
+    // under 3:1, so a tab's words are the scale's darkest (#082E3F, 6:1) and
+    // only the chosen tab, which is dark, carries white (9.4:1).
     // `.mtb-tabs-flat` is a page's own row of plain tab buttons (mtb-look.css,
-    // owner 1 Oct 2026): it keeps the one row and the 📌, not the dark band.
+    // owner 1 Oct 2026): it keeps the one row and the 📌, not the band.
     const STRIP = '.mtb-tabs:not(.mtb-tabs-flat), .view-tabs:not(.mtb-tabs-flat), .tabs:has(> .tab):not(.mtb-tabs-flat), .day-tabs-band:not(.mtb-tabs-flat), .app-tabs';
     const TAB = '.mtb-tabs:not(.mtb-tabs-flat) > .btn, .view-tabs:not(.mtb-tabs-flat) > .view-tab, .tabs:not(.mtb-tabs-flat) > .tab, .day-tabs-band:not(.mtb-tabs-flat) .day-tab, .app-tabs > button';
     const ON = '.active, [aria-pressed="true"], [aria-selected="true"]';
@@ -53,14 +57,14 @@
         const style = document.createElement('style');
         style.id = 'mtbTabLook';
         style.textContent = `
-            html body :is(${STRIP}) { background: linear-gradient(to bottom, #1a1a2e 0%, #16213e 100%) !important; border-bottom-color: #0f3460 !important; }
+            html body :is(${STRIP}) { background: #1DA3E2 !important; border-bottom-color: #1886B9 !important; }
             html body .day-tabs-band:not(.mtb-tabs-flat) .band__inner { background: transparent !important; }
             html body :is(${TAB}) {
-                background: linear-gradient(to bottom, #2d3748 0%, #1a202c 100%) !important; color: #a0aec0 !important; border-top-color: #4a5568 !important;
+                background: #46B4E7 !important; color: #082E3F !important; border-top-color: #89CFF0 !important;
             }
-            html body :is(${TAB}):hover { background: linear-gradient(to bottom, #4a5568 0%, #2d3748 100%) !important; color: #e2e8f0 !important; }
+            html body :is(${TAB}):hover { background: #89CFF0 !important; color: #031017 !important; }
             html body :is(${TAB}):is(${ON}), html body :is(${TAB}):is(${ON}):hover {
-                background: linear-gradient(to bottom, #667eea 0%, #5568d3 100%) !important; color: #ffffff !important; border-top-color: #818cf8 !important;
+                background: #0D4B68 !important; color: #ffffff !important; border-top-color: #E8F6FC !important; box-shadow: none !important;
             }
         `;
         document.head.appendChild(style);
@@ -117,8 +121,8 @@
                 position: sticky; right: 0; z-index: 2; flex: 0 0 auto; align-self: center;
                 margin: 5px 0 5px auto !important; padding: 4px 10px 4px 8px;
                 display: inline-flex; align-items: center; gap: 6px;
-                border: 1px solid #4a5568; border-radius: 999px; background: #16213e; color: #cbd5e0;
-                box-shadow: -12px 0 10px -4px #16213e;
+                border: 1px solid #89CFF0; border-radius: 999px; background: #E8F6FC; color: #0D4B68;
+                box-shadow: -12px 0 10px -4px #1DA3E2;
                 font: 600 12px/1.2 system-ui, -apple-system, 'Segoe UI', sans-serif;
                 letter-spacing: 0; text-transform: none; white-space: nowrap; cursor: pointer; user-select: none;
             }
@@ -130,8 +134,8 @@
             @media (max-width: 720px) {
                 .mtb-pin { position: static; box-shadow: none; }
             }
-            .mtb-pin input { width: auto; height: auto; margin: 0; accent-color: #818cf8; cursor: pointer; }
-            .mtb-pin:has(input:checked) { background: #4c51bf; border-color: #818cf8; color: #fff; }
+            .mtb-pin input { width: auto; height: auto; margin: 0; accent-color: #136990; cursor: pointer; }
+            .mtb-pin:has(input:checked) { background: #0D4B68; border-color: #E8F6FC; color: #fff; }
             .mtb-pin:has(input:focus-visible) { outline: 2px solid #f6c453; outline-offset: 1px; }
             .mtb-fixed { position: fixed !important; z-index: 8000 !important; margin: 0 !important; box-sizing: border-box; }
             .mtb-ph { display: block; flex: none; }
