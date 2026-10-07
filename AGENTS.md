@@ -452,7 +452,7 @@ powershell -ExecutionPolicy Bypass -File scripts\mirror-open.ps1         the rea
 powershell -ExecutionPolicy Bypass -File scripts\mirror-refresh.ps1      is the copy the same as the cloud? tells first (-Check only
                                          tells), asks DA, then applies the SAME saved snapshot through mirror:pull
                                          („MTB - Osvezi kopija“). Both tiles exist only where server\.env has the
-                                         mirror set up (NeedsEnv in mtb-actions.ps1): HOME has it, WORK does not
+                                         mirror set up (NeedsEnv in mtb-actions.ps1): HOME and WORK both have it
 powershell -ExecutionPolicy Bypass -File scripts\sync-peer.ps1           report; -Apply to sync
 powershell -ExecutionPolicy Bypass -File scripts\install-scheduled-tasks.ps1   server, weekly backup, sync
 powershell -ExecutionPolicy Bypass -File scripts\server-control.ps1 status    start | stop | restart

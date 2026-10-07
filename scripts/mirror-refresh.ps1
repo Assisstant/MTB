@@ -65,7 +65,19 @@ if (-not $npm) { $npm = 'C:\Program Files\nodejs\npm.cmd' }
 function Invoke-Pull([string] $ArgLine) {
     $out = [IO.Path]::GetTempFileName()
     $err = [IO.Path]::GetTempFileName()
+    $previousCa = $env:NODE_EXTRA_CA_CERTS
     try {
+        # Some PCs have a locally trusted HTTPS inspection CA (WORK: Avast).
+        # Node needs its public certificate explicitly; never disable TLS verification.
+        $caLine = Get-Content -LiteralPath $envFile -Encoding UTF8 | Where-Object { $_ -match '^\s*MTB_MIRROR_CA_FILE\s*=' } | Select-Object -First 1
+        if ($caLine) {
+            $caFile = ($caLine -replace '^\s*MTB_MIRROR_CA_FILE\s*=\s*', '').Trim().Trim('"')
+            if ($caFile) {
+                if (-not [IO.Path]::IsPathRooted($caFile)) { $caFile = Join-Path $root $caFile }
+                if (-not (Test-Path -LiteralPath $caFile -PathType Leaf)) { throw 'MTB_MIRROR_CA_FILE: certificate file is missing.' }
+                $env:NODE_EXTRA_CA_CERTS = $caFile
+            }
+        }
         $p = Start-Process -FilePath $npm -ArgumentList ('run --silent mirror:pull' + $ArgLine) -WorkingDirectory $serverDir `
             -NoNewWindow -PassThru -RedirectStandardOutput $out -RedirectStandardError $err
         $null = $p.Handle   # Windows PowerShell forgets the exit code of a process whose handle it never took
@@ -73,6 +85,7 @@ function Invoke-Pull([string] $ArgLine) {
         $lines = @(Get-Content -LiteralPath $out -Encoding UTF8) + @(Get-Content -LiteralPath $err -Encoding UTF8)
         return @{ Code = $p.ExitCode; Lines = @($lines | Where-Object { $_ -ne $null }) }
     } finally {
+        $env:NODE_EXTRA_CA_CERTS = $previousCa
         Remove-Item -LiteralPath $out, $err -Force -ErrorAction SilentlyContinue
     }
 }

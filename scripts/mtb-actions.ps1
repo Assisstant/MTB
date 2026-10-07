@@ -17,8 +17,8 @@
 #   UrlKey       instead of Script: a page, its address read from that key in
 #                server\.env. Such an action is a tile and a PROCITAJ entry, no .lnk
 #   NeedsEnv     the action exists only on a computer whose server\.env has that
-#                key set. The read-only copy of the cloud is set up on HOME and
-#                not on WORK (owner, 7 Oct 2026), and a tile for something this
+#                key set. The read-only copy is set up on HOME and WORK
+#                (7 Oct 2026); a tile for something this
 #                computer does not have is a tile that fails. Where the key is
 #                missing there is no tile, no .lnk and no PROCITAJ line.
 
