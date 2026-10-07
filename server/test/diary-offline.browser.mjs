@@ -305,6 +305,111 @@ async function run() {
     await page.unroute('**/api/state/sdnevnik');
     check('the next attempt is not stuck busy', (await page.evaluate(() => SdnLocalSrv.sync({ auto: true }))) === 'conflict');
 
+    // 7 Oct 2026: the owner marks on the computer and on the phone in one day.
+    // Different marks are joined; the same mark with two answers, a change to the
+    // rest of the diary on both sides, or no remembered base still stop.
+    console.log('\ndifferent marks on two devices are joined');
+    const SECOND = 9002;                    // one of four activities credited in the sample
+    const DAYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'];
+    const dateOf = (day) => { const d = new Date(TARGET + 'T12:00:00'); d.setDate(d.getDate() + day); return d.toISOString().slice(0, 10); };
+    const tap = (p, day) => p.evaluate(([target, pupil, name]) => {
+        const here = mondayOf(new Date());
+        const there = mondayOf(new Date(target + 'T12:00:00'));
+        window.currentWeek = Math.round((there - here) / (7 * 24 * 3600 * 1000));
+        toggleAttendance(pupil, name, 1);               // the click: none → present → absent → none
+    }, [TARGET, SECOND, DAYS[day]]);
+    const seenAt = (p, day) => p.evaluate(([d, pupil, k]) => {
+        const m = window.attendance?.[d]?.[String(pupil)]?.[k];
+        return m ? (typeof m === 'string' ? m : m.status) : null;
+    }, [dateOf(day), SECOND, `${DAYS[day]}-1`]);
+    const tableAt = async (day) => (await db.query(
+        `SELECT a.status FROM attendance a JOIN students s ON s.id = a.student_id
+          WHERE s.sdnevnik_id = $1 AND a.date = $2 AND a.slot_key = $3`, [SECOND, dateOf(day), `${DAYS[day]}-1`])).rows[0]?.status ?? null;
+    const credited = (p) => p.evaluate((pupil) => ((window.studentProgress[pupil] || {})[7001] || []).length, SECOND);
+    const planName = (p) => p.evaluate(() => window.plans[0].name);
+    const rename = (p, name) => p.evaluate((n) => { window.plans[0].name = n; saveData(); }, name);
+    const syncNow = (p) => p.evaluate(() => SdnLocalSrv.sync({ auto: true }));
+
+    // Out of the conflict above the way a person leaves it: this device takes the server's.
+    await page.evaluate(() => SdnLocalSrv.pull());
+    const level = [await syncNow(page), await syncNow(other)];
+    check('both devices start from the same diary', level.every((r) => r === 'insync'), level.join(', '));
+    const start = await credited(page);
+
+    await tap(page, 1);                                  // Tuesday here
+    await tap(other, 2);                                 // Wednesday on the other device
+    check('the other device sends its mark first', (await syncNow(other)) === 'pushed');
+    let joined = await syncNow(page);
+    check('this device joins the two instead of stopping', joined === 'pushed', `${joined}: ${(await said(page)).text}`);
+    check('it holds both marks', (await seenAt(page, 1)) === 'present' && (await seenAt(page, 2)) === 'present');
+    check('and so does the table', (await tableAt(1)) === 'present' && (await tableAt(2)) === 'present');
+    check('progress was credited for both sessions, once each', (await credited(page)) === start + 2, `${start} → ${await credited(page)}`);
+    check('nothing is left waiting', !(await said(page)).pending);
+    check('the other device then only has to pull', (await syncNow(other)) === 'pulled'
+        && (await seenAt(other, 1)) === 'present' && (await credited(other)) === start + 2);
+    let both = await diaryAgreement(db, (await stored()).payload);
+    check('the document and the tables still agree', !both.marksOnlyInDocument.length && !both.marksOnlyInTable.length && !both.marksDifferent.length, JSON.stringify(both));
+
+    console.log('\na mark here, and the rest of the diary changed on the other device');
+    await rename(other, 'Проба програма (изменета)');
+    await tap(other, 3);                                 // Thursday there
+    check('the other device sends both', (await syncNow(other)) === 'pushed');
+    await tap(page, 4);                                  // Friday here
+    joined = await syncNow(page);
+    check('the server\'s diary is taken whole and this device\'s mark is put on top', joined === 'pushed'
+        && (await planName(page)) === 'Проба програма (изменета)'
+        && (await seenAt(page, 3)) === 'present' && (await seenAt(page, 4)) === 'present', `${joined}: ${(await said(page)).text}`);
+    check('the table has both', (await tableAt(3)) === 'present' && (await tableAt(4)) === 'present');
+    check('the other device pulls the mark', (await syncNow(other)) === 'pulled' && (await seenAt(other, 4)) === 'present');
+
+    console.log('\nthe rest of the diary changed here, and a mark on the other device');
+    await tap(other, 1);                                 // Tuesday: present → absent
+    check('the other device sends it', (await syncNow(other)) === 'pushed');
+    const beforeUncredit = await credited(page);
+    await rename(page, 'Проба програма (втора измена)');
+    joined = await syncNow(page);
+    check('this diary stays whole and takes the other device\'s mark', joined === 'pushed'
+        && (await planName(page)) === 'Проба програма (втора измена)' && (await seenAt(page, 1)) === 'absent', `${joined}: ${(await said(page)).text}`);
+    check('the session it no longer counts is taken off the progress', (await credited(page)) === beforeUncredit - 1, `${beforeUncredit} → ${await credited(page)}`);
+    check('the other device pulls the renamed plan', (await syncNow(other)) === 'pulled' && (await planName(other)) === 'Проба програма (втора измена)');
+
+    console.log('\nthe same change to the rest of the diary on both devices, and a mark on each');
+    await rename(other, 'Проба програма (иста на двата)');
+    await tap(other, 1);                                 // Tuesday: absent → none
+    check('the other device sends its side', (await syncNow(other)) === 'pushed');
+    await rename(page, 'Проба програма (иста на двата)');
+    await tap(page, 4);                                  // Friday: present → absent
+    joined = await syncNow(page);
+    check('there is nothing to choose between, so the marks are joined', joined === 'pushed'
+        && (await seenAt(page, 1)) === null && (await seenAt(page, 4)) === 'absent' && (await tableAt(4)) === 'absent', `${joined}: ${(await said(page)).text}`);
+    check('the other device pulls it', (await syncNow(other)) === 'pulled' && (await seenAt(other, 4)) === 'absent');
+
+    console.log('\nwhat still stops');
+    await page.evaluate(() => localStorage.removeItem('sdn_local_server_agreed_marks_v1'));
+    await tap(other, 0);                                 // Monday there
+    await syncNow(other);
+    await tap(page, 3);                                  // Thursday here: present → absent
+    check('a device with no remembered base does not guess', (await syncNow(page)) === 'conflict'
+        && (await seenAt(page, 0)) === null && (await tableAt(3)) === 'present');
+    await page.evaluate(() => SdnLocalSrv.pull());
+    await syncNow(page);
+
+    await tap(other, 2);                                 // Wednesday: present → absent
+    await syncNow(other);
+    await tap(page, 2); await tap(page, 2);              // the same mark here: present → absent → none
+    check('the same mark with two answers stops', (await syncNow(page)) === 'conflict'
+        && (await seenAt(page, 2)) === null && (await tableAt(2)) === 'absent');
+    await page.evaluate(() => SdnLocalSrv.pull());
+    await syncNow(page);
+
+    await rename(other, 'Проба програма (таму)');
+    await tap(other, 4);
+    await syncNow(other);
+    await rename(page, 'Проба програма (тука)');
+    await tap(page, 0);
+    check('the rest of the diary changed on both sides stops', (await syncNow(page)) === 'conflict'
+        && (await planName(page)) === 'Проба програма (тука)' && (await stored()).payload.plans[0].name === 'Проба програма (таму)');
+
     check('no page errors', errors.length === 0, errors.join('\n       '));
 }
 

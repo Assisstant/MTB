@@ -11208,6 +11208,7 @@
                 // [v4.2] Отпечатокот се зема ПРЕД примената — applyPayload ја
                 // менува состојбата што ја добива.
                 var serverHashBefore = contentHash(r.body.payload);
+                var serverRestBefore = restHash(r.body.payload);
                 return window.SdnV3.backup('before_local_server_pull').then(function () {
                     // [Stage D] Присуството и напредокот доаѓаат по запис од
                     // базата; документот на серверот е снимка, не вистина.
@@ -11217,7 +11218,8 @@
                     if (typeof window.renderAll === 'function') window.renderAll();
                     setVersion(r.body.version);
                     // [v4.2] инаку автоматската би мислела дека има локални измени
-                    setAgreement(contentHash(window.SdnV3.currentPayload('after_local_server_pull')), serverHashBefore, r.body.version);
+                    var pulled = window.SdnV3.currentPayload('after_local_server_pull');
+                    setAgreement(contentHash(pulled), serverHashBefore, r.body.version, pulled, serverRestBefore);
                     setPending(false);
                     setStatus('🟢 вчитано: верзија ' + r.body.version + ' • ' + stampTime(r.body.updated_at));
                     toast('S-Dnevnik е вчитан од серверот (верзија ' + r.body.version + ').');
@@ -11256,12 +11258,12 @@
         // Снимањето на состојбата и пренесувањето во табелите се две работи.
         // Второто може да биде прескокнато — тогаш „зачувано“ не значи дека
         // базата е ажурирана, па тоа мора јасно да се каже.
-        function finishPush(body, pushedHash) {
+        function finishPush(body, pushedHash, payload) {
             var version = body.version;
             var proj = body.projection || {};
             setVersion(version);
             // [v4.2] Серверот сега држи точно овој payload.
-            if (pushedHash) setAgreement(pushedHash, pushedHash, version);
+            if (pushedHash) setAgreement(pushedHash, pushedHash, version, payload);
 
             var warnings = (proj.problems && proj.problems.length) ? proj.problems
                 : (proj.ok === false ? [proj.error || 'непозната причина'] : []);
@@ -11318,14 +11320,14 @@
                             'Да ја ПРЕПИШАМ неговата верзија со мојата?\n\nПрепорака: Откажи, па „Вчитај од сервер“ (пред тоа автоматски се прави backup).')) {
                             return putState(payload, cur ? cur.version : 0).then(function (retry) {
                                 if (!retry.res.ok || !retry.body) throw new Error('препишувањето не успеа (' + retry.res.status + ')');
-                                finishPush(retry.body, contentHash(payload));
+                                finishPush(retry.body, contentHash(payload), payload);
                             });
                         }
                         setStatus('🟠 конфликт — вчитај од сервер');
                         return;
                     }
                     if (!attempt.res.ok || !attempt.body) throw new Error('серверот врати ' + attempt.res.status);
-                    finishPush(attempt.body, contentHash(payload));
+                    finishPush(attempt.body, contentHash(payload), payload);
                 });
             }).catch(function (err) {
                 console.error('SdnLocalSrv.push:', err);
@@ -11455,8 +11457,217 @@
             } catch (e) { return null; }
         }
 
-        function setAgreement(localHash, serverHash, version) {
-            localStorage.setItem(AGREED_KEY, JSON.stringify({ l: localHash, s: serverHash, v: version || 0 }));
+        // `localPayload` е состојбата тука во моментот на согласноста, а
+        // `serverRest` е restHash на серверскиот документ, земен ПРЕД примената.
+        // Двете му требаат само на спојувањето на ознаки подолу; без нив
+        // согласноста важи како и досега, а спојување нема.
+        function setAgreement(localHash, serverHash, version, localPayload, serverRest) {
+            var record = { l: localHash, s: serverHash, v: version || 0 };
+            if (localPayload) {
+                try {
+                    record.lr = restHash(localPayload);
+                    record.sr = serverRest || record.lr;
+                    var held = null;
+                    try { held = JSON.parse(localStorage.getItem(BASE_MARKS_KEY) || 'null'); } catch (e) { held = null; }
+                    // Ист отпечаток значи исти ознаки: не се пишува одново на секои 30 секунди.
+                    if (!held || held.of !== localHash) {
+                        localStorage.setItem(BASE_MARKS_KEY, JSON.stringify({ of: localHash, marks: flatMarks(localPayload) }));
+                    }
+                } catch (e) {
+                    // Нема место или нешто друго: без основа нема спојување, а не погрешно спојување.
+                    delete record.lr; delete record.sr;
+                    try { localStorage.removeItem(BASE_MARKS_KEY); } catch (e2) { /* останува без основа */ }
+                }
+            }
+            localStorage.setItem(AGREED_KEY, JSON.stringify(record));
+        }
+
+        // ═══════════════════════════════════════════════════════════════════
+        // ДВА УРЕДИ, РАЗЛИЧНИ ОЗНАКИ (7 октомври 2026)
+        //
+        // Сопственикот го користи облакот од компјутер и од телефон во ист ден.
+        // Дневникот е ЕДЕН документ, па ознака на едниот уред и ознака на
+        // другиот беа „и двете страни се сменија“: застанува, и ниту едната
+        // не стигнува до другиот уред додека човек не фрли една од двете.
+        //
+        // Затоа со секоја согласност се памети и ШТО е согласено за ознаките
+        // (BASE_MARKS_KEY) и отпечаток на сè друго (lr/sr). Кога обете страни
+        // се сменети, прашањето станува: дали разликата е само во ознаки што
+        // не се судираат? Ознака е (датум, ученик, термин). Сменета само на
+        // едната страна — се зема од таа страна. Истата ознака сменета на
+        // обете, на различно — тоа е вистински судир и се застанува како и
+        // досега. Сè друго во документот (ученици, планови, распоред, записи)
+        // смее да биде сменето најмногу на ЕДНАТА страна; ако е на обете, пак
+        // се застанува. Ништо не се погодува: без запаметена основа (стар
+        // прелистувач, прва синхронизација) спојување нема.
+        //
+        // Напредокот не се спојува — се изведува од присуството со истите две
+        // функции што ги вика кликот (checkNextActivity / uncheckLastActivity).
+        // ═══════════════════════════════════════════════════════════════════
+        var BASE_MARKS_KEY = 'sdn_local_server_agreed_marks_v1';
+
+        function markStatus(rec) {
+            var status = typeof rec === 'string' ? rec : (rec && rec.status);
+            return status === 'present' ? 'p' : status === 'absent' ? 'a' : '';
+        }
+
+        // „датум|ученик|термин" → 'p' / 'a'. Празна ознака не носи информација.
+        function flatMarks(payload) {
+            var out = {};
+            var att = payload && payload.attendance;
+            if (!att || typeof att !== 'object') return out;
+            Object.keys(att).forEach(function (date) {
+                var byStudent = att[date];
+                if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !byStudent || typeof byStudent !== 'object') return;
+                Object.keys(byStudent).forEach(function (sid) {
+                    var bySlot = byStudent[sid];
+                    if (!bySlot || typeof bySlot !== 'object') return;
+                    Object.keys(bySlot).forEach(function (slot) {
+                        var status = markStatus(bySlot[slot]);
+                        if (status) out[date + '|' + sid + '|' + slot] = status;
+                    });
+                });
+            });
+            return out;
+        }
+
+        function splitMarkKey(key) {
+            var parts = key.split('|');
+            return { date: parts[0], sid: parts[1], slot: parts.slice(2).join('|') };
+        }
+
+        // Сè освен присуството и напредокот што се изведува од него.
+        function restHash(payload) {
+            var copy = {};
+            Object.keys(payload || {}).forEach(function (k) {
+                if (k !== 'attendance' && k !== 'studentProgress') copy[k] = payload[k];
+            });
+            return contentHash(copy);
+        }
+
+        function diaryIds(payload) {
+            var ids = {};
+            ['students', 'archivedStudents', 'formerCaseloadStudents'].forEach(function (list) {
+                (Array.isArray(payload && payload[list]) ? payload[list] : []).forEach(function (s) {
+                    if (s && s.id != null) ids[String(s.id)] = true;
+                    if (s && s.student && s.student.id != null) ids[String(s.student.id)] = true;
+                });
+            });
+            return ids;
+        }
+
+        // null = не може да се спои без погодување; тогаш важи старото „застани“.
+        function planMarkMerge(agreed, localPayload, serverPayload) {
+            if (!agreed || !agreed.lr || !agreed.sr) return null;
+            var held;
+            try { held = JSON.parse(localStorage.getItem(BASE_MARKS_KEY) || 'null'); } catch (e) { held = null; }
+            if (!held || held.of !== agreed.l || !held.marks || typeof held.marks !== 'object') return null;
+
+            var localRest = restHash(localPayload), serverRest = restHash(serverPayload);
+            var localRestMoved = localRest !== agreed.lr;
+            var serverRestMoved = serverRest !== agreed.sr;
+            // Сменето на обете страни, но на ИСТО (на пр. планот што во понеделник
+            // станува распоред на секој уред при првото зачувување): нема што да се бира.
+            var sameRest = localRest === serverRest;
+            if (localRestMoved && serverRestMoved && !sameRest) return null;
+
+            var base = held.marks, mine = flatMarks(localPayload), theirs = flatMarks(serverPayload);
+            var keys = {};
+            [base, mine, theirs].forEach(function (marks) { Object.keys(marks).forEach(function (k) { keys[k] = true; }); });
+            var fromServer = [], fromLocal = [];
+            var all = Object.keys(keys);
+            for (var i = 0; i < all.length; i++) {
+                var k = all[i], b = base[k] || '', l = mine[k] || '', s = theirs[k] || '';
+                if (l === s) continue;
+                if (l !== b && s !== b) return null;          // истата ознака, два одговори
+                if (s !== b) fromServer.push(k); else fromLocal.push(k);
+            }
+
+            // Документот на страната чие „сè друго“ е сменето останува цел; од
+            // другата страна се земаат само нејзините ознаки.
+            var carrier = (serverRestMoved && !sameRest) ? 'server' : 'local';
+            var source = carrier === 'server' ? localPayload : serverPayload;
+            var known = diaryIds(carrier === 'server' ? serverPayload : localPayload);
+            var changes = [];
+            var take = carrier === 'server' ? fromLocal : fromServer;
+            for (var j = 0; j < take.length; j++) {
+                var at = splitMarkKey(take[j]);
+                var rec = source.attendance && source.attendance[at.date] && source.attendance[at.date][at.sid]
+                    ? source.attendance[at.date][at.sid][at.slot] : null;
+                var has = Boolean(markStatus(rec));
+                // Ознака за ученик што другата страна го нема (преброен, споен двојник): не се погодува чија е.
+                if (has && !known[at.sid]) return null;
+                changes.push({ key: take[j], rec: has ? JSON.parse(JSON.stringify(rec)) : null });
+            }
+            return { carrier: carrier, changes: changes, fromServer: fromServer.length, fromLocal: fromLocal.length };
+        }
+
+        function applyMergedMarks(changes) {
+            if (!window.attendance || typeof window.attendance !== 'object') window.attendance = {};
+            var att = window.attendance;
+            var credited = {};
+            changes.forEach(function (change) {
+                var at = splitMarkKey(change.key);
+                var old = att[at.date] && att[at.date][at.sid] ? att[at.date][at.sid][at.slot] : null;
+                var before = markStatus(old), after = markStatus(change.rec);
+                if (change.rec) {
+                    if (!att[at.date]) att[at.date] = {};
+                    if (!att[at.date][at.sid]) att[at.date][at.sid] = {};
+                    att[at.date][at.sid][at.slot] = change.rec;
+                } else if (att[at.date] && att[at.date][at.sid]) {
+                    delete att[at.date][at.sid][at.slot];
+                }
+                // Споен термин е ЕДНА сесија под два клуча со исто време: се брои еднаш, како кај кликот.
+                var time = (change.rec && change.rec.time) || (old && old.time) || '';
+                var session = at.sid + '|' + at.date + '|' + (time || at.slot);
+                if (credited[session]) return;
+                credited[session] = true;
+                var id = isFinite(Number(at.sid)) ? Number(at.sid) : at.sid;
+                try {
+                    if (after === 'p' && before !== 'p' && typeof window.checkNextActivity === 'function') window.checkNextActivity(id, at.date, time);
+                    else if (before === 'p' && after !== 'p' && typeof window.uncheckLastActivity === 'function') window.uncheckLastActivity(id, at.date, time);
+                } catch (e) { console.warn('напредок по спојување:', e); }
+            });
+        }
+
+        function editingNow() {
+            var focused = document.activeElement;
+            return Boolean(document.querySelector('.modal.active, dialog[open], .schedule-pickers') ||
+                (focused && (focused.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(focused.tagName))));
+        }
+
+        // Како doPull: резерва, па проверка дека во меѓувреме ништо не е внесено,
+        // па примена. Потоа споената состојба оди на серверот врз неговата верзија.
+        function mergeMarks(plan, server, serverHash, localHash, auto) {
+            var serverRest = restHash(server.payload);          // пред примената — applyPayload го менува добиеното
+            var merged, mergedHash;
+            suspend = true;
+            return window.SdnV3.backup('before_mark_merge').then(function () {
+                if (contentHash(window.SdnV3.currentPayload('before_mark_merge')) !== localHash) {
+                    setPending(true);
+                    return false;
+                }
+                if (plan.carrier === 'server') window.SdnV3.applyPayload(keepOwned(server.payload));
+                applyMergedMarks(plan.changes);
+                merged = window.SdnV3.currentPayload('mark_merge');
+                mergedHash = contentHash(merged);
+                return window.SdnV3.saveFullPayload(merged, 'mark_merge');
+            }).then(function (saved) {
+                suspend = false;
+                if (saved === false) return 'local-change';
+                if (typeof window.renderAll === 'function') window.renderAll();
+                if (plan.carrier === 'server' && !plan.changes.length) {
+                    // Тука немало што да се додаде врз серверското: ова е обично вчитување.
+                    setVersion(server.version);
+                    setAgreement(mergedHash, serverHash, server.version, merged, serverRest);
+                    setPending(false);
+                    setStatus('🟢 вчитано од серверот • верзија ' + server.version + ' • ' + stampTime(server.updated_at));
+                    return 'pulled';
+                }
+                setPending(true);
+                return doPush(merged, mergedHash, server.version, auto,
+                    'споени ознаки од два уреди: ' + plan.fromServer + ' од серверот, ' + plan.fromLocal + ' од тука');
+            }).then(function (r) { suspend = false; return r; }, function (e) { suspend = false; throw e; });
         }
 
         function hasPending() {
@@ -11596,7 +11807,7 @@
                 }
 
                 if (serverHash === localHash) {
-                    setAgreement(localHash, serverHash, server.version);
+                    setAgreement(localHash, serverHash, server.version, localPayload, restHash(server.payload));
                     setVersion(server.version);
                     setPending(false);
                     setStatus('🟢 синхронизирано • верзија ' + server.version + ' • ' + stampTime(server.updated_at));
@@ -11616,9 +11827,7 @@
                 if (serverChanged && !localChanged) {
                     // Unsubmitted form fields are not yet in currentPayload.
                     // Leave them on screen until the person finishes editing.
-                    var focused = document.activeElement;
-                    if (auto && (document.querySelector('.modal.active, dialog[open], .schedule-pickers') ||
-                        (focused && (focused.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(focused.tagName))))) {
+                    if (auto && editingNow()) {
                         setStatus('🟠 нова серверска состојба · чека да завршите со формуларот');
                         return 'editing';
                     }
@@ -11630,9 +11839,22 @@
                     // Разликата е само од нормализацијата при примена — не е
                     // причина за вчитување. Вчитување тука значеше бесконечен круг.
                     setVersion(server.version);
+                    // Согласност запаметена пред 7 октомври нема основа за ознаките: се дополнува тука.
+                    if (agreed && !agreed.lr) setAgreement(agreed.l, agreed.s, server.version, localPayload, restHash(server.payload));
                     setPending(false);
                     setStatus('🟢 синхронизирано • верзија ' + server.version + ' • ' + stampTime(server.updated_at));
                     return 'insync';
+                }
+
+                // Обете страни се сменети. Ако разликата е само во ознаки што не
+                // се судираат (компјутер и телефон во ист ден), се спојуваат.
+                var mergePlan = planMarkMerge(agreed, localPayload, server.payload);
+                if (mergePlan) {
+                    if (auto && editingNow()) {
+                        setStatus('🟠 ознаки од друг уред · чека да завршите со формуларот');
+                        return 'editing';
+                    }
+                    return mergeMarks(mergePlan, server, serverHash, localHash, auto);
                 }
 
                 setStatus('🟠 разидување — и тука и на серверот има измени');
@@ -11675,7 +11897,8 @@
         // состојбата што ја добива.
         function doPull(server, serverHash) {
             var beforeHash = contentHash(window.SdnV3.currentPayload('before_auto_sync'));
-            var appliedHash;
+            var serverRest = restHash(server.payload);
+            var appliedHash, applied;
             suspend = true;
             return window.SdnV3.backup('before_auto_sync').then(function () {
                 // The backup is asynchronous: typing while it is being saved
@@ -11687,13 +11910,14 @@
                 // [Stage D] Истото како кај рачното вчитување — и уште поважно
                 // тука, зашто ова се случува само по себе при секое отворање.
                 window.SdnV3.applyPayload(keepOwned(server.payload));
-                appliedHash = contentHash(window.SdnV3.currentPayload('after_auto_sync'));
+                applied = window.SdnV3.currentPayload('after_auto_sync');
+                appliedHash = contentHash(applied);
                 return window.SdnV3.saveFullPayload(window.SdnV3.currentPayload('after_auto_sync'), 'after_auto_sync');
             }).then(function (saved) {
                 if (saved === false) return 'local-change';
                 if (typeof window.renderAll === 'function') window.renderAll();
                 setVersion(server.version);
-                setAgreement(appliedHash, serverHash, server.version);
+                setAgreement(appliedHash, serverHash, server.version, applied, serverRest);
                 if (contentHash(window.SdnV3.currentPayload('after_auto_sync')) !== appliedHash) {
                     setPending(true);
                     return 'local-change';
@@ -11724,7 +11948,7 @@
                 var version = attempt.body.version;
                 var proj = attempt.body.projection || {};
                 setVersion(version);
-                setAgreement(localHash, localHash, version);
+                setAgreement(localHash, localHash, version, payload);
 
                 var warnings = (proj.problems && proj.problems.length) ? proj.problems
                     : (proj.ok === false ? [proj.error || 'непозната причина'] : []);
