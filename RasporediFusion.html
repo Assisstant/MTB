@@ -25,7 +25,7 @@
     /* ── Header ─────────────────────────────────────────── */
     /* The suite's header (mtb-look.css, copied): the light blue run under dark words. */
     .header {
-        background: linear-gradient(135deg, #F5FBFE 0%, #D7EDFA 35%, #B7E0F6 65%, #89CFF0 100%);
+        background: linear-gradient(135deg, #F5FBFE 0%, #C2E5F7 30%, #89CFF0 65%, #46B4E7 100%);
         color: #082E3F;
         padding: 15px 20px;
         display: flex;
@@ -347,7 +347,7 @@
     }
     .schedule-tool, .roster-tool { min-width: 0; width: 100%; }
     .section-header {
-        background: linear-gradient(135deg, #F5FBFE 0%, #D7EDFA 35%, #B7E0F6 65%, #89CFF0 100%);
+        background: linear-gradient(135deg, #F5FBFE 0%, #C2E5F7 30%, #89CFF0 65%, #46B4E7 100%);
         color: #082E3F;
         border: 1px solid #ACDCF4;
         padding: 12px 15px;
@@ -670,7 +670,7 @@
         color: #e2e8f0;
     }
     body.dark-mode .header, body.dark-mode .section-header {
-        background: linear-gradient(135deg, #4A4D53 0%, #26282C 60%, #1C1D20 100%);
+        background: linear-gradient(135deg, #5A5E66 0%, #2B2D31 55%, #121314 100%);
         color: #E6E8EB;
         border-color: #0C0D0E;
     }
@@ -831,13 +831,13 @@
        strip are rows of the same buttons instead of the dark slanted band. */
     html.mtb-flat { --flat: #136990; --flat-on: #ffffff; --flat-line2: #0D4B68;
         /* A button is a run of shade under glass (mtb-look.css, 7 Oct 2026). */
-        --fill: linear-gradient(to bottom, rgba(255, 255, 255, .22) 0%, rgba(255, 255, 255, 0) 50%, rgba(0, 0, 0, .10) 100%), linear-gradient(90deg, #177BA9 0%, #0D4B68 100%) #136990;
-        --soft: linear-gradient(to bottom, #ffffff 0%, #F5FBFE 45%, #D7EDFA 100%) #F5FBFE;
+        --fill: linear-gradient(to bottom, rgba(255, 255, 255, .22) 0%, rgba(255, 255, 255, 0) 50%, rgba(0, 0, 0, .10) 100%), linear-gradient(90deg, #177BA9 0%, #0D4B68 55%, #082E3F 100%) #136990;
+        --soft: linear-gradient(to bottom, #ffffff 0%, #EBF6FC 40%, #B7E0F6 100%) #EBF6FC;
         --glass: inset 0 1px 0 rgba(255, 255, 255, .45), 0 1px 2px rgba(8, 46, 63, .22); --glass-soft: inset 0 1px 0 #ffffff, 0 1px 2px rgba(8, 46, 63, .10);
         --flat-well: #f7f7fc; --flat-line: #B7E0F6; --flat-text: #2d3748; --flat-rule: #e2e8f0; --flat-band: #f7fafc; }
     html.mtb-flat:has(body.dark-mode) { --flat: #C4C7CC; --flat-on: #17181A; --flat-line2: #8A8E96;
-        --fill: linear-gradient(to bottom, #F1F2F4 0%, #C4C7CC 100%) #D6D8DC;
-        --soft: linear-gradient(to bottom, #45484E 0%, #2B2D31 100%) #3A3D42;
+        --fill: linear-gradient(to bottom, #FFFFFF 0%, #A9ADB4 100%) #D6D8DC;
+        --soft: linear-gradient(to bottom, #54585F 0%, #1F2124 100%) #3A3D42;
         --glass: inset 0 1px 0 rgba(255, 255, 255, .6), 0 1px 2px rgba(0, 0, 0, .5); --glass-soft: inset 0 1px 0 rgba(255, 255, 255, .12), 0 1px 2px rgba(0, 0, 0, .4);
         --flat-well: #1b2130; --flat-line: #5A5E66; --flat-text: #e2e8f0; --flat-rule: #4a5568; --flat-band: #2d3748; }
     html.mtb-flat .btn {

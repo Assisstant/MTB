@@ -19,7 +19,7 @@
            it are the blue scale's 900: white on these is under 2:1. In the
            dark theme the same run is in greys, as the tab band's. */
         .header {
-            background: linear-gradient(135deg, #F5FBFE 0%, #D7EDFA 35%, #B7E0F6 65%, #89CFF0 100%);
+            background: linear-gradient(135deg, #F5FBFE 0%, #C2E5F7 30%, #89CFF0 65%, #46B4E7 100%);
             color: #082E3F;
             padding: 15px 20px;
         }
@@ -31,8 +31,8 @@
         .tabs {
             display: flex;
             justify-content: center;
-            background: linear-gradient(90deg, #F4FBFE 0%, #D5EEFA 20%, #89CFF0 58%, #46B4E7 100%);
-            border-bottom: 3px solid #6FC4EC;
+            background: linear-gradient(90deg, #F4FBFE 0%, #C0E5F7 20%, #6FC4EC 58%, #1DA3E2 100%);
+            border-bottom: 3px solid #1886B9;
             padding: 0 10px;
             gap: 2px;
             box-shadow: inset 0 1px 0 rgba(255, 255, 255, .8), 0 2px 5px rgba(8, 46, 63, .18);
@@ -48,7 +48,7 @@
             cursor: pointer;
             transition: all 0.3s;
             font-size: 13px;
-            color: #082E3F;
+            color: #031017;
             font-weight: 600;
             text-transform: uppercase;
             letter-spacing: .8px;
@@ -77,7 +77,7 @@
             opacity: 1;
         }
         .tab.active {
-            background: linear-gradient(to bottom, #136990, #0D4B68);
+            background: linear-gradient(to bottom, #177BA9, #082E3F);
             color: #ffffff;
             font-weight: bold;
             margin-top: 0;
@@ -114,14 +114,14 @@
             box-shadow: 0 4px 8px rgba(0,0,0,0.15);
         }
         .btn:where(:not(.btn-primary, .btn-success, .btn-danger, [style*="background"])) {
-            background: linear-gradient(to bottom, #ffffff 0%, #F5FBFE 45%, #D7EDFA 100%) #F5FBFE; color: #2d3748; border: 1px solid #B7E0F6;
+            background: linear-gradient(to bottom, #ffffff 0%, #EBF6FC 40%, #B7E0F6 100%) #EBF6FC; color: #2d3748; border: 1px solid #B7E0F6;
             box-shadow: inset 0 1px 0 #ffffff, 0 1px 2px rgba(8, 46, 63, .10);
         }
         .btn:where(:not(.btn-primary, .btn-success, .btn-danger, [style*="background"])):hover:not(:disabled) {
             transform: none; border-color: #1DA3E2; box-shadow: 0 0 0 1px #1DA3E2;
         }
         body.dark-mode .btn:where(:not(.btn-primary, .btn-success, .btn-danger, [style*="background"])) {
-            background: linear-gradient(to bottom, #45484E 0%, #2B2D31 100%) #3A3D42; color: #e2e8f0; border-color: #5A5E66;
+            background: linear-gradient(to bottom, #54585F 0%, #1F2124 100%) #3A3D42; color: #e2e8f0; border-color: #5A5E66;
             box-shadow: inset 0 1px 0 rgba(255, 255, 255, .12), 0 1px 2px rgba(0, 0, 0, .4);
         }
         body.dark-mode .btn:where(:not(.btn-primary, .btn-success, .btn-danger, [style*="background"])):hover:not(:disabled) {
@@ -129,15 +129,15 @@
         }
         /* The suite's filled button (mtb-look.css, 7 Oct 2026): a run of the
            blue scale under glass; silver under dark words in the dark theme. */
-        .btn-primary { background: linear-gradient(to bottom, rgba(255, 255, 255, .22) 0%, rgba(255, 255, 255, 0) 50%, rgba(0, 0, 0, .10) 100%), linear-gradient(90deg, #177BA9 0%, #0D4B68 100%) #136990; color: white; border: 1px solid #0D4B68; box-shadow: inset 0 1px 0 rgba(255, 255, 255, .45), 0 1px 2px rgba(8, 46, 63, .22); }
-        .btn-primary:hover { background: linear-gradient(to bottom, rgba(255, 255, 255, .16) 0%, rgba(255, 255, 255, 0) 50%, rgba(0, 0, 0, .12) 100%), linear-gradient(90deg, #136990 0%, #082E3F 100%) #0D4B68; }
+        .btn-primary { background: linear-gradient(to bottom, rgba(255, 255, 255, .22) 0%, rgba(255, 255, 255, 0) 50%, rgba(0, 0, 0, .10) 100%), linear-gradient(90deg, #177BA9 0%, #0D4B68 55%, #082E3F 100%) #136990; color: white; border: 1px solid #0D4B68; box-shadow: inset 0 1px 0 rgba(255, 255, 255, .45), 0 1px 2px rgba(8, 46, 63, .22); }
+        .btn-primary:hover { background: linear-gradient(to bottom, rgba(255, 255, 255, .16) 0%, rgba(255, 255, 255, 0) 50%, rgba(0, 0, 0, .12) 100%), linear-gradient(90deg, #136990 0%, #082E3F 60%, #031017 100%) #0D4B68; }
         /* „Зачувај": white on #48bb78 was 2.4:1. The same green, deeper (4.6:1). */
         .btn-success { background: #2f855a; color: white; }
         .btn-success:hover { background: #276749; }
         .btn-danger { background: #e53e3e; color: white; }
         .btn-danger:hover { background: #c53030; }
-        body.dark-mode .btn-primary { background: linear-gradient(to bottom, #F1F2F4 0%, #C4C7CC 100%) #D6D8DC; color: #17181A; border-color: #8A8E96; box-shadow: inset 0 1px 0 rgba(255, 255, 255, .6), 0 1px 2px rgba(0, 0, 0, .5); }
-        body.dark-mode .btn-primary:hover { background: linear-gradient(to bottom, #F1F2F4 0%, #C4C7CC 100%) #D6D8DC; filter: brightness(.93); }
+        body.dark-mode .btn-primary { background: linear-gradient(to bottom, #FFFFFF 0%, #A9ADB4 100%) #D6D8DC; color: #17181A; border-color: #8A8E96; box-shadow: inset 0 1px 0 rgba(255, 255, 255, .6), 0 1px 2px rgba(0, 0, 0, .5); }
+        body.dark-mode .btn-primary:hover { background: linear-gradient(to bottom, #FFFFFF 0%, #A9ADB4 100%) #D6D8DC; filter: brightness(.93); }
         body.dark-mode .btn-danger { background: #f56565; }
         body.dark-mode .btn-danger:hover { background: #e53e3e; }
         .btn-full {
@@ -146,7 +146,7 @@
             font-size: 15px;
         }
         .section-header {
-            background: linear-gradient(135deg, #F5FBFE 0%, #D7EDFA 35%, #B7E0F6 65%, #89CFF0 100%);
+            background: linear-gradient(135deg, #F5FBFE 0%, #C2E5F7 30%, #89CFF0 65%, #46B4E7 100%);
             color: #082E3F;
             border: 1px solid #ACDCF4;
             padding: 12px 20px;
@@ -162,7 +162,7 @@
             margin-bottom: 20px;
         }
         .stat-box {
-            background: linear-gradient(135deg, #F5FBFE 0%, #D7EDFA 35%, #B7E0F6 65%, #89CFF0 100%);
+            background: linear-gradient(135deg, #F5FBFE 0%, #C2E5F7 30%, #89CFF0 65%, #46B4E7 100%);
             color: #082E3F;
             border: 1px solid #ACDCF4;
             padding: 25px;
@@ -865,19 +865,19 @@
         body.dark-mode .header,
         body.dark-mode .stat-box,
         body.dark-mode .section-header {
-            background: linear-gradient(135deg, #4A4D53 0%, #26282C 60%, #1C1D20 100%);
+            background: linear-gradient(135deg, #5A5E66 0%, #2B2D31 55%, #121314 100%);
             color: #E6E8EB;
             border-color: #0C0D0E;
         }
         /* The band in the dark theme: the same run of shade, in greys. */
         body.dark-mode .tabs {
-            background: linear-gradient(90deg, #6B6F77 0%, #474A50 30%, #2B2D31 70%, #1C1D20 100%);
+            background: linear-gradient(90deg, #7A7E86 0%, #4A4D53 30%, #26282C 70%, #101112 100%);
             border-bottom-color: #0C0D0E;
             box-shadow: inset 0 1px 0 rgba(255, 255, 255, .10), 0 2px 6px rgba(0, 0, 0, .45);
         }
         body.dark-mode .tab { background: linear-gradient(to bottom, rgba(12, 13, 14, .42), rgba(12, 13, 14, .62)); color: #CFD2D7; border-top-color: rgba(255, 255, 255, .16); }
         body.dark-mode .tab:hover { background: linear-gradient(to bottom, rgba(12, 13, 14, .2), rgba(12, 13, 14, .4)); color: #ffffff; }
-        body.dark-mode .tab.active { background: linear-gradient(to bottom, #F1F2F4, #C4C7CC); color: #17181A; border-top-color: #ffffff; }
+        body.dark-mode .tab.active { background: linear-gradient(to bottom, #FFFFFF, #A9ADB4); color: #17181A; border-top-color: #ffffff; }
         body.dark-mode .content, body.dark-mode .student-list-simple { background: #1a202c; }
         body.dark-mode .student-item { border-bottom-color: #4a5568; }
         body.dark-mode .student-item:hover { background: #2d3748; }
@@ -1072,7 +1072,7 @@
         }
         
         .trijazen-info {
-            background: linear-gradient(135deg, #F5FBFE 0%, #D7EDFA 35%, #B7E0F6 65%, #89CFF0 100%);
+            background: linear-gradient(135deg, #F5FBFE 0%, #C2E5F7 30%, #89CFF0 65%, #46B4E7 100%);
             color: #082E3F;
             border: 1px solid #ACDCF4;
             padding: 20px;
@@ -1081,7 +1081,7 @@
         }
         
         body.dark-mode .trijazen-info {
-            background: linear-gradient(135deg, #4A4D53 0%, #26282C 60%, #1C1D20 100%);
+            background: linear-gradient(135deg, #5A5E66 0%, #2B2D31 55%, #121314 100%);
             color: #E6E8EB;
             border-color: #0C0D0E;
         }

@@ -57,14 +57,14 @@
     .personal { margin: 0 0 26px; padding: 14px; border-radius: 12px; background: #ffffff; color: #1a202c;
         border: 1px solid #d8dbe8; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
     .personal .p-head { padding: 14px 18px; border-radius: 12px; text-align: center; color: #082E3F;
-        background: linear-gradient(135deg, #F5FBFE 0%, #D7EDFA 35%, #B7E0F6 65%, #89CFF0 100%); border: 1px solid #ACDCF4; }
+        background: linear-gradient(135deg, #F5FBFE 0%, #C2E5F7 30%, #89CFF0 65%, #46B4E7 100%); border: 1px solid #ACDCF4; }
     .personal .p-head h3 { margin: 0; font-size: 22px; color: #082E3F; }
-    .personal .p-sub { margin-top: 4px; font-size: 13px; color: #0D4B68; }
+    .personal .p-sub { margin-top: 4px; font-size: 13px; color: #082E3F; }
     .personal .p-grid { width: 100%; margin-top: 12px; border-collapse: separate; border-spacing: 2px; table-layout: fixed; font-size: 12.5px; }
-    .personal .p-grid thead th { padding: 8px 6px; background: linear-gradient(to bottom, #E1F2FB 0%, #B7E0F6 60%, #95D3F1 100%) #B7E0F6; color: #082E3F; font-weight: 700; text-align: center; }
+    .personal .p-grid thead th { padding: 8px 6px; background: linear-gradient(to bottom, #EBF6FC 0%, #A1D8F3 55%, #6FC4EC 100%) #A1D8F3; color: #082E3F; font-weight: 700; text-align: center; }
     .personal .p-grid thead th:first-child, .personal .p-grid tbody th { width: 84px; }
     .personal .p-grid.lockable thead th:first-child, .personal .p-grid.lockable tbody th { width: 104px; }
-    .personal .p-grid tbody th { padding: 6px; background: linear-gradient(to bottom, #177BA9 0%, #0D4B68 100%) #136990; color: #ffffff; text-align: center; vertical-align: middle; }
+    .personal .p-grid tbody th { padding: 6px; background: linear-gradient(to bottom, #177BA9 0%, #082E3F 100%) #136990; color: #ffffff; text-align: center; vertical-align: middle; }
     .personal .p-grid tbody th b { display: block; font-size: 15px; }
     .personal .p-grid tbody th small { display: block; color: #E8F6FC; font-size: 11px; }
     .personal .p-grid td { padding: 4px; vertical-align: top; background: #f7fafc; color: #1a202c; }
@@ -109,11 +109,11 @@
        lessons and who leaves for a cabinet, only the lessons, or only the cabinets. */
     .personal .p-modes { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0 8px; }
     .personal .p-modes button { font: 700 14px/1.2 system-ui, -apple-system, 'Segoe UI', sans-serif; padding: 6px 14px; min-height: 34px;
-        border: 1px solid #B7E0F6; border-radius: 999px; background: linear-gradient(to bottom, #ffffff 0%, #F5FBFE 45%, #D7EDFA 100%) #F5FBFE; color: #1a202c; cursor: pointer;
+        border: 1px solid #B7E0F6; border-radius: 999px; background: linear-gradient(to bottom, #ffffff 0%, #EBF6FC 40%, #B7E0F6 100%) #EBF6FC; color: #1a202c; cursor: pointer;
         box-shadow: inset 0 1px 0 #ffffff, 0 1px 2px rgba(8, 46, 63, .10); }
     .personal .p-modes button:hover { border-color: #1886B9; }
     .personal .p-modes button[aria-pressed="true"] { border-color: #0D4B68; color: #ffffff;
-        background: linear-gradient(to bottom, rgba(255, 255, 255, .22) 0%, rgba(255, 255, 255, 0) 50%, rgba(0, 0, 0, .10) 100%), linear-gradient(90deg, #177BA9 0%, #0D4B68 100%) #136990;
+        background: linear-gradient(to bottom, rgba(255, 255, 255, .22) 0%, rgba(255, 255, 255, 0) 50%, rgba(0, 0, 0, .10) 100%), linear-gradient(90deg, #177BA9 0%, #0D4B68 55%, #082E3F 100%) #136990;
         box-shadow: inset 0 1px 0 rgba(255, 255, 255, .45), 0 1px 2px rgba(8, 46, 63, .22); }
     .personal.show-subjects .p-away { display: none !important; }
     .personal.show-cabinets .p-lesson { display: none !important; }

@@ -27,7 +27,7 @@
 -->
 <style>
 :root{
-  --brand1:#667eea; --brand2:#764ba2;
+  --brand1:#136990; --brand2:#0D4B68;
   --bg:#f7fafc; --card:#fff; --text:#2d3748; --sub:#5f6b7d; --border:#e2e8f0;
   --hover:#edf2f7; --green:#48bb78; --red:#e53e3e; --amber:#dd8b1f; --blue:#3182ce;
   /* Filled buttons carry white text: the next shade of S-Dnevnik's palette,
@@ -40,17 +40,22 @@
 body.dark{
   --bg:#1a202c; --card:#2d3748; --text:#e2e8f0; --sub:#a0aec0; --border:#4a5568;
   --hover:#374151; --shadow:0 1px 3px rgba(0,0,0,.45);
+  --brand1:#89CFF0; --brand2:#46B4E7;
 }
 *{box-sizing:border-box;margin:0;padding:0;}
 body{font-family:var(--font);background:var(--bg);color:var(--text);font-size:14px;line-height:1.5;}
 
-/* Header — the S-Dnevnik gradient, so the suite reads as one product */
-.hdr{background:linear-gradient(135deg,var(--brand1),var(--brand2));color:#fff;padding:12px 18px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;}
+/* Header — the suite's (mtb-look.css, copied): the light blue run under dark
+   words, greys in the dark theme; buttons are a run of shade under glass. */
+.hdr{background:linear-gradient(135deg, #F5FBFE 0%, #C2E5F7 30%, #89CFF0 65%, #46B4E7 100%);color:#082E3F;padding:12px 18px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;}
 .hdr h1{font-size:1.15em;font-weight:700;}
 .hdr p{font-size:.8em;opacity:.9;width:100%;margin-top:-4px;}
 .hdr-right{margin-left:auto;display:flex;align-items:center;gap:8px;}
-.hdr-btn{background:rgba(0,0,0,.2);border:1px solid rgba(255,255,255,.28);color:#fff;padding:6px 11px;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600;font-family:var(--font);}
-.hdr-btn:hover{background:rgba(0,0,0,.32);} /* a lighter square under white text measured 2.9:1 */
+body.dark .hdr{background:linear-gradient(135deg, #5A5E66 0%, #2B2D31 55%, #121314 100%);color:#F1F2F4;}
+.hdr-btn{background:linear-gradient(to bottom, #ffffff 0%, #EBF6FC 40%, #B7E0F6 100%) #EBF6FC;border:1px solid #B7E0F6;color:#082E3F;box-shadow:inset 0 1px 0 #ffffff, 0 1px 2px rgba(8, 46, 63, .10);padding:6px 11px;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600;font-family:var(--font);}
+.hdr-btn:hover{border-color:#1DA3E2;}
+body.dark .hdr-btn{background:linear-gradient(to bottom, #54585F 0%, #1F2124 100%) #3A3D42;border-color:#5A5E66;color:#fff;box-shadow:inset 0 1px 0 rgba(255, 255, 255, .12), 0 1px 2px rgba(0, 0, 0, .4);}
+body.dark .hdr-btn:hover{border-color:#CFD2D7;}
 .who{background:rgba(255,255,255,.22);padding:4px 11px;border-radius:14px;font-size:12px;font-weight:700;}
 
 /* Tabs — S-Dnevnik's clipped dark strip */
@@ -81,19 +86,25 @@ textarea{min-height:56px;resize:vertical;width:100%;}
 /* The suite's flat look (mtb-look.css `html.mtb-flat`, owner 1 Oct 2026; copied,
    this page does not load that file): thin border, no lift, the main action in
    the one blue; the tabs are plain buttons, not the dark slanted band. */
-:root{--flat:#136990;--flat-on:#fff;--flat-well:#f7f7fc;--flat-line:#c9ced8;}
-body.dark{--flat:#1DA3E2;--flat-on:#031017;--flat-well:#1b2130;--flat-line:#46506a;}
-.btn{padding:6px 14px;min-height:34px;border-radius:999px;font-size:14px;background:var(--flat-well);border-color:var(--flat-line);transition:border-color .15s;}
+:root{--flat:#136990;--flat-on:#fff;--flat-edge:#0D4B68;--flat-well:#f7f7fc;--flat-line:#B7E0F6;
+  --fill:linear-gradient(to bottom, rgba(255, 255, 255, .22) 0%, rgba(255, 255, 255, 0) 50%, rgba(0, 0, 0, .10) 100%), linear-gradient(90deg, #177BA9 0%, #0D4B68 55%, #082E3F 100%) #136990;
+  --soft:linear-gradient(to bottom, #ffffff 0%, #EBF6FC 40%, #B7E0F6 100%) #EBF6FC;
+  --glass:inset 0 1px 0 rgba(255, 255, 255, .45), 0 1px 2px rgba(8, 46, 63, .22);--glass-soft:inset 0 1px 0 #ffffff, 0 1px 2px rgba(8, 46, 63, .10);}
+body.dark{--flat:#C4C7CC;--flat-on:#17181A;--flat-edge:#8A8E96;--flat-well:#1b2130;--flat-line:#5A5E66;
+  --fill:linear-gradient(to bottom, #FFFFFF 0%, #A9ADB4 100%) #D6D8DC;
+  --soft:linear-gradient(to bottom, #54585F 0%, #1F2124 100%) #3A3D42;
+  --glass:inset 0 1px 0 rgba(255, 255, 255, .6), 0 1px 2px rgba(0, 0, 0, .5);--glass-soft:inset 0 1px 0 rgba(255, 255, 255, .12), 0 1px 2px rgba(0, 0, 0, .4);}
+.btn{padding:6px 14px;min-height:34px;border-radius:999px;font-size:14px;background:var(--soft);border-color:var(--flat-line);box-shadow:var(--glass-soft);transition:border-color .15s;}
 .hdr-btn{min-height:34px;padding:6px 14px;border-radius:999px;font-size:14px;font-weight:700;}
-.btn:hover:not([disabled]){transform:none;box-shadow:none;}
+.btn:hover:not([disabled]){transform:none;}
 .btn:where(:not(.btn-p,.btn-g,.btn-r,.btn-b)):hover:not([disabled]){border-color:var(--flat);box-shadow:none;}
 .btn-sm{padding:4px 12px;min-height:28px;font-size:13px;border-radius:999px;}
-.btn-p{background:var(--flat);border-color:var(--flat);color:var(--flat-on);}
+.btn-p{background:var(--fill);border-color:var(--flat-edge);color:var(--flat-on);box-shadow:var(--glass);}
 .tabs.mtb-tabs-flat{align-items:center;gap:6px;padding:10px 8px;background:var(--card);border-bottom:1px solid var(--border);}
 .tabs.mtb-tabs-flat > .tab,.tabs.mtb-tabs-flat > .tab:hover{margin-top:0;padding:6px 14px;min-height:34px;border:1px solid var(--flat-line);border-radius:999px;
-  background:var(--flat-well);color:var(--text);font-size:14px;font-weight:700;letter-spacing:0;text-transform:none;clip-path:none;}
+  background:var(--soft);color:var(--text);font-size:14px;font-weight:700;letter-spacing:0;text-transform:none;clip-path:none;}
 .tabs.mtb-tabs-flat > .tab:hover{border-color:var(--flat);}
-.tabs.mtb-tabs-flat > .tab.active,.tabs.mtb-tabs-flat > .tab.active:hover{margin-top:0;padding:6px 14px;border:1px solid var(--flat);background:var(--flat);color:var(--flat-on);}
+.tabs.mtb-tabs-flat > .tab.active,.tabs.mtb-tabs-flat > .tab.active:hover{margin-top:0;padding:6px 14px;border:1px solid var(--flat-edge);background:var(--fill);color:var(--flat-on);box-shadow:var(--glass);}
 .tabs.mtb-tabs-flat > .mtb-pin{position:static;box-shadow:none;border-color:var(--flat-line);background:var(--flat-well);color:var(--text);min-height:34px;padding:6px 12px;margin-top:0 !important;margin-bottom:0 !important;font-size:13px;font-weight:700;box-sizing:border-box;}
 
 /* Layout */

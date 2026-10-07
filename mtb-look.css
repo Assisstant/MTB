@@ -21,7 +21,7 @@
     --mtb-font: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     /* The header is S-Dnevnik's: the owner's light blue run (7 Oct 2026),
        #F5FBFE … #89CFF0. White on it is under 2:1, so its words are dark. */
-    --mtb-header: linear-gradient(135deg, #F5FBFE 0%, #D7EDFA 35%, #B7E0F6 65%, #89CFF0 100%);
+    --mtb-header: linear-gradient(135deg, #F5FBFE 0%, #C2E5F7 30%, #89CFF0 65%, #46B4E7 100%);
     --mtb-header-text: #082E3F;
     --mtb-header-line: #ACDCF4;
 
@@ -66,8 +66,8 @@
 }
 
 :root[data-theme="dark"] {
-    --mtb-header: linear-gradient(135deg, #4A4D53 0%, #26282C 60%, #1C1D20 100%);
-    --mtb-header-text: #E6E8EB;
+    --mtb-header: linear-gradient(135deg, #5A5E66 0%, #2B2D31 55%, #121314 100%);
+    --mtb-header-text: #F1F2F4;
     --mtb-header-line: #0C0D0E;
 
     --bg: #1a202c;
@@ -156,27 +156,27 @@ header a { color: inherit; opacity: .9; font-size: 0.85em; }
     --mtb-card-btn: #ffffff; --mtb-card-line: #B7E0F6; --mtb-card-hover: #1DA3E2;
     --mtb-ico-bg: #E8F6FC; --mtb-ico: #136990;
     --mtb-btn: linear-gradient(to bottom, rgba(255, 255, 255, .22) 0%, rgba(255, 255, 255, 0) 50%, rgba(0, 0, 0, .10) 100%),
-               linear-gradient(90deg, #177BA9 0%, #0D4B68 100%) #136990;
+               linear-gradient(90deg, #177BA9 0%, #0D4B68 55%, #082E3F 100%) #136990;
     --mtb-btn-on: linear-gradient(to bottom, rgba(255, 255, 255, .16) 0%, rgba(255, 255, 255, 0) 50%, rgba(0, 0, 0, .12) 100%),
-                  linear-gradient(90deg, #136990 0%, #082E3F 100%) #0D4B68;
+                  linear-gradient(90deg, #136990 0%, #082E3F 60%, #031017 100%) #0D4B68;
     --mtb-btn-text: #ffffff; --mtb-btn-line: #0D4B68;
-    --mtb-btn-soft: linear-gradient(to bottom, #ffffff 0%, #F5FBFE 45%, #D7EDFA 100%) #F5FBFE;
+    --mtb-btn-soft: linear-gradient(to bottom, #ffffff 0%, #EBF6FC 40%, #B7E0F6 100%) #EBF6FC;
     --mtb-glass: inset 0 1px 0 rgba(255, 255, 255, .45), 0 1px 2px rgba(8, 46, 63, .22);
     --mtb-glass-soft: inset 0 1px 0 #ffffff, 0 1px 2px rgba(8, 46, 63, .10);
     /* A table's header row: the same glass, top to bottom, so every cell is alike. */
-    --mtb-th: linear-gradient(to bottom, #E1F2FB 0%, #B7E0F6 60%, #95D3F1 100%) #B7E0F6;
+    --mtb-th: linear-gradient(to bottom, #EBF6FC 0%, #A1D8F3 55%, #6FC4EC 100%) #A1D8F3;
     --mtb-th-text: #082E3F;
 }
 :root[data-theme="dark"] {
     --mtb-card-btn: #1f2635; --mtb-card-line: #5A5E66; --mtb-card-hover: #CFD2D7;
     --mtb-ico-bg: #0D4B68; --mtb-ico: #C0E5F7;
-    --mtb-btn: linear-gradient(to bottom, #F1F2F4 0%, #C4C7CC 100%) #D6D8DC;
-    --mtb-btn-on: linear-gradient(to bottom, #F1F2F4 0%, #C4C7CC 100%) #D6D8DC;
+    --mtb-btn: linear-gradient(to bottom, #FFFFFF 0%, #A9ADB4 100%) #D6D8DC;
+    --mtb-btn-on: linear-gradient(to bottom, #FFFFFF 0%, #A9ADB4 100%) #D6D8DC;
     --mtb-btn-text: #17181A; --mtb-btn-line: #8A8E96;
-    --mtb-btn-soft: linear-gradient(to bottom, #45484E 0%, #2B2D31 100%) #3A3D42;
+    --mtb-btn-soft: linear-gradient(to bottom, #54585F 0%, #1F2124 100%) #3A3D42;
     --mtb-glass: inset 0 1px 0 rgba(255, 255, 255, .6), 0 1px 2px rgba(0, 0, 0, .5);
     --mtb-glass-soft: inset 0 1px 0 rgba(255, 255, 255, .12), 0 1px 2px rgba(0, 0, 0, .4);
-    --mtb-th: linear-gradient(to bottom, #54585F 0%, #3A3D42 60%, #2B2D31 100%) #3A3D42;
+    --mtb-th: linear-gradient(to bottom, #5F636B 0%, #3A3D42 55%, #1F2124 100%) #3A3D42;
     --mtb-th-text: #E6E8EB;
 }
 .btn {
@@ -264,14 +264,14 @@ header a { color: inherit; opacity: .9; font-size: 0.85em; }
 .mtb-tabs {
     display: flex; flex-wrap: wrap; align-items: flex-end; gap: 2px;
     padding: 0 10px;
-    background: linear-gradient(90deg, #F4FBFE 0%, #D5EEFA 20%, #89CFF0 58%, #46B4E7 100%);
-    border-bottom: 3px solid #6FC4EC;
+    background: linear-gradient(90deg, #F4FBFE 0%, #C0E5F7 20%, #6FC4EC 58%, #1DA3E2 100%);
+    border-bottom: 3px solid #1886B9;
     border-radius: 8px 8px 0 0;
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, .8), 0 2px 5px rgba(8, 46, 63, .18);
     margin-bottom: 16px;
 }
 :root[data-theme="dark"] .mtb-tabs:not(.mtb-tabs-flat) {
-    background: linear-gradient(90deg, #6B6F77 0%, #474A50 30%, #2B2D31 70%, #1C1D20 100%);
+    background: linear-gradient(90deg, #7A7E86 0%, #4A4D53 30%, #26282C 70%, #101112 100%);
     border-bottom-color: #0C0D0E;
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, .10), 0 2px 6px rgba(0, 0, 0, .45);
 }
@@ -282,7 +282,7 @@ header a { color: inherit; opacity: .9; font-size: 0.85em; }
     border-top: 2px solid rgba(255, 255, 255, .75);
     border-radius: 0;
     background: linear-gradient(to bottom, rgba(255, 255, 255, .16), rgba(13, 75, 104, .10));
-    color: #082E3F;
+    color: #031017;
     font-size: var(--mtb-tab-font);
     font-weight: 600;
     text-transform: uppercase;
@@ -295,7 +295,7 @@ header a { color: inherit; opacity: .9; font-size: 0.85em; }
     transform: none; box-shadow: none; filter: none;
 }
 .mtb-tabs > .btn[aria-pressed="true"], .mtb-tabs > .btn[aria-pressed="true"]:hover:not(:disabled) {
-    background: linear-gradient(to bottom, #136990, #0D4B68);
+    background: linear-gradient(to bottom, #177BA9, #082E3F);
     color: #ffffff;
     font-weight: 700;
     /* Lifted, not taller: 5 + 2 + 10 = 0 + 3 + 14, so choosing a tab does
@@ -310,7 +310,7 @@ header a { color: inherit; opacity: .9; font-size: 0.85em; }
 :root[data-theme="dark"] .mtb-tabs:not(.mtb-tabs-flat) > .btn:hover:not(:disabled) { background: linear-gradient(to bottom, rgba(12, 13, 14, .2), rgba(12, 13, 14, .4)); color: #ffffff; }
 :root[data-theme="dark"] .mtb-tabs:not(.mtb-tabs-flat) > .btn[aria-pressed="true"],
 :root[data-theme="dark"] .mtb-tabs:not(.mtb-tabs-flat) > .btn[aria-pressed="true"]:hover:not(:disabled) {
-    background: linear-gradient(to bottom, #F1F2F4, #C4C7CC); color: #17181A; border-top-color: #ffffff;
+    background: linear-gradient(to bottom, #FFFFFF, #A9ADB4); color: #17181A; border-top-color: #ffffff;
 }
 /* Anything else on the strip (a checkbox, a note) sits on its band. */
 .mtb-tabs > :not(.btn) { align-self: center; margin-top: 5px; margin-bottom: 5px; }

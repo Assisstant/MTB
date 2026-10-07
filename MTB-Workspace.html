@@ -16,13 +16,13 @@
 /* The suite's slim bar: S-Dnevnik's header — the owner's light blue run under
    dark words (7 Oct 2026), greys in the dark theme. The row of tabs on it
    stays the dark band. */
-.topbar { background: linear-gradient(135deg, #F5FBFE 0%, #D7EDFA 35%, #B7E0F6 65%, #89CFF0 100%); border-bottom-color: transparent; color: #082E3F; }
-:root[data-theme=dark] .topbar { background: linear-gradient(135deg, #4A4D53 0%, #26282C 60%, #1C1D20 100%); color: #fff; }
+.topbar { background: linear-gradient(135deg, #F5FBFE 0%, #C2E5F7 30%, #89CFF0 65%, #46B4E7 100%); border-bottom-color: transparent; color: #082E3F; }
+:root[data-theme=dark] .topbar { background: linear-gradient(135deg, #5A5E66 0%, #2B2D31 55%, #121314 100%); color: #fff; }
 .topbar .brand, .topbar .year-wrap, .topbar .status, .topbar .status.ok { color: #082E3F; }
 :root[data-theme=dark] .topbar .brand, :root[data-theme=dark] .topbar .year-wrap, :root[data-theme=dark] .topbar .status, :root[data-theme=dark] .topbar .status.ok { color: #fff; }
-.topbar .status.warn { color: #7A4A00; }
+.topbar .status.warn { color: #5C3700; }
 :root[data-theme=dark] .topbar .status.warn { color: #ffe8b0; }
-.topbar .status.error { color: #A11D33; }
+.topbar .status.error { color: #7F1226; }
 :root[data-theme=dark] .topbar .status.error { color: #ffd6d6; }
 .topbar .brand small { color: #0D4B68; }
 :root[data-theme=dark] .topbar .brand small { color: rgba(255, 255, 255, .85); }
@@ -33,8 +33,8 @@
    shape, one hover, one size
    with the tabs beside them. */
 .topbar > .soft, .topbar > .primary { min-height: 34px; border-radius: 999px; padding-left: 14px; padding-right: 14px; font-size: 13px; font-weight: 700; }
-.topbar > .soft { background: linear-gradient(to bottom, #ffffff 0%, #F5FBFE 45%, #D7EDFA 100%) #F5FBFE; border-color: #B7E0F6; color: #082E3F; box-shadow: inset 0 1px 0 #ffffff, 0 1px 2px rgba(8, 46, 63, .10); }
-:root[data-theme=dark] .topbar > .soft { background: linear-gradient(to bottom, #45484E 0%, #2B2D31 100%) #3A3D42; border-color: #5A5E66; color: #fff; box-shadow: inset 0 1px 0 rgba(255, 255, 255, .12), 0 1px 2px rgba(0, 0, 0, .4); }
+.topbar > .soft { background: linear-gradient(to bottom, #ffffff 0%, #EBF6FC 40%, #B7E0F6 100%) #EBF6FC; border-color: #B7E0F6; color: #082E3F; box-shadow: inset 0 1px 0 #ffffff, 0 1px 2px rgba(8, 46, 63, .10); }
+:root[data-theme=dark] .topbar > .soft { background: linear-gradient(to bottom, #54585F 0%, #1F2124 100%) #3A3D42; border-color: #5A5E66; color: #fff; box-shadow: inset 0 1px 0 rgba(255, 255, 255, .12), 0 1px 2px rgba(0, 0, 0, .4); }
 .topbar > .soft:hover, .topbar > .primary:hover { border-color: #136990; box-shadow: 0 0 0 1px rgba(19, 105, 144, .45); }
 :root[data-theme=dark] .topbar > .soft:hover, :root[data-theme=dark] .topbar > .primary:hover { border-color: #fff; box-shadow: 0 0 0 1px rgba(255, 255, 255, .55); }
 /* „Врати / Повтори“ without a step: there, but plainly not pressable. */
@@ -42,8 +42,8 @@
 .topbar > .soft:disabled:hover { border-color: rgba(13, 75, 104, .28); box-shadow: none; }
 :root[data-theme=dark] .topbar > .soft:disabled:hover { border-color: rgba(255, 255, 255, .3); box-shadow: none; }
 /* The filled button is the blue scale's 700 (white on it is 6.1:1). */
-.topbar > .primary { background: linear-gradient(to bottom, rgba(255, 255, 255, .22) 0%, rgba(255, 255, 255, 0) 50%, rgba(0, 0, 0, .10) 100%), linear-gradient(90deg, #177BA9 0%, #0D4B68 100%) #136990; border-color: #0D4B68; color: #fff; box-shadow: inset 0 1px 0 rgba(255, 255, 255, .45), 0 1px 2px rgba(8, 46, 63, .22); }
-:root[data-theme=dark] .topbar > .primary { background: linear-gradient(to bottom, #F1F2F4 0%, #C4C7CC 100%) #D6D8DC; border-color: #8A8E96; color: #17181A; box-shadow: inset 0 1px 0 rgba(255, 255, 255, .6), 0 1px 2px rgba(0, 0, 0, .5); }
+.topbar > .primary { background: linear-gradient(to bottom, rgba(255, 255, 255, .22) 0%, rgba(255, 255, 255, 0) 50%, rgba(0, 0, 0, .10) 100%), linear-gradient(90deg, #177BA9 0%, #0D4B68 55%, #082E3F 100%) #136990; border-color: #0D4B68; color: #fff; box-shadow: inset 0 1px 0 rgba(255, 255, 255, .45), 0 1px 2px rgba(8, 46, 63, .22); }
+:root[data-theme=dark] .topbar > .primary { background: linear-gradient(to bottom, #FFFFFF 0%, #A9ADB4 100%) #D6D8DC; border-color: #8A8E96; color: #17181A; box-shadow: inset 0 1px 0 rgba(255, 255, 255, .6), 0 1px 2px rgba(0, 0, 0, .5); }
 /* Only S-Dnevnik may hide the workspace toolbar. Window controls and the
    iframe keep their layout; hiding a grid child must not shrink its iframe. */
 .workspace.bar-hidden .topbar { min-height: 0; padding: 0; }
@@ -54,8 +54,8 @@
 #showBar:hover { background: rgba(13, 75, 104, .10); }
 :root[data-theme=dark] #showBar:hover { background: rgba(255, 255, 255, .16); }
 #showBar[hidden] { display: none; }
-.topbar > #setHome[aria-pressed="true"] { background: linear-gradient(to bottom, rgba(255, 255, 255, .16) 0%, rgba(255, 255, 255, 0) 50%, rgba(0, 0, 0, .12) 100%), linear-gradient(90deg, #136990 0%, #082E3F 100%) #0D4B68; border-color: #082E3F; color: #fff; box-shadow: inset 0 1px 0 rgba(255, 255, 255, .45), 0 1px 2px rgba(8, 46, 63, .22); }
-:root[data-theme=dark] .topbar > #setHome[aria-pressed="true"] { background: linear-gradient(to bottom, #F1F2F4 0%, #C4C7CC 100%) #D6D8DC; border-color: #8A8E96; color: #17181A; box-shadow: inset 0 1px 0 rgba(255, 255, 255, .6), 0 1px 2px rgba(0, 0, 0, .5); }
+.topbar > #setHome[aria-pressed="true"] { background: linear-gradient(to bottom, rgba(255, 255, 255, .16) 0%, rgba(255, 255, 255, 0) 50%, rgba(0, 0, 0, .12) 100%), linear-gradient(90deg, #136990 0%, #082E3F 60%, #031017 100%) #0D4B68; border-color: #082E3F; color: #fff; box-shadow: inset 0 1px 0 rgba(255, 255, 255, .45), 0 1px 2px rgba(8, 46, 63, .22); }
+:root[data-theme=dark] .topbar > #setHome[aria-pressed="true"] { background: linear-gradient(to bottom, #FFFFFF 0%, #A9ADB4 100%) #D6D8DC; border-color: #8A8E96; color: #17181A; box-shadow: inset 0 1px 0 rgba(255, 255, 255, .6), 0 1px 2px rgba(0, 0, 0, .5); }
 .topbar .year-wrap select { border-radius: 10px; }
 .main { min-height: 0; min-width: 0; display: block; position: relative; overflow: hidden; isolation: isolate; }
 .workspace-window { position: absolute; min-width: 0; min-height: 0; overflow: hidden; background: var(--panel); }

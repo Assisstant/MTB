@@ -68,20 +68,20 @@
         style.id = 'mtbTabLook';
         style.textContent = `
             html {
-                --mtb-band: linear-gradient(90deg, #F4FBFE 0%, #D5EEFA 20%, #89CFF0 58%, #46B4E7 100%);
-                --mtb-band-edge: #6FC4EC; --mtb-band-shadow: inset 0 1px 0 rgba(255, 255, 255, .8), 0 2px 5px rgba(8, 46, 63, .18);
-                --mtb-plate: linear-gradient(to bottom, rgba(255, 255, 255, .16), rgba(13, 75, 104, .10)); --mtb-plate-text: #082E3F; --mtb-plate-top: rgba(255, 255, 255, .75);
+                --mtb-band: linear-gradient(90deg, #F4FBFE 0%, #C0E5F7 20%, #6FC4EC 58%, #1DA3E2 100%);
+                --mtb-band-edge: #1886B9; --mtb-band-shadow: inset 0 1px 0 rgba(255, 255, 255, .8), 0 2px 5px rgba(8, 46, 63, .18);
+                --mtb-plate: linear-gradient(to bottom, rgba(255, 255, 255, .16), rgba(13, 75, 104, .10)); --mtb-plate-text: #031017; --mtb-plate-top: rgba(255, 255, 255, .75);
                 --mtb-plate-hover: linear-gradient(to bottom, rgba(255, 255, 255, .6), rgba(255, 255, 255, .3)); --mtb-plate-hover-text: #031017;
-                --mtb-plate-on: linear-gradient(to bottom, #136990, #0D4B68); --mtb-plate-on-text: #ffffff; --mtb-plate-on-top: #89CFF0;
-                --mtb-band-end: #46B4E7; --mtb-pin: #ffffff; --mtb-pin-text: #0D4B68; --mtb-pin-line: #89CFF0;
+                --mtb-plate-on: linear-gradient(to bottom, #177BA9, #082E3F); --mtb-plate-on-text: #ffffff; --mtb-plate-on-top: #89CFF0;
+                --mtb-band-end: #1DA3E2; --mtb-pin: #ffffff; --mtb-pin-text: #0D4B68; --mtb-pin-line: #89CFF0;
             }
             html[data-theme="dark"] {
-                --mtb-band: linear-gradient(90deg, #6B6F77 0%, #474A50 30%, #2B2D31 70%, #1C1D20 100%);
+                --mtb-band: linear-gradient(90deg, #7A7E86 0%, #4A4D53 30%, #26282C 70%, #101112 100%);
                 --mtb-band-edge: #0C0D0E; --mtb-band-shadow: inset 0 1px 0 rgba(255, 255, 255, .10), 0 2px 6px rgba(0, 0, 0, .45);
                 --mtb-plate: linear-gradient(to bottom, rgba(12, 13, 14, .42), rgba(12, 13, 14, .62)); --mtb-plate-text: #CFD2D7; --mtb-plate-top: rgba(255, 255, 255, .16);
                 --mtb-plate-hover: linear-gradient(to bottom, rgba(12, 13, 14, .2), rgba(12, 13, 14, .4)); --mtb-plate-hover-text: #ffffff;
-                --mtb-plate-on: linear-gradient(to bottom, #F1F2F4, #C4C7CC); --mtb-plate-on-text: #17181A; --mtb-plate-on-top: #ffffff;
-                --mtb-band-end: #1C1D20; --mtb-pin: #2B2D31; --mtb-pin-text: #CFD2D7; --mtb-pin-line: #6B6F77;
+                --mtb-plate-on: linear-gradient(to bottom, #FFFFFF, #A9ADB4); --mtb-plate-on-text: #17181A; --mtb-plate-on-top: #ffffff;
+                --mtb-band-end: #101112; --mtb-pin: #2B2D31; --mtb-pin-text: #CFD2D7; --mtb-pin-line: #6B6F77;
             }
             html body :is(${STRIP}) {
                 background: var(--mtb-band) !important; border-bottom-color: var(--mtb-band-edge) !important;
@@ -161,7 +161,7 @@
                 margin: 5px 0 5px auto !important; padding: 4px 10px 4px 8px;
                 display: inline-flex; align-items: center; gap: 6px;
                 border: 1px solid var(--mtb-pin-line, #89CFF0); border-radius: 999px; background: var(--mtb-pin, #ffffff); color: var(--mtb-pin-text, #0D4B68);
-                box-shadow: -12px 0 10px -4px var(--mtb-band-end, #46B4E7);
+                box-shadow: -12px 0 10px -4px var(--mtb-band-end, #1DA3E2);
                 font: 600 12px/1.2 system-ui, -apple-system, 'Segoe UI', sans-serif;
                 letter-spacing: 0; text-transform: none; white-space: nowrap; cursor: pointer; user-select: none;
             }
