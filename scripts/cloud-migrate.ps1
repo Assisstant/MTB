@@ -93,6 +93,11 @@ $previous = $env:DATABASE_URL
 # certificate chain"). libpq compatibility gives psql's meaning — encrypted,
 # the same as the pg_dump above. psql itself would refuse this parameter.
 $env:DATABASE_URL = $url + '&uselibpqcompat=true'
+# Where the address asks for verify-full, psql reads Supabase's root certificate
+# from its own folder; Node has to be handed the same file or it refuses the chain.
+$previousCa = $env:NODE_EXTRA_CA_CERTS
+$rootCert = Join-Path $env:APPDATA 'postgresql\root.crt'
+if (-not $previousCa -and (Test-Path -LiteralPath $rootCert)) { $env:NODE_EXTRA_CA_CERTS = $rootCert }
 try {
     $ErrorActionPreference = 'Continue'
     Push-Location (Join-Path $repo 'server')
@@ -101,6 +106,7 @@ try {
 } finally {
     Pop-Location
     $env:DATABASE_URL = $previous
+    $env:NODE_EXTRA_CA_CERTS = $previousCa
     $ErrorActionPreference = 'Stop'
 }
 Write-Host ''

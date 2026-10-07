@@ -92,6 +92,18 @@ function Get-MtbCloud {
     if ($hostPart -notmatch 'supabase\.(com|co)') { throw "Ова не е базата во облакот (Supabase): $hostPart. Локалната база се ажурира со кратенката MTB - Azuriraj." }
     $url = $userPart + $hostPart
     if ($url -notmatch 'sslmode=') { $url += $(if ($url.Contains('?')) { '&' } else { '?' }) + 'sslmode=require' }
+    # verify-full / verify-ca need Supabase's root certificate where libpq looks
+    # for it. Without the file psql answers in English about root.crt, which
+    # reads like a broken shortcut. The mode is NOT lowered here: whoever wrote
+    # it into the file asked for the check, so the answer is the certificate.
+    if ($url -match 'sslmode=verify-(full|ca)' -and $url -notmatch 'sslrootcert=') {
+        $rootCert = Join-Path $env:APPDATA 'postgresql\root.crt'
+        if (-not (Test-Path -LiteralPath $rootCert)) {
+            throw ('Адресата во ' + $EnvFile + ' бара проверка на сертификатот на облакот (sslmode=verify-full), а сертификатот го нема на овој компјутер. ' +
+                'Преземете го од Supabase: Project Settings, Database, SSL Configuration, Download certificate. ' +
+                'Зачувајте го како ' + $rootCert + ' и пуштете ја кратенката пак. Ништо не е сменето.')
+        }
+    }
 
     $tools = Get-MtbPostgresTools
     return [pscustomobject]@{
