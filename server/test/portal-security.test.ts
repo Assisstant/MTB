@@ -43,7 +43,7 @@ before(async () => {
     app = Fastify();
     (await import('../src/lib/colleague.js')).installColleagueBoundary(app);
     (await import('../src/lib/portal-security.js')).installPortalDoor(app);
-    app.addHook('onRoute', route => {
+    app.addHook('onRoute', (route: any) => {
         for (const method of Array.isArray(route.method) ? route.method : [route.method])
             if (route.url.startsWith('/api/portal/') && method !== 'HEAD') portalRoutes.push({ method, url: route.url });
     });

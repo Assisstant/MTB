@@ -633,16 +633,55 @@
      */
     const WORD_TIME_PT = 62, WORD_BODY_PT = 720;
     const wordPx = (pt) => Math.round(pt * 96 / 72);
+    /*
+     * One sheet, one page. Opened in Word itself (7 Oct 2026): a cell with a
+     * lesson and several therapies made its row taller than the minimum, the
+     * sheet grew past the page and its footer landed alone on the next one.
+     * A sheet that fits is left exactly as it was — every row the same. One
+     * that does not gives its busy rows what they need and lets the quiet
+     * ones share what is left of WORD_FIT_PT; if that is still too much, it is
+     * set in smaller letters. What a row needs is an estimate (Word wraps the
+     * text, not this file), checked against Word's own measurements of
+     * twelve real sheets; the page holds about 20pt more than WORD_FIT_PT.
+     */
+    const WORD_FIT_PT = 390, WORD_ROW_MIN = 28, WORD_TIGHT = 0.86;
+    function wordRowNeeds(sheet, dayPt, scale) {
+        const lines = (text, perLine) => Math.max(1, Math.ceil(String(text || '').length / perLine));
+        // Calibri in Cyrillic: about half the letter size for each character.
+        const inner = dayPt - 8, main = 10 * scale, sub = 8 * scale;
+        const entry = (e) => lines(e.text, inner / (main * 0.52)) * main * 1.22
+            + (e.sub ? lines(e.sub, inner / (sub * 0.47)) * sub * 1.22 : 0) + 3;
+        return sheet.rows.map((r, i) => Math.max(0,
+            ...sheet.days.map((d, j) => ((sheet.cells[i] || [])[j] || []).reduce((sum, e) => sum + entry(e), 0))));
+    }
+    const wordRowsTotal = (needs, rowPt) => needs.reduce((sum, need) => sum + Math.max(rowPt, need), 0);
+    /** The height the quiet rows share once the busy ones have taken theirs. */
+    function wordRowLevel(needs) {
+        let left = WORD_FIT_PT, rows = needs.length;
+        for (const need of [...needs].sort((a, b) => b - a)) {
+            if (need * rows <= left) break;
+            left -= need;
+            rows--;
+        }
+        return Math.max(WORD_ROW_MIN, Math.floor(rows ? left / rows : 0));
+    }
     function wordSheetHtml(sheet) {
         const dayPt = Math.floor(WORD_BODY_PT / Math.max(1, sheet.days.length));
         const total = WORD_TIME_PT + dayPt * sheet.days.length;
         const td = (pt, cls) => `<td width="${wordPx(pt)}" style="width:${pt}pt"${cls ? ` class="${cls}"` : ''}>`;
         const col = (pt) => `<col width="${wordPx(pt)}" style="width:${pt}pt">`;
-        const rowPt = Math.max(40, Math.min(72, Math.floor(360 / Math.max(1, sheet.rows.length))));
+        let rowPt = Math.max(40, Math.min(72, Math.floor(360 / Math.max(1, sheet.rows.length))));
+        let needs = wordRowNeeds(sheet, dayPt, 1);
+        const fits = wordRowsTotal(needs, rowPt) <= WORD_FIT_PT;
+        const tight = !fits && wordRowsTotal(needs, WORD_ROW_MIN) > WORD_FIT_PT;
+        if (tight) needs = wordRowNeeds(sheet, dayPt, WORD_TIGHT);
+        if (!fits) rowPt = Math.min(rowPt, wordRowLevel(needs));
+        // Inline, because Word does not follow a selector like `table.tight p`.
+        const size = (pt) => (tight ? ` style="font-size:${(pt * WORD_TIGHT).toFixed(1)}pt"` : '');
         const cell = (list) => {
             if (!list.length) return td(dayPt, 'free') + '—</td>';
-            return td(dayPt) + list.map((e) => `<p class="${e.kind === 'away' ? 'away' : 'lesson'}"><b>${esc(e.text)}</b>`
-                + (e.sub ? `<br><span class="sub">${esc(e.sub)}</span>` : '') + '</p>').join('') + '</td>';
+            return td(dayPt) + list.map((e) => `<p class="${e.kind === 'away' ? 'away' : 'lesson'}"${size(10)}><b>${esc(e.text)}</b>`
+                + (e.sub ? `<br><span class="sub"${size(8)}>${esc(e.sub)}</span>` : '') + '</p>').join('') + '</td>';
         };
         return `<h1>${esc(sheet.title)}</h1><h3>${esc(sheet.subtitle || '')}</h3>`
             + `<table width="${wordPx(total)}" style="width:${total}pt;table-layout:fixed;mso-table-layout-alt:fixed">`

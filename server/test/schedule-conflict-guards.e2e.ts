@@ -17,13 +17,13 @@ const call = async (path: string, body: any) => {
 };
 try {
     const [year] = await q('SELECT id,label FROM school_years WHERE is_current');
-    const pupils = [];
+    const pupils: any[] = [];
     for (const n of ['A', 'B']) {
         const [p] = await q("INSERT INTO students(public_id,name,grade) VALUES ($1,$2,'III') RETURNING *", ['guard-' + n, 'Guard Pupil ' + n]);
         await q("INSERT INTO student_enrollments(student_id,school_year_id,grade) VALUES ($1,$2,'III')", [p.id, year.id]);
         pupils.push(p);
     }
-    const therapists = [];
+    const therapists: any[] = [];
     for (const n of ['A', 'B']) {
         const [t] = await q('INSERT INTO therapists(name) VALUES ($1) RETURNING *', ['Guard Therapist ' + n]);
         await q('INSERT INTO therapist_years(therapist_id,school_year_id,active) VALUES ($1,$2,true)', [t.id, year.id]);

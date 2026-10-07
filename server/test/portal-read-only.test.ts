@@ -38,7 +38,7 @@ before(async () => {
     process.env.MTB_REQUIRE_SIGNIN = '1'; process.env.MTB_SERVICE_KEY = owner['x-mtb-service-key'];
     app = Fastify();
     (await import('../src/lib/colleague.js')).installColleagueBoundary(app);
-    app.addHook('onRoute', route => {
+    app.addHook('onRoute', (route: any) => {
         for (const method of Array.isArray(route.method) ? route.method : [route.method])
             if (route.url.startsWith('/api/portal/') && ['POST','PUT','PATCH','DELETE'].includes(method)) writes.push({method,url:route.url});
     });

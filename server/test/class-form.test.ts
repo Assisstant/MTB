@@ -193,25 +193,25 @@ test('teacher: the same subject with one other teacher is co-teaching, a differe
         [MON2]: { class: 'II-б', subject: 'физичко образование' },
         [TUE1]: { class: 'VII', subject: 'Англиски јазик' }
     }), tctx());
-    const mon2 = p.changes.find((c) => c.key === MON2)!;
+    const mon2 = p.changes.find((c: any) => c.key === MON2)!;
     assert.deepEqual([mon2.together, mon2.reasons], ['Наставник Втор', []]);
-    const tue1 = p.changes.find((c) => c.key === TUE1)!;
+    const tue1 = p.changes.find((c: any) => c.key === TUE1)!;
     assert.match(tue1.reasons[0], /во VII во тој час е Наставник Втор \(Математика\)/);
 });
 
 test('teacher: a free period clears it; a moved lesson is written against the database now', async () => {
     const form = await loadTeacher();
     const p = form.plan(treply(form, { [MON2]: { class: 'VII', subject: 'Англиски јазик' } }), tctx());
-    assert.deepEqual(p.changes.map((c) => [c.key, c.from && c.from.class, c.to && c.to.class]).sort(),
+    assert.deepEqual(p.changes.map((c: any) => [c.key, c.from && c.from.class, c.to && c.to.class]).sort(),
         [[MON1, 'VII', null], [MON2, null, 'VII']].sort());
     const moved = form.plan(treply(form, {}), tctx({ current: { [MON1]: { class: 'II-б', subject: 'Англиски јазик' } } }));
-    assert.deepEqual(moved.conflicts.map((c) => c.key), [MON1], 'changed meanwhile is not overwritten');
+    assert.deepEqual(moved.conflicts.map((c: any) => c.key), [MON1], 'changed meanwhile is not overwritten');
 });
 
 test('teacher: what cannot be written is skipped with a reason; a stranger stops everything', async () => {
     const form = await loadTeacher();
     const p = form.plan(treply(form, { [MON1]: { class: 'VII', subject: 'Англиски јазик' }, [TUE1]: { class: 'X-з', subject: 'Математика' }, 'сабота|1': { class: 'VII', subject: 'x' } }), tctx());
-    assert.deepEqual(p.skipped.map((s) => s.reason).sort(), ['одделението „X-з" не е на списокот за годината', 'тој час не постои во распоредот'].sort());
+    assert.deepEqual(p.skipped.map((s: any) => s.reason).sort(), ['одделението „X-з" не е на списокот за годината', 'тој час не постои во распоредот'].sort());
     assert.match(form.plan(treply(form, {}, { teacher: { id: 9, name: 'Никој' } }), tctx()).errors[0], /Никој/);
 });
 
