@@ -59,7 +59,9 @@ const crossing = {
         { startsAt: '09:40', minutes: 40, covers: [{ ordinal: 3, minutes: 40 }] },
         { startsAt: '10:25', minutes: 40, covers: [{ ordinal: 4, minutes: 40 }] },
         // The last block falls mostly on a seventh period, which has no cell: the sixth is said.
-        { startsAt: '11:10', minutes: 40, covers: [{ ordinal: 7, minutes: 30 }, { ordinal: 6, minutes: 10 }] }
+        { startsAt: '11:10', minutes: 40, covers: [{ ordinal: 7, minutes: 30 }, { ordinal: 6, minutes: 10 }] },
+        // The diary's sixth hour (7 Oct 2026).
+        { startsAt: '11:55', minutes: 40, covers: [{ ordinal: 6, minutes: 40 }] }
     ] },
     cells: [
         { day: 'понеделник', ordinal: 1, class: 'V-а', subject: 'Математика', teacher: 'Наставник Прв' },
@@ -133,7 +135,8 @@ try {
     await page.selectOption('#lessonClass', 'V-а');
     await page.waitForSelector('#scheduleGrid .sdn-lesson-line');
     let got = await lines();
-    checkEq('a line in every term of the week', Object.keys(got).length, 25);
+    checkEq('a line in every term of the week, the sixth hour included', Object.keys(got).length, 30);
+    check('the sixth hour shows the sixth period', got['0|5'] === '6. Физичкобез наставник', got['0|5']);
     check('the first term: the first period, its subject and teacher', got['0|0'] === '1. МатематикаНаставник Прв', got['0|0']);
     check('a block over two periods shows the one it mostly falls on', got['0|1'] === '2. Англиски јазикНаставник Трет', got['0|1']);
     check('a block that is mostly a seventh period shows the sixth, and says when nobody teaches it', got['0|4'] === '6. Физичкобез наставник', got['0|4']);
@@ -151,7 +154,7 @@ try {
     console.log('\nredrawing, another class, none');
     await page.evaluate(() => renderSchedule());
     await page.waitForSelector('#scheduleGrid .sdn-lesson-line');
-    checkEq('the lines come back after the grid is redrawn, once each', [Object.keys(await lines()).length, (await page.$$('#scheduleGrid .sdn-lesson-line')).length], [25, 25]);
+    checkEq('the lines come back after the grid is redrawn, once each', [Object.keys(await lines()).length, (await page.$$('#scheduleGrid .sdn-lesson-line')).length], [30, 30]);
     await page.evaluate(() => changeWeek(1));
     await page.waitForSelector('#scheduleGrid .sdn-lesson-line');
     check('and on another week', (await lines())['0|0'] === '1. МатематикаНаставник Прв');

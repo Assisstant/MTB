@@ -48,6 +48,8 @@ const payload = {
 };
 payload.schedule.monday[0] = [1001];
 payload.schedule.tuesday[1] = [1002, 1004];
+// The sixth hour, in a document saved when the diary had five: the slot is added, not assumed.
+payload.schedule.friday[5] = [1001];
 payload.schedule.wednesday[2] = [1003];
 
 const session = (day, time, pid, name) => ({ day, time, therapist_id: 7, therapist_name: ME, student_public_id: pid, student_name: name });
@@ -57,7 +59,8 @@ let sessions = [
     session('вторник', '09:05-09:25', 'p-d', 'Пробен Делта'),
     session('четврток', '09:40-10:20', 'p-d', 'Пробен Делта'),                  // only in Кабинети
     session('петок', '08:00-08:40', 'p-x', 'Пробен Непознат'),                  // a pupil the diary does not have
-    session('петок', '11:55-12:35', 'p-a', 'Пробен Алфа'),                      // a bell the diary does not have
+    session('петок', '11:55-12:35', 'p-a', 'Пробен Алфа'),                      // the sixth hour (7 Oct 2026): the same on both sides
+    session('петок', '12:40-13:20', 'p-a', 'Пробен Алфа'),                      // a bell the diary does not have
     { day: 'понеделник', time: '08:00-08:40', therapist_id: 8, therapist_name: 'Друг Терапевт', student_public_id: 'p-z', student_name: 'Туѓ Ученик' }
 ];
 const roster = {
@@ -178,6 +181,10 @@ try {
         !(await rowsShown()).includes('0|0') && !(await rowsShown()).includes('1|1'));
     check('a bell the diary does not have is counted, not compared',
         /уште 1 термин/.test(await page.textContent('#planSyncNote')));
+    check('the sixth hour is the diary\'s own now: the same pupil there is compared, and is not a difference',
+        !(await rowsShown()).includes('4|5')
+        && await page.evaluate(() => timeSlots.length === 6 && timeSlots[5].time === '11:55-12:35'
+            && daysEng.every((d) => schedule[d].length === 6)));
     check('an unlinked pupil cannot be sent to Кабинети, and the popup says why',
         await page.$eval('[data-plan-choice="2|2"] input[value="push"]', (o) => o.disabled)
         && /не е поврзан со базата/.test(await page.textContent('[data-plan-row="2|2"]')));

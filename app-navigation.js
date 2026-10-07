@@ -484,21 +484,20 @@
             a.mtb-app-nav__menu-row { box-sizing: border-box; margin-top: 6px; text-decoration: none; border-top: 1px solid #33414f; border-radius: 0 0 7px 7px; }
             .mtb-app-nav__menu-note { font-size: 10px; opacity: .55; padding: 7px 9px 3px; }
             @media print { .mtb-app-nav__menu { display: none !important; } }
-            .mtb-undo {
-                position: fixed; left: 50%; bottom: 18px; transform: translateX(-50%); z-index: 9400;
-                display: flex; gap: 6px; padding: 5px; border-radius: 999px;
-                background: #18202c; border: 1px solid #303b4b;
-                box-shadow: 0 8px 26px rgba(0, 0, 0, .34);
-            }
+            .mtb-undo { display: inline-flex; flex: 0 0 auto; gap: 4px; }
             .mtb-undo[hidden] { display: none; }
-            .mtb-undo button {
-                min-height: 32px; padding: 4px 14px; border-radius: 999px; border: 1px solid #3b4a5e;
-                background: #243244; color: #eef3f8; cursor: pointer; white-space: nowrap;
-                font: 700 13px/1.2 system-ui, -apple-system, "Segoe UI", sans-serif;
+            /* A page with no bar of its own: fixed at the top, never over the table's last row. */
+            .mtb-undo--loose {
+                position: fixed; top: 8px; right: 14px; z-index: 9400; padding: 4px; border-radius: 999px;
+                background: #18202c; border: 1px solid #303b4b; box-shadow: 0 6px 18px rgba(0, 0, 0, .28);
             }
-            .mtb-undo button:hover:not(:disabled) { background: #2f4460; }
+            .mtb-undo button {
+                min-height: 28px; padding: 3px 12px; border-radius: 999px; border: 1px solid #52637b;
+                background: #273346; color: #eef3f8; cursor: pointer; white-space: nowrap;
+                font: 700 12px/1.2 system-ui, -apple-system, "Segoe UI", sans-serif;
+            }
+            .mtb-undo button:hover:not(:disabled) { background: #33435b; border-color: #9fe3cf; }
             .mtb-undo button:disabled { opacity: .45; cursor: default; }
-            @media (max-width: 620px) { .mtb-undo { bottom: 64px; } }
             @media print { .mtb-undo { display: none !important; } }
             .mtb-toast {
                 position: fixed; right: 18px; bottom: 18px; z-index: 9500;
@@ -561,6 +560,11 @@
         try { return new URLSearchParams(window.location.search).has('embed'); }
         catch (_) { return false; }
     }
+
+    // „Врати" / „Повтори" (described at `paintUndo`). Declared here because the
+    // bar's `render` puts the two buttons back after every redraw.
+    const UNDO_LIMIT = 10;
+    const undoing = { done: [], undone: [], busy: false, node: null };
 
     /**
      * Inside the workspace, a link to ANOTHER app opens that app's own window.
@@ -983,6 +987,8 @@
             retry.addEventListener('click', () => dataState.action());
             state.appendChild(retry);
         }
+        // „Врати" / „Повтори" live here, beside ↻, once there is a step.
+        if (undoing.node) { undoing.node.classList.remove('mtb-undo--loose'); state.appendChild(undoing.node); }
         // One light/dark switch for the suite (`mtb-theme.js`). A screen that
         // already carries its own switch keeps it, and the bar does not draw
         // a second one beside it.
@@ -1860,16 +1866,27 @@
      * server refuses, the refusal is shown in its own words and the step is
      * dropped — nobody's later work is overwritten to restore mine.
      *
-     * The control is a pill of its own, not part of the bar: inside the
-     * workspace a page has no bar, and this still has to be within reach.
+     * The two buttons are fixed at the top, beside ↻ (owner, 7 Oct 2026; they
+     * first floated at the bottom and covered the table's last row): in the
+     * page's own bar, and inside the workspace — where a page has no bar — in
+     * the workspace's top row, acting on the window in front.
      * Ctrl+Z / Ctrl+Y work when the cursor is not in a field (there the
      * browser's own text undo keeps its meaning).
      */
-    const UNDO_LIMIT = 10;
-    const undoing = { done: [], undone: [], busy: false, node: null };
-
     function paintUndo() {
         if (!document.body) return;
+        if (embedded()) {
+            // Inside the workspace the two buttons are in ITS top row, beside ↻
+            // (owner, 7 Oct 2026: fixed at the top like any application's
+            // undo, not floating over the last row of the table). This window
+            // only says how many steps it holds — never a step's label, which
+            // can name a pupil — and runs one when the shell asks.
+            try {
+                window.parent.postMessage({ type: 'mtb:undo-state', undo: undoing.done.length,
+                    redo: undoing.undone.length, busy: undoing.busy }, '*');
+            } catch (_) { /* no shell */ }
+            return;
+        }
         const any = undoing.done.length + undoing.undone.length > 0;
         if (!undoing.node) {
             if (!any) return;
@@ -1885,9 +1902,14 @@
                 button.addEventListener('click', () => runUndo(which));
                 node.appendChild(button);
             }
-            document.body.appendChild(node);
             undoing.node = node;
         }
+        // In the page's own bar, beside ↻; `render` puts it back after every
+        // redraw of the bar. A page with no bar keeps it fixed at the top.
+        const state = document.querySelector('#mtbAppNav .mtb-app-nav__state');
+        const home = state || document.body;
+        if (undoing.node.parentNode !== home) home.appendChild(undoing.node);
+        undoing.node.classList.toggle('mtb-undo--loose', !state);
         undoing.node.hidden = !any;
         for (const which of ['undo', 'redo']) {
             const stack = which === 'undo' ? undoing.done : undoing.undone;
@@ -1951,6 +1973,19 @@
         event.preventDefault();
         runUndo(which);
     });
+
+    // The workspace's own „Врати" / „Повтори" asks the window in front to run a step.
+    window.addEventListener('message', (event) => {
+        if (window.parent === window || event.source !== window.parent) return;
+        const message = event.data;
+        if (!message || message.type !== 'mtb:undo-run') return;
+        runUndo(message.which === 'redo' ? 'redo' : 'undo');
+    });
+    // A window that has just (re)loaded holds no steps; the shell must not go on showing the old count.
+    if (embedded()) {
+        if (document.body) paintUndo();
+        else document.addEventListener('DOMContentLoaded', paintUndo);
+    }
 
     window.MTBAppNavigation = {
         refresh: render, checkHealth, checkUser, logout: logoutUser,

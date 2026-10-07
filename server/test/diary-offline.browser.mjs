@@ -334,6 +334,17 @@ async function run() {
     await page.evaluate(() => SdnLocalSrv.pull());
     const level = [await syncNow(page), await syncNow(other)];
     check('both devices start from the same diary', level.every((r) => r === 'insync'), level.join(', '));
+
+    // The sixth hour (7 Oct 2026): every document saved before it has five. The diary adds an
+    // empty sixth when it loads one; that must not read as a change, here or on the server.
+    const five = (await stored()).payload;
+    for (const day of Object.keys(five.schedule)) five.schedule[day] = five.schedule[day].slice(0, 5);
+    await db.query(`UPDATE app_state SET payload = $1 WHERE app = 'sdnevnik'`, [JSON.stringify(five)]);
+    const fiveVersion = (await stored()).version;
+    const withFive = await syncNow(page);
+    check('a server document with five hours is the same diary as this one with an empty sixth',
+        withFive === 'insync' && (await stored()).version === fiveVersion && (await stored()).payload.schedule.monday.length === 5
+        && await page.evaluate(() => timeSlots.length === 6 && schedule.monday.length === 6), withFive);
     const start = await credited(page);
 
     await tap(page, 1);                                  // Tuesday here

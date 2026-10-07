@@ -29,6 +29,9 @@
 .topbar > .soft, .topbar > .primary { min-height: 34px; border-radius: 999px; padding-left: 14px; padding-right: 14px; font-size: 13px; font-weight: 700; }
 .topbar > .soft { background: rgba(15, 18, 40, .32); border-color: rgba(255, 255, 255, .3); color: #fff; }
 .topbar > .soft:hover, .topbar > .primary:hover { border-color: #fff; box-shadow: 0 0 0 1px rgba(255, 255, 255, .55); }
+/* „Врати / Повтори“ without a step: there, but plainly not pressable. */
+.topbar > .soft:disabled { opacity: .45; cursor: default; }
+.topbar > .soft:disabled:hover { border-color: rgba(255, 255, 255, .3); box-shadow: none; }
 .topbar > .primary { background: #4c51bf; border-color: rgba(255, 255, 255, .45); }
 /* Only S-Dnevnik may hide the workspace toolbar. Window controls and the
    iframe keep their layout; hiding a grid child must not shrink its iframe. */
@@ -100,7 +103,7 @@ button:focus-visible, .window-titlebar:focus-visible, .resize-handle:focus-visib
 </head>
 <body>
 <div class="workspace">
-<header class="topbar"><div class="brand">MTB <small>работен простор</small></div><div class="app-tabs" id="appTabs"><button data-app="RasporediFusion.html" class="active">Кабинети</button><button data-app="Nastava.html">Настава ↔ терапии</button><button data-app="NastavaUredi.html">Уреди настава</button><button data-app="Podatoci.html">Списоци и пристап</button><button data-app="AkciskiPlan.html">Евидентен лист</button><button data-app="S-Dnevnik.html">S-Дневник</button><button data-app="Pregled-Baza.html">Преглед на базата</button></div><div class="year-wrap"><span>Година</span><select id="year" aria-label="Учебна година"></select></div><button class="soft compact" id="refresh" aria-label="Освежи податоци">↻</button><div class="dbrole" id="dbrole" title="Која база се запишува">БАЗА: —</div><div class="status" id="status">Се поврзувам…</div><button class="soft compact" id="editingToggle"></button><button class="soft compact" id="themeToggle" data-mtb-theme-control></button><button class="soft compact" id="resetLayout" title="Врати ги прозорците каде што беа на почетокот" aria-label="Почетен изглед">Почетен изглед</button><button class="soft compact" id="setHome" aria-pressed="false" title="Запамети го овој прозорец како почетен на овој прелистувач">⭐ Почетна</button><button class="soft compact" id="hideBar" title="Скриј ја MTB лентата само во S-Дневник" aria-controls="appTabs" aria-expanded="true">▴ Скриј лента</button><button type="button" id="showBar" hidden title="Прикажи ја лентата на MTB">▾ MTB лента</button></header>
+<header class="topbar"><div class="brand">MTB <small>работен простор</small></div><div class="app-tabs" id="appTabs"><button data-app="RasporediFusion.html" class="active">Кабинети</button><button data-app="Nastava.html">Настава ↔ терапии</button><button data-app="NastavaUredi.html">Уреди настава</button><button data-app="Podatoci.html">Списоци и пристап</button><button data-app="AkciskiPlan.html">Евидентен лист</button><button data-app="S-Dnevnik.html">S-Дневник</button><button data-app="Pregled-Baza.html">Преглед на базата</button></div><div class="year-wrap"><span>Година</span><select id="year" aria-label="Учебна година"></select></div><button class="soft compact" id="refresh" aria-label="Освежи податоци">↻</button><button class="soft compact" id="undoStep" disabled title="Нема што да се врати">↶ Врати</button><button class="soft compact" id="redoStep" disabled title="Нема што да се повтори">↷ Повтори</button><div class="dbrole" id="dbrole" title="Која база се запишува">БАЗА: —</div><div class="status" id="status">Се поврзувам…</div><button class="soft compact" id="editingToggle"></button><button class="soft compact" id="themeToggle" data-mtb-theme-control></button><button class="soft compact" id="resetLayout" title="Врати ги прозорците каде што беа на почетокот" aria-label="Почетен изглед">Почетен изглед</button><button class="soft compact" id="setHome" aria-pressed="false" title="Запамети го овој прозорец како почетен на овој прелистувач">⭐ Почетна</button><button class="soft compact" id="hideBar" title="Скриј ја MTB лентата само во S-Дневник" aria-controls="appTabs" aria-expanded="true">▴ Скриј лента</button><button type="button" id="showBar" hidden title="Прикажи ја лентата на MTB">▾ MTB лента</button></header>
 <div class="main" id="main"><section class="workspace-window app-window" id="scheduleWindow" aria-label="Кабинети"><div class="window-titlebar" tabindex="0"><span class="window-title">Кабинети</span><div class="window-actions"></div></div><iframe id="appFrame" data-app-file="RasporediFusion.html" src="RasporediFusion.html?embed=1" title="Кабинети"></iframe></section></div>
 <div class="sr-only" id="windowAnnouncement" role="status" aria-live="polite"></div>
 <p class="sr-only" id="windowHelp">Влечи го насловот за преместување или користи ги стрелките кога насловот е избран. Помал прозорец / Цел простор ја менува големината; истото го прави двоен клик на насловот. Менувај големина од рабовите. Друго јазиче ги задржува незачуваните измени.</p>
@@ -360,6 +363,27 @@ window.addEventListener('message',e=>{
   if(![...document.querySelectorAll('#main iframe')].some(f=>f.contentWindow===e.source))return;
   const topic=m.topic.slice(0,40),n=nav();passChange(topic,e.source);if(n&&n.dataChanged)n.dataChanged(topic)});
 window.addEventListener('mtb:data-announced',e=>passChange(String((e.detail&&e.detail.topic)||''),null));
+/* „Врати / Повтори“ горе, до ↻ (сопственикот, 7 октомври 2026): како во секоја
+ * апликација, не лебдечки врз последниот ред од табелата. Чекорите ги држи
+ * прозорецот на апликацијата (app-navigation.js); тука стигнува само колку ги
+ * има, и оттука оди само „врати“ или „повтори“ кон прозорецот што е напред. */
+const undoSeen=new WeakMap();
+function frontFrame(){return document.querySelector('#main .is-focused iframe')}
+function paintUndoButtons(){
+  const f=frontFrame(),s=(f&&undoSeen.get(f.contentWindow))||{undo:0,redo:0,busy:false};
+  for(const which of ['undo','redo']){const b=$(which+'Step');if(!b)continue;const n=s[which]|0;
+    b.disabled=s.busy||!n;b.textContent=(which==='undo'?'↶ Врати':'↷ Повтори')+(n?' ('+n+')':'');
+    b.title=n?(which==='undo'?'Врати ја последната измена во овој прозорец':'Повтори ја вратената измена во овој прозорец')
+      :(which==='undo'?'Нема што да се врати':'Нема што да се повтори');}
+}
+window.MTBWorkspaceUndo={paint:paintUndoButtons};
+window.addEventListener('message',e=>{
+  const m=e.data;if(!m||m.type!=='mtb:undo-state')return;
+  if(![...document.querySelectorAll('#main iframe')].some(f=>f.contentWindow===e.source))return;
+  undoSeen.set(e.source,{undo:Math.max(0,m.undo|0),redo:Math.max(0,m.redo|0),busy:m.busy===true});paintUndoButtons()});
+for(const which of ['undo','redo'])$(which+'Step').addEventListener('click',()=>{
+  const f=frontFrame(),o=f&&frameOrigin(f);if(!f||!o||o==='null')return;
+  try{f.contentWindow.postMessage({type:'mtb:undo-run',which},o)}catch(_){/* рамка што уште не е вчитана */}});
 runStartGate(false).then(()=>{repointFrames();load()});})();
 </script>
 <script>
@@ -432,6 +456,7 @@ runStartGate(false).then(()=>{repointFrames();load()});})();
       button.setAttribute('aria-pressed', String(win.mode === 'floating'));
     }
     window.MTBWorkspaceChrome?.paint();
+    window.MTBWorkspaceUndo?.paint();
     for (const tab of tabs) {
       const win = windows.get(appId(tab.dataset.app));
       tab.classList.toggle('active', focused === win?.id);

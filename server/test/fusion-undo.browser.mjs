@@ -71,6 +71,14 @@ try {
     assert.deepEqual(blocks[0], { year, day: 'среда', time: '08:00-08:40', therapistId: 7, studentPublicIds: ['un-b'], expectedStudentPublicIds: ['un-a'] });
     await settled();
     assert.deepEqual(await pill(), ['↶ Врати (1)', '↷ Повтори off'], 'one step to take back');
+    // 7 Oct 2026: fixed at the top, in the page's own bar — not floating over the table's last row.
+    assert.equal(await page.evaluate(() => {
+        const pair = document.querySelector('.mtb-undo');
+        return Boolean(pair.closest('#mtbAppNav .mtb-app-nav__state')) && getComputedStyle(pair).position !== 'fixed';
+    }), true, 'the two buttons sit in the bar');
+    await page.evaluate(() => window.MTBAppNavigation.refresh());
+    assert.equal(await page.evaluate(() => Boolean(document.querySelector('#mtbAppNav .mtb-app-nav__state .mtb-undo'))), true,
+        'and are put back when the bar is redrawn');
     assert.match(await page.getAttribute('.mtb-undo [data-mtb-undo="undo"]', 'title'), /Врати: Терапевт Враќање · среда · 08:00-08:40/);
 
     await page.click('.mtb-undo [data-mtb-undo="undo"]');
