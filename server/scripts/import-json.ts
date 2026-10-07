@@ -21,9 +21,10 @@ import { resolve } from 'node:path';
 import { pool } from '../src/db.js';
 import {
     PLACEHOLDERS, DAY_ORDER, newReport, norm, asArray, attendanceStatus,
-    toSdnRecords, reconcile, writeAll,
+    toSdnRecords, reconcile, writeAll, documentScheduleProblems,
     type Report, type SdnRecord, type CanonicalStudent
 } from '../src/lib/import-core.js';
+import { cabinetBells, ScheduleImportRefusal } from '../src/lib/schedule-conflicts.js';
 
 const report: Report = newReport();
 
@@ -66,9 +67,9 @@ function readInputs(paths: string[]): Inputs {
     return out;
 }
 
-/** Counts the schedule and finds double-bookings without touching the database. */
+/** Counts raw assignments; conflict decisions belong to documentScheduleProblems. */
 function analyzeSchedule(base: any) {
-    const stats = { slots: 0, unknownDays: [] as string[], conflicts: [] as any[] };
+    const stats = { slots: 0, unknownDays: [] as string[] };
     if (!Array.isArray(base?.schedule)) return stats;
 
     const unknown = new Set<string>();
@@ -80,16 +81,10 @@ function analyzeSchedule(base: any) {
         if (!DAY_ORDER[norm(day)]) unknown.add(day);
 
         const assignments = (slot.assignments && typeof slot.assignments === 'object') ? slot.assignments : {};
-        const perStudent = new Map<string, string[]>();
-        for (const [therapist, student] of Object.entries(assignments)) {
+        for (const student of Object.values(assignments)) {
             const s = String(student || '').trim();
             if (!s || PLACEHOLDERS.has(s)) continue;
             stats.slots++;
-            if (!perStudent.has(s)) perStudent.set(s, []);
-            perStudent.get(s)!.push(therapist);
-        }
-        for (const [student, therapists] of perStudent) {
-            if (therapists.length > 1) stats.conflicts.push({ day, time, student, therapists });
         }
     }
     stats.unknownDays = [...unknown];
@@ -165,14 +160,14 @@ async function main() {
     console.log(`therapists found:        ${Array.isArray(base?.therapists) ? base.therapists.length : 0}`);
 
     const sched = analyzeSchedule(base);
+    const selectedYear = (await pool.query('SELECT id FROM school_years WHERE is_current')).rows[0];
+    const conflicts = documentScheduleProblems(base, canonical, selectedYear ? await cabinetBells(pool, selectedYear.id) : []);
     console.log(`schedule slots:          ${sched.slots}`);
     if (sched.unknownDays.length) console.log(`  unknown day labels:    ${sched.unknownDays.join(', ')} (sorted last)`);
-    console.log(`  double-booked students:${sched.conflicts.length}`);
-    if (sched.conflicts.length) {
-        console.log('\n--- students booked with two therapists in the same term ---');
-        sched.conflicts.slice(0, 20).forEach((c) => console.log(`  ⚠ ${c.day} ${c.time} — ${c.student}: ${c.therapists.join(' | ')}`));
-        if (sched.conflicts.length > 20) console.log(`  … and ${sched.conflicts.length - 20} more`);
-        console.log('  (imported as-is — the database records them, it does not silently drop them)');
+    console.log(`  schedule problems:     ${conflicts.length}`);
+    if (conflicts.length) {
+        // The dry run and --apply both stop here; writeAll repeats under its lock.
+        throw new ScheduleImportRefusal(conflicts);
     }
 
     const knownSdnIds = new Set(canonical.filter((s) => s.sdnevnikId != null).map((s) => s.sdnevnikId as number));

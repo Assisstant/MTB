@@ -20,15 +20,14 @@
 import {
     upsertDossier, upsertScaleTemplate, upsertAssessment, upsertTriage, upsertAudiogram, audiogramStudentMap
 } from './records.js';
+import { scheduleGate, cabinetBells, scheduleProblems, ScheduleImportRefusal, SCHEDULE_DAYS, type ScheduleTerm } from './schedule-conflicts.js';
+import type { Bell } from './crossing.js';
 
 /** Both apps carry a non-student placeholder at the top of the list. */
 export const PLACEHOLDERS = new Set(['Избери Ученик', 'Select Student']);
 
-/** Only for sorting — the day label itself is stored as the app writes it. */
-export const DAY_ORDER: Record<string, number> = {
-    'понеделник': 1, 'вторник': 2, 'среда': 3, 'четврток': 4, 'петок': 5, 'сабота': 6, 'недела': 7,
-    'pon': 1, 'vto': 2, 'sre': 3, 'cet': 4, 'pet': 5
-};
+/** Sorting and lock identity; the stored day label keeps the file's spelling. */
+export const DAY_ORDER = SCHEDULE_DAYS;
 
 /** Collected per run — never module-level, or a long-lived server would leak findings between saves. */
 export interface Report {
@@ -36,6 +35,32 @@ export interface Report {
     problems: string[];
 }
 export const newReport = (): Report => ({ notes: [], problems: [] });
+
+/** The file preview and the transactional projection check the same resolved identities. */
+export function documentScheduleProblems(base: any, canonical: CanonicalStudent[], bells: Bell[], resolvedIds?: Map<string, number>): string[] {
+    const pupils = new Map<string, Set<string>>();
+    for (const s of canonical) {
+        if (!pupils.has(norm(s.name))) pupils.set(norm(s.name), new Set());
+        pupils.get(norm(s.name))!.add(s.publicId);
+    }
+    const terms: ScheduleTerm[] = [], problems: string[] = [];
+    for (const slot of asArray(base?.schedule)) {
+        if (!slot || typeof slot !== 'object') continue;
+        for (const [therapist, raw] of Object.entries(slot.assignments || {})) {
+            const studentName = String(raw || '').trim();
+            if (!studentName || PLACEHOLDERS.has(studentName)) continue;
+            const ids = pupils.get(norm(studentName));
+            if (ids && ids.size > 1) {
+                problems.push(`Нејасен ученик во распоредот: ${studentName}. Повеќе записи го делат ова име.`);
+                continue;
+            }
+            terms.push({ day: String(slot.day || '').trim(), time: String(slot.time || '').trim(),
+                therapist: norm(therapist), student: resolvedIds?.has(norm(studentName)) ? String(resolvedIds.get(norm(studentName))) :
+                    ids?.values().next().value || norm(studentName), studentName });
+        }
+    }
+    return [...problems, ...scheduleProblems(terms, bells)];
+}
 
 export type MatchTier = 'bridge-id' | 'exact-name' | 'bare-name' | 'name+grade' | 'rasporedi-only' | 'sdnevnik-only';
 
@@ -626,6 +651,9 @@ export async function writeAll(
     ownership: ProjectionOwnership = {}
 ) {
     const schoolYearId = await currentYearId(client);
+    // Take the document gate before touching pupil/roster rows: no live writer
+    // can pass its conflict check while a document replaces the schedule.
+    if (!base?.unifiedMeta?.slotWrites && Array.isArray(base?.schedule)) await scheduleGate(client, true);
 
     /**
      * The app told us it writes its own facts one at a time (Stage A/B). That
@@ -782,6 +810,8 @@ export async function writeAll(
     }
 
     if (!scheduleOwned && apiOwned === 0 && Array.isArray(base?.schedule) && incomingAssignments > 0) {
+        const conflicts = documentScheduleProblems(base, canonical, await cabinetBells(client, schoolYearId), studentIdByName);
+        if (conflicts.length) throw new ScheduleImportRefusal(conflicts);
         await client.query('DELETE FROM schedule_slots WHERE school_year_id = $1', [schoolYearId]);
         const missing = new Set<string>();
         for (const slot of base.schedule) {

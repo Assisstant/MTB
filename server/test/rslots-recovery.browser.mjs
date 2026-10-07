@@ -29,7 +29,7 @@ const STUDENT = 'Опоравок Ученикоски';
 const OTHER = 'Опоравок Другиот';
 const THERAPIST = 'Опоравок Терапевт';
 const DAY = 'Понеделник';
-const TIME = '07:30';
+const TIME = '08:00-08:20';
 
 let fails = 0;
 const check = (l, c, d = '') => { if (c) console.log(`  ok   ${l}`); else { fails++; console.log(`  FAIL ${l}${d ? '\n       ' + d : ''}`); } };
@@ -86,7 +86,10 @@ const run = async () => {
     await page.evaluate(({ s, t }) => {
         document.getElementById('crudNewTherapistName').value = t;
         quickAddTherapistFromCrud();
+        document.getElementById('newGradeInput').value = 'IV';
+        addCustomGrade();
         document.getElementById('quickStudentName').value = s;
+        document.getElementById('quickStudentGrade').value = 'IV';
         quickAddStudent();
     }, { s: STUDENT, t: THERAPIST });
     await page.waitForTimeout(2500);
@@ -128,7 +131,7 @@ const run = async () => {
         return r.fulfill({ status: 404, contentType: 'application/json', body: '{"error":"not here yet"}' });
     });
     await page.evaluate(({ s, t, day }) => {
-        applyAssignment(day, '07:35', t, s);
+        applyAssignment(day, '08:20-08:40', t, s);
         saveScheduleToLocal();
     }, { s: STUDENT, t: THERAPIST, day: DAY });
     await page.waitForTimeout(2500);
@@ -144,7 +147,7 @@ const run = async () => {
     const second = (await pool.query(
         `SELECT s.name FROM schedule_slots sl JOIN therapists t ON t.id = sl.therapist_id
            LEFT JOIN students s ON s.id = sl.student_id
-          WHERE t.name = $1 AND sl.time_slot = '07:35'`, [THERAPIST])).rows[0]?.name ?? null;
+          WHERE t.name = $1 AND sl.time_slot = '08:20-08:40'`, [THERAPIST])).rows[0]?.name ?? null;
     check('and it lands on the retry', second === STUDENT, String(second));
 
     // ── 3. a rename the app must refuse ─────────────────────────────────────

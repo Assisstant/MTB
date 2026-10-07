@@ -4,6 +4,7 @@ import { pool } from '../db.js';
 import { todayInSkopje, isIsoDate } from './duty.js';
 import { projectPayload, weekHasTerms } from './import-core.js';
 import { blockTimes, writeBlockInTransaction } from '../routes/schedule-write.js';
+import { scheduleGate, lockScheduleTherapist, lockScheduleStudents } from './schedule-conflicts.js';
 
 export const DAYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'];
 const MK = ['понеделник', 'вторник', 'среда', 'четврток', 'петок'];
@@ -92,13 +93,10 @@ async function publicWeek(c: PoolClient, week: Week, doc: any): Promise<Blocks> 
 }
 
 async function blocks(c: PoolClient, y: any, therapistId: number, times: string[], wanted: Blocks, expected: Blocks) {
+    await scheduleGate(c);
     // Lock all days first, then pupils, in a stable order across whole-week requests.
-    for (const day of MK) await c.query(
-        "SELECT pg_advisory_xact_lock(hashtext('fusion-therapist:' || $1::text || ':' || $2 || ':' || $3::text))",
-        [y.id, day, therapistId]);
-    for (let d = 0; d < DAYS.length; d++) for (const pid of [...new Set(wanted[DAYS[d]].flat())].sort()) {
-        await c.query("SELECT pg_advisory_xact_lock(hashtext('fusion-student:' || $1::text || ':' || $2 || ':' || $3))", [y.id, MK[d], pid]);
-    }
+    for (const day of MK) await lockScheduleTherapist(c, y.id, day, therapistId);
+    for (let d = 0; d < DAYS.length; d++) await lockScheduleStudents(c, y.id, MK[d], wanted[DAYS[d]].flat());
     for (let d = 0; d < DAYS.length; d++) for (let t = 0; t < times.length; t++) {
         const result = await writeBlockInTransaction(c, {
             year: y.label, therapistId, day: MK[d], time: times[t],

@@ -2335,15 +2335,23 @@
         }
     }
 
-    function optionsFor(therapist, selectedId, students, excludedId) {
+    function optionsFor(therapist, selectedId, students, excludedId, term) {
         const ids = Array.isArray(therapist.students) ? [...new Set(therapist.students)] : [];
         if (selectedId && !ids.includes(selectedId)) ids.push(selectedId);
         // The therapist's list in its one reading order (see listOrderStored).
         const available = inListOrder(ids.map((id) => students.get(id)).filter(Boolean)
             .filter((student) => !excludedId || student.public_id !== excludedId || student.public_id === selectedId));
+        const busyLabel = (student) => {
+            if (!term) return '';
+            const other = Array.from(state.sessions.values()).filter((s) => s.student_public_id === student.public_id &&
+                s.day === term.day && String(s.therapist_id) !== String(therapist.id) && timesOverlap(s.time, term.time));
+            return other.length ? ' · кај ' + other.map((s) =>
+                (s.therapist_name || state.roster.therapists.find((t) => String(t.id) === String(s.therapist_id))?.name || 'друг кабинет') +
+                ' ' + spaced(s.time)).join('; ') : '';
+        };
         return '<option value="">— празно —</option>' + available.map((student) =>
             '<option value="' + esc(student.public_id) + '"' +
-            (student.public_id === selectedId ? ' selected' : '') + '>' + esc(studentLabel(student)) + '</option>'
+            (student.public_id === selectedId ? ' selected' : '') + '>' + esc(studentLabel(student) + busyLabel(student)) + '</option>'
         ).join('') +
             (mayCreatePupil() ? '<option value="' + NEW_PUPIL + '">＋ Нов ученик (набљудување)…</option>' : '');
     }
@@ -2804,7 +2812,7 @@
                 (state.pending.has(key) || !mayEditTherapist(therapist.id) ? ' disabled' : '') +
                 ' title="' + esc(selected ? studentLabel(students.get(selected)) + ' · ' + spaced(time) : spaced(time)) +
                 '" aria-label="' + esc(therapist.name + ', ' + day + ', ' + time) + '">' +
-                optionsFor(therapist, selected, students) + '</select>'
+                optionsFor(therapist, selected, students, null, { day, time }) + '</select>'
         });
     }
 
@@ -2874,7 +2882,7 @@
                 (state.pending.has(blockKey) || !mayEditTherapist(therapist.id) ? ' disabled' : '') +
                 ' title="' + esc((selected ? studentLabel(students.get(selected)) + ' · ' : '') + spaced(displayTime)) +
                 '" aria-label="' + esc(therapist.name + ', ' + day + ', ' + label) + '">' +
-                optionsFor(therapist, selected, students, other) + '</select>'
+                optionsFor(therapist, selected, students, other, { day, time: displayTime }) + '</select>'
         });
     }
 

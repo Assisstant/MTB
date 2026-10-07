@@ -6024,6 +6024,7 @@ body.density-comfortable .student-select {
                 }
                 const attempt = await localSrvPut(payload, baseVersion);
                 if (attempt.res.status === 409) {
+                    if (attempt.body && attempt.body.scheduleImportRefused) throw new Error(attempt.body.error);
                     const cur = attempt.body && attempt.body.current;
                     const who = cur && cur.updated_by ? cur.updated_by : 'непознат уред';
                     const when = cur ? formatStampTime(cur.updated_at) : '';
@@ -6414,6 +6415,12 @@ body.density-comfortable .student-select {
 
         async function localSrvSyncPush(payload, localHash, baseVersion, auto, why) {
             const attempt = await localSrvPut(payload, baseVersion);
+            if (attempt.body && attempt.body.scheduleImportRefused) {
+                setLocalSrvChip('conflict', '🟠 одбиен распоред');
+                notify(attempt.body.error, 'error');
+                if (!auto) alert(attempt.body.error);
+                return 'conflict';
+            }
             if (attempt.res.status === 409) {
                 // Некој зачувал во меѓувреме — истото како разидување.
                 setLocalSrvChip('conflict', '🟠 разидување');
@@ -10135,7 +10142,11 @@ body.density-comfortable .student-select {
                         // смисла да се пробува повторно — човек мора да види.
                         var b = await res.json().catch(function () { return {}; });
                         if (b && b.ambiguous) {
-                            say('Две ученички со исто име — серверот не погодува кој е. Разграничи по одделение.');
+                            say('Името не одредува една личност — серверот не погодува. Провери го списокот.');
+                        } else if (b && b.doubleBooked) {
+                            say('Ученикот веќе е закажан кај ' + b.therapistName + ' во ' + b.time + '. Промената не е зачувана во базата.');
+                        } else if (b && (b.therapistOccupied || b.invalidTime)) {
+                            say(b.error + ' Промената не е зачувана во базата.');
                         } else {
                             say('Некој друг ја смени ' + cell.day + ' ' + cell.time +
                                 ' — таму сега стои „' + (b.actual || 'празно') + '". Освежи ја страницата.');

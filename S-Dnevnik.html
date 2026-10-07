@@ -11309,6 +11309,7 @@
             basePromise.then(function (baseVersion) {
                 if (baseVersion === -1) { setStatus('🟢 поврзан'); return; }
                 return putState(payload, baseVersion).then(function (attempt) {
+                    if (attempt.body && attempt.body.scheduleImportRefused) throw new Error(attempt.body.error);
                     if (attempt.res.status === 409) {
                         var cur = attempt.body && attempt.body.current;
                         var who = cur && cur.updated_by ? cur.updated_by : 'непознат уред';
@@ -11706,6 +11707,12 @@
 
         function doPush(payload, localHash, baseVersion, auto, why) {
             return putState(payload, baseVersion).then(function (attempt) {
+                if (attempt.body && attempt.body.scheduleImportRefused) {
+                    setStatus('🟠 одбиен распоред');
+                    toast(attempt.body.error);
+                    if (!auto) alert(attempt.body.error);
+                    return 'conflict';
+                }
                 if (attempt.res.status === 409) {
                     setStatus('🟠 разидување — некој зачувал во меѓувреме');
                     if (auto) toast('Некој зачувал на серверот во меѓувреме. Отвори го панелот „Локален сервер".');

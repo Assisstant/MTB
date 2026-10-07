@@ -66,6 +66,8 @@ try {
     const half = (i) => page.locator('select[data-session-day="понеделник"][data-therapist-id="1"][data-block-time="08:00-08:40"][data-block-part="' + i + '"]');
     assert.equal(await half(0).evaluate((e) => e.closest('.student-slot').classList.contains('conflict')), true);
     assert.equal(await half(1).evaluate((e) => e.closest('.student-slot').classList.contains('conflict')), false, 'same name, different id; second half stays clear');
+    assert.match(await half(0).locator('option[value="a"]').innerText(), /кај Пробен Терапевт 2.*08:00.*08:40/);
+    assert.doesNotMatch(await half(1).locator('option[value="b"]').innerText(), /кај/, 'same-name other child is not called occupied');
     await page.click('#openConflicts');
     assert.equal(await page.locator('.conflict-group').count(), 1);
     assert.equal(await page.locator('.conflict-pair').count(), 2, 'focused cabinet only its two pairs');

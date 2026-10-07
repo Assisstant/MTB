@@ -2,6 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { pool } from '../db.js';
 import { projectPayload } from '../lib/import-core.js';
+import { ScheduleImportRefusal } from '../lib/schedule-conflicts.js';
 
 // Stage 2.5 — blob endpoints. The whole Unified Sync JSON lives in one
 // jsonb row per app, with a version counter for conflict detection.
@@ -148,6 +149,9 @@ export async function stateRoutes(server: FastifyInstance) {
             return { app, version: newVersion, projection };
         } catch (err) {
             await client.query('ROLLBACK');
+            if (err instanceof ScheduleImportRefusal) return reply.code(409).send({
+                error: err.message, scheduleImportRefused: true, conflicts: err.conflicts
+            });
             server.log.error({ err, app }, 'state save and relational projection rolled back');
             throw err;
         } finally {
