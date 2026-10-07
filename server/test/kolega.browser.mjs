@@ -591,7 +591,9 @@ check('no page errors', errors.length === 0, errors.join('\n       '));
             // Owner, 30 Sep 2026: somebody else actually served — a second duty in that cycle.
             day('2026-10-08', 4, 8, { note: 'празник', insteadOf: { employeeId: 9, name: people[9] }, servedEmployeeId: 8, turnInCycle: 2 }),
             // An ordinary day of the second cycle: a swap with it crosses cycles (owner, 1 Oct 2026).
-            day('2026-10-09', 5, 7)],
+            day('2026-10-09', 5, 7),
+            // Owner, 7 Oct 2026: a public holiday from the school calendar is closed with no mark and no note.
+            day('2026-10-12', 1, null, { closed: true, how: 'closed', holiday: 'Ден на народното востание' })],
         swapLog: [{ id: 5, note: 'договор', cross: true, first: { employeeId: 9, name: people[9], date: '2026-09-30', cycle: 1 },
             second: { employeeId: 8, name: people[8], date: '2026-10-13', cycle: 2 } }],
         cycleCounts: [{ cycle: 2, from: '2026-10-06', to: '2026-10-08', people: [{ employeeId: 8, name: people[8], count: 2, sick: false }, { employeeId: 9, name: people[9], count: 0, sick: false }] }],
@@ -672,6 +674,9 @@ check('no page errors', errors.length === 0, errors.join('\n       '));
     check('the month reads date, person, rotation position', /^чт 01\.10\.2026 Ана Измислена 1/.test(rows[0].text), rows[0].text);
     check('their own days are marked', rows[0].cls.includes('mine') && rows[3].cls.includes('mine'), JSON.stringify(rows.map((r) => r.cls)));
     check('a closed day says why', /без дежурство: излет/.test(rows[4].text), rows[4].text);
+    const holiday = rows.find((r) => /12\.10\.2026/.test(r.text));
+    check('a public holiday is closed by itself and named', /без дежурство: Ден на народното востание/.test(holiday.text)
+        && holiday.cls.includes('closed') && holiday.away === false, JSON.stringify(holiday));
     check('a colleague is not told to close a day', !/сè уште е во дежурствата/.test(rows[5].text), rows[5].text);
     check('a stand-in day says whom it was instead of, and why — and not twice',
         /наместо Горан Измислен — боледување/.test(rows[1].text) && !/отсутни/.test(rows[1].text), rows[1].text);
@@ -740,7 +745,7 @@ check('no page errors', errors.length === 0, errors.join('\n       '));
         && await d.p.evaluate((t) => sessionStorage.getItem('mtb_duty_admin_v1') === t, DUTY_ADMIN));
     check('it clearly says this is the delegated administrator mode', /Администраторски режим/.test(await d.p.textContent('#duty .duty-note')));
     check('the mode says the link is permanent until revoked', /постојан линк, до поништување/.test(await d.p.textContent('#duty .duty-note')));
-    check('the delegated mode gets the same day and swap controls', await d.p.$$eval('#duty [data-duty-open]', (b) => b.length) === 7
+    check('the delegated mode gets the same day and swap controls', await d.p.$$eval('#duty [data-duty-open]', (b) => b.length) === 8
         && Boolean(await d.p.$('#duty [data-swap-from]')));
     await d.p.click('#duty tr[data-date="2026-10-02"] [data-duty-open]');
     await d.p.selectOption('#duty form[data-duty-day="2026-10-02"] select[name="swapWith"]', '2026-10-05');
@@ -794,7 +799,13 @@ check('no page errors', errors.length === 0, errors.join('\n       '));
     const o = await run(true);
     await o.p.click('#tabs [data-tab="duty"]');
     await o.p.waitForSelector('#duty .duty-admin', { timeout: 6000 });
-    check('the owner gets the list and every day\'s controls', await o.p.$$eval('#duty [data-duty-open]', (b) => b.length) === 7);
+    check('the owner gets the list and every day\'s controls', await o.p.$$eval('#duty [data-duty-open]', (b) => b.length) === 8);
+    // A public holiday: the day's editor says the calendar closed it, and offers to open it.
+    await o.p.click('#duty tr[data-date="2026-10-12"] [data-duty-open]');
+    check('the editor of a holiday says the calendar closed it, with „Нема дежурен" chosen',
+        /Празник според календарот: Ден на народното востание/.test(await o.p.textContent('#duty form[data-duty-day="2026-10-12"] [data-duty-holiday]'))
+        && await o.p.isChecked('#duty form[data-duty-day="2026-10-12"] input[name="kind"][value="pause"]'));
+    await o.p.click('#duty form[data-duty-day="2026-10-12"] [data-duty-open=""]');
     check('an event note is not presented as a mistake or an instruction to pause',
         !(await o.p.$('#duty tr[data-date="2026-10-08"] .warn-note')));
     await o.p.click('#duty tr[data-date="2026-10-06"] [data-duty-open]');

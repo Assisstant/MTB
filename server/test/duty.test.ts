@@ -7,7 +7,8 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { applyServed, applySwaps, cycleTally, dutyRota, monthBounds, rotaWithSwaps, monthOfRota, todayInSkopje, windowPayload, isIsoDate, workingDays, type DutyMark, type DutyMember, type DutyState } from '../src/lib/duty.js';
+import { holidaysBetween } from '../src/lib/school-calendar.js';
+import { HOLIDAYS_CLOSE_FROM, holidayDefaultStands, applyServed, applySwaps, cycleTally, dutyRota, monthBounds, rotaWithSwaps, monthOfRota, todayInSkopje, windowPayload, isIsoDate, workingDays, type DutyMark, type DutyMember, type DutyState } from '../src/lib/duty.js';
 
 const members = (...ids: number[]): DutyMember[] => ids.map((employeeId, i) => ({ employeeId, position: i + 1, joinedOn: null, leftOn: null }));
 const rota = (opts: { members?: DutyMember[]; until?: string; days?: Array<[string, { closed?: boolean; note?: string; assigned?: number | null }]>; away?: Array<[string, number[]]> }) =>
@@ -80,6 +81,47 @@ test('the same event can keep normal counting or explicitly pause it, including 
         assert.equal(paused[index + 1].employeeId, plain[index].employeeId, 'nobody uses a turn during the pause');
         assert.deepEqual(who(paused).slice(0, index), who(plain).slice(0, index));
     }
+});
+
+test('a public holiday has no duty by default and moves nobody; a stored mark decides either way (owner, 7 Oct 2026)', () => {
+    const holidays = new Map([['2026-09-02', 'Измислен празник']]);
+    const base = { startsOn: '2026-09-01', until: '2026-09-08', members: members(1, 2, 3), absences: new Map() };
+    const mark = (closed: boolean, note = ''): Map<string, DutyMark> => new Map([['2026-09-02', { closed, note, assigned: null }]]);
+
+    const byDefault = dutyRota({ ...base, days: new Map(), holidays });
+    assert.deepEqual(who(byDefault), [1, null, 2, 3, 1, 2], 'closed like a day closed by hand: the list continues the next working day');
+    assert.equal(byDefault[1].how, 'closed');
+    assert.equal(byDefault[1].holiday, 'Измислен празник', 'and the day says which holiday');
+    assert.deepEqual(who(byDefault), who(rota({ days: [['2026-09-02', { closed: true }]] })));
+
+    const opened = dutyRota({ ...base, days: mark(false), holidays });
+    assert.deepEqual(who(opened), who(rota({})), 'opened by the administrator, the list runs as on any working day');
+    assert.equal(opened[1].holiday, 'Измислен празник', 'still named, so the page can say it is a decision');
+
+    assert.deepEqual(who(dutyRota({ ...base, days: mark(true, 'затворено'), holidays })), who(byDefault));
+    assert.deepEqual(who(dutyRota({ ...base, days: new Map() })), who(rota({})), 'the control: without the calendar nothing closes');
+
+    // A swap agreed for a day that is a holiday does not hold, like any closed day.
+    assert.equal(applySwaps(byDefault, [swap('2026-09-01', 1, '2026-09-02', 2)]).stale.length, 1);
+});
+
+test('only a decision is stored: a holiday left closed keeps following the calendar, a holiday opened is kept', () => {
+    const empty = { note: '', assigned: null, served: null };
+    assert.equal(holidayDefaultStands({ closed: false, ...empty }, false), true, 'an ordinary working day: nothing to remember');
+    assert.equal(holidayDefaultStands({ closed: true, ...empty }, false), false, 'closed by hand is a decision');
+    assert.equal(holidayDefaultStands({ closed: true, ...empty }, true), true, 'a holiday left closed: the calendar goes on deciding');
+    assert.equal(holidayDefaultStands({ closed: false, ...empty }, true), false, 'a holiday OPENED must be kept, or it falls back to closed');
+    assert.equal(holidayDefaultStands({ closed: true, ...empty, note: 'белешка' }, true), false, 'a note is something to remember');
+    assert.equal(holidayDefaultStands({ closed: false, ...empty, served: 3 }, false), false);
+});
+
+test('holidays close the rota from the day the rule was asked for, never before it', () => {
+    assert.ok(isIsoDate(HOLIDAYS_CLOSE_FROM));
+    const calendar = { yearStart: '2026-09-01', yearEnd: '2027-06-10', holidays: [
+        { name: 'Пред правилото', kind: 'praznik', start: '2026-09-08', end: '2026-09-08' },
+        { name: 'По правилото', kind: 'praznik', start: '2026-10-23', end: '2026-10-23' }] };
+    assert.deepEqual([...holidaysBetween(calendar, HOLIDAYS_CLOSE_FROM, '2027-08-31').keys()], ['2026-10-23'],
+        'a holiday already behind us is left as it was marked by hand: closing it now would move every name after it');
 });
 
 test('a legacy assignment consumes one turn and next cycle restarts in the canonical order', () => {

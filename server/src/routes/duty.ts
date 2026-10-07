@@ -22,7 +22,7 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import { pool } from '../db.js';
 import { assertOwner, refuseScope, scopeOf } from '../lib/colleague.js';
-import { defaultMonth, isIsoDate, loadDuty, monthBounds, monthPayload, rotaWithSwaps, servedRota, todayInSkopje, windowPayload } from '../lib/duty.js';
+import { defaultMonth, holidayDefaultStands, isIsoDate, loadDuty, monthBounds, monthPayload, rotaWithSwaps, servedRota, todayInSkopje, windowPayload } from '../lib/duty.js';
 import { PORTAL_TOKEN_HEADER, sessionEmployee, staffOfYear } from '../lib/staff-accounts.js';
 import { doorState } from '../lib/portal-security.js';
 import {
@@ -278,7 +278,11 @@ export async function dutyRoutes(server: FastifyInstance, options: { year?: stri
             insteadOf = day ? day.employeeId : null;
             if (insteadOf === served) served = null; // the rota already names them
         }
-        if (!b.closed && assigned == null && served == null && !note) {
+        // A public holiday is closed without a mark (owner, 7 Oct 2026). Left
+        // closed it goes on following the calendar; OPENED it is a decision,
+        // and that mark must be kept or the day falls back to closed.
+        const cleared = holidayDefaultStands({ closed: b.closed, note, assigned, served }, Boolean(state.holidays?.has(b.date)));
+        if (cleared) {
             await pool.query('DELETE FROM duty_days WHERE school_year_id = $1 AND day = $2', [year.id, b.date]);
         } else {
             await pool.query(
@@ -288,7 +292,7 @@ export async function dutyRoutes(server: FastifyInstance, options: { year?: stri
                         served_employee_id = EXCLUDED.served_employee_id`,
                 [year.id, b.date, b.closed, note, assigned, served]);
         }
-        if (!b.repay || served == null || insteadOf == null) return { ok: true, cleared: !b.closed && assigned == null && served == null && !note };
+        if (!b.repay || served == null || insteadOf == null) return { ok: true, cleared };
         // Even it out: the stand-in's next OWN turn, in a later cycle, goes to
         // the colleague who was replaced. Found on the rota as it now stands.
         const after = await loadDuty(pool, year.id);

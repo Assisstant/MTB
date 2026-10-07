@@ -43,12 +43,23 @@
  *     is the count per cycle — the one who stepped in has two duties in that
  *     cycle, the one replaced none (`cycleTally`). Evening it out is a second
  *     correction in a later cycle, which the administrator chooses.
+ *   - A PUBLIC HOLIDAY has no duty BY DEFAULT (owner, 7 Oct 2026): a day the
+ *     school calendar names as `praznik` — and the Monday after one that fell
+ *     on a Sunday — is closed like a day closed by hand, and moves nobody.
+ *     It is a default, not a rule over the administrator: a mark stored for
+ *     that day decides, closed or open (`holidayDefaultStands`). The calendar
+ *     is S-Дневник's list, read through lib/school-calendar.ts.
+ *     It holds from `HOLIDAYS_CLOSE_FROM` on, never before: the rota is
+ *     derived, so closing a holiday already behind us would move every name
+ *     after it on a list that has been served and handed out.
  *
  * Pure: the same inputs always give the same rota. Correcting an absence can
  * change later derived dates; the rota is not a historical snapshot.
  * Nothing here reads the clock or the database; `loadDuty` below does the
  * reading, and the routes decide who may change what.
  */
+
+import { holidaysBetween, readSchoolCalendar } from './school-calendar.js';
 
 export interface DutyMember {
     employeeId: number;
@@ -73,6 +84,25 @@ export interface DutyInput {
     members: DutyMember[];
     days: Map<string, DutyMark>;
     absences: Map<string, Set<number>>;
+    /** Public holidays, date → name: closed unless a mark for that day says otherwise. */
+    holidays?: Map<string, string>;
+}
+
+/**
+ * The first day a public holiday closes the rota by itself — the day the owner
+ * asked for it. Earlier holidays stay as they were marked by hand.
+ */
+export const HOLIDAYS_CLOSE_FROM = '2026-10-07';
+
+/**
+ * Whether a day needs a stored mark at all. A choice that equals what the day
+ * would be anyway, with nothing else to remember, is not stored — so a
+ * holiday left closed keeps following the calendar, while a holiday the
+ * administrator OPENS is a decision and must be kept.
+ */
+export function holidayDefaultStands(choice: { closed: boolean; note: string; assigned: number | null; served: number | null },
+    closedByDefault: boolean): boolean {
+    return choice.closed === closedByDefault && choice.assigned == null && choice.served == null && !choice.note;
 }
 
 /** One swap as a day carries it: who held the day before it, the day given in exchange and that day's cycle. */
@@ -100,6 +130,8 @@ export interface DutyDay {
     weekday: number;
     closed: boolean;
     note: string;
+    /** The public holiday on this day, closed or not. */
+    holiday?: string;
     employeeId: number | null;
     how: DutyHow;
     /** Whose turn it was, when somebody covers for them. */
@@ -117,7 +149,7 @@ export interface DutyDay {
 }
 
 const DAY_MS = 86400000;
-const isoOf = (d: Date) => d.toISOString().slice(0, 10);
+const isoOf =(d: Date) => d.toISOString().slice(0, 10);
 const dateOf = (iso: string) => new Date(iso + 'T00:00:00Z');
 
 /** The working days (Monday–Friday) from `from` to `to`, inclusive. */
@@ -153,9 +185,13 @@ export function dutyRota(input: DutyInput): DutyDay[] {
         const mark = input.days.get(date);
         const away = input.absences.get(date) || new Set<number>();
         const absent = [...away].filter((id) => activeSet.has(id));
-        const day = { date, weekday: dateOf(date).getUTCDay(), note: mark?.note || '', absent };
+        const holiday = input.holidays?.get(date);
+        const day = { date, weekday: dateOf(date).getUTCDay(), note: mark?.note || '', absent,
+            ...(holiday === undefined ? {} : { holiday }) };
 
-        if (mark?.closed) {
+        // A mark for the day is a decision and wins either way; without one a
+        // public holiday is closed.
+        if (mark ? mark.closed : holiday !== undefined) {
             out.push({ ...day, cycle, closed: true, employeeId: null, how: 'closed', covers: [] });
             continue;
         }
@@ -278,6 +314,8 @@ export interface DutyState {
     absences: Map<string, Set<number>>;
     names: Map<number, string>;
     swaps: DutySwap[];
+    /** Public holidays from the school calendar, from `HOLIDAYS_CLOSE_FROM` on: date → name. */
+    holidays?: Map<string, string>;
 }
 
 /**
@@ -329,7 +367,10 @@ export async function loadDuty(db: any, yearId: number): Promise<DutyState> {
         const { rows } = await db.query('SELECT id, name FROM employees WHERE id = ANY($1::int[])', [assignedIds]);
         rows.forEach((r: any) => names.set(Number(r.id), r.name));
     }
+    const calendar = await readSchoolCalendar(db, { starts_on: String(y.starts_on), ends_on: String(y.ends_on) });
+    const holidaysFrom = String(y.starts_on) > HOLIDAYS_CLOSE_FROM ? String(y.starts_on) : HOLIDAYS_CLOSE_FROM;
     return {
+        holidays: holidaysBetween(calendar, holidaysFrom, String(y.ends_on)),
         startsOn: setting.rows[0] ? String(setting.rows[0].starts_on) : String(y.starts_on),
         yearStartsOn: String(y.starts_on),
         yearEndsOn: String(y.ends_on),
@@ -367,7 +408,7 @@ export function rotaWithSwaps(state: DutyState, until: string, from = state.star
         for (const sw of state.swaps) if (sw.firstDay <= furthest && sw.secondDay > furthest) { furthest = sw.secondDay; grew = true; }
     }
     const base = dutyRota({ startsOn: state.startsOn, until: furthest, members: state.members,
-        days: state.days, absences: state.absences });
+        days: state.days, absences: state.absences, holidays: state.holidays });
     const { days, stale, applied } = applySwaps(base, state.swaps);
     return { days: days.filter((d) => d.date <= until), stale: stale.filter((sw) => touching.includes(sw)), applied };
 }
@@ -462,6 +503,8 @@ function rangePayload(state: DutyState, bounds: { first: string; last: string })
             weekday: d.weekday,
             closed: d.closed,
             note: d.note,
+            // The public holiday on this day; with no mark stored it is why the day is closed.
+            holiday: d.holiday ?? null,
             how: d.how,
             // Preserve the stored legacy override when editing a note/absence,
             // including when a later two-date swap changes the displayed name.

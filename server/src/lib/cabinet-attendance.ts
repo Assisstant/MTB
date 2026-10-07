@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto';
 import { isIsoDate, todayInSkopje } from './duty.js';
+import { holidayOn, readSchoolCalendar } from './school-calendar.js';
 import { minutesOf, timeOf } from './crossing.js';
 
 type DB = { query: (sql: string, args?: any[]) => Promise<any> };
@@ -45,9 +46,7 @@ export function overlaps(plan: Session[]) {
  * diary records leave this query. A missing calendar is visible, not invented. */
 export async function calendarContext(db: DB, yearId: number) {
     const year = (await db.query('SELECT starts_on, ends_on, label FROM school_years WHERE id=$1', [yearId])).rows[0];
-    const stored = (await db.query("SELECT payload->'schoolCalendar' AS calendar FROM app_state WHERE app='sdnevnik'")).rows[0]?.calendar;
-    const calendar = stored && isIsoDate(stored.yearStart) && isIsoDate(stored.yearEnd)
-        && stored.yearStart >= year.starts_on && stored.yearEnd <= year.ends_on ? stored : null;
+    const calendar = await readSchoolCalendar(db, year);
     return { year, calendar, today: todayInSkopje() };
 }
 
@@ -69,7 +68,9 @@ export function closedReason(date: string, context: any): string | null {
     if (c && (date < c.yearStart || date > c.yearEnd)) return 'Надвор од наставната година.';
     const holiday = (c?.holidays || []).find((h: any) => isIsoDate(h.start) && isIsoDate(h.end)
         && h.start <= date && date <= h.end && (h.kind === 'praznik' || h.kind === 'raspust' || !h.kind));
-    return holiday ? String(holiday.name || 'Неработен ден') : null;
+    if (holiday) return String(holiday.name || 'Неработен ден');
+    // The Monday after a public holiday that fell on a Sunday (lib/school-calendar.ts).
+    return holidayOn(c, date);
 }
 
 function dayView(date: string, context: any, saved?: any) {

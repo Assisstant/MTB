@@ -1969,7 +1969,10 @@ header.top h1 { flex: 1; min-width: 180px; }
     function dutyDayText(d) {
         const notes = [];
         let who;
-        if (d.closed) who = `— без дежурство${d.note ? ': ' + d.note : ''} —`;
+        // A public holiday from the school calendar closes the day by itself
+        // (owner, 7 Oct 2026); its name is the reason, a note is added to it.
+        const why = [d.holiday, d.note].filter((t, i, all) => t && all.indexOf(t) === i).join(' · ');
+        if (d.closed) who = `— без дежурство${why ? ': ' + why : ''} —`;
         else if (d.employeeId == null) who = d.how === 'nobody' && d.date >= duty.data.startsOn ? '— нема кој: сите се отсутни —' : '—';
         else {
             who = d.name;
@@ -1985,6 +1988,8 @@ header.top h1 { flex: 1; min-width: 180px; }
         }
         const alsoAway = (d.absent || []).filter((a) => !(d.covers || []).some((c) => c.employeeId === a.employeeId));
         if (alsoAway.length) notes.push('отсутни: ' + alsoAway.map((a) => a.name).join(', '));
+        // A holiday somebody decided to keep duty on: said, so it does not read as a mistake.
+        if (d.holiday && !d.closed) notes.push('празник: ' + d.holiday + ' — дежурство по одлука');
         return { who, notes };
     }
 
@@ -2031,6 +2036,7 @@ header.top h1 { flex: 1; min-width: 180px; }
             + radio('pause', 'Нема дежурен — пауза на списокот за овој ден')
             + '</div>'
             + '<p class="muted" style="margin:0">Директорката одлучува дали има дежурство за настанот. Ако покрива друга служба, изберете „Нема дежурен — пауза“: нема дежурен од кабинетите и редицата мирува.</p>'
+            + (d.holiday ? `<p class="attendance-warning" style="margin:4px 0 0" data-duty-holiday>Празник според календарот: ${esc(d.holiday)}. По правило нема дежурен и списокот мирува. Изберете „Има дежурен“ само ако така е одлучено.</p>` : '')
             + `<label>Настан / белешка<input name="note" maxlength="200" placeholder="на пр. екскурзија, приредба, празник, боледување" aria-label="Белешка" value="${esc(d.note)}"></label>`
             + `<label${assigned ? '' : ' hidden'}>Постоечко поединечно доделување<select name="assigned"${d.closed ? ' disabled' : ''}><option value="">— по редот —</option>`
             + (assigned ? `<option value="${assigned}" selected>${esc((members.find((m) => m.employeeId === assigned) || {}).name || 'Претходно доделениот колега')}</option>` : '')
