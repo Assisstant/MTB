@@ -16,6 +16,11 @@
 #   Confirm      asked before the tile runs it; the shortcut itself never asks
 #   UrlKey       instead of Script: a page, its address read from that key in
 #                server\.env. Such an action is a tile and a PROCITAJ entry, no .lnk
+#   NeedsEnv     the action exists only on a computer whose server\.env has that
+#                key set. The read-only copy of the cloud is set up on HOME and
+#                not on WORK (owner, 7 Oct 2026), and a tile for something this
+#                computer does not have is a tile that fails. Where the key is
+#                missing there is no tile, no .lnk and no PROCITAJ line.
 
 # The order and the colours carry the logic (owner, 3 Oct 2026: „by kinship,
 # by some logic — importance, order"). Three groups of three, one row each in
@@ -34,7 +39,18 @@ function Get-MtbActionGroups {
     )
 }
 
+function Test-MtbEnvKey([string] $Key) {
+    $file = Join-Path (Split-Path -Parent $PSScriptRoot) 'server\.env'
+    if (-not (Test-Path -LiteralPath $file)) { return $false }
+    return [bool](Get-Content -LiteralPath $file -Encoding UTF8 | Where-Object { $_ -match "^\s*$Key\s*=\s*\S" } | Select-Object -First 1)
+}
+
+# What THIS computer offers: the whole list, less what it is not set up for.
 function Get-MtbActions {
+    @(Get-MtbAllActions | Where-Object { -not $_.NeedsEnv -or (Test-MtbEnvKey $_.NeedsEnv) })
+}
+
+function Get-MtbAllActions {
     @(
         # Daily work is written in the cloud (23 Sep 2026), so it comes first. A
         # tile only, no .lnk: it opens the browser, not a script. Its address is
@@ -71,6 +87,19 @@ function Get-MtbActions {
            Title = 'Вклучи сервер'
            Text = 'Само го вклучува серверот и чека да одговори. Без ажурирање, без отворање на апликациите.'
            When = 'Кога нешто се поправа. Секојдневно е „Отвори го денот“.' },
+        # The read-only copy of the cloud (docs\SUPABASE-MIRROR.md): only where it is set up.
+        @{ Group = 'often'; Name = 'MTB - Kopija od oblakot'; Script = 'mirror-open.ps1'; Args = ''; Icon = 'shell32.dll,22'
+           NeedsEnv = 'MTB_MIRROR_READER_DATABASE_URL'
+           Description = 'MTB - open the read-only copy of the cloud'; Glyph = 0xE8A7; Color = '#5B6B82'; CardColor = '#5B6B82'
+           Title = 'Копија од облакот'
+           Text = 'Ја отвора копијата од облакот, само за читање, и го вклучува нејзиниот сервер ако не работи. Кажува од кога се податоците.'
+           When = 'Кога нема Интернет, или за да погледнеш без да допреш ништо.' },
+        @{ Group = 'careful'; Name = 'MTB - Osvezi kopija'; Script = 'mirror-refresh.ps1'; Args = ''; Icon = 'shell32.dll,238'
+           NeedsEnv = 'MTB_MIRROR_READER_DATABASE_URL'
+           Description = 'MTB - compare the local read-only copy with the cloud, then refresh it'; Glyph = 0xE72C; Color = '#8E44AD'; CardColor = '#8E44AD'
+           Title = 'Освежи ја копијата'
+           Text = 'Кажува дали копијата е иста со облакот, или колку се разликува. Прашува „DA“ пред да ја замени. Ништо не се праќа во облакот.'
+           When = 'Кога сакаш копијата да е свежа — на пример пред да останеш без Интернет.' },
         @{ Group = 'careful'; Name = 'MTB Server - Stop'; Script = 'server-control.ps1'; Args = 'stop -Wait'; Icon = 'shell32.dll,109'
            Description = 'Therapy server - stop'; Glyph = 0xE71A; Color = '#D64545'; CardColor = '#D64545'
            Title = 'Исклучи сервер'

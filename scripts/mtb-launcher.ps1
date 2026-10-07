@@ -28,6 +28,8 @@
 
 param(
     [int] $Port = 3000,
+    # The read-only copy of the cloud, where this computer has one (run-mirror-server.ps1).
+    [int] $MirrorPort = 3001,
     # Render the window to a PNG and close: how its look is checked without a click.
     [string] $Snapshot = '',
     # Another layout file, so a check never touches the person's own.
@@ -637,6 +639,34 @@ function Update-Status {
         $dot.Fill = Get-Brush '#D64545'
         $status.Text = 'Локалниот сервер не е вклучен — „Отвори го денот“ го вклучува.'
     }
+    Update-CopyLine
+}
+
+# Only where a read-only copy of the cloud is set up (HOME, not WORK): how old
+# its data is, read from the copy's own server. It says the copy's AGE, which
+# is always known; whether the cloud has moved since is known only by asking
+# the cloud, and that is the tile „Освежи ја копијата“.
+function Update-CopyLine {
+    if (-not $script:copyLine) { return }
+    try {
+        $m = Invoke-RestMethod -Uri "http://127.0.0.1:$MirrorPort/api/health" -TimeoutSec 1
+        if (-not $m.mirror -or $m.mirror.mode -ne 'readonly') {
+            $copyLine.Text = 'Копија од облакот: на портата ' + $MirrorPort + ' одговара друг сервер, не копијата.'
+        } elseif ($m.mirror.dataAt) {
+            $raw = $m.mirror.dataAt
+            $at = if ($raw -is [DateTime]) { $raw.ToLocalTime() }
+                  else { [DateTimeOffset]::Parse([string]$raw, [Globalization.CultureInfo]::InvariantCulture).LocalDateTime }
+            $age = (Get-Date) - $at
+            $old = if ($age.TotalHours -lt 1) { 'помалку од еден час' }
+                   elseif ($age.TotalHours -lt 48) { [string][int][Math]::Floor($age.TotalHours) + ' часа' }
+                   else { [string][int][Math]::Floor($age.TotalDays) + ' дена' }
+            $copyLine.Text = 'Копија од облакот (само читање): податоци од ' + $at.ToString('dd.MM.yyyy, HH:mm') + ' — стари ' + $old + '.'
+        } else {
+            $copyLine.Text = 'Копија од облакот: уште нема преземена снимка.'
+        }
+    } catch {
+        $copyLine.Text = 'Копија од облакот: серверот ѝ не е вклучен — плочката „Копија од облакот“ го вклучува.'
+    }
 }
 
 # ── the page: built again whole when the theme changes ─────────────────────
@@ -717,6 +747,14 @@ function Show-Page {
     [void]$pillRow.Children.Add($barButton)
     $pill.Child = $pillRow
     [void]$page.Children.Add($pill)
+
+    $script:copyLine = $null
+    if (Test-MtbEnvKey 'MTB_MIRROR_READER_DATABASE_URL') {
+        $script:copyLine = New-Text 'Копија од облакот: проверувам…' 13 $T.Sub
+        $copyLine.HorizontalAlignment = 'Center'; $copyLine.TextAlignment = 'Center'
+        $copyLine.Margin = Get-Thick 0 8 18 0
+        [void]$page.Children.Add($copyLine)
+    }
 
     $script:controls = New-Object Windows.Controls.StackPanel
     $controls.Margin = Get-Thick 0 10 18 0
