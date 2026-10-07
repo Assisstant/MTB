@@ -10,16 +10,23 @@
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, #F5FBFE 0%, #CCE9F8 100%);
             min-height: 100vh;
             padding: 0;
         }
+        /* The header and every heading bar are ONE light blue, in shades
+           (owner, 7 Oct 2026: #F5FBFE … #89CFF0, eleven steps). The words on
+           it are the blue scale's 900: white on these is under 2:1. In the
+           dark theme the same run is in greys, as the tab band's. */
         .header {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
+            background: linear-gradient(135deg, #F5FBFE 0%, #D7EDFA 35%, #B7E0F6 65%, #89CFF0 100%);
+            color: #082E3F;
             padding: 15px 20px;
         }
-        .header h1 { font-size: 1.3em; margin-bottom: 5px; }
+        .header h1 { font-size: 1.3em; margin-bottom: 5px; text-shadow: 0 1px 0 rgba(255,255,255,0.85), 0 3px 10px rgba(19,105,144,0.18); }
+        body.dark-mode .header h1 { text-shadow: 0 4px 8px rgba(0,0,0,0.45); }
+        /* The switch, off: #ccc was a ghost on the light header. */
+        .header .slider { background-color: #7FA6BC; }
         .header p { font-size: 0.85em; opacity: 0.95; }
         .tabs {
             display: flex;
@@ -136,8 +143,9 @@
             font-size: 15px;
         }
         .section-header {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
+            background: linear-gradient(135deg, #F5FBFE 0%, #D7EDFA 35%, #B7E0F6 65%, #89CFF0 100%);
+            color: #082E3F;
+            border: 1px solid #ACDCF4;
             padding: 12px 20px;
             border-radius: 6px;
             margin-bottom: 20px;
@@ -151,8 +159,9 @@
             margin-bottom: 20px;
         }
         .stat-box {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
+            background: linear-gradient(135deg, #F5FBFE 0%, #D7EDFA 35%, #B7E0F6 65%, #89CFF0 100%);
+            color: #082E3F;
+            border: 1px solid #ACDCF4;
             padding: 25px;
             border-radius: 8px;
             text-align: center;
@@ -853,7 +862,9 @@
         body.dark-mode .header,
         body.dark-mode .stat-box,
         body.dark-mode .section-header {
-            background: linear-gradient(135deg, #4c51bf 0%, #2d3748 100%);
+            background: linear-gradient(135deg, #4A4D53 0%, #26282C 60%, #1C1D20 100%);
+            color: #E6E8EB;
+            border-color: #0C0D0E;
         }
         /* The band in the dark theme: the same run of shade, in greys. */
         body.dark-mode .tabs {
@@ -1058,15 +1069,18 @@
         }
         
         .trijazen-info {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
+            background: linear-gradient(135deg, #F5FBFE 0%, #D7EDFA 35%, #B7E0F6 65%, #89CFF0 100%);
+            color: #082E3F;
+            border: 1px solid #ACDCF4;
             padding: 20px;
             border-radius: 8px;
             margin-bottom: 25px;
         }
         
         body.dark-mode .trijazen-info {
-            background: linear-gradient(135deg, #4a5568 0%, #2d3748 100%);
+            background: linear-gradient(135deg, #4A4D53 0%, #26282C 60%, #1C1D20 100%);
+            color: #E6E8EB;
+            border-color: #0C0D0E;
         }
         
         .trijazen-table {
@@ -1165,11 +1179,17 @@
         .info-group input {
             width: 100%;
             padding: 10px;
-            border: 2px solid rgba(255,255,255,0.3);
+            border: 2px solid rgba(13,75,104,0.3);
             border-radius: 6px;
             font-size: 14px;
-            background: rgba(255,255,255,0.2);
-            color: white;
+            background: rgba(255,255,255,0.75);
+            color: #082E3F;
+        }
+        body.dark-mode .info-group select,
+        body.dark-mode .info-group input {
+            border-color: rgba(255,255,255,0.3);
+            background: rgba(255,255,255,0.14);
+            color: #ffffff;
         }
         
         .info-group select option {
@@ -1720,7 +1740,7 @@
             gap: 8px;
         }
         .gen-btn:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
-        .gen-btn-primary { background: linear-gradient(135deg, #667eea, #764ba2); color: #fff; }
+        .gen-btn-primary { background: #136990; color: #fff; }
         .gen-btn-success { background: linear-gradient(135deg, #48bb78, #38a169); color: #fff; }
         .gen-btn-secondary { background: #4a5568; color: #fff; }
         .gen-btn-info { background: linear-gradient(135deg, #4299e1, #3182ce); color: #fff; }
@@ -1902,7 +1922,7 @@
             </label>
         </div>
         <div style="text-align: center;">
-            <h1 style="font-size: 2.8em; margin: 10px 0; text-shadow: 0 4px 8px rgba(0,0,0,0.3); letter-spacing: 2px; font-weight: 700;">
+            <h1 style="font-size: 2.8em; margin: 10px 0; letter-spacing: 2px; font-weight: 700;">
                 📚 ЕЛЕКТРОНСКИ ДНЕВНИК
             </h1>
             <h2 style="font-size: 1.1em; margin: 8px 0; opacity: 0.95;">Кабинет за слух, говор, глас, алтернатива и аугментативна комуникација</h2>
@@ -2175,7 +2195,7 @@
                 <button class="btn" style="background:#4a5568;color:white;" onclick="dosieExportRecords()">⬇ Backup</button>
                 <button class="btn" style="background:#4a5568;color:white;" onclick="document.getElementById('dosieImportFile').click()">⬆ Import</button>
                 <input type="file" id="dosieImportFile" accept=".json" style="display:none;" onchange="dosieImportRecords(event)">
-                <button class="btn" style="background:linear-gradient(135deg,#667eea,#764ba2);color:white;" onclick="dosieGenerateDocx()">📄 Генерирај DOCX</button>
+                <button class="btn" style="background:#136990;color:white;" onclick="dosieGenerateDocx()">📄 Генерирај DOCX</button>
             </div>
             <div class="dosie-layout" id="dosieLayout">
                 <div class="dosie-sidebar">
