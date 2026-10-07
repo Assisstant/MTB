@@ -95,6 +95,9 @@
         }
         .tab-content { display: none; }
         .tab-content.active { display: block; }
+    </style>
+    <style id="sdn-button-styles">
+        /* Also injected into the audiogram srcdoc: one source, including offline. */
         /* The suite's button size and shape (mtb-look.css). A .btn with no
            colour of its own is the suite's CARD — without this the browser
            painted it white, in the dark theme too („⬇ Земи од базата"). */
@@ -167,6 +170,8 @@
             padding: 15px;
             font-size: 15px;
         }
+    </style>
+    <style>
         .section-header {
             background: linear-gradient(135deg, #F5FBFE 0%, #C2E5F7 30%, #89CFF0 65%, #46B4E7 100%);
             color: #082E3F;
@@ -2612,19 +2617,61 @@ var attendance = {};
             syncAudiogramDataToEmbedded(forceRender);
         }
 
+        function audiogramHtmlWithAppAppearance(html) {
+            var doc = new DOMParser().parseFromString(html, 'text/html');
+            // The diary owns the theme. Keep measurement and export scripts intact.
+            doc.querySelector('.header-right').remove();
+            doc.querySelectorAll('button').forEach(function(button) {
+                button.classList.remove('nav-btn', 'btn-secondary');
+                button.classList.add('btn');
+                button.style.removeProperty('background');
+                button.style.removeProperty('background-color');
+            });
+            // The old toolbar rule has higher specificity than the shared .btn.
+            doc.querySelectorAll('style').forEach(function(style) {
+                style.textContent = style.textContent.replace(/\.toolbar button/g, '.toolbar select');
+            });
+            var style = doc.createElement('style');
+            style.textContent = document.getElementById('sdn-button-styles').textContent + '\n' +
+                '@media (max-width: 600px) {' +
+                '.nav-controls { flex: 1 1 100% !important; flex-wrap: wrap; min-width: 0; }' +
+                '.record-selector { min-width: 0; max-width: 100%; }' +
+                '.subject-info { flex-wrap: wrap; }' +
+                '.subject-info input { min-width: 0; max-width: 100%; }' +
+                '}';
+            doc.head.appendChild(style);
+            doc.body.className = document.body.classList.contains('dark-mode') ? 'dark-mode' : 'light-mode';
+            return '<!DOCTYPE html>\n' + doc.documentElement.outerHTML;
+        }
+
+        function syncAudiogramTheme() {
+            var frame = document.getElementById('audiogramFrame');
+            if (!frame || frame.dataset.loaded !== '1') return;
+            var win = frame.contentWindow;
+            var body = win && win.document.body;
+            if (!body) return;
+            var dark = document.body.classList.contains('dark-mode');
+            body.classList.toggle('dark-mode', dark);
+            body.classList.toggle('light-mode', !dark);
+            // Canvas colours are pixels, so changing a CSS class alone is insufficient.
+            if (typeof win.redrawAll === 'function') win.redrawAll();
+        }
+
         function ensureEmbeddedAppLoaded(frameId, htmlB64) {
             var frame = document.getElementById(frameId);
             if (!frame) return;
             if (frame.dataset.hooked !== '1') {
                 frame.addEventListener('load', function() {
                     if (frameId === 'audiogramFrame') {
+                        syncAudiogramTheme();
                         syncAudiogramDataToEmbedded(true);
                     }
                 });
                 frame.dataset.hooked = '1';
             }
             if (frame.dataset.loaded === '1') return;
-            frame.srcdoc = b64ToUtf8(htmlB64);
+            var html = b64ToUtf8(htmlB64);
+            frame.srcdoc = frameId === 'audiogramFrame' ? audiogramHtmlWithAppAppearance(html) : html;
             frame.dataset.loaded = '1';
         }
         
@@ -8522,6 +8569,7 @@ var attendance = {};
         function paintTheme(isDark) {
             document.body.classList.toggle('dark-mode', !!isDark);
             if (toggleSwitch) toggleSwitch.checked = !!isDark;
+            syncAudiogramTheme();
         }
 
         function applyTheme(isDark) {
