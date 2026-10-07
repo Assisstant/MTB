@@ -153,6 +153,64 @@ try {
     await page.locator('#grid .personal .p-grid').waitFor();
     checkEq('every cell of the teacher sheet has one height', (await heights('#grid .personal')).length, 1);
 
+    // 7 Oct 2026: the two sheets as a picture and a Word file, in the view chosen on
+    // the sheet, for any teacher; and ⎙ always prints the read sheet.
+    console.log('\nСлика, Word и печатење на листовите');
+    checkEq('„Слика“ and „Word“ are at the top in the sheet views', [await page.isVisible('#pngBtn'), await page.isVisible('#wordBtn')], [true, true]);
+    await page.click('#pngBtn');
+    check('a picture is one sheet: with „Сите наставници“ it asks for a choice', /изберете наставник/i.test(await page.textContent('#status')), await page.textContent('#status'));
+    const wordOf = async () => {
+        const [download] = await Promise.all([page.waitForEvent('download'), page.click('#wordBtn')]);
+        return { name: download.suggestedFilename(), text: await readFile(await download.path(), 'utf8') };
+    };
+    await page.click('#grid .personal [data-p-mode="all"]');
+    let doc = await wordOf();
+    check('Word for everybody on the screen, named for the year', /^Rasporedi_nastavnici_2026-2027\.doc$/.test(doc.name) && doc.text.includes('Неделен распоред — ' + T), doc.name);
+    check('the table is fixed in points and the page is landscape, as Word needs',
+        /mso-table-layout-alt:fixed/.test(doc.text) && !/width:\s*100%/.test(doc.text) && /mso-page-orientation:landscape/.test(doc.text));
+    check('„Часови и кабинети“: the lesson and who leaves it', /class="lesson"/.test(doc.text) && doc.text.includes('Измислено Дете 1'));
+    await page.selectOption('#who', T);
+    await page.locator('#grid .personal .p-grid').waitFor();
+    await page.click('#grid .personal [data-p-mode="subjects"]');
+    doc = await wordOf();
+    check('„Само предмети“: the lessons and no therapy, and the sheet says which view it is',
+        /class="lesson"/.test(doc.text) && !doc.text.includes('Измислено Дете') && /само предмети/.test(doc.text) && doc.name.startsWith('Raspored_'), doc.name);
+    await page.click('#grid .personal [data-p-mode="cabinets"]');
+    doc = await wordOf();
+    check('„Само кабинети“: the therapies and no lesson', !/class="lesson"/.test(doc.text) && doc.text.includes('Измислено Дете 1'));
+    const [png] = await Promise.all([page.waitForEvent('download'), page.click('#pngBtn')]);
+    check('a picture of the chosen teacher\'s sheet', /^Licen-raspored-.*\.png$/.test(png.suggestedFilename()), png.suggestedFilename());
+    await page.click('#grid .personal [data-p-mode="all"]');
+
+    const printed = await page.evaluate(async () => {
+        const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+        const state = () => ({ title: document.title, pickers: document.querySelectorAll('#grid .p-edit').length,
+            cells: new Set([...document.querySelectorAll('#grid .p-grid tbody td')].map((c) => c.offsetHeight)).size });
+        const before = document.title;
+        let during = null;
+        window.print = () => { during = state(); };
+        window.MTBForms.setEditing(true);
+        await wait(400);
+        const open = state();
+        document.getElementById('printBtn').click();
+        window.dispatchEvent(new Event('afterprint'));
+        await wait(200);
+        const after = state();
+        window.MTBForms.setEditing(false);
+        await wait(200);
+        return { before, open, during, after };
+    });
+    check('while the week is open for typing, the sheet has pickers', printed.open.pickers > 0, JSON.stringify(printed.open));
+    check('⎙ prints the read sheet: no pickers, one cell height, the sheet\'s name as the title',
+        printed.during && printed.during.pickers === 0 && printed.during.cells === 1 && printed.during.title === 'Неделен распоред — ' + T, JSON.stringify(printed.during));
+    check('and afterwards the page is as it was: pickers back, its own title', printed.after.pickers > 0 && printed.after.title === printed.before, JSON.stringify(printed.after));
+
+    await page.goto(`${ORIGIN}/Nastava.html?view=classweek`);
+    await page.locator(sheet + ' .p-grid').waitFor();
+    await page.selectOption('#klass', 'V-а');
+    doc = await wordOf();
+    check('the class sheet the same way', /^Paralelka_V-а_2026-2027\.doc$/.test(doc.name) && doc.text.includes('Паралелка') && doc.text.includes('Измислено Дете 1'), doc.name);
+
     checkEq('nothing was written', writes, []);
     checkEq('no page errors', errors, []);
 } finally {

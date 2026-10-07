@@ -426,6 +426,10 @@
                             <button type="button" class="print-link" data-print="tiles">4 × A4</button></span>
                     </span>
                 </span>
+                <!-- The two sheets („Паралелка · недела", „Наставник · недела") as a picture or a Word file,
+                     in the view chosen on the sheet (owner, 7 Oct 2026). -->
+                <button class="btn soft" id="pngBtn" hidden title="Слика (PNG) од избраниот распоред, како што е прикажан"><span class="ico" aria-hidden="true">🖼</span> Слика</button>
+                <button class="btn soft" id="wordBtn" hidden title="Word (.doc) што може да се дотера на рака: избраниот распоред, или сите — секој на своја страница"><span class="ico" aria-hidden="true">📄</span> Word</button>
                 <a class="btn soft" href="NastavaUredi.html"
                    title="Внеси или промени го распоредот на настава — цела страница за уредување"><span class="ico" aria-hidden="true">✏️</span> Уреди настава</a>
             </span>
@@ -1133,6 +1137,8 @@
     // sheet and what it names the PDF; while a poster prints, it is the
     // poster's own name, not „Настава ↔ терапии — MTB" (owner, 4 Oct 2026).
     let titleBefore = null;
+    // While a sheet prints, „Наставник · недела" is drawn as the read sheet (printSheets).
+    let printingRead = false;
     function clearPoster() {
         delete document.body.dataset.print;
         const page = document.getElementById('posterPage');
@@ -1179,8 +1185,8 @@
 
     el('printBtn').addEventListener('click', (event) => {
         event.stopPropagation();
-        // The other views print their own sheets, as before.
-        if (view !== 'week') { window.print(); return; }
+        // The other views print their own sheets.
+        if (view !== 'week') { printSheets(); return; }
         const open = el('printMenu').hidden;
         el('printMenu').hidden = !open;
         el('printBtn').setAttribute('aria-expanded', String(open));
@@ -1281,7 +1287,8 @@
     function drawPersonal() {
         const W = TW();
         const w = personalWeeks();
-        const editing = editOn();
+        // On paper the sheet is always the read one: the fixed cells, no pickers.
+        const editing = editOn() && !printingRead;
         // Typing a new week in needs every day on the sheet, not only the days
         // that already have a lesson.
         const days = editing ? W.DAYS : w.days;
@@ -1395,19 +1402,34 @@
         }).join('') || '<div class="offline"><p>Нема паралелка со внесени часови.</p></div>';
     }
 
-    function classPicture(label) {
+    /*
+     * One sheet as data, for the picture and for Word (owner, 7 Oct 2026):
+     * the same title, days, periods and cells, in the view chosen on the sheet
+     * — „Часови и кабинети", „Само предмети" or „Само кабинети". Whoever the
+     * teacher is: an одделенски and a предметен get the same sheet.
+     */
+    const sheetFooter = () => 'Настава ↔ терапии · ' + new Date().toLocaleDateString('mk-MK');
+    const sheetSubtitle = () => SCHOOL + ' · учебна ' + data.year
+        + (TW().mode() === 'all' ? '' : ' · ' + TW().modeLabel().toLowerCase());
+    const sheetRows = (periods) => periods.map((p) => ({ label: p.ordinal + '. час', time: p.startsAt }));
+
+    function classSheet(label) {
         const { periods, days, slots } = classWeeks();
-        if (!window.MTBScheduleForm) return;
-        window.MTBScheduleForm.paintGrid({
-            title: 'Паралелка ' + classShort(label) + ' — неделен распоред',
-            subtitle: SCHOOL + ' · учебна ' + data.year,
-            days,
-            rows: periods.map((p) => ({ label: p.ordinal + '. час', time: p.startsAt })),
-            cells: periods.map((p) => days.map((d) => classEntries(slots.get(label + '|' + d + '|' + p.ordinal) || [])
-                .map((e) => ({ text: e.text, sub: e.sub })))),
-            footer: 'Настава ↔ терапии · ' + new Date().toLocaleDateString('mk-MK'),
-            file: 'Paralelka-' + label.replace(/[\\/:*?"<>|\s]+/g, '-') + '.png'
-        });
+        return {
+            title: 'Паралелка ' + classShort(label) + ' — неделен распоред', subtitle: sheetSubtitle(), days,
+            rows: sheetRows(periods),
+            cells: periods.map((p) => days.map((d) => TW().shownEntries(classEntries(slots.get(label + '|' + d + '|' + p.ordinal) || []))))
+        };
+    }
+
+    function personalSheet(name) {
+        const { periods, days, rows } = personalWeeks();
+        const slots = rows.get(name) || new Map();
+        return {
+            title: 'Неделен распоред — ' + name, subtitle: sheetSubtitle(), days,
+            rows: sheetRows(periods),
+            cells: periods.map((p) => days.map((d) => TW().shownEntries(personalEntries(slots.get(d + '|' + p.ordinal) || []))))
+        };
     }
 
     /**
@@ -1415,20 +1437,68 @@
      * (`mtb-schedule-form.js`), so it is the same picture colleagues already
      * get from a form — the look the owner asked for.
      */
-    function personalPicture(name) {
-        const { periods, days, rows } = personalWeeks();
-        const slots = rows.get(name);
-        if (!slots || !window.MTBScheduleForm) return;
-        window.MTBScheduleForm.paintGrid({
-            title: 'Неделен распоред — ' + name,
-            subtitle: SCHOOL + ' · учебна ' + data.year,
-            days,
-            rows: periods.map((p) => ({ label: p.ordinal + '. час', time: p.startsAt })),
-            cells: periods.map((p) => days.map((d) => personalEntries(slots.get(d + '|' + p.ordinal) || [])
-                .map((e) => ({ text: e.text, sub: e.sub })))),
-            footer: 'Настава ↔ терапии · ' + new Date().toLocaleDateString('mk-MK'),
-            file: 'Licen-raspored-' + name.replace(/[\\/:*?"<>|\s]+/g, '-') + '.png'
-        });
+    function sheetPicture(sheet, file) {
+        if (!window.MTBScheduleForm) return;
+        window.MTBScheduleForm.paintGrid(Object.assign({}, sheet, {
+            cells: sheet.cells.map((row) => row.map((list) => list.map((e) => ({ text: e.text, sub: e.sub })))),
+            footer: sheetFooter(),
+            file: file.replace(/[\\/:*?"<>|\s]+/g, '-') + '.png'
+        }));
+    }
+    const classPicture = (label) => sheetPicture(classSheet(label), 'Paralelka-' + label);
+    const personalPicture = (name) => sheetPicture(personalSheet(name), 'Licen-raspored-' + name);
+
+    /** Who the buttons at the top act on: the one chosen, or everybody the screen shows a sheet for. */
+    function sheetsOnScreen() {
+        if (view === 'personal') {
+            const w = personalWeeks();
+            const one = w.names.includes(el('who').value) ? el('who').value : '';
+            return { one, all: w.names.filter((n) => w.rows.get(n).size), what: 'наставник', make: personalSheet,
+                file: (n) => 'Raspored ' + n, everybody: 'Rasporedi nastavnici ' };
+        }
+        const { order } = classWeeks();
+        const one = order.includes(el('klass').value) ? el('klass').value : '';
+        return { one, all: order.filter((l) => data.cells.some((c) => c.class === l)), what: 'паралелка', make: classSheet,
+            file: (l) => 'Paralelka ' + l, everybody: 'Rasporedi paralelki ' };
+    }
+
+    el('pngBtn').addEventListener('click', () => {
+        if (!data) return;
+        const on = sheetsOnScreen();
+        // A picture is one sheet; every sheet at once is what Word and the printer are for.
+        if (!on.one) { status('За слика изберете ' + on.what + ' горе. Сите одеднаш: „Word“ или „Печати“ — секој на своја страница.', 'warn'); return; }
+        if (view === 'personal') personalPicture(on.one); else classPicture(on.one);
+    });
+
+    el('wordBtn').addEventListener('click', () => {
+        if (!data) return;
+        const on = sheetsOnScreen();
+        const who = on.one ? [on.one] : on.all;
+        if (!who.length) { status('Нема распоред за извоз.', 'warn'); return; }
+        const year = String(data.year).replace(/\//g, '-');
+        const file = TW().downloadWord(who.map(on.make), on.one ? on.file(on.one) + ' ' + year : on.everybody + year, sheetFooter());
+        status('Word-фајлот е преземен: „' + file + '“' + (who.length > 1 ? ' — ' + who.length + ' листа, секој на своја страница.' : ''), 'ok');
+    });
+
+    /*
+     * ⎙ for the two sheets. Always the read sheet — the fixed cells — even
+     * while the week is open for typing: pickers on paper are of no use to
+     * anybody. And the page's title is the sheet's name while it prints,
+     * because that is what the browser writes at the top and names a PDF.
+     */
+    function printSheets() {
+        const on = data ? sheetsOnScreen() : null;
+        if (on) {
+            if (titleBefore === null) titleBefore = document.title;
+            document.title = on.one ? on.make(on.one).title : (view === 'personal' ? 'Неделни распореди — наставници' : 'Неделни распореди — паралелки');
+        }
+        if (view === 'personal' && data && editOn()) {
+            printingRead = true;
+            draw();
+            const back = () => { window.removeEventListener('afterprint', back); printingRead = false; if (data) draw(); };
+            window.addEventListener('afterprint', back);
+        }
+        window.print();
     }
 
     /** Clicking, not hovering: this gets read on a tablet in a staff room. */
@@ -1623,6 +1693,9 @@
         // The sheets always name the children; only the overview counts them.
         el('namedField').hidden = view !== 'week';
         el('personalEdit').hidden = view !== 'personal';
+        const sheets = view === 'personal' || view === 'classweek';
+        el('pngBtn').hidden = !sheets;
+        el('wordBtn').hidden = !sheets;
         // The print rules differ per view: a personal sheet prints the sheets
         // and nothing else from the page.
         document.body.dataset.view = view;

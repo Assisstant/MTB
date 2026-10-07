@@ -608,9 +608,100 @@
         });
     }
 
+    // ── the same sheet as a picture or a Word file ──────────────────────────
+    /**
+     * What a cell says in the view chosen on the sheet („Часови и кабинети",
+     * „Само предмети", „Само кабинети"). The screen hides the other kind with
+     * CSS; a picture and a Word file have no CSS to hide with, so they ask
+     * here — one answer, or the paper and the screen would disagree.
+     */
+    function shownEntries(list, chosen) {
+        const m = chosen || mode();
+        return (list || []).filter((e) => m === 'all' || (m === 'subjects' ? e.kind === 'lesson' : e.kind === 'away'));
+    }
+    const modeLabel = (chosen) => (MODES.find(([k]) => k === (chosen || mode())) || MODES[0])[1];
+
+    /*
+     * Word: HTML that Word opens as a document (.doc), as Кабинети and
+     * Евидентен лист already do — no library from a CDN, and the file stays
+     * editable. The widths are Кабинети's, measured in Word itself (7 Oct
+     * 2026): a table in points marked fixed, NO percentage width, and a width
+     * on every cell, or Word resizes the columns to their content. A landscape
+     * A4 has 786pt inside its margins: a 62pt column for the period and the
+     * days share the rest. Row height is „at least": two long names make a
+     * row taller rather than being cut off.
+     */
+    const WORD_TIME_PT = 62, WORD_BODY_PT = 720;
+    const wordPx = (pt) => Math.round(pt * 96 / 72);
+    function wordSheetHtml(sheet) {
+        const dayPt = Math.floor(WORD_BODY_PT / Math.max(1, sheet.days.length));
+        const total = WORD_TIME_PT + dayPt * sheet.days.length;
+        const td = (pt, cls) => `<td width="${wordPx(pt)}" style="width:${pt}pt"${cls ? ` class="${cls}"` : ''}>`;
+        const col = (pt) => `<col width="${wordPx(pt)}" style="width:${pt}pt">`;
+        const rowPt = Math.max(40, Math.min(72, Math.floor(360 / Math.max(1, sheet.rows.length))));
+        const cell = (list) => {
+            if (!list.length) return td(dayPt, 'free') + '—</td>';
+            return td(dayPt) + list.map((e) => `<p class="${e.kind === 'away' ? 'away' : 'lesson'}"><b>${esc(e.text)}</b>`
+                + (e.sub ? `<br><span class="sub">${esc(e.sub)}</span>` : '') + '</p>').join('') + '</td>';
+        };
+        return `<h1>${esc(sheet.title)}</h1><h3>${esc(sheet.subtitle || '')}</h3>`
+            + `<table width="${wordPx(total)}" style="width:${total}pt;table-layout:fixed;mso-table-layout-alt:fixed">`
+            + '<colgroup>' + col(WORD_TIME_PT) + sheet.days.map(() => col(dayPt)).join('') + '</colgroup>'
+            + `<thead><tr><th style="width:${WORD_TIME_PT}pt">Час</th>`
+            + sheet.days.map((d) => `<th style="width:${dayPt}pt">${esc(cap(d))}</th>`).join('') + '</tr></thead><tbody>'
+            + sheet.rows.map((r, i) => `<tr style="height:${rowPt}pt;mso-height-rule:at-least">`
+                + td(WORD_TIME_PT, 'slot') + `<b class="big">${esc(r.label)}</b><br><span class="sub">${esc(r.time || '')}</span></td>`
+                + sheet.days.map((d, j) => cell((sheet.cells[i] || [])[j] || [])).join('') + '</tr>').join('')
+            + '</tbody></table>'
+            + (sheet.note ? `<p class="note">${esc(sheet.note)}</p>` : '');
+    }
+
+    /** sheets: [{ title, subtitle, note, days, rows: [{label, time}], cells: [[entries]] }], one page each. */
+    function wordDoc(sheets, footer) {
+        // Word reads page size and orientation only from a named @page that a
+        // section div points at; a plain `@page{size:landscape}` is ignored.
+        const css = '@page Sheet{size:841.9pt 595.3pt;mso-page-orientation:landscape;margin:28pt;}div.Sheet{page:Sheet;}'
+            + 'body{font-family:Calibri,Arial,sans-serif;font-size:10pt;color:#222;}'
+            + 'h1{font-size:16pt;text-align:center;margin:0 0 2pt;}'
+            + 'h3{font-size:10pt;text-align:center;margin:0 0 8pt;color:#666;font-weight:normal;}'
+            + 'table{border-collapse:collapse;}'
+            + 'th,td{border:1px solid #bbb;padding:3pt 4pt;vertical-align:top;}'
+            + 'th{background:#e8eaf6;text-align:center;font-size:10pt;}'
+            + 'td.slot{background:#f3f4f6;text-align:center;vertical-align:middle;}'
+            + '.big{font-size:12pt;}'
+            + 'td.free{color:#bbb;text-align:center;vertical-align:middle;}'
+            + 'p.lesson,p.away{margin:0 0 3pt;}'
+            + 'p.away{color:#7b341e;}'
+            + '.sub{color:#555;font-size:8pt;}'
+            + '.note{font-size:9pt;color:#666;margin:6pt 0 0;}'
+            + '.footer{text-align:center;font-size:8pt;color:#999;margin-top:8pt;}';
+        const foot = footer ? `<p class="footer">${esc(footer)}</p>` : '';
+        // Word breaks a page on this exact element; CSS break-before is ignored.
+        const pageBreak = '<br clear="all" style="page-break-before:always">';
+        return '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" '
+            + 'xmlns="http://www.w3.org/TR/REC-html40" lang="mk"><head><meta charset="UTF-8"><title>Распоред</title>'
+            + '<!--[if gte mso 9]><xml><w:WordDocument><w:View>Print</w:View></w:WordDocument></xml><![endif]-->'
+            + `<style>${css}</style></head><body><div class="Sheet">`
+            + sheets.map((sheet) => wordSheetHtml(sheet) + foot).join(pageBreak)
+            + '</div></body></html>';
+    }
+
+    function downloadWord(sheets, file, footer) {
+        const blob = new Blob(['﻿' + wordDoc(sheets, footer)], { type: 'application/msword' });
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = String(file || 'Raspored').replace(/[\\/:*?"<>|]+/g, '').replace(/\s+/g, '_') + '.doc';
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        setTimeout(() => URL.revokeObjectURL(link.href), 4000);
+        return link.download;
+    }
+
     window.MTBTeacherWeek = {
         DAYS, SCHOOL, NOBODY,
         week, teacherRows, entries, sheetHtml, attach, loadOffers, choosing, editing,
-        readCellHtml, modesHtml, mode, tints
+        readCellHtml, modesHtml, mode, tints,
+        shownEntries, modeLabel, wordDoc, downloadWord
     };
 })();
