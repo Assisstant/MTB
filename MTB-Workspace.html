@@ -13,35 +13,47 @@
 /* Windows retain their DOM when docked, floated or hidden so drafts stay put. */
 .workspace { height: 100dvh; grid-template-rows: auto minmax(0, 1fr); grid-template-columns: minmax(0, 1fr); }
 .topbar { min-height: 54px; min-width: 0; flex-wrap: wrap; }
-/* The suite's slim bar: S-Dnevnik's header gradient (mtb-look.css). The
-   tabs keep their own panel colour, so they still read as buttons on it. */
-.topbar { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-bottom-color: transparent; color: #fff; }
-:root[data-theme=dark] .topbar { background: linear-gradient(135deg, #4c51bf 0%, #2d3748 100%); }
-.topbar .brand, .topbar .year-wrap, .topbar .status, .topbar .status.ok { color: #fff; }
-.topbar .status.warn { color: #ffe8b0; }
-.topbar .status.error { color: #ffd6d6; }
-.topbar .brand small { color: rgba(255, 255, 255, .85); }
+/* The suite's slim bar: S-Dnevnik's header — the owner's light blue run under
+   dark words (7 Oct 2026), greys in the dark theme. The row of tabs on it
+   stays the dark band. */
+.topbar { background: linear-gradient(135deg, #F5FBFE 0%, #D7EDFA 35%, #B7E0F6 65%, #89CFF0 100%); border-bottom-color: transparent; color: #082E3F; }
+:root[data-theme=dark] .topbar { background: linear-gradient(135deg, #4A4D53 0%, #26282C 60%, #1C1D20 100%); color: #fff; }
+.topbar .brand, .topbar .year-wrap, .topbar .status, .topbar .status.ok { color: #082E3F; }
+:root[data-theme=dark] .topbar .brand, :root[data-theme=dark] .topbar .year-wrap, :root[data-theme=dark] .topbar .status, :root[data-theme=dark] .topbar .status.ok { color: #fff; }
+.topbar .status.warn { color: #7A4A00; }
+:root[data-theme=dark] .topbar .status.warn { color: #ffe8b0; }
+.topbar .status.error { color: #A11D33; }
+:root[data-theme=dark] .topbar .status.error { color: #ffd6d6; }
+.topbar .brand small { color: #0D4B68; }
+:root[data-theme=dark] .topbar .brand small { color: rgba(255, 255, 255, .85); }
 .app-tabs button.active { background: #4c51bf; border-color: rgba(255, 255, 255, .6); }
 .app-tabs button { flex-shrink: 0; white-space: nowrap; }
-/* The bar's own buttons are the suite's cards (mtb-look.css), made of glass
-   so they sit on the purple in either theme: one shape, one hover, one size
+/* The bar's own buttons are the suite's cards (mtb-look.css): white glass under
+   dark words on the light bar, dark glass under white on the grey one — one
+   shape, one hover, one size
    with the tabs beside them. */
 .topbar > .soft, .topbar > .primary { min-height: 34px; border-radius: 999px; padding-left: 14px; padding-right: 14px; font-size: 13px; font-weight: 700; }
-.topbar > .soft { background: rgba(15, 18, 40, .32); border-color: rgba(255, 255, 255, .3); color: #fff; }
-.topbar > .soft:hover, .topbar > .primary:hover { border-color: #fff; box-shadow: 0 0 0 1px rgba(255, 255, 255, .55); }
+.topbar > .soft { background: rgba(255, 255, 255, .72); border-color: rgba(13, 75, 104, .28); color: #082E3F; }
+:root[data-theme=dark] .topbar > .soft { background: rgba(255, 255, 255, .08); border-color: rgba(255, 255, 255, .3); color: #fff; }
+.topbar > .soft:hover, .topbar > .primary:hover { border-color: #136990; box-shadow: 0 0 0 1px rgba(19, 105, 144, .45); }
+:root[data-theme=dark] .topbar > .soft:hover, :root[data-theme=dark] .topbar > .primary:hover { border-color: #fff; box-shadow: 0 0 0 1px rgba(255, 255, 255, .55); }
 /* „Врати / Повтори“ without a step: there, but plainly not pressable. */
 .topbar > .soft:disabled { opacity: .45; cursor: default; }
-.topbar > .soft:disabled:hover { border-color: rgba(255, 255, 255, .3); box-shadow: none; }
-.topbar > .primary { background: #4c51bf; border-color: rgba(255, 255, 255, .45); }
+.topbar > .soft:disabled:hover { border-color: rgba(13, 75, 104, .28); box-shadow: none; }
+:root[data-theme=dark] .topbar > .soft:disabled:hover { border-color: rgba(255, 255, 255, .3); box-shadow: none; }
+/* The filled button is the blue scale's 700 (white on it is 6.1:1). */
+.topbar > .primary { background: #136990; border-color: #0D4B68; color: #fff; }
 /* Only S-Dnevnik may hide the workspace toolbar. Window controls and the
    iframe keep their layout; hiding a grid child must not shrink its iframe. */
 .workspace.bar-hidden .topbar { min-height: 0; padding: 0; }
 .workspace.bar-hidden .topbar > :not(#showBar) { display: none !important; }
 #hideBar[hidden] { display: none; }
-#showBar { flex: 1; border: 0; border-radius: 0; padding: 1px 12px; min-height: 18px; background: transparent; color: #fff; font-size: 11.5px; font-weight: 700; text-align: left; letter-spacing: .3px; }
-#showBar:hover { background: rgba(255, 255, 255, .16); }
+#showBar { flex: 1; border: 0; border-radius: 0; padding: 1px 12px; min-height: 18px; background: transparent; color: #082E3F; font-size: 11.5px; font-weight: 700; text-align: left; letter-spacing: .3px; }
+:root[data-theme=dark] #showBar { color: #fff; }
+#showBar:hover { background: rgba(13, 75, 104, .10); }
+:root[data-theme=dark] #showBar:hover { background: rgba(255, 255, 255, .16); }
 #showBar[hidden] { display: none; }
-.topbar > #setHome[aria-pressed="true"] { background: #4c51bf; border-color: rgba(255, 255, 255, .7); }
+.topbar > #setHome[aria-pressed="true"] { background: #0D4B68; border-color: #082E3F; color: #fff; }
 .topbar .year-wrap select { border-radius: 10px; }
 .main { min-height: 0; min-width: 0; display: block; position: relative; overflow: hidden; isolation: isolate; }
 .workspace-window { position: absolute; min-width: 0; min-height: 0; overflow: hidden; background: var(--panel); }
