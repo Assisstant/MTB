@@ -107,7 +107,20 @@ try {
         pages[0].includes('>1/2</span> <b>IV - Пробно Име</b>') && pages[0].includes('>2/2</span> <b>V - Друго Пробно</b>'));
     check('same-name pupils stay apart by class', pages[0].includes('III - Пробно Име') && pages[0].includes('IV - Пробно Име'));
     check('a term is on its therapist\'s page only', pages[1].includes('III - Пробно Име') && !pages[1].includes('IV - Пробно Име'));
-    check('a therapist with no terms still gets a page, all free', count(pages[2], '<td class="free">') === 10 && !pages[2].includes('class="pupil"'));
+    check('a therapist with no terms still gets a page, all free', count(pages[2], 'class="free">') === 10 && !pages[2].includes('class="pupil"'));
+    // Owner, 7 Oct 2026: one size for every cell. What Word needs for that was
+    // measured in Word itself — a table in points marked fixed, no percentage
+    // width in the stylesheet, a width on EVERY cell, and a row height with a rule.
+    check('the table states its width in points and is marked fixed for Word',
+        pages.every((p) => /<table width="\d+" style="width:782pt;table-layout:fixed;mso-table-layout-alt:fixed">/.test(p)));
+    check('the stylesheet gives the table no percentage width', !/table\{[^}]*width:\s*100%/.test(all.text));
+    const cells = (p) => p.split('<tbody>')[1].match(/<td[^>]*>/g) || [];
+    check('every cell carries its own width: the time column 62pt, each day 144pt',
+        pages.every((p) => cells(p).length === 12 && cells(p).every((td, i) => td.includes(i % 6 === 0 ? 'style="width:62pt"' : 'style="width:144pt"'))),
+        cells(pages[0]).join(' '));
+    check('every row has the same height, as a minimum so a long name is never cut',
+        pages.every((p) => count(p, '<tr style="height:72pt;mso-height-rule:at-least">') === 2));
+    check('the header names the same widths', pages.every((p) => count(p, '<th style="width:144pt">') === 5));
     check('each half carries its own time', pages[0].includes('08:45 - 09:05') && pages[0].includes('09:05 - 09:25'));
     check('nothing executable in the document', !/<script/i.test(all.text));
 

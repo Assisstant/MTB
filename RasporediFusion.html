@@ -3330,27 +3330,57 @@
        paragraphs rather than reusing the printout's styled divs. */
     function wordCellHtml(day, bell, therapist, students) {
         const rows = blockEntries(day, bell, therapist, students);
-        if (!rows.length) return '<td class="free">—</td>';
-        return '<td>' + rows.map((row) =>
+        if (!rows.length) return wordTd(WORD_DAY_PT, 'free') + '—</td>';
+        return wordTd(WORD_DAY_PT) + rows.map((row) =>
             '<p class="pupil"><span class="badge">' + esc(row.label) + '</span> <b>' + esc(row.name) + '</b><br>' +
             '<span class="time">' + esc(spaced(row.time)) + '</span></p>'
         ).join('') + '</td>';
     }
 
+    // One size for every cell (owner, 7 Oct 2026): the landscape page is 786pt
+    // inside its margins — a 62pt time column and five equal days.
+    const WORD_TIME_PT = 62, WORD_DAY_PT = 144;
+    const wordPx = (pt) => Math.round(pt * 96 / 72);
+    // Every cell says its own width. Measured in Word itself (7 Oct 2026): with
+    // that, and with no percentage width on the table, Word turns „resize to
+    // fit contents" off; with only the header's widths it stayed on.
+    const wordTd = (pt, cls) => '<td width="' + wordPx(pt) + '" style="width:' + pt + 'pt"' + (cls ? ' class="' + cls + '"' : '') + '>';
+
+    /**
+     * The same height for every row: what the page has left after the heading,
+     * the header row and the footer, shared among the bells. „At least", never
+     * „exactly": a cell with two long names makes its row taller, where an
+     * exact height would cut a child's name off the sheet without a word.
+     *
+     * The 360pt is measured, not reckoned: with six bells, Word kept every
+     * therapist of a real week on one sheet up to 62pt a row, put one on a
+     * second sheet at 64pt, and all of them at 68pt. 60pt leaves room.
+     */
+    function wordRowPt() {
+        return Math.max(40, Math.min(72, Math.floor(360 / Math.max(1, state.bells.length))));
+    }
+
     function wordWeekHtml(therapist, students) {
+        const total = WORD_TIME_PT + (WORD_DAY_PT * DAYS.length);
+        const col = (pt) => '<col width="' + wordPx(pt) + '" style="width:' + pt + 'pt">';
+        // Word lays an HTML table out by its content unless told otherwise in
+        // ITS terms. In print layout the first row's widths were enough; in
+        // Protected View — how a downloaded file opens — it shows the web
+        // layout, where only a table marked fixed, with its columns given,
+        // keeps them: a busy Monday came out half as wide again as a free Friday.
         let html = '<h1>' + esc(SCHOOL) + '</h1>' +
             '<h2>Неделен распоред — ' + esc(therapist.name) + '</h2>' +
             '<h3>' + esc(state.year) + ' · 1 ученик = 40′, 2 ученици = 20′ + 20′</h3>' +
-            '<table><thead><tr><th class="slot">Час</th>' +
-            // Equal day columns: the landscape page (786pt inside the margins)
-            // less the 62pt time column. Word sizes columns from the first row,
-            // and content-driven widths made a busy day twice as wide as a free one.
-            DAYS.map((day) => '<th style="width:144pt">' + esc(capitalise(day)) + '</th>').join('') + '</tr></thead><tbody>';
+            '<table width="' + wordPx(total) + '" style="width:' + total + 'pt;table-layout:fixed;mso-table-layout-alt:fixed">' +
+            '<colgroup>' + col(WORD_TIME_PT) + DAYS.map(() => col(WORD_DAY_PT)).join('') + '</colgroup>' +
+            '<thead><tr><th style="width:' + WORD_TIME_PT + 'pt" class="slot">Час</th>' +
+            DAYS.map((day) => '<th style="width:' + WORD_DAY_PT + 'pt">' + esc(capitalise(day)) + '</th>').join('') + '</tr></thead><tbody>';
+        const row = '<tr style="height:' + wordRowPt() + 'pt;mso-height-rule:at-least">';
         state.bells.forEach((bell) => {
             const parts = bellParts(bell);
             const ranges = (parts.length ? parts.map((part) => part.time) : [bellTime(bell)])
                 .map((range) => esc(spaced(range))).join('<br>');
-            html += '<tr><td class="slot"><b class="roman">' + esc(bell.label || '') + '</b><br>' +
+            html += row + wordTd(WORD_TIME_PT, 'slot') + '<b class="roman">' + esc(bell.label || '') + '</b><br>' +
                 '<span class="time">' + ranges + '</span></td>' +
                 DAYS.map((day) => wordCellHtml(day, bell, therapist, students)).join('') + '</tr>';
         });
@@ -3367,10 +3397,12 @@
             'h1{text-align:center;margin:0 0 2pt;}' +
             'h2{text-align:center;margin:0 0 2pt;color:#444;}' +
             'h3{text-align:center;margin:0 0 8pt;color:#777;font-weight:normal;}' +
-            'table{border-collapse:collapse;width:100%;table-layout:fixed;}' +
+            // No width here: the table states its own in points (wordWeekHtml).
+            // A percentage in this rule is what kept Word resizing the columns.
+            'table{border-collapse:collapse;}' +
             'th,td{border:1px solid #ddd;padding:3pt 4pt;vertical-align:top;}' +
             docTableCss() +
-            'td.slot{background:#f8f9fa;text-align:center;vertical-align:middle;width:62pt;}' +
+            'td.slot{background:#f8f9fa;text-align:center;vertical-align:middle;}' +
             '.roman{font-size:14pt;}' +
             'td.free{color:#bbb;text-align:center;vertical-align:middle;}' +
             'p.pupil{margin:0 0 3pt;}' +
