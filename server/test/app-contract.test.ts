@@ -184,7 +184,7 @@ test('the connected screens take their look from S-Dnevnik, through one styleshe
     }
 });
 
-test('every tab strip in the suite is one size', async () => {
+test('suite tab sizes and the diary button-height exception stay explicit', async () => {
     // Owner, 24 Sep 2026: the workspace's app row and the page's own tabs
     // under it stood at two sizes (12.5px and 14–15px), and it read as two
     // designs. Five files carry a copy of the strip because three of them
@@ -195,7 +195,6 @@ test('every tab strip in the suite is one size', async () => {
     assert.match(look, /padding-top: 14px;/);
     const copies: Array<[string, RegExp, RegExp]> = [
         ['MTB-Workspace.html', /\.app-tabs button \{[^}]*padding: 10px 20px;[^}]*font-size: 13px;[^}]*letter-spacing: \.8px;/, /\.app-tabs button\.active \{[^}]*padding-top: 14px;/],
-        ['S-Dnevnik.html', /\.tab \{\s*padding: 10px 20px;[^}]*font-size: 13px;[^}]*letter-spacing: \.8px;/, /\.tab\.active \{[^}]*padding-top: 14px;/],
         ['RasporediFusion.html', /\.view-tab \{[^}]*padding: 10px 20px;[^}]*font-size: 13px;[^}]*letter-spacing: \.8px;/, /\.view-tab\[aria-selected="true"\] \{[^}]*padding-top: 14px;/],
         ['AkciskiPlan.html', /\.tab\{padding:10px 20px;[^}]*font-size:13px;[^}]*letter-spacing:\.8px;/, /\.tab\.active\{[^}]*padding-top:14px;/]
     ];
@@ -204,6 +203,10 @@ test('every tab strip in the suite is one size', async () => {
         assert.match(html, tab, `${file}: its tabs are not the suite's one size`);
         assert.match(html, lifted, `${file}: its chosen tab is not lifted by exactly the border it gains`);
     }
+    // Owner, 7 Oct: the diary's INNER tabs are button-height, without a lift.
+    const diary = await readRoot('S-Dnevnik.html');
+    assert.match(diary, /\.tab \{\s*padding: 8px 16px;\s*min-height: 42px;\s*height: 42px;/);
+    assert.doesNotMatch(diary, /\.tab\.active \{[^}]*padding-top:/);
 });
 
 test('a hovered chip keeps its text readable', async () => {

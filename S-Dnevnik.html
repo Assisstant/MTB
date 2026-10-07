@@ -29,33 +29,46 @@
         .header .slider { background-color: #7FA6BC; }
         .header p { font-size: 0.85em; opacity: 0.95; }
         .tabs {
+            /* Each diary tab has its own lit face. Shared layout reads these
+               scoped tokens too; the workspace's outer row keeps its own look. */
+            --mtb-plate: radial-gradient(ellipse at 50% 20%, rgba(255,255,255,.65), transparent 65%), linear-gradient(to bottom, #E8F6FC, #A1D2E9 52%, #79B5D1);
+            --mtb-plate-text: #10283A;
+            --mtb-plate-top: #F5FBFE;
+            --mtb-plate-hover: radial-gradient(ellipse at 50% 20%, #FFFFFF, transparent 70%), linear-gradient(to bottom, #F5FBFE, #B7E0F6 52%, #89CFF0);
+            --mtb-plate-hover-text: #082E3F;
+            --mtb-plate-on: radial-gradient(ellipse at 50% 20%, rgba(137,207,240,.25), transparent 65%), linear-gradient(to bottom, #177BA9, #136990 45%, #082E3F);
+            --mtb-plate-on-text: #FFFFFF;
+            --mtb-plate-on-top: #89CFF0;
             display: flex;
-            justify-content: center;
+            justify-content: flex-start;
             background: linear-gradient(90deg, #F4FBFE 0%, #C0E5F7 20%, #6FC4EC 58%, #1DA3E2 100%);
             border-bottom: 3px solid #1886B9;
             padding: 0 10px;
             gap: 2px;
+            align-items: center;
             box-shadow: inset 0 1px 0 rgba(255, 255, 255, .8), 0 2px 5px rgba(8, 46, 63, .18);
         }
-        /* The suite's one tab size (mtb-look.css): 13px, 10px 20px, .8px.
-           And its one band (mtb-layout.js, 7 Oct 2026): one colour in shades,
-           lighter on the left; a tab is a glass plate over it, the chosen tab
-           the one solid plate. White into blue here, greys in the dark theme. */
+        /* Same 42px height as diary buttons; no layout jump on selection. */
         .tab {
-            padding: 10px 20px;
+            padding: 8px 16px;
+            min-height: 42px;
+            height: 42px;
             border: none;
-            background: linear-gradient(to bottom, rgba(255, 255, 255, .16), rgba(13, 75, 104, .10));
+            background: var(--mtb-plate);
             cursor: pointer;
             transition: all 0.3s;
             font-size: 13px;
-            color: #031017;
-            font-weight: 600;
+            color: var(--mtb-plate-text);
+            font-weight: 700;
             text-transform: uppercase;
             letter-spacing: .8px;
             position: relative;
             clip-path: polygon(5px 0, 100% 0, calc(100% - 5px) 100%, 0 100%);
-            margin-top: 5px;
-            border-top: 2px solid rgba(255, 255, 255, .75);
+            margin-top: 0;
+            border-top: 1px solid var(--mtb-plate-top);
+            border-bottom: 2px solid #39738F;
+            text-shadow: 0 1px 0 rgba(255,255,255,.35);
+            box-shadow: inset 0 0 0 1px rgba(8,46,63,.25), inset 0 -3px 6px rgba(8,46,63,.16);
         }
         .tab::before {
             content: '';
@@ -65,25 +78,28 @@
             right: 0;
             height: 2px;
             background: linear-gradient(90deg, transparent, #ffffff, transparent);
-            opacity: 0;
+            opacity: .65;
             transition: opacity 0.3s;
         }
         a.tab { text-decoration: none; display: inline-flex; align-items: center; }
         .tab:hover {
-            background: linear-gradient(to bottom, rgba(255, 255, 255, .6), rgba(255, 255, 255, .3));
-            color: #031017;
+            background: var(--mtb-plate-hover);
+            color: var(--mtb-plate-hover-text);
         }
         .tab:hover::before {
             opacity: 1;
         }
         .tab.active {
-            background: linear-gradient(to bottom, #177BA9, #082E3F);
-            color: #ffffff;
+            background: var(--mtb-plate-on);
+            color: var(--mtb-plate-on-text);
             font-weight: bold;
             margin-top: 0;
-            padding-top: 14px; /* 5 + 2 + 10 = 0 + 3 + 14: lifted, not taller */
-            border-top: 3px solid #89CFF0;
+            border-top-color: var(--mtb-plate-on-top);
+            border-bottom-color: #082E3F;
+            text-shadow: 0 1px 2px rgba(0,0,0,.6);
         }
+        .tab:focus-visible { outline: none; box-shadow: inset 0 0 0 3px #136990; }
+        .tab.active:focus-visible { outline: 2px solid #89CFF0; outline-offset: -5px; }
         .tab.active::before {
             opacity: 1;
             background: linear-gradient(90deg, transparent, #ffffff, transparent);
@@ -898,13 +914,21 @@
         }
         /* The band in the dark theme: the same run of shade, in greys. */
         body.dark-mode .tabs {
+            --mtb-plate: radial-gradient(ellipse at 50% 20%, rgba(255,255,255,.10), transparent 65%), linear-gradient(to bottom, #48515C, #2B3139 52%, #171B21);
+            --mtb-plate-text: #E6E8EB;
+            --mtb-plate-top: #78818D;
+            --mtb-plate-hover: radial-gradient(ellipse at 50% 20%, rgba(255,255,255,.18), transparent 65%), linear-gradient(to bottom, #5C6673, #39414B 52%, #242B34);
+            --mtb-plate-hover-text: #FFFFFF;
+            --mtb-plate-on: radial-gradient(ellipse at 50% 20%, #FFFFFF, transparent 65%), linear-gradient(to bottom, #E6E8EB, #B5BCC5 52%, #8B96A3);
+            --mtb-plate-on-text: #17181A;
+            --mtb-plate-on-top: #FFFFFF;
             background: linear-gradient(90deg, #7A7E86 0%, #4A4D53 30%, #26282C 70%, #101112 100%);
             border-bottom-color: #0C0D0E;
             box-shadow: inset 0 1px 0 rgba(255, 255, 255, .10), 0 2px 6px rgba(0, 0, 0, .45);
         }
-        body.dark-mode .tab { background: linear-gradient(to bottom, rgba(12, 13, 14, .42), rgba(12, 13, 14, .62)); color: #CFD2D7; border-top-color: rgba(255, 255, 255, .16); }
-        body.dark-mode .tab:hover { background: linear-gradient(to bottom, rgba(12, 13, 14, .2), rgba(12, 13, 14, .4)); color: #ffffff; }
-        body.dark-mode .tab.active { background: linear-gradient(to bottom, #FFFFFF, #A9ADB4); color: #17181A; border-top-color: #ffffff; }
+        body.dark-mode .tab { text-shadow: 0 1px 2px #000; border-bottom-color: #101112; }
+        body.dark-mode .tab.active { text-shadow: 0 1px 0 rgba(255,255,255,.5); }
+        body.dark-mode .tab:focus-visible { outline: 2px solid #FFFFFF; outline-offset: -5px; }
         body.dark-mode .content, body.dark-mode .student-list-simple { background: #1a202c; }
         body.dark-mode .student-item { border-bottom-color: #4a5568; }
         body.dark-mode .student-item:hover { background: #2d3748; }
@@ -974,7 +998,9 @@
             .header h4 { font-size: 0.7em; }
 
             .tabs {
-                flex-direction: column;
+                flex-direction: row;
+                justify-content: flex-start;
+                overflow-x: auto;
             }
             .tab {
                 border-bottom: 1px solid #dee2e6;
