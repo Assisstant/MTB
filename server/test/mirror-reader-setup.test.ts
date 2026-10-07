@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mirrorReaderSettings, readerStatements } from '../src/lib/mirror-reader-setup.js';
+import { mirrorReaderSettings, readerStatements, readerViewStatements } from '../src/lib/mirror-reader-setup.js';
 
 const env = () => ({ DATABASE_URL:'postgresql://app:unused@localhost:5432/therapy_dev',
     MTB_MIRROR_READER_DATABASE_URL:`postgresql://test_reader:${'a'.repeat(40)}@localhost:5432/test_mirror`,
@@ -28,4 +28,18 @@ test('reader SQL grants SELECT only and excludes credentials, even with RLS',()=
 test('reader password is quoted without becoming executable SQL',()=>{
     const e=env();e.MTB_MIRROR_READER_DATABASE_URL=e.MTB_MIRROR_READER_DATABASE_URL.replace('a'.repeat(40),encodeURIComponent("x'"+'a'.repeat(40)));
     assert.ok(readerStatements(mirrorReaderSettings(e),['app_state','schema_migrations'])[0].includes("PASSWORD 'x''"));
+});
+test('schedule reads get SELECT on the two business views, never RLS policies or unknown views',()=>{
+    const sql=readerStatements(mirrorReaderSettings(env()),['app_state','schema_migrations'],
+        ['schedule_conflicts','teaching_clashes','private_credentials_view']);
+    for(const name of ['schedule_conflicts','teaching_clashes']) {
+        assert.ok(sql.includes(`GRANT SELECT ON TABLE public."${name}" TO test_reader`));
+        assert.ok(!sql.some(s=>s.startsWith('CREATE POLICY') && s.includes(name)));
+    }
+    assert.ok(!sql.some(s=>s.includes('private_credentials_view')));
+});
+test('an existing reader is given the missing views and nothing else',()=>{
+    assert.deepEqual(readerViewStatements('test_reader',['teaching_clashes','private_credentials_view']),
+        ['GRANT SELECT ON TABLE public."teaching_clashes" TO test_reader']);
+    assert.deepEqual(readerViewStatements('test_reader',[]),[]);
 });

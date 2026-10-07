@@ -1,6 +1,9 @@
 import { MIRROR_TABLES } from './mirror.js';
 
 const localHosts = new Set(['localhost', '127.0.0.1', '[::1]']);
+// These views only read mirrored business tables. They need their own SELECT
+// grants; pg_tables does not include them, and table grants do not cover views.
+export const MIRROR_READER_VIEWS = ['schedule_conflicts', 'teaching_clashes'] as const;
 export function mirrorReaderSettings(env: NodeJS.ProcessEnv) {
     const reader = new URL(env.MTB_MIRROR_READER_DATABASE_URL || '');
     const writer = new URL(env.MTB_MIRROR_TARGET_DATABASE_URL || '');
@@ -27,7 +30,7 @@ export function mirrorReaderSettings(env: NodeJS.ProcessEnv) {
     return { database, role, password, reader, writer };
 }
 
-export function readerStatements(settings: ReturnType<typeof mirrorReaderSettings>, tables: string[]) {
+export function readerStatements(settings: ReturnType<typeof mirrorReaderSettings>, tables: string[], views: string[] = []) {
     const allowed = new Set<string>([...MIRROR_TABLES, 'schema_migrations', 'mirror_sync_state', 'mirror_sync_attempt']);
     const names = tables.filter(t => allowed.has(t));
     if (!names.includes('schema_migrations') || !names.includes('app_state')) throw new Error('Mirror schema missing');
@@ -42,6 +45,13 @@ export function readerStatements(settings: ReturnType<typeof mirrorReaderSetting
             `GRANT SELECT ON TABLE public."${name}" TO ${role}`,
             // A SELECT grant alone returns zero rows on the RLS-enabled staff tables.
             `CREATE POLICY mtb_mirror_reader_select ON public."${name}" FOR SELECT TO ${role} USING (true)`
-        ])
+        ]),
+        ...readerViewStatements(role, views)
     ];
+}
+
+/** The view grants alone: what a reader made before the views were listed still lacks. */
+export function readerViewStatements(role: string, views: string[]) {
+    return views.filter(name => (MIRROR_READER_VIEWS as readonly string[]).includes(name))
+        .map(name => `GRANT SELECT ON TABLE public."${name}" TO ${role}`);
 }
