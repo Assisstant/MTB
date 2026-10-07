@@ -3062,41 +3062,51 @@
         const nav = window.MTBAppNavigation;
         const index = classInfoIndex();
         const offered = classWeekClasses(therapist, students);
-        if (!offered.has(state.classWeekClass)) state.classWeekClass = offered.size ? offered.keys().next().value : '';
+        // No паралелка is chosen until the person chooses one (owner, 7 Oct
+        // 2026): the tab opens as the plain week, and the lesson row is drawn
+        // for the class they pick — not for whichever class happens to be first.
+        if (!offered.has(state.classWeekClass)) state.classWeekClass = '';
         const label = state.classWeekClass;
 
         const select = el('classWeekClass');
         const shown = new Map();
         offered.forEach((count, l) => { if (index.has(l)) shown.set(l, index.get(l)); });
+        const first = offered.size ? '— избери паралелка —' : '— нема закажани ученици —';
         select.innerHTML = nav && nav.classes
             ? nav.classes.optionsHtml(shown, label, {
-                empty: offered.size ? false : '— нема закажани ученици —',
+                empty: first,
                 more: Array.from(offered.keys()).filter((l) => !index.has(l)).map((l) => [l, l + ' · неактивна'])
             })
-            : Array.from(offered.keys()).map((l) => '<option value="' + esc(l) + '">' + esc(l) + '</option>').join('');
+            : '<option value="">' + esc(first) + '</option>' +
+                Array.from(offered.keys()).map((l) => '<option value="' + esc(l) + '">' + esc(l) + '</option>').join('');
         select.value = label;
         select.disabled = !offered.size;
 
-        drawWeeklySchedule(therapist, students, conflicts, (day, bell) => classLessonLine(day, bell, label));
+        // A class with no lessons entered has nothing to put in the cells: thirty
+        // times „нема час" says less than the one sentence beside the picker.
+        const hasLessons = Boolean(label) && Boolean(state.crossing) &&
+            (state.crossing.cells || []).some((cell) => cell.class === label);
+        drawWeeklySchedule(therapist, students, conflicts, hasLessons ? (day, bell) => classLessonLine(day, bell, label) : null);
 
         const info = index.get(label);
         const name = info && nav && nav.classes ? nav.classes.name(info) : label;
         el('scheduleTitle').textContent = 'По одделение · ' + therapist.name + (label ? ' · ' + name : '');
         const count = offered.get(label) || 0;
-        const hasLessons = Boolean(state.crossing) && (state.crossing.cells || []).some((cell) => cell.class === label);
         el('classWeekNote').innerHTML = !offered.size
             ? 'Овој терапевт уште нема закажани ученици во неделата.'
-            : !state.crossing
-                ? 'Часовите на паралелката не се вчитани — нема внесена настава за годинава, или серверот не одговори. Терапиите се уредуваат и без нив.'
-                : !hasLessons
-                    ? 'Паралелката <b>' + esc(name) + '</b> нема внесени часови оваа година (Уреди настава).'
-                    : '<b>' + count + '</b> ' + (count === 1 ? 'твој ученик' : 'твои ученици') + ' од паралелката се обележани. ' +
-                      'Горниот ред во ќелијата е часот на паралелката (1–6); часовите се уредуваат во „Уреди настава“.';
+            : !label
+                ? 'Избери паралелка за нејзините часови да се исцртаат во ќелиите.'
+                : !state.crossing
+                    ? 'Часовите на паралелката не се вчитани — нема внесена настава за годинава, или серверот не одговори. Терапиите се уредуваат и без нив.'
+                    : !hasLessons
+                        ? 'Паралелката <b>' + esc(name) + '</b> нема внесени часови оваа година (Уреди настава).'
+                        : '<b>' + count + '</b> ' + (count === 1 ? 'твој ученик' : 'твои ученици') + ' од паралелката се обележани. ' +
+                          'Горниот ред во ќелијата е часот на паралелката (1–6); часовите се уредуваат во „Уреди настава“.';
 
         // The mark goes on what the select holds, so it follows every redraw
         // and every save without a second notion of who is in the cell.
         const ofClass = new Set();
-        students.forEach((pupil, id) => { if (pupil && pupil.grade === label) ofClass.add(id); });
+        if (label) students.forEach((pupil, id) => { if (pupil && pupil.grade === label) ofClass.add(id); });
         el('scheduleGrid').querySelectorAll('select.slot-select').forEach((s) => {
             const slot = s.closest('.student-slot');
             if (slot && s.value && ofClass.has(s.value)) slot.classList.add('in-class');
@@ -4204,7 +4214,7 @@
                 applyUserConstraints();
                 drawDays();
             }
-            // A step without a class is the tab's first look: its default class,
+            // A step without a class is the tab's first look: no class chosen,
             // not whichever class was chosen after it.
             state.classWeekClass = view.class || '';
             drawPanel();

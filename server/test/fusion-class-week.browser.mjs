@@ -127,19 +127,35 @@ try {
     checkEq('the control: „Термини" draws no lesson line', await page.locator('#scheduleGrid .lesson-line').count(), 0);
 
     await page.click('[data-panel="classWeek"]');
-    await page.locator('#scheduleGrid .lesson-line').first().waitFor();
+    await page.locator('#classWeekBar').waitFor();
     check('the tab shows the class picker', await page.locator('#classWeekBar').isVisible());
     check('the day/week switch is out of the way', !(await page.locator('.field.view').isVisible()));
-    check('the title names the tab, the therapist and the class',
-        /По одделение · Терапевт Пример Б · /.test(await page.locator('#scheduleTitle').textContent()));
     checkEq('it is the therapist from „Терапевт"', await page.locator('#focus').inputValue(), '2');
 
+    // Owner, 7 Oct 2026: no паралелка until one is chosen, and no row of „нема час" meanwhile.
+    checkEq('no class is chosen when the tab opens', await page.locator('#classWeekClass').inputValue(), '');
+    checkEq('and no lesson row is drawn for a class nobody chose', await page.locator('#scheduleGrid .lesson-line').count(), 0);
+    checkEq('the title names the tab and the therapist only',
+        await page.locator('#scheduleTitle').textContent(), 'По одделение · Терапевт Пример Б');
+    check('the note says what to do', /Избери паралелка/.test(await page.locator('#classWeekNote').textContent()));
+    checkEq('the week itself is there, with its pupils', (await cell('понеделник', 0)).slots, [{ pupil: 'p-a', marked: false }]);
+
     const options = await page.locator('#classWeekClass option').evaluateAll((os) => os.map((o) => [o.value, o.textContent]));
-    checkEq('the picker offers the booked pupils\' classes, in the year\'s order, the unlisted one last',
-        options.map((o) => o[0]), ['V-а', 'VI-а', 'IX-з']);
-    check('a class is said the shared way (with its homeroom teacher)', /Наставничка Измислена/.test(options[0][1]), options[0][1]);
-    check('a class off the year\'s list is marked „неактивна"', /неактивна/.test(options[2][1]), options[2][1]);
-    checkEq('the first class is chosen', await page.locator('#classWeekClass').inputValue(), 'V-а');
+    checkEq('the picker starts with the empty choice, then the booked pupils\' classes in the year\'s order, the unlisted one last',
+        options.map((o) => o[0]), ['', 'V-а', 'VI-а', 'IX-з']);
+    checkEq('the empty choice asks for a class', options[0][1], '— избери паралелка —');
+    check('a class is said the shared way (with its homeroom teacher)', /Наставничка Измислена/.test(options[1][1]), options[1][1]);
+    check('a class off the year\'s list is marked „неактивна"', /неактивна/.test(options[3][1]), options[3][1]);
+
+    // A class with no lessons entered: the sentence says so, the cells stay clean.
+    await page.selectOption('#classWeekClass', 'IX-з');
+    checkEq('a class with no lessons draws no row of „нема час"', await page.locator('#scheduleGrid .lesson-line').count(), 0);
+    check('and the note says it has none', /нема внесени часови/.test(await page.locator('#classWeekNote').textContent()));
+
+    await page.selectOption('#classWeekClass', 'V-а');
+    await page.locator('#scheduleGrid .lesson-line').first().waitFor();
+    check('chosen, the title names the class too',
+        /По одделение · Терапевт Пример Б · /.test(await page.locator('#scheduleTitle').textContent()));
 
     let c = await cell('понеделник', 0);
     checkEq('Mon I: the lesson the block covers, with its teacher', c.lesson, '1. Математика Наставник Еден');
