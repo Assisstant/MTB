@@ -206,6 +206,27 @@ header a { color: inherit; opacity: .9; font-size: 0.85em; }
 .btn-primary { background: var(--mtb-btn); color: var(--mtb-btn-text); }
 .btn-success { background: var(--success); color: #fff; border-color: transparent; }
 .btn-danger, .btn.danger { background: var(--danger-dark); color: #fff; border-color: transparent; }
+/* A button with a colour of its own — green, red, violet — is drawn as the
+   owner's picture is (7 Oct 2026, a game's green button; „бојата, градиентот
+   и стилот"): lit from the middle and darker toward the bottom and the two
+   ends, a thin light line inside a dark frame, spaced capitals under a
+   shadow. The light is a layer of its own UNDER the words, so it works
+   whichever way the colour was set. Green is the picture's green,
+   #36804D (white on it is 4.8:1). The frame is a shadow, not a border: it
+   must not change a button's size. */
+:where(.btn-success, .btn-danger, .btn.danger:not(.soft)) { position: relative; isolation: isolate; }
+.btn-success, .btn-danger, .btn.danger:not(.soft) {
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .24), 0 0 0 2px #10243A, 0 2px 5px rgba(0, 0, 0, .35); border-color: transparent;
+    text-transform: uppercase; letter-spacing: .08em; font-weight: 700; text-shadow: 0 1px 2px rgba(0, 0, 0, .5);
+}
+.btn-success:hover, .btn-danger:hover, .btn.danger:not(.soft):hover { box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .24), 0 0 0 2px #10243A, 0 2px 5px rgba(0, 0, 0, .35); filter: brightness(1.08); }
+.btn-success::before, .btn-danger::before, .btn.danger:not(.soft)::before {
+    content: ''; position: absolute; inset: 0; z-index: -1; border-radius: inherit; pointer-events: none;
+    background: radial-gradient(ellipse at 50% 30%, rgba(255, 255, 255, .20) 0%, rgba(255, 255, 255, 0) 60%), linear-gradient(to bottom, rgba(255, 255, 255, .12) 0%, rgba(0, 0, 0, 0) 45%, rgba(0, 0, 0, .24) 100%), linear-gradient(90deg, rgba(0, 0, 0, .20) 0%, rgba(0, 0, 0, 0) 20%, rgba(0, 0, 0, 0) 80%, rgba(0, 0, 0, .20) 100%);
+}
+.btn-success, .btn-success:hover { background: #36804D; color: #fff; }
+/* One of many on a table's row: the same look, without the room capitals take. */
+table .btn-success, table .btn-danger, table .btn.danger:not(.soft) { letter-spacing: .02em; }
 
 /* The quieter button is the card; as an on/off choice it turns the scale's
    800 when chosen, as S-Dnevnik's filter buttons do.
