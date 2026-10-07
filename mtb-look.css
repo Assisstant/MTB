@@ -19,7 +19,11 @@
 
 :root {
     --mtb-font: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    --mtb-header: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    /* The header is S-Dnevnik's: the owner's light blue run (7 Oct 2026),
+       #F5FBFE … #89CFF0. White on it is under 2:1, so its words are dark. */
+    --mtb-header: linear-gradient(135deg, #F5FBFE 0%, #D7EDFA 35%, #B7E0F6 65%, #89CFF0 100%);
+    --mtb-header-text: #082E3F;
+    --mtb-header-line: #ACDCF4;
 
     --bg: #ffffff;
     --card: #ffffff;
@@ -62,7 +66,9 @@
 }
 
 :root[data-theme="dark"] {
-    --mtb-header: linear-gradient(135deg, #4c51bf 0%, #2d3748 100%);
+    --mtb-header: linear-gradient(135deg, #4A4D53 0%, #26282C 60%, #1C1D20 100%);
+    --mtb-header-text: #E6E8EB;
+    --mtb-header-line: #0C0D0E;
 
     --bg: #1a202c;
     --card: #2d3748;
@@ -104,13 +110,13 @@ button, input, select, textarea { font-family: inherit; }
 /* The page header — S-Dnevnik's `.header`. */
 header {
     background: var(--mtb-header);
-    color: #fff;
+    color: var(--mtb-header-text);
     padding: 15px 20px;
     display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
 }
 header h1 { margin: 0; font-size: 1.3em; font-weight: 700; }
 header .sub { font-size: 0.85em; opacity: .95; }
-header a { color: #fff; opacity: .9; font-size: 0.85em; }
+header a { color: inherit; opacity: .9; font-size: 0.85em; }
 
 /* A box on the page — S-Dnevnik's `.capacity-box`. */
 .panel {
@@ -122,10 +128,11 @@ header a { color: #fff; opacity: .9; font-size: 0.85em; }
 }
 .panel h2 { color: var(--text); }
 
-/* A purple bar over a section — S-Dnevnik's `.section-header`. */
+/* A bar over a section — S-Dnevnik's `.section-header`. */
 .section-header {
     background: var(--mtb-header);
-    color: #fff;
+    color: var(--mtb-header-text);
+    border: 1px solid var(--mtb-header-line);
     padding: 12px 20px;
     border-radius: 6px;
     margin-bottom: 20px;
@@ -139,22 +146,48 @@ header a { color: #fff; opacity: .9; font-size: 0.85em; }
    the icon in a small tile of its own — `<span class="ico">⎙</span> Печати`.
    A button without the span still looks right; the tile is only a bonus.
    Fusion carries a copy of these numbers because it does not load this file. */
+/* Every button is a run of shade under glass (owner, 7 Oct 2026: „gradient
+   on tabs and buttons with glass effect"), as the diary's tabs are: the fill
+   runs lighter to darker from left to right, a sheen lies over its top, and
+   a thin light line marks the upper edge. The last value of each is a plain
+   colour, so `background-color` still answers for anything that measures it.
+   Dark theme: the same in greys, the main action in silver under dark words. */
 :root {
-    --mtb-card-btn: #ffffff; --mtb-card-line: #cbd5e0; --mtb-card-hover: #1DA3E2;
+    --mtb-card-btn: #ffffff; --mtb-card-line: #B7E0F6; --mtb-card-hover: #1DA3E2;
     --mtb-ico-bg: #E8F6FC; --mtb-ico: #136990;
+    --mtb-btn: linear-gradient(to bottom, rgba(255, 255, 255, .22) 0%, rgba(255, 255, 255, 0) 50%, rgba(0, 0, 0, .10) 100%),
+               linear-gradient(90deg, #177BA9 0%, #0D4B68 100%) #136990;
+    --mtb-btn-on: linear-gradient(to bottom, rgba(255, 255, 255, .16) 0%, rgba(255, 255, 255, 0) 50%, rgba(0, 0, 0, .12) 100%),
+                  linear-gradient(90deg, #136990 0%, #082E3F 100%) #0D4B68;
+    --mtb-btn-text: #ffffff; --mtb-btn-line: #0D4B68;
+    --mtb-btn-soft: linear-gradient(to bottom, #ffffff 0%, #F5FBFE 45%, #D7EDFA 100%) #F5FBFE;
+    --mtb-glass: inset 0 1px 0 rgba(255, 255, 255, .45), 0 1px 2px rgba(8, 46, 63, .22);
+    --mtb-glass-soft: inset 0 1px 0 #ffffff, 0 1px 2px rgba(8, 46, 63, .10);
+    /* A table's header row: the same glass, top to bottom, so every cell is alike. */
+    --mtb-th: linear-gradient(to bottom, #E1F2FB 0%, #B7E0F6 60%, #95D3F1 100%) #B7E0F6;
+    --mtb-th-text: #082E3F;
 }
 :root[data-theme="dark"] {
-    --mtb-card-btn: #1f2635; --mtb-card-line: #4a5568; --mtb-card-hover: #46B4E7;
+    --mtb-card-btn: #1f2635; --mtb-card-line: #5A5E66; --mtb-card-hover: #CFD2D7;
     --mtb-ico-bg: #0D4B68; --mtb-ico: #C0E5F7;
+    --mtb-btn: linear-gradient(to bottom, #F1F2F4 0%, #C4C7CC 100%) #D6D8DC;
+    --mtb-btn-on: linear-gradient(to bottom, #F1F2F4 0%, #C4C7CC 100%) #D6D8DC;
+    --mtb-btn-text: #17181A; --mtb-btn-line: #8A8E96;
+    --mtb-btn-soft: linear-gradient(to bottom, #45484E 0%, #2B2D31 100%) #3A3D42;
+    --mtb-glass: inset 0 1px 0 rgba(255, 255, 255, .6), 0 1px 2px rgba(0, 0, 0, .5);
+    --mtb-glass-soft: inset 0 1px 0 rgba(255, 255, 255, .12), 0 1px 2px rgba(0, 0, 0, .4);
+    --mtb-th: linear-gradient(to bottom, #54585F 0%, #3A3D42 60%, #2B2D31 100%) #3A3D42;
+    --mtb-th-text: #E6E8EB;
 }
 .btn {
     display: inline-flex; align-items: center; justify-content: center; gap: 8px;
     padding: 10px 18px;
     min-height: 42px;
-    border: 1px solid transparent;
+    border: 1px solid var(--mtb-btn-line);
     border-radius: 10px;
-    background: var(--btn-bg);
-    color: #fff;
+    background: var(--mtb-btn);
+    color: var(--mtb-btn-text);
+    box-shadow: var(--mtb-glass);
     font-size: 14px;
     font-weight: 600;
     text-decoration: none;
@@ -170,31 +203,32 @@ header a { color: #fff; opacity: .9; font-size: 0.85em; }
     filter: brightness(.92);
 }
 .btn:disabled { opacity: .5; cursor: not-allowed; }
-.btn-primary { background: var(--btn-bg); color: #fff; }
-.btn-success { background: var(--success); color: #fff; }
-.btn-danger, .btn.danger { background: var(--danger-dark); color: #fff; }
+.btn-primary { background: var(--mtb-btn); color: var(--mtb-btn-text); }
+.btn-success { background: var(--success); color: #fff; border-color: transparent; }
+.btn-danger, .btn.danger { background: var(--danger-dark); color: #fff; border-color: transparent; }
 
 /* The quieter button is the card; as an on/off choice it turns the scale's
    800 when chosen, as S-Dnevnik's filter buttons do.
    :where() keeps these at the weight of `.btn`, so a tab strip's own
    `.mtb-tabs > .btn` still wins over the card look on the tabs. */
 .btn:where(.soft) {
-    background: var(--mtb-card-btn);
+    background: var(--mtb-btn-soft);
     color: var(--text);
     border: 1px solid var(--mtb-card-line);
     font-weight: 600;
-    box-shadow: var(--shadow);
+    box-shadow: var(--mtb-glass-soft);
 }
 .btn:where(.soft):hover:not(:disabled) {
     transform: none; filter: none;
     border-color: var(--mtb-card-hover);
     box-shadow: 0 0 0 1px var(--mtb-card-hover);
 }
-.btn:where(.soft.danger) { color: var(--danger); background: var(--mtb-card-btn); }
+.btn:where(.soft.danger) { color: var(--danger); background: var(--mtb-btn-soft); }
 .btn[aria-pressed="true"], .btn.soft[aria-pressed="true"] {
-    background: var(--toggle-on);
-    color: #fff;
-    border-color: transparent;
+    background: var(--mtb-btn-on);
+    color: var(--mtb-btn-text);
+    border-color: var(--mtb-btn-line);
+    box-shadow: var(--mtb-glass);
 }
 /* The icon tile. On a filled button it is a lighter square of the fill. */
 .btn .ico {
@@ -206,7 +240,7 @@ header a { color: #fff; opacity: .9; font-size: 0.85em; }
 }
 /* Darker than the fill, not lighter: a white glyph on a lighter square of
    the fill measured 3.3:1. */
-.btn:not(.soft) .ico, .btn[aria-pressed="true"] .ico { background: rgba(0, 0, 0, .2); color: #fff; }
+.btn:not(.soft) .ico, .btn[aria-pressed="true"] .ico { background: rgba(0, 0, 0, .2); color: inherit; }
 
 /* Tabs — S-Dnevnik's УЧЕНИЦИ / РАСПОРЕД strip: a band, tabs cut on a
    slant, the chosen one lifted. Since 7 Oct 2026 a PAGE's band is one colour
@@ -292,28 +326,29 @@ table .btn { padding: 6px 12px; min-height: 0; font-size: 13px; border-radius: 8
    `<html class="mtb-flat">`. Кабинети, Настава ↔ терапии, Уреди настава and
    S-Дневник do not: the owner asked for those to stay as they are. */
 /* --mtb-flat is the main action, the blue scale's 700; in the dark theme it
-   is the 500 under dark words (6.8:1), because 700 sinks into a dark page. */
-:root { --mtb-flat: #136990; --mtb-flat-on: #ffffff; --mtb-flat-well: #f7f7fc; --mtb-flat-line: #c9ced8; }
-:root[data-theme="dark"] { --mtb-flat: #1DA3E2; --mtb-flat-on: #031017; --mtb-flat-well: #1b2130; --mtb-flat-line: #46506a; }
+   is silver under dark words. As a FILL it is `--mtb-btn`, the run of shade
+   under glass; --mtb-flat itself is the plain colour for edges and outlines. */
+:root { --mtb-flat: #136990; --mtb-flat-on: #ffffff; --mtb-flat-well: #f7f7fc; --mtb-flat-line: #B7E0F6; }
+:root[data-theme="dark"] { --mtb-flat: #C4C7CC; --mtb-flat-on: #17181A; --mtb-flat-well: #1b2130; --mtb-flat-line: #5A5E66; }
 /* The shape is a PILL, 34px high (owner, 2 Oct 2026: „this design everywhere" —
    the shape and height of „Редни броеви" and „📌 Замрзни"). The numbers are
    these three: 34px, 6px 14px, 14px. Pages that carry a copy use the same. */
 html.mtb-flat .btn {
     padding: 6px 14px; min-height: 34px;
-    border: 1px solid var(--mtb-flat); border-radius: 999px;
-    background: var(--mtb-flat); color: var(--mtb-flat-on);
+    border: 1px solid var(--mtb-btn-line); border-radius: 999px;
+    background: var(--mtb-btn); color: var(--mtb-btn-text);
     font-size: 14px; font-weight: 700;
-    box-shadow: none; transition: background .15s, border-color .15s;
+    box-shadow: var(--mtb-glass); transition: background .15s, border-color .15s;
 }
-html.mtb-flat .btn:hover:not(:disabled) { transform: none; box-shadow: none; filter: brightness(.93); }
+html.mtb-flat .btn:hover:not(:disabled) { transform: none; box-shadow: var(--mtb-glass); filter: brightness(.93); }
 html.mtb-flat .btn:where(.soft) {
-    background: var(--mtb-flat-well); color: var(--text); border-color: var(--mtb-flat-line); box-shadow: none;
+    background: var(--mtb-btn-soft); color: var(--text); border-color: var(--mtb-flat-line); box-shadow: var(--mtb-glass-soft);
 }
-html.mtb-flat .btn:where(.soft):hover:not(:disabled) { filter: none; border-color: var(--mtb-flat); box-shadow: none; }
+html.mtb-flat .btn:where(.soft):hover:not(:disabled) { filter: none; border-color: var(--mtb-card-hover); box-shadow: var(--mtb-glass-soft); }
 html.mtb-flat .btn-danger, html.mtb-flat .btn.danger { background: var(--danger-dark); border-color: var(--danger-dark); color: #fff; }
-html.mtb-flat .btn:where(.soft.danger) { background: var(--mtb-flat-well); border-color: var(--mtb-flat-line); color: var(--danger); }
+html.mtb-flat .btn:where(.soft.danger) { background: var(--mtb-btn-soft); border-color: var(--mtb-flat-line); color: var(--danger); }
 html.mtb-flat .btn[aria-pressed="true"], html.mtb-flat .btn.soft[aria-pressed="true"] {
-    background: var(--mtb-flat); border-color: var(--mtb-flat); color: var(--mtb-flat-on);
+    background: var(--mtb-btn); border-color: var(--mtb-btn-line); color: var(--mtb-btn-text);
 }
 html.mtb-flat .btn .ico, html.mtb-flat .btn:not(.soft) .ico, html.mtb-flat .btn[aria-pressed="true"] .ico {
     width: auto; height: auto; margin-left: 0; border-radius: 0; background: none; color: inherit; font-size: 1em;
@@ -330,14 +365,14 @@ html.mtb-flat table .btn { padding: 4px 12px; min-height: 28px; font-size: 13px;
 .mtb-tabs.mtb-tabs-flat > .btn, .mtb-tabs.mtb-tabs-flat > .btn:hover:not(:disabled) {
     margin-top: 0; padding: 6px 14px; min-height: 34px;
     border: 1px solid var(--mtb-flat-line); border-radius: 999px;
-    background: var(--mtb-flat-well); color: var(--text);
+    background: var(--mtb-btn-soft); color: var(--text);
     font-size: 14px; font-weight: 700; text-transform: none; letter-spacing: 0;
     clip-path: none;
 }
 .mtb-tabs.mtb-tabs-flat > .btn:hover:not(:disabled) { border-color: var(--mtb-flat); }
 .mtb-tabs.mtb-tabs-flat > .btn[aria-pressed="true"], .mtb-tabs.mtb-tabs-flat > .btn[aria-pressed="true"]:hover:not(:disabled) {
     margin-top: 0; padding: 6px 14px;
-    border: 1px solid var(--mtb-flat); background: var(--mtb-flat); color: var(--mtb-flat-on);
+    border: 1px solid var(--mtb-flat); background: var(--mtb-btn); color: var(--mtb-btn-text);
 }
 html .mtb-tabs.mtb-tabs-flat > .mtb-pin {
     /* Last on the strip, never riding over a tab: nine tabs do not fit a laptop either. */
@@ -352,8 +387,8 @@ html .mtb-tabs.mtb-tabs-flat > .number-toggle {
     border: 1px solid var(--mtb-flat-line); border-radius: 999px; background: var(--card); color: var(--text);
     font-size: 13px; font-weight: 700;
 }
-html .mtb-tabs.mtb-tabs-flat > .number-toggle:has(input:checked) { background: var(--mtb-flat); border-color: var(--mtb-flat); color: var(--mtb-flat-on); }
-html .mtb-tabs.mtb-tabs-flat > .mtb-pin:has(input:checked) { background: var(--mtb-flat); border-color: var(--mtb-flat); color: var(--mtb-flat-on); }
+html .mtb-tabs.mtb-tabs-flat > .number-toggle:has(input:checked) { background: var(--mtb-btn); border-color: var(--mtb-btn-line); color: var(--mtb-btn-text); }
+html .mtb-tabs.mtb-tabs-flat > .mtb-pin:has(input:checked) { background: var(--mtb-btn); border-color: var(--mtb-btn-line); color: var(--mtb-btn-text); }
 
 /* Fields — S-Dnevnik's `.form-group`. */
 .field { display: flex; flex-direction: column; gap: 6px; font-size: 13px; font-weight: 600; color: var(--text); }

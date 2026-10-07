@@ -114,27 +114,30 @@
             box-shadow: 0 4px 8px rgba(0,0,0,0.15);
         }
         .btn:where(:not(.btn-primary, .btn-success, .btn-danger, [style*="background"])) {
-            background: #ffffff; color: #2d3748; border: 1px solid #cbd5e0;
+            background: linear-gradient(to bottom, #ffffff 0%, #F5FBFE 45%, #D7EDFA 100%) #F5FBFE; color: #2d3748; border: 1px solid #B7E0F6;
+            box-shadow: inset 0 1px 0 #ffffff, 0 1px 2px rgba(8, 46, 63, .10);
         }
         .btn:where(:not(.btn-primary, .btn-success, .btn-danger, [style*="background"])):hover:not(:disabled) {
             transform: none; border-color: #1DA3E2; box-shadow: 0 0 0 1px #1DA3E2;
         }
         body.dark-mode .btn:where(:not(.btn-primary, .btn-success, .btn-danger, [style*="background"])) {
-            background: #1f2635; color: #e2e8f0; border-color: #4a5568;
+            background: linear-gradient(to bottom, #45484E 0%, #2B2D31 100%) #3A3D42; color: #e2e8f0; border-color: #5A5E66;
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, .12), 0 1px 2px rgba(0, 0, 0, .4);
         }
         body.dark-mode .btn:where(:not(.btn-primary, .btn-success, .btn-danger, [style*="background"])):hover:not(:disabled) {
-            border-color: #46B4E7; box-shadow: 0 0 0 1px #46B4E7;
+            border-color: #CFD2D7; box-shadow: 0 0 0 1px #CFD2D7;
         }
-        /* The suite's blue scale (mtb-look.css, 7 Oct 2026): white is 6.1:1 on its 700. */
-        .btn-primary { background: #136990; color: white; }
-        .btn-primary:hover { background: #0D4B68; }
+        /* The suite's filled button (mtb-look.css, 7 Oct 2026): a run of the
+           blue scale under glass; silver under dark words in the dark theme. */
+        .btn-primary { background: linear-gradient(to bottom, rgba(255, 255, 255, .22) 0%, rgba(255, 255, 255, 0) 50%, rgba(0, 0, 0, .10) 100%), linear-gradient(90deg, #177BA9 0%, #0D4B68 100%) #136990; color: white; border: 1px solid #0D4B68; box-shadow: inset 0 1px 0 rgba(255, 255, 255, .45), 0 1px 2px rgba(8, 46, 63, .22); }
+        .btn-primary:hover { background: linear-gradient(to bottom, rgba(255, 255, 255, .16) 0%, rgba(255, 255, 255, 0) 50%, rgba(0, 0, 0, .12) 100%), linear-gradient(90deg, #136990 0%, #082E3F 100%) #0D4B68; }
         /* „Зачувај": white on #48bb78 was 2.4:1. The same green, deeper (4.6:1). */
         .btn-success { background: #2f855a; color: white; }
         .btn-success:hover { background: #276749; }
         .btn-danger { background: #e53e3e; color: white; }
         .btn-danger:hover { background: #c53030; }
-        body.dark-mode .btn-primary { background: #136990; }
-        body.dark-mode .btn-primary:hover { background: #0D4B68; }
+        body.dark-mode .btn-primary { background: linear-gradient(to bottom, #F1F2F4 0%, #C4C7CC 100%) #D6D8DC; color: #17181A; border-color: #8A8E96; box-shadow: inset 0 1px 0 rgba(255, 255, 255, .6), 0 1px 2px rgba(0, 0, 0, .5); }
+        body.dark-mode .btn-primary:hover { background: linear-gradient(to bottom, #F1F2F4 0%, #C4C7CC 100%) #D6D8DC; filter: brightness(.93); }
         body.dark-mode .btn-danger { background: #f56565; }
         body.dark-mode .btn-danger:hover { background: #e53e3e; }
         .btn-full {

@@ -124,8 +124,8 @@
     table.grid { border-collapse: separate; border-spacing: 0; width: 100%; font-size: 13px; }
     table.grid th, table.grid td { border-bottom: 1px solid var(--border); padding: 7px 9px; text-align: left; }
     table.grid thead th {
-        position: sticky; top: 0; z-index: 2; background: var(--btn-bg); color: #fff; /* --primary is #818cf8 in the dark theme: 3:1 under white */
-        font-weight: 600; white-space: nowrap; box-shadow: inset 0 -1px 0 rgba(255, 255, 255, .22);
+        position: sticky; top: 0; z-index: 2; background: var(--mtb-th); color: var(--mtb-th-text); /* mtb-look.css: the header row's glass */
+        font-weight: 600; white-space: nowrap; box-shadow: inset 0 1px 0 rgba(255, 255, 255, .5), inset 0 -1px 0 rgba(8, 46, 63, .18);
     }
     /* The week has two header rows; the second stops under the first. */
     table.grid thead tr + tr th { top: var(--head-1, 0px); }
@@ -225,7 +225,7 @@
     .notice .meta { color: var(--muted); font-size: 12px; margin-bottom: 8px; }
     .notice table { border-collapse: collapse; width: 100%; font-size: 13px; }
     .notice th, .notice td { border-bottom: 1px solid var(--border); padding: 6px 9px; text-align: left; }
-    .notice thead th { background: var(--btn-bg); color: #fff; font-weight: 600; white-space: nowrap; }
+    .notice thead th { background: var(--mtb-th); color: var(--mtb-th-text); font-weight: 600; white-space: nowrap; }
     .notice td.when { white-space: nowrap; }
     .notice td small { display: block; font-size: 10px; color: var(--muted); }
     .notice tr.new-day td { border-top: 2px solid var(--border); }

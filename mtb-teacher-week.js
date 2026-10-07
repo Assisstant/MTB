@@ -46,8 +46,9 @@
 
     // ── the look: a sheet of paper, fixed colours in both themes ────────────
     // Printed and handed to the person, so every text states its own colour
-    // (CLAUDE.md, the button that did not inherit it). White small text on
-    // #5a67d8 is 4.8:1.
+    // (CLAUDE.md, the button that did not inherit it). The head and the day
+    // row are the suite's light blue glass under the blue scale's 900 (8:1 and
+    // more); the period column is the deep fill under white (4.7:1 at its top).
     function addLook() {
         if (document.getElementById('mtbTeacherWeekLook')) return;
         const style = document.createElement('style');
@@ -55,17 +56,17 @@
         style.textContent = `
     .personal { margin: 0 0 26px; padding: 14px; border-radius: 12px; background: #ffffff; color: #1a202c;
         border: 1px solid #d8dbe8; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-    .personal .p-head { padding: 14px 18px; border-radius: 12px; text-align: center; color: #ffffff;
-        background: linear-gradient(90deg, #5a67d8, #6b46c1); }
-    .personal .p-head h3 { margin: 0; font-size: 22px; color: #ffffff; }
-    .personal .p-sub { margin-top: 4px; font-size: 13px; color: #ffffff; }
+    .personal .p-head { padding: 14px 18px; border-radius: 12px; text-align: center; color: #082E3F;
+        background: linear-gradient(135deg, #F5FBFE 0%, #D7EDFA 35%, #B7E0F6 65%, #89CFF0 100%); border: 1px solid #ACDCF4; }
+    .personal .p-head h3 { margin: 0; font-size: 22px; color: #082E3F; }
+    .personal .p-sub { margin-top: 4px; font-size: 13px; color: #0D4B68; }
     .personal .p-grid { width: 100%; margin-top: 12px; border-collapse: separate; border-spacing: 2px; table-layout: fixed; font-size: 12.5px; }
-    .personal .p-grid thead th { padding: 8px 6px; background: #4c51bf; color: #ffffff; font-weight: 700; text-align: center; }
+    .personal .p-grid thead th { padding: 8px 6px; background: linear-gradient(to bottom, #E1F2FB 0%, #B7E0F6 60%, #95D3F1 100%) #B7E0F6; color: #082E3F; font-weight: 700; text-align: center; }
     .personal .p-grid thead th:first-child, .personal .p-grid tbody th { width: 84px; }
     .personal .p-grid.lockable thead th:first-child, .personal .p-grid.lockable tbody th { width: 104px; }
-    .personal .p-grid tbody th { padding: 6px; background: #2d3748; color: #ffffff; text-align: center; vertical-align: middle; }
+    .personal .p-grid tbody th { padding: 6px; background: linear-gradient(to bottom, #177BA9 0%, #0D4B68 100%) #136990; color: #ffffff; text-align: center; vertical-align: middle; }
     .personal .p-grid tbody th b { display: block; font-size: 15px; }
-    .personal .p-grid tbody th small { display: block; color: #cbd5e0; font-size: 11px; }
+    .personal .p-grid tbody th small { display: block; color: #E8F6FC; font-size: 11px; }
     .personal .p-grid td { padding: 4px; vertical-align: top; background: #f7fafc; color: #1a202c; }
     .personal .p-grid tbody tr:nth-child(even) td { background: #ffffff; }
     .personal .p-lesson, .personal .p-away { margin: 0 0 3px; padding: 4px 6px 4px 8px; border-radius: 6px; line-height: 1.2; }
@@ -94,12 +95,12 @@
     .personal .p-edithint { margin: 8px 2px 0; color: #4a5568; font-size: 12.5px; }
     /* 🔒/🔓 — the glyph is CSS, so the header's text (which mtb-layout.js
        remembers the 📌 choice by) does not change when the mode does. */
-    .personal .p-lock { width: 22px; height: 20px; margin: 0 4px 0 0; padding: 0; border: 1px solid #a3bffa; border-radius: 5px;
-        background: #434190; color: #ffffff; cursor: pointer; vertical-align: middle; line-height: 1; }
+    .personal .p-lock { width: 22px; height: 20px; margin: 0 4px 0 0; padding: 0; border: 1px solid #89CFF0; border-radius: 5px;
+        background: #0D4B68; color: #ffffff; cursor: pointer; vertical-align: middle; line-height: 1; }
     .personal .p-lock::before { content: '🔒'; font-size: 11px; }
     .personal .p-lock[aria-pressed="true"] { background: #276749; border-color: #9ae6b4; }
     .personal .p-lock[aria-pressed="true"]::before { content: '🔓'; }
-    .personal .p-lock:focus-visible { outline: 2px solid #ffffff; outline-offset: 1px; }
+    .personal .p-lock:focus-visible { outline: 2px solid #082E3F; outline-offset: 1px; }
     @media print {
         .personal .p-edit, .personal .p-edithint, .personal .p-lock { display: none !important; }
         .personal.editing .p-lesson { display: block; }
@@ -108,9 +109,12 @@
        lessons and who leaves for a cabinet, only the lessons, or only the cabinets. */
     .personal .p-modes { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0 8px; }
     .personal .p-modes button { font: 700 14px/1.2 system-ui, -apple-system, 'Segoe UI', sans-serif; padding: 6px 14px; min-height: 34px;
-        border: 1px solid #c9ced8; border-radius: 999px; background: #f7f7fc; color: #1a202c; cursor: pointer; }
+        border: 1px solid #B7E0F6; border-radius: 999px; background: linear-gradient(to bottom, #ffffff 0%, #F5FBFE 45%, #D7EDFA 100%) #F5FBFE; color: #1a202c; cursor: pointer;
+        box-shadow: inset 0 1px 0 #ffffff, 0 1px 2px rgba(8, 46, 63, .10); }
     .personal .p-modes button:hover { border-color: #1886B9; }
-    .personal .p-modes button[aria-pressed="true"] { background: #136990; border-color: #136990; color: #ffffff; }
+    .personal .p-modes button[aria-pressed="true"] { border-color: #0D4B68; color: #ffffff;
+        background: linear-gradient(to bottom, rgba(255, 255, 255, .22) 0%, rgba(255, 255, 255, 0) 50%, rgba(0, 0, 0, .10) 100%), linear-gradient(90deg, #177BA9 0%, #0D4B68 100%) #136990;
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, .45), 0 1px 2px rgba(8, 46, 63, .22); }
     .personal.show-subjects .p-away { display: none !important; }
     .personal.show-cabinets .p-lesson { display: none !important; }
     /* The fixed cell (readCellHtml). Height is the cell's, whatever it holds:

@@ -12,7 +12,7 @@
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
         font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        background: linear-gradient(135deg, #F5FBFE 0%, #CCE9F8 100%);
         min-height: 100vh;
         padding: 0;
         color: #2d3748;
@@ -23,9 +23,10 @@
     a { color: inherit; }
 
     /* ── Header ─────────────────────────────────────────── */
+    /* The suite's header (mtb-look.css, copied): the light blue run under dark words. */
     .header {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        color: white;
+        background: linear-gradient(135deg, #F5FBFE 0%, #D7EDFA 35%, #B7E0F6 65%, #89CFF0 100%);
+        color: #082E3F;
         padding: 15px 20px;
         display: flex;
         align-items: center;
@@ -346,8 +347,9 @@
     }
     .schedule-tool, .roster-tool { min-width: 0; width: 100%; }
     .section-header {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        color: white;
+        background: linear-gradient(135deg, #F5FBFE 0%, #D7EDFA 35%, #B7E0F6 65%, #89CFF0 100%);
+        color: #082E3F;
+        border: 1px solid #ACDCF4;
         padding: 12px 15px;
         border-radius: 8px;
         display: flex;
@@ -668,7 +670,9 @@
         color: #e2e8f0;
     }
     body.dark-mode .header, body.dark-mode .section-header {
-        background: linear-gradient(135deg, #4c51bf 0%, #2d3748 100%);
+        background: linear-gradient(135deg, #4A4D53 0%, #26282C 60%, #1C1D20 100%);
+        color: #E6E8EB;
+        border-color: #0C0D0E;
     }
     body.dark-mode .content { background: #1a202c; }
     body.dark-mode .band { background: #2d3748; border-bottom-color: #4a5568; }
@@ -751,11 +755,14 @@
 
     /* ── User badge & Modals ── */
     .user-badge { display: flex; align-items: center; gap: 8px; font-size: 13px; }
-    .user-name { font-weight: 600; color: #fff; background: rgba(255,255,255,0.16); padding: 5px 10px; border-radius: 6px; }
+    .user-name { font-weight: 600; color: #082E3F; background: rgba(255,255,255,0.6); padding: 5px 10px; border-radius: 6px; }
+    body.dark-mode .user-name { color: #fff; background: rgba(255,255,255,0.14); }
     .user-btn { background: #0D4B68; color: #fff; border: 1px solid #46B4E7; }
     .user-btn:hover { background: #136990; }
-    .btn-xs { padding: 4px 8px; font-size: 11px; border-radius: 4px; background: rgba(255,255,255,0.18); color: #fff; border: none; cursor: pointer; }
-    .btn-xs:hover { background: rgba(255,255,255,0.3); }
+    .btn-xs { padding: 4px 8px; font-size: 11px; border-radius: 4px; background: rgba(255,255,255,0.6); color: #082E3F; border: none; cursor: pointer; }
+    .btn-xs:hover { background: rgba(255,255,255,0.85); }
+    body.dark-mode .btn-xs { background: rgba(255,255,255,0.16); color: #fff; }
+    body.dark-mode .btn-xs:hover { background: rgba(255,255,255,0.3); }
 
     .modal-overlay {
         position: fixed; inset: 0; background: rgba(0,0,0,0.65);
@@ -822,14 +829,23 @@
        this page does not load it). Buttons are plain rounded rectangles with a
        thin border, the main action in one blue; the day strip and the view
        strip are rows of the same buttons instead of the dark slanted band. */
-    html.mtb-flat { --flat: #136990; --flat-on: #ffffff; --flat-well: #f7f7fc; --flat-line: #c9ced8; --flat-text: #2d3748; --flat-rule: #e2e8f0; --flat-band: #f7fafc; }
-    html.mtb-flat:has(body.dark-mode) { --flat: #1DA3E2; --flat-on: #031017; --flat-well: #1b2130; --flat-line: #46506a; --flat-text: #e2e8f0; --flat-rule: #4a5568; --flat-band: #2d3748; }
+    html.mtb-flat { --flat: #136990; --flat-on: #ffffff; --flat-line2: #0D4B68;
+        /* A button is a run of shade under glass (mtb-look.css, 7 Oct 2026). */
+        --fill: linear-gradient(to bottom, rgba(255, 255, 255, .22) 0%, rgba(255, 255, 255, 0) 50%, rgba(0, 0, 0, .10) 100%), linear-gradient(90deg, #177BA9 0%, #0D4B68 100%) #136990;
+        --soft: linear-gradient(to bottom, #ffffff 0%, #F5FBFE 45%, #D7EDFA 100%) #F5FBFE;
+        --glass: inset 0 1px 0 rgba(255, 255, 255, .45), 0 1px 2px rgba(8, 46, 63, .22); --glass-soft: inset 0 1px 0 #ffffff, 0 1px 2px rgba(8, 46, 63, .10);
+        --flat-well: #f7f7fc; --flat-line: #B7E0F6; --flat-text: #2d3748; --flat-rule: #e2e8f0; --flat-band: #f7fafc; }
+    html.mtb-flat:has(body.dark-mode) { --flat: #C4C7CC; --flat-on: #17181A; --flat-line2: #8A8E96;
+        --fill: linear-gradient(to bottom, #F1F2F4 0%, #C4C7CC 100%) #D6D8DC;
+        --soft: linear-gradient(to bottom, #45484E 0%, #2B2D31 100%) #3A3D42;
+        --glass: inset 0 1px 0 rgba(255, 255, 255, .6), 0 1px 2px rgba(0, 0, 0, .5); --glass-soft: inset 0 1px 0 rgba(255, 255, 255, .12), 0 1px 2px rgba(0, 0, 0, .4);
+        --flat-well: #1b2130; --flat-line: #5A5E66; --flat-text: #e2e8f0; --flat-rule: #4a5568; --flat-band: #2d3748; }
     html.mtb-flat .btn {
         padding: 6px 14px; min-height: 34px; border-radius: 999px; border: 1px solid var(--flat-line);
-        background: var(--flat-well); color: var(--flat-text); font-size: 14px; font-weight: 700; box-shadow: none;
+        background: var(--soft); color: var(--flat-text); font-size: 14px; font-weight: 700; box-shadow: var(--glass-soft);
     }
-    html.mtb-flat .btn:hover { border-color: var(--flat); box-shadow: none; }
-    html.mtb-flat .btn-primary, html.mtb-flat .btn-primary:hover { background: var(--flat); border-color: var(--flat); color: var(--flat-on); box-shadow: none; }
+    html.mtb-flat .btn:hover { border-color: var(--flat); box-shadow: var(--glass-soft); }
+    html.mtb-flat .btn-primary, html.mtb-flat .btn-primary:hover { background: var(--fill); border-color: var(--flat-line2); color: var(--flat-on); box-shadow: var(--glass); }
     html.mtb-flat .btn-primary:hover { filter: brightness(.93); }
     html.mtb-flat .btn .ico, html.mtb-flat .btn-primary .ico, html.mtb-flat .btn-success .ico {
         width: auto; height: auto; margin-left: 0; border-radius: 0; background: none; color: inherit; font-size: 1em;
@@ -849,16 +865,16 @@
     html.mtb-flat body .day-tabs-band.mtb-tabs-flat .band__inner { align-items: center; gap: 6px; padding-top: 10px; padding-bottom: 10px; }
     html.mtb-flat body .mtb-tabs-flat .day-tab, html.mtb-flat body .mtb-tabs-flat > .view-tab {
         margin-top: 0; padding: 6px 14px; min-height: 34px; border: 1px solid var(--flat-line); border-radius: 999px;
-        background: var(--flat-well); color: var(--flat-text); box-shadow: none;
+        background: var(--soft); color: var(--flat-text); box-shadow: var(--glass-soft);
         font-size: 14px; font-weight: 700; text-transform: none; letter-spacing: 0; clip-path: none; transition: border-color .15s;
     }
     html.mtb-flat body .mtb-tabs-flat .day-tab::before { display: none; }
     html.mtb-flat body .mtb-tabs-flat .day-tab:hover, html.mtb-flat body .mtb-tabs-flat > .view-tab:hover { border-color: var(--flat); }
     html.mtb-flat body .mtb-tabs-flat .day-tab[aria-pressed="true"], html.mtb-flat body .mtb-tabs-flat > .view-tab[aria-selected="true"] {
-        margin-top: 0; padding: 6px 14px; border: 1px solid var(--flat); background: var(--flat); color: var(--flat-on); box-shadow: none;
+        margin-top: 0; padding: 6px 14px; border: 1px solid var(--flat-line2); background: var(--fill); color: var(--flat-on); box-shadow: var(--glass);
     }
     html.mtb-flat body .mtb-tabs-flat > .mtb-pin, html.mtb-flat body .mtb-tabs-flat .band__inner > .mtb-pin {
-        position: static; box-shadow: none; border-color: var(--flat-line); background: var(--flat-well); color: var(--flat-text);
+        position: static; box-shadow: var(--glass-soft); border-color: var(--flat-line); background: var(--soft); color: var(--flat-text);
         min-height: 34px; padding: 6px 12px; margin-top: 0 !important; margin-bottom: 0 !important; font-size: 13px; font-weight: 700; box-sizing: border-box;
     }
 </style>

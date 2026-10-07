@@ -156,8 +156,11 @@ test('the connected screens take their look from S-Dnevnik, through one styleshe
     // green in Уреди настава and violet in S-Dnevnik. A page that restates a
     // palette, a header gradient or a button shape is how they drift again.
     const look = await readRoot('mtb-look.css');
-    assert.match(look, /--mtb-header: linear-gradient\(135deg, #667eea 0%, #764ba2 100%\)/,
-        'the shared header is no longer the S-Dnevnik gradient');
+    // 7 Oct 2026: the diary's header is the owner's light blue run, and the
+    // shared one is the same string — read out of the diary, not frozen here.
+    const diaryHeader = /\.header \{\s*background: (linear-gradient\([^;]+\));/.exec(await readRoot('S-Dnevnik.html'));
+    assert.ok(diaryHeader, 'S-Dnevnik no longer states its header gradient');
+    assert.ok(look.includes(`--mtb-header: ${diaryHeader![1]};`), 'the shared header is no longer the S-Dnevnik gradient');
     assert.match(look, /--primary: #667eea;/, 'the shared primary is no longer the S-Dnevnik one');
     // 24 Sep 2026: one button size for the suite, S-Dnevnik included — so
     // the check is that the two copies AGREE, not a number frozen in time.
