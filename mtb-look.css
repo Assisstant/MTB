@@ -209,9 +209,11 @@ header a { color: #fff; opacity: .9; font-size: 0.85em; }
 .btn:not(.soft) .ico, .btn[aria-pressed="true"] .ico { background: rgba(0, 0, 0, .2); color: #fff; }
 
 /* Tabs — S-Dnevnik's УЧЕНИЦИ / РАСПОРЕД strip: a band, tabs cut on a
-   slant, the chosen one lifted and dark. Since 7 Oct 2026 the band is the
-   blue scale's 500 and a tab its 400 (owner); mtb-layout.js states the same
-   colours for every strip and is their owner. The owner liked them best and
+   slant, the chosen one lifted. Since 7 Oct 2026 a PAGE's band is the blue
+   scale's 500, a tab its 900 under light words and the chosen tab its 400
+   under dark ones (owner); the workspace's own row above stays the dark band,
+   so the two rows differ. mtb-layout.js states the same colours for every
+   strip and is their owner. The owner liked them best and
    asked for them everywhere, with the side walls standing straighter than
    S-Dnevnik's 10px lean — hence --mtb-tab-slant, used by every copy.
    A page marks its row of view buttons `mtb-tabs`; the buttons keep their
@@ -236,10 +238,10 @@ header a { color: #fff; opacity: .9; font-size: 0.85em; }
     padding: var(--mtb-tab-pad);
     margin-top: 5px;
     border: none;
-    border-top: 2px solid #89CFF0;
+    border-top: 2px solid #136990;
     border-radius: 0;
-    background: #46B4E7;
-    color: #082E3F;
+    background: #082E3F;
+    color: #C0E5F7;
     font-size: var(--mtb-tab-font);
     font-weight: 600;
     text-transform: uppercase;
@@ -247,13 +249,13 @@ header a { color: #fff; opacity: .9; font-size: 0.85em; }
     clip-path: polygon(var(--mtb-tab-slant) 0, 100% 0, calc(100% - var(--mtb-tab-slant)) 100%, 0 100%);
 }
 .mtb-tabs > .btn:hover:not(:disabled) {
-    background: #89CFF0;
-    color: #031017;
+    background: #0D4B68;
+    color: #E8F6FC;
     transform: none; box-shadow: none; filter: none;
 }
 .mtb-tabs > .btn[aria-pressed="true"], .mtb-tabs > .btn[aria-pressed="true"]:hover:not(:disabled) {
-    background: #0D4B68;
-    color: #fff;
+    background: #46B4E7;
+    color: #031017;
     font-weight: 700;
     /* Lifted, not taller: 5 + 2 + 10 = 0 + 3 + 14, so choosing a tab does
        not move everything under the strip by a pixel. */
@@ -275,17 +277,9 @@ table .btn { padding: 6px 12px; min-height: 0; font-size: 13px; border-radius: 8
    `<html class="mtb-flat">`. Кабинети, Настава ↔ терапии, Уреди настава and
    S-Дневник do not: the owner asked for those to stay as they are. */
 /* --mtb-flat is the main action, the blue scale's 700; in the dark theme it
-   is the 500 under dark words (6.8:1), because 700 sinks into a dark page.
-   --mtb-tab… are a page's own tabs: the band's colours, in both themes. */
-:root { --mtb-flat: #136990; --mtb-flat-on: #ffffff; --mtb-flat-well: #f7f7fc; --mtb-flat-line: #c9ced8;
-        --mtb-tab: #46B4E7; --mtb-tab-text: #082E3F; --mtb-tab-line: #1DA3E2; --mtb-tab-hover: #89CFF0;
-        --mtb-tab-on: #0D4B68; --mtb-tab-on-text: #ffffff; }
-/* On a dark page the same two colours change places: a tab is the deep one
-   and the chosen tab the bright one, or the chosen tab would be the one that
-   sinks into the page. The slanted band keeps one look in both themes. */
-:root[data-theme="dark"] { --mtb-flat: #1DA3E2; --mtb-flat-on: #031017; --mtb-flat-well: #1b2130; --mtb-flat-line: #46506a;
-        --mtb-tab: #0D4B68; --mtb-tab-text: #C0E5F7; --mtb-tab-line: #136990; --mtb-tab-hover: #136990;
-        --mtb-tab-on: #46B4E7; --mtb-tab-on-text: #031017; }
+   is the 500 under dark words (6.8:1), because 700 sinks into a dark page. */
+:root { --mtb-flat: #136990; --mtb-flat-on: #ffffff; --mtb-flat-well: #f7f7fc; --mtb-flat-line: #c9ced8; }
+:root[data-theme="dark"] { --mtb-flat: #1DA3E2; --mtb-flat-on: #031017; --mtb-flat-well: #1b2130; --mtb-flat-line: #46506a; }
 /* The shape is a PILL, 34px high (owner, 2 Oct 2026: „this design everywhere" —
    the shape and height of „Редни броеви" and „📌 Замрзни"). The numbers are
    these three: 34px, 6px 14px, 14px. Pages that carry a copy use the same. */
@@ -313,26 +307,22 @@ html.mtb-flat table .btn { padding: 4px 12px; min-height: 28px; font-size: 13px;
 
 /* A page's OWN tabs, as plain buttons on the page: unlike the slanted
    band of the workspace's row above them, so the two rows cannot be mistaken
-   for one another — but in the band's colours (owner, 7 Oct 2026: the same
-   colour of tab on every screen): a tab is the 400, the chosen one the 800.
-   mtb-layout.js still gives the strip one row and its 📌. */
+   for one another. mtb-layout.js still gives the strip one row and its 📌. */
 .mtb-tabs.mtb-tabs-flat {
     align-items: center; gap: 6px; padding: 0 0 10px;
     background: none; border-bottom: 1px solid var(--border); border-radius: 0; box-shadow: none;
 }
 .mtb-tabs.mtb-tabs-flat > .btn, .mtb-tabs.mtb-tabs-flat > .btn:hover:not(:disabled) {
     margin-top: 0; padding: 6px 14px; min-height: 34px;
-    border: 1px solid var(--mtb-tab-line); border-radius: 999px;
-    background: var(--mtb-tab); color: var(--mtb-tab-text);
+    border: 1px solid var(--mtb-flat-line); border-radius: 999px;
+    background: var(--mtb-flat-well); color: var(--text);
     font-size: 14px; font-weight: 700; text-transform: none; letter-spacing: 0;
     clip-path: none;
 }
-.mtb-tabs.mtb-tabs-flat > .btn:hover:not(:disabled) { background: var(--mtb-tab-hover); border-color: var(--mtb-tab-line); }
-/* `html` in front: `html.mtb-flat .btn.soft[aria-pressed]` above weighs more
-   than the strip alone, and a chosen tab took the main action's colour. */
-html .mtb-tabs.mtb-tabs-flat > .btn[aria-pressed="true"], html .mtb-tabs.mtb-tabs-flat > .btn[aria-pressed="true"]:hover:not(:disabled) {
+.mtb-tabs.mtb-tabs-flat > .btn:hover:not(:disabled) { border-color: var(--mtb-flat); }
+.mtb-tabs.mtb-tabs-flat > .btn[aria-pressed="true"], .mtb-tabs.mtb-tabs-flat > .btn[aria-pressed="true"]:hover:not(:disabled) {
     margin-top: 0; padding: 6px 14px;
-    border: 1px solid var(--mtb-tab-on); background: var(--mtb-tab-on); color: var(--mtb-tab-on-text);
+    border: 1px solid var(--mtb-flat); background: var(--mtb-flat); color: var(--mtb-flat-on);
 }
 html .mtb-tabs.mtb-tabs-flat > .mtb-pin {
     /* Last on the strip, never riding over a tab: nine tabs do not fit a laptop either. */

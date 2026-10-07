@@ -159,18 +159,18 @@
     .day-tab {
         padding: 10px 20px;
         border: none;
-        background: #46B4E7;
+        background: #082E3F;
         cursor: pointer;
         transition: all 0.3s;
         font-size: 13px;
-        color: #082E3F;
+        color: #C0E5F7;
         font-weight: 600;
         text-transform: uppercase;
         letter-spacing: .8px;
         position: relative;
         clip-path: polygon(5px 0, 100% 0, calc(100% - 5px) 100%, 0 100%);
         margin-top: 5px;
-        border-top: 2px solid #89CFF0;
+        border-top: 2px solid #136990;
         white-space: nowrap;
     }
     .day-tab::before {
@@ -182,11 +182,11 @@
         opacity: 0;
         transition: opacity 0.3s;
     }
-    .day-tab:hover { background: #89CFF0; color: #031017; }
+    .day-tab:hover { background: #0D4B68; color: #E8F6FC; }
     .day-tab:hover::before { opacity: 1; }
     .day-tab[aria-pressed="true"] {
-        background: #0D4B68;
-        color: #ffffff;
+        background: #46B4E7;
+        color: #031017;
         font-weight: bold;
         margin-top: 0;
         padding-top: 14px; /* 5 + 2 + 10 = 0 + 3 + 14: lifted, not taller */
@@ -236,9 +236,9 @@
         padding: 10px 20px; /* the suite's one tab size (mtb-look.css) */
         margin-top: 5px;
         border: 0;
-        border-top: 2px solid #89CFF0;
-        background: #46B4E7;
-        color: #082E3F;
+        border-top: 2px solid #136990;
+        background: #082E3F;
+        color: #C0E5F7;
         font-size: 13px;
         font-weight: 600;
         text-transform: uppercase;
@@ -247,10 +247,10 @@
         clip-path: polygon(5px 0, 100% 0, calc(100% - 5px) 100%, 0 100%);
         transition: all .3s;
     }
-    .view-tab:hover { background: #89CFF0; color: #031017; }
+    .view-tab:hover { background: #0D4B68; color: #E8F6FC; }
     .view-tab[aria-selected="true"] {
-        background: #0D4B68;
-        color: #fff; font-weight: 700;
+        background: #46B4E7;
+        color: #031017; font-weight: 700;
         margin-top: 0; padding-top: 14px; border-top: 3px solid #E8F6FC; /* lifted, not taller */
     }
     .view-tab:focus-visible { outline: 2px solid #f6c453; outline-offset: -2px; }
@@ -822,8 +822,8 @@
        this page does not load it). Buttons are plain rounded rectangles with a
        thin border, the main action in one blue; the day strip and the view
        strip are rows of the same buttons instead of the dark slanted band. */
-    html.mtb-flat { --flat: #136990; --flat-on: #ffffff; --tab: #46B4E7; --tab-text: #082E3F; --tab-line: #1DA3E2; --tab-hover: #89CFF0; --tab-on: #0D4B68; --tab-on-text: #ffffff; --flat-well: #f7f7fc; --flat-line: #c9ced8; --flat-text: #2d3748; --flat-rule: #e2e8f0; --flat-band: #f7fafc; }
-    html.mtb-flat:has(body.dark-mode) { --flat: #1DA3E2; --flat-on: #031017; --tab: #0D4B68; --tab-text: #C0E5F7; --tab-line: #136990; --tab-hover: #136990; --tab-on: #46B4E7; --tab-on-text: #031017; --flat-well: #1b2130; --flat-line: #46506a; --flat-text: #e2e8f0; --flat-rule: #4a5568; --flat-band: #2d3748; }
+    html.mtb-flat { --flat: #136990; --flat-on: #ffffff; --flat-well: #f7f7fc; --flat-line: #c9ced8; --flat-text: #2d3748; --flat-rule: #e2e8f0; --flat-band: #f7fafc; }
+    html.mtb-flat:has(body.dark-mode) { --flat: #1DA3E2; --flat-on: #031017; --flat-well: #1b2130; --flat-line: #46506a; --flat-text: #e2e8f0; --flat-rule: #4a5568; --flat-band: #2d3748; }
     html.mtb-flat .btn {
         padding: 6px 14px; min-height: 34px; border-radius: 999px; border: 1px solid var(--flat-line);
         background: var(--flat-well); color: var(--flat-text); font-size: 14px; font-weight: 700; box-shadow: none;
@@ -848,14 +848,14 @@
     html.mtb-flat body .view-tabs.mtb-tabs-flat { align-items: center; gap: 6px; padding: 0 0 10px; }
     html.mtb-flat body .day-tabs-band.mtb-tabs-flat .band__inner { align-items: center; gap: 6px; padding-top: 10px; padding-bottom: 10px; }
     html.mtb-flat body .mtb-tabs-flat .day-tab, html.mtb-flat body .mtb-tabs-flat > .view-tab {
-        margin-top: 0; padding: 6px 14px; min-height: 34px; border: 1px solid var(--tab-line); border-radius: 999px;
-        background: var(--tab); color: var(--tab-text); box-shadow: none;
-        font-size: 14px; font-weight: 700; text-transform: none; letter-spacing: 0; clip-path: none; transition: background .15s;
+        margin-top: 0; padding: 6px 14px; min-height: 34px; border: 1px solid var(--flat-line); border-radius: 999px;
+        background: var(--flat-well); color: var(--flat-text); box-shadow: none;
+        font-size: 14px; font-weight: 700; text-transform: none; letter-spacing: 0; clip-path: none; transition: border-color .15s;
     }
     html.mtb-flat body .mtb-tabs-flat .day-tab::before { display: none; }
-    html.mtb-flat body .mtb-tabs-flat .day-tab:hover, html.mtb-flat body .mtb-tabs-flat > .view-tab:hover { background: var(--tab-hover); }
+    html.mtb-flat body .mtb-tabs-flat .day-tab:hover, html.mtb-flat body .mtb-tabs-flat > .view-tab:hover { border-color: var(--flat); }
     html.mtb-flat body .mtb-tabs-flat .day-tab[aria-pressed="true"], html.mtb-flat body .mtb-tabs-flat > .view-tab[aria-selected="true"] {
-        margin-top: 0; padding: 6px 14px; border: 1px solid var(--tab-on); background: var(--tab-on); color: var(--tab-on-text); box-shadow: none;
+        margin-top: 0; padding: 6px 14px; border: 1px solid var(--flat); background: var(--flat); color: var(--flat-on); box-shadow: none;
     }
     html.mtb-flat body .mtb-tabs-flat > .mtb-pin, html.mtb-flat body .mtb-tabs-flat .band__inner > .mtb-pin {
         position: static; box-shadow: none; border-color: var(--flat-line); background: var(--flat-well); color: var(--flat-text);

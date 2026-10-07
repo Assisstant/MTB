@@ -32,22 +32,22 @@
         }
         /* The suite's one tab size (mtb-look.css): 13px, 10px 20px, .8px.
            And its one tab colour, the blue scale (7 Oct 2026): the band 500,
-           a tab 400 under dark words, the chosen one 800 under white. */
+           a tab 900 under light words, the chosen one 400 under dark ones. */
         .tab {
             padding: 10px 20px;
             border: none;
-            background: #46B4E7;
+            background: #082E3F;
             cursor: pointer;
             transition: all 0.3s;
             font-size: 13px;
-            color: #082E3F;
+            color: #C0E5F7;
             font-weight: 600;
             text-transform: uppercase;
             letter-spacing: .8px;
             position: relative;
             clip-path: polygon(5px 0, 100% 0, calc(100% - 5px) 100%, 0 100%);
             margin-top: 5px;
-            border-top: 2px solid #89CFF0;
+            border-top: 2px solid #136990;
         }
         .tab::before {
             content: '';
@@ -62,15 +62,15 @@
         }
         a.tab { text-decoration: none; display: inline-flex; align-items: center; }
         .tab:hover {
-            background: #89CFF0;
-            color: #031017;
+            background: #0D4B68;
+            color: #E8F6FC;
         }
         .tab:hover::before {
             opacity: 1;
         }
         .tab.active {
-            background: #0D4B68;
-            color: #ffffff;
+            background: #46B4E7;
+            color: #031017;
             font-weight: bold;
             margin-top: 0;
             padding-top: 14px; /* 5 + 2 + 10 = 0 + 3 + 14: lifted, not taller */
@@ -856,8 +856,8 @@
         }
         /* The strip is the same band in both themes; so is its chosen tab. */
         body.dark-mode .tab.active {
-            background: #0D4B68;
-            color: #ffffff;
+            background: #46B4E7;
+            color: #031017;
             border-top-color: #E8F6FC;
         }
         body.dark-mode .content, body.dark-mode .student-list-simple { background: #1a202c; }

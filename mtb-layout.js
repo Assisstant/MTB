@@ -43,14 +43,20 @@
     // band in both themes, so the tabs need no dark variant. The
     // colours are `!important` on purpose: this is their one owner, and a
     // page's own dark rule („body.dark-mode .x > .btn") must not win again.
-    // The colours are the owner's blue scale (7 Oct 2026): the band #1DA3E2,
-    // a tab #46B4E7, the chosen one #0D4B68. White on the band or on a tab is
-    // under 3:1, so a tab's words are the scale's darkest (#082E3F, 6:1) and
-    // only the chosen tab, which is dark, carries white (9.4:1).
+    // A PAGE's band is the owner's blue scale (7 Oct 2026): the band #1DA3E2,
+    // a tab #082E3F under light words (10:1), the chosen one #46B4E7. White on
+    // #46B4E7 is under 3:1, so the chosen tab's words are the scale's darkest
+    // (8:1).
+    // The WORKSPACE's own row (`.app-tabs`: Кабинети, Настава ↔ терапии …)
+    // stays the dark band with the indigo chosen tab — the owner, the same
+    // day: „this stays same … the bars differ, that was the initial idea".
+    // Two rows of tabs one under the other must not read as one.
     // `.mtb-tabs-flat` is a page's own row of plain tab buttons (mtb-look.css,
     // owner 1 Oct 2026): it keeps the one row and the 📌, not the band.
-    const STRIP = '.mtb-tabs:not(.mtb-tabs-flat), .view-tabs:not(.mtb-tabs-flat), .tabs:has(> .tab):not(.mtb-tabs-flat), .day-tabs-band:not(.mtb-tabs-flat), .app-tabs';
-    const TAB = '.mtb-tabs:not(.mtb-tabs-flat) > .btn, .view-tabs:not(.mtb-tabs-flat) > .view-tab, .tabs:not(.mtb-tabs-flat) > .tab, .day-tabs-band:not(.mtb-tabs-flat) .day-tab, .app-tabs > button';
+    const STRIP = '.mtb-tabs:not(.mtb-tabs-flat), .view-tabs:not(.mtb-tabs-flat), .tabs:has(> .tab):not(.mtb-tabs-flat), .day-tabs-band:not(.mtb-tabs-flat)';
+    const TAB = '.mtb-tabs:not(.mtb-tabs-flat) > .btn, .view-tabs:not(.mtb-tabs-flat) > .view-tab, .tabs:not(.mtb-tabs-flat) > .tab, .day-tabs-band:not(.mtb-tabs-flat) .day-tab';
+    const SHELL = '.app-tabs';
+    const SHELL_TAB = '.app-tabs > button';
     const ON = '.active, [aria-pressed="true"], [aria-selected="true"]';
     function addTabLook() {
         if (document.getElementById('mtbTabLook')) return;
@@ -60,11 +66,19 @@
             html body :is(${STRIP}) { background: #1DA3E2 !important; border-bottom-color: #1886B9 !important; }
             html body .day-tabs-band:not(.mtb-tabs-flat) .band__inner { background: transparent !important; }
             html body :is(${TAB}) {
-                background: #46B4E7 !important; color: #082E3F !important; border-top-color: #89CFF0 !important;
+                background: #082E3F !important; color: #C0E5F7 !important; border-top-color: #136990 !important;
             }
-            html body :is(${TAB}):hover { background: #89CFF0 !important; color: #031017 !important; }
+            html body :is(${TAB}):hover { background: #0D4B68 !important; color: #E8F6FC !important; }
             html body :is(${TAB}):is(${ON}), html body :is(${TAB}):is(${ON}):hover {
-                background: #0D4B68 !important; color: #ffffff !important; border-top-color: #E8F6FC !important; box-shadow: none !important;
+                background: #46B4E7 !important; color: #031017 !important; border-top-color: #E8F6FC !important; box-shadow: none !important;
+            }
+            html body ${SHELL} { background: linear-gradient(to bottom, #1a1a2e 0%, #16213e 100%) !important; border-bottom-color: #0f3460 !important; }
+            html body ${SHELL_TAB} {
+                background: linear-gradient(to bottom, #2d3748 0%, #1a202c 100%) !important; color: #a0aec0 !important; border-top-color: #4a5568 !important;
+            }
+            html body ${SHELL_TAB}:hover { background: linear-gradient(to bottom, #4a5568 0%, #2d3748 100%) !important; color: #e2e8f0 !important; }
+            html body ${SHELL_TAB}:is(${ON}), html body ${SHELL_TAB}:is(${ON}):hover {
+                background: linear-gradient(to bottom, #667eea 0%, #5568d3 100%) !important; color: #ffffff !important; border-top-color: #818cf8 !important;
             }
         `;
         document.head.appendChild(style);
