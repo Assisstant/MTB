@@ -43,10 +43,14 @@
     // band in both themes, so the tabs need no dark variant. The
     // colours are `!important` on purpose: this is their one owner, and a
     // page's own dark rule („body.dark-mode .x > .btn") must not win again.
-    // A PAGE's band is the owner's blue scale (7 Oct 2026): the band #1DA3E2,
-    // a tab #082E3F under light words (10:1), the chosen one #46B4E7. White on
-    // #46B4E7 is under 3:1, so the chosen tab's words are the scale's darkest
-    // (8:1).
+    // A PAGE's band is ONE colour in shades, lighter on the left and darker on
+    // the right (owner, 7 Oct 2026, with a game menu's bar as the picture):
+    // white into blue in the light theme, greys in the dark one. The band
+    // carries the run of shade; a tab is a glass plate over it, so the run
+    // goes on under the tabs and the 2px between two plates shows as a
+    // lighter slanted line. The chosen tab is the one solid plate: deep blue
+    // under white in the light theme, silver under dark words in the dark
+    // one. Every pair of words and plate measures at least 5:1.
     // The WORKSPACE's own row (`.app-tabs`: Кабинети, Настава ↔ терапии …)
     // stays the dark band with the indigo chosen tab — the owner, the same
     // day: „this stays same … the bars differ, that was the initial idea".
@@ -63,14 +67,35 @@
         const style = document.createElement('style');
         style.id = 'mtbTabLook';
         style.textContent = `
-            html body :is(${STRIP}) { background: #1DA3E2 !important; border-bottom-color: #1886B9 !important; }
-            html body .day-tabs-band:not(.mtb-tabs-flat) .band__inner { background: transparent !important; }
-            html body :is(${TAB}) {
-                background: #082E3F !important; color: #C0E5F7 !important; border-top-color: #136990 !important;
+            html {
+                --mtb-band: linear-gradient(90deg, #F4FBFE 0%, #D5EEFA 20%, #89CFF0 58%, #46B4E7 100%);
+                --mtb-band-edge: #6FC4EC; --mtb-band-shadow: inset 0 1px 0 rgba(255, 255, 255, .8), 0 2px 5px rgba(8, 46, 63, .18);
+                --mtb-plate: linear-gradient(to bottom, rgba(255, 255, 255, .16), rgba(13, 75, 104, .10)); --mtb-plate-text: #082E3F; --mtb-plate-top: rgba(255, 255, 255, .75);
+                --mtb-plate-hover: linear-gradient(to bottom, rgba(255, 255, 255, .6), rgba(255, 255, 255, .3)); --mtb-plate-hover-text: #031017;
+                --mtb-plate-on: linear-gradient(to bottom, #136990, #0D4B68); --mtb-plate-on-text: #ffffff; --mtb-plate-on-top: #89CFF0;
+                --mtb-band-end: #46B4E7; --mtb-pin: #ffffff; --mtb-pin-text: #0D4B68; --mtb-pin-line: #89CFF0;
             }
-            html body :is(${TAB}):hover { background: #0D4B68 !important; color: #E8F6FC !important; }
+            html[data-theme="dark"] {
+                --mtb-band: linear-gradient(90deg, #6B6F77 0%, #474A50 30%, #2B2D31 70%, #1C1D20 100%);
+                --mtb-band-edge: #0C0D0E; --mtb-band-shadow: inset 0 1px 0 rgba(255, 255, 255, .10), 0 2px 6px rgba(0, 0, 0, .45);
+                --mtb-plate: linear-gradient(to bottom, rgba(12, 13, 14, .42), rgba(12, 13, 14, .62)); --mtb-plate-text: #CFD2D7; --mtb-plate-top: rgba(255, 255, 255, .16);
+                --mtb-plate-hover: linear-gradient(to bottom, rgba(12, 13, 14, .2), rgba(12, 13, 14, .4)); --mtb-plate-hover-text: #ffffff;
+                --mtb-plate-on: linear-gradient(to bottom, #F1F2F4, #C4C7CC); --mtb-plate-on-text: #17181A; --mtb-plate-on-top: #ffffff;
+                --mtb-band-end: #1C1D20; --mtb-pin: #2B2D31; --mtb-pin-text: #CFD2D7; --mtb-pin-line: #6B6F77;
+            }
+            html body :is(${STRIP}) {
+                background: var(--mtb-band) !important; border-bottom-color: var(--mtb-band-edge) !important;
+                box-shadow: var(--mtb-band-shadow) !important;
+            }
+            html body :is(.mtb-tabs, .view-tabs, .tabs:has(> .tab)):not(.mtb-tabs-flat) { gap: 2px !important; }
+            html body .day-tabs-band:not(.mtb-tabs-flat) .band__inner { background: transparent !important; gap: 2px !important; }
+            html body :is(${TAB}) {
+                background: var(--mtb-plate) !important; color: var(--mtb-plate-text) !important; border-top-color: var(--mtb-plate-top) !important;
+            }
+            html body :is(${TAB}):hover { background: var(--mtb-plate-hover) !important; color: var(--mtb-plate-hover-text) !important; }
             html body :is(${TAB}):is(${ON}), html body :is(${TAB}):is(${ON}):hover {
-                background: #46B4E7 !important; color: #031017 !important; border-top-color: #E8F6FC !important; box-shadow: none !important;
+                background: var(--mtb-plate-on) !important; color: var(--mtb-plate-on-text) !important;
+                border-top-color: var(--mtb-plate-on-top) !important; box-shadow: none !important;
             }
             html body ${SHELL} { background: linear-gradient(to bottom, #1a1a2e 0%, #16213e 100%) !important; border-bottom-color: #0f3460 !important; }
             html body ${SHELL_TAB} {
@@ -135,8 +160,8 @@
                 position: sticky; right: 0; z-index: 2; flex: 0 0 auto; align-self: center;
                 margin: 5px 0 5px auto !important; padding: 4px 10px 4px 8px;
                 display: inline-flex; align-items: center; gap: 6px;
-                border: 1px solid #89CFF0; border-radius: 999px; background: #E8F6FC; color: #0D4B68;
-                box-shadow: -12px 0 10px -4px #1DA3E2;
+                border: 1px solid var(--mtb-pin-line, #89CFF0); border-radius: 999px; background: var(--mtb-pin, #ffffff); color: var(--mtb-pin-text, #0D4B68);
+                box-shadow: -12px 0 10px -4px var(--mtb-band-end, #46B4E7);
                 font: 600 12px/1.2 system-ui, -apple-system, 'Segoe UI', sans-serif;
                 letter-spacing: 0; text-transform: none; white-space: nowrap; cursor: pointer; user-select: none;
             }

@@ -209,11 +209,13 @@ header a { color: #fff; opacity: .9; font-size: 0.85em; }
 .btn:not(.soft) .ico, .btn[aria-pressed="true"] .ico { background: rgba(0, 0, 0, .2); color: #fff; }
 
 /* Tabs — S-Dnevnik's УЧЕНИЦИ / РАСПОРЕД strip: a band, tabs cut on a
-   slant, the chosen one lifted. Since 7 Oct 2026 a PAGE's band is the blue
-   scale's 500, a tab its 900 under light words and the chosen tab its 400
-   under dark ones (owner); the workspace's own row above stays the dark band,
-   so the two rows differ. mtb-layout.js states the same colours for every
-   strip and is their owner. The owner liked them best and
+   slant, the chosen one lifted. Since 7 Oct 2026 a PAGE's band is one colour
+   in shades, lighter on the left and darker on the right (owner): white into
+   blue in the light theme, greys in the dark one; a tab is a glass plate
+   over it and the chosen tab the one solid plate. The workspace's own row
+   above stays the dark band, so the two rows differ. mtb-layout.js states
+   the same numbers for every strip and is their owner. The owner liked the
+   slanted tabs best and
    asked for them everywhere, with the side walls standing straighter than
    S-Dnevnik's 10px lean — hence --mtb-tab-slant, used by every copy.
    A page marks its row of view buttons `mtb-tabs`; the buttons keep their
@@ -226,22 +228,27 @@ header a { color: #fff; opacity: .9; font-size: 0.85em; }
    workspace's own row above them. */
 :root { --mtb-tab-slant: 5px; --mtb-tab-font: 13px; --mtb-tab-pad: 10px 20px; --mtb-tab-track: .8px; }
 .mtb-tabs {
-    display: flex; flex-wrap: wrap; align-items: flex-end; gap: 5px;
+    display: flex; flex-wrap: wrap; align-items: flex-end; gap: 2px;
     padding: 0 10px;
-    background: #1DA3E2;
-    border-bottom: 3px solid #1886B9;
+    background: linear-gradient(90deg, #F4FBFE 0%, #D5EEFA 20%, #89CFF0 58%, #46B4E7 100%);
+    border-bottom: 3px solid #6FC4EC;
     border-radius: 8px 8px 0 0;
-    box-shadow: 0 2px 5px rgba(8, 46, 63, .25);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, .8), 0 2px 5px rgba(8, 46, 63, .18);
     margin-bottom: 16px;
+}
+:root[data-theme="dark"] .mtb-tabs:not(.mtb-tabs-flat) {
+    background: linear-gradient(90deg, #6B6F77 0%, #474A50 30%, #2B2D31 70%, #1C1D20 100%);
+    border-bottom-color: #0C0D0E;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, .10), 0 2px 6px rgba(0, 0, 0, .45);
 }
 .mtb-tabs > .btn {
     padding: var(--mtb-tab-pad);
     margin-top: 5px;
     border: none;
-    border-top: 2px solid #136990;
+    border-top: 2px solid rgba(255, 255, 255, .75);
     border-radius: 0;
-    background: #082E3F;
-    color: #C0E5F7;
+    background: linear-gradient(to bottom, rgba(255, 255, 255, .16), rgba(13, 75, 104, .10));
+    color: #082E3F;
     font-size: var(--mtb-tab-font);
     font-weight: 600;
     text-transform: uppercase;
@@ -249,19 +256,27 @@ header a { color: #fff; opacity: .9; font-size: 0.85em; }
     clip-path: polygon(var(--mtb-tab-slant) 0, 100% 0, calc(100% - var(--mtb-tab-slant)) 100%, 0 100%);
 }
 .mtb-tabs > .btn:hover:not(:disabled) {
-    background: #0D4B68;
-    color: #E8F6FC;
+    background: linear-gradient(to bottom, rgba(255, 255, 255, .6), rgba(255, 255, 255, .3));
+    color: #031017;
     transform: none; box-shadow: none; filter: none;
 }
 .mtb-tabs > .btn[aria-pressed="true"], .mtb-tabs > .btn[aria-pressed="true"]:hover:not(:disabled) {
-    background: #46B4E7;
-    color: #031017;
+    background: linear-gradient(to bottom, #136990, #0D4B68);
+    color: #ffffff;
     font-weight: 700;
     /* Lifted, not taller: 5 + 2 + 10 = 0 + 3 + 14, so choosing a tab does
        not move everything under the strip by a pixel. */
     margin-top: 0;
     padding-top: 14px;
-    border-top: 3px solid #E8F6FC;
+    border-top: 3px solid #89CFF0;
+}
+:root[data-theme="dark"] .mtb-tabs:not(.mtb-tabs-flat) > .btn {
+    background: linear-gradient(to bottom, rgba(12, 13, 14, .42), rgba(12, 13, 14, .62)); color: #CFD2D7; border-top-color: rgba(255, 255, 255, .16);
+}
+:root[data-theme="dark"] .mtb-tabs:not(.mtb-tabs-flat) > .btn:hover:not(:disabled) { background: linear-gradient(to bottom, rgba(12, 13, 14, .2), rgba(12, 13, 14, .4)); color: #ffffff; }
+:root[data-theme="dark"] .mtb-tabs:not(.mtb-tabs-flat) > .btn[aria-pressed="true"],
+:root[data-theme="dark"] .mtb-tabs:not(.mtb-tabs-flat) > .btn[aria-pressed="true"]:hover:not(:disabled) {
+    background: linear-gradient(to bottom, #F1F2F4, #C4C7CC); color: #17181A; border-top-color: #ffffff;
 }
 /* Anything else on the strip (a checkbox, a note) sits on its band. */
 .mtb-tabs > :not(.btn) { align-self: center; margin-top: 5px; margin-bottom: 5px; }

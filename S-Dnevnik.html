@@ -24,30 +24,31 @@
         .tabs {
             display: flex;
             justify-content: center;
-            background: #1DA3E2;
-            border-bottom: 3px solid #1886B9;
+            background: linear-gradient(90deg, #F4FBFE 0%, #D5EEFA 20%, #89CFF0 58%, #46B4E7 100%);
+            border-bottom: 3px solid #6FC4EC;
             padding: 0 10px;
-            gap: 5px;
-            box-shadow: 0 2px 5px rgba(8,46,63,0.25);
+            gap: 2px;
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, .8), 0 2px 5px rgba(8, 46, 63, .18);
         }
         /* The suite's one tab size (mtb-look.css): 13px, 10px 20px, .8px.
-           And its one tab colour, the blue scale (7 Oct 2026): the band 500,
-           a tab 900 under light words, the chosen one 400 under dark ones. */
+           And its one band (mtb-layout.js, 7 Oct 2026): one colour in shades,
+           lighter on the left; a tab is a glass plate over it, the chosen tab
+           the one solid plate. White into blue here, greys in the dark theme. */
         .tab {
             padding: 10px 20px;
             border: none;
-            background: #082E3F;
+            background: linear-gradient(to bottom, rgba(255, 255, 255, .16), rgba(13, 75, 104, .10));
             cursor: pointer;
             transition: all 0.3s;
             font-size: 13px;
-            color: #C0E5F7;
+            color: #082E3F;
             font-weight: 600;
             text-transform: uppercase;
             letter-spacing: .8px;
             position: relative;
             clip-path: polygon(5px 0, 100% 0, calc(100% - 5px) 100%, 0 100%);
             margin-top: 5px;
-            border-top: 2px solid #136990;
+            border-top: 2px solid rgba(255, 255, 255, .75);
         }
         .tab::before {
             content: '';
@@ -56,25 +57,25 @@
             left: 0;
             right: 0;
             height: 2px;
-            background: linear-gradient(90deg, transparent, #E8F6FC, transparent);
+            background: linear-gradient(90deg, transparent, #ffffff, transparent);
             opacity: 0;
             transition: opacity 0.3s;
         }
         a.tab { text-decoration: none; display: inline-flex; align-items: center; }
         .tab:hover {
-            background: #0D4B68;
-            color: #E8F6FC;
+            background: linear-gradient(to bottom, rgba(255, 255, 255, .6), rgba(255, 255, 255, .3));
+            color: #031017;
         }
         .tab:hover::before {
             opacity: 1;
         }
         .tab.active {
-            background: #46B4E7;
-            color: #031017;
+            background: linear-gradient(to bottom, #136990, #0D4B68);
+            color: #ffffff;
             font-weight: bold;
             margin-top: 0;
             padding-top: 14px; /* 5 + 2 + 10 = 0 + 3 + 14: lifted, not taller */
-            border-top: 3px solid #E8F6FC;
+            border-top: 3px solid #89CFF0;
         }
         .tab.active::before {
             opacity: 1;
@@ -854,12 +855,15 @@
         body.dark-mode .section-header {
             background: linear-gradient(135deg, #4c51bf 0%, #2d3748 100%);
         }
-        /* The strip is the same band in both themes; so is its chosen tab. */
-        body.dark-mode .tab.active {
-            background: #46B4E7;
-            color: #031017;
-            border-top-color: #E8F6FC;
+        /* The band in the dark theme: the same run of shade, in greys. */
+        body.dark-mode .tabs {
+            background: linear-gradient(90deg, #6B6F77 0%, #474A50 30%, #2B2D31 70%, #1C1D20 100%);
+            border-bottom-color: #0C0D0E;
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, .10), 0 2px 6px rgba(0, 0, 0, .45);
         }
+        body.dark-mode .tab { background: linear-gradient(to bottom, rgba(12, 13, 14, .42), rgba(12, 13, 14, .62)); color: #CFD2D7; border-top-color: rgba(255, 255, 255, .16); }
+        body.dark-mode .tab:hover { background: linear-gradient(to bottom, rgba(12, 13, 14, .2), rgba(12, 13, 14, .4)); color: #ffffff; }
+        body.dark-mode .tab.active { background: linear-gradient(to bottom, #F1F2F4, #C4C7CC); color: #17181A; border-top-color: #ffffff; }
         body.dark-mode .content, body.dark-mode .student-list-simple { background: #1a202c; }
         body.dark-mode .student-item { border-bottom-color: #4a5568; }
         body.dark-mode .student-item:hover { background: #2d3748; }
