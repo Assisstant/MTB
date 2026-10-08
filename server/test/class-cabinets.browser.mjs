@@ -213,10 +213,26 @@ try {
         Boolean(printed) && printed.only && printed.title === 'Кабинети по одделение — ' + YEAR, JSON.stringify(printed && { title: printed.title, only: printed.only }));
     const text = squash(printed && printed.text);
     check('each class with its homeroom teacher and its sum', text.includes('V-а – проба — раководител: ' + ODD) && text.includes('2 од 3 деца одат во кабинет · 2 кабинети'), text.slice(0, 400));
-    check('each child, the cabinets and their number', /1\.\s*Измислено Дете\s*Терапевт Први · Логопед \(2×\); Терапевт Втор \(1×\)\s*2/.test(text), text.slice(0, 600));
-    check('whoever has a term and no class is listed apart', /Без паралелка \(екстерни и невнесени\).*Надворешно Дете\s*Терапевт Втор \(1×\)\s*1/.test(text), text);
+    // Owner, with the first Word file in front of him: „every cabinet in a different row".
+    const sheet = await page.evaluate((html) => {
+        const box = document.createElement('div');
+        box.innerHTML = html;
+        const rows = [...box.querySelector('table').tBodies[0].rows].map((r) => [...r.cells].map((c) => c.textContent.trim() + (c.rowSpan > 1 ? ' ↕' + c.rowSpan : '')));
+        return { rows, newPages: [...box.querySelectorAll('h2.r-newpage')].map((h) => h.textContent), first: box.querySelector('h2').className,
+            breaks: box.querySelectorAll('br.r-pb').length };
+    }, printed.html);
+    check('a child\'s cabinets are rows of their own: the cabinet, whose it is, the terms a week',
+        JSON.stringify(sheet.rows.slice(0, 2)) === JSON.stringify([['1. ↕2', 'Измислено Дете ↕2', 'Логопед', 'Терапевт Први', '2', '2 ↕2'], ['—', 'Терапевт Втор', '1']]),
+        JSON.stringify(sheet.rows.slice(0, 2)));
+    check('the child\'s name and the total stand once beside them; a child nobody takes is one row',
+        JSON.stringify(sheet.rows.slice(2)) === JSON.stringify([['2.', 'Исто Име', 'Логопед', 'Терапевт Први', '1', '1'], ['3.', 'Исто Име', 'не оди во кабинет', '0']]),
+        JSON.stringify(sheet.rows.slice(2)));
+    check('whoever has a term and no class is listed apart', /Без паралелка \(екстерни и невнесени\).*Надворешно Дете\s*—\s*Терапевт Втор\s*1\s*1/.test(text), text);
     check('and the ranking, with the total above', text.includes('Вкупно: 2 од 4 деца во паралелките одат во кабинет.') && /Ранг-листа.*1\.\s*Ода Одделенска/.test(text));
-    check('in the documents\' own letters, on A4', /Times New Roman/.test(printed.style) && /@page\{size:A4/.test(printed.style));
+    check('every class after the first, the children without a class and the ranking start a page of their own',
+        sheet.first === '' && JSON.stringify(sheet.newPages) === JSON.stringify(['VI-б', 'Без паралелка (екстерни и невнесени)', 'Ранг-листа: од чии часови кабинетите земаат најмногу деца'])
+        && sheet.breaks === 3 && /h2\.r-newpage\{break-before:page/.test(printed.style) && /br\.r-pb\{display:none/.test(printed.style), JSON.stringify(sheet));
+    check('in the documents\' own letters, on A4 turned sideways', /Times New Roman/.test(printed.style) && /@page\{size:A4 landscape/.test(printed.style));
     check('no table of the report is given the screen\'s pin and fold', !/mtb-hpin|mtb-hfold/.test(printed.html) && /<table data-mtb-plain/.test(printed.html));
     check('after printing the page is as it was', (await page.title()) === titleBefore
         && await page.evaluate(() => !document.body.classList.contains('printing-report') && !document.getElementById('printReport').innerHTML));
@@ -225,7 +241,7 @@ try {
         // the report as the paper sees it
         await page.evaluate(() => { window.__keep = window.print; window.print = () => {}; });
         await page.click('#printCabinetReport');
-        await page.pdf({ path: join(process.env.SHOT, 'class-cabinets-report.pdf'), format: 'A4', margin: { top: '15mm', right: '15mm', bottom: '15mm', left: '15mm' } });
+        await page.pdf({ path: join(process.env.SHOT, 'class-cabinets-report.pdf'), preferCSSPageSize: true });
         await page.emulateMedia({ media: 'print' });
         await page.setViewportSize({ width: 794, height: 1123 });
         await shot('class-cabinets-report');
@@ -236,8 +252,12 @@ try {
 
     const [download] = await Promise.all([page.waitForEvent('download'), page.click('#wordCabinetReport')]);
     const word = await readFile(await download.path(), 'utf8');
+    if (process.env.SHOT) await download.saveAs(join(process.env.SHOT, 'class-cabinets-report.doc'));
     check('„Word" saves the same report as a file named for the year', download.suggestedFilename() === 'Kabineti-po-oddelenie-2026-2027.doc', download.suggestedFilename());
     check('with the same tables in it', word.includes('Измислено Дете') && word.includes('Ранг-листа') && word.includes('Без паралелка') && !/undefined|NaN/.test(word));
+    check('Word is told the paper lies sideways, and where each page begins', /@page Sheet\{size:841\.9pt 595\.3pt;mso-page-orientation:landscape/.test(word)
+        && /<div class="Sheet">/.test(word) && (word.match(/<br class="r-pb" clear="all" style="page-break-before:always">/g) || []).length === 3
+        && word.charCodeAt(0) === 0xFEFF, word.slice(0, 80));
 
     console.log('\nсервер што не може да го прочита распоредот на кабинетите');
     weekDown = true;

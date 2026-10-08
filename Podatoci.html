@@ -2396,7 +2396,6 @@
         rows.forEach((r) => r.list.forEach((t) => all.add(t.id)));
         return { rows, with: rows.filter((r) => r.list.length).length, cabinets: all.size };
     }
-    const cabinetText = (t) => t.name + (t.room ? ' · ' + t.room : '') + ` (${t.terms}×)`;
     function classCabinetsHtml(pupils, taken) {
         if (!cabinets) return '<span class="none">вчитувам…</span>';
         if (cabinets.error) return `<span class="none" title="${esc(cabinets.error)}">не може да се прочита распоредот на кабинетите</span>`;
@@ -2497,7 +2496,15 @@
         el('wordCabinetReport').addEventListener('click', wordCabinetReport);
     }
 
-    /** The report: the same table by class, then the ranking. One body for paper and for Word. */
+    /**
+     * The report: the same facts by class, then the ranking. One body for paper
+     * and for Word. Owner, 8 Oct 2026, with the first Word file in front of
+     * him: „landscape, every cabinet in a different row, every class a new
+     * page". So a child's cabinets are ROWS of the table — the cabinet, whose
+     * it is, the terms a week — with the child's name and the total beside
+     * them once; and each class, the children without a class and the ranking
+     * start a page of their own.
+     */
     function cabinetReport() {
         if (!data || !cabinets || cabinets.error) return null;
         const taken = cabinetsByPupil();
@@ -2507,53 +2514,73 @@
         // written out: a browser without Macedonian prints the date the American way
         const now = new Date();
         const today = [now.getDate(), now.getMonth() + 1].map((n) => String(n).padStart(2, '0')).join('.') + '.' + now.getFullYear();
-        const table = (rows) => '<table data-mtb-plain><thead><tr><th style="width:8%">Р.бр.</th><th style="width:32%">Ученик</th>'
-            + '<th>Кабинети што го земаат (термини неделно)</th><th style="width:12%">Вкупно кабинети</th></tr></thead><tbody>'
-            + rows.map((r, i) => `<tr><td class="num">${i + 1}.</td><td>${esc(personName(r.pupil.name))}</td>`
-                + `<td>${r.list.length ? r.list.map((t) => esc(cabinetText(t))).join('; ') : '—'}</td><td class="num">${r.list.length}</td></tr>`).join('')
+        // Word starts a page on this exact element and ignores `break-before`; a browser
+        // starts it on the heading that follows (.newpage) and does not draw the <br>.
+        const newPage = '<br class="r-pb" clear="all" style="page-break-before:always">';
+        const heading = (text, first) => (first ? '' : newPage) + `<h2${first ? '' : ' class="r-newpage"'}>${text}</h2>`;
+        const table = (rows) => '<table data-mtb-plain><thead><tr><th style="width:5%">Р.бр.</th><th style="width:25%">Ученик</th>'
+            + '<th style="width:26%">Кабинет</th><th style="width:26%">Терапевт</th>'
+            + '<th style="width:9%">Термини неделно</th><th style="width:9%">Вкупно кабинети</th></tr></thead><tbody>'
+            + rows.map((r, i) => {
+                const n = Math.max(1, r.list.length);
+                const span = n > 1 ? ` rowspan="${n}"` : '';
+                const cabinet = (t) => `<td>${esc(t.room || '—')}</td><td>${esc(t.name)}</td><td class="r-num">${t.terms}</td>`;
+                return `<tr class="r-first"><td class="r-num"${span}>${i + 1}.</td><td${span}>${esc(personName(r.pupil.name))}</td>`
+                    + (r.list.length ? cabinet(r.list[0]) : '<td colspan="3" class="r-none">не оди во кабинет</td>')
+                    // <b>, not a class: Word reads only the first of two class names
+                    + `<td class="r-num"${span}><b>${r.list.length}</b></td></tr>`
+                    + r.list.slice(1).map((t) => `<tr>${cabinet(t)}</tr>`).join('');
+            }).join('')
             + '</tbody></table>';
         let children = 0, withCabinet = 0;
-        const sections = (data.classes || []).map((cls) => {
+        const sections = [];
+        (data.classes || []).forEach((cls) => {
             const c = classCabinets(pupilsOf.get(cls.label) || [], taken);
-            if (!c.rows.length) return '';
+            if (!c.rows.length) return;
             children += c.rows.length;
             withCabinet += c.with;
             const homeroom = teachersForClass(cls.label).find((t) => t.role === 'homeroom');
-            return `<h3>${esc(cls.alias || cls.label)}${homeroom ? ' — раководител: ' + esc(personName(homeroom.name)) : ''}</h3>`
-                + `<p class="sum">${c.with} од ${c.rows.length} ${childWord(c.rows.length)} одат во кабинет · ${c.cabinets} ${cabinetWord(c.cabinets)}</p>`
-                + table(c.rows);
-        }).join('');
+            sections.push({
+                title: esc(cls.alias || cls.label) + (homeroom ? ' — раководител: ' + esc(personName(homeroom.name)) : ''),
+                body: `<p class="r-sum">${c.with} од ${c.rows.length} ${childWord(c.rows.length)} одат во кабинет · ${c.cabinets} ${cabinetWord(c.cabinets)}</p>` + table(c.rows)
+            });
+        });
         // Whoever has a term and no class here: the externals, and a class not entered yet.
         const loose = (data.students || []).filter((s) => s.active !== false && !s.grade && (taken.get(s.public_id) || []).length)
             .sort((a, b) => personName(a.name).localeCompare(personName(b.name), 'mk-MK'))
             .map((s) => ({ pupil: s, list: taken.get(s.public_id) }));
+        if (loose.length) sections.push({ title: 'Без паралелка (екстерни и невнесени)', body: table(loose) });
         const ranking = teacherRanking();
-        const html = `<h1>${esc(title)}</h1>`
-            + `<p class="meta">${esc(school)}${school ? ' · ' : ''}${esc(today)}</p><hr class="rule">`
-            + `<p class="sum">Вкупно: ${withCabinet} од ${children} ${childWord(children)} во паралелките одат во кабинет.</p>`
-            + sections
-            + (loose.length ? '<h3>Без паралелка (екстерни и невнесени)</h3>' + table(loose) : '')
-            + '<h2>Ранг-листа: од чии часови кабинетите земаат најмногу деца</h2>'
-            + (ranking.length
-                ? '<table data-mtb-plain><thead><tr><th style="width:8%">Ранг</th><th>Наставник</th><th>Паралелки</th><th style="width:13%">Деца што излегуваат</th>'
-                  + '<th style="width:13%">Излегувања неделно</th><th style="width:14%">Часови со излегување</th></tr></thead><tbody>'
-                  + ranking.map((r) => `<tr><td class="num">${r.pupils.size ? r.rank + '.' : '—'}</td><td>${esc(personName(r.name))}</td><td>${esc(classNames(r.classes))}</td>`
-                      + `<td class="num">${r.pupils.size}</td><td class="num">${r.exits}</td><td class="num">${r.hit} од ${r.lessons}</td></tr>`).join('')
+        sections.push({
+            title: 'Ранг-листа: од чии часови кабинетите земаат најмногу деца',
+            body: (ranking.length
+                ? '<table data-mtb-plain><thead><tr><th style="width:6%">Ранг</th><th style="width:24%">Наставник</th><th>Паралелки</th><th style="width:11%">Деца што излегуваат</th>'
+                  + '<th style="width:11%">Излегувања неделно</th><th style="width:12%">Часови со излегување</th></tr></thead><tbody>'
+                  + ranking.map((r) => `<tr><td class="r-num">${r.pupils.size ? r.rank + '.' : '—'}</td><td>${esc(personName(r.name))}</td><td>${esc(classNames(r.classes))}</td>`
+                      + `<td class="r-num">${r.pupils.size}</td><td class="r-num">${r.exits}</td><td class="r-num">${r.hit} од ${r.lessons}</td></tr>`).join('')
                   + '</tbody></table>'
                 : '<p>Во распоредот на настава нема часови со наставник.</p>')
-            + `<p class="note">Колоната „Кабинети“ е од распоредот на кабинетите; бројот во заграда е број на термини неделно. `
-            + `Ранг-листата брои само термини што паѓаат во час од наставата. ${esc(rankingNote())}</p>`;
+                + '<p class="r-note">Кабинетите се од распоредот на кабинетите; „термини неделно“ е колку пати неделно детето оди таму. '
+                + `Ранг-листата брои само термини што паѓаат во час од наставата. ${esc(rankingNote())}</p>`
+        });
+        const html = `<h1>${esc(title)}</h1>`
+            + `<p class="r-meta">${esc(school)}${school ? ' · ' : ''}${esc(today)}</p><hr class="rule">`
+            + `<p class="r-sum">Вкупно: ${withCabinet} од ${children} ${childWord(children)} во паралелките одат во кабинет.</p>`
+            + sections.map((s, i) => heading(s.title, i === 0) + s.body).join('');
         return { title, html, file: 'Kabineti-po-oddelenie-' + String(data.year).replace(/[^\d]+/g, '-') };
     }
     // The letters and the header row are the documents' one standard (mtb-document.js); only layout is added here.
     function cabinetReportCss() {
         const D = window.MTBDocument;
         return (D ? D.css : 'body{font-family:"Times New Roman",Times,serif;font-size:11pt;}')
-            + 'h1{text-align:center;margin:0 0 2pt;}h2{margin:16pt 0 6pt;}h3{margin:12pt 0 2pt;}'
-            + '.meta{text-align:center;color:#444;}.sum{margin:0 0 4pt;}.note{margin-top:10pt;color:#444;font-size:9pt;}'
+            + 'h1{text-align:center;margin:0 0 2pt;}h2{margin:10pt 0 3pt;}'
+            + '.r-meta{text-align:center;color:#444;}.r-sum{margin:0 0 5pt;}.r-note{margin-top:10pt;color:#444;font-size:9pt;}'
             + 'table{border-collapse:collapse;width:100%;margin:0 0 6pt;}'
-            + 'th,td{border:1px solid #999;padding:3pt 5pt;vertical-align:top;text-align:left;}'
-            + 'td.num{text-align:center;}tr{page-break-inside:avoid;}h3{page-break-after:avoid;}'
+            + 'th,td{border:1px solid #999;padding:3pt 6pt;vertical-align:middle;text-align:left;}'
+            + 'td.r-num{text-align:center;}td.r-none{color:#666;}'
+            // where a child begins, so the eye keeps a child's cabinets together
+            + 'tr.r-first td{border-top:1.5pt solid #555;}'
+            + 'tr{page-break-inside:avoid;}h2{page-break-after:avoid;}'
             + (D ? D.tableCss : '');
     }
     function printCabinetReport() {
@@ -2564,7 +2591,8 @@
         box.innerHTML = report.html;
         const style = document.createElement('style');
         style.media = 'print';
-        style.textContent = '@page{size:A4;margin:15mm;}' + cabinetReportCss();
+        style.textContent = '@page{size:A4 landscape;margin:12mm;}' + cabinetReportCss()
+            + 'br.r-pb{display:none;}h2.r-newpage{break-before:page;page-break-before:always;margin-top:0;}';
         document.head.appendChild(style);
         // the browser prints the page's title in its own header and names a saved PDF by it
         const was = document.title;
@@ -2583,12 +2611,15 @@
     function wordCabinetReport() {
         const report = cabinetReport();
         if (!report) return;
+        // Word reads the paper and its turn only from a named @page that a section points at.
         const doc = '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" '
             + 'xmlns="http://www.w3.org/TR/REC-html40" lang="mk"><head><meta charset="UTF-8"><title>' + esc(report.title) + '</title>'
             + '<!--[if gte mso 9]><xml><w:WordDocument><w:View>Print</w:View></w:WordDocument></xml><![endif]-->'
-            + '<style>@page{size:595.3pt 841.9pt;margin:42pt;}' + cabinetReportCss() + '</style></head><body>' + report.html + '</body></html>';
+            + '<style>@page Sheet{size:841.9pt 595.3pt;mso-page-orientation:landscape;margin:36pt;}div.Sheet{page:Sheet;}'
+            + cabinetReportCss() + '</style></head><body><div class="Sheet">' + report.html + '</div></body></html>';
         const link = document.createElement('a');
-        link.href = URL.createObjectURL(new Blob(['﻿' + doc], { type: 'application/msword' }));
+        // the byte-order mark tells Word the file is UTF-8
+        link.href = URL.createObjectURL(new Blob([String.fromCharCode(0xFEFF) + doc], { type: 'application/msword' }));
         link.download = report.file + '.doc';
         document.body.appendChild(link);
         link.click();
