@@ -24,11 +24,14 @@
  *   5. Back returns to the tiles, and the start fits a phone;
  *   6. on a low screen (a laptop's 1366×650 inside the browser) the controls
  *      are one row, and one card with the keyboard is whole: the picture, the
- *      boxes and 🔊 in sight, nothing scrolled, a key the size of a letter box.
+ *      boxes and 🔊 in sight, nothing scrolled, a key the size of a letter box;
+ *   7. S-Дневник has ONE door to all of it, and „📓 S-Дневник" here leads back
+ *      only where a server answers — never on GitHub Pages or from the disk,
+ *      where the diary is a separate, empty copy.
  */
 import Fastify from 'fastify';
 import { chromium } from 'playwright';
-import { mkdir } from 'node:fs/promises';
+import { mkdir, readFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { installPublicStatic } from '../src/lib/public-static.js';
 
@@ -191,6 +194,37 @@ try {
     check('the exercises fit it too, the bar in two rows at most',
         await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth) && (await page.$eval('#bar', (b) => b.offsetHeight)) < 100);
     await shot('vezbi-phone-card');
+
+    console.log('\nthe diary\'s door, and the way back');
+    check('without a server that answers there is no link to the diary', (await page.$('#apps .diary')) === null);
+    // The door as S-Dnevnik.html really has it, in a page that stands for the diary;
+    // and a server that says it is there, as the local one and the cloud do.
+    const door = /<a class="tab" href="vezbi\/index\.html"[^>]*>[^<]*<\/a>/.exec(await readFile(join(ROOT, 'S-Dnevnik.html'), 'utf8'));
+    check('S-Дневник has one door to the exercises, and it keeps its opener', Boolean(door) && /target="_blank" rel="opener"/.test(door[0]),
+        door ? door[0] : 'no door');
+    let cloud = false;
+    await context.route(`${ORIGIN}/api/health`, (route) => route.fulfill({ status: 200, contentType: 'application/json',
+        body: JSON.stringify(cloud ? { ok: true, cloudAuth: 'google' } : { ok: true }) }));
+    await context.route(`${ORIGIN}/S-Dnevnik.html`, (route) => route.fulfill({ status: 200, contentType: 'text/html; charset=utf-8',
+        body: `<!doctype html><meta charset="utf-8"><title>дневник</title>${door ? door[0] : ''}` }));
+    const diary = await context.newPage();
+    await diary.setViewportSize({ width: 1280, height: 800 });
+    await diary.goto(`${ORIGIN}/S-Dnevnik.html`);
+    const [opened] = await Promise.all([context.waitForEvent('page'), diary.click('a.tab')]);
+    await opened.waitForSelector('#apps .diary');
+    check('the door opens the three tiles', opened.url() === `${ORIGIN}/vezbi/index.html` && (await opened.$$eval('#tiles .app', (els) => els.length)) === 3, opened.url());
+    check('with a server the strip has „📓 S-Дневник", to the diary of this server',
+        (await opened.$eval('#apps .diary', (a) => a.href)) === `${ORIGIN}/S-Dnevnik.html`, await opened.$eval('#apps .diary', (a) => a.href));
+    await opened.click('#tiles .app:nth-child(1)');
+    check('and keeps it from one part to the next', await opened.isVisible('#apps .diary'));
+    await Promise.all([opened.waitForEvent('close'), opened.click('#apps .diary')]);
+    check('opened from the diary, it closes itself: back in the diary as it was left', opened.isClosed() && !diary.isClosed() && diary.url() === `${ORIGIN}/S-Dnevnik.html`);
+    cloud = true;
+    await diary.goto(`${ORIGIN}/vezbi/index.html`);
+    await diary.waitForSelector('#apps .diary');
+    check('in the cloud it leads to the diary inside the work space',
+        (await diary.$eval('#apps .diary', (a) => a.href)) === `${ORIGIN}/MTB-Workspace.html?app=S-Dnevnik.html`, await diary.$eval('#apps .diary', (a) => a.href));
+    await diary.close();
 
     console.log('');
     check('the page asked the server for nothing its list does not have', refused.length === 0, refused.join(', '));

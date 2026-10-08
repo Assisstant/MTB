@@ -184,6 +184,10 @@
   .apps .sub button[aria-pressed="true"] { background: #c7d2fe; border-color: #c7d2fe; color: #1b2a4e; }
   /* a tool in a frame asked for the whole window */
   body.bare .apps { display: none; }
+  /* the way to the diary, at the far end; only where the diary lives (see `diary`) */
+  .apps .diary { flex: none; margin-left: auto; font-size: 13px; font-weight: 600; color: #dce4f7; text-decoration: none; border: 1px solid rgba(220, 228, 247, .35); border-radius: 999px; padding: 4px 12px; min-height: 28px; display: inline-flex; align-items: center; }
+  .apps .diary:hover { background: rgba(255, 255, 255, .12); }
+  .apps .diary:focus-visible { outline: 3px solid #ffffff; outline-offset: 2px; }
   .apps button:focus-visible { outline-color: #ffffff; }
   .home { padding: 28px 16px 40px; background: linear-gradient(135deg, #dce8fb, #ece7fa 50%, #d3f0e4); min-height: calc(100vh - 110px); }
   .home > * { max-width: 1060px; margin-left: auto; margin-right: auto; }
@@ -947,7 +951,7 @@ function go(app) {
   document.body.classList.remove('bare');
   for (const b of $('apps').children) {
     if (b.dataset.v) b.setAttribute('aria-pressed', String(b.dataset.v === app));
-    else b.hidden = b.dataset.of !== app || !b.children.length;
+    else if (b.dataset.of) b.hidden = b.dataset.of !== app || !b.children.length;
   }
   $('home').hidden = app !== 'home';
   $('vezbi').hidden = app !== 'vezbi';
@@ -1016,6 +1020,45 @@ function parts() {
   }
   window.addEventListener('hashchange', () => go(location.hash.slice(1)));
   window.addEventListener('message', hosted);
+  diary();
+}
+
+// „📓 S-Дневник" at the end of the strip: the way to the records, shown only
+// where the diary really lives — a page served by an MTB server that answers
+// (the cloud, the local server). On GitHub Pages and from the disk there is no
+// link: the S-Dnevnik.html that sits there is a separate, empty copy that
+// looks real (CLAUDE.md, „Which address people open"). This page still holds
+// nothing of the records; it asks only „is there a server".
+//
+// Opened from the diary's own „🗣 Вежби ↗" this tab has an opener: the link
+// then closes the tab, which returns to that diary as it was left, instead of
+// opening a second copy of it.
+function diary() {
+  if (!/^https?:$/.test(location.protocol)) return;
+  fetch('../api/health', { cache: 'no-store' })
+    .then((r) => (r.ok ? r.json() : null))
+    .then((body) => {
+      if (!body || body.ok !== true) return;
+      const a = document.createElement('a');
+      a.className = 'diary';
+      a.textContent = '📓 S-Дневник';
+      // in the cloud the diary is a window of the work space
+      a.href = body.cloudAuth === 'google' ? '../MTB-Workspace.html?app=S-Dnevnik.html' : '../S-Dnevnik.html';
+      const fromDiary = () => {
+        try { return Boolean(window.opener) && !window.opener.closed && /S-Dnevnik\.html$/.test(window.opener.location.pathname); }
+        catch (e) { return false; }
+      };
+      a.title = fromDiary() ? 'Назад во S-Дневник (ова јазиче се затвора)' : 'Отвори го S-Дневник';
+      a.addEventListener('click', (e) => {
+        if (!fromDiary()) return;
+        e.preventDefault();
+        window.close();
+        // a browser that will not close the tab still goes to the diary
+        setTimeout(() => { location.href = a.href; }, 300);
+      });
+      $('apps').appendChild(a);
+    })
+    .catch(() => { /* no server here: no diary here */ });
 }
 
 // A tool in a frame that has tabs of its own (ComuniBoard: „Картички",

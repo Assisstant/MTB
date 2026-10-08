@@ -2141,9 +2141,16 @@
         <button class="tab" onclick="switchTab('dosie')">📂 Досие</button>
         <button class="tab" onclick="switchTab('audiogramsApp')">Аудиограми</button>
         <button class="tab" onclick="switchTab('generator')">📄 Генератор</button>
-        <!-- A door, not a tab of the diary: WBACC keeps its drawings in its own
-             storage and is 8 MB, so it opens beside the diary, not inside it. -->
-        <a class="tab" href="WBACC.html" target="_blank" rel="noopener" title="WBACC Studio — цртање, пиктограми и обележувачи; се отвора во нов таб">🎨 WBACC Studio ↗</a>
+        <!-- A door, not a tab of the diary: the exercise page and its two tools
+             keep what they hold in their own storage (WBACC alone is 8 MB), so
+             they open beside the diary, not inside it. One door for all three
+             (owner, 8 Oct 2026; until then it led to WBACC Studio alone): the
+             page it opens has them as tiles and as tabs. rel="opener" on
+             purpose (a browser gives a new tab no opener unless asked): the
+             page's own „📓 S-Дневник" closes itself to come back to THIS diary
+             instead of opening a second copy of it, and it can only know that
+             it came from here through window.opener. -->
+        <a class="tab" href="vezbi/index.html" target="_blank" rel="opener" title="Вежби за изговор, ComuniBoard и WBACC Studio — се отвораат во ново јазиче; „📓 S-Дневник“ таму враќа тука">🗣 Вежби ↗</a>
     </div>
     
     <div class="content">

@@ -190,6 +190,31 @@ Through the server every page carries „изработил …" with a real nam
 `check:names` reads text, not pictures. `vezbi/tabla.jpg` was retaken that
 way (the address `file://…/ComuniBoard.html`, the home dock hidden).
 
+## The door from S-Дневник, and the way back (8 Oct 2026, night)
+
+The owner, looking at the diary's „🎨 WBACC Studio ↗" in the cloud: „I think I
+should have links to all the apps for vezbi here and from there to s dnevnik",
+then „направи" for one door (the other choice was three).
+
+- **S-Дневник has one door, „🗣 Вежби ↗"**, where the WBACC one was. It opens
+  `vezbi/index.html` in a new tab: the three tiles, and the strip from one to
+  the next. `rel="opener"` is there on purpose — a browser gives a new tab no
+  opener unless asked.
+- **„📓 S-Дневник" at the far end of the strip** (`diary()`), shown only where
+  the diary really lives: the page asks `../api/health`, and only a server
+  that answers gets the link. In the cloud (`cloudAuth: 'google'`) it leads to
+  `MTB-Workspace.html?app=S-Dnevnik.html`, on a local server to
+  `S-Dnevnik.html`. **Never on GitHub Pages or from the disk:** the
+  S-Dnevnik.html there is a separate, empty copy that looks real (CLAUDE.md,
+  „Which address people open"). From the Контролна табла tile (disk) the
+  diary is on the „Евиденција" tab of the same window.
+- **Opened through the door, the link closes the tab**, which returns to that
+  diary as it was left, where a plain link would open a second copy of it.
+  It knows through `window.opener`; without one it is an ordinary link.
+- The page still holds nothing of the records: „is there a server" is all it
+  asks. `test:vezbi` holds the door (read from the real S-Dnevnik.html), the
+  link with and without a server, the closing, and the cloud's address.
+
 ## How a sound is stored
 
 A sound is one file, `vezbi/glasovi/<latin>.js`, that pushes
