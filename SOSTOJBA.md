@@ -14,7 +14,7 @@
 **In this file** (5104 lines; search for a name to jump to it):
 
 - Каде сме сега
-  - 8 октомври, ноќ — Вежби, ComuniBoard, WBACC Studio и S-Дневник: без ќорсокаци (ДОМА; НЕ е push-нато)
+  - 8 октомври, ноќ — Вежби, ComuniBoard, WBACC Studio и S-Дневник: без ќорсокаци (ДОМА; бара deploy)
   - 8 октомври, ноќ — ComuniBoard ↔ WBACC Studio: копирај и залепи (ДОМА; бара deploy)
   - 8 октомври, ноќ — ComuniBoard: празно место меѓу зборови (ДОМА; бара deploy)
   - 8 октомври, вечер — Вежби и ComuniBoard: една лента, повеќе место за работа (ДОМА; бара deploy)
@@ -45,7 +45,7 @@
 
 ## Каде сме сега
 
-### 8 октомври, ноќ — Вежби, ComuniBoard, WBACC Studio и S-Дневник: без ќорсокаци (ДОМА; НЕ е push-нато)
+### 8 октомври, ноќ — Вежби, ComuniBoard, WBACC Studio и S-Дневник: без ќорсокаци (ДОМА; бара deploy)
 
 Сопственикот: „there should be a link navigation between all this 3 apps +
 back to s dnevnik so I can navigate freely“; на предлогот: „направи“.
@@ -75,8 +75,8 @@ back to s dnevnik so I can navigate freely“; на предлогот: „на�
 прелистувачот е најдена на оваа машина. **Не е пробано со вистински клик на
 плочка** — тоа би отворило јазиче во прелистувачот на сопственикот.
 
-**Направено:** commit на `main`. **Не е направено:** push (не е побаран) и
-Render → Manual Deploy. На РАБОТА: „Ажурирај“ ги носи новите плочки.
+**Направено:** commit и push (`11d5e35`; сопственикот: „push, I deploy
+manualy“). **Не е направено:** Render → Manual Deploy (сопственикот). На РАБОТА: „Ажурирај“ ги носи новите плочки.
 Подробно: `docs/VEZBI.md`, „No dead ends“.
 
 ### 8 октомври, ноќ — ComuniBoard ↔ WBACC Studio: копирај и залепи (ДОМА; бара deploy)
