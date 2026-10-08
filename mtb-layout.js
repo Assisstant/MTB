@@ -54,6 +54,16 @@
     // Owner, 8 Oct: the workspace row now shares the neutral palette too.
     // Its slanted shape still distinguishes it from the pages' pill tabs.
     // mtb-palette tokens supersede the earlier blue/silver colour treatment.
+    // Owner, 8 Oct, night, with Firefox's own tab strip as the picture („this
+    // is now my wish … same glossy effect and this gradient for the tab bar
+    // only"): the WORKSPACE's row, and nothing else, is that run — blue-violet
+    // into red-brown in the dark theme, lavender into peach in the light one,
+    // the stops read from his two pictures (the left fifth stays one colour).
+    // A tab is the diary's glass over it, so the run goes on under the tabs
+    // and each tab has the colour of its place. The chosen tab is the one
+    // solid plate: a deeper run of the same two colours, fixed to the window,
+    // so it too is the colour of its place. This replaces the neutral row of
+    // the morning for the workspace only (`--mtb-shell-…` below).
     // `.mtb-tabs-flat` is a page's own row of plain tab buttons (mtb-look.css,
     // owner 1 Oct 2026): it keeps the one row and the 📌, not the band.
     const STRIP = '.mtb-tabs:not(.mtb-tabs-flat), .view-tabs:not(.mtb-tabs-flat), .tabs:has(> .tab):not(.mtb-tabs-flat), .day-tabs-band:not(.mtb-tabs-flat)';
@@ -96,13 +106,31 @@
                 background: var(--mtb-plate-on) !important; color: var(--mtb-plate-on-text) !important;
                 border-top-color: var(--mtb-plate-on-top) !important; box-shadow: none !important;
             }
-            html body ${SHELL} { background: var(--mtb-well, #252526) !important; border-bottom-color: var(--mtb-line, #454545) !important; }
-            html body ${SHELL_TAB} {
-                background: var(--mtb-face) !important; color: var(--mtb-ink) !important; border-top-color: var(--mtb-line) !important;
+            html {
+                --mtb-shell-band: linear-gradient(90deg, #f5eeff 0%, #f4eeff 20%, #f5edfd 40%, #f6eefa 50%, #f8eef6 60%, #faedef 80%, #fdeee8 100%) #f6eefa;
+                --mtb-shell-line: #d9cdea; --mtb-shell-edge: inset 0 1px 0 #ffffff, 0 1px 3px rgba(60, 40, 90, .16);
+                --mtb-shell-plate: linear-gradient(to bottom, rgba(255, 255, 255, .78) 0%, rgba(255, 255, 255, .30) 48%, rgba(96, 72, 140, .05) 52%, rgba(96, 72, 140, .17) 100%);
+                --mtb-shell-plate-hover: linear-gradient(to bottom, rgba(255, 255, 255, .95) 0%, rgba(255, 255, 255, .55) 48%, rgba(96, 72, 140, .03) 52%, rgba(96, 72, 140, .12) 100%);
+                --mtb-shell-text: #2b2440; --mtb-shell-top: #ffffff;
+                --mtb-shell-on: linear-gradient(to bottom, rgba(255, 255, 255, .22) 0%, rgba(255, 255, 255, .04) 48%, rgba(0, 0, 0, .06) 52%, rgba(0, 0, 0, .18) 100%),
+                                linear-gradient(90deg, #5446a0 0%, #5446a0 20%, #6e3f7f 50%, #9c3a36 100%) fixed #6e3f7f;
+                --mtb-shell-on-text: #ffffff; --mtb-shell-on-top: #d9ccff;
             }
-            html body ${SHELL_TAB}:hover { background: var(--mtb-face) !important; color: var(--mtb-ink) !important; filter: brightness(1.06); }
+            html[data-theme="dark"] {
+                --mtb-shell-band: linear-gradient(90deg, #322b44 0%, #322b44 20%, #332a41 40%, #362a3d 50%, #392938 60%, #402830 80%, #462525 100%) #362a3d;
+                --mtb-shell-line: #1d1826; --mtb-shell-edge: inset 0 1px 0 rgba(255, 255, 255, .10), 0 2px 6px rgba(0, 0, 0, .45);
+                --mtb-shell-plate: linear-gradient(to bottom, rgba(255, 255, 255, .16) 0%, rgba(255, 255, 255, .04) 48%, rgba(0, 0, 0, .10) 52%, rgba(0, 0, 0, .30) 100%);
+                --mtb-shell-plate-hover: linear-gradient(to bottom, rgba(255, 255, 255, .26) 0%, rgba(255, 255, 255, .09) 48%, rgba(0, 0, 0, .05) 52%, rgba(0, 0, 0, .20) 100%);
+                --mtb-shell-text: #e9e4f3; --mtb-shell-top: rgba(255, 255, 255, .26);
+                --mtb-shell-on-top: #c9b8ff;
+            }
+            html body ${SHELL} { background: var(--mtb-shell-band) !important; border-bottom-color: var(--mtb-shell-line) !important; box-shadow: var(--mtb-shell-edge) !important; }
+            html body ${SHELL_TAB} {
+                background: var(--mtb-shell-plate) !important; color: var(--mtb-shell-text) !important; border-top-color: var(--mtb-shell-top) !important;
+            }
+            html body ${SHELL_TAB}:hover { background: var(--mtb-shell-plate-hover) !important; color: var(--mtb-shell-text) !important; }
             html body ${SHELL_TAB}:is(${ON}), html body ${SHELL_TAB}:is(${ON}):hover {
-                background: var(--mtb-selected) !important; color: var(--mtb-on-ink, #ffffff) !important; border-top-color: var(--mtb-accent) !important; filter: none;
+                background: var(--mtb-shell-on) !important; color: var(--mtb-shell-on-text) !important; border-top-color: var(--mtb-shell-on-top) !important; filter: none;
             }
         `;
         document.head.appendChild(style);

@@ -227,6 +227,24 @@ test('standalone palettes agree with the shared neutral theme', async () => {
     }
 });
 
+test('the workspace row of tabs is the owner\'s run under glass, and only that row', async () => {
+    // Owner, 8 Oct 2026, night, with Firefox's tab strip as the picture: the
+    // workspace's own row runs blue-violet into red-brown (dark) and lavender
+    // into peach (light); a tab is glass over it, the chosen one a solid plate
+    // of the same two colours. The stops were read from his pictures. This row
+    // was recoloured and sent back twice before, so its numbers are held here.
+    const layout = await readRoot('mtb-layout.js');
+    assert.match(layout, /--mtb-shell-band: linear-gradient\(90deg, #f5eeff 0%, #f4eeff 20%, #f5edfd 40%, #f6eefa 50%, #f8eef6 60%, #faedef 80%, #fdeee8 100%\)/);
+    assert.match(layout, /--mtb-shell-band: linear-gradient\(90deg, #322b44 0%, #322b44 20%, #332a41 40%, #362a3d 50%, #392938 60%, #402830 80%, #462525 100%\)/);
+    assert.match(layout, /html body \$\{SHELL\} \{ background: var\(--mtb-shell-band\) !important;/);
+    assert.match(layout, /html body \$\{SHELL_TAB\} \{\s*background: var\(--mtb-shell-plate\) !important;/);
+    // the plate is see-through, so the run goes on under the tabs
+    assert.match(layout, /--mtb-shell-plate: linear-gradient\(to bottom, rgba\(/);
+    assert.match(layout, /--mtb-shell-on: [^;]*fixed #6e3f7f;/);
+    // a page's own strip keeps the shared band
+    assert.match(layout, /html body :is\(\$\{STRIP\}\) \{\s*background: var\(--mtb-band\) !important;/);
+});
+
 test('a hovered chip keeps its text readable', async () => {
     // Owner, 24 Sep 2026: hovering the homeroom teacher in Податоци →
     // Одделенија left an empty lavender pill. `.chip.link:hover` set the TEXT
