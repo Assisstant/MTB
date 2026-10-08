@@ -209,6 +209,12 @@ the real space bar; what was missing is below.
 - **A letter dropped at the end of a word that ends in a space sticks after
   the space**; it used to land on top of it, and the gap was gone.
 - **The key shows „␣"**, drawn, so it needs no font.
+- **A deleted space takes its gap with it** (`closeGapOfSpace`; the owner, the
+  same night: „if I delete it it should be deleted and poramni should ignore
+  it"). The letters that follow it in the row move into its place, with
+  „Избриши" and with ⌫ alike. In the first version the hole stayed, „Порамни"
+  read it as a gap made by hand and put the space straight back. The same
+  word: the mark is fainter (opacity 0.14, 0.6 when chosen; it was 0.3 / 0.85).
 - **A fault found on the way and fixed:** the message at the bottom (`#toast`)
   took taps while unseen, and it lies over the middle of the keyboard's last
   row — a tap on the middle of the space key did nothing.

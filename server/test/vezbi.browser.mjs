@@ -198,7 +198,7 @@ try {
     let letters = await row();
     check('the space key puts a space between two words', await word() === 'да не', await word());
     check('a space is about a third of a letter\'s size', letters[2].w >= letters[2].size * 0.3, JSON.stringify(letters[2]));
-    check('and it is marked on the board, faintly', (await mark()).shown && (await mark()).opacity < 0.5, JSON.stringify(await mark()));
+    check('and it is marked on the board, very faintly', (await mark()).shown && (await mark()).opacity < 0.2, JSON.stringify(await mark()));
     await shot('vezbi-space');
     await align('with the spaces');
     letters = await row();
@@ -207,6 +207,19 @@ try {
     check('a chosen space is marked strongly', (await mark()).opacity > 0.5, JSON.stringify(await mark()));
     await align('without the spaces');
     check('a space the selection missed is still the row\'s one space', await word() === 'да не', await word());
+
+    // A deleted space is gone: its gap closes, so „Порамни" finds no gap to turn back into a space.
+    await whiteboard.evaluate(() => {
+        state.selectedIds = state.elements.filter((el) => el.type === 'letter' && el.content === ' ').map((el) => el.id);
+        updateSelectionTools();
+        renderElements();
+    });
+    await whiteboard.click('#deleteBtn');
+    letters = await row();
+    check('a deleted space takes its gap with it', await word() === 'дане'
+        && letters[2].x - (letters[1].x + letters[1].w) < letters[2].size * 0.2, JSON.stringify(letters));
+    await align('without the spaces');
+    check('and „Порамни" does not bring it back', await word() === 'дане', await word());
 
     await whiteboard.evaluate(() => {
         state.elements = state.elements.filter((el) => !(el.type === 'letter' && el.content === ' '));

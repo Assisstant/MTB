@@ -2473,14 +2473,14 @@
             height: 0.16em;
             border: 0.05em solid currentColor;
             border-top: 0;
-            opacity: 0.3;
+            opacity: 0.14;
             pointer-events: none;
             transition: opacity 0.1s;
         }
 
         .element-space:hover::after,
         .element-space.selected::after {
-            opacity: 0.85;
+            opacity: 0.6;
         }
 
         .canvas.exporting .element-space::after {
@@ -3522,6 +3522,31 @@
                 row.push(next);
             }
             return row;
+        }
+
+        // Deleting a space closes its gap: the letters that follow it in the
+        // row move into its place, as in any text. Left open, the hole would be
+        // read as a gap made by hand, and „Порамни" would put the space
+        // straight back. `goingIds` are deleted with it; a follower among them
+        // leaves nothing to move.
+        function closeGapOfSpace(space, goingIds) {
+            const size = space.fontSize || 48;
+            const reach = size * 0.8; // the widest letter spacing there is
+            const sameRow = Math.max(10, size * 0.35);
+            const after = state.elements
+                .filter(el => el.type === 'letter' && el.id !== space.id && el.x > space.x && Math.abs(el.y - space.y) <= sameRow)
+                .sort((a, b) => a.x - b.x);
+            if (after.length === 0 || goingIds.includes(after[0].id)) return;
+            let end = space.x + space.width;
+            if (after[0].x - end > reach) return;
+            const shift = after[0].x - space.x;
+            for (const el of after) {
+                if (el.x - end > reach) break;
+                end = el.x + el.width;
+                el.x -= shift;
+            }
+            const cursor = state.typingCursor;
+            if (Math.abs(cursor.y - space.y) <= sameRow && cursor.x > space.x + 1 && cursor.x - end <= reach) cursor.x -= shift;
         }
 
         function reflowSelectedLetters() {
@@ -5472,6 +5497,8 @@
                     pptSession.captureSlotId = '';
                     pptSession.captureArmed = false;
                 }
+                const spaces = state.elements.filter(el => isSpace(el) && state.selectedIds.includes(el.id)).sort((a, b) => a.x - b.x);
+                for (const space of spaces) closeGapOfSpace(space, state.selectedIds);
                 state.elements = state.elements.filter(el => !state.selectedIds.includes(el.id));
                 state.selectedIds = [];
                 updateSelectionTools();
@@ -6056,6 +6083,7 @@
 
                 if (target) {
                     saveToHistory();
+                    if (isSpace(target)) closeGapOfSpace(target, []);
                     // Move cursor back to the deleted letter's position
                     state.typingCursor.x = target.x;
                     state.typingCursor.fontSize = target.fontSize || curFontSize;
@@ -6157,6 +6185,7 @@
 
             if (target) {
                 saveToHistory();
+                if (isSpace(target)) closeGapOfSpace(target, []);
                 state.typingCursor.x = target.x;
                 state.typingCursor.fontSize = target.fontSize || curFontSize;
                 state.elements = state.elements.filter(el => el.id !== target.id);
