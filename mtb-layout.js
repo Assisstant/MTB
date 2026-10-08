@@ -461,6 +461,7 @@
                 height: b.height + 'px', position: 'static', color: s.color, padding: s.padding,
                 textAlign: s.textAlign, verticalAlign: s.verticalAlign, fontWeight: s.fontWeight, fontSize: s.fontSize,
                 borderBottom: s.borderBottom, whiteSpace: s.whiteSpace,
+                borderColor: s.borderColor, boxShadow: s.boxShadow, textShadow: s.textShadow,
                 backgroundColor: /rgba\(.*,\s*0\)$|transparent/.test(s.backgroundColor) ? solidBehind(cell) : s.backgroundColor,
                 backgroundImage: s.backgroundImage
             });
@@ -614,6 +615,8 @@
         observer.observe(document.body, { childList: true, subtree: true });
         window.addEventListener('scroll', schedule, { capture: true, passive: true });
         window.addEventListener('resize', () => { tables.forEach(dropFloat); schedule(); });
+        // A floating header holds measured colours; repaint it with its source.
+        window.addEventListener('mtb:theme', () => { tables.forEach(dropFloat); schedule(); });
         window.addEventListener('load', schedule);
         window.addEventListener('beforeprint', () => strips.forEach(unfix));
     }

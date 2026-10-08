@@ -39,7 +39,7 @@ const check = (label, ok, detail = '') => {
 const rows = (n, cells) => Array.from({ length: n }, (_, i) =>
     '<tr>' + Array.from({ length: cells }, (_, c) => `<td>ред ${i + 1} · ${c + 1}</td>`).join('') + '</tr>').join('');
 const PAGE = `<!doctype html><html lang="mk"><head><meta charset="utf-8"><title>Измислена страница</title>
-<style>
+<link rel="stylesheet" href="mtb-look.css"><style>
   body { margin: 0; font: 14px sans-serif; }
   .mtb-tabs { display: flex; gap: 5px; padding: 0 10px; background: #1a1a2e; }
   .mtb-tabs > .btn { padding: 10px 20px; margin-top: 5px; border: 0; background: #2d3748; color: #fff; }
@@ -81,6 +81,7 @@ await context.route('**/*', async (route) => {
     if (url.origin !== ORIGIN) return route.fulfill({ status: 404, body: '' });
     if (url.pathname === '/Izmislena.html') return route.fulfill({ status: 200, contentType: 'text/html; charset=utf-8', body: PAGE });
     if (url.pathname === '/mtb-layout.js') return route.fulfill({ status: 200, contentType: 'application/javascript', body: await readFile(join(ROOT, 'mtb-layout.js')) });
+    if (url.pathname === '/mtb-look.css') return route.fulfill({ status: 200, contentType: 'text/css', body: await readFile(join(ROOT, 'mtb-look.css')) });
     return route.fulfill({ status: 404, body: '' });
 });
 const page = await context.newPage();
@@ -120,6 +121,19 @@ const float = await page.evaluate(() => {
 });
 check('pinned, a copy of the header rides the top while the rows pass under it', float && /Име/.test(float.words), JSON.stringify(float));
 check('and it stacks under the pinned strip, not over it', float && Math.abs(float.top - float.under) <= 1, JSON.stringify(float));
+for (const theme of ['light', 'dark']) {
+    await page.evaluate((theme) => {
+        document.documentElement.dataset.theme = theme;
+        document.body.classList.toggle('dark-mode', theme === 'dark');
+        window.dispatchEvent(new CustomEvent('mtb:theme', { detail: { theme } }));
+    }, theme);
+    await page.waitForTimeout(100);
+    const faces = await page.evaluate(() => {
+        const read = (q) => { const s = getComputedStyle(document.querySelector(q)); return [s.backgroundImage, s.color, s.boxShadow, s.textShadow, s.borderColor]; };
+        return [read('#plain thead th'), read('#plainCard .mtb-float-head th')];
+    });
+    check('floating header follows the ' + theme + ' face, edges and text', JSON.stringify(faces[0]) === JSON.stringify(faces[1]) && faces[0][0].includes('radial-gradient'));
+}
 await page.evaluate(() => window.scrollTo(0, 0));
 await page.click('#plain .mtb-hfold');
 check('▾ folds the rows away and leaves the header', await page.$eval('#plain tbody', (b) => getComputedStyle(b).display === 'none')
@@ -158,7 +172,7 @@ check('no pin, no fold button, no header copy on paper', await page.evaluate(() 
     [...document.querySelectorAll('.mtb-ui')].every((n) => getComputedStyle(n).display === 'none')));
 await page.emulateMedia({ media: 'screen' });
 
-check('it loads nothing but itself', loaded.every((p) => ['/Izmislena.html', '/mtb-layout.js'].includes(p)), loaded.join(', '));
+check('only the fixture and its shared layout/styles load', loaded.every((p) => ['/Izmislena.html', '/mtb-layout.js', '/mtb-look.css'].includes(p)), loaded.join(', '));
 check('no page errors', errors.length === 0, errors.join('\n       '));
 await browser.close();
 console.log(fails ? `\n${fails} failed` : '\nall good');

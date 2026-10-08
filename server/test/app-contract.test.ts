@@ -209,6 +209,15 @@ test('suite tab sizes and the diary button-height exception stay explicit', asyn
     assert.doesNotMatch(diary, /\.tab\.active \{[^}]*padding-top:/);
 });
 
+test('self-contained screens keep the canonical table faces without loading another asset', async () => {
+    const faces = (s: string) => /\/\* mtb-table-faces:start \*\/([\s\S]*?)\/\* mtb-table-faces:end \*\//.exec(s)?.[1].replace(/\r\n/g, '\n');
+    const canonical = faces(await readRoot('mtb-look.css'));
+    assert.ok(canonical);
+    for (const file of ['S-Dnevnik.html', 'RasporediFusion.html', 'AkciskiPlan.html', 'Kolega.html']) {
+        assert.equal(faces(await readRoot(file)), canonical, `${file} table faces diverged`);
+    }
+});
+
 test('a hovered chip keeps its text readable', async () => {
     // Owner, 24 Sep 2026: hovering the homeroom teacher in Податоци →
     // Одделенија left an empty lavender pill. `.chip.link:hover` set the TEXT

@@ -1968,6 +1968,43 @@
         }
 
    </style>
+<style id="mtb-table-faces">
+/* Shared with mtb-look.css; inline for standalone/private access. */
+/* mtb-table-faces:start */
+@media screen {
+    :root {
+        --mtb-table-face: radial-gradient(ellipse at 50% 15%, rgba(255,255,255,.65), transparent 65%), linear-gradient(to bottom, #E8F6FC, #A1D2E9 52%, #79B5D1) #A1D2E9;
+        --mtb-table-ink: #10283A;
+        --mtb-table-line: #719EB5;
+        --mtb-table-edge: inset 0 1px 0 #F5FBFE, inset 1px 0 0 rgba(255,255,255,.45), inset -1px -2px 0 rgba(8,46,63,.22);
+        --mtb-table-text-shadow: 0 1px 0 rgba(255,255,255,.35);
+    }
+    :root[data-theme="dark"], body.dark-mode, body.dark {
+        --mtb-table-face: radial-gradient(ellipse at 50% 15%, rgba(255,255,255,.12), transparent 65%), linear-gradient(to bottom, #48515C, #2B3139 52%, #171B21) #2B3139;
+        --mtb-table-ink: #E6E8EB;
+        --mtb-table-line: #626E7C;
+        --mtb-table-edge: inset 0 1px 0 #78818D, inset 1px 0 0 rgba(255,255,255,.12), inset -1px -2px 0 rgba(0,0,0,.4);
+        --mtb-table-text-shadow: 0 1px 2px #000;
+    }
+    /* Inline fills carry meaning (holiday, score, therapist colour). They and
+       paper-preview tables keep that meaning. Never paint ordinary data cells. */
+    html body :is(table:not([data-mtb-plain]) th, .schedule-grid > .schedule-header, .schedule-grid > .schedule-time):not([style*="background"]):not([data-mtb-header-status]) {
+        background: var(--mtb-table-face) !important;
+        color: var(--mtb-table-ink) !important;
+        border-color: var(--mtb-table-line) !important;
+        box-shadow: var(--mtb-table-edge) !important;
+        text-shadow: var(--mtb-table-text-shadow);
+        font-weight: 700;
+    }
+    /* Inherit each table's density and text-size setting; no forced cell height,
+       clipping, transform or position: pinned headers must still align. */
+    html body table:not([data-mtb-plain]) th { font-family: inherit; }
+    html body :is(table:not([data-mtb-plain]) th, .schedule-grid > .schedule-header, .schedule-grid > .schedule-time):not([style*="background"]):not([data-mtb-header-status]) small {
+        color: inherit !important;
+    }
+}
+/* mtb-table-faces:end */
+</style>
 </head>
 <body>
     <div class="header">
