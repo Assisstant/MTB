@@ -131,15 +131,59 @@ try {
     await page.waitForSelector(cellOf(1) + ' .cab-sum', { timeout: 8000 });
     const a = squash(await page.textContent(cellOf(1)));
     check('the class says how many of its children go, and to how many cabinets', a.startsWith('2 од 3 деца · 2 кабинети'), a);
-    const lines = await page.$$eval(cellOf(1) + ' li', (ls) => ls.map((l) => l.textContent.replace(/\s+/g, ' ').trim()));
-    check('a child with two cabinets: both, with the profile and the terms a week',
-        lines.includes('2Измислено Дете: Терапевт Први · Логопед (2×), Терапевт Втор (1×)'), JSON.stringify(lines));
-    check('two halves that touch are one term, a third on another day is the second',
-        /Терапевт Први · Логопед \(2×\)/.test(lines.join(' | ')));
-    check('two children with one name stay two: one goes, the other does not',
-        lines.filter((l) => /Исто Име/.test(l)).length === 2 && lines.includes('1Исто Име: Терапевт Први · Логопед (1×)') && lines.includes('0Исто Име: не оди во кабинет'), JSON.stringify(lines));
+    // A grid in the class's own row: the children down, the cabinets across.
+    const grid = cellOf(1) + ' table.cab-grid';
+    const cellsOf = (sel) => page.$$eval(sel, (rows) => rows.map((r) => [...r.cells].map((c) => c.textContent.replace(/\s+/g, ' ').trim())));
+    const order = await page.$$eval('#classes > table > thead th, #classes table.list > thead th', (ths) => ths.map((t) => t.textContent.trim()));
+    check('the column stands after „Предметни наставници", where the room is',
+        order.indexOf('Кабинети') === order.indexOf('Предметни наставници') + 1 && order.indexOf('Кабинети') > 0, JSON.stringify(order));
+    const head = (await cellsOf(grid + ' thead tr'))[0];
+    check('across: the cabinets of this class, the one that takes the most children first; the profile over the name',
+        JSON.stringify(head) === JSON.stringify(['Ученик', 'ЛогопедТерапевт Први', 'Терапевт Втор', 'Вк.']), JSON.stringify(head));
+    const rows = await cellsOf(grid + ' tbody tr');
+    check('a child with two cabinets: the terms a week under each, and their number',
+        JSON.stringify(rows[0]) === JSON.stringify(['Измислено Дете', '2×', '1×', '2']), JSON.stringify(rows[0]));
+    check('two halves that touch are one term, a third on another day is the second', rows[0][1] === '2×');
+    check('two children with one name stay two rows: one goes, the other does not',
+        JSON.stringify(rows.slice(1)) === JSON.stringify([['Исто Име', '1×', '·', '1'], ['Исто Име', '·', '·', '0']]), JSON.stringify(rows.slice(1)));
+    const tips = await page.evaluate((g) => ({
+        column: document.querySelector(g + ' thead th:nth-child(2)').title,
+        cell: document.querySelector(g + ' tbody tr td').title,
+        cut: getComputedStyle(document.querySelector(g + ' thead th:nth-child(2) span')).textOverflow,
+        nameCut: getComputedStyle(document.querySelector(g + ' tbody th.who span')).textOverflow
+    }), grid);
+    check('a long text is cut with … and read whole on hover', tips.cut === 'ellipsis' && tips.nameCut === 'ellipsis'
+        && tips.column === 'Терапевт Први · Логопед — зема 2 деца од паралелката'
+        && tips.cell === 'Измислено Дете — Терапевт Први · Логопед: 2 термини неделно, 80 мин.', JSON.stringify(tips));
+    check('the grid is its own: no pin, no fold, no sticky header from the list around it', await page.evaluate((g) =>
+        !document.querySelector(g + ' .mtb-hpin, ' + g + ' .mtb-hfold') && getComputedStyle(document.querySelector(g + ' thead th')).position === 'static', grid));
     const b = squash(await page.textContent(cellOf(2)));
-    check('a class nobody is taken from says so', b.startsWith('0 од 1 дете · 0 кабинети'), b);
+    check('a class nobody is taken from says so, without an empty grid', b === '0 од 1 дете · 0 кабинети' && !(await page.$(cellOf(2) + ' table')), b);
+    // Readable is a measurement, in both themes (the button that did not inherit its colour).
+    for (const theme of ['light', 'dark']) {
+        await page.evaluate((t) => {
+            document.documentElement.dataset.theme = t;
+            document.body.classList.toggle('dark-mode', t === 'dark');
+            document.body.classList.toggle('dark', t === 'dark');
+        }, theme);
+        await page.waitForTimeout(150);
+        const worst = await page.evaluate((g) => {
+            const rgb = (s) => (s.match(/[\d.]+/g) || []).map(Number);
+            const lum = ([r, gr, bl]) => [r, gr, bl].map((v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; })
+                .reduce((sum, v, i) => sum + v * [0.2126, 0.7152, 0.0722][i], 0);
+            const under = (el) => { for (let n = el; n; n = n.parentElement) { const c = rgb(getComputedStyle(n).backgroundColor); if (c.length === 3 || c[3] > 0) return c; } return [255, 255, 255]; };
+            let low = { ratio: 99 };
+            for (const el of document.querySelectorAll(g + ' th, ' + g + ' td:not(.no), ' + g + ' .by, .class-cabinets .cab-sum')) {
+                const a = lum(rgb(getComputedStyle(el).color)), bg = lum(under(el));
+                const ratio = (Math.max(a, bg) + 0.05) / (Math.min(a, bg) + 0.05);
+                if (ratio < low.ratio) low = { ratio: Math.round(ratio * 10) / 10, what: el.className || el.tagName, text: el.textContent.slice(0, 20) };
+            }
+            return low;
+        }, grid);
+        check(`${theme} theme: every word of the grid is readable (4.5:1 or more)`, worst.ratio >= 4.5, JSON.stringify(worst));
+        await shot('class-cabinets-' + theme);
+    }
+    await page.evaluate(() => { delete document.documentElement.dataset.theme; document.body.classList.remove('dark-mode', 'dark'); });
 
     console.log('\nранг-листата под табелата');
     const rank = await page.$$eval('#cabinetStats table tbody tr', (rows) => rows.map((r) => [...r.cells].map((c) => c.textContent.trim())));

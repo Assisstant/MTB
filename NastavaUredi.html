@@ -262,6 +262,21 @@
     table.grid.cweek td.cw:hover select.cw-teach,
     table.grid.cweek td.cw:focus-within select.cw-teach,
     table.grid.cweek td.cw.failed select.cw-teach { visibility: visible; }
+    /* …and the name is written where the picker will come (owner, 8 Oct 2026:
+       „при уредување не се испишува кој е наставникот"): the space was kept
+       empty, which read as a lesson with nobody. Quiet, one line, cut with …
+       when long — the whole name is in the cell's tooltip — and it steps aside
+       for the picker on hover, on Tab and after a refused write. It takes no
+       click and no place of its own, so the rows are exactly as tall as before. */
+    table.grid.cweek td.cw { position: relative; }
+    table.grid.cweek .cw-who {
+        position: absolute; left: 5px; right: 5px; bottom: 4px; height: 25px; padding: 0 5px;
+        font-size: 11px; line-height: 25px; color: var(--muted);
+        overflow: hidden; text-overflow: ellipsis; white-space: nowrap; pointer-events: none;
+    }
+    table.grid.cweek td.cw:hover .cw-who,
+    table.grid.cweek td.cw:focus-within .cw-who,
+    table.grid.cweek td.cw.failed .cw-who { visibility: hidden; }
     table.grid.cweek input.cw-other {
         width: 100%; font: inherit; font-size: 12px; padding: 3px 4px;
         color: var(--text); background: var(--card); border: 1px solid var(--edit); border-radius: 4px;
@@ -1769,6 +1784,8 @@
                     + ` aria-label="${esc(where + ' · предмет')}">${subjOpts(l ? l.teacher : '')}</select>`
                     + `<select class="cw-teach" data-current="${esc(l ? l.teacher || '' : '')}"`
                     + ` aria-label="${esc(where + ' · наставник')}">${teachOpts}</select>`
+                    // who teaches it, read where the picker comes on hover (the picker itself says it to a screen reader)
+                    + (l && l.teacher ? `<span class="cw-who no-print" aria-hidden="true">${esc(l.teacher)}</span>` : '')
                     + `<span class="print-only">${esc(l ? l.subject || '' : '')}</span>`
                     + '</td>';
             });

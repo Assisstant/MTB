@@ -268,7 +268,7 @@ const run = async () => {
     // The week shows the subject only; the teacher's picker appears on hover.
     const teachShown = () => page.$eval(`${cw(WED, 2)} select.cw-teach`, (x) => getComputedStyle(x).visibility);
     await page.mouse.move(0, 0);
-    checkEq('at rest the cell shows only the subject', await teachShown(), 'hidden');
+    checkEq('at rest the teacher\'s picker is out of sight', await teachShown(), 'hidden');
     await page.hover(`${cw(WED, 2)}`);
     checkEq('on hover the teacher can be chosen', await teachShown(), 'visible');
     await page.selectOption(`${cw(WED, 2)} select.cw-teach`, TEACHER);
@@ -277,6 +277,41 @@ const run = async () => {
     checkEq('choosing the teacher changes the same row', rows.map((r) => [r.subject, r.teacher]), [['Математика', TEACHER]]);
     check('and the cell names the teacher on hover', (await page.$eval(cw(WED, 2), (td) => td.title)).includes(TEACHER),
         await page.$eval(cw(WED, 2), (td) => td.title));
+
+    // Owner, 8 Oct 2026: „при уредување не се испишува кој е наставникот". The
+    // name is written where the picker comes — in the space the picker already
+    // kept — and steps aside for it on hover; a long name is cut, not wrapped.
+    await page.mouse.move(0, 0);
+    await page.evaluate(() => document.activeElement && document.activeElement.blur());
+    const who = await page.evaluate((sel) => {
+        const td = document.querySelector(sel), name = td.querySelector('.cw-who'), pick = td.querySelector('select.cw-teach');
+        if (!name) return null;
+        const a = name.getBoundingClientRect(), b = pick.getBoundingClientRect(), style = getComputedStyle(name);
+        const rgb = (s) => (s.match(/[\d.]+/g) || []).map(Number);
+        const lum = ([r, g, bl]) => [r, g, bl].map((v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; })
+            .reduce((sum, v, i) => sum + v * [0.2126, 0.7152, 0.0722][i], 0);
+        const contrast = (theme) => {
+            document.documentElement.dataset.theme = theme;
+            document.body.classList.toggle('dark-mode', theme === 'dark');
+            document.body.classList.toggle('dark', theme === 'dark');
+            const x = lum(rgb(getComputedStyle(name).color)), y = lum(rgb(getComputedStyle(td).backgroundColor));
+            return Math.round(((Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05)) * 10) / 10;
+        };
+        const light = contrast('light'), dark = contrast('dark');
+        delete document.documentElement.dataset.theme;
+        document.body.classList.remove('dark-mode', 'dark');
+        return { text: name.textContent, shown: style.visibility, cut: style.textOverflow, wraps: style.whiteSpace,
+            over: Math.abs(a.top - b.top) <= 3 && Math.abs(a.bottom - b.bottom) <= 3 && a.left >= b.left - 1 && a.right <= b.right + 1,
+            name: [a.left, a.top, a.right, a.bottom].map(Math.round), picker: [b.left, b.top, b.right, b.bottom].map(Math.round), light, dark };
+    }, cw(WED, 2));
+    check('at rest the cell also says who teaches the lesson', Boolean(who) && who.text === TEACHER && who.shown === 'visible', JSON.stringify(who));
+    check('exactly where the picker comes, so the row is no taller', Boolean(who) && who.over, JSON.stringify(who));
+    check('a long name is cut with …, never wrapped', Boolean(who) && who.cut === 'ellipsis' && who.wraps === 'nowrap', JSON.stringify(who));
+    check('and it is readable in both themes (4.5:1 or more)', Boolean(who) && who.light >= 4.5 && who.dark >= 4.5, JSON.stringify(who));
+    await page.hover(`${cw(WED, 2)}`);
+    checkEq('on hover the name gives its place to the picker', await page.$eval(`${cw(WED, 2)} .cw-who`, (x) => getComputedStyle(x).visibility), 'hidden');
+    check('a lesson with no teacher has no name to show', (await page.$(`${cw(WED, 3)} .cw-who`)) === null);
+    await page.mouse.move(0, 0);
 
     // A closed <select> fires `change` on each arrow key. Without the pause
     // before sending, this would be three writes and three reloads.

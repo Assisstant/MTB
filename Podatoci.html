@@ -192,13 +192,26 @@
        паѓа под читливо. Своја боја, мерена врз --chip, не врз --card. */
     .chip .none { color: var(--chip-note); }
     /* кабинети по одделение: кое дете кој кабинет го зема, и ранг-листата под табелата */
-    .class-cabinets { font-size: 12px; line-height: 1.4; min-width: 250px; }
-    .class-cabinets .cab-sum { display: block; margin-bottom: 3px; font-weight: 600; }
-    .class-cabinets ul { list-style: none; margin: 0; padding: 0; }
-    .class-cabinets li { margin: 2px 0; }
-    .class-cabinets li.none { color: var(--muted); }
-    .class-cabinets .n { display: inline-block; min-width: 20px; margin-right: 3px; padding: 0 5px; border-radius: 999px;
-        background: var(--soft); color: var(--text); font-weight: 700; text-align: center; font-variant-numeric: tabular-nums; }
+    .class-cabinets { font-size: 12px; line-height: 1.35; }
+    .class-cabinets .cab-sum { display: block; margin-bottom: 4px; font-weight: 600; }
+    /* A small grid in the class's own row (owner, 8 Oct 2026: „колони и редови
+       во редот на одделението … ако се многу долги текстовите trim со hover"):
+       the children down, the cabinets across, the terms a week where they
+       meet. A long name is cut with … and read whole in its tooltip. Every
+       rule starts at `table.list table.cab-grid`, because the list's own rules
+       for a header (sticky, its padding) reach a table drawn inside it. */
+    /* a class taken by many cabinets scrolls its own grid sideways, so the buttons of the row stay in sight */
+    .class-cabinets .cab-scroll { max-width: min(46vw, 760px); overflow-x: auto; }
+    table.list table.cab-grid { width: auto; border-collapse: collapse; font-size: 12px; }
+    table.list table.cab-grid th, table.list table.cab-grid td { position: static; padding: 3px 7px; border: 1px solid var(--border);
+        background: var(--card); color: var(--text); font-weight: 400; text-align: center; vertical-align: middle; white-space: nowrap; }
+    table.list table.cab-grid span { display: block; max-width: 92px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    table.list table.cab-grid thead th { background: var(--soft); color: var(--text); font-weight: 600; line-height: 1.25; }
+    table.list table.cab-grid thead th .by { color: var(--muted); font-size: 11px; font-weight: 400; }
+    table.list table.cab-grid th.who { text-align: left; font-weight: 600; }
+    table.list table.cab-grid th.who span { max-width: 160px; }
+    table.list table.cab-grid .tot { font-weight: 700; font-variant-numeric: tabular-nums; }
+    table.list table.cab-grid td.no, table.list table.cab-grid tr.none th.who, table.list table.cab-grid tr.none td { color: var(--muted); font-weight: 400; }
     .cabinet-stats { margin-top: 20px; }
     .cabinet-stats .bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 8px 0 10px; }
     .cabinet-stats h3 { margin: 0; }
@@ -2228,8 +2241,9 @@
 
         el('classes').innerHTML =
             '<table class="list"><thead><tr><th class="row-number" title="Редоследот се менува со стрелките и се памети за оваа учебна година. Новододадените одат на крај додека не ги преместите."><span class="rn">Р.Бр.</span></th><th style="width:180px;">Одделение</th><th style="width:280px;">Ученици</th>'
-            + '<th style="width:270px;" title="Кое дете од паралелката кој кабинет го зема, со бројот на термини неделно. Бројот пред името: колку кабинети го земаат детето. Од распоредот на кабинетите.">Кабинети</th>'
-            + '<th style="width:220px;">Раководител</th><th>Предметни наставници</th><th></th></tr></thead><tbody>'
+            + '<th style="width:220px;">Раководител</th><th style="width:240px;">Предметни наставници</th>'
+            + '<th title="Кое дете од паралелката кој кабинет го зема: децата надолу, кабинетите настрана, во пресекот бројот на термини неделно. „Вк.“ е колку кабинети го земаат детето. Од распоредот на кабинетите.">Кабинети</th>'
+            + '<th></th></tr></thead><tbody>'
             + (data.classes || []).map((c, index) => {
                 const assigned = teachersForClass(c.label);
                 const homeroom = assigned.find((teacher) => teacher.role === 'homeroom');
@@ -2258,7 +2272,6 @@
                         }).join('')}</span>`
                         : '<span class="none">нема ученици</span>')
                     + '</span></td>'
-                    + `<td class="class-cabinets">${classCabinetsHtml(pupils, taken)}</td>`
                     + `<td>${homeroom
                             ? `<button type="button" class="chip home link" data-goto-teacher="${homeroom.id}" title="Отвори го во „Наставници“">${esc(personName(homeroom.name))}</button>`
                             : '<span class="none">не е одреден</span>'}</td>`
@@ -2266,6 +2279,7 @@
                             ? `<span class="chips">${subjects.map((teacher) =>
                                 `<button type="button" class="chip link" data-goto-teacher="${teacher.id}" title="Отвори го во „Наставници“">${esc(personName(teacher.name))}</button>`).join('')}</span>`
                             : '<span class="none">нема</span>'}</td>`
+                    + `<td class="class-cabinets">${classCabinetsHtml(pupils, taken)}</td>`
                     + '<td class="act"><span class="class-actions">'
                     + `<button class="btn soft" data-edit-class-students="${c.id}">Ученици…</button>`
                     + `<button class="btn soft" data-edit-class-teachers="${c.id}">Наставници…</button>`
@@ -2388,12 +2402,35 @@
         if (cabinets.error) return `<span class="none" title="${esc(cabinets.error)}">не може да се прочита распоредот на кабинетите</span>`;
         const c = classCabinets(pupils, taken);
         if (!c.rows.length) return '<span class="none">—</span>';
-        return `<span class="cab-sum">${c.with} од ${c.rows.length} ${childWord(c.rows.length)} · ${c.cabinets} ${cabinetWord(c.cabinets)}</span><ul>`
-            + c.rows.map((r) => r.list.length
-                ? `<li><span class="n" title="Колку кабинети го земаат">${r.list.length}</span><b>${esc(personName(r.pupil.name))}</b>: `
-                  + r.list.map((t) => `<span title="${t.terms} ${t.terms === 1 ? 'термин' : 'термини'} неделно, ${t.minutes} мин.">${esc(cabinetText(t))}</span>`).join(', ') + '</li>'
-                : `<li class="none"><span class="n">0</span>${esc(personName(r.pupil.name))}: не оди во кабинет</li>`).join('')
-            + '</ul>';
+        const sum = `<span class="cab-sum">${c.with} од ${c.rows.length} ${childWord(c.rows.length)} · ${c.cabinets} ${cabinetWord(c.cabinets)}</span>`;
+        if (!c.cabinets) return sum;
+        // The cabinets of THIS class across: the one that takes the most of its children first.
+        const cols = new Map();
+        c.rows.forEach((r) => r.list.forEach((t) => {
+            if (!cols.has(t.id)) cols.set(t.id, { id: t.id, name: t.name, room: t.room, children: 0 });
+            cols.get(t.id).children++;
+        }));
+        const across = [...cols.values()].sort((a, b) => b.children - a.children
+            || (a.room || a.name).localeCompare(b.room || b.name, 'mk-MK') || a.name.localeCompare(b.name, 'mk-MK'));
+        const whole = (t) => t.name + (t.room ? ' · ' + t.room : '');
+        const terms = (n) => n + (n === 1 ? ' термин' : ' термини') + ' неделно';
+        // In the head the profile, and under it whose cabinet it is; both cut when long, whole in the tooltip.
+        const head = across.map((t) => `<th title="${esc(whole(t) + ' — зема ' + t.children + ' ' + childWord(t.children) + ' од паралелката')}">`
+            + `<span>${esc(t.room || t.name)}</span>${t.room ? `<span class="by">${esc(t.name)}</span>` : ''}</th>`).join('');
+        const body = c.rows.map((r) => {
+            const mine = new Map(r.list.map((t) => [t.id, t]));
+            const name = personName(r.pupil.name);
+            return `<tr${r.list.length ? '' : ' class="none"'}><th class="who" title="${esc(name + (r.list.length ? '' : ' — не оди во кабинет'))}"><span>${esc(name)}</span></th>`
+                + across.map((t) => {
+                    const here = mine.get(t.id);
+                    return here
+                        ? `<td title="${esc(name + ' — ' + whole(t) + ': ' + terms(here.terms) + ', ' + here.minutes + ' мин.')}">${here.terms}×</td>`
+                        : '<td class="no">·</td>';
+                }).join('')
+                + `<td class="tot" title="${esc(name + ': ' + r.list.length + ' ' + cabinetWord(r.list.length))}">${r.list.length}</td></tr>`;
+        }).join('');
+        return sum + '<div class="cab-scroll"><table class="cab-grid" data-mtb-plain><thead><tr><th class="who"><span>Ученик</span></th>' + head
+            + '<th class="tot" title="Колку кабинети го земаат детето">Вк.</th></tr></thead><tbody>' + body + '</tbody></table></div>';
     }
 
     /**
