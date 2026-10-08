@@ -51,10 +51,9 @@
     // lighter slanted line. The chosen tab is the one solid plate: deep blue
     // under white in the light theme, silver under dark words in the dark
     // one. Every pair of words and plate measures at least 5:1.
-    // The WORKSPACE's own row (`.app-tabs`: Кабинети, Настава ↔ терапии …)
-    // stays the dark band with the indigo chosen tab — the owner, the same
-    // day: „this stays same … the bars differ, that was the initial idea".
-    // Two rows of tabs one under the other must not read as one.
+    // Owner, 8 Oct: the workspace row now shares the neutral palette too.
+    // Its slanted shape still distinguishes it from the pages' pill tabs.
+    // mtb-palette tokens supersede the earlier blue/silver colour treatment.
     // `.mtb-tabs-flat` is a page's own row of plain tab buttons (mtb-look.css,
     // owner 1 Oct 2026): it keeps the one row and the 📌, not the band.
     const STRIP = '.mtb-tabs:not(.mtb-tabs-flat), .view-tabs:not(.mtb-tabs-flat), .tabs:has(> .tab):not(.mtb-tabs-flat), .day-tabs-band:not(.mtb-tabs-flat)';
@@ -97,13 +96,13 @@
                 background: var(--mtb-plate-on) !important; color: var(--mtb-plate-on-text) !important;
                 border-top-color: var(--mtb-plate-on-top) !important; box-shadow: none !important;
             }
-            html body ${SHELL} { background: linear-gradient(to bottom, #1a1a2e 0%, #16213e 100%) !important; border-bottom-color: #0f3460 !important; }
+            html body ${SHELL} { background: var(--mtb-well, #252526) !important; border-bottom-color: var(--mtb-line, #454545) !important; }
             html body ${SHELL_TAB} {
-                background: linear-gradient(to bottom, #2d3748 0%, #1a202c 100%) !important; color: #a0aec0 !important; border-top-color: #4a5568 !important;
+                background: var(--mtb-face) !important; color: var(--mtb-ink) !important; border-top-color: var(--mtb-line) !important;
             }
-            html body ${SHELL_TAB}:hover { background: linear-gradient(to bottom, #4a5568 0%, #2d3748 100%) !important; color: #e2e8f0 !important; }
+            html body ${SHELL_TAB}:hover { background: var(--mtb-selected) !important; color: var(--mtb-ink) !important; }
             html body ${SHELL_TAB}:is(${ON}), html body ${SHELL_TAB}:is(${ON}):hover {
-                background: linear-gradient(to bottom, #667eea 0%, #5568d3 100%) !important; color: #ffffff !important; border-top-color: #818cf8 !important;
+                background: var(--mtb-selected) !important; color: var(--mtb-ink) !important; border-top-color: var(--mtb-accent) !important;
             }
         `;
         document.head.appendChild(style);

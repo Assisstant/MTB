@@ -656,6 +656,117 @@ header.top h1 { flex: 1; min-width: 180px; }
 }
 
 </style>
+<style id="mtb-palette">
+/* mtb-palette:start */
+/* Owner, 8 Oct 2026: VS Code Modern's neutral surfaces, with Radix Cyan/Red
+   accents. Gradients are MTB's; selection stays close to the ordinary face.
+   Canonical in mtb-look.css; standalone copies are checked by app-contract. */
+@media screen {
+    :root {
+        --mtb-page: #eceef0; --mtb-panel: #f4f5f6; --mtb-well: #e5e8eb;
+        --mtb-ink: #30363b; --mtb-muted: #59636c; --mtb-line: #bac2c9;
+        --mtb-accent: #24677c; --mtb-select-line: #548598;
+        --mtb-face: linear-gradient(180deg, #f0f3f5 0%, #dce4e9 48%, #c5d2da 100%) #dce4e9;
+        --mtb-selected: linear-gradient(180deg, #d6e6ed 0%, #bcd2dc 55%, #a9c3cf 100%) #bcd2dc;
+        --mtb-notice: linear-gradient(110deg, #e1e6ea, #f0f2f4) #e1e6ea;
+        --mtb-edge: inset 0 1px 0 #ffffff90, 0 1px 2px #18232d18;
+        --mtb-warning: #805b18; --mtb-error: #b4232c; --mtb-good: #256d46;
+        --mtb-red-face: linear-gradient(180deg, #ce2c31 0%, #ae202b 55%, #791d29 100%) #ae202b;
+    }
+    :root[data-theme="dark"], body.dark-mode, body.dark {
+        --mtb-page: #181818; --mtb-panel: #1f1f1f; --mtb-well: #252526;
+        --mtb-ink: #d7d7d7; --mtb-muted: #ababab; --mtb-line: #454545;
+        --mtb-accent: #75b9d0; --mtb-select-line: #6198aa;
+        --mtb-face: linear-gradient(180deg, #45494e 0%, #303337 48%, #252526 100%) #303337;
+        --mtb-selected: linear-gradient(180deg, #414e56 0%, #303b42 55%, #293238 100%) #303b42;
+        --mtb-notice: linear-gradient(110deg, #303337, #252526) #252526;
+        --mtb-edge: inset 0 1px 0 #ffffff20, 0 1px 2px #0003;
+        --mtb-warning: #e2bd70; --mtb-error: #ff9592; --mtb-good: #83d3a5;
+    }
+    html body:is(body, .dark-mode, .dark) {
+        --bg: var(--mtb-page); --card: var(--mtb-panel); --panel: var(--mtb-panel);
+        --soft: var(--mtb-well); --hover: var(--mtb-well);
+        --panel2: var(--mtb-well); --well: var(--mtb-well); --well2: var(--mtb-panel);
+        --text: var(--mtb-ink); --muted: var(--mtb-muted); --sub: var(--mtb-muted);
+        --border: var(--mtb-line); --line: var(--mtb-line); --input: var(--mtb-well);
+        --primary: var(--mtb-accent); --accent: var(--mtb-accent); --edit: var(--mtb-accent);
+        --warn: var(--mtb-warning); --warn-bg: var(--mtb-notice);
+        --danger: var(--mtb-error); --danger-dark: #ae202b; --danger-bg: var(--mtb-well);
+        --ok: var(--mtb-good); --success: var(--mtb-good);
+        --mtb-header: var(--mtb-face); --mtb-header-text: var(--mtb-ink); --mtb-header-line: var(--mtb-line);
+        --mtb-btn: var(--mtb-selected); --mtb-btn-on: var(--mtb-selected); --mtb-btn-soft: var(--mtb-face);
+        --mtb-btn-text: var(--mtb-ink); --mtb-btn-line: var(--mtb-select-line);
+        --mtb-flat: var(--mtb-select-line); --mtb-flat-on: var(--mtb-ink); --mtb-flat-line: var(--mtb-line);
+        --mtb-card-hover: var(--mtb-accent); --mtb-glass: var(--mtb-edge); --mtb-glass-soft: var(--mtb-edge);
+        --mtb-table-face: var(--mtb-face); --mtb-table-ink: var(--mtb-ink); --mtb-table-line: var(--mtb-line);
+        --mtb-table-edge: var(--mtb-edge); --mtb-table-text-shadow: none;
+        --mtb-band: var(--mtb-well); --mtb-band-end: var(--mtb-well); --mtb-band-edge: var(--mtb-line);
+        --mtb-pin: var(--mtb-face); --mtb-pin-text: var(--mtb-ink); --mtb-pin-line: var(--mtb-line);
+        background: var(--mtb-page); color: var(--mtb-ink);
+    }
+    html body:is(body, .dark-mode, .dark) :is(.tabs, .view-tabs, .day-tabs-band, .mtb-tabs, .app-tabs) {
+        --mtb-plate: var(--mtb-face); --mtb-plate-text: var(--mtb-ink); --mtb-plate-top: var(--mtb-line);
+        --mtb-plate-hover: var(--mtb-selected); --mtb-plate-hover-text: var(--mtb-ink);
+        --mtb-plate-on: var(--mtb-selected); --mtb-plate-on-text: var(--mtb-ink); --mtb-plate-on-top: var(--mtb-accent);
+    }
+    html body:is(body, .dark-mode, .dark) :is(.header, .hdr, .section-header, .stat-box, .topbar) {
+        background: var(--mtb-face); color: var(--mtb-ink); border-color: var(--mtb-line); text-shadow: none;
+    }
+    html body:is(body, .dark-mode, .dark) :is(.content, .capacity-box, .panel, .card):not([data-mtb-plain]) {
+        background: var(--mtb-panel); color: var(--mtb-ink); border-color: var(--mtb-line);
+    }
+    html body:is(body, .dark-mode, .dark) .btn:not(.btn-success, .btn-danger, .danger, [style*="background"]),
+    html body:is(body, .dark-mode, .dark) :is(.hdr-btn, .topbar > .soft, .topbar > .primary) {
+        background: var(--mtb-face); color: var(--mtb-ink); border-color: var(--mtb-line);
+        box-shadow: var(--mtb-edge); text-shadow: none; transition-property: border-color, box-shadow;
+    }
+    html body:is(body, .dark-mode, .dark) :is(.btn-primary, .btn[aria-pressed="true"], .topbar > [aria-pressed="true"], #openMasterAdmin[aria-expanded="true"]),
+    html body:is(body, .dark-mode, .dark) :is(.number-toggle, .mtb-pin):has(input:checked) {
+        background: var(--mtb-selected); color: var(--mtb-ink); border-color: var(--mtb-select-line);
+        box-shadow: var(--mtb-edge); text-shadow: none;
+    }
+    html body:is(body, .dark-mode, .dark) :is(.btn-danger, .btn.danger:not(.soft)) {
+        background: var(--mtb-red-face); color: #fff; border-color: #ce2c31;
+        box-shadow: var(--mtb-edge); text-shadow: none;
+    }
+    html body:is(body, .dark-mode, .dark) :is(.btn-primary, .btn-danger, .btn.danger:not(.soft))::before { display: none; }
+    html body:is(body, .dark-mode, .dark) :is(.btn, .hdr-btn, .topbar > button):focus-visible { outline: 2px solid var(--mtb-accent); outline-offset: 2px; }
+    html body:is(body, .dark-mode, .dark) :is(.btn, .hdr-btn, .topbar > button):hover:not(:disabled) { filter: brightness(.97); }
+    html body:is(body, .dark-mode, .dark) :is(input:not([type="checkbox"], [type="radio"], [type="range"], [type="button"], [type="submit"], [type="color"]), select, textarea) {
+        background: var(--mtb-panel); color: var(--mtb-ink); border-color: var(--mtb-line);
+    }
+    html body:is(body, .dark-mode, .dark) .personal:not([data-mtb-plain]) { background: var(--mtb-panel); color: var(--mtb-ink); border-color: var(--mtb-line); }
+    html body:is(body, .dark-mode, .dark) .personal:not([data-mtb-plain]) :is(.p-head, .p-modes button) { background: var(--mtb-face); color: var(--mtb-ink); border-color: var(--mtb-line); box-shadow: var(--mtb-edge); }
+    html body:is(body, .dark-mode, .dark) .personal:not([data-mtb-plain]) .p-modes button[aria-pressed="true"] { background: var(--mtb-selected); color: var(--mtb-ink); border-color: var(--mtb-select-line); }
+    html body:is(body, .dark-mode, .dark) .personal:not([data-mtb-plain]) :is(.p-head h3, .p-sub, .p-lesson b, .p-away b) { color: var(--mtb-ink); }
+    html body:is(body, .dark-mode, .dark) .personal:not([data-mtb-plain]) .p-grid td { background: var(--mtb-panel); color: var(--mtb-ink); }
+    html body:is(body, .dark-mode, .dark) .personal:not([data-mtb-plain]) :is(.p-lesson, .p-away, .p-more) { background: var(--mtb-well); color: var(--mtb-ink); }
+    html body:is(body, .dark-mode, .dark) .personal:not([data-mtb-plain]) :is(.p-lesson small, .p-away small) { color: var(--mtb-muted); }
+}
+/* mtb-palette:end */
+</style>
+<style>
+@media screen and (prefers-color-scheme: dark) { :root:not([data-theme]) { --mtb-page: #181818; --mtb-panel: #1f1f1f; --mtb-well: #252526;
+        --mtb-ink: #d7d7d7; --mtb-muted: #ababab; --mtb-line: #454545;
+        --mtb-accent: #75b9d0; --mtb-select-line: #6198aa;
+        --mtb-face: linear-gradient(180deg, #45494e 0%, #303337 48%, #252526 100%) #303337;
+        --mtb-selected: linear-gradient(180deg, #414e56 0%, #303b42 55%, #293238 100%) #303b42;
+        --mtb-notice: linear-gradient(110deg, #303337, #252526) #252526;
+        --mtb-edge: inset 0 1px 0 #ffffff20, 0 1px 2px #0003;
+        --mtb-warning: #e2bd70; --mtb-error: #ff9592; --mtb-good: #83d3a5; } }
+@media screen {
+    html { background: var(--mtb-page); }
+    html body #tabs button[aria-pressed="true"], html body #days button[aria-pressed="true"], html body button.primary { background: var(--mtb-selected); color: var(--mtb-ink); border-color: var(--mtb-select-line); }
+    html body .count { background: #ae202b; color: #fff; }
+    html body:is(body, .dark-mode, .dark) { --soft: var(--mtb-face); --fill: var(--mtb-selected); --fill-edge: var(--mtb-select-line); --accent-text: var(--mtb-ink); --glass: var(--mtb-edge); --glass-soft: var(--mtb-edge); --focus: var(--mtb-accent); --chip: var(--mtb-well); }
+    html body:is(body, .dark-mode, .dark) .attendance-mark { background: var(--mtb-face); color: var(--mtb-ink); border-color: var(--mtb-line); }
+    html body:is(body, .dark-mode, .dark) .attendance-mark.present { border-left: 3px solid var(--mtb-good); }
+    html body:is(body, .dark-mode, .dark) .attendance-mark.absent { border-left: 3px solid var(--mtb-error); }
+    html body:is(body, .dark-mode, .dark) .attendance-table :is(td.mark-present, td.mark-absent, td.mark-mixed, .closed) { background: var(--mtb-well); color: var(--mtb-ink); }
+    html body:is(body, .dark-mode, .dark) :is(.duty-stale, .ask) { border-color: var(--mtb-line); border-left: 3px solid var(--mtb-warning); }
+    html body:is(body, .dark-mode, .dark) :is(.acting, .duty-note) { background: var(--mtb-notice); color: var(--mtb-ink); border-left: 3px solid var(--mtb-accent); }
+}
+</style>
 </head>
 <body>
 <div class="theme-bar">

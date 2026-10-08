@@ -97,7 +97,7 @@ await page.evaluate(() => document.body.classList.add('dark-mode'));
 check("one look for every tab, in either theme — the page's own black dark tabs do not win",
     // The page's fixture paints its tabs #2d3748 / white; the suite's plate and its words win.
     await page.$eval('#strip .btn:not([aria-pressed="true"])', (b) => getComputedStyle(b).backgroundImage + ' / ' + getComputedStyle(b).color)
-        .then((look) => /^linear-gradient\(.*\) \/ rgb\(3, 16, 23\)$/.test(look)));
+        .then((look) => /^linear-gradient\(.*\) \/ rgb\(215, 215, 215\)$/.test(look)));
 await page.evaluate(() => document.body.classList.remove('dark-mode'));
 check('„📌 Замрзни" sits at its right end', await page.$eval('#strip', (s) => s.lastElementChild.classList.contains('mtb-pin')));
 check('nothing is stored before anybody clicks', await page.evaluate(() => localStorage.getItem('mtb_layout_v1')) === null);
@@ -132,7 +132,7 @@ for (const theme of ['light', 'dark']) {
         const read = (q) => { const s = getComputedStyle(document.querySelector(q)); return [s.backgroundImage, s.color, s.boxShadow, s.textShadow, s.borderColor]; };
         return [read('#plain thead th'), read('#plainCard .mtb-float-head th')];
     });
-    check('floating header follows the ' + theme + ' face, edges and text', JSON.stringify(faces[0]) === JSON.stringify(faces[1]) && faces[0][0].includes('radial-gradient'));
+    check('floating header follows the ' + theme + ' face, edges and text', JSON.stringify(faces[0]) === JSON.stringify(faces[1]) && faces[0][0].includes('linear-gradient'));
 }
 await page.evaluate(() => window.scrollTo(0, 0));
 await page.click('#plain .mtb-hfold');

@@ -218,6 +218,15 @@ test('self-contained screens keep the canonical table faces without loading anot
     }
 });
 
+test('standalone palettes agree with the shared neutral theme', async () => {
+    const palette = (s: string) => /\/\* mtb-palette:start \*\/([\s\S]*?)\/\* mtb-palette:end \*\//.exec(s)?.[1].replace(/\r\n/g, '\n');
+    const canonical = palette(await readRoot('mtb-look.css'));
+    assert.ok(canonical);
+    for (const file of ['S-Dnevnik.html', 'RasporediFusion.html', 'AkciskiPlan.html', 'Kolega.html', 'MTB-Workspace.html']) {
+        assert.equal(palette(await readRoot(file)), canonical, `${file} palette diverged`);
+    }
+});
+
 test('a hovered chip keeps its text readable', async () => {
     // Owner, 24 Sep 2026: hovering the homeroom teacher in Податоци →
     // Одделенија left an empty lavender pill. `.chip.link:hover` set the TEXT
