@@ -414,6 +414,7 @@ function tools(i, text) {
   if (state.edit) {
     const keys = keysOf(list()[i]);
     keys.forEach((key, k) => add('🖼 Слика' + (keys.length > 1 ? ' ' + (k + 1) : ''), 'Смени ја сликата', () => openPicker(i, key)));
+    add('📋 Копирај', 'Копирај ја картичката како слика', (e) => copyCard(e.currentTarget.closest('.card')));
     const live = rec && rec.i === i;
     add(live ? '⏹ Стоп' : (recs[text] ? '🎙 Сними пак' : '🎙 Сними'), live ? 'Запри го снимањето' : 'Сними', () => record(i), live ? 'live' : '');
     if (recs[text] && !live) add('🗑', 'Избриши ја снимката', () => { forget(text); draw(); });
@@ -573,6 +574,97 @@ async function choose(id) {
     draw();
   } catch (e) {
     $('pk-msg').textContent = 'Сликата не се презеде. Провери ја врската и пробај пак.';
+  }
+}
+
+// ---------- the card as a picture ----------
+// Drawn from what is on screen, so it is the card in the step it is in now:
+// the pictures and the letter boxes, without the tiles and the buttons.
+async function cardCanvas(cardEl) {
+  const pic = cardEl.querySelector('.pic');
+  // a picture put on screen a moment ago may not be loaded yet
+  await Promise.all([...pic.querySelectorAll('img')].map((im) => im.complete || new Promise((done) => { im.onload = im.onerror = done; })));
+  const area = pic.getBoundingClientRect();
+  const pad = 14, scale = 2;
+  const canvas = document.createElement('canvas');
+  canvas.width = Math.round((area.width + 2 * pad) * scale);
+  canvas.height = Math.round((area.height + 2 * pad) * scale);
+  const g = canvas.getContext('2d');
+  g.scale(scale, scale);
+  g.fillStyle = '#ffffff';
+  g.fillRect(0, 0, area.width + 2 * pad, area.height + 2 * pad);
+  const at = (el) => {
+    const r = el.getBoundingClientRect();
+    return { x: r.left - area.left + pad, y: r.top - area.top + pad, w: r.width, h: r.height };
+  };
+  const box = (r, radius) => {
+    g.beginPath();
+    if (g.roundRect) g.roundRect(r.x, r.y, r.w, r.h, radius); else g.rect(r.x, r.y, r.w, r.h);
+  };
+  const write = (el, r) => {
+    const st = getComputedStyle(el);
+    g.font = st.fontWeight + ' ' + st.fontSize + ' ' + st.fontFamily;
+    g.fillStyle = st.color;
+    g.textAlign = 'center';
+    g.textBaseline = 'middle';
+    g.fillText(el.textContent, r.x + r.w / 2, r.y + r.h / 2 + 1);
+  };
+
+  for (const el of pic.querySelectorAll('.pics > *')) {
+    const r = at(el);
+    if (el.tagName === 'IMG') {
+      const k = Math.min(r.w / el.naturalWidth, r.h / el.naturalHeight) || 0;
+      const w = el.naturalWidth * k, h = el.naturalHeight * k;
+      if (k) g.drawImage(el, r.x + (r.w - w) / 2, r.y + (r.h - h) / 2, w, h);
+    } else {
+      g.setLineDash([8, 6]);
+      g.lineWidth = 2;
+      g.strokeStyle = getComputedStyle(el).borderTopColor;
+      box({ x: r.x + 1, y: r.y + 1, w: r.w - 2, h: r.h - 2 }, 16);
+      g.stroke();
+      g.setLineDash([]);
+    }
+  }
+  const word = pic.querySelector('.word');
+  if (word.classList.contains('hidden')) return canvas;
+  for (const el of word.querySelectorAll('.ltr, .dash, .gap')) {
+    const r = at(el);
+    const st = getComputedStyle(el);
+    if (el.classList.contains('gap')) {
+      g.fillStyle = st.borderBottomColor;
+      g.fillRect(r.x, r.y + r.h - 3, r.w, 3);
+    } else if (el.classList.contains('dash')) {
+      write(el, r);
+    } else {
+      box({ x: r.x + 1, y: r.y + 1, w: r.w - 2, h: r.h - 2 }, 9);
+      g.fillStyle = st.backgroundColor;
+      g.fill();
+      g.lineWidth = 2;
+      g.strokeStyle = st.borderTopColor;
+      g.stroke();
+      if (!el.classList.contains('empty')) write(el, r);
+    }
+  }
+  return canvas;
+}
+
+// To the clipboard, for Ctrl+V into Word or a chat. Where the browser will not
+// allow that, the same picture is saved as a file instead.
+async function copyCard(cardEl) {
+  const blob = cardCanvas(cardEl).then((canvas) => new Promise((done) => canvas.toBlob(done, 'image/png')));
+  try {
+    await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+    note('Картичката е копирана како слика. Залепи ја со Ctrl+V.');
+  } catch (e) {
+    const url = URL.createObjectURL(await blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'karticka.png';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 2000);
+    note('Прелистувачот не дозволи копирање, па картичката е зачувана како слика (karticka.png).');
   }
 }
 

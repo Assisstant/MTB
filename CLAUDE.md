@@ -74,6 +74,10 @@ the repository (see Pictures). It has:
 - The picture is now a `<button class="pic">` inside the card; tapping it, not
   the whole card, moves the word to its next step.
 
+- **Copying a card** (8 Oct 2026): in „✏️ Уреди" every card has „📋 Копирај".
+  It draws the card in the step it is in (pictures and letter boxes, no
+  tiles or buttons) on a canvas and puts the PNG on the clipboard; where the
+  browser refuses, it saves `karticka.png` instead.
 - **Sounds**: the letter buttons in the header pick the sound.
 - **„Реченици"** (built 8 Oct 2026 with Б, not yet judged): cards with one or
   more pictures and a sentence. Steps: Цела реченица → Без Б (letters, with
