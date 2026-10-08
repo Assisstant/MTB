@@ -245,6 +245,18 @@ test('the workspace row of tabs is the owner\'s run under glass, and only that r
     assert.match(layout, /html body :is\(\$\{STRIP\}\) \{\s*background: var\(--mtb-band\) !important;/);
 });
 
+test('a term in the diary\'s week is glossy on the screen, and blue while it is not marked', async () => {
+    // Owner, 8 Oct 2026, night. The gloss is a layer over each state's own
+    // colour, on the screen only, and its shadow must not outweigh the ring
+    // that marks a class's lesson (`.student-slot.in-lesson-class`).
+    const diary = await readRoot('S-Dnevnik.html');
+    const block = /@media screen \{\s*\.student-slot, \.attendance-indicator \{[\s\S]*?:where\(body\.dark-mode\) \.student-slot \{[^}]*\}\s*\}/.exec(diary)?.[0] ?? '';
+    assert.ok(block, 'the glossy block is there, inside @media screen');
+    assert.match(block, /body:not\(\.dark-mode\) \.student-slot:not\(\.present\):not\(\.absent\) \{ background-color: #c9dcf6;/);
+    assert.match(block, /body\.dark-mode \.student-slot, body\.dark-mode \.attendance-indicator \{\s*background-image: linear-gradient\(/);
+    assert.doesNotMatch(block, /body\.dark-mode \.student-slot \{ box-shadow/, 'a heavier shadow rule would hide the lesson ring');
+});
+
 test('a hovered chip keeps its text readable', async () => {
     // Owner, 24 Sep 2026: hovering the homeroom teacher in Податоци →
     // Одделенија left an empty lavender pill. `.chip.link:hover` set the TEXT

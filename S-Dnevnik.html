@@ -978,6 +978,24 @@
         body.dark-mode .student-slot.present { background: rgba(72, 187, 120, 0.4); border-left-color: #48bb78; }
         body.dark-mode .student-slot.absent { background: rgba(245, 101, 101, 0.4); border-left-color: #f56565; }
         body.dark-mode .student-slot-order { background: rgba(255,255,255,0.15); }
+        /* Owner, 8 Oct 2026, night: a term in the week is glossy, as the tabs
+           are — present, absent and not yet marked, in both themes — and the
+           term not yet marked is blue in the light theme too, where it was
+           nearly white. The gloss is a layer over the colour each state
+           already has, so the states' own rules stay as they are. On the
+           screen only: paper keeps the flat colours. The shadow is kept at
+           one class's weight, so „in-lesson-class" still draws its ring. */
+        @media screen {
+            .student-slot, .attendance-indicator {
+                background-image: linear-gradient(to bottom, rgba(255, 255, 255, .62) 0%, rgba(255, 255, 255, .20) 48%, rgba(255, 255, 255, 0) 52%, rgba(15, 23, 42, .07) 100%) !important;
+            }
+            .student-slot { box-shadow: inset 0 1px 0 rgba(255, 255, 255, .85), 0 1px 2px rgba(15, 23, 42, .18); }
+            body:not(.dark-mode) .student-slot:not(.present):not(.absent) { background-color: #c9dcf6; border-left-color: #3b7fc4; }
+            body.dark-mode .student-slot, body.dark-mode .attendance-indicator {
+                background-image: linear-gradient(to bottom, rgba(255, 255, 255, .22) 0%, rgba(255, 255, 255, .06) 48%, rgba(0, 0, 0, .08) 52%, rgba(0, 0, 0, .26) 100%) !important;
+            }
+            :where(body.dark-mode) .student-slot { box-shadow: inset 0 1px 0 rgba(255, 255, 255, .20), 0 1px 3px rgba(0, 0, 0, .5); }
+        }
         body.dark-mode .modal-content { background: #2d3748; }
         body.dark-mode .checkbox-list { border-color: #4a5568; }
         body.dark-mode .checkbox-item { background: #1a202c; }
