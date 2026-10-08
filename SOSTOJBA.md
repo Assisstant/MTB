@@ -14,7 +14,7 @@
 **In this file** (5070 lines; search for a name to jump to it):
 
 - Каде сме сега
-  - 8 октомври, ноќ — ComuniBoard ↔ WBACC Studio: копирај и залепи (ДОМА; НЕ е push-нато)
+  - 8 октомври, ноќ — ComuniBoard ↔ WBACC Studio: копирај и залепи (ДОМА; бара deploy)
   - 8 октомври, ноќ — ComuniBoard: празно место меѓу зборови (ДОМА; бара deploy)
   - 8 октомври, вечер — Вежби и ComuniBoard: една лента, повеќе место за работа (ДОМА; бара deploy)
   - 8 октомври — Вежби за изговор се во MTB; Контролна табла во три јазичиња (РАБОТА; бара push и deploy)
@@ -45,7 +45,7 @@
 
 ## Каде сме сега
 
-### 8 октомври, ноќ — ComuniBoard ↔ WBACC Studio: копирај и залепи (ДОМА; НЕ е push-нато)
+### 8 октомври, ноќ — ComuniBoard ↔ WBACC Studio: копирај и залепи (ДОМА; бара deploy)
 
 Сопственикот праша дали може избрана слика од ComuniBoard да се залепи во
 Studio, и избран текст од Studio во ComuniBoard; потоа: „do what is best
@@ -71,8 +71,8 @@ practice and prooven conept“.
 вистинскиот Studio во двете насоки; `npm test` (385). Пробано и од диск
 (плочката на Контролната табла): текстот и сликата преминуваат.
 
-**Направено:** commit на `main`. **Не е направено:** push (сопственикот не го
-побара за ова) и Render → Manual Deploy. Подробно: `docs/VEZBI.md`, „Copy and
+**Направено:** commit и push (`96b79fd`; сопственикот рече „push“). **Не е
+направено:** Render → Manual Deploy (сопственикот). Подробно: `docs/VEZBI.md`, „Copy and
 paste with WBACC Studio“.
 
 ### 8 октомври, ноќ — ComuniBoard: празно место меѓу зборови (ДОМА; бара deploy)
