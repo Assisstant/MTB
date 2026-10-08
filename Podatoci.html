@@ -6,6 +6,7 @@
 <title>Списоци и пристап — MTB</title>
 <script src="mtb-theme.js"></script>
 <script src="mtb-teacher-week.js"></script>
+<script src="mtb-document.js"></script>
 <!--
     Списоците врз кои стојат распоредите: ученици, наставници, терапевти,
     одделенија — и мапирањето меѓу нив, за ИЗБРАНАТА учебна година.
@@ -190,6 +191,25 @@
     /* Внатре во чипот подлогата е посветла од картичката, па --muted таму
        паѓа под читливо. Своја боја, мерена врз --chip, не врз --card. */
     .chip .none { color: var(--chip-note); }
+    /* кабинети по одделение: кое дете кој кабинет го зема, и ранг-листата под табелата */
+    .class-cabinets { font-size: 12px; line-height: 1.4; min-width: 250px; }
+    .class-cabinets .cab-sum { display: block; margin-bottom: 3px; font-weight: 600; }
+    .class-cabinets ul { list-style: none; margin: 0; padding: 0; }
+    .class-cabinets li { margin: 2px 0; }
+    .class-cabinets li.none { color: var(--muted); }
+    .class-cabinets .n { display: inline-block; min-width: 20px; margin-right: 3px; padding: 0 5px; border-radius: 999px;
+        background: var(--soft); color: var(--text); font-weight: 700; text-align: center; font-variant-numeric: tabular-nums; }
+    .cabinet-stats { margin-top: 20px; }
+    .cabinet-stats .bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 8px 0 10px; }
+    .cabinet-stats h3 { margin: 0; }
+    .cabinet-stats table.list { width: auto; min-width: min(100%, 760px); }
+    table.list td.num, table.list th.num { text-align: right; font-variant-numeric: tabular-nums; }
+    /* the report on paper: only it, in the documents' own letters (mtb-document.js) */
+    #printReport { display: none; }
+    @media print {
+        body.printing-report > *:not(#printReport) { display: none !important; }
+        body.printing-report #printReport { display: block; }
+    }
     .class-pupils { display: flex; align-items: baseline; gap: 6px; flex-wrap: wrap; }
     .class-pupils .count { font-variant-numeric: tabular-nums; font-weight: 600; }
     /* The move control is one choice, not a column: a select stretched across
@@ -792,6 +812,7 @@
             <button class="btn" id="addClass">+ Додај</button>
         </div>
         <div class="scroll"><div id="classes"></div></div>
+        <div class="cabinet-stats" id="cabinetStats"></div>
         <div class="suggestions" id="classCandidates"></div>
         <div class="picker" id="classEditor"></div>
     </div>
@@ -1125,7 +1146,10 @@
             if (mine !== ticket) return;
             data = body;
             closePickers();
+            // who is taken by which cabinet belongs to the year just read
+            cabinets = null;
             draw();
+            loadCabinets();
             loadTwins();
             status((PUBLISHED ? serverName(apiBase) + ' · ' : '')
                  + `${body.year}${body.isCurrentYear ? '' : ' · архивска година'} · `
@@ -2192,6 +2216,7 @@
 
     function drawClasses() {
         const pupilsOf = pupilsByClass();
+        const taken = cabinets && !cabinets.error ? cabinetsByPupil() : null;
         // A паралелка is told apart by its children and its homeroom teacher
         // (owner, 26 Sep 2026): the same teacher leading two is said on both.
         const leads = new Map();
@@ -2203,6 +2228,7 @@
 
         el('classes').innerHTML =
             '<table class="list"><thead><tr><th class="row-number" title="Редоследот се менува со стрелките и се памети за оваа учебна година. Новододадените одат на крај додека не ги преместите."><span class="rn">Р.Бр.</span></th><th style="width:180px;">Одделение</th><th style="width:280px;">Ученици</th>'
+            + '<th style="width:270px;" title="Кое дете од паралелката кој кабинет го зема, со бројот на термини неделно. Бројот пред името: колку кабинети го земаат детето. Од распоредот на кабинетите.">Кабинети</th>'
             + '<th style="width:220px;">Раководител</th><th>Предметни наставници</th><th></th></tr></thead><tbody>'
             + (data.classes || []).map((c, index) => {
                 const assigned = teachersForClass(c.label);
@@ -2232,6 +2258,7 @@
                         }).join('')}</span>`
                         : '<span class="none">нема ученици</span>')
                     + '</span></td>'
+                    + `<td class="class-cabinets">${classCabinetsHtml(pupils, taken)}</td>`
                     + `<td>${homeroom
                             ? `<button type="button" class="chip home link" data-goto-teacher="${homeroom.id}" title="Отвори го во „Наставници“">${esc(personName(homeroom.name))}</button>`
                             : '<span class="none">не е одреден</span>'}</td>`
@@ -2263,6 +2290,274 @@
         el('classes').querySelectorAll('[data-goto-teacher]').forEach((button) =>
             button.addEventListener('click', () => focusTeacher(Number(button.dataset.gotoTeacher))));
         attachOrderArrows(el('classes'), 'classes', data.classes || []);
+        drawCabinetStats(taken);
+    }
+
+    // ── кабинети по одделение (сопственикот, 8 октомври 2026) ───────────────
+    // „Кое дете од одделението од кој кабинет е земано и колку вкупно кабинети
+    // го земаат … да може да се испечати како извештај … кој наставник најповеќе
+    // деца му се земаат од кабинетите — ранг листа."
+    //
+    // Read only, from two reads that already exist, and nothing is stored:
+    //   · the cabinets' own week (/api/schedule/sessions) says who has a term
+    //     with whom — that is the column, whatever the teaching timetable holds;
+    //   · the crossing (/api/teaching/crossing) says which LESSON a term takes
+    //     the child out of — that is the ranking, and it can count only a term
+    //     that lands in a lesson; what does not is said under the list.
+    // A cabinet is a therapist with their profile (Терапевти → „профил /
+    // кабинет"). A child is matched by its id, never by its name (rule 2).
+    let cabinets = null;          // { sessions, crossing } | { error }
+    let cabinetTicket = 0;
+    async function loadCabinets() {
+        const mine = ++cabinetTicket;
+        const year = encodeURIComponent(el('year').value);
+        let read;
+        try {
+            const [week, crossing] = await Promise.all([
+                api('GET', '/api/schedule/sessions?year=' + year),
+                api('GET', '/api/teaching/crossing?year=' + year)
+            ]);
+            read = { sessions: week.sessions || [], crossing };
+        } catch (err) {
+            read = { error: err.message };
+        }
+        if (mine !== cabinetTicket || !data) return;
+        cabinets = read;
+        // only this column and the list under the table: an open picker or an unsaved row stays
+        const taken = cabinets.error ? null : cabinetsByPupil();
+        const pupilsOf = pupilsByClass();
+        el('classes').querySelectorAll('tr[data-class]').forEach((row) => {
+            const cls = (data.classes || []).find((c) => String(c.id) === row.dataset.class);
+            const cell = row.querySelector('td.class-cabinets');
+            if (cls && cell) cell.innerHTML = classCabinetsHtml(pupilsOf.get(cls.label) || [], taken);
+        });
+        drawCabinetStats(taken);
+    }
+
+    /** Pupil's public id → the cabinets that take them: [{ id, name, room, terms, minutes }], most terms first. */
+    function cabinetsByPupil() {
+        const roomOf = (therapistId) => {
+            const held = ((data.categoryOf || {}).therapist || {})[therapistId];
+            const room = (data.categories || []).find((c) => String(c.id) === String(held));
+            return room ? tidy(room.name) : '';
+        };
+        const days = new Map();           // pupil|therapist|day → { s, spans }
+        (cabinets.sessions || []).forEach((s) => {
+            if (!s.student_public_id) return;
+            const key = [s.student_public_id, s.therapist_id, s.day].join('|');
+            if (!days.has(key)) days.set(key, { s, spans: [] });
+            const found = String(s.time || '').matchAll(/(\d{1,2}):(\d{2})\s*[-–]\s*(\d{1,2}):(\d{2})/g);
+            let any = false;
+            for (const m of found) { any = true; days.get(key).spans.push([Number(m[1]) * 60 + Number(m[2]), Number(m[3]) * 60 + Number(m[4])]); }
+            if (!any) days.get(key).spans.push([NaN, NaN]);
+        });
+        const byPupil = new Map();
+        days.forEach(({ s, spans }) => {
+            // The week is kept in halves of twenty minutes: two halves that touch are ONE term.
+            spans.sort((a, b) => a[0] - b[0]);
+            let terms = 0, minutes = 0, end = -Infinity;
+            spans.forEach(([from, to]) => {
+                if (!(from <= end)) terms++;
+                if (to > from) minutes += to - from;
+                if (to > end) end = to;
+            });
+            if (!byPupil.has(s.student_public_id)) byPupil.set(s.student_public_id, new Map());
+            const mine = byPupil.get(s.student_public_id);
+            if (!mine.has(s.therapist_id)) mine.set(s.therapist_id, { id: s.therapist_id, name: personName(s.therapist_name), room: roomOf(s.therapist_id), terms: 0, minutes: 0 });
+            mine.get(s.therapist_id).terms += terms;
+            mine.get(s.therapist_id).minutes += minutes;
+        });
+        const sorted = new Map();
+        byPupil.forEach((mine, id) => sorted.set(id, [...mine.values()].sort((a, b) =>
+            b.terms - a.terms || a.name.localeCompare(b.name, 'mk-MK'))));
+        return sorted;
+    }
+
+    const childWord = (n) => (n === 1 ? 'дете' : 'деца');
+    const cabinetWord = (n) => (n === 1 ? 'кабинет' : 'кабинети');
+    /** One class: its children and who takes each. `rows` for the report, `html` for the table. */
+    function classCabinets(pupils, taken) {
+        const rows = pupils.filter((s) => s.active !== false).map((s) => ({ pupil: s, list: (taken && taken.get(s.public_id)) || [] }));
+        const all = new Set();
+        rows.forEach((r) => r.list.forEach((t) => all.add(t.id)));
+        return { rows, with: rows.filter((r) => r.list.length).length, cabinets: all.size };
+    }
+    const cabinetText = (t) => t.name + (t.room ? ' · ' + t.room : '') + ` (${t.terms}×)`;
+    function classCabinetsHtml(pupils, taken) {
+        if (!cabinets) return '<span class="none">вчитувам…</span>';
+        if (cabinets.error) return `<span class="none" title="${esc(cabinets.error)}">не може да се прочита распоредот на кабинетите</span>`;
+        const c = classCabinets(pupils, taken);
+        if (!c.rows.length) return '<span class="none">—</span>';
+        return `<span class="cab-sum">${c.with} од ${c.rows.length} ${childWord(c.rows.length)} · ${c.cabinets} ${cabinetWord(c.cabinets)}</span><ul>`
+            + c.rows.map((r) => r.list.length
+                ? `<li><span class="n" title="Колку кабинети го земаат">${r.list.length}</span><b>${esc(personName(r.pupil.name))}</b>: `
+                  + r.list.map((t) => `<span title="${t.terms} ${t.terms === 1 ? 'термин' : 'термини'} неделно, ${t.minutes} мин.">${esc(cabinetText(t))}</span>`).join(', ') + '</li>'
+                : `<li class="none"><span class="n">0</span>${esc(personName(r.pupil.name))}: не оди во кабинет</li>`).join('')
+            + '</ul>';
+    }
+
+    /**
+     * Whose lessons the cabinets take the most children from. By the name in
+     * the timetable, as every reading of the crossing is. Ranked by the number
+     * of DIFFERENT children, then by how many times a week a child leaves.
+     */
+    function teacherRanking() {
+        const byTeacher = new Map();
+        (((cabinets || {}).crossing || {}).cells || []).forEach((c) => {
+            if (!c.teacher) return;
+            if (!byTeacher.has(c.teacher)) byTeacher.set(c.teacher, { name: c.teacher, lessons: 0, hit: 0, exits: 0, pupils: new Set(), classes: new Set() });
+            const t = byTeacher.get(c.teacher);
+            t.lessons++;
+            t.classes.add(c.class);
+            (c.away || []).forEach((a) => t.pupils.add(a.studentPublicId || a.student));
+            if ((c.away || []).length) { t.hit++; t.exits += c.away.length; }
+        });
+        const rows = [...byTeacher.values()].sort((a, b) =>
+            b.pupils.size - a.pupils.size || b.exits - a.exits || a.name.localeCompare(b.name, 'mk-MK'));
+        let rank = 0, before = '';
+        rows.forEach((r, i) => {
+            const key = r.pupils.size + '|' + r.exits;
+            if (key !== before) { rank = i + 1; before = key; }
+            r.rank = rank;
+        });
+        return rows;
+    }
+    // In a list of several the suite's short name of a class: „V-б", „Комб. II, III, IV".
+    const classNames = (labels) => [...labels].map((label) => {
+        const cls = (data.classes || []).find((c) => c.label === label) || { label };
+        const nav = window.MTBAppNavigation;
+        return nav && nav.classes ? nav.classes.short({ label: cls.label, alias: tidy(cls.alias) }) : (cls.alias || label);
+    }).join(', ');
+    function rankingTableHtml(rows) {
+        return '<table class="list"><thead><tr><th class="num">Ранг</th><th>Наставник</th><th>Паралелки</th>'
+            + '<th class="num">Деца што излегуваат</th><th class="num">Излегувања неделно</th><th class="num">Часови со излегување</th></tr></thead><tbody>'
+            + rows.map((r) => `<tr><td class="num">${r.pupils.size ? r.rank + '.' : '—'}</td><td>${esc(personName(r.name))}</td><td>${esc(classNames(r.classes))}</td>`
+                + `<td class="num">${r.pupils.size}</td><td class="num">${r.exits}</td><td class="num">${r.hit} од ${r.lessons}</td></tr>`).join('')
+            + '</tbody></table>';
+    }
+    /** What the ranking cannot see, said beside it. */
+    function rankingNote() {
+        const s = ((cabinets || {}).crossing || {}).summary || {};
+        const parts = [];
+        if (s.sessions != null) parts.push(`Од ${s.sessions} термини неделно во кабинетите, ${s.placed != null ? s.placed : '?'} паѓаат во час од наставата.`);
+        if (s.unplaced) parts.push(`${s.unplaced} не се бројат во ранг-листата: детето нема паралелка, паралелката нема часови во распоредот, или терминот е надвор од наставата.`);
+        if (s.external) parts.push(`${s.external} се на екстерни ученици без паралелка тука.`);
+        return parts.join(' ');
+    }
+
+    function drawCabinetStats() {
+        const box = el('cabinetStats');
+        if (!box) return;
+        if (!cabinets || cabinets.error) { box.innerHTML = ''; return; }
+        const rows = teacherRanking();
+        box.innerHTML = '<div class="bar"><h3>Кабинети и настава</h3>'
+            + '<button class="btn soft" id="printCabinetReport" title="Табелата по одделение и ранг-листата, за печатење">🖨 Печати извештај</button>'
+            + '<button class="btn soft" id="wordCabinetReport" title="Истиот извештај како Word-документ">📄 Word</button></div>'
+            + '<p class="hint">Ранг-листа: од чии часови кабинетите земаат најмногу деца. „Деца што излегуваат“ се различни деца; '
+            + '„излегувања неделно“ брои секое излегување од час. ' + esc(rankingNote()) + '</p>'
+            + (rows.length ? rankingTableHtml(rows) : '<p class="hint">Во распоредот на настава нема часови со наставник, па нема што да се рангира.</p>');
+        el('printCabinetReport').addEventListener('click', printCabinetReport);
+        el('wordCabinetReport').addEventListener('click', wordCabinetReport);
+    }
+
+    /** The report: the same table by class, then the ranking. One body for paper and for Word. */
+    function cabinetReport() {
+        if (!data || !cabinets || cabinets.error) return null;
+        const taken = cabinetsByPupil();
+        const pupilsOf = pupilsByClass();
+        const school = (window.MTBTeacherWeek && window.MTBTeacherWeek.SCHOOL) || '';
+        const title = 'Кабинети по одделение — ' + data.year;
+        // written out: a browser without Macedonian prints the date the American way
+        const now = new Date();
+        const today = [now.getDate(), now.getMonth() + 1].map((n) => String(n).padStart(2, '0')).join('.') + '.' + now.getFullYear();
+        const table = (rows) => '<table data-mtb-plain><thead><tr><th style="width:8%">Р.бр.</th><th style="width:32%">Ученик</th>'
+            + '<th>Кабинети што го земаат (термини неделно)</th><th style="width:12%">Вкупно кабинети</th></tr></thead><tbody>'
+            + rows.map((r, i) => `<tr><td class="num">${i + 1}.</td><td>${esc(personName(r.pupil.name))}</td>`
+                + `<td>${r.list.length ? r.list.map((t) => esc(cabinetText(t))).join('; ') : '—'}</td><td class="num">${r.list.length}</td></tr>`).join('')
+            + '</tbody></table>';
+        let children = 0, withCabinet = 0;
+        const sections = (data.classes || []).map((cls) => {
+            const c = classCabinets(pupilsOf.get(cls.label) || [], taken);
+            if (!c.rows.length) return '';
+            children += c.rows.length;
+            withCabinet += c.with;
+            const homeroom = teachersForClass(cls.label).find((t) => t.role === 'homeroom');
+            return `<h3>${esc(cls.alias || cls.label)}${homeroom ? ' — раководител: ' + esc(personName(homeroom.name)) : ''}</h3>`
+                + `<p class="sum">${c.with} од ${c.rows.length} ${childWord(c.rows.length)} одат во кабинет · ${c.cabinets} ${cabinetWord(c.cabinets)}</p>`
+                + table(c.rows);
+        }).join('');
+        // Whoever has a term and no class here: the externals, and a class not entered yet.
+        const loose = (data.students || []).filter((s) => s.active !== false && !s.grade && (taken.get(s.public_id) || []).length)
+            .sort((a, b) => personName(a.name).localeCompare(personName(b.name), 'mk-MK'))
+            .map((s) => ({ pupil: s, list: taken.get(s.public_id) }));
+        const ranking = teacherRanking();
+        const html = `<h1>${esc(title)}</h1>`
+            + `<p class="meta">${esc(school)}${school ? ' · ' : ''}${esc(today)}</p><hr class="rule">`
+            + `<p class="sum">Вкупно: ${withCabinet} од ${children} ${childWord(children)} во паралелките одат во кабинет.</p>`
+            + sections
+            + (loose.length ? '<h3>Без паралелка (екстерни и невнесени)</h3>' + table(loose) : '')
+            + '<h2>Ранг-листа: од чии часови кабинетите земаат најмногу деца</h2>'
+            + (ranking.length
+                ? '<table data-mtb-plain><thead><tr><th style="width:8%">Ранг</th><th>Наставник</th><th>Паралелки</th><th style="width:13%">Деца што излегуваат</th>'
+                  + '<th style="width:13%">Излегувања неделно</th><th style="width:14%">Часови со излегување</th></tr></thead><tbody>'
+                  + ranking.map((r) => `<tr><td class="num">${r.pupils.size ? r.rank + '.' : '—'}</td><td>${esc(personName(r.name))}</td><td>${esc(classNames(r.classes))}</td>`
+                      + `<td class="num">${r.pupils.size}</td><td class="num">${r.exits}</td><td class="num">${r.hit} од ${r.lessons}</td></tr>`).join('')
+                  + '</tbody></table>'
+                : '<p>Во распоредот на настава нема часови со наставник.</p>')
+            + `<p class="note">Колоната „Кабинети“ е од распоредот на кабинетите; бројот во заграда е број на термини неделно. `
+            + `Ранг-листата брои само термини што паѓаат во час од наставата. ${esc(rankingNote())}</p>`;
+        return { title, html, file: 'Kabineti-po-oddelenie-' + String(data.year).replace(/[^\d]+/g, '-') };
+    }
+    // The letters and the header row are the documents' one standard (mtb-document.js); only layout is added here.
+    function cabinetReportCss() {
+        const D = window.MTBDocument;
+        return (D ? D.css : 'body{font-family:"Times New Roman",Times,serif;font-size:11pt;}')
+            + 'h1{text-align:center;margin:0 0 2pt;}h2{margin:16pt 0 6pt;}h3{margin:12pt 0 2pt;}'
+            + '.meta{text-align:center;color:#444;}.sum{margin:0 0 4pt;}.note{margin-top:10pt;color:#444;font-size:9pt;}'
+            + 'table{border-collapse:collapse;width:100%;margin:0 0 6pt;}'
+            + 'th,td{border:1px solid #999;padding:3pt 5pt;vertical-align:top;text-align:left;}'
+            + 'td.num{text-align:center;}tr{page-break-inside:avoid;}h3{page-break-after:avoid;}'
+            + (D ? D.tableCss : '');
+    }
+    function printCabinetReport() {
+        const report = cabinetReport();
+        if (!report) return;
+        let box = el('printReport');
+        if (!box) { box = document.createElement('div'); box.id = 'printReport'; document.body.appendChild(box); }
+        box.innerHTML = report.html;
+        const style = document.createElement('style');
+        style.media = 'print';
+        style.textContent = '@page{size:A4;margin:15mm;}' + cabinetReportCss();
+        document.head.appendChild(style);
+        // the browser prints the page's title in its own header and names a saved PDF by it
+        const was = document.title;
+        document.title = report.title;
+        document.body.classList.add('printing-report');
+        const done = () => {
+            window.removeEventListener('afterprint', done);
+            document.body.classList.remove('printing-report');
+            document.title = was;
+            style.remove();
+            box.innerHTML = '';
+        };
+        window.addEventListener('afterprint', done);
+        window.print();
+    }
+    function wordCabinetReport() {
+        const report = cabinetReport();
+        if (!report) return;
+        const doc = '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" '
+            + 'xmlns="http://www.w3.org/TR/REC-html40" lang="mk"><head><meta charset="UTF-8"><title>' + esc(report.title) + '</title>'
+            + '<!--[if gte mso 9]><xml><w:WordDocument><w:View>Print</w:View></w:WordDocument></xml><![endif]-->'
+            + '<style>@page{size:595.3pt 841.9pt;margin:42pt;}' + cabinetReportCss() + '</style></head><body>' + report.html + '</body></html>';
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(new Blob(['﻿' + doc], { type: 'application/msword' }));
+        link.download = report.file + '.doc';
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        setTimeout(() => URL.revokeObjectURL(link.href), 4000);
+        status('Извештајот е зачуван како ' + link.download, '', { toast: true });
     }
 
     /**

@@ -119,6 +119,7 @@
     "diary:merge": "tsx scripts/merge-diary-pupils.ts",
     "diary:check": "tsx scripts/diary-check.ts",
     "test:teacher-week": "node test/teacher-week.browser.mjs",
+    "test:class-cabinets": "node test/class-cabinets.browser.mjs",
     "test:wbacc": "node test/wbacc.browser.mjs",
     "migrate:pending": "tsx scripts/migrations-pending.ts"
   },
