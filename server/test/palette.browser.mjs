@@ -33,7 +33,8 @@ try {
    }
    assert.notEqual(styles['#off'].image,styles['#on'].image,file+' selection remains visible');
    const lightest=s=>Math.max(...(s.image.match(/rgb\([^)]+\)/g)||[s.bg]).map(v=>luma(rgb(v))));
-   assert(Math.abs(lightest(styles['#off'])-lightest(styles['#on']))<.2,file+' selection brightness jump');
+   // Owner, 8 Oct, later: the chosen control stands out by colour under glass (the faces differ, above), never by text-shadow.
+   assert.equal(styles['#on'].shadow,'none',file+' a chosen control carries a text-shadow');
    assert.equal(styles['#status'].bg,'rgb(47, 133, 90)');assert.equal(styles['#paper'].image,'none');
    if(process.env.SHOT){await mkdir(process.env.SHOT,{recursive:true});await page.screenshot({path:join(process.env.SHOT,file.replace('.html','')+'-'+theme+'.png')});}
   }

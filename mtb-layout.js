@@ -100,9 +100,9 @@
             html body ${SHELL_TAB} {
                 background: var(--mtb-face) !important; color: var(--mtb-ink) !important; border-top-color: var(--mtb-line) !important;
             }
-            html body ${SHELL_TAB}:hover { background: var(--mtb-selected) !important; color: var(--mtb-ink) !important; }
+            html body ${SHELL_TAB}:hover { background: var(--mtb-face) !important; color: var(--mtb-ink) !important; filter: brightness(1.06); }
             html body ${SHELL_TAB}:is(${ON}), html body ${SHELL_TAB}:is(${ON}):hover {
-                background: var(--mtb-selected) !important; color: var(--mtb-ink) !important; border-top-color: var(--mtb-accent) !important;
+                background: var(--mtb-selected) !important; color: var(--mtb-on-ink, #ffffff) !important; border-top-color: var(--mtb-accent) !important; filter: none;
             }
         `;
         document.head.appendChild(style);
