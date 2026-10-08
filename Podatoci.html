@@ -201,7 +201,9 @@
        rule starts at `table.list table.cab-grid`, because the list's own rules
        for a header (sticky, its padding) reach a table drawn inside it. */
     /* a class taken by many cabinets scrolls its own grid sideways, so the buttons of the row stay in sight */
-    .class-cabinets .cab-scroll { max-width: min(46vw, 760px); overflow-x: auto; }
+    /* …and its bar is thin and in the theme's own line colour: the browser's own is a
+       white strip on the dark theme (seen on the owner's screen, 8 Oct 2026). */
+    .class-cabinets .cab-scroll { max-width: min(52vw, 1100px); overflow-x: auto; scrollbar-width: thin; scrollbar-color: var(--border) transparent; }
     table.list table.cab-grid { width: auto; border-collapse: collapse; font-size: 12px; }
     table.list table.cab-grid th, table.list table.cab-grid td { position: static; padding: 3px 7px; border: 1px solid var(--border);
         background: var(--card); color: var(--text); font-weight: 400; text-align: center; vertical-align: middle; white-space: nowrap; }

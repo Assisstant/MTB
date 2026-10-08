@@ -157,6 +157,10 @@ try {
         && tips.cell === 'Измислено Дете — Терапевт Први · Логопед: 2 термини неделно, 80 мин.', JSON.stringify(tips));
     check('the grid is its own: no pin, no fold, no sticky header from the list around it', await page.evaluate((g) =>
         !document.querySelector(g + ' .mtb-hpin, ' + g + ' .mtb-hfold') && getComputedStyle(document.querySelector(g + ' thead th')).position === 'static', grid));
+    check('a wide grid scrolls by itself, with a bar in the theme\'s colour instead of the browser\'s white one', await page.evaluate((g) => {
+        const box = document.querySelector(g).parentElement, style = getComputedStyle(box);
+        return box.classList.contains('cab-scroll') && style.overflowX === 'auto' && style.scrollbarWidth === 'thin' && style.scrollbarColor !== 'auto';
+    }, grid));
     const b = squash(await page.textContent(cellOf(2)));
     check('a class nobody is taken from says so, without an empty grid', b === '0 од 1 дете · 0 кабинети' && !(await page.$(cellOf(2) + ' table')), b);
     // Readable is a measurement, in both themes (the button that did not inherit its colour).
