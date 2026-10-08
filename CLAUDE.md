@@ -36,7 +36,9 @@ The words of the П deck, in the owner's three groups of rising difficulty:
 The page is `index.html` (until 8 Oct 2026 it was the single file
 `glas-P.html`, whose concept the owner liked) plus one data file per sound in
 `glasovi/`. The two must be copied together; it still opens by double-click
-and works offline, pictures embedded as data URIs. П and Б are in. It has:
+and works offline, pictures embedded as data URIs. All 26 sounds are in
+(278 words, 312 sentences); only П and Б have pictures, the rest show a
+place-holder until the owner chooses one. It has:
 
 - „Слогови": the syllable table as text; tapping a syllable marks it done.
 - „Зборови": all words or one of the three groups.
@@ -53,9 +55,16 @@ and works offline, pictures embedded as data URIs. П and Б are in. It has:
   word is whole it is said aloud.
 - **Voice** (same date): 🔊 on every card. It plays the therapist's recording
   if there is one, else a system voice (Macedonian, else sr/bg/hr/sl/ru).
-  „🎙 Снимање" in the header shows the record and delete buttons; a recording
+  „✏️ Уреди" in the header shows the record and delete buttons; a recording
   is at most 5 seconds and is kept in IndexedDB (`artikulacija` / `voice`,
-  keyed by the word).
+  keyed by the text).
+- **Changing a picture** (8 Oct 2026, the owner's idea: place-holder first,
+  pictures later, a better editor some day): in „✏️ Уреди" every card has
+  „🖼 Слика". It searches ARASAAC (Macedonian, then English; needs the
+  internet) and keeps the chosen pictogram as a data URI in IndexedDB store
+  `pics`, keyed by the text. „⬇ Извези" downloads the sound's file with those
+  pictures inside; the owner puts it in `glasovi/` (or sends it) and then it
+  holds on every device.
 - The picture is now a `<button class="pic">` inside the card; tapping it, not
   the whole card, moves the word to its next step.
 
@@ -65,9 +74,11 @@ and works offline, pictures embedded as data URIs. П and Б are in. It has:
   dragging) → Без збор (the word in braces becomes a line) → Само слика.
 
 A sound is one file, `glasovi/<latin>.js`, that pushes
-`{ letter, words: [{ w, img, set }], sentences: [{ s, img: [...] }], img: {} }`
-to `GLASOVI`, and one `<script>` tag in `index.html`. In `s` the word in
-`{braces}` is the one hidden in „Без збор". The syllables are generated from
+`{ letter, file, words: [{ w, img, set }], sentences: [{ s, img: [...] }], img: {} }`
+to `GLASOVI`, and one `<script>` tag in `index.html`. `img` on a word or
+sentence is optional: without it the key into the pictures is the text itself.
+`set` is the owner's group (one old slide); the group buttons are made from
+it. In `s` the word in `{braces}` is the one hidden in „Без збор". The syllables are generated from
 the letter (а у е и о: start, middle, end). Only the voice recordings are
 stored between visits.
 
@@ -87,11 +98,18 @@ temporary folder, never into the repository. Every deck is built the same way:
    target letter;
 4. the sentences again with one word replaced by a line.
 
-The sentences are text and come out with a script. The words are mostly
-pictures of text, so they have to be read from the slide by eye. Some typed
-text has Latin look-alikes inside Cyrillic words (y, e, o): normalise them.
-Converted so far: П, Б (ARASAAC ids: баба 23710, буба 2924, бебе 2275,
-бои 2348).
+All are converted (8 Oct 2026). The sentences were typed text and came out
+with a script; the words were mostly pictures of text and were read from the
+slides by eye, so a misread word is possible and the owner should glance over
+each sound. Latin look-alikes inside Cyrillic words (y, e, o) were
+normalised. The hidden word of a sentence is the one the deck itself blanks
+on its last slides; where the deck has no such slide it is the last word with
+the target letter. ARASAAC ids for Б: баба 23710, буба 2924, бебе 2275,
+бои 2348.
+
+Not done yet from the owner's list: the Cyrillic on-screen keyboard for the
+blanks-only step, the own photo, the reward after a right answer, and groups
+for the sentences (Р has 22 in one list).
 
 ## What the owner asked for next
 

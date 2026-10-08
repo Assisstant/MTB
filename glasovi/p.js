@@ -2,6 +2,7 @@
 // In a sentence the word in {braces} is the one hidden in „Без збор".
 GLASOVI.push({
   letter: 'п',
+  file: 'p',
   words: [
     { w: 'па-па', img: 'papa', set: 1 },
     { w: 'пи-пи', img: 'pipi', set: 2 },
