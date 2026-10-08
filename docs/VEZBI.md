@@ -76,6 +76,8 @@ the repository (see Pictures). It has:
   faintly. A whole word is said aloud and gets a ⭐ (also in „Без П"). A tap
   on an empty box no longer moves the card to its next step; a tap on the
   picture does. Sentences do not have this yet („Без збор" is still a line).
+  (Since the evening of 8 Oct the keyboard's button is in the one-row bar and
+  a key is the size of a letter box: see „One row of controls".)
 - **Voice** (same date): 🔊 on every card. It plays the therapist's recording
   if there is one, else a system voice (Macedonian, else sr/bg/hr/sl/ru).
   „✏️ Уреди" in the header shows the record and delete buttons; a recording
@@ -99,6 +101,96 @@ the repository (see Pictures). It has:
 - **„Реченици"** (built 8 Oct 2026 with Б, not yet judged): cards with one or
   more pictures and a sentence. Steps: Цела реченица → Без Б (letters, with
   dragging) → Без збор (the word in braces becomes a line) → Само слика.
+
+## One row of controls, and the card in the window (8 Oct 2026, evening)
+
+The owner, at home, after trying the keyboard: „направи all three and make a
+polished solution; I would like more real estate for lower resolutions …
+Excalidraw is the better concept, with concealed menus". Not yet judged.
+
+- **The bar is one row** (`#bar`), where it was three. Left to right: the
+  sound (a menu of 26 letters), the exercise („Слогови", the groups,
+  „Реченици"), the cue steps, then „Сите заедно" / „Една по една",
+  „⌨ Тастатура" and „⋯". `fitBar()` keeps in the row what the row holds and
+  folds the rest, in this order: the groups into a menu, the words of the
+  buttons (icons stay), the steps into a menu; a phone gets a second row. A
+  folded menu's button says the choice made in it. The same `<button>`s serve
+  both ways (`.menu.inline`), so there is one set of handlers.
+- **„⋯"** holds what is not pressed during a lesson: „Измешај", „Цел екран",
+  „Упатство", „Работен лист", „Уреди", „Извези". It is lit while „Уреди" is on.
+- **„Една по една" takes the window** (`body.fit`): the picture gets what the
+  bar, the boxes and the keyboard leave, so picture, boxes and 🔊 are whole on
+  a laptop (1366×650 inside the browser) and nothing scrolls. 🔊 sits in the
+  card's corner unless „Уреди" is on.
+- **One size, `--u`**, for the letter box, the tile and the key, taken from the
+  window's height. A key is the size of a box except where twelve of them do
+  not fit the width (a phone): there the keys are narrower than the boxes.
+- **With the keyboard on, a tap on a picture in „Сите заедно" opens that card
+  big** (`zoom`), a step in the browser's history: Back, „← Сите заедно" and
+  the „Сите заедно" button are the same step back. Without the keyboard a tap
+  is still the card's next step.
+- **„Цел екран"** (`cardsOnly`) hides the strip of parts and the bar; ✕ in the
+  corner or Esc brings them back. The browser's own full screen is asked for
+  and not needed.
+- **„Упатство"** is the line of instructions; it starts off on a low or narrow
+  screen. The strip of parts is 36 px, where it was 50.
+- `test:vezbi` holds the low screen: one row, the card whole above the
+  keyboard, a key the size of a box, Back.
+
+## ComuniBoard: one row of tools (8 Oct 2026, evening)
+
+The owner asked for the same idea in ComuniBoard („a nice to have overhaul of
+ComuniBoard's menus … something really smart"), was shown the plan, and said
+„finish all you think you can improve and then we push everything". Not yet
+judged. Until then its toolbar carried the comment „All tools visible - no
+hidden tabs"; that decision is replaced by this one.
+
+Measured before: standalone on a laptop 153 px of rows before the board, on a
+phone 310 px, inside the exercise page 190 px. Now 91 px standalone (a phone
+too) and 83 px inside the exercise page. Every control kept its `id` and its
+handler; only its place changed.
+
+- **The row** (`.toolbar-scroll`): undo, redo, „Пишување", the text box, paint,
+  line, arrow, the colour, the keyboard, paste, 🔊. It never wraps; too narrow,
+  it scrolls sideways. The tools sit in the MIDDLE of the row: MTB's floating
+  home dock (`home-button.js`) starts in the top left corner, where it used to
+  lie over the title and would now lie over the first tools.
+- **The selected thing's tools float over the board** (`#contextBar`): the
+  colours, delete, align, card, layers, opacity and the size of letters while
+  something is selected; the text box's fill, colours, frame and font size
+  while a text box is active (`syncContextBar`). The board does not jump when
+  they come. A tap in the bar does not un-choose the text box.
+- **„⋯"** (`#tbMorePanel`), with words beside the icons: save, the board as a
+  picture, backup copy out and in, load a document, the document window, snap,
+  the space between letters, the size of the tools, the language, „Цел екран
+  (само табла)", „Исчисти ја таблата". An action closes it; a switch or a
+  slider leaves it open (`data-stay`).
+- **„Само табла"**: the board's row goes, and the pages around it are told
+  (`mtb-chrome`), so ComuniBoard's own row and the exercise page's strip go as
+  well; ✕ in the corner brings all of them back.
+- **ComuniBoard's own row** („WBACC Studio", „Картички", „Кирилична Табла") is
+  44 px where it was 66. **Inside the exercise page it is gone**: the page says
+  `mtb-host` when the frame has loaded, ComuniBoard hides its row and answers
+  with its tabs (`mtb-tabs`), and they are drawn in the strip beside
+  „ComuniBoard"; a tap there sends `mtb-tab` back. Only tabs and a switch of
+  tab cross between the pages, by `postMessage`, from the same address only
+  (from the disk: the `"null"` origin, as for the card).
+- **A fault found on the way and fixed:** a text box made by a tap on the
+  board was un-chosen by that same tap (a second listener on the board), so
+  its controls did nothing until the box was tapped again.
+- A NEW control goes into one of the three places by what it is: used while
+  working → the row; belongs to the selected thing → `#contextBar`; a file or
+  a setting → „⋯" (with a `data-i18n` label in both dictionaries).
+- `test:vezbi` holds it: the tabs in the strip and no row of its own, one row
+  of tools, no floating bar with nothing selected and one with the pasted
+  card, „⋯", „само табла" and the way back.
+
+**Tile pictures are taken from the disk, never through the local server.**
+Through the server every page carries „изработил …" with a real name, and
+`check:names` reads text, not pictures. `vezbi/tabla.jpg` was retaken that
+way (the address `file://…/ComuniBoard.html`, the home dock hidden).
+
+## How a sound is stored
 
 A sound is one file, `vezbi/glasovi/<latin>.js`, that pushes
 `{ letter, file, words: [{ w, img, set }], sentences: [{ s, img: [...] }], img: {} }`

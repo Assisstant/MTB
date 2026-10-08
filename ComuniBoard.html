@@ -32,12 +32,27 @@
             overflow: hidden;
         }
 
+        /* The window is a column: this page's own row, then the frames with what
+           is left. The row is 44px (it was 66), and it goes altogether when the
+           page that frames this one shows the two tabs itself (body.hosted) or
+           the board asked for the whole window (body.bare). */
+        body {
+            display: flex;
+            flex-direction: column;
+        }
+
+        body.hosted .top-nav,
+        body.bare .top-nav {
+            display: none;
+        }
+
         .top-nav {
-            height: 66px;
+            flex: none;
+            min-height: 44px;
             display: flex;
             align-items: center;
-            gap: 12px;
-            padding: 10px 16px;
+            gap: 8px;
+            padding: 5px 12px;
             background: rgba(15, 23, 42, 0.98);
             border-bottom: 1px solid var(--border);
             position: sticky;
@@ -57,8 +72,8 @@
             border: 1px solid transparent;
             background: #243247;
             color: var(--text);
-            padding: 10px 16px;
-            border-radius: 10px;
+            padding: 6px 14px;
+            border-radius: 9px;
             font-weight: 700;
             cursor: pointer;
             transition: 0.2s ease;
@@ -75,7 +90,8 @@
         }
 
         .workspace {
-            height: calc(100vh - 66px);
+            flex: 1;
+            min-height: 0;
             position: relative;
         }
 
@@ -246,14 +262,9 @@
                 grid-template-columns: 1fr;
             }
 
-            .top-nav {
-                flex-wrap: wrap;
-                height: auto;
-                padding-bottom: 12px;
-            }
-
-            .workspace {
-                height: calc(100vh - 112px);
+            /* a phone: the name gives its place to the two tabs, still one row */
+            .brand {
+                display: none;
             }
         }
 
@@ -1901,12 +1912,134 @@
         /* ============ TOOLBAR ============ */
         .toolbar {
             background: var(--bg-darker);
-            padding: 6px 12px;
+            padding: 5px 12px;
             display: flex;
-            align-items: flex-start;
+            align-items: center;
             gap: 8px;
             border-bottom: 1px solid var(--bg-light);
             flex-shrink: 0;
+            position: relative;
+            z-index: 300;
+            --tb-scale: 1;
+        }
+
+        /* ⋯ and the bar of the selected thing */
+        .tb-more {
+            position: relative;
+            flex-shrink: 0;
+        }
+
+        .more-panel {
+            position: absolute;
+            top: calc(100% + 8px);
+            right: 0;
+            width: max-content;
+            min-width: 240px;
+            max-width: calc(100vw - 16px);
+            max-height: calc(100vh - 64px);
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            padding: 8px;
+            background: var(--bg-dark);
+            border: 1px solid var(--bg-lighter);
+            border-radius: 10px;
+            box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
+        }
+
+        .more-panel > .btn {
+            justify-content: flex-start;
+            gap: calc(10px * var(--tb-scale));
+            width: 100%;
+            min-height: calc(36px * var(--tb-scale));
+            padding: calc(7px * var(--tb-scale)) calc(10px * var(--tb-scale));
+            font-size: calc(13px * var(--tb-scale));
+            background: transparent;
+            color: var(--text-light);
+        }
+
+        .more-panel > .btn:hover {
+            background: var(--bg-light);
+        }
+
+        .more-panel > .btn.active,
+        .more-panel > .btn.active-green {
+            background: var(--bg-light);
+            color: #86efac;
+        }
+
+        .more-panel > .btn-danger {
+            color: #fca5a5;
+        }
+
+        .more-panel .glyph {
+            width: calc(18px * var(--tb-scale));
+            text-align: center;
+            flex-shrink: 0;
+            font-weight: 800;
+        }
+
+        .more-panel hr {
+            border: 0;
+            border-top: 1px solid var(--bg-light);
+            margin: 4px 0;
+        }
+
+        .more-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            padding: calc(5px * var(--tb-scale)) calc(10px * var(--tb-scale));
+            font-size: calc(13px * var(--tb-scale));
+            font-weight: 600;
+            color: var(--text-light);
+            background: transparent;
+        }
+
+        .more-row input[type="range"] {
+            width: 110px;
+            flex-shrink: 0;
+        }
+
+        .context-bar {
+            position: absolute;
+            top: 8px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 130;
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: center;
+            gap: 6px 12px;
+            width: max-content;
+            max-width: calc(100% - 16px);
+            padding: 6px 10px;
+            background: rgba(15, 23, 42, 0.95);
+            border: 1px solid var(--bg-light);
+            border-radius: 10px;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+            --tb-scale: 1;
+        }
+
+        .context-bar .toolbar-group {
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        /* „само табла": no toolbar, one small button to bring it back */
+        .app.board-only .toolbar {
+            display: none;
+        }
+
+        .board-only-exit {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            z-index: 131;
+            opacity: 0.8;
             --tb-scale: 1;
         }
 
@@ -2000,9 +2133,25 @@
             display: flex;
             align-items: center;
             gap: calc(6px * var(--tb-scale));
-            flex-wrap: wrap;
+            flex-wrap: nowrap;
             flex: 1;
+            min-width: 0;
+            overflow-x: auto;
+            scrollbar-width: none;
             padding: 2px 0;
+        }
+
+        /* The tools sit in the middle of the row: MTB's floating home dock
+           starts in the top left corner (home-button.js), and there it used to
+           lie over the title — now it would lie over the first tools. Auto
+           margins, not justify-content, so a row too narrow still scrolls from
+           its first tool. */
+        .toolbar-scroll > :first-child {
+            margin-left: auto;
+        }
+
+        .toolbar-scroll > :last-child {
+            margin-right: auto;
         }
 
         .toolbar-scroll::-webkit-scrollbar {
@@ -2914,18 +3063,13 @@
 </head>
 <body>
     <div class="app">
-        <!-- Toolbar -->
+        <!-- Toolbar: ONE row (owner, 8 Oct 2026: „more real estate … concealed
+             menus"; until then every tool was in sight, in two or three rows).
+             In the row: what is used while working. What belongs to a selected
+             thing floats over the board while it is selected (#contextBar,
+             below). Files, the viewer and the settings are in ⋯ (#tbMorePanel).
+             Every control kept its id; only its place changed. -->
         <div class="toolbar">
-            <div class="toolbar-left">
-                <span class="toolbar-title" data-i18n="title">Кирилична Табла</span>
-                <button class="btn btn-default btn-icon" id="langToggle">EN</button>
-                <div class="tb-size-control" title="Големина на алатки">
-                    <span class="tb-size-label">🔧</span>
-                    <input type="range" id="tbSizeSlider" min="100" max="200" value="100" step="10">
-                </div>
-            </div>
-
-            <!-- All tools visible - no hidden tabs -->
             <div class="toolbar-scroll">
                 <!-- UNDO/REDO -->
                 <button class="btn btn-default btn-icon" id="undoBtn" disabled title="Врати (Ctrl+Z)">
@@ -2937,7 +3081,7 @@
 
                 <div class="toolbar-divider"></div>
 
-                <!-- DRAW TOOLS -->
+                <!-- DRAW TOOLS (the text-box button is put after „Пишување" by its script) -->
                 <button class="btn btn-default btn-icon" id="typeBtn" title="Пишување (T)">
                     <svg class="icon" viewBox="0 0 24 24"><path d="M2.5 4v3h5v12h3V7h5V4h-13zm19 5h-9v3h3v7h3v-7h3V9z"/></svg>
                 </button>
@@ -2952,15 +3096,78 @@
 
                 <div class="toolbar-divider"></div>
 
-                <!-- FONT SIZE -->
-                <span style="font-size:11px;color:#94a3b8;flex-shrink:0;">A</span>
-                <input type="range" id="sizeSlider" min="50" max="200" value="100" disabled title="Големина" style="width:60px;flex-shrink:0;">
-                <span style="font-size:16px;color:#94a3b8;flex-shrink:0;">A</span>
-                <input type="range" id="spacingSlider" min="0" max="80" value="0" title="Растојание" style="width:50px;flex-shrink:0;">
+                <!-- KEYBOARD, PASTE, VOICE -->
+                <button class="btn btn-default btn-icon" id="keyboardToggle" title="Тастатура" style="background:#7c3aed;color:white;">
+                    <svg class="icon" viewBox="0 0 24 24"><path d="M20 5H4c-1.1 0-1.99.9-1.99 2L2 17c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm-9 3h2v2h-2V8zm0 3h2v2h-2v-2zM8 8h2v2H8V8zm0 3h2v2H8v-2zm-1 2H5v-2h2v2zm0-3H5V8h2v2zm9 7H8v-2h8v2zm0-4h-2v-2h2v2zm0-3h-2V8h2v2zm3 3h-2v-2h2v2zm0-3h-2V8h2v2z"/></svg>
+                </button>
+                <span id="keyboardToggleText" style="display:none;"></span>
+                <button class="btn btn-default btn-icon" id="pasteImageBtn" title="Залепи слика (Ctrl+V)" style="font-size:14px;">📋</button>
+                <button class="btn btn-icon" id="speakBoardBtn" title="Изговори ги буквите (селектирани или цела табла)" style="background:#7c3aed;color:white;font-size:13px;">🔊</button>
+            </div>
 
-                <div class="toolbar-divider"></div>
+            <!-- ⋯ : files, the viewer, the settings -->
+            <div class="tb-more">
+                <button class="btn btn-default btn-icon" id="tbMoreBtn" title="Повеќе" aria-label="Повеќе" aria-haspopup="true" aria-expanded="false">⋯</button>
+                <div class="more-panel hidden" id="tbMorePanel">
+                    <button class="btn" id="saveBtn" title="Зачувај">
+                        <svg class="icon" viewBox="0 0 24 24"><path d="M17 3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V7l-4-4zm-5 16c-1.66 0-3-1.34-3-3s1.34-3 3-3 3 1.34 3 3-1.34 3-3 3zm3-10H5V5h10v4z"/></svg>
+                        <span data-i18n="menuSave">Зачувај</span>
+                    </button>
+                    <button class="btn" id="exportPngBtn" title="Експорт PNG">
+                        <svg class="icon" viewBox="0 0 24 24"><path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/></svg>
+                        <span data-i18n="menuPng">Таблата како слика (PNG)</span>
+                    </button>
+                    <button class="btn" id="exportJsonBtn" title="Експорт JSON (резервна копија на таблата)">
+                        <span class="glyph">{}</span><span data-i18n="menuBackup">Резервна копија (JSON)</span>
+                    </button>
+                    <button class="btn" id="importJsonBtn" title="Импорт JSON">
+                        <span class="glyph">⤒</span><span data-i18n="menuRestore">Вчитај резервна копија</span>
+                    </button>
+                    <input type="file" id="importJsonInput" accept=".json,application/json" style="display:none;">
+                    <hr>
+                    <button class="btn" id="pptBtn" title="Вчитај документ / URL">
+                        <span class="glyph">📎</span><span data-i18n="menuDocument">Вчитај документ или линк</span>
+                    </button>
+                    <button class="btn" id="pptToggleBtn" title="Viewer">
+                        <span class="glyph">🪟</span><span data-i18n="menuViewer">Прозорец за документ</span>
+                    </button>
+                    <hr>
+                    <button class="btn" id="snapBtn" title="Лепење" data-stay>
+                        <span class="glyph">🧲</span><span><span data-i18n="snap">Лепење</span>: <span id="snapStatus">ВКЛ</span></span>
+                    </button>
+                    <label class="more-row" title="Растојание">
+                        <span data-i18n="menuSpacing">Растојание меѓу букви</span>
+                        <input type="range" id="spacingSlider" min="0" max="80" value="0">
+                    </label>
+                    <label class="more-row" title="Големина на алатки">
+                        <span data-i18n="menuToolSize">Големина на алатките</span>
+                        <input type="range" id="tbSizeSlider" min="100" max="200" value="100" step="10">
+                    </label>
+                    <div class="more-row">
+                        <span data-i18n="menuLanguage">Јазик</span>
+                        <button class="btn btn-default" id="langToggle" data-stay>EN</button>
+                    </div>
+                    <hr>
+                    <button class="btn" id="boardOnlyBtn" title="Само таблата, без ленти">
+                        <span class="glyph">⛶</span><span data-i18n="menuBoardOnly">Цел екран (само табла)</span>
+                    </button>
+                    <hr>
+                    <button class="btn btn-danger" id="clearBoardBtn" title="Исчисти ја целата табла">
+                        <span class="glyph">🗑</span><span data-i18n="menuClear">Исчисти ја таблата</span>
+                    </button>
+                </div>
+            </div>
+        </div>
 
-                <!-- SELECTION TOOLS (appear when selected) -->
+        <!-- Main canvas area -->
+        <div class="main-area">
+            <div class="canvas-container" id="canvasContainer">
+                <div class="canvas" id="canvas"></div>
+            </div>
+
+            <!-- What belongs to the selected thing: over the board, only while
+                 something is selected, so the board does not jump when it comes. -->
+            <div class="context-bar hidden" id="contextBar">
                 <div class="toolbar-group" id="selectionTools" style="display:none;">
                     <div class="color-palette" id="colorPalette"></div>
                     <button class="btn btn-danger btn-icon" id="deleteBtn" title="Избриши (Del)">
@@ -2979,12 +3186,14 @@
                     </button>
                     <span style="font-size:9px;color:#64748b;flex-shrink:0;">🔅</span>
                     <input type="range" id="elOpacitySlider" min="10" max="100" value="100" title="Проѕирност" style="width:50px;flex-shrink:0;">
+                    <div class="toolbar-divider"></div>
+                    <span style="font-size:11px;color:#94a3b8;flex-shrink:0;">A</span>
+                    <input type="range" id="sizeSlider" min="50" max="200" value="100" disabled title="Големина" style="width:60px;flex-shrink:0;">
+                    <span style="font-size:16px;color:#94a3b8;flex-shrink:0;">A</span>
                 </div>
 
-                <div class="toolbar-divider"></div>
-
-                <!-- TEXTBOX CONTROLS -->
-                <div class="toolbar-group" id="textBoxToolsGroup" style="gap:3px;">
+                <!-- TEXTBOX CONTROLS: while a text box is the selected thing -->
+                <div class="toolbar-group" id="textBoxToolsGroup" style="display:none;gap:3px;">
                     <span style="font-size:9px;color:#64748b;flex-shrink:0;">Fill</span>
                     <input type="color" id="textBoxBgColor" value="#ffffff" title="Позадина" style="width:22px;height:22px;border:1px solid #475569;border-radius:3px;padding:0;cursor:pointer;">
                     <span style="font-size:9px;color:#64748b;flex-shrink:0;">Aa</span>
@@ -3006,50 +3215,10 @@
                         <option value="64">64</option>
                     </select>
                 </div>
-
-                <div class="toolbar-divider"></div>
-
-                <!-- INSERT -->
-                <button class="btn btn-default btn-icon" id="pptBtn" title="Вчитај документ / URL">📎</button>
-                <button class="btn btn-default btn-icon" id="pptToggleBtn" title="Viewer">🪟</button>
-                <button class="btn btn-default btn-icon" id="pasteImageBtn" title="Paste слика (Ctrl+V)" style="font-size:14px;">📋</button>
-                <button class="btn btn-default btn-icon" id="keyboardToggle" title="Тастатура" style="background:#7c3aed;color:white;">
-                    <svg class="icon" viewBox="0 0 24 24"><path d="M20 5H4c-1.1 0-1.99.9-1.99 2L2 17c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm-9 3h2v2h-2V8zm0 3h2v2h-2v-2zM8 8h2v2H8V8zm0 3h2v2H8v-2zm-1 2H5v-2h2v2zm0-3H5V8h2v2zm9 7H8v-2h8v2zm0-4h-2v-2h2v2zm0-3h-2V8h2v2zm3 3h-2v-2h2v2zm0-3h-2V8h2v2z"/></svg>
-                </button>
-                <span id="keyboardToggleText" style="display:none;"></span>
-
-                <div class="toolbar-divider"></div>
-
-                <!-- SNAP -->
-                <button class="btn btn-default btn-icon" id="snapBtn" title="Лепење" style="font-size:10px;">
-                    🧲 <span id="snapStatus">ВКЛ</span>
-                </button>
-
-                <div class="toolbar-divider"></div>
-
-                <!-- SAVE/EXPORT -->
-                <button class="btn btn-success btn-icon" id="saveBtn" title="Зачувај">
-                    <svg class="icon" viewBox="0 0 24 24"><path d="M17 3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V7l-4-4zm-5 16c-1.66 0-3-1.34-3-3s1.34-3 3-3 3 1.34 3 3-1.34 3-3 3zm3-10H5V5h10v4z"/></svg>
-                </button>
-                <button class="btn btn-icon" id="exportPngBtn" title="Експорт PNG" style="background:#0ea5e9;color:white;">
-                    <svg class="icon" viewBox="0 0 24 24"><path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/></svg>
-                </button>
-                <button class="btn btn-icon" id="exportJsonBtn" title="Експорт JSON (резервна копија на таблата)" style="background:#16a34a;color:white;font-weight:800;font-size:11px;">{}</button>
-                <button class="btn btn-icon" id="importJsonBtn" title="Импорт JSON" style="background:#64748b;color:white;font-size:13px;">⤒</button>
-                <input type="file" id="importJsonInput" accept=".json,application/json" style="display:none;">
-
-                <div class="toolbar-divider"></div>
-
-                <button class="btn btn-icon" id="speakBoardBtn" title="Изговори ги буквите (селектирани или цела табла)" style="background:#7c3aed;color:white;font-size:13px;">🔊</button>
-                <button class="btn btn-danger btn-icon" id="clearBoardBtn" title="Исчисти ја целата табла" style="font-size:13px;">🗑</button>
             </div>
-        </div>
 
-        <!-- Main canvas area -->
-        <div class="main-area">
-            <div class="canvas-container" id="canvasContainer">
-                <div class="canvas" id="canvas"></div>
-            </div>
+            <!-- back from „само табла" -->
+            <button class="btn btn-default btn-icon board-only-exit hidden" id="boardOnlyExit" title="Врати ги лентите" aria-label="Врати ги лентите">✕</button>
 
             <!-- Keyboard -->
             <div class="keyboard" id="keyboard">
@@ -3122,7 +3291,18 @@
                 macedonianKeyboard: 'Македонска Тастатура',
                 englishKeyboard: 'Англиска Тастатура',
                 saved: 'Зачувано!',
-                caps: 'Големи'
+                caps: 'Големи',
+                menuSave: 'Зачувај',
+                menuPng: 'Таблата како слика (PNG)',
+                menuBackup: 'Резервна копија (JSON)',
+                menuRestore: 'Вчитај резервна копија',
+                menuDocument: 'Вчитај документ или линк',
+                menuViewer: 'Прозорец за документ',
+                menuSpacing: 'Растојание меѓу букви',
+                menuToolSize: 'Големина на алатките',
+                menuLanguage: 'Јазик',
+                menuBoardOnly: 'Цел екран (само табла)',
+                menuClear: 'Исчисти ја таблата'
             },
             en: {
                 title: 'Cyrillic Whiteboard',
@@ -3135,7 +3315,18 @@
                 macedonianKeyboard: 'Macedonian Keyboard',
                 englishKeyboard: 'English Keyboard',
                 saved: 'Saved!',
-                caps: 'Caps'
+                caps: 'Caps',
+                menuSave: 'Save',
+                menuPng: 'The board as a picture (PNG)',
+                menuBackup: 'Backup copy (JSON)',
+                menuRestore: 'Load a backup copy',
+                menuDocument: 'Load a document or a link',
+                menuViewer: 'Document window',
+                menuSpacing: 'Space between letters',
+                menuToolSize: 'Size of the tools',
+                menuLanguage: 'Language',
+                menuBoardOnly: 'Full screen (board only)',
+                menuClear: 'Clear the board'
             }
         };
 
@@ -3498,6 +3689,20 @@
                 if (bringFrontBtn) bringFrontBtn.disabled = true;
                 if (sendBackBtn) sendBackBtn.disabled = true;
             }
+            syncContextBar();
+        }
+
+        // The floating bar is on screen while it has something to show: the
+        // tools of the selection, or the controls of the active text box
+        // (which says so itself, in setActiveTextBox, through data-on).
+        function syncContextBar() {
+            const bar = document.getElementById('contextBar');
+            const selectionTools = document.getElementById('selectionTools');
+            const textTools = document.getElementById('textBoxToolsGroup');
+            if (!bar || !selectionTools || !textTools) return;
+            const textBox = textTools.dataset.on === '1';
+            textTools.style.display = textBox ? 'flex' : 'none';
+            bar.classList.toggle('hidden', selectionTools.style.display === 'none' && !textBox);
         }
 
         // ============ UNIFIED Z-INDEX LAYERING ============
@@ -5470,18 +5675,58 @@
 
         // ============ TOOLBAR SIZE CONTROL ============
         const tbSizeSlider = document.getElementById('tbSizeSlider');
+        // the row of tools, the floating bar of the selected thing and the way back from „само табла"
+        const setToolbarScale = (scale) => {
+            document.querySelectorAll('.toolbar, .context-bar, .board-only-exit').forEach((el) => el.style.setProperty('--tb-scale', scale));
+        };
         if (tbSizeSlider) {
             const savedScale = localStorage.getItem('wb-tb-scale');
             if (savedScale) {
                 tbSizeSlider.value = savedScale;
-                document.querySelector('.toolbar').style.setProperty('--tb-scale', parseInt(savedScale) / 100);
+                setToolbarScale(parseInt(savedScale) / 100);
             }
             tbSizeSlider.addEventListener('input', (e) => {
                 const scale = parseInt(e.target.value) / 100;
-                document.querySelector('.toolbar').style.setProperty('--tb-scale', scale);
+                setToolbarScale(scale);
                 localStorage.setItem('wb-tb-scale', e.target.value);
             });
         }
+
+        // ============ ⋯ AND „САМО ТАБЛА" ============
+        const tbMoreBtn = document.getElementById('tbMoreBtn');
+        const tbMorePanel = document.getElementById('tbMorePanel');
+        const closeMore = () => {
+            tbMorePanel.classList.add('hidden');
+            tbMoreBtn.setAttribute('aria-expanded', 'false');
+            tbMoreBtn.classList.remove('active');
+        };
+        tbMoreBtn.addEventListener('click', () => {
+            const open = tbMorePanel.classList.contains('hidden');
+            tbMorePanel.classList.toggle('hidden', !open);
+            tbMoreBtn.setAttribute('aria-expanded', String(open));
+            tbMoreBtn.classList.toggle('active', open);
+        });
+        // an action closes the menu; a switch or a slider (data-stay, a range) leaves it open
+        tbMorePanel.addEventListener('click', (e) => {
+            const button = e.target instanceof Element ? e.target.closest('button') : null;
+            if (button && !button.hasAttribute('data-stay')) closeMore();
+        });
+        document.addEventListener('mousedown', (e) => {
+            if (e.target instanceof Element && e.target.closest('.tb-more')) return;
+            closeMore();
+        });
+        document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeMore(); });
+
+        // Only the board: this page's row of tools goes, and the pages this one
+        // is framed in are told, so they take their own rows away as well.
+        const setBoardOnly = (on) => {
+            document.querySelector('.app').classList.toggle('board-only', on);
+            document.getElementById('boardOnlyExit').classList.toggle('hidden', !on);
+            if (window.parent !== window) window.parent.postMessage({ type: 'mtb-chrome', hidden: on }, '*');
+            if (state.keyboardVisible) requestAnimationFrame(() => ensureKeyboardVisible(false));
+        };
+        document.getElementById('boardOnlyBtn').addEventListener('click', () => setBoardOnly(true));
+        document.getElementById('boardOnlyExit').addEventListener('click', () => setBoardOnly(false));
 
         window.addEventListener('resize', () => {
             if (state.keyboardVisible) {
@@ -6007,6 +6252,8 @@
                 }
 
                 activeTextBox = box || null;
+                // its controls are in the floating bar only while a box is active
+                if (textControlsGroup) textControlsGroup.dataset.on = activeTextBox ? '1' : '';
 
                 const selTools = document.getElementById('selectionTools');
                 const bfBtn = document.getElementById('bringFrontBtn');
@@ -6052,6 +6299,7 @@
                     if (selTools) selTools.dataset.tbActive = '';
                     if (typeof updateSelectionTools === 'function') updateSelectionTools();
                 }
+                if (typeof syncContextBar === 'function') syncContextBar();
             }
 
             // Bring to front / send to back for text boxes
@@ -6236,7 +6484,11 @@
                 textBoxBtn.innerHTML = '<svg class="icon" viewBox="0 0 24 24"><path d="M2.5 4v3h5v12h3V7h5V4h-13z"/><rect x="14" y="13" width="9" height="9" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M16.5 18.5h4" stroke="currentColor" stroke-width="1.2"/><path d="M16.5 16.5h4" stroke="currentColor" stroke-width="1.2"/></svg>';
                 textBoxBtn.title = 'Text Box (кутија за текст)';
 
-                if (textControlsGroup) {
+                // In the row of tools, after „Пишување": the group of its controls
+                // is in the floating bar now, hidden until a box is active.
+                if (typeBtn) {
+                    typeBtn.insertAdjacentElement('afterend', textBoxBtn);
+                } else if (textControlsGroup) {
                     textControlsGroup.insertBefore(textBoxBtn, textControlsGroup.firstChild);
                 } else if (toolbarGroup) {
                     toolbarGroup.appendChild(textBoxBtn);
@@ -6254,7 +6506,7 @@
                     }
 
                     if (typeof showToast === 'function') {
-                        showToast(textBoxMode ? 'Text box mode: click canvas to insert' : 'Text box mode off');
+                        showToast(textBoxMode ? 'Кутија за текст: допри на таблата каде да стои' : 'Кутија за текст: исклучено');
                     }
                 });
 
@@ -6264,6 +6516,11 @@
 
                     e.preventDefault();
                     e.stopPropagation();
+                    // …and not to the listener below on this same board, which
+                    // takes a tap on the bare board as „no text box": it used to
+                    // un-choose the box made by this very tap, so its controls
+                    // did nothing until the box was tapped again.
+                    e.stopImmediatePropagation();
 
                     const rect = wbCanvas.getBoundingClientRect();
                     const x = e.clientX - rect.left;
@@ -6478,6 +6735,7 @@
                 if (target.closest('.wb-textbox')) return;
                 if (target.closest('#textBoxToolsGroup')) return;
                 if (target.closest('#selectionTools')) return;
+                if (target.closest('#contextBar')) return;
 
                 // Deselect text box when clicking anything else (including canvas elements)
                 setActiveTextBox(null, false);
@@ -6602,6 +6860,20 @@
             Object.entries(panels).forEach(([name, panel]) => {
                 if (panel) panel.classList.toggle('active', name === target);
             });
+            tellHost();
+        }
+
+        // A page that frames this one may show the two tabs in its own strip
+        // (vezbi/index.html does): it says „mtb-host", this page takes its own
+        // row away and answers with the tabs and the one that is open. Only tabs
+        // and a switch of tab cross here — never anything of the board.
+        function tellHost() {
+            if (!document.body.classList.contains('hosted')) return;
+            window.parent.postMessage({
+                type: 'mtb-tabs',
+                tabs: tabs.map(btn => ({ target: btn.dataset.target, label: btn.textContent })),
+                active: (tabs.find(btn => btn.classList.contains('active')) || {}).dataset?.target || ''
+            }, '*');
         }
 
         tabs.forEach(btn => {
@@ -6636,6 +6908,26 @@
                 url: data.url
             }, '*');
             activateTab('whiteboard');
+        });
+
+        // The rows around the board. The framing page of the same address hosts
+        // the tabs and may switch them; the board asks for the whole window
+        // („само табла"), which this page obeys and passes up.
+        window.addEventListener('message', (event) => {
+            const data = event.data || {};
+            if (embedder && event.source === embedder && sameAddress(event.origin)) {
+                if (data.type === 'mtb-host') {
+                    document.body.classList.add('hosted');
+                    tellHost();
+                } else if (data.type === 'mtb-tab' && panels[data.target]) {
+                    activateTab(data.target);
+                }
+                return;
+            }
+            if (event.source === whiteboardFrame.contentWindow && data.type === 'mtb-chrome') {
+                document.body.classList.toggle('bare', Boolean(data.hidden));
+                if (embedder) embedder.postMessage({ type: 'mtb-chrome', hidden: Boolean(data.hidden) }, '*');
+            }
         });
     </script>
     <script>

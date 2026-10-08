@@ -12,16 +12,45 @@
   * { box-sizing: border-box; }
   html, body { margin: 0; }
   body { background: var(--bg); color: var(--ink); font-family: "Segoe UI", system-ui, -apple-system, Arial, sans-serif; }
-  header { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 18px; padding: 12px 16px; background: var(--card); border-bottom: 1px solid var(--line); position: sticky; top: 0; z-index: 2; }
-  h1 { margin: 0; font-size: 22px; }
-  h1 b { color: var(--target); }
+  /* One row, whatever the screen: what does not fit goes into a menu (fitBar),
+     so the cards keep the window. The letter box, the tile and the key share
+     one size, --u. */
+  body { --u: 44px; }
+  header { display: flex; align-items: center; gap: 6px; padding: 6px 12px; background: var(--card); border-bottom: 1px solid var(--line); position: sticky; top: 0; z-index: 4; white-space: nowrap; }
+  header[data-tight="4"] { flex-wrap: wrap; }
+  header[data-tight="2"] .lbl, header[data-tight="3"] .lbl, header[data-tight="4"] .lbl { display: none; }
   .seg { display: inline-flex; flex-wrap: wrap; gap: 4px; }
   .seg button, .plain { font: inherit; font-size: 14px; font-weight: 600; color: var(--ink); background: var(--box); border: 1px solid var(--line); border-radius: 999px; padding: 6px 14px; min-height: 34px; cursor: pointer; }
-  .seg button[aria-pressed="true"], .plain[aria-pressed="true"] { background: var(--chosen); border-color: var(--chosen); color: var(--on-chosen); }
-  .label { font-size: 12px; color: var(--soft); margin-right: 4px; }
-  .group { display: inline-flex; align-items: center; flex-wrap: wrap; gap: 4px; }
+  .seg button[aria-pressed="true"], .plain[aria-pressed="true"], .plain.on { background: var(--chosen); border-color: var(--chosen); color: var(--on-chosen); }
+  .group { display: inline-flex; align-items: center; gap: 4px; flex: none; }
+  .grow { flex: 1 1 0; min-width: 0; }
+  #view button { display: inline-flex; align-items: center; gap: 6px; }
+  #view svg { flex: none; width: 16px; height: 16px; fill: currentColor; }
   main { padding: 16px; max-width: 1200px; margin: 0 auto; }
   .hint { color: var(--soft); font-size: 14px; margin: 0 0 14px; }
+
+  /* менија во лентата */
+  .menu { position: relative; flex: none; }
+  .opener b { color: var(--target); font-size: 18px; line-height: 1; }
+  .opener::after { content: '▾'; margin-left: 6px; font-size: 11px; color: var(--soft); }
+  .opener.bare { padding: 6px 12px; font-size: 18px; line-height: 1; }
+  .opener.bare::after { content: none; }
+  .pop { display: none; position: absolute; top: calc(100% + 6px); left: 0; z-index: 6; padding: 8px; background: var(--card); border: 1px solid var(--line); border-radius: 14px; box-shadow: 0 10px 30px rgba(20, 30, 50, .18); white-space: nowrap; }
+  .menu.end .pop { left: auto; right: 0; }
+  .menu.open .pop { display: block; }
+  .pop .seg { max-width: min(330px, 100vw - 34px); }
+  #sound { display: grid; grid-template-columns: repeat(7, 40px); }
+  #sound button { padding: 0; height: 40px; }
+  .pop .seg.col, .pop.list { flex-direction: column; flex-wrap: nowrap; align-items: stretch; min-width: 190px; }
+  .menu.open .pop.list { display: flex; gap: 4px; }
+  .pop .seg.col button, .pop.list .plain { text-align: left; border-radius: 10px; }
+  .pop.list hr { width: 100%; margin: 2px 0; border: 0; border-top: 1px solid var(--line); }
+  /* the same buttons in the row itself, while it holds them */
+  .menu.inline .opener { display: none; }
+  .menu.inline .pop { display: block; position: static; padding: 0; border: 0; border-radius: 0; box-shadow: none; background: none; }
+  .menu.inline .pop .seg { flex-direction: row; flex-wrap: nowrap; max-width: none; min-width: 0; }
+  .menu.inline .pop .seg.col button { text-align: center; border-radius: 999px; }
+  .menu.inline + .menu.inline { margin-left: 4px; padding-left: 10px; border-left: 1px solid var(--line); }
 
   /* слогови */
   .syll { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; max-width: 760px; margin: 0 auto; }
@@ -83,11 +112,13 @@
   @keyframes star { 0% { transform: scale(0) rotate(-180deg); } 60% { transform: scale(1.5); } }
 
   /* тастатура, распоред како во ComuniBoard */
-  .keys { position: fixed; left: 50%; bottom: 8px; transform: translateX(-50%); z-index: 3; --k: min(46px, (100vw - 72px) / 12); padding: 8px; background: rgba(15, 23, 42, .95); border-radius: 12px; box-shadow: 0 8px 32px rgba(0, 0, 0, .4); user-select: none; }
+  /* a key is the size of a letter box, so a dragged key lands in the box as the
+     same shape; only a screen too narrow for twelve of them makes it smaller */
+  .keys { position: fixed; left: 50%; bottom: 8px; transform: translateX(-50%); z-index: 3; --k: min(var(--u), (100vw - 76px) / 12); padding: 8px; background: rgba(15, 23, 42, .95); border-radius: 12px; box-shadow: 0 8px 32px rgba(0, 0, 0, .4); user-select: none; }
   .keys[hidden] { display: none; }
   .keys div { display: flex; justify-content: center; gap: 4px; }
   .keys div + div { margin-top: 4px; }
-  .key { font: inherit; font-size: clamp(19px, calc(var(--k) * .6), 26px); font-weight: 700; color: #f1f5f9; background: #334155; border: 0; border-radius: 6px; width: var(--k); height: max(42px, var(--k)); padding: 0; cursor: grab; touch-action: none; position: relative; }
+  .key { font: inherit; font-size: max(19px, calc(var(--k) * .7)); font-weight: 700; color: #f1f5f9; background: #334155; border: 0; border-radius: 8px; width: var(--k); height: max(42px, calc(var(--k) * 1.2)); padding: 0; cursor: grab; touch-action: none; position: relative; }
   .key.shut { background: transparent; color: #94a3b8; cursor: pointer; margin-left: var(--k); }
 
   /* глас */
@@ -107,20 +138,52 @@
   #pk-out img { display: block; width: 100%; aspect-ratio: 1; object-fit: contain; }
 
   /* една по една */
-  .one { display: grid; grid-template-columns: auto minmax(0, 520px) auto; align-items: center; justify-content: center; gap: 12px; }
-  .one .card { padding: 22px; }
-  .one .pics img, .one .ph { flex-basis: 380px; }
-  .one .ltr { width: 76px; height: 90px; font-size: 60px; }
-  .one .dash { font-size: 50px; }
-  .one .tile { width: 76px; height: 90px; font-size: 60px; }
+  /* The card takes the window (body.fit): the picture gets what the bar, the
+     boxes and the keyboard leave, so picture, boxes and 🔊 are in sight on a
+     low screen too, and nothing scrolls. --u follows the window's height. */
+  body.fit { --u: clamp(40px, calc((100vh - 260px) / 9), 76px); height: 100vh; height: 100dvh; display: flex; flex-direction: column; overflow: hidden; }
+  body.fit.focus { --u: clamp(40px, calc((100vh - 170px) / 9), 80px); }
+  body.fit #vezbi { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+  body.fit main { flex: 1; min-height: 0; width: 100%; display: flex; flex-direction: column; padding: 10px 12px 4px; overflow: auto; }
+  body.fit .hint, body.fit .note { margin-bottom: 8px; }
+  body.fit #out { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+  body.fit footer { padding: 0 12px 6px; font-size: 11px; text-align: center; }
+  .one { flex: 1 1 0; min-height: 250px; display: grid; grid-template-columns: auto minmax(0, 640px) auto; grid-template-rows: minmax(0, 1fr) auto; grid-template-areas: "prev card next" ". count ."; align-items: center; justify-content: center; gap: 6px 12px; }
+  .one .card { grid-area: card; height: 100%; min-height: 0; padding: 14px 18px; gap: 10px; }
+  .nav.prev { grid-area: prev; }
+  .nav.next { grid-area: next; }
+  .one .pic { flex: 1; min-height: 0; gap: 10px; }
+  .one .pics { flex: 1; min-height: 0; align-items: stretch; }
+  .one .pics img, .one .ph { flex: 0 1 auto; }
+  .one .word { min-height: calc(var(--u) * 1.2); }
+  .one .ltr, .one .tile { width: var(--u); height: calc(var(--u) * 1.2); font-size: calc(var(--u) * .8); }
+  .one .dash { font-size: calc(var(--u) * .66); }
+  .one .word.long .ltr { font-size: calc(var(--u) * .55); }
+  .one .sent .ltr { width: calc(var(--u) * .7); height: calc(var(--u) * .9); font-size: calc(var(--u) * .56); }
+  .one .sent .dash { font-size: calc(var(--u) * .56); }
+  .one .gap { width: calc(var(--u) * 2.2); height: calc(var(--u) * .9); }
+  /* 🔊 alone sits in the card's corner and takes no row of its own */
+  .one .tools:not(.edit) { position: absolute; top: 10px; left: 10px; }
+  .one .tools:not(.edit) .plain { width: 46px; height: 46px; padding: 0; font-size: 20px; }
   .nav { font: inherit; font-size: 34px; width: 60px; height: 60px; border-radius: 50%; border: 1px solid var(--line); background: var(--card); color: var(--ink); cursor: pointer; }
-  .count { text-align: center; color: var(--soft); margin-top: 10px; font-size: 14px; }
+  .count { grid-area: count; display: flex; align-items: center; justify-content: center; gap: 12px; color: var(--soft); font-size: 14px; }
+
+  /* цел екран: само картичките */
+  body.focus .apps, body.focus header { display: none; }
+  #unfocus { position: fixed; top: 8px; right: 8px; z-index: 4; width: 40px; padding: 0; opacity: .75; }
 
   /* делови: јазичиња горе, и почетна со плочки како Контролната табла на MTB */
   [hidden] { display: none !important; }
-  .apps { display: flex; gap: 4px; padding: 8px 16px; background: #1b2a4e; overflow-x: auto; }
-  .apps button { flex: none; font: inherit; font-size: 14px; font-weight: 600; color: #dce4f7; background: transparent; border: 0; border-radius: 999px; padding: 6px 14px; min-height: 34px; cursor: pointer; }
+  .apps { display: flex; gap: 4px; padding: 4px 12px; background: #1b2a4e; overflow-x: auto; }
+  .apps button { flex: none; font: inherit; font-size: 13px; font-weight: 600; color: #dce4f7; background: transparent; border: 0; border-radius: 999px; padding: 4px 12px; min-height: 28px; cursor: pointer; }
+  @media (pointer: coarse) { .apps button { min-height: 34px; } }
   .apps button[aria-pressed="true"] { background: #ffffff; color: #1b2a4e; }
+  /* the tabs of the tool in the frame, shown here so the tool needs no row of its own */
+  .apps .sub { display: inline-flex; align-items: center; gap: 4px; margin: 0 6px 0 2px; padding-left: 8px; border-left: 1px solid rgba(220, 228, 247, .35); }
+  .apps .sub button { border: 1px solid rgba(220, 228, 247, .35); }
+  .apps .sub button[aria-pressed="true"] { background: #c7d2fe; border-color: #c7d2fe; color: #1b2a4e; }
+  /* a tool in a frame asked for the whole window */
+  body.bare .apps { display: none; }
   .apps button:focus-visible { outline-color: #ffffff; }
   .home { padding: 28px 16px 40px; background: linear-gradient(135deg, #dce8fb, #ece7fa 50%, #d3f0e4); min-height: calc(100vh - 110px); }
   .home > * { max-width: 1060px; margin-left: auto; margin-right: auto; }
@@ -145,23 +208,16 @@
 
   @media (max-width: 560px) {
     header { position: static; }
-    /* 26 sounds and up to a dozen groups: one row each, scrolled sideways */
-    #sound, #stage { flex-wrap: nowrap; overflow-x: auto; max-width: calc(100vw - 32px); }
-    #sound button, #stage button { flex: none; }
-    .one { grid-template-columns: 1fr 1fr; }
-    .one .card { grid-column: 1 / -1; order: -1; }
-    .nav { justify-self: center; }
-    .one .ltr, .one .tile { width: 54px; height: 66px; font-size: 42px; }
-    .one .sent .ltr { width: 30px; height: 42px; font-size: 24px; }
-    .one .sent .dash { font-size: 24px; }
-    .one .word.long .ltr { font-size: 26px; }
-    .one .gap { width: 96px; height: 42px; }
+    /* the arrows go under the card, beside the count; the card keeps the whole width */
+    .one { grid-template-columns: auto minmax(0, 1fr) auto; grid-template-areas: "card card card" "prev count next"; }
+    .one .card { padding: 12px; }
+    .nav { width: 44px; height: 44px; font-size: 26px; }
   }
 
   @media print {
     @page { size: A4; margin: 12mm; }
     body { background: #fff; }
-    header, .hint, .note, .nav, .count, .tray, .tools, .keys, .star, .apps { display: none !important; }
+    header, .hint, .note, .nav, .count, .tray, .tools, .keys, .star, .apps, #unfocus { display: none !important; }
     body { padding-bottom: 0 !important; }
     .ltr.aim { box-shadow: none; }
     .ltr.empty.faint { color: transparent; }
@@ -191,30 +247,43 @@
 <iframe class="frame" id="crtanje" title="WBACC Studio" hidden></iframe>
 
 <div id="vezbi" hidden>
-<header>
-  <h1>Глас <b id="letter"></b></h1>
-  <div class="group"><div class="seg" id="sound"></div></div>
-  <div class="group"><span class="label">Вежба</span>
-    <div class="seg" id="stage"></div>
+<header id="bar" aria-label="Вежба">
+  <div class="menu" id="m-sound">
+    <button class="plain opener" title="Глас" aria-haspopup="true" aria-expanded="false"><span class="lbl">Глас </span><b id="letter"></b></button>
+    <div class="pop"><div class="seg" id="sound"></div></div>
   </div>
-  <div class="group"><span class="label">Помош</span>
-    <div class="seg" id="step">
+  <div class="menu" id="m-stage">
+    <button class="plain opener" title="Вежба" aria-haspopup="true" aria-expanded="false"><span id="stage-now"></span></button>
+    <div class="pop"><div class="seg" id="stage"></div></div>
+  </div>
+  <div class="menu" id="m-step">
+    <button class="plain opener" title="Помош" aria-haspopup="true" aria-expanded="false"><span id="step-now"></span></button>
+    <div class="pop"><div class="seg col" id="step">
       <button data-v="0">Цел збор</button>
       <button data-v="1">Без П</button>
       <button data-v="2">Само цртички</button>
       <button data-v="3">Само слика</button>
-    </div>
+    </div></div>
   </div>
+  <span class="grow"></span>
   <div class="group">
     <div class="seg" id="view">
-      <button data-v="grid">Сите заедно</button>
-      <button data-v="one">Една по една</button>
+      <button data-v="grid" title="Сите заедно" aria-label="Сите заедно"><svg viewBox="0 0 16 16" aria-hidden="true"><rect x="1" y="1" width="6" height="6" rx="1.5"/><rect x="9" y="1" width="6" height="6" rx="1.5"/><rect x="1" y="9" width="6" height="6" rx="1.5"/><rect x="9" y="9" width="6" height="6" rx="1.5"/></svg><span class="lbl">Сите заедно</span></button>
+      <button data-v="one" title="Една по една" aria-label="Една по една"><svg viewBox="0 0 16 16" aria-hidden="true"><rect x="3" y="1" width="10" height="14" rx="2"/></svg><span class="lbl">Една по една</span></button>
     </div>
-    <button class="plain" id="kb" aria-pressed="false">⌨ Тастатура</button>
-    <button class="plain" id="shuffle">🔀 Измешај</button>
-    <button class="plain" id="print">🖨 Работен лист</button>
-    <button class="plain" id="edit" aria-pressed="false">✏️ Уреди</button>
-    <button class="plain" id="export">⬇ Извези</button>
+    <button class="plain" id="kb" title="Тастатура" aria-label="Тастатура" aria-pressed="false">⌨<span class="lbl"> Тастатура</span></button>
+  </div>
+  <div class="menu end" id="m-more">
+    <button class="plain opener bare" id="more" title="Повеќе" aria-label="Повеќе" aria-haspopup="true" aria-expanded="false">⋯</button>
+    <div class="pop list">
+      <button class="plain" id="shuffle">🔀 Измешај</button>
+      <button class="plain" id="full">⛶ Цел екран</button>
+      <button class="plain" id="tips" aria-pressed="false">💡 Упатство</button>
+      <button class="plain" id="print">🖨 Работен лист</button>
+      <hr>
+      <button class="plain" id="edit" aria-pressed="false">✏️ Уреди</button>
+      <button class="plain" id="export">⬇ Извези</button>
+    </div>
   </div>
 </header>
 
@@ -227,6 +296,7 @@
 </div>
 
 <div class="keys" id="keys" hidden></div>
+<button class="plain" id="unfocus" title="Излези од цел екран" aria-label="Излези од цел екран" hidden>✕</button>
 
 <dialog id="picker">
   <div class="pk-head"><strong id="pk-title"></strong><button class="plain" id="pk-close">✕ Затвори</button></div>
@@ -281,8 +351,10 @@ const KEYS = ['љњертѕуиопшѓ', 'асдфгхјклчќ', 'зжџцв�
 let TARGET, SYLLABLES, WORDS, SENTENCES, IMG;
 // Per card (by its index in the list): `own` step, `filled` box positions,
 // `tiles` offered, `used` tile numbers, `miss` wrong tries per box. `sel` is
-// the box chosen by a tap, `kb` the keyboard instead of the tiles.
-const state = { app: 'home', sound: 0, stage: 'syll', step: 0, view: 'grid', order: [], at: 0, own: {}, done: {}, filled: {}, tiles: {}, used: {}, miss: {}, sel: null, kb: false, flash: -1, edit: false };
+// the box chosen by a tap, `kb` the keyboard instead of the tiles. `zoomed`:
+// the one card on screen was opened from „Сите заедно"; `focus`: only the
+// cards, no bar; `tips`: the line of instructions, off on a low or narrow screen.
+const state = { app: 'home', sound: 0, stage: 'syll', step: 0, view: 'grid', order: [], at: 0, own: {}, done: {}, filled: {}, tiles: {}, used: {}, miss: {}, sel: null, kb: false, flash: -1, edit: false, zoomed: false, focus: false, tips: window.innerHeight >= 760 && window.innerWidth >= 700 };
 const $ = (id) => document.getElementById(id);
 const out = $('out');
 
@@ -548,7 +620,7 @@ function keyboard() {
 
 function tools(i, text) {
   const box = document.createElement('div');
-  box.className = 'tools';
+  box.className = 'tools' + (state.edit ? ' edit' : '');
   const add = (label, name, run, cls) => {
     const b = document.createElement('button');
     b.className = 'plain' + (cls ? ' ' + cls : '');
@@ -584,7 +656,7 @@ function card(i) {
   if (state.flash === i) state.flash = -1;
   const pic = document.createElement('button');
   pic.className = 'pic';
-  pic.setAttribute('aria-label', 'Слика ' + (state.order.indexOf(i) + 1) + ' — следен чекор');
+  pic.setAttribute('aria-label', 'Слика ' + (state.order.indexOf(i) + 1) + (opensBig() ? ' — отвори ја голема' : ' — следен чекор'));
   const pics = document.createElement('span');
   pics.className = 'pics';
   for (const key of keysOf(item)) {
@@ -596,10 +668,12 @@ function card(i) {
   pic.append(pics, letters(item.w || item.s, step, filled, sentences()));
   const miss = state.miss[i] || {};
   for (const b of pic.querySelectorAll('.drop')) if (miss[b.dataset.pos] >= 2) b.classList.add('faint');
-  // a tap on an empty box chooses it for the next letter; anywhere else is the next step
+  // a tap on an empty box chooses it for the next letter; anywhere else is the
+  // next step — or, among all the cards with the keyboard on, this card big
   pic.addEventListener('click', (e) => {
     const box = e.target.closest('.drop');
     if (box) { state.sel = { i, pos: Number(box.dataset.pos) }; mark(); return; }
+    if (opensBig()) return zoom(i);
     state.own[i] = (step + 1) % 4;
     wipe(i);
     draw();
@@ -615,6 +689,19 @@ function card(i) {
     el.appendChild(star);
   }
   return el;
+}
+
+// With the keyboard on, one keyboard serves every card of „Сите заедно", and
+// the cards are small beside it: a tap on a picture opens that card big. It is
+// a step in the browser's history, so Back returns to all of them.
+const opensBig = () => state.kb && state.view === 'grid';
+
+function zoom(i) {
+  state.view = 'one';
+  state.at = Math.max(0, shown().indexOf(i));
+  state.zoomed = true;
+  history.pushState({ zoom: true }, '');
+  draw();
 }
 
 function mix(o) {
@@ -856,7 +943,12 @@ const APPS = [
 function go(app) {
   if (!APPS.some((a) => a.key === app)) app = 'home';
   state.app = app;
-  for (const b of $('apps').children) b.setAttribute('aria-pressed', String(b.dataset.v === app));
+  if (app !== 'vezbi') state.focus = false;
+  document.body.classList.remove('bare');
+  for (const b of $('apps').children) {
+    if (b.dataset.v) b.setAttribute('aria-pressed', String(b.dataset.v === app));
+    else b.hidden = b.dataset.of !== app || !b.children.length;
+  }
   $('home').hidden = app !== 'home';
   $('vezbi').hidden = app !== 'vezbi';
   for (const a of APPS) {
@@ -909,9 +1001,47 @@ function parts() {
     }
     el.addEventListener('click', () => openApp(a.key));
     $('tiles').appendChild(el);
-    if (a.src) $(a.key).addEventListener('load', () => { $(a.key).dataset.ready = '1'; });
+    if (!a.src) continue;
+    // The tool's own tabs come to this strip (see `hosted`); its place is kept
+    // after the tool's tab, empty until the tool answers.
+    const sub = document.createElement('span');
+    sub.className = 'sub';
+    sub.dataset.of = a.key;
+    sub.hidden = true;
+    $('apps').appendChild(sub);
+    $(a.key).addEventListener('load', () => {
+      $(a.key).dataset.ready = '1';
+      $(a.key).contentWindow.postMessage({ type: 'mtb-host' }, '*');
+    });
   }
   window.addEventListener('hashchange', () => go(location.hash.slice(1)));
+  window.addEventListener('message', hosted);
+}
+
+// A tool in a frame that has tabs of its own (ComuniBoard: „Картички",
+// „Кирилична Табла") is told at load that this page will show them. It takes
+// its own row away and answers with the tabs and the open one; a tap here
+// sends the choice back. It may also ask for the whole window („само табла"),
+// and then this strip goes too until the tool gives it back.
+function hosted(e) {
+  const a = APPS.find((x) => x.src && $(x.key).contentWindow === e.source);
+  const data = e.data || {};
+  if (!a) return;
+  if (data.type === 'mtb-chrome') {
+    document.body.classList.toggle('bare', Boolean(data.hidden) && state.app === a.key);
+    return;
+  }
+  if (data.type !== 'mtb-tabs' || !Array.isArray(data.tabs)) return;
+  const sub = $('apps').querySelector('.sub[data-of="' + a.key + '"]');
+  sub.textContent = '';
+  for (const t of data.tabs.slice(0, 6)) {
+    const b = document.createElement('button');
+    b.textContent = String(t.label || '').slice(0, 40);
+    b.setAttribute('aria-pressed', String(t.target === data.active));
+    b.addEventListener('click', () => e.source.postMessage({ type: 'mtb-tab', target: t.target }, '*'));
+    sub.appendChild(b);
+  }
+  sub.hidden = state.app !== a.key || !sub.children.length;
 }
 
 // The card as a picture, handed to ComuniBoard in its frame, which puts it on
@@ -1013,23 +1143,90 @@ function draw() {
     : ['Цел збор', 'Без ' + upper(), 'Само цртички', 'Само слика'];
   [...$('step').children].forEach((b, k) => { b.textContent = names[k]; });
   const words = state.stage !== 'syll';
-  $('view').parentElement.style.display = words ? '' : 'none';
+  // kept in the row while out of use, so the bar does not fold as the words come on
+  $('view').parentElement.style.visibility = words ? '' : 'hidden';
   $('step').lastElementChild.style.display = words ? '' : 'none';
   $('edit').setAttribute('aria-pressed', String(state.edit));
   $('kb').setAttribute('aria-pressed', String(state.kb));
+  $('tips').setAttribute('aria-pressed', String(state.tips));
   $('export').style.display = state.edit ? '' : 'none';
+  // what a closed menu says: the choice made in it; ⋯ is lit while „Уреди" is on
+  const at = $('stage').querySelector('[aria-pressed="true"]');
+  $('stage-now').textContent = at ? at.getAttribute('aria-label') || at.textContent : '';
+  $('step-now').textContent = names[words ? state.step : Math.min(state.step, 2)];
+  $('more').classList.toggle('on', state.edit);
+  $('hint').hidden = !state.tips;
+  const fit = state.app === 'vezbi' && words && state.view === 'one';
+  document.body.classList.toggle('fit', fit);
+  document.body.classList.toggle('focus', state.focus && state.app === 'vezbi');
+  $('unfocus').hidden = !(state.focus && state.app === 'vezbi');
+  fitBar();
   out.textContent = '';
   cards(words, names);
 
   // the keyboard only while there is a box to fill; the page ends above it
   $('keys').hidden = !(state.app === 'vezbi' && words && state.kb && out.querySelector('.drop'));
-  document.body.style.paddingBottom = $('keys').hidden ? '' : $('keys').offsetHeight + 24 + 'px';
+  document.body.style.paddingBottom = $('keys').hidden ? '' : $('keys').offsetHeight + (fit ? 14 : 24) + 'px';
   mark();
-  const box = !$('keys').hidden && out.querySelector('.aim');
+  // among all the cards the chosen box may lie under the keyboard; one card fits above it
+  const box = !fit && !$('keys').hidden && out.querySelector('.aim');
   if (box) {
     const under = box.getBoundingClientRect().bottom + 12 - $('keys').getBoundingClientRect().top;
     if (under > 0) window.scrollBy(0, under);
   }
+}
+
+// As much of the bar in its one row as the row holds. What does not fit goes
+// away in this order: the groups into a menu, the words of the buttons, the
+// steps into a menu; a phone gets a second row.
+function fitBar() {
+  const bar = $('bar');
+  for (let tight = 0; tight <= 4; tight++) {
+    bar.dataset.tight = tight;
+    $('m-stage').classList.toggle('inline', tight < 1);
+    $('m-step').classList.toggle('inline', tight < 3);
+    if (bar.scrollWidth <= bar.clientWidth) break;
+  }
+}
+
+function shut() {
+  for (const m of document.querySelectorAll('.menu.open')) {
+    m.classList.remove('open');
+    m.querySelector('.opener').setAttribute('aria-expanded', 'false');
+  }
+}
+
+function menus() {
+  for (const m of document.querySelectorAll('.menu')) {
+    const opener = m.querySelector('.opener'), pop = m.querySelector('.pop');
+    opener.addEventListener('click', () => {
+      const was = m.classList.contains('open');
+      shut();
+      if (was) return;
+      m.classList.add('open');
+      opener.setAttribute('aria-expanded', 'true');
+      // kept inside the window, whichever end of the bar it hangs from
+      pop.style.transform = '';
+      const r = pop.getBoundingClientRect();
+      const by = Math.max(8 - r.left, Math.min(0, window.innerWidth - 8 - r.right));
+      if (by) pop.style.transform = 'translateX(' + by + 'px)';
+    });
+    // a choice closes its menu
+    pop.addEventListener('click', (e) => { if (e.target.closest('button')) shut(); });
+  }
+  document.addEventListener('pointerdown', (e) => { if (!e.target.closest('.menu')) shut(); });
+  window.addEventListener('resize', () => { if (state.app !== 'vezbi') return; shut(); fitBar(); });
+}
+
+// Only the cards: the strip of parts and the bar give their rows to the
+// picture. The browser's own full screen is asked for and is not needed.
+function cardsOnly(on) {
+  state.focus = on;
+  try {
+    if (on && document.documentElement.requestFullscreen) document.documentElement.requestFullscreen().catch(() => {});
+    else if (!on && document.fullscreenElement) document.exitFullscreen();
+  } catch (e) {}
+  draw();
 }
 
 function cards(words, names) {
@@ -1049,10 +1246,12 @@ function cards(words, names) {
   }
 
   const from = state.kb ? 'од тастатурата' : 'од плочките';
+  const tap = opensBig() ? 'Допри ја сликата за да ја отвориш картичката голема.' : 'Допри ја сликата за следниот чекор.';
   $('hint').textContent = state.step === 1
-    ? 'Повлечи ја буквата што недостига ' + from + ' во празната кутија. 🔊 го кажува текстот; допри ја сликата за следниот чекор.'
+    ? 'Повлечи ја буквата што недостига ' + from + ' во празната кутија. 🔊 го кажува текстот. ' + tap
     : state.step === 2 && !sentences()
-    ? 'Состави го зборот: повлечи ги буквите ' + from + ' во кутиите, или допри кутија па буква. По две грешки буквата се покажува бледо. Допри ја сликата за следниот чекор.'
+    ? 'Состави го зборот: повлечи ги буквите ' + from + ' во кутиите, или допри кутија па буква. По две грешки буквата се покажува бледо. ' + tap
+    : opensBig() ? tap + ' 🔊 го кажува текстот.'
     : 'Допри ја сликата за следниот чекор само за неа: ' + names.join(' → ').toLowerCase().replace(' ' + TARGET + ' ', ' ' + upper() + ' ') + '. 🔊 го кажува текстот.';
   const now = shown();
   if (state.view === 'grid') {
@@ -1067,7 +1266,7 @@ function cards(words, names) {
   one.className = 'one';
   const nav = (text, by, name) => {
     const b = document.createElement('button');
-    b.className = 'nav'; b.textContent = text; b.setAttribute('aria-label', name);
+    b.className = 'nav ' + (by < 0 ? 'prev' : 'next'); b.textContent = text; b.setAttribute('aria-label', name);
     b.disabled = now.length < 2;
     b.addEventListener('click', () => move(by));
     return b;
@@ -1075,8 +1274,16 @@ function cards(words, names) {
   one.append(nav('‹', -1, 'Претходна'), card(now[state.at]), nav('›', 1, 'Следна'));
   const count = document.createElement('div');
   count.className = 'count';
-  count.textContent = (state.at + 1) + ' од ' + now.length;
-  out.append(one, count);
+  if (state.zoomed) {
+    const back = document.createElement('button');
+    back.className = 'plain';
+    back.textContent = '← Сите заедно';
+    back.addEventListener('click', () => history.back());
+    count.appendChild(back);
+  }
+  count.append((state.at + 1) + ' од ' + now.length);
+  one.appendChild(count);
+  out.appendChild(one);
 }
 
 function move(by) {
@@ -1093,10 +1300,30 @@ function stage(v) {
   if (was !== sentences()) fresh();
 }
 
-$('sound').addEventListener('click', (e) => { const v = e.target.dataset.v; if (v === undefined) return; note(''); pick(Number(v)); draw(); });
-$('stage').addEventListener('click', (e) => { const v = e.target.dataset.v; if (v === undefined) return; stage(v); note(''); draw(); });
-$('step').addEventListener('click', (e) => { const v = e.target.dataset.v; if (v === undefined) return; state.step = Number(v); state.own = {}; wipe(); draw(); });
-$('view').addEventListener('click', (e) => { const v = e.target.dataset.v; if (v === undefined) return; state.view = v; draw(); });
+// the button's value, wherever in the button the tap fell (a picture, a word)
+const chosen = (e) => { const b = e.target.closest('button'); return b ? b.dataset.v : undefined; };
+$('sound').addEventListener('click', (e) => { const v = chosen(e); if (v === undefined) return; note(''); pick(Number(v)); draw(); });
+$('stage').addEventListener('click', (e) => { const v = chosen(e); if (v === undefined) return; stage(v); note(''); draw(); });
+$('step').addEventListener('click', (e) => { const v = chosen(e); if (v === undefined) return; state.step = Number(v); state.own = {}; wipe(); draw(); });
+$('view').addEventListener('click', (e) => {
+  const v = chosen(e);
+  if (v === undefined) return;
+  // back from a card opened big is the same step back as the browser's
+  if (state.zoomed && v === 'grid') return history.back();
+  state.view = v;
+  draw();
+});
+window.addEventListener('popstate', (e) => {
+  const zoomed = Boolean(e.state && e.state.zoom);
+  if (zoomed === state.zoomed) return;
+  state.zoomed = zoomed;
+  state.view = zoomed ? 'one' : 'grid';
+  draw();
+});
+$('tips').addEventListener('click', () => { state.tips = !state.tips; draw(); });
+$('full').addEventListener('click', () => cardsOnly(true));
+$('unfocus').addEventListener('click', () => cardsOnly(false));
+document.addEventListener('fullscreenchange', () => { if (!document.fullscreenElement && state.focus) cardsOnly(false); });
 $('shuffle').addEventListener('click', () => {
   if (state.stage === 'syll') stage('0');
   mix(state.order);
@@ -1122,6 +1349,10 @@ $('print').addEventListener('click', () => {
 });
 document.addEventListener('keydown', (e) => {
   if (state.app !== 'vezbi') return;
+  if (e.key === 'Escape') {
+    if (document.querySelector('.menu.open')) return shut();
+    if (state.focus) return cardsOnly(false);
+  }
   // with the keyboard on screen, the same letter typed on the real one presses its key
   if (!$('keys').hidden && !$('picker').open && !e.ctrlKey && !e.altKey && !e.metaKey) {
     const key = [...$('keys').querySelectorAll('[data-ch]')].find((k) => k.dataset.ch === e.key.toLowerCase());
@@ -1134,6 +1365,7 @@ document.addEventListener('keydown', (e) => {
 });
 
 parts();
+menus();
 if (!GLASOVI.length) {
   $('hint').textContent = 'Недостига папката „glasovi". Копирај ја заедно со index.html, во иста папка.';
   go(location.hash.slice(1));
