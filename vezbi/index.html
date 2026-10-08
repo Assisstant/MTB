@@ -63,13 +63,32 @@
   @keyframes pop { 40% { transform: scale(1.25); } }
 
   /* букви за влечење */
-  .tray { display: flex; justify-content: center; gap: 10px; }
-  .tray.spent { visibility: hidden; }
+  .tray { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
+  .tray.spent, .tile.gone { visibility: hidden; }
   .tile { font: inherit; font-size: 34px; font-weight: 700; color: var(--ink); background: #fff8e1; border: 2px solid #e0b84a; border-radius: 10px; width: 48px; height: 56px; padding: 0; cursor: grab; touch-action: none; position: relative; box-shadow: 0 2px 0 #e0b84a; }
-  .tile.lift { z-index: 5; cursor: grabbing; box-shadow: 0 8px 16px rgba(0, 0, 0, .25); }
-  .tile.back { transition: transform .2s; }
+  .tile.lift, .key.lift { z-index: 5; cursor: grabbing; box-shadow: 0 8px 16px rgba(0, 0, 0, .25); }
+  .tile.back, .key.back { transition: transform .2s; }
   .tile.no { animation: no .35s; border-color: var(--target); }
+  .key.no { animation: no .35s; background: var(--target); }
   @keyframes no { 25% { transform: translateX(-6px); } 75% { transform: translateX(6px); } }
+  /* the box a tapped letter goes to; after two wrong tries its letter shows faintly */
+  .ltr.aim { box-shadow: 0 0 0 3px var(--chosen); }
+  .ltr.empty.faint { color: #b3bcc7; }
+  .drop { cursor: pointer; }
+
+  /* ѕвезда за составен збор */
+  .card { position: relative; }
+  .star { position: absolute; top: 8px; right: 10px; font-size: 32px; line-height: 1; pointer-events: none; }
+  .card.pop .star { animation: star .7s; }
+  @keyframes star { 0% { transform: scale(0) rotate(-180deg); } 60% { transform: scale(1.5); } }
+
+  /* тастатура, распоред како во ComuniBoard */
+  .keys { position: fixed; left: 50%; bottom: 8px; transform: translateX(-50%); z-index: 3; --k: min(46px, (100vw - 72px) / 12); padding: 8px; background: rgba(15, 23, 42, .95); border-radius: 12px; box-shadow: 0 8px 32px rgba(0, 0, 0, .4); user-select: none; }
+  .keys[hidden] { display: none; }
+  .keys div { display: flex; justify-content: center; gap: 4px; }
+  .keys div + div { margin-top: 4px; }
+  .key { font: inherit; font-size: clamp(19px, calc(var(--k) * .6), 26px); font-weight: 700; color: #f1f5f9; background: #334155; border: 0; border-radius: 6px; width: var(--k); height: max(42px, var(--k)); padding: 0; cursor: grab; touch-action: none; position: relative; }
+  .key.shut { background: transparent; color: #94a3b8; cursor: pointer; margin-left: var(--k); }
 
   /* глас */
   .tools { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; }
@@ -97,6 +116,30 @@
   .nav { font: inherit; font-size: 34px; width: 60px; height: 60px; border-radius: 50%; border: 1px solid var(--line); background: var(--card); color: var(--ink); cursor: pointer; }
   .count { text-align: center; color: var(--soft); margin-top: 10px; font-size: 14px; }
 
+  /* делови: јазичиња горе, и почетна со плочки како Контролната табла на MTB */
+  [hidden] { display: none !important; }
+  .apps { display: flex; gap: 4px; padding: 8px 16px; background: #1b2a4e; overflow-x: auto; }
+  .apps button { flex: none; font: inherit; font-size: 14px; font-weight: 600; color: #dce4f7; background: transparent; border: 0; border-radius: 999px; padding: 6px 14px; min-height: 34px; cursor: pointer; }
+  .apps button[aria-pressed="true"] { background: #ffffff; color: #1b2a4e; }
+  .apps button:focus-visible { outline-color: #ffffff; }
+  .home { padding: 28px 16px 40px; background: linear-gradient(135deg, #dce8fb, #ece7fa 50%, #d3f0e4); min-height: calc(100vh - 110px); }
+  .home > * { max-width: 1060px; margin-left: auto; margin-right: auto; }
+  .home h2 { font-size: clamp(24px, 5vw, 32px); color: #2563d9; margin-top: 0; margin-bottom: 6px; }
+  .home-sub { color: #56627f; margin-top: 0; margin-bottom: 22px; }
+  .tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 18px; }
+  .app { --c: #2f6fe4; font: inherit; text-align: left; color: #3b4663; background: rgba(255, 255, 255, .93); border: 1px solid rgba(47, 111, 228, .09); border-radius: 18px; padding: 0 0 16px; overflow: hidden; cursor: pointer; display: flex; flex-direction: column; box-shadow: 0 6px 18px rgba(42, 74, 143, .10); transition: box-shadow .15s, transform .15s; }
+  .app:hover { box-shadow: 0 10px 26px rgba(42, 74, 143, .22); transform: translateY(-2px); }
+  .app img { display: block; width: 100%; aspect-ratio: 16 / 10; object-fit: cover; object-position: top left; background: var(--box); border-bottom: 1px solid var(--line); }
+  .app-head { display: flex; align-items: center; gap: 12px; padding: 14px 16px 0; }
+  .chip { flex: none; width: 48px; height: 48px; border-radius: 14px; display: grid; place-items: center; font-size: 24px; background: var(--c); }
+  .app-name { font-size: 19px; font-weight: 700; color: #1b2a4e; }
+  .app-text { display: block; margin: 10px 16px 0; font-size: 14px; line-height: 1.45; }
+  .app-when { display: block; margin: 12px 16px 0; padding: 7px 12px; border-radius: 10px; font-size: 13px; font-weight: 600; color: #33405e; background: color-mix(in srgb, var(--c) 10%, #ffffff); }
+  /* another app in a frame takes the rest of the window */
+  body.framed { display: flex; flex-direction: column; height: 100vh; height: 100dvh; }
+  .frame { flex: 1; width: 100%; border: 0; background: #ffffff; }
+  body.framed footer { display: none; }
+
   footer { max-width: 1200px; margin: 0 auto; padding: 8px 16px 24px; color: var(--soft); font-size: 12px; }
   .sheet-head { display: none; }
 
@@ -118,7 +161,10 @@
   @media print {
     @page { size: A4; margin: 12mm; }
     body { background: #fff; }
-    header, .hint, .note, .nav, .count, .tray, .tools { display: none !important; }
+    header, .hint, .note, .nav, .count, .tray, .tools, .keys, .star, .apps { display: none !important; }
+    body { padding-bottom: 0 !important; }
+    .ltr.aim { box-shadow: none; }
+    .ltr.empty.faint { color: transparent; }
     main { padding: 0; max-width: none; }
     .sheet-head { display: flex; justify-content: space-between; font-size: 14pt; margin-bottom: 8mm; }
     .cards { grid-template-columns: repeat(3, 1fr); gap: 6mm; }
@@ -133,6 +179,18 @@
 </style>
 </head>
 <body>
+<nav class="apps" id="apps" aria-label="Делови"></nav>
+
+<section class="home" id="home">
+  <h2>Вежби — Контролна табла</h2>
+  <p class="home-sub">Три алатки на едно место. Допри плочка за да ја отвориш; јазичињата горе водат од една во друга.</p>
+  <div class="tiles" id="tiles"></div>
+</section>
+
+<iframe class="frame" id="tabla" title="ComuniBoard" hidden></iframe>
+<iframe class="frame" id="crtanje" title="WBACC Studio" hidden></iframe>
+
+<div id="vezbi" hidden>
 <header>
   <h1>Глас <b id="letter"></b></h1>
   <div class="group"><div class="seg" id="sound"></div></div>
@@ -152,6 +210,7 @@
       <button data-v="grid">Сите заедно</button>
       <button data-v="one">Една по една</button>
     </div>
+    <button class="plain" id="kb" aria-pressed="false">⌨ Тастатура</button>
     <button class="plain" id="shuffle">🔀 Измешај</button>
     <button class="plain" id="print">🖨 Работен лист</button>
     <button class="plain" id="edit" aria-pressed="false">✏️ Уреди</button>
@@ -165,6 +224,9 @@
   <p class="note" id="note" role="status"></p>
   <div id="out"></div>
 </main>
+</div>
+
+<div class="keys" id="keys" hidden></div>
 
 <dialog id="picker">
   <div class="pk-head"><strong id="pk-title"></strong><button class="plain" id="pk-close">✕ Затвори</button></div>
@@ -213,9 +275,14 @@
 const VOWELS = 'ауеио';
 // Wrong letters offered next to the right one when a letter is dragged in.
 const DISTRACTORS = 'пбтмкдн';
+// The on-screen keyboard, in ComuniBoard's Macedonian layout.
+const KEYS = ['љњертѕуиопшѓ', 'асдфгхјклчќ', 'зжџцвбнм'];
 
 let TARGET, SYLLABLES, WORDS, SENTENCES, IMG;
-const state = { sound: 0, stage: 'syll', step: 0, view: 'grid', order: [], at: 0, own: {}, done: {}, filled: {}, tiles: {}, flash: -1, edit: false };
+// Per card (by its index in the list): `own` step, `filled` box positions,
+// `tiles` offered, `used` tile numbers, `miss` wrong tries per box. `sel` is
+// the box chosen by a tap, `kb` the keyboard instead of the tiles.
+const state = { app: 'home', sound: 0, stage: 'syll', step: 0, view: 'grid', order: [], at: 0, own: {}, done: {}, filled: {}, tiles: {}, used: {}, miss: {}, sel: null, kb: false, flash: -1, edit: false };
 const $ = (id) => document.getElementById(id);
 const out = $('out');
 
@@ -259,13 +326,22 @@ function pick(k) {
 // A new list on screen: its own order, every card back at the common step.
 function fresh() {
   state.order = list().map((_, i) => i);
-  state.at = 0; state.own = {}; state.filled = {}; state.tiles = {};
+  state.at = 0; state.own = {}; wipe();
 }
 
+// Everything the child has put in, for all cards or for one.
+function wipe(i) {
+  for (const k of ['filled', 'tiles', 'used', 'miss']) { if (i === undefined) state[k] = {}; else delete state[k][i]; }
+  if (i === undefined || (state.sel && state.sel.i === i)) state.sel = null;
+}
+
+const stepOf = (i) => (i in state.own ? state.own[i] : state.step);
+
 // Text as boxes: 0 whole, 1 without the target sound, 2 all empty, 3 no letters.
-// In step 1 the empty target boxes take a dragged letter; `filled` lists the
-// positions already put back. A sentence breaks between words, and its step 2
-// hides the word in {braces} instead of emptying every box.
+// The empty boxes of step 1 (the target sound) and of a word's step 2 (every
+// letter) take a letter from the child; `filled` lists the positions already
+// put back. A sentence breaks between words, and its step 2 hides the word in
+// {braces} instead of emptying every box.
 function letters(text, step, filled, sentence) {
   const box = document.createElement('div');
   box.className = 'word' + (sentence ? ' sent' : [...text].length > 6 ? ' long' : '') + (step === 3 ? ' hidden' : '');
@@ -291,10 +367,11 @@ function letters(text, step, filled, sentence) {
     }
     if (!/\p{L}/u.test(ch)) { el.className = 'dash'; el.textContent = ch === '-' ? '–' : ch; into.appendChild(el); continue; }
     const isTarget = ch.toLowerCase() === TARGET;
-    const got = step === 1 && isTarget && filled.includes(pos);
-    const empty = !got && ((step === 1 && isTarget) || (step >= 2 && !sentence));
+    const open = (step === 1 && isTarget) || (step === 2 && !sentence);
+    const got = open && filled.includes(pos);
+    const empty = !got && (open || (step >= 2 && !sentence));
     el.className = 'ltr' + (isTarget ? ' t' : '') + (empty ? ' empty' : '') + (got ? ' got' : '');
-    if (step === 1 && isTarget && !got) { el.classList.add('drop'); el.dataset.pos = pos; }
+    if (open && !got) { el.classList.add('drop'); el.dataset.pos = pos; }
     el.textContent = ch;
     into.appendChild(el);
   }
@@ -313,12 +390,15 @@ function inline(text, step) {
   return frag;
 }
 
-const targets = (text) => [...text].filter((ch) => ch.toLowerCase() === TARGET).length;
+// How many boxes the child fills: the target sound in step 1, every letter of
+// a word in step 2.
+const holes = (text, step) => [...text].filter((ch) => (step === 1 ? ch.toLowerCase() === TARGET : step === 2 && !sentences() && /\p{L}/u.test(ch))).length;
 
-// The empty box of this card closest to the point, if the point is near one.
-function nearest(cardEl, x, y) {
+// The empty box closest to the point, if the point is near one. A tile looks
+// in its own card, a key of the keyboard in every card on screen.
+function nearest(scope, x, y) {
   let best = null, bestD = Infinity;
-  for (const b of cardEl.querySelectorAll('.drop')) {
+  for (const b of scope.querySelectorAll('.drop')) {
     const r = b.getBoundingClientRect();
     const d = Math.hypot(x - (r.left + r.width / 2), y - (r.top + r.height / 2));
     if (d < bestD && d < r.height * 1.2) { best = b; bestD = d; }
@@ -326,18 +406,53 @@ function nearest(cardEl, x, y) {
   return best;
 }
 
-// Right letter fills the box (the first empty one when tapped); wrong goes back.
-function place(i, tile, box, wait) {
-  box = box || tile.closest('.card').querySelector('.drop');
-  if (!box || tile.dataset.ch !== TARGET) {
-    setTimeout(() => { tile.classList.remove('no'); void tile.offsetWidth; tile.classList.add('no'); }, wait);
+// The box a tapped letter goes to: the one chosen by a tap, else the first
+// empty one. With the keyboard there is one for the whole screen; with tiles
+// each card that is being spelled shows its own.
+function mark() {
+  for (const b of out.querySelectorAll('.aim')) b.classList.remove('aim');
+  const s = state.sel;
+  const chosen = s && out.querySelector('.card[data-i="' + s.i + '"] .drop[data-pos="' + s.pos + '"]');
+  if (chosen) chosen.classList.add('aim');
+  for (const c of out.querySelectorAll(state.kb ? '.cards, .one' : '.card[data-step="2"]')) {
+    const first = c.querySelector('.drop');
+    if (first && !c.querySelector('.aim')) first.classList.add('aim');
+  }
+}
+
+const aimed = (scope) => scope.querySelector('.drop.aim') || scope.querySelector('.drop');
+
+// The right letter fills the box. A wrong one is counted, and after two the
+// box shows its letter faintly.
+function place(ch, box) {
+  if (!box) return false;
+  const i = Number(box.closest('.card').dataset.i), pos = Number(box.dataset.pos);
+  const text = plain(list()[i]);
+  if ([...text][pos].toLowerCase() !== ch) {
+    const miss = state.miss[i] || (state.miss[i] = {});
+    miss[pos] = (miss[pos] || 0) + 1;
+    if (miss[pos] >= 2) box.classList.add('faint');
     return false;
   }
   const filled = state.filled[i] || (state.filled[i] = []);
-  filled.push(Number(box.dataset.pos));
-  if (filled.length === targets(plain(list()[i]))) { state.flash = i; say(i, true); }
-  draw();
+  filled.push(pos);
+  if (filled.length === holes(text, stepOf(i))) { state.flash = i; say(i, true); }
+  // the next tap stays in this card: its first box still empty
+  const rest = [...box.closest('.card').querySelectorAll('.drop')].find((b) => b !== box);
+  state.sel = rest ? { i, pos: Number(rest.dataset.pos) } : null;
   return true;
+}
+
+// A tile or a key let go over a box, or tapped. `i` is the card of a tile (in
+// step 2 the tile is used up), null for a key. Wrong goes back and shakes.
+function drop(el, ch, i, box, wait) {
+  if (place(ch, box)) {
+    if (i !== null && stepOf(i) === 2) (state.used[i] || (state.used[i] = [])).push(Number(el.dataset.k));
+    draw();
+    return true;
+  }
+  setTimeout(() => { el.classList.remove('no'); void el.offsetWidth; el.classList.add('no'); }, wait);
+  return false;
 }
 
 function goBack(tile) {
@@ -347,9 +462,12 @@ function goBack(tile) {
 }
 
 // Mouse, finger and pen alike. A tap or Enter places the letter without dragging.
-function draggable(tile, i) {
+function draggable(tile, ch, i) {
+  const scope = () => (i === null ? out : tile.closest('.card'));
   let from = null, dragged = false;
   tile.addEventListener('pointerdown', (e) => {
+    // a key takes no focus, so Space or Enter on the real keyboard cannot press it again
+    if (i === null) e.preventDefault();
     from = { x: e.clientX, y: e.clientY };
     dragged = false;
     tile.classList.remove('back', 'no');
@@ -368,35 +486,64 @@ function draggable(tile, i) {
     from = null;
     if (!dragged) return;
     const r = tile.getBoundingClientRect();
-    const box = nearest(tile.closest('.card'), r.left + r.width / 2, r.top + r.height / 2);
-    if (box && place(i, tile, box, 200)) return;
-    goBack(tile);
+    const box = nearest(scope(), r.left + r.width / 2, r.top + r.height / 2);
+    if (!box || !drop(tile, ch, i, box, 200)) return goBack(tile);
+    // a tile is redrawn with its card; a key stays where it is on the keyboard
+    tile.classList.remove('lift');
+    tile.style.transform = '';
   });
   tile.addEventListener('pointercancel', () => { from = null; goBack(tile); });
   tile.addEventListener('click', () => {
     if (dragged) { dragged = false; return; }
-    place(i, tile, null, 0);
+    drop(tile, ch, i, aimed(scope()), 0);
   });
 }
 
-function tray(i, text, spent) {
+// Step 1: the target letter and two wrong ones. Step 2: the word's own
+// letters, shuffled, and two wrong ones; a tile put in a box is gone.
+function tray(i, text, step, spent) {
   if (!state.tiles[i]) {
-    const wrong = [...DISTRACTORS].filter((ch) => ch !== TARGET && !text.toLowerCase().includes(ch));
-    mix(wrong);
-    state.tiles[i] = mix([TARGET, ...wrong.slice(0, 2)]);
+    const low = text.toLowerCase();
+    const wrong = mix([...DISTRACTORS].filter((ch) => ch !== TARGET && !low.includes(ch))).slice(0, 2);
+    const right = step === 1 ? [TARGET] : [...low].filter((ch) => /\p{L}/u.test(ch));
+    state.tiles[i] = mix([...right, ...wrong]);
   }
+  const used = state.used[i] || [];
   const box = document.createElement('div');
   box.className = 'tray' + (spent ? ' spent' : '');
-  for (const ch of state.tiles[i]) {
+  state.tiles[i].forEach((ch, k) => {
     const t = document.createElement('button');
-    t.className = 'tile';
+    t.className = 'tile' + (used.includes(k) ? ' gone' : '');
     t.textContent = ch;
-    t.dataset.ch = ch;
+    t.dataset.k = k;
     t.setAttribute('aria-label', 'Буква ' + ch);
-    draggable(t, i);
+    draggable(t, ch, i);
     box.appendChild(t);
-  }
+  });
   return box;
+}
+
+// Built once; shown by draw() while the keyboard is on and a box is empty.
+function keyboard() {
+  for (const row of KEYS) {
+    const line = document.createElement('div');
+    for (const ch of row) {
+      const k = document.createElement('button');
+      k.className = 'key';
+      k.textContent = ch;
+      k.dataset.ch = ch;
+      k.setAttribute('aria-label', 'Буква ' + ch);
+      draggable(k, ch, null);
+      line.appendChild(k);
+    }
+    $('keys').appendChild(line);
+  }
+  const shut = document.createElement('button');
+  shut.className = 'key shut';
+  shut.textContent = '✕';
+  shut.setAttribute('aria-label', 'Затвори ја тастатурата');
+  shut.addEventListener('click', () => { state.kb = false; draw(); });
+  $('keys').lastElementChild.appendChild(shut);
 }
 
 function tools(i, text) {
@@ -415,6 +562,7 @@ function tools(i, text) {
     const keys = keysOf(list()[i]);
     keys.forEach((key, k) => add('🖼 Слика' + (keys.length > 1 ? ' ' + (k + 1) : ''), 'Смени ја сликата', () => openPicker(i, key)));
     add('📋 Копирај', 'Копирај ја картичката како слика', (e) => copyCard(e.currentTarget.closest('.card')));
+    add('➜ Во таблата', 'Прати ја картичката во ComuniBoard', (e) => sendCard(e.currentTarget.closest('.card')));
     const live = rec && rec.i === i;
     add(live ? '⏹ Стоп' : (recs[text] ? '🎙 Сними пак' : '🎙 Сними'), live ? 'Запри го снимањето' : 'Сними', () => record(i), live ? 'live' : '');
     if (recs[text] && !live) add('🗑', 'Избриши ја снимката', () => { forget(text); draw(); });
@@ -425,10 +573,14 @@ function tools(i, text) {
 function card(i) {
   const item = list()[i];
   const text = plain(item);
-  const step = i in state.own ? state.own[i] : state.step;
+  const step = stepOf(i);
   const filled = state.filled[i] || [];
+  const need = holes(text, step);
+  const whole = need > 0 && filled.length === need;
   const el = document.createElement('div');
   el.className = 'card' + (state.flash === i ? ' pop' : '');
+  el.dataset.i = i;
+  el.dataset.step = step;
   if (state.flash === i) state.flash = -1;
   const pic = document.createElement('button');
   pic.className = 'pic';
@@ -442,10 +594,26 @@ function card(i) {
     pics.appendChild(img);
   }
   pic.append(pics, letters(item.w || item.s, step, filled, sentences()));
-  pic.addEventListener('click', () => { state.own[i] = (step + 1) % 4; delete state.filled[i]; draw(); });
+  const miss = state.miss[i] || {};
+  for (const b of pic.querySelectorAll('.drop')) if (miss[b.dataset.pos] >= 2) b.classList.add('faint');
+  // a tap on an empty box chooses it for the next letter; anywhere else is the next step
+  pic.addEventListener('click', (e) => {
+    const box = e.target.closest('.drop');
+    if (box) { state.sel = { i, pos: Number(box.dataset.pos) }; mark(); return; }
+    state.own[i] = (step + 1) % 4;
+    wipe(i);
+    draw();
+  });
   el.appendChild(pic);
-  if (step === 1) el.appendChild(tray(i, text, filled.length === targets(text)));
+  if (need && !state.kb) el.appendChild(tray(i, text, step, whole));
   el.appendChild(tools(i, text));
+  if (whole) {
+    const star = document.createElement('span');
+    star.className = 'star';
+    star.textContent = '⭐';
+    star.setAttribute('aria-hidden', 'true');
+    el.appendChild(star);
+  }
   return el;
 }
 
@@ -668,6 +836,96 @@ async function copyCard(cardEl) {
   }
 }
 
+// ---------- the parts of the page ----------
+// The exercises, and the owner's two other tools, each in a frame from the
+// folder above (MTB's own ComuniBoard.html and WBACC.html, one copy of each),
+// loaded the first time it is opened. The start is a board of tiles, as MTB's
+// Контролна табла; index.html#vezbi (or #tabla, #crtanje) opens one directly.
+const APPS = [
+  { key: 'vezbi', tab: 'Вежби', glyph: '🗣', color: '#2f6fe4', title: 'Вежби за изговор',
+    text: '26 гласови: слогови, зборови со слики и реченици. Помошта се намалува чекор по чекор, а буквите се влечат во кутиите.',
+    when: 'На час, со дете.' },
+  { key: 'tabla', tab: 'ComuniBoard', src: '../ComuniBoard.html', glyph: '🧩', color: '#1e9e8b', title: 'ComuniBoard — табла',
+    text: 'Картички и кирилична табла: слободно место за букви, слики и линии. Картичка од вежбите доаѓа тука со „➜ Во таблата" (во „✏️ Уреди").',
+    when: 'Кога сама составуваш вежба.' },
+  { key: 'crtanje', tab: 'WBACC Studio', src: '../WBACC.html', glyph: '✏️', color: '#6b4fd8', title: 'WBACC Studio — цртање',
+    text: 'Бела табла за цртање и пишување со рака, со пиктограми (Excalidraw). Картичка се лепи со „📋 Копирај" па Ctrl+V.',
+    when: 'За слободно цртање и за презентација.' },
+];
+
+function go(app) {
+  if (!APPS.some((a) => a.key === app)) app = 'home';
+  state.app = app;
+  for (const b of $('apps').children) b.setAttribute('aria-pressed', String(b.dataset.v === app));
+  $('home').hidden = app !== 'home';
+  $('vezbi').hidden = app !== 'vezbi';
+  for (const a of APPS) {
+    if (!a.src) continue;
+    $(a.key).hidden = a.key !== app;
+    if (a.key === app && !$(a.key).getAttribute('src')) $(a.key).src = a.src;
+  }
+  document.body.classList.toggle('framed', APPS.some((a) => a.key === app && a.src));
+  if (GLASOVI.length) draw();
+}
+
+// Through the address, so the browser's Back returns to the tiles.
+function openApp(app) {
+  if (location.hash.slice(1) === app) go(app); else location.hash = app;
+}
+
+function parts() {
+  const tab = (key, text, name) => {
+    const b = document.createElement('button');
+    b.dataset.v = key;
+    b.textContent = text;
+    if (name) { b.setAttribute('aria-label', name); b.title = name; }
+    b.addEventListener('click', () => openApp(key));
+    $('apps').appendChild(b);
+  };
+  tab('home', '🏠', 'Контролна табла');
+  for (const a of APPS) {
+    tab(a.key, a.tab);
+    const el = document.createElement('button');
+    el.className = 'app';
+    el.style.setProperty('--c', a.color);
+    const img = document.createElement('img');
+    img.src = a.key + '.jpg';
+    img.alt = '';
+    img.onerror = () => img.remove();
+    const head = document.createElement('span');
+    head.className = 'app-head';
+    for (const [cls, text] of [['chip', a.glyph], ['app-name', a.title]]) {
+      const s = document.createElement('span');
+      s.className = cls;
+      s.textContent = text;
+      head.appendChild(s);
+    }
+    el.append(img, head);
+    for (const [cls, text] of [['app-text', a.text], ['app-when', a.when]]) {
+      const s = document.createElement('span');
+      s.className = cls;
+      s.textContent = text;
+      el.appendChild(s);
+    }
+    el.addEventListener('click', () => openApp(a.key));
+    $('tiles').appendChild(el);
+    if (a.src) $(a.key).addEventListener('load', () => { $(a.key).dataset.ready = '1'; });
+  }
+  window.addEventListener('hashchange', () => go(location.hash.slice(1)));
+}
+
+// The card as a picture, handed to ComuniBoard in its frame, which puts it on
+// its board (the receiver is in ../ComuniBoard.html). The card is drawn
+// first, while it is still on screen.
+async function sendCard(cardEl) {
+  const url = (await cardCanvas(cardEl)).toDataURL('image/png');
+  const frame = $('tabla');
+  const ready = frame.dataset.ready ? Promise.resolve() : new Promise((done) => frame.addEventListener('load', done, { once: true }));
+  openApp('tabla');
+  await ready;
+  frame.contentWindow.postMessage({ type: 'insert-generated-image', url }, '*');
+}
+
 // The sound as a file for the glasovi folder, with the pictures chosen here inside.
 function exportSound() {
   const g = GLASOVI[state.sound];
@@ -758,9 +1016,23 @@ function draw() {
   $('view').parentElement.style.display = words ? '' : 'none';
   $('step').lastElementChild.style.display = words ? '' : 'none';
   $('edit').setAttribute('aria-pressed', String(state.edit));
+  $('kb').setAttribute('aria-pressed', String(state.kb));
   $('export').style.display = state.edit ? '' : 'none';
   out.textContent = '';
+  cards(words, names);
 
+  // the keyboard only while there is a box to fill; the page ends above it
+  $('keys').hidden = !(state.app === 'vezbi' && words && state.kb && out.querySelector('.drop'));
+  document.body.style.paddingBottom = $('keys').hidden ? '' : $('keys').offsetHeight + 24 + 'px';
+  mark();
+  const box = !$('keys').hidden && out.querySelector('.aim');
+  if (box) {
+    const under = box.getBoundingClientRect().bottom + 12 - $('keys').getBoundingClientRect().top;
+    if (under > 0) window.scrollBy(0, under);
+  }
+}
+
+function cards(words, names) {
   if (!words) {
     $('hint').textContent = 'Допри го слогот кога ќе се изговори добро. Редот оди: почеток – средина – крај.';
     const grid = document.createElement('div');
@@ -776,8 +1048,11 @@ function draw() {
     return;
   }
 
+  const from = state.kb ? 'од тастатурата' : 'од плочките';
   $('hint').textContent = state.step === 1
-    ? 'Повлечи ја буквата што недостига во празната кутија. 🔊 го кажува текстот; допри ја сликата за следниот чекор.'
+    ? 'Повлечи ја буквата што недостига ' + from + ' во празната кутија. 🔊 го кажува текстот; допри ја сликата за следниот чекор.'
+    : state.step === 2 && !sentences()
+    ? 'Состави го зборот: повлечи ги буквите ' + from + ' во кутиите, или допри кутија па буква. По две грешки буквата се покажува бледо. Допри ја сликата за следниот чекор.'
     : 'Допри ја сликата за следниот чекор само за неа: ' + names.join(' → ').toLowerCase().replace(' ' + TARGET + ' ', ' ' + upper() + ' ') + '. 🔊 го кажува текстот.';
   const now = shown();
   if (state.view === 'grid') {
@@ -820,7 +1095,7 @@ function stage(v) {
 
 $('sound').addEventListener('click', (e) => { const v = e.target.dataset.v; if (v === undefined) return; note(''); pick(Number(v)); draw(); });
 $('stage').addEventListener('click', (e) => { const v = e.target.dataset.v; if (v === undefined) return; stage(v); note(''); draw(); });
-$('step').addEventListener('click', (e) => { const v = e.target.dataset.v; if (v === undefined) return; state.step = Number(v); state.own = {}; state.filled = {}; state.tiles = {}; draw(); });
+$('step').addEventListener('click', (e) => { const v = e.target.dataset.v; if (v === undefined) return; state.step = Number(v); state.own = {}; wipe(); draw(); });
 $('view').addEventListener('click', (e) => { const v = e.target.dataset.v; if (v === undefined) return; state.view = v; draw(); });
 $('shuffle').addEventListener('click', () => {
   if (state.stage === 'syll') stage('0');
@@ -833,6 +1108,7 @@ $('edit').addEventListener('click', () => {
   note(state.edit ? 'Сликите и снимките се чуваат само на овој уред. „⬇ Извези" го дава фајлот на гласот со сликите, за папката „glasovi".' : '');
   draw();
 });
+$('kb').addEventListener('click', () => { state.kb = !state.kb; state.sel = null; draw(); });
 $('export').addEventListener('click', exportSound);
 $('pk-close').addEventListener('click', () => $('picker').close());
 $('pk-go').addEventListener('click', find);
@@ -845,14 +1121,22 @@ $('print').addEventListener('click', () => {
   window.print();
 });
 document.addEventListener('keydown', (e) => {
+  if (state.app !== 'vezbi') return;
+  // with the keyboard on screen, the same letter typed on the real one presses its key
+  if (!$('keys').hidden && !$('picker').open && !e.ctrlKey && !e.altKey && !e.metaKey) {
+    const key = [...$('keys').querySelectorAll('[data-ch]')].find((k) => k.dataset.ch === e.key.toLowerCase());
+    if (key) { e.preventDefault(); key.click(); return; }
+  }
   if (state.stage === 'syll' || state.view !== 'one') return;
   if (e.key === 'ArrowRight') move(1);
   else if (e.key === 'ArrowLeft') move(-1);
   else if (e.key === ' ' && e.target === document.body) { e.preventDefault(); out.querySelector('.pic').click(); }
 });
 
+parts();
 if (!GLASOVI.length) {
   $('hint').textContent = 'Недостига папката „glasovi". Копирај ја заедно со index.html, во иста папка.';
+  go(location.hash.slice(1));
 } else {
   GLASOVI.forEach((g, k) => {
     const b = document.createElement('button');
@@ -861,8 +1145,9 @@ if (!GLASOVI.length) {
     b.setAttribute('aria-label', 'Глас ' + g.letter.toUpperCase());
     $('sound').appendChild(b);
   });
+  keyboard();
   pick(0);
-  draw();
+  go(location.hash.slice(1));
   openDb().then(draw);
 }
 </script>

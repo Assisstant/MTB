@@ -93,6 +93,8 @@ const page = await context.newPage();
 page.on('pageerror', (e) => errors.push(e.message));
 await page.goto(ORIGIN + '/NastavaUredi.html');
 await page.waitForFunction(() => /часа/.test(document.getElementById('status').textContent || ''), null, { timeout: 8000 });
+// SHOT=<folder>: the page with its invented year, for looking at it (and for the launcher's tile).
+if (process.env.SHOT) await page.screenshot({ path: join(process.env.SHOT, 'uredi-nastava.png') });
 
 console.log('one form for every class');
 const waitingForm = page.waitForEvent('download');

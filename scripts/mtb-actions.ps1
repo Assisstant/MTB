@@ -21,6 +21,28 @@
 #                (7 Oct 2026); a tile for something this
 #                computer does not have is a tile that fails. Where the key is
 #                missing there is no tile, no .lnk and no PROCITAJ line.
+#   Tab          the tab of the Контролна табла the tile sits on (Get-MtbTabs).
+#                An action without one is administration: every action that
+#                runs a script is.
+#   Page         with UrlKey: one page of that server — the key's address
+#                without its path, then this. A record page is opened where the
+#                records are written, in the cloud's work space.
+#   File         instead of Script: a page of this folder, opened from this
+#                computer. For what needs no server and no Internet.
+#   Thumb        a picture on the tile, relative to the repository's root. This
+#                repository is public: a picture of a record page is made with
+#                invented data (scripts\tiles\README.md), never from the work.
+
+# The three tabs of the Контролна табла (owner, 8 Oct 2026: „Administracija,
+# Evidencija, Vezbi, thumbnails"). A tab is a kind of thing to do; inside it the
+# tiles keep the order, the pins and the colours a person gave them.
+function Get-MtbTabs {
+    @(
+        @{ Key = 'admin';    Title = 'Администрација'; Text = 'Серверот, ажурирањето, резервите и облакот.' },
+        @{ Key = 'records';  Title = 'Евиденција';     Text = 'Работните екрани — во облакот, каде што се работи секој ден.' },
+        @{ Key = 'practice'; Title = 'Вежби';          Text = 'Вежби за изговор и двете алатки — од овој компјутер, и без Интернет.' }
+    )
+}
 
 # The order and the colours carry the logic (owner, 3 Oct 2026: „by kinship,
 # by some logic — importance, order"). Three groups of three, one row each in
@@ -47,17 +69,20 @@ function Test-MtbEnvKey([string] $Key) {
 
 # What THIS computer offers: the whole list, less what it is not set up for.
 function Get-MtbActions {
-    @(Get-MtbAllActions | Where-Object { -not $_.NeedsEnv -or (Test-MtbEnvKey $_.NeedsEnv) })
+    $all = @(Get-MtbAllActions | Where-Object { -not $_.NeedsEnv -or (Test-MtbEnvKey $_.NeedsEnv) })
+    foreach ($a in $all) { if (-not $a.Tab) { $a.Tab = 'admin' } }
+    $all
 }
 
 function Get-MtbAllActions {
+    $cloudPrompt = 'Адресата на облачниот работен простор, на пример https://…/MTB-Workspace.html'
     @(
         # Daily work is written in the cloud (23 Sep 2026), so it comes first. A
         # tile only, no .lnk: it opens the browser, not a script. Its address is
         # MTB_CLOUD_URL in server\.env — the cloud's address is not written in
         # this public repository — and the tile asks for it once if it is not there.
         @{ Group = 'day'; Name = 'Oblak - rabotna povrshina'; UrlKey = 'MTB_CLOUD_URL'; Glyph = 0xE774; Color = '#1F5FD1'; CardColor = '#1F5FD1'
-           UrlPrompt = 'Адресата на облачниот работен простор, на пример https://…/MTB-Workspace.html'
+           UrlPrompt = $cloudPrompt
            Title = 'Облак — работен простор'
            Text = 'Го отвора MTB работниот простор во облакот (Render), во прелистувачот. Таму се работи секој ден; локалната база е резервен режим кога нема Интернет.'
            When = 'Секој ден, за работа.' },
@@ -122,7 +147,62 @@ function Get-MtbAllActions {
            UrlPrompt = 'Адресата на страницата со поставки (Environment) на облачниот сервер во Render, на пример https://dashboard.render.com/web/…/env'
            Title = 'Render — поставки'
            Text = 'Ја отвора страницата Environment на облачниот сервер во Render: адресите и клучевите на облакот. Секоја промена таму го рестартира серверот. Тука е и Manual Deploy.'
-           When = 'Само сопственикот, кога треба да се смени поставка на облакот.' }
+           When = 'Само сопственикот, кога треба да се смени поставка на облакот.' },
+
+        # ── Евиденција: one record page each, in the cloud's work space, where
+        # the day's work is written. The same address as the first tile above,
+        # with the window named. The six are the work space's own tabs, in its
+        # order, under the apps' one name (app-names.test.ts) — and six fill two
+        # rows, where the owner's four left a row of one.
+        @{ Tab = 'records'; Group = 'day'; Name = 'Oblak - S-Dnevnik'; UrlKey = 'MTB_CLOUD_URL'; Page = 'MTB-Workspace.html?app=S-Dnevnik.html'
+           UrlPrompt = $cloudPrompt; Thumb = 'scripts\tiles\s-dnevnik.jpg'; Glyph = 0xE82D; Color = '#0C8CE9'; CardColor = '#0C8CE9'
+           Title = 'S-Дневник'
+           Text = 'Дневникот: неделниот распоред, присуство, планови и досиеја. Се отвора во работниот простор во облакот.'
+           When = 'Секој ден, на час.' },
+        @{ Tab = 'records'; Group = 'day'; Name = 'Oblak - Kabineti'; UrlKey = 'MTB_CLOUD_URL'; Page = 'MTB-Workspace.html?app=RasporediFusion.html'
+           UrlPrompt = $cloudPrompt; Thumb = 'scripts\tiles\kabineti.jpg'; Glyph = 0xE787; Color = '#1F5FD1'; CardColor = '#1F5FD1'
+           Title = 'Кабинети'
+           Text = 'Кој ученик кај кој терапевт и во кој термин: неделниот план на кабинетите. Во работниот простор во облакот.'
+           When = 'Кога се менува распоредот на термините.' },
+        @{ Tab = 'records'; Group = 'day'; Name = 'Oblak - Nastava'; UrlKey = 'MTB_CLOUD_URL'; Page = 'MTB-Workspace.html?app=Nastava.html'
+           UrlPrompt = $cloudPrompt; Thumb = 'scripts\tiles\nastava.jpg'; Glyph = 0xE7BE; Color = '#0097A7'; CardColor = '#0097A7'
+           Title = 'Настава ↔ терапии'
+           Text = 'Кој ученик недостига од кој час поради терапија, по паралелка и по наставник. Во работниот простор во облакот.'
+           When = 'Кога се усогласуваат наставата и терапиите.' },
+        @{ Tab = 'records'; Group = 'day'; Name = 'Oblak - Uredi nastava'; UrlKey = 'MTB_CLOUD_URL'; Page = 'MTB-Workspace.html?app=NastavaUredi.html'
+           UrlPrompt = $cloudPrompt; Thumb = 'scripts\tiles\uredi-nastava.jpg'; Glyph = 0xE70F; Color = '#1E9E8B'; CardColor = '#1E9E8B'
+           Title = 'Уреди настава'
+           Text = 'Училишниот распоред на часови, час по час: по одделение, по наставник, паралелки и ѕвона. Во работниот простор во облакот.'
+           When = 'Кога се внесува или менува распоредот на часови.' },
+        @{ Tab = 'records'; Group = 'day'; Name = 'Oblak - Spisoci i pristap'; UrlKey = 'MTB_CLOUD_URL'; Page = 'MTB-Workspace.html?app=Podatoci.html'
+           UrlPrompt = $cloudPrompt; Thumb = 'scripts\tiles\spisoci.jpg'; Glyph = 0xE716; Color = '#6B4FD8'; CardColor = '#6B4FD8'
+           Title = 'Списоци и пристап'
+           Text = 'Годишните списоци — ученици, наставници, терапевти, одделенија — и кој како влегува во Колега. Во работниот простор во облакот.'
+           When = 'Кога се менува список или пристап.' },
+        @{ Tab = 'records'; Group = 'day'; Name = 'Oblak - Evidenten list'; UrlKey = 'MTB_CLOUD_URL'; Page = 'MTB-Workspace.html?app=AkciskiPlan.html'
+           UrlPrompt = $cloudPrompt; Thumb = 'scripts\tiles\evidenten-list.jpg'; Glyph = 0xE8A5; Color = '#2E9B4F'; CardColor = '#2E9B4F'
+           Title = 'Евидентен лист'
+           Text = 'Пропишаниот лист за развојот на ученикот и кварталниот план, по секции и периоди — го пополнува целиот тим. Во работниот простор во облакот.'
+           When = 'Кога се пополнува или печати лист за ученик.' },
+
+        # ── Вежби: three pages of this folder that need no server and keep no
+        # records. Opened from this computer, so a lesson does not wait for the
+        # Internet or for the cloud to wake. Online they are the same files.
+        @{ Tab = 'practice'; Group = 'often'; Name = 'Vezbi za izgovor'; File = 'vezbi\index.html'
+           Thumb = 'vezbi\vezbi.jpg'; Glyph = 0xE720; Color = '#2F6FE4'; CardColor = '#2F6FE4'
+           Title = 'Вежби за изговор'
+           Text = '26 гласови: слогови, зборови со слики и реченици. Помошта се намалува чекор по чекор, а буквите се влечат во кутиите. Двете алатки десно се и таму, во јазичиња.'
+           When = 'На час, со дете.' },
+        @{ Tab = 'practice'; Group = 'often'; Name = 'WBACC Unified Studio'; File = 'ComuniBoard.html'
+           Thumb = 'vezbi\tabla.jpg'; Glyph = 0xE8B9; Color = '#1E9E8B'; CardColor = '#1E9E8B'
+           Title = 'WBACC Unified Studio'
+           Text = 'ComuniBoard: картички со пиктограми и кирилична табла — слободно место за букви, слики и линии.'
+           When = 'Кога сама составуваш вежба.' },
+        @{ Tab = 'practice'; Group = 'often'; Name = 'WBACC Studio'; File = 'WBACC.html'
+           Thumb = 'vezbi\crtanje.jpg'; Glyph = 0xE70F; Color = '#6B4FD8'; CardColor = '#6B4FD8'
+           Title = 'WBACC Studio'
+           Text = 'Бела табла за цртање и пишување со рака, со пиктограми (Excalidraw).'
+           When = 'За слободно цртање и за презентација.' }
     )
 }
 

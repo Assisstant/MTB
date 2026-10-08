@@ -32,7 +32,8 @@ const NAMES: Record<string, string> = {
 // Independent tools the MTB screens link to: the tool's own name, without „— MTB“.
 const TOOLS: Record<string, string> = {
     'ComuniBoard.html': 'WBACC Unified Studio',
-    'WBACC.html': 'WBACC Studio'
+    'WBACC.html': 'WBACC Studio',
+    'vezbi/index.html': 'Вежби за изговор'
 };
 const esc = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 

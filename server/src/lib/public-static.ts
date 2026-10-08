@@ -52,8 +52,21 @@ const PUBLIC_FILES = new Set([
     'workspace-admin.css',
     'mtb-runtime.js',
     'home-button.js',
-    'logo.png'
+    'logo.png',
+    // Вежби за изговор (docs/VEZBI.md): one page, its three tile pictures and
+    // one data file per sound. No database and no sign-in of its own; it frames
+    // ComuniBoard.html and WBACC.html from the list above. A folder is still
+    // never published as a folder: each file in it is named here.
+    'vezbi/index.html',
+    'vezbi/vezbi.jpg',
+    'vezbi/tabla.jpg',
+    'vezbi/crtanje.jpg',
+    ...['b', 'c', 'ch', 'd', 'dz', 'dzh', 'f', 'g', 'gj', 'h', 'j', 'k', 'kj', 'l', 'lj', 'm', 'n',
+        'nj', 'p', 'r', 's', 'sh', 't', 'v', 'z', 'zh'].map((sound) => `vezbi/glasovi/${sound}.js`)
 ]);
+
+// The one folder address that answers: it resolves to its own index.html.
+const PUBLIC_FOLDERS = new Set(['vezbi/']);
 
 export function isPublicStaticPath(pathName: string): boolean {
     let decoded: string;
@@ -62,15 +75,15 @@ export function isPublicStaticPath(pathName: string): boolean {
     } catch {
         return false;
     }
-    decoded = decoded.replace(/\\/g, '/');
     if (decoded === '/' || decoded === '') return true; // root resolves to index.html
-    if (!decoded.startsWith('/') || decoded.includes('\0')) return false;
+    if (!decoded.startsWith('/') || decoded.includes('\0') || decoded.includes('\\')) return false;
     const relative = decoded.slice(1);
-    // No directories, dot segments, alternate separators, or case-folding.
+    // No dot segments, empty segments, alternate separators, or case-folding.
     // Windows would resolve those permissively; the HTTP boundary must not.
-    if (!relative || relative.includes('/') || relative.includes('\\') ||
-        relative === '.' || relative === '..') return false;
-    return PUBLIC_FILES.has(relative);
+    // A path below the root passes only as one of the exact names listed.
+    if (!relative || relative.split('/').some((part, i, all) =>
+        part === '.' || part === '..' || (part === '' && i < all.length - 1))) return false;
+    return PUBLIC_FILES.has(relative) || PUBLIC_FOLDERS.has(relative);
 }
 
 export const publicStaticFiles = Object.freeze([...PUBLIC_FILES]);

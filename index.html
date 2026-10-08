@@ -1452,6 +1452,7 @@
             'Sinhronizacija.html': { name: 'Синхронизација', icon: '🔄' },
             'ComuniBoard.html': { name: 'WBACC Unified Studio', icon: '🗣️' },
             'WBACC.html': { name: 'WBACC Studio', icon: '🎨' },
+            'vezbi/index.html': { name: 'Вежби за изговор', icon: '🗣️' },
             'ScanArtisAtelierSolak.html': { name: 'Artis Atelier Solak — галерија', icon: '🖼️' },
             'docs/mtb-seams.html': { name: 'Архитектура — Archify', icon: '🗺️' }
         };
@@ -1608,6 +1609,18 @@
                 archApp.name = archMap.name;
                 archApp.icon = archMap.icon;
             }
+        }
+
+        // Вежби за изговор lives in its own folder (vezbi/), and the scan lists
+        // only the root's pages, so its card is added here once. After that it
+        // is the person's card: renamed or moved, it stays as they left it.
+        const VEZBI_FILE = 'vezbi/index.html';
+        if (FILE_MAPPINGS[VEZBI_FILE] && !state.apps.some(a => a.url === VEZBI_FILE)) {
+            const vezbiApp = { id: 'app_vezbi', name: FILE_MAPPINGS[VEZBI_FILE].name, url: VEZBI_FILE,
+                icon: FILE_MAPPINGS[VEZBI_FILE].icon, favorite: false, tabs: [] };
+            state.apps.push(vezbiApp);
+            if (!state.order.includes(vezbiApp.id)) state.order.push(vezbiApp.id);
+            try { localStorage.setItem(STORE_KEY, JSON.stringify(state)); } catch (_) {}
         }
 
         if (!('scanPath' in state)) state.scanPath = null;

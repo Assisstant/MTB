@@ -12,9 +12,16 @@
 # reports is where it always was. The actions and their words come from
 # mtb-actions.ps1 — the shortcuts and PROCITAJ read the same list.
 #
+# THREE TABS (owner, 8 Oct 2026): Администрација is every action that runs a
+# script; Евиденција opens a record page in the cloud's work space; Вежби opens
+# the exercise pages of this folder, from this computer. A tile that opens a
+# page carries a picture of it. The tabs and which tile sits where are in
+# mtb-actions.ps1 (Get-MtbTabs, Tab).
+#
 # THE LAYOUT is this computer's own (%LOCALAPPDATA%\MTB\kontrolna-tabla.json),
-# never data. One grid, three to a row, every row full before the next — the
-# owner turned down sections because a short one left a row half empty. In it:
+# never data. In each tab one grid, three to a row, every row full before the
+# next — the owner turned down sections because a short one left a row half
+# empty. In it:
 #   drag    a tile onto another takes that one's place;
 #   pin     (one tile) keeps it in the very place it is: it cannot be dragged,
 #           nothing is dropped on it, and the free tiles move around it;
@@ -33,7 +40,9 @@ param(
     # Render the window to a PNG and close: how its look is checked without a click.
     [string] $Snapshot = '',
     # Another layout file, so a check never touches the person's own.
-    [string] $LayoutFile = ''
+    [string] $LayoutFile = '',
+    # Open on this tab (admin, records, practice) whatever was open last: for a snapshot of each.
+    [string] $StartTab = ''
 )
 
 $ErrorActionPreference = 'Stop'
@@ -65,6 +74,8 @@ foreach ($g in Get-MtbActionGroups) { $groupWord[$g.Key] = $g.Word }
 $defaults = @(Get-MtbActions)
 $byName = @{}
 foreach ($a in $defaults) { $byName[$a.Name] = $a }
+$tabs = @(Get-MtbTabs)
+$tabKeys = @($tabs | ForEach-Object { $_.Key })
 # The layout is kept twice: on this computer, and in the pCloud folder both
 # PCs already share (SYNC_DIR in server\.env, or P:\MTB-sync), so HOME and
 # WORK show the same panel (owner, 3 Oct 2026). The newer of the two is read;
@@ -159,8 +170,10 @@ function Use-Layout($j) {
         $n = $defaults[$i].Name
         if (-not $order.Contains($n)) { $order.Insert([Math]::Min($i, $order.Count), $n) }
     }
-    # pinned: tile → the place it holds. An older file kept a plain list here;
-    # that meant something else, and is dropped rather than misread.
+    # pinned: tile → the place it holds in its own tab. A file from before the
+    # tabs reads the same: every tile it knows is in the first tab, in the
+    # places it had. An older file still kept a plain list here; that meant
+    # something else, and is dropped rather than misread.
     $pinned = @{}
     if ($j.pinned -is [Management.Automation.PSCustomObject]) {
         foreach ($p in $j.pinned.PSObject.Properties) { if ($byName.ContainsKey($p.Name)) { $pinned[$p.Name] = [int]$p.Value } }
@@ -176,6 +189,8 @@ function Use-Layout($j) {
     if ($j.cardColors) { foreach ($p in $j.cardColors.PSObject.Properties) { if ($byName.ContainsKey($p.Name) -and $p.Value -match '^(#[0-9A-Fa-f]{6}|none)$') { $cards[$p.Name] = [string]$p.Value } } }
     $script:cardColours = $cards
     $script:theme = if ($j.theme -in @('light', 'dark')) { [string]$j.theme } else { Get-SystemTheme }
+    # The tab that was open last; the first one for a file that has none.
+    $script:tab = if ($j.tab -in $tabKeys) { [string]$j.tab } else { $tabKeys[0] }
     # Open until somebody folds it: a first look should show what is there.
     $script:controlsOpen = -not ($j.controlsOpen -eq $false)
 }
@@ -185,7 +200,7 @@ function Get-LayoutJson {
     @{ kind = 'mtb-kontrolna-tabla'; version = 1
        order = @($script:order); pinned = $script:pinned; locked = [bool]$script:gridLocked
        colors = $script:colours; cardColors = $script:cardColours; theme = $script:theme
-       controlsOpen = [bool]$script:controlsOpen } | ConvertTo-Json
+       tab = $script:tab; controlsOpen = [bool]$script:controlsOpen } | ConvertTo-Json
 }
 
 # ── settings as a file the person keeps and carries (owner, 3 Oct 2026) ────
@@ -217,7 +232,7 @@ function Import-Layout {
         return
     }
     # Another kind of JSON, or one with none of the settings in it, changes nothing.
-    $known = @('order', 'pinned', 'locked', 'colors', 'cardColors', 'theme', 'controlsOpen') | Where-Object { $j.PSObject.Properties.Name -contains $_ }
+    $known = @('order', 'pinned', 'locked', 'colors', 'cardColors', 'theme', 'tab', 'controlsOpen') | Where-Object { $j.PSObject.Properties.Name -contains $_ }
     if (($j.kind -and $j.kind -ne 'mtb-kontrolna-tabla') -or -not $known.Count) {
         [void][Windows.MessageBox]::Show($window, 'Ова не се поставки на контролната табла. Ништо не е сменето.', 'MTB', 'OK', 'Warning')
         return
@@ -243,21 +258,46 @@ function Save-Layout {
     }
 }
 
-# Where each tile is shown. A pinned tile holds its own place; every other
-# place is filled by the free tiles in order — so the grid stays three full
-# rows whatever is pinned.
+# Where each tile of the open tab is shown. A pinned tile holds its own place;
+# every other place is filled by the free tiles in order — so the grid stays
+# full rows whatever is pinned. The order is one list for all tabs; a tab shows
+# its own tiles from it, so moving a tile never disturbs another tab.
 function Get-Places {
-    $count = $script:order.Count
+    $mine = @($script:order | Where-Object { $byName[$_].Tab -eq $script:tab })
+    $count = $mine.Count
     $places = New-Object 'string[]' $count
-    foreach ($n in @($script:pinned.Keys | Sort-Object { $script:pinned[$_] })) {
+    if (-not $count) { return $places }
+    foreach ($n in @($mine | Where-Object { $script:pinned.ContainsKey($_) } | Sort-Object { $script:pinned[$_] })) {
         $i = [Math]::Max(0, [Math]::Min([int]$script:pinned[$n], $count - 1))
         while ($places[$i]) { $i = ($i + 1) % $count }
         $places[$i] = $n
     }
-    $free = @($script:order | Where-Object { -not $script:pinned.ContainsKey($_) })
+    $free = @($mine | Where-Object { -not $script:pinned.ContainsKey($_) })
     $k = 0
     for ($i = 0; $i -lt $count; $i++) { if (-not $places[$i]) { $places[$i] = $free[$k]; $k++ } }
     return $places
+}
+
+# A tile's picture, read whole into memory: the file is not held open, so the
+# next „Ажурирај" can replace it while this window is up.
+$thumbs = @{}
+function Get-Thumb([string] $Rel) {
+    if (-not $Rel) { return $null }
+    if ($thumbs.ContainsKey($Rel)) { return $thumbs[$Rel] }
+    $bmp = $null
+    $file = Join-Path $root $Rel
+    if (Test-Path -LiteralPath $file) {
+        try {
+            $bmp = New-Object Windows.Media.Imaging.BitmapImage
+            $bmp.BeginInit()
+            $bmp.CacheOption = 'OnLoad'
+            $bmp.UriSource = New-Object Uri($file)
+            $bmp.EndInit()
+            $bmp.Freeze()
+        } catch { $bmp = $null }
+    }
+    $thumbs[$Rel] = $bmp
+    return $bmp
 }
 
 function Update-Tiles { Save-Layout; Show-Tiles }
@@ -454,7 +494,9 @@ function New-Tile([hashtable] $A) {
     $isLocked = $isPinned -or $script:gridLocked
 
     $card = New-Object Windows.Controls.Border
-    $card.Height = 272
+    # One height for every tile of a tab, so its rows read level: taller where
+    # the tab's tiles carry a picture.
+    $card.Height = if ($script:tabHasThumbs) { 404 } else { 272 }
     $card.Margin = Get-Thick 0 0 18 18
     $card.Padding = Get-Thick 22 20 16 18
     $card.CornerRadius = [Windows.CornerRadius]::new(18)
@@ -488,6 +530,24 @@ function New-Tile([hashtable] $A) {
     $when.Child = New-Text ('Кога: ' + $A.When) 12.5 $TT.When 'SemiBold'
     [Windows.Controls.DockPanel]::SetDock($when, 'Bottom')
     [void]$dock.Children.Add($when)
+
+    # The picture of the page the tile opens, across the top. A brush on a
+    # rounded border, so the corners follow the card's.
+    $thumb = Get-Thumb $A.Thumb
+    if ($thumb) {
+        $pic = New-Object Windows.Controls.Border
+        $pic.Height = 132
+        $pic.Margin = Get-Thick 0 0 6 14
+        $pic.CornerRadius = [Windows.CornerRadius]::new(11)
+        $pic.BorderBrush = Get-Brush $T.Border
+        $pic.BorderThickness = Get-Thick 1 1 1 1
+        $brush = New-Object Windows.Media.ImageBrush($thumb)
+        $brush.Stretch = 'UniformToFill'
+        $brush.AlignmentY = 'Top'
+        $pic.Background = $brush
+        [Windows.Controls.DockPanel]::SetDock($pic, 'Top')
+        [void]$dock.Children.Add($pic)
+    }
 
     $stack = New-Object Windows.Controls.StackPanel
     $head = New-Object Windows.Controls.DockPanel
@@ -526,6 +586,8 @@ function New-Tile([hashtable] $A) {
     if ($A.UrlKey) {
         $url = Get-EnvValue $A.UrlKey
         $where = if ($url -match '^https?://([^/]+)') { 'во прелистувач · ' + $Matches[1] } else { 'во прелистувач · адресата се внесува при прв клик' }
+    } elseif ($A.File) {
+        $where = 'од овој компјутер · и без Интернет'
     } else {
         $where = 'кратенка: ' + $A.Name
     }
@@ -606,8 +668,21 @@ function Open-Page([hashtable] $A) {
         Add-EnvValue $A.UrlKey $url
         Show-Tiles
     }
+    # A tile for one page of that server: the same address, its own path.
+    if ($A.Page) { $url = ($url -replace '^(https?://[^/\s]+).*$', '$1') + '/' + $A.Page }
     Start-Process $url
     $footer.Text = 'Отворено во прелистувачот: ' + $url
+}
+
+# A page of this folder, in the browser, straight from the disk.
+function Open-File([hashtable] $A) {
+    $file = Join-Path $root $A.File
+    if (-not (Test-Path -LiteralPath $file)) {
+        $footer.Text = 'Го нема фајлот „' + $A.File + '“ во папката MTB — „Ажурирај среде ден“ го носи.'
+        return
+    }
+    Start-Process $file
+    $footer.Text = 'Отворено од овој компјутер: ' + $A.File
 }
 
 function Start-Action([hashtable] $A) {
@@ -617,6 +692,7 @@ function Start-Action([hashtable] $A) {
     }
     try {
         if ($A.UrlKey) { Open-Page $A; return }
+        if ($A.File) { Open-File $A; return }
         $script = Join-Path $PSScriptRoot $A.Script
         $argv = @('-ExecutionPolicy', 'Bypass', '-File', "`"$script`"")
         if ($A.Args) { $argv += @($A.Args -split ' ' | Where-Object { $_ }) }
@@ -701,7 +777,36 @@ function Switch-Controls {
 
 function Show-Tiles {
     $tiles.Children.Clear()
-    foreach ($n in Get-Places) { [void]$tiles.Children.Add((New-Tile $byName[$n])) }
+    $names = @(Get-Places)
+    $script:tabHasThumbs = [bool](@($names | Where-Object { Get-Thumb $byName[$_].Thumb }).Count)
+    foreach ($n in $names) { [void]$tiles.Children.Add((New-Tile $byName[$n])) }
+}
+
+# One tab of the strip. The chosen one is filled; a click on another opens it.
+function New-TabButton([hashtable] $One) {
+    $T = $themes[$script:theme]
+    $on = $One.Key -eq $script:tab
+    $b = New-Object Windows.Controls.Border
+    $b.CornerRadius = [Windows.CornerRadius]::new(19)
+    $b.Padding = Get-Thick 24 9 24 9
+    $b.Margin = Get-Thick 5 0 5 0
+    $b.Background = Get-Brush $(if ($on) { $T.BtnFg } else { $T.BtnBg })
+    $b.BorderBrush = Get-Brush $(if ($on) { $T.BtnFg } else { $T.BtnBorder })
+    $b.BorderThickness = Get-Thick 1 1 1 1
+    $b.Cursor = [Windows.Input.Cursors]::Hand
+    $b.ToolTip = $One.Text
+    $count = @($script:order | Where-Object { $byName[$_].Tab -eq $One.Key }).Count
+    $b.Child = New-Text ($One.Title + '  ' + $count) 15 $(if ($on) { $T.CardBase } else { $T.BtnFg }) 'Bold'
+    $b.Tag = $One.Key
+    $b.add_MouseLeftButtonUp({
+        param($s, $e)
+        $e.Handled = $true
+        if ($script:tab -eq $s.Tag) { return }
+        $script:tab = [string]$s.Tag
+        Save-Layout
+        $window.Dispatcher.BeginInvoke([Action]{ Show-Page; Update-Status }) | Out-Null
+    })
+    return $b
 }
 
 function Show-Page {
@@ -798,11 +903,23 @@ function Show-Page {
     [void]$page.Children.Add($controls)
     Set-ControlsShown
 
+    # The tabs, always shown: they are the way around, not a setting.
+    $strip = New-Object Windows.Controls.StackPanel
+    $strip.Orientation = 'Horizontal'
+    $strip.HorizontalAlignment = 'Center'
+    $strip.Margin = Get-Thick 0 20 18 0
+    foreach ($one in $tabs) { [void]$strip.Children.Add((New-TabButton $one)) }
+    [void]$page.Children.Add($strip)
+    $about = New-Text ([string]($tabs | Where-Object { $_.Key -eq $script:tab }).Text) 13.5 $T.Sub
+    $about.HorizontalAlignment = 'Center'; $about.TextAlignment = 'Center'
+    $about.Margin = Get-Thick 0 10 18 0
+    [void]$page.Children.Add($about)
+
     # Three columns whatever the window's width (it cannot get narrower than
     # three tiles), so a row is full before the next one starts.
     $script:tiles = New-Object Windows.Controls.Primitives.UniformGrid
     $tiles.Columns = 3
-    $tiles.Margin = Get-Thick 0 18 0 0
+    $tiles.Margin = Get-Thick 0 16 0 0
     [void]$page.Children.Add($tiles)
 
     $script:footer = New-Text 'Описот е и во „PROCITAJ - sto pravi sekoja kratenka.txt“ во папката MTB.' 12.5 $T.Footer
@@ -816,6 +933,7 @@ function Show-Page {
 
 try {
     Read-Layout
+    if ($StartTab -in $tabKeys) { $script:tab = $StartTab }
 
     $window = New-Object Windows.Window
     $window.Title = 'MTB — Контролна табла'

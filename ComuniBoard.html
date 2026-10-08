@@ -5913,7 +5913,15 @@
             document.addEventListener('touchcancel', endTouch);
         })();
     </script>
-    <script src="home-button.js"></script>
+    <script>
+        // The floating home dock — except inside Вежби за изговор (vezbi/), where
+        // this page is one of three tabs and the strip above it is the way home.
+        if (window.parent === window.top) {
+            const dock = document.createElement('script');
+            dock.src = 'home-button.js';
+            document.head.appendChild(dock);
+        }
+    </script>
     <script>
         (function() {
             if (typeof renderElements === 'function') {
@@ -6607,9 +6615,19 @@
 
         cardFrame.srcdoc = cardHtml;
         whiteboardFrame.srcdoc = whiteboardHtml;
+        // A picture for the board comes from the card maker, or from the page this
+        // one is opened inside: vezbi/index.html sends a card with „➜ Во таблата".
+        // From outside only a picture, and only from a page of this same address.
+        // Opened from the disk, a message says its origin is "null" while this
+        // page's own reads "file://": there the folder is the address.
+        const embedder = window.parent !== window ? window.parent : null;
+        const sameAddress = (origin) => origin === location.origin ||
+            (location.protocol === 'file:' && origin === 'null');
         window.addEventListener('message', (event) => {
-            if (event.source !== cardFrame.contentWindow) return;
             const data = event.data || {};
+            const fromEmbedder = Boolean(embedder) && event.source === embedder &&
+                sameAddress(event.origin) && /^data:image\//.test(String(data.url || ''));
+            if (event.source !== cardFrame.contentWindow && !fromEmbedder) return;
             if (data.type !== 'insert-generated-image' || !data.url) return;
             if (!whiteboardFrame || !whiteboardFrame.contentWindow) return;
 

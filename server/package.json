@@ -103,6 +103,7 @@
     "test:kolega-class-attendance": "node test/kolega-class-attendance.browser.mjs",
     "test:kolega-read-only": "node test/kolega-read-only.browser.mjs",
     "test:layout": "node test/layout.browser.mjs",
+    "test:vezbi": "tsx test/vezbi.browser.mjs",
     "test:duty": "tsx test/duty.e2e.ts",
     "test:kolegi-admin": "node test/kolegi-admin.browser.mjs",
     "test:door": "node test/door.browser.mjs",

@@ -1,16 +1,19 @@
-# Artikulacija — articulation exercises for a speech therapist
+# Вежби за изговор (`vezbi/`) — articulation exercises
 
-This file is the project's memory. A new session knows nothing of the
-conversation in which the project started (8 Oct 2026, inside the MTB
-repository), so everything decided there is written here.
+This file is the memory of the exercise page. It started as a repository of
+its own (`Assisstant/Artikulacija`, 8 Oct 2026) and moved here the same day,
+with its history, as the folder `vezbi/` (see „Moved into MTB"). Read
+`CLAUDE.md` for the rules of the repository; this file is what the page is,
+what was decided about it and what the owner asked for next.
 
 ## What this is
 
 The owner is a speech therapist at a school in Битола. About twenty years ago
 they made a set of PowerPoint decks, one per speech sound, to practise
-articulation with children. This project replaces those decks with one offline
-web page that does the same exercise better. It is a separate project on
-purpose: it does not belong in MTB and shares no code or data with it.
+articulation with children. This page replaces those decks with one offline
+web page that does the same exercise better. It lives in MTB's repository as
+one folder and shares **no code and no data** with the records side: no
+database, no sign-in, nothing about a pupil.
 
 ## The concept, which stays
 
@@ -33,9 +36,11 @@ The words of the П deck, in the owner's three groups of rising difficulty:
 
 ## Where it stands
 
-The page is `index.html` (until 8 Oct 2026 it was the single file
+The page is `vezbi/index.html` (until 8 Oct 2026 it was the single file
 `glas-P.html`, whose concept the owner liked) plus one data file per sound in
-`glasovi/`. The two must be copied together; it still opens by double-click
+`vezbi/glasovi/` and three tile pictures beside it. It frames
+`ComuniBoard.html` and `WBACC.html` from the folder above (see „The three
+parts"). It still opens by double-click
 and works offline, pictures embedded as data URIs. All 26 sounds are in
 (288 words, 312 sentences). П and Б have pictures chosen by hand. The other
 24 were filled by a script on 8 Oct 2026 with the first ARASAAC match for the
@@ -59,6 +64,18 @@ the repository (see Pictures). It has:
   `DISTRACTORS`. The right one snaps into the nearest empty box, a wrong one
   goes back and shakes; a tap or Enter places it without dragging. When the
   word is whole it is said aloud.
+- **Building the word** (8 Oct 2026, the owner said „направи", not yet
+  judged): in „Само цртички" every box of a word takes a letter. Two levels:
+  tiles under the card (the word's own letters, shuffled, and two wrong ones;
+  a placed tile is gone), or „⌨ Тастатура" in the header — one keyboard for
+  the whole screen, fixed at the bottom, in ComuniBoard's Macedonian layout.
+  With the keyboard on it also replaces the three tiles of „Без П", and the
+  real keyboard types into the same box. A letter is dragged into any box, or
+  tapped: a tap goes to the box with the blue ring (a box chosen by a tap,
+  else the first empty one). After two wrong tries a box shows its letter
+  faintly. A whole word is said aloud and gets a ⭐ (also in „Без П"). A tap
+  on an empty box no longer moves the card to its next step; a tap on the
+  picture does. Sentences do not have this yet („Без збор" is still a line).
 - **Voice** (same date): 🔊 on every card. It plays the therapist's recording
   if there is one, else a system voice (Macedonian, else sr/bg/hr/sl/ru).
   „✏️ Уреди" in the header shows the record and delete buttons; a recording
@@ -83,9 +100,13 @@ the repository (see Pictures). It has:
   more pictures and a sentence. Steps: Цела реченица → Без Б (letters, with
   dragging) → Без збор (the word in braces becomes a line) → Само слика.
 
-A sound is one file, `glasovi/<latin>.js`, that pushes
+A sound is one file, `vezbi/glasovi/<latin>.js`, that pushes
 `{ letter, file, words: [{ w, img, set }], sentences: [{ s, img: [...] }], img: {} }`
-to `GLASOVI`, and one `<script>` tag in `index.html`. `img` on a word or
+to `GLASOVI`, one `<script>` tag in `index.html`, **and one name in the
+server's list** (`server/src/lib/public-static.ts`): the server publishes this
+folder file by file, so a sound missing from the list is a blank page on the
+server and in the cloud while GitHub Pages still shows it.
+`public-static.test.ts` fails until the three agree. `img` on a word or
 sentence is optional: without it the key into the pictures is the text itself.
 `set` is the owner's group (one old slide); the group buttons are made from
 it. In `s` the word in `{braces}` is the one hidden in „Без збор". The syllables are generated from
@@ -117,17 +138,90 @@ on its last slides; where the deck has no such slide it is the last word with
 the target letter. ARASAAC ids for Б: баба 23710, буба 2924, бебе 2275,
 бои 2348.
 
-Not done yet from the owner's list: the Cyrillic on-screen keyboard for the
-blanks-only step, the own photo, the reward after a right answer, and groups
-for the sentences (Р has 22 in one list).
+Not done yet from the owner's list: the own photo, building the hidden word
+in a sentence, and groups for the sentences (Р has 22 in one list).
+
+## The three parts (built 8 Oct 2026, the owner said „for both"; not yet judged)
+
+`index.html` has a dark strip of tabs on top: 🏠, „Вежби", „ComuniBoard",
+„WBACC Studio".
+
+- **🏠 is the start**: a board of three tiles in the style of MTB's Контролна
+  табла (thumbnail, coloured chip, title, what it is, when to use it). The
+  list is `APPS` in `index.html`. The address picks the part:
+  `index.html#vezbi`, `#tabla`, `#crtanje`; no hash is the tiles. The
+  browser's Back works.
+- **The other two apps open in frames**, loaded the first time they are
+  opened, from `../ComuniBoard.html` and `../WBACC.html`: MTB's own files, one
+  copy of each. (In the old repository they were copies in a folder `alati/`.)
+- **„➜ Во таблата"** (in „✏️ Уреди", beside „📋 Копирај") draws the card as it
+  is and posts it to the ComuniBoard frame, which puts it on „Кирилична
+  Табла". For WBACC the way is „📋 Копирај" and Ctrl+V.
+- **The receiver is in `ComuniBoard.html`**: its outer script takes
+  `insert-generated-image` from the page it is opened inside, and from there
+  only a picture (`data:image/…`), only from a page of the same address. A
+  page opened from the disk says its origin two ways — the message carries
+  `"null"`, `location.origin` reads `"file://"` — so that case is named; a
+  plain `event.origin === location.origin` refuses every card on a double-click.
+- **Inside the frame ComuniBoard does not load MTB's floating home dock**
+  (`home-button.js`): the strip above it is the way home, and the dock's own
+  home link would open EduHub inside the frame. Opened by itself it still does.
+- `vezbi.jpg`, `tabla.jpg`, `crtanje.jpg` beside `index.html` are the tiles'
+  thumbnails, screenshots at 640×400 from a clean browser profile (nothing
+  personal). The Контролна табла's „Вежби" tab shows the same three.
+
+## Moved into MTB (8 Oct 2026, the owner: „we do this")
+
+The owner asked whether these projects belong in one repository, then: „this
+gets published on Render also and locally also, make the plan and we do it
+all". Done in a session opened in the MTB folder:
+
+1. **Moved.** The old repository's history came in with `git subtree add
+   --prefix=vezbi` (its eight commits are in `git log -- vezbi`). The copies
+   in `alati/` were dropped and the receiver went into MTB's `ComuniBoard.html`.
+2. **Served.** `server/src/lib/public-static.ts` names the page, its three
+   pictures and its 26 sounds one by one, and `/vezbi/` as the one folder
+   address that answers. So the local server and the cloud (Render) serve it
+   exactly as they serve `ComuniBoard.html` and `WBACC.html`: in the cloud
+   behind the owner's Google sign-in like every page but Колега, with no
+   sign-in of its own. GitHub Pages serves the folder as it is
+   (`…/MTB/vezbi/`), without any sign-in.
+3. **Listed.** „Вежби за изговор" in `start.html` (tools), as a card in
+   EduHub (`index.html`), and in `app-names.test.ts`. It is not in the
+   `app-navigation.js` bar: that bar is the record screens, and ComuniBoard
+   and WBACC Studio are not in it either.
+4. **Контролна табла in three tabs** (the owner: „Administracija, Evidencija,
+   Vezbi, thumbnails"): `scripts\mtb-actions.ps1` (`Get-MtbTabs`, `Tab`,
+   `Page`, `File`, `Thumb`) and `scripts\mtb-launcher.ps1`. Администрација is
+   the twelve actions that run a script. Евиденција opens the work space's six
+   record screens in the cloud (the owner named four; six fill two rows, and a
+   row of one is what they turned down on 3 Oct). Вежби opens the three pages
+   **from this computer** (`file://`), so a lesson does not wait for the
+   Internet or for the cloud to wake.
+5. **Not done: closing the old repository** — a README there that points
+   here, then archiving it on GitHub. Only after the owner has used the moved
+   page; until then its folder on the PC is left as it was.
+
+`scripts\vezbi-zip.ps1` makes one zip (the page, the two tools, what they
+load) for a computer without MTB: copying `vezbi\` alone gives two empty tabs.
+
+**Three addresses, three separate memories.** A browser keeps recordings and
+chosen pictures per address, so what is recorded at `file://` is not there on
+GitHub Pages or in the cloud, and the other way round. The words and the
+pictures in `glasovi/` are the same everywhere; „⬇ Извези" is how a picture
+chosen on one device reaches the rest. Pick one address per device and stay
+on it — on the school PC that is the tile.
+
+`npm run test:vezbi` (from `server/`) opens the page in a real browser through
+the server's own file list: the tiles, the 26 sounds, both tools, a card onto
+the board, Back, a phone's width. It needs no database.
 
 ## What the owner asked for next
 
 More interactivity, combining this with ideas from their own ComuniBoard
-(`https://assisstant.github.io/MTB/ComuniBoard.html`, source in the MTB
-repository as `ComuniBoard.html`: an AAC card creator and a Cyrillic letter
-board). The proposal made to the owner, **not yet approved** — wait for
-„направи" before building:
+(`ComuniBoard.html` in the folder above: an AAC card creator and a Cyrillic
+letter board). The proposal as it was made to the owner; much of it has since
+been built — „Where it stands" says what. For the rest, wait for „направи":
 
 - **Dragging letters.** The child drags the missing letter into the empty box
   from a few tiles (the right one and two or three wrong ones). Right snaps
@@ -153,22 +247,22 @@ judge the direction before the rest is built.
 
 The owner (8 Oct 2026): combine the good parts of all three — this page,
 ComuniBoard and WBACC Studio (their Excalidraw build, which they call proven).
-All three are readable on this machine in the sibling clone `..\MTB`; nothing
-needs to be copied here as a whole. Take pieces, rewritten into this page.
+All three are in this repository; nothing is copied into the page as a whole.
+Take pieces, rewritten into the page.
 
 | Source | Where | Take | Leave |
 | --- | --- | --- | --- |
-| This page | `index.html` | the exercise itself: syllables, letter boxes, the fading cue, groups, worksheet | — |
-| ComuniBoard | `..\MTB\ComuniBoard.html` | dragging letters with touch and mouse (`setupLetterDrag`), the Cyrillic on-screen keyboard (`renderKeyboard`), own photo with cropping (`initCropper`) | the free board, text boxes, lines, the presentation viewer |
-| WBACC Studio | `..\MTB\wbacc\src\` | pictogram search, Macedonian then English (`Pictograms.jsx`, `api.js`); the picture stored INSIDE the card so it shows offline (`image.js`); the voice picker, Macedonian or the nearest Slavic voice; the ARASAAC credit (`Credit.jsx`) | Excalidraw itself |
+| This page | `vezbi/index.html` | the exercise itself: syllables, letter boxes, the fading cue, groups, worksheet | — |
+| ComuniBoard | `ComuniBoard.html` | dragging letters with touch and mouse (`setupLetterDrag`), the Cyrillic on-screen keyboard (`renderKeyboard`), own photo with cropping (`initCropper`) | the free board, text boxes, lines, the presentation viewer |
+| WBACC Studio | `wbacc/src/` | pictogram search, Macedonian then English (`Pictograms.jsx`, `api.js`); the picture stored INSIDE the card so it shows offline (`image.js`); the voice picker, Macedonian or the nearest Slavic voice; the ARASAAC credit (`Credit.jsx`) | Excalidraw itself |
 
-Excalidraw is not embedded here, and that is a recommendation the owner has
-not yet confirmed: it is a free canvas (nothing snaps into a box, nothing is
+Since 8 Oct 2026 WBACC Studio opens as a tab, whole, in a frame (see „The
+three parts"). Excalidraw is still not built into the exercise itself: it is a free canvas (nothing snaps into a box, nothing is
 right or wrong), it needs React and a Vite build, and `WBACC.html` is 8.6 MB
 against this page's 0.2 MB. What a child would use it for in this exercise —
 tracing or writing the letter with a finger — is a small pen layer on a
 plain canvas. Why Excalidraw was chosen for WBACC, and how its fonts work
-offline, is in `..\MTB\docs\PLAN-wbacc.md`.
+offline, is in `docs/PLAN-wbacc.md`.
 
 ## Pictures
 
@@ -195,15 +289,16 @@ Open choices the owner has not answered:
 
 - **Offline, no installation.** It must open by double-click on a school PC
   and on a phone. No build step the owner has to run, no server.
-- **No child's name or recording in the repository.** It is on GitHub
-  (`Assisstant/Artikulacija`). Anything recorded with a child stays in the
-  browser on that device.
+- **No child's name or recording in the repository.** It is public (rule 1
+  of `CLAUDE.md`; the pre-commit hook checks names). Anything recorded with a
+  child stays in the browser on that device.
 - **Interface text is Macedonian (Cyrillic); code and comments are English.**
   The owner writes in English or in Macedonian with Latin letters.
 - **A question from the owner is not a go-ahead.** They think aloud. Answer,
   say what you would build, and wait for „направи".
-- **Publishing is a separate step.** Do not push or turn on GitHub Pages
-  until the owner asks.
+- **Publishing is a separate step.** A push to `main` puts the page on GitHub
+  Pages; the cloud shows it after Render → Manual Deploy. Do neither until the
+  owner asks.
 - A `<button>` does not inherit `color`: give any element with its own
   background its own text colour too.
 - Check a change in a browser at desktop and phone width before saying it

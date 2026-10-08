@@ -204,6 +204,8 @@ const run = async () => {
     await pupilReady(page, errors);
     check('after signing in the page names who is writing',
         (await page.textContent('#who')) === THERAPIST_A, await page.textContent('#who'));
+    // SHOT=<folder>: the sheet with its invented pupils, for looking at it (and for the launcher's tile).
+    if (process.env.SHOT) await page.screenshot({ path: `${process.env.SHOT}/evidenten-list.png` });
 
     const [pinRow] = await q('SELECT pin_hash FROM evidence_logins WHERE therapist_id = $1',
         [fixture.therapists[0].id]);
