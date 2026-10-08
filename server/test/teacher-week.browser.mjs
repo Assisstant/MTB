@@ -240,6 +240,39 @@ try {
     // A page that writes lessons must not call itself read-only in the shared bar.
     const said = await page.evaluate(() => window.__MTB_DATA_STATE__ || {});
     check('and the bar does not say „само читање"', said.state !== 'readonly' && !/само читање/i.test(said.text || ''), JSON.stringify(said));
+
+    // Owner, 8 Oct 2026: in the dark theme a filled picker was a white box with
+    // pale letters (the sheet's paper fill under the theme's light ink), and an
+    // empty one dark letters on the dark panel. Readable is a measurement: every
+    // picker and the words under the sheet, in both themes, 4.5:1 or more.
+    for (const theme of ['light', 'dark']) {
+        await page.evaluate((t) => {
+            document.documentElement.dataset.theme = t;
+            document.body.classList.toggle('dark-mode', t === 'dark');
+            document.body.classList.toggle('dark', t === 'dark');
+        }, theme);
+        await page.waitForTimeout(150);
+        const worst = await page.evaluate(() => {
+            const rgb = (s) => (s.match(/[\d.]+/g) || []).map(Number);
+            const lum = ([r, g, b]) => [r, g, b].map((v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; })
+                .reduce((sum, v, i) => sum + v * [0.2126, 0.7152, 0.0722][i], 0);
+            const under = (el) => { for (let n = el; n; n = n.parentElement) { const c = rgb(getComputedStyle(n).backgroundColor); if (c.length === 3 || c[3] > 0) return c; } return [255, 255, 255]; };
+            let low = { ratio: 99 };
+            for (const el of document.querySelectorAll('#grid .personal .p-edit select:not(:disabled), #grid .personal .p-edithint')) {
+                const a = lum(rgb(getComputedStyle(el).color)), b = lum(under(el));
+                const ratio = (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
+                if (ratio < low.ratio) low = { ratio: Math.round(ratio * 10) / 10, what: el.className || el.tagName, color: getComputedStyle(el).color, on: 'rgb(' + under(el).slice(0, 3).join(', ') + ')' };
+            }
+            return low;
+        });
+        check(`${theme} theme: every picker of the edited sheet is readable (4.5:1 or more)`, worst.ratio >= 4.5, JSON.stringify(worst));
+        if (theme === 'dark') {
+            const filled = await page.$eval('#grid .personal .p-edit select.has', (s) => getComputedStyle(s).backgroundImage + ' | ' + getComputedStyle(s).color);
+            check('dark theme: a filled picker is a grey face under white letters, not a light box', /gradient/.test(filled) && /rgb\(255, 255, 255\)$/.test(filled), filled);
+        }
+        if (process.env.SHOT) await page.screenshot({ path: `${process.env.SHOT}/teacher-week-edit-${theme}.png` });
+    }
+    await page.evaluate(() => { delete document.documentElement.dataset.theme; document.body.classList.remove('dark-mode', 'dark'); });
     await page.click('#personalEdit');
 } finally {
     check('no page errors', errors.length === 0, errors.join('\n       '));

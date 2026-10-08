@@ -760,6 +760,19 @@ header.top h1 { flex: 1; min-width: 180px; }
     html body:is(body, .dark-mode, .dark) .personal:not([data-mtb-plain]) .p-grid td { background: var(--mtb-panel); color: var(--mtb-ink); }
     html body:is(body, .dark-mode, .dark) .personal:not([data-mtb-plain]) :is(.p-lesson, .p-away, .p-more) { background: var(--mtb-well); color: var(--mtb-ink); }
     html body:is(body, .dark-mode, .dark) .personal:not([data-mtb-plain]) :is(.p-lesson small, .p-away small) { color: var(--mtb-muted); }
+    /* The sheet's pickers while it is edited, in the dark theme (owner, 8 Oct
+       2026: „црно-бело"). The sheet's own rules are a sheet of paper's: a filled
+       picker kept its light fill while the theme above made its letters light,
+       and an empty one kept dark letters on the dark panel. A grey face under
+       white letters; an empty picker flat and muted; the words under the sheet
+       in the theme's muted ink. The light theme keeps the paper's colours. */
+    :is(:root[data-theme="dark"], body.dark-mode, body.dark) .personal:not([data-mtb-plain]) .p-edit :is(select, input.p-other) { background: var(--mtb-face); color: var(--mtb-on-ink); border-color: var(--mtb-line); }
+    :is(:root[data-theme="dark"], body.dark-mode, body.dark) .personal:not([data-mtb-plain]) .p-edit select.has { border-left-color: var(--mtb-accent); }
+    :is(:root[data-theme="dark"], body.dark-mode, body.dark) .personal:not([data-mtb-plain]) .p-edit select:is(.none, .p-class:not(.has)) { background: var(--mtb-well); color: var(--mtb-muted); }
+    :is(:root[data-theme="dark"], body.dark-mode, body.dark) .personal:not([data-mtb-plain]) .p-edit select:hover:not(:disabled) { border-color: var(--mtb-accent); }
+    :is(:root[data-theme="dark"], body.dark-mode, body.dark) .personal:not([data-mtb-plain]) .p-edit :is(select, input.p-other):focus-visible { outline-color: var(--mtb-accent); }
+    :is(:root[data-theme="dark"], body.dark-mode, body.dark) .personal:not([data-mtb-plain]) :is(.p-edithint, .p-foot, .quiet) { color: var(--mtb-muted); }
+    :is(:root[data-theme="dark"], body.dark-mode, body.dark) .personal:not([data-mtb-plain]) .p-warn { color: var(--mtb-warning); }
 }
 /* mtb-palette:end */
 </style>
