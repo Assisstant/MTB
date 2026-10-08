@@ -282,6 +282,12 @@ const run = async () => {
     await q('DELETE FROM students WHERE public_id LIKE $1', [`${TAG}-band-%`]);
     await page.click('#btnReload');
     await page.waitForFunction(() => document.querySelectorAll('.pupil').length === 1);
+    // The list is drawn BEFORE the open sheet is read again (`load()` in the
+    // page), and until that second answer arrives there is no open sheet: a
+    // field typed into then has nothing to be saved to. Typing right after the
+    // list appeared made the next check fail about one run in two (8 Oct 2026)
+    // and read as a lost save. The page says when the whole reload is over.
+    await page.waitForFunction(() => /периоди/.test(document.getElementById('status').textContent || ''));
 
     console.log('\nreliable text autosave');
     await page.click('.tab[data-p="pProfile"]');
@@ -293,9 +299,16 @@ const run = async () => {
         diagnosis.dispatchEvent(new Event('input', { bubbles: true }));
         place.dispatchEvent(new Event('input', { bubbles: true }));
     });
-    await page.waitForTimeout(1300);
-    let profileRow = (await q(
-        'SELECT diagnosis, pob FROM evidence_sheets WHERE id = $1', [sheetRow.id]))[0];
+    // The debounce is one second and each field then makes its own request.
+    // The claim is that both arrive, not how fast: look until they have, or
+    // five seconds pass, instead of reading once 300 ms after the debounce.
+    let profileRow;
+    for (const giveUp = Date.now() + 5000; ;) {
+        profileRow = (await q(
+            'SELECT diagnosis, pob FROM evidence_sheets WHERE id = $1', [sheetRow.id]))[0];
+        if ((profileRow.diagnosis && profileRow.pob) || Date.now() > giveUp) break;
+        await page.waitForTimeout(150);
+    }
     checkEq('two profile fields typed inside one second are both saved',
         [profileRow.diagnosis, profileRow.pob],
         ['Пробна дијагноза со празни места  ', 'Пробно место на раѓање']);
