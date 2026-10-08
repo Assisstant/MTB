@@ -37,8 +37,14 @@ The page is `index.html` (until 8 Oct 2026 it was the single file
 `glas-P.html`, whose concept the owner liked) plus one data file per sound in
 `glasovi/`. The two must be copied together; it still opens by double-click
 and works offline, pictures embedded as data URIs. All 26 sounds are in
-(288 words, 312 sentences); only П and Б have pictures, the rest show a
-place-holder until the owner chooses one. It has:
+(288 words, 312 sentences). П and Б have pictures chosen by hand. The other
+24 were filled by a script on 8 Oct 2026 with the first ARASAAC match for the
+word (300 px; a sentence shows the picture of its hidden word), so that the
+owner has something to change: expect wrong ones. People's names (Ана,
+Ленче, Филип…) and „ѓезве" have no pictogram and keep the place-holder. The
+owner asked for the place-holders to be filled „so мапираните слики"; this
+was read as pictograms, not the old decks' own pictures, which stay out of
+the repository (see Pictures). It has:
 
 - „Слогови": the syllable table as text; tapping a syllable marks it done.
 - „Зборови": all words or one of the three groups.
