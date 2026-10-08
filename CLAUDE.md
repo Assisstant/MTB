@@ -37,7 +37,7 @@ The page is `index.html` (until 8 Oct 2026 it was the single file
 `glas-P.html`, whose concept the owner liked) plus one data file per sound in
 `glasovi/`. The two must be copied together; it still opens by double-click
 and works offline, pictures embedded as data URIs. All 26 sounds are in
-(278 words, 312 sentences); only П and Б have pictures, the rest show a
+(288 words, 312 sentences); only П and Б have pictures, the rest show a
 place-holder until the owner chooses one. It has:
 
 - „Слогови": the syllable table as text; tapping a syllable marks it done.
