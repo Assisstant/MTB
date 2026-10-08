@@ -29,7 +29,10 @@
  *      only where a server answers — never on GitHub Pages or from the disk,
  *      where the diary is a separate, empty copy;
  *   8. on ComuniBoard's board a space is a thing: marked, kept by „Порамни",
- *      made from a gap left by hand, and never in the picture or on paper.
+ *      made from a gap left by hand, and never in the picture or on paper;
+ *   9. the board and WBACC Studio share the computer's clipboard: letters cross
+ *      as text and a picture as a picture, both ways, with a plain Ctrl+V; a
+ *      copy pasted back on the board is the things themselves.
  */
 import Fastify from 'fastify';
 import { chromium } from 'playwright';
@@ -51,7 +54,7 @@ const ORIGIN = `http://127.0.0.1:${server.server.address().port}`;
 
 const browser = await chromium.launch({ ...(process.env.CHROME ? { executablePath: process.env.CHROME } : {}) });
 try {
-    const context = await browser.newContext({ viewport: { width: 1280, height: 900 }, serviceWorkers: 'block' });
+    const context = await browser.newContext({ viewport: { width: 1280, height: 900 }, serviceWorkers: 'block', permissions: ['clipboard-read', 'clipboard-write'] });
     const refused = [];
     const errors = [];
     await context.route((url) => url.origin !== ORIGIN, (route) => route.abort());
@@ -276,6 +279,104 @@ try {
     await page.evaluate(() => history.back());
     await page.waitForFunction(() => location.hash === '#crtanje');
     check('Back walks the parts instead of leaving the page', await page.$eval('#crtanje', (f) => !f.hidden));
+
+    console.log('\ncopy and paste between the board and WBACC Studio');
+    // One clipboard, the computer's: what is copied in one tool is pasted in the other with a plain Ctrl+V.
+    const studio = await (await page.$('#crtanje')).contentFrame();
+    const part = async (name) => { await page.click(`#apps button[data-v="${name}"]`); await page.waitForSelector(`#${name}:not([hidden])`); };
+    const boardSpot = () => whiteboard.click('#canvas', { position: { x: 900, y: 420 } });
+    const studioSpot = async () => {
+        const box = await (await studio.waitForSelector('canvas.interactive')).boundingBox();
+        await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+    };
+    // What the Studio holds, read the way a person would hand it on: select all, copy.
+    const studioCopy = async () => {
+        await studioSpot();
+        await page.keyboard.press('Control+A');
+        await page.keyboard.press('Control+C');
+        await page.waitForTimeout(300);
+        return JSON.parse(await studio.evaluate(() => navigator.clipboard.readText()));
+    };
+    const count = (type) => whiteboard.evaluate((t) => state.elements.filter((el) => el.type === t).length, type);
+
+    await part('tabla');
+    await whiteboard.evaluate(() => {
+        setMode(null);
+        state.selectedIds = state.elements.filter((el) => el.type === 'letter').map((el) => el.id);
+        updateSelectionTools();
+        renderElements();
+    });
+    const sentence = await word();
+    await whiteboard.click('#copyBtn');
+    check('letters copied on the board are text on the computer\'s clipboard',
+        (await whiteboard.evaluate(() => navigator.clipboard.readText())) === sentence, await whiteboard.evaluate(() => navigator.clipboard.readText()));
+    const before = await count('letter');
+    await boardSpot();
+    await page.keyboard.press('Control+V');
+    await whiteboard.waitForFunction((n) => state.elements.filter((el) => el.type === 'letter').length > n, before);
+    check('pasted back on the board they are the same letters, a step aside, and chosen',
+        (await count('letter')) === before * 2 && (await whiteboard.evaluate(() => state.selectedIds.length)) === before
+        && await whiteboard.evaluate(() => { const l = state.elements.filter((el) => el.type === 'letter'); return l[l.length - 1].y === l[l.length / 2 - 1].y + 30; }));
+
+    await part('crtanje');
+    await studioSpot();
+    await page.keyboard.press('Control+V');
+    await page.waitForTimeout(600);
+    let scene = await studioCopy();
+    check('in the Studio the same copy is pasted as text', scene.elements.some((el) => el.type === 'text' && el.text === sentence),
+        JSON.stringify(scene.elements.map((el) => [el.type, el.text])));
+
+    await part('tabla');
+    await whiteboard.evaluate(() => { state.elements = state.elements.filter((el) => el.type !== 'letter'); state.selectedIds = []; renderElements(); });
+    await boardSpot();
+    await page.keyboard.press('Control+V');
+    await whiteboard.waitForFunction(() => state.elements.some((el) => el.type === 'letter'));
+    check('text copied in the Studio lands on the board as letters, with its space', await word() === sentence, await word());
+    check('and they are chosen, ready to be moved', (await whiteboard.evaluate(() => state.selectedIds.length)) === Array.from(sentence).length);
+
+    const boardPicture = await whiteboard.evaluate(() => {
+        const el = state.elements.find((item) => item.type === 'image');
+        state.selectedIds = [el.id];
+        updateSelectionTools();
+        renderElements();
+        return { x: el.x, width: el.width };
+    });
+    await whiteboard.click('#copyBtn');
+    await whiteboard.waitForFunction(() => window._wbClipboard.pictureOut === true && document.hasFocus());
+    const types = await whiteboard.evaluate(async () => (await navigator.clipboard.read()).flatMap((item) => item.types));
+    check('a picture copied on the board is a picture on the computer\'s clipboard', types.includes('image/png'), types.join(', '));
+    await boardSpot();
+    await page.keyboard.press('Control+V');
+    await whiteboard.waitForFunction(() => state.elements.filter((el) => el.type === 'image').length === 2);
+    check('pasted back on the board it is the same picture, its size kept', await whiteboard.evaluate((p) => {
+        const copy = state.elements.filter((el) => el.type === 'image')[1];
+        return copy.x === p.x + 30 && copy.width === p.width;
+    }, boardPicture));
+
+    await part('crtanje');
+    await studioSpot();
+    await page.keyboard.press('Control+V');
+    await page.waitForTimeout(1200);
+    scene = await studioCopy();
+    check('in the Studio the same copy is pasted as a picture',
+        scene.elements.some((el) => el.type === 'image') && Object.keys(scene.files || {}).length > 0, JSON.stringify(scene.elements.map((el) => el.type)));
+
+    await part('tabla');
+    await boardSpot();
+    await page.keyboard.press('Control+V');
+    await whiteboard.waitForFunction(() => state.elements.filter((el) => el.type === 'image').length === 3, null, { timeout: 15000 });
+    check('a picture copied in the Studio lands on the board', (await count('image')) === 3);
+    check('with the Studio\'s text beside it', (await count('letter')) === Array.from(sentence).length * 2, String(await count('letter')));
+    await shot('vezbi-copy-paste');
+    const typed = await count('letter');
+    await whiteboard.click('#pasteImageBtn');
+    await whiteboard.waitForFunction((n) => state.elements.filter((el) => el.type === 'letter').length > n, typed);
+    check('the paste button does what Ctrl+V does, for a board without a keyboard', (await count('image')) >= 3);
+    // Opened from the disk every page is an address of its own, and a frame may use the clipboard only when it is told so by name.
+    check('the frames are given the clipboard, from the disk too',
+        (await page.$$eval('#tabla, #crtanje', (frames) => frames.every((f) => /clipboard-write \*/.test(f.allow))))
+        && await board.$eval('#whiteboardFrame', (f) => /clipboard-write \*/.test(f.allow)));
+    await part('crtanje');
 
     console.log('\na phone');
     await page.setViewportSize({ width: 390, height: 800 });

@@ -304,7 +304,7 @@
         </section>
 
         <section class="panel active" id="panel-whiteboard">
-            <iframe id="whiteboardFrame" class="app-frame" title="Кирилична Табла"></iframe>
+            <iframe id="whiteboardFrame" class="app-frame" title="Кирилична Табла" allow="clipboard-read *; clipboard-write *"></iframe>
         </section>
 
     </main>
@@ -3148,7 +3148,7 @@
                     <svg class="icon" viewBox="0 0 24 24"><path d="M20 5H4c-1.1 0-1.99.9-1.99 2L2 17c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm-9 3h2v2h-2V8zm0 3h2v2h-2v-2zM8 8h2v2H8V8zm0 3h2v2H8v-2zm-1 2H5v-2h2v2zm0-3H5V8h2v2zm9 7H8v-2h8v2zm0-4h-2v-2h2v2zm0-3h-2V8h2v2zm3 3h-2v-2h2v2zm0-3h-2V8h2v2z"/></svg>
                 </button>
                 <span id="keyboardToggleText" style="display:none;"></span>
-                <button class="btn btn-default btn-icon" id="pasteImageBtn" title="Залепи слика (Ctrl+V)" style="font-size:14px;">📋</button>
+                <button class="btn btn-default btn-icon" id="pasteImageBtn" title="Залепи (Ctrl+V)" style="font-size:14px;">📋</button>
                 <button class="btn btn-icon" id="speakBoardBtn" title="Изговори ги буквите (селектирани или цела табла)" style="background:#7c3aed;color:white;font-size:13px;">🔊</button>
             </div>
 
@@ -3219,6 +3219,9 @@
                     <div class="color-palette" id="colorPalette"></div>
                     <button class="btn btn-danger btn-icon" id="deleteBtn" title="Избриши (Del)">
                         <svg class="icon" viewBox="0 0 24 24"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
+                    </button>
+                    <button class="btn btn-default btn-icon" id="copyBtn" disabled title="Копирај (Ctrl+C)">
+                        <svg class="icon" viewBox="0 0 24 24"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>
                     </button>
                     <button class="btn btn-default btn-icon" id="alignBtn" disabled title="Порамни">
                         <svg class="icon" viewBox="0 0 24 24"><path d="M3 21h18v-2H3v2zm0-4h18v-2H3v2zm0-4h18v-2H3v2zm0-4h18V7H3v2zm0-6v2h18V3H3z"/></svg>
@@ -3825,6 +3828,8 @@
                 if (bringFrontBtn) bringFrontBtn.disabled = true;
                 if (sendBackBtn) sendBackBtn.disabled = true;
             }
+            const copyBtn = document.getElementById('copyBtn');
+            if (copyBtn) copyBtn.disabled = state.selectedIds.length === 0;
             syncContextBar();
         }
 
@@ -5405,9 +5410,8 @@
         document.getElementById('pptCaptureBtn').addEventListener('click', armPresentationCapture);
         document.getElementById('pptViewerCloseBtn').addEventListener('click', closePptViewer);
 
-        document.getElementById('pasteImageBtn').addEventListener('click', () => {
-            showToast('📋 Направи screenshot (Win+Shift+S), па Ctrl+V');
-        });
+        document.getElementById('pasteImageBtn').addEventListener('click', () => pasteFromButton());
+        document.getElementById('copyBtn').addEventListener('click', () => copySelection());
         document.getElementById('pptViewerMinBtn').addEventListener('click', minimizePptViewer);
         document.getElementById('pptViewerMaxBtn').addEventListener('click', restorePptViewer);
 
@@ -5720,6 +5724,17 @@
             showToast('🗑 Таблата е исчистена');
         });
 
+        // Letters read as text: row by row, each row left to right.
+        function lettersAsRows(letters) {
+            const sorted = [...letters].sort((a, b) => (a.y - b.y) || (a.x - b.x));
+            const rows = [];
+            for (const l of sorted) {
+                const row = rows.find(r => Math.abs(r.y - l.y) <= Math.max(12, (l.fontSize || 48) * 0.5));
+                if (row) { row.items.push(l); } else { rows.push({ y: l.y, items: [l] }); }
+            }
+            return rows.map(r => r.items.sort((a, b) => a.x - b.x).map(i => i.content).join(''));
+        }
+
         // ============ ИЗГОВОРИ (TTS — буквите формираат збор/реченица) ============
         document.getElementById('speakBoardBtn').addEventListener('click', () => {
             if (!('speechSynthesis' in window)) {
@@ -5732,17 +5747,7 @@
                 showToast('Нема букви за читање');
                 return;
             }
-            const sorted = [...letters].sort((a, b) => (a.y - b.y) || (a.x - b.x));
-            const rows = [];
-            for (const l of sorted) {
-                const row = rows.find(r => Math.abs(r.y - l.y) <= Math.max(12, (l.fontSize || 48) * 0.5));
-                if (row) { row.items.push(l); } else { rows.push({ y: l.y, items: [l] }); }
-            }
-            const textOut = rows
-                .map(r => r.items.sort((a, b) => a.x - b.x).map(i => i.content).join(''))
-                .join(' ')
-                .replace(/\s+/g, ' ')
-                .trim();
+            const textOut = lettersAsRows(letters).join(' ').replace(/\s+/g, ' ').trim();
             if (!textOut) { showToast('Нема текст'); return; }
             const u = new SpeechSynthesisUtterance(textOut);
             const voices = speechSynthesis.getVoices();
@@ -5986,49 +5991,11 @@
             // ====== COPY (Ctrl+C) ======
             if (e.ctrlKey && e.key.toLowerCase() === 'c' && state.selectedIds.length > 0) {
                 e.preventDefault();
-                window._wbClipboard = {
-                    type: 'elements',
-                    data: state.elements
-                        .filter(el => state.selectedIds.includes(el.id))
-                        .map(el => JSON.parse(JSON.stringify(el)))
-                };
-                showToast('📋 Копирано: ' + window._wbClipboard.data.length + ' објект(и)');
+                copySelection();
             }
 
-            // ====== PASTE (Ctrl+V) ======
-            if (e.ctrlKey && e.key.toLowerCase() === 'v' && window._wbClipboard) {
-                if (window._wbClipboard.type === 'elements') {
-                    e.preventDefault();
-                    saveToHistory();
-                    const offset = 30;
-                    const newIds = [];
-                    for (const orig of window._wbClipboard.data) {
-                        const clone = JSON.parse(JSON.stringify(orig));
-                        clone.id = generateId();
-                        if (clone.type === 'line') {
-                            clone.x1 = (clone.x1 || 0) + offset;
-                            clone.y1 = (clone.y1 || 0) + offset;
-                            clone.x2 = (clone.x2 || 0) + offset;
-                            clone.y2 = (clone.y2 || 0) + offset;
-                        } else {
-                            clone.x = (clone.x || 0) + offset;
-                            clone.y = (clone.y || 0) + offset;
-                        }
-                        state.elements.push(clone);
-                        newIds.push(clone.id);
-                    }
-                    // Update clipboard offsets for repeated paste
-                    window._wbClipboard.data.forEach(el => {
-                        if (el.type === 'line') { el.x1 += offset; el.y1 += offset; el.x2 += offset; el.y2 += offset; }
-                        else { el.x = (el.x || 0) + offset; el.y = (el.y || 0) + offset; }
-                    });
-                    state.selectedIds = newIds;
-                    updateSelectionTools();
-                    renderElements();
-                    showToast('📋 Залепено: ' + newIds.length + ' објект(и)');
-                }
-                // type === 'textbox' handled in IIFE below
-            }
+            // Ctrl+V is not taken here: the paste event that follows it holds
+            // what the computer's clipboard has, and decides (takeClipboard).
         });
 
         // QWERTY to Cyrillic mapping
@@ -6136,13 +6103,19 @@
         // ============ ПОСТАВУВАЊЕ БУКВИ СО ДОПИР/КЛИК (за таблети и интерактивни табли) ============
         function wbTypeChar(char) {
             if (state.mode !== 'typing') setMode('typing');
+            saveToHistory();
+            placeChar(char);
+            renderElements();
+        }
+
+        // One letter at the cursor, which moves on. The caller keeps the
+        // history and draws: pasted text is many letters and one step back.
+        function placeChar(char) {
             const props = findNearestLetterProps(state.typingCursor.x, state.typingCursor.y);
             const fontSize = props.fontSize || state.typingCursor.fontSize;
             const width = getLetterWidth(char, fontSize);
             const effectiveSpacing = getEffectiveSpacing(props.spacing, fontSize);
-
-            saveToHistory();
-            state.elements.push({
+            const letter = {
                 id: generateId(),
                 type: 'letter',
                 content: char,
@@ -6151,13 +6124,14 @@
                 fontSize,
                 width,
                 color: state.typingColor || '#1e293b'
-            });
+            };
+            state.elements.push(letter);
 
             state.typingCursor.x += width + effectiveSpacing;
             state.letterSpacing = effectiveSpacing;
             document.getElementById('spacingSlider').value = state.letterSpacing;
             state.typingCursor.fontSize = fontSize;
-            renderElements();
+            return letter;
         }
 
         function wbTypeEnter() {
@@ -6193,27 +6167,315 @@
             }
         }
 
-        // ============ IMAGE PASTE ============
-        document.addEventListener('paste', (e) => {
-            const items = e.clipboardData?.items;
-            if (!items) return;
+        // ============ COPY AND PASTE, ALSO WITH OTHER PROGRAMS ============
+        // One clipboard, the computer's. A copy made here goes there as well:
+        // letters as text, a picture or a card as a picture, so WBACC Studio
+        // (or Word) takes it with a plain Ctrl+V. Beside it goes a mark of this
+        // copy, so a paste back here brings the things themselves, with their
+        // place, size and colour. What comes from elsewhere lands as letters
+        // and pictures: plain text, a picture, and what WBACC Studio
+        // (Excalidraw) copies — its drawing written out as text.
+        const CLIP_MARK = 'data-comuniboard';
+        const PASTE_MAX_LETTERS = 300;
 
-            for (const item of items) {
-                if (item.type.startsWith('image/')) {
-                    const file = item.getAsFile();
-                    const point = getDefaultInsertPoint();
-                    const slotId = pptSession.captureArmed ? pptSession.captureSlotId : '';
-                    insertImageFile(file, point.x, point.y, { slotId });
-                    if (pptSession.captureArmed) {
-                        pptSession.captureArmed = false;
-                        pptSession.captureSlotId = '';
-                        showToast('Slide image inserted');
-                    }
-                    e.preventDefault();
-                    break;
+        function escapeHtml(text) {
+            return String(text).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+        }
+
+        function loadPicture(src) {
+            return new Promise((resolve) => {
+                const img = new Image();
+                img.onload = () => resolve(img);
+                img.onerror = () => resolve(null);
+                img.src = src;
+            });
+        }
+
+        function canvasAsPng(c) {
+            return new Promise((resolve) => {
+                // A picture from another address taints the canvas, and then
+                // nothing can be read out of it.
+                try { c.toBlob((blob) => resolve(blob), 'image/png'); } catch (err) { resolve(null); }
+            });
+        }
+
+        // A picture as it is; a card as it looks on the board, frame and word.
+        async function elementAsPng(el) {
+            const img = el.content ? await loadPicture(el.content) : null;
+            const c = document.createElement('canvas');
+            const ctx = c.getContext('2d');
+            if (el.type !== 'card') {
+                if (!img) return null;
+                c.width = img.naturalWidth;
+                c.height = img.naturalHeight;
+                ctx.drawImage(img, 0, 0);
+                return canvasAsPng(c);
+            }
+            const scale = 2;
+            const w = Math.max(60, Math.round(el.width || 240));
+            const h = Math.max(60, Math.round(el.height || 300));
+            c.width = w * scale;
+            c.height = h * scale;
+            ctx.scale(scale, scale);
+            const frame = 8, pad = 10, gap = 8;
+            const round = (x, y, bw, bh, r) => {
+                ctx.beginPath();
+                ctx.moveTo(x + r, y);
+                ctx.arcTo(x + bw, y, x + bw, y + bh, r);
+                ctx.arcTo(x + bw, y + bh, x, y + bh, r);
+                ctx.arcTo(x, y + bh, x, y, r);
+                ctx.arcTo(x, y, x + bw, y, r);
+                ctx.closePath();
+            };
+            ctx.fillStyle = el.borderColor || '#a8d4ff';
+            round(0, 0, w, h, 16);
+            ctx.fill();
+            ctx.fillStyle = '#ffffff';
+            round(frame, frame, w - frame * 2, h - frame * 2, 9);
+            ctx.fill();
+            const size = Math.max(12, Math.round(w * 0.1));
+            const inner = frame + pad;
+            const labelH = Math.ceil(size * 1.15);
+            const boxW = w - inner * 2;
+            const boxH = Math.max(20, h - inner * 2 - gap - labelH);
+            ctx.fillStyle = '#f8fafc';
+            round(inner, inner, boxW, boxH, 8);
+            ctx.fill();
+            if (img) {
+                const fit = Math.min(boxW / img.naturalWidth, boxH / img.naturalHeight);
+                const iw = img.naturalWidth * fit, ih = img.naturalHeight * fit;
+                ctx.drawImage(img, inner + (boxW - iw) / 2, inner + (boxH - ih) / 2, iw, ih);
+            }
+            ctx.fillStyle = el.textColor || '#1a1a2e';
+            ctx.font = '700 ' + size + 'px system-ui, -apple-system, "Segoe UI", Roboto, sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(el.label || '', w / 2, inner + boxH + gap + labelH / 2, boxW);
+            return canvasAsPng(c);
+        }
+
+        // Text and the mark, through the copy event: no browser asks for
+        // leave here, in a frame and from the disk alike.
+        function writeTextToSystem(html, text) {
+            let written = false;
+            const onCopy = (e) => {
+                if (!e.clipboardData) return;
+                e.clipboardData.setData('text/plain', text);
+                e.clipboardData.setData('text/html', html);
+                e.preventDefault();
+                written = true;
+            };
+            document.addEventListener('copy', onCopy, true);
+            try { document.execCommand('copy'); } catch (err) {}
+            document.removeEventListener('copy', onCopy, true);
+            return written;
+        }
+
+        function copySelection() {
+            const picked = state.elements.filter(el => state.selectedIds.includes(el.id));
+            if (picked.length === 0) return;
+            const stamp = generateId();
+            const picture = picked.find(el => el.type === 'image' || el.type === 'card');
+            const text = lettersAsRows(picked.filter(el => el.type === 'letter')).join('\n')
+                || picked.filter(el => el.type === 'card').map(el => el.label || '').join('\n');
+            // The mark carries a no-break space where there is no text: an
+            // empty element does not survive every clipboard.
+            const html = '<span ' + CLIP_MARK + '="' + stamp + '">' + (escapeHtml(text).replace(/\n/g, '<br>') || '&nbsp;') + '</span>';
+            const mine = {
+                type: 'elements',
+                stamp,
+                text,
+                data: picked.map(el => JSON.parse(JSON.stringify(el))),
+                onSystem: false
+            };
+            window._wbClipboard = mine;
+            mine.onSystem = writeTextToSystem(html, text);
+            showToast('📋 Копирано: ' + picked.length + ' објект(и)');
+            if (!picture) return;
+            // A picture cannot go through the copy event; this way the browser may refuse.
+            elementAsPng(picture).then((png) => {
+                if (!png || !navigator.clipboard || !navigator.clipboard.write || typeof ClipboardItem === 'undefined') throw new Error('no picture clipboard');
+                return navigator.clipboard.write([new ClipboardItem({
+                    'image/png': png,
+                    'text/html': new Blob([html], { type: 'text/html' }),
+                    'text/plain': new Blob([text], { type: 'text/plain' })
+                })]);
+            }).then(() => {
+                mine.onSystem = true;
+                mine.pictureOut = true;
+            }).catch(() => {
+                showToast('📋 Копирано само за оваа табла: прелистувачот не ја пушти сликата надвор');
+            });
+        }
+
+        function pasteOwnElements(own) {
+            saveToHistory();
+            const offset = 30;
+            const newIds = [];
+            for (const orig of own.data) {
+                const clone = JSON.parse(JSON.stringify(orig));
+                clone.id = generateId();
+                if (clone.type === 'line') {
+                    clone.x1 = (clone.x1 || 0) + offset;
+                    clone.y1 = (clone.y1 || 0) + offset;
+                    clone.x2 = (clone.x2 || 0) + offset;
+                    clone.y2 = (clone.y2 || 0) + offset;
+                } else {
+                    clone.x = (clone.x || 0) + offset;
+                    clone.y = (clone.y || 0) + offset;
+                }
+                state.elements.push(clone);
+                newIds.push(clone.id);
+            }
+            // Update clipboard offsets for repeated paste
+            own.data.forEach(el => {
+                if (el.type === 'line') { el.x1 += offset; el.y1 += offset; el.x2 += offset; el.y2 += offset; }
+                else { el.x = (el.x || 0) + offset; el.y = (el.y || 0) + offset; }
+            });
+            state.selectedIds = newIds;
+            updateSelectionTools();
+            renderElements();
+            showToast('📋 Залепено: ' + newIds.length + ' објект(и)');
+        }
+
+        // What WBACC Studio (Excalidraw) puts on the clipboard: its elements
+        // as text. Of them the words and the pictures can live on this board.
+        function readStudioCopy(text) {
+            if (!text || text.charAt(0) !== '{') return null;
+            let copy;
+            try { copy = JSON.parse(text); } catch (err) { return null; }
+            if (!copy || copy.type !== 'excalidraw/clipboard' || !Array.isArray(copy.elements)) return null;
+            const live = copy.elements.filter(el => el && !el.isDeleted);
+            const words = live.filter(el => el.type === 'text')
+                .sort((a, b) => (a.y - b.y) || (a.x - b.x))
+                .map(el => el.originalText || el.text || '');
+            const pictures = live.filter(el => el.type === 'image')
+                .map(el => copy.files && copy.files[el.fileId] && copy.files[el.fileId].dataURL)
+                .filter(url => typeof url === 'string' && url.startsWith('data:image/'));
+            return { text: words.join('\n'), pictures, other: live.length - words.length - pictures.length };
+        }
+
+        // Text lands as letters at the cursor, as if typed: spaces are spaces,
+        // a new line is a new row under the first letter. One step back.
+        function pasteTextAsLetters(text) {
+            const clean = String(text).replace(/\r\n?/g, '\n').replace(/\t/g, ' ').replace(/[\u0000-\u0009\u000B-\u001F]/g, '');
+            const chars = Array.from(clean.replace(/\n+$/, ''));
+            if (chars.length === 0) return 0;
+            const taken = chars.slice(0, PASTE_MAX_LETTERS);
+            saveToHistory();
+            const startX = state.typingCursor.x;
+            const made = [];
+            for (const char of taken) {
+                if (char === '\n') {
+                    state.typingCursor.x = startX;
+                    state.typingCursor.y += (state.typingCursor.fontSize || 48) * 1.5;
+                } else {
+                    made.push(placeChar(char));
                 }
             }
+            // Typed text is not chosen; pasted text is, so it can be moved at once.
+            if (state.mode !== 'typing') {
+                state.selectedIds = made.map(l => l.id);
+                updateSelectionTools();
+            }
+            renderElements();
+            showToast(chars.length > taken.length
+                ? '📋 Залепени се првите ' + PASTE_MAX_LETTERS + ' букви (текстот е подолг)'
+                : '📋 Залепено: ' + made.length + ' букви');
+            return made.length;
+        }
+
+        function pastePictureFile(file) {
+            const point = getDefaultInsertPoint();
+            const slotId = pptSession.captureArmed ? pptSession.captureSlotId : '';
+            insertImageFile(file, point.x, point.y, { slotId });
+            if (pptSession.captureArmed) {
+                pptSession.captureArmed = false;
+                pptSession.captureSlotId = '';
+                showToast('Slide image inserted');
+            }
+        }
+
+        // The one place a paste is decided, for Ctrl+V and for the button.
+        // `clip` is what the clipboard holds: { html, text, picture }.
+        // Returns whether anything was taken.
+        function takeClipboard(clip) {
+            const own = window._wbClipboard && window._wbClipboard.type === 'elements' ? window._wbClipboard : null;
+            const html = clip.html || '';
+            const text = clip.text || '';
+            // This board's own copy. When it never reached the computer's
+            // clipboard there is nothing to compare with, and it is what is
+            // pasted, as it always was.
+            if (own && (!own.onSystem
+                || html.indexOf(CLIP_MARK + '="' + own.stamp + '"') !== -1
+                || (own.text !== '' && text === own.text))) {
+                pasteOwnElements(own);
+                return true;
+            }
+            if (clip.picture) {
+                pastePictureFile(clip.picture);
+                return true;
+            }
+            const studio = readStudioCopy(text);
+            if (studio) {
+                const point = getDefaultInsertPoint();
+                const letters = pasteTextAsLetters(studio.text);
+                // A picture is put with its middle on the point. Beside text it
+                // goes under the rows just written, not over them.
+                const under = letters > 0 ? (state.typingCursor.y - point.y) + 260 : 0;
+                studio.pictures.forEach((url, i) => insertImageDataUrl(url, point.x + (letters > 0 ? 150 : 0) + i * 30, point.y + under + i * 30));
+                if (studio.pictures.length === 0 && letters === 0) {
+                    showToast('📋 Од цртежот се лепат само текст и слики. Во Studio: „Копирај како PNG“');
+                } else if (studio.other > 0) {
+                    showToast('📋 Залепени се текстот и сликите; формите остануваат во Studio');
+                }
+                return true;
+            }
+            return pasteTextAsLetters(text) > 0;
+        }
+
+        document.addEventListener('paste', (e) => {
+            const data = e.clipboardData;
+            if (!data) return;
+            let picture = null;
+            for (const item of data.items || []) {
+                if (item.type.startsWith('image/')) { picture = item.getAsFile(); break; }
+            }
+            // Text pasted into a field, or into a text box that is being
+            // written in, is that field's own business; a picture still
+            // lands on the board, as before.
+            const target = e.target instanceof HTMLElement ? e.target : null;
+            const writing = !!target && (target.isContentEditable || target.tagName === 'INPUT' || target.tagName === 'TEXTAREA');
+            if (writing) {
+                if (!picture) return;
+                pastePictureFile(picture);
+                e.preventDefault();
+                return;
+            }
+            if (takeClipboard({ html: data.getData('text/html'), text: data.getData('text/plain'), picture })) e.preventDefault();
         });
+
+        // The button, for a tablet and the interactive board, where there is
+        // no Ctrl key. Reading the clipboard without a paste needs the
+        // browser's leave; where it is refused the button says what works.
+        async function pasteFromButton() {
+            const own = window._wbClipboard && window._wbClipboard.type === 'elements' ? window._wbClipboard : null;
+            try {
+                if (!navigator.clipboard || !navigator.clipboard.read) throw new Error('no clipboard to read');
+                const clip = { html: '', text: '', picture: null };
+                for (const item of await navigator.clipboard.read()) {
+                    for (const type of item.types) {
+                        if (type === 'text/plain') clip.text = await (await item.getType(type)).text();
+                        else if (type === 'text/html') clip.html = await (await item.getType(type)).text();
+                        else if (type.startsWith('image/') && !clip.picture) clip.picture = await item.getType(type);
+                    }
+                }
+                if (!takeClipboard(clip)) showToast('📋 Нема што да се залепи');
+            } catch (err) {
+                if (own) pasteOwnElements(own);
+                else showToast('📋 Прелистувачот не дозволи читање. Залепи со Ctrl+V');
+            }
+        }
 
         // ============ INIT ============
         function init() {

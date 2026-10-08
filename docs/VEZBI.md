@@ -222,6 +222,45 @@ the real space bar; what was missing is below.
   by itself. It changes how dropping feels; the owner was told and did not ask.
 - `test:vezbi` holds all of it (item 8 in its header).
 
+### Copy and paste with WBACC Studio (8 Oct 2026, night; the owner: „do what is best practice and proven concept"; not yet judged)
+
+The owner asked whether a picture chosen in ComuniBoard can be pasted into the
+Studio and text chosen in the Studio into ComuniBoard. Until then Ctrl+C on
+the board kept its copy in a variable of the page (`window._wbClipboard`), the
+board took only pictures from the clipboard, and once anything had been copied
+on the board Ctrl+V pasted that for ever — a screenshot no longer got in.
+
+- **One clipboard, the computer's.** A copy on the board (`copySelection`,
+  Ctrl+C or the new „Копирај" in the floating bar) goes there too: letters as
+  text, row by row, with their spaces; a picture as a PNG; a card drawn as it
+  looks, frame and word. The Studio (or Word) takes it with a plain Ctrl+V.
+- **The copy carries a mark** (`data-comuniboard` in its `text/html`). A paste
+  back on the board that finds its own mark brings the things themselves,
+  with place, size and colour, as before. Anything else on the clipboard is
+  from outside. `takeClipboard` is the one place that decides, for Ctrl+V and
+  for the button.
+- **From outside**: a picture is a picture; text lands as letters at the
+  cursor, as if typed (the first 300, a new line is a new row), chosen so they
+  can be moved at once. What the Studio copies with a plain Ctrl+C is its
+  drawing written out as text (`excalidraw/clipboard`): the board takes the
+  words and the pictures out of it (`readStudioCopy`) and says that shapes
+  stay behind. The Studio itself was not changed and needs no build.
+- **Two ways to write, on purpose.** Text and the mark go through the `copy`
+  event (`writeTextToSystem`), which no browser asks leave for, in a frame and
+  from the disk alike. A picture cannot go that way; it goes through
+  `navigator.clipboard.write`, which a browser may refuse — then the copy
+  stays on the board and a message says so.
+- **The frames are given the clipboard by name**: `allow="clipboard-read *;
+  clipboard-write *"` on the two frames here and on ComuniBoard's own board
+  frame. Opened from the disk every page is an address of its own, and
+  without the `*` the picture was refused there (measured: text crossed, the
+  picture did not).
+- **„Залепи" (📋) pastes**, where it only showed a hint; reading the clipboard
+  from a button asks the browser's leave once. For a board without a keyboard.
+- Left as it was: a copied text BOX (`type: 'textbox'`) is still the board's
+  own, and looks, fonts and shapes do not cross.
+- `test:vezbi` holds both directions through the real Studio (item 9).
+
 **Tile pictures are taken from the disk, never through the local server.**
 Through the server every page carries „изработил …" with a real name, and
 `check:names` reads text, not pictures. `vezbi/tabla.jpg` was retaken that
