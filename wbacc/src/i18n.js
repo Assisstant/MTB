@@ -19,6 +19,9 @@ const EN = {
     'Вградените веб-страници се во сликата само како рамка.': 'Embedded web pages appear in the image as a frame only.',
     'Сликата не се направи: {0}': 'The image was not made: {0}',
     'Јазик': 'Language',
+    '🗣 Вежби': '🗣 Exercises',
+    'Оваа алатка во една лента со Вежби за изговор и ComuniBoard, и со патот до S-Дневник':
+        'This tool under one strip with the articulation exercises and ComuniBoard, and the way to S-Dnevnik',
     'Затвори': 'Close',
     '⏳ Барам…': '⏳ Searching…',
     'Нема пиктограм за „{0}“.': 'No pictogram for “{0}”.',

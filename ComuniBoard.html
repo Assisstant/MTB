@@ -79,6 +79,21 @@
             transition: 0.2s ease;
         }
 
+        .nav-out {
+            margin-left: auto;
+            border: 1px solid #475569;
+            color: #c7d2fe;
+            padding: 5px 12px;
+            border-radius: 9px;
+            font-weight: 700;
+            text-decoration: none;
+            white-space: nowrap;
+        }
+
+        .nav-out:hover {
+            background: #243247;
+        }
+
         .nav-tab:hover {
             border-color: #475569;
             transform: translateY(-1px);
@@ -296,6 +311,10 @@
         <div class="brand">WBACC Studio</div>
         <button class="nav-tab" data-target="card">🃏 Картички</button>
         <button class="nav-tab active" data-target="whiteboard">📝 Кирилична Табла</button>
+        <!-- Opened alone this page was a dead end. The exercise page shows this
+             same tool under one strip with the exercises, WBACC Studio and
+             the way to S-Дневник; inside it this row is not shown at all. -->
+        <a class="nav-out" href="vezbi/index.html#tabla" target="_top" title="Оваа алатка во една лента со Вежби за изговор и WBACC Studio, и со патот до S-Дневник">🗣 Вежби · WBACC Studio</a>
     </nav>
 
     <main class="workspace">

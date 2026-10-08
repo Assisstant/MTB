@@ -1033,8 +1033,36 @@ function parts() {
 // Opened from the diary's own „🗣 Вежби ↗" this tab has an opener: the link
 // then closes the tab, which returns to that diary as it was left, instead of
 // opening a second copy of it.
+//
+// From the disk the diary is somewhere else: in the cloud, whose address is
+// not written in this repository. The Контролна табла knows it (server\.env)
+// and hands it over when it opens this page (`?oblak=https://…`); the browser
+// keeps it for a double-click later. It is taken from a page on the disk only:
+// on a public address anyone could hand in an address of their own, under a
+// link that says „S-Дневник".
+function diaryFromDisk() {
+  if (location.protocol !== 'file:') return '';
+  const KEY = 'vezbi_oblak_v1';
+  const origin = (v) => { try { const u = new URL(v); return u.protocol === 'https:' ? u.origin : ''; } catch (e) { return ''; } };
+  const given = origin(new URLSearchParams(location.search).get('oblak') || '');
+  try {
+    if (given) localStorage.setItem(KEY, given);
+    return given || origin(localStorage.getItem(KEY) || '');
+  } catch (e) { return given; }
+}
+
 function diary() {
-  if (!/^https?:$/.test(location.protocol)) return;
+  if (!/^https?:$/.test(location.protocol)) {
+    const cloud = diaryFromDisk();
+    if (!cloud) return;
+    const a = document.createElement('a');
+    a.className = 'diary';
+    a.textContent = '📓 S-Дневник';
+    a.href = cloud + '/MTB-Workspace.html?app=S-Dnevnik.html';
+    a.title = 'Отвори го S-Дневник во облакот (' + new URL(cloud).host + ')';
+    $('apps').appendChild(a);
+    return;
+  }
   fetch('../api/health', { cache: 'no-store' })
     .then((r) => (r.ok ? r.json() : null))
     .then((body) => {

@@ -18,6 +18,10 @@ const KEEP = ['viewBackgroundColor', 'theme', 'gridModeEnabled', 'scrollX', 'scr
 // has no Macedonian of its own: `mk-MK` is our translation, added at build
 // time (vite.config.js); what it lacks falls back to English.
 const LANGS = ['en', 'mk-MK'];
+// Opened alone this page was a dead end. The exercise page (vezbi/) shows this
+// same tool under one strip with the exercises, ComuniBoard and the way to
+// S-Дневник; inside its frame the strip is already there, so no link here.
+const ALONE = window.parent === window;
 
 function storedLang() {
     try { const l = localStorage.getItem(LANG_KEY); return LANGS.includes(l) ? l : 'en'; } catch { return 'en'; }
@@ -107,9 +111,16 @@ export default function App() {
                                 <button type="button" className={panel === 'bookmarks' ? 'on' : ''} onClick={() => toggle('bookmarks')} title={t('Обележувачи')}>{t('🔖 Обележувачи')}</button>
                                 <button type="button" onClick={saveImage} title={t('Зачувај слика (PNG): означеното, или целиот цртеж')}>{t('📷 Слика')}</button>
                                 <button type="button" onClick={speak} title={t('Изговори го означениот текст')}>🔊</button>
+                                {ALONE && <a className="wbacc-out" href="vezbi/index.html#crtanje" title={t('Оваа алатка во една лента со Вежби за изговор и ComuniBoard, и со патот до S-Дневник')}>{t('🗣 Вежби')}</a>}
                             </div>
                         )}>
                 <MainMenu>
+                    {/* A phone has no row of buttons on top; the menu is there on every screen. */}
+                    {ALONE && (
+                        <MainMenu.ItemCustom>
+                            <a className="wbacc-out" href="vezbi/index.html#crtanje">{t('🗣 Вежби')}</a>
+                        </MainMenu.ItemCustom>
+                    )}
                     <MainMenu.DefaultItems.LoadScene />
                     <MainMenu.DefaultItems.SaveToActiveFile />
                     <MainMenu.DefaultItems.Export />

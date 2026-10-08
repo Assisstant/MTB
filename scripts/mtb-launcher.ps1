@@ -674,6 +674,21 @@ function Open-Page([hashtable] $A) {
     $footer.Text = 'Отворено во прелистувачот: ' + $url
 }
 
+# The program that opens web addresses on this computer. A file opened through
+# its association loses what follows „?" and „#" in its address — Windows hands
+# the browser a path — so a page's part has to be given to the browser itself.
+function Get-BrowserProgram {
+    try {
+        $choice = Get-ItemProperty -Path 'HKCU:\Software\Microsoft\Windows\Shell\Associations\UrlAssociations\https\UserChoice' -ErrorAction Stop
+        $opener = (Get-Item -LiteralPath ('Registry::HKEY_CLASSES_ROOT\' + $choice.ProgId + '\shell\open\command') -ErrorAction Stop).GetValue('')
+        if ($opener -match '^\s*"([^"]+\.exe)"' -or $opener -match '^\s*(\S+\.exe)') {
+            $program = $Matches[1]
+            if (Test-Path -LiteralPath $program) { return $program }
+        }
+    } catch { }
+    return ''
+}
+
 # A page of this folder, in the browser, straight from the disk.
 function Open-File([hashtable] $A) {
     $file = Join-Path $root $A.File
@@ -681,8 +696,23 @@ function Open-File([hashtable] $A) {
         $footer.Text = 'Го нема фајлот „' + $A.File + '“ во папката MTB — „Ажурирај среде ден“ го носи.'
         return
     }
-    Start-Process $file
-    $footer.Text = 'Отворено од овој компјутер: ' + $A.File
+    $program = if ($A.Part) { Get-BrowserProgram } else { '' }
+    if (-not $program) {
+        # Without the browser's own program the page opens at its start, where
+        # its three tiles lead to the same parts.
+        Start-Process $file
+        $footer.Text = 'Отворено од овој компјутер: ' + $A.File
+        return
+    }
+    $pageAddress = ([Uri] $file).AbsoluteUri
+    # The page cannot know where the diary is: the cloud's address is in
+    # server\.env, not in the repository. Handed over here, its „S-Дневник"
+    # leads to the same place as the tile on „Евиденција".
+    $cloudBase = Get-EnvValue 'MTB_CLOUD_URL'
+    if ($cloudBase -match '^(https://[^/\s?#]+)') { $pageAddress += '?oblak=' + [Uri]::EscapeDataString($Matches[1]) }
+    $pageAddress += '#' + $A.Part
+    Start-Process -FilePath $program -ArgumentList ('"' + $pageAddress + '"')
+    $footer.Text = 'Отворено од овој компјутер: ' + $A.File + ' · ' + $A.Title
 }
 
 function Start-Action([hashtable] $A) {

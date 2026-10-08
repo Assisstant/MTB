@@ -29,6 +29,9 @@
 #                records are written, in the cloud's work space.
 #   File         instead of Script: a page of this folder, opened from this
 #                computer. For what needs no server and no Internet.
+#   Part         with File: the part of that page to open, after its „#". The
+#                exercise page holds the exercises and both tools under one
+#                strip, so each of the three tiles opens it on its own part.
 #   Thumb        a picture on the tile, relative to the repository's root. This
 #                repository is public: a picture of a record page is made with
 #                invented data (scripts\tiles\README.md), never from the work.
@@ -188,20 +191,23 @@ function Get-MtbAllActions {
         # ── Вежби: three pages of this folder that need no server and keep no
         # records. Opened from this computer, so a lesson does not wait for the
         # Internet or for the cloud to wake. Online they are the same files.
-        @{ Tab = 'practice'; Group = 'often'; Name = 'Vezbi za izgovor'; File = 'vezbi\index.html'
+        # All three open the ONE exercise page, each on its own part (owner,
+        # 8 Oct 2026: „navigate freely in and out and from one to another"):
+        # opened alone, the two tools were dead ends with no way to the others.
+        @{ Tab = 'practice'; Group = 'often'; Name = 'Vezbi za izgovor'; File = 'vezbi\index.html'; Part = 'vezbi'
            Thumb = 'vezbi\vezbi.jpg'; Glyph = 0xE720; Color = '#2F6FE4'; CardColor = '#2F6FE4'
            Title = 'Вежби за изговор'
-           Text = '26 гласови: слогови, зборови со слики и реченици. Помошта се намалува чекор по чекор, а буквите се влечат во кутиите. Двете алатки десно се и таму, во јазичиња.'
+           Text = '26 гласови: слогови, зборови со слики и реченици. Помошта се намалува чекор по чекор, а буквите се влечат во кутиите. Лентата горе води до двете алатки десно и до S-Дневник.'
            When = 'На час, со дете.' },
-        @{ Tab = 'practice'; Group = 'often'; Name = 'WBACC Unified Studio'; File = 'ComuniBoard.html'
+        @{ Tab = 'practice'; Group = 'often'; Name = 'WBACC Unified Studio'; File = 'vezbi\index.html'; Part = 'tabla'
            Thumb = 'vezbi\tabla.jpg'; Glyph = 0xE8B9; Color = '#1E9E8B'; CardColor = '#1E9E8B'
            Title = 'WBACC Unified Studio'
-           Text = 'ComuniBoard: картички со пиктограми и кирилична табла — слободно место за букви, слики и линии.'
+           Text = 'ComuniBoard: картички со пиктограми и кирилична табла — слободно место за букви, слики и линии. Во иста лента со вежбите и со WBACC Studio.'
            When = 'Кога сама составуваш вежба.' },
-        @{ Tab = 'practice'; Group = 'often'; Name = 'WBACC Studio'; File = 'WBACC.html'
+        @{ Tab = 'practice'; Group = 'often'; Name = 'WBACC Studio'; File = 'vezbi\index.html'; Part = 'crtanje'
            Thumb = 'vezbi\crtanje.jpg'; Glyph = 0xE70F; Color = '#6B4FD8'; CardColor = '#6B4FD8'
            Title = 'WBACC Studio'
-           Text = 'Бела табла за цртање и пишување со рака, со пиктограми (Excalidraw).'
+           Text = 'Бела табла за цртање и пишување со рака, со пиктограми (Excalidraw). Во иста лента со вежбите и со ComuniBoard.'
            When = 'За слободно цртање и за презентација.' }
     )
 }

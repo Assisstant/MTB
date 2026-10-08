@@ -291,6 +291,44 @@ then „направи" for one door (the other choice was three).
   asks. `test:vezbi` holds the door (read from the real S-Dnevnik.html), the
   link with and without a server, the closing, and the cloud's address.
 
+## No dead ends (8 Oct 2026, night; the owner: „направи"; not yet judged)
+
+The owner: „there should be a link navigation between all this 3 apps + back
+to s dnevnik so I can navigate freely in and out and from one to another".
+The strip already did that inside this page. The dead ends were the two tools
+opened alone (the Контролна табла's own tiles opened them so) and the missing
+„📓 S-Дневник" from the disk.
+
+- **The three tiles of the Контролна табла open this ONE page**, each on its
+  own part (`Part` in `scripts\mtb-actions.ps1`: `vezbi`, `tabla`, `crtanje`).
+  A file opened through its association loses what follows „?" and „#", so
+  `Open-File` in `mtb-launcher.ps1` hands the address to the browser's own
+  program (`Get-BrowserProgram`, read from the registry). Where that is not
+  found the page opens at its start, whose three tiles lead to the same parts.
+- **Measured before changing the tiles:** from the disk, a board saved in
+  ComuniBoard opened alone is there when it opens inside this page, and the
+  Studio's database is the same one. A browser keeps the disk's pages together.
+- **A tool opened alone has a way to the strip**, on its own part:
+  „🗣 Вежби · WBACC Studio" at the end of ComuniBoard's own row, „🗣 Вежби"
+  among the Studio's buttons and in its menu (a phone has no row of buttons).
+  Inside the strip neither shows it. The start page and EduHub still open the
+  tools alone; this link is their way on.
+- **„📓 S-Дневник" from the disk.** The diary is in the cloud, and the cloud's
+  address is not in this repository. The Контролна табла knows it
+  (`MTB_CLOUD_URL` in `server\.env`) and hands it over in the address
+  (`?oblak=https://…`); the page keeps it (`vezbi_oblak_v1`) for a
+  double-click later and links to the work space's diary there, the same place
+  as the tile on „Евиденција". **Taken from a page on the disk only**: on a
+  public address anyone could hand in an address of their own under a link
+  that says „S-Дневник".
+- **Proposed and NOT built: the link through `start.html`** on GitHub Pages
+  and on a disk that was never opened from the Контролна табла. The start page
+  does not know the cloud; it finds a machine's LOCAL database, which is the
+  mode for a day without Internet, and with no server it offers the empty copy
+  of the diary. Both are what this link must never do, so there it is still
+  absent.
+- `test:vezbi` holds it (item 10), the disk in a browser context of its own.
+
 ## How a sound is stored
 
 A sound is one file, `vezbi/glasovi/<latin>.js`, that pushes
@@ -390,7 +428,8 @@ all". Done in a session opened in the MTB folder:
    record screens in the cloud (the owner named four; six fill two rows, and a
    row of one is what they turned down on 3 Oct). Вежби opens the three pages
    **from this computer** (`file://`), so a lesson does not wait for the
-   Internet or for the cloud to wake.
+   Internet or for the cloud to wake. (Since that night all three open this
+   one page, each on its own part: see „No dead ends".)
 5. **Not done: closing the old repository** — a README there that points
    here, then archiving it on GitHub. Only after the owner has used the moved
    page; until then its folder on the PC is left as it was.

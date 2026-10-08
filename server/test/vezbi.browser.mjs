@@ -32,12 +32,17 @@
  *      made from a gap left by hand, and never in the picture or on paper;
  *   9. the board and WBACC Studio share the computer's clipboard: letters cross
  *      as text and a picture as a picture, both ways, with a plain Ctrl+V; a
- *      copy pasted back on the board is the things themselves.
+ *      copy pasted back on the board is the things themselves;
+ *  10. no dead ends: a tool opened alone has a way to the strip, the tiles of
+ *      the Контролна табла open the strip on their own part, and from the disk
+ *      the diary's link leads to the address the Контролна табла hands in —
+ *      an address handed in on a public page is not believed.
  */
 import Fastify from 'fastify';
 import { chromium } from 'playwright';
 import { mkdir, readFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { installPublicStatic } from '../src/lib/public-static.js';
 
 const ROOT = resolve(import.meta.dirname, '..', '..');
@@ -425,6 +430,55 @@ try {
     check('in the cloud it leads to the diary inside the work space',
         (await diary.$eval('#apps .diary', (a) => a.href)) === `${ORIGIN}/MTB-Workspace.html?app=S-Dnevnik.html`, await diary.$eval('#apps .diary', (a) => a.href));
     await diary.close();
+    await page.goto(`${ORIGIN}/vezbi/index.html?oblak=https%3A%2F%2Fexample.invalid`);
+    await page.waitForSelector('#tiles .app');
+    await page.waitForSelector('#apps .diary');
+    check('an address handed in on a public page is not believed: the link still leads to this server',
+        (await page.$$eval('#apps .diary', (links) => links.map((a) => a.href))).join() === `${ORIGIN}/MTB-Workspace.html?app=S-Dnevnik.html`);
+
+    console.log('\nfrom the disk: no dead ends, and the way to the diary');
+    // Opened from the disk, as the Контролна табла opens them. A context of its own: this one refuses every other address.
+    const local = await browser.newContext({ viewport: { width: 1280, height: 800 }, serviceWorkers: 'block' });
+    await local.route((url) => url.protocol !== 'file:', (route) => route.abort());
+    const fileUrl = (...parts) => pathToFileURL(join(ROOT, ...parts)).href;
+    const disk = await local.newPage();
+    await disk.goto(fileUrl('vezbi', 'index.html') + '#tabla');
+    await disk.waitForSelector('#tabla[data-ready="1"]', { state: 'attached', timeout: 30000 });
+    check('from the disk, with no address handed in, there is no link to the diary', (await disk.$('#apps .diary')) === null);
+    await disk.goto(fileUrl('vezbi', 'index.html') + '?oblak=https%3A%2F%2Fexample.invalid#crtanje');
+    await disk.waitForSelector('#apps .diary');
+    check('the Контролна табла hands in the cloud\'s address, and „📓 S-Дневник" leads to the work space there',
+        (await disk.$eval('#apps .diary', (a) => a.href)) === 'https://example.invalid/MTB-Workspace.html?app=S-Dnevnik.html', await disk.$eval('#apps .diary', (a) => a.href));
+    check('and the page opens on the part it was asked for', await disk.$eval('#crtanje', (f) => !f.hidden));
+    await disk.goto(fileUrl('vezbi', 'index.html'));
+    await disk.waitForSelector('#apps .diary');
+    check('a double-click later still knows it', (await disk.$eval('#apps .diary', (a) => a.href)).startsWith('https://example.invalid/'));
+    await disk.goto(fileUrl('vezbi', 'index.html') + '?oblak=http%3A%2F%2Fexample.invalid');
+    await disk.waitForSelector('#apps .diary');
+    check('only an https address is taken', (await disk.$eval('#apps .diary', (a) => a.href)).startsWith('https://example.invalid/'));
+
+    await disk.goto(fileUrl('ComuniBoard.html'));
+    const out = await disk.waitForSelector('.top-nav .nav-out');
+    check('ComuniBoard opened alone has a way to the strip, on its own part',
+        (await out.getAttribute('href')) === 'vezbi/index.html#tabla' && await out.isVisible());
+    await out.click();
+    await disk.waitForSelector('#tabla[data-ready="1"]', { state: 'attached', timeout: 30000 });
+    check('which opens the exercise page with ComuniBoard in it', disk.url().endsWith('/vezbi/index.html#tabla') && await disk.$eval('#tabla', (f) => !f.hidden), disk.url());
+    await disk.goto(fileUrl('WBACC.html'));
+    const studioOut = await disk.waitForSelector('.wbacc-tools .wbacc-out', { timeout: 60000 });
+    check('WBACC Studio opened alone has one too', (await studioOut.getAttribute('href')) === 'vezbi/index.html#crtanje' && await studioOut.isVisible());
+    await studioOut.click();
+    await disk.waitForSelector('#crtanje[data-ready="1"]', { state: 'attached', timeout: 60000 });
+    const framed = await (await disk.$('#crtanje')).contentFrame();
+    await framed.waitForSelector('.wbacc-tools');
+    check('and inside the strip neither tool shows the link again', (await framed.$('.wbacc-out')) === null);
+    await local.close();
+
+    // The Контролна табла's three tiles of „Вежби": one page, three parts. Read from the list itself.
+    const launcherTiles = [...(await readFile(join(ROOT, 'scripts', 'mtb-actions.ps1'), 'utf8')).matchAll(/Tab = 'practice'[^\n]*File = '([^']+)'; Part = '([^']+)'/g)]
+        .map((m) => m[1] + '#' + m[2]);
+    check('each tile of the Контролна табла opens the page with the strip, on its own part',
+        launcherTiles.join(' ') === 'vezbi\\index.html#vezbi vezbi\\index.html#tabla vezbi\\index.html#crtanje', launcherTiles.join(' '));
 
     console.log('');
     check('the page asked the server for nothing its list does not have', refused.length === 0, refused.join(', '));
