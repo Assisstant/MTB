@@ -33,9 +33,10 @@ The words of the П deck, in the owner's three groups of rising difficulty:
 
 ## Where it stands
 
-`glas-P.html` is the first version, and the owner likes the concept. It is one
-self-contained file (pictures embedded as data URIs) that opens by
-double-click and works offline. It has:
+The page is `index.html` (until 8 Oct 2026 it was the single file
+`glas-P.html`, whose concept the owner liked) plus one data file per sound in
+`glasovi/`. The two must be copied together; it still opens by double-click
+and works offline, pictures embedded as data URIs. П and Б are in. It has:
 
 - „Слогови": the syllable table as text; tapping a syllable marks it done.
 - „Зборови": all words or one of the three groups.
@@ -45,8 +46,52 @@ double-click and works offline. It has:
 - „Сите заедно" / „Една по една" (arrows, also on the keyboard).
 - „Измешај" and „Работен лист" (print, A4, with name and date lines).
 
-The words, syllables and target letter are data at the top of the script
-(`TARGET`, `SYLLABLES`, `WORDS`, `IMG`). Nothing is stored between visits.
+- **Dragging the letter** (built 8 Oct 2026, not yet judged by the owner): in
+  „Без П" each card has three tiles, П and two wrong letters from
+  `DISTRACTORS`. The right one snaps into the nearest empty box, a wrong one
+  goes back and shakes; a tap or Enter places it without dragging. When the
+  word is whole it is said aloud.
+- **Voice** (same date): 🔊 on every card. It plays the therapist's recording
+  if there is one, else a system voice (Macedonian, else sr/bg/hr/sl/ru).
+  „🎙 Снимање" in the header shows the record and delete buttons; a recording
+  is at most 5 seconds and is kept in IndexedDB (`artikulacija` / `voice`,
+  keyed by the word).
+- The picture is now a `<button class="pic">` inside the card; tapping it, not
+  the whole card, moves the word to its next step.
+
+- **Sounds**: the letter buttons in the header pick the sound.
+- **„Реченици"** (built 8 Oct 2026 with Б, not yet judged): cards with one or
+  more pictures and a sentence. Steps: Цела реченица → Без Б (letters, with
+  dragging) → Без збор (the word in braces becomes a line) → Само слика.
+
+A sound is one file, `glasovi/<latin>.js`, that pushes
+`{ letter, words: [{ w, img, set }], sentences: [{ s, img: [...] }], img: {} }`
+to `GLASOVI`, and one `<script>` tag in `index.html`. In `s` the word in
+`{braces}` is the one hidden in „Без збор". The syllables are generated from
+the letter (а у е и о: start, middle, end). Only the voice recordings are
+stored between visits.
+
+## The old decks
+
+25 decks, one per sound (Љ and Х share one), about 600 slides and 420
+different sentences. The owner's Dropbox list is in the conversation of
+8 Oct 2026; the Л link there was a copy of М, and the real Л deck is
+`Downloads\Реченици Л.pptx` on this machine. Decks are downloaded to a
+temporary folder, never into the repository. Every deck is built the same way:
+
+1. the syllable table (a picture);
+2. sentences, four to a slide, each with a picture, then the same slide
+   without the text;
+3. words, three to a slide, picture and word with the target letter red, then
+   pictures only, then (some decks, on a red slide) the word without the
+   target letter;
+4. the sentences again with one word replaced by a line.
+
+The sentences are text and come out with a script. The words are mostly
+pictures of text, so they have to be read from the slide by eye. Some typed
+text has Latin look-alikes inside Cyrillic words (y, e, o): normalise them.
+Converted so far: П, Б (ARASAAC ids: баба 23710, буба 2924, бебе 2275,
+бои 2348).
 
 ## What the owner asked for next
 
@@ -85,7 +130,7 @@ needs to be copied here as a whole. Take pieces, rewritten into this page.
 
 | Source | Where | Take | Leave |
 | --- | --- | --- | --- |
-| This page | `glas-P.html` | the exercise itself: syllables, letter boxes, the fading cue, groups, worksheet | — |
+| This page | `index.html` | the exercise itself: syllables, letter boxes, the fading cue, groups, worksheet | — |
 | ComuniBoard | `..\MTB\ComuniBoard.html` | dragging letters with touch and mouse (`setupLetterDrag`), the Cyrillic on-screen keyboard (`renderKeyboard`), own photo with cropping (`initCropper`) | the free board, text boxes, lines, the presentation viewer |
 | WBACC Studio | `..\MTB\wbacc\src\` | pictogram search, Macedonian then English (`Pictograms.jsx`, `api.js`); the picture stored INSIDE the card so it shows offline (`image.js`); the voice picker, Macedonian or the nearest Slavic voice; the ARASAAC credit (`Credit.jsx`) | Excalidraw itself |
 

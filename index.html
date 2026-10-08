@@ -1,0 +1,600 @@
+<!doctype html>
+<html lang="mk">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Вежби за изговор</title>
+<style>
+  :root {
+    --bg: #f4f6f8; --card: #ffffff; --ink: #1d2733; --soft: #5b6877; --line: #d5dbe2;
+    --target: #d62828; --chosen: #136990; --on-chosen: #ffffff; --box: #eef2f6;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body { background: var(--bg); color: var(--ink); font-family: "Segoe UI", system-ui, -apple-system, Arial, sans-serif; }
+  header { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 18px; padding: 12px 16px; background: var(--card); border-bottom: 1px solid var(--line); position: sticky; top: 0; z-index: 2; }
+  h1 { margin: 0; font-size: 22px; }
+  h1 b { color: var(--target); }
+  .seg { display: inline-flex; flex-wrap: wrap; gap: 4px; }
+  .seg button, .plain { font: inherit; font-size: 14px; font-weight: 600; color: var(--ink); background: var(--box); border: 1px solid var(--line); border-radius: 999px; padding: 6px 14px; min-height: 34px; cursor: pointer; }
+  .seg button[aria-pressed="true"], .plain[aria-pressed="true"] { background: var(--chosen); border-color: var(--chosen); color: var(--on-chosen); }
+  .label { font-size: 12px; color: var(--soft); margin-right: 4px; }
+  .group { display: inline-flex; align-items: center; flex-wrap: wrap; gap: 4px; }
+  main { padding: 16px; max-width: 1200px; margin: 0 auto; }
+  .hint { color: var(--soft); font-size: 14px; margin: 0 0 14px; }
+
+  /* слогови */
+  .syll { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; max-width: 760px; margin: 0 auto; }
+  .syll button { font: inherit; font-size: clamp(30px, 7vw, 64px); font-weight: 600; color: var(--ink); background: var(--card); border: 2px solid var(--line); border-radius: 16px; padding: 10px 6px; cursor: pointer; letter-spacing: .04em; }
+  .syll button.done { background: #e6f4ea; border-color: #7fbf90; }
+
+  /* зборови */
+  .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 14px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 18px; padding: 14px; display: flex; flex-direction: column; align-items: center; gap: 12px; user-select: none; }
+  .pic { font: inherit; color: var(--ink); background: transparent; border: 0; border-radius: 12px; padding: 0; width: 100%; display: flex; flex-direction: column; align-items: center; gap: 12px; cursor: pointer; }
+  .syll button:focus-visible, button:focus-visible { outline: 3px solid var(--chosen); outline-offset: 2px; }
+  .pics { display: flex; justify-content: center; gap: 8px; width: 100%; }
+  .pics img { flex: 0 1 240px; min-width: 0; aspect-ratio: 1; object-fit: contain; }
+  .word { display: flex; align-items: center; justify-content: center; gap: 4px; min-height: 60px; }
+  .ltr { width: 42px; height: 56px; display: grid; place-items: center; font-size: 34px; font-weight: 700; background: var(--box); border: 2px solid var(--line); border-radius: 10px; }
+  .ltr.t { color: var(--target); border-color: var(--target); background: #fff; }
+  .ltr.empty { color: transparent; }
+  .dash { font-size: 34px; font-weight: 700; color: var(--soft); padding: 0 2px; }
+  .word.hidden { visibility: hidden; }
+
+  /* реченици: помали кутии, преломот е меѓу зборови */
+  .cards.wide { grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); }
+  .sent { flex-wrap: wrap; gap: 8px 16px; }
+  .grp { display: inline-flex; align-items: center; gap: 3px; }
+  .sent .ltr { width: 30px; height: 42px; font-size: 24px; border-radius: 8px; }
+  .sent .dash { font-size: 24px; padding: 0; }
+  .gap { width: 96px; height: 42px; border-bottom: 3px solid var(--ink); }
+  .one .sent .ltr { width: 44px; height: 58px; font-size: 36px; }
+  .one .sent .dash { font-size: 36px; }
+  .one .gap { width: 150px; height: 58px; }
+  .ltr.got { background: #e6f4ea; }
+  .card.pop .ltr.got { animation: pop .5s; }
+  @keyframes pop { 40% { transform: scale(1.25); } }
+
+  /* букви за влечење */
+  .tray { display: flex; justify-content: center; gap: 10px; }
+  .tray.spent { visibility: hidden; }
+  .tile { font: inherit; font-size: 34px; font-weight: 700; color: var(--ink); background: #fff8e1; border: 2px solid #e0b84a; border-radius: 10px; width: 48px; height: 56px; padding: 0; cursor: grab; touch-action: none; position: relative; box-shadow: 0 2px 0 #e0b84a; }
+  .tile.lift { z-index: 5; cursor: grabbing; box-shadow: 0 8px 16px rgba(0, 0, 0, .25); }
+  .tile.back { transition: transform .2s; }
+  .tile.no { animation: no .35s; border-color: var(--target); }
+  @keyframes no { 25% { transform: translateX(-6px); } 75% { transform: translateX(6px); } }
+
+  /* глас */
+  .tools { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; }
+  .tools .plain.live { background: var(--target); border-color: var(--target); color: #ffffff; }
+  .note { color: var(--target); font-size: 14px; margin: 0 0 14px; }
+  .note:empty { display: none; }
+
+  /* една по една */
+  .one { display: grid; grid-template-columns: auto minmax(0, 520px) auto; align-items: center; justify-content: center; gap: 12px; }
+  .one .card { padding: 22px; }
+  .one .pics img { flex-basis: 380px; }
+  .one .ltr { width: 76px; height: 90px; font-size: 60px; }
+  .one .dash { font-size: 50px; }
+  .one .tile { width: 76px; height: 90px; font-size: 60px; }
+  .nav { font: inherit; font-size: 34px; width: 60px; height: 60px; border-radius: 50%; border: 1px solid var(--line); background: var(--card); color: var(--ink); cursor: pointer; }
+  .count { text-align: center; color: var(--soft); margin-top: 10px; font-size: 14px; }
+
+  footer { max-width: 1200px; margin: 0 auto; padding: 8px 16px 24px; color: var(--soft); font-size: 12px; }
+  .sheet-head { display: none; }
+
+  @media (max-width: 560px) {
+    header { position: static; }
+    .one { grid-template-columns: 1fr 1fr; }
+    .one .card { grid-column: 1 / -1; order: -1; }
+    .nav { justify-self: center; }
+    .one .ltr, .one .tile { width: 54px; height: 66px; font-size: 42px; }
+    .one .sent .ltr { width: 30px; height: 42px; font-size: 24px; }
+    .one .sent .dash { font-size: 24px; }
+    .one .gap { width: 96px; height: 42px; }
+  }
+
+  @media print {
+    @page { size: A4; margin: 12mm; }
+    body { background: #fff; }
+    header, .hint, .note, .nav, .count, .tray, .tools { display: none !important; }
+    main { padding: 0; max-width: none; }
+    .sheet-head { display: flex; justify-content: space-between; font-size: 14pt; margin-bottom: 8mm; }
+    .cards { grid-template-columns: repeat(3, 1fr); gap: 6mm; }
+    .card { break-inside: avoid; border-color: #999; }
+    .pics img { flex-basis: 42mm; }
+    .cards.wide { grid-template-columns: repeat(2, 1fr); }
+    .ltr { background: #fff; border-color: #666; }
+    .ltr.t { border-color: var(--target); }
+    footer { padding: 6mm 0 0; font-size: 8pt; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>Глас <b id="letter"></b></h1>
+  <div class="group"><div class="seg" id="sound"></div></div>
+  <div class="group"><span class="label">Вежба</span>
+    <div class="seg" id="stage">
+      <button data-v="syll">Слогови</button>
+      <button data-v="0">Сите зборови</button>
+      <button data-v="1">Зборови 1</button>
+      <button data-v="2">Зборови 2</button>
+      <button data-v="3">Зборови 3</button>
+      <button data-v="sent">Реченици</button>
+    </div>
+  </div>
+  <div class="group"><span class="label">Помош</span>
+    <div class="seg" id="step">
+      <button data-v="0">Цел збор</button>
+      <button data-v="1">Без П</button>
+      <button data-v="2">Само цртички</button>
+      <button data-v="3">Само слика</button>
+    </div>
+  </div>
+  <div class="group">
+    <div class="seg" id="view">
+      <button data-v="grid">Сите заедно</button>
+      <button data-v="one">Една по една</button>
+    </div>
+    <button class="plain" id="shuffle">🔀 Измешај</button>
+    <button class="plain" id="print">🖨 Работен лист</button>
+    <button class="plain" id="rec" aria-pressed="false">🎙 Снимање</button>
+  </div>
+</header>
+
+<main>
+  <div class="sheet-head"><span id="sheet-letter"></span><span>Име: ______________________</span><span>Датум: ____________</span></div>
+  <p class="hint" id="hint"></p>
+  <p class="note" id="note" role="status"></p>
+  <div id="out"></div>
+</main>
+
+<footer>
+  Пиктограми: Sergio Palao. Извор: ARASAAC (arasaac.org). Лиценца: CC BY-NC-SA. Сопственик: Влада на Арагон (Шпанија).
+</footer>
+
+<script>const GLASOVI = [];</script>
+<script src="glasovi/p.js"></script>
+<script src="glasovi/b.js"></script>
+<script>
+// One sound = one file in glasovi/, listed in the <script> tags above. Each
+// file adds { letter, words, sentences, img } to GLASOVI. A new sound = a new
+// file and one more tag; the syllables are made from the letter.
+const VOWELS = 'ауеио';
+// Wrong letters offered next to the right one when a letter is dragged in.
+const DISTRACTORS = 'пбтмкдн';
+
+let TARGET, SYLLABLES, WORDS, SENTENCES, IMG;
+const state = { sound: 0, stage: 'syll', step: 0, view: 'grid', order: [], at: 0, own: {}, done: {}, filled: {}, tiles: {}, flash: -1, rec: false };
+const $ = (id) => document.getElementById(id);
+const out = $('out');
+
+const sentences = () => state.stage === 'sent';
+const list = () => (sentences() ? SENTENCES : WORDS);
+const plain = (item) => (item.w || item.s).replace(/[{}]/g, '');
+const upper = () => TARGET.toUpperCase();
+
+function pick(k) {
+  const g = GLASOVI[k];
+  state.sound = k;
+  TARGET = g.letter;
+  SYLLABLES = [...VOWELS].map((v) => [TARGET + v, v + TARGET + v, v + TARGET]);
+  WORDS = g.words;
+  SENTENCES = g.sentences || [];
+  IMG = g.img;
+  state.stage = 'syll';
+  state.done = {};
+  fresh();
+  document.title = 'Глас ' + upper() + ' — вежби за изговор';
+  $('letter').textContent = upper();
+  $('sheet-letter').textContent = 'Глас ' + upper();
+}
+
+// A new list on screen: its own order, every card back at the common step.
+function fresh() {
+  state.order = list().map((_, i) => i);
+  state.at = 0; state.own = {}; state.filled = {}; state.tiles = {};
+}
+
+// Text as boxes: 0 whole, 1 without the target sound, 2 all empty, 3 no letters.
+// In step 1 the empty target boxes take a dragged letter; `filled` lists the
+// positions already put back. A sentence breaks between words, and its step 2
+// hides the word in {braces} instead of emptying every box.
+function letters(text, step, filled, sentence) {
+  const box = document.createElement('div');
+  box.className = 'word' + (sentence ? ' sent' : '') + (step === 3 ? ' hidden' : '');
+  const group = () => {
+    if (!sentence) return box;
+    const g = document.createElement('span');
+    g.className = 'grp';
+    box.appendChild(g);
+    return g;
+  };
+  let into = group(), braced = false, pos = -1;
+  for (const ch of text) {
+    if (ch === '{' || ch === '}') { braced = ch === '{'; continue; }
+    pos++;
+    if (ch === ' ') { into = group(); continue; }
+    const el = document.createElement('span');
+    if (sentence && step === 2 && braced) {
+      if (!into.querySelector('.gap')) { el.className = 'gap'; into.appendChild(el); }
+      continue;
+    }
+    if (!/\p{L}/u.test(ch)) { el.className = 'dash'; el.textContent = ch === '-' ? '–' : ch; into.appendChild(el); continue; }
+    const isTarget = ch.toLowerCase() === TARGET;
+    const got = step === 1 && isTarget && filled.includes(pos);
+    const empty = !got && ((step === 1 && isTarget) || (step >= 2 && !sentence));
+    el.className = 'ltr' + (isTarget ? ' t' : '') + (empty ? ' empty' : '') + (got ? ' got' : '');
+    if (step === 1 && isTarget && !got) { el.classList.add('drop'); el.dataset.pos = pos; }
+    el.textContent = ch;
+    into.appendChild(el);
+  }
+  return box;
+}
+
+function inline(text, step) {
+  const frag = document.createDocumentFragment();
+  for (const ch of text) {
+    const isTarget = ch.toLowerCase() === TARGET;
+    const s = document.createElement('span');
+    s.textContent = (step >= 2 || (step === 1 && isTarget)) ? '_' : ch;
+    if (isTarget) s.style.color = 'var(--target)';
+    frag.appendChild(s);
+  }
+  return frag;
+}
+
+const targets = (text) => [...text].filter((ch) => ch.toLowerCase() === TARGET).length;
+
+// The empty box of this card closest to the point, if the point is near one.
+function nearest(cardEl, x, y) {
+  let best = null, bestD = Infinity;
+  for (const b of cardEl.querySelectorAll('.drop')) {
+    const r = b.getBoundingClientRect();
+    const d = Math.hypot(x - (r.left + r.width / 2), y - (r.top + r.height / 2));
+    if (d < bestD && d < r.height * 1.2) { best = b; bestD = d; }
+  }
+  return best;
+}
+
+// Right letter fills the box (the first empty one when tapped); wrong goes back.
+function place(i, tile, box, wait) {
+  box = box || tile.closest('.card').querySelector('.drop');
+  if (!box || tile.dataset.ch !== TARGET) {
+    setTimeout(() => { tile.classList.remove('no'); void tile.offsetWidth; tile.classList.add('no'); }, wait);
+    return false;
+  }
+  const filled = state.filled[i] || (state.filled[i] = []);
+  filled.push(Number(box.dataset.pos));
+  if (filled.length === targets(plain(list()[i]))) { state.flash = i; say(i, true); }
+  draw();
+  return true;
+}
+
+function goBack(tile) {
+  tile.classList.remove('lift');
+  tile.classList.add('back');
+  tile.style.transform = '';
+}
+
+// Mouse, finger and pen alike. A tap or Enter places the letter without dragging.
+function draggable(tile, i) {
+  let from = null, dragged = false;
+  tile.addEventListener('pointerdown', (e) => {
+    from = { x: e.clientX, y: e.clientY };
+    dragged = false;
+    tile.classList.remove('back', 'no');
+    tile.setPointerCapture(e.pointerId);
+  });
+  tile.addEventListener('pointermove', (e) => {
+    if (!from) return;
+    const dx = e.clientX - from.x, dy = e.clientY - from.y;
+    if (!dragged && Math.hypot(dx, dy) < 8) return;
+    dragged = true;
+    tile.classList.add('lift');
+    tile.style.transform = 'translate(' + dx + 'px, ' + dy + 'px) scale(1.1)';
+  });
+  tile.addEventListener('pointerup', () => {
+    if (!from) return;
+    from = null;
+    if (!dragged) return;
+    const r = tile.getBoundingClientRect();
+    const box = nearest(tile.closest('.card'), r.left + r.width / 2, r.top + r.height / 2);
+    if (box && place(i, tile, box, 200)) return;
+    goBack(tile);
+  });
+  tile.addEventListener('pointercancel', () => { from = null; goBack(tile); });
+  tile.addEventListener('click', () => {
+    if (dragged) { dragged = false; return; }
+    place(i, tile, null, 0);
+  });
+}
+
+function tray(i, text, spent) {
+  if (!state.tiles[i]) {
+    const wrong = [...DISTRACTORS].filter((ch) => ch !== TARGET && !text.toLowerCase().includes(ch));
+    mix(wrong);
+    state.tiles[i] = mix([TARGET, ...wrong.slice(0, 2)]);
+  }
+  const box = document.createElement('div');
+  box.className = 'tray' + (spent ? ' spent' : '');
+  for (const ch of state.tiles[i]) {
+    const t = document.createElement('button');
+    t.className = 'tile';
+    t.textContent = ch;
+    t.dataset.ch = ch;
+    t.setAttribute('aria-label', 'Буква ' + ch);
+    draggable(t, i);
+    box.appendChild(t);
+  }
+  return box;
+}
+
+function tools(i, text) {
+  const box = document.createElement('div');
+  box.className = 'tools';
+  const add = (label, name, run, cls) => {
+    const b = document.createElement('button');
+    b.className = 'plain' + (cls ? ' ' + cls : '');
+    b.textContent = label;
+    b.setAttribute('aria-label', name);
+    b.addEventListener('click', run);
+    box.appendChild(b);
+  };
+  add('🔊', 'Изговори', () => say(i));
+  if (state.rec) {
+    const live = rec && rec.i === i;
+    add(live ? '⏹ Стоп' : (recs[text] ? '🎙 Сними пак' : '🎙 Сними'), live ? 'Запри го снимањето' : 'Сними', () => record(i), live ? 'live' : '');
+    if (recs[text] && !live) add('🗑', 'Избриши ја снимката', () => { forget(text); draw(); });
+  }
+  return box;
+}
+
+function card(i) {
+  const item = list()[i];
+  const text = plain(item);
+  const step = i in state.own ? state.own[i] : state.step;
+  const filled = state.filled[i] || [];
+  const el = document.createElement('div');
+  el.className = 'card' + (state.flash === i ? ' pop' : '');
+  if (state.flash === i) state.flash = -1;
+  const pic = document.createElement('button');
+  pic.className = 'pic';
+  pic.setAttribute('aria-label', 'Слика ' + (state.order.indexOf(i) + 1) + ' — следен чекор');
+  const pics = document.createElement('span');
+  pics.className = 'pics';
+  for (const name of [].concat(item.img)) {
+    const img = document.createElement('img');
+    img.src = IMG[name] || '';
+    img.alt = '';
+    pics.appendChild(img);
+  }
+  pic.append(pics, letters(item.w || item.s, step, filled, sentences()));
+  pic.addEventListener('click', () => { state.own[i] = (step + 1) % 4; delete state.filled[i]; draw(); });
+  el.appendChild(pic);
+  if (step === 1) el.appendChild(tray(i, text, filled.length === targets(text)));
+  el.appendChild(tools(i, text));
+  return el;
+}
+
+function mix(o) {
+  for (let i = o.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [o[i], o[j]] = [o[j], o[i]]; }
+  return o;
+}
+
+// ---------- voice ----------
+// The therapist's own recording when there is one, else a system voice:
+// Macedonian, or the nearest Slavic one. Recordings stay in this browser
+// (IndexedDB) and never leave the device.
+const recs = {};
+let rec = null;
+let db = null;
+
+function note(text) { $('note').textContent = text; }
+
+function openDb() {
+  return new Promise((done) => {
+    try {
+      const r = indexedDB.open('artikulacija', 1);
+      r.onupgradeneeded = () => r.result.createObjectStore('voice');
+      r.onerror = () => done();
+      r.onsuccess = () => {
+        db = r.result;
+        const c = db.transaction('voice').objectStore('voice').openCursor();
+        c.onerror = () => done();
+        c.onsuccess = () => {
+          if (!c.result) return done();
+          recs[c.result.key] = c.result.value;
+          c.result.continue();
+        };
+      };
+    } catch (e) { done(); }
+  });
+}
+
+function keep(text, blob) {
+  recs[text] = blob;
+  try { if (db) db.transaction('voice', 'readwrite').objectStore('voice').put(blob, text); } catch (e) {}
+}
+
+function forget(text) {
+  delete recs[text];
+  try { if (db) db.transaction('voice', 'readwrite').objectStore('voice').delete(text); } catch (e) {}
+}
+
+function pickVoice() {
+  const voices = window.speechSynthesis ? speechSynthesis.getVoices() : [];
+  return voices.find((v) => /^mk/i.test(v.lang)) || voices.find((v) => /^(sr|bg|hr|sl|ru)/i.test(v.lang)) || null;
+}
+if (window.speechSynthesis) { speechSynthesis.getVoices(); speechSynthesis.onvoiceschanged = () => {}; }
+
+// `quiet`: said by the page itself after a right answer, so no message if it cannot.
+function say(i, quiet) {
+  const text = plain(list()[i]);
+  if (recs[text]) {
+    const url = URL.createObjectURL(recs[text]);
+    const a = new Audio(url);
+    a.onended = () => URL.revokeObjectURL(url);
+    a.play().catch(() => {});
+    return;
+  }
+  const voice = pickVoice();
+  if (!voice) {
+    if (!quiet) note('Овој уред нема македонски глас. Вклучи „🎙 Снимање" и сними еднаш — потоа ќе се слуша твојот глас.');
+    return;
+  }
+  const u = new SpeechSynthesisUtterance(text.replace(/-/g, ' '));
+  u.voice = voice; u.lang = voice.lang; u.rate = 0.8;
+  speechSynthesis.cancel();
+  speechSynthesis.speak(u);
+}
+
+async function record(i) {
+  if (rec) { if (rec.recorder.state !== 'inactive') rec.recorder.stop(); return; }
+  note('');
+  const text = plain(list()[i]);
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    const recorder = new MediaRecorder(stream);
+    const parts = [];
+    recorder.ondataavailable = (e) => parts.push(e.data);
+    recorder.onstop = () => {
+      clearTimeout(rec.timer);
+      rec = null;
+      stream.getTracks().forEach((t) => t.stop());
+      keep(text, new Blob(parts, { type: recorder.mimeType }));
+      draw();
+      if (plain(list()[i] || {w: ''}) === text) say(i);
+    };
+    rec = { i, recorder, timer: setTimeout(() => { if (recorder.state !== 'inactive') recorder.stop(); }, 5000) };
+    recorder.start();
+    draw();
+  } catch (e) {
+    note('Микрофонот не е достапен. Дозволи го во прелистувачот и пробај пак.');
+  }
+}
+
+function shown() {
+  const set = Number(state.stage);
+  return state.order.filter((i) => !set || WORDS[i].set === set);
+}
+
+function draw() {
+  for (const id of ['sound', 'stage', 'step', 'view']) {
+    for (const b of $(id).children) b.setAttribute('aria-pressed', String(b.dataset.v === String(state[id])));
+  }
+  for (const b of $('stage').children) {
+    const v = b.dataset.v;
+    const empty = v === 'sent' ? !SENTENCES.length : Number(v) > 0 && !WORDS.some((w) => w.set === Number(v));
+    b.style.display = empty ? 'none' : '';
+  }
+  const names = sentences()
+    ? ['Цела реченица', 'Без ' + upper(), 'Без збор', 'Само слика']
+    : ['Цел збор', 'Без ' + upper(), 'Само цртички', 'Само слика'];
+  [...$('step').children].forEach((b, k) => { b.textContent = names[k]; });
+  const words = state.stage !== 'syll';
+  $('view').parentElement.style.display = words ? '' : 'none';
+  $('step').lastElementChild.style.display = words ? '' : 'none';
+  $('rec').setAttribute('aria-pressed', String(state.rec));
+  out.textContent = '';
+
+  if (!words) {
+    $('hint').textContent = 'Допри го слогот кога ќе се изговори добро. Редот оди: почеток – средина – крај.';
+    const grid = document.createElement('div');
+    grid.className = 'syll';
+    SYLLABLES.flat().forEach((s) => {
+      const b = document.createElement('button');
+      b.className = state.done[s] ? 'done' : '';
+      b.appendChild(inline(s, Math.min(state.step, 2)));
+      b.addEventListener('click', () => { state.done[s] = !state.done[s]; draw(); });
+      grid.appendChild(b);
+    });
+    out.appendChild(grid);
+    return;
+  }
+
+  $('hint').textContent = state.step === 1
+    ? 'Повлечи ја буквата што недостига во празната кутија. 🔊 го кажува текстот; допри ја сликата за следниот чекор.'
+    : 'Допри ја сликата за следниот чекор само за неа: ' + names.join(' → ').toLowerCase().replace(' ' + TARGET + ' ', ' ' + upper() + ' ') + '. 🔊 го кажува текстот.';
+  const now = shown();
+  if (state.view === 'grid') {
+    const grid = document.createElement('div');
+    grid.className = 'cards' + (sentences() ? ' wide' : '');
+    now.forEach((i) => grid.appendChild(card(i)));
+    out.appendChild(grid);
+    return;
+  }
+  state.at = Math.min(state.at, now.length - 1);
+  const one = document.createElement('div');
+  one.className = 'one';
+  const nav = (text, by, name) => {
+    const b = document.createElement('button');
+    b.className = 'nav'; b.textContent = text; b.setAttribute('aria-label', name);
+    b.disabled = now.length < 2;
+    b.addEventListener('click', () => move(by));
+    return b;
+  };
+  one.append(nav('‹', -1, 'Претходна'), card(now[state.at]), nav('›', 1, 'Следна'));
+  const count = document.createElement('div');
+  count.className = 'count';
+  count.textContent = (state.at + 1) + ' од ' + now.length;
+  out.append(one, count);
+}
+
+function move(by) {
+  const n = shown().length;
+  state.at = (state.at + by + n) % n;
+  draw();
+}
+
+// Leaving the syllables for the words keeps the word order; words <-> sentences is a new list.
+function stage(v) {
+  const was = sentences();
+  state.stage = v;
+  state.at = 0;
+  if (was !== sentences()) fresh();
+}
+
+$('sound').addEventListener('click', (e) => { const v = e.target.dataset.v; if (v === undefined) return; note(''); pick(Number(v)); draw(); });
+$('stage').addEventListener('click', (e) => { const v = e.target.dataset.v; if (v === undefined) return; stage(v); note(''); draw(); });
+$('step').addEventListener('click', (e) => { const v = e.target.dataset.v; if (v === undefined) return; state.step = Number(v); state.own = {}; state.filled = {}; state.tiles = {}; draw(); });
+$('view').addEventListener('click', (e) => { const v = e.target.dataset.v; if (v === undefined) return; state.view = v; draw(); });
+$('shuffle').addEventListener('click', () => {
+  if (state.stage === 'syll') stage('0');
+  mix(state.order);
+  state.at = 0;
+  draw();
+});
+$('rec').addEventListener('click', () => { state.rec = !state.rec; draw(); });
+$('print').addEventListener('click', () => {
+  if (state.stage === 'syll') stage('0');
+  state.view = 'grid';
+  draw();
+  window.print();
+});
+document.addEventListener('keydown', (e) => {
+  if (state.stage === 'syll' || state.view !== 'one') return;
+  if (e.key === 'ArrowRight') move(1);
+  else if (e.key === 'ArrowLeft') move(-1);
+  else if (e.key === ' ' && e.target === document.body) { e.preventDefault(); out.querySelector('.pic').click(); }
+});
+
+if (!GLASOVI.length) {
+  $('hint').textContent = 'Недостига папката „glasovi". Копирај ја заедно со index.html, во иста папка.';
+} else {
+  GLASOVI.forEach((g, k) => {
+    const b = document.createElement('button');
+    b.dataset.v = k;
+    b.textContent = g.letter.toUpperCase();
+    b.setAttribute('aria-label', 'Глас ' + g.letter.toUpperCase());
+    $('sound').appendChild(b);
+  });
+  pick(0);
+  draw();
+  openDb().then(draw);
+}
+</script>
+</body>
+</html>
