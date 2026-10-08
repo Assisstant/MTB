@@ -2460,6 +2460,39 @@
             border-color: var(--primary);
         }
 
+        /* A space is a letter nobody can see. A faint „␣" in the colour of the
+           letters says a gap is there, so it can be seen, grabbed and deleted.
+           Not a plain line: on this board a line is where a letter is missing.
+           Never in the saved picture or in print. */
+        .element-space::after {
+            content: '';
+            position: absolute;
+            left: 0;
+            right: 0;
+            bottom: 0.2em;
+            height: 0.16em;
+            border: 0.05em solid currentColor;
+            border-top: 0;
+            opacity: 0.3;
+            pointer-events: none;
+            transition: opacity 0.1s;
+        }
+
+        .element-space:hover::after,
+        .element-space.selected::after {
+            opacity: 0.85;
+        }
+
+        .canvas.exporting .element-space::after {
+            display: none;
+        }
+
+        @media print {
+            .element-space::after {
+                display: none;
+            }
+        }
+
         .element-image {
             padding: 4px;
             background: white;
@@ -2863,6 +2896,16 @@
             cursor: pointer;
         }
 
+        /* The same „␣" as on the board, drawn, so it needs no font. */
+        .key-space::after {
+            content: '';
+            width: 30%;
+            height: 22%;
+            border: 2px solid currentColor;
+            border-top: 0;
+            opacity: 0.75;
+        }
+
         .key-caps.active {
             background: var(--primary);
         }
@@ -3037,6 +3080,10 @@
             z-index: 1000;
             opacity: 0;
             transition: opacity 0.3s;
+            /* It lies over the middle of the keyboard's bottom row, seen or
+               not: without this a tap on the middle of the space key was
+               taken by a message nobody could see. */
+            pointer-events: none;
         }
 
         .toast.show {
@@ -3376,6 +3423,9 @@
         function getLetterWidth(letter, fontSize) {
             const char = letter === ' ' ? '\u00A0' : letter;
             const safeSize = fontSize || 48;
+            // A space is a third of the letter size. The font's own (about a
+            // quarter) reads as no gap between large separate letters.
+            if (letter === ' ') return Math.round(safeSize * 0.34);
             widthMeasureCtx.font = safeSize + 'px system-ui, -apple-system, "Segoe UI", Roboto, sans-serif';
             const metrics = widthMeasureCtx.measureText(char);
             const advanceWidth = metrics.width || 0;
@@ -3413,6 +3463,67 @@
             }
         }
 
+        function isSpace(el) {
+            return !!el && el.type === 'letter' && el.content === ' ';
+        }
+
+        // A space lying among the chosen letters belongs to their row even when
+        // the selection missed it: left behind, it would stay where it was while
+        // the letters move, and its gap would be read as a second space.
+        function withSpacesBetween(letters) {
+            if (!letters || letters.length < 2) return letters;
+            const ids = new Set(letters.map(l => l.id));
+            const left = Math.min(...letters.map(l => l.x));
+            const right = Math.max(...letters.map(l => l.x + l.width));
+            const top = Math.min(...letters.map(l => l.y));
+            const bottom = Math.max(...letters.map(l => l.y));
+            const reach = Math.max(10, (letters[0].fontSize || 48) * 0.35);
+            const missed = state.elements.filter(el => isSpace(el) && !ids.has(el.id)
+                && el.x > left && el.x < right && el.y >= top - reach && el.y <= bottom + reach);
+            for (const space of missed) state.selectedIds.push(space.id);
+            return letters.concat(missed);
+        }
+
+        // A gap left by hand between two words is not a letter, so a reflow
+        // closes it. Before one, such a gap becomes a real space. A gap counts
+        // when it is clearly wider than the row's usual one — the lower median,
+        // so loosely dropped letters are still one word, and two tight words
+        // with one gap are still two. Takes the letters of ONE row as they
+        // stand before the reflow; returns the row, left to right, with the
+        // spaces in it.
+        function keepWordGaps(letters) {
+            if (!letters || letters.length < 2) return letters;
+            const sorted = [...letters].sort((a, b) => a.x - b.x);
+            const gaps = [];
+            for (let i = 1; i < sorted.length; i++) {
+                gaps.push(Math.max(0, sorted[i].x - (sorted[i - 1].x + sorted[i - 1].width)));
+            }
+            const usual = [...gaps].sort((a, b) => a - b)[Math.floor((gaps.length - 1) / 2)];
+            const row = [sorted[0]];
+            for (let i = 1; i < sorted.length; i++) {
+                const prev = sorted[i - 1];
+                const next = sorted[i];
+                const size = Math.max(prev.fontSize || 48, next.fontSize || 48);
+                if (!isSpace(prev) && !isSpace(next) && gaps[i - 1] > usual + size * 0.3) {
+                    const space = {
+                        id: generateId(),
+                        type: 'letter',
+                        content: ' ',
+                        x: prev.x + prev.width,
+                        y: prev.y,
+                        fontSize: prev.fontSize || 48,
+                        width: getLetterWidth(' ', prev.fontSize || 48),
+                        color: prev.color || '#1e293b'
+                    };
+                    state.elements.push(space);
+                    state.selectedIds.push(space.id);
+                    row.push(space);
+                }
+                row.push(next);
+            }
+            return row;
+        }
+
         function reflowSelectedLetters() {
             const selectedLetters = state.elements
                 .filter(el => state.selectedIds.includes(el.id) && el.type === 'letter')
@@ -3431,7 +3542,7 @@
             }
 
             for (const row of rows) {
-                row.items.sort((a, b) => a.x - b.x);
+                row.items = keepWordGaps(withSpacesBetween(row.items));
                 reflowLetterSequence(row.items, state.letterSpacing);
             }
         }
@@ -3827,7 +3938,8 @@
         function createElementDOM(el) {
             if (el.type === 'letter') {
                 const div = document.createElement('div');
-                div.className = 'element element-letter' + (state.selectedIds.includes(el.id) ? ' selected' : '');
+                div.className = 'element element-letter' + (el.content === ' ' ? ' element-space' : '')
+                    + (state.selectedIds.includes(el.id) ? ' selected' : '');
                 div.dataset.id = el.id;
                 div.style.left = el.x + 'px';
                 div.style.top = el.y + 'px';
@@ -4767,7 +4879,14 @@
 
                     // Snap to nearest letter
                     if (props.nearest && state.autoSnap) {
-                        const snapX = props.nearest.x + props.nearest.width + effectiveSpacing;
+                        // The place after the nearest letter may be taken by a
+                        // space: stick after the space, not on top of it.
+                        let last = props.nearest;
+                        const spaceAfter = (el) => state.elements.find(o => isSpace(o) && o.id !== el.id
+                            && Math.abs(o.y - el.y) < Math.max(10, (el.fontSize || 48) * 0.35)
+                            && Math.abs(o.x - (el.x + el.width + effectiveSpacing)) < 3);
+                        for (let next = spaceAfter(last); next; next = spaceAfter(last)) last = next;
+                        const snapX = last.x + last.width + effectiveSpacing;
                         if (Math.abs(finalX - snapX) < 100) {
                             finalX = snapX;
                             finalY = props.nearest.y;
@@ -4883,9 +5002,10 @@
             bottomRow.appendChild(capsKey);
 
             const spaceKey = document.createElement('div');
-            spaceKey.className = 'key';
+            spaceKey.className = 'key key-space';
             spaceKey.style.width = (keySize * 6) + 'px';
             spaceKey.style.height = keySize + 'px';
+            spaceKey.title = 'Празно место: допри или повлечи на таблата';
             spaceKey.draggable = true;
             spaceKey.addEventListener('dragstart', (e) => {
                 e.dataTransfer.setData('text/plain', JSON.stringify({ letter: ' ' }));
@@ -5401,13 +5521,14 @@
         });
 
         document.getElementById('alignBtn').addEventListener('click', () => {
-            const letters = state.elements.filter(el =>
+            const selected = state.elements.filter(el =>
                 state.selectedIds.includes(el.id) && el.type === 'letter'
-            ).sort((a, b) => a.x - b.x);
+            );
 
-            if (letters.length < 2) return;
+            if (selected.length < 2) return;
 
             saveToHistory();
+            const letters = keepWordGaps(withSpacesBetween(selected));
             const anchor = letters[0];
 
             for (let i = 0; i < letters.length; i++) {
@@ -5424,17 +5545,18 @@
         const DEFAULT_ROW_SPACING = getEffectiveSpacing(DEFAULT_LETTER_SPACING, DEFAULT_ROW_FONT_SIZE);
 
         document.getElementById('alignDefaultBtn').addEventListener('click', () => {
-            const letters = state.elements.filter(el =>
+            const selected = state.elements.filter(el =>
                 state.selectedIds.includes(el.id) && el.type === 'letter'
             );
 
-            if (letters.length < 2) return;
+            if (selected.length < 2) return;
 
             saveToHistory();
 
+            const letters = keepWordGaps(withSpacesBetween(selected));
             const sortedByRowAnchor = [...letters].sort((a, b) => (a.y - b.y) || (a.x - b.x));
             const anchorY = sortedByRowAnchor[0].y;
-            const sortedByX = [...letters].sort((a, b) => a.x - b.x);
+            const sortedByX = letters;
 
             for (const letter of sortedByX) {
                 letter.y = anchorY;
@@ -5618,6 +5740,7 @@
             state.selectedIds = [];
             state.mode = null;
             canvas.classList.remove('mode-drawing', 'mode-painting', 'mode-typing');
+            canvas.classList.add('exporting');
             renderElements();
 
             // Hide keyboard and toolbar temporarily
@@ -5648,6 +5771,7 @@
                     // Restore state
                     if (kbWasVisible) keyboard.style.display = '';
                     if (toolbar) toolbar.style.display = '';
+                    canvas.classList.remove('exporting');
                     state.selectedIds = oldSelectedIds;
                     state.mode = oldMode;
                     renderElements();

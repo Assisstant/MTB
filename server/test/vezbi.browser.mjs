@@ -27,7 +27,9 @@
  *      boxes and 🔊 in sight, nothing scrolled, a key the size of a letter box;
  *   7. S-Дневник has ONE door to all of it, and „📓 S-Дневник" here leads back
  *      only where a server answers — never on GitHub Pages or from the disk,
- *      where the diary is a separate, empty copy.
+ *      where the diary is a separate, empty copy;
+ *   8. on ComuniBoard's board a space is a thing: marked, kept by „Порамни",
+ *      made from a gap left by hand, and never in the picture or on paper.
  */
 import Fastify from 'fastify';
 import { chromium } from 'playwright';
@@ -169,6 +171,89 @@ try {
     await page.waitForTimeout(400);
     check('an address handed in from outside is not taken', (await whiteboard.evaluate(() => window.__got.length)) === 1);
 
+    console.log('\na space between words on the board');
+    const row = () => whiteboard.evaluate(() => state.elements.filter((el) => el.type === 'letter')
+        .sort((a, b) => a.x - b.x).map((el) => ({ id: el.id, c: el.content, x: el.x, w: el.width, size: el.fontSize })));
+    const word = async () => (await row()).map((l) => l.c).join('');
+    const tap = (ch) => whiteboard.locator('#keyboardBody .key', { hasText: new RegExp(`^${ch}$`) }).click();
+    // Chooses letters as a rectangle or a click would, then presses the real „Порамни".
+    const align = async (pick) => {
+        await whiteboard.evaluate((spaces) => {
+            setMode(null);
+            state.selectedIds = state.elements.filter((el) => el.type === 'letter' && (spaces || el.content !== ' ')).map((el) => el.id);
+            updateSelectionTools();
+            renderElements();
+        }, pick === 'with the spaces');
+        await whiteboard.click('#alignBtn');
+    };
+    const mark = (media) => whiteboard.$eval('.element-space', (el) => {
+        const s = getComputedStyle(el, '::after');
+        return { shown: s.display !== 'none' && s.borderBottomStyle === 'solid', opacity: Number(s.opacity) };
+    });
+    check('the space key says what it is', await whiteboard.$eval('.key-space', (k) =>
+        getComputedStyle(k, '::after').borderBottomStyle === 'solid' && k.title.length > 0));
+    // The message at the bottom lies over the middle of the keyboard's last row even while nobody sees it.
+    check('and no unseen message takes its taps', await whiteboard.$eval('#toast', (t) => getComputedStyle(t).pointerEvents === 'none'));
+    await tap('д'); await tap('а'); await whiteboard.click('.key-space'); await tap('н'); await tap('е');
+    let letters = await row();
+    check('the space key puts a space between two words', await word() === 'да не', await word());
+    check('a space is about a third of a letter\'s size', letters[2].w >= letters[2].size * 0.3, JSON.stringify(letters[2]));
+    check('and it is marked on the board, faintly', (await mark()).shown && (await mark()).opacity < 0.5, JSON.stringify(await mark()));
+    await shot('vezbi-space');
+    await align('with the spaces');
+    letters = await row();
+    check('„Порамни" keeps a space that is there', await word() === 'да не'
+        && letters[3].x - (letters[1].x + letters[1].w) >= letters[2].w, JSON.stringify(letters));
+    check('a chosen space is marked strongly', (await mark()).opacity > 0.5, JSON.stringify(await mark()));
+    await align('without the spaces');
+    check('a space the selection missed is still the row\'s one space', await word() === 'да не', await word());
+
+    await whiteboard.evaluate(() => {
+        state.elements = state.elements.filter((el) => !(el.type === 'letter' && el.content === ' '));
+        const moved = state.elements.filter((el) => el.type === 'letter').sort((a, b) => a.x - b.x).slice(2);
+        for (const el of moved) el.x += 60;
+    });
+    check('(a gap made by hand, and no space in it)', await word() === 'дане');
+    await align('without the spaces');
+    letters = await row();
+    check('„Порамни" turns a gap made by hand into a space', await word() === 'да не'
+        && Math.abs(letters[3].x - (letters[2].x + letters[2].w)) <= letters[3].size, JSON.stringify(letters));
+
+    await whiteboard.evaluate(() => {
+        state.elements = state.elements.filter((el) => !(el.type === 'letter' && el.content === ' '));
+        const all = state.elements.filter((el) => el.type === 'letter').sort((a, b) => a.x - b.x);
+        let x = all[0].x;
+        for (const [i, el] of all.entries()) { el.x = x; x += el.width + [20, 24, 18][i % 3]; }
+    });
+    await align('without the spaces');
+    check('letters dropped loosely are still one word', await word() === 'дане', await word());
+
+    // A letter dropped on the last letter of a word that already ends in a space
+    // goes after the space, where it used to land on top of it.
+    await whiteboard.evaluate(() => {
+        const all = state.elements.filter((el) => el.type === 'letter').sort((a, b) => a.x - b.x);
+        state.elements = state.elements.filter((el) => !all.slice(2).includes(el));
+        const last = all[1];
+        state.elements.push({ id: generateId(), type: 'letter', content: ' ', x: last.x + last.width + state.letterSpacing,
+            y: last.y, fontSize: last.fontSize, width: getLetterWidth(' ', last.fontSize), color: last.color });
+        renderElements();
+        const box = document.getElementById('canvas').getBoundingClientRect();
+        const data = new DataTransfer();
+        data.setData('text/plain', JSON.stringify({ letter: 'н' }));
+        document.getElementById('canvas').dispatchEvent(new DragEvent('drop', { bubbles: true, cancelable: true, dataTransfer: data,
+            clientX: box.left + last.x + last.width * 0.6, clientY: box.top + last.y + last.fontSize / 2 }));
+    });
+    letters = await row();
+    check('a letter dropped at the end of a word sticks after its space', await word() === 'да н'
+        && letters[3].x >= letters[2].x + letters[2].w, JSON.stringify(letters));
+
+    await whiteboard.$eval('#canvas', (c) => c.classList.add('exporting'));
+    check('the saved picture has no mark', !(await mark()).shown);
+    await whiteboard.$eval('#canvas', (c) => c.classList.remove('exporting'));
+    await page.emulateMedia({ media: 'print' });
+    check('nor has the printed board', !(await mark()).shown);
+    await page.emulateMedia({ media: null });
+
     console.log('\nWBACC Studio, and the way back');
     await page.click('#apps button[data-v="crtanje"]');
     await page.waitForSelector('#crtanje[data-ready="1"]', { state: 'attached', timeout: 60000 });
@@ -217,7 +302,8 @@ try {
         (await opened.$eval('#apps .diary', (a) => a.href)) === `${ORIGIN}/S-Dnevnik.html`, await opened.$eval('#apps .diary', (a) => a.href));
     await opened.click('#tiles .app:nth-child(1)');
     check('and keeps it from one part to the next', await opened.isVisible('#apps .diary'));
-    await Promise.all([opened.waitForEvent('close'), opened.click('#apps .diary')]);
+    // The click closes the tab it is made in; when the tab goes first, the click has nothing to report to.
+    await Promise.all([opened.waitForEvent('close'), opened.click('#apps .diary').catch(() => {})]);
     check('opened from the diary, it closes itself: back in the diary as it was left', opened.isClosed() && !diary.isClosed() && diary.url() === `${ORIGIN}/S-Dnevnik.html`);
     cloud = true;
     await diary.goto(`${ORIGIN}/vezbi/index.html`);

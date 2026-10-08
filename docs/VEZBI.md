@@ -185,6 +185,37 @@ handler; only its place changed.
   of tools, no floating bar with nothing selected and one with the pasted
   card, „⋯", „само табла" and the way back.
 
+### A space between words (8 Oct 2026, late; the owner: „do it and push"; not yet judged)
+
+The owner dropped letters into „пицатаевкусна" and asked whether the space bar
+could make the gap, so that the sticky drop and „Порамни" respect it. A space
+already was a letter nobody could see (`content: ' '`), from the wide key or
+the real space bar; what was missing is below.
+
+- **It is marked**: a faint „␣" in the colour of the letters
+  (`.element-space::after`), stronger under the pointer and when chosen, so it
+  can be seen, grabbed and deleted. The owner offered a letter's shadow or an
+  underline; a plain line was turned down because on this board a line is
+  where a letter is missing. Never in the saved picture (`.canvas.exporting`)
+  or in print.
+- **It is a third of the letter size** (`getLetterWidth`), where the font's own
+  was a quarter. A space made before keeps its width until the next „Порамни".
+- **„Порамни" and the spacing slider keep word gaps** (`keepWordGaps`): a gap
+  left by hand becomes a real space when it is wider than the row's usual gap
+  (the lower median) by 0.3 of the letter size. So letters dropped loosely are
+  still one word, and two one-letter words with one gap between them cannot be
+  told apart and stay closed. A space lying among the chosen letters is taken
+  along even when the selection missed it (`withSpacesBetween`).
+- **A letter dropped at the end of a word that ends in a space sticks after
+  the space**; it used to land on top of it, and the gap was gone.
+- **The key shows „␣"**, drawn, so it needs no font.
+- **A fault found on the way and fixed:** the message at the bottom (`#toast`)
+  took taps while unseen, and it lies over the middle of the keyboard's last
+  row — a tap on the middle of the space key did nothing.
+- Not built, on purpose: a letter dropped far from a word starting a new word
+  by itself. It changes how dropping feels; the owner was told and did not ask.
+- `test:vezbi` holds all of it (item 8 in its header).
+
 **Tile pictures are taken from the disk, never through the local server.**
 Through the server every page carries „изработил …" with a real name, and
 `check:names` reads text, not pictures. `vezbi/tabla.jpg` was retaken that
