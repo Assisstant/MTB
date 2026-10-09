@@ -104,6 +104,7 @@
     "test:kolega-read-only": "node test/kolega-read-only.browser.mjs",
     "test:layout": "node test/layout.browser.mjs",
     "test:vezbi": "tsx test/vezbi.browser.mjs",
+    "test:vezbi-audio": "tsx test/vezbi-audio.browser.mjs",
     "test:duty": "tsx test/duty.e2e.ts",
     "test:kolegi-admin": "node test/kolegi-admin.browser.mjs",
     "test:door": "node test/door.browser.mjs",

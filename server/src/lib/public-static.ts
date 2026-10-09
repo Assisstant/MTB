@@ -58,11 +58,12 @@ const PUBLIC_FILES = new Set([
     // ComuniBoard.html and WBACC.html from the list above. A folder is still
     // never published as a folder: each file in it is named here.
     'vezbi/index.html',
+    'vezbi/audio.js',
     'vezbi/vezbi.jpg',
     'vezbi/tabla.jpg',
     'vezbi/crtanje.jpg',
     ...['b', 'c', 'ch', 'd', 'dz', 'dzh', 'f', 'g', 'gj', 'h', 'j', 'k', 'kj', 'l', 'lj', 'm', 'n',
-        'nj', 'p', 'r', 's', 'sh', 't', 'v', 'z', 'zh'].map((sound) => `vezbi/glasovi/${sound}.js`)
+        'nj', 'p', 'r', 's', 'sh', 't', 'v', 'z', 'zh'].flatMap((sound) => [`vezbi/glasovi/${sound}.js`, `vezbi/audio/${sound}.js`])
 ]);
 
 // The one folder address that answers: it resolves to its own index.html.

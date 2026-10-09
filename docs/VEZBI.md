@@ -36,6 +36,51 @@ The words of the П deck, in the owner's three groups of rising difficulty:
 
 ## Where it stands
 
+### Audio files and Macedonian pronunciation (9 Oct 2026)
+
+The owner asked for a file per term, uploading replacements, and mute/listen.
+They chose **Marija now, with Google recordings replaceable later** after
+asking about NotebookLM voices. Gemini TTS supports Macedonian; API access is
+separate from the consumer Pro subscription. No Gemini service was connected.
+
+- **984 unique MP3s** cover the words, sentences and syllables of all 26 sounds
+  (986 entries across decks). `mk-MK-MarijaNeural`, rate −10%, generated with
+  `edge-tts` from the existing public exercise vocabulary only. Synthetic
+  examples, not pronunciation reviewed by the therapist.
+- `vezbi/audio/<sound>.js` embeds ONE sound's MP3s, loaded only when needed.
+  All 26 total about 15 MB; works from `file://` too. `public-static.ts` names
+  every bundle; `vezbi-zip.ps1` includes them and `audio.js`. No API key or
+  network speech service in the page. Native fallback accepts only Macedonian,
+  never Serbian/Bulgarian/Russian as a substitute pronunciation model.
+- **🔊 / 🔇** in the bar remembers mute, stops playing immediately and covers
+  completion feedback too. Opening never speaks. A syllable tap plays its clip;
+  in edit mode it opens the audio editor instead. Playback never overlaps.
+- **„Уреди → 🎧 Аудио“**: listen, stop, download, upload MP3/WAV/M4A/OGG/WebM
+  (10 MB / 60 seconds), record up to 30 seconds, restore the built-in clip.
+  Replacements stay in IndexedDB `voice`, keyed by exact text; success only
+  after commit. Closing during recording cancels and releases the microphone.
+- **„Извези аудиопакет“ / „Внеси аудиопакет“** in ⋯ transfers one sound as
+  JSON, including syllables. Import checks the sound, terms and decoded audio
+  before one atomic write; no imported scripts execute. It changes this device
+  only. The original `glasovi/<sound>.js` export now includes audio too.
+  Publishing exports remains a separate step; child recordings never enter Git.
+- ARASAAC credit stays, with source and licence links.
+
+Regenerate: `python scripts/vezbi-audio.py` lists the job; `--apply` generates
+missing cached clips, then writes complete bundles. Originals and JSON packs
+stay in ignored `backups/vezbi-audio/marija/`. The ZIP
+`backups/vezbi-audio/Vezbi-Marija-audio.zip` has a searchable offline
+`index.html`, all MP3s and the 26 JSON packs. `test:vezbi-audio` checks playback,
+mute, persistence, rejected files, transfer, phone layout, real MediaRecorder
+with a synthetic stream, complete terms and a decodable MP3 per sound, and disk
+loading. It does not certify every synthetic pronunciation.
+
+Sources: [Microsoft voices](https://learn.microsoft.com/azure/ai-services/speech-service/language-support?tabs=tts),
+[edge-tts](https://github.com/rany2/edge-tts), [Gemini TTS](https://ai.google.dev/gemini-api/docs/speech-generation),
+[Gemini API billing](https://ai.google.dev/gemini-api/docs/billing), [ARASAAC](https://arasaac.org/terms-of-use).
+
+### Earlier exercise features
+
 The page is `vezbi/index.html` (until 8 Oct 2026 it was the single file
 `glas-P.html`, whose concept the owner liked) plus one data file per sound in
 `vezbi/glasovi/` and three tile pictures beside it. It frames
@@ -78,11 +123,8 @@ the repository (see Pictures). It has:
   picture does. Sentences do not have this yet („Без збор" is still a line).
   (Since the evening of 8 Oct the keyboard's button is in the one-row bar and
   a key is the size of a letter box: see „One row of controls".)
-- **Voice** (same date): 🔊 on every card. It plays the therapist's recording
-  if there is one, else a system voice (Macedonian, else sr/bg/hr/sl/ru).
-  „✏️ Уреди" in the header shows the record and delete buttons; a recording
-  is at most 5 seconds and is kept in IndexedDB (`artikulacija` / `voice`,
-  keyed by the text).
+- **Voice**: the initial 8 Oct system-voice/5-second recorder is superseded
+  by the 9 Oct audio workflow above. IndexedDB remains `artikulacija` / `voice`.
 - **Changing a picture** (8 Oct 2026, the owner's idea: place-holder first,
   pictures later, a better editor some day): in „✏️ Уреди" every card has
   „🖼 Слика". It searches ARASAAC (Macedonian, then English; needs the
@@ -341,8 +383,8 @@ server and in the cloud while GitHub Pages still shows it.
 sentence is optional: without it the key into the pictures is the text itself.
 `set` is the owner's group (one old slide); the group buttons are made from
 it. In `s` the word in `{braces}` is the one hidden in „Без збор". The syllables are generated from
-the letter (а у е и о: start, middle, end). Only the voice recordings are
-stored between visits.
+the letter (а у е и о: start, middle, end). Personal voice recordings and
+picture replacements are stored between visits.
 
 ## The old decks
 

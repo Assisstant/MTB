@@ -19,9 +19,10 @@ $root = Split-Path -Parent $PSScriptRoot
 if (-not $Out) { $Out = Join-Path $root ('backups\Vezbi-za-izgovor-' + (Get-Date -Format 'yyyy-MM-dd') + '.zip') }
 
 # home-button.js is the dock ComuniBoard shows when it is opened by itself.
-$files = @('ComuniBoard.html', 'WBACC.html', 'home-button.js', 'vezbi\index.html',
+$files = @('ComuniBoard.html', 'WBACC.html', 'home-button.js', 'vezbi\index.html', 'vezbi\audio.js',
            'vezbi\vezbi.jpg', 'vezbi\tabla.jpg', 'vezbi\crtanje.jpg') +
-         @(Get-ChildItem -LiteralPath (Join-Path $root 'vezbi\glasovi') -Filter *.js | ForEach-Object { 'vezbi\glasovi\' + $_.Name })
+         @(Get-ChildItem -LiteralPath (Join-Path $root 'vezbi\glasovi') -Filter *.js | ForEach-Object { 'vezbi\glasovi\' + $_.Name }) +
+         @(Get-ChildItem -LiteralPath (Join-Path $root 'vezbi\audio') -Filter *.js | ForEach-Object { 'vezbi\audio\' + $_.Name })
 
 $missing = @($files | Where-Object { -not (Test-Path -LiteralPath (Join-Path $root $_)) })
 if ($missing.Count) {

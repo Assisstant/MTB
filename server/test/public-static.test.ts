@@ -48,7 +48,15 @@ test('Вежби за изговор is served from its folder, and every file i
     assert.equal(sounds.length, 26, 'the page loads one file per sound');
     // A sound added to the page and forgotten in the list would be a blank page
     // on the server and in the cloud while GitHub Pages still showed it.
-    for (const file of sounds) assert.equal(isPublicStaticPath('/vezbi/' + file), true, file);
+    for (const file of sounds) {
+        assert.equal(isPublicStaticPath('/vezbi/' + file), true, file);
+        const audio = '/vezbi/' + file.replace('glasovi/', 'audio/');
+        assert.equal(isPublicStaticPath(audio), true, audio);
+        assert.ok(readFileSync(resolve(root, audio.slice(1))).length > 100, 'audio bundle exists');
+    }
+    assert.equal(isPublicStaticPath('/vezbi/audio/not-a-sound.js'), false);
+    assert.equal(isPublicStaticPath('/vezbi/audio/private.mp3'), false);
+    assert.equal(isPublicStaticPath('/vezbi/audio.js'), true);
     assert.deepEqual(readdirSync(resolve(root, 'vezbi', 'glasovi')).sort(), sounds.map((f) => f.slice(8)).sort());
     // The two tools it frames are the root's own files, one copy of each.
     assert.match(page, /src: '\.\.\/ComuniBoard\.html'/);

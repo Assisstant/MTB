@@ -277,6 +277,7 @@
     </div>
     <button class="plain" id="kb" title="Тастатура" aria-label="Тастатура" aria-pressed="false">⌨<span class="lbl"> Тастатура</span></button>
   </div>
+  <button class="plain" id="mute" title="Исклучи звук" aria-label="Исклучи звук" aria-pressed="false">🔊</button>
   <div class="menu end" id="m-more">
     <button class="plain opener bare" id="more" title="Повеќе" aria-label="Повеќе" aria-haspopup="true" aria-expanded="false">⋯</button>
     <div class="pop list">
@@ -287,6 +288,8 @@
       <hr>
       <button class="plain" id="edit" aria-pressed="false">✏️ Уреди</button>
       <button class="plain" id="export">⬇ Извези</button>
+      <button class="plain" id="audio-export">⬇ Извези аудиопакет</button>
+      <button class="plain" id="audio-import">↑ Внеси аудиопакет</button>
     </div>
   </div>
 </header>
@@ -310,9 +313,51 @@
   <button class="plain" id="pk-none">Тргни ја сликата</button>
 </dialog>
 
+<dialog id="audio-editor" aria-labelledby="audio-title">
+  <div class="audio-head"><div><span class="audio-kicker">ИЗГОВОР</span><h2 id="audio-title"></h2></div><button class="plain" id="audio-close">✕ Затвори</button></div>
+  <p id="audio-source"></p>
+  <div class="audio-actions"><button class="plain on" id="audio-listen">🔊 Слушни</button><button class="plain" id="audio-stop">⏹ Стоп</button><button class="plain" id="audio-download">⬇ Преземи</button></div>
+  <section class="audio-upload"><h3>Твој изговор за овој поим</h3>
+    <p>Внеси снимка од Google, од друг извор или сними со микрофон. Таа ќе се слуша наместо вградената.</p>
+    <label class="audio-file-label" for="audio-file">Избери аудиодатотека <small>MP3, WAV, M4A, OGG или WebM · до 60 секунди / 10 MB</small></label>
+    <button class="plain" id="audio-pick">↑ Внеси датотека</button>
+    <input id="audio-file" type="file" accept="audio/*,.mp3,.wav,.m4a,.ogg,.webm" hidden>
+    <div class="audio-actions"><button class="plain" id="audio-record">🎙 Сними со микрофон</button><button class="plain" id="audio-reset">↶ Врати ја вградената</button></div>
+  </section>
+  <p id="audio-message" role="status" aria-live="polite"></p>
+  <p class="audio-local">Се чува на овој уред. За друг уред: „⋯ → Извези аудиопакет“, па „Внеси аудиопакет“.</p>
+</dialog>
+<input id="audio-pack-file" type="file" accept="application/json,.json" hidden>
 <footer>
-  Пиктограми: Sergio Palao. Извор: ARASAAC (arasaac.org). Лиценца: CC BY-NC-SA. Сопственик: Влада на Арагон (Шпанија).
+  <span>Пиктограми: Sergio Palao · <a href="https://arasaac.org/" target="_blank" rel="noopener">ARASAAC</a> ·
+  <a href="https://arasaac.org/terms-of-use" target="_blank" rel="noopener">CC BY-NC-SA</a> · Влада на Арагон (Шпанија).</span>
+  <span>Изговор: Марија · македонски синтетички глас. Секоја снимка може да се замени.</span>
 </footer>
+<style>
+  footer span { display:block; margin:4px 0; }
+  footer a { color:inherit; text-underline-offset:3px; }
+  #mute { flex:none; min-width:38px; padding:6px 10px; }
+  [data-speaking] { outline:3px solid #49a7bd; outline-offset:2px; }
+  #audio-editor { width:min(560px, calc(100vw - 24px)); max-height:90vh; max-height:90dvh; overflow:auto;
+    padding:24px; border:1px solid var(--line); border-radius:22px; background:var(--card); color:var(--ink); box-shadow:0 20px 70px #172a4055; }
+  #audio-editor::backdrop { background:#15233188; }
+  .audio-head { display:flex; align-items:flex-start; justify-content:space-between; gap:12px; }
+  .audio-head h2 { margin:4px 0 0; font-size:28px; overflow-wrap:anywhere; }
+  .audio-head button { flex:none; }
+  .audio-kicker { font-size:11px; letter-spacing:.15em; color:var(--soft); font-weight:700; }
+  #audio-source, .audio-local { color:var(--soft); font-size:13px; line-height:1.5; }
+  .audio-actions { display:flex; flex-wrap:wrap; gap:8px; margin:14px 0; }
+  .audio-upload { margin-top:22px; padding:18px; border:1px solid var(--line); border-radius:14px; background:var(--bg); }
+  .audio-upload h3 { margin:0 0 8px; font-size:16px; }
+  .audio-upload p { margin:0 0 16px; color:var(--soft); font-size:14px; line-height:1.5; }
+  .audio-file-label { display:block; font-size:14px; font-weight:600; }
+  .audio-file-label small { display:block; margin:5px 0 8px; font-weight:400; color:var(--soft); }
+  #audio-file { max-width:100%; }
+  #audio-message { min-height:1.5em; font-size:14px; line-height:1.5; }
+  @media(max-width:500px) { #audio-editor { padding:16px; } .audio-head h2 { font-size:22px; } .audio-upload { padding:12px; } }
+  @media print { #audio-editor, #audio-pack-file { display:none !important; } }
+</style>
+<script src="audio.js"></script>
 
 <script>const GLASOVI = [];</script>
 <script src="glasovi/p.js"></script>
@@ -370,6 +415,7 @@ const keysOf = (item) => [].concat(item.img || plain(item));
 const picture = (key) => own[key] || IMG[key] || '';
 
 function pick(k) {
+  audio.close();
   const g = GLASOVI[k];
   state.sound = k;
   TARGET = g.letter;
@@ -633,15 +679,13 @@ function tools(i, text) {
     b.addEventListener('click', run);
     box.appendChild(b);
   };
-  add('🔊', 'Изговори', () => say(i));
+  add('🔊', 'Изговори', e => audio.play(text, false, e.currentTarget));
   if (state.edit) {
     const keys = keysOf(list()[i]);
     keys.forEach((key, k) => add('🖼 Слика' + (keys.length > 1 ? ' ' + (k + 1) : ''), 'Смени ја сликата', () => openPicker(i, key)));
     add('📋 Копирај', 'Копирај ја картичката како слика', (e) => copyCard(e.currentTarget.closest('.card')));
     add('➜ Во таблата', 'Прати ја картичката во ComuniBoard', (e) => sendCard(e.currentTarget.closest('.card')));
-    const live = rec && rec.i === i;
-    add(live ? '⏹ Стоп' : (recs[text] ? '🎙 Сними пак' : '🎙 Сними'), live ? 'Запри го снимањето' : 'Сними', () => record(i), live ? 'live' : '');
-    if (recs[text] && !live) add('🗑', 'Избриши ја снимката', () => { forget(text); draw(); });
+    add('🎧 Аудио', 'Уреди го аудиото за ' + text, () => audio.edit(text));
   }
   return box;
 }
@@ -719,7 +763,6 @@ function mix(o) {
 // the device unless the owner exports a sound.
 const recs = {};
 const own = {};
-let rec = null;
 let db = null;
 
 function note(text) { $('note').textContent = text; }
@@ -760,8 +803,18 @@ function store(name, key, value) {
   } catch (e) {}
 }
 
-function keep(text, blob) { recs[text] = blob; store('voice', text, blob); }
-function forget(text) { delete recs[text]; store('voice', text); }
+function saveVoices(changes) {
+  return new Promise((resolve, reject) => {
+    if (!db) { reject(new Error('Снимката не може да се зачува во овој прелистувач.')); return; }
+    const tx = db.transaction('voice', 'readwrite'), s = tx.objectStore('voice');
+    for (const [text, blob] of Object.entries(changes)) { if (blob === undefined) s.delete(text); else s.put(blob, text); }
+    tx.oncomplete = () => {
+      for (const [text, blob] of Object.entries(changes)) { if (blob === undefined) delete recs[text]; else recs[text] = blob; }
+      resolve();
+    };
+    tx.onerror = tx.onabort = () => reject(new Error('Снимката не се зачува. Провери го просторот во прелистувачот.'));
+  });
+}
 
 // ---------- pictures ----------
 // ARASAAC search, Macedonian first and then English, as in WBACC. Searching
@@ -945,6 +998,7 @@ const APPS = [
 ];
 
 function go(app) {
+  audio.close();
   if (!APPS.some((a) => a.key === app)) app = 'home';
   state.app = app;
   if (app !== 'vezbi') state.focus = false;
@@ -1128,13 +1182,15 @@ async function sendCard(cardEl) {
 }
 
 // The sound as a file for the glasovi folder, with the pictures chosen here inside.
-function exportSound() {
+async function exportSound() {
   const g = GLASOVI[state.sound];
   const img = Object.assign({}, g.img);
   for (const item of [...g.words, ...(g.sentences || [])]) {
     for (const key of keysOf(item)) if (own[key]) img[key] = own[key];
   }
-  const body = { letter: g.letter, file: g.file, words: g.words, sentences: g.sentences || [], img };
+  let clips;
+  try { clips = await audio.allAudio(g); } catch (e) { note(e.message); return; }
+  const body = { letter: g.letter, file: g.file, words: g.words, sentences: g.sentences || [], img, audio:clips };
   const text = '// Глас ' + upper() + '. Exported from the page with the pictures chosen there.\n'
     + 'GLASOVI.push(' + JSON.stringify(body, null, 1) + ');\n';
   const url = URL.createObjectURL(new Blob([text], { type: 'text/javascript' }));
@@ -1145,60 +1201,11 @@ function exportSound() {
   a.click();
   a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 2000);
-  note('Зачуван е фајлот ' + g.file + '.js. Стави го во папката „glasovi" наместо стариот и сликите ќе важат на секој уред.');
+  note('Зачуван е фајлот ' + g.file + '.js со сликите и аудиото. Стави го во папката „glasovi" наместо стариот за да важат на секој уред.');
 }
 
-function pickVoice() {
-  const voices = window.speechSynthesis ? speechSynthesis.getVoices() : [];
-  return voices.find((v) => /^mk/i.test(v.lang)) || voices.find((v) => /^(sr|bg|hr|sl|ru)/i.test(v.lang)) || null;
-}
-if (window.speechSynthesis) { speechSynthesis.getVoices(); speechSynthesis.onvoiceschanged = () => {}; }
-
-// `quiet`: said by the page itself after a right answer, so no message if it cannot.
-function say(i, quiet) {
-  const text = plain(list()[i]);
-  if (recs[text]) {
-    const url = URL.createObjectURL(recs[text]);
-    const a = new Audio(url);
-    a.onended = () => URL.revokeObjectURL(url);
-    a.play().catch(() => {});
-    return;
-  }
-  const voice = pickVoice();
-  if (!voice) {
-    if (!quiet) note('Овој уред нема македонски глас. Вклучи „✏️ Уреди" и сними еднаш — потоа ќе се слуша твојот глас.');
-    return;
-  }
-  const u = new SpeechSynthesisUtterance(text.replace(/-/g, ' '));
-  u.voice = voice; u.lang = voice.lang; u.rate = 0.8;
-  speechSynthesis.cancel();
-  speechSynthesis.speak(u);
-}
-
-async function record(i) {
-  if (rec) { if (rec.recorder.state !== 'inactive') rec.recorder.stop(); return; }
-  note('');
-  const text = plain(list()[i]);
-  try {
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    const recorder = new MediaRecorder(stream);
-    const parts = [];
-    recorder.ondataavailable = (e) => parts.push(e.data);
-    recorder.onstop = () => {
-      clearTimeout(rec.timer);
-      rec = null;
-      stream.getTracks().forEach((t) => t.stop());
-      keep(text, new Blob(parts, { type: recorder.mimeType }));
-      draw();
-      if (plain(list()[i] || {w: ''}) === text) say(i);
-    };
-    rec = { i, recorder, timer: setTimeout(() => { if (recorder.state !== 'inactive') recorder.stop(); }, 5000) };
-    recorder.start();
-    draw();
-  } catch (e) {
-    note('Микрофонот не е достапен. Дозволи го во прелистувачот и пробај пак.');
-  }
-}
+// Automatic success feedback uses the same recording and mute setting.
+function say(i, quiet) { return audio.play(plain(list()[i]), quiet); }
 
 function shown() {
   const set = Number(state.stage);
@@ -1309,7 +1316,10 @@ function cards(words, names) {
       const b = document.createElement('button');
       b.className = state.done[s] ? 'done' : '';
       b.appendChild(inline(s, Math.min(state.step, 2)));
-      b.addEventListener('click', () => { state.done[s] = !state.done[s]; draw(); });
+      b.addEventListener('click', () => {
+        if (state.edit) { audio.edit(s); return; }
+        state.done[s] = !state.done[s]; draw(); audio.play(s);
+      });
       grid.appendChild(b);
     });
     out.appendChild(grid);
@@ -1358,6 +1368,7 @@ function cards(words, names) {
 }
 
 function move(by) {
+  audio.stop();
   const n = shown().length;
   state.at = (state.at + by + n) % n;
   draw();
@@ -1365,6 +1376,7 @@ function move(by) {
 
 // Leaving the syllables for the words keeps the word order; words <-> sentences is a new list.
 function stage(v) {
+  audio.close();
   const was = sentences();
   state.stage = v;
   state.at = 0;
@@ -1403,7 +1415,7 @@ $('shuffle').addEventListener('click', () => {
 });
 $('edit').addEventListener('click', () => {
   state.edit = !state.edit;
-  note(state.edit ? 'Сликите и снимките се чуваат само на овој уред. „⬇ Извези" го дава фајлот на гласот со сликите, за папката „glasovi".' : '');
+  note(state.edit ? 'На картичка избери „🎧 Аудио“ за снимање или внесување датотека. Во слоговите допри го слогот. Извезениот аудиопакет се внесува и на друг уред.' : '');
   draw();
 });
 $('kb').addEventListener('click', () => { state.kb = !state.kb; state.sel = null; draw(); });
@@ -1420,6 +1432,7 @@ $('print').addEventListener('click', () => {
 });
 document.addEventListener('keydown', (e) => {
   if (state.app !== 'vezbi') return;
+  if ($('audio-editor').open) return;
   if (e.key === 'Escape') {
     if (document.querySelector('.menu.open')) return shut();
     if (state.focus) return cardsOnly(false);
@@ -1435,6 +1448,7 @@ document.addEventListener('keydown', (e) => {
   else if (e.key === ' ' && e.target === document.body) { e.preventDefault(); out.querySelector('.pic').click(); }
 });
 
+const audio = window.createVezbiAudio({sound: () => GLASOVI[state.sound], recordings:recs, save:saveVoices, note});
 parts();
 menus();
 if (!GLASOVI.length) {
