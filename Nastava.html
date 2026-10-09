@@ -971,7 +971,7 @@
     const POSTER_DOC = {
         doc: 'nastava-poster',
         heading: 'Изглед на PDF — распоред на часови',
-        formats: ['a2', 'a3', 'a4', 'a2-4', 'a3-2'],
+        formats: ['a2', 'a3', 'a4', 'a2-4', 'a3-2', 'a0-16'],
         title: 'Распоред на часови',
         parts: [
             { key: 'school', label: 'училиштето и учебната година' },
@@ -1014,9 +1014,12 @@
         const ownClass = (name) => { const label = teacher(name).homeroom || '—'; return label.length > 8 ? `<span class="tight">${esc(label)}</span>` : esc(label); };
         const subjectCell = (list, name) => list.map((c) => esc(shortSubject(c.subject) || '—')
             + (c.class !== teacher(name).homeroom ? `<small>${esc(c.class)}</small>` : '')).join(' / ');
-        // Предметна: the subject is said once; a period says the class.
-        // From the teacher's own list; where nobody typed one there, the subject
-        // the timetable has them teaching most often.
+        // Предметна: the head of the row says the teacher's subject(s) once —
+        // from the teacher's own list; where nobody typed one there, the subject
+        // the timetable has them teaching most often. A period says the class,
+        // and under it the subject of THAT lesson (owner, 9 Oct 2026): a
+        // teacher of several subjects has „—" or a list at the head of the row,
+        // and the class alone did not say which of them the hour is.
         const taught = (name) => {
             const count = new Map();
             byTeacher.get(name).forEach((list) => list.forEach((c) => {
@@ -1034,7 +1037,15 @@
             const said = subjects.join(', ') || '—';
             return (said.length > 8 ? `<span class="tight">${esc(said)}</span>` : esc(said)) + (t.homeroom ? `<small>раков. ${esc(t.homeroom)}</small>` : '');
         };
-        const classCell = (list) => list.map((c) => `<span class="pz-c">${esc(c.class)}</span>`).join(' / ');
+        // Two classes in one hour with one subject say it once, under both. A
+        // lesson with no subject entered keeps its place with „—", the legend's
+        // own sign: the gap is seen on the sheet and filled on the screen.
+        const classCell = (list) => {
+            const classes = (items) => items.map((c) => `<span class="pz-c">${esc(c.class)}</span>`).join(' / ');
+            const subjects = [...new Set(list.map((c) => shortSubject(c.subject)))];
+            if (subjects.length === 1) return classes(list) + `<small>${esc(subjects[0] || '—')}</small>`;
+            return list.map((c) => classes([c]) + `<small>${esc(shortSubject(c.subject) || '—')}</small>`).join(' / ');
+        };
 
         const section = (title, names, leadHead, lead, cell) => names.length
             ? `<section class="pz-sec"><h2>${esc(title)}</h2>`

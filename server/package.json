@@ -70,6 +70,7 @@
     "test:projection": "tsx test/state-projection.e2e.ts",
     "test:nastava": "node test/nastava.browser.mjs",
     "test:nastava-doors": "node test/nastava-doors.browser.mjs",
+    "test:nastava-poster": "node test/nastava-poster.browser.mjs",
     "test:diary-offline": "tsx test/diary-offline.browser.mjs",
     "test:ongoing": "node test/with-scratch.mjs test/diary-ongoing.e2e.ts",
     "test:scratch": "node test/with-scratch.mjs",

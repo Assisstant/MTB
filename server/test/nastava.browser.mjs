@@ -318,8 +318,17 @@ const run = async () => {
     const cells = await page.evaluate(() => [...document.querySelectorAll('#poster .pz-sec')].map((s) =>
         [...s.querySelectorAll('tbody td')].map((td) => td.textContent.trim()).filter((t) => t && t !== '/' && !/^\d+\.$/.test(t))));
     check('одделенска says the SUBJECT in the period, предметна the CLASS, and no counts',
-        cells[0].includes('тестТЕСТ-С') && cells[2].includes('ТЕСТ-О')
+        cells[0].includes('тестТЕСТ-С') && cells[2].includes('ТЕСТ-Отест')
         && await page.evaluate(() => !document.querySelector('#poster .pz-count')), JSON.stringify(cells));
+    // Owner, 9 Oct 2026: under the class, the subject of that lesson — the
+    // class first and whole, the subject small beneath it.
+    const under = await page.evaluate(() => {
+        const td = [...document.querySelectorAll('#poster .pz-sec')][2].querySelector('tbody td .pz-c').closest('td');
+        return { first: td.firstElementChild.className, klass: td.querySelector('.pz-c').textContent,
+                 subject: (td.querySelector('small') || {}).textContent, smalls: td.querySelectorAll('small').length };
+    });
+    checkEq('in предметна the period says the class and, under it, the subject once',
+        under, { first: 'pz-c', klass: 'ТЕСТ-О', subject: 'тест', smalls: 1 });
     check('and the print dialog was opened', a2.printed === 1);
     check('the heading is „Распоред на часови", and so is the title the browser prints and names the PDF by',
         a2.banner === 'Распоред на часови' && /^Распоред на часови \d{4}-\d{4}/.test(a2.title), JSON.stringify([a2.banner, a2.title]));
@@ -366,7 +375,7 @@ const run = async () => {
         title: (document.querySelector('.mtb-pdf [data-k="title.text"]') || {}).value
     }));
     check('the window offers the paper, the title, what is on the sheet, the footer and the letters',
-        JSON.stringify(look.formats) === JSON.stringify(['a2', 'a3', 'a4', 'a2-4', 'a3-2'])
+        JSON.stringify(look.formats) === JSON.stringify(['a2', 'a3', 'a4', 'a2-4', 'a3-2', 'a0-16'])
         && look.parts === 6 && look.footer && look.title === 'Распоред на часови', JSON.stringify(look));
     if (first === 'offline') {
         console.log('  skip ⬇ PDF: no connection to cdnjs');

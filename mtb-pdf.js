@@ -45,7 +45,14 @@
         a3: { label: 'A3 — една страница', hint: '420 × 297 mm', page: [420, 297] },
         a4: { label: 'A4 — една страница', hint: '297 × 210 mm, ситно', page: [297, 210] },
         'a2-4': { label: 'A2 на 4 листа A4', hint: 'за лепење, 1 cm преклоп', sheet: [297, 210], cols: 2, rows: 2 },
-        'a3-2': { label: 'A3 на 2 листа A4', hint: 'за лепење, 1 cm преклоп', sheet: [210, 297], cols: 2, rows: 1 }
+        'a3-2': { label: 'A3 на 2 листа A4', hint: 'за лепење, 1 cm преклоп', sheet: [210, 297], cols: 2, rows: 1 },
+        // A0 is 1189 × 841 mm (owner, 9 Oct 2026). Sixteen A4 sheets are that
+        // paper, but a printer leaves a margin and the sheets overlap to be
+        // glued, so the poster they make is 108 × 73 cm — it fits an A0 board
+        // with a border. The whole of it is one canvas: at 300 dpi that is
+        // 110 million points, more than a school computer should be asked for,
+        // and the letters are twice A2's size, so 200 dpi is drawn finer than A2.
+        'a0-16': { label: 'A0 на 16 листа A4', hint: 'за сечење и лепење; составено 108 × 73 cm', sheet: [297, 210], cols: 4, rows: 4, dpi: 200 }
     };
 
     function layout(key) {
@@ -54,7 +61,7 @@
         const view = [f.sheet[0] - 2 * MARGIN, f.sheet[1] - 2 * MARGIN];
         const step = [view[0] - OVERLAP, view[1] - OVERLAP];
         return {
-            sheet: f.sheet, view, step, cols: f.cols, rows: f.rows,
+            sheet: f.sheet, view, step, cols: f.cols, rows: f.rows, dpi: f.dpi,
             area: [view[0] + (f.cols - 1) * step[0], view[1] + (f.rows - 1) * step[1]]
         };
     }
@@ -134,7 +141,7 @@
         const opt = o || {};
         await load();
         const L = layout(format);
-        const canvas = await picture(node, L.area, opt.dpi || 300);
+        const canvas = await picture(node, L.area, opt.dpi || L.dpi || 300);
         const px = canvas.width / L.area[0];
         const { jsPDF } = window.jspdf;
         const orient = (s) => (s[0] > s[1] ? 'landscape' : 'portrait');
@@ -147,7 +154,9 @@
             return pdf;
         }
         const total = L.cols * L.rows;
-        const where = total === 4 ? ['горе лево', 'горе десно', 'долу лево', 'долу десно'] : ['лево', 'десно'];
+        // Four or two sheets are said by their corner; more than that by row
+        // and column, which is how sixteen are laid out on a table.
+        const corner = total === 4 ? ['горе лево', 'горе десно', 'долу лево', 'долу десно'] : total === 2 ? ['лево', 'десно'] : null;
         const pdf = new jsPDF({ orientation: orient(L.sheet), unit: 'mm', format: L.sheet, compress: true });
         let n = 0;
         for (let row = 0; row < L.rows; row++) {
@@ -168,7 +177,8 @@
                 pdf.rect(MARGIN, MARGIN, L.view[0], L.view[1]);
                 const glue = [col < L.cols - 1 ? 'десниот раб под дел ' + (n + 2) : '',
                     row < L.rows - 1 ? 'долниот раб под дел ' + (n + 1 + L.cols) : ''].filter(Boolean).join(' · ');
-                const note = `Дел ${n + 1} од ${total} · ${where[n] || ''}${glue ? ' — ' + glue : ''} · сечи по линијата`;
+                const place = corner ? corner[n] || '' : `ред ${row + 1}, колона ${col + 1}`;
+                const note = `Дел ${n + 1} од ${total} · ${place}${glue ? ' — ' + glue : ''} · сечи по линијата`;
                 const parts = footerParts(opt.footer, n + 1, total, note);
                 pdf.addImage(jpeg(lineImage(parts, L.view[0], px)), 'JPEG', MARGIN, L.sheet[1] - MARGIN + 2.5, L.view[0], 5);
             }
