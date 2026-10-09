@@ -43,7 +43,11 @@ test('the live screens use one word per action', () => {
         try { text = readFileSync(join(ROOT, file), 'utf8'); } catch { continue; }
         text.split(/\r?\n/).forEach((line, i) => {
             for (const [word, instead] of RETIRED) {
-                const hit = line.match(word);
+                // Owner's 8 Oct clarification: these are explicit copy directions,
+                // not a second name for the ordinary edit button.
+                const checked = line.replaceAll('Измени го распоредот во S-Дневник според групниот распоред', '')
+                    .replaceAll('Измени го групниот распоред според S-Дневник', '');
+                const hit = checked.match(word);
                 if (hit) found.push(`${file}:${i + 1} „${hit[0]}" → ${instead}`);
             }
         });

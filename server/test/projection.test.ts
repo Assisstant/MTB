@@ -305,6 +305,17 @@ test('an empty week copy is neither stored nor kept', async () => {
     assert.equal(result.kind, 'sdnevnik');
     const weeks = (await db().query('SELECT week_of::text AS w FROM diary_schedule_history ORDER BY 1')).rows.map((r) => r.w);
     assert.deepEqual(weeks, ['2026-02-23'], 'the full week is stored; the empty one and the one left earlier are not');
+
+    const explicitlyEmpty = { ...week(), _saved: true };
+    const diary = {
+        students: [{ id: 5001, name: 'Ученик 1', grade: 'I-а', planId: null }],
+        plans: [], attendance: {}, studentProgress: {}, audiograms: [],
+        schedule: week([5001]), scheduleHistory: { '2026-02-23': explicitlyEmpty }
+    };
+    await project(diary);
+    await project(diary); // cleanup on the next projection must preserve it too
+    const saved = (await db().query("SELECT payload FROM diary_schedule_history WHERE week_of='2026-02-23'")).rows[0].payload;
+    assert.deepEqual(saved, explicitlyEmpty, 'an intentional empty replaces the old full record and survives another save');
 });
 
 /**

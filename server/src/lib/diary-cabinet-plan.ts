@@ -2,7 +2,7 @@ import type { PoolClient } from 'pg';
 import { z } from 'zod';
 import { pool } from '../db.js';
 import { todayInSkopje, isIsoDate } from './duty.js';
-import { projectPayload, weekHasTerms } from './import-core.js';
+import { projectPayload, weekHasTerms, weekIsRecorded } from './import-core.js';
 import { blockTimes, writeBlockInTransaction } from '../routes/schedule-write.js';
 import { scheduleGate, lockScheduleTherapist, lockScheduleStudents } from './schedule-conflicts.js';
 
@@ -45,10 +45,10 @@ export function ongoingDiary(doc: any, from: string, week: Week, current: string
     const plans = next.planFrom ||= {};
     if (from <= current) {
         const previous = shift(from, -7);
-        if (previous >= firstWeek && !weekHasTerms(history[previous])) {
-            const later = Object.keys(history).filter(k => k > previous && k <= current && weekHasTerms(history[k])).sort()[0];
+        if (previous >= firstWeek && !weekIsRecorded(history[previous])) {
+            const later = Object.keys(history).filter(k => k > previous && k <= current && weekIsRecorded(history[k])).sort()[0];
             const before = later ? history[later] : next.schedule;
-            if (weekHasTerms(before)) history[previous] = clone(before);
+            if (before) history[previous] = { ...clone(before), ...(!weekHasTerms(before) ? { _saved: true } : {}) };
         }
         for (let k = from; k <= current; k = shift(k, 7)) history[k] = clone(week);
         next.schedule = clone(week);
@@ -144,6 +144,9 @@ export async function confirmOngoing(input: PlanInput) {
         const expected = earlier ? await publicWeek(c, earlier.week, row.payload) : input.expected;
         await c.query("UPDATE diary_cabinet_changes SET status='superseded' WHERE status IN ('scheduled','blocked') AND from_week >= $1", [input.fromWeek]);
         const payload = ongoingDiary(row.payload, input.fromWeek, input.week, current, monday(y.starts_on));
+        // Only the server activates a confirmed shared plan. Diary-only pasted
+        // weeks keep their offline promotion; confirmed weeks remain previews.
+        if (input.fromWeek > current) payload.planFrom[input.fromWeek]._serverConfirmed = input.id;
         const saved = await saveDiary(c, payload);
         const scheduled = input.fromWeek > current;
         await c.query(
@@ -162,9 +165,20 @@ export async function activateOngoing(today = todayInSkopje()) {
     const c = await pool.connect();
     try {
         await c.query('BEGIN');
-        const due = (await c.query("SELECT 1 FROM diary_cabinet_changes WHERE status='scheduled' AND from_week <= $1 LIMIT 1", [monday(today)])).rows.length;
-        if (!due) { await c.query('COMMIT'); return; }
+        const waiting = (await c.query("SELECT 1 FROM diary_cabinet_changes WHERE status IN ('scheduled','blocked') LIMIT 1")).rows.length;
+        if (!waiting) { await c.query('COMMIT'); return; }
         let row = await lockedDiary(c);
+        // Upgrade pending plans saved before the marker existed, including
+        // already blocked ones. Never change their pupils or promote a plan.
+        const held = (await c.query("SELECT id,from_week FROM diary_cabinet_changes WHERE status IN ('scheduled','blocked') ORDER BY created_at")).rows;
+        let marked = false;
+        for (const plan of held) {
+            const week = row.payload.planFrom?.[plan.from_week];
+            if (week && week._serverConfirmed !== plan.id) { week._serverConfirmed = plan.id; marked = true; }
+        }
+        if (marked) row = (await c.query(
+            "UPDATE app_state SET payload=$1,version=version+1,updated_at=now() WHERE app='sdnevnik' RETURNING *",
+            [JSON.stringify(row.payload)])).rows[0];
         const y = await year(c);
         const pending = (await c.query("SELECT * FROM diary_cabinet_changes WHERE status='scheduled' AND from_week <= $1 ORDER BY from_week,created_at FOR UPDATE", [monday(today)])).rows;
         for (const plan of pending) {
@@ -172,13 +186,24 @@ export async function activateOngoing(today = todayInSkopje()) {
             try {
                 if (plan.school_year_id !== y.id) refuse('Учебната година е сменета.');
                 const savedPlan = row.payload.planFrom?.[plan.from_week];
-                if (JSON.stringify(savedPlan) !== JSON.stringify(plan.week)) {
-                    // jsonb key order is stable for both, but use structural comparison below.
-                    if (DAYS.some(d => JSON.stringify(savedPlan?.[d]) !== JSON.stringify(plan.week[d]))) refuse('Подготвената недела во дневникот е сменета. Потврдете го новиот план.');
-                }
+                // A newly added empty sixth slot and the ownership marker are
+                // not timetable edits. Compare pupils, preserving their order.
+                const comparable = (week: any) => DAYS.map(d => {
+                    const slots = (week?.[d] || []).map((slot: any[]) => slot.map(String));
+                    while (slots.length && !slots[slots.length - 1].length) slots.pop();
+                    return slots;
+                });
+                if (!savedPlan || JSON.stringify(comparable(savedPlan)) !== JSON.stringify(comparable(plan.week)))
+                    refuse('Подготвената недела во дневникот е сменета. Потврдете го новиот план.');
                 const wanted = await publicWeek(c, plan.week, row.payload);
                 await blocks(c, y, plan.therapist_id, plan.times, wanted, plan.expected_blocks);
                 const payload = ongoingDiary(row.payload, plan.from_week, plan.week, monday(today), monday(y.starts_on), false);
+                // A one-week local paste may carry a copy of this plan as the
+                // following week's restoration. Its guard belongs to this same
+                // confirmation, and must not survive successful activation.
+                for (const restored of Object.values(payload.planFrom || {}) as any[]) {
+                    if (restored?._serverConfirmed === plan.id) delete restored._serverConfirmed;
+                }
                 row = await saveDiary(c, payload);
                 await c.query("UPDATE diary_cabinet_changes SET status='applied', applied_at=now(), problem=NULL WHERE id=$1", [plan.id]);
             } catch (err) {

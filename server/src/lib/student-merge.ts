@@ -242,10 +242,18 @@ export function mergeInDiaryDocument(doc: any, o: { from: string | null; to: str
         const moving = holder[from] || {};
         delete holder[from];
         const into = (holder[to] ||= {});
-        // Completed activity indices are a set, as in the offline diary merge.
-        // Both pupils can have different completed activities in the SAME plan.
+        // One fact per activity index, with the kept pupil's record winning.
+        // Real diary entries are {index,date,time}, not just numbers: Set on
+        // those objects compares references and counts identical work twice.
         for (const [plan, entries] of Object.entries(moving)) {
-            into[plan] = [...new Set([...list(into[plan]), ...list(entries)])];
+            const seen = new Set<string>();
+            into[plan] = [...list(into[plan]), ...list(entries)].filter(entry => {
+                const index = entry && typeof entry === 'object' ? entry.index : entry;
+                const key = typeof index === 'number' && Number.isInteger(index)
+                    ? `activity:${index}` : `legacy:${JSON.stringify(entry)}`;
+                if (seen.has(key)) return false;
+                seen.add(key); return true;
+            });
         }
     };
     progress(doc.studentProgress);

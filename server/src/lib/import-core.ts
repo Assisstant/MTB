@@ -929,6 +929,11 @@ export function weekHasTerms(week: unknown): boolean {
         Array.isArray(slots) && slots.some((slot) => Array.isArray(slot) && slot.length > 0));
 }
 
+/** Explicitly cleared weeks are records too; only unmarked legacy empties are noise. */
+export function weekIsRecorded(week: any): boolean {
+    return weekHasTerms(week) || Boolean(week && !Array.isArray(week) && week._saved === true);
+}
+
 export function rowWritten(sdnDoc: any, collection: string): boolean {
     const list = (sdnDoc?._meta as any)?.rowWrites;
     return Array.isArray(list) && list.includes(collection);
@@ -1187,21 +1192,22 @@ export async function writeDiary(client: any, sdnDoc: any, studentIdBySdnId: Map
             }
 
             /**
-             * An EMPTY snapshot says nothing, and it hid what was there: the
+             * An unmarked legacy EMPTY snapshot says nothing: the
              * diary used to copy every week it was paged past, so paging
              * forward with an empty plan left empty weeks up to 2028, and the
              * past one among them covered that week's attendance marks. The
              * diary drops them on load now (5 Oct 2026); the table drops them
-             * here, and never stores a new one.
+             * here. Explicitly cleared weeks now carry _saved and survive.
              */
             await client.query(
                 `DELETE FROM diary_schedule_history
-                  WHERE school_year_id = $1 AND NOT jsonb_path_exists(payload, '$.*[*][*]')`,
+                  WHERE school_year_id = $1 AND coalesce(payload->>'_saved', 'false') <> 'true'
+                    AND NOT jsonb_path_exists(payload, '$.*[*][*]')`,
                 [yearId]
             );
             for (const [weekOf, payload] of Object.entries(sdnDoc.scheduleHistory || {})) {
                 if (!/^\d{4}-\d{2}-\d{2}$/.test(weekOf)) continue;
-                if (!weekHasTerms(payload)) continue;
+                if (!weekIsRecorded(payload)) continue;
                 await client.query(
                     `INSERT INTO diary_schedule_history (school_year_id, week_of, payload)
                      VALUES ($1, $2, $3)

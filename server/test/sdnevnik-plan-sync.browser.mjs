@@ -145,7 +145,7 @@ const modalOpen = () => page.$eval('#planSyncModal', (m) => m.classList.contains
 const rowsShown = () => page.$$eval('[data-plan-row]', (rows) => rows.map((r) => r.getAttribute('data-plan-row')));
 const live = (day, slot) => page.evaluate(([d, s]) => window.schedule[d][s].slice(), [day, slot]);
 const choose = (key, value) => page.check(`[data-plan-choice="${key}"] input[value="${value}"]`);
-const chosen = (key) => page.$eval(`[data-plan-choice="${key}"]`, (g) => (g.querySelector('input:checked') || {}).value);
+const chosen = (key) => page.$eval(`[data-plan-choice="${key}"]`, (g) => (g.querySelector('input:checked') || {}).value || 'leave');
 const choiceText = (key, value) => page.$eval(`[data-plan-choice="${key}"] input[value="${value}"]`, (i) => i.closest('label').textContent);
 const apply = () => page.click('#planSyncApply');
 const waitClosed = () => page.waitForFunction(() => !document.getElementById('planSyncModal').classList.contains('active'));
@@ -192,25 +192,36 @@ try {
         !(await page.$('[data-plan-choice="4|0"] input[value="take"]'))
         && /прво на списокот „Мои ученици“/.test(await choiceText('4|0', 'admit'))
         && /Пробен Непознат го нема во „Мои ученици“/.test(await page.textContent('[data-plan-row="4|0"]')));
-    checkEq('every choice names what changes, where and to whom',
-        await page.$$eval('[data-plan-choice="4|0"] label', (o) => o.map((x) => x.textContent)),
-        ['Остави засега — ништо не се менува',
-         'Кабинети: тргни го Пробен Непознат (терминот останува празен)',
-         'Дневник: додај го Пробен Непознат — прво на списокот „Мои ученици“']);
-    checkEq('and the other way round',
-        await page.$$eval('[data-plan-choice="3|2"] label', (o) => o.map((x) => x.textContent)),
-        ['Остави засега — ништо не се менува', 'Кабинети: тргни го Пробен Делта (терминот останува празен)', 'Дневник: додај го Пробен Делта']);
+    check('only the two clearly named directions are offered',
+        await page.locator('[data-plan-choice="4|0"] label').count() === 2
+        && /Измени го распоредот во S-Дневник според групниот распоред/.test(await choiceText('4|0', 'admit'))
+        && /Измени го групниот распоред според S-Дневник/.test(await choiceText('4|0', 'push')));
+    check('the consequence is still named below the direction',
+        /додај го Пробен Делта/.test(await choiceText('3|2', 'take'))
+        && /терминот останува празен/.test(await choiceText('3|2', 'push')));
     // PLAN_SHOTS=<folder> keeps a picture of the popup in both themes (invented people only).
     if (process.env.PLAN_SHOTS) {
         await page.screenshot({ path: path.join(process.env.PLAN_SHOTS, 'plan-sync-light.png') });
         await page.evaluate(() => document.body.classList.add('dark-mode'));
         await page.screenshot({ path: path.join(process.env.PLAN_SHOTS, 'plan-sync-dark.png') });
         await page.evaluate(() => document.body.classList.remove('dark-mode'));
+        await page.setViewportSize({width:390,height:844});
+        check('the phone dialog fits horizontally and Close stays visible', await page.locator('#planSyncModal .modal-content').evaluate(e => {
+            const b=e.getBoundingClientRect(), close=document.getElementById('planSyncClose').getBoundingClientRect();
+            const title=document.getElementById('planSyncTitle'), t=title.getBoundingClientRect();
+            return b.left>=0 && b.right<=innerWidth && e.scrollWidth<=e.clientWidth && close.bottom<=innerHeight
+                && title.contains(document.elementFromPoint(t.left+10,t.top+8));
+        }));
+        await page.screenshot({ path: path.join(process.env.PLAN_SHOTS, 'plan-sync-phone.png') });
+        await page.setViewportSize({width:1280,height:900});
     }
-    checkEq('every decision starts at „Остави"', await page.$$eval('[data-plan-choice]', (s) => s.map((g) => (g.querySelector('input:checked') || {}).value)), ['leave', 'leave', 'leave']);
-    await apply();
+    check('no direction is preselected, and Apply needs a choice',
+        await page.locator('[data-plan-choice] input:checked').count() === 0 && await page.locator('#planSyncApply').isDisabled());
+    await choose('3|2', 'take');
+    await page.click('#planSyncClose');
     await waitClosed();
-    checkEq('„Остави" writes nothing', writes, []);
+    checkEq('Close discards a selected but unapplied direction', writes, []);
+    checkEq('Close preserves the diary term', await live('thursday', 2), []);
     check('the button keeps saying how many differ', /3 разлики/.test(await page.textContent('#planSyncBtn')));
 
     // ── the same difference is not pushed at the person twice ─────────────────
@@ -234,7 +245,8 @@ try {
     console.log('\nan edit in the current week');
     await edit('monday', 0, [1004]);
     await waitOpen();
-    checkEq('the edited term is offered as permanent', await chosen('0|0'), 'push');
+    checkEq('the edited term still asks for a direction', await chosen('0|0'), 'leave');
+    await choose('0|0', 'push');
     checkEq('the other differences stay at „Остави"', await chosen('2|2'), 'leave');
     refuseNext = { error: 'that student already has an overlapping session', doubleBooked: true,
         therapistId: 8, therapistName: 'Друг Терапевт', time: '08:00-08:20', studentPublicId: 'p-d', studentName: 'Пробен Делта' };
@@ -276,26 +288,21 @@ try {
     checkEq('and into Кабинети, with what Кабинети held', blocks[blocks.length - 1],
         { day: 'вторник', time: '08:45-09:25', therapistId: 7, studentPublicIds: ['p-b'], expectedStudentPublicIds: ['p-b', 'p-d'] });
 
-    // ── „Тргни ги сите од терминот": both places, Кабинети first ──────────────
-    console.log('\nemptying a term in both places');
+    // No destructive both-sides action, even when both sides have pupils.
     await page.evaluate(() => { window.schedule.friday[3] = [1001]; });
     sessions.push(session('петок', '10:25-11:05', 'p-d', 'Пробен Делта'));
     await page.click('#planSyncBtn');
     await waitOpen();
-    check('a term that differs with somebody on both sides offers to empty it in both',
-        /и во дневникот и во Кабинети/.test(await choiceText('4|3', 'clear')));
-    check('a term empty on one side does not repeat it', !(await page.$('[data-plan-choice="4|0"] input[value="clear"]')));
-    refuseNext = { error: 'changed', actualStudentPublicIds: ['p-a'] };
-    await choose('4|3', 'clear');
-    await apply();
-    await page.waitForSelector('[data-plan-row="4|3"] .plan-sync-result.bad');
-    checkEq('a refusal from Кабинети leaves the diary as it was', await live('friday', 3), [1001]);
-    await choose('4|3', 'clear');
-    await apply();
-    await page.waitForFunction(() => !document.querySelector('[data-plan-row="4|3"]'));
-    checkEq('Кабинети is emptied through the block writer, with what it held', blocks[blocks.length - 1],
-        { day: 'петок', time: '10:25-11:05', therapistId: 7, studentPublicIds: [], expectedStudentPublicIds: ['p-d'] });
-    checkEq('and the diary term is empty too', await live('friday', 3), []);
+    check('no both-sides clearing action exists', await page.locator('[data-plan-choice] input[value="clear"]').count() === 0);
+    const beforeClose = blocks.length;
+    await choose('4|3', 'push');
+    await page.click('#planSyncClose');
+    checkEq('Close does not change the group schedule', blocks.length, beforeClose);
+    checkEq('Close does not clear the diary', await live('friday', 3), [1001]);
+    await page.evaluate(() => { window.schedule.friday[3] = []; });
+    sessions = sessions.filter((s) => !(s.therapist_id === 7 && s.day === 'петок' && s.time === '10:25-11:05'));
+    await page.click('#planSyncBtn');
+    await waitOpen();
 
     // ── a pupil only Кабинети has: onto „Мои ученици“, then into the term ─────
     console.log('\nadding a pupil from Кабинети to „Мои ученици“');

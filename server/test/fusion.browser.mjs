@@ -176,9 +176,10 @@ async function run() {
         pupil: getComputedStyle(document.querySelector('.student-slot:not(.empty)')).backgroundColor
     }));
     check('the saved S-Dnevnik dark theme is active', theme.dark, JSON.stringify(theme));
-    checkEq('the schedule uses the S-Dnevnik dark canvas', theme.canvas, 'rgb(26, 32, 44)');
-    checkEq('the schedule uses the S-Dnevnik purple headers', theme.header, 'rgb(76, 81, 191)');
-    checkEq('a pupil uses the S-Dnevnik blue card colour', theme.pupil, 'rgb(44, 82, 130)');
+    // Owner's 8 Oct neutral palette supersedes the old purple/blue surfaces.
+    checkEq('the schedule uses the shared dark panel', theme.canvas, 'rgb(31, 31, 31)');
+    checkEq('the schedule uses the shared header surface', theme.header, 'rgb(48, 51, 55)');
+    checkEq('a pupil uses the shared raised surface', theme.pupil, 'rgb(48, 51, 55)');
 
     await page.locator('#rosterTab').click();
     check('the students-by-therapist tab replaces the grid',

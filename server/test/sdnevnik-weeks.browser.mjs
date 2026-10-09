@@ -311,6 +311,40 @@ try {
     check('the control: a FULL copy only the server has is a difference',
         (await page.evaluate(() => window.SdnLocalSrv.sync({ auto: true }))) !== 'insync');
 
+    // Explicitly clearing the final term must never borrow today's pupil.
+    serverState = null;
+    await page.clock.setFixedTime(NOW);
+    const clearing = build();
+    clearing.attendance = {};
+    clearing.schedule = emptyWeek(); clearing.schedule.monday[0] = [1002];
+    clearing.scheduleHistory = { [LAST]: emptyWeek() };
+    clearing.scheduleHistory[LAST].monday[0] = [1001];
+    clearing.planFrom = {};
+    await page.evaluate(p => {
+        SdnV3.applyPayload(p); currentWeek = -1; pastWeeksUnlocked = true;
+        switchTab('schedule'); renderSchedule(); openSchedulePicker('monday', 0);
+    }, clearing);
+    await page.locator('.schedule-pickers select').first().selectOption('');
+    await page.click('.schedule-pickers [data-save-slot]');
+    checkEq('the cleared past term stays empty immediately', (await shown()).plan.monday[0], []);
+    check('the empty week carries an explicit saved marker', (await history())[LAST]._saved === true);
+    await page.evaluate(() => undoLastChange());
+    checkEq('undo restores the past pupil', (await shown()).plan.monday[0], [1001]);
+    await page.evaluate(() => redoLastChange());
+    checkEq('redo clears without borrowing the live plan', (await shown()).plan.monday[0], []);
+    await page.evaluate(() => SdnV3.saveFullPayload(SdnV3.currentPayload('explicit_empty_test'), 'explicit_empty_test'));
+    await open();
+    await page.waitForFunction(() => window.scheduleHistory['2026-09-28']?._saved === true);
+    await goTo(-1);
+    checkEq('reload preserves the intentionally empty week', (await shown()).plan.monday[0], []);
+    const clearedPayload = await page.evaluate(() => SdnV3.currentPayload('empty_sync'));
+    serverState = { version: 20, updated_at: NOW.toISOString(), payload: clearedPayload };
+    checkEq('explicit empty week agrees across sync', await page.evaluate(() => SdnLocalSrv.sync({ auto: true })), 'insync');
+    serverState.payload = JSON.parse(JSON.stringify(clearedPayload));
+    delete serverState.payload.scheduleHistory[LAST];
+    check('unlike legacy noise, deleting the explicit empty week is a real difference',
+        await page.evaluate(() => SdnLocalSrv.sync({ auto: true })) !== 'insync');
+
     checkEq('no page errors', errors, []);
 } finally {
     await browser.close();

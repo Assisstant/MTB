@@ -70,8 +70,19 @@ try {
     const queued=await call('/api/diary/ongoing-plan',futureInput);
     check('future week persisted for activation',queued.status===200 && queued.body.scheduled);
     check('future plan does not change today',JSON.stringify(await slots())===JSON.stringify(before) && queued.body.payload.schedule.monday[0][0]===9002);
+    check('a confirmed plan carries server ownership', queued.body.payload.planFrom[future]._serverConfirmed === futureInput.id);
+    // Opening the upgraded six-hour diary pads an old five-hour plan. This
+    // must not turn an unchanged approved week into an activation refusal.
+    const padded = structuredClone(queued.body.payload);
+    padded.planFrom[shift(future,7)] = structuredClone(padded.planFrom[future]);
+    DAYS.forEach(d => padded.planFrom[future][d].push([]));
+    delete padded.planFrom[future]._serverConfirmed; // a plan confirmed before this upgrade
+    check('save with a padded future week', (await call('/api/state/sdnevnik', {baseVersion:queued.body.version,payload:padded})).status===200);
+    await activateOngoing();
+    check('an older pending plan receives server ownership before it is due', (await stored()).payload.planFrom[future]._serverConfirmed===futureInput.id);
     await activateOngoing(future);
     check('server activates with diary closed',(await stored()).payload.schedule.monday[0][0]===9001);
+    check('successful activation also releases a copied restoration plan', !(await stored()).payload.planFrom[shift(future,7)]._serverConfirmed);
     check('activation also reaches shared timetable',(await call('/api/schedule/sessions')).body.sessions.find((s:any)=>s.therapist_id===me.id).student_public_id==='ongoing-1');
     const activeVersion=(await stored()).version;
     await activateOngoing(future);
@@ -102,6 +113,14 @@ try {
     await page.waitForTimeout(1000);
     await page.evaluate(()=>(window as any).SdnLocalSrv.sync({auto:true}));
     await page.waitForFunction(()=>(window as any).students.length===2);
+    // A real refused activation followed by an actual browser open/save.
+    await page.clock.setFixedTime(new Date(later+'T10:00:00Z'));
+    check('a blocked plan is not the effective diary week', await page.evaluate(k => (window as any).getScheduleForWeek(k).monday[0][0]===9001, later));
+    await page.evaluate(() => (window as any).saveData());
+    check('saving cannot promote the blocked plan', await page.evaluate(k =>
+        (window as any).schedule.monday[0][0]===9001 && Boolean((window as any).planFrom[k]?._serverConfirmed), later));
+    // Restore the real clock for the existing future-confirmation interaction.
+    await page.clock.setFixedTime(new Date());
     await page.evaluate(()=>{(window as any).switchTab('schedule');(window as any).renderSchedule();});
     check('the assignment modal is removed',await page.locator('#assignModal').count()===0);
     await page.locator('.schedule-cell[data-day="monday"][data-time="0"] .schedule-pick-button').click();
@@ -115,6 +134,9 @@ try {
     check('a duplicate pupil is refused',dialogs.some(d=>d.includes('различни ученици')) && await page.locator('.schedule-pickers').count()===1);
     await mkdir('../backups/qa',{recursive:true});
     await page.screenshot({path:'../backups/qa/diary-dropdown.png'});
+    await page.evaluate(()=>document.body.classList.add('dark-mode'));
+    await page.screenshot({path:'../backups/qa/diary-dropdown-dark.png'});
+    await page.evaluate(()=>document.body.classList.remove('dark-mode'));
     await page.locator('.schedule-pickers button').filter({hasText:'Откажи'}).click();
     check('cancel leaves the slot unchanged',await page.evaluate(()=>(window as any).schedule.monday[0][0]===9001));
     await page.evaluate(()=>{(window as any).openSchedulePicker('monday',0);});

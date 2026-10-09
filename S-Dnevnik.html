@@ -454,11 +454,21 @@
             font-size: 12px;
             color: #718096;
         }
-        .schedule-pickers { width:100%; min-width:0; max-width:230px; padding:8px; background:var(--surface, #fff); color:var(--text, #1a202c); border:1px solid #a0aec0; border-radius:6px; }
-        .schedule-pickers label { display:block; font-size:12px; margin:4px 0; }
-        .schedule-pickers select { display:block; width:100%; min-width:0; padding:6px; font:inherit; color:inherit; background:inherit; }
-        .schedule-pickers button { font:inherit; color:inherit; padding:4px 6px; margin:4px 3px 0 0; cursor:pointer; }
-        body.dark-mode .schedule-pickers { background:#1a202c; color:#f7fafc; }
+        .schedule-pickers { width:100%; min-width:0; max-width:260px; box-sizing:border-box; padding:12px;
+            background:#f5f7f9; color:#202b35; border:1px solid #9eb6c4; border-radius:12px;
+            box-shadow:0 4px 14px rgba(24,48,64,.12); text-align:left; }
+        .schedule-pickers > b { display:block; margin-bottom:9px; font-size:14px; font-variant-numeric:tabular-nums; }
+        .schedule-pickers label { display:block; font-size:12px; font-weight:600; margin:8px 0; line-height:1.4; }
+        .schedule-pickers select { display:block; width:100%; min-width:0; min-height:36px; margin-top:4px; padding:6px 8px;
+            font-family:inherit; font-size:13px; font-weight:400; line-height:1.3; color:inherit; background:#fff; border:1px solid #a9bac7; border-radius:8px; }
+        .schedule-pickers select:focus-visible { outline:2px solid #136990; outline-offset:2px; }
+        .schedule-picker-actions { display:flex; flex-wrap:wrap; gap:6px; margin-top:12px; }
+        .schedule-pickers .btn { flex:1; min-height:34px; padding:6px 10px; margin:0; font-size:12px; }
+        .schedule-pickers .schedule-picker-list { display:block; width:100%; margin:8px 0 0; padding:6px 2px;
+            border:0; background:transparent; color:inherit; font:600 12px/1.4 system-ui; text-align:left; cursor:pointer; }
+        .schedule-picker-list:hover { text-decoration:underline; }
+        body.dark-mode .schedule-pickers { background:#242a30; color:#edf2f6; border-color:#526774; }
+        body.dark-mode .schedule-pickers select { background:#181d22; border-color:#607381; }
         .schedule-pick-button { color:inherit; background:transparent; border:0; cursor:pointer; font-size:13px; align-self:flex-end; }
         @media print { .schedule-pickers, .schedule-pick-button { display:none !important; } }
         .time-selector {
@@ -4200,12 +4210,22 @@ var attendance = {};
 
         function copyWeek(week) { return JSON.parse(JSON.stringify(week || {})); }
 
-        /** Ги брише празните снимки; враќа колку. */
+        function weekIsRecorded(week) {
+            return weekHasTerms(week) || Boolean(week && week._saved === true);
+        }
+        function markRecordedWeek(week) {
+            if (weekHasTerms(week)) delete week._saved;
+            else week._saved = true;
+            return week;
+        }
+        function recordedWeek(week) { return markRecordedWeek(copyWeek(week)); }
+
+        /** Ги брише старите автоматски празни снимки, не намерно испразнета недела. */
         function dropEmptyWeekSnapshots(history) {
             if (!history || typeof history !== 'object') return 0;
             var dropped = 0;
             Object.keys(history).forEach(function (k) {
-                if (!weekHasTerms(history[k])) { delete history[k]; dropped++; }
+                if (!weekIsRecorded(history[k])) { delete history[k]; dropped++; }
             });
             return dropped;
         }
@@ -4303,7 +4323,11 @@ var attendance = {};
          * Враќа РЕФЕРЕНЦА — измената на таа недела го менува тој план.
          */
         function planForWeek(weekKey) {
-            var keys = Object.keys(planFrom || {}).filter(function (k) { return k <= weekKey; }).sort();
+            var current = thisWeekKey();
+            var keys = Object.keys(planFrom || {}).filter(function (k) {
+                // A shared plan is only a preview until the server applies it.
+                return k <= weekKey && (k > current || !planFrom[k]._serverConfirmed);
+            }).sort();
             return keys.length ? planFrom[keys[keys.length - 1]] : schedule;
         }
 
@@ -4311,7 +4335,10 @@ var attendance = {};
         function compactPlanFrom() {
             var before = schedule;
             Object.keys(planFrom || {}).sort().forEach(function (k) {
-                if (sameWeek(planFrom[k], before)) delete planFrom[k];
+                // Server-owned previews may be blocked later; do not compact
+                // a local plan against one that has not actually been applied.
+                if (planFrom[k]._serverConfirmed) { before = null; return; }
+                if (before && sameWeek(planFrom[k], before)) delete planFrom[k];
                 else before = planFrom[k];
             });
         }
@@ -4330,25 +4357,25 @@ var attendance = {};
         function promoteDuePlans() {
             if (!planFrom || typeof planFrom !== 'object') { planFrom = {}; return false; }
             var current = thisWeekKey();
-            var due = Object.keys(planFrom).filter(function (k) { return k <= current; }).sort();
+            var due = Object.keys(planFrom).filter(function (k) { return k <= current && !planFrom[k]._serverConfirmed; }).sort();
             if (!due.length) return false;
             var yearOpens = schoolYearFirstWeekKey();
             var before = copyWeek(schedule);
             due.forEach(function (k) {
                 var week = planFrom[k];
                 var prev = shiftWeekKey(k, -1);
-                if (prev < current && prev >= yearOpens && !weekHasTerms(scheduleHistory[prev]) && weekHasTerms(before)) {
-                    scheduleHistory[prev] = copyWeek(before);
+                if (prev < current && prev >= yearOpens && !weekIsRecorded(scheduleHistory[prev])) {
+                    scheduleHistory[prev] = recordedWeek(before);
                 }
-                if (k < current && !weekHasTerms(scheduleHistory[k]) && weekHasTerms(week)) {
-                    scheduleHistory[k] = copyWeek(week);
+                if (k < current && !weekIsRecorded(scheduleHistory[k])) {
+                    scheduleHistory[k] = recordedWeek(week);
                 }
                 before = copyWeek(week);
                 delete planFrom[k];
             });
             var lastWeek = shiftWeekKey(current, -1);
-            if (due[due.length - 1] < current && !weekHasTerms(scheduleHistory[lastWeek]) && weekHasTerms(before)) {
-                scheduleHistory[lastWeek] = copyWeek(before);
+            if (due[due.length - 1] < current && !weekIsRecorded(scheduleHistory[lastWeek])) {
+                scheduleHistory[lastWeek] = recordedWeek(before);
             }
             daysEng.forEach(function (day) { schedule[day] = Array.isArray(before[day]) ? before[day] : timeSlots.map(function () { return []; }); });
             return true;
@@ -4369,11 +4396,10 @@ var attendance = {};
             prev.setDate(prev.getDate() - 7);
             var previous = calText(prev);
             var before = JSON.parse(planAsLoaded);
-            if (!weekHasTerms(scheduleHistory[previous]) && previous >= schoolYearFirstWeekKey() && weekHasTerms(before)) {
-                scheduleHistory[previous] = before;
+            if (!weekIsRecorded(scheduleHistory[previous]) && previous >= schoolYearFirstWeekKey()) {
+                scheduleHistory[previous] = recordedWeek(before);
             }
-            if (weekHasTerms(schedule)) scheduleHistory[current] = copyWeek(schedule);
-            else delete scheduleHistory[current];
+            scheduleHistory[current] = recordedWeek(schedule);
             Object.keys(scheduleHistory).forEach(function (k) { if (k > current) delete scheduleHistory[k]; });
             planAsLoaded = now;
             return true;
@@ -4384,14 +4410,14 @@ var attendance = {};
          * (во оваа учебна година) првата снимка по неа, или живиот план.
          */
         function pastWeekBase(weekKey) {
-            if (weekHasTerms(scheduleHistory[weekKey])) return { base: scheduleHistory[weekKey], source: 'saved' };
+            if (weekIsRecorded(scheduleHistory[weekKey])) return { base: scheduleHistory[weekKey], source: 'saved' };
             if (weekKey < schoolYearFirstWeekKey()) return { base: null, source: 'marks' };
             var current = thisWeekKey();
             var later = Object.keys(scheduleHistory).filter(function (k) {
-                return k > weekKey && k <= current && weekHasTerms(scheduleHistory[k]);
+                return k > weekKey && k <= current && weekIsRecorded(scheduleHistory[k]);
             }).sort();
             var base = later.length ? scheduleHistory[later[0]] : schedule;
-            return weekHasTerms(base) ? { base: base, source: 'carried' } : { base: null, source: 'marks' };
+            return base ? { base: base, source: 'carried' } : { base: null, source: 'marks' };
         }
 
         /**
@@ -4402,9 +4428,9 @@ var attendance = {};
          */
         function keepWeekBeforeAsShown(key) {
             var prev = shiftWeekKey(key, -1);
-            if (prev < schoolYearFirstWeekKey() || weekHasTerms(scheduleHistory[prev])) return;
+            if (prev < schoolYearFirstWeekKey() || weekIsRecorded(scheduleHistory[prev])) return;
             var shown = pastWeekBase(prev).base;
-            if (weekHasTerms(shown)) scheduleHistory[prev] = copyWeek(shown);
+            if (shown) scheduleHistory[prev] = recordedWeek(shown);
         }
 
         function getScheduleForWeek(weekKey) {
@@ -5396,7 +5422,7 @@ var attendance = {};
             var current = thisWeekKey();
             if (key < current) {
                 keepWeekBeforeAsShown(key);
-                scheduleHistory[key] = pasted;
+                scheduleHistory[key] = markRecordedWeek(pasted);
                 return;
             }
             var next = shiftWeekKey(key, 1);
@@ -5603,7 +5629,7 @@ var attendance = {};
                     var m = MONTHS_MK[monday.getMonth()] + ' ' + monday.getFullYear();
                     if (m !== month) { html += (month ? '</div>' : '') + '<h4 class="wk-month">' + m + '</h4><div class="wk-row">'; month = m; }
                     var isPast = k < current, source = k === clip.from, locked = isPast && !pastWeeksUnlocked && !source;
-                    var own = isPast ? weekHasTerms(scheduleHistory[k]) : !!(planFrom && planFrom[k]);
+                    var own = isPast ? weekIsRecorded(scheduleHistory[k]) : !!(planFrom && planFrom[k]);
                     var cls = ['wk', isPast ? 'past' : (k === current ? 'now' : 'next'), chosen[k] ? 'on' : '', source ? 'source' : '', locked ? 'locked' : ''].filter(Boolean).join(' ');
                     var note = source ? 'копирана' : k === current ? 'оваа недела' : info.isHoliday ? 'распуст' : info.week ? 'седмица ' + info.week : '';
                     var why = source ? 'Ова е копираната недела.' : locked ? 'Минатите недели се заклучени.' : '';
@@ -5791,7 +5817,9 @@ var attendance = {};
     if (pastNotice) pastNotice.innerHTML = pastWeekNoticeHtml();
     // Оваа/идна недела со распоред подготвен однапред: да се знае дека е друг.
     var planNotice = document.getElementById('planFromNotice');
-    var preparedFrom = isPastWeek ? '' : (Object.keys(planFrom || {}).filter(function (k) { return k <= weekKey; }).sort().pop() || '');
+    var preparedFrom = isPastWeek ? '' : (Object.keys(planFrom || {}).filter(function (k) {
+        return k <= weekKey && (k > thisWeekKey() || !planFrom[k]._serverConfirmed);
+    }).sort().pop() || '');
     if (preparedFrom) {
         if (!planNotice) {
             planNotice = document.createElement('div');
@@ -6190,17 +6218,18 @@ var attendance = {};
                 select.value = current[i] == null ? '' : String(current[i]);
                 label.appendChild(select); editor.appendChild(label);
             }
-            var save = document.createElement('button'); save.type = 'button'; save.textContent = 'Зачувај'; save.dataset.saveSlot = '1';
+            var save = document.createElement('button'); save.type = 'button'; save.className = 'btn btn-primary'; save.textContent = 'Зачувај'; save.dataset.saveSlot = '1';
             save.addEventListener('click', function () {
                 checkOrder = Array.from(editor.querySelectorAll('select')).map(function (e) { return e.value; }).filter(Boolean).map(Number);
                 if (new Set(checkOrder).size !== checkOrder.length) { alert('Изберете различни ученици; еден ученик го користи целиот термин.'); return; }
                 assignStudents();
             });
-            var cancel = document.createElement('button'); cancel.type = 'button'; cancel.textContent = 'Откажи';
+            var cancel = document.createElement('button'); cancel.type = 'button'; cancel.className = 'btn'; cancel.textContent = 'Откажи';
             cancel.addEventListener('click', function () { editor.remove(); });
-            var list = document.createElement('button'); list.type = 'button'; list.textContent = 'Мои ученици →';
+            var list = document.createElement('button'); list.type = 'button'; list.className = 'schedule-picker-list'; list.textContent = 'Мои ученици →';
             list.addEventListener('click', function () { editor.remove(); switchTab('students'); });
-            editor.appendChild(save); editor.appendChild(cancel); editor.appendChild(list); cell.appendChild(editor);
+            var actions = document.createElement('div'); actions.className = 'schedule-picker-actions';
+            actions.appendChild(save); actions.appendChild(cancel); editor.appendChild(actions); editor.appendChild(list); cell.appendChild(editor);
             editor.querySelector('select').focus();
         }
 
@@ -6243,7 +6272,7 @@ var attendance = {};
     if (isPastWeek) {
         // Минатата недела добива своја снимка од тоа што е нацртано — не од
         // сегашниот план, кој можеби не важел тогаш.
-        if (!weekHasTerms(scheduleHistory[weekKey])) {
+        if (!weekIsRecorded(scheduleHistory[weekKey])) {
             keepWeekBeforeAsShown(weekKey);
             scheduleHistory[weekKey] = copyWeek(getScheduleForWeek(weekKey));
         }
@@ -6268,6 +6297,7 @@ var attendance = {};
     
     // Apply the change
     targetSchedule[currentSlot.day][currentSlot.timeIdx] = checkOrder.slice();
+    if (isPastWeek) markRecordedWeek(targetSchedule);
 
     saveData();
     renderSchedule();
@@ -6312,6 +6342,7 @@ var attendance = {};
 
                 // Restore old value
                 targetSchedule[action.day][action.timeIdx] = action.oldValue.slice();
+                if (action.isPastWeek) markRecordedWeek(targetSchedule);
 
                 saveData();
                 renderSchedule();
@@ -6342,6 +6373,7 @@ var attendance = {};
 
                 // Reapply new value
                 targetSchedule[action.day][action.timeIdx] = action.newValue.slice();
+                if (action.isPastWeek) markRecordedWeek(targetSchedule);
 
                 saveData();
                 renderSchedule();
@@ -11749,10 +11781,10 @@ var attendance = {};
             if (!payload || typeof payload !== 'object') return '0';
             var copy = {};
             Object.keys(payload).forEach(function (k) { if (k !== '_meta') copy[k] = payload[k]; });
-            if (copy.scheduleHistory && typeof copy.scheduleHistory === 'object' && typeof window.weekHasTerms === 'function') {
+            if (copy.scheduleHistory && typeof copy.scheduleHistory === 'object' && typeof window.weekIsRecorded === 'function') {
                 var kept = {};
                 Object.keys(copy.scheduleHistory).forEach(function (w) {
-                    if (window.weekHasTerms(copy.scheduleHistory[w])) kept[w] = copy.scheduleHistory[w];
+                    if (window.weekIsRecorded(copy.scheduleHistory[w])) kept[w] = copy.scheduleHistory[w];
                 });
                 copy.scheduleHistory = kept;
             }
@@ -14052,6 +14084,12 @@ var attendance = {};
     <!-- Дневник ↔ Кабинети: еден прозорец што прашува што да важи. -->
     <style>
         .plan-sync-content { max-width: 880px; }
+        #planSyncModal { z-index:10000; }
+        #planSyncModal .plan-sync-content { max-width:1060px; padding:26px; border-radius:18px;
+            display:flex; flex-direction:column; overflow:hidden; box-sizing:border-box; max-height:90vh; max-height:90dvh; }
+        #planSyncModal .plan-sync-content > * { flex-shrink:0; }
+        #planSyncBody { min-height:0; flex:1 1 auto !important; overflow:auto; }
+        body:has(#planSyncModal.active) #homeDock { visibility:hidden; }
         .plan-sync-content h3 { margin: 0 0 8px; }
         .plan-sync-lead, .plan-sync-note { margin: 0 0 12px; font-size: 14px; line-height: 1.5; }
         .plan-sync-note { margin-top: 12px; opacity: .8; }
@@ -14064,8 +14102,25 @@ var attendance = {};
         .plan-sync-content select { font: inherit; font-size: 14px; min-height: 34px; padding: 4px 10px; border-radius: 999px;
             border: 1px solid #a0aec0; background: #fff; color: #1a202c; max-width: 100%; }
         body.dark-mode .plan-sync-content select { background: #1a202c; color: #f7fafc; border-color: #718096; }
-        .plan-sync-choices { display: flex; flex-direction: column; gap: 2px; }
-        .plan-sync-choice { display: flex; gap: 8px; align-items: flex-start; padding: 3px 6px; border-radius: 8px; cursor: pointer; line-height: 1.35; }
+        .plan-sync-choices { display:flex; flex-direction:column; gap:2px; }
+        .plan-sync-choice { display:flex; gap:8px; align-items:flex-start; padding:3px 6px; border-radius:8px; cursor:pointer; line-height:1.35; }
+        #planSyncModal .plan-sync-choices { gap:8px; min-width:240px; }
+        #planSyncModal .plan-sync-choice { gap:10px; padding:10px 12px; border:1px solid #c2cdd5;
+            background:#f7f9fb; color:#202b35; border-radius:10px; cursor:pointer; line-height:1.45; }
+        #planSyncModal .plan-sync-choice:has(input:checked) { border-color:#136990; background:#e4f2fa; box-shadow:inset 3px 0 #136990; }
+        #planSyncModal .plan-sync-choice:focus-within { outline:2px solid #136990; outline-offset:2px; }
+        #planSyncModal .plan-sync-choice small { margin-top:4px; opacity:1; color:#52616d; }
+        body.dark-mode #planSyncModal .plan-sync-choice { background:#272e35; color:#edf2f6; border-color:#56636e; }
+        body.dark-mode #planSyncModal .plan-sync-choice:has(input:checked) { background:#163c51; border-color:#73c7ed; box-shadow:inset 3px 0 #73c7ed; }
+        body.dark-mode #planSyncModal .plan-sync-choice small { color:#c4d0da; }
+        #planSyncModal .plan-sync-table td:first-child { white-space:nowrap; }
+        #planSyncModal .plan-sync-table td:last-child { width:48%; }
+        @media(max-width:640px) {
+            #planSyncModal .plan-sync-content { padding:16px; width:96%; }
+            #planSyncModal .plan-sync-table td:last-child { width:auto; }
+            #planSyncModal .plan-sync-choices { min-width:0; }
+            #planSyncModal .plan-sync-all { align-items:flex-start; flex-direction:column; }
+        }
         .plan-sync-choice:hover { background: rgba(102, 126, 234, .10); }
         .plan-sync-choice input { margin-top: 3px; flex: none; accent-color: #136990; }
         .plan-sync-choice.off { opacity: .5; cursor: default; }
@@ -14088,7 +14143,7 @@ var attendance = {};
     </style>
     <div id="planSyncModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="planSyncTitle">
         <div class="modal-content plan-sync-content">
-            <h3 id="planSyncTitle">Дневник ↔ Кабинети</h3>
+            <h3 id="planSyncTitle">Усогласи ги распоредите</h3>
             <p id="planSyncLead" class="plan-sync-lead"></p>
             <div id="planSyncBody"></div>
             <p id="planSyncNote" class="plan-sync-note"></p>
@@ -14130,8 +14185,8 @@ var attendance = {};
     //   Дневник:  додај го X / тргни го Y   — дневникот да биде како Кабинети;
     //   ученик од Кабинети што го нема во „Мои ученици“ прво оди на списокот во
     //   базата по патот на „+ Додај“ (`SdnCaseload.join`), па во терминот;
-    //   „Тргни ги сите од терминот“ — на двете места, Кабинети прво;
-    //   „Остави засега“.
+    //   Сопственикот, 8 октомври: две јасни насоки; без празнење на двете
+    //   места. „Затвори“ излегува без усогласување; нема однапред избрана насока.
     //
     // ШТО НЕ ПРАВИ. Не поврзува ученици по име. Термин со ученик од дневникот
     // што не е поврзан не може во Кабинети; се прикажува со причината.
@@ -14406,28 +14461,21 @@ var attendance = {};
         }
 
         function choiceSelect(row) {
-            var focus = row.key === state.focus;
-            var chosen = focus && !row.pushWhy ? 'push' : 'leave';
-            // Сите можности се на екранот, не во паѓачко мени: секоја кажува
-            // ШТО се менува, КАДЕ и КОМУ, па нема „насока" за толкување.
-            var option = function (value, where, text, why) {
+            var option = function (value, title, text, why) {
                 return '<label class="plan-sync-choice' + (why ? ' off' : '') + '"><input type="radio" name="plan-' + row.key + '" value="' + value + '"' +
-                    (why ? ' disabled' : '') + (value === chosen ? ' checked' : '') + '><span>' +
-                    (where ? '<b>' + where + ':</b> ' : '') + text + '</span></label>';
+                    (why ? ' disabled' : '') + '><span><b>' + title + '</b><small>' + text + '</small></span></label>';
             };
-            var both = row.diary.length && row.kab.length;
             return '<div class="plan-sync-choices" role="radiogroup" data-plan-choice="' + row.key + '" aria-label="Одлука за ' + esc(days[row.day] + ' ' + timeSlots[row.slot].label) + '">' +
-                option('leave', '', 'Остави засега — ништо не се менува', '') +
-                option('push', 'Кабинети', esc(effect(row.diary, row.kab)), row.pushWhy) +
-                (row.missing.length
-                    ? option('admit', 'Дневник', esc(effect(row.kab, row.diary)) + ' — ' +
-                        (row.missing.length === row.kab.length ? '' : esc(who(row.missing)) + ' ') + 'прво на списокот „Мои ученици“', row.clearWhy)
-                    : option('take', 'Дневник', esc(effect(row.kab, row.diary)), '')) +
-                (both ? option('clear', 'На двете места', 'тргни ги сите од терминот — и во дневникот и во Кабинети', row.clearWhy) : '') +
+                option(row.missing.length ? 'admit' : 'take', 'Измени го распоредот во S-Дневник според групниот распоред',
+                    esc(effect(row.kab, row.diary)) + (row.missing.length ? ' — прво на списокот „Мои ученици“' : ''), row.missing.length ? row.clearWhy : '') +
+                option('push', 'Измени го групниот распоред според S-Дневник', esc(effect(row.diary, row.kab)), row.pushWhy) +
                 '</div>' +
-                (row.pushWhy ? '<div class="plan-sync-why">Кабинети не може да се смени оттука: ' + esc(row.pushWhy) + '.</div>' : '') +
-                (row.missing.length ? '<div class="plan-sync-why">' + esc(row.takeWhy) +
-                    ' — се додава на вашиот список во базата (истото како „+ Додај“), па во терминот.</div>' : '');
+                (row.pushWhy ? '<div class="plan-sync-why">Групниот распоред не може да се смени оттука: ' + esc(row.pushWhy) + '.</div>' : '') +
+                (row.missing.length ? '<div class="plan-sync-why">' + esc(row.takeWhy) + ' — со првиот избор се додава на вашиот список.</div>' : '');
+        }
+
+        function updateApply() {
+            el('planSyncApply').disabled = state.busy || (!state.past && !document.querySelector('[data-plan-choice] input:checked'));
         }
 
         function resultHtml(key) {
@@ -14438,30 +14486,31 @@ var attendance = {};
         function render() {
             if (state.past) return renderPast();
             var n = state.rows.length;
-            el('planSyncTitle').textContent = 'Дневник ↔ Кабинети';
+            el('planSyncTitle').textContent = 'Усогласи ги распоредите';
             el('planSyncApply').style.display = n ? '' : 'none';
             if (!n) {
                 el('planSyncLead').textContent = 'Неделниот план во дневникот и во Кабинети е ист за ' + state.me + '.';
                 el('planSyncBody').innerHTML = Object.keys(state.results).map(resultHtml).join('');
             } else {
                 el('planSyncLead').textContent = 'Планот во дневникот и во Кабинети се разликува во ' + n +
-                    (n === 1 ? ' термин' : ' термини') + ' (' + state.me + '). Ништо не се менува додека не кликнете „Примени“.';
+                    (n === 1 ? ' термин' : ' термини') + ' (' + state.me + '). Изберете кој распоред да се измени за секој термин, па „Примени“. „Затвори“ излегува без усогласување.';
                 el('planSyncBody').innerHTML =
                     (n > 1 ? '<label class="plan-sync-all">За сите: <select id="planSyncAll">' +
-                        '<option value="">— изберете —</option><option value="push">Кабинети да биде како дневникот</option>' +
-                        '<option value="take">Дневникот да биде како Кабинети</option><option value="leave">Остави засега</option></select></label>' : '') +
-                    '<table class="plan-sync-table"><thead><tr><th>Термин</th><th>Во дневникот</th><th>Во Кабинети</th><th>Одлука</th></tr></thead><tbody>' +
+                        '<option value="">— изберете —</option><option value="push">Измени го групниот распоред според S-Дневник</option>' +
+                        '<option value="take">Измени го распоредот во S-Дневник според групниот распоред</option><option value="leave">Поништи го изборот</option></select></label>' : '') +
+                    '<table class="plan-sync-table"><thead><tr><th>Термин</th><th>Во S-Дневник</th><th>Во групниот распоред (Кабинети)</th><th>Кој распоред да се измени?</th></tr></thead><tbody>' +
                     state.rows.map(function (row) {
                         return '<tr data-plan-row="' + row.key + '"' + (row.key === state.focus ? ' class="focus"' : '') + '>' +
                             '<td>' + label(row) + '</td>' +
-                            '<td data-label="Во дневникот">' + names(row.diary) + '</td>' +
-                            '<td data-label="Во Кабинети">' + names(row.kab) + '</td>' +
+                            '<td data-label="Во S-Дневник">' + names(row.diary) + '</td>' +
+                            '<td data-label="Во групниот распоред">' + names(row.kab) + '</td>' +
                             '<td>' + choiceSelect(row) + resultHtml(row.key) + '</td></tr>';
                     }).join('') + '</tbody></table>';
             }
             el('planSyncNote').textContent = state.outside
-                ? 'Кабинети има уште ' + state.outside + ' термин(и) во час што дневникот го нема (по V час); тие не се споредуваат.'
-                : '';
+                ? 'Кабинети има уште ' + state.outside + ' термин(и) во час што дневникот го нема; тие не се споредуваат.'
+                : 'Термините без избрана насока остануваат како што се. За рачно празнење, отворете го самиот распоред.';
+            updateApply();
         }
 
         function renderPast() {
@@ -14477,7 +14526,7 @@ var attendance = {};
                 '<tr class="focus"><td>' + label(p) + '</td>' +
                 '<td data-label="Во таа недела">' + names(p.record) + '</td>' +
                 '<td data-label="Сега во дневникот">' + names(p.live) + '</td>' +
-                '<td data-label="Во Кабинети">' + names(p.kab) + '</td></tr></tbody></table>' +
+                '<td data-label="Во групниот распоред">' + names(p.kab) + '</td></tr></tbody></table>' +
                 '<label class="plan-sync-all" style="margin-top:12px;">Одлука: <select id="planSyncPast">' +
                 '<option value="only" selected>Само таа недела (запис)</option>' +
                 '<option value="permanent"' + (p.pushWhy ? ' disabled' : '') + '>Постојано — во дневникот од оваа недела и во Кабинети</option>' +
@@ -14485,6 +14534,7 @@ var attendance = {};
                 (p.pushWhy ? '<div class="plan-sync-why">Не може постојано: ' + esc(p.pushWhy) + '.</div>' : '') +
                 resultHtml(p.key);
             el('planSyncNote').textContent = '';
+            updateApply();
         }
 
         function show() { render(); el('planSyncModal').classList.add('active'); }
@@ -14533,7 +14583,8 @@ var attendance = {};
 
         function setBusy(on) {
             state.busy = on;
-            el('planSyncApply').disabled = on;
+            updateApply();
+            el('planSyncClose').disabled = on;
             el('planSyncApply').textContent = on ? 'Запишувам…' : 'Примени';
         }
 
@@ -14545,9 +14596,8 @@ var attendance = {};
             };
             var takes = pick('take', 'takeWhy');
             var pushes = pick('push', 'pushWhy');
-            var clears = pick('clear', 'clearWhy');
             var admits = pick('admit', 'clearWhy');
-            if (!takes.length && !pushes.length && !clears.length && !admits.length) { close(); return; }
+            if (!takes.length && !pushes.length && !admits.length) { close(); return; }
 
             setBusy(true);
             var results = {};
@@ -14567,15 +14617,6 @@ var attendance = {};
                 }).then(function (answer) {
                     if (answer.ok) done(r, 'во Кабинети — ' + effect(r.diary, r.kab) + '.');
                     else results[r.key] = answer;
-                });
-            });
-            // Двете места: прво Кабинети (може да одбие), дневникот само ако Кабинети прифати.
-            clears.forEach(function (r) {
-                chain = chain.then(function () { return pushBlock(r.day, r.slot, [], kabPids(r)); }).then(function (answer) {
-                    if (!answer.ok) { results[r.key] = answer; return; }
-                    schedule[daysEng[r.day]][r.slot] = [];
-                    redrawDiary();
-                    done(r, 'терминот е празен и во дневникот и во Кабинети.');
                 });
             });
             // Ученик од Кабинети што го нема во „Мои ученици“: на списокот во базата
@@ -14704,11 +14745,16 @@ var attendance = {};
             el('planSyncApply').addEventListener('click', function () { if (!state.busy) (state.past ? applyPast : applyDiff)(); });
             el('planSyncClose').addEventListener('click', function () { if (!state.busy) close(); });
             el('planSyncBody').addEventListener('change', function (event) {
-                if (event.target.id !== 'planSyncAll' || !event.target.value) return;
-                Array.prototype.forEach.call(document.querySelectorAll('[data-plan-choice]'), function (s) {
-                    var wanted = s.querySelector('input[value="' + event.target.value + '"]');
-                    if (wanted && !wanted.disabled) wanted.checked = true;
-                });
+                if (event.target.id === 'planSyncAll' && event.target.value) {
+                    Array.prototype.forEach.call(document.querySelectorAll('[data-plan-choice]'), function (s) {
+                        s.querySelectorAll('input').forEach(function (input) { input.checked = false; });
+                        var value = event.target.value;
+                        if (value === 'take' && s.querySelector('input[value="admit"]')) value = 'admit';
+                        var wanted = s.querySelector('input[value="' + value + '"]');
+                        if (wanted && !wanted.disabled) wanted.checked = true;
+                    });
+                }
+                updateApply();
             });
             document.addEventListener('keydown', function (event) { if (event.key === 'Escape' && isOpen() && !state.busy) close(); });
             // По синхронизацијата со серверот (2 s) и читањето на присуството (2,4 s),
