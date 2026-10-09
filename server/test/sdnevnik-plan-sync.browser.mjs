@@ -205,16 +205,17 @@ try {
         await page.evaluate(() => document.body.classList.add('dark-mode'));
         await page.screenshot({ path: path.join(process.env.PLAN_SHOTS, 'plan-sync-dark.png') });
         await page.evaluate(() => document.body.classList.remove('dark-mode'));
-        await page.setViewportSize({width:390,height:844});
-        check('the phone dialog fits horizontally and Close stays visible', await page.locator('#planSyncModal .modal-content').evaluate(e => {
-            const b=e.getBoundingClientRect(), close=document.getElementById('planSyncClose').getBoundingClientRect();
-            const title=document.getElementById('planSyncTitle'), t=title.getBoundingClientRect();
-            return b.left>=0 && b.right<=innerWidth && e.scrollWidth<=e.clientWidth && close.bottom<=innerHeight
-                && title.contains(document.elementFromPoint(t.left+10,t.top+8));
-        }));
-        await page.screenshot({ path: path.join(process.env.PLAN_SHOTS, 'plan-sync-phone.png') });
-        await page.setViewportSize({width:1280,height:900});
     }
+    // A normal test run checks phone layout too; screenshots are optional.
+    await page.setViewportSize({width:390,height:844});
+    check('the phone dialog fits horizontally and Close stays visible', await page.locator('#planSyncModal .modal-content').evaluate(e => {
+        const b=e.getBoundingClientRect(), close=document.getElementById('planSyncClose').getBoundingClientRect();
+        const title=document.getElementById('planSyncTitle'), t=title.getBoundingClientRect();
+        return b.left>=0 && b.right<=innerWidth && e.scrollWidth<=e.clientWidth && close.bottom<=innerHeight
+            && title.contains(document.elementFromPoint(t.left+10,t.top+8));
+    }));
+    if (process.env.PLAN_SHOTS) await page.screenshot({ path: path.join(process.env.PLAN_SHOTS, 'plan-sync-phone.png') });
+    await page.setViewportSize({width:1280,height:900});
     check('no direction is preselected, and Apply needs a choice',
         await page.locator('[data-plan-choice] input:checked').count() === 0 && await page.locator('#planSyncApply').isDisabled());
     await choose('3|2', 'take');
