@@ -10,7 +10,7 @@ const server=Fastify({logger:false});
 installPublicStatic(server,resolve(import.meta.dirname,'../..'));
 await server.listen({host:'127.0.0.1',port:0});
 const origin=`http://127.0.0.1:${server.server.address().port}`;
-const browser=await chromium.launch();
+const browser=await chromium.launch(process.env.CHROME?{executablePath:process.env.CHROME}:{});
 let checks=0;
 const check=(name,value)=>{assert.ok(value,name);checks++;console.log('  ok '+name);};
 try {
@@ -32,14 +32,31 @@ try {
     cards:[...document.querySelectorAll('#out .card')].map(c=>({i:c.dataset.i,x:c.offsetLeft,y:c.offsetTop,w:c.offsetWidth,h:c.offsetHeight})),
     keys:document.querySelector('#keys').hidden
   }));
+  // A tile is placed only by dragging; a finger's drag is sent as real touch points.
+  const cdp=await context.newCDPSession(page);
+  const centre=async l=>{const r=await l.boundingBox();return {x:r.x+r.width/2,y:r.y+r.height/2};};
+  const drag=async(from,to,touch=false)=>{
+    const a=await centre(from),b=await centre(to);
+    if(!touch){await page.mouse.move(a.x,a.y);await page.mouse.down();await page.mouse.move(b.x,b.y,{steps:8});await page.mouse.up();return;}
+    await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[a]});
+    for(let s=1;s<=6;s++)await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x:a.x+(b.x-a.x)*s/6,y:a.y+(b.y-a.y)*s/6}]});
+    await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
+  };
   const finish=async(i,kb,touch=false)=>{
     while(await page.locator(`.card[data-i="${i}"] .drop`).count()){
-      const ch=(await page.locator(`.card[data-i="${i}"] .drop`).first().textContent()).toLowerCase();
-      const key=kb?page.locator(`#keys [data-ch="${ch}"]`):page.locator(`.card[data-i="${i}"] .tile:not(.gone)`).filter({hasText:new RegExp('^'+ch+'$')}).first();
+      const box=page.locator(`.card[data-i="${i}"] .drop`).first();
+      const ch=(await box.textContent()).toLowerCase();
+      if(!kb){await drag(page.locator(`.card[data-i="${i}"] .tile:not(.gone)`).filter({hasText:new RegExp('^'+ch+'$')}).first(),box,touch);continue;}
+      const key=page.locator(`#keys [data-ch="${ch}"]`);
       if(touch)await key.tap();else await key.click();
     }
   };
   await prepare('grid',false);
+  const right=page.locator('.card[data-i="0"] .tile').filter({hasText:/^п$/}).first();
+  await right.click();await right.tap();await right.press('Enter');
+  check('a click, a touch or Enter on a tile places nothing',await page.locator('.card[data-i="0"] .ltr.got').count()===0 && await page.locator('.card[data-i="0"] .drop').count()===4);
+  check('with tiles no box is marked as the one a tap would fill',await page.locator('#out .aim').count()===0);
+  check('the hint says to drag',/повлечи/i.test(await page.locator('#hint').textContent()) && !/допри или/i.test(await page.locator('#hint').textContent()));
   const before=await geometry();
   await page.evaluate(()=>{window.neighbor=document.querySelector('.card[data-i="1"]');});
   await finish(0,false);
@@ -57,7 +74,8 @@ try {
   check('only explicit repeat clears the answer',await page.locator('.card[data-i="0"] .drop').count()===4);
   // A wrong letter gives a hint after two tries, without losing correct work.
   const wrong=page.locator('.card[data-i="0"] .tile').filter({hasText:/^[^па]$/}).first();
-  await wrong.click();await wrong.click();
+  // the tile slides back and shakes before it can be picked up again
+  for(let n=0;n<2;n++){await drag(wrong,page.locator('.card[data-i="0"] .drop').first());await page.waitForTimeout(700);}
   check('two wrong tries reveal a gentle hint',await page.locator('.card[data-i="0"] .drop.faint').count()===1);
   await page.setViewportSize({width:1366,height:650});
   await prepare('one',true);

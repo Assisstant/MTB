@@ -560,15 +560,16 @@ function nearest(scope, x, y) {
   return best;
 }
 
-// The box a tapped letter goes to: the one chosen by a tap, else the first
-// empty one. With the keyboard there is one for the whole screen; with tiles
-// each card that is being spelled shows its own.
+// The box a typed letter goes to: the one chosen by a tap, else the first
+// empty one. Only the keyboard types, and it has one box for the whole screen;
+// a tile is dragged to its box, so with tiles no box is marked.
 function mark() {
   for (const b of out.querySelectorAll('.aim')) b.classList.remove('aim');
+  if (!state.kb) return;
   const s = state.sel;
   const chosen = s && out.querySelector('.card[data-i="' + s.i + '"] .drop[data-pos="' + s.pos + '"]');
   if (chosen) chosen.classList.add('aim');
-  for (const c of out.querySelectorAll(state.kb ? '.cards, .one' : '.card[data-step="2"]')) {
+  for (const c of out.querySelectorAll('.cards, .one')) {
     const first = c.querySelector('.drop');
     if (first && !c.querySelector('.aim')) first.classList.add('aim');
   }
@@ -597,8 +598,8 @@ function place(ch, box) {
   return true;
 }
 
-// A tile or a key let go over a box, or tapped. `i` is the card of a tile (in
-// step 2 the tile is used up), null for a key. Wrong goes back and shakes.
+// A tile or a key let go over a box, or a key tapped. `i` is the card of a tile
+// (in step 2 the tile is used up), null for a key. Wrong goes back and shakes.
 function drop(el, ch, i, box, wait) {
   if (place(ch, box)) {
     if (i !== null && stepOf(i) === 2) (state.used[i] || (state.used[i] = [])).push(Number(el.dataset.k));
@@ -627,7 +628,9 @@ function goBack(tile) {
   tile.style.transform = '';
 }
 
-// Mouse, finger and pen alike. A tap or Enter places the letter without dragging.
+// Mouse, finger and pen alike. A tile is placed only by dragging it onto its
+// box (owner, 9 Oct 2026): a tap solved the word without the child finding
+// where the letter goes. A key of the keyboard still types on a tap.
 function draggable(tile, ch, i) {
   const scope = () => (i === null ? out : tile.closest('.card'));
   let from = null, dragged = false;
@@ -659,6 +662,7 @@ function draggable(tile, ch, i) {
     tile.style.transform = '';
   });
   tile.addEventListener('pointercancel', () => { from = null; goBack(tile); });
+  if (i !== null) return;
   tile.addEventListener('click', () => {
     if (dragged) { dragged = false; return; }
     drop(tile, ch, i, aimed(scope()), 0);
@@ -1381,9 +1385,9 @@ function cards(words, names) {
 
   const tap = opensBig() ? 'Допри ја сликата за голем приказ.' : 'Слика: изговор · ↺: одново · „Помош“: друг чекор.';
   $('hint').textContent = state.step === 1
-    ? 'Допри или повлечи ја буквата што недостига. ' + tap
+    ? (state.kb ? 'Допри или повлечи ја буквата што недостига. ' : 'Повлечи ја буквата што недостига во празната кутија. ') + tap
     : state.step === 2 && !sentences()
-    ? 'Состави го зборот: допри или повлечи буква во празна кутија. ' + tap
+    ? (state.kb ? 'Состави го зборот: допри или повлечи буква во празна кутија. ' : 'Состави го зборот: повлечи ја секоја буква во нејзината кутија. ') + tap
     : opensBig() ? tap + ' 🔊 го кажува текстот.'
     : 'Допри ја сликата за следниот чекор само за неа: ' + names.join(' → ').toLowerCase().replace(' ' + TARGET + ' ', ' ' + upper() + ' ') + '. 🔊 го кажува текстот.';
   const now = shown();

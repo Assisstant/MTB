@@ -36,6 +36,25 @@ The words of the П deck, in the owner's three groups of rising difficulty:
 
 ## Where it stands
 
+### A tile is placed only by dragging (9 Oct 2026)
+
+The owner, after trying it in the cloud: only drag and drop may put a letter
+on its box, not a plain click. A click, a touch or Enter on a tile under a
+card now does nothing; the tile is dragged, in „Без П" and in „Само цртички".
+With tiles no box carries the blue ring, and the hint says „Повлечи…".
+
+**Read narrowly, to be confirmed:** „⌨ Тастатура" still types on a tap (and
+from the real keyboard), because a keyboard that must be dragged is not a
+keyboard; its keys can also be dragged, as before. If the owner meant the
+keyboard too, the line to change is the `if (i !== null) return;` in
+`draggable`. With tiles there is now no way to place a letter without a
+pointer; the keyboard is that way.
+
+`test:vezbi-feedback` (34 checks) drags every tile — a finger's drag as real
+touch points — and checks that a click, a touch and Enter place nothing; the
+check fails against the page as it was. It takes `CHROME=<path>` like
+`test:vezbi`.
+
 ### Stable cards and gentle completion feedback (9 Oct 2026)
 
 The owner asked for child-friendly behavior in the ComuniBoard/exercise suite:
@@ -148,17 +167,18 @@ the repository (see Pictures). It has:
 - **Dragging the letter** (built 8 Oct 2026, not yet judged by the owner): in
   „Без П" each card has three tiles, П and two wrong letters from
   `DISTRACTORS`. The right one snaps into the nearest empty box, a wrong one
-  goes back and shakes; a tap or Enter places it without dragging. When the
-  word is whole it is said aloud.
+  goes back and shakes; a tap or Enter placed it without dragging until
+  9 Oct 2026 (see above). When the word is whole it is said aloud.
 - **Building the word** (8 Oct 2026, the owner said „направи", not yet
   judged): in „Само цртички" every box of a word takes a letter. Two levels:
   tiles under the card (the word's own letters, shuffled, and two wrong ones;
   a placed tile is gone), or „⌨ Тастатура" in the header — one keyboard for
   the whole screen, fixed at the bottom, in ComuniBoard's Macedonian layout.
   With the keyboard on it also replaces the three tiles of „Без П", and the
-  real keyboard types into the same box. A letter is dragged into any box, or
-  tapped: a tap goes to the box with the blue ring (a box chosen by a tap,
-  else the first empty one). After two wrong tries a box shows its letter
+  real keyboard types into the same box. A letter is dragged into any box; a
+  key of the keyboard (since 9 Oct 2026 not a tile) can also be tapped: it
+  goes to the box with the blue ring (a box chosen by a tap, else the first
+  empty one). After two wrong tries a box shows its letter
   faintly. A whole word is said aloud and gets a ⭐ (also in „Без П"). A tap
   on an empty box no longer moves the card to its next step; a tap on the
   picture does. Sentences do not have this yet („Без збор" is still a line).
