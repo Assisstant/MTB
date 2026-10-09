@@ -38,3 +38,7 @@ skills-lock.json
 
 # Terminal Paste Image folder
 .cp-images/
+
+# a JetBrains IDE writes its own settings here when the folder is opened in it;
+# untracked, it made „Ажурирај" refuse to pull (the repo step wants a clean tree)
+.idea/
