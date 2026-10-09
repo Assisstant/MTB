@@ -3746,6 +3746,7 @@
             renderElements();
             updateUndoRedoButtons();
             updateSelectionTools();
+            scheduleAutoSave();
         }
 
         function redo() {
@@ -3756,6 +3757,7 @@
             renderElements();
             updateUndoRedoButtons();
             updateSelectionTools();
+            scheduleAutoSave();
         }
 
         function updateUndoRedoButtons() {
@@ -4236,7 +4238,12 @@
                     if (!dragging) return;
                     const dx = moveEvent.clientX - startX;
                     const dy = moveEvent.clientY - startY;
-                    if (Math.abs(dx) > 1 || Math.abs(dy) > 1) moved = true;
+                    // A small wobble while choosing a letter is still a tap.
+                    if (!moved) {
+                        if (Math.hypot(dx, dy) < 8) return;
+                        saveToHistory(); // remember the position BEFORE moving
+                        moved = true;
+                    }
 
                     for (const [id, origin] of selectedOrigins.entries()) {
                         const target = state.elements.find(s => s.id === id);
@@ -4257,7 +4264,6 @@
                 const onUp = () => {
                     if (dragging && moved) {
                         dragging = false;
-                        saveToHistory();
 
                         if (state.autoSnap) {
                             const selectedLetters = state.elements.filter(item =>
@@ -4268,6 +4274,7 @@
                             }
                             renderElements();
                         }
+                        scheduleAutoSave();
                     } else {
                         dragging = false;
                     }
@@ -4459,7 +4466,12 @@
                     if (!dragging) return;
                     const dx = moveEvent.clientX - startX;
                     const dy = moveEvent.clientY - startY;
-                    if (Math.abs(dx) > 1 || Math.abs(dy) > 1) moved = true;
+                    // Cards and pictures keep their place until a deliberate drag.
+                    if (!moved) {
+                        if (Math.hypot(dx, dy) < 8) return;
+                        saveToHistory();
+                        moved = true;
+                    }
 
                     for (const [id, origin] of selectedOrigins.entries()) {
                         const target = state.elements.find(s => s.id === id);
@@ -4478,7 +4490,7 @@
                 };
 
                 const onUp = () => {
-                    if (dragging && moved) saveToHistory();
+                    if (dragging && moved) scheduleAutoSave();
                     dragging = false;
                     document.removeEventListener('mousemove', onMove);
                     document.removeEventListener('mouseup', onUp);

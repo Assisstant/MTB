@@ -88,8 +88,12 @@
   .one .sent .dash { font-size: 36px; }
   .one .gap { width: 150px; height: 58px; }
   .ltr.got { background: #e6f4ea; }
-  .card.pop .ltr.got { animation: pop .5s; }
-  @keyframes pop { 40% { transform: scale(1.25); } }
+  .card.celebrate { animation: card-celebrate .8s ease-in-out; }
+  @keyframes card-celebrate {
+    0%, 100% { transform: none; }
+    30% { transform: scale(1.025) rotate(-1.5deg); box-shadow: 0 0 0 3px #eed992, 0 8px 24px #d7ad4c30; }
+    65% { transform: scale(1.015) rotate(1deg); }
+  }
 
   /* букви за влечење */
   .tray { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
@@ -98,8 +102,8 @@
   .tile.lift, .key.lift { z-index: 5; cursor: grabbing; box-shadow: 0 8px 16px rgba(0, 0, 0, .25); }
   .tile.back, .key.back { transition: transform .2s; }
   .tile.no { animation: no .35s; border-color: var(--target); }
-  .key.no { animation: no .35s; background: var(--target); }
-  @keyframes no { 25% { transform: translateX(-6px); } 75% { transform: translateX(6px); } }
+  .key.no { animation: no .35s; background: #715a30; }
+  @keyframes no { 25% { transform: translateX(-3px); } 75% { transform: translateX(3px); } }
   /* the box a tapped letter goes to; after two wrong tries its letter shows faintly */
   .ltr.aim { box-shadow: 0 0 0 3px var(--chosen); }
   .ltr.empty.faint { color: #b3bcc7; }
@@ -108,8 +112,14 @@
   /* ѕвезда за составен збор */
   .card { position: relative; }
   .star { position: absolute; top: 8px; right: 10px; font-size: 32px; line-height: 1; pointer-events: none; }
-  .card.pop .star { animation: star .7s; }
-  @keyframes star { 0% { transform: scale(0) rotate(-180deg); } 60% { transform: scale(1.5); } }
+  .card.celebrate .star { animation: reward-star .8s ease-out; }
+  @keyframes reward-star { 0% { opacity: 0; transform: scale(.6) rotate(-12deg); } 50% { opacity: 1; transform: scale(1.2) rotate(8deg); } 100% { transform: none; } }
+  @media (prefers-reduced-motion: reduce) {
+    .card.celebrate, .card.celebrate .star, .tile.no, .key.no { animation: none; }
+    .tile.back, .key.back { transition: none; }
+  }
+  body.calm .card.celebrate, body.calm .card.celebrate .star, body.calm .tile.no, body.calm .key.no { animation: none; }
+  body.calm .tile.back, body.calm .key.back { transition: none; }
 
   /* тастатура, распоред како во ComuniBoard */
   /* a key is the size of a letter box, so a dragged key lands in the box as the
@@ -293,6 +303,7 @@
       <button class="plain" id="shuffle">🔀 Измешај</button>
       <button class="plain" id="full">⛶ Цел екран</button>
       <button class="plain" id="tips" aria-pressed="false">💡 Упатство</button>
+      <button class="plain" id="calm" aria-pressed="false">☆ Без анимации</button>
       <button class="plain" id="print">🖨 Работен лист</button>
       <hr>
       <button class="plain" id="edit" aria-pressed="false">✏️ Уреди</button>
@@ -568,7 +579,7 @@ const aimed = (scope) => scope.querySelector('.drop.aim') || scope.querySelector
 // The right letter fills the box. A wrong one is counted, and after two the
 // box shows its letter faintly.
 function place(ch, box) {
-  if (!box) return false;
+  if (!box || !box.isConnected || !box.classList.contains('drop')) return false;
   const i = Number(box.closest('.card').dataset.i), pos = Number(box.dataset.pos);
   const text = plain(list()[i]);
   if ([...text][pos].toLowerCase() !== ch) {
@@ -591,11 +602,23 @@ function place(ch, box) {
 function drop(el, ch, i, box, wait) {
   if (place(ch, box)) {
     if (i !== null && stepOf(i) === 2) (state.used[i] || (state.used[i] = [])).push(Number(el.dataset.k));
-    draw();
+    // Only this card changes. Rebuilding the whole grid reset focus and let
+    // scrolling/keyboard layout pull other pictures away from the child.
+    const index = Number(box.closest('.card').dataset.i);
+    refreshCard(index, i !== null && document.activeElement === el);
     return true;
   }
   setTimeout(() => { el.classList.remove('no'); void el.offsetWidth; el.classList.add('no'); }, wait);
   return false;
+}
+
+function refreshCard(i, focus = false) {
+  const old = out.querySelector('.card[data-i="' + i + '"]');
+  if (!old) return;
+  const next = card(i);
+  old.replaceWith(next);
+  mark();
+  if (focus) (next.querySelector('.tray:not(.spent) .tile:not(.gone)') || next.querySelector('.pic')).focus({ preventScroll: true });
 }
 
 function goBack(tile) {
@@ -701,6 +724,11 @@ function tools(i, text) {
     box.appendChild(b);
   };
   add('🔊', 'Изговори', e => audio.play(text, false, e.currentTarget));
+  if (holes(text, stepOf(i))) {
+    add('↺', 'Почни ја картичката одново', () => { wipe(i); refreshCard(i, true); });
+    box.lastElementChild.disabled = !(state.filled[i] || []).length;
+    box.lastElementChild.title = 'Почни ја картичката одново';
+  }
   if (state.edit) {
     const keys = keysOf(list()[i]);
     keys.forEach((key, k) => add('🖼 Слика' + (keys.length > 1 ? ' ' + (k + 1) : ''), 'Смени ја сликата', () => openPicker(i, key)));
@@ -719,13 +747,15 @@ function card(i) {
   const need = holes(text, step);
   const whole = need > 0 && filled.length === need;
   const el = document.createElement('div');
-  el.className = 'card' + (state.flash === i ? ' pop' : '');
+  const celebrate = state.flash === i && !document.body.classList.contains('calm') && !matchMedia('(prefers-reduced-motion: reduce)').matches;
+  el.className = 'card' + (celebrate ? ' celebrate' : '');
+  for (const event of ['animationend', 'animationcancel']) el.addEventListener(event, e => { if (e.target === el) el.classList.remove('celebrate'); });
   el.dataset.i = i;
   el.dataset.step = step;
   if (state.flash === i) state.flash = -1;
   const pic = document.createElement('button');
   pic.className = 'pic';
-  pic.setAttribute('aria-label', 'Слика ' + (state.order.indexOf(i) + 1) + (opensBig() ? ' — отвори ја голема' : ' — следен чекор'));
+  pic.setAttribute('aria-label', 'Слика ' + (state.order.indexOf(i) + 1) + (opensBig() ? ' — отвори ја голема' : need ? ' — слушни го изговорот' : ' — следен чекор'));
   const pics = document.createElement('span');
   pics.className = 'pics';
   for (const key of keysOf(item)) {
@@ -743,6 +773,7 @@ function card(i) {
     const box = e.target.closest('.drop');
     if (box) { state.sel = { i, pos: Number(box.dataset.pos) }; mark(); return; }
     if (opensBig()) return zoom(i);
+    if (need) { audio.play(text); return; }
     state.own[i] = (step + 1) % 4;
     wipe(i);
     draw();
@@ -1263,8 +1294,9 @@ function draw() {
   out.textContent = '';
   cards(words, names);
 
-  // the keyboard only while there is a box to fill; the page ends above it
-  $('keys').hidden = !(state.app === 'vezbi' && words && state.kb && out.querySelector('.drop'));
+  // Keep its space after the final letter too; completion must not move the
+  // picture. The child/therapist closes the keyboard deliberately.
+  $('keys').hidden = !(state.app === 'vezbi' && words && state.kb && out.querySelector('.drop, .star'));
   document.body.style.paddingBottom = $('keys').hidden ? '' : $('keys').offsetHeight + (fit ? 14 : 24) + 'px';
   mark();
   // among all the cards the chosen box may lie under the keyboard; one card fits above it
@@ -1347,12 +1379,11 @@ function cards(words, names) {
     return;
   }
 
-  const from = state.kb ? 'од тастатурата' : 'од плочките';
-  const tap = opensBig() ? 'Допри ја сликата за да ја отвориш картичката голема.' : 'Допри ја сликата за следниот чекор.';
+  const tap = opensBig() ? 'Допри ја сликата за голем приказ.' : 'Слика: изговор · ↺: одново · „Помош“: друг чекор.';
   $('hint').textContent = state.step === 1
-    ? 'Повлечи ја буквата што недостига ' + from + ' во празната кутија. 🔊 го кажува текстот. ' + tap
+    ? 'Допри или повлечи ја буквата што недостига. ' + tap
     : state.step === 2 && !sentences()
-    ? 'Состави го зборот: повлечи ги буквите ' + from + ' во кутиите, или допри кутија па буква. По две грешки буквата се покажува бледо. ' + tap
+    ? 'Состави го зборот: допри или повлечи буква во празна кутија. ' + tap
     : opensBig() ? tap + ' 🔊 го кажува текстот.'
     : 'Допри ја сликата за следниот чекор само за неа: ' + names.join(' → ').toLowerCase().replace(' ' + TARGET + ' ', ' ' + upper() + ' ') + '. 🔊 го кажува текстот.';
   const now = shown();
@@ -1425,6 +1456,13 @@ window.addEventListener('popstate', (e) => {
   draw();
 });
 $('tips').addEventListener('click', () => { state.tips = !state.tips; draw(); });
+try { document.body.classList.toggle('calm', localStorage.getItem('vezbi_calm_v1') === '1'); } catch (_) {}
+$('calm').setAttribute('aria-pressed', String(document.body.classList.contains('calm')));
+$('calm').addEventListener('click', () => {
+  const calm = document.body.classList.toggle('calm');
+  $('calm').setAttribute('aria-pressed', String(calm));
+  try { localStorage.setItem('vezbi_calm_v1', calm ? '1' : '0'); } catch (_) {}
+});
 $('full').addEventListener('click', () => cardsOnly(true));
 $('unfocus').addEventListener('click', () => cardsOnly(false));
 document.addEventListener('fullscreenchange', () => { if (!document.fullscreenElement && state.focus) cardsOnly(false); });

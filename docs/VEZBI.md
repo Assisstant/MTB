@@ -36,6 +36,36 @@ The words of the П deck, in the owner's three groups of rising difficulty:
 
 ## Where it stands
 
+### Stable cards and gentle completion feedback (9 Oct 2026)
+
+The owner asked for child-friendly behavior in the ComuniBoard/exercise suite:
+no cards falling to another place when completed, a slight turn and a star.
+The actual completion defect was in `vezbi/index.html`: `.card.pop` shared
+`.pop` with the toolbar menus, so a successful card acquired popup positioning.
+Never reuse the menu class for feedback.
+
+- Completion uses `.celebrate`: one 800 ms turn (−1.5°/+1°), up to 1.025 scale,
+  a soft gold edge and a star. It returns to its place; adjacent cards never
+  move. Letter entry refreshes only that card, preserving the rest of the DOM
+  and scroll. The keyboard keeps its space after the last letter.
+- During spelling, tapping the picture plays the pronunciation; it no longer
+  erases the answer by cycling difficulty. Explicit ↺ restarts just that card;
+  the existing „Помош“ controls choose the next difficulty. Opening a card
+  large from the grid and Back remain unchanged.
+- Shorter instructions leave room for the picture on low laptop screens.
+  Wrong-answer feedback is gentler, with the existing hint after two tries.
+- „⋯ → ☆ Без анимации“ persists on this browser (`vezbi_calm_v1`). A static
+  star still rewards completion. System reduced-motion is respected too;
+  see [W3C C39](https://www.w3.org/WAI/WCAG22/Techniques/css/C39.html).
+- In **ComuniBoard itself**, selecting a letter/image/card no longer moves it
+  on a small pointer wobble: dragging starts at 8 px. History captures its
+  position BEFORE the first move, so one Undo restores it; Undo/Redo schedule
+  autosave too. Existing grouping, snapping and the touch bridge stay in use.
+- `test:vezbi-feedback` exercises real taps, pointer dragging, phone scroll,
+  grid and single-card geometry, keyboard completion, quiet mode, the original
+  popup-class failure as a control, and ComuniBoard drag/Undo/Redo/autosave.
+  `test:vezbi` and `test:vezbi-audio` cover the surrounding tools and audio.
+
 ### Playback speed (9 Oct 2026)
 
 The owner requested a speed slider. The bar's **1×** menu and the audio
