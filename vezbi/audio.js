@@ -6,7 +6,21 @@ window.createVezbiAudio = function ({ sound, recordings, save, note }) {
   const MAX_FILE = 10 * 1024 * 1024;
   let muted = false, player = null, playerUrl = '', generation = 0;
   let editing = null, recording = null, capture = 0, busy = false;
+  let rate = 1;
   try { muted = localStorage.getItem('vezbi_muted_v1') === '1'; } catch (_) {}
+  try { const stored = Number(localStorage.getItem('vezbi_speech_rate_v1')); if (Number.isFinite(stored) && stored >= 0.5 && stored <= 1.5) rate = stored; } catch (_) {}
+
+  function updateRate(value = rate) {
+    const number = Number(value);
+    rate = Number.isFinite(number) ? Math.round(Math.max(0.5, Math.min(1.5, number)) * 20) / 20 : 1;
+    const label = String(rate).replace('.', ',') + '×';
+    $('speed-now').textContent = label;
+    document.querySelectorAll('[data-speed-value]').forEach(el => el.textContent = label);
+    document.querySelectorAll('[data-speech-speed]').forEach(el => {
+      el.value = rate; el.setAttribute('aria-valuetext', String(rate).replace('.', ',') + ' пати');
+    });
+    if (player) { player.preservesPitch = true; player.playbackRate = rate; }
+  }
 
   function terms(g) {
     return [...new Set([...g.words, ...(g.sentences || [])].map(x => (x.w || x.s).replace(/[{}]/g, ''))
@@ -58,6 +72,8 @@ window.createVezbiAudio = function ({ sound, recordings, save, note }) {
     if (source) {
       if (source instanceof Blob) { playerUrl = URL.createObjectURL(source); source = playerUrl; }
       const audio = new Audio(source);
+      audio.preservesPitch = true;
+      audio.playbackRate = rate;
       player = audio;
       if (button) button.dataset.speaking = 'true';
       audio.onended = () => { if (player === audio) stop(); };
@@ -71,7 +87,7 @@ window.createVezbiAudio = function ({ sound, recordings, save, note }) {
     const voice = window.speechSynthesis?.getVoices().find(v => /^mk(?:-|$)/i.test(v.lang));
     if (!voice) { if (!quiet) message('Нема снимка за овој поим. Во „Уреди → Аудио“ внеси датотека или сними го изговорот.'); return; }
     const utterance = new SpeechSynthesisUtterance(text.replace(/-/g, ' '));
-    utterance.voice = voice; utterance.lang = 'mk-MK'; utterance.rate = 0.85;
+    utterance.voice = voice; utterance.lang = 'mk-MK'; utterance.rate = 0.85 * rate;
     speechSynthesis.speak(utterance);
   }
   function download(blob, name) {
@@ -230,6 +246,12 @@ window.createVezbiAudio = function ({ sound, recordings, save, note }) {
   $('audio-import').addEventListener('click', () => $('audio-pack-file').click());
   $('audio-pack-file').addEventListener('change', e => { importPack(e.target.files[0]); e.target.value = ''; });
   document.addEventListener('visibilitychange', () => { if (document.hidden) { stop(); cancelRecording(); refresh(); } });
-  updateMute();
+  function setRate(value) {
+    updateRate(value);
+    try { localStorage.setItem('vezbi_speech_rate_v1', String(rate)); } catch (_) {}
+  }
+  document.querySelectorAll('[data-speech-speed]').forEach(el => el.addEventListener('input', () => setRate(el.value)));
+  document.querySelectorAll('[data-speed-reset]').forEach(el => el.addEventListener('click', () => setRate(1)));
+  updateMute(); updateRate();
   return {play, stop, edit, close, allAudio, terms, load, importPack};
 };

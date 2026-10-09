@@ -29,7 +29,7 @@ try {
   await context.addInitScript(()=>{
     window.plays=[]; window.tracks=[];
     const play=HTMLMediaElement.prototype.play;
-    HTMLMediaElement.prototype.play=function(){ window.plays.push(this.src.slice(0,35)); return play.call(this); };
+    HTMLMediaElement.prototype.play=function(){ window.plays.push(this.src.slice(0,35)); window.lastPlayback=this; return play.call(this); };
     const get=navigator.mediaDevices.getUserMedia.bind(navigator.mediaDevices);
     navigator.mediaDevices.getUserMedia=async c=>{try {const s=await get(c); window.tracks.push(...s.getTracks()); return s;} catch(e){window.captureError=String(e);throw e;}};
   });
@@ -38,15 +38,31 @@ try {
   await page.goto(origin+'/vezbi/index.html#vezbi');
   await page.waitForFunction(()=>typeof audio!=='undefined' && !!db);
   check('no audio is loaded or played on opening',await page.evaluate(()=>plays.length===0 && !window.VEZBI_AUDIO));
+  await page.evaluate(()=>{stage('0');state.view='one';state.at=0;draw();});
+  await page.click('#m-speed .opener');
+  await page.locator('#speech-speed').focus();
+  await page.keyboard.press('Home');
+  for(let i=0;i<5;i++)await page.keyboard.press('ArrowRight');
+  check('the keyboard slider selects 0.75 and synchronizes both controls',await page.evaluate(()=>
+    document.querySelector('#speed-now').textContent==='0,75×' && [...document.querySelectorAll('[data-speech-speed]')].every(e=>e.value==='0.75')));
+  check('slider arrow keys do not advance the exercise card',await page.evaluate(()=>state.at===0));
+  await page.click('#m-speed .opener');
+  await page.evaluate(()=>{state.view='grid';stage('syll');draw();});
   await page.locator('.syll button').first().click();
   await page.waitForFunction(()=>plays.length===1);
   check('a syllable plays its real offline MP3',await page.evaluate(()=>plays[0].startsWith('data:audio/mpeg;base64,')));
+  check('bundled audio uses the chosen rate and preserves pitch',await page.evaluate(()=>lastPlayback.playbackRate===0.75 && lastPlayback.preservesPitch));
+  check('changing speed updates the current player immediately',await page.evaluate(()=>{
+    const input=document.querySelector('#speech-speed');input.value='1.25';input.dispatchEvent(new Event('input'));
+    return lastPlayback.playbackRate===1.25;
+  }));
   await page.click('#mute');
   const count=await page.evaluate(()=>plays.length);
   await page.locator('.syll button').nth(1).click();
   check('mute prevents another syllable and stops the active player',await page.evaluate(n=>plays.length===n && [...document.querySelectorAll('[data-speaking]')].length===0,count));
   await page.reload(); await page.waitForFunction(()=>!!db);
   check('mute survives reopening',await page.getAttribute('#mute','aria-pressed')==='true');
+  check('speech speed survives reopening',await page.inputValue('#speech-speed')==='1.25');
   await page.click('#mute');
   await page.evaluate(()=>{stage('0');state.edit=true;draw();});
   await page.locator('.card').first().getByRole('button',{name:/Уреди го аудиото/}).click();
@@ -56,6 +72,10 @@ try {
   check('uploaded file is persisted under the exact term',await page.evaluate(t=>recs[t]?.size===1644,word));
   await page.click('#audio-listen');
   check('a personal file takes priority over Marija',await page.evaluate(()=>plays.at(-1).startsWith('blob:')));
+  check('uploaded recordings use the same speed and preserve pitch',await page.evaluate(()=>lastPlayback.playbackRate===1.25 && lastPlayback.preservesPitch));
+  await page.locator('#audio-editor [data-speed-reset]').click();
+  check('normal speed resets both controls',await page.evaluate(()=>
+    [...document.querySelectorAll('[data-speech-speed]')].every(e=>e.value==='1') && document.querySelector('#speed-now').textContent==='1×'));
   const next=page.waitForEvent('download'); await page.click('#audio-download');
   check('one term can be downloaded as its actual audio format',(await next).suggestedFilename().endsWith('.wav'));
   await page.setInputFiles('#audio-file',{name:'broken.mp3',mimeType:'audio/mpeg',buffer:Buffer.from('not audio')});
@@ -70,6 +90,14 @@ try {
   await page.setViewportSize({width:1366,height:650});
   if(process.env.SHOT)await page.screenshot({path:join(process.env.SHOT,'audio-desktop.png')});
   await page.click('#audio-close');
+  await page.setViewportSize({width:390,height:844});
+  await page.click('#m-speed .opener');
+  check('the speed popup fits a phone',await page.locator('#m-speed .pop').evaluate(e=>{
+    const r=e.getBoundingClientRect();return r.left>=0 && r.right<=innerWidth && r.width>0;
+  }));
+  if(process.env.SHOT)await page.screenshot({path:join(process.env.SHOT,'speed-phone.png')});
+  await page.click('#m-speed .opener');
+  await page.setViewportSize({width:1366,height:650});
   await page.reload(); await page.waitForFunction(()=>!!db);
   check('the replacement survives a real reload',await page.evaluate(t=>recs[t]?.size===1644,word));
   const pack={format:'mtb-vezbi-audio',version:1,sound:'p',locale:'mk-MK',items:{[word]:'data:audio/wav;base64,'+wav.toString('base64')}};

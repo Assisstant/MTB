@@ -278,6 +278,15 @@
     <button class="plain" id="kb" title="Тастатура" aria-label="Тастатура" aria-pressed="false">⌨<span class="lbl"> Тастатура</span></button>
   </div>
   <button class="plain" id="mute" title="Исклучи звук" aria-label="Исклучи звук" aria-pressed="false">🔊</button>
+  <div class="menu end" id="m-speed">
+    <button class="plain opener" title="Брзина на изговор" aria-label="Брзина на изговор" aria-haspopup="true" aria-expanded="false"><span id="speed-now">1×</span></button>
+    <div class="pop speed-panel">
+      <label for="speech-speed">Брзина на изговор <output data-speed-value>1×</output></label>
+      <input id="speech-speed" data-speech-speed type="range" min="0.5" max="1.5" step="0.05" value="1">
+      <div class="speed-ends"><span>Побавно</span><span>Побрзо</span></div>
+      <button class="plain" data-speed-reset>↶ Нормално · 1×</button>
+    </div>
+  </div>
   <div class="menu end" id="m-more">
     <button class="plain opener bare" id="more" title="Повеќе" aria-label="Повеќе" aria-haspopup="true" aria-expanded="false">⋯</button>
     <div class="pop list">
@@ -317,6 +326,12 @@
   <div class="audio-head"><div><span class="audio-kicker">ИЗГОВОР</span><h2 id="audio-title"></h2></div><button class="plain" id="audio-close">✕ Затвори</button></div>
   <p id="audio-source"></p>
   <div class="audio-actions"><button class="plain on" id="audio-listen">🔊 Слушни</button><button class="plain" id="audio-stop">⏹ Стоп</button><button class="plain" id="audio-download">⬇ Преземи</button></div>
+  <div class="speed-panel audio-speed">
+    <label for="editor-speech-speed">Брзина на изговор <output data-speed-value>1×</output></label>
+    <input id="editor-speech-speed" data-speech-speed type="range" min="0.5" max="1.5" step="0.05" value="1">
+    <div class="speed-ends"><span>Побавно</span><span>Побрзо</span></div>
+    <button class="plain" data-speed-reset>↶ Нормално · 1×</button>
+  </div>
   <section class="audio-upload"><h3>Твој изговор за овој поим</h3>
     <p>Внеси снимка од Google, од друг извор или сними со микрофон. Таа ќе се слуша наместо вградената.</p>
     <label class="audio-file-label" for="audio-file">Избери аудиодатотека <small>MP3, WAV, M4A, OGG или WebM · до 60 секунди / 10 MB</small></label>
@@ -337,6 +352,12 @@
   footer span { display:block; margin:4px 0; }
   footer a { color:inherit; text-underline-offset:3px; }
   #mute { flex:none; min-width:38px; padding:6px 10px; }
+  .speed-panel { width:250px; padding:14px; white-space:normal; }
+  .speed-panel label { display:flex; justify-content:space-between; gap:10px; font-size:14px; font-weight:600; }
+  .speed-panel output { color:var(--chosen); font-variant-numeric:tabular-nums; }
+  .speed-panel input { display:block; width:100%; min-height:34px; margin:8px 0 0; accent-color:var(--chosen); }
+  .speed-ends { display:flex; justify-content:space-between; font-size:12px; color:var(--soft); margin-bottom:12px; }
+  .audio-speed { width:100%; border:1px solid var(--line); border-radius:14px; margin-top:16px; }
   [data-speaking] { outline:3px solid #49a7bd; outline-offset:2px; }
   #audio-editor { width:min(560px, calc(100vw - 24px)); max-height:90vh; max-height:90dvh; overflow:auto;
     padding:24px; border:1px solid var(--line); border-radius:22px; background:var(--card); color:var(--ink); box-shadow:0 20px 70px #172a4055; }
@@ -1437,6 +1458,7 @@ document.addEventListener('keydown', (e) => {
     if (document.querySelector('.menu.open')) return shut();
     if (state.focus) return cardsOnly(false);
   }
+  if (e.target.matches('[data-speech-speed]')) return;
   // with the keyboard on screen, the same letter typed on the real one presses its key
   if (!$('keys').hidden && !$('picker').open && !e.ctrlKey && !e.altKey && !e.metaKey) {
     const key = [...$('keys').querySelectorAll('[data-ch]')].find((k) => k.dataset.ch === e.key.toLowerCase());

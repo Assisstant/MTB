@@ -36,6 +36,17 @@ The words of the П deck, in the owner's three groups of rising difficulty:
 
 ## Where it stands
 
+### Playback speed (9 Oct 2026)
+
+The owner requested a speed slider. The bar's **1×** menu and the audio
+editor share a **0.5–1.5×** slider in 0.05 steps, with „Нормално · 1×“ reset.
+The choice persists on this browser (`vezbi_speech_rate_v1`). It applies to
+bundled clips and personal recordings, including the currently playing clip,
+with `preservesPitch=true`; the Macedonian native fallback uses the selected
+factor on its next utterance. Downloads keep the original recording.
+Keyboard, persistence, reset, actual playback rate and phone bounds are
+covered by `test:vezbi-audio` (31 checks); `test:vezbi` also passes.
+
 ### Audio files and Macedonian pronunciation (9 Oct 2026)
 
 The owner asked for a file per term, uploading replacements, and mute/listen.
