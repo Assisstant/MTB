@@ -1,6 +1,6 @@
 ﻿# cloud-lib.ps1 — where the cloud database is, for the scripts that go there.
 #
-# Dot-sourced by cloud-migrate.ps1 and cloud-cleanup.ps1. Finding the address
+# Dot-sourced by cloud-migrate.ps1, cloud-cleanup.ps1 and cloud-backup.ps1. Finding the address
 # is ONE decision with an order in it (the file in the repo, the older one
 # beside it, the copy the other PC left in pCloud) and one guard (the file must
 # be gitignored, or the password goes to GitHub). A second copy of that in a
@@ -57,6 +57,35 @@ function Get-MtbPostgresTools {
         PgDump    = $bin.FullName
         Psql      = Join-Path $bin.DirectoryName 'psql.exe'
         PgRestore = Join-Path $bin.DirectoryName 'pg_restore.exe'
+    }
+}
+
+# What this computer last SAW in the cloud, for the Контролна табла's reminders:
+# backups\cloud\state.json (gitignored with the rest of backups\). Numbers and
+# dates only. The panel never asks the cloud itself — opening a window must not
+# wait for the Internet — so the scripts that are there anyway leave a note.
+# A note that cannot be written is not a reason for a backup or a cleanup to fail.
+function Get-MtbCloudStateFile {
+    param([string]$Repo)
+    return (Join-Path $Repo 'backups\cloud\state.json')
+}
+
+function Set-MtbCloudState {
+    param([string]$Repo, [hashtable]$Values)
+    try {
+        $file = Get-MtbCloudStateFile -Repo $Repo
+        New-Item -ItemType Directory -Force -Path (Split-Path -Parent $file) | Out-Null
+        $state = @{}
+        if (Test-Path -LiteralPath $file) {
+            try {
+                $before = Get-Content -LiteralPath $file -Raw -Encoding UTF8 | ConvertFrom-Json
+                foreach ($p in $before.PSObject.Properties) { $state[$p.Name] = $p.Value }
+            } catch { }
+        }
+        foreach ($k in $Values.Keys) { $state[$k] = $Values[$k] }
+        Set-Content -LiteralPath $file -Value ($state | ConvertTo-Json) -Encoding UTF8
+    } catch {
+        Write-Host "  (белешката за контролната табла не е запишана: $($_.Exception.Message))" -ForegroundColor DarkGray
     }
 }
 

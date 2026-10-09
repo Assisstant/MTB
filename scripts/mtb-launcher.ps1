@@ -12,17 +12,30 @@
 # reports is where it always was. The actions and their words come from
 # mtb-actions.ps1 — the shortcuts and PROCITAJ read the same list.
 #
-# THREE TABS (owner, 8 Oct 2026): Администрација is every action that runs a
-# script; Евиденција opens a record page in the cloud's work space; Вежби opens
-# the exercise pages of this folder, from this computer. A tile that opens a
-# page carries a picture of it. The tabs and which tile sits where are in
-# mtb-actions.ps1 (Get-MtbTabs, Tab).
+# FIVE TABS (owner, 8 and 9 Oct 2026). Омилени is what the person opens every
+# day: the star on any tile puts it there or takes it off, so the same tile is
+# in its own tab and on Омилени. Евиденција opens a record page in the cloud's
+# work space; Вежби opens the exercise pages of this folder, from this
+# computer; Одржување keeps the cloud safe and this computer's code current;
+# Не се користи holds the local server and the read-only copy, which still
+# work and are out of the way. A tile that opens a page carries a picture of
+# it. The tabs and which tile sits where are in mtb-actions.ps1 (Get-MtbTabs).
+#
+# IT REMINDS (owner, 9 Oct 2026: „mozi i ti da me potsekash"). Under the
+# heading: what is due — the cloud's backup when the last one is a week old,
+# the cloud's cleanup when recovery copies have piled up, the code when this
+# computer is behind — each with a button that runs its tile. It reads files
+# on this computer and never asks the cloud, so the window opens at once and
+# without the Internet. What it knows about the cloud is what cloud-backup.ps1
+# and cloud-cleanup.ps1 last wrote down (cloud-lib.ps1), and it says from when.
 #
 # THE LAYOUT is this computer's own (%LOCALAPPDATA%\MTB\kontrolna-tabla.json),
 # never data. In each tab one grid, three to a row, every row full before the
 # next — the owner turned down sections because a short one left a row half
 # empty. In it:
 #   drag    a tile onto another takes that one's place;
+#   star    (one tile) on Омилени or not; there the tiles are in the order
+#           they were starred, changed by dragging, and have no pin;
 #   pin     (one tile) keeps it in the very place it is: it cannot be dragged,
 #           nothing is dropped on it, and the free tiles move around it;
 #   lock    (the whole grid) nothing moves at all until it is unlocked;
@@ -41,8 +54,11 @@ param(
     [string] $Snapshot = '',
     # Another layout file, so a check never touches the person's own.
     [string] $LayoutFile = '',
-    # Open on this tab (admin, records, practice) whatever was open last: for a snapshot of each.
-    [string] $StartTab = ''
+    # Open on this tab (fav, records, practice, upkeep, parked) whatever was open last: for a snapshot of each.
+    [string] $StartTab = '',
+    # Another repository root to read backups\ from: a check of the reminders
+    # with invented files never looks at the real backups.
+    [string] $BackupsRoot = ''
 )
 
 $ErrorActionPreference = 'Stop'
@@ -76,6 +92,10 @@ $byName = @{}
 foreach ($a in $defaults) { $byName[$a.Name] = $a }
 $tabs = @(Get-MtbTabs)
 $tabKeys = @($tabs | ForEach-Object { $_.Key })
+# When a reminder is due. A week for the backup: the cloud is the one place the
+# work is written, and a week is what the owner can lose and re-enter.
+$backupDueDays = 7
+if (-not $BackupsRoot) { $BackupsRoot = $root }
 # The layout is kept twice: on this computer, and in the pCloud folder both
 # PCs already share (SYNC_DIR in server\.env, or P:\MTB-sync), so HOME and
 # WORK show the same panel (owner, 3 Oct 2026). The newer of the two is read;
@@ -180,6 +200,16 @@ function Use-Layout($j) {
     }
     $colours = @{}
     if ($j.colors) { foreach ($p in $j.colors.PSObject.Properties) { if ($byName.ContainsKey($p.Name) -and $p.Value -match '^#[0-9A-Fa-f]{6}$') { $colours[$p.Name] = [string]$p.Value } } }
+    # favourites: the tiles on „Омилени", in the order they are shown. A file
+    # that names them is believed, an empty list too (the person took them all
+    # off); a file from before them starts with the ones mtb-actions.ps1 marks.
+    $starred = New-Object Collections.ArrayList
+    if ($j -and ($j.PSObject.Properties.Name -contains 'favorites')) {
+        foreach ($n in @($j.favorites)) { if ($n -and $byName.ContainsKey($n) -and -not $starred.Contains($n)) { [void]$starred.Add($n) } }
+    } else {
+        foreach ($a in $defaults) { if ($a.Fav) { [void]$starred.Add($a.Name) } }
+    }
+    $script:favs = $starred
 
     $script:order = $order
     $script:pinned = $pinned
@@ -198,7 +228,7 @@ function Use-Layout($j) {
 function Get-LayoutJson {
     # kind/version mark an exported file, so an import can tell it from any other JSON.
     @{ kind = 'mtb-kontrolna-tabla'; version = 1
-       order = @($script:order); pinned = $script:pinned; locked = [bool]$script:gridLocked
+       order = @($script:order); favorites = @($script:favs); pinned = $script:pinned; locked = [bool]$script:gridLocked
        colors = $script:colours; cardColors = $script:cardColours; theme = $script:theme
        tab = $script:tab; controlsOpen = [bool]$script:controlsOpen } | ConvertTo-Json
 }
@@ -232,7 +262,7 @@ function Import-Layout {
         return
     }
     # Another kind of JSON, or one with none of the settings in it, changes nothing.
-    $known = @('order', 'pinned', 'locked', 'colors', 'cardColors', 'theme', 'tab', 'controlsOpen') | Where-Object { $j.PSObject.Properties.Name -contains $_ }
+    $known = @('order', 'favorites', 'pinned', 'locked', 'colors', 'cardColors', 'theme', 'tab', 'controlsOpen') | Where-Object { $j.PSObject.Properties.Name -contains $_ }
     if (($j.kind -and $j.kind -ne 'mtb-kontrolna-tabla') -or -not $known.Count) {
         [void][Windows.MessageBox]::Show($window, 'Ова не се поставки на контролната табла. Ништо не е сменето.', 'MTB', 'OK', 'Warning')
         return
@@ -263,6 +293,9 @@ function Save-Layout {
 # full rows whatever is pinned. The order is one list for all tabs; a tab shows
 # its own tiles from it, so moving a tile never disturbs another tab.
 function Get-Places {
+    # Омилени shows the starred tiles, whatever tab each belongs to, in their
+    # own order; a pin is a place in a tile's own tab and means nothing here.
+    if ($script:tab -eq 'fav') { return @($script:favs) }
     $mine = @($script:order | Where-Object { $byName[$_].Tab -eq $script:tab })
     $count = $mine.Count
     $places = New-Object 'string[]' $count
@@ -303,6 +336,15 @@ function Get-Thumb([string] $Rel) {
 function Update-Tiles { Save-Layout; Show-Tiles }
 
 function Move-Tile([string] $From, [string] $To) {
+    if ($script:tab -eq 'fav') {
+        # The dragged tile takes the other's place among the favourites.
+        $at = $script:favs.IndexOf($To)
+        if ($From -eq $To -or $script:gridLocked -or $at -lt 0 -or -not $script:favs.Contains($From)) { return }
+        $script:favs.Remove($From)
+        $script:favs.Insert($at, $From)
+        Update-Tiles
+        return
+    }
     if ($From -eq $To -or $script:gridLocked -or $script:pinned.ContainsKey($From)) { return }
     if ($script:pinned.ContainsKey($To)) {
         $footer.Text = '„' + $byName[$To].Title + '“ е закачена — нејзиното место не се зема.'
@@ -333,6 +375,23 @@ function Switch-Pin([string] $Name) {
         $script:pinned[$Name] = $here
     }
     Update-Tiles
+}
+
+# The star: on Омилени or off it. The whole page is drawn again, because the
+# number on the tab's button changes with it.
+function Switch-Fav([string] $Name) {
+    $title = $byName[$Name].Title
+    if ($script:favs.Contains($Name)) {
+        $script:favs.Remove($Name)
+        $said = '„' + $title + '“ е тргната од „Омилени“. Во своето јазиче останува.'
+    } else {
+        [void]$script:favs.Add($Name)
+        $said = '„' + $title + '“ е додадена во „Омилени“.'
+    }
+    Save-Layout
+    Show-Page
+    Update-Status
+    $footer.Text = $said
 }
 
 function Switch-GridLock {
@@ -377,6 +436,7 @@ function Invoke-TileButton {
     $b = $script:tileClick
     switch ($b.Kind) {
         'pin'    { Switch-Pin $b.Name }
+        'fav'    { Switch-Fav $b.Name }
         'colour' { Show-Palette $b.Name $b.Element }
     }
 }
@@ -489,16 +549,22 @@ function Show-Palette([string] $Name, $Anchor) {
 function New-Tile([hashtable] $A) {
     $T = $themes[$script:theme]
     $colour = Get-TileColour $A
-    $isPinned = $script:pinned.ContainsKey($A.Name)
+    $onFav = $script:tab -eq 'fav'
+    $isFav = $script:favs.Contains($A.Name)
+    # A pin is a place in the tile's own tab; on Омилени it holds nothing.
+    $isPinned = (-not $onFav) -and $script:pinned.ContainsKey($A.Name)
     # Held in place: pinned, or the whole grid locked.
     $isLocked = $isPinned -or $script:gridLocked
 
     $card = New-Object Windows.Controls.Border
     # One height for every tile of a tab, so its rows read level: taller where
     # the tab's tiles carry a picture.
-    $card.Height = if ($script:tabHasThumbs) { 404 } else { 272 }
-    $card.Margin = Get-Thick 0 0 18 18
-    $card.Padding = Get-Thick 22 20 16 18
+    # „Не се користи" is a list, a line for each: what is out of use should not
+    # take the room of what is in use, and a list has no half-empty row.
+    $compact = $script:tab -eq 'parked'
+    $card.Height = if ($compact) { 104 } elseif ($script:tabHasThumbs) { 404 } else { 288 }
+    $card.Margin = if ($compact) { Get-Thick 0 0 18 10 } else { Get-Thick 0 0 18 18 }
+    $card.Padding = if ($compact) { Get-Thick 20 12 16 12 } else { Get-Thick 22 20 16 18 }
     $card.CornerRadius = [Windows.CornerRadius]::new(18)
     $cardColour = Get-CardColour $A
     $card.Background = Get-Brush $(if ($cardColour) { Get-CardFill $cardColour } else { $T.Card })
@@ -529,11 +595,11 @@ function New-Tile([hashtable] $A) {
     $when.Background = $tint
     $when.Child = New-Text ('Кога: ' + $A.When) 12.5 $TT.When 'SemiBold'
     [Windows.Controls.DockPanel]::SetDock($when, 'Bottom')
-    [void]$dock.Children.Add($when)
+    if (-not $compact) { [void]$dock.Children.Add($when) }
 
     # The picture of the page the tile opens, across the top. A brush on a
     # rounded border, so the corners follow the card's.
-    $thumb = Get-Thumb $A.Thumb
+    $thumb = if ($compact) { $null } else { Get-Thumb $A.Thumb }
     if ($thumb) {
         $pic = New-Object Windows.Controls.Border
         $pic.Height = 132
@@ -547,6 +613,22 @@ function New-Tile([hashtable] $A) {
         $pic.Background = $brush
         [Windows.Controls.DockPanel]::SetDock($pic, 'Top')
         [void]$dock.Children.Add($pic)
+    } elseif ($script:tabHasThumbs -and -not $compact) {
+        # Among tiles with pictures (Омилени mixes the tabs) a tile that runs a
+        # script has none to show: its own icon, large, on its own colour, so
+        # the row still reads level and the tile is not half empty.
+        $pic = New-Object Windows.Controls.Border
+        $pic.Height = 132
+        $pic.Margin = Get-Thick 0 0 6 14
+        $pic.CornerRadius = [Windows.CornerRadius]::new(11)
+        $wash = (Get-Brush $colour).Clone(); $wash.Opacity = 0.16
+        $pic.Background = $wash
+        $big = New-Text ([string][char]$A.Glyph) 54 $colour
+        $big.FontFamily = 'Segoe MDL2 Assets'
+        $big.HorizontalAlignment = 'Center'; $big.VerticalAlignment = 'Center'
+        $pic.Child = $big
+        [Windows.Controls.DockPanel]::SetDock($pic, 'Top')
+        [void]$dock.Children.Add($pic)
     }
 
     $stack = New-Object Windows.Controls.StackPanel
@@ -555,7 +637,10 @@ function New-Tile([hashtable] $A) {
     $tools = New-Object Windows.Controls.StackPanel
     $tools.Orientation = 'Horizontal'
     $tools.VerticalAlignment = 'Top'
-    [void]$tools.Children.Add((New-TileButton 'pin' $A.Name 0xE718 $isPinned $colour $(if ($isPinned) { 'Откачи: пак се мести слободно' } else { 'Закачи: останува на ова место, другите се местат околу неа' })))
+    [void]$tools.Children.Add((New-TileButton 'fav' $A.Name $(if ($isFav) { 0xE735 } else { 0xE734 }) $isFav '#E0A21B' $(if ($isFav) { 'Тргни од „Омилени“ — во своето јазиче останува' } else { 'Додај во „Омилени“' })))
+    if (-not $onFav) {
+        [void]$tools.Children.Add((New-TileButton 'pin' $A.Name 0xE718 $isPinned $colour $(if ($isPinned) { 'Откачи: пак се мести слободно' } else { 'Закачи: останува на ова место, другите се местат околу неа' })))
+    }
     [Windows.Controls.DockPanel]::SetDock($tools, 'Right')
     [void]$head.Children.Add($tools)
 
@@ -600,6 +685,13 @@ function New-Tile([hashtable] $A) {
     $body = New-Text $A.Text 13.5 $TT.Body
     $body.Margin = Get-Thick 0 14 6 0
     $body.LineHeight = 20
+    if ($compact) {
+        # One line; the whole of it, and when it is used, on hover.
+        $body.Margin = Get-Thick 0 8 6 0
+        $body.TextWrapping = 'NoWrap'
+        $body.TextTrimming = 'CharacterEllipsis'
+        $card.ToolTip = $A.Text + [Environment]::NewLine + 'Кога: ' + $A.When
+    }
     [void]$stack.Children.Add($body)
     [void]$dock.Children.Add($stack)
     $card.Child = $dock
@@ -735,17 +827,122 @@ function Start-Action([hashtable] $A) {
 }
 
 # ── is the server up? ───────────────────────────────────────────────────────
+# The pill at the top says whether anything is due (Show-Reminders). The local
+# server is not what the day depends on any more, so its state is one line on
+# the tab that holds its tiles — a red dot for a server nobody uses taught the
+# eye to ignore the dot. It is still asked: it knows how far behind the code is.
 function Update-Status {
+    $behind = 0
     try {
         $h = Invoke-RestMethod -Uri "http://127.0.0.1:$Port/api/health" -TimeoutSec 2
         $label = if ($h.server.label) { $h.server.label } else { 'СЕРВЕР' }
-        $dot.Fill = Get-Brush $(if ($h.ok) { '#2E9B4F' } else { '#E0A21B' })
-        $status.Text = "Локалниот сервер работи · $label · база $($h.database)"
+        $localSays = "Локалниот сервер работи · $label · база $($h.database)"
+        if ($h.update -and $h.update.behind) { $behind = [int]$h.update.behind }
     } catch {
-        $dot.Fill = Get-Brush '#D64545'
-        $status.Text = 'Локалниот сервер не е вклучен — „Отвори го денот“ го вклучува.'
+        $localSays = 'Локалниот сервер не е вклучен. За работа во облакот не е потребен.'
     }
+    if ($script:localLine) { $localLine.Text = $localSays }
     Update-CopyLine
+    Show-Reminders $behind
+}
+
+# How long ago, in the words a person uses for a date.
+function Get-DaysAgo([DateTime] $At) {
+    $days = [int]((Get-Date).Date - $At.Date).TotalDays
+    if ($days -le 0) { return 'денес' }
+    if ($days -eq 1) { return 'вчера' }
+    return 'пред ' + $days + ' дена'
+}
+
+# What is due, and what is in order. Files on this computer only: the newest
+# backup of the cloud (cloud-backup.ps1's, or the one cloud-migrate.ps1 takes
+# before a migration — either is the whole database), and the note the cloud
+# scripts leave (cloud-lib.ps1). A number in that note is from when it was
+# written, so the sentence says the date.
+function Get-Reminders([int] $Behind) {
+    $due = New-Object Collections.ArrayList
+    $fine = New-Object Collections.ArrayList
+    $store = Join-Path $BackupsRoot 'backups'
+
+    $dumps = @()
+    if (Test-Path -LiteralPath (Join-Path $store 'cloud')) { $dumps += @(Get-ChildItem -LiteralPath (Join-Path $store 'cloud') -File -Filter 'supabase-backup-*.dump') }
+    if (Test-Path -LiteralPath $store) { $dumps += @(Get-ChildItem -LiteralPath $store -File -Filter 'supabase-before-*.dump') }
+    $newest = @($dumps | Where-Object { $_.Length -ge 1024 } | Sort-Object LastWriteTime -Descending | Select-Object -First 1)
+    if (-not $newest.Count) {
+        [void]$due.Add(@{ Text = 'Резерва на облакот: на овој компјутер уште нема ниедна.'; Run = 'MTB - Oblak rezerva' })
+    } else {
+        $when = Get-DaysAgo $newest[0].LastWriteTime
+        if (((Get-Date).Date - $newest[0].LastWriteTime.Date).TotalDays -ge $backupDueDays) {
+            [void]$due.Add(@{ Text = 'Резерва на облакот: последната е ' + $when + ' (' + $newest[0].LastWriteTime.ToString('dd.MM.yyyy') + ').'; Run = 'MTB - Oblak rezerva' })
+        } else {
+            [void]$fine.Add('резерва на облакот: ' + $when)
+        }
+    }
+
+    $note = $null
+    $noteFile = Join-Path $store 'cloud\state.json'
+    if (Test-Path -LiteralPath $noteFile) { try { $note = Get-Content -LiteralPath $noteFile -Raw -Encoding UTF8 | ConvertFrom-Json } catch { } }
+    if ($note -and "$($note.recoverySchemas)" -match '^\d+$') {
+        $keep = if ("$($note.recoveryKeep)" -match '^\d+$') { [int]$note.recoveryKeep } else { 3 }
+        $seen = ''
+        try { $seen = ' (видено ' + ([DateTime]$note.checkedAt).ToString('dd.MM.yyyy') + ')' } catch { }
+        if ([int]$note.recoverySchemas -gt $keep) {
+            [void]$due.Add(@{ Text = 'Чистење на облакот: таму има ' + [int]$note.recoverySchemas + ' стари recovery копии, а се чуваат ' + $keep + $seen + '.'; Run = 'MTB - Oblak chistenje' })
+        } else {
+            [void]$fine.Add('облакот е исчистен')
+        }
+    }
+
+    if ($Behind -gt 0) {
+        [void]$due.Add(@{ Text = 'Кодот на овој компјутер е ' + $Behind + ' измени зад GitHub.'; Run = 'MTB - Azuriraj' })
+    }
+    return @{ Due = $due; Fine = $fine }
+}
+
+# One row for each thing that is due, with the button that does it. Nothing
+# due: one quiet sentence, so the absence of a reminder is not mistaken for
+# the panel not having looked.
+function Show-Reminders([int] $Behind) {
+    $T = $themes[$script:theme]
+    $r = Get-Reminders $Behind
+    $remindBox.Children.Clear()
+    if (-not $r.Due.Count) {
+        $dot.Fill = Get-Brush '#2E9B4F'
+        $status.Text = 'Нема што да се прави' + $(if ($r.Fine.Count) { ' · ' + ($r.Fine -join ' · ') } else { '' })
+        return
+    }
+    $dot.Fill = Get-Brush '#E0A21B'
+    $status.Text = if ($r.Due.Count -eq 1) { 'Потсетник: една работа чека' } else { 'Потсетник: ' + $r.Due.Count + ' работи чекаат' }
+    foreach ($one in $r.Due) {
+        $row = New-Object Windows.Controls.Border
+        $row.CornerRadius = [Windows.CornerRadius]::new(14)
+        $row.Padding = Get-Thick 16 8 8 8
+        $row.Margin = Get-Thick 0 8 0 0
+        $row.HorizontalAlignment = 'Center'
+        $wash = (Get-Brush '#E0A21B').Clone(); $wash.Opacity = $(if ($script:theme -eq 'dark') { 0.22 } else { 0.18 })
+        $row.Background = $wash
+        $row.BorderBrush = Get-Brush '#E0A21B'
+        $row.BorderThickness = Get-Thick 1.5 1.5 1.5 1.5
+        $line = New-Object Windows.Controls.StackPanel
+        $line.Orientation = 'Horizontal'
+        $words = New-Text $one.Text 14 $T.Title 'SemiBold'
+        $words.VerticalAlignment = 'Center'
+        $words.Margin = Get-Thick 0 0 10 0
+        [void]$line.Children.Add($words)
+        $target = $byName[$one.Run]
+        if ($target) {
+            $go = New-PillButton ('Направи сега: ' + $target.Title) 'Ја пушта плочката, во свој прозорец' {
+                param($s, $e)
+                $e.Handled = $true
+                $script:remindRun = [string]$s.Tag
+                $window.Dispatcher.BeginInvoke([Action]{ Start-Action $byName[$script:remindRun] }) | Out-Null
+            }
+            $go.Tag = $one.Run
+            [void]$line.Children.Add($go)
+        }
+        $row.Child = $line
+        [void]$remindBox.Children.Add($row)
+    }
 }
 
 # Only where a read-only copy of the cloud is set up (HOME, not WORK): how old
@@ -825,7 +1022,7 @@ function New-TabButton([hashtable] $One) {
     $b.BorderThickness = Get-Thick 1 1 1 1
     $b.Cursor = [Windows.Input.Cursors]::Hand
     $b.ToolTip = $One.Text
-    $count = @($script:order | Where-Object { $byName[$_].Tab -eq $One.Key }).Count
+    $count = if ($One.Key -eq 'fav') { $script:favs.Count } else { @($script:order | Where-Object { $byName[$_].Tab -eq $One.Key }).Count }
     $b.Child = New-Text ($One.Title + '  ' + $count) 15 $(if ($on) { $T.CardBase } else { $T.BtnFg }) 'Bold'
     $b.Tag = $One.Key
     $b.add_MouseLeftButtonUp({
@@ -875,7 +1072,7 @@ function Show-Page {
     $dot.Width = 11; $dot.Height = 11; $dot.VerticalAlignment = 'Center'
     $dot.Fill = Get-Brush '#9AA4B8'
     [void]$pillRow.Children.Add($dot)
-    $script:status = New-Text 'Проверувам го серверот…' 13.5 $T.PillText 'SemiBold'
+    $script:status = New-Text 'Гледам што чека…' 13.5 $T.PillText 'SemiBold'
     $status.Margin = Get-Thick 10 0 10 0; $status.VerticalAlignment = 'Center'
     [void]$pillRow.Children.Add($status)
     $script:barButton = New-PillButton '' 'Покажи или скриј ги контролите' { Switch-Controls }
@@ -883,19 +1080,16 @@ function Show-Page {
     $pill.Child = $pillRow
     [void]$page.Children.Add($pill)
 
-    $script:copyLine = $null
-    if (Test-MtbEnvKey 'MTB_MIRROR_READER_DATABASE_URL') {
-        $script:copyLine = New-Text 'Копија од облакот: проверувам…' 13 $T.Sub
-        $copyLine.HorizontalAlignment = 'Center'; $copyLine.TextAlignment = 'Center'
-        $copyLine.Margin = Get-Thick 0 8 18 0
-        [void]$page.Children.Add($copyLine)
-    }
+    # What is due, filled by Show-Reminders once the page is up.
+    $script:remindBox = New-Object Windows.Controls.StackPanel
+    $remindBox.Margin = Get-Thick 0 4 18 0
+    [void]$page.Children.Add($remindBox)
 
     $script:controls = New-Object Windows.Controls.StackPanel
     $controls.Margin = Get-Thick 0 10 18 0
 
     $subText = if ($script:gridLocked) { 'Распоредот е заклучен: плочките стојат каде што се. Клик на плочка ја пушта; клик на иконата: бои.' }
-               else { 'Клик на плочка ја пушта. Повлечи ја врз друга за да ја преместиш. Игла: плочката останува на своето место. Клик на иконата: боја на иконата и на картичката.' }
+               else { 'Клик на плочка ја пушта. Ѕвезда: плочката е и во „Омилени“. Повлечи ја врз друга за да ја преместиш. Игла: останува на своето место. Клик на иконата: бои.' }
     $sub = New-Text $subText 13.5 $T.Sub
     $sub.HorizontalAlignment = 'Center'; $sub.TextAlignment = 'Center'
     [void]$controls.Children.Add($sub)
@@ -903,7 +1097,7 @@ function Show-Page {
     $buttons = New-Object Windows.Controls.WrapPanel
     $buttons.HorizontalAlignment = 'Center'
     $buttons.Margin = Get-Thick 0 10 0 0
-    [void]$buttons.Children.Add((New-PillButton 'Освежи' 'Провери го серверот пак' { Update-Status }))
+    [void]$buttons.Children.Add((New-PillButton 'Освежи' 'Погледни пак: потсетниците и локалниот сервер' { Update-Status }))
     $themeText = if ($script:theme -eq 'dark') { 'Светла тема' } else { 'Темна тема' }
     [void]$buttons.Children.Add((New-PillButton $themeText 'Светла или темна; се памети на овој компјутер' {
         $script:theme = if ($script:theme -eq 'dark') { 'light' } else { 'dark' }
@@ -912,15 +1106,17 @@ function Show-Page {
     }))
     $lockText = if ($script:gridLocked) { 'Отклучи распоред' } else { 'Заклучи распоред' }
     [void]$buttons.Children.Add((New-PillButton $lockText 'Заклучен: ниедна плочка не се мести' { Switch-GridLock }))
-    [void]$buttons.Children.Add((New-PillButton 'Почетен распоред' 'Редоследот, иглите и боите како на почеток' {
+    [void]$buttons.Children.Add((New-PillButton 'Почетен распоред' 'Редоследот, омилените, иглите и боите како на почеток' {
         if ($script:gridLocked) { $footer.Text = 'Распоредот е заклучен — прво „Отклучи“.'; return }
         $script:order = New-Object Collections.ArrayList
         foreach ($a in $defaults) { [void]$script:order.Add($a.Name) }
         $script:pinned = @{}
         $script:colours = @{}
         $script:cardColours = @{}
-        Update-Tiles
-        $footer.Text = 'Распоредот е вратен на почетниот.'
+        $script:favs = New-Object Collections.ArrayList
+        foreach ($a in $defaults) { if ($a.Fav) { [void]$script:favs.Add($a.Name) } }
+        Save-Layout
+        $window.Dispatcher.BeginInvoke([Action]{ Show-Page; Update-Status; $footer.Text = 'Распоредот е вратен на почетниот.' }) | Out-Null
     }))
     # The settings as a file: kept and carried by hand, beside pCloud.
     [void]$buttons.Children.Add((New-PillButton 'Извези поставки' 'Зачувај ги редоследот, иглите, боите и темата во JSON фајл' {
@@ -945,10 +1141,32 @@ function Show-Page {
     $about.Margin = Get-Thick 0 10 18 0
     [void]$page.Children.Add($about)
 
+    # The local server's state and the copy's age belong with their tiles.
+    $script:localLine = $null
+    $script:copyLine = $null
+    if ($script:tab -eq 'parked') {
+        $script:localLine = New-Text 'Локалниот сервер: проверувам…' 13 $T.Sub
+        $localLine.HorizontalAlignment = 'Center'; $localLine.TextAlignment = 'Center'
+        $localLine.Margin = Get-Thick 0 8 18 0
+        [void]$page.Children.Add($localLine)
+        if (Test-MtbEnvKey 'MTB_MIRROR_READER_DATABASE_URL') {
+            $script:copyLine = New-Text 'Копија од облакот: проверувам…' 13 $T.Sub
+            $copyLine.HorizontalAlignment = 'Center'; $copyLine.TextAlignment = 'Center'
+            $copyLine.Margin = Get-Thick 0 4 18 0
+            [void]$page.Children.Add($copyLine)
+        }
+    }
+    if ($script:tab -eq 'fav' -and -not $script:favs.Count) {
+        $none = New-Text 'Тука уште нема ништо. Отвори друго јазиче и допри ја ѕвездата на плочката што ја користиш секој ден.' 14.5 $T.Body
+        $none.HorizontalAlignment = 'Center'; $none.TextAlignment = 'Center'
+        $none.Margin = Get-Thick 0 26 18 10
+        [void]$page.Children.Add($none)
+    }
+
     # Three columns whatever the window's width (it cannot get narrower than
     # three tiles), so a row is full before the next one starts.
     $script:tiles = New-Object Windows.Controls.Primitives.UniformGrid
-    $tiles.Columns = 3
+    $tiles.Columns = if ($script:tab -eq 'parked') { 1 } else { 3 }
     $tiles.Margin = Get-Thick 0 16 0 0
     [void]$page.Children.Add($tiles)
 
@@ -979,7 +1197,9 @@ try {
     $refresh.Interval = [TimeSpan]::FromSeconds(10)
     $refresh.add_Tick({ $refresh.Stop(); Update-Status })
 
+    $window.add_Activated({ if ($script:rendered) { Update-Status } })
     $window.add_ContentRendered({
+        $script:rendered = $true
         Update-Status
         if ($Snapshot) {
             $window.Dispatcher.Invoke([Action]{}, 'Background')

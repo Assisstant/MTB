@@ -105,6 +105,12 @@ $schemas = @($rows | ForEach-Object {
     $p = $_.Split('|')
     [pscustomobject]@{ Name = $p[0]; Tables = [int]$p[1]; Bytes = [int64]$p[2] }
 })
+# The Контролна табла reminds from this count; a rehearsal is not the cloud.
+function Save-SchemaCount([int]$Count) {
+    if ($RehearseOn) { return }
+    Set-MtbCloudState -Repo $repo -Values @{ recoverySchemas = $Count; recoveryKeep = $Keep; checkedAt = (Get-Date).ToString('s') }
+}
+Save-SchemaCount $schemas.Count
 if (-not $schemas.Count) {
     Write-Host ''
     Write-Host '  Нема recovery шеми во облакот.' -ForegroundColor Green
@@ -225,6 +231,7 @@ Write-Host ("  вратена и споредена: {0} табели во {1} �
 $drop = 'BEGIN; ' + (($old | ForEach-Object { 'DROP SCHEMA ' + $_.Name + ' CASCADE;' }) -join ' ') + ' COMMIT;'
 try { Invoke-Sql $cloud.Url $drop | Out-Null }
 catch { Stop-WithMessage ("Бришењето не помина и е вратено (rollback). Облакот е како пред тоа; архивата е во $archive.`n" + $_.Exception.Message) }
+Save-SchemaCount $stay.Count
 
 Write-Host ''
 Write-Host "Готово. Од облакот се тргнати $($old.Count) шеми ($freed); докажаната копија е во $archive." -ForegroundColor Green
