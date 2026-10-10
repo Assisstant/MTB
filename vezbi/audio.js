@@ -4,6 +4,8 @@ window.createVezbiAudio = function ({ sound, recordings, save, note }) {
   const $ = id => document.getElementById(id);
   const loads = new Map();
   const MAX_FILE = 10 * 1024 * 1024;
+  // Themes may use the same word for different objects (e.g. two brushes).
+  const recordingKey = (g, text) => g.kind === 'theme' ? g.file + ':' + text : text;
   let muted = false, player = null, playerUrl = '', generation = 0;
   let editing = null, recording = null, capture = 0, busy = false;
   let rate = 1;
@@ -24,7 +26,7 @@ window.createVezbiAudio = function ({ sound, recordings, save, note }) {
 
   function terms(g) {
     return [...new Set([...g.words, ...(g.sentences || [])].map(x => (x.w || x.s).replace(/[{}]/g, ''))
-      .concat([...'ауеио'].flatMap(v => [g.letter + v, v + g.letter + v, v + g.letter])))];
+      .concat(g.kind === 'theme' ? [] : [...'ауеио'].flatMap(v => [g.letter + v, v + g.letter + v, v + g.letter])))];
   }
   function load(g) {
     if (window.VEZBI_AUDIO?.[g.file]) return Promise.resolve(window.VEZBI_AUDIO[g.file]);
@@ -64,7 +66,7 @@ window.createVezbiAudio = function ({ sound, recordings, save, note }) {
     stop();
     if (muted) { if (!quiet) message('Звукот е исклучен. Вклучи го со 🔇 во лентата.'); return; }
     const ticket = generation;
-    let source = recordings[text] || g.audio?.[text];
+    let source = recordings[recordingKey(g, text)] || g.audio?.[text];
     if (!source) {
       try { source = (await load(g)).items[text]; } catch (_) { /* a native Macedonian voice can still work */ }
     }
@@ -119,8 +121,11 @@ window.createVezbiAudio = function ({ sound, recordings, save, note }) {
   }
   function refresh() {
     if (!editing) return;
-    const own = !!recordings[editing.text];
-    $('audio-source').textContent = own ? 'Твоја снимка · зачувана на овој уред' : 'Марија · македонски · вградена снимка';
+    const own = !!recordings[recordingKey(editing.g, editing.text)];
+    const source = editing.g.audioSources?.[editing.text];
+    $('audio-source').textContent = own ? 'Твоја снимка · зачувана на овој уред' : source?.kind === 'author'
+      ? 'Глас од авторското видео · вградена снимка' : source?.kind === 'replacement'
+      ? 'Заменета снимка · вклучена во темата' : 'Марија · македонски · синтетичка снимка';
     $('audio-reset').hidden = !own;
     $('audio-record').textContent = recording ? '⏹ Зачувај ја снимката' : '🎙 Сними со микрофон';
     $('audio-file').disabled = busy || !!recording;
@@ -160,7 +165,7 @@ window.createVezbiAudio = function ({ sound, recordings, save, note }) {
         if (recording === active) recording = null;
         if (!active.cancelled && chunks.length) {
           busy = true; refresh();
-          try { await save({[target.text]:new Blob(chunks, {type:recorder.mimeType})}); message('Снимката е зачувана. Допри „Слушни“ за проверка.'); }
+          try { await save({[recordingKey(target.g, target.text)]:new Blob(chunks, {type:recorder.mimeType})}); message('Снимката е зачувана. Допри „Слушни“ за проверка.'); }
           catch (_) { message('Снимката не се зачува. Провери го просторот во прелистувачот.'); }
           finally { busy = false; }
         }
@@ -177,7 +182,7 @@ window.createVezbiAudio = function ({ sound, recordings, save, note }) {
   async function allAudio(g = sound()) {
     const pack = await load(g), items = {};
     for (const text of terms(g)) {
-      const value = recordings[text] || g.audio?.[text] || pack.items[text];
+      const value = recordings[recordingKey(g, text)] || g.audio?.[text] || pack.items[text];
       if (value) items[text] = value instanceof Blob ? await asData(value) : value;
     }
     return items;
@@ -187,7 +192,7 @@ window.createVezbiAudio = function ({ sound, recordings, save, note }) {
       const g = sound(), items = await allAudio(g);
       const pack = {format:'mtb-vezbi-audio', version:1, sound:g.file, locale:'mk-MK', items};
       download(new Blob([JSON.stringify(pack)], {type:'application/json'}), 'audio-' + g.file + '.json');
-      note('Аудиопакетот е преземен. На друг уред избери „Внеси аудиопакет“ за истиот глас.');
+      note('Аудиопакетот е преземен. На друг уред избери „Внеси аудиопакет“ за ' + (g.kind === 'theme' ? 'истата тема.' : 'истиот глас.'));
     } catch (e) { note(e.message); }
   }
   async function importPack(file) {
@@ -197,13 +202,13 @@ window.createVezbiAudio = function ({ sound, recordings, save, note }) {
       const pack = JSON.parse(await file.text()), g = sound(), allowed = new Set(terms(g));
       if (pack.format !== 'mtb-vezbi-audio' || pack.version !== 1 || pack.sound !== g.file || pack.locale !== 'mk-MK'
         || !pack.items || typeof pack.items !== 'object' || Array.isArray(pack.items))
-        throw new Error('Избери аудиопакет за тековниот глас ' + g.letter.toUpperCase() + '.');
+        throw new Error('Избери аудиопакет за ' + (g.title || 'тековниот глас ' + g.letter.toUpperCase()) + '.');
       const entries = Object.entries(pack.items);
       if (!entries.length || entries.length > allowed.size || entries.some(([text]) => !allowed.has(text)))
         throw new Error('Пакетот содржи непознати поими. Ништо не е сменето.');
       note('Ги проверувам снимките…');
       const replacements = {};
-      for (const [text, data] of entries) { const blob = fromData(data); await validate(blob); replacements[text] = blob; }
+      for (const [text, data] of entries) { const blob = fromData(data); await validate(blob); replacements[recordingKey(g, text)] = blob; }
       await save(replacements);
       note('Внесени се ' + entries.length + ' снимки на овој уред.');
     } catch (e) { note(e instanceof SyntaxError ? 'Ова не е валиден аудиопакет.' : e.message); }
@@ -221,21 +226,21 @@ window.createVezbiAudio = function ({ sound, recordings, save, note }) {
   $('audio-file').addEventListener('change', async e => {
     const file = e.target.files[0], target = editing; if (!file || !target) return;
     busy = true; refresh(); stop();
-    try { await validate(file); await save({[target.text]:file}); message('Датотеката е зачувана на овој уред. Допри „Слушни“.'); }
+    try { await validate(file); await save({[recordingKey(target.g, target.text)]:file}); message('Датотеката е зачувана на овој уред. Допри „Слушни“.'); }
     catch (err) { message(err.message); }
     finally { busy = false; e.target.value = ''; refresh(); }
   });
   $('audio-reset').addEventListener('click', async () => {
     if (!editing || busy) return;
     if (!confirm('Да се тргне твојата снимка за овој поим и да се врати вградената?')) return;
-    try { stop(); await save({[editing.text]:undefined}); refresh(); message('Вратена е вградената снимка.'); }
+    try { stop(); await save({[recordingKey(editing.g, editing.text)]:undefined}); refresh(); message('Вратена е вградената снимка.'); }
     catch (_) { message('Промената не се зачува.'); }
   });
   $('audio-download').addEventListener('click', async () => {
     if (!editing) return;
     const {text, g} = editing;
     try {
-      const source = recordings[text] || g.audio?.[text] || (await load(g)).items[text];
+      const source = recordings[recordingKey(g, text)] || g.audio?.[text] || (await load(g)).items[text];
       if (!source) throw new Error('Нема снимка за преземање.');
       const blob = source instanceof Blob ? source : fromData(source);
       const ext = /mpeg|mp3/.test(blob.type) ? 'mp3' : /wav/.test(blob.type) ? 'wav' : /mp4|m4a/.test(blob.type) ? 'm4a' : /ogg/.test(blob.type) ? 'ogg' : 'webm';

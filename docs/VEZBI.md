@@ -36,6 +36,60 @@ The words of the П deck, in the owner's three groups of rising difficulty:
 
 ## Where it stands
 
+### Thematic vocabulary from the owner's slides and narration (10 Oct 2026)
+
+The owner supplied a PowerPoint with 11 slides and their own YouTube voiceover,
+said to build it, made nine videos public, then explicitly approved Marija for
+anything unavailable. The supplied clothes link still answered “Private video”
+on 10 October. There was no small-animal recording and the school video omits
+the slide's “диск”. No private account or browser cookies were used.
+
+- **11 themes / 152 terms**, alongside the original 26 sounds, in the SAME
+  engine: open the first selector → **Теми**. Body parts, domestic animals,
+  wild animals, small animals, kitchen utensils, furniture/home objects,
+  clothes/footwear, fruit, vegetables, hygiene, school equipment.
+- Themes start at words, with **Цел збор → Само цртички → Само слика**;
+  no meaningless syllables or “Без [letter]” stage. Existing drag-only tiles,
+  keyboard, stationary star, single-card/grid views, print and ComuniBoard
+  transfer remain. Multiword terms wrap at spaces; long letters fit their boxes.
+- **121 clips from the owner's nine public videos; 31 Marija clips.** The
+  recording order was checked against local Whisper transcription, then each
+  speech region was cut with 250 ms before / 300 ms after it. Word positions
+  were NOT inferred from slide XML order. Two omitted recognitions in the wild
+  animal transcript were checked separately. Automated recognition and decoding
+  do not constitute a therapist's listening review of every pronunciation.
+- Marija covers clothes, small animals, “диск” and four editorial corrections:
+  пајка → патка, супиена лажица → супена лажица, сат → часовник,
+  роквица → ротквица. Spacing is also corrected in бубамара and лаптоп;
+  лаптоп retains its original recording. The original label, picture ID and
+  exact audio provenance/times live in `vezbi/themes-manifest.json`.
+- All 152 pictures were inspected as contact sheets and ambiguous search
+  results corrected (e.g. fly/insect, soap/action, pot/watering can). **151
+  ARASAAC entries and one generated ѓезве illustration**: the latter has its
+  own credit, source and generation prompt in `vezbi/images/README.md`.
+  Original slide clipart stays out of Git.
+- `temi.js` embeds the pictures; 11 lazy `audio/theme-*.js` bundles embed MP3s.
+  The explicit server allowlist and offline ZIP include them. Nothing contacts
+  YouTube, ARASAAC or a speech service during exercise playback.
+- Audio editor labels author/Marija/personal recordings. Playback speed and mute
+  are shared with sounds. Personal replacements AND pictures use a theme prefix,
+  so the hygiene brush does not replace the school paintbrush. Legacy sound
+  recordings keep their exact-text keys. JSON audio packs still transfer one
+  selected catalogue only; a mismatched theme is refused.
+
+Build: `python scripts/vezbi-themes.py` previews; `--apply` requires the supplied
+MP3s in ignored `backups/body-parts-source/`, ffmpeg, Pillow and edge-tts. It
+uses the reviewed manifest and cached official pictograms, then publishes
+complete bundles. No downloader or credentials in the script. It also creates
+`backups/body-parts-source/Temi-audio.zip`: named MP3s by theme and 11 importable
+JSON packs. `scripts/vezbi-zip.ps1` packages the whole offline application.
+
+Validation: `test:vezbi-themes` decodes all 152 images and MP3s, exercises the
+picker, spelling, provenance, isolated recording imports/reload, speed/mute,
+phone bounds and `file://`. Desktop and phone screenshots were inspected.
+The existing `test:vezbi`, `test:vezbi-audio` and `test:vezbi-feedback` cover the
+surrounding tools, sound decks and child-facing behavior.
+
 ### A tile is placed only by dragging (9 Oct 2026)
 
 The owner, after trying it in the cloud: only drag and drop may put a letter

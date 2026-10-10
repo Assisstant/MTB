@@ -59,11 +59,14 @@ const PUBLIC_FILES = new Set([
     // never published as a folder: each file in it is named here.
     'vezbi/index.html',
     'vezbi/audio.js',
+    'vezbi/temi.js',
     'vezbi/vezbi.jpg',
     'vezbi/tabla.jpg',
     'vezbi/crtanje.jpg',
     ...['b', 'c', 'ch', 'd', 'dz', 'dzh', 'f', 'g', 'gj', 'h', 'j', 'k', 'kj', 'l', 'lj', 'm', 'n',
-        'nj', 'p', 'r', 's', 'sh', 't', 'v', 'z', 'zh'].flatMap((sound) => [`vezbi/glasovi/${sound}.js`, `vezbi/audio/${sound}.js`])
+        'nj', 'p', 'r', 's', 'sh', 't', 'v', 'z', 'zh'].flatMap((sound) => [`vezbi/glasovi/${sound}.js`, `vezbi/audio/${sound}.js`]),
+    ...['body', 'domestic', 'wild', 'small', 'kitchen', 'home', 'clothes', 'fruit', 'vegetables', 'hygiene', 'school']
+        .map((theme) => `vezbi/audio/theme-${theme}.js`)
 ]);
 
 // The one folder address that answers: it resolves to its own index.html.

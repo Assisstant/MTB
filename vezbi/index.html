@@ -41,6 +41,11 @@
   .pop .seg { max-width: min(330px, 100vw - 34px); }
   #sound { display: grid; grid-template-columns: repeat(7, 40px); }
   #sound button { padding: 0; height: 40px; }
+  #sound-mode { display:flex; gap:6px; margin-bottom:10px; }
+  #sound.themes { grid-template-columns:1fr; width:min(300px, calc(100vw - 50px)); max-height:55vh; overflow:auto; }
+  #sound.themes button { text-align:left; padding:8px 12px; height:auto; min-height:40px; white-space:normal; }
+  #m-sound .opener { max-width:min(300px, 70vw); overflow:hidden; text-overflow:ellipsis; }
+  #m-sound.thematic .opener b { color:var(--ink); font-size:14px; }
   .pop .seg.col, .pop.list { flex-direction: column; flex-wrap: nowrap; align-items: stretch; min-width: 190px; }
   .menu.open .pop.list { display: flex; gap: 4px; }
   .pop .seg.col button, .pop.list .plain { text-align: left; border-radius: 10px; }
@@ -172,6 +177,11 @@
   .one .sent .ltr { width: calc(var(--u) * .7); height: calc(var(--u) * .9); font-size: calc(var(--u) * .56); }
   .one .sent .dash { font-size: calc(var(--u) * .56); }
   .one .gap { width: calc(var(--u) * 2.2); height: calc(var(--u) * .9); }
+  /* Thematic terms include long words and phrases; break at spaces and keep
+     each letter inside its box even in a narrow grid card. */
+  body.themes .card { container-type:inline-size; }
+  .word.phrase { flex-wrap:wrap; gap:8px 16px; }
+  body.themes .card .word .ltr { font-size:min(34px, calc((100cqi - 32px) / var(--letters) * .7)); }
   /* 🔊 alone sits in the card's corner and takes no row of its own */
   .one .tools:not(.edit) { position: absolute; top: 10px; left: 10px; }
   .one .tools:not(.edit) .plain { width: 46px; height: 46px; padding: 0; font-size: 20px; }
@@ -263,8 +273,8 @@
 <div id="vezbi" hidden>
 <header id="bar" aria-label="Вежба">
   <div class="menu" id="m-sound">
-    <button class="plain opener" title="Глас" aria-haspopup="true" aria-expanded="false"><span class="lbl">Глас </span><b id="letter"></b></button>
-    <div class="pop"><div class="seg" id="sound"></div></div>
+    <button class="plain opener" title="Глас или тема" aria-haspopup="true" aria-expanded="false"><span class="lbl" id="deck-kind">Глас </span><b id="letter"></b></button>
+    <div class="pop"><div class="seg" id="sound-mode"><button data-library="sounds" aria-pressed="true">Гласови</button><button data-library="themes" aria-pressed="false">Теми</button></div><div class="seg" id="sound"></div></div>
   </div>
   <div class="menu" id="m-stage">
     <button class="plain opener" title="Вежба" aria-haspopup="true" aria-expanded="false"><span id="stage-now"></span></button>
@@ -357,7 +367,8 @@
 <footer>
   <span>Пиктограми: Sergio Palao · <a href="https://arasaac.org/" target="_blank" rel="noopener">ARASAAC</a> ·
   <a href="https://arasaac.org/terms-of-use" target="_blank" rel="noopener">CC BY-NC-SA</a> · Влада на Арагон (Шпанија).</span>
-  <span>Изговор: Марија · македонски синтетички глас. Секоја снимка може да се замени.</span>
+  <span id="voice-credit">Изговор: Марија · македонски синтетички глас. Секоја снимка може да се замени.</span>
+  <span id="theme-credit" hidden>Дополнителна илустрација „ѓезве“: генерирана со AI; не е ARASAAC пиктограм.</span>
 </footer>
 <style>
   footer span { display:block; margin:4px 0; }
@@ -418,6 +429,7 @@
 <script src="glasovi/f.js"></script>
 <script src="glasovi/dzh.js"></script>
 <script src="glasovi/dz.js"></script>
+<script src="temi.js"></script>
 <script>
 // One sound = one file in glasovi/, listed in the <script> tags above. Each
 // file adds { letter, file, words, sentences, img } to GLASOVI. A new sound = a
@@ -443,28 +455,51 @@ const sentences = () => state.stage === 'sent';
 const list = () => (sentences() ? SENTENCES : WORDS);
 const plain = (item) => (item.w || item.s).replace(/[{}]/g, '');
 const upper = () => TARGET.toUpperCase();
+const thematic = () => state.library === 'themes';
+const catalogue = () => thematic() ? window.VEZBI_THEMES || [] : GLASOVI;
+const currentDeck = () => catalogue()[state.sound];
+function chooseLibrary(library) {
+  state.library = library === 'themes' ? 'themes' : 'sounds';
+  state.step = 0;
+  $('sound').textContent = '';
+  $('sound').classList.toggle('themes', thematic());
+  $('m-sound').classList.toggle('thematic', thematic());
+  document.body.classList.toggle('themes', thematic());
+  $('deck-kind').textContent = thematic() ? 'Тема ' : 'Глас ';
+  document.querySelectorAll('[data-library]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.library === state.library)));
+  catalogue().forEach((g, k) => {
+    const b = document.createElement('button'); b.dataset.v = k;
+    b.textContent = g.title || g.letter.toUpperCase();
+    b.setAttribute('aria-label', g.title || 'Глас ' + g.letter.toUpperCase());
+    $('sound').appendChild(b);
+  });
+  pick(0);
+}
 const keysOf = (item) => [].concat(item.img || plain(item));
 const picture = (key) => own[key] || IMG[key] || '';
 
 function pick(k) {
   audio.close();
-  const g = GLASOVI[k];
+  note('');
+  const g = catalogue()[k];
   state.sound = k;
   TARGET = g.letter;
   SYLLABLES = [...VOWELS].map((v) => [TARGET + v, v + TARGET + v, v + TARGET]);
   WORDS = g.words;
   SENTENCES = g.sentences || [];
   IMG = g.img;
-  state.stage = 'syll';
+  state.stage = thematic() ? '0' : 'syll';
   state.done = {};
   fresh();
-  document.title = 'Глас ' + upper() + ' — вежби за изговор';
-  $('letter').textContent = upper();
-  $('sheet-letter').textContent = 'Глас ' + upper();
+  document.title = (g.title || 'Глас ' + upper()) + ' — вежби за изговор';
+  $('letter').textContent = g.title || upper();
+  $('sheet-letter').textContent = g.title || 'Глас ' + upper();
+  $('voice-credit').textContent = thematic() ? 'Изговор: снимки од авторот и Марија за поимите без снимка. Изворот се гледа во „Аудио“.' : 'Изговор: Марија · македонски синтетички глас. Секоја снимка може да се замени.';
+  $('theme-credit').hidden = g.file !== 'theme-kitchen';
 
   // The owner's groups of words: named while there are few, numbers when many.
   const groups = Math.max(0, ...WORDS.map((w) => w.set || 0));
-  const stages = [['syll', 'Слогови'], ['0', 'Сите зборови']];
+  const stages = thematic() ? [['0', 'Сите зборови']] : [['syll', 'Слогови'], ['0', 'Сите зборови']];
   for (let n = 1; n <= groups; n++) stages.push([String(n), groups > 3 ? String(n) : 'Зборови ' + n, 'Зборови ' + n]);
   if (SENTENCES.length) stages.push(['sent', 'Реченици']);
   $('stage').textContent = '';
@@ -499,8 +534,11 @@ const stepOf = (i) => (i in state.own ? state.own[i] : state.step);
 function letters(text, step, filled, sentence) {
   const box = document.createElement('div');
   box.className = 'word' + (sentence ? ' sent' : [...text].length > 6 ? ' long' : '') + (step === 3 ? ' hidden' : '');
+  const phrase = thematic() && !sentence && text.includes(' ');
+  box.classList.toggle('phrase', phrase);
+  box.style.setProperty('--letters', Math.max(...text.split(' ').map(w => [...w].length)));
   const group = () => {
-    if (!sentence) return box;
+    if (!sentence && !phrase) return box;
     const g = document.createElement('span');
     g.className = 'grp';
     box.appendChild(g);
@@ -512,7 +550,7 @@ function letters(text, step, filled, sentence) {
     pos++;
     const el = document.createElement('span');
     if (ch === ' ') {
-      if (sentence) into = group(); else { el.className = 'dash'; el.textContent = ' '; into.appendChild(el); }
+      if (sentence || phrase) into = group(); else { el.className = 'dash'; el.textContent = ' '; into.appendChild(el); }
       continue;
     }
     if (sentence && step === 2 && braced) {
@@ -778,7 +816,7 @@ function card(i) {
     if (box) { state.sel = { i, pos: Number(box.dataset.pos) }; mark(); return; }
     if (opensBig()) return zoom(i);
     if (need) { audio.play(text); return; }
-    state.own[i] = (step + 1) % 4;
+    state.own[i] = thematic() && step === 0 ? 2 : (step + 1) % 4;
     wipe(i);
     draw();
   });
@@ -1239,16 +1277,17 @@ async function sendCard(cardEl) {
 
 // The sound as a file for the glasovi folder, with the pictures chosen here inside.
 async function exportSound() {
-  const g = GLASOVI[state.sound];
+  const g = currentDeck();
   const img = Object.assign({}, g.img);
   for (const item of [...g.words, ...(g.sentences || [])]) {
     for (const key of keysOf(item)) if (own[key]) img[key] = own[key];
   }
   let clips;
   try { clips = await audio.allAudio(g); } catch (e) { note(e.message); return; }
-  const body = { letter: g.letter, file: g.file, words: g.words, sentences: g.sentences || [], img, audio:clips };
-  const text = '// Глас ' + upper() + '. Exported from the page with the pictures chosen there.\n'
-    + 'GLASOVI.push(' + JSON.stringify(body, null, 1) + ');\n';
+  const audioSources = Object.fromEntries(g.words.map(w => [w.w, recs[g.file + ':' + w.w] ? {kind:'replacement'} : g.audioSources?.[w.w]]));
+  const body = { letter: g.letter, file: g.file, ...(g.title ? {title:g.title,kind:g.kind,audioSources} : {}), words: g.words, sentences: g.sentences || [], img, audio:clips };
+  const text = '// ' + (g.title || 'Глас ' + upper()) + '. Exported with pictures and audio.\n'
+    + (thematic() ? '(() => {\nconst deck = ' + JSON.stringify(body, null, 1) + ';\nwindow.VEZBI_THEMES = window.VEZBI_THEMES || [];\nconst i = window.VEZBI_THEMES.findIndex(g => g.file === deck.file);\nif (i < 0) window.VEZBI_THEMES.push(deck); else window.VEZBI_THEMES[i] = deck;\n})();\n' : 'GLASOVI.push(' + JSON.stringify(body, null, 1) + ');\n');
   const url = URL.createObjectURL(new Blob([text], { type: 'text/javascript' }));
   const a = document.createElement('a');
   a.href = url;
@@ -1257,7 +1296,7 @@ async function exportSound() {
   a.click();
   a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 2000);
-  note('Зачуван е фајлот ' + g.file + '.js со сликите и аудиото. Стави го во папката „glasovi" наместо стариот за да важат на секој уред.');
+  note(thematic() ? 'Преземена е темата со слики и аудио. За пренос само на снимките користи „Извези аудиопакет“.' : 'Зачуван е фајлот ' + g.file + '.js со сликите и аудиото. Стави го во папката „glasovi" наместо стариот за да важат на секој уред.');
 }
 
 // Automatic success feedback uses the same recording and mute setting.
@@ -1276,6 +1315,7 @@ function draw() {
     ? ['Цела реченица', 'Без ' + upper(), 'Без збор', 'Само слика']
     : ['Цел збор', 'Без ' + upper(), 'Само цртички', 'Само слика'];
   [...$('step').children].forEach((b, k) => { b.textContent = names[k]; });
+  $('step').querySelector('[data-v="1"]').hidden = thematic();
   const words = state.stage !== 'syll';
   // kept in the row while out of use, so the bar does not fold as the words come on
   $('view').parentElement.style.visibility = words ? '' : 'hidden';
@@ -1389,7 +1429,7 @@ function cards(words, names) {
     : state.step === 2 && !sentences()
     ? (state.kb ? 'Состави го зборот: допри или повлечи буква во празна кутија. ' : 'Состави го зборот: повлечи ја секоја буква во нејзината кутија. ') + tap
     : opensBig() ? tap + ' 🔊 го кажува текстот.'
-    : 'Допри ја сликата за следниот чекор само за неа: ' + names.join(' → ').toLowerCase().replace(' ' + TARGET + ' ', ' ' + upper() + ' ') + '. 🔊 го кажува текстот.';
+    : 'Допри ја сликата за следниот чекор само за неа: ' + names.filter((_,i) => !thematic() || i !== 1).join(' → ').toLowerCase().replace(' ' + TARGET + ' ', ' ' + upper() + ' ') + '. 🔊 го кажува текстот.';
   const now = shown();
   if (state.view === 'grid') {
     const grid = document.createElement('div');
@@ -1442,6 +1482,10 @@ function stage(v) {
 // the button's value, wherever in the button the tap fell (a picture, a word)
 const chosen = (e) => { const b = e.target.closest('button'); return b ? b.dataset.v : undefined; };
 $('sound').addEventListener('click', (e) => { const v = chosen(e); if (v === undefined) return; note(''); pick(Number(v)); draw(); });
+$('sound-mode').addEventListener('click', e => {
+  const b = e.target.closest('[data-library]'); if (!b) return;
+  e.stopPropagation(); chooseLibrary(b.dataset.library); note(''); draw();
+});
 $('stage').addEventListener('click', (e) => { const v = chosen(e); if (v === undefined) return; stage(v); note(''); draw(); });
 $('step').addEventListener('click', (e) => { const v = chosen(e); if (v === undefined) return; state.step = Number(v); state.own = {}; wipe(); draw(); });
 $('view').addEventListener('click', (e) => {
@@ -1512,22 +1556,15 @@ document.addEventListener('keydown', (e) => {
   else if (e.key === ' ' && e.target === document.body) { e.preventDefault(); out.querySelector('.pic').click(); }
 });
 
-const audio = window.createVezbiAudio({sound: () => GLASOVI[state.sound], recordings:recs, save:saveVoices, note});
+const audio = window.createVezbiAudio({sound: currentDeck, recordings:recs, save:saveVoices, note});
 parts();
 menus();
 if (!GLASOVI.length) {
   $('hint').textContent = 'Недостига папката „glasovi". Копирај ја заедно со index.html, во иста папка.';
   go(location.hash.slice(1));
 } else {
-  GLASOVI.forEach((g, k) => {
-    const b = document.createElement('button');
-    b.dataset.v = k;
-    b.textContent = g.letter.toUpperCase();
-    b.setAttribute('aria-label', 'Глас ' + g.letter.toUpperCase());
-    $('sound').appendChild(b);
-  });
   keyboard();
-  pick(0);
+  chooseLibrary('sounds');
   go(location.hash.slice(1));
   openDb().then(draw);
 }
