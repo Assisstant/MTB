@@ -50,6 +50,19 @@
 .wbacc-picto { padding: 4px !important; background: #fff !important; border-radius: 8px !important; }
 .wbacc-picto.on { outline: 3px solid #6965db; }
 .wbacc-picto img { width: 100%; display: block; }
+.wbacc-stamps label { display:grid; gap:4px; }
+.wbacc-stamps button, .wbacc-stamps select, .wbacc-stamps input[type="search"] { min-height:48px; }
+.wbacc-stamps .wbacc-row { flex-wrap:wrap; }
+.wbacc-stamp-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px; }
+.wbacc-stamp { display:flex; flex-direction:column; align-items:center; gap:6px; background:#fff !important; color:#20252b !important; overflow-wrap:anywhere; }
+.wbacc-stamp img { width:100%; height:86px; object-fit:contain; }
+.wbacc-stamp[aria-pressed="true"] { outline:3px solid #3973ac; }
+.wbacc-stamps button:focus-visible { outline:3px solid #3973ac; outline-offset:2px; }
+.wbacc-stamp-area { position:fixed; inset:120px 0 100px; z-index:19; cursor:crosshair; touch-action:none; }
+.wbacc-stamp-area:focus-visible { outline:2px dashed #3973ac; outline-offset:-4px; }
+.wbacc-stamp-ghost { position:fixed; transform:translate(-50%,-50%); opacity:.45; z-index:20; pointer-events:none; }
+.wbacc-stamp-instructions { position:fixed; top:70px; left:50%; transform:translateX(-50%); z-index:21; display:flex; align-items:center; gap:12px; padding:6px 12px; border:1px solid #3973ac; border-radius:10px; background:#f2f7fc; color:#20252b; width:max-content; max-width:calc(100vw - 24px); box-sizing:border-box; font:14px system-ui; }
+.wbacc-stamp-instructions button { min-height:44px; padding:6px 14px; background:#245f94; color:white; border:0; border-radius:8px; font:inherit; }
 .wbacc-card-form, .wbacc-edit { display: grid; gap: 8px; padding: 10px; border-radius: 8px; background: rgba(105, 101, 219, .08); }
 .wbacc-card-form label, .wbacc-edit label { display: grid; gap: 4px; font-size: 13px; }
 .wbacc-check { display: flex !important; align-items: center; gap: 6px; }

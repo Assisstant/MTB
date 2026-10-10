@@ -1,4 +1,4 @@
-import { convertToExcalidrawElements } from '@excalidraw/excalidraw';
+import { convertToExcalidrawElements, CaptureUpdateAction } from '@excalidraw/excalidraw';
 
 // Putting things into the drawing, where the person is looking: the middle
 // of the visible canvas, never somewhere off-screen.
@@ -7,9 +7,11 @@ function centre(api) {
     return { x: -scrollX + width / 2 / zoom.value, y: -scrollY + height / 2 / zoom.value };
 }
 
-function add(api, skeletons) {
+function add(api, skeletons, prepare, undoable = false) {
     const elements = convertToExcalidrawElements(skeletons, { regenerateIds: true });
-    api.updateScene({ elements: [...api.getSceneElements(), ...elements] });
+    prepare?.(elements);
+    api.updateScene({ elements: [...api.getSceneElements(), ...elements],
+        ...(undoable ? {captureUpdate: CaptureUpdateAction.IMMEDIATELY} : {}) });
     api.selectElements?.(elements);
     return elements;
 }
@@ -28,10 +30,10 @@ export function readAsDataURL(blob) {
  * group, so it moves as one. The picture is stored IN the drawing (as
  * Excalidraw stores any image), so the card still shows without the Internet.
  */
-export function insertCard(api, { dataURL, mimeType, label, labelOnTop, size = 200 }) {
+export function insertCard(api, { dataURL, mimeType, label, labelOnTop, size = 200, undoable = false, at }) {
     const fileId = 'picto-' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
     api.addFiles([{ id: fileId, dataURL, mimeType, created: Date.now() }]);
-    const { x, y } = centre(api);
+    const { x, y } = at || centre(api);
     const group = 'card-' + fileId;
     const text = String(label || '').trim();
     const fontSize = Math.round(size / 7);
@@ -43,13 +45,12 @@ export function insertCard(api, { dataURL, mimeType, label, labelOnTop, size = 2
             x: x - size / 2, y: labelOnTop ? imageY - fontSize * 1.6 : imageY + size + fontSize * 0.4
         });
     }
-    const elements = add(api, skeletons);
-    // Centre the word under (or over) the picture now that its width is known.
-    const word = elements.find((e) => e.type === 'text');
-    if (word) {
-        api.updateScene({ elements: api.getSceneElements().map((e) =>
-            e.id === word.id ? { ...e, x: x - e.width / 2 } : e) });
-    }
+    // Finalise the group before the single history entry, so one Undo removes
+    // a whole stamp instead of merely reversing its label alignment.
+    add(api, skeletons, elements => {
+        const word = elements.find(e => e.type === 'text');
+        if (word) word.x = x - word.width / 2;
+    }, undoable);
 }
 
 const YOUTUBE = /^https?:\/\/(www\.)?(youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/shorts\/)/i;

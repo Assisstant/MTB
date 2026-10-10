@@ -3,6 +3,8 @@ import { Excalidraw, MainMenu, THEME, languages } from '@excalidraw/excalidraw';
 import { load, save } from './store.js';
 import Credit from './Credit.jsx';
 import Pictograms from './Pictograms.jsx';
+import Stamps from './Stamps.jsx';
+import StampPlacement from './StampPlacement.jsx';
 import Bookmarks from './Bookmarks.jsx';
 import { wordsToSpeak } from './scene.js';
 import { exportDrawingImage } from './image.js';
@@ -32,6 +34,7 @@ export default function App() {
     const [dark, setDark] = useState(false);
     const [excalidraw, setExcalidraw] = useState(null);
     const [panel, setPanel] = useState('');          // '', 'pictos', 'bookmarks'
+    const [stamp, setStamp] = useState(null);
     const pending = useRef(null);
     const timer = useRef(null);
 
@@ -78,7 +81,10 @@ export default function App() {
         if (voice) { say.voice = voice; say.lang = voice.lang; } else say.lang = 'mk-MK';
         speechSynthesis.speak(say);
     };
-    const toggle = (name) => setPanel((now) => (now === name ? '' : name));
+    const toggle = (name) => { setStamp(null); setPanel((now) => (now === name ? '' : name)); };
+    const focusCanvas = () => requestAnimationFrame(() => document.querySelector('.excalidraw')?.focus());
+    const closePanel = () => { setPanel(''); focusCanvas(); };
+    const closeStamp = () => { setStamp(null); focusCanvas(); };
     const t = useMemo(() => translator(lang), [lang]);
 
     const saveImage = async () => {
@@ -107,6 +113,7 @@ export default function App() {
                         excalidrawAPI={setExcalidraw}
                         renderTopRightUI={() => (
                             <div className="wbacc-tools">
+                                <button type="button" className={panel === 'stamps' ? 'on' : ''} onClick={() => toggle('stamps')}>{t('Печати')}</button>
                                 <button type="button" className={panel === 'pictos' ? 'on' : ''} onClick={() => toggle('pictos')} title={t('Пиктограми (ARASAAC)')}>{t('🖼 Пиктограми')}</button>
                                 <button type="button" className={panel === 'bookmarks' ? 'on' : ''} onClick={() => toggle('bookmarks')} title={t('Обележувачи')}>{t('🔖 Обележувачи')}</button>
                                 <button type="button" onClick={saveImage} title={t('Зачувај слика (PNG): означеното, или целиот цртеж')}>{t('📷 Слика')}</button>
@@ -115,6 +122,7 @@ export default function App() {
                             </div>
                         )}>
                 <MainMenu>
+                    <MainMenu.Item onSelect={() => toggle('stamps')}>{t('Печати')}</MainMenu.Item>
                     {/* A phone has no row of buttons on top; the menu is there on every screen. */}
                     {ALONE && (
                         <MainMenu.ItemCustom>
@@ -140,12 +148,13 @@ export default function App() {
                 </MainMenu>
             </Excalidraw>
             {panel && (
-                <aside className={'wbacc-panel' + (dark ? ' dark' : '')} aria-label={t(panel === 'pictos' ? 'Пиктограми' : 'Обележувачи')}>
-                    {panel === 'pictos'
+                <aside className={'wbacc-panel' + (dark ? ' dark' : '')} aria-label={t(panel === 'stamps' ? 'Печати' : panel === 'pictos' ? 'Пиктограми' : 'Обележувачи')}>
+                    {panel === 'stamps' ? <Stamps api={excalidraw} onClose={closePanel} onPlace={value => {setStamp(value);setPanel('');}} /> : panel === 'pictos'
                         ? <Pictograms api={excalidraw} onClose={() => setPanel('')} />
                         : <Bookmarks api={excalidraw} onClose={() => setPanel('')} />}
                 </aside>
             )}
+            {stamp && excalidraw && <StampPlacement api={excalidraw} stamp={stamp} onClose={closeStamp} />}
             <Credit dark={dark} />
         </div>
         </LangContext.Provider>

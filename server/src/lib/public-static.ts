@@ -12,6 +12,7 @@ import type { FastifyInstance } from 'fastify';
  * safe by default.
  */
 const PUBLIC_FILES = new Set([
+    'vezbi/bukvi.js', 'vezbi/letters.js', 'vezbi/audio/letters.js',
     'AkciskiPlan.html',
     'Kolega.html',
     'BookmarksPlus.html',

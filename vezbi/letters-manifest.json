@@ -1,0 +1,1064 @@
+{
+  "version": 1,
+  "source": "Owner-supplied Word alphabet vocabulary, reviewed 10 October 2026. Original file and clipart stay in ignored backups/stamp-source.",
+  "credit": "Sergio Palao / ARASAAC; Government of Aragon; CC BY-NC-SA",
+  "categories": [
+    {
+      "letter": "а",
+      "file": "letters-01"
+    },
+    {
+      "letter": "б",
+      "file": "letters-02"
+    },
+    {
+      "letter": "в",
+      "file": "letters-03"
+    },
+    {
+      "letter": "г",
+      "file": "letters-04"
+    },
+    {
+      "letter": "д",
+      "file": "letters-05"
+    },
+    {
+      "letter": "ѓ",
+      "file": "letters-06"
+    },
+    {
+      "letter": "е",
+      "file": "letters-07"
+    },
+    {
+      "letter": "ж",
+      "file": "letters-08"
+    },
+    {
+      "letter": "з",
+      "file": "letters-09"
+    },
+    {
+      "letter": "ѕ",
+      "file": "letters-10"
+    },
+    {
+      "letter": "и",
+      "file": "letters-11"
+    },
+    {
+      "letter": "ј",
+      "file": "letters-12"
+    },
+    {
+      "letter": "к",
+      "file": "letters-13"
+    },
+    {
+      "letter": "л",
+      "file": "letters-14"
+    },
+    {
+      "letter": "љ",
+      "file": "letters-15"
+    },
+    {
+      "letter": "м",
+      "file": "letters-16"
+    },
+    {
+      "letter": "н",
+      "file": "letters-17"
+    },
+    {
+      "letter": "њ",
+      "file": "letters-18"
+    },
+    {
+      "letter": "о",
+      "file": "letters-19"
+    },
+    {
+      "letter": "п",
+      "file": "letters-20"
+    },
+    {
+      "letter": "р",
+      "file": "letters-21"
+    },
+    {
+      "letter": "с",
+      "file": "letters-22"
+    },
+    {
+      "letter": "т",
+      "file": "letters-23"
+    },
+    {
+      "letter": "ќ",
+      "file": "letters-24"
+    },
+    {
+      "letter": "у",
+      "file": "letters-25"
+    },
+    {
+      "letter": "ф",
+      "file": "letters-26"
+    },
+    {
+      "letter": "х",
+      "file": "letters-27"
+    },
+    {
+      "letter": "ц",
+      "file": "letters-28"
+    },
+    {
+      "letter": "ч",
+      "file": "letters-29"
+    },
+    {
+      "letter": "џ",
+      "file": "letters-30"
+    },
+    {
+      "letter": "ш",
+      "file": "letters-31"
+    }
+  ],
+  "items": [
+    {
+      "id": "word-001",
+      "text": "астронаут",
+      "category": "а",
+      "pictogram": 4569
+    },
+    {
+      "id": "word-002",
+      "text": "авион",
+      "category": "а",
+      "pictogram": 6924
+    },
+    {
+      "id": "word-003",
+      "text": "автомобил",
+      "category": "а",
+      "pictogram": 2339
+    },
+    {
+      "id": "word-004",
+      "text": "ајкула",
+      "category": "а",
+      "pictogram": 2589
+    },
+    {
+      "id": "word-005",
+      "text": "ананас",
+      "category": "а",
+      "pictogram": 2525
+    },
+    {
+      "id": "word-006",
+      "text": "балон",
+      "category": "б",
+      "pictogram": 2408
+    },
+    {
+      "id": "word-007",
+      "text": "банана",
+      "category": "б",
+      "pictogram": 2530
+    },
+    {
+      "id": "word-008",
+      "text": "буф",
+      "category": "б",
+      "pictogram": 2671
+    },
+    {
+      "id": "word-009",
+      "text": "бик",
+      "category": "б",
+      "pictogram": 2595
+    },
+    {
+      "id": "word-010",
+      "text": "бубамара",
+      "category": "б",
+      "pictogram": 2924
+    },
+    {
+      "id": "word-011",
+      "text": "воз",
+      "category": "в",
+      "pictogram": 2603
+    },
+    {
+      "id": "word-012",
+      "text": "виолина",
+      "category": "в",
+      "pictogram": 2615
+    },
+    {
+      "id": "word-013",
+      "text": "виножито",
+      "category": "в",
+      "pictogram": 2986
+    },
+    {
+      "id": "word-014",
+      "text": "вазна",
+      "category": "в",
+      "pictogram": 3271
+    },
+    {
+      "id": "word-015",
+      "text": "волк",
+      "category": "в",
+      "pictogram": 5892
+    },
+    {
+      "id": "word-016",
+      "text": "гнездо",
+      "category": "г",
+      "pictogram": 7173
+    },
+    {
+      "id": "word-017",
+      "text": "грозје",
+      "category": "г",
+      "pictogram": 3247
+    },
+    {
+      "id": "word-018",
+      "text": "гитара",
+      "category": "г",
+      "pictogram": 2417
+    },
+    {
+      "id": "word-019",
+      "text": "гуска",
+      "category": "г",
+      "pictogram": 2878
+    },
+    {
+      "id": "word-020",
+      "text": "глушец",
+      "category": "г",
+      "pictogram": 2546
+    },
+    {
+      "id": "word-021",
+      "text": "делфин",
+      "category": "д",
+      "pictogram": 2732
+    },
+    {
+      "id": "word-022",
+      "text": "девојче",
+      "category": "д",
+      "pictogram": 27509
+    },
+    {
+      "id": "word-023",
+      "text": "дијамант",
+      "category": "д",
+      "pictogram": 6475
+    },
+    {
+      "id": "word-024",
+      "text": "диња",
+      "category": "д",
+      "pictogram": 2469
+    },
+    {
+      "id": "word-025",
+      "text": "диносаурус",
+      "category": "д",
+      "pictogram": 2738
+    },
+    {
+      "id": "word-026",
+      "text": "ѓеврек",
+      "category": "ѓ",
+      "pictogram": 38531
+    },
+    {
+      "id": "word-027",
+      "text": "ѓубре",
+      "category": "ѓ",
+      "pictogram": 8499
+    },
+    {
+      "id": "word-028",
+      "text": "ѓердан",
+      "category": "ѓ",
+      "pictogram": 2347
+    },
+    {
+      "id": "word-029",
+      "text": "елек",
+      "category": "е",
+      "pictogram": 2698
+    },
+    {
+      "id": "word-030",
+      "text": "еден",
+      "category": "е",
+      "pictogram": 2627
+    },
+    {
+      "id": "word-031",
+      "text": "еж",
+      "category": "е",
+      "pictogram": 26829
+    },
+    {
+      "id": "word-032",
+      "text": "елен",
+      "category": "е",
+      "pictogram": 3263
+    },
+    {
+      "id": "word-033",
+      "text": "елка",
+      "category": "е",
+      "pictogram": 3058
+    },
+    {
+      "id": "word-034",
+      "text": "жаба",
+      "category": "ж",
+      "pictogram": 28473
+    },
+    {
+      "id": "word-035",
+      "text": "жито",
+      "category": "ж",
+      "pictogram": 7285
+    },
+    {
+      "id": "word-036",
+      "text": "жирафа",
+      "category": "ж",
+      "pictogram": 2437
+    },
+    {
+      "id": "word-037",
+      "text": "желка",
+      "category": "ж",
+      "pictogram": 10241
+    },
+    {
+      "id": "word-038",
+      "text": "змија",
+      "category": "з",
+      "pictogram": 2568
+    },
+    {
+      "id": "word-039",
+      "text": "зоолошка градина",
+      "category": "з",
+      "pictogram": 4773
+    },
+    {
+      "id": "word-040",
+      "text": "зеленчук",
+      "category": "з",
+      "pictogram": 6244
+    },
+    {
+      "id": "word-041",
+      "text": "зајак",
+      "category": "з",
+      "pictogram": 2351
+    },
+    {
+      "id": "word-042",
+      "text": "зебра",
+      "category": "з",
+      "pictogram": 2324
+    },
+    {
+      "id": "word-043",
+      "text": "ѕвонче",
+      "category": "ѕ",
+      "pictogram": 5938
+    },
+    {
+      "id": "word-044",
+      "text": "ѕидар",
+      "category": "ѕ",
+      "pictogram": 2642
+    },
+    {
+      "id": "word-045",
+      "text": "ѕид",
+      "category": "ѕ",
+      "pictogram": 2860
+    },
+    {
+      "id": "word-046",
+      "text": "ѕвезда",
+      "category": "ѕ",
+      "pictogram": 4644
+    },
+    {
+      "id": "word-047",
+      "text": "ѕуница",
+      "category": "ѕ",
+      "pictogram": 2986
+    },
+    {
+      "id": "word-048",
+      "text": "игла",
+      "category": "и",
+      "pictogram": 2639
+    },
+    {
+      "id": "word-049",
+      "text": "инка",
+      "category": "и",
+      "pictogram": 2741
+    },
+    {
+      "id": "word-050",
+      "text": "игло",
+      "category": "и",
+      "pictogram": 8137
+    },
+    {
+      "id": "word-051",
+      "text": "ирвас",
+      "category": "и",
+      "pictogram": 9069
+    },
+    {
+      "id": "word-052",
+      "text": "инсект",
+      "category": "и",
+      "pictogram": 7134
+    },
+    {
+      "id": "word-053",
+      "text": "јахта",
+      "category": "ј",
+      "pictogram": 3172
+    },
+    {
+      "id": "word-054",
+      "text": "јаболко",
+      "category": "ј",
+      "pictogram": 2462
+    },
+    {
+      "id": "word-055",
+      "text": "јагне",
+      "category": "ј",
+      "pictogram": 2489
+    },
+    {
+      "id": "word-056",
+      "text": "јојо",
+      "category": "ј",
+      "pictogram": 8734
+    },
+    {
+      "id": "word-057",
+      "text": "јајце",
+      "category": "ј",
+      "pictogram": 2427
+    },
+    {
+      "id": "word-058",
+      "text": "кенгур",
+      "category": "к",
+      "pictogram": 2313
+    },
+    {
+      "id": "word-059",
+      "text": "кит",
+      "category": "к",
+      "pictogram": 2268
+    },
+    {
+      "id": "word-060",
+      "text": "киви",
+      "category": "к",
+      "pictogram": 2955
+    },
+    {
+      "id": "word-061",
+      "text": "клупче",
+      "category": "к",
+      "pictogram": 2948
+    },
+    {
+      "id": "word-062",
+      "text": "кашкавал",
+      "category": "к",
+      "pictogram": 2541
+    },
+    {
+      "id": "word-063",
+      "text": "лист",
+      "category": "л",
+      "pictogram": 5077
+    },
+    {
+      "id": "word-064",
+      "text": "лебед",
+      "category": "л",
+      "pictogram": 2337
+    },
+    {
+      "id": "word-065",
+      "text": "лисица",
+      "category": "л",
+      "pictogram": 2623
+    },
+    {
+      "id": "word-066",
+      "text": "ламба",
+      "category": "л",
+      "pictogram": 4936
+    },
+    {
+      "id": "word-067",
+      "text": "лимон",
+      "category": "л",
+      "pictogram": 3022
+    },
+    {
+      "id": "word-068",
+      "text": "љубопитност",
+      "category": "љ",
+      "pictogram": 27705,
+      "note": "Детскиот лик во Word е заменет со поим наместо лично име."
+    },
+    {
+      "id": "word-069",
+      "text": "љубомора",
+      "category": "љ",
+      "pictogram": 30630
+    },
+    {
+      "id": "word-070",
+      "text": "љубезност",
+      "category": "љ",
+      "pictogram": 33994,
+      "note": "Детскиот лик во Word е заменет со поим наместо лично име."
+    },
+    {
+      "id": "word-071",
+      "text": "љубов",
+      "category": "љ",
+      "pictogram": 11536
+    },
+    {
+      "id": "word-072",
+      "text": "љубичица",
+      "category": "љ",
+      "pictogram": 26310,
+      "note": "Градинарска љубичица, како сликата во Word."
+    },
+    {
+      "id": "word-073",
+      "text": "месечина",
+      "category": "м",
+      "pictogram": 2933
+    },
+    {
+      "id": "word-074",
+      "text": "мече",
+      "category": "м",
+      "pictogram": 4945
+    },
+    {
+      "id": "word-075",
+      "text": "мајмун",
+      "category": "м",
+      "pictogram": 2477
+    },
+    {
+      "id": "word-076",
+      "text": "мачка",
+      "category": "м",
+      "pictogram": 2406
+    },
+    {
+      "id": "word-077",
+      "text": "магаре",
+      "category": "м",
+      "pictogram": 2291
+    },
+    {
+      "id": "word-078",
+      "text": "нос",
+      "category": "н",
+      "pictogram": 2887
+    },
+    {
+      "id": "word-079",
+      "text": "ној",
+      "category": "н",
+      "pictogram": 2650
+    },
+    {
+      "id": "word-080",
+      "text": "Нова година",
+      "category": "н",
+      "pictogram": 5071
+    },
+    {
+      "id": "word-081",
+      "text": "ножици",
+      "category": "н",
+      "pictogram": 2591
+    },
+    {
+      "id": "word-082",
+      "text": "нож",
+      "category": "н",
+      "pictogram": 4931
+    },
+    {
+      "id": "word-083",
+      "text": "Њујорк",
+      "category": "њ",
+      "pictogram": 21854,
+      "note": "Претставен со Статуата на слободата, како во Word."
+    },
+    {
+      "id": "word-084",
+      "text": "молња",
+      "category": "њ",
+      "pictogram": 34545
+    },
+    {
+      "id": "word-085",
+      "text": "дуња",
+      "category": "њ",
+      "pictogram": 25237
+    },
+    {
+      "id": "word-086",
+      "text": "пилиња",
+      "category": "њ",
+      "pictogram": 2533
+    },
+    {
+      "id": "word-087",
+      "text": "коњ",
+      "category": "њ",
+      "pictogram": 2294
+    },
+    {
+      "id": "word-088",
+      "text": "очила",
+      "category": "о",
+      "pictogram": 3329
+    },
+    {
+      "id": "word-089",
+      "text": "осум",
+      "category": "о",
+      "pictogram": 2634
+    },
+    {
+      "id": "word-090",
+      "text": "октопод",
+      "category": "о",
+      "pictogram": 3379
+    },
+    {
+      "id": "word-091",
+      "text": "орел",
+      "category": "о",
+      "pictogram": 2638
+    },
+    {
+      "id": "word-092",
+      "text": "оган",
+      "category": "о",
+      "pictogram": 4654
+    },
+    {
+      "id": "word-093",
+      "text": "панда",
+      "category": "п",
+      "pictogram": 2869
+    },
+    {
+      "id": "word-094",
+      "text": "папагал",
+      "category": "п",
+      "pictogram": 2934
+    },
+    {
+      "id": "word-095",
+      "text": "петел",
+      "category": "п",
+      "pictogram": 2404
+    },
+    {
+      "id": "word-096",
+      "text": "патка",
+      "category": "п",
+      "pictogram": 28479
+    },
+    {
+      "id": "word-097",
+      "text": "пеперутка",
+      "category": "п",
+      "pictogram": 26200
+    },
+    {
+      "id": "word-098",
+      "text": "ракета",
+      "category": "р",
+      "pictogram": 2344
+    },
+    {
+      "id": "word-099",
+      "text": "риба",
+      "category": "р",
+      "pictogram": 2520
+    },
+    {
+      "id": "word-100",
+      "text": "роза",
+      "category": "р",
+      "pictogram": 3151
+    },
+    {
+      "id": "word-101",
+      "text": "ранец",
+      "category": "р",
+      "pictogram": 2475
+    },
+    {
+      "id": "word-102",
+      "text": "ракавици",
+      "category": "р",
+      "pictogram": 2415
+    },
+    {
+      "id": "word-103",
+      "text": "сладолед",
+      "category": "с",
+      "pictogram": 3348
+    },
+    {
+      "id": "word-104",
+      "text": "сонце",
+      "category": "с",
+      "pictogram": 7252
+    },
+    {
+      "id": "word-105",
+      "text": "часовник",
+      "category": "с",
+      "pictogram": 7230,
+      "note": "Стандарден назив наместо саат; С е во средината."
+    },
+    {
+      "id": "word-106",
+      "text": "стол",
+      "category": "с",
+      "pictogram": 3155
+    },
+    {
+      "id": "word-107",
+      "text": "срце",
+      "category": "с",
+      "pictogram": 4613
+    },
+    {
+      "id": "word-108",
+      "text": "тркало",
+      "category": "т",
+      "pictogram": 6209
+    },
+    {
+      "id": "word-109",
+      "text": "торта",
+      "category": "т",
+      "pictogram": 2502
+    },
+    {
+      "id": "word-110",
+      "text": "топка",
+      "category": "т",
+      "pictogram": 3241
+    },
+    {
+      "id": "word-111",
+      "text": "тапан",
+      "category": "т",
+      "pictogram": 2578
+    },
+    {
+      "id": "word-112",
+      "text": "тигар",
+      "category": "т",
+      "pictogram": 2590
+    },
+    {
+      "id": "word-114",
+      "text": "ќуп",
+      "category": "ќ",
+      "pictogram": 29706
+    },
+    {
+      "id": "word-115",
+      "text": "ќерамиди",
+      "category": "ќ",
+      "pictogram": 2792
+    },
+    {
+      "id": "word-116",
+      "text": "ќумур",
+      "category": "ќ",
+      "pictogram": 5943
+    },
+    {
+      "id": "word-117",
+      "text": "учител",
+      "category": "у",
+      "pictogram": 6556
+    },
+    {
+      "id": "word-118",
+      "text": "ученик",
+      "category": "у",
+      "pictogram": 5899
+    },
+    {
+      "id": "word-119",
+      "text": "уста",
+      "category": "у",
+      "pictogram": 2663
+    },
+    {
+      "id": "word-120",
+      "text": "уво",
+      "category": "у",
+      "pictogram": 2871
+    },
+    {
+      "id": "word-121",
+      "text": "улица",
+      "category": "у",
+      "pictogram": 2299
+    },
+    {
+      "id": "word-122",
+      "text": "фен",
+      "category": "ф",
+      "pictogram": 2560
+    },
+    {
+      "id": "word-123",
+      "text": "фока",
+      "category": "ф",
+      "pictogram": 2397
+    },
+    {
+      "id": "word-124",
+      "text": "флејта",
+      "category": "ф",
+      "pictogram": 2396
+    },
+    {
+      "id": "word-125",
+      "text": "фудбалер",
+      "category": "ф",
+      "pictogram": 19530
+    },
+    {
+      "id": "word-126",
+      "text": "харфа",
+      "category": "х",
+      "pictogram": 8493
+    },
+    {
+      "id": "word-127",
+      "text": "хеликоптер",
+      "category": "х",
+      "pictogram": 7126
+    },
+    {
+      "id": "word-128",
+      "text": "хармоника",
+      "category": "х",
+      "pictogram": 5895
+    },
+    {
+      "id": "word-129",
+      "text": "хипопотам",
+      "category": "х",
+      "pictogram": 2424
+    },
+    {
+      "id": "word-130",
+      "text": "хокеј",
+      "category": "х",
+      "pictogram": 10161
+    },
+    {
+      "id": "word-131",
+      "text": "цвеќе",
+      "category": "ц",
+      "pictogram": 7105
+    },
+    {
+      "id": "word-132",
+      "text": "циркус",
+      "category": "ц",
+      "pictogram": 6450
+    },
+    {
+      "id": "word-133",
+      "text": "цуцла",
+      "category": "ц",
+      "pictogram": 4599
+    },
+    {
+      "id": "word-134",
+      "text": "црв",
+      "category": "ц",
+      "pictogram": 28485
+    },
+    {
+      "id": "word-135",
+      "text": "цреши",
+      "category": "ц",
+      "pictogram": 8303
+    },
+    {
+      "id": "word-136",
+      "text": "чадор",
+      "category": "ч",
+      "pictogram": 2500
+    },
+    {
+      "id": "word-137",
+      "text": "чајник",
+      "category": "ч",
+      "pictogram": 39004
+    },
+    {
+      "id": "word-138",
+      "text": "чорапи",
+      "category": "ч",
+      "pictogram": 2298
+    },
+    {
+      "id": "word-139",
+      "text": "чаша",
+      "category": "ч",
+      "pictogram": 2610
+    },
+    {
+      "id": "word-140",
+      "text": "чекан",
+      "category": "ч",
+      "pictogram": 2922
+    },
+    {
+      "id": "word-141",
+      "text": "џип",
+      "category": "џ",
+      "pictogram": 3223
+    },
+    {
+      "id": "word-142",
+      "text": "џем",
+      "category": "џ",
+      "pictogram": 2470
+    },
+    {
+      "id": "word-143",
+      "text": "џуџе",
+      "category": "џ",
+      "pictogram": 5450
+    },
+    {
+      "id": "word-144",
+      "text": "џеб",
+      "category": "џ",
+      "pictogram": 6937
+    },
+    {
+      "id": "word-145",
+      "text": "џин",
+      "category": "џ",
+      "pictogram": 8375
+    },
+    {
+      "id": "word-146",
+      "text": "штрк",
+      "category": "ш",
+      "pictogram": 3015
+    },
+    {
+      "id": "word-147",
+      "text": "штурец",
+      "category": "ш",
+      "pictogram": 25147
+    },
+    {
+      "id": "word-148",
+      "text": "шишарка",
+      "category": "ш",
+      "pictogram": 8668
+    },
+    {
+      "id": "word-149",
+      "text": "шапка",
+      "category": "ш",
+      "pictogram": 2572
+    },
+    {
+      "id": "word-150",
+      "text": "шах",
+      "category": "ш",
+      "pictogram": 3054
+    }
+  ],
+  "pending": [
+    {
+      "text": "ѓум",
+      "letter": "ѓ",
+      "reason": "Потребен е точен сад, не обичен бокал."
+    },
+    {
+      "text": "ѓезве",
+      "letter": "ѓ",
+      "reason": "Не е најден точен ARASAAC пиктограм за ѓезве."
+    },
+    {
+      "text": "ждребе",
+      "letter": "ж",
+      "reason": "Пони не е исто што и ждребе."
+    },
+    {
+      "text": "ќумбе",
+      "letter": "ќ",
+      "reason": "Најдените печки се електрични или шпорети."
+    },
+    {
+      "text": "фазан",
+      "letter": "ф",
+      "reason": "Не е најден точен ARASAAC пиктограм."
+    },
+    {
+      "text": "ќебапи",
+      "letter": "ќ",
+      "reason": "Резултатите покажуваат донер или ресторан, не ќебапи."
+    }
+  ]
+}

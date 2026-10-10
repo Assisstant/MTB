@@ -36,6 +36,59 @@ The words of the П deck, in the owner's three groups of rising difficulty:
 
 ## Where it stands
 
+### Separate Word alphabet exercises and ready stamps (10 Oct 2026)
+
+The owner approved ARASAAC categories based on their Word document, explicitly
+keeping the already-made sound exercises separate. **„Букви и зборови“** is a
+third section in the first picker, beside **Гласови** and **Теми**. The original
+26 decks, syllables, groups and 11 themes have not been rewritten.
+
+- **31 categories / 149 terms** from a reviewed interpretation of the Word
+  pictures. „Од Word“ opens the source category. „На почеток / Во средина /
+  На крај“ searches the whole NEW catalogue for that sound position, at word
+  boundaries; a repeated sound can put a term in more than one position.
+  „Сите со…“ shows every matching term. Њ → крај includes коњ; средина includes
+  дуња and молња. Empty choices say that the current collection has no term.
+- The same word/target-letter/blanks/picture steps, keyboard, drag-only tiles,
+  quiet feedback, print and ComuniBoard transfer remain. No invented syllable
+  exercises for the alphabet section. Replacements are scoped to `letters-NN`;
+  old sound recordings keep their old keys. Images use stable `letters:word-ID`
+  keys, shared across letter views of the same catalogue item.
+- All 149 pictures are embedded official ARASAAC artwork, visually checked in
+  contact sheets. All 149 MP3s use Marija, the existing −10% synthesis setting,
+  with the shared 0.75× playback default. Both assets work offline. ARASAAC
+  credit is retained; the original mixed clipart and Word document stay local.
+- `letters-manifest.json` owns vocabulary, source categories, pictogram IDs and
+  editorial notes. `scripts/vezbi-letters.py --apply` makes `bukvi.js` and
+  `audio/letters.js`; `letters.js` derives exercise views and sound positions.
+  WBACC imports these same assets at build time, so no second maintained list
+  and no runtime dependency on a neighbouring folder in standalone WBACC.
+- Six source concepts await an exact pictogram: **ѓум, ѓезве, ждребе, ќебапи,
+  ќумбе, фазан**. They are in `pending`, not represented by misleading search
+  results. The Word template contains repeated unrelated sentences; those
+  were not imported. Clock is часовник (С in the middle), not саат. Two child
+  figures under Љ were adapted to љубопитност/љубезност rather than assigning
+  personal names. Њујорк uses the Statue of Liberty as in the source. Review
+  these vocabulary choices with the therapist before treating them as final.
+
+WBACC → **Печати** has the same categories and position filters, search, word
+on/off, editable label, size, listen/stop/mute and placing into the drawing.
+„Постави со допир“ enters an explicit repeat mode: click/tap places a stamp,
+mouse movement previews its image, a drag does not stamp; Done/Escape ends it.
+Enter/Space places centrally. Copies have separate IDs/groups and one Undo
+removes one whole image/text card; the drawing retains its image on reload.
+Ready categories are bundled, not a new user-authored library. Saving custom
+groups/categories and library import/export remain later work in
+[PLAN-wbacc-pecati.md](PLAN-wbacc-pecati.md).
+
+`test:vezbi-letters` checks real image/audio decoding, isolation from existing
+decks, positional matching, scoped imports/export, keyboard completion, empty
+states, phone layouts, shared stamp audio/mute, persistence, Undo/Redo, real
+touch tap vs drag and `file://`: **35 checks passed**. Existing audio (32),
+themes (26), feedback (34), main exercise and WBACC suites also passed, as
+did all 388 server unit checks. Screenshots: ignored `backups/letters-review/`.
+Offline ZIP rebuilt and checked against the current assets: 21.6 MB / 75 files.
+
 ### Thematic vocabulary from the owner's slides and narration (10 Oct 2026)
 
 The owner supplied a PowerPoint with 11 slides and their own YouTube voiceover,

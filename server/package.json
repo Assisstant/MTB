@@ -107,6 +107,7 @@
     "test:vezbi": "tsx test/vezbi.browser.mjs",
     "test:vezbi-audio": "tsx test/vezbi-audio.browser.mjs",
     "test:vezbi-themes": "tsx test/vezbi-themes.browser.mjs",
+    "test:vezbi-letters": "tsx test/vezbi-letters.browser.mjs",
     "test:vezbi-feedback": "tsx test/vezbi-feedback.browser.mjs",
     "test:duty": "tsx test/duty.e2e.ts",
     "test:kolegi-admin": "node test/kolegi-admin.browser.mjs",

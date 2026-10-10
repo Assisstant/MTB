@@ -6,7 +6,7 @@ window.createVezbiAudio = function ({ sound, recordings, save, note }) {
   const MAX_FILE = 10 * 1024 * 1024;
   const DEFAULT_RATE = 0.75;
   // Themes may use the same word for different objects (e.g. two brushes).
-  const recordingKey = (g, text) => g.kind === 'theme' ? g.file + ':' + text : text;
+  const recordingKey = (g, text) => g.kind ? g.file + ':' + text : text;
   let muted = false, player = null, playerUrl = '', generation = 0;
   let editing = null, recording = null, capture = 0, busy = false;
   let rate = DEFAULT_RATE;
@@ -27,26 +27,27 @@ window.createVezbiAudio = function ({ sound, recordings, save, note }) {
 
   function terms(g) {
     return [...new Set([...g.words, ...(g.sentences || [])].map(x => (x.w || x.s).replace(/[{}]/g, ''))
-      .concat(g.kind === 'theme' ? [] : [...'ауеио'].flatMap(v => [g.letter + v, v + g.letter + v, v + g.letter])))];
+      .concat(g.kind ? [] : [...'ауеио'].flatMap(v => [g.letter + v, v + g.letter + v, v + g.letter])))];
   }
   function load(g) {
-    if (window.VEZBI_AUDIO?.[g.file]) return Promise.resolve(window.VEZBI_AUDIO[g.file]);
-    if (loads.has(g.file)) return loads.get(g.file);
+    const bundle = g.audioFile || g.file;
+    if (window.VEZBI_AUDIO?.[bundle]) return Promise.resolve(window.VEZBI_AUDIO[bundle]);
+    if (loads.has(bundle)) return loads.get(bundle);
     const promise = new Promise((resolve, reject) => {
       const tag = document.createElement('script');
-      tag.src = 'audio/' + encodeURIComponent(g.file) + '.js';
+      tag.src = 'audio/' + encodeURIComponent(bundle) + '.js';
       const timer = setTimeout(() => fail(), 15000);
-      function fail() { clearTimeout(timer); tag.remove(); loads.delete(g.file); reject(new Error('Аудиопакетот не се вчита. Пробај повторно.')); }
+      function fail() { clearTimeout(timer); tag.remove(); loads.delete(bundle); reject(new Error('Аудиопакетот не се вчита. Пробај повторно.')); }
       tag.onerror = fail;
       tag.onload = () => {
         clearTimeout(timer);
-        const pack = window.VEZBI_AUDIO?.[g.file];
+        const pack = window.VEZBI_AUDIO?.[bundle];
         if (!pack?.items) { fail(); return; }
         resolve(pack);
       };
       document.head.appendChild(tag);
     });
-    loads.set(g.file, promise);
+    loads.set(bundle, promise);
     return promise;
   }
   function updateMute() {
@@ -258,6 +259,12 @@ window.createVezbiAudio = function ({ sound, recordings, save, note }) {
   }
   document.querySelectorAll('[data-speech-speed]').forEach(el => el.addEventListener('input', () => setRate(el.value)));
   document.querySelectorAll('[data-speed-reset]').forEach(el => el.addEventListener('click', () => setRate(DEFAULT_RATE)));
+  // WBACC's stamps share these preferences on this origin. A change in its
+  // frame must reach the already-open exercise player too.
+  window.addEventListener('storage', e => {
+    if (e.key === 'vezbi_muted_v1') { muted = e.newValue === '1'; stop(); updateMute(); }
+    if (e.key === 'vezbi_speech_rate_v1') updateRate(e.newValue === null ? DEFAULT_RATE : e.newValue);
+  });
   updateMute(); updateRate();
   return {play, stop, edit, close, allAudio, terms, load, importPack};
 };
