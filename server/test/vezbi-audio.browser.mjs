@@ -38,6 +38,8 @@ try {
   await page.goto(origin+'/vezbi/index.html#vezbi');
   await page.waitForFunction(()=>typeof audio!=='undefined' && !!db);
   check('no audio is loaded or played on opening',await page.evaluate(()=>plays.length===0 && !window.VEZBI_AUDIO));
+  check('a fresh browser defaults to 0.75 in both speed controls',await page.evaluate(()=>
+    document.querySelector('#speed-now').textContent==='0,75×' && [...document.querySelectorAll('[data-speech-speed]')].every(e=>e.value==='0.75')));
   await page.evaluate(()=>{stage('0');state.view='one';state.at=0;draw();});
   await page.click('#m-speed .opener');
   await page.locator('#speech-speed').focus();
@@ -74,8 +76,8 @@ try {
   check('a personal file takes priority over Marija',await page.evaluate(()=>plays.at(-1).startsWith('blob:')));
   check('uploaded recordings use the same speed and preserve pitch',await page.evaluate(()=>lastPlayback.playbackRate===1.25 && lastPlayback.preservesPitch));
   await page.locator('#audio-editor [data-speed-reset]').click();
-  check('normal speed resets both controls',await page.evaluate(()=>
-    [...document.querySelectorAll('[data-speech-speed]')].every(e=>e.value==='1') && document.querySelector('#speed-now').textContent==='1×'));
+  check('default speed resets both controls to 0.75',await page.evaluate(()=>
+    [...document.querySelectorAll('[data-speech-speed]')].every(e=>e.value==='0.75') && document.querySelector('#speed-now').textContent==='0,75×'));
   const next=page.waitForEvent('download'); await page.click('#audio-download');
   check('one term can be downloaded as its actual audio format',(await next).suggestedFilename().endsWith('.wav'));
   await page.setInputFiles('#audio-file',{name:'broken.mp3',mimeType:'audio/mpeg',buffer:Buffer.from('not audio')});

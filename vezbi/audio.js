@@ -4,17 +4,18 @@ window.createVezbiAudio = function ({ sound, recordings, save, note }) {
   const $ = id => document.getElementById(id);
   const loads = new Map();
   const MAX_FILE = 10 * 1024 * 1024;
+  const DEFAULT_RATE = 0.75;
   // Themes may use the same word for different objects (e.g. two brushes).
   const recordingKey = (g, text) => g.kind === 'theme' ? g.file + ':' + text : text;
   let muted = false, player = null, playerUrl = '', generation = 0;
   let editing = null, recording = null, capture = 0, busy = false;
-  let rate = 1;
+  let rate = DEFAULT_RATE;
   try { muted = localStorage.getItem('vezbi_muted_v1') === '1'; } catch (_) {}
   try { const stored = Number(localStorage.getItem('vezbi_speech_rate_v1')); if (Number.isFinite(stored) && stored >= 0.5 && stored <= 1.5) rate = stored; } catch (_) {}
 
   function updateRate(value = rate) {
     const number = Number(value);
-    rate = Number.isFinite(number) ? Math.round(Math.max(0.5, Math.min(1.5, number)) * 20) / 20 : 1;
+    rate = Number.isFinite(number) ? Math.round(Math.max(0.5, Math.min(1.5, number)) * 20) / 20 : DEFAULT_RATE;
     const label = String(rate).replace('.', ',') + '×';
     $('speed-now').textContent = label;
     document.querySelectorAll('[data-speed-value]').forEach(el => el.textContent = label);
@@ -256,7 +257,7 @@ window.createVezbiAudio = function ({ sound, recordings, save, note }) {
     try { localStorage.setItem('vezbi_speech_rate_v1', String(rate)); } catch (_) {}
   }
   document.querySelectorAll('[data-speech-speed]').forEach(el => el.addEventListener('input', () => setRate(el.value)));
-  document.querySelectorAll('[data-speed-reset]').forEach(el => el.addEventListener('click', () => setRate(1)));
+  document.querySelectorAll('[data-speed-reset]').forEach(el => el.addEventListener('click', () => setRate(DEFAULT_RATE)));
   updateMute(); updateRate();
   return {play, stop, edit, close, allAudio, terms, load, importPack};
 };

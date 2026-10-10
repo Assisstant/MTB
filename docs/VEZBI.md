@@ -141,14 +141,18 @@ Never reuse the menu class for feedback.
 
 ### Playback speed (9 Oct 2026)
 
-The owner requested a speed slider. The bar's **1×** menu and the audio
-editor share a **0.5–1.5×** slider in 0.05 steps, with „Нормално · 1×“ reset.
+The owner requested a speed slider. The bar's speed menu and the audio
+editor share a **0.5–1.5×** slider in 0.05 steps. **10 Oct update:** the owner
+requested a slower default: **0.75×**, also used by „Почетна · 0,75×“ reset.
+Previously saved choices remain; a fresh browser starts at 0.75×. The label
+shows the actual playback factor (0.75 is not relabelled as 1).
 The choice persists on this browser (`vezbi_speech_rate_v1`). It applies to
 bundled clips and personal recordings, including the currently playing clip,
 with `preservesPitch=true`; the Macedonian native fallback uses the selected
 factor on its next utterance. Downloads keep the original recording.
 Keyboard, persistence, reset, actual playback rate and phone bounds are
-covered by `test:vezbi-audio` (31 checks); `test:vezbi` also passes.
+covered by `test:vezbi-audio` (32 checks passed on 10 Oct, including the new
+default); `test:vezbi` passed before this default-only change.
 
 ### Audio files and Macedonian pronunciation (9 Oct 2026)
 
