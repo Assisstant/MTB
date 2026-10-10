@@ -44,7 +44,8 @@ This is a **proposal, not implemented**: visible content sections, structured
 card editing through the existing creator, one personal stamp library, and
 content-only deep links from diary plan activities. No pupil information
 crosses into exercise pages. Opening an exercise never credits attendance.
-The annual meaning of “76” awaits clarification; no live plans were assigned.
+The owner confirmed 76 treatments per pupil per year, initially two per week;
+both are individually editable planning targets. No live plans were assigned.
 
 ### Separate Word alphabet exercises and ready stamps (10 Oct 2026)
 
