@@ -36,6 +36,16 @@ The words of the П deck, in the owner's three groups of rising difficulty:
 
 ## Where it stands
 
+### Proposed content navigation, reusable cards and diary links (10 Oct 2026)
+
+The owner's next request and the code review are in
+[PLAN-sodrzini-karticki-i-planovi.md](PLAN-sodrzini-karticki-i-planovi.md).
+This is a **proposal, not implemented**: visible content sections, structured
+card editing through the existing creator, one personal stamp library, and
+content-only deep links from diary plan activities. No pupil information
+crosses into exercise pages. Opening an exercise never credits attendance.
+The annual meaning of “76” awaits clarification; no live plans were assigned.
+
 ### Separate Word alphabet exercises and ready stamps (10 Oct 2026)
 
 The owner approved ARASAAC categories based on their Word document, explicitly
