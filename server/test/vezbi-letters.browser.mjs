@@ -41,7 +41,7 @@ try {
       if(buffer.duration<.3||buffer.duration>10)throw Error('Bad audio '+w.text);clips++;
     }}finally{await ctx.close();}return {images,clips};
   });
-  check('all 149 ARASAAC pictures and Macedonian clips decode offline',counts.images===149&&counts.clips===149);
+  check('all 148 ARASAAC pictures and Macedonian clips decode offline',counts.images===148&&counts.clips===148);
   check('positions handle repeated letters, Cyrillic letters and word boundaries',await page.evaluate(()=>
     JSON.stringify(letterPositions('ананас','а'))==='["start","middle"]'&&
     JSON.stringify(letterPositions('коњ','њ'))==='["end"]'&&

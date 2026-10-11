@@ -71,13 +71,21 @@ board, where the word is not limited. Not yet judged.
   and 9 letters with a control that they do differ in length, the grown
   column, the tiles, an invented 15-letter outlier, the single card, a phone.
 
+**The hippo card is gone (same day).** Under Х the Word picture of a hippo
+had been read as „хипопотам"; the owner calls it „нилски коњ", which has no
+Х. Asked what should happen to it, he said: „само да ја избришеме таа
+картичка и толку". `word-129` is out of `letters-manifest.json`, `bukvi.js`
+and `audio/letters.js` (taken out of the generated files as the generator
+writes them; the other 148 are byte for byte as they were), and WBACC.html is
+rebuilt, so the stamp is gone too. **148 terms** now; ids are not renumbered.
+Х keeps харфа, хеликоптер, хармоника, хокеј.
+
 **Asked the same day, not built:** nine looks for the card with quieter
 letter boxes (the owner then chose the board instead), and changing a card's
-WORD in „✏️ Уреди" — the owner's example is the hippo under Х, which he calls
-„нилски коњ". That is the „one editor" of
+WORD in „✏️ Уреди". That is the „one editor" of
 [PLAN-sodrzini-karticki-i-planovi.md](PLAN-sodrzini-karticki-i-planovi.md);
 the word is the key of the picture, the recording and the letter's position,
-and „нилски коњ" has no Х, so it needs his decisions first.
+so it is not one text field. The owner dropped it for now with the card.
 
 ### Diary content links and flexible treatment plans (11 Oct 2026)
 
