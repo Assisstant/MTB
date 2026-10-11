@@ -1,0 +1,730 @@
+<!DOCTYPE html>
+<html lang="mk" class="mtb-flat">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Обележувачи — MTB</title>
+<script src="mtb-theme.js"></script>
+<link rel="stylesheet" href="mtb-look.css">
+<style>
+/* The administrator's bookmarks as a page of their own (owner, 11 Oct 2026:
+   „ниво погоре, не во склоп на WBACC Studio", with Raindrop.io as the picture):
+   collections and tags on the left, cards with a picture on the right.
+   Palette, header and buttons are mtb-look.css; only the layout is this page's. */
+:root { --side: 264px; --tile-l: 90%; --tile-s: 55%; }
+:root[data-theme="dark"] { --tile-l: 26%; --tile-s: 30%; }
+body { font-size: 15px; line-height: 1.45; min-height: 100vh; display: flex; flex-direction: column; }
+header .grow { flex: 1; }
+header .btn { min-height: 34px; padding: 6px 14px; font-size: 14px; opacity: 1; }
+#status { font-weight: 600; }
+#status.bad { color: #7a1010; }
+:root[data-theme="dark"] #status.bad { color: #ffb4b4; }
+
+.notice { margin: 12px 16px 0; padding: 12px 14px; border: 2px solid var(--border); border-left: 5px solid var(--warn); border-radius: 8px; background: var(--warn-bg); color: var(--text); }
+.notice p { margin: 0 0 8px; }
+.notice form, .notice .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.notice[hidden] { display: none; }
+
+.shell[hidden] { display: none; }
+.shell { flex: 1; display: grid; grid-template-columns: var(--side) minmax(0, 1fr); min-height: 0; }
+aside { border-right: 2px solid var(--border); background: var(--soft); padding: 12px 10px 20px; overflow: auto; }
+aside h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 0; }
+.side-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 18px 6px 6px; }
+.side-head .btn { min-height: 28px; padding: 2px 10px; font-size: 13px; }
+aside nav { display: flex; flex-direction: column; gap: 2px; }
+.shelf {
+    display: flex; align-items: center; gap: 8px; width: 100%; text-align: left; padding: 7px 10px; border: 1px solid transparent;
+    border-radius: 8px; background: transparent; color: var(--text); font-size: 14.5px; cursor: pointer;
+}
+.shelf .name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.shelf .n { color: var(--muted); font-size: 12.5px; font-variant-numeric: tabular-nums; }
+.shelf:hover, .shelf.over { border-color: var(--mtb-flat-line); background: var(--card); }
+.shelf.over { outline: 2px dashed var(--mtb-flat); }
+/* What is chosen carries the suite's one „chosen" run (mtb-look.css, mtb-palette). */
+.shelf[aria-current="true"] { background: var(--mtb-selected); color: var(--mtb-on-ink); border-color: var(--mtb-select-line); font-weight: 700; }
+.shelf[aria-current="true"] .n { color: inherit; }
+.shelf:focus-visible, .card a:focus-visible, .card button:focus-visible { outline: 3px solid var(--primary); outline-offset: 1px; }
+.side-foot { display: flex; flex-direction: column; gap: 6px; margin: 22px 6px 0; }
+.side-foot .btn { min-height: 32px; padding: 4px 12px; font-size: 13.5px; justify-content: flex-start; }
+.side-foot .hint { color: var(--muted); font-size: 12.5px; margin: 0; }
+
+main { padding: 14px 18px 60px; min-width: 0; }
+.tools { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 14px; }
+.tools input[type=search] { flex: 1 1 220px; min-width: 0; }
+input[type=search], input[type=text], input[type=url], input[type=password], select, textarea {
+    min-height: 36px; padding: 6px 10px; border: 1px solid var(--mtb-flat-line); border-radius: 8px;
+    background: var(--card); color: var(--text); font-size: 14.5px;
+}
+.tools .btn { min-height: 36px; padding: 6px 14px; }
+.heading { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0 0 12px; }
+.heading h2 { font-size: 1.25rem; margin: 0 8px 0 0; }
+.heading .n, .group h3 .n { color: var(--muted); font-weight: 400; font-size: .9em; }
+.heading .btn, .group .btn { min-height: 30px; padding: 3px 11px; font-size: 13px; }
+/* Deleting an EMPTY collection or group is a quiet action: red words, not a red plate. */
+html body .btn.soft.del { color: var(--danger); }
+.group { margin-bottom: 22px; }
+.group > .bar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-bottom: 8px; padding: 4px 6px; border-radius: 8px; border: 1px dashed transparent; }
+.group > .bar.over { border-color: var(--mtb-flat); background: var(--soft); }
+.group h3 { font-size: 1rem; margin: 0 6px 0 0; }
+.empty { color: var(--muted); padding: 10px 6px; margin: 0; }
+
+.cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 14px; }
+.card { display: flex; flex-direction: column; background: var(--card); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; box-shadow: var(--shadow); color: var(--text); }
+.card:hover { border-color: var(--mtb-flat-line); }
+.card.dragging { opacity: .45; }
+.cover { position: relative; display: grid; place-items: center; aspect-ratio: 16 / 9; background: hsl(var(--h, 210) var(--tile-s) var(--tile-l)); color: var(--text); text-decoration: none; overflow: hidden; }
+.cover .letter { font-size: 44px; font-weight: 700; opacity: .55; text-transform: uppercase; }
+.cover img.shot { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.cover img.ico { position: absolute; left: 10px; bottom: 10px; width: 24px; height: 24px; border-radius: 5px; background: #fff; padding: 2px; }
+.card .body { display: flex; flex-direction: column; gap: 4px; padding: 10px 12px 6px; flex: 1; min-width: 0; }
+.card .title { font-weight: 650; color: var(--text); text-decoration: none; overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+a.title:hover { text-decoration: underline; }
+.card .host, .card .where { color: var(--muted); font-size: 12.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.card .notes { color: var(--muted); font-size: 13px; white-space: pre-wrap; overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.chips { display: flex; flex-wrap: wrap; gap: 4px; }
+.chip { border: 1px solid var(--mtb-flat-line); border-radius: 999px; background: var(--soft); color: var(--text); font-size: 12px; padding: 1px 8px; cursor: pointer; }
+.chip:hover { border-color: var(--mtb-flat); }
+.card .acts { display: flex; gap: 4px; padding: 4px 8px 8px; justify-content: flex-end; }
+.card .acts button { border: 1px solid transparent; background: transparent; color: var(--text); border-radius: 8px; min-width: 32px; min-height: 30px; padding: 2px 8px; font-size: 13px; cursor: pointer; }
+.card .acts button:hover { border-color: var(--mtb-flat-line); background: var(--soft); }
+.card .acts .fav[aria-pressed="true"] { color: #b7791f; }
+:root[data-theme="dark"] .card .acts .fav[aria-pressed="true"] { color: #f6c453; }
+.card .acts .del { color: var(--danger); }
+.card .acts .fav { margin-right: auto; }
+
+/* The same cards as rows. */
+.cards.list { grid-template-columns: 1fr; gap: 6px; }
+.cards.list .card { flex-direction: row; align-items: center; border-radius: 10px; }
+.cards.list .cover { flex: none; width: 64px; aspect-ratio: 1; align-self: stretch; }
+.cards.list .cover .letter { font-size: 22px; }
+.cards.list .cover img.ico { left: 50%; top: 50%; bottom: auto; transform: translate(-50%, -50%); width: 26px; height: 26px; }
+.cards.list .cover:has(img.ico) .letter { visibility: hidden; }
+.cards.list .body { padding: 6px 12px; gap: 2px; }
+.cards.list .title, .cards.list .notes { -webkit-line-clamp: 1; }
+.cards.list .acts { padding: 4px 8px; flex: none; }
+.cards.list .acts .fav { margin-right: 0; }
+
+dialog { border: 2px solid var(--border); border-radius: 12px; background: var(--card); color: var(--text); padding: 18px 20px; width: min(94vw, 520px); }
+dialog::backdrop { background: rgba(8, 20, 34, .5); }
+dialog h2 { margin: 0 0 12px; font-size: 1.1rem; }
+dialog label { display: flex; flex-direction: column; gap: 3px; font-size: 13px; color: var(--muted); margin-bottom: 10px; }
+dialog label.check { flex-direction: row; align-items: center; gap: 8px; color: var(--text); font-size: 14.5px; }
+dialog .two { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+dialog .row { display: flex; gap: 8px; justify-content: flex-end; margin-top: 6px; }
+dialog .btn { min-height: 36px; padding: 6px 16px; }
+
+@media (max-width: 760px) {
+    .shell { grid-template-columns: 1fr; }
+    aside { border-right: 0; border-bottom: 2px solid var(--border); padding: 8px 10px 10px; }
+    aside nav { flex-direction: row; flex-wrap: wrap; }
+    .shelf { width: auto; border-color: var(--mtb-flat-line); padding: 5px 10px; }
+    .side-head { margin: 10px 2px 6px; }
+    .side-foot { flex-direction: row; flex-wrap: wrap; margin-top: 12px; }
+    .side-foot .hint { display: none; }
+    main { padding: 12px 10px 50px; }
+    .cards { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+    dialog .two { grid-template-columns: 1fr; }
+}
+</style>
+</head>
+<body>
+<header>
+    <h1>🔖 Обележувачи</h1>
+    <span class="sub" id="status" role="status" aria-live="polite">Вчитувам…</span>
+    <span class="grow"></span>
+    <a class="btn soft" id="toWorkspace" href="MTB-Workspace.html">↩ Работен простор</a>
+    <button type="button" class="btn soft" id="theme"></button>
+</header>
+<div class="notice" id="notice" hidden></div>
+<div class="shell" id="shell" hidden>
+    <aside aria-label="Колекции и ознаки">
+        <nav id="shelves" aria-label="Сите и омилени"></nav>
+        <div class="side-head"><h2>Колекции</h2><button type="button" class="btn soft" id="addBoard" title="Нова колекција">+ Додај</button></div>
+        <nav id="boards" aria-label="Колекции"></nav>
+        <div class="side-head"><h2>Ознаки</h2></div>
+        <nav id="tags" aria-label="Ознаки"></nav>
+        <div class="side-foot">
+            <button type="button" class="btn soft" id="exportFile" title="Сите обележувачи во една датотека — резерва">📤 Извези резерва</button>
+            <label class="btn soft" title="Обележувачите од Chrome, Edge или Firefox (HTML датотека) се ДОДАВААТ како нова колекција">📥 Додај од прелистувач<input type="file" id="importHtml" accept=".html,.htm,text/html" hidden></label>
+            <label class="btn soft" title="Резерва од оваа страница или извоз од BookmarksPlus — ги ЗАМЕНУВА сите обележувачи">♻️ Врати од резерва<input type="file" id="importJson" accept=".json,application/json" hidden></label>
+            <p class="hint">Влечи картичка врз колекција за да ја преместиш.</p>
+        </div>
+    </aside>
+    <main>
+        <div class="tools">
+            <input type="search" id="search" placeholder="барај по наслов, линк, ознака, белешка…" aria-label="Барај">
+            <select id="sort" aria-label="Редослед">
+                <option value="manual">Омилени први</option>
+                <option value="new">Најнови први</option>
+                <option value="title">По наслов</option>
+            </select>
+            <button type="button" class="btn soft" id="viewGrid" aria-pressed="true" title="Картички со слика">▦ Мрежа</button>
+            <button type="button" class="btn soft" id="viewList" aria-pressed="false" title="Ред по ред">☰ Листа</button>
+            <button type="button" class="btn btn-primary" id="addCard" title="Нов обележувач (или залепи линк со Ctrl+V)">+ Додај</button>
+        </div>
+        <div class="heading" id="heading"></div>
+        <div id="out"></div>
+    </main>
+</div>
+
+<dialog id="editor" aria-labelledby="editorTitle">
+    <form id="editorForm" method="dialog">
+        <h2 id="editorTitle">Обележувач</h2>
+        <label>Линк<input type="text" id="fUrl" placeholder="https://…" inputmode="url" autocomplete="off"></label>
+        <label>Наслов<input type="text" id="fTitle" maxlength="300" autocomplete="off"></label>
+        <div class="two">
+            <label>Колекција<select id="fBoard"></select></label>
+            <label>Група<select id="fColumn"></select></label>
+        </div>
+        <label>Ознаки (со запирка)<input type="text" id="fTags" autocomplete="off"></label>
+        <label>Белешка<textarea id="fNotes" rows="3" maxlength="5000"></textarea></label>
+        <label class="check"><input type="checkbox" id="fPinned"> ⭐ Омилен</label>
+        <div class="row">
+            <button type="button" class="btn soft" id="editorCancel">Откажи</button>
+            <button type="submit" class="btn btn-primary" id="editorSave">Зачувај</button>
+        </div>
+    </form>
+</dialog>
+
+<script>
+/*
+ * The administrator's bookmarks — the document of migration 047, the same one
+ * the small panel in WBACC Studio reads. Nothing is stored here beyond it:
+ * boards are shown as collections, columns as groups, `pinned` as ⭐.
+ *
+ * One document with a revision. A save names the revision it started from;
+ * when another computer saved in between the server refuses and the PERSON
+ * chooses which one holds. Until the server has answered this page holds
+ * nothing and lets nothing be changed, so an empty page can never be saved
+ * over the stored bookmarks (rule 3). A change the server has not confirmed
+ * is kept in this browser and sent again.
+ */
+(() => {
+    'use strict';
+    const TOKEN_KEY = 'evidence_token_v1';              // the shared PIN sign-in of the MTB screens
+    const DRAFT_KEY = 'mtb_obelezuvaci_draft_v1';       // changes the server has not confirmed yet
+    const LOOK_KEY = 'mtb_obelezuvaci_look_v1';         // grid or list, the order: this browser's convenience
+    const PUSH_DELAY = 1200, RETRY = 15000;
+
+    const $ = (id) => document.getElementById(id);
+    const rid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+    const clip = (v, n) => String(v == null ? '' : v).slice(0, n);
+    const lower = (v) => String(v).toLocaleLowerCase('mk-MK');
+    const byOrder = (a, b) => a.order - b.order;
+    const safeUrl = (v) => {
+        let u = String(v || '').trim();
+        if (u && !/^[a-z][a-z0-9+.-]*:/i.test(u)) u = 'https://' + u;
+        return /^https?:\/\/[^\s]+$/i.test(u) ? u.slice(0, 2000) : '';
+    };
+    const host = (u) => { try { return new URL(u).hostname.replace(/^www\./, ''); } catch (_) { return ''; } };
+    const youtubeId = (u) => (String(u).match(/(?:v=|youtu\.be\/|shorts\/)([\w-]{11})/) || [])[1];
+    const hue = (text) => { let h = 0; for (const ch of String(text)) h = (h * 31 + ch.codePointAt(0)) % 360; return h; };
+
+    function el(tag, props, ...kids) {
+        const node = document.createElement(tag);
+        for (const [key, value] of Object.entries(props || {})) {
+            if (value == null || value === false) continue;
+            if (key === 'class') node.className = value;
+            else if (key === 'text') node.textContent = value;
+            else if (key.startsWith('on')) node.addEventListener(key.slice(2), value);
+            else node.setAttribute(key, value === true ? '' : value);
+        }
+        for (const kid of kids) if (kid != null && kid !== false) node.append(kid);
+        return node;
+    }
+    const kept = (key) => { try { return JSON.parse(localStorage.getItem(key) || 'null'); } catch (_) { return null; } };
+    const keep = (key, value) => {
+        try { value == null ? localStorage.removeItem(key) : localStorage.setItem(key, JSON.stringify(value)); return true; }
+        catch (_) { return false; }
+    };
+    const wellFormed = (d) => Boolean(d && Array.isArray(d.boards) && d.boards.length && Array.isArray(d.cards)
+        && d.columnsByBoard && typeof d.columnsByBoard === 'object');
+
+    let doc = null, revision = 0, dirty = false, seq = 0;
+    let conflict = null;        // the server's { doc, revision } when both sides changed
+    let stuck = false;          // the server refused this copy: no point sending it again unchanged
+    let pushing = false, timer = null;
+    let editing = null;         // the card in the dialog, or { id: '' } for a new one
+    const look = Object.assign({ view: 'grid', sort: 'manual' }, kept(LOOK_KEY) || {});
+
+    function emptyDoc() {
+        const board = rid(), now = Date.now();
+        return { boards: [{ id: board, name: 'Мои обележувачи', order: now }],
+            columnsByBoard: { [board]: [{ id: rid(), name: 'Општо', order: now }] }, cards: [] };
+    }
+
+    // ── the server ────────────────────────────────────────────────────────
+    function status(kind, text) { $('status').className = 'sub ' + kind; $('status').textContent = text; }
+
+    async function call(method, body) {
+        let token = '';
+        try { token = localStorage.getItem(TOKEN_KEY) || ''; } catch (_) { /* no storage: no PIN sign-in */ }
+        let r;
+        try {
+            r = await fetch('api/bookmarks', { method, cache: 'no-store', credentials: 'same-origin',
+                headers: { 'content-type': 'application/json', ...(token ? { 'x-mtb-evidence-token': token } : {}) },
+                body: body === undefined ? undefined : JSON.stringify(body) });
+        } catch (_) { throw { status: 0, body: {}, message: 'Серверот не одговара.' }; }
+        const answer = await r.json().catch(() => null);
+        if (!r.ok) throw { status: r.status, body: answer || {}, message: (answer && answer.error) || 'HTTP ' + r.status };
+        return answer;
+    }
+
+    function notice(...kids) {
+        $('notice').replaceChildren(...kids);
+        $('notice').hidden = !kids.length;
+    }
+
+    /** Who may see them is the server's answer; this only says it in words. */
+    async function refused(err) {
+        if (err.status === 0) {
+            status('wait', dirty ? '⏳ Зачувано само во овој прелистувач — чека сервер' : '⏳ Серверот не одговара');
+            if (!doc) notice(el('p', { text: 'Серверот не одговара, па обележувачите не се вчитани. Ништо не е сменето.' }),
+                el('div', { class: 'row' }, el('button', { type: 'button', class: 'btn soft', text: '↻ Обиди се пак', onclick: open })));
+            return;
+        }
+        if (err.body.noAdmin) { status('bad', '⚠ Нема администратор'); return notice(el('p', { text: err.message })); }
+        if (err.body.needsAdmin || err.body.signedOut) return pinGate();
+        if (err.status === 401) {
+            status('bad', '⚠ Најавата истече');
+            return notice(el('p', { text: 'Најавата во MTB истече. Најави се пак; несочуваните измени остануваат во овој прелистувач.' }),
+                el('div', { class: 'row' }, el('a', { class: 'btn btn-primary', href: 'auth/login', text: 'Најави се во MTB' })));
+        }
+        stuck = true;
+        status('bad', '⚠ ' + err.message);
+    }
+
+    /** Only where the owner's own sign-in does not already say who is asking. */
+    async function pinGate() {
+        status('bad', '⚠ Потребна е најава');
+        let people = [];
+        try {
+            const r = await fetch('api/evidence/people', { cache: 'no-store', credentials: 'same-origin' });
+            people = r.ok ? ((await r.json()).people || []) : [];
+        } catch (_) { /* the form still says what is needed */ }
+        const who = el('select', { name: 'who', 'aria-label': 'Кој си' },
+            ...people.map((p) => el('option', { value: p.kind + ':' + p.id, text: p.name })));
+        const pin = el('input', { name: 'pin', type: 'password', inputmode: 'numeric', maxlength: '4', placeholder: 'PIN', 'aria-label': 'PIN', size: '6' });
+        const form = el('form', { id: 'gate', onsubmit: async (e) => {
+            e.preventDefault();
+            const [kind, id] = who.value.split(':');
+            try {
+                const r = await fetch('api/evidence/login', { method: 'POST', credentials: 'same-origin',
+                    headers: { 'content-type': 'application/json' }, body: JSON.stringify({ kind, personId: Number(id), pin: pin.value.trim() }) });
+                const answer = await r.json().catch(() => null);
+                if (!r.ok) throw new Error((answer && answer.error) || 'Најавата не успеа.');
+                try { localStorage.setItem(TOKEN_KEY, answer.token); } catch (_) { /* this visit cannot keep it */ }
+                open();
+            } catch (err) { alert(err.message || 'Најавата не успеа.'); }
+        } }, who, pin, el('button', { type: 'submit', class: 'btn btn-primary', text: 'Најави се' }));
+        notice(el('p', { text: 'Обележувачите се лични: ги гледа само администраторот. На овој сервер тоа се потврдува со име и PIN (4 цифри) — истиот како во „Списоци и пристап".' }), form);
+    }
+
+    /** Open: what the server holds, and this browser's unconfirmed changes if any. */
+    async function open() {
+        const draft = kept(DRAFT_KEY);
+        const mine = draft && wellFormed(draft.doc) && Number.isInteger(draft.revision) ? draft : null;
+        let server;
+        try { server = await call('GET'); } catch (err) { return refused(err); }
+        notice();
+        stuck = false;
+        if (!mine) {
+            doc = server.doc || emptyDoc(); revision = server.revision; dirty = false; conflict = null;
+            status('ok', server.revision ? '✓ Зачувано на серверот' : '✓ Поврзано — уште нема обележувачи');
+            return render();
+        }
+        doc = mine.doc; revision = mine.revision; dirty = true;
+        if (mine.revision === server.revision) { conflict = null; render(); return push(); }
+        conflict = server;
+        render();
+    }
+
+    function showConflict() {
+        status('bad', '⚠ Одлучи која верзија важи');
+        notice(el('p', { text: 'Обележувачите се сменети и тука и од друго место. Ништо не се спојува само: избери која верзија останува.' }),
+            el('div', { class: 'row' },
+                el('button', { type: 'button', class: 'btn soft', id: 'takeServer', text: '⬇ Земи ги од серверот', onclick: () => {
+                    if (!confirm('Измените направени во овој прелистувач ќе се изгубат. Продолжи?')) return;
+                    doc = conflict.doc || emptyDoc(); revision = conflict.revision; dirty = false; conflict = null;
+                    keep(DRAFT_KEY, null); notice(); status('ok', '✓ Земени од серверот'); render();
+                } }),
+                el('button', { type: 'button', class: 'btn soft danger', id: 'overwriteServer', text: '⬆ Препиши го серверот со овие', onclick: () => {
+                    if (!confirm('Верзијата на серверот ќе биде заменета со оваа. Продолжи?')) return;
+                    revision = conflict.revision; conflict = null; stuck = false; notice(); render(); push();
+                } })));
+    }
+
+    async function push() {
+        if (!doc || !dirty || pushing || conflict || stuck) return;
+        pushing = true;
+        const sent = seq;
+        try {
+            const saved = await call('PUT', { doc, expected: revision });
+            revision = saved.revision;
+            if (seq === sent) { dirty = false; keep(DRAFT_KEY, null); status('ok', '✓ Зачувано на серверот'); }
+            else { keep(DRAFT_KEY, { doc, revision }); later(); }
+        } catch (err) {
+            if (err.status === 409 && err.body.reason === 'stale') {
+                conflict = await call('GET').catch(() => null);
+                if (conflict) render(); else status('bad', '⚠ ' + err.message);
+            } else await refused(err);
+        } finally { pushing = false; }
+    }
+    function later() { clearTimeout(timer); timer = setTimeout(push, PUSH_DELAY); }
+
+    /** Every change: a new copy, kept in this browser first, then sent. */
+    function change(mutate) {
+        if (!doc) return;
+        if (conflict) { alert('Прво одлучи која верзија важи (горе).'); return; }
+        const next = structuredClone(doc);
+        mutate(next);
+        doc = next; dirty = true; stuck = false; seq++;
+        status('wait', keep(DRAFT_KEY, { doc, revision }) ? '⏳ Се зачувува…' : '⏳ Се зачувува… (не затворај ја страницата)');
+        later();
+        render();
+    }
+    setInterval(push, RETRY);
+    window.addEventListener('online', push);
+    window.addEventListener('beforeunload', (e) => { if (dirty) { e.preventDefault(); e.returnValue = ''; } });
+
+    // ── which shelf is open: a step in the browser's history ──────────────
+    function view() {
+        const hash = decodeURIComponent(location.hash.slice(1));
+        if (hash === 'omileni') return { kind: 'fav' };
+        if (hash.startsWith('k=') && doc && doc.boards.some((b) => b.id === hash.slice(2))) return { kind: 'board', id: hash.slice(2) };
+        if (hash.startsWith('o=') && hash.length > 2) return { kind: 'tag', tag: hash.slice(2) };
+        return { kind: 'all' };
+    }
+    function go(hash) {
+        if (location.hash === hash || (!hash && !location.hash)) return render();
+        location.hash = hash;     // hashchange draws it
+    }
+    window.addEventListener('hashchange', render);
+
+    const boardOf = (id) => doc.boards.find((b) => b.id === id);
+    const columnsOf = (boardId) => [...(doc.columnsByBoard[boardId] || [])].sort(byOrder);
+    const sorted = (cards) => [...cards].sort(look.sort === 'new' ? (a, b) => b.createdAt - a.createdAt
+        : look.sort === 'title' ? (a, b) => (a.title || a.url).localeCompare(b.title || b.url, 'mk')
+            : (a, b) => Number(b.pinned) - Number(a.pinned) || a.order - b.order);
+
+    // ── drawing ───────────────────────────────────────────────────────────
+    function shelf(label, count, hash, current, drop) {
+        const b = el('button', { type: 'button', class: 'shelf', 'aria-current': current ? 'true' : null, title: label, onclick: () => go(hash) },
+            el('span', { class: 'name', text: label }), el('span', { class: 'n', text: String(count) }));
+        if (drop) dropTarget(b, drop);
+        return b;
+    }
+
+    function dropTarget(node, move) {
+        node.addEventListener('dragover', (e) => { if (dragged) { e.preventDefault(); node.classList.add('over'); } });
+        node.addEventListener('dragleave', () => node.classList.remove('over'));
+        node.addEventListener('drop', (e) => {
+            e.preventDefault(); node.classList.remove('over');
+            const id = dragged; dragged = '';
+            if (id) move(id);
+        });
+    }
+    let dragged = '';
+    function moveCard(id, boardId, columnId) {
+        const card = doc.cards.find((c) => c.id === id);
+        const column = columnId || (columnsOf(boardId)[0] || {}).id;
+        if (!card || !column || (card.boardId === boardId && card.columnId === column)) return;
+        change((d) => { Object.assign(d.cards.find((c) => c.id === id), { boardId, columnId: column, order: Date.now(), updatedAt: Date.now() }); });
+    }
+
+    function cover(card) {
+        const label = card.title || host(card.url) || '•';
+        const inside = [];
+        const yt = youtubeId(card.url);
+        if (yt) inside.push(el('img', { class: 'shot', src: `https://img.youtube.com/vi/${yt}/mqdefault.jpg`, alt: '', loading: 'lazy', referrerpolicy: 'no-referrer' }));
+        else {
+            inside.push(el('span', { class: 'letter', text: card.url ? [...label][0] : '📝' }));
+            if (card.url) {
+                // The site's own icon, asked of the site itself — no third party learns the list.
+                const ico = el('img', { class: 'ico', alt: '', loading: 'lazy', referrerpolicy: 'no-referrer' });
+                ico.addEventListener('error', () => ico.remove());
+                try { ico.src = new URL(card.url).origin + '/favicon.ico'; inside.push(ico); } catch (_) { /* no icon */ }
+            }
+        }
+        const props = { class: 'cover', style: `--h:${hue(host(card.url) || label)}`, tabindex: '-1', 'aria-hidden': 'true' };
+        return card.url ? el('a', { ...props, href: card.url, target: '_blank', rel: 'noopener noreferrer' }, ...inside) : el('div', props, ...inside);
+    }
+
+    function cardNode(card, withPlace) {
+        const board = boardOf(card.boardId);
+        const node = el('article', { class: 'card', draggable: 'true', 'data-id': card.id,
+            ondragstart: (e) => { dragged = card.id; node.classList.add('dragging'); e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', card.url || card.title); },
+            ondragend: () => { dragged = ''; node.classList.remove('dragging'); } },
+            cover(card),
+            el('div', { class: 'body' },
+                card.url ? el('a', { class: 'title', href: card.url, target: '_blank', rel: 'noopener noreferrer', text: card.title || card.url })
+                    : el('span', { class: 'title', text: card.title }),
+                card.url && el('span', { class: 'host', text: host(card.url) }),
+                withPlace && board && el('span', { class: 'where', text: '🗂 ' + board.name }),
+                card.tags.length > 0 && el('div', { class: 'chips' }, ...card.tags.map((t) =>
+                    el('button', { type: 'button', class: 'chip', text: '#' + t, title: 'Сите со ознаката „' + t + '"', onclick: () => go('#o=' + encodeURIComponent(t)) }))),
+                card.notes && el('span', { class: 'notes', text: card.notes })),
+            el('div', { class: 'acts' },
+                el('button', { type: 'button', class: 'fav', 'aria-pressed': String(Boolean(card.pinned)), title: card.pinned ? 'Омилен — кликни за да не биде' : 'Означи како омилен',
+                    'aria-label': 'Омилен', text: card.pinned ? '⭐' : '☆',
+                    onclick: () => change((d) => { const c = d.cards.find((x) => x.id === card.id); c.pinned = !c.pinned; c.updatedAt = Date.now(); }) }),
+                el('button', { type: 'button', class: 'edit', title: 'Уреди', text: '✏️ Уреди', onclick: () => openEditor(card) }),
+                el('button', { type: 'button', class: 'del', title: 'Избриши', text: 'Избриши', onclick: () => {
+                    if (confirm(`Да се избрише „${card.title || card.url}"?`)) change((d) => { d.cards = d.cards.filter((c) => c.id !== card.id); });
+                } })));
+        return node;
+    }
+
+    const grid = (cards, withPlace) => el('div', { class: 'cards' + (look.view === 'list' ? ' list' : '') }, ...sorted(cards).map((c) => cardNode(c, withPlace)));
+
+    function render() {
+        $('shell').hidden = !doc;
+        if (!doc) return;
+        if (conflict) showConflict();
+        const now = view();
+        const q = lower($('search').value.trim());
+        const matches = (c) => !q || lower([c.title, c.url, c.notes, ...c.tags].join(' ')).includes(q);
+
+        $('shelves').replaceChildren(
+            shelf('📚 Сите обележувачи', doc.cards.length, '', now.kind === 'all'),
+            shelf('⭐ Омилени', doc.cards.filter((c) => c.pinned).length, '#omileni', now.kind === 'fav'));
+        $('boards').replaceChildren(...[...doc.boards].sort(byOrder).map((b) =>
+            shelf('🗂 ' + b.name, doc.cards.filter((c) => c.boardId === b.id).length, '#k=' + b.id,
+                now.kind === 'board' && now.id === b.id, (id) => moveCard(id, b.id))));
+        const counts = new Map();
+        doc.cards.forEach((c) => c.tags.forEach((t) => counts.set(t, (counts.get(t) || 0) + 1)));
+        const tags = [...counts].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], 'mk'));
+        $('tags').replaceChildren(...(tags.length ? tags.map(([t, n]) => shelf('#' + t, n, '#o=' + encodeURIComponent(t), now.kind === 'tag' && now.tag === t))
+            : [el('p', { class: 'empty', text: 'Уште нема ознаки.' })]));
+
+        $('viewGrid').setAttribute('aria-pressed', String(look.view !== 'list'));
+        $('viewList').setAttribute('aria-pressed', String(look.view === 'list'));
+        $('sort').value = look.sort;
+
+        const head = $('heading'), out = $('out');
+        const count = (n) => el('span', { class: 'n', text: ' ' + n });
+        const nothing = (text) => el('p', { class: 'empty', text });
+        if (now.kind === 'board') {
+            const board = boardOf(now.id);
+            const mine = doc.cards.filter((c) => c.boardId === board.id && matches(c));
+            head.replaceChildren(el('h2', {}, '🗂 ' + board.name, count(mine.length)),
+                el('button', { type: 'button', class: 'btn soft', id: 'renameBoard', text: '✏️ Уреди', title: 'Друго име на колекцијата', onclick: () => {
+                    const name = prompt('Име на колекцијата:', board.name);
+                    if (name && name.trim()) change((d) => { d.boards.find((b) => b.id === board.id).name = clip(name.trim(), 120); });
+                } }),
+                el('button', { type: 'button', class: 'btn soft', id: 'addColumn', text: '+ Додај група', title: 'Нова група во оваа колекција', onclick: () => {
+                    const name = prompt('Име на новата група:');
+                    if (name && name.trim()) change((d) => { d.columnsByBoard[board.id].push({ id: rid(), name: clip(name.trim(), 120), order: Date.now() }); });
+                } }),
+                el('button', { type: 'button', class: 'btn soft del', id: 'deleteBoard', text: 'Избриши', title: 'Избриши ја колекцијата (само кога е празна)', onclick: () => {
+                    if (doc.boards.length < 2) return alert('Ова е единствената колекција.');
+                    if (doc.cards.some((c) => c.boardId === board.id)) return alert('Колекцијата има обележувачи — прво премести ги или избриши ги.');
+                    if (!confirm(`Да се избрише колекцијата „${board.name}"?`)) return;
+                    change((d) => { d.boards = d.boards.filter((b) => b.id !== board.id); delete d.columnsByBoard[board.id]; });
+                    go('');
+                } }));
+            const columns = columnsOf(board.id);
+            out.replaceChildren(...columns.map((col) => {
+                const cards = mine.filter((c) => c.columnId === col.id);
+                const bar = el('div', { class: 'bar' }, el('h3', {}, col.name, count(cards.length)),
+                    el('button', { type: 'button', class: 'btn soft', text: '+ Додај', title: 'Нов обележувач во групата „' + col.name + '"', onclick: () => openEditor(null, { boardId: board.id, columnId: col.id }) }),
+                    el('button', { type: 'button', class: 'btn soft', text: '✏️ Уреди', title: 'Друго име на групата', onclick: () => {
+                        const name = prompt('Име на групата:', col.name);
+                        if (name && name.trim()) change((d) => { d.columnsByBoard[board.id].find((c) => c.id === col.id).name = clip(name.trim(), 120); });
+                    } }),
+                    el('button', { type: 'button', class: 'btn soft del', text: 'Избриши', title: 'Избриши ја групата (само кога е празна)', onclick: () => {
+                        if (columns.length < 2) return alert('Колекцијата мора да има барем една група.');
+                        if (doc.cards.some((c) => c.columnId === col.id)) return alert('Групата има обележувачи — прво премести ги или избриши ги.');
+                        change((d) => { d.columnsByBoard[board.id] = d.columnsByBoard[board.id].filter((c) => c.id !== col.id); });
+                    } }));
+                dropTarget(bar, (id) => moveCard(id, board.id, col.id));
+                return el('section', { class: 'group', 'data-column': col.id }, bar,
+                    cards.length ? grid(cards, false) : nothing(q ? 'Ништо не одговара на пребарувањето.' : 'Празна група. Залепи линк (Ctrl+V) или „+ Додај".'));
+            }));
+            return;
+        }
+        const pool = doc.cards.filter((c) => (now.kind === 'fav' ? c.pinned : now.kind === 'tag' ? c.tags.includes(now.tag) : true) && matches(c));
+        head.replaceChildren(el('h2', {}, now.kind === 'fav' ? '⭐ Омилени' : now.kind === 'tag' ? '#' + now.tag : '📚 Сите обележувачи', count(pool.length)));
+        out.replaceChildren(pool.length ? grid(pool, true)
+            : nothing(q ? 'Ништо не одговара на пребарувањето.'
+                : now.kind === 'fav' ? 'Уште нема омилени. Ѕвездата на картичка ја става тука.'
+                    : now.kind === 'tag' ? 'Нема обележувачи со оваа ознака.'
+                        : 'Уште нема обележувачи. Залепи линк (Ctrl+V) или кликни „+ Додај".'));
+    }
+
+    // ── the one form for a bookmark ───────────────────────────────────────
+    function fillColumns(boardId, chosen) {
+        $('fColumn').replaceChildren(...columnsOf(boardId).map((c) => el('option', { value: c.id, text: c.name })));
+        if (chosen && columnsOf(boardId).some((c) => c.id === chosen)) $('fColumn').value = chosen;
+    }
+    function openEditor(card, preset) {
+        if (!doc) return;
+        if (conflict) return alert('Прво одлучи која верзија важи (горе).');
+        const now = view();
+        const start = card || { id: '', url: '', title: '', tags: [], notes: '', pinned: now.kind === 'fav',
+            boardId: now.kind === 'board' ? now.id : [...doc.boards].sort(byOrder)[0].id, columnId: '', ...(preset || {}) };
+        if (!card && now.kind === 'tag') start.tags = [now.tag];
+        editing = start;
+        $('editorTitle').textContent = card ? 'Уреди обележувач' : 'Нов обележувач';
+        $('fUrl').value = start.url; $('fTitle').value = start.title;
+        $('fTags').value = start.tags.join(', '); $('fNotes').value = start.notes; $('fPinned').checked = Boolean(start.pinned);
+        $('fBoard').replaceChildren(...[...doc.boards].sort(byOrder).map((b) => el('option', { value: b.id, text: b.name })));
+        $('fBoard').value = start.boardId;
+        fillColumns(start.boardId, start.columnId);
+        $('editor').showModal();
+        (start.url ? $('fTitle') : $('fUrl')).focus();
+    }
+    $('fBoard').addEventListener('change', () => fillColumns($('fBoard').value));
+    $('editorCancel').addEventListener('click', () => $('editor').close());
+    $('editorForm').addEventListener('submit', (e) => {
+        e.preventDefault();
+        const typed = $('fUrl').value.trim();
+        const url = safeUrl(typed);
+        if (typed && !url) return alert('Линкот мора да почнува со http или https.');
+        const title = clip($('fTitle').value.trim() || host(url), 300);
+        if (!url && !title) return alert('Внеси линк или наслов.');
+        const now = Date.now();
+        const fields = { url, title, boardId: $('fBoard').value, columnId: $('fColumn').value,
+            tags: [...new Set($('fTags').value.split(',').map((t) => clip(t.trim().replace(/^#/, ''), 60)).filter(Boolean))].slice(0, 30),
+            notes: clip($('fNotes').value, 5000), pinned: $('fPinned').checked, updatedAt: now };
+        const id = editing.id;
+        $('editor').close();
+        change((d) => {
+            const card = id && d.cards.find((c) => c.id === id);
+            if (card) Object.assign(card, fields);
+            else d.cards.push({ id: rid(), order: now, createdAt: now, ...fields });
+        });
+    });
+
+    // ── the tools above and beside the cards ──────────────────────────────
+    $('addCard').addEventListener('click', () => openEditor(null));
+    $('search').addEventListener('input', render);
+    $('sort').addEventListener('change', () => { look.sort = $('sort').value; keep(LOOK_KEY, look); render(); });
+    $('viewGrid').addEventListener('click', () => { look.view = 'grid'; keep(LOOK_KEY, look); render(); });
+    $('viewList').addEventListener('click', () => { look.view = 'list'; keep(LOOK_KEY, look); render(); });
+    $('addBoard').addEventListener('click', () => {
+        if (!doc || conflict) return;
+        const name = prompt('Име на новата колекција:');
+        if (!name || !name.trim()) return;
+        const id = rid();
+        change((d) => { d.boards.push({ id, name: clip(name.trim(), 120), order: Date.now() }); d.columnsByBoard[id] = [{ id: rid(), name: 'Општо', order: Date.now() }]; });
+        go('#k=' + id);
+    });
+    // A link pasted anywhere outside a field opens the form with it.
+    document.addEventListener('paste', (e) => {
+        if (!doc || $('editor').open || /^(INPUT|TEXTAREA|SELECT)$/.test((e.target && e.target.tagName) || '')) return;
+        const text = ((e.clipboardData && e.clipboardData.getData('text')) || '').trim();
+        if (!/^(https?:\/\/|www\.)\S+$/i.test(text)) return;
+        e.preventDefault();
+        openEditor(null, { url: safeUrl(text) });
+    });
+
+    // ── reserve: out as one file, back in as one file ─────────────────────
+    $('exportFile').addEventListener('click', () => {
+        if (!doc) return;
+        const a = el('a', { href: URL.createObjectURL(new Blob([JSON.stringify(doc, null, 2)], { type: 'application/json' })),
+            download: 'obelezuvaci-' + new Date().toISOString().slice(0, 10) + '.json' });
+        a.click();
+        setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+    });
+
+    /** A reserve of this page or a BookmarksPlus export, reduced to what the server stores. */
+    function fromExport(raw) {
+        if (!raw || !Array.isArray(raw.boards) || !raw.boards.length) throw new Error('Ова не е резерва на обележувачи.');
+        const ids = new Map();
+        const id = (old) => {
+            const key = String(old);
+            if (!ids.has(key)) ids.set(key, key.replace(/[^\w-]/g, '-').slice(0, 64) || rid());
+            return ids.get(key);
+        };
+        const now = Date.now();
+        const boards = raw.boards.slice(0, 100).map((b, i) => ({ id: id(b.id), name: clip(b.name, 120), order: Number(b.order) || now + i }));
+        const known = new Set(boards.map((b) => b.id));
+        const columnsByBoard = {};
+        Object.entries(raw.columnsByBoard || {}).forEach(([board, cols]) => {
+            if (!known.has(id(board))) return;
+            columnsByBoard[id(board)] = (Array.isArray(cols) ? cols : []).slice(0, 100)
+                .map((c, i) => ({ id: id(c.id), name: clip(c.name, 120), order: Number(c.order) || now + i }));
+        });
+        boards.forEach((b) => { if (!columnsByBoard[b.id] || !columnsByBoard[b.id].length) columnsByBoard[b.id] = [{ id: rid(), name: 'Општо', order: now }]; });
+        const columns = new Map(Object.entries(columnsByBoard).flatMap(([b, cols]) => cols.map((c) => [c.id, b])));
+        const cards = (Array.isArray(raw.cards) ? raw.cards : []).slice(0, 5000).flatMap((c, i) => {
+            const board = id(c.boardId);
+            let column = id(c.columnId);
+            if (!known.has(board)) return [];
+            if (columns.get(column) !== board) column = columnsByBoard[board][0].id;
+            // A file kept in BookmarksPlus lives in that browser only: its name travels as a note.
+            const file = c.kind === 'file' && c.fileName ? '📎 ' + c.fileName : '';
+            return [{ id: id(c.id), boardId: board, columnId: column, url: safeUrl(c.url), title: clip(c.title || c.fileName, 300),
+                tags: (Array.isArray(c.tags) ? c.tags : []).slice(0, 30).map((t) => clip(t, 60)),
+                notes: clip([c.notes, file].filter(Boolean).join('\n'), 5000), pinned: Boolean(c.pinned),
+                order: Number(c.order) || now + i, createdAt: Number(c.createdAt) || now, updatedAt: Number(c.updatedAt) || now }];
+        });
+        return { boards, columnsByBoard, cards };
+    }
+    $('importJson').addEventListener('change', async (e) => {
+        const file = e.target.files && e.target.files[0];
+        e.target.value = '';
+        if (!file || !doc) return;
+        try {
+            const next = fromExport(JSON.parse(await file.text()));
+            if (!confirm(`Во датотеката: ${next.boards.length} колекции, ${next.cards.length} обележувачи.\nОвие ги ЗАМЕНУВААТ сегашните (${doc.cards.length}). Продолжи?`)) return;
+            change((d) => { d.boards = next.boards; d.columnsByBoard = next.columnsByBoard; d.cards = next.cards; });
+            go('');
+        } catch (err) { alert(err.message || 'Датотеката не може да се прочита.'); }
+    });
+
+    /**
+     * The file every browser exports („Bookmarks → Export… HTML"). It ADDS: one
+     * new collection, a group per folder, nothing already here is touched.
+     */
+    function fromBrowser(html) {
+        const page = new DOMParser().parseFromString(html, 'text/html');
+        const found = [];
+        const walk = (list, path) => {
+            for (const item of list.children) {
+                if (item.tagName !== 'DT') { if (item.tagName === 'DL' || item.tagName === 'P') walk(item, path); continue; }
+                const folder = item.querySelector(':scope > h3');
+                const link = item.querySelector(':scope > a');
+                if (folder) { const inner = item.querySelector(':scope > dl'); if (inner) walk(inner, [...path, folder.textContent.trim()]); }
+                else if (link && safeUrl(link.getAttribute('href'))) {
+                    found.push({ url: safeUrl(link.getAttribute('href')), title: clip(link.textContent.trim(), 300),
+                        folder: path.join(' / '), added: Number(link.getAttribute('add_date')) * 1000 || 0,
+                        tags: (link.getAttribute('tags') || '').split(',').map((t) => clip(t.trim(), 60)).filter(Boolean).slice(0, 30) });
+                }
+            }
+        };
+        const root = page.querySelector('dl');
+        if (root) walk(root, []);
+        return found;
+    }
+    $('importHtml').addEventListener('change', async (e) => {
+        const file = e.target.files && e.target.files[0];
+        e.target.value = '';
+        if (!file || !doc) return;
+        if (conflict) return alert('Прво одлучи која верзија важи (горе).');
+        const found = fromBrowser(await file.text()).slice(0, Math.max(0, 5000 - doc.cards.length));
+        if (!found.length) return alert('Во датотеката не најдов линкови. Очекувам HTML извоз на обележувачи од прелистувач.');
+        if (doc.boards.length >= 100) return alert('Има премногу колекции — избриши некоја празна.');
+        if (!confirm(`Најдени се ${found.length} линкови. Се ДОДАВААТ како нова колекција; сегашните остануваат. Продолжи?`)) return;
+        const board = rid(), now = Date.now();
+        const folders = [...new Set(found.map((f) => f.folder))];
+        const columns = new Map();
+        folders.slice(0, 99).forEach((name, i) => columns.set(name, { id: rid(), name: clip(name || 'Општо', 120), order: now + i }));
+        const rest = folders.length > 99 ? { id: rid(), name: 'Друго', order: now + 99 } : null;
+        change((d) => {
+            d.boards.push({ id: board, name: 'Од прелистувач · ' + new Date().toLocaleDateString('mk-MK'), order: now });
+            d.columnsByBoard[board] = [...columns.values(), ...(rest ? [rest] : [])];
+            found.forEach((f, i) => d.cards.push({ id: rid() + i.toString(36), boardId: board, columnId: (columns.get(f.folder) || rest).id,
+                url: f.url, title: f.title || host(f.url), tags: f.tags, notes: '', pinned: false,
+                order: now + i, createdAt: f.added || now, updatedAt: now }));
+        });
+        go('#k=' + board);
+    });
+
+    if (window.MTBTheme) window.MTBTheme.bind($('theme')); else $('theme').hidden = true;
+    open();
+})();
+</script>
+</body>
+</html>

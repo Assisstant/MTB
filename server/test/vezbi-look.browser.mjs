@@ -47,7 +47,7 @@ try {
     for(const [what,sel] of [['a tool of the strip','#apps button[data-v="tabla"]'],['the chosen tool','#apps button[aria-pressed="true"]'],
       ['a section','#subs [data-library="themes"]'],['the chosen section','#subs [aria-pressed="true"]'],
       ['a button of the bar','#stage button:not([aria-pressed="true"])'],['a chosen button','#stage button[aria-pressed="true"]'],
-      ['the diary link','#apps .diary'],
+      ['the diary link','#apps .diary'],['the bookmarks link','#apps .marks'],
       ['a letter','.card .ltr:not(.t)'],['the hint','#hint']]) {
       const ratio=await contrast(page,sel);
       check(theme+': '+what+' reads ('+ratio.toFixed(1)+':1)',ratio>=4.5);

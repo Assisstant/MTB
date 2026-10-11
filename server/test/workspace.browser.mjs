@@ -64,6 +64,11 @@ try {
     await page.locator('#hideBar').click();
     assert.ok((await page.locator('#app-S-Dnevnik iframe').boundingBox()).height > 500);
     await page.locator('#showBar').click();
+    // „🔖 Обележувачи" sits after „Скриј лента" and opens a tab of its own: no window here, no draft lost.
+    assert.equal(await page.evaluate(() => document.getElementById('hideBar').nextElementSibling.id), 'openBookmarks');
+    const [marks] = await Promise.all([context.waitForEvent('page'), page.locator('#openBookmarks').click()]);
+    assert.equal(marks.url(), origin + '/Obelezuvaci.html');
+    await marks.close();
     assert.equal(await diary.locator('#draft').inputValue(), 'unsaved diary');
     assert.equal(loads.get('S-Dnevnik.html'), 1);
     assert.equal(loads.get('Podatoci.html'), 1);

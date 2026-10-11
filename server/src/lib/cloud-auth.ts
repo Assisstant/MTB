@@ -1,5 +1,5 @@
 import { createHash, timingSafeEqual } from 'node:crypto';
-import type { FastifyInstance } from 'fastify';
+import type { FastifyInstance, FastifyRequest } from 'fastify';
 import type { CustomFetch } from 'openid-client';
 import { googleSettings, installGoogleLogin } from './google-login.js';
 import { mirrorExportRequest, mirrorMode } from './mirror-config.js';
@@ -40,6 +40,17 @@ export function listenOptions(env: NodeJS.ProcessEnv = process.env) {
     const port = Number(env.PORT || 3000);
     if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error('Invalid PORT');
     return { host: env.HOST || '127.0.0.1', port };
+}
+
+/**
+ * Is this request the owner's own Google session? Only in Google mode, where
+ * one approved e-mail is the single person who gets past the gate at all.
+ * Not a colleague permission: the few routes that ask it say why they may.
+ */
+export function isCloudOwner(req: FastifyRequest, env: NodeJS.ProcessEnv = process.env): boolean {
+    if (cloudAuthMode(env) !== 'google') return false;
+    const owner = req.session?.get('owner');
+    return Boolean(owner && owner.email === (env.MTB_GOOGLE_ALLOWED_EMAIL || '') && owner.expiresAt > Date.now());
 }
 
 /** Single-owner outer boundary. Existing colleague permissions still apply. */
@@ -97,8 +108,7 @@ export function installCloudAuth(server: FastifyInstance, env: NodeJS.ProcessEnv
             if (isPortalRequest(req)) return;
             if (mode === 'google') {
                 if (['GET', 'HEAD'].includes(req.method) && ['/auth/login', '/auth/google'].includes(route || '')) return;
-                const owner = req.session?.get('owner');
-                if (owner && owner.email === google!.email && owner.expiresAt > Date.now()) return;
+                if (isCloudOwner(req, env)) return;
                 if (req.url.startsWith('/api/') || !['GET', 'HEAD'].includes(req.method)) {
                     return reply.code(401).send({ error: 'Authentication required' });
                 }

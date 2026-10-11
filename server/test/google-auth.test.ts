@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import Fastify from 'fastify';
-import { installCloudAuth, cloudAuthMode } from '../src/lib/cloud-auth.js';
+import { installCloudAuth, cloudAuthMode, isCloudOwner } from '../src/lib/cloud-auth.js';
 import { CloudSessionStore } from '../src/lib/google-login.js';
 import { fixture, origin, env, headers, sessionCookie } from './google-fixture.js';
 test('explicit modes; no Google credentials required locally; misconfiguration fails closed', () => {
@@ -103,4 +103,18 @@ test('session store expires entries and logout removes stored identity', () => {
     store.set('active', { cookie: { originalMaxAge: 1000 }, owner: { sub: 'test', email: 'owner@example.test', expiresAt: Date.now() + 1000 } }, assert.ifError);
     store.destroy('active', assert.ifError);
     store.get('active', (err, data) => { assert.ifError(err); assert.equal(data, undefined); });
+});
+
+test('the Google session of the owner is known to a route, and nothing else passes for it', async () => {
+    const f = await fixture();
+    f.app.get('/api/owner-test', async (req) => ({ owner: isCloudOwner(req, env), elsewhere: isCloudOwner(req, { ...env, MTB_GOOGLE_ALLOWED_EMAIL: 'other@example.test' }) }));
+    try {
+        const cookie = sessionCookie(await f.callback(await f.start()));
+        assert.deepEqual((await f.app.inject({ url: '/api/owner-test', headers: { ...headers, cookie } })).json(), { owner: true, elsewhere: false });
+    } finally { await f.app.close(); }
+    // Without Google mode there is no such session: a local server answers no, whatever is sent.
+    const local = Fastify();
+    local.get('/api/owner-test', async (req) => ({ owner: isCloudOwner(req, {}), basic: isCloudOwner(req, { MTB_CLOUD_AUTH: 'basic' }) }));
+    try { assert.deepEqual((await local.inject({ url: '/api/owner-test', headers: { cookie: '__Host-mtb-session=invented' } })).json(), { owner: false, basic: false }); }
+    finally { await local.close(); }
 });

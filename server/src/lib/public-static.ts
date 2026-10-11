@@ -21,6 +21,8 @@ const PUBLIC_FILES = new Set([
     'MTB-Workspace.html',
     'Nastava.html',
     'NastavaUredi.html',
+    // The administrator's bookmarks as a page of their own; what it shows comes from /api/bookmarks.
+    'Obelezuvaci.html',
     'Podatoci.html',
     'Pregled-Baza.html',
     'Rasporedi-Unified-Sync-v5.0.html',

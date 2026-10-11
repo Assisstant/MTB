@@ -668,6 +668,10 @@ then „направи" for one door (the other choice was three).
   S-Dnevnik.html there is a separate, empty copy that looks real (CLAUDE.md,
   „Which address people open"). From the Контролна табла tile (disk) the
   diary is on the „Евиденција" tab of the same window.
+- **„🔖 Обележувачи" just before it** (11 Oct 2026, owner: „пред S-Дневник,
+  после Скриј лента"), on the same condition — a server that answers. It is
+  a plain link to `../Obelezuvaci.html` in a tab named `mtb-obelezuvaci`;
+  this page asks nothing about the bookmarks itself.
 - **Opened through the door, the link closes the tab**, which returns to that
   diary as it was left, where a plain link would open a second copy of it.
   It knows through `window.opener`; without one it is an ordinary link.

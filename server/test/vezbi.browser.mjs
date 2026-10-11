@@ -425,6 +425,7 @@ try {
 
     console.log('\nthe diary\'s door, and the way back');
     check('without a server that answers there is no link to the diary', (await page.$('#apps .diary')) === null);
+    check('nor to the bookmarks, which belong to that server too', (await page.$('#apps .marks')) === null);
     // The door as S-Dnevnik.html really has it, in a page that stands for the diary;
     // and a server that says it is there, as the local one and the cloud do.
     const door = /<a class="tab" href="vezbi\/index\.html"[^>]*>[^<]*<\/a>/.exec(await readFile(join(ROOT, 'S-Dnevnik.html'), 'utf8'));
@@ -443,6 +444,13 @@ try {
     check('the door opens the three tiles', opened.url() === `${ORIGIN}/vezbi/index.html` && (await opened.$$eval('#tiles .app', (els) => els.length)) === 3, opened.url());
     check('with a server the strip has „📓 S-Дневник", to the diary of this server',
         (await opened.$eval('#apps .diary', (a) => a.href)) === `${ORIGIN}/S-Dnevnik.html`, await opened.$eval('#apps .diary', (a) => a.href));
+    check('and „🔖 Обележувачи" before it, after „Скриј лента", to the page of this server, in a tab of its own',
+        await opened.$eval('#apps', (strip, origin) => {
+            const [end, marks, diary] = ['.strip-end', '.marks', '.diary'].map((sel) => strip.querySelector(sel));
+            const left = (node) => node.getBoundingClientRect().left;
+            return marks.href === origin + '/Obelezuvaci.html' && marks.target === 'mtb-obelezuvaci'
+                && left(end.lastElementChild) < left(marks) && left(marks) < left(diary) && left(diary) - marks.getBoundingClientRect().right < 12;
+        }, ORIGIN));
     await opened.click('#tiles .app:nth-child(1)');
     check('and keeps it from one part to the next', await opened.isVisible('#apps .diary'));
     // The click closes the tab it is made in; when the tab goes first, the click has nothing to report to.

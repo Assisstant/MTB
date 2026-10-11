@@ -246,11 +246,11 @@
   .apps button { color: var(--strip-ink); }
   .apps button[aria-pressed="true"] { background-color: var(--strip-on); background-image: var(--gloss); color: var(--strip-on-ink); box-shadow: var(--rim); }
   .apps button:focus-visible { outline-color: var(--strip-ink); }
-  .apps .diary { color: var(--strip-ink); border-color: var(--strip-edge); }
-  .apps .diary:focus-visible { outline-color: var(--strip-ink); }
+  .apps :is(.diary, .marks) { color: var(--strip-ink); border-color: var(--strip-edge); }
+  .apps :is(.diary, .marks):focus-visible { outline-color: var(--strip-ink); }
   .apps .strip-end { margin-left: auto; display: inline-flex; gap: 4px; flex: none; }
   .apps .strip-end button { border: 1px solid var(--strip-edge); }
-  .apps .strip-end + .diary { margin-left: 4px; }
+  .apps .strip-end + :is(.diary, .marks), .apps .marks + .diary { margin-left: 4px; }
   .subs { background: var(--subs); }
   .subs button { color: var(--ink); background-color: var(--card); background-image: var(--gloss); border-color: var(--line); box-shadow: var(--rim); }
   .subs button[aria-pressed="true"] { background-color: var(--strip-on); border-color: var(--strip-on); color: var(--strip-on-ink); }
@@ -287,9 +287,9 @@
   /* a tool in a frame asked for the whole window */
   body.bare .apps, body.bare .subs { display: none; }
   /* the way to the diary, at the far end; only where the diary lives (see `diary`) */
-  .apps .diary { flex: none; margin-left: auto; font-size: 13px; font-weight: 600; color: var(--strip-ink); text-decoration: none; border: 1px solid var(--strip-edge); border-radius: 999px; padding: 4px 12px; min-height: 28px; display: inline-flex; align-items: center; }
-  .apps .diary:hover { background: rgba(255, 255, 255, .12); }
-  .apps .diary:focus-visible { outline: 3px solid var(--strip-ink); outline-offset: 2px; }
+  .apps :is(.diary, .marks) { flex: none; margin-left: auto; font-size: 13px; font-weight: 600; color: var(--strip-ink); text-decoration: none; border: 1px solid var(--strip-edge); border-radius: 999px; padding: 4px 12px; min-height: 28px; display: inline-flex; align-items: center; }
+  .apps :is(.diary, .marks):hover { background: rgba(255, 255, 255, .12); }
+  .apps :is(.diary, .marks):focus-visible { outline: 3px solid var(--strip-ink); outline-offset: 2px; }
   .apps button:focus-visible { outline-color: var(--strip-ink); }
   .home { padding: 28px 16px 40px; background: linear-gradient(135deg, #dce8fb, #ece7fa 50%, #d3f0e4); min-height: calc(100vh - 110px); }
   .home > * { max-width: 1060px; margin-left: auto; margin-right: auto; }
@@ -1444,6 +1444,15 @@ function diary() {
     .then((r) => (r.ok ? r.json() : null))
     .then((body) => {
       if (!body || body.ok !== true) return;
+      // „🔖 Обележувачи" before it, on the same condition: the page is the
+      // server's, and what it shows is asked of the server by that page alone.
+      const marks = document.createElement('a');
+      marks.className = 'marks';
+      marks.textContent = '🔖 Обележувачи';
+      marks.href = '../Obelezuvaci.html';
+      marks.target = 'mtb-obelezuvaci';
+      marks.title = 'Обележувачи — линкови по колекции и ознаки (во свое јазиче)';
+      $('apps').appendChild(marks);
       const a = document.createElement('a');
       a.className = 'diary';
       a.textContent = '📓 S-Дневник';
