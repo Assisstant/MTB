@@ -230,6 +230,49 @@
   /* „Една по една" on a low screen (a laptop at 1366×650): the card takes the
      window and the picture needs these 41px. The row is back in „Сите заедно". */
   @media (max-height: 760px) { body.fit .subs { display: none; } }
+  /* ---- the look (owner, 11 Oct 2026): a light strip in the light theme, the
+     navy one in the dark theme; glass on the bar and its buttons, as in the
+     workspace; „Скриј лента" as in the workspace. Colours are the tokens at
+     the top; body.dark only gives them other values. ---- */
+  :root { --strip: linear-gradient(180deg, #f3f6fb, #dfe6f2); --strip-ink: #1b2a4e; --strip-on: #1b2a4e; --strip-on-ink: #ffffff; --strip-edge: #c3cde3;
+    --gloss: linear-gradient(180deg, rgba(255, 255, 255, .7), rgba(255, 255, 255, 0) 58%); --rim: inset 0 1px 0 rgba(255, 255, 255, .8), 0 1px 2px rgba(20, 30, 50, .14);
+    --subs: #e6ebf6; --got: #e6f4ea; }
+  body.dark { --bg: #1f1f1f; --card: #2b2d31; --ink: #e8eaed; --soft: #a9b1bb; --line: #474b52; --box: #33363b;
+    --target: #ff6b6b; --chosen: #58b4e0; --on-chosen: #08202c;
+    --strip: linear-gradient(180deg, #24345e, #18244a); --strip-ink: #dce4f7; --strip-on: #ffffff; --strip-on-ink: #1b2a4e; --strip-edge: rgba(220, 228, 247, .35);
+    --gloss: linear-gradient(180deg, rgba(255, 255, 255, .14), rgba(255, 255, 255, 0) 58%); --rim: inset 0 1px 0 rgba(255, 255, 255, .16), 0 1px 2px rgba(0, 0, 0, .4);
+    --subs: #26282c; --got: #1f3a2a; color-scheme: dark; }
+  .apps { background: var(--strip); border-bottom: 1px solid var(--strip-edge); align-items: center; }
+  .apps button { color: var(--strip-ink); }
+  .apps button[aria-pressed="true"] { background-color: var(--strip-on); background-image: var(--gloss); color: var(--strip-on-ink); box-shadow: var(--rim); }
+  .apps button:focus-visible { outline-color: var(--strip-ink); }
+  .apps .diary { color: var(--strip-ink); border-color: var(--strip-edge); }
+  .apps .diary:focus-visible { outline-color: var(--strip-ink); }
+  .apps .strip-end { margin-left: auto; display: inline-flex; gap: 4px; flex: none; }
+  .apps .strip-end button { border: 1px solid var(--strip-edge); }
+  .apps .strip-end + .diary { margin-left: 4px; }
+  .subs { background: var(--subs); }
+  .subs button { color: var(--ink); background-color: var(--card); background-image: var(--gloss); border-color: var(--line); box-shadow: var(--rim); }
+  .subs button[aria-pressed="true"] { background-color: var(--strip-on); border-color: var(--strip-on); color: var(--strip-on-ink); }
+  header { background-image: var(--gloss); }
+  .seg button, .plain, .nav { background-image: var(--gloss); box-shadow: var(--rim); }
+  .ltr.t { background: var(--card); }
+  .ltr.got { background: var(--got); }
+  /* a pictogram is black line on nothing: in the dark it keeps a light plate */
+  body.dark .pics img { background: #f4f6f8; border-radius: 12px; }
+  body.dark .tile { color: #1d2733; }
+  body.dark .pk-find input { background: var(--box); }
+  body.dark .home { background: linear-gradient(135deg, #1d2536, #24212f 50%, #1b2a26); }
+  body.dark .home h2 { color: #8fb4ff; }
+  body.dark .home-sub { color: #b4bdd0; }
+  body.dark .app { color: #d5dbe8; background: rgba(43, 45, 49, .95); border-color: #474b52; }
+  body.dark .app-name { color: #e8eaed; }
+  body.dark .app-when { color: #d5dbe8; background: #33363b; }
+  /* „Скриј лента": the strip and the row of sections go; one thin line brings them back */
+  #showbar { display: block; width: 100%; font: inherit; font-size: 12px; font-weight: 600; text-align: left; color: var(--strip-ink); background: var(--strip); border: 0; border-bottom: 1px solid var(--strip-edge); padding: 1px 12px; min-height: 20px; cursor: pointer; }
+  body.nostrip .apps, body.nostrip .subs { display: none; }
+  body.focus #showbar, body.bare #showbar { display: none; }
+  @media print { #showbar { display: none !important; } }
   /* a tool in a frame asked for the whole window */
   body.bare .apps, body.bare .subs { display: none; }
   /* the way to the diary, at the far end; only where the diary lives (see `diary`) */
@@ -287,6 +330,7 @@
 </style>
 </head>
 <body>
+<button id="showbar" hidden>▾ Прикажи лента</button>
 <nav class="apps" id="apps" aria-label="Делови"></nav>
 <nav class="subs" id="subs" aria-label="Делови на избраната алатка" hidden><span class="sub" data-of="vezbi" id="sound-mode" hidden><button data-library="sounds" aria-pressed="true">Гласови</button><button data-library="themes" aria-pressed="false">Теми</button><button data-library="letters" aria-pressed="false">Букви и зборови</button></span></nav>
 
@@ -1237,6 +1281,36 @@ function parts() {
       $(a.key).contentWindow.postMessage({ type: 'mtb-host' }, '*');
     });
   }
+  // At the far end of the strip: the theme of this page, and „Скриј лента".
+  // Both are kept on this browser only.
+  const end = document.createElement('span');
+  end.className = 'strip-end';
+  const tool = (id, name, run) => {
+    const b = document.createElement('button');
+    b.id = id; b.title = name; b.setAttribute('aria-label', name);
+    b.addEventListener('click', run);
+    end.appendChild(b);
+    return b;
+  };
+  const kept = (key) => { try { return localStorage.getItem(key); } catch (e) { return null; } };
+  const keep = (key, value) => { try { localStorage.setItem(key, value); } catch (e) {} };
+  const theme = tool('theme', 'Светла или темна тема', () => look(!document.body.classList.contains('dark')));
+  const look = (dark) => {
+    document.body.classList.toggle('dark', dark);
+    theme.textContent = dark ? '☀' : '🌙';
+    theme.setAttribute('aria-pressed', String(dark));
+    keep('vezbi_theme_v1', dark ? 'dark' : 'light');
+  };
+  const strip = (hidden) => {
+    document.body.classList.toggle('nostrip', hidden);
+    $('showbar').hidden = !hidden;
+    keep('vezbi_strip_v1', hidden ? 'hidden' : 'shown');
+  };
+  tool('hidebar', 'Скриј лента', () => strip(true)).textContent = '▴ Скриј лента';
+  $('showbar').addEventListener('click', () => strip(false));
+  $('apps').appendChild(end);
+  look(kept('vezbi_theme_v1') === 'dark');
+  strip(kept('vezbi_strip_v1') === 'hidden');
   window.addEventListener('hashchange', () => go(location.hash.slice(1)));
   window.addEventListener('message', hosted);
   diary();

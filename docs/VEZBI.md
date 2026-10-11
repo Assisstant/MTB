@@ -36,6 +36,33 @@ The words of the П deck, in the owner's three groups of rising difficulty:
 
 ## Where it stands
 
+### Theme, glass, „Скриј лента", the board's colour, the kept library (11 Oct 2026)
+
+The owner, after the row of sections: „ако можеш направи ги овие работи" —
+the five points of the look and Excalidraw's library. Not yet judged.
+
+- **One 🌙/☀ button at the end of the strip** turns the exercise page light or
+  dark (`body.dark`, kept in `vezbi_theme_v1`). It answers both „a light theme
+  for the bar" and „light/dark for the cards": the strip is light in the light
+  theme and navy in the dark one. Dark only gives the tokens at the top other
+  values; a pictogram keeps a light plate, because it is black line on nothing.
+- **Glass** on the bar, its buttons, the sections and the chosen tool
+  (`--gloss`, `--rim`): one sheen over the plain colour, so `background-color`
+  still answers a contrast check. `test:vezbi-look` measures eight texts in
+  both themes at 4.5:1 or better.
+- **„▴ Скриј лента"** beside it hides the strip and the row of sections;
+  one thin „▾ Прикажи лента" brings them back (`vezbi_strip_v1`), the
+  workspace's idea. „⋯ → Цел екран" still hides the bar of controls as well.
+- **ComuniBoard → ⋯ → „Боја на таблата"**: any colour over the theme's
+  `--canvas-bg`, kept in `wb-board-bg`; ↺ gives the theme's back. WBACC has
+  its own in ☰.
+- **WBACC keeps Excalidraw's library** (`library-v1` beside the drawing,
+  `onLibraryChange`). It was empty again after every reopening.
+- **A card with a picture does not go into that library**: with a placed
+  stamp selected the library offered nothing to add (tried by hand in a
+  browser run, 0.18.1), while a drawn rectangle is offered. So cards stay in
+  „★ Мои печати" and drawn shapes in the library; the two are not joined.
+
 ### A row of sections under the strip (11 Oct 2026)
 
 The owner, with a picture of the „Глас" menu open: Гласови / Теми / Букви и

@@ -11,6 +11,9 @@ import { exportDrawingImage } from './image.js';
 import { LangContext, translator } from './i18n.js';
 
 const SCENE_KEY = 'scene-v1';
+// Excalidraw's own library (the book icon: shapes added from the canvas, or a
+// .excalidrawlib file) used to be empty again after every reopening.
+const LIBRARY_KEY = 'library-v1';
 const LANG_KEY = 'wbacc-lang';
 const SAVE_DELAY = 800;
 // What of the view is worth keeping between visits; the rest is Excalidraw's.
@@ -40,9 +43,14 @@ export default function App() {
 
     // The last drawing, from this browser. A board that cannot be read opens
     // empty rather than not at all, and says so in the console.
-    const initialData = useMemo(() => load(SCENE_KEY)
-        .then((scene) => scene || null)
-        .catch((err) => { console.warn('WBACC: the saved board could not be read', err); return null; }), []);
+    const initialData = useMemo(() => Promise.all([
+        load(SCENE_KEY).catch((err) => { console.warn('WBACC: the saved board could not be read', err); return null; }),
+        load(LIBRARY_KEY).catch((err) => { console.warn('WBACC: the library could not be read', err); return null; })
+    ]).then(([scene, libraryItems]) => (scene || Array.isArray(libraryItems)
+        ? { ...(scene || {}), ...(Array.isArray(libraryItems) ? { libraryItems } : {}) } : null)), []);
+    const onLibraryChange = useCallback((items) => {
+        save(LIBRARY_KEY, items).catch((err) => console.warn('WBACC: the library was not saved', err));
+    }, []);
 
     const flush = useCallback(() => {
         clearTimeout(timer.current);
@@ -109,7 +117,7 @@ export default function App() {
     return (
         <LangContext.Provider value={t}>
         <div className="wbacc">
-            <Excalidraw initialData={initialData} onChange={onChange} langCode={lang} name="WBACC Studio"
+            <Excalidraw initialData={initialData} onChange={onChange} onLibraryChange={onLibraryChange} langCode={lang} name="WBACC Studio"
                         excalidrawAPI={setExcalidraw}
                         renderTopRightUI={() => (
                             <div className="wbacc-tools">

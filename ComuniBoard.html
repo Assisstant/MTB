@@ -3277,6 +3277,13 @@
                         <span data-i18n="menuToolSize">Големина на алатките</span>
                         <input type="range" id="tbSizeSlider" min="100" max="200" value="100" step="10">
                     </label>
+                    <div class="more-row" title="Боја на позадината на таблата">
+                        <span>Боја на таблата</span>
+                        <span style="display:inline-flex;gap:6px;align-items:center;">
+                            <input type="color" id="boardBgInput" value="#e2e8f0" aria-label="Боја на таблата" data-stay>
+                            <button class="btn btn-default" id="boardBgReset" data-stay title="Врати ја бојата на темата">↺</button>
+                        </span>
+                    </div>
                     <div class="more-row">
                         <span data-i18n="menuLanguage">Јазик</span>
                         <button class="btn btn-default" id="langToggle" data-stay>EN</button>
@@ -5927,6 +5934,26 @@
             updateLanguage();
             renderKeyboard();
         });
+
+        // ============ THE BOARD'S OWN COLOUR ============
+        // Owner, 11 Oct 2026: the background of the board may be any colour.
+        // It lies over the theme's --canvas-bg for this browser only; ↺ takes
+        // it off and the theme's colour is back. The grid stays as it is.
+        (function() {
+            const input = document.getElementById('boardBgInput');
+            const reset = document.getElementById('boardBgReset');
+            if (!input || !reset) return;
+            const KEY = 'wb-board-bg';
+            const apply = (color) => {
+                if (/^#[0-9a-f]{6}$/i.test(color || '')) {
+                    document.documentElement.style.setProperty('--canvas-bg', color);
+                    input.value = color;
+                } else document.documentElement.style.removeProperty('--canvas-bg');
+            };
+            try { apply(localStorage.getItem(KEY)); } catch (e) {}
+            input.addEventListener('input', () => { apply(input.value); try { localStorage.setItem(KEY, input.value); } catch (e) {} });
+            reset.addEventListener('click', () => { apply(''); input.value = '#e2e8f0'; try { localStorage.removeItem(KEY); } catch (e) {} });
+        })();
 
         // ============ TOOLBAR SIZE CONTROL ============
         const tbSizeSlider = document.getElementById('tbSizeSlider');
