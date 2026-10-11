@@ -505,6 +505,24 @@
         .month-pick { display:flex; flex-wrap:wrap; gap:8px; }
         .month-pick select { font:inherit; min-height:38px; padding:6px 10px; border:1px solid #a9bac7; border-radius:8px; background:#fff; color:#202b35; }
         body.dark-mode .month-pick select { background:#181d22; color:#edf2f6; border-color:#607381; }
+        .plan-build { width:min(860px, calc(100vw - 24px)); max-height:92vh; overflow:auto; padding:0; border:1px solid #9eb6c4; border-radius:14px; background:#f5f7f9; color:#202b35; }
+        .plan-build::backdrop { background:rgba(15,23,42,.5); }
+        .plan-build-form { display:grid; gap:10px; padding:18px; }
+        .plan-build h2 { margin:0; font-size:20px; } .plan-build h3 { margin:6px 0 0; font-size:15px; }
+        .plan-build label { display:grid; gap:4px; font-size:13px; font-weight:600; }
+        .plan-build input[type="text"], .plan-build input[type="number"], .plan-build select, .plan-build textarea { font:inherit; font-weight:400; padding:6px 8px; border:1px solid #a9bac7; border-radius:8px; background:#fff; color:#202b35; min-width:0; }
+        .plan-build-row { display:grid; grid-template-columns:auto minmax(0,1fr) minmax(150px,220px); gap:8px; align-items:center; margin-bottom:6px; }
+        .plan-build-singles { max-height:150px; overflow:auto; border:1px solid #c2cdd5; border-radius:8px; padding:6px; background:#fff; }
+        .plan-build .plan-build-single { display:flex; gap:8px; align-items:flex-start; font-weight:400; margin:2px 0; }
+        .plan-build-count { display:flex; flex-wrap:wrap; gap:10px; align-items:end; font-size:13px; }
+        .plan-build-count input { width:90px; }
+        .plan-build-preview { max-height:220px; overflow:auto; margin:0; padding:8px 8px 8px 44px; border:1px solid #c2cdd5; border-radius:8px; background:#fff; font-size:13px; line-height:1.5; }
+        .plan-build-actions { display:flex; gap:8px; } .plan-build-actions .btn { flex:1; }
+        .plan-build-none { margin:0; font-size:13px; opacity:.75; }
+        body.dark-mode .plan-build { background:#242a30; color:#edf2f6; border-color:#526774; }
+        body.dark-mode .plan-build input[type="text"], body.dark-mode .plan-build input[type="number"], body.dark-mode .plan-build select, body.dark-mode .plan-build textarea,
+        body.dark-mode .plan-build-singles, body.dark-mode .plan-build-preview { background:#181d22; color:#edf2f6; border-color:#607381; }
+        @media (max-width:600px) { .plan-build-row { grid-template-columns:auto minmax(0,1fr); } .plan-build-row select { grid-column:2; } }
         .schedule-pick-button { color:inherit; background:transparent; border:0; cursor:pointer; font-size:13px; align-self:flex-end; }
         @media print { .schedule-pickers, .schedule-pick-button { display:none !important; } }
         .time-selector {
@@ -2326,6 +2344,7 @@
         <!-- Plans Tab -->
         <div id="plans" class="tab-content">
             <button class="btn btn-primary btn-full" onclick="showAddPlanModal()">+ Креирај План</button>
+            <button class="btn btn-success btn-full" style="margin-top:8px;" onclick="SdnPlanBuilder.open()">🧩 Состави план од ниво</button>
             <div id="plansList" style="margin-top: 20px;"></div>
             
             <!-- Useful Links Section -->
@@ -3294,6 +3313,260 @@ var attendance = {};
             loadAnnualRoster(true);
         }
         
+        /**
+         * ГРАДИТЕЛ НА ПЛАНОВИ (сопственикот, 11 октомври 2026).
+         *
+         * План се пишуваше како долг текст, ред по ред, иако повеќето редови се
+         * ист текст со друга буква: „Читање и пишување на зборови со буквата А",
+         * „…Б", „…В". Тука секој постоен план е НИВО (категорија). Од неговите
+         * активности се извлекува:
+         *   · ТИП: текст што се повторува само со друга буква, глас или тема —
+         *     понуден еднаш, со место за вредноста ({буква}, {глас}, {тема});
+         *   · ПОЕДИНЕЧЕН ТЕКСТ: сè што не се повторува, како што е напишано.
+         * Нов план се составува од едно ниво, со свои текстови по желба.
+         *
+         * Постојните планови не се менуваат: градителот само ЧИТА од нив и
+         * запишува НОВ план. Измена на текст на тип се чува во `planLibrary`
+         * (додаток во документот, по име на ниво), никогаш во стариот план, во
+         * кој има реализирани третмани.
+         */
+        var SDN_PLAN_ALPHABET = ['А','Б','В','Г','Д','Ѓ','Е','Ж','З','Ѕ','И','Ј','К','Л','Љ','М','Н','Њ','О','П','Р','С','Т','Ќ','У','Ф','Х','Ц','Ч','Џ','Ш'];
+        var SdnPlanBuilder = (function () {
+            var HOLE = { letter: '{буква}', sound: '{глас}', theme: '{тема}' };
+            var PATTERNS = [
+                { kind: 'letter', re: /^(.*буквата)\s+(\S.*)$/, make: function (m) { return m[1] + ' ' + HOLE.letter; } },
+                { kind: 'sound', re: /^(.*?)\s+—\s+Глас\s+(.+)$/, make: function (m) { return m[1] + ' — Глас ' + HOLE.sound; } },
+                { kind: 'theme', re: /^(.*?)\s+—\s+Тема:\s+(.+)$/, make: function (m) { return m[1] + ' — Тема: ' + HOLE.theme; } },
+                { kind: 'sound', re: /^(.*\S)\s+([А-ЯЃЌЉЊЏЅЈA-Z]{1,2}(?:\s+и\s+[А-ЯЃЌЉЊЏЅЈA-Z])?)$/, make: function (m) { return m[1] + ' ' + HOLE.sound; } }
+            ];
+            function split(text) {
+                for (var i = 0; i < PATTERNS.length; i++) {
+                    var m = PATTERNS[i].re.exec(text);
+                    if (m) return { kind: PATTERNS[i].kind, template: PATTERNS[i].make(m), value: m[m.length - 1].trim() };
+                }
+                return null;
+            }
+            /** Типовите и поединечните текстови на едно ниво, по редот на првото појавување. */
+            function extract(activities) {
+                var groups = {}, order = [];
+                (activities || []).forEach(function (text) {
+                    var part = split(String(text).trim());
+                    if (!part) return;
+                    if (!groups[part.template]) { groups[part.template] = { text: part.template, kind: part.kind, values: [], count: 0 }; order.push(part.template); }
+                    var g = groups[part.template];
+                    g.count++;
+                    if (g.values.indexOf(part.value) === -1) g.values.push(part.value);
+                });
+                var types = order.map(function (t) { return groups[t]; }).filter(function (g) { return g.count >= 2 && g.values.length >= 2; });
+                var typed = {};
+                types.forEach(function (g) { typed[g.text] = true; });
+                var singles = [], seen = {};
+                (activities || []).forEach(function (text) {
+                    var line = String(text).trim(), part = split(line);
+                    if (!line || (part && typed[part.template]) || seen[line]) return;
+                    seen[line] = true; singles.push(line);
+                });
+                // Како е редено нивото: ако по ставка од тип повеќепати доаѓа поединечен
+                // текст, тоа е „наизменично“ (прво ниво); инаку „прво поединечните“.
+                var turns = 0, wasTyped = false;
+                (activities || []).forEach(function (text) {
+                    var part = split(String(text).trim()), isTyped = Boolean(part && typed[part.template]);
+                    if (wasTyped && !isTyped) turns++;
+                    wasTyped = isTyped;
+                });
+                return { types: types.map(function (g) { return { base: g.text, text: g.text, kind: g.kind, values: g.values }; }), singles: singles,
+                    mode: turns >= 2 ? 'alternate' : 'blocks' };
+            }
+            /** Нивоата: постојните планови, едно ниво по име (ист план доделен на повеќе деца е едно ниво). */
+            function levels() {
+                var seen = {}, out = [];
+                (plans || []).forEach(function (p) {
+                    var name = String(p.name || '').trim();
+                    if (!name || seen[name] || !p.activities || !p.activities.length) return;
+                    seen[name] = true; out.push({ name: name, plan: p });
+                });
+                return out;
+            }
+            /** Нивото како што се нуди: извлеченото, со измените и додатоците од `planLibrary`. */
+            function library(levelName) {
+                var level = levels().filter(function (l) { return l.name === levelName; })[0];
+                var lib = extract(level ? level.plan.activities : []);
+                var kept = (window.planLibrary || {})[levelName] || {};
+                (kept.types || []).forEach(function (k) {
+                    var same = lib.types.filter(function (t) { return k.base && t.base === k.base; })[0];
+                    if (same) same.text = k.text;
+                    else lib.types.push({ base: k.base || k.text, text: k.text, kind: k.kind, values: [], added: true });
+                });
+                (kept.extra || []).forEach(function (line) { if (lib.singles.indexOf(line) === -1) lib.singles.push(line); });
+                return lib;
+            }
+            function valuesFor(type, list) {
+                if (list === 'kostic') return SDN_EXERCISE_SOUNDS.map(function (s) { return s[0]; });
+                if (list === 'alphabet') return SDN_PLAN_ALPHABET.slice();
+                return (type.values || []).slice();
+            }
+            function fill(text, kind, value) {
+                var hole = HOLE[kind];
+                return text.indexOf(hole) >= 0 ? text.split(hole).join(value) : text + ' ' + value;
+            }
+            /**
+             * Ставките на планот. `spec`: { singles:[текст], types:[{text,kind,values}],
+             * mode:'blocks'|'alternate', total:број или 0 }.
+             *  · blocks: прво поединечните, па за секоја вредност сите типови со иста листа;
+             *  · alternate: поединечен текст, па ставка од тип, наизменично; поединечните
+             *    се вртат од почеток додека трае листата, и по неа до бараниот број.
+             * Пократка листа од `total` продолжува од почеток; подолга се сече.
+             */
+            function generate(spec) {
+                var singles = (spec.singles || []).filter(Boolean);
+                var typed = [], groups = [], byKey = {};
+                (spec.types || []).forEach(function (t) {
+                    var key = t.kind + '|' + (t.values || []).join(',');
+                    if (!byKey[key]) { byKey[key] = { values: t.values || [], types: [] }; groups.push(byKey[key]); }
+                    byKey[key].types.push(t);
+                });
+                groups.forEach(function (g) {
+                    g.values.forEach(function (v) { g.types.forEach(function (t) { typed.push(fill(t.text, t.kind, v)); }); });
+                });
+                var total = Math.max(0, parseInt(spec.total, 10) || 0), out = [];
+                if (spec.mode === 'alternate' && singles.length) {
+                    var s = 0, t = 0, want = total || (typed.length * 2);
+                    while (out.length < want && (total || t < typed.length)) {
+                        out.push(singles[s++ % singles.length]);
+                        if (t < typed.length && out.length < want) out.push(typed[t++]);
+                    }
+                    return out;
+                }
+                var base = singles.concat(typed);
+                if (!total || !base.length) return base;
+                for (var i = 0; out.length < total; i++) out.push(base[i % base.length]);
+                return out;
+            }
+            // Третмани годишно = третмани неделно × работни недели од календарот (без распустите).
+            function schoolWeeks() {
+                try { return getSchoolWeekInfo(new Date()).total || 36; } catch (e) { return 36; }
+            }
+
+            function escapeHtml(v) {
+                return String(v == null ? '' : v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+            }
+            var dialog = null;
+            function read() {
+                var lib = dialog._lib;
+                var types = [];
+                dialog.querySelectorAll('[data-type]').forEach(function (row) {
+                    if (!row.querySelector('[data-on]').checked) return;
+                    var type = lib.types[Number(row.dataset.type)];
+                    types.push({ source: type, text: row.querySelector('[data-text]').value.trim() || type.text, kind: type.kind,
+                        values: valuesFor(type, row.querySelector('[data-list]').value) });
+                });
+                var singles = [];
+                dialog.querySelectorAll('[data-single]').forEach(function (box) { if (box.checked) singles.push(lib.singles[Number(box.dataset.single)]); });
+                var extra = dialog.querySelector('#planBuildExtra').value.split(/\r?\n/).map(function (l) { return l.trim(); }).filter(Boolean);
+                return { types: types, singles: singles.concat(extra), extra: extra,
+                    mode: dialog.querySelector('[name="planBuildMode"]:checked').value,
+                    total: dialog.querySelector('#planBuildTotal').value };
+            }
+            function preview() {
+                var list = generate(read());
+                dialog.querySelector('#planBuildCount').textContent = list.length + ' ставки';
+                dialog.querySelector('#planBuildPreview').innerHTML = list.length
+                    ? list.map(function (a, i) { return '<li>' + escapeHtml(a) + '</li>'; }).join('')
+                    : '<li style="list-style:none;opacity:.7;">Избери барем еден тип или текст.</li>';
+            }
+            function drawLevel() {
+                var name = dialog.querySelector('#planBuildLevel').value;
+                var lib = dialog._lib = library(name);
+                var lists = function (type) {
+                    return '<option value="level">Како во нивото (' + (type.values || []).length + ')</option>' +
+                        '<option value="kostic"' + (!type.values.length && type.kind === 'sound' ? ' selected' : '') + '>Гласови по Костиќ (26)</option>' +
+                        '<option value="alphabet"' + (!type.values.length && type.kind === 'letter' ? ' selected' : '') + '>Букви по азбука (31)</option>';
+                };
+                dialog.querySelector('#planBuildTypes').innerHTML = lib.types.length ? lib.types.map(function (t, i) {
+                    return '<div class="plan-build-row" data-type="' + i + '"><input type="checkbox" data-on checked aria-label="Вклучи го типот">' +
+                        '<input type="text" data-text value="' + escapeHtml(t.text) + '" aria-label="Текст на типот">' +
+                        '<select data-list aria-label="Листа">' + lists(t) + '</select></div>';
+                }).join('') : '<p class="plan-build-none">Во ова ниво нема текст што се повторува.</p>';
+                dialog.querySelector('#planBuildSingles').innerHTML = lib.singles.length ? lib.singles.map(function (line, i) {
+                    return '<label class="plan-build-single"><input type="checkbox" data-single="' + i + '" checked><span>' + escapeHtml(line) + '</span></label>';
+                }).join('') : '<p class="plan-build-none">Нема поединечни текстови.</p>';
+                dialog.querySelector('[name="planBuildMode"][value="' + lib.mode + '"]').checked = true;
+                dialog.querySelector('#planBuildName').value = name + ' · нов';
+                preview();
+            }
+            function open() {
+                if (window.MTB_MIRROR_READONLY === true) { alert('Ова е копија само за читање.'); return; }
+                var all = levels();
+                if (!all.length) { alert('Нема план од кој би се зело ниво. Прво креирај еден план со „+ Креирај План“.'); return; }
+                if (dialog) dialog.remove();
+                dialog = document.createElement('dialog');
+                dialog.id = 'planBuildDialog';
+                dialog.className = 'plan-build';
+                var weeks = schoolWeeks();
+                dialog.innerHTML = '<form method="dialog" class="plan-build-form">' +
+                    '<h2>Состави план од ниво</h2>' +
+                    '<label>Ниво <select id="planBuildLevel">' + all.map(function (l) { return '<option>' + escapeHtml(l.name) + '</option>'; }).join('') + '</select></label>' +
+                    '<h3>Типови што се повторуваат</h3><div id="planBuildTypes"></div>' +
+                    '<h3>Поединечни текстови</h3><div id="planBuildSingles" class="plan-build-singles"></div>' +
+                    '<label>Свој текст (еден ред е една ставка)<textarea id="planBuildExtra" rows="2"></textarea></label>' +
+                    '<h3>Редење</h3>' +
+                    '<label class="plan-build-single"><input type="radio" name="planBuildMode" value="blocks" checked><span>Прво поединечните, па сите типови за секој глас или буква</span></label>' +
+                    '<label class="plan-build-single"><input type="radio" name="planBuildMode" value="alternate"><span>Наизменично: поединечен текст, па тип</span></label>' +
+                    '<div class="plan-build-count"><label>Третмани неделно <input type="number" id="planBuildPerWeek" min="1" max="10" value="2"></label>' +
+                    '<span>× ' + weeks + ' работни недели =</span>' +
+                    '<label>Вкупно ставки <input type="number" id="planBuildTotal" min="0" max="400" value="' + (2 * weeks) + '"></label>' +
+                    '<small>0 = колку што излегуваат од листите</small></div>' +
+                    '<h3>Преглед · <span id="planBuildCount"></span></h3><ol id="planBuildPreview" class="plan-build-preview"></ol>' +
+                    '<label>Име на планот <input type="text" id="planBuildName"></label>' +
+                    '<div class="plan-build-actions"><button type="button" class="btn btn-success" id="planBuildSave">Зачувај</button>' +
+                    '<button type="button" class="btn" id="planBuildCancel">Откажи</button></div></form>';
+                document.body.appendChild(dialog);
+                dialog.addEventListener('close', function () { dialog.remove(); dialog = null; });
+                dialog.querySelector('#planBuildLevel').addEventListener('change', drawLevel);
+                dialog.querySelector('#planBuildPerWeek').addEventListener('input', function () {
+                    dialog.querySelector('#planBuildTotal').value = (parseInt(this.value, 10) || 0) * weeks;
+                    preview();
+                });
+                dialog.addEventListener('input', function (e) { if (e.target.id !== 'planBuildPerWeek' && e.target.id !== 'planBuildName') preview(); });
+                dialog.addEventListener('change', function (e) { if (e.target.id !== 'planBuildLevel') preview(); });
+                dialog.querySelector('#planBuildCancel').addEventListener('click', function () { dialog.close(); });
+                dialog.querySelector('#planBuildSave').addEventListener('click', save);
+                drawLevel();
+                dialog.showModal();
+            }
+            function save() {
+                var spec = read(), list = generate(spec);
+                var name = dialog.querySelector('#planBuildName').value.trim();
+                var level = dialog.querySelector('#planBuildLevel').value;
+                if (!name) { alert('Впиши име на планот.'); return; }
+                if (!list.length) { alert('Планот е празен: избери барем еден тип или текст.'); return; }
+                // Сменет текст на тип: дали важи за нивото отсега, или е нов тип покрај стариот.
+                if (!window.planLibrary || typeof window.planLibrary !== 'object') window.planLibrary = {};
+                var kept = window.planLibrary[level] || (window.planLibrary[level] = { types: [], extra: [] });
+                if (!kept.types) kept.types = [];
+                if (!kept.extra) kept.extra = [];
+                spec.types.forEach(function (t) {
+                    if (t.text === t.source.text) return;
+                    var replace = confirm('Го смени текстот на типот:\n\n„' + t.source.text + '“\n→ „' + t.text + '“\n\n' +
+                        'OK — измени го постојниот тип за ова ниво\nОткажи — зачувај го како нов тип, стариот останува');
+                    if (replace) {
+                        var same = kept.types.filter(function (k) { return k.base === t.source.base; })[0];
+                        if (same) same.text = t.text; else kept.types.push({ base: t.source.base, text: t.text, kind: t.kind });
+                    } else kept.types.push({ base: null, text: t.text, kind: t.kind });
+                });
+                spec.extra.forEach(function (line) { if (kept.extra.indexOf(line) === -1) kept.extra.push(line); });
+                if (!kept.types.length && !kept.extra.length) delete window.planLibrary[level];
+                var id = Date.now();
+                while (plans.some(function (p) { return p.id === id; })) id++;
+                plans.push({ id: id, name: name, activities: list });
+                saveData();
+                renderPlansList();
+                dialog.close();
+                if (typeof showToast === 'function') showToast('Планот „' + name + '“ е зачуван со ' + list.length + ' ставки.');
+            }
+            return { open: open, extract: extract, generate: generate, library: library, levels: levels, schoolWeeks: schoolWeeks };
+        })();
+
         function showAddPlanModal() {
             editingPlan = null;
             document.getElementById('planName').value = '';
@@ -8647,7 +8920,7 @@ var attendance = {};
             ensureUnifiedCollections();
             ensureStudentProgressStructure();
 
-            return {
+            var diaryPayload = {
                 students: students,
                 archivedStudents: window.archivedStudents || [],
                 formerCaseloadStudents: window.formerCaseloadStudents || [],
@@ -8667,6 +8940,10 @@ var attendance = {};
                 assessments: window.assessments || [],
                 scaleTemplates: window.scaleTemplates || []
             };
+            // Only when it holds something: a key that is sometimes there and empty would be
+            // a difference between two devices that changed nothing (see `planLibrary`).
+            if (window.planLibrary && Object.keys(window.planLibrary).length) diaryPayload.planLibrary = window.planLibrary;
+            return diaryPayload;
         }
 
         function saveData() {
@@ -8694,6 +8971,7 @@ var attendance = {};
                     if (Array.isArray(data.archivedStudents)) window.archivedStudents = data.archivedStudents;
                     if (Array.isArray(data.formerCaseloadStudents)) window.formerCaseloadStudents = data.formerCaseloadStudents;
                     if (typeof data.rasporediMark === 'string') window.rasporediMark = data.rasporediMark;
+                    window.planLibrary = (data.planLibrary && typeof data.planLibrary === 'object') ? data.planLibrary : {};
                     if (data.progressArchive && typeof data.progressArchive === 'object') window.progressArchive = data.progressArchive;
                     if (data.schoolCalendar) schoolCalendar = calendarFromStored(data.schoolCalendar);
 
@@ -8772,6 +9050,7 @@ var attendance = {};
                     if (Array.isArray(data.archivedStudents)) window.archivedStudents = data.archivedStudents;
                     if (Array.isArray(data.formerCaseloadStudents)) window.formerCaseloadStudents = data.formerCaseloadStudents;
                     if (typeof data.rasporediMark === 'string') window.rasporediMark = data.rasporediMark;
+                    window.planLibrary = (data.planLibrary && typeof data.planLibrary === 'object') ? data.planLibrary : {};
                     if (data.progressArchive && typeof data.progressArchive === 'object') window.progressArchive = data.progressArchive;
                     if (data.schoolCalendar) schoolCalendar = calendarFromStored(data.schoolCalendar);
 
@@ -11522,6 +11801,7 @@ var attendance = {};
         if (Array.isArray(data.archivedStudents)) window.archivedStudents = data.archivedStudents;
         if (Array.isArray(data.formerCaseloadStudents)) window.formerCaseloadStudents = data.formerCaseloadStudents;
         if (typeof data.rasporediMark === 'string') window.rasporediMark = data.rasporediMark;
+        window.planLibrary = (data.planLibrary && typeof data.planLibrary === 'object') ? data.planLibrary : {};
         if (data.progressArchive && typeof data.progressArchive === 'object') window.progressArchive = data.progressArchive;
         if (data.schoolCalendar && typeof window.calendarFromStored === 'function') {
             window.schoolCalendar = window.calendarFromStored(data.schoolCalendar);

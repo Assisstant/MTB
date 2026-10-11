@@ -107,6 +107,7 @@
     "test:layout": "node test/layout.browser.mjs",
     "test:vezbi": "tsx test/vezbi.browser.mjs",
     "test:exercise-plans": "node test/sdnevnik-exercises.browser.mjs",
+    "test:plan-builder": "node test/sdnevnik-plan-builder.browser.mjs",
     "test:vezbi-audio": "tsx test/vezbi-audio.browser.mjs",
     "test:vezbi-themes": "tsx test/vezbi-themes.browser.mjs",
     "test:vezbi-letters": "tsx test/vezbi-letters.browser.mjs",
