@@ -345,6 +345,10 @@ async function run() {
     check('a server document with five hours is the same diary as this one with an empty sixth',
         withFive === 'insync' && (await stored()).version === fiveVersion && (await stored()).payload.schedule.monday.length === 5
         && await page.evaluate(() => timeSlots.length === 6 && schedule.monday.length === 6), withFive);
+    // Progress is the green marks of the diary's school year, counted from attendance. The sample's
+    // marks are in May 2026, so its calendar is set to that year on both devices before counting.
+    await page.evaluate((pupil) => { schoolCalendar.yearStart = new Date(2025, 8, 1); schoolCalendar.yearEnd = new Date(2026, 5, 10); rebuildStudentProgress(pupil); }, SECOND);
+    await syncNow(page); await syncNow(other);
     const start = await credited(page);
 
     await tap(page, 1);                                  // Tuesday here

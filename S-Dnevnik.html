@@ -502,6 +502,9 @@
             max-width:calc(100vw - 24px); padding:10px 14px; border-radius:12px; border:1px solid #b7791f; background:#fffbea; color:#3d2c00; font-weight:600; box-shadow:0 8px 24px rgba(0,0,0,.25); }
         body.dark-mode #pastDraftBar { background:#3a2f12; color:#fdf3c4; border-color:#d69e2e; }
         @media print { #pastDraftBar { display:none !important; } }
+        .month-pick { display:flex; flex-wrap:wrap; gap:8px; }
+        .month-pick select { font:inherit; min-height:38px; padding:6px 10px; border:1px solid #a9bac7; border-radius:8px; background:#fff; color:#202b35; }
+        body.dark-mode .month-pick select { background:#181d22; color:#edf2f6; border-color:#607381; }
         .schedule-pick-button { color:inherit; background:transparent; border:0; cursor:pointer; font-size:13px; align-self:flex-end; }
         @media print { .schedule-pickers, .schedule-pick-button { display:none !important; } }
         .time-selector {
@@ -2308,7 +2311,11 @@
             <div id="monthlyProgressView" style="display: none;">
                 <div class="form-group">
                     <label>Избери месец:</label>
-                    <input type="month" id="monthSelector" onchange="generateMonthlyAttendance()">
+                    <input type="hidden" id="monthSelector" onchange="generateMonthlyAttendance()">
+                    <span class="month-pick">
+                        <select id="monthPickMonth" aria-label="Месец" onchange="pickMonth()"></select>
+                        <select id="monthPickYear" aria-label="Година" onchange="pickMonth()"></select>
+                    </span>
                 </div>
                 <div class="scrollable-container">
                     <div id="monthlyAttendanceTable"></div>
@@ -4110,6 +4117,9 @@ var attendance = {};
         function loadStudentProgress(defaultKind) {
             foldProgressStudentList();
             var studentId = parseInt(document.getElementById('progressStudentSelect').value);
+            // Список што не се согласува со ознаките (лански датуми, ознака
+            // сменета на друг уред) се брои одново пред да се прикаже.
+            if (studentId && window.MTB_MIRROR_READONLY !== true && !progressAgreesWithAttendance(studentId)) rebuildStudentProgress(studentId);
             var container = document.getElementById('progressActivitiesList');
             container.innerHTML = '';
             
@@ -4231,7 +4241,27 @@ var attendance = {};
             generateMonthlyAttendance();
         }
         
+        // Месецот се бира на македонски (сопственикот, 11 октомври 2026):
+        // календарот на прелистувачот е на јазикот на компјутерот, англиски.
+        var MONTH_PICK_NAMES = ['Јануари', 'Февруари', 'Март', 'Април', 'Мај', 'Јуни', 'Јули', 'Август', 'Септември', 'Октомври', 'Ноември', 'Декември'];
+        function syncMonthPick() {
+            var m = document.getElementById('monthPickMonth'), y = document.getElementById('monthPickYear');
+            var parts = (document.getElementById('monthSelector').value || '').split('-');
+            var year = parseInt(parts[0]) || new Date().getFullYear(), month = parseInt(parts[1]) || (new Date().getMonth() + 1);
+            if (!m.options.length) MONTH_PICK_NAMES.forEach(function (name, i) { m.add(new Option(name, String(i + 1))); });
+            var now = new Date().getFullYear();
+            y.textContent = '';
+            for (var k = Math.min(year, now - 2); k <= Math.max(year, now + 1); k++) y.add(new Option(String(k), String(k)));
+            m.value = String(month); y.value = String(year);
+        }
+        function pickMonth() {
+            var m = document.getElementById('monthPickMonth').value, y = document.getElementById('monthPickYear').value;
+            document.getElementById('monthSelector').value = y + '-' + String(m).padStart(2, '0');
+            generateMonthlyAttendance();
+        }
+
         function generateMonthlyAttendance() {
+            syncMonthPick();
             var monthValue = document.getElementById('monthSelector').value;
             if (!monthValue) return;
             
@@ -7001,66 +7031,43 @@ var attendance = {};
             saveData();
         }
         
+        /**
+         * Напредокот Е присуството (сопственикот, 11 октомври 2026): секоја
+         * зелена ознака од ОВАА учебна година е еден одржан третман, по ред по
+         * датум и час, за секое дете посебно. Споен термин е еден третман.
+         * Ознаки од лани не се бројат: серверот исто така брои само во тековната
+         * година (server/src/lib/progress.ts), а без оваа граница лански датуми
+         * ги зафаќаа првите активности од годинашниот план.
+         */
+        // Едно правило, на едно место: `sdnInitialPlanProgress` (истото што го
+        // полни почетниот план). Тука само се повикува.
+        function progressFromAttendance(studentId, plan) {
+            return sdnInitialPlanProgress(getStudentById(studentId), plan.activities.length);
+        }
+        // Дали запишаниот напредок е точно она што го кажуваат зелените ознаки.
+        function progressAgreesWithAttendance(studentId) {
+            var student = getStudentById(studentId);
+            var plan = student && getPlanById(student.planId);
+            if (!plan || !plan.activities || plan.activities.length === 0) return true;
+            var have = (studentProgress[studentId] && studentProgress[studentId][student.planId]) || [];
+            var want = progressFromAttendance(studentId, plan);
+            var flat = function (list) { return list.map(function (e) { return [e.index, e.date, e.time || ''].join('|'); }).sort().join(','); };
+            return flat(have) === flat(want);
+        }
+
         function rebuildStudentProgress(studentId) {
             var student = getStudentById(studentId);
             if (!student) return;
-            
+
             var plan = getPlanById(student.planId);
             if (!plan || !plan.activities || plan.activities.length === 0) return;
-            
-            // Clear existing progress for this student's current plan
+
             if (!studentProgress[studentId]) studentProgress[studentId] = {};
-            studentProgress[studentId][student.planId] = [];
-            
-            // Collect all attendance records for this student
-            var attendanceRecords = [];
-            for (var dateStr in attendance) {
-                if (attendance[dateStr][studentId]) {
-                    for (var key in attendance[dateStr][studentId]) {
-                        var attData = attendance[dateStr][studentId][key];
-                        if (attData.status === 'present') {
-                            attendanceRecords.push({
-                                date: dateStr,
-                                time: attData.time,
-                                key: key
-                            });
-                        }
-                    }
-                }
-            }
-            
-            // Sort by date and time
-            attendanceRecords.sort(function(a, b) {
-                var dateCompare = a.date.localeCompare(b.date);
-                if (dateCompare !== 0) return dateCompare;
-                return a.time.localeCompare(b.time);
-            });
-            
-            // Remove duplicates for merged sessions (same date+time)
-            var uniqueRecords = [];
-            var seen = new Set();
-            for (var i = 0; i < attendanceRecords.length; i++) {
-                var record = attendanceRecords[i];
-                var recordKey = record.date + '|' + record.time;
-                if (!seen.has(recordKey)) {
-                    seen.add(recordKey);
-                    uniqueRecords.push(record);
-                }
-            }
-            
-            // Check activities in order based on attendance
-            var completed = studentProgress[studentId][student.planId];
-            for (var i = 0; i < uniqueRecords.length && i < plan.activities.length; i++) {
-                completed.push({
-                    index: i,
-                    date: uniqueRecords[i].date,
-                    time: uniqueRecords[i].time
-                });
-            }
-            
+            studentProgress[studentId][student.planId] = progressFromAttendance(studentId, plan);
+
             saveData();
         }
-        
+
         function rebuildAllProgress() {
             if (!confirm('Ова ќе ги реконструира сите податоци за напредок врз база на присутноста. Дали сте сигурни?')) return;
             

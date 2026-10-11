@@ -397,6 +397,14 @@ try {
     await page.click('#progressStudentChosen button');
     check('„Сите ученици“ opens the list again', await page.isVisible('#progressStudentLinks') && !(await page.isVisible('#progressStudentChosen')));
 
+    // ── „Присутност по месец“: the month is chosen in Macedonian ──────────────
+    await page.evaluate(() => switchProgressView('monthly'));
+    checkEq('the months are Macedonian words, not the calendar of the browser',
+        [await page.$eval('#monthPickMonth', m => m.options[9].textContent), await page.$eval('#monthSelector', i => i.type)], ['Октомври', 'hidden']);
+    await page.selectOption('#monthPickMonth', '9');
+    check('choosing a month draws that month', /^\d{4}-09$/.test(await page.$eval('#monthSelector', i => i.value))
+        && /Септември/.test(await page.textContent('#monthlyProgressView')));
+
     checkEq('no page errors', errors, []);
 } finally {
     await browser.close();
