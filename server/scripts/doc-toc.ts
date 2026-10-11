@@ -5,9 +5,8 @@
  *     npm run check:toc     exit 1 if any index is stale (the pre-commit hook)
  *
  * WHY. An agent deciding whether a file is relevant often reads only its first
- * hundred lines. CLAUDE.md is close to a thousand and its traps start at line
- * 316; a rule past the preview may as well not exist. So each long file says
- * what it holds before anything else.
+ * hundred lines. The short AGENTS.md routes to these references; each long
+ * file says what it holds so it can be searched without loading it whole.
  *
  * WHY A SCRIPT. An index kept by hand is right on the day it is written. This
  * one is derived from the headings, and the commit is refused when it has
@@ -34,9 +33,10 @@ type Entry = {
 };
 
 const FILES: Entry[] = [
-    { file: 'CLAUDE.md', bulletsUnder: 'Traps already hit' },
-    { file: 'AGENTS.md', bulletsUnder: 'Traps already hit' },
     { file: 'SOSTOJBA.md', newestUnder: 'Каде сме сега', limit: 12 },
+    { file: 'docs/SOSTOJBA-archive.md', newestUnder: 'Каде сме сега', limit: 12 },
+    { file: 'docs/TRAPS.md', bulletsUnder: 'Traps already hit' },
+    { file: 'docs/AGENT-REFERENCE.md' },
     { file: 'docs/APP-CONTRACT.md' },
     { file: 'docs/HISTORY.md' },
     { file: 'docs/WORKSPACE-RELEASE.md' },

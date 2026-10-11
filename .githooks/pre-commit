@@ -17,13 +17,14 @@ set -u
 
 repo=$(git rev-parse --show-toplevel) || exit 1
 
-# CLAUDE.md and AGENTS.md are one memory under two names. The rule to copy one
-# over the other was prose, and they have drifted before. Needs nothing but
-# cmp, so it runs even on a clone with no packages installed.
-if ! cmp -s "$repo/CLAUDE.md" "$repo/AGENTS.md"; then
-    echo "pre-commit: refused. CLAUDE.md and AGENTS.md differ."
-    echo "            They are the same file under two names: copy the one you"
-    echo "            edited over the other, stage both, and commit again."
+# One source of instructions: CLAUDE imports AGENTS, references load on demand.
+# The checker uses only Node builtins, even on a clone before npm install.
+if ! command -v node >/dev/null 2>&1; then
+    echo "pre-commit: Node is needed to verify the shared instruction entry point."
+    exit 1
+fi
+if ! node "$repo/server/scripts/check-agent-docs.mjs"; then
+    echo "pre-commit: refused. Fix the instruction import, size or routing errors above."
     exit 1
 fi
 
