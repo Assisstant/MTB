@@ -6,6 +6,10 @@ import { createContext, useContext } from 'react';
 // school reads it; this table is only the English.
 const EN = {
     'Печати': 'Stamps',
+    'Слика од цртежот': 'Picture of the drawing',
+    'Слика од означеното': 'Picture of the selection',
+    'Слика од целиот цртеж': 'Picture of the whole drawing',
+    '💾 Зачувај слика': '💾 Save picture',
     '★ Мои печати': '★ My stamps',
     'Рамка': 'Frame',
     'Без рамка': 'No frame',

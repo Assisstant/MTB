@@ -82,3 +82,11 @@ npm run build        # → ../WBACC.html
 ```
 
 Потребно само кога се менува WBACC; самата датотека е во репото.
+
+## The picture button asks first (11 Oct 2026)
+
+The owner clicks the picture button to look, and every click left a PNG in
+the downloads. The click now makes the picture and shows it in a small
+window; a file is written only on its save button, and cancel or Escape
+writes nothing. `image.js` is split into making and saving; `test:wbacc`
+holds that no download happens before the save button.

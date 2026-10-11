@@ -93,3 +93,10 @@
 .wbacc-look button[aria-pressed="true"] { outline: 3px solid #3973ac; outline-offset: 1px; }
 .wbacc-swatches { display: flex; flex-wrap: wrap; gap: 6px; }
 .wbacc-swatch { width: 34px; height: 34px; min-width: 34px; min-height: 34px !important; max-height: 34px; padding: 0 !important; border-radius: 50% !important; border: 2px solid #ffffff !important; box-shadow: 0 0 0 1px #8a8fa3; cursor: pointer; }
+/* the picture button: shown first; a file is written only on Save */
+.wbacc-picture { position: fixed; inset: 0; z-index: 30; display: grid; place-items: center; padding: 16px; background: rgba(20, 24, 36, .45); }
+.wbacc-picture__box { display: grid; gap: 10px; max-width: min(720px, 100%); max-height: 100%; padding: 14px; border-radius: 12px; background: #ffffff; color: #20252b; box-shadow: 0 16px 40px rgba(0, 0, 0, .3); }
+.wbacc-picture.dark .wbacc-picture__box { background: #232329; color: #e8eaed; }
+.wbacc-picture__box img { max-width: 100%; max-height: 60vh; object-fit: contain; border: 1px solid #c9c9d6; border-radius: 8px; background: #ffffff; }
+.wbacc-picture__box button { min-height: 40px; padding: 6px 16px; border-radius: 8px; border: 1px solid #c9c9d6; background: #f1f1f7; color: #20252b; font: inherit; cursor: pointer; }
+.wbacc-picture__box .wbacc-primary { background: #6965db; border-color: #6965db; color: #ffffff; }

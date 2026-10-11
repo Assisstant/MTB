@@ -155,12 +155,26 @@ await page.click('.wbacc-panel button[title="Затвори"]').catch(() => {});
 await page.keyboard.press('Escape');
 await page.keyboard.press('Escape');
 check('„📷 Слика“ sits beside the panels\' buttons', await page.isVisible('.wbacc-tools button:has-text("📷")'));
+// The click shows the picture and writes nothing (owner, 11 Oct 2026: he clicks to look).
+let early = false;
+const watch = () => { early = true; };
+page.on('download', watch);
+await page.click('.wbacc-tools button:has-text("📷")');
+await page.waitForSelector('.wbacc-picture img');
+await page.waitForTimeout(500);
+check('the click only shows the picture: no file yet', !early && await page.$eval('.wbacc-picture img', (i) => i.naturalWidth > 0));
+await page.click('.wbacc-picture button:not(.wbacc-primary)');
+await page.waitForTimeout(300);
+check('„Откажи“ closes it with nothing written', !early && (await page.$('.wbacc-picture')) === null);
+page.off('download', watch);
+await page.click('.wbacc-tools button:has-text("📷")');
+await page.waitForSelector('.wbacc-picture .wbacc-primary');
 const [download] = await Promise.all([
     page.waitForEvent('download', { timeout: 10000 }).catch(() => null),
-    page.click('.wbacc-tools button:has-text("📷")')
+    page.click('.wbacc-picture .wbacc-primary')
 ]);
 const png = download ? readFileSync(await download.path()) : Buffer.alloc(0);
-check('one click saves a PNG, named for the moment', Boolean(download && /^WBACC-\d{4}-\d{2}-\d{2}-\d{4}\.png$/.test(download.suggestedFilename())
+check('„Зачувај слика“ saves a PNG, named for the moment', Boolean(download && /^WBACC-\d{4}-\d{2}-\d{2}-\d{4}\.png$/.test(download.suggestedFilename())
     && png.subarray(1, 4).toString() === 'PNG'), download ? download.suggestedFilename() : 'no download');
 const pngWidth = png.length > 24 ? png.readUInt32BE(16) : 0;
 check('of the whole drawing, at twice its size', pngWidth > 1000, `width ${pngWidth}`);

@@ -1,8 +1,10 @@
 import { exportToBlob, THEME } from '@excalidraw/excalidraw';
 
 /**
- * „📷 Слика“ — the drawing as a PNG, in one click (owner, 5 Oct 2026: „да има
- * export слика на површината“). Excalidraw's own „Export image“ sits in the ☰
+ * „📷 Слика“ — the drawing as a PNG (owner, 5 Oct 2026: „да има export слика
+ * на површината“). Since 11 Oct 2026 the click only MAKES the picture and
+ * shows it; a file is written when the person says so (`saveDrawingImage`).
+ * He clicked to look, and every look left a file in the downloads. Excalidraw's own „Export image“ sits in the ☰
  * menu, behind a dialog; this is the button beside Pictograms and Bookmarks.
  *
  * What is selected, or else the whole drawing — the same rule as „🔊“. A
@@ -48,6 +50,11 @@ export async function exportDrawingImage(api) {
         }
     });
 
+    return { blob, partial, count: elements.length, embeds: elements.some((e) => e.type === 'embeddable' || e.type === 'iframe') };
+}
+
+/** The picture already made, as a file in the downloads. */
+export function saveDrawingImage(blob) {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
@@ -56,8 +63,6 @@ export async function exportDrawingImage(api) {
     a.click();
     a.remove();
     setTimeout(() => URL.revokeObjectURL(url), 2000);
-
-    return { partial, count: elements.length, embeds: elements.some((e) => e.type === 'embeddable' || e.type === 'iframe') };
 }
 
 function stamp(d) {

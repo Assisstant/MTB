@@ -7,7 +7,7 @@ import Stamps from './Stamps.jsx';
 import StampPlacement from './StampPlacement.jsx';
 import Bookmarks from './Bookmarks.jsx';
 import { wordsToSpeak } from './scene.js';
-import { exportDrawingImage } from './image.js';
+import { exportDrawingImage, saveDrawingImage } from './image.js';
 import { LangContext, translator } from './i18n.js';
 
 const SCENE_KEY = 'scene-v1';
@@ -38,6 +38,7 @@ export default function App() {
     const [excalidraw, setExcalidraw] = useState(null);
     const [panel, setPanel] = useState('');          // '', 'pictos', 'bookmarks'
     const [stamp, setStamp] = useState(null);
+    const [picture, setPicture] = useState(null);    // the picture made, waiting for „Зачувај" or „Откажи"
     const pending = useRef(null);
     const timer = useRef(null);
 
@@ -124,14 +125,21 @@ export default function App() {
         if (!excalidraw) return;
         try {
             const done = await exportDrawingImage(excalidraw);
-            const message = done.empty ? t('Цртежот е празен — нема што да се зачува.')
-                : (done.partial ? t('📷 Означеното е зачувано како слика.') : t('📷 Цртежот е зачуван како слика.')) +
-                  (done.embeds ? ' ' + t('Вградените веб-страници се во сликата само како рамка.') : '');
-            excalidraw.setToast({ message, duration: done.embeds ? 6000 : 3000 });
+            if (done.empty) { excalidraw.setToast({ message: t('Цртежот е празен — нема што да се зачува.'), duration: 3000 }); return; }
+            // shown first: nothing is written until the person says so
+            setPicture({ ...done, url: URL.createObjectURL(done.blob) });
         } catch (err) {
             console.warn('WBACC: the picture was not made', err);
             excalidraw.setToast({ message: t('Сликата не се направи: {0}', err && err.message ? err.message : String(err)), duration: 6000 });
         }
+    };
+
+    const closePicture = () => { if (picture) URL.revokeObjectURL(picture.url); setPicture(null); focusCanvas(); };
+    const keepPicture = () => {
+        saveDrawingImage(picture.blob);
+        excalidraw.setToast({ message: (picture.partial ? t('📷 Означеното е зачувано како слика.') : t('📷 Цртежот е зачуван како слика.')) +
+            (picture.embeds ? ' ' + t('Вградените веб-страници се во сликата само како рамка.') : ''), duration: picture.embeds ? 6000 : 3000 });
+        closePicture();
     };
 
     const chooseLang = (code) => {
@@ -188,6 +196,20 @@ export default function App() {
                 </aside>
             )}
             {stamp && excalidraw && <StampPlacement api={excalidraw} stamp={stamp} onClose={closeStamp} />}
+            {picture && (
+                <div className={'wbacc-picture' + (dark ? ' dark' : '')} role="dialog" aria-modal="true" aria-label={t('Слика од цртежот')}
+                     onKeyDown={(e) => { if (e.key === 'Escape') { e.stopPropagation(); closePicture(); } }}>
+                    <div className="wbacc-picture__box">
+                        <strong>{t(picture.partial ? 'Слика од означеното' : 'Слика од целиот цртеж')}</strong>
+                        <img src={picture.url} alt="" />
+                        {picture.embeds && <p className="wbacc-fine">{t('Вградените веб-страници се во сликата само како рамка.')}</p>}
+                        <div className="wbacc-row">
+                            <button type="button" className="wbacc-primary" onClick={keepPicture} autoFocus>{t('💾 Зачувај слика')}</button>
+                            <button type="button" onClick={closePicture}>{t('Откажи')}</button>
+                        </div>
+                    </div>
+                </div>
+            )}
             <Credit dark={dark} />
         </div>
         </LangContext.Provider>
