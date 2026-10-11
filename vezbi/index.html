@@ -64,7 +64,9 @@
   .syll button.done { background: #e6f4ea; border-color: #7fbf90; }
 
   /* зборови */
-  .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 14px; }
+  /* --n is the longest word on screen (cards()). A column grows for it, up to
+     380px, before any letter gets smaller; a phone keeps its one column. */
+  .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, clamp(250px, calc(var(--n, 5) * 42px + 26px), 380px)), 1fr)); gap: 14px; }
   .card { background: var(--card); border: 1px solid var(--line); border-radius: 18px; padding: 14px; display: flex; flex-direction: column; align-items: center; gap: 12px; user-select: none; }
   .pic { font: inherit; color: var(--ink); background: transparent; border: 0; border-radius: 12px; padding: 0; width: 100%; display: flex; flex-direction: column; align-items: center; gap: 12px; cursor: pointer; }
   .syll button:focus-visible, button:focus-visible { outline: 3px solid var(--chosen); outline-offset: 2px; }
@@ -77,11 +79,20 @@
   .ltr.empty { color: transparent; }
   .dash { font-size: 34px; font-weight: 700; color: var(--soft); padding: 0 2px; }
   .word.hidden { visibility: hidden; }
-  /* a long word still fits its card: the boxes narrow, the letters get smaller */
   .word { max-width: 100%; }
   .ltr { flex: 0 1 auto; min-width: 0; }
-  .word.long .ltr { font-size: 24px; }
-  .one .word.long .ltr { font-size: 40px; }
+  /* „Сите заедно": ONE letter size for every card on screen (owner, 11 Oct
+     2026), where each card used to pick its own and a word of seven letters
+     dropped to small ones beside a word of five. The box is what the longest
+     word (--n) leaves in a card, never under 26px; only a word longer than
+     that (--letters, its own count) narrows further, alone. 100cqi is the
+     card's inner width, so a resize, a phone and the printed sheet follow
+     without a script. The tiles keep the same size in every card too. */
+  .card { container-type: inline-size; }
+  .cards:not(.wide) .word { --b: min(clamp(26px, calc((100cqi - 4px * (var(--n, 5) - 1)) / var(--n, 5)), 42px), calc((100cqi - 4px * (var(--letters, 5) - 1)) / var(--letters, 5))); }
+  .cards:not(.wide) .ltr { width: var(--b); height: calc(var(--b) * 1.33); font-size: calc(var(--b) * .8); }
+  .cards:not(.wide) .dash { font-size: calc(var(--b) * .8); }
+  .cards:not(.wide) .tile { --t: max(40px, calc(clamp(26px, calc((100cqi - 4px * (var(--n, 5) - 1)) / var(--n, 5)), 42px) + 6px)); width: var(--t); height: calc(var(--t) * 1.17); font-size: calc(var(--t) * .7); }
 
   /* реченици: помали кутии, преломот е меѓу зборови */
   .cards.wide { grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); }
@@ -164,7 +175,10 @@
   body.fit .hint, body.fit .note { margin-bottom: 8px; }
   body.fit #out { flex: 1; min-height: 0; display: flex; flex-direction: column; }
   body.fit footer { padding: 0 12px 6px; font-size: 11px; text-align: center; }
-  .one { flex: 1 1 0; min-height: 250px; display: grid; grid-template-columns: auto minmax(0, 640px) auto; grid-template-rows: minmax(0, 1fr) auto; grid-template-areas: "prev card next" ". count ."; align-items: center; justify-content: center; gap: 6px 12px; }
+  /* „Една по една" is the board: the card is as wide as its word needs (--n,
+     that word's letters), up to the window, so a long word keeps full-size
+     boxes; a short word leaves the card at 640px as before. */
+  .one { flex: 1 1 0; min-height: 250px; display: grid; grid-template-columns: auto minmax(0, max(640px, calc(var(--n, 5) * (var(--u) + 4px) + 44px))) auto; grid-template-rows: minmax(0, 1fr) auto; grid-template-areas: "prev card next" ". count ."; align-items: center; justify-content: center; gap: 6px 12px; }
   .one .card { grid-area: card; height: 100%; min-height: 0; padding: 14px 18px; gap: 10px; }
   .nav.prev { grid-area: prev; }
   .nav.next { grid-area: next; }
@@ -174,15 +188,17 @@
   .one .word { min-height: calc(var(--u) * 1.2); }
   .one .ltr, .one .tile { width: var(--u); height: calc(var(--u) * 1.2); font-size: calc(var(--u) * .8); }
   .one .dash { font-size: calc(var(--u) * .66); }
-  .one .word.long .ltr { font-size: calc(var(--u) * .55); }
+  /* where the window is narrower than the word (a phone), every box of that
+     word narrows together and its letters with it */
+  .one .word:not(.sent) { --b: min(var(--u), calc((100cqi - 4px * (var(--letters, 5) - 1)) / var(--letters, 5))); }
+  .one .word:not(.sent) .ltr { width: var(--b); height: calc(var(--b) * 1.2); font-size: calc(var(--b) * .8); }
+  .one .word:not(.sent) .dash { font-size: calc(var(--b) * .66); }
   .one .sent .ltr { width: calc(var(--u) * .7); height: calc(var(--u) * .9); font-size: calc(var(--u) * .56); }
   .one .sent .dash { font-size: calc(var(--u) * .56); }
   .one .gap { width: calc(var(--u) * 2.2); height: calc(var(--u) * .9); }
   /* Thematic terms include long words and phrases; break at spaces and keep
      each letter inside its box even in a narrow grid card. */
-  body.themes .card { container-type:inline-size; }
   .word.phrase { flex-wrap:wrap; gap:8px 16px; }
-  body.themes .card .word .ltr { font-size:min(34px, calc((100cqi - 32px) / var(--letters) * .7)); }
   /* 🔊 alone sits in the card's corner and takes no row of its own */
   .one .tools:not(.edit) { position: absolute; top: 10px; left: 10px; }
   .one .tools:not(.edit) .plain { width: 46px; height: 46px; padding: 0; font-size: 20px; }
@@ -482,6 +498,11 @@ function chooseLibrary(library) {
   pick(0);
 }
 const keysOf = (item) => [].concat(item.img || plain(item));
+// A term of several words breaks at its spaces (themes, letters); `span` is
+// the number of boxes its longest row holds, which is what the letter size is
+// worked out from (the CSS of .cards and .one).
+const breaks = (text) => (thematic() || alphabetic()) && text.includes(' ');
+const span = (text) => (breaks(text) ? Math.max(...text.split(' ').map((w) => [...w].length)) : [...text].length) || 1;
 const picture = (key) => own[key] || IMG[key] || '';
 
 function pick(k) {
@@ -541,10 +562,10 @@ const stepOf = (i) => (i in state.own ? state.own[i] : state.step);
 // {braces} instead of emptying every box.
 function letters(text, step, filled, sentence) {
   const box = document.createElement('div');
-  box.className = 'word' + (sentence ? ' sent' : [...text].length > 6 ? ' long' : '') + (step === 3 ? ' hidden' : '');
-  const phrase = thematic() && !sentence && text.includes(' ');
+  box.className = 'word' + (sentence ? ' sent' : '') + (step === 3 ? ' hidden' : '');
+  const phrase = breaks(text) && !sentence;
   box.classList.toggle('phrase', phrase);
-  box.style.setProperty('--letters', Math.max(...text.split(' ').map(w => [...w].length)));
+  box.style.setProperty('--letters', span(text));
   const group = () => {
     if (!sentence && !phrase) return box;
     const g = document.createElement('span');
@@ -1468,6 +1489,7 @@ function cards(words, names) {
   if (state.view === 'grid') {
     const grid = document.createElement('div');
     grid.className = 'cards' + (sentences() ? ' wide' : '');
+    if (!sentences()) grid.style.setProperty('--n', Math.max(...now.map((i) => span(plain(list()[i])))));
     now.forEach((i) => grid.appendChild(card(i)));
     out.appendChild(grid);
     return;
@@ -1475,6 +1497,7 @@ function cards(words, names) {
   state.at = Math.min(state.at, now.length - 1);
   const one = document.createElement('div');
   one.className = 'one';
+  if (!sentences()) one.style.setProperty('--n', span(plain(list()[now[state.at]])));
   const nav = (text, by, name) => {
     const b = document.createElement('button');
     b.className = 'nav ' + (by < 0 ? 'prev' : 'next'); b.textContent = text; b.setAttribute('aria-label', name);

@@ -36,6 +36,49 @@ The words of the П deck, in the owner's three groups of rising difficulty:
 
 ## Where it stands
 
+### One letter size on screen, and a single card as wide as its word (11 Oct 2026)
+
+The owner, with a picture of „Букви и зборови · А": the letters differ from
+card to card by the length of the word; make them the same, perhaps S/M/L,
+„или некое друго поинтелигентно решение". Then: go with the single card as a
+board, where the word is not limited. Not yet judged.
+
+- **„Сите заедно": one size for every card on screen.** Each card used to
+  choose its own: 42px boxes with 34px letters up to six letters, 24px letters
+  and narrower boxes from seven. Now the box is what the LONGEST word on
+  screen leaves in a card, for all of them, and the letter is 0.8 of the box.
+  Before any letter gets smaller a column grows (250 → up to 380px), so on a
+  laptop nine letters stand in 35px boxes where they had 24px letters.
+- **One outlier does not shrink the rest.** The shared box never goes under
+  26px; only a word longer than that narrows further, alone.
+- **The tiles to drag are one size in every card too**, the box plus 6px and
+  never under 40px (a finger), where they were 48px beside 26px boxes.
+- **„Една по една" is the board.** The card is as wide as its word needs, up
+  to the window, so nine letters keep the full box of five (71px on a laptop);
+  a short word leaves the card at 640px as before. On a phone the boxes of
+  that one word narrow together. Themes and letters had 34px letters in big
+  boxes there; they now follow the box like the sounds.
+- **How.** No measuring script: `cards()` writes `--n` (the longest row on
+  screen, `span()`), `letters()` writes `--letters` (that word's own), and the
+  CSS works the box out from `100cqi`, the card's inner width (`.card` is a
+  size container). So a resize, a phone and the printed sheet follow by
+  themselves. `.word.long` and the themes' own font rule are gone. A term of
+  several words now breaks at its spaces in „Букви и зборови" as in the themes.
+- **No S/M/L switch**: the automatic size answers the picture, and one more
+  control on a child's page is one more thing to set wrong. It would sit on
+  the same `--n` if the owner still wants it.
+- `test:vezbi-size` (15 checks): equal boxes and letters across words of 5, 6
+  and 9 letters with a control that they do differ in length, the grown
+  column, the tiles, an invented 15-letter outlier, the single card, a phone.
+
+**Asked the same day, not built:** nine looks for the card with quieter
+letter boxes (the owner then chose the board instead), and changing a card's
+WORD in „✏️ Уреди" — the owner's example is the hippo under Х, which he calls
+„нилски коњ". That is the „one editor" of
+[PLAN-sodrzini-karticki-i-planovi.md](PLAN-sodrzini-karticki-i-planovi.md);
+the word is the key of the picture, the recording and the letter's position,
+and „нилски коњ" has no Х, so it needs his decisions first.
+
 ### Diary content links and flexible treatment plans (11 Oct 2026)
 
 Implemented content-only addresses: `#vezbi?library=sounds&deck=p`,
