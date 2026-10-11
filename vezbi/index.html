@@ -268,18 +268,23 @@
   body.dark .app { color: #d5dbe8; background: rgba(43, 45, 49, .95); border-color: #474b52; }
   body.dark .app-name { color: #e8eaed; }
   body.dark .app-when { color: #d5dbe8; background: #33363b; }
-  /* „Скриј лента": the strip and the row of sections go; one thin line brings them back */
-  #showbar { display: block; width: 100%; font: inherit; font-size: 12px; font-weight: 600; text-align: left; color: var(--strip-ink); background: var(--strip); border: 0; border-bottom: 1px solid var(--strip-edge); padding: 1px 12px; min-height: 20px; cursor: pointer; }
-  body.nostrip .apps, body.nostrip .subs { display: none; }
+  /* All three rows fold together. Hover reveal is an overlay: cards stay put. */
+  #showbar { display: block; position: sticky; top: 0; z-index: 13; flex: none; width: 100%; font: inherit; font-size: 12px; font-weight: 600; text-align: left; color: var(--strip-ink); background: var(--strip); border: 0; border-bottom: 1px solid var(--strip-edge); padding: 1px 12px; min-height: 20px; cursor: pointer; }
+  body.nostrip:not(.strip-peek) .apps, body.nostrip:not(.strip-peek) .subs, body.nostrip:not(.strip-peek) #bar { display: none; }
+  body.nostrip.strip-peek .apps, body.nostrip.strip-peek .subs, body.nostrip.strip-peek #bar { position: fixed; left: 0; right: 0; width: 100%; z-index: 12; }
+  body.nostrip.strip-peek .apps { top: var(--peek-apps, 20px); }
+  body.nostrip.strip-peek .subs { top: var(--peek-subs, 57px); }
+  body.nostrip.strip-peek:not(.focus):not(.bare) .subs { display: flex; }
+  body.nostrip.strip-peek #bar { top: var(--peek-bar, 98px); box-shadow: 0 8px 18px #0002; }
   body.focus #showbar, body.bare #showbar { display: none; }
   @media print { #showbar { display: none !important; } }
   /* a tool in a frame asked for the whole window */
   body.bare .apps, body.bare .subs { display: none; }
   /* the way to the diary, at the far end; only where the diary lives (see `diary`) */
-  .apps .diary { flex: none; margin-left: auto; font-size: 13px; font-weight: 600; color: #dce4f7; text-decoration: none; border: 1px solid rgba(220, 228, 247, .35); border-radius: 999px; padding: 4px 12px; min-height: 28px; display: inline-flex; align-items: center; }
+  .apps .diary { flex: none; margin-left: auto; font-size: 13px; font-weight: 600; color: var(--strip-ink); text-decoration: none; border: 1px solid var(--strip-edge); border-radius: 999px; padding: 4px 12px; min-height: 28px; display: inline-flex; align-items: center; }
   .apps .diary:hover { background: rgba(255, 255, 255, .12); }
-  .apps .diary:focus-visible { outline: 3px solid #ffffff; outline-offset: 2px; }
-  .apps button:focus-visible { outline-color: #ffffff; }
+  .apps .diary:focus-visible { outline: 3px solid var(--strip-ink); outline-offset: 2px; }
+  .apps button:focus-visible { outline-color: var(--strip-ink); }
   .home { padding: 28px 16px 40px; background: linear-gradient(135deg, #dce8fb, #ece7fa 50%, #d3f0e4); min-height: calc(100vh - 110px); }
   .home > * { max-width: 1060px; margin-left: auto; margin-right: auto; }
   .home h2 { font-size: clamp(24px, 5vw, 32px); color: #2563d9; margin-top: 0; margin-bottom: 6px; }
@@ -330,7 +335,7 @@
 </style>
 </head>
 <body>
-<button id="showbar" hidden>▾ Прикажи лента</button>
+<button id="showbar" aria-controls="apps subs bar" aria-expanded="false" title="Задржи го покажувачот горе за привремен приказ; кликни за постојан приказ" hidden>▾ Прикажи лента</button>
 <nav class="apps" id="apps" aria-label="Делови"></nav>
 <nav class="subs" id="subs" aria-label="Делови на избраната алатка" hidden><span class="sub" data-of="vezbi" id="sound-mode" hidden><button data-library="sounds" aria-pressed="true">Гласови</button><button data-library="themes" aria-pressed="false">Теми</button><button data-library="letters" aria-pressed="false">Букви и зборови</button></span></nav>
 
@@ -1301,13 +1306,64 @@ function parts() {
     theme.setAttribute('aria-pressed', String(dark));
     keep('vezbi_theme_v1', dark ? 'dark' : 'light');
   };
-  const strip = (hidden) => {
+  let revealTimer, concealTimer, hoverReady = true;
+  const rows = [$('showbar'), $('apps'), $('subs'), $('bar')];
+  const inRows = node => node instanceof Node && rows.some(row => row.contains(node));
+  const positionPeek = () => {
+    if (!document.body.classList.contains('strip-peek')) return;
+    let top = $('showbar').getBoundingClientRect().bottom;
+    for (const [row, prop] of [[$('apps'),'--peek-apps'],[$('subs'),'--peek-subs'],[$('bar'),'--peek-bar']]) {
+      document.body.style.setProperty(prop, top + 'px');
+      top += row.getBoundingClientRect().height;
+    }
+  };
+  const peek = on => {
+    clearTimeout(revealTimer); clearTimeout(concealTimer);
+    document.body.classList.toggle('strip-peek', on);
+    $('showbar').setAttribute('aria-expanded', String(on));
+    if (on) { fitBar(); positionPeek(); }
+  };
+  const laterConceal = () => {
+    clearTimeout(concealTimer);
+    concealTimer = setTimeout(() => {
+      if (rows.some(row => row.matches(':hover')) || document.querySelector('.menu.open') ||
+          (inRows(document.activeElement) && document.activeElement.matches(':focus-visible'))) return;
+      peek(false);
+    }, 300);
+  };
+  const strip = (hidden, byClick = false) => {
+    peek(false); shut();
+    hoverReady = !byClick || !hidden;
     document.body.classList.toggle('nostrip', hidden);
     $('showbar').hidden = !hidden;
     keep('vezbi_strip_v1', hidden ? 'hidden' : 'shown');
+    if (!hidden) fitBar();
   };
-  tool('hidebar', 'Скриј лента', () => strip(true)).textContent = '▴ Скриј лента';
+  tool('hidebar', 'Скриј лента', () => strip(true, true)).textContent = '▴ Скриј лента';
   $('showbar').addEventListener('click', () => strip(false));
+  $('showbar').addEventListener('pointerenter', e => {
+    if (e.pointerType !== 'mouse' || !hoverReady || !document.body.classList.contains('nostrip')) return;
+    clearTimeout(revealTimer);
+    revealTimer = setTimeout(() => {
+      if (!document.body.classList.contains('focus') && !document.body.classList.contains('bare')) peek(true);
+    }, 300);
+  });
+  $('showbar').addEventListener('pointerleave', () => { hoverReady = true; clearTimeout(revealTimer); });
+  document.addEventListener('pointermove', e => { if (!$('showbar').contains(e.target)) hoverReady = true; });
+  for (const row of rows) {
+    row.addEventListener('pointerenter', () => clearTimeout(concealTimer));
+    row.addEventListener('pointerleave', laterConceal);
+    row.addEventListener('focusout', laterConceal);
+  }
+  document.addEventListener('pointerdown', e => { if (!inRows(e.target)) laterConceal(); });
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && document.body.classList.contains('strip-peek') && !document.querySelector('.menu.open')) {
+      peek(false); $('showbar').focus({preventScroll:true});
+    }
+  });
+  window.addEventListener('hashchange', () => peek(false));
+  const observer = new ResizeObserver(positionPeek);
+  rows.forEach(row => observer.observe(row));
   $('apps').appendChild(end);
   look(kept('vezbi_theme_v1') === 'dark');
   strip(kept('vezbi_strip_v1') === 'hidden');
@@ -1544,6 +1600,8 @@ function menus() {
 // Only the cards: the strip of parts and the bar give their rows to the
 // picture. The browser's own full screen is asked for and is not needed.
 function cardsOnly(on) {
+  document.body.classList.remove('strip-peek');
+  $('showbar').setAttribute('aria-expanded', 'false');
   state.focus = on;
   try {
     if (on && document.documentElement.requestFullscreen) document.documentElement.requestFullscreen().catch(() => {});

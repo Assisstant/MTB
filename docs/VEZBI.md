@@ -36,6 +36,24 @@ The words of the П deck, in the owner's three groups of rising difficulty:
 
 ## Where it stands
 
+### Complete toolbar hiding and delayed hover (11 Oct 2026, owner clarification)
+
+„Скриј лента“ now hides all three rows: applications, sections, and exercise
+controls (sound, syllables, words and the other controls). The thin return
+button remains. A mouse held there for 300 ms reveals the rows as an overlay,
+without moving the cards or changing the saved hidden preference. Leaving
+folds them after 300 ms; an open menu or keyboard focus keeps them usable.
+Menus still open only by click. Clicking/tapping the return button, or pressing
+Enter on it, restores the rows permanently. Escape dismisses a temporary
+reveal; full-screen mode remains separate.
+
+The „S-Дневник“ link and toolbar focus outlines now use theme colours: a later
+hard-coded light colour had overridden the light-theme text. `test:vezbi-look`
+passes 43 checks, including the diary link in both themes, precise hover timing,
+unchanged card position, click-only menus, keyboard and touch restoration.
+`test:vezbi` also passes. Screenshots inspected in light mode, hidden/hover
+states and phone dark mode. This supersedes the two-row hiding described below.
+
 ### Theme, glass, „Скриј лента", the board's colour, the kept library (11 Oct 2026)
 
 The owner, after the row of sections: „ако можеш направи ги овие работи" —
