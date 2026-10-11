@@ -36,6 +36,14 @@ The words of the П deck, in the owner's three groups of rising difficulty:
 
 ## Where it stands
 
+### A lock for the hover on the hidden strip (11 Oct 2026)
+
+The owner: the hover that brings the hidden rows back should be optional.
+`#peeklock` sits at the end of the thin line: 🔓 the rows come when the
+pointer rests there (0.3 s, as before), 🔒 only a click on the line brings
+them. Kept in `vezbi_peek_v1`; not shown on a touch screen, where there is
+no hover. `test:vezbi-look` holds both states.
+
 ### Complete toolbar hiding and delayed hover (11 Oct 2026, owner clarification)
 
 „Скриј лента“ now hides all three rows: applications, sections, and exercise

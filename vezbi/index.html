@@ -277,6 +277,12 @@
   body.nostrip.strip-peek:not(.focus):not(.bare) .subs { display: flex; }
   body.nostrip.strip-peek #bar { top: var(--peek-bar, 98px); box-shadow: 0 8px 18px #0002; }
   body.focus #showbar, body.bare #showbar { display: none; }
+  /* The lock at the end of the thin line (owner, 11 Oct 2026): open, the rows
+     come when the pointer rests on the line; locked, only a click brings them. */
+  #peeklock { position: fixed; top: 0; right: 8px; z-index: 14; height: 20px; padding: 0 8px; font: inherit; font-size: 12px; font-weight: 600; line-height: 1; color: var(--strip-ink); background: transparent; border: 0; border-left: 1px solid var(--strip-edge); cursor: pointer; }
+  body:not(.nostrip) #peeklock, body.focus #peeklock, body.bare #peeklock { display: none; }
+  @media (hover: none) { #peeklock { display: none; } }
+  @media print { #peeklock { display: none !important; } }
   @media print { #showbar { display: none !important; } }
   /* a tool in a frame asked for the whole window */
   body.bare .apps, body.bare .subs { display: none; }
@@ -336,6 +342,7 @@
 </head>
 <body>
 <button id="showbar" aria-controls="apps subs bar" aria-expanded="false" title="Задржи го покажувачот горе за привремен приказ; кликни за постојан приказ" hidden>▾ Прикажи лента</button>
+<button id="peeklock" aria-pressed="false"></button>
 <nav class="apps" id="apps" aria-label="Делови"></nav>
 <nav class="subs" id="subs" aria-label="Делови на избраната алатка" hidden><span class="sub" data-of="vezbi" id="sound-mode" hidden><button data-library="sounds" aria-pressed="true">Гласови</button><button data-library="themes" aria-pressed="false">Теми</button><button data-library="letters" aria-pressed="false">Букви и зборови</button></span></nav>
 
@@ -1341,7 +1348,17 @@ function parts() {
   };
   tool('hidebar', 'Скриј лента', () => strip(true, true)).textContent = '▴ Скриј лента';
   $('showbar').addEventListener('click', () => strip(false));
+  // 🔓 / 🔒: whether resting the pointer on the line brings the rows. Kept on this browser.
+  const lock = (locked) => {
+    $('peeklock').textContent = locked ? '🔒 само на клик' : '🔓 на покажувач';
+    $('peeklock').title = locked ? 'Лентата се враќа само со клик. Кликни за да се покажува и на покажувач.' : 'Лентата се покажува кога покажувачот ќе застане тука. Кликни за само на клик.';
+    $('peeklock').setAttribute('aria-pressed', String(locked));
+    keep('vezbi_peek_v1', locked ? 'locked' : 'open');
+    if (locked) peek(false);
+  };
+  $('peeklock').addEventListener('click', () => lock($('peeklock').getAttribute('aria-pressed') !== 'true'));
   $('showbar').addEventListener('pointerenter', e => {
+    if ($('peeklock').getAttribute('aria-pressed') === 'true') return;
     if (e.pointerType !== 'mouse' || !hoverReady || !document.body.classList.contains('nostrip')) return;
     clearTimeout(revealTimer);
     revealTimer = setTimeout(() => {
@@ -1362,6 +1379,7 @@ function parts() {
     }
   });
   window.addEventListener('hashchange', () => peek(false));
+  lock(kept('vezbi_peek_v1') === 'locked');
   const observer = new ResizeObserver(positionPeek);
   rows.forEach(row => observer.observe(row));
   $('apps').appendChild(end);

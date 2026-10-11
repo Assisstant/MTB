@@ -99,6 +99,17 @@ try {
   check('a clicked menu remains usable after leaving the toolbar',await page.isVisible('#bar'));
   await page.mouse.click(600,450);await page.clock.runFor(300);
   check('leaving and dismissing the menu folds the rows again',!(await page.isVisible('#bar')));
+  // the lock: with it on, resting the pointer brings nothing; a click still does
+  await page.mouse.move(600,500);await page.clock.runFor(900);
+  await page.click('#peeklock');
+  await page.mouse.move(600,500);await page.clock.runFor(900);
+  await page.locator('#showbar').hover();await page.clock.runFor(600);
+  check('locked, a pointer resting on the line reveals nothing',!(await page.isVisible('#bar'))
+    &&(await page.getAttribute('#peeklock','aria-pressed'))==='true'&&(await page.evaluate(()=>localStorage.getItem('vezbi_peek_v1')))==='locked');
+  await page.mouse.move(600,500);await page.clock.runFor(900);
+  await page.click('#peeklock');
+  await page.mouse.move(600,500);await page.clock.runFor(900);
+  check('unlocked again, the hover works as before',(await page.getAttribute('#peeklock','aria-pressed'))==='false');
   await page.locator('#showbar').hover();await page.clock.runFor(300);
   await shot(page,'strip-hover');
   await page.keyboard.press('Escape');
