@@ -445,15 +445,34 @@
         }
         .progress-item-content {
             flex: 1;
+            min-width: 0;
         }
+        .progress-resource { display:inline-flex; align-items:center; justify-content:center; flex:none;
+            min-width:44px; min-height:44px; padding:6px 10px; border:2px solid #157498;
+            border-radius:10px; font-weight:700; text-decoration:none; color:inherit; background:transparent; }
+        .progress-resource:focus-visible { outline:3px solid #299acc; outline-offset:3px; }
+        .progress-plan-summary { display:flex; flex-wrap:wrap; align-items:center; gap:12px; margin:14px 0; }
+        .progress-resource-wrap { display:flex; align-items:center; gap:8px; flex:none; max-width:160px; }
+        @media (max-width:600px) { .progress-item { gap:8px; padding:10px; } .progress-resource-wrap { flex-direction:column; max-width:84px; } }
         .progress-item-text {
             font-size: 14px;
             margin-bottom: 3px;
         }
         .progress-item-date {
             font-size: 12px;
-            color: #718096;
+            color: #526579;
         }
+        body.dark-mode .progress-item-date { color:#b5c2d3; }
+        .session-editor { width:min(560px,94vw); max-height:90vh; overflow:auto; padding:24px;
+            border:1px solid #7e94a5; border-radius:14px; color:inherit; background:#f4f6f8; }
+        .session-editor::backdrop { background:#0008; }
+        body.dark-mode .session-editor { background:#252b34; }
+        .session-editor label { display:flex; align-items:center; gap:10px; min-height:44px; }
+        .session-editor [hidden] { display:none; }
+        .session-editor input[type="checkbox"] { width:22px; height:22px; flex:none; }
+        .session-editor input[type="text"] { width:100%; margin:10px 0; padding:10px; font:inherit; }
+        .session-editor-actions { display:flex; flex-wrap:wrap; gap:10px; margin-top:16px; }
+        .progress-resource-wrap { flex-wrap:wrap; }
         .schedule-pickers { width:100%; min-width:0; max-width:260px; box-sizing:border-box; padding:12px;
             background:#f5f7f9; color:#202b35; border:1px solid #9eb6c4; border-radius:12px;
             box-shadow:0 4px 14px rgba(24,48,64,.12); text-align:left; }
@@ -3218,6 +3237,7 @@ var attendance = {};
             if (student.planId != null && !Array.isArray(window.studentProgress[student.id][student.planId])) {
                 window.studentProgress[student.id][student.planId] = [];
             }
+            ensureDefaultExercisePlan(student);
             return student;
         }
 
@@ -3272,20 +3292,17 @@ var attendance = {};
         function updatePlanDropdown() {
             var select = document.getElementById('studentPlan');
             select.innerHTML = '';
-            
-            if (plans.length === 0) {
-                var opt = document.createElement('option');
-                opt.value = '';
-                opt.textContent = 'Нема планови - креирајте план прво';
-                select.appendChild(opt);
-            } else {
+            [['auto','Почетен план · 76 третмани · според типот'],
+             ['auto-sounds','Нов личен почетен план · Изговор'],['auto-themes','Нов личен почетен план · Поими']].forEach(function (p) {
+                var opt=document.createElement('option'); opt.value=p[0]; opt.textContent=p[1]; select.appendChild(opt);
+            });
                 for (var i = 0; i < plans.length; i++) {
                     var opt = document.createElement('option');
                     opt.value = plans[i].id;
-                    opt.textContent = plans[i].name;
+                    var owners = sdnExercisePlanOwners(plans[i].id);
+                    opt.textContent = plans[i].name + (owners ? ' — ' + owners : '');
                     select.appendChild(opt);
                 }
-            }
         }
 
         function populateAssessmentTemplateDropdown(selectedId) {
@@ -3305,12 +3322,14 @@ var attendance = {};
         function saveStudent() {
             var name = document.getElementById('studentName').value.trim();
             var grade = document.getElementById('studentGrade').value.trim();
-            var planId = parseInt(document.getElementById('studentPlan').value);
+            var planChoice = document.getElementById('studentPlan').value;
+            var autoPlan = ['auto','auto-sounds','auto-themes'].indexOf(planChoice) >= 0;
+            var planId = autoPlan ? null : parseInt(planChoice);
             var needsTrijazen = document.getElementById('studentNeedsTrijazen').checked;
             var disabilityType = document.getElementById('studentDisabilityType').value;
             var assessmentTemplateId = document.getElementById('studentAssessmentTemplate').value;
 
-            if (!name || !grade || !planId) {
+            if (!name || !grade || (!autoPlan && !planId)) {
                 alert('Пополнете ги сите полиња');
                 return;
             }
@@ -3318,6 +3337,13 @@ var attendance = {};
             var mergeSelect = document.getElementById('studentMergeWith');
             var mergeWithId = editingStudent !== null && mergeSelect ? mergeSelect.value : '';
             var editedId = editingStudent !== null && students[editingStudent] ? students[editingStudent].id : null;
+            var previousType = editingStudent !== null ? students[editingStudent].disabilityType : null;
+            if (autoPlan && editingStudent !== null && getPlanById(students[editingStudent].planId) &&
+                sdnInitialPlanProgress(students[editingStudent],1).length) {
+                alert('Постоечкиот план веќе има евидентирани третмани. Задржи го и уреди ги идните активности во „Планови“.');
+                return;
+            }
+            var savedStudent;
 
             if (editingStudent !== null) {
                 students[editingStudent].name = name;
@@ -3326,13 +3352,17 @@ var attendance = {};
                 students[editingStudent].needsTrijazen = needsTrijazen;
                 students[editingStudent].disabilityType = disabilityType;
                 students[editingStudent].assessmentTemplateId = assessmentTemplateId;
+                savedStudent = students[editingStudent];
                 editingStudent = null;
             } else {
                 var newStudent = { id: Date.now(), name: name, grade: grade, kind: studentKind({ grade: grade }), planId: planId, needsTrijazen: needsTrijazen, disabilityType: disabilityType, assessmentTemplateId: assessmentTemplateId };
                 students.push(newStudent);
                 studentProgress[newStudent.id] = {};
-                studentProgress[newStudent.id][planId] = [];
+                if (planId != null) studentProgress[newStudent.id][planId] = [];
+                savedStudent = newStudent;
             }
+            if (autoPlan) ensureDefaultExercisePlan(savedStudent,planChoice === 'auto-sounds' ? 'sounds' : planChoice === 'auto-themes' ? 'themes' : null);
+            else if (previousType !== null && previousType !== disabilityType) refreshUnusedExerciseDefault(savedStudent,previousType);
             
             saveData();
             renderStudentListSimple();
@@ -3345,16 +3375,26 @@ var attendance = {};
         
         function savePlan() {
             var name = document.getElementById('planName').value.trim();
-            var activitiesText = document.getElementById('planActivities').value.trim();
+            var activitiesText = document.getElementById('planActivities').value;
             
-            if (!name || !activitiesText) {
+            if (!name || !activitiesText.trim()) {
                 alert('Пополнете ги сите полиња');
                 return;
             }
             
-            var activities = activitiesText.split('\n').map(function(a) { return a.trim(); }).filter(function(a) { return a.length > 0; });
+            var activities = activitiesText.split(/\r?\n/).filter(function(a) { return a.trim().length > 0; });
             
             if (editingPlan !== null) {
+                var previous = plans[editingPlan], through = -1;
+                Object.keys(studentProgress || {}).forEach(function (sid) {
+                    ((studentProgress[sid] || {})[previous.id] || []).forEach(function (r) {
+                        if (Number.isInteger(r.index)) through = Math.max(through,r.index);
+                    });
+                });
+                for (var i=0; i<=through; i++) if (activities[i] !== previous.activities[i]) {
+                    alert('Реализираните активности остануваат на своето место. За поединечна корекција користи „Напредок → Активности“. Тука може да ги уредиш идните активности или да додадеш нови на крај.');
+                    return;
+                }
                 // Editing existing plan
                 plans[editingPlan].name = name;
                 plans[editingPlan].activities = activities;
@@ -3533,7 +3573,7 @@ var attendance = {};
             updatePlanDropdown();
             document.getElementById('studentName').value = s.name;
             document.getElementById('studentGrade').value = s.grade;
-            document.getElementById('studentPlan').value = s.planId;
+            document.getElementById('studentPlan').value = s.planId == null || s.planId === '' ? 'auto' : s.planId;
             document.getElementById('studentDisabilityType').value = s.disabilityType || '';
             populateAssessmentTemplateDropdown(s.assessmentTemplateId || '');
             document.getElementById('studentNeedsTrijazen').checked = s.needsTrijazen || false;
@@ -3803,7 +3843,215 @@ var attendance = {};
             }
         }
         
-        function loadStudentProgress() {
+        // Content references remain plain, meaningful activity text, so the old
+        // JSON and relational export retain them too. No pupil data enters URLs.
+        var SDN_EXERCISE_SOUNDS = [
+            ['П','p'],['Б','b'],['М','m'],['Т','t'],['Д','d'],['Н','n'],['К','k'],['Г','g'],
+            ['Ј','j'],['В','v'],['С','s'],['Л','l'],['З','z'],['Ц','c'],['Ш','sh'],['Ж','zh'],
+            ['Ќ','kj'],['Ѓ','gj'],['Љ','lj'],['Х','h'],['Ч','ch'],['Њ','nj'],['Р','r'],['Ф','f'],['Џ','dzh'],['Ѕ','dz']
+        ];
+        var SDN_EXERCISE_THEMES = [
+            ['Делови на телото','theme-body'],['Домашни животни','theme-domestic'],
+            ['Диви животни','theme-wild'],['Мали животни','theme-small'],['Прибор за јадење','theme-kitchen'],
+            ['Мебел и предмети во домот','theme-home'],['Облека и обувки','theme-clothes'],
+            ['Овошје','theme-fruit'],['Зеленчук','theme-vegetables'],
+            ['Лична и општа хигиена','theme-hygiene'],['Училиштен прибор','theme-school']
+        ];
+        function sdnDefaultExerciseKind(student) {
+            return student.disabilityType === 'deaf' ? 'sounds' : 'themes';
+        }
+        function sdnExercisePlanOwners(id) {
+            return students.filter(function (s) { return s.planId === id; }).map(function (s) { return s.name; }).join(', ');
+        }
+        function sdnDefaultExerciseName(kind) {
+            return 'Почетен план · ' + (kind === 'sounds' ? 'Изговор' : 'Поими') + ' · 76 третмани';
+        }
+        function refreshUnusedExerciseDefault(student, previousType) {
+            var before = sdnDefaultExerciseKind({disabilityType:previousType}), after = sdnDefaultExerciseKind(student);
+            var p = getPlanById(student.planId);
+            if (before === after || !p || p.name !== sdnDefaultExerciseName(before) ||
+                JSON.stringify(p.activities) !== JSON.stringify(sdnDefaultExerciseActivities(before))) return;
+            var owners = students.concat(window.formerCaseloadStudents || [],window.archivedStudents || []).filter(function (s) { return s.planId === p.id; });
+            var hasProgress = Object.keys(studentProgress || {}).some(function (sid) { return ((studentProgress[sid] || {})[p.id] || []).length > 0; });
+            if (owners.length !== 1 || hasProgress || sdnInitialPlanProgress(student,1).length) return;
+            // Only our untouched, unused PERSONAL default follows a newly entered
+            // type. Any manual edit, shared plan or recorded visit keeps its plan.
+            p.name = sdnDefaultExerciseName(after); p.activities = sdnDefaultExerciseActivities(after);
+        }
+        function sdnDefaultExerciseActivities(kind) {
+            var result = [];
+            if (kind === 'sounds') {
+                var tasks = [
+                    'Дополнување испуштени букви, поврзување слика со збор и именување со корекција на артикулацијата.',
+                    'Акустичка дискриминација, идентификација и диференцијација на зборови со корекција на артикулацијата.',
+                    'Вежби на гласот во почетна, средишна и крајна положба, зборови и реченици со потребната помош.'
+                ];
+                SDN_EXERCISE_SOUNDS.forEach(function (s, i) {
+                    // 24 × 3 + 2 × 2 = 76; all 26 sounds have at least two slots.
+                    tasks.slice(0, i < 24 ? 3 : 2).forEach(function (text) { result.push(text + ' — Глас ' + s[0]); });
+                });
+            } else {
+                var tasks = ['Препознавање и именување поими.', 'Поврзување слика со збор.',
+                    'Избор на поим со потребната помош.', 'Групирање поими.',
+                    'Составување картички и работа на табла.', 'Употреба на поимите во изрази.', 'Повторување на поимите.'];
+                SDN_EXERCISE_THEMES.forEach(function (t, i) {
+                    tasks.slice(0, i < 10 ? 7 : 6).forEach(function (text) { result.push(text + ' — Тема: ' + t[0]); });
+                });
+            }
+            return result;
+        }
+        function sdnActivityResource(student, text) {
+            text = sdnSessionParts(text).text;
+            var explicit = / — Глас ([ПБМТДНКГЈВСЛЗЦШЖЌЃЉХЧЊРФЏЅ])\.?\s*$/i.exec(text);
+            var thematic = / — Тема: (.+)$/.exec(text);
+            var kind = explicit ? 'sounds' : thematic ? 'themes' : sdnDefaultExerciseKind(student);
+            var entry;
+            if (kind === 'sounds') {
+                // Existing plans in the owner's screenshot end in a standalone
+                // uppercase letter. Do not guess from arbitrary words or names.
+                var tail = explicit || /(?:^|[\s.:])([ПБМТДНКГЈВСЛЗЦШЖЌЃЉХЧЊРФЏЅ])\.?\s*$/.exec(text);
+                entry = tail && SDN_EXERCISE_SOUNDS.find(function (s) { return s[0] === tail[1].toLocaleUpperCase('mk'); });
+            } else {
+                entry = thematic && SDN_EXERCISE_THEMES.find(function (t) { return t[0] === thematic[1].trim(); });
+            }
+            return { label: entry ? entry[0] : kind === 'sounds' ? 'Гласови' : 'Поими',
+                href: 'vezbi/index.html#vezbi?library=' + kind + (entry ? '&deck=' + entry[1] : '') };
+        }
+        var SDN_SESSION_TYPES = {exercise:'Вежби',triage:'Тријажен тест',audio:'Аудиометрија',other:'Друга активност'};
+        function sdnSessionParts(value) {
+            var text=String(value || ''), m=/^\[([^\]]+)\](?: ([\s\S]*))?$/.exec(text);
+            if (m) {
+                var labels=m[1].split(' + '), keys=labels.map(function (name) {
+                    return Object.keys(SDN_SESSION_TYPES).find(function (key) { return SDN_SESSION_TYPES[key]===name; });
+                });
+                if (keys.length && keys.every(Boolean)) return {types:keys,text:m[2] || ''};
+            }
+            var kind=Object.keys(SDN_SESSION_TYPES).find(function (key) { return key!=='exercise' && text===SDN_SESSION_TYPES[key]; });
+            return {types:[kind || 'exercise'],text:kind ? '' : text};
+        }
+        function sdnSessionText(types, text) {
+            return types.length===1 && types[0]==='exercise' ? text
+                : '['+types.map(function (key) { return SDN_SESSION_TYPES[key]; }).join(' + ')+']'+(text ? ' '+text : '');
+        }
+        function sdnOpenSessionRecord(student, type) {
+            if (type==='triage') {
+                switchTab('trijazen'); updateTrijazenStudentList();
+                document.getElementById('trijazenStudentSelect').value=student.id; updateTrijazenStudent();
+            } else if (type==='audio') {
+                switchTab('audiogramsApp');
+                showToast('Аудиограми: избери го записот за '+student.name+'.');
+            }
+        }
+        function editSessionActivity(studentId, index) {
+            if (window.MTB_MIRROR_READONLY === true) return;
+            var student=getStudentById(studentId), original=student && getPlanById(student.planId);
+            if (!original || !Number.isInteger(index) || index<0 || index>original.activities.length) return;
+            var adding=index===original.activities.length;
+            var parts=adding ? {types:['other'],text:''} : sdnSessionParts(original.activities[index]);
+            var expected=JSON.stringify(original), expectedId=student.planId;
+            var dialog=document.createElement('dialog'); dialog.className='session-editor';
+            var title=document.createElement('h3'); title.id='session-editor-title'; title.textContent=(adding ? 'Нов планиран третман ' : 'Активности во третман ')+(index+1); dialog.appendChild(title); dialog.setAttribute('aria-labelledby',title.id);
+            var record=((studentProgress[studentId] || {})[student.planId] || []).find(function (r) { return r.index===index; });
+            var context=document.createElement('p'); context.textContent=student.name+(record ? ' · '+record.date+' '+(record.time || '') : ''); dialog.appendChild(context);
+            var hint=document.createElement('p'); hint.textContent='Избери една или повеќе активности. Еден термин се брои еднаш. Резултатите од тестот и аудиометријата се внесуваат во нивните посебни форми.'; dialog.appendChild(hint);
+            var choices={};
+            Object.keys(SDN_SESSION_TYPES).forEach(function (key) {
+                var label=document.createElement('label'), input=document.createElement('input'); input.type='checkbox'; input.checked=parts.types.indexOf(key)>=0;
+                input.dataset.sessionType=key; choices[key]=input; label.appendChild(input); label.appendChild(document.createTextNode(SDN_SESSION_TYPES[key])); dialog.appendChild(label);
+            });
+            var description=document.createElement('input'); description.type='text'; description.value=parts.text;
+            description.setAttribute('aria-label','Опис на активноста'); description.placeholder='Опис на активноста'; dialog.appendChild(description);
+            var keepLabel=document.createElement('label'), keep=document.createElement('input'); keep.type='checkbox'; keep.checked=true;
+            keepLabel.appendChild(keep); keepLabel.appendChild(document.createTextNode('Задржи ја заменетата вежба за подоцна')); dialog.appendChild(keepLabel);
+            var update=function () { keepLabel.hidden=parts.types.indexOf('exercise')<0 || choices.exercise.checked; };
+            Object.keys(choices).forEach(function (key) { choices[key].onchange=update; }); update();
+            var note=document.createElement('p'); note.setAttribute('role','status'); dialog.appendChild(note);
+            var actions=document.createElement('div'); actions.className='session-editor-actions';
+            var save=document.createElement('button'); save.className='btn btn-primary'; save.textContent='Зачувај активности';
+            var cancel=document.createElement('button'); cancel.className='btn'; cancel.textContent='Откажи'; cancel.onclick=function () { dialog.close(); };
+            actions.appendChild(save); actions.appendChild(cancel); dialog.appendChild(actions);
+            save.onclick=function () {
+                if (window.MTB_MIRROR_READONLY === true) return;
+                if (getStudentById(studentId)!==student || student.planId!==expectedId || JSON.stringify(getPlanById(expectedId))!==expected) {
+                    note.textContent='Планот е сменет во меѓувреме. Затвори и отвори ја активноста повторно.'; return;
+                }
+                var types=Object.keys(choices).filter(function (key) { return choices[key].checked; });
+                if (!types.length) { note.textContent='Избери барем една активност.'; return; }
+                if (choices.exercise.checked && !description.value.trim()) { note.textContent='Внеси опис на вежбата.'; return; }
+                var replacement=sdnSessionText(types,description.value);
+                // A test-only session must not keep the former exercise's text.
+                // Keep that exercise separately only when the therapist chooses it.
+                if (!choices.exercise.checked && parts.types.indexOf('exercise')>=0 && description.value===parts.text) replacement=sdnSessionText(types,'');
+                var plan=original;
+                var others=students.concat(window.formerCaseloadStudents || [],window.archivedStudents || []).some(function (s) { return s.id!==student.id && s.planId===plan.id; });
+                if (others) {
+                    var id=Date.now(); while (plans.some(function (p) { return p.id===id; })) id++;
+                    plan=JSON.parse(JSON.stringify(original)); plan.id=id; plan.name='Личен · '+plan.name;
+                    plans.push(plan); student.planId=id;
+                    if (!studentProgress[student.id]) studentProgress[student.id]={};
+                    studentProgress[student.id][id]=JSON.parse(JSON.stringify(studentProgress[student.id][expectedId] || []));
+                }
+                plan.activities[index]=replacement;
+                if (!choices.exercise.checked && parts.types.indexOf('exercise')>=0 && keep.checked) {
+                    var through=-1;
+                    ((studentProgress[student.id] || {})[student.planId] || []).forEach(function (r) { through=Math.max(through,r.index); });
+                    plan.activities.splice(Math.max(index,through)+1,0,parts.text);
+                }
+                ['sounds','themes'].forEach(function (kind) { if (plan.name===sdnDefaultExerciseName(kind) || plan.name==='Личен · '+sdnDefaultExerciseName(kind)) plan.name='Личен план · '+(kind==='sounds' ? 'Изговор' : 'Поими'); });
+                // If the former plan was full, visits beyond its length already
+                // existed. Extending it can now display them; it creates no mark.
+                var known=sdnInitialPlanProgress(student,plan.activities.length);
+                var credited=((studentProgress[student.id] || {})[student.planId] || []);
+                if (known.length>credited.length) {
+                    if (!studentProgress[student.id]) studentProgress[student.id]={};
+                    studentProgress[student.id][student.planId]=known;
+                }
+                saveData(); renderPlansList(); renderStudentListSimple(); loadStudentProgress(); dialog.close();
+            };
+            dialog.addEventListener('close',function () { dialog.remove(); }); document.body.appendChild(dialog); dialog.showModal();
+        }
+        function sdnInitialPlanProgress(student, count) {
+            var result = [], seen = {};
+            var year = schoolYearOfDate(calText(schoolCalendar.yearStart));
+            Object.keys(attendance || {}).sort().forEach(function (date) {
+                if (schoolYearOfDate(date) !== year) return;
+                var marks = (attendance[date] || {})[student.id] || {};
+                Object.keys(marks).forEach(function (key) {
+                    var mark = marks[key];
+                    if (!mark || mark.status !== 'present' || typeof mark.time !== 'string' || !mark.time) return;
+                    var id = date + '|' + mark.time;
+                    if (seen[id]) return;
+                    seen[id] = true;
+                    result.push({ date: date, time: mark.time });
+                });
+            });
+            return result.sort(function (a,b) { return a.date.localeCompare(b.date) || a.time.localeCompare(b.time); })
+                .slice(0, count).map(function (r,i) { return { index:i, date:r.date, time:r.time }; });
+        }
+        function ensureDefaultExercisePlan(student, kind) {
+            if (!student || window.MTB_MIRROR_READONLY === true || (student.planId != null && student.planId !== '')) return false;
+            kind = kind === 'sounds' || kind === 'themes' ? kind : sdnDefaultExerciseKind(student);
+            var id = Date.now();
+            while (plans.some(function (p) { return p.id === id; })) id++;
+            var activities = sdnDefaultExerciseActivities(kind);
+            plans.push({ id:id, name:sdnDefaultExerciseName(kind), activities:activities });
+            student.planId = id;
+            if (!studentProgress[student.id]) studentProgress[student.id] = {};
+            studentProgress[student.id][id] = sdnInitialPlanProgress(student, activities.length);
+            return true;
+        }
+        function ensureScheduledExercisePlans() {
+            if (window.MTB_MIRROR_READONLY === true) return;
+            var ids = {};
+            [schedule].concat(Object.keys(planFrom || {}).map(function (key) { return planFrom[key]; })).forEach(function (week) {
+                Object.keys(week || {}).forEach(function (day) {
+                    if (!Array.isArray(week[day])) return;
+                    week[day].forEach(function (slot) { if (Array.isArray(slot)) slot.forEach(function (id) { ids[id] = true; }); });
+                });
+            });
+            students.forEach(function (s) { if (ids[s.id]) ensureDefaultExercisePlan(s); });
+        }
+        function loadStudentProgress(defaultKind) {
             var studentId = parseInt(document.getElementById('progressStudentSelect').value);
             var container = document.getElementById('progressActivitiesList');
             container.innerHTML = '';
@@ -3814,54 +4062,80 @@ var attendance = {};
             if (!student) return;
             
             var plan = getPlanById(student.planId);
-            if (!plan) {
-                container.innerHTML = '<p>Ученикот нема доделен план</p>';
+            if (!plan && student.planId != null && student.planId !== '') {
+                container.textContent = 'Доделениот план недостига. Врати го планот од резервна копија или избери план во „Мои ученици“. Старите записи се зачувани.';
                 return;
             }
-            
-            var completed = (studentProgress[studentId] && studentProgress[studentId][student.planId]) ? studentProgress[studentId][student.planId] : [];
-
-            completed.sort(function(a, b) {
-                var dateA = new Date(a.date + 'T' + a.time.split('-')[0] + ':00');
-                var dateB = new Date(b.date + 'T' + b.time.split('-')[0] + ':00');
-                return dateA - dateB;
-            });
-            
-            var completedIndices = new Set(completed.map(function(c) { return c.index; }));
-
-            // Render completed items first, in chronological order
-            completed.forEach(function(activityData) {
-                var i = activityData.index;
-                var item = document.createElement('div');
-                item.className = 'progress-item completed';
-                
-                var dateParts = activityData.date.split('-');
-                var formattedDate = dateParts[2] + '.' + dateParts[1] + '.' + dateParts[0];
-                var timestampText = 'Завршено на: ' + formattedDate + ' ' + activityData.time;
-
-                item.innerHTML = '<input type="checkbox" checked disabled>' +
-                    '<div class="progress-item-content">' +
-                    '<div class="progress-item-text">' + (i + 1) + '. ' + plan.activities[i] + '</div>' +
-                    '<div class="progress-item-date">' + timestampText + '</div>' +
-                    '</div>';
-                container.appendChild(item);
-            });
-
-            // Render uncompleted items
-            for (var i = 0; i < plan.activities.length; i++) {
-                if (!completedIndices.has(i)) {
-                    var item = document.createElement('div');
-                    item.className = 'progress-item';
-                    var timestampText = 'Не е завршено';
-
-                    item.innerHTML = '<input type="checkbox" disabled>' +
-                        '<div class="progress-item-content">' +
-                        '<div class="progress-item-text">' + (i + 1) + '. ' + plan.activities[i] + '</div>' +
-                        '<div class="progress-item-date">' + timestampText + '</div>' +
-                        '</div>';
-                    container.appendChild(item);
-                }
+            var preview = !plan;
+            defaultKind = ['sounds','themes'].indexOf(defaultKind) >= 0 ? defaultKind : sdnDefaultExerciseKind(student);
+            if (preview) plan = { name:'Предлог за почетен план', activities:sdnDefaultExerciseActivities(defaultKind) };
+            var completed = preview ? sdnInitialPlanProgress(student, plan.activities.length)
+                : ((studentProgress[studentId] && studentProgress[studentId][student.planId]) || []).slice();
+            completed.sort(function(a,b) { return String(a.date).localeCompare(String(b.date)) || String(a.time).localeCompare(String(b.time)); });
+            var summary = document.createElement('div'); summary.className = 'progress-plan-summary';
+            var heading = document.createElement('strong');
+            heading.textContent = plan.name + ' · ' + sdnInitialPlanProgress(student,Number.MAX_SAFE_INTEGER).length +
+                ' евидентирани · ' + plan.activities.length + ' планирани третмани';
+            summary.appendChild(heading);
+            if (preview) {
+                var choice = document.createElement('select'); choice.setAttribute('aria-label','Почетна содржина');
+                [['sounds','Изговор'],['themes','Поими']].forEach(function (pair) {
+                    var opt = document.createElement('option'); opt.value=pair[0]; opt.textContent=pair[1]; choice.appendChild(opt);
+                });
+                choice.value = defaultKind; choice.onchange = function () { loadStudentProgress(choice.value); };
+                summary.appendChild(choice);
+                var apply = document.createElement('button'); apply.className='btn btn-primary';
+                apply.textContent='Зачувај почетен план'; apply.disabled = window.MTB_MIRROR_READONLY === true;
+                apply.onclick = function () {
+                    if (!ensureDefaultExercisePlan(student,choice.value)) return;
+                    saveData(); renderPlansList(); updatePlanDropdown(); renderStudentListSimple(); loadStudentProgress();
+                };
+                summary.appendChild(apply);
+            } else if (window.MTB_MIRROR_READONLY !== true) {
+                var add=document.createElement('button'); add.className='btn'; add.textContent='+ Додај третман';
+                add.onclick=function () { editSessionActivity(student.id,plan.activities.length); }; summary.appendChild(add);
             }
+            container.appendChild(summary);
+            var hint = document.createElement('p'); hint.className='progress-item-date';
+            hint.textContent = (preview ? 'Предлог · 76 третмани, вообичаено 2 неделно. ' : '') +
+                'Ознаките следат присуство. 76 е почетен фонд, не ограничување. „Активности“ дозволува вежби, тест, аудиометрија или комбинација во ист третман.';
+            container.appendChild(hint);
+            var completedIndices = new Set(completed.map(function(c) { return c.index; }));
+            function row(i, record) {
+                var item = document.createElement('div'); item.className='progress-item' + (record ? ' completed' : '');
+                var controls = document.createElement('div'); controls.className='progress-resource-wrap';
+                var check = document.createElement('input'); check.type='checkbox'; check.disabled=true; check.checked=!!record;
+                check.setAttribute('aria-label','Третман ' + (i+1) + (record ? ' · евидентиран' : ' · не е евидентиран'));
+                controls.appendChild(check);
+                var session=sdnSessionParts(plan.activities[i]);
+                if (session.types.indexOf('exercise')>=0) {
+                    var resource = sdnActivityResource(student,plan.activities[i]);
+                    var link = document.createElement('a'); link.className='progress-resource'; link.href=resource.href;
+                    // Retain the opener to return to this exact diary selection.
+                    link.target='_blank'; link.rel='opener'; link.referrerPolicy='no-referrer'; link.textContent=resource.label;
+                    link.setAttribute('aria-label','Отвори вежби: ' + resource.label); controls.appendChild(link);
+                }
+                session.types.filter(function (type) { return type==='triage' || type==='audio'; }).forEach(function (type) {
+                    var button=document.createElement('button'); button.className='progress-resource'; button.type='button';
+                    button.textContent=type==='triage' ? 'Тест' : 'Аудио'; button.setAttribute('aria-label','Отвори: '+SDN_SESSION_TYPES[type]);
+                    button.onclick=function () { sdnOpenSessionRecord(student,type); }; controls.appendChild(button);
+                });
+                item.appendChild(controls);
+                var content = document.createElement('div'); content.className='progress-item-content';
+                var text = document.createElement('div'); text.className='progress-item-text';
+                text.textContent=(i+1)+'. '+(plan.activities[i] || 'Активноста недостига во планот'); content.appendChild(text);
+                var date = document.createElement('div'); date.className='progress-item-date';
+                date.textContent=record ? 'Евидентирано присуство: '+String(record.date || '').split('-').reverse().join('.')+' '+(record.time || '') : 'Не е евидентиран третман';
+                content.appendChild(date);
+                if (!preview && window.MTB_MIRROR_READONLY !== true) {
+                    var edit=document.createElement('button'); edit.type='button'; edit.className='btn'; edit.textContent='Активности…';
+                    edit.style.cssText='margin-top:8px;min-height:36px;padding:5px 10px;font-size:12px';
+                    edit.onclick=function () { editSessionActivity(student.id,i); }; content.appendChild(edit);
+                }
+                item.appendChild(content); container.appendChild(item);
+            }
+            completed.forEach(function (r) { row(r.index,r); });
+            for (var i=0; i<plan.activities.length; i++) if (!completedIndices.has(i)) row(i,null);
         }
         
         function getActivityDate(studentId, activityIndex) {
@@ -4009,6 +4283,11 @@ var attendance = {};
                     '<button class="btn btn-primary" onclick="editPlan(' + i + ')">✏️ Уреди</button>' +
                     '<button class="btn" style="background: #f56565; color: white;" onclick="deletePlan(' + i + ')">Избриши</button>' +
                     '</div>';
+                var owners = sdnExercisePlanOwners(p.id);
+                if (owners) {
+                    var ownerLine = document.createElement('p'); ownerLine.className='dk-sub'; ownerLine.textContent=owners;
+                    div.insertBefore(ownerLine,div.lastElementChild);
+                }
                 container.appendChild(div);
             }
         }
@@ -11269,6 +11548,7 @@ var attendance = {};
     // Секоја измена на планот завршува тука, па снимката на неделата се
     // прави тука — еднаш, наместо во секој пат што го менува планот.
     function notePlanChange() {
+        if (typeof window.ensureScheduledExercisePlans === 'function') window.ensureScheduledExercisePlans();
         if (typeof window.recordPlanChange === 'function') {
             try { window.recordPlanChange(); } catch (e) { console.warn('S-Dnevnik: снимката на неделата не е запишана:', e); }
         }

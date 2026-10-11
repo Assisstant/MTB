@@ -36,13 +36,31 @@ The words of the П deck, in the owner's three groups of rising difficulty:
 
 ## Where it stands
 
+### Diary content links and flexible treatment plans (11 Oct 2026)
+
+Implemented content-only addresses: `#vezbi?library=sounds&deck=p`,
+`#vezbi?library=themes&deck=theme-body`, and the existing letter catalogue IDs.
+Without a deck the catalogue chooser opens; an unknown deck opens the chooser
+with a notice. Old app hashes remain valid. Revisiting the same content keeps
+its assistance choice. No pupil data enters URLs or the exercise catalogue.
+
+S-Dnevnik shows a sound/theme link beside each attendance checkbox. Its new
+personal defaults start with 76 editable rows: existing `deaf` type chooses
+sounds, other/unset type chooses themes, without changing that type. The
+same speech content applies at every assistance level. Attendance remains
+the only source of credited visits. A row may instead be a test, audiometry,
+other work, or several activities in one visit; 76 is not a hard limit.
+See `docs/HISTORY.md` and `test:exercise-plans` for the diary implementation.
+These changes need deployment; no live pupil records were edited.
+
 ### Proposed content navigation, reusable cards and diary links (10 Oct 2026)
 
 The owner's next request and the code review are in
 [PLAN-sodrzini-karticki-i-planovi.md](PLAN-sodrzini-karticki-i-planovi.md).
-This is a **proposal, not implemented**: visible content sections, structured
+The diary links and starter plans were implemented on 11 October, above.
+The remaining **proposal, not implemented** covers visible content sections, structured
 card editing through the existing creator, one personal stamp library, and
-content-only deep links from diary plan activities. No pupil information
+the wider content workflow beyond the implemented diary links. No pupil information
 crosses into exercise pages. Opening an exercise never credits attendance.
 The owner confirmed 76 treatments per pupil per year, initially two per week;
 both are individually editable planning targets. No live plans were assigned.

@@ -1007,8 +1007,10 @@ export async function writeDiary(client: any, sdnDoc: any, studentIdBySdnId: Map
 
         const activities = asArray(p?.activities);
         for (let i = 0; i < activities.length; i++) {
-            const label = asText(activities[i]);
-            if (!label) continue;
+            // Activity descriptions are clinical free text, like dossier text.
+            // Validate blankness without changing the therapist's wording/spacing.
+            const label = asRawText(activities[i]);
+            if (!label || !label.trim()) continue;
             const res = await client.query(
                 `INSERT INTO plan_activities (plan_id, position, label) VALUES ($1, $2, $3)
                  ON CONFLICT (plan_id, position) DO UPDATE SET label = EXCLUDED.label

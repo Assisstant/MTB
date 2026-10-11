@@ -1099,7 +1099,10 @@ const APPS = [
     when: 'За слободно цртање и за презентација.' },
 ];
 
-function go(app) {
+function go(route) {
+  const split = String(route || '').split('?');
+  let app = split[0];
+  const params = new URLSearchParams(split[1] || '');
   audio.close();
   if (!APPS.some((a) => a.key === app)) app = 'home';
   state.app = app;
@@ -1117,7 +1120,22 @@ function go(app) {
     if (a.key === app && !$(a.key).getAttribute('src')) $(a.key).src = a.src;
   }
   document.body.classList.toggle('framed', APPS.some((a) => a.key === app && a.src));
+  // Public content only. A diary link carries no pupil, plan or diagnosis.
+  // Assistance remains a choice in this page, never a separate difficulty deck.
+  let routeNotice = '';
+  if (app === 'vezbi' && params.has('library') && GLASOVI.length) {
+    const library = params.get('library');
+    if (['sounds','themes','letters'].includes(library)) {
+      if (state.library !== library) chooseLibrary(library);
+      const deck = params.get('deck');
+      const index = catalogue().findIndex(g => g.file === deck);
+      if (deck && index >= 0) { if (state.sound !== index) pick(index); }
+      else if (deck) routeNotice = 'Оваа содржина не е пронајдена. Избери глас, тема или буква од менито.';
+      if (!deck || index < 0) $('m-sound').classList.add('open');
+    } else routeNotice = 'Непозната збирка. Избери Гласови, Теми или Букви и зборови.';
+  }
   if (GLASOVI.length) draw();
+  if (routeNotice) note(routeNotice);
 }
 
 // Through the address, so the browser's Back returns to the tiles.

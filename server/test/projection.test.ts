@@ -257,7 +257,11 @@ test('diary data attaches to students already on the roster', async () => {
 
     const diary = {
         students: [{ id: 5001, name: 'Ученик 1', grade: 'I-а', planId: 7 }],
-        plans: [{ id: 7, name: 'Тест план', activities: ['Прва', 'Втора', 'Трета'] }],
+        plans: [{ id: 7, name: 'Тест план', activities: [
+            '  Вежба со зборови — Глас П  ',
+            '[Тријажен тест + Аудиометрија]',
+            '[Друга активност]   Советување со родител  '
+        ] }],
         studentProgress: { '5001': { '7': [{ index: 0, date: '2026-03-02', time: '08:00' }] } },
         attendance: { '2026-03-02': { '5001': { 'monday-0': 'present', 'monday-1': '' } } },
         audiograms: []
@@ -275,6 +279,9 @@ test('diary data attaches to students already on the roster', async () => {
     assert.equal(rows.activities, 3);
     assert.equal(rows.progress, 1);
     assert.equal(rows.attendance, 1, 'the blank mark is skipped, the real one is kept');
+    const labels = (await db().query('SELECT label FROM plan_activities ORDER BY position')).rows.map(r => r.label);
+    assert.deepEqual(labels, diary.plans[0].activities,
+        'the relational labels used by JSON export preserve content targets, session types and verbatim descriptions');
 
     // The date must survive unchanged — an earlier bug shifted every date by a day.
     const when = await db().query('SELECT date FROM attendance LIMIT 1');

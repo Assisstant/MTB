@@ -105,6 +105,7 @@
     "test:kolega-read-only": "node test/kolega-read-only.browser.mjs",
     "test:layout": "node test/layout.browser.mjs",
     "test:vezbi": "tsx test/vezbi.browser.mjs",
+    "test:exercise-plans": "node test/sdnevnik-exercises.browser.mjs",
     "test:vezbi-audio": "tsx test/vezbi-audio.browser.mjs",
     "test:vezbi-themes": "tsx test/vezbi-themes.browser.mjs",
     "test:vezbi-letters": "tsx test/vezbi-letters.browser.mjs",
