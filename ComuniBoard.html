@@ -530,6 +530,8 @@
         .btn-primary:hover { opacity: 0.9; }
         .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
 
+        /* white words need a dark face in the light theme too: --border-color is pale there */
+        body.light-mode .btn-secondary { background-color: #475569; }
         .btn-secondary {
             background-color: var(--border-color);
             color: white;
@@ -1285,11 +1287,23 @@
             startY: 0
         };
 
-        // Theme toggle
-        themeToggle.addEventListener('click', function() {
-            isDarkMode = !isDarkMode;
+        // Theme. This switch is the maker's own and is remembered. The page
+        // above (Вежби's strip) says light or dark for every tool: the maker
+        // follows when THAT changes, and keeps its own choice until then.
+        function setTheme(dark) {
+            isDarkMode = dark;
             document.body.classList.toggle('light-mode', !isDarkMode);
             themeToggle.textContent = isDarkMode ? '☀️' : '🌙';
+            try { localStorage.setItem('card-theme', isDarkMode ? 'dark' : 'light'); } catch (e) {}
+        }
+        try { var ownTheme = localStorage.getItem('card-theme'); if (ownTheme) setTheme(ownTheme === 'dark'); } catch (e) {}
+        themeToggle.addEventListener('click', function() { setTheme(!isDarkMode); });
+        window.addEventListener('message', function(event) {
+            var data = event.data || {};
+            if (event.source !== window.parent || data.type !== 'mtb-theme') return;
+            var said = data.dark ? 'dark' : 'light', before = null;
+            try { before = localStorage.getItem('card-theme-host'); localStorage.setItem('card-theme-host', said); } catch (e) {}
+            if (before !== said) setTheme(Boolean(data.dark));
         });
 
         // Language toggle (simplified)
@@ -7426,6 +7440,8 @@
         const cardHtml = document.getElementById('cardTemplate').innerHTML;
         const whiteboardHtml = document.getElementById('whiteboardTemplate').innerHTML;
 
+        let hostTheme = null;
+        cardFrame.addEventListener('load', () => { if (hostTheme) cardFrame.contentWindow.postMessage(hostTheme, '*'); });
         cardFrame.srcdoc = cardHtml;
         whiteboardFrame.srcdoc = whiteboardHtml;
         // A picture for the board comes from the card maker, or from the page this
@@ -7462,6 +7478,10 @@
                     tellHost();
                 } else if (data.type === 'mtb-tab' && panels[data.target]) {
                     activateTab(data.target);
+                } else if (data.type === 'mtb-theme') {
+                    // the page above says light or dark; the card maker has a theme, the board has its own colour
+                    hostTheme = { type: 'mtb-theme', dark: Boolean(data.dark) };
+                    if (cardFrame.contentWindow) cardFrame.contentWindow.postMessage(hostTheme, '*');
                 }
                 return;
             }

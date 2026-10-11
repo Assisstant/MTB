@@ -89,6 +89,31 @@ export default function App() {
         if (voice) { say.voice = voice; say.lang = voice.lang; } else say.lang = 'mk-MK';
         speechSynthesis.speak(say);
     };
+    // Under Вежби's strip its 🌙/☀ says light or dark for every tool. WBACC
+    // follows when that CHANGES; Excalidraw's own switch (☰) still works and
+    // holds until the next change there.
+    useEffect(() => {
+        if (ALONE || !excalidraw) return undefined;
+        let wanted = null;
+        const told = (event) => {
+            const data = event.data || {};
+            if (event.source !== window.parent || data.type !== 'mtb-theme') return;
+            const said = data.dark ? 'dark' : 'light';
+            let before = null;
+            try { before = localStorage.getItem('wbacc-theme-host'); localStorage.setItem('wbacc-theme-host', said); } catch { /* this visit only */ }
+            if (before === said) return;
+            // The saved drawing may still be loading and brings its own theme with
+            // it; said again a moment later, so the change above is what stays.
+            const theme = data.dark ? THEME.DARK : THEME.LIGHT;
+            wanted = theme;
+            const apply = () => { if (wanted === theme && excalidraw.getAppState().theme !== theme) excalidraw.updateScene({ appState: { theme } }); };
+            apply(); setTimeout(apply, 300); setTimeout(apply, 1200);
+        };
+        window.addEventListener('message', told);
+        // the page above spoke at load, before this was listening: ask again
+        window.parent.postMessage({ type: 'mtb-theme-ask' }, '*');
+        return () => window.removeEventListener('message', told);
+    }, [excalidraw]);
     const toggle = (name) => { setStamp(null); setPanel((now) => (now === name ? '' : name)); };
     const focusCanvas = () => requestAnimationFrame(() => document.querySelector('.excalidraw')?.focus());
     const closePanel = () => { setPanel(''); focusCanvas(); };

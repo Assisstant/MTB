@@ -36,6 +36,17 @@ The words of the П deck, in the owner's three groups of rising difficulty:
 
 ## Where it stands
 
+### One place says light or dark (11 Oct 2026)
+
+The owner: each tool may keep its own switch, but the state comes from one
+place, with an individual choice still possible. The strip's 🌙/☀ sends
+`mtb-theme` to the framed tools (`tellTheme`). ComuniBoard passes it to the
+card maker; WBACC sets Excalidraw's theme. A tool follows when the strip's
+value CHANGES (it remembers the last one it was told), so its own switch
+holds until the next change above. The board itself has no theme, only its
+colour. The card maker now remembers its theme, and its grey buttons had
+white words on a pale face in the light theme: fixed. `test:vezbi-look`.
+
 ### A lock for the hover on the hidden strip (11 Oct 2026)
 
 The owner: the hover that brings the hidden rows back should be optional.

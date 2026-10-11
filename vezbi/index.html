@@ -1239,6 +1239,14 @@ function sections() {
   $('subs').hidden = !any;
 }
 
+// The 🌙/☀ of the strip is the ONE place that says light or dark for every
+// tool under it (owner, 11 Oct 2026). A tool follows when this CHANGES; its
+// own switch still works and holds until the next change here.
+function tellTheme() {
+  const dark = document.body.classList.contains('dark');
+  for (const a of APPS) if (a.src && $(a.key).dataset.ready) $(a.key).contentWindow.postMessage({ type: 'mtb-theme', dark }, '*');
+}
+
 // Through the address, so the browser's Back returns to the tiles.
 function openApp(app) {
   if (location.hash.slice(1) === app) go(app); else location.hash = app;
@@ -1291,6 +1299,7 @@ function parts() {
     $(a.key).addEventListener('load', () => {
       $(a.key).dataset.ready = '1';
       $(a.key).contentWindow.postMessage({ type: 'mtb-host' }, '*');
+      tellTheme();
     });
   }
   // At the far end of the strip: the theme of this page, and „Скриј лента".
@@ -1312,6 +1321,7 @@ function parts() {
     theme.textContent = dark ? '☀' : '🌙';
     theme.setAttribute('aria-pressed', String(dark));
     keep('vezbi_theme_v1', dark ? 'dark' : 'light');
+    tellTheme();
   };
   let revealTimer, concealTimer, hoverReady = true;
   const rows = [$('showbar'), $('apps'), $('subs'), $('bar')];
@@ -1465,6 +1475,7 @@ function hosted(e) {
   const a = APPS.find((x) => x.src && $(x.key).contentWindow === e.source);
   const data = e.data || {};
   if (!a) return;
+  if (data.type === 'mtb-theme-ask') { tellTheme(); return; }
   if (data.type === 'mtb-chrome') {
     document.body.classList.toggle('bare', Boolean(data.hidden) && state.app === a.key);
     return;
