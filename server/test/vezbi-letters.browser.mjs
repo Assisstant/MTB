@@ -83,7 +83,7 @@ try {
   const studio=await context.newPage();studio.on('pageerror',e=>errors.push(e.message));
   await studio.goto(origin+'/WBACC.html');await studio.waitForSelector('.excalidraw');
   await studio.getByRole('button',{name:'Stamps',exact:true}).click();
-  check('WBACC offers the same 31 letter categories',await studio.locator('.wbacc-stamps select').first().locator('option').count()===32);
+  check('WBACC offers the same 31 letter categories, „all" and „mine"',await studio.locator('.wbacc-stamps select').first().locator('option').count()===33);
   check('the first stamp category has the same five images',await studio.locator('.wbacc-stamp').count()===5);
   await studio.getByRole('button',{name:'авион',exact:true}).click();
   await studio.getByRole('button',{name:'🔊 Listen',exact:true}).click();

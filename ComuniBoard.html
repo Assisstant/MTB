@@ -1074,6 +1074,7 @@
             <button id="speak-btn" class="btn-secondary">🔊 Изговори</button>
             <button id="download-btn" class="btn-secondary">Зачувај Картичка 📸</button>
             <button id="insert-whiteboard-btn" class="btn-secondary">Вметни во Табла ➜</button>
+            <button id="save-stamp-btn" class="btn-secondary" title="Картичката станува печат во WBACC Studio → Печати → ★ Мои печати. Таму зборот и рамката уште може да се сменат.">★ Зачувај како печат</button>
         </section>
     </main>
 
@@ -1704,6 +1705,73 @@
                 insertWhiteboardBtn.textContent = 'Вметни во Табла ➜';
                 insertWhiteboardBtn.disabled = false;
             });
+        });
+
+        // ============ ★ ПЕЧАТ ЗА WBACC STUDIO ============
+        // The card as a stamp of one's own in WBACC Studio („Печати → ★ Мои
+        // печати", owner 11 Oct 2026). The picture, the word and the frame go
+        // SEPARATELY, so there the word and the frame can still be changed;
+        // „Вметни во Табла" sends one flat picture, which cannot. It is written
+        // straight into WBACC's store in this browser (same address, same
+        // IndexedDB). The record's shape belongs to wbacc/src/mine.js, which
+        // checks it again when it reads; change the two together.
+        var stampBtn = document.getElementById('save-stamp-btn');
+        function hexOf(color, fallback) {
+            var m = /rgba?\((\d+),\s*(\d+),\s*(\d+)/.exec(color || '');
+            if (!m) return fallback;
+            return '#' + [m[1], m[2], m[3]].map(function(n) { return ('0' + Number(n).toString(16)).slice(-2); }).join('');
+        }
+        // An uploaded picture or a pictogram is drawn down to 600px; an emoji is
+        // drawn as the letter it is. Either way one PNG of bounded size.
+        function stampPicture() {
+            var canvas = document.createElement('canvas');
+            var g = canvas.getContext('2d');
+            var img = cardVisual.querySelector('img');
+            if (img) {
+                var w = img.naturalWidth, h = img.naturalHeight;
+                if (!w || !h) throw new Error('no picture');
+                var k = Math.min(1, 600 / Math.max(w, h));
+                canvas.width = Math.round(w * k);
+                canvas.height = Math.round(h * k);
+                g.drawImage(img, 0, 0, canvas.width, canvas.height);
+            } else {
+                canvas.width = canvas.height = 400;
+                g.font = '300px "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif';
+                g.textAlign = 'center';
+                g.textBaseline = 'middle';
+                g.fillText(cardVisual.textContent, 200, 215);
+            }
+            return canvas.toDataURL('image/png');
+        }
+        function saveStamp(stamp) {
+            return new Promise(function(resolve, reject) {
+                var open = indexedDB.open('wbacc-studio', 1);
+                open.onupgradeneeded = function() { open.result.createObjectStore('kv'); };
+                open.onerror = function() { reject(open.error); };
+                open.onsuccess = function() {
+                    var db = open.result, tx = db.transaction('kv', 'readwrite');
+                    tx.objectStore('kv').put(stamp, 'stamp:' + stamp.id);
+                    tx.oncomplete = function() { db.close(); resolve(); };
+                    tx.onerror = tx.onabort = function() { db.close(); reject(tx.error); };
+                };
+            });
+        }
+        stampBtn.addEventListener('click', function() {
+            // success is said only after the store has taken it
+            var said = function(text) {
+                stampBtn.textContent = text;
+                setTimeout(function() { stampBtn.textContent = '★ Зачувај како печат'; stampBtn.disabled = false; }, 2500);
+            };
+            stampBtn.disabled = true;
+            var image;
+            try { image = stampPicture(); } catch (err) { said('Сликата не може да се земе'); return; }
+            saveStamp({
+                id: 'mine-' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8), v: 1,
+                text: cardLabel.textContent.trim(), image: image,
+                frame: { width: 8, color: hexOf(getComputedStyle(aacCard).borderTopColor, '#a8d4ff') },
+                textColor: hexOf(getComputedStyle(cardLabel).color, '#1e1e1e'),
+                labelOnTop: labelTopToggle.checked, created: Date.now()
+            }).then(function() { said('✓ Во „Мои печати“ во WBACC Studio'); }, function() { said('Печатот не се зачува'); });
         });
 
         // ============ ARASAAC ПИКТОГРАМИ (стандардна AAC библиотека — без клуч, без чекање) ============

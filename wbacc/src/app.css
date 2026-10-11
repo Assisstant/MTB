@@ -86,3 +86,10 @@
 .wbacc-foot { justify-content: space-between; flex-wrap: wrap; }
 .wbacc-file { cursor: pointer; border: 1px solid #c9c9d6; border-radius: 6px; padding: 6px 8px; font-size: 13px; }
 @media (max-width: 600px) { .wbacc-tools button { padding: 6px 7px; font-size: 12px; } }
+/* the frame of a card: three thicknesses and the creator's eight colours */
+.wbacc-look { display: grid; gap: 6px; }
+.wbacc-look__name { font-size: 13px; }
+.wbacc-look .wbacc-row { flex-wrap: wrap; }
+.wbacc-look button[aria-pressed="true"] { outline: 3px solid #3973ac; outline-offset: 1px; }
+.wbacc-swatches { display: flex; flex-wrap: wrap; gap: 6px; }
+.wbacc-swatch { width: 34px; height: 34px; min-width: 34px; min-height: 34px !important; max-height: 34px; padding: 0 !important; border-radius: 50% !important; border: 2px solid #ffffff !important; box-shadow: 0 0 0 1px #8a8fa3; cursor: pointer; }

@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { insertCard, readAsDataURL } from './scene.js';
 import { useT } from './i18n.js';
+import CardLook, { useLook } from './CardLook.jsx';
+import { saveMine } from './mine.js';
 
 // ARASAAC pictograms, as ComuniBoard searched them: Macedonian first, then
 // English. Searching needs the Internet by nature; a card once made keeps its
@@ -29,6 +31,7 @@ export default function Pictograms({ api, onClose }) {
     const [label, setLabel] = useState('');
     const [picked, setPicked] = useState(null);
     const [onTop, setOnTop] = useState(false);
+    const [look, setLook] = useLook();
 
     const run = async (e) => {
         e?.preventDefault();
@@ -57,11 +60,25 @@ export default function Pictograms({ api, onClose }) {
         setStatus(t('⏳ Го преземам пиктограмот…'));
         try {
             const blob = await (await fetch(imageUrl(picked._id))).blob();
-            insertCard(api, { dataURL: await readAsDataURL(blob), mimeType: blob.type || 'image/png', label, labelOnTop: onTop });
+            insertCard(api, { dataURL: await readAsDataURL(blob), mimeType: blob.type || 'image/png', label, labelOnTop: onTop, frame: look });
             setStatus(t('✓ Картичката е во цртежот.'));
         } catch {
             setStatus(t('Сликата не се презеде — провери го интернетот.'));
         }
+    };
+
+    // The picture is taken once and kept with the stamp, so „Мои печати" works
+    // without the Internet from then on.
+    const keep = async () => {
+        if (!picked) return;
+        setStatus(t('⏳ Го преземам пиктограмот…'));
+        let image;
+        try { image = await readAsDataURL(await (await fetch(imageUrl(picked._id))).blob()); }
+        catch { setStatus(t('Сликата не се презеде — провери го интернетот.')); return; }
+        try {
+            await saveMine({ text: label, image, frame: look, labelOnTop: onTop });
+            setStatus(t('★ Зачувано во „Мои печати“.'));
+        } catch { setStatus(t('Печатот не се зачува. Провери го просторот во прелистувачот.')); }
     };
 
     return (
@@ -92,7 +109,9 @@ export default function Pictograms({ api, onClose }) {
                     <label className="wbacc-check">
                         <input type="checkbox" checked={onTop} onChange={(e) => setOnTop(e.target.checked)} /> {t('текстот над сликата')}
                     </label>
+                    <CardLook look={look} setLook={setLook} />
                     <button type="button" className="wbacc-primary" onClick={insert}>{t('➕ Во цртежот')}</button>
+                    <button type="button" onClick={keep}>{t('★ Зачувај во „Мои печати“')}</button>
                 </div>
             )}
             <p className="wbacc-fine">{t('Пиктограми: Sergio Palao / ARASAAC (arasaac.org), Влада на Арагон, лиценца CC BY-NC-SA — само за некомерцијална употреба.')}</p>

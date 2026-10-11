@@ -29,8 +29,13 @@ export function readAsDataURL(blob) {
  * A card, as in ComuniBoard: a pictogram with its word above or below, one
  * group, so it moves as one. The picture is stored IN the drawing (as
  * Excalidraw stores any image), so the card still shows without the Internet.
+ *
+ * `frame` ({ width, color }, width 0 = none) is a REAL rectangle of the same
+ * group, behind the picture, not pixels in the image: after placing, its
+ * colour and thickness change with Excalidraw's own tools, and it can be
+ * taken away. A card pasted as one picture can do none of that.
  */
-export function insertCard(api, { dataURL, mimeType, label, labelOnTop, size = 200, undoable = false, at }) {
+export function insertCard(api, { dataURL, mimeType, label, labelOnTop, size = 200, undoable = false, at, frame, textColor }) {
     const fileId = 'picto-' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
     api.addFiles([{ id: fileId, dataURL, mimeType, created: Date.now() }]);
     const { x, y } = at || centre(api);
@@ -38,10 +43,19 @@ export function insertCard(api, { dataURL, mimeType, label, labelOnTop, size = 2
     const text = String(label || '').trim();
     const fontSize = Math.round(size / 7);
     const imageY = labelOnTop && text ? y - size / 2 + fontSize : y - size / 2;
-    const skeletons = [{ type: 'image', fileId, status: 'saved', x: x - size / 2, y: imageY, width: size, height: size, groupIds: [group] }];
+    const skeletons = [];
+    // first in the list, so it is drawn under the picture and the word
+    if (frame && frame.width > 0) {
+        skeletons.push({
+            type: 'rectangle', x: x - size / 2, y: imageY, width: size, height: size, groupIds: [group],
+            strokeColor: frame.color, strokeWidth: frame.width, backgroundColor: '#ffffff', fillStyle: 'solid',
+            roughness: 0, roundness: { type: 3 }
+        });
+    }
+    skeletons.push({ type: 'image', fileId, status: 'saved', x: x - size / 2, y: imageY, width: size, height: size, groupIds: [group] });
     if (text) {
         skeletons.push({
-            type: 'text', text, fontSize, textAlign: 'center', groupIds: [group],
+            type: 'text', text, fontSize, textAlign: 'center', groupIds: [group], ...(textColor ? { strokeColor: textColor } : {}),
             x: x - size / 2, y: labelOnTop ? imageY - fontSize * 1.6 : imageY + size + fontSize * 0.4
         });
     }
@@ -50,6 +64,14 @@ export function insertCard(api, { dataURL, mimeType, label, labelOnTop, size = 2
     add(api, skeletons, elements => {
         const word = elements.find(e => e.type === 'text');
         if (word) word.x = x - word.width / 2;
+        // the frame goes round what is really there: a long word is wider than its picture
+        const box = elements.find(e => e.type === 'rectangle');
+        if (box) {
+            const parts = elements.filter(e => e !== box), pad = Math.round(size / 10);
+            const left = Math.min(...parts.map(e => e.x)), top = Math.min(...parts.map(e => e.y));
+            const right = Math.max(...parts.map(e => e.x + e.width)), bottom = Math.max(...parts.map(e => e.y + e.height));
+            Object.assign(box, { x: left - pad, y: top - pad, width: right - left + 2 * pad, height: bottom - top + 2 * pad });
+        }
     }, undoable);
 }
 
