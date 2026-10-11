@@ -36,6 +36,32 @@ The words of the П deck, in the owner's three groups of rising difficulty:
 
 ## Where it stands
 
+### A row of sections under the strip (11 Oct 2026)
+
+The owner, with a picture of the „Глас" menu open: Гласови / Теми / Букви и
+зборови should be a level up, not under „Глас"; and Картички / Кирилична
+Табла should be to ComuniBoard what those are to Вежби. Not yet judged.
+
+- **`#subs`, one row under the strip, the same place for every tool**: for
+  Вежби the three collections (`#sound-mode` moved there, same handler); for
+  ComuniBoard its two tabs (`hosted()` draws them there, where they stood in
+  the strip beside the tools as if they were tools). WBACC Studio and the
+  tiles have no sections, so the row is not there.
+- **The menu beside it chooses only the deck**: „Глас П", „Тема …", „Буква А"
+  (`#deck-opener`). Choosing a collection opens that menu at once, because
+  „Теми" alone is half an answer.
+- **One card on a low screen** (`body.fit`, window under 760px high): the row
+  folds away, because the picture needs those 41px (`test:vezbi`'s low-screen
+  check failed with it). It is back in „Сите заедно".
+- „Цел екран", „само табла" and print hide the row with the strip.
+- `test:vezbi` holds it (five new checks) and follows the tabs to `#subs`.
+
+**Asked in the same message, not built** (the owner wrote „може", and each is
+a look he has changed before): the glass look of the workspace on this bar and
+its buttons, a light theme for the navy strip, a way to hide the bar as in
+S-Дневник („⋯ → Цел екран" already hides strip and bar), light/dark for the
+cards, and a custom colour for the board's background.
+
 ### One letter size on screen, and a single card as wide as its word (11 Oct 2026)
 
 The owner, with a picture of „Букви и зборови · А": the letters differ from

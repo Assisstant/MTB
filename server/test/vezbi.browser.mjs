@@ -134,17 +134,17 @@ try {
     const board = await (await page.$('#tabla')).contentFrame();
     const whiteboard = await (await board.waitForSelector('#whiteboardFrame')).contentFrame();
     await whiteboard.waitForLoadState('load');
-    await page.waitForSelector('#apps .sub[data-of="tabla"] button');
-    check('its two tabs are in the strip here, and its own row is gone',
-        (await page.$$eval('#apps .sub[data-of="tabla"] button', (els) => els.length)) === 2
+    await page.waitForSelector('#subs .sub[data-of="tabla"] button');
+    check('its two tabs are in the row of sections here, and its own row is gone',
+        (await page.$$eval('#subs .sub[data-of="tabla"] button', (els) => els.length)) === 2
         && await board.$eval('.top-nav', (n) => getComputedStyle(n).display === 'none'));
     check('the board\'s tools are one row', (await whiteboard.$eval('.main-area', (a) => a.getBoundingClientRect().top)) < 60,
         String(await whiteboard.$eval('.main-area', (a) => a.getBoundingClientRect().top)));
     check('nothing is selected: no floating bar', await whiteboard.$eval('#contextBar', (b) => b.classList.contains('hidden')));
-    await page.click('#apps .sub[data-of="tabla"] button:nth-child(1)');
+    await page.click('#subs .sub[data-of="tabla"] button:nth-child(1)');
     await board.waitForFunction(() => document.querySelector('.nav-tab.active').dataset.target === 'card');
-    await page.waitForSelector('#apps .sub[data-of="tabla"] button:nth-child(1)[aria-pressed="true"]');
-    check('a tab in the strip switches the tool', await board.$eval('#panel-card', (p) => p.classList.contains('active')));
+    await page.waitForSelector('#subs .sub[data-of="tabla"] button:nth-child(1)[aria-pressed="true"]');
+    check('a tab in the row of sections switches the tool', await board.$eval('#panel-card', (p) => p.classList.contains('active')));
     await whiteboard.evaluate(() => {
         window.__got = [];
         window.addEventListener('message', (e) => { if (e.data && e.data.type === 'insert-generated-image') window.__got.push(String(e.data.url)); });
@@ -168,7 +168,8 @@ try {
     await page.waitForFunction(() => document.body.classList.contains('bare'));
     check('„само табла" takes every row away: the tool\'s and this page\'s strip',
         await whiteboard.$eval('.toolbar', (n) => getComputedStyle(n).display === 'none')
-        && await page.$eval('#apps', (n) => getComputedStyle(n).display === 'none'));
+        && await page.$eval('#apps', (n) => getComputedStyle(n).display === 'none')
+        && await page.$eval('#subs', (n) => getComputedStyle(n).display === 'none'));
     await shot('vezbi-board-only');
     await whiteboard.click('#boardOnlyExit');
     await page.waitForFunction(() => !document.body.classList.contains('bare'));
@@ -284,6 +285,29 @@ try {
     await page.evaluate(() => history.back());
     await page.waitForFunction(() => location.hash === '#crtanje');
     check('Back walks the parts instead of leaving the page', await page.$eval('#crtanje', (f) => !f.hidden));
+
+    console.log('\nthe row of sections under the strip');
+    // Owner, 11 Oct 2026: the collections are sections of „Вежби", as the two tabs are sections of ComuniBoard.
+    check('WBACC Studio has no sections, so the row is not there', await page.$eval('#subs', (n) => n.hidden));
+    await page.click('#apps button[data-v="vezbi"]');
+    await page.waitForSelector('#vezbi:not([hidden])');
+    check('Вежби shows its three collections there, and no longer inside the „Глас" menu',
+        (await page.$$eval('#subs .sub[data-of="vezbi"] button', (b) => b.map((x) => x.textContent))).join('|') === 'Гласови|Теми|Букви и зборови'
+        && await page.isVisible('#subs [data-library="themes"]') && (await page.$('#m-sound .pop [data-library]')) === null);
+    check('ComuniBoard\'s tabs are not shown while Вежби is open', !(await page.isVisible('#subs .sub[data-of="tabla"]')));
+    const kept = await page.evaluate(() => ({ sound: state.sound, stage: state.stage, step: state.step }));
+    await page.click('#subs [data-library="themes"]');
+    check('choosing a collection opens the menu of ITS decks', await page.$eval('#m-sound', (m) => m.classList.contains('open'))
+        && (await page.textContent('#deck-kind')).trim() === 'Тема'
+        && (await page.getAttribute('#subs [data-library="themes"]', 'aria-pressed')) === 'true');
+    await shot('vezbi-sections');
+    await page.click('#subs [data-library="sounds"]');
+    await page.click('#deck-opener');
+    check('and the way back is the same row', (await page.textContent('#deck-kind')).trim() === 'Глас'
+        && (await page.evaluate('state.library')) === 'sounds' && !(await page.$eval('#m-sound', (m) => m.classList.contains('open'))));
+    await page.evaluate((k) => { pick(k.sound); state.stage = k.stage; state.step = k.step; draw(); }, kept);
+    await page.click('#apps button[data-v="crtanje"]');
+    await page.waitForSelector('#crtanje:not([hidden])');
 
     console.log('\ncopy and paste between the board and WBACC Studio');
     // One clipboard, the computer's: what is copied in one tool is pasted in the other with a plain Ctrl+V.
