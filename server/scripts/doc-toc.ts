@@ -35,7 +35,7 @@ type Entry = {
 const FILES: Entry[] = [
     { file: 'SOSTOJBA.md', newestUnder: 'Каде сме сега', limit: 12 },
     { file: 'docs/SOSTOJBA-archive.md', newestUnder: 'Каде сме сега', limit: 12 },
-    { file: 'docs/TRAPS.md', bulletsUnder: 'Traps already hit' },
+    { file: 'docs/TRAPS.md' },
     { file: 'docs/AGENT-REFERENCE.md' },
     { file: 'docs/APP-CONTRACT.md' },
     { file: 'docs/HISTORY.md' },

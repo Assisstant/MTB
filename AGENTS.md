@@ -138,78 +138,111 @@ become a check.
 
 ## Traps already hit — do not repeat them
 
-Before touching a subject below, read its linked entry. All original explanations
-remain in [TRAPS.md](docs/TRAPS.md); this list is a routing index, not a replacement.
+Before changing an area below, read its WHOLE linked group in TRAPS.md, not
+only a familiar title. For cross-area work, read all matching groups: diary
+attendance needs Diary + Schedules; its save/import path also needs Sync.
+Database-writing tests and deployment also need Scripts; handling real records
+needs Identity. Tests still use invented data in guarded scratch schemas.
+Every trap keeps its existing link and has one home group.
 
-- [Dates](docs/TRAPS.md#trap-01)
+### Scripts, migrations and backups
+
+Read this whole group before editing PowerShell, process launching, migrations, backup/restore, deployment or database-writing tests. [Open the whole group](docs/TRAPS.md#group-scripts).
+
 - [`CREATE OR REPLACE VIEW` cannot change columns](docs/TRAPS.md#trap-02)
 - [Cyrillic migrations](docs/TRAPS.md#trap-03)
 - [Every `.ps1` needs a UTF-8 BOM](docs/TRAPS.md#trap-04)
 - [PowerShell reads „ and “ as double quotes](docs/TRAPS.md#trap-05)
-- [S-Dnevnik ids are `Date.now()`](docs/TRAPS.md#trap-06)
-- [Attendance marks](docs/TRAPS.md#trap-07)
-- [Two students can share a name](docs/TRAPS.md#trap-08)
-- [The school year transition has an order — but it is no longer destructive](docs/TRAPS.md#trap-09)
-- [`rollover` no longer retires anyone](docs/TRAPS.md#trap-10)
-- [Missing from a payload is NOT the same as gone](docs/TRAPS.md#trap-11)
 - [A suite that writes a row "once, and never again" must delete it](docs/TRAPS.md#trap-12)
-- [A whole-document save must not restate what now has its own endpoint](docs/TRAPS.md#trap-13)
+- [A recovery schema name belongs to ONE reviewed batch, and reusing it stops the deploy dead](docs/TRAPS.md#trap-28)
+- [PowerShell names ignore case, and a script's parameter is a script variable](docs/TRAPS.md#trap-39)
+- [A migration guard must ask about the object it is going to change, not about its name anywhere in the cluster](docs/TRAPS.md#trap-41)
+- [`IF NOT EXISTS` turns a superseded migration into a resurrection](docs/TRAPS.md#trap-42)
+- [The rule you just quoted is the one you break](docs/TRAPS.md#trap-44)
+- [The scratch-database guard never once fired, and its refusal pointed at the real data](docs/TRAPS.md#trap-45)
+- [A PowerShell wrapper hides the tool it is checking](docs/TRAPS.md#trap-47)
+- [Windows PowerShell eats the double quotes in an argument it hands to a native program](docs/TRAPS.md#trap-48)
+- [A grandchild `powershell.exe -File` can fail before printing its first line, and say nothing about why](docs/TRAPS.md#trap-49)
+- [A backup is a state, not a run (owner, 1 Oct 2026)](docs/TRAPS.md#trap-62)
+
+### Identity, privacy and access
+
+Read this whole group before changing pupil/staff matching, archive/delete/merge, authentication, public routes or screenshots containing records. [Open the whole group](docs/TRAPS.md#group-identity).
+
+- [Two students can share a name](docs/TRAPS.md#trap-08)
 - [Rasporedi must never delete a person from the database, and cannot](docs/TRAPS.md#trap-14)
 - [Students are archived, never deleted](docs/TRAPS.md#trap-15)
+- [A student has TWO unique keys, and `ON CONFLICT` only ever knew about one](docs/TRAPS.md#trap-25)
+- [A shared name must not archive the wrong child](docs/TRAPS.md#trap-26)
+- [Real names were in the public repository for months, and nobody was checking](docs/TRAPS.md#trap-27)
+- [A database that cannot lower-case Cyrillic breaks every name match, and says something else](docs/TRAPS.md#trap-33)
+- [A static root is a disclosure boundary](docs/TRAPS.md#trap-38)
+- [The colleagues' door is the only thing the cloud shows without the owner](docs/TRAPS.md#trap-55)
+- [The colleagues' door closes in ONE hook, and the owner holds the switch (1 Oct 2026, migration 052)](docs/TRAPS.md#trap-56)
+- [A picture taken through the local server carries a real name (8 Oct 2026)](docs/TRAPS.md#trap-69)
+
+### Sync, storage and API writes
+
+Read this whole group before changing save/load, JSON import/export, projection, offline queues, retries, change detection or API write paths. [Open the whole group](docs/TRAPS.md#group-sync).
+
+- [Missing from a payload is NOT the same as gone](docs/TRAPS.md#trap-11)
+- [A whole-document save must not restate what now has its own endpoint](docs/TRAPS.md#trap-13)
 - [Empty must never overwrite archived history](docs/TRAPS.md#trap-16)
-- [The school calendar is data, not code](docs/TRAPS.md#trap-17)
-- [One Monday calculation, `mondayOf`](docs/TRAPS.md#trap-18)
-- [Attendance cannot be written on a non-working day](docs/TRAPS.md#trap-19)
-- [Never trim clinical free text](docs/TRAPS.md#trap-20)
 - [`jsonb` reorders object keys](docs/TRAPS.md#trap-21)
 - [`applyUnifiedPayload` mutates the object it is given](docs/TRAPS.md#trap-22)
 - [Do not wrap an object property to observe a save](docs/TRAPS.md#trap-23)
 - [Volatile fields must stay out of change detection](docs/TRAPS.md#trap-24)
-- [A student has TWO unique keys, and `ON CONFLICT` only ever knew about one](docs/TRAPS.md#trap-25)
-- [A shared name must not archive the wrong child](docs/TRAPS.md#trap-26)
-- [Real names were in the public repository for months, and nobody was checking](docs/TRAPS.md#trap-27)
-- [A recovery schema name belongs to ONE reviewed batch, and reusing it stops the deploy dead](docs/TRAPS.md#trap-28)
 - [`sync-peer` used to report a failed fetch as a divergence, then recommend `--force`](docs/TRAPS.md#trap-29)
 - [A queue in memory is not a queue](docs/TRAPS.md#trap-30)
 - [A dropped write needs re-queueing, not a `continue`](docs/TRAPS.md#trap-31)
 - [A refused rename must stop the caller too](docs/TRAPS.md#trap-32)
-- [A database that cannot lower-case Cyrillic breaks every name match, and says something else](docs/TRAPS.md#trap-33)
+- [CORS listed only GET, PUT and OPTIONS](docs/TRAPS.md#trap-37)
+- ["Is this device new?" must be asked at page load](docs/TRAPS.md#trap-40)
+- [A blob that saves is not a table that knows (2 Oct 2026)](docs/TRAPS.md#trap-59)
+
+### Diary, clinical records and progress
+
+Read this whole group before changing S-Dnevnik IDs, clinical text, attendance formats, session counting, plan progress or diary exports. [Open the whole group](docs/TRAPS.md#group-diary).
+
+- [S-Dnevnik ids are `Date.now()`](docs/TRAPS.md#trap-06)
+- [Attendance marks](docs/TRAPS.md#trap-07)
+- [Never trim clinical free text](docs/TRAPS.md#trap-20)
 - [A merged term is one session, and only the time says so](docs/TRAPS.md#trap-34)
 - [The projection could only ever ADD progress](docs/TRAPS.md#trap-35)
 - [`npm run export` used to drop the attendance time](docs/TRAPS.md#trap-36)
-- [CORS listed only GET, PUT and OPTIONS](docs/TRAPS.md#trap-37)
-- [A static root is a disclosure boundary](docs/TRAPS.md#trap-38)
-- [PowerShell names ignore case, and a script's parameter is a script variable](docs/TRAPS.md#trap-39)
-- ["Is this device new?" must be asked at page load](docs/TRAPS.md#trap-40)
-- [A migration guard must ask about the object it is going to change, not about its name anywhere in the cluster](docs/TRAPS.md#trap-41)
-- [`IF NOT EXISTS` turns a superseded migration into a resurrection](docs/TRAPS.md#trap-42)
+- [The diary has six hours, and an empty sixth is not a change (7 Oct 2026)](docs/TRAPS.md#trap-61)
+
+### Schedules, dates and school years
+
+Read this whole group before changing Cabinet/diary schedules, week snapshots, calendar/date handling, attendance dates, rollover or conflict guards. [Open the whole group](docs/TRAPS.md#group-schedule).
+
+- [Dates](docs/TRAPS.md#trap-01)
+- [The school year transition has an order — but it is no longer destructive](docs/TRAPS.md#trap-09)
+- [`rollover` no longer retires anyone](docs/TRAPS.md#trap-10)
+- [The school calendar is data, not code](docs/TRAPS.md#trap-17)
+- [One Monday calculation, `mondayOf`](docs/TRAPS.md#trap-18)
+- [Attendance cannot be written on a non-working day](docs/TRAPS.md#trap-19)
 - [The school calendar is a RULE, not a list, and the server has neither](docs/TRAPS.md#trap-43)
-- [The rule you just quoted is the one you break](docs/TRAPS.md#trap-44)
-- [The scratch-database guard never once fired, and its refusal pointed at the real data](docs/TRAPS.md#trap-45)
+- [The diary's plan and Кабинети are kept equal by asking, through ONE writer (owner, 1 Oct 2026)](docs/TRAPS.md#trap-58)
+- [A copy of a week is written when the plan CHANGES, never when it is looked at (owner, 5 Oct 2026)](docs/TRAPS.md#trap-60)
+- [A second writer with fewer rules is a hole, not a convenience (4 Oct 2026)](docs/TRAPS.md#trap-66)
+
+### UI, navigation and shared lists
+
+Read this whole group before changing themes, controls, tabs, Back/Forward, shared list rendering, labels/renames, print/PDF or Undo. [Open the whole group](docs/TRAPS.md#group-ui).
+
 - [A `<button>` does not inherit `color`, and the light theme hid it](docs/TRAPS.md#trap-46)
-- [A PowerShell wrapper hides the tool it is checking](docs/TRAPS.md#trap-47)
-- [Windows PowerShell eats the double quotes in an argument it hands to a native program](docs/TRAPS.md#trap-48)
-- [A grandchild `powershell.exe -File` can fail before printing its first line, and say nothing about why](docs/TRAPS.md#trap-49)
 - [A screen that reads the lists once is a copy, and copies disagree](docs/TRAPS.md#trap-50)
 - [A label stored as text must move with a rename](docs/TRAPS.md#trap-51)
 - [A class is one sentence, written in one place](docs/TRAPS.md#trap-52)
 - [A view the person chooses is a step in the browser's history](docs/TRAPS.md#trap-53)
 - [A strip, a header row or a section behaves the same on every screen, and one file decides how](docs/TRAPS.md#trap-54)
-- [The colleagues' door is the only thing the cloud shows without the owner](docs/TRAPS.md#trap-55)
-- [The colleagues' door closes in ONE hook, and the owner holds the switch (1 Oct 2026, migration 052)](docs/TRAPS.md#trap-56)
 - [A subject's name is text in three places, and they move together](docs/TRAPS.md#trap-57)
-- [The diary's plan and Кабинети are kept equal by asking, through ONE writer (owner, 1 Oct 2026)](docs/TRAPS.md#trap-58)
-- [A blob that saves is not a table that knows (2 Oct 2026)](docs/TRAPS.md#trap-59)
-- [A copy of a week is written when the plan CHANGES, never when it is looked at (owner, 5 Oct 2026)](docs/TRAPS.md#trap-60)
-- [The diary has six hours, and an empty sixth is not a change (7 Oct 2026)](docs/TRAPS.md#trap-61)
-- [A backup is a state, not a run (owner, 1 Oct 2026)](docs/TRAPS.md#trap-62)
 - [The workspace opens S-Дневник after owner login (2 Oct 2026 clarification)](docs/TRAPS.md#trap-63)
 - [A page cannot switch the browser's print header and footer off (4 Oct 2026)](docs/TRAPS.md#trap-64)
 - [One flat look, opted into per page (1 Oct 2026)](docs/TRAPS.md#trap-65)
-- [A second writer with fewer rules is a hole, not a convenience (4 Oct 2026)](docs/TRAPS.md#trap-66)
 - [A list kept in two places is two lists (4 Oct 2026)](docs/TRAPS.md#trap-67)
 - [„Врати" is a new write, never a rollback (6 Oct 2026)](docs/TRAPS.md#trap-68)
-- [A picture taken through the local server carries a real name (8 Oct 2026)](docs/TRAPS.md#trap-69)
 
 ## Maintaining this memory
 

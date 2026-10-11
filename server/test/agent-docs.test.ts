@@ -30,3 +30,13 @@ test('losing a trap route or its target anchor is refused', () => {
 test('a broken documentation route cannot pass the guard', () => {
     assert.ok(check({ 'AGENTS.md': read('AGENTS.md') + '\n[Missing](docs/not-a-real-reference.md)\n' }).some(e => e.includes('missing linked file')));
 });
+test('losing a whole-group route or group anchor is refused', () => {
+    assert.ok(check({ 'AGENTS.md': read('AGENTS.md').replace('[Open the whole group](docs/TRAPS.md#group-scripts)', '') }).some(e => e.includes('trap group')));
+    assert.ok(check({ 'docs/TRAPS.md': read('docs/TRAPS.md').replace('<a id="group-scripts"></a>', '') }).some(e => e.includes('trap group')));
+});
+test('a trap listed under the wrong work area is refused', () => {
+    const agents = read('AGENTS.md');
+    const line = agents.match(/^- .*docs\/TRAPS\.md#trap-01.*\n/m)![0];
+    const moved = agents.replace(line, '').replace('### Identity, privacy and access', line + '\n### Identity, privacy and access');
+    assert.ok(check({ 'AGENTS.md': moved }).some(e => e.includes('Wrong or missing trap group for trap-01')));
+});

@@ -31,6 +31,23 @@ export function checkAgentDocs(read, exists) {
         const matches = routes.filter(route => route[2] === entry[1]);
         if (matches.length !== 1 || flat(matches[0][1]) !== flat(entry[2])) errors.push(`Missing or stale trap route: ${entry[1]}.`);
     }
+    const groups = [...traps.matchAll(/^<a id="(group-[a-z-]+)"><\/a>\n\n## (.+)$/gm)];
+    const groupRoutes = [...docs['AGENTS.md'].matchAll(/\[Open the whole group\]\(docs\/TRAPS\.md#(group-[a-z-]+)\)/g)];
+    if (!groups.length || groups.length !== new Set(groups.map(m => m[1])).size || groupRoutes.length !== groups.length) {
+        errors.push('Every trap group needs a unique anchor and one whole-group route in AGENTS.md.');
+    }
+    for (const group of groups) {
+        const matches = groupRoutes.filter(route => route[1] === group[1]);
+        const heading = matches.length === 1
+            ? [...docs['AGENTS.md'].slice(0, matches[0].index).matchAll(/^### (.+)$/gm)].at(-1)?.[1] : undefined;
+        if (heading !== group[2]) errors.push(`Missing or stale trap group route: ${group[1]}.`);
+    }
+    for (const entry of entries) {
+        const home = groups.filter(group => group.index < entry.index).at(-1)?.[1];
+        const route = routes.find(route => route[2] === entry[1]);
+        const routedHome = route && groupRoutes.filter(group => group.index < route.index).at(-1)?.[1];
+        if (!home || routedHome !== home) errors.push(`Wrong or missing trap group for ${entry[1]}.`);
+    }
     for (const [file, text] of Object.entries(docs)) {
         for (const match of text.matchAll(/\]\(([^\s)]+)\)/g)) {
             const target = match[1];
@@ -54,6 +71,6 @@ if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1]
     try {
         const errors = checkAgentDocs(file => readFileSync(resolve(ROOT, file), 'utf8').replace(/\r\n/g, '\n'), existsSync);
         if (errors.length) { console.error(errors.join('\n')); process.exitCode = 1; }
-        else console.log('Agent docs checked: one import, compact entry points, every trap linked, local routes resolve.');
+        else console.log('Agent docs checked: one import, compact entry points, every trap grouped and linked, local routes resolve.');
     } catch (error) { console.error(`Agent docs check could not run: ${error.message}`); process.exitCode = 1; }
 }
