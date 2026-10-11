@@ -1796,7 +1796,10 @@
                 + `<option value="odd"${t.kind === 'odd' ? ' selected' : ''}>одделенски наставник</option>`
                 + `<option value="pred"${t.kind === 'pred' ? ' selected' : ''}>предметен наставник</option>`
                 + '</select></td>'
-                + '<td data-subject-cell></td>'
+                // The picker lays its host out as a flex row. A <td> made flex stops being a
+                // table cell: it is only as tall as its content, so its bottom line was drawn
+                // in the middle of a tall row and one teacher read as two rows.
+                + '<td><div data-subject-cell></div></td>'
                 + `<td>${(t.classes || []).length
                         ? `<span class="chips">${t.classes.map((c) =>
                             `<span class="chip${c.role === 'homeroom' ? ' home' : ''}" title="${c.role === 'homeroom' ? 'раководител' : 'предава'}">${esc(c.label)}</span>`).join('')}</span>`

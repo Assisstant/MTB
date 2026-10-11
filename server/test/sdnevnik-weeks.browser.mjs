@@ -390,6 +390,16 @@ try {
     // ── Напредок: the pupils as links; a chosen pupil folds the list ──────────
     await page.evaluate(() => { switchTab('progress'); updateProgressStudentList(); });
     checkEq('every pupil is a link', await page.locator('.progress-link').count(), await page.evaluate(() => students.length));
+    // Owner, 11 Oct 2026: one name long enough to wrap made its whole row taller than the others.
+    checkEq('the links are one size, even when one name takes two lines', await page.evaluate(() => {
+        const links = [...document.querySelectorAll('.progress-link')];
+        const kept = links[0].textContent;
+        links[0].textContent = 'подготвителна - Измислено Многудолгопрезиме Двојнопрезимевска';
+        const sizes = new Set(links.map(l => { const r = l.getBoundingClientRect(); return Math.round(r.width) + 'x' + Math.round(r.height); }));
+        const wrapped = links[0].getBoundingClientRect().height > 45;
+        links[0].textContent = kept;
+        return [sizes.size, wrapped];
+    }), [1, true]);
     await page.locator('.progress-link').first().click();
     check('a chosen pupil folds the list and shows the name and the way back',
         !(await page.isVisible('#progressStudentLinks')) && await page.isVisible('#progressStudentChosen')

@@ -490,7 +490,8 @@
         body.dark-mode .schedule-pickers select { background:#181d22; border-color:#607381; }
         /* Напредок: учениците како список врски; паѓачкото мени останува за читач на екран и за тестовите */
         .progress-pick-select { position:absolute; width:1px; height:1px; opacity:0; pointer-events:none; }
-        .progress-links { display:grid; grid-template-columns:repeat(auto-fill, minmax(240px, 1fr)); gap:6px; margin-top:6px; }
+        /* Every row as tall as the tallest: one long name must not make its row's buttons bigger than the rest. */
+        .progress-links { display:grid; grid-template-columns:repeat(auto-fill, minmax(240px, 1fr)); grid-auto-rows:1fr; gap:6px; margin-top:6px; }
         .progress-link { font:inherit; font-size:14px; font-weight:600; text-align:left; padding:8px 12px; border:1px solid #a9bac7; border-radius:8px;
             background:#f5f7f9; color:#202b35; cursor:pointer; }
         .progress-link:hover, .progress-link:focus-visible { border-color:#136990; background:#e4f2fa; }

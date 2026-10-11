@@ -470,6 +470,20 @@ const run = async () => {
     await page.click('[data-tab="teachers"]');
     await page.waitForSelector('#teachers table.list');
     const subjectCell = page.locator(`#teachers tr:has(input[value="${TEACHER}"])`);
+    // Owner, 11 Oct 2026: the picker made the <td> itself a flex row, so the cell ended
+    // under its content and a tall row (many classes) read as two rows.
+    checkEq('the subjects are in a real table cell, as tall as its row even when the row is tall',
+        await page.evaluate(() => {
+            const rows = [...document.querySelectorAll('#teachers tr[data-teacher]')];
+            rows[0].lastElementChild.style.height = '140px';
+            const answer = rows.map((row) => {
+                const cell = row.querySelector('[data-subject-cell]').closest('td');
+                return getComputedStyle(cell).display === 'table-cell'
+                    && Math.abs(cell.getBoundingClientRect().bottom - row.getBoundingClientRect().bottom) <= 1;
+            });
+            rows[0].lastElementChild.style.height = '';
+            return answer.every(Boolean) && rows.length > 0;
+        }), true);
     // An OFFER, never a restriction: an abbreviation the catalogue has never
     // heard of is what the school's own workbook writes, and it is KEPT.
     checkEq('the stored abbreviation is shown as it was written',
