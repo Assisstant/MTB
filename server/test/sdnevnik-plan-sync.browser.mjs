@@ -322,7 +322,7 @@ try {
 
     // ── the tab „Податоци": the procedure on top, the files at the bottom ─────
     console.log('\nthe data tab and „Усогласи сè"');
-    await page.evaluate(() => { window.changeWeek(1); window.switchTab('data'); });
+    await page.evaluate(() => { window.SdnPastDraft.keep(); window.changeWeek(1); window.switchTab('data'); });
     await page.waitForSelector('#sdnLocalSrvPanel'); await page.waitForSelector('#sdnYearPanel'); await page.waitForSelector('#sdnStorageV3Panel');
     const tops = await page.evaluate(() => ['sdnRunPanel', 'sdnLocalSrvPanel', 'sdnYearPanel', 'sdnStorageV3Panel', 'sdnFilesPanel']
         .map((id) => Math.round(document.getElementById(id).getBoundingClientRect().top)));
@@ -402,7 +402,7 @@ try {
     await backup('after a change');
     checkEq('a changed state is a new backup', await backupCount(), held + 1);
 
-    check('the past week was unlocked through the diary\'s own warning', dialogs.some((d) => /отклучена/.test(d)));
+    check('a past week is edited as a draft, with no warning dialog', !dialogs.some((d) => /отклучена/.test(d)));
     checkEq('no page errors', errors, []);
 } finally {
     await browser.close();

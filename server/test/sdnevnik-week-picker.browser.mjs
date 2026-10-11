@@ -143,7 +143,7 @@ try {
     console.log('\nunlocking, choosing, cancelling');
     dialogs.length = 0;
     await page.click('#weekPickUnlock');
-    check('one button unlocks the past, with the diary\'s own warning', dialogs.some((d) => /отклучена/.test(d)) && !(await tileInfo(LAST)).off);
+    check('one button unlocks the past, as a draft that is settled later', await page.evaluate(() => pastWeeksUnlocked && window.SdnPastDraft.active()) && !(await tileInfo(LAST)).off);
     check('the copied week stays out of reach', (await tileInfo(OLDER)).off);
     for (const k of [SEP14, LAST, THIS, '2026-10-19', '2026-10-26']) await page.click(tile(k));
     await page.click(tile('2026-10-26'));             // and off again

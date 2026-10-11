@@ -284,15 +284,10 @@ try {
     await goTo(0);
     await page.click('#weekCopyBtn');                 // 12.10: the old plan
     await goTo(-2);                                   // 28.09
-    // Owner, 11 Oct 2026: a locked past week ASKS whether to unlock, instead of refusing.
-    refuseUnlock = true;
-    const before = JSON.stringify(await history());
+    // Owner, 11 Oct 2026: a change in a locked past week is a DRAFT, settled later.
     r = await paste('past');
-    check('a locked past week asks whether to unlock; „Откажи“ changes nothing', !r.asked && /Да се отклучат/.test(r.alert)
-        && JSON.stringify(await history()) === before && !(await page.evaluate(() => pastWeeksUnlocked)), r.alert);
-    refuseUnlock = false;
-    r = await paste('past');
-    check('accepted, the weeks are unlocked and the paste goes on', await page.evaluate(() => pastWeeksUnlocked));
+    check('a locked past week takes the paste as a draft: unlocked, nothing saved yet',
+        await page.evaluate(() => pastWeeksUnlocked && window.SdnPastDraft.active()));
     check('unlocked, it asks', r.asked && /Ознаките за присуство остануваат/.test(r.text || ''), r.text);
     h = await history();
     checkEq('28.09 is now the copy', [h[LAST].wednesday[2], h[LAST].thursday[3]], [[1003], [1001]]);
@@ -301,7 +296,7 @@ try {
     checkEq('the week before it is left as it was', h[OLDER].monday[0], [1003]);
     r = await paste('past');
     check('pasting the same record again changes nothing; onward is still offered', r.asked && /веќе иста/.test(r.alert), r.alert);
-    await page.evaluate(() => { pastWeeksUnlocked = false; updateWeekDisplay(); });
+    await page.evaluate(() => { window.SdnPastDraft.keep(); pastWeeksUnlocked = false; updateWeekDisplay(); });
 
     // ── an empty copy on the server is not a difference ───────────────────────
     const local = await page.evaluate(() => JSON.parse(JSON.stringify(window.SdnV3.currentPayload('test'))));
@@ -338,7 +333,7 @@ try {
     checkEq('undo restores the past pupil', (await shown()).plan.monday[0], [1001]);
     await page.evaluate(() => redoLastChange());
     checkEq('redo clears without borrowing the live plan', (await shown()).plan.monday[0], []);
-    await page.evaluate(() => SdnV3.saveFullPayload(SdnV3.currentPayload('explicit_empty_test'), 'explicit_empty_test'));
+    await page.evaluate(() => { window.SdnPastDraft.keep(); return SdnV3.saveFullPayload(SdnV3.currentPayload('explicit_empty_test'), 'explicit_empty_test'); });
     await open();
     await page.waitForFunction(() => window.scheduleHistory['2026-09-28']?._saved === true);
     await goTo(-1);
@@ -365,14 +360,32 @@ try {
     const marks = () => page.evaluate(d => Object.keys((window.attendance[d] || {})[1001] || {}), LAST);
     await drawPast();
     await page.waitForTimeout(100);
-    refuseUnlock = true; dialogs.length = 0;
-    await page.click('.attendance-indicator[data-sid="1001"]');
-    check('a mark in a locked week asks whether to unlock; „Откажи“ writes nothing', /Да се отклучат/.test(dialogs[0] || '')
-        && (await marks()).length === 0 && !(await page.evaluate(() => pastWeeksUnlocked)), dialogs[0]);
-    refuseUnlock = false;
+    const savedMarks = () => page.evaluate(d => Object.keys((SdnV3.currentPayload('test').attendance[d] || {})[1001] || {}), LAST);
+    dialogs.length = 0;
     await page.click('.attendance-indicator[data-sid="1001"]');
     await page.waitForTimeout(100);
-    checkEq('accepted, the week is unlocked and the mark is written', [await marks(), await page.evaluate(() => pastWeeksUnlocked)], [['monday-0'], true]);
+    checkEq('a mark in a locked week is made at once, with no question', [await marks(), dialogs.length], [['monday-0'], 0]);
+    check('but it is a draft: what is saved and synced does not have it, and a bar says so',
+        (await savedMarks()).length === 0 && await page.isVisible('#pastDraftBar'));
+    checkEq('automatic sync waits for the draft', await page.evaluate(() => window.SdnLocalSrv.sync({ auto: true })), 'draft');
+    await page.click('#pastDraftBar [data-draft="drop"]');
+    await page.waitForTimeout(100);
+    check('„Отфрли ги“ takes the mark away and locks the week again',
+        (await marks()).length === 0 && !(await page.evaluate(() => pastWeeksUnlocked)) && !(await page.isVisible('#pastDraftBar')));
+    await page.click('.attendance-indicator[data-sid="1001"]');
+    await page.waitForTimeout(100);
+    await page.evaluate(() => switchTab('progress'));
+    check('leaving the schedule asks first, and stays until answered',
+        await page.isVisible('#pastDraftModal') && await page.$eval('#schedule', t => t.classList.contains('active')));
+    await page.click('#pastDraftModal [data-choice="stay"]');
+    check('„Остани на распоредот“ keeps the draft', !(await page.isVisible('#pastDraftModal')) && (await marks()).length === 1
+        && await page.evaluate(() => window.SdnPastDraft.active()));
+    await page.evaluate(() => switchTab('progress'));
+    await page.click('#pastDraftModal [data-choice="keep"]');
+    await page.waitForTimeout(200);
+    checkEq('„Зачувај ги измените“ writes the mark, locks the week and goes on',
+        [await savedMarks(), await page.evaluate(() => pastWeeksUnlocked), await page.$eval('#progress', t => t.classList.contains('active'))],
+        [['monday-0'], false, true]);
 
     // ── Напредок: the pupils as links; a chosen pupil folds the list ──────────
     await page.evaluate(() => { switchTab('progress'); updateProgressStudentList(); });

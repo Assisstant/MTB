@@ -498,6 +498,10 @@
         body.dark-mode .progress-link:hover, body.dark-mode .progress-link:focus-visible { background:#163c51; border-color:#73c7ed; }
         .progress-chosen { display:flex; flex-wrap:wrap; align-items:center; gap:12px; margin-top:6px; font-size:16px; }
         .progress-chosen[hidden], .progress-links[hidden] { display:none; }
+        #pastDraftBar { position:fixed; left:50%; bottom:14px; transform:translateX(-50%); z-index:9000; display:flex; flex-wrap:wrap; align-items:center; gap:10px;
+            max-width:calc(100vw - 24px); padding:10px 14px; border-radius:12px; border:1px solid #b7791f; background:#fffbea; color:#3d2c00; font-weight:600; box-shadow:0 8px 24px rgba(0,0,0,.25); }
+        body.dark-mode #pastDraftBar { background:#3a2f12; color:#fdf3c4; border-color:#d69e2e; }
+        @media print { #pastDraftBar { display:none !important; } }
         .schedule-pick-button { color:inherit; background:transparent; border:0; cursor:pointer; font-size:13px; align-self:flex-end; }
         @media print { .schedule-pickers, .schedule-pick-button { display:none !important; } }
         .time-selector {
@@ -3846,6 +3850,15 @@ var attendance = {};
             }
         }
         
+        // Напуштање на распоредот со нацрт: прво прашањето (види `pastDraft`).
+        (function () {
+            var plain = switchTab;
+            window.switchTab = function (tab) {
+                if (pastDraft && tab !== 'schedule') { askPastDraft(function () { plain(tab); }); return; }
+                return plain(tab);
+            };
+        })();
+
         function updateProgressStudentList() {
             var select = document.getElementById('progressStudentSelect');
             var was = select.value;
@@ -4791,7 +4804,7 @@ var attendance = {};
             }[lastWeekSource] || 'Распоредот е реконструиран од записите за присутност.';
             return '<span class="icon">🔒</span>' +
                 '<span><strong>Гледате историска недела.</strong> ' +
-'Податоците се заштитени: пред секоја измена ќе бидете прашани дали да се отклучи. ' + source + '</span>';
+'Податоците се заштитени: измена тука чека „Зачувај ги измените“ или „Отфрли ги“ пред да важи. ' + source + '</span>';
         }
         
         /**
@@ -5584,26 +5597,156 @@ var attendance = {};
          * залепување недела. „Откажи“ не менува ништо.
          */
         function askUnlockPastWeek(what) {
-            if (pastWeeksUnlocked) return true;
             if (window.MTB_MIRROR_READONLY === true) return false;
-            if (!confirm('🔒 Оваа недела е измината и заклучена.\n\n' + what +
-                '\n\nДа се отклучат изминатите недели за да се прифати измената?')) return false;
-            pastWeeksUnlocked = true;
-            updateLockButtonAppearance();
-            updateWeekDisplay();
+            beginPastDraft();
+            if (!pastWeeksUnlocked) {
+                pastWeeksUnlocked = true;
+                updateLockButtonAppearance();
+                updateWeekDisplay();
+            }
             return true;
         }
 
+        /**
+         * НАЦРТ ЗА ИЗМИНАТИТЕ НЕДЕЛИ (сопственикот, 11 октомври 2026). Измена во
+         * измината недела повеќе не прашува пред секој клик: се прави веднаш,
+         * но само на екранот. Сè што е сменето додека се гледа измината недела
+         * (ознаки, ученици во термин, залепена недела) чека едно прашање —
+         * „Зачувај ги измените“ или „Отфрли ги“ — кога се напушта распоредот,
+         * кога се менува нешто надвор од изминатите недели, или од лентата долу.
+         *
+         * КАКО Е БЕЗБЕДНО. `pastDraft.before` е состојбата пред првата измена.
+         * Додека нацртот трае: `window.saveData` не запишува ништо ако се гледа
+         * измината недела; `currentPayload` ја дава состојбата ОД ПРЕД нацртот
+         * (па ниту автоматска синхронизација ниту резерва не го изнесуваат);
+         * автоматската синхронизација чека. Затворање на страницата = отфрлено:
+         * нацртот никогаш не бил запишан. Состојба што стигнува од серверот го
+         * отфрла нацртот и го кажува тоа.
+         */
+        var pastDraft = null;
+        function pastDraftState() {
+            return { attendance: attendance, scheduleHistory: scheduleHistory, studentProgress: studentProgress, schedule: schedule, planFrom: planFrom };
+        }
+        function beginPastDraft() {
+            if (!pastDraft) pastDraft = { before: JSON.stringify(pastDraftState()) };
+            refreshPastDraftBar();
+        }
+        function pastDraftChanged() {
+            return Boolean(pastDraft) && JSON.stringify(pastDraftState()) !== pastDraft.before;
+        }
+        function lockPastWeeksAgain() {
+            pastWeeksUnlocked = false;
+            if (document.getElementById('lockToggleBtn')) updateLockButtonAppearance();
+            try { updateWeekDisplay(); renderSchedule(); } catch (e) { /* екран што не е нацртан */ }
+            refreshPastDraftBar();
+        }
+        function endPastDraft(keep) {
+            if (!pastDraft) return;
+            var was = pastDraft, changed = pastDraftChanged();
+            pastDraft = null;
+            if (!keep && changed) {
+                var b = JSON.parse(was.before);
+                attendance = b.attendance; scheduleHistory = b.scheduleHistory; studentProgress = b.studentProgress; planFrom = b.planFrom || {};
+                daysEng.forEach(function (day) { schedule[day] = b.schedule[day]; });
+            }
+            lockPastWeeksAgain();
+            if (keep && changed) {
+                window.saveData();
+                if (typeof showToast === 'function') showToast('💾 Измените во изминатите недели се зачувани.');
+            } else if (changed && typeof showToast === 'function') showToast('Измените во изминатите недели се отфрлени.');
+        }
+        function viewingPastWeek() {
+            var tab = document.getElementById('schedule');
+            return Boolean(tab && tab.classList.contains('active')) && getWeekKey() < thisWeekKey();
+        }
+        // Лента долу, на секоја недела, додека има нешто за потврдување.
+        function refreshPastDraftBar() {
+            var bar = document.getElementById('pastDraftBar');
+            if (!pastDraftChanged()) { if (bar) bar.remove(); return; }
+            if (bar) return;
+            bar = document.createElement('div');
+            bar.id = 'pastDraftBar';
+            bar.setAttribute('role', 'status');
+            bar.innerHTML = '<span>✏️ Има измени во изминати недели што уште не се зачувани.</span>' +
+                '<button type="button" class="btn btn-success" data-draft="keep">💾 Зачувај ги измените</button>' +
+                '<button type="button" class="btn" data-draft="drop">Отфрли ги</button>';
+            bar.addEventListener('click', function (e) {
+                var b = e.target.closest('[data-draft]');
+                if (b) endPastDraft(b.dataset.draft === 'keep');
+            });
+            document.body.appendChild(bar);
+        }
+        // Прашањето при напуштање на распоредот. `then` се вика по „Зачувај“
+        // или „Отфрли“; „Остани“ не прави ништо.
+        function askPastDraft(then) {
+            if (!pastDraftChanged()) { endPastDraft(false); then(); return; }
+            var old = document.getElementById('pastDraftModal');
+            if (old) old.remove();
+            var modal = document.createElement('div');
+            modal.id = 'pastDraftModal';
+            modal.className = 'modal active';
+            modal.setAttribute('role', 'dialog'); modal.setAttribute('aria-modal', 'true');
+            modal.innerHTML = '<div class="modal-content" style="max-width:520px;">' +
+                '<h3 style="margin-top:0;">Промени во изминати недели</h3>' +
+                '<p>Сменивте нешто во заклучена, измината недела. Што да биде со тие измени?</p>' +
+                '<div style="display:flex;flex-wrap:wrap;gap:8px;">' +
+                '<button type="button" class="btn btn-success" data-choice="keep">💾 Зачувај ги измените</button>' +
+                '<button type="button" class="btn btn-danger" data-choice="drop">Отфрли ги измените</button>' +
+                '<button type="button" class="btn" data-choice="stay">Остани на распоредот</button></div></div>';
+            modal.addEventListener('click', function (e) {
+                var b = e.target.closest('[data-choice]');
+                if (!b) return;
+                modal.remove();
+                if (b.dataset.choice === 'stay') return;
+                endPastDraft(b.dataset.choice === 'keep');
+                then();
+            });
+            document.body.appendChild(modal);
+        }
+        // Нешто надвор од изминатите недели сака да запише: прво се решава нацртот.
+        function settlePastDraft() {
+            if (!pastDraft) return;
+            if (!pastDraftChanged()) { endPastDraft(false); return; }
+            endPastDraft(confirm('Имате измени во изминати (заклучени) недели што уште не се зачувани.\n\n' +
+                'OK — зачувај ги тие измени\nОткажи — отфрли ги тие измени'));
+        }
+        window.SdnPastDraft = {
+            active: function () { return Boolean(pastDraft); },
+            changed: pastDraftChanged,
+            viewingPast: viewingPastWeek,
+            note: refreshPastDraftBar,
+            settle: settlePastDraft,
+            keep: function () { endPastDraft(true); },
+            drop: function () { endPastDraft(false); },
+            // што се запишува и испраќа додека нацртот трае: состојбата од пред него
+            mask: function (base) {
+                if (!pastDraft || !base) return;
+                var b = JSON.parse(pastDraft.before);
+                ['attendance', 'scheduleHistory', 'studentProgress', 'schedule', 'planFrom'].forEach(function (k) { base[k] = b[k]; });
+            },
+            // нова состојба однадвор ја заменува меморијата: нацртот повеќе не важи
+            replaced: function () {
+                if (!pastDraft) return;
+                var changed = pastDraftChanged();
+                pastDraft = null; pastWeeksUnlocked = false;
+                var bar = document.getElementById('pastDraftBar'); if (bar) bar.remove();
+                if (changed && typeof showToast === 'function') showToast('Стигна нова состојба од серверот: измените во изминатите недели не се зачувани.');
+            }
+        };
+        window.addEventListener('beforeunload', function (e) {
+            if (pastDraftChanged()) { e.preventDefault(); e.returnValue = ''; }
+        });
+
         function togglePastWeekLock() {
-            pastWeeksUnlocked = !pastWeeksUnlocked;
+            if (pastWeeksUnlocked && pastDraftChanged()) { askPastDraft(function () {}); return; }
+            if (pastWeeksUnlocked) { endPastDraft(false); return; }
+            if (window.MTB_MIRROR_READONLY === true) return;
+            beginPastDraft();
+            pastWeeksUnlocked = true;
             updateLockButtonAppearance();
             updateWeekDisplay(); // Refresh to show/hide undo/redo buttons
-            
-            if (pastWeeksUnlocked) {
-                alert('🔓 Измината седмица е отклучена!\n\nСега можете да ги менувате податоците за минатите недели.\n\n⚠️ Внимание: Промените на историски податоци може да влијаат на точноста на записите.');
-            }
         }
-        
+
         // ── Копирај / залепи недела ───────────────────────────────────────
         /**
          * Сопственикот (5 октомври 2026): „ако имам некоја недела сите третмани
@@ -11215,6 +11358,9 @@ var attendance = {};
             base = window.buildDiaryPayload() || {};
         }
         if (!base || typeof base !== 'object') base = {};
+        // A draft of past weeks is on screen only; what is saved, backed up or
+        // synced meanwhile is the state from before it (see `pastDraft`).
+        if (window.SdnPastDraft && window.SdnPastDraft.active()) window.SdnPastDraft.mask(base);
         base._meta = Object.assign({}, base._meta || {}, {
             app: 'S-Dnevnik',
             appVersion: APP_VERSION,
@@ -11342,7 +11488,8 @@ var attendance = {};
 
     function applyPayload(data) {
         if (!data || typeof data !== 'object') throw new Error('Празен или невалиден JSON.');
-        if (data._storage === 'indexedDB') return;
+        if (window.SdnPastDraft) window.SdnPastDraft.replaced();
+                if (data._storage === 'indexedDB') return;
 
         // Последна брана. applyPayload е јавна функција и се користи и за
         // враќање на сопствен backup, каде замена е точна. Но состојба што
@@ -11615,12 +11762,24 @@ var attendance = {};
     }
 
     window.saveData = function () {
+        var draft = window.SdnPastDraft;
+        if (draft && draft.active()) {
+            // an edit of a past week stays on screen until it is accepted
+            if (draft.viewingPast()) { draft.note(); return Promise.resolve({ draft: true }); }
+            draft.settle();
+        }
         notePlanChange();
         var data = currentPayload('save');
         return saveFullPayload(data, 'save');
     };
 
     window.manualSave = function () {
+        // „ЗАЧУВАЈ“ with a draft open is the answer to its question
+        if (window.SdnPastDraft && window.SdnPastDraft.active()) {
+            var had = window.SdnPastDraft.changed();
+            window.SdnPastDraft.keep();
+            if (had) return;
+        }
         notePlanChange();
         saveFullPayload(currentPayload('manual_save'), 'manual_save').then(function () {
             showToast('Зачувано во IndexedDB.');
@@ -12503,6 +12662,8 @@ var attendance = {};
             opts = opts || {};
             if (window.MTB_MIRROR_READONLY === true) return pull();
             var auto = !!opts.auto;
+            // a draft of past weeks is being edited: nothing is compared or sent until it is settled
+            if (window.SdnPastDraft && window.SdnPastDraft.active()) { if (auto) return Promise.resolve('draft'); window.SdnPastDraft.settle(); }
             if (busy) return Promise.resolve('busy');
             busy = true;
             if (!auto) setStatus('⏳ синхронизирам…');
