@@ -96,7 +96,8 @@ const page = await context.newPage();
 await page.clock.setFixedTime(NOW);
 page.on('pageerror', (e) => errors.push(String(e)));
 const dialogs = [];
-page.on('dialog', (d) => { dialogs.push(d.message()); d.accept(); });
+let refuseUnlock = false;
+page.on('dialog', (d) => { dialogs.push(d.message()); if (refuseUnlock && /Да се отклучат/.test(d.message())) d.dismiss(); else d.accept(); });
 
 const open = async () => {
     await page.goto(`${SERVED}/S-Dnevnik.html`, { waitUntil: 'domcontentloaded' });
@@ -283,10 +284,15 @@ try {
     await goTo(0);
     await page.click('#weekCopyBtn');                 // 12.10: the old plan
     await goTo(-2);                                   // 28.09
+    // Owner, 11 Oct 2026: a locked past week ASKS whether to unlock, instead of refusing.
+    refuseUnlock = true;
+    const before = JSON.stringify(await history());
     r = await paste('past');
-    check('a locked past week is refused, and says how to unlock', !r.asked && /заклучена/.test(r.alert), r.alert);
-    await page.evaluate(() => { pastWeeksUnlocked = true; updateWeekDisplay(); });
+    check('a locked past week asks whether to unlock; „Откажи“ changes nothing', !r.asked && /Да се отклучат/.test(r.alert)
+        && JSON.stringify(await history()) === before && !(await page.evaluate(() => pastWeeksUnlocked)), r.alert);
+    refuseUnlock = false;
     r = await paste('past');
+    check('accepted, the weeks are unlocked and the paste goes on', await page.evaluate(() => pastWeeksUnlocked));
     check('unlocked, it asks', r.asked && /Ознаките за присуство остануваат/.test(r.text || ''), r.text);
     h = await history();
     checkEq('28.09 is now the copy', [h[LAST].wednesday[2], h[LAST].thursday[3]], [[1003], [1001]]);
@@ -344,6 +350,39 @@ try {
     delete serverState.payload.scheduleHistory[LAST];
     check('unlike legacy noise, deleting the explicit empty week is a real difference',
         await page.evaluate(() => SdnLocalSrv.sync({ auto: true })) !== 'insync');
+
+    // ── a mark in a locked past week asks first (owner, 11 Oct 2026) ──────────
+    const marked = build();
+    marked.attendance = {};
+    marked.schedule = emptyWeek(); marked.schedule.monday[0] = [1002];
+    marked.scheduleHistory = { [LAST]: emptyWeek() };
+    marked.scheduleHistory[LAST].monday[0] = [1001];
+    marked.planFrom = {};
+    const drawPast = () => page.evaluate(p => {
+        SdnV3.applyPayload(p); currentWeek = -1; pastWeeksUnlocked = false;
+        switchTab('schedule'); updateWeekDisplay(); renderSchedule();
+    }, marked);
+    const marks = () => page.evaluate(d => Object.keys((window.attendance[d] || {})[1001] || {}), LAST);
+    await drawPast();
+    await page.waitForTimeout(100);
+    refuseUnlock = true; dialogs.length = 0;
+    await page.click('.attendance-indicator[data-sid="1001"]');
+    check('a mark in a locked week asks whether to unlock; „Откажи“ writes nothing', /Да се отклучат/.test(dialogs[0] || '')
+        && (await marks()).length === 0 && !(await page.evaluate(() => pastWeeksUnlocked)), dialogs[0]);
+    refuseUnlock = false;
+    await page.click('.attendance-indicator[data-sid="1001"]');
+    await page.waitForTimeout(100);
+    checkEq('accepted, the week is unlocked and the mark is written', [await marks(), await page.evaluate(() => pastWeeksUnlocked)], [['monday-0'], true]);
+
+    // ── Напредок: the pupils as links; a chosen pupil folds the list ──────────
+    await page.evaluate(() => { switchTab('progress'); updateProgressStudentList(); });
+    checkEq('every pupil is a link', await page.locator('.progress-link').count(), await page.evaluate(() => students.length));
+    await page.locator('.progress-link').first().click();
+    check('a chosen pupil folds the list and shows the name and the way back',
+        !(await page.isVisible('#progressStudentLinks')) && await page.isVisible('#progressStudentChosen')
+        && (await page.$eval('#progressStudentSelect', s => s.value)) !== '');
+    await page.click('#progressStudentChosen button');
+    check('„Сите ученици“ opens the list again', await page.isVisible('#progressStudentLinks') && !(await page.isVisible('#progressStudentChosen')));
 
     checkEq('no page errors', errors, []);
 } finally {

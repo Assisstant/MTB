@@ -488,6 +488,16 @@
         .schedule-picker-list:hover { text-decoration:underline; }
         body.dark-mode .schedule-pickers { background:#242a30; color:#edf2f6; border-color:#526774; }
         body.dark-mode .schedule-pickers select { background:#181d22; border-color:#607381; }
+        /* Напредок: учениците како список врски; паѓачкото мени останува за читач на екран и за тестовите */
+        .progress-pick-select { position:absolute; width:1px; height:1px; opacity:0; pointer-events:none; }
+        .progress-links { display:grid; grid-template-columns:repeat(auto-fill, minmax(240px, 1fr)); gap:6px; margin-top:6px; }
+        .progress-link { font:inherit; font-size:14px; font-weight:600; text-align:left; padding:8px 12px; border:1px solid #a9bac7; border-radius:8px;
+            background:#f5f7f9; color:#202b35; cursor:pointer; }
+        .progress-link:hover, .progress-link:focus-visible { border-color:#136990; background:#e4f2fa; }
+        body.dark-mode .progress-link { background:#242a30; color:#edf2f6; border-color:#526774; }
+        body.dark-mode .progress-link:hover, body.dark-mode .progress-link:focus-visible { background:#163c51; border-color:#73c7ed; }
+        .progress-chosen { display:flex; flex-wrap:wrap; align-items:center; gap:12px; margin-top:6px; font-size:16px; }
+        .progress-chosen[hidden], .progress-links[hidden] { display:none; }
         .schedule-pick-button { color:inherit; background:transparent; border:0; cursor:pointer; font-size:13px; align-self:flex-end; }
         @media print { .schedule-pickers, .schedule-pick-button { display:none !important; } }
         .time-selector {
@@ -2278,10 +2288,15 @@
             
             <div id="studentProgressView">
                 <div class="form-group">
-                    <label>Избери Ученик:</label>
-                    <select id="progressStudentSelect" onchange="loadStudentProgress()">
+                    <label for="progressStudentSelect">Избери Ученик:</label>
+                    <select id="progressStudentSelect" class="progress-pick-select" onchange="loadStudentProgress()">
                         <option value="">-- Избери ученик --</option>
                     </select>
+                    <div id="progressStudentChosen" class="progress-chosen" hidden>
+                        <strong id="progressStudentName"></strong>
+                        <button type="button" class="btn" onclick="chooseProgressStudent('')">◂ Сите ученици</button>
+                    </div>
+                    <div id="progressStudentLinks" class="progress-links"></div>
                 </div>
                 <div id="progressActivitiesList" class="progress-list"></div>
             </div>
@@ -3833,16 +3848,44 @@ var attendance = {};
         
         function updateProgressStudentList() {
             var select = document.getElementById('progressStudentSelect');
+            var was = select.value;
             select.innerHTML = '<option value="">-- Избери ученик --</option>';
-            
+            var links = document.getElementById('progressStudentLinks');
+            links.textContent = '';
+
             for (var i = 0; i < students.length; i++) {
                 var opt = document.createElement('option');
                 opt.value = students[i].id;
                 opt.textContent = students[i].grade + ' - ' + students[i].name;
                 select.appendChild(opt);
+                // Сопственикот (11 октомври 2026): списокот како врски до
+                // напредокот на детето, наместо паѓачко мени.
+                var link = document.createElement('button');
+                link.type = 'button';
+                link.className = 'progress-link';
+                link.dataset.student = students[i].id;
+                link.textContent = opt.textContent;
+                link.addEventListener('click', function () { chooseProgressStudent(this.dataset.student); });
+                links.appendChild(link);
             }
+            if (was && select.querySelector('option[value="' + was + '"]')) select.value = was;
+            foldProgressStudentList();
         }
-        
+
+        function chooseProgressStudent(id) {
+            document.getElementById('progressStudentSelect').value = id;
+            loadStudentProgress();
+        }
+
+        // Избран ученик го собира списокот: останува името и патот назад.
+        function foldProgressStudentList() {
+            var select = document.getElementById('progressStudentSelect');
+            var chosen = select.value ? select.options[select.selectedIndex] : null;
+            document.getElementById('progressStudentLinks').hidden = Boolean(chosen);
+            document.getElementById('progressStudentChosen').hidden = !chosen;
+            document.getElementById('progressStudentName').textContent = chosen ? chosen.textContent : '';
+        }
+
         // Content references remain plain, meaningful activity text, so the old
         // JSON and relational export retain them too. No pupil data enters URLs.
         var SDN_EXERCISE_SOUNDS = [
@@ -4052,6 +4095,7 @@ var attendance = {};
             students.forEach(function (s) { if (ids[s.id]) ensureDefaultExercisePlan(s); });
         }
         function loadStudentProgress(defaultKind) {
+            foldProgressStudentList();
             var studentId = parseInt(document.getElementById('progressStudentSelect').value);
             var container = document.getElementById('progressActivitiesList');
             container.innerHTML = '';
@@ -4747,7 +4791,7 @@ var attendance = {};
             }[lastWeekSource] || 'Распоредот е реконструиран од записите за присутност.';
             return '<span class="icon">🔒</span>' +
                 '<span><strong>Гледате историска недела.</strong> ' +
-                'Податоците се заштитени и не можат да се менуваат. ' + source + '</span>';
+'Податоците се заштитени: пред секоја измена ќе бидете прашани дали да се отклучи. ' + source + '</span>';
         }
         
         /**
@@ -5533,6 +5577,23 @@ var attendance = {};
             }
         }
         
+        /**
+         * Сопственикот (11 октомври 2026): измена во заклучена недела да ПРАШУВА
+         * дали да се отклучи, наместо да одбие и да бара посебно копче. Едно
+         * прашање за сите патишта: ознака за присуство, избор на ученици,
+         * залепување недела. „Откажи“ не менува ништо.
+         */
+        function askUnlockPastWeek(what) {
+            if (pastWeeksUnlocked) return true;
+            if (window.MTB_MIRROR_READONLY === true) return false;
+            if (!confirm('🔒 Оваа недела е измината и заклучена.\n\n' + what +
+                '\n\nДа се отклучат изминатите недели за да се прифати измената?')) return false;
+            pastWeeksUnlocked = true;
+            updateLockButtonAppearance();
+            updateWeekDisplay();
+            return true;
+        }
+
         function togglePastWeekLock() {
             pastWeeksUnlocked = !pastWeeksUnlocked;
             updateLockButtonAppearance();
@@ -5729,10 +5790,7 @@ var attendance = {};
                 alert('Ова е истата недела што е копирана. Отвори друга недела, па залепи.');
                 return Promise.resolve(false);
             }
-            if (isPast && !pastWeeksUnlocked) {
-                alert('Минатата недела е заклучена.\n\nКликнете на „🔒 Измината седмица е заклучена“ за да ја отклучите, па залепете повторно.');
-                return Promise.resolve(false);
-            }
+            if (isPast && !askUnlockPastWeek('Ќе се залепи копираниот распоред во оваа недела.')) return Promise.resolve(false);
 
             var built = pastedFromClip(clip, isPast);
             var pasted = built.pasted;
@@ -6313,6 +6371,8 @@ var attendance = {};
                             return;
                         }
                         
+                        if (getWeekKey() < thisWeekKey() && !askUnlockPastWeek('Ќе се смени ознаката за присуство.')) return;
+
                         // Истата брана како кај обичните ќелии: споена ќелија не
                         // смее да заобиколи неработен ден.
                         var clickedDate = new Date();
@@ -6462,10 +6522,7 @@ var attendance = {};
         function openSchedulePicker(day, timeIdx) {
             if (window.MTB_MIRROR_READONLY === true) return;
             var key = getWeekKey();
-            if (key < thisWeekKey() && !pastWeeksUnlocked) {
-                alert('Минатата недела е заклучена. Прво отклучете ја за да го смените терминот.');
-                return;
-            }
+            if (key < thisWeekKey() && !askUnlockPastWeek('Ќе се сменат учениците во терминот.')) return;
             document.querySelectorAll('.schedule-pickers').forEach(function (e) { e.remove(); });
             var current = (getScheduleForWeek(key)[day] || [])[timeIdx] || [];
             currentSlot = { day: day, timeIdx: timeIdx, weekKey: key, expected: current.slice() };
@@ -6534,11 +6591,7 @@ var attendance = {};
     var currentMondayStart = new Date(todayStart);
     currentMondayStart.setTime(mondayOf(todayStart).getTime());
     
-    if (viewingWeekStart < currentMondayStart && !pastWeeksUnlocked) {
-        alert('⚠️ Не можете да менувате распоред на минати недели!\n\n' +
-              'Измината седмица е заштитена за да се зачуваат точните записи.\n\n' +
-              'Промените можат да се прават само за тековната и идните недели.\n\n' +
-              'Кликнете на "🔒 Измината седмица е заклучена" за да ја отклучите.');
+    if (viewingWeekStart < currentMondayStart && !askUnlockPastWeek('Ќе се сменат учениците во терминот.')) {
         document.querySelectorAll('.schedule-pickers').forEach(function (e) { e.remove(); });
         return;
     }
@@ -6735,6 +6788,13 @@ var attendance = {};
                 delete attendance[dateStr][sid][key];
             }
             
+            // Ознака во измината недела: напредокот се брои одново по датум,
+            // инаку доцна внесен третман би ја зел СЛЕДНАТА активност наместо
+            // онаа што му припаѓа по ред.
+            if (getWeekKey() < thisWeekKey() && typeof rebuildStudentProgress === 'function') {
+                try { rebuildStudentProgress(sid); } catch (e) { /* ученик без план */ }
+            }
+
             saveData();
             renderSchedule();
         }
