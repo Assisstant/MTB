@@ -615,7 +615,10 @@
         margin: 15px 0;
         align-items: end;
     }
+    /* The reports' row holds up to three boxes and two buttons: as many columns as fit. */
+    .report-controls { grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); }
     .roster-field { display: grid; gap: 5px; min-width: 0; }
+    .roster-field[hidden] { display: none; }
     .roster-field span {
         color: #718096;
         font-size: 11px;
@@ -1253,6 +1256,17 @@
             <div class="section-header"><h2 id="reportTitle">Списоци за печатење</h2><span id="reportYear"></span></div>
             <div class="roster-controls report-controls">
                 <label class="roster-field"><span id="reportFilterLabel">Терапевт за овој приказ</span><select id="reportTherapist"><option value="">Сите терапевти</option></select></label>
+                <label class="roster-field" id="reportGradeField" hidden><span>Одделение</span><select id="reportGrade"><option value="">Сите одделенија</option></select></label>
+                <label class="roster-field" id="reportSortField" hidden><span>Редослед</span><select id="reportSort">
+                    <option value="name-asc">Име: А → Ш</option>
+                    <option value="name-desc">Име: Ш → А</option>
+                    <option value="visits-desc">Посети неделно: најмногу прво</option>
+                    <option value="visits-asc">Посети неделно: најмалку прво</option>
+                    <option value="cabinets-desc">Кабинети: најмногу прво</option>
+                    <option value="cabinets-asc">Кабинети: најмалку прво</option>
+                    <option value="grade-asc">Одделение: од најмало</option>
+                    <option value="grade-desc">Одделение: од најголемо</option>
+                </select></label>
                 <button class="btn" id="reportAllTherapists" type="button">Прикажи ги сите</button>
                 <button class="btn btn-primary" id="printReport" type="button"><span class="ico" aria-hidden="true">⎙</span> Печати го прегледот</button>
             </div>
@@ -1348,7 +1362,7 @@
         years: [], year: '', day: DAYS[0], focus: '', weekFocus: null, focusMode: 'day',
         view: 'day', panel: 'schedule', roster: null,
         classWeekClass: '', crossing: null,
-        rosterTherapist: '', reportTherapists: { lists: '', visits: '' }, token: '', me: null, authRequired: false,
+        rosterTherapist: '', reportTherapists: { lists: '', visits: '' }, reportGrade: '', reportSort: 'name-asc', token: '', me: null, authRequired: false,
         bells: [], sessions: new Map(), pending: new Set(), expandedBlocks: new Set(), ticket: 0,
         pollTicket: 0, sessionVersion: 0, sessionsReady: false, sessionsStale: false,
         cellFailures: new Map(),
@@ -1901,6 +1915,19 @@
         return { students, therapists, counts: new Map(therapists.map((t) => [t.id, therapistSessionCounts(t.id)])) };
     }
 
+    // Classes in the school's order: подготвителна, then I–IX by the first
+    // numeral of the label (a combined „II-б, III-б" counts as its youngest),
+    // anything else after them, pupils without a class last.
+    const NO_GRADE = '—';
+    function gradeRank(grade) {
+        const text = String(grade || '').trim();
+        if (!text || text === NO_GRADE) return 99;
+        if (/^подг/i.test(text) || text === 'П') return 0;
+        const roman = /^(IX|IV|V?I{0,3})/.exec(text.toUpperCase())[1];
+        return { I: 1, II: 2, III: 3, IV: 4, V: 5, VI: 6, VII: 7, VIII: 8, IX: 9 }[roman] || 50;
+    }
+    const byGrade = (a, b) => gradeRank(a) - gradeRank(b) || String(a).localeCompare(String(b), 'mk');
+
     function reportTable(headers, rows) {
         return '<table class="report-table"><thead><tr>' + headers.map((h) => '<th scope="col">' + esc(h) + '</th>').join('') +
             '</tr></thead><tbody>' + (rows.length ? rows.map((row) => '<tr>' + row.map((v) => '<td>' + esc(v) + '</td>').join('') + '</tr>').join('') :
@@ -1932,13 +1959,26 @@
                     : '') +
                 '</section>';
         }).join('');
-        const rows = [...students.values()].sort(sort).map((s) => {
+        const everyRow = [...students.values()].sort(sort).map((s) => {
             const visits = therapists.map((t) => ({ t, n: counts.get(t.id).get(s.public_id) || 0 })).filter((v) => v.n);
-            return { s, visits };
+            return { s, visits, total: visits.reduce((sum, v) => sum + v.n, 0) };
         }).filter((r) => r.visits.length);
+        // The classes offered are those of the pupils shown for this therapist;
+        // a class that is no longer among them is not a filter any more.
+        state.reportGrades = [...new Set(everyRow.map((r) => r.s.grade || NO_GRADE))].sort(byGrade);
+        if (!state.reportGrades.includes(state.reportGrade)) state.reportGrade = '';
+        const [sortKey, sortWay] = state.reportSort.split('-');
+        const measure = { visits: (r) => r.total, cabinets: (r) => r.visits.length }[sortKey];
+        const way = sortWay === 'desc' ? -1 : 1;
+        // `sort` is stable: pupils that tie keep the alphabetical order they came in.
+        const rows = everyRow.filter((r) => state.reportGrade === '' || (r.s.grade || NO_GRADE) === state.reportGrade)
+            .sort((a, b) => sortKey === 'name' ? (way < 0 ? -sort(a.s, b.s) : 0)
+                : sortKey === 'grade' ? way * byGrade(a.s.grade || NO_GRADE, b.s.grade || NO_GRADE)
+                    : way * (measure(a) - measure(b)));
         const totalVisits = rows.reduce((sum, row) => sum + row.visits.reduce((n, v) => n + v.n, 0), 0);
         const usedTherapists = new Set(rows.flatMap(row => row.visits.map(v => v.t.id)));
-        const scope = state.reportTherapists.visits ? therapists.map(t => t.name).join(', ') : 'Сите терапевти';
+        const scope = (state.reportTherapists.visits ? therapists.map(t => t.name).join(', ') : 'Сите терапевти')
+            + (state.reportGrade ? ' · ' + (state.reportGrade === NO_GRADE ? 'без одделение' : 'одделение ' + state.reportGrade) : '');
         return '<section class="report-section"><p class="report-note report-scope">Приказ: ' + esc(scope) + '</p>' +
             '<h3>' + rows.length + ' ученици со закажани посети</h3>' +
             '<p class="report-note report-totals">Кабинети со посети: ' + usedTherapists.size + ' · Вкупно посети неделно: ' + totalVisits + '</p>' +
@@ -1954,7 +1994,9 @@
         select.innerHTML = '<option value="">Сите терапевти</option>' + all.map((t) => '<option value="' + t.id + '">' + esc(t.name) + '</option>').join('');
         select.value = state.reportTherapists[state.panel];
         el('reportFilterLabel').textContent = state.panel === 'lists' ? 'Терапевт за списоците' : 'Терапевт за збирниот преглед';
-        el('reportAllTherapists').disabled = !state.reportTherapists[state.panel];
+        const visitsPanel = state.panel === 'visits';
+        el('reportGradeField').hidden = !visitsPanel;
+        el('reportSortField').hidden = !visitsPanel;
         el('reportPanel').setAttribute('aria-labelledby', state.panel === 'lists' ? 'listsTab' : 'visitsTab');
         el('reportTitle').textContent = state.panel === 'lists' ? 'Списоци по терапевт' : 'Посети по ученик';
         el('reportYear').textContent = state.year;
@@ -1962,6 +2004,14 @@
             ? 'Годишен список и закажани ученици по терапевт. Нула значи дека ученикот нема закажан термин.'
             : 'Планирани посети според распоредот, не евиденција на присуство. Кабинети = различни терапевти со закажан термин. Бројките важат за избраниот филтер.';
         el('reportContent').innerHTML = state.roster ? reportHtml() : '<p>Податоците не се вчитани.</p>';
+        // After the table: it is the table that knows which classes its pupils have.
+        if (visitsPanel) {
+            el('reportGrade').innerHTML = '<option value="">Сите одделенија</option>' + (state.reportGrades || []).map((g) =>
+                '<option value="' + esc(g) + '">' + esc(g === NO_GRADE ? 'без одделение' : g) + '</option>').join('');
+            el('reportGrade').value = state.reportGrade;
+            el('reportSort').value = state.reportSort;
+        }
+        el('reportAllTherapists').disabled = !state.reportTherapists[state.panel] && !(visitsPanel && state.reportGrade);
         el('reportContent').querySelectorAll('[data-print-therapist]').forEach((b) => b.addEventListener('click', () => printReport(b.dataset.printTherapist)));
     }
 
@@ -4466,7 +4516,9 @@
         });
     });
     el('reportTherapist').addEventListener('change', () => { state.reportTherapists[state.panel] = el('reportTherapist').value; drawReports(); });
-    el('reportAllTherapists').addEventListener('click', () => { state.reportTherapists[state.panel] = ''; drawReports(); });
+    el('reportAllTherapists').addEventListener('click', () => { state.reportTherapists[state.panel] = ''; if (state.panel === 'visits') state.reportGrade = ''; drawReports(); });
+    el('reportGrade').addEventListener('change', () => { state.reportGrade = el('reportGrade').value; drawReports(); });
+    el('reportSort').addEventListener('change', () => { state.reportSort = el('reportSort').value; drawReports(); });
     el('printReport').addEventListener('click', () => printReport());
     el('rosterTherapist').addEventListener('change', () => {
         if (isRestrictedTherapist()) applyUserConstraints();
