@@ -1,0 +1,1397 @@
+<!DOCTYPE html>
+<html lang="mk" class="mtb-flat">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Докази — MTB</title>
+<script src="mtb-theme.js"></script>
+<link rel="stylesheet" href="mtb-look.css">
+<style>
+/* The owner's evidence for the title of mentor (12 Oct 2026), in the manner of
+   Обележувачи: the standards on the left as collections, evidence as cards on
+   the right. Palette, header and buttons are mtb-look.css; the layout is this page's. */
+:root { --side: 300px; --tile-l: 90%; --tile-s: 55%; }
+:root[data-theme="dark"] { --tile-l: 26%; --tile-s: 30%; }
+body { font-size: 15px; line-height: 1.45; min-height: 100vh; display: flex; flex-direction: column; }
+header .grow { flex: 1; }
+header .btn { min-height: 34px; padding: 6px 14px; font-size: 14px; opacity: 1; }
+#status { font-weight: 600; }
+#status.bad { color: #7a1010; }
+:root[data-theme="dark"] #status.bad { color: #ffb4b4; }
+
+.notice { margin: 12px 16px 0; padding: 12px 14px; border: 2px solid var(--border); border-left: 5px solid var(--warn); border-radius: 8px; background: var(--warn-bg); color: var(--text); }
+.notice p { margin: 0 0 8px; }
+.notice form, .notice .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.notice[hidden] { display: none; }
+
+.shell[hidden] { display: none; }
+.shell { flex: 1; display: grid; grid-template-columns: var(--side) minmax(0, 1fr); min-height: 0; }
+aside { border-right: 2px solid var(--border); background: var(--soft); padding: 12px 10px 20px; overflow: auto; color: var(--text); }
+aside h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 18px 6px 6px; }
+aside nav { display: flex; flex-direction: column; gap: 2px; }
+.cover-box { margin: 0 6px 12px; font-size: 13.5px; }
+.cover-box b { font-size: 15px; }
+.cover-box progress { display: block; width: 100%; height: 10px; margin-top: 6px; accent-color: var(--mtb-flat); }
+.shelf {
+    display: flex; align-items: center; gap: 8px; width: 100%; text-align: left; padding: 6px 10px; border: 1px solid transparent;
+    border-radius: 8px; background: transparent; color: var(--text); font-size: 14px; cursor: pointer;
+}
+.shelf.sub { padding-left: 24px; font-size: 13px; }
+.shelf .name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.shelf .n { color: var(--muted); font-size: 12.5px; font-variant-numeric: tabular-nums; }
+.shelf:hover { border-color: var(--mtb-flat-line); background: var(--card); }
+/* What is chosen carries the suite's one „chosen" run (mtb-look.css, mtb-palette). */
+.shelf[aria-current="true"] { background: var(--mtb-selected); color: var(--mtb-on-ink); border-color: var(--mtb-select-line); font-weight: 700; }
+.shelf[aria-current="true"] .n { color: inherit; }
+.shelf:focus-visible, .card a:focus-visible, main button:focus-visible, .why:focus-visible { outline: 3px solid var(--primary); outline-offset: 1px; }
+.side-foot { display: flex; flex-direction: column; gap: 6px; margin: 22px 6px 0; }
+.side-foot .btn { min-height: 32px; padding: 4px 12px; font-size: 13.5px; justify-content: flex-start; }
+.side-foot .hint { color: var(--muted); font-size: 12.5px; margin: 0; }
+
+main { padding: 14px 18px 60px; min-width: 0; color: var(--text); }
+.tools { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 14px; }
+.tools[hidden] { display: none; }
+.tools input[type=search] { flex: 1 1 220px; min-width: 0; }
+input[type=search], input[type=text], input[type=number], input[type=password], select, textarea {
+    min-height: 36px; padding: 6px 10px; border: 1px solid var(--mtb-flat-line); border-radius: 8px;
+    background: var(--card); color: var(--text); font-size: 14.5px; font-family: inherit;
+}
+.tools .btn { min-height: 36px; padding: 6px 14px; }
+.heading { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0 0 12px; }
+.heading h2 { font-size: 1.25rem; margin: 0 8px 0 0; }
+.heading .n, h3 .n { color: var(--muted); font-weight: 400; font-size: .9em; }
+.heading .btn, main .btn.small { min-height: 30px; padding: 3px 11px; font-size: 13px; }
+html body .btn.soft.del { color: var(--danger); }
+.empty { color: var(--muted); padding: 10px 6px; margin: 0; }
+main h3 { font-size: 1.02rem; margin: 22px 0 8px; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+
+.cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 14px; }
+.card { display: flex; flex-direction: column; background: var(--card); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; box-shadow: var(--shadow); color: var(--text); }
+.card:hover { border-color: var(--mtb-flat-line); }
+.cover { position: relative; display: grid; place-items: center; aspect-ratio: 16 / 9; background: hsl(var(--h, 210) var(--tile-s) var(--tile-l)); color: var(--text); text-decoration: none; overflow: hidden; }
+.cover .letter { font-size: 40px; font-weight: 700; opacity: .55; }
+.cover img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.card .body { display: flex; flex-direction: column; gap: 5px; padding: 10px 12px 10px; flex: 1; min-width: 0; }
+.card .title { font-weight: 650; color: var(--text); text-decoration: none; overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+a.title:hover { text-decoration: underline; }
+.card .meta { color: var(--muted); font-size: 12.5px; }
+.chips { display: flex; flex-wrap: wrap; gap: 4px; }
+.chip { border: 1px solid var(--mtb-flat-line); border-radius: 999px; background: var(--soft); color: var(--text); font-size: 12px; padding: 1px 8px; cursor: pointer; font-family: inherit; }
+.chip:hover { border-color: var(--mtb-flat); }
+.chip.part { border-radius: 8px; padding: 2px 8px; text-align: left; overflow-wrap: anywhere; }
+.chip.gone { border-style: dashed; color: var(--danger); }
+.warn { color: var(--danger); font-size: 12.5px; font-weight: 600; }
+.cards.list { grid-template-columns: 1fr; gap: 6px; }
+.cards.list .card { flex-direction: row; align-items: stretch; border-radius: 10px; }
+.cards.list .cover { flex: none; width: 72px; aspect-ratio: auto; }
+.cards.list .cover .letter { font-size: 22px; }
+.cards.list .body { padding: 6px 12px; gap: 2px; }
+.cards.list .title { -webkit-line-clamp: 1; }
+
+/* The table the commission reads: indicator, evidence, explanation, attachments. */
+table.sheet { width: 100%; border-collapse: collapse; background: var(--card); color: var(--text); font-size: 14px; }
+table.sheet th, table.sheet td { border: 1px solid var(--border); padding: 7px 9px; vertical-align: top; text-align: left; }
+table.sheet th { font-size: 12.5px; text-transform: uppercase; letter-spacing: .04em; }
+table.sheet td.ind { width: 27%; }
+table.sheet td.ev { width: 19%; }
+table.sheet td.atts { width: 20%; }
+table.sheet td.none { color: var(--muted); font-style: italic; }
+table.sheet .pts { color: var(--muted); white-space: nowrap; }
+table.sheet a.no { font-weight: 700; color: var(--text); }
+.acts { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.why { min-height: 2.9em; white-space: pre-wrap; overflow-wrap: anywhere; border: 1px dashed transparent; border-radius: 6px; padding: 3px 5px; margin: -3px -5px; color: var(--text); }
+.why:hover, .why:focus { border-color: var(--mtb-flat-line); background: var(--soft); }
+.why:empty::before { content: attr(data-placeholder); color: var(--muted); }
+.only-print { display: none; }
+
+/* One piece of evidence, opened. */
+.detail { max-width: 1040px; }
+.detail .top { display: grid; grid-template-columns: 110px 1fr; gap: 10px; }
+.detail label { display: flex; flex-direction: column; gap: 3px; font-size: 13px; color: var(--muted); margin-bottom: 10px; }
+.detail textarea { resize: vertical; }
+.part-row { display: grid; grid-template-columns: 64px minmax(0, 1.1fr) minmax(0, 1.4fr) auto; gap: 8px; align-items: center; padding: 6px 0; border-top: 1px solid var(--border); }
+.part-row .thumb { width: 64px; height: 48px; border-radius: 6px; background: var(--soft); display: grid; place-items: center; font-size: 22px; overflow: hidden; border: 1px solid var(--border); cursor: pointer; color: var(--text); padding: 0; }
+.part-row .thumb img { width: 100%; height: 100%; object-fit: cover; }
+.part-row .where { color: var(--muted); font-size: 12px; overflow-wrap: anywhere; }
+.part-row .acts { margin: 0; flex-wrap: nowrap; }
+.link-box { border: 1px solid var(--border); border-radius: 10px; background: var(--card); padding: 10px 12px; margin-bottom: 10px; }
+.link-box .head { display: flex; gap: 8px; align-items: flex-start; margin-bottom: 6px; }
+.link-box .head .text { flex: 1; }
+.link-box details { margin-top: 8px; font-size: 13.5px; }
+.link-box details label { flex-direction: row; align-items: center; gap: 8px; color: var(--text); font-size: 13.5px; margin: 4px 0 0; }
+.pair { display: grid; grid-template-columns: 1fr 1fr auto; gap: 10px; align-items: start; border: 1px solid var(--border); border-radius: 10px; background: var(--card); padding: 10px 12px; margin-bottom: 8px; }
+.pair .side b { display: block; }
+.file-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 5px 0; border-top: 1px solid var(--border); }
+.file-row .name { flex: 1 1 260px; overflow-wrap: anywhere; }
+.file-row .n { color: var(--muted); font-size: 12.5px; }
+
+dialog { border: 2px solid var(--border); border-radius: 12px; background: var(--card); color: var(--text); padding: 18px 20px; width: min(94vw, 680px); max-height: 88vh; }
+dialog::backdrop { background: rgba(8, 20, 34, .5); }
+dialog h2 { margin: 0 0 12px; font-size: 1.1rem; }
+dialog form { display: flex; flex-direction: column; gap: 10px; max-height: calc(88vh - 44px); }
+dialog .list { overflow: auto; border: 1px solid var(--border); border-radius: 8px; padding: 4px 8px; min-height: 120px; }
+dialog .list h4 { margin: 10px 0 4px; font-size: 12.5px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+dialog .list label { display: flex; gap: 8px; align-items: flex-start; padding: 4px 2px; font-size: 14px; color: var(--text); cursor: pointer; }
+dialog .list label[hidden] { display: none; }
+dialog .list label small { color: var(--muted); }
+dialog .row { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; }
+dialog .btn { min-height: 36px; padding: 6px 16px; }
+dialog p { margin: 0; }
+
+@media (max-width: 760px) {
+    .shell { grid-template-columns: 1fr; }
+    aside { border-right: 0; border-bottom: 2px solid var(--border); padding: 8px 10px 10px; max-height: 42vh; }
+    .side-foot { flex-direction: row; flex-wrap: wrap; margin-top: 12px; }
+    .side-foot .hint { display: none; }
+    main { padding: 12px 10px 50px; }
+    .cards { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+    table.sheet, table.sheet tbody, table.sheet tr, table.sheet td { display: block; width: auto !important; }
+    table.sheet thead { display: none; }
+    table.sheet tr { margin-bottom: 8px; }
+    .part-row { grid-template-columns: 48px 1fr; }
+    .detail .top, .pair { grid-template-columns: 1fr; }
+}
+@media print {
+    header, aside, .tools, .notice, .screen, dialog { display: none !important; }
+    .only-print { display: block; }
+    body, main, table.sheet { background: #fff !important; color: #000 !important; }
+    .shell { display: block; }
+    main { padding: 0; }
+    main h3 { break-after: avoid; }
+    table.sheet { font-size: 10.5pt; }
+    table.sheet th, table.sheet td { border-color: #555; color: #000; }
+    table.sheet tr { break-inside: avoid; }
+    .why { border: 0; margin: 0; padding: 0; min-height: 0; color: #000; }
+    .why:empty::before { content: ''; }
+    .chip.part { border: 0; background: none; padding: 0; display: block; color: #000; font-size: 9.5pt; }
+    table.sheet a.no, .heading h2 { color: #000; text-decoration: none; }
+}
+</style>
+</head>
+<body>
+<header>
+    <h1>📑 Докази</h1>
+    <span class="sub" id="status" role="status" aria-live="polite">Вчитувам…</span>
+    <span class="grow"></span>
+    <a class="btn soft" id="toWorkspace" href="MTB-Workspace.html">↩ Работен простор</a>
+    <button type="button" class="btn soft" id="theme"></button>
+</header>
+<div class="notice" id="notice" hidden></div>
+<div class="shell" id="shell" hidden>
+    <aside aria-label="Стандарди и прегледи">
+        <div class="cover-box" id="coverage"></div>
+        <nav id="shelves" aria-label="Прегледи"></nav>
+        <h2>Подрачја и индикатори</h2>
+        <nav id="areas" aria-label="Подрачја"></nav>
+        <div class="side-foot">
+            <button type="button" class="btn soft" id="connect" title="Папката на овој компјутер во која се датотеките на доказите (секоја еднаш). Само се чита.">📂 Поврзи папка</button>
+            <button type="button" class="btn soft" id="pack" title="Страница што се отвора без MTB, папка по доказ и папка по индикатор — во папка што ќе ја избереш">📦 Извези за комисија</button>
+            <button type="button" class="btn soft" id="print" title="Табелата: индикатор, доказ, образложение, прилози">🖨 Печати табела</button>
+            <button type="button" class="btn soft" id="exportFile" title="Сите докази и врски во една датотека — резерва">📤 Извези резерва</button>
+            <label class="btn soft" title="Резерва од оваа страница — ги ЗАМЕНУВА сите докази">♻️ Врати од резерва<input type="file" id="importJson" accept=".json,application/json" hidden></label>
+            <label class="btn soft" title="Извоз (JSON) од старата „Табела со докази“: истите наслови стануваат еден доказ">📥 Внеси од старата табела<input type="file" id="importOld" accept=".json,application/json" hidden></label>
+            <p class="hint" id="folderHint"></p>
+        </div>
+    </aside>
+    <main>
+        <div class="tools" id="tools">
+            <input type="search" id="search" placeholder="барај по наслов, опис, образложение, датотека…" aria-label="Барај">
+            <select id="sort" aria-label="Редослед">
+                <option value="no">По број</option>
+                <option value="title">По наслов</option>
+                <option value="new">Најнови први</option>
+            </select>
+            <button type="button" class="btn soft" id="viewGrid" aria-pressed="true" title="Картички со слика">▦ Мрежа</button>
+            <button type="button" class="btn soft" id="viewList" aria-pressed="false" title="Ред по ред">☰ Листа</button>
+            <button type="button" class="btn btn-primary" id="addItem" title="Нов доказ (или залепи линк со Ctrl+V)">+ Додај</button>
+        </div>
+        <div class="heading" id="heading"></div>
+        <div id="out"></div>
+    </main>
+</div>
+
+<dialog id="picker" aria-labelledby="pickerTitle">
+    <form id="pickerForm" method="dialog">
+        <h2 id="pickerTitle"></h2>
+        <p id="pickerHint"></p>
+        <input type="search" id="pickerSearch" placeholder="барај…" aria-label="Барај во списокот">
+        <div class="list" id="pickerList"></div>
+        <div class="row">
+            <span id="pickerExtra"></span>
+            <button type="button" class="btn soft" id="pickerCancel">Откажи</button>
+            <button type="submit" class="btn btn-primary" id="pickerSave">Зачувај</button>
+        </div>
+    </form>
+</dialog>
+
+<script>
+/*
+ * The owner's evidence for the title of mentor — the document of migration 059.
+ *
+ * The old table was a row per indicator: the same evidence was typed again
+ * under every indicator it covers and its files were copied into a folder per
+ * indicator. Here a piece of EVIDENCE exists once (number, title, files and
+ * links), and a LINK ties it to an indicator and carries the explanation for
+ * that indicator. The table, the coverage, the folders for the commission and
+ * the list of unused files are all read from the links.
+ *
+ * One document with a revision, saved exactly as Обележувачи saves: a save
+ * names the revision it started from; when another computer saved in between
+ * the server refuses and the PERSON chooses. Until the server has answered
+ * this page holds nothing, so an empty page can never be saved over the stored
+ * evidence (rule 3). The files stay in a folder on this computer; the document
+ * holds only their names.
+ */
+(() => {
+    'use strict';
+    const TOKEN_KEY = 'evidence_token_v1';          // the shared PIN sign-in of the MTB screens
+    const DRAFT_KEY = 'mtb_dokazi_draft_v1';        // changes the server has not confirmed yet
+    const LOOK_KEY = 'mtb_dokazi_look_v1';          // grid or list, the order, pairs judged different: this browser's convenience
+    const PUSH_DELAY = 1200, RETRY = 15000;
+    const PAGE_TITLE = document.title;
+
+    // ── the standards: 7 areas, 14 sections, 55 indicators, 80 points ─────
+    // [points, text]; an indicator's code is area.section.row and is what a link stores.
+    const STANDARD = [
+        ['1', 'РАБОТА СО УЧЕНИЦИ', [
+            ['1.1', 'ПОДДРШКА НА УЧЕНИЦИТЕ ВО УЧЕЊЕТО', [
+                [1, 'Ја проценува подготвеноста на учениците за вклучување и напредување во образовниот систем.'],
+                [1, 'Умее да ги идентификува различните образовни потреби на учениците и користи различни пристапи во помагањето на учениците во користење на соодветната стратегија и техника во учењето.'],
+                [1, 'Има познавање за користење асистивна технологија при работа со ученици со посебни образовни потреби.'],
+                [2, 'Обезбедува сите ученици да имаат еднакви можности за успех користејќи приоди за подобрување на учењето базирани на најновите научни сознанија.'],
+                [2, 'Познава различни концепти и модели за развој на инклузивно образование и ги користи за градење на инклузивно училиште.']]],
+            ['1.2', 'СЛЕДЕЊЕ И ПОДДРШКА НА РАЗВОЈОТ НА УЧЕНИЦИТЕ', [
+                [2, 'Применува индивидуална и групна форма на работа со учениците прилагодувајќи ги на создадената ситуацијата и видот на проблемот.'],
+                [1, 'Идентификува и соодветно реагира на кризни состојби на учениците.'],
+                [2, 'Развива стратегија за поддршка на развојот на учениците, прилагодена на специфичните можности, потреби и интереси на ученици и спецификите на самото училиштето.']]],
+            ['1.3', 'КАРИЕРНО СОВЕТУВАЊЕ НА УЧЕНИЦИТЕ', [
+                [1, 'Избира и користи соодветни методи и инструменти за професионална ориентација и советување за кариерно насочување на ученици.'],
+                [1, 'Професионалното и кариерно советување на учениците го базира на утврдените интереси, способности и општествени можности.'],
+                [2, 'Го унапредува процесот на професионална ориентација и кариерно насочување во училиштето.']]]]],
+        ['2', 'РАБОТА СО НАСТАВНИЦИ', [
+            ['2.1', 'ПОДДРШКА НА НАСТАВНИЦИТЕ ЗА ПЛАНИРАЊЕ И РЕАЛИЗИРАЊЕ НА ВОСПИТНО-ОБРАЗОВНИОТ ПРОЦЕС И САМОЕВАЛУАЦИЈАТА', [
+                [1, 'Дава стручна поддршка во планирање на наставата/изготвување на индивидуален образовен план.'],
+                [1, 'Дава насоки на наставниците како да ги користи резултатите од оценувањето за подобрување на планирањето, поучувањето, вреднувањето и учењето.'],
+                [1, 'Дава поддршка во спроведување на проектни активности и воннаставни активности со кои се подобрува квалитетот на наставата.'],
+                [1, 'Им помага на наставниците да избираат и изготвуваат инструменти за вреднување и самовреднување на постигањата на учениците и соодветно да ги користат или им помага на наставниците при планирањето да водат грижа за социјалните и културните карактеристики на средината и семејствата на учениците.'],
+                [2, 'Промовира современи и иновативни приоди во реализацијата на воспитно-образовна работа.']]],
+            ['2.2', 'ПОДДРШКА НА НАСТАВНИЦИТЕ ЗА РАБОТА СО УЧЕНИЦИТЕ И РОДИТЕЛИТЕ', [
+                [1, 'Им помага на наставниците во изборот на соодветни методи, активности и содржини за соработка со родителите.'],
+                [1, 'Дава поддршка на наставниците за користење на индивидуализација и диференцијација во наставата, во додатната и дополнителната настава и воннаставните активности.'],
+                [1, 'Дава помош на наставникот во справување со непочитувањето на правилата за и разрешување на проблеми со однесувањето на учениците.'],
+                [2, 'Им помага на наставниците во препознавање и работа со различни ученици според можностите, потребите и интересите.'],
+                [2, 'Придонесува за создавање стимулативна и поттикнувачка средина за учениците во училиштето.'],
+                [2, 'Создава клима на прифаќање на различностите и конструктивно справување со кризни состојби.']]]]],
+        ['3', 'РАБОТА СО РОДИТЕЛИ', [
+            ['3.1', 'ИНДИВИДУАЛНИ И ГРУПНИ СОВЕТУВАЊА, КОНСУЛТАЦИИ И ЕДУКАЦИЈА СО РОДИТЕЛИТЕ', [
+                [1, 'Ги идентификува потенцијалните кризни ситуации во семејствата што го засегаат развојот и учењето на учениците и дава соодветна поддршка на семејството.'],
+                [1, 'На родителите на децата со посебни образовни потреби им помага да ја разберат и прифатат состојбата на нивните деца и да им ја дадат потребната помош и поддршка.'],
+                [1, 'Им помага на родителите да развијат вештини поквалитетно да го поттикнат развојот и учењето на своето дете почитувајќи ги современите трендови за родителство.'],
+                [2, 'Соодветно реагира на конфликтни ситуации на релација родител - училиште.'],
+                [2, 'Го подобрува информирањето на родителите од страна на училиштето.']]],
+            ['3.2', 'ВКЛУЧУВАЊЕ НА РОДИТЕЛИТЕ ВО ЖИВОТОТ И РАБОТАТА НА УЧИЛИШТЕТО', [
+                [2, 'Систематично ја подобрува соработката на училиштето со семејството.']]]]],
+        ['4', 'СОРАБОТКА СО ЗАЕДНИЦАТА', [
+            ['4.1', 'СОРАБОТКА СО ЛОКАЛНАТА ЗАЕДНИЦА И СТРУЧНИТЕ ИНСТИТУЦИИ И ОРГАНИЗАЦИИ', [
+                [1, 'Придонесува вредностите на културите во заедницата да се рефлектираат во сите аспекти на работата на училиштето.'],
+                [2, 'Иницира и развива партнерска соработка со заедницата за прашања релевантни за образованието во заедницата.']]]]],
+        ['5', 'ПРОФЕСИОНАЛЕН РАЗВОЈ И ПРОФЕСИОНАЛНА СОРАБОТКА', [
+            ['5.1', 'ЛИЧЕН ПРОФЕСИОНАЛЕН РАЗВОЈ', [
+                [1, 'Соработува со стручните соработници и со професионални здруженија во и надвор од училиштето.'],
+                [1, 'Ги идентификува потребите за личен професионален развој користејќи ги стандардите и резултатите од саморефлексија на сопствената работа.'],
+                [2, 'Стекнатите знаења преку стручно усовршување (формалното, неформалното и информалното образование и учење) ги користи за унапредување на сопствената пракса.'],
+                [2, 'Изготвува инструменти за рефлексија и самоевалуација и ги споделува искуствата од сопствениот професионален развој и професионална практика.']]],
+            ['5.2', 'ПОДДРШКА НА ПРОФЕСИОНАЛНИОТ РАЗВОЈ И СОРАБОТКАТА ВО УЧИЛИШТЕТО', [
+                [2, 'Планирањето на професионалниот развој го поврзува со потребните компетенции на наставниците и стручните соработници и промовира доживотно учење.'],
+                [2, 'Придонесува за професионалниот развој на воспитно-образовниот кадар во училиштето преку реализирање разни форми на обуки и поддршка.'],
+                [2, 'Воспоставува систем на професионален развој на воспитно-образовниот кадар во училиштето.']]]]],
+        ['6', 'АНАЛИТИЧКО ИСТРАЖУВАЧКА РАБОТА', [
+            ['6.1', 'АНАЛИЗА И ПРОЦЕНКА НА ВОСПИТНО ОБРАЗОВНАТА РАБОТА', [
+                [1, 'Поврзува, обработува и анализира различни податоци за воспитно образовната работа и извлекува заклучоци од анализите.'],
+                [1, 'Придонесува да се воспостави систем за редовни анализи на одделни воспитно-образовни прашања во училиштето.'],
+                [1, 'Ги интерпретира резултатите од анализите и известува за нив.'],
+                [1, 'Се залага резултатите од анализите да се користат за унапредување воспитно-образовниот процес.']]],
+            ['6.2', 'ИСТРАЖУВАЊЕ НА ВОСПИТНО-ОБРАЗОВНАТА РАБОТА', [
+                [1, 'Ги почитува методолошките стандарди при избор и изработка на мерни инструменти и правилата за користење на истите.'],
+                [1, 'Спроведува истражувања/акциски истражувања на прашања актуелни за училиштето, процесот на учење и за учениците.'],
+                [2, 'Ги користи резултатите од истражувањата во сопствената практика.']]]]],
+        ['7', 'УЧИЛИШНА ОРГАНИЗАЦИЈА, СТРУКТУРА И КЛИМА', [
+            ['7.1', 'УЧИЛИШНА СТРУКТУРА И ОРГАНИЗАЦИЈА', [
+                [1, 'Го следи воспитно-образовниот процес и предлага мерки за унапредување.'],
+                [1, 'Користи инструменти за следење и ги интерпретира добиените сознанија за следениот час; развива стратегии за подобрување на наставата; или учествува во процесот на опфаќање на училишните обврзници и формирање на паралелките.'],
+                [2, 'Ги следи и анализира промените во образованието и ги користи при градење на образовни политики во училиштето.'],
+                [2, 'Резултатите од евалуацијата на работата на училиштето ги користи за подигање на квалитетот на воспитно-образовниот процес.']]],
+            ['7.2', 'УЧИЛИШНА КЛИМА, БЕЗБЕДНА СРЕДИНА И ДЕМОКРАТСКО УЧЕСТВО', [
+                [1, 'Придонесува за инклузивната клима во училиштето.'],
+                [2, 'Развива стратегии за мултикултурализам, интеркултурализам и меѓуетничка интеграција и соработка и демократско учество на учениците во училиштето.'],
+                [1, 'Ги идентификува можните закани по безбедноста кои се специфични за училиштето и за конкретната популација во училиштето.'],
+                [2, 'Создава позитивна и недискриминаторска училишна клима и комуникација.'],
+                [1, 'Практикува различни начини за справување со кризни ситуации во училиштето или се грижи за вклученоста на учениците со девијантно однесување во активностите во и надвор од училиштето, или работи на обезбедување целосен опфат на учениците од семејства со социјален ризик или се грижи за соодветна вклученоста на учениците со посебни образовни потреби во активностите на ученичките заедници.'],
+                [2, 'Развива стратегии за создавање безбедна и стимулативна средина за учење.'],
+                [2, 'Го осмислува процесот на кризна интервенција во училиштето.']]]]]
+    ];
+    const AREAS = STANDARD.map(([no, name, sections]) => ({ no, name,
+        sections: sections.map(([sno, sname, rows]) => ({ no: sno, name: sname, area: no,
+            rows: rows.map(([points, text], i) => ({ code: sno + '.' + (i + 1), points, text, section: sno, area: no })) })) }));
+    const SECTIONS = AREAS.flatMap((a) => a.sections);
+    const INDICATORS = SECTIONS.flatMap((s) => s.rows);
+    const BY_CODE = new Map(INDICATORS.map((i) => [i.code, i]));
+    const TOTAL_POINTS = INDICATORS.reduce((sum, i) => sum + i.points, 0);
+
+    // ── small things ──────────────────────────────────────────────────────
+    const $ = (id) => document.getElementById(id);
+    const rid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+    const clip = (v, n) => String(v == null ? '' : v).slice(0, n);
+    const lower = (v) => String(v).toLocaleLowerCase('mk-MK');
+    const norm = (v) => lower(v).replace(/[\s.,;:!?„“”"'()\-–—/]+/g, ' ').trim();
+    const codeKey = (code) => String(code).split('.').map((n) => n.padStart(2, '0')).join('.');
+    const byCode = (a, b) => codeKey(a.indicator).localeCompare(codeKey(b.indicator));
+    const points = (n) => n + (n === 1 ? ' бод' : ' бода');
+    const safeUrl = (v) => {
+        let u = String(v || '').trim();
+        if (u && !/^[a-z][a-z0-9+.-]*:/i.test(u)) u = 'https://' + u;
+        return /^https?:\/\/[^\s]+$/i.test(u) ? u.slice(0, 2000) : '';
+    };
+    const host = (u) => { try { return new URL(u).hostname.replace(/^www\./, ''); } catch (_) { return ''; } };
+    const youtubeId = (u) => (String(u).match(/(?:v=|youtu\.be\/|shorts\/)([\w-]{11})/) || [])[1];
+    const hue = (text) => { let h = 0; for (const ch of String(text)) h = (h * 31 + ch.codePointAt(0)) % 360; return h; };
+    const ext = (path) => (/\.([^./]+)$/.exec(path) || [])[1]?.toLowerCase() || '';
+    /** A path inside the chosen folder, the way the server accepts it — or ''. */
+    const cleanPath = (v) => String(v || '').replace(/\\/g, '/').split('/').map((p) => p.trim())
+        .filter((p) => p && p !== '.' && p !== '..' && !/^[a-z]:$/i.test(p)).join('/').slice(0, 500);
+    const kindOf = (part) => part.kind === 'link' ? (youtubeId(part.url) ? 'video' : 'link')
+        : /^(png|jpe?g|gif|webp|bmp|svg)$/.test(ext(part.path)) ? 'image'
+            : ext(part.path) === 'pdf' ? 'pdf' : /^(mp4|webm|mov|m4v|ogv)$/.test(ext(part.path)) ? 'video' : 'file';
+    const ICON = { image: '🖼', pdf: '📄', video: '🎬', link: '🔗', file: '📎' };
+    const nameOf = (part) => part.label || (part.kind === 'link' ? host(part.url) || part.url : part.path.split('/').pop());
+
+    function el(tag, props, ...kids) {
+        const node = document.createElement(tag);
+        for (const [key, value] of Object.entries(props || {})) {
+            if (value == null || value === false) continue;
+            if (key === 'class') node.className = value;
+            else if (key === 'text') node.textContent = value;
+            else if (key.startsWith('on')) node.addEventListener(key.slice(2), value);
+            else node.setAttribute(key, value === true ? '' : value);
+        }
+        for (const kid of kids) if (kid != null && kid !== false) node.append(kid);
+        return node;
+    }
+    /** Fills a place on the page; what a condition left out (false, null) is not drawn. */
+    const put = (node, ...kids) => node.replaceChildren(...kids.filter((kid) => kid != null && kid !== false));
+    const kept = (key) => { try { return JSON.parse(localStorage.getItem(key) || 'null'); } catch (_) { return null; } };
+    const keep = (key, value) => {
+        try { value == null ? localStorage.removeItem(key) : localStorage.setItem(key, JSON.stringify(value)); return true; }
+        catch (_) { return false; }
+    };
+    const wellFormed = (d) => Boolean(d && Array.isArray(d.items) && Array.isArray(d.links)
+        && d.items.every((i) => i && typeof i.id === 'string' && Array.isArray(i.parts))
+        && d.links.every((l) => l && typeof l.itemId === 'string' && Array.isArray(l.parts)));
+
+    let doc = null, revision = 0, dirty = false, seq = 0;
+    let conflict = null;        // the server's { doc, revision } when both sides changed
+    let stuck = false;          // the server refused this copy: no point sending it again unchanged
+    let pushing = false, timer = null;
+    const look = Object.assign({ view: 'grid', sort: 'no', apart: [] }, kept(LOOK_KEY) || {});
+
+    const emptyDoc = () => ({ title: 'Табела со докази',
+        subtitle: 'Оценка за исполнетоста на професионалните стандарди за стручен соработник – ментор', items: [], links: [] });
+
+    // ── the server ────────────────────────────────────────────────────────
+    function status(kind, text) { $('status').className = 'sub ' + kind; $('status').textContent = text; }
+
+    async function call(method, body) {
+        let token = '';
+        try { token = localStorage.getItem(TOKEN_KEY) || ''; } catch (_) { /* no storage: no PIN sign-in */ }
+        let r;
+        try {
+            r = await fetch('api/portfolio', { method, cache: 'no-store', credentials: 'same-origin',
+                headers: { 'content-type': 'application/json', ...(token ? { 'x-mtb-evidence-token': token } : {}) },
+                body: body === undefined ? undefined : JSON.stringify(body) });
+        } catch (_) { throw { status: 0, body: {}, message: 'Серверот не одговара.' }; }
+        const answer = await r.json().catch(() => null);
+        if (!r.ok) throw { status: r.status, body: answer || {}, message: (answer && answer.error) || 'HTTP ' + r.status };
+        return answer;
+    }
+
+    function notice(...kids) {
+        $('notice').replaceChildren(...kids);
+        $('notice').hidden = !kids.length;
+    }
+
+    /** Who may see them is the server's answer; this only says it in words. */
+    async function refused(err) {
+        if (err.status === 0) {
+            status('wait', dirty ? '⏳ Зачувано само во овој прелистувач — чека сервер' : '⏳ Серверот не одговара');
+            if (!doc) notice(el('p', { text: 'Серверот не одговара, па доказите не се вчитани. Ништо не е сменето.' }),
+                el('div', { class: 'row' }, el('button', { type: 'button', class: 'btn soft', text: '↻ Обиди се пак', onclick: open })));
+            return;
+        }
+        if (err.body.noAdmin) { status('bad', '⚠ Нема администратор'); return notice(el('p', { text: err.message })); }
+        if (err.body.needsAdmin || err.body.signedOut) return pinGate();
+        if (err.status === 401) {
+            status('bad', '⚠ Најавата истече');
+            return notice(el('p', { text: 'Најавата во MTB истече. Најави се пак; несочуваните измени остануваат во овој прелистувач.' }),
+                el('div', { class: 'row' }, el('a', { class: 'btn btn-primary', href: 'auth/login', text: 'Најави се во MTB' })));
+        }
+        stuck = true;
+        status('bad', '⚠ ' + err.message);
+        // Nothing loaded and no known reason: say so where the evidence would be (a database still without 059 answers like this).
+        if (!doc) notice(el('p', { text: 'Серверот ги одби доказите (' + err.message + '). Ништо не е сменето. Ако MTB штотуку е надграден, базата можеби уште ја нема миграцијата 059.' }),
+            el('div', { class: 'row' }, el('button', { type: 'button', class: 'btn soft', text: '↻ Обиди се пак', onclick: open })));
+    }
+
+    /** Only where the owner's own sign-in does not already say who is asking. */
+    async function pinGate() {
+        status('bad', '⚠ Потребна е најава');
+        let people = [];
+        try {
+            const r = await fetch('api/evidence/people', { cache: 'no-store', credentials: 'same-origin' });
+            people = r.ok ? ((await r.json()).people || []) : [];
+        } catch (_) { /* the form still says what is needed */ }
+        const who = el('select', { name: 'who', 'aria-label': 'Кој си' },
+            ...people.map((p) => el('option', { value: p.kind + ':' + p.id, text: p.name })));
+        const pin = el('input', { name: 'pin', type: 'password', inputmode: 'numeric', maxlength: '4', placeholder: 'PIN', 'aria-label': 'PIN', size: '6' });
+        const form = el('form', { id: 'gate', onsubmit: async (e) => {
+            e.preventDefault();
+            const [kind, id] = who.value.split(':');
+            try {
+                const r = await fetch('api/evidence/login', { method: 'POST', credentials: 'same-origin',
+                    headers: { 'content-type': 'application/json' }, body: JSON.stringify({ kind, personId: Number(id), pin: pin.value.trim() }) });
+                const answer = await r.json().catch(() => null);
+                if (!r.ok) throw new Error((answer && answer.error) || 'Најавата не успеа.');
+                try { localStorage.setItem(TOKEN_KEY, answer.token); } catch (_) { /* this visit cannot keep it */ }
+                open();
+            } catch (err) { alert(err.message || 'Најавата не успеа.'); }
+        } }, who, pin, el('button', { type: 'submit', class: 'btn btn-primary', text: 'Најави се' }));
+        notice(el('p', { text: 'Доказите се лични: ги гледа само администраторот. На овој сервер тоа се потврдува со име и PIN (4 цифри) — истиот како во „Списоци и пристап".' }), form);
+    }
+
+    /** Open: what the server holds, and this browser's unconfirmed changes if any. */
+    async function open() {
+        const draft = kept(DRAFT_KEY);
+        const mine = draft && wellFormed(draft.doc) && Number.isInteger(draft.revision) ? draft : null;
+        let server;
+        try { server = await call('GET'); } catch (err) { return refused(err); }
+        notice();
+        stuck = false;
+        if (!mine) {
+            doc = server.doc || emptyDoc(); revision = server.revision; dirty = false; conflict = null;
+            status('ok', server.revision ? '✓ Зачувано на серверот' : '✓ Поврзано — уште нема докази');
+            return render();
+        }
+        doc = mine.doc; revision = mine.revision; dirty = true;
+        if (mine.revision === server.revision) { conflict = null; render(); return push(); }
+        conflict = server;
+        render();
+    }
+
+    function showConflict() {
+        status('bad', '⚠ Одлучи која верзија важи');
+        notice(el('p', { text: 'Доказите се сменети и тука и од друго место. Ништо не се спојува само: избери која верзија останува.' }),
+            el('div', { class: 'row' },
+                el('button', { type: 'button', class: 'btn soft', id: 'takeServer', text: '⬇ Земи ги од серверот', onclick: () => {
+                    if (!confirm('Измените направени во овој прелистувач ќе се изгубат. Продолжи?')) return;
+                    doc = conflict.doc || emptyDoc(); revision = conflict.revision; dirty = false; conflict = null;
+                    keep(DRAFT_KEY, null); notice(); status('ok', '✓ Земени од серверот'); render();
+                } }),
+                el('button', { type: 'button', class: 'btn soft danger', id: 'overwriteServer', text: '⬆ Препиши го серверот со овие', onclick: () => {
+                    if (!confirm('Верзијата на серверот ќе биде заменета со оваа. Продолжи?')) return;
+                    revision = conflict.revision; conflict = null; stuck = false; notice(); render(); push();
+                } })));
+    }
+
+    async function push() {
+        if (!doc || !dirty || pushing || conflict || stuck) return;
+        pushing = true;
+        const sent = seq;
+        try {
+            const saved = await call('PUT', { doc, expected: revision });
+            revision = saved.revision;
+            if (seq === sent) { dirty = false; keep(DRAFT_KEY, null); status('ok', '✓ Зачувано на серверот'); }
+            else { keep(DRAFT_KEY, { doc, revision }); later(); }
+        } catch (err) {
+            if (err.status === 409 && err.body.reason === 'stale') {
+                conflict = await call('GET').catch(() => null);
+                if (conflict) render(); else status('bad', '⚠ ' + err.message);
+            } else await refused(err);
+        } finally { pushing = false; }
+    }
+    function later() { clearTimeout(timer); timer = setTimeout(push, PUSH_DELAY); }
+
+    /**
+     * Every change: a new copy, kept in this browser first, then sent. `quiet`
+     * is a field the person has just left: the screen already shows its text,
+     * and redrawing would take away the button they are reaching for.
+     */
+    function change(mutate, quiet) {
+        if (!doc) return false;
+        if (conflict) { alert('Прво одлучи која верзија важи (горе).'); return false; }
+        const next = structuredClone(doc);
+        mutate(next);
+        doc = next; dirty = true; stuck = false; seq++; pairsFor = null;
+        status('wait', keep(DRAFT_KEY, { doc, revision }) ? '⏳ Се зачувува…' : '⏳ Се зачувува… (не затворај ја страницата)');
+        later();
+        if (quiet) renderSide(); else render();
+        return true;
+    }
+    setInterval(push, RETRY);
+    window.addEventListener('online', push);
+    window.addEventListener('beforeunload', (e) => { if (dirty) { e.preventDefault(); e.returnValue = ''; } });
+
+    // ── reading the document ──────────────────────────────────────────────
+    const itemOf = (id) => doc.items.find((i) => i.id === id);
+    const linksOfItem = (id) => doc.links.filter((l) => l.itemId === id).sort(byCode);
+    const linksOfCode = (code) => doc.links.filter((l) => l.indicator === code)
+        .sort((a, b) => itemOf(a.itemId).no - itemOf(b.itemId).no || itemOf(a.itemId).order - itemOf(b.itemId).order);
+    const shownParts = (item, link) => link && link.parts.length ? item.parts.filter((p) => link.parts.includes(p.id)) : item.parts;
+    const coveredCodes = () => new Set(doc.links.map((l) => l.indicator).filter((c) => BY_CODE.has(c)));
+    const nextNo = (d) => d.items.reduce((max, i) => Math.max(max, i.no), 0) + 1;
+    const stamp = (text) => `Доказ ${text.no}`;
+
+    // Two titles a person probably typed for one piece of evidence. Never merged
+    // by this guess: the pair is shown and the person says which one stays.
+    function distance(a, b, limit) {
+        if (Math.abs(a.length - b.length) > limit) return limit + 1;
+        let prev = Array.from({ length: b.length + 1 }, (_, i) => i);
+        for (let i = 1; i <= a.length; i++) {
+            const row = [i];
+            for (let j = 1; j <= b.length; j++) row[j] = Math.min(prev[j] + 1, row[j - 1] + 1, prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+            prev = row;
+        }
+        return prev[b.length];
+    }
+    function lookAlike(a, b) {
+        const x = norm(a), y = norm(b);
+        if (!x || !y) return false;
+        if (x === y) return true;
+        const [short, long] = x.length <= y.length ? [x, y] : [y, x];
+        if (short.length >= 12 && long.startsWith(short)) return true;
+        return short.length >= 15 && distance(x, y, 3) <= 3;
+    }
+    const pairKey = (a, b) => [a, b].sort().join('|');
+    let pairsFor = null, pairsFound = [];
+    function pairs() {
+        if (pairsFor === doc) return pairsFound;
+        const apart = new Set(look.apart || []);
+        pairsFound = [];
+        for (let i = 0; i < doc.items.length; i++) for (let j = i + 1; j < doc.items.length; j++) {
+            const a = doc.items[i], b = doc.items[j];
+            if (!apart.has(pairKey(a.id, b.id)) && lookAlike(a.title, b.title)) pairsFound.push([a, b]);
+        }
+        pairsFor = doc;
+        return pairsFound;
+    }
+
+    /** Fold one piece of evidence into another: its files, its links and their explanations. */
+    function merge(keepId, foldId) {
+        change((d) => {
+            const into = d.items.find((i) => i.id === keepId), from = d.items.find((i) => i.id === foldId);
+            if (!into || !from) return;
+            const moved = new Map();     // the folded evidence's part id → the kept evidence's
+            for (const part of from.parts) {
+                const same = into.parts.find((p) => p.kind === part.kind && p.path === part.path && p.url === part.url);
+                if (same) { moved.set(part.id, same.id); if (!same.note) same.note = part.note; }
+                else if (into.parts.length < 80) { into.parts.push(part); moved.set(part.id, part.id); }
+            }
+            if (!into.summary) into.summary = from.summary;
+            else if (from.summary && !into.summary.includes(from.summary)) into.summary = clip(into.summary + '\n\n' + from.summary, 20000);
+            for (const link of d.links.filter((l) => l.itemId === foldId)) {
+                const parts = link.parts.map((p) => moved.get(p)).filter(Boolean);
+                const had = d.links.find((l) => l.itemId === keepId && l.indicator === link.indicator);
+                if (!had) { link.itemId = keepId; link.parts = parts; continue; }
+                if (link.why && !had.why.includes(link.why)) had.why = clip([had.why, link.why].filter(Boolean).join('\n\n'), 20000);
+                // „all parts" on either side stays „all parts".
+                had.parts = had.parts.length && parts.length ? [...new Set([...had.parts, ...parts])] : [];
+                d.links = d.links.filter((l) => l.id !== link.id);
+            }
+            d.items = d.items.filter((i) => i.id !== foldId);
+            into.updatedAt = Date.now();
+        });
+    }
+
+    // ── the folder with the files: this computer's, read only ─────────────
+    let dir = null;             // the folder's handle, once the person has chosen it
+    let files = null;           // path → file handle after a scan; null while not connected
+    let lowered = new Map();    // lower-cased path → path: Windows does not tell „Dokazi" from „dokazi"
+    const urls = new Map();     // path → object URL, made on first look
+    const canPick = typeof window.showDirectoryPicker === 'function';
+
+    function store(mode, work) {
+        return new Promise((resolve) => {
+            let request;
+            try { request = indexedDB.open('mtb_dokazi', 1); } catch (_) { return resolve(null); }
+            request.onupgradeneeded = () => request.result.createObjectStore('kv');
+            request.onerror = () => resolve(null);
+            request.onsuccess = () => {
+                try {
+                    const tx = request.result.transaction('kv', mode);
+                    const asked = work(tx.objectStore('kv'));
+                    tx.oncomplete = () => resolve(asked ? asked.result : null);
+                    tx.onerror = tx.onabort = () => resolve(null);
+                } catch (_) { resolve(null); }
+            };
+        });
+    }
+
+    async function scan() {
+        const found = new Map();
+        const walk = async (handle, prefix, depth) => {
+            for await (const [name, entry] of handle.entries()) {
+                if (name.startsWith('.') || found.size >= 5000) continue;
+                if (entry.kind === 'file') found.set(prefix + name, entry);
+                else if (depth < 4) await walk(entry, prefix + name + '/', depth + 1);
+            }
+        };
+        await walk(dir, '', 0);
+        files = found;
+        lowered = new Map([...found.keys()].map((p) => [p.toLowerCase(), p]));
+        urls.forEach((u) => URL.revokeObjectURL(u));
+        urls.clear();
+    }
+    const handleOf = (path) => files && (files.get(path) || files.get(lowered.get(String(path).toLowerCase())));
+    async function urlOf(path) {
+        if (urls.has(path)) return urls.get(path);
+        const handle = handleOf(path);
+        if (!handle) return '';
+        const url = URL.createObjectURL(await handle.getFile());
+        urls.set(path, url);
+        return url;
+    }
+
+    /** Chosen once; the browser remembers the folder and asks again only for permission. */
+    async function connect() {
+        if (!canPick) return alert('Овој прелистувач не може да отвори папка од компјутерот. Користи Chrome или Edge на компјутер.');
+        try {
+            if (dir && !files && await dir.requestPermission({ mode: 'read' }) === 'granted') { await scan(); return render(); }
+            dir = await window.showDirectoryPicker({ id: 'mtb-dokazi', mode: 'read' });
+            await store('readwrite', (kv) => kv.put(dir, 'dir'));
+            await scan();
+            render();
+        } catch (err) { if (err && err.name !== 'AbortError') alert('Папката не може да се отвори: ' + (err.message || err.name)); }
+    }
+    async function remembered() {
+        if (!canPick) return;
+        const handle = await store('readonly', (kv) => kv.get('dir'));
+        if (!handle || typeof handle.queryPermission !== 'function') return;
+        dir = handle;
+        try { if (await handle.queryPermission({ mode: 'read' }) === 'granted') await scan(); } catch (_) { files = null; }
+        if (doc) render();
+    }
+
+    async function openPart(part) {
+        if (part.kind === 'link') return window.open(part.url, '_blank', 'noopener,noreferrer');
+        if (!files) return alert('Датотеките се во папка на компјутерот. Кликни „📂 Поврзи папка" (лево долу) за да се отвораат од тука.');
+        const url = await urlOf(part.path);
+        if (!url) return alert(`„${part.path}" ја нема во поврзаната папка.`);
+        window.open(url, '_blank', 'noopener');
+    }
+    /** A small picture for an image part, filled in when the file has been read. */
+    function thumb(part) {
+        if (part.kind === 'link') {
+            const yt = youtubeId(part.url);
+            return yt ? el('img', { src: `https://img.youtube.com/vi/${yt}/mqdefault.jpg`, alt: '', loading: 'lazy', referrerpolicy: 'no-referrer' }) : null;
+        }
+        if (kindOf(part) !== 'image' || !handleOf(part.path)) return null;
+        const img = el('img', { alt: '', loading: 'lazy' });
+        urlOf(part.path).then((url) => { if (url) img.src = url; });
+        return img;
+    }
+    function partChip(part) {
+        const gone = part.kind === 'file' && files && !handleOf(part.path);
+        return el('button', { type: 'button', class: 'chip part' + (gone ? ' gone' : ''), title: (gone ? 'Ја нема во папката: ' : '') + (part.url || part.path) + (part.note ? '\n' + part.note : ''),
+            text: `${ICON[kindOf(part)]} ${nameOf(part)}`, onclick: () => openPart(part) });
+    }
+
+    // ── which view is open: a step in the browser's history ───────────────
+    function view() {
+        const hash = decodeURIComponent(location.hash.slice(1));
+        if (hash === 'tabela') return { kind: 'table', scope: '' };
+        if (hash === 'bez') return { kind: 'gaps' };
+        if (hash === 'slicni') return { kind: 'alike' };
+        if (hash === 'datoteki') return { kind: 'files' };
+        if (hash.startsWith('p=') && (AREAS.some((a) => a.no === hash.slice(2)) || SECTIONS.some((s) => s.no === hash.slice(2)))) return { kind: 'table', scope: hash.slice(2) };
+        if (hash.startsWith('d=') && doc && itemOf(hash.slice(2))) return { kind: 'item', id: hash.slice(2) };
+        return { kind: 'all' };
+    }
+    function go(hash) {
+        if (location.hash === hash || (!hash && !location.hash)) return render();
+        location.hash = hash;     // hashchange draws it
+    }
+    window.addEventListener('hashchange', () => { render(); window.scrollTo(0, 0); });
+
+    // ── drawing ───────────────────────────────────────────────────────────
+    function shelf(label, count, hash, current, sub) {
+        return el('button', { type: 'button', class: 'shelf' + (sub ? ' sub' : ''), 'aria-current': current ? 'true' : null, title: label, onclick: () => go(hash) },
+            el('span', { class: 'name', text: label }), el('span', { class: 'n', text: String(count) }));
+    }
+
+    function renderSide() {
+        const now = view();
+        const covered = coveredCodes();
+        const got = INDICATORS.filter((i) => covered.has(i.code)).reduce((sum, i) => sum + i.points, 0);
+        put($('coverage'), el('b', { id: 'coveredPoints', text: `${got} од ${TOTAL_POINTS} бода` }),
+            el('div', { id: 'coveredCount', text: `покриени ${covered.size} од ${INDICATORS.length} индикатори` }),
+            el('progress', { max: String(TOTAL_POINTS), value: String(got), 'aria-label': 'Покриени бодови' }));
+        const loose = doc.items.filter((i) => !doc.links.some((l) => l.itemId === i.id)).length;
+        const alike = pairs().length;
+        put($('shelves'), 
+            shelf('📚 Сите докази', doc.items.length, '', now.kind === 'all'),
+            shelf('📑 Табела', doc.links.length, '#tabela', now.kind === 'table' && !now.scope),
+            shelf('⚠ Без доказ', INDICATORS.length - covered.size + loose, '#bez', now.kind === 'gaps'),
+            alike > 0 && shelf('🔁 Слични наслови', alike, '#slicni', now.kind === 'alike'),
+            shelf('📁 Датотеки', files ? files.size : '—', '#datoteki', now.kind === 'files'));
+        const count = (rows) => `${rows.filter((i) => covered.has(i.code)).length}/${rows.length}`;
+        put($('areas'), ...AREAS.flatMap((a) => [
+            shelf(`${a.no}. ${a.name}`, count(a.sections.flatMap((s) => s.rows)), '#p=' + a.no, now.kind === 'table' && now.scope === a.no),
+            ...a.sections.map((s) => shelf(`${s.no} ${s.name}`, count(s.rows), '#p=' + s.no, now.kind === 'table' && now.scope === s.no, true))]));
+        $('connect').textContent = files ? '📂 Друга папка' : dir ? '📂 Дозволи ја папката' : '📂 Поврзи папка';
+        $('folderHint').textContent = files ? `Папка „${dir.name}": ${files.size} датотеки.`
+            : canPick ? 'Датотеките не се качуваат: остануваат во папка на овој компјутер.' : 'Отворањето датотеки работи во Chrome или Edge на компјутер.';
+    }
+
+    function cardNode(item) {
+        const links = linksOfItem(item.id);
+        const filesN = item.parts.filter((p) => p.kind === 'file').length, linksN = item.parts.length - filesN;
+        // The first part that has a picture; the rest are not read from the disk for a card.
+        let picture = null;
+        for (const part of item.parts) { picture = thumb(part); if (picture) break; }
+        return el('article', { class: 'card', 'data-id': item.id },
+            el('a', { class: 'cover', href: '#d=' + item.id, style: `--h:${hue(item.title)}`, tabindex: '-1', 'aria-hidden': 'true' },
+                el('span', { class: 'letter', text: String(item.no) }), picture),
+            el('div', { class: 'body' },
+                el('a', { class: 'title', href: '#d=' + item.id, text: `${stamp(item)} · ${item.title || 'без наслов'}` }),
+                el('span', { class: 'meta', text: `📎 ${filesN} · 🔗 ${linksN}` }),
+                links.length ? el('div', { class: 'chips' }, ...links.map((l) => el('button', { type: 'button', class: 'chip', text: l.indicator,
+                    title: (BY_CODE.get(l.indicator) || {}).text || '', onclick: () => go('#p=' + l.indicator.split('.').slice(0, 2).join('.')) })))
+                    : el('span', { class: 'warn', text: '⚠ без индикатор' })));
+    }
+    const sorted = (items) => [...items].sort(look.sort === 'new' ? (a, b) => b.createdAt - a.createdAt
+        : look.sort === 'title' ? (a, b) => a.title.localeCompare(b.title, 'mk') : (a, b) => a.no - b.no || a.order - b.order);
+    const grid = (items) => el('div', { class: 'cards' + (look.view === 'list' ? ' list' : '') }, ...sorted(items).map(cardNode));
+    const nothing = (text) => el('p', { class: 'empty', text });
+    const count = (n) => el('span', { class: 'n', text: ' ' + n });
+
+    /** A field the person types in: saved when they leave it, read from the document as it is THEN. */
+    function field(tag, props, read, write) {
+        const node = el(tag, props);
+        node.value = read();
+        node.addEventListener('change', () => { if (node.value !== read()) change((d) => write(d, node.value), true); });
+        return node;
+    }
+    /** The explanation for one indicator: text on the page, so it prints as it reads. */
+    function whyBox(linkId) {
+        const read = () => (doc.links.find((l) => l.id === linkId) || { why: '' }).why;
+        const box = el('div', { class: 'why', role: 'textbox', 'aria-multiline': 'true', 'aria-label': 'Образложение', 'data-placeholder': 'Образложение за овој индикатор…', spellcheck: 'true' });
+        box.textContent = read();
+        try { box.contentEditable = 'plaintext-only'; } catch (_) { box.contentEditable = 'true'; }
+        box.addEventListener('blur', () => {
+            const text = clip(box.innerText.replace(/ /g, ' ').replace(/\n+$/, ''), 20000);
+            if (text !== read()) change((d) => { d.links.find((l) => l.id === linkId).why = text; }, true);
+        });
+        return box;
+    }
+    const unlink = (link) => {
+        const item = itemOf(link.itemId);
+        if (confirm(`„${stamp(item)}" да се тргне од индикаторот ${link.indicator}?\nОбразложението за овој индикатор се брише; доказот останува.`)) {
+            change((d) => { d.links = d.links.filter((l) => l.id !== link.id); });
+        }
+    };
+
+    function sheet(section) {
+        const body = el('tbody');
+        for (const ind of section.rows) {
+            const links = linksOfCode(ind.code);
+            const first = el('td', { class: 'ind', rowspan: String(Math.max(1, links.length)) },
+                el('b', { text: ind.code + ' ' }), ind.text, el('span', { class: 'pts', text: ` (${points(ind.points)})` }),
+                el('div', { class: 'acts screen' }, el('button', { type: 'button', class: 'btn soft small', text: '+ Додај доказ',
+                    title: 'Постоечки или нов доказ за овој индикатор', onclick: () => pickEvidence(ind.code) })));
+            if (!links.length) body.append(el('tr', { class: 'gap', 'data-code': ind.code }, first, el('td', { class: 'none', colspan: '3', text: '— нема доказ —' })));
+            links.forEach((link, i) => {
+                const item = itemOf(link.itemId);
+                body.append(el('tr', { 'data-code': ind.code, 'data-link': link.id }, i === 0 && first,
+                    el('td', { class: 'ev' }, el('a', { class: 'no', href: '#d=' + item.id, text: stamp(item) }), el('div', { text: item.title }),
+                        el('div', { class: 'acts screen' }, el('button', { type: 'button', class: 'btn soft small del', text: 'Тргни', title: 'Тргни го доказот од овој индикатор', onclick: () => unlink(link) }))),
+                    el('td', {}, whyBox(link.id)),
+                    el('td', { class: 'atts' }, el('div', { class: 'chips' }, ...shownParts(item, link).map(partChip)))));
+            });
+        }
+        const total = section.rows.reduce((sum, i) => sum + i.points, 0);
+        return el('section', { 'data-section': section.no },
+            el('h3', {}, `${section.no}. ${section.name}`, el('span', { class: 'n', text: `вкупно ${points(total)}` })),
+            // data-mtb-plain: a printed sheet, not a list — no pin or fold from mtb-layout.js.
+            el('table', { class: 'sheet', 'data-mtb-plain': '' },
+                el('thead', {}, el('tr', {}, ...['Индикатор', 'Доказ', 'Образложение', 'Прилози'].map((t) => el('th', { text: t })))), body));
+    }
+
+    function renderTable(now) {
+        const areas = AREAS.filter((a) => !now.scope || a.no === now.scope || a.sections.some((s) => s.no === now.scope));
+        const one = SECTIONS.find((s) => s.no === now.scope);
+        put($('heading'), el('h2', { text: now.scope ? `Подрачје ${areas[0].no}: ${areas[0].name}` : '📑 ' + doc.title }),
+            !now.scope && el('button', { type: 'button', class: 'btn soft screen', id: 'printHere', text: '🖨 Печати табела', onclick: printTable }));
+        put($('out'), !now.scope && el('p', { class: 'only-print', text: doc.subtitle }),
+            ...areas.flatMap((a) => [(!one && !now.scope) && el('h2', { text: `Подрачје ${a.no}: ${a.name}` }),
+                ...a.sections.filter((s) => !one || s === one).map(sheet)]));
+    }
+
+    function renderGaps() {
+        const covered = coveredCodes();
+        const loose = doc.items.filter((i) => !doc.links.some((l) => l.itemId === i.id));
+        const missing = INDICATORS.filter((i) => !covered.has(i.code));
+        put($('heading'), el('h2', {}, '⚠ Без доказ', count(missing.length + loose.length)));
+        put($('out'), 
+            el('h3', {}, 'Индикатори без доказ', count(missing.length)),
+            missing.length ? el('div', {}, ...missing.map((i) => el('div', { class: 'file-row', 'data-code': i.code },
+                el('span', { class: 'name' }, el('b', { text: i.code + ' ' }), i.text, el('span', { class: 'n', text: ` (${points(i.points)})` })),
+                el('button', { type: 'button', class: 'btn soft small', text: '+ Додај доказ', onclick: () => pickEvidence(i.code) }))))
+                : nothing('Секој индикатор има барем еден доказ.'),
+            el('h3', {}, 'Докази без индикатор', count(loose.length)),
+            loose.length ? grid(loose) : nothing('Секој доказ стои под барем еден индикатор.'));
+    }
+
+    function renderAlike() {
+        const found = pairs();
+        put($('heading'), el('h2', {}, '🔁 Слични наслови', count(found.length)));
+        const side = (item, other) => el('div', { class: 'side' },
+            el('b', {}, el('a', { href: '#d=' + item.id, text: `${stamp(item)} · ${item.title}` })),
+            el('span', { class: 'n', text: `индикатори: ${linksOfItem(item.id).map((l) => l.indicator).join(', ') || '—'} · прилози: ${item.parts.length}` }),
+            el('div', { class: 'acts' }, el('button', { type: 'button', class: 'btn soft small', text: 'Спои — остави го овој', onclick: () => {
+                if (confirm(`„${stamp(other)}" се спојува во „${stamp(item)}": прилозите и индикаторите се собираат, насловот останува овој.\n\n${item.title}`)) merge(item.id, other.id);
+            } })));
+        put($('out'), el('p', { class: 'empty', text: 'Наслови што личат на ист доказ напишан двапати. Ништо не се спојува само: одлучуваш ти.' }),
+            ...(found.length ? found.map(([a, b]) => el('div', { class: 'pair' }, side(a, b), side(b, a),
+                el('button', { type: 'button', class: 'btn soft small', text: 'Различни се', title: 'Не ги покажувај повеќе како пар (само во овој прелистувач)', onclick: () => {
+                    look.apart = [...(look.apart || []), pairKey(a.id, b.id)].slice(-500); keep(LOOK_KEY, look); pairsFor = null; render();
+                } }))) : [nothing('Нема слични наслови.')]));
+    }
+
+    function renderFiles() {
+        const used = new Map();     // path as stored → the evidence that names it
+        doc.items.forEach((i) => i.parts.filter((p) => p.kind === 'file').forEach((p) => used.set(p.path, [...(used.get(p.path) || []), i])));
+        put($('heading'), el('h2', {}, '📁 Датотеки', files && count(files.size)));
+        if (!files) {
+            return put($('out'), el('p', { class: 'empty', text: canPick
+                ? 'Датотеките на доказите остануваат во една папка на овој компјутер, секоја еднаш. Поврзи ја за да се гледаат слики, да се отвораат од тука и да се види кои не се користат.'
+                : 'Отворањето папка од компјутерот работи во Chrome или Edge. Доказите и табелата работат и без тоа.' }),
+                canPick && el('button', { type: 'button', class: 'btn btn-primary', text: dir ? '📂 Дозволи ја папката' : '📂 Поврзи папка', onclick: connect }),
+                el('h3', {}, 'Именувани во доказите', count(used.size)),
+                ...[...used].map(([path, items]) => el('div', { class: 'file-row' }, el('span', { class: 'name', text: path }), el('span', { class: 'n', text: items.map(stamp).join(', ') }))));
+        }
+        const usedReal = new Set([...used.keys()].map((p) => (handleOf(p) ? lowered.get(p.toLowerCase()) || p : '')));
+        const gone = [...used].filter(([path]) => !handleOf(path));
+        const idle = [...files.keys()].filter((p) => !usedReal.has(p)).sort((a, b) => a.localeCompare(b, 'mk'));
+        const row = (path, tail) => el('div', { class: 'file-row', 'data-path': path },
+            el('button', { type: 'button', class: 'chip part', text: `${ICON[kindOf({ kind: 'file', path })]} ${path}`, onclick: () => openPart({ kind: 'file', path }) }), el('span', { class: 'name' }), ...tail);
+        put($('out'), 
+            el('h3', {}, 'Ги нема во папката', count(gone.length)),
+            gone.length ? el('div', { id: 'goneFiles' }, ...gone.map(([path, items]) => el('div', { class: 'file-row' },
+                el('span', { class: 'name warn', text: path }), el('span', { class: 'n', text: items.map(stamp).join(', ') }))))
+                : nothing('Секоја именувана датотека е во папката.'),
+            el('h3', {}, 'Не се користат', count(idle.length)),
+            idle.length ? el('div', { id: 'idleFiles' }, ...idle.map((path) => row(path, [el('button', { type: 'button', class: 'btn soft small', text: '+ Додај како доказ',
+                title: 'Нов доказ со оваа датотека', onclick: () => newItem({ parts: [{ id: rid(), kind: 'file', path, url: '', label: '', note: '' }], title: path.split('/').pop().replace(/\.[^.]+$/, '') }) })])))
+                : nothing('Секоја датотека во папката стои во некој доказ.'),
+            el('h3', {}, 'Во употреба', count(files.size - idle.length)),
+            el('div', {}, ...[...used].filter(([path]) => handleOf(path)).sort((a, b) => a[0].localeCompare(b[0], 'mk'))
+                .map(([path, items]) => row(path, [el('span', { class: 'n', text: items.map(stamp).join(', ') })]))));
+    }
+
+    function renderItem(id) {
+        const item = itemOf(id);
+        const links = linksOfItem(id);
+        // A field left after its evidence was deleted writes into nothing.
+        const mine = (d) => d.items.find((i) => i.id === id) || { parts: [] };
+        const twin = doc.items.some((i) => i.id !== id && i.no === item.no);
+        put($('heading'), el('a', { class: 'btn soft', href: '#', text: '← Сите докази', onclick: (e) => { e.preventDefault(); go(''); } }),
+            el('h2', { text: stamp(item) }), twin && el('span', { class: 'warn', text: '⚠ и друг доказ го носи овој број' }),
+            el('button', { type: 'button', class: 'btn soft small', id: 'mergeInto', text: 'Спои со друг доказ…', title: 'Друг доказ се спојува во овој: прилозите и индикаторите се собираат', onclick: () => pickMerge(item) }),
+            el('button', { type: 'button', class: 'btn soft small del', id: 'deleteItem', text: 'Избриши', onclick: () => {
+                if (!confirm(`Да се избрише „${stamp(item)} · ${item.title}"?\nСе бришат и неговите ${links.length} врски со индикатори. Датотеките во папката остануваат.`)) return;
+                change((d) => { d.items = d.items.filter((i) => i.id !== id); d.links = d.links.filter((l) => l.itemId !== id); });
+                go('');
+            } }));
+        const partRow = (part) => {
+            const at = (d) => mine(d).parts.find((p) => p.id === part.id);
+            const gone = part.kind === 'file' && files && !handleOf(part.path);
+            return el('div', { class: 'part-row', 'data-part': part.id },
+                el('button', { type: 'button', class: 'thumb', title: 'Отвори', 'aria-label': 'Отвори ' + nameOf(part), onclick: () => openPart(part) }, thumb(part) || ICON[kindOf(part)]),
+                el('div', {}, field('input', { type: 'text', maxlength: '300', placeholder: nameOf({ ...part, label: '' }), 'aria-label': 'Име на прилогот' },
+                    () => at(doc).label, (d, v) => { at(d).label = clip(v.trim(), 300); }),
+                    el('div', { class: 'where' + (gone ? ' warn' : ''), text: (gone ? '⚠ ја нема во папката: ' : '') + (part.url || part.path) })),
+                field('input', { type: 'text', maxlength: '2000', placeholder: 'Белешка за прилогот…', 'aria-label': 'Белешка за прилогот' },
+                    () => at(doc).note, (d, v) => { at(d).note = clip(v, 2000); }),
+                el('div', { class: 'acts' }, el('button', { type: 'button', class: 'btn soft small del', text: 'Тргни', title: 'Тргни го прилогот од овој доказ (датотеката останува во папката)', onclick: () => {
+                    change((d) => { mine(d).parts = mine(d).parts.filter((p) => p.id !== part.id);
+                        d.links.forEach((l) => { if (l.itemId === id) l.parts = l.parts.filter((p) => p !== part.id); }); });
+                } })));
+        };
+        const linkBox = (link) => {
+            const ind = BY_CODE.get(link.indicator);
+            const some = link.parts.length > 0;
+            return el('div', { class: 'link-box', 'data-link': link.id },
+                el('div', { class: 'head' }, el('div', { class: 'text' }, el('b', { text: link.indicator + ' ' }), ind ? ind.text : '(индикатор што го нема во стандардите)',
+                    ind && el('span', { class: 'n', text: ` (${points(ind.points)})` })),
+                    el('button', { type: 'button', class: 'btn soft small del', text: 'Тргни', onclick: () => unlink(link) })),
+                whyBox(link.id),
+                item.parts.length > 1 && el('details', {}, el('summary', { text: some ? `Прилози за овој индикатор: ${link.parts.length} од ${item.parts.length}` : 'Прилози за овој индикатор: сите' }),
+                    ...item.parts.map((part) => {
+                        const box = el('input', { type: 'checkbox' });
+                        box.checked = !some || link.parts.includes(part.id);
+                        box.addEventListener('change', () => change((d) => {
+                            const l = d.links.find((x) => x.id === link.id), all = mine(d).parts.map((p) => p.id);
+                            const now = new Set(l.parts.length ? l.parts : all);
+                            box.checked ? now.add(part.id) : now.delete(part.id);
+                            // Every part ticked is „all": a part added later then shows here too.
+                            l.parts = now.size === all.length || now.size === 0 ? [] : all.filter((p) => now.has(p));
+                        }));
+                        return el('label', {}, box, `${ICON[kindOf(part)]} ${nameOf(part)}`);
+                    })));
+        };
+        put($('out'), el('div', { class: 'detail' },
+            el('div', { class: 'top' },
+                el('label', {}, 'Број', field('input', { type: 'number', min: '1', max: '9999', id: 'fNo' }, () => String(mine(doc).no),
+                    (d, v) => { const n = Math.round(Number(v)); if (n >= 1 && n <= 9999) mine(d).no = n; })),
+                el('label', {}, 'Наслов', field('input', { type: 'text', maxlength: '500', id: 'fTitle' }, () => mine(doc).title,
+                    (d, v) => { mine(d).title = clip(v.trim(), 500); mine(d).updatedAt = Date.now(); }))),
+            el('label', {}, 'Опис на доказот (општо, не за еден индикатор)', field('textarea', { rows: '3', maxlength: '20000', id: 'fSummary' }, () => mine(doc).summary,
+                (d, v) => { mine(d).summary = clip(v, 20000); })),
+            el('h3', {}, 'Прилози', count(item.parts.length),
+                el('button', { type: 'button', class: 'btn soft small', id: 'addFile', text: '+ Додај датотека', title: 'Датотека од поврзаната папка', onclick: () => pickFiles(item) }),
+                el('button', { type: 'button', class: 'btn soft small', id: 'addLink', text: '+ Додај линк', onclick: () => {
+                    const typed = prompt('Линк (https://…):');
+                    if (typed == null) return;
+                    const url = safeUrl(typed);
+                    if (!url) return alert('Линкот мора да почнува со http или https.');
+                    if (item.parts.some((p) => p.url === url)) return alert('Овој линк веќе е меѓу прилозите.');
+                    change((d) => { mine(d).parts.push({ id: rid(), kind: 'link', path: '', url, label: '', note: '' }); });
+                } })),
+            item.parts.length ? el('div', {}, ...item.parts.map(partRow)) : nothing('Уште нема прилози. Додај датотека од папката или линк.'),
+            el('h3', {}, 'Индикатори', count(links.length),
+                el('button', { type: 'button', class: 'btn soft small', id: 'addIndicator', text: '+ Додај индикатор', title: 'Индикаторите што овој доказ ги покрива', onclick: () => pickIndicators(item) })),
+            links.length ? el('div', {}, ...links.map(linkBox)) : nothing('Доказот уште не стои под ниеден индикатор.')));
+    }
+
+    function render() {
+        $('shell').hidden = !doc;
+        if (!doc) return;
+        if (conflict) showConflict();
+        renderSide();
+        const now = view();
+        $('tools').hidden = now.kind !== 'all';
+        $('viewGrid').setAttribute('aria-pressed', String(look.view !== 'list'));
+        $('viewList').setAttribute('aria-pressed', String(look.view === 'list'));
+        $('sort').value = look.sort;
+        if (now.kind === 'table') return renderTable(now);
+        if (now.kind === 'gaps') return renderGaps();
+        if (now.kind === 'alike') return renderAlike();
+        if (now.kind === 'files') return renderFiles();
+        if (now.kind === 'item') return renderItem(now.id);
+        const q = lower($('search').value.trim());
+        const words = (i) => lower([stamp(i), i.title, i.summary, ...i.parts.flatMap((p) => [p.label, p.path, p.url, p.note]),
+            ...linksOfItem(i.id).flatMap((l) => [l.indicator, l.why])].join(' '));
+        const found = doc.items.filter((i) => !q || words(i).includes(q));
+        put($('heading'), el('h2', {}, '📚 Сите докази', count(found.length)));
+        put($('out'), found.length ? grid(found)
+            : nothing(q ? 'Ништо не одговара на пребарувањето.' : 'Уште нема докази. Кликни „+ Додај", залепи линк (Ctrl+V), или „📥 Внеси од старата табела" лево долу.'));
+    }
+
+    // ── one list to choose from: indicators, evidence or files ────────────
+    let picking = null;
+    function openPicker({ title, hint, rows, single, save, extra, onSave }) {
+        if (!doc) return;
+        if (conflict) return alert('Прво одлучи која верзија важи (горе).');
+        picking = { onSave, single };
+        $('pickerTitle').textContent = title;
+        $('pickerHint').textContent = hint || '';
+        $('pickerHint').hidden = !hint;
+        $('pickerSave').textContent = save || 'Зачувај';
+        $('pickerSearch').value = '';
+        $('pickerExtra').replaceChildren(...(extra ? [extra] : []));
+        let group = null;
+        const nodes = [];
+        for (const row of rows) {
+            if (row.group && row.group !== group) { group = row.group; nodes.push(el('h4', { text: group })); }
+            const box = el('input', { type: single ? 'radio' : 'checkbox', name: 'pick', value: row.key });
+            box.checked = Boolean(row.checked); box.disabled = Boolean(row.disabled);
+            nodes.push(el('label', { 'data-words': lower(row.label + ' ' + (row.sub || '')) }, box,
+                el('span', {}, row.label, row.sub && el('small', { text: '  ' + row.sub }))));
+        }
+        $('pickerList').replaceChildren(...(nodes.length ? nodes : [nothing('Нема што да се избере.')]));
+        $('picker').showModal();
+        $('pickerSearch').focus();
+    }
+    $('pickerSearch').addEventListener('input', () => {
+        const q = lower($('pickerSearch').value.trim());
+        $('pickerList').querySelectorAll('label').forEach((label) => { label.hidden = Boolean(q) && !label.dataset.words.includes(q); });
+    });
+    $('pickerCancel').addEventListener('click', () => $('picker').close());
+    $('pickerForm').addEventListener('submit', (e) => {
+        e.preventDefault();
+        const chosen = [...$('pickerList').querySelectorAll('input:checked:not(:disabled)')].map((box) => box.value);
+        const done = picking;
+        $('picker').close();
+        if (done && chosen.length) done.onSave(chosen);
+    });
+
+    function pickIndicators(item) {
+        const has = new Set(linksOfItem(item.id).map((l) => l.indicator));
+        openPicker({ title: `Индикатори за „${stamp(item)}"`, hint: 'Штиклирај ги индикаторите што овој доказ ги покрива. Образложението се пишува потоа, за секој посебно.',
+            rows: INDICATORS.map((i) => ({ key: i.code, label: `${i.code} ${i.text}`, sub: points(i.points), group: `${i.section}. ${SECTIONS.find((s) => s.no === i.section).name}`,
+                checked: has.has(i.code), disabled: has.has(i.code) })),
+            onSave: (codes) => change((d) => { codes.forEach((code) => d.links.push({ id: rid(), itemId: item.id, indicator: code, why: '', parts: [] })); }) });
+    }
+    function pickEvidence(code) {
+        const has = new Set(linksOfCode(code).map((l) => l.itemId));
+        openPicker({ title: `Доказ за индикаторот ${code}`, hint: BY_CODE.get(code).text,
+            rows: sorted(doc.items).map((i) => ({ key: i.id, label: `${stamp(i)} · ${i.title}`, sub: `📎 ${i.parts.length}`, checked: has.has(i.id), disabled: has.has(i.id) })),
+            extra: el('button', { type: 'button', class: 'btn soft', id: 'pickerNew', text: '+ Додај нов доказ', onclick: () => { $('picker').close(); newItem({}, code); } }),
+            onSave: (ids) => change((d) => { ids.forEach((id) => d.links.push({ id: rid(), itemId: id, indicator: code, why: '', parts: [] })); }) });
+    }
+    function pickMerge(item) {
+        openPicker({ title: `Спои во „${stamp(item)}"`, single: true, save: 'Спои', hint: 'Избраниот доказ престанува да постои посебно: неговите прилози, индикатори и образложенија преминуваат во овој.',
+            rows: sorted(doc.items).filter((i) => i.id !== item.id).map((i) => ({ key: i.id, label: `${stamp(i)} · ${i.title}`, sub: `📎 ${i.parts.length}` })),
+            onSave: ([id]) => { if (confirm(`„${stamp(itemOf(id))}" се спојува во „${stamp(item)}". Продолжи?`)) merge(item.id, id); } });
+    }
+    function pickFiles(item) {
+        const add = (paths) => change((d) => {
+            const mine = d.items.find((i) => i.id === item.id);
+            paths.forEach((path) => { if (mine.parts.length < 80 && !mine.parts.some((p) => p.path === path)) mine.parts.push({ id: rid(), kind: 'file', path, url: '', label: '', note: '' }); });
+        });
+        if (!files) {
+            if (canPick && confirm('Папката со датотеки не е поврзана.\n\nВо ред — да ја избереш сега.\nОткажи — да го напишеш името на датотеката рачно.')) return connect();
+            const typed = cleanPath(prompt('Име на датотеката во папката (на пример Извештај.pdf):') || '');
+            if (typed) add([typed]);
+            return;
+        }
+        const usedBy = new Map();
+        doc.items.forEach((i) => i.parts.forEach((p) => { if (p.kind === 'file') usedBy.set(p.path.toLowerCase(), (usedBy.get(p.path.toLowerCase()) || 0) + 1); }));
+        const has = new Set(item.parts.map((p) => p.path.toLowerCase()));
+        openPicker({ title: `Датотеки за „${stamp(item)}"`, hint: `Од папката „${dir.name}". Една датотека може да стои во повеќе докази — не се копира.`,
+            rows: [...files.keys()].sort((a, b) => a.localeCompare(b, 'mk')).map((path) => ({ key: path, label: `${ICON[kindOf({ kind: 'file', path })]} ${path}`,
+                sub: usedBy.get(path.toLowerCase()) ? `во ${usedBy.get(path.toLowerCase())} доказ(и)` : 'не се користи', checked: has.has(path.toLowerCase()), disabled: has.has(path.toLowerCase()) })),
+            onSave: add });
+    }
+
+    function newItem(preset, code) {
+        if (!doc) return;
+        const id = rid(), now = Date.now();
+        const made = change((d) => {
+            if (d.items.length >= 400) return;
+            d.items.push({ id, no: nextNo(d), title: '', summary: '', parts: [], order: now, createdAt: now, updatedAt: now, ...preset });
+            if (code) d.links.push({ id: rid(), itemId: id, indicator: code, why: '', parts: [] });
+        });
+        if (made && itemOf(id)) { go('#d=' + id); setTimeout(() => $('fTitle') && $('fTitle').focus(), 0); }
+    }
+
+    // ── the tools above and beside ────────────────────────────────────────
+    $('addItem').addEventListener('click', () => newItem({}));
+    $('search').addEventListener('input', render);
+    $('sort').addEventListener('change', () => { look.sort = $('sort').value; keep(LOOK_KEY, look); render(); });
+    $('viewGrid').addEventListener('click', () => { look.view = 'grid'; keep(LOOK_KEY, look); render(); });
+    $('viewList').addEventListener('click', () => { look.view = 'list'; keep(LOOK_KEY, look); render(); });
+    $('connect').addEventListener('click', connect);
+    // A link pasted anywhere outside a field starts a new piece of evidence with it.
+    document.addEventListener('paste', (e) => {
+        const target = e.target || {};
+        if (!doc || $('picker').open || target.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName || '')) return;
+        const text = ((e.clipboardData && e.clipboardData.getData('text')) || '').trim();
+        if (!/^(https?:\/\/|www\.)\S+$/i.test(text)) return;
+        e.preventDefault();
+        newItem({ parts: [{ id: rid(), kind: 'link', path: '', url: safeUrl(text), label: '', note: '' }] });
+    });
+
+    // Trap 64: the sheet's name is the printed header and the PDF's file name.
+    function printTable() {
+        if (!doc) return;
+        const print = () => { document.title = doc.title; window.print(); };
+        if (view().kind === 'table' && !view().scope) return print();
+        window.addEventListener('hashchange', () => setTimeout(print, 50), { once: true });
+        go('#tabela');
+    }
+    window.addEventListener('afterprint', () => { document.title = PAGE_TITLE; });
+    $('print').addEventListener('click', printTable);
+
+    // ── reserve: out as one file, back in as one file ─────────────────────
+    const download = (name, text, type) => {
+        const a = el('a', { href: URL.createObjectURL(new Blob([text], { type })), download: name });
+        a.click();
+        setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+    };
+    $('exportFile').addEventListener('click', () => { if (doc) download('dokazi-' + new Date().toISOString().slice(0, 10) + '.json', JSON.stringify(doc, null, 2), 'application/json'); });
+
+    const replaceAll = (next, said) => {
+        if (!confirm(said + (doc.items.length ? `\n\nОвие ги ЗАМЕНУВААТ сегашните ${doc.items.length} докази. Продолжи?` : '\n\nПродолжи?'))) return false;
+        return change((d) => { d.title = next.title; d.subtitle = next.subtitle; d.items = next.items; d.links = next.links; });
+    };
+    async function chosenFile(e) {
+        const file = e.target.files && e.target.files[0];
+        e.target.value = '';
+        if (!file || !doc) return null;
+        if (conflict) { alert('Прво одлучи која верзија важи (горе).'); return null; }
+        try { return JSON.parse(await file.text()); } catch (_) { alert('Датотеката не е JSON.'); return null; }
+    }
+    $('importJson').addEventListener('change', async (e) => {
+        const raw = await chosenFile(e);
+        if (!raw) return;
+        if (!wellFormed(raw)) return alert('Ова не е резерва на доказите. За извоз од старата табела користи „📥 Внеси од старата табела".');
+        const next = { ...emptyDoc(), ...raw };
+        if (replaceAll(next, `Во резервата: ${next.items.length} докази, ${next.links.length} врски со индикатори.`)) go('');
+    });
+
+    // ── the old table: a row per indicator, the same evidence typed again ──
+    const plain = (html) => {
+        const page = new DOMParser().parseFromString(String(html == null ? '' : html).replace(/<br\s*\/?>|<\/(p|div|li|h\d)>/gi, '\n'), 'text/html');
+        return (page.body.textContent || '').replace(/ /g, ' ').replace(/[ \t]+/g, ' ').replace(/ ?\n ?/g, '\n').replace(/\n{3,}/g, '\n\n').trim();
+    };
+    function oldPart(a) {
+        const note = clip(plain(a.description), 2000);
+        const data = String(a.data || '');
+        if (a.kind === 'file' && !/^https?:\/\//i.test(data)) {
+            // A file the old page had embedded in itself is not a file in the folder.
+            if (!data || data.startsWith('data:') || data.length > 600) return null;
+            // The old page wrote „dokazi/име": the folder itself is what gets connected here.
+            const path = cleanPath(data.replace(/^\.?[\\/]*dokazi[\\/]+/i, ''));
+            return path ? { id: rid(), kind: 'file', path, url: '', label: '', note } : null;
+        }
+        const url = safeUrl(a.url || (a.kind === 'file' ? data : '') || (a.vid ? 'https://www.youtube.com/watch?v=' + a.vid : ''));
+        return url ? { id: rid(), kind: 'link', path: '', url, label: clip(a.kind === 'file' ? '' : plain(a.title), 300), note } : null;
+    }
+    /**
+     * What the old „Табела со докази" exports, read as evidence and links. Rows
+     * whose titles are the SAME (the number in front left aside — the old
+     * numbers were typed by hand and repeat) become one piece of evidence;
+     * titles that merely look alike stay apart and are offered under „🔁".
+     */
+    function fromOldTable(raw) {
+        const rows = raw && Array.isArray(raw.pages) ? raw.pages.flatMap((p) => (p && Array.isArray(p.rows) ? p.rows : [])) : null;
+        if (!rows || !rows.length) throw new Error('Ова не е извоз (JSON) од старата „Табела со докази".');
+        const slots = (r) => ['atts', 'atts1', 'atts2'].flatMap((k) => (Array.isArray(r[k]) ? r[k] : [])).filter(Boolean);
+        const byText = new Map(INDICATORS.map((i) => [norm(i.text), i.code]));
+        // Some old rows carry the indicator SHORTENED (words left out, never changed). Such a row is
+        // placed only when its words, in their order, are found in exactly ONE indicator; the person is told how many.
+        const wordsOf = (text) => norm(text).split(' ').filter(Boolean);
+        const within = (few, all) => { let at = 0; for (const word of all) if (word === few[at]) at++; return at === few.length; };
+        const shortened = (text) => {
+            const few = wordsOf(text);
+            const hits = few.length >= 5 ? INDICATORS.filter((i) => within(few, wordsOf(i.text))) : [];
+            return hits.length === 1 ? hits[0].code : '';
+        };
+        const pointed = new Map();      // attId → the attachment an old „reference" pointed at in another row
+        rows.forEach((r) => r && slots(r).forEach((a) => { if (a.attId && a.kind !== 'reference') pointed.set(a.attId, a); }));
+        const filled = rows.filter((r) => r && !r.isSection && (plain(r.col1) || plain(r.col3) || slots(r).length))
+            .map((r) => { const exact = byText.get(norm(plain(r.col2))); return { r, code: exact || shortened(plain(r.col2)), read: !exact }; })
+            // Numbered in the order the standards are read; rows of no known indicator last.
+            .sort((a, b) => Number(!a.code) - Number(!b.code) || codeKey(a.code).localeCompare(codeKey(b.code)));
+        const now = Date.now(), items = new Map(), links = [];
+        const report = { rows: filled.length, lost: 0, loose: 0, read: filled.filter((f) => f.read && f.code).length };
+        filled.forEach(({ r, code }, at) => {
+            const typed = plain(r.col1).replace(/\s+/g, ' ').replace(/^Доказ\s*[-–—]?\s*\d+\s*[-–—:.]?\s*/i, '').trim();
+            const key = typed ? norm(typed) : 'row-' + at;
+            let item = items.get(key);
+            if (!item) {
+                item = { id: rid() + at.toString(36), no: items.size + 1, title: clip(typed || 'Без наслов', 500), summary: '', parts: [], order: now + at, createdAt: now, updatedAt: now };
+                items.set(key, item);
+            }
+            const own = [];
+            for (let a of slots(r)) {
+                if (a.kind === 'reference') a = pointed.get(a.refId);
+                const part = a && oldPart(a);
+                if (!part) { report.lost++; continue; }
+                const same = item.parts.find((p) => p.kind === part.kind && p.path.toLowerCase() === part.path.toLowerCase() && p.url === part.url);
+                if (same) { if (!same.note) same.note = part.note; own.push(same.id); }
+                else if (item.parts.length < 80) { part.id += item.parts.length.toString(36); item.parts.push(part); own.push(part.id); }
+                else report.lost++;
+            }
+            const why = clip(plain(r.col3), 20000);
+            if (!code) {
+                report.loose++;
+                if (why && !item.summary.includes(why)) item.summary = clip([item.summary, why].filter(Boolean).join('\n\n'), 20000);
+                return;
+            }
+            const had = links.find((l) => l.itemId === item.id && l.indicator === code);
+            if (had) { if (why && !had.why.includes(why)) had.why = clip([had.why, why].filter(Boolean).join('\n\n'), 20000); had.own.push(...own); }
+            else links.push({ id: rid() + 'l' + at.toString(36), itemId: item.id, indicator: code, why, own });
+        });
+        const all = [...items.values()];
+        // A row that showed only some of its evidence's parts keeps showing those;
+        // a row with none of its own now shows them all — that is the gain.
+        const done = links.map(({ own, ...link }) => {
+            const set = [...new Set(own)], item = all.find((i) => i.id === link.itemId);
+            return { ...link, parts: set.length && set.length < item.parts.length ? set : [] };
+        });
+        return { doc: { title: clip(plain(raw.mainTitle) || emptyDoc().title, 300), subtitle: clip(plain(raw.subtitle).replace(/\s+/g, ' ') || emptyDoc().subtitle, 500), items: all, links: done }, report };
+    }
+    $('importOld').addEventListener('change', async (e) => {
+        const raw = await chosenFile(e);
+        if (!raw) return;
+        let read;
+        try { read = fromOldTable(raw); } catch (err) { return alert(err.message || 'Датотеката не може да се прочита.'); }
+        const { doc: next, report } = read;
+        const said = [`Во старата табела: ${report.rows} пополнети редови.`,
+            `Стануваат ${next.items.length} докази со ${next.links.length} врски со индикатори и ${next.items.reduce((n, i) => n + i.parts.length, 0)} прилози (секој еднаш).`,
+            'Доказите се нумерирани одново, по редот на индикаторите: старите броеви се повторуваа.',
+            report.read ? `${report.read} редови го имаа индикаторот скратен: препознаен е по зборовите. Провери ги под индикаторот.` : '',
+            report.loose ? `${report.loose} редови не се под познат индикатор: доказот е внесен без индикатор.` : '',
+            report.lost ? `${report.lost} прилози не можеа да се пренесат (вградени во старата страница или без адреса).` : ''].filter(Boolean).join('\n');
+        if (!replaceAll(next, said)) return;
+        go(pairs().length ? '#slicni' : '');
+    });
+
+    // ── for the commission: a page that opens without MTB, and the folders ─
+    const safeName = (text, max) => (String(text).replace(/[\\/:*?"<>|\u0000-\u001f]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, max).replace(/[. ]+$/, '') || 'без име');
+    const itemFolder = (item) => `Доказ ${String(item.no).padStart(2, '0')} - ${safeName(item.title, 70)}`;
+    const codeFolder = (ind) => `${ind.code} - ${safeName(ind.text, 60)}`;
+    const esc = (v) => String(v == null ? '' : v).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    const href = (...parts) => parts.map(encodeURIComponent).join('/');
+
+    /** Where each evidence's files go: one folder per evidence, each file once, names made unique inside it. */
+    function layout() {
+        const folders = new Map(), names = new Map();     // item id → folder; part id → file name in it
+        const taken = new Set();
+        for (const item of sorted(doc.items)) {
+            let folder = itemFolder(item);
+            for (let n = 2; taken.has(folder.toLowerCase()); n++) folder = `${itemFolder(item)} (${n})`;
+            taken.add(folder.toLowerCase());
+            folders.set(item.id, folder);
+            const inside = new Set();
+            for (const part of item.parts.filter((p) => p.kind === 'file')) {
+                const base = safeName(part.path.split('/').pop(), 120);
+                let name = base;
+                for (let n = 2; inside.has(name.toLowerCase()); n++) name = base.replace(/(\.[^.]+)?$/, ` (${n})$1`);
+                inside.add(name.toLowerCase());
+                names.set(part.id, name);
+            }
+        }
+        return { folders, names };
+    }
+
+    /** The whole table as one page with nothing outside it: the files are beside it, under „Докази". */
+    function standalonePage({ folders, names }) {
+        const covered = coveredCodes();
+        const got = INDICATORS.filter((i) => covered.has(i.code)).reduce((sum, i) => sum + i.points, 0);
+        const att = (item, part) => {
+            const kind = kindOf(part);
+            const to = part.kind === 'link' ? esc(part.url) : href('Докази', folders.get(item.id), names.get(part.id));
+            const picture = part.kind === 'file' && kind === 'image' ? `<img src="${to}" alt="" loading="lazy">` : `<span class="ico">${ICON[kind]}</span>`;
+            return `<a class="att" data-kind="${part.kind === 'link' ? 'link' : kind}" href="${to}" target="_blank" rel="noopener noreferrer" title="${esc(part.note)}">${picture}<span>${esc(nameOf(part))}</span></a>`;
+        };
+        const section = (s) => `<h3 id="s${s.no}">${s.no}. ${esc(s.name)} <small>вкупно ${points(s.rows.reduce((n, i) => n + i.points, 0))}</small></h3>
+<table><thead><tr><th>Индикатор</th><th>Доказ</th><th>Образложение</th><th>Прилози</th></tr></thead><tbody>${s.rows.map((ind) => {
+            const links = linksOfCode(ind.code);
+            const first = `<td class="ind" rowspan="${Math.max(1, links.length)}"><b>${ind.code}</b> ${esc(ind.text)} <small>(${points(ind.points)})</small></td>`;
+            if (!links.length) return `<tr>${first}<td class="none" colspan="3">— нема доказ —</td></tr>`;
+            return links.map((link, i) => { const item = itemOf(link.itemId);
+                return `<tr>${i ? '' : first}<td class="ev"><a href="#e${item.id}"><b>${esc(stamp(item))}</b></a><br>${esc(item.title)}</td><td class="why">${esc(link.why)}</td><td class="atts">${shownParts(item, link).map((p) => att(item, p)).join('')}</td></tr>`; }).join('');
+        }).join('')}</tbody></table>`;
+        const evidence = (item) => `<article id="e${item.id}"><h3>${esc(stamp(item))} · ${esc(item.title)}</h3>${item.summary ? `<p class="why">${esc(item.summary)}</p>` : ''}
+<p><small>Индикатори: ${linksOfItem(item.id).map((l) => `<a href="#s${l.indicator.split('.').slice(0, 2).join('.')}">${l.indicator}</a>`).join(', ') || '—'}</small></p><div class="atts wide">${item.parts.map((p) => att(item, p)).join('')}</div></article>`;
+        return `<!DOCTYPE html>
+<html lang="mk"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${esc(doc.title)}</title>
+<style>
+body{font:15px/1.45 system-ui,"Segoe UI",Arial,sans-serif;color:#1b2430;background:#f4f6f9;margin:0}
+main{max-width:1180px;margin:0 auto;padding:18px}
+h1{font-size:1.6rem;margin:0 0 4px}h2{font-size:1.2rem;margin:34px 0 6px;padding:8px 12px;background:#dfe9f5;border-radius:8px}
+h3{font-size:1.02rem;margin:22px 0 8px}small{color:#5a6675;font-weight:400}
+nav{position:sticky;top:0;background:#f4f6f9;padding:8px 0;display:flex;flex-wrap:wrap;gap:6px;border-bottom:1px solid #cfd8e3;z-index:1}
+nav a{padding:3px 10px;border:1px solid #b9c5d4;border-radius:999px;background:#fff;color:#1b2430;text-decoration:none;font-size:13px}
+table{width:100%;border-collapse:collapse;background:#fff;font-size:14px}
+th,td{border:1px solid #b9c5d4;padding:7px 9px;vertical-align:top;text-align:left}th{background:#e9eff7;font-size:12.5px;text-transform:uppercase}
+td.ind{width:27%}td.ev{width:19%}td.atts{width:21%}td.none{color:#5a6675;font-style:italic}.why{white-space:pre-wrap}
+.att{display:flex;gap:6px;align-items:center;margin:0 0 5px;color:#12466b;text-decoration:none;overflow-wrap:anywhere;font-size:13px}
+.att img{width:64px;height:48px;object-fit:cover;border-radius:5px;border:1px solid #b9c5d4;flex:none}.att .ico{width:22px;text-align:center;flex:none}
+.atts.wide{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:4px 14px}
+article{background:#fff;border:1px solid #cfd8e3;border-radius:10px;padding:4px 14px 12px;margin:10px 0}
+dialog{border:0;border-radius:10px;padding:0;width:min(96vw,1100px);height:min(92vh,820px);background:#111}dialog::backdrop{background:rgba(8,20,34,.7)}
+dialog img,dialog video,dialog iframe{width:100%;height:100%;object-fit:contain;border:0;background:#111}
+dialog button{position:absolute;top:8px;right:8px;font-size:18px;padding:4px 12px;border-radius:8px;border:0;cursor:pointer}
+@media print{nav,dialog{display:none}body{background:#fff}main{max-width:none;padding:0}h2{background:none;padding:0;border-bottom:2px solid #000}tr,article{break-inside:avoid}table{font-size:10.5pt}.att img{display:none}}
+</style></head><body><main>
+<h1>${esc(doc.title)}</h1><p>${esc(doc.subtitle)}</p>
+<p><b>${got} од ${TOTAL_POINTS} бода</b> · покриени ${covered.size} од ${INDICATORS.length} индикатори · ${doc.items.length} докази</p>
+<nav>${AREAS.map((a) => `<a href="#a${a.no}">Подрачје ${a.no}</a>`).join('')}<a href="#dokazi">Сите докази</a></nav>
+${AREAS.map((a) => `<h2 id="a${a.no}">Подрачје ${a.no}: ${esc(a.name)}</h2>${a.sections.map(section).join('')}`).join('')}
+<h2 id="dokazi">Сите докази</h2>${sorted(doc.items).map(evidence).join('')}
+</main><dialog id="look"><button type="button" id="shut">✕</button><div id="stage" style="width:100%;height:100%"></div></dialog>
+<script>
+// A file opens over the page; a link, and anything the browser cannot show, opens the ordinary way.
+document.addEventListener('click', function (e) {
+  var a = e.target.closest && e.target.closest('a.att'); if (!a) return;
+  var kind = a.dataset.kind, tag = kind === 'image' ? 'img' : kind === 'video' ? 'video' : kind === 'pdf' ? 'iframe' : '';
+  if (!tag || !document.getElementById('look').showModal) return;
+  e.preventDefault();
+  var node = document.createElement(tag); node.src = a.getAttribute('href'); if (tag === 'video') node.controls = true;
+  document.getElementById('stage').replaceChildren(node); document.getElementById('look').showModal();
+});
+document.getElementById('shut').addEventListener('click', function () { document.getElementById('look').close(); });
+document.getElementById('look').addEventListener('close', function () { document.getElementById('stage').replaceChildren(); });
+<\/script></body></html>`;
+    }
+
+    async function writeText(folder, name, text) {
+        const stream = await (await folder.getFileHandle(name, { create: true })).createWritable();
+        await stream.write(text); await stream.close();
+    }
+    async function copyInto(folder, name, path, gone) {
+        const from = handleOf(path);
+        if (!from) { gone.add(path); return; }
+        const stream = await (await folder.getFileHandle(name, { create: true })).createWritable();
+        await stream.write(await from.getFile()); await stream.close();
+    }
+
+    /**
+     * Writes into a folder the person chooses, never into the folder the files
+     * are read from: its copies would come back as „unused files" on the next look.
+     * Nothing is deleted there; a file of the same name is written again.
+     */
+    async function pack() {
+        if (!doc) return;
+        if (!canPick) return alert('Извозот во папка работи во Chrome или Edge на компјутер. „🖨 Печати табела" работи секаде.');
+        if (!doc.items.length) return alert('Уште нема докази за извоз.');
+        if (!files) return alert('Прво поврзи ја папката со датотеките („📂 Поврзи папка"), за да може да се копираат.');
+        if (!confirm('Избери ПРАЗНА папка за извозот. Во неа се прават:\n\n• „Табела со докази.html" — се отвора без MTB, со преглед на прилозите\n• „Докази" — папка по доказ, секоја датотека еднаш\n• „По индикатор" — папка по индикатор, со доказите што го покриваат\n\nПродолжи?')) return;
+        let out;
+        try { out = await window.showDirectoryPicker({ id: 'mtb-dokazi-izvoz', mode: 'readwrite' }); }
+        catch (err) { if (err && err.name !== 'AbortError') alert('Папката не може да се отвори: ' + (err.message || err.name)); return; }
+        if (await out.isSameEntry(dir) || await dir.resolve(out) !== null) return alert('Тоа е папката со датотеките (или папка во неа). Избери друга, празна папка за извозот.');
+        const gone = new Set(), plan = layout();
+        const before = $('status').textContent, kind = $('status').className;
+        const say = (text) => { $('status').className = 'sub wait'; $('status').textContent = '📦 ' + text; };
+        try {
+            const byItem = await out.getDirectoryHandle('Докази', { create: true });
+            const items = sorted(doc.items);
+            const fill = async (folder, item, parts) => {
+                for (const part of parts.filter((p) => p.kind === 'file')) await copyInto(folder, plan.names.get(part.id), part.path, gone);
+                const web = parts.filter((p) => p.kind === 'link');
+                if (web.length) await writeText(folder, 'Линкови.txt', web.map((p) => `${nameOf(p)}\r\n${p.url}\r\n`).join('\r\n'));
+            };
+            for (const [i, item] of items.entries()) {
+                say(`Докази ${i + 1}/${items.length}…`);
+                await fill(await byItem.getDirectoryHandle(plan.folders.get(item.id), { create: true }), item, item.parts);
+            }
+            const byCodeDir = await out.getDirectoryHandle('По индикатор', { create: true });
+            for (const [i, ind] of INDICATORS.entries()) {
+                say(`По индикатор ${i + 1}/${INDICATORS.length}…`);
+                const folder = await byCodeDir.getDirectoryHandle(codeFolder(ind), { create: true });
+                for (const link of linksOfCode(ind.code)) {
+                    const item = itemOf(link.itemId);
+                    await fill(await folder.getDirectoryHandle(plan.folders.get(item.id), { create: true }), item, shownParts(item, link));
+                }
+            }
+            say('Страницата…');
+            await writeText(out, 'Табела со докази.html', standalonePage(plan));
+            $('status').className = kind; $('status').textContent = before;
+            alert(`Извозот е во папката „${out.name}".` + (gone.size ? `\n\n⚠ ${gone.size} датотеки ги нема во поврзаната папка и не се копирани:\n${[...gone].slice(0, 15).join('\n')}` : ''));
+        } catch (err) {
+            $('status').className = kind; $('status').textContent = before;
+            alert('Извозот запре: ' + (err.message || err.name) + '\nТоа што е веќе запишано останува во папката.');
+        }
+    }
+    $('pack').addEventListener('click', pack);
+
+    if (window.MTBTheme) window.MTBTheme.bind($('theme')); else $('theme').hidden = true;
+    open();
+    remembered();
+})();
+</script>
+</body>
+</html>

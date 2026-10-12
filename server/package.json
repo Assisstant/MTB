@@ -132,6 +132,7 @@
     "test:class-cabinets": "node test/class-cabinets.browser.mjs",
     "test:wbacc": "node test/wbacc.browser.mjs",
     "test:obelezuvaci": "node test/obelezuvaci.browser.mjs",
+    "test:dokazi": "node test/dokazi.browser.mjs",
     "test:wbacc-stamps": "tsx test/wbacc-stamps.browser.mjs",
     "migrate:pending": "tsx scripts/migrations-pending.ts"
   },

@@ -29,6 +29,7 @@ import { portalRoutes } from './routes/portal.js';
 import { dutyRoutes } from './routes/duty.js';
 import { creditLookRoutes } from './routes/credit-look.js';
 import { bookmarkRoutes } from './routes/bookmarks.js';
+import { portfolioRoutes } from './routes/portfolio.js';
 import { resolveServerIdentity } from './lib/server-identity.js';
 import { authorName, creditLook, lookCss } from './lib/author.js';
 import { updateStatus } from './lib/update-status.js';
@@ -216,6 +217,7 @@ server.register(portalRoutes);
 server.register(dutyRoutes);
 server.register(creditLookRoutes);
 server.register(bookmarkRoutes);
+server.register(portfolioRoutes);
 
 server.listen(listenOptions())
     .then(async () => {

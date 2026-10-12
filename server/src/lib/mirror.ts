@@ -103,6 +103,8 @@ export const MIRROR_EXCLUDED_TABLES = [
     'portal_links',
     'portal_security',
     'portal_security_log',
+    // The administrator's own evidence for the title of mentor (059): personal, like the bookmarks.
+    'portfolio_state',
     'schedule_notices',
     'schema_migrations',
     'staff_accounts',

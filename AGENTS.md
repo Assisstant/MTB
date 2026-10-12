@@ -98,6 +98,7 @@ PostgreSQL; daily use is the cloud, as clarified above.
 | `vezbi/index.html` | **Вежби за изговор**: articulation exercises, 26 sounds, with ComuniBoard and WBACC Studio in its tabs. No database, no sign-in, nothing about a pupil; shares no code with the records side. Its memory is `docs/VEZBI.md` |
 | `start.html` | launcher: finds whichever machine is on, sends you to it |
 | `Obelezuvaci.html` | **„Обележувачи“**: the administrator's own links as collections, tags and cards — the one document of 047, also read by WBACC Studio's small panel; opened from the workspace's top bar and the strip of Вежби, never a window of the workspace |
+| `Dokazi.html` | **„Докази“**: the administrator's evidence for the title of mentor — each piece of evidence once, tied to the indicators of the standards by links that carry the explanation; the one document of 059. The files stay in a folder on the owner's computer. A separate app: no button in the workspace; the owner keeps its address as a bookmark in Обележувачи |
 | `Sinhronizacija.html` | where the data stands: this browser's diary ↔ its server, WORK ↔ HOME, the cloud — reads, never syncs |
 | `server/` | Fastify + TypeScript API over PostgreSQL |
 

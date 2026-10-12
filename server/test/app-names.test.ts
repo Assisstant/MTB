@@ -28,7 +28,8 @@ const NAMES: Record<string, string> = {
     'S-Dnevnik.html': 'S-Дневник',
     'Pregled-Baza.html': 'Преглед на базата',
     'Sinhronizacija.html': 'Синхронизација',
-    'Obelezuvaci.html': 'Обележувачи'
+    'Obelezuvaci.html': 'Обележувачи',
+    'Dokazi.html': 'Докази'
 };
 // Independent tools the MTB screens link to: the tool's own name, without „— MTB“.
 const TOOLS: Record<string, string> = {

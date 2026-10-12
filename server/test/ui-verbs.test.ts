@@ -24,7 +24,7 @@ const ROOT = join(import.meta.dirname, '..', '..');
 const SCREENS = [
     'S-Dnevnik.html', 'RasporediFusion.html', 'Podatoci.html', 'Nastava.html', 'NastavaUredi.html',
     'Kolega.html', 'AkciskiPlan.html', 'MTB-Workspace.html', 'start.html', 'Sinhronizacija.html',
-    'Pregled-Baza.html', 'Obelezuvaci.html', 'mtb-forms.js', 'mtb-teacher-week.js', 'mtb-schedule-form.js', 'mtb-class-form.js',
+    'Pregled-Baza.html', 'Obelezuvaci.html', 'Dokazi.html', 'mtb-forms.js', 'mtb-teacher-week.js', 'mtb-schedule-form.js', 'mtb-class-form.js',
     'workspace-admin.js', 'app-navigation.js', 'mtb-layout.js'
 ];
 

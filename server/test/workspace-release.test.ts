@@ -424,3 +424,27 @@ test('052 puts the door under the owner\'s control without changing one account,
   await assert.rejects(c.query("UPDATE staff_sessions SET link_id=-1 WHERE token_hash='plain'"),/staff_sessions_link_id_fkey/,'only a real link');
  }finally{await c.query(`DROP SCHEMA IF EXISTS ${backup} CASCADE`);await c.query(`DROP SCHEMA ${schema} CASCADE`);await c.end();}
 });
+
+test('059 adds the administrator\'s evidence for the title of mentor, one versioned document, locked away from the REST roles, on a database at 058', async () => {
+ const url=process.env.TEST_DATABASE_URL||process.env.DATABASE_URL;
+ const c=new pg.Client({connectionString:url});await c.connect();
+ const schema=`portfolio_test_${process.pid}`,backup=`mtb_workspace_recovery_portfolio_test_${process.pid}`;
+ const dir=resolve(import.meta.dirname,'../../database/migrations');
+ await c.query(`CREATE SCHEMA ${schema}`);await c.query(`SET search_path=${schema}`);
+ try{
+  await c.query('CREATE TABLE schema_migrations(filename text PRIMARY KEY,applied_at timestamptz NOT NULL DEFAULT now())');
+  for(const f of (await readdir(dir)).filter(f=>f.endsWith('.sql')&&Number(f.slice(0,3))<=58).sort()){
+   await c.query(migrationBody(await readFile(resolve(dir,f),'utf8')));await c.query('INSERT INTO schema_migrations(filename) VALUES($1)',[f]);
+  }
+  await workspaceRelease(c,dir,()=>{},backup);
+  assert.equal((await c.query('SELECT count(*)::int AS n FROM schema_migrations')).rows[0].n,ALL);
+  assert.equal((await c.query("SELECT relrowsecurity FROM pg_class WHERE oid='portfolio_state'::regclass")).rows[0].relrowsecurity,true);
+  assert.equal((await c.query('SELECT count(*)::int AS n FROM portfolio_state')).rows[0].n,0,'deploy stores no evidence of its own');
+  assert.ok(MIRROR_EXCLUDED_TABLES.includes('portfolio_state'),'personal, never in a mirror');
+  for(const role of ['anon','authenticated']) if((await c.query('SELECT 1 FROM pg_roles WHERE rolname=$1',[role])).rowCount)
+   assert.equal((await c.query("SELECT has_table_privilege($1,'portfolio_state','SELECT,INSERT,UPDATE,DELETE') AS allowed",[role])).rows[0].allowed,false);
+  await c.query(`INSERT INTO portfolio_state(doc,revision) VALUES('{}',1)`);
+  await assert.rejects(c.query(`INSERT INTO portfolio_state(doc,revision) VALUES('{}',1)`),/portfolio_state_pkey/,'one document');
+  await assert.rejects(c.query(`UPDATE portfolio_state SET revision=0`),/portfolio_state_revision_check/,'a stored revision starts at 1');
+ }finally{await c.query(`DROP SCHEMA IF EXISTS ${backup} CASCADE`);await c.query(`DROP SCHEMA ${schema} CASCADE`);await c.end();}
+});

@@ -18,6 +18,8 @@ const PUBLIC_FILES = new Set([
     'BookmarksPlus.html',
     'ComuniBoard.html',
     'Dnevnik-Rasporedi-SafeSync.html',
+    // The administrator's evidence for the title of mentor; what it shows comes from /api/portfolio.
+    'Dokazi.html',
     'MTB-Workspace.html',
     'Nastava.html',
     'NastavaUredi.html',
