@@ -116,7 +116,36 @@ try {
     await page.click('#reportAllTherapists');
     assert.equal(await page.locator('#reportGrade').inputValue(), '');
     assert.equal(await page.locator('#reportContent tbody tr').count(), 2);
+    // Owner, 12 Oct 2026: a filter by how many cabinets take the pupil, counted
+    // at every therapist also while one is chosen.
+    assert.deepEqual(await page.locator('#reportCabinets option').allTextContents(), ['Сите', '1 кабинет', '2 кабинети'], 'only the numbers the pupils shown have');
+    await page.selectOption('#reportCabinets', '2');
+    assert.deepEqual(await shown(), ['III/2/3']);
+    assert.equal(await page.locator('.report-scope').textContent(), 'Приказ: Сите терапевти · 2 кабинети');
+    assert.equal(await page.locator('.report-totals').textContent(), 'Кабинети со посети: 2 · Вкупно посети неделно: 3');
+    await page.selectOption('#reportTherapist', '2');
+    assert.deepEqual(await shown(), ['III/2/1'], 'one therapist chosen: the cabinets are still all of the pupil\'s, the visits are this therapist\'s');
+    assert.equal(await page.locator('#reportCabinets').inputValue(), '2');
+    const cabinetPrint = context.waitForEvent('page');
+    await page.click('#printReport');
+    const cabinetSheet = await cabinetPrint; await cabinetSheet.waitForLoadState();
+    assert.equal(await cabinetSheet.locator('.report-scope').textContent(), 'Приказ: Терапевт Пример Б · 2 кабинети');
+    assert.equal(await cabinetSheet.locator('tbody tr').count(), 1);
+    await cabinetSheet.close();
+    await page.selectOption('#reportTherapist', '1');
+    await page.selectOption('#reportCabinets', '1');
+    assert.deepEqual(await shown(), ['IV/1/1']);
+    await page.selectOption('#reportTherapist', '2');
+    assert.equal(await page.locator('#reportCabinets').inputValue(), '', 'a number none of this therapist\'s pupils has stops being a filter');
+    assert.deepEqual(await page.locator('#reportCabinets option').evaluateAll(o => o.map(x => x.value)), ['', '2']);
+    await page.selectOption('#reportTherapist', '');
+    await page.selectOption('#reportCabinets', '1');
+    assert.equal(await page.locator('#reportAllTherapists').isDisabled(), false);
+    await page.click('#reportAllTherapists');
+    assert.equal(await page.locator('#reportCabinets').inputValue(), '');
+    assert.equal(await page.locator('#reportContent tbody tr').count(), 2);
     await page.click('#listsTab');
+    assert.equal(await page.locator('#reportCabinetsField').isVisible(), false);
     assert.equal(await page.locator('#reportGradeField').isVisible(), false, 'the lists by therapist keep their own arranged order');
     assert.equal(await page.locator('#reportSortField').isVisible(), false);
     await page.click('#visitsTab');

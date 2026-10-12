@@ -1257,6 +1257,7 @@
             <div class="roster-controls report-controls">
                 <label class="roster-field"><span id="reportFilterLabel">Терапевт за овој приказ</span><select id="reportTherapist"><option value="">Сите терапевти</option></select></label>
                 <label class="roster-field" id="reportGradeField" hidden><span>Одделение</span><select id="reportGrade"><option value="">Сите одделенија</option></select></label>
+                <label class="roster-field" id="reportCabinetsField" hidden><span>Кабинети</span><select id="reportCabinets"><option value="">Сите</option></select></label>
                 <label class="roster-field" id="reportSortField" hidden><span>Редослед</span><select id="reportSort">
                     <option value="name-asc">Име: А → Ш</option>
                     <option value="name-desc">Име: Ш → А</option>
@@ -1362,7 +1363,7 @@
         years: [], year: '', day: DAYS[0], focus: '', weekFocus: null, focusMode: 'day',
         view: 'day', panel: 'schedule', roster: null,
         classWeekClass: '', crossing: null,
-        rosterTherapist: '', reportTherapists: { lists: '', visits: '' }, reportGrade: '', reportSort: 'name-asc', token: '', me: null, authRequired: false,
+        rosterTherapist: '', reportTherapists: { lists: '', visits: '' }, reportGrade: '', reportCabinets: '', reportSort: 'name-asc', token: '', me: null, authRequired: false,
         bells: [], sessions: new Map(), pending: new Set(), expandedBlocks: new Set(), ticket: 0,
         pollTicket: 0, sessionVersion: 0, sessionsReady: false, sessionsStale: false,
         cellFailures: new Map(),
@@ -1928,6 +1929,8 @@
     }
     const byGrade = (a, b) => gradeRank(a) - gradeRank(b) || String(a).localeCompare(String(b), 'mk');
 
+    const cabinetsText = (n) => n + (Number(n) === 1 ? ' кабинет' : ' кабинети');
+
     function reportTable(headers, rows) {
         return '<table class="report-table"><thead><tr>' + headers.map((h) => '<th scope="col">' + esc(h) + '</th>').join('') +
             '</tr></thead><tbody>' + (rows.length ? rows.map((row) => '<tr>' + row.map((v) => '<td>' + esc(v) + '</td>').join('') + '</tr>').join('') :
@@ -1959,31 +1962,40 @@
                     : '') +
                 '</section>';
         }).join('');
+        // Owner, 12 Oct 2026: how many cabinets take a pupil is asked of EVERY
+        // therapist, also while one is chosen — „this therapist's pupils who go
+        // to three cabinets". The visits beside it stay those of the filter.
+        const everyCount = ((state.roster && state.roster.therapists) || []).map((t) => counts.get(t.id) || therapistSessionCounts(t.id));
         const everyRow = [...students.values()].sort(sort).map((s) => {
             const visits = therapists.map((t) => ({ t, n: counts.get(t.id).get(s.public_id) || 0 })).filter((v) => v.n);
-            return { s, visits, total: visits.reduce((sum, v) => sum + v.n, 0) };
+            return { s, visits, total: visits.reduce((sum, v) => sum + v.n, 0), cabinets: everyCount.filter((c) => c.get(s.public_id)).length };
         }).filter((r) => r.visits.length);
         // The classes offered are those of the pupils shown for this therapist;
         // a class that is no longer among them is not a filter any more.
+        // The numbers of cabinets offered follow the same rule.
         state.reportGrades = [...new Set(everyRow.map((r) => r.s.grade || NO_GRADE))].sort(byGrade);
         if (!state.reportGrades.includes(state.reportGrade)) state.reportGrade = '';
+        state.reportCabinetCounts = [...new Set(everyRow.map((r) => r.cabinets))].sort((a, b) => a - b);
+        if (!state.reportCabinetCounts.includes(Number(state.reportCabinets))) state.reportCabinets = '';
         const [sortKey, sortWay] = state.reportSort.split('-');
-        const measure = { visits: (r) => r.total, cabinets: (r) => r.visits.length }[sortKey];
+        const measure = { visits: (r) => r.total, cabinets: (r) => r.cabinets }[sortKey];
         const way = sortWay === 'desc' ? -1 : 1;
         // `sort` is stable: pupils that tie keep the alphabetical order they came in.
         const rows = everyRow.filter((r) => state.reportGrade === '' || (r.s.grade || NO_GRADE) === state.reportGrade)
+            .filter((r) => state.reportCabinets === '' || r.cabinets === Number(state.reportCabinets))
             .sort((a, b) => sortKey === 'name' ? (way < 0 ? -sort(a.s, b.s) : 0)
                 : sortKey === 'grade' ? way * byGrade(a.s.grade || NO_GRADE, b.s.grade || NO_GRADE)
                     : way * (measure(a) - measure(b)));
         const totalVisits = rows.reduce((sum, row) => sum + row.visits.reduce((n, v) => n + v.n, 0), 0);
         const usedTherapists = new Set(rows.flatMap(row => row.visits.map(v => v.t.id)));
         const scope = (state.reportTherapists.visits ? therapists.map(t => t.name).join(', ') : 'Сите терапевти')
-            + (state.reportGrade ? ' · ' + (state.reportGrade === NO_GRADE ? 'без одделение' : 'одделение ' + state.reportGrade) : '');
+            + (state.reportGrade ? ' · ' + (state.reportGrade === NO_GRADE ? 'без одделение' : 'одделение ' + state.reportGrade) : '')
+            + (state.reportCabinets ? ' · ' + cabinetsText(state.reportCabinets) : '');
         return '<section class="report-section"><p class="report-note report-scope">Приказ: ' + esc(scope) + '</p>' +
             '<h3>' + rows.length + ' ученици со закажани посети</h3>' +
             '<p class="report-note report-totals">Кабинети со посети: ' + usedTherapists.size + ' · Вкупно посети неделно: ' + totalVisits + '</p>' +
-            reportTable(['Бр.', 'Име и презиме', 'Паралелка', 'Кабинети', 'Посети неделно', 'Терапевт · посети'], rows.map(({ s, visits }, i) =>
-                [i + 1, s.name, s.grade || '—', visits.length, visits.reduce((sum, v) => sum + v.n, 0), visits.map((v) => v.t.name + ' · ' + v.n).join('; ')])) + '</section>';
+            reportTable(['Бр.', 'Име и презиме', 'Паралелка', 'Кабинети', 'Посети неделно', 'Терапевт · посети'], rows.map(({ s, visits, cabinets }, i) =>
+                [i + 1, s.name, s.grade || '—', cabinets, visits.reduce((sum, v) => sum + v.n, 0), visits.map((v) => v.t.name + ' · ' + v.n).join('; ')])) + '</section>';
     }
 
     function drawReports() {
@@ -1997,21 +2009,25 @@
         const visitsPanel = state.panel === 'visits';
         el('reportGradeField').hidden = !visitsPanel;
         el('reportSortField').hidden = !visitsPanel;
+        el('reportCabinetsField').hidden = !visitsPanel;
         el('reportPanel').setAttribute('aria-labelledby', state.panel === 'lists' ? 'listsTab' : 'visitsTab');
         el('reportTitle').textContent = state.panel === 'lists' ? 'Списоци по терапевт' : 'Посети по ученик';
         el('reportYear').textContent = state.year;
         el('reportNote').textContent = state.panel === 'lists'
             ? 'Годишен список и закажани ученици по терапевт. Нула значи дека ученикот нема закажан термин.'
-            : 'Планирани посети според распоредот, не евиденција на присуство. Кабинети = различни терапевти со закажан термин. Бројките важат за избраниот филтер.';
+            : 'Планирани посети според распоредот, не евиденција на присуство. Кабинети = кај колку различни терапевти ученикот има закажан термин, броено кај сите терапевти и кога е избран еден. Посетите важат за избраниот филтер.';
         el('reportContent').innerHTML = state.roster ? reportHtml() : '<p>Податоците не се вчитани.</p>';
         // After the table: it is the table that knows which classes its pupils have.
         if (visitsPanel) {
             el('reportGrade').innerHTML = '<option value="">Сите одделенија</option>' + (state.reportGrades || []).map((g) =>
                 '<option value="' + esc(g) + '">' + esc(g === NO_GRADE ? 'без одделение' : g) + '</option>').join('');
             el('reportGrade').value = state.reportGrade;
+            el('reportCabinets').innerHTML = '<option value="">Сите</option>' + (state.reportCabinetCounts || []).map((n) =>
+                '<option value="' + n + '">' + cabinetsText(n) + '</option>').join('');
+            el('reportCabinets').value = state.reportCabinets;
             el('reportSort').value = state.reportSort;
         }
-        el('reportAllTherapists').disabled = !state.reportTherapists[state.panel] && !(visitsPanel && state.reportGrade);
+        el('reportAllTherapists').disabled = !state.reportTherapists[state.panel] && !(visitsPanel && (state.reportGrade || state.reportCabinets));
         el('reportContent').querySelectorAll('[data-print-therapist]').forEach((b) => b.addEventListener('click', () => printReport(b.dataset.printTherapist)));
     }
 
@@ -4516,7 +4532,8 @@
         });
     });
     el('reportTherapist').addEventListener('change', () => { state.reportTherapists[state.panel] = el('reportTherapist').value; drawReports(); });
-    el('reportAllTherapists').addEventListener('click', () => { state.reportTherapists[state.panel] = ''; if (state.panel === 'visits') state.reportGrade = ''; drawReports(); });
+    el('reportAllTherapists').addEventListener('click', () => { state.reportTherapists[state.panel] = ''; if (state.panel === 'visits') { state.reportGrade = ''; state.reportCabinets = ''; } drawReports(); });
+    el('reportCabinets').addEventListener('change', () => { state.reportCabinets = el('reportCabinets').value; drawReports(); });
     el('reportGrade').addEventListener('change', () => { state.reportGrade = el('reportGrade').value; drawReports(); });
     el('reportSort').addEventListener('change', () => { state.reportSort = el('reportSort').value; drawReports(); });
     el('printReport').addEventListener('click', () => printReport());
