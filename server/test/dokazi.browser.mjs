@@ -10,6 +10,7 @@ import { chromium } from 'playwright';
 import { readFileSync } from 'node:fs';
 import { mkdir } from 'node:fs/promises';
 import { join } from 'node:path';
+import { deflateRawSync } from 'node:zlib';
 
 const ROOT = join(import.meta.dirname, '..', '..');
 // localhost: a folder can be opened only in a secure context.
@@ -75,6 +76,8 @@ async function world({ mode = 'owner', doc = seed(), revision = 4, viewport = { 
             }
         }
         if (url.hostname === 'img.youtube.com') return route.fulfill({ status: 200, contentType: 'image/png', body: PNG });
+        // A video's player and a linked site: invented, so the run needs no Internet.
+        if (['www.youtube.com', 'docs.google.com', 'example.org'].includes(url.hostname)) return route.fulfill({ status: 200, contentType: 'text/html', body: '<title>invented</title>' });
         unexpected.push(url.href.slice(0, 100));
         return route.abort();
     });
@@ -384,6 +387,68 @@ try {
     await page.click('#gate button');
     await page.waitForSelector('.card');
     check('after it the evidence opens', (await titles(page)).length === 4 && server.puts.length === 0);
+    await w.context.close();
+
+    console.log('\na part is shown over the page, as the old table did');
+    // A .docx is a zip with its text in word/document.xml; this one is made here, two paragraphs long.
+    const docx = (() => {
+        const name = Buffer.from('word/document.xml');
+        const raw = Buffer.from('<?xml version="1.0"?><w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body>'
+            + '<w:p><w:r><w:t>Измислена подготовка</w:t></w:r></w:p><w:p><w:r><w:t>Втор </w:t></w:r><w:r><w:t>пасус</w:t></w:r></w:p></w:body></w:document>');
+        const packed = deflateRawSync(raw);
+        const local = Buffer.alloc(30), central = Buffer.alloc(46), end = Buffer.alloc(22);
+        local.writeUInt32LE(0x04034b50, 0); local.writeUInt16LE(8, 8); local.writeUInt32LE(packed.length, 18); local.writeUInt32LE(raw.length, 22); local.writeUInt16LE(name.length, 26);
+        central.writeUInt32LE(0x02014b50, 0); central.writeUInt16LE(8, 10); central.writeUInt32LE(packed.length, 20); central.writeUInt32LE(raw.length, 24); central.writeUInt16LE(name.length, 28);
+        end.writeUInt32LE(0x06054b50, 0); end.writeUInt16LE(1, 8); end.writeUInt16LE(1, 10); end.writeUInt32LE(46 + name.length, 12); end.writeUInt32LE(30 + name.length + packed.length, 16);
+        return Buffer.concat([local, name, packed, central, name, end]);
+    })();
+    w = await world({ doc: { ...seed(), items: [item('v1', 1, 'Измислен доказ со сè', [file('f1', 'slika.png'), file('f2', 'izvestaj.pdf'), file('f3', 'pod/video.mp4'), file('f4', 'opis.docx'),
+        file('f5', 'tabela.xlsx'), web('f6', 'https://www.youtube.com/watch?v=abcdefghijk', 'Видео'), web('f7', 'https://example.org/alat', 'Алатка'),
+        web('f8', 'https://docs.google.com/document/d/abc_123-x/edit?usp=sharing', 'Документ')])], links: [] } });
+    ({ page, server } = w);
+    await page.evaluate(async ([bytes]) => {
+        const dir = await (await navigator.storage.getDirectory()).getDirectoryHandle('dokazi');
+        for (const [name, data] of [['opis.docx', bytes], ['tabela.xlsx', [80, 75]]]) { const s = await (await dir.getFileHandle(name, { create: true })).createWritable(); await s.write(new Uint8Array(data)); await s.close(); }
+    }, [[...docx]]);
+    await open(w, '#d=v1');
+    await page.click('#connect');
+    await page.waitForFunction(() => document.getElementById('folderHint').textContent.includes('6 датотеки'));
+    const stage = (selector) => page.waitForSelector('#viewer[open] #viewerStage ' + selector);
+    const thumbOf = (id) => page.click(`.part-row[data-part="${id}"] .thumb`);
+    await thumbOf('f1'); await stage('img');
+    check('a picture opens over the page, under its name', (await page.textContent('#viewerTitle')) === 'slika.png' && (await page.$eval('#viewerStage img', (i) => i.src.startsWith('blob:'))));
+    check('the address stays where it was', page.url().endsWith('#d=v1') && w.context.pages().length === 1);
+    await page.click('#viewerClose');
+    await page.waitForFunction(() => document.getElementById('viewerStage').childElementCount === 0);
+    check('closing empties it', (await page.$('#viewer[open]')) === null && (await page.$eval('#viewerStage', (s) => s.childElementCount)) === 0);
+    await thumbOf('f2'); await stage('iframe');
+    check('a PDF is shown in the page', await page.$eval('#viewerStage iframe', (f) => f.src.startsWith('blob:')));
+    await page.keyboard.press('Escape');
+    await thumbOf('f3'); await stage('video');
+    check('a video plays with its controls', await page.$eval('#viewerStage video', (v) => v.controls && v.src.startsWith('blob:')));
+    await page.keyboard.press('Escape');
+    await page.waitForFunction(() => document.getElementById('viewerStage').childElementCount === 0);
+    check('and stops when the window is closed', (await page.$('#viewerStage video')) === null);
+    await thumbOf('f4'); await stage('.words');
+    check('a Word file shows its words, paragraph by paragraph', same(await page.$$eval('#viewerStage .words p:not(.hint)', (n) => n.map((x) => x.textContent)), ['Измислена подготовка', 'Втор пасус']));
+    await shot(page, 'viewer-word');
+    check('and „↗ Отвори" hands over the file itself', await page.$eval('#viewerOut', (a) => a.href.startsWith('blob:') && a.target === '_blank'));
+    await page.keyboard.press('Escape');
+    await thumbOf('f6'); await stage('iframe');
+    check('a YouTube link plays in the page', (await page.$eval('#viewerStage iframe', (f) => f.src)).startsWith('https://www.youtube.com/embed/abcdefghijk'));
+    await page.keyboard.press('Escape');
+    await thumbOf('f8'); await stage('iframe');
+    check('a Google document is asked for its own preview', (await page.$eval('#viewerStage iframe', (f) => f.src)) === 'https://docs.google.com/document/d/abc_123-x/preview');
+    await page.keyboard.press('Escape');
+    let [tab] = await Promise.all([w.context.waitForEvent('page'), thumbOf('f7')]);
+    check('any other link opens in a tab of its own', tab.url() === 'https://example.org/alat' && (await page.$('#viewer[open]')) === null);
+    await tab.close();
+    [tab] = await Promise.all([w.context.waitForEvent('page'), thumbOf('f5')]);
+    check('a file the browser cannot show is handed over, not shown broken', Boolean(tab) && (await page.$('#viewer[open]')) === null);
+    await tab.close();
+    await page.goto(`${ORIGIN}/Dokazi.html#tabela`);
+    check('looking changed nothing on the server', server.puts.length === 0);
+    check('the page raised no errors', w.errors.length === 0, w.errors.join(' | '));
     await w.context.close();
 
     console.log('\nwords are readable in both themes');

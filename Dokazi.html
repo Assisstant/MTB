@@ -138,6 +138,19 @@ dialog .row { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wra
 dialog .btn { min-height: 36px; padding: 6px 16px; }
 dialog p { margin: 0; }
 
+/* A part opened over the page, as the old table did: picture, video, PDF, the words of a Word file. */
+#viewer { width: min(96vw, 1180px); height: min(92vh, 860px); max-height: 92vh; padding: 0; overflow: hidden; }
+#viewer[open] { display: flex; flex-direction: column; }
+#viewer .bar { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-bottom: 1px solid var(--border); }
+#viewer .bar b { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#viewer .bar .btn { min-height: 32px; padding: 4px 12px; font-size: 13.5px; }
+#viewerStage { flex: 1; min-height: 0; display: grid; place-items: center; background: var(--soft); overflow: auto; }
+#viewerStage img, #viewerStage video { max-width: 100%; max-height: 100%; object-fit: contain; }
+#viewerStage iframe { width: 100%; height: 100%; border: 0; background: #fff; }
+#viewerStage .words { align-self: start; justify-self: stretch; max-width: 820px; margin: 0 auto; padding: 18px 22px 40px; background: var(--card); color: var(--text); min-height: 100%; box-sizing: border-box; }
+#viewerStage .words p { margin: 0 0 .7em; white-space: pre-wrap; overflow-wrap: anywhere; }
+#viewerStage .words .hint { color: var(--muted); font-size: 13px; border-bottom: 1px solid var(--border); padding-bottom: 8px; }
+
 @media (max-width: 760px) {
     .shell { grid-template-columns: 1fr; }
     aside { border-right: 0; border-bottom: 2px solid var(--border); padding: 8px 10px 10px; max-height: 42vh; }
@@ -222,6 +235,15 @@ dialog p { margin: 0; }
             <button type="submit" class="btn btn-primary" id="pickerSave">Зачувај</button>
         </div>
     </form>
+</dialog>
+
+<dialog id="viewer" aria-labelledby="viewerTitle">
+    <div class="bar">
+        <b id="viewerTitle"></b>
+        <a class="btn soft" id="viewerOut" target="_blank" rel="noopener noreferrer" title="Во ново јазиче">↗ Отвори</a>
+        <button type="button" class="btn soft" id="viewerClose">✕ Затвори</button>
+    </div>
+    <div id="viewerStage"></div>
 </dialog>
 
 <script>
@@ -679,11 +701,77 @@ dialog p { margin: 0; }
         if (doc) render();
     }
 
+    // ── a part opened over the page ───────────────────────────────────────
+    function show(title, out, node) {
+        $('viewerTitle').textContent = title;
+        $('viewerOut').href = out;
+        $('viewerStage').replaceChildren(node);
+        if (!$('viewer').open) $('viewer').showModal();
+    }
+    $('viewerClose').addEventListener('click', () => $('viewer').close());
+    // Emptied on closing, so a video stops and a file is let go.
+    $('viewer').addEventListener('close', () => $('viewerStage').replaceChildren());
+    $('viewer').addEventListener('click', (e) => { if (e.target === $('viewer')) $('viewer').close(); });
+
+    /** Google's own preview address for a Drive file or a Docs/Sheets/Slides document, or ''. */
+    const drivePreview = (url) => {
+        const m = /^https:\/\/drive\.google\.com\/file\/d\/([\w-]+)/.exec(url) || /^https:\/\/docs\.google\.com\/(?:document|spreadsheets|presentation)\/d\/([\w-]+)/.exec(url);
+        return m ? m[0] + '/preview' : '';
+    };
+
+    /**
+     * The words of a .docx, read here: the file is a zip, and its text is one
+     * XML part. No layout, no pictures — enough to see WHICH document it is
+     * without leaving the page; „↗ Отвори" hands the file itself over.
+     */
+    async function wordText(file) {
+        const bytes = new Uint8Array(await file.arrayBuffer()), data = new DataView(bytes.buffer);
+        let end = bytes.length - 22;
+        while (end >= 0 && data.getUint32(end, true) !== 0x06054b50) end--;
+        if (end < 0) throw new Error('not a zip');
+        let at = data.getUint32(end + 16, true);
+        for (let n = data.getUint16(end + 10, true); n > 0 && data.getUint32(at, true) === 0x02014b50; n--) {
+            const nameLength = data.getUint16(at + 28, true);
+            const name = new TextDecoder().decode(bytes.subarray(at + 46, at + 46 + nameLength));
+            if (name === 'word/document.xml') {
+                const method = data.getUint16(at + 10, true), size = data.getUint32(at + 20, true), local = data.getUint32(at + 42, true);
+                const start = local + 30 + data.getUint16(local + 26, true) + data.getUint16(local + 28, true);
+                const packed = bytes.subarray(start, start + size);
+                const xml = method === 0 ? new TextDecoder().decode(packed)
+                    : await new Response(new Blob([packed]).stream().pipeThrough(new DecompressionStream('deflate-raw'))).text();
+                const tree = new DOMParser().parseFromString(xml, 'application/xml');
+                return [...tree.getElementsByTagName('w:p')].slice(0, 3000).map((p) => [...p.getElementsByTagName('*')].map((node) =>
+                    (node.tagName === 'w:t' ? node.textContent : node.tagName === 'w:tab' ? '\t' : node.tagName === 'w:br' ? '\n' : '')).join(''));
+            }
+            at += 46 + nameLength + data.getUint16(at + 30, true) + data.getUint16(at + 32, true);
+        }
+        throw new Error('no text part');
+    }
+    const words = (lines, hint) => el('div', { class: 'words' }, el('p', { class: 'hint', text: hint }), ...lines.map((line) => el('p', { text: line })));
+
+    /** A click on a part: shown over the page when the browser can show it, handed over otherwise. */
     async function openPart(part) {
-        if (part.kind === 'link') return window.open(part.url, '_blank', 'noopener,noreferrer');
+        const title = nameOf(part);
+        if (part.kind === 'link') {
+            const yt = youtubeId(part.url), drive = drivePreview(part.url);
+            if (yt) return show(title, part.url, el('iframe', { src: `https://www.youtube.com/embed/${yt}?rel=0`, allow: 'autoplay; encrypted-media; picture-in-picture', allowfullscreen: true, referrerpolicy: 'strict-origin-when-cross-origin', title }));
+            if (drive) return show(title, part.url, el('iframe', { src: drive, allow: 'autoplay', allowfullscreen: true, title }));
+            if (/\.(png|jpe?g|gif|webp|svg)(\?|#|$)/i.test(part.url)) return show(title, part.url, el('img', { src: part.url, alt: title, referrerpolicy: 'no-referrer' }));
+            return window.open(part.url, '_blank', 'noopener,noreferrer');
+        }
         if (!files) return alert('Датотеките се во папка на компјутерот. Кликни „📂 Поврзи папка" (лево долу) за да се отвораат од тука.');
         const url = await urlOf(part.path);
         if (!url) return alert(`„${part.path}" ја нема во поврзаната папка.`);
+        const kind = kindOf(part), type = ext(part.path);
+        if (kind === 'image') return show(title, url, el('img', { src: url, alt: title }));
+        if (kind === 'video') return show(title, url, el('video', { src: url, controls: true, autoplay: true }));
+        if (kind === 'pdf') return show(title, url, el('iframe', { src: url, title }));
+        if (/^(mp3|wav|ogg|m4a)$/.test(type)) return show(title, url, el('audio', { src: url, controls: true, autoplay: true }));
+        try {
+            const file = await handleOf(part.path).getFile();
+            if (type === 'docx') return show(title, url, words(await wordText(file), 'Текстот на документот, без изглед и слики. За целиот документ: „↗ Отвори".'));
+            if (/^(txt|csv|md|json)$/.test(type) && file.size < 2e6) return show(title, url, words((await file.text()).split(/\r?\n/).slice(0, 3000), 'Текстот на датотеката.'));
+        } catch (_) { /* not readable as text: handed over below */ }
         window.open(url, '_blank', 'noopener');
     }
     /** A small picture for an image part, filled in when the file has been read. */
@@ -1093,7 +1181,7 @@ dialog p { margin: 0; }
     // A link pasted anywhere outside a field starts a new piece of evidence with it.
     document.addEventListener('paste', (e) => {
         const target = e.target || {};
-        if (!doc || $('picker').open || target.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName || '')) return;
+        if (!doc || $('viewer').open || $('picker').open || target.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName || '')) return;
         const text = ((e.clipboardData && e.clipboardData.getData('text')) || '').trim();
         if (!/^(https?:\/\/|www\.)\S+$/i.test(text)) return;
         e.preventDefault();
