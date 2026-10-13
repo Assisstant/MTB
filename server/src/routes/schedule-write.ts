@@ -89,6 +89,21 @@ export function semanticBlock(rows: any[], times: { full: string; halves: [strin
     return halves.map(String);
 }
 
+/**
+ * The block as it is stored: the pupils `semanticBlock` names, each with the
+ * exact minutes they hold. A legacy row can be one lone half (08:20-08:40);
+ * the pupil list alone reads that as "one pupil", which a later write would
+ * widen to all 40 minutes. Whoever must put a block back needs the minutes.
+ */
+export function blockState(rows: any[], times: { full: string; halves: [string, string] }): { ids: string[]; times: string[] } | null {
+    const ids = semanticBlock(rows, times);
+    if (ids == null) return null;
+    return { ids, times: ids.map((id) => {
+        const own = rows.filter((row) => String(row.student_public_id) === id).map((row) => String(row.time_slot));
+        return own.length === 1 ? own[0] : times.full;
+    }) };
+}
+
 async function yearId(label?: string): Promise<number | null> {
     const { rows } = await pool.query(
         `SELECT id FROM school_years WHERE ($1::text IS NULL AND is_current) OR label = $1 LIMIT 1`,
@@ -111,7 +126,7 @@ export type BlockWrite = {
  * already with another therapist then is booked anyway, and the sessions it
  * overlaps come back so that therapist can be told. Кабинети never forces.
  */
-export async function writeBlock(body: z.infer<typeof BlockBody>, options: { force?: boolean } = {}): Promise<BlockWrite> {
+export async function writeBlock(body: z.infer<typeof BlockBody>, options: BlockOptions = {}): Promise<BlockWrite> {
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
@@ -124,8 +139,16 @@ export async function writeBlock(body: z.infer<typeof BlockBody>, options: { for
     } finally { client.release(); }
 }
 
+/**
+ * `exactTimes` and `expectedTimes` are for the administrator's undo
+ * (routes/portal-changes.ts): put a block back with the minutes it had,
+ * starting from the minutes it has now. Every other caller leaves them out
+ * and gets the usual shape — one pupil the whole bell, two the halves.
+ */
+export type BlockOptions = { force?: boolean; exactTimes?: string[]; expectedTimes?: string[] };
+
 /** Caller owns the transaction; used by one block and by a confirmed whole week. */
-export async function writeBlockInTransaction(client: import("pg").PoolClient, body: z.infer<typeof BlockBody>, options: { force?: boolean } = {}): Promise<BlockWrite> {
+export async function writeBlockInTransaction(client: import("pg").PoolClient, body: z.infer<typeof BlockBody>, options: BlockOptions = {}): Promise<BlockWrite> {
     // The route's answers, as a status and a body the caller sends on.
     const reply = { code: (status: number) => ({ send: (payload: any): BlockWrite => ({ status, body: payload }) }) };
     const forcedOver: NonNullable<BlockWrite['forcedOver']> = [];
@@ -175,8 +198,9 @@ export async function writeBlockInTransaction(client: import("pg").PoolClient, b
             blockOverlap: true
         });
     }
-    if (body.expectedStudentPublicIds !== undefined &&
-        !sameIds(present, body.expectedStudentPublicIds)) {
+    const presentTimes = blockState(currentRows, times)!.times;
+    if ((body.expectedStudentPublicIds !== undefined && !sameIds(present, body.expectedStudentPublicIds))
+        || (options.expectedTimes !== undefined && !sameIds(presentTimes, options.expectedTimes))) {
         return reply.code(409).send({
             error: 'that block changed while you were editing',
             expectedStudentPublicIds: body.expectedStudentPublicIds,
@@ -215,7 +239,15 @@ export async function writeBlockInTransaction(client: import("pg").PoolClient, b
     }
 
     await lockScheduleStudents(client, year.id, body.day, body.studentPublicIds);
-    const desiredTimes = students.length === 1 ? [times.full] : times.halves.slice(0, students.length);
+    let desiredTimes = students.length === 1 ? [times.full] : times.halves.slice(0, students.length);
+    if (options.exactTimes) {
+        // One pupil may hold the whole bell or one half of it; two hold the halves, in order.
+        const wanted = options.exactTimes;
+        const fits = students.length === 1 ? wanted.length === 1 && exactTimes.includes(wanted[0])
+            : sameIds(wanted, times.halves.slice(0, students.length));
+        if (!fits) return reply.code(400).send({ error: 'those times are not this block' });
+        desiredTimes = wanted;
+    }
     for (let index = 0; index < students.length; index++) {
         const overlaps = await scheduleOverlaps(client, year.id, body.day, body.therapistId,
             desiredTimes[index], students[index].public_id, exactTimes);
@@ -247,6 +279,7 @@ export async function writeBlockInTransaction(client: import("pg").PoolClient, b
         therapistId: therapist.id, therapistName: therapist.name,
         studentPublicIds: students.map((student) => student.public_id),
         previousStudentPublicIds: present,
+        previousTimes: presentTimes, times: desiredTimes,
         sessions: students.map((student, index) => ({
             day: body.day, time: desiredTimes[index], therapist_id: therapist.id,
             therapist_name: therapist.name, student_public_id: student.public_id,

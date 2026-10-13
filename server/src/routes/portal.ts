@@ -34,7 +34,8 @@ import {
     standingClashes, yearClasses, yearLessons, yearTeachers, type Clash, type WeekLesson
 } from '../lib/portal-week.js';
 import { bellsOf, crossingOf, subjectOffer } from './teaching.js';
-import { blockTimes, semanticBlock, writeBlock } from './schedule-write.js';
+import { blockTimes, semanticBlock, writeBlockInTransaction, type BlockWrite } from './schedule-write.js';
+import { logTermChange } from '../lib/portal-changes.js';
 import { minutesOf, timeOf } from '../lib/crossing.js';
 import { defaultMonth, isIsoDate, loadDuty, monthBounds, monthPayload, todayInSkopje, windowPayload } from '../lib/duty.js';
 import { dayProblem, setAbsence, schoolYearOf } from './duty.js';
@@ -980,10 +981,27 @@ export async function portalRoutes(server: FastifyInstance, options: { year?: st
         if (therapistId == null) return reply.code(403).send({ error: 'Само терапевт има свој кабинет.' });
         const b = TermBody.parse(req.body);
         if (!TEACHING_DAYS.includes(b.day)) return reply.code(400).send({ error: 'Непознат ден.' });
-        const result = await writeBlock({
-            year: who.year.label, day: b.day, time: b.time, therapistId,
-            studentPublicIds: b.pupils, expectedStudentPublicIds: b.expected
-        }, { force: Boolean(b.force) });
+        // The block and its row in the administrator's record (060) are one
+        // transaction: a term that was not written leaves nothing to undo.
+        let result: BlockWrite;
+        const client = await pool.connect();
+        try {
+            await client.query('BEGIN');
+            result = await writeBlockInTransaction(client, {
+                year: who.year.label, day: b.day, time: b.time, therapistId,
+                studentPublicIds: b.pupils, expectedStudentPublicIds: b.expected
+            }, { force: Boolean(b.force) });
+            if (result.status === 200) {
+                await logTermChange(client, { yearId: who.year.id, therapistId, authorEmployeeId: who.author.employeeId,
+                    authorName: who.author.name, day: b.day, slot: b.time, before: result.body.previousStudentPublicIds || [],
+                    after: result.body.studentPublicIds || [], beforeTimes: result.body.previousTimes || [],
+                    afterTimes: result.body.times || [], forced: Boolean((result.forcedOver || []).length) });
+            }
+            await client.query(result.status === 200 ? 'COMMIT' : 'ROLLBACK');
+        } catch (err) {
+            await client.query('ROLLBACK').catch(() => {});
+            throw err;
+        } finally { client.release(); }
         if (result.status === 409 && result.body && result.body.doubleBooked) {
             const said = `${b.day}, ${b.time}: „${result.body.studentName || 'ученикот'}" тогаш е кај ${result.body.therapistName} (${result.body.time}).`;
             return reply.code(409).send({ clash: true, error: said,

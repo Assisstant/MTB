@@ -448,3 +448,34 @@ test('059 adds the administrator\'s evidence for the title of mentor, one versio
   await assert.rejects(c.query(`UPDATE portfolio_state SET revision=0`),/portfolio_state_revision_check/,'a stored revision starts at 1');
  }finally{await c.query(`DROP SCHEMA IF EXISTS ${backup} CASCADE`);await c.query(`DROP SCHEMA ${schema} CASCADE`);await c.end();}
 });
+
+test('060 adds the record of what colleagues change in their cabinets, locked away from the REST roles and from mirrors, on a database at 059', async () => {
+ const url=process.env.TEST_DATABASE_URL||process.env.DATABASE_URL;
+ const c=new pg.Client({connectionString:url});await c.connect();
+ const schema=`portal_changes_test_${process.pid}`,backup=`mtb_workspace_recovery_portal_changes_test_${process.pid}`;
+ const dir=resolve(import.meta.dirname,'../../database/migrations');
+ await c.query(`CREATE SCHEMA ${schema}`);await c.query(`SET search_path=${schema}`);
+ try{
+  await c.query('CREATE TABLE schema_migrations(filename text PRIMARY KEY,applied_at timestamptz NOT NULL DEFAULT now())');
+  for(const f of (await readdir(dir)).filter(f=>f.endsWith('.sql')&&Number(f.slice(0,3))<=59).sort()){
+   await c.query(migrationBody(await readFile(resolve(dir,f),'utf8')));await c.query('INSERT INTO schema_migrations(filename) VALUES($1)',[f]);
+  }
+  await workspaceRelease(c,dir,()=>{},backup);
+  assert.equal((await c.query('SELECT count(*)::int AS n FROM schema_migrations')).rows[0].n,ALL);
+  assert.equal((await c.query("SELECT relrowsecurity FROM pg_class WHERE oid='portal_changes'::regclass")).rows[0].relrowsecurity,true);
+  assert.equal((await c.query('SELECT count(*)::int AS n FROM portal_changes')).rows[0].n,0,'deploy records nothing of its own');
+  assert.ok(MIRROR_EXCLUDED_TABLES.includes('portal_changes'),'this server\'s own record, never in a mirror');
+  for(const role of ['anon','authenticated']) if((await c.query('SELECT 1 FROM pg_roles WHERE rolname=$1',[role])).rowCount)
+   assert.equal((await c.query("SELECT has_table_privilege($1,'portal_changes','SELECT,INSERT,UPDATE,DELETE') AS allowed",[role])).rows[0].allowed,false);
+  const year=(await c.query(`INSERT INTO school_years(label,starts_on,ends_on,is_current) VALUES('1920/1921-log','1920-09-01','1921-08-31',false) RETURNING id`)).rows[0].id;
+  const therapist=(await c.query(`INSERT INTO therapists(name) VALUES('Пробен Терапевт Запис') RETURNING id`)).rows[0].id;
+  const row=`INSERT INTO portal_changes(school_year_id,therapist_id,author_name,day,slot,before_ids,after_ids,before_times,after_times) VALUES($1,$2,'Пробен Автор','понеделник','08:00-08:40',$3::text[],$4::text[],$5::text[],$6::text[])`;
+  await c.query(row,[year,therapist,[],['a'],[],['08:00-08:40']]);
+  await c.query(row,[year,therapist,['a'],['a'],['08:20-08:40'],['08:00-08:40']]);
+  await assert.rejects(c.query(row,[year,therapist,['a'],['a'],['08:00-08:40'],['08:00-08:40']]),/portal_changes_changed/,'a write that changed nothing is not a change');
+  await assert.rejects(c.query(row,[year,therapist,[],['a'],[],[]]),/portal_changes_times/,'every pupil has their minutes');
+  await assert.rejects(c.query(row,[year,therapist,[],['a','b','c'],[],['x','y','z']]),/portal_changes_block/,'a block holds at most two pupils');
+  await c.query('DELETE FROM therapists WHERE id=$1',[therapist]);
+  assert.equal((await c.query('SELECT count(*)::int AS n FROM portal_changes')).rows[0].n,0,'the record goes with the cabinet it is about');
+ }finally{await c.query(`DROP SCHEMA IF EXISTS ${backup} CASCADE`);await c.query(`DROP SCHEMA ${schema} CASCADE`);await c.end();}
+});

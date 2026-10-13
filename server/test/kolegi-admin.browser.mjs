@@ -37,6 +37,7 @@ const check = (label, ok, detail = '') => {
 const writes = [];
 let dutyAdminLinks = [];
 let readerProfile = null, readerEnabled = false;
+let changeUndone = false;
 const browser = await chromium.launch({ ...(process.env.CHROME ? { executablePath: process.env.CHROME } : {}) });
 const context = await browser.newContext({ viewport: { width: 1400, height: 1000 }, serviceWorkers: 'block' });
 await context.route('**/*', async (route) => {
@@ -85,6 +86,16 @@ await context.route('**/*', async (route) => {
                 slot: '2', about: 'class:II-б', sentence: 'Колега Бе запиша „Физичко" во II-б, понеделник, 2. час.', seen: false, open: true }],
             teaching: [{ day: 'понеделник', ordinal: 2, class: 'II-б', who: ['Ана Измислена („Математика")', 'Колега Бе („Физичко")'] }],
             cabinet: [] });
+        // The safety net (060): the record of colleagues' changes, the baseline and „Врати".
+        if (p === '/api/portal-changes') return json(200, { year: YEAR, therapists: [{ id: 5, name: 'Двојно Име' }], changes: [
+            { id: 3, at: '2026-10-13T09:00:00Z', therapistId: 5, therapist: 'Двојно Име', author: 'Двојно Име', day: 'понеделник', slot: '08:45-09:25',
+              before: [], after: [{ publicId: 'p1', name: 'Ученик Измислен', time: '08:45-09:25' }], forced: false, undoOf: null, undoneAt: changeUndone ? '2026-10-13T10:00:00Z' : null, canUndo: !changeUndone },
+            { id: 2, at: '2026-10-13T08:30:00Z', therapistId: 5, therapist: 'Двојно Име', author: 'Двојно Име', day: 'вторник', slot: '08:00-08:40',
+              before: [{ publicId: 'p2', name: 'Ученичка Измислена', time: '08:20-08:40' }], after: [{ publicId: 'p1', name: 'Ученик Измислен', time: '08:00-08:40' }], forced: true, undoOf: null, undoneAt: null, canUndo: false }
+        ] });
+        if (p === '/api/portal-changes/baseline') return json(200, { year: YEAR, since: '2026-10-13T08:30:00Z', unchanged: 1, blocks: [
+            { changeId: 2, day: 'вторник', slot: '08:00-08:40', was: [{ publicId: 'p2', name: 'Ученичка Измислена', time: '08:20-08:40' }], now: [{ publicId: 'p1', name: 'Ученик Измислен', time: '08:00-08:40' }], overlap: false }] });
+        if (p === '/api/portal-changes/undo') { changeUndone = true; return json(200, { ok: true, notified: 1 }); }
         if (p === '/api/staff-accounts/7/reset') return json(200, { ok: true });
         if (p === '/api/staff-accounts/7/open') return json(200, { url: '/Kolega.html#as=' + LOOK, name: 'Ана Измислена', hours: 2 });
         if (p === '/api/portal/me') return req.headers()['x-mtb-portal-token'] === LOOK
@@ -119,6 +130,34 @@ const accountsText = await page.textContent('#colleaguesAccounts');
 check('every account with its username in both scripts', /AnaIzmislena/.test(accountsText) && /АнаИзмислена/.test(accountsText));
 check('and which still use the initial password', /почетна/.test(accountsText) && /своја/.test(accountsText));
 check('a name two people share is marked', /исто име/.test(accountsText));
+
+console.log('\nизмени од колегите — the safety net');
+await page.waitForSelector('#colleaguesChanges table');
+const changesText = await page.innerText('#colleaguesChanges');
+check('a change says who, where, what stood there and what was written', /Двојно Име/.test(changesText) && /понеделник · 08:45–09:25/.test(changesText)
+    && /слободен/.test(changesText) && /Ученик Измислен/.test(changesText), changesText);
+check('one written over a clash says so', /и покрај судир/.test(changesText));
+check('a pupil who held only half of the term is shown with those minutes', /Ученичка Измислена \(08:20–08:40\)/.test(changesText) && !/Ученик Измислен \(/.test(changesText), changesText);
+check('only a change the term still holds offers „Врати"', await page.locator('[data-undo-change]').count() === 1
+    && /сменето потоа/.test(await page.innerText('[data-change="2"]')));
+check('the comparison waits for a cabinet to be chosen', await page.isDisabled('#changesBaseline'));
+await page.click('[data-undo-change="3"]');
+await page.waitForFunction(() => /Вратено/.test(document.getElementById('changesMsg').textContent));
+check('„Врати" asks, then sends that change and nothing else', writes.some((w) => w.path === '/api/portal-changes/undo' && w.body === '{"id":3}'), JSON.stringify(writes.at(-1)));
+check('and says the colleague was told', /Колегата е известен/.test(await page.textContent('#changesMsg')) && /вратено/.test(await page.innerText('[data-change="3"]')));
+await page.selectOption('#changesTherapist', '5');
+await page.waitForFunction(() => !document.getElementById('changesBaseline').disabled);
+await page.click('#changesBaseline');
+await page.waitForSelector('#changesBaselineBox table');
+const baseText = await page.innerText('#changesBaselineBox');
+check('the comparison shows what stood at the start beside what stands now', /вторник · 08:00–08:40/.test(baseText)
+    && /Ученичка Измислена/.test(baseText) && /Ученик Измислен/.test(baseText) && /Уште 1 менуван термин е/.test(baseText), baseText);
+await page.locator('#changesTitle').scrollIntoViewIfNeeded();
+await page.screenshot({ path: join(ROOT, 'backups/test-artifacts/kolegi-changes.png') });
+await page.click('[data-undo-baseline="0"]');
+await page.waitForFunction(() => !document.querySelector('#changesBaselineBox table'));
+check('putting a term back to the start sends what the screen showed as standing now',
+    writes.some((w) => w.path === '/api/portal-changes/undo' && w.body === '{"id":2,"baseline":{"ids":["p1"],"times":["08:00-08:40"]}}'), JSON.stringify(writes.at(-1)));
 await page.click('[data-reset-colleague="7"]');
 await page.waitForTimeout(300);
 check('„Врати почетна лозинка" asks, then resets', writes.some((w) => w.path === '/api/staff-accounts/7/reset'));

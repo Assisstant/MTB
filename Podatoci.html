@@ -665,6 +665,23 @@
         <div id="colleaguesClashes"><p class="hint">вчитувам…</p></div>
         <h3>Известувања</h3>
         <div class="scroll"><div id="colleaguesNotices"></div></div>
+
+        <!-- The safety net (owner, 13 Oct 2026; migration 060): what a colleague
+             changed in their own cabinet, what stood there before, and a way back.
+             „Врати" is a new guarded write on the server, never a replay. -->
+        <h3 id="changesTitle">Промени од колегите</h3>
+        <p class="hint">Секоја промена на термин што колега ќе ја направи во својот кабинет останува тука: кој, кога, што беше и што е сега.
+            <b>„↶ Врати“</b> го враќа терминот како што беше и колегата добива известување. Ако терминот во меѓувреме е сменет пак, не се враќа — прво се гледа што стои сега.</p>
+        <div class="controls">
+            <label class="field">Кабинет
+                <select id="changesTherapist"><option value="">Сите кабинети</option></select>
+            </label>
+            <button class="btn soft" id="changesBaseline" disabled title="Изберете кабинет: што стоело пред првата измена, наспроти сега">Спореди со почетокот</button>
+            <button class="btn soft" id="changesRefresh"><span class="ico" aria-hidden="true">↻</span> Освежи</button>
+        </div>
+        <p id="changesMsg" class="hint" role="status"></p>
+        <div id="changesBaselineBox"></div>
+        <div class="scroll"><div id="colleaguesChanges"></div></div>
     </div>
 
     <!-- The colleagues' door under the owner's control (migration 052):
@@ -3520,7 +3537,90 @@
               + '</tbody></table>'
             : '<p class="hint">Нема наставници ни терапевти на списокот за годинава.</p>';
         await loadDutyAdminLinks();
+        await loadChanges();
     }
+
+    // ── промени од колегите: записот и „Врати" (060) ─────────────────────────
+    // The server keeps one row per block a colleague changed and decides what
+    // can still be put back; this screen shows it and asks. Nothing is worked
+    // out here, so two screens cannot disagree about what „Врати" would do.
+    // A pupil's own minutes are said only when they are not the whole term: a lone half is not 40 minutes.
+    const pupilsSaid = (list, slot) => (list || []).length ? list.map((p) => esc(personName(p.name))
+        + (p.time && p.time !== slot ? ` <span class="none">(${esc(p.time.replace('-', '–'))})</span>` : '')).join(' · ') : '<span class="none">слободен</span>';
+    let changesShown = [];
+    async function loadChanges() {
+        const picked = el('changesTherapist').value;
+        el('changesBaseline').disabled = !picked;
+        let answer;
+        try { answer = await api('GET', '/api/portal-changes' + (picked ? '?therapistId=' + encodeURIComponent(picked) : '')); }
+        catch (err) { el('colleaguesChanges').innerHTML = `<p class="hint">${esc(err.message)}</p>`; return; }
+        el('changesTherapist').innerHTML = '<option value="">Сите кабинети</option>' + (answer.therapists || [])
+            .map((t) => `<option value="${t.id}"${String(t.id) === picked ? ' selected' : ''}>${esc(personName(t.name))}</option>`).join('');
+        if (answer.missing) { el('colleaguesChanges').innerHTML = `<p class="hint">${esc(answer.note)}</p>`; return; }
+        changesShown = answer.changes || [];
+        el('colleaguesChanges').innerHTML = changesShown.length
+            ? '<table class="list"><thead><tr><th>Кога</th><th>Кој</th><th>Кабинет</th><th>Термин</th><th>Беше</th><th>Запишано</th><th></th></tr></thead><tbody>'
+              + changesShown.map((c) => `<tr data-change="${c.id}"><td>${esc(when2(c.at))}</td><td>${esc(personName(c.author))}</td>`
+                + `<td>${esc(personName(c.therapist))}</td><td>${esc(c.day)} · ${esc(c.slot.replace('-', '–'))}</td>`
+                + `<td>${pupilsSaid(c.before, c.slot)}</td><td>${pupilsSaid(c.after, c.slot)}`
+                + (c.forced ? ' <span class="none">· запишано и покрај судир</span>' : '')
+                + (c.undoOf ? ' <span class="none">· враќање</span>' : '') + '</td>'
+                + '<td class="act">' + (c.undoneAt ? '<span class="form-status accepted">вратено</span>'
+                    : c.canUndo ? `<button class="btn soft" data-undo-change="${c.id}">↶ Врати</button>`
+                    : '<span class="none" title="Терминот потоа е сменет пак, па оваа промена веќе не е последната">сменето потоа</span>') + '</td></tr>').join('')
+              + '</tbody></table>'
+            : '<p class="hint">Уште нема промени. Записот почнува од денот кога е вклучен.</p>';
+    }
+    async function undoChange(body, said, button) {
+        if (!window.confirm(said + '\n\nКолегата ќе добие известување.')) return;
+        button.disabled = true;
+        try {
+            const answer = await api('POST', '/api/portal-changes/undo', body);
+            el('changesMsg').textContent = answer.notified ? 'Вратено. Колегата е известен.' : 'Вратено.';
+        } catch (err) { el('changesMsg').textContent = err.message; }
+        el('changesBaselineBox').innerHTML = '';
+        await loadChanges();
+    }
+    el('colleaguesChanges').addEventListener('click', (event) => {
+        const button = event.target.closest('[data-undo-change]');
+        if (!button) return;
+        const c = changesShown.find((x) => String(x.id) === button.dataset.undoChange);
+        if (!c) return;
+        const plain = (list) => list.length ? list.map((p) => personName(p.name)).join(' и ') : 'слободен';
+        undoChange({ id: c.id }, `${personName(c.therapist)}, ${c.day} ${c.slot}: да се врати „${plain(c.before)}“ наместо „${plain(c.after)}“?`, button);
+    });
+    el('changesTherapist').addEventListener('change', () => { el('changesBaselineBox').innerHTML = ''; el('changesMsg').textContent = ''; loadChanges(); });
+    el('changesRefresh').addEventListener('click', () => { el('changesBaselineBox').innerHTML = ''; el('changesMsg').textContent = ''; loadChanges(); });
+    let baselineShown = [];
+    el('changesBaseline').addEventListener('click', async () => {
+        const picked = el('changesTherapist').value;
+        if (!picked) return;
+        const who = el('changesTherapist').selectedOptions[0].textContent;
+        let answer;
+        try { answer = await api('GET', '/api/portal-changes/baseline?therapistId=' + encodeURIComponent(picked)); }
+        catch (err) { el('changesMsg').textContent = err.message; return; }
+        baselineShown = answer.blocks || [];
+        el('changesBaselineBox').innerHTML = `<div class="form-review"><h3>${esc(who)} — наспроти почетокот`
+            + (answer.since ? ` <span class="none">· прва промена ${esc(when2(answer.since))}</span>` : '') + '</h3>'
+            + (baselineShown.length
+                ? '<table class="list"><thead><tr><th>Термин</th><th>На почетокот</th><th>Сега</th><th></th></tr></thead><tbody>'
+                  + baselineShown.map((b, i) => `<tr><td>${esc(b.day)} · ${esc(b.slot.replace('-', '–'))}</td><td>${pupilsSaid(b.was, b.slot)}</td>`
+                    + `<td>${b.overlap ? '<span class="none">стари записи што се преклопуваат</span>' : pupilsSaid(b.now, b.slot)}</td>`
+                    + `<td class="act">${b.overlap ? '' : `<button class="btn soft" data-undo-baseline="${i}">↶ Врати на почетното</button>`}</td></tr>`).join('')
+                  + '</tbody></table>'
+                : `<p class="hint">${answer.since ? 'Сите променети термини се пак како на почетокот.' : 'Овој колега уште ништо не сменил.'}</p>`)
+            + (answer.unchanged ? `<p class="hint">Уште ${answer.unchanged} ${answer.unchanged === 1 ? 'менуван термин е' : 'менувани термини се'} исти како на почетокот.</p>` : '')
+            + '<p class="hint">Термините што колегата не ги допрел не се наведени: тие се како што беа.</p></div>';
+    });
+    el('changesBaselineBox').addEventListener('click', async (event) => {
+        const button = event.target.closest('[data-undo-baseline]');
+        if (!button) return;
+        const b = baselineShown[Number(button.dataset.undoBaseline)];
+        if (!b) return;
+        const plain = (list) => list.length ? list.map((p) => personName(p.name)).join(' и ') : 'слободен';
+        await undoChange({ id: b.changeId, baseline: { ids: b.now.map((p) => p.publicId), times: b.now.map((p) => p.time) } },
+            `${el('changesTherapist').selectedOptions[0].textContent}, ${b.day} ${b.slot}: да се врати на почетното „${plain(b.was)}“ наместо „${plain(b.now)}“?`, button);
+    });
 
     async function grantReader(employeeId, readOnly, expected) {
         await api('PUT', `/api/staff-accounts/${employeeId}/access`, { readOnly, expected });

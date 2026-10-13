@@ -99,6 +99,8 @@ export const MIRROR_EXCLUDED_TABLES = [
     'form_reply_decisions',
     'mirror_sync_attempt',
     'mirror_sync_state',
+    // What colleagues changed in their cabinets, and the administrator's undo (060): this server's own record.
+    'portal_changes',
     // The door's link, maintenance switch and record (052): authorization, not school data.
     'portal_links',
     'portal_security',
