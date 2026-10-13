@@ -2,7 +2,8 @@
  * Докази (Dokazi.html) in a browser: the owner's evidence for the title of
  * mentor — each piece of evidence once, tied to indicators by links. Every
  * call to the MTB server is invented here, so nothing reaches a database, and
- * any request the test did not invent fails the run. The folder with the files
+ * any request the test did not invent fails the run, except the built-in PDF
+ * viewer's local browser resources. The folder with the files
  * is the browser's own private file system, handed over where a person would
  * choose a folder; nothing on this computer's disk is read or written.
  */
@@ -15,7 +16,27 @@ import { deflateRawSync } from 'node:zlib';
 const ROOT = join(import.meta.dirname, '..', '..');
 // localhost: a folder can be opened only in a secure context.
 const ORIGIN = 'http://localhost';
+const PDF_VIEWER = 'chrome-extension://mhjfbmdgcfjbbpaeojofohoefgiehjai/';
 const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==', 'base64');
+// A real one-page PDF: a four-byte "%PDF" stub only proved that an iframe opened.
+const PDF = (() => {
+    const stream = 'BT /F1 24 Tf 72 740 Td (Invented evidence - PDF preview) Tj ET\n';
+    const objects = [
+        '<< /Type /Catalog /Pages 2 0 R >>',
+        '<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
+        '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>',
+        '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>',
+        `<< /Length ${Buffer.byteLength(stream)} >>\nstream\n${stream}endstream`
+    ];
+    let text = '%PDF-1.4\n';
+    const offsets = [0];
+    objects.forEach((object, i) => { offsets.push(Buffer.byteLength(text)); text += `${i + 1} 0 obj\n${object}\nendobj\n`; });
+    const xref = Buffer.byteLength(text);
+    text += `xref\n0 ${offsets.length}\n0000000000 65535 f \n`;
+    text += offsets.slice(1).map((offset) => `${String(offset).padStart(10, '0')} 00000 n \n`).join('');
+    text += `trailer\n<< /Size ${offsets.length} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF\n`;
+    return Buffer.from(text);
+})();
 const FILES = { '/Dokazi.html': 'text/html; charset=utf-8', '/mtb-theme.js': 'application/javascript', '/mtb-look.css': 'text/css' };
 
 let fails = 0;
@@ -59,6 +80,12 @@ async function world({ mode = 'owner', doc = seed(), revision = 4, viewport = { 
     await context.route('**/*', async (route) => {
         const url = new URL(route.request().url());
         const method = route.request().method();
+        // These are bundled browser files, not network traffic. Only this PDF
+        // extension and its chrome://resources imports pass; other extensions
+        // and all unmocked HTTP requests still reach the refusal below.
+        if (method === 'GET' && (url.href.startsWith(PDF_VIEWER)
+            || (url.protocol === 'chrome:' && url.hostname === 'resources'
+                && route.request().frame().url().startsWith(PDF_VIEWER)))) return route.continue();
         if (url.origin === ORIGIN) {
             if (FILES[url.pathname]) return route.fulfill({ status: 200, contentType: FILES[url.pathname], body: readFileSync(join(ROOT, url.pathname.slice(1))) });
             if (url.pathname === '/empty.html') return route.fulfill({ status: 200, contentType: 'text/html', body: '<title>empty</title>' });
@@ -97,15 +124,15 @@ async function world({ mode = 'owner', doc = seed(), revision = 4, viewport = { 
     });
     if (folder) {
         await page.goto(`${ORIGIN}/empty.html`);
-        await page.evaluate(async (png) => {
+        await page.evaluate(async ([png, pdf]) => {
             const root = await navigator.storage.getDirectory();
             const dir = await root.getDirectoryHandle('dokazi', { create: true });
             const write = async (folder, name, bytes) => { const s = await (await folder.getFileHandle(name, { create: true })).createWritable(); await s.write(new Uint8Array(bytes)); await s.close(); };
             await write(dir, 'slika.png', png);
-            await write(dir, 'izvestaj.pdf', [37, 80, 68, 70]);
+            await write(dir, 'izvestaj.pdf', pdf);
             await write(dir, 'ne-se-koristi.png', png);
             await write(await dir.getDirectoryHandle('pod', { create: true }), 'video.mp4', [0, 0, 0, 1]);
-        }, [...PNG]);
+        }, [[...PNG], [...PDF]]);
     }
     const errors = [];
     page.on('pageerror', (e) => errors.push(String(e.stack || e).slice(0, 400)));
@@ -422,7 +449,13 @@ try {
     await page.waitForFunction(() => document.getElementById('viewerStage').childElementCount === 0);
     check('closing empties it', (await page.$('#viewer[open]')) === null && (await page.$eval('#viewerStage', (s) => s.childElementCount)) === 0);
     await thumbOf('f2'); await stage('iframe');
-    check('a PDF is shown in the page', await page.$eval('#viewerStage iframe', (f) => f.src.startsWith('blob:')));
+    check('the PDF preview receives the complete local file', await page.$eval('#viewerStage iframe', async (f, bytes) => {
+        if (!f.src.startsWith('blob:')) return false;
+        const response = await fetch(f.src);
+        const actual = [...new Uint8Array(await response.arrayBuffer())];
+        return JSON.stringify(actual) === JSON.stringify(bytes);
+    }, [...PDF]));
+    if (shots) { await page.waitForTimeout(500); await shot(page, 'viewer-pdf'); }
     await page.keyboard.press('Escape');
     await thumbOf('f3'); await stage('video');
     check('a video plays with its controls', await page.$eval('#viewerStage video', (v) => v.controls && v.src.startsWith('blob:')));
@@ -476,6 +509,20 @@ try {
     }
     await shot(page, 'phone');
     check('the page raised no errors', w.errors.length === 0, w.errors.join(' | '));
+    await w.context.close();
+
+    console.log('\nthe network guard still refuses an unmocked request');
+    w = await world({ folder: false });
+    await w.page.goto(`${ORIGIN}/empty.html`);
+    const probe = 'https://unmocked.invalid/dokazi-network-guard';
+    const beforeProbe = unexpected.length;
+    const blocked = await w.page.evaluate(async (url) => {
+        try { await fetch(url); return false; } catch { return true; }
+    }, probe);
+    const recorded = unexpected.length === beforeProbe + 1 && unexpected[beforeProbe] === probe;
+    check('an unknown network request is blocked and recorded even with the PDF viewer allowed', blocked && recorded);
+    // Remove only the deliberate refusal; unrelated requests must still fail the final check.
+    if (recorded) unexpected.pop();
     await w.context.close();
 
     check('the page asked nobody the test did not invent', unexpected.length === 0, unexpected.join(', '));
