@@ -1049,13 +1049,16 @@ export async function portalRoutes(server: FastifyInstance, options: { year?: st
     /**
      * Every cabinet's week, for the picture a therapist takes away (owner,
      * 13 Oct 2026: „извештај во .jpg со распоредите на сите колеги по денови").
-     * It names children who are not one's own, so it stands behind the same
-     * refusal as the check list above: a therapist, on their own password.
-     * Names and classes only — no pupil id leaves through this door.
+     * It names children who are not one's own, so it is for a therapist only.
+     * Unlike the check list above it is read on the INITIAL password too
+     * (owner, 13 Oct 2026: „сите да читаат со почетна лозинка") — the owner
+     * weighed that the staff room knows that password, and chose the sheet
+     * everybody can take. Names and classes only — no pupil id leaves here.
      */
     server.get('/api/portal/cabinets', async (req, reply) => {
         const who = await signed(req, reply);
-        if (!who || await pupilListRefusal(who, reply)) return;
+        if (!who) return;
+        if (who.staff.therapistId == null) return reply.code(403).send({ error: 'Распоредот на сите кабинети е за терапевтите.' });
         reply.header('Cache-Control', 'no-store');
         const bells = (await bellsOf('kabinet', who.year.id))
             .filter((bell) => Number(bell.minutes) === 40 && bell.startsAt)

@@ -3088,9 +3088,7 @@ header.top h1 { flex: 1; min-width: 180px; }
                 ? `Се преземаат ${days.length} слики, по една за секој ден. Ако прелистувачот праша, дозволете повеќе преземања.`
                 : 'Сликата се презема.', 'ok');
         } catch (err) {
-            say('weekMsg', err.payload && err.payload.needsPassword
-                ? 'За распоредот на сите кабинети прво поставете своја лозинка („Смени лозинка“). Почетната ја знаат сите.'
-                : err.message, 'error');
+            say('weekMsg', err.message, 'error');
         } finally { button.disabled = false; }
     }
     function paintCabinetsDay(data, day) {

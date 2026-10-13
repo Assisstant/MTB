@@ -138,8 +138,9 @@ async function main() {
             early.status === 403 && early.body?.needsPassword === true && !JSON.stringify(early.body).includes(PUPILS[2].name), JSON.stringify(early.body));
         check('and so is a tick', (await tick(t1, PUPILS[2].id, true)).status === 403);
         const earlyAll = await call('GET', '/api/portal/cabinets', t1);
-        check('and so is every cabinet\'s week', earlyAll.status === 403 && earlyAll.body?.needsPassword === true
-            && !JSON.stringify(earlyAll.body).includes(PUPILS[0].name), JSON.stringify(earlyAll.body));
+        // Owner, 13 Oct 2026: the sheet of every cabinet is read on the initial password too.
+        check('but every cabinet\'s week is read on the initial password', earlyAll.status === 200
+            && (earlyAll.body?.therapists || []).includes(R2) && !PUPILS.some((p) => JSON.stringify(earlyAll.body).includes(p.id)), JSON.stringify(earlyAll.body));
         const changed = await call('POST', '/api/portal/password', t1, { current: 'ResursenCentar', next: 'пробна-лозинка' });
         check('a therapist sets their own password', changed.status === 200, JSON.stringify(changed.body));
         const list = await call('GET', '/api/portal/caseload', t1);
