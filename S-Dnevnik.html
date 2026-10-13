@@ -15607,6 +15607,8 @@ var attendance = {};
     // ШТО ПРАВИ. Во лентата на распоредот се избира паралелка; над секој
     // термин стои часот што таа го има тогаш (1–6: предмет и наставник), а
     // учениците од паралелката се обележани — тие го пропуштаат тој час.
+    // Секое дете во мрежата, и без избор, на hover го кажува часот на СВОЈАТА
+    // паралелка во тој термин (13 октомври 2026).
     //
     // НИШТО НЕ СЕ ПРЕСМЕТУВА ТУКА. На кој час паѓа 40-минутен термин е одговор
     // на вкрстувањето (`bells.cabinet[].covers` од /api/teaching/crossing,
@@ -15679,15 +15681,47 @@ var attendance = {};
             select.value = state.label;
         }
 
-        /** Часот на паралелката во еден термин: редот над ќелијата. */
-        function lineFor(dayIndex, slotIndex) {
+        /** На кој час паѓа терминот и што има тогаш една паралелка — единственото место што го прашува тоа. */
+        function lessonAt(dayIndex, slotIndex, label) {
             var want = String(timeSlots[slotIndex].time).split('-')[0].trim();
             var block = state.crossing.blocks.filter(function (b) { return b.startsAt === want && Number(b.minutes) === 40; })[0];
             var cover = block ? (block.covers || []).filter(function (c) { return Number(c.ordinal) <= 6; })
                 .sort(function (a, b) { return b.minutes - a.minutes; })[0] : null;
             var lessons = cover ? state.crossing.cells.filter(function (c) {
-                return c.day === DAY_FULL[dayIndex] && Number(c.ordinal) === Number(cover.ordinal) && c.class === state.label;
+                return c.day === DAY_FULL[dayIndex] && Number(c.ordinal) === Number(cover.ordinal) && c.class === label;
             }) : [];
+            return { cover: cover, lessons: lessons };
+        }
+
+        /** Дали „одделението" на ученикот е паралелка на училиштето (екстерен не е: за него нема час). */
+        function isClass(label) {
+            return !!label && (state.index.has(label) || state.crossing.cells.some(function (c) { return c.class === label; }));
+        }
+
+        /**
+         * Што пропушта ЕДНО дете во својот термин (сопственикот, 13 октомври 2026:
+         * „на hover да ми покажува тоа дете и кој час е, кој предмет"). Часот е на
+         * неговата паралелка, не на избраната, па важи и кога ништо не е избрано.
+         */
+        function hoverFor(student, dayIndex, slotIndexes) {
+            var label = String(student.grade || '');
+            var text = [student.name + (label ? ' · ' + label : '')];
+            if (!isClass(label)) return text[0];
+            slotIndexes.forEach(function (t) {
+                var at = lessonAt(dayIndex, t, label);
+                if (!at.cover) return;
+                // Два реда за еден час се паралелка што учи во групи: се кажуваат двата.
+                text.push(at.cover.ordinal + '. час · ' + (at.lessons.length
+                    ? at.lessons.map(function (l) { return l.subject || 'без предмет'; }).join(' / ') + ' · ' +
+                      at.lessons.map(function (l) { return l.teacher || 'без наставник'; }).join(' / ')
+                    : 'нема час'));
+            });
+            return text.join('\n');
+        }
+
+        /** Часот на паралелката во еден термин: редот над ќелијата. */
+        function lineFor(dayIndex, slotIndex) {
+            var at = lessonAt(dayIndex, slotIndex, state.label), cover = at.cover, lessons = at.lessons;
             var line = document.createElement('div');
             line.className = 'sdn-lesson-line' + (lessons.length ? '' : ' none');
             line.dataset.lessonLine = dayIndex + '|' + slotIndex;
@@ -15709,7 +15743,19 @@ var attendance = {};
             if (!grid) return;
             Array.prototype.forEach.call(grid.querySelectorAll('.sdn-lesson-line'), function (n) { n.remove(); });
             Array.prototype.forEach.call(grid.querySelectorAll('.student-slot.in-lesson-class'), function (n) { n.classList.remove('in-lesson-class'); });
-            if (!state.label || !state.crossing) return;
+            if (!state.crossing) return;
+            // Секое дете, со или без избрана паралелка: што пропушта во тој термин.
+            Array.prototype.forEach.call(grid.querySelectorAll('.student-slot[data-sid]'), function (slot) {
+                var student = (window.students || []).filter(function (s) { return s && String(s.id) === slot.dataset.sid; })[0];
+                var di = daysEng.indexOf(slot.dataset.day), ti = Number(slot.dataset.time);
+                if (!student || di < 0 || !(ti >= 0) || !timeSlots[ti]) return;
+                var text = hoverFor(student, di, slot.dataset.merged === 'true' && timeSlots[ti + 1] ? [ti, ti + 1] : [ti]);
+                slot.title = text;
+                // Името носи свој наслов и би го покрило насловот на целиот ред.
+                var name = slot.querySelector('.student-slot-name');
+                if (name) name.title = text;
+            });
+            if (!state.label) return;
             Array.prototype.forEach.call(grid.querySelectorAll('.schedule-cell[data-day], .schedule-cell-half[data-day]'), function (cell) {
                 // Средниот дел на поделена ќелија припаѓа на двата термина; редот го носат половините.
                 if (cell.classList.contains('schedule-cell') && cell.parentElement && cell.parentElement.classList.contains('schedule-cell-split')) return;
@@ -15755,7 +15801,7 @@ var attendance = {};
             // Списокот на паралелки треба годишниот список; се чита еднаш, кога има сервер.
             var first = function () {
                 if (!base()) return;
-                load().then(function () { paintPicker(); if (state.label) decorate(); });
+                load().then(function () { paintPicker(); decorate(); });
             };
             // По вчитувањето на дневникот и на заедничката лента (како „⇄ Кабинети").
             setTimeout(function () {

@@ -14,6 +14,9 @@
  *     lesson says so;
  *   - a class taught in two groups shows both lessons;
  *   - the pupils of the chosen class are marked, the others are not;
+ *   - every pupil in the grid says on hover which lesson of their OWN class the
+ *     term takes them out of, with no class chosen at all; a term worked as one
+ *     long session says both periods, an external pupil says no lesson;
  *   - the lines come back after the grid is redrawn, and go when „без часови"
  *     is chosen;
  *   - it is a look: it writes nothing, and the choice is remembered in this
@@ -42,6 +45,9 @@ const payload = {
 payload.schedule.monday[0] = [3001];
 payload.schedule.monday[1] = [3002];
 payload.schedule.tuesday[1] = [3001, 3003];
+// One long session: the same pupil alone in two terms that follow each other.
+payload.schedule.wednesday[2] = [3001];
+payload.schedule.wednesday[3] = [3001];
 
 const roster = {
     year: '1901/1902-lessons',
@@ -70,6 +76,7 @@ const crossing = {
         { day: 'вторник', ordinal: 2, class: 'V-а', subject: 'Ликовно', teacher: 'Наставник Прв' },
         { day: 'вторник', ordinal: 2, class: 'V-а', subject: 'Информатика', teacher: 'Наставник Четврт' },
         { day: 'понеделник', ordinal: 6, class: 'V-а', subject: 'Физичко', teacher: '' },
+        { day: 'среда', ordinal: 3, class: 'V-а', subject: 'Музичко', teacher: 'Наставник Прв' },
         { day: 'понеделник', ordinal: 1, class: 'VI-б', subject: 'Историја', teacher: 'Наставник Втор' }
     ]
 };
@@ -113,6 +120,8 @@ page.on('pageerror', (e) => errors.push(String(e)));
 page.on('dialog', (d) => d.accept());
 
 const lines = () => page.$$eval('#scheduleGrid .sdn-lesson-line', (n) => Object.fromEntries(n.map((x) => [x.dataset.lessonLine, x.textContent + (x.classList.contains('none') ? ' ∅' : '')])));
+const hover = (day, time, sid) => page.$eval(`#scheduleGrid .student-slot[data-day="${day}"][data-time="${time}"][data-sid="${sid}"]`,
+    (n) => [n.title, n.querySelector('.student-slot-name').title]);
 const marked = () => page.$$eval('#scheduleGrid .student-slot.in-lesson-class', (n) => [...new Set(n.map((x) => x.dataset.sid))].sort());
 
 try {
@@ -128,6 +137,20 @@ try {
         options.map((o) => o[0]), ['', 'V-а', 'VI-б']);
     check('a class is written as every class picker writes it: with its teacher', /V-а · Наставник Прв/.test(options[1][1]), options[1][1]);
     checkEq('nothing is drawn until a class is chosen', await lines(), {});
+
+    console.log('\na pupil on hover, with no class chosen');
+    await page.waitForFunction(() => /час/.test((document.querySelector('#scheduleGrid .student-slot[data-sid="3001"]') || {}).title || ''), null, { timeout: 8000 });
+    const alfa = 'Пробен Алфа · V-а\n1. час · Математика · Наставник Прв';
+    checkEq('the child, the class, and the lesson of their own class in that term — on the row and on the name',
+        await hover('monday', 0, 3001), [alfa, alfa]);
+    checkEq('another class in the same grid says its own lesson; none at that period says so',
+        (await hover('monday', 1, 3002))[0], 'Пробен Бета · VI-б\n2. час · нема час');
+    checkEq('a class taught in two groups says both',
+        (await hover('tuesday', 1, 3001))[0], 'Пробен Алфа · V-а\n2. час · Ликовно / Информатика · Наставник Прв / Наставник Четврт');
+    checkEq('an external pupil is in no class of the school: the name only',
+        (await hover('tuesday', 1, 3003))[0], 'Пробен Гама · екстерен');
+    checkEq('one long session says both periods it takes',
+        (await hover('wednesday', 2, 3001))[0], 'Пробен Алфа · V-а\n3. час · Музичко · Наставник Прв\n4. час · нема час');
 
     console.log('\nthe lessons of the chosen class');
     // The comparison with Кабинети is another suite's subject: its popup would sit over the grid.
@@ -158,6 +181,7 @@ try {
     await page.evaluate(() => changeWeek(1));
     await page.waitForSelector('#scheduleGrid .sdn-lesson-line');
     check('and on another week', (await lines())['0|0'] === '1. МатематикаНаставник Прв');
+    checkEq('the hover too', (await hover('monday', 0, 3001))[0], alfa);
     await page.selectOption('#lessonClass', 'VI-б');
     await page.waitForFunction(() => /Историја/.test((document.querySelector('[data-lesson-line="0|0"]') || {}).textContent || ''));
     got = await lines();
@@ -166,6 +190,7 @@ try {
     await page.selectOption('#lessonClass', '');
     await page.waitForFunction(() => !document.querySelector('#scheduleGrid .sdn-lesson-line'));
     checkEq('„без часови“ takes the lines and the marks away', [await lines(), await marked()], [{}, []]);
+    checkEq('and leaves the hover, which never needed a choice', (await hover('monday', 0, 3001))[0], alfa);
     check('and forgets the choice', await page.evaluate(() => localStorage.getItem('sdn_lesson_class_v1')) === null);
     checkEq('none of it wrote anything', writes, []);
 
