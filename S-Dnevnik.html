@@ -15596,7 +15596,14 @@ var attendance = {};
         body.dark-mode .sdn-lesson-line.none { background: transparent; border-color: #4a5568; color: #a0aec0; }
         /* Ученик од избраната паралелка: тој го пропушта тој час. */
         .student-slot.in-lesson-class { box-shadow: inset 0 0 0 2px #f6ad55; }
-        @media print { .lesson-class { display: none !important; } }
+        /* Со прст нема hover: држењето го покажува истото. Изборот на текст на телефонот би го покрил. */
+        #scheduleGrid.sdn-touch .student-slot, #scheduleGrid.sdn-touch .sdn-lesson-line {
+            -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+        .sdn-hold-tip { position: fixed; z-index: 10000; max-width: min(340px, calc(100vw - 16px)); padding: 10px 14px; border-radius: 10px;
+            background: #1a202c; color: #fff; font-size: 15px; font-weight: 600; line-height: 1.4; white-space: pre-line;
+            box-shadow: 0 8px 22px rgba(0, 0, 0, .35); pointer-events: none; }
+        body.dark-mode .sdn-hold-tip { background: #f7fafc; color: #1a202c; }
+        @media print { .lesson-class, .sdn-hold-tip { display: none !important; } }
     </style>
     <script>
     // ═══════════════════════════════════════════════════════════════════════
@@ -15771,6 +15778,72 @@ var attendance = {};
             });
         }
 
+        // ── СО ПРСТ: ДРЖЕЊЕ НАМЕСТО HOVER (сопственикот, 13 октомври 2026: „на
+        // телефон, кога држам на името, ми излегува копирање текст"). Она што на
+        // компјутер го кажува насловот, на телефон го кажува држењето: истиот
+        // текст, во балонче над детето. Допир со глувче не менува ништо.
+        var HOLD_MS = 450, HELD = '.student-slot, .sdn-lesson-line';
+        var hold = { timer: null, x: 0, y: 0, shown: false, tip: null, away: null };
+
+        function hideTip() {
+            clearTimeout(hold.away);
+            if (hold.tip) { hold.tip.remove(); hold.tip = null; }
+        }
+        function showTip(target) {
+            var inner = target.querySelector('[title]');
+            var text = target.title || (inner && inner.title) || '';
+            if (!text || !document.contains(target)) return;
+            hideTip();
+            var tip = document.createElement('div');
+            tip.className = 'sdn-hold-tip';
+            tip.setAttribute('role', 'status');
+            tip.textContent = text;
+            document.body.appendChild(tip);
+            // Над детето, зашто прстот го покрива она што е под него.
+            var r = target.getBoundingClientRect(), w = tip.offsetWidth, h = tip.offsetHeight;
+            var top = r.top - h - 8;
+            if (top < 8) top = Math.min(r.bottom + 8, window.innerHeight - h - 8);
+            tip.style.left = Math.max(8, Math.min(r.left + r.width / 2 - w / 2, window.innerWidth - w - 8)) + 'px';
+            tip.style.top = Math.max(8, top) + 'px';
+            hold.tip = tip;
+            hold.shown = true;
+            hold.away = setTimeout(hideTip, 6000);
+        }
+        function watchHold(grid) {
+            var stop = function () { clearTimeout(hold.timer); hold.timer = null; };
+            // Секој нов допир, каде било, го тргнува балончето.
+            document.addEventListener('pointerdown', hideTip, true);
+            window.addEventListener('scroll', hideTip, { capture: true, passive: true });
+            grid.addEventListener('pointerdown', function (e) {
+                stop();
+                hold.shown = false;
+                grid.classList.toggle('sdn-touch', e.pointerType !== 'mouse');
+                var target = e.pointerType !== 'mouse' && e.target.closest ? e.target.closest(HELD) : null;
+                if (!target) return;
+                hold.x = e.clientX; hold.y = e.clientY;
+                hold.timer = setTimeout(function () { hold.timer = null; showTip(target); }, HOLD_MS);
+            });
+            // Влечење е листање на страницата, не држење.
+            grid.addEventListener('pointermove', function (e) {
+                if (hold.timer && Math.abs(e.clientX - hold.x) + Math.abs(e.clientY - hold.y) > 10) stop();
+            });
+            ['pointerup', 'pointercancel', 'pointerleave'].forEach(function (name) { grid.addEventListener(name, stop); });
+            // Android на долг допир го отвора своето мени за избор: тоа е истиот гест.
+            grid.addEventListener('contextmenu', function (e) {
+                var target = grid.classList.contains('sdn-touch') && e.target.closest ? e.target.closest(HELD) : null;
+                if (!target) return;
+                e.preventDefault();
+                if (!hold.shown) { stop(); showTip(target); }
+            });
+            // Пуштањето прст по држење не е допир: не смее да го смени присуството.
+            grid.addEventListener('click', function (e) {
+                if (!hold.shown) return;
+                hold.shown = false;
+                e.preventDefault();
+                e.stopPropagation();
+            }, true);
+        }
+
         function choose(label) {
             state.label = label || '';
             try { if (state.label) localStorage.setItem(KEY, state.label); else localStorage.removeItem(KEY); } catch (e) { /* storage unavailable */ }
@@ -15786,6 +15859,7 @@ var attendance = {};
             if (!grid || !select) return;
             try { state.label = localStorage.getItem(KEY) || ''; } catch (e) { state.label = ''; }
             select.addEventListener('change', function () { choose(select.value); });
+            watchHold(grid);
             // Мрежата се црта од многу места; редовите се враќаат по секое од нив.
             // Сопствените измени (додаден ред) не се „ново цртање": тие не го менуваат бројот на ќелии.
             var busy = false;

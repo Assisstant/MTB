@@ -92,28 +92,32 @@ const browser = await chromium.launch({ ...(process.env.CHROME ? { executablePat
 const context = await browser.newContext({ viewport: { width: 1400, height: 950 }, serviceWorkers: 'block' });
 const writes = [];
 const errors = [];
-await context.addInitScript((me) => {
-    localStorage.setItem('sdn_local_server_autosync_v1', '0');
-    localStorage.setItem('my_therapist_v1', me);
-}, ME);
-await context.route('**/*', async (route) => {
-    const req = route.request();
-    const url = new URL(req.url());
-    if (url.origin !== SERVED) return route.abort();
-    const json = (body, status = 200) => route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) });
-    if (url.pathname.startsWith('/api/')) {
-        if (req.method() !== 'GET') writes.push(`${req.method()} ${url.pathname}`);
-        if (url.pathname === '/api/teaching/crossing') return json(crossing);
-        if (url.pathname === '/api/roster') return json(roster);
-        if (url.pathname === '/api/schedule/sessions') return json({ year: roster.year, sessions: [] });
-        return json({ error: 'not found' }, 404);
-    }
-    const name = decodeURIComponent(url.pathname.split('/').pop() || 'index.html');
-    if (name === 'mtb-runtime.js') return route.fulfill({ status: 200, contentType: TYPES['.js'], body: 'window.MTB_CLOUD_SAME_ORIGIN=false;window.MTB_MIRROR_READONLY=false;' });
-    try {
-        return route.fulfill({ status: 200, contentType: TYPES[path.extname(name)] || 'application/octet-stream', body: await readFile(path.join(ROOT, name)) });
-    } catch { return route.fulfill({ status: 404, body: '' }); }
-});
+// The same invented server for every browser the test opens (a computer, then a phone).
+const serve = async (ctx) => {
+    await ctx.addInitScript((me) => {
+        localStorage.setItem('sdn_local_server_autosync_v1', '0');
+        localStorage.setItem('my_therapist_v1', me);
+    }, ME);
+    await ctx.route('**/*', async (route) => {
+        const req = route.request();
+        const url = new URL(req.url());
+        if (url.origin !== SERVED) return route.abort();
+        const json = (body, status = 200) => route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) });
+        if (url.pathname.startsWith('/api/')) {
+            if (req.method() !== 'GET') writes.push(`${req.method()} ${url.pathname}`);
+            if (url.pathname === '/api/teaching/crossing') return json(crossing);
+            if (url.pathname === '/api/roster') return json(roster);
+            if (url.pathname === '/api/schedule/sessions') return json({ year: roster.year, sessions: [] });
+            return json({ error: 'not found' }, 404);
+        }
+        const name = decodeURIComponent(url.pathname.split('/').pop() || 'index.html');
+        if (name === 'mtb-runtime.js') return route.fulfill({ status: 200, contentType: TYPES['.js'], body: 'window.MTB_CLOUD_SAME_ORIGIN=false;window.MTB_MIRROR_READONLY=false;' });
+        try {
+            return route.fulfill({ status: 200, contentType: TYPES[path.extname(name)] || 'application/octet-stream', body: await readFile(path.join(ROOT, name)) });
+        } catch { return route.fulfill({ status: 404, body: '' }); }
+    });
+};
+await serve(context);
 
 const page = await context.newPage();
 page.on('pageerror', (e) => errors.push(String(e)));
@@ -151,6 +155,52 @@ try {
         (await hover('tuesday', 1, 3003))[0], 'Пробен Гама · екстерен');
     checkEq('one long session says both periods it takes',
         (await hover('wednesday', 2, 3001))[0], 'Пробен Алфа · V-а\n3. час · Музичко · Наставник Прв\n4. час · нема час');
+
+    console.log('\nwith a finger there is no hover: holding says the same');
+    const ALFA = '#scheduleGrid .student-slot[data-day="monday"][data-time="0"][data-sid="3001"]';
+    // A press of `ms` with a finger or a mouse, then the click a browser sends when it is let go.
+    const press = (selector, ms, pointerType, target = '.student-slot-name') => page.evaluate(async ([sel, wait, type, inner]) => {
+        const slot = document.querySelector(sel), on = slot.querySelector(inner);
+        const r = on.getBoundingClientRect(), at = { clientX: r.left + 4, clientY: r.top + 4, pointerId: 1, pointerType: type, bubbles: true, cancelable: true };
+        let clicks = 0;
+        const count = () => { clicks++; };
+        slot.addEventListener('click', count);
+        on.dispatchEvent(new PointerEvent('pointerdown', at));
+        await new Promise((done) => setTimeout(done, wait));
+        const tip = (document.querySelector('.sdn-hold-tip') || {}).textContent || '';
+        const select = getComputedStyle(on).userSelect;
+        on.dispatchEvent(new PointerEvent('pointerup', at));
+        on.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+        slot.removeEventListener('click', count);
+        return { tip, select, clicks };
+    }, [selector, ms, pointerType, target]);
+    const tipNow = () => page.evaluate(() => (document.querySelector('.sdn-hold-tip') || {}).textContent || '');
+
+    let held = await press(ALFA, 100, 'touch');
+    checkEq('a tap is a tap: nothing is shown and its click goes through', [held.tip, held.clicks], ['', 1]);
+    held = await press(ALFA, 700, 'touch');
+    checkEq('held with a finger: the same words as the hover', held.tip, alfa);
+    check('the name cannot be selected under the finger, so the phone offers no „copy“', held.select === 'none', held.select);
+    checkEq('letting go after a hold is not a tap', held.clicks, 0);
+    check('the words stay after the finger is lifted', await tipNow() === alfa);
+    const box = await page.evaluate((sel) => {
+        const t = document.querySelector('.sdn-hold-tip').getBoundingClientRect(), s = document.querySelector(sel).getBoundingClientRect();
+        return { inside: t.left >= 0 && t.right <= innerWidth && t.top >= 0 && t.bottom <= innerHeight, clear: t.bottom <= s.top || t.top >= s.bottom };
+    }, ALFA);
+    checkEq('on the screen, and not under the finger', box, { inside: true, clear: true });
+    await page.evaluate(() => document.body.dispatchEvent(new PointerEvent('pointerdown', { pointerType: 'touch', bubbles: true })));
+    checkEq('the next touch anywhere takes them away', await tipNow(), '');
+    held = await press(ALFA, 700, 'touch', '.attendance-indicator');
+    checkEq('held on the attendance box: the words, and the mark is not touched', [held.tip, held.clicks], [alfa, 0]);
+    held = await press(ALFA, 700, 'mouse');
+    checkEq('a mouse held down shows nothing, selects as before, and its click goes through', [held.tip, held.select === 'none', held.clicks], ['', false, 1]);
+    await page.evaluate((sel) => {
+        const slot = document.querySelector(sel);
+        slot.dispatchEvent(new PointerEvent('pointerdown', { pointerType: 'touch', bubbles: true, clientX: 5, clientY: 5 }));
+        slot.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true }));
+    }, ALFA);
+    check('the phone\'s own long-press menu is the same gesture: the words at once', await tipNow() === alfa);
+    await page.evaluate(() => document.body.dispatchEvent(new PointerEvent('pointerdown', { pointerType: 'touch', bubbles: true })));
 
     console.log('\nthe lessons of the chosen class');
     // The comparison with Кабинети is another suite's subject: its popup would sit over the grid.
@@ -193,6 +243,38 @@ try {
     checkEq('and leaves the hover, which never needed a choice', (await hover('monday', 0, 3001))[0], alfa);
     check('and forgets the choice', await page.evaluate(() => localStorage.getItem('sdn_lesson_class_v1')) === null);
     checkEq('none of it wrote anything', writes, []);
+
+    console.log('\na real finger, on a screen the size of a phone');
+    // Not `isMobile`: that scales the page, and the finger's coordinates would no longer be the page's.
+    const phone = await browser.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true, serviceWorkers: 'block' });
+    await serve(phone);
+    const mobile = await phone.newPage();
+    mobile.on('pageerror', (e) => errors.push(String(e)));
+    mobile.on('dialog', (d) => d.accept());
+    await mobile.goto(`${SERVED}/S-Dnevnik.html`, { waitUntil: 'domcontentloaded' });
+    await mobile.waitForFunction(() => window.SdnV3 && window.SdnClassLessons && window.SDiary);
+    await mobile.evaluate((p) => { window.SdnV3.applyPayload(p); window.renderAll(); switchTab('schedule'); }, payload);
+    await mobile.waitForFunction(() => /час/.test((document.querySelector('#scheduleGrid .student-slot[data-sid="3001"]') || {}).title || ''), null, { timeout: 8000 });
+    await mobile.evaluate(() => { const m = document.getElementById('planSyncModal'); if (m) m.classList.remove('active'); });
+    const at = await mobile.evaluate((sel) => {
+        const name = document.querySelector(sel + ' .student-slot-name');
+        name.scrollIntoView({ block: 'center', inline: 'center' });
+        const r = name.getBoundingClientRect();
+        return { x: Math.round(r.left + r.width / 2), y: Math.round(r.top + r.height / 2) };
+    }, ALFA);
+    // The browser's own touch, not an event the test made up. This Chrome does not start a
+    // phone's long-press (selection, menu) here, so what a real phone selects is NOT proven by it.
+    const finger = await phone.newCDPSession(mobile);
+    await finger.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [at] });
+    await mobile.waitForTimeout(1100);
+    const onPhone = await mobile.evaluate((sel) => {
+        const tip = document.querySelector('.sdn-hold-tip'), t = tip ? tip.getBoundingClientRect() : null, s = document.querySelector(sel).getBoundingClientRect();
+        return { tip: tip ? tip.textContent : '', seen: !!t && t.left >= 0 && t.right <= innerWidth && t.top >= 0 && (t.bottom <= s.top || t.top >= s.bottom) };
+    }, ALFA);
+    if (process.env.SHOT) await mobile.screenshot({ path: path.join(process.env.SHOT, 'class-lessons-hold-phone.png') });
+    await finger.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+    checkEq('holding the name shows the child and the lesson, on the screen and clear of the finger', onPhone, { tip: alfa, seen: true });
+    await phone.close();
 
     checkEq('no page errors', errors, []);
 } finally {
