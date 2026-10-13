@@ -137,6 +137,9 @@ async function main() {
         check('the whole list is refused while the initial password stands',
             early.status === 403 && early.body?.needsPassword === true && !JSON.stringify(early.body).includes(PUPILS[2].name), JSON.stringify(early.body));
         check('and so is a tick', (await tick(t1, PUPILS[2].id, true)).status === 403);
+        const earlyAll = await call('GET', '/api/portal/cabinets', t1);
+        check('and so is every cabinet\'s week', earlyAll.status === 403 && earlyAll.body?.needsPassword === true
+            && !JSON.stringify(earlyAll.body).includes(PUPILS[0].name), JSON.stringify(earlyAll.body));
         const changed = await call('POST', '/api/portal/password', t1, { current: 'ResursenCentar', next: 'пробна-лозинка' });
         check('a therapist sets their own password', changed.status === 200, JSON.stringify(changed.body));
         const list = await call('GET', '/api/portal/caseload', t1);
@@ -158,6 +161,21 @@ async function main() {
         check('the other therapist\'s list is untouched', (await q(`SELECT 1 FROM therapist_students WHERE school_year_id = $1 AND therapist_id = $2`,
             [y.id, rid[R2]])).length === 2);
         check('an unknown pupil is refused', (await tick(t1, `${TAG}-nobody`, true)).status === 404);
+
+        console.log('\nevery cabinet\'s week, for the picture');
+        await q(`INSERT INTO schedule_slots (school_year_id, day, day_order, time_slot, therapist_id, student_id, source)
+                 VALUES ($1, $2, 1, '09:40-10:00', $3, $4, 'api')`, [y.id, DAY, rid[R2], sid[PUPILS[2].id]]);
+        const all = await call('GET', '/api/portal/cabinets', t1);
+        const names: string[] = all.body?.therapists || [];
+        check('both cabinets are columns, by name', all.status === 200 && names.includes(R1) && names.includes(R2)
+            && JSON.stringify(names) === JSON.stringify([...names].sort((a, b) => a.localeCompare(b, 'mk'))), JSON.stringify(all.body));
+        check('with the bells of the cabinets', (all.body?.bells || []).some((b: any) => b.time === BLOCK));
+        check('one\'s own terms are in it', (all.body?.slots || []).some((s: any) =>
+            names[s.therapist] === R1 && s.day === DAY && s.time === BLOCK && s.pupil === PUPILS[0].name && s.class === CLASS), JSON.stringify(all.body?.slots));
+        check('and a colleague\'s, with a pupil who is not one\'s own', (all.body?.slots || []).some((s: any) =>
+            names[s.therapist] === R2 && s.time === '09:40-10:00' && s.pupil === PUPILS[2].name));
+        check('no pupil id leaves through it', !PUPILS.some((p) => JSON.stringify(all.body).includes(p.id)));
+        check('nobody signed in gets nothing', (await call('GET', '/api/portal/cabinets', '')).status === 401);
 
         console.log('\nnothing for somebody without a cabinet');
         check('a therapist\'s block written by nobody signed in is refused', (await term('', { day: DAY, time: BLOCK, pupils: [] })).status === 401);

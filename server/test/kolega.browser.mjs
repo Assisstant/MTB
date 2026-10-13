@@ -477,6 +477,15 @@ check('no page errors', errors.length === 0, errors.join('\n       '));
                 elsewhere: [{ publicId: 'p1', day: 'понеделник', time: '08:00-08:40', therapist: 'Колега Ди' }]
             }
         });
+        if (url.pathname === '/api/portal/cabinets') return json(200, {
+            year: '2026/2027', days: ['понеделник', 'вторник', 'среда', 'четврток', 'петок'],
+            bells: [{ ordinal: 1, label: 'I', time: '08:00-08:40' }, { ordinal: 2, label: 'II', time: '08:45-09:25' }],
+            therapists: ['Колега Ди', 'Терапевтка Измислена'],
+            slots: [{ therapist: 0, day: 'понеделник', time: '08:00-08:40', pupil: 'Ученик Измислен', class: 'II-б' },
+                { therapist: 1, day: 'понеделник', time: '08:45-09:05', pupil: 'Ученик Измислен', class: 'II-б' },
+                { therapist: 1, day: 'понеделник', time: '09:05-09:25', pupil: 'Ученичка Измислена', class: 'I-а' },
+                { therapist: 0, day: 'вторник', time: '13:00-13:40', pupil: 'Екстерна Измислена', class: null }]
+        });
         if (url.pathname === '/api/portal/caseload' && req.method() === 'GET') return json(200, { year: '2026/2027', pupils: [
             { publicId: 'p1', name: 'Ученик Измислен', class: 'II-б', oddelenie: 'III', type: 'internal', preparatory: false, mine: true },
             { publicId: 'p2', name: 'Ученичка Измислена', class: 'I-а', oddelenie: 'I', type: 'internal', preparatory: false, mine: true },
@@ -527,6 +536,27 @@ check('no page errors', errors.length === 0, errors.join('\n       '));
         null, { timeout: 5000 }).catch(() => {});
     const halves = await p.textContent('#periods [data-time="08:45-09:25"]');
     check('two pupils share a term in halves', /први 20/.test(halves) && /втори 20/.test(halves), halves);
+
+    console.log('\nthe cabinet — a child\'s cabinets, and every cabinet as a picture');
+    await p.click('#periods [data-time="08:00-08:40"] .klass[data-pupil="p1"]');
+    const visits = await p.textContent('#classCard');
+    check('a pupil\'s name shows which cabinets they go to, and when',
+        /2 кабинети · 3 термини/.test(visits) && /Пон 08:00–08:40 · Колега Ди/.test(visits) && /Пон 08:45–09:05 · Терапевтка Измислена/.test(visits), visits);
+    await p.keyboard.press('Escape');
+    check('and Esc puts it away', await p.isHidden('#classCard'));
+    const pictures = [];
+    p.on('download', (d) => pictures.push(d.suggestedFilename()));
+    const pictured = async (n) => { for (let i = 0; i < 60 && pictures.length < n; i++) await new Promise((r) => setTimeout(r, 150)); };
+    await p.click('#days [data-all-cabinets]');
+    await pictured(1);
+    check('the chosen day of every cabinet comes as one .jpg', JSON.stringify(pictures) === '["Kabineti-site-1-ponedelnik.jpg"]', JSON.stringify(pictures));
+    await p.click('#days [data-week]');
+    check('with the week chosen the button says five', /5 слики/.test(await p.textContent('#days [data-all-cabinets]')));
+    await p.click('#days [data-all-cabinets]');
+    await p.clock.runFor(2500);
+    await pictured(6);
+    check('and five come, a day each', pictures.length === 6 && pictures.includes('Kabineti-site-5-petok.jpg'), JSON.stringify(pictures));
+    await p.click('#days [data-day="понеделник"]');
 
     // A shared timetable can change with this page already open. The timer
     // re-reads it without a write, but waits for an unfinished cell editor.

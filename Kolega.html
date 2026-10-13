@@ -232,6 +232,8 @@ header.top h1 { flex: 1; min-width: 180px; }
    it (owner, 27 Sep 2026) — paper-white in either theme, because it is what
    gets printed or saved as a picture and handed on. */
 .days .week-toggle { margin-left: 6px; }
+.class-card .pupil-terms { list-style: none; padding-left: 0; }
+.class-card .pupil-terms li { margin-top: 3px; }
 .week-tools { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin: 10px 0 4px; }
 .week-wrap { overflow-x: auto; margin-top: 8px; }
 .sheet { min-width: 760px; padding: 12px; border-radius: 12px; background: #ffffff; color: #1a202c; border: 1px solid var(--line); }
@@ -1170,8 +1172,33 @@ header.top h1 { flex: 1; min-width: 180px; }
     const card = el('classCard');
     let cardFor = null;
     let pressTimer = null;
+    /**
+     * A pupil's name in the cabinet (owner, 13 Oct 2026): which cabinets the
+     * child goes to, and when. Read from the week already here — one's own
+     * terms and, for one's own pupils, where they are with somebody else.
+     */
+    function pupilCardHtml(id) {
+        const c = week.cabinet || {}, days = week.days || [];
+        const own = (c.pupils || []).find((p) => p.publicId === id);
+        const visits = [];
+        (c.terms || []).forEach((t) => pupilSpans(t.time, t.pupils).forEach((s) => {
+            if (s.id === id) visits.push({ day: t.day, from: s.from, to: s.to, who: viewedName(), here: true });
+        }));
+        (c.elsewhere || []).forEach((e) => {
+            if (e.publicId !== id) return;
+            const span = spanOf(e.time);
+            visits.push({ day: e.day, from: span.from, to: span.to, who: e.therapist, here: false });
+        });
+        visits.sort((a, b) => days.indexOf(a.day) - days.indexOf(b.day) || a.from - b.from);
+        const cabinets = new Set(visits.map((v) => v.who)).size;
+        return `<b>${esc(pupilName(id))}</b>${own && own.class ? ' · ' + esc(own.class) : ''}`
+            + `<div class="muted">${cabinets === 1 ? '1 кабинет' : cabinets + ' кабинети'} · ${visits.length === 1 ? '1 термин' : visits.length + ' термини'} неделно</div>`
+            + '<ul class="pupil-terms">' + visits.map((v) =>
+                `<li><b>${esc(DAY_SHORT[v.day] || v.day)}</b> ${esc(clock(v.from))}–${esc(clock(v.to))} · ${esc(v.who)}${v.here ? ' <span class="muted">(овој кабинет)</span>' : ''}</li>`).join('') + '</ul>'
+            + (own ? '' : '<div class="muted">Не е на вашиот список, па другите кабинети не се прикажани.</div>');
+    }
     function showCard(chip) {
-        card.innerHTML = classCardHtml(chip.dataset.klass);
+        card.innerHTML = chip.dataset.pupil ? pupilCardHtml(chip.dataset.pupil) : classCardHtml(chip.dataset.klass);
         card.hidden = false;
         if (cardFor && cardFor !== chip) cardFor.setAttribute('aria-expanded', 'false');
         cardFor = chip;
@@ -3044,6 +3071,136 @@ header.top h1 { flex: 1; min-width: 180px; }
         }, 'image/png');
     }
 
+    // ── every cabinet, one day a picture (owner, 13 Oct 2026) ─────────────
+    //
+    // The sheet Кабинети prints: a column a therapist, a row a bell, a card a
+    // pupil with the minutes. A day is its own picture, not five days on one:
+    // nine columns are already as wide as a phone can still be read on, and a
+    // sheet five times as tall is shrunk by every messenger it is sent through.
+    const DAY_FILE = { 'понеделник': '1-ponedelnik', 'вторник': '2-vtornik', 'среда': '3-sreda', 'четврток': '4-chetvrtok', 'петок': '5-petok' };
+    async function allCabinetsPicture(days, button) {
+        button.disabled = true;
+        try {
+            const data = await api('GET', '/api/portal/cabinets');
+            // One after another: a browser that is handed five files at once keeps the first.
+            days.forEach((day, i) => setTimeout(() => paintCabinetsDay(data, day), i * 450));
+            say('weekMsg', days.length > 1
+                ? `Се преземаат ${days.length} слики, по една за секој ден. Ако прелистувачот праша, дозволете повеќе преземања.`
+                : 'Сликата се презема.', 'ok');
+        } catch (err) {
+            say('weekMsg', err.payload && err.payload.needsPassword
+                ? 'За распоредот на сите кабинети прво поставете своја лозинка („Смени лозинка“). Почетната ја знаат сите.'
+                : err.message, 'error');
+        } finally { button.disabled = false; }
+    }
+    function paintCabinetsDay(data, day) {
+        const M = 24, TIME_W = 116, COL_W = 250, TOP = 86, HEAD_H = 42, FOOT_H = 34, PAD = 8, S = 1.5;
+        const names = data.therapists || [];
+        const here = (data.slots || []).filter((s) => s.day === day).map((s) => ({ ...s, span: spanOf(s.time) }))
+            .filter((s) => Number.isFinite(s.span.from) && Number.isFinite(s.span.to));
+        const rows = (data.bells || []).map((b) => ({ label: b.label || String(b.ordinal), time: b.time, span: spanOf(b.time) }));
+        // A term outside every bell still has to be on the sheet: its own row, by its time.
+        here.forEach((s) => {
+            if (rows.some((r) => s.span.from >= r.span.from && s.span.from < r.span.to)) return;
+            rows.push({ label: '', time: s.time, span: s.span });
+        });
+        rows.sort((a, b) => a.span.from - b.span.from);
+        const measure = document.createElement('canvas').getContext('2d');
+        const NAME = 'bold 15px Arial';
+        function wrap(text, first, rest) {
+            measure.font = NAME;
+            const lines = [];
+            let line = '';
+            String(text).split(/\s+/).filter(Boolean).forEach((word) => {
+                const next = line ? line + ' ' + word : word;
+                if (line && measure.measureText(next).width > (lines.length ? rest : first)) { lines.push(line); line = word; }
+                else line = next;
+            });
+            if (line) lines.push(line);
+            return lines;
+        }
+        const BADGE_W = 34, INNER = COL_W - PAD * 2 - 14;
+        const cells = rows.map((row) => names.map((_, t) => here
+            .filter((s) => s.therapist === t && s.span.from >= row.span.from && s.span.from < row.span.to)
+            .sort((a, b) => a.span.from - b.span.from)
+            .map((s) => {
+                const whole = s.span.to - s.span.from >= row.span.to - row.span.from;
+                const lines = wrap((s.class ? s.class + ' - ' : '') + s.pupil, INNER - BADGE_W - 8, INNER);
+                return { badge: whole ? '40′' : s.span.from === row.span.from ? '1/2' : '2/2', lines,
+                    time: clock(s.span.from) + ' - ' + clock(s.span.to), h: 12 + lines.length * 19 + 18 };
+            })));
+        const rowH = cells.map((row) => Math.max(58, ...row.map((cards) => PAD * 2 + cards.reduce((sum, c) => sum + c.h + 6, -6))));
+        const width = M * 2 + TIME_W + names.length * COL_W;
+        const height = TOP + HEAD_H + rowH.reduce((a, b) => a + b, 0) + FOOT_H;
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.round(width * S); canvas.height = Math.round(height * S);
+        const ctx = canvas.getContext('2d'); ctx.scale(S, S);
+        // A JPEG has no transparency: the paper is painted first.
+        ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, width, height);
+        ctx.textAlign = 'center'; ctx.fillStyle = '#1c2340';
+        ctx.font = 'bold 22px Arial'; ctx.fillText('ОУРЦ „Кочо Рацин“ – Битола', width / 2, 36);
+        ctx.font = 'bold 18px Arial'; ctx.fillText(day.charAt(0).toUpperCase() + day.slice(1) + ' · ' + (data.year || ''), width / 2, 66);
+        const fit = (text, max) => {
+            let v = String(text == null ? '' : text);
+            if (ctx.measureText(v).width <= max) return v;
+            while (v.length > 1 && ctx.measureText(v + '…').width > max) v = v.slice(0, -1);
+            return v + '…';
+        };
+        let y = TOP;
+        ctx.fillStyle = '#f1f3f8'; ctx.fillRect(M, y, width - M * 2, HEAD_H);
+        ctx.fillStyle = '#5b6fd6'; ctx.fillRect(M, y + HEAD_H - 2, width - M * 2, 2);
+        ctx.fillStyle = '#1c2340'; ctx.font = 'bold 15px Arial';
+        ctx.fillText('Час', M + TIME_W / 2, y + 26);
+        names.forEach((name, t) => ctx.fillText(fit(name, COL_W - 12), M + TIME_W + t * COL_W + COL_W / 2, y + 26));
+        y += HEAD_H;
+        rows.forEach((row, r) => {
+            const h = rowH[r];
+            ctx.fillStyle = '#f1f3f8'; ctx.fillRect(M, y, TIME_W, h);
+            ctx.textAlign = 'center'; ctx.fillStyle = '#1c2340';
+            ctx.font = 'bold 15px Arial'; ctx.fillText(row.label, M + TIME_W / 2, y + h / 2 - (row.label ? 6 : 0));
+            ctx.font = '14px Arial'; ctx.fillText(row.time.replace('-', ' - '), M + TIME_W / 2, y + h / 2 + (row.label ? 14 : 5));
+            names.forEach((_, t) => {
+                const x = M + TIME_W + t * COL_W, cards = cells[r][t];
+                if (!cards.length) {
+                    ctx.textAlign = 'center'; ctx.fillStyle = '#b4bacb'; ctx.font = '14px Arial'; ctx.fillText('—', x + COL_W / 2, y + h / 2 + 5);
+                    return;
+                }
+                let cy = y + PAD;
+                cards.forEach((c) => {
+                    const cx = x + PAD, cw = COL_W - PAD * 2;
+                    ctx.fillStyle = '#eff1fb'; ctx.fillRect(cx, cy, cw, c.h);
+                    ctx.fillStyle = '#5b6fd6'; ctx.fillRect(cx, cy, 3, c.h);
+                    ctx.fillStyle = '#dfe3f3'; ctx.fillRect(cx + 9, cy + 6, BADGE_W, 18);
+                    ctx.textAlign = 'center'; ctx.fillStyle = '#39415f'; ctx.font = '12px Arial'; ctx.fillText(c.badge, cx + 9 + BADGE_W / 2, cy + 19);
+                    ctx.textAlign = 'left'; ctx.fillStyle = '#1c2340'; ctx.font = NAME;
+                    c.lines.forEach((line, i) => ctx.fillText(line, cx + 9 + (i ? 0 : BADGE_W + 8), cy + 20 + i * 19));
+                    ctx.fillStyle = '#5a6478'; ctx.font = '12px Arial';
+                    ctx.fillText(c.time, cx + 9, cy + c.h - 7);
+                    cy += c.h + 6;
+                });
+            });
+            y += h;
+            ctx.strokeStyle = '#dde1ec'; ctx.lineWidth = 1;
+            ctx.beginPath(); ctx.moveTo(M, y + .5); ctx.lineTo(width - M, y + .5); ctx.stroke();
+        });
+        ctx.strokeStyle = '#dde1ec';
+        for (let t = 0; t <= names.length; t++) {
+            const x = M + TIME_W + t * COL_W + .5;
+            ctx.beginPath(); ctx.moveTo(x, TOP); ctx.lineTo(x, y); ctx.stroke();
+        }
+        ctx.strokeRect(M + .5, TOP + .5, width - M * 2, y - TOP);
+        ctx.textAlign = 'left'; ctx.fillStyle = '#5a6478'; ctx.font = '13px Arial';
+        ctx.fillText('Состојба на ' + new Date().toLocaleDateString('mk-MK'), M, height - 12);
+        canvas.toBlob((blob) => {
+            if (!blob) return say('weekMsg', 'Сликата не може да се создаде.', 'error');
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = 'Kabineti-site-' + (DAY_FILE[day] || day) + '.jpg';
+            document.body.appendChild(a); a.click(); a.remove();
+            setTimeout(() => URL.revokeObjectURL(a.href), 30000);
+        }, 'image/jpeg', 0.92);
+    }
+
     function drawTabs() {
         const tabs = tabsOf();
         if (!tabs.some((t) => t.id === view.tab)) view.tab = tabs.length ? tabs[0].id : '';
@@ -3055,7 +3212,11 @@ header.top h1 { flex: 1; min-width: 180px; }
             view.day = days.includes(today) ? today : days[0];
         }
         el('days').innerHTML = days.map((d) => `<button type="button" data-day="${esc(d)}" aria-pressed="${!view.week && d === view.day}" title="${esc(d)}">${esc(DAY_SHORT[d] || d)}</button>`).join('')
-            + (days.length ? `<button type="button" class="week-toggle" data-week="1" aria-pressed="${view.week}" title="Целата недела на еден лист — за печатење или како слика">🗓 Недела</button>` : '');
+            + (days.length ? `<button type="button" class="week-toggle" data-week="1" aria-pressed="${view.week}" title="Целата недела на еден лист — за печатење или како слика">🗓 Недела</button>` : '')
+            // Every cabinet side by side, a picture a day (owner, 13 Oct 2026):
+            // the chosen day, or all five while „Недела" is on.
+            + (days.length && view.tab === 'cabinet' && !me.readOnly
+                ? `<button type="button" class="week-toggle" data-all-cabinets="1" title="Распоредот на сите кабинети како слика: за избраниот ден, или пет слики (ден по ден) кога е избрана „Недела“">⬇ Сите кабинети · ${view.week ? '5 слики' : esc(DAY_SHORT[view.day] || view.day)} (.jpg)</button>` : '');
         el('days').hidden = false;
     }
 
@@ -3489,9 +3650,12 @@ header.top h1 { flex: 1; min-width: 180px; }
         const term = termAt(view.day, bell.time);
         const ids = term ? term.pupils : [];
         let what;
+        // The name is the same button a class is: resting on it, or holding a
+        // finger on it, shows the child's cabinets (pupilCardHtml).
+        const named = (id) => `<button type="button" class="klass" data-pupil="${esc(id)}" aria-expanded="false" aria-controls="classCard">${esc(pupilName(id))}</button>`;
         if (!ids.length) what = '<span class="free">— слободен —</span>';
-        else if (ids.length === 1) what = `<b>${esc(pupilName(ids[0]))}</b> <span class="muted">· 40 мин</span>`;
-        else what = ids.map((id, i) => `<b>${esc(pupilName(id))}</b> <span class="muted">· ${i ? 'втори' : 'први'} 20</span>`).join('<br>');
+        else if (ids.length === 1) what = `${named(ids[0])} <span class="muted">· 40 мин</span>`;
+        else what = ids.map((id, i) => `${named(id)} <span class="muted">· ${i ? 'втори' : 'први'} 20</span>`).join('<br>');
         const clashes = [];
         pupilSpans(bell.time, ids).forEach((span) => elsewhereOf(view.day, span).forEach((e) =>
             clashes.push(`${pupilName(span.id)} тогаш е и кај ${e.therapist} (${e.time}).`)));
@@ -3819,6 +3983,8 @@ header.top h1 { flex: 1; min-width: 180px; }
         drawWeek();
     });
     el('days').addEventListener('click', (event) => {
+        const all = event.target.closest('[data-all-cabinets]');
+        if (all) { allCabinetsPicture(view.week ? (week.days || []) : [view.day], all); return; }
         if (event.target.closest('[data-week]')) {
             view.week = true;
             editing = null;

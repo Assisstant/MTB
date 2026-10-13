@@ -1511,7 +1511,11 @@
             pick.title = 'Понуда од каталогот на МОН. Кратенка како „ФЗО." се пишува преку „друго…" и останува како што е напишана.';
             const first = document.createElement('option');
             first.value = '';
-            first.textContent = chosen.length ? '+ уште еден…' : '+ предмет…';
+            // `compact` (Списоци и пристап → Наставници): beside a subject already
+            // chosen the menu is only its „+", so the row stays one line.
+            first.textContent = chosen.length ? (opts.compact ? '+' : '+ уште еден…') : '+ предмет…';
+            pick.classList.toggle('mtb-subj-more', !!(opts.compact && chosen.length));
+            if (opts.compact && chosen.length) pick.setAttribute('aria-label', 'уште еден предмет');
             pick.appendChild(first);
             (catalogue || []).forEach((name) => {
                 if (chosen.some((had) => had.toLowerCase() === name.toLowerCase())) return;

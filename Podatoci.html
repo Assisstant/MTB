@@ -191,6 +191,27 @@
     /* Внатре во чипот подлогата е посветла од картичката, па --muted таму
        паѓа под читливо. Своја боја, мерена врз --chip, не врз --card. */
     .chip .none { color: var(--chip-note); }
+    /* Наставници (owner, 12 Oct 2026): rows of one height, and the classes in
+       rows and columns instead of a narrow pile. A предметен has up to a dozen
+       classes; in the 150px column they stacked four deep and every such row
+       was twice its neighbour, while the subjects column kept the spare width.
+       Each class takes one field of the grid, a long label two to four. */
+    #teachers .class-grid { display: grid; grid-template-columns: repeat(auto-fill, 44px); gap: 3px; }
+    #teachers .class-grid .chip { font-size: 11px; padding: 1px 3px; text-align: center; overflow: hidden; text-overflow: ellipsis; }
+    #teachers .class-grid .chip.w2 { grid-column: span 2; }
+    #teachers .class-grid .chip.w3 { grid-column: span 3; }
+    #teachers .class-grid .chip.w4 { grid-column: span 4; }
+    #teachers table.list td { padding-top: 3px; padding-bottom: 3px; }
+    /* The subjects' menu is as small as the chips beside it: the list's own
+       rule for a select (full width, taller) made every row with a subject two lines. */
+    #teachers table.list .mtb-subjects select { width: 118px; min-width: 0; padding: 1px 4px; font-size: 12px; }
+    #teachers table.list .mtb-subjects select.mtb-subj-more { width: 40px; }
+    /* Wide enough for twelve classes in one line, a row is one line and they
+       are equal by themselves. Narrower, the classes take two lines, so every
+       row is given the two — measured on the list's own box, not the window,
+       because the same page is also a window of the workspace. */
+    #tab-teachers > .scroll { container-type: inline-size; }
+    @container (max-width: 1924px) { #teachers table.list tbody td { height: 48px; } }
     /* кабинети по одделение: кое дете кој кабинет го зема, и ранг-листата под табелата */
     .class-cabinets { font-size: 12px; line-height: 1.35; }
     .class-cabinets .cab-sum { display: block; margin-bottom: 4px; font-weight: 600; }
@@ -1786,8 +1807,10 @@
      */
     function drawTeachers() {
         el('teachers').innerHTML =
-            '<table class="list"><thead><tr><th class="row-number" title="Редоследот се менува со стрелките и се памети за оваа учебна година. Новододадените одат на крај додека не ги преместите."><span class="rn">Р.Бр.</span></th><th style="width:230px;">Име</th><th style="width:190px;">Улога</th>'
-            + '<th style="min-width:440px;">Предмети</th><th style="width:150px;">Одделенија оваа година</th><th></th></tr></thead><tbody>'
+            '<table class="list"><thead><tr><th class="row-number" title="Редоследот се менува со стрелките и се памети за оваа учебна година. Новододадените одат на крај додека не ги преместите."><span class="rn">Р.Бр.</span></th><th style="width:230px;">Име</th><th style="width:190px;min-width:190px;">Улога</th>'
+            // The classes column is the only one without a width: it takes what the
+            // screen has left, so a wide screen shows a teacher's classes in one line.
+            + '<th style="width:312px;min-width:312px;">Предмети</th><th style="min-width:310px;">Одделенија оваа година</th><th></th></tr></thead><tbody>'
             + (data.teachers || []).map((t, index) =>
                 `<tr data-teacher="${t.id}">`
                 + rowNumberCell('teachers', t.id, index, (data.teachers || []).length)
@@ -1801,8 +1824,11 @@
                 // in the middle of a tall row and one teacher read as two rows.
                 + '<td><div data-subject-cell></div></td>'
                 + `<td>${(t.classes || []).length
-                        ? `<span class="chips">${t.classes.map((c) =>
-                            `<span class="chip${c.role === 'homeroom' ? ' home' : ''}" title="${c.role === 'homeroom' ? 'раководител' : 'предава'}">${esc(c.label)}</span>`).join('')}</span>`
+                        ? `<span class="class-grid">${t.classes.map((c) => {
+                            // How many fields the label needs: „VIII-б" one, „подготвителна" two.
+                            const wide = c.label.length <= 6 ? '' : c.label.length <= 13 ? ' w2' : c.label.length <= 20 ? ' w3' : ' w4';
+                            return `<span class="chip${wide}${c.role === 'homeroom' ? ' home' : ''}" title="${esc(c.label)} — ${c.role === 'homeroom' ? 'раководител' : 'предава'}">${esc(c.label)}</span>`;
+                        }).join('')}</span>`
                         : '<span class="none">нема</span>'}</td>`
                 + `<td class="act"><button class="btn soft" data-classes="${t.id}">Додели одделенија…</button> `
                 + `<button class="btn soft" data-save-teacher="${t.id}">Зачувај податоци</button> `
@@ -2951,7 +2977,8 @@
             // Од 27 септември 2026 (сопственикот) и одделенскиот ги има своите
             // предмети: оние што ги предава во својата паралелка — англискиот,
             // на пример, го држи предметен. Само тие се нудат при внес на часот.
-            className: 't-subject'
+            className: 't-subject',
+            compact: true
         });
         if (!classroom) return;
         const note = document.createElement('span');
@@ -3317,6 +3344,15 @@
     document.addEventListener('DOMContentLoaded', () => {
         const nav = window.MTBAppNavigation;
         if (nav && nav.views) tabHistory = nav.views({ keys: ['tab'], show: (view) => setTab(view.tab || 'students') });
+    });
+    // „👥 Колеги" in the workspace's bar (owner, 13 Oct 2026) turns this window
+    // to that tab. Only from the shell that embedded this page, and only this
+    // one tab: it shows something, it changes nothing.
+    window.addEventListener('message', (event) => {
+        if (event.source !== window.parent || event.source === window) return;
+        const msg = event.data;
+        if (!msg || msg.type !== 'mtb:podatoci-tab' || msg.tab !== 'colleagues') return;
+        if (tab !== 'colleagues') goToTab('colleagues');
     });
 
     // ── 🗓️ Распоред: a teacher's own week (owner, 28 Sep 2026) ─────────────

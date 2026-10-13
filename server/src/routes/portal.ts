@@ -1046,6 +1046,40 @@ export async function portalRoutes(server: FastifyInstance, options: { year?: st
         return { year: who.year.label, pupils: rows };
     });
 
+    /**
+     * Every cabinet's week, for the picture a therapist takes away (owner,
+     * 13 Oct 2026: „извештај во .jpg со распоредите на сите колеги по денови").
+     * It names children who are not one's own, so it stands behind the same
+     * refusal as the check list above: a therapist, on their own password.
+     * Names and classes only — no pupil id leaves through this door.
+     */
+    server.get('/api/portal/cabinets', async (req, reply) => {
+        const who = await signed(req, reply);
+        if (!who || await pupilListRefusal(who, reply)) return;
+        reply.header('Cache-Control', 'no-store');
+        const bells = (await bellsOf('kabinet', who.year.id))
+            .filter((bell) => Number(bell.minutes) === 40 && bell.startsAt)
+            .map((bell) => ({ ordinal: bell.ordinal, label: bell.label,
+                time: `${bell.startsAt}-${timeOf(minutesOf(bell.startsAt) + 40)}` }));
+        const therapists = (await pool.query(
+            `SELECT t.id, t.name FROM therapists t JOIN therapist_years ty ON ty.therapist_id = t.id
+              WHERE ty.school_year_id = $1 AND ty.active ORDER BY t.name`, [who.year.id])).rows;
+        const column = new Map<number, number>(therapists.map((t: any, i: number) => [Number(t.id), i]));
+        const { rows } = await pool.query(
+            `SELECT sl.therapist_id, sl.day, sl.time_slot AS time, s.name AS pupil, e.grade AS class
+               FROM schedule_slots sl
+               JOIN students s ON s.id = sl.student_id
+               LEFT JOIN student_enrollments e ON e.student_id = s.id AND e.school_year_id = sl.school_year_id AND e.active
+              WHERE sl.school_year_id = $1
+              ORDER BY sl.day, sl.time_slot, s.name`, [who.year.id]);
+        return {
+            year: who.year.label, days: TEACHING_DAYS, bells,
+            therapists: therapists.map((t: any) => t.name),
+            slots: rows.filter((r: any) => column.has(Number(r.therapist_id))).map((r: any) => ({
+                therapist: column.get(Number(r.therapist_id)), day: r.day, time: r.time, pupil: r.pupil, class: r.class || null }))
+        };
+    });
+
     const CaseloadBody = z.object({ publicId: z.string().min(1).max(80), on: z.boolean() });
 
     /**

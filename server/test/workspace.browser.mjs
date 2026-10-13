@@ -72,6 +72,16 @@ try {
     assert.equal(await diary.locator('#draft').inputValue(), 'unsaved diary');
     assert.equal(loads.get('S-Dnevnik.html'), 1);
     assert.equal(loads.get('Podatoci.html'), 1);
+    // „👥 Колеги" in the bar is the short way to that tab of Списоци и пристап:
+    // the same window, told where to turn, not a second copy and not a reload.
+    await data.locator('#draft').evaluate(() => { window.addEventListener('message', e => { if (e.data && e.data.type === 'mtb:podatoci-tab') window.toldTab = e.data.tab; }); });
+    await page.locator('#openColleagues').click();
+    await page.waitForFunction(() => document.querySelector('#appTabs button.active')?.dataset.app === 'Podatoci.html');
+    // A message is delivered a turn later than the click that sent it.
+    await assert.doesNotReject(async () => { for (let i = 0; i < 40; i++) { if (await data.locator('#draft').evaluate(() => window.toldTab) === 'colleagues') return; await page.waitForTimeout(50); } throw new Error('the window was not told to turn to „Колеги"'); });
+    assert.equal(await data.locator('#draft').inputValue(), 'unsaved data');
+    assert.equal(loads.get('Podatoci.html'), 1);
+    await select('S-Dnevnik.html', 'app-S-Dnevnik');
     assert.equal(await page.locator('#directoryWindow,#dirTabs,#hidePanel,#dockDivider').count(), 0);
     // A late focus event from a background app cannot rename the selected tab.
     await data.locator('#draft').evaluate(el => el.dispatchEvent(new FocusEvent('focusin', { bubbles: true })));
