@@ -4,7 +4,7 @@
 
 **In this file** (328 lines; search for a name to jump to it):
 
-- A pupil's action plan — 14 October 2026, code only, NOT deployed
+- A pupil's action plan — 14 October 2026, applied to the cloud that day
 - The record of colleagues' changes — 13 October 2026, applied to the cloud that day
 - The owner's evidence for the title of mentor — 12 October 2026, code only, NOT deployed
 - Which link a sign-in came through — 1 October 2026, code only, NOT deployed
@@ -25,7 +25,7 @@
 
 <!-- /index -->
 
-## A pupil's action plan — 14 October 2026, code only, NOT deployed
+## A pupil's action plan — 14 October 2026, applied to the cloud that day
 
 Migration **061** adds two tables, `pupil_plan_parts` (mirrored as a school
 record) and `pupil_plan_changes` (this server's own, excluded from mirrors):
