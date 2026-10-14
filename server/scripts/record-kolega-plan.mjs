@@ -179,7 +179,7 @@ const RIPPLE = () => {
 // ── снимањето ─────────────────────────────────────────────────────────────
 const OUT = join(ROOT, 'backups/tutorial-kolega'), RAW = join(OUT, 'raw-bank-' + Date.now());
 await mkdir(RAW, { recursive: true });
-const browser = await chromium.launch();
+const browser = await chromium.launch({ ...(process.env.CHROME ? { executablePath: process.env.CHROME } : {}) });
 const context = await browser.newContext({ viewport: { width: 1920, height: 1080 }, colorScheme: 'light', locale: 'mk-MK', serviceWorkers: 'block',
     recordVideo: { dir: RAW, size: { width: 1920, height: 1080 } } });
 await context.clock.setFixedTime(new Date(TODAY + 'T09:00:00'));
@@ -256,6 +256,18 @@ const MARKS = 'form[data-part="marks:logoped:1"]';
 const GOAL = 'form[data-part="goal:logoped"]';
 const IOP = 'form[data-part="iop"]';
 const rowOf = (n) => `${MARKS} .plan-row:nth-child(${n})`;
+/** Read first (owner, 14 Oct 2026): a part is read as a filled form, and ✏️ Уреди opens its form. */
+const view = (part) => `[data-box="${part}"] .plan-view`;
+const edit = async (form, wait = 1200) => {
+    const part = form.match(/data-part="([^"]+)"/)[1];
+    await each(async (f) => {
+        if (!await f.locator(form).first().isHidden()) return;
+        const l = f.locator(`${view(part)} [data-plan-edit]`).first();
+        await l.scrollIntoViewIfNeeded(); await sleep(250);
+        await l.evaluate((el) => { window.__rippleOn(el); el.click(); });
+    });
+    await sleep(wait);
+};
 
 await stage('cover', 'Колеги — акциски план', 'Како се пополнува акцискиот план на ученик: на телефон и на компјутер.', [
     'Каде е и што покажува списокот', 'Еден ученик: оцени по област', 'Зачувај, Потврди и Врати',
@@ -283,6 +295,8 @@ await tap('[data-plan-filter="mine"]', 1600);
 await note('„Мои ученици“ се оние што во планот го имаат вашиот кабинет.', 2600);
 await tap('[data-plan-filter="all"]', 1600);
 await note('„Сите“ — секој ученик. Можете да отворите и пополните кој било од нив.', 3000);
+await show('.plan-help');
+await note('„❓ Како се пополнува“ ги кажува петте чекори. „📘 Пример: пополнет план“ отвора измислен ученик — гледајте и пробувајте, ништо не се зачувува.', 4600);
 await type('#planQuery', 'Мила', 1500);
 await note('Полето за барање наоѓа ученик по име или паралелка.', 2400);
 await each((f) => f.locator('#planQuery').fill(''));
@@ -295,10 +309,11 @@ await tap('[data-plan-open="p1"]', 1500);
 await seen('.plan-who', 'Марко');
 await note('Горе: „← Список“, името на ученикот и „Word“. Под нив е кварталот за кој пишувате.', 3400);
 await show('[data-plan-section="cab:logoped"]', 'start');
-await note('Вашиот кабинет е отворен. Другите делови се свиткани — се отвораат со допир на насловот.', 3400);
+await note('Планот се гледа како образец: што е запишано, и „—“ каде што е празно. Вашиот кабинет е прв.', 3400);
 
 // 4 ── оцени по област
-await step('Оцени по област', '„+ Додај област“, напишете што се работи и изберете оцена од 0 до 4. Областите ги пишувате сами.', 3200);
+await step('Оцени по област', '„✏️ Уреди“ го отвора делот. „+ Додај област“, напишете што се работи и изберете оцена од 0 до 4.', 3200);
+await edit(MARKS);
 await tap(`${MARKS} [data-row-add]`, 1000);
 await type(`${rowOf(1)} [data-row-label]`, 'Артикулација', 600);
 await tap(`${rowOf(1)} [data-level-set="2"]`, 1300);
@@ -317,23 +332,25 @@ await tap(`${MARKS} button[type="submit"]`, 1200);
 await said('Зачувано за');
 await show('#planMsg');
 await note('„Зачувано за Марко Примеров“ — апликацијата секогаш кажува кај кој ученик е запишано.', 3400);
+await show(view('marks:logoped:1'));
+await note('Зачуваниот дел пак се гледа како образец: областите во табела, по квартали.', 3200);
 
 // 5 ── потврда
 await step('Потврди', '„Зачувај“ го запишува делот. „Потврди за …“ значи: мојот дел за овој квартал е готов. На копчето пишува името на ученикот.', 3600);
-await show(`${MARKS} .plan-actions`);
+await show(`${view('marks:logoped:1')} .plan-view-actions`);
 await note('Запишано, но уште не потврдено: во списокот тоа е ✏️.', 2600);
-await tap(`${MARKS} [data-plan-confirm]`, 1300);
+await tap(`${view('marks:logoped:1')} [data-plan-confirm]`, 1300);
 await said('Потврдено за');
-await show(`${MARKS} [data-plan-status]`);
+await show(`${view('marks:logoped:1')} .plan-status`);
 await note('„✅ Потврдено од …“ со датум и час. Во списокот ученикот веќе не е во „Мои непотврдени“.', 3600);
 await note('Ако потоа нешто смените и зачувате, потврдата се отвора одново. „Тргни ја потврдата“ ја трга рачно.', 3800);
 
 // 6 ── другите делови
 await step('ИОП и другите делови', 'Под кабинетите се: ИОП, Квартален преглед, Фаза А и Крај на година. Секој дел се зачувува посебно.', 3200);
-await show(`${GOAL}`);
+await show(view('goal:logoped'));
 await note('Во вашиот кабинет, под оцените: „Почетна состојба и цели“ за годината.', 3000);
 await show('[data-plan-section="iop"]', 'start');
-await tap('[data-plan-section="iop"] > summary', 1300);
+await edit(IOP);
 await choose(`${IOP} select[name="program"]`, 'Модифицирана', 900);
 await type(`${IOP} textarea[name="goals"]`, 'Именува 10 предмети од секојдневието.', 900);
 await show(`${IOP} .plan-actions`);
@@ -346,7 +363,8 @@ await note('Кварталниот преглед е за избраниот к�
 // Bank ── the selection copies text into the draft; this fixture approves nothing in the real bank.
 await step('Предлози од фондот на содржини', 'Пример со демонстрациска содржина. Во вистинскиот фонд ќе се нудат само ставки што колегите ги одобриле.', 3800);
 const BANK_GOALS = `${GOAL} [data-bank-target="goals"]`;
-await show(GOAL, 'start');
+await show(view('goal:logoped'), 'start');
+await edit(GOAL);
 await tap(`${BANK_GOALS} > summary`, 1300);
 await note('Изберете подрачје и вид или пребарајте збор. Сите подрачја се достапни, по ред.', 3500);
 await tap(`${BANK_GOALS} [data-bank-add="IV-C90"]`, 1300);
@@ -357,6 +375,7 @@ await tap(`${GOAL} button[type="submit"]`, 1200);
 await said('Зачувано за');
 await note('Само „Зачувај“ го запишува текстот. Промена на фондот подоцна не ја менува оваа цел.', 3600);
 const BANK_ADAPT = `${IOP} [data-bank-target="adaptations"]`;
+await edit(IOP);
 await tap(`${BANK_ADAPT} > summary`, 1200);
 await tap(`${BANK_ADAPT} [data-bank-add="G6-90"]`, 1200);
 await show(`${IOP} textarea[name="adaptations"]`);
@@ -366,7 +385,7 @@ await said('Зачувано за');
 
 // 7 ── грешка
 await step('Грешка? „Врати“', 'По секое зачувување, до пораката стои „Врати“. Го враќа делот како што бил пред вашето последно зачувување.', 3200);
-await show(`${GOAL}`);
+await edit(GOAL);
 await type(`${GOAL} textarea[name="goals"]`, 'Ова е запишано кај погрешен ученик.', 900);
 await tap(`${GOAL} button[type="submit"]`, 1200);
 await said('Зачувано за');
@@ -404,9 +423,9 @@ await top();
 await tap('[data-plan-quarter="2"]', 1600);
 await note('Квартал 2: кај учениците стои ↻ — оцените од квартал 1 можат да се преземат.', 3200);
 await tap('[data-plan-open="p3"]', 1500);
-await each((f) => f.locator('.plan-carry').waitFor({ timeout: 8000 }));
-await show('.plan-carry', 'start');
-await note('„↻ Преземено од квартал 1“. Областите и оцените се тука; сменете што е различно, па зачувајте или потврдете.', 4200);
+await each((f) => f.locator('.plan-view .plan-carry').first().waitFor({ timeout: 8000 }));
+await show('.plan-view .plan-carry', 'start');
+await note('„↻ За квартал 2 уште не е запишано“. „✏️ Уреди“ ги презема оцените од квартал 1 — сменете што е различно; или „Потврди“ ако нема промена.', 4600);
 await note('Белешките не се преземаат — тие се за својот квартал.', 2400);
 await top();
 await tap('[data-plan-back]', 1400);
