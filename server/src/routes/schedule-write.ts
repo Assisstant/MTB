@@ -193,6 +193,10 @@ export async function writeBlockInTransaction(client: import("pg").PoolClient, b
     if (new Set(body.studentPublicIds).size !== body.studentPublicIds.length) {
         return reply.code(400).send({ error: 'leave the second pupil empty when one pupil owns all 40 minutes' });
     }
+    // The route's schema says the same; a caller inside the server (the diary's week) is held to it here.
+    if (body.studentPublicIds.length > GROUP_MAX) {
+        return reply.code(400).send({ error: `a term takes at most ${GROUP_MAX} pupils` });
+    }
     if (body.mode === 'halves' && body.studentPublicIds.length !== 2) {
         return reply.code(400).send({ error: 'halves are for two pupils; three or more are a group' });
     }

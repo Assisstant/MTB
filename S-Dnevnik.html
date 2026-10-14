@@ -15089,14 +15089,19 @@ var attendance = {};
                 var at = slotOf(x.time);
                 if (di < 0 || !at) { outside++; return; }
                 var key = di + '|' + at.slot;
-                var b = blocks[key] || (blocks[key] = { full: '', h1: '', h2: '' });
-                b[at.half === 0 ? 'full' : (at.half === 1 ? 'h1' : 'h2')] = String(x.student_public_id);
+                var b = blocks[key] || (blocks[key] = { full: [], h1: '', h2: '' });
+                var pid = String(x.student_public_id);
+                // Several with the whole bell are a group (063), together; halves stay two.
+                if (at.half === 0) { if (b.full.indexOf(pid) < 0) b.full.push(pid); }
+                else b[at.half === 1 ? 'h1' : 'h2'] = pid;
             });
             var kabinetiAt = function (key) {
                 var b = blocks[key];
                 if (!b) return [];
-                var ids = b.full ? [b.full] : ((b.h1 && b.h1 === b.h2) ? [b.h1] : [b.h1, b.h2].filter(Boolean));
-                return ids.map(function (pid) { return { pid: pid, name: nameOfPid[pid] || pid, student: diaryOfPid[pid] || null }; });
+                var ids = b.full.length ? b.full.slice() : ((b.h1 && b.h1 === b.h2) ? [b.h1] : [b.h1, b.h2].filter(Boolean));
+                var out = ids.map(function (pid) { return { pid: pid, name: nameOfPid[pid] || pid, student: diaryOfPid[pid] || null }; });
+                out.together = b.full.length > 1;   // a group (063): who, not in which order
+                return out;
             };
             var diaryList = function (ids) {
                 return (ids || []).map(function (id) {
@@ -15111,13 +15116,17 @@ var attendance = {};
                     var key = di + '|' + ti;
                     var diary = diaryList(schedule[daysEng[di]] && schedule[daysEng[di]][ti]);
                     var kab = kabinetiAt(key);
-                    var same = diary.length === kab.length && diary.every(function (d, i) { return d.pid && d.pid === kab[i].pid; });
+                    // A group has no order; the diary's two match Кабинети's two as halves or as a group.
+                    var group = Boolean(blocks[key] && blocks[key].full.length > 1);
+                    var same = diary.length === kab.length && (group
+                        ? diary.every(function (d) { return d.pid && kab.some(function (k) { return k.pid === d.pid; }); })
+                        : diary.every(function (d, i) { return d.pid && d.pid === kab[i].pid; }));
                     if (same) continue;
                     var missing = kab.filter(function (k) { return !k.student; });
                     rows.push({
                         key: key, day: di, slot: ti, diary: diary, kab: kab, missing: missing,
                         pushWhy: therapistId == null ? 'не сте на списокот на стручни лица во Кабинети за годинава'
-                            : diary.length > 2 ? 'во Кабинети во еден час може најмногу двајца'
+                            : diary.length > 8 ? 'во Кабинети во еден час може најмногу осуммина (група)'
                             : diary.some(function (d) { return !d.pid; }) ? 'има ученик што не е поврзан со базата — „⬇ Земи од базата“ го поврзува'
                             : '',
                         takeWhy: missing.length
@@ -15501,11 +15510,13 @@ var attendance = {};
                     var live = result.diaryList(schedule[change.day][ti]);
                     var kab = result.kabinetiAt(key);
                     var ids = function (list) { return list.map(function (x) { return x.pid || ('#' + x.id); }).join(','); };
-                    if (ids(record) === ids(live) && ids(record) === kab.map(function (k) { return k.pid; }).join(',')) return;
+                    var asSet = function (list) { return list.map(function (x) { return x.pid || ('#' + x.id); }).sort().join(','); };
+                    var sameKab = kab.together ? asSet(record) === asSet(kab) : ids(record) === kab.map(function (k) { return k.pid; }).join(',');
+                    if (ids(record) === ids(live) && sameKab) return;
                     state.past = {
                         key: key, day: di, slot: ti, weekKey: change.weekKey, record: record, live: live, kab: kab,
                         pushWhy: result.therapistId == null ? 'не сте на списокот на стручни лица во Кабинети за годинава'
-                            : record.length > 2 ? 'во Кабинети во еден час може најмногу двајца'
+                            : record.length > 8 ? 'во Кабинети во еден час може најмногу осуммина (група)'
                             : record.some(function (d) { return !d.pid; }) ? 'има ученик што не е поврзан со базата' : ''
                     };
                     state.results = {};
