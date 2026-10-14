@@ -53,6 +53,8 @@ const PUBLIC_FILES = new Set([
     'mtb-teacher-week.js',
     // A PDF made by the page itself, the same whatever printer is installed.
     'mtb-pdf.js',
+    // The workspace's „🔍 Барај": the list of places and the box that finds them; no data of its own.
+    'mtb-search.js',
     'workspace-admin.js',
     'workspace-admin.css',
     'mtb-runtime.js',

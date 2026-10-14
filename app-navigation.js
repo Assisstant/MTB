@@ -1808,9 +1808,14 @@
         };
         window.addEventListener('message', (event) => {
             if (window.parent === window || event.source !== window.parent || event.data?.type !== 'mtb:open-view') return;
-            const tab = event.data.view?.tab;
-            if (!keys.includes('tab') || typeof tab !== 'string' || !/^[a-z-]{1,40}$/.test(tab)) return;
-            controller.step({ tab });
+            // Only the keys this page said are its view, each a short plain value.
+            const asked = event.data.view || {}, change = {};
+            keys.forEach((key) => {
+                const value = asked[key];
+                if (typeof value === 'string' && /^[\p{L}\p{N} _.:,–-]{1,80}$/u.test(value)) change[key] = value;
+            });
+            if (!Object.keys(change).length) return;
+            controller.step(change);
             options.show(controller.read());
         });
         return controller;

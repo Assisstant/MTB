@@ -1272,6 +1272,15 @@ header.top h1 { flex: 1; min-width: 180px; }
     const hash = new URLSearchParams(window.location.hash.replace(/^#/, ''));
     const actingFromHash = hash.get('as') || '';
     const dutyAdminFromHash = hash.get('duty-admin') || '';
+    // A place asked for by the workspace's „🔍 Барај" (owner, 14 Oct 2026): `#tab=attendance&report=transport`.
+    // Kept until that tab exists for the person signed in; a report only the owner may open waits for that answer.
+    let askedTab = '', askedReport = '';
+    function readAsked(params) {
+        const tab = params.get('tab') || '';
+        askedTab = /^[a-z-]{1,30}$/.test(tab) ? tab : '';
+        askedReport = params.get('report') === 'transport' ? 'transport' : '';
+    }
+    readAsked(hash);
     if (/^[0-9a-f]{64}$/.test(actingFromHash)) {
         try { sessionStorage.setItem(ACTING_KEY, actingFromHash); sessionStorage.removeItem(DUTY_ADMIN_KEY); } catch (_) { /* this page load only */ }
     }
@@ -3515,6 +3524,7 @@ header.top h1 { flex: 1; min-width: 180px; }
 
     function drawTabs() {
         const tabs = tabsOf();
+        if (askedTab && tabs.some((t) => t.id === askedTab)) { view.tab = askedTab; askedTab = ''; }
         if (!tabs.some((t) => t.id === view.tab)) view.tab = tabs.length ? tabs[0].id : '';
         el('tabs').innerHTML = tabs.map((t) => `<button type="button" data-tab="${esc(t.id)}" aria-pressed="${t.id === view.tab}">${esc(t.label)}</button>`).join('');
         el('tabs').hidden = tabs.length < 2;
@@ -5186,6 +5196,7 @@ header.top h1 { flex: 1; min-width: 180px; }
         ownerApi('GET','/api/attendance/transport/access',undefined,false).then(answer=>{
             if (me!==sessionMe || !answer.allowed) return;
             attendance.transportAllowed=true;
+            if (askedReport==='transport') { askedReport=''; attendance.scope='transport'; attendance.mode='month'; attendance.data=null; }
             if(week) drawWeek();
         }).catch(()=>{});
         duty.draft = null;
@@ -5204,6 +5215,12 @@ header.top h1 { flex: 1; min-width: 180px; }
     }
 
     // ── wiring ───────────────────────────────────────────────────────────
+    // Already open, the page is only given a new place: it turns there without reloading.
+    window.addEventListener('hashchange', () => {
+        readAsked(new URLSearchParams(window.location.hash.replace(/^#/, '')));
+        if (askedReport === 'transport' && attendance.transportAllowed) { askedReport = ''; attendance.scope = 'transport'; attendance.mode = 'month'; attendance.data = null; }
+        if (me && week) drawWeek();
+    });
     el('tabs').addEventListener('click', (event) => {
         const b = event.target.closest('[data-tab]');
         if (!b) return;

@@ -2608,6 +2608,12 @@ body.dark .at tr.ev td{color:#a3b0f7;}
         el('tabs').querySelectorAll('.tab').forEach((tab) => {
             tab.onclick = () => activatePane(tab.dataset.p);
         });
+        // „🔍 Барај" in the workspace names a pane; only an existing tab, and only from the workspace.
+        window.addEventListener('message', (event) => {
+            if (window.parent === window || event.source !== window.parent || event.data?.type !== 'mtb:open-view') return;
+            const id = event.data.view?.tab;
+            if (typeof id === 'string' && [...el('tabs').querySelectorAll('.tab')].some((tab) => tab.dataset.p === id)) activatePane(id);
+        });
     }
 
     /**

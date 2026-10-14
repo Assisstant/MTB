@@ -631,6 +631,8 @@ runStartGate(false).then(()=>{repointFrames();load()});})();
         if (nav) nav.style.display = 'none';
         doc?.addEventListener('pointerdown', () => focusWindow(win), true);
         doc?.addEventListener('focusin', () => focusWindow(win), true);
+        // Ctrl+K inside a window opens „🔍 Барај" of the workspace (mtb-search.js).
+        doc?.addEventListener('keydown', (event) => window.MTBSearch?.shortcut(event), true);
       } catch (_) { /* Native focus fallback below also supports another origin. */ }
     };
     frame.addEventListener('load', loaded);
@@ -835,19 +837,27 @@ runStartGate(false).then(()=>{repointFrames();load()});})();
     if (!msg || msg.type !== 'mtb:open-app' || typeof msg.file !== 'string') return;
     const fromOwnFrame = [...document.querySelectorAll('#main iframe')].some((f) => f.contentWindow === event.source);
     if (!fromOwnFrame) return;
-    const tab = tabs.find((t) => t.dataset.app.toLowerCase() === msg.file.toLowerCase());
-    if (tab) {
-      tab.click();
-      // A named sub-tab is a view change, never a reload of an editor's draft.
-      const view = msg.view;
-      if (view && typeof view.tab === 'string' && /^[a-z-]{1,40}$/.test(view.tab)) {
-        const win = windows.get(appId(tab.dataset.app));
-        const frame = win.el.querySelector('iframe');
-        const send = () => frame.contentWindow?.postMessage({ type: 'mtb:open-view', view: { tab: view.tab } }, new URL(frame.src, location.href).origin);
-        if (win.loaded) send(); else frame.addEventListener('load', send, { once: true });
-      }
-    }
+    openApp(msg.file, msg.view);
   });
+  /** The app's own tab, then — if named — a view inside it. A view is a change of view,
+   *  never a reload of an editor's draft; the app decides which of its keys it knows. */
+  function openApp(file, view) {
+    const tab = tabs.find((t) => t.dataset.app.toLowerCase() === String(file).toLowerCase());
+    if (!tab) return false;
+    tab.click();
+    const clean = {};
+    if (view && typeof view === 'object') for (const [key, value] of Object.entries(view)) {
+      if (/^[a-z]{1,20}$/.test(key) && typeof value === 'string' && /^[\p{L}\p{N} _.:,–-]{1,80}$/u.test(value)) clean[key] = value;
+    }
+    if (Object.keys(clean).length) {
+      const win = windows.get(appId(tab.dataset.app));
+      const frame = win.el.querySelector('iframe');
+      const send = () => frame.contentWindow?.postMessage({ type: 'mtb:open-view', view: clean }, new URL(frame.src, location.href).origin);
+      if (win.loaded) send(); else frame.addEventListener('load', send, { once: true });
+    }
+    return true;
+  }
+  window.MTBWorkspaceOpen = openApp;
   /* ── почетен прозорец и лентата (сопственикот, 2 октомври 2026) ───────────
    *
    * Секојдневната работа е во еден прозорец; другите се за денот кога требаат.
@@ -952,5 +962,6 @@ runStartGate(false).then(()=>{repointFrames();load()});})();
 })();
 </script>
 <script src="workspace-admin.js"></script>
+<script src="mtb-search.js"></script>
 </body>
 </html>

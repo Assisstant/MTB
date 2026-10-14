@@ -2971,6 +2971,12 @@ var attendance = {};
             frame.dataset.loaded = '1';
         }
         
+        // „🔍 Барај" in the workspace names a tab of the diary; only these, and only from the workspace.
+        window.addEventListener('message', function (event) {
+            if (window.parent === window || event.source !== window.parent || !event.data || event.data.type !== 'mtb:open-view') return;
+            var tab = event.data.view && event.data.view.tab;
+            if (['students', 'schedule', 'progress', 'plans', 'trijazen', 'procenka', 'data', 'dosie', 'audiogramsApp', 'generator'].indexOf(tab) >= 0) switchTab(tab);
+        });
         function switchTab(tab) {
             // Pull latest edits from embedded apps before changing tab.
             pullEmbeddedDataToUnified();

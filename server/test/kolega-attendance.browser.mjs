@@ -339,6 +339,14 @@ try {
     await p.click('#printWeek');assert.match(await p.evaluate(()=>window.printClasses),/printing-week/);
     await p.emulateMedia({media:'print'});await onePagePdf(resolve(artifacts,'week-print.pdf'));
     await p.emulateMedia({media:'screen'});
+    // „🔍 Барај" in the workspace opens Колега at one place: the tab, and the owner's transport report (owner, 14 Oct 2026).
+    const asked=await p.context().newPage();
+    await asked.goto(origin+'/Kolega.html#tab=attendance&report=transport');await asked.click('#welcomeContinue');
+    await asked.waitForFunction(()=>document.querySelector('#attendanceScope')?.value==='transport'&&document.querySelector('#attendanceSheet table'));
+    assert.equal(await asked.getAttribute('[data-tab="attendance"]','aria-pressed'),'true','the address names the tab');
+    await asked.evaluate(()=>{location.hash='tab=cabinet';});
+    await asked.waitForFunction(()=>document.querySelector('[data-tab="cabinet"]')?.getAttribute('aria-pressed')==='true');
+    await asked.close();
     transportAllowed=false;
     await p.reload();await p.click('#welcomeContinue');await p.click('[data-tab="attendance"]');await ready();
     assert.equal(await p.locator('#attendanceScope').count(),0,'ordinary colleague sees no school-wide filter');
