@@ -20,6 +20,7 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { createHash, randomBytes } from 'node:crypto';
 import { AttendanceError, readAttendance, writeAttendance } from '../lib/cabinet-attendance.js';
 import { transportAttendance } from '../lib/transport-attendance.js';
+import { registerPortalStay } from './portal-stay.js';
 import { allClassesOf, classAccessOf, classAttendanceSummary, readClassAttendance, writeClassAttendance } from '../lib/class-attendance.js';
 import { z } from 'zod';
 import { pool } from '../db.js';
@@ -132,6 +133,14 @@ async function signed(req: FastifyRequest, reply: FastifyReply): Promise<Signed 
         reply.code(403).send({ error: 'Имате пристап само за преглед. Податоците не се менуваат.', readOnly: true });
         return null;
     }
+    if (staff.stay && !staff.readOnly && staff.teacherId == null && staff.therapistId == null) {
+        const route = req.routeOptions.url || '';
+        if (!['/api/portal/me', '/api/portal/week', '/api/portal/password'].includes(route)
+            && !route.startsWith('/api/portal/stay')) {
+            reply.code(403).send({ error: 'Овој профил е за списокот и присуството во Престој.' });
+            return null;
+        }
+    }
     return asAdmin
         ? { staff, year, author: { employeeId: null, name: ADMIN_AUTHOR }, acting: true }
         : { staff, year, author: { employeeId: staff.employeeId, name: staff.name }, acting: false };
@@ -178,6 +187,7 @@ async function rolesOf(staff: Staff, yearId: number) {
         if (row.classes.some((c: any) => c.role === 'homeroom')) roles.push('homeroom');
     }
     if (staff.therapistId != null) roles.push('therapist');
+    if (staff.stay) roles.push('stay');
     return { roles, teacher, therapist: staff.therapistId != null ? { id: staff.therapistId } : null };
 }
 
@@ -422,6 +432,7 @@ async function onDutyList(employeeId: number, yearId: number): Promise<boolean> 
 }
 
 export async function portalRoutes(server: FastifyInstance, options: { year?: string } = {}) {
+    registerPortalStay(server,signed);
     yearLabel = options.year;
     // The owner's look is the owner: it passes the door's link, locks and maintenance.
     setActingCheck((token) => actingEmployee(token) != null);
@@ -1238,7 +1249,7 @@ export async function portalRoutes(server: FastifyInstance, options: { year?: st
         const year = await currentYear();
         if (!year) return reply.code(503).send({ error: 'Нема тековна учебна година.' });
         const candidates = await staffOfYear(pool, year.id, true);
-        const staff = candidates.filter(s => s.teacherId != null || s.therapistId != null || s.readOnly);
+        const staff = candidates.filter(s => s.teacherId != null || s.therapistId != null || s.readOnly || s.stay);
         const accounts = new Map((await pool.query(
             `SELECT employee_id, password_hash IS NOT NULL AS own, changed_at, reset_at, last_login_at FROM staff_accounts`
         )).rows.map((r: any) => [r.employee_id, r]));
@@ -1247,7 +1258,7 @@ export async function portalRoutes(server: FastifyInstance, options: { year?: st
         staff.forEach((s) => nameKeys(s.name).strict.forEach((k) => holders.set(k, (holders.get(k) || 0) + 1)));
         return {
             year: year.label,
-            candidates: candidates.map(s => ({ employeeId: s.employeeId, name: s.name, readOnly: Boolean(s.readOnly) })),
+            candidates: candidates.map(s => ({ employeeId: s.employeeId, name: s.name, readOnly: Boolean(s.readOnly), stay: Boolean(s.stay) })),
             accounts: staff.map((s) => {
                 const a: any = accounts.get(s.employeeId) || {};
                 return {
@@ -1257,6 +1268,7 @@ export async function portalRoutes(server: FastifyInstance, options: { year?: st
                     teacher: s.teacherId != null,
                     therapist: s.therapistId != null,
                     readOnly: Boolean(s.readOnly),
+                    stay: Boolean(s.stay),
                     ownPassword: Boolean(a.own),
                     changedAt: a.changed_at || null,
                     resetAt: a.reset_at || null,

@@ -44,7 +44,8 @@ const ident=(s:string)=>'"'+s.replace(/"/g,'""')+'"';
 // nullable column; no existing row touched).
 // schedule_groups_20261014: 063, a term may hold a group — the key of
 // schedule_slots gains the pupil (no existing row touched).
-export async function workspaceRelease(client:Client,directory:string,log=console.log,recoverySchema='mtb_workspace_recovery_schedule_groups_20261014'){
+// stay_attendance_20261014: 064, each colleague's own stay list and attendance.
+export async function workspaceRelease(client:Client,directory:string,log=console.log,recoverySchema='mtb_workspace_recovery_stay_attendance_20261014'){
  if(!/^mtb_workspace_recovery_[a-z0-9_]+$/.test(recoverySchema))throw Error('Invalid recovery schema');
  await client.query('BEGIN ISOLATION LEVEL SERIALIZABLE');
  try{
@@ -55,7 +56,7 @@ export async function workspaceRelease(client:Client,directory:string,log=consol
   const applied=new Set((await client.query('SELECT filename FROM schema_migrations')).rows.map(r=>r.filename));
   if(files.some(f=>Number(f.slice(0,3))<=32&&!applied.has(f))||[...applied].some(f=>!files.includes(f)))throw Error('Unexpected migration baseline');
   const pending=files.filter(f=>!applied.has(f));
-  if(pending.some(f=>!/^0(33|34|35|36|37|38|39|40|41|42|43|44|45|46|47|48|49|50|51|52|53|54|55|56|57|58|59|60|61|62|63)_/.test(f)))throw Error('Unreviewed migration in release');
+  if(pending.some(f=>!/^0(33|34|35|36|37|38|39|40|41|42|43|44|45|46|47|48|49|50|51|52|53|54|55|56|57|58|59|60|61|62|63|64)_/.test(f)))throw Error('Unreviewed migration in release');
   if(!pending.length){await client.query('COMMIT');log('Workspace schema already current');return;}
   const tables=(await client.query(`SELECT tablename AS name FROM pg_tables WHERE schemaname=$1 ORDER BY tablename`,[schema])).rows;
   // The recovery schema must be absent. Never overwrite an earlier backup.

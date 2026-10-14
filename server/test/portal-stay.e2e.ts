@@ -1,0 +1,96 @@
+import assert from 'node:assert/strict';
+import pg from 'pg';
+import Fastify from 'fastify';
+import 'dotenv/config';
+
+if (process.env.MTB_SCRATCH_DB !== '1') throw Error('Use node test/with-scratch.mjs test/portal-stay.e2e.ts');
+process.env.MTB_REQUIRE_SIGNIN='1';
+process.env.MTB_SERVICE_KEY='stay-test-owner-service-key-12345678901234567890';
+const { portalRoutes } = await import('../src/routes/portal.js');
+const { workspaceRoutes } = await import('../src/routes/workspace.js');
+const { pool } = await import('../src/db.js');
+const { addDays } = await import('../src/lib/cabinet-attendance.js');
+const { todayInSkopje } = await import('../src/lib/duty.js');
+const db = new pg.Pool({ connectionString: process.env.DATABASE_URL });
+const q = async (sql: string, args: unknown[] = []) => (await db.query(sql,args)).rows;
+const app = Fastify();
+(await import('../src/lib/colleague.js')).installColleagueBoundary(app);
+(await import('../src/lib/portal-security.js')).installPortalDoor(app);
+const YEAR = '1900/2100-stay-test';
+await app.register(portalRoutes,{year:YEAR});
+await app.register(workspaceRoutes);
+const call = async (method: any,url: string,token = '',payload?: any) => {
+    const r = await app.inject({method,url,payload,headers:token?{'x-mtb-portal-token':token}:url.startsWith('/api/workspace/')?{'x-mtb-service-key':process.env.MTB_SERVICE_KEY}:{}});
+    return {status:r.statusCode,body:r.json()};
+};
+const login = async (name: string) => {
+    const r = await call('POST','/api/portal/login','',{username:name,password:'ResursenCentar'});
+    assert.equal(r.status,200,JSON.stringify(r.body)); assert.ok(r.body.token); return r.body.token as string;
+};
+try {
+    const [year] = await q(`INSERT INTO school_years(label,starts_on,ends_on,is_current) VALUES($1,'1900-01-01','2100-12-31',false) RETURNING id`,[YEAR]);
+    const employee = async (n: number) => {
+        const name='Пробен Престој Вработен '+['Прв','Втор'][n];
+        const r=await call('POST','/api/workspace/employees','',{year:YEAR,name,identifier:null,roles:['stay'],teacherKind:'none'});
+        assert.equal(r.status,200,JSON.stringify(r.body));
+        assert.equal(r.body.employee.teacher_id,null); assert.equal(r.body.employee.therapist_id,null);
+        assert.deepEqual(r.body.employee.additional_roles,['stay']);
+        return {id:r.body.employee.id,name};
+    };
+    const a=await employee(0),b=await employee(1),ta=await login(a.name),tb=await login(b.name);
+    for (let n=1;n<=2;n++) {
+        const [p]=await q(`INSERT INTO students(public_id,name) VALUES($1,$2) RETURNING id`,['stay-test-'+n,'Пробен Ученик Престој '+n]);
+        await q(`INSERT INTO student_enrollments(student_id,school_year_id,grade) VALUES($1,$2,'Пробна паралелка')`,[p.id,year.id]);
+    }
+    let date=addDays(todayInSkopje(),-1);
+    while([0,6].includes(new Date(date+'T12:00:00Z').getUTCDay())) date=addDays(date,-1);
+    const month=date.slice(0,7),url='/api/portal/stay?month='+month;
+    const get=(token=ta)=>call('GET',url,token);
+    const member=(token:string,active:boolean,expected:boolean)=>call('PUT','/api/portal/stay/pupil',token,{publicId:'stay-test-1',active,expected});
+    const mark=(token:string,status:string|null,expected:string|null,day=date)=>call('PUT','/api/portal/stay/mark',token,{publicId:'stay-test-1',date:day,status,expected});
+    assert.equal((await get('')).status,401);
+    const me=await call('GET','/api/portal/me',ta);
+    assert.deepEqual(me.body.roles,['stay']);
+    assert.equal((await call('GET','/api/portal/week',ta)).status,200);
+    assert.equal((await call('GET','/api/portal/plan',ta)).status,403,'stay is not clinical access');
+    assert.equal((await call('GET','/api/portal/stay/pupils',ta)).body.pupils.length,2);
+    assert.equal((await call('GET','/api/portal/stay?month=0001-01',ta)).body.days.length,31,'early years never expand into a century');
+    assert.equal((await call('GET','/api/portal/stay?month=9999-12',ta)).body.days.length,31);
+    assert.equal((await mark(ta,'present',null)).status,403,'membership is required');
+    assert.equal((await member(ta,true,false)).status,200);
+    assert.equal((await member(ta,true,false)).status,409,'stale list edit');
+    assert.equal((await get(tb)).body.pupils.length,0,'lists are independent');
+    assert.equal((await mark(ta,'present',null)).status,200);
+    assert.equal((await mark(ta,'absent',null)).status,409,'stale mark');
+    assert.equal((await get()).body.marks[0].status,'present');
+    assert.equal((await get(tb)).body.marks.length,0,'no other employee marks');
+    assert.equal((await call('GET',url+'&employeeId='+a.id,tb)).status,400);
+    assert.equal((await call('PUT','/api/portal/stay/mark',tb,{publicId:'stay-test-1',date,status:'absent',expected:null,employeeId:a.id})).status,400);
+    assert.equal((await member(tb,true,false)).status,200);
+    assert.equal((await mark(tb,'absent',null)).status,200);
+    assert.equal((await get()).body.marks[0].status,'present');
+    assert.equal((await get(tb)).body.marks[0].status,'absent');
+    assert.equal((await member(ta,false,true)).status,200);
+    assert.equal((await get()).body.pupils[0].selected,false);
+    assert.equal((await get()).body.marks.length,1,'removal preserves history');
+    assert.equal((await mark(ta,'absent','present')).status,200,'existing history can be corrected');
+    assert.equal((await mark(ta,null,'absent')).status,200);
+    assert.equal((await get()).body.pupils.length,0,'removed row without marks is hidden');
+    assert.equal((await member(ta,true,false)).status,200);
+    const parallel=await Promise.all([mark(ta,'present',null),mark(ta,'absent',null)]);
+    assert.deepEqual(parallel.map(r=>r.status).sort(),[200,409],'two first marks cannot overwrite each other');
+    let weekend=date; while(new Date(weekend+'T12:00:00Z').getUTCDay()!==0) weekend=addDays(weekend,-1);
+    assert.equal((await mark(ta,'present',null,weekend)).status,400);
+    assert.equal((await mark(ta,'present',null,addDays(todayInSkopje(),20))).status,400);
+    assert.equal((await call('PUT','/api/portal/stay/mark',ta,{publicId:'stay-test-1',date:'2026-02-30',status:'present',expected:null})).status,400);
+    const audit=await q('SELECT * FROM stay_attendance_changes WHERE employee_id=$1 ORDER BY id',[a.id]);
+    assert.equal(audit.length,4); assert.equal(audit[0].previous_status,null); assert.equal(audit[0].marked_by,a.name);
+    await q('INSERT INTO staff_accounts(employee_id,read_only) VALUES($1,true) ON CONFLICT(employee_id) DO UPDATE SET read_only=true',[a.id]);
+    assert.equal((await member(ta,false,true)).status,403,'read-only override holds');
+    await q('UPDATE staff_accounts SET read_only=false WHERE employee_id=$1',[a.id]);
+    await q(`UPDATE employee_roles SET active=false WHERE employee_id=$1 AND role='stay'`,[a.id]);
+    assert.equal((await get()).status,403,'annual role removal blocks old sessions');
+    const privacy=await q(`SELECT relname,relrowsecurity FROM pg_class WHERE relnamespace=current_schema()::regnamespace AND relname IN ('stay_pupils','stay_attendance','stay_attendance_changes')`);
+    assert.equal(privacy.length,3); assert.ok(privacy.every(r=>r.relrowsecurity));
+    console.log('PASS: stay profiles, own lists/marks, stale/concurrent writes, retained history, dates, revocation and privacy');
+} finally { await app.close(); await db.end(); await pool.end(); }

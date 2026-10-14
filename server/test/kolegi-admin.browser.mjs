@@ -37,6 +37,7 @@ const check = (label, ok, detail = '') => {
 const writes = [];
 let dutyAdminLinks = [];
 let readerProfile = null, readerEnabled = false;
+let stayProfile = null;
 let changeUndone = false, planMoved = false;
 const browser = await chromium.launch({ ...(process.env.CHROME ? { executablePath: process.env.CHROME } : {}) });
 const context = await browser.newContext({ viewport: { width: 1400, height: 1000 }, serviceWorkers: 'block' });
@@ -68,6 +69,10 @@ await context.route('**/*', async (route) => {
         }
         if (p === '/api/workspace/employees' && req.method() === 'POST') {
             const body=req.postDataJSON();
+            if(body.roles.length===1 && body.roles[0]==='stay' && body.teacherKind==='none') {
+                stayProfile={employeeId:10,name:body.name,usernames:{latin:'ProbenPrestoj',cyrillic:'ПробенПрестој'},stay:true,teacher:false,therapist:false};
+                return json(200,{employee:{id:10}});
+            }
             if(body.identifier!==null || body.roles[0]!=='administration' || body.teacherKind!=='none') throw Error('New reader must use the directory writer without a teaching profile');
             readerProfile={employeeId:9,name:body.name,usernames:{latin:'IzmislenCitatel',cyrillic:'ИзмисленЧитател'},readOnly:false};
             return json(200,{employee:{id:9}});
@@ -79,7 +84,7 @@ await context.route('**/*', async (route) => {
               ownPassword: true, lastLoginAt: '2026-09-25T07:00:00Z', ambiguous: false },
             { employeeId: 8, name: 'Двојно Име', usernames: { latin: 'DvojnoIme', cyrillic: 'ДвојноИме' }, teacher: false, therapist: true,
               ownPassword: false, lastLoginAt: null, ambiguous: true },
-            ...(readerEnabled?[{...readerProfile,readOnly:true}]:[])
+            ...(readerEnabled?[{...readerProfile,readOnly:true}]:[]),...(stayProfile?[stayProfile]:[])
         ] });
         if (p === '/api/staff-notices') return json(200, { year: YEAR,
             notices: [{ id: 1, createdAt: '2026-09-25T08:00:00Z', recipient: 'Ана Измислена', author: 'Колега Бе', kind: 'lesson', day: 'понеделник',
@@ -189,6 +194,10 @@ await page.waitForTimeout(300);
 check('„Врати почетна лозинка" asks, then resets', writes.some((w) => w.path === '/api/staff-accounts/7/reset'));
 
 check('new reader form starts closed', !(await page.isVisible('#newReaderForm')));
+await page.fill('#newStayName','Пробен Вработен Престој');await page.click('#newStayForm button[type=submit]');
+await page.waitForSelector('[data-account="10"]');
+check('a separate stay employee is created through the directory writer',writes.some(w=>w.path==='/api/workspace/employees'&&JSON.parse(w.body).roles.join(',')==='stay'));
+check('the account table names the stay category', (await page.textContent('[data-account="10"]')).includes('Престој'));
 await page.click('#newReaderToggle');await page.fill('#newReaderName','Измислен Читател');
 await page.click('#newReaderForm button[type="submit"]');
 await page.waitForSelector('[data-remove-reader="9"]');
@@ -198,7 +207,7 @@ await page.waitForFunction(()=>!document.querySelector('[data-account="9"]'));
 check('removing a staff-only reader preserves them in the employee picker', await page.locator('#readOnlyEmployee option[value="9"]').count()===1);
 await page.selectOption('#readOnlyEmployee','9');await page.click('#readOnlyGrant button[type="submit"]');
 await page.waitForSelector('[data-remove-reader="9"]');
-check('existing administrative employee can be granted again', readerEnabled && writes.filter(w=>w.path==='/api/workspace/employees').length===1);
+check('existing administrative employee can be granted again', readerEnabled && writes.filter(w=>w.path==='/api/workspace/employees'&&JSON.parse(w.body).roles[0]!=='stay').length===1);
 // Owner, 5 Oct 2026: one link for everybody, the account decides; the owner needs none.
 check('the access cards say who each kind of access is for', await page.evaluate(() => {
     const cards = [...document.querySelectorAll('#tab-colleagues .access-card h4')].map((h) => h.textContent);

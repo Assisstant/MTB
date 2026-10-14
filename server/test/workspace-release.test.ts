@@ -10,6 +10,32 @@ import 'dotenv/config';
 // Every migration in the folder: a release applies whatever is pending, so the
 // count after one is the whole folder, and a new batch must not edit it here.
 const ALL=(await readdir(resolve(import.meta.dirname,'../../database/migrations'))).filter(f=>f.endsWith('.sql')).length;
+test('064 adds a separate annual stay role and private empty attendance tables, preserving existing identities', async () => {
+ const c=new pg.Client({connectionString:process.env.TEST_DATABASE_URL||process.env.DATABASE_URL});await c.connect();
+ const schema=`stay_release_test_${process.pid}`,backup=`mtb_workspace_recovery_stay_test_${process.pid}`;
+ const dir=resolve(import.meta.dirname,'../../database/migrations');
+ await c.query(`CREATE SCHEMA ${schema}`);await c.query(`SET search_path=${schema}`);
+ try{
+  await c.query('CREATE TABLE schema_migrations(filename text PRIMARY KEY,applied_at timestamptz NOT NULL DEFAULT now())');
+  for(const f of (await readdir(dir)).filter(f=>f.endsWith('.sql')&&Number(f.slice(0,3))<=63).sort()){
+   await c.query(migrationBody(await readFile(resolve(dir,f),'utf8')));await c.query('INSERT INTO schema_migrations(filename) VALUES($1)',[f]);
+  }
+  const employee=(await c.query("INSERT INTO employees(name) VALUES('Пробен Вработен Миграција') RETURNING id,name")).rows[0];
+  const year=(await c.query("INSERT INTO school_years(label,starts_on,ends_on) VALUES('1901/1902-stay','1901-09-01','1902-08-31') RETURNING id")).rows[0].id;
+  await c.query("INSERT INTO employee_roles(employee_id,school_year_id,role) VALUES($1,$2,'administration')",[employee.id,year]);
+  await workspaceRelease(c,dir,()=>{},backup);
+  assert.deepEqual((await c.query('SELECT id,name FROM employees WHERE id=$1',[employee.id])).rows[0],employee);
+  assert.deepEqual((await c.query('SELECT role FROM employee_roles WHERE employee_id=$1',[employee.id])).rows,[{role:'administration'}]);
+  await c.query("INSERT INTO employee_roles(employee_id,school_year_id,role) VALUES($1,$2,'stay')",[employee.id,year]);
+  for(const table of ['stay_pupils','stay_attendance','stay_attendance_changes']) {
+   assert.equal((await c.query('SELECT relrowsecurity FROM pg_class WHERE oid=$1::regclass',[table])).rows[0].relrowsecurity,true);
+   assert.equal((await c.query(`SELECT count(*)::int AS n FROM ${table}`)).rows[0].n,0);
+   for(const role of ['anon','authenticated'])if((await c.query('SELECT 1 FROM pg_roles WHERE rolname=$1',[role])).rowCount)
+    assert.equal((await c.query("SELECT has_table_privilege($1,$2,'SELECT,INSERT,UPDATE,DELETE') AS allowed",[role,table])).rows[0].allowed,false);
+  }
+  await workspaceRelease(c,dir,()=>{},backup);
+ }finally{await c.query(`DROP SCHEMA IF EXISTS ${backup} CASCADE`);await c.query(`DROP SCHEMA ${schema} CASCADE`);await c.end();}
+});
 test('058 adds private confirmed plans to 057 without changing existing diary or timetable rows', async () => {
  const c=new pg.Client({connectionString:process.env.TEST_DATABASE_URL||process.env.DATABASE_URL});await c.connect();
  const schema=`ongoing_release_test_${process.pid}`,backup=`mtb_workspace_recovery_ongoing_test_${process.pid}`;

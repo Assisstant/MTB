@@ -103,16 +103,19 @@ export type Staff = {
     teacherId: number | null;
     therapistId: number | null;
     readOnly?: boolean;
+    stay?: boolean;
 };
 
 /**
  * Active annual teachers/therapists can sign in as before. Other active annual
- * employees can sign in only with an explicit read-only grant. Candidate mode
- * also returns those employees to the owner's picker; job roles grant no access.
+ * employees need a read-only grant or the annual stay role. Candidate mode
+ * also returns the other annual employees to the owner's picker.
  */
 export async function staffOfYear(db: Queryable, schoolYearId: number, includeCandidates = false): Promise<Staff[]> {
     const { rows } = await db.query(
         `SELECT e.id AS employee_id, e.name, coalesce(a.read_only, false) AS read_only,
+                EXISTS (SELECT 1 FROM employee_roles r WHERE r.employee_id = e.id
+                         AND r.school_year_id = $1 AND r.active AND r.role = 'stay') AS stay,
                 EXISTS (SELECT 1 FROM employee_roles r WHERE r.employee_id = e.id
                          AND r.school_year_id = $1 AND r.active) AS other_active,
                 (SELECT t.id FROM teachers t JOIN teacher_years ty ON ty.teacher_id = t.id
@@ -123,9 +126,9 @@ export async function staffOfYear(db: Queryable, schoolYearId: number, includeCa
           WHERE e.superseded_by IS NULL
           ORDER BY e.name`, [schoolYearId]);
     return rows
-        .filter((r: any) => r.teacher_id != null || r.therapist_id != null || (r.other_active && (includeCandidates || r.read_only)))
+        .filter((r: any) => r.teacher_id != null || r.therapist_id != null || (r.other_active && (includeCandidates || r.read_only || r.stay)))
         .map((r: any) => ({ employeeId: r.employee_id, name: r.name, teacherId: r.teacher_id, therapistId: r.therapist_id,
-            readOnly: r.read_only }));
+            readOnly: r.read_only, stay: r.stay }));
 }
 
 export type Resolved =

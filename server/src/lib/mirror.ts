@@ -25,6 +25,9 @@ export const MIRROR_TABLES = [
     // Class attendance by day (057): the school's record of who was in.
     'class_attendance',
     'class_attendance_changes',
+    'stay_pupils',
+    'stay_attendance',
+    'stay_attendance_changes',
     'class_years',
     // The watermark's look (046): a read-only copy should look like the cloud.
     'credit_look',

@@ -285,6 +285,8 @@ export const PUBLIC_WRITES = new Set([
     'PUT /api/portal/my-subject',
     'PUT /api/portal/my-class',
     'PUT /api/portal/attendance',
+    'PUT /api/portal/stay/pupil',
+    'PUT /api/portal/stay/mark',
     // Class attendance by day (057): the route checks the class and the weekday itself.
     'PUT /api/portal/class-attendance',
     // Акциски план (061): every signed-in colleague writes every pupil's plan (owner, 14 Oct 2026).

@@ -660,6 +660,14 @@
             <button class="btn" type="submit">Создај профил со „Само преглед“</button>
         </form>
         <p id="readerAccessMsg" class="hint" role="status"></p>
+        <h3>Престој</h3>
+        <p class="hint">Посебни вработени со сопствен список и присуство. Се најавуваат преку истиот линк за Колега.
+            Годишната улога „Престој“ се уредува и во работната табла → Вработени.</p>
+        <form id="newStayForm" class="controls">
+            <label class="field">Име и презиме<input id="newStayName" required maxlength="120" autocomplete="off"></label>
+            <button class="btn" type="submit">＋ Додај вработен за Престој</button>
+        </form>
+        <p id="stayAccessMsg" class="hint" role="status"></p>
         <div class="scroll"><div id="colleaguesAccounts"></div></div>
         <h3>Отворени судири</h3>
         <div id="colleaguesClashes"><p class="hint">вчитувам…</p></div>
@@ -3543,8 +3551,8 @@
                 + (a.ambiguous ? ' <span class="none">· исто име како друг — не може да се најави</span>' : '') + '</td>'
                 + `<td><code>${esc(a.usernames.latin)}</code><br><code>${esc(a.usernames.cyrillic)}</code></td>`
                 // What the account may do, in the cards' words: a reader only looks, whatever else the person is.
-                + `<td>${a.readOnly ? '👁 Само преглед' : (a.teacher || a.therapist)
-                    ? '✏️ уредува свое <span class="none">· ' + [a.teacher ? 'наставник' : '', a.therapist ? 'терапевт' : ''].filter(Boolean).join(', ') + '</span>'
+                + `<td>${a.readOnly ? '👁 Само преглед' : (a.teacher || a.therapist || a.stay)
+                    ? '✏️ уредува свое <span class="none">· ' + [a.teacher ? 'наставник' : '', a.therapist ? 'терапевт' : '', a.stay ? 'Престој' : ''].filter(Boolean).join(', ') + '</span>'
                     : '<span class="none">вработен — нема што да уредува</span>'}</td>`
                 + `<td>${a.ownPassword ? 'своја' : 'почетна'}</td>`
                 + `<td>${esc(when2(a.lastLoginAt))}</td>`
@@ -3554,7 +3562,7 @@
                 + (a.ownPassword ? `<button class="btn soft danger" data-reset-colleague="${a.employeeId}">Врати почетна лозинка</button>` : '')
                 + '</td></tr>').join('')
               + '</tbody></table>'
-            : '<p class="hint">Нема наставници ни терапевти на списокот за годинава.</p>';
+            : '<p class="hint">Нема профили за Колега на списокот за годинава.</p>';
         await loadDutyAdminLinks();
         await loadChanges();
         await loadPlanChanges();
@@ -3737,6 +3745,25 @@
     });
     ['planChangesAuthor', 'planChangesPupil'].forEach((id) => el(id).addEventListener('change', () => { el('planChangesMsg').textContent = ''; loadPlanChanges(); }));
     el('planChangesRefresh').addEventListener('click', () => { el('planChangesMsg').textContent = ''; loadPlanChanges(); });
+
+    el('newStayForm').addEventListener('submit', async event => {
+        event.preventDefault();
+        const name = el('newStayName').value.trim();
+        if (!name || !colleagueYear) return;
+        const same = colleagueCandidates.some(a => a.name.trim().toLocaleLowerCase('mk-MK') === name.toLocaleLowerCase('mk-MK'));
+        if (same) {
+            el('stayAccessMsg').textContent = 'Веќе има вработен со ова име. Отворете Вработени во работната табла и уредете ја годишната улога на точниот профил.';
+            return;
+        }
+        const button = event.submitter; button.disabled = true;
+        try {
+            await api('POST', '/api/workspace/employees', { year: colleagueYear, name, identifier: null, roles: ['stay'], teacherKind: 'none' });
+            el('newStayName').value = '';
+            el('stayAccessMsg').textContent = 'Профилот за Престој е создаден. Корисничкото име е во табелата; почетната лозинка и линкот се исти како за Колега.';
+            await loadColleagues();
+        } catch (err) { el('stayAccessMsg').textContent = err.message; }
+        finally { button.disabled = false; }
+    });
 
     async function grantReader(employeeId, readOnly, expected) {
         await api('PUT', `/api/staff-accounts/${employeeId}/access`, { readOnly, expected });

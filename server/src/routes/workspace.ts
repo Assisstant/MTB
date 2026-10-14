@@ -21,10 +21,10 @@ const Pupil = z.object({
     placement: z.enum(['unknown','regular','preparatory','observation','none']),
     active: z.boolean(), expected: Expected.optional()
 }).strict();
-const StaffRole = z.enum(['teacher','therapist','specialist','administration']);
+const StaffRole = z.enum(['teacher','therapist','specialist','administration','stay']);
 const Employee = z.object({
     year: Year, name: Name, identifier: z.string().trim().max(80).nullable(),
-    roles: z.array(StaffRole).max(4), teacherKind: z.enum(['odd','pred','none']).default('none'),
+    roles: z.array(StaffRole).max(5), teacherKind: z.enum(['odd','pred','none']).default('none'),
     professionCode: z.string().refine(v=>Object.hasOwn(STAFF_PROFESSIONS,v)).optional(),
     jobTitle: z.string().trim().max(200).optional(),
     duties: z.array(z.string().refine(v=>Object.hasOwn(STAFF_DUTIES,v))).max(9).optional(),
@@ -216,8 +216,11 @@ export async function workspaceRoutes(server: FastifyInstance, options: {pool?: 
                       ON CONFLICT(school_year_id,${role}_id) DO UPDATE SET active=EXCLUDED.active`,[y.id,profile.id,b.roles.includes(role)]);
                 }
             }
-            for(const role of ['specialist','administration'] as const)await c.query(`INSERT INTO employee_roles(employee_id,school_year_id,role,active)
+            for(const role of ['specialist','administration','stay'] as const) {
+              if(role==='stay' && !b.roles.includes('stay') && !previous?.additional_roles?.includes('stay')) continue;
+              await c.query(`INSERT INTO employee_roles(employee_id,school_year_id,role,active)
               VALUES($1,$2,$3,$4) ON CONFLICT(employee_id,school_year_id,role) DO UPDATE SET active=EXCLUDED.active`,[id,y.id,role,b.roles.includes(role)]);
+            }
             // Omitted fields from an older client preserve the explicit annual facts.
             await c.query(`INSERT INTO employee_year_details(employee_id,school_year_id,profession_code,job_title,duties)
               VALUES($1,$2,$3,$4,$5) ON CONFLICT(employee_id,school_year_id) DO UPDATE SET
@@ -248,6 +251,14 @@ export async function workspaceRoutes(server: FastifyInstance, options: {pool?: 
             if((target.teacher_id&&source.teacher_id)||(target.therapist_id&&source.therapist_id))throw new Problem(409,
                 'Двата записи имаат ист вид профил. Потребна е посебна проверка на историјата; не се спојуваат автоматски.');
             if(target.identifier&&source.identifier&&target.identifier!==source.identifier)throw new Problem(409,'Идентификаторите на вработените се различни.');
+            // Stay records belong to an employee directly, unlike teaching/therapy profiles.
+            // Linking must not make the source employee's attendance unreachable.
+            if ((await c.query("SELECT to_regclass('stay_pupils') AS present")).rows[0].present) {
+                const stayHistory = (await c.query(`SELECT 1 FROM stay_pupils WHERE employee_id=$1
+                    UNION ALL SELECT 1 FROM stay_attendance WHERE employee_id=$1
+                    UNION ALL SELECT 1 FROM stay_attendance_changes WHERE employee_id=$1 LIMIT 1`,[b.sourceId])).rowCount;
+                if(stayHistory)throw new Problem(409,'Изворниот профил има список или присуство за Престој. Потребна е проверка на историјата пред поврзување; ништо не е сменето.');
+            }
             // Review all years, not just the visible year. Never discard a second
             // profession/title/duty record merely because the profiles can link.
             const conflicting=(await c.query(`SELECT 1 FROM employee_year_details a JOIN employee_year_details b

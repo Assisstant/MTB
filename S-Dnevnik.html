@@ -111,6 +111,14 @@
         }
         .tab-content { display: none; }
         .tab-content.active { display: block; }
+
+        /* Closed days retain the theme palette; hatching also distinguishes them without colour. */
+        #monthlyAttendanceTable .attendance-table :is(th,td) { border: 1px solid #9aabba; }
+        #monthlyAttendanceTable .attendance-weekend { background: repeating-linear-gradient(135deg,transparent 0 7px,#8395aa18 7px 9px),#e5ebf2 !important; color:#53677f !important; }
+        #monthlyAttendanceTable .attendance-holiday { background:#ffe4e6 !important; color:#9e313e !important; }
+        body.dark-mode #monthlyAttendanceTable .attendance-table :is(th,td) { border-color:#536579; }
+        body.dark-mode #monthlyAttendanceTable .attendance-weekend { background:repeating-linear-gradient(135deg,transparent 0 7px,#9fb1c518 7px 9px),#293748 !important; color:#b7c8dc !important; }
+        body.dark-mode #monthlyAttendanceTable .attendance-holiday { background:#422f3b !important; color:#f0a7b5 !important; }
     </style>
     <style id="sdn-button-styles">
         /* Also injected into the audiogram srcdoc: one source, including offline. */
@@ -4555,7 +4563,7 @@ var attendance = {};
             var dayNames = ['нед.', 'пон.', 'вто.', 'сре.', 'чет.', 'пет.', 'саб.'];
             
             var container = document.getElementById('monthlyAttendanceTable');
-            var html = '<h3 class="month-header" style="text-align: center; margin-bottom: 15px; color: #2d3748;">' + monthName + ' ' + year + '</h3>';
+            var html = '<h3 class="month-header" style="text-align: center; margin-bottom: 15px; color: inherit;">' + monthName + ' ' + year + '</h3>';
             html += '<table class="attendance-table">';
             html += '<tr><th>Ученик</th>';
             
@@ -4569,10 +4577,7 @@ var attendance = {};
 
             for (var day = 1; day <= lastDay; day++) {
                 var dt = dayTypes[day - 1];
-                var bgStyle = '';
-                if (dt.holiday) bgStyle = 'background:#ffe0e0; color:#c53030;';
-                else if (dt.weekend) bgStyle = 'background:#e2e8f0; color:#718096;';
-                html += '<th style="' + bgStyle + '">' + day + '</th>';
+                html += '<th class="' + (dt.holiday ? 'attendance-holiday' : dt.weekend ? 'attendance-weekend' : '') + '">' + day + '</th>';
             }
             html += '</tr>';
             
@@ -4583,9 +4588,7 @@ var attendance = {};
                 var dayOfWeek = date.getDay();
                 var dt = dayTypes[day - 1];
                 var bgStyle = 'font-size: 11px; font-weight: normal;';
-                if (dt.holiday) bgStyle += ' background:#ffe0e0; color:#c53030;';
-                else if (dt.weekend) bgStyle += ' background:#e2e8f0; color:#718096;';
-                html += '<th style="' + bgStyle + '">' + dayNames[dayOfWeek] + '</th>';
+                html += '<th class="' + (dt.holiday ? 'attendance-holiday' : dt.weekend ? 'attendance-weekend' : '') + '" style="' + bgStyle + '">' + dayNames[dayOfWeek] + '</th>';
             }
             html += '</tr>';
 
@@ -4593,8 +4596,8 @@ var attendance = {};
             html += '<tr><td style="font-size:10px; color:#c53030; font-weight:bold;">Распуст</td>';
             for (var day = 1; day <= lastDay; day++) {
                 var dt = dayTypes[day - 1];
-                if (dt.holiday) html += '<td style="background:#ffe0e0; color:#c53030; font-size:9px; text-align:center;">Р</td>';
-                else if (dt.weekend) html += '<td style="background:#e2e8f0;"></td>';
+                if (dt.holiday) html += '<td class="attendance-holiday" style="font-size:9px; text-align:center;">Р</td>';
+                else if (dt.weekend) html += '<td class="attendance-weekend"></td>';
                 else html += '<td></td>';
             }
             html += '</tr>';
@@ -4608,10 +4611,8 @@ var attendance = {};
                     var dt = dayTypes[day - 1];
                     var dateStr = year + '-' + String(month).padStart(2, '0') + '-' + String(day).padStart(2, '0');
                     var hasAttendance = checkAttendanceForDate(s.id, dateStr);
-                    var cellStyle = '';
-                    if (dt.holiday) cellStyle = 'background:#fff0f0;';
-                    else if (dt.weekend) cellStyle = 'background:#f1f5f9;';
-                    html += '<td style="' + cellStyle + '" class="' + (hasAttendance ? 'date-cell' : '') + '">' + (hasAttendance ? '✓' : '') + '</td>';
+                    var closedClass = dt.holiday ? 'attendance-holiday' : dt.weekend ? 'attendance-weekend' : '';
+                    html += '<td class="' + closedClass + (hasAttendance ? ' date-cell' : '') + '">' + (hasAttendance ? '✓' : '') + '</td>';
                 }
                 html += '</tr>';
             }

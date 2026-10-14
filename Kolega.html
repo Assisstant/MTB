@@ -565,6 +565,16 @@ header.top h1 { flex: 1; min-width: 180px; }
   body.printing-transport-list p { font-size: 10pt; line-height: 1.4; margin: 2mm 0; }
   body.printing-transport-list .print-preparer { font-size: 10pt; }
 }
+
+    html body .attendance-table :is(th,td) { border:1px solid var(--mtb-table-line,var(--line)); }
+    #stay .row { display:flex; flex-wrap:wrap; gap:12px; align-items:center; }
+    #stay .stay-list { padding:12px; border:1px solid var(--mtb-table-line,var(--line)); margin-bottom:16px; }
+    #stay .ticks { display:grid; grid-template-columns:repeat(auto-fit,minmax(230px,1fr)); gap:10px; margin-top:12px; max-height:300px; overflow:auto; }
+    #stay [data-stay-label][hidden] { display:none; }
+    #stay .stay-table th:first-child { min-width:190px; max-width:230px; white-space:normal; }
+    #stay .stay-table :is(th,td).closed { background:repeating-linear-gradient(135deg,transparent 0 7px,#8395aa20 7px 9px),var(--mtb-well) !important; }
+    #stay .closed button { background:transparent !important; }
+    #stay .attendance-mark { min-height:42px; min-width:42px; }
 </style>
 <style>
 /* Fluent 2-inspired native controls. Keep the public colleague door standalone;
@@ -1016,6 +1026,7 @@ header.top h1 { flex: 1; min-width: 180px; }
       <ul class="periods" id="periods"></ul>
       <div id="duty" hidden></div>
       <div id="attendance" hidden></div>
+      <div id="stay" hidden></div>
       <div id="plan" hidden></div>
       <div id="transportCertificate" hidden></div>
       <p class="msg" id="weekMsg" role="status" aria-live="polite"></p>
@@ -1058,7 +1069,7 @@ header.top h1 { flex: 1; min-width: 180px; }
     const esc = (v) => String(v == null ? '' : v).replace(/[&<>"']/g, (c) =>
         ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
     const norm = (v) => String(v == null ? '' : v).replace(/\s+/g, ' ').trim().toLocaleLowerCase('mk-MK');
-    const ROLE_NAMES = { teacher: 'наставник', homeroom: 'раководител на паралелка', therapist: 'кабинет (терапевт)' };
+    const ROLE_NAMES = { teacher: 'наставник', homeroom: 'раководител на паралелка', therapist: 'кабинет (терапевт)', stay: 'престој' };
     const DAY_SHORT = { 'понеделник': 'Пон', 'вторник': 'Вто', 'среда': 'Сре', 'четврток': 'Чет', 'петок': 'Пет' };
     let me = null;
     let ownerAccounts = [], welcomeOwnerRequest = 0;
@@ -1066,6 +1077,77 @@ header.top h1 { flex: 1; min-width: 180px; }
     let memory = '';            // the token, when this browser keeps nothing
     // `week`: the whole week on one sheet instead of one day's list (🗓 Недела).
     const view = { tab: '', day: '', week: false };
+    const stay = { month: '', data: null, pupils: [], list: false, query: '', busy: false, request: 0, message: '' };
+    async function loadStay() {
+        if (!stay.month) stay.month = new Date().toLocaleDateString('en-CA', {timeZone:'Europe/Skopje'}).slice(0,7);
+        const request=++stay.request, person=me, month=stay.month;
+        el('stay').innerHTML='<p>Вчитувам…</p>';
+        try {
+            const [data,list]=await Promise.all([api('GET','/api/portal/stay?month='+month),api('GET','/api/portal/stay/pupils')]);
+            if(request!==stay.request || me!==person || view.tab!=='stay') return;
+            stay.data=data; stay.pupils=list.pupils; drawStay();
+        } catch(err) {
+            if(request!==stay.request || me!==person || view.tab!=='stay') return;
+            el('stay').innerHTML='<p role="alert">'+esc(err.message)+'</p><button data-stay-refresh>Освежи</button>';
+        }
+    }
+    function drawStay() {
+        const d=stay.data; if(!d) return;
+        const short=['нед.','пон.','вто.','сре.','чет.','пет.','саб.'];
+        const marks=new Map(d.marks.map(m=>[m.publicId+'|'+m.date,m.status]));
+        const label=s=>s==='present'?'Присутен':s==='absent'?'Отсутен':'Неозначено';
+        el('stay').innerHTML='<div class="row"><h2>Престој</h2><label>Месец <input type="month" id="stayMonth" value="'+esc(stay.month)+'"'+(stay.busy?' disabled':'')+'></label>'
+            +'<button data-stay-refresh'+(stay.busy?' disabled':'')+'>Освежи</button><button data-stay-list'+(stay.busy?' disabled':'')+' aria-expanded="'+stay.list+'">Мој список</button></div>'
+            +'<p>✓ Присутен · ✕ Отсутен · — Неозначено. Допрете поле за следната ознака; промената се зачувува веднаш.</p>'
+            +'<p role="status">'+esc(stay.message)+'</p>'
+            +(stay.list?'<div class="stay-list"><label>Пребарај <input id="staySearch" type="search" value="'+esc(stay.query)+'"></label><div class="ticks">'
+                +stay.pupils.map(p=>'<label data-stay-label'+(((p.grade||'')+' '+p.name).toLocaleLowerCase('mk-MK').includes(stay.query.toLocaleLowerCase('mk-MK'))?'':' hidden')+'><input type="checkbox" data-stay-pupil="'+esc(p.publicId)+'"'+(p.selected?' checked':'')+(stay.busy||d.readOnly?' disabled':'')+'> '+esc((p.grade?p.grade+' · ':'')+p.name)+'</label>').join('')
+                +'</div><p class="muted">Тргањето од списокот ги зачувува претходните ознаки.</p></div>':'')
+            +(!d.pupils.length?'<p>Списокот е празен. Отворете „Мој список“ и изберете ученици.</p>':'<div class="attendance-scroll"><table class="attendance-table month stay-table"><thead><tr><th scope="col">Ученик</th>'
+                +d.days.map(day=>'<th scope="col"'+(day.closed?' class="closed"':'')+' title="'+esc(day.closed||day.date)+'">'+Number(day.date.slice(8))+'<br>'+short[new Date(day.date+'T12:00:00Z').getUTCDay()]+'</th>').join('')+'</tr></thead><tbody>'
+                +d.pupils.map(p=>'<tr><th scope="row">'+esc((p.grade?p.grade+' · ':'')+p.name)+(p.selected?'':'<br><small>Претходни ознаки</small>')+'</th>'
+                    +d.days.map(day=>{const value=marks.get(p.publicId+'|'+day.date)||null;
+                        const disabled=stay.busy || d.readOnly || day.closed || day.future || (!p.selected&&!value);
+                        return '<td'+(day.closed?' class="closed"':'')+'><button class="attendance-mark '+(value||'blank')+'" data-stay-mark="'+esc(p.publicId)+'" data-stay-date="'+day.date+'"'
+                            +(disabled?' disabled':'')+' aria-label="'+esc(p.name+' · '+day.date+' · '+label(value))+'" title="'+esc(day.closed||(day.future?'Иден датум':label(value)))+'">'+(value==='present'?'✓':value==='absent'?'✕':'—')+'</button></td>';
+                    }).join('')+'</tr>').join('')+'</tbody></table></div>');
+    }
+    el('stay').addEventListener('input',event=>{
+        if(event.target.id!=='staySearch') return;
+        stay.query=event.target.value;
+        const query=event.target.value.toLocaleLowerCase('mk-MK');
+        el('stay').querySelectorAll('[data-stay-label]').forEach(label=>label.hidden=!label.textContent.toLocaleLowerCase('mk-MK').includes(query));
+    });
+    async function writeStay(path,body) {
+        if(stay.busy) return; stay.busy=true; stay.message=''; drawStay();
+        const person=me;
+        try { await api('PUT','/api/portal/stay/'+path,body); if(me===person) stay.message='Зачувано.'; }
+        catch(err) { if(me===person) stay.message=err.message; }
+        finally {
+            stay.busy=false;
+            if(me===person && view.tab==='stay') {
+                await loadStay();
+                const selector=path==='pupil'?'[data-stay-pupil="'+CSS.escape(body.publicId)+'"]'
+                    :'[data-stay-mark="'+CSS.escape(body.publicId)+'"][data-stay-date="'+body.date+'"]';
+                el('stay').querySelector(selector)?.focus({preventScroll:true});
+            }
+        }
+    }
+    el('stay').addEventListener('change',event=>{
+        if(stay.busy) return;
+        if(event.target.id==='stayMonth') { if(!/^\d{4}-(0[1-9]|1[0-2])$/.test(event.target.value)) return; stay.month=event.target.value;stay.message='';loadStay(); }
+        if(event.target.matches('[data-stay-pupil]')) { const p=stay.pupils.find(p=>p.publicId===event.target.dataset.stayPupil); if(p) writeStay('pupil',{publicId:p.publicId,active:event.target.checked,expected:p.selected}); }
+    });
+    el('stay').addEventListener('click',event=>{
+        const b=event.target.closest('button');if(!b || stay.busy) return;
+        if(b.hasAttribute('data-stay-refresh')) {stay.message='';loadStay();}
+        if(b.hasAttribute('data-stay-list')) {stay.list=!stay.list;drawStay();}
+        if(b.hasAttribute('data-stay-mark')) {
+            const publicId=b.dataset.stayMark,date=b.dataset.stayDate;
+            const expected=stay.data.marks.find(m=>m.publicId===publicId&&m.date===date)?.status||null;
+            writeStay('mark',{publicId,date,expected,status:expected===null?'present':expected==='present'?'absent':null});
+        }
+    });
     let editing = null;         // { ordinal } of the period being edited
     const offers = new Map();   // class label -> subjects offered for it
 
@@ -1426,6 +1508,8 @@ header.top h1 { flex: 1; min-width: 180px; }
             { id: 'reader-list', label: '📋 Списоци' }, { id: 'attendance', label: '✓ Присуство' }
         ];
         const tabs = [];
+        if (me.roles?.includes('stay')) tabs.push({ id: 'stay', label: 'Престој' });
+        if (me.roles?.includes('stay') && week.me.teacherId == null && week.me.therapistId == null) return tabs;
         const homeroom = week.me.homeroom || [];
         // An одделенски наставник's week IS their class; „Мои часови" is kept
         // only for lessons they also have somewhere else.
@@ -3334,6 +3418,7 @@ header.top h1 { flex: 1; min-width: 180px; }
     }
 
     function drawWeek() {
+        el('stay').hidden = true;
         hideCard();
         drawTabs();
         if (me.readOnly) {
@@ -3357,16 +3442,24 @@ header.top h1 { flex: 1; min-width: 180px; }
         const onDuty = view.tab === 'duty';
         const onAttendance = view.tab === 'attendance';
         const onPlan = view.tab === 'plan';
-        const whole = view.week && !onDuty && !onAttendance && !onPlan && Boolean(view.tab);
+        const onStay = view.tab === 'stay';
+        el('stay').hidden=!onStay;
+        const whole = view.week && !onDuty && !onAttendance && !onPlan && !onStay && Boolean(view.tab);
         el('duty').hidden = !onDuty;
         el('attendance').hidden = !onAttendance;
         el('plan').hidden = !onPlan;
-        el('periods').hidden = onDuty || onAttendance || onPlan || whole;
+        el('periods').hidden = onDuty || onAttendance || onPlan || onStay || whole;
         el('caseload').hidden = view.tab !== 'cabinet' || whole;
         el('myLists').hidden = !listsTab() || whole;
         if (listsTab() && !whole) drawMyLists();
         el('weekSheet').hidden = !whole;
         el('weekTools').hidden = !whole;
+        if(onStay) {
+            plan.shown = false;
+            ['days','clashesCard','noticesCard','openNotices'].forEach(id=>el(id).hidden=true);
+            el('tabHint').textContent='Ваш список и дневно присуство за Престој · учебна '+me.year;
+            loadStay(); return;
+        }
         if (onPlan) {
             el('days').hidden = true;
             el('tabHint').textContent = 'Акциски план по ученик. Секој го пополнува и го потврдува својот дел за кварталот; сите гледаат сè.';
@@ -4917,7 +5010,7 @@ header.top h1 { flex: 1; min-width: 180px; }
     function canRefreshWeek() {
         return me && week && !el('home').hidden && !document.hidden && !editing &&
             !caseload.open && !duty.draft && !attendance.busy &&
-            !['duty', 'attendance', 'plan'].includes(view.tab) &&
+            !['duty', 'attendance', 'plan', 'stay'].includes(view.tab) &&
             !document.querySelector('dialog[open], #swapAsk:not([hidden]), #doorVeil:not([hidden])') &&
             !document.activeElement?.matches('input, select, textarea, [contenteditable="true"]');
     }
@@ -4990,7 +5083,7 @@ header.top h1 { flex: 1; min-width: 180px; }
         reloadWeek()
             // Whether there is a duty tab at all is known only after asking
             // (the administrator may not be on the list), so it is drawn again.
-            .then(() => loadDuty().then(() => {
+            .then(() => (me.roles?.includes('stay') && !me.teacher && !me.therapist ? Promise.resolve() : loadDuty()).then(() => {
                 if (duty.delegated) view.tab = 'duty';
                 drawWeek();
             }, (err) => say('weekMsg', err.message, 'error')))

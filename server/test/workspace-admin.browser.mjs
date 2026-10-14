@@ -109,9 +109,14 @@ try{
   await page.locator('[name=teacherKind]').selectOption('none');
   await page.locator('#maForm button[type=submit]').click();await page.getByText('Зачувано и потврдено од PostgreSQL.',{exact:true}).waitFor();
   assert.equal(lastEmployee.teacherKind,'none');assert.equal(employee.teacher_active,false);
+  await page.locator('[name=roles][value=specialist]').uncheck();
+  await page.locator('[name=roles][value=stay]').check();
+  await page.locator('#maForm button[type=submit]').click();await page.getByText('Зачувано и потврдено од PostgreSQL.',{exact:true}).waitFor();
+  assert.deepEqual(lastEmployee.roles,['stay']);assert.equal(lastEmployee.teacherKind,'none');
+  assert.equal(employee.therapist_active,false,'stay creates no therapy participation');
   await page.evaluate(()=>window.dispatchEvent(new CustomEvent('mtb:server-state',{detail:{mirror:{mode:'readonly'}}})));
   assert.equal(await page.locator('[name=professionCode]').isDisabled(),true);
-  assert.equal(writes,8);assert.deepEqual(errors,[]);
+  assert.equal(writes,9);assert.deepEqual(errors,[]);
   if(width>=760){
    /* The start window, the side panel and the bar are this browser's own
     * choices (owner, 2 Oct 2026). S-Дневник opens without setup;
