@@ -97,7 +97,20 @@ $env:DATABASE_URL = $url + '&uselibpqcompat=true'
 # from its own folder; Node has to be handed the same file or it refuses the chain.
 $previousCa = $env:NODE_EXTRA_CA_CERTS
 $rootCert = Join-Path $env:APPDATA 'postgresql\root.crt'
-if (-not $previousCa -and (Test-Path -LiteralPath $rootCert)) { $env:NODE_EXTRA_CA_CERTS = $rootCert }
+$caBundle = $null
+if (Test-Path -LiteralPath $rootCert) {
+    if (-not $previousCa) { $env:NODE_EXTRA_CA_CERTS = $rootCert }
+    elseif (Test-Path -LiteralPath $previousCa) {
+        # An antivirus (Avast, 14 Oct 2026) sets NODE_EXTRA_CA_CERTS to its own
+        # HTTPS certificate. Node reads one file, and with the antivirus's alone it
+        # refused Supabase's chain after the snapshot had already been taken. Both
+        # go into one temporary file; verify-full stays as the address asks.
+        $caBundle = Join-Path ([IO.Path]::GetTempPath()) ('mtb-node-ca-{0}.pem' -f $PID)
+        (@($rootCert, $previousCa) | ForEach-Object { (Get-Content -Raw -LiteralPath $_).Trim() }) -join "`n" |
+            Set-Content -LiteralPath $caBundle -Encoding ascii
+        $env:NODE_EXTRA_CA_CERTS = $caBundle
+    }
+}
 try {
     $ErrorActionPreference = 'Continue'
     Push-Location (Join-Path $repo 'server')
@@ -107,6 +120,7 @@ try {
     Pop-Location
     $env:DATABASE_URL = $previous
     $env:NODE_EXTRA_CA_CERTS = $previousCa
+    if ($caBundle) { Remove-Item -LiteralPath $caBundle -ErrorAction SilentlyContinue }
     $ErrorActionPreference = 'Stop'
 }
 Write-Host ''
