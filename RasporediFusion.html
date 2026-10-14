@@ -156,6 +156,23 @@
     .conflict-help { margin: 4px auto; padding: 0 20px; font-size: 12px; }
     #conflictDialog { inset: 0; margin: auto; width: min(720px, calc(100vw - 32px)); max-height: 85vh; box-sizing: border-box; border: 1px solid #718096; border-radius: 10px; padding: 20px; color: #1a202c; background: white; }
     #conflictDialog::backdrop { background: #0008; }
+    /* Група (063): who is in a term, ticked; the same choices as Колега. */
+    #groupDialog { inset: 0; margin: auto; width: min(640px, calc(100vw - 32px)); max-height: 85vh; box-sizing: border-box; border: 1px solid #718096; border-radius: 10px; padding: 18px; color: #1a202c; background: white; }
+    #groupDialog::backdrop { background: #0008; }
+    #groupDialog h3 { margin: 0 0 6px; font-size: 18px; }
+    #groupDialog .group-hint, #groupDialog .group-count { margin: 6px 0; font-size: 14px; }
+    #groupDialog .group-count { font-weight: 700; }
+    #groupDialog input[type="search"] { width: 100%; box-sizing: border-box; padding: 6px 8px; margin: 4px 0; }
+    #groupDialog .group-ticks { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 4px 14px; max-height: 45vh; overflow: auto; margin: 6px 0; }
+    #groupDialog .group-ticks label, #groupDialog .group-way label { display: flex; align-items: center; gap: 6px; font-size: 15px; }
+    #groupDialog .group-ticks label[hidden], #groupDialog .group-way[hidden] { display: none; }
+    #groupDialog .group-way { display: flex; gap: 16px; flex-wrap: wrap; margin: 6px 0; }
+    #groupDialog .group-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 10px; }
+    #groupDialog .group-actions button { padding: 6px 14px; border-radius: 6px; border: 1px solid #a0aec0; background: transparent; color: inherit; font: inherit; cursor: pointer; }
+    #groupDialog .group-actions .primary { background: #2b6cb0; border-color: #2b6cb0; color: #fff; }
+    body.dark-mode #groupDialog { background: #1a202c; color: #e2e8f0; }
+    .student-slot.group-member { cursor: default; }
+    .slot-action.group { font-size: 13px; }
     #conflictDialog .btn { color: inherit; background: transparent; border: 1px solid #a0aec0; }
     #conflictDialog .btn:disabled { opacity: .55; cursor: not-allowed; }
     .conflict-group { border-top: 1px solid #a0aec0; padding: 12px 0; }
@@ -565,6 +582,8 @@
         position: absolute; top: 2px; right: 3px; margin: 0;
         width: 17px; min-width: 17px; height: 17px; font-size: 13px;
     }
+    /* „👥" sits left of „+" in the narrow grid, so the two never cover each other. */
+    .schedule-grid.compact .slot-action.group { right: 22px; }
     .schedule-grid.compact .slot-class { min-height: 13px; }
     .student-slot.empty .slot-name { color: #5f6b7d; font-weight: 600; } /* #a0aec0 was 2.2:1 */
     .slot-caret {
@@ -1170,7 +1189,7 @@
                 <h2 id="scheduleTitle">Термини</h2>
                 <span id="scheduleMeta"></span>
             </div>
-            <p class="workflow-hint">Еден ученик: 40 минути. Со „+“ терминот се дели на два последователни третмани по 20 минути. Истовремен групен третман сè уште не може да се внесе.</p>
+            <p class="workflow-hint">Еден ученик: 40 минути. Со „+“ терминот се дели на два последователни третмани по 20 минути. Со „👥“ — група: двајца до осум ученици цел час заедно.</p>
             <div class="class-week-bar" id="classWeekBar" hidden>
                 <label for="classWeekClass">Паралелка
                     <select id="classWeekClass" data-class-picker></select>
@@ -1623,6 +1642,31 @@
 
     function cellKey(day, time, therapistId) {
         return day + '|' + time + '|' + therapistId;
+    }
+
+    /**
+     * A group (063; сопственикот, 14 октомври 2026): several pupils in one cell,
+     * all the whole bell. The first stays at the cell's key, as one pupil always
+     * did; each other one is kept beside it (`_more`) AND in the map under its
+     * own key, so every count, conflict and report that walks the sessions
+     * sees every child without knowing groups exist.
+     */
+    function putSession(map, session) {
+        const key = cellKey(session.day, session.time, session.therapist_id);
+        const first = map.get(key);
+        if (first && first.student_public_id !== session.student_public_id) {
+            (first._more || (first._more = [])).push(session);
+            map.set(key + '#' + session.student_public_id, session);
+        } else map.set(key, session);
+    }
+    function sessionsAt(day, time, therapistId) {
+        const first = state.sessions.get(cellKey(day, time, therapistId));
+        return first ? [first].concat(first._more || []) : [];
+    }
+    function dropCell(day, time, therapistId) {
+        const key = cellKey(day, time, therapistId), first = state.sessions.get(key);
+        ((first && first._more) || []).forEach((more) => state.sessions.delete(key + '#' + more.student_public_id));
+        state.sessions.delete(key);
     }
 
     function todayDay() {
@@ -2571,7 +2615,7 @@
                 state.sessionsReady = true;
                 state.sessionsStale = false;
                 const fresh = new Map();
-                schedule.sessions.forEach((s) => fresh.set(cellKey(s.day, s.time, s.therapist_id), s));
+                schedule.sessions.forEach((s) => putSession(fresh, s));
                 let changed = fresh.size !== state.sessions.size;
                 if (!changed) {
                     for (const [k, v] of fresh.entries()) {
@@ -2733,7 +2777,8 @@
             const key = MTBScheduleForm.blockKey(day, time);
             valid.push(key);
             const block = blockState(day, bell, therapist);
-            if (block.invalidOverlap) locked.push(key);
+            // The offline form knows one pupil or two halves; a group (063) is set here, not there.
+            if (block.invalidOverlap || block.together) locked.push(key);
             else if (block.ids.length) blocks[key] = block.ids.slice();
         }));
         return { blocks, locked, valid };
@@ -3080,12 +3125,13 @@
     function blockState(day, bell, therapist) {
         const fullTime = bellTime(bell);
         const parts = bellParts(bell);
-        const full = state.sessions.get(cellKey(day, fullTime, therapist.id));
+        const fulls = sessionsAt(day, fullTime, therapist.id), full = fulls[0];
         const halves = parts.map((part) => state.sessions.get(cellKey(day, part.time, therapist.id)));
         if (full && halves.some(Boolean)) {
             return { fullTime, parts, full, halves, invalidOverlap: true, ids: [] };
         }
-        if (full) return { fullTime, parts, full, halves, invalidOverlap: false, ids: [full.student_public_id] };
+        // Several with the whole bell: a group (063), together.
+        if (full) return { fullTime, parts, full, halves, invalidOverlap: false, ids: fulls.map((s) => s.student_public_id), together: fulls.length > 1 };
         const halfIds = halves.map((session) => session && session.student_public_id).filter(Boolean);
         const ids = halfIds.length === 2 && halfIds[0] === halfIds[1] ? [halfIds[0]] : halfIds;
         const partialLabel = halfIds.length === 1
@@ -3122,6 +3168,7 @@
                 'data-therapist-id="' + therapist.id + '" title="Спои назад во еден термин (40 мин)" ' +
                 (!mayEditTherapist(therapist.id) ? 'disabled ' : '') + 'aria-label="Тргни го второто поле">×</button>';
         }
+        if (index === 0) action += groupButtonHtml(day, block.fullTime, therapist);
 
         const classes = ['student-slot'];
         if (index === 0 && !showSecond) classes.push('full');
@@ -3147,6 +3194,105 @@
         });
     }
 
+    /* ── Група (063; сопственикот, 14 октомври 2026) ─────────
+       Several pupils the whole bell together — a sensory room. A group cell
+       has no picker (a picker holds one pupil and would split it); it shows
+       every child and opens the same check-box editor Колега has. */
+    const GROUP_MAX = 8;
+    const norm = (value) => String(value || '').normalize('NFKC').trim().replace(/\s+/g, ' ').toLocaleLowerCase('mk-MK');
+    function groupButtonHtml(day, time, therapist, label) {
+        return '<button type="button" class="slot-action group" data-group-edit="true" data-session-day="' + esc(day) +
+            '" data-block-time="' + esc(time) + '" data-therapist-id="' + therapist.id + '" title="Група: двајца до ' + GROUP_MAX +
+            ' ученици, цел час заедно" ' + (state.pending.has(cellKey(day, time, therapist.id)) || !mayEditTherapist(therapist.id) ? 'disabled ' : '') +
+            'aria-label="' + esc(label || 'Група') + '">👥</button>';
+    }
+    function groupSlotsHtml(block, day, therapist, students, conflicts) {
+        const fullKey = cellKey(day, block.fullTime, therapist.id);
+        return block.ids.map((id, index) => {
+            const classes = ['student-slot', 'group-member'];
+            if (conflicts.has(index ? fullKey + '#' + id : fullKey)) classes.push('conflict');
+            return '<div class="' + classes.join(' ') + '" data-where="' + esc(whereKey(day, block.fullTime, id)) +
+                '" data-focus="student:' + esc(id) + '">' + (index ? '' : '<span class="slot-badge">гр. ' + block.ids.length + '</span>') +
+                slotNameHtml({ pupil: students.get(id), display: '' }) +
+                (index ? '' : groupButtonHtml(day, block.fullTime, therapist, 'Уреди ја групата')) + '</div>';
+        }).join('');
+    }
+
+    function groupDialog() {
+        let dialog = el('groupDialog');
+        if (dialog) return dialog;
+        dialog = document.createElement('dialog');
+        dialog.id = 'groupDialog';
+        dialog.className = 'group-dialog';
+        dialog.innerHTML = '<form method="dialog" novalidate><h3 id="groupTitle">Кој е во терминот</h3><p class="group-hint"></p>' +
+            '<input type="search" id="groupFind" placeholder="Барај ученик" aria-label="Барај ученик" autocomplete="off">' +
+            '<div class="group-ticks" id="groupTicks"></div><p class="group-count" id="groupCount"></p>' +
+            '<div class="group-way" id="groupWay" role="radiogroup" aria-label="Двајца во терминот">' +
+            '<label><input type="radio" name="way" value="together"> Заедно, цел час</label>' +
+            '<label><input type="radio" name="way" value="halves"> По 20 минути</label></div>' +
+            '<div class="group-actions"><button type="submit" value="save" class="primary">Зачувај</button>' +
+            '<button type="submit" value="cancel">Откажи</button></div></form>';
+        document.body.appendChild(dialog);
+        dialog.addEventListener('input', (event) => {
+            if (event.target.id !== 'groupFind') return;
+            const q = norm(event.target.value);
+            dialog.querySelectorAll('#groupTicks label').forEach((label) => { label.hidden = Boolean(q) && !label.dataset.find.includes(q); });
+        });
+        dialog.addEventListener('change', (event) => {
+            const box = event.target.closest('[data-group-pupil]');
+            if (box) {
+                const order = JSON.parse(dialog.dataset.order || '[]').filter((id) => id !== box.dataset.groupPupil);
+                if (box.checked && order.length >= GROUP_MAX) {
+                    box.checked = false;
+                    showNotice('Во еден термин може најмногу ' + GROUP_MAX + ' ученици.', 'error');
+                } else if (box.checked) order.push(box.dataset.groupPupil);
+                dialog.dataset.order = JSON.stringify(order);
+            }
+            groupCount(dialog);
+        });
+        return dialog;
+    }
+    function groupCount(dialog) {
+        const n = JSON.parse(dialog.dataset.order || '[]').length;
+        const way = (dialog.querySelector('[name="way"]:checked') || {}).value || 'halves';
+        dialog.querySelector('#groupWay').hidden = n !== 2;
+        dialog.querySelector('#groupCount').textContent = !n ? 'Никој — терминот ќе биде слободен.' : n === 1 ? 'Еден ученик, цел час.'
+            : n > 2 || way === 'together' ? 'Група: ' + n + ', сите цел час заедно.' : 'Двајца, по 20 минути (по редот на штиклирање).';
+    }
+    function openGroupEditor(day, time, therapistId) {
+        const therapist = ((state.roster && state.roster.therapists) || []).find((t) => Number(t.id) === Number(therapistId));
+        const bell = state.bells.find((b) => bellTime(b) === time);
+        if (!therapist || !bell || !mayEditTherapist(therapistId)) return;
+        const block = blockState(day, bell, therapist);
+        if (block.invalidOverlap) { showNotice('Во часот има преклопени записи. Испразни ги поединечно пред група.', 'error'); return; }
+        const students = studentsById();
+        const ids = Array.isArray(therapist.students) ? [...new Set(therapist.students)] : [];
+        block.ids.forEach((id) => { if (!ids.includes(id)) ids.push(id); });
+        const list = ids.map((id) => students.get(id) || { public_id: id, name: 'Непознат ученик' })
+            .sort((a, b) => String(a.name || '').localeCompare(String(b.name || ''), 'mk'));
+        const dialog = groupDialog();
+        dialog.querySelector('#groupTitle').textContent = therapist.name + ' · ' + capitalise(day) + ' · ' + spaced(time);
+        dialog.querySelector('.group-hint').textContent = 'Штиклирајте кој е во терминот: еден — цел час; двајца — заедно или по 20 минути; тројца до ' + GROUP_MAX + ' — група, сите цел час.';
+        dialog.querySelector('#groupFind').value = '';
+        dialog.querySelector('#groupFind').hidden = list.length <= 8;
+        dialog.querySelector('#groupTicks').innerHTML = list.map((s) => '<label data-find="' + esc(norm(studentLabel(s))) + '">' +
+            '<input type="checkbox" data-group-pupil="' + esc(s.public_id) + '"' + (block.ids.includes(s.public_id) ? ' checked' : '') + '> ' +
+            '<span>' + esc(studentLabel(s)) + '</span></label>').join('');
+        dialog.dataset.order = JSON.stringify(block.ids);
+        dialog.querySelector('[name="way"][value="' + (block.together ? 'together' : 'halves') + '"]').checked = true;
+        groupCount(dialog);
+        dialog.onclose = () => {
+            if (dialog.returnValue !== 'save') return;
+            const wanted = JSON.parse(dialog.dataset.order || '[]');
+            const way = (dialog.querySelector('[name="way"]:checked') || {}).value || 'halves';
+            const same = wanted.length === block.ids.length && wanted.every((id, i) => id === block.ids[i])
+                && (wanted.length !== 2 || (way === 'together') === Boolean(block.together));
+            if (same) return;
+            writeCell(day, time, Number(therapistId), wanted, block.ids, wanted.length === 2 ? way : undefined);
+        };
+        dialog.showModal();
+    }
+
     function cellHtml(day, bell, rowIndex, therapist, students, conflicts, top) {
         const block = blockState(day, bell, therapist);
         const fullKey = cellKey(day, block.fullTime, therapist.id);
@@ -3161,6 +3307,8 @@
             controls += legacySlotHtml(day, block.fullTime, '40′', therapist, students, conflicts);
             controls += block.parts.map((part) =>
                 legacySlotHtml(day, part.time, part.label, therapist, students, conflicts)).join('');
+        } else if (block.together) {
+            controls += groupSlotsHtml(block, day, therapist, students, conflicts);
         } else {
             const showSecond = block.ids.length === 2 || state.expandedBlocks.has(fullKey);
             controls += blockSlotHtml(block, day, therapist, students, 0, showSecond, conflicts);
@@ -3199,6 +3347,12 @@
         el('scheduleGrid').querySelectorAll('[data-legacy-session]').forEach((select) => {
             select.addEventListener('change', () =>
                 select.value === NEW_PUPIL ? addObservationPupil(select, saveSession) : saveSession(select));
+        });
+        el('scheduleGrid').querySelectorAll('[data-group-edit]').forEach((button) => {
+            button.addEventListener('click', (event) => {
+                event.stopPropagation();
+                openGroupEditor(button.dataset.sessionDay, button.dataset.blockTime, button.dataset.therapistId);
+            });
         });
         el('scheduleGrid').querySelectorAll('[data-add-second]').forEach((button) => {
             button.addEventListener('click', () => {
@@ -3439,6 +3593,9 @@
                     rows.push({ label: block.parts[index].label, time: block.parts[index].time, id: session.student_public_id });
                 }
             });
+        } else if (block.together) {
+            // A group (063): every child the whole bell.
+            block.ids.forEach((id) => rows.push({ label: 'гр.', time: block.fullTime, id }));
         } else if (block.ids.length === 2) {
             block.ids.forEach((id, index) => {
                 rows.push({ label: block.parts[index].label, time: block.parts[index].time, id });
@@ -3959,16 +4116,17 @@
      * час што некој го сменил во меѓувреме се одбива, не се прегазува. Потоа
      * се чита базата — така екранот е точен и ако годината е сменета.
      */
-    function rememberBlockForUndo(block, before, after) {
+    function rememberBlockForUndo(block, before, after, modes) {
         const nav = window.MTBAppNavigation;
         if (!nav || !nav.undo) return;
         const therapist = ((state.roster && state.roster.therapists) || []).find((t) => Number(t.id) === Number(block.therapistId));
-        const turn = async (to, from) => {
+        const turn = async (to, from, mode) => {
             try {
                 await api('/api/schedule/block', {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ ...block, studentPublicIds: to, expectedStudentPublicIds: from })
+                    body: JSON.stringify({ ...block, studentPublicIds: to, expectedStudentPublicIds: from,
+                        ...(to.length === 2 && mode ? { mode } : {}) })
                 });
             } catch (error) {
                 if (error && error.status === 409) await loadAll();
@@ -3978,8 +4136,8 @@
         };
         nav.undo.record({
             label: [therapist ? therapist.name : '', block.day, block.time].filter(Boolean).join(' · '),
-            undo: () => turn(before, after),
-            redo: () => turn(after, before)
+            undo: () => turn(before, after, modes && modes.before),
+            redo: () => turn(after, before, modes && modes.after)
         });
     }
 
@@ -4008,6 +4166,11 @@
             return;
         }
 
+        return writeCell(day, time, therapistId, wanted, expected);
+    }
+
+    /** One block through the one writer, from a cell's pickers or the group editor (063). */
+    async function writeCell(day, time, therapistId, wanted, expected, mode) {
         const key = cellKey(day, time, therapistId);
         const partTimes = blockPartTimes(time);
         [key, ...partTimes.map((slot) => cellKey(day, slot, therapistId))].forEach((k) => state.cellFailures.delete(k));
@@ -4026,16 +4189,17 @@
                 body: JSON.stringify({
                     year: state.year, day, time, therapistId,
                     studentPublicIds: wanted,
-                    expectedStudentPublicIds: expected
+                    expectedStudentPublicIds: expected,
+                    // Only two pupils choose; left out, the same two keep their way (the server's rule).
+                    ...(mode ? { mode } : {})
                 })
             });
-            [time, ...partTimes].forEach((slot) => state.sessions.delete(cellKey(day, slot, therapistId)));
-            (saved.sessions || []).forEach((session) => {
-                state.sessions.set(cellKey(session.day, session.time, session.therapist_id), session);
-            });
+            [time, ...partTimes].forEach((slot) => dropCell(day, slot, therapistId));
+            (saved.sessions || []).forEach((session) => putSession(state.sessions, session));
             if (wanted.length < 2) state.expandedBlocks.delete(key);
             setConnection(true, 'Зачувано');
-            rememberBlockForUndo({ year: state.year, day, time, therapistId }, expected, wanted);
+            rememberBlockForUndo({ year: state.year, day, time, therapistId }, expected, wanted,
+                { before: saved.previousTogether ? 'together' : 'halves', after: saved.together ? 'together' : 'halves' });
         } catch (error) {
             reload = Boolean(error && error.status === 409);
             setConnection(false, 'Промената е одбиена');
@@ -4379,9 +4543,7 @@
             state.bells = ((timetable.bells && timetable.bells.kabinet) || [])
                 .filter((bell) => Number(bell.minutes) === 40 && bellTime(bell));
             state.sessions = new Map();
-            (schedule.sessions || []).forEach((session) => {
-                state.sessions.set(cellKey(session.day, session.time, session.therapist_id), session);
-            });
+            (schedule.sessions || []).forEach((session) => putSession(state.sessions, session));
             state.sessionVersion++;
             drawView();
             drawDays();

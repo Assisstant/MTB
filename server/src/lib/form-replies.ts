@@ -20,7 +20,7 @@ import { fileURLToPath } from 'node:url';
 import vm from 'node:vm';
 import type { PoolClient } from 'pg';
 import { minutesOf, slotBell, timeOf } from './crossing.js';
-import { semanticBlock } from '../routes/schedule-write.js';
+import { blockTogether, semanticBlock } from '../routes/schedule-write.js';
 
 type Queryable = Pick<PoolClient, 'query'>;
 
@@ -248,8 +248,10 @@ export async function cabinetContext(db: Queryable, year: { id: number; label: s
             if (!halves) continue;
             const key = `${day}|${full}`;
             validKeys.push(key);
-            const ids = blockIds(own.filter((s) => s.day === day), full, halves);
-            if (ids == null) locked.push(key);
+            const here = own.filter((s) => s.day === day);
+            const ids = blockIds(here, full, halves);
+            // The offline form knows one pupil or two halves; a group (063) is set in the apps.
+            if (ids == null || blockTogether(here.map((r) => ({ time_slot: r.time_slot, student_public_id: r.public_id })), { full })) locked.push(key);
             else if (ids.length) current[key] = ids;
         }
     }

@@ -78,6 +78,7 @@
     "test:scratch": "node test/with-scratch.mjs",
     "test:fusion-caseload-booked": "node test/fusion-caseload-booked.browser.mjs",
     "test:fusion-undo": "node test/fusion-undo.browser.mjs",
+    "test:fusion-groups": "node test/with-scratch.mjs test/fusion-groups.browser.mjs",
     "test:fusion-conflicts": "node test/fusion-conflicts.browser.mjs",
     "test:conflict-guards": "node test/with-scratch.mjs test/schedule-conflict-guards.e2e.ts",
     "test:groups": "node test/with-scratch.mjs test/schedule-groups.e2e.ts",
