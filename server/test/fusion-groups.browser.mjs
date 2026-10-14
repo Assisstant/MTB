@@ -100,7 +100,7 @@ try {
     await sent(3);
     assert.deepEqual([blocks[2].time, blocks[2].studentPublicIds, blocks[2].expectedStudentPublicIds], ['08:45-09:25', [], ['gr-a', 'gr-c', 'gr-d']],
         '„Врати" takes back the last change, the new group, against what it left');
-    await page.screenshot({ path: process.env.SHOT || 'fusion-groups.png' });
+    if (process.env.SHOT) await page.screenshot({ path: process.env.SHOT });
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), true);
     assert.deepEqual(errors, []);
     console.log('Fusion groups: a group shows every child and no picker; „👥" edits it through the block writer with the right mode; „Откажи" sends nothing — passed.');

@@ -32,11 +32,11 @@ the week sheet says „група" and the all-cabinets picture „гр.".
 
 Кабинети kept its map of sessions by day, time and therapist; a group would
 have overwritten its first child. The first child stays at the cell's key and
-the others hang on it () and sit in the map under their own keys, so
+the others hang on it (`_more`) and sit in the map under their own keys, so
 every count, conflict and report that walks the sessions sees each child
 without knowing groups exist. A group cell has no picker — a picker holds one
 pupil and would split the group on its first change — and „👥" opens the
-same check boxes as Колега; the write is the cell's own, now ,
+same check boxes as Колега; the write is the cell's own, now `writeCell`,
 and undo remembers the mode. The offline week form shows a group as a term
 set in the apps, as it already did for contradictory rows.
 
