@@ -272,6 +272,28 @@ header.top h1 { flex: 1; min-width: 180px; }
 .plan-more label { margin: 6px 0; }
 .plan-carry { background: var(--warn-bg); color: var(--warn); border-radius: 8px; padding: 6px 8px; font-size: 14px; margin: 4px 0; }
 .plan-status { margin: 6px 0 0; }
+/* „Гледај → ✏️ Уреди → Зачувај" (owner, 14 Oct 2026): a part reads as a filled form; its form opens on ✏️ Уреди. */
+.plan-box > [hidden] { display: none !important; }
+.plan-view { padding: 4px 0 6px; }
+.plan-view h4 { margin: 8px 0 4px; font-size: 15px; }
+.plan-view dl { display: grid; grid-template-columns: minmax(130px, 28%) 1fr; gap: 6px 14px; margin: 6px 0; }
+.plan-view dt { color: var(--muted); font-weight: 600; font-size: 14px; }
+.plan-view dd { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+.plan-view .plan-none { color: var(--muted); }
+.plan-grid { overflow-x: auto; margin: 6px 0; }
+.plan-grid table { border-collapse: collapse; width: 100%; font-size: 14px; }
+.plan-grid th, .plan-grid td { border: 1px solid var(--line); padding: 5px 7px; text-align: left; vertical-align: top; color: var(--text); }
+.plan-grid th { background: var(--well); font-weight: 600; }
+.plan-grid .now { outline: 2px solid var(--accent); outline-offset: -2px; font-weight: 700; }
+.plan-grid td.num, .plan-grid th.num { text-align: center; }
+.plan-view-actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-top: 6px; }
+.plan-example { background: var(--warn-bg); color: var(--warn); border-left: 4px solid var(--warn); border-radius: 8px; padding: 8px 10px; margin: 8px 0; }
+.plan-example .row { margin-top: 6px; }
+.plan-help { border: 1px solid var(--line); border-radius: 10px; padding: 0 12px; margin: 8px 0; }
+.plan-help > summary { cursor: pointer; padding: 10px 0; font-weight: 600; }
+.plan-help ol { margin: 0 0 10px; padding-left: 22px; }
+.plan-help li { margin: 4px 0; }
+@media (max-width: 600px) { .plan-view dl { grid-template-columns: 1fr; gap: 2px; } .plan-view dd { margin-bottom: 6px; } }
 .plan-reason { margin: 8px 0 4px; }
 .plan-reason small { font-weight: 400; color: var(--muted); }
 .plan-bank { margin: 6px 0 12px; padding: 0 10px; border: 1px solid var(--line); border-radius: 8px; min-width: 0; }
@@ -3940,9 +3962,38 @@ header.top h1 { flex: 1; min-width: 180px; }
         goal: { title: 'Почетна состојба и цели', fields: [['baseline', 'Почетна состојба'], ['goals', 'Цели за годината']] }
     };
     const PLAN_CONFIRMED = ['phaseA', 'iop', 'review', 'yearEnd', 'marks'];
-    const plan = { data: null, quarter: 0, filter: '', query: '', open: '', pupil: null, picked: new Set(), busy: false, msg: null, error: '', request: 0 };
+    // „📘 Пример“ (owner, 14 Oct 2026): three INVENTED pupils, filled at three points of the year, so a colleague
+    // can read a filled plan and try ✏️ Уреди, the quarters and the fond without anything being saved (planApi).
+    // The wording is the fond's, with the brackets filled in for the example; no real pupil or colleague.
+    const PLAN_EXAMPLE = {"categories":[{"code":"slusno","name":"Слушно-говорни вежби"},{"code":"psihomotorna","name":"Психомоторна реедукација"},{"code":"senzorna","name":"Сензорна интеграција"},{"code":"logoped","name":"Логопед"},{"code":"psiholog","name":"Психолог"},{"code":"spec","name":"Специјален едукатор"},{"code":"asistivna","name":"Асистивна технологија"}],"evidence":{"sheet":true,"periods":["I","II"],"items":[{"id":1,"label":"АРТИКУЛАЦИЈА И УПОТРЕБА НА ГЛАСОВИТЕ","group":null,"section":{"code":"s4","title":"IV. ГОВОРНО - ЈАЗИЧНО ПОДРАЧЈЕ","scale":"level"},"why":["decline","low"],"marks":[{"period":"I","value":"2"},{"period":"II","value":"1"}]},{"id":2,"label":"МОЖНОСТ ЗА ОДРЖУВАЊЕ НА РАМНОТЕЖА НА ТЕЛОТО","group":null,"section":{"code":"s1","title":"I. ОРГАНИЗИРАНОСТ НА ПСИХОМОТОРИКА","scale":"level"},"why":["low"],"marks":[{"period":"I","value":"1"},{"period":"II","value":"1"}]}]},"pupils":[{"quarter":4,"sheet":{"year":"2026/2027","pupil":{"publicId":"primer-a","name":"ПРИМЕР — Ученик А","class":"III-а"},"labels":{},"reasons":false,"parts":{"cabinets":{"data":{"codes":["logoped","slusno"]},"version":1,"by":"Пример Логопед","at":"2026-09-16T10:00:00Z","confirmedBy":null,"confirmedAt":null},"phaseA":{"data":{"date":"15.09.2026","observation":"Соработува во структурирана активност 10–15 минути. Говорот е разбирлив за блиските, за непознат соговорник делумно. Гласовите Р и Ш ги заменува. Едноставни налози во позната ситуација ги извршува.","diagnostics":"Артикулациски тест: Р се заменува со Ј, Ш со С, во сите позиции. Аудитивна дискриминација на парови зборови: 7 од 10 точни. Речникот е под очекуваното за возраста.","teamConf":"22.09.2026 — логопед, дефектолог (слушно-говорни вежби), одделенски наставник, родител. Приоритет: артикулација и разбирливост. Дома 10 минути вежби дневно, по листа."},"version":1,"by":"Пример Логопед","at":"2026-09-22T10:00:00Z","confirmedBy":"Пример Логопед","confirmedAt":"2026-09-22T10:00:00Z"},"goal:logoped":{"data":{"baseline":"Гласот Р го изговара правилно само изолирано, со целосна помош (модел и тактилен знак). Во збор го заменува со Ј. Гласот Ш го изговара како С.","goals":"Цел 1: Ученикот ќе го изговори гласот Р правилно во почеток на збор, при именување слики, со минимална помош (визуелен знак), во 4 од 5 обиди, до крајот на вториот квартал.\nПроверка: 4 успешни обиди од 5, во 3 последователни третмани.\nЦел 2: Ученикот ќе го употребува гласот Р правилно во реченица при раскажување по слика, самостојно, во 80% од исказите, до крајот на годината.\nПроверка: 8 точни од 10 реченици, во 2 набљудувања во кабинет и 1 на час.\nАктивност: артикулациски вежби; орофацијална моторика; аудитивна дискриминација.\nКритериум за успех: во кабинет и во училница."},"version":1,"by":"Пример Логопед","at":"2026-09-25T10:00:00Z","confirmedBy":null,"confirmedAt":null},"marks:logoped:1":{"data":{"rows":[{"label":"Артикулација — глас Р","level":2,"baseline":1,"stage":1,"note":"Изолирано и во слог, со визуелен знак."},{"label":"Артикулација — глас Ш","level":1,"baseline":1,"stage":0,"note":""},{"label":"Активен говор","level":2,"baseline":2,"stage":1,"note":""}],"note":"Домашните вежби се редовни."},"version":1,"by":"Пример Логопед","at":"2026-11-25T10:00:00Z","confirmedBy":"Пример Логопед","confirmedAt":"2026-11-25T10:00:00Z"},"marks:logoped:2":{"data":{"rows":[{"label":"Артикулација — глас Р","level":3,"baseline":1,"stage":2,"note":"Во почеток на збор, 4 од 5 со минимална помош."},{"label":"Артикулација — глас Ш","level":2,"baseline":1,"stage":1,"note":""},{"label":"Активен говор","level":2,"baseline":2,"stage":1,"note":""}],"note":""},"version":1,"by":"Пример Логопед","at":"2027-02-24T10:00:00Z","confirmedBy":"Пример Логопед","confirmedAt":"2027-02-24T10:00:00Z"},"marks:logoped:3":{"data":{"rows":[{"label":"Артикулација — глас Р","level":3,"baseline":1,"stage":2,"note":"Во реченица, сè уште со потсетување."},{"label":"Артикулација — глас Ш","level":3,"baseline":1,"stage":2,"note":""},{"label":"Активен говор","level":3,"baseline":2,"stage":2,"note":""}],"note":""},"version":1,"by":"Пример Логопед","at":"2027-04-26T10:00:00Z","confirmedBy":"Пример Логопед","confirmedAt":"2027-04-26T10:00:00Z"},"marks:logoped:4":{"data":{"rows":[{"label":"Артикулација — глас Р","level":4,"baseline":1,"stage":3,"note":"Самостојно во реченица; на час понекогаш со потсетување."},{"label":"Артикулација — глас Ш","level":3,"baseline":1,"stage":2,"note":""},{"label":"Активен говор","level":3,"baseline":2,"stage":2,"note":""}],"note":"Цел 2 е постигната во кабинет; во училница да се следи и наредната година."},"version":1,"by":"Пример Логопед","at":"2027-06-10T10:00:00Z","confirmedBy":"Пример Логопед","confirmedAt":"2027-06-10T10:00:00Z"},"goal:slusno":{"data":{"baseline":"Аудитивна дискриминација на парови зборови што се разликуваат по еден глас: 7 од 10, со повторување.","goals":"Цел: Ученикот ќе разликува парови зборови што се разликуваат по еден глас, при слушање без гледање во устата, самостојно, во 9 од 10 обиди, до крајот на вториот квартал.\nПроверка: 9 точни од 10, во 3 набљудувања.\nАктивност: аудитивна дискриминација; ритмичко движење со говор."},"version":1,"by":"Пример Дефектолог","at":"2026-09-25T10:00:00Z","confirmedBy":null,"confirmedAt":null},"marks:slusno:1":{"data":{"rows":[{"label":"Аудитивна дискриминација","level":2,"baseline":2,"stage":1,"note":""},{"label":"Ритам и темпо на говорот","level":2,"baseline":2,"stage":1,"note":""}],"note":""},"version":1,"by":"Пример Дефектолог","at":"2026-11-26T10:00:00Z","confirmedBy":"Пример Дефектолог","confirmedAt":"2026-11-26T10:00:00Z"},"marks:slusno:2":{"data":{"rows":[{"label":"Аудитивна дискриминација","level":4,"baseline":2,"stage":3,"note":"Целта е постигната: 9 од 10 во три набљудувања."},{"label":"Ритам и темпо на говорот","level":3,"baseline":2,"stage":2,"note":""}],"note":""},"version":1,"by":"Пример Дефектолог","at":"2027-02-25T10:00:00Z","confirmedBy":"Пример Дефектолог","confirmedAt":"2027-02-25T10:00:00Z"},"marks:slusno:3":{"data":{"rows":[{"label":"Ритам и темпо на говорот","level":3,"baseline":2,"stage":2,"note":""}],"note":"Аудитивната дискриминација е затворена како постигната."},"version":1,"by":"Пример Дефектолог","at":"2027-04-27T10:00:00Z","confirmedBy":"Пример Дефектолог","confirmedAt":"2027-04-27T10:00:00Z"},"marks:slusno:4":{"data":{"rows":[{"label":"Ритам и темпо на говорот","level":3,"baseline":2,"stage":2,"note":""}],"note":""},"version":1,"by":"Пример Дефектолог","at":"2027-06-11T10:00:00Z","confirmedBy":"Пример Дефектолог","confirmedAt":"2027-06-11T10:00:00Z"},"iop":{"data":{"program":"Модифицирана","goals":"Македонски јазик: чита кратки реченици и одговара на прашања „кој“, „што“, „каде“ по прочитан текст.\nЦел: Ученикот ќе раскаже настан по низа од 3 слики, со минимална помош, во 4 од 5 обиди, до крајот на полугодието.","strategies":"Кратки инструкции со пример. Слики како поддршка за раскажување. Клучните зборови од лекцијата се повторуваат на почетокот и на крајот на часот.","adaptations":"Визуелна поддршка; кратки инструкции; дополнително време при писмени задачи; усно одговарање кога пишувањето го попречува изразувањето.","assistant":"Нема."},"version":1,"by":"Пример Наставник","at":"2026-09-30T10:00:00Z","confirmedBy":"Пример Наставник","confirmedAt":"2026-09-30T10:00:00Z"},"review:1":{"data":{"date":"27.11.2026","iopEval":"Ги следи лекциите со визуелна поддршка. Раскажува по 3 слики со делумна помош.","outcome":"напредок","decision":"продолжува","revision":"Без промена на целите.","report":"Извештај до родителот, 27.11.2026.","parentMeeting":"Родителот ги спроведува домашните вежби 4–5 пати неделно."},"version":1,"by":"Пример Наставник","at":"2026-11-27T10:00:00Z","confirmedBy":"Пример Наставник","confirmedAt":"2026-11-27T10:00:00Z"},"review:2":{"data":{"date":"26.02.2027","iopEval":"Раскажува по 3 слики со минимална помош. Чита кратки реченици.","outcome":"значаен напредок","decision":"Логопед, Цел 1: целта е постигната. Слушно-говорни: целта е постигната. Продолжува Цел 2.","revision":"Цел 1 (Р во збор) и аудитивната дискриминација се затвораат како постигнати.","report":"Полугодишен извештај.","parentMeeting":"24.02.2027, со логопедот."},"version":1,"by":"Пример Наставник","at":"2027-02-26T10:00:00Z","confirmedBy":"Пример Наставник","confirmedAt":"2027-02-26T10:00:00Z"},"review:3":{"data":{"date":"28.04.2027","iopEval":"Цел за раскажување во ИОП е постигната; нова: опишување по прочитан текст.","outcome":"стабилизација","decision":"продолжува","revision":"Во ИОП: нова цел за опишување.","report":"","parentMeeting":""},"version":1,"by":"Пример Наставник","at":"2027-04-28T10:00:00Z","confirmedBy":"Пример Наставник","confirmedAt":"2027-04-28T10:00:00Z"},"review:4":{"data":{"date":"15.06.2027","iopEval":"Опишува по прочитан текст со минимална помош.","outcome":"напредок","decision":"Логопед, Цел 2: целта е постигната во кабинет; генерализацијата продолжува.","revision":"","report":"Годишен извештај.","parentMeeting":"14.06.2027."},"version":1,"by":"Пример Наставник","at":"2027-06-15T10:00:00Z","confirmedBy":"Пример Наставник","confirmedAt":"2027-06-15T10:00:00Z"},"yearEnd":{"data":{"summary":"Гласот Р е автоматизиран во збор и реченица; Ш е во реченица со потсетување. Аудитивната дискриминација е постигната во вториот квартал. Раскажува и опишува со минимална помош.","transition":"Во IV одделение: продолжува логопед (Ш, генерализација во училница). Слушно-говорните вежби не се потребни како посебен кабинет.","summerNotes":"Лист со летни вежби за Ш во реченица, 10 минути дневно."},"version":1,"by":"Пример Логопед","at":"2027-06-16T10:00:00Z","confirmedBy":"Пример Логопед","confirmedAt":"2027-06-16T10:00:00Z"}}}},{"quarter":1,"sheet":{"year":"2026/2027","pupil":{"publicId":"primer-b","name":"ПРИМЕР — Ученичка Б","class":"II-б"},"labels":{},"reasons":false,"parts":{"cabinets":{"data":{"codes":["psihomotorna","senzorna"]},"version":1,"by":"Пример Психомоторик","at":"2026-09-16T10:00:00Z","confirmedBy":null,"confirmedAt":null},"phaseA":{"data":{"date":"18.09.2026","observation":"Нестабилна при одење по линија и при стоење на една нога. Избегнува песок и леплив материјал. При бучава на одмор ги покрива ушите и бара да излезе.","diagnostics":"Психомоторна проценка: рамнотежа и координација на долните екстремитети под возраста. Сензорен профил: тактилна и аудитивна преосетливост.","teamConf":"24.09.2026 — психомоторика, сензорна интеграција, наставничка, родител. Договор: структурирани паузи на час, тивко место на одмор."},"version":1,"by":"Пример Психомоторик","at":"2026-09-24T10:00:00Z","confirmedBy":"Пример Психомоторик","confirmedAt":"2026-09-24T10:00:00Z"},"goal:psihomotorna":{"data":{"baseline":"Стои на една нога 2–3 секунди. Оди по линија 2 m со држење за рака.","goals":"Цел: Ученичката ќе одржува рамнотежа при одење по линија долга 3 m, без држење, во 4 од 5 обиди, до крајот на вториот квартал.\nПроверка: 4 успешни обиди од 5, во 3 последователни третмани.\nАктивност: одење по линија; моторни полигони; вежби за рамнотежа.\nКритериум за успех: во кабинет и во салата за физичко."},"version":1,"by":"Пример Психомоторик","at":"2026-09-26T10:00:00Z","confirmedBy":null,"confirmedAt":null},"marks:psihomotorna:1":{"data":{"rows":[{"label":"Рамнотежа","level":2,"baseline":1,"stage":1,"note":"3 m по линија со допир на рака, 3 од 5."},{"label":"Координација на движења","level":2,"baseline":2,"stage":1,"note":""},{"label":"Психомоторика на долни екстремитети","level":2,"baseline":1,"stage":1,"note":""}],"note":"Полигонот е проширен на 4 станици."},"version":1,"by":"Пример Психомоторик","at":"2026-11-25T10:00:00Z","confirmedBy":"Пример Психомоторик","confirmedAt":"2026-11-25T10:00:00Z"},"goal:senzorna":{"data":{"baseline":"Тактилни материјали (песок, тесто) ги допира 5–10 секунди, со целосна помош. При бучава ја прекинува активноста.","goals":"Цел: Ученичката постепено ќе прифаќа нови текстури, во тактилна кутија, со делумна помош, 1 минута, во 3 последователни третмани, до крајот на првото полугодие.\nПроверка: траење на толеранција, мерено со тајмер, во 3 набљудувања.\nЦел: Ученичката самостојно ќе побара пауза со картичка кога е преоптоварена, во 80% од набљудуваните ситуации, до крајот на годината.\nПроверка: број самостојни барања пауза од бројот набљудувани ситуации.\nАктивност: тактилни кутии; структурирани паузи; избор на стратегија за смирување."},"version":1,"by":"Пример Сензорен терапевт","at":"2026-09-26T10:00:00Z","confirmedBy":null,"confirmedAt":null},"marks:senzorna:1":{"data":{"rows":[{"label":"Тактилна обработка","level":1,"baseline":1,"stage":0,"note":"Тесто 30 секунди со делумна помош."},{"label":"Аудитивна обработка","level":1,"baseline":1,"stage":0,"note":""},{"label":"Саморегулација — барање пауза","level":2,"baseline":0,"stage":1,"note":"Ја користи картичката во кабинет; на час уште не."}],"note":""},"version":1,"by":"Пример Сензорен терапевт","at":"2026-11-26T10:00:00Z","confirmedBy":"Пример Сензорен терапевт","confirmedAt":"2026-11-26T10:00:00Z"},"iop":{"data":{"program":"Редовна","goals":"Учествува на физичко со прилагодени задачи. Завршува писмена задача со една пауза.","strategies":"Визуелен распоред на часот. Задачата е поделена на чекори. Картичка „пауза“ на клупата.","adaptations":"Пауза; предвидлива рутина; визуелен распоред; поделба на задачата на чекори. Седи подалеку од вратата.","assistant":"Нема."},"version":1,"by":"Пример Наставник","at":"2026-09-30T10:00:00Z","confirmedBy":"Пример Наставник","confirmedAt":"2026-09-30T10:00:00Z"},"review:1":{"data":{"date":"27.11.2026","iopEval":"Ја користи паузата на час двапати неделно. Писмените задачи ги завршува со една пауза.","outcome":"напредок","decision":"продолжува","revision":"Без промена.","report":"","parentMeeting":"25.11.2026 — родителот ја воведува картичката „пауза“ и дома."},"version":1,"by":"Пример Наставник","at":"2026-11-27T10:00:00Z","confirmedBy":"Пример Наставник","confirmedAt":"2026-11-27T10:00:00Z"}}}},{"quarter":2,"sheet":{"year":"2026/2027","pupil":{"publicId":"primer-v","name":"ПРИМЕР — Ученик В","class":"V-а"},"labels":{},"reasons":false,"parts":{"cabinets":{"data":{"codes":["logoped","spec","asistivna"]},"version":1,"by":"Пример Логопед","at":"2026-09-16T10:00:00Z","confirmedBy":null,"confirmedAt":null},"phaseA":{"data":{"date":"16.09.2026","observation":"Користи поединечни зборови и гест. Кога не е разбран, ја напушта клупата. Со слики избира меѓу 2 понуди.","diagnostics":"Логопедска проценка: активен говор на ниво на поединечни зборови, разбирање подобро од изразување. Проценка за ААК: точно покажување, препознава фотографии и симболи.","teamConf":"23.09.2026 — логопед, специјален едукатор, асистивна технологија, наставник, родител. Договор: еден ААК систем (таблет со комуникациска табла) во сите кабинети, на час и дома."},"version":1,"by":"Пример Логопед","at":"2026-09-23T10:00:00Z","confirmedBy":"Пример Логопед","confirmedAt":"2026-09-23T10:00:00Z"},"goal:logoped":{"data":{"baseline":"Бара со гест или со водење на возрасниот. Зборовите „да“ и „не“ ги кажува неконзистентно.","goals":"Цел: Ученикот ќе се изрази со својот ААК систем кога говорот не е доволен (барање, одбивање, избор), во структурирана ситуација, со делумна помош, во 4 од 5 прилики, до крајот на вториот квартал.\nПроверка: број самостојни комуникациски иницијативи, во 3 набљудувања.\nАктивност: комуникациска табла; избор меѓу симболи; функционални комуникациски ситуации."},"version":1,"by":"Пример Логопед","at":"2026-09-25T10:00:00Z","confirmedBy":null,"confirmedAt":null},"marks:logoped:1":{"data":{"rows":[{"label":"ААК — барање","level":2,"baseline":1,"stage":1,"note":""},{"label":"ААК — одбивање","level":1,"baseline":1,"stage":0,"note":""},{"label":"Пасивен говор","level":3,"baseline":3,"stage":2,"note":""}],"note":""},"version":1,"by":"Пример Логопед","at":"2026-11-25T10:00:00Z","confirmedBy":"Пример Логопед","confirmedAt":"2026-11-25T10:00:00Z"},"marks:logoped:2":{"data":{"rows":[{"label":"ААК — барање","level":3,"baseline":1,"stage":2,"note":"Самостојно во кабинет; на час со потсетување."},{"label":"ААК — одбивање","level":2,"baseline":1,"stage":1,"note":""},{"label":"Пасивен говор","level":3,"baseline":3,"stage":2,"note":""}],"note":""},"version":1,"by":"Пример Логопед","at":"2027-02-24T10:00:00Z","confirmedBy":"Пример Логопед","confirmedAt":"2027-02-24T10:00:00Z"},"goal:spec":{"data":{"baseline":"Останува на клупата 5 минути. Кога задачата е тешка, ја напушта клупата без да побара помош.","goals":"Цел: Ученикот соодветно ќе побара пауза (со ААК или гест) наместо да ја напушти клупата, на час, со минимална помош, во 80% од набљудуваните ситуации, до крајот на годината.\nПроверка: број ситуации решени со функционална алтернатива, во 5 набљудувања на час.\nАктивност: визуелни правила; стратегија „прво–потоа“; визуелен тајмер; позитивно засилување."},"version":1,"by":"Пример Специјален едукатор","at":"2026-09-26T10:00:00Z","confirmedBy":null,"confirmedAt":null},"marks:spec:1":{"data":{"rows":[{"label":"Следење правила","level":1,"baseline":1,"stage":0,"note":""},{"label":"Внимание","level":2,"baseline":1,"stage":1,"note":"10 минути со визуелен тајмер."}],"note":""},"version":1,"by":"Пример Специјален едукатор","at":"2026-11-26T10:00:00Z","confirmedBy":"Пример Специјален едукатор","confirmedAt":"2026-11-26T10:00:00Z"},"marks:spec:2":{"data":{"rows":[{"label":"Следење правила","level":2,"baseline":1,"stage":1,"note":""},{"label":"Внимание","level":2,"baseline":1,"stage":1,"note":""}],"note":"Напуштањата се намалени од околу 6 на 2 неделно."},"version":1,"by":"Пример Специјален едукатор","at":"2027-02-25T10:00:00Z","confirmedBy":"Пример Специјален едукатор","confirmedAt":"2027-02-25T10:00:00Z"},"goal:asistivna":{"data":{"baseline":"Таблетот го користи за игра. Комуникациската табла има 12 симболи; ги наоѓа со помош.","goals":"Цел: Ученикот самостојно ќе ја отвори комуникациската табла и ќе избере симбол од две страници, во 4 од 5 обиди, до крајот на вториот квартал.\nПроверка: 4 успешни обиди од 5, во кабинет и на час.\nАктивност: визуелни симболи; комуникациска табла."},"version":1,"by":"Пример Асистивна технологија","at":"2026-09-26T10:00:00Z","confirmedBy":null,"confirmedAt":null},"marks:asistivna:1":{"data":{"rows":[{"label":"Пристап до ААК (допир)","level":3,"baseline":2,"stage":2,"note":""},{"label":"Наоѓање симбол","level":2,"baseline":1,"stage":1,"note":""}],"note":""},"version":1,"by":"Пример Асистивна технологија","at":"2026-11-26T10:00:00Z","confirmedBy":"Пример Асистивна технологија","confirmedAt":"2026-11-26T10:00:00Z"},"marks:asistivna:2":{"data":{"rows":[{"label":"Пристап до ААК (допир)","level":4,"baseline":2,"stage":3,"note":""},{"label":"Наоѓање симбол","level":3,"baseline":1,"stage":2,"note":"Табла со 24 симболи, на 2 страници."}],"note":""},"version":1,"by":"Пример Асистивна технологија","at":"2027-02-25T10:00:00Z","confirmedBy":"Пример Асистивна технологија","confirmedAt":"2027-02-25T10:00:00Z"},"iop":{"data":{"program":"Индивидуална","goals":"Учествува на часот со ААК: одговара на прашања со избор од 2–3 симболи.\nЦел: Ученикот ќе изрази избор меѓу две понуди со ААК симбол, на час, самостојно, во 80% од ситуациите, до крајот на годината.","strategies":"Комуникациска табла со речникот на темата. Прашања со избор. Стратегија „прво–потоа“ на почетокот на задачата.","adaptations":"Симболи; кратки инструкции; одговарање со избор и покажување; ААК; предвидлива рутина.","assistant":"Образовен асистент на часовите по македонски јазик и математика."},"version":1,"by":"Пример Наставник","at":"2026-09-30T10:00:00Z","confirmedBy":"Пример Наставник","confirmedAt":"2026-09-30T10:00:00Z"},"review:1":{"data":{"date":"27.11.2026","iopEval":"Одговара со избор од 2 симболи кога асистентот го потсети.","outcome":"напредок","decision":"продолжува","revision":"","report":"","parentMeeting":"26.11.2026 — таблетот со истата табла се користи и дома."},"version":1,"by":"Пример Наставник","at":"2026-11-27T10:00:00Z","confirmedBy":"Пример Наставник","confirmedAt":"2026-11-27T10:00:00Z"},"review:2":{"data":{"date":"26.02.2027","iopEval":"Самостојно бара со ААК во кабинет; на час со потсетување.","outcome":"значаен напредок","decision":"Асистивна технологија: целта е постигната. Логопед: се усложнува (одбивање и коментар). Специјален едукатор: продолжува.","revision":"Таблата се проширува на 24 симболи. Нова логопедска цел: коментар.","report":"Полугодишен извештај.","parentMeeting":"25.02.2027."},"version":1,"by":"Пример Наставник","at":"2027-02-26T10:00:00Z","confirmedBy":"Пример Наставник","confirmedAt":"2027-02-26T10:00:00Z"}}}}]};
+    const plan = { data: null, quarter: 0, filter: '', query: '', open: '', pupil: null, picked: new Set(), busy: false, msg: null, error: '', request: 0,
+        example: false, realQuarter: 0 };
     const planKind = (part) => part.split(':')[0];
-    const planCategory = (code) => ((plan.data && plan.data.categories) || []).find((c) => c.code === code) || { code, name: code };
+    /** The profiles a sheet is drawn with: the example's own while an example is open. */
+    const planCats = () => plan.example ? PLAN_EXAMPLE.categories : ((plan.data && plan.data.categories) || []);
+    const planCategory = (code) => planCats().find((c) => c.code === code) || { code, name: code };
+    /**
+     * Every write and read of one pupil's sheet goes through here. While an
+     * example is open it is answered in this page, the way the server would,
+     * and nothing leaves it: no part, confirmation or record is written.
+     */
+    async function planApi(method, path, body) {
+        if (!plan.example) return api(method, path, body);
+        const sheet = plan.pupil, now = new Date().toISOString();
+        if (path === '/api/portal/plan/part') {
+            const current = sheet.parts[body.part];
+            if ((current ? current.version : 0) !== body.version) throw Object.assign(new Error('Овој дел е сменет во меѓувреме, па не е запишано.'), { payload: { stale: true } });
+            return { ok: true, changeId: null, part: { data: body.data, version: (current ? current.version : 0) + 1, by: me.name, at: now, confirmedBy: null, confirmedAt: null } };
+        }
+        if (path === '/api/portal/plan/confirm') return { results: body.items.map((item) => {
+            const current = sheet.parts[item.part];
+            if (!current || planEmpty(current.data)) return { ok: false, error: 'Празно е — нема што да се потврди.' };
+            return { ok: true, now: { ...current, version: current.version + 1, confirmedBy: body.on ? me.name : null, confirmedAt: body.on ? now : null } };
+        }) };
+        if (path.startsWith('/api/portal/plan/evidence')) return PLAN_EXAMPLE.evidence;
+        // The fond is only read, so the example offers the real one.
+        return api(method, path, body);
+    }
     const planWhen = (value) => value ? new Date(value).toLocaleString('mk-MK', { dateStyle: 'short', timeStyle: 'short' }) : '';
     const planPupilLine = (p) => p.name + (p.class ? ', ' + shortOf(p.class) : '');
 
@@ -4016,6 +4067,15 @@ header.top h1 { flex: 1; min-width: 180px; }
         [...plan.picked].forEach((id) => { if (!ready.some((p) => p.publicId === id)) plan.picked.delete(id); });
         const what = (mine.codes.map((code) => planCategory(code).name).concat(mine.classes.map((label) => 'паралелка ' + shortOf(label)))).join(', ');
         box.innerHTML = planQuarterButtons()
+            + '<details class="plan-help"><summary>❓ Како се пополнува</summary><ol>'
+            + '<li>Отворете ученик. Планот се гледа како образец: што е запишано, и „—“ каде што е празно.</li>'
+            + '<li>Под „Кабинети во планот“ допрете го својот кабинет, ако уште го нема.</li>'
+            + '<li>Кај својот дел притиснете <b>✏️ Уреди</b>. Пишувајте или земете од „Предлози од фондот на содржини“; областите оценете ги 0–4.</li>'
+            + '<li><b>Зачувај</b> — делот пак се гледа како образец. Кога е готов за кварталот: <b>Потврди</b>.</li>'
+            + '<li>Горе се <b>кварталите 1–4</b>: секој квартал се отвора и се менува и подоцна, и минатите. <b>Word (.docx)</b> го прави документот од запишаното.</li>'
+            + '</ol></details>'
+            + '<p class="row"><button type="button" data-plan-example="' + esc(PLAN_EXAMPLE.pupils[0].sheet.pupil.publicId) + '">📘 Пример: пополнет план</button>'
+            + ' <span class="muted">измислен ученик; пробајте сè, ништо не се зачувува</span></p>'
             + `<p class="muted">${what ? 'Ваше: ' + esc(what) + '. ' : 'Немате доделен профил ниту паралелка, па нема список „мои" — можете да отворите и пополните кој било ученик. '}`
             + '✅ потврдено · ✏️ запишано, уште не е потврдено · ↻ може да се преземе претходниот квартал · ○ празно</p>'
             + '<div class="filters" role="group" aria-label="Кои ученици">' + filters.map((f) =>
@@ -4070,9 +4130,81 @@ header.top h1 { flex: 1; min-width: 180px; }
             ? '<label class="plan-reason">Причина за промената <small>(не е задолжително; се гледа во записот)</small>'
                 + '<input type="text" data-plan-reason maxlength="500" autocomplete="off"></label>' : '';
         return reason + '<div class="row plan-actions"><button type="submit">Зачувај</button>'
+            + '<button type="button" data-plan-cancel>Откажи</button>'
             + (can ? `<button type="button" class="primary" data-plan-confirm>Потврди за ${esc(planPupilLine(plan.pupil.pupil))}</button>` : '')
             + (can && info && info.confirmedBy ? '<button type="button" class="small" data-plan-unconfirm>Тргни ја потврдата</button>' : '')
             + `</div><p class="muted plan-status" data-plan-status>${planStatus(part)}</p>`;
+    }
+
+    // ── a part as a filled form: read first, ✏️ Уреди opens its form ─────────
+    const planDash = '<span class="plan-none">—</span>';
+    /** The marks of one quarter that a quarter not yet written would start from. */
+    function planCarryFrom(code, quarter) {
+        for (let q = quarter - 1; q >= 1; q--) {
+            const earlier = plan.pupil.parts[`marks:${code}:${q}`];
+            if (earlier && (earlier.data.rows || []).length) return q;
+        }
+        return 0;
+    }
+    /** A cabinet's areas across the four quarters, the chosen one marked: what was, and what is. */
+    function planMarksView(code) {
+        const P = plan.pupil.parts, q = plan.quarter, part = `marks:${code}:${q}`;
+        const quarters = [1, 2, 3, 4].map((n) => { const info = P[`marks:${code}:${n}`]; return info && !planEmpty(info.data) ? info.data : null; });
+        const labels = [];
+        quarters.forEach((data) => ((data && data.rows) || []).forEach((row) => { if (!labels.includes(row.label)) labels.push(row.label); }));
+        const cell = (value, extra = '') => `<td class="num${extra}">${value == null ? planDash : esc(value)}</td>`;
+        const lastOf = (rows, key) => { const row = [...rows].reverse().find((r) => r && r[key] != null); return row ? row[key] : null; };
+        const from = !quarters[q - 1] ? planCarryFrom(code, q) : 0;
+        const head = '<tr><th>Област</th><th class="num">Почетна</th>' + [1, 2, 3, 4].map((n) => `<th class="num${n === q ? ' now' : ''}">К${n}</th>`).join('')
+            + `<th>Развојно ниво</th><th>Белешка, К${q}</th></tr>`;
+        const body = labels.map((label) => {
+            const rows = quarters.map((data) => (data && data.rows.find((r) => r.label === label)) || null), mine = rows[q - 1];
+            const stage = lastOf(rows, 'stage');
+            return `<tr><td>${esc(label)}</td>` + cell(lastOf(rows, 'baseline')) + rows.map((r, i) => cell(r ? r.level : null, i === q - 1 ? ' now' : '')).join('')
+                + `<td>${stage == null ? planDash : esc(PLAN_STAGES[stage])}</td><td>${mine && mine.note ? esc(mine.note) : planDash}</td></tr>`;
+        }).join('');
+        const note = quarters[q - 1] && quarters[q - 1].note;
+        return `<h4>Оцени по квартали</h4>`
+            + (labels.length ? `<div class="plan-grid"><table data-mtb-plain>${head}${body}</table></div>` : '<p class="plan-none">Нема внесени области.</p>')
+            + (from ? `<p class="plan-carry">↻ За квартал ${q} уште не е запишано. ✏️ Уреди ги презема оценките од квартал ${from}; сменете само што е различно.</p>` : '')
+            + `<dl><dt>Белешка за квартал ${q}</dt><dd>${note ? esc(note) : planDash}</dd></dl>`
+            + planViewActions(part, Boolean(from));
+    }
+    /** Every field of a written part with what it holds, „—" where nothing is written: the form as filled. */
+    function planTextView(part, title) {
+        const spec = PLAN_TEXT[planKind(part)], info = plan.pupil.parts[part], data = (info && info.data) || {};
+        return (title ? `<h4>${esc(title)}</h4>` : '') + '<dl>' + spec.fields.map(([key, label]) =>
+            `<dt>${esc(label)}</dt><dd>${String(data[key] || '').trim() ? esc(data[key]) : planDash}</dd>`).join('') + '</dl>' + planViewActions(part, false);
+    }
+    function planViewActions(part, carry) {
+        const info = plan.pupil.parts[part], filled = info && !planEmpty(info.data), can = PLAN_CONFIRMED.includes(planKind(part));
+        return '<div class="plan-view-actions"><button type="button" data-plan-edit>✏️ Уреди</button>'
+            + (can && (filled || carry) && !(info && info.confirmedBy) ? `<button type="button" class="primary" data-plan-confirm>Потврди за ${esc(planPupilLine(plan.pupil.pupil))}</button>` : '')
+            + (can && info && info.confirmedBy ? '<button type="button" class="small" data-plan-unconfirm>Тргни ја потврдата</button>' : '')
+            + `</div><p class="muted plan-status">${planStatus(part)}</p>`;
+    }
+    const planViewOf = (part) => planKind(part) === 'marks' ? planMarksView(part.split(':')[1]) : planTextView(part, planKind(part) === 'goal' ? PLAN_TEXT.goal.title : '');
+    const planFormOf = (part) => planKind(part) === 'marks' ? planMarksForm(part.split(':')[1]) : planTextForm(part, planKind(part) === 'goal' ? PLAN_TEXT.goal.title : '');
+    /** One part: read as a filled form; its form is there, closed, until ✏️ Уреди. */
+    const planBox = (part) => `<div class="plan-box" data-box="${esc(part)}"><div class="plan-view">${planViewOf(part)}</div>`
+        + planFormOf(part).replace('<form ', '<form hidden ') + '</div>';
+    const planBoxOf = (part) => [...el('plan').querySelectorAll('.plan-box')].find((box) => box.dataset.box === part);
+    /** What the form holds counts as unchanged when drawn; a quarter taken from the one before is not saved yet. */
+    function planMarkSaved(form) { form.dataset.saved = form.dataset.prefilled ? '' : JSON.stringify(planCollect(form)); }
+    function planEdit(box, on) {
+        const form = box.querySelector('form.plan-part');
+        box.querySelector('.plan-view').hidden = on;
+        form.hidden = !on;
+        if (on) { const first = form.querySelector('textarea, input:not([type="search"]), select'); if (first) first.focus(); }
+    }
+    /** Back to reading: the view drawn from what is stored, and a fresh form under it. */
+    function planRead(box) {
+        const part = box.dataset.box;
+        box.querySelector('.plan-view').innerHTML = planViewOf(part);
+        const old = box.querySelector('form.plan-part');
+        old.outerHTML = planFormOf(part).replace('<form ', '<form hidden ');
+        planMarkSaved(box.querySelector('form.plan-part'));
+        planEdit(box, false);
     }
     const PLAN_BANK_USES = { area: 'Области', goal: 'Цели', activity: 'Активности', criterion: 'Критериуми за успех', baseline: 'Почетна состојба', adaptation: 'Адаптации', communication: 'ААК и комуникациска поддршка', outcome: 'Исход', decision: 'Одлука' };
     const planBank = { data: null, pending: null };
@@ -4161,7 +4293,7 @@ header.top h1 { flex: 1; min-width: 180px; }
         if (body.dataset.ready || !sheet) return;
         body.innerHTML = '<p class="muted" role="status">Вчитувам…</p>';
         try {
-            if (!sheet.evidence) sheet.evidence = api('GET', '/api/portal/plan/evidence?publicId=' + encodeURIComponent(sheet.pupil.publicId));
+            if (!sheet.evidence) sheet.evidence = planApi('GET', '/api/portal/plan/evidence?publicId=' + encodeURIComponent(sheet.pupil.publicId));
             const data = await sheet.evidence;
             // Another pupil opened meanwhile: their sheet is not this answer's.
             if (!panel.isConnected || plan.pupil !== sheet) return;
@@ -4286,30 +4418,52 @@ header.top h1 { flex: 1; min-width: 180px; }
         const head = (inner) => '<div class="plan-head"><button type="button" class="small" data-plan-back>← Список</button>' + inner + '</div>';
         if (plan.error) { box.innerHTML = head('') + `<p class="msg error">${esc(plan.error)}</p>`; return; }
         if (!d) { box.innerHTML = head('') + '<p class="muted">Вчитувам…</p>'; return; }
-        const mine = plan.data.mine, P = d.parts;
+        const mine = plan.example ? { codes: [], classes: [] } : plan.data.mine, P = d.parts, cats = planCats();
         const chosen = (P.cabinets && P.cabinets.data.codes) || [];
         // One's own cabinet first, then as the list of profiles has them.
-        const cabinets = plan.data.categories.filter((c) => chosen.includes(c.code))
-            .concat(chosen.filter((code) => !plan.data.categories.some((c) => c.code === code)).map((code) => ({ code, name: code })))
+        const cabinets = cats.filter((c) => chosen.includes(c.code))
+            .concat(chosen.filter((code) => !cats.some((c) => c.code === code)).map((code) => ({ code, name: code })))
             .sort((a, b) => Number(mine.codes.includes(b.code)) - Number(mine.codes.includes(a.code)));
-        const myClass = d.pupil.class && mine.classes.includes(d.pupil.class);
+        // The plan is read as a whole, so every part is open; ✏️ Уреди opens one part's form.
         box.innerHTML = head(`<div class="plan-who"><b>${esc(d.pupil.name)}</b><span>${d.pupil.class ? esc(shortOf(d.pupil.class)) + ' · ' : ''}учебна ${esc(d.year)}</span></div>`
-                + '<button type="button" class="small" data-plan-docx>Word (.docx)</button>')
+                + '<button type="button" class="small" data-plan-docx title="Документ од она што е запишано">Word (.docx)</button>')
+            + (plan.example ? '<div class="plan-example"><b>📘 ПРИМЕР — измислен ученик.</b> Пробајте слободно: ✏️ Уреди, кварталите, фондот, Word. Ништо не се зачувува и никој друг не го гледа.'
+                + '<div class="row">' + PLAN_EXAMPLE.pupils.map((x) => `<button type="button" class="small" data-plan-example="${esc(x.sheet.pupil.publicId)}" aria-pressed="${x.sheet.pupil.publicId === d.pupil.publicId}">${esc(x.sheet.pupil.name.replace('ПРИМЕР — ', ''))}</button>`).join('')
+                + '</div></div>' : '')
             + '<p class="msg" id="planMsg" role="status" aria-live="polite"></p>'
             + planQuarterButtons()
             + '<div class="plan-cabinets"><b>Кабинети во планот</b> <span class="muted">— допрете за да додадете или тргнете</span><div class="plan-toggles">'
-            + plan.data.categories.map((c) => `<button type="button" class="small" data-plan-cabinet="${esc(c.code)}" aria-pressed="${chosen.includes(c.code)}">${esc(c.name)}</button>`).join('')
+            + cats.map((c) => `<button type="button" class="small" data-plan-cabinet="${esc(c.code)}" aria-pressed="${chosen.includes(c.code)}">${esc(c.name)}</button>`).join('')
             + '</div></div>'
             + cabinets.map((c) => planSection('cab:' + c.code, c.name, planMarkOf(`marks:${c.code}:${plan.quarter}`),
-                planMarksForm(c.code) + planTextForm('goal:' + c.code, PLAN_TEXT.goal.title), mine.codes.includes(c.code))).join('')
-            + planSection('iop', PLAN_TEXT.iop.title, planMarkOf('iop'), planTextForm('iop'), myClass)
-            + planSection('review', `${PLAN_TEXT.review.title} — квартал ${plan.quarter}`, planMarkOf('review:' + plan.quarter), planTextForm('review:' + plan.quarter), myClass)
-            + planSection('phaseA', PLAN_TEXT.phaseA.title, planMarkOf('phaseA'), planTextForm('phaseA'), false)
-            + planSection('yearEnd', PLAN_TEXT.yearEnd.title, planMarkOf('yearEnd'), planTextForm('yearEnd'), false)
+                planBox(`marks:${c.code}:${plan.quarter}`) + planBox('goal:' + c.code), true)).join('')
+            + planSection('iop', PLAN_TEXT.iop.title, planMarkOf('iop'), planBox('iop'), true)
+            + planSection('review', `${PLAN_TEXT.review.title} — квартал ${plan.quarter}`, planMarkOf('review:' + plan.quarter), planBox('review:' + plan.quarter), true)
+            + planSection('phaseA', PLAN_TEXT.phaseA.title, planMarkOf('phaseA'), planBox('phaseA'), true)
+            + planSection('yearEnd', PLAN_TEXT.yearEnd.title, planMarkOf('yearEnd'), planBox('yearEnd'), true)
             + '<p class="muted">Ниво: ' + PLAN_LEVELS.map((name, level) => level + ' ' + name.toLocaleLowerCase('mk-MK')).join(' · ') + '.</p>';
         // What a form held when drawn is what „changed" is measured against; a prefilled quarter is not yet saved at all.
-        planForms().forEach((form) => { form.dataset.saved = form.dataset.prefilled ? '' : JSON.stringify(planCollect(form)); });
+        planForms().forEach(planMarkSaved);
         planDrawMsg();
+    }
+
+    /** „📘 Пример“: one of the invented pupils, opened in the same sheet; nothing it does leaves the page. */
+    function openPlanExample(publicId) {
+        if (plan.open && !planLeave()) return;
+        const example = PLAN_EXAMPLE.pupils.find((x) => x.sheet.pupil.publicId === publicId);
+        if (!example) return;
+        if (!plan.example) plan.realQuarter = plan.quarter;
+        plan.request++;
+        plan.example = true; plan.open = 'example:' + publicId; plan.error = ''; plan.msg = null;
+        plan.pupil = JSON.parse(JSON.stringify(example.sheet));
+        plan.quarter = example.quarter;
+        drawPlan();
+    }
+    /** Out of the example: the real quarter back, and the real list. */
+    function closePlanExample() {
+        if (!plan.example) return;
+        plan.example = false;
+        plan.quarter = plan.realQuarter || plan.quarter;
     }
 
     async function openPlanPupil(publicId, keepMsg) {
@@ -4324,7 +4478,7 @@ header.top h1 { flex: 1; min-width: 180px; }
         } catch (err) { if (request !== plan.request) return; plan.error = err.message; }
         drawPlan();
     }
-    function planFormSaved(form, sent) {
+    function planFormSaved(form, sent, last = true) {
         const part = form.dataset.part, info = plan.pupil.parts[part];
         form.dataset.version = info ? info.version : 0;
         // Typing goes on while the request is away: those words are not on the server and stay unsaved.
@@ -4340,6 +4494,11 @@ header.top h1 { flex: 1; min-width: 180px; }
         const mark = form.closest('details').querySelector('[data-plan-mark]');
         const first = form.closest('details').querySelector('form.plan-part');
         if (mark && first === form) mark.textContent = planMarkOf(part);
+        // Saved and nothing more typed: back to reading the part as it now stands.
+        // Words typed while the save was away keep the form open, unsaved.
+        const box = form.closest('.plan-box');
+        if (box && last && !form.dataset.touched) planRead(box);
+        else if (box) box.querySelector('.plan-view').innerHTML = planViewOf(part);
     }
     /** Save the part if it differs from what is stored, then confirm or open it if asked. */
     async function savePlanPart(form, then) {
@@ -4356,7 +4515,7 @@ header.top h1 { flex: 1; min-width: 180px; }
             let version = Number(form.dataset.version);
             if (JSON.stringify(data) !== form.dataset.saved) {
                 const reason = (form.querySelector('[data-plan-reason]') || {}).value || '';
-                const answer = await api('PUT', '/api/portal/plan/part', { publicId, part, data, version, ...(reason.trim() ? { reason } : {}) });
+                const answer = await planApi('PUT', '/api/portal/plan/part', { publicId, part, data, version, ...(reason.trim() ? { reason } : {}) });
                 if (answer.part) {
                     // The record keeps the reason with this change; the sheet shows it until the next one.
                     const kept = answer.changeId ? (reason.trim() ? reason : '') : (sheet.parts[part] || {}).reason;
@@ -4364,10 +4523,10 @@ header.top h1 { flex: 1; min-width: 180px; }
                 }
                 undo = answer.changeId;
                 // Written, whatever comes of the confirmation below: the form must know its new version.
-                if (here()) planFormSaved(form, data);
+                if (here()) planFormSaved(form, data, !then);
             } else if (!then) { planSay('Нема што да се зачува — ништо не е сменето.'); return; }
             if (then) {
-                const answer = await api('POST', '/api/portal/plan/confirm', { on: then === 'confirm', items: [{ publicId, part, version }] });
+                const answer = await planApi('POST', '/api/portal/plan/confirm', { on: then === 'confirm', items: [{ publicId, part, version }] });
                 const result = answer.results[0];
                 if (!result.ok) throw Object.assign(new Error(result.error), { payload: result });
                 sheet.parts[part] = result.now;
@@ -4391,7 +4550,7 @@ header.top h1 { flex: 1; min-width: 180px; }
         const next = codes.includes(code) ? codes.filter((c) => c !== code) : [...codes, code];
         plan.busy = true;
         try {
-            const answer = await api('PUT', '/api/portal/plan/part', { publicId: sheet.pupil.publicId, part: 'cabinets', data: { codes: next }, version: info ? info.version : 0 });
+            const answer = await planApi('PUT', '/api/portal/plan/part', { publicId: sheet.pupil.publicId, part: 'cabinets', data: { codes: next }, version: info ? info.version : 0 });
             sheet.parts.cabinets = answer.part;
             plan.msg = { text: `${planCategory(code).name}: ${next.includes(code) ? 'додаден во' : 'тргнат од'} планот на ${sheet.pupil.name}.`, kind: 'ok', undo: answer.changeId };
             // Drawn again only if this pupil is still the one open.
@@ -4483,9 +4642,18 @@ header.top h1 { flex: 1; min-width: 180px; }
         }
         if ((b = on('[data-plan-filter]'))) { plan.filter = b.dataset.planFilter; plan.picked.clear(); drawPlan(); return; }
         if ((b = on('[data-plan-open]'))) { openPlanPupil(b.dataset.planOpen); return; }
+        if ((b = on('[data-plan-example]'))) { openPlanExample(b.dataset.planExample); return; }
         if (on('[data-plan-back]')) {
             if (!planLeave()) return;
+            closePlanExample();
             plan.open = ''; plan.pupil = null; plan.error = ''; plan.msg = null; drawPlan(); loadPlan(); return;
+        }
+        if ((b = on('[data-plan-edit]'))) { planEdit(b.closest('.plan-box'), true); return; }
+        if ((b = on('[data-plan-cancel]'))) {
+            const box = b.closest('.plan-box'), form = box.querySelector('form.plan-part');
+            if (plan.busy) return;
+            if (JSON.stringify(planCollect(form)) !== form.dataset.saved && !window.confirm('Имате незачувано во овој дел. Да се отфрли?')) return;
+            planRead(box); return;
         }
         if (on('[data-plan-pick-all]')) {
             const ready = planPickable().map((input) => input.dataset.planPick);
@@ -4500,7 +4668,10 @@ header.top h1 { flex: 1; min-width: 180px; }
             if (!report.rows.length) { planSay('Планот е празен — нема што да се сними.'); return; }
             saveReportDocx(report, 'Akciski-plan-' + plan.pupil.pupil.name.replace(/[\\/:*?"<>|\s]+/g, '-')); return;
         }
-        if (on('[data-plan-reload]')) { openPlanPupil(plan.open); return; }
+        if (on('[data-plan-reload]')) {
+            if (plan.example) openPlanExample(plan.pupil.pupil.publicId); else openPlanPupil(plan.open);
+            return;
+        }
         if ((b = on('[data-plan-undo]'))) {
             if (plan.busy || (plan.open && !planLeave())) return;
             plan.busy = true;
@@ -4512,7 +4683,9 @@ header.top h1 { flex: 1; min-width: 180px; }
             if (plan.open) openPlanPupil(plan.open, true); else loadPlan();
             return;
         }
-        const form = on('form.plan-part');
+        // „Потврди" stands in the view as well: it confirms what is written, through the part's own (closed) form.
+        const viewBox = on('.plan-view') && on('.plan-box');
+        const form = on('form.plan-part') || (viewBox && viewBox.querySelector('form.plan-part'));
         if (!form) return;
         if (on('[data-plan-confirm]')) { savePlanPart(form, 'confirm'); return; }
         if (on('[data-plan-unconfirm]')) { savePlanPart(form, 'unconfirm'); return; }

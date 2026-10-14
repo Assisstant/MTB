@@ -99,8 +99,9 @@ $previousCa = $env:NODE_EXTRA_CA_CERTS
 $rootCert = Join-Path $env:APPDATA 'postgresql\root.crt'
 $caBundle = $null
 if (Test-Path -LiteralPath $rootCert) {
-    if (-not $previousCa) { $env:NODE_EXTRA_CA_CERTS = $rootCert }
-    elseif (Test-Path -LiteralPath $previousCa) {
+    # Unset, or left behind by an antivirus that is gone: Supabase's root alone.
+    if (-not $previousCa -or -not (Test-Path -LiteralPath $previousCa)) { $env:NODE_EXTRA_CA_CERTS = $rootCert }
+    else {
         # An antivirus (Avast, 14 Oct 2026) sets NODE_EXTRA_CA_CERTS to its own
         # HTTPS certificate. Node reads one file, and with the antivirus's alone it
         # refused Supabase's chain after the snapshot had already been taken. Both

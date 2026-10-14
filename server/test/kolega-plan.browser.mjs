@@ -117,6 +117,11 @@ const dialogs = [];
 p.on('dialog', (dialog) => { dialogs.push(dialog.message()); dialog.accept(); });
 const text = (selector) => p.locator(selector).innerText();
 const last = (path) => writes.filter((w) => w.path === path).at(-1)?.body;
+/** Read first (owner, 14 Oct 2026): a part's form opens on ✏️ Уреди. */
+const edit = async (form) => {
+    const part = form.match(/data-part="([^"]+)"/)[1];
+    if (await p.locator(form).isHidden()) await p.click(`[data-box="${part}"] [data-plan-edit]`);
+};
 
 try {
     await p.goto(origin + '/Kolega.html');
@@ -139,9 +144,14 @@ try {
     await p.waitForSelector('.plan-who');
     check('the name and class stand at the top', (await text('.plan-who')).includes(PUPILS[0].name) && (await text('.plan-who')).includes('Т-1'));
     check('and stay there while the page scrolls', await p.evaluate(() => getComputedStyle(document.querySelector('.plan-head')).position === 'sticky'));
-    check('my cabinet is open, the rest folded', await p.evaluate(() => document.querySelector('[data-plan-section="cab:logoped"]').open && !document.querySelector('[data-plan-section="phaseA"]').open));
+    check('the whole plan is open to read, my cabinet first', await p.evaluate(() => [...document.querySelectorAll('[data-plan-section]')].every((d) => d.open)
+        && document.querySelector('[data-plan-section]').dataset.planSection === 'cab:logoped'));
     const marks = 'form[data-part="marks:logoped:1"]';
     check('„Потврди" names the pupil', (await text(marks + ' [data-plan-confirm]')).includes(PUPILS[0].name));
+    check('a part reads first as a form: every field, „—" where nothing is written, and ✏️ Уреди', await p.locator(marks).isHidden()
+        && (await text('[data-box="iop"] .plan-view')).includes('Стратегии') && (await text('[data-box="iop"] .plan-view')).includes('—')
+        && await p.locator('[data-box="iop"] [data-plan-edit]').isVisible());
+    await edit(marks);
     await p.click(marks + ' [data-row-add]');
     await p.fill(marks + ' [data-row-label]', 'Артикулација');
     await p.click(marks + ' [data-level-set="2"]');
@@ -151,13 +161,16 @@ try {
     await p.selectOption(marks + ' [data-row-stage]', '2');
     await p.fill(marks + ' [data-row-note]', 'Белешка за областа');
     // Another part is being typed while the first is saved.
-    await p.click('[data-plan-section="iop"] > summary');
+    await edit('form[data-part="iop"]');
     await p.fill('form[data-part="iop"] textarea[name="goals"]', '  Цел што уште се пишува ');
     await p.click(marks + ' button[type="submit"]');
     await p.waitForFunction(() => /Зачувано за/.test(((document.getElementById('planMsg') || {}).textContent || '')));
     check('the part goes whole, with the version the screen showed', JSON.stringify(last('/api/portal/plan/part'))
         === JSON.stringify({ publicId: 'p1', part: 'marks:logoped:1', data: { rows: [{ label: 'Артикулација', level: 2, baseline: 1, stage: 2, note: 'Белешка за областа' }], note: '' }, version: 0 }), JSON.stringify(last('/api/portal/plan/part')));
     check('the answer names the pupil and offers „Врати"', (await text('#planMsg')).includes(PUPILS[0].name) && (await p.locator('#planMsg [data-plan-undo]').count()) === 1);
+    check('saved, the part reads again as a filled form: the area, its quarter and its note', await p.locator(marks).isHidden()
+        && /Артикулација\s+1\s+2/.test(await text('[data-box="marks:logoped:1"] .plan-view')) && (await text('[data-box="marks:logoped:1"] .plan-view')).includes('Белешка за областа'),
+        await text('[data-box="marks:logoped:1"] .plan-view'));
     check('what was being typed in another part is still there', (await p.inputValue('form[data-part="iop"] textarea[name="goals"]')) === '  Цел што уште се пишува ');
     await p.click('form[data-part="iop"] button[type="submit"]');
     await p.waitForFunction(() => /ИОП|Зачувано/.test(((document.getElementById('planMsg') || {}).textContent || '')) && !document.querySelector('form[data-part="iop"] button:disabled'));
@@ -166,9 +179,17 @@ try {
     await p.waitForFunction(() => /Вратено/.test(((document.getElementById('planMsg') || {}).textContent || '')));
     check('„Врати" sends that change and shows the part as it was', last('/api/portal/plan/undo').id === changeId
         && (await p.inputValue('form[data-part="iop"] textarea[name="goals"]').catch(() => '')) === '', JSON.stringify(last('/api/portal/plan/undo')));
+    // ✏️ Уреди, then Откажи: what was typed goes after one question, and the part reads as stored.
+    await edit('form[data-part="iop"]');
+    await p.fill('form[data-part="iop"] textarea[name="strategies"]', 'Ова не се зачувува');
+    dialogs.length = 0;
+    await p.click('form[data-part="iop"] [data-plan-cancel]');
+    check('„Откажи" asks, then closes the form without writing', dialogs.some((m) => /незачувано/.test(m)) && await p.locator('form[data-part="iop"]').isHidden()
+        && await p.inputValue('form[data-part="iop"] textarea[name="strategies"]') === '' && !(await text('[data-box="iop"] .plan-view')).includes('Ова не се зачувува'));
 
     console.log('\nwhile a save is on its way (review, 14 Oct 2026)');
     const note = marks + ' textarea[name="note"]', count = () => writes.filter((w) => w.path === '/api/portal/plan/part').length;
+    await edit(marks);
     await p.fill(note, 'Прво');
     let release = held();
     await p.click(marks + ' button[type="submit"]');
@@ -182,6 +203,7 @@ try {
     check('what was typed while the save was away is still unsaved, and the next „Зачувај" sends it', count() === before + 1
         && last('/api/portal/plan/part').data.note === 'Прво и допишано' && store.p1['marks:logoped:1'].data.note === 'Прво и допишано', JSON.stringify(last('/api/portal/plan/part')));
     // The pupil is changed while the answer is away: it must not land on the one now open.
+    await edit(marks);
     await p.fill(note, '');
     release = held();
     await p.click(marks + ' button[type="submit"]');
@@ -202,7 +224,7 @@ try {
     await p.waitForFunction(() => /Алфа/.test((document.querySelector('.plan-who') || {}).textContent || ''));
 
     console.log('\n„потврда"');
-    await p.click(marks + ' [data-plan-confirm]');
+    await p.click('[data-box="marks:logoped:1"] .plan-view [data-plan-confirm]');
     await p.waitForFunction(() => /Потврдено за/.test(((document.getElementById('planMsg') || {}).textContent || '')));
     check('an unchanged part is confirmed without being written again', JSON.stringify(last('/api/portal/plan/confirm'))
         === JSON.stringify({ on: true, items: [{ publicId: 'p1', part: 'marks:logoped:1', version: 4 }] }), JSON.stringify(last('/api/portal/plan/confirm')));
@@ -210,6 +232,7 @@ try {
         && (await text('[data-plan-section="cab:logoped"] > summary')).includes('✅'));
 
     console.log('\na write refused as stale');
+    await edit(marks);
     await p.fill(marks + ' textarea[name="note"]', 'Белешка што не смее да се изгуби');
     staleNext = true;
     await p.click(marks + ' button[type="submit"]');
@@ -237,6 +260,8 @@ try {
     check('and leaving it untouched asks nothing', dialogs.length === 0);
     // Review, 14 Oct 2026: a search hides a pupil; „Избери ги сите" must not reach behind it.
     await p.fill('#planQuery', 'Бета');
+    // The list is drawn again when it comes back from the server: pick only once the search has hidden its row.
+    await p.waitForFunction(() => [...document.querySelectorAll('.plan-list li')].filter((li) => !li.hidden).length === 1);
     await p.click('[data-plan-pick-all]');
     check('„Избери ги сите" picks only the pupils in sight', (await text('[data-plan-confirm-picked]')).includes('(1)')
         && (await p.locator('.plan-list li:not([hidden]) [data-plan-pick]:checked').count()) === 1, await text('#planBulk'));
@@ -257,6 +282,7 @@ try {
     const goals = 'form[data-part="goal:logoped"]';
     const picker = goals + ' [data-bank-target="goals"]';
     const original = '  Мој текст со празни места  ';
+    await edit(goals);
     await p.fill(goals + ' textarea[name="goals"]', original);
     const beforeBank = writes.length;
     await p.click(picker + ' > summary');
@@ -287,6 +313,7 @@ try {
     await p.waitForFunction(() => document.getElementById('planMsg').textContent.includes('Зачувано за'));
     check('only Save writes copied text, without a bank ID or new fields', JSON.stringify(last('/api/portal/plan/part').data) === JSON.stringify({ baseline: '', goals: draft }));
     const areaPicker = 'form[data-part="marks:logoped:2"] [data-bank-target="area"]';
+    await edit('form[data-part="marks:logoped:2"]');
     await p.click(areaPicker + ' > summary');
     await p.click(areaPicker + ' [data-bank-add="I-P01"]');
     const areaRow = p.locator('form[data-part="marks:logoped:2"] .plan-row').last();
@@ -294,12 +321,17 @@ try {
     const rowCount = await p.locator('form[data-part="marks:logoped:2"] .plan-row').count();
     await p.click(areaPicker + ' [data-bank-add="I-P01"]');
     check('a repeated area is explained without duplicating it', await p.locator('form[data-part="marks:logoped:2"] .plan-row').count() === rowCount && (await text(areaPicker)).includes('веќе е во нацртот'));
-    await p.click('[data-plan-section="iop"] > summary');
+    await edit('form[data-part="iop"]');
     const adaptPicker = 'form[data-part="iop"] [data-bank-target="adaptations"]';
     await p.click(adaptPicker + ' > summary');
     await p.click(adaptPicker + ' [data-bank-add="G6-02"]');
     check('accommodations go to the existing IOP field', await p.inputValue('form[data-part="iop"] textarea[name="adaptations"]') === 'Пробна адаптација');
+    await edit(goals);
     await p.fill(goals + ' textarea[name="goals"]', 'x'.repeat(7999));
+    // Saved, the form was drawn anew: its picker opens again, from the page's copy of the fond.
+    await p.click(picker + ' > summary');
+    await p.waitForSelector(picker + ' [data-bank-use]');
+    await p.selectOption(picker + ' [data-bank-use]', 'criterion');
     await p.click(picker + ' [data-bank-add="IV-I01"]');
     check('insertion refuses overflow without truncating the draft', (await p.inputValue(goals + ' textarea[name="goals"]')).length === 7999 && (await text(picker)).includes('Нема доволно место'));
     await p.fill(goals + ' textarea[name="goals"]', draft);
@@ -326,6 +358,7 @@ try {
         await p.click('[data-tab="plan"]');
         await p.click('[data-plan-filter="all"]');
         await p.click('[data-plan-open="p1"]');
+        await edit(goals);
         await p.click(picker + ' > summary');
         await p.waitForFunction(({ selector, word }) => document.querySelector(selector).textContent.includes(word), { selector: picker, word: mode === 'empty' ? 'стручен преглед' : 'рачно' });
         check(`${mode}: free text and Save stay available`, await p.locator(picker + ' [data-bank-add]').count() === 0 && !await p.isDisabled(goals + ' textarea[name="goals"]') && !await p.isDisabled(goals + ' button[type="submit"]'));
@@ -339,7 +372,6 @@ try {
 
     console.log('\nphase 3: „Исход", „Одлука" and a reason for a change');
     const review = 'form[data-part="review:1"]';
-    await p.click('[data-plan-section="review"] > summary');
     check('a server without 062 offers no reason field anywhere', await p.locator('[data-plan-reason]').count() === 0);
     check('the review has its own „Исход" and „Одлука"', await p.locator(review + ' textarea[name="outcome"]').count() === 1
         && await p.locator(review + ' textarea[name="decision"]').count() === 1);
@@ -349,8 +381,8 @@ try {
     await p.click('[data-plan-back]');
     await p.click('[data-plan-open="p1"]');
     await p.waitForSelector('.plan-who');
-    await p.click('[data-plan-section="review"] > summary');
     check('nothing written yet is not a change, so no reason is asked', await p.locator(review + ' [data-plan-reason]').count() === 0);
+    await edit(review);
     await p.click(review + ' [data-bank-target="outcome"] > summary');
     await p.click(review + ' [data-bank-target="outcome"] [data-bank-add="G11-02"]');
     await p.click(review + ' [data-bank-target="decision"] > summary');
@@ -361,7 +393,7 @@ try {
     await p.waitForFunction(() => document.getElementById('planMsg').textContent.includes('Зачувано за'));
     check('they are written with the rest of the review', JSON.stringify(last('/api/portal/plan/part')) === JSON.stringify({ publicId: 'p1', part: 'review:1',
         data: { date: '', iopEval: '', outcome: 'Пробен исход', decision: 'Пробна одлука', revision: '', report: '', parentMeeting: '' }, version: 0 }), JSON.stringify(last('/api/portal/plan/part')));
-    await p.waitForSelector(review + ' [data-plan-reason]');
+    await edit(review);
     check('once something is written, a change can say why', await p.inputValue(review + ' [data-plan-reason]') === '');
     await p.fill(review + ' textarea[name="decision"]', 'Пробна одлука, сменета');
     await p.fill(review + ' [data-plan-reason]', 'По тимската средба');
@@ -371,19 +403,21 @@ try {
         && !('reason' in last('/api/portal/plan/part').data), JSON.stringify(last('/api/portal/plan/part')));
     check('the sheet says it, and the next change starts with an empty reason', (await text(review + ' [data-plan-status]')).includes('По тимската средба')
         && await p.inputValue(review + ' [data-plan-reason]') === '');
+    await edit(review);
     await p.fill(review + ' textarea[name="report"]', 'Извештај');
     await p.fill(review + ' [data-plan-reason]', '   ');
     await p.click(review + ' button[type="submit"]');
     await p.waitForFunction(() => !document.querySelector('form[data-part="review:1"] [data-plan-status]').textContent.includes('причина'));
     check('only spaces is not sent as a reason', !('reason' in last('/api/portal/plan/part')));
     check('the reason field fits the phone', await p.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1));
-    await p.locator(review).scrollIntoViewIfNeeded();
+    await p.locator('[data-box="review:1"]').scrollIntoViewIfNeeded();
     await p.screenshot({ path: resolve(snapDir, 'review-phase3.png') });
 
     console.log('\nphase 5: priorities suggested from the евидентен лист');
     const marks1 = 'form[data-part="marks:logoped:1"]', ev = marks1 + ' [data-evidence]';
     check('nothing is read until it is opened', evidenceReads === 0);
     const writesBefore = writes.length;
+    await edit(marks1);
     await p.click(ev + ' > summary');
     await p.waitForSelector(ev + ' [data-evidence-add]');
     const said = await text(ev);
@@ -406,6 +440,7 @@ try {
         await p.click('[data-plan-back]');
         await p.click('[data-plan-open="p2"]');
         await p.waitForFunction(() => /Бета/.test((document.querySelector('.plan-who') || {}).textContent || ''));
+        await edit(marks1);
         await p.click(ev + ' > summary');
         await p.waitForFunction(({ selector, word }) => document.querySelector(selector).textContent.includes(word),
             { selector: ev, word: mode === 'none' ? 'нема евидентен лист' : 'рачно' });
@@ -415,6 +450,39 @@ try {
     await p.click(ev + ' [data-evidence-retry]');
     await p.waitForSelector(ev + ' [data-evidence-add]');
     check('a failed read can be tried again', (await text(ev)).includes('Артикулација'));
+
+    console.log('\n„📘 Пример": a filled plan to read and to try, nothing saved');
+    await p.click('[data-plan-back]');
+    await p.click('.plan-help > summary');
+    check('the list says in five steps how a plan is filled', (await text('.plan-help')).includes('✏️ Уреди') && await p.locator('.plan-help li').count() === 5);
+    const sent = writes.length, realQuarter = await p.getAttribute('[data-plan-quarter][aria-pressed="true"]', 'data-plan-quarter');
+    await p.click('button[data-plan-example]');
+    await p.waitForSelector('.plan-example');
+    check('the example opens as an invented pupil, said so, at the year\'s end', (await text('.plan-who')).includes('ПРИМЕР')
+        && (await p.getAttribute('[data-plan-quarter="4"]', 'aria-pressed')) === 'true' && (await text('.plan-example')).includes('Ништо не се зачувува'));
+    const exMarks = '[data-box="marks:logoped:4"] .plan-view';
+    check('its areas read across the four quarters', /Артикулација — глас Р\s+1\s+2\s+3\s+3\s+4/.test(await text(exMarks)), await text(exMarks));
+    await p.click('[data-plan-quarter="1"]');
+    check('a past quarter opens to read and to change', (await text('[data-box="review:1"] .plan-view')).includes('27.11.2026')
+        && await p.locator('[data-box="review:1"] [data-plan-edit]').isVisible());
+    await edit('form[data-part="review:1"]');
+    await p.fill('form[data-part="review:1"] textarea[name="revision"]', 'Проба во примерот');
+    await p.click('form[data-part="review:1"] button[type="submit"]');
+    await p.waitForFunction(() => /Зачувано за/.test(document.getElementById('planMsg').textContent));
+    check('✏️ Уреди and „Зачувај" work in the example, and nothing reaches the server', writes.length === sent
+        && (await text('[data-box="review:1"] .plan-view')).includes('Проба во примерот') && await p.locator('#planMsg [data-plan-undo]').count() === 0);
+    const exampleDoc = p.waitForEvent('download');
+    await p.click('[data-plan-docx]');
+    check('the example makes its Word document from what it holds', /^Akciski-plan-ПРИМЕР.*\.docx$/.test((await exampleDoc).suggestedFilename()));
+    await p.click('[data-plan-example="primer-b"]');
+    check('the other examples are one touch away', (await text('.plan-who')).includes('Ученичка Б'));
+    await p.setViewportSize({ width: 390, height: 844 });
+    check('the example and its tables fit the phone', await p.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1));
+    await p.screenshot({ path: resolve(snapDir, 'example-view.png'), fullPage: true });
+    await p.click('[data-plan-back]');
+    await p.waitForSelector('.plan-list');
+    check('leaving the example gives back the real list and quarter', (await text('#plan')).includes(PUPILS[0].name)
+        && (await p.getAttribute('[data-plan-quarter="' + realQuarter + '"]', 'aria-pressed')) === 'true' && realQuarter !== '4' && writes.length === sent);
     check('no script error on the page', errors.length === 0, errors.join(' | '));
 } finally {
     await browser.close();
