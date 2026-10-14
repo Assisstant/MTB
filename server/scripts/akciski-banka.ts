@@ -167,7 +167,7 @@ function page(title: string, body: string) {
     return '﻿<!DOCTYPE html><html lang="mk"><head><meta charset="UTF-8"><title>' + esc(title) + '</title><style>' + CSS + '</style></head><body>' + body + '</body></html>';
 }
 function head(title: string, overlay: Overlay, today: string) {
-    return `<h1>${esc(title)}</h1><p class="muted">Банка на предлози за „Акциски план" во Колега · издание ${overlay.izdanie} (${overlay.izdanie ? 'одлуката е означена кај секоја ставка' : 'нацрт — ништо уште не е одобрено'}) · ${today}</p>`
+    return `<h1>${esc(title)}</h1><p class="muted">Фонд на содржини за „Акциски план" во Колега · издание ${overlay.izdanie} (${overlay.izdanie ? 'одлуката е означена кај секоја ставка' : 'нацрт — ништо уште не е одобрено'}) · ${today}</p>`
         + '<p>Прегледал/а: ______________________________ &nbsp; Датум: ______________</p>'
         + '<div class="box"><b>Како се прегледува.</b> Секој ред е една ставка од изворниот предлог, со својот ID. Во „Корекција" допишете како треба да гласи; '
         + 'во „Одлука" штиклирајте. Празно „Корекција" + „Одобрено" значи: останува како што е предложено (или како во изворот, ако нема предлог). '
@@ -197,7 +197,7 @@ export function domainDocument(domain: Domain, items: Item[], overlay: Overlay, 
         if (!list.length) continue;
         body += `<h2>${KINDS[kind]} (${list.length})</h2>`;
         if (kind === 'C') body += '<p class="muted">Формула: Ученикот + ќе изведе што + во каква ситуација + со колкава помош + со кој критериум + до кога. '
-            + 'Вредностите во заградите ги избира стручниот работник; банката не задава праг. Цел со договорена помош може да биде постигната и без оценка 4.</p>';
+            + 'Вредностите во заградите ги избира стручниот работник; фондот не задава праг. Цел со договорена помош може да биде постигната и без оценка 4.</p>';
         body += table(list, overlay, sheet, Boolean(section) && (kind === 'C' || kind === 'P'));
         if (kind === 'P' && section) {
             const used = new Set(mine.flatMap((i) => (overlay.stavki[i.id] || {}).list || []));

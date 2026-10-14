@@ -344,7 +344,7 @@ await show('[data-plan-section="review"]', 'start');
 await note('Кварталниот преглед е за избраниот квартал. Фаза А и Крај на година се по едни за годината.', 3600);
 
 // Bank ── the selection copies text into the draft; this fixture approves nothing in the real bank.
-await step('Предлози од банката', 'Пример со демонстрациска содржина. Во вистинската банка ќе се нудат само ставки што колегите ги одобриле.', 3800);
+await step('Предлози од фондот на содржини', 'Пример со демонстрациска содржина. Во вистинскиот фонд ќе се нудат само ставки што колегите ги одобриле.', 3800);
 const BANK_GOALS = `${GOAL} [data-bank-target="goals"]`;
 await show(GOAL, 'start');
 await tap(`${BANK_GOALS} > summary`, 1300);
@@ -355,12 +355,12 @@ await note('Текстот е додаден во нацртот. Ништо н�
 await type(`${GOAL} textarea[name="goals"]`, '\nБелешка за доработка.', 800);
 await tap(`${GOAL} button[type="submit"]`, 1200);
 await said('Зачувано за');
-await note('Само „Зачувај“ го запишува текстот. Промена на банката подоцна не ја менува оваа цел.', 3600);
+await note('Само „Зачувај“ го запишува текстот. Промена на фондот подоцна не ја менува оваа цел.', 3600);
 const BANK_ADAPT = `${IOP} [data-bank-target="adaptations"]`;
 await tap(`${BANK_ADAPT} > summary`, 1200);
 await tap(`${BANK_ADAPT} [data-bank-add="G6-90"]`, 1200);
 await show(`${IOP} textarea[name="adaptations"]`);
-await note('Адаптациите од банката одат во постојното поле „Адаптации“ во ИОП. И тие се уредуваат пред зачувување.', 3800);
+await note('Адаптациите од фондот одат во постојното поле „Адаптации“ во ИОП. И тие се уредуваат пред зачувување.', 3800);
 await tap(`${IOP} button[type="submit"]`, 1200);
 await said('Зачувано за');
 

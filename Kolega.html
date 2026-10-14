@@ -4081,7 +4081,7 @@ header.top h1 { flex: 1; min-width: 180px; }
     new ResizeObserver(([entry]) => el('plan').style.setProperty('--plan-toolbar-height', entry.target.getBoundingClientRect().height + 'px'))
         .observe(document.querySelector('.theme-bar'));
     function planBankPicker(target, uses) {
-        return `<details class="plan-bank" data-bank-target="${target}" data-bank-uses="${uses.join(',')}"><summary>Предлози од банката</summary>`
+        return `<details class="plan-bank" data-bank-target="${target}" data-bank-uses="${uses.join(',')}"><summary>Предлози од фондот на содржини</summary>`
             + '<div data-bank-body><p class="muted">Вчитувам…</p></div></details>';
     }
     function planBankFor(kind, key) {
@@ -4129,7 +4129,7 @@ header.top h1 { flex: 1; min-width: 180px; }
             && (!query || norm(item.id + ' ' + item.text).includes(query)));
         const title = (item) => item.domain ? item.domain + '. ' + (bank.domains.find((d) => d.code === item.domain)?.title || '') : 'Општи листи';
         panel.querySelector('[data-bank-count]').textContent = list.length ? `${list.length} предлози` : bank.items.length
-            ? 'Нема одобрени ставки за овој избор.' : 'Банката чека стручен преглед. Засега нема одобрени ставки; пишувајте слободно во полето.';
+            ? 'Нема одобрени ставки за овој избор.' : 'Фондот на содржини чека стручен преглед. Засега нема одобрени ставки; пишувајте слободно во полето.';
         panel.querySelector('[data-bank-items]').innerHTML = list.map((item) => `<button type="button" class="small plan-bank-item" data-bank-add="${esc(item.id)}">`
             + `<span class="muted">${esc(title(item))} · ${esc(item.id)}</span><span>${esc(item.text)}</span><b>+ Додај</b></button>`).join('');
     }

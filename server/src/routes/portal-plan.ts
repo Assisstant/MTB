@@ -107,7 +107,7 @@ export function registerPortalPlan(server: FastifyInstance, signed: SignedCheck)
         try { return readPlanBank(); }
         catch (err) {
             req.log.error({ err }, 'Action-plan bank unavailable');
-            return reply.code(503).send({ error: 'Банката не е достапна. Може да продолжите со рачно пишување.' });
+            return reply.code(503).send({ error: 'Фондот на содржини не е достапен. Може да продолжите со рачно пишување.' });
         }
     });
 
