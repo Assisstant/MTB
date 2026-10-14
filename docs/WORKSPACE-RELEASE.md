@@ -4,7 +4,7 @@
 
 **In this file** (366 lines; search for a name to jump to it):
 
-- Stay attendance — 14 October 2026, code only, NOT deployed
+- Stay attendance — 14 October 2026, applied to the cloud that day
 - Group terms — 14 October 2026, code only, NOT deployed
 - A reason beside a plan change — 14 October 2026, applied to the cloud that day
 - A pupil's action plan — 14 October 2026, applied to the cloud that day
@@ -28,7 +28,7 @@
 
 <!-- /index -->
 
-## Stay attendance — 14 October 2026, code only, NOT deployed
+## Stay attendance — 14 October 2026, applied to the cloud that day
 
 Migration **064** extends `employee_roles` with the separate annual `stay`
 role and adds `stay_pupils`, `stay_attendance`, `stay_attendance_changes`.
