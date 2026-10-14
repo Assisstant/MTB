@@ -39,7 +39,7 @@ await context.route('**/*',async route=>{
     return json(404,{});
 });
 const page=await context.newPage();page.on('pageerror',e=>errors.push(e.message));
-const idle=()=>page.waitForFunction(()=>document.querySelector('#stayMonth')&&!document.querySelector('#stayMonth').disabled);
+const idle=()=>page.waitForFunction(()=>document.querySelector('#stayMonth')&&!document.querySelector('#stayMonth').disabled&&!document.querySelector('#stay [aria-busy]'));
 try {
     await page.goto('http://localhost:3990/Kolega.html');await page.click('#welcomeContinue');
     await page.waitForSelector('#stayMonth');
@@ -59,8 +59,19 @@ try {
     assert.deepEqual(writes.at(-1),{publicIds:['test-a'],expected:[]});
     assert.equal(await page.locator('.pick-panel').count(),0,'a saved list closes');
     assert.match(await page.locator('#stay [role=status]').innerText(),/Зачувано: \+1 \/ −0/);
+    // Weekends and holidays are hidden until asked for (owner, 14 Oct 2026); October 2026 has 22 working days here.
+    const columns=()=>page.locator('.stay-table thead th').count();
+    assert.equal(await columns(),1+22,'non-working days hidden by default');
+    assert.equal(await page.locator('[data-hide-closed]').innerText(),'Прикажи неработни денови');
+    await page.click('[data-hide-closed]');
+    assert.equal(await columns(),1+31,'and shown on request');
+    assert.equal(await page.locator('[data-hide-closed]').innerText(),'Скриј неработни денови');
     const cell='[data-stay-mark="test-a"][data-stay-date="2026-10-01"]';
+    // A mark redraws its own cell only: the same button stays, the sheet does not flash or scroll back (owner, 14 Oct 2026).
+    await page.locator('.attendance-scroll').evaluate(s=>{s.scrollLeft=120;window.__cell=document.querySelector('[data-stay-mark="test-a"][data-stay-date="2026-10-01"]');});
     await page.click(cell);await idle();assert.equal(await page.locator(cell).innerText(),'✓');
+    assert.deepEqual(await page.evaluate(()=>({same:window.__cell.isConnected,green:window.__cell.closest('td').classList.contains('mark-present'),
+        scroll:document.querySelector('.attendance-scroll').scrollLeft>0})),{same:true,green:true,scroll:true});
     await page.click(cell);await idle();assert.equal(await page.locator(cell).innerText(),'✕');
     fail=true;await page.click(cell);await idle();
     assert.equal(await page.locator(cell).innerText(),'✕','refused writes do not pretend success');
@@ -85,7 +96,8 @@ try {
     assert.match(await page.locator('#stay [role=status]').innerText(),/Не е зачувано\. Списокот е сменет/);
     assert.equal(await page.isChecked('[data-stay-pupil="test-b"]'),true);
     pupils.find(x=>x.publicId==='test-b').selected=false;
-    await page.click('.pick-foot [data-stay-list-cancel]');await page.click('[data-stay-refresh]');await idle();
+    await page.click('.pick-foot [data-stay-list-cancel]');await page.click('[data-stay-refresh]');
+    await page.waitForFunction(()=>document.querySelectorAll('.stay-table tbody tr').length===1);
     assert.equal(await page.locator('[data-stay-date="2026-10-03"]').isDisabled(),true);
     // Owner, 14 Oct 2026: green and red as in S-Дневник, and the standard ways out.
     await page.click('[data-stay-mark="test-a"][data-stay-date="2026-10-02"]');await idle();
@@ -126,6 +138,8 @@ try {
     await page.evaluate(()=>document.documentElement.dataset.theme='light');await page.screenshot({path:resolve(out,'stay-list-desktop-light.png')});
     await page.setViewportSize({width:412,height:900});await page.screenshot({path:resolve(out,'stay-list-phone-light.png')});
     assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),'the list fits the phone');
+    await page.reload();await page.click('#welcomeContinue');await page.waitForSelector('.stay-table');
+    assert.equal(await columns(),1+31,'the choice is kept in this browser');
     assert.ok(writes.length>=7);assert.deepEqual(errors,[]);
     console.log('PASS: stay phone/desktop, own list, three marks, conflict, history, search and themes');
 }finally{await browser.close();}

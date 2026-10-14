@@ -1076,6 +1076,20 @@ header.top h1 { flex: 1; min-width: 180px; }
 (function () {
     'use strict';
     const TOKEN_KEY = 'mtb_portal_token_v1';
+    // Weekends and holidays cannot be marked; hidden by default, and the choice is kept
+    // in this browser for every attendance sheet (owner, 14 Oct 2026).
+    const HIDE_CLOSED_KEY = 'mtb_kolega_hide_closed_v1';
+    let hideClosed = true;
+    try { hideClosed = localStorage.getItem(HIDE_CLOSED_KEY) !== '0'; } catch { /* a private window keeps the default */ }
+    const shownDays = (days) => hideClosed ? days.filter((day) => !day.closed) : days;
+    const hideClosedButton = (disabled) => '<button type="button" data-hide-closed aria-pressed="' + hideClosed + '"' + (disabled ? ' disabled' : '') + '>'
+        + (hideClosed ? 'Прикажи неработни денови' : 'Скриј неработни денови') + '</button>';
+    document.addEventListener('click', (event) => {
+        if (!event.target.closest('[data-hide-closed]')) return;
+        hideClosed = !hideClosed;
+        try { localStorage.setItem(HIDE_CLOSED_KEY, hideClosed ? '1' : '0'); } catch { /* kept for this page only */ }
+        if (view.tab === 'stay') drawStay(); else if (view.tab === 'attendance' && attendance.data) drawAttendance();
+    });
     const el = (id) => document.getElementById(id);
     const esc = (v) => String(v == null ? '' : v).replace(/[&<>"']/g, (c) =>
         ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -1093,7 +1107,8 @@ header.top h1 { flex: 1; min-width: 180px; }
     async function loadStay() {
         if (!stay.month) stay.month = new Date().toLocaleDateString('en-CA', {timeZone:'Europe/Skopje'}).slice(0,7);
         const request=++stay.request, person=me, month=stay.month;
-        el('stay').innerHTML='<p>Вчитувам…</p>';
+        // A month already on screen stays there while it is read again: no flash, no jump.
+        if(!stay.data || stay.data.month!==month) el('stay').innerHTML='<p>Вчитувам…</p>';
         try {
             const [data,list]=await Promise.all([api('GET','/api/portal/stay?month='+month),api('GET','/api/portal/stay/pupils')]);
             if(request!==stay.request || me!==person || view.tab!=='stay') return;
@@ -1105,12 +1120,13 @@ header.top h1 { flex: 1; min-width: 180px; }
     }
     function drawStay() {
         const d=stay.data; if(!d) return;
+        const scrolled=el('stay').querySelector('.attendance-scroll')?.scrollLeft||0;
         const short=['нед.','пон.','вто.','сре.','чет.','пет.','саб.'];
         const marks=new Map(d.marks.map(m=>[m.publicId+'|'+m.date,m.status]));
         const label=s=>s==='present'?'Присутен':s==='absent'?'Отсутен':'Неозначено';
         const off=stay.busy||!d.pupils.length?' disabled':'', report=stayReport();
         el('stay').innerHTML='<div class="row no-print"><h2>Престој</h2><label>Месец <input type="month" id="stayMonth" value="'+esc(stay.month)+'"'+(stay.busy?' disabled':'')+'></label>'
-            +'<button data-stay-refresh'+(stay.busy?' disabled':'')+'>Освежи</button><button data-stay-list'+(stay.busy?' disabled':'')+' aria-expanded="'+stay.list+'">Мој список</button>'
+            +'<button data-stay-refresh'+(stay.busy?' disabled':'')+'>Освежи</button><button data-stay-list'+(stay.busy?' disabled':'')+' aria-expanded="'+stay.list+'">Мој список</button>'+hideClosedButton(stay.busy)
             +'<div class="report-exports" role="group" aria-label="Печатење и извоз"><button data-stay-print'+off+'>Печати</button><button data-stay-png'+off+'>🖼 Слика</button>'
             +'<button data-stay-pdf'+off+' title="Точно A4, без адреса, датум и број на страница од прелистувачот">⬇ PDF</button>'
             +'<button type="button" data-preparer title="Кој пишува дека го изработил документот">✍ Изработил</button><button data-stay-docx'+off+'>Word (.docx)</button></div></div>'
@@ -1126,14 +1142,15 @@ header.top h1 { flex: 1; min-width: 180px; }
                 +'<button type="button" data-stay-list-cancel'+(stay.busy?' disabled':'')+'>Откажи</button></div><span class="pick-count" id="stayPickCount"></span></div></section>':'')
             +(!d.pupils.length?'<p>Списокот е празен. Отворете „Мој список“ и изберете ученици.</p>':'<div id="staySheet"><h2>'+esc(report.title)+'</h2><p>'+esc(report.subtitle)+'</p></div>'
                 +'<div class="attendance-scroll"><table class="attendance-table month stay-table"><thead><tr><th scope="col">Ученик</th>'
-                +d.days.map(day=>'<th scope="col"'+(day.closed?' class="closed"':'')+' title="'+esc(day.closed||day.date)+'">'+Number(day.date.slice(8))+'<br>'+short[new Date(day.date+'T12:00:00Z').getUTCDay()]+'</th>').join('')+'</tr></thead><tbody>'
+                +shownDays(d.days).map(day=>'<th scope="col"'+(day.closed?' class="closed"':'')+' title="'+esc(day.closed||day.date)+'">'+Number(day.date.slice(8))+'<br>'+short[new Date(day.date+'T12:00:00Z').getUTCDay()]+'</th>').join('')+'</tr></thead><tbody>'
                 +d.pupils.map(p=>'<tr><th scope="row">'+esc((p.grade?p.grade+' · ':'')+p.name)+(p.selected?'':'<br><small>Претходни ознаки</small>')+'</th>'
-                    +d.days.map(day=>{const value=marks.get(p.publicId+'|'+day.date)||null;
+                    +shownDays(d.days).map(day=>{const value=marks.get(p.publicId+'|'+day.date)||null;
                         const disabled=stay.busy || d.readOnly || day.closed || day.future || (!p.selected&&!value);
                         return '<td class="'+(day.closed?'closed':'')+(value==='present'?' mark-present':value==='absent'?' mark-absent':'')+'"><button class="attendance-mark '+(value||'blank')+'" data-stay-mark="'+esc(p.publicId)+'" data-stay-date="'+day.date+'"'
                             +(disabled?' disabled':'')+' aria-label="'+esc(p.name+' · '+day.date+' · '+label(value))+'" title="'+esc(day.closed||(day.future?'Иден датум':label(value)))+'">'+(value==='present'?'✓':value==='absent'?'✕':'—')+'</button></td>';
                     }).join('')+'</tr>').join('')+'</tbody></table></div>');
         if(stay.list && stay.draft) stayPickFind();
+        const scroller=el('stay').querySelector('.attendance-scroll'); if(scroller) scroller.scrollLeft=scrolled;
     }
     function stayPickFind() {
         pickFind(el('stay'), stay.query);
@@ -1174,7 +1191,7 @@ header.top h1 { flex: 1; min-width: 180px; }
     }
     /** The month as one sheet for paper, a picture and Word: weekends left out, a closed day „—", an unmarked one „·". */
     function stayReport() {
-        const d=stay.data, days=d.days.filter(day=>day.closed!=='Викенд');
+        const d=stay.data, days=shownDays(d.days).filter(day=>day.closed!=='Викенд');
         const marks=new Map(d.marks.map(m=>[m.publicId+'|'+m.date,m.status]));
         // Spelled out here: a browser without Macedonian dates would print „October".
         const month=['јануари','февруари','март','април','мај','јуни','јули','август','септември','октомври','ноември','декември'][Number(stay.month.slice(5))-1]+' '+stay.month.slice(0,4);
@@ -1191,17 +1208,30 @@ header.top h1 { flex: 1; min-width: 180px; }
         if(event.target.id!=='staySearch') return;
         stay.query=event.target.value; stayPickFind();
     });
-    async function writeStay(path,body) {
-        if(stay.busy) return; stay.busy=true; stay.message=''; drawStay();
-        const person=me;
-        try { await api('PUT','/api/portal/stay/'+path,body); if(me===person) stay.message='Зачувано.'; }
-        catch(err) { if(me===person) stay.message=err.message; }
-        finally {
-            stay.busy=false;
-            if(me===person && view.tab==='stay') {
-                await loadStay();
-                el('stay').querySelector('[data-stay-mark="'+CSS.escape(body.publicId)+'"][data-stay-date="'+body.date+'"]')?.focus({preventScroll:true});
-            }
+    /** One mark, saved, and only its own cell redrawn — as cabinet attendance does; the sheet never flashes or jumps. */
+    async function markStay(b, body) {
+        if(b.getAttribute('aria-busy')) return;
+        const person=me, data=stay.data;
+        b.setAttribute('aria-busy','true');
+        try {
+            await api('PUT','/api/portal/stay/mark',body);
+            if(me!==person || stay.data!==data) return;
+            data.marks=data.marks.filter(m=>!(m.publicId===body.publicId && m.date===body.date));
+            if(body.status) data.marks.push({publicId:body.publicId,date:body.date,status:body.status});
+            const label=body.status==='present'?'Присутен':body.status==='absent'?'Отсутен':'Неозначено';
+            b.className='attendance-mark '+(body.status||'blank');
+            b.textContent=body.status==='present'?'✓':body.status==='absent'?'✕':'—';
+            b.title=label; b.setAttribute('aria-label',b.getAttribute('aria-label').replace(/[^·]+$/,' '+label));
+            const cell=b.closest('td'); cell.classList.toggle('mark-present',body.status==='present'); cell.classList.toggle('mark-absent',body.status==='absent');
+            stay.message='Зачувано.';
+        } catch(err) {
+            if(me!==person) return;
+            // Refused: what stands on the server is read again, in place.
+            stay.message=err.message;
+            if(view.tab==='stay') await loadStay();
+        } finally {
+            b.removeAttribute('aria-busy');
+            const status=el('stay').querySelector('p[role=status]'); if(status && me===person) status.textContent=stay.message;
         }
     }
     el('stay').addEventListener('change',event=>{
@@ -1228,7 +1258,7 @@ header.top h1 { flex: 1; min-width: 180px; }
         if(b.hasAttribute('data-stay-mark')) {
             const publicId=b.dataset.stayMark,date=b.dataset.stayDate;
             const expected=stay.data.marks.find(m=>m.publicId===publicId&&m.date===date)?.status||null;
-            writeStay('mark',{publicId,date,expected,status:expected===null?'present':expected==='present'?'absent':null});
+            markStay(b,{publicId,date,expected,status:expected===null?'present':expected==='present'?'absent':null});
         }
     });
     let editing = null;         // { ordinal } of the period being edited
@@ -1770,16 +1800,16 @@ header.top h1 { flex: 1; min-width: 180px; }
         }
     }
     function attendanceReport() {
-        const data = attendance.data, ds = data.days;
+        const data = attendance.data, ds = shownDays(data.days);
         const title = (attendance.mode === 'month' ? 'Месечно присуство' : 'Неделно присуство') + ' — ' + viewedName();
         const subtitle = data.from + ' – ' + data.to + ' · учебна ' + data.year;
         const note = '✓ присутен · × отсутен · ? неозначено · — нема термин · ● зачуван дневен распоред. Незачуваните денови се проекција од сегашниот распоред, не потврдена историја.'
             + (!data.calendarAvailable ? ' ⚠ Календарот за оваа година не е потврден на серверот.' : '');
         if (attendance.mode === 'month') {
             const pupils = new Map();
-            ds.forEach(d => d.sessions.forEach(s => pupils.set(s.studentId || s.publicId, { name: s.name, grade: s.grade })));
+            data.days.forEach(d => d.sessions.forEach(s => pupils.set(s.studentId || s.publicId, { name: s.name, grade: s.grade })));
             const rows = [...pupils].sort((a, b) => a[1].name.localeCompare(b[1].name, 'mk')).map(([id, pupil]) => {
-                const all = ds.flatMap(d => d.sessions.filter(s => (s.studentId || s.publicId) === id));
+                const all = data.days.flatMap(d => d.sessions.filter(s => (s.studentId || s.publicId) === id));
                 return { label: pupil.name + (pupil.grade ? '\n' + pupil.grade : ''), cells: ds.map(d => ({ day: d,
                     sessions: d.sessions.filter(s => (s.studentId || s.publicId) === id) })),
                     totals: [all.length, all.filter(s => s.status === 'present').length, all.filter(s => s.status === 'absent').length,
@@ -1787,7 +1817,7 @@ header.top h1 { flex: 1; min-width: 180px; }
             });
             return { title, subtitle, note, columns: ['Ученик', ...ds.map(d => d.date.slice(8) + (d.frozen ? ' ●' : '')), 'План', '✓', '×', '?'], rows };
         }
-        const times = [...new Set(ds.flatMap(d => d.sessions.map(s => s.time)))].sort();
+        const times = [...new Set(data.days.flatMap(d => d.sessions.map(s => s.time)))].sort();
         return { title, subtitle, note, columns: ['Термин', ...ds.map(d => cap(d.dayName) + '\n' + dmy(d.date) + (d.frozen ? ' ●' : ''))],
             rows: times.map(time => ({ label: time.replace('-', '–'), cells: ds.map(d => ({ day: d, sessions: d.sessions.filter(s => s.time === time) })), totals: [] })) };
     }
@@ -1840,7 +1870,7 @@ header.top h1 { flex: 1; min-width: 180px; }
     }
     const classMarkText = { present: '✓', absent: '×', blank: '·' };
     function classAttendanceReport() {
-        const d = attendance.data, days = d.days.filter((day) => day.closed !== 'Викенд');
+        const d = attendance.data, days = shownDays(d.days).filter((day) => day.closed !== 'Викенд');
         const marked = (day, status) => d.pupils.filter((p) => day.marks[p.studentId] === status).length;
         return { title: 'Присуство — паралелка ' + (d.class.alias || shortOf(d.class.label)), subtitle: d.from + ' – ' + d.to + ' · учебна ' + d.year,
             note: '✓ присутен, × отсутен, · неозначено. Неозначено не значи отсутен. Ова присуство е за храната; не влегува во извештајот за превоз.',
@@ -2067,7 +2097,7 @@ header.top h1 { flex: 1; min-width: 180px; }
             + `<button data-att-step="-1" aria-label="Претходен период"${disabled}>◀</button>`
             + `<label>${attendance.scope === 'meals' ? 'Ден' : 'Период'}<input id="attendanceDate" type="${attendance.mode === 'month' && attendance.scope !== 'meals' ? 'month' : 'date'}" value="${attendance.mode === 'month' && attendance.scope !== 'meals' ? range.from.slice(0, 7) : range.from}"${disabled}></label>`
             + `<button data-att-step="1" aria-label="Следен период"${disabled}>▶</button>`
-            + `</div><button data-att-refresh${disabled}>Освежи</button><div class="report-exports" role="group" aria-label="Печатење и извоз"><button data-att-print${disabled || !data ? ' disabled' : ''}>Печати</button>`
+            + `</div><button data-att-refresh${disabled}>Освежи</button>${attendance.scope === 'transport' || attendance.scope === 'meals' ? '' : hideClosedButton(attendance.busy)}<div class="report-exports" role="group" aria-label="Печатење и извоз"><button data-att-print${disabled || !data ? ' disabled' : ''}>Печати</button>`
             + `<button data-att-png${disabled || !data ? ' disabled' : ''}>🖼 Слика</button>`
             + `<button data-att-pdf${disabled || !data ? ' disabled' : ''} title="Точно A4, без адреса, датум и број на страница од прелистувачот">⬇ PDF</button>`
             + '<button type="button" data-preparer title="Кој пишува дека го изработил документот">✍ Изработил</button>'
