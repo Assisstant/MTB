@@ -234,6 +234,9 @@ header.top h1 { flex: 1; min-width: 180px; }
 .days .week-toggle { margin-left: 6px; }
 .class-card .pupil-terms { list-style: none; padding-left: 0; }
 .class-card .pupil-terms li { margin-top: 3px; }
+.class-card .missed { margin-top: 4px; }
+/* A child's name in a term, trimmed to fit (owner, 14 Oct 2026); the card has the whole of it. */
+.period .klass.pupil-name { max-width: 16ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; vertical-align: bottom; }
 /* Акциски план (061). The pupil's name stays in sight while a part is written:
    the wrong pupil open is the mistake this screen expects. */
 .plan-quarters, .plan-toggles, .plan-bulk { display: flex; gap: 6px; flex-wrap: wrap; margin: 6px 0; }
@@ -1249,7 +1252,22 @@ header.top h1 { flex: 1; min-width: 180px; }
      * child goes to, and when. Read from the week already here — one's own
      * terms and, for one's own pupils, where they are with somebody else.
      */
-    function pupilCardHtml(id) {
+    /**
+     * The lesson the child misses in this term (owner, 14 Oct 2026): their own
+     * class's lesson that the term crosses, as the server's crossing counts it.
+     */
+    function missedHtml(id, time) {
+        const c = week.cabinet || {}, own = (c.pupils || []).find((p) => p.publicId === id);
+        if (!time) return '';
+        const term = spanOf(time);
+        const lessons = (c.missed || []).filter((m) => m.publicId === id && m.day === view.day && m.slots.some((slot) => {
+            const s = spanOf(slot); return s.from < term.to && term.from < s.to;
+        })).sort((a, b) => a.ordinal - b.ordinal);
+        if (lessons.length) return '<div class="missed"><b>Во овој термин пропушта:</b> ' + lessons.map((m) =>
+            `${esc(m.ordinal)}. час · ${esc(m.subject || 'час')}${m.teacher ? ' · ' + esc(properName(m.teacher)) : ''}`).join('; ') + '</div>';
+        return own && own.class ? '<div class="muted">Во овој термин паралелката нема час.</div>' : '';
+    }
+    function pupilCardHtml(id, time) {
         const c = week.cabinet || {}, days = week.days || [];
         const own = (c.pupils || []).find((p) => p.publicId === id);
         const visits = [];
@@ -1263,14 +1281,14 @@ header.top h1 { flex: 1; min-width: 180px; }
         });
         visits.sort((a, b) => days.indexOf(a.day) - days.indexOf(b.day) || a.from - b.from);
         const cabinets = new Set(visits.map((v) => v.who)).size;
-        return `<b>${esc(pupilName(id))}</b>${own && own.class ? ' · ' + esc(own.class) : ''}`
+        return `<b>${esc(pupilName(id))}</b>${own && own.class ? ' · ' + esc(own.class) : ''}` + missedHtml(id, time)
             + `<div class="muted">${cabinets === 1 ? '1 кабинет' : cabinets + ' кабинети'} · ${visits.length === 1 ? '1 термин' : visits.length + ' термини'} неделно</div>`
             + '<ul class="pupil-terms">' + visits.map((v) =>
                 `<li><b>${esc(DAY_SHORT[v.day] || v.day)}</b> ${esc(clock(v.from))}–${esc(clock(v.to))} · ${esc(v.who)}${v.here ? ' <span class="muted">(овој кабинет)</span>' : ''}</li>`).join('') + '</ul>'
             + (own ? '' : '<div class="muted">Не е на вашиот список, па другите кабинети не се прикажани.</div>');
     }
     function showCard(chip) {
-        card.innerHTML = chip.dataset.pupil ? pupilCardHtml(chip.dataset.pupil) : classCardHtml(chip.dataset.klass);
+        card.innerHTML = chip.dataset.pupil ? pupilCardHtml(chip.dataset.pupil, chip.dataset.term) : classCardHtml(chip.dataset.klass);
         card.hidden = false;
         if (cardFor && cardFor !== chip) cardFor.setAttribute('aria-expanded', 'false');
         cardFor = chip;
@@ -1290,15 +1308,21 @@ header.top h1 { flex: 1; min-width: 180px; }
         if (cardFor) cardFor.setAttribute('aria-expanded', 'false');
         cardFor = null;
     }
-    // The mouse: resting on the class shows it, leaving hides it.
+    // The mouse: resting on the class or the child for half a second shows it
+    // (owner, 14 Oct 2026 — passing over a name on the way elsewhere does not),
+    // leaving hides it.
+    let restTimer = null;
     document.addEventListener('pointerover', (event) => {
         if (event.pointerType !== 'mouse') return;
         const chip = event.target.closest && event.target.closest('.klass');
-        if (chip) showCard(chip);
+        if (!chip || chip === cardFor) return;
+        clearTimeout(restTimer);
+        restTimer = setTimeout(() => { if (chip.matches(':hover')) showCard(chip); }, 500);
     });
     document.addEventListener('pointerout', (event) => {
         if (event.pointerType !== 'mouse') return;
         const chip = event.target.closest && event.target.closest('.klass');
+        if (chip && !chip.contains(event.relatedTarget)) clearTimeout(restTimer);
         if (chip && !chip.contains(event.relatedTarget) && !card.contains(event.relatedTarget)) hideCard();
     });
     // A finger: held on the class it shows (and the phone's own long-press
@@ -3734,7 +3758,9 @@ header.top h1 { flex: 1; min-width: 180px; }
         let what;
         // The name is the same button a class is: resting on it, or holding a
         // finger on it, shows the child's cabinets (pupilCardHtml).
-        const named = (id) => `<button type="button" class="klass" data-pupil="${esc(id)}" aria-expanded="false" aria-controls="classCard">${esc(pupilName(id))}</button>`;
+        // Trimmed to fit (owner, 14 Oct 2026); the whole name, and the lesson the
+        // child misses in THIS term, are on the card it opens.
+        const named = (id) => `<button type="button" class="klass pupil-name" data-pupil="${esc(id)}" data-term="${esc(bell.time)}" aria-expanded="false" aria-controls="classCard" aria-label="${esc(pupilName(id))}">${esc(pupilName(id))}</button>`;
         if (!ids.length) what = '<span class="free">— слободен —</span>';
         else if (ids.length === 1) what = `${named(ids[0])} <span class="muted">· 40 мин</span>`;
         else what = ids.map((id, i) => `${named(id)} <span class="muted">· ${i ? 'втори' : 'први'} 20</span>`).join('<br>');

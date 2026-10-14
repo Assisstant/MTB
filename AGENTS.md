@@ -28,7 +28,7 @@ accumulate there ARE the divergence, because only one machine ever sees them.
 | Before changing… | Read… |
 |---|---|
 | UI, navigation, schedules, server selection or sync | [APP-CONTRACT](docs/APP-CONTRACT.md); the matching feature in [HISTORY](docs/HISTORY.md) |
-| Schedules and diary/Cabinets agreement | [Schedule/week plan](docs/PLAN-rasporedot-i-nedelata.md), [Conflict rules](docs/PLAN-kabineti-konflikti.md), matching traps below |
+| Schedules and diary/Cabinets agreement | [Schedule/week plan](docs/PLAN-rasporedot-i-nedelata.md), [Conflict rules](docs/PLAN-kabineti-konflikti.md), [Group terms](docs/PLAN-grupni-termini.md), matching traps below |
 | Sync, attendance merging, imports/exports or storage | [SYNC](docs/SYNC.md), [Architecture, and why](docs/AGENT-REFERENCE.md#architecture-and-why), matching traps below |
 | Annual lists, pupils, identity or September transitions | APP-CONTRACT domain section, [SCHOOL-YEAR](docs/SCHOOL-YEAR.md), matching traps below |
 | Public access, colleagues, authentication or static files | APP-CONTRACT, [Colleagues online](docs/PLAN-kolegi-online.md), security/privacy traps below |

@@ -474,7 +474,9 @@ check('no page errors', errors.length === 0, errors.join('\n       '));
                 bells: [{ ordinal: 1, label: '1', time: '08:00-08:40' }, { ordinal: 2, label: '2', time: '08:45-09:25' }],
                 pupils: [{ publicId: 'p1', name: 'Ученик Измислен', class: 'II-б' }, { publicId: 'p2', name: 'Ученичка Измислена', class: 'I-а' }],
                 terms, names: {},
-                elsewhere: [{ publicId: 'p1', day: 'понеделник', time: '08:00-08:40', therapist: 'Колега Ди' }]
+                elsewhere: [{ publicId: 'p1', day: 'понеделник', time: '08:00-08:40', therapist: 'Колега Ди' }],
+                // What the child misses here, as the server's crossing says (owner, 14 Oct 2026).
+                missed: [{ publicId: 'p1', day: 'понеделник', slots: ['08:00-08:40'], ordinal: 1, subject: 'Математика', teacher: 'НАСТАВНИЧКА ИЗМИСЛЕНА' }]
             }
         });
         if (url.pathname === '/api/portal/cabinets') return json(200, {
@@ -542,8 +544,18 @@ check('no page errors', errors.length === 0, errors.join('\n       '));
     const visits = await p.textContent('#classCard');
     check('a pupil\'s name shows which cabinets they go to, and when',
         /2 кабинети · 3 термини/.test(visits) && /Пон 08:00–08:40 · Колега Ди/.test(visits) && /Пон 08:45–09:05 · Терапевтка Измислена/.test(visits), visits);
+    check('and, for this term, the lesson of the own class of the child that it misses', /Во овој термин пропушта: 1. час · Математика · Наставничка Измислена/.test(visits), visits);
     await p.keyboard.press('Escape');
     check('and Esc puts it away', await p.isHidden('#classCard'));
+    // Resting the mouse on a name opens the card after half a second, not on the way past.
+    await p.hover('#periods [data-time="08:00-08:40"] .klass[data-pupil="p1"]');
+    await p.clock.runFor(300);
+    const early = await p.isHidden('#classCard');
+    await p.clock.runFor(300);
+    check('the mouse resting on a name opens its card after half a second', early && await p.isVisible('#classCard'));
+    await p.mouse.move(0, 0);
+    await p.keyboard.press('Escape');
+    check('a name in a term is trimmed to fit', await p.evaluate(() => getComputedStyle(document.querySelector('#periods .klass.pupil-name')).textOverflow === 'ellipsis'));
     const pictures = [];
     p.on('download', (d) => pictures.push(d.suggestedFilename()));
     const pictured = async (n) => { for (let i = 0; i < 60 && pictures.length < n; i++) await new Promise((r) => setTimeout(r, 150)); };

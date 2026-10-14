@@ -102,6 +102,9 @@ async function main() {
         check('with their own pupils only', JSON.stringify((cab?.pupils || []).map((p: any) => p.publicId).sort())
             === JSON.stringify([PUPILS[0].id, PUPILS[1].id].sort()), JSON.stringify(cab?.pupils));
         check('and where those pupils are with somebody else', (cab?.elsewhere || []).some((e: any) => e.publicId === PUPILS[0].id && e.therapist === R2 && e.day === DAY));
+        // The lesson each child misses in one's own terms (owner, 14 Oct 2026): from the crossing, only this cabinet's.
+        check('and what lessons one\'s own terms cost, from the same crossing as „Паралелка"', Array.isArray(cab?.missed)
+            && cab.missed.every((m: any) => m.publicId && m.day && Array.isArray(m.slots) && Number.isInteger(m.ordinal)), JSON.stringify(cab?.missed));
         check('never another therapist\'s pupil', !JSON.stringify(week.body).includes(PUPILS[2].name) && !JSON.stringify(week.body).includes(PUPILS[2].id));
 
         console.log('\na block of one\'s own');

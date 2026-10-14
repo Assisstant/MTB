@@ -303,7 +303,15 @@ async function cabinetWeek(staff: Staff, year: { id: number; label: string }) {
            JOIN therapists t ON t.id = sl.therapist_id
           WHERE sl.school_year_id = $1 AND sl.therapist_id <> $2 AND s.public_id = ANY($3::text[])`,
         [year.id, staff.therapistId, own])).rows : [];
-    return { bells, pupils, terms, names, elsewhere };
+    // What each child misses while here (owner, 14 Oct 2026): the lesson of
+    // their own class this cabinet's term crosses, as „Паралелка" counts it —
+    // the same crossing, so the two never disagree. Its `slots` are this
+    // therapist's raw term strings, so the page matches a term exactly.
+    const therapist = (await pool.query('SELECT name FROM therapists WHERE id = $1', [staff.therapistId])).rows[0];
+    const missed = therapist && rows.length ? (await crossingOf(year, null)).cells.flatMap((c: any) => c.away
+        .filter((a: any) => a.therapist === therapist.name)
+        .map((a: any) => ({ publicId: a.studentPublicId, day: c.day, slots: a.slots, ordinal: c.ordinal, subject: c.subject, teacher: c.teacher }))) : [];
+    return { bells, pupils, terms, names, elsewhere, missed };
 }
 
 /** Is this pupil still with two therapists at once somewhere on this day? */
