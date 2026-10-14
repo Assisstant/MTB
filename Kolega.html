@@ -498,7 +498,7 @@ header.top h1 { flex: 1; min-width: 180px; }
   #transportCertificate .certificate-sign { margin-top: 20mm; text-align: right; }
   body.printing-attendance { page: attendance-report; }
   body.printing-attendance main > *:not(#home), body.printing-attendance #home > *:not(#weekCard),
-  body.printing-attendance #weekCard > *:not(#attendance), body.printing-attendance .no-print,
+  body.printing-attendance #weekCard > *:not(#attendance):not(#stay), body.printing-attendance .no-print,
   body.printing-attendance .attendance-legend { display: none !important; }
   body.printing-attendance, body.printing-attendance .card { background: #fff !important; color: #000 !important; border: 0 !important; }
   body.printing-attendance main { max-width: none; padding: 0; margin: 0; }
@@ -885,8 +885,9 @@ header.top h1 { flex: 1; min-width: 180px; }
     html body .count { background: #ae202b; color: #fff; }
     html body:is(body, .dark-mode, .dark) { --soft: var(--mtb-face); --fill: var(--mtb-selected); --fill-edge: var(--mtb-select-line); --accent-text: var(--mtb-on-ink); --glass: var(--mtb-edge); --glass-soft: var(--mtb-edge); --focus: var(--mtb-accent); --chip: var(--mtb-well); }
     html body:is(body, .dark-mode, .dark) .attendance-mark { background: var(--mtb-face); color: var(--mtb-ink); border-color: var(--mtb-line); }
-    html body:is(body, .dark-mode, .dark) .attendance-mark.present { border-left: 3px solid var(--mtb-good); }
-    html body:is(body, .dark-mode, .dark) .attendance-mark.absent { border-left: 3px solid var(--mtb-error); }
+    /* A mark is read at a glance, green or red as in S-Дневник, in both themes (owner, 14 Oct 2026). */
+    html body:is(body, .dark-mode, .dark) .attendance-mark.present { background: #48bb78; border-color: #38a169; color: #fff; }
+    html body:is(body, .dark-mode, .dark) .attendance-mark.absent { background: #f56565; border-color: #e53e3e; color: #fff; }
     html body:is(body, .dark-mode, .dark) .attendance-table :is(td.mark-present, td.mark-absent, td.mark-mixed, .closed) { background: var(--mtb-well); color: var(--mtb-ink); }
     html body:is(body, .dark-mode, .dark) :is(.duty-stale, .ask) { border-color: var(--mtb-line); border-left: 3px solid var(--mtb-warning); }
     html body:is(body, .dark-mode, .dark) :is(.acting, .duty-note) { background: var(--mtb-notice); color: var(--mtb-ink); border-left: 3px solid var(--mtb-accent); }
@@ -1096,21 +1097,41 @@ header.top h1 { flex: 1; min-width: 180px; }
         const short=['нед.','пон.','вто.','сре.','чет.','пет.','саб.'];
         const marks=new Map(d.marks.map(m=>[m.publicId+'|'+m.date,m.status]));
         const label=s=>s==='present'?'Присутен':s==='absent'?'Отсутен':'Неозначено';
-        el('stay').innerHTML='<div class="row"><h2>Престој</h2><label>Месец <input type="month" id="stayMonth" value="'+esc(stay.month)+'"'+(stay.busy?' disabled':'')+'></label>'
-            +'<button data-stay-refresh'+(stay.busy?' disabled':'')+'>Освежи</button><button data-stay-list'+(stay.busy?' disabled':'')+' aria-expanded="'+stay.list+'">Мој список</button></div>'
-            +'<p>✓ Присутен · ✕ Отсутен · — Неозначено. Допрете поле за следната ознака; промената се зачувува веднаш.</p>'
-            +'<p role="status">'+esc(stay.message)+'</p>'
-            +(stay.list?'<div class="stay-list"><label>Пребарај <input id="staySearch" type="search" value="'+esc(stay.query)+'"></label><div class="ticks">'
+        const off=stay.busy||!d.pupils.length?' disabled':'', report=stayReport();
+        el('stay').innerHTML='<div class="row no-print"><h2>Престој</h2><label>Месец <input type="month" id="stayMonth" value="'+esc(stay.month)+'"'+(stay.busy?' disabled':'')+'></label>'
+            +'<button data-stay-refresh'+(stay.busy?' disabled':'')+'>Освежи</button><button data-stay-list'+(stay.busy?' disabled':'')+' aria-expanded="'+stay.list+'">Мој список</button>'
+            +'<div class="report-exports" role="group" aria-label="Печатење и извоз"><button data-stay-print'+off+'>Печати</button><button data-stay-png'+off+'>🖼 Слика</button>'
+            +'<button data-stay-pdf'+off+' title="Точно A4, без адреса, датум и број на страница од прелистувачот">⬇ PDF</button>'
+            +'<button type="button" data-preparer title="Кој пишува дека го изработил документот">✍ Изработил</button><button data-stay-docx'+off+'>Word (.docx)</button></div></div>'
+            +'<p class="no-print">✓ Присутен · ✕ Отсутен · — Неозначено. Допрете поле за следната ознака; промената се зачувува веднаш.</p>'
+            +'<p class="no-print" role="status">'+esc(stay.message)+'</p>'
+            +(stay.list?'<div class="stay-list no-print"><label>Пребарај <input id="staySearch" type="search" value="'+esc(stay.query)+'"></label><div class="ticks">'
                 +stay.pupils.map(p=>'<label data-stay-label'+(((p.grade||'')+' '+p.name).toLocaleLowerCase('mk-MK').includes(stay.query.toLocaleLowerCase('mk-MK'))?'':' hidden')+'><input type="checkbox" data-stay-pupil="'+esc(p.publicId)+'"'+(p.selected?' checked':'')+(stay.busy||d.readOnly?' disabled':'')+'> '+esc((p.grade?p.grade+' · ':'')+p.name)+'</label>').join('')
                 +'</div><p class="muted">Тргањето од списокот ги зачувува претходните ознаки.</p></div>':'')
-            +(!d.pupils.length?'<p>Списокот е празен. Отворете „Мој список“ и изберете ученици.</p>':'<div class="attendance-scroll"><table class="attendance-table month stay-table"><thead><tr><th scope="col">Ученик</th>'
+            +(!d.pupils.length?'<p>Списокот е празен. Отворете „Мој список“ и изберете ученици.</p>':'<div id="staySheet"><h2>'+esc(report.title)+'</h2><p>'+esc(report.subtitle)+'</p></div>'
+                +'<div class="attendance-scroll"><table class="attendance-table month stay-table"><thead><tr><th scope="col">Ученик</th>'
                 +d.days.map(day=>'<th scope="col"'+(day.closed?' class="closed"':'')+' title="'+esc(day.closed||day.date)+'">'+Number(day.date.slice(8))+'<br>'+short[new Date(day.date+'T12:00:00Z').getUTCDay()]+'</th>').join('')+'</tr></thead><tbody>'
                 +d.pupils.map(p=>'<tr><th scope="row">'+esc((p.grade?p.grade+' · ':'')+p.name)+(p.selected?'':'<br><small>Претходни ознаки</small>')+'</th>'
                     +d.days.map(day=>{const value=marks.get(p.publicId+'|'+day.date)||null;
                         const disabled=stay.busy || d.readOnly || day.closed || day.future || (!p.selected&&!value);
-                        return '<td'+(day.closed?' class="closed"':'')+'><button class="attendance-mark '+(value||'blank')+'" data-stay-mark="'+esc(p.publicId)+'" data-stay-date="'+day.date+'"'
+                        return '<td class="'+(day.closed?'closed':'')+(value==='present'?' mark-present':value==='absent'?' mark-absent':'')+'"><button class="attendance-mark '+(value||'blank')+'" data-stay-mark="'+esc(p.publicId)+'" data-stay-date="'+day.date+'"'
                             +(disabled?' disabled':'')+' aria-label="'+esc(p.name+' · '+day.date+' · '+label(value))+'" title="'+esc(day.closed||(day.future?'Иден датум':label(value)))+'">'+(value==='present'?'✓':value==='absent'?'✕':'—')+'</button></td>';
                     }).join('')+'</tr>').join('')+'</tbody></table></div>');
+    }
+    /** The month as one sheet for paper, a picture and Word: weekends left out, a closed day „—", an unmarked one „·". */
+    function stayReport() {
+        const d=stay.data, days=d.days.filter(day=>day.closed!=='Викенд');
+        const marks=new Map(d.marks.map(m=>[m.publicId+'|'+m.date,m.status]));
+        // Spelled out here: a browser without Macedonian dates would print „October".
+        const month=['јануари','февруари','март','април','мај','јуни','јули','август','септември','октомври','ноември','декември'][Number(stay.month.slice(5))-1]+' '+stay.month.slice(0,4);
+        return { title:'Престој — '+me.person.name, subtitle:month+' · учебна '+(d.year||me.year),
+            note:'✓ присутен · × отсутен · · неозначено · — неработен ден. Неозначено не значи отсутен.',
+            columns:['Ученик',...days.map(day=>day.date.slice(8)),'✓','×'],
+            rows:d.pupils.map(p=>{
+                const of=day=>marks.get(p.publicId+'|'+day.date)||null;
+                return [p.name+(p.grade?'\n'+p.grade:''),...days.map(day=>day.closed?'—':of(day)==='present'?'✓':of(day)==='absent'?'×':'·'),
+                    String(days.filter(day=>of(day)==='present').length),String(days.filter(day=>of(day)==='absent').length)];
+            }) };
     }
     el('stay').addEventListener('input',event=>{
         if(event.target.id!=='staySearch') return;
@@ -1142,6 +1163,13 @@ header.top h1 { flex: 1; min-width: 180px; }
         const b=event.target.closest('button');if(!b || stay.busy) return;
         if(b.hasAttribute('data-stay-refresh')) {stay.message='';loadStay();}
         if(b.hasAttribute('data-stay-list')) {stay.list=!stay.list;drawStay();}
+        if(stay.data?.pupils.length) {
+            const file='Prestoj-'+stay.month;
+            if(b.hasAttribute('data-stay-print')) { document.body.classList.add('printing-attendance'); window.print(); return; }
+            if(b.hasAttribute('data-stay-png')) return paintReport({...stayReport(),file,compact:true,attendance:true});
+            if(b.hasAttribute('data-stay-pdf')) return reportPdf({...stayReport(),file,compact:true,attendance:true},true);
+            if(b.hasAttribute('data-stay-docx')) return saveReportDocx(stayReport(),file);
+        }
         if(b.hasAttribute('data-stay-mark')) {
             const publicId=b.dataset.stayMark,date=b.dataset.stayDate;
             const expected=stay.data.marks.find(m=>m.publicId===publicId&&m.date===date)?.status||null;
@@ -2089,10 +2117,12 @@ header.top h1 { flex: 1; min-width: 180px; }
     window.addEventListener('beforeprint', () => {
         const kind = ['attendance','duty','week'].find(k=>document.body.classList.contains('printing-'+k));
         if (!kind) return;
-        const transport = kind === 'attendance' && attendance.scope === 'transport';
+        // Престој prints through the attendance layout, from its own sheet.
+        const onStay = kind === 'attendance' && view.tab === 'stay';
+        const transport = kind === 'attendance' && !onStay && attendance.scope === 'transport';
         document.body.classList.toggle('printing-transport-list',transport);
-        const target = el(kind === 'week' ? 'weekSheet' : kind);
-        const heading = kind === 'week' ? target.querySelector('.sheet') : kind === 'attendance' ? el('attendanceSheet') : target;
+        const target = el(kind === 'week' ? 'weekSheet' : onStay ? 'stay' : kind);
+        const heading = kind === 'week' ? target.querySelector('.sheet') : onStay ? el('staySheet') : kind === 'attendance' ? el('attendanceSheet') : target;
         let preparer = heading.querySelector('.print-preparer');
         if(!preparer) { preparer=document.createElement('p'); preparer.className='print-preparer'; heading.prepend(preparer); }
         preparer.textContent = preparerLine(); preparer.hidden = !preparer.textContent;

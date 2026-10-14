@@ -58,6 +58,31 @@ try {
     assert.equal(await page.locator('[data-stay-label]:visible').count(),1);
     await page.click('[data-stay-list]');
     assert.equal(await page.locator('[data-stay-date="2026-10-03"]').isDisabled(),true);
+    // Owner, 14 Oct 2026: green and red as in S-Дневник, and the standard ways out.
+    await page.click('[data-stay-mark="test-a"][data-stay-date="2026-10-02"]');await idle();
+    await page.click('[data-stay-mark="test-a"][data-stay-date="2026-10-02"]');await idle();
+    for(const theme of ['light','dark']) {
+        await page.evaluate(t=>document.documentElement.dataset.theme=t,theme);
+        const fill=s=>page.locator('[data-stay-mark="test-a"][data-stay-date="2026-10-0'+s+'"]').evaluate(e=>getComputedStyle(e).backgroundColor);
+        assert.equal(await fill(1),'rgb(72, 187, 120)',theme+': present is green');
+        assert.equal(await fill(2),'rgb(245, 101, 101)',theme+': absent is red');
+    }
+    for(const [button,name] of [['data-stay-png',/^Prestoj-2026-10\.png$/],['data-stay-pdf',/^Prestoj-2026-10\.pdf$/],['data-stay-docx',/^Prestoj-2026-10\.docx$/]]) {
+        const download=page.waitForEvent('download');await page.click('['+button+']');
+        assert.match((await download).suggestedFilename(),name,button);
+    }
+    // The browser's print dialog is not opened in a test: the page's own print steps are run and the print layout is looked at.
+    await page.evaluate(()=>{window.print=()=>{window.__printed=true;};});
+    await page.click('[data-stay-print]');
+    await page.evaluate(()=>window.dispatchEvent(new Event('beforeprint')));
+    await page.emulateMedia({media:'print'});
+    const printed=await page.evaluate(()=>({asked:window.__printed===true,stay:getComputedStyle(document.getElementById('stay')).display,
+        tools:getComputedStyle(document.querySelector('#stay .row')).display,table:getComputedStyle(document.querySelector('.stay-table')).display,
+        green:getComputedStyle(document.querySelector('.stay-table td.mark-present')).backgroundColor,preparer:document.querySelector('#staySheet .print-preparer')!==null}));
+    assert.deepEqual(printed,{asked:true,stay:'block',tools:'none',table:'table',green:'rgb(232, 245, 236)',preparer:true});
+    await page.emulateMedia({media:'screen'});await page.evaluate(()=>window.dispatchEvent(new Event('afterprint')));
+    assert.match(await page.locator('#staySheet h2').innerText(),/^Престој — Пробен Вработен Престој$/);
+    assert.match(await page.locator('#staySheet > p:not(.print-preparer)').innerText(),/октомври 2026 · учебна 2026\/2027/);
     for(const theme of ['light','dark']) {
         await page.evaluate(t=>document.documentElement.dataset.theme=t,theme);
         assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),'phone scroll stays inside the table');
