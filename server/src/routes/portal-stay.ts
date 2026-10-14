@@ -8,7 +8,9 @@ import { isIsoDate } from '../lib/duty.js';
 type Who = { staff: Staff; year: { id: number; label: string }; author: { name: string } };
 type Signed = (req: FastifyRequest, reply: FastifyReply) => Promise<Who | null>;
 const mark = z.enum(['present', 'absent']).nullable();
-const memberBody = z.object({ publicId: z.string().min(1).max(80), active: z.boolean(), expected: z.boolean() }).strict();
+// The whole list, as „Ученици по терапевт" in Кабинети saves it: what is ticked now, and what was ticked when the list was opened.
+const ids = z.array(z.string().min(1).max(80)).max(1000);
+const listBody = z.object({ publicIds: ids, expected: ids }).strict();
 const markBody = z.object({ publicId: z.string().min(1).max(80), date: z.string().refine(isIsoDate), status: mark, expected: mark }).strict();
 const unavailable = 'Престој уште не е вклучен на овој сервер (миграција 064).';
 
@@ -64,10 +66,41 @@ export function registerPortalStay(server: FastifyInstance, signed: Signed) {
             return { year:who.year.label,month:query.data.month,pupils,marks,days,today:context.today,readOnly:Boolean(who.staff.readOnly) };
         } catch (err) { return failed(reply,err); }
     });
+    // One save for the whole list, in one transaction: either every tick lands or none does.
     // Ownership always comes from the session, never from a body or query parameter.
-    for (const path of ['pupil','mark'] as const) server.put('/api/portal/stay/'+path, async (req,reply) => {
+    server.put('/api/portal/stay/pupils', async (req,reply) => {
         const who=await entering(req,reply); if (!who) return;
-        const parsed=(path==='pupil'?memberBody:markBody).safeParse(req.body);
+        const parsed=listBody.safeParse(req.body);
+        if (!parsed.success) return reply.code(400).send({error:'Проверете го списокот.'});
+        const wanted=new Set(parsed.data.publicIds), expected=new Set(parsed.data.expected);
+        const c=await pool.connect();
+        try {
+            await c.query('BEGIN');
+            // A list that has no rows yet has nothing to lock: two first saves are put in order here.
+            await c.query("SELECT pg_advisory_xact_lock(hashtext('stay-list'), hashtext($1))",[who.year.id+':'+who.staff.employeeId]);
+            const now=(await c.query(`SELECT s.public_id AS "publicId" FROM stay_pupils p JOIN students s ON s.id=p.student_id
+                WHERE p.school_year_id=$1 AND p.employee_id=$2 AND p.active FOR UPDATE OF p`,[who.year.id,who.staff.employeeId])).rows.map((r:any)=>r.publicId as string);
+            if (now.length!==expected.size || now.some((id)=>!expected.has(id))) throw new AttendanceError(409,'Списокот е сменет во меѓувреме (на друг уред). Освежете го, па изберете повторно.');
+            const added=[...wanted].filter((id)=>!now.includes(id)), removed=now.filter((id)=>!wanted.has(id));
+            if (added.length) {
+                const found=(await c.query(`SELECT s.public_id AS "publicId",s.id,s.name,(s.active AND coalesce(e.active,false)) AS active
+                    FROM students s LEFT JOIN student_enrollments e ON e.student_id=s.id AND e.school_year_id=$2
+                    WHERE s.public_id=ANY($1::text[]) FOR SHARE OF s`,[added,who.year.id])).rows;
+                const missing=added.filter((id)=>!found.some((r:any)=>r.publicId===id && r.active));
+                if (missing.length) throw new AttendanceError(409,'Не е зачувано: '+(found.filter((r:any)=>missing.includes(r.publicId)).map((r:any)=>r.name).join(', ') || 'ученик')+' не е на активниот список за годинава.');
+                await c.query(`INSERT INTO stay_pupils(school_year_id,employee_id,student_id,active) SELECT $1,$2,unnest($3::int[]),true
+                    ON CONFLICT(school_year_id,employee_id,student_id) DO UPDATE SET active=true`,[who.year.id,who.staff.employeeId,found.map((r:any)=>r.id)]);
+            }
+            // Leaving the list keeps every mark already written (the row stays, inactive).
+            if (removed.length) await c.query(`UPDATE stay_pupils p SET active=false FROM students s
+                WHERE s.id=p.student_id AND p.school_year_id=$1 AND p.employee_id=$2 AND s.public_id=ANY($3::text[])`,[who.year.id,who.staff.employeeId,removed]);
+            await c.query('COMMIT'); return {ok:true,added:added.length,removed:removed.length};
+        } catch (err) { await c.query('ROLLBACK'); return failed(reply,err); }
+        finally { c.release(); }
+    });
+    server.put('/api/portal/stay/mark', async (req,reply) => {
+        const who=await entering(req,reply); if (!who) return;
+        const parsed=markBody.safeParse(req.body);
         if (!parsed.success) return reply.code(400).send({error:'Проверете го ученикот и избраната ознака.'});
         const body=parsed.data;
         const c=await pool.connect();
@@ -81,11 +114,7 @@ export function registerPortalStay(server: FastifyInstance, signed: Signed) {
             // The membership row serializes first marks and removal with marking on another device.
             await c.query('INSERT INTO stay_pupils(school_year_id,employee_id,student_id,active) VALUES($1,$2,$3,false) ON CONFLICT DO NOTHING',key);
             const member=(await c.query('SELECT active FROM stay_pupils WHERE school_year_id=$1 AND employee_id=$2 AND student_id=$3 FOR UPDATE',key)).rows[0];
-            if ('active' in body) {
-                if (body.active && !pupil.active) throw new AttendanceError(409,'Ученикот не е на активниот список за годинава.');
-                if (member.active!==body.expected) throw new AttendanceError(409,'Списокот е сменет во меѓувреме. Освежете го.');
-                await c.query('UPDATE stay_pupils SET active=$4 WHERE school_year_id=$1 AND employee_id=$2 AND student_id=$3',[...key,body.active]);
-            } else {
+            {
                 const context=await calendarContext(c,who.year.id), closed=closedReason(body.date,context);
                 if (closed || body.date>context.today) throw new AttendanceError(400,closed || 'Присуство не се означува однапред.');
                 const old=(await c.query('SELECT status FROM stay_attendance WHERE school_year_id=$1 AND employee_id=$2 AND student_id=$3 AND day=$4',[...key,body.date])).rows[0]?.status ?? null;

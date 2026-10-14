@@ -380,11 +380,24 @@ header.top h1 { flex: 1; min-width: 180px; }
 .caseload .filters { display: flex; gap: 6px; flex-wrap: wrap; margin: 10px 0 6px; }
 .caseload .filters button[aria-pressed="true"] { background: var(--fill); border-color: var(--fill-edge); color: var(--accent-text); box-shadow: var(--glass); }
 .caseload input[type="search"] { margin: 4px 0 8px; }
-.caseload .ticks { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 4px 14px; max-height: 50vh; overflow: auto; }
-.caseload .ticks label { display: flex; align-items: center; gap: 6px; margin: 0; font-weight: 500; }
-.caseload .ticks label.on { font-weight: 800; }
-.caseload .ticks input { width: auto; }
-.caseload .ticks small { color: var(--muted); font-weight: 500; }
+/* Every pupil picker in Колега looks as „Ученици по терапевт" does in Кабинети (owner, 14 Oct 2026):
+   a box left of the name, the shown pupils numbered, the columns read downward. */
+.pick-panel { border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; margin: 10px 0 16px; background: var(--panel); }
+.pick-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+.pick-head h3 { margin: 0; font-size: 17px; }
+.pick-grid { columns: 260px 3; column-gap: 22px; margin: 10px 0; max-height: 56vh; overflow-y: auto; padding: 4px 2px; }
+.pick-grid .pick-item { display: flex; align-items: flex-start; gap: 8px; break-inside: avoid; margin: 0; padding: 6px; border-radius: 6px; font-weight: 500; cursor: pointer; }
+.pick-grid .pick-item:hover { background: var(--well); }
+.pick-grid .pick-item[hidden] { display: none; }
+.pick-grid input[type="checkbox"] { width: 18px; height: 18px; min-width: 18px; min-height: 0; margin: 2px 0 0; padding: 0; flex: 0 0 auto; box-shadow: none; accent-color: var(--accent); cursor: pointer; }
+.pick-no { color: var(--muted); font-size: 12px; display: inline-block; min-width: 24px; }
+.pick-foot { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
+.pick-foot .row { display: flex; gap: 8px; flex-wrap: wrap; }
+.pick-count { font-weight: 600; font-size: 14px; }
+.caseload .ticks:not(.pick-grid) label { display: flex; align-items: center; gap: 6px; margin: 0; font-weight: 500; }
+.caseload .ticks:not(.pick-grid) label.on { font-weight: 800; }
+.caseload .ticks:not(.pick-grid) input { width: auto; }
+.caseload .ticks:not(.pick-grid) small { color: var(--muted); font-weight: 500; }
 .caseload h3 { margin: 12px 0 6px; font-size: 15px; }
 .caseload .add-subject { margin: 8px 0 2px; flex-wrap: nowrap; }
 .caseload .add-subject input { flex: 1; min-width: 0; }
@@ -568,9 +581,6 @@ header.top h1 { flex: 1; min-width: 180px; }
 
     html body .attendance-table :is(th,td) { border:1px solid var(--mtb-table-line,var(--line)); }
     #stay .row { display:flex; flex-wrap:wrap; gap:12px; align-items:center; }
-    #stay .stay-list { padding:12px; border:1px solid var(--mtb-table-line,var(--line)); margin-bottom:16px; }
-    #stay .ticks { display:grid; grid-template-columns:repeat(auto-fit,minmax(230px,1fr)); gap:10px; margin-top:12px; max-height:300px; overflow:auto; }
-    #stay [data-stay-label][hidden] { display:none; }
     #stay .stay-table th:first-child { min-width:190px; max-width:230px; white-space:normal; }
     #stay .stay-table :is(th,td).closed { background:repeating-linear-gradient(135deg,transparent 0 7px,#8395aa20 7px 9px),var(--mtb-well) !important; }
     #stay .closed button { background:transparent !important; }
@@ -1078,7 +1088,8 @@ header.top h1 { flex: 1; min-width: 180px; }
     let memory = '';            // the token, when this browser keeps nothing
     // `week`: the whole week on one sheet instead of one day's list (🗓 Недела).
     const view = { tab: '', day: '', week: false };
-    const stay = { month: '', data: null, pupils: [], list: false, query: '', busy: false, request: 0, message: '' };
+    // `draft`: what is ticked in an open „Мој список“; nothing is written until „Зачувај список“.
+    const stay = { month: '', data: null, pupils: [], list: false, draft: null, query: '', busy: false, request: 0, message: '' };
     async function loadStay() {
         if (!stay.month) stay.month = new Date().toLocaleDateString('en-CA', {timeZone:'Europe/Skopje'}).slice(0,7);
         const request=++stay.request, person=me, month=stay.month;
@@ -1105,9 +1116,14 @@ header.top h1 { flex: 1; min-width: 180px; }
             +'<button type="button" data-preparer title="Кој пишува дека го изработил документот">✍ Изработил</button><button data-stay-docx'+off+'>Word (.docx)</button></div></div>'
             +'<p class="no-print">✓ Присутен · ✕ Отсутен · — Неозначено. Допрете поле за следната ознака; промената се зачувува веднаш.</p>'
             +'<p class="no-print" role="status">'+esc(stay.message)+'</p>'
-            +(stay.list?'<div class="stay-list no-print"><label>Пребарај <input id="staySearch" type="search" value="'+esc(stay.query)+'"></label><div class="ticks">'
-                +stay.pupils.map(p=>'<label data-stay-label'+(((p.grade||'')+' '+p.name).toLocaleLowerCase('mk-MK').includes(stay.query.toLocaleLowerCase('mk-MK'))?'':' hidden')+'><input type="checkbox" data-stay-pupil="'+esc(p.publicId)+'"'+(p.selected?' checked':'')+(stay.busy||d.readOnly?' disabled':'')+'> '+esc((p.grade?p.grade+' · ':'')+p.name)+'</label>').join('')
-                +'</div><p class="muted">Тргањето од списокот ги зачувува претходните ознаки.</p></div>':'')
+            +(stay.list && stay.draft?'<section class="pick-panel no-print" aria-label="Мој список"><div class="pick-head"><h3>Ученици кај '+esc(me.person.name)+' · '+esc(d.year||me.year)+'</h3>'
+                +'<button type="button" class="small" data-stay-list-cancel aria-label="Затвори">✕</button></div>'
+                +'<p class="muted">Отштиклирањето го трга ученикот од вашиот список. Претходните ознаки за присуство остануваат.</p>'
+                +'<input id="staySearch" type="search" placeholder="Пребарај ученик по име или одделение…" aria-label="Пребарај ученик" value="'+esc(stay.query)+'">'
+                +'<div class="pick-grid">'+stay.pupils.map(p=>pickItem({id:p.publicId,name:p.name,detail:p.grade,checked:stay.draft.has(p.publicId),
+                    disabled:stay.busy||d.readOnly,attr:'data-stay-pupil'})).join('')+'</div>'
+                +'<div class="pick-foot"><div class="row"><button type="button" class="primary" data-stay-list-save'+(stay.busy||d.readOnly?' disabled':'')+'>Зачувај список</button>'
+                +'<button type="button" data-stay-list-cancel'+(stay.busy?' disabled':'')+'>Откажи</button></div><span class="pick-count" id="stayPickCount"></span></div></section>':'')
             +(!d.pupils.length?'<p>Списокот е празен. Отворете „Мој список“ и изберете ученици.</p>':'<div id="staySheet"><h2>'+esc(report.title)+'</h2><p>'+esc(report.subtitle)+'</p></div>'
                 +'<div class="attendance-scroll"><table class="attendance-table month stay-table"><thead><tr><th scope="col">Ученик</th>'
                 +d.days.map(day=>'<th scope="col"'+(day.closed?' class="closed"':'')+' title="'+esc(day.closed||day.date)+'">'+Number(day.date.slice(8))+'<br>'+short[new Date(day.date+'T12:00:00Z').getUTCDay()]+'</th>').join('')+'</tr></thead><tbody>'
@@ -1117,6 +1133,44 @@ header.top h1 { flex: 1; min-width: 180px; }
                         return '<td class="'+(day.closed?'closed':'')+(value==='present'?' mark-present':value==='absent'?' mark-absent':'')+'"><button class="attendance-mark '+(value||'blank')+'" data-stay-mark="'+esc(p.publicId)+'" data-stay-date="'+day.date+'"'
                             +(disabled?' disabled':'')+' aria-label="'+esc(p.name+' · '+day.date+' · '+label(value))+'" title="'+esc(day.closed||(day.future?'Иден датум':label(value)))+'">'+(value==='present'?'✓':value==='absent'?'✕':'—')+'</button></td>';
                     }).join('')+'</tr>').join('')+'</tbody></table></div>');
+        if(stay.list && stay.draft) stayPickFind();
+    }
+    function stayPickFind() {
+        pickFind(el('stay'), stay.query);
+        const n=stay.draft.size, count=el('stayPickCount');
+        if(count) count.textContent=n+(n===1?' избран ученик':' избрани ученици');
+    }
+    function openStayList() {
+        stay.list=true; stay.query=''; stay.message='';
+        stay.draft=new Set(stay.pupils.filter(p=>p.selected).map(p=>p.publicId));
+        drawStay(); el('staySearch')?.focus();
+    }
+    function closeStayList() { stay.list=false; stay.draft=null; drawStay(); }
+    /** The whole list in one save; refused, it stays open as ticked, so nothing chosen is lost. */
+    async function saveStayList() {
+        if(stay.busy || !stay.draft) return;
+        const before=stay.pupils.filter(p=>p.selected).map(p=>p.publicId), now=[...stay.draft];
+        const added=now.filter(id=>!before.includes(id)).length, removed=before.filter(id=>!stay.draft.has(id)).length;
+        if(!added && !removed) { stay.message='Немаше промени во списокот.'; closeStayList(); return; }
+        const person=me;
+        stay.busy=true; stay.message='Се зачувува списокот…'; drawStay();
+        try {
+            await api('PUT','/api/portal/stay/pupils',{publicIds:now,expected:before});
+            if(me!==person) return;
+            stay.list=false; stay.draft=null; stay.message='Зачувано: +'+added+' / −'+removed+' ученици во списокот.';
+        } catch(err) { if(me===person) stay.message='Не е зачувано. '+err.message; }
+        finally { stay.busy=false; if(me===person && view.tab==='stay') await loadStay(); }
+    }
+    /** One row of a pupil picker: the box, the number the search gives it, the name and what tells two pupils apart. */
+    function pickItem(o) {
+        return '<label class="pick-item'+(o.checked?' on':'')+'" data-pick-find="'+esc(norm(o.name+' '+(o.detail||'')))+'">'
+            +'<input type="checkbox" '+o.attr+'="'+esc(o.id)+'"'+(o.checked?' checked':'')+(o.disabled?' disabled':'')+'>'
+            +'<span><span class="pick-no"></span>'+esc(o.name)+(o.detail?' · '+esc(o.detail):'')+'</span></label>';
+    }
+    /** Shown pupils are numbered 1…n, as in Кабинети; a search hides the rest. */
+    function pickFind(box, query) {
+        const q=norm(query||''); let n=0;
+        box.querySelectorAll('.pick-item').forEach(row=>{ row.hidden=Boolean(q) && !row.dataset.pickFind.includes(q); if(!row.hidden) row.querySelector('.pick-no').textContent=(++n)+'.'; });
     }
     /** The month as one sheet for paper, a picture and Word: weekends left out, a closed day „—", an unmarked one „·". */
     function stayReport() {
@@ -1135,9 +1189,7 @@ header.top h1 { flex: 1; min-width: 180px; }
     }
     el('stay').addEventListener('input',event=>{
         if(event.target.id!=='staySearch') return;
-        stay.query=event.target.value;
-        const query=event.target.value.toLocaleLowerCase('mk-MK');
-        el('stay').querySelectorAll('[data-stay-label]').forEach(label=>label.hidden=!label.textContent.toLocaleLowerCase('mk-MK').includes(query));
+        stay.query=event.target.value; stayPickFind();
     });
     async function writeStay(path,body) {
         if(stay.busy) return; stay.busy=true; stay.message=''; drawStay();
@@ -1148,21 +1200,24 @@ header.top h1 { flex: 1; min-width: 180px; }
             stay.busy=false;
             if(me===person && view.tab==='stay') {
                 await loadStay();
-                const selector=path==='pupil'?'[data-stay-pupil="'+CSS.escape(body.publicId)+'"]'
-                    :'[data-stay-mark="'+CSS.escape(body.publicId)+'"][data-stay-date="'+body.date+'"]';
-                el('stay').querySelector(selector)?.focus({preventScroll:true});
+                el('stay').querySelector('[data-stay-mark="'+CSS.escape(body.publicId)+'"][data-stay-date="'+body.date+'"]')?.focus({preventScroll:true});
             }
         }
     }
     el('stay').addEventListener('change',event=>{
         if(stay.busy) return;
         if(event.target.id==='stayMonth') { if(!/^\d{4}-(0[1-9]|1[0-2])$/.test(event.target.value)) return; stay.month=event.target.value;stay.message='';loadStay(); }
-        if(event.target.matches('[data-stay-pupil]')) { const p=stay.pupils.find(p=>p.publicId===event.target.dataset.stayPupil); if(p) writeStay('pupil',{publicId:p.publicId,active:event.target.checked,expected:p.selected}); }
+        if(event.target.matches('[data-stay-pupil]') && stay.draft) {
+            if(event.target.checked) stay.draft.add(event.target.dataset.stayPupil); else stay.draft.delete(event.target.dataset.stayPupil);
+            stayPickFind();
+        }
     });
     el('stay').addEventListener('click',event=>{
         const b=event.target.closest('button');if(!b || stay.busy) return;
         if(b.hasAttribute('data-stay-refresh')) {stay.message='';loadStay();}
-        if(b.hasAttribute('data-stay-list')) {stay.list=!stay.list;drawStay();}
+        if(b.hasAttribute('data-stay-list')) { if(stay.list) closeStayList(); else openStayList(); }
+        if(b.hasAttribute('data-stay-list-cancel')) closeStayList();
+        if(b.hasAttribute('data-stay-list-save')) saveStayList();
         if(stay.data?.pupils.length) {
             const file='Prestoj-'+stay.month;
             if(b.hasAttribute('data-stay-print')) { document.body.classList.add('printing-attendance'); window.print(); return; }
@@ -4068,17 +4123,15 @@ header.top h1 { flex: 1; min-width: 180px; }
             + '<div class="filters" role="group" aria-label="Кои ученици">' + CASELOAD_FILTERS.map((f) =>
                 `<button type="button" class="small" data-caseload-filter="${f.id}" aria-pressed="${f.id === filter.id}">${esc(f.label)} (${list.filter(f.test).length})</button>`).join('') + '</div>'
             + `<input type="search" id="caseloadQuery" placeholder="Барај по име или паралелка" aria-label="Барај ученик" value="${esc(caseload.query)}">`
-            + '<div class="ticks">' + list.filter(filter.test).map((p) =>
-                `<label class="${p.mine ? 'on' : ''}" data-find="${esc(norm(p.name + ' ' + (p.class || '')))}">`
-                + `<input type="checkbox" data-caseload-pupil="${esc(p.publicId)}"${p.mine ? ' checked' : ''}> `
-                + `<span>${esc(p.name)}${pupilLine(p) ? ` <small>${esc(pupilLine(p))}</small>` : ''}</span></label>`).join('')
+            + '<div class="ticks pick-grid">' + list.filter(filter.test).map((p) => pickItem({ id: p.publicId, name: p.name, detail: pupilLine(p),
+                checked: p.mine, attr: 'data-caseload-pupil' })).join('')
             + '</div>';
         findInCaseload();
     }
 
     function findInCaseload() {
         const q = norm(caseload.query);
-        el('caseload').querySelectorAll('.ticks label').forEach((row) => { row.hidden = Boolean(q) && !row.dataset.find.includes(q); });
+        pickFind(el('caseload'), q);
     }
 
     async function openCaseload() {

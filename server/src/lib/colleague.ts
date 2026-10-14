@@ -285,7 +285,8 @@ export const PUBLIC_WRITES = new Set([
     'PUT /api/portal/my-subject',
     'PUT /api/portal/my-class',
     'PUT /api/portal/attendance',
-    'PUT /api/portal/stay/pupil',
+    // Престој (064): the whole list in one save, and one mark at a time.
+    'PUT /api/portal/stay/pupils',
     'PUT /api/portal/stay/mark',
     // Class attendance by day (057): the route checks the class and the weekday itself.
     'PUT /api/portal/class-attendance',

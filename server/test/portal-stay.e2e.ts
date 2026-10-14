@@ -46,7 +46,9 @@ try {
     while([0,6].includes(new Date(date+'T12:00:00Z').getUTCDay())) date=addDays(date,-1);
     const month=date.slice(0,7),url='/api/portal/stay?month='+month;
     const get=(token=ta)=>call('GET',url,token);
-    const member=(token:string,active:boolean,expected:boolean)=>call('PUT','/api/portal/stay/pupil',token,{publicId:'stay-test-1',active,expected});
+    // The list is saved whole (owner, 14 Oct 2026): what is ticked, and what was ticked when it was opened.
+    const list=(token:string,publicIds:string[],expected:string[])=>call('PUT','/api/portal/stay/pupils',token,{publicIds,expected});
+    const member=(token:string,active:boolean,expected:boolean)=>list(token,active?['stay-test-1']:[],expected?['stay-test-1']:[]);
     const mark=(token:string,status:string|null,expected:string|null,day=date)=>call('PUT','/api/portal/stay/mark',token,{publicId:'stay-test-1',date:day,status,expected});
     assert.equal((await get('')).status,401);
     const me=await call('GET','/api/portal/me',ta);
@@ -77,6 +79,20 @@ try {
     assert.equal((await mark(ta,null,'absent')).status,200);
     assert.equal((await get()).body.pupils.length,0,'removed row without marks is hidden');
     assert.equal((await member(ta,true,false)).status,200);
+    // Two pupils in one save land together; one that is not on the year's list stops the whole save.
+    assert.equal((await list(ta,['stay-test-1','stay-test-2'],['stay-test-1'])).status,200);
+    assert.deepEqual((await call('GET','/api/portal/stay/pupils',ta)).body.pupils.map((p:any)=>p.selected),[true,true]);
+    await q(`UPDATE student_enrollments SET active=false WHERE school_year_id=$1 AND student_id=(SELECT id FROM students WHERE public_id='stay-test-2')`,[year.id]);
+    assert.equal((await list(ta,['stay-test-1'],['stay-test-1','stay-test-2'])).status,200,'leaving works for a pupil no longer enrolled');
+    const refused=await list(ta,['stay-test-1','stay-test-2'],['stay-test-1']);
+    assert.equal(refused.status,409); assert.match(refused.body.error,/Пробен Ученик Престој 2/);
+    assert.deepEqual((await call('GET','/api/portal/stay/pupils',ta)).body.pupils.map((p:any)=>p.selected),[true],'a refused save writes nothing');
+    await q(`UPDATE student_enrollments SET active=true WHERE school_year_id=$1`,[year.id]);
+    assert.equal((await list(ta,['stay-test-1'],[])).status,409,'a list opened before another device saved is refused');
+    assert.equal((await list(ta,['stay-test-1','x'.repeat(81)],['stay-test-1'])).status,400);
+    const firsts=await Promise.all([list(tb,['stay-test-1','stay-test-2'],['stay-test-1']),list(tb,['stay-test-2'],['stay-test-1'])]);
+    assert.deepEqual(firsts.map(r=>r.status).sort(),[200,409],'two saves from one list cannot both land');
+    assert.equal((await call('PUT','/api/portal/stay/pupil',ta,{publicId:'stay-test-1',active:false,expected:true})).status,401,'the one-pupil writer is gone: the boundary refuses it');
     const parallel=await Promise.all([mark(ta,'present',null),mark(ta,'absent',null)]);
     assert.deepEqual(parallel.map(r=>r.status).sort(),[200,409],'two first marks cannot overwrite each other');
     let weekend=date; while(new Date(weekend+'T12:00:00Z').getUTCDay()!==0) weekend=addDays(weekend,-1);

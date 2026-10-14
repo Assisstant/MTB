@@ -18,7 +18,7 @@ await context.route('**/*',async route=>{
     if(p==='/Kolega.html')return route.fulfill({contentType:'text/html; charset=utf-8',body:await readFile(resolve(root,'Kolega.html'))});
     if(p==='/api/portal/me')return json(200,{person:{employeeId:4,name:'Пробен Вработен Престој'},year:'2026/2027',roles:['stay'],teacher:null,therapist:null,usernames:{latin:'Test',cyrillic:'Пробен'},initialPassword:true});
     if(p==='/api/portal/week')return json(200,{days:[],periods:[],me:{teacherId:null,therapistId:null,homeroom:[]},classes:[],teachers:[],lessons:[],clashes:[],notices:[],cabinet:null});
-    if(p==='/api/portal/stay/pupils')return json(200,{pupils});
+    if(p==='/api/portal/stay/pupils'&&req.method()==='GET')return json(200,{pupils});
     if(p==='/api/portal/stay') {
         const month=u.searchParams.get('month');
         const days=Array.from({length:31},(_,i)=>{const date=month+'-'+String(i+1).padStart(2,'0');return {date,closed:[0,6].includes(new Date(date+'T12:00:00Z').getUTCDay())?'Викенд':null,future:false};});
@@ -27,7 +27,12 @@ await context.route('**/*',async route=>{
     if(p.startsWith('/api/portal/stay/')&&req.method()==='PUT') {
         const b=req.postDataJSON();writes.push(b);
         if(fail){fail=false;return json(409,{error:'Ознаката е сменета во друг прозорец.'});}
-        if(p.endsWith('/pupil'))pupils.find(p=>p.publicId===b.publicId).selected=b.active;
+        if(p.endsWith('/pupils')) {
+            // The whole list, refused when it was not what the screen opened with.
+            const now=pupils.filter(x=>x.selected).map(x=>x.publicId);
+            if(now.length!==b.expected.length||now.some(id=>!b.expected.includes(id)))return json(409,{error:'Списокот е сменет во меѓувреме.'});
+            pupils.forEach(x=>{x.selected=b.publicIds.includes(x.publicId);});
+        }
         else {marks=marks.filter(m=>m.publicId!==b.publicId||m.date!==b.date);if(b.status)marks.push({publicId:b.publicId,date:b.date,status:b.status});}
         return json(200,{ok:true});
     }
@@ -40,8 +45,20 @@ try {
     await page.waitForSelector('#stayMonth');
     await page.fill('#stayMonth','2026-10');await idle();
     assert.equal(await page.locator('#tabs [data-tab]').count(),1,'only the stay category');
-    await page.click('[data-stay-list]');
-    await page.check('[data-stay-pupil="test-a"]');await idle();
+    // „Мој список" as „Ученици по терапевт" in Кабинети: ticked in a draft, written by „Зачувај список" (owner, 14 Oct 2026).
+    const openList=async()=>{await page.click('[data-stay-list]');await page.waitForSelector('#stayPickCount');};
+    const saveList=async()=>{await page.click('[data-stay-list-save]');await idle();};
+    await openList();
+    await page.check('[data-stay-pupil="test-a"]');
+    assert.equal(await page.locator('#stayPickCount').innerText(),'1 избран ученик');
+    assert.equal(writes.length,0,'a tick is not a save');
+    const look=await page.locator('.pick-item').first().evaluate(row=>{const box=row.querySelector('input').getBoundingClientRect(),name=row.querySelector('span').getBoundingClientRect();
+        return {box:Math.round(box.width),left:box.right<=name.left,row:Math.abs(box.top-name.top)<16,number:row.querySelector('.pick-no').textContent};});
+    assert.deepEqual(look,{box:18,left:true,row:true,number:'1.'},'a small box left of the numbered name');
+    await saveList();
+    assert.deepEqual(writes.at(-1),{publicIds:['test-a'],expected:[]});
+    assert.equal(await page.locator('.pick-panel').count(),0,'a saved list closes');
+    assert.match(await page.locator('#stay [role=status]').innerText(),/Зачувано: \+1 \/ −0/);
     const cell='[data-stay-mark="test-a"][data-stay-date="2026-10-01"]';
     await page.click(cell);await idle();assert.equal(await page.locator(cell).innerText(),'✓');
     await page.click(cell);await idle();assert.equal(await page.locator(cell).innerText(),'✕');
@@ -50,13 +67,25 @@ try {
     assert.match(await page.locator('#stay [role=status]').innerText(),/друг прозорец/);
     await page.click(cell);await idle();assert.equal(await page.locator(cell).innerText(),'—');
     await page.click(cell);await idle();
-    await page.uncheck('[data-stay-pupil="test-a"]');await idle();
+    await openList();await page.uncheck('[data-stay-pupil="test-a"]');await saveList();
     assert.equal(await page.locator(cell).innerText(),'✓','removing from own list keeps marks');
     assert.match(await page.locator('.stay-table tbody th').innerText(),/Претходни ознаки/);
-    await page.check('[data-stay-pupil="test-a"]');await idle();
+    await openList();await page.check('[data-stay-pupil="test-a"]');await saveList();
+    await openList();
     await page.fill('#staySearch','Бета');
-    assert.equal(await page.locator('[data-stay-label]:visible').count(),1);
-    await page.click('[data-stay-list]');
+    assert.equal(await page.locator('.pick-item:visible').count(),1);
+    assert.equal(await page.locator('.pick-item:visible .pick-no').innerText(),'1.','the shown are numbered again');
+    const before=writes.length;
+    await page.check('[data-stay-pupil="test-b"]');await page.click('.pick-foot [data-stay-list-cancel]');
+    assert.equal(writes.length,before,'„Откажи" writes nothing');
+    await openList();
+    assert.equal(await page.isChecked('[data-stay-pupil="test-b"]'),false,'and the tick is gone');
+    // A refused save keeps the list open, as it was ticked.
+    await page.check('[data-stay-pupil="test-b"]');pupils.find(x=>x.publicId==='test-b').selected=true;await saveList();
+    assert.match(await page.locator('#stay [role=status]').innerText(),/Не е зачувано\. Списокот е сменет/);
+    assert.equal(await page.isChecked('[data-stay-pupil="test-b"]'),true);
+    pupils.find(x=>x.publicId==='test-b').selected=false;
+    await page.click('.pick-foot [data-stay-list-cancel]');await page.click('[data-stay-refresh]');await idle();
     assert.equal(await page.locator('[data-stay-date="2026-10-03"]').isDisabled(),true);
     // Owner, 14 Oct 2026: green and red as in S-Дневник, and the standard ways out.
     await page.click('[data-stay-mark="test-a"][data-stay-date="2026-10-02"]');await idle();
@@ -93,6 +122,10 @@ try {
     }
     await page.setViewportSize({width:1440,height:900});
     await page.screenshot({path:resolve(out,'stay-desktop-dark.png'),fullPage:true});
+    await openList();await page.screenshot({path:resolve(out,'stay-list-desktop-dark.png')});
+    await page.evaluate(()=>document.documentElement.dataset.theme='light');await page.screenshot({path:resolve(out,'stay-list-desktop-light.png')});
+    await page.setViewportSize({width:412,height:900});await page.screenshot({path:resolve(out,'stay-list-phone-light.png')});
+    assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),'the list fits the phone');
     assert.ok(writes.length>=7);assert.deepEqual(errors,[]);
     console.log('PASS: stay phone/desktop, own list, three marks, conflict, history, search and themes');
 }finally{await browser.close();}
