@@ -4070,7 +4070,7 @@ header.top h1 { flex: 1; min-width: 180px; }
             + '<details class="plan-help"><summary>❓ Како се пополнува</summary><ol>'
             + '<li>Отворете ученик. Планот се гледа како образец: што е запишано, и „—“ каде што е празно.</li>'
             + '<li>Под „Кабинети во планот“ допрете го својот кабинет, ако уште го нема.</li>'
-            + '<li>Кај својот дел притиснете <b>✏️ Уреди</b>. Пишувајте или земете од „Предлози од фондот на содржини“; областите оценете ги 0–4.</li>'
+            + '<li>Кај својот дел притиснете <b>✏️ Уреди</b>. Пишувајте, изберете полиња од „Шаблон од пополнет пример“ или земете од фондот; приспособете го нацртот за ученикот.</li>'
             + '<li><b>Зачувај</b> — делот пак се гледа како образец. Кога е готов за кварталот: <b>Потврди</b>.</li>'
             + '<li>Горе се <b>кварталите 1–4</b>: секој квартал се отвора и се менува и подоцна, и минатите. <b>Word (.docx)</b> го прави документот од запишаното.</li>'
             + '</ol></details>'
@@ -4225,6 +4225,59 @@ header.top h1 { flex: 1; min-width: 180px; }
         const uses = (fields[kind] || {})[key];
         return uses ? planBankPicker(key, uses) : '';
     }
+    /**
+     * The examples are also copyable templates, but only into an open draft.
+     * Nothing here writes: the colleague chooses the fields, personalises the
+     * copied words and only the ordinary „Зачувај“ writer can submit them.
+     */
+    function planTemplateSources(part) {
+        return PLAN_EXAMPLE.pupils.map((example) => {
+            const info = example.sheet.parts[part];
+            return info && !planEmpty(info.data) ? { id: example.sheet.pupil.publicId, name: example.sheet.pupil.name.replace('ПРИМЕР — ', ''), data: info.data } : null;
+        }).filter(Boolean);
+    }
+    function planTemplateFields(part, data) {
+        if (planKind(part) === 'marks') return [
+            { key: 'rows', label: 'Области, оценки и белешки по област', filled: (data.rows || []).length > 0 },
+            { key: 'note', label: 'Белешка за кварталот', filled: Boolean(data.note) }
+        ].filter((field) => field.filled);
+        return PLAN_TEXT[planKind(part)].fields.map(([key, label]) => ({ key, label, filled: Boolean(data[key]) })).filter((field) => field.filled);
+    }
+    function planTemplateChoices(panel) {
+        const form = panel.closest('form.plan-part'), sources = planTemplateSources(form.dataset.part);
+        const source = sources.find((item) => item.id === panel.querySelector('[data-template-source]').value) || sources[0];
+        panel.querySelector('[data-template-fields]').innerHTML = source ? planTemplateFields(form.dataset.part, source.data).map((field) =>
+            `<label><input type="checkbox" data-template-field="${esc(field.key)}" checked> ${esc(field.label)}</label>`).join('') : '';
+    }
+    function planTemplatePicker(part) {
+        const sources = planTemplateSources(part);
+        if (!sources.length) return '';
+        const fields = planTemplateFields(part, sources[0].data);
+        return '<details class="plan-bank plan-template"><summary>Шаблон од пополнет пример</summary>'
+            + '<p class="muted">Изберете што да се преземе. Ова е само нацрт: приспособете го за ученикот, па притиснете „Зачувај“.</p>'
+            + '<label>Пример <select data-template-source>' + sources.map((source) => `<option value="${esc(source.id)}">${esc(source.name)}</option>`).join('') + '</select></label>'
+            + '<div class="ticks" data-template-fields>' + fields.map((field) => `<label><input type="checkbox" data-template-field="${esc(field.key)}" checked> ${esc(field.label)}</label>`).join('') + '</div>'
+            + '<button type="button" class="small" data-template-apply>Преземи</button> <span class="muted" data-template-notice role="status"></span></details>';
+    }
+    function planApplyTemplate(button) {
+        const panel = button.closest('.plan-template'), form = panel.closest('form.plan-part'), part = form.dataset.part;
+        const source = planTemplateSources(part).find((item) => item.id === panel.querySelector('[data-template-source]').value);
+        const keys = [...panel.querySelectorAll('[data-template-field]:checked')].map((input) => input.dataset.templateField);
+        const notice = panel.querySelector('[data-template-notice]');
+        if (!source || !keys.length) { notice.textContent = 'Изберете барем едно поле.'; return; }
+        const current = planCollect(form);
+        const replaces = keys.some((key) => key === 'rows' ? (current.rows || []).length && JSON.stringify(current.rows) !== JSON.stringify(source.data.rows || [])
+            : current[key] && current[key] !== source.data[key]);
+        if (replaces && !window.confirm('Избраните полиња веќе имаат содржина. Да се заменат со шаблонот?')) return;
+        if (planKind(part) === 'marks') {
+            if (keys.includes('rows')) {
+                form.querySelector('.plan-rows').innerHTML = (source.data.rows || []).map((row) => planRowHtml(JSON.parse(JSON.stringify(row)), part.split(':')[1])).join('');
+            }
+            if (keys.includes('note')) form.elements.note.value = source.data.note || '';
+        } else keys.forEach((key) => { form.elements[key].value = source.data[key] || ''; });
+        form.dataset.touched = '1';
+        notice.textContent = 'Преземено во нацртот. Приспособете го за ученикот, па притиснете „Зачувај“.';
+    }
     async function planLoadBank(panel) {
         const body = panel.querySelector('[data-bank-body]');
         if (body.dataset.ready) return;
@@ -4351,6 +4404,7 @@ header.top h1 { flex: 1; min-width: 180px; }
                     : type === 'program' ? `<select name="${key}"><option value=""></option>${PLAN_PROGRAMS.map((v) => `<option${data[key] === v ? ' selected' : ''}>${v}</option>`).join('')}</select>`
                     : `<textarea name="${key}" rows="3" maxlength="8000">${esc(data[key] || '')}</textarea>`)
                 + '</label>' + planBankFor(planKind(part), key)).join('')
+            + planTemplatePicker(part)
             + planButtons(part) + '</form>';
     }
     function planRowHtml(row, code) {
@@ -4387,6 +4441,7 @@ header.top h1 { flex: 1; min-width: 180px; }
             + planBankPicker('area', ['area']) + planEvidencePicker()
             + `<datalist id="planLabels-${esc(code)}">${((plan.pupil.labels || {})[code] || []).map((l) => `<option value="${esc(l)}">`).join('')}</datalist>`
             + `<label>Белешка за кварталот <textarea name="note" rows="2" maxlength="8000">${esc(data.note || '')}</textarea></label>`
+            + planTemplatePicker(part)
             + planButtons(part) + '</form>';
     }
     function planCollect(form) {
@@ -4633,6 +4688,7 @@ header.top h1 { flex: 1; min-width: 180px; }
         const on = (selector) => event.target.closest(selector);
         let b;
         if ((b = on('[data-bank-add]'))) { planInsertBank(b); return; }
+        if ((b = on('[data-template-apply]'))) { planApplyTemplate(b); return; }
         if ((b = on('[data-bank-retry]'))) { planLoadBank(b.closest('.plan-bank')); return; }
         if ((b = on('[data-evidence-add]'))) { planInsertEvidence(b); return; }
         if ((b = on('[data-evidence-retry]'))) { planLoadEvidence(b.closest('[data-evidence]')); return; }
@@ -4716,6 +4772,7 @@ header.top h1 { flex: 1; min-width: 180px; }
         if (form) form.dataset.touched = '1';
     });
     el('plan').addEventListener('change', (event) => {
+        if (event.target.matches('[data-template-source]')) { planTemplateChoices(event.target.closest('.plan-template')); return; }
         if (event.target.matches('[data-bank-domain], [data-bank-use]')) { planFilterBank(event.target.closest('.plan-bank')); return; }
         const input = event.target.closest('[data-plan-pick]');
         if (!input) return;
@@ -4724,7 +4781,8 @@ header.top h1 { flex: 1; min-width: 180px; }
     });
     el('plan').addEventListener('toggle', (event) => {
         if (event.target.matches('[data-evidence]') && event.target.open) planLoadEvidence(event.target);
-        else if (event.target.matches('.plan-bank') && event.target.open) planLoadBank(event.target);
+        // The template picker wears the fond's look (.plan-bank) but holds its choices already; it loads nothing.
+        else if (event.target.matches('.plan-bank:not(.plan-template)') && event.target.open) planLoadBank(event.target);
     }, true);
     el('plan').addEventListener('keydown', (event) => {
         // Searching inside a form must never invoke its implicit Save button.

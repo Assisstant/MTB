@@ -112,7 +112,7 @@ const check = (label, ok, detail = '') => {
     else { fails++; console.log(`  FAIL ${label}${detail ? `\n       ${detail}` : ''}`); }
 };
 const p = await context.newPage();
-p.on('pageerror', (e) => errors.push(e.message));
+p.on('pageerror', (e) => errors.push(e.message + ' @ ' + String(e.stack || '').split(String.fromCharCode(10)).slice(0, 4).join(' | ')));
 const dialogs = [];
 p.on('dialog', (dialog) => { dialogs.push(dialog.message()); dialog.accept(); });
 const text = (selector) => p.locator(selector).innerText();
@@ -279,6 +279,23 @@ try {
     await p.click('[data-plan-filter="all"]');
     await p.click('[data-plan-open="p1"]');
     await p.waitForSelector('.plan-who');
+    console.log('\na filled example as a selectable template, draft first');
+    const phaseA = 'form[data-part="phaseA"]', template = phaseA + ' .plan-template';
+    await edit(phaseA);
+    const beforeTemplate = writes.length;
+    await p.click(template + ' > summary');
+    check('the matching filled examples offer every populated field for selection', await p.locator(template + ' [data-template-field]').count() === 4);
+    await p.uncheck(template + ' [data-template-field="diagnostics"]');
+    await p.click(template + ' [data-template-apply]');
+    check('selected fields copy into the draft, unchecked fields stay untouched, and nothing is submitted',
+        (await p.inputValue(phaseA + ' textarea[name="observation"]')).includes('структурирана активност')
+        && await p.inputValue(phaseA + ' textarea[name="diagnostics"]') === '' && writes.length === beforeTemplate);
+    await p.fill(phaseA + ' textarea[name="observation"]', 'Приспособено за избраниот ученик');
+    await p.click(phaseA + ' button[type="submit"]');
+    await p.waitForFunction(() => document.getElementById('planMsg').textContent.includes('Зачувано за'));
+    check('the ordinary Save is the second step and submits the edited draft', last('/api/portal/plan/part').part === 'phaseA'
+        && last('/api/portal/plan/part').data.observation === 'Приспособено за избраниот ученик'
+        && last('/api/portal/plan/part').data.diagnostics === '');
     const goals = 'form[data-part="goal:logoped"]';
     const picker = goals + ' [data-bank-target="goals"]';
     const original = '  Мој текст со празни места  ';
