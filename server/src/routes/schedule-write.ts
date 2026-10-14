@@ -49,16 +49,31 @@ const SessionBody = z.object({
     expectedStudentPublicId: z.string().min(1).max(80).nullable().optional()
 });
 
+/** The most pupils one term can take together (owner, 14 Oct 2026). */
+export const GROUP_MAX = 8;
+const GROUP_REFUSED = 'Групни термини уште не се вклучени на овој сервер (миграција 063).';
+const IS_GROUP = 'Тој термин е група. Уредете го како цел термин, со сите ученици.';
+
 export const BlockBody = z.object({
     year: z.string().min(1).max(64).optional(),
     day: z.string().min(1).max(40),
     /** The containing cabinet bell, always one 40-minute range. */
     time: z.string().min(1).max(80),
     therapistId: z.number().int().positive(),
-    /** 0 clears; 1 owns all 40 minutes; 2 are ordered 20-minute halves. */
-    studentPublicIds: z.array(z.string().min(1).max(80)).max(2),
+    /**
+     * 0 clears; 1 owns all 40 minutes; 2 are ordered 20-minute halves or,
+     * with `mode: "together"`, a group; 3 to 8 are always a group, every pupil
+     * the whole bell together (owner, 14 Oct 2026; migration 063).
+     */
+    studentPublicIds: z.array(z.string().min(1).max(80)).max(GROUP_MAX),
     /** Semantic block state, irrespective of whether one legacy pupil used two equal half-rows. */
-    expectedStudentPublicIds: z.array(z.string().min(1).max(80)).max(2).optional()
+    expectedStudentPublicIds: z.array(z.string().min(1).max(80)).max(GROUP_MAX).optional(),
+    /**
+     * „together" or „halves", which only two pupils can choose between. Left
+     * out, a block keeping the same pupils keeps its way — a caller that knows
+     * nothing of groups never splits one — and two new pupils are halves.
+     */
+    mode: z.enum(['together', 'halves']).optional()
 });
 
 function sameIds(a: string[], b: string[]): boolean {
@@ -79,14 +94,35 @@ export function blockTimes(label: string): { full: string; halves: [string, stri
     };
 }
 
+/**
+ * The pupils of a block. Every row with the whole bell is a pupil there for
+ * all of it — one, or a group (063), in the rows' order; the halves are two
+ * pupils 20 minutes each. Callers read the rows ordered by time, then id.
+ */
 export function semanticBlock(rows: any[], times: { full: string; halves: [string, string] }): string[] | null {
-    const full = rows.find((row) => row.time_slot === times.full)?.student_public_id;
+    const full = rows.filter((row) => row.time_slot === times.full).map((row) => row.student_public_id).filter(Boolean);
     const halves = times.halves.map((time) =>
         rows.find((row) => row.time_slot === time)?.student_public_id).filter(Boolean);
-    if (full && halves.length) return null; // contradictory overlap; never silently choose one
-    if (full) return [String(full)];
+    if (full.length && halves.length) return null; // contradictory overlap; never silently choose one
+    if (full.length) return full.map(String);
     if (halves.length === 2 && halves[0] === halves[1]) return [String(halves[0])];
     return halves.map(String);
+}
+/** A group: two or more pupils, each with the whole bell. */
+export const blockTogether = (rows: any[], times: { full: string }) =>
+    rows.filter((row) => row.time_slot === times.full && row.student_public_id).length > 1;
+
+let groupsReady = false;
+/**
+ * Can this database hold a group (063)? Asked of the table the write resolves
+ * to (trap 41) and remembered once it can. Without it a group is refused in
+ * words, never by a unique violation halfway through a block.
+ */
+export async function hasGroups(db: { query: (text: string, values?: any[]) => Promise<{ rows: any[] }> }): Promise<boolean> {
+    if (!groupsReady) groupsReady = (await db.query(
+        `SELECT 1 FROM pg_constraint WHERE conname = 'schedule_slots_year_day_time_therapist_student_key'
+            AND conrelid = to_regclass('schedule_slots')`)).rows.length > 0;
+    return groupsReady;
 }
 
 /**
@@ -157,6 +193,9 @@ export async function writeBlockInTransaction(client: import("pg").PoolClient, b
     if (new Set(body.studentPublicIds).size !== body.studentPublicIds.length) {
         return reply.code(400).send({ error: 'leave the second pupil empty when one pupil owns all 40 minutes' });
     }
+    if (body.mode === 'halves' && body.studentPublicIds.length !== 2) {
+        return reply.code(400).send({ error: 'halves are for two pupils; three or more are a group' });
+    }
     const dayOrder = DAY_ORDER[norm(body.day)];
     if (!dayOrder) return reply.code(400).send({ error: `unknown working day "${body.day}"` });
 
@@ -188,10 +227,11 @@ export async function writeBlockInTransaction(client: import("pg").PoolClient, b
          FROM schedule_slots sl LEFT JOIN students s ON s.id = sl.student_id
          WHERE sl.school_year_id = $1 AND sl.day = $2 AND sl.therapist_id = $3
            AND sl.time_slot = ANY($4::text[])
-         ORDER BY sl.time_slot FOR UPDATE OF sl`,
+         ORDER BY sl.time_slot, sl.id FOR UPDATE OF sl`,
         [year.id, body.day, body.therapistId, exactTimes]
     )).rows;
     const present = semanticBlock(currentRows, times);
+    const presentTogether = blockTogether(currentRows, times);
     if (present == null) {
         return reply.code(409).send({
             error: 'that block contains overlapping full and half rows; clear them explicitly first',
@@ -199,7 +239,9 @@ export async function writeBlockInTransaction(client: import("pg").PoolClient, b
         });
     }
     const presentTimes = blockState(currentRows, times)!.times;
-    if ((body.expectedStudentPublicIds !== undefined && !sameIds(present, body.expectedStudentPublicIds))
+    // A group has no order a person chose, so it is compared as a set.
+    const matches = (a: string[], b: string[]) => presentTogether ? sameIds([...a].sort(), [...b].sort()) : sameIds(a, b);
+    if ((body.expectedStudentPublicIds !== undefined && !matches(present ?? [], body.expectedStudentPublicIds))
         || (options.expectedTimes !== undefined && !sameIds(presentTimes, options.expectedTimes))) {
         return reply.code(409).send({
             error: 'that block changed while you were editing',
@@ -239,12 +281,21 @@ export async function writeBlockInTransaction(client: import("pg").PoolClient, b
     }
 
     await lockScheduleStudents(client, year.id, body.day, body.studentPublicIds);
-    let desiredTimes = students.length === 1 ? [times.full] : times.halves.slice(0, students.length);
+    // Together: a group, every pupil the whole bell. Three or more always are;
+    // two are when asked, or when the same two already were (a caller that
+    // knows nothing of groups must not split one); the undo says by its times.
+    const n = students.length, ids = students.map((st) => String(st.public_id));
+    const samePupils = n === present.length && ids.every((id) => present.includes(id));
+    const together = options.exactTimes ? options.exactTimes.length > 1 && options.exactTimes.every((t) => t === times.full)
+        : n > 2 || (n === 2 && (body.mode ? body.mode === 'together' : samePupils && presentTogether));
+    if (together && !await hasGroups(client)) return reply.code(409).send({ error: GROUP_REFUSED, groupsMissing: true });
+    let desiredTimes = n === 1 ? [times.full] : together ? ids.map(() => times.full) : times.halves.slice(0, n);
     if (options.exactTimes) {
-        // One pupil may hold the whole bell or one half of it; two hold the halves, in order.
+        // One pupil may hold the whole bell or one half of it; two hold the halves, in order; a group, the whole bell each.
         const wanted = options.exactTimes;
-        const fits = students.length === 1 ? wanted.length === 1 && exactTimes.includes(wanted[0])
-            : sameIds(wanted, times.halves.slice(0, students.length));
+        const fits = n === 1 ? wanted.length === 1 && exactTimes.includes(wanted[0])
+            : together ? wanted.length === n
+            : sameIds(wanted, times.halves.slice(0, n));
         if (!fits) return reply.code(400).send({ error: 'those times are not this block' });
         desiredTimes = wanted;
     }
@@ -279,7 +330,7 @@ export async function writeBlockInTransaction(client: import("pg").PoolClient, b
         therapistId: therapist.id, therapistName: therapist.name,
         studentPublicIds: students.map((student) => student.public_id),
         previousStudentPublicIds: present,
-        previousTimes: presentTimes, times: desiredTimes,
+        previousTimes: presentTimes, times: desiredTimes, together, previousTogether: presentTogether,
         sessions: students.map((student, index) => ({
             day: body.day, time: desiredTimes[index], therapist_id: therapist.id,
             therapist_name: therapist.name, student_public_id: student.public_id,
@@ -336,7 +387,9 @@ export async function scheduleWriteRoutes(server: FastifyInstance) {
      * moment where clearing the full row loses it before the halves land.
      */
     server.put('/api/schedule/block', async (req, reply) => {
-        const body = BlockBody.parse(req.body);
+        const parsed = BlockBody.safeParse(req.body);
+        if (!parsed.success) return reply.code(400).send({ error: `a block is a day, one 40-minute time, a therapist and up to ${GROUP_MAX} pupils` });
+        const body = parsed.data;
         try { assertOwnTherapistId(await scopeOf(req), body.therapistId); }
         catch (err) { return refuseScope(reply, err); }
         const result = await writeBlock(body);
@@ -381,7 +434,7 @@ export async function scheduleWriteRoutes(server: FastifyInstance) {
 
             await lockScheduleTherapist(client, year.id, body.day, body.therapistId);
 
-            const current = (await client.query(
+            const cell = (await client.query(
                 `SELECT sl.id, s.public_id AS student_public_id, s.name AS student_name
                  FROM schedule_slots sl
                  LEFT JOIN students s ON s.id = sl.student_id
@@ -389,7 +442,13 @@ export async function scheduleWriteRoutes(server: FastifyInstance) {
                    AND sl.therapist_id = $4
                  FOR UPDATE OF sl`,
                 [year.id, body.day, body.time, body.therapistId]
-            )).rows[0];
+            )).rows;
+            // One pupil per cell is all this route knows; a group (063) is a block's, whole.
+            if (cell.length > 1) {
+                await client.query('ROLLBACK');
+                return reply.code(409).send({ error: IS_GROUP, group: true });
+            }
+            const current = cell[0];
             const present = current?.student_public_id ?? null;
             if (body.expectedStudentPublicId !== undefined && present !== body.expectedStudentPublicId) {
                 await client.query('ROLLBACK');
@@ -452,12 +511,14 @@ export async function scheduleWriteRoutes(server: FastifyInstance) {
                 return reply.code(409).send(refusal);
             }
 
+            // The cell is replaced, as the old upsert did; the key now names the pupil (063).
+            await client.query(
+                `DELETE FROM schedule_slots WHERE school_year_id = $1 AND day = $2 AND time_slot = $3 AND therapist_id = $4`,
+                [year.id, body.day, body.time, body.therapistId]);
             await client.query(
                 `INSERT INTO schedule_slots
                     (school_year_id, day, day_order, time_slot, therapist_id, student_id, source)
-                 VALUES ($1, $2, $3, $4, $5, $6, 'api')
-                 ON CONFLICT (school_year_id, day, time_slot, therapist_id)
-                 DO UPDATE SET student_id = EXCLUDED.student_id, source = 'api'`,
+                 VALUES ($1, $2, $3, $4, $5, $6, 'api')`,
                 [year.id, body.day, dayOrder, body.time, body.therapistId, student.id]
             );
             await client.query('COMMIT');
@@ -517,6 +578,10 @@ export async function scheduleWriteRoutes(server: FastifyInstance) {
                   FOR UPDATE OF sl`,
                 [yid, body.day, body.time, norm(body.therapist)]
             );
+            if (cur.rows.length > 1) {
+                await client.query('ROLLBACK');
+                return reply.code(409).send({ error: IS_GROUP, group: true });
+            }
             const present: string | null = cur.rows.length ? (cur.rows[0].student ?? null) : null;
 
             // Someone else got here first with something different.
@@ -576,10 +641,11 @@ export async function scheduleWriteRoutes(server: FastifyInstance) {
             }
 
             await client.query(
+                `DELETE FROM schedule_slots WHERE school_year_id = $1 AND day = $2 AND time_slot = $3 AND therapist_id = $4`,
+                [yid, body.day, body.time, therapistId]);
+            await client.query(
                 `INSERT INTO schedule_slots (school_year_id, day, day_order, time_slot, therapist_id, student_id, source)
-                 VALUES ($1, $2, $3, $4, $5, $6, 'api')
-                 ON CONFLICT (school_year_id, day, time_slot, therapist_id)
-                 DO UPDATE SET student_id = EXCLUDED.student_id, source = 'api'`,
+                 VALUES ($1, $2, $3, $4, $5, $6, 'api')`,
                 [yid, body.day, DAY_ORDER[norm(body.day)] ?? 0, body.time, therapistId, st.rows[0].id]
             );
             await client.query('COMMIT');

@@ -34,7 +34,7 @@ import {
     standingClashes, yearClasses, yearLessons, yearTeachers, type Clash, type WeekLesson
 } from '../lib/portal-week.js';
 import { bellsOf, crossingOf, subjectOffer } from './teaching.js';
-import { blockTimes, semanticBlock, writeBlockInTransaction, type BlockWrite } from './schedule-write.js';
+import { GROUP_MAX, blockTimes, blockTogether, semanticBlock, writeBlockInTransaction, type BlockWrite } from './schedule-write.js';
 import { logTermChange } from '../lib/portal-changes.js';
 import { registerPortalPlan } from './portal-plan.js';
 import { minutesOf, timeOf } from '../lib/crossing.js';
@@ -240,9 +240,11 @@ const TermBody = z.object({
     day: z.string().min(1).max(20),
     /** The 40-minute cabinet bell, „08:00-08:40". */
     time: z.string().min(1).max(20),
-    /** None clears; one pupil owns all 40 minutes; two share it in halves. */
-    pupils: z.array(z.string().min(1).max(80)).max(2),
-    expected: z.array(z.string().min(1).max(80)).max(2).optional(),
+    /** None clears; one pupil owns all 40 minutes; two share it in halves or are together; three to eight are a group (063). */
+    pupils: z.array(z.string().min(1).max(80)).max(GROUP_MAX),
+    expected: z.array(z.string().min(1).max(80)).max(GROUP_MAX).optional(),
+    /** For two pupils: „together" (a group) or „halves" (20 minutes each). */
+    mode: z.enum(['together', 'halves']).optional(),
     force: z.boolean().optional()
 });
 
@@ -257,6 +259,7 @@ function termRefusal(body: any) {
     if (body && body.blockOverlap) return { error: 'Во овој термин има стари записи што се преклопуваат. Јавете се кај администраторот.' };
     if (/not active in this school year/.test(raw)) return { error: 'Тој ученик не е на листата за годинава.' };
     if (/40-minute/.test(raw)) return { error: 'Терминот мора да е еден час во кабинет (40 минути).' };
+    if (/halves are for two/.test(raw)) return { error: 'По 20 минути може само за двајца; тројца и повеќе се група, цел час.' };
     return { error: raw || 'Терминот не е зачуван.' };
 }
 
@@ -281,7 +284,7 @@ async function cabinetWeek(staff: Staff, year: { id: number; label: string }) {
     const rows = (await pool.query(
         `SELECT sl.day, sl.time_slot, s.public_id AS student_public_id, s.name AS student_name
            FROM schedule_slots sl LEFT JOIN students s ON s.id = sl.student_id
-          WHERE sl.school_year_id = $1 AND sl.therapist_id = $2`, [year.id, staff.therapistId])).rows;
+          WHERE sl.school_year_id = $1 AND sl.therapist_id = $2 ORDER BY sl.time_slot, sl.id`, [year.id, staff.therapistId])).rows;
     const names: Record<string, string> = {};
     rows.forEach((r: any) => { if (r.student_public_id) names[r.student_public_id] = r.student_name; });
     const terms = [];
@@ -292,7 +295,9 @@ async function cabinetWeek(staff: Staff, year: { id: number; label: string }) {
             const here = rows.filter((r: any) => r.day === day && [times.full, ...times.halves].includes(r.time_slot));
             if (!here.length) continue;
             const ids = semanticBlock(here, times);
-            terms.push({ day, time: bell.time, pupils: ids ?? here.map((r: any) => r.student_public_id).filter(Boolean), overlap: ids === null });
+            terms.push({ day, time: bell.time, pupils: ids ?? here.map((r: any) => r.student_public_id).filter(Boolean), overlap: ids === null,
+                // Several pupils the whole bell together (063), not two halves.
+                together: ids !== null && blockTogether(here, times) });
         }
     }
     const own = pupils.map((p: any) => p.publicId);
@@ -990,7 +995,9 @@ export async function portalRoutes(server: FastifyInstance, options: { year?: st
         if (!who) return;
         const therapistId = who.staff.therapistId;
         if (therapistId == null) return reply.code(403).send({ error: 'Само терапевт има свој кабинет.' });
-        const b = TermBody.parse(req.body);
+        const parsedTerm = TermBody.safeParse(req.body);
+        if (!parsedTerm.success) return reply.code(400).send({ error: `Во еден термин може најмногу ${GROUP_MAX} ученици.` });
+        const b = parsedTerm.data;
         if (!TEACHING_DAYS.includes(b.day)) return reply.code(400).send({ error: 'Непознат ден.' });
         // The block and its row in the administrator's record (060) are one
         // transaction: a term that was not written leaves nothing to undo.
@@ -1000,7 +1007,7 @@ export async function portalRoutes(server: FastifyInstance, options: { year?: st
             await client.query('BEGIN');
             result = await writeBlockInTransaction(client, {
                 year: who.year.label, day: b.day, time: b.time, therapistId,
-                studentPublicIds: b.pupils, expectedStudentPublicIds: b.expected
+                studentPublicIds: b.pupils, expectedStudentPublicIds: b.expected, mode: b.mode
             }, { force: Boolean(b.force) });
             if (result.status === 200) {
                 await logTermChange(client, { yearId: who.year.id, therapistId, authorEmployeeId: who.author.employeeId,

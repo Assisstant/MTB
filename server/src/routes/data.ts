@@ -433,7 +433,7 @@ export async function dataRoutes(server: FastifyInstance) {
              LEFT JOIN student_enrollments e ON e.student_id = s.id AND e.school_year_id = y.id AND e.active
              WHERE ($2::text IS NULL OR t.name = $2)
                AND (sl.student_id IS NULL OR e.student_id IS NOT NULL)
-             ORDER BY sl.day_order, sl.time_slot, t.name`,
+             ORDER BY sl.day_order, sl.time_slot, t.name, sl.id`,
             [q?.year ?? null, q?.therapist ?? null]
         );
 
@@ -441,7 +441,13 @@ export async function dataRoutes(server: FastifyInstance) {
         for (const r of rows) {
             const key = `${r.day}|${r.time_slot}`;
             if (!terms.has(key)) terms.set(key, { day: r.day, day_order: r.day_order, time: r.time_slot, assignments: {} });
-            terms.get(key).assignments[r.therapist] = r.student;
+            const term = terms.get(key);
+            // The old apps hold one pupil per therapist and time: the first of a
+            // group (063) stays there, and the whole group goes beside it in the
+            // additive `groups`, which they ignore and the import reads back.
+            if (!(r.therapist in term.assignments)) { term.assignments[r.therapist] = r.student; continue; }
+            term.groups ||= {};
+            (term.groups[r.therapist] ||= [term.assignments[r.therapist]]).push(r.student);
         }
         return [...terms.values()];
     });

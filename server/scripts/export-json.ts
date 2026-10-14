@@ -60,7 +60,7 @@ async function main() {
          JOIN therapists t ON t.id = sl.therapist_id
          LEFT JOIN students s ON s.id = sl.student_id
          WHERE sl.school_year_id = (SELECT id FROM school_years WHERE is_current)
-         ORDER BY sl.day_order, sl.time_slot, t.name`
+         ORDER BY sl.day_order, sl.time_slot, t.name, sl.id`
     )).rows;
 
     // ── Rasporedi shape ────────────────────────────────────────────────────
@@ -80,7 +80,11 @@ async function main() {
         if (!sl.student) continue;
         const key = `${sl.day}|${sl.time_slot}`;
         if (!scheduleByTerm.has(key)) scheduleByTerm.set(key, { day: sl.day, time: sl.time_slot, assignments: {} });
-        scheduleByTerm.get(key).assignments[sl.therapist] = sl.student;
+        const term = scheduleByTerm.get(key);
+        // One pupil per therapist and time for the old apps; a group (063) whole in the additive `groups` (routes/data.ts does the same).
+        if (!(sl.therapist in term.assignments)) { term.assignments[sl.therapist] = sl.student; continue; }
+        term.groups ||= {};
+        (term.groups[sl.therapist] ||= [term.assignments[sl.therapist]]).push(sl.student);
     }
 
     const rasporedi = {

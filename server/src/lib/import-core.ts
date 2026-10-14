@@ -36,6 +36,18 @@ export interface Report {
 }
 export const newReport = (): Report => ({ notes: [], problems: [] });
 
+/**
+ * The pupils of one cell of an old document. The old apps know one pupil per
+ * therapist and time (`assignments`); a group (063) travels beside it in the
+ * additive `groups`, which they ignore and keep the first pupil of.
+ * A `groups` entry counts only when it holds two or more names.
+ */
+export function cellPupils(slot: any, therapist: string, raw: unknown): string[] {
+    const group = slot && slot.groups && typeof slot.groups === 'object' ? slot.groups[therapist] : null;
+    const names = Array.isArray(group) && group.length > 1 ? group : [raw];
+    return [...new Set(names.map((n: unknown) => String(n || '').trim()).filter((n: string) => n && !PLACEHOLDERS.has(n)))];
+}
+
 /** The file preview and the transactional projection check the same resolved identities. */
 export function documentScheduleProblems(base: any, canonical: CanonicalStudent[], bells: Bell[], resolvedIds?: Map<string, number>): string[] {
     const pupils = new Map<string, Set<string>>();
@@ -46,9 +58,7 @@ export function documentScheduleProblems(base: any, canonical: CanonicalStudent[
     const terms: ScheduleTerm[] = [], problems: string[] = [];
     for (const slot of asArray(base?.schedule)) {
         if (!slot || typeof slot !== 'object') continue;
-        for (const [therapist, raw] of Object.entries(slot.assignments || {})) {
-            const studentName = String(raw || '').trim();
-            if (!studentName || PLACEHOLDERS.has(studentName)) continue;
+        for (const [therapist, raw] of Object.entries(slot.assignments || {})) for (const studentName of cellPupils(slot, therapist, raw)) {
             const ids = pupils.get(norm(studentName));
             if (ids && ids.size > 1) {
                 problems.push(`Нејасен ученик во распоредот: ${studentName}. Повеќе записи го делат ова име.`);
@@ -823,19 +833,25 @@ export async function writeAll(
             const assignments = (slot.assignments && typeof slot.assignments === 'object') ? slot.assignments : {};
 
             for (const [therapistName, studentRaw] of Object.entries(assignments)) {
-                const studentName = String(studentRaw || '').trim();
-                if (!studentName || PLACEHOLDERS.has(studentName)) continue;
+                const names = cellPupils(slot, therapistName, studentRaw);
+                if (!names.length) continue;
                 const therapistId = therapistIdByName.get(norm(therapistName));
-                const studentId = studentIdByName.get(norm(studentName));
                 if (!therapistId) { missing.add(`therapist "${therapistName}"`); continue; }
-                if (!studentId) { missing.add(`student "${studentName}"`); continue; }
+                const studentIds = names.map((name) => [name, studentIdByName.get(norm(name))] as const);
+                studentIds.filter(([, id]) => !id).forEach(([name]) => missing.add(`student "${name}"`));
+                const found = studentIds.filter(([, id]) => id).map(([, id]) => id);
+                if (!found.length) continue;
+                // A cell named twice in one document: the later wins, whole, as the old upsert did.
                 await client.query(
-                    `INSERT INTO schedule_slots (school_year_id, day, day_order, time_slot, therapist_id, student_id, source)
-                     VALUES ($1, $2, $3, $4, $5, $6, 'document')
-                     ON CONFLICT (school_year_id, day, time_slot, therapist_id)
-                     DO UPDATE SET student_id = EXCLUDED.student_id, source = 'document'`,
-                    [schoolYearId, day, order, time, therapistId, studentId]
-                );
+                    `DELETE FROM schedule_slots WHERE school_year_id = $1 AND day = $2 AND time_slot = $3 AND therapist_id = $4`,
+                    [schoolYearId, day, time, therapistId]);
+                for (const studentId of found) {
+                    await client.query(
+                        `INSERT INTO schedule_slots (school_year_id, day, day_order, time_slot, therapist_id, student_id, source)
+                         VALUES ($1, $2, $3, $4, $5, $6, 'document')`,
+                        [schoolYearId, day, order, time, therapistId, studentId]
+                    );
+                }
             }
         }
         missing.forEach((m) => report.problems.push(`Schedule references unknown ${m} — slot skipped.`));

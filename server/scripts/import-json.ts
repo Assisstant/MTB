@@ -20,7 +20,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { pool } from '../src/db.js';
 import {
-    PLACEHOLDERS, DAY_ORDER, newReport, norm, asArray, attendanceStatus,
+    DAY_ORDER, newReport, norm, asArray, attendanceStatus, cellPupils,
     toSdnRecords, reconcile, writeAll, documentScheduleProblems,
     type Report, type SdnRecord, type CanonicalStudent
 } from '../src/lib/import-core.js';
@@ -81,11 +81,8 @@ function analyzeSchedule(base: any) {
         if (!DAY_ORDER[norm(day)]) unknown.add(day);
 
         const assignments = (slot.assignments && typeof slot.assignments === 'object') ? slot.assignments : {};
-        for (const student of Object.values(assignments)) {
-            const s = String(student || '').trim();
-            if (!s || PLACEHOLDERS.has(s)) continue;
-            stats.slots++;
-        }
+        // A group (063) counts each of its pupils, as the import writes them.
+        for (const [therapist, student] of Object.entries(assignments)) stats.slots += cellPupils(slot, therapist, student).length;
     }
     stats.unknownDays = [...unknown];
     return stats;

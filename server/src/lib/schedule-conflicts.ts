@@ -53,7 +53,10 @@ export function scheduleProblems(terms: ScheduleTerm[], bells: Bell[]): string[]
         for (const b of terms.slice(i + 1)) {
             if (scheduleDay(a.day) !== scheduleDay(b.day) || !scheduleOverlap(a.time, b.time, bells)) continue;
             if (a.therapist === b.therapist) {
-                if (a.time === b.time && a.student === b.student) continue;
+                // The very same time in one cabinet is one term: a group (063), or
+                // a cell named twice, which the import replaces whole. Overlapping
+                // DIFFERENT times are still two records that cannot both stand.
+                if (a.time === b.time) continue;
                 problems.push(`Преклопени записи во кабинет: ${a.day} · ${a.therapist} · ${a.time} / ${b.time}.`);
             } else if (a.student === b.student) {
                 problems.push(`Ученикот ${a.studentName} е закажан двапати: ${a.day} · ${a.therapist} ${a.time} / ${b.therapist} ${b.time}.`);

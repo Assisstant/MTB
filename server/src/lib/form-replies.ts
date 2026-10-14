@@ -20,6 +20,7 @@ import { fileURLToPath } from 'node:url';
 import vm from 'node:vm';
 import type { PoolClient } from 'pg';
 import { minutesOf, slotBell, timeOf } from './crossing.js';
+import { semanticBlock } from '../routes/schedule-write.js';
 
 type Queryable = Pick<PoolClient, 'query'>;
 
@@ -193,14 +194,9 @@ function halvesOf(full: string): [string, string] | null {
     return [`${timeOf(start)}-${timeOf(start + 20)}`, `${timeOf(start + 20)}-${timeOf(start + 40)}`];
 }
 
-/** Same reading as schedule-write's `semanticBlock`: null when full and half rows contradict. */
+/** schedule-write's `semanticBlock` itself, so a group (063) reads the same here: null when full and half rows contradict. */
 function blockIds(rows: Array<{ time_slot: string; public_id: string }>, full: string, halves: [string, string]): string[] | null {
-    const f = rows.find((r) => r.time_slot === full)?.public_id;
-    const h = halves.map((t) => rows.find((r) => r.time_slot === t)?.public_id).filter(Boolean) as string[];
-    if (f && h.length) return null;
-    if (f) return [String(f)];
-    if (h.length === 2 && h[0] === h[1]) return [String(h[0])];
-    return h.map(String);
+    return semanticBlock(rows.map((r) => ({ time_slot: r.time_slot, student_public_id: r.public_id })), { full, halves });
 }
 
 type Session = { day: string; time_slot: string; therapist_id: number; therapist_name: string; public_id: string };
@@ -237,7 +233,7 @@ export async function cabinetContext(db: Queryable, year: { id: number; label: s
     const sessions: Session[] = (await db.query(
         `SELECT sl.day, sl.time_slot, sl.therapist_id, t.name AS therapist_name, s.public_id
            FROM schedule_slots sl JOIN students s ON s.id = sl.student_id JOIN therapists t ON t.id = sl.therapist_id
-          WHERE sl.school_year_id = $1`, [year.id])).rows;
+          WHERE sl.school_year_id = $1 ORDER BY sl.time_slot, sl.id`, [year.id])).rows;
 
     const own = sessions.filter((s) => s.therapist_id === therapistId);
     const current: Record<string, string[]> = {};

@@ -541,3 +541,34 @@ test('062 adds an optional reason beside a plan change, on a database at 061, an
   assert.equal((await c.query('SELECT has_table_privilege($1,$2,$3) AS a',['anon','pupil_plan_changes','SELECT']).catch(()=>({rows:[{a:false}]}))).rows[0].a,false);
  }finally{await c.query(`DROP SCHEMA IF EXISTS ${backup} CASCADE`);await c.query(`DROP SCHEMA ${schema} CASCADE`);await c.end();}
 });
+
+test('063 lets a term hold a group, one row per child, on a database at 062, and changes no row already there', async () => {
+ const url=process.env.TEST_DATABASE_URL||process.env.DATABASE_URL;
+ const c=new pg.Client({connectionString:url});await c.connect();
+ const schema=`schedule_groups_test_${process.pid}`,backup=`mtb_workspace_recovery_schedule_groups_test_${process.pid}`;
+ const dir=resolve(import.meta.dirname,'../../database/migrations');
+ await c.query(`CREATE SCHEMA ${schema}`);await c.query(`SET search_path=${schema}`);
+ try{
+  await c.query('CREATE TABLE schema_migrations(filename text PRIMARY KEY,applied_at timestamptz NOT NULL DEFAULT now())');
+  for(const f of (await readdir(dir)).filter(f=>f.endsWith('.sql')&&Number(f.slice(0,3))<=62).sort()){
+   await c.query(migrationBody(await readFile(resolve(dir,f),'utf8')));await c.query('INSERT INTO schema_migrations(filename) VALUES($1)',[f]);
+  }
+  const year=(await c.query(`INSERT INTO school_years(label,starts_on,ends_on,is_current) VALUES('1917/1918-group','1917-09-01','1918-08-31',false) RETURNING id`)).rows[0].id;
+  const therapist=(await c.query(`INSERT INTO therapists(name) VALUES('Пробна Терапевтка Група') RETURNING id`)).rows[0].id;
+  const pupil=async(n:number)=>(await c.query(`INSERT INTO students(public_id,name) VALUES($1,$2) RETURNING id`,[`group-${n}`,`Пробен Ученик Група ${n}`])).rows[0].id;
+  const [a,b,d]=[await pupil(1),await pupil(2),await pupil(3)];
+  const slot=`INSERT INTO schedule_slots(school_year_id,day,day_order,time_slot,therapist_id,student_id) VALUES($1,'понеделник',1,'08:00-08:40',$2,$3)`;
+  await c.query(slot,[year,therapist,a]);
+  await assert.rejects(c.query(slot,[year,therapist,b]),/schedule_slots_year_day_time_therapist_key/,'before 063 a second child at the same time cannot exist');
+  const before=(await c.query('SELECT id,time_slot,student_id FROM schedule_slots ORDER BY id')).rows;
+  await workspaceRelease(c,dir,()=>{},backup);
+  assert.equal((await c.query('SELECT count(*)::int AS n FROM schema_migrations')).rows[0].n,ALL);
+  assert.deepEqual((await c.query('SELECT id,time_slot,student_id FROM schedule_slots ORDER BY id')).rows,before,'no row is changed');
+  await c.query(slot,[year,therapist,b]);await c.query(slot,[year,therapist,d]);
+  assert.equal((await c.query(`SELECT count(*)::int AS n FROM schedule_slots WHERE time_slot='08:00-08:40'`)).rows[0].n,3,'a group of three is one row each');
+  await assert.rejects(c.query(slot,[year,therapist,b]),/schedule_slots_year_day_time_therapist_student_key/,'the same child twice in one group is refused');
+  const empty=`INSERT INTO schedule_slots(school_year_id,day,day_order,time_slot,therapist_id,student_id) VALUES($1,'вторник',2,'08:00-08:40',$2,NULL)`;
+  await c.query(empty,[year,therapist]);
+  await assert.rejects(c.query(empty,[year,therapist]),/schedule_slots_empty_cell_key/,'a cell without a pupil stays one');
+ }finally{await c.query(`DROP SCHEMA IF EXISTS ${backup} CASCADE`);await c.query(`DROP SCHEMA ${schema} CASCADE`);await c.end();}
+});

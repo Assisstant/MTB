@@ -43,7 +43,7 @@ export async function portalChangesRoutes(server: FastifyInstance, options: { ye
         const { rows } = await pool.query(
             `SELECT sl.therapist_id, sl.day, sl.time_slot, s.public_id AS student_public_id
                FROM schedule_slots sl LEFT JOIN students s ON s.id = sl.student_id
-              WHERE sl.school_year_id = $1 AND ($2::int IS NULL OR sl.therapist_id = $2)`, [yearId, therapistId ?? null]);
+              WHERE sl.school_year_id = $1 AND ($2::int IS NULL OR sl.therapist_id = $2) ORDER BY sl.time_slot, sl.id`, [yearId, therapistId ?? null]);
         return (therapist: number, day: string, slot: string): State | null => {
             const times = blockTimes(slot);
             if (!times) return null;
