@@ -272,6 +272,8 @@ header.top h1 { flex: 1; min-width: 180px; }
 .plan-more label { margin: 6px 0; }
 .plan-carry { background: var(--warn-bg); color: var(--warn); border-radius: 8px; padding: 6px 8px; font-size: 14px; margin: 4px 0; }
 .plan-status { margin: 6px 0 0; }
+.plan-reason { margin: 8px 0 4px; }
+.plan-reason small { font-weight: 400; color: var(--muted); }
 .plan-bank { margin: 6px 0 12px; padding: 0 10px; border: 1px solid var(--line); border-radius: 8px; min-width: 0; }
 .plan-bank > summary { cursor: pointer; padding: 12px 0; min-height: 24px; }
 .plan-bank-filters { display: flex; flex-wrap: wrap; gap: 8px; }
@@ -3932,7 +3934,8 @@ header.top h1 { flex: 1; min-width: 180px; }
     const PLAN_TEXT = {
         phaseA: { title: 'Фаза А — опсервација и дијагностика', fields: [['date', 'Датум', 'short'], ['observation', 'Опсервација'], ['diagnostics', 'Дијагностика'], ['teamConf', 'Тимска конференција']] },
         iop: { title: 'ИОП', fields: [['program', 'Програма', 'program'], ['goals', 'Цели'], ['strategies', 'Стратегии'], ['adaptations', 'Адаптации'], ['assistant', 'Асистент']] },
-        review: { title: 'Квартален преглед', fields: [['date', 'Датум', 'short'], ['iopEval', 'Евалуација на ИОП'], ['revision', 'Ревизија'], ['report', 'Извештај'], ['parentMeeting', 'Средба со родител']] },
+        // „Исход" and „Одлука" (phase 3, owner 14 Oct 2026): optional free text, with the bank's approved wording to pick from.
+        review: { title: 'Квартален преглед', fields: [['date', 'Датум', 'short'], ['iopEval', 'Евалуација на ИОП'], ['outcome', 'Исход'], ['decision', 'Одлука'], ['revision', 'Ревизија'], ['report', 'Извештај'], ['parentMeeting', 'Средба со родител']] },
         yearEnd: { title: 'Крај на година', fields: [['summary', 'Резиме'], ['transition', 'Транзиција'], ['summerNotes', 'Летни белешки']] },
         goal: { title: 'Почетна состојба и цели', fields: [['baseline', 'Почетна состојба'], ['goals', 'Цели за годината']] }
     };
@@ -4054,14 +4057,19 @@ header.top h1 { flex: 1; min-width: 180px; }
     function planStatus(part) {
         const info = plan.pupil.parts[part];
         if (!info || planEmpty(info.data)) return '○ Празно';
-        return info.confirmedBy ? `✅ Потврдено од ${esc(info.confirmedBy)}, ${esc(planWhen(info.confirmedAt))}`
-            : `✏️ Запишано од ${esc(info.by)}, ${esc(planWhen(info.at))}` + (PLAN_CONFIRMED.includes(planKind(part)) ? ' — уште не е потврдено' : '');
+        return (info.confirmedBy ? `✅ Потврдено од ${esc(info.confirmedBy)}, ${esc(planWhen(info.confirmedAt))}`
+            : `✏️ Запишано од ${esc(info.by)}, ${esc(planWhen(info.at))}` + (PLAN_CONFIRMED.includes(planKind(part)) ? ' — уште не е потврдено' : ''))
+            + (info.reason ? ` · причина за последната промена: ${esc(info.reason)}` : '');
     }
     const planEmpty = (value) => value == null ? true : typeof value === 'string' ? value.trim() === ''
         : Array.isArray(value) ? value.length === 0 : typeof value === 'object' ? Object.values(value).every(planEmpty) : false;
     function planButtons(part) {
         const info = plan.pupil.parts[part], can = PLAN_CONFIRMED.includes(planKind(part));
-        return '<div class="row plan-actions"><button type="submit">Зачувај</button>'
+        // A reason belongs to a CHANGE of something written, and only where the server keeps it (062).
+        const reason = plan.pupil.reasons && part !== 'cabinets' && info && !planEmpty(info.data)
+            ? '<label class="plan-reason">Причина за промената <small>(не е задолжително; се гледа во записот)</small>'
+                + '<input type="text" data-plan-reason maxlength="500" autocomplete="off"></label>' : '';
+        return reason + '<div class="row plan-actions"><button type="submit">Зачувај</button>'
             + (can ? `<button type="button" class="primary" data-plan-confirm>Потврди за ${esc(planPupilLine(plan.pupil.pupil))}</button>` : '')
             + (can && info && info.confirmedBy ? '<button type="button" class="small" data-plan-unconfirm>Тргни ја потврдата</button>' : '')
             + `</div><p class="muted plan-status" data-plan-status>${planStatus(part)}</p>`;
@@ -4080,7 +4088,7 @@ header.top h1 { flex: 1; min-width: 180px; }
         const fields = {
             goal: { baseline: ['baseline'], goals: ['goal', 'activity', 'criterion'] },
             iop: { goals: ['goal', 'criterion'], strategies: ['activity', 'communication'], adaptations: ['adaptation'] },
-            review: { iopEval: ['outcome'], revision: ['decision'] }
+            review: { outcome: ['outcome'], decision: ['decision'] }
         };
         const uses = (fields[kind] || {})[key];
         return uses ? planBankPicker(key, uses) : '';
@@ -4141,7 +4149,8 @@ header.top h1 { flex: 1; min-width: 180px; }
             rows.lastElementChild.querySelector('input').focus();
         } else {
             const input = form.elements[target];
-            const prefix = { activity: 'Активност: ', criterion: 'Критериум за успех: ', outcome: 'Исход: ', decision: 'Одлука: ' }[item.use] || '';
+            // Outcome and decision have fields of their own since phase 3, so they need no label in front.
+            const prefix = { activity: 'Активност: ', criterion: 'Критериум за успех: ' }[item.use] || '';
             const value = input.value + (input.value && !input.value.endsWith('\n') ? '\n' : '') + prefix + item.text;
             if (value.length > input.maxLength) { notice.textContent = 'Нема доволно место во полето. Скратете го текстот пред да додадете.'; return; }
             input.value = value;
@@ -4274,8 +4283,10 @@ header.top h1 { flex: 1; min-width: 180px; }
         if (JSON.stringify(planCollect(form)) === form.dataset.saved) delete form.dataset.touched; else form.dataset.touched = '1';
         delete form.dataset.prefilled;
         const carry = form.querySelector('.plan-carry'); if (carry) carry.remove();
-        const actions = form.querySelector('.plan-actions'), status = form.querySelector('[data-plan-status]');
+        const actions = form.querySelector('.plan-actions'), status = form.querySelector('[data-plan-status]'), reason = form.querySelector('.plan-reason');
         if (status) status.remove();
+        // A reason goes with the change it was sent with; the next change asks for its own.
+        if (reason) reason.remove();
         actions.outerHTML = planButtons(part);
         const mark = form.closest('details').querySelector('[data-plan-mark]');
         const first = form.closest('details').querySelector('form.plan-part');
@@ -4295,8 +4306,13 @@ header.top h1 { flex: 1; min-width: 180px; }
         try {
             let version = Number(form.dataset.version);
             if (JSON.stringify(data) !== form.dataset.saved) {
-                const answer = await api('PUT', '/api/portal/plan/part', { publicId, part, data, version });
-                if (answer.part) { sheet.parts[part] = answer.part; version = answer.part.version; }
+                const reason = (form.querySelector('[data-plan-reason]') || {}).value || '';
+                const answer = await api('PUT', '/api/portal/plan/part', { publicId, part, data, version, ...(reason.trim() ? { reason } : {}) });
+                if (answer.part) {
+                    // The record keeps the reason with this change; the sheet shows it until the next one.
+                    const kept = answer.changeId ? (reason.trim() ? reason : '') : (sheet.parts[part] || {}).reason;
+                    sheet.parts[part] = { ...answer.part, ...(kept ? { reason: kept } : {}) }; version = answer.part.version;
+                }
                 undo = answer.changeId;
                 // Written, whatever comes of the confirmation below: the form must know its new version.
                 if (here()) planFormSaved(form, data);

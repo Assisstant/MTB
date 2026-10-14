@@ -215,6 +215,52 @@ async function main() {
             id: rows.find((c: any) => c.part === 'cabinets').id, toPublicId: P2 })).status === 409);
         check('an unknown change is refused', (await call('POST', '/api/plan-changes/undo', '', { id: 99999999 })).status === 404);
 
+        console.log('\nphase 3: „Исход", „Одлука" and a reason for a change (062)');
+        const REVIEW = 'review:3';
+        const plain = await put(teacher, P2, REVIEW, { date: '', iopEval: 'Евалуација', outcome: '', decision: '', revision: '', report: '', parentMeeting: '' }, 0);
+        let stored = (await q(`SELECT data FROM pupil_plan_parts WHERE school_year_id = $1 AND student_id = $2 AND part = $3`, [y.id, sid[P2], REVIEW]))[0].data;
+        check('a review nobody gave an outcome keeps the shape it had before the fields existed', plain.status === 200
+            && !('outcome' in stored) && !('decision' in stored), JSON.stringify(stored));
+        const filled = await put(teacher, P2, REVIEW, { date: '', iopEval: 'Евалуација', outcome: 'Напредок', decision: 'Продолжува', revision: '', report: '', parentMeeting: '' },
+            plain.body.part.version);
+        let review = (await pupil(P2)).parts[REVIEW];
+        check('the outcome and the decision are written and read back as typed', filled.status === 200
+            && review.data.outcome === 'Напредок' && review.data.decision === 'Продолжува', JSON.stringify(review));
+        // A page opened before the fields existed sends the part without them (trap 11).
+        const old = await put(therapist, P2, REVIEW, { date: '', iopEval: 'Евалуација, поправена', revision: '', report: '', parentMeeting: '' }, review.version);
+        review = (await pupil(P2)).parts[REVIEW];
+        check('a save from a page that does not know them leaves them as they were', old.status === 200
+            && review.data.iopEval === 'Евалуација, поправена' && review.data.outcome === 'Напредок' && review.data.decision === 'Продолжува', JSON.stringify(review));
+        const cleared = await put(teacher, P2, REVIEW, { ...review.data, outcome: '' }, review.version);
+        review = (await pupil(P2)).parts[REVIEW];
+        check('emptied on purpose, it is gone', cleared.status === 200 && !('outcome' in review.data) && review.data.decision === 'Продолжува', JSON.stringify(review));
+        check('an unknown field is still refused', (await put(teacher, P2, REVIEW, { ...review.data, nesto: 'x' }, review.version)).status === 400);
+
+        const sheet2 = await pupil(P2);
+        check('the sheet says this server keeps a reason', sheet2.reasons === true);
+        const why = 'По тимската средба';
+        const reasoned = await put(teacher, P2, REVIEW, { ...review.data, revision: 'Се модифицира' }, review.version);
+        const reasonedAgain = await call('PUT', '/api/portal/plan/part', teacher, { publicId: P2, part: REVIEW,
+            data: { ...review.data, revision: 'Се модифицира, втор пат' }, version: reasoned.body.part.version, reason: why });
+        const [row] = await q(`SELECT reason FROM pupil_plan_changes WHERE id = $1`, [reasonedAgain.body.changeId]);
+        const [none] = await q(`SELECT reason FROM pupil_plan_changes WHERE id = $1`, [reasoned.body.changeId]);
+        check('a reason is kept with its own change, and a change without one has none', reasonedAgain.status === 200
+            && row.reason === why && none.reason === null, JSON.stringify(reasonedAgain.body));
+        review = (await pupil(P2)).parts[REVIEW];
+        check('never in the part itself', !('reason' in review.data) && review.reason === why, JSON.stringify(review));
+        await confirm(teacher, [{ publicId: P2, part: REVIEW, version: review.version }]);
+        check('a confirmation changes no text, so the reason for the text stays in sight', (await pupil(P2)).parts[REVIEW].reason === why);
+        const listed = (await admin()).changes.find((c: any) => c.id === reasonedAgain.body.changeId);
+        check('the administrator reads it in the record', listed && listed.reason === why, JSON.stringify(listed));
+        review = (await pupil(P2)).parts[REVIEW];
+        const blank = await call('PUT', '/api/portal/plan/part', teacher, { publicId: P2, part: REVIEW,
+            data: { ...review.data, report: 'Извештај' }, version: review.version, reason: '   ' });
+        check('only spaces is no reason', blank.status === 200 && (await q(`SELECT reason FROM pupil_plan_changes WHERE id = $1`, [blank.body.changeId]))[0].reason === null
+            && !('reason' in (await pupil(P2)).parts[REVIEW]));
+        review = (await pupil(P2)).parts[REVIEW];
+        check('a reason is short', (await call('PUT', '/api/portal/plan/part', teacher, { publicId: P2, part: REVIEW,
+            data: { ...review.data, report: 'Друг' }, version: review.version, reason: 'а'.repeat(501) })).status === 400);
+
         console.log('\nthe switch left for later');
         process.env.MTB_PLAN_OWN_PASSWORD = '1';
         const closed = await call('GET', '/api/portal/plan', therapist);

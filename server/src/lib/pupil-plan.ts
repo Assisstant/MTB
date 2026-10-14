@@ -32,13 +32,17 @@ export const confirmable = (part: string) => ['phaseA', 'iop', 'yearEnd', 'revie
 // Clinical free text is kept exactly as typed (trap 20): no trim, no collapse.
 const text = z.string().max(8000).default('');
 const short = z.string().max(60).default('');
+// A field added after 061 (phase 3) has no default: an absent key stays absent,
+// so a part written before it compares equal to itself (see `keepAdded`).
+const added = z.string().max(8000).optional();
 const code = z.string().regex(/^[a-z0-9_]{1,40}$/);
 const SHAPES: Record<PartKind, z.ZodTypeAny> = {
     cabinets: z.object({ codes: z.array(code).max(30).refine((list) => new Set(list).size === list.length).default([]) }).strict(),
     phaseA: z.object({ date: short, observation: text, diagnostics: text, teamConf: text }).strict(),
     iop: z.object({ program: short, goals: text, strategies: text, adaptations: text, assistant: text }).strict(),
     yearEnd: z.object({ summary: text, transition: text, summerNotes: text }).strict(),
-    review: z.object({ date: short, iopEval: text, revision: text, report: text, parentMeeting: text }).strict(),
+    // „Исход" and „Одлука" of the quarter's review (phase 3, owner 14 Oct 2026): free text, optional.
+    review: z.object({ date: short, iopEval: text, outcome: added, decision: added, revision: text, report: text, parentMeeting: text }).strict(),
     goal: z.object({ baseline: text, goals: text }).strict(),
     // The old project's three measures of an area, all optional: `level` and `baseline` on the scale
     // 0 „не реагира" … 4 „самостојно" (baseline = where the pupil started), `stage` the developmental
@@ -60,6 +64,25 @@ export function parsePart(part: string, data: unknown): { ok: true; data: Record
     if (!kind) return { ok: false };
     const parsed = SHAPES[kind].safeParse(data);
     return parsed.success ? { ok: true, data: parsed.data } : { ok: false };
+}
+
+/** The fields each kind of part gained after 061, which a page loaded before them does not send. */
+export const ADDED: Partial<Record<PartKind, string[]>> = { review: ['outcome', 'decision'] };
+
+/**
+ * Missing from a write is not the same as emptied (trap 11). A page opened
+ * before a field existed sends the part without it, and its save must not
+ * erase what a newer page wrote there: an absent added field keeps what the
+ * part holds. An added field that is empty is left out, so a part nobody has
+ * filled them in keeps the shape it had before they existed.
+ */
+export function keepAdded(part: string, data: Record<string, unknown>, current: Record<string, unknown> | null | undefined) {
+    const kind = partOf(part)?.kind, out = { ...data };
+    for (const key of (kind && ADDED[kind]) || []) {
+        if (!(key in out) && current && key in current) out[key] = current[key];
+        if (out[key] === '' || out[key] === undefined) delete out[key];
+    }
+    return out;
 }
 
 /** Nothing written in it: no text, no cabinet, no area. A row that holds this reads as „празно". */
@@ -116,7 +139,23 @@ export type Change = Where & {
     /** The part as `lockPart` returned it, in this same transaction. */
     current: PartRow | null;
     undoOf?: number | null;
+    /** Why, as the colleague typed it (062). Passed only where the column exists (`hasReasons`). */
+    reason?: string | null;
 };
+
+const REASON = `SELECT 1 FROM pg_attribute WHERE attrelid = to_regclass('pupil_plan_changes') AND attname = 'reason' AND NOT attisdropped`;
+let reasons = false;
+/**
+ * Does this database keep a reason with a change (062)? Asked of the table the
+ * write will resolve to (trap 41). Remembered once it is yes: a column is not
+ * taken away again, and a server that meets the migration later finds it.
+ */
+export async function hasReasons(db: Queryable): Promise<boolean> {
+    if (!reasons) reasons = (await db.query(REASON)).rows.length > 0;
+    return reasons;
+}
+/** A reason as kept: as typed, up to 500 characters; nothing for none or only spaces. */
+export const reasonOf = (value: unknown) => typeof value === 'string' && value.trim() ? value : null;
 
 /**
  * Write the part and its row in the record. Returns null where nothing would
@@ -136,11 +175,13 @@ export async function applyPart(client: Queryable, change: Change): Promise<{ ve
                 confirmed_by_employee = EXCLUDED.confirmed_by_employee`,
         [change.yearId, change.studentId, change.part, JSON.stringify(change.next.data), version, change.next.by,
             c ? c.at : null, c ? c.by : null, c ? c.employeeId : null]);
+    // The column is named only when there is a reason, so a database without 062 is written as before.
+    const reason = change.reason ? [change.reason] : [];
     const { rows } = await client.query(
-        `INSERT INTO pupil_plan_changes (school_year_id, student_id, part, kind, author_employee_id, author_name, before, after, undo_of)
-         VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8::jsonb, $9) RETURNING id`,
+        `INSERT INTO pupil_plan_changes (school_year_id, student_id, part, kind, author_employee_id, author_name, before, after, undo_of${reason.length ? ', reason' : ''})
+         VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8::jsonb, $9${reason.length ? ', $10' : ''}) RETURNING id`,
         [change.yearId, change.studentId, change.part, change.kind, change.author.employeeId, change.author.name,
-            before ? JSON.stringify(before) : null, JSON.stringify(change.next), change.undoOf ?? null]);
+            before ? JSON.stringify(before) : null, JSON.stringify(change.next), change.undoOf ?? null, ...reason]);
     return { version, changeId: Number(rows[0].id) };
 }
 

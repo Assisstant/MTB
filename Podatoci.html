@@ -3646,7 +3646,7 @@
     // As above: the server keeps the record and decides what can still be put
     // back or given to another pupil; this screen shows it and asks.
     const PLAN_FIELD = { date: 'Датум', observation: 'Опсервација', diagnostics: 'Дијагностика', teamConf: 'Тимска конференција', program: 'Програма',
-        goals: 'Цели', strategies: 'Стратегии', adaptations: 'Адаптации', assistant: 'Асистент', iopEval: 'Евалуација на ИОП', revision: 'Ревизија',
+        goals: 'Цели', strategies: 'Стратегии', adaptations: 'Адаптации', assistant: 'Асистент', iopEval: 'Евалуација на ИОП', outcome: 'Исход', decision: 'Одлука', revision: 'Ревизија',
         report: 'Извештај', parentMeeting: 'Средба со родител', summary: 'Резиме', transition: 'Транзиција', summerNotes: 'Летни белешки', baseline: 'Почетна состојба' };
     const PLAN_KIND = { write: 'запис', confirm: 'потврда', unconfirm: 'тргната потврда', undo: 'враќање', move: 'преместено од друг ученик' };
     let planShown = [], planLists = { pupils: [], categories: [] };
@@ -3688,7 +3688,8 @@
               + planShown.map((c) => '<tr data-plan-change="' + c.id + '"><td>' + esc(when2(c.at)) + '</td><td>' + esc(personName(c.author)) + '</td>'
                 + '<td>' + esc(personName(c.pupil.name)) + (c.pupil.class ? ' <span class="none">' + esc(c.pupil.class) + '</span>' : '') + '</td>'
                 + '<td>' + esc(planPartName(c.part)) + ' <span class="none">· ' + esc(PLAN_KIND[c.kind] || c.kind) + '</span></td>'
-                + '<td>' + planStateSaid(c.before, c.part) + '</td><td>' + planStateSaid(c.after, c.part) + '</td>'
+                + '<td>' + planStateSaid(c.before, c.part) + '</td><td>' + planStateSaid(c.after, c.part)
+                + (c.reason ? '<div style="white-space:pre-line"><b>Причина:</b> ' + esc(c.reason) + '</div>' : '') + '</td>'
                 + '<td class="act">' + (c.undoneAt ? '<span class="form-status accepted">вратено</span>'
                     : c.canUndo ? '<button class="btn soft" data-plan-undo="' + c.id + '">↶ Врати</button>'
                         + (c.canMove ? ' <button class="btn soft" data-plan-move="' + c.id + '">Премести кај друг ученик</button>' : '')

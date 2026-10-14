@@ -100,7 +100,8 @@ await context.route('**/*', async (route) => {
         if (p === '/api/plan-changes') return json(200, { year: YEAR, authors: [{ employeeId: 7, name: 'Ана Измислена' }], categories: [{ code: 'logoped', name: 'Логопед' }],
             pupils: [{ publicId: 'p1', name: 'Ученик Измислен', class: 'II-б' }, { publicId: 'p2', name: 'Ученичка Измислена', class: 'II-б' }], changes: planMoved ? [] : [
             { id: 12, at: '2026-10-14T09:00:00Z', author: 'Ана Измислена', kind: 'write', part: 'marks:logoped:1', pupil: { publicId: 'p1', name: 'Ученик Измислен', class: 'II-б' },
-              before: null, after: { data: { rows: [{ label: 'Артикулација', level: 2 }], note: '' }, by: 'Ана Измислена', confirmed: null }, undoOf: null, undoneAt: null, canUndo: true, canMove: true },
+              before: null, after: { data: { rows: [{ label: 'Артикулација', level: 2 }], note: '' }, by: 'Ана Измислена', confirmed: null }, undoOf: null, undoneAt: null, canUndo: true, canMove: true,
+              reason: 'По тимската средба' },
             { id: 11, at: '2026-10-14T08:00:00Z', author: 'Ана Измислена', kind: 'confirm', part: 'iop', pupil: { publicId: 'p2', name: 'Ученичка Измислена', class: 'II-б' },
               before: { data: { goals: 'Цел' }, by: 'Ана Измислена', confirmed: null },
               after: { data: { goals: 'Цел' }, by: 'Ана Измислена', confirmed: { by: 'Ана Измислена', employeeId: 7, at: '2026-10-14T08:00:00Z' } }, undoOf: null, undoneAt: null, canUndo: false, canMove: false }
@@ -171,6 +172,7 @@ check('putting a term back to the start sends what the screen showed as standing
 const planText = await page.innerText('#planChanges');
 check('the record of the plans says who wrote which part for which pupil', /Ана Измислена/.test(planText) && /Ученик Измислен/.test(planText)
     && /Логопед · оцени, квартал 1/.test(planText) && /Артикулација 2/.test(planText) && /потврдил.а Ана/.test(planText), planText);
+check('and why, where the colleague said so (062)', /Причина: По тимската средба/.test(await page.innerText('[data-plan-change="12"]')) && !/Причина/.test(await page.innerText('[data-plan-change="11"]')));
 check('only the last word on a part offers „Врати", and only written content can be moved', await page.locator('[data-plan-undo]').count() === 1
     && await page.locator('[data-plan-move]').count() === 1 && /сменето потоа/.test(await page.innerText('[data-plan-change="11"]')));
 await page.click('[data-plan-move="12"]');

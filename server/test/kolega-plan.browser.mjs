@@ -25,7 +25,7 @@ const PUPILS = [
 const store = { p1: { cabinets: part({ codes: ['logoped'] }) }, p2: { cabinets: part({ codes: ['logoped'] }) }, p3: {} };
 store.p2['marks:logoped:1'] = part({ rows: [{ label: 'Артикулација', level: 1 }], note: '' }, ME);
 let changeId = 100, staleNext = false, quarter = 1;
-let bankMode = 'ready', bankReads = 0;
+let bankMode = 'ready', bankReads = 0, reasonsOn = false;
 const BANK = { edition: 7, domains: [{ code: 'I', title: 'Прво пробно подрачје' }, { code: 'IV', title: 'Четврто пробно подрачје' }], items: [
     { id: 'I-P01', domain: 'I', use: 'area', text: 'Пробна област без оцена' },
     { id: 'IV-C01', domain: 'IV', use: 'goal', text: 'Пробна цел [ситуација], [помош], [критериум], [рок].\nПроверка: [начин]' },
@@ -59,7 +59,7 @@ await context.route('**/*', async (route) => {
                 .map(([key, v]) => [key, { version: v.version, by: v.by, confirmedBy: v.confirmedBy, ...(blank(v.data) ? { empty: true } : {}) }])) })) });
     if (u.pathname === '/api/portal/plan/pupil') {
         const p = PUPILS.find((x) => x.publicId === u.searchParams.get('publicId'));
-        return json(200, { year: '2026/2027', pupil: p, labels: { logoped: ['Артикулација', 'Фонологија'] }, parts: store[p.publicId] });
+        return json(200, { year: '2026/2027', pupil: p, labels: { logoped: ['Артикулација', 'Фонологија'] }, parts: store[p.publicId], ...(reasonsOn ? { reasons: true } : {}) });
     }
     if (u.pathname === '/api/portal/plan/bank') {
         bankReads++;
@@ -326,6 +326,49 @@ try {
             check('a failed load can be retried without reloading the pupil', await p.inputValue(goals + ' textarea[name="goals"]') === draft);
         }
     }
+
+    console.log('\nphase 3: „Исход", „Одлука" and a reason for a change');
+    const review = 'form[data-part="review:1"]';
+    await p.click('[data-plan-section="review"] > summary');
+    check('a server without 062 offers no reason field anywhere', await p.locator('[data-plan-reason]').count() === 0);
+    check('the review has its own „Исход" and „Одлука"', await p.locator(review + ' textarea[name="outcome"]').count() === 1
+        && await p.locator(review + ' textarea[name="decision"]').count() === 1);
+    check('their suggestions sit beside them, not beside the IOP evaluation', await p.locator(review + ' [data-bank-target="outcome"]').count() === 1
+        && await p.locator(review + ' [data-bank-target="decision"]').count() === 1 && await p.locator(review + ' [data-bank-target="iopEval"]').count() === 0);
+    reasonsOn = true;
+    await p.click('[data-plan-back]');
+    await p.click('[data-plan-open="p1"]');
+    await p.waitForSelector('.plan-who');
+    await p.click('[data-plan-section="review"] > summary');
+    check('nothing written yet is not a change, so no reason is asked', await p.locator(review + ' [data-plan-reason]').count() === 0);
+    await p.click(review + ' [data-bank-target="outcome"] > summary');
+    await p.click(review + ' [data-bank-target="outcome"] [data-bank-add="G11-02"]');
+    await p.click(review + ' [data-bank-target="decision"] > summary');
+    await p.click(review + ' [data-bank-target="decision"] [data-bank-add="G11-03"]');
+    check('an outcome and a decision go into their own fields, without a label in front', await p.inputValue(review + ' textarea[name="outcome"]') === 'Пробен исход'
+        && await p.inputValue(review + ' textarea[name="decision"]') === 'Пробна одлука' && await p.inputValue(review + ' textarea[name="iopEval"]') === '');
+    await p.click(review + ' button[type="submit"]');
+    await p.waitForFunction(() => document.getElementById('planMsg').textContent.includes('Зачувано за'));
+    check('they are written with the rest of the review', JSON.stringify(last('/api/portal/plan/part')) === JSON.stringify({ publicId: 'p1', part: 'review:1',
+        data: { date: '', iopEval: '', outcome: 'Пробен исход', decision: 'Пробна одлука', revision: '', report: '', parentMeeting: '' }, version: 0 }), JSON.stringify(last('/api/portal/plan/part')));
+    await p.waitForSelector(review + ' [data-plan-reason]');
+    check('once something is written, a change can say why', await p.inputValue(review + ' [data-plan-reason]') === '');
+    await p.fill(review + ' textarea[name="decision"]', 'Пробна одлука, сменета');
+    await p.fill(review + ' [data-plan-reason]', 'По тимската средба');
+    await p.click(review + ' button[type="submit"]');
+    await p.waitForFunction(() => document.querySelector('form[data-part="review:1"] [data-plan-status]').textContent.includes('причина'));
+    check('the reason goes with the change, beside the part, not in it', last('/api/portal/plan/part').reason === 'По тимската средба'
+        && !('reason' in last('/api/portal/plan/part').data), JSON.stringify(last('/api/portal/plan/part')));
+    check('the sheet says it, and the next change starts with an empty reason', (await text(review + ' [data-plan-status]')).includes('По тимската средба')
+        && await p.inputValue(review + ' [data-plan-reason]') === '');
+    await p.fill(review + ' textarea[name="report"]', 'Извештај');
+    await p.fill(review + ' [data-plan-reason]', '   ');
+    await p.click(review + ' button[type="submit"]');
+    await p.waitForFunction(() => !document.querySelector('form[data-part="review:1"] [data-plan-status]').textContent.includes('причина'));
+    check('only spaces is not sent as a reason', !('reason' in last('/api/portal/plan/part')));
+    check('the reason field fits the phone', await p.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1));
+    await p.locator(review).scrollIntoViewIfNeeded();
+    await p.screenshot({ path: resolve(snapDir, 'review-phase3.png') });
     check('no script error on the page', errors.length === 0, errors.join(' | '));
 } finally {
     await browser.close();

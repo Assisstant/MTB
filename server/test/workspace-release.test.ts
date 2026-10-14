@@ -514,3 +514,30 @@ test('061 adds a pupil\'s action plan and its record, locked away from the REST 
   await assert.rejects(c.query('DELETE FROM students WHERE id=$1',[pupil]),/pupil_plan_parts/,'a pupil with a plan is not deleted from under it');
  }finally{await c.query(`DROP SCHEMA IF EXISTS ${backup} CASCADE`);await c.query(`DROP SCHEMA ${schema} CASCADE`);await c.end();}
 });
+
+test('062 adds an optional reason beside a plan change, on a database at 061, and leaves the rows already there as they were', async () => {
+ const url=process.env.TEST_DATABASE_URL||process.env.DATABASE_URL;
+ const c=new pg.Client({connectionString:url});await c.connect();
+ const schema=`plan_reasons_test_${process.pid}`,backup=`mtb_workspace_recovery_plan_reasons_test_${process.pid}`;
+ const dir=resolve(import.meta.dirname,'../../database/migrations');
+ await c.query(`CREATE SCHEMA ${schema}`);await c.query(`SET search_path=${schema}`);
+ try{
+  await c.query('CREATE TABLE schema_migrations(filename text PRIMARY KEY,applied_at timestamptz NOT NULL DEFAULT now())');
+  for(const f of (await readdir(dir)).filter(f=>f.endsWith('.sql')&&Number(f.slice(0,3))<=61).sort()){
+   await c.query(migrationBody(await readFile(resolve(dir,f),'utf8')));await c.query('INSERT INTO schema_migrations(filename) VALUES($1)',[f]);
+  }
+  const year=(await c.query(`INSERT INTO school_years(label,starts_on,ends_on,is_current) VALUES('1917/1918-reason','1917-09-01','1918-08-31',false) RETURNING id`)).rows[0].id;
+  const pupil=(await c.query(`INSERT INTO students(public_id,name) VALUES('plan-reason-1','Пробен Ученик Причина') RETURNING id`)).rows[0].id;
+  const change=`INSERT INTO pupil_plan_changes(school_year_id,student_id,part,kind,author_name,after) VALUES($1,$2,'iop','write','Пробен Автор','{}') RETURNING id`;
+  const before=(await c.query(change,[year,pupil])).rows[0].id;
+  await workspaceRelease(c,dir,()=>{},backup);
+  assert.equal((await c.query('SELECT count(*)::int AS n FROM schema_migrations')).rows[0].n,ALL);
+  assert.equal((await c.query('SELECT reason FROM pupil_plan_changes WHERE id=$1',[before])).rows[0].reason,null,'a change made before 062 has no reason, and none is invented');
+  const after=(await c.query(change,[year,pupil])).rows[0].id;
+  assert.equal((await c.query('SELECT reason FROM pupil_plan_changes WHERE id=$1',[after])).rows[0].reason,null,'a reason is optional');
+  await c.query(`UPDATE pupil_plan_changes SET reason='по тимската средба' WHERE id=$1`,[after]);
+  await assert.rejects(c.query(`UPDATE pupil_plan_changes SET reason='' WHERE id=$1`,[after]),/pupil_plan_changes_reason/,'no reason is NULL, never an empty one');
+  await assert.rejects(c.query(`UPDATE pupil_plan_changes SET reason=repeat('а',501) WHERE id=$1`,[after]),/pupil_plan_changes_reason/,'a reason is short');
+  assert.equal((await c.query('SELECT has_table_privilege($1,$2,$3) AS a',['anon','pupil_plan_changes','SELECT']).catch(()=>({rows:[{a:false}]}))).rows[0].a,false);
+ }finally{await c.query(`DROP SCHEMA IF EXISTS ${backup} CASCADE`);await c.query(`DROP SCHEMA ${schema} CASCADE`);await c.end();}
+});

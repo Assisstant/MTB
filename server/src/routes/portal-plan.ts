@@ -30,7 +30,7 @@ import { z } from 'zod';
 import { pool } from '../db.js';
 import { assertOwner, refuseScope, scopeOf } from '../lib/colleague.js';
 import {
-    PART, applyPart, confirmable, isEmpty, lockPart, parsePart, partOf, quarterOf, readPart, sameState, stateOf,
+    PART, applyPart, confirmable, hasReasons, isEmpty, keepAdded, lockPart, parsePart, partOf, quarterOf, readPart, reasonOf, sameState, stateOf,
     type PartRow, type PartState
 } from '../lib/pupil-plan.js';
 import type { Staff } from '../lib/staff-accounts.js';
@@ -48,6 +48,7 @@ const ADMIN_AUTHOR = 'Администраторот';
 const NO_TABLE = 'Акцискиот план уште не е вклучен на овој сервер (миграција 061).';
 const missing = (err: any) => err && err.code === '42P01';
 const STALE = 'Овој дел е сменет во меѓувреме, па не е запишано.';
+const NO_REASON = 'Причината не може да се запише на овој сервер (миграција 062). Тргнете ја причината и зачувајте пак.';
 
 async function pupilOf(db: { query: (text: string, values?: any[]) => Promise<{ rows: any[] }> }, yearId: number, publicId: string) {
     const { rows } = await db.query(
@@ -165,9 +166,16 @@ export function registerPortalPlan(server: FastifyInstance, signed: SignedCheck)
             for (const row of Array.isArray(r.data.rows) ? r.data.rows : []) if (row && row.label && !list.includes(row.label)) list.push(row.label);
         }
         Object.values(labels).forEach((list) => list.sort((a, b) => a.localeCompare(b, 'mk')));
-        return { year: who.year.label, pupil: { publicId: pupil.publicId, name: pupil.name, class: pupil.class }, labels,
+        // The reason given with the change that left each part's text as it stands (062). A confirmation
+        // changes no text, so it is passed over; an „undo" or a move that came after has no reason of its own.
+        const reasons = await hasReasons(pool);
+        const why = new Map<string, string>(reasons ? (await pool.query(
+            `SELECT DISTINCT ON (part) part, reason FROM pupil_plan_changes
+              WHERE school_year_id = $1 AND student_id = $2 AND kind NOT IN ('confirm', 'unconfirm') ORDER BY part, id DESC`,
+            [who.year.id, pupil.id])).rows.filter((r: any) => r.reason).map((r: any) => [r.part, r.reason]) : []);
+        return { year: who.year.label, pupil: { publicId: pupil.publicId, name: pupil.name, class: pupil.class }, labels, reasons,
             parts: Object.fromEntries(rows.map((r: any) => [r.part, { data: r.data, version: r.version, by: r.updated_by,
-                at: r.updated_at, confirmedBy: r.confirmed_by, confirmedAt: r.confirmed_at }])) };
+                at: r.updated_at, confirmedBy: r.confirmed_by, confirmedAt: r.confirmed_at, ...(why.has(r.part) ? { reason: why.get(r.part) } : {}) }])) };
     });
 
     const PartBody = z.object({
@@ -175,7 +183,9 @@ export function registerPortalPlan(server: FastifyInstance, signed: SignedCheck)
         part: z.string().regex(PART),
         data: z.unknown(),
         /** The version the screen showed; 0 where it showed nothing written yet. */
-        version: z.number().int().min(0)
+        version: z.number().int().min(0),
+        /** Why it was changed (phase 3, 062): optional, kept with the change in the record, never in the part. */
+        reason: z.string().max(500).optional()
     }).strict();
 
     /** One part, written whole. A confirmed part that is changed is open again. */
@@ -194,6 +204,9 @@ export function registerPortalPlan(server: FastifyInstance, signed: SignedCheck)
         }
         const pupil = await pupilOf(pool, who.year.id, body.data.publicId);
         if (!pupil) return reply.code(404).send({ error: 'Ученикот не е на списокот за годинава.' });
+        // A reason the server cannot keep is said, never dropped: the page offers the field only where it can.
+        const reason = reasonOf(body.data.reason);
+        if (reason && !await hasReasons(pool)) return reply.code(409).send({ error: NO_REASON });
         const client = await pool.connect();
         try {
             await client.query('BEGIN');
@@ -203,8 +216,8 @@ export function registerPortalPlan(server: FastifyInstance, signed: SignedCheck)
                 await client.query('ROLLBACK');
                 return reply.code(409).send({ stale: true, error: STALE, current: current ? shown(current) : null });
             }
-            const done = await applyPart(client, { ...key, kind: 'write', author: who.author, current,
-                next: { data: data.data, by: who.author.name, confirmed: null } });
+            const done = await applyPart(client, { ...key, kind: 'write', author: who.author, current, reason,
+                next: { data: keepAdded(body.data.part, data.data, current?.data), by: who.author.name, confirmed: null } });
             await client.query('COMMIT');
             const now = done ? await readPart(pool, key) : current;
             return { ok: true, pupil: pupil.name, changeId: done ? done.changeId : null, part: now ? shown(now) : null,
@@ -436,8 +449,9 @@ export async function planChangesRoutes(server: FastifyInstance, options: { year
         const categories = await categoriesOf();
         let rows: any[], authors: any[], now: any[];
         try {
+            const reason = await hasReasons(pool) ? 'c.reason' : 'NULL::text AS reason';
             rows = (await pool.query(
-                `SELECT c.id, c.created_at, c.part, c.kind, c.author_employee_id, c.author_name, c.before, c.after, c.undo_of, c.undone_at,
+                `SELECT c.id, c.created_at, c.part, c.kind, c.author_employee_id, c.author_name, c.before, c.after, c.undo_of, c.undone_at, ${reason},
                         c.student_id, s.public_id, s.name, e.grade AS class
                    FROM pupil_plan_changes c JOIN students s ON s.id = c.student_id
                    LEFT JOIN student_enrollments e ON e.student_id = s.id AND e.school_year_id = c.school_year_id
@@ -460,7 +474,7 @@ export async function planChangesRoutes(server: FastifyInstance, options: { year
             changes: rows.map((r: any) => {
                 // Only while the part still stands exactly as this change left it: otherwise somebody has moved on from it.
                 const canUndo = !r.undone_at && sameState(standing.get(`${r.student_id}|${r.part}`) ?? null, r.after);
-                return { id: Number(r.id), at: r.created_at, author: r.author_name, kind: r.kind, part: r.part,
+                return { id: Number(r.id), at: r.created_at, author: r.author_name, kind: r.kind, part: r.part, reason: r.reason,
                     pupil: { publicId: r.public_id, name: r.name, class: r.class },
                     before: r.before, after: r.after, undoOf: r.undo_of == null ? null : Number(r.undo_of), undoneAt: r.undone_at,
                     canUndo, canMove: canUndo && r.kind === 'write' && r.part !== 'cabinets' && !isEmpty(r.after.data) };
