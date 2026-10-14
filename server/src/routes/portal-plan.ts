@@ -34,6 +34,7 @@ import {
     type PartRow, type PartState
 } from '../lib/pupil-plan.js';
 import type { Staff } from '../lib/staff-accounts.js';
+import { readPlanBank } from '../lib/pupil-plan-bank.js';
 
 type Who = {
     staff: Staff;
@@ -96,6 +97,17 @@ export function registerPortalPlan(server: FastifyInstance, signed: SignedCheck)
         return who;
     }
     const noTable = (reply: FastifyReply) => reply.code(503).send({ missing: true, error: NO_TABLE });
+
+    // Keep the source/review files private. Only approved text leaves this
+    // authenticated route; a broken bank never prevents writing a plan by hand.
+    server.get('/api/portal/plan/bank', async (req, reply) => {
+        if (!await entering(req, reply)) return;
+        try { return readPlanBank(); }
+        catch (err) {
+            req.log.error({ err }, 'Action-plan bank unavailable');
+            return reply.code(503).send({ error: 'Банката не е достапна. Може да продолжите со рачно пишување.' });
+        }
+    });
 
     /**
      * The whole year at a glance: every pupil, the cabinets in their plan, and

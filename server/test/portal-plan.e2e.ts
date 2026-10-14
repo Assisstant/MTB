@@ -89,9 +89,15 @@ async function main() {
     try {
         console.log('the door');
         check('nothing is answered without a sign-in', (await call('GET', '/api/portal/plan')).status === 401
+            && (await call('GET', '/api/portal/plan/bank')).status === 401
             && (await call('GET', '/api/portal/plan/pupil?publicId=' + P1)).status === 401
             && (await put('', P1, 'iop', { goals: 'x' }, 0)).status === 401);
         const first = (await call('GET', '/api/portal/plan', therapist)).body;
+        const bank = await call('GET', '/api/portal/plan/bank', therapist);
+        check('the reviewed bank uses the same colleague sign-in and contains no pupil records', bank.status === 200
+            && Number.isInteger(bank.body.edition) && bank.body.domains.length === 15 && Array.isArray(bank.body.items)
+            && !('pupils' in bank.body) && !('stavki' in bank.body));
+        check('teachers read the same bank without a cabinet assignment', same((await call('GET', '/api/portal/plan/bank', teacher)).body, bank.body));
         check('everybody signed in sees every pupil of the year — on the initial password too', first.pupils?.length === 3
             && first.pupils.every((p: any) => p.cabinets.length === 0 && same(p.parts, {})), JSON.stringify(first.pupils));
         check('with the profiles to choose from, and what is one\'s own', first.categories.some((c: any) => c.code === CODE)

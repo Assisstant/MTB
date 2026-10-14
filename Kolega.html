@@ -250,7 +250,7 @@ header.top h1 { flex: 1; min-width: 180px; }
 .plan-chip.confirmed { color: var(--ok); border-color: var(--ok); }
 .plan-chip.draft, .plan-chip.carry { color: var(--warn); border-color: var(--warn); background: var(--warn-bg); }
 .plan-chip.empty { color: var(--muted); }
-.plan-head { position: sticky; top: 0; z-index: 4; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; padding: 8px 0;
+.plan-head { position: sticky; top: var(--plan-toolbar-height, 64px); z-index: 4; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; padding: 8px 0;
              background: var(--panel); border-bottom: 2px solid var(--accent); }
 .plan-who { flex: 1; min-width: 160px; display: grid; }
 .plan-who b { font-size: 20px; line-height: 1.2; }
@@ -272,6 +272,15 @@ header.top h1 { flex: 1; min-width: 180px; }
 .plan-more label { margin: 6px 0; }
 .plan-carry { background: var(--warn-bg); color: var(--warn); border-radius: 8px; padding: 6px 8px; font-size: 14px; margin: 4px 0; }
 .plan-status { margin: 6px 0 0; }
+.plan-bank { margin: 6px 0 12px; padding: 0 10px; border: 1px solid var(--line); border-radius: 8px; min-width: 0; }
+.plan-bank > summary { cursor: pointer; padding: 12px 0; min-height: 24px; }
+.plan-bank-filters { display: flex; flex-wrap: wrap; gap: 8px; }
+.plan-bank-filters label { flex: 1 1 160px; min-width: 0; margin: 0; }
+.plan-bank-filters input, .plan-bank-filters select { width: 100%; min-width: 0; max-width: 100%; box-sizing: border-box; }
+.plan-bank-items { display: grid; gap: 8px; max-height: 380px; overflow-y: auto; }
+#plan .plan-bank-item { display: grid; gap: 6px; width: 100%; min-height: 48px; height: auto; white-space: pre-wrap; overflow-wrap: anywhere;
+                       text-align: left; border-radius: 8px; padding: 10px; background: var(--well); color: var(--text); }
+.plan-bank-item .muted { font-size: 12px; font-weight: 400; }
 .week-tools { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin: 10px 0 4px; }
 .week-wrap { overflow-x: auto; margin-top: 8px; }
 .sheet { min-width: 760px; padding: 12px; border-radius: 12px; background: #ffffff; color: #1a202c; border: 1px solid var(--line); }
@@ -4057,6 +4066,92 @@ header.top h1 { flex: 1; min-width: 180px; }
             + (can && info && info.confirmedBy ? '<button type="button" class="small" data-plan-unconfirm>Тргни ја потврдата</button>' : '')
             + `</div><p class="muted plan-status" data-plan-status>${planStatus(part)}</p>`;
     }
+    const PLAN_BANK_USES = { area: 'Области', goal: 'Цели', activity: 'Активности', criterion: 'Критериуми за успех', baseline: 'Почетна состојба', adaptation: 'Адаптации', communication: 'ААК и комуникациска поддршка', outcome: 'Исход', decision: 'Одлука' };
+    const planBank = { data: null, pending: null };
+    // The theme toolbar is sticky too: the pupil's identity must remain below
+    // it, including when larger text makes that toolbar taller on a phone.
+    new ResizeObserver(([entry]) => el('plan').style.setProperty('--plan-toolbar-height', entry.target.getBoundingClientRect().height + 'px'))
+        .observe(document.querySelector('.theme-bar'));
+    function planBankPicker(target, uses) {
+        return `<details class="plan-bank" data-bank-target="${target}" data-bank-uses="${uses.join(',')}"><summary>Предлози од банката</summary>`
+            + '<div data-bank-body><p class="muted">Вчитувам…</p></div></details>';
+    }
+    function planBankFor(kind, key) {
+        const fields = {
+            goal: { baseline: ['baseline'], goals: ['goal', 'activity', 'criterion'] },
+            iop: { goals: ['goal', 'criterion'], strategies: ['activity', 'communication'], adaptations: ['adaptation'] },
+            review: { iopEval: ['outcome'], revision: ['decision'] }
+        };
+        const uses = (fields[kind] || {})[key];
+        return uses ? planBankPicker(key, uses) : '';
+    }
+    async function planLoadBank(panel) {
+        const body = panel.querySelector('[data-bank-body]');
+        if (body.dataset.ready) return;
+        body.innerHTML = '<p class="muted" role="status">Вчитувам…</p>';
+        try {
+            if (!planBank.data) {
+                if (!planBank.pending) planBank.pending = api('GET', '/api/portal/plan/bank')
+                    .then((data) => { planBank.data = data; }).finally(() => { planBank.pending = null; });
+                await planBank.pending;
+            }
+            // Opening a different pupil while this request is away must not
+            // redraw their sheet or disturb text already being typed.
+            if (!panel.isConnected) return;
+            const bank = planBank.data, uses = panel.dataset.bankUses.split(',');
+            body.dataset.ready = '1';
+            body.innerHTML = `<p class="muted">Издание ${esc(bank.edition)} · Само одобрени ставки. Изборот додава во нацртот; потоа уредете и зачувајте.</p>`
+                + '<div class="plan-bank-filters"><label>Подрачје <select data-bank-domain><option value="">Сите подрачја</option>'
+                + bank.domains.map((d) => `<option value="${esc(d.code)}">${esc(d.code + '. ' + d.title)}</option>`).join('')
+                + '<option value="general">Општи листи</option></select></label>'
+                + (uses.length > 1 ? '<label>Вид <select data-bank-use>' + uses.map((use) => `<option value="${use}">${PLAN_BANK_USES[use]}</option>`).join('') + '</select></label>' : '')
+                + '<label>Пребарај <input type="search" data-bank-search placeholder="Збор или ID" autocomplete="off"></label></div>'
+                + '<p class="muted" data-bank-count role="status"></p><div class="plan-bank-items" data-bank-items></div><p class="muted" data-bank-notice role="status"></p>';
+            planFilterBank(panel);
+        } catch (err) {
+            delete body.dataset.ready;
+            planBank.data = null;
+            if (panel.isConnected) body.innerHTML = `<p class="muted" role="status">${esc(err.message)} Може да пишувате рачно.</p><button type="button" class="small" data-bank-retry>Обиди се повторно</button>`;
+        }
+    }
+    function planFilterBank(panel) {
+        const bank = planBank.data, use = panel.querySelector('[data-bank-use]')?.value || panel.dataset.bankUses.split(',')[0];
+        const domain = panel.querySelector('[data-bank-domain]').value, query = norm(panel.querySelector('[data-bank-search]').value);
+        const list = bank.items.filter((item) => item.use === use && (!domain || (item.domain || 'general') === domain)
+            && (!query || norm(item.id + ' ' + item.text).includes(query)));
+        const title = (item) => item.domain ? item.domain + '. ' + (bank.domains.find((d) => d.code === item.domain)?.title || '') : 'Општи листи';
+        panel.querySelector('[data-bank-count]').textContent = list.length ? `${list.length} предлози` : bank.items.length
+            ? 'Нема одобрени ставки за овој избор.' : 'Банката чека стручен преглед. Засега нема одобрени ставки; пишувајте слободно во полето.';
+        panel.querySelector('[data-bank-items]').innerHTML = list.map((item) => `<button type="button" class="small plan-bank-item" data-bank-add="${esc(item.id)}">`
+            + `<span class="muted">${esc(title(item))} · ${esc(item.id)}</span><span>${esc(item.text)}</span><b>+ Додај</b></button>`).join('');
+    }
+    function planInsertBank(button) {
+        const panel = button.closest('.plan-bank'), form = panel.closest('form.plan-part'), target = panel.dataset.bankTarget;
+        const item = planBank.data?.items.find((item) => item.id === button.dataset.bankAdd);
+        if (!item || !panel.dataset.bankUses.split(',').includes(item.use) || plan.busy) return;
+        const notice = panel.querySelector('[data-bank-notice]');
+        if (target === 'area') {
+            const rows = form.querySelector('.plan-rows');
+            if (rows.children.length >= 40) { notice.textContent = 'Во еден квартал може да има најмногу 40 области.'; return; }
+            if (item.text.length > 200) { notice.textContent = 'Предлогот е предолг за назив на област. Внесете пократок назив рачно.'; return; }
+            if ([...rows.querySelectorAll('[data-row-label]')].some((input) => norm(input.value) === norm(item.text))) {
+                notice.textContent = 'Оваа област веќе е во нацртот.'; return;
+            }
+            rows.insertAdjacentHTML('beforeend', planRowHtml({ label: item.text, level: null }, form.dataset.part.split(':')[1]));
+            rows.lastElementChild.querySelector('input').focus();
+        } else {
+            const input = form.elements[target];
+            const prefix = { activity: 'Активност: ', criterion: 'Критериум за успех: ', outcome: 'Исход: ', decision: 'Одлука: ' }[item.use] || '';
+            const value = input.value + (input.value && !input.value.endsWith('\n') ? '\n' : '') + prefix + item.text;
+            if (value.length > input.maxLength) { notice.textContent = 'Нема доволно место во полето. Скратете го текстот пред да додадете.'; return; }
+            input.value = value;
+            input.focus(); input.setSelectionRange(value.length, value.length);
+            input.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+        form.dataset.touched = '1';
+        notice.textContent = 'Додадено во нацртот. Уредете го текстот, па притиснете „Зачувај“.';
+    }
+
     function planTextForm(part, title) {
         const spec = PLAN_TEXT[planKind(part)], info = plan.pupil.parts[part], data = (info && info.data) || {};
         return `<form class="plan-part" data-part="${esc(part)}" data-version="${info ? info.version : 0}" novalidate>`
@@ -4065,7 +4160,7 @@ header.top h1 { flex: 1; min-width: 180px; }
                 + (type === 'short' ? `<input name="${key}" maxlength="60" value="${esc(data[key] || '')}">`
                     : type === 'program' ? `<select name="${key}"><option value=""></option>${PLAN_PROGRAMS.map((v) => `<option${data[key] === v ? ' selected' : ''}>${v}</option>`).join('')}</select>`
                     : `<textarea name="${key}" rows="3" maxlength="8000">${esc(data[key] || '')}</textarea>`)
-                + '</label>').join('')
+                + '</label>' + planBankFor(planKind(part), key)).join('')
             + planButtons(part) + '</form>';
     }
     function planRowHtml(row, code) {
@@ -4099,6 +4194,7 @@ header.top h1 { flex: 1; min-width: 180px; }
             + (from ? `<p class="plan-carry">↻ Преземено од квартал ${from}. Сменете само што е различно, па зачувајте или потврдете.</p>` : '')
             + `<div class="plan-rows">${(data.rows || []).map((row) => planRowHtml(row, code)).join('')}</div>`
             + '<button type="button" class="small" data-row-add>+ Додај област</button>'
+            + planBankPicker('area', ['area'])
             + `<datalist id="planLabels-${esc(code)}">${((plan.pupil.labels || {})[code] || []).map((l) => `<option value="${esc(l)}">`).join('')}</datalist>`
             + `<label>Белешка за кварталот <textarea name="note" rows="2" maxlength="8000">${esc(data.note || '')}</textarea></label>`
             + planButtons(part) + '</form>';
@@ -4312,6 +4408,8 @@ header.top h1 { flex: 1; min-width: 180px; }
     el('plan').addEventListener('click', async (event) => {
         const on = (selector) => event.target.closest(selector);
         let b;
+        if ((b = on('[data-bank-add]'))) { planInsertBank(b); return; }
+        if ((b = on('[data-bank-retry]'))) { planLoadBank(b.closest('.plan-bank')); return; }
         if ((b = on('[data-plan-quarter]'))) {
             if (plan.open && !planLeave()) return;
             plan.quarter = Number(b.dataset.planQuarter); plan.picked.clear(); drawPlan(); return;
@@ -4372,15 +4470,24 @@ header.top h1 { flex: 1; min-width: 180px; }
         savePlanPart(form, '');
     });
     el('plan').addEventListener('input', (event) => {
+        if (event.target.matches('[data-bank-search]')) { planFilterBank(event.target.closest('.plan-bank')); return; }
         if (event.target.id === 'planQuery') { plan.query = event.target.value; planFind(); return; }
         const form = event.target.closest('form.plan-part');
         if (form) form.dataset.touched = '1';
     });
     el('plan').addEventListener('change', (event) => {
+        if (event.target.matches('[data-bank-domain], [data-bank-use]')) { planFilterBank(event.target.closest('.plan-bank')); return; }
         const input = event.target.closest('[data-plan-pick]');
         if (!input) return;
         if (input.checked) plan.picked.add(input.dataset.planPick); else plan.picked.delete(input.dataset.planPick);
         drawPlan();
+    });
+    el('plan').addEventListener('toggle', (event) => {
+        if (event.target.matches('.plan-bank') && event.target.open) planLoadBank(event.target);
+    }, true);
+    el('plan').addEventListener('keydown', (event) => {
+        // Searching inside a form must never invoke its implicit Save button.
+        if (event.key === 'Enter' && event.target.matches('[data-bank-search]')) event.preventDefault();
     });
 
     function drawClashes() {

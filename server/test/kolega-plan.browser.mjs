@@ -6,7 +6,7 @@
 //
 //     node test/kolega-plan.browser.mjs     (npm run test:kolega-plan)
 import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
+import { readFile, mkdir } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { chromium } from 'playwright';
 
@@ -25,6 +25,17 @@ const PUPILS = [
 const store = { p1: { cabinets: part({ codes: ['logoped'] }) }, p2: { cabinets: part({ codes: ['logoped'] }) }, p3: {} };
 store.p2['marks:logoped:1'] = part({ rows: [{ label: 'Артикулација', level: 1 }], note: '' }, ME);
 let changeId = 100, staleNext = false, quarter = 1;
+let bankMode = 'ready', bankReads = 0;
+const BANK = { edition: 7, domains: [{ code: 'I', title: 'Прво пробно подрачје' }, { code: 'IV', title: 'Четврто пробно подрачје' }], items: [
+    { id: 'I-P01', domain: 'I', use: 'area', text: 'Пробна област без оцена' },
+    { id: 'IV-C01', domain: 'IV', use: 'goal', text: 'Пробна цел [ситуација], [помош], [критериум], [рок].\nПроверка: [начин]' },
+    { id: 'IV-A01', domain: 'IV', use: 'activity', text: 'Пробна активност <текст>' },
+    { id: 'IV-I01', domain: 'IV', use: 'criterion', text: 'Пробен критериум' },
+    { id: 'G6-02', domain: null, use: 'adaptation', text: 'Пробна адаптација' },
+    { id: 'I-S01', domain: 'I', use: 'baseline', text: 'Пробна почетна состојба' },
+    { id: 'G11-02', domain: null, use: 'outcome', text: 'Пробен исход' },
+    { id: 'G11-03', domain: null, use: 'decision', text: 'Пробна одлука' }
+] };
 // A write the test holds back, to act while the request is away.
 let hold = null;
 const held = () => { let release; hold = new Promise((resolve) => { release = resolve; }); return () => { hold = null; release(); }; };
@@ -49,6 +60,11 @@ await context.route('**/*', async (route) => {
     if (u.pathname === '/api/portal/plan/pupil') {
         const p = PUPILS.find((x) => x.publicId === u.searchParams.get('publicId'));
         return json(200, { year: '2026/2027', pupil: p, labels: { logoped: ['Артикулација', 'Фонологија'] }, parts: store[p.publicId] });
+    }
+    if (u.pathname === '/api/portal/plan/bank') {
+        bankReads++;
+        return bankMode === 'fail' ? json(503, { error: 'Банката не е достапна.' })
+            : json(200, bankMode === 'empty' ? { ...BANK, edition: 0, items: [] } : BANK);
     }
     if (u.pathname === '/api/portal/plan/part') {
         const b = req.postDataJSON(); writes.push({ path: u.pathname, body: b });
@@ -224,6 +240,92 @@ try {
     check('each as its own part, taking the earlier quarter', JSON.stringify(last('/api/portal/plan/confirm')) === JSON.stringify({ on: true, items: [
         { publicId: 'p1', part: 'marks:logoped:2', version: 0, carry: true }, { publicId: 'p2', part: 'marks:logoped:2', version: 0, carry: true }] }), JSON.stringify(last('/api/portal/plan/confirm')));
     check('and nothing is left to do', (await text('#plan')).includes('Сè ваше за овој квартал е потврдено'));
+    console.log('\nthe approved bank, draft only');
+    await p.click('[data-plan-filter="all"]');
+    await p.click('[data-plan-open="p1"]');
+    await p.waitForSelector('.plan-who');
+    const goals = 'form[data-part="goal:logoped"]';
+    const picker = goals + ' [data-bank-target="goals"]';
+    const original = '  Мој текст со празни места  ';
+    await p.fill(goals + ' textarea[name="goals"]', original);
+    const beforeBank = writes.length;
+    await p.click(picker + ' > summary');
+    await p.waitForSelector(picker + ' [data-bank-add]');
+    check('all domains remain in source order for every cabinet', JSON.stringify(await p.locator(picker + ' [data-bank-domain] option').evaluateAll((nodes) => nodes.map((n) => n.value))) === JSON.stringify(['', 'I', 'IV', 'general']));
+    await p.selectOption(picker + ' [data-bank-domain]', 'I');
+    check('domain filter shows an honest empty result', (await text(picker)).includes('Нема одобрени ставки за овој избор.'));
+    await p.selectOption(picker + ' [data-bank-domain]', '');
+    await p.fill(picker + ' [data-bank-search]', 'IV-C01');
+    await p.press(picker + ' [data-bank-search]', 'Enter');
+    check('Enter in bank search does not submit the plan', writes.length === beforeBank);
+    await p.click(picker + ' [data-bank-add="IV-C01"]');
+    const withGoal = original + '\n' + BANK.items[1].text;
+    check('goal and check append without trimming or saving', await p.inputValue(goals + ' textarea[name="goals"]') === withGoal && writes.length === beforeBank);
+    await p.fill(picker + ' [data-bank-search]', '');
+    await p.selectOption(picker + ' [data-bank-use]', 'activity');
+    check('markup in bank text is displayed literally', (await text(picker + ' [data-bank-items]')).includes('<текст>') && await p.locator(picker + ' текст').count() === 0);
+    await p.click(picker + ' [data-bank-add="IV-A01"]');
+    await p.selectOption(picker + ' [data-bank-use]', 'criterion');
+    await p.click(picker + ' [data-bank-add="IV-I01"]');
+    const draft = await p.inputValue(goals + ' textarea[name="goals"]');
+    check('activities and criteria have readable labels inside the existing goal text', draft === withGoal + '\nАктивност: Пробна активност <текст>\nКритериум за успех: Пробен критериум');
+    staleNext = true;
+    await p.click(goals + ' button[type="submit"]');
+    await p.waitForFunction(() => document.getElementById('planMsg').textContent.includes('сменет во меѓувреме'));
+    check('a stale save keeps the inserted and edited draft', await p.inputValue(goals + ' textarea[name="goals"]') === draft);
+    await p.click(goals + ' button[type="submit"]');
+    await p.waitForFunction(() => document.getElementById('planMsg').textContent.includes('Зачувано за'));
+    check('only Save writes copied text, without a bank ID or new fields', JSON.stringify(last('/api/portal/plan/part').data) === JSON.stringify({ baseline: '', goals: draft }));
+    const areaPicker = 'form[data-part="marks:logoped:2"] [data-bank-target="area"]';
+    await p.click(areaPicker + ' > summary');
+    await p.click(areaPicker + ' [data-bank-add="I-P01"]');
+    const areaRow = p.locator('form[data-part="marks:logoped:2"] .plan-row').last();
+    check('an inserted area starts unassessed, never at zero', await areaRow.getAttribute('data-level') === '' && await areaRow.locator('[data-row-baseline]').inputValue() === '' && await areaRow.locator('[data-row-stage]').inputValue() === '');
+    const rowCount = await p.locator('form[data-part="marks:logoped:2"] .plan-row').count();
+    await p.click(areaPicker + ' [data-bank-add="I-P01"]');
+    check('a repeated area is explained without duplicating it', await p.locator('form[data-part="marks:logoped:2"] .plan-row').count() === rowCount && (await text(areaPicker)).includes('веќе е во нацртот'));
+    await p.click('[data-plan-section="iop"] > summary');
+    const adaptPicker = 'form[data-part="iop"] [data-bank-target="adaptations"]';
+    await p.click(adaptPicker + ' > summary');
+    await p.click(adaptPicker + ' [data-bank-add="G6-02"]');
+    check('accommodations go to the existing IOP field', await p.inputValue('form[data-part="iop"] textarea[name="adaptations"]') === 'Пробна адаптација');
+    await p.fill(goals + ' textarea[name="goals"]', 'x'.repeat(7999));
+    await p.click(picker + ' [data-bank-add="IV-I01"]');
+    check('insertion refuses overflow without truncating the draft', (await p.inputValue(goals + ' textarea[name="goals"]')).length === 7999 && (await text(picker)).includes('Нема доволно место'));
+    await p.fill(goals + ' textarea[name="goals"]', draft);
+    const snapDir = resolve(root, 'backups/akciski-banka/ui');
+    await mkdir(snapDir, { recursive: true });
+    for (const theme of ['light', 'dark']) {
+        await p.evaluate((value) => document.documentElement.setAttribute('data-theme', value), theme);
+        await p.setViewportSize({ width: 390, height: 844 });
+        await p.locator(picker).scrollIntoViewIfNeeded();
+        check(`bank fits the phone in ${theme}`, await p.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1));
+        check(`the pupil name stays below the toolbar in ${theme}`, await p.evaluate(() => {
+            const name = document.querySelector('.plan-who').getBoundingClientRect(), bar = document.querySelector('.theme-bar').getBoundingClientRect();
+            return name.top >= bar.bottom && name.bottom < innerHeight;
+        }));
+        await p.screenshot({ path: resolve(snapDir, `bank-${theme}.png`) });
+    }
+    check('all pickers share one read, without adding a second save path', bankReads === 1);
+    // A fresh page has no bank cache: both lack of approval and a failed read
+    // must leave the existing writer available.
+    for (const mode of ['empty', 'fail']) {
+        bankMode = mode;
+        await p.reload();
+        if (await p.locator('#welcomeContinue:visible').count()) await p.click('#welcomeContinue');
+        await p.click('[data-tab="plan"]');
+        await p.click('[data-plan-filter="all"]');
+        await p.click('[data-plan-open="p1"]');
+        await p.click(picker + ' > summary');
+        await p.waitForFunction(({ selector, word }) => document.querySelector(selector).textContent.includes(word), { selector: picker, word: mode === 'empty' ? 'стручен преглед' : 'рачно' });
+        check(`${mode}: free text and Save stay available`, await p.locator(picker + ' [data-bank-add]').count() === 0 && !await p.isDisabled(goals + ' textarea[name="goals"]') && !await p.isDisabled(goals + ' button[type="submit"]'));
+        if (mode === 'fail') {
+            bankMode = 'ready';
+            await p.click(picker + ' [data-bank-retry]');
+            await p.waitForSelector(picker + ' [data-bank-add]');
+            check('a failed load can be retried without reloading the pupil', await p.inputValue(goals + ' textarea[name="goals"]') === draft);
+        }
+    }
     check('no script error on the page', errors.length === 0, errors.join(' | '));
 } finally {
     await browser.close();

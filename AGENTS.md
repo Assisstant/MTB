@@ -33,6 +33,7 @@ accumulate there ARE the divergence, because only one machine ever sees them.
 | Annual lists, pupils, identity or September transitions | APP-CONTRACT domain section, [SCHOOL-YEAR](docs/SCHOOL-YEAR.md), matching traps below |
 | Public access, colleagues, authentication or static files | APP-CONTRACT, [Colleagues online](docs/PLAN-kolegi-online.md), security/privacy traps below |
 | `vezbi/` or ComuniBoard | [VEZBI](docs/VEZBI.md); it has no pupil data or database |
+| The action plan in Колега or its bank of suggestions | APP-CONTRACT („The action plan through the colleagues' door"), [Bank of suggestions](docs/PLAN-akciski-banka.md) |
 | WBACC or stamps | [WBACC](docs/PLAN-wbacc.md), [Stamps](docs/PLAN-wbacc-pecati.md), [Content/editor plan](docs/PLAN-sodrzini-karticki-i-planovi.md) |
 | Scripts, migrations, backup or deployment | [Operating reference](docs/AGENT-REFERENCE.md), [WORKSPACE-RELEASE](docs/WORKSPACE-RELEASE.md), matching traps below |
 | Old decisions or previous machine state | Search [HISTORY](docs/HISTORY.md) and [state archive](docs/SOSTOJBA-archive.md), read only matching sections |
