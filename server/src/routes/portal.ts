@@ -36,6 +36,7 @@ import {
 import { bellsOf, crossingOf, subjectOffer } from './teaching.js';
 import { blockTimes, semanticBlock, writeBlockInTransaction, type BlockWrite } from './schedule-write.js';
 import { logTermChange } from '../lib/portal-changes.js';
+import { registerPortalPlan } from './portal-plan.js';
 import { minutesOf, timeOf } from '../lib/crossing.js';
 import { defaultMonth, isIsoDate, loadDuty, monthBounds, monthPayload, todayInSkopje, windowPayload } from '../lib/duty.js';
 import { dayProblem, setAbsence, schoolYearOf } from './duty.js';
@@ -411,6 +412,8 @@ export async function portalRoutes(server: FastifyInstance, options: { year?: st
     yearLabel = options.year;
     // The owner's look is the owner: it passes the door's link, locks and maintenance.
     setActingCheck((token) => actingEmployee(token) != null);
+    // Акциски план (061): its own file, the same session check as every route here.
+    registerPortalPlan(server, signed);
 
     async function reader(req: FastifyRequest, reply: FastifyReply) {
         const who = await signed(req, reply);

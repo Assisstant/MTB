@@ -124,6 +124,8 @@ export const PURGE: Record<string, PurgeSpec> = {
             cabinet_attendance_pupils: 'student_id',
             class_attendance: 'student_id',
             class_attendance_changes: 'student_id',
+            pupil_plan_parts: 'student_id',
+            pupil_plan_changes: 'student_id',
             student_plan_progress: 'student_id',
             student_records: 'student_id',
             assessments: 'student_id',

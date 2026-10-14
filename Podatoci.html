@@ -682,6 +682,25 @@
         <p id="changesMsg" class="hint" role="status"></p>
         <div id="changesBaselineBox"></div>
         <div class="scroll"><div id="colleaguesChanges"></div></div>
+
+        <!-- Акциски план (owner, 14 Oct 2026; migration 061): everybody writes every
+             pupil's plan through Колега, so the control is this record. „Врати" and
+             „Премести" are new guarded writes on the server, never a replay. -->
+        <h3 id="planChangesTitle">Промени во акциските планови</h3>
+        <p class="hint">Сите колеги — кабинети и наставници — го пополнуваат акцискиот план на секој ученик во Колега. Тука е што запишал кој: дел по дел, што беше и што е сега, и секоја потврда.
+            <b>„↶ Врати“</b> го враќа делот како што беше. <b>„Премести кај друг ученик“</b> е за запис направен кај погрешно дете: кај него делот се враќа, а истиот текст се запишува кај вистинскиот ученик.
+            Се враќа само последниот запис на еден дел; ако делот потоа е сменет, прво се гледа што стои сега.</p>
+        <div class="controls">
+            <label class="field">Колега
+                <select id="planChangesAuthor"><option value="">Сите колеги</option></select>
+            </label>
+            <label class="field">Ученик
+                <select id="planChangesPupil"><option value="">Сите ученици</option></select>
+            </label>
+            <button class="btn soft" id="planChangesRefresh"><span class="ico" aria-hidden="true">↻</span> Освежи</button>
+        </div>
+        <p id="planChangesMsg" class="hint" role="status"></p>
+        <div class="scroll"><div id="planChanges"></div></div>
     </div>
 
     <!-- The colleagues' door under the owner's control (migration 052):
@@ -3538,6 +3557,7 @@
             : '<p class="hint">Нема наставници ни терапевти на списокот за годинава.</p>';
         await loadDutyAdminLinks();
         await loadChanges();
+        await loadPlanChanges();
     }
 
     // ── промени од колегите: записот и „Врати" (060) ─────────────────────────
@@ -3621,6 +3641,101 @@
         await undoChange({ id: b.changeId, baseline: { ids: b.now.map((p) => p.publicId), times: b.now.map((p) => p.time) } },
             `${el('changesTherapist').selectedOptions[0].textContent}, ${b.day} ${b.slot}: да се врати на почетното „${plain(b.was)}“ наместо „${plain(b.now)}“?`, button);
     });
+
+    // ── промени во акциските планови: записот, „Врати" и „Премести" (061) ────
+    // As above: the server keeps the record and decides what can still be put
+    // back or given to another pupil; this screen shows it and asks.
+    const PLAN_FIELD = { date: 'Датум', observation: 'Опсервација', diagnostics: 'Дијагностика', teamConf: 'Тимска конференција', program: 'Програма',
+        goals: 'Цели', strategies: 'Стратегии', adaptations: 'Адаптации', assistant: 'Асистент', iopEval: 'Евалуација на ИОП', revision: 'Ревизија',
+        report: 'Извештај', parentMeeting: 'Средба со родител', summary: 'Резиме', transition: 'Транзиција', summerNotes: 'Летни белешки', baseline: 'Почетна состојба' };
+    const PLAN_KIND = { write: 'запис', confirm: 'потврда', unconfirm: 'тргната потврда', undo: 'враќање', move: 'преместено од друг ученик' };
+    let planShown = [], planLists = { pupils: [], categories: [] };
+    const planCategoryName = (code) => (planLists.categories.find((c) => c.code === code) || { name: code }).name;
+    function planPartName(part) {
+        const [kind, a, b] = part.split(':');
+        return kind === 'cabinets' ? 'Кабинети во планот' : kind === 'marks' ? planCategoryName(a) + ' · оцени, квартал ' + b
+            : kind === 'goal' ? planCategoryName(a) + ' · почетна состојба и цели' : kind === 'review' ? 'Квартален преглед ' + a
+            : kind === 'phaseA' ? 'Фаза А' : kind === 'iop' ? 'ИОП' : 'Крај на година';
+    }
+    /** A part as the record holds it, in words: enough to recognise it, the whole of it on hover. */
+    function planStateSaid(state, part) {
+        if (!state) return '<span class="none">празно</span>';
+        const kind = part.split(':')[0], data = state.data || {};
+        const lines = kind === 'cabinets' ? [(data.codes || []).map(planCategoryName).join(', ')]
+            : kind === 'marks' ? [(data.rows || []).map((r) => r.label + ' ' + (r.level == null ? '—' : r.level)).join(' · '), data.note ? 'Белешка: ' + data.note : '']
+            : Object.keys(data).filter((key) => String(data[key] || '').trim()).map((key) => (PLAN_FIELD[key] || key) + ': ' + data[key]);
+        const full = lines.filter(Boolean).join('\n');
+        const short = full.length > 180 ? full.slice(0, 180) + '…' : full;
+        return (full ? '<span title="' + esc(full) + '" style="white-space:pre-line">' + esc(short) + '</span>' : '<span class="none">празно</span>')
+            + (state.confirmed ? ' <span class="form-status accepted">потврдил/а ' + esc(personName(state.confirmed.by)) + '</span>' : '');
+    }
+    const planPupilOption = (p, picked) => '<option value="' + esc(p.publicId) + '"' + (p.publicId === picked ? ' selected' : '') + '>'
+        + esc(personName(p.name)) + (p.class ? ' · ' + esc(p.class) : '') + '</option>';
+    async function loadPlanChanges() {
+        const author = el('planChangesAuthor').value, pupil = el('planChangesPupil').value;
+        const query = [author ? 'employeeId=' + encodeURIComponent(author) : '', pupil ? 'publicId=' + encodeURIComponent(pupil) : ''].filter(Boolean).join('&');
+        let answer;
+        try { answer = await api('GET', '/api/plan-changes' + (query ? '?' + query : '')); }
+        catch (err) { el('planChanges').innerHTML = '<p class="hint">' + esc(err.message) + '</p>'; return; }
+        planLists = { pupils: answer.pupils || [], categories: answer.categories || [] };
+        el('planChangesAuthor').innerHTML = '<option value="">Сите колеги</option>' + (answer.authors || [])
+            .map((a) => '<option value="' + a.employeeId + '"' + (String(a.employeeId) === author ? ' selected' : '') + '>' + esc(personName(a.name)) + '</option>').join('');
+        el('planChangesPupil').innerHTML = '<option value="">Сите ученици</option>' + planLists.pupils.map((p) => planPupilOption(p, pupil)).join('');
+        if (answer.missing) { el('planChanges').innerHTML = '<p class="hint">' + esc(answer.note) + '</p>'; return; }
+        planShown = answer.changes || [];
+        el('planChanges').innerHTML = planShown.length
+            ? '<table class="list"><thead><tr><th>Кога</th><th>Кој</th><th>Ученик</th><th>Дел</th><th>Беше</th><th>Запишано</th><th></th></tr></thead><tbody>'
+              + planShown.map((c) => '<tr data-plan-change="' + c.id + '"><td>' + esc(when2(c.at)) + '</td><td>' + esc(personName(c.author)) + '</td>'
+                + '<td>' + esc(personName(c.pupil.name)) + (c.pupil.class ? ' <span class="none">' + esc(c.pupil.class) + '</span>' : '') + '</td>'
+                + '<td>' + esc(planPartName(c.part)) + ' <span class="none">· ' + esc(PLAN_KIND[c.kind] || c.kind) + '</span></td>'
+                + '<td>' + planStateSaid(c.before, c.part) + '</td><td>' + planStateSaid(c.after, c.part) + '</td>'
+                + '<td class="act">' + (c.undoneAt ? '<span class="form-status accepted">вратено</span>'
+                    : c.canUndo ? '<button class="btn soft" data-plan-undo="' + c.id + '">↶ Врати</button>'
+                        + (c.canMove ? ' <button class="btn soft" data-plan-move="' + c.id + '">Премести кај друг ученик</button>' : '')
+                    : '<span class="none" title="Делот потоа е сменет пак, па оваа промена веќе не е последната">сменето потоа</span>') + '</td></tr>').join('')
+              + '</tbody></table>'
+            : '<p class="hint">Уште нема промени. Записот почнува со првиот запис во акциски план.</p>';
+    }
+    async function planChangeAct(path, body, said, button) {
+        if (!window.confirm(said)) return;
+        button.disabled = true;
+        try {
+            const answer = await api('POST', path, body);
+            el('planChangesMsg').textContent = answer.movedTo
+                ? 'Преместено кај ' + personName(answer.movedTo) + '; кај ' + personName(answer.pupil) + ' делот е како што беше.' : 'Вратено.';
+        } catch (err) { el('planChangesMsg').textContent = err.message; }
+        await loadPlanChanges();
+    }
+    el('planChanges').addEventListener('click', (event) => {
+        const on = (name) => event.target.closest('[' + name + ']');
+        const find = (id) => planShown.find((x) => String(x.id) === id);
+        let button;
+        if ((button = on('data-plan-undo'))) {
+            const c = find(button.dataset.planUndo);
+            if (c) planChangeAct('/api/plan-changes/undo', { id: c.id },
+                personName(c.pupil.name) + ' — ' + planPartName(c.part) + ': да се врати како што беше пред записот на ' + personName(c.author) + '?', button);
+            return;
+        }
+        if ((button = on('data-plan-move'))) {
+            const c = find(button.dataset.planMove);
+            if (!c) return;
+            // The choice is made in the row itself, so the words being moved stay in sight beside it.
+            button.closest('td').innerHTML = '<select data-plan-move-to aria-label="На кој ученик му припаѓа записот"><option value="">Изберете ученик…</option>'
+                + planLists.pupils.filter((p) => p.publicId !== c.pupil.publicId).map((p) => planPupilOption(p, '')).join('')
+                + '</select> <button class="btn soft" data-plan-move-go="' + c.id + '">Премести</button> <button class="btn soft" data-plan-move-cancel>Откажи</button>';
+            return;
+        }
+        if (on('data-plan-move-cancel')) { loadPlanChanges(); return; }
+        if ((button = on('data-plan-move-go'))) {
+            const c = find(button.dataset.planMoveGo), to = button.closest('td').querySelector('select').value;
+            const target = planLists.pupils.find((p) => p.publicId === to);
+            if (!c || !target) { el('planChangesMsg').textContent = 'Изберете на кој ученик му припаѓа записот.'; return; }
+            planChangeAct('/api/plan-changes/move', { id: c.id, toPublicId: to },
+                planPartName(c.part) + ', запишано од ' + personName(c.author) + ':\n\nод ' + personName(c.pupil.name) + ' → кај ' + personName(target.name) + '.\n\nДа преместам?', button);
+        }
+    });
+    ['planChangesAuthor', 'planChangesPupil'].forEach((id) => el(id).addEventListener('change', () => { el('planChangesMsg').textContent = ''; loadPlanChanges(); }));
+    el('planChangesRefresh').addEventListener('click', () => { el('planChangesMsg').textContent = ''; loadPlanChanges(); });
 
     async function grantReader(employeeId, readOnly, expected) {
         await api('PUT', `/api/staff-accounts/${employeeId}/access`, { readOnly, expected });

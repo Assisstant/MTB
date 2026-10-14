@@ -56,6 +56,8 @@ export const MIRROR_TABLES = [
     'evidence_sheets',
     'lessons',
     'plan_activities',
+    // A pupil's action plan, part by part (061): the school's record.
+    'pupil_plan_parts',
     'plans',
     'resource_links',
     // Business data: the arrangement belongs to the school's year, and two
@@ -105,6 +107,8 @@ export const MIRROR_EXCLUDED_TABLES = [
     'portal_links',
     'portal_security',
     'portal_security_log',
+    // Who changed what in the action plans, and the administrator's undo (061): this server's own record.
+    'pupil_plan_changes',
     // The administrator's own evidence for the title of mentor (059): personal, like the bookmarks.
     'portfolio_state',
     'schedule_notices',

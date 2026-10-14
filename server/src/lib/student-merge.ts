@@ -40,6 +40,7 @@ export const SAME_FACT: Record<string, string[]> = {
     class_attendance: ['school_year_id', 'class_id', 'day'],
     diary_schedule: ['school_year_id', 'day', 'position'],
     evidence_sheets: ['school_year_id'],
+    pupil_plan_parts: ['school_year_id', 'part'],
     student_plan_progress: ['activity_id'],
     student_records: [],
     therapist_students: ['school_year_id', 'therapist_id']

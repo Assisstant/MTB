@@ -5,7 +5,7 @@ import {readFile,readdir} from 'node:fs/promises';
 import {resolve} from 'node:path';
 import {workspaceRelease} from '../src/lib/workspace-release.js';
 import {migrationBody} from '../src/lib/migrations.js';
-import {MIRROR_EXCLUDED_TABLES} from '../src/lib/mirror.js';
+import {MIRROR_EXCLUDED_TABLES,MIRROR_TABLES} from '../src/lib/mirror.js';
 import 'dotenv/config';
 // Every migration in the folder: a release applies whatever is pending, so the
 // count after one is the whole folder, and a new batch must not edit it here.
@@ -477,5 +477,40 @@ test('060 adds the record of what colleagues change in their cabinets, locked aw
   await assert.rejects(c.query(row,[year,therapist,[],['a','b','c'],[],['x','y','z']]),/portal_changes_block/,'a block holds at most two pupils');
   await c.query('DELETE FROM therapists WHERE id=$1',[therapist]);
   assert.equal((await c.query('SELECT count(*)::int AS n FROM portal_changes')).rows[0].n,0,'the record goes with the cabinet it is about');
+ }finally{await c.query(`DROP SCHEMA IF EXISTS ${backup} CASCADE`);await c.query(`DROP SCHEMA ${schema} CASCADE`);await c.end();}
+});
+
+test('061 adds a pupil\'s action plan and its record, locked away from the REST roles, on a database at 060', async () => {
+ const url=process.env.TEST_DATABASE_URL||process.env.DATABASE_URL;
+ const c=new pg.Client({connectionString:url});await c.connect();
+ const schema=`pupil_plans_test_${process.pid}`,backup=`mtb_workspace_recovery_pupil_plans_test_${process.pid}`;
+ const dir=resolve(import.meta.dirname,'../../database/migrations');
+ await c.query(`CREATE SCHEMA ${schema}`);await c.query(`SET search_path=${schema}`);
+ try{
+  await c.query('CREATE TABLE schema_migrations(filename text PRIMARY KEY,applied_at timestamptz NOT NULL DEFAULT now())');
+  for(const f of (await readdir(dir)).filter(f=>f.endsWith('.sql')&&Number(f.slice(0,3))<=60).sort()){
+   await c.query(migrationBody(await readFile(resolve(dir,f),'utf8')));await c.query('INSERT INTO schema_migrations(filename) VALUES($1)',[f]);
+  }
+  await workspaceRelease(c,dir,()=>{},backup);
+  assert.equal((await c.query('SELECT count(*)::int AS n FROM schema_migrations')).rows[0].n,ALL);
+  for(const table of ['pupil_plan_parts','pupil_plan_changes']){
+   assert.equal((await c.query('SELECT relrowsecurity FROM pg_class WHERE oid=$1::regclass',[table])).rows[0].relrowsecurity,true);
+   assert.equal((await c.query(`SELECT count(*)::int AS n FROM ${table}`)).rows[0].n,0,'deploy writes no plan of its own');
+   for(const role of ['anon','authenticated']) if((await c.query('SELECT 1 FROM pg_roles WHERE rolname=$1',[role])).rowCount)
+    assert.equal((await c.query("SELECT has_table_privilege($1,$2,'SELECT,INSERT,UPDATE,DELETE') AS allowed",[role,table])).rows[0].allowed,false);
+  }
+  assert.ok((MIRROR_TABLES as readonly string[]).includes('pupil_plan_parts'),'the plan is the school\'s record');
+  assert.ok(MIRROR_EXCLUDED_TABLES.includes('pupil_plan_changes'),'the record of who changed it is this server\'s own');
+  const year=(await c.query(`INSERT INTO school_years(label,starts_on,ends_on,is_current) VALUES('1917/1918-plan','1917-09-01','1918-08-31',false) RETURNING id`)).rows[0].id;
+  const pupil=(await c.query(`INSERT INTO students(public_id,name) VALUES('plan-release-1','Пробен Ученик План') RETURNING id`)).rows[0].id;
+  const row=`INSERT INTO pupil_plan_parts(school_year_id,student_id,part,data,updated_by) VALUES($1,$2,$3,$4::jsonb,'Пробен Автор')`;
+  await c.query(row,[year,pupil,'marks:logoped:1','{"rows":[],"note":""}']);
+  await assert.rejects(c.query(row,[year,pupil,'marks:logoped:5','{}']),/pupil_plan_parts_part_check/,'there are four quarters');
+  await assert.rejects(c.query(row,[year,pupil,'nesto','{}']),/pupil_plan_parts_part_check/,'a part has one of the known names');
+  await assert.rejects(c.query(row,[year,pupil,'iop','[]']),/pupil_plan_parts_data_check/,'a part is an object');
+  await assert.rejects(c.query(row,[year,pupil,'marks:logoped:1','{}']),/pupil_plan_parts_pkey/,'one row per pupil, year and part');
+  await assert.rejects(c.query(`UPDATE pupil_plan_parts SET confirmed_by='Некој' WHERE student_id=$1`,[pupil]),/pupil_plan_parts_confirmed/,'a confirmation has a name and a time, or neither');
+  await assert.rejects(c.query(`INSERT INTO pupil_plan_changes(school_year_id,student_id,part,kind,author_name,after) VALUES($1,$2,'iop','delete','Пробен Автор','{}')`,[year,pupil]),/pupil_plan_changes_kind_check/);
+  await assert.rejects(c.query('DELETE FROM students WHERE id=$1',[pupil]),/pupil_plan_parts/,'a pupil with a plan is not deleted from under it');
  }finally{await c.query(`DROP SCHEMA IF EXISTS ${backup} CASCADE`);await c.query(`DROP SCHEMA ${schema} CASCADE`);await c.end();}
 });

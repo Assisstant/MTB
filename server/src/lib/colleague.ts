@@ -286,7 +286,12 @@ export const PUBLIC_WRITES = new Set([
     'PUT /api/portal/my-class',
     'PUT /api/portal/attendance',
     // Class attendance by day (057): the route checks the class and the weekday itself.
-    'PUT /api/portal/class-attendance'
+    'PUT /api/portal/class-attendance',
+    // Акциски план (061): every signed-in colleague writes every pupil's plan (owner, 14 Oct 2026).
+    'PUT /api/portal/plan/part',
+    'POST /api/portal/plan/confirm',
+    'POST /api/portal/plan/undo',
+    'POST /api/portal/plan/from-caseload'
 ]);
 const DELEGATED_WRITES = new Set([
     'PUT /api/therapists/:name/students/:publicId',

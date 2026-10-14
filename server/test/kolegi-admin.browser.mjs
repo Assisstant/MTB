@@ -37,7 +37,7 @@ const check = (label, ok, detail = '') => {
 const writes = [];
 let dutyAdminLinks = [];
 let readerProfile = null, readerEnabled = false;
-let changeUndone = false;
+let changeUndone = false, planMoved = false;
 const browser = await chromium.launch({ ...(process.env.CHROME ? { executablePath: process.env.CHROME } : {}) });
 const context = await browser.newContext({ viewport: { width: 1400, height: 1000 }, serviceWorkers: 'block' });
 await context.route('**/*', async (route) => {
@@ -96,6 +96,16 @@ await context.route('**/*', async (route) => {
         if (p === '/api/portal-changes/baseline') return json(200, { year: YEAR, since: '2026-10-13T08:30:00Z', unchanged: 1, blocks: [
             { changeId: 2, day: 'вторник', slot: '08:00-08:40', was: [{ publicId: 'p2', name: 'Ученичка Измислена', time: '08:20-08:40' }], now: [{ publicId: 'p1', name: 'Ученик Измислен', time: '08:00-08:40' }], overlap: false }] });
         if (p === '/api/portal-changes/undo') { changeUndone = true; return json(200, { ok: true, notified: 1 }); }
+        // Акциски план (061): the record, „Врати" and „Премести кај друг ученик".
+        if (p === '/api/plan-changes') return json(200, { year: YEAR, authors: [{ employeeId: 7, name: 'Ана Измислена' }], categories: [{ code: 'logoped', name: 'Логопед' }],
+            pupils: [{ publicId: 'p1', name: 'Ученик Измислен', class: 'II-б' }, { publicId: 'p2', name: 'Ученичка Измислена', class: 'II-б' }], changes: planMoved ? [] : [
+            { id: 12, at: '2026-10-14T09:00:00Z', author: 'Ана Измислена', kind: 'write', part: 'marks:logoped:1', pupil: { publicId: 'p1', name: 'Ученик Измислен', class: 'II-б' },
+              before: null, after: { data: { rows: [{ label: 'Артикулација', level: 2 }], note: '' }, by: 'Ана Измислена', confirmed: null }, undoOf: null, undoneAt: null, canUndo: true, canMove: true },
+            { id: 11, at: '2026-10-14T08:00:00Z', author: 'Ана Измислена', kind: 'confirm', part: 'iop', pupil: { publicId: 'p2', name: 'Ученичка Измислена', class: 'II-б' },
+              before: { data: { goals: 'Цел' }, by: 'Ана Измислена', confirmed: null },
+              after: { data: { goals: 'Цел' }, by: 'Ана Измислена', confirmed: { by: 'Ана Измислена', employeeId: 7, at: '2026-10-14T08:00:00Z' } }, undoOf: null, undoneAt: null, canUndo: false, canMove: false }
+        ] });
+        if (p === '/api/plan-changes/move') { planMoved = true; return json(200, { ok: true, pupil: 'Ученик Измислен', part: 'marks:logoped:1', movedTo: 'Ученичка Измислена' }); }
         if (p === '/api/staff-accounts/7/reset') return json(200, { ok: true });
         if (p === '/api/staff-accounts/7/open') return json(200, { url: '/Kolega.html#as=' + LOOK, name: 'Ана Измислена', hours: 2 });
         if (p === '/api/portal/me') return req.headers()['x-mtb-portal-token'] === LOOK
@@ -158,6 +168,20 @@ await page.click('[data-undo-baseline="0"]');
 await page.waitForFunction(() => !document.querySelector('#changesBaselineBox table'));
 check('putting a term back to the start sends what the screen showed as standing now',
     writes.some((w) => w.path === '/api/portal-changes/undo' && w.body === '{"id":2,"baseline":{"ids":["p1"],"times":["08:00-08:40"]}}'), JSON.stringify(writes.at(-1)));
+const planText = await page.innerText('#planChanges');
+check('the record of the plans says who wrote which part for which pupil', /Ана Измислена/.test(planText) && /Ученик Измислен/.test(planText)
+    && /Логопед · оцени, квартал 1/.test(planText) && /Артикулација 2/.test(planText) && /потврдил.а Ана/.test(planText), planText);
+check('only the last word on a part offers „Врати", and only written content can be moved', await page.locator('[data-plan-undo]').count() === 1
+    && await page.locator('[data-plan-move]').count() === 1 && /сменето потоа/.test(await page.innerText('[data-plan-change="11"]')));
+await page.click('[data-plan-move="12"]');
+check('the pupil it belongs to is chosen in the row, never the one it stands on', await page.locator('[data-plan-move-to] option').count() === 2
+    && !/Ученик Измислен/.test(await page.innerText('[data-plan-move-to]')));
+await page.click('[data-plan-move-go="12"]');
+check('nothing moves until a pupil is chosen', !writes.some((w) => w.path === '/api/plan-changes/move') && /Изберете/.test(await page.textContent('#planChangesMsg')));
+await page.selectOption('[data-plan-move-to]', 'p2');
+await page.click('[data-plan-move-go="12"]');
+await page.waitForFunction(() => /Преместено/.test(document.getElementById('planChangesMsg').textContent));
+check('„Премести" asks, then sends the change and the pupil', writes.some((w) => w.path === '/api/plan-changes/move' && w.body === '{"id":12,"toPublicId":"p2"}'), JSON.stringify(writes.at(-1)));
 await page.click('[data-reset-colleague="7"]');
 await page.waitForTimeout(300);
 check('„Врати почетна лозинка" asks, then resets', writes.some((w) => w.path === '/api/staff-accounts/7/reset'));

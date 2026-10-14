@@ -1,0 +1,232 @@
+// Акциски план во Колега (061; owner, 14 Oct 2026), on a phone-sized screen and
+// against an invented server: the pupil's name stays in sight while writing,
+// one part is saved without disturbing another being typed, „Потврди" names
+// the pupil, a quarter starts from the one before, many pupils are confirmed
+// at once, and a write refused as stale keeps what was typed.
+//
+//     node test/kolega-plan.browser.mjs     (npm run test:kolega-plan)
+import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
+import { resolve } from 'node:path';
+import { chromium } from 'playwright';
+
+const root = resolve(import.meta.dirname, '../..'), origin = 'http://localhost:3990';
+const browser = await chromium.launch({ ...(process.env.CHROME ? { executablePath: process.env.CHROME } : {}) });
+const context = await browser.newContext({ viewport: { width: 412, height: 900 }, serviceWorkers: 'block', acceptDownloads: true });
+const errors = [], writes = [];
+await context.addInitScript(() => { localStorage.setItem('mtb_portal_token_v1', 'a'.repeat(64)); });
+
+const ME = 'Измислена Логопедка';
+const PUPILS = [
+    { publicId: 'p1', name: 'Измислен Ученик Алфа', class: 'Т-1' },
+    { publicId: 'p2', name: 'Измислена Ученичка Бета', class: 'Т-1' },
+    { publicId: 'p3', name: 'Измислен Ученик Гама', class: 'Т-2' }
+];
+const store = { p1: { cabinets: part({ codes: ['logoped'] }) }, p2: { cabinets: part({ codes: ['logoped'] }) }, p3: {} };
+store.p2['marks:logoped:1'] = part({ rows: [{ label: 'Артикулација', level: 1 }], note: '' }, ME);
+let changeId = 100, staleNext = false, quarter = 1;
+// A write the test holds back, to act while the request is away.
+let hold = null;
+const held = () => { let release; hold = new Promise((resolve) => { release = resolve; }); return () => { hold = null; release(); }; };
+function part(data, confirmedBy = null) { return { data, version: 1, by: ME, at: '2026-10-14T08:00:00Z', confirmedBy, confirmedAt: confirmedBy ? '2026-10-14T09:00:00Z' : null }; }
+const blank = (value) => value == null ? true : typeof value === 'string' ? !value.trim() : Array.isArray(value) ? !value.length : Object.values(value).every(blank);
+
+const days = ['понеделник', 'вторник', 'среда', 'четврток', 'петок'];
+await context.route('**/*', async (route) => {
+    const req = route.request(), u = new URL(req.url());
+    const json = (status, body) => route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) });
+    if (u.pathname === '/Kolega.html') return route.fulfill({ contentType: 'text/html; charset=utf-8', body: await readFile(resolve(root, 'Kolega.html')) });
+    if (u.pathname === '/api/portal/me') return json(200, { person: { employeeId: 7, name: ME }, usernames: { latin: 'Test', cyrillic: 'Тест' }, year: '2026/2027',
+        roles: ['therapist'], therapist: { id: 5 }, teacher: null, duty: false, initialPassword: true });
+    if (u.pathname === '/api/portal/week') return json(200, { year: '2026/2027', days, periods: [], me: { teacherId: null, therapistId: 5, homeroom: [] }, classes: [], teachers: [], lessons: [],
+        clashes: [], notices: [], cabinet: { bells: [], pupils: [], names: {}, elsewhere: [], terms: [] } });
+    if (u.pathname === '/api/portal/duty') return json(200, { year: '2026/2027', month: '2026-10', today: '2026-10-14', members: [], days: [], staleSwaps: [] });
+    if (u.pathname === '/api/portal/plan') return json(200, { year: '2026/2027', quarter, categories: [{ code: 'logoped', name: 'Логопед' }, { code: 'psiholoski', name: 'Психолог' }],
+        mine: { codes: ['logoped'], classes: [], caseload: 2 },
+        pupils: PUPILS.map((p) => ({ ...p, cabinets: store[p.publicId].cabinets ? store[p.publicId].cabinets.data.codes : [],
+            parts: Object.fromEntries(Object.entries(store[p.publicId]).filter(([key]) => key !== 'cabinets')
+                .map(([key, v]) => [key, { version: v.version, by: v.by, confirmedBy: v.confirmedBy, ...(blank(v.data) ? { empty: true } : {}) }])) })) });
+    if (u.pathname === '/api/portal/plan/pupil') {
+        const p = PUPILS.find((x) => x.publicId === u.searchParams.get('publicId'));
+        return json(200, { year: '2026/2027', pupil: p, labels: { logoped: ['Артикулација', 'Фонологија'] }, parts: store[p.publicId] });
+    }
+    if (u.pathname === '/api/portal/plan/part') {
+        const b = req.postDataJSON(); writes.push({ path: u.pathname, body: b });
+        if (hold) await hold;
+        const now = store[b.publicId][b.part];
+        if (staleNext) { staleNext = false; return json(409, { stale: true, error: 'Овој дел е сменет во меѓувреме, па не е запишано.', current: now || null }); }
+        if ((now ? now.version : 0) !== b.version) return json(409, { stale: true, error: 'Овој дел е сменет во меѓувреме, па не е запишано.' });
+        store[b.publicId][b.part] = { ...part(b.data), version: b.version + 1 };
+        return json(200, { ok: true, pupil: PUPILS.find((x) => x.publicId === b.publicId).name, changeId: ++changeId, part: store[b.publicId][b.part], reopened: Boolean(now && now.confirmedBy) });
+    }
+    if (u.pathname === '/api/portal/plan/confirm') {
+        const b = req.postDataJSON(); writes.push({ path: u.pathname, body: b });
+        const results = b.items.map((item) => {
+            const pupil = PUPILS.find((x) => x.publicId === item.publicId).name;
+            let now = store[item.publicId][item.part];
+            if (item.carry && !now) now = store[item.publicId][item.part] = part(store[item.publicId][item.part.replace(/\d$/, (q) => q - 1)].data);
+            if (!now || blank(now.data)) return { publicId: item.publicId, part: item.part, pupil, ok: false, error: 'Празно е — нема што да се потврди.' };
+            store[item.publicId][item.part] = { ...now, version: now.version + 1, confirmedBy: b.on ? ME : null, confirmedAt: b.on ? '2026-10-14T10:00:00Z' : null };
+            return { publicId: item.publicId, part: item.part, pupil, ok: true, now: store[item.publicId][item.part] };
+        });
+        return json(200, { ok: results.every((r) => r.ok), done: results.filter((r) => r.ok).length, results });
+    }
+    if (u.pathname === '/api/portal/plan/undo') {
+        const b = req.postDataJSON(); writes.push({ path: u.pathname, body: b });
+        store.p1.iop = { ...part({ program: '', goals: '', strategies: '', adaptations: '', assistant: '' }), version: 3 };
+        return json(200, { ok: true, pupil: PUPILS[0].name, part: 'iop' });
+    }
+    if (u.pathname.startsWith('/api/')) return json(404, {});
+    return route.fulfill({ status: 404, body: '' });
+});
+
+let fails = 0;
+const check = (label, ok, detail = '') => {
+    if (ok) console.log(`  ok   ${label}`);
+    else { fails++; console.log(`  FAIL ${label}${detail ? `\n       ${detail}` : ''}`); }
+};
+const p = await context.newPage();
+p.on('pageerror', (e) => errors.push(e.message));
+const dialogs = [];
+p.on('dialog', (dialog) => { dialogs.push(dialog.message()); dialog.accept(); });
+const text = (selector) => p.locator(selector).innerText();
+const last = (path) => writes.filter((w) => w.path === path).at(-1)?.body;
+
+try {
+    await p.goto(origin + '/Kolega.html');
+    await p.click('#welcomeContinue');
+    await p.click('[data-tab="plan"]');
+    await p.waitForSelector('.plan-list li');
+
+    console.log('the list');
+    check('opens on „мои непотврдени": the pupils whose plan holds my cabinet', (await p.locator('.plan-list li').count()) === 1
+        && (await text('[data-plan-filter="todo"]')).includes('(1)') && (await text('[data-plan-filter="mine"]')).includes('(2)') && (await text('[data-plan-filter="all"]')).includes('(3)'));
+    check('a part already confirmed is not work to do', false === (await text('.plan-list')).includes('Бета'));
+    await p.click('[data-plan-filter="all"]');
+    check('„Сите" shows every pupil, also one with no cabinet in the plan', (await p.locator('.plan-list li').count()) === 3 && (await text('.plan-list')).includes('без кабинети во планот'));
+    check('the row says started, confirmed or empty', (await p.locator('.plan-list li').nth(1).locator('.plan-chip.confirmed').count()) === 1
+        && (await p.locator('.plan-list li').nth(0).locator('.plan-chip.confirmed').count()) === 0);
+    check('the list does not scroll sideways on a phone', await p.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1));
+
+    console.log('\none pupil');
+    await p.click('[data-plan-open="p1"]');
+    await p.waitForSelector('.plan-who');
+    check('the name and class stand at the top', (await text('.plan-who')).includes(PUPILS[0].name) && (await text('.plan-who')).includes('Т-1'));
+    check('and stay there while the page scrolls', await p.evaluate(() => getComputedStyle(document.querySelector('.plan-head')).position === 'sticky'));
+    check('my cabinet is open, the rest folded', await p.evaluate(() => document.querySelector('[data-plan-section="cab:logoped"]').open && !document.querySelector('[data-plan-section="phaseA"]').open));
+    const marks = 'form[data-part="marks:logoped:1"]';
+    check('„Потврди" names the pupil', (await text(marks + ' [data-plan-confirm]')).includes(PUPILS[0].name));
+    await p.click(marks + ' [data-row-add]');
+    await p.fill(marks + ' [data-row-label]', 'Артикулација');
+    await p.click(marks + ' [data-level-set="2"]');
+    // The rest of an area — where the pupil started, the developmental level, a note — is one touch away.
+    await p.click(marks + ' .plan-more > summary');
+    await p.selectOption(marks + ' [data-row-baseline]', '1');
+    await p.selectOption(marks + ' [data-row-stage]', '2');
+    await p.fill(marks + ' [data-row-note]', 'Белешка за областа');
+    // Another part is being typed while the first is saved.
+    await p.click('[data-plan-section="iop"] > summary');
+    await p.fill('form[data-part="iop"] textarea[name="goals"]', '  Цел што уште се пишува ');
+    await p.click(marks + ' button[type="submit"]');
+    await p.waitForFunction(() => /Зачувано за/.test(((document.getElementById('planMsg') || {}).textContent || '')));
+    check('the part goes whole, with the version the screen showed', JSON.stringify(last('/api/portal/plan/part'))
+        === JSON.stringify({ publicId: 'p1', part: 'marks:logoped:1', data: { rows: [{ label: 'Артикулација', level: 2, baseline: 1, stage: 2, note: 'Белешка за областа' }], note: '' }, version: 0 }), JSON.stringify(last('/api/portal/plan/part')));
+    check('the answer names the pupil and offers „Врати"', (await text('#planMsg')).includes(PUPILS[0].name) && (await p.locator('#planMsg [data-plan-undo]').count()) === 1);
+    check('what was being typed in another part is still there', (await p.inputValue('form[data-part="iop"] textarea[name="goals"]')) === '  Цел што уште се пишува ');
+    await p.click('form[data-part="iop"] button[type="submit"]');
+    await p.waitForFunction(() => /ИОП|Зачувано/.test(((document.getElementById('planMsg') || {}).textContent || '')) && !document.querySelector('form[data-part="iop"] button:disabled'));
+    check('typed text is sent as typed', last('/api/portal/plan/part').data.goals === '  Цел што уште се пишува ');
+    await p.click('#planMsg [data-plan-undo]');
+    await p.waitForFunction(() => /Вратено/.test(((document.getElementById('planMsg') || {}).textContent || '')));
+    check('„Врати" sends that change and shows the part as it was', last('/api/portal/plan/undo').id === changeId
+        && (await p.inputValue('form[data-part="iop"] textarea[name="goals"]').catch(() => '')) === '', JSON.stringify(last('/api/portal/plan/undo')));
+
+    console.log('\nwhile a save is on its way (review, 14 Oct 2026)');
+    const note = marks + ' textarea[name="note"]', count = () => writes.filter((w) => w.path === '/api/portal/plan/part').length;
+    await p.fill(note, 'Прво');
+    let release = held();
+    await p.click(marks + ' button[type="submit"]');
+    await p.waitForFunction(() => document.querySelector('form[data-part="marks:logoped:1"] button:disabled'));
+    await p.fill(note, 'Прво и допишано');
+    release();
+    await p.waitForFunction(() => /Зачувано за/.test(((document.getElementById('planMsg') || {}).textContent || '')) && !document.querySelector('form[data-part="marks:logoped:1"] button:disabled'));
+    const before = count();
+    await p.click(marks + ' button[type="submit"]');
+    await p.waitForTimeout(200);
+    check('what was typed while the save was away is still unsaved, and the next „Зачувај" sends it', count() === before + 1
+        && last('/api/portal/plan/part').data.note === 'Прво и допишано' && store.p1['marks:logoped:1'].data.note === 'Прво и допишано', JSON.stringify(last('/api/portal/plan/part')));
+    // The pupil is changed while the answer is away: it must not land on the one now open.
+    await p.fill(note, '');
+    release = held();
+    await p.click(marks + ' button[type="submit"]');
+    await p.waitForFunction(() => document.querySelector('form[data-part="marks:logoped:1"] button:disabled'));
+    await p.click('[data-plan-back]');
+    await p.click('[data-plan-filter="all"]');
+    await p.click('[data-plan-open="p2"]');
+    await p.waitForFunction(() => /Бета/.test((document.querySelector('.plan-who') || {}).textContent || ''));
+    const p2Before = await p.evaluate(() => { const f = document.querySelector('form[data-part="marks:logoped:1"]'); return f.dataset.version + '|' + f.querySelector('[data-row-label]').value + '|' + f.querySelector('[data-plan-status]').textContent; });
+    release();
+    await p.waitForFunction(() => /Зачувано за/.test(((document.getElementById('planMsg') || {}).textContent || '')));
+    const p2After = await p.evaluate(() => { const f = document.querySelector('form[data-part="marks:logoped:1"]'); return f.dataset.version + '|' + f.querySelector('[data-row-label]').value + '|' + f.querySelector('[data-plan-status]').textContent; });
+    check('an answer for one pupil does not touch the sheet of the pupil opened meanwhile', p2Before === p2After && /Потврдено од/.test(p2After), p2Before + ' → ' + p2After);
+    check('and says whose it was', (await text('#planMsg')).includes(PUPILS[0].name));
+    check('the other pupil\'s stored marks are their own', store.p2['marks:logoped:1'].version === 1 && store.p2['marks:logoped:1'].data.rows[0].level === 1);
+    await p.click('[data-plan-back]');
+    await p.click('[data-plan-open="p1"]');
+    await p.waitForFunction(() => /Алфа/.test((document.querySelector('.plan-who') || {}).textContent || ''));
+
+    console.log('\n„потврда"');
+    await p.click(marks + ' [data-plan-confirm]');
+    await p.waitForFunction(() => /Потврдено за/.test(((document.getElementById('planMsg') || {}).textContent || '')));
+    check('an unchanged part is confirmed without being written again', JSON.stringify(last('/api/portal/plan/confirm'))
+        === JSON.stringify({ on: true, items: [{ publicId: 'p1', part: 'marks:logoped:1', version: 4 }] }), JSON.stringify(last('/api/portal/plan/confirm')));
+    check('and says who confirmed', (await text(marks + ' [data-plan-status]')).includes('Потврдено од ' + ME)
+        && (await text('[data-plan-section="cab:logoped"] > summary')).includes('✅'));
+
+    console.log('\na write refused as stale');
+    await p.fill(marks + ' textarea[name="note"]', 'Белешка што не смее да се изгуби');
+    staleNext = true;
+    await p.click(marks + ' button[type="submit"]');
+    await p.waitForSelector('#planMsg [data-plan-reload]');
+    check('keeps what was typed and offers to read what stands now', (await p.inputValue(marks + ' textarea[name="note"]')) === 'Белешка што не смее да се изгуби'
+        && (await text('#planMsg')).includes('сменет во меѓувреме'));
+    const download = p.waitForEvent('download');
+    await p.click('[data-plan-docx]');
+    check('Word carries the plan under the pupil\'s name', /^Akciski-plan-.*\.docx$/.test((await download).suggestedFilename()));
+
+    console.log('\nthe next quarter');
+    await p.click('[data-plan-back]');
+    await p.waitForSelector('.plan-list');
+    check('leaving with something unsaved asks first', dialogs.some((m) => /незачувано/.test(m)));
+    await p.click('[data-plan-quarter="2"]');
+    await p.click('[data-plan-filter="todo"]');
+    check('both pupils are work to do again, with the earlier quarter to take', (await p.locator('.plan-list li .plan-chip.carry').count()) === 2);
+    await p.click('[data-plan-open="p2"]');
+    await p.waitForSelector('.plan-carry');
+    check('the quarter opens filled as the one before stood', (await p.inputValue('form[data-part="marks:logoped:2"] [data-row-label]')) === 'Артикулација'
+        && (await p.getAttribute('form[data-part="marks:logoped:2"] [data-level-set="1"]', 'aria-pressed')) === 'true');
+    dialogs.length = 0;
+    await p.click('[data-plan-back]');
+    await p.waitForSelector('.plan-list');
+    check('and leaving it untouched asks nothing', dialogs.length === 0);
+    // Review, 14 Oct 2026: a search hides a pupil; „Избери ги сите" must not reach behind it.
+    await p.fill('#planQuery', 'Бета');
+    await p.click('[data-plan-pick-all]');
+    check('„Избери ги сите" picks only the pupils in sight', (await text('[data-plan-confirm-picked]')).includes('(1)')
+        && (await p.locator('.plan-list li:not([hidden]) [data-plan-pick]:checked').count()) === 1, await text('#planBulk'));
+    await p.fill('#planQuery', 'Алфа');
+    check('a pick does not outlive being in sight', (await text('[data-plan-confirm-picked]')).includes('(0)') && await p.isDisabled('[data-plan-confirm-picked]'));
+    await p.fill('#planQuery', '');
+    await p.click('[data-plan-pick-all]');
+    await p.click('[data-plan-confirm-picked]');
+    await p.waitForFunction(() => /Потврдено: 2/.test((document.getElementById('planMsg') || {}).textContent || ''));
+    check('many pupils are confirmed in one press, after one question', dialogs.length === 1 && /2 ученици/.test(dialogs[0]) && /ќе се преземат/.test(dialogs[0]), dialogs.join(' | '));
+    check('each as its own part, taking the earlier quarter', JSON.stringify(last('/api/portal/plan/confirm')) === JSON.stringify({ on: true, items: [
+        { publicId: 'p1', part: 'marks:logoped:2', version: 0, carry: true }, { publicId: 'p2', part: 'marks:logoped:2', version: 0, carry: true }] }), JSON.stringify(last('/api/portal/plan/confirm')));
+    check('and nothing is left to do', (await text('#plan')).includes('Сè ваше за овој квартал е потврдено'));
+    check('no script error on the page', errors.length === 0, errors.join(' | '));
+} finally {
+    await browser.close();
+}
+console.log(fails ? `\n${fails} failed` : '\nall good');
+process.exit(fails ? 1 : 0);

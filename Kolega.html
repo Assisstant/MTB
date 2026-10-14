@@ -234,6 +234,44 @@ header.top h1 { flex: 1; min-width: 180px; }
 .days .week-toggle { margin-left: 6px; }
 .class-card .pupil-terms { list-style: none; padding-left: 0; }
 .class-card .pupil-terms li { margin-top: 3px; }
+/* Акциски план (061). The pupil's name stays in sight while a part is written:
+   the wrong pupil open is the mistake this screen expects. */
+.plan-quarters, .plan-toggles, .plan-bulk { display: flex; gap: 6px; flex-wrap: wrap; margin: 6px 0; }
+.plan-quarters button small { font-weight: 500; opacity: .8; }
+#plan .filters { display: flex; gap: 6px; flex-wrap: wrap; margin: 8px 0 6px; }
+#plan button[aria-pressed="true"] { background: var(--fill); border-color: var(--fill-edge); color: var(--accent-text); box-shadow: var(--glass); }
+.plan-list { list-style: none; padding: 0; margin: 8px 0 0; }
+.plan-list li { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; padding: 6px 0; border-top: 1px solid var(--line); }
+.plan-list input[type="checkbox"], .plan-nopick { width: 22px; height: 22px; flex: none; }
+.plan-open { flex: 1 1 200px; text-align: left; min-width: 0; }
+.plan-open small { font-weight: 500; color: var(--muted); }
+.plan-chips { display: flex; gap: 4px; flex-wrap: wrap; flex: 2 1 260px; }
+.plan-chip { font-size: 13px; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--line); background: var(--well); white-space: nowrap; }
+.plan-chip.confirmed { color: var(--ok); border-color: var(--ok); }
+.plan-chip.draft, .plan-chip.carry { color: var(--warn); border-color: var(--warn); background: var(--warn-bg); }
+.plan-chip.empty { color: var(--muted); }
+.plan-head { position: sticky; top: 0; z-index: 4; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; padding: 8px 0;
+             background: var(--panel); border-bottom: 2px solid var(--accent); }
+.plan-who { flex: 1; min-width: 160px; display: grid; }
+.plan-who b { font-size: 20px; line-height: 1.2; }
+.plan-who span { font-size: 13px; color: var(--muted); }
+.plan-cabinets { margin: 10px 0; }
+.plan-section { border: 1px solid var(--line); border-radius: 10px; margin: 8px 0; padding: 0 12px; }
+.plan-section > summary { cursor: pointer; padding: 10px 0; }
+.plan-section[open] { padding-bottom: 10px; }
+.plan-part { border-top: 1px dashed var(--line); padding-top: 4px; margin-top: 4px; }
+.plan-part h4 { margin: 8px 0 4px; font-size: 15px; }
+.plan-part textarea { font: inherit; padding: 10px 11px; border: 1px solid var(--line); border-radius: 8px; background: var(--well);
+                      color: var(--text); width: 100%; box-sizing: border-box; resize: vertical; }
+.plan-row { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; margin: 6px 0; }
+.plan-row > input { flex: 1 1 180px; min-width: 0; width: auto; }
+.plan-levels { display: flex; gap: 3px; }
+.plan-levels button { min-width: 38px; padding-left: 0; padding-right: 0; }
+.plan-more { flex: 1 1 100%; font-size: 14px; }
+.plan-more > summary { cursor: pointer; color: var(--muted); }
+.plan-more label { margin: 6px 0; }
+.plan-carry { background: var(--warn-bg); color: var(--warn); border-radius: 8px; padding: 6px 8px; font-size: 14px; margin: 4px 0; }
+.plan-status { margin: 6px 0 0; }
 .week-tools { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin: 10px 0 4px; }
 .week-wrap { overflow-x: auto; margin-top: 8px; }
 .sheet { min-width: 760px; padding: 12px; border-radius: 12px; background: #ffffff; color: #1a202c; border: 1px solid var(--line); }
@@ -932,6 +970,7 @@ header.top h1 { flex: 1; min-width: 180px; }
       <ul class="periods" id="periods"></ul>
       <div id="duty" hidden></div>
       <div id="attendance" hidden></div>
+      <div id="plan" hidden></div>
       <div id="transportCertificate" hidden></div>
       <p class="msg" id="weekMsg" role="status" aria-live="polite"></p>
     </div>
@@ -1337,6 +1376,8 @@ header.top h1 { flex: 1; min-width: 180px; }
         if ((me && me.duty) || (!teacherOnly && (noList || duty.delegated))) tabs.push({ id: 'duty', label: '🛡 Дежурства' });
         // A teacher has it too: the classes they lead or teach, by day (057).
         if (week.me.therapistId != null || week.me.teacherId != null || attendance.transportAllowed) tabs.push({ id: 'attendance', label: '✓ Присуство' });
+        // Everybody who fills a week fills the plans too: cabinets and teachers alike (owner, 14 Oct 2026).
+        if (week.me.therapistId != null || week.me.teacherId != null) tabs.push({ id: 'plan', label: '📄 Акциски план' });
         return tabs;
     }
 
@@ -3241,15 +3282,25 @@ header.top h1 { flex: 1; min-width: 180px; }
         drawNotices();
         const onDuty = view.tab === 'duty';
         const onAttendance = view.tab === 'attendance';
-        const whole = view.week && !onDuty && !onAttendance && Boolean(view.tab);
+        const onPlan = view.tab === 'plan';
+        const whole = view.week && !onDuty && !onAttendance && !onPlan && Boolean(view.tab);
         el('duty').hidden = !onDuty;
         el('attendance').hidden = !onAttendance;
-        el('periods').hidden = onDuty || onAttendance || whole;
+        el('plan').hidden = !onPlan;
+        el('periods').hidden = onDuty || onAttendance || onPlan || whole;
         el('caseload').hidden = view.tab !== 'cabinet' || whole;
         el('myLists').hidden = !listsTab() || whole;
         if (listsTab() && !whole) drawMyLists();
         el('weekSheet').hidden = !whole;
         el('weekTools').hidden = !whole;
+        if (onPlan) {
+            el('days').hidden = true;
+            el('tabHint').textContent = 'Акциски план по ученик. Секој го пополнува и го потврдува својот дел за кварталот; сите гледаат сè.';
+            // The week is drawn again whenever anything about it arrives; a plan somebody is typing in is not.
+            if (!plan.shown) { plan.shown = true; drawPlan(); if (!plan.open) loadPlan(); }
+            return;
+        }
+        plan.shown = false;
         if (onAttendance) {
             el('days').hidden = true;
             el('tabHint').textContent = attendance.transportAllowed
@@ -3853,6 +3904,485 @@ header.top h1 { flex: 1; min-width: 180px; }
         findInCaseload();
     });
 
+    // ── Акциски план (061; owner, 14 Oct 2026) ───────────────────────────
+    //
+    // Everybody signed in reads and writes every pupil's plan: it is not cut
+    // by the caseload, because who takes which pupil changes through the year.
+    // The cabinets in a plan are chosen here and stay as chosen. What keeps it
+    // in order is the record on the server (who wrote what) and „потврда": one
+    // person saying „my part for this quarter is done" — for the pupil open,
+    // or for many pupils at once from the list.
+    //
+    // A wrong pupil open is the mistake to expect, so the name stays on screen
+    // while writing, the confirm button carries it, and one's own last save
+    // can be put back at once („Врати").
+    const PLAN_QUARTERS = ['', 'сеп–ное', 'дек–фев', 'мар–апр', 'мај–јун'];
+    const PLAN_LEVELS = ['Не реагира', 'Целосна помош', 'Делумна помош', 'Минимална помош', 'Самостојно'];
+    const PLAN_STAGES = ['Почетно', 'Во развој', 'Напредно', 'Постигнато'];
+    const PLAN_PROGRAMS = ['Редовна', 'Модифицирана', 'Индивидуална'];
+    const PLAN_TEXT = {
+        phaseA: { title: 'Фаза А — опсервација и дијагностика', fields: [['date', 'Датум', 'short'], ['observation', 'Опсервација'], ['diagnostics', 'Дијагностика'], ['teamConf', 'Тимска конференција']] },
+        iop: { title: 'ИОП', fields: [['program', 'Програма', 'program'], ['goals', 'Цели'], ['strategies', 'Стратегии'], ['adaptations', 'Адаптации'], ['assistant', 'Асистент']] },
+        review: { title: 'Квартален преглед', fields: [['date', 'Датум', 'short'], ['iopEval', 'Евалуација на ИОП'], ['revision', 'Ревизија'], ['report', 'Извештај'], ['parentMeeting', 'Средба со родител']] },
+        yearEnd: { title: 'Крај на година', fields: [['summary', 'Резиме'], ['transition', 'Транзиција'], ['summerNotes', 'Летни белешки']] },
+        goal: { title: 'Почетна состојба и цели', fields: [['baseline', 'Почетна состојба'], ['goals', 'Цели за годината']] }
+    };
+    const PLAN_CONFIRMED = ['phaseA', 'iop', 'review', 'yearEnd', 'marks'];
+    const plan = { data: null, quarter: 0, filter: '', query: '', open: '', pupil: null, picked: new Set(), busy: false, msg: null, error: '', request: 0 };
+    const planKind = (part) => part.split(':')[0];
+    const planCategory = (code) => ((plan.data && plan.data.categories) || []).find((c) => c.code === code) || { code, name: code };
+    const planWhen = (value) => value ? new Date(value).toLocaleString('mk-MK', { dateStyle: 'short', timeStyle: 'short' }) : '';
+    const planPupilLine = (p) => p.name + (p.class ? ', ' + shortOf(p.class) : '');
+
+    /** The parts that are this person's to finish for the chosen quarter: their cabinet's marks, their class's ИОП and review. */
+    function planMine(p) {
+        const mine = plan.data.mine, parts = [];
+        (mine.codes || []).filter((code) => p.cabinets.includes(code)).forEach((code) => parts.push(`marks:${code}:${plan.quarter}`));
+        if (p.class && (mine.classes || []).includes(p.class)) parts.push('iop', 'review:' + plan.quarter);
+        return parts;
+    }
+    /** confirmed · draft (written, not confirmed) · carry (nothing this quarter, an earlier one to take) · empty */
+    function planState(p, part) {
+        const info = p.parts[part];
+        if (info && !info.empty) return info.confirmedBy ? 'confirmed' : 'draft';
+        const [kind, code, quarter] = part.split(':');
+        if (kind === 'marks') for (let q = Number(quarter) - 1; q >= 1; q--) { const earlier = p.parts[`marks:${code}:${q}`]; if (earlier && !earlier.empty) return 'carry'; }
+        return 'empty';
+    }
+    const planTodo = (p) => planMine(p).filter((part) => planState(p, part) !== 'confirmed');
+    const planReady = (p) => planTodo(p).filter((part) => ['draft', 'carry'].includes(planState(p, part)));
+    const PLAN_MARK = { confirmed: '✅', draft: '✏️', carry: '↻', empty: '○' };
+    function planChip(p, part, label) {
+        const state = planState(p, part), info = p.parts[part];
+        const title = state === 'confirmed' ? 'Потврдено од ' + info.confirmedBy
+            : state === 'draft' ? 'Запишано од ' + info.by + ' — уште не е потврдено'
+            : state === 'carry' ? 'За овој квартал уште не е запишано; може да се преземе претходниот' : 'Празно';
+        return `<span class="plan-chip ${state}" title="${esc(title)}">${PLAN_MARK[state]} ${esc(label)}</span>`;
+    }
+    function planSay(text, kind, undo) { plan.msg = text ? { text, kind: kind || '', undo: undo || null } : null; planDrawMsg(); }
+    function planDrawMsg() {
+        const node = el('planMsg');
+        if (!node) return;
+        const m = plan.msg;
+        node.className = 'msg' + (m && m.kind ? ' ' + m.kind : '');
+        node.innerHTML = m ? esc(m.text) + (m.undo ? ` <button type="button" class="small" data-plan-undo="${m.undo}">Врати</button>` : '')
+            + (m.reload ? ' <button type="button" class="small" data-plan-reload>Вчитај што стои сега</button>' : '') : '';
+    }
+
+    async function loadPlan() {
+        const request = ++plan.request, person = me;
+        plan.error = '';
+        try {
+            const data = await api('GET', '/api/portal/plan');
+            if (request !== plan.request || me !== person) return;
+            plan.data = data;
+            if (!plan.quarter) plan.quarter = data.quarter;
+            if (!plan.filter) plan.filter = (data.mine.codes.length || data.mine.classes.length) ? 'todo' : 'all';
+        } catch (err) { if (request === plan.request) plan.error = err.message; }
+        if (view.tab === 'plan' && !plan.open) drawPlan();
+    }
+
+    function planQuarterButtons() {
+        return '<div class="plan-quarters" role="group" aria-label="Квартал">' + [1, 2, 3, 4].map((q) =>
+            `<button type="button" class="small" data-plan-quarter="${q}" aria-pressed="${q === plan.quarter}">Квартал ${q} <small>${PLAN_QUARTERS[q]}</small></button>`).join('') + '</div>';
+    }
+
+    function drawPlan() {
+        const box = el('plan');
+        if (plan.open) { drawPlanPupil(); return; }
+        if (plan.error) { box.innerHTML = `<p class="msg error">${esc(plan.error)}</p>`; return; }
+        if (!plan.data) { box.innerHTML = '<p class="muted">Вчитувам…</p>'; return; }
+        const d = plan.data, mine = d.mine;
+        const filters = [
+            { id: 'todo', label: 'Мои непотврдени', test: (p) => planTodo(p).length > 0 },
+            { id: 'mine', label: 'Мои ученици', test: (p) => planMine(p).length > 0 },
+            { id: 'all', label: 'Сите', test: () => true }
+        ];
+        const filter = filters.find((f) => f.id === plan.filter) || filters[2];
+        const shown = d.pupils.filter(filter.test);
+        const ready = shown.filter((p) => planReady(p).length);
+        [...plan.picked].forEach((id) => { if (!ready.some((p) => p.publicId === id)) plan.picked.delete(id); });
+        const what = (mine.codes.map((code) => planCategory(code).name).concat(mine.classes.map((label) => 'паралелка ' + shortOf(label)))).join(', ');
+        box.innerHTML = planQuarterButtons()
+            + `<p class="muted">${what ? 'Ваше: ' + esc(what) + '. ' : 'Немате доделен профил ниту паралелка, па нема список „мои" — можете да отворите и пополните кој било ученик. '}`
+            + '✅ потврдено · ✏️ запишано, уште не е потврдено · ↻ може да се преземе претходниот квартал · ○ празно</p>'
+            + '<div class="filters" role="group" aria-label="Кои ученици">' + filters.map((f) =>
+                `<button type="button" class="small" data-plan-filter="${f.id}" aria-pressed="${f.id === filter.id}">${esc(f.label)} (${d.pupils.filter(f.test).length})</button>`).join('') + '</div>'
+            + `<input type="search" id="planQuery" placeholder="Барај по име или паралелка" aria-label="Барај ученик" value="${esc(plan.query)}">`
+            + (mine.codes.length && mine.caseload && me.therapist
+                ? `<p class="plan-take"><button type="button" class="small" data-plan-take>+ Додај „${esc(planCategory(mine.codes[0]).name)}“ во планот на учениците од мојата листа (${mine.caseload})</button></p>` : '')
+            + '<div class="plan-bulk" id="planBulk"></div>'
+            + '<p class="msg" id="planMsg" role="status" aria-live="polite"></p>'
+            + (shown.length ? '<ul class="plan-list">' + shown.map((p) => {
+                const todo = planReady(p);
+                return `<li data-find="${esc(norm(p.name + ' ' + (p.class || '') + ' ' + shortOf(p.class || '')))}">`
+                    + (todo.length ? `<input type="checkbox" data-plan-pick="${esc(p.publicId)}" aria-label="Избери: ${esc(p.name)}"${plan.picked.has(p.publicId) ? ' checked' : ''}>` : '<span class="plan-nopick"></span>')
+                    + `<button type="button" class="plan-open" data-plan-open="${esc(p.publicId)}"><b>${esc(p.name)}</b>${p.class ? ` <small>${esc(shortOf(p.class))}</small>` : ''}</button>`
+                    + '<span class="plan-chips">'
+                    + (p.cabinets.length ? p.cabinets.map((code) => planChip(p, `marks:${code}:${plan.quarter}`, planCategory(code).name)).join('') : '<span class="plan-chip empty">без кабинети во планот</span>')
+                    + planChip(p, 'iop', 'ИОП') + planChip(p, 'review:' + plan.quarter, 'Преглед') + planChip(p, 'phaseA', 'Фаза А') + planChip(p, 'yearEnd', 'Крај')
+                    + '</span></li>';
+            }).join('') + '</ul>' : `<p class="muted">${filter.id === 'todo' ? 'Сè ваше за овој квартал е потврдено.' : 'Нема ученици во овој избор.'}</p>`);
+        planDrawMsg();
+        planFind();
+    }
+    /** The pupils that can be picked now: ready, and not hidden by the search. */
+    const planPickable = () => [...el('plan').querySelectorAll('.plan-list li:not([hidden]) [data-plan-pick]')];
+    function planFind() {
+        const q = norm(plan.query);
+        el('plan').querySelectorAll('.plan-list li').forEach((row) => { row.hidden = Boolean(q) && !row.dataset.find.includes(q); });
+        // What the search hides is not confirmed behind its back: a pick does not outlive being in sight.
+        const inSight = planPickable();
+        el('plan').querySelectorAll('[data-plan-pick]').forEach((input) => {
+            if (!inSight.includes(input)) { input.checked = false; plan.picked.delete(input.dataset.planPick); }
+        });
+        const bar = el('planBulk');
+        if (bar) bar.innerHTML = inSight.length ? `<button type="button" class="small" data-plan-pick-all>${plan.picked.size === inSight.length ? 'Откажи го изборот' : 'Избери ги сите прикажани (' + inSight.length + ')'}</button>`
+            + `<button type="button" class="primary" data-plan-confirm-picked${plan.picked.size && !plan.busy ? '' : ' disabled'}>Потврди за избраните (${plan.picked.size})</button>` : '';
+    }
+
+    // ── one pupil ────────────────────────────────────────────────────────
+    function planStatus(part) {
+        const info = plan.pupil.parts[part];
+        if (!info || planEmpty(info.data)) return '○ Празно';
+        return info.confirmedBy ? `✅ Потврдено од ${esc(info.confirmedBy)}, ${esc(planWhen(info.confirmedAt))}`
+            : `✏️ Запишано од ${esc(info.by)}, ${esc(planWhen(info.at))}` + (PLAN_CONFIRMED.includes(planKind(part)) ? ' — уште не е потврдено' : '');
+    }
+    const planEmpty = (value) => value == null ? true : typeof value === 'string' ? value.trim() === ''
+        : Array.isArray(value) ? value.length === 0 : typeof value === 'object' ? Object.values(value).every(planEmpty) : false;
+    function planButtons(part) {
+        const info = plan.pupil.parts[part], can = PLAN_CONFIRMED.includes(planKind(part));
+        return '<div class="row plan-actions"><button type="submit">Зачувај</button>'
+            + (can ? `<button type="button" class="primary" data-plan-confirm>Потврди за ${esc(planPupilLine(plan.pupil.pupil))}</button>` : '')
+            + (can && info && info.confirmedBy ? '<button type="button" class="small" data-plan-unconfirm>Тргни ја потврдата</button>' : '')
+            + `</div><p class="muted plan-status" data-plan-status>${planStatus(part)}</p>`;
+    }
+    function planTextForm(part, title) {
+        const spec = PLAN_TEXT[planKind(part)], info = plan.pupil.parts[part], data = (info && info.data) || {};
+        return `<form class="plan-part" data-part="${esc(part)}" data-version="${info ? info.version : 0}" novalidate>`
+            + (title ? `<h4>${esc(title)}</h4>` : '')
+            + spec.fields.map(([key, label, type]) => `<label>${esc(label)} `
+                + (type === 'short' ? `<input name="${key}" maxlength="60" value="${esc(data[key] || '')}">`
+                    : type === 'program' ? `<select name="${key}"><option value=""></option>${PLAN_PROGRAMS.map((v) => `<option${data[key] === v ? ' selected' : ''}>${v}</option>`).join('')}</select>`
+                    : `<textarea name="${key}" rows="3" maxlength="8000">${esc(data[key] || '')}</textarea>`)
+                + '</label>').join('')
+            + planButtons(part) + '</form>';
+    }
+    function planRowHtml(row, code) {
+        return `<div class="plan-row" data-level="${row.level == null ? '' : row.level}">`
+            + `<input type="text" data-row-label maxlength="200" list="planLabels-${esc(code)}" aria-label="Област" placeholder="Област (на пр. што се вежба)" value="${esc(row.label || '')}">`
+            + '<span class="plan-levels" role="group" aria-label="Ниво">' + PLAN_LEVELS.map((name, level) =>
+                `<button type="button" class="small" data-level-set="${level}" aria-pressed="${row.level === level}" title="${level} — ${esc(name)}">${level}</button>`).join('') + '</span>'
+            + '<button type="button" class="small" data-row-remove title="Тргни ја областа" aria-label="Тргни ја областа">×</button>'
+            // The quick way is the name and the mark; the rest of an area is one touch away and stays open once it holds something.
+            + `<details class="plan-more"${row.baseline != null || row.stage != null || row.note ? ' open' : ''}><summary>почетна оцена · развојно ниво · белешка</summary>`
+            + '<label>Почетна оцена <select data-row-baseline><option value="">—</option>' + PLAN_LEVELS.map((name, level) =>
+                `<option value="${level}"${row.baseline === level ? ' selected' : ''}>${level} — ${esc(name)}</option>`).join('') + '</select></label>'
+            + '<label>Развојно ниво <select data-row-stage><option value="">—</option>' + PLAN_STAGES.map((name, stage) =>
+                `<option value="${stage}"${row.stage === stage ? ' selected' : ''}>${esc(name)}</option>`).join('') + '</select></label>'
+            + `<label>Белешка за областа во овој квартал <input type="text" data-row-note maxlength="2000" value="${esc(row.note || '')}"></label>`
+            + '</details></div>';
+    }
+    function planMarksForm(code) {
+        const part = `marks:${code}:${plan.quarter}`, info = plan.pupil.parts[part];
+        let data = (info && info.data) || {}, from = 0;
+        if (!info || planEmpty(info.data)) {
+            // The quarter starts as the one before it stood: only what changed is touched.
+            for (let q = plan.quarter - 1; q >= 1 && !from; q--) {
+                const earlier = plan.pupil.parts[`marks:${code}:${q}`];
+                // A note is about its own quarter, so it is not taken along.
+                if (earlier && (earlier.data.rows || []).length) { data = { rows: earlier.data.rows.map((row) => ({ ...row, note: '' })), note: '' }; from = q; }
+            }
+        }
+        return `<form class="plan-part" data-part="${esc(part)}" data-version="${info ? info.version : 0}"${from ? ' data-prefilled="1"' : ''} novalidate>`
+            + `<h4>Оцени за квартал ${plan.quarter}</h4>`
+            + (from ? `<p class="plan-carry">↻ Преземено од квартал ${from}. Сменете само што е различно, па зачувајте или потврдете.</p>` : '')
+            + `<div class="plan-rows">${(data.rows || []).map((row) => planRowHtml(row, code)).join('')}</div>`
+            + '<button type="button" class="small" data-row-add>+ Додај област</button>'
+            + `<datalist id="planLabels-${esc(code)}">${((plan.pupil.labels || {})[code] || []).map((l) => `<option value="${esc(l)}">`).join('')}</datalist>`
+            + `<label>Белешка за кварталот <textarea name="note" rows="2" maxlength="8000">${esc(data.note || '')}</textarea></label>`
+            + planButtons(part) + '</form>';
+    }
+    function planCollect(form) {
+        const kind = planKind(form.dataset.part);
+        if (kind === 'marks') return {
+            rows: [...form.querySelectorAll('.plan-row')].map((row) => {
+                const number = (value) => value === '' ? null : Number(value);
+                return { label: row.querySelector('[data-row-label]').value.replace(/\s+/g, ' ').trim(), level: number(row.dataset.level),
+                    baseline: number(row.querySelector('[data-row-baseline]').value), stage: number(row.querySelector('[data-row-stage]').value),
+                    note: row.querySelector('[data-row-note]').value };
+            }).filter((row) => row.label),
+            note: form.elements.note.value
+        };
+        // Typed text goes as typed: nothing is trimmed on the way.
+        return Object.fromEntries(PLAN_TEXT[kind].fields.map(([key]) => [key, form.elements[key].value]));
+    }
+    const planForms = () => [...el('plan').querySelectorAll('form.plan-part')];
+    const planTouched = () => planForms().filter((form) => form.dataset.touched && JSON.stringify(planCollect(form)) !== form.dataset.saved);
+    function planLeave() {
+        return !planTouched().length || window.confirm('Имате започнато и незачувано. Да се отфрли?');
+    }
+    function planSection(id, title, state, body, open) {
+        return `<details class="plan-section" data-plan-section="${esc(id)}"${open ? ' open' : ''}><summary><b>${esc(title)}</b> <span data-plan-mark>${state}</span></summary>${body}</details>`;
+    }
+    const planMarkOf = (part) => { const info = plan.pupil.parts[part]; return !info || planEmpty(info.data) ? '○' : info.confirmedBy ? '✅' : '✏️'; };
+
+    function drawPlanPupil() {
+        const box = el('plan'), d = plan.pupil;
+        const head = (inner) => '<div class="plan-head"><button type="button" class="small" data-plan-back>← Список</button>' + inner + '</div>';
+        if (plan.error) { box.innerHTML = head('') + `<p class="msg error">${esc(plan.error)}</p>`; return; }
+        if (!d) { box.innerHTML = head('') + '<p class="muted">Вчитувам…</p>'; return; }
+        const mine = plan.data.mine, P = d.parts;
+        const chosen = (P.cabinets && P.cabinets.data.codes) || [];
+        // One's own cabinet first, then as the list of profiles has them.
+        const cabinets = plan.data.categories.filter((c) => chosen.includes(c.code))
+            .concat(chosen.filter((code) => !plan.data.categories.some((c) => c.code === code)).map((code) => ({ code, name: code })))
+            .sort((a, b) => Number(mine.codes.includes(b.code)) - Number(mine.codes.includes(a.code)));
+        const myClass = d.pupil.class && mine.classes.includes(d.pupil.class);
+        box.innerHTML = head(`<div class="plan-who"><b>${esc(d.pupil.name)}</b><span>${d.pupil.class ? esc(shortOf(d.pupil.class)) + ' · ' : ''}учебна ${esc(d.year)}</span></div>`
+                + '<button type="button" class="small" data-plan-docx>Word (.docx)</button>')
+            + '<p class="msg" id="planMsg" role="status" aria-live="polite"></p>'
+            + planQuarterButtons()
+            + '<div class="plan-cabinets"><b>Кабинети во планот</b> <span class="muted">— допрете за да додадете или тргнете</span><div class="plan-toggles">'
+            + plan.data.categories.map((c) => `<button type="button" class="small" data-plan-cabinet="${esc(c.code)}" aria-pressed="${chosen.includes(c.code)}">${esc(c.name)}</button>`).join('')
+            + '</div></div>'
+            + cabinets.map((c) => planSection('cab:' + c.code, c.name, planMarkOf(`marks:${c.code}:${plan.quarter}`),
+                planMarksForm(c.code) + planTextForm('goal:' + c.code, PLAN_TEXT.goal.title), mine.codes.includes(c.code))).join('')
+            + planSection('iop', PLAN_TEXT.iop.title, planMarkOf('iop'), planTextForm('iop'), myClass)
+            + planSection('review', `${PLAN_TEXT.review.title} — квартал ${plan.quarter}`, planMarkOf('review:' + plan.quarter), planTextForm('review:' + plan.quarter), myClass)
+            + planSection('phaseA', PLAN_TEXT.phaseA.title, planMarkOf('phaseA'), planTextForm('phaseA'), false)
+            + planSection('yearEnd', PLAN_TEXT.yearEnd.title, planMarkOf('yearEnd'), planTextForm('yearEnd'), false)
+            + '<p class="muted">Ниво: ' + PLAN_LEVELS.map((name, level) => level + ' ' + name.toLocaleLowerCase('mk-MK')).join(' · ') + '.</p>';
+        // What a form held when drawn is what „changed" is measured against; a prefilled quarter is not yet saved at all.
+        planForms().forEach((form) => { form.dataset.saved = form.dataset.prefilled ? '' : JSON.stringify(planCollect(form)); });
+        planDrawMsg();
+    }
+
+    async function openPlanPupil(publicId, keepMsg) {
+        const request = ++plan.request;
+        plan.open = publicId; plan.pupil = null; plan.error = '';
+        if (!keepMsg) plan.msg = null;
+        drawPlan();
+        try {
+            const data = await api('GET', '/api/portal/plan/pupil?publicId=' + encodeURIComponent(publicId));
+            if (request !== plan.request) return;
+            plan.pupil = data;
+        } catch (err) { if (request !== plan.request) return; plan.error = err.message; }
+        drawPlan();
+    }
+    function planFormSaved(form, sent) {
+        const part = form.dataset.part, info = plan.pupil.parts[part];
+        form.dataset.version = info ? info.version : 0;
+        // Typing goes on while the request is away: those words are not on the server and stay unsaved.
+        form.dataset.saved = JSON.stringify(sent);
+        if (JSON.stringify(planCollect(form)) === form.dataset.saved) delete form.dataset.touched; else form.dataset.touched = '1';
+        delete form.dataset.prefilled;
+        const carry = form.querySelector('.plan-carry'); if (carry) carry.remove();
+        const actions = form.querySelector('.plan-actions'), status = form.querySelector('[data-plan-status]');
+        if (status) status.remove();
+        actions.outerHTML = planButtons(part);
+        const mark = form.closest('details').querySelector('[data-plan-mark]');
+        const first = form.closest('details').querySelector('form.plan-part');
+        if (mark && first === form) mark.textContent = planMarkOf(part);
+    }
+    /** Save the part if it differs from what is stored, then confirm or open it if asked. */
+    async function savePlanPart(form, then) {
+        if (plan.busy) return;
+        // The sheet this was asked from. Another pupil may be open by the time the answer comes:
+        // then the answer is kept with ITS pupil and nothing on the screen is touched.
+        const sheet = plan.pupil, part = form.dataset.part, who = planPupilLine(sheet.pupil), publicId = sheet.pupil.publicId;
+        const here = () => plan.pupil === sheet && form.isConnected;
+        const data = planCollect(form);
+        let undo = null;
+        plan.busy = true;
+        form.querySelectorAll('button').forEach((b) => { b.disabled = true; });
+        try {
+            let version = Number(form.dataset.version);
+            if (JSON.stringify(data) !== form.dataset.saved) {
+                const answer = await api('PUT', '/api/portal/plan/part', { publicId, part, data, version });
+                if (answer.part) { sheet.parts[part] = answer.part; version = answer.part.version; }
+                undo = answer.changeId;
+                // Written, whatever comes of the confirmation below: the form must know its new version.
+                if (here()) planFormSaved(form, data);
+            } else if (!then) { planSay('Нема што да се зачува — ништо не е сменето.'); return; }
+            if (then) {
+                const answer = await api('POST', '/api/portal/plan/confirm', { on: then === 'confirm', items: [{ publicId, part, version }] });
+                const result = answer.results[0];
+                if (!result.ok) throw Object.assign(new Error(result.error), { payload: result });
+                sheet.parts[part] = result.now;
+                if (here()) planFormSaved(form, data);
+            }
+            planSay(then === 'confirm' ? `Потврдено за ${who}.` : then ? `Потврдата е тргната за ${who}.` : `Зачувано за ${who}.`, 'ok', then ? null : undo);
+        } catch (err) {
+            const stale = Boolean(err.payload && err.payload.stale);
+            plan.msg = here()
+                ? { text: err.message + (stale ? ' Вашиот текст е уште тука: копирајте го ако ви треба, па вчитајте што стои сега.' : ''), kind: 'error', reload: stale }
+                : { text: `${who}: ${err.message}`, kind: 'error' };
+            planDrawMsg();
+        } finally {
+            plan.busy = false;
+            if (form.isConnected) form.querySelectorAll('button').forEach((b) => { b.disabled = false; });
+        }
+    }
+    async function togglePlanCabinet(code) {
+        if (plan.busy || !planLeave()) return;
+        const sheet = plan.pupil, info = sheet.parts.cabinets, codes = (info && info.data.codes) || [];
+        const next = codes.includes(code) ? codes.filter((c) => c !== code) : [...codes, code];
+        plan.busy = true;
+        try {
+            const answer = await api('PUT', '/api/portal/plan/part', { publicId: sheet.pupil.publicId, part: 'cabinets', data: { codes: next }, version: info ? info.version : 0 });
+            sheet.parts.cabinets = answer.part;
+            plan.msg = { text: `${planCategory(code).name}: ${next.includes(code) ? 'додаден во' : 'тргнат од'} планот на ${sheet.pupil.name}.`, kind: 'ok', undo: answer.changeId };
+            // Drawn again only if this pupil is still the one open.
+            if (plan.pupil === sheet) drawPlan(); else planDrawMsg();
+        } catch (err) {
+            plan.msg = { text: (plan.pupil === sheet ? '' : sheet.pupil.name + ': ') + err.message, kind: 'error', reload: plan.pupil === sheet && Boolean(err.payload && err.payload.stale) };
+            planDrawMsg();
+        } finally { plan.busy = false; }
+    }
+    async function confirmPlanPicked() {
+        const pupils = plan.data.pupils.filter((p) => plan.picked.has(p.publicId));
+        const items = pupils.flatMap((p) => planReady(p).map((part) => {
+            const info = p.parts[part];
+            return planState(p, part) === 'carry' ? { publicId: p.publicId, part, version: info ? info.version : 0, carry: true } : { publicId: p.publicId, part, version: info.version };
+        }));
+        if (!items.length || plan.busy) return;
+        const taken = items.filter((i) => i.carry).length;
+        if (!window.confirm(`Потврда за ${pupils.length} ${pupils.length === 1 ? 'ученик' : 'ученици'}, квартал ${plan.quarter}.`
+            + (taken ? `\n\nКај ${taken} нема запишано за овој квартал: ќе се преземат оцените од претходниот, без промена.` : '') + '\n\nДа потврдам?')) return;
+        plan.busy = true;
+        try {
+            const answer = await api('POST', '/api/portal/plan/confirm', { on: true, items });
+            const failed = answer.results.filter((r) => !r.ok);
+            plan.picked.clear();
+            plan.msg = { text: `Потврдено: ${answer.done}.` + (failed.length ? ' Не е потврдено: ' + failed.map((r) => `${r.pupil || 'ученик'} (${r.error})`).join('; ') : ''),
+                kind: failed.length ? 'error' : 'ok' };
+        } catch (err) { plan.msg = { text: err.message, kind: 'error' }; }
+        finally { plan.busy = false; }
+        await loadPlan();
+    }
+    async function takePlanCaseload() {
+        const name = planCategory(plan.data.mine.codes[0]).name;
+        if (plan.busy || !window.confirm(`„${name}“ ќе се додаде во планот на сите ученици од вашата листа. Потоа планот не ја следи листата: ученик се трга од планот рачно.\n\nДа продолжам?`)) return;
+        plan.busy = true;
+        try {
+            const answer = await api('POST', '/api/portal/plan/from-caseload');
+            plan.msg = { text: `Додадено кај ${answer.added}` + (answer.already ? `; кај ${answer.already} веќе беше` : '') + '.', kind: 'ok' };
+        } catch (err) { plan.msg = { text: err.message, kind: 'error' }; }
+        finally { plan.busy = false; }
+        await loadPlan();
+    }
+    function planReport() {
+        const d = plan.pupil, P = d.parts, rows = [];
+        const by = (part) => P[part] && P[part].confirmedBy ? '\n— потврдил/а: ' + P[part].confirmedBy : '';
+        const textOf = (part) => {
+            const info = P[part];
+            if (!info || planEmpty(info.data)) return '';
+            return PLAN_TEXT[planKind(part)].fields.filter(([key]) => String(info.data[key] || '').trim()).map(([key, label]) => label + ': ' + info.data[key]).join('\n') + by(part);
+        };
+        const add = (title, body) => { if (body) rows.push([title, body]); };
+        add(PLAN_TEXT.phaseA.title, textOf('phaseA'));
+        ((P.cabinets && P.cabinets.data.codes) || []).forEach((code) => {
+            const quarters = [1, 2, 3, 4].map((q) => P[`marks:${code}:${q}`]).map((info) => info && !planEmpty(info.data) ? info : null);
+            const labels = [];
+            quarters.forEach((info) => ((info && info.data.rows) || []).forEach((row) => { if (!labels.includes(row.label)) labels.push(row.label); }));
+            const lines = labels.flatMap((label) => {
+                const rows = quarters.map((info) => (info && info.data.rows.find((r) => r.label === label)) || null);
+                // The starting mark and the developmental level as last written.
+                const last = (key) => { const row = [...rows].reverse().find((r) => r && r[key] != null); return row ? row[key] : null; };
+                return [label + ': ' + (last('baseline') != null ? 'почетна ' + last('baseline') + ' · ' : '')
+                    + rows.map((row, i) => 'К' + (i + 1) + ' ' + (row && row.level != null ? row.level : '—')).join(' · ')
+                    + (last('stage') != null ? ' · развојно ниво: ' + PLAN_STAGES[last('stage')].toLocaleLowerCase('mk-MK') : '')]
+                    .concat(rows.map((row, i) => row && String(row.note || '').trim() ? `   К${i + 1}: ${row.note}` : '').filter(Boolean));
+            });
+            quarters.forEach((info, i) => {
+                if (info && String(info.data.note || '').trim()) lines.push(`Белешка, квартал ${i + 1}: ${info.data.note}`);
+                if (info && info.confirmedBy) lines.push(`— квартал ${i + 1} потврдил/а: ${info.confirmedBy}`);
+            });
+            add(planCategory(code).name, [textOf('goal:' + code), lines.join('\n')].filter(Boolean).join('\n'));
+        });
+        add(PLAN_TEXT.iop.title, textOf('iop'));
+        [1, 2, 3, 4].forEach((q) => add(`${PLAN_TEXT.review.title} — квартал ${q} (${PLAN_QUARTERS[q]})`, textOf('review:' + q)));
+        add(PLAN_TEXT.yearEnd.title, textOf('yearEnd'));
+        return { title: 'Акциски план', subtitle: `${d.pupil.name}${d.pupil.class ? ' · ' + nameOf(d.pupil.class) : ''} · учебна ${d.year}`,
+            note: 'Ниво по квартал (К1–К4): ' + PLAN_LEVELS.map((name, level) => level + ' ' + name.toLocaleLowerCase('mk-MK')).join(' · ') + '. „—“ = не е оценето.',
+            columns: ['Дел', 'Содржина'], rows, portrait: true, widths: [3, 8] };
+    }
+
+    el('plan').addEventListener('click', async (event) => {
+        const on = (selector) => event.target.closest(selector);
+        let b;
+        if ((b = on('[data-plan-quarter]'))) {
+            if (plan.open && !planLeave()) return;
+            plan.quarter = Number(b.dataset.planQuarter); plan.picked.clear(); drawPlan(); return;
+        }
+        if ((b = on('[data-plan-filter]'))) { plan.filter = b.dataset.planFilter; plan.picked.clear(); drawPlan(); return; }
+        if ((b = on('[data-plan-open]'))) { openPlanPupil(b.dataset.planOpen); return; }
+        if (on('[data-plan-back]')) {
+            if (!planLeave()) return;
+            plan.open = ''; plan.pupil = null; plan.error = ''; plan.msg = null; drawPlan(); loadPlan(); return;
+        }
+        if (on('[data-plan-pick-all]')) {
+            const ready = planPickable().map((input) => input.dataset.planPick);
+            if (plan.picked.size === ready.length) plan.picked.clear(); else ready.forEach((id) => plan.picked.add(id));
+            drawPlan(); return;
+        }
+        if (on('[data-plan-confirm-picked]')) { confirmPlanPicked(); return; }
+        if (on('[data-plan-take]')) { takePlanCaseload(); return; }
+        if ((b = on('[data-plan-cabinet]'))) { togglePlanCabinet(b.dataset.planCabinet); return; }
+        if (on('[data-plan-docx]')) {
+            const report = planReport();
+            if (!report.rows.length) { planSay('Планот е празен — нема што да се сними.'); return; }
+            saveReportDocx(report, 'Akciski-plan-' + plan.pupil.pupil.name.replace(/[\\/:*?"<>|\s]+/g, '-')); return;
+        }
+        if (on('[data-plan-reload]')) { openPlanPupil(plan.open); return; }
+        if ((b = on('[data-plan-undo]'))) {
+            if (plan.busy || (plan.open && !planLeave())) return;
+            plan.busy = true;
+            try {
+                const answer = await api('POST', '/api/portal/plan/undo', { id: Number(b.dataset.planUndo) });
+                plan.msg = { text: `Вратено како што беше за ${answer.pupil}.`, kind: 'ok' };
+            } catch (err) { plan.msg = { text: err.message, kind: 'error' }; }
+            finally { plan.busy = false; }
+            if (plan.open) openPlanPupil(plan.open, true); else loadPlan();
+            return;
+        }
+        const form = on('form.plan-part');
+        if (!form) return;
+        if (on('[data-plan-confirm]')) { savePlanPart(form, 'confirm'); return; }
+        if (on('[data-plan-unconfirm]')) { savePlanPart(form, 'unconfirm'); return; }
+        if (on('[data-row-add]')) {
+            form.querySelector('.plan-rows').insertAdjacentHTML('beforeend', planRowHtml({ label: '', level: null }, form.dataset.part.split(':')[1]));
+            form.querySelector('.plan-rows').lastElementChild.querySelector('input').focus();
+            form.dataset.touched = '1'; return;
+        }
+        if ((b = on('[data-row-remove]'))) { b.closest('.plan-row').remove(); form.dataset.touched = '1'; return; }
+        if ((b = on('[data-level-set]'))) {
+            const row = b.closest('.plan-row'), level = b.dataset.levelSet;
+            // A second touch on the chosen level takes it back to „not assessed".
+            row.dataset.level = row.dataset.level === level ? '' : level;
+            row.querySelectorAll('[data-level-set]').forEach((x) => x.setAttribute('aria-pressed', String(x.dataset.levelSet === row.dataset.level)));
+            form.dataset.touched = '1';
+        }
+    });
+    el('plan').addEventListener('submit', (event) => {
+        const form = event.target.closest('form.plan-part');
+        if (!form) return;
+        event.preventDefault();
+        savePlanPart(form, '');
+    });
+    el('plan').addEventListener('input', (event) => {
+        if (event.target.id === 'planQuery') { plan.query = event.target.value; planFind(); return; }
+        const form = event.target.closest('form.plan-part');
+        if (form) form.dataset.touched = '1';
+    });
+    el('plan').addEventListener('change', (event) => {
+        const input = event.target.closest('[data-plan-pick]');
+        if (!input) return;
+        if (input.checked) plan.picked.add(input.dataset.planPick); else plan.picked.delete(input.dataset.planPick);
+        drawPlan();
+    });
+
     function drawClashes() {
         const list = week.clashes || [];
         const cabinet = cabinetClashes();
@@ -3893,7 +4423,7 @@ header.top h1 { flex: 1; min-width: 180px; }
     function canRefreshWeek() {
         return me && week && !el('home').hidden && !document.hidden && !editing &&
             !caseload.open && !duty.draft && !attendance.busy &&
-            !['duty', 'attendance'].includes(view.tab) &&
+            !['duty', 'attendance', 'plan'].includes(view.tab) &&
             !document.querySelector('dialog[open], #swapAsk:not([hidden]), #doorVeil:not([hidden])') &&
             !document.activeElement?.matches('input, select, textarea, [contenteditable="true"]');
     }
@@ -3961,6 +4491,8 @@ header.top h1 { flex: 1; min-width: 180px; }
         duty.draft = null;
         caseload.open = false;
         caseload.list = null;
+        Object.assign(plan, { data: null, quarter: 0, filter: '', query: '', open: '', pupil: null, busy: false, msg: null, error: '', shown: false });
+        plan.picked.clear(); plan.request++;
         reloadWeek()
             // Whether there is a duty tab at all is known only after asking
             // (the administrator may not be on the list), so it is drawn again.
@@ -3975,6 +4507,7 @@ header.top h1 { flex: 1; min-width: 180px; }
     el('tabs').addEventListener('click', (event) => {
         const b = event.target.closest('[data-tab]');
         if (!b) return;
+        if (view.tab === 'plan' && b.dataset.tab !== 'plan' && plan.open && !planLeave()) return;
         view.tab = b.dataset.tab;
         say('weekMsg','');
         editing = null;
