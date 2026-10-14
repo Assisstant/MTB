@@ -13,6 +13,8 @@ const ROOT = resolve(import.meta.dirname, '../..');
 test('the runtime bank includes only approved selectable text, with checks and no pupil information', () => {
     const source = load();
     source.overlay = structuredClone(source.overlay);
+    // The real decisions are set aside: this test makes its own, so it says the same in every edition.
+    Object.values(source.overlay.stavki).forEach((note) => { delete note.status; });
     source.overlay.izdanie = 1;
     source.overlay.stavki['I-C01'].status = 'odobreno';
     source.overlay.stavki['I-C01'].proverka = 'Проверка: [како се набљудува]';
