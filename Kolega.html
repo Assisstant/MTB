@@ -146,6 +146,16 @@ header.top h1 { flex: 1; min-width: 180px; }
 .period .note { font-size: 14px; margin-top: 4px; }
 .period .note.warn { color: var(--warn); font-weight: 600; }
 .editor { margin-top: 8px; border-top: 1px dashed var(--line); padding-top: 8px; }
+/* Who is in a term, ticked (owner, 14 Oct 2026); a group says so (063). */
+.editor .term-ticks { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 4px 14px; max-height: 45vh; overflow: auto; margin: 6px 0; }
+.editor .term-ticks label { display: flex; align-items: center; gap: 6px; margin: 0; font-weight: 500; }
+.editor .term-ticks label[hidden] { display: none; }
+.editor .term-ticks input, .editor .term-way input { width: auto; }
+.editor .term-ticks small { color: var(--muted); font-weight: 500; }
+.editor .term-way { gap: 14px; align-items: center; flex-wrap: wrap; }
+.editor .term-way label { display: flex; align-items: center; gap: 6px; margin: 0; }
+.editor .term-count { margin: 4px 0; font-weight: 600; }
+.group-tag { display: inline-block; font-size: 12px; font-weight: 700; color: var(--accent); border: 1px solid var(--accent); border-radius: 999px; padding: 0 7px; margin-right: 4px; }
 .preview { font-size: 14px; margin: 6px 0; }
 .preview.warn { color: var(--warn); font-weight: 600; }
 .preview.ok { color: var(--ok); }
@@ -1271,7 +1281,7 @@ header.top h1 { flex: 1; min-width: 180px; }
         const c = week.cabinet || {}, days = week.days || [];
         const own = (c.pupils || []).find((p) => p.publicId === id);
         const visits = [];
-        (c.terms || []).forEach((t) => pupilSpans(t.time, t.pupils).forEach((s) => {
+        (c.terms || []).forEach((t) => pupilSpans(t.time, t.pupils, t.together).forEach((s) => {
             if (s.id === id) visits.push({ day: t.day, from: s.from, to: s.to, who: viewedName(), here: true });
         }));
         (c.elsewhere || []).forEach((e) => {
@@ -2896,7 +2906,8 @@ header.top h1 { flex: 1; min-width: 180px; }
                 cells: bells.map((b) => days.map((d) => {
                     const t = termAt(d, b.time);
                     const ids = t ? t.pupils : [];
-                    return ids.map((id, i) => ({ text: pupilName(id), sub: ids.length === 1 ? '40 минути' : (i ? 'втори 20 мин.' : 'први 20 мин.') }));
+                    return ids.map((id, i) => ({ text: pupilName(id), sub: ids.length === 1 ? '40 минути'
+                        : t.together ? (i ? '' : `група · ${ids.length}`) : (i ? 'втори 20 мин.' : 'први 20 мин.') }));
                 }))
             };
         }
@@ -3224,7 +3235,13 @@ header.top h1 { flex: 1; min-width: 180px; }
                 const lines = wrap((s.class ? s.class + ' - ' : '') + s.pupil, INNER - BADGE_W - 8, INNER);
                 return { badge: whole ? '40′' : s.span.from === row.span.from ? '1/2' : '2/2', lines,
                     time: clock(s.span.from) + ' - ' + clock(s.span.to), h: 12 + lines.length * 19 + 18 };
-            })));
+            })))
+            // Several children with the whole bell in one cabinet are a group (063): „гр.", not 40′ each.
+            .map((row) => row.map((cards) => {
+                const whole = cards.filter((c) => c.badge === '40′');
+                if (whole.length > 1) whole.forEach((c) => { c.badge = 'гр.'; });
+                return cards;
+            }));
         const rowH = cells.map((row) => Math.max(58, ...row.map((cards) => PAD * 2 + cards.reduce((sum, c) => sum + c.h + 6, -6))));
         const width = M * 2 + TIME_W + names.length * COL_W;
         const height = TOP + HEAD_H + rowH.reduce((a, b) => a + b, 0) + FOOT_H;
@@ -3729,10 +3746,10 @@ header.top h1 { flex: 1; min-width: 180px; }
         return own ? own.name : ((c.names || {})[id] || 'ученик');
     };
     const termAt = (day, time) => ((week.cabinet && week.cabinet.terms) || []).find((t) => t.day === day && t.time === time);
-    /** The minutes each pupil of a block is there: all 40 for one, the halves for two. */
-    function pupilSpans(time, ids) {
+    /** The minutes each pupil of a block is there: all 40 for one and for a group (063), the halves for two „по 20“. */
+    function pupilSpans(time, ids, together) {
         const span = spanOf(time);
-        if (ids.length === 1) return [{ id: ids[0], from: span.from, to: span.to }];
+        if (ids.length === 1 || together) return ids.map((id) => ({ id, from: span.from, to: span.to }));
         return ids.map((id, i) => ({ id, from: span.from + 20 * i, to: span.from + 20 * (i + 1) }));
     }
     /** Where a pupil is with another therapist at the same time. */
@@ -3746,7 +3763,7 @@ header.top h1 { flex: 1; min-width: 180px; }
     function cabinetClashes() {
         const out = [];
         ((week.cabinet && week.cabinet.terms) || []).forEach((t) => {
-            pupilSpans(t.time, t.pupils).forEach((span) => elsewhereOf(t.day, span).forEach((e) =>
+            pupilSpans(t.time, t.pupils, t.together).forEach((span) => elsewhereOf(t.day, span).forEach((e) =>
                 out.push({ day: t.day, time: t.time, pupil: pupilName(span.id), therapist: e.therapist, at: e.time })));
         });
         return out;
@@ -3763,9 +3780,11 @@ header.top h1 { flex: 1; min-width: 180px; }
         const named = (id) => `<button type="button" class="klass pupil-name" data-pupil="${esc(id)}" data-term="${esc(bell.time)}" aria-expanded="false" aria-controls="classCard" aria-label="${esc(pupilName(id))}">${esc(pupilName(id))}</button>`;
         if (!ids.length) what = '<span class="free">— слободен —</span>';
         else if (ids.length === 1) what = `${named(ids[0])} <span class="muted">· 40 мин</span>`;
+        // A group (063): everybody the whole bell, together.
+        else if (term.together) what = `<span class="group-tag">Група · ${ids.length}</span> ` + ids.map(named).join('<span class="muted"> · </span>');
         else what = ids.map((id, i) => `${named(id)} <span class="muted">· ${i ? 'втори' : 'први'} 20</span>`).join('<br>');
         const clashes = [];
-        pupilSpans(bell.time, ids).forEach((span) => elsewhereOf(view.day, span).forEach((e) =>
+        pupilSpans(bell.time, ids, term && term.together).forEach((span) => elsewhereOf(view.day, span).forEach((e) =>
             clashes.push(`${pupilName(span.id)} тогаш е и кај ${e.therapist} (${e.time}).`)));
         const note = clashes.map((c) => `<div class="note warn">⚠ ${esc(c)}</div>`).join('')
             + (term && term.overlap ? '<div class="note warn">⚠ Стари записи што се преклопуваат — јавете се кај администраторот.</div>' : '');
@@ -3775,21 +3794,36 @@ header.top h1 { flex: 1; min-width: 180px; }
             + `<button type="button" class="small" data-edit-term="${esc(bell.time)}">Уреди</button></div>${note}</li>`;
     }
 
-    function pupilOptions(chosen, empty) {
+    /**
+     * Who is in a term, ticked (owner, 14 Oct 2026: check boxes, not a picker):
+     * one's own pupils, and anybody already there who is not. One is the whole
+     * bell; two are together or „по 20"; three to eight are a group (063).
+     */
+    const TERM_MAX = 8;
+    function termPupils(ids) {
         const own = (week.cabinet && week.cabinet.pupils) || [];
         const list = own.slice();
-        if (chosen && !own.some((p) => p.publicId === chosen)) list.push({ publicId: chosen, name: pupilName(chosen) + ' · не е на вашиот список', class: '' });
-        return `<option value="">${esc(empty)}</option>` + list.map((p) =>
-            `<option value="${esc(p.publicId)}"${p.publicId === chosen ? ' selected' : ''}>${esc(p.name)}${p.class ? ' · ' + esc(p.class) : ''}</option>`).join('');
+        ids.forEach((id) => { if (!own.some((p) => p.publicId === id)) list.push({ publicId: id, name: pupilName(id), class: '', outside: true }); });
+        return list;
     }
+    /** The ticked pupils in the order they were ticked: for „по 20" the first is first. */
+    const termChosen = (form) => JSON.parse(form.dataset.order || '[]');
+    const termWay = (form) => {
+        const n = termChosen(form).length;
+        return n > 2 ? 'together' : n === 2 ? ((form.querySelector('[name="way"]:checked') || {}).value || 'halves') : '';
+    };
 
     function termPreview(time, form) {
-        const ids = [form.elements.first.value, form.elements.second.value].filter(Boolean);
-        const out = form.querySelector('.preview');
+        const ids = termChosen(form), way = termWay(form), start = spanOf(time).from;
+        form.querySelector('.term-way').hidden = ids.length !== 2;
+        form.querySelector('.term-count').textContent = !ids.length ? 'Никој не е штиклиран — терминот ќе биде слободен.'
+            : ids.length === 1 ? 'Еден ученик, цел час.' : way === 'together' ? `Група: ${ids.length}, сите цел час заедно.` : 'Двајца, по 20 минути.';
+        form.querySelector('.term-halves').textContent = way === 'halves'
+            ? `Прв ${clock(start)}–${clock(start + 20)}: ${pupilName(ids[0])}; втор ${clock(start + 20)}–${clock(start + 40)}: ${pupilName(ids[1])}.` : '';
         const lines = [];
-        if (ids.length === 2 && ids[0] === ids[1]) lines.push('Истиот ученик двапати — изберете само еден за целиот час.');
-        pupilSpans(time, [...new Set(ids)]).forEach((span) => elsewhereOf(view.day, span).forEach((e) =>
+        pupilSpans(time, ids, way === 'together').forEach((span) => elsewhereOf(view.day, span).forEach((e) =>
             lines.push(`${pupilName(span.id)} тогаш е кај ${e.therapist} (${e.time}).`)));
+        const out = form.querySelector('.preview');
         out.className = 'preview ' + (lines.length ? 'warn' : 'ok');
         out.textContent = lines.length ? '⚠ ' + lines.join(' ') : (ids.length ? '✓ Нема судир.' : '');
     }
@@ -3798,35 +3832,63 @@ header.top h1 { flex: 1; min-width: 180px; }
         el('periods').querySelectorAll('.editor').forEach((n) => n.remove());
         editing = { time };
         const term = termAt(view.day, time);
-        const ids = term ? term.pupils : [];
+        const ids = term ? term.pupils : [], together = Boolean(term && term.together);
+        const pupils = termPupils(ids);
         const form = document.createElement('form');
         form.className = 'editor';
         form.noValidate = true;
-        const start = spanOf(time).from;
-        form.innerHTML = `<label>Ученик <select name="first">${pupilOptions(ids[0] || '', '— празно —')}</select></label>`
-            + `<label>Втор ученик (${esc(clock(start + 20))}–${esc(clock(start + 40))}) <select name="second">${pupilOptions(ids[1] || '', '— нема, првиот е цели 40 минути —')}</select></label>`
+        form.innerHTML = `<p class="muted">Штиклирајте кој е во терминот: еден — цел час; двајца — заедно или по 20 минути; тројца до ${TERM_MAX} — група, сите цел час.</p>`
+            + (pupils.length > 8 ? '<input type="search" data-term-find placeholder="Барај ученик" aria-label="Барај ученик" autocomplete="off">' : '')
+            + '<div class="ticks term-ticks">' + pupils.map((p) => `<label data-find="${esc(norm(p.name + ' ' + (p.class || '')))}">`
+                + `<input type="checkbox" data-term-pupil="${esc(p.publicId)}"${ids.includes(p.publicId) ? ' checked' : ''}> `
+                + `<span>${esc(p.name)}${p.class ? ` <small>${esc(p.class)}</small>` : ''}${p.outside ? ' <small>· не е на вашиот список</small>' : ''}</span></label>`).join('') + '</div>'
+            + '<p class="term-count"></p>'
+            + '<div class="term-way row" role="radiogroup" aria-label="Двајца во терминот" hidden>'
+            + `<label><input type="radio" name="way" value="together"${together ? ' checked' : ''}> Заедно, цел час</label>`
+            + `<label><input type="radio" name="way" value="halves"${together ? '' : ' checked'}> По 20 минути</label>`
+            + '<button type="button" class="small" data-term-swap>⇅ Замени прв и втор</button></div>'
+            + '<p class="muted term-halves"></p>'
             + '<p class="preview"></p><div class="row"><button type="submit" class="primary">Зачувај</button>'
             + '<button type="button" data-act="cancel">Откажи</button></div><div class="ask" hidden></div>';
         form.dataset.expected = JSON.stringify(ids);
-        ['first', 'second'].forEach((name) => form.elements[name].addEventListener('change', () => termPreview(time, form)));
+        form.dataset.order = JSON.stringify(ids);
+        form.addEventListener('change', (event) => {
+            const box = event.target.closest('[data-term-pupil]');
+            if (box) {
+                const order = termChosen(form).filter((id) => id !== box.dataset.termPupil);
+                if (box.checked && order.length >= TERM_MAX) {
+                    box.checked = false;
+                    say('weekMsg', `Во еден термин може најмногу ${TERM_MAX} ученици.`, 'error');
+                } else if (box.checked) order.push(box.dataset.termPupil);
+                form.dataset.order = JSON.stringify(order);
+            }
+            termPreview(time, form);
+        });
+        form.addEventListener('input', (event) => {
+            if (!event.target.matches('[data-term-find]')) return;
+            const q = norm(event.target.value);
+            form.querySelectorAll('.term-ticks label').forEach((label) => { label.hidden = Boolean(q) && !label.dataset.find.includes(q); });
+        });
+        form.querySelector('[data-term-swap]').addEventListener('click', () => {
+            const order = termChosen(form);
+            if (order.length === 2) { form.dataset.order = JSON.stringify([order[1], order[0]]); termPreview(time, form); }
+        });
         form.addEventListener('submit', (event) => { event.preventDefault(); saveTerm(form, time, false); });
         form.querySelector('[data-act="cancel"]').addEventListener('click', () => { editing = null; form.remove(); });
         row.appendChild(form);
         termPreview(time, form);
-        if (!keep) form.elements.first.focus();
+        if (!keep) (form.querySelector('[data-term-find]') || form.querySelector('[data-term-pupil]') || form).focus();
     }
 
     async function saveTerm(form, time, force) {
         const ask = form.querySelector('.ask');
-        const first = form.elements.first.value;
-        const second = form.elements.second.value;
-        if (!first && second) return say('weekMsg', 'Прво изберете го првиот ученик.', 'error');
-        if (first && first === second) return say('weekMsg', 'Истиот ученик двапати — изберете само еден.', 'error');
-        const pupils = [first, second].filter(Boolean);
+        const pupils = termChosen(form), way = termWay(form);
         form.querySelectorAll('button').forEach((b) => { b.disabled = true; });
         try {
             const answer = await api('PUT', '/api/portal/term', {
-                day: view.day, time, pupils, expected: JSON.parse(form.dataset.expected || '[]'), force
+                day: view.day, time, pupils, expected: JSON.parse(form.dataset.expected || '[]'), force,
+                // Only two pupils have a choice; one is the whole bell, three or more a group.
+                ...(pupils.length === 2 ? { mode: way } : {})
             });
             editing = null;
             say('weekMsg', answer.notified ? `Зачувано. Известени колеги: ${answer.notified}.` : 'Зачувано.', 'ok');

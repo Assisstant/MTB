@@ -504,7 +504,9 @@ check('no page errors', errors.length === 0, errors.join('\n       '));
             }
             const i = terms.findIndex((t) => t.day === body.day && t.time === body.time);
             if (i >= 0) terms.splice(i, 1);
-            if (body.pupils.length) terms.push({ day: body.day, time: body.time, pupils: body.pupils, overlap: false });
+            // A group (063): three or more, or two sent „together".
+            if (body.pupils.length) terms.push({ day: body.day, time: body.time, pupils: body.pupils, overlap: false,
+                together: body.pupils.length > 2 || body.mode === 'together' });
             return json(200, { ok: true, notified: body.force ? 1 : 0 });
         }
         return json(404, { error: 'not in this test' });
@@ -519,7 +521,7 @@ check('no page errors', errors.length === 0, errors.join('\n       '));
     await p.click('#days [data-day="понеделник"]');
     check('a therapist opens on their cabinet, the 40-minute terms', await p.isVisible('#periods [data-time="08:00-08:40"]'));
     await p.click('#periods [data-time="08:00-08:40"] [data-edit-term]');
-    await p.selectOption('#periods form.editor select[name=first]', 'p1');
+    await p.check('#periods form.editor [data-term-pupil="p1"]');
     const warned = await p.textContent('#periods form.editor .preview');
     check('choosing a pupil who is with another therapist then says so before saving', /Колега Ди/.test(warned), warned);
     await p.click('#periods form.editor button[type=submit]');
@@ -531,19 +533,33 @@ check('no page errors', errors.length === 0, errors.join('\n       '));
     check('the term shows the pupil for 40 minutes, and the clash', /Ученик Измислен/.test(booked) && /40 мин/.test(booked) && /Колега Ди/.test(booked), booked);
     check('and the clash is listed on its own', /Колега Ди/.test(await p.textContent('#clashesList')));
     await p.click('#periods [data-time="08:45-09:25"] [data-edit-term]');
-    await p.selectOption('#periods form.editor select[name=first]', 'p1');
-    await p.selectOption('#periods form.editor select[name=second]', 'p2');
+    check('the term asks with check boxes, not a picker (owner, 14 Oct 2026)', await p.locator('#periods form.editor select').count() === 0
+        && await p.locator('#periods form.editor [data-term-pupil]').count() === 2);
+    await p.check('#periods form.editor [data-term-pupil="p1"]');
+    await p.check('#periods form.editor [data-term-pupil="p2"]');
+    check('two ticked ask: together, or 20 minutes each — „по 20" as before unless chosen', await p.isVisible('#periods form.editor .term-way')
+        && await p.isChecked('#periods form.editor [name=way][value=halves]'));
     await p.click('#periods form.editor button[type=submit]');
     await p.waitForFunction(() => /втори 20/.test((document.querySelector('#periods [data-time="08:45-09:25"]') || {}).textContent || ''),
         null, { timeout: 5000 }).catch(() => {});
     const halves = await p.textContent('#periods [data-time="08:45-09:25"]');
     check('two pupils share a term in halves', /први 20/.test(halves) && /втори 20/.test(halves), halves);
+    check('and „по 20" is what was sent', writes.filter((w) => w.path === '/api/portal/term').at(-1).body.mode === 'halves');
+    await p.click('#periods [data-time="08:45-09:25"] [data-edit-term]');
+    check('a term opens with its pupils ticked and its way chosen', await p.isChecked('#periods form.editor [data-term-pupil="p1"]')
+        && await p.isChecked('#periods form.editor [data-term-pupil="p2"]') && await p.isChecked('#periods form.editor [name=way][value=halves]'));
+    await p.check('#periods form.editor [name=way][value=together]');
+    await p.click('#periods form.editor button[type=submit]');
+    await p.waitForFunction(() => /Група · 2/.test((document.querySelector('#periods [data-time="08:45-09:25"]') || {}).textContent || ''), null, { timeout: 5000 }).catch(() => {});
+    const group = await p.textContent('#periods [data-time="08:45-09:25"]');
+    check('two „together" are one group for the whole bell', /Група · 2/.test(group) && !/први 20/.test(group)
+        && writes.filter((w) => w.path === '/api/portal/term').at(-1).body.mode === 'together', group);
 
     console.log('\nthe cabinet — a child\'s cabinets, and every cabinet as a picture');
     await p.click('#periods [data-time="08:00-08:40"] .klass[data-pupil="p1"]');
     const visits = await p.textContent('#classCard');
     check('a pupil\'s name shows which cabinets they go to, and when',
-        /2 кабинети · 3 термини/.test(visits) && /Пон 08:00–08:40 · Колега Ди/.test(visits) && /Пон 08:45–09:05 · Терапевтка Измислена/.test(visits), visits);
+        /2 кабинети · 3 термини/.test(visits) && /Пон 08:00–08:40 · Колега Ди/.test(visits) && /Пон 08:45–09:25 · Терапевтка Измислена/.test(visits), visits);
     check('and, for this term, the lesson of the own class of the child that it misses', /Во овој термин пропушта: 1. час · Математика · Наставничка Измислена/.test(visits), visits);
     await p.keyboard.press('Escape');
     check('and Esc puts it away', await p.isHidden('#classCard'));
@@ -578,10 +594,11 @@ check('no page errors', errors.length === 0, errors.join('\n       '));
     await p.waitForFunction(() => /Ученичка Измислена/.test(document.querySelector('#periods [data-time="08:00-08:40"]').textContent));
     check('an open colleague page receives another screen’s timetable', /Ученичка Измислена/.test(await p.textContent('#periods [data-time="08:00-08:40"]')));
     await p.click('#periods [data-time="08:00-08:40"] [data-edit-term]');
-    await p.selectOption('#periods form.editor select[name=first]', 'p2');
+    await p.check('#periods form.editor [data-term-pupil="p1"]');
     terms[0].pupils = ['p1'];
     await p.clock.runFor(20001);
-    check('refresh preserves the open editor', await p.inputValue('#periods form.editor select[name=first]') === 'p2');
+    check('refresh preserves the open editor', await p.isChecked('#periods form.editor [data-term-pupil="p1"]')
+        && await p.isChecked('#periods form.editor [data-term-pupil="p2"]'));
     await p.click('#periods form.editor [data-act="cancel"]');
     await p.clock.runFor(20001);
     await p.waitForFunction(() => /Ученик Измислен/.test(document.querySelector('#periods [data-time="08:00-08:40"]').textContent));
@@ -600,9 +617,12 @@ check('no page errors', errors.length === 0, errors.join('\n       '));
     await p.waitForFunction(() => /додаден/.test(document.getElementById('weekMsg').textContent), null, { timeout: 5000 });
     check('a tick is sent at once, one pupil', writes.some((w) => w.path === '/api/portal/caseload' && w.body.publicId === 'p3' && w.body.on === true));
     await p.click('#periods [data-time="08:45-09:25"] [data-edit-term]');
-    const offered = await p.$$eval('#periods form.editor select[name=first] option', (o) => o.map((x) => x.value).filter(Boolean));
+    const offered = await p.$$eval('#periods form.editor [data-term-pupil]', (o) => o.map((x) => x.dataset.termPupil));
     check('and the term picker offers the one just ticked — and nobody unticked',
         offered.includes('p3') && !offered.includes('p4'), JSON.stringify(offered));
+    await p.check('#periods form.editor [data-term-pupil="p3"]');
+    check('three ticked are a group, with nothing more to choose', /Група: 3, сите цел час заедно/.test(await p.textContent('#periods form.editor .term-count'))
+        && await p.isHidden('#periods form.editor .term-way'));
     await p.click('#periods form.editor [data-act="cancel"]');
     await p.click('#caseload [data-caseload-filter="mine"]');
     await p.uncheck('#caseload [data-caseload-pupil="p1"]');
