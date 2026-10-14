@@ -168,6 +168,12 @@ function Get-MtbAllActions {
            Title = 'Чистење на облакот'
            Text = 'Ги остава последните 3 recovery копии. Постарите ги презема во backups\, ги враќа и споредува локално, и дури тогаш ги брише во облакот. Прашува „DA“.'
            When = 'Само сопственикот, ретко — кога ќе се насоберат.' },
+        # This computer's own database: what a browser suite left behind (cleanup-test-rows.ps1).
+        @{ Group = 'careful'; Name = 'MTB - Chistenje test-zapisi'; Script = 'cleanup-test-rows.ps1'; Args = ''; Icon = 'shell32.dll,32'
+           Description = 'MTB - local database: back up, then remove the invented staff a browser test left behind'; Glyph = 0xE74D; Color = '#C0392B'; CardColor = '#C0392B'
+           Title = 'Чистење тест-записи'
+           Text = 'Ги покажува измислените вработени „browser-…“ што ги оставил тест во локалната база. Прашува „DA“, прави резерва, па брише само оние на кои ништо не покажува. Облакот не го допира.'
+           When = 'Кога проверката за имиња пред commit вели дека има тест-записи.' },
         # The cloud server's settings page in Render. Its address names the
         # service, so like the work space's it lives in server\.env, not here.
         @{ Group = 'careful'; Name = 'Render - postavki'; UrlKey = 'MTB_RENDER_URL'; Glyph = 0xE713; Color = '#3C3C3C'; CardColor = '#111111'

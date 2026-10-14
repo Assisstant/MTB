@@ -100,6 +100,13 @@ try {
         if (bare.split(' ').filter(Boolean).length >= 2) add(bare);
     }
     names = [...seen.values()];
+    // A browser suite that stopped early leaves its invented `browser-…` staff behind,
+    // and they are checked here like real names. Said, so they are cleaned, not obeyed.
+    const leftovers = rows.filter((row) => String(row.name || '').startsWith('browser-')).length;
+    if (leftovers) {
+        console.log(`Note: ${leftovers} test record(s) named „browser-…" are in this database, left by a browser suite.`);
+        console.log('  Clean them: the „MTB - Chistenje test-zapisi" shortcut, or scripts\\cleanup-test-rows.ps1.');
+    }
 } catch (err) {
     const detail = err instanceof Error ? err.message : String(err);
     await pool.end().catch(() => {});
