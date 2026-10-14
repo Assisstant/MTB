@@ -4133,20 +4133,69 @@ header.top h1 { flex: 1; min-width: 180px; }
         panel.querySelector('[data-bank-items]').innerHTML = list.map((item) => `<button type="button" class="small plan-bank-item" data-bank-add="${esc(item.id)}">`
             + `<span class="muted">${esc(title(item))} · ${esc(item.id)}</span><span>${esc(item.text)}</span><b>+ Додај</b></button>`).join('');
     }
+    /** A suggested area goes into the draft unassessed, never at 0; a repeat or an overlong name is said and refused. */
+    function planAddArea(form, label, notice) {
+        const rows = form.querySelector('.plan-rows');
+        if (rows.children.length >= 40) { notice.textContent = 'Во еден квартал може да има најмногу 40 области.'; return false; }
+        if (label.length > 200) { notice.textContent = 'Предлогот е предолг за назив на област. Внесете пократок назив рачно.'; return false; }
+        if ([...rows.querySelectorAll('[data-row-label]')].some((input) => norm(input.value) === norm(label))) {
+            notice.textContent = 'Оваа област веќе е во нацртот.'; return false;
+        }
+        rows.insertAdjacentHTML('beforeend', planRowHtml({ label, level: null }, form.dataset.part.split(':')[1]));
+        rows.lastElementChild.querySelector('input').focus();
+        return true;
+    }
+
+    // ── phase 5: what the евидентен лист suggests (owner, 14 Oct 2026) ───────
+    // Read once per open pupil and only when asked. A suggestion is said as what
+    // it is — a fall, a level 1, a changed √/X to look at again — and is copied
+    // into the draft by a person, like a suggestion from the bank.
+    const PLAN_WHY = { decline: 'пад', low: 'ниво 1 — недоволно', changed: 'сменета ознака, за преглед' };
+    const planSentence = (s) => s.charAt(0) + s.slice(1).toLocaleLowerCase('mk-MK');
+    function planEvidencePicker() {
+        return '<details class="plan-bank" data-evidence><summary>Предлози од евидентниот лист</summary>'
+            + '<div data-evidence-body><p class="muted">Вчитувам…</p></div><p class="muted" data-bank-notice role="status"></p></details>';
+    }
+    async function planLoadEvidence(panel) {
+        const body = panel.querySelector('[data-evidence-body]'), sheet = plan.pupil;
+        if (body.dataset.ready || !sheet) return;
+        body.innerHTML = '<p class="muted" role="status">Вчитувам…</p>';
+        try {
+            if (!sheet.evidence) sheet.evidence = api('GET', '/api/portal/plan/evidence?publicId=' + encodeURIComponent(sheet.pupil.publicId));
+            const data = await sheet.evidence;
+            // Another pupil opened meanwhile: their sheet is not this answer's.
+            if (!panel.isConnected || plan.pupil !== sheet) return;
+            body.dataset.ready = '1';
+            sheet.evidenceItems = data.items;
+            body.innerHTML = '<p class="muted">Предлог, не одлука. Пад се гледа само кај иста ставка, во периодите од оваа година. '
+                + 'Сменета ознака √/X е повод за преглед, не влошување. „/“ и неоценето не се земаат.</p>'
+                + (!data.sheet ? '<p class="muted">Ученикот нема евидентен лист за оваа учебна година.</p>'
+                    : !data.items.length ? '<p class="muted">Евидентниот лист не покажува пад, ниво 1 или сменета ознака.</p>'
+                    : '<div class="plan-bank-items">' + data.items.map((it) => `<button type="button" class="small plan-bank-item" data-evidence-add="${esc(it.id)}">`
+                        + `<span class="muted">${esc(it.section.title)}${it.group ? ' · ' + esc(planSentence(it.group)) : ''} · ${esc(it.why.map((w) => PLAN_WHY[w]).join(', '))}</span>`
+                        + `<span>${esc(planSentence(it.label))}: ${esc(it.marks.map((m) => m.period + ' ' + m.value).join(' → '))}</span><b>+ Додај како област</b></button>`).join('') + '</div>');
+        } catch (err) {
+            sheet.evidence = null;
+            if (panel.isConnected) body.innerHTML = `<p class="muted" role="status">${esc(err.message)} Може да пишувате рачно.</p><button type="button" class="small" data-evidence-retry>Обиди се повторно</button>`;
+        }
+    }
+    function planInsertEvidence(button) {
+        const panel = button.closest('[data-evidence]'), form = panel.closest('form.plan-part');
+        const item = (plan.pupil.evidenceItems || []).find((it) => String(it.id) === button.dataset.evidenceAdd);
+        if (!item || plan.busy) return;
+        const notice = panel.querySelector('[data-bank-notice]');
+        if (!planAddArea(form, planSentence(item.label), notice)) return;
+        form.dataset.touched = '1';
+        notice.textContent = 'Додадено во нацртот, без оцена. Оценете ја, па притиснете „Зачувај“.';
+    }
+
     function planInsertBank(button) {
         const panel = button.closest('.plan-bank'), form = panel.closest('form.plan-part'), target = panel.dataset.bankTarget;
         const item = planBank.data?.items.find((item) => item.id === button.dataset.bankAdd);
         if (!item || !panel.dataset.bankUses.split(',').includes(item.use) || plan.busy) return;
         const notice = panel.querySelector('[data-bank-notice]');
         if (target === 'area') {
-            const rows = form.querySelector('.plan-rows');
-            if (rows.children.length >= 40) { notice.textContent = 'Во еден квартал може да има најмногу 40 области.'; return; }
-            if (item.text.length > 200) { notice.textContent = 'Предлогот е предолг за назив на област. Внесете пократок назив рачно.'; return; }
-            if ([...rows.querySelectorAll('[data-row-label]')].some((input) => norm(input.value) === norm(item.text))) {
-                notice.textContent = 'Оваа област веќе е во нацртот.'; return;
-            }
-            rows.insertAdjacentHTML('beforeend', planRowHtml({ label: item.text, level: null }, form.dataset.part.split(':')[1]));
-            rows.lastElementChild.querySelector('input').focus();
+            if (!planAddArea(form, item.text, notice)) return;
         } else {
             const input = form.elements[target];
             // Outcome and decision have fields of their own since phase 3, so they need no label in front.
@@ -4203,7 +4252,7 @@ header.top h1 { flex: 1; min-width: 180px; }
             + (from ? `<p class="plan-carry">↻ Преземено од квартал ${from}. Сменете само што е различно, па зачувајте или потврдете.</p>` : '')
             + `<div class="plan-rows">${(data.rows || []).map((row) => planRowHtml(row, code)).join('')}</div>`
             + '<button type="button" class="small" data-row-add>+ Додај област</button>'
-            + planBankPicker('area', ['area'])
+            + planBankPicker('area', ['area']) + planEvidencePicker()
             + `<datalist id="planLabels-${esc(code)}">${((plan.pupil.labels || {})[code] || []).map((l) => `<option value="${esc(l)}">`).join('')}</datalist>`
             + `<label>Белешка за кварталот <textarea name="note" rows="2" maxlength="8000">${esc(data.note || '')}</textarea></label>`
             + planButtons(part) + '</form>';
@@ -4426,6 +4475,8 @@ header.top h1 { flex: 1; min-width: 180px; }
         let b;
         if ((b = on('[data-bank-add]'))) { planInsertBank(b); return; }
         if ((b = on('[data-bank-retry]'))) { planLoadBank(b.closest('.plan-bank')); return; }
+        if ((b = on('[data-evidence-add]'))) { planInsertEvidence(b); return; }
+        if ((b = on('[data-evidence-retry]'))) { planLoadEvidence(b.closest('[data-evidence]')); return; }
         if ((b = on('[data-plan-quarter]'))) {
             if (plan.open && !planLeave()) return;
             plan.quarter = Number(b.dataset.planQuarter); plan.picked.clear(); drawPlan(); return;
@@ -4499,7 +4550,8 @@ header.top h1 { flex: 1; min-width: 180px; }
         drawPlan();
     });
     el('plan').addEventListener('toggle', (event) => {
-        if (event.target.matches('.plan-bank') && event.target.open) planLoadBank(event.target);
+        if (event.target.matches('[data-evidence]') && event.target.open) planLoadEvidence(event.target);
+        else if (event.target.matches('.plan-bank') && event.target.open) planLoadBank(event.target);
     }, true);
     el('plan').addEventListener('keydown', (event) => {
         // Searching inside a form must never invoke its implicit Save button.

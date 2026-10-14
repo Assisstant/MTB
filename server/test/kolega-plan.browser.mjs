@@ -25,7 +25,13 @@ const PUPILS = [
 const store = { p1: { cabinets: part({ codes: ['logoped'] }) }, p2: { cabinets: part({ codes: ['logoped'] }) }, p3: {} };
 store.p2['marks:logoped:1'] = part({ rows: [{ label: 'Артикулација', level: 1 }], note: '' }, ME);
 let changeId = 100, staleNext = false, quarter = 1;
-let bankMode = 'ready', bankReads = 0, reasonsOn = false;
+let bankMode = 'ready', bankReads = 0, reasonsOn = false, evidenceMode = 'ready', evidenceReads = 0;
+const EVIDENCE = { sheet: true, periods: ['I', 'II'], items: [
+    { id: 41, label: 'АРТИКУЛАЦИЈА И УПОТРЕБА НА ГЛАСОВИТЕ', group: null, section: { code: 's4', title: 'IV. ГОВОРНО - ЈАЗИЧНО ПОДРАЧЈЕ', scale: 'level' },
+      why: ['decline', 'low'], marks: [{ period: 'I', value: '2' }, { period: 'II', value: '1' }] },
+    { id: 71, label: 'ПРОБНА ОЗНАКА', group: '1. ПРОБНА ГРУПА', section: { code: 's7', title: 'VII. ПСИХОЛОШКО ПОДРАЧЈЕ', scale: 'mark' },
+      why: ['changed'], marks: [{ period: 'I', value: '√' }, { period: 'II', value: 'X' }] }
+] };
 const BANK = { edition: 7, domains: [{ code: 'I', title: 'Прво пробно подрачје' }, { code: 'IV', title: 'Четврто пробно подрачје' }], items: [
     { id: 'I-P01', domain: 'I', use: 'area', text: 'Пробна област без оцена' },
     { id: 'IV-C01', domain: 'IV', use: 'goal', text: 'Пробна цел [ситуација], [помош], [критериум], [рок].\nПроверка: [начин]' },
@@ -60,6 +66,10 @@ await context.route('**/*', async (route) => {
     if (u.pathname === '/api/portal/plan/pupil') {
         const p = PUPILS.find((x) => x.publicId === u.searchParams.get('publicId'));
         return json(200, { year: '2026/2027', pupil: p, labels: { logoped: ['Артикулација', 'Фонологија'] }, parts: store[p.publicId], ...(reasonsOn ? { reasons: true } : {}) });
+    }
+    if (u.pathname === '/api/portal/plan/evidence') {
+        evidenceReads++;
+        return evidenceMode === 'fail' ? json(503, { error: 'Нема врска.' }) : json(200, evidenceMode === 'none' ? { sheet: false, periods: [], items: [] } : EVIDENCE);
     }
     if (u.pathname === '/api/portal/plan/bank') {
         bankReads++;
@@ -369,6 +379,42 @@ try {
     check('the reason field fits the phone', await p.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1));
     await p.locator(review).scrollIntoViewIfNeeded();
     await p.screenshot({ path: resolve(snapDir, 'review-phase3.png') });
+
+    console.log('\nphase 5: priorities suggested from the евидентен лист');
+    const marks1 = 'form[data-part="marks:logoped:1"]', ev = marks1 + ' [data-evidence]';
+    check('nothing is read until it is opened', evidenceReads === 0);
+    const writesBefore = writes.length;
+    await p.click(ev + ' > summary');
+    await p.waitForSelector(ev + ' [data-evidence-add]');
+    const said = await text(ev);
+    check('each suggestion says what it is, with the marks it comes from', said.includes('пад, ниво 1 — недоволно') && said.includes('Артикулација и употреба на гласовите: I 2 → II 1')
+        && said.includes('сменета ознака, за преглед') && said.includes('Предлог, не одлука'), said);
+    const rowsBefore = await p.locator(marks1 + ' .plan-row').count();
+    await p.click(ev + ' [data-evidence-add="41"]');
+    const added = p.locator(marks1 + ' .plan-row').last();
+    check('a suggestion becomes an area in the draft, unassessed, and nothing is saved', await p.locator(marks1 + ' .plan-row').count() === rowsBefore + 1
+        && await added.locator('[data-row-label]').inputValue() === 'Артикулација и употреба на гласовите' && await added.getAttribute('data-level') === ''
+        && writes.length === writesBefore);
+    await p.click(ev + ' [data-evidence-add="41"]');
+    check('the same area twice is refused and said', await p.locator(marks1 + ' .plan-row').count() === rowsBefore + 1 && (await text(ev)).includes('веќе е во нацртот'));
+    check('read once for the open pupil', evidenceReads === 1);
+    await p.locator(ev).scrollIntoViewIfNeeded();
+    check('the suggestions fit the phone', await p.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1));
+    await p.screenshot({ path: resolve(snapDir, 'evidence-phase5.png') });
+    for (const mode of ['none', 'fail']) {
+        evidenceMode = mode;
+        await p.click('[data-plan-back]');
+        await p.click('[data-plan-open="p2"]');
+        await p.waitForFunction(() => /Бета/.test((document.querySelector('.plan-who') || {}).textContent || ''));
+        await p.click(ev + ' > summary');
+        await p.waitForFunction(({ selector, word }) => document.querySelector(selector).textContent.includes(word),
+            { selector: ev, word: mode === 'none' ? 'нема евидентен лист' : 'рачно' });
+        check(`${mode}: said plainly, and the areas stay writable`, !await p.isDisabled(marks1 + ' [data-row-add]'));
+    }
+    evidenceMode = 'ready';
+    await p.click(ev + ' [data-evidence-retry]');
+    await p.waitForSelector(ev + ' [data-evidence-add]');
+    check('a failed read can be tried again', (await text(ev)).includes('Артикулација'));
     check('no script error on the page', errors.length === 0, errors.join(' | '));
 } finally {
     await browser.close();

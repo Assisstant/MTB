@@ -35,6 +35,7 @@ import {
 } from '../lib/pupil-plan.js';
 import type { Staff } from '../lib/staff-accounts.js';
 import { readPlanBank } from '../lib/pupil-plan-bank.js';
+import { prioritiesOf } from '../lib/pupil-plan-evidence.js';
 
 type Who = {
     staff: Staff;
@@ -108,6 +109,39 @@ export function registerPortalPlan(server: FastifyInstance, signed: SignedCheck)
             req.log.error({ err }, 'Action-plan bank unavailable');
             return reply.code(503).send({ error: 'Банката не е достапна. Може да продолжите со рачно пишување.' });
         }
+    });
+
+    /**
+     * Phase 5: what the pupil's евидентен лист for this year suggests as a
+     * priority (lib/pupil-plan-evidence.ts). Only the suggested items, with
+     * their own marks: the owner chose that everybody in Kolega sees these, not
+     * that the sheet is opened to everybody. It only reads — a year without
+     * columns is not given any here.
+     */
+    server.get('/api/portal/plan/evidence', async (req, reply) => {
+        const who = await entering(req, reply);
+        if (!who) return;
+        const query = z.object({ publicId: z.string().min(1).max(80) }).strict().safeParse(req.query);
+        if (!query.success) return reply.code(400).send({ error: 'Изберете ученик.' });
+        const pupil = await pupilOf(pool, who.year.id, query.data.publicId);
+        if (!pupil) return reply.code(404).send({ error: 'Ученикот не е на списокот за годинава.' });
+        const sheet = (await pool.query('SELECT id FROM evidence_sheets WHERE student_id = $1 AND school_year_id = $2',
+            [pupil.id, who.year.id])).rows[0];
+        if (!sheet) return { sheet: false, periods: [], items: [] };
+        const [periods, items, scores] = await Promise.all([
+            pool.query(`SELECT id, ord, label, short_label AS short FROM evidence_periods WHERE school_year_id = $1 AND active ORDER BY ord`, [who.year.id]),
+            // The prescribed form only: the `action` catalogue is the old app's plan, which this one is not linked to.
+            pool.query(`SELECT i.id, i.label, g.label AS "group", s.code, s.title, s.scale
+                          FROM evidence_items i JOIN evidence_sections s ON s.id = i.section_id
+                          LEFT JOIN evidence_groups g ON g.id = i.group_id
+                         WHERE i.active AND s.active AND s.catalog = 'prescribed' ORDER BY s.ord, i.ord`),
+            pool.query('SELECT item_id, period_id, value FROM evidence_scores WHERE sheet_id = $1', [sheet.id])
+        ]);
+        const values = new Map<number, Map<number, string>>();
+        for (const r of scores.rows) (values.get(r.item_id) || values.set(r.item_id, new Map()).get(r.item_id)!).set(r.period_id, r.value);
+        const suggested = prioritiesOf(items.rows.map((r: any) => ({ id: r.id, label: r.label, group: r.group,
+            section: { code: r.code, title: r.title, scale: r.scale } })), periods.rows, values);
+        return { sheet: true, periods: periods.rows.map((p: any) => p.short || p.label), items: suggested };
     });
 
     /**

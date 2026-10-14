@@ -261,6 +261,35 @@ async function main() {
         check('a reason is short', (await call('PUT', '/api/portal/plan/part', teacher, { publicId: P2, part: REVIEW,
             data: { ...review.data, report: 'Друг' }, version: review.version, reason: 'а'.repeat(501) })).status === 400);
 
+        console.log('\nphase 5: priorities suggested from the евидентен лист');
+        const evidence = (publicId: string, token = teacher) => call('GET', '/api/portal/plan/evidence?publicId=' + publicId, token);
+        check('nothing is answered without a sign-in', (await evidence(P1, '')).status === 401);
+        const noSheet = await evidence(P3);
+        check('a pupil without a sheet this year has nothing to suggest, and is given no sheet', noSheet.status === 200 && noSheet.body.sheet === false
+            && (await q(`SELECT count(*)::int AS n FROM evidence_sheets WHERE student_id = $1`, [sid[P3]]))[0].n === 0, JSON.stringify(noSheet.body));
+        const [first1, second1] = await q(`INSERT INTO evidence_periods (school_year_id, ord, label, short_label) VALUES ($1, 1, 'Прв', 'I'), ($1, 2, 'Втор', 'II') RETURNING id`, [y.id]);
+        const [sheet] = await q(`INSERT INTO evidence_sheets (student_id, school_year_id, diagnosis) VALUES ($1, $2, 'Измислена дијагноза') RETURNING id`, [sid[P1], y.id]);
+        const itemOf = async (section: string, ord: number) => (await q(
+            `SELECT i.id, i.label FROM evidence_items i JOIN evidence_sections s ON s.id = i.section_id WHERE s.code = $1 AND i.ord = $2`, [section, ord]))[0];
+        const [fell, low, rose, gone, changed] = [await itemOf('s4', 0), await itemOf('s4', 1), await itemOf('s4', 2), await itemOf('s4', 3), await itemOf('s7', 0)];
+        const score = `INSERT INTO evidence_scores (sheet_id, item_id, period_id, value) VALUES ($1, $2, $3, $4)`;
+        for (const [it, a, b] of [[fell, '3', '2'], [low, '1', '1'], [rose, '1', '3'], [gone, '2', '/'], [changed, '√', 'X']] as const) {
+            await q(score, [sheet.id, it.id, first1.id, a]);
+            await q(score, [sheet.id, it.id, second1.id, b]);
+        }
+        const got = await evidence(P1);
+        const ids = (got.body.items || []).map((s: any) => [s.id, s.why.join('+')]);
+        check('a fall, a low level and a changed mark are suggested, each said as what it is', got.status === 200 && got.body.sheet === true
+            && same(ids, [[fell.id, 'decline'], [low.id, 'low'], [changed.id, 'changed']]), JSON.stringify(ids));
+        check('a rise and a level that no longer applies suggest nothing', !ids.some(([id]: number[]) => id === rose.id || id === gone.id));
+        check('each with the marks it was suggested from, in period order', same(got.body.items[0].marks, [{ period: 'I', value: '3' }, { period: 'II', value: '2' }])
+            && same(got.body.periods, ['I', 'II']) && got.body.items[0].label === fell.label);
+        check('only the suggested items leave: nothing else of the sheet', !JSON.stringify(got.body).includes('Измислена дијагноза')
+            && Object.keys(got.body).sort().join() === 'items,periods,sheet');
+        check('everybody signed in reads the same, as the owner chose', same((await evidence(P1, therapist)).body, got.body));
+        await q(`UPDATE evidence_periods SET active = false WHERE id = $1`, [second1.id]);
+        check('a column taken out of the year is not compared: what stands is the first column alone', same((await evidence(P1)).body.items.map((s: any) => [s.id, s.why.join('+')]), [[low.id, 'low'], [rose.id, 'low']]));
+
         console.log('\nthe switch left for later');
         process.env.MTB_PLAN_OWN_PASSWORD = '1';
         const closed = await call('GET', '/api/portal/plan', therapist);
