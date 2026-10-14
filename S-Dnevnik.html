@@ -478,16 +478,21 @@
             box-shadow:0 4px 14px rgba(24,48,64,.12); text-align:left; }
         .schedule-pickers > b { display:block; margin-bottom:9px; font-size:14px; font-variant-numeric:tabular-nums; }
         .schedule-pickers label { display:block; font-size:12px; font-weight:600; margin:8px 0; line-height:1.4; }
-        .schedule-pickers select { display:block; width:100%; min-width:0; min-height:36px; margin-top:4px; padding:6px 8px;
+        .schedule-pickers input[type="search"] { display:block; width:100%; box-sizing:border-box; min-width:0; min-height:36px; margin-top:4px; padding:6px 8px;
             font-family:inherit; font-size:13px; font-weight:400; line-height:1.3; color:inherit; background:#fff; border:1px solid #a9bac7; border-radius:8px; }
-        .schedule-pickers select:focus-visible { outline:2px solid #136990; outline-offset:2px; }
+        .schedule-pickers input:focus-visible { outline:2px solid #136990; outline-offset:2px; }
+        .schedule-pupils { max-height:220px; overflow:auto; }
+        .schedule-pupils label { display:flex; align-items:center; gap:6px; min-height:32px; overflow-wrap:anywhere; }
+        .schedule-pupils label[hidden] { display:none; }
+        .schedule-pupils input { flex:none; }
+        .schedule-picker-summary { font-size:12px; line-height:1.5; overflow-wrap:anywhere; margin-top:8px; }
         .schedule-picker-actions { display:flex; flex-wrap:wrap; gap:6px; margin-top:12px; }
         .schedule-pickers .btn { flex:1; min-height:34px; padding:6px 10px; margin:0; font-size:12px; }
         .schedule-pickers .schedule-picker-list { display:block; width:100%; margin:8px 0 0; padding:6px 2px;
             border:0; background:transparent; color:inherit; font:600 12px/1.4 system-ui; text-align:left; cursor:pointer; }
         .schedule-picker-list:hover { text-decoration:underline; }
         body.dark-mode .schedule-pickers { background:#242a30; color:#edf2f6; border-color:#526774; }
-        body.dark-mode .schedule-pickers select { background:#181d22; border-color:#607381; }
+        body.dark-mode .schedule-pickers input[type="search"] { background:#181d22; border-color:#607381; }
         /* Напредок: учениците како список врски; паѓачкото мени останува за читач на екран и за тестовите */
         .progress-pick-select { position:absolute; width:1px; height:1px; opacity:0; pointer-events:none; }
         /* Every row as tall as the tallest: one long name must not make its row's buttons bigger than the rest. */
@@ -6544,7 +6549,7 @@ var attendance = {};
             // Build slot content with attendance indicator and order label
             var orderText = '';
             if (totalStudents > 1 && !isMerged) {
-                orderText = (position + 1) + '/' + totalStudents;
+                orderText = totalStudents > 2 ? 'гр.' : (position + 1) + '/' + totalStudents;
             }
             
             // Create attendance indicator
@@ -6695,7 +6700,8 @@ var attendance = {};
                     // Check for cross-slot merge: last student of current slot is first student of next slot
                     var crossSlotMerge = false;
                     var mergeStudentId = null;
-                    if (studentIds.length > 1 && nextSlotStudents.length > 1 && t + 1 < timeSlots.length) {
+                    // Only ordered halves can join across bells; group membership never joins attendance.
+                    if (studentIds.length === 2 && nextSlotStudents.length === 2 && t + 1 < timeSlots.length) {
                         var lastStudentCurrent = studentIds[studentIds.length - 1];
                         var firstStudentNext = nextSlotStudents[0];
                         if (lastStudentCurrent === firstStudentNext) {
@@ -6988,22 +6994,46 @@ var attendance = {};
                     var s = getStudentById(id); if (s) choices.push(s);
                 }
             });
-            for (var i = 0; i < Math.max(2, current.length); i++) {
-                var label = document.createElement('label');
-                label.textContent = i === 0 ? 'Ученик' : i === 1 ? 'Втор ученик · по 20 минути' : 'Ученик ' + (i + 1);
-                var select = document.createElement('select'); select.dataset.pupilPosition = String(i);
-                select.setAttribute('aria-label', label.textContent);
-                var blank = document.createElement('option'); blank.value = ''; blank.textContent = '— празно —'; select.appendChild(blank);
-                choices.forEach(function (s) {
-                    var option = document.createElement('option'); option.value = String(s.id);
-                    option.textContent = (s.grade ? s.grade + ' · ' : '') + s.name; select.appendChild(option);
+            var selected = current.map(String);
+            var summary = document.createElement('div'); summary.className = 'schedule-picker-summary'; summary.setAttribute('role', 'status');
+            var pupilList = document.createElement('div'); pupilList.className = 'schedule-pupils';
+            var swap = document.createElement('button'); swap.type = 'button'; swap.className = 'btn'; swap.textContent = '⇅ Замени';
+            swap.addEventListener('click', function () { selected.reverse(); paintSelection(); });
+            function paintSelection() {
+                pupilList.querySelectorAll('input').forEach(function (input) {
+                    input.checked = selected.indexOf(input.value) >= 0;
+                    input.disabled = !input.checked && selected.length >= 8;
                 });
-                select.value = current[i] == null ? '' : String(current[i]);
-                label.appendChild(select); editor.appendChild(label);
+                var names = selected.map(function (id) { var s = choices.find(function (s) { return String(s.id) === id; }); return s ? s.name : '#' + id; });
+                summary.textContent = (selected.length > 2 ? 'Група · ' + selected.length + ' · заедно, цел час'
+                    : selected.length === 2 ? 'Двајца · редослед: ' + names.join(' → ')
+                    : selected.length === 1 ? 'Еден ученик · цел час' : 'Празен термин') + ' · најмногу 8';
+                swap.hidden = selected.length !== 2;
             }
+            if (choices.length > 8) {
+                var search = document.createElement('input'); search.type = 'search'; search.placeholder = 'Пребарај ученици';
+                search.setAttribute('aria-label', 'Пребарај ученици');
+                search.addEventListener('input', function () {
+                    var term = search.value.toLocaleLowerCase('mk-MK');
+                    pupilList.querySelectorAll('label').forEach(function (label) { label.hidden = label.textContent.toLocaleLowerCase('mk-MK').indexOf(term) < 0; });
+                });
+                editor.appendChild(search);
+            }
+            choices.forEach(function (s) {
+                var label = document.createElement('label');
+                var input = document.createElement('input'); input.type = 'checkbox'; input.value = String(s.id); input.dataset.schedulePupil = '1';
+                input.addEventListener('change', function () {
+                    if (input.checked && selected.length < 8) selected.push(input.value);
+                    else selected = selected.filter(function (id) { return id !== input.value; });
+                    paintSelection();
+                });
+                label.appendChild(input); label.appendChild(document.createTextNode((s.grade ? s.grade + ' · ' : '') + s.name)); pupilList.appendChild(label);
+            });
+            editor.appendChild(pupilList); editor.appendChild(summary); editor.appendChild(swap); paintSelection();
             var save = document.createElement('button'); save.type = 'button'; save.className = 'btn btn-primary'; save.textContent = 'Зачувај'; save.dataset.saveSlot = '1';
             save.addEventListener('click', function () {
-                checkOrder = Array.from(editor.querySelectorAll('select')).map(function (e) { return e.value; }).filter(Boolean).map(Number);
+                checkOrder = selected.map(Number);
+                if (checkOrder.length > 8) { alert('Во еден термин може најмногу осум ученици.'); return; }
                 if (new Set(checkOrder).size !== checkOrder.length) { alert('Изберете различни ученици; еден ученик го користи целиот термин.'); return; }
                 assignStudents();
             });
@@ -7013,7 +7043,7 @@ var attendance = {};
             list.addEventListener('click', function () { editor.remove(); switchTab('students'); });
             var actions = document.createElement('div'); actions.className = 'schedule-picker-actions';
             actions.appendChild(save); actions.appendChild(cancel); editor.appendChild(actions); editor.appendChild(list); cell.appendChild(editor);
-            editor.querySelector('select').focus();
+            (editor.querySelector('input') || save).focus();
         }
 
        function assignStudents() {

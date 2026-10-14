@@ -5,9 +5,28 @@ import assert from 'node:assert/strict';
 import { blockTogether, semanticBlock } from '../src/routes/schedule-write.js';
 import { cellPupils } from '../src/lib/import-core.js';
 import { scheduleProblems } from '../src/lib/schedule-conflicts.js';
+import { OngoingPlan } from '../src/lib/diary-cabinet-plan.js';
 
 const times = { full: '08:00-08:40', halves: ['08:00-08:20', '08:20-08:40'] as [string, string] };
 const row = (time_slot: string, student_public_id: string | null) => ({ time_slot, student_public_id });
+
+test('a confirmed diary week accepts a group and its complete expected membership, up to eight', () => {
+    const days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'];
+    const input = {
+        id: '11111111-1111-4111-8111-111111111111', baseVersion: 1, therapistId: 1, fromWeek: '2026-10-12',
+        times: ['08:00-08:40'],
+        week: Object.fromEntries(days.map(d => [d, [[] as number[]]])),
+        expected: Object.fromEntries(days.map(d => [d, [[] as string[]]]))
+    };
+    input.week.monday[0] = Array.from({ length: 8 }, (_, i) => i + 1);
+    input.expected.monday[0] = input.week.monday[0].map(i => 'p-' + i);
+    assert.equal(OngoingPlan.safeParse(input).success, true);
+    input.week.monday[0].push(9);
+    assert.equal(OngoingPlan.safeParse(input).success, false);
+    input.week.monday[0].pop();
+    input.expected.monday[0].push('p-9');
+    assert.equal(OngoingPlan.safeParse(input).success, false);
+});
 
 test('several rows with the whole bell are a group, in the order they were written', () => {
     const rows = [row('08:00-08:40', 'p-b'), row('08:00-08:40', 'p-a'), row('08:00-08:40', 'p-c')];

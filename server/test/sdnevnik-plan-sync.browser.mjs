@@ -21,7 +21,7 @@
  *     chosen, and only then reaches the live plan and Кабинети.
  */
 import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
+import { readFile, mkdir } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
@@ -118,14 +118,15 @@ await context.route('**/*', async (route) => {
             const body = req.postDataJSON();
             blocks.push(body);
             if (refuseNext) { const answer = refuseNext; refuseNext = null; return json(answer, 409); }
-            // What the real writer does to the rows: one pupil owns the bell, two split it.
+            // New pairs split the bell; an existing pair stays together; three or more are a group.
             const [h, m] = body.time.split('-')[0].split(':').map(Number);
             const at = (minutes) => `${String(Math.floor((h * 60 + m + minutes) / 60)).padStart(2, '0')}:${String((h * 60 + m + minutes) % 60).padStart(2, '0')}`;
             const times = [body.time, `${at(0)}-${at(20)}`, `${at(20)}-${at(40)}`];
+            const full = sessions.filter(s => s.therapist_id === 7 && s.day === body.day && s.time === body.time).map(s => s.student_public_id);
+            const together = body.studentPublicIds.length > 2 || (full.length === 2 && body.studentPublicIds.length === 2 && full.every(id => body.studentPublicIds.includes(id)));
             sessions = sessions.filter((s) => !(s.therapist_id === 7 && s.day === body.day && times.includes(s.time)));
             const nameOf = (pid) => roster.students.find((s) => s.public_id === pid).name;
-            if (body.studentPublicIds.length === 1) sessions.push(session(body.day, times[0], body.studentPublicIds[0], nameOf(body.studentPublicIds[0])));
-            else body.studentPublicIds.forEach((pid, i) => sessions.push(session(body.day, times[i + 1], pid, nameOf(pid))));
+            body.studentPublicIds.forEach((pid, i) => sessions.push(session(body.day, body.studentPublicIds.length === 1 || together ? times[0] : times[i + 1], pid, nameOf(pid))));
             return json({ ok: true });
         }
         return json({ error: 'not found' }, 404);
@@ -150,15 +151,13 @@ const choiceText = (key, value) => page.$eval(`[data-plan-choice="${key}"] input
 const apply = () => page.click('#planSyncApply');
 const waitClosed = () => page.waitForFunction(() => !document.getElementById('planSyncModal').classList.contains('active'));
 const waitOpen = () => page.waitForFunction(() => document.getElementById('planSyncModal').classList.contains('active'));
-/** The diary's own edit path: inline pupil dropdowns, then „Зачувај“. */
+/** The diary's own edit path: check boxes inside the cell, then „Зачувај“. */
 const edit = async (day, slot, toggleIds) => {
     await page.evaluate(([d, s]) => { switchTab('schedule'); window.openSchedulePicker(d, s); }, [day, slot]);
-    const selected = await page.locator('.schedule-pickers select').evaluateAll(els => els.map(e=>e.value).filter(Boolean));
     for (const id of toggleIds) {
-        const at=selected.indexOf(String(id));
-        if (at<0) selected.push(String(id)); else selected.splice(at,1);
+        const input = page.locator(`.schedule-pickers [data-schedule-pupil][value="${id}"]`);
+        await input.setChecked(!await input.isChecked());
     }
-    for (let i=0;i<await page.locator('.schedule-pickers select').count();i++) await page.locator('.schedule-pickers select').nth(i).selectOption(selected[i]||'');
     await page.click('.schedule-pickers [data-save-slot]');
 };
 
@@ -401,6 +400,73 @@ try {
     await page.evaluate(() => { window.schedule.friday[4] = [1001]; });
     await backup('after a change');
     checkEq('a changed state is a new backup', await backupCount(), held + 1);
+
+    console.log('\ngroup terms in the diary');
+    await page.evaluate(() => {
+        currentWeek = 0; window.schedule = Object.fromEntries(daysEng.map(d => [d, timeSlots.map(() => [])]));
+        window.schedule.monday[0] = [1004, 1001, 1002]; switchTab('schedule'); renderSchedule();
+    });
+    sessions = ['p-a', 'p-b', 'p-d'].map(pid => session('понеделник', '08:00-08:40', pid, roster.students.find(s => s.public_id === pid).name));
+    const beforeGroup = writes.length;
+    checkEq('the same whole-bell group in a different order is not a difference', await page.evaluate(async () => (await SdnPlanSync.read()).rows.length), 0);
+    sessions = sessions.slice(0, 2);
+    await page.evaluate(() => { schedule.monday[0] = [1002, 1001]; });
+    checkEq('a two-pupil group also ignores order', await page.evaluate(async () => (await SdnPlanSync.read()).rows.length), 0);
+    sessions[0].time = '08:00-08:20'; sessions[1].time = '08:20-08:40';
+    checkEq('two halves still detect reversed order', await page.evaluate(async () => (await SdnPlanSync.read()).rows.map(r => r.key)), ['0|0']);
+    checkEq('comparison itself writes nothing', writes.length, beforeGroup);
+    await page.evaluate(() => { renderSchedule(); openSchedulePicker('monday', 0); });
+    await page.locator('.schedule-pickers button').filter({hasText:'⇅ Замени'}).click();
+    checkEq('swapping halves stays a draft until Save', await live('monday', 0), [1002, 1001]);
+    await page.locator('.schedule-pickers [data-save-slot]').click();
+    checkEq('Save keeps the chosen order of the halves', await live('monday', 0), [1001, 1002]);
+    checkEq('the corrected halves now match', await page.evaluate(async () => (await SdnPlanSync.read()).rows.length), 0);
+    sessions = ['p-a', 'p-b', 'p-d'].map(pid => session('понеделник', '08:00-08:40', pid, roster.students.find(s => s.public_id === pid).name));
+    await page.click('#planSyncBtn'); await waitOpen();
+    await choose('0|0', 'take'); await apply(); await waitClosed();
+    checkEq('taking a group retains every pupil', await live('monday', 0), [1001, 1002, 1004]);
+
+    const extras = Array.from({ length: 9 }, (_, i) => ({ id: 2001 + i, name: 'Пробен Групен ' + (i + 1), grade: 'V', rasporediStudentId: 'p-group-' + (i + 1) }));
+    extras.forEach(s => roster.students.push({ public_id: s.rasporediStudentId, sdnevnik_id: String(s.id), name: s.name, grade: s.grade, kind: 'internal' }));
+    await page.evaluate(extra => { students.push(...extra); renderSchedule(); openSchedulePicker('tuesday', 0); }, extras);
+    for (const s of extras.slice(0, 8)) await page.locator(`.schedule-pickers [value="${s.id}"]`).check();
+    check('a ninth pupil is disabled while eight are selected', await page.locator('.schedule-pickers [value="2009"]').isDisabled());
+    await page.fill('.schedule-pickers input[type="search"]', extras[8].name);
+    checkEq('search keeps the eight selected pupils', await page.locator('.schedule-pickers [data-schedule-pupil]:checked').count(), 8);
+    checkEq('selection has not changed the diary', await live('tuesday', 0), []);
+    await page.getByRole('button', { name: 'Откажи', exact: true }).click();
+    checkEq('Cancel discards the group draft', await live('tuesday', 0), []);
+    await edit('tuesday', 0, extras.slice(0, 8).map(s => s.id));
+    await waitOpen();
+    checkEq('Save keeps all eight in the diary', await live('tuesday', 0), extras.slice(0, 8).map(s => s.id));
+    check('the group can be sent through the ordinary direction choice', !await page.locator('[data-plan-choice="1|0"] input[value="push"]').isDisabled());
+    await choose('1|0', 'push'); await apply(); await waitClosed();
+    checkEq('the writer receives every group member', blocks.at(-1).studentPublicIds, extras.slice(0, 8).map(s => s.rasporediStudentId));
+    checkEq('the expected empty term accompanies the group', blocks.at(-1).expectedStudentPublicIds, []);
+    checkEq('no repeated difference after the group is accepted', await page.evaluate(async () => (await SdnPlanSync.read()).rows.length), 0);
+    await page.evaluate(() => { schedule.tuesday[1] = [2008, 2002, 2003]; renderSchedule(); });
+    checkEq('group marks say group, not eighths of a lesson', await page.locator('.student-slot[data-day="tuesday"][data-time="0"] .attendance-indicator').allTextContents(), Array(8).fill('гр.'));
+    check('adjacent groups never merge the shared pupil into one attendance mark', await page.locator('.student-slot[data-day="tuesday"][data-sid="2008"][data-merged="false"]').count() === 2);
+    await page.waitForTimeout(150); // the diary binds attendance handlers after rendering
+    await page.locator('.student-slot[data-day="tuesday"][data-time="0"][data-sid="2008"] .attendance-indicator').click();
+    check('attendance marks only that pupil and that group term', await page.evaluate(() => {
+        const marks = Object.values(attendance).flatMap(day => Object.entries(day).filter(([id]) => Number(id) >= 2001));
+        return marks.length === 1 && marks[0][0] === '2008' && marks[0][1]['tuesday-0']?.status === 'present' && !marks[0][1]['tuesday-1'];
+    }));
+    await page.setViewportSize({width:390,height:844});
+    await page.evaluate(() => openSchedulePicker('tuesday', 0));
+    check('the group picker fits its cell at phone width', await page.locator('.schedule-pickers').evaluate(e => {
+        const b=e.getBoundingClientRect(), parent=e.parentElement.getBoundingClientRect();
+        return e.scrollWidth <= e.clientWidth && b.width <= parent.width;
+    }));
+    await mkdir(path.join(ROOT, 'backups/qa'), { recursive: true });
+    for (const dark of [false, true]) {
+        await page.evaluate(d => document.body.classList.toggle('dark-mode', d), dark);
+        await page.locator('.schedule-pickers').screenshot({ path: path.join(ROOT, 'backups/qa/diary-group-phone-' + (dark ? 'dark' : 'light') + '.png') });
+    }
+    await page.locator('.schedule-pickers button').filter({hasText:'Откажи'}).click();
+    await page.evaluate(() => { schedule.tuesday[0].push(2009); });
+    check('an oversized imported diary term cannot be sent', await page.evaluate(async () => /осуммина/.test((await SdnPlanSync.read()).rows.find(r => r.key === '1|0').pushWhy)));
 
     check('a past week is edited as a draft, with no warning dialog', !dialogs.some((d) => /отклучена/.test(d)));
     checkEq('no page errors', errors, []);

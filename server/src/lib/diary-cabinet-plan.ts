@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { pool } from '../db.js';
 import { todayInSkopje, isIsoDate } from './duty.js';
 import { projectPayload, weekHasTerms, weekIsRecorded } from './import-core.js';
-import { blockTimes, writeBlockInTransaction } from '../routes/schedule-write.js';
+import { blockTimes, GROUP_MAX, writeBlockInTransaction } from '../routes/schedule-write.js';
 import { scheduleGate, lockScheduleTherapist, lockScheduleStudents } from './schedule-conflicts.js';
 
 export const DAYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'];
@@ -11,10 +11,10 @@ const MK = ['понеделник', 'вторник', 'среда', 'четвр�
 type Week = Record<string, Array<Array<number | string>>>;
 type Blocks = Record<string, string[][]>;
 const weekSchema = z.object(Object.fromEntries(DAYS.map(d => [d,
-    z.array(z.array(z.union([z.number().int().positive(), z.string().regex(/^\d+$/)])).max(2)).min(1).max(12)
+    z.array(z.array(z.union([z.number().int().positive(), z.string().regex(/^\d+$/)])).max(GROUP_MAX)).min(1).max(12)
 ]))) as unknown as z.ZodType<Week>;
 const blocksSchema = z.object(Object.fromEntries(DAYS.map(d => [d,
-    z.array(z.array(z.string().min(1)).max(2)).min(1).max(12)
+    z.array(z.array(z.string().min(1)).max(GROUP_MAX)).min(1).max(12)
 ]))) as unknown as z.ZodType<Blocks>;
 export const OngoingPlan = z.object({
     id: z.string().uuid(), baseVersion: z.number().int().nonnegative(),

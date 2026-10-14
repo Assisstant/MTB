@@ -29,7 +29,7 @@ try {
     const [other]=await q("INSERT INTO therapists(name) VALUES('Измислен Втор Терапевт') RETURNING id");
     for (const t of [me,other]) await q('INSERT INTO therapist_years(school_year_id,therapist_id,active) VALUES($1,$2,true)',[year.id,t.id]);
     const students=[];
-    for (let i=1;i<=2;i++) {
+    for (let i=1;i<=9;i++) {
         const [s]=await q('INSERT INTO students(public_id,sdnevnik_id,name,grade) VALUES($1,$2,$3,$4) RETURNING id', ['ongoing-'+i,9000+i,'Пробен Неделен '+i,'V']);
         await q('INSERT INTO student_enrollments(school_year_id,student_id,grade,active) VALUES($1,$2,$3,true)',[year.id,s.id,'V']);
         for (const t of [me,other]) await q('INSERT INTO therapist_students(school_year_id,therapist_id,student_id) VALUES($1,$2,$3)',[year.id,t.id,s.id]);
@@ -53,7 +53,25 @@ try {
     check('earlier week unchanged',isDeepStrictEqual(past.body.payload.scheduleHistory[shift(current,-14)],earlier));
     check('all weeks from the start replaced',past.body.payload.scheduleHistory[shift(current,-7)].monday[0][0]===9002 && past.body.payload.schedule.monday[0][0]===9002);
     check('attendance untouched',isDeepStrictEqual(past.body.payload.attendance,payload.attendance));
-    check('recovery copy retained',(await q('SELECT before_diary FROM diary_cabinet_changes WHERE id=$1',[first.id]))[0].before_diary.students.length===2);
+    check('recovery copy retained',(await q('SELECT before_diary FROM diary_cabinet_changes WHERE id=$1',[first.id]))[0].before_diary.students.length===9);
+    const groupWeek=structuredClone(next);groupWeek.tuesday[0]=students.slice(0,8).map(s=>s.id);
+    const groupExpected=empty();groupExpected.monday[0]=['ongoing-2'];
+    const group=await call('/api/diary/ongoing-plan',{...first,id:randomUUID(),baseVersion:past.body.version,week:groupWeek,expected:groupExpected});
+    check('a whole week accepts eight pupils together',group.status===200);
+    const groupRows=await q("SELECT time_slot FROM schedule_slots WHERE therapist_id=$1 AND day='вторник'",[me.id]);
+    check('every group member holds the full bell',groupRows.length===8 && groupRows.every(r=>r.time_slot===times[0]));
+    const afterGroup=await stored(), groupSlots=await slots();
+    const tooMany=structuredClone(groupWeek);tooMany.friday[4]=students.map(s=>s.id);
+    groupExpected.tuesday[0]=students.slice(0,8).map(s=>s.rasporediStudentId).reverse();
+    const over=await call('/api/diary/ongoing-plan',{...first,id:randomUUID(),baseVersion:afterGroup.version,week:tooMany,expected:groupExpected});
+    check('nine pupils refuse the whole week without changing either record',over.status===400
+        && (await stored()).version===afterGroup.version && isDeepStrictEqual(await slots(),groupSlots));
+    const staleGroup=structuredClone(groupExpected);staleGroup.tuesday[0].pop();
+    const outdated=await call('/api/diary/ongoing-plan',{...first,id:randomUUID(),baseVersion:afterGroup.version,week:next,expected:staleGroup});
+    check('an incomplete expected group refuses the whole week',outdated.status===409
+        && (await stored()).version===afterGroup.version && isDeepStrictEqual(await slots(),groupSlots));
+    const restored=await call('/api/diary/ongoing-plan',{...first,id:randomUUID(),baseVersion:afterGroup.version,week:next,expected:groupExpected});
+    check('a complete group expectation is accepted in any order',restored.status===200);
     await call('/api/schedule/block',{therapistId:other.id,day:'петок',time:times[1],studentPublicIds:['ongoing-1'],expectedStudentPublicIds:[]});
     const before=await slots(), docBefore=await stored();
     const clash=empty();clash.monday[0]=[9001];clash.friday[1]=[9001];
@@ -66,7 +84,8 @@ try {
     const refused=await call('/api/diary/ongoing-plan',{...first,id:randomUUID(),baseVersion:docBefore.version,week,expected:stale});
     check('stale last-day expectation refuses all',refused.status===409 && JSON.stringify(await slots())===JSON.stringify(before));
     const future=shift(current,14);
-    const futureInput={...first,id:randomUUID(),baseVersion:(await stored()).version,fromWeek:future,expected:base2};
+    const futureGroup=structuredClone(week);futureGroup.tuesday[0]=students.slice(0,8).map(s=>s.id);
+    const futureInput={...first,id:randomUUID(),baseVersion:(await stored()).version,fromWeek:future,week:futureGroup,expected:base2};
     const queued=await call('/api/diary/ongoing-plan',futureInput);
     check('future week persisted for activation',queued.status===200 && queued.body.scheduled);
     check('future plan does not change today',JSON.stringify(await slots())===JSON.stringify(before) && queued.body.payload.schedule.monday[0][0]===9002);
@@ -84,11 +103,14 @@ try {
     check('server activates with diary closed',(await stored()).payload.schedule.monday[0][0]===9001);
     check('successful activation also releases a copied restoration plan', !(await stored()).payload.planFrom[shift(future,7)]._serverConfirmed);
     check('activation also reaches shared timetable',(await call('/api/schedule/sessions')).body.sessions.find((s:any)=>s.therapist_id===me.id).student_public_id==='ongoing-1');
+    const activatedGroup=await q("SELECT time_slot FROM schedule_slots WHERE therapist_id=$1 AND day='вторник'",[me.id]);
+    check('future activation also keeps every member of the group',activatedGroup.length===8 && activatedGroup.every(r=>r.time_slot===times[0]));
     const activeVersion=(await stored()).version;
     await activateOngoing(future);
     check('activation is idempotent',(await stored()).version===activeVersion);
     const later=shift(current,28);
-    const queued2=await call('/api/diary/ongoing-plan',{...first,id:randomUUID(),baseVersion:activeVersion,fromWeek:later,week:next,expected:baseline});
+    const activeExpected=structuredClone(baseline);activeExpected.tuesday[0]=students.slice(0,8).map(s=>s.rasporediStudentId);
+    const queued2=await call('/api/diary/ongoing-plan',{...first,id:randomUUID(),baseVersion:activeVersion,fromWeek:later,week:next,expected:activeExpected});
     check('another future plan accepted',queued2.status===200);
     await call('/api/schedule/block',{therapistId:me.id,day:'понеделник',time:times[0],studentPublicIds:[],expectedStudentPublicIds:['ongoing-1']});
     await activateOngoing(later);
@@ -97,7 +119,7 @@ try {
     check('blocked activation preserves diary version',(await stored()).version===queued2.body.version);
     const bad=await call('/api/diary/ongoing-plan',{...first,id:randomUUID(),baseVersion:0});
     check('stale diary cannot be overwritten',bad.status===409 && bad.body.diaryConflict);
-    console.log('\nThe real diary: in-cell dropdowns and the confirmed onward choice');
+    console.log('\nThe real diary: in-cell check boxes and the confirmed onward choice');
     browser=await chromium.launch({...(process.env.CHROME?{executablePath:process.env.CHROME}:{})});
     const context=await browser.newContext({viewport:{width:1440,height:1000}});
     await context.addInitScript(()=>{
@@ -112,7 +134,7 @@ try {
     await page.waitForFunction(()=>!!(window as any).SdnLocalSrv && !!(window as any).SdnV3);
     await page.waitForTimeout(1000);
     await page.evaluate(()=>(window as any).SdnLocalSrv.sync({auto:true}));
-    await page.waitForFunction(()=>(window as any).students.length===2);
+    await page.waitForFunction(()=>(window as any).students.length===9);
     // A real refused activation followed by an actual browser open/save.
     await page.clock.setFixedTime(new Date(later+'T10:00:00Z'));
     check('a blocked plan is not the effective diary week', await page.evaluate(k => (window as any).getScheduleForWeek(k).monday[0][0]===9001, later));
@@ -124,14 +146,13 @@ try {
     await page.evaluate(()=>{(window as any).switchTab('schedule');(window as any).renderSchedule();});
     check('the assignment modal is removed',await page.locator('#assignModal').count()===0);
     await page.locator('.schedule-cell[data-day="monday"][data-time="0"] .schedule-pick-button').click();
-    check('the cell opens pupil dropdowns',await page.locator('.schedule-pickers select').count()===2);
-    check('the dropdown stays inside its timetable cell', await page.locator('.schedule-pickers').evaluate(e => {
+    check('the cell offers each pupil once as a check box',await page.locator('.schedule-pickers [data-schedule-pupil]').count()===9);
+    check('the choice stays inside its timetable cell', await page.locator('.schedule-pickers').evaluate(e => {
         const box=e.getBoundingClientRect(), parent=e.parentElement!.getBoundingClientRect();
         return box.left>=parent.left && box.right<=parent.right && document.querySelector('.schedule-grid')!.getBoundingClientRect().right<=innerWidth;
     }));
-    await page.locator('.schedule-pickers select').nth(1).selectOption('9001');
-    await page.locator('.schedule-pickers [data-save-slot]').click();
-    check('a duplicate pupil is refused',dialogs.some(d=>d.includes('различни ученици')) && await page.locator('.schedule-pickers').count()===1);
+    await page.locator('.schedule-pickers [value="9002"]').check();
+    check('selection stays a draft until Save',await page.evaluate(()=>(window as any).schedule.monday[0].length===1));
     await mkdir('../backups/qa',{recursive:true});
     await page.screenshot({path:'../backups/qa/diary-dropdown.png'});
     await page.evaluate(()=>document.body.classList.add('dark-mode'));
@@ -140,9 +161,10 @@ try {
     await page.locator('.schedule-pickers button').filter({hasText:'Откажи'}).click();
     check('cancel leaves the slot unchanged',await page.evaluate(()=>(window as any).schedule.monday[0][0]===9001));
     await page.evaluate(()=>{(window as any).openSchedulePicker('monday',0);});
-    await page.locator('.schedule-pickers select').nth(0).selectOption('9002');
+    await page.locator('.schedule-pickers [value="9001"]').uncheck();
+    await page.locator('.schedule-pickers [value="9002"]').check();
     await page.locator('.schedule-pickers [data-save-slot]').click();
-    check('dropdown save changes only the selected term',await page.evaluate(()=>(window as any).schedule.monday[0][0]===9002));
+    check('Save changes only the selected term',await page.evaluate(()=>(window as any).schedule.monday[0][0]===9002));
     await page.waitForSelector('#planSyncModal.active');
     await page.click('#planSyncClose');
     await page.evaluate(()=>{(window as any).copyShownWeek();(window as any).changeWeek(1);});

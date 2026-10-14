@@ -325,7 +325,7 @@ try {
         SdnV3.applyPayload(p); currentWeek = -1; pastWeeksUnlocked = true;
         switchTab('schedule'); renderSchedule(); openSchedulePicker('monday', 0);
     }, clearing);
-    await page.locator('.schedule-pickers select').first().selectOption('');
+    await page.locator('.schedule-pickers [data-schedule-pupil]:checked').uncheck();
     await page.click('.schedule-pickers [data-save-slot]');
     checkEq('the cleared past term stays empty immediately', (await shown()).plan.monday[0], []);
     check('the empty week carries an explicit saved marker', (await history())[LAST]._saved === true);

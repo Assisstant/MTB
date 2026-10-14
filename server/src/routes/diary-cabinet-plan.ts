@@ -2,12 +2,15 @@ import type { FastifyInstance } from 'fastify';
 import { pool } from '../db.js';
 import { OngoingPlan, PlanRefusal, confirmOngoing, activateOngoing } from '../lib/diary-cabinet-plan.js';
 import { mirrorMode } from '../lib/mirror-config.js';
+import { GROUP_MAX } from './schedule-write.js';
 
 export async function diaryCabinetPlanRoutes(server: FastifyInstance) {
     // Owner-only through the root default-deny write boundary: this writes
     // the personal diary as well as its owner's shared cabinet schedule.
     server.put('/api/diary/ongoing-plan', async (req, reply) => {
-        try { return await confirmOngoing(OngoingPlan.parse(req.body)); }
+        const parsed = OngoingPlan.safeParse(req.body);
+        if (!parsed.success) return reply.code(400).send({ error: `Проверете ја неделата и избраните ученици. Еден термин може да има најмногу ${GROUP_MAX} ученици.` });
+        try { return await confirmOngoing(parsed.data); }
         catch (e) { if (e instanceof PlanRefusal) return reply.code(e.status).send(e.body); throw e; }
     });
     server.get('/api/diary/ongoing-plan', async () => ({ plans: (await pool.query(
