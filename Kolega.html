@@ -1278,9 +1278,16 @@ header.top h1 { flex: 1; min-width: 180px; }
     function readAsked(params) {
         const tab = params.get('tab') || '';
         askedTab = /^[a-z-]{1,30}$/.test(tab) ? tab : '';
-        askedReport = params.get('report') === 'transport' ? 'transport' : '';
+        askedReport = ['transport', 'meals'].includes(params.get('report')) ? params.get('report') : '';
     }
     readAsked(hash);
+    /** The asked report, once the owner's access is known: the attendance sheet turns to it. */
+    function takeAskedReport() {
+        if (!askedReport || !attendance.transportAllowed) return false;
+        attendance.scope = askedReport; attendance.mode = askedReport === 'transport' ? 'month' : 'week';
+        attendance.data = null; askedReport = '';
+        return true;
+    }
     if (/^[0-9a-f]{64}$/.test(actingFromHash)) {
         try { sessionStorage.setItem(ACTING_KEY, actingFromHash); sessionStorage.removeItem(DUTY_ADMIN_KEY); } catch (_) { /* this page load only */ }
     }
@@ -1586,7 +1593,9 @@ header.top h1 { flex: 1; min-width: 180px; }
     const readerQuery = () => me.readOnly && reader.employeeId ? '?employeeId=' + encodeURIComponent(reader.employeeId) : '';
     const transportData = month => me.readOnly
         ? api('GET', '/api/portal/read-only/transport?month=' + month)
-        : ownerApi('GET', '/api/attendance/transport?month=' + month + '&year=' + encodeURIComponent(me.year), undefined, false);
+        : ownerApi('GET', '/api/attendance/transport?month=' + month + ownerYear(), undefined, false);
+    // The owner's reports page has no colleague year: the server's current year answers.
+    const ownerYear = () => me.year ? '&year=' + encodeURIComponent(me.year) : '';
 
     function readerListReport() {
         const typeName = t => t === 'external' ? 'Надворешен' : t === 'internal' ? 'Внатрешен' : (t || '—');
@@ -1783,7 +1792,7 @@ header.top h1 { flex: 1; min-width: 180px; }
         if (attendance.scope === 'transport') return transportData(range.from.slice(0,7));
         if (attendance.scope === 'meals') return me.readOnly
             ? api('GET', '/api/portal/read-only/class-summary?date=' + range.from)
-            : ownerApi('GET', '/api/attendance/class-summary?date=' + range.from + '&year=' + encodeURIComponent(me.year), undefined, false);
+            : ownerApi('GET', '/api/attendance/class-summary?date=' + range.from + ownerYear(), undefined, false);
         if (classScope()) return api('GET', '/api/portal/class-attendance?classId=' + classScope() + '&from=' + range.from + '&to=' + range.to);
         return api('GET', '/api/portal/attendance?from=' + range.from + '&to=' + range.to + (me.readOnly && reader.employeeId ? '&employeeId=' + encodeURIComponent(reader.employeeId) : ''));
     }
@@ -5196,7 +5205,7 @@ header.top h1 { flex: 1; min-width: 180px; }
         ownerApi('GET','/api/attendance/transport/access',undefined,false).then(answer=>{
             if (me!==sessionMe || !answer.allowed) return;
             attendance.transportAllowed=true;
-            if (askedReport==='transport') { askedReport=''; attendance.scope='transport'; attendance.mode='month'; attendance.data=null; }
+            takeAskedReport();
             if(week) drawWeek();
         }).catch(()=>{});
         duty.draft = null;
@@ -5218,7 +5227,7 @@ header.top h1 { flex: 1; min-width: 180px; }
     // Already open, the page is only given a new place: it turns there without reloading.
     window.addEventListener('hashchange', () => {
         readAsked(new URLSearchParams(window.location.hash.replace(/^#/, '')));
-        if (askedReport === 'transport' && attendance.transportAllowed) { askedReport = ''; attendance.scope = 'transport'; attendance.mode = 'month'; attendance.data = null; }
+        if (takeAskedReport() && me?.ownerReports) loadAttendance();
         if (me && week) drawWeek();
     });
     el('tabs').addEventListener('click', (event) => {
@@ -5453,14 +5462,46 @@ header.top h1 { flex: 1; min-width: 180px; }
         } catch (_) { /* a replaced link has already said so; an older server has no such route */ }
     }
 
+    // The owner's school-wide reports without a colleague sign-in (owner, 14 Oct
+    // 2026: „да не морам да се логирам таму"). Opened from Кабинети or „🔍 Барај"
+    // as `#report=transport` / `#report=meals`; the owner's own sign-in decides,
+    // exactly as for the report inside a colleague's page. Same sheet, same
+    // exports: one drawing of each report, not a copy in another app.
+    async function openOwnerReports() {
+        try {
+            const answer = await ownerApi('GET', '/api/attendance/transport/access', undefined, false);
+            if (!answer || !answer.allowed) return false;
+        } catch (_) { return false; }
+        me = { ownerReports: true, person: { name: '' }, roles: [], year: '' };
+        week = null; view.tab = 'attendance';
+        el('homeName').textContent = 'Извештаи за присуство';
+        el('homeYear').textContent = 'Сопственичка најава · сите кабинети и паралелки';
+        el('homeRoles').replaceChildren();
+        el('homeUser').textContent = '';
+        ['actingBanner', 'openWelcome', 'openNotices', 'openPassword', 'logout', 'noticesCard', 'clashesCard', 'readerControls',
+            'tabs', 'days', 'tabHint', 'weekTools', 'weekSheet', 'caseload', 'myLists', 'periods', 'duty', 'stay', 'plan'].forEach((id) => { el(id).hidden = true; });
+        el('openWorkspace').hidden = false;
+        el('attendance').hidden = false;
+        show('home');
+        document.title = 'Извештаи за присуство';
+        Object.assign(attendance, { transportAllowed: true, classes: [], scope: 'transport', mode: 'month', data: null });
+        takeAskedReport();
+        loadAttendance();
+        return true;
+    }
+
     async function start() {
-        if (!token.get()) { show('login'); return askDoor(); }
+        if (!token.get()) {
+            if (askedReport && await openOwnerReports()) return;
+            show('login'); return askDoor();
+        }
         try {
             me = await api('GET', '/api/portal/me');
             creditFrom(me);
             drawWelcome();
         } catch (err) {
             if (err.status === 403) token.clear(); // api() already clears a 401
+            if (err.status === 401 && askedReport && await openOwnerReports()) return;
             show('login');
             if (err.status === 403 || err.status === 0) say('loginMsg', err.message, 'error');
             if (err.status === 401) askDoor();
