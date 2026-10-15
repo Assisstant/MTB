@@ -1088,6 +1088,49 @@
     html body:is(body, .dark-mode, .dark) :is(.notice.error, .cell-failure) { background: var(--mtb-notice); color: var(--mtb-error); border-color: var(--mtb-error); }
     html body:is(body, .dark-mode, .dark) .lesson-line .lesson-teacher { color: var(--mtb-muted); }
 }</style>
+<style>@media screen {
+    /* A pupil's term is glossy blue, as the week in S-Дневник (owner, 15 Oct
+       2026: the diary's look, matched here). An empty term, a conflict and an
+       overlap keep their own colours. */
+    html body:is(body, .dark-mode, .dark) .student-slot:not(.conflict, .overlap, .empty) {
+        background-color: #c9dcf6; color: #1a2b44; border-left: 3px solid #3b7fc4;
+        background-image: linear-gradient(to bottom, rgba(255,255,255,.62) 0%, rgba(255,255,255,.20) 48%, rgba(255,255,255,0) 52%, rgba(15,23,42,.07) 100%);
+    }
+    html body:is(body, .dark-mode, .dark) .student-slot:not(.conflict, .overlap, .empty, .in-class) {
+        box-shadow: inset 0 1px 0 rgba(255,255,255,.85), 0 1px 2px rgba(15,23,42,.18);
+    }
+    html body:is(.dark-mode, .dark) .student-slot:not(.conflict, .overlap, .empty) {
+        background-color: #2c5282; color: #e2e8f0; border-left-color: #63b3ed;
+        background-image: linear-gradient(to bottom, rgba(255,255,255,.22) 0%, rgba(255,255,255,.06) 48%, rgba(0,0,0,.08) 52%, rgba(0,0,0,.26) 100%);
+    }
+    html body:is(.dark-mode, .dark) .student-slot:not(.conflict, .overlap, .empty, .in-class) {
+        box-shadow: inset 0 1px 0 rgba(255,255,255,.20), 0 1px 3px rgba(0,0,0,.5);
+    }
+    /* The choice of a pupil: the same floating card as S-Дневник's. */
+    .slot-picker { position: absolute; z-index: 1500; width: 340px; max-width: calc(100vw - 16px); box-sizing: border-box; padding: 12px;
+        background: #fff; color: #202b35; border: 1px solid #9eb6c4; border-radius: 10px; text-align: left; font-family: inherit;
+        box-shadow: 0 12px 32px rgba(15,23,42,.28), 0 2px 6px rgba(15,23,42,.12); }
+    .slot-picker > b { display: block; margin-bottom: 9px; font-size: 14px; font-variant-numeric: tabular-nums; }
+    .slot-picker input[type="search"] { display: block; width: 100%; box-sizing: border-box; min-height: 36px; margin: 0 0 6px; padding: 6px 8px;
+        font-family: inherit; font-size: 13px; color: inherit; background: #fff; border: 1px solid #a9bac7; border-radius: 8px; }
+    .slot-picker-list { max-height: 300px; overflow: auto; }
+    .slot-picker-option { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 6px; width: 100%; min-height: 34px; margin: 0; padding: 6px 8px;
+        border: 0; border-radius: 6px; background: transparent; color: inherit; font-family: inherit; font-size: 13px; font-weight: 600;
+        line-height: 1.35; text-align: left; cursor: pointer; box-shadow: none; }
+    .slot-picker-option:hover, .slot-picker-option:focus-visible { background: #e4f2fa; outline: none; }
+    .slot-picker-option.on { background: #c9dcf6; }
+    .slot-picker-option small { font-weight: 500; color: #5f6b7d; }
+    .slot-picker-option.none { color: #5f6b7d; }
+    .slot-picker-option.new { border-top: 1px solid #dbe3ea; border-radius: 0 0 6px 6px; margin-top: 4px; color: #136990; }
+    .slot-picker-option[hidden] { display: none; }
+    body.dark-mode .slot-picker { background: #242a30; color: #edf2f6; border-color: #526774; box-shadow: 0 12px 32px rgba(0,0,0,.55), 0 2px 6px rgba(0,0,0,.35); }
+    body.dark-mode .slot-picker input[type="search"] { background: #181d22; border-color: #607381; }
+    body.dark-mode .slot-picker-option:hover, body.dark-mode .slot-picker-option:focus-visible { background: #163c51; }
+    body.dark-mode .slot-picker-option.on { background: #2c5282; }
+    body.dark-mode .slot-picker-option small, body.dark-mode .slot-picker-option.none { color: #a0aec0; }
+    body.dark-mode .slot-picker-option.new { border-top-color: #3b4652; color: #73c7ed; }
+}
+@media print { .slot-picker { display: none !important; } }</style>
 </head>
 <body>
 <header class="header">
@@ -3331,7 +3374,103 @@
             '<div class="schedule-time-label">' + esc(bell.label || '') + '</div>' + ranges + '</div>';
     }
 
+    /* ── Изборот на ученик како во S-Дневник (сопственикот, 15 октомври 2026) ──
+       A press on a term opens a card under it instead of the browser's own
+       list, which no page can colour. The select stays underneath, for the
+       keyboard, a screen reader and the tests: a choice is written into it and
+       its own 'change' runs the same save as before. Phones and tablets keep
+       their native list, which is the better one under a finger. */
+    const finePointer = window.matchMedia('(pointer: fine)');
+    function closeSlotPicker() { document.querySelectorAll('.slot-picker').forEach((n) => n.remove()); }
+    function openSlotPicker(select) {
+        closeSlotPicker();
+        const card = document.createElement('div');
+        card.className = 'slot-picker';
+        card.setAttribute('role', 'dialog');
+        card.setAttribute('aria-label', select.getAttribute('aria-label') || 'Избор на ученик');
+        card._select = select;
+        const title = document.createElement('b');
+        title.textContent = spaced(select.dataset.sessionTime || '');
+        card.appendChild(title);
+        const options = Array.from(select.options);
+        const list = document.createElement('div');
+        list.className = 'slot-picker-list';
+        list.setAttribute('role', 'listbox');
+        options.forEach((option) => {
+            const b = document.createElement('button');
+            b.type = 'button';
+            b.setAttribute('role', 'option');
+            b.className = 'slot-picker-option' + (option.value === select.value ? ' on' : '')
+                + (option.value === '' ? ' none' : '') + (option.value === NEW_PUPIL ? ' new' : '');
+            b.setAttribute('aria-selected', String(option.value === select.value));
+            b.dataset.value = option.value;
+            b.disabled = option.disabled;
+            // „· кај …" says where the child already is: kept, but quieter.
+            const text = option.textContent, cut = text.indexOf(' · кај ');
+            b.textContent = cut < 0 ? text : text.slice(0, cut);
+            if (cut >= 0) { const small = document.createElement('small'); small.textContent = text.slice(cut + 3); b.appendChild(small); }
+            b.addEventListener('click', () => {
+                closeSlotPicker();
+                select.focus();
+                if (option.value === select.value) return;
+                select.value = option.value;
+                select.dispatchEvent(new Event('change', { bubbles: true }));
+            });
+            list.appendChild(b);
+        });
+        if (options.length > 9) {
+            const search = document.createElement('input');
+            search.type = 'search'; search.placeholder = 'Пребарај ученици'; search.setAttribute('aria-label', 'Пребарај ученици');
+            search.addEventListener('input', () => {
+                const term = search.value.toLocaleLowerCase('mk-MK');
+                list.querySelectorAll('.slot-picker-option').forEach((b) => {
+                    b.hidden = Boolean(term) && b.dataset.value !== '' && b.dataset.value !== NEW_PUPIL
+                        && !b.textContent.toLocaleLowerCase('mk-MK').includes(term);
+                });
+            });
+            search.addEventListener('keydown', (event) => {
+                if (event.key !== 'Enter') return;
+                const first = Array.from(list.querySelectorAll('.slot-picker-option:not([hidden]):not(:disabled)'))
+                    .find((b) => b.dataset.value && b.dataset.value !== NEW_PUPIL);
+                if (first) { event.preventDefault(); first.click(); }
+            });
+            card.appendChild(search);
+        }
+        card.appendChild(list);
+        card.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape') { event.stopPropagation(); closeSlotPicker(); select.focus(); }
+        });
+        document.body.appendChild(card);
+        placeSlotPicker(card, select.closest('.student-slot') || select);
+        (card.querySelector('input') || list.querySelector('.on') || list.querySelector('button')).focus();
+        const on = list.querySelector('.on');
+        if (on) on.scrollIntoView({ block: 'nearest' });
+    }
+    // Under its term, or above it when the screen has no room below; never past the edges.
+    function placeSlotPicker(card, anchor) {
+        const r = anchor.getBoundingClientRect(), gap = 4, edge = 8;
+        const width = card.offsetWidth, height = card.offsetHeight;
+        const left = Math.max(edge, Math.min(r.left, window.innerWidth - width - edge));
+        const below = window.innerHeight - r.bottom - gap, above = r.top - gap;
+        const top = (below >= height || below >= above) ? r.bottom + gap : Math.max(edge, r.top - gap - height);
+        card.style.left = (left + window.scrollX) + 'px';
+        card.style.top = (top + window.scrollY) + 'px';
+    }
+    document.addEventListener('mousedown', (event) => {
+        const select = event.target.closest && event.target.closest('.schedule-grid select.slot-select');
+        const open = document.querySelector('.slot-picker');
+        if (open && !open.contains(event.target) && open._select !== select) closeSlotPicker();
+        if (!select || select.disabled || !finePointer.matches || event.button !== 0) return;
+        event.preventDefault();
+        select.focus();
+        if (open && open._select === select) { closeSlotPicker(); return; }
+        openSlotPicker(select);
+    });
+    window.addEventListener('resize', closeSlotPicker);
+
     function bindScheduleCells() {
+        // The grid is drawn anew: the card would point at a select that is gone.
+        closeSlotPicker();
         el('scheduleGrid').querySelectorAll('[data-dismiss-failure]').forEach((button) => {
             button.addEventListener('click', () => {
                 state.cellFailures.delete(button.dataset.dismissFailure);

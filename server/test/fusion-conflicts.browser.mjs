@@ -68,6 +68,16 @@ try {
     assert.equal(await half(1).evaluate((e) => e.closest('.student-slot').classList.contains('conflict')), false, 'same name, different id; second half stays clear');
     assert.match(await half(0).locator('option[value="a"]').innerText(), /кај Пробен Терапевт 2.*08:00.*08:40/);
     assert.doesNotMatch(await half(1).locator('option[value="b"]').innerText(), /кај/, 'same-name other child is not called occupied');
+    // The choice opens as S-Дневник's card, not the browser's list (owner, 15 Oct 2026).
+    const before = await half(0).inputValue();
+    await half(0).click();
+    await page.waitForSelector('.slot-picker');
+    assert.equal(await page.locator('.slot-picker-option').count(), await half(0).locator('option').count(), 'every choice of the select');
+    assert.match(await page.locator('.slot-picker-option[data-value="a"] small').innerText(), /кај Пробен Терапевт 2/);
+    assert.equal(await page.locator('.slot-picker-option.on').getAttribute('data-value'), before);
+    await page.keyboard.press('Escape');
+    assert.equal(await page.locator('.slot-picker').count(), 0, 'Esc closes it');
+    assert.equal(await half(0).inputValue(), before, 'and nothing was chosen');
     await page.click('#openConflicts');
     assert.equal(await page.locator('.conflict-group').count(), 1);
     assert.equal(await page.locator('.conflict-pair').count(), 2, 'focused cabinet only its two pairs');
@@ -134,7 +144,9 @@ try {
     refuse = null;
     await page.selectOption('#viewMode', 'week');
     await page.selectOption('#focus', '2');
-    await page.locator('select[data-session-day="среда"][data-block-time="08:00-08:40"]').selectOption('');
+    // Emptied through the card: the same save as the select's own change.
+    await page.locator('select[data-session-day="среда"][data-block-time="08:00-08:40"]').click();
+    await page.click('.slot-picker-option.none');
     await count(1);
     await page.click('#openConflicts');
     assert.equal(await page.locator('.conflict-group').count(), 1);
