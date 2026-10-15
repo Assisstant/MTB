@@ -540,6 +540,45 @@
         @media (max-width:600px) { .plan-build-row { grid-template-columns:auto minmax(0,1fr); } .plan-build-row select { grid-column:2; } }
         .schedule-pick-button { color:inherit; background:transparent; border:0; cursor:pointer; font-size:13px; align-self:flex-end; }
         @media print { .schedule-pickers, .schedule-pick-button { display:none !important; } }
+        /* A term fills its cell, as in Кабинети (owner, 15 Oct 2026: „изгледот на
+           кабинети ми се допаѓа повеќе … големината на обоениот дел"). The ▾
+           moves inside the cell's right edge instead of a row of its own. Screen
+           only: paper keeps its own layout. */
+        @media screen {
+            #scheduleGrid :is(.schedule-cell, .schedule-cell-half) { position: relative; justify-content: stretch; }
+            #scheduleGrid :is(.schedule-cell, .schedule-cell-half) > .student-slot { flex: 1 1 0; min-height: 44px; margin: 3px 0; padding-right: 26px; }
+            #scheduleGrid :is(.schedule-cell, .schedule-cell-half) > .schedule-pick-button { position: absolute; right: 6px; bottom: 4px; z-index: 11; padding: 2px 4px; line-height: 1; }
+            #scheduleGrid .schedule-cell.merged > .schedule-pick-button:nth-of-type(1) { bottom: auto; top: 4px; }
+        }
+        /* Искористеност на распоредот — the same card as in Кабинети. */
+        .utilization { margin-top: 18px; }
+        .utilization > h3 { margin: 0 0 4px; font-size: 16px; }
+        .utilization > p { margin: 0 0 12px; font-size: 13px; color: #4a5568; }
+        .util-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(420px, 1fr)); gap: 12px; }
+        .util-card { padding: 14px 16px; border: 1px solid #cbd5e0; border-radius: 10px; background: #f8fafc; color: #1a202c; }
+        .util-card h4 { margin: 0 0 6px; font-size: 15px; }
+        .util-facts { display: flex; flex-wrap: wrap; gap: 4px 16px; margin: 0 0 8px; font-size: 13px; }
+        .util-facts b { font-variant-numeric: tabular-nums; }
+        .util-bar { height: 24px; border-radius: 12px; background: #e2e8f0; overflow: hidden; }
+        .util-fill { height: 100%; min-width: 34px; border-radius: 12px; color: #fff; font: 700 12px/24px system-ui, sans-serif; text-align: center; }
+        .util-fill.green { background: linear-gradient(90deg, #48bb78, #38a169); }
+        .util-fill.yellow { background: linear-gradient(90deg, #ecc94b, #d69e2e); color: #2d2006; }
+        .util-fill.red { background: linear-gradient(90deg, #f56565, #e53e3e); }
+        .util-alert { margin: 8px 0 0; font-size: 13px; font-weight: 600; }
+        .util-alert.green { color: #2f855a; } .util-alert.yellow { color: #975a16; } .util-alert.red { color: #c53030; }
+        .util-card details { margin-top: 10px; padding-top: 8px; border-top: 1px solid #e2e8f0; font-size: 13px; }
+        .util-card summary { cursor: pointer; font-weight: 700; }
+        .util-card ul { margin: 6px 0 0; padding-left: 18px; }
+        .util-card li { margin: 4px 0; }
+        .util-card li small { display: block; color: #4a5568; }
+        body.dark-mode .utilization > p { color: #cbd5e0; }
+        body.dark-mode .util-card { background: #1e2530; border-color: #3b4652; color: #e2e8f0; }
+        body.dark-mode .util-bar { background: #2d3748; }
+        body.dark-mode .util-card details { border-top-color: #3b4652; }
+        body.dark-mode .util-card li small { color: #a0aec0; }
+        body.dark-mode .util-alert.green { color: #68d391; } body.dark-mode .util-alert.yellow { color: #f6e05e; } body.dark-mode .util-alert.red { color: #fc8181; }
+        @media (max-width: 600px) { .util-cards { grid-template-columns: 1fr; } }
+        @media print { .utilization { display: none !important; } }
         .time-selector {
             margin-top: 8px;
         }
@@ -2315,6 +2354,7 @@
             <div class="scrollable-container">
                 <div id="scheduleGrid"></div>
             </div>
+            <div class="utilization" id="scheduleUtilization"></div>
         </div>
         
         <!-- Progress Tab -->
@@ -6577,6 +6617,7 @@ var attendance = {};
             // Its cell is drawn anew: the picker on the page would point at nothing.
             closeSchedulePicker();
             ensureWeekSlots();
+            drawScheduleUtilization();
             // Detect if viewing past week
     var now = new Date();
     var viewingWeekStart = new Date(now);
@@ -6983,6 +7024,71 @@ var attendance = {};
             }, 0);
         }
         
+/* ── Искористеност на распоредот (сопственикот, 15 октомври 2026) ──
+           The card Кабинети shows under its timetable, here for the week on
+           screen. A diary hour holds one pupil (40 min), two in turn (20 each)
+           or three to eight together (one group): a THERAPY is each of those,
+           the CHILDREN are counted apart, and the quota is the therapist's
+           time — an occupied hour is 40 minutes however many sit in it,
+           against 25 hours of 40 (1000 min), the same count updateStats keeps. */
+        function drawScheduleUtilization() {
+            var box = document.getElementById('scheduleUtilization');
+            if (!box) return;
+            var week = getScheduleForWeek(getWeekKey()) || {};
+            var QUOTA = 25 * 40, used = 0, therapies = 0, perChild = {};
+            daysEng.forEach(function (day) {
+                (week[day] || []).forEach(function (ids) {
+                    ids = (ids || []).filter(function (id, i, all) { return id != null && all.indexOf(id) === i; });
+                    if (!ids.length) return;
+                    used += 40;
+                    var kind = ids.length === 1 ? 'long' : ids.length === 2 ? 'short' : 'group';
+                    therapies += kind === 'short' ? 2 : 1;
+                    ids.forEach(function (id) {
+                        var c = perChild[id] || (perChild[id] = { long: 0, short: 0, group: 0 });
+                        c[kind]++;
+                    });
+                });
+            });
+            // Object keys are text; the diary's ids are numbers.
+            var nameOf = function (id) { var st = getStudentById(id) || getStudentById(Number(id)); return st ? st.name : '#' + id; };
+            var phrase = function (n, one, many) { return n + ' ' + (n === 1 ? one : many); };
+            var groups = {};
+            Object.keys(perChild).forEach(function (id) {
+                var c = perChild[id], parts = [];
+                if (c.long) parts.push(phrase(c.long, 'сесија по 40 мин', 'сесии по 40 мин'));
+                if (c.short) parts.push(phrase(c.short, 'сесија по 20 мин', 'сесии по 20 мин'));
+                if (c.group) parts.push(phrase(c.group, 'групна сесија', 'групни сесии'));
+                var key = parts.join(' + ');
+                (groups[key] || (groups[key] = [])).push(nameOf(id));
+            });
+            var idle = students.filter(function (st) { return !perChild[st.id]; }).map(function (st) { return st.name; });
+            var esc2 = function (t) { return String(t).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); };
+            var byName = function (a, b) { return a.localeCompare(b, 'mk'); };
+            var lines = Object.keys(groups).sort(byName).map(function (key) {
+                var names = groups[key].sort(byName);
+                return '<li><b>' + names.length + ' ' + (names.length === 1 ? 'ученик' : 'ученици') + ' со ' + esc2(key) + '</b><small>' + esc2(names.join(', ')) + '</small></li>';
+            });
+            if (idle.length) lines.push('<li><b>' + idle.length + ' без термин</b><small>' + esc2(idle.sort(byName).join(', ')) + '</small></li>');
+            var percent = Math.round(used / QUOTA * 1000) / 10;
+            var tone = percent >= 100 ? 'red' : percent >= 80 ? 'yellow' : 'green';
+            var free = QUOTA - used;
+            var alert = free <= 0
+                ? '⚠️ Квотата е исполнета' + (free < 0 ? ' (' + (-free) + ' мин над квотата)' : '') + ' — нема слободни термини.'
+                : (tone === 'yellow' ? '🧡 ' : '💚 ') + free + ' мин слободни (' + Math.floor(free / 40) + ' термини по 40 мин или ' + Math.floor(free / 20) + ' по 20 мин).';
+            var comma = function (n) { return String(n).replace('.', ','); };
+            box.innerHTML = '<h3>📋 Искористеност на распоредот</h3>'
+                + '<p>Неделата на екранот. Квота: 25 термини по 40 мин (1000 мин) или 50 по 20 мин. '
+                + 'Групата е една терапија: се брои времето на терапевтот, а децата одделно.</p>'
+                + '<div class="util-cards"><article class="util-card" data-utilization="diary">'
+                + '<p class="util-facts"><span>Терапии: <b data-util="therapies">' + therapies + '</b></span>'
+                + '<span>Опфатени деца: <b data-util="children">' + Object.keys(perChild).length + '</b></span>'
+                + '<span>Исполнетост: <b data-util="used">' + used + '/' + QUOTA + ' мин</b> · ' + comma(used / 40) + '/25 термини по 40 мин</span></p>'
+                + '<div class="util-bar" role="img" aria-label="' + esc2(percent + '% од неделната квота') + '"><div class="util-fill ' + tone + '" style="width:' + Math.min(100, percent) + '%">' + comma(percent) + '%</div></div>'
+                + '<p class="util-alert ' + tone + '">' + esc2(alert) + '</p>'
+                + (lines.length ? '<details open><summary>📊 Распределба на сесии</summary><ul>' + lines.join('') + '</ul></details>' : '')
+                + '</article></div>';
+        }
+
         function openSchedulePicker(day, timeIdx, anchor) {
             if (window.MTB_MIRROR_READONLY === true) return;
             var key = getWeekKey();

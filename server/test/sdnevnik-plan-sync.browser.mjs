@@ -453,6 +453,8 @@ try {
         const marks = Object.values(attendance).flatMap(day => Object.entries(day).filter(([id]) => Number(id) >= 2001));
         return marks.length === 1 && marks[0][0] === '2008' && marks[0][1]['tuesday-0']?.status === 'present' && !marks[0][1]['tuesday-1'];
     }));
+    // „Искористеност на распоредот" under the week (owner, 15 Oct 2026): a group is ONE therapy of 40 minutes.
+    checkEq('the week counts its therapies, children and minutes', await page.locator('#scheduleUtilization [data-util]').evaluateAll(n => n.map(b => b.textContent)), ['3', '11', '120/1000 мин']);
     await page.setViewportSize({width:390,height:844});
     await page.evaluate(() => openSchedulePicker('tuesday', 0));
     check('the group picker fits the screen at phone width', await page.locator('.schedule-pickers').evaluate(e => {
