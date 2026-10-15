@@ -549,6 +549,16 @@
             #scheduleGrid :is(.schedule-cell, .schedule-cell-half) > .student-slot { flex: 1 1 0; min-height: 44px; margin: 3px 0; padding-right: 26px; }
             #scheduleGrid :is(.schedule-cell, .schedule-cell-half) > .schedule-pick-button { position: absolute; right: 6px; bottom: 4px; z-index: 11; padding: 2px 4px; line-height: 1; }
             #scheduleGrid .schedule-cell.merged > .schedule-pick-button:nth-of-type(1) { bottom: auto; top: 4px; }
+            /* Every hour is one height (owner, 15 Oct 2026: „the rows should be
+               same size"): an hour with two pupils in turn no longer stands
+               taller than its neighbours; each row takes the tallest one's. */
+            #scheduleGrid.schedule-grid { grid-template-rows: auto; grid-auto-rows: 1fr; }
+            /* A group of three to eight sits in two columns of smaller terms,
+               or one group would make every hour of the week as tall as itself. */
+            #scheduleGrid .schedule-cell:has(> .student-slot ~ .student-slot ~ .student-slot) { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); grid-auto-rows: 1fr; gap: 3px 4px; align-content: stretch; }
+            #scheduleGrid .schedule-cell:has(> .student-slot ~ .student-slot ~ .student-slot) > .sdn-lesson-line { grid-column: 1 / -1; }
+            #scheduleGrid .schedule-cell:has(> .student-slot ~ .student-slot ~ .student-slot) > .student-slot { min-height: 0; margin: 0; padding: 2px 22px 2px 4px; font-size: 13px; }
+            #scheduleGrid .schedule-cell:has(> .student-slot ~ .student-slot ~ .student-slot) .attendance-indicator { width: 26px; height: 18px; margin-right: 4px; }
         }
         /* Искористеност на распоредот — the same card as in Кабинети. */
         .utilization { margin-top: 18px; }
