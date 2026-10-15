@@ -455,9 +455,9 @@ try {
     }));
     await page.setViewportSize({width:390,height:844});
     await page.evaluate(() => openSchedulePicker('tuesday', 0));
-    check('the group picker fits its cell at phone width', await page.locator('.schedule-pickers').evaluate(e => {
-        const b=e.getBoundingClientRect(), parent=e.parentElement.getBoundingClientRect();
-        return e.scrollWidth <= e.clientWidth && b.width <= parent.width;
+    check('the group picker fits the screen at phone width', await page.locator('.schedule-pickers').evaluate(e => {
+        const b=e.getBoundingClientRect();
+        return e.scrollWidth <= e.clientWidth && b.left >= 0 && b.right <= innerWidth;
     }));
     await mkdir(path.join(ROOT, 'backups/qa'), { recursive: true });
     for (const dark of [false, true]) {

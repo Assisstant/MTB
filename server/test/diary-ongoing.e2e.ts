@@ -145,12 +145,16 @@ try {
     await page.clock.setFixedTime(new Date());
     await page.evaluate(()=>{(window as any).switchTab('schedule');(window as any).renderSchedule();});
     check('the assignment modal is removed',await page.locator('#assignModal').count()===0);
+    const rowBefore = await page.locator('.schedule-cell[data-day="monday"][data-time="0"]').evaluate(c => c.getBoundingClientRect().height);
     await page.locator('.schedule-cell[data-day="monday"][data-time="0"] .schedule-pick-button').click();
     check('the cell offers each pupil once as a check box',await page.locator('.schedule-pickers [data-schedule-pupil]').count()===9);
-    check('the choice stays inside its timetable cell', await page.locator('.schedule-pickers').evaluate(e => {
-        const box=e.getBoundingClientRect(), parent=e.parentElement!.getBoundingClientRect();
-        return box.left>=parent.left && box.right<=parent.right && document.querySelector('.schedule-grid')!.getBoundingClientRect().right<=innerWidth;
-    }));
+    // Floats over the timetable like Кабинети' dropdown (owner, 15 Oct 2026).
+    check('the choice floats at its ▾ and the row keeps its height', await page.locator('.schedule-pickers').evaluate((e, before) => {
+        const box=e.getBoundingClientRect(), cell=document.querySelector('.schedule-cell[data-day="monday"][data-time="0"]')!;
+        const pick=cell.querySelector('.schedule-pick-button')!.getBoundingClientRect();
+        return e.parentElement===document.body && Math.abs(cell.getBoundingClientRect().height-before)<1
+            && (box.top>=pick.bottom-1 || box.bottom<=pick.top+1) && box.left>=0 && box.right<=innerWidth;
+    }, rowBefore));
     await page.locator('.schedule-pickers [value="9002"]').check();
     check('selection stays a draft until Save',await page.evaluate(()=>(window as any).schedule.monday[0].length===1));
     await mkdir('../backups/qa',{recursive:true});

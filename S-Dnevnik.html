@@ -481,9 +481,10 @@
         .session-editor input[type="text"] { width:100%; margin:10px 0; padding:10px; font:inherit; }
         .session-editor-actions { display:flex; flex-wrap:wrap; gap:10px; margin-top:16px; }
         .progress-resource-wrap { flex-wrap:wrap; }
-        .schedule-pickers { width:100%; min-width:0; max-width:260px; box-sizing:border-box; padding:12px;
-            background:#f5f7f9; color:#202b35; border:1px solid #9eb6c4; border-radius:12px;
-            box-shadow:0 4px 14px rgba(24,48,64,.12); text-align:left; }
+        /* Floats over the timetable like Кабинети' dropdown (owner, 15 Oct 2026): the row keeps its height. */
+        .schedule-pickers { position:absolute; z-index:1500; width:320px; max-width:calc(100vw - 16px); min-width:0; box-sizing:border-box; padding:12px;
+            background:#fff; color:#202b35; border:1px solid #9eb6c4; border-radius:10px;
+            box-shadow:0 12px 32px rgba(15,23,42,.28), 0 2px 6px rgba(15,23,42,.12); text-align:left; }
         .schedule-pickers > b { display:block; margin-bottom:9px; font-size:14px; font-variant-numeric:tabular-nums; }
         .schedule-pickers label { display:block; font-size:12px; font-weight:600; margin:8px 0; line-height:1.4; }
         .schedule-pickers input[type="search"] { display:block; width:100%; box-sizing:border-box; min-width:0; min-height:36px; margin-top:4px; padding:6px 8px;
@@ -499,7 +500,7 @@
         .schedule-pickers .schedule-picker-list { display:block; width:100%; margin:8px 0 0; padding:6px 2px;
             border:0; background:transparent; color:inherit; font:600 12px/1.4 system-ui; text-align:left; cursor:pointer; }
         .schedule-picker-list:hover { text-decoration:underline; }
-        body.dark-mode .schedule-pickers { background:#242a30; color:#edf2f6; border-color:#526774; }
+        body.dark-mode .schedule-pickers { background:#242a30; color:#edf2f6; border-color:#526774; box-shadow:0 12px 32px rgba(0,0,0,.55), 0 2px 6px rgba(0,0,0,.35); }
         body.dark-mode .schedule-pickers input[type="search"] { background:#181d22; border-color:#607381; }
         /* Напредок: учениците како список врски; паѓачкото мени останува за читач на екран и за тестовите */
         .progress-pick-select { position:absolute; width:1px; height:1px; opacity:0; pointer-events:none; }
@@ -2978,6 +2979,7 @@ var attendance = {};
             if (['students', 'schedule', 'progress', 'plans', 'trijazen', 'procenka', 'data', 'dosie', 'audiogramsApp', 'generator'].indexOf(tab) >= 0) switchTab(tab);
         });
         function switchTab(tab) {
+            closeSchedulePicker();
             // Pull latest edits from embedded apps before changing tab.
             pullEmbeddedDataToUnified();
 
@@ -6572,6 +6574,8 @@ var attendance = {};
         }
         
         function renderSchedule() {
+            // Its cell is drawn anew: the picker on the page would point at nothing.
+            closeSchedulePicker();
             ensureWeekSlots();
             // Detect if viewing past week
     var now = new Date();
@@ -6797,7 +6801,7 @@ var attendance = {};
                         var pick = document.createElement('button'); pick.type = 'button'; pick.className = 'schedule-pick-button';
                         pick.textContent = '▾' + (indices.length > 1 ? ' ' + timeSlots[ti].label : '');
                         pick.setAttribute('aria-label', 'Избери ученици · ' + days[daysEng.indexOf(cell.dataset.day)] + ' · ' + timeSlots[ti].time);
-                        pick.addEventListener('click', function (e) { e.stopPropagation(); openSchedulePicker(cell.dataset.day, ti); });
+                        pick.addEventListener('click', function (e) { e.stopPropagation(); openSchedulePicker(cell.dataset.day, ti, pick); });
                         cell.appendChild(pick);
                     });
                 });
@@ -6979,17 +6983,21 @@ var attendance = {};
             }, 0);
         }
         
-        function openSchedulePicker(day, timeIdx) {
+        function openSchedulePicker(day, timeIdx, anchor) {
             if (window.MTB_MIRROR_READONLY === true) return;
             var key = getWeekKey();
             if (key < thisWeekKey() && !askUnlockPastWeek('Ќе се сменат учениците во терминот.')) return;
-            document.querySelectorAll('.schedule-pickers').forEach(function (e) { e.remove(); });
+            // The same ▾ again closes it, as a dropdown does.
+            var already = document.querySelector('.schedule-pickers');
+            closeSchedulePicker();
+            if (already && already.dataset.slot === day + '|' + timeIdx) return;
             var current = (getScheduleForWeek(key)[day] || [])[timeIdx] || [];
             currentSlot = { day: day, timeIdx: timeIdx, weekKey: key, expected: current.slice() };
             var cell = document.querySelector('.schedule-cell[data-day="' + day + '"][data-time="' + timeIdx + '"], .schedule-cell-half[data-day="' + day + '"][data-time="' + timeIdx + '"]');
             if (!cell && timeIdx > 0) cell = document.querySelector('.schedule-cell.merged[data-day="' + day + '"][data-time="' + (timeIdx - 1) + '"]');
             if (!cell) return;
-            var editor = document.createElement('div'); editor.className = 'schedule-pickers';
+            var editor = document.createElement('div'); editor.className = 'schedule-pickers'; editor.dataset.slot = day + '|' + timeIdx;
+            editor.setAttribute('role', 'dialog'); editor.setAttribute('aria-label', 'Ученици · ' + timeSlots[timeIdx].time);
             editor.addEventListener('click', function (e) { e.stopPropagation(); });
             editor.addEventListener('keydown', function (e) { if (e.key === 'Escape') { e.stopPropagation(); editor.remove(); } });
             var title = document.createElement('b'); title.textContent = timeSlots[timeIdx].time; editor.appendChild(title);
@@ -7049,9 +7057,41 @@ var attendance = {};
             var list = document.createElement('button'); list.type = 'button'; list.className = 'schedule-picker-list'; list.textContent = 'Мои ученици →';
             list.addEventListener('click', function () { editor.remove(); switchTab('students'); });
             var actions = document.createElement('div'); actions.className = 'schedule-picker-actions';
-            actions.appendChild(save); actions.appendChild(cancel); editor.appendChild(actions); editor.appendChild(list); cell.appendChild(editor);
+            actions.appendChild(save); actions.appendChild(cancel); editor.appendChild(actions); editor.appendChild(list);
+            document.body.appendChild(editor); editor._cell = anchor && cell.contains(anchor) ? anchor : cell;
+            placeSchedulePicker(editor);
             (editor.querySelector('input') || save).focus();
         }
+        function closeSchedulePicker() {
+            document.querySelectorAll('.schedule-pickers').forEach(function (e) { e.remove(); });
+        }
+        // Under its ▾ (or its cell), or above when the screen has no room below; never
+        // past the screen's edges. Placed on the page, so it scrolls with it.
+        function placeSchedulePicker(editor) {
+            var cell = editor._cell;
+            if (!cell || !cell.isConnected) { editor.remove(); return; }
+            var r = cell.getBoundingClientRect(), gap = 4, edge = 8;
+            var width = editor.offsetWidth, height = editor.offsetHeight;
+            // The ▾ stands at its cell's right edge: hang from there, over its own day.
+            var start = cell.classList.contains('schedule-pick-button') ? r.right - width : r.left;
+            var left = Math.max(edge, Math.min(start, window.innerWidth - width - edge));
+            var below = window.innerHeight - r.bottom - gap, above = r.top - gap;
+            var top = (below >= height || below >= above) ? r.bottom + gap : Math.max(edge, r.top - gap - height);
+            editor.style.left = (left + window.scrollX) + 'px';
+            editor.style.top = (top + window.scrollY) + 'px';
+        }
+        // A press outside closes it, as a dropdown does; its own ▾ toggles it.
+        document.addEventListener('pointerdown', function (e) {
+            var open = document.querySelector('.schedule-pickers');
+            if (open && !open.contains(e.target) && !(e.target.closest && e.target.closest('.schedule-pick-button'))) open.remove();
+        });
+        // A phone's keyboard changes only the height: the picker stays where it is.
+        var pickerWidth = window.innerWidth;
+        window.addEventListener('resize', function () {
+            if (window.innerWidth === pickerWidth) return;
+            pickerWidth = window.innerWidth;
+            document.querySelectorAll('.schedule-pickers').forEach(placeSchedulePicker);
+        });
 
        function assignStudents() {
     if (!currentSlot) return;
