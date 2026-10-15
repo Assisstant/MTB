@@ -15,7 +15,9 @@ let sessions = [
     session('понеделник', '08:00-08:40', 2, 'a'), session('понеделник', '08:00-08:40', 3, 'a'),
     session('вторник', '08:00-08:20', 1, 'c'), session('вторник', '08:20-08:40', 2, 'c'),
     session('среда', '08:00-08:40', 1, 'a'), session('среда', '08:00-08:40', 2, 'a'),
-    session('четврток', '08:00-08:40', 1, 'd'), session('четврток', '08:00-08:20', 1, 'd')
+    session('четврток', '08:00-08:40', 1, 'd'), session('четврток', '08:00-08:20', 1, 'd'),
+    // A group of two (063): one therapy of 40 minutes, two children.
+    session('петок', '08:00-08:40', 3, 'b'), session('петок', '08:00-08:40', 3, 'c')
 ];
 let failRead = false, refuse = null, restricted = false, failWrite = false;
 const writes = [], errors = [];
@@ -63,6 +65,14 @@ try {
     await count(1);
     await page.selectOption('#focus', '1');
     await count(1);
+    // „Искористеност на распоредот" (owner, 15 Oct 2026): therapies, children, the quota in minutes.
+    const util = async (id) => page.locator('[data-utilization="' + id + '"]').evaluate((card) =>
+        Object.fromEntries([...card.querySelectorAll('[data-util]')].map((b) => [b.dataset.util, b.textContent])));
+    assert.deepEqual(await util(1), { therapies: '6', children: '4', used: '140/1000 мин' }, 'halves are therapies of 20; an overlap is not counted twice');
+    await page.selectOption('#focus', '3');
+    assert.deepEqual(await util(3), { therapies: '2', children: '3', used: '80/1000 мин' }, 'a group is ONE therapy of 40 minutes, its children counted apart');
+    assert.match(await page.locator('[data-utilization="3"] details').innerText(), /групна сесија/);
+    await page.selectOption('#focus', '1');
     const half = (i) => page.locator('select[data-session-day="понеделник"][data-therapist-id="1"][data-block-time="08:00-08:40"][data-block-part="' + i + '"]');
     assert.equal(await half(0).evaluate((e) => e.closest('.student-slot').classList.contains('conflict')), true);
     assert.equal(await half(1).evaluate((e) => e.closest('.student-slot').classList.contains('conflict')), false, 'same name, different id; second half stays clear');

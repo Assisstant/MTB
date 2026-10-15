@@ -1130,7 +1130,36 @@
     body.dark-mode .slot-picker-option small, body.dark-mode .slot-picker-option.none { color: #a0aec0; }
     body.dark-mode .slot-picker-option.new { border-top-color: #3b4652; color: #73c7ed; }
 }
-@media print { .slot-picker { display: none !important; } }</style>
+@media print { .slot-picker { display: none !important; } }
+/* Искористеност на распоредот — S-Дневник's box, one per therapist. */
+.utilization { margin-top: 18px; }
+.utilization > h3 { margin: 0 0 4px; font-size: 16px; }
+.utilization > p { margin: 0 0 12px; font-size: 13px; color: #4a5568; }
+.util-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(420px, 1fr)); gap: 12px; }
+.util-card { padding: 14px 16px; border: 1px solid #cbd5e0; border-radius: 10px; background: #f8fafc; color: #1a202c; }
+.util-card h4 { margin: 0 0 6px; font-size: 15px; }
+.util-facts { display: flex; flex-wrap: wrap; gap: 4px 16px; margin: 0 0 8px; font-size: 13px; }
+.util-facts b { font-variant-numeric: tabular-nums; }
+.util-bar { height: 24px; border-radius: 12px; background: #e2e8f0; overflow: hidden; }
+.util-fill { height: 100%; min-width: 34px; border-radius: 12px; color: #fff; font: 700 12px/24px system-ui, sans-serif; text-align: center; }
+.util-fill.green { background: linear-gradient(90deg, #48bb78, #38a169); }
+.util-fill.yellow { background: linear-gradient(90deg, #ecc94b, #d69e2e); color: #2d2006; }
+.util-fill.red { background: linear-gradient(90deg, #f56565, #e53e3e); }
+.util-alert { margin: 8px 0 0; font-size: 13px; font-weight: 600; }
+.util-alert.green { color: #2f855a; } .util-alert.yellow { color: #975a16; } .util-alert.red { color: #c53030; }
+.util-card details { margin-top: 10px; padding-top: 8px; border-top: 1px solid #e2e8f0; font-size: 13px; }
+.util-card summary { cursor: pointer; font-weight: 700; }
+.util-card ul { margin: 6px 0 0; padding-left: 18px; }
+.util-card li { margin: 4px 0; }
+.util-card li small { display: block; color: #4a5568; }
+body.dark-mode .utilization > p { color: #cbd5e0; }
+body.dark-mode .util-card { background: #1e2530; border-color: #3b4652; color: #e2e8f0; }
+body.dark-mode .util-bar { background: #2d3748; }
+body.dark-mode .util-card details { border-top-color: #3b4652; }
+body.dark-mode .util-card li small { color: #a0aec0; }
+body.dark-mode .util-alert.green { color: #68d391; } body.dark-mode .util-alert.yellow { color: #f6e05e; } body.dark-mode .util-alert.red { color: #fc8181; }
+@media (max-width: 600px) { .util-cards { grid-template-columns: 1fr; } }
+@media print { .utilization { display: none !important; } }</style>
 </head>
 <body>
 <header class="header">
@@ -1244,6 +1273,7 @@
             <div class="scrollable-container" id="scheduleGrid">
                 <div class="empty-state">Се вчитува распоредот…</div>
             </div>
+            <div class="utilization" id="utilization" hidden></div>
         </section>
 
         <section class="roster-tool" id="rosterPanel" role="tabpanel" aria-labelledby="rosterTab rosterTitle" hidden>
@@ -1977,6 +2007,7 @@
         el('schedulePanel').setAttribute('aria-labelledby',
             state.panel === 'classWeek' ? 'classWeekTab' : 'scheduleTab');
         el('classWeekBar').hidden = state.panel !== 'classWeek';
+        drawUtilization();
         document.querySelectorAll('.view-tab[data-panel]').forEach((button) => {
             const selected = button.dataset.panel === state.panel;
             button.setAttribute('aria-selected', String(selected));
@@ -2147,9 +2178,113 @@
         el('metricScheduled').textContent = String(scheduled.size);
         el('metricWaiting').textContent = String(waiting.length);
         el('metricConflicts').textContent = state.sessionsReady && !state.sessionsStale ? String(visibleConflictGroups().length) : '—';
+        drawUtilization();
         el('conflictHelp').textContent = state.sessionsStale ? 'Освежувањето не успеа; списокот е последната вчитана состојба.' :
             'За избраниот приказ; ист ученик во два дена се брои двапати.';
         drawConflictList();
+    }
+
+    /* ── Искористеност на распоредот (сопственикот, 15 октомври 2026) ──
+       S-Дневник's box, here for every cabinet shown, with the difference a
+       group (063) made: a THERAPY is one term the therapist holds, however
+       many children sit in it; the CHILDREN covered are counted apart; and
+       the quota is the therapist's own time — 25 terms of 40 minutes a week
+       (1000 minutes; 50 of 20). A group of four is 40 minutes, not 160. */
+    const WEEKLY_QUOTA_MIN = 25 * 40;
+    function therapistUtilization(therapist) {
+        const terms = new Map();                       // day|time → the children in it
+        state.sessions.forEach((session) => {
+            if (String(session.therapist_id) !== String(therapist.id) || !session.student_public_id) return;
+            const key = session.day + '|' + session.time;
+            if (!terms.has(key)) terms.set(key, []);
+            if (!terms.get(key).includes(session.student_public_id)) terms.get(key).push(session.student_public_id);
+        });
+        // Minutes held: the union of the terms in each day, so an overlap the
+        // conflict list already reports is not counted twice.
+        const byDay = new Map();
+        terms.forEach((_, key) => {
+            const [day, time] = key.split('|');
+            const range = timeRangeMinutes(time);
+            if (!range) return;
+            if (!byDay.has(day)) byDay.set(day, []);
+            byDay.get(day).push([range.start, range.end]);
+        });
+        let used = 0;
+        byDay.forEach((ranges) => {
+            ranges.sort((a, b) => a[0] - b[0]);
+            let start = null, end = null;
+            ranges.forEach(([a, b]) => {
+                if (end === null || a > end) { if (end !== null) used += end - start; start = a; end = b; }
+                else end = Math.max(end, b);
+            });
+            if (end !== null) used += end - start;
+        });
+        const perChild = new Map();
+        terms.forEach((ids, key) => {
+            const range = timeRangeMinutes(key.split('|')[1]);
+            const length = range ? range.end - range.start : 40;
+            ids.forEach((id) => {
+                const c = perChild.get(id) || { long: 0, short: 0, group: 0 };
+                if (ids.length > 1) c.group++;
+                else if (length <= 20) c.short++;
+                else c.long++;
+                perChild.set(id, c);
+            });
+        });
+        const caseload = Array.isArray(therapist.students) ? therapist.students : [];
+        return { therapies: terms.size, used, perChild, idle: caseload.filter((id) => !perChild.has(id)) };
+    }
+    function sessionsPhrase(n, what) {
+        return n + (n === 1 ? ' ' + what[0] : ' ' + what[1]);
+    }
+    function drawUtilization() {
+        const box = el('utilization');
+        if (!box) return;
+        const therapists = activeTherapists();
+        box.hidden = state.panel !== 'schedule' || !state.sessionsReady || !therapists.length;
+        if (box.hidden) { box.innerHTML = ''; return; }
+        const students = studentsById();
+        const nameOf = (id) => (students.get(id) && students.get(id).name) || 'Непознат ученик';
+        const cards = therapists.map((therapist) => {
+            const u = therapistUtilization(therapist);
+            const percent = Math.round(u.used / WEEKLY_QUOTA_MIN * 1000) / 10;
+            const tone = percent >= 100 ? 'red' : percent >= 80 ? 'yellow' : 'green';
+            const free = WEEKLY_QUOTA_MIN - u.used;
+            const terms40 = Math.round(u.used / 40 * 10) / 10;
+            const alert = free <= 0
+                ? '⚠️ Квотата е исполнета' + (free < 0 ? ' (' + (-free) + ' мин над квотата)' : '') + ' — нема слободни термини.'
+                : (tone === 'yellow' ? '🧡 ' : '💚 ') + free + ' мин слободни (' + Math.floor(free / 40) + ' термини по 40 мин или ' + Math.floor(free / 20) + ' по 20 мин).';
+            const groups = new Map();
+            u.perChild.forEach((c, id) => {
+                const parts = [];
+                if (c.long) parts.push(sessionsPhrase(c.long, ['сесија по 40 мин', 'сесии по 40 мин']));
+                if (c.short) parts.push(sessionsPhrase(c.short, ['сесија по 20 мин', 'сесии по 20 мин']));
+                if (c.group) parts.push(sessionsPhrase(c.group, ['групна сесија', 'групни сесии']));
+                const key = parts.join(' + ');
+                if (!groups.has(key)) groups.set(key, []);
+                groups.get(key).push(nameOf(id));
+            });
+            const lines = Array.from(groups.entries()).sort((a, b) => a[0].localeCompare(b[0], 'mk'))
+                .map(([key, names]) => '<li><b>' + names.length + ' ' + (names.length === 1 ? 'ученик' : 'ученици') + ' со ' + esc(key) + '</b>'
+                    + '<small>' + esc(names.sort((a, b) => a.localeCompare(b, 'mk')).join(', ')) + '</small></li>');
+            if (u.idle.length) lines.push('<li><b>' + u.idle.length + ' без термин</b><small>'
+                + esc(u.idle.map(nameOf).sort((a, b) => a.localeCompare(b, 'mk')).join(', ')) + '</small></li>');
+            return '<article class="util-card" data-utilization="' + esc(String(therapist.id)) + '">'
+                + '<h4>' + esc(therapist.name) + '</h4>'
+                + '<p class="util-facts"><span>Терапии: <b data-util="therapies">' + u.therapies + '</b></span>'
+                + '<span>Опфатени деца: <b data-util="children">' + u.perChild.size + '</b></span>'
+                + '<span>Исполнетост: <b data-util="used">' + u.used + '/' + WEEKLY_QUOTA_MIN + ' мин</b> · '
+                + String(terms40).replace('.', ',') + '/25 термини по 40 мин</span></p>'
+                + '<div class="util-bar" role="img" aria-label="' + esc(percent + '% од неделната квота') + '"><div class="util-fill ' + tone
+                + '" style="width:' + Math.min(100, percent) + '%">' + String(percent).replace('.', ',') + '%</div></div>'
+                + '<p class="util-alert ' + tone + '">' + esc(alert) + '</p>'
+                + (lines.length ? '<details' + (therapists.length === 1 ? ' open' : '') + '><summary>📊 Распределба на сесии</summary><ul>' + lines.join('') + '</ul></details>' : '')
+                + '</article>';
+        });
+        box.innerHTML = '<h3>📋 Искористеност на распоредот</h3>'
+            + '<p>Неделно, според распоредот. Квота: 25 термини по 40 мин (1000 мин) или 50 по 20 мин. '
+            + 'Групата е една терапија: се брои времето на терапевтот, а децата одделно.</p>'
+            + '<div class="util-cards">' + cards.join('') + '</div>';
     }
 
     function drawRosterTherapists() {
