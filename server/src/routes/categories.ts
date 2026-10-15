@@ -20,6 +20,7 @@ import {
     sheetSections, setSheetSection, assertMayEdit, CategoryRefused
 } from '../lib/categories.js';
 import { assertOwnSheet, scopeOf } from '../lib/colleague.js';
+import { signedOrOwner } from '../lib/administrator.js';
 
 const NewCategory = z.object({
     code: z.string().min(1).max(48),
@@ -156,10 +157,10 @@ export async function categoryRoutes(server: FastifyInstance) {
             return reply.code(400).send({ error: 'sheetId, sectionId and included are required' });
         }
         try {
-            const who = await whoIsSigned((req.headers as any)['x-mtb-evidence-token']);
+            const who = await signedOrOwner(req);
             const scope = await scopeOf(req);
             const target = await assertOwnSheet(scope, parsed.data.sheetId);
-            if (!scope.open && !scope.admin) {
+            if (!scope.open && !scope.admin && who.kind !== 'owner') {
                 await assertMayEdit(who, { section: parsed.data.sectionId }, target.schoolYearId);
             }
             return await setSheetSection(

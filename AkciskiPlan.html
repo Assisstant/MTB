@@ -416,6 +416,8 @@ body.dark .at tr.ev td{color:#a3b0f7;}
   <aside class="side">
     <h3>Ученици <span id="pupilCount"></span></h3>
     <input class="find" id="find" placeholder="Барај по име…">
+    <!-- „Пополнува": whose pupils, for whoever sees the whole list (owner, 15 Oct 2026). -->
+    <select class="find" id="filler" aria-label="Пополнува" hidden><option value="">Пополнува: сите</option></select>
     <div class="grade-pills" id="gradePills">
       <button class="pill active" type="button" data-grade="all">Сите</button>
       <button class="pill" type="button" data-grade="1-3">I-III</button>
@@ -531,6 +533,7 @@ body.dark .at tr.ev td{color:#a3b0f7;}
     let liveServers = [];
     let token = '';
     let me = null;
+    let seesAll = false;    // the whole list: the owner, or an administrator; then „Пополнува" narrows it
     let years = [];
     let catalog = null;      // { periods, sections }
     let categories = [];     // global specialist-category catalogue
@@ -822,7 +825,8 @@ body.dark .at tr.ev td{color:#a3b0f7;}
         ticket++;
         sheetTicket++;
         rememberToken('');
-        me = null;
+        me = null; seesAll = false;
+        el('filler').hidden = true; el('filler').value = '';
         el('who').textContent = '—';
         showGate(silent ? 'Најавата истече.' : '');
         fillGateWho().catch(() => {});
@@ -959,8 +963,41 @@ body.dark .at tr.ev td{color:#a3b0f7;}
         select.disabled = !select.options.length;
     }
 
+    /**
+     * The owner in the cloud needs no PIN (owner, 15 Oct 2026): the server says
+     * so from the owner's own sign-in, and what is written is „Администраторот".
+     * Anyone else, and the owner who signs in with a PIN, keeps the gate.
+     */
+    async function ownerWithoutPin() {
+        try {
+            const who = await api('GET', '/api/evidence/me');
+            if (!who || !who.owner) return false;
+            me = who.person; seesAll = true;
+            el('who').textContent = me.name + ' · без PIN';
+            el('gate').hidden = true;
+            return true;
+        } catch (_) { return false; }
+    }
+
+    /** Everyone who may fill a sheet: the same people as the sign-in list. */
+    async function fillFiller() {
+        const select = el('filler');
+        select.hidden = !seesAll;
+        if (!seesAll || select.options.length > 1) return;
+        try {
+            const people = (await api('GET', '/api/evidence/people')).people || [];
+            const label = { therapist: 'терапевт', teacher: 'наставник' };
+            people.forEach((p) => {
+                const option = document.createElement('option');
+                option.value = p.kind + ':' + p.id;
+                option.textContent = 'Пополнува: ' + p.name + ' · ' + (label[p.kind] || p.kind);
+                select.appendChild(option);
+            });
+        } catch (_) { select.hidden = true; }      // an older server: the whole list only
+    }
+
     async function load() {
-        if (!token) { showGate(); await fillGateWho().catch((err) => offline(err)); return; }
+        if (!token && !me && !(await ownerWithoutPin())) { showGate(); await fillGateWho().catch((err) => offline(err)); return; }
         const mine = ++ticket;
         sheetTicket++;
         status((PUBLISHED ? serverName(apiBase) + ' · ' : '') + 'вчитувам…');
@@ -968,15 +1005,18 @@ body.dark .at tr.ev td{color:#a3b0f7;}
             if (!me) {
                 const who = await api('GET', '/api/evidence/me');
                 me = who.person || who.therapist;
+                seesAll = Boolean(who.permissions && who.permissions.admin);
                 el('who').textContent = me.name;
                 el('gate').hidden = true;
             }
             await fillYears();
             updateDirectoryLink();
+            await fillFiller();
             const query = '?year=' + encodeURIComponent(el('year').value);
+            const filler = seesAll && el('filler').value ? '&filler=' + encodeURIComponent(el('filler').value) : '';
             const [cat, list, categoryList] = await Promise.all([
                 api('GET', '/api/evidence/catalog' + query),
-                api('GET', '/api/evidence/sheets' + query),
+                api('GET', '/api/evidence/sheets' + query + filler),
                 // Categories are additive. A page opened against an older
                 // server must still show the prescribed evidence form.
                 api('GET', '/api/categories?all=1').catch(() => ({ categories: [] }))
@@ -2653,6 +2693,7 @@ body.dark .at tr.ev td{color:#a3b0f7;}
         el('btnReload').onclick = () => load();
         el('year').onchange = () => { replaceOpenSheet(null); load(); };
         el('find').oninput = () => drawPupils();
+        el('filler').onchange = () => load();
         const gradePills = el('gradePills');
         if (gradePills) {
             gradePills.querySelectorAll('.pill').forEach((btn) => {

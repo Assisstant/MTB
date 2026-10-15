@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { pool } from '../db.js';
 import { hashPin, pinMatches, Refused, SESSION_HOURS, sweepSessions, whoIsSigned } from '../lib/evidence.js';
 import { enforcing, isAdmin, scopeOf } from '../lib/colleague.js';
+import { evidenceOwner } from '../lib/administrator.js';
 
 /**
  * Signing in to Евидентен лист.
@@ -351,6 +352,12 @@ export async function evidenceAuthRoutes(server: FastifyInstance) {
 
     server.get('/api/evidence/me', async (req, reply) => {
         try {
+            // The owner's own cloud sign-in, without a PIN (lib/administrator.ts).
+            const owner = evidenceOwner(req);
+            if (owner) {
+                return { person: { kind: owner.kind, id: 0, name: owner.name }, owner: true,
+                    permissions: { enforced: false, admin: true } };
+            }
             const signed = await whoIsSigned(req.headers['x-mtb-evidence-token']);
             return {
                 person: { kind: signed.kind, id: signed.personId, name: signed.name },

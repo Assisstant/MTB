@@ -204,6 +204,15 @@ async function run() {
         result.body.pupils.map((p: any) => [p.public_id, p.sheet_id]).sort(),
         [[TAG, null], [TAG + '-2', null]].sort());
 
+    // „Пополнува: …" (15 Oct 2026): the whole list narrowed to one colleague's.
+    await q('INSERT INTO therapist_students (therapist_id, student_id, school_year_id) VALUES ($1, $2, $3)',
+        [fixture.therapist.id, fixture.student.id, fixture.year.id]);
+    result = await api('GET', `/api/evidence/sheets?year=${encodeURIComponent(YEAR)}&filler=therapist:${fixture.therapist.id}`);
+    same('„Пополнува" lists only the pupils that colleague may fill', result.body.pupils.map((p: any) => p.public_id), [TAG]);
+    result = await api('GET', `/api/evidence/sheets?year=${encodeURIComponent(YEAR)}&filler=nobody`);
+    same('an unreadable „Пополнува" is no filter', result.body.pupils.length, 2);
+    await q('DELETE FROM therapist_students WHERE therapist_id = $1', [fixture.therapist.id]);
+
     result = await api('POST', '/api/evidence/sheet', { publicId: TAG, year: YEAR });
     check('a sheet is created', result.status === 200 && result.body.sheetId > 0, JSON.stringify(result.body));
     const sheetId = result.body.sheetId;

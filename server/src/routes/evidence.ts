@@ -11,6 +11,7 @@ import {
     Refused, resolveYear, touchSheet, whoIsSigned, type Signed
 } from '../lib/evidence.js';
 import { orderPupils } from '../lib/teaching.js';
+import { signedOrOwner } from '../lib/administrator.js';
 import {
     assertOwner, assertOwnSheet, assertOwnStudent, ownStudentIds, scopeOf
 } from '../lib/colleague.js';
@@ -151,7 +152,8 @@ function refuse(reply: FastifyReply, err: unknown) {
     throw err;
 }
 
-const signed = (req: FastifyRequest) => whoIsSigned(req.headers['x-mtb-evidence-token']);
+// A PIN session, or the owner's own cloud sign-in (lib/administrator.ts).
+const signed = (req: FastifyRequest) => signedOrOwner(req);
 
 /**
  * Both scales are closed sets, so a typo cannot become a fourth grade.
@@ -224,7 +226,15 @@ export async function evidenceRoutes(server: FastifyInstance) {
             // null = no filter (the owner, or enforcement off); an array = this
             // colleague's caseload for the year, so „Сите ученици" means their
             // own and the list cannot be used to browse the whole school.
-            const mine = await ownStudentIds(await scopeOf(req), year.id);
+            let mine = await ownStudentIds(await scopeOf(req), year.id);
+            // „Пополнува: …" (owner, 15 Oct 2026): whoever may see the whole
+            // list may narrow it to one colleague's — the same rule that
+            // scopes that colleague's own list. A colleague cannot widen theirs.
+            const filler = /^(therapist|teacher):([1-9]d{0,9})$/.exec(String((req.query as any)?.filler || ''));
+            if (filler && mine === null) {
+                mine = await ownStudentIds({ open: false, admin: false, service: false,
+                    signed: { kind: filler[1] as 'therapist' | 'teacher', personId: Number(filler[2]), name: '', therapistId: null } }, year.id);
+            }
             const { rows } = await pool.query(
                 `SELECT s.public_id, s.name, e.grade, e.kind, s.active,
                         sh.id AS sheet_id, sh.updated_at, sh.updated_by, sh.school_type,
@@ -663,7 +673,7 @@ export async function evidenceRoutes(server: FastifyInstance) {
 
     server.post('/api/evidence/item', async (req, reply) => {
         try {
-            const me: Signed = await signed(req);
+            const me = await signed(req);
             const scope = await scopeOf(req);
             const body = ItemBody.parse(req.body);
             await assertMayEdit(me, { section: body.sectionId }, undefined, pool, scope);

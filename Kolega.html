@@ -903,6 +903,30 @@ header.top h1 { flex: 1; min-width: 180px; }
     html body:is(body, .dark-mode, .dark) :is(.acting, .duty-note) { background: var(--mtb-notice); color: var(--mtb-ink); border-left: 3px solid var(--mtb-accent); }
 }
 </style>
+<style>
+/* One compact month grid for every attendance sheet: a cabinet's, Престој's
+   and a class's (owner, 15 Oct 2026: „редовите малку потесни, колоните исто").
+   The whole month is read at once, the names and the days stay in sight.
+   Phones keep the finger-sized marks; paper keeps its own layout. */
+@media screen and (min-width: 601px) {
+  .attendance-table.month { width: auto; min-width: 0; table-layout: fixed; }
+  .attendance-scroll:has(> .attendance-table.month) { max-height: calc(100vh - 120px); overflow: auto; }
+  .attendance-table.month :is(th, td) { height: 32px; padding: 2px; line-height: 1.15; }
+  .attendance-table.month thead th { width: 32px; min-width: 32px; font-size: 13px; position: sticky; top: 0; z-index: 2; overflow: hidden; white-space: nowrap; }
+  .attendance-table.month thead th small { display: block; font-size: 10.5px; font-weight: 600; opacity: .8; }
+  .attendance-table.month thead th:first-child, .attendance-table.month tbody th, #stay .stay-table th:first-child {
+    width: 280px; min-width: 280px; max-width: 280px; padding: 3px 8px; text-align: left; font-size: 14px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; position: sticky; left: 0; z-index: 1; }
+  .attendance-table.month thead th:first-child { z-index: 3; }
+  .attendance-table.month tbody th small { font-size: 12px; font-weight: 500; opacity: .75; }
+  .attendance-table.month td { width: 32px; min-width: 32px; font-size: 12px; color: var(--muted); }
+  html body .attendance-table.month .attendance-mark, html body #stay .attendance-table.month .attendance-mark {
+    display: block; width: 24px; height: 24px; min-width: 0; min-height: 0; margin: 0 auto; padding: 0;
+    font-size: 13px; font-weight: 700; line-height: 22px; border-radius: 6px; }
+  .attendance-table.month td .attendance-mark + .attendance-mark { margin-top: 2px; }
+  .attendance-table.month thead button { min-height: 0; padding: 0 4px; margin-top: 2px; font-size: 12px; }
+}
+</style>
 </head>
 <body>
 <div class="theme-bar">
@@ -1082,6 +1106,10 @@ header.top h1 { flex: 1; min-width: 180px; }
     let hideClosed = true;
     try { hideClosed = localStorage.getItem(HIDE_CLOSED_KEY) !== '0'; } catch { /* a private window keeps the default */ }
     const shownDays = (days) => hideClosed ? days.filter((day) => !day.closed) : days;
+    const WEEKDAY_SHORT = ['нед.','пон.','вто.','сре.','чет.','пет.','саб.'];
+    const weekdayShort = (date) => WEEKDAY_SHORT[new Date(date + 'T12:00:00Z').getUTCDay()];
+    // A month row is one line: the name, its class small beside it, the whole of it on hover.
+    const rowName = (name, detail) => `<th scope="row" title="${esc(name + (detail ? ' · ' + detail : ''))}"><span class="att-name">${esc(name)}</span>${detail ? ` <small>${esc(detail)}</small>` : ''}</th>`;
     const hideClosedButton = (disabled) => '<button type="button" data-hide-closed aria-pressed="' + hideClosed + '"' + (disabled ? ' disabled' : '') + '>'
         + (hideClosed ? 'Прикажи неработни денови' : 'Скриј неработни денови') + '</button>';
     document.addEventListener('click', (event) => {
@@ -1121,7 +1149,6 @@ header.top h1 { flex: 1; min-width: 180px; }
     function drawStay() {
         const d=stay.data; if(!d) return;
         const scrolled=el('stay').querySelector('.attendance-scroll')?.scrollLeft||0;
-        const short=['нед.','пон.','вто.','сре.','чет.','пет.','саб.'];
         const marks=new Map(d.marks.map(m=>[m.publicId+'|'+m.date,m.status]));
         const label=s=>s==='present'?'Присутен':s==='absent'?'Отсутен':'Неозначено';
         const off=stay.busy||!d.pupils.length?' disabled':'', report=stayReport();
@@ -1142,8 +1169,8 @@ header.top h1 { flex: 1; min-width: 180px; }
                 +'<button type="button" data-stay-list-cancel'+(stay.busy?' disabled':'')+'>Откажи</button></div><span class="pick-count" id="stayPickCount"></span></div></section>':'')
             +(!d.pupils.length?'<p>Списокот е празен. Отворете „Мој список“ и изберете ученици.</p>':'<div id="staySheet"><h2>'+esc(report.title)+'</h2><p>'+esc(report.subtitle)+'</p></div>'
                 +'<div class="attendance-scroll"><table class="attendance-table month stay-table"><thead><tr><th scope="col">Ученик</th>'
-                +shownDays(d.days).map(day=>'<th scope="col"'+(day.closed?' class="closed"':'')+' title="'+esc(day.closed||day.date)+'">'+Number(day.date.slice(8))+'<br>'+short[new Date(day.date+'T12:00:00Z').getUTCDay()]+'</th>').join('')+'</tr></thead><tbody>'
-                +d.pupils.map(p=>'<tr><th scope="row">'+esc((p.grade?p.grade+' · ':'')+p.name)+(p.selected?'':'<br><small>Претходни ознаки</small>')+'</th>'
+                +shownDays(d.days).map(day=>'<th scope="col"'+(day.closed?' class="closed"':'')+' title="'+esc(day.closed||day.date)+'">'+Number(day.date.slice(8))+'<br><small>'+weekdayShort(day.date)+'</small></th>').join('')+'</tr></thead><tbody>'
+                +d.pupils.map(p=>'<tr>'+rowName(p.name,[p.grade,p.selected?'':'Претходни ознаки'].filter(Boolean).join(' · '))
                     +shownDays(d.days).map(day=>{const value=marks.get(p.publicId+'|'+day.date)||null;
                         const disabled=stay.busy || d.readOnly || day.closed || day.future || (!p.selected&&!value);
                         return '<td class="'+(day.closed?'closed':'')+(value==='present'?' mark-present':value==='absent'?' mark-absent':'')+'"><button class="attendance-mark '+(value||'blank')+'" data-stay-mark="'+esc(p.publicId)+'" data-stay-date="'+day.date+'"'
@@ -1828,7 +1855,7 @@ header.top h1 { flex: 1; min-width: 180px; }
             data.days.forEach(d => d.sessions.forEach(s => pupils.set(s.studentId || s.publicId, { name: s.name, grade: s.grade })));
             const rows = [...pupils].sort((a, b) => a[1].name.localeCompare(b[1].name, 'mk')).map(([id, pupil]) => {
                 const all = data.days.flatMap(d => d.sessions.filter(s => (s.studentId || s.publicId) === id));
-                return { label: pupil.name + (pupil.grade ? '\n' + pupil.grade : ''), cells: ds.map(d => ({ day: d,
+                return { label: pupil.name + (pupil.grade ? '\n' + pupil.grade : ''), name: pupil.name, grade: pupil.grade, cells: ds.map(d => ({ day: d,
                     sessions: d.sessions.filter(s => (s.studentId || s.publicId) === id) })),
                     totals: [all.length, all.filter(s => s.status === 'present').length, all.filter(s => s.status === 'absent').length,
                         all.filter(s => !s.status).length] };
@@ -1902,7 +1929,7 @@ header.top h1 { flex: 1; min-width: 180px; }
             const blank = d.pupils.some((p) => !day.marks[p.studentId]);
             return `<th${day.date === d.today ? ' class="today"' : ''}>${esc(m.columns[m.days.indexOf(day) + 1])}`
                 + (day.closed ? `<br><small>${esc(day.closed)}</small>`
-                    : day.mayMark && blank ? `<br><button type="button" class="small no-print" data-class-all="${day.date}"${busy ? ' disabled' : ''}>✓ Сите присутни</button>` : '')
+                    : day.mayMark && blank ? `<br><button type="button" class="small no-print" data-class-all="${day.date}"${busy ? ' disabled' : ''}${attendance.mode === 'month' ? ' title="Сите присутни" aria-label="Сите присутни · ' + esc(dmy(day.date)) + '">✓' : '>✓ Сите присутни'}</button>` : '')
                 + '</th>';
         }).join('');
         const cell = (p, day) => {
@@ -1922,7 +1949,7 @@ header.top h1 { flex: 1; min-width: 180px; }
             + (!d.calendarAvailable ? '<p class="attendance-warning">⚠ Нема зачуван календар за оваа година од S-Дневник на серверот. Празниците и распустите не се потврдени.</p>' : '')
             + (!d.pupils.length ? '<p>Нема ученици во оваа паралелка на годишниот список.</p>'
                 : `<div class="attendance-scroll"><table class="attendance-table class-days ${attendance.mode}"><thead><tr><th>Ученик</th>${head}</tr></thead><tbody>`
-                    + d.pupils.map((p) => `<tr><th>${esc(p.name)}</th>` + m.days.map((day) => cell(p, day)).join('') + '</tr>').join('')
+                    + d.pupils.map((p) => '<tr>' + rowName(p.name, '') + m.days.map((day) => cell(p, day)).join('') + '</tr>').join('')
                     + `<tr class="class-total"><th>Присутни</th>${m.rows[m.rows.length - 1].slice(1).map((n) => `<td><b>${esc(n)}</b></td>`).join('')}</tr>`
                     + '</tbody></table></div>');
     }
@@ -2127,7 +2154,7 @@ header.top h1 { flex: 1; min-width: 180px; }
         if (attendance.scope==='transport') return drawTransport();
         if (attendance.scope==='meals') return drawMeals();
         if (classScope()) return drawClassAttendance();
-        const m = attendanceReport();
+        const m = attendanceReport(), monthDays = attendance.mode === 'month' ? shownDays(data.days) : [];
         const warnings = data.days.filter(d => (d.closed && d.closed !== 'Викенд') || d.conflict).map(d => dmy(d.date) + ': ' + (d.closed || 'Преклопени термини — исправете го распоредот.'));
         el('attendanceSheet').innerHTML = `<h2>${esc(m.title)}</h2><p>${esc(m.subtitle)}</p>`
             + (me.readOnly ? '<p class="attendance-legend">Само преглед — ознаките не може да се менуваат.</p>' : '<p class="attendance-legend">Клик: неозначено → присутен → отсутен → неозначено. Се зачувува веднаш во базата. ● = зачуван дневен распоред.</p>')
@@ -2135,8 +2162,10 @@ header.top h1 { flex: 1; min-width: 180px; }
             + (!data.calendarAvailable ? '<p class="attendance-warning">⚠ Нема зачуван календар за оваа година од S-Дневник на серверот. Празниците и распустите не се потврдени; проверете го календарот пред внесување.</p>' : '')
             + (warnings.length ? `<p class="attendance-warning">${esc(warnings.join(' · '))}</p>` : '')
             + (!m.rows.length ? '<p>Нема закажани третмани во овој период.</p>'
-                : `<div class="attendance-scroll"><table class="attendance-table ${attendance.mode}"><thead><tr>${m.columns.map(c => `<th>${esc(c)}</th>`).join('')}</tr></thead><tbody>`
-                    + m.rows.map(r => `<tr><th>${esc(r.label)}</th>` + r.cells.map(c => `<td class="${c.day.closed ? 'closed' : ''} ${attendanceCellShade(c.sessions)}">`
+                : `<div class="attendance-scroll"><table class="attendance-table ${attendance.mode}"><thead><tr>${m.columns.map((c, i) => monthDays[i - 1]
+                        ? `<th${monthDays[i - 1].closed ? ' class="closed"' : ''} title="${esc(monthDays[i - 1].closed || dmy(monthDays[i - 1].date))}">${esc(c)}<br><small>${weekdayShort(monthDays[i - 1].date)}</small></th>`
+                        : `<th>${esc(c)}</th>`).join('')}</tr></thead><tbody>`
+                    + m.rows.map(r => '<tr>' + (attendance.mode === 'month' ? rowName(r.name, r.grade) : `<th>${esc(r.label)}</th>`) + r.cells.map(c => `<td class="${c.day.closed ? 'closed' : ''} ${attendanceCellShade(c.sessions)}">`
                         + (c.sessions.length ? c.sessions.map(s => attendanceButton(s, c.day)).join('') : '—') + '</td>').join('')
                         + r.totals.map(t => `<td>${t}</td>`).join('') + '</tr>').join('') + '</tbody></table></div>');
     }

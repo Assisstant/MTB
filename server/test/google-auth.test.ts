@@ -118,3 +118,23 @@ test('the Google session of the owner is known to a route, and nothing else pass
     try { assert.deepEqual((await local.inject({ url: '/api/owner-test', headers: { cookie: '__Host-mtb-session=invented' } })).json(), { owner: false, basic: false }); }
     finally { await local.close(); }
 });
+
+test('Евидентен лист: the owner\'s Google session stands in for a PIN, and only that (owner, 15 Oct 2026)', async () => {
+    const { evidenceOwner } = await import('../src/lib/administrator.js');
+    const f = await fixture();
+    f.app.get('/api/evidence-owner-test', async (req) => ({ who: evidenceOwner(req, env)?.name ?? null }));
+    try {
+        const cookie = sessionCookie(await f.callback(await f.start()));
+        const ask = async (extra: Record<string, string> = {}) =>
+            (await f.app.inject({ url: '/api/evidence-owner-test', headers: { ...headers, cookie, ...extra } })).json().who;
+        assert.equal(await ask(), 'Администраторот');
+        assert.equal(await ask({ 'x-mtb-evidence-token': 'a-colleague-pin-session' }), null, 'a PIN, when sent, is that person');
+        process.env.MTB_REQUIRE_SIGNIN = '1';
+        try { assert.equal(await ask(), null, 'with the PIN boundary on, the PIN is asked again'); }
+        finally { delete process.env.MTB_REQUIRE_SIGNIN; }
+    } finally { await f.app.close(); }
+    const local = Fastify();
+    local.get('/api/evidence-owner-test', async (req) => ({ who: evidenceOwner(req, {})?.name ?? null }));
+    try { assert.equal((await local.inject({ url: '/api/evidence-owner-test', headers: { cookie: '__Host-mtb-session=invented' } })).json().who, null, 'a local server keeps its PIN'); }
+    finally { await local.close(); }
+});

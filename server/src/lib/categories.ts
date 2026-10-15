@@ -319,7 +319,7 @@ export async function sheetSections(
  */
 export async function setSheetSection(
     sheetId: number, sectionId: number, included: boolean,
-    decidedBy: { kind: PersonKind; personId: number } | null
+    decidedBy: { kind: PersonKind | 'owner'; personId: number } | null
 ) {
     const section = await pool.query(
         `SELECT s.catalog, s.category_id, e.student_id, e.school_year_id
@@ -366,12 +366,14 @@ export async function setSheetSection(
  * ownership fact. Passing a year is reserved for a score on an archived sheet.
  */
 export async function assertMayEditCategory(
-    who: { kind: PersonKind; personId: number },
+    who: { kind: PersonKind | 'owner'; personId: number },
     categoryId: number,
     schoolYearId?: number,
     sectionTitle?: string,
     db: QueryExecutor = pool
 ): Promise<void> {
+    // The owner, signed in to the cloud with no PIN, is the administrator (lib/administrator.ts).
+    if (who.kind === 'owner') return;
     let yearId = schoolYearId;
     if (!yearId) {
         const year = await db.query('SELECT id FROM school_years WHERE is_current LIMIT 1');
@@ -422,7 +424,7 @@ export async function assertMayEditCategory(
  * refusal names the category rather than just saying no.
  */
 export async function assertMayEdit(
-    who: { kind: PersonKind; personId: number },
+    who: { kind: PersonKind | 'owner'; personId: number },
     target: { section?: number; item?: number; group?: number },
     schoolYearId?: number,
     db: QueryExecutor = pool,
@@ -443,6 +445,8 @@ export async function assertMayEdit(
     })());
     // Nothing to guard: the caller's own 404 will say so more precisely.
     if (!sectionId) return;
+    // The owner is the administrator, who can repair every catalogue.
+    if (who.kind === 'owner') return;
 
     const found = await db.query(
         `SELECT s.catalog, s.category_id, s.title, c.name AS category_name

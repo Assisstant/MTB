@@ -114,6 +114,7 @@
     "test:portal-stay": "node test/with-scratch.mjs test/portal-stay.e2e.ts",
     "test:kolega-stay": "node test/kolega-stay.browser.mjs",
     "test:kolega-owner-reports": "node test/kolega-owner-reports.browser.mjs",
+    "test:akciski-owner": "node test/akciski-owner.browser.mjs",
     "test:attendance-theme": "node test/attendance-theme.browser.mjs",
     "test:layout": "node test/layout.browser.mjs",
     "test:vezbi": "tsx test/vezbi.browser.mjs",
